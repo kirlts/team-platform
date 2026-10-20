@@ -1,0 +1,14 @@
+# Kairós working files (never commit)
+KAIROS-UPDATE.md
+notes.md
+KAIROS-SNAPSHOT.md
+KAIROS-WORK.md
+.agents/scratch/
+
+# Kairós roles (personal)
+.agents/roles/*
+!.agents/roles/.gitkeep
+
+# Kairós Living Document
+docs/LIVING-DOCUMENT.md
+docs/*.epub

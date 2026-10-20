@@ -1,0 +1,329 @@
+/* ==========================================================================
+   Kairos Living Document — EPUB Stylesheet
+   Target: Kindle, Kobo, Apple Books, generic EPUB readers
+   Philosophy: anti-muralla, generous whitespace, high legibility
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   GLOBAL RESET & BASE TYPOGRAPHY
+   -------------------------------------------------------------------------- */
+
+body {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1em;
+  line-height: 1.75;
+  color: #1a1a1a;
+  background-color: #ffffff;
+  margin: 0;
+  padding: 0;
+
+  /* No hyphenation — user requirement */
+  -webkit-hyphens: none;
+  -moz-hyphens: none;
+  -ms-hyphens: none;
+  hyphens: none;
+
+  /* Prevent awkward word breaks */
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+/* --------------------------------------------------------------------------
+   PAGE BREAKS — after every heading structure
+   Maximizes readability; each section starts on a fresh screen
+   -------------------------------------------------------------------------- */
+
+h1, h2, h3 {
+  page-break-before: always;
+  break-before: page;
+}
+
+/* Prevent orphan headings at bottom of a "page" */
+h1, h2, h3 {
+  page-break-after: avoid;
+  break-after: avoid;
+}
+
+/* Prevent images and tables from splitting across pages */
+figure, img, table {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+/* Paragraph widows and orphans */
+p {
+  orphans: 3;
+  widows: 3;
+}
+
+/* --------------------------------------------------------------------------
+   HEADINGS — clear hierarchy, generous breathing room
+   -------------------------------------------------------------------------- */
+
+h1 {
+  font-family: Georgia, serif;
+  font-size: 1.8em;
+  font-weight: bold;
+  line-height: 1.25;
+  margin-top: 3em;
+  margin-bottom: 0.75em;
+  letter-spacing: 0.01em;
+  color: #111111;
+}
+
+h2 {
+  font-family: Georgia, serif;
+  font-size: 1.35em;
+  font-weight: bold;
+  line-height: 1.3;
+  margin-top: 2.5em;
+  margin-bottom: 0.6em;
+  color: #1a1a1a;
+}
+
+h3 {
+  font-family: Georgia, serif;
+  font-size: 1.1em;
+  font-weight: bold;
+  font-style: italic;
+  line-height: 1.35;
+  margin-top: 2em;
+  margin-bottom: 0.5em;
+  color: #2a2a2a;
+}
+
+h4, h5, h6 {
+  font-family: Georgia, serif;
+  font-size: 1em;
+  font-weight: bold;
+  margin-top: 1.5em;
+  margin-bottom: 0.4em;
+  color: #333333;
+}
+
+/* --------------------------------------------------------------------------
+   BODY TEXT — anti-muralla: comfortable paragraphs, generous spacing
+   -------------------------------------------------------------------------- */
+
+p {
+  margin-top: 0;
+  margin-bottom: 1.2em;
+  text-align: left;
+  /* No justification — jagged right edge is more readable on e-ink */
+}
+
+/* First paragraph after a heading gets no extra top margin */
+h1 + p, h2 + p, h3 + p, h4 + p {
+  margin-top: 0.25em;
+}
+
+/* --------------------------------------------------------------------------
+   BLOCKQUOTES — set apart, elegant, not bulky
+   -------------------------------------------------------------------------- */
+
+blockquote {
+  margin: 1.5em 1.5em;
+  padding: 0.5em 1em;
+  border-left: 3px solid #bbbbbb;
+  color: #444444;
+  font-style: italic;
+  font-size: 0.95em;
+  line-height: 1.7;
+}
+
+blockquote p {
+  margin-bottom: 0.5em;
+}
+
+blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+/* --------------------------------------------------------------------------
+   EMPHASIS & STRONG
+   -------------------------------------------------------------------------- */
+
+em {
+  font-style: italic;
+  color: inherit;
+}
+
+strong {
+  font-weight: bold;
+  color: inherit;
+}
+
+/* --------------------------------------------------------------------------
+   HORIZONTAL RULE — section divider, subtle
+   -------------------------------------------------------------------------- */
+
+hr {
+  border: none;
+  border-top: 1px solid #cccccc;
+  margin: 2.5em auto;
+  width: 40%;
+}
+
+/* --------------------------------------------------------------------------
+   CODE — inline and blocks, clean and readable
+   -------------------------------------------------------------------------- */
+
+code {
+  font-family: "Courier New", Courier, monospace;
+  font-size: 0.85em;
+  background-color: #f5f5f5;
+  padding: 0.1em 0.3em;
+  border-radius: 2px;
+  color: #333333;
+}
+
+pre {
+  font-family: "Courier New", Courier, monospace;
+  font-size: 0.8em;
+  line-height: 1.5;
+  background-color: #f8f8f8;
+  border: 1px solid #e0e0e0;
+  padding: 1em 1.25em;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  margin: 1.5em 0;
+  border-radius: 3px;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+pre code {
+  background-color: transparent;
+  padding: 0;
+  font-size: inherit;
+}
+
+/* --------------------------------------------------------------------------
+   LISTS — spaced, human, not bulleted walls
+   -------------------------------------------------------------------------- */
+
+ul, ol {
+  margin: 0.75em 0 1.25em 1.5em;
+  padding: 0;
+}
+
+li {
+  margin-bottom: 0.4em;
+  line-height: 1.7;
+}
+
+li:last-child {
+  margin-bottom: 0;
+}
+
+/* Nested lists */
+li ul, li ol {
+  margin-top: 0.3em;
+  margin-bottom: 0.3em;
+}
+
+/* --------------------------------------------------------------------------
+   TABLES — simple, clean, avoid on Kindle when possible
+   -------------------------------------------------------------------------- */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5em 0;
+  font-size: 0.9em;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+th {
+  font-weight: bold;
+  text-align: left;
+  padding: 0.5em 0.75em;
+  border-bottom: 2px solid #cccccc;
+  color: #111111;
+}
+
+td {
+  padding: 0.4em 0.75em;
+  border-bottom: 1px solid #e5e5e5;
+  vertical-align: top;
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+/* --------------------------------------------------------------------------
+   IMAGES — centered, constrained, captioned
+   -------------------------------------------------------------------------- */
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1.5em auto;
+}
+
+figcaption {
+  text-align: center;
+  font-size: 0.85em;
+  color: #666666;
+  font-style: italic;
+  margin-top: 0.5em;
+}
+
+/* --------------------------------------------------------------------------
+   LINKS — readable without underline clutter on e-ink
+   -------------------------------------------------------------------------- */
+
+a {
+  color: #333333;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* --------------------------------------------------------------------------
+   COVER PAGE
+   -------------------------------------------------------------------------- */
+
+.cover {
+  text-align: center;
+  padding: 4em 2em;
+}
+
+.cover h1 {
+  font-size: 2em;
+  margin-bottom: 0.5em;
+  page-break-before: avoid;
+  break-before: avoid;
+}
+
+.cover p {
+  font-style: italic;
+  color: #555555;
+  font-size: 0.95em;
+}
+
+/* --------------------------------------------------------------------------
+   TABLE OF CONTENTS
+   -------------------------------------------------------------------------- */
+
+nav#toc ol {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+}
+
+nav#toc li {
+  margin-bottom: 0.5em;
+  line-height: 1.6;
+}
+
+nav#toc a {
+  text-decoration: none;
+  color: #222222;
+}

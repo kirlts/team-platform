@@ -1,9 +1,9 @@
 // Message and reply routes (MASTER-SPEC §7.1).
 
-import { addReply, assertCanReply, closeMessage, getMessage, listMessages, reopenMessage, REPLY_KINDS, updateMessage } from '../../domain/messages.js'
+import { addReply, assertCanReply, closeMessage, getMessage, listMessages, messageSummary, reopenMessage, REPLY_KINDS, updateMessage } from '../../domain/messages.js'
 import { withSpan } from '../../domain/tracing.js'
 import { pageEnvelope, pageParams, pageQuerySchema, pageResult } from '../pagination.js'
-import { idIn, idParams, messageCard, messageDetail, messagePatchBody } from '../schemas.js'
+import { idIn, idParams, messageCard, messageDetail, messagePatchBody, messageSummary as messageSummarySchema } from '../schemas.js'
 import { readReplyUpload } from '../upload.js'
 
 export function registerMessageRoutes (app, ctx) {
@@ -43,6 +43,15 @@ export function registerMessageRoutes (app, ctx) {
     })
     return pageResult(r.items, r.total, p)
   })
+
+  app.get('/messages/summary', {
+    onRequest: [requireRole('member')],
+    schema: {
+      summary: 'Lo que afecta a quien tiene la sesión, por prioridad, y los abiertos por área',
+      description: '`mine`: mensajes no cerrados que afectan al miembro. `red`: asignados a él y abiertos; `yellow`: asignados a él y respondidos; `blue`: emitidos por él, sin asignarle, con respuestas. `areas`: abiertos por área y cuántos son rojos para él (UD-028).',
+      response: { 200: messageSummarySchema }
+    }
+  }, async (request) => messageSummary(db, request.member.id))
 
   app.get('/messages/:id', {
     onRequest: [requireRole('member')],

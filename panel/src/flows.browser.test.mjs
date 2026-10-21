@@ -55,6 +55,8 @@ async function sendInput(page, text = TEXT) {
   await bar.fill(text)
   await page.getByRole('button', { name: 'Enviar' }).first().click()
   assert.equal(await bar.inputValue(), '', 'the bar empties on send, without waiting for the analysis')
+  // Submissions are folded behind a single control (UD-030): the review opens over the page.
+  await page.getByTestId('tray-control').click()
 }
 
 /** Pages forward until the text shows (lists paginate inside their frame). */
@@ -161,6 +163,7 @@ describe('analysis proposal', () => {
       await page.getByRole('textbox', { name: 'Título del mensaje' }).press('Enter')
       await page.getByRole('button', { name: /^Título del mensaje: Primera idea, ya corregida/ }).waitFor()
       await page.reload()
+      await page.getByTestId('tray-control').click() // the review comes back folded
       await page.getByRole('button', { name: /^Título del mensaje: Primera idea, ya corregida/ }).waitFor()
     } finally {
       await context.close()
@@ -187,7 +190,8 @@ describe('analysis proposal', () => {
       await page.locator('input[type=file]:not([capture])').setInputFiles([{ name: 'foto-demasiado-grande.png', mimeType: 'image/png', buffer: Buffer.alloc(32) }])
       await page.getByRole('button', { name: 'Enviar' }).first().click()
       await page.getByRole('alert').filter({ hasText: 'La foto supera el tamaño máximo' }).first().waitFor()
-      // The tray row keeps the input so it can be retried, and the bar is left free.
+      await page.getByTestId('tray-control').click()
+      // The tray row keeps the submission so it can be retried and the bar is left free.
       await page.getByRole('button', { name: 'Reintentar' }).first().waitFor()
       assert.equal(await page.getByLabel('Nuevo mensaje', { exact: true }).last().inputValue(), '')
     } finally {
@@ -277,27 +281,23 @@ describe('consecutive inputs (UD-025)', () => {
         assert.equal(await bar.inputValue(), '', `the bar must be empty after sending input ${i}`)
       }
       const heights = () => page.evaluate(() => ({ doc: document.scrollingElement.scrollHeight, main: document.querySelector('main').scrollHeight, win: innerHeight }))
-      const tray = page.getByRole('region', { name: 'Envíos', exact: true })
+      const tray = page.getByTestId('tray-control')
       await send(1)
       await tray.waitFor()
       await page.waitForTimeout(500)
       const base = await heights()
       const baseFrame = (await tray.boundingBox()).height
       for (let i = 2; i <= 10; i++) await send(i)
-      await tray.getByText('10 envíos').waitFor()
-      // They finish staggered: wait until all ten are ready to review.
-      for (let i = 0; i < 100; i++) {
-        const body = await (await page.request.get(`${origin}/api/inputs?mine=1&status=proposed`)).json()
-        if ((body.items ?? body).length === 10) break
-        await page.waitForTimeout(200)
-      }
+      // They finish staggered: the folded header counts all ten once they are ready for review.
+      await tray.getByText('10 para revisar').waitFor({ timeout: 40000 })
       await page.waitForTimeout(800)
-      assert.deepEqual(await heights(), base, 'ten inputs must not change the page height')
-      assert.ok(Math.abs((await tray.boundingBox()).height - baseFrame) <= 1, 'the tray frame keeps its height')
-      assert.ok(base.main <= base.win, 'the main region does not scroll')
+      assert.deepEqual(await heights(), base, 'diez envíos no deben cambiar el alto de la página')
+      assert.ok(Math.abs((await tray.boundingBox()).height - baseFrame) <= 1, 'el control de envíos conserva su alto')
+      assert.ok(base.main <= base.win, 'la región principal no desplaza')
 
-      // Keyboard: J moves to the next, K to the previous and Enter publishes the one in view; the next one opens by itself.
-      await page.locator('body').click({ position: { x: 5, y: 5 } })
+      // Keyboard inside the review: J moves to the next one, K to the previous one and Enter publishes the one in view; the next one opens by itself.
+      await tray.click()
+      await page.getByRole('dialog').waitFor()
       const selected = () => page.locator('[role="option"][aria-selected="true"]').first().getAttribute('aria-label')
       const first = await selected()
       await page.keyboard.press('j')
@@ -305,9 +305,146 @@ describe('consecutive inputs (UD-025)', () => {
       await page.keyboard.press('k')
       assert.equal(await selected(), first)
       await page.keyboard.press('Enter')
-      await tray.getByText('9 envíos').waitFor()
-      assert.notEqual(await selected(), first, 'publishing opens the next one')
-      assert.deepEqual(await heights(), base)
+      await tray.getByText('9 para revisar').waitFor()
+      assert.notEqual(await selected(), first, 'al publicar se abre el siguiente')
+    } finally {
+      await context.close()
+    }
+  })
+})
+
+// ---------------------------------------------------------------- UD-028, UD-029, UD-030: Home, the badge and the priority
+/** The fill each priority has, read from a probe element in the page: the reference every badge is compared with. */
+const probeFills = (page) =>
+  page.evaluate(() => {
+    const out = {}
+    for (const tone of ['red', 'yellow', 'blue']) {
+      const probe = document.createElement('span')
+      probe.setAttribute('data-tone', tone)
+      document.body.append(probe)
+      out[tone] = getComputedStyle(probe).backgroundColor
+      probe.remove()
+    }
+    return out
+  })
+
+/** Replaces GET /api/messages/summary with the given counts, to draw every combination without touching the data. */
+async function withSummary(page, mine, areas = []) {
+  await page.route(/\/api\/messages\/summary$/, (route) => route.fulfill({ json: { mine: { ...mine, total: mine.red + mine.yellow + mine.blue }, areas } }))
+}
+
+describe('insignia y prioridad (UD-028, UD-029)', () => {
+  test('the background of the Messages badge, the bell and the Home notice is that of the highest priority present, in all eight combinations and both themes', async () => {
+    for (const scheme of ['light', 'dark']) {
+      for (let bits = 0; bits < 8; bits++) {
+        const mine = { red: bits & 1 ? 2 : 0, yellow: bits & 2 ? 3 : 0, blue: bits & 4 ? 4 : 0 }
+        const context = await panel.browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'es-CL', colorScheme: scheme })
+        const page = await context.newPage()
+        try {
+          await withSummary(page, mine)
+          await login(page, origin, 'ana')
+          await page.getByTestId('attention').waitFor()
+          const fills = await probeFills(page)
+          assert.equal(new Set(Object.values(fills)).size, 3, 'las tres prioridades tienen fondos distintos')
+          const top = mine.red ? 'red' : mine.yellow ? 'yellow' : mine.blue ? 'blue' : null
+          const total = mine.red + mine.yellow + mine.blue
+          const surfaces = {
+            pestaña: page.getByRole('navigation', { name: 'Navegación' }).locator('[data-testid="messages-badge"]'),
+            aviso: page.getByTestId('attention-badge'),
+          }
+          for (const [name, badge] of Object.entries(surfaces)) {
+            if (!top) {
+              assert.equal(await badge.count(), 0, `${name}: sin nada pendiente no hay insignia (${scheme})`)
+              continue
+            }
+            assert.equal(await badge.getAttribute('data-tone'), top, `${name}: prioridad ${top} (${scheme}, ${JSON.stringify(mine)})`)
+            assert.equal(await badge.evaluate((el) => getComputedStyle(el).backgroundColor), fills[top], `${name}: el fondo pintado es el de ${top} (${scheme}, ${JSON.stringify(mine)})`)
+            assert.equal((await badge.textContent()).trim(), String(total), `${name}: el número es el total`)
+          }
+          const bell = page.getByTestId('bell')
+          if (top) {
+            assert.equal(await bell.getAttribute('data-tone'), top, `campana: prioridad ${top}`)
+            assert.equal(await bell.evaluate((el) => getComputedStyle(el).backgroundColor), fills[top], `campana: el fondo pintado es el de ${top} (${scheme})`)
+            assert.match((await bell.textContent()).trim(), new RegExp(`${total}$`))
+          } else {
+            // With nothing affecting the member, the bell can only show the event-stream news (blue), never another priority.
+            assert.ok([null, 'blue'].includes(await bell.getAttribute('data-tone')), 'bell: with nothing pending it can only be blue')
+          }
+        } finally {
+          await context.close()
+        }
+      }
+    }
+  })
+
+  test('real data: the Messages badge counts what the server says and the Home notice repeats it per priority', async () => {
+    const { page, context } = await session('ana')
+    try {
+      const summary = await (await page.request.get(`${origin}/api/messages/summary`)).json()
+      assert.ok(summary.mine.red > 0 && summary.mine.yellow > 0 && summary.mine.blue > 0, 'los datos de desarrollo tienen las tres prioridades para Ana')
+      const badge = page.getByRole('navigation', { name: 'Navegación' }).locator('[data-testid="messages-badge"]')
+      await badge.waitFor()
+      assert.equal(await badge.getAttribute('data-tone'), 'red')
+      assert.equal((await badge.textContent()).trim(), String(summary.mine.total))
+      const attention = page.getByTestId('attention')
+      for (const [tone, word, n] of [['red', 'Por atender', summary.mine.red], ['yellow', 'Pendiente', summary.mine.yellow], ['blue', 'Novedad', summary.mine.blue]]) {
+        const mark = attention.locator(`[data-testid="tone-mark"][data-tone="${tone}"]`)
+        assert.equal((await mark.textContent()).replace(/\s+/g, ''), `${word}${n}`.replace(/\s+/g, ''))
+      }
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('a pending item per area leads to Messages filtered by that area and by open ones, and shows as many messages as the number says', async () => {
+    const { page, context } = await session('ana')
+    try {
+      const chip = page.getByTestId('area-pending').filter({ hasText: 'Error' }).first()
+      await chip.waitFor()
+      const summary = await (await page.request.get(`${origin}/api/messages/summary`)).json()
+      const areas = await (await page.request.get(`${origin}/api/areas`)).json()
+      const error = (areas.items ?? areas).find((a) => a.title === 'Error')
+      const open = summary.areas.find((a) => a.area_id === error.id).open
+      assert.ok(open > 0)
+      await chip.click()
+      await page.waitForURL(/\/messages\?/)
+      const url = new URL(page.url())
+      assert.deepEqual(url.searchParams.getAll('f').sort(), [`area:eq:${error.id}`, 'status:eq:open'])
+      await page.getByText(`${open} mensajes`, { exact: true }).waitFor()
+      assert.equal(await page.getByText('Abierto', { exact: true }).count() > 0, true)
+      assert.equal(await page.getByText('Respondido', { exact: true }).count(), 0, 'el filtro deja sólo abiertos')
+    } finally {
+      await context.close()
+    }
+  })
+})
+
+describe('Inicio (UD-030)', () => {
+  test('with submissions in progress, the latest messages and replies stay in view and the submissions are folded with their status', async () => {
+    const { page, context } = await session('ana')
+    try {
+      await page.getByRole('heading', { name: 'Últimos mensajes' }).waitFor()
+      await page.getByLabel('Nuevo mensaje', { exact: true }).last().fill('Revisar el contraste del botón Enviar en el tema oscuro.')
+      await page.getByRole('button', { name: 'Enviar' }).first().click()
+      const control = page.getByTestId('tray-control')
+      await control.waitFor()
+      await control.getByText('para revisar').waitFor({ timeout: 20000 })
+      assert.equal(await page.getByRole('dialog').count(), 0, 'los envíos nacen plegados')
+      assert.equal(await page.getByRole('heading', { name: 'Últimos mensajes' }).isVisible(), true)
+      assert.equal(await page.getByRole('heading', { name: 'Últimas respuestas' }).isVisible(), true)
+      // The two blocks take up the main part of the page: each one is at least a third of its height.
+      const box = await page.getByRole('region', { name: 'Últimos mensajes' }).boundingBox()
+      assert.ok(box.height >= 900 / 3, `the latest messages measure ${box.height} px`)
+      // The analysis text stands out the most: larger than the rest of the analysis, in its justified reading typeface.
+      await control.click()
+      const body = page.getByRole('button', { name: /^Texto del mensaje/ }).first()
+      await body.waitFor()
+      const fontOf = (locator) => locator.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
+      const sizes = { text: await fontOf(body), other: await fontOf(page.getByRole('dialog').getByRole('button', { name: /^Resumen/ }).first()) }
+      assert.ok(sizes.text >= 16, `el texto del análisis mide ${sizes.text} px`)
+      assert.ok(sizes.text > sizes.other, 'the analysis text is larger than the analysis controls')
+      // The original stays folded until it is opened.
+      assert.equal(await page.getByRole('button', { name: /^Original/ }).getAttribute('aria-expanded'), 'false')
     } finally {
       await context.close()
     }

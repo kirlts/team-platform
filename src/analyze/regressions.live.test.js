@@ -88,3 +88,36 @@ describe('UD-025 (proveedor real): a point that repeats a recent input is kept a
     assert.ok(messages.some((m) => /fecha/i.test(`${m.title} ${m.body}`)), 'the new point is produced too');
   });
 });
+
+// H-133 and H-135 with the real provider (UD-032).
+const ARTICLE = [
+  'Las colas de trabajo con arriendo y latido se recuperan solas cuando un proceso muere a mitad de una tarea.',
+  'El arriendo vence si el proceso deja de renovarlo, y otro proceso toma el trabajo.',
+  'Muchos sistemas usan un reintento con retroceso exponencial para no saturar al proveedor.',
+  'Un tope de reintentos evita que un trabajo defectuoso se repita para siempre.',
+  'La idempotencia de cada paso es lo que permite repetirlo sin duplicar efectos.',
+].join('\n');
+const VIDEO = [
+  '[00:00] Fotograma 1: Pantalla de la agenda con el menú de acciones abierto.',
+  '[00:04] Fotograma 2: El popup del menú aparece vacío.',
+  '[00:04-00:09] Voz: miren, cuando abro el menú de acciones el popup sale vacío, solo en Safari.',
+  '[00:09] Fotograma 3: El popup sigue vacío.',
+].join('\n');
+
+describe('UD-032 and H-135 (proveedor real)', { skip: process.env.ANTHROPIC_API_KEY ? false : 'missing ANTHROPIC_API_KEY' }, () => {
+  it('a link shared with no request is never a proposal with zero messages (H-133)', async () => {
+    const bundle = await makeBundle({ text: 'Mira este artículo, me parece relevante para nosotros', attachments: [{ id: 1, kind: 'link', extracted: ARTICLE }], language: 'es-419' });
+    const result = await analyze(bundle, { providers: createProviders(process.env) });
+    assert.equal(result.status, 'ok', JSON.stringify(result.errors));
+    assert.ok(result.proposal.messages.length >= 1, 'what was shared becomes a message the team can see');
+  });
+
+  it('a sentence that only points at the video does not become a message of its own (H-135)', async () => {
+    const bundle = await makeBundle({ text: 'Revisa este video, algo anda mal', attachments: [{ id: 1, kind: 'video', extracted: VIDEO }], language: 'es-419' });
+    const result = await analyze(bundle, { providers: createProviders(process.env) });
+    assert.equal(result.status, 'ok', JSON.stringify(result.errors));
+    const textUnit = result.units.find((u) => u.source.type === 'input').id;
+    assert.ok(result.proposal.messages.length >= 1);
+    assert.ok(result.proposal.messages.every((m) => m.unit_ids.some((id) => id !== textUnit)), 'no message holds only the sentence that points at the video');
+  });
+});

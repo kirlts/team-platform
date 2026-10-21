@@ -606,3 +606,36 @@ test('loadModules builds the providers with the stored settings over the environ
   assert.throws(() => moduleSet.buildProviders({ text: { provider: 'inexistente' } }), /Unknown text provider/)
   await env.close()
 })
+
+// ---------------------------------------------------------------- summary of what affects a member (UD-028)
+test('UD-028 · GET /messages/summary: each message falls into a single priority, a closed one does not count and open ones are counted per area', async () => {
+  const env = await team({ worker: true })
+  const { idea, questionArea, m2 } = await withMessages(env) // Ana (2) issued m1 and m2; Beto (3) issued m3. m1 → Beto; m2 → Beto and Ana; m3 → Ed (1)
+  const summary = async (cookie) => (await env.api('GET', '/messages/summary', cookie)).json()
+  const areaRow = (s, area) => s.areas.find((a) => a.area_id === String(area.id))
+
+  // Everything open: what is assigned is red; issuing without replies does not count.
+  assert.deepEqual((await summary(env.c.beto)).mine, { red: 2, yellow: 0, blue: 0, total: 2 })
+  assert.deepEqual((await summary(env.c.ana)).mine, { red: 1, yellow: 0, blue: 0, total: 1 })
+  assert.deepEqual((await summary(env.c.ed)).mine, { red: 1, yellow: 0, blue: 0, total: 1 })
+  assert.deepEqual(areaRow(await summary(env.c.ana), questionArea), { area_id: String(questionArea.id), open: 2, mine_open: 1 })
+  assert.deepEqual(areaRow(await summary(env.c.ed), idea), { area_id: String(idea.id), open: 1, mine_open: 0 })
+
+  // Replies: what is assigned and answered drops to yellow; what I issued and was answered is blue.
+  const m1 = (await env.api('GET', `/messages?area=${idea.id}`, env.c.ana)).json().items[0].id
+  const m3 = (await env.api('GET', `/messages?for=1`, env.c.ana)).json().items[0].id
+  await env.api('POST', `/messages/${m1}/replies`, env.c.beto, { body: 'listo' })
+  await env.api('POST', `/messages/${m3}/replies`, env.c.ana, { body: 'visto' })
+  assert.deepEqual((await summary(env.c.beto)).mine, { red: 1, yellow: 1, blue: 1, total: 3 })
+  assert.deepEqual((await summary(env.c.ana)).mine, { red: 1, yellow: 0, blue: 1, total: 2 })
+  assert.deepEqual((await summary(env.c.ed)).mine, { red: 0, yellow: 1, blue: 0, total: 1 })
+  assert.equal(areaRow(await summary(env.c.ana), idea).open, 0) // an answered message is no longer «open»
+  assert.equal(areaRow(await summary(env.c.ana), questionArea).open, 1)
+
+  // Closing removes the message from everyone's count.
+  await env.api('POST', `/messages/${m2}/close`, env.c.ed)
+  assert.deepEqual((await summary(env.c.beto)).mine, { red: 0, yellow: 1, blue: 1, total: 2 })
+  assert.equal(areaRow(await summary(env.c.beto), questionArea).open, 0)
+  assert.equal((await env.app.inject({ method: 'GET', url: '/api/messages/summary' })).statusCode, 401) // requires a session
+  await env.close()
+})

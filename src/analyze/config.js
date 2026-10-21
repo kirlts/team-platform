@@ -80,7 +80,7 @@ export const KNOBS = Object.freeze({
   // Units per window in the classification of a long input: the units are classified in contiguous windows, in parallel, so
   // that a group is a stretch of the conversation and not every unit of the same area spread over the whole input.
   // Provisional until the private bench fixes it (see `docs/investigaciones/mediciones/2026-10-21-prompts-en-ingles-y-marcas-de-ia.md`).
-  classifyWindowUnits: { value: 200, source: 'Measurement 2026-10-21 (docs/investigaciones/mediciones/2026-10-21-prompts-en-ingles-y-marcas-de-ia.md)' },
+  classifyWindowUnits: { value: 100, source: 'Measurement 2026-10-21 (docs/investigaciones/mediciones/2026-10-21-prompts-en-ingles-y-marcas-de-ia.md)' },
 
   // Units per section in the second reading (UD-021), which runs only when the first one found nothing: the input is
   // read again section by section (a heading or a change of source also cuts). Provisional: the bench calibrates it.

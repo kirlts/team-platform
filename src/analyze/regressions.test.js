@@ -120,7 +120,7 @@ describe('REG-004: a commission explained in a chat is not discarded', () => {
     }
   });
 
-  it('each initial area description is long and detailed: what it is, typical cases, edge cases with the tie-break toward its neighbors, and what it is not (UD-028)', async () => {
+  it('each initial area description is long and detailed: what it is, typical cases, edge cases with the tie-break toward its neighbors, and what it is not (UD-031)', async () => {
     const { areas } = await makeBundle();
     assert.equal(areas.length, 5);
     for (const a of areas) {
@@ -260,4 +260,31 @@ describe('H-11: a point seen only in a frame carries source «frame» into the p
     const other = await run('audio');
     assert.equal(other.status, 'invalid');
   });
+});
+
+describe('REG-010: a link or text shared with no request is a message and not an empty proposal (H-133, UD-032)', () => {
+  for (const [language, shared] of [
+    ['es-419', /Si no hay ningún pedido explícito \(un enlace o un texto compartido sin comentario\), el punto es lo compartido/],
+    ['en', /If there is no explicit request \(a link or a text shared without comment\), the point is what was shared/],
+  ]) {
+    it(`the second reading of ${language} groups what was shared`, async () => {
+      const bundle = await makeBundle({ text: 'Mira este artículo, me parece relevante', attachments: [], language });
+      const fake = createFakeProviders({ text: [{ groups: [], discarded: [{ unit_ids: [1], reason: 'sin pedido' }] }, { groups: [], discarded: [{ unit_ids: [1], reason: 'sin pedido' }] }] });
+      const result = await analyze(bundle, { providers: fake });
+      assert.equal(result.stats.second_pass, true);
+      assert.match(JSON.stringify(fake.calls.text[1].messages), shared);
+    });
+  }
+});
+
+describe('REG-011: a sentence that only points at an attachment is not a point of its own (H-135)', () => {
+  for (const [language, rule] of [
+    ['es-419', /Una frase que solo señala un adjunto/],
+    ['en', /A sentence that only points at an attachment/],
+  ]) {
+    it(`the classification of ${language} sends it with the point the attachment shows`, async () => {
+      const { areas, templates } = await makeBundle();
+      assert.match(classifySystem({ areas, templates, language }).join('\n'), rule);
+    });
+  }
 });

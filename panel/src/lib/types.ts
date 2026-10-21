@@ -210,3 +210,9 @@ export interface NewMessageEvent {
   author_id: string
   at?: string
 }
+
+/** GET /messages/summary: what affects me by priority, and the open messages of each area (UD-028). */
+export interface MessageSummary {
+  mine: { red: number; yellow: number; blue: number; total: number }
+  areas: { area_id: string; open: number; mine_open: number }[]
+}

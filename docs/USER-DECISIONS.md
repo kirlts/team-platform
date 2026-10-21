@@ -364,7 +364,46 @@ RULES:
 **Decisión:** Martín, textual: «podemos gastar hasta 25 usd en api de anthropic». Es un tope total para lo que falta de desarrollo, mediciones y pruebas con el proveedor real, repartido entre los agentes (cada encargo declara su parte) y llevado en `bench/results/` por los guiones de gasto. Una corrida que lo supere se detiene y lo dice.
 **Consecuencias:** Las comparaciones de modelos (Haiku 5.5, Sonnet 5.5, DeepSeek), las repeticiones del banco y las pruebas de punta a punta en el VPS cuentan contra este tope.
 
-## [UD-028] Las descripciones de área son largas y detalladas, y juntas son mutuamente excluyentes y colectivamente exhaustivas
+## [UD-028] Lo que afecta a cada miembro se cuenta en el servidor, con un criterio mínimo, y los pendientes por área llevan a Mensajes filtrado
+
+**Fecha:** 2026-10-21
+**Contexto:** Martín vio Inicio en su teléfono y en el PC y dijo, textual: «si me llegó un mensaje a mí, la interfaz no me avisa como debería. Además la pestaña Mensajes debería tener una notificación que indique cuántos mensajes abiertos me afectan específicamente, y el área Error en general debería mostrar pendientes; si uno hace clic en esos pendientes debe llevar a la vista de Mensajes filtrando por los pendientes de esa área». La API no guarda quién leyó qué: no existe «respuesta sin leer» como dato.
+**Decisión:** Un mensaje no cerrado afecta a un miembro cuando está asignado a él, o cuando él lo emitió y ya tiene respuestas. El criterio usa sólo datos que la API ya tiene (asignados, emisor, estado). `GET /api/messages/summary` devuelve, para quien tiene la sesión, el conteo por prioridad (`mine`: `red`, `yellow`, `blue`, `total`) y, por área, los mensajes abiertos (`open`) y cuántos de ellos están asignados a él (`mine_open`). Cada mensaje cae en una sola prioridad: asignado y abierto es rojo; asignado y respondido es amarillo; emitido por él, sin estar asignado y respondido es azul. Un pendiente por área es un conteo clicable que lleva a `/messages` con los filtros `area` y `status=open`.
+**Alternativas descartadas:**
+- Estado de lectura por miembro (tabla de «visto hasta»): contestaría «sin leer» de verdad, pero agrega esquema, escritura en cada apertura y una decisión de cuándo un mensaje cuenta como leído. Se evalúa si el uso demuestra que el criterio mínimo no alcanza (H-93).
+- Contar en el panel recorriendo `GET /messages`: la lista pagina con tope de 100 y el conteo quedaría incompleto con más mensajes.
+- Contar también lo emitido por el miembro sin respuestas: no es una respuesta que espera ni una acción que le toque.
+**Consecuencias:**
+- La insignia baja cuando el mensaje se responde o se cierra, no cuando se lee.
+- Prueba de la API: cada mensaje cae en una sola prioridad, uno cerrado no cuenta, los abiertos se cuentan por área y la ruta exige sesión.
+**Condiciones de reversión:** Si el criterio sin estado de lectura deja avisos que la persona ya vio y siguen contando, se agrega el estado de lectura por miembro (H-93).
+
+## [UD-029] El aviso lleva el color de la prioridad más alta presente (rojo, amarillo, azul)
+
+**Fecha:** 2026-10-21
+**Contexto:** Martín pidió, por el coordinador, que el ícono de notificación sea mucho más prominente, que su fondo se tiña del color de la notificación de mayor prioridad, «porque hay notificaciones azules, amarillas y rojas», y que el significado de cada color se defina con los datos que ya existen.
+**Decisión:** Tres prioridades, en este orden: rojo, amarillo, azul. Rojo: afecta al miembro directamente y requiere su acción (asignado a él y todavía abierto). Amarillo: pendiente (asignado a él y respondido sin cerrar; los abiertos de un área que no son suyos). Azul: informativo o nuevo (respuestas a un mensaje que él emitió; novedades del flujo de eventos mientras nada más lo afecte). El fondo de toda insignia (pestaña Mensajes, campana, aviso de Inicio, pendientes por área) es el color de la prioridad más alta presente en lo que cuenta. El color nunca es el único indicador: cada prioridad lleva su forma (triángulo, reloj, punto con marca), su palabra («Por atender», «Pendiente», «Novedad») y el número. Los fondos y bordes cumplen contraste en claro y oscuro (`npm run contraste`: 4,5 el texto sobre su fondo y 3 el borde sobre vidrio y cromo). La definición de cada color la propuso la sesión con los datos existentes; Martín la confirma o la cambia.
+**Alternativas descartadas:**
+- Rojo para el área «Error»: un `if` sobre el nombre de un área editable por el Editor; la prioridad sale del estado y de los asignados, no de un título.
+- Color como único indicador: falla para quien no distingue colores.
+**Consecuencias:**
+- `panel/src/lib/priority.ts` es el único lugar donde se decide la prioridad más alta; `NotifyBadge` y la campana la leen de ahí.
+- Pruebas: la prioridad más alta gana en las ocho combinaciones; en el navegador, el fondo pintado de cada insignia coincide con el de su prioridad en las ocho combinaciones y en los dos temas.
+**Condiciones de reversión:** Si Martín cambia el significado de un color, se cambia `priority.ts` y `messageSummary` en el mismo commit.
+
+## [UD-030] Inicio muestra lo último y lo nuevo para mí, y pliega los envíos tras un solo control
+
+**Fecha:** 2026-10-21
+**Contexto:** Martín, textual: «Los últimos mensajes y últimas respuestas deberían tener un lugar mucho más prominente en la interfaz. Ahora quedaron como un hipervínculo abajo … El detalle del mensaje que se escribió debería ser desplegable o manejarse de otra forma, porque la cola de envíos es importante y el análisis también, pero hoy ocupan tanto espacio que opacan lo de los últimos mensajes y últimas respuestas. Además el texto para leer, que es la descripción del análisis y es súper importante, no es tan visible: es lo que más debería destacar del análisis».
+**Decisión:** (1) Inicio muestra, en este orden, la barra de envío, el aviso «Para mí» (insignia grande, un chip por prioridad con su conteo y los pendientes por área, cada uno clicable hacia Mensajes ya filtrado), y los bloques «Últimos mensajes» y «Últimas respuestas» como lo principal de la página, siempre a la vista, cada uno en su superficie. Las filas que afectan al miembro llevan un borde del color de su prioridad y la marca con su palabra. (2) La cola de envíos, el original y el análisis quedan tras un solo control («Envíos») con el estado en su cara (cuántos para revisar, en análisis, fallidos). Abrirlo muestra la revisión en un diálogo centrado sobre la página, que no cambia de alto; no es un panel lateral. El original nace plegado. (3) El texto de cada mensaje propuesto, que es lo que se lee, se dibuja a 17 px con interlineado 1,65, color de texto pleno y justificado (`prose-block`), más grande que el título y que los campos de la plantilla. (4) El control de envíos conserva su alto con uno o diez envíos, y J, K y Enter siguen funcionando dentro de la revisión.
+**Alternativas descartadas:**
+- Acordeón en la misma página: con la revisión abierta los dos bloques quedaban en una fila de alto, con el paginador encima de la fila (H-96).
+- Plegar sólo el original: la cola y el análisis siguen opacando lo último.
+**Consecuencias:**
+- Las pruebas de ajuste (`test:fit`) y de flujos (`test:flows`) abren el diálogo de envíos antes de revisar una propuesta; la medida de alto de diez envíos se toma sobre la página, que no cambia.
+- Una captura a 1440×900 y a 390×844, en claro y oscuro, de Inicio sin envíos, con el envío plegado y con el diálogo abierto.
+**Condiciones de reversión:** Si revisar en un diálogo resulta incómodo frente a ver los últimos mensajes mientras se revisa, se vuelve a una disposición en la página con alto repartido.
+## [UD-031] Las descripciones de área son largas y detalladas, y juntas son mutuamente excluyentes y colectivamente exhaustivas
 
 **Fecha:** 2026-10-21
 **Contexto:** El modelo clasificaba con una frontera entre áreas escondida en el prompt (H-91) que no coincidía con la de las referencias, y las descripciones cortas de `templates/areas.json` dejaban los casos borde sin regla de desempate.
@@ -377,3 +416,15 @@ RULES:
 - La vista de Áreas del panel debe mostrar textos de este largo plegados con vista previa (`test:fit`).
 - Las descripciones se miden contra las dos lecturas de las referencias con `bench/area-vs-references.mjs`.
 **Condiciones de reversión:** Que el costo de tokens del catálogo (cacheado) o la edición en el panel lo vuelvan inmanejable.
+
+## [UD-032] Un insumo sin pedido produce un mensaje que resume lo compartido; nunca una propuesta vacía
+
+**Fecha:** 2026-10-21
+**Contexto:** En la prueba en el VPS, un enlace compartido sin pedido («Mira este artículo, me parece relevante para nosotros») dejó 68 unidades descartadas y una propuesta con cero mensajes que no se podía publicar (`422 messages_empty`) (H-133). Con un video, además, la frase que solo señala el adjunto salió como un mensaje genérico aparte (H-135).
+**Decisión:** Se aplica UD-021 («una persona no manda algo por nada») a los insumos sin pedido: si tras la segunda lectura no hay un pedido explícito, el punto es lo compartido y se agrupa en el área que el catálogo describe para lo que se comparte sin pedido ni falla (hoy Idea), con un mensaje que lo resume para que el equipo lo vea y decida. La frase que solo señala un adjunto («mira este video») no es un punto: va con el punto que el adjunto muestra.
+**Alternativas descartadas:**
+- Un estado «sin pedido» en el panel con la publicación apagada: deja a la persona con un insumo que el sistema no entendió, que es lo que UD-021 prohíbe.
+- Una regla sobre las palabras del texto para reconocer un enlace sin pedido: interpretaría texto con una regla.
+**Consecuencias:**
+- Dos pruebas con el proveedor real (enlace sin pedido y video con una frase que lo señala) y dos regresiones de prompt (REG-010 y REG-011).
+**Condiciones de reversión:** Que Martín prefiera un estado explícito «sin pedido» en el panel.

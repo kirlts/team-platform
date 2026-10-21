@@ -17,6 +17,12 @@
 //   --team <file>      JSON array of { id, name, role, profile }: the members the analyzer receives (default: bench/fixtures.json)
 //   --no-profile       send members with id and name only (the «name only» baseline)
 //   --project <file>   markdown sent as bundle.project.description (default: no project); --project-name sets its name
+//   --usefulness <f>   compare: scores by variant from a pooled judgment file instead of <result>.usefulness.json
+//   --oracle           run: classification gets the reference groups (bench/oracle.mjs); every variant is scored on the same messages
+//   --reference a|b|union  which reader's labels score area and assignees (default union: either reader's label is right)
+//   --first-reader-only  same as --reference a
+//   --common-cases     compare: restrict every variant to the cases all of them finished
+//   --ceiling          compare: add the other reader scored against this reference, the ceiling of the readers' disagreement
 //   --pool             compare: merge result files whose variant differs only by a «-b» suffix (a repetition) into one
 //   --variant <label>  written into the result and its file name
 //   --cases a,b,c      comma list of case ids (same as repeating --case)
@@ -31,7 +37,10 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statS
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadFixtures, runCase, summarize, formatReport, unitsOf } from './lib.js';
+import { score } from './score.js';
 import { createSpend, withQueueRetries } from './spend.mjs';
+import { runOracleCase } from './oracle.mjs';
+import { mergeSecondLabeler, onlySecondLabeler, readerAsProposal } from './labels.js';
 import { compareResults, formatComparison, poolResults } from './compare.js';
 import { costOf, usageOfCall } from './pricing.js';
 import { analyze } from '../src/analyze/index.js';
@@ -61,6 +70,12 @@ const { values, positionals } = parseArgs({
     'private-dir': { type: 'string' },
     'results-dir': { type: 'string' },
     pool: { type: 'boolean', default: false },
+    usefulness: { type: 'string' },
+    oracle: { type: 'boolean', default: false },
+    'first-reader-only': { type: 'boolean', default: false },
+    reference: { type: 'string', default: 'union' },
+    'common-cases': { type: 'boolean', default: false },
+    ceiling: { type: 'boolean', default: false },
   },
 });
 const command = positionals[0] ?? 'list';
@@ -86,7 +101,19 @@ function loadPrivateCases() {
     }));
 }
 
-const readExpected = (c) => (existsSync(c.expectedPath) ? JSON.parse(readFileSync(c.expectedPath, 'utf8')) : null);
+// Reference by --reference: «a» the first reader (expected.json), «b» the second reader (expected-b.json), «union» both
+// (a label is right if either reader gave it; default). Without expected-b.json only the first reader exists.
+const readSecond = (c) => {
+  const secondPath = join(dirname(c.expectedPath), 'expected-b.json');
+  return existsSync(secondPath) ? JSON.parse(readFileSync(secondPath, 'utf8')) : null;
+};
+function readExpected(c, mode = values['first-reader-only'] ? 'a' : values.reference) {
+  if (!existsSync(c.expectedPath)) return null;
+  const first = JSON.parse(readFileSync(c.expectedPath, 'utf8'));
+  const second = mode === 'a' ? null : readSecond(c);
+  if (!second) return first;
+  return mode === 'b' ? onlySecondLabeler(first, second) : mergeSecondLabeler(first, second);
+}
 const cachePath = (id) => join(cacheDir, `${id}.json`);
 const readCache = (id) => (existsSync(cachePath(id)) ? JSON.parse(readFileSync(cachePath(id), 'utf8')) : null);
 
@@ -186,6 +213,18 @@ const describeContext = (fixtures) => ({
   no_profile: values['no-profile'],
 });
 
+/** One case in oracle mode (bench/oracle.mjs), scored like runCase: the reference groups are the points. */
+async function runOracleScored({ cache, expected, fixtures, providers, caseId }) {
+  const run = await runOracleCase({
+    providers,
+    input: cache.input,
+    context: fixtures,
+    expected,
+    onRetry: (e, attempt) => console.log(`${caseId}: reintento ${attempt} (${e.message.slice(0, 90)})`),
+  });
+  return { case_id: caseId, ...run, score: score({ units: run.units, expected, actual: run.proposal }) };
+}
+
 // ---------- commands ----------
 
 if (command === 'list') {
@@ -250,7 +289,14 @@ if (command === 'list') {
   const fixtures = await buildContextFixtures();
   const providers = buildProviders();
   const all = [];
+  mkdirSync(resultsDir, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const out = values.out ?? join(resultsDir, `private-${values.variant ? `${values.variant.replace(/[^\w+.-]/g, '_')}-` : ''}${stamp}.json`);
+  // The file is rewritten after every case, so a run that stops (spending cap, crash) keeps what it finished.
+  const save = (complete) => writeFileSync(out, JSON.stringify({ at: new Date().toISOString(), variant: values.variant ?? null, mode: values.oracle ? 'oracle' : 'full', complete, repeat, context: describeContext(fixtures), models: providers.describe(), speech: providers.speechMode, cases: all }, null, 2));
+  let stoppedByBudget = false;
   for (const c of loadPrivateCases()) {
+    if (stoppedByBudget) break;
     const cache = readCache(c.id);
     const expected = readExpected(c);
     if (!cache || !expected) {
@@ -259,31 +305,39 @@ if (command === 'list') {
     }
     const runs = [];
     for (let i = 0; i < repeat; i += 1) {
-      assertBudget(`${c.id} #${i + 1}`);
+      try {
+        assertBudget(`${c.id} #${i + 1}`);
+      } catch (e) {
+        console.log(e.message);
+        stoppedByBudget = true;
+        break;
+      }
       // A retryable provider error (rate limit, overload) repeats the whole case, as the job queue does in the product.
-      const run = await withQueueRetries(
-        () => runCase({
-          analyze,
-          providers,
-          testCase: { id: c.id, input: cache.input, expected },
-          fixtures,
-          options: { ...(values.analyzer ? { analyzer: values.analyzer } : {}), ...(values.config ? { config: JSON.parse(values.config) } : {}) },
-        }),
-        { attempts: 6, onRetry: (e, attempt) => console.log(`${c.id}: retry ${attempt} (${e.message.slice(0, 90)})`) },
-      );
+      const run = values.oracle
+        ? await runOracleScored({ cache, expected, fixtures, providers, caseId: c.id })
+        : await withQueueRetries(
+          () => runCase({
+            analyze,
+            providers,
+            testCase: { id: c.id, input: cache.input, expected },
+            fixtures,
+            options: { ...(values.analyzer ? { analyzer: values.analyzer } : {}), ...(values.config ? { config: JSON.parse(values.config) } : {}) },
+          }),
+          { attempts: 6, onRetry: (e, attempt) => console.log(`${c.id}: retry ${attempt} (${e.message.slice(0, 90)})`) },
+        );
       const total = addSpend(`analyze ${c.id}`, run.usage.cost_usd ?? 0, run.usage.cost_usd === null ? run.usage.calls : 0);
       console.log(`${c.id} #${i + 1}: ${run.status}, ${(run.total_ms / 1000).toFixed(1)} s, ${run.usage.calls} llamadas, ${run.usage.cost_usd?.toFixed(5) ?? 'sin tarifa'} USD (acumulado ${total.toFixed(4)})`);
       runs.push(run);
     }
-    all.push({ case_id: c.id, kind: c.manifest.kind, source: c.manifest.source, extraction: cache.extraction, speech: cache.speech, summary: summarize(runs), runs });
+    if (runs.length > 0) {
+      all.push({ case_id: c.id, kind: c.manifest.kind, source: c.manifest.source, extraction: cache.extraction, speech: cache.speech, summary: summarize(runs), runs });
+      save(false);
+    }
   }
   if (all.length) {
     console.log(`\n${formatReport(all.map((x) => x.summary))}`);
-    mkdirSync(resultsDir, { recursive: true });
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const out = values.out ?? join(resultsDir, `private-${values.variant ? `${values.variant.replace(/[^\w+.-]/g, '_')}-` : ''}${stamp}.json`);
-    writeFileSync(out, JSON.stringify({ at: new Date().toISOString(), variant: values.variant ?? null, repeat, context: describeContext(fixtures), models: providers.describe(), speech: providers.speechMode, cases: all }, null, 2));
-    console.log(`\nResultado completo: ${out}`);
+    save(!stoppedByBudget);
+    console.log(`\nResultado completo: ${out}${stoppedByBudget ? ' (incompleto: tope de gasto)' : ''}`);
   }
 } else if (command === 'compare') {
   const files = positionals.slice(1);
@@ -292,12 +346,36 @@ if (command === 'list') {
     const usefulnessFile = file.replace(/\.json$/, '.usefulness.json');
     return { file, ...JSON.parse(readFileSync(file, 'utf8')), usefulness: existsSync(usefulnessFile) ? JSON.parse(readFileSync(usefulnessFile, 'utf8')) : null };
   });
+  const allCases = loadPrivateCases();
+  if (values['common-cases']) {
+    // A run that stopped at the spending cap covers fewer cases: every variant is cut to the cases all of them finished.
+    const common = results.reduce((acc, r) => (acc ? new Set([...acc].filter((id) => r.cases.some((c) => c.case_id === id))) : new Set(r.cases.map((c) => c.case_id))), null);
+    for (const r of results) r.cases = r.cases.filter((c) => common.has(c.case_id));
+    console.error(`Common cases: ${common.size}`);
+  }
   const compared = values.pool ? poolResults(results, (r) => (r.variant ?? r.file).replace(/-b$/, '')) : results;
+  if (values.usefulness) {
+    // A pooled judgment file (judge-usefulness.mjs --pooled) holds the scores by variant label.
+    const judged = JSON.parse(readFileSync(values.usefulness, 'utf8'));
+    for (const r of compared) r.usefulness = judged.variants[r.variant ?? r.file] ? { cost_usd: null, cases: judged.variants[r.variant ?? r.file].cases } : null;
+  }
   const inputOf = (caseId) => {
     const cache = readCache(caseId);
     return cache ? [cache.input.text, ...cache.input.attachments.map((a) => a.extracted)].join('\n') : '';
   };
-  console.log(formatComparison(compareResults(compared, { inputOf, expectedOf: (id) => { const c = loadPrivateCases().find((x) => x.id === id); return c ? readExpected(c) : null; } })));
+  if (values.ceiling) {
+    // Reader B scored against A (or A against B with --reference b) as if it were a variant: the ceiling that the
+    // disagreement between readers puts on any analyzer.
+    const asReader = values.reference === 'b' ? 'a' : 'b';
+    const cases = loadPrivateCases().filter((c) => readSecond(c)).map((c) => {
+      const reference = readExpected(c, asReader === 'b' ? 'a' : 'b');
+      const proposal = readerAsProposal(reference, asReader === 'b' ? readSecond(c) : JSON.parse(readFileSync(c.expectedPath, 'utf8')));
+      const units = [...new Set(reference.messages.flatMap((m) => m.unit_ids).concat((reference.discarded ?? []).flatMap((d) => d.unit_ids)))];
+      return { case_id: c.id, runs: [{ status: 'ok', total_ms: 0, usage: { cost_usd: 0 }, proposal, units, score: score({ units, expected: reference, actual: proposal }) }] };
+    });
+    compared.push({ file: `reader-${asReader}`, variant: `reader ${asReader.toUpperCase()}`, context: compared[0]?.context, cases, usefulness: null });
+  }
+  console.log(formatComparison(compareResults(compared, { inputOf, expectedOf: (id) => { const c = allCases.find((x) => x.id === id); return c ? readExpected(c) : null; } })));
 } else {
   throw new Error(`Orden desconocida «${command}»`);
 }

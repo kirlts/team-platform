@@ -25,6 +25,10 @@ export const DEFAULTS = Object.freeze({
     passthroughFormats: Object.freeze(['jpeg', 'png', 'gif', 'webp']),
     // Format everything else is converted to (TIFF, AVIF, SVG), or what must be shrunk or rotated.
     outputFormat: 'png',
+    // Formats that are already lossy: when shrunk or rotated they come out as JPEG, not PNG.
+    lossyFormats: Object.freeze(['jpeg', 'webp']),
+    // Floor of the halving when the result still does not fit in `maxBytes`: below this the image stops being legible.
+    minSide: 320,
     // Actionable description prompt (MASTER-SPEC §7.4: describe everything actionable for a
     // software team, verbatim). It is an instruction to the model, not a business rule.
     prompt:

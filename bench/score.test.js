@@ -235,3 +235,42 @@ test('assignment: merging cases sums the counts and a member absent from a case 
   assert.equal(merged.per_member['2'].tn, 3);
   assert.equal(merged.per_member['2'].accuracy, 1);
 });
+
+// ---- classification given a message, and a second labeler (H-90) ----
+
+test('classification given a message ignores units no message covers; coverage is reported apart', () => {
+  const r = score({
+    units: [1, 2, 3, 4],
+    expected: { messages: [
+      { id: 'a', unit_ids: [1, 2], area_id: 2, template_id: 2 },
+      { id: 'b', unit_ids: [3], area_id: 3, template_id: 3 },
+      { id: 'c', unit_ids: [4], area_id: 4, template_id: 4 },
+    ] },
+    actual: { messages: [{ unit_ids: [1, 2], area_id: 2, template_id: 2 }, { unit_ids: [3], area_id: 2, template_id: 2 }] },
+  });
+  assert.equal(r.rates.coverage, 2 / 3);
+  assert.equal(r.rates.classification_accuracy, 2 / 4); // unit 4 has no message and counts as wrong here
+  assert.deepEqual(r.classification_given_message, { units: 3, area_correct: 2, template_correct: 2, both_correct: 2 });
+  assert.deepEqual(r.classification_by_message, { expected: 3, with_message: 2, area_correct: 1, template_correct: 1, both_correct: 1 });
+});
+
+test('a second labeler: a member both chose is firm, one chose is accepted, either set is an exact match', () => {
+  const expected = { messages: [{ id: 'a', unit_ids: [1], assignee_ids: [1, 2], assignee_ids_alt: [1] }] };
+  const run = (assignees) => score({ units: [1], expected, actual: { messages: [{ unit_ids: [1], assignee_ids: assignees }] } }).assignment;
+  // [1] equals the second labeler's set, so it is exact; member 2 is not firm, so leaving it out costs no recall.
+  const onlyFirm = run([1]);
+  assert.equal(onlyFirm.exact, 1);
+  assert.equal(onlyFirm.recall, 1);
+  assert.equal(onlyFirm.precision, 1);
+  // [1, 2] equals the first labeler's set: exact, and member 2 is accepted so precision holds.
+  const both = run([1, 2]);
+  assert.equal(both.exact, 1);
+  assert.equal(both.precision, 1);
+  // Member 3 is chosen by nobody: a false positive and not exact.
+  const extra = run([1, 3]);
+  assert.equal(extra.exact, 0);
+  assert.equal(extra.precision, 1 / 2);
+  // Missing the firm member loses recall.
+  const missing = run([2]);
+  assert.equal(missing.recall, 0);
+});

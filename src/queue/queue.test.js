@@ -81,6 +81,21 @@ test('the heartbeat renews the lease and prevents recovery', async () => {
   await env.close()
 })
 
+test('fail respects the Retry-After the provider declares as the floor of the backoff, capped at retryMaxMs', async () => {
+  const env = await envVars()
+  const { q, config } = env
+  q.enqueue('analyze', {})
+  const e = Object.assign(new Error('429'), { retryAfterMs: 20_000 })
+  const r = q.fail(q.claim('w'), e)
+  assert.equal(r.state, 'requeued')
+  assert.ok(r.delayMs >= 20_000 && r.delayMs <= config.worker.retryMaxMs, `wait ${r.delayMs}`)
+  q.enqueue('analyze', {})
+  const big = Object.assign(new Error('429'), { retryAfterMs: 10 * config.worker.retryMaxMs })
+  const job2 = q.claim('w')
+  assert.equal(q.fail(job2, big).delayMs, config.worker.retryMaxMs)
+  await env.close()
+})
+
 test('fail requeues with exponential backoff up to max_attempts and then fails with the reason', async () => {
   const env = await envVars()
   const { q, clockObj, config } = env

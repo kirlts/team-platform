@@ -848,3 +848,34 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 - Plegar las listas con un envío abierto: la enmienda de UD-017 las deja visibles y la página se desplaza.
 **Consecuencias:** `test:fit` mide también 1920x1080 y 2560x1440 y sigue fallando si algo se corta, se solapa o una caja desplaza por su cuenta; mide además que el contenido de Inicio use el ancho. `FitList` no vuelve a medir cuando el espacio lo sostiene su piso de una fila (H-2100).
 **Condiciones de reversión:** Si el espacio en blanco esconde las listas en pantallas bajas, vuelve el relleno de 16 px a todas las alturas.
+
+## [UD-150] Tarjetas de lista, ficha y respuesta: el estado abre la línea de datos y Cerrar va junto al campo
+
+**Fecha:** 2026-10-21
+**Contexto:** La ronda 4 de jueces encontró catorce defectos en las tarjetas, la ficha y el flujo de responder y cerrar. Estado y botón compartían raíz y fila. Los títulos dejaban 145 px vacíos. La categoría cambiaba de lugar entre filas. El naranja de «Error» se parecía al rojo de «Abierto». El campo de respuesta desaparecía al cerrar. «Cerrar» estaba a 550 px del campo. Enviar no confirmaba. Los adjuntos no tenían nombre.
+**Decisión:** Decisión de la sesión, tomada por ese encargo; Martín no la dijo con estas palabras y puede revertirla.
+- En la fila de un mensaje el estado va primero en la línea de datos (autor, fecha, adjuntos, respuestas) y la columna de acciones lleva solo «Responder» y «Cerrar». Enmienda UD-036 en el lugar, no en el color: el estado se sigue diciendo una vez, con su forma y su palabra.
+- El chip de área va siempre en su propia línea sobre el título, y el título llena el ancho (`text-wrap: pretty` en lugar de `balance`). El conteo de respuestas es un dato más de la línea.
+- En el filtro de cada lista de Inicio («Para mí», «Todos») las opciones son texto con subrayado en la elegida, sin píldora; el selector de lista del teléfono conserva la suya.
+- En la ficha el botón «Cerrar» o «Reabrir» está en la fila del formulario de respuesta, antes de «Responder», y deja de estar en el encabezado. Quien no puede responder (el autor, o un mensaje cerrado) lo ve en una caja con su razón: «Enviado por mí» o «Cerrado: no admite respuestas».
+- El selector de tipo lleva su rótulo visible «Tipo de respuesta»; el tipo `fix` se llama «Solución» (antes «Resuelto») para que no se lea como cierre. El valor guardado no cambia.
+- Enviar una respuesta se confirma en el propio formulario («Respuesta enviada») hasta la siguiente letra escrita. Un aviso flotante cubre justo esa zona en el teléfono.
+- En las respuestas, el audio, el documento y el enlace llevan su nombre al lado del ícono.
+- «Ampliar» sobre una foto tiene fondo propio opaco.
+- El color inicial del área «Error» pasa de `#c2410c` a `#854d0e` en `templates/areas.json` y en el servidor de ejemplo: su tono estaba a 13 grados del rojo del estado «Abierto». La paleta de ocho y la migración 0008 no cambian; una base ya sembrada conserva su color hasta que el Editor lo cambie en Áreas.
+**Alternativas descartadas:**
+- Renombrar el botón «Responder» o el estado «Respondido»: UD-041 fija los nombres de los estados.
+- Una migración que recolorea «Error» en las bases existentes: el color lo elige el Editor (UD-045) y el número de migración puede chocar con otras ramas.
+- Aviso flotante para el envío: tapa los botones de la fila del formulario en el teléfono.
+**Consecuencias:** `flows-ronda4-tarjetas.browser.test.mjs` mide cada punto con cajas reales; la prueba de J2-A-21 pasa a exigir que «Cerrar» esté con el formulario y no en el encabezado.
+**Condiciones de reversión:** Si Martín quiere «Cerrar» en el encabezado, se mueve `CloseMessage` de `ReplyThread` a `MessageDetail`. Si quiere el estado en la columna de acciones, se devuelve `StateMark` a esa columna en `MessageCard`.
+
+## [UD-151] El chip de área conserva su color; su peso se ajusta por tamaño de letra y no por color
+
+**Fecha:** 2026-10-21
+**Contexto:** El juez de la ficha y el del flujo de respuesta dijeron que el chip verde de área pesa más que el estado. La restricción del dueño es UD-045, textual: «Cada área debe poder tener su color y eso determina el chip que se muestra en cada mensaje; la idea es mejorar la comprensión a primer vistazo».
+**Decisión:** Decisión de la sesión; el color del chip no se toca. El chip pasa de negrita (700) a seminegrita (600) en toda la interfaz. En la ficha el estado sube de 12 px a 14 px, con su luz y su palabra y sin píldora (UD-036 y J2-A-05). El recuadro del análisis conserva el color secundario. Los estados «abierto», «respondido» y «cerrado» no cambian de nombre ni de color.
+**Alternativas descartadas:**
+- Quitar el relleno del chip o pasarlo a contorno: contradice la cita de UD-045.
+- Poner el estado en píldora para que pese lo mismo: UD-036 reserva el relleno de color a la campana.
+**Condiciones de reversión:** Si Martín sigue viendo el chip más pesado, la medida siguiente es bajar su letra a 12 px en `.area-chip`. Esa decisión es suya porque cambia la escala de tipos.

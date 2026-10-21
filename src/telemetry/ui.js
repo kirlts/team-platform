@@ -51,7 +51,7 @@ const spread = (values) => ({ n: values.length, p50: percentile(values, 50), p75
 const round = (n, digits = 3) => (n === null ? null : Number(n.toFixed(digits)));
 
 // Core Web Vitals thresholds, assessed at the 75th percentile (web.dev/articles/vitals, consulted 2026-10-21,
-// informe 09): good up to the first number, poor beyond the second.
+// report 09): good up to the first number, poor beyond the second.
 export const VITALS_THRESHOLDS = Object.freeze({
   cls: { good: 0.1, poor: 0.25 },
   inp_ms: { good: 200, poor: 500 },

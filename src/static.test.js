@@ -7,7 +7,7 @@ import path from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { lex } from './testing/lex.js'
-import { englishIn, englishInPanel, spanishComments, spanishIn, spanishNamesAndLogs } from './testing/language.js'
+import { englishIn, englishInPanel, spanishComments, spanishAssertMessages, spanishIn, spanishNamesAndLogs } from './testing/language.js'
 import { buildNotice, configureFlags, dockerfileArgs } from '../scripts/notice.mjs'
 
 const src = path.dirname(fileURLToPath(import.meta.url))
@@ -166,6 +166,10 @@ test('HP-008 · code comments are written in English (UD-015, §4.7)', () => {
 
 test('HP-008 · test names and log messages are written in English (UD-015, §4.7)', () => {
   assert.deepEqual(describeHits(spanishNamesAndLogs()), [])
+})
+
+test('HP-008 · assertion messages are written in English (UD-015, §4.7)', () => {
+  assert.deepEqual(describeHits(spanishAssertMessages()), [])
 })
 
 test('HP-008 · visible panel text is written in Spanish (UD-015, §4.7)', () => {

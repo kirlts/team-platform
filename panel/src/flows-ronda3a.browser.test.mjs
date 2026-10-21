@@ -40,7 +40,7 @@ async function session(who = 'ana', viewport = DESKTOP, { scheme = 'light' } = {
 async function messageByTitle(page, titleStart) {
   const body = await (await page.request.get(`${origin}/api/messages`)).json()
   const hit = (body.items ?? body).find((m) => m.title.startsWith(titleStart))
-  assert.ok(hit, `no hay un mensaje que empiece con «${titleStart}»`)
+  assert.ok(hit, `no message starts with «${titleStart}»`)
   return hit
 }
 
@@ -89,8 +89,8 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
         assert.equal(reds.length, 0, `rellenos rojos: ${reds.join(', ')}`)
         // The marks that are left carry their priority in the shape only: no tinted background, no colored edge.
         const marks = await page.locator('[data-weight="quiet"]').evaluateAll((els) => els.map((el) => getComputedStyle(el).backgroundColor))
-        assert.ok(marks.length >= 4, 'hay marcas de prioridad que revisar')
-        assert.ok(marks.every((c) => c === 'rgba(0, 0, 0, 0)'), `una marca callada tiene fondo: ${marks.join(' | ')}`)
+        assert.ok(marks.length >= 4, 'there are priority marks to review')
+        assert.ok(marks.every((c) => c === 'rgba(0, 0, 0, 0)'), `a quiet mark has a background: ${marks.join(' | ')}`)
       } finally {
         await context.close()
       }
@@ -104,21 +104,21 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
       await row.waitFor()
       // One marker of state or priority: the mark with its word, or the light of the state, never both.
       const markers = await row.locator('[data-testid="state-mark"]').count()
-      assert.equal(markers, 1, 'la fila dice su prioridad o su estado una vez')
+      assert.equal(markers, 1, 'the row states its priority or its state once')
       // The edge on the left is the only color: no element of the row has a colored background.
       // The area chip is the card's tab (UD-045): the one filled mark of a row besides its edge, and the color of the sidebar's area swatches is not a row's.
       assert.deepEqual((await redFills(page)).filter((x) => !/bell/.test(x)), [])
       // No chip in the metadata line: no avatar, no bordered pill besides the buttons, the thumbnail and the area tab of the card (UD-045).
       assert.equal(await row.locator('img[alt]:not([alt=""])').count() <= 1, true)
       const bordered = await row.evaluate((el) => [...el.querySelectorAll('*')].filter((n) => parseFloat(getComputedStyle(n).borderTopWidth) > 0 && getComputedStyle(n).borderTopColor !== 'rgba(0, 0, 0, 0)' && n.getBoundingClientRect().height > 10).map((n) => n.tagName + '.' + String(n.className).slice(0, 30)))
-      assert.ok(bordered.filter((b) => !/area-chip/.test(b)).length <= 3, `píldoras con borde en la fila: ${bordered.join(' | ')}`)
+      assert.ok(bordered.filter((b) => !/area-chip/.test(b)).length <= 3, `pills with a border in the row: ${bordered.join(' | ')}`)
       const meta = row.locator('div.flex-wrap').first()
       const items = await meta.evaluate((el) => [...el.children].length)
-      assert.ok(items <= 6, `la línea de metadatos tiene ${items} piezas`)
+      assert.ok(items <= 6, `the metadata line has ${items} pieces`)
       assert.ok((await row.locator('time').count()) === 1)
       // The thumbnail is smaller than the row's height and does not outweigh the action (J3-A-19).
       const thumb = await row.locator('.frame').first().boundingBox()
-      assert.ok(thumb.width <= 40.5, `la miniatura mide ${thumb.width}`)
+      assert.ok(thumb.width <= 40.5, `the thumbnail measures ${thumb.width}`)
     } finally {
       await context.close()
     }
@@ -142,7 +142,7 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
         }),
       )
       const set = new Set(rights.filter((x) => x !== null))
-      assert.equal(set.size, 1, `Cerrar cae en columnas distintas: ${[...set].join(', ')}`)
+      assert.equal(set.size, 1, `«Cerrar» falls in different columns: ${[...set].join(', ')}`)
       // The sender's own message has no Responder, and its detail says why.
       const own = await messageByTitle(page, 'Confirmar el formato')
       await page.goto(`${origin}/messages/${own.id}`)
@@ -167,7 +167,7 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
       )
       assert.equal(marks.length, 3)
       assert.equal(new Set(marks.map((c) => `${c.height}|${c.size}|${c.weight}|${c.border}|${c.bg}`)).size, 1, JSON.stringify(marks))
-      assert.equal(await bar.locator('h2').count(), 0, 'la barra no lleva rótulos visibles')
+      assert.equal(await bar.locator('h2').count(), 0, 'the bar carries no visible labels')
     } finally {
       await context.close()
     }
@@ -201,11 +201,11 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
       await page.locator('article').first().waitFor()
       await settled(page)
       const height = await page.locator('main').evaluate((el) => el.scrollHeight)
-      assert.ok(height < PHONE.height * 2.5, `Inicio mide ${height} px en el teléfono`)
+      assert.ok(height < PHONE.height * 2.5, `«Inicio» measures ${height} px on the phone`)
       // The pager is there, so the eight messages are not eight cards of 330 px.
       await page.getByText(/^1–\d+ de \d+$/).first().waitFor()
       const rows = await page.locator('main article').count()
-      assert.ok(rows <= 3, `${rows} filas a la vez`)
+      assert.ok(rows <= 3, `${rows} rows at once`)
       // The other list is one tap away.
       await page.getByRole('radio', { name: 'Últimas respuestas' }).click()
       await page.locator('main article').first().waitFor()
@@ -232,9 +232,9 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
         const css = (n) => ({ size: getComputedStyle(n).fontSize, weight: getComputedStyle(n).fontWeight })
         return [css(el.querySelector('h3')), css(el.querySelector('p'))]
       })
-      assert.deepEqual(h, mh, 'el encabezado pesa igual en las dos listas')
-      assert.deepEqual(p, mp, 'la línea de apoyo pesa igual en las dos listas')
-      assert.match(await first.locator('p').first().innerText(), /^En «/, 'la respuesta dice en qué mensaje está')
+      assert.deepEqual(h, mh, 'the heading weighs the same in both lists')
+      assert.deepEqual(p, mp, 'the supporting line weighs the same in both lists')
+      assert.match(await first.locator('p').first().innerText(), /^En «/, 'the reply says which message it belongs to')
     } finally {
       await context.close()
     }
@@ -248,14 +248,14 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
       await settled(page)
       const rows = region.locator('article')
       const n = await rows.count()
-      assert.ok(n >= 2, `caben ${n} filas`)
+      assert.ok(n >= 2, `${n} rows fit`)
       const last = await rows.nth(n - 1).boundingBox()
       const pager = await region.getByText(/^1–\d+ de \d+$/).locator('xpath=..').boundingBox()
       const left = pager.y - (last.y + last.height)
       await region.getByRole('button', { name: 'Página siguiente' }).click()
       await region.locator('article').first().waitFor()
       const next = await region.locator('article').first().boundingBox()
-      assert.ok(left < next.height, `quedan ${left} px y la fila siguiente mide ${next.height}: cabía`)
+      assert.ok(left < next.height, `${left} px remain and the next row measures ${next.height}: it fit`)
     } finally {
       await context.close()
     }
@@ -265,13 +265,13 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
     const { page, context } = await session('ana')
     try {
       // The date of the day is in the page (mockup, UD-046); a clock is not: no time of day anywhere in the titles of the page.
-      assert.equal(await page.locator('main time[datetime]').filter({ hasText: /\d{1,2}:\d{2}/ }).filter({ hasText: /de 20\d\d/ }).count(), 0, 'no hay fecha y hora corriendo')
+      assert.equal(await page.locator('main time[datetime]').filter({ hasText: /\d{1,2}:\d{2}/ }).filter({ hasText: /de 20\d\d/ }).count(), 0, 'there is no running date and time')
       await page.goto(origin)
       await page.locator('main#main').waitFor()
       await page.keyboard.press('Tab')
       assert.equal(await page.evaluate(() => document.activeElement?.textContent?.trim()), 'Ir al contenido')
       const ring = await page.evaluate(() => parseFloat(getComputedStyle(document.activeElement).outlineWidth))
-      assert.ok(ring >= 2, 'el anillo de foco se ve')
+      assert.ok(ring >= 2, 'the focus ring is visible')
     } finally {
       await context.close()
     }
@@ -284,10 +284,10 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
       await box.waitFor()
       const rest = await box.boundingBox()
       // UD-110: the bar has 24 px of padding and its controls under the field (131 px on a phone); it is still one line of text.
-      assert.ok(rest.height <= 140, `la barra mide ${rest.height} px en reposo`)
+      assert.ok(rest.height <= 140, `the bar measures ${rest.height} px at rest`)
       await page.locator('[data-compose-box] textarea').fill(Array.from({ length: 4 }, () => 'Una línea larga que tiene que ocupar más de un renglón en una pantalla de teléfono para que la barra crezca con lo escrito.').join(' '))
       const grown = await box.boundingBox()
-      assert.ok(grown.height > rest.height + 20, 'crece al escribir')
+      assert.ok(grown.height > rest.height + 20, 'it grows while typing')
     } finally {
       await context.close()
     }
@@ -345,13 +345,13 @@ describe('sidebar, sign-out and Conexiones (J3-A-45, J3-A-46, J3-A-48, J3-A-49, 
         const logout = page.getByRole('button', { name: 'Cerrar sesión' })
         await logout.waitFor()
         const box = await logout.boundingBox()
-        assert.ok(box.height >= min, `Cerrar sesión mide ${box.height} px (mínimo ${min})`)
+        assert.ok(box.height >= min, `«Cerrar sesión» measures ${box.height} px (minimum ${min})`)
         const size = await logout.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
-        assert.ok(size >= 14.5, `Cerrar sesión se escribe a ${size} px`)
+        assert.ok(size >= 14.5, `«Cerrar sesión» is written at ${size} px`)
         const settings = await page.getByRole('link', { name: 'Configuración' }).boundingBox()
-        assert.ok(box.y > settings.y, 'Cerrar sesión queda bajo Configuración, al pie')
+        assert.ok(box.y > settings.y, '«Cerrar sesión» sits below «Configuración», at the bottom')
         const name = await page.locator('nav[aria-label="Navegación"]:visible span.font-medium').first().boundingBox()
-        assert.ok(box.y > name.y + 200, 'ya no está junto al nombre')
+        assert.ok(box.y > name.y + 200, 'it is no longer next to the name')
       } finally {
         await context.close()
       }
@@ -362,7 +362,7 @@ describe('sidebar, sign-out and Conexiones (J3-A-45, J3-A-46, J3-A-48, J3-A-49, 
     const { page, context } = await session('ana', PHONE)
     try {
       const box = await page.getByRole('button', { name: 'Abrir navegación' }).boundingBox()
-      assert.ok(box.width >= 44 && box.height >= 44, `el botón mide ${box.width}x${box.height}`)
+      assert.ok(box.width >= 44 && box.height >= 44, `the button measures ${box.width}x${box.height}`)
     } finally {
       await context.close()
     }
@@ -379,10 +379,10 @@ describe('sidebar, sign-out and Conexiones (J3-A-45, J3-A-46, J3-A-48, J3-A-49, 
       const before = await where()
       await page.getByRole('link', { name: 'Conexiones' }).click()
       await page.getByRole('heading', { name: 'Conexiones', level: 1 }).waitFor()
-      assert.deepEqual(await where(), before, 'abrir Conexiones mueve la barra')
-      assert.equal(await page.locator('nav[aria-label="Navegación"] a[href^="/connections/"]').count(), 0, 'sin submenú')
-      assert.equal(await page.getByText('No disponible todavía').count(), 0, 'la fila no repite el estado')
-      assert.equal(await page.getByText('Apagadas hasta que la descomposición esté probada').count(), 1, 'la razón se dice una vez')
+      assert.deepEqual(await where(), before, 'opening «Conexiones» moves the bar')
+      assert.equal(await page.locator('nav[aria-label="Navegación"] a[href^="/connections/"]').count(), 0, 'no submenu')
+      assert.equal(await page.getByText('No disponible todavía').count(), 0, 'the row does not repeat the state')
+      assert.equal(await page.getByText('Apagadas hasta que la descomposición esté probada').count(), 1, 'the reason is stated once')
       for (const name of ['API', 'MCP', 'Correo', 'WhatsApp', 'GitHub']) await page.getByText(name, { exact: true }).first().waitFor()
     } finally {
       await context.close()
@@ -440,14 +440,14 @@ describe('justification by width (J3-A-21, J3-A-47)', () => {
       await openLongMessage(page)
       const aligns = await page.locator('.prose-block').evaluateAll((els) => els.map((el) => getComputedStyle(el).textAlign))
       assert.ok(aligns.length >= 3)
-      assert.ok(aligns.every((a) => a === 'left' || a === 'start'), `se justifica en el teléfono: ${aligns.join(',')}`)
+      assert.ok(aligns.every((a) => a === 'left' || a === 'start'), `it is justified on the phone: ${aligns.join(',')}`)
       const worst = Math.max(...(await gaps(page)).map((g) => g.gap))
-      assert.ok(worst <= 5, `hueco de ${worst} px entre palabras en el teléfono`)
+      assert.ok(worst <= 5, `gap of ${worst} px between words on the phone`)
       await page.goto(`${origin}/settings`)
       await page.locator('main h1').waitFor()
       await settled(page)
       const settings = await page.locator('.prose-block').evaluateAll((els) => els.map((el) => getComputedStyle(el).textAlign))
-      assert.ok(settings.every((a) => a === 'left' || a === 'start'), 'ni en Configuración')
+      assert.ok(settings.every((a) => a === 'left' || a === 'start'), 'nor in «Configuración»')
     } finally {
       await context.close()
     }
@@ -459,14 +459,14 @@ describe('justification by width (J3-A-21, J3-A-47)', () => {
       await openLongMessage(page)
       // The width the rule reads is the content box: the one the words have.
       const blocks = await page.locator('.prose-block').evaluateAll((els) => els.map((el) => ({ width: el.clientWidth - parseFloat(getComputedStyle(el).paddingLeft) - parseFloat(getComputedStyle(el).paddingRight), align: getComputedStyle(el).textAlign })))
-      assert.ok(blocks.some((b) => b.align === 'justify'), 'a 1440 px hay párrafos justificados')
+      assert.ok(blocks.some((b) => b.align === 'justify'), 'at 1440 px there are justified paragraphs')
       const min = 29.2 * 15
-      for (const b of blocks) assert.equal(b.align === 'justify', b.width >= min, `un bloque de ${Math.round(b.width)} px se alinea ${b.align}`)
+      for (const b of blocks) assert.equal(b.align === 'justify', b.width >= min, `a block of ${Math.round(b.width)} px is aligned ${b.align}`)
       // The reference is the largest gap seen at 1440 px (UD-034): 14.2 px at 15 px of type.
       const worst = Math.max(...(await gaps(page)).map((g) => g.gap))
-      assert.ok(worst <= 19.5, `hueco de ${worst} px entre palabras a 1440 px`)
+      assert.ok(worst <= 19.5, `gap of ${worst} px between words at 1440 px`)
       const body = await page.locator('[data-lane="message-body"] .prose-block').first().evaluate((el) => ({ width: el.getBoundingClientRect().width, align: getComputedStyle(el).textAlign }))
-      assert.equal(body.align, 'justify', `el cuerpo del mensaje (${Math.round(body.width)} px) sigue justificado a 1440 px`)
+      assert.equal(body.align, 'justify', `the message body (${Math.round(body.width)} px) is still justified at 1440 px`)
     } finally {
       await context.close()
     }
@@ -480,7 +480,7 @@ describe('Mensajes and the detail (J3-A-16, J3-A-22 to J3-A-29)', () => {
       await page.goto(`${origin}/messages`)
       const button = page.getByRole('button', { name: 'Filtro', exact: true })
       await button.waitFor()
-      assert.equal((await button.innerText()).trim(), 'Filtro', 'el botón no lleva un +')
+      assert.equal((await button.innerText()).trim(), 'Filtro', 'the button has no +')
       await button.click()
       await page.getByRole('menuitem', { name: 'Estado' }).hover()
       for (const value of ['Abierto', 'Respondido', 'Cerrado']) await page.getByRole('menuitemradio', { name: value }).waitFor()
@@ -491,7 +491,7 @@ describe('Mensajes and the detail (J3-A-16, J3-A-22 to J3-A-29)', () => {
       await applied.click()
       const state = page.getByRole('menuitem', { name: /^Estado: Abierto/ })
       await state.waitFor()
-      assert.match(await state.innerText(), /Abierto/, 'el menú dice cuál filtro está encendido y con qué valor')
+      assert.match(await state.innerText(), /Abierto/, 'the menu says which filter is on and with what value')
       await state.hover()
       await page.getByRole('menuitem', { name: 'Quitar el filtro' }).click()
       await page.getByRole('button', { name: 'Filtro', exact: true }).waitFor()
@@ -507,7 +507,7 @@ describe('Mensajes and the detail (J3-A-16, J3-A-22 to J3-A-29)', () => {
       await page.goto(`${origin}/messages/${hit.id}`)
       const h1 = page.locator('main h1')
       await h1.waitFor()
-      assert.equal(await h1.evaluate((el) => getComputedStyle(el).textWrap), 'balance', 'el título balancea sus renglones')
+      assert.equal(await h1.evaluate((el) => getComputedStyle(el).textWrap), 'balance', 'the title balances its lines')
       // The area is text with a caret, not a chrome tab that competes with Cerrar.
       const area = page.getByRole('button', { name: /^Área:/ })
       assert.equal(await area.evaluate((el) => getComputedStyle(el).backgroundImage), 'none')
@@ -517,7 +517,7 @@ describe('Mensajes and the detail (J3-A-16, J3-A-22 to J3-A-29)', () => {
       await page.getByRole('button', { name: 'Cerrar', exact: true }).click()
       const undo = page.getByRole('button', { name: 'Deshacer' }).first()
       await undo.waitFor()
-      assert.match((await undo.innerText()).trim(), /Deshacer/, 'Deshacer lleva su nombre a la vista')
+      assert.match((await undo.innerText()).trim(), /Deshacer/, '«Deshacer» shows its name')
       await page.getByRole('button', { name: 'Deshacer' }).first().click()
       // Recipients read as a group introduced by «para».
       assert.ok((await page.getByRole('list', { name: 'Destinatarios' }).innerText()).trim().startsWith('para'))
@@ -536,15 +536,15 @@ describe('Mensajes and the detail (J3-A-16, J3-A-22 to J3-A-29)', () => {
       await required.locator('span').waitFor()
       const color = await required.locator('span').evaluate((el) => getComputedStyle(el).color)
       const [r, g, b] = color.match(/\d+(\.\d+)?/g).map(Number)
-      assert.ok(!(r > g * 2 && r > b * 2), `«Obligatorio» va en rojo: ${color}`)
+      assert.ok(!(r > g * 2 && r > b * 2), `«Obligatorio» is red: ${color}`)
       // A reader who cannot edit sees the value without the box; who can edit, with it.
       const box = (p) => p.locator('dd [role="button"], dd > span').first().evaluate((el) => getComputedStyle(el).borderTopStyle)
-      assert.ok(['dashed', 'solid'].includes(await box(page)), 'el campo editable lleva su borde')
+      assert.ok(['dashed', 'solid'].includes(await box(page)), 'the editable field has its border')
       const other = await session('diego')
       try {
         await other.page.goto(`${origin}/messages/${hit.id}`)
         await other.page.locator('main h1').waitFor()
-        assert.equal(await other.page.locator('dd [role="button"]').count(), 0, 'quien no edita no ve controles de edición')
+        assert.equal(await other.page.locator('dd [role="button"]').count(), 0, 'whoever does not edit sees no editing controls')
       } finally {
         await other.context.close()
       }
@@ -565,7 +565,7 @@ describe('Mensajes and the detail (J3-A-16, J3-A-22 to J3-A-29)', () => {
       const off = await opacity()
       await page.getByLabel('Respuesta', { exact: true }).fill('Listo.')
       assert.equal(await send.isEnabled(), true)
-      assert.ok((await opacity()) > off, `el botón activo (${await opacity()}) pesa más que el apagado (${off})`)
+      assert.ok((await opacity()) > off, `the active button (${await opacity()}) weighs more than the dimmed one (${off})`)
     } finally {
       await context.close()
     }
@@ -578,7 +578,7 @@ describe('Mensajes and the detail (J3-A-16, J3-A-22 to J3-A-29)', () => {
       await page.goto(`${origin}/messages/${hit.id}`)
       const reply = page.locator('section[aria-label="Respuestas"] article').first()
       await reply.waitFor()
-      assert.ok((await reply.locator('ul[aria-label="Adjuntos"]').count()) <= 1, 'una sola fila de adjuntos por respuesta')
+      assert.ok((await reply.locator('ul[aria-label="Adjuntos"]').count()) <= 1, 'a single row of attachments per reply')
     } finally {
       await context.close()
     }
@@ -601,9 +601,9 @@ describe('Áreas and templates (J3-A-30 to J3-A-38)', () => {
           return { text: marks.map((m) => m.textContent.trim()).join(' '), offset: marks.length ? Math.abs((top + bottom) / 2 - (box.top + box.height / 2)) : null }
         }),
       )
-      assert.ok(rows.some((r) => r.text === ''), 'un área sin mensajes abiertos ni respondidos no dice «0 abiertos»')
+      assert.ok(rows.some((r) => r.text === ''), 'an area with no open or answered messages does not say «0 abiertos»')
       assert.ok(rows.every((r) => !/^0 /.test(r.text) && !/pendiente/i.test(r.text)))
-      for (const r of rows.filter((x) => x.offset !== null)) assert.ok(r.offset <= 4, `los conteos quedan a ${r.offset} px del centro de su fila`)
+      for (const r of rows.filter((x) => x.offset !== null)) assert.ok(r.offset <= 4, `the counts are ${r.offset} px from the center of their row`)
     } finally {
       await context.close()
     }
@@ -619,20 +619,20 @@ describe('Áreas and templates (J3-A-30 to J3-A-38)', () => {
       for (const field of ['Resumen', 'Pasos para reproducir', 'Qué se esperaba']) await card.getByText(field, { exact: false }).first().waitFor()
       const summary = card.locator('summary')
       assert.equal((await summary.innerText()).trim(), 'Instrucciones al modelo')
-      assert.equal(await card.getByText('Formato de salida').isVisible(), false, 'las instrucciones nacen plegadas')
+      assert.equal(await card.getByText('Formato de salida').isVisible(), false, 'the instructions start folded')
       await summary.click()
       await card.getByText('Formato de salida').waitFor()
       const open = card.getByRole('button', { name: 'Campos e instrucciones', exact: true })
       await open.waitFor()
-      assert.doesNotMatch(await open.innerText(), /·/, 'sin el «· 1» ambiguo')
+      assert.doesNotMatch(await open.innerText(), /·/, 'without the ambiguous «· 1»')
       // Deleting is a corner icon away from the title and lighter than it.
       const del = card.getByRole('button', { name: /^Eliminar/ })
       const title = card.getByRole('button', { name: /^Nombre:/ }).first()
-      assert.equal((await del.innerText()).trim(), '', 'Eliminar es un ícono con nombre')
-      assert.ok((await del.boundingBox()).x > (await title.boundingBox()).x + 200, 'Eliminar queda en la esquina, lejos del título')
+      assert.equal((await del.innerText()).trim(), '', '«Eliminar» is an icon with a name')
+      assert.ok((await del.boundingBox()).x > (await title.boundingBox()).x + 200, '«Eliminar» sits in the corner, away from the title')
       // The column is no longer a lone small card: what it shows is the template, not a link.
       const share = (await card.boundingBox()).height
-      assert.ok(share > 200, `la tarjeta de plantilla mide ${share} px`)
+      assert.ok(share > 200, `the template card measures ${share} px`)
     } finally {
       await context.close()
     }
@@ -651,8 +651,8 @@ describe('Áreas and templates (J3-A-30 to J3-A-38)', () => {
       const paths = (loc) => loc.evaluateAll((els) => els.flatMap((el) => [...el.querySelectorAll('path')].map((p) => p.getAttribute('d'))))
       const removers = dialog.getByRole('button', { name: /^Quitar el campo/ })
       assert.ok((await removers.count()) >= 1)
-      assert.ok(!(await paths(removers)).includes(x), 'quitar un campo no usa la misma X que cerrar la ventana')
-      assert.ok((await paths(dialog.locator('button')).then((p) => p.filter((d) => d === x))).length <= 1, 'una sola X en la ventana')
+      assert.ok(!(await paths(removers)).includes(x), 'removing a field does not use the same X as closing the window')
+      assert.ok((await paths(dialog.locator('button')).then((p) => p.filter((d) => d === x))).length <= 1, 'a single X in the window')
       await dialog.getByRole('checkbox').first().click()
       await dialog.getByText('Guardado').waitFor()
       assert.equal(await dialog.getByText('Sin cambios').count(), 0)
@@ -683,10 +683,10 @@ describe('Configuración and Equipo (J3-A-39 to J3-A-44)', () => {
       await unfold.waitFor()
       const lane = page.locator('section', { has: page.getByRole('heading', { name: 'Proyecto' }) }).locator('div.glass').first()
       const folded = await lane.boundingBox()
-      assert.ok(folded.height <= 9 * 15 + 30, `el proyecto plegado mide ${folded.height} px`)
+      assert.ok(folded.height <= 9 * 15 + 30, `the folded project measures ${folded.height} px`)
       await unfold.click()
       await page.getByRole('button', { name: 'Ver menos' }).waitFor()
-      assert.ok((await lane.boundingBox()).height > folded.height, 'abierto es más alto')
+      assert.ok((await lane.boundingBox()).height > folded.height, 'open is taller')
     } finally {
       await context.close()
     }
@@ -715,15 +715,15 @@ describe('Configuración and Equipo (J3-A-39 to J3-A-44)', () => {
       const off = page.getByRole('button', { name: /^Desactivar a/ }).first()
       await off.waitFor()
       const weight = await off.evaluate((el) => Number(getComputedStyle(el).fontWeight))
-      assert.ok(weight <= 400, `Desactivar pesa ${weight}`)
+      assert.ok(weight <= 400, `«Desactivar» weighs ${weight}`)
       const name = await page.getByRole('button', { name: /^Nombre:/ }).first().evaluate((el) => Number(getComputedStyle(el).fontWeight))
-      assert.ok(weight < name, 'pesa menos que el nombre')
+      assert.ok(weight < name, 'it weighs less than the name')
       const more = page.getByRole('button', { name: 'Ver más' }).first()
       await more.waitFor()
       // Ana's own profile has two paragraphs; her row is found by her address, since the button changes its name when it opens.
       const row = page.locator('main div.border-b').filter({ hasText: 'ana@dev.invalid' }).first()
       const before = (await row.boundingBox()).height
-      assert.equal(await row.getByText('No toco la interfaz del panel').count(), 0, 'el segundo párrafo está plegado')
+      assert.equal(await row.getByText('No toco la interfaz del panel').count(), 0, 'the second paragraph is folded')
       await row.getByRole('button', { name: 'Ver más' }).click()
       await row.getByText('No toco la interfaz del panel').waitFor()
       assert.ok((await row.boundingBox()).height > before)
@@ -762,12 +762,12 @@ describe('entrance and not found (J3-A-01, J3-A-02, J3-A-03, J3-A-51)', () => {
       const card = page.locator('form')
       await card.waitFor()
       const orb = await card.locator('.orb').boundingBox()
-      assert.ok(orb.width >= 24, `la esfera mide ${orb.width} px`)
+      assert.ok(orb.width >= 24, `the sphere measures ${orb.width} px`)
       const mark = await card.locator('h1 span').last().evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
-      assert.ok(mark >= 18, `la marca mide ${mark} px`)
+      assert.ok(mark >= 18, `the mark measures ${mark} px`)
       const note = card.getByText('Cuentas creadas por el Editor del equipo')
       const style = await note.evaluate((el) => ({ size: parseFloat(getComputedStyle(el).fontSize), color: getComputedStyle(el).color }))
-      assert.ok(style.size >= 15, `la nota mide ${style.size} px`)
+      assert.ok(style.size >= 15, `the note measures ${style.size} px`)
       // Contrast of the note on the card, measured.
       const ratio = await page.evaluate((color) => {
         const ctx = document.createElement('canvas').getContext('2d', { willReadFrequently: true })
@@ -782,16 +782,16 @@ describe('entrance and not found (J3-A-01, J3-A-02, J3-A-03, J3-A-51)', () => {
         const [a, b] = [lum(toRgb(color)), lum([255, 255, 255])].sort((x, y) => y - x)
         return (a + 0.05) / (b + 0.05)
       }, style.color)
-      assert.ok(ratio >= 4.5, `contraste ${ratio.toFixed(2)}`)
+      assert.ok(ratio >= 4.5, `contrast ${ratio.toFixed(2)}`)
       // The gap between the password and Entrar is a normal gap of the form, not a reserved row.
       const pass = await page.getByLabel('Contraseña').boundingBox()
       const enter = await page.getByRole('button', { name: 'Entrar' }).boundingBox()
-      assert.ok(enter.y - (pass.y + pass.height) <= 24, `hay ${enter.y - (pass.y + pass.height)} px entre la contraseña y Entrar`)
+      assert.ok(enter.y - (pass.y + pass.height) <= 24, `there are ${enter.y - (pass.y + pass.height)} px between the password and «Entrar»`)
       const before = await card.boundingBox()
       await page.getByRole('button', { name: 'Entrar' }).click()
       await page.getByRole('alert').filter({ hasText: 'Falta el correo' }).waitFor()
       const after = await card.boundingBox()
-      assert.ok(Math.abs(after.height - before.height) < 0.5 && Math.abs(after.y - before.y) < 0.5, 'la tarjeta se movió con el error')
+      assert.ok(Math.abs(after.height - before.height) < 0.5 && Math.abs(after.y - before.y) < 0.5, 'the card moved with the error')
     } finally {
       await context.close()
     }
@@ -804,7 +804,7 @@ describe('entrance and not found (J3-A-01, J3-A-02, J3-A-03, J3-A-51)', () => {
       const card = page.getByRole('status').first()
       await card.waitFor()
       const box = await card.boundingBox()
-      assert.ok(box.height <= 120, `la tarjeta mide ${box.height} px`)
+      assert.ok(box.height <= 120, `the card measures ${box.height} px`)
     } finally {
       await context.close()
     }

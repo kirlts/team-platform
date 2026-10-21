@@ -13,24 +13,28 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: dfe5ead Traspaso: barra superior y telemetría fusionadas. Empujado a origin: `dfe5ead`.
-- Ramas con commits sin fusionar: `wt-configuracion` 22 (hace 15 segundos), `wt-deuda` 11 (hace 4 minutos), `wt-barra-lateral` 7 (hace 2 minutos), `wt-inicio-respira` 5 (hace 7 minutos), `wt-banco-abiertos` 3 (hace 3 minutos), `wt-deuda-ingles` 3 (hace 19 minutos), `wt-h904` 1 (hace 15 minutos).
-- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `banco-abiertos`, `barra-lateral`, `cierre`, `configuracion`, `deuda`, `deuda-ingles`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `h904-old`, `heic`, `ingles`, `inicio-maqueta`, `inicio-respira`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
+- `main`: 5ea20d8 Traspaso: deuda técnica fusionada. Empujado a origin: `5ea20d8`.
+- Ramas con commits sin fusionar: `wt-configuracion` 24 (hace 31 segundos), `wt-inicio-respira` 8 (hace 2 minutos), `wt-banco-abiertos` 3 (hace 17 minutos), `wt-h904` 1 (hace 29 minutos).
+- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `banco-abiertos`, `cierre`, `configuracion`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `h904-old`, `heic`, `ingles`, `inicio-maqueta`, `inicio-respira`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `dfe5ead` Traspaso: barra superior y telemetría fusionadas (hace 4 minutos)
-- `63dc519` Merge branch 'wt-telemetria-2' (hace 9 minutos)
-- `786b37f` Smoke test, judges' flow and docs follow the current send flow; close H-1703, H-1705, H-1706 (hace 10 minutos)
-- `f0f5a2c` Merge branch 'wt-barra-superior' (hace 10 minutos)
-- `c879c8c` Traspaso: VPS fusionado y avance de fases (hace 15 minutos)
-- `6eb101f` Telemetry ends an automatic send on the job's own published end; test ids for the send flow of the browser test (H-1705, H-1706) (hace 15 minutos)
-- `402faf6` Merge branch 'wt-vps-restauracion' (hace 17 minutos)
-- `9b20211` Instalacion: restauracion de adjuntos, segunda instancia y trusted-header medidos en el VPS (H-2600 a H-2606) (hace 17 minutos)
-Actualizado 2026-10-21 18:28 UTC.
+- `5ea20d8` Traspaso: deuda técnica fusionada (hace 51 segundos)
+- `98443f7` Merge branch 'wt-deuda' (hace 2 minutos)
+- `2860e44` Traspaso: barra lateral fusionada (hace 6 minutos)
+- `8cb1eae` Merge branch 'wt-barra-lateral' (hace 8 minutos)
+- `925e438` Fusiona main en wt-deuda: conserva la lógica de main y los mensajes en inglés (hace 8 minutos)
+- `9fbad62` Retira la derivación de VERIFICATION (H-45); DT-010 queda descartada (hace 9 minutos)
+- `b5553d0` Flows: J2-A-41 and J2-A-47 read the row box of the sidebar (UD-130) (hace 10 minutos)
+- `e890d6c` Merge main into wt-barra-lateral (hace 17 minutos)
+Actualizado 2026-10-21 18:42 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo
 
 **Plan de cierre:** `docs/PLAN-DE-CIERRE.md` (2026-10-21 15:00). La sesión anterior murió a las 14:42 con la cuota de su cuenta agotada; sus agentes murieron con ella. Quien retome ejecuta ese plan desde la Fase 0: rescata lo sin commit de `configuracion`, `inicio-respira` y `barra-superior`, relanza los encargos A, B, C y G, y sigue el orden de fusión que dice. Encargo nuevo del dueño de hoy: la barra lateral (alineación, contadores sin contenedor, hover), encargo G.
+
+**Avance 15:50.** En `main` también la deuda técnica (`98443f7`): respaldo de texto, pruebas en inglés, guardia de idioma en aserciones. DT-010 descartado por el dueño. Falta de la deuda sólo DT-007 (HP-019, HP-020). Inicio y Configuración deben fusionar `main`.
+
+**Avance 15:40.** En `main` también la barra lateral (`8cb1eae`). La deuda técnica vuelve a su rama: el dueño descartó derivar `VERIFICATION.md` (H-45) y el agente lo retira.
 
 **Avance 15:25.** En `main` también la barra superior (`f0f5a2c`) y la telemetría pendiente (`63dc519`). Abierto: H-2000 y H-2001. Las ramas de Inicio y barra lateral deben fusionar `main`.
 

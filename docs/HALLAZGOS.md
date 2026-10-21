@@ -591,6 +591,14 @@ Debe decir `OK Último envío: estado proposed, adjuntos: audio` con al menos un
 | H-2605 | En modo `trusted-header` cualquier proceso del servidor que llegue a `127.0.0.1:<puerto>` suplanta a un miembro con la cabecera (medido), y el botón «Cerrar sesión» del panel llama a `/api/auth/logout` (404) sin efecto | TASK-021 | declarado como límite en `docs/INSTALACION.md`; el panel no distingue el proveedor (`/api/me` ya lo informa): `abierto`, decisión del dueño sobre ocultar el botón |
 | H-2606 | Duraciones medidas en el VPS de 2 núcleos: respaldo con adjuntos 1,8 s; restauración de la base hasta servicio sano 5,1 s y de los adjuntos 5,6 s; instalación con caché de capas 29 s (22 s la segunda corrida); clonar 5 s; `up -d --wait` del servicio real 4,8 s. La compilación desde cero no se repitió: vale la de 4 min 52 s ya medida | TASK-023 | `main` al fusionar; cifras en `docs/INSTALACION.md` |
 
+## Barra lateral (2026-10-21)
+
+| # | Hallazgo | Origen | Estado |
+|---|---|---|---|
+| H-2300 | Los contadores de la barra lateral quedaban a distinta distancia del borde derecho y a distinta altura; Mensajes llevaba contorno de píldora y las áreas no; «Retroalimentación» se partía en dos líneas | UD-130 | `wt-barra-lateral`: una grilla con columna de contador fija, contadores sin contenedor, hover y foco en toda la fila; prueba `sidebar-alignment` |
+| H-2301 | Ningún detector medía la alineación entre hermanos de una lista | UD-130 | `wt-barra-lateral`: regla `sibling-alignment` en `ui-detectors.mjs` con su prueba; sin hallazgos en las ocho pantallas |
+| H-2302 | `ui-detectors` registra 8 controles bajo 24 px con vecino a menos de 24 px (enlaces «Abrir área» en teléfono, botón de la lista de equipo, botón de Configuración) y un texto fuera de la escala (`code` en Configuración); ninguno es de la barra lateral | UD-130 | abierto: pertenecen a Áreas, Equipo y Configuración (`wt-configuracion` toca la última) |
+
 ## Inicio con espacio (2026-10-21)
 
 | # | Hallazgo | Origen | Estado |

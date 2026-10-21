@@ -312,7 +312,7 @@ for (const [width, height] of SIZES) {
             }),
         )
         const failures = [...asked].filter(([path, n]) => n > 2 * Math.max(1, thumbs[path] ?? 0)).map(([path, n]) => `${path} ×${n} (hay ${thumbs[path] ?? 0} en pantalla)`)
-        assert.deepStrictEqual(failures, [], `Peticiones repetidas en cinco segundos:\n${failures.join('\n')}`)
+        assert.deepStrictEqual(failures, [], `Repeated requests within five seconds:\n${failures.join('\n')}`)
       } finally {
         await page.unrouteAll({ behavior: 'ignoreErrors' })
         await context.close()

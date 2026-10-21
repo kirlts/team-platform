@@ -48,7 +48,7 @@ test('UD-042 · the state of every message is derived from its replies and its c
   const a = await publish(env, env.c.ana, 'uno', idea, [3])
   const b = await publish(env, env.c.ana, 'dos', question, [3, 2])
   const c = await publish(env, env.c.beto, 'tres', question, [1])
-  assert.deepEqual(stateContradictions(env.db), [], 'recién publicados')
+  assert.deepEqual(stateContradictions(env.db), [], 'freshly published')
 
   const as = { a: env.c.ana, b: env.c.ana, c: env.c.beto }
   const other = { a: env.c.beto, b: env.c.beto, c: env.c.ana }
@@ -105,6 +105,6 @@ test('UD-042 · the check detects a message whose state contradicts its replies'
   const { messageId } = await publish(env, env.c.ana, 'cuatro', idea, [3])
   await env.api('POST', `/messages/${messageId}/replies`, env.c.beto, { body: 'listo' })
   env.db.prepare("UPDATE messages SET status = 'open' WHERE id = ?").run(messageId)
-  assert.equal(stateContradictions(env.db).length, 1, 'un abierto con una respuesta se detecta')
+  assert.equal(stateContradictions(env.db).length, 1, 'an open message with a reply is detected')
   await env.close()
 })

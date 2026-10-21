@@ -1,6 +1,6 @@
 // The UI detectors (scripts/ui-detectors.mjs): each one is a pure function over the DOM, so each is
 // tried on a minimal page with a failure and a clean case, and the whole pass is run once on a short
-// real corrida. Run with `node --test src/ui-detectors.test.mjs`; the port comes from PANEL_DETECTORS_PORT.
+// real run. Run with `node --test src/ui-detectors.test.mjs`; the port comes from PANEL_DETECTORS_PORT.
 // Not picked up by vitest (it only includes *.test.ts / *.test.tsx).
 
 import { after, before, describe, test } from 'node:test'
@@ -49,6 +49,19 @@ describe('tap-target', () => {
   })
   test('accepts a 24 px control and an isolated small one', async () => {
     const r = await detect('tap-target', '<button style="width:24px;height:24px;padding:0">a</button><div style="height:200px"></div><button style="width:16px;height:16px;padding:0">b</button>')
+    assert.deepEqual(r.findings, [])
+  })
+})
+
+describe('sibling-alignment', () => {
+  const item = (right, top = 0) => `<li style="position:relative;height:32px;list-style:none"><span>Label</span><span style="position:absolute;right:${right}px;top:${top}px;width:12px;height:12px;background:#000">2</span></li>`
+  test('flags counts whose right edge differs by more than 1 px and one off the row center', async () => {
+    const r = await detect('sibling-alignment', `<ul style="width:240px;margin:0;padding:0">${item(8)}${item(14)}${item(8, 4)}</ul>`)
+    assert.ok(r.findings.some((f) => f.measure.axis === 'right' && f.measure.spread === 6), JSON.stringify(r.findings))
+    assert.ok(r.findings.some((f) => f.measure.axis === 'center'), JSON.stringify(r.findings))
+  })
+  test('accepts counts on one edge and one center, and rows without a count', async () => {
+    const r = await detect('sibling-alignment', `<ul style="width:240px;margin:0;padding:0">${item(8, 10)}<li style="height:32px;list-style:none">Only a label that is long enough to be wide</li>${item(8, 10)}</ul>`)
     assert.deepEqual(r.findings, [])
   })
 })
@@ -153,7 +166,7 @@ describe('voice', () => {
 })
 
 describe('the whole pass', () => {
-  test('a short real corrida writes a JSON with the declared shape', async () => {
+  test('a short real run writes a JSON with the declared shape', async () => {
     const out = join(mkdtempSync(join(tmpdir(), 'ui-detectors-')), 'detectors.json')
     // The unit browser is closed first: one browser at a time.
     await browser.close()

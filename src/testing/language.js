@@ -9,7 +9,7 @@ import { lex } from './lex.js'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 
 // Directories and files covered by the comment rule. Each entry is a path relative to the repository root.
-export const CODE_ROOTS = ['src', 'bench', 'scripts', 'panel/src', 'panel/scripts', 'panel/dev-server.mjs', 'panel/vite.config.ts', 'Dockerfile', 'compose.yml', '.env.example']
+export const CODE_ROOTS = ['src', 'bench', 'scripts', 'panel/src', 'panel/scripts', 'panel/dev-server.mjs', 'panel/vite.config.ts', '.githooks', 'Dockerfile', 'compose.yml', '.env.example']
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'cases', 'fonts', 'assets', 'private'])
 const SKIP_FILES = new Set(['package-lock.json', 'fixtures.json'])
 // This file lists Spanish words on purpose, as data.
@@ -44,7 +44,7 @@ function walk (p, found = []) {
 export function codeFiles () {
   // Markdown outside `src` is project documentation (bench/README.md, panel/DISENO.md) and stays in Spanish.
   return CODE_ROOTS.flatMap((r) => walk(path.join(root, r)))
-    .filter((f) => /(\.(m?js|jsx|tsx?|css|sh|sql|md|yml|html)|Dockerfile|\.env\.example)$/.test(f))
+    .filter((f) => /(\.(m?js|jsx|tsx?|css|sh|sql|md|yml|html)|Dockerfile|\.env\.example|pre-commit)$/.test(f))
     .filter((f) => !f.endsWith('.md') || path.relative(root, f).startsWith(`src${path.sep}`))
 }
 
@@ -83,7 +83,7 @@ export function commentsOf (file) {
   } else if (/\.md$/.test(file)) {
     // Documentation that lives next to the code is prose in full.
     text.split('\n').forEach((l, i) => out.push({ line: i + 1, text: l }))
-  } else if (/\.sh$|\.ya?ml$|^Dockerfile$|^\.env\.example$/.test(base)) {
+  } else if (/\.sh$|\.ya?ml$|^Dockerfile$|^\.env\.example$|^pre-commit$/.test(base)) {
     text.split('\n').forEach((l, i) => {
       if (i === 0 && l.startsWith('#!')) return
       const m = /(^|\s)#(?!!)\s?(.*)$/.exec(l)
@@ -135,6 +135,38 @@ export function spanishNamesAndLogs () {
   return bad
 }
 
+const MESSAGE_POSITION = { ok: 2, equal: 3, notEqual: 3, strictEqual: 3, notStrictEqual: 3, deepEqual: 3, deepStrictEqual: 3, notDeepEqual: 3, match: 3, doesNotMatch: 3 }
+
+/** Assertion messages written in Spanish: the last argument of `assert.<method>(...)` when it is a lone string. */
+export function spanishAssertMessages () {
+  const bad = []
+  for (const f of codeFiles().filter((x) => /\.(m?js|tsx?)$/.test(x))) {
+    const text = readFileSync(f, 'utf8')
+    const tokens = lex(text, { jsx: /\.tsx$/.test(f) }).filter((t) => t.type !== 'comment')
+    tokens.forEach((t, i) => {
+      if (!(t.type === 'ident' && t.value === 'assert' && tokens[i + 1]?.value === '.' && tokens[i + 3]?.value === '(')) return
+      // The message is the third argument of the comparisons and the second of `ok`; the last argument of a two-argument
+      // comparison is the expected value, which can be Spanish data.
+      const position = MESSAGE_POSITION[tokens[i + 2].value]
+      if (!position) return
+      let depth = 0
+      let commas = 0
+      let last = null
+      let j = i + 3
+      for (; j < tokens.length; j++) {
+        const v = tokens[j].value
+        if (v === '(' || v === '[' || v === '{') depth++
+        else if (v === ')' || v === ']' || v === '}') { depth--; if (depth === 0) break } else if (depth === 1 && v === ',') { commas++; last = j }
+      }
+      const arg = last && commas === position - 1 && j - last === 2 ? tokens[last + 1] : null
+      if (!arg || (arg.type !== 'string' && arg.type !== 'template')) return
+      const hits = spanishIn(arg.value.slice(1, -1).replace(/\$\{[^}]*\}/g, ' '))
+      if (hits.length) bad.push({ file: path.relative(root, f), line: text.slice(0, arg.start).split('\n').length, words: [...new Set(hits)].join(',') })
+    })
+  }
+  return bad
+}
+
 /** English function words found in a piece of panel text. */
 export function englishIn (text) {
   return [...new Set((text.match(/[A-Za-zÀ-ÿ]+/g) ?? []).map((w) => w.toLowerCase()).filter((w) => ENGLISH_WORDS.has(w)))]
@@ -161,7 +193,7 @@ export function englishInPanel () {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const sections = { 'Spanish comments': spanishComments(), 'Spanish test names and log messages': spanishNamesAndLogs(), 'English visible panel text': englishInPanel() }
+  const sections = { 'Spanish comments': spanishComments(), 'Spanish test names and log messages': spanishNamesAndLogs(), 'Spanish assertion messages': spanishAssertMessages(), 'English visible panel text': englishInPanel() }
   let total = 0
   for (const [name, list] of Object.entries(sections)) {
     total += list.length

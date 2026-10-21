@@ -42,6 +42,10 @@ export const VALUE_MIN = 0.3
 export const OVERLAP_MIN_PX = 4
 /** Tolerance when comparing a computed font size with a token (rounding of rem times 15). */
 export const FONT_TOLERANCE_PX = 0.06
+/** Siblings of a column list whose trailing mark (a count, an icon) differs by more than this in right edge or vertical center are misaligned. 1 px is the tolerance of the sidebar test (UD-130); sub-pixel rounding stays under it. */
+export const ALIGN_TOLERANCE_PX = 1
+/** A trailing mark is small (a count or an icon), not a label: at most this wide, and in the right 40 % of its item. */
+export const MARK_MAX_WIDTH_PX = 80
 
 /** The type scale is read from the same source as src/type-scale.test.ts: the --text-* tokens of styles.css times the 15 px root. */
 export function readTypeScale() {
@@ -192,6 +196,56 @@ export const DETECTORS = {
           detail: `Se solapan ${Math.round(w)} x ${Math.round(h)} px: «${(ud.ownText(a.el) || a.el.tagName).slice(0, 24)}» y «${(ud.ownText(b.el) || b.el.tagName).slice(0, 24)}»`,
           measure: { width: Math.round(w), height: Math.round(h) },
         })
+      }
+    }
+    return { findings: out }
+  },
+
+  /**
+   * Siblings of a list that stacks (ul, ol, role=list, role=menu, nav): each item's trailing mark is its last visible leaf
+   * (a count, an icon), when it is small and sits in the right part of the item. Marks whose right edge differs by more than
+   * ALIGN_TOLERANCE_PX across the list, or whose vertical center differs from their item's by more than it, are findings (UD-130).
+   * Items with no such mark are skipped; the vertical check only looks at items of one line (a mark beside a block of text may sit at the top).
+   */
+  'sibling-alignment': () => {
+    const ud = window.__ud
+    const out = []
+    const trailing = (item) => {
+      const leaves = [...item.querySelectorAll('*')].filter((el) => el.children.length === 0 && !ud.hidden(el) && (ud.ownText(el) || el.tagName.toLowerCase() === 'svg' || el.tagName === 'IMG'))
+      for (let i = leaves.length - 1; i >= 0; i--) {
+        const r = leaves[i].getBoundingClientRect()
+        if (r.width > 0 && r.height > 0) return { el: leaves[i], r }
+      }
+      return null
+    }
+    for (const list of document.body.querySelectorAll('ul, ol, [role=list], [role=menu], nav')) {
+      if (list.closest(ud.LAYERS) && !list.matches(ud.LAYERS)) continue
+      if (ud.hidden(list)) continue
+      const items = [...list.children].filter((c) => !ud.hidden(c) && c.getBoundingClientRect().height > 0)
+      if (items.length < 2) continue
+      const boxes = items.map((c) => c.getBoundingClientRect())
+      let stacked = true
+      for (let i = 1; i < boxes.length; i++) if (boxes[i].top < boxes[i - 1].bottom - 1) stacked = false
+      if (!stacked) continue
+      const marks = []
+      items.forEach((item, i) => {
+        const t = trailing(item)
+        if (!t || t.r.width > MARK_MAX_WIDTH_PX) return
+        if (t.r.left < boxes[i].left + boxes[i].width * 0.6) return
+        marks.push({ item, box: boxes[i], mark: t })
+      })
+      if (marks.length < 2) continue
+      const rights = marks.map((m) => m.mark.r.right)
+      const spread = Math.max(...rights) - Math.min(...rights)
+      if (spread > ALIGN_TOLERANCE_PX) {
+        out.push({ rule: 'sibling-alignment', selector: ud.sel(list), detail: `Las marcas finales de los elementos de la lista terminan a ${Math.round(spread * 10) / 10} px entre sí (borde derecho)`, measure: { spread: Math.round(spread * 10) / 10, axis: 'right' } })
+      }
+      for (const m of marks) {
+        if (m.box.height > 56) continue
+        const dy = Math.abs(m.mark.r.top + m.mark.r.height / 2 - (m.box.top + m.box.height / 2))
+        if (dy > ALIGN_TOLERANCE_PX) {
+          out.push({ rule: 'sibling-alignment', selector: ud.sel(m.mark.el), detail: `La marca final está ${Math.round(dy * 10) / 10} px fuera del centro vertical de su fila`, measure: { offset: Math.round(dy * 10) / 10, axis: 'center' } })
+        }
       }
     }
     return { findings: out }
@@ -644,7 +698,7 @@ export async function runDetector(page, name, input) {
 }
 
 /** Constants the in-page detectors read, shipped as globals. */
-const CONSTS = { OVERLAP_MIN_PX, FONT_TOLERANCE_PX, LARGE_PX, LARGE_BOLD_PX, CONTRAST_NORMAL, CONTRAST_LARGE, SATURATION_MIN, VALUE_MIN }
+const CONSTS = { ALIGN_TOLERANCE_PX, MARK_MAX_WIDTH_PX, OVERLAP_MIN_PX, FONT_TOLERANCE_PX, LARGE_PX, LARGE_BOLD_PX, CONTRAST_NORMAL, CONTRAST_LARGE, SATURATION_MIN, VALUE_MIN }
 
 export function summaryText(report, outFile) {
   const lines = []

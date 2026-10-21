@@ -115,6 +115,12 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
     try {
       await page.goto(`${origin}/messages`)
       await page.locator('main article').first().waitFor()
+      // The rows are measured once they are laid out: every Close/Reopen button has a box. A button without one (right edge 0) is a row that was not drawn yet, not a column (H-901).
+      await page.waitForFunction(() => {
+        const rows = [...document.querySelectorAll('main article')]
+        return rows.length > 0 && rows.every((r) => [...r.querySelectorAll('button')].filter((b) => /Cerrar|Reabrir/.test(b.textContent ?? '')).every((b) => b.getBoundingClientRect().width > 0))
+      })
+      await settled(page)
       const rights = await page.locator('main article').evaluateAll((rows) =>
         rows.map((r) => {
           const close = [...r.querySelectorAll('button')].find((b) => /Cerrar|Reabrir/.test(b.textContent ?? ''))

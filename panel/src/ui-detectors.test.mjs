@@ -205,3 +205,12 @@ describe('the whole pass', () => {
     assert.equal(report.summary.by_screen.home, home.findings.length)
   })
 })
+
+describe('pages declared as scrolling (UD-123)', () => {
+  test('every declared path is a screen the detector run must fit, so the exemption has an effect', async () => {
+    const { SCROLLING_PAGES } = await import('./scrolling-pages.mjs')
+    const { MUST_FIT } = await import('../scripts/ui-detectors.mjs')
+    assert.ok(SCROLLING_PAGES.some((p) => p.path === '/settings'))
+    assert.ok(MUST_FIT.has('settings'))
+  })
+})

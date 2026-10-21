@@ -40,7 +40,7 @@ export function Thumb({
       <img src={item.src} alt={label} className="h-full w-full rounded-[4px] object-cover" loading="lazy" />
     ) : item.kind === 'video' && item.src ? (
       <span className="relative block h-full w-full">
-        <video src={`${item.src}#t=0.1`} preload="metadata" muted playsInline className="h-full w-full rounded-[4px] bg-accent-soft object-cover" aria-label={label} />
+        <video src={`${item.src}#t=0.1`} preload="metadata" muted playsInline className="h-full w-full rounded-[4px] bg-raised object-cover" aria-label={label} />
         <span aria-hidden className="absolute inset-0 flex items-center justify-center">
           <span className="flex h-[55%] w-[55%] items-center justify-center rounded-full bg-fg/60 text-bg">
             <Play size={Math.round(px * 0.3)} fill="currentColor" />
@@ -48,7 +48,7 @@ export function Thumb({
         </span>
       </span>
     ) : (
-      <span className="flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-[4px] bg-accent-soft text-accent-deep">
+      <span className="flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-[4px] bg-raised text-accent-deep">
         <Icon size={Math.round(px * 0.38)} aria-hidden />
       </span>
     )

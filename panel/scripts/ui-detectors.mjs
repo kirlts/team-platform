@@ -14,6 +14,7 @@ import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { login, settled, startPanel } from '../src/browser-support.mjs'
+import { SCROLLING_PAGES } from '../src/scrolling-pages.mjs'
 
 const PANEL = fileURLToPath(new URL('..', import.meta.url))
 
@@ -649,7 +650,8 @@ export async function run(options = {}) {
         if (name === 'page-height') {
           ratios[id] ??= { route, ratios: {} }
           ratios[id].ratios[`${viewport}-${theme}`] = res.ratio
-          if (viewport === 'desktop' && MUST_FIT.has(id) && res.ratio > 1.001) {
+          // A page declared as scrolling (UD-123) is allowed its height; the page is measured, not excused for other findings.
+          if (viewport === 'desktop' && MUST_FIT.has(id) && !SCROLLING_PAGES.some((p) => p.path === route) && res.ratio > 1.001) {
             add({ rule: 'page-height', selector: 'html', detail: `Alto de ${res.total} px en una ventana de ${res.window} (${res.ratio.toFixed(2)} ventanas), la pantalla debe caber en una`, measure: { ratio: res.ratio, total: res.total, window: res.window } })
           }
           continue

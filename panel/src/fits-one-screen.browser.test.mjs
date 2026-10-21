@@ -17,6 +17,7 @@
 // Falsified on 2026-10-20: breaking FIT_BREAK=documento-alto (a 2000 px block in Inicio) made this
 // test fail with the route and the height; see FIT_BREAK below.
 
+import { SCROLLING_PAGES } from './scrolling-pages.mjs'
 import { after, before, describe, test } from 'node:test'
 import assert from 'node:assert'
 import { login, startPanel, settled, watchRequests } from './browser-support.mjs'
@@ -50,14 +51,7 @@ export const LANES = [
   '[role="menu"]',
 ]
 
-/**
- * Views whose page is allowed to scroll (UD-123). Dueño, 2026-10-21: «La parte para escribir la descripción del proyecto tiene texto
- * truncado que obliga a desplazarse dentro de la misma página para escribir la configuración del proyecto. Eso es un gran problema.»
- * Configuración holds a project description that can be as long as a master spec; the fix is not a smaller frame with a scroll inside it but an
- * editor as tall as its text, and the page (the `<main>` of the shell) is what scrolls. These views are exempt ONLY from the checks of document
- * height, region height and content below the window edge; own lanes, hidden overflow, text under 12 px and repeated text still apply to them.
- */
-export const SCROLLING_PAGES = ['configuración']
+// SCROLLING_PAGES (UD-123) lives in scrolling-pages.mjs: the detectors read the same list.
 /** Characters seeded into the project description of Configuración, to measure the editor with a long text. */
 const LONG_PROJECT = 12000
 
@@ -379,7 +373,7 @@ for (const [width, height] of SIZES) {
               if (repeats.length) failures.push(`${view.name} (${path}): text repeated in the view: ${repeats.join('; ')}`)
             }
             report.push({ size: `${width}x${height}`, data: amplified ? `x${TIMES}` : 'sembrado', view: view.name, doc: m.doc, win: m.win, main: m.mainBox + m.mainOver, below: m.below })
-            const scrolls = SCROLLING_PAGES.includes(view.name)
+            const scrolls = SCROLLING_PAGES.some((page) => page.name === view.name)
             if (scrolls) {
               // The long description is what makes the page scroll, and the editor itself never does (it is as tall as its text).
               const editor = await page.evaluate(() => {

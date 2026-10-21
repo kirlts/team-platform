@@ -299,11 +299,11 @@
     outline-offset: 2px;
   }
 
-  /* On a phone, 16 px avoids iOS's automatic zoom when focusing a field. */
+  /* On a phone, a field at 16 px or more avoids iOS's automatic zoom on focus. The step of the scale that is 16 px or more is the reading size, 17 px (H-2302, UD-191). */
   @media (max-width: 640px) {
     input,
     textarea {
-      font-size: 16px !important;
+      font-size: var(--text-read) !important;
     }
   }
 

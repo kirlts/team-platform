@@ -940,3 +940,19 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 - Una ruta de cierre falsa en los modos sin sesión propia: aparenta cerrar una sesión que no existe.
 **Consecuencias:** Pruebas `panel/src/components/Sidebar.test.tsx`, `panel/src/flows-ronda3a.browser.test.mjs` (tres proveedores y teléfono) e `identity.test.js` «H-2605».
 **Condiciones de reversión:** Si el dueño quiere el botón visible en todo modo, se borra la condición `me && canSignOut(me.provider)` de `Sidebar.tsx`. Si un modo delegado nuevo trae ruta de cierre, se agrega su nombre a `canSignOut`.
+
+## [UD-191] Hallazgos de los detectores en Equipo, Configuración y la ficha del mensaje
+
+**Fecha:** 2026-10-21
+**Contexto:** `npm run ui-detectors -- --screens team,settings,message-detail` dio 5 hallazgos (H-2302). Medidos antes: «Ver más» de 39 x 17 px y correo de 227 x 21 px en Equipo; Configuración con 2,33 ventanas de alto en escritorio y el campo «Proyecto» a 16 px en teléfono; 6 miniaturas sin vista previa con el mismo relleno saturado en la ficha del mensaje, tema oscuro.
+**Decisión:** Decisión de la sesión, tomada por ese encargo; Martín no la dijo con estas palabras y puede revertirla.
+- Objetivos táctiles: «Ver más» y el correo suben a 24 px de alto con relleno y margen negativo del mismo valor; el tamaño de letra y el flujo de la fila no cambian. El relleno del correo va sólo hacia abajo para que su área no se monte sobre la del nombre.
+- Alto de página: `ui-detectors.mjs` lee `SCROLLING_PAGES` de `panel/src/scrolling-pages.mjs`, la misma lista que usa `test:fit` (UD-123), y no marca el alto de las páginas declaradas. La página no se toca.
+- Campo «Proyecto» en teléfono: el campo de texto pasa de 16 px, fuera de la escala, a 17 px, el paso de lectura (`--text-read`). Fuente: Safari en iOS amplía la página al enfocar un campo con tamaño menor a 16 px ([Rick Strahl, «Preventing iOS Textbox Auto-Zooming and ViewPort Sizing»](https://weblog.west-wind.com/posts/2023/Apr/17/Preventing-iOS-Textbox-Auto-Zooming-and-ViewPort-Sizing); [Telerik, «Disable Auto Zoom for Input Controls on iPhone Safari»](https://docs.telerik.com/devtools/aspnet-ajax/knowledge-base/common-disable-autozoom-input-safari-iphone)). Los pasos de la escala son 12, 15, 17 y 18,75 px; 15 provoca el zoom, 17 es el único paso de 16 px o más. Afecta a todo campo en pantallas de hasta 640 px.
+- Peso igual: la miniatura de un adjunto sin vista previa (documento, audio, enlace) y el fondo del video pasan de `accent-soft` a `raised`, neutro, con el ícono en `accent-deep`. Los colores de estado (UD-041) y el chip de área (UD-045) no cambian.
+**Alternativas descartadas:**
+- Agrandar la letra de «Ver más» y del correo: el pedido es no hacer los textos más grandes de lo necesario.
+- Añadir el paso de 16 px a la escala: agrega un cuarto tamaño de apoyo a 1 px de otro.
+- Subir el límite `--max-saturated` o excluir las miniaturas en el detector: tapa la medida en vez de calmar la pantalla.
+**Consecuencias:** Pruebas `panel/src/type-scale.test.ts` (campo en teléfono, paso de la escala y 16 px o más), `panel/src/ui-detectors.test.mjs` (páginas declaradas) y la corrida de `ui-detectors` con 0 hallazgos en las tres pantallas.
+**Condiciones de reversión:** Si el dueño prefiere 16 px, se agrega ese paso a `styles.css` y a `type-scale.test.ts`. Si quiere la miniatura en azul, vuelve `bg-accent-soft` en `Thumb.tsx` y el detector vuelve a marcar la ficha.

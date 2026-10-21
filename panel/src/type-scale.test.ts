@@ -50,4 +50,13 @@ describe('type scale (J1-A-53)', () => {
     }
     expect(found).toEqual([])
   })
+
+  it('the field size on a phone is a step of the scale and at least 16 px, so iOS does not zoom on focus (H-2302, UD-191)', () => {
+    const rule = /@media \(max-width: 640px\)\s*{\s*input,\s*textarea\s*{\s*font-size:\s*([^;!]+?)\s*!important/.exec(css)
+    expect(rule, 'styles.css no fija el tamaño de los campos en teléfono').not.toBeNull()
+    const token = /^var\(--text-([a-z]+)\)$/.exec(rule![1])
+    expect(token, `el tamaño ${rule![1]} no es un paso de la escala`).not.toBeNull()
+    const size = Number(new RegExp(`--text-${token![1]}:\\s*([\\d.]+)rem`).exec(css)![1]) * ROOT_PX
+    expect(size).toBeGreaterThanOrEqual(16)
+  })
 })

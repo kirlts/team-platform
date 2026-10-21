@@ -2,7 +2,8 @@
 services:
   team-platform:
     build: .
-    image: team-platform:local
+    # IMAGE_TAG: a second instance on the same host sets its own tag, or its build would move the tag the first one uses.
+    image: ${IMAGE_TAG:-team-platform:local}
     restart: unless-stopped
     env_file: .env
     environment:

@@ -13,24 +13,26 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 48ca4b1 Traspaso: Configuración en vuelo. Empujado a origin: `48ca4b1`.
-- Ramas con commits sin fusionar: `wt-barra-superior` 9 (hace 73 segundos), `wt-configuracion` 4 (hace 8 segundos), `wt-inicio-respira` 2 (hace 9 minutos).
-- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `barra-superior`, `cierre`, `configuracion`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `inicio-respira`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
+- `main`: 402faf6 Merge branch 'wt-vps-restauracion'. Empujado a origin: `402faf6`.
+- Ramas con commits sin fusionar: `wt-configuracion` 14 (hace 55 segundos), `wt-barra-superior` 12 (hace 11 minutos), `wt-deuda` 8 (hace 68 segundos), `wt-inicio-respira` 4 (hace 2 minutos), `wt-deuda-ingles` 3 (hace 4 minutos), `wt-telemetria-2` 3 (hace 22 segundos), `wt-h904` 1 (hace 43 segundos).
+- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `banco-abiertos`, `barra-lateral`, `barra-superior`, `cierre`, `configuracion`, `deuda`, `deuda-ingles`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `h904-old`, `heic`, `ingles`, `inicio-maqueta`, `inicio-respira`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-2`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `48ca4b1` Traspaso: Configuración en vuelo (hace 6 minutos)
-- `89a1d39` Traspaso: la barra superior no lleva contadores por área (hace 14 minutos)
-- `207697a` Traspaso: instrucción de la barra superior en su sección (hace 16 minutos)
-- `43cf09c` Traspaso: la barra superior sólo con íconos de color y número (hace 16 minutos)
-- `c40b15d` Traspaso: barra superior e Inicio con espacio en vuelo (hace 19 minutos)
-- `14bd755` Traspaso: VPS actualizado, duración medida de la reconstrucción (hace 24 minutos)
-- `0d608f7` Traspaso: Inicio completo en main y VPS reconstruyéndose (hace 29 minutos)
-- `6c971d1` Merge remote-tracking branch 'origin/main' into wt-inicio-maqueta (hace 33 minutos)
-Actualizado 2026-10-21 17:40 UTC.
+- `402faf6` Merge branch 'wt-vps-restauracion' (hace 2 minutos)
+- `9b20211` Instalacion: restauracion de adjuntos, segunda instancia y trusted-header medidos en el VPS (H-2600 a H-2606) (hace 2 minutos)
+- `ce4a6cf` Install: IMAGE_TAG for a second instance, port prompt, password hint (H-2601, H-2603) (hace 2 minutos)
+- `e8c0a59` Backup: copies readable only by their owner (H-2602) (hace 2 minutos)
+- `9014c44` Plan de cierre: primera oración (hace 20 minutos)
+- `ba40c27` Plan de cierre: títulos sin subtítulo y oraciones cortas (hace 21 minutos)
+- `3bf56d6` Plan de cierre: fases, encargos relanzables y barra lateral (hace 22 minutos)
+- `48ca4b1` Traspaso: Configuración en vuelo (hace 39 minutos)
+Actualizado 2026-10-21 18:13 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo
 
 **Plan de cierre:** `docs/PLAN-DE-CIERRE.md` (2026-10-21 15:00). La sesión anterior murió a las 14:42 con la cuota de su cuenta agotada; sus agentes murieron con ella. Quien retome ejecuta ese plan desde la Fase 0: rescata lo sin commit de `configuracion`, `inicio-respira` y `barra-superior`, relanza los encargos A, B, C y G, y sigue el orden de fusión que dice. Encargo nuevo del dueño de hoy: la barra lateral (alineación, contadores sin contenedor, hover), encargo G.
+
+**Avance 15:15.** Fusionado en `main` el encargo del VPS (`402faf6`): restauración con adjuntos, `IMAGE_TAG` para una segunda instancia, respaldos en modo 600, `trusted-header` documentado. Abiertos: H-2605 (cualquier proceso local suplanta a un miembro en ese modo; el botón «Cerrar sesión» da 404, decisión del dueño). En vuelo: barra superior, barra lateral, Inicio, Configuración, telemetría, H-904 y Firefox, banco, deuda técnica.
 
 Tres encargos siguen abiertos, cada uno en su worktree bajo `.claude/worktrees/<nombre>` y su rama `wt-<nombre>`. Los agentes no sobreviven a la sesión: la memoria de cada encargo es su rama y su fila de aquí. Para retomar: `git -C .claude/worktrees/<nombre> log --oneline main..HEAD`, leer sus filas en `docs/HALLAZGOS.md` y sus UD, y continuar en ese worktree. Ninguno empuja a `main`. Se fusiona con `git merge --no-edit wt-<nombre>`, luego `node scripts/check-conflict-markers.mjs`, `npm test`, `node --test bench/`, `cd panel && npx vitest run && npx tsc --noEmit` y las suites de navegador con puertos propios. Si dos ramas chocan en UD o H, se renumera la que entra después. Si una rama choca con `main` en más de dos archivos, se le pide a su agente (o a quien la retome) que haga `git merge main` en su rama y resuelva allí.
 

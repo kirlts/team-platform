@@ -364,7 +364,7 @@ async function withSummary(page, mine, areas = []) {
   await page.route(/\/api\/messages\/summary$/, (route) => route.fulfill({ json: { mine: { ...mine, total: mine.open + mine.answered }, items, areas } }))
 }
 
-describe('la barra superior: estados y áreas (UD-028, UD-029, UD-041, UD-100)', () => {
+describe('the top bar: states and areas (UD-028, UD-029, UD-041, UD-100)', () => {
   const STATE_WORDS = /abiertos?|respondidos?|cerrados?/i
 
   test('each state is its shape and its number with no visible word, its color is the shape and not a fill, in all four combinations and both themes (UD-036, UD-041, UD-100)', async () => {

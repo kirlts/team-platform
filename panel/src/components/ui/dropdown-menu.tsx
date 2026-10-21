@@ -42,6 +42,18 @@ export function DropdownMenuRadioItem({ className, children, ...props }: Compone
   )
 }
 
+/** An option that is on or off; the open menu shows which ones are on (J2-A-13). */
+export function DropdownMenuCheckboxItem({ className, children, ...props }: ComponentProps<typeof Primitive.CheckboxItem>) {
+  return (
+    <Primitive.CheckboxItem className={cn(item, 'pl-7', className)} {...props}>
+      <Primitive.ItemIndicator className="absolute left-2 inline-flex">
+        <Check size={14} aria-hidden />
+      </Primitive.ItemIndicator>
+      {children}
+    </Primitive.CheckboxItem>
+  )
+}
+
 export function DropdownMenuSeparator({ className, ...props }: ComponentProps<typeof Primitive.Separator>) {
   return <Primitive.Separator className={cn('-mx-1 my-1 h-px bg-line', className)} {...props} />
 }

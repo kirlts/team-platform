@@ -3,7 +3,7 @@ import { useState, type ReactNode } from 'react'
 import { NavLink, useMatch } from 'react-router'
 import { Link } from 'react-router'
 import { NotifyBadge } from '@/components/NotifyBadge'
-import { useT } from '@/i18n'
+import { useT, type MessageKey } from '@/i18n'
 import { areaMessagesPath, areaPendingCounts, mineCounts } from '@/lib/pending'
 import type { MessageSummary } from '@/lib/types'
 import { useAreas, useMe, useSaveArea, useSummary } from '@/lib/queries'
@@ -11,12 +11,12 @@ import { cn } from '@/lib/utils'
 import { Avatar } from './Avatar'
 import { FormDialog } from './FormDialog'
 
-/** The connections UD-012 names; none can be used yet. */
-const CONNECTIONS = ['connections.api', 'connections.mcp', 'connections.email', 'connections.whatsapp', 'connections.github'] as const
+import { CONNECTIONS } from '@/lib/connections'
 
 const row =
-  'flex min-h-9 items-center gap-2.5 rounded-[1.125rem] border border-transparent px-3 py-1.5 text-sm font-medium text-fg transition-colors duration-150 hover:bg-glass'
-const active = 'border-glass-line bg-[linear-gradient(180deg,var(--color-glass-edge),var(--color-glass))] text-accent-deep shadow-glass hover:bg-glass-edge'
+  'flex min-h-9 items-center gap-2.5 rounded-md border border-transparent px-3 py-1.5 text-sm font-medium text-fg transition-colors duration-150 hover:bg-glass'
+/** What is selected looks the same everywhere (J2-A-41): the `selected` fill and the accent bar on the edge, as the rows of Áreas. */
+const active = 'bg-selected font-semibold shadow-[inset_4px_0_0_var(--color-accent)] hover:bg-selected'
 
 function Item({ to, icon, children, end, onNavigate, badge }: { to: string; icon: ReactNode; children: ReactNode; end?: boolean; onNavigate?: () => void; badge?: ReactNode }) {
   return (
@@ -40,15 +40,16 @@ export function Sidebar({ onNavigate, onLogout }: { onNavigate?: () => void; onL
   const inAreas = !!useMatch('/areas/*')
   const [areasOpen, setAreasOpen] = useState(true)
   const [creating, setCreating] = useState(false)
-  const [connectionsOpen, setConnectionsOpen] = useState(false)
+  const inConnections = !!useMatch('/connections/*')
+  const [connectionsOpen, setConnectionsOpen] = useState(inConnections)
 
   return (
     <nav aria-label={t('nav.label')} className="flex h-full min-h-0 flex-col gap-1 p-3">
       <div className="mb-3 flex shrink-0 items-center gap-2.5 border-b border-line px-2 pb-3 pt-1">
         <Avatar name={me?.name ?? '?'} size={30} />
         <span className="min-w-0 flex-1 break-words text-sm font-medium leading-tight">{me?.name}</span>
-        <button type="button" onClick={onLogout} aria-label={t('nav.logout')} title={t('nav.logout')} className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs text-muted hover:bg-glass hover:text-fg">
-          <LogOut size={14} aria-hidden /> {t('nav.logoutShort')}
+        <button type="button" onClick={onLogout} className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-xs text-muted hover:bg-glass hover:text-fg">
+          <LogOut size={14} aria-hidden /> {t('nav.logout')}
         </button>
       </div>
 
@@ -101,18 +102,30 @@ export function Sidebar({ onNavigate, onLogout }: { onNavigate?: () => void; onL
 
       <div className="mt-auto flex shrink-0 flex-col gap-1 border-t border-line pt-3">
       {editor && (
-        // The group of the mockup (API, MCP, Correo...), all without a destination yet: muted, next to Configuración (J1-A-07); the reason is the tooltip.
+        // The group of the mockup (API, MCP, Correo...): each one is a destination (J2-A-34), and every one says it is not available yet.
         <div>
-          <button type="button" title={t('nav.connectionsReason')} aria-expanded={connectionsOpen} onClick={() => setConnectionsOpen((v) => !v)} className={cn(row, 'w-full text-left text-muted')}>
-            <Plug size={16} aria-hidden className="shrink-0" />
-            <span className="min-w-0 flex-1 leading-tight">{t('nav.connections')}</span>
-            <ChevronDown size={15} aria-hidden className={cn('shrink-0 transition-transform', !connectionsOpen && '-rotate-90')} />
-          </button>
+          <div className="flex items-center">
+            <NavLink to="/connections" end onClick={onNavigate} className={({ isActive }) => cn(row, 'flex-1', isActive && active)}>
+              <Plug size={16} aria-hidden className="shrink-0" />
+              <span className="min-w-0 flex-1 leading-tight">{t('nav.connections')}</span>
+            </NavLink>
+            <button
+              type="button"
+              aria-label={connectionsOpen ? t('nav.foldConnections') : t('nav.unfoldConnections')}
+              aria-expanded={connectionsOpen}
+              onClick={() => setConnectionsOpen((v) => !v)}
+              className="rounded-full p-1.5 text-muted hover:bg-glass hover:text-fg"
+            >
+              <ChevronDown size={15} aria-hidden className={cn('transition-transform', !connectionsOpen && '-rotate-90')} />
+            </button>
+          </div>
           {connectionsOpen && (
-            <ul className="ml-[1.35rem] mt-0.5 flex flex-col gap-0.5 border-l border-line-strong pl-2">
+            <ul className="ml-3 mt-0.5 flex flex-col gap-0.5 border-l border-line-strong pl-1">
               {CONNECTIONS.map((c) => (
-                <li key={c} aria-disabled="true" className={cn(row, 'min-h-8 cursor-not-allowed text-sm text-muted hover:bg-transparent')}>
-                  {t(c)}
+                <li key={c}>
+                  <NavLink to={`/connections/${c}`} onClick={onNavigate} className={({ isActive }) => cn(row, 'min-h-8 text-sm', isActive && active)}>
+                    {t(`connections.${c}` as MessageKey)}
+                  </NavLink>
                 </li>
               ))}
             </ul>

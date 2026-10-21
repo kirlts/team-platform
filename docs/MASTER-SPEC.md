@@ -30,7 +30,7 @@ Fuentes de este documento: `idea.md` (volcado de diseño de Martín, 2026-10-20)
 |---|---|---|
 | **Input** | Lo que una persona envía desde la barra de Inicio o, más adelante, por una conexión: texto y cero o más adjuntos (fotos, videos, audio, documentos, enlaces). | Un input se analiza una vez y produce una propuesta. |
 | **Propuesta** | El resultado del análisis: N mensajes, cada uno en su área y redactado según la plantilla de esa área, con sus destinatarios y adjuntos. | Se publica sola al terminar el análisis, si es válida (UD-070, que enmienda UD-003); con la perilla `auto_publish` apagada espera la confirmación del emisor. |
-| **Mensaje** | Una comunicación de una persona hacia el equipo o hacia un miembro. Siempre espera respuesta. | Estados: `abierto` (sin respuesta), `respondido` (con respuesta, no cerrado), `cerrado` (con o sin respuesta). Sólo un miembro distinto del emisor responde; cualquier miembro cierra o reabre. Sólo el emisor edita su mensaje, tampoco un Editor (UD-071); cada edición deja su historial y el mensaje muestra «editado» con la hora. |
+| **Mensaje** | Una comunicación de una persona hacia el equipo o hacia un miembro. Siempre espera respuesta. | Estados, derivados de las respuestas y del cierre y nunca escritos a mano (UD-042): `abierto` (sin respuesta), `respondido` (con una respuesta o más, no cerrado, sea cual sea su contenido), `cerrado` (con o sin respuesta). Sólo un miembro distinto del emisor responde; cualquier miembro cierra o reabre. Sólo el emisor edita su mensaje, tampoco un Editor (UD-071); cada edición deja su historial y el mensaje muestra «editado» con la hora. |
 | **Respuesta** | La contraparte del mensaje: respuesta directa, reporte de arreglo, pedido de aclaración. | Depende de un mensaje. |
 | **Hilo** | Una respuesta seguida de más respuestas sobre el mismo mensaje. | Lineal, como los comentarios de un issue de GitHub. |
 | **Área** | Categoría de un mensaje. Las áreas son mutuamente excluyentes y colectivamente exhaustivas para toda comunicación interna que busque respuesta. | Título y descripción. Las gestiona el Editor. Juego inicial: idea, error, nueva funcionalidad, retroalimentación, pregunta. |
@@ -216,9 +216,9 @@ Desarrollo del panel: Vite 8, Tailwind 4.3 con `@tailwindcss/vite` (MIT), TypeSc
 
 | Vista | Qué muestra | Quién |
 |---|---|---|
-| Inicio | De arriba abajo (UD-046): franja de una fila con «Para mí» y «Por área»; nombre del proyecto y fecha; «Nuevo mensaje» con la barra de texto; el desplegable en línea que se abre solo al enviar y muestra el original a la izquierda y el análisis a la derecha, con los mensajes ya publicados y editables por su autor (UD-070, UD-071), y el selector de los envíos propios con su estado; «Últimos mensajes» y «Últimas respuestas», que se pliegan a una franja cuando la ventana no alcanza para el desplegable y para ellas | Todos |
+| Inicio | De arriba abajo (UD-046): franja de una fila con «Para mí» (mensajes abiertos y respondidos que me afectan) y «Por área»; nombre del proyecto y fecha; «Nuevo mensaje» con la barra de texto; el desplegable en línea que se abre solo al enviar y muestra el original a la izquierda y el análisis a la derecha, con los mensajes ya publicados y editables por su autor (UD-070, UD-071), y el selector de los envíos propios con su estado; «Últimos mensajes» y «Últimas respuestas», que se pliegan a una franja cuando la ventana no alcanza para el desplegable y para ellas | Todos |
 | Mensajes | Todos los mensajes del equipo con filtros: para mí, para X, por área, por estado, respuestas; búsqueda | Todos |
-| Áreas | Áreas con su conteo de abiertos y sus plantillas; edición en el lugar | Editor |
+| Áreas | Lista de áreas con su conteo de abiertos y respondidos, para crearlas y abrirlas. Cada área abre su vista (`/areas/:id`): sus mensajes primero, con el filtro por los tres estados y su conteo, y plegadas su descripción y sus plantillas, con edición en el lugar (UD-041) | Editor |
 | Equipo | Miembros con su perfil; cada uno edita el suyo | Todos |
 | Conexiones | API, MCP, correo, WhatsApp, GitHub Issues (UD-012). Apagada: visible como entrada deshabilitada con la razón | Editor |
 | Configuración | Cuenta, tema claro u oscuro, proveedores de modelo (Editor) | Todos |
@@ -227,8 +227,8 @@ Desarrollo del panel: Vite 8, Tailwind 4.3 con `@tailwindcss/vite` (MIT), TypeSc
 
 | Componente | Función | Archivo |
 | --- | --- | --- |
-| `Sidebar` | Navegación compacta y ocultable (UD-047), usuario, color y conteo de abiertos por área | `panel/src/components/Sidebar.tsx` |
-| `NotifyBadge`, `ToneMark` | Insignia grande y marca de prioridad: fondo del color de la prioridad más alta presente (rojo, amarillo, azul), con forma, palabra y número (UD-029). La prioridad se decide en `panel/src/lib/priority.ts` | `panel/src/components/NotifyBadge.tsx` |
+| `Sidebar` | Navegación compacta y ocultable (UD-047), usuario, color y conteo de abiertos y respondidos por área | `panel/src/components/Sidebar.tsx` |
+| `NotifyBadge`, `StateMark` | Insignia y marca de estado: abierto rojo, respondido amarillo, cerrado azul, con forma, palabra y número; la campana toma el color del estado más alto presente (UD-029, UD-041). El estado más alto se decide en `panel/src/lib/states.ts` | `panel/src/components/NotifyBadge.tsx` |
 | `ComposeBar` | Barra de nuevo mensaje con adjuntos, cámara, micrófono, enviar | `panel/src/components/ComposeBar.tsx` |
 | `SendDrawer`, `InputPreview`, `PublishedPane` | Desplegable bajo la barra: original editable con su galería, análisis publicado y editable en el lugar, selector de envíos (UD-046) | `panel/src/components/SendDrawer.tsx` |
 | `AreaChip`, `AreaColorPicker`, `lib/area-color.ts` | Chip de área, selector de un color y derivación del color secundario en OKLCH (UD-045) | `panel/src/components/AreaChip.tsx` |
@@ -279,7 +279,7 @@ POST   /api/inputs/:id/reprocess  (Editor) vuelve a encolar el análisis conserv
 GET    /api/events                SSE por miembro (§7.10); ?job_id= lo acota a un trabajo
 
 GET    /api/messages?for=me|id&area=&status=&q=&replies=1
-GET    /api/messages/summary      lo que afecta a quien tiene la sesión por prioridad (`mine`: red, yellow, blue, total) y los abiertos por área (`areas`: open, mine_open) (UD-028)
+GET    /api/messages/summary      lo que afecta a quien tiene la sesión por estado (`mine`: open, answered, total) y los mensajes de cada área por estado (`areas`: open, answered, closed, mine_open) (UD-028, UD-041)
 GET    /api/messages/:id          mensaje, hilo, adjuntos
 GET    /api/attachments/:id/transcript  texto extraído de un audio o video (UD-059)
 POST   /api/messages/:id/replies  { body, kind: answer|fix|clarification }   (403 si quien responde es el emisor)

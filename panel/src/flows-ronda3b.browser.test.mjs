@@ -393,7 +393,11 @@ describe('failure, publication and notices (J3-B-14, J3-B-15, J3-B-29)', () => {
       assert.ok(n.y + n.height <= 56, `el aviso queda en la barra superior: ${n.y + n.height}`)
       assert.equal(await card(), before, 'la tarjeta de Para mí no cambia de alto al publicar')
       for (const label of ['Página siguiente', 'Página anterior']) {
-        for (const b of await page.getByRole('button', { name: label }).all()) assert.equal(overlap(n, await rect(b)), false, `el aviso no tapa «${label}»`)
+        for (const b of await page.getByRole('button', { name: label }).all()) {
+          // A pager arrow that is being measured again is not drawn for a moment: there is nothing under the notice then.
+          const box = await rect(b)
+          if (box) assert.equal(overlap(n, box), false, `el aviso no tapa «${label}»`)
+        }
       }
     } finally {
       await context.close()

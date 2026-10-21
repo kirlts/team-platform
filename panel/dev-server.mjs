@@ -131,44 +131,51 @@ const messages = []
 /** @type {Map<string, any[]>} */
 const replies = new Map()
 
+/** The state of a message, derived as the real API does (UD-042): closed when it was closed; otherwise answered with one reply or more, and open without any. Never written by hand. */
+function syncStatus(msg) {
+  msg.status = msg.closed_at ? 'closed' : (replies.get(msg.id) ?? []).length > 0 ? 'answered' : 'open'
+  return msg.status
+}
+
 function seedMessage(m, rs = []) {
   const msg = { id: `m-${id()}`, input_id: null, closed_at: null, ...m }
   messages.push(msg)
   replies.set(msg.id, rs.map((r) => ({ id: `r-${id()}`, message_id: msg.id, attachment_ids: [], ...r })))
+  syncStatus(msg)
   return msg
 }
 
-seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Corregir el contraste del botón Enviar en el inicio', body: 'El botón Enviar de la barra de nuevo mensaje casi no se distingue del fondo en el tema oscuro.\n\nPasos: abrir Inicio con el tema oscuro y mirar la barra.', status: 'open', created_at: ago(35), assignee_ids: ['u-bruno', 'u-ana'], attachment_ids: [imgDashboard] })
-seedMessage({ area_id: 'a-feature', author_id: 'u-diego', title: 'Agregar exportación de mensajes cerrados', body: 'El cliente pidió bajar los mensajes cerrados del mes en un archivo para su revisión.', status: 'answered', created_at: ago(190), assignee_ids: ['u-ana'], attachment_ids: [docFeedback] }, [
+seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Corregir el contraste del botón Enviar en el inicio', body: 'El botón Enviar de la barra de nuevo mensaje casi no se distingue del fondo en el tema oscuro.\n\nPasos: abrir Inicio con el tema oscuro y mirar la barra.', created_at: ago(35), assignee_ids: ['u-bruno', 'u-ana'], attachment_ids: [imgDashboard] })
+seedMessage({ area_id: 'a-feature', author_id: 'u-diego', title: 'Agregar exportación de mensajes cerrados', body: 'El cliente pidió bajar los mensajes cerrados del mes en un archivo para su revisión.', created_at: ago(190), assignee_ids: ['u-ana'], attachment_ids: [docFeedback] }, [
   { author_id: 'u-ana', kind: 'clarification', body: '¿El formato es CSV o una hoja de cálculo? Cambia el esfuerzo.', created_at: ago(120) },
   { author_id: 'u-diego', kind: 'answer', body: 'CSV alcanza.', created_at: ago(90) },
 ])
-seedMessage({ area_id: 'a-pregunta', author_id: 'u-bruno', title: 'Definir el tamaño máximo de un video', body: '¿Cuál es el límite de video que vamos a aceptar en la primera versión?', status: 'open', created_at: ago(26 * 60), assignee_ids: ['u-ana', 'u-diego'], attachment_ids: [] })
-seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Arreglar el error al iniciar sesión con correo en mayúsculas', body: 'Con el correo escrito en mayúsculas el inicio de sesión responde que la cuenta no existe.', status: 'answered', created_at: ago(28 * 60), assignee_ids: ['u-ana', 'u-carla'], attachment_ids: [imgLogin] }, [
+seedMessage({ area_id: 'a-pregunta', author_id: 'u-bruno', title: 'Definir el tamaño máximo de un video', body: '¿Cuál es el límite de video que vamos a aceptar en la primera versión?', created_at: ago(26 * 60), assignee_ids: ['u-ana', 'u-diego'], attachment_ids: [] })
+seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Arreglar el error al iniciar sesión con correo en mayúsculas', body: 'Con el correo escrito en mayúsculas el inicio de sesión responde que la cuenta no existe.', created_at: ago(28 * 60), assignee_ids: ['u-ana', 'u-carla'], attachment_ids: [imgLogin] }, [
   { author_id: 'u-bruno', kind: 'fix', body: 'Corregido en la rama de acceso: el correo se normaliza antes de buscar.', created_at: ago(26 * 60) },
 ])
-seedMessage({ area_id: 'a-idea', author_id: 'u-diego', title: 'Probar un resumen semanal por área', body: 'Un resumen de lo cerrado y lo abierto por área cada lunes ayudaría a la reunión de equipo.', status: 'open', created_at: ago(50 * 60), assignee_ids: [], attachment_ids: [] })
-seedMessage({ area_id: 'a-feedback', author_id: 'u-bruno', title: 'Las fechas de la agenda se leen mejor con el día de la semana', body: 'En la captura de la agenda las fechas sin día de la semana obligan a contar. Sugiero agregarlo.', status: 'closed', created_at: ago(72 * 60), closed_at: ago(60 * 60), assignee_ids: ['u-carla'], attachment_ids: [imgAgenda, audioNota] }, [
+seedMessage({ area_id: 'a-idea', author_id: 'u-diego', title: 'Probar un resumen semanal por área', body: 'Un resumen de lo cerrado y lo abierto por área cada lunes ayudaría a la reunión de equipo.', created_at: ago(50 * 60), assignee_ids: [], attachment_ids: [] })
+seedMessage({ area_id: 'a-feedback', author_id: 'u-bruno', title: 'Las fechas de la agenda se leen mejor con el día de la semana', body: 'En la captura de la agenda las fechas sin día de la semana obligan a contar. Sugiero agregarlo.', created_at: ago(72 * 60), closed_at: ago(60 * 60), assignee_ids: ['u-carla'], attachment_ids: [imgAgenda, audioNota] }, [
   { author_id: 'u-carla', kind: 'answer', body: 'Hecho en la última versión.', created_at: ago(61 * 60) },
 ])
-seedMessage({ area_id: 'a-error', author_id: 'u-ana', title: 'Revisar el tiempo de respuesta de la lista de mensajes', body: 'Con más de doscientos mensajes la lista tarda en abrir.', status: 'open', created_at: ago(96 * 60), assignee_ids: ['u-bruno'], attachment_ids: [] })
+seedMessage({ area_id: 'a-error', author_id: 'u-ana', title: 'Revisar el tiempo de respuesta de la lista de mensajes', body: 'Con más de doscientos mensajes la lista tarda en abrir.', created_at: ago(96 * 60), assignee_ids: ['u-bruno'], attachment_ids: [] })
 
 // A message Ana sent that someone answered: blue for her (informative), since it is not assigned to her.
-seedMessage({ area_id: 'a-pregunta', author_id: 'u-ana', title: 'Confirmar el formato de las capturas del informe', body: 'Para el informe mensual necesito saber si las capturas van en PNG o en JPG.', status: 'answered', created_at: ago(40), fields: { question: 'PNG o JPG para las capturas del informe.' }, assignee_ids: ['u-bruno'], attachment_ids: [] }, [
+seedMessage({ area_id: 'a-pregunta', author_id: 'u-ana', title: 'Confirmar el formato de las capturas del informe', body: 'Para el informe mensual necesito saber si las capturas van en PNG o en JPG.', created_at: ago(40), fields: { question: 'PNG o JPG para las capturas del informe.' }, assignee_ids: ['u-bruno'], attachment_ids: [] }, [
   { author_id: 'u-bruno', kind: 'answer', body: 'PNG: las capturas con texto se ven nítidas.', created_at: ago(18) },
 ])
 
 // Messages with every media type, long titles and many recipients, to see how the text is distributed.
 const everyone = members.map((x) => x.id)
-seedMessage({ area_id: 'a-accesibilidad', author_id: 'u-carla', title: 'Revisar la lectura del panel en teléfonos pequeños con el tamaño de letra del sistema al máximo y el tema oscuro activado', body: 'En un teléfono de 360 píxeles de ancho con la letra del sistema al máximo, varias filas se desbordan. Adjunto una captura, la grabación, una nota de voz, el documento con el detalle y el caso en GitHub.', status: 'open', created_at: ago(12), fields: { summary: 'La fila de mensajes se desborda con la letra del sistema al máximo.', device: 'Teléfono de 360 píxeles de ancho con Android' }, assignee_ids: everyone.filter((x) => x !== 'u-carla'), attachment_ids: [imgDashboard, videoDemo, audioNota, docFeedback, linkIssue] }, [
+seedMessage({ area_id: 'a-accesibilidad', author_id: 'u-carla', title: 'Revisar la lectura del panel en teléfonos pequeños con el tamaño de letra del sistema al máximo y el tema oscuro activado', body: 'En un teléfono de 360 píxeles de ancho con la letra del sistema al máximo, varias filas se desbordan. Adjunto una captura, la grabación, una nota de voz, el documento con el detalle y el caso en GitHub.', created_at: ago(12), fields: { summary: 'La fila de mensajes se desborda con la letra del sistema al máximo.', device: 'Teléfono de 360 píxeles de ancho con Android' }, assignee_ids: everyone.filter((x) => x !== 'u-carla'), attachment_ids: [imgDashboard, videoDemo, audioNota, docFeedback, linkIssue] }, [
   { author_id: 'u-maria', kind: 'clarification', body: 'Cuando dices tamaño máximo, ¿hablas del ajuste de accesibilidad de Android o del zoom del navegador? Cambia dónde se arregla.', created_at: ago(8), attachment_ids: [imgLogin, audioNota] },
   { author_id: 'u-ana', kind: 'answer', body: 'Del ajuste de Android. Dejo la grabación del caso.', created_at: ago(5), attachment_ids: [videoDemo, docFeedback, linkIssue] },
 ])
-seedMessage({ area_id: 'a-error', author_id: 'u-diego', title: 'Grabación del cierre de sesión que no borra la sesión anterior', body: 'Se ve en el video: después de cerrar sesión, al volver atrás el panel muestra los mensajes.', status: 'answered', created_at: ago(20), assignee_ids: ['u-ana', 'u-maria'], attachment_ids: [videoDemo] }, [
+seedMessage({ area_id: 'a-error', author_id: 'u-diego', title: 'Grabación del cierre de sesión que no borra la sesión anterior', body: 'Se ve en el video: después de cerrar sesión, al volver atrás el panel muestra los mensajes.', created_at: ago(20), assignee_ids: ['u-ana', 'u-maria'], attachment_ids: [videoDemo] }, [
   { author_id: 'u-ana', kind: 'fix', body: 'Corregido: al cerrar sesión se vacía la caché de consultas.', created_at: ago(15), attachment_ids: [linkIssue] },
 ])
-seedMessage({ area_id: 'a-idea', author_id: 'u-bruno', title: 'Nota de voz con la idea del resumen semanal', body: 'La dejé hablada porque es más rápido.', status: 'open', created_at: ago(40), assignee_ids: ['u-ana'], attachment_ids: [audioNota] })
-seedMessage({ area_id: 'a-pregunta', author_id: 'u-diego', title: 'Enlace al caso del cliente', body: 'El cliente lo escribió en su sistema.', status: 'open', created_at: ago(45), assignee_ids: ['u-ana'], attachment_ids: [linkIssue] })
+seedMessage({ area_id: 'a-idea', author_id: 'u-bruno', title: 'Nota de voz con la idea del resumen semanal', body: 'La dejé hablada porque es más rápido.', created_at: ago(40), assignee_ids: ['u-ana'], attachment_ids: [audioNota] })
+seedMessage({ area_id: 'a-pregunta', author_id: 'u-diego', title: 'Enlace al caso del cliente', body: 'El cliente lo escribió en su sistema.', created_at: ago(45), assignee_ids: ['u-ana'], attachment_ids: [linkIssue] })
 
 // Messages that show every kind of gallery, only with PANEL_DEV_MEDIA=1 so the other tests keep the data they count on.
 // Everything here is development sample data, like the rest of the file.
@@ -178,11 +185,11 @@ if (process.env.PANEL_DEV_MEDIA === '1') {
   const voice = seedAttachment('audio', 'audio/wav', 'nota-con-texto.wav', silentWav(8))
   attachments.get(voice).transcript = 'Primero, el botón Enviar no se distingue en el tema oscuro. Segundo, la lista tarda en abrir cuando hay muchos mensajes.'
   const broken = seedAttachment('image', 'image/png', 'foto-dañada.png', Buffer.from('no es una imagen'))
-  seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Galería de seis fotos', body: 'Seis capturas de la misma pantalla.', status: 'open', created_at: ago(2), assignee_ids: ['u-ana'], attachment_ids: photos })
-  seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Fotos mezcladas con un video', body: 'Tres capturas y la grabación.', status: 'open', created_at: ago(3), assignee_ids: ['u-ana'], attachment_ids: [photos[0], videoDemo, photos[1], photos[2]] })
-  seedMessage({ area_id: 'a-idea', author_id: 'u-bruno', title: 'Nota de voz con su transcripción', body: 'La nota dicha en voz alta.', status: 'open', created_at: ago(4), assignee_ids: ['u-ana'], attachment_ids: [voice] })
-  seedMessage({ area_id: 'a-pregunta', author_id: 'u-diego', title: 'Informe en PDF y una foto dañada', body: 'El informe del cliente y una foto que no abre.', status: 'open', created_at: ago(5), assignee_ids: ['u-ana'], attachment_ids: [pdf, broken, linkIssue] })
-  seedMessage({ area_id: 'a-error', author_id: 'u-diego', title: 'Una sola foto', body: 'Un solo medio no lleva carrusel.', status: 'open', created_at: ago(6), assignee_ids: ['u-ana'], attachment_ids: [photos[3]] })
+  seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Galería de seis fotos', body: 'Seis capturas de la misma pantalla.', created_at: ago(2), assignee_ids: ['u-ana'], attachment_ids: photos })
+  seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Fotos mezcladas con un video', body: 'Tres capturas y la grabación.', created_at: ago(3), assignee_ids: ['u-ana'], attachment_ids: [photos[0], videoDemo, photos[1], photos[2]] })
+  seedMessage({ area_id: 'a-idea', author_id: 'u-bruno', title: 'Nota de voz con su transcripción', body: 'La nota dicha en voz alta.', created_at: ago(4), assignee_ids: ['u-ana'], attachment_ids: [voice] })
+  seedMessage({ area_id: 'a-pregunta', author_id: 'u-diego', title: 'Informe en PDF y una foto dañada', body: 'El informe del cliente y una foto que no abre.', created_at: ago(5), assignee_ids: ['u-ana'], attachment_ids: [pdf, broken, linkIssue] })
+  seedMessage({ area_id: 'a-error', author_id: 'u-diego', title: 'Una sola foto', body: 'Un solo medio no lleva carrusel.', created_at: ago(6), assignee_ids: ['u-ana'], attachment_ids: [photos[3]] })
 }
 
 /** Fields a template declares in its frontmatter: `- { name: x, label: Y, required: true }`. */
@@ -678,7 +685,7 @@ const server = createServer(async (req, res) => {
     // --- development only: simulates a message arriving from another member (tests the SSE notice)
     if (path === '/_dev/incoming' && method === 'POST') {
       const from = members.find((x) => x.id !== me.id)
-      const msg = seedMessage({ area_id: 'a-pregunta', author_id: from.id, title: 'Confirmar el límite de adjuntos por mensaje', body: 'Mensaje entrante de ejemplo, generado por el servidor de desarrollo.', status: 'open', created_at: new Date().toISOString(), assignee_ids: [me.id], attachment_ids: [] })
+      const msg = seedMessage({ area_id: 'a-pregunta', author_id: from.id, title: 'Confirmar el límite de adjuntos por mensaje', body: 'Mensaje entrante de ejemplo, generado por el servidor de desarrollo.', created_at: new Date().toISOString(), assignee_ids: [me.id], attachment_ids: [] })
       emit(me.id, 'message', { message_id: msg.id, title: msg.title, author_id: from.id, at: msg.created_at })
       return send(res, 201, { message_id: msg.id })
     }
@@ -930,17 +937,17 @@ const server = createServer(async (req, res) => {
         const body = { body: text, kind: kind ?? 'answer' }
         const reply = { id: `r-${id()}`, message_id: msg.id, author_id: me.id, body: body.body.trim(), kind: body.kind, created_at: new Date().toISOString(), attachment_ids: attIds }
         replies.get(msg.id).push(reply)
-        if (msg.status === 'open') msg.status = 'answered'
+        syncStatus(msg)
         return send(res, 201, replyView(reply))
       }
       if (m[2] === 'close' && method === 'POST') {
-        msg.status = 'closed'
         msg.closed_at = new Date().toISOString()
+        syncStatus(msg)
         return send(res, 200, { id: msg.id, status: msg.status, closed_at: msg.closed_at })
       }
       if (m[2] === 'reopen' && method === 'POST') {
-        msg.status = (replies.get(msg.id) ?? []).length ? 'answered' : 'open'
         msg.closed_at = null
+        syncStatus(msg)
         // As the real API: the reopened message says which state it went back to (answered when it has replies).
         return send(res, 200, { id: msg.id, status: msg.status, closed_at: null })
       }

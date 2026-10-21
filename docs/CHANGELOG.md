@@ -11,8 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Galería de medios del panel (`MediaGallery`, UD-059) y `GET /api/attachments/:id/transcript`.
 - `scripts/vps-check.mjs`: comprobación de punta a punta de una instancia desplegada (página, salud, panel servido, inicio de sesión, un texto mixto y su propuesta), con `--last` para describir el último envío (H-89, H-56).
 - `bench/run-private.mjs run --plan`: ensayo en seco de una corrida del banco privado; no llama a ningún proveedor, rechaza un modelo sin tarifa y un tope ya gastado.
-- `GET /api/messages/summary`: lo que afecta a cada miembro por prioridad (rojo, amarillo, azul) y los mensajes abiertos por área (UD-028).
-- Panel: insignia grande en la pestaña Mensajes y en la campana, con el fondo de la prioridad más alta presente; pendientes por área clicables hacia Mensajes filtrado (UD-028, UD-029).
+- `GET /api/messages/summary`: lo que afecta a cada miembro por estado (abierto, respondido) y los mensajes de cada área por estado (UD-028, UD-041).
+- Panel: insignia grande en la pestaña Mensajes y en la campana, con el fondo del estado más alto presente (abierto rojo, respondido amarillo, cerrado azul); conteos por área clicables hacia Mensajes filtrado (UD-028, UD-029, UD-041).
+- Panel: cada área abre su vista con sus mensajes, el filtro por estado y, plegadas, su descripción y sus plantillas (UD-041).
 - Eje documental Kairós: MASTER-SPEC v0.1.0, RULES, REPOMAP, USER-DECISIONS (UD-001 a UD-015), TEST, TECHNICAL-DEBT y TODO con ocho épicos.
 - Investigaciones fechadas 2026-10-20 (siete informes) y dos mediciones: extractores y primera corrida real del analizador.
 - Licencia MIT; `idea.md` y la maqueta `Plataforma Team.png` como fuentes de diseño.

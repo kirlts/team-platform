@@ -202,9 +202,13 @@ UD-018. La interfaz sale de dos catálogos, `src/i18n/es-419.ts` (por omisión) 
 - El área de un mensaje es una pestaña de cromo con esquinas opuestas redondeadas; el estado es una insignia con luz.
 - Los anchos de columna siguen el contenido: la lista de mensajes ocupa 60 rem y deja el resto al fondo.
 
-## Avisos de prioridad
+## Estados y avisos
 
-UD-029 y ronda 2. Lo que afecta a la persona sale de una sola fuente, `GET /messages/summary`. Hay un solo lugar protagonista: la campana de la barra superior, el único relleno saturado de la interfaz. Mensajes, los chips de Para mí, los pendientes por área y la marca de cada fila llevan la misma prioridad en peso suave. El peso suave es un tinte (`tone-*-soft-bg`) con contorno de 1 px, forma, palabra y número. El color sigue siendo el de la prioridad más alta presente. Para mí no repite el total de la campana: lleva un chip por prioridad. La campana lista, mensaje por mensaje, lo que su número suma (`items` del resumen); un mensaje cerrado no figura, no lleva borde de urgencia ni marca. Un contador que cambia de una cifra a otra pulsa una vez. `npm run contraste` mide el texto suave sobre su tinte (4,5) y el contorno sobre el tinte (3).
+UD-029, UD-036 y UD-041. Un mensaje tiene tres estados y la interfaz no muestra otra categoría: abierto rojo, respondido amarillo, cerrado azul, siempre con su forma (triángulo, reloj, punto), su palabra y el número. Lo que afecta a la persona sale de una sola fuente, `GET /messages/summary`. Hay un solo lugar protagonista: la campana de la barra superior, el único relleno saturado de la interfaz, con el color del estado más alto presente (abierto antes que respondido; los cerrados no avisan). Mensajes, los chips de Para mí, los conteos por área y la marca de cada fila van en peso callado: fondo neutro y el estado sólo en el color de su forma. El borde izquierdo de cada fila lleva el color de su estado, también el de un cerrado. Los conteos por área dicen «N abiertos» y «N respondidos» y llevan a Mensajes filtrado por esa área y ese estado. La campana lista, mensaje por mensaje, lo que su número suma (`items` del resumen), cada uno con la palabra de su estado. Un contador que cambia de una cifra a otra pulsa una vez. `npm run contraste` mide el texto sobre el relleno de la campana (4,5) y el borde de cada estado sobre vidrio, cromo y su fondo suave (3).
+
+## Vista de un área
+
+UD-041. `/areas/:areaId`: el título editable en el lugar, el filtro por los tres estados con el conteo de cada uno (`StateTabs`, el estado elegido vive en la URL), la lista de mensajes de Mensajes filtrada por el área, y debajo dos secciones plegadas (`Fold`): Descripción, con el lugar del control de color del área, y Plantillas. La lista ocupa lo que queda y pagina; abiertas las dos secciones la vista sigue cabiendo en una pantalla.
 
 ## Avisos de la pantalla
 
@@ -237,7 +241,7 @@ J y K recorren los envíos. Intro no publica desde ningún lado: publicar es un 
 
 - Una acción de fila se dibuja siempre, en reposo sin fondo, en toda lista y en toda pantalla (J2-A-11). Lo que sólo existe bajo el cursor no existe para el teclado ni para el tacto: la × de un destinatario y Responder o Cerrar de una fila siguen la misma regla.
 - Lo elegido se ve igual en todas partes: relleno `selected` y barra de acento de 4 px en la barra lateral, en las filas de Áreas y de Conexiones, y borde de acento con ese relleno en los controles segmentados (J2-A-41).
-- El estado de un mensaje en una fila es la luz y la palabra, sin píldora (`StatusBadge quiet`): una fila tiene una sola marca rellena, la de prioridad (J2-A-05).
+- El estado de un mensaje en una fila es la luz y la palabra, sin píldora (`StatusBadge quiet`): una fila dice su estado una sola vez, con su forma y su palabra (J2-A-05, UD-041).
 - Una acción reversible se confirma bajo la barra superior con su Deshacer (`undo.run(op, { announce })`): cerrar o reabrir (con el estado al que vuelve), desactivar o reactivar, reemplazar la descripción del proyecto. Eliminar una plantilla deja en su lugar una fila ««Nombre» eliminada» con Deshacer, mientras no se haga otra cosa (J2-A-18, J2-A-23, J2-A-30, J2-A-35). Deshacer y Rehacer de la pantalla son de vidrio sin relleno: pesan menos que la acción.
 - La ventana de campos de una plantilla guarda al instante (UD-017) y lo dice con «Guardado» al pie, junto al único botón que sale, «Listo». Las casillas son `ui/checkbox` (pozo, borde y acento del panel), nunca las del navegador (J2-A-24).
 - Un menú de filtros marca lo aplicado: casilla y valor en cada filtro encendido, y el botón lleva su cuenta y el relleno elegido (J2-A-13).

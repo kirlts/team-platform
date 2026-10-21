@@ -2,7 +2,7 @@
 // color, and the view of an area opens on its messages. Read in a real browser against dev-server.mjs serving panel/dist:
 // `npm run test:flows`.
 import assert from 'node:assert'
-import { after, before, describe, test } from 'node:test'
+import { after, before, beforeEach, describe, test } from 'node:test'
 import { login, settled, startPanel } from './browser-support.mjs'
 
 // These tests go through the review of a proposal, which is what the server does with publication by hand (UD-070): they start it with auto-publication off.
@@ -15,6 +15,11 @@ let origin = ''
 before(async () => {
   panel = await startPanel(Number(process.env.PANEL_FLOWS_AREAS_PORT ?? 8799), { stepMs: 80 })
   origin = panel.origin
+})
+
+// Every test starts from the sample data as the server was born with it (H-901).
+beforeEach(async () => {
+  await panel.control.reset()
 })
 
 after(async () => {
@@ -127,6 +132,32 @@ describe('the view of an area (UD-041)', () => {
       assert.ok(doc <= win, `el documento mide ${doc} y la ventana ${win}`)
       const main = await page.locator('main').evaluate((el) => [el.scrollHeight, el.clientHeight])
       assert.ok(main[0] <= main[1] + 1, `main desborda: ${main}`)
+    } finally {
+      await context.close()
+    }
+  })
+})
+
+describe('the state a message is served with (UD-042)', () => {
+  test('every message the API serves has the state its replies and its closing mark give: without replies open, with replies answered, closed only when closed', async () => {
+    const { page, context } = await session()
+    try {
+      const body = await (await page.request.get(`${origin}/api/messages?limit=100`)).json()
+      const items = body.items ?? body
+      assert.ok(items.length > 10, 'hay mensajes de ejemplo que revisar')
+      const wrong = items.filter((m) => m.status !== (m.status === 'closed' ? 'closed' : m.reply_count > 0 ? 'answered' : 'open'))
+      assert.deepEqual(wrong.map((m) => `${m.title}: ${m.status} con ${m.reply_count} respuestas`), [])
+      assert.ok(items.some((m) => m.status === 'closed') && items.some((m) => m.status === 'answered') && items.some((m) => m.status === 'open'), 'los tres estados están sembrados')
+      // The state of a message that gets a reply, and then is closed and reopened, follows the same rule through the API.
+      const open = items.find((m) => m.status === 'open' && m.author_id !== 'u-ana')
+      const reply = await page.request.post(`${origin}/api/messages/${open.id}/replies`, { data: { body: 'listo', kind: 'answer' }, headers: csrf })
+      assert.equal(reply.status(), 201)
+      const state = async () => (await (await page.request.get(`${origin}/api/messages/${open.id}`)).json()).status
+      assert.equal(await state(), 'answered')
+      await page.request.post(`${origin}/api/messages/${open.id}/close`, { headers: csrf })
+      assert.equal(await state(), 'closed')
+      await page.request.post(`${origin}/api/messages/${open.id}/reopen`, { headers: csrf })
+      assert.equal(await state(), 'answered')
     } finally {
       await context.close()
     }

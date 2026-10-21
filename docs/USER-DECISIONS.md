@@ -364,11 +364,11 @@ RULES:
 **Decisión:** Martín, textual: «podemos gastar hasta 25 usd en api de anthropic». Es un tope total para lo que falta de desarrollo, mediciones y pruebas con el proveedor real, repartido entre los agentes (cada encargo declara su parte) y llevado en `bench/results/` por los guiones de gasto. Una corrida que lo supere se detiene y lo dice.
 **Consecuencias:** Las comparaciones de modelos (Haiku 5.5, Sonnet 5.5, DeepSeek), las repeticiones del banco y las pruebas de punta a punta en el VPS cuentan contra este tope.
 
-## [UD-028] Lo que afecta a cada miembro se cuenta en el servidor, con un criterio mínimo, y los pendientes por área llevan a Mensajes filtrado
+## [UD-028] Lo que afecta a cada miembro se cuenta en el servidor, con un criterio mínimo, y los abiertos por área llevan a Mensajes filtrado
 
 **Fecha:** 2026-10-21
 **Contexto:** Martín vio Inicio en su teléfono y en el PC y dijo, textual: «si me llegó un mensaje a mí, la interfaz no me avisa como debería. Además la pestaña Mensajes debería tener una notificación que indique cuántos mensajes abiertos me afectan específicamente, y el área Error en general debería mostrar pendientes; si uno hace clic en esos pendientes debe llevar a la vista de Mensajes filtrando por los pendientes de esa área». La API no guarda quién leyó qué: no existe «respuesta sin leer» como dato.
-**Decisión:** Un mensaje no cerrado afecta a un miembro cuando está asignado a él, o cuando él lo emitió y ya tiene respuestas. El criterio usa sólo datos que la API ya tiene (asignados, emisor, estado). `GET /api/messages/summary` devuelve, para quien tiene la sesión, el conteo por prioridad (`mine`: `red`, `yellow`, `blue`, `total`) y, por área, los mensajes abiertos (`open`) y cuántos de ellos están asignados a él (`mine_open`). Cada mensaje cae en una sola prioridad: asignado y abierto es rojo; asignado y respondido es amarillo; emitido por él, sin estar asignado y respondido es azul. Un pendiente por área es un conteo clicable que lleva a `/messages` con los filtros `area` y `status=open`.
+**Decisión:** Un mensaje no cerrado afecta a un miembro cuando está asignado a él, o cuando él lo emitió y ya tiene respuestas. El criterio usa sólo datos que la API ya tiene (asignados, emisor, estado). `GET /api/messages/summary` devuelve, para quien tiene la sesión, el conteo por prioridad (`mine`: `red`, `yellow`, `blue`, `total`) y, por área, los mensajes abiertos (`open`) y cuántos de ellos están asignados a él (`mine_open`). Cada mensaje cae en un solo estado. Un conteo por área es clicable y lleva a `/messages` con los filtros `area` y `status`. UD-041 reemplaza los colores por los estados: asignado y abierto cuenta como abierto; asignado y respondido, o emitido por él con respuestas, cuenta como respondido; `mine` devuelve `open`, `answered` y `total`, y cada área `open`, `answered`, `closed` y `mine_open`.
 **Alternativas descartadas:**
 - Estado de lectura por miembro (tabla de «visto hasta»): contestaría «sin leer» de verdad, pero agrega esquema, escritura en cada apertura y una decisión de cuándo un mensaje cuenta como leído. Se evalúa si el uso demuestra que el criterio mínimo no alcanza (H-93).
 - Contar en el panel recorriendo `GET /messages`: la lista pagina con tope de 100 y el conteo quedaría incompleto con más mensajes.
@@ -378,18 +378,19 @@ RULES:
 - Prueba de la API: cada mensaje cae en una sola prioridad, uno cerrado no cuenta, los abiertos se cuentan por área y la ruta exige sesión.
 **Condiciones de reversión:** Si el criterio sin estado de lectura deja avisos que la persona ya vio y siguen contando, se agrega el estado de lectura por miembro (H-93).
 
-## [UD-029] El aviso lleva el color de la prioridad más alta presente (rojo, amarillo, azul)
+## [UD-029] El aviso lleva el color del estado más alto presente (enmendada por UD-041)
 
-**Fecha:** 2026-10-21
-**Contexto:** Martín pidió, por el coordinador, que el ícono de notificación sea mucho más prominente, que su fondo se tiña del color de la notificación de mayor prioridad, «porque hay notificaciones azules, amarillas y rojas», y que el significado de cada color se defina con los datos que ya existen.
-**Decisión:** Tres prioridades, en este orden: rojo, amarillo, azul. Rojo: afecta al miembro directamente y requiere su acción (asignado a él y todavía abierto). Amarillo: pendiente (asignado a él y respondido sin cerrar; los abiertos de un área que no son suyos). Azul: informativo o nuevo (respuestas a un mensaje que él emitió; novedades del flujo de eventos mientras nada más lo afecte). El fondo de toda insignia (pestaña Mensajes, campana, aviso de Inicio, pendientes por área) es el color de la prioridad más alta presente en lo que cuenta. El color nunca es el único indicador: cada prioridad lleva su forma (triángulo, reloj, punto con marca), su palabra («Por atender», «Pendiente», «Novedad») y el número. Los fondos y bordes cumplen contraste en claro y oscuro (`npm run contraste`: 4,5 el texto sobre su fondo y 3 el borde sobre vidrio y cromo). La definición de cada color la propuso la sesión con los datos existentes; Martín la confirma o la cambia.
+**Fecha:** 2026-10-21 (enmendada el mismo día)
+**Contexto:** Martín pidió, por el coordinador, que el ícono de notificación sea mucho más prominente y que su fondo se tiña del color de la notificación de mayor prioridad, «porque hay notificaciones azules, amarillas y rojas». La sesión definió entonces tres prioridades propias («Por atender», «Pendiente», «Novedad»). Martín corrigió, textual: «quien dijo esto de que por atender es distinto a abierto, no lo entiendo, yo creo que fui super explícito respecto a las categorías de cosas. Yo dije mensajes abiertos, mensajes respondidos y mensajes cerrados o atendidos. Esos son los tres estados que quiero ver en esta interfaz». Esas tres palabras contradecían MASTER-SPEC §1.1, que ya definía los estados.
+**Decisión:** El aviso no tiene categorías propias: sus colores son los de los tres estados de un mensaje. Abierto es rojo, respondido es amarillo y cerrado es azul. El fondo de la campana es el color del estado más alto presente, abierto antes que respondido; los cerrados no generan aviso. El color nunca es el único indicador: cada estado lleva su forma (triángulo, reloj, punto), su palabra y el número. Los fondos y bordes cumplen contraste en claro y oscuro (`npm run contraste`: 4,5 el texto sobre su fondo y 3 el borde sobre vidrio y cromo). Qué mensajes afectan a un miembro lo fija UD-028.
 **Alternativas descartadas:**
-- Rojo para el área «Error»: un `if` sobre el nombre de un área editable por el Editor; la prioridad sale del estado y de los asignados, no de un título.
+- Las palabras «Por atender», «Pendiente» y «Novedad», y la prioridad como categoría aparte: Martín las rechazó con la cita de arriba.
+- Rojo para el área «Error»: un `if` sobre el nombre de un área editable por el Editor; el color sale del estado, no de un título.
 - Color como único indicador: falla para quien no distingue colores.
 **Consecuencias:**
-- `panel/src/lib/priority.ts` es el único lugar donde se decide la prioridad más alta; `NotifyBadge` y la campana la leen de ahí.
-- Pruebas: la prioridad más alta gana en las ocho combinaciones; en el navegador, el fondo pintado de cada insignia coincide con el de su prioridad en las ocho combinaciones y en los dos temas.
-**Condiciones de reversión:** Si Martín cambia el significado de un color, se cambia `priority.ts` y `messageSummary` en el mismo commit.
+- `panel/src/lib/states.ts` es el único lugar donde se decide el estado más alto; `NotifyBadge` y la campana lo leen de ahí.
+- Una prueba falla si aparece en los catálogos o en la interfaz una de las palabras retiradas («Por atender», «Pendiente(s)», «Novedad», «To do», «Pending»).
+**Condiciones de reversión:** Si Martín cambia el color de un estado, se cambia `panel/src/styles.css` (tokens `--color-state-*` y `--color-open-*`) en el mismo commit.
 
 ## [UD-030] Inicio muestra lo último y lo nuevo para mí, y pliega los envíos tras un solo control
 
@@ -476,13 +477,13 @@ RULES:
 ## [UD-036] Un solo relleno de color en la interfaz: la campana
 
 **Fecha:** 2026-10-21
-**Contexto:** UD-029 pidió que el aviso lleve el color de la prioridad más alta y que cada prioridad tenga forma, palabra y número. Martín pidió que el ícono de notificación fuera más prominente y que su fondo se tiñera del color de mayor prioridad. La ronda 3 del juez A contó en Inicio más de 18 elementos rojos con el mismo peso (J3-A-04, severidad 5): campana, pestaña Mensajes, chips, áreas, marcas y borde de cada fila. La ronda 2 los había bajado a un tono suave y no alcanzó.
-**Decisión:** El fondo de color de la prioridad es de la campana, y sólo de la campana. Toda otra cuenta o marca de prioridad (pestaña Mensajes, chips de Inicio, pendientes por área, avisos de la lista de la campana, marca de una fila) va en peso callado: fondo neutro, borde neutro, texto en tinta, y la prioridad sólo en el color de su forma (triángulo, reloj, punto) junto a su palabra y su número. En una fila de mensaje la prioridad se dice una sola vez, en la columna de estado, y el borde izquierdo de 3 px es lo único de la fila que lleva color. UD-029 conserva el significado de los tres colores y que el color nunca es el único indicador. Es una decisión de la sesión por encargo de Martín de atender el 100 % de los hallazgos de la ronda; la palabra «fondo de toda insignia» de UD-029 es del coordinador y no una cita de Martín.
+**Contexto:** UD-029 pidió que el aviso lleve el color del estado más alto y que cada estado tenga forma, palabra y número. Martín pidió que el ícono de notificación fuera más prominente y que su fondo se tiñera del color de mayor prioridad. La ronda 3 del juez A contó en Inicio más de 18 elementos rojos con el mismo peso (J3-A-04, severidad 5): campana, pestaña Mensajes, chips, áreas, marcas y borde de cada fila. La ronda 2 los había bajado a un tono suave y no alcanzó.
+**Decisión:** El fondo de color del estado es de la campana, y sólo de la campana. Toda otra cuenta o marca de estado (pestaña Mensajes, chips de Inicio, conteos por área, avisos de la lista de la campana, marca de una fila) va en peso callado: fondo neutro, borde neutro, texto en tinta, y el estado sólo en el color de su forma (triángulo, reloj, punto) junto a su palabra y su número. En una fila de mensaje el estado se dice una sola vez, en la columna de estado, y el borde izquierdo de 3 px lleva el color de ese estado (UD-041: también en los cerrados, en azul). UD-029 conserva el significado de los tres colores y que el color nunca es el único indicador. Enmendada por UD-041: donde decía «prioridad» se lee «estado». Es una decisión de la sesión por encargo de Martín de atender el 100 % de los hallazgos de la ronda; la palabra «fondo de toda insignia» de UD-029 es del coordinador y no una cita de Martín.
 **Alternativas descartadas:**
 - Mantener el tono suave de la ronda 2: el juez lo siguió contando como rojo.
 - Quitar el número de la pestaña Mensajes o el de la campana: UD-028 pide ambos.
 **Consecuencias:**
-- `[data-weight='quiet']` en `panel/src/styles.css` reemplaza al peso suave. Una prueba del navegador cuenta los elementos con fondo rojo de Inicio con 9 pendientes y con 4 y falla si hay más de uno.
+- `[data-weight='quiet']` en `panel/src/styles.css` reemplaza al peso suave. Una prueba del navegador cuenta los elementos con fondo rojo de Inicio con nueve mensajes abiertos o respondidos y con cuatro y falla si hay más de uno.
 **Condiciones de reversión:** Que Martín pida de nuevo la insignia teñida: se restituye el peso suave de la ronda 2 cambiando `quiet` por `soft` en un solo lugar de la hoja de estilos.
 
 ## [UD-037] Conexiones se lista una vez, apagada y con su razón
@@ -512,6 +513,21 @@ RULES:
 **Decisión:** Martín, textual: «Lo del iPhone me da lo mismo, no lo vamos a usar todavía porque en realidad muchas imágenes puede que se suban directamente en Whatsapp o algo así». No se prueba con un aparato real por ahora.
 **Consecuencias:** H-56 deja de ser trabajo pendiente y queda como decisión del dueño. Un HEIC subido directamente se rechaza con un error claro (`image_heic_unsupported`); el Editor puede pedir que se acepte más adelante. UD-040 (2026-10-21) lo reemplaza: el HEIC se decodifica y deja de rechazarse.
 **Condiciones de reversión:** Se prueba cuando haya usuarios con iPhone en el panel.
+
+## [UD-041] Los tres estados son la única categoría de un mensaje en la interfaz, y el área se abre en sus mensajes
+
+**Fecha:** 2026-10-21
+**Contexto:** Dos correcciones del dueño, textuales. Sobre los estados: «quien dijo esto de que por atender es distinto a abierto, no lo entiendo, yo creo que fui super explícito respecto a las categorías de cosas. Yo dije mensajes abiertos, mensajes respondidos y mensajes cerrados o atendidos. Esos son los tres estados que quiero ver en esta interfaz». UD-029 había inventado «Por atender», «Pendiente» y «Novedad», contra MASTER-SPEC §1.1. Sobre Áreas: «la pestaña de áreas me parece que no funciona como uno esperaría. Si yo hago clic en idea por ejemplo, yo no espero que ese sea el lugar donde solamente puedo editar las plantillas de idea. Yo creo que puedo editar las plantillas y la descripción del área, sí por supuesto, pero también quiero ver al tiro los mensajes asociados a esa área porque eso es lo que uno pensaría cuando está ocupando el sitio».
+**Decisión:** En toda la interfaz la única categoría visible de un mensaje es su estado: abierto, respondido o cerrado (en inglés open, answered, closed). Ninguna otra palabra de estado o de prioridad. Los colores se atan a los estados: abierto rojo, respondido amarillo, cerrado azul, siempre con la palabra y el número. La campana y la insignia de Mensajes cuentan los mensajes abiertos y respondidos que afectan al miembro (criterio de UD-028) y toman el color del estado más alto presente; los cerrados no generan aviso, pero se muestran con su color en listas y filtros. Los contadores por área dicen «N abiertos» y «N respondidos» y llevan a Mensajes filtrado por esa área y ese estado. `GET /messages/summary` devuelve `mine: { open, answered, total }`, `items[].status` y, por área, `open`, `answered`, `closed` y `mine_open`. Al elegir un área, en la página Áreas o en la barra lateral, se abre su vista en `/areas/:areaId`: sus mensajes primero, con la misma lista y la misma fila de Mensajes, filtrada por el área, con un filtro por cada estado y el conteo de cada uno (el estado elegido va en la URL); debajo, plegadas, su descripción editable en el lugar y sus plantillas. `/areas` sigue siendo la lista de todas las áreas, para crearlas y abrirlas. Enmienda UD-029 y UD-036.
+**Alternativas descartadas:**
+- Mantener «Por atender» como urgencia distinta de «abierto»: el dueño lo rechazó con la cita de arriba.
+- Dejar las plantillas como contenido principal del área y los mensajes en otra pestaña: el dueño pidió ver los mensajes al tiro.
+- Un panel lateral para las plantillas del área: UD de 2026-10-20 (sin paneles que salen por la derecha).
+**Consecuencias:**
+- `panel/src/lib/states.ts` reemplaza a `priority.ts`; los tokens `--color-tone-*` pasan a `--color-state-*` y los de estado (`--color-open-*`, `--color-answered-*`, `--color-closed-*`) toman rojo, amarillo y azul.
+- La vista de área reutiliza `MessageList` y `MessageCard`; las plantillas viven en `components/AreaTemplates.tsx`. Junto a la descripción queda el lugar (`data-slot="area-color"`) del control de color del área.
+- Pruebas: la prioridad más alta gana en las combinaciones de estados; ninguna palabra retirada aparece en los catálogos ni en la interfaz renderizada; un flujo en navegador elige Idea, ve sus mensajes con su estado, filtra por respondido y edita la descripción.
+**Condiciones de reversión:** Si el dueño pide de nuevo una categoría de aviso distinta de los estados, se registra con su cita y se enmienda esta decisión.
 
 ## [UD-060] Las descripciones v2-orden se mantienen, y una unidad con varios puntos se recoge completa en su mensaje
 
@@ -602,6 +618,18 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 - Se dejó fuera, con su razón: (1) la ventana de Envíos, porque el dueño cambió su diseño a un desplegable en línea y lo construye otra rama sobre `MediaGallery`; (2) los chips de la barra de nuevo mensaje (`MediaDraft`), que son archivos locales aún sin enviar y cuyo uso es quitarlos, no mirarlos; (3) las filas del menú del selector, que es una lista de casillas; (4) la vista de la primera página de un PDF, porque el servidor entrega cada archivo con una política que prohíbe incrustarlo y dibujarlo exigiría una dependencia de renderizado de PDF de más de un megabyte; (5) el título de un enlace, que el sistema no guarda; (6) un endpoint de miniaturas y portadas: exigiría convertir imágenes en el servidor, que toca el extractor de imágenes en otra rama; el panel pide el archivo con carga diferida y el navegador dibuja el primer fotograma del video sin una portada aparte.
 **Condiciones de reversión:** Si Martín prefiere una vista de documentos con primera página, se agrega el renderizado con una dependencia justificada en MASTER-SPEC §3.
 
+## [UD-042] El estado de un mensaje se deriva de sus respuestas y de su cierre, y nunca se escribe a mano
+
+**Fecha:** 2026-10-21
+**Contexto:** Inicio mostraba una tarjeta «Abierto» con dos respuestas. El servidor real ya pasa de abierto a respondido al responder; el servidor de ejemplo del panel sembraba el estado a mano y lo contradecía. Martín, textual: «El estado respondido debería aplicarse siempre automáticamente cuando exista una respuesta a un problema abierto, independiente de si esa respuesta agrega más información, porque eso ya no es algo que el sistema evalúe. Lo único que no importa es si un problema no tiene respuesta: eso es abierto. Si hay una o más respuestas, está respondido. Y si alguien lo marcó como cerrado, está cerrado.»
+**Decisión:** El estado es una función de dos datos: la marca de cierre y la cantidad de respuestas. Con la marca de cierre, cerrado; sin ella, respondido con una respuesta o más, y abierto sin ninguna. Ninguna lectura del texto de la respuesta interviene. Reabrir un mensaje cerrado lo devuelve al estado que esa función da. Enmienda UD-029 y MASTER-SPEC §1.1 (la definición de «Mensaje» ya decía esto; ahora es una invariante con prohibición).
+**Alternativas descartadas:**
+- Que el panel corrija un mensaje con respuestas y estado `open` al mostrarlo: tapa un defecto del servidor. El panel muestra lo que la API entrega y una prueba falla si la API entrega un estado que contradice sus respuestas.
+- Estados escritos a mano en los datos de ejemplo: pueden contradecir las respuestas y lo hicieron.
+**Consecuencias:**
+- `src/api/message-state-derivation.test.js` ejerce la invariante tras responder, cerrar, reabrir, editar y reprocesar, y recorre todos los mensajes de la base después de cada paso.
+- `panel/dev-server.mjs` deriva el estado al sembrar y al responder, cerrar y reabrir (`syncStatus`); una prueba de flujo revisa todo lo que el servidor de ejemplo sirve.
+**Condiciones de reversión:** Si el dueño quiere que cierta clase de respuesta no cuente como respuesta, se registra con su cita y se cambia la función en un solo lugar.
 ## [UD-058] El modelo por omisión sigue siendo Haiku 5.5
 
 **Fecha:** 2026-10-21

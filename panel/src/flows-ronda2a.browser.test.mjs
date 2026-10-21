@@ -115,7 +115,7 @@ describe('sign-in and navigation', () => {
     try {
       await page.goto(`${origin}/areas/a-error`)
       const bg = (loc) => loc.evaluate((el) => getComputedStyle(el).backgroundColor)
-      const side = await bg(page.locator('nav a[aria-current="page"]').last())
+      const side = await bg(page.locator('nav a[aria-current="page"]', { hasText: 'Error' }))
       assert.notEqual(side, 'rgba(0, 0, 0, 0)', 'el área elegida en la barra lateral lleva relleno')
       const row = side
       await page.goto(`${origin}/settings`)
@@ -191,6 +191,7 @@ describe('message list and home', () => {
       await page.goto(origin)
       const clock = page.locator('time').first()
       assert.equal(await clock.evaluate((el) => getComputedStyle(el.parentElement).textTransform), 'none')
+      await page.getByRole('button', { name: 'Página siguiente' }).first().waitFor()
       const next = await page.getByRole('button', { name: 'Página siguiente' }).first().boundingBox()
       assert.ok(next.width >= 32 && next.height >= 32, `la flecha mide ${next.width}x${next.height}`)
     } finally {
@@ -405,8 +406,8 @@ describe('areas, templates and settings', () => {
       await page.goto(`${origin}/areas`)
       await page.getByRole('link', { name: 'Abrir Área vacía de prueba' }).waitFor()
       assert.equal(await page.getByText(/^0 (abiertos|respondidos)$/).count(), 0)
-      const weights = await page.locator('main section').evaluateAll((els) => els.map((el) => [...el.querySelectorAll('[data-testid="state-mark"]')].map((s) => getComputedStyle(s).fontWeight).join()))
-      assert.equal(new Set(weights.filter(Boolean)).size, 1, `los conteos no pesan igual: ${weights.join(' | ')}`)
+      const weights = await page.locator('main section [data-testid="state-mark"]').evaluateAll((els) => els.map((s) => getComputedStyle(s).fontWeight))
+      assert.equal(new Set(weights).size, 1, `los conteos no pesan igual: ${weights.join(' | ')}`)
     } finally {
       await context.close()
     }

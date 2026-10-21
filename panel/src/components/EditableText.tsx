@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useErrorText, useT } from '@/i18n'
 import { cn } from '@/lib/utils'
 
@@ -23,6 +23,7 @@ export function EditableText({
   displayClassName,
   mono = false,
   prose = false,
+  render,
   onEditingChange,
 }: {
   value: string
@@ -40,6 +41,8 @@ export function EditableText({
   mono?: boolean
   /** Texto corrido: se justifica igual en lectura y en edición (UD-022). */
   prose?: boolean
+  /** Cómo se muestra el valor en lectura (por ejemplo, markdown ya interpretado); al editar se ve el texto tal cual. */
+  render?: (value: string) => ReactNode
   onEditingChange?: (editing: boolean) => void
 }) {
   const t = useT()
@@ -81,7 +84,7 @@ export function EditableText({
   const box = '-mx-1.5 -my-px block w-[calc(100%+12px)] max-w-none rounded-md border border-transparent px-1.5 py-px text-left'
 
   if (!canEdit) {
-    return <span className={cn(type, !value && 'text-faint', className)}>{value || shown}</span>
+    return <span className={cn(render && value ? 'block' : type, !value && 'text-faint', className)}>{value ? (render ? render(value) : value) : shown}</span>
   }
 
   const open = () => {
@@ -145,7 +148,7 @@ export function EditableText({
             !value && 'text-faint',
           )}
         >
-          {value || shown}
+          {value ? (render ? render(value) : value) : shown}
         </span>
       </span>
     )

@@ -34,16 +34,16 @@ const ago = (minutes) => new Date(Date.now() - minutes * 60_000).toISOString()
 // ---------------------------------------------------------------- datos de ejemplo
 
 const members = [
-  { id: 'u-ana', email: 'ana@dev.invalid', name: 'Ana Prueba', role: 'editor', language: 'es-419', active: true, responsibilities: 'Servidor, base de datos y despliegue.', domains: ['API', 'Infraestructura'] },
-  { id: 'u-bruno', email: 'bruno@dev.invalid', name: 'Bruno Prueba', role: 'member', language: 'es-419', active: true, responsibilities: 'Interfaz del panel y accesibilidad.', domains: ['Panel', 'Diseño'] },
-  { id: 'u-carla', email: 'carla@dev.invalid', name: 'Carla Prueba', role: 'member', language: 'es-419', active: true, responsibilities: 'Pruebas manuales y reporte de errores.', domains: ['Calidad'] },
-  { id: 'u-diego', email: 'diego@dev.invalid', name: 'Diego Prueba', role: 'member', language: 'es-419', active: true, responsibilities: 'Producto y requerimientos del cliente.', domains: ['Producto', 'Soporte'] },
+  { id: 'u-ana', email: 'ana@dev.invalid', name: 'Ana Prueba', role: 'editor', language: 'es-419', active: true, profile: 'Soy la Editora del equipo y llevo el servidor, la base de datos y el despliegue. Decido cómo se publica y qué entra a producción.\n\nNo toco la interfaz del panel ni las pruebas manuales. Prefiero que los avisos lleguen con el error literal y el paso donde ocurrió.' },
+  { id: 'u-bruno', email: 'bruno@dev.invalid', name: 'Bruno Prueba', role: 'member', language: 'es-419', active: true, profile: 'Me encargo de la interfaz del panel y de la accesibilidad. Sé de React, de teclado y de lectores de pantalla.\n\nNo decido nada de la API. Prefiero recibir los reportes con una captura y el tamaño de la ventana.' },
+  { id: 'u-carla', email: 'carla@dev.invalid', name: 'Carla Prueba', role: 'member', language: 'es-419', active: true, profile: 'Hago pruebas manuales y reporto errores con sus pasos para reproducirlos. Conozco el comportamiento esperado de cada pantalla.\n\nNo arreglo código. Prefiero que me devuelvan el caso cerrado con la versión donde quedó corregido.' },
+  { id: 'u-diego', email: 'diego@dev.invalid', name: 'Diego Prueba', role: 'member', language: 'es-419', active: true, profile: 'Llevo producto y los requerimientos del cliente. Decido el orden de lo que se construye.\n\nNo toco infraestructura. Prefiero las preguntas por escrito y con el contexto del cliente.' },
   // Nombres y textos largos a propósito: el panel debe envolverlos, no cortarlos.
-  { id: 'u-maria', email: 'maria.de.los.angeles.fernandez.larrain@dev.invalid', name: 'María de los Ángeles Fernández-Larraín', role: 'member', language: 'es-419', active: true, responsibilities: 'Documentación del producto, manuales de usuario, capacitación del equipo del cliente y revisión de los textos de la interfaz en cada versión.', domains: ['Documentación', 'Capacitación', 'Redacción técnica', 'Localización'] },
-  { id: 'u-eduardo', email: 'eduardo@dev.invalid', name: 'Eduardo Valenzuela Ibáñez', role: 'member', language: 'es-419', active: true, responsibilities: 'Integraciones con servicios externos.', domains: ['Integraciones'] },
-  { id: 'u-sofia', email: 'sofia@dev.invalid', name: 'Sofía Prueba', role: 'member', language: 'es-419', active: true, responsibilities: 'Análisis de datos.', domains: ['Datos'] },
-  { id: 'u-tomas', email: 'tomas@dev.invalid', name: 'Tomás Prueba', role: 'member', language: 'es-419', active: true, responsibilities: 'Seguridad.', domains: ['Seguridad'] },
-  { id: 'u-valentina', email: 'valentina@dev.invalid', name: 'Valentina Prueba', role: 'member', language: 'es-419', active: true, responsibilities: 'Operación y soporte.', domains: ['Soporte'] },
+  { id: 'u-maria', email: 'maria.de.los.angeles.fernandez.larrain@dev.invalid', name: 'María de los Ángeles Fernández-Larraín', role: 'member', language: 'es-419', active: true, profile: 'Escribo la documentación del producto, los manuales de usuario y la capacitación del equipo del cliente, y reviso los textos de la interfaz en cada versión. Sé de redacción técnica, de localización y de accesibilidad del lenguaje.\n\nDecido el tono de todo texto que lee una persona usuaria. No toco el código ni la base de datos; si un texto está en el código, pido el cambio a quien lo mantiene.\n\nPrefiero que me lleguen los cambios con el texto antes y el texto después, y que me avisen con tiempo cuando una pantalla cambia de lugar. Los audios largos me cuestan; prefiero un resumen escrito.' },
+  { id: 'u-eduardo', email: 'eduardo@dev.invalid', name: 'Eduardo Valenzuela Ibáñez', role: 'member', language: 'es-419', active: true, profile: 'Hago integraciones con servicios externos: correo, GitHub y mensajería. Conozco las cuotas y los límites de cada proveedor.\n\nNo decido el diseño de las pantallas.' },
+  { id: 'u-sofia', email: 'sofia@dev.invalid', name: 'Sofía Prueba', role: 'member', language: 'es-419', active: true, profile: 'Analizo datos: mido cuánto tarda cada paso y qué cuesta cada llamada al modelo.\n\nNo toco el panel.' },
+  { id: 'u-tomas', email: 'tomas@dev.invalid', name: 'Tomás Prueba', role: 'member', language: 'es-419', active: true, profile: 'Me ocupo de la seguridad: sesiones, permisos y secretos. Decido qué se publica hacia afuera.' },
+  { id: 'u-valentina', email: 'valentina@dev.invalid', name: 'Valentina Prueba', role: 'member', language: 'es-419', active: true, profile: 'Llevo la operación y el soporte. Contesto las dudas del equipo del cliente.\n\nNo toco el código.' },
 ]
 
 const areas = [
@@ -67,6 +67,11 @@ const templates = [
   { id: 't-pregunta', area_id: 'a-pregunta', name: 'Pregunta', description: 'Qué se necesita saber y para qué.', body_markdown: templateBody('Pregunta', 'Qué se necesita saber y para qué.'), updated_at: ago(3000) },
   { id: 't-accesibilidad', area_id: 'a-accesibilidad', name: 'Observación de accesibilidad', description: 'Qué se vio, con qué dispositivo o ayuda técnica y qué impide hacer.', body_markdown: templateBody('Observación de accesibilidad', 'Qué se vio, con qué dispositivo o ayuda técnica y qué impide hacer.', '  - { name: device, label: Dispositivo o ayuda técnica, required: false }\n'), updated_at: ago(3000) },
 ]
+
+const project = {
+  name: 'Desarrollo',
+  description: '# Desarrollo\n\nPanel y API de un equipo chico que reparte mensajes con un modelo de lenguaje.\n\n## Stack\n\n- **Servidor**: Node con SQLite en un solo volumen.\n- **Panel**: React, TanStack Query y React Router.\n- Los adjuntos viven en `attachments/` y se sirven por la API.\n\n## Decisiones\n\n1. Todo lo que pasa por un modelo se mide.\n2. El código va en inglés y la interfaz en el idioma de la cuenta.\n\nMás detalle en [el repositorio](https://example.com/repo).',
+}
 
 const providers = [
   { slot: 'text', provider: 'anthropic', model: 'claude-haiku-5-5', available: true, reason: null },
@@ -443,7 +448,25 @@ const server = createServer(async (req, res) => {
       sessions.delete(cookieOf(req))
       return send(res, 204, undefined, { 'Set-Cookie': 'team_session=; Max-Age=0; Path=/' })
     }
-    if (path === '/me' && method === 'GET') return send(res, 200, { ...me, project_name: 'Desarrollo' })
+    if (path === '/me' && method === 'GET') return send(res, 200, { ...me, project_name: project.name })
+
+    // --- descripción del proyecto: la ve todo el equipo y sólo el Editor la cambia (UD-024)
+    if (path === '/settings/project' && method === 'GET') return send(res, 200, project)
+    if (path === '/settings/project' && method === 'PATCH') {
+      if (needEditor()) return
+      const ct = req.headers['content-type'] ?? ''
+      if (ct.startsWith('multipart/')) {
+        const boundary = /boundary=(?:"([^"]+)"|([^;]+))/.exec(ct)
+        const file = parseMultipart(await readBody(req), boundary[1] ?? boundary[2]).find((p) => p.name === 'file' && p.filename)
+        if (!file) return fail(res, 400, 'Falta el archivo.', 'validation')
+        project.description = file.data.toString('utf8')
+      } else {
+        const body = await readJson(req)
+        if (typeof body?.description !== 'string') return fail(res, 400, 'Falta la descripción.', 'validation')
+        project.description = body.description
+      }
+      return send(res, 200, project)
+    }
 
     // --- eventos
     if (path === '/events' && method === 'GET') {
@@ -736,7 +759,7 @@ const server = createServer(async (req, res) => {
       if (!email.includes('@') || !String(body?.name ?? '').trim()) return fail(res, 400, 'El correo y el nombre son obligatorios.', 'validation')
       if (members.some((x) => x.email === email)) return fail(res, 409, 'Ya existe un miembro con ese correo.', 'email_taken')
       if (body.password !== undefined && String(body.password).length < 15) return fail(res, 400, 'La contraseña es demasiado corta.', 'password_too_short')
-      const fresh = { id: `u-${id()}`, email, name: String(body.name).trim(), role: body.role === 'editor' ? 'editor' : 'member', language: 'es-419', active: true, responsibilities: String(body.responsibilities ?? ''), domains: Array.isArray(body.domains) ? body.domains.map(String) : [] }
+      const fresh = { id: `u-${id()}`, email, name: String(body.name).trim(), role: body.role === 'editor' ? 'editor' : 'member', language: 'es-419', active: true, profile: String(body.profile ?? '') }
       members.push(fresh)
       return send(res, 201, fresh)
     }
@@ -747,8 +770,11 @@ const server = createServer(async (req, res) => {
       if (target.id !== me.id && needEditor()) return
       const body = await readJson(req)
       if (!body) return fail(res, 400, 'JSON inválido', 'bad_request')
-      if (body.responsibilities !== undefined) target.responsibilities = String(body.responsibilities)
-      if (Array.isArray(body.domains)) target.domains = body.domains.map(String).filter(Boolean)
+      if (body.profile !== undefined) {
+        if (target.id !== me.id) return fail(res, 403, 'El perfil lo escribe su dueño', 'forbidden')
+        if (String(body.profile).length > 4000) return fail(res, 400, 'El perfil admite hasta 4.000 caracteres.', 'validation')
+        target.profile = String(body.profile)
+      }
       if (body.language !== undefined) {
         if (target.id !== me.id) return fail(res, 403, 'El idioma es de cada cuenta', 'forbidden')
         if (!['es-419', 'en'].includes(body.language)) return fail(res, 400, 'El idioma debe ser es-419 o en.', 'validation')

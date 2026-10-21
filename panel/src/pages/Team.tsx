@@ -1,7 +1,6 @@
 import { UserPlus } from '@/components/icons'
 import { useMemo, useState } from 'react'
 import { Avatar } from '@/components/Avatar'
-import { EditableTags } from '@/components/EditableTags'
 import { EditableText } from '@/components/EditableText'
 import { FitList } from '@/components/FitList'
 import { FormDialog } from '@/components/FormDialog'
@@ -11,12 +10,16 @@ import { UndoButtons } from '@/components/UndoButtons'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { useErrorText, useT } from '@/i18n'
+import { useErrorText, useT, type MessageKey } from '@/i18n'
 import { useCreateMember, useMe, useMembers, useSaveMember } from '@/lib/queries'
-import type { Member, Role } from '@/lib/types'
+import type { Language, Member, Role } from '@/lib/types'
 import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 
-const COLUMNS = 'md:grid-cols-[minmax(14rem,1.3fr)_6.5rem_minmax(0,2fr)_minmax(0,1.4fr)_6.5rem]'
+/** Largo máximo del perfil que acepta la API (UD-023). */
+const PROFILE_MAX = 4000
+const LANGUAGE_KEY: Record<Language, MessageKey> = { 'es-419': 'language.es-419', en: 'language.en' }
+const SHORT_LANGUAGE_KEY: Record<Language, MessageKey> = { 'es-419': 'language.short.es-419', en: 'language.short.en' }
+const COLUMNS = 'md:grid-cols-[15rem_8rem_minmax(0,1fr)_6.5rem]'
 
 /** Miembros con sus responsabilidades y dominios. Cada uno edita lo suyo; el Editor da de alta, y cambia nombre, correo y rol de los demás. */
 export function Team() {
@@ -53,8 +56,7 @@ export function Team() {
             <div className={`hidden gap-4 border-b border-line bg-[linear-gradient(180deg,var(--color-chrome-1),var(--color-chrome-2))] px-4 py-2 text-[13px] font-semibold text-muted md:grid ${COLUMNS}`}>
               <span>{t('team.member')}</span>
               <span>{t('team.role')}</span>
-              <span>{t('team.responsibilities')}</span>
-              <span>{t('team.domains')}</span>
+              <span>{t('team.profile')}</span>
               <span />
             </div>
           }
@@ -82,21 +84,24 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
   const t = useT()
   const undo = useUndo()
   const save = useSaveMember()
+  const errorText = useErrorText()
+  const [problem, setProblem] = useState<string | null>(null)
   const roleLabel: Record<Role, string> = { member: t('team.roleMember'), editor: t('team.roleEditor') }
-  const canEditOwn = self
   const canEditPeople = viewerIsEditor
 
   /** Cada guardado es una operación que se deshace con el valor anterior. */
-  const change = <K extends 'responsibilities' | 'domains' | 'role' | 'name' | 'email' | 'active'>(key: K, next: Member[K]) => {
+  const change = <K extends 'profile' | 'role' | 'name' | 'email' | 'active'>(key: K, next: Member[K]) => {
     const prev = member[key]
-    const apply = (value: Member[K]) => save.mutateAsync({ id: member.id, self: self && (key === 'responsibilities' || key === 'domains'), patch: { [key]: value } })
+    const apply = (value: Member[K]) => save.mutateAsync({ id: member.id, self: self && key === 'profile', patch: { [key]: value } })
     return undo.run({ label: t('team.edited'), redo: () => apply(next), undo: () => apply(prev) })
   }
-  /** Desactivar o reactivar se deshace con el gesto contrario; la API se niega si es uno mismo o el último Editor. */
-  const toggleActive = () => change('active', !member.active).then(() => setProblem(null), (err) => setProblem(errorText(err)))
   const required = (v: string) => (v ? null : t('common.required'))
-  const errorText = useErrorText()
-  const [problem, setProblem] = useState<string | null>(null)
+  /** Desactivar o reactivar se deshace con el gesto contrario; la API se niega si es uno mismo o el último Editor. */
+  const toggleActive = () =>
+    change('active', !member.active).then(
+      () => setProblem(null),
+      (err) => setProblem(errorText(err)),
+    )
 
   return (
     <div className={`grid items-start gap-x-4 gap-y-2 border-b border-line px-4 py-3 last:border-b-0 ${COLUMNS} ${member.active ? '' : 'bg-closed-bg/30'}`}>
@@ -106,12 +111,11 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
           <div className="flex flex-wrap items-center gap-x-2">
             <EditableText value={member.name} label={t('team.fieldName')} canEdit={canEditPeople} validate={required} onSave={(v) => change('name', v)} displayClassName="text-sm font-semibold" className="w-auto" />
             {self && <Badge tone="accent">{t('team.me')}</Badge>}
-            {!member.active && <Badge tone="outline">{t('team.inactive')}</Badge>}
           </div>
           <EditableText value={member.email} label={t('team.fieldEmail')} canEdit={canEditPeople} validate={(v) => (v.includes('@') ? null : t('team.invalidEmail'))} onSave={(v) => change('email', v)} displayClassName="break-all text-xs text-muted" />
         </div>
       </div>
-      <div className="flex items-start">
+      <div className="flex min-w-0 flex-col items-start gap-1">
         {canEditPeople && !self ? (
           <DropdownMenu>
             <DropdownMenuTrigger aria-label={t('team.roleOf', { name: member.name })} className="inline-flex rounded-full hover:bg-hover">
@@ -127,12 +131,13 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
         ) : (
           <Badge tone={member.role === 'editor' ? 'accent' : 'neutral'}>{roleLabel[member.role]}</Badge>
         )}
+        <Badge tone={member.active ? 'answered' : 'outline'}>{member.active ? t('team.active') : t('team.inactive')}</Badge>
+        <span className="text-xs text-muted" title={t(LANGUAGE_KEY[member.language])}>
+          {t('team.languageOf', { code: t(SHORT_LANGUAGE_KEY[member.language]) })}
+        </span>
       </div>
       <div className="min-w-0 text-[13px]">
-        <EditableText value={member.responsibilities} label={t('team.responsibilitiesOf', { name: member.name })} multiline canEdit={canEditOwn} placeholder={t('team.noResponsibilities')} onSave={(v) => change('responsibilities', v)} />
-      </div>
-      <div className="min-w-0 text-[13px]">
-        <EditableTags values={member.domains} label={t('team.domainsOf', { name: member.name })} canEdit={canEditOwn} placeholder={t('team.noDomains')} onSave={(v) => change('domains', v)} />
+        <EditableText value={member.profile ?? ''} label={t('team.profileOf', { name: member.name })} multiline prose canEdit={self} placeholder={t('team.noProfile')} validate={(v) => (v.length > PROFILE_MAX ? t('form.maxLength', { n: PROFILE_MAX }) : null)} onSave={(v) => change('profile', v)} />
       </div>
       <div className="flex min-w-0 flex-col items-end gap-1">
         {canEditPeople && !self && (

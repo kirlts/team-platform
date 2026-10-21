@@ -237,7 +237,7 @@ export function useSaveMember() {
     mutationFn: (v: {
       id: string
       self: boolean
-      patch: Partial<Pick<Member, 'responsibilities' | 'domains' | 'role' | 'name' | 'email'>> & { language?: Language; current_password?: string; new_password?: string }
+      patch: Partial<Pick<Member, 'profile' | 'role' | 'name' | 'email' | 'active'>> & { language?: Language; current_password?: string; new_password?: string }
     }) => api<Member>(v.self ? '/members/me' : `/members/${v.id}`, { method: 'PATCH', body: v.patch }),
     onSuccess: () => invalidate('members', 'me'),
   })
@@ -278,5 +278,35 @@ export function useSaveProvider() {
   return useMutation({
     mutationFn: (v: Pick<ProviderSetting, 'slot' | 'provider' | 'model'>) => api('/settings/providers', { method: 'PATCH', body: { slot: v.slot, provider: v.provider, model: v.model } }),
     onSuccess: () => invalidate('providers'),
+  })
+}
+
+/** Descripción del proyecto (UD-024): la ve todo el equipo y sólo el Editor la cambia. */
+export interface Project {
+  name: string
+  description: string
+}
+
+export function useProject() {
+  return useQuery({
+    queryKey: ['project'],
+    queryFn: () => api<Project>('/settings/project'),
+    staleTime: 60_000,
+  })
+}
+
+/** Cambia la descripción con texto (edición en el lugar) o con un archivo `.md` (multipart `file`). */
+export function useSaveProject() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (v: { description: string } | { file: File }) => {
+      if ('file' in v) {
+        const form = new FormData()
+        form.append('file', v.file, v.file.name)
+        return api<Project>('/settings/project', { method: 'PATCH', form })
+      }
+      return api<Project>('/settings/project', { method: 'PATCH', body: { description: v.description } })
+    },
+    onSuccess: (saved) => qc.setQueryData(['project'], saved),
   })
 }

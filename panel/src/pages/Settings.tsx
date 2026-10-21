@@ -1,5 +1,5 @@
 import { ChevronDown, Lock } from '@/components/icons'
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { EditableText } from '@/components/EditableText'
 import { FitList } from '@/components/FitList'
 import { FormDialog } from '@/components/FormDialog'
@@ -10,8 +10,9 @@ import { UndoButtons } from '@/components/UndoButtons'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { LANGUAGES, useI18n, useT, type MessageKey } from '@/i18n'
-import { useMe, useProviders, useSaveLanguage, useSaveMember, useSaveProvider } from '@/lib/queries'
+import { LANGUAGES, useErrorText, useI18n, useT, type MessageKey } from '@/i18n'
+import { Markdown } from '@/lib/markdown'
+import { useMe, useProject, useProviders, useSaveLanguage, useSaveMember, useSaveProject, useSaveProvider } from '@/lib/queries'
 import { readThemePref, saveTheme, type ThemePref } from '@/lib/theme'
 import type { Language, ProviderSetting, ProviderSlot } from '@/lib/types'
 import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
@@ -37,7 +38,10 @@ export function Settings() {
             <Account />
             <Theme />
           </div>
-          {editor && <Providers />}
+          <div className="flex min-h-0 min-w-0 flex-col gap-5">
+            <Project editor={editor} />
+            {editor && <Providers />}
+          </div>
         </div>
       </Page>
     </UndoProvider>
@@ -132,12 +136,81 @@ function Theme() {
   )
 }
 
+/** Descripción del proyecto en markdown: la ve todo el equipo, la cambia el Editor en el lugar o subiendo un archivo `.md`. */
+function Project({ editor }: { editor: boolean }) {
+  const t = useT()
+  const errorText = useErrorText()
+  const undo = useUndo()
+  const project = useProject()
+  const save = useSaveProject()
+  const upload = useRef<HTMLInputElement>(null)
+  const [problem, setProblem] = useState<string | null>(null)
+  const current = project.data?.description ?? ''
+
+  const change = (next: string) => undo.run({ label: t('project.edited'), redo: () => save.mutateAsync({ description: next }), undo: () => save.mutateAsync({ description: current }) })
+
+  /** Un archivo reemplaza la descripción; deshacer vuelve al texto anterior. */
+  const replaceWith = async (file: File) => {
+    setProblem(null)
+    const before = current
+    try {
+      await undo.run({ label: t('project.uploaded'), redo: () => save.mutateAsync({ file }), undo: () => save.mutateAsync({ description: before }) })
+    } catch (err) {
+      setProblem(errorText(err))
+    }
+  }
+
+  return (
+    <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 border-t border-line-strong pt-3">
+      <div className="flex items-center justify-between gap-2">
+        <h2>{t('project.title')}</h2>
+        {editor && (
+          <>
+            <input
+              ref={upload}
+              type="file"
+              accept=".md,.markdown,text/markdown,text/plain"
+              hidden
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                e.target.value = ''
+                if (file) void replaceWith(file)
+              }}
+            />
+            <Button size="sm" onClick={() => upload.current?.click()}>
+              {t('project.upload')}
+            </Button>
+          </>
+        )}
+      </div>
+      {/* La descripción puede ser tan larga como un master spec: es un carril con desplazamiento propio y declarado. */}
+      <div data-lane="project-description" className="glass leaf scroll-thin min-h-0 flex-1 overflow-y-auto px-4 py-3 text-[13px]">
+        <EditableText
+          value={current}
+          label={t('project.title')}
+          multiline
+          prose
+          canEdit={editor}
+          placeholder={t('project.empty')}
+          render={(v) => <Markdown source={v} />}
+          onSave={change}
+        />
+      </div>
+      {problem && (
+        <p role="alert" className="text-xs text-danger">
+          {problem}
+        </p>
+      )}
+    </section>
+  )
+}
+
 function Providers() {
   const t = useT()
   const providers = useProviders(true)
   const rows = useMemo(() => providers.data ?? [], [providers.data])
   return (
-    <section className="flex min-h-0 min-w-0 flex-col gap-3 border-t border-line-strong pt-3">
+    <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 border-t border-line-strong pt-3">
       <h2>{t('settings.providers')}</h2>
       <FitList
         rows={rows}

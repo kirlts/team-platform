@@ -9,7 +9,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { api, ApiError } from '@/lib/api'
 import { EventsProvider } from '@/lib/events'
-import { useMe } from '@/lib/queries'
+import { useMe, useProject } from '@/lib/queries'
 import { Areas } from '@/pages/Areas'
 import { Home } from '@/pages/Home'
 import { Login } from '@/pages/Login'
@@ -21,6 +21,7 @@ import { Team } from '@/pages/Team'
 function Shell() {
   const t = useT()
   const me = useMe().data
+  const project = useProject().data
   const queryClient = useQueryClient()
   const [navOpen, setNavOpen] = useState(false)
 
@@ -42,7 +43,7 @@ function Shell() {
     <EventsProvider>
       <Atmosphere />
       <div className="relative z-10 flex h-dvh flex-col">
-        <Header projectName={me?.project_name} onOpenNav={() => setNavOpen(true)} onLogout={() => void logout()} />
+        <Header projectName={project?.name ?? me?.project_name} onOpenNav={() => setNavOpen(true)} onLogout={() => void logout()} />
         <div className="flex min-h-0 flex-1">
           <aside data-lane="sidebar" className="glass scroll-thin hidden w-64 shrink-0 overflow-y-auto border-0 border-r !shadow-none md:block">
             <Sidebar onLogout={() => void logout()} />

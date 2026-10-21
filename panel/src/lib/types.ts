@@ -11,9 +11,8 @@ export interface Member {
   email: string
   name: string
   role: Role
-  responsibilities: string
-  /** Supuesto: lista de dominios. */
-  domains: string[]
+  /** Perfil en prosa (UD-023): un par de párrafos en primera persona que escribe la propia persona; hasta 4.000 caracteres. */
+  profile: string
   language: Language
   /** Una cuenta desactivada no inicia sesión y conserva su historial; sólo el Editor la desactiva o la reactiva. */
   active: boolean
@@ -182,8 +181,7 @@ export interface NewMember {
   email: string
   name: string
   role?: Role
-  responsibilities?: string
-  domains?: string[]
+  profile?: string
   password?: string
 }
 

@@ -54,6 +54,18 @@ async function sendInput(page, text = TEXT) {
   await page.getByRole('button', { name: 'Enviar' }).first().click()
 }
 
+/** Pages forward until the text shows (lists paginate inside their frame). */
+async function showRow(page, text) {
+  for (let i = 0; i < 20; i++) {
+    if (await page.getByText(text).first().isVisible().catch(() => false)) return
+    const next = page.getByRole('button', { name: 'Página siguiente' }).first()
+    if (!(await next.isEnabled())) break
+    await next.click()
+    await page.waitForTimeout(300)
+  }
+  await page.getByText(text).first().waitFor({ timeout: 2000 })
+}
+
 describe('edición en el lugar', () => {
   test('clic abre, Enter guarda, Escape cancela, y Deshacer y Rehacer lo recorren', async () => {
     const { page, context } = await session()
@@ -204,7 +216,7 @@ describe('equipo y cuenta', () => {
       await dialog.getByLabel('Nombre').fill('Marta Nueva')
       await dialog.getByLabel('Correo').fill('marta@dev.invalid')
       await dialog.getByRole('button', { name: 'Crear' }).click()
-      await page.getByText('Marta Nueva').first().waitFor()
+      await showRow(page, 'Marta Nueva')
       await page.getByRole('button', { name: 'Desactivar a Marta Nueva' }).click()
       await page.getByText('Inactivo').first().waitFor()
       await page.getByRole('button', { name: 'Deshacer' }).click()

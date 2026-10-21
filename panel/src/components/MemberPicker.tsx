@@ -4,6 +4,9 @@ import { useT } from '@/i18n'
 import type { Member } from '@/lib/types'
 import { Avatar } from './Avatar'
 
+/** Primera línea del perfil: lo que ayuda a elegir a quién le toca algo. */
+const firstLine = (profile: string | undefined) => (profile ?? '').split('\n').find((l) => l.trim())?.trim() ?? ''
+
 /** Lista de miembros con marca de selección, en una ventana emergente. El botón muestra «+» o «+N» si hay destinatarios fuera de la fila. */
 export function MemberPicker({
   members,
@@ -28,7 +31,7 @@ export function MemberPicker({
           {hiddenCount > 0 ? `+${hiddenCount}` : <Plus size={13} aria-hidden />}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-1">
+      <PopoverContent className="w-72 p-1">
         <ul className="flex max-h-64 flex-col overflow-y-auto" data-lane="member-picker">
           {members.map((m) => {
             const on = selected.includes(m.id)
@@ -42,7 +45,10 @@ export function MemberPicker({
                   className="flex min-h-8 w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left hover:bg-hover"
                 >
                   <Avatar name={m.name} size={20} />
-                  <span className="min-w-0 flex-1 break-words leading-tight">{m.name}</span>
+                  <span className="min-w-0 flex-1 leading-tight">
+                    <span className="block break-words">{m.name}</span>
+                    {firstLine(m.profile) && <span className="block break-words text-xs text-muted">{firstLine(m.profile)}</span>}
+                  </span>
                   {on && <Check size={14} className="text-accent" aria-hidden />}
                 </button>
               </li>

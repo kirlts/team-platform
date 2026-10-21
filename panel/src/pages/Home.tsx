@@ -11,7 +11,7 @@ import { Segmented } from '@/components/Segmented'
 import { useFormat, useT } from '@/i18n'
 import { ApiError } from '@/lib/api'
 import { ME, type MessageQuery } from '@/lib/filters'
-import { useInput, useMe, useMessages } from '@/lib/queries'
+import { useInput, useMe, useMessages, useProject } from '@/lib/queries'
 import { UndoProvider, useUndoStack } from '@/lib/undo'
 
 const ACTIVE_KEY = 'team-active-input'
@@ -37,6 +37,7 @@ export function Home() {
   const t = useT()
   const format = useFormat()
   const me = useMe().data
+  const project = useProject().data
   const [now, setNow] = useState(() => new Date())
   const [activeId, setActiveId] = useState<string | undefined>(readActive)
   const input = useInput(activeId)
@@ -66,7 +67,7 @@ export function Home() {
     <UndoProvider stack={undo}>
       <Page cols={12}>
         <PageHeader
-          title={me?.project_name ?? ''}
+          title={project?.name ?? me?.project_name ?? ''}
           aside={
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">
               <time dateTime={now.toISOString()}>

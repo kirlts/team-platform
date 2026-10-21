@@ -60,8 +60,7 @@ after(async () => {
 /** Every array in `value` eight times; objects with an `id` get `~k` appended (k = 0 keeps the original). */
 export function multiply(value, times = TIMES, key = '') {
   if (Array.isArray(value)) {
-    if (value.every((x) => typeof x === 'string') && (key.endsWith('_ids') || key === 'domains')) {
-      if (key === 'domains') return value.flatMap((x) => Array.from({ length: times }, (_, k) => (k === 0 ? x : `${x} ${k + 1}`)))
+    if (value.every((x) => typeof x === 'string') && (key.endsWith('_ids'))) {
       return value.flatMap((x) => Array.from({ length: times }, (_, k) => (k === 0 ? x : `${x}~${k}`)))
     }
     return value.flatMap((item) =>

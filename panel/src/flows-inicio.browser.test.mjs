@@ -302,3 +302,38 @@ describe('the color of an area (UD-045)', () => {
     }
   })
 })
+
+describe('the publication setting (UD-070)', () => {
+  test('the Editor switches between Automática and Manual and the next send follows it; a member does not see the control', async () => {
+    const { page, context } = await session('ana')
+    try {
+      await page.goto(`${origin}/settings`)
+      const group = page.getByRole('radiogroup', { name: 'Publicación' })
+      await group.waitFor()
+      assert.equal(await group.getByRole('radio', { name: 'Automática' }).getAttribute('aria-checked'), 'true', 'nace automática')
+      await group.getByRole('radio', { name: 'Manual' }).click()
+      await group.getByRole('radio', { name: 'Manual', checked: true }).waitFor()
+      assert.equal((await api(page, '/settings/publication')).body.auto_publish, false, 'quedó guardado en el servidor')
+      // With it off, a send stays as a proposal to review: there is a button to send it and no message is published.
+      await page.goto(origin)
+      await send(page, 'Podríamos probar un resumen semanal por área.')
+      await page.getByRole('button', { name: /^Enviar \d+ mensajes?$/ }).waitFor({ timeout: 20000 })
+      assert.equal(await page.getByTestId('published-message').count(), 0)
+      await page.goto(`${origin}/settings`)
+      await group.getByRole('radio', { name: 'Automática' }).click()
+      await group.getByRole('radio', { name: 'Automática', checked: true }).waitFor()
+      assert.equal((await api(page, '/settings/publication')).body.auto_publish, true)
+    } finally {
+      await context.close()
+    }
+    const member = await session('bruno')
+    try {
+      await member.page.goto(`${origin}/settings`)
+      await member.page.getByRole('heading', { name: 'Tema' }).waitFor()
+      assert.equal(await member.page.getByRole('radiogroup', { name: 'Publicación' }).count(), 0, 'un miembro no ve la perilla')
+      assert.equal((await api(member.page, '/settings/publication', { method: 'PATCH', data: { auto_publish: false } })).status, 403)
+    } finally {
+      await member.context.close()
+    }
+  })
+})

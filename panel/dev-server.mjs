@@ -1162,7 +1162,21 @@ const server = createServer(async (req, res) => {
     if (m && method === 'GET') {
       const a = attachments.get(m[1])
       if (!a) return fail(res, 404, 'No existe')
-      res.writeHead(200, { 'Content-Type': a.mime, 'Content-Length': a.data.length, 'Content-Disposition': `inline; filename="${encodeURIComponent(a.name)}"`, 'Cache-Control': 'private, max-age=3600' })
+      const head = { 'Content-Type': a.mime, 'Content-Disposition': `inline; filename="${encodeURIComponent(a.name)}"`, 'Cache-Control': 'private, max-age=3600', 'Accept-Ranges': 'bytes' }
+      // A video asks for the bytes it needs (`Range`): a server that answers the whole file to every range makes the browser ask again and again.
+      const asked = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? '')
+      if (asked && (asked[1] || asked[2])) {
+        const size = a.data.length
+        const start = asked[1] ? Number(asked[1]) : Math.max(0, size - Number(asked[2]))
+        const end = asked[1] && asked[2] ? Math.min(Number(asked[2]), size - 1) : size - 1
+        if (start >= size || start > end) {
+          res.writeHead(416, { ...head, 'Content-Range': `bytes */${size}` })
+          return res.end()
+        }
+        res.writeHead(206, { ...head, 'Content-Length': end - start + 1, 'Content-Range': `bytes ${start}-${end}/${size}` })
+        return res.end(a.data.subarray(start, end + 1))
+      }
+      res.writeHead(200, { ...head, 'Content-Length': a.data.length })
       return res.end(a.data)
     }
 

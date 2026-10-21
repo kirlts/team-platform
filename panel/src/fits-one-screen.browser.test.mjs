@@ -220,6 +220,52 @@ const VIEWS = [
 
 const report = []
 
+// A list that has settled asks for nothing: its thumbnails are drawn once. The frame of a list measures itself against its neighbors, so a neighbor that
+// changes size at every measure (the strip of areas that wrapped and unwrapped, H-1405) made both lists draw their sixty measuring rows again and again,
+// and every video thumbnail asked for its file each time. The count that fails is derived from what is on screen: no thumbnail may ask for its URL
+// more than twice (its first draw and one measure) in five seconds, whatever the number of thumbnails.
+for (const [width, height] of SIZES) {
+  describe(`${width}x${height} the lists do not ask again for what they already drew`, () => {
+    test('no URL is requested more than twice per thumbnail on screen in five seconds, with every list ×8', async () => {
+      const context = await panel.browser.newContext({ viewport: { width, height }, locale: 'es-CL' })
+      const page = await context.newPage()
+      try {
+        await login(page, ORIGIN)
+        await amplify(page)
+        await open(page, '/')
+        // The window starts once the page is quiet: what is asked from here on is the loop, not the first draw.
+        const asked = new Map()
+        page.on('request', (r) => {
+          const url = new URL(r.url())
+          if (url.pathname.startsWith('/api/') && url.pathname !== '/api/events') asked.set(url.pathname, (asked.get(url.pathname) ?? 0) + 1)
+        })
+        const thumbs = await page.evaluate(() => {
+          const count = {}
+          for (const el of document.querySelectorAll('main video[src], main img[src]')) {
+            const path = new URL(el.getAttribute('src'), location.href).pathname
+            count[path] = (count[path] ?? 0) + 1
+          }
+          return count
+        })
+        // Five seconds of the page left alone, counted by what the browser does (a frame clock), not by a pause.
+        await page.evaluate(
+          () =>
+            new Promise((resolve) => {
+              const start = performance.now()
+              const tick = () => (performance.now() - start >= 5000 ? resolve(undefined) : requestAnimationFrame(tick))
+              requestAnimationFrame(tick)
+            }),
+        )
+        const failures = [...asked].filter(([path, n]) => n > 2 * Math.max(1, thumbs[path] ?? 0)).map(([path, n]) => `${path} ×${n} (hay ${thumbs[path] ?? 0} en pantalla)`)
+        assert.deepStrictEqual(failures, [], `Peticiones repetidas en cinco segundos:\n${failures.join('\n')}`)
+      } finally {
+        await page.unrouteAll({ behavior: 'ignoreErrors' })
+        await context.close()
+      }
+    })
+  })
+}
+
 for (const [width, height] of SIZES) {
   for (const [state, amplified] of [
     ['con lo sembrado', false],

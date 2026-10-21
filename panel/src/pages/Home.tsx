@@ -394,6 +394,9 @@ function TrayState({ items, progress }: { items: readonly TrayItem[]; progress: 
  * What affects me, at the top of the page (UD-030): one chip per priority with its count and one per area with
  * what is open or answered in it. Both rows use the same chip, quiet (UD-036), and the same kind of label; each chip leads to
  * Mensajes already filtered (UD-028). The areas take one row: those that do not fit fold behind «+N» (J3-A-06, J3-A-10).
+ * From 768 px the strip has a height of its own (one row of chips of up to two lines) and does not wrap: while the chips measure themselves they are
+ * all drawn, and a strip that grew with them moved the two lists below it at every measure, so both lists drew their measuring rows again and the
+ * thumbnails asked for their files without end (H-1405).
  */
 function Attention() {
   const t = useT()
@@ -405,7 +408,7 @@ function Attention() {
   const areas = (summary?.areas ?? []).filter((a) => a.open + a.answered > 0)
   const mineParams = (status: string) => serializeQuery({ filters: [{ prop: 'for', op: 'eq', value: ME }, { prop: 'status', op: 'eq', value: status }], q: '' }).toString()
   return (
-    <section aria-label={t('home.mine')} data-testid="attention" data-state-top={top ?? 'none'} className="glass leaf flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-1">
+    <section aria-label={t('home.mine')} data-testid="attention" data-state-top={top ?? 'none'} className="glass leaf flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-1 md:h-12 md:flex-nowrap md:overflow-hidden">
       <h2>{t('home.mine')}</h2>
       <div className="flex min-h-6 items-center">
         {!top ? (
@@ -432,7 +435,7 @@ function Attention() {
         <>
           <h2 className="md:border-l md:border-line md:pl-4">{t('home.byArea')}</h2>
           <AreaChips
-            className="min-w-0 flex-1 basis-60"
+            className="min-w-0 flex-1 basis-60 md:basis-0"
             chips={areas.map((a) => (
               <span key={a.area_id} data-testid="area-pending" className="inline-flex min-h-6 max-w-[24rem] flex-wrap items-center gap-x-1.5 rounded-2xl border border-line-strong px-2 py-px text-xs font-semibold leading-tight">
                 <span className="min-w-0 break-words">{areaTitle(a.area_id)}</span>

@@ -7,6 +7,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { PROVIDER_LIMIT_DEFAULTS } from './providers/limiter.js'
+import { MAX_EVENT_BYTES } from './telemetry/ui-spec.js'
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -173,6 +174,23 @@ export function loadConfig (env = process.env, overrides = {}) {
       // The 100,000 input-token price step of the default model is ≈ 300,000 characters at 3 chars/token in Spanish.
       // 200,000 characters leave room for the input, the catalog and the team in the same call.
       descriptionMaxChars: intVar(env, 'PROJECT_DESCRIPTION_MAX_CHARS', 200000, { min: 1 }) // informe 02 §10.2: the 100,000-token price step, UD-024
+    },
+
+    // ---- Interface telemetry (UD-091, MASTER-SPEC §7.10 ter). Every number cites its source or is declared a courtesy.
+    uiTelemetry: {
+      // UD-091: on by default (informe 09 §6 and §8.12: no cookies, storage, persistent identifier or content); the Editor
+      // turns it off in Configuración and the variable sets the initial value.
+      enabledDefault: boolVar(env, 'UI_TELEMETRY', true),
+      // Informe 09 §5 (fetch.spec.whatwg.org, 2026-10-19): the body quota of requests with `keepalive` is 64 KiB. A batch
+      // that fits it can be sent while the page closes.
+      maxBodyBytes: intVar(env, 'UI_TELEMETRY_MAX_BODY_BYTES', 64 * 1024, { min: 1 }), // informe 09 §5: 64 KiB keepalive quota
+      // PostHog leaves 20 % of the keepalive quota free (informe 09 §5, posthog.com/docs, 2026-10-21): events per batch =
+      // 80 % of the body over the longest possible event (MAX_EVENT_BYTES, measured from the schema).
+      maxEvents: intVar(env, 'UI_TELEMETRY_MAX_EVENTS', Math.floor((0.8 * 64 * 1024) / MAX_EVENT_BYTES), { min: 1 }), // informe 09 §5, PostHog 80 %
+      // PostHog's client allows 10 events a second with a burst of 100 (informe 09 §9, 2026-10-21); at most one event per
+      // request, so 100 requests in a 10 s window is the same sustained rate and the same burst.
+      rateMax: intVar(env, 'UI_TELEMETRY_RATE_MAX', 100, { min: 1 }), // informe 09 §9: PostHog, burst of 100
+      rateWindowMs: intVar(env, 'UI_TELEMETRY_RATE_WINDOW_MS', 10000, { min: 1 }) // informe 09 §9: PostHog, 10 events per second
     },
 
     // ---- Miembros

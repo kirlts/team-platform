@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Header } from '@/components/Header'
 import { I18nProvider, detectLanguage, isLanguage, useT } from '@/i18n'
 import { Sidebar } from '@/components/Sidebar'
+import { TelemetryBridge } from '@/components/TelemetryBridge'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { api, ApiError } from '@/lib/api'
@@ -48,6 +49,7 @@ function Shell() {
   return (
     <EventsProvider>
       <NoticeProvider>
+      <TelemetryBridge />
       <Atmosphere />
       {/* First stop of the keyboard: past the navigation, to the content (J1-A-11). */}
       <a href="#main" className="sr-only z-50 rounded-md bg-raised px-3 py-2 text-sm font-semibold text-accent-deep focus:not-sr-only focus:fixed focus:left-3 focus:top-3">

@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: a4d075d Traspaso: Configuración fusionada. Empujado a origin: `a4d075d`.
-- Ramas con commits sin fusionar: `wt-inicio-respira` 10 (hace 63 segundos), `wt-banco-abiertos` 6 (hace 8 minutos), `wt-h904` 2 (hace 3 minutos).
-- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `banco-abiertos`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `h904-old`, `heic`, `ingles`, `inicio-maqueta`, `inicio-respira`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
+- `main`: 8650d0c Merge branch 'wt-inicio-respira'. Empujado a origin: `8650d0c`.
+- Ramas con commits sin fusionar: `wt-banco-abiertos` 6 (hace 27 minutos), `wt-h904` 3 (hace 7 minutos).
+- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `banco-abiertos`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`, `voz2`.
 - Últimos commits en `main`:
-- `a4d075d` Traspaso: Configuración fusionada (hace 72 segundos)
-- `d56b3cf` Merge branch 'wt-configuracion' (hace 10 minutos)
-- `ea89282` UD-140: el presupuesto de API sube a 100 USD en total (hace 14 minutos)
-- `00ef3a6` Guardia de voz: los hint de Configuración quedan fuera del patrón de largo en palabras (hace 17 minutos)
-- `45f1fb5` Fusiona main en wt-configuracion (hace 19 minutos)
-- `5ea20d8` Traspaso: deuda técnica fusionada (hace 19 minutos)
-- `978def6` Pruebas de flujos: J1-A-45, J2-A-31, J3-A-39 y J3-A-40 migran a la sección Proveedores y al editor que crece (hace 19 minutos)
-- `98443f7` Merge branch 'wt-deuda' (hace 20 minutos)
-Actualizado 2026-10-21 19:00 UTC.
+- `8650d0c` Merge branch 'wt-inicio-respira' (hace 10 minutos)
+- `5fb0eaf` Fusiona main (Configuración, UD-140) en wt-inicio-respira (hace 20 minutos)
+- `a4d075d` Traspaso: Configuración fusionada (hace 20 minutos)
+- `d56b3cf` Merge branch 'wt-configuracion' (hace 29 minutos)
+- `ea89282` UD-140: el presupuesto de API sube a 100 USD en total (hace 33 minutos)
+- `f909ec7` Fusiona main (barra lateral y deuda técnica) en wt-inicio-respira (hace 35 minutos)
+- `00ef3a6` Guardia de voz: los hint de Configuración quedan fuera del patrón de largo en palabras (hace 36 minutos)
+- `45f1fb5` Fusiona main en wt-configuracion (hace 38 minutos)
+Actualizado 2026-10-21 19:19 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

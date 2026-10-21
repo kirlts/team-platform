@@ -1,0 +1,450 @@
+@import 'tailwindcss';
+
+/*
+ * Piel del panel. Funcionalmente es un programa de gestión; la cita al 2000 está en los
+ * materiales: vidrio translúcido, plata cromada, gel azul eléctrico y luces de estado.
+ * Fuentes y derivación de cada valor: panel/DISENO.md. Todo color es OKLCH.
+ * Los contrastes de los pares de texto se miden con `npm run contraste`.
+ */
+
+@font-face {
+  font-family: 'Orbitron';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url('./assets/fonts/orbitron-latin-wght-normal.woff2') format('woff2-variations');
+}
+
+@font-face {
+  font-family: 'Source Sans 3';
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url('./assets/fonts/source-sans-3-latin-wght-normal.woff2') format('woff2-variations');
+}
+
+@theme {
+  --font-sans: 'Source Sans 3', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --font-display: 'Orbitron', 'Eurostile', 'Bank Gothic', 'Arial Narrow', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+
+  /* Cielo: fondo de toda la aplicación. */
+  --color-sky-a: oklch(0.955 0.045 205);
+  --color-sky-b: oklch(0.945 0.03 250);
+  --color-sky-c: oklch(0.95 0.03 300);
+  --color-glow-1: oklch(0.9 0.1 205 / 0.55);
+  --color-glow-2: oklch(0.9 0.08 305 / 0.38);
+  --color-glow-3: oklch(0.94 0.13 125 / 0.28);
+  --color-orbit: oklch(0.55 0.12 250 / 0.2);
+
+  /* Superficies opacas. */
+  --color-bg: oklch(0.965 0.02 235);
+  --color-surface: oklch(0.955 0.017 240);
+  --color-raised: oklch(0.995 0.004 240);
+  --color-hover: oklch(0.935 0.025 240);
+  --color-line: oklch(0.86 0.025 245);
+  --color-line-strong: oklch(0.72 0.045 250);
+  /* Borde de controles: 3:1 contra el vidrio (criterio 1.4.11 de WCAG). */
+  --color-edge: oklch(0.58 0.07 252);
+
+  /* Vidrio: translúcido, con borde de luz. */
+  --color-glass: oklch(1 0 0 / 0.64);
+  --color-glass-strong: oklch(1 0 0 / 0.88);
+  --color-glass-edge: oklch(1 0 0 / 0.95);
+  --color-glass-line: oklch(0.7 0.05 250 / 0.42);
+
+  /* Cromo: barra superior (tubo plateado con horizonte). */
+  --color-chrome-1: oklch(0.995 0.004 240);
+  --color-chrome-2: oklch(0.92 0.018 245);
+  --color-chrome-3: oklch(0.84 0.026 250);
+  --color-chrome-4: oklch(0.94 0.014 245);
+
+  /* Tinta y acento. */
+  --color-fg: oklch(0.25 0.05 265);
+  --color-muted: oklch(0.45 0.04 260);
+  --color-faint: oklch(0.52 0.03 255);
+  --color-accent: oklch(0.5 0.2 250);
+  --color-accent-hover: oklch(0.44 0.2 252);
+  --color-accent-deep: oklch(0.38 0.17 255);
+  --color-accent-fg: oklch(0.99 0 0);
+  --color-accent-soft: oklch(0.925 0.05 245);
+  --color-aqua: oklch(0.78 0.13 205);
+  --color-lime: oklch(0.88 0.19 125);
+  --color-lilac: oklch(0.72 0.14 305);
+
+  /* Gel: botón primario. */
+  --color-gel-top: oklch(0.47 0.21 250);
+  --color-gel-bottom: oklch(0.38 0.18 256);
+  --color-gel-fg: oklch(0.99 0 0);
+
+  /* Estados: texto, fondo y luz. */
+  --color-open-fg: oklch(0.4 0.09 65);
+  --color-open-bg: oklch(0.94 0.075 88);
+  --color-open-led: oklch(0.8 0.17 80);
+  --color-answered-fg: oklch(0.4 0.15 252);
+  --color-answered-bg: oklch(0.925 0.05 245);
+  --color-answered-led: oklch(0.68 0.17 245);
+  --color-closed-fg: oklch(0.42 0.03 255);
+  --color-closed-bg: oklch(0.925 0.012 250);
+  --color-closed-led: oklch(0.72 0.02 255);
+  --color-danger: oklch(0.5 0.2 25);
+  --color-danger-soft: oklch(0.94 0.035 25);
+
+  /* Forma: radios cortos; el redondeo grande queda para controles. */
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  /* Sombras: coloreadas y de varias capas. */
+  --shadow-glass: inset 0 1px 0 oklch(1 0 0 / 0.9), 0 1px 2px oklch(0.4 0.1 255 / 0.18), 0 10px 28px -12px oklch(0.4 0.14 255 / 0.32);
+  --shadow-pop: inset 0 1px 0 oklch(1 0 0 / 0.9), 0 2px 4px oklch(0.4 0.1 255 / 0.18), 0 18px 40px -14px oklch(0.35 0.14 255 / 0.5);
+  --shadow-gel: inset 0 1px 0 oklch(1 0 0 / 0.55), inset 0 -1px 0 oklch(0.2 0.1 260 / 0.35), 0 1px 2px oklch(0.3 0.12 255 / 0.4), 0 8px 16px -8px oklch(0.5 0.2 250 / 0.7);
+  --shadow-well: inset 0 1px 2px oklch(0.35 0.1 255 / 0.16);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --color-sky-a: oklch(0.2 0.05 255);
+  --color-sky-b: oklch(0.17 0.045 270);
+  --color-sky-c: oklch(0.2 0.065 300);
+  --color-glow-1: oklch(0.45 0.18 250 / 0.38);
+  --color-glow-2: oklch(0.4 0.16 305 / 0.28);
+  --color-glow-3: oklch(0.5 0.15 125 / 0.14);
+  --color-orbit: oklch(0.75 0.12 235 / 0.3);
+
+  --color-bg: oklch(0.18 0.04 262);
+  --color-surface: oklch(0.23 0.045 258);
+  --color-raised: oklch(0.26 0.045 258);
+  --color-hover: oklch(0.3 0.05 258);
+  --color-line: oklch(0.34 0.05 258);
+  --color-line-strong: oklch(0.5 0.07 255);
+  --color-edge: oklch(0.64 0.08 255);
+
+  --color-glass: oklch(0.3 0.05 262 / 0.58);
+  --color-glass-strong: oklch(0.26 0.05 262 / 0.9);
+  --color-glass-edge: oklch(1 0 0 / 0.14);
+  --color-glass-line: oklch(0.75 0.08 245 / 0.32);
+
+  --color-chrome-1: oklch(0.4 0.025 260);
+  --color-chrome-2: oklch(0.3 0.025 260);
+  --color-chrome-3: oklch(0.21 0.03 262);
+  --color-chrome-4: oklch(0.27 0.025 260);
+
+  --color-fg: oklch(0.95 0.015 245);
+  --color-muted: oklch(0.77 0.03 250);
+  --color-faint: oklch(0.67 0.03 252);
+  --color-accent: oklch(0.76 0.15 240);
+  --color-accent-hover: oklch(0.82 0.14 238);
+  --color-accent-deep: oklch(0.84 0.12 235);
+  --color-accent-fg: oklch(0.18 0.04 260);
+  --color-accent-soft: oklch(0.32 0.08 255);
+  --color-aqua: oklch(0.8 0.12 205);
+  --color-lime: oklch(0.88 0.19 125);
+  --color-lilac: oklch(0.75 0.13 305);
+
+  --color-gel-top: oklch(0.8 0.14 235);
+  --color-gel-bottom: oklch(0.66 0.18 245);
+  --color-gel-fg: oklch(0.18 0.04 260);
+
+  --color-open-fg: oklch(0.87 0.12 85);
+  --color-open-bg: oklch(0.33 0.06 85);
+  --color-open-led: oklch(0.84 0.17 85);
+  --color-answered-fg: oklch(0.84 0.1 240);
+  --color-answered-bg: oklch(0.3 0.07 255);
+  --color-answered-led: oklch(0.76 0.15 240);
+  --color-closed-fg: oklch(0.76 0.02 250);
+  --color-closed-bg: oklch(0.3 0.015 255);
+  --color-closed-led: oklch(0.6 0.02 255);
+  --color-danger: oklch(0.74 0.16 25);
+  --color-danger-soft: oklch(0.32 0.07 25);
+
+  --shadow-glass: inset 0 1px 0 oklch(1 0 0 / 0.14), 0 1px 2px oklch(0.1 0.05 260 / 0.5), 0 12px 30px -12px oklch(0.05 0.05 260 / 0.7);
+  --shadow-pop: inset 0 1px 0 oklch(1 0 0 / 0.16), 0 2px 4px oklch(0.1 0.05 260 / 0.5), 0 20px 44px -14px oklch(0.05 0.05 260 / 0.85);
+  --shadow-gel: inset 0 1px 0 oklch(1 0 0 / 0.5), inset 0 -1px 0 oklch(0.3 0.1 255 / 0.4), 0 1px 2px oklch(0.1 0.05 260 / 0.6), 0 8px 18px -8px oklch(0.7 0.15 240 / 0.6);
+  --shadow-well: inset 0 1px 3px oklch(0.08 0.04 260 / 0.55);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+@layer base {
+  html {
+    font-size: 15px;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-bg);
+    background-image:
+      radial-gradient(60rem 38rem at 6% -10%, var(--color-glow-1), transparent 62%),
+      radial-gradient(52rem 34rem at 104% 108%, var(--color-glow-2), transparent 64%),
+      radial-gradient(30rem 20rem at -4% 104%, var(--color-glow-3), transparent 66%),
+      linear-gradient(155deg, var(--color-sky-a), var(--color-sky-b) 56%, var(--color-sky-c));
+    background-attachment: fixed;
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  * {
+    border-color: var(--color-line);
+  }
+
+  /* Escala modular de razón 1,25 sobre 15 px: 12 · 15 · 18,75 · 23,4 · 29,3. */
+  h1 {
+    font-family: var(--font-display);
+    font-size: clamp(1.25rem, 1.05rem + 0.9vw, 1.56rem);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    line-height: 1.3;
+  }
+
+  /* Rótulo de sección: pantalla de instrumento, mayúsculas y aire entre letras. */
+  h2 {
+    font-family: var(--font-display);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    line-height: 1.3;
+  }
+
+  h3 {
+    font-weight: 600;
+  }
+
+  button,
+  [role='button'],
+  a {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [aria-disabled='true'] {
+    cursor: not-allowed;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  /* En un teléfono, 16 px evita el zoom automático de iOS al enfocar un campo. */
+  @media (max-width: 640px) {
+    input,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
+
+  .scroll-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-strong) transparent;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation: none !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* Vidrio: panel translúcido con borde de luz. Se usa en pocas superficies grandes. */
+  .glass {
+    background: var(--color-glass);
+    -webkit-backdrop-filter: blur(14px) saturate(1.5);
+    backdrop-filter: blur(14px) saturate(1.5);
+    border: 1px solid var(--color-glass-line);
+    box-shadow: var(--shadow-glass);
+  }
+
+  .glass-strong {
+    background: var(--color-glass-strong);
+    -webkit-backdrop-filter: blur(18px) saturate(1.6);
+    backdrop-filter: blur(18px) saturate(1.6);
+    border: 1px solid var(--color-glass-line);
+    box-shadow: var(--shadow-pop);
+  }
+
+  /* Hoja: esquinas opuestas redondeadas, la forma de las pestañas de la maqueta. */
+  .leaf {
+    border-radius: 3px 10px 3px 10px;
+  }
+
+  /* Pozo: campo hundido en la superficie. */
+  .well {
+    background: var(--color-raised);
+    box-shadow: var(--shadow-well);
+    border: 1px solid var(--color-edge);
+  }
+
+  /* Barra de cromo: tubo plateado con línea de horizonte. */
+  .chrome-bar {
+    background: linear-gradient(
+      180deg,
+      var(--color-chrome-1) 0%,
+      var(--color-chrome-2) 48%,
+      var(--color-chrome-3) 52%,
+      var(--color-chrome-4) 100%
+    );
+    border-bottom: 1px solid var(--color-line-strong);
+    box-shadow: 0 8px 20px -12px oklch(0.35 0.14 255 / 0.5);
+  }
+
+  /* Botones. El gel lleva un brillo en la mitad superior; el vidrio es el secundario. */
+  .btn {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    white-space: nowrap;
+    border-radius: 9999px;
+    font-weight: 600;
+    transition:
+      background-color 140ms ease-out,
+      border-color 140ms ease-out,
+      box-shadow 140ms ease-out,
+      filter 140ms ease-out,
+      transform 90ms ease-out;
+  }
+
+  .btn:disabled {
+    pointer-events: none;
+    opacity: 0.45;
+  }
+
+  .btn:active {
+    transform: translateY(1px);
+  }
+
+  .btn-gel {
+    color: var(--color-gel-fg);
+    border: 1px solid oklch(0.3 0.1 255 / 0.55);
+    background:
+      linear-gradient(180deg, oklch(1 0 0 / 0.22), oklch(1 0 0 / 0) 50%),
+      linear-gradient(180deg, var(--color-gel-top), var(--color-gel-bottom));
+    box-shadow: var(--shadow-gel);
+    text-shadow: 0 1px 0 oklch(0.2 0.1 260 / 0.35);
+  }
+
+  :root[data-theme='dark'] .btn-gel {
+    text-shadow: none;
+    border-color: oklch(0.85 0.1 240 / 0.6);
+  }
+
+  .btn-gel:hover:not(:disabled) {
+    filter: brightness(1.08) saturate(1.1);
+  }
+
+  .btn-glass {
+    color: var(--color-fg);
+    border: 1px solid var(--color-edge);
+    background: linear-gradient(180deg, var(--color-glass-edge), var(--color-glass));
+    box-shadow:
+      inset 0 1px 0 var(--color-glass-edge),
+      0 1px 2px oklch(0.4 0.1 255 / 0.14);
+  }
+
+  .btn-glass:hover:not(:disabled) {
+    border-color: var(--color-accent);
+    color: var(--color-accent-deep);
+  }
+
+  .btn-ghost {
+    color: var(--color-fg);
+    border: 1px solid transparent;
+    background: transparent;
+  }
+
+  .btn-ghost:hover:not(:disabled) {
+    background: var(--color-glass);
+    border-color: var(--color-glass-line);
+  }
+
+  .btn-danger {
+    color: var(--color-danger);
+    border: 1px solid var(--color-edge);
+    background: linear-gradient(180deg, var(--color-glass-edge), var(--color-glass));
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    background: var(--color-danger-soft);
+    border-color: var(--color-danger);
+  }
+
+  /* Esfera de vidrio: avatares y marca. */
+  .orb {
+    background:
+      radial-gradient(circle at 32% 26%, oklch(1 0 0 / 0.95) 0 11%, oklch(1 0 0 / 0) 34%),
+      radial-gradient(circle at 50% 120%, var(--color-aqua), transparent 62%),
+      linear-gradient(160deg, var(--color-gel-top), var(--color-gel-bottom));
+    color: oklch(0.99 0 0);
+    text-shadow: 0 1px 1px oklch(0.2 0.1 260 / 0.55);
+    box-shadow:
+      inset 0 -2px 3px oklch(0.2 0.1 260 / 0.35),
+      0 1px 2px oklch(0.3 0.12 255 / 0.45);
+  }
+
+  /* Luz de estado: punto con halo, antes del texto de la insignia. */
+  .led::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin-right: 5px;
+    border-radius: 9999px;
+    background: var(--led);
+    box-shadow:
+      0 0 0 1px oklch(0 0 0 / 0.12),
+      0 0 6px 1px var(--led);
+  }
+
+  /* Medidor: pozo con relleno de cristal y un destello que lo recorre mientras trabaja. */
+  .meter {
+    background: var(--color-raised);
+    box-shadow: var(--shadow-well);
+    border: 1px solid var(--color-edge);
+    border-radius: 9999px;
+    overflow: hidden;
+  }
+
+  .meter-fill {
+    height: 100%;
+    border-radius: 9999px;
+    background:
+      linear-gradient(100deg, transparent 30%, oklch(1 0 0 / 0.55) 50%, transparent 70%) 0 0 / 200% 100%,
+      linear-gradient(180deg, oklch(1 0 0 / 0.5), oklch(1 0 0 / 0) 55%),
+      linear-gradient(90deg, var(--color-aqua), var(--color-gel-top));
+    animation: sheen 2.4s linear infinite;
+    transition: width 500ms ease-out;
+  }
+
+  @keyframes sheen {
+    from {
+      background-position: 200% 0, 0 0, 0 0;
+    }
+    to {
+      background-position: -100% 0, 0 0, 0 0;
+    }
+  }
+
+  /* Marco de miniatura: borde de luz y sombra azul. */
+  .frame {
+    border: 1px solid var(--color-glass-line);
+    background: var(--color-glass-edge);
+    padding: 2px;
+    box-shadow: 0 1px 2px oklch(0.4 0.1 255 / 0.25);
+  }
+}

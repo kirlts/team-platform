@@ -1,0 +1,22 @@
+# Fuera del contexto de construcción: lo que la imagen no usa o no debe llevar.
+.git
+.claude
+.agents
+.env
+.env.*
+!.env.example
+node_modules
+**/node_modules
+panel/dist
+bench
+docs
+scripts
+data
+backups
+*.log
+/*.md
+/idea.md
+/Plataforma Team.png
+compose*.yml
+Dockerfile
+.dockerignore

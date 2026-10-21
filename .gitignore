@@ -24,3 +24,4 @@ docs/*.epub
 
 # Volumen de datos local (base, adjuntos)
 data/
+!.env.example

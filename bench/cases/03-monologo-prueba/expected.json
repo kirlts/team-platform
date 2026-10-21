@@ -1,0 +1,242 @@
+{
+  "id": "03-monologo-prueba",
+  "messages": [
+    {
+      "id": "m1",
+      "title": "El mapa queda en blanco varios segundos con rutas de veinte paradas",
+      "area_id": 2,
+      "template_id": 2,
+      "unit_ids": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        39,
+        40,
+        41
+      ]
+    },
+    {
+      "id": "m2",
+      "title": "El texto del botón Reprogramar entrega se corta en pantallas chicas",
+      "area_id": [
+        2,
+        4
+      ],
+      "template_id": [
+        2,
+        4
+      ],
+      "unit_ids": [
+        9,
+        10
+      ]
+    },
+    {
+      "id": "m3",
+      "title": "El calendario deja elegir fechas pasadas",
+      "area_id": 2,
+      "template_id": 2,
+      "unit_ids": [
+        12,
+        13
+      ]
+    },
+    {
+      "id": "m4",
+      "title": "La confirmación de reprogramación desaparece demasiado rápido",
+      "area_id": 4,
+      "template_id": 4,
+      "unit_ids": [
+        15
+      ]
+    },
+    {
+      "id": "m5",
+      "title": "El contador de paradas pendientes no baja al reprogramar",
+      "area_id": 2,
+      "template_id": 2,
+      "unit_ids": [
+        17,
+        18,
+        37,
+        38
+      ]
+    },
+    {
+      "id": "m6",
+      "title": "¿El repartidor ve las notas internas de la bodega?",
+      "area_id": 5,
+      "template_id": 5,
+      "unit_ids": [
+        19,
+        20,
+        21
+      ]
+    },
+    {
+      "id": "m7",
+      "title": "Avisar al cliente por WhatsApp cuando se reprograma",
+      "area_id": [
+        3,
+        1
+      ],
+      "template_id": [
+        3,
+        1
+      ],
+      "unit_ids": [
+        24,
+        25,
+        26,
+        27
+      ]
+    },
+    {
+      "id": "m8",
+      "title": "Agrupar las paradas por barrio",
+      "area_id": 1,
+      "template_id": 1,
+      "unit_ids": [
+        29,
+        30,
+        31
+      ]
+    },
+    {
+      "id": "m9",
+      "title": "El calendario no marca feriados y no se sabe si toma los regionales",
+      "area_id": [
+        5,
+        2
+      ],
+      "template_id": [
+        5,
+        2
+      ],
+      "unit_ids": [
+        32,
+        33,
+        34,
+        35
+      ]
+    }
+  ],
+  "discarded": [
+    {
+      "unit_ids": [
+        1
+      ],
+      "reason": "presentación"
+    },
+    {
+      "unit_ids": [
+        7
+      ],
+      "reason": "navegación"
+    },
+    {
+      "unit_ids": [
+        8
+      ],
+      "reason": "navegación"
+    },
+    {
+      "unit_ids": [
+        11
+      ],
+      "reason": "navegación"
+    },
+    {
+      "unit_ids": [
+        14
+      ],
+      "reason": "navegación"
+    },
+    {
+      "unit_ids": [
+        16
+      ],
+      "reason": "resultado correcto"
+    },
+    {
+      "unit_ids": [
+        22
+      ],
+      "reason": "navegación"
+    },
+    {
+      "unit_ids": [
+        23
+      ],
+      "reason": "interrupción"
+    },
+    {
+      "unit_ids": [
+        28
+      ],
+      "reason": "navegación"
+    },
+    {
+      "unit_ids": [
+        36
+      ],
+      "reason": "relleno"
+    },
+    {
+      "unit_ids": [
+        42
+      ],
+      "reason": "pausa"
+    },
+    {
+      "unit_ids": [
+        43
+      ],
+      "reason": "resultado correcto"
+    },
+    {
+      "unit_ids": [
+        44
+      ],
+      "reason": "resultado correcto"
+    },
+    {
+      "unit_ids": [
+        45
+      ],
+      "reason": "resultado correcto"
+    },
+    {
+      "unit_ids": [
+        46
+      ],
+      "reason": "cierre"
+    },
+    {
+      "unit_ids": [
+        47
+      ],
+      "reason": "resumen de lo ya dicho"
+    },
+    {
+      "unit_ids": [
+        48
+      ],
+      "reason": "resumen de lo ya dicho"
+    },
+    {
+      "unit_ids": [
+        49
+      ],
+      "reason": "cierre"
+    },
+    {
+      "unit_ids": [
+        50
+      ],
+      "reason": "cierre"
+    }
+  ]
+}

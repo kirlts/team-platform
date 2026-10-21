@@ -1,0 +1,68 @@
+{
+  "id": "01-chat-grupo",
+  "messages": [
+    {
+      "id": "m1",
+      "title": "El mapa no carga en Safari de iPhone",
+      "area_id": 2,
+      "template_id": 2,
+      "unit_ids": [
+        1,
+        2,
+        3,
+        4,
+        14,
+        15
+      ]
+    },
+    {
+      "id": "m2",
+      "title": "Marcar una entrega como reprogramada con calendario y feriados",
+      "area_id": 3,
+      "template_id": 3,
+      "unit_ids": [
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "id": "m3",
+      "title": "El botón Iniciar ruta no cumple el contraste mínimo",
+      "area_id": [
+        2,
+        4
+      ],
+      "template_id": [
+        2,
+        4
+      ],
+      "unit_ids": [
+        11,
+        12,
+        13
+      ]
+    }
+  ],
+  "discarded": [
+    {
+      "unit_ids": [
+        5
+      ],
+      "reason": "saludo"
+    },
+    {
+      "unit_ids": [
+        10
+      ],
+      "reason": "reacción sin contenido"
+    },
+    {
+      "unit_ids": [
+        16
+      ],
+      "reason": "aviso sin pedido"
+    }
+  ]
+}

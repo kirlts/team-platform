@@ -443,3 +443,17 @@ RULES:
 - `bench/areas-classify.mjs` mide la clasificación sola, a unos 0,05 USD por corrida.
 **Condiciones de reversión:** Una corrida completa del pipeline con proyecto bajo el 82,6 % de las cortas, o que Martín prefiera el orden anterior.
 
+
+## [UD-035] Una parte que el análisis dejó sin mensaje se convierte en mensaje, de a una, desde su lista
+
+**Fecha:** 2026-10-21
+**Contexto:** El juez de la ronda 3 (J3-B-09) no pudo convertir en mensaje un párrafo que el análisis dejó sin acción y que era un error real: la lista «Partes sin mensaje» sólo se leía y la única salida era analizar todo de nuevo. Martín pidió atender el 100 % de los hallazgos de la ronda y dejó decidir lo que el informe dejaba abierto.
+**Decisión:** Decisión de la sesión, tomada por ese encargo; Martín no la dijo con estas palabras y puede revertirla. Cada parte de la lista lleva «Crear mensaje». El mensaje nuevo lleva el texto de esa parte como cuerpo, sus primeras ocho palabras como título provisional (se edita en el lugar, UD-017), el área del primer mensaje de la propuesta (o la primera del catálogo si no queda ninguno), la plantilla de esa área, sin destinatarios, y se abre al crearse. La parte sale de la lista y es una operación del historial: Deshacer la devuelve. El botón «Partes sin mensaje» pasa al pie de la propuesta, junto a Descartar envío, y no ocupa una fila propia.
+**Alternativas descartadas:**
+- Un solo botón que convierta todas las partes juntas: junta puntos distintos en un mensaje.
+- Elegir el área o los destinatarios leyendo el texto de la parte: es un `if` sobre texto humano, que la regla 4 de `docs/RULES.md` prohíbe. La persona los elige en el mensaje ya creado.
+- Abrir un editor aparte para la parte: UD-017 pide editar en el lugar.
+**Consecuencias:**
+- Prueba `flows` «a part without a message becomes a message, one part at a time, and Deshacer takes it back» (`panel/src/flows-ronda3b.browser.test.mjs`).
+- Un título provisional de ocho palabras no es una interpretación del texto: es su comienzo, y la persona lo cambia antes de publicar (el título es obligatorio).
+**Condiciones de reversión:** Que Martín prefiera que las partes sin mensaje sean sólo lectura, o que la medición de uso muestre que el título provisional se publica sin editar.

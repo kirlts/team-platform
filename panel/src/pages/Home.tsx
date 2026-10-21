@@ -365,8 +365,8 @@ function Attention() {
       {areas.length > 0 && (
         <nav aria-label={t('home.byArea')} className="flex min-w-0 items-start gap-2 md:ml-auto">
           <span className="shrink-0 pt-1 text-xs font-semibold uppercase tracking-[0.12em] text-muted">{t('home.byArea')}</span>
-          {/* With many areas the chips scroll inside two rows: a declared lane, not the page. */}
-          <ul data-lane="area-pending" className="scroll-thin flex max-h-[4.25rem] min-w-0 flex-wrap items-center gap-1.5 overflow-y-auto">
+          {/* With many areas the chips scroll inside two rows: a declared lane, not the page. The lane always keeps the two rows, so a publication that adds an area with something pending does not push the lists down (J3-B-15). */}
+          <ul data-lane="area-pending" className="scroll-thin flex max-h-[4.25rem] min-h-[4.25rem] min-w-0 flex-wrap items-center gap-1.5 overflow-y-auto">
             {areas.map((a) => (
               <li key={a.area_id}>
                 <Link to={areaMessagesPath(a.area_id)} aria-label={t('home.areaOpen', { title: areaTitle(a.area_id), n: a.open })} data-testid="area-pending" className="inline-flex items-center gap-1.5 rounded-full border border-line-strong bg-glass-strong py-0.5 pl-2.5 pr-0.5 text-xs font-semibold hover:bg-glass-edge">

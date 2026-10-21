@@ -196,7 +196,7 @@
   --color-closed-fg: oklch(0.76 0.02 250);
   --color-closed-bg: oklch(0.3 0.015 255);
   --color-closed-led: oklch(0.6 0.02 255);
-  --color-ai-bg: oklch(0.27 0.07 300);
+  --color-ai-bg: oklch(0.255 0.052 285);
   --color-ai-edge: oklch(0.74 0.15 305);
   --color-ai-fg: oklch(0.86 0.1 305);
   --color-danger: oklch(0.74 0.16 25);

@@ -1,4 +1,4 @@
-import { AlertTriangle, ChevronDown, ChevronRight, RotateCw, Trash2, X } from '@/components/icons'
+import { AlertTriangle, ChevronDown, ChevronRight, Plus, RotateCw, Trash2, X } from '@/components/icons'
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
@@ -11,6 +11,7 @@ import { useJobProgress } from '@/lib/events'
 import { useNotices } from '@/lib/notices'
 import { sendPercent } from '@/lib/progress'
 import { useCancelInput, usePublish, useReprocess, useRestoreInput, useSaveProposal, useTemplates, useTray } from '@/lib/queries'
+import { firstWords } from '@/lib/first-words'
 import { missingRequired, parseTemplateFields, remapFields } from '@/lib/template'
 import type { Attachment, InputRecord, InputStatus, Proposal, ProposalMessage, Template } from '@/lib/types'
 import { useUndo } from '@/lib/undo'
@@ -86,7 +87,7 @@ export function AnalysisPanel({ input, onClose, onDiscarded }: { input: InputRec
   return (
     // Only a proposal fills the frame; waiting or failing, the surface is as tall as what it says (J1-B-07).
     <section aria-label={t('analysis.title')} className={cn('@container ai-surface flex min-h-0 min-w-0 flex-col gap-3 p-3 pl-4', input.status === 'proposed' ? 'flex-1' : 'w-full self-start')}>
-      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+      <div className="flex min-h-7 flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <div className="flex items-center gap-2">
             <h2>{t('analysis.title')}</h2>
@@ -186,7 +187,7 @@ function ProposalEditor({
   const errorText = useErrorText()
   const undo = useUndo()
   const notices = useNotices()
-  const { memberName } = useLookups()
+  const { memberName, areas } = useLookups()
   const publish = usePublish()
   const waiting = (useTray().data ?? []).filter((i) => i.id !== input.id).length
   const saveProposal = useSaveProposal(input.id)
@@ -239,10 +240,31 @@ function ProposalEditor({
     notices.show({ text: t('proposal.removedNotice', { title }) })
   }
 
+  const unitText = (id: number) => input.units?.find((u) => u.id === id)?.text
+
+  /**
+   * A part the analysis left without a message becomes one (J3-B-09), one part at a time: its text is the body, its first words the title (the person
+   * edits it right there), the area is the one of the first message or, with none, the first of the catalog. Nobody is assigned and
+   * the template is the area's own: the person fills those in. The units leave «Partes sin mensaje» and go with the new message.
+   */
+  const createFrom = async (at: number, unitId: number) => {
+    const part = latest.current.discarded?.[at]
+    if (!part) return
+    const text = unitText(unitId) ?? ''
+    const area_id = latest.current.messages[0]?.area_id ?? areas[0]?.id
+    if (!area_id) return
+    // The new message opens at once, not after the draft is saved.
+    setOpenIndex(latest.current.messages.length)
+    await change(t('proposal.created'), (p) => ({
+      ...p,
+      messages: [...p.messages, { area_id, template_id: null, title: firstWords(text, 8), body: text, fields: null, assignee_ids: [], attachment_ids: [], unit_ids: [unitId] }],
+      discarded: (p.discarded ?? []).flatMap((d, i) => (i !== at ? [d] : d.unit_ids.length > 1 ? [{ ...d, unit_ids: d.unit_ids.filter((u) => u !== unitId) }] : [])),
+    }))
+  }
+
   const rows = useMemo<Row[]>(() => proposal.messages.map((m, i) => ({ m, i })), [proposal])
   const discarded = proposal.discarded ?? []
   const discardedCount = discarded.reduce((n, d) => n + d.unit_ids.length, 0)
-  const unitText = (id: number) => input.units?.find((u) => u.id === id)?.text
   const count = proposal.messages.length
 
   // What is missing per message: computed with each one's template.
@@ -292,33 +314,6 @@ function ProposalEditor({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      {discardedCount > 0 && (
-        <div className="flex items-center justify-end gap-3 text-xs text-muted">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button size="sm" variant="secondary" className="hit">
-                {t('proposal.noAction')} <Badge tone="neutral">{discardedCount}</Badge>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-96 p-3">
-              <p className="mb-2 text-xs font-semibold">{t('proposal.noActionTitle', { n: discardedCount })}</p>
-              <ul data-lane="discarded-units" className="scroll-thin flex max-h-72 flex-col overflow-y-auto">
-                {discarded.map((d, i) => (
-                  <li key={i} className="border-b border-line py-2 text-sm first:pt-0 last:border-b-0 last:pb-0">
-                    <p className="text-xs text-muted">{d.reason}</p>
-                    {d.unit_ids.map((id) => (
-                      <p key={id} className="whitespace-pre-wrap">
-                        {unitText(id) ?? id}
-                      </p>
-                    ))}
-                  </li>
-                ))}
-              </ul>
-            </PopoverContent>
-          </Popover>
-        </div>
-      )}
-
       <FitList
         bare
         rows={rows}
@@ -348,9 +343,38 @@ function ProposalEditor({
 
       {/* On a phone the actions stay on screen whatever the length of the list (J1-B-29). */}
       <div data-actions className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 max-md:sticky max-md:bottom-0 max-md:z-10 max-md:-mx-3 max-md:-mb-3 max-md:rounded-b-[10px] max-md:border-t max-md:border-line max-md:bg-surface max-md:px-3 max-md:py-2">
-        <Button variant="ghost" className="hit text-danger" onClick={onDiscard} disabled={publish.isPending || discarding}>
-          <Trash2 size={14} aria-hidden /> {t('analysis.discard')}
-        </Button>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <Button variant="ghost" className="hit text-danger" onClick={onDiscard} disabled={publish.isPending || discarding}>
+            <Trash2 size={14} aria-hidden /> {t('analysis.discard')}
+          </Button>
+          {discardedCount > 0 && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button size="sm" variant="secondary" className="hit">
+                  {t('proposal.noAction')} <Badge tone="neutral">{discardedCount}</Badge>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-96 p-3">
+                <p className="mb-2 text-xs font-semibold">{t('proposal.noActionTitle', { n: discardedCount })}</p>
+                <ul data-lane="discarded-units" className="scroll-thin flex max-h-72 flex-col overflow-y-auto">
+                  {discarded.map((d, i) => (
+                    <li key={i} className="flex flex-col items-start gap-1.5 border-b border-line py-2 text-sm first:pt-0 last:border-b-0 last:pb-0">
+                      <p className="text-xs text-muted">{d.reason}</p>
+                      {d.unit_ids.map((id) => (
+                        <div key={id} className="flex w-full flex-col items-start gap-1.5 border-t border-line pt-2 first:border-t-0 first:pt-0">
+                          <p className="whitespace-pre-wrap">{unitText(id) ?? id}</p>
+                          <Button size="sm" variant="secondary" className="hit" onClick={() => void createFrom(i, id)}>
+                            <Plus size={13} aria-hidden /> {t('proposal.create')}
+                          </Button>
+                        </div>
+                      ))}
+                    </li>
+                  ))}
+                </ul>
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
         <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
           {missingTotal > 0 && (
             <span role="status" className="text-xs font-semibold text-danger">
@@ -430,7 +454,7 @@ function ProposalRow({
     <li className="flex list-none flex-col gap-2 border-b border-line px-1.5 py-3 last:border-b-0">
       <div className="flex flex-wrap items-start gap-x-2 gap-y-1.5">
         {!only && (
-          <span className="flex shrink-0 items-center gap-1 self-center text-xs font-semibold tabular-nums text-muted">
+          <span className="flex shrink-0 items-center gap-1 self-start pt-2 text-xs font-semibold tabular-nums text-muted">
             <ChevronDown size={14} aria-hidden />
             {index + 1}
           </span>

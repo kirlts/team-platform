@@ -166,6 +166,8 @@ export const es419 = {
   'proposal.count': { one: '{n} mensaje', other: '{n} mensajes' },
   'proposal.list': 'Mensajes propuestos',
   'proposal.noAction': 'Partes sin mensaje',
+  'proposal.create': 'Crear mensaje',
+  'proposal.created': 'Mensaje creado',
   'proposal.removedReason': 'Quitado por el emisor',
   'proposal.removed': 'Mensaje quitado',
   'proposal.remove': 'Quitar el mensaje {title}',

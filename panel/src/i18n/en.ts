@@ -165,6 +165,8 @@ export const en: Record<MessageKey, Message> = {
 
   'proposal.count': { one: '{n} message', other: '{n} messages' },
   'proposal.list': 'Proposed messages',
+  'proposal.create': 'Create message',
+  'proposal.created': 'Message created',
   'proposal.noAction': 'Parts without a message',
   'proposal.removedReason': 'Removed by the sender',
   'proposal.removed': 'Message removed',

@@ -81,7 +81,7 @@ El desenfoque se usa en pocas superficies grandes. Las filas no lo llevan, por c
 | Rótulo de sección | Source Sans 3 | 12 px | Peso 700, mayúsculas, tracking 0,08 em; Orbitron queda para la marca porque sus mayúsculas anchas se leen mal a 12 px (J1-A-55) |
 | Apoyo (`text-xs`) | Source Sans 3 | 12 px | Metadatos, extractos, rótulos de campo; ningún texto visible baja de 12 px (J1-A-53) |
 | Cuerpo (`text-sm`, `text-base`) | Source Sans 3 | 15 px | Títulos de fila, valores, controles |
-| Lectura (`text-read`) | Source Sans 3 | 17 px | El texto de una propuesta (UD-030) |
+| Lectura (`text-read`) | Source Sans 3 | 17 px | El texto de una propuesta (UD-030) y, en peso 700, el título de cada mensaje propuesto (J3-B-02) |
 | Encabezado (`text-lg`) | Source Sans 3 | 18,75 px | Escala de razón 1,25: 12, 15, 18,75, 23,4 |
 
 Los tamaños son tokens de `@theme` (`--text-xs`, `--text-sm`, `--text-read`, `--text-lg`). Ningún componente escribe un tamaño propio por debajo del encabezado: `src/type-scale.test.ts` lo exige en el código y `test:fit` mide cada texto visible en el navegador (las iniciales de un avatar son decoración y quedan exentas).
@@ -150,7 +150,7 @@ UD-026. Todo contenido que genera el modelo vive en una superficie propia y se r
 
 | Elemento | Valor |
 |---|---|
-| Superficie `.ai-surface` | Fondo lila plano (`ai-bg`: 0,955 0,04 300 en claro, 0,27 0,07 300 en oscuro), borde izquierdo de 3 px (`ai-edge`) y filete de 1 px del mismo color atenuado. No es un degradado: UD-013 prohíbe el degradado púrpura a azul |
+| Superficie `.ai-surface` | Fondo lila plano (`ai-bg`: 0,955 0,04 300 en claro, 0,255 0,052 285 en oscuro: el matiz y el croma se acercan al azul de la interfaz para que no parezca una segunda familia de color, J3-B-13), borde izquierdo de 3 px (`ai-edge`) y filete de 1 px del mismo color atenuado. No es un degradado: UD-013 prohíbe el degradado púrpura a azul |
 | Marca de origen `AiMark` | Destello y la sigla «IA» en `ai-fg`, sobre un tinte del borde; nombre accesible y aviso «Generado por IA». Una por grupo, en su cabecera, no una por elemento |
 | Contraste medido (`npm run contraste`) | Texto sobre la superficie 13,87 claro y 13,33 oscuro; marca 8,67 y 9,69; borde 5,69 y 6,32 |
 
@@ -208,13 +208,15 @@ UD-029 y ronda 2. Lo que afecta a la persona sale de una sola fuente, `GET /mess
 
 ## Avisos de la pantalla
 
-Un aviso no mueve lo que se lee. En la página flota al pie, sobre el contenido. Dentro de la ventana de envíos ocupa la barra del título, que sólo tiene el título y el botón de cerrar. Lleva un enlace o una acción, nunca los dos Deshacer: lo que está en el historial se deshace con los botones del historial.
+Un aviso no mueve lo que se lee. En el teléfono flota al pie. Desde el ancho de una tableta ocupa el centro vacío de la barra superior, entre el nombre y la campana, donde no tapa contenido ni la paginación de las listas (J3-B-15). Dentro de la ventana de envíos ocupa la barra del título, que sólo tiene el título y el botón de cerrar. Lleva un enlace o una acción, nunca los dos Deshacer: lo que está en el historial se deshace con los botones del historial.
 
 ## Envíos, ventana y revisión
 
-UD-025, UD-030 y ronda 2. El control de envíos es un botón de vidrio en la fila del título del compositor. Esa fila mantiene su alto con o sin envíos. El botón muestra el estado, la barra de progreso del conjunto y la flecha. Un envío que queda listo con la ventana plegada se avisa. La ventana abre en el envío más reciente que pide a la persona. Un envío en cola no tiene porcentaje y su barra es indeterminada. La ventana de un envío en análisis mide lo que muestra. En el teléfono ocupa la pantalla y la lista de envíos se pliega tras un botón con su cuenta. El original, abierto, va arriba de la propuesta en un marco propio. El historial (Deshacer, Rehacer) aparece a la izquierda de «Volver a analizar», que no se mueve. Descartar con más envíos deja su lugar con Deshacer.
+UD-025, UD-030 y ronda 2. El control de envíos es un botón de vidrio en la fila del título del compositor. Esa fila mantiene su alto con o sin envíos. El botón muestra el estado, la barra de progreso del conjunto y la flecha. Un envío que queda listo con la ventana plegada se avisa. La ventana abre en el envío más reciente que pide a la persona. Un envío en cola no tiene porcentaje y su barra es indeterminada. La ventana tiene el mismo alto y el mismo lugar en la cola, en análisis, con propuesta y con un solo mensaje: un envío que termina no la hace saltar (J3-B-04, UD-030 punto 4). Los botones de la propuesta quedan al pie de la ventana y lo que sobra de alto queda dentro de la superficie de análisis, nunca bajo ella (J3-B-31). Un envío fallido se avisa como error con el camino a la ventana, y su marca en el control lleva contorno (J3-B-14). En el teléfono ocupa la pantalla y la lista de envíos se pliega tras un botón con su cuenta. El original, abierto, va arriba de la propuesta en un marco propio. El historial (Deshacer, Rehacer) aparece junto al título del análisis y «Volver a analizar» queda solo en el borde derecho, apartado del par que da un paso atrás; no se dibuja mientras el envío no tiene propuesta, y volver a analizar pregunta si hay algo que deshacer o rehacer y vacía el historial (J3-B-05, J3-B-27). «Quitar mensaje» (cuadro de equis) y «Descartar envío» (papelera, tinta de peligro, al pie) no comparten palabra, ícono ni tinta (J3-B-08). Una parte sin mensaje se convierte en mensaje desde su lista, de a una (UD-035). Descartar con más envíos deja su lugar con Deshacer.
 
-La barra de nuevo mensaje crece sobre la página y nunca la empuja. En reposo reserva su alto. Con texto largo, adjuntos o enlace se abre encima, con fondo opaco. El campo de texto llega a 120 px y desde ahí desplaza, con un desvanecido arriba.
+La barra de nuevo mensaje crece sobre la página y nunca la empuja. En reposo reserva su alto. Con texto largo, adjuntos o enlace se abre encima, con fondo opaco desde el primer cuadro (el fondo no lleva transición) y la página de abajo se atenúa con un velo que deja pasar el puntero, así que ningún trozo de la tarjeta de abajo se ve a través ni asoma recortado (J3-B-01). El campo de texto llega a 120 px y desde ahí desplaza, con un desvanecido arriba.
+
+El texto que se edita en el lugar no lleva caja en reposo: con ratón la caja aparece al pasar, y donde no hay puntero (`hover: none`) lleva un subrayado punteado (J3-B-10, J3-B-16). Cada adjunto de un mensaje propuesto es una ficha con su imagen, su nombre y su equis dentro, en una fila propia (J3-B-11). Una dirección larga se parte entre los segmentos de su ruta, nunca a la mitad de una palabra (J3-B-20). El menú de área tiene como máximo 22 rem y envuelve un título largo (J3-B-28).
 
 ## Teclado en la revisión
 

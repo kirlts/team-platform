@@ -5,6 +5,7 @@ import { open, readFile, stat } from 'node:fs/promises';
 import sharp from 'sharp';
 import { ExtractError } from './errors.js';
 import { createProgress } from './lib/progress.js';
+import { annotate, withSpan } from '../telemetry/api.js';
 
 // Marcas del contenedor ISO-BMFF que usan las fotos HEIC/HEIF con códec HEVC. `avif` queda fuera
 // a propósito: sharp sí lo lee. Es una firma binaria del formato, no texto humano.
@@ -77,12 +78,20 @@ export async function extractImage(attachment, ctx) {
   const startedAt = performance.now();
   const progress = createProgress(onProgress, 2);
   progress.report('preparando la imagen');
-  const image = await normalizeImage(attachment.path, cfg);
+  const image = await withSpan('extract.sharp', { 'team.step': 'extract.sharp', 'team.tool': 'sharp', 'team.input_bytes': size }, async () => {
+    const out = await normalizeImage(attachment.path, cfg);
+    annotate({ 'team.output_bytes': out.data.length, 'team.width': out.width, 'team.height': out.height, 'team.converted': out.converted });
+    return out;
+  });
   progress.advance('describiendo la imagen');
-  const { json, usage } = await providers.vision.describe({
-    images: [{ data: image.data, mime: image.mime, label: 'Imagen' }],
-    prompt: cfg.prompt,
-    schema: DESCRIPTION_SCHEMA,
+  const { json, usage } = await withSpan('extract.vision', { 'team.step': 'extract.vision', 'team.images': 1, 'team.input_bytes': image.data.length }, async () => {
+    const out = await providers.vision.describe({
+      images: [{ data: image.data, mime: image.mime, label: 'Imagen' }],
+      prompt: cfg.prompt,
+      schema: DESCRIPTION_SCHEMA,
+    });
+    annotate({ 'team.output_chars': typeof out.json?.description === 'string' ? out.json.description.length : 0 });
+    return out;
   });
   const description = typeof json?.description === 'string' ? json.description.trim() : '';
   const warnings = description === '' ? [{ code: 'empty_description', message: 'El proveedor no devolvió una descripción.' }] : [];

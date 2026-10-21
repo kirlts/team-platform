@@ -8,6 +8,7 @@
 // consumida en orden. Una respuesta es: un Error (se lanza), una función, `{json}`, `{text}`
 // u otro objeto cualquiera (se toma como `json`). Los campos `usage`, `duration_ms`, `provider`
 // y `model` se completan si faltan, con la forma del contrato de §7.6.
+import { withGenAiCall } from '../telemetry/api.js';
 
 function defaultUsage() {
   return { input_tokens: 10, output_tokens: 5, cached_tokens: 0 };
@@ -49,27 +50,36 @@ export function createFakeProviders(scripts = {}) {
   const text = {
     ...identity,
     schemaProfile: scripts.textProfile ?? 'anthropic',
-    async complete(req) {
-      const n = calls.text.length;
-      calls.text.push(structuredClone(req));
-      return materialize(nextText(req, n), req, n, identity);
+    // Como los proveedores reales, deja un span por llamada (UD-014): así las pruebas y el banco con
+    // el proveedor falso producen el mismo árbol que producción.
+    complete(req) {
+      return withGenAiCall({ provider: identity.name, model: identity.model, modality: 'text', request: req }, async () => {
+        const n = calls.text.length;
+        calls.text.push(structuredClone(req));
+        return materialize(nextText(req, n), req, n, identity);
+      });
     },
   };
   const vision = {
     ...identity,
-    async describe(req) {
-      const n = calls.vision.length;
-      calls.vision.push(structuredClone(req));
-      return materialize(nextVision(req, n), req, n, identity);
+    describe(req) {
+      return withGenAiCall({ provider: identity.name, model: identity.model, modality: 'vision', request: req }, async () => {
+        const n = calls.vision.length;
+        calls.vision.push(structuredClone(req));
+        return materialize(nextVision(req, n), req, n, identity);
+      });
     },
   };
   const speech = {
     ...identity,
-    async transcribe(req) {
-      const n = calls.speech.length;
-      calls.speech.push(structuredClone(req));
-      const out = await materialize(nextSpeech(req, n), req, n, identity);
-      return { text: '', segments: [], ...out };
+    transcribe(req) {
+      const request = { language: 'es', ...req };
+      return withGenAiCall({ provider: identity.name, model: identity.model, modality: 'speech', operation: 'transcription', request }, async () => {
+        const n = calls.speech.length;
+        calls.speech.push(structuredClone(req));
+        const out = await materialize(nextSpeech(req, n), req, n, identity);
+        return { text: '', segments: [], ...out };
+      });
     },
   };
   return { text, vision, speech, calls };

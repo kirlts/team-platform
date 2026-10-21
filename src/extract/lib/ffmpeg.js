@@ -1,6 +1,7 @@
 // ffmpeg y ffprobe por `spawn` (MASTER-SPEC §3, informe 06 §1): sin `fluent-ffmpeg`, sin WASM.
 import { spawn } from 'node:child_process';
 import { ExtractError } from '../errors.js';
+import { annotate, withSpan } from '../../telemetry/api.js';
 
 const STDERR_TAIL = 2000;
 
@@ -30,18 +31,27 @@ export function run(binary, args, { signal } = {}) {
 }
 
 /** Duración en segundos y si trae pista de audio o de video. */
-export async function probe(path, { signal } = {}) {
-  const raw = await run(
-    'ffprobe',
-    ['-v', 'error', '-show_entries', 'format=duration:stream=codec_type', '-of', 'json', path],
-    { signal },
-  );
-  const info = JSON.parse(raw);
-  const duration = Number.parseFloat(info.format?.duration);
-  const types = new Set((info.streams ?? []).map((s) => s.codec_type));
-  return {
-    durationSeconds: Number.isFinite(duration) ? duration : 0,
-    hasAudio: types.has('audio'),
-    hasVideo: types.has('video'),
-  };
+export function probe(path, { signal } = {}) {
+  return withSpan('extract.ffprobe', { 'team.step': 'extract.ffprobe', 'team.tool': 'ffprobe' }, async () => {
+    const raw = await run(
+      'ffprobe',
+      ['-v', 'error', '-show_entries', 'format=duration:stream=codec_type', '-of', 'json', path],
+      { signal },
+    );
+    const info = JSON.parse(raw);
+    const duration = Number.parseFloat(info.format?.duration);
+    const types = new Set((info.streams ?? []).map((s) => s.codec_type));
+    const result = {
+      durationSeconds: Number.isFinite(duration) ? duration : 0,
+      hasAudio: types.has('audio'),
+      hasVideo: types.has('video'),
+    };
+    annotate({
+      'team.output_bytes': raw.length,
+      'team.duration_seconds': result.durationSeconds,
+      'team.has_audio': result.hasAudio,
+      'team.has_video': result.hasVideo,
+    });
+    return result;
+  });
 }

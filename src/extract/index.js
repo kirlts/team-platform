@@ -24,6 +24,7 @@ import { extractImage } from './image.js';
 import { extractLink } from './link.js';
 import { extractVideo } from './video.js';
 import { probe } from './lib/ffmpeg.js';
+import { annotate, withSpan } from '../telemetry/api.js';
 
 export { resolveConfig, DEFAULTS } from './config.js';
 export { ExtractError } from './errors.js';
@@ -72,7 +73,27 @@ export async function extract(attachment, { providers, onProgress, config, signa
   await mkdir(base, { recursive: true });
   const workDir = await mkdtemp(join(base, 'tp-extract-'));
   try {
-    const result = await extractor(attachment, { providers, config: cfg, onProgress: tracked, signal, deps, workDir });
+    // Un span por adjunto (UD-014); los pasos de cada extractor cuelgan de él.
+    const result = await withSpan(
+      'extract.attachment',
+      {
+        'team.step': 'extract',
+        'team.input_id': attachment.input_id,
+        'team.attachment_id': attachment.id,
+        'team.attachment_kind': attachment.kind,
+        'team.mime': attachment.mime,
+        'team.input_bytes': attachment.size,
+      },
+      async () => {
+        const out = await extractor(attachment, { providers, config: cfg, onProgress: tracked, signal, deps, workDir });
+        annotate({
+          'team.output_chars': out.text.length,
+          'team.warnings': out.meta.warnings?.length ?? 0,
+          'team.elapsed_ms': out.meta.elapsedMs,
+        });
+        return out;
+      },
+    );
     const meta = { ...result.meta, kind: attachment.kind, warnings: [...(result.meta.warnings ?? [])] };
     let text = result.text;
     const cut = truncate(text, cfg.text.maxChars);

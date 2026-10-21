@@ -5,6 +5,7 @@ import { stat } from 'node:fs/promises';
 import { Worker } from 'node:worker_threads';
 import { ExtractError } from './errors.js';
 import { createProgress } from './lib/progress.js';
+import { annotate, withSpan } from '../telemetry/api.js';
 
 const WORKER_URL = new URL('./document-worker.js', import.meta.url);
 
@@ -57,7 +58,21 @@ export async function extractDocument(attachment, ctx) {
   const startedAt = performance.now();
   const progress = createProgress(onProgress, 2);
   progress.report('leyendo el documento');
-  const { text, meta } = await runInWorker({ path: attachment.path, mime: attachment.mime, config }, cfg, signal);
+  // La herramienta sólo se conoce cuando el hilo devuelve el formato: el span se renombra entonces.
+  const { text, meta } = await withSpan('extract.document', { 'team.step': 'extract.document', 'team.input_bytes': size }, async (span) => {
+    const out = await runInWorker({ path: attachment.path, mime: attachment.mime, config }, cfg, signal);
+    const tool = out.meta.format === 'pdf' ? 'pdfium' : (out.meta.format === 'text' ? 'text' : 'officeparser');
+    span.updateName(`extract.${tool}`);
+    annotate({
+      'team.step': `extract.${tool}`,
+      'team.tool': tool,
+      'team.format': out.meta.format,
+      'team.output_chars': out.text.length,
+      'team.pages': out.meta.pageCount,
+      'team.scanned_pages': out.meta.scannedPages?.length,
+    });
+    return out;
+  });
   progress.advance('documento leído');
   const warnings = [];
   if (meta.scanned) {

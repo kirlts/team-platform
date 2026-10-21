@@ -103,6 +103,7 @@ La gravedad 5 fue 2, 4 y 3; la gravedad 4 fue 8, 12 y 10. El recuento no baja de
 
 ## Peticiones del dueño que cambian el diseño y no se pueden perder
 
+- Dueño, textual: «Yo NO pedí esto, en la barra superior SOLO íconos de abierto, respondido y cerrado». La barra superior no lleva contadores por área. Una instrucción precisada se aplica a lo precisado, sin conservar el resto «por si acaso».
 - Dueño, textual: «Los rótulos Abierto, Respondido o Cerrado no deben aparecer en la barra superior; bastan los íconos de color con un número, que al clic desplieguen un pequeño desplegable para ver rápidamente los elementos sin salir de la página donde se está».
 - Dueño, textual: «quien dijo esto de que por atender es distinto a abierto, no lo entiendo, yo creo que fui súper explícito: mensajes abiertos, mensajes respondidos y mensajes cerrados o atendidos. Esos son los tres estados que quiero ver en esta interfaz».
 - Dueño, textual: «si hago clic en Idea no espero que sea el lugar donde sólo puedo editar las plantillas; también quiero ver al tiro los mensajes asociados a esa área».

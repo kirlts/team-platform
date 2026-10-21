@@ -172,7 +172,9 @@ export function loadConfig (env = process.env, overrides = {}) {
       password: {
         minLength: intVar(env, 'PASSWORD_MIN_LENGTH', 15, { min: 1 }), // I04 §11: NIST SP 800-63B-4 3.1.1.2, single factor
         maxLength: intVar(env, 'PASSWORD_MAX_LENGTH', 128, { min: 1 }), // I04 §11: NIST requires at least 64; 128 is Better Auth's
-        blocklistFile: textValue(env, 'PASSWORD_BLOCKLIST_FILE', '') // lista local, una contraseña por línea (I04 §1.5)
+        // One password per line (I04 §1.5). Without the variable, the file that scripts/install.sh downloads into the data
+        // directory (H-43) is used when it exists; with neither, there is no list.
+        blocklistFile: textValue(env, 'PASSWORD_BLOCKLIST_FILE', existsSync(path.join(dataDir, 'password-blocklist.txt')) ? path.join(dataDir, 'password-blocklist.txt') : '')
       },
       session: {
         tokenBytes: intVar(env, 'SESSION_TOKEN_BYTES', 32, { min: 16 }), // MS §7.7

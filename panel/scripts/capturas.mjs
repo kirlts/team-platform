@@ -12,6 +12,7 @@ import { spawn, execFileSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import { mkdirSync, rmSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import sharp from 'sharp'
 import { chromium } from 'playwright'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
@@ -52,10 +53,15 @@ function wav(seconds) {
   return buf
 }
 
-const svg = (label, hue) =>
-  Buffer.from(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500"><rect width="800" height="500" fill="hsl(${hue} 30% 93%)"/><rect width="800" height="44" fill="hsl(${hue} 40% 32%)"/><rect x="28" y="80" width="220" height="380" fill="hsl(${hue} 25% 84%)"/><rect x="280" y="80" width="490" height="150" fill="hsl(${hue} 25% 88%)"/><rect x="280" y="260" width="230" height="200" fill="hsl(${hue} 25% 82%)"/><rect x="540" y="260" width="230" height="200" fill="hsl(${hue} 25% 90%)"/><text x="400" y="486" font-family="sans-serif" font-size="16" text-anchor="middle" fill="#333">${label}</text></svg>`,
+// The API rejects SVG with 415 (H-26): the pasted «screenshot» is a PNG rendered from this drawing.
+const screenshotPng = (label, hue) =>
+  sharp(
+    Buffer.from(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500"><rect width="800" height="500" fill="hsl(${hue} 30% 93%)"/><rect width="800" height="44" fill="hsl(${hue} 40% 32%)"/><rect x="28" y="80" width="220" height="380" fill="hsl(${hue} 25% 84%)"/><rect x="280" y="80" width="490" height="150" fill="hsl(${hue} 25% 88%)"/><rect x="280" y="260" width="230" height="200" fill="hsl(${hue} 25% 82%)"/><rect x="540" y="260" width="230" height="200" fill="hsl(${hue} 25% 90%)"/><text x="400" y="486" font-family="sans-serif" font-size="16" text-anchor="middle" fill="#333">${label}</text></svg>`,
+    ),
   )
+    .png()
+    .toBuffer()
 
 const browser = await chromium.launch({
   headless: true,
@@ -127,13 +133,15 @@ async function run(vp) {
   const textarea = page.getByLabel('Nuevo mensaje', { exact: true }).last()
   await textarea.fill('Corregir el desalineado del sidebar en la vista dashboard.\n\nAgregar la sincronización con WhatsApp en el sidebar.\n\nPregunta: ¿el audio máximo sigue en 25 MB?\n\nSaludos al equipo y gracias por el trabajo de la semana.')
   // Pegar una captura como lo haría el portapapeles.
-  await page.evaluate(async (svgText) => {
-    const file = new File([svgText], 'captura-pegada.svg', { type: 'image/svg+xml' })
+  const pastedPng = (await screenshotPng('Dashboard con sidebar (ejemplo de prueba)', 215)).toString('base64')
+  await page.evaluate(async (pngBase64) => {
+    const bytes = Uint8Array.from(atob(pngBase64), (c) => c.charCodeAt(0))
+    const file = new File([bytes], 'captura-pegada.png', { type: 'image/png' })
     const dt = new DataTransfer()
     dt.items.add(file)
     const ta = document.querySelector('textarea[aria-label="Nuevo mensaje"]')
     ta.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }))
-  }, svg('Dashboard con sidebar (ejemplo de prueba)', 215).toString())
+  }, pastedPng)
   await page.locator('input[type=file]:not([capture])').setInputFiles([
     { name: 'nota-de-voz.wav', mimeType: 'audio/wav', buffer: wav(4) },
     { name: 'feedback.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: Buffer.from('ejemplo') },

@@ -147,3 +147,41 @@ test('dos procesos que inicializan a la vez aplican cada migración una sola vez
   assert.ok(existsSync(path.join(dir, 'team.db')))
   rmSync(dir, { recursive: true, force: true })
 })
+
+test('la migración del perfil funde responsabilidades y dominios en prosa y elimina las dos columnas (UD-023)', () => {
+  const dir = tempDir()
+  const olderDir = path.join(dir, 'previous')
+  mkdirSync(olderDir)
+  const files = listMigrations()
+  const target = files.find((f) => f.filePath.includes('member_profile'))
+  assert.ok(target)
+  for (const f of files.filter((m) => m.version < target.version)) writeFileSync(path.join(olderDir, f.filePath), f.sql)
+  const db = openDatabase(path.join(dir, 'p.db'))
+  migrate(db, { dir: olderDir })
+  const add = (email, responsibilities, domains) => run(db, 'INSERT INTO members (email, name, responsibilities, domains, created_at) VALUES (?, ?, ?, ?, 0)', email, email, responsibilities, domains)
+  add('both@x.org', 'Servidor y API', '["backend","datos"]')
+  add('resp@x.org', 'Pruebas', '[]')
+  add('doms@x.org', '', '["diseño"]')
+  add('none@x.org', '', '[]')
+  add('spaces@x.org', '  ', '["", " ui "]')
+  add('broken@x.org', 'Soporte', 'no es json')
+  const result = migrate(db)
+  assert.equal(result.applied, files.length - olderVersion(files, target))
+  const profile = (email) => get(db, 'SELECT profile FROM members WHERE email = ?', email).profile
+  assert.equal(profile('both@x.org'), 'Responsabilidades: Servidor y API\nDominios: backend, datos')
+  assert.equal(profile('resp@x.org'), 'Responsabilidades: Pruebas')
+  assert.equal(profile('doms@x.org'), 'Dominios: diseño')
+  assert.equal(profile('none@x.org'), '')
+  assert.equal(profile('spaces@x.org'), 'Dominios: ui')
+  assert.equal(profile('broken@x.org'), 'Responsabilidades: Soporte')
+  const columns = db.prepare('PRAGMA table_info(members)').all().map((c) => c.name)
+  assert.ok(columns.includes('profile'))
+  assert.ok(!columns.includes('responsibilities') && !columns.includes('domains'))
+  db.close()
+  rmSync(dir, { recursive: true, force: true })
+})
+
+/** Number of migrations that come before `target`. */
+function olderVersion (files, target) {
+  return files.filter((f) => f.version < target.version).length
+}

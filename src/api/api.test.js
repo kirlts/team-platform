@@ -408,7 +408,7 @@ test('áreas y plantillas: el editor las gestiona; el miembro sólo las lee sin 
 // ---------------------------------------------------------------- miembros
 test('miembros: alta por el editor, correo único, y siempre queda un editor', async () => {
   const env = await team()
-  const fresh = await env.api('POST', '/members', env.c.ed, { email: 'Carla@x.org', name: 'Carla', responsibilities: 'UI', password: 'una clave larga de prueba 2' })
+  const fresh = await env.api('POST', '/members', env.c.ed, { email: 'Carla@x.org', name: 'Carla', profile: 'Hago la interfaz.', password: 'una clave larga de prueba 2' })
   assert.equal(fresh.statusCode, 201)
   assert.equal(fresh.json().role, 'member')
   assert.equal((await env.app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: 'carla@x.org', password: 'una clave larga de prueba 2' } })).statusCode, 200)
@@ -418,9 +418,9 @@ test('miembros: alta por el editor, correo único, y siempre queda un editor', a
   assert.equal((await env.api('POST', '/members', env.c.ana, { email: 'e@x.org', name: 'E' })).statusCode, 403)
   assert.equal(get(env.db, "SELECT COUNT(*) AS n FROM members WHERE email = 'd@x.org'").n, 0)
   // El editor edita a otros; el último editor no puede dejar de serlo.
-  const editedResponse = await env.api('PATCH', '/members/2', env.c.ed, { responsibilities: 'API', domains: ['backend', 'datos'] })
-  assert.equal(editedResponse.json().responsibilities, 'API')
-  assert.deepEqual(editedResponse.json().domains, ['backend', 'datos']) // los dominios son una lista
+  const editedResponse = await env.api('PATCH', '/members/2', env.c.ed, { profile: 'Hago la API.\n\nNo toco la interfaz.' })
+  assert.equal(editedResponse.json().profile, 'Hago la API.\n\nNo toco la interfaz.') // texto libre, párrafos incluidos
+  assert.equal((await env.api('PATCH', '/members/2', env.c.ed, { responsibilities: 'API' })).statusCode, 400) // UD-023: el campo viejo ya no existe
   const lastSeqValue = await env.api('PATCH', '/members/1', env.c.ed, { role: 'member' })
   assert.equal(lastSeqValue.statusCode, 409)
   assert.equal(lastSeqValue.json().code, 'last_editor')

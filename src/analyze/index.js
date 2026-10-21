@@ -5,7 +5,7 @@
 // bundle = { text, attachments:[{id, kind, extracted}],
 //            areas:[{id, title, description, position?}],
 //            templates:[{id, area_id, name, description, body_markdown}],
-//            members:[{id, name, responsibilities, domains}], job_id?, input_id? }
+//            members:[{id, name, profile}], project:{name, description}, job_id?, input_id? }
 //   job_id e input_id, si vienen, quedan como atributos `team.job_id` y `team.input_id` del span de análisis.
 //
 // AnalyzeResult

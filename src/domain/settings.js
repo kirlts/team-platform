@@ -5,7 +5,7 @@
 // `createProviders(env)` (TEXT_*, VISION_*, SPEECH_*), de modo que cambiar un proveedor desde Configuración no
 // exige reiniciar ni tocar el entorno.
 
-import { all, run } from '../db/index.js'
+import { all, get, run } from '../db/index.js'
 
 export const MODALITIES = ['text', 'vision', 'speech']
 const SLOT_PREFIX = { text: 'TEXT', vision: 'VISION', speech: 'SPEECH' }
@@ -61,3 +61,20 @@ export function setProviderOverrides (db, overrides, now = Date.now) {
   }
 }
 
+
+// ---- Descripción del proyecto (UD-024). Markdown libre que escribe el editor; viaja entera al analizador.
+const PROJECT_DESCRIPTION_KEY = 'project_description'
+
+export function getProjectDescription (db) {
+  const row = get(db, 'SELECT value_json FROM settings WHERE key = ?', PROJECT_DESCRIPTION_KEY)
+  if (!row) return ''
+  try { const v = JSON.parse(row.value_json); return typeof v === 'string' ? v : '' } catch { return '' }
+}
+
+export function setProjectDescription (db, description, now = Date.now) {
+  run(db, `INSERT INTO settings (key, value_json, updated_at) VALUES (?, ?, ?)
+           ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`, PROJECT_DESCRIPTION_KEY, JSON.stringify(description), now())
+}
+
+/** What the analyzer receives (bundle.project): the project name and its description. */
+export const getProject = (db, config) => ({ name: config.projectName, description: getProjectDescription(db) })

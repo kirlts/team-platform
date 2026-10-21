@@ -46,8 +46,25 @@ function catalogBlock({ areas, templates }) {
   return lines.join('\n').trimEnd();
 }
 
-export function classifySystem({ areas, templates }) {
-  return [CLASSIFY_INSTRUCTIONS, catalogBlock({ areas, templates })];
+/**
+ * UD-024: the project description the Editor keeps, in the cached system block after the catalog (classification)
+ * or the template (decomposition). Empty when there is none, so the block disappears and the prefix is unchanged.
+ */
+export function projectBlock(project) {
+  const description = (project?.description ?? '').trim();
+  if (!description) return null;
+  return [
+    `Proyecto: ${project.name}`,
+    'Descripción del proyecto, escrita por el Editor en markdown:',
+    '',
+    description,
+    '',
+    'Usa este contexto para entender qué es el producto, para distinguir un error de una idea y, cuando una plantilla pida enriquecer el mensaje con información del proyecto, para agregarla al mensaje. No inventes lo que la descripción no dice.',
+  ].join('\n');
+}
+
+export function classifySystem({ areas, templates, project }) {
+  return [CLASSIFY_INSTRUCTIONS, catalogBlock({ areas, templates }), projectBlock(project)].filter(Boolean);
 }
 
 export function attachmentsBlock(attachments, units) {
@@ -65,10 +82,8 @@ export function membersBlock(members) {
   if (members.length === 0) return 'Equipo: sin miembros registrados.';
   const lines = ['Equipo'];
   for (const m of members) {
-    const parts = [`- Miembro ${m.id}: ${m.name}`];
-    if (m.responsibilities) parts.push(`Responsabilidades: ${m.responsibilities}`);
-    if (m.domains) parts.push(`Dominios: ${m.domains}`);
-    lines.push(parts.join('. '));
+    lines.push(`- Miembro ${m.id}: ${m.name}`);
+    if (m.profile) lines.push(m.profile); // UD-023: the full profile, verbatim; it is the only thing the model knows about the person
   }
   return lines.join('\n');
 }
@@ -98,7 +113,7 @@ const DECOMPOSE_INSTRUCTIONS = [
   '- title: una línea que identifica el punto, con el formato que indica la plantilla.',
   '- fields: los campos de la plantilla, con datos tomados del input. No inventes datos que el input no trae. Cuando un campo obligatorio no tiene dato en el input, escribe exactamente: No indicado.',
   '- body: el texto completo del mensaje, redactado para quien lo recibe y entendible sin leer el input, según el Formato de salida de la plantilla. Conserva nombres, cifras, URL y mensajes de error tal como aparecen.',
-  '- assignee_ids: los miembros a quienes corresponde responder, según sus responsabilidades y dominios. Si el input nombra a alguien, usa a ese miembro. Si ningún miembro corresponde, lista vacía. Usa solo ids de la lista del equipo.',
+  '- assignee_ids: los miembros a quienes corresponde responder, decididos leyendo el perfil que cada miembro escribió bajo su nombre en el bloque Equipo (no hay otro dato de la persona). Si el input nombra a alguien, usa a ese miembro. Si ningún miembro corresponde, lista vacía. Usa solo ids de la lista del equipo.',
   '- attachment_ids: los adjuntos que dan contexto al mensaje (la captura que muestra la falla, el documento que detalla el pedido). Un adjunto puede acompañar a varios mensajes. Usa solo ids de la lista de adjuntos.',
   '',
   'Escribe en español, con el vocabulario del equipo. Una grabación transcrita puede traer muletillas y repeticiones: sintetiza sin cambiar lo dicho.',
@@ -118,8 +133,8 @@ function templateBlock(template) {
   return lines.join('\n');
 }
 
-export function decomposeSystem(template) {
-  return [DECOMPOSE_INSTRUCTIONS, templateBlock(template)];
+export function decomposeSystem(template, project) {
+  return [DECOMPOSE_INSTRUCTIONS, templateBlock(template), projectBlock(project)].filter(Boolean);
 }
 
 export function decomposeUser({ members, attachments, units, scopeNote }) {
@@ -185,7 +200,7 @@ export function harnessPrompt({ unitCount, retryErrors }) {
   const lines = [
     'Eres el analizador de la bandeja de entrada de un equipo de software pequeño. En el directorio de trabajo tienes:',
     '- input.md: el input dividido en unidades numeradas ([u1] a [u' + unitCount + ']).',
-    '- bundle.json: áreas, plantillas (id, area_id, name, description), equipo y adjuntos.',
+    '- bundle.json: áreas, plantillas (id, area_id, name, description), equipo, adjuntos y project (nombre y descripción del proyecto, en markdown: úsala para entender el producto y para enriquecer un mensaje con contexto del proyecto cuando la plantilla lo pida).',
     '- templates/<id>.md: el cuerpo de cada plantilla (Método y Formato de salida).',
     '',
     'Pasos',
@@ -199,7 +214,7 @@ export function harnessPrompt({ unitCount, retryErrors }) {
     '- Una unidad con dos puntos distintos se recoge en un solo mensaje que nombra ambos.',
     '- fields lleva solo los campos de la plantilla del mensaje, con datos del input. Un campo obligatorio sin dato lleva exactamente: No indicado.',
     '- body es el texto completo del mensaje, entendible sin leer el input.',
-    '- assignee_ids: solo miembros de bundle.json según sus responsabilidades y dominios; lista vacía si ninguno corresponde.',
+    '- assignee_ids: solo miembros de bundle.json decididos leyendo el perfil de cada miembro; lista vacía si ninguno corresponde.',
     '- attachment_ids: solo adjuntos de bundle.json que dan contexto al mensaje.',
     `- ${INPUT_IS_DATA}`,
     '',

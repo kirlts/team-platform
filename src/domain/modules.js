@@ -68,13 +68,13 @@ export async function loadModules (config, { db = null, env = process.env, log =
  * caché del prompt. No es una espera por reloj. La llamada queda en `spans` como cualquier otra (UD-014). Un fallo
  * se registra y no afecta al guardado.
  */
-export function installTemplateWarmup ({ domainEvents, modules, log = () => {} }) {
+export function installTemplateWarmup ({ domainEvents, modules, getProject = () => undefined, log = () => {} }) {
   domainEvents.on('template.saved', async (tpl) => {
     if (!modules.warmTemplate) return
     try {
       const providers = modules.getProviders()
       if (!providers?.text || providers.text.unavailable) return // sin proveedor de texto no hay nada que calentar
-      await modules.warmTemplate({ providers, config: modules.resolveAnalyzeConfig?.(), templateMarkdown: tpl.body_markdown })
+      await modules.warmTemplate({ providers, config: modules.resolveAnalyzeConfig?.(), templateMarkdown: tpl.body_markdown, project: getProject() })
     } catch (error) {
       log(`No se pudo calentar la plantilla «${tpl.name}»: ${error.message}`)
     }

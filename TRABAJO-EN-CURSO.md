@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: dfe5ead Traspaso: barra superior y telemetría fusionadas. Empujado a origin: `dfe5ead`.
-- Ramas con commits sin fusionar: `wt-configuracion` 22 (hace 4 minutos), `wt-deuda` 11 (hace 8 minutos), `wt-barra-lateral` 7 (hace 6 minutos), `wt-inicio-respira` 7 (hace 15 segundos), `wt-banco-abiertos` 3 (hace 7 minutos), `wt-deuda-ingles` 3 (hace 23 minutos), `wt-h904` 1 (hace 19 minutos).
-- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `banco-abiertos`, `barra-lateral`, `cierre`, `configuracion`, `deuda`, `deuda-ingles`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `h904-old`, `heic`, `ingles`, `inicio-maqueta`, `inicio-respira`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
+- `main`: 8cb1eae Merge branch 'wt-barra-lateral'. Empujado a origin: `8cb1eae`.
+- Ramas con commits sin fusionar: `wt-configuracion` 22 (hace 8 minutos), `wt-deuda` 13 (hace 2 minutos), `wt-inicio-respira` 7 (hace 4 minutos), `wt-banco-abiertos` 3 (hace 10 minutos), `wt-h904` 1 (hace 23 minutos).
+- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `banco-abiertos`, `cierre`, `configuracion`, `deuda`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `h904-old`, `heic`, `ingles`, `inicio-maqueta`, `inicio-respira`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `dfe5ead` Traspaso: barra superior y telemetría fusionadas (hace 8 minutos)
-- `63dc519` Merge branch 'wt-telemetria-2' (hace 13 minutos)
-- `786b37f` Smoke test, judges' flow and docs follow the current send flow; close H-1703, H-1705, H-1706 (hace 14 minutos)
-- `f0f5a2c` Merge branch 'wt-barra-superior' (hace 14 minutos)
-- `c879c8c` Traspaso: VPS fusionado y avance de fases (hace 19 minutos)
-- `6eb101f` Telemetry ends an automatic send on the job's own published end; test ids for the send flow of the browser test (H-1705, H-1706) (hace 19 minutos)
-- `402faf6` Merge branch 'wt-vps-restauracion' (hace 21 minutos)
-- `9b20211` Instalacion: restauracion de adjuntos, segunda instancia y trusted-header medidos en el VPS (H-2600 a H-2606) (hace 21 minutos)
-Actualizado 2026-10-21 18:32 UTC.
+- `8cb1eae` Merge branch 'wt-barra-lateral' (hace 2 minutos)
+- `b5553d0` Flows: J2-A-41 and J2-A-47 read the row box of the sidebar (UD-130) (hace 3 minutos)
+- `e890d6c` Merge main into wt-barra-lateral (hace 10 minutos)
+- `dfe5ead` Traspaso: barra superior y telemetría fusionadas (hace 11 minutos)
+- `1005e84` UD-130, H-2300 to H-2302 and tokens of the sidebar (hace 14 minutos)
+- `c837d82` Sidebar: the row is the box that lights; the link no longer covers the count column (hace 15 minutos)
+- `63dc519` Merge branch 'wt-telemetria-2' (hace 16 minutos)
+- `cc61ef3` ui-detectors: sibling-alignment rule (hace 17 minutos)
+Actualizado 2026-10-21 18:36 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

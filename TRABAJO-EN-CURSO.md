@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 63dc519 Merge branch 'wt-telemetria-2'. Empujado a origin: `63dc519`.
-- Ramas con commits sin fusionar: `wt-configuracion` 21 (hace 6 minutos), `wt-deuda` 11 (hace 5 segundos), `wt-barra-lateral` 6 (hace 3 minutos), `wt-inicio-respira` 5 (hace 3 minutos), `wt-deuda-ingles` 3 (hace 15 minutos), `wt-h904` 1 (hace 12 minutos).
+- `main`: dfe5ead Traspaso: barra superior y telemetría fusionadas. Empujado a origin: `dfe5ead`.
+- Ramas con commits sin fusionar: `wt-configuracion` 21 (hace 6 minutos), `wt-deuda` 11 (hace 29 segundos), `wt-barra-lateral` 6 (hace 3 minutos), `wt-inicio-respira` 5 (hace 4 minutos), `wt-deuda-ingles` 3 (hace 15 minutos), `wt-h904` 1 (hace 12 minutos).
 - Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `banco-abiertos`, `barra-lateral`, `cierre`, `configuracion`, `deuda`, `deuda-ingles`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `h904-old`, `heic`, `ingles`, `inicio-maqueta`, `inicio-respira`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
+- `dfe5ead` Traspaso: barra superior y telemetría fusionadas (hace 21 segundos)
 - `63dc519` Merge branch 'wt-telemetria-2' (hace 5 minutos)
 - `786b37f` Smoke test, judges' flow and docs follow the current send flow; close H-1703, H-1705, H-1706 (hace 7 minutos)
 - `f0f5a2c` Merge branch 'wt-barra-superior' (hace 7 minutos)
 - `c879c8c` Traspaso: VPS fusionado y avance de fases (hace 11 minutos)
-- `6eb101f` Telemetry ends an automatic send on the job's own published end; test ids for the send flow of the browser test (H-1705, H-1706) (hace 11 minutos)
+- `6eb101f` Telemetry ends an automatic send on the job's own published end; test ids for the send flow of the browser test (H-1705, H-1706) (hace 12 minutos)
 - `402faf6` Merge branch 'wt-vps-restauracion' (hace 13 minutos)
-- `9b20211` Instalacion: restauracion de adjuntos, segunda instancia y trusted-header medidos en el VPS (H-2600 a H-2606) (hace 13 minutos)
-- `ce4a6cf` Install: IMAGE_TAG for a second instance, port prompt, password hint (H-2601, H-2603) (hace 13 minutos)
-Actualizado 2026-10-21 18:24 UTC.
+- `9b20211` Instalacion: restauracion de adjuntos, segunda instancia y trusted-header medidos en el VPS (H-2600 a H-2606) (hace 14 minutos)
+Actualizado 2026-10-21 18:25 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

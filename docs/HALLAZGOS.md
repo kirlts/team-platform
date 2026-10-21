@@ -593,7 +593,7 @@ Debe decir `OK Último envío: estado proposed, adjuntos: audio` con al menos un
 | # | Hallazgo | Origen | Estado |
 |---|---|---|---|
 | H-2000 | El filtro «para mí» de Mensajes y los enlaces que lo usaban sólo conocen los asignados; el conteo de «respondidos» de `GET /api/messages/summary` incluye también los emitidos por mí con respuestas (5 contra 4 en los datos de ejemplo para Ana) | UD-028 | encargo (sesión de código): el desplegable de la barra usa `noticeState` sobre la lista y coincide con la cifra; el enlace del pie de `StatusBar.tsx` (`mineFilters`) sigue filtrando por asignados. Comando: agregar `involved=me` (asignados o emitidos) a `GET /api/messages` en `src/api/routes/messages.js` y usarlo en `mineFilters` |
-| H-2001 | `AreaChips` (plegado a «+N») quedó sin uso al retirar la franja de Inicio | UD-100 | encargo (sesión de código): `AreaChips` no tiene ningún uso fuera de su prueba (`grep -rn AreaChips panel/src`). Comando: `git rm panel/src/components/AreaChips.tsx panel/src/components/AreaChips.test.tsx` |
+| H-2001 | `AreaChips` (plegado a «+N») quedó sin uso al retirar la franja de Inicio | UD-100 | `main` desde `wt-remanentes`: `AreaChips.tsx` y su prueba retirados con `git rm`; `grep -rn AreaChips panel/src src` no devuelve nada; `tsc` y vitest en verde |
 
 ## Restauración y identidad por cabecera en el VPS (2026-10-21)
 

@@ -29,13 +29,13 @@ function attachmentsOf (db, ids) {
   if (ids.length === 0) return new Map()
   const placeholders = ids.map(() => '?').join(',')
   const rows = all(db, `
-    SELECT ma.message_id, a.id, a.input_id, a.kind, a.name, a.mime, a.size
+    SELECT ma.message_id, a.id, a.input_id, a.kind, a.name, a.mime, a.size, a.extracted_at
       FROM message_attachments ma JOIN attachments a ON a.id = ma.attachment_id
      WHERE ma.message_id IN (${placeholders}) ORDER BY ma.message_id, ma.position, a.id`, ...ids)
   const table = new Map()
   for (const f of rows) {
     if (!table.has(f.message_id)) table.set(f.message_id, [])
-    table.get(f.message_id).push({ id: f.id, input_id: f.input_id, kind: f.kind, name: f.name, mime: f.mime, size: f.size })
+    table.get(f.message_id).push({ id: f.id, input_id: f.input_id, kind: f.kind, name: f.name, mime: f.mime, size: f.size, extracted: f.extracted_at !== null && f.extracted_at !== undefined })
   }
   return table
 }
@@ -60,7 +60,7 @@ function replyAttachmentsOf (db, replyIds) {
                          WHERE reply_id IN (${replyIds.map(() => '?').join(',')}) ORDER BY reply_id, position, id`, ...replyIds)
   for (const f of rows) {
     if (!table.has(f.reply_id)) table.set(f.reply_id, [])
-    table.get(f.reply_id).push({ id: f.id, reply_id: f.reply_id, kind: f.kind, name: f.name, mime: f.mime, size: f.size })
+    table.get(f.reply_id).push({ id: f.id, reply_id: f.reply_id, kind: f.kind, name: f.name, mime: f.mime, size: f.size, extracted: f.extracted_at !== null && f.extracted_at !== undefined })
   }
   return table
 }

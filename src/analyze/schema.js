@@ -9,17 +9,32 @@ import { compileFieldsSchema } from './templates.js';
 const intArray = (extra = {}) => ({ type: 'array', items: { type: 'integer' }, ...extra });
 
 /**
- * Esquema de la primera llamada: área y plantilla como `enum` de ids existentes (informe 02 §4.3:
- * reducir el espacio de valores colapsa el desacuerdo entre corridas [F25]).
+ * Esquema de la primera llamada: agrupa las unidades del input por área y plantilla (idea.md: «uno o varios
+ * mensajes que agrupen el trabajo en categorías»). Cada grupo es `{unit_ids, area_id, template_id}`; lo que
+ * no pide ni informa nada va en `discarded`. Área y plantilla son `enum` de ids existentes (informe 02 §4.3:
+ * reducir el espacio de valores colapsa el desacuerdo entre corridas [F25]); `unit_ids` va primero para que el
+ * modelo ancle el grupo a su evidencia antes de decidir la categoría (informe 02 §1.1).
  */
-export function buildClassificationSchema({ areas, templates }) {
+export function buildClassificationSchema({ areas, templates }, { validation = false } = {}) {
   return {
     type: 'object',
     properties: {
-      area_id: { type: 'integer', enum: areas.map((a) => a.id) },
-      template_id: { type: 'integer', enum: templates.map((t) => t.id) },
+      groups: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            unit_ids: validation ? intArray({ minItems: 1, uniqueItems: true }) : intArray({ minItems: 1 }),
+            area_id: { type: 'integer', enum: areas.map((a) => a.id) },
+            template_id: { type: 'integer', enum: templates.map((t) => t.id) },
+          },
+          required: ['unit_ids', 'area_id', 'template_id'],
+          additionalProperties: false,
+        },
+      },
+      discarded: discardedSchema({ validation }),
     },
-    required: ['area_id', 'template_id'],
+    required: ['groups', 'discarded'],
     additionalProperties: false,
   };
 }
@@ -80,24 +95,25 @@ export function buildDecompositionSchema(fields, { profile = 'anthropic', valida
 }
 
 /**
- * Esquema del Proposal completo que se pasa a `claude -p --json-schema` (UD-008, MASTER-SPEC §7.5).
- * `fields` es genérico acá: el harness elige la plantilla él mismo y el validador del sistema
- * comprueba después los campos contra la plantilla elegida.
+ * Esquema del Proposal completo (UD-008, MASTER-SPEC §7.5): cada mensaje lleva su propio área y plantilla.
+ * Se usa como `--json-schema` del harness y, con `validation: true`, como primera capa de validación de la
+ * propuesta armada por `api`. `fields` es genérico acá: cada mensaje se comprueba después contra los campos
+ * de su plantilla.
  */
-export function buildProposalSchema() {
-  const base = buildDecompositionSchema([], { validation: false });
+export function buildProposalSchema({ validation = false } = {}) {
+  const base = buildDecompositionSchema([], { validation });
   const message = structuredClone(base.properties.messages.items);
   message.properties.fields = { type: 'object', additionalProperties: { type: ['string', 'null'] } };
-  delete message.properties.fields.properties;
+  const { unit_ids, ...rest } = message.properties;
+  message.properties = { unit_ids, area_id: { type: 'integer' }, template_id: { type: 'integer' }, ...rest };
+  message.required = ['unit_ids', 'area_id', 'template_id', 'title', 'fields', 'body', 'assignee_ids', 'attachment_ids'];
   return {
     type: 'object',
     properties: {
-      area_id: { type: 'integer' },
-      template_id: { type: 'integer' },
       messages: { type: 'array', items: message },
       discarded: base.properties.discarded,
     },
-    required: ['area_id', 'template_id', 'messages', 'discarded'],
+    required: ['messages', 'discarded'],
     additionalProperties: false,
   };
 }

@@ -77,6 +77,8 @@ const templates = [
   { id: 't-accesibilidad', area_id: 'a-accesibilidad', name: 'Observación de accesibilidad', description: 'Qué se vio, con qué dispositivo o ayuda técnica y qué impide hacer.', body_markdown: templateBody('Observación de accesibilidad', 'Qué se vio, con qué dispositivo o ayuda técnica y qué impide hacer.', '  - { name: device, label: Dispositivo o ayuda técnica, required: false }\n'), updated_at: ago(3000) },
 ]
 
+/** Same default as the server (config.project.descriptionMaxChars). */
+const PROJECT_MAX_CHARS = 200000
 const project = {
   name: 'Desarrollo',
   description: '# Desarrollo\n\nPanel y API de un equipo chico que reparte mensajes con un modelo de lenguaje.\n\n## Stack\n\n- **Servidor**: Node con SQLite en un solo volumen.\n- **Panel**: React, TanStack Query y React Router.\n- Los adjuntos viven en `attachments/` y se sirven por la API.\n\n## Decisiones\n\n1. Todo lo que pasa por un modelo se mide.\n2. El código va en inglés y la interfaz en el idioma de la cuenta.\n\nMás detalle en [el repositorio](https://example.com/repo).',
@@ -701,7 +703,7 @@ const server = createServer(async (req, res) => {
       autoPublish = body.auto_publish
       return send(res, 200, { auto_publish: autoPublish })
     }
-    if (path === '/settings/project' && method === 'GET') return send(res, 200, project)
+    if (path === '/settings/project' && method === 'GET') return send(res, 200, { ...project, max_chars: PROJECT_MAX_CHARS })
     if (path === '/settings/project' && method === 'PATCH') {
       if (needEditor()) return
       const ct = req.headers['content-type'] ?? ''
@@ -715,7 +717,7 @@ const server = createServer(async (req, res) => {
         if (typeof body?.description !== 'string') return fail(res, 400, 'Falta la descripción.', 'description_required')
         project.description = body.description
       }
-      return send(res, 200, project)
+      return send(res, 200, { ...project, max_chars: PROJECT_MAX_CHARS })
     }
 
     // --- events

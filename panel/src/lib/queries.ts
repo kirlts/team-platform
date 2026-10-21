@@ -378,6 +378,8 @@ export function useSaveProvider() {
 
 /** Project description (UD-024): the whole team sees it and only the Editor changes it. */
 export interface Project {
+  /** Cap of characters (PROJECT_DESCRIPTION_MAX_CHARS); a server that does not send it leaves the counter without a cap. */
+  max_chars?: number
   name: string
   description: string
 }

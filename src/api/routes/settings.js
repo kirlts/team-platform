@@ -70,12 +70,13 @@ export function registerSettingsRoutes (app, ctx) {
   })
 
   // Project description (UD-024): any member reads it, the editor writes it. Free Markdown, passed whole to the analyzer.
-  const projectView = { type: 'object', properties: { name: { type: 'string' }, description: { type: 'string' } }, required: ['name', 'description'] }
+  const projectView = { type: 'object', properties: { name: { type: 'string' }, description: { type: 'string' }, max_chars: { type: 'integer', description: 'Tope de caracteres de la descripción (PROJECT_DESCRIPTION_MAX_CHARS); el panel lo muestra como contador.' } }, required: ['name', 'description'] }
+  const projectWithLimit = () => ({ ...getProject(db, config), max_chars: config.project.descriptionMaxChars })
 
   app.get('/settings/project', {
     onRequest: [requireRole('member')],
     schema: { summary: 'Nombre y descripción del proyecto', response: { 200: projectView } }
-  }, async () => getProject(db, config))
+  }, async () => projectWithLimit())
 
   app.patch('/settings/project', {
     onRequest: [requireRole('editor')],
@@ -98,7 +99,7 @@ export function registerSettingsRoutes (app, ctx) {
     if ([...description].length > maxChars) throw tooLarge(`La descripción del proyecto supera el máximo de ${maxChars} caracteres.`)
     setProjectDescription(db, description)
     audit(db, { memberId: request.member.id, action: 'settings.project.update', entity: 'settings', detail: { length: [...description].length } })
-    return getProject(db, config)
+    return projectWithLimit()
   })
 
   // Publication mode (UD-070): any member reads it, the editor writes it.

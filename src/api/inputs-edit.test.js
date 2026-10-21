@@ -147,3 +147,36 @@ test('GET /areas: unresolved_count counts open plus answered messages, open_coun
   assert.deepEqual([(await countsOf()).open_count, (await countsOf()).unresolved_count], [0, 0])
   await env.close()
 })
+
+test('POST /inputs/:id/cancel and /restore: a failed analysis can be discarded, and a discard is undone with its edits (J1-B-26)', async () => {
+  const env = await team()
+  // A failed analysis is discarded (it used to be a 409: failed could only go back to queued) and restored as failed.
+  env.state.failing = true
+  const bad = await env.send(env.c.ana, 'este falla')
+  await until(() => env.statusOf(bad) === 'failed')
+  assert.equal((await env.api('POST', `/inputs/${bad}/cancel`, env.c.ana)).statusCode, 200)
+  assert.equal(env.statusOf(bad), 'cancelled')
+  assert.equal((await env.api('POST', `/inputs/${bad}/restore`, env.c.ana)).json().status, 'failed')
+  assert.equal(env.statusOf(bad), 'failed')
+
+  // A proposed input comes back proposed, with the draft the person had edited and without analyzing again.
+  env.state.failing = false
+  const id = await env.send(env.c.ana, 'este se descarta y se recupera')
+  await until(() => env.statusOf(id) === 'proposed')
+  const view = (await env.api('GET', `/inputs/${id}`, env.c.ana)).json()
+  const edited = { ...view.proposal, messages: view.proposal.messages.map((m) => ({ ...m, title: 'Título editado antes de descartar' })) }
+  assert.equal((await env.api('PATCH', `/inputs/${id}/proposal`, env.c.ana, edited)).statusCode, 200)
+  const analyzed = env.seen.length
+  assert.equal((await env.api('POST', `/inputs/${id}/cancel`, env.c.ana)).statusCode, 200)
+  const back = await env.api('POST', `/inputs/${id}/restore`, env.c.ana)
+  assert.equal(back.statusCode, 200)
+  assert.equal(back.json().status, 'proposed')
+  assert.equal((await env.api('GET', `/inputs/${id}`, env.c.ana)).json().proposal.messages[0].title, 'Título editado antes de descartar')
+  assert.equal(env.seen.length, analyzed, 'restaurar no vuelve a analizar')
+
+  // Only a cancelled input, and only its sender.
+  assert.equal((await env.api('POST', `/inputs/${id}/restore`, env.c.ana)).json().code, 'not_cancelled')
+  await env.api('POST', `/inputs/${id}/cancel`, env.c.ana)
+  assert.equal((await env.api('POST', `/inputs/${id}/restore`, env.c.beto)).statusCode, 404)
+  await env.close()
+})

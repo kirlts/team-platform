@@ -1,7 +1,7 @@
 // Rutas de inputs (MASTER-SPEC §7.1): crear (multipart, idempotente por hash), listar los propios, consultar,
 // publicar, cancelar y, para el editor, reprocesar.
 
-import { cancelInput, editInputText, getInputView, listInputs, proposalView as presentProposal, reprocessInput, submitInput } from '../../domain/inputs.js'
+import { cancelInput, editInputText, getInputView, listInputs, proposalView as presentProposal, reprocessInput, restoreInput, submitInput } from '../../domain/inputs.js'
 import { getMessage } from '../../domain/messages.js'
 import { publishProposal, saveProposalDraft } from '../../domain/proposals.js'
 import { withSpan } from '../../domain/tracing.js'
@@ -113,6 +113,16 @@ export function registerInputRoutes (app, ctx) {
     const r = cancelInput({ db, queue, events }, request.params.id, request.member.id)
     return { ...r, status: 'cancelled' }
   })
+
+  app.post('/inputs/:id/restore', {
+    onRequest: [requireRole('member')],
+    schema: {
+      summary: 'Deshacer el descarte de un input propio',
+      description: 'Devuelve un input cancelado a `proposed` (con la propuesta y las ediciones que tenía) o, si no llegó a tener propuesta, a `failed`. No vuelve a analizar. 404 si no es suyo; 409 si no está cancelado (`not_cancelled`).',
+      params: idParams(),
+      response: { 200: { type: 'object', properties: { input_id: { type: 'string' }, status: { type: 'string' } } } }
+    }
+  }, async (request) => restoreInput({ db, events }, request.params.id, request.member.id))
 
   app.post('/inputs/:id/reprocess', {
     onRequest: [requireRole('member')],

@@ -267,7 +267,8 @@ POST   /api/inputs                multipart: text, files[], links[] → { input_
 GET    /api/inputs?status=        los inputs propios
 GET    /api/inputs/:id            input propio: adjuntos, estado, unidades y propuesta si existe
 POST   /api/inputs/:id/publish    propuesta editada → mensajes creados
-POST   /api/inputs/:id/cancel
+POST   /api/inputs/:id/cancel     también un análisis fallido
+POST   /api/inputs/:id/restore    deshace el descarte: vuelve a propuesta (con sus ediciones) o a fallido; no reanaliza
 POST   /api/inputs/:id/reprocess  (Editor) vuelve a encolar el análisis conservando las extracciones
 
 GET    /api/events                SSE por miembro (§7.10); ?job_id= lo acota a un trabajo

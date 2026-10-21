@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 007491c Merge branch 'wt-equipo-config'. Empujado a origin: `007491c`.
-- Ramas con commits sin fusionar: `wt-tarjetas` 7 (hace 76 segundos), `wt-areas3` 4 (hace 5 minutos), `wt-envio` 4 (hace 9 minutos), `wt-h904` 4 (hace 35 minutos).
-- Worktrees abiertos: `team-platform`, `areas2`, `areas3`, `auto-publicar`, `cierre`, `envio`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `tarjetas`, `telemetria-ui`, `thinking`, `voz`.
+- `main`: 046c978 Merge branch 'wt-envio'. Empujado a origin: `046c978`.
+- Ramas con commits sin fusionar: ninguna.
+- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `miniaturas`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `007491c` Merge branch 'wt-equipo-config' (hace 4 minutos)
-- `74a382a` Merge branch 'main' into wt-barra-movil (hace 10 minutos)
-- `62f2d4d` Flows: the top bar is three marks on a phone too (hace 10 minutos)
-- `d482a86` Merge branch 'main' into wt-equipo-config (hace 14 minutos)
-- `b217c51` Ronda 4 de Equipo, Configuración y entrada: pruebas, UD-170, hallazgos H-3000 a H-3009 y diseño (hace 14 minutos)
-- `371a979` Configuración: ayuda de idioma completa, ayudas de nombre y correo con su vía de cambio, rótulos de Proveedores como los de Cuenta (hace 14 minutos)
-- `7ee4a0f` Entrada: el aviso de error sale de la tarjeta y la nota queda a la misma distancia del borde que el logo (hace 14 minutos)
-- `6c441d5` Equipo: alta con verbo, acción de teléfono en la fila del rol y fila abierta siempre visible (hace 14 minutos)
-Actualizado 2026-10-21 20:18 UTC.
+- `046c978` Merge branch 'wt-envio' (hace 7 minutos)
+- `371442f` Merge branch 'wt-tarjetas' (hace 15 minutos)
+- `c66b5c9` Merge branch 'wt-areas3' (hace 15 minutos)
+- `3b2a5af` Pruebas: mensaje de aserción en inglés y orden de llm_calls sin depender del milisegundo (hace 15 minutos)
+- `05b0914` Mensaje de aserción en inglés (HP-008) en flows-ronda3b (hace 17 minutos)
+- `1769121` Fusiona main en wt-envio (hace 19 minutos)
+- `cd1dd06` Prueba de números de envío: el texto incluye la hora para lectores de pantalla (hace 19 minutos)
+- `6868ad1` Merge branch 'wt-h904' (hace 26 minutos)
+Actualizado 2026-10-21 20:46 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

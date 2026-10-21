@@ -32,6 +32,8 @@ Actualizado 2026-10-21 19:45 UTC.
 
 **Plan de cierre:** `docs/PLAN-DE-CIERRE.md` (2026-10-21 15:00). La sesión anterior murió a las 14:42 con la cuota de su cuenta agotada; sus agentes murieron con ella. Quien retome ejecuta ese plan desde la Fase 0: rescata lo sin commit de `configuracion`, `inicio-respira` y `barra-superior`, relanza los encargos A, B, C y G, y sigue el orden de fusión que dice. Encargo nuevo del dueño de hoy: la barra lateral (alineación, contadores sin contenedor, hover), encargo G.
 
+**Avance 16:35.** En `main` también el barrido de lenguaje (`50a189a`): los catálogos ya cumplían UD-050 y se corrigió un falso positivo del detector. Corre la ronda 4 de 10 jueces en paralelo (`~/.cache/claude-tmp/juicios/ronda4`). El cambio de Firefox (H-904, H-2500) vuelve a su agente: rompe `test:fit` en Chromium al fusionar con `main`. Banco en curso.
+
 **Avance 16:15.** En `main` también Inicio con espacio (`8650d0c`). Fase 1 completa. Corren el barrido de lenguaje, el banco y el aviso con Firefox. Después: jueces, VPS y cierre.
 
 **Avance 16:00.** En `main` también Configuración (`d56b3cf`): editor del proyecto, proveedores con claves cifradas, explicación por ajuste. Inicio fusiona `main` por un choque en `fits-one-screen` y `USER-DECISIONS`. Falta el barrido de lenguaje, los jueces y el VPS.

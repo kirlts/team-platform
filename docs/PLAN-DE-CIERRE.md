@@ -171,7 +171,7 @@ Se lanza un subagente por archivo de `~/.cache/claude-tmp/juicios/ronda4/encargo
 |---|---|---|
 | 0 Rescate | hecho | 15:00 |
 | 1 Ramas en vuelo y barra lateral | hecho: barra superior, lateral, Inicio y Configuración en main | 16:15 |
-| 2 Barrido y telemetría | telemetría hecha (63dc519); barrido de lenguaje en curso | 16:15 |
-| 3 Jueces y arreglos | pendiente | |
+| 2 Barrido y telemetría | hecho (63dc519 y 50a189a) | 16:35 |
+| 3 Jueces y arreglos | ronda 4 en curso, 10 jueces | 16:35 |
 | 4 Abiertos sin pantalla | en curso: VPS fusionado (402faf6); faltan banco, deuda, H-904 y Firefox | 15:15 |
 | 5 Cierre y VPS | pendiente | |

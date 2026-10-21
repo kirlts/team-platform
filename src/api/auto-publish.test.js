@@ -253,7 +253,7 @@ test('UD-072 · an auto_publish value that is not true or false is a 400 and sto
   assert.equal(bad.statusCode, 400)
   assert.equal(bad.json().code, 'auto_publish_invalid')
   assert.equal((await env.api('POST', '/inputs', env.c.ana, { text: 'x', auto_publish: 'no' })).json().code, 'auto_publish_invalid')
-  assert.equal((await env.api('POST', '/inputs', env.c.ana, { text: 'x', otro: 1 })).statusCode, 400)
+  assert.equal((await env.api('POST', '/inputs', env.c.ana, { text: 'x', extra: 1 })).statusCode, 400)
   assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM inputs').n, 0)
   assert.deepEqual(blobs(env), [])
   await env.close()

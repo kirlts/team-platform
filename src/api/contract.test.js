@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { all, get, latestVersion, openInitialized, run } from '../db/index.js'
 import { bootstrapFirstEditor } from '../db/seed.js'
 import { routePolicies } from '../identity/index.js'
-import { addMember, TEST_PASSWORD, login, makeEnv, postInput, tempDir, until } from '../testing/helpers.js'
+import { addMember, fakeAnalyze, TEST_PASSWORD, login, makeEnv, postInput, tempDir, until } from '../testing/helpers.js'
 
 const noIpLimit = { identity: { login: { ipMax: 1000 } } }
 const here = path.dirname(fileURLToPath(import.meta.url))
@@ -58,7 +58,8 @@ test('ninguna ruta queda sin esquema de respuesta', async () => {
 
 test('todo POST y PATCH con cuerpo rechaza propiedades desconocidas (additionalProperties: false)', async () => {
   const env = await makeEnv()
-  const isStrict = (s) => s.additionalProperties === false || (s.anyOf ?? s.oneOf ?? []).length > 0 && (s.anyOf ?? s.oneOf).every(isStrict)
+  // A body declared per content type (`content`) is strict when each of its schemas is.
+  const isStrict = (s) => (s.content ? Object.values(s.content).every((c) => isStrict(c.schema)) : false) || s.additionalProperties === false || (s.anyOf ?? s.oneOf ?? []).length > 0 && (s.anyOf ?? s.oneOf).every(isStrict)
   const loose = routePolicies.get(env.app)
     .filter((r) => ['POST', 'PATCH'].includes(r.method) && r.schema?.body)
     .filter((r) => !isStrict(r.schema.body))
@@ -167,7 +168,9 @@ test('borrado en blando: los mensajes de un área borrada siguen existiendo y si
 })
 
 test('publicar acepta la propuesta tal cual la entrega GET (ids como texto, discarded y unit_ids) y una plantilla null usa la primera del área', async () => {
-  const env = await team({ worker: true })
+  // HP-014: publishing checks that the units cited exist, so the analyzer double numbers the three the test cites.
+  const numbered = async (bundle, opts) => ({ ...(await fakeAnalyze(bundle, opts)), units: [1, 2, 3].map((n) => ({ id: n, text: `unidad ${n}` })) })
+  const env = await team({ worker: true, modules: { analyze: numbered } })
   const { input_id: id } = (await postInput(env, env.c.ana, { text: 'x' })).json()
   const v = await until(async () => { const r = (await env.api('GET', `/inputs/${id}`, env.c.ana)).json(); return r.status === 'proposed' ? r : null })
   const msgRows = v.proposal.messages.map((m) => ({ ...m, template_id: null, unit_ids: ['1', '2'], fields: { idea: 'i', motivation: 'm', reference: null } }))

@@ -105,7 +105,7 @@ test('UD-017 · a proposal cannot be patched after publish (409), nor before it 
   await env.close()
 })
 
-test('UD-017 · HP-014 · an invalid area, template, member or attachment in a draft is 400 with a Spanish message, and nothing is saved', async () => {
+test('UD-017 · HP-014 · an invalid area, template, member, attachment or unit in a draft is 400 with a Spanish message, and nothing is saved', async () => {
   const env = await team({ worker: true })
   const { id, base, error, idea } = await proposed(env)
   const before = (await env.api('GET', `/inputs/${id}`, env.c.ana)).json().proposal
@@ -116,10 +116,7 @@ test('UD-017 · HP-014 · an invalid area, template, member or attachment in a d
     [{ area_id: idea.id, template_id: error.templates[0].id }, 'template_invalid', /plantilla/], // template of another area
     [{ assignee_ids: [999] }, 'assignee_invalid', /miembro 999 no existe/],
     [{ attachment_ids: [999] }, 'attachment_invalid', /adjunto/],
-    [{ title: '  ' }, 'message_invalid', /título/],
-    [{ body: '' }, 'message_invalid', /texto/],
-    [{ area_id: error.id, template_id: error.templates[0].id, fields: {} }, 'fields_invalid', /steps/], // required template fields
-    [{ area_id: error.id, template_id: error.templates[0].id, fields: { ...ERROR_FIELDS, invented: 'x' } }, 'fields_invalid', /invented/]
+    [{ unit_ids: [999] }, 'unit_invalid', /unidad 999/]
   ]
   for (const [edits, code, message] of cases) {
     const r = await patchIt(edits)
@@ -127,9 +124,34 @@ test('UD-017 · HP-014 · an invalid area, template, member or attachment in a d
     assert.equal(r.json().code, code)
     assert.match(r.json().message, message)
   }
+  const discarded = await env.api('PATCH', `/inputs/${id}/proposal`, env.c.ana, { messages: [base], discarded: [{ unit_ids: [999], reason: 'x' }] })
+  assert.equal(discarded.json().code, 'unit_invalid')
   assert.equal((await env.api('PATCH', `/inputs/${id}/proposal`, env.c.ana, { messages: [] })).statusCode, 400)
   assert.deepEqual((await env.api('GET', `/inputs/${id}`, env.c.ana)).json().proposal, before)
   assert.equal(get(env.db, "SELECT COUNT(*) AS n FROM audit_log WHERE action = 'input.proposal.update'").n, 0)
+  await env.close()
+})
+
+test('UD-017 · a draft with a title, a text or a required template field still empty is accepted and stored; publishing refuses it (422)', async () => {
+  const env = await team({ worker: true })
+  const { id, base, error } = await proposed(env)
+  const incomplete = { messages: [{ ...base, title: '', body: '', area_id: error.id, template_id: error.templates[0].id, fields: { steps: 'abrir' } }], discarded: [] }
+  const saved = await env.api('PATCH', `/inputs/${id}/proposal`, env.c.ana, incomplete)
+  assert.equal(saved.statusCode, 200, saved.body)
+  assert.equal(saved.json().messages[0].title, '')
+  assert.deepEqual(saved.json().messages[0].fields, { steps: 'abrir' })
+  assert.deepEqual((await env.api('GET', `/inputs/${id}`, env.c.ana)).json().proposal, saved.json()) // stored, not just echoed
+
+  const refused = await env.api('POST', `/inputs/${id}/publish`, env.c.ana) // publish enforces completeness
+  assert.equal(refused.statusCode, 422)
+  assert.equal(refused.json().code, 'message_invalid')
+  const filled = { messages: [{ ...incomplete.messages[0], title: 'Listo', body: 'Con texto' }] }
+  assert.equal((await env.api('PATCH', `/inputs/${id}/proposal`, env.c.ana, filled)).statusCode, 200)
+  const noFields = await env.api('POST', `/inputs/${id}/publish`, env.c.ana)
+  assert.equal(noFields.statusCode, 422)
+  assert.equal(noFields.json().code, 'fields_invalid')
+  assert.match(noFields.json().message, /expected|actual/)
+  assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM messages').n, 0)
   await env.close()
 })
 

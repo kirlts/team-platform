@@ -6,6 +6,7 @@
 
 import { all, get, run } from '../db/index.js'
 import { parseJson } from '../db/util.js'
+import { coverage } from '../analyze/validate.js'
 import { audit } from './audit.js'
 import { badRequest, conflict, forbidden, notFound, unprocessable } from './errors.js'
 import { transitionInput } from './inputs.js'
@@ -14,20 +15,22 @@ import { checkAssignees, checkFields, newValidatorCache, resolveAreaAndTemplate,
 /**
  * Validates every message of a proposal against the database. Returns the normalised entries, in order:
  * { title, body, areaId, templateId, fields, assigneeIds, attachmentIds, unitIds }. `fail(message, code)` builds the
- * error to throw (422 when publishing, 400 when saving a draft).
+ * error to throw (422 when publishing, 400 when saving a draft). With `draft: true` only shape and ids are checked
+ * (area, template, members, attachments): a title, a text or a required template field still empty is accepted,
+ * because the panel saves after every in-place edit; completeness is enforced when publishing.
  */
-export function validateProposal (db, inputId, proposal, fail) {
+export function validateProposal (db, inputId, proposal, fail, { draft = false } = {}) {
   if (!Array.isArray(proposal.messages) || proposal.messages.length === 0) throw fail('La propuesta necesita al menos un mensaje.', 'messages_empty')
   const cache = newValidatorCache()
   const inputAttachmentIds = new Set(all(db, 'SELECT id FROM attachments WHERE input_id = ?', inputId).map((a) => a.id))
   return proposal.messages.map((m, i) => {
     const scope = `Mensaje ${i + 1}`
-    if (typeof m.title !== 'string' || m.title.trim() === '') throw fail(`${scope}: el título es obligatorio.`, 'message_invalid')
-    if (typeof m.body !== 'string' || m.body.trim() === '') throw fail(`${scope}: el texto es obligatorio.`, 'message_invalid')
+    if (!draft && (typeof m.title !== 'string' || m.title.trim() === '')) throw fail(`${scope}: el título es obligatorio.`, 'message_invalid')
+    if (!draft && (typeof m.body !== 'string' || m.body.trim() === '')) throw fail(`${scope}: el texto es obligatorio.`, 'message_invalid')
     // Without a chosen template (the sender changed the area in the proposal) the area's first current one applies.
     const tpl = resolveAreaAndTemplate(db, { areaId: m.area_id, templateId: m.template_id }, { scope, fail })
     const fields = withoutNulls(m.fields)
-    checkFields(tpl, fields, { scope, fail, cache })
+    if (!draft) checkFields(tpl, fields, { scope, fail, cache })
     const assigneeIds = checkAssignees(db, m.assignee_ids, { scope, fail })
     const attachmentIds = [...new Set(m.attachment_ids ?? [])]
     for (const id of attachmentIds) if (!inputAttachmentIds.has(id)) throw fail(`${scope}: el adjunto ${id} no pertenece al input.`, 'attachment_invalid')
@@ -36,8 +39,30 @@ export function validateProposal (db, inputId, proposal, fail) {
 }
 
 /**
+ * Units (MASTER-SPEC §7.5, HP-014): every cited unit must be one the analysis numbered for this input. With
+ * `complete: true` (publishing) the proposal must also cover each unit exactly once, in a message or in `discarded`,
+ * with the same set arithmetic the analyzer applies to the model's output (`coverage`). A drafted proposal may be
+ * incomplete: the panel moves the units of a deleted message to `discarded`, and publishing demands the result.
+ */
+function checkUnits (db, inputId, proposal, fail, { complete }) {
+  const known = new Set(parseJson(get(db, 'SELECT units_json FROM proposals WHERE input_id = ?', inputId)?.units_json, []).map((u) => Number(u.id)))
+  const messages = proposal.messages.map((m) => ({ unit_ids: (m.unit_ids ?? []).map(Number) }))
+  const discarded = (proposal.discarded ?? []).map((d) => ({ unit_ids: (d.unit_ids ?? []).map(Number) }))
+  messages.forEach((m, i) => m.unit_ids.forEach((u) => { if (!known.has(u)) throw fail(`Mensaje ${i + 1}: la unidad ${u} no existe en el input.`, 'unit_invalid') }))
+  discarded.forEach((d) => d.unit_ids.forEach((u) => { if (!known.has(u)) throw fail(`Descartado: la unidad ${u} no existe en el input.`, 'unit_invalid') }))
+  if (!complete) return
+  const { overlaps, gaps } = coverage(messages, discarded, known)
+  if (overlaps.length > 0) {
+    throw fail(`${overlaps.map((o) => `La unidad ${o.unit_id} está en más de un lugar (${o.owners.join(' y ')})`).join('; ')}.`, 'units_overlap')
+  }
+  if (gaps.length > 0) {
+    throw fail(`Las unidades ${gaps.join(', ')} no están en ningún mensaje ni entre los descartados.`, 'units_uncovered')
+  }
+}
+
+/**
  * Saves the proposal as the input's current draft (UD-017: an edit must survive closing the tab). Only the author,
- * only while the input is `proposed`. The draft replaces the analyzer's proposal: there is no version history.
+ * only while the input is `proposed`. Shape and ids only: an incomplete draft is stored, and publishing demands completeness. The draft replaces the analyzer's proposal: there is no version history.
  * Returns the stored proposal, or null when nothing changed (same draft saved twice).
  */
 export function saveProposalDraft ({ db, events, now = Date.now }, { inputId, memberId, proposal }) {
@@ -48,7 +73,8 @@ export function saveProposalDraft ({ db, events, now = Date.now }, { inputId, me
     if (input.status === 'published') throw conflict('El input ya se publicó; sus mensajes se editan uno por uno.', 'already_published')
     if (input.status !== 'proposed') throw conflict(`El input está «${input.status}»; sólo se edita una propuesta lista.`, 'not_proposed')
 
-    const entries = validateProposal(db, inputId, proposal, badRequest)
+    const entries = validateProposal(db, inputId, proposal, badRequest, { draft: true })
+    checkUnits(db, inputId, proposal, badRequest, { complete: false })
     const draft = {
       messages: entries.map((e, i) => ({
         area_id: e.areaId, template_id: e.templateId, title: e.title, body: e.body, fields: e.fields,
@@ -80,6 +106,7 @@ export function publishProposal ({ db, events, now = Date.now }, { inputId, memb
       ? parseJson(get(db, 'SELECT payload_json FROM proposals WHERE input_id = ?', inputId)?.payload_json, {})
       : proposal
     const entries = validateProposal(db, inputId, toPublish, unprocessable)
+    checkUnits(db, inputId, toPublish, unprocessable, { complete: true })
     const t = now()
     const createdIds = []
 

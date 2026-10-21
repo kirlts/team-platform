@@ -8,6 +8,13 @@ import { cn } from '@/lib/utils'
 /** Rows drawn at once, only while measuring which of them fit. */
 const MEASURE_ROWS = 60
 
+/** Vertical space the borders and the padding of the frame take (they belong to no row, no header and no pager). */
+function chrome(el: HTMLElement | null): number {
+  if (!el) return 0
+  const style = getComputedStyle(el)
+  return ['borderTopWidth', 'borderBottomWidth', 'paddingTop', 'paddingBottom'].reduce((sum, key) => sum + (parseFloat(style[key as 'borderTopWidth']) || 0), 0)
+}
+
 /** Height of the pager strip: 32 px buttons, 8 px of padding above and below and a 1 px rule. Measured again once it is drawn. */
 const PAGER_HEIGHT = 49
 
@@ -66,7 +73,7 @@ export function FitList<T>({
   /** Grows when the frame changes size, so a measure taken at another size stops being valid. */
   const [frameVersion, setFrameVersion] = useState(0)
   /** What was measured, and for which list, window, page and frame. A different list, window, page or frame makes it stale. */
-  const [fit, setFit] = useState<{ rows: readonly T[]; desktop: boolean; start: number; version: number; n: number; sum: number } | null>(null)
+  const [fit, setFit] = useState<{ rows: readonly T[]; desktop: boolean; start: number; version: number; n: number; sum: number; floor: number } | null>(null)
   const first = Math.min(start, Math.max(0, rows.length - 1))
   /** Rows on this page; `null` while it is being measured. */
   const count = fit && fit.rows === rows && fit.desktop === desktop && fit.start === first && fit.version === frameVersion ? fit.n : null
@@ -108,12 +115,14 @@ export function FitList<T>({
     const stamp = { rows, desktop, start: first, version: frameVersion }
     // Everything left fits without a pager when it is the first page.
     if (first === 0 && heights.length === remaining && total(heights) <= box.clientHeight - above + 0.5) {
-      setFit({ ...stamp, n: remaining, sum: total(heights) })
+      setFit({ ...stamp, n: remaining, sum: total(heights), floor: 0 })
       return
     }
     const pager = pagerHeight.current || PAGER_HEIGHT
     const n = Math.min(remaining, fitCount(heights, box.clientHeight - above - pager))
-    setFit({ ...stamp, n, sum: total(heights.slice(0, n)) })
+    // A page always holds one row (`fitCount`), so the slot is never lower than that row, the header and the pager: in a window
+    // lower than that the page scrolls, and the row is not drawn over the pager (H-96). In a taller window this changes nothing.
+    setFit({ ...stamp, n, sum: total(heights.slice(0, n)), floor: Math.ceil((heights[0] ?? 0) + above + pager + chrome(frame.current)) })
   })
 
   // A row that changes height after it was measured (its template arrives, a field is edited) makes the measure stale.
@@ -138,7 +147,7 @@ export function FitList<T>({
   }
 
   return (
-    <div ref={slot} className={cn('flex min-h-0 flex-1 flex-col', className)}>
+    <div ref={slot} className={cn('flex min-h-0 flex-1 flex-col', className)} style={pages && fit ? { minHeight: fit.floor } : undefined}>
       <div ref={frame} aria-label={label} className={cn('flex max-h-full min-h-0 flex-col overflow-hidden', pages && 'h-full', bare ? 'border-y border-line' : 'glass leaf')}>
       {header && (
         <div ref={head} className="shrink-0">

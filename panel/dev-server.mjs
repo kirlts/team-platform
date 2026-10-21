@@ -571,6 +571,7 @@ function control(path, query) {
     waiting.clear()
     held = false
     running = 0
+    autoPublish = process.env.PANEL_DEV_AUTO_PUBLISH !== '0'
     inputs.clear()
     eventLog.length = 0
     restoreArray(members, initial.members)

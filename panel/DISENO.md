@@ -222,7 +222,7 @@ UD-025, UD-046, UD-070 y UD-071. Inicio va de arriba abajo como la maqueta: fran
 
 ## Panel izquierdo
 
-UD-047. Mide 16 rem. El botón de ocultar está junto al usuario; oculto, el botón de la barra superior lo muestra. La preferencia se guarda por persona en el navegador, con `try/catch`. En el teléfono es el menú de la barra y no lleva el botón. Cada área lleva su muestra de color y los conteos de abiertos y respondidos van bajo su nombre.
+UD-047. Mide 256 px, antes 288. El botón de ocultar está junto al usuario; oculto, el botón de la barra superior lo muestra. La preferencia se guarda por persona en el navegador, con `try/catch`. En el teléfono es el menú de la barra y no lleva el botón. Cada área lleva su muestra de color y los conteos de abiertos y respondidos van bajo su nombre.
 
 ## Envíos, la barra y la edición
 

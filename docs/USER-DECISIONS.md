@@ -648,7 +648,7 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 
 **Fecha:** 2026-10-21
 **Contexto:** Martín, textual: «el panel de la izquierda debería ser un poco más compacto y ocultable; en la maqueta inicial hay un botón específico para ocultarlo.»
-**Decisión:** El panel mide 16 rem en lugar de 18, con filas y márgenes más chicos, y los conteos de cada área van bajo su nombre para que un nombre largo no se parta letra por letra. El botón para ocultarlo está al lado del usuario, como en la maqueta; oculto, el botón de la barra superior lo muestra de nuevo. La preferencia se guarda por persona en el almacenamiento del navegador (`team-sidebar-hidden:<id>`), con `try/catch`: sin almacenamiento el panel arranca visible y la elección vale para la pestaña. En el teléfono es el menú de la barra, que se cierra solo, y el botón de ocultar no se dibuja. Cada área lleva en el panel una muestra de su color.
+**Decisión:** El panel mide 256 px en lugar de 288, con filas y márgenes más chicos, y los conteos de cada área van bajo su nombre para que un nombre largo no se parta letra por letra. El botón para ocultarlo está al lado del usuario, como en la maqueta; oculto, el botón de la barra superior lo muestra de nuevo. La preferencia se guarda por persona en el almacenamiento del navegador (`team-sidebar-hidden:<id>`), con `try/catch`: sin almacenamiento el panel arranca visible y la elección vale para la pestaña. En el teléfono es el menú de la barra, que se cierra solo, y el botón de ocultar no se dibuja. Cada área lleva en el panel una muestra de su color.
 **Alternativas descartadas:**
 - Ocultarlo con CSS desde un ancho: la persona decide, no el ancho.
 - Guardar la preferencia en el servidor: es una comodidad de ese navegador.

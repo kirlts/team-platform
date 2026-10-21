@@ -2,8 +2,8 @@
 // dev-server.mjs serving panel/dist with auto-publication on, as the real server has it by default: `npm run test:flows`.
 // Every test can fail if the defect it names comes back.
 import assert from 'node:assert'
-import { after, before, describe, test } from 'node:test'
-import { login, startPanel } from './browser-support.mjs'
+import { after, before, beforeEach, describe, test } from 'node:test'
+import { login, settled, startPanel } from './browser-support.mjs'
 
 process.env.PANEL_DEV_AUTO_PUBLISH = '1'
 
@@ -13,6 +13,11 @@ let origin = ''
 before(async () => {
   panel = await startPanel(Number(process.env.PANEL_FLOWS_INICIO_PORT ?? 8958), { stepMs: 80 })
   origin = panel.origin
+})
+
+// Every test starts from the sample data as the server was born with it (H-901).
+beforeEach(async () => {
+  await panel.control.reset()
 })
 
 after(async () => {
@@ -199,6 +204,39 @@ describe('the drawer under the bar (UD-046, UD-070)', () => {
       await context.close()
     }
   })
+  test('with the drawer folded, a send that publishes says so in the top bar, over no content, and the strip of pending messages does not grow (J3-B-15, H-904)', async () => {
+    const { page, context } = await session('sofia')
+    try {
+      const strip = async () => (await page.getByTestId('attention').boundingBox()).height
+      // The analysis waits for the test: the drawer is folded first, and the send is published when the test says so.
+      await panel.control.hold()
+      await send(page, 'Pregunta: ¿el audio máximo sigue en 25 MB?')
+      await page.getByTestId('send-drawer').waitFor()
+      await page.getByTestId('tray-control').click()
+      await page.getByTestId('send-drawer').waitFor({ state: 'detached' })
+      await settled(page)
+      const before = await strip()
+      await panel.control.step({ finish: true })
+      const notice = page.locator('[data-notice]')
+      await notice.waitFor({ timeout: 20000 })
+      // The box is read once the page is quiet, not while the notice is still coming in (H-904).
+      await settled(page)
+      const n = await notice.boundingBox()
+      assert.ok(n.y + n.height <= 56, `el aviso queda en la barra superior: ${n.y + n.height}`)
+      assert.match(await notice.innerText(), /publicado/)
+      assert.equal(await strip(), before, 'la franja de Para mí no cambia de alto al publicar')
+      for (const b of await page.getByRole('button', { name: /^Página (siguiente|anterior)$/ }).all()) {
+        const r = await b.boundingBox()
+        assert.equal(r.x < n.x + n.width && n.x < r.x + r.width && r.y < n.y + n.height && n.y < r.y + r.height, false, 'el aviso no tapa la paginación')
+      }
+      // «Revisar» opens the drawer on that send, already published.
+      await notice.getByRole('button', { name: 'Revisar' }).click()
+      await page.getByTestId('published-message').first().waitFor()
+    } finally {
+      await panel.control.release()
+      await context.close()
+    }
+  })
 })
 
 describe('the side panel (UD-047)', () => {
@@ -208,7 +246,7 @@ describe('the side panel (UD-047)', () => {
       const sidebar = page.getByTestId('sidebar')
       await sidebar.waitFor()
       const width = (await sidebar.boundingBox()).width
-      assert.ok(width <= 17 * 15, `el panel mide ${width} px`)
+      assert.ok(width <= 260, `el panel mide ${width} px, antes 288`)
       await page.getByTestId('sidebar-hide').click()
       await sidebar.waitFor({ state: 'detached' })
       const content = (await page.locator('main').boundingBox()).width
@@ -252,9 +290,11 @@ describe('the color of an area (UD-045)', () => {
       const list = (await api(page, '/areas')).body
       const first = (list.items ?? list)[0]
       await page.getByTestId('area-color-trigger').first().click()
-      await page.getByTestId('area-swatch').filter({ has: page.locator('[aria-label="#be185d"]') }).first().click().catch(() => undefined)
       await page.locator('[data-testid="area-swatch"][aria-label="#be185d"]').click()
-      await page.waitForFunction(async (id) => (await (await fetch('/api/areas')).json()).items?.find?.((a) => a.id === id)?.color === '#be185d' || (await (await fetch('/api/areas')).json()).find?.((a) => a.id === id)?.color === '#be185d', first.id)
+      await page.waitForFunction(async (id) => {
+        const body = await (await fetch('/api/areas')).json()
+        return (body.items ?? body).find((a) => a.id === id)?.color === '#be185d'
+      }, first.id)
       const preview = page.getByTestId('area-color-preview')
       assert.equal(await bg(preview), 'rgb(190, 24, 93)')
     } finally {

@@ -3,7 +3,7 @@
 // `npm run test:flows`.
 import assert from 'node:assert'
 import { after, before, describe, test } from 'node:test'
-import { login, startPanel } from './browser-support.mjs'
+import { login, settled, startPanel } from './browser-support.mjs'
 
 // These tests go through the review of a proposal, which is what the server does with publication by hand (UD-070): they start it with auto-publication off.
 // The automatic path has its own file, `flows-inicio.browser.test.mjs`.
@@ -185,7 +185,7 @@ describe('colors and words of the states (UD-041)', () => {
         for (const path of ['/', '/messages', '/areas', '/areas/a-error', '/team']) {
           await page.goto(`${origin}${path}`)
           await page.locator('main').first().waitFor()
-          await page.waitForTimeout(300)
+          await settled(page)
           // The chrome of every screen: navigation, header, counts and states. The texts people wrote are data.
           const words = await page.evaluate(() => [...document.querySelectorAll('nav, header, h1, h2, [data-testid="attention"], [data-testid="state-mark"], [data-testid="area-pending"], [aria-label]')].flatMap((el) => [el.textContent ?? '', el.getAttribute('aria-label') ?? '']).join(' | '))
           assert.doesNotMatch(words, RETIRED, `${path} (${viewport.width}): ${words.match(RETIRED)?.[0]}`)

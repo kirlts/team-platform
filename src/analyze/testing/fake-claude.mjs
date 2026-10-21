@@ -37,13 +37,29 @@ process.stdin.on('end', () => {
   const unitIds = [...readFileSync('input.md', 'utf8').matchAll(/\[u(\d+)\]/g)].map((m) => Number(m[1]));
   const message = (ids) => ({
     unit_ids: ids,
+    area_id: 2,
+    template_id: 2,
     title: 'Corregir pantalla en blanco',
     fields: { steps: 'Abrir', expected: 'Carga', actual: 'En blanco', where: null, impact: null },
     body: 'La pantalla queda en blanco.',
     assignee_ids: [1],
     attachment_ids: [],
   });
-  const good = { area_id: 2, template_id: 2, messages: [message(unitIds)], discarded: [] };
+  const good = { messages: [message(unitIds)], discarded: [] };
+  if (mode === 'multi') {
+    // Un error, una idea y una pregunta, cada uno con su área y su plantilla.
+    const base = { assignee_ids: [], attachment_ids: [], body: 'Texto.' };
+    return reply({
+      structured_output: {
+        messages: [
+          { ...message([2]) },
+          { ...base, unit_ids: [3], area_id: 1, template_id: 1, title: 'Agrupar por día', fields: { idea: 'Agrupar', motivation: 'No indicado', reference: null } },
+          { ...base, unit_ids: [4], area_id: 5, template_id: 5, title: 'Certificado', fields: { question: '¿Quién?', context: null, needed_by: null } },
+        ],
+        discarded: [{ unit_ids: [1, 5], reason: 'charla' }],
+      },
+    });
+  }
   if (mode === 'always-bad' || (mode === 'bad-then-ok' && n === 0)) {
     return reply({ structured_output: { ...good, messages: [message([unitIds[0]])] } }); // deja huecos
   }

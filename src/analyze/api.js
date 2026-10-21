@@ -1,11 +1,13 @@
 // Analizador `api` (MASTER-SPEC §7.5, variante A): bucle propio con salida estructurada.
 //
 //   1. numerar las unidades del input extraído
-//   2. llamada 1: clasificar (área y plantilla; esfuerzo `low`)
-//   3. llamada 2: descomponer con el cuerpo de la plantilla (esfuerzo `medium`), exigiendo `unit_ids` y `discarded`
-//   4. solapes y huecos por conjuntos; un único pase de rescate sobre el conflicto
-//   5. si el input supera el umbral: partir sólo por fronteras estructurales, descomponer en paralelo y
-//      reducir de forma determinista por `unit_ids`
+//   2. llamada 1: clasificar en grupos {area_id, template_id, unit_ids} más `discarded` (esfuerzo `low`)
+//   3. llamada 2, una por grupo y en paralelo: descomponer con el cuerpo de la plantilla del grupo (esfuerzo
+//      `medium`), exigiendo `unit_ids` y `discarded`
+//   4. solapes y huecos por conjuntos (por grupo, y al final sobre la unión de todos); un único pase de
+//      rescate por grupo con conflicto
+//   5. si el input o un grupo supera el umbral: partir sólo por fronteras estructurales, procesar los
+//      trozos en paralelo y reducir de forma determinista por `unit_ids`
 //   6. validación con Ajv propio; un reintento con el error como contexto
 //
 // Los resultados de dominio no se lanzan: un `refusal`, un corte por `max_tokens` y una salida inválida
@@ -22,7 +24,7 @@ import { buildClassificationSchema, buildDecompositionSchema } from './schema.js
 import { parseTemplate } from './templates.js';
 import { estimateTokens, numberUnits, partitionUnits, renderUnits } from './units.js';
 import {
-  contextFromBundle, coverage, normalizeDecomposition, validateClassification, validateDecomposition,
+  contextFromBundle, coverage, describeConflicts, normalizeDecomposition, validateClassification, validateDecomposition, validateProposal,
 } from './validate.js';
 
 const TYPED = new Map([
@@ -42,7 +44,7 @@ function createContext({ providers, config, onProgress, unitCount }) {
     providers,
     config,
     calls: [],
-    stats: { chunks: 1, rescues: 0, invalid_retries: 0, max_tokens_retries: 0, partitioned: false, classified_on_partial: false, units: unitCount },
+    stats: { chunks: 1, groups: 0, classification_chunks: 1, rescues: 0, invalid_retries: 0, max_tokens_retries: 0, partitioned: false, units: unitCount },
     stopped: false,
     progress: { done: 0, total: 3, last: 0 },
     onProgress,
@@ -149,13 +151,6 @@ async function structuredStep(ctx, { step, system, messages, schema, effort, val
   }
 }
 
-function describeConflicts({ overlaps, gaps }) {
-  const out = [];
-  for (const o of overlaps) out.push(`la unidad ${o.unit_id} está en más de un lugar (${o.owners.join(' y ')})`);
-  if (gaps.length > 0) out.push(`las unidades ${gaps.join(', ')} no están en ningún mensaje ni en discarded`);
-  return out;
-}
-
 /** Descompone un conjunto de unidades (todo el input o un trozo) con recuperación y un único rescate. */
 async function decomposeUnits(ctx, { bundle, template, system, schema, units, scopeNote, label }) {
   const { config } = ctx;
@@ -260,73 +255,106 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config }) 
   const attachments = bundle.attachments ?? [];
   const members = bundle.members ?? [];
   const { areas, templates } = bundle;
+  const allIds = units.map((u) => u.id);
   const fail = (r) => ({ status: r.status, step: r.step, category: r.category, explanation: r.explanation, reason: r.reason, errors: r.errors ?? [], max_tokens: r.max_tokens, draft: r.draft, units, calls: ctx.calls, stats: ctx.stats });
 
-  // -- Llamada 1: clasificar ----------------------------------------------------------------
+  // -- Llamada 1: clasificar en grupos por área y plantilla ----------------------------------
+  // Un input puede traer un error, una idea y una pregunta: cada grupo lleva su área y su plantilla
+  // (idea.md: «uno o varios mensajes que agrupen el trabajo en categorías»). Si el input no cabe en una
+  // llamada se clasifica por trozos estructurales disjuntos y los grupos se unen.
   ctx.report('clasificando el input');
   const cSystem = classifySystem({ areas, templates });
-  const fixedClassify = estimateTokens([...cSystem, membersBlock(members)].join('\n'), config.charsPerToken);
+  const fixedClassify = estimateTokens([...cSystem, membersBlock([])].join('\n'), config.charsPerToken);
   const classifyChunks = partitionUnits(units, { budgetTokens: config.partitionThresholdTokens - fixedClassify, charsPerToken: config.charsPerToken });
-  // Un solo área por propuesta (§7.5): si el input no cabe, se clasifica sobre su primer trozo.
-  ctx.stats.classified_on_partial = classifyChunks.length > 1;
-  const classification = await structuredStep(ctx, {
-    step: 'classify',
-    system: cSystem,
-    messages: [{ role: 'user', content: classifyUser({ units: classifyChunks[0], attachments }) }],
-    schema: buildClassificationSchema({ areas, templates }),
-    effort: config.classifyEffort,
-    validate: (json) => ({ errors: validateClassification(json, { areas, templates }) }),
-  });
-  if (classification.status !== 'ok') return fail(classification);
-  const { area_id, template_id } = classification.json;
-  ctx.report('input clasificado', { advance: true });
-
-  // -- Llamada 2: descomponer ---------------------------------------------------------------
-  const templateRow = templates.find((t) => t.id === template_id);
-  if (typeof templateRow.body_markdown !== 'string') {
-    throw new AnalyzeInputError(`La plantilla ${template_id} no trae «body_markdown»`, { calls: ctx.calls });
-  }
-  const template = parseTemplate(templateRow.body_markdown, { source: `plantilla ${template_id}` });
-  const dSystem = decomposeSystem(template);
-  const schema = buildDecompositionSchema(template.fields, { profile });
-  const fixedDecompose = estimateTokens([...dSystem, membersBlock(members)].join('\n'), config.charsPerToken);
-  const chunks = partitionUnits(units, { budgetTokens: config.partitionThresholdTokens - fixedDecompose, charsPerToken: config.charsPerToken });
-  ctx.stats.chunks = chunks.length;
-  ctx.stats.partitioned = chunks.length > 1;
-  ctx.stats.estimated_input_tokens = estimateTokens(renderUnits(units), config.charsPerToken);
-  ctx.progress.total = 2 + chunks.length;
-  ctx.report(chunks.length > 1 ? `descomponiendo ${chunks.length} trozos` : 'descomponiendo el input');
-
-  const tasks = chunks.map((chunkUnits, index) => async () => {
-    const scopeNote = chunks.length > 1 ? chunkNote({ index, total: chunks.length, first: chunkUnits[0].id, last: chunkUnits.at(-1).id }) : undefined;
-    const r = await decomposeUnits(ctx, { bundle, template, system: dSystem, schema, units: chunkUnits, scopeNote, label: chunks.length > 1 ? `#${index + 1}` : '' });
-    if (r.status === 'ok') ctx.report(chunks.length > 1 ? `trozo ${index + 1} de ${chunks.length} listo` : 'input descompuesto', { advance: true });
+  ctx.stats.classification_chunks = classifyChunks.length;
+  ctx.progress.total = classifyChunks.length + 2;
+  const cSchema = buildClassificationSchema({ areas, templates });
+  const classifyTasks = classifyChunks.map((chunkUnits, index) => async () => {
+    const scope = new Set(chunkUnits.map((u) => u.id));
+    const r = await structuredStep(ctx, {
+      step: classifyChunks.length > 1 ? `classify#${index + 1}` : 'classify',
+      system: cSystem,
+      messages: [{ role: 'user', content: classifyUser({ units: chunkUnits, attachments }) }],
+      schema: cSchema,
+      effort: config.classifyEffort,
+      validate: (json) => validateClassification(json, { areas, templates, scope }),
+    });
+    if (r.status === 'ok') ctx.report('input clasificado', { advance: true });
     return r;
+  });
+  const classified = await runPool(classifyTasks, config.partitionConcurrency);
+  const badClass = classified.find((r) => r && r.status !== 'ok');
+  if (badClass) return fail(badClass);
+  const groups = classified.flatMap((r) => r.json.groups);
+  const classDiscarded = classified.flatMap((r) => r.json.discarded);
+  ctx.stats.groups = groups.length;
+
+  // -- Llamada 2: descomponer cada grupo con la plantilla del grupo --------------------------
+  const prepared = new Map(); // template_id -> plantilla leída, sistema y esquema
+  const prepare = (templateId) => {
+    if (prepared.has(templateId)) return prepared.get(templateId);
+    const row = templates.find((t) => t.id === templateId);
+    if (typeof row.body_markdown !== 'string') {
+      throw new AnalyzeInputError(`La plantilla ${templateId} no trae «body_markdown»`, { calls: ctx.calls });
+    }
+    const template = parseTemplate(row.body_markdown, { source: `plantilla ${templateId}` });
+    const system = decomposeSystem(template);
+    const entry = {
+      template,
+      system,
+      schema: buildDecompositionSchema(template.fields, { profile }),
+      fixed: estimateTokens([...system, membersBlock(members)].join('\n'), config.charsPerToken),
+    };
+    prepared.set(templateId, entry);
+    return entry;
+  };
+
+  const work = []; // una tarea por grupo, o por trozo de un grupo que no cabe
+  for (const [gi, group] of groups.entries()) {
+    const entry = prepare(group.template_id);
+    const ids = new Set(group.unit_ids);
+    const groupUnits = units.filter((u) => ids.has(u.id));
+    const parts = partitionUnits(groupUnits, { budgetTokens: config.partitionThresholdTokens - entry.fixed, charsPerToken: config.charsPerToken });
+    parts.forEach((partUnits, pi) => work.push({ group, entry, gi, pi, parts: parts.length, units: partUnits }));
+  }
+  ctx.stats.chunks = work.length;
+  ctx.stats.partitioned = work.length > groups.length || classifyChunks.length > 1;
+  ctx.stats.estimated_input_tokens = estimateTokens(renderUnits(units), config.charsPerToken);
+  ctx.progress.total = classifyChunks.length + work.length + 1;
+  ctx.report(work.length > 1 ? `descomponiendo ${work.length} grupos` : 'descomponiendo el input');
+
+  const tasks = work.map((w) => async () => {
+    const scopeNote = w.parts > 1 ? chunkNote({ index: w.pi, total: w.parts, first: w.units[0].id, last: w.units.at(-1).id }) : undefined;
+    const label = `[t${w.group.template_id}]${w.parts > 1 ? `#${w.pi + 1}` : ''}`;
+    const r = await decomposeUnits(ctx, { bundle, template: w.entry.template, system: w.entry.system, schema: w.entry.schema, units: w.units, scopeNote, label });
+    if (r.status === 'ok') ctx.report('grupo descompuesto', { advance: true });
+    return r.status === 'ok' ? { ...r, group: w.group } : r;
   });
   const results = await runPool(tasks, config.partitionConcurrency);
   const bad = results.find((r) => r && r.status !== 'ok');
   if (bad) return fail(bad);
 
   // -- Reducción determinista por unit_ids ---------------------------------------------------
-  // Los trozos son disjuntos por unidad: la reducción es una concatenación, sin llamada (informe 02 §3.3).
+  // Los grupos son disjuntos por unidad: la reducción es una concatenación, sin llamada (informe 02 §3.3).
   ctx.report('validando la propuesta');
   const merged = {
-    messages: results.flatMap((r) => r.messages),
-    discarded: results.flatMap((r) => r.discarded),
+    messages: results.flatMap((r) => r.messages.map((m) => ({ ...m, area_id: r.group.area_id, template_id: r.group.template_id }))),
+    discarded: [...classDiscarded, ...results.flatMap((r) => r.discarded)],
   };
-  const finalCheck = validateDecomposition(merged, contextFromBundle(bundle, { fields: template.fields, scope: units.map((u) => u.id) }));
+  const fieldsByTemplate = new Map([...prepared].map(([id, e]) => [id, e.template.fields]));
+  const finalCheck = validateProposal(merged, {
+    templates,
+    fieldsByTemplate,
+    scope: new Set(allIds),
+    memberIds: new Set(members.map((m) => m.id)),
+    attachmentIds: new Set(attachments.map((a) => a.id)),
+  });
   if (finalCheck.errors.length > 0 || finalCheck.conflicts.overlaps.length > 0 || finalCheck.conflicts.gaps.length > 0) {
     return fail({ status: 'invalid', step: 'reduce', reason: 'mece_conflict', errors: [...finalCheck.errors, ...describeConflicts(finalCheck.conflicts)], draft: merged });
   }
   const { messages, discarded } = normalizeDecomposition(merged);
   ctx.report('propuesta lista', { advance: true });
-  return {
-    status: 'ok',
-    proposal: { area_id, template_id, messages, discarded },
-    units,
-    calls: ctx.calls,
-    stats: ctx.stats,
-  };
+  return { status: 'ok', proposal: { messages, discarded }, units, calls: ctx.calls, stats: ctx.stats };
 }
 
 /**
@@ -342,6 +370,23 @@ export async function warmTemplate({ providers, config, templateMarkdown }) {
     system: decomposeSystem(template),
     messages: [{ role: 'user', content: 'Calentamiento de la plantilla. Devuelve messages y discarded vacíos.' }],
     schema: buildDecompositionSchema(template.fields, { profile }),
+    effort: config.classifyEffort,
+    maxTokens: config.maxTokens,
+  });
+  return { ...ctx.calls[0], ok: r.ok };
+}
+
+/**
+ * Calienta por evento el esquema y el prompt de la clasificación: cambian cuando el Editor edita áreas o
+ * plantillas (los `enum` de ids son parte de la estructura). Mismo criterio que `warmTemplate`.
+ * @returns {Promise<object>} la entrada de llm_calls de la llamada de calentamiento
+ */
+export async function warmCatalog({ providers, config, areas, templates }) {
+  const ctx = createContext({ providers, config, unitCount: 0 });
+  const r = await callText(ctx, 'warmup-classify', {
+    system: classifySystem({ areas, templates }),
+    messages: [{ role: 'user', content: 'Calentamiento del catálogo. Devuelve groups y discarded vacíos.' }],
+    schema: buildClassificationSchema({ areas, templates }),
     effort: config.classifyEffort,
     maxTokens: config.maxTokens,
   });

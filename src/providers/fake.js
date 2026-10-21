@@ -28,7 +28,7 @@ function resolver(slotName, script) {
 }
 
 async function materialize(response, req, n, identity) {
-  let value = response;
+  let value = await response; // el guion puede ser asíncrono
   if (typeof value === 'function') value = await value(req, n);
   if (value instanceof Error) throw value;
   const hasShape = value && typeof value === 'object' && ('json' in value || 'text' in value || 'segments' in value);

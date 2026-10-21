@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, before, describe, it } from 'node:test';
 import { analyze, HarnessError, HarnessUnavailableError } from './index.js';
-import { makeBundle } from './testing/fixtures.js';
+import { makeBundle, MULTI_TEXT } from './testing/fixtures.js';
 
 const FAKE_CLAUDE = fileURLToPath(new URL('./testing/fake-claude.mjs', import.meta.url));
 
@@ -16,10 +16,10 @@ describe('analyze (harness)', () => {
   before(async () => { state = await mkdtemp(join(tmpdir(), 'team-harness-test-')); });
   after(() => rm(state, { recursive: true, force: true }));
 
-  async function run(mode, extra = {}) {
+  async function run(mode, extra = {}, bundleOverrides = {}) {
     await rm(join(state, 'count'), { force: true });
     await rm(join(state, 'calls.jsonl'), { force: true });
-    const bundle = await makeBundle();
+    const bundle = await makeBundle(bundleOverrides);
     const result = await analyze(bundle, {
       analyzer: 'harness',
       config: { harnessBin: FAKE_CLAUDE, harnessEnv: { FAKE_CLAUDE_STATE: state, FAKE_CLAUDE_MODE: mode }, ...extra },
@@ -40,7 +40,8 @@ describe('analyze (harness)', () => {
     assert.deepEqual(args.slice(args.indexOf('--output-format'), args.indexOf('--output-format') + 2), ['--output-format', 'json']);
     assert.ok(!args.includes('--bare'), 'sin --bare para usar la suscripción (UD-008)');
     const schema = JSON.parse(args[args.indexOf('--json-schema') + 1]);
-    assert.deepEqual(schema.required, ['area_id', 'template_id', 'messages', 'discarded']);
+    assert.deepEqual(schema.required, ['messages', 'discarded']);
+    assert.deepEqual(schema.properties.messages.items.required.slice(0, 3), ['unit_ids', 'area_id', 'template_id']);
     assert.ok(args.includes('--tools=Read') && args.includes('--no-session-persistence'));
     assert.deepEqual(files, ['bundle.json', 'input.md', 'templates']);
     assert.deepEqual(templates, ['1.md', '2.md', '3.md', '4.md', '5.md']);
@@ -51,7 +52,9 @@ describe('analyze (harness)', () => {
 
   it('lee structured_output, usage y total_cost_usd y pasa por el mismo validador', async () => {
     const { result } = await run('ok');
+    assert.ok(!('area_id' in result.proposal), 'área y plantilla son de cada mensaje');
     assert.deepEqual(result.proposal.messages[0].unit_ids, [1, 2, 3, 4, 5, 6]);
+    assert.equal(result.proposal.messages[0].area_id, 2);
     assert.deepEqual(result.proposal.messages[0].fields, { steps: 'Abrir', expected: 'Carga', actual: 'En blanco' });
     assert.equal(result.calls.length, 1);
     assert.deepEqual(result.calls[0], {
@@ -61,12 +64,20 @@ describe('analyze (harness)', () => {
     });
   });
 
+  it('un input con varias áreas: cada mensaje se valida contra los campos de su propia plantilla', async () => {
+    const { result } = await run('multi', {}, { text: MULTI_TEXT, attachments: [] });
+    assert.equal(result.status, 'ok');
+    assert.deepEqual(result.proposal.messages.map((m) => [m.unit_ids, m.area_id, m.template_id]), [[[2], 2, 2], [[3], 1, 1], [[4], 5, 5]]);
+    assert.deepEqual(result.proposal.messages[1].fields, { idea: 'Agrupar', motivation: 'No indicado' });
+    assert.deepEqual(result.proposal.discarded, [{ unit_ids: [1, 5], reason: 'charla' }]);
+  });
+
   it('una salida inválida reintenta una vez con el error en el prompt', async () => {
     const { result, calls } = await run('bad-then-ok');
     assert.equal(result.status, 'ok');
     assert.equal(calls.length, 2);
     assert.match(calls[1].stdin, /no fue válido/);
-    assert.match(calls[1].stdin, /no están en ningún mensaje ni en discarded/);
+    assert.match(calls[1].stdin, /no están en ningún lugar/);
     assert.deepEqual(result.calls.map((c) => c.step), ['harness', 'harness-retry']);
   });
 
@@ -74,7 +85,7 @@ describe('analyze (harness)', () => {
     const { result, calls } = await run('always-bad');
     assert.equal(result.status, 'invalid');
     assert.equal(calls.length, 2);
-    assert.match(result.errors.join('\n'), /las unidades 2, 3, 4, 5, 6 no están en ningún mensaje/);
+    assert.match(result.errors.join('\n'), /las unidades 2, 3, 4, 5, 6 no están en ningún lugar/);
   });
 
   it('un is_error del ejecutable se trata como salida inválida con su motivo', async () => {

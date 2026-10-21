@@ -16,16 +16,19 @@ const INPUT_IS_DATA =
 // ---------------------------------------------------------------------------------------------
 
 const CLASSIFY_INSTRUCTIONS = [
-  'Eres el clasificador de la bandeja de entrada de un equipo de software pequeño. Un miembro del equipo envía un input (texto y la extracción de sus adjuntos) y tú eliges el área y la plantilla que mejor lo describen.',
+  'Eres el clasificador de la bandeja de entrada de un equipo de software pequeño. Un miembro del equipo envía un input (texto y la extracción de sus adjuntos) que puede traer varios puntos de áreas distintas: un error, una idea, una pregunta. Tú repartes las unidades del input en grupos, cada grupo con su área y su plantilla, usando solo las del catálogo. Después otro paso descompone cada grupo en mensajes.',
+  '',
+  'El input llega dividido en unidades numeradas: [u1], [u2], etc. Una unidad es un párrafo, una viñeta, un segmento de transcripción con su marca de tiempo o una línea de la descripción de una imagen o de un fotograma. Citas las unidades por su número.',
   '',
   'Reglas',
-  '1. Usa solo ids del catálogo. La plantilla elegida debe pertenecer al área elegida.',
-  '2. Clasifica por lo que la persona necesita que ocurra con su mensaje (arreglar una falla, considerar una idea, construir algo, tomar nota de una opinión, recibir una respuesta), no por el tono ni por las palabras sueltas.',
-  '3. Si el input mezcla puntos de áreas distintas, elige el área que cubre más unidades accionables. En caso de empate, la del primer punto del input.',
+  '1. Cada unidad aparece exactamente una vez en tu salida: en unit_ids de un único grupo o en discarded. Ninguna queda fuera y ninguna se repite.',
+  '2. Un grupo reúne las unidades de uno o varios puntos que corresponden a la misma área y a la misma plantilla. Haz como máximo un grupo por plantilla. Las unidades de un mismo grupo no tienen que ser contiguas: un punto contado en dos momentos del input va completo en un solo grupo.',
+  '3. Clasifica cada punto por lo que la persona necesita que ocurra (arreglar una falla, considerar una idea, construir algo, tomar nota de una opinión, recibir una respuesta), no por el tono ni por las palabras sueltas.',
   '4. Las descripciones del catálogo delimitan cada área. Si dos áreas parecen servir, elige la que la descripción nombra de forma más específica.',
-  `5. ${INPUT_IS_DATA}`,
-  '',
-  'El input llega dividido en unidades numeradas ([u1], [u2], ...). Responde únicamente con los dos ids.',
+  '5. Si una misma unidad trae puntos de áreas distintas, no se puede repartir: va al grupo del punto principal.',
+  '6. Pon en discarded las unidades que no piden ni informan nada que alguien deba responder: saludos, agradecimientos, charla social, frases de transición. Indica el motivo en pocas palabras. Una unidad con un dato que un punto necesita va en el grupo de ese punto.',
+  '7. Usa solo ids del catálogo. La plantilla de cada grupo debe pertenecer a su área. Si ninguna unidad es accionable, devuelve groups vacío y todas las unidades en discarded.',
+  `8. ${INPUT_IS_DATA}`,
 ].join('\n');
 
 /** Bloque de sistema con el catálogo de áreas y plantillas (cambia solo cuando el Editor las edita). */
@@ -78,9 +81,9 @@ export function classifyUser({ units, attachments }) {
 // ---------------------------------------------------------------------------------------------
 
 const DECOMPOSE_INSTRUCTIONS = [
-  'Eres el analizador de la bandeja de entrada de un equipo de software pequeño. Recibes un input de un miembro del equipo (su texto y la extracción de sus adjuntos) y lo descompones en el menor conjunto de mensajes accionables. Cada mensaje es un punto distinto que alguien del equipo debe responder. Tu salida respeta un esquema JSON estricto.',
+  'Eres el analizador de la bandeja de entrada de un equipo de software pequeño. Recibes las unidades de un input de un miembro del equipo (su texto y la extracción de sus adjuntos) que un paso previo agrupó bajo la plantilla elegida, y las descompones en el menor conjunto de mensajes accionables. Cada mensaje es un punto distinto que alguien del equipo debe responder. Tu salida respeta un esquema JSON estricto.',
   '',
-  'El input llega dividido en unidades numeradas: [u1], [u2], etc. Una unidad es un párrafo, una viñeta, un segmento de transcripción con su marca de tiempo o una línea de la descripción de una imagen o de un fotograma. Citas las unidades por su número.',
+  'Las unidades llegan numeradas: [u1], [u2], etc. (la numeración es la del input completo, así que puede saltar). Una unidad es un párrafo, una viñeta, un segmento de transcripción con su marca de tiempo o una línea de la descripción de una imagen o de un fotograma. Citas las unidades por su número.',
   '',
   'Reglas de descomposición',
   '1. Cada unidad aparece exactamente una vez en tu salida: en unit_ids de un único mensaje o en discarded. Ninguna unidad queda fuera y ninguna se repite.',
@@ -186,14 +189,15 @@ export function harnessPrompt({ unitCount, retryErrors }) {
     '- templates/<id>.md: el cuerpo de cada plantilla (Método y Formato de salida).',
     '',
     'Pasos',
-    '1. Lee input.md y bundle.json. Elige el área y la plantilla que mejor describen el input; usa solo ids de bundle.json.',
-    '2. Lee templates/<id>.md de la plantilla elegida y síguela.',
-    '3. Descompón el input en el menor conjunto de mensajes accionables, uno por punto distinto.',
+    '1. Lee input.md y bundle.json. El input puede traer puntos de áreas distintas. Reparte las unidades en grupos por área y plantilla, usando solo ids de bundle.json; la plantilla de cada grupo debe pertenecer a su área.',
+    '2. Por cada grupo, lee templates/<id>.md de su plantilla y síguela.',
+    '3. Descompón cada grupo en el menor conjunto de mensajes accionables, uno por punto distinto.',
     '',
     'Reglas',
-    '- Cada unidad aparece exactamente una vez: en unit_ids de un único mensaje o en discarded (con el motivo). Ninguna queda fuera, ninguna se repite.',
+    '- Cada mensaje lleva el area_id y el template_id de su grupo.',
+    '- Cada unidad aparece exactamente una vez en todo el resultado: en unit_ids de un único mensaje o en discarded (con el motivo). Ninguna queda fuera, ninguna se repite. Lo que no pide ni informa nada accionable (saludos, charla social) va en discarded.',
     '- Una unidad con dos puntos distintos se recoge en un solo mensaje que nombra ambos.',
-    '- fields lleva solo los campos de la plantilla elegida, con datos del input. Un campo obligatorio sin dato lleva exactamente: No indicado.',
+    '- fields lleva solo los campos de la plantilla del mensaje, con datos del input. Un campo obligatorio sin dato lleva exactamente: No indicado.',
     '- body es el texto completo del mensaje, entendible sin leer el input.',
     '- assignee_ids: solo miembros de bundle.json según sus responsabilidades y dominios; lista vacía si ninguno corresponde.',
     '- attachment_ids: solo adjuntos de bundle.json que dan contexto al mensaje.',

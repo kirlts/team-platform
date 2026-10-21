@@ -18,15 +18,9 @@ import { harnessPrompt } from './prompts.js';
 import { buildProposalSchema } from './schema.js';
 import { parseTemplate } from './templates.js';
 import { numberUnits, renderUnits } from './units.js';
-import { contextFromBundle, normalizeDecomposition, validateClassification, validateDecomposition } from './validate.js';
+import { describeConflicts, normalizeDecomposition, validateProposal } from './validate.js';
 
 const PROVIDER = 'claude-code';
-
-function describeConflicts({ overlaps, gaps }) {
-  const out = overlaps.map((o) => `la unidad ${o.unit_id} está en más de un lugar (${o.owners.join(' y ')})`);
-  if (gaps.length > 0) out.push(`las unidades ${gaps.join(', ')} no están en ningún mensaje ni en discarded`);
-  return out;
-}
 
 async function writeWorkdir(dir, bundle, units) {
   await mkdir(join(dir, 'templates'));
@@ -131,20 +125,24 @@ function toCallEntry(result, step) {
 }
 
 /** Valida el Proposal completo del harness con el mismo validador que `api`. */
-function validateProposal(proposal, bundle, units) {
+function validateHarnessProposal(proposal, bundle, units) {
   if (!proposal || typeof proposal !== 'object') return { errors: ['la salida no es un objeto'] };
-  const { areas, templates } = bundle;
-  const classificationErrors = validateClassification(
-    { area_id: proposal.area_id, template_id: proposal.template_id },
-    { areas, templates },
-  );
-  if (classificationErrors.length > 0) return { errors: classificationErrors };
-  const templateRow = templates.find((t) => t.id === proposal.template_id);
-  if (typeof templateRow.body_markdown !== 'string') return { errors: [`la plantilla ${templateRow.id} no trae su cuerpo`] };
-  const template = parseTemplate(templateRow.body_markdown, { source: `plantilla ${templateRow.id}` });
-  const decomposition = { messages: proposal.messages, discarded: proposal.discarded };
-  const v = validateDecomposition(decomposition, contextFromBundle(bundle, { fields: template.fields, scope: units.map((u) => u.id) }));
-  return { errors: [...v.errors, ...describeConflicts(v.conflicts)], decomposition };
+  const { templates } = bundle;
+  const fieldsByTemplate = new Map();
+  for (const m of Array.isArray(proposal.messages) ? proposal.messages : []) {
+    const row = templates.find((t) => t.id === m?.template_id);
+    if (!row || fieldsByTemplate.has(row.id)) continue;
+    if (typeof row.body_markdown !== 'string') return { errors: [`la plantilla ${row.id} no trae su cuerpo`] };
+    fieldsByTemplate.set(row.id, parseTemplate(row.body_markdown, { source: `plantilla ${row.id}` }).fields);
+  }
+  const v = validateProposal(proposal, {
+    templates,
+    fieldsByTemplate,
+    scope: new Set(units.map((u) => u.id)),
+    memberIds: new Set((bundle.members ?? []).map((m) => m.id)),
+    attachmentIds: new Set((bundle.attachments ?? []).map((a) => a.id)),
+  });
+  return { errors: [...v.errors, ...describeConflicts(v.conflicts)] };
 }
 
 /**
@@ -156,7 +154,7 @@ export async function analyzeWithHarness(bundle, { onProgress, config }) {
   const units = numberUnits(bundle);
   if (units.length === 0) throw new AnalyzeInputError('El input no tiene texto ni adjuntos con texto extraído');
   const calls = [];
-  const stats = { chunks: 1, rescues: 0, invalid_retries: 0, max_tokens_retries: 0, partitioned: false, classified_on_partial: false, units: units.length };
+  const stats = { chunks: 1, groups: 0, classification_chunks: 1, rescues: 0, invalid_retries: 0, max_tokens_retries: 0, partitioned: false, units: units.length };
   let done = 0;
   const report = (phrase) => onProgress?.({ percent: Math.round((100 * done) / 3), phrase });
 
@@ -217,15 +215,15 @@ export async function analyzeWithHarness(bundle, { onProgress, config }) {
         if (proposal === undefined) {
           errors = ['claude -p no devolvió structured_output'];
         } else {
-          checked = validateProposal(proposal, bundle, units);
+          checked = validateHarnessProposal(proposal, bundle, units);
           errors = checked.errors;
           if (errors.length === 0) {
             done = 2;
             report('validando la propuesta');
-            const { messages, discarded } = normalizeDecomposition(checked.decomposition);
+            const { messages, discarded } = normalizeDecomposition(proposal);
             done = 3;
             report('propuesta lista');
-            return { status: 'ok', proposal: { area_id: proposal.area_id, template_id: proposal.template_id, messages, discarded }, units, calls, stats };
+            return { status: 'ok', proposal: { messages, discarded }, units, calls, stats };
           }
         }
       }

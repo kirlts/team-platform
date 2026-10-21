@@ -44,7 +44,33 @@ export async function makeBundle(overrides = {}) {
   };
 }
 
-export const ERROR_AREA = { area_id: 2, template_id: 2 };
+// Primera llamada para MIXED_TEXT: los cuatro puntos de error forman un grupo; el saludo y la despedida se descartan.
+export const CLASSIFY_ERRORS = {
+  groups: [{ unit_ids: [2, 3, 4, 5], area_id: 2, template_id: 2 }],
+  discarded: [{ unit_ids: [1], reason: 'saludo' }, { unit_ids: [6], reason: 'despedida' }],
+};
+
+// Un input con un error, una idea y una pregunta (cada una en su área) más saludo y despedida.
+export const MULTI_TEXT = [
+  'Hola equipo.',
+  '',
+  'El botón Enviar de la vista previa no hace nada cuando hay un adjunto.',
+  '',
+  'Se me ocurre que los mensajes se podrían agrupar por día.',
+  '',
+  '¿Quién se encarga de renovar el certificado del dominio?',
+  '',
+  'Gracias.',
+].join('\n');
+
+export const CLASSIFY_MULTI = {
+  groups: [
+    { unit_ids: [2], area_id: 2, template_id: 2 },
+    { unit_ids: [3], area_id: 1, template_id: 1 },
+    { unit_ids: [4], area_id: 5, template_id: 5 },
+  ],
+  discarded: [{ unit_ids: [1], reason: 'saludo' }, { unit_ids: [5], reason: 'despedida' }],
+};
 
 export function bugMessage(unit_ids, title, extra = {}) {
   return {
@@ -58,7 +84,7 @@ export function bugMessage(unit_ids, title, extra = {}) {
   };
 }
 
-/** Descomposición correcta del MIXED_TEXT: u1 y u6 descartadas; A = u2+u4, B = u3, C = u5. */
+/** Descomposición correcta del grupo de errores de MIXED_TEXT: A = u2+u4, B = u3, C = u5. */
 export function goodDecomposition() {
   return {
     messages: [
@@ -66,10 +92,19 @@ export function goodDecomposition() {
       bugMessage([3], 'Corregir formato de fechas en el CSV', { assignee_ids: [2] }),
       bugMessage([5], 'Corregir notificaciones duplicadas', { assignee_ids: [] }),
     ],
-    discarded: [
-      { unit_ids: [1], reason: 'saludo' },
-      { unit_ids: [6], reason: 'despedida' },
-    ],
+    discarded: [],
+  };
+}
+
+/** Guion del falso para un analizador con más de una plantilla: responde según lo que le pidan. */
+export function scriptByRequest({ classification, decompositions }) {
+  return (req) => {
+    if (req.schema.properties.groups) return classification;
+    const system = req.system.join('\n');
+    for (const [templateName, out] of Object.entries(decompositions)) {
+      if (system.includes(`Plantilla elegida: ${templateName}`)) return typeof out === 'function' ? out(req) : out;
+    }
+    throw new Error(`guion sin respuesta para: ${system.slice(0, 80)}`);
   };
 }
 

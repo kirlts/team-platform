@@ -29,9 +29,9 @@ import {
 } from './prompts.js';
 import { buildClassificationSchema, buildDecompositionSchema } from './schema.js';
 import { parseTemplate } from './templates.js';
-import { estimateTokens, numberUnits, partitionUnits, renderUnits } from './units.js';
+import { estimateTokens, isEmptyUnit, numberUnits, partitionUnits, renderUnits } from './units.js';
 import {
-  closeStretches, contextFromBundle, coverage, describeConflicts, normalizeDecomposition, repairClassification, repairCoverage, validateClassification, validateDecomposition, validateProposal,
+  closeStretches, contextFromBundle, foldEmptyGroups, coverage, describeConflicts, normalizeDecomposition, repairClassification, repairCoverage, validateClassification, validateDecomposition, validateProposal,
 } from './validate.js';
 
 const TYPED = new Map([
@@ -455,7 +455,10 @@ export async function classifyInput(bundle, { providers, onProgress, config, red
     const kept = classDiscarded.map((d) => ({ ...d, unit_ids: d.unit_ids.filter((id) => failedIds.has(id)) })).filter((d) => d.unit_ids.length > 0);
     ({ groups, discarded: classDiscarded } = closeStretches([...groups, ...rereadGroups], [...rereadDiscarded, ...kept]));
   }
-  return { ctx, language, units, workBundle, attachments, classifyChunks, groups, discarded: classDiscarded };
+  // H-1902: a group of speaker marks alone joins the intervention it introduces; the decomposition never receives it.
+  const folding = foldEmptyGroups(groups, classDiscarded, new Set(units.filter((u) => isEmptyUnit(u.text)).map((u) => u.id)), language === 'en' ? 'Mark with no content' : 'Marca sin contenido');
+  if (folding.folded > 0) ctx.stats.empty_groups_folded = folding.folded;
+  return { ctx, language, units, workBundle, attachments, classifyChunks, groups: folding.groups, discarded: folding.discarded };
 }
 
 /**

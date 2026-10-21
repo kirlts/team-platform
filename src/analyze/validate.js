@@ -175,6 +175,36 @@ export function closeStretches(groups, discarded) {
 }
 
 /**
+ * H-1902: a group made only of units with no content of their own (a speaker mark, a list number) would reach the
+ * decomposition, whose rule 3 asks for one message per group, and come out as a message about the unit itself. The mark
+ * introduces what follows it, so the group joins the group of the unit right after its last unit. When that unit belongs to no
+ * group (it was discarded, or the mark is the last unit) the mark is discarded with it. Set arithmetic over `unit_ids`
+ * and a predicate on the units already numbered; no text is read here.
+ * @param {{unit_ids: number[], area_id: number, template_id: number}[]} groups
+ * @param {{unit_ids: number[], reason: string}[]} discarded
+ * @param {Set<number>} emptyIds  ids of the units that say nothing by themselves
+ * @param {string} reason  discard reason for a mark that has no group to join
+ */
+export function foldEmptyGroups(groups, discarded, emptyIds, reason) {
+  let current = groups.map((g) => ({ ...g, unit_ids: [...g.unit_ids] }));
+  const dropped = [];
+  let folded = 0;
+  for (;;) {
+    const index = current.findIndex((g) => g.unit_ids.every((id) => emptyIds.has(id)));
+    if (index === -1) break;
+    const mark = current[index];
+    const next = Math.max(...mark.unit_ids) + 1;
+    current = current.filter((_, i) => i !== index);
+    const target = current.find((g) => g.unit_ids.includes(next));
+    folded += 1;
+    if (target) target.unit_ids = [...target.unit_ids, ...mark.unit_ids].sort((a, b) => a - b);
+    else dropped.push(...mark.unit_ids);
+  }
+  if (folded === 0) return { groups, discarded, folded };
+  return { groups: current, discarded: dropped.length > 0 ? [...discarded, { unit_ids: dropped.sort((a, b) => a - b), reason }] : discarded, folded };
+}
+
+/**
  * Last resort after the single rescue pass: restores exact coverage by set arithmetic alone. A unit cited by several messages
  * stays in the first one; a unit cited by none (and not discarded) joins the message of the closest unit before it, or after it
  * when it is the first. No text is read. Returns null when there is no message to receive a unit.

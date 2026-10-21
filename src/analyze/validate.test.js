@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { parseTemplate } from './templates.js';
 import {
-  closeStretches, coverage, normalizeDecomposition, repairClassification, repairCoverage, validateClassification, validateDecomposition, validateProposal,
+  closeStretches, coverage, foldEmptyGroups, normalizeDecomposition, repairClassification, repairCoverage, validateClassification, validateDecomposition, validateProposal,
 } from './validate.js';
 import { bugMessage, CLASSIFY_ERRORS, CLASSIFY_MULTI, goodDecomposition, makeBundle } from './testing/fixtures.js';
 
@@ -215,6 +215,35 @@ describe('closeStretches', () => {
   it('nothing is discarded, nothing changes', () => {
     const groups = [g(1, 2), g(3)];
     assert.deepEqual(closeStretches(groups, []).groups, groups);
+  });
+});
+
+describe('foldEmptyGroups (H-1902)', () => {
+  const g = (area, ...unit_ids) => ({ unit_ids, area_id: area, template_id: area });
+  const empty = new Set([1, 4, 5]);
+
+  it('a group of marks alone joins the group of the unit right after it', () => {
+    const out = foldEmptyGroups([g(2, 1), g(3, 2, 3)], [], empty, 'r');
+    assert.deepEqual(out.groups.map((x) => [x.area_id, x.unit_ids]), [[3, [1, 2, 3]]]);
+    assert.equal(out.folded, 1);
+  });
+
+  it('a mark whose next unit was discarded is discarded with it', () => {
+    const out = foldEmptyGroups([g(2, 1, 2, 3), g(3, 4)], [{ unit_ids: [5, 6], reason: 'charla' }], empty, 'sin contenido');
+    assert.deepEqual(out.groups.map((x) => x.unit_ids), [[1, 2, 3]]);
+    assert.deepEqual(out.discarded, [{ unit_ids: [5, 6], reason: 'charla' }, { unit_ids: [4], reason: 'sin contenido' }]);
+  });
+
+  it('consecutive marks chain into the group that finally has content', () => {
+    const out = foldEmptyGroups([g(2, 4), g(3, 5), g(1, 6, 7)], [], empty, 'r');
+    assert.deepEqual(out.groups.map((x) => x.unit_ids), [[4, 5, 6, 7]]);
+  });
+
+  it('a group with content, even one unit, stays as it is', () => {
+    const groups = [g(2, 1, 2), g(3, 3)];
+    const out = foldEmptyGroups(groups, [], empty, 'r');
+    assert.equal(out.groups, groups);
+    assert.equal(out.folded, 0);
   });
 });
 

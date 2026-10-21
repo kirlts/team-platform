@@ -22,7 +22,7 @@ export function AreaChip({ areaId, title, className }: { areaId: string; title?:
   const style = useAreaStyle(areaId)
   const name = title ?? areaTitle(areaId)
   return (
-    <span data-testid="area-chip" data-area-id={areaId} style={style} className={cn('area-tint area-chip', className)}>
+    <span data-testid="area-chip" data-repeat-ok="category" data-area-id={areaId} style={style} className={cn('area-tint area-chip', className)}>
       {name || t('area.none')}
     </span>
   )

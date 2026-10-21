@@ -206,8 +206,8 @@ Desarrollo del panel: Vite 8, Tailwind 4.3 con `@tailwindcss/vite` (MIT), TypeSc
 
 **Flujo principal de la persona:**
 
-1. Entra. Ve Inicio: nombre del proyecto, fecha y hora, la barra «Nuevo mensaje» con clip (adjuntos), cámara (foto), micrófono (audio) y enviar.
-2. Escribe, pega una captura o arrastra un docx, y envía. La barra se vacía. Debajo aparece la vista previa del input (texto y adjuntos con su miniatura). Al lado queda el bloque «Análisis», con una barra de progreso y la frase del paso en curso («leyendo el documento», «3 de 7 adjuntos»).
+1. Entra. Ve Inicio: la franja «Para mí» y «Por área», el nombre del proyecto con la fecha, la barra «Nuevo mensaje» con clip (adjuntos), cámara (foto), micrófono (audio) y enviar, y el desplegable de envíos (UD-046).
+2. Escribe, pega una captura o arrastra un docx, y envía. La barra se vacía. Debajo se abre el desplegable (UD-046): a la izquierda el original (texto y adjuntos con su galería), a la derecha el bloque «Análisis», con una barra de progreso y la frase del paso en curso («leyendo el documento», «3 de 7 adjuntos»).
 3. Al terminar, los mensajes ya están publicados (UD-070): no hay botón Enviar. Cada uno trae su área (insignia, cambiable), título, texto según la plantilla de esa área, destinatarios (chips, editables) y adjuntos (miniaturas, quitables), y su emisor lo edita en el lugar cuando quiera (UD-071).
 4. Los mensajes aparecen en «Últimos mensajes». Quien los recibe los ve en su Inicio, filtrados para él por omisión. Cada tarjeta muestra la insignia del área, el emisor, la fecha y la miniatura del adjunto principal.
 5. Responde desde la tarjeta o desde Mensajes. El hilo crece debajo del mensaje. Cualquiera cierra; el estado se ve como insignia, nunca como prosa.
@@ -216,7 +216,7 @@ Desarrollo del panel: Vite 8, Tailwind 4.3 con `@tailwindcss/vite` (MIT), TypeSc
 
 | Vista | Qué muestra | Quién |
 |---|---|---|
-| Inicio | Barra de envío, aviso «Para mí» con los pendientes por prioridad y por área, últimos mensajes (para mí por omisión) y últimas respuestas (que me involucran) siempre a la vista; los envíos (cola, original y análisis) tras un solo control con su estado, que abre la revisión en un diálogo (UD-028 a UD-030) | Todos |
+| Inicio | De arriba abajo (UD-046): franja de una fila con «Para mí» y «Por área»; nombre del proyecto y fecha; «Nuevo mensaje» con la barra de texto; el desplegable en línea que se abre solo al enviar y muestra el original a la izquierda y el análisis a la derecha, con los mensajes ya publicados y editables por su autor (UD-070, UD-071), y el selector de los envíos propios con su estado; «Últimos mensajes» y «Últimas respuestas», que se pliegan a una franja cuando la ventana no alcanza para el desplegable y para ellas | Todos |
 | Mensajes | Todos los mensajes del equipo con filtros: para mí, para X, por área, por estado, respuestas; búsqueda | Todos |
 | Áreas | Áreas con su conteo de abiertos y sus plantillas; edición en el lugar | Editor |
 | Equipo | Miembros con su perfil; cada uno edita el suyo | Todos |
@@ -227,10 +227,11 @@ Desarrollo del panel: Vite 8, Tailwind 4.3 con `@tailwindcss/vite` (MIT), TypeSc
 
 | Componente | Función | Archivo |
 | --- | --- | --- |
-| `Sidebar` | Navegación, usuario, conteo de abiertos por área | `panel/src/components/Sidebar.tsx` |
+| `Sidebar` | Navegación compacta y ocultable (UD-047), usuario, color y conteo de abiertos por área | `panel/src/components/Sidebar.tsx` |
 | `NotifyBadge`, `ToneMark` | Insignia grande y marca de prioridad: fondo del color de la prioridad más alta presente (rojo, amarillo, azul), con forma, palabra y número (UD-029). La prioridad se decide en `panel/src/lib/priority.ts` | `panel/src/components/NotifyBadge.tsx` |
 | `ComposeBar` | Barra de nuevo mensaje con adjuntos, cámara, micrófono, enviar | `panel/src/components/ComposeBar.tsx` |
-| `InputPreview` | Texto y adjuntos del input enviado | `panel/src/components/InputPreview.tsx` |
+| `SendDrawer`, `InputPreview`, `PublishedPane` | Desplegable bajo la barra: original editable con su galería, análisis publicado y editable en el lugar, selector de envíos (UD-046) | `panel/src/components/SendDrawer.tsx` |
+| `AreaChip`, `AreaColorPicker`, `lib/area-color.ts` | Chip de área, selector de un color y derivación del color secundario en OKLCH (UD-045) | `panel/src/components/AreaChip.tsx` |
 | `AnalysisPanel` | Progreso por SSE, propuesta editable con área por mensaje, Enviar | `panel/src/components/AnalysisPanel.tsx` |
 | `MessageCard` | Área, emisor, fecha, texto, adjunto principal, estado, acciones | `panel/src/components/MessageCard.tsx` |
 | `ReplyThread` | Hilo lineal de respuestas con formulario al pie | `panel/src/components/ReplyThread.tsx` |

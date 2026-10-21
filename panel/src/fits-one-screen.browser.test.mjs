@@ -21,6 +21,10 @@ import { after, before, describe, test } from 'node:test'
 import assert from 'node:assert'
 import { login, startPanel } from './browser-support.mjs'
 
+// These tests go through the review of a proposal, which is what the server does with publication by hand (UD-070): they start it with auto-publication off.
+// The automatic path has its own file, `flows-inicio.browser.test.mjs`.
+process.env.PANEL_DEV_AUTO_PUBLISH ??= '0'
+
 const PORT = Number(process.env.PANEL_FIT_PORT ?? 8795)
 let panel
 let ORIGIN = ''

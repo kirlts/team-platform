@@ -51,6 +51,7 @@ export function AreaPicker({
           title={templateName}
           style={style}
           data-testid="area-picker"
+          data-repeat-ok="category"
           // The area is the chip of its color; choosing another repaints the box of the analysis (UD-045).
           className={cn('hit area-tint area-chip text-left hover:brightness-95 disabled:opacity-60')}
         >

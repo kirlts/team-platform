@@ -1,0 +1,19 @@
+{
+  "name": "team-platform-bench",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Banco de referencia de team-platform (MASTER-SPEC §7.11). Dependencias propias, fuera de la imagen.",
+  "engines": {
+    "node": ">=24.15"
+  },
+  "scripts": {
+    "test": "node --test .",
+    "run": "node run.mjs",
+    "eval": "promptfoo eval -c promptfooconfig.yaml"
+  },
+  "devDependencies": {
+    "promptfoo": "0.124.1"
+  }
+}

@@ -1,4 +1,4 @@
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft } from '@/components/icons'
 import { Link, useParams } from 'react-router'
 import { Avatar } from '@/components/Avatar'
 import { useLookups } from '@/components/lookups'

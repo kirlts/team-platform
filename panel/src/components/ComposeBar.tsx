@@ -1,4 +1,4 @@
-import { Camera, Link2, Mic, Paperclip, Send, Square } from 'lucide-react'
+import { Camera, Link2, Mic, Paperclip, Send, Square } from '@/components/icons'
 import { useCallback, useEffect, useRef, useState, type ClipboardEvent, type DragEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'

@@ -1,4 +1,4 @@
-import { Pencil } from 'lucide-react'
+import { Pencil } from '@/components/icons'
 import { useEffect, useId, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 

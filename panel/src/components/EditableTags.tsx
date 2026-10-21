@@ -1,4 +1,4 @@
-import { Plus, X } from 'lucide-react'
+import { Plus, X } from '@/components/icons'
 import { useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'

@@ -65,64 +65,66 @@
   color-scheme: light;
 }
 
-html {
-  font-size: 14px;
-  -webkit-text-size-adjust: 100%;
-}
-
-html,
-body,
-#root {
-  height: 100%;
-}
-
-body {
-  margin: 0;
-  background: var(--color-bg);
-  color: var(--color-fg);
-  font-family: var(--font-sans);
-  line-height: 1.45;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-}
-
-* {
-  border-color: var(--color-line);
-}
-
-button,
-[role='button'],
-a {
-  cursor: pointer;
-}
-
-button:disabled,
-[aria-disabled='true'] {
-  cursor: not-allowed;
-}
-
-:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 1px;
-}
-
-/* En un teléfono, 16 px evita el zoom automático de iOS al enfocar un campo. */
-@media (max-width: 640px) {
-  input,
-  textarea {
-    font-size: 16px !important;
+@layer base {
+  html {
+    font-size: 14px;
+    -webkit-text-size-adjust: 100%;
   }
-}
 
-/* Las columnas con scroll propio no muestran la barra hasta que hace falta. */
-.scroll-thin {
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-line-strong) transparent;
-}
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
 
-@media (prefers-reduced-motion: reduce) {
+  body {
+    margin: 0;
+    background: var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
   * {
-    animation-duration: 0.001ms !important;
-    transition-duration: 0.001ms !important;
+    border-color: var(--color-line);
+  }
+
+  button,
+  [role='button'],
+  a {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [aria-disabled='true'] {
+    cursor: not-allowed;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
+  }
+
+  /* En un teléfono, 16 px evita el zoom automático de iOS al enfocar un campo. */
+  @media (max-width: 640px) {
+    input,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
+
+  /* Las columnas con scroll propio no muestran la barra hasta que hace falta. */
+  .scroll-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-strong) transparent;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.001ms !important;
+      transition-duration: 0.001ms !important;
+    }
   }
 }

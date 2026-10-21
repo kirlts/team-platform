@@ -60,19 +60,32 @@ export type InputStatus =
   | 'cancelled'
 
 export interface ProposalMessage {
+  area_id: string
+  template_id: string | null
   title: string
   body: string
   fields?: unknown
   assignee_ids: string[]
   attachment_ids: string[]
+  /** Unidades del input que cubre este mensaje (las numera el sistema). */
+  unit_ids: string[]
+}
+
+/** Unidades del input que el análisis dejó sin mensaje, con el motivo. */
+export interface DiscardedUnits {
+  unit_ids: string[]
+  reason: string
 }
 
 export interface Proposal {
-  area_id: string
-  template_id: string | null
-  /** Supuesto: nombre de la plantilla elegida, para mostrarla sin pedir /areas/:id/templates. */
-  template_name?: string
   messages: ProposalMessage[]
+  discarded: DiscardedUnits[]
+}
+
+/** Supuesto: el input trae sus unidades numeradas con el texto, para mostrar lo descartado. */
+export interface InputUnit {
+  id: string
+  text: string
 }
 
 export interface InputRecord {
@@ -83,6 +96,7 @@ export interface InputRecord {
   created_at: string
   job_id?: string
   attachments: Attachment[]
+  units?: InputUnit[]
   proposal?: Proposal | null
   /** Motivo visible cuando status es `failed`. */
   error?: string | null

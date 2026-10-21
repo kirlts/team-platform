@@ -40,7 +40,7 @@ function Shell() {
       <div className="flex h-dvh flex-col">
         <Header projectName={me?.project_name} onOpenNav={() => setNavOpen(true)} onLogout={() => void logout()} />
         <div className="flex min-h-0 flex-1">
-          <aside className="scroll-thin hidden w-56 shrink-0 overflow-y-auto border-r border-line bg-surface md:block">
+          <aside className="scroll-thin hidden w-60 shrink-0 overflow-y-auto border-r border-line bg-surface md:block">
             <Sidebar onLogout={() => void logout()} />
           </aside>
           <main className="scroll-thin min-w-0 flex-1 overflow-y-auto">

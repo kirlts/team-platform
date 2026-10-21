@@ -204,24 +204,33 @@ function runJob(input) {
 }
 
 let analyzed = 0
-/** «Análisis» de desarrollo: reparte por párrafos y elige área por turno. No lee el sentido del texto. */
+/** Unidades numeradas del input: un párrafo cada una. Las numera el servidor, como lo hará el sistema real. */
+function unitsOf(text) {
+  return text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean).map((p, i) => ({ id: `u${i + 1}`, text: p }))
+}
+
+/** «Análisis» de desarrollo: un mensaje por unidad, cada uno con su área por turno; la última unidad larga queda sin acción. No lee el sentido del texto. */
 function analyze(input) {
-  const area = areas[analyzed++ % areas.length]
-  const template = templates.find((t) => t.area_id === area.id) ?? null
   const others = members.filter((m) => m.id !== input.author_id)
-  const paragraphs = input.text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean).slice(0, 3)
   const images = input.attachment_ids.filter((aid) => attachments.get(aid)?.kind === 'image')
-  const chunks = paragraphs.length ? paragraphs : ['Sin texto']
+  const units = input.units.length ? input.units : [{ id: 'u1', text: 'Sin texto' }]
+  const keep = units.length > 3 ? units.slice(0, 3) : units
+  const rest = units.slice(keep.length)
   return {
-    area_id: area.id,
-    template_id: template?.id ?? null,
-    template_name: template?.name,
-    messages: chunks.map((p, i) => ({
-      title: p.split('\n')[0].slice(0, 70),
-      body: p,
-      assignee_ids: [others[i % others.length].id],
-      attachment_ids: i === 0 ? input.attachment_ids : images,
-    })),
+    messages: keep.map((u, i) => {
+      const area = areas[analyzed++ % areas.length]
+      return {
+        area_id: area.id,
+        template_id: templates.find((t) => t.area_id === area.id)?.id ?? null,
+        title: u.text.split('\n')[0].slice(0, 70),
+        body: u.text,
+        fields: null,
+        assignee_ids: [others[i % others.length].id],
+        attachment_ids: i === 0 ? input.attachment_ids : images,
+        unit_ids: [u.id],
+      }
+    }),
+    discarded: rest.length ? [{ unit_ids: rest.map((u) => u.id), reason: 'Sin acción para el equipo' }] : [],
   }
 }
 
@@ -409,7 +418,7 @@ const server = createServer(async (req, res) => {
         attachments.set(a.id, a)
         attachmentIds.push(a.id)
       }
-      const input = { id: inputId, author_id: me.id, text, content_hash: hash, status: 'queued', created_at: new Date().toISOString(), job_id: `j-${id()}`, attachment_ids: attachmentIds, proposal: null, error: null }
+      const input = { id: inputId, author_id: me.id, text, content_hash: hash, status: 'queued', created_at: new Date().toISOString(), job_id: `j-${id()}`, attachment_ids: attachmentIds, units: unitsOf(text), proposal: null, error: null }
       inputs.set(input.id, input)
       runJob(input)
       return send(res, 201, { input_id: input.id, job_id: input.job_id })
@@ -430,13 +439,15 @@ const server = createServer(async (req, res) => {
       if (m[2] === 'publish' && method === 'POST') {
         if (input.status !== 'proposed') return fail(res, 409, 'El input no tiene una propuesta pendiente')
         const body = await readJson(req)
-        if (!body || !areas.some((a) => a.id === body.area_id) || !Array.isArray(body.messages) || !body.messages.length) return fail(res, 422, 'Propuesta inválida')
+        if (!body || !Array.isArray(body.messages) || !body.messages.length) return fail(res, 422, 'Propuesta inválida')
         const created = []
         for (const pm of body.messages) {
+          if (!areas.some((a) => a.id === pm.area_id)) return fail(res, 422, 'Área inexistente')
+          if (pm.template_id && templates.find((t) => t.id === pm.template_id)?.area_id !== pm.area_id) return fail(res, 422, 'La plantilla no corresponde al área')
           if (!String(pm.title ?? '').trim() || !String(pm.body ?? '').trim()) return fail(res, 422, 'Hay un mensaje sin título o sin texto')
           if (!(pm.assignee_ids ?? []).every((x) => members.some((mm) => mm.id === x))) return fail(res, 422, 'Destinatario inexistente')
           if (!(pm.attachment_ids ?? []).every((x) => input.attachment_ids.includes(x))) return fail(res, 422, 'Adjunto ajeno al input')
-          const msg = seedMessage({ input_id: input.id, area_id: body.area_id, author_id: me.id, title: pm.title.trim(), body: pm.body.trim(), status: 'open', created_at: new Date().toISOString(), assignee_ids: pm.assignee_ids ?? [], attachment_ids: pm.attachment_ids ?? [] })
+          const msg = seedMessage({ input_id: input.id, area_id: pm.area_id, template_id: pm.template_id ?? null, author_id: me.id, title: pm.title.trim(), body: pm.body.trim(), status: 'open', created_at: new Date().toISOString(), assignee_ids: pm.assignee_ids ?? [], attachment_ids: pm.attachment_ids ?? [] })
           created.push(msg.id)
           for (const to of msg.assignee_ids) if (to !== me.id) emit(to, 'message', { message_id: msg.id, title: msg.title, author_id: me.id, at: msg.created_at })
         }

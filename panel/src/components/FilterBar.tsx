@@ -1,4 +1,4 @@
-import { ChevronDown, Plus, Search, X } from 'lucide-react'
+import { ChevronDown, Plus, Search, X } from '@/components/icons'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'

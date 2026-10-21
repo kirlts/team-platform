@@ -1,13 +1,14 @@
-import { ChevronDown, Trash2, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, Plus, Trash2, X } from '@/components/icons'
+import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { attachmentUrl } from '@/lib/api'
+import { api, attachmentUrl, unwrapList } from '@/lib/api'
 import { useJobProgress } from '@/lib/events'
-import { useCancelInput, usePublish } from '@/lib/queries'
-import type { Attachment, InputRecord, InputStatus, Proposal, ProposalMessage } from '@/lib/types'
+import { useCancelInput, usePublish, useTemplates } from '@/lib/queries'
+import type { Attachment, InputRecord, InputStatus, Proposal, ProposalMessage, Template } from '@/lib/types'
 import { Avatar } from './Avatar'
 import { EditableText } from './EditableText'
 import { useLookups } from './lookups'
@@ -92,70 +93,41 @@ function ProposalEditor({
   onPublished: () => void
   onDiscard: () => void
 }) {
-  const { areas, members, areaTitle, memberName } = useLookups()
+  const { members, memberName } = useLookups()
   const publish = usePublish()
   const [proposal, setProposal] = useState<Proposal>(initial)
-  const [areaChanged, setAreaChanged] = useState(false)
+  const [showDiscarded, setShowDiscarded] = useState(false)
 
-  useEffect(() => {
-    setProposal(initial)
-    setAreaChanged(false)
-  }, [initial])
+  useEffect(() => setProposal(initial), [initial])
 
   const patch = (index: number, change: Partial<ProposalMessage>) =>
     setProposal((p) => ({ ...p, messages: p.messages.map((m, i) => (i === index ? { ...m, ...change } : m)) }))
 
   const remove = (index: number) => setProposal((p) => ({ ...p, messages: p.messages.filter((_, i) => i !== index) }))
 
-  const send = () =>
-    publish.mutate(
-      // Al cambiar de área la plantilla elegida deja de corresponder: el servidor decide cuál usar.
-      { inputId: input.id, proposal: { ...proposal, template_id: areaChanged ? null : proposal.template_id } },
-      { onSuccess: onPublished },
-    )
+  const send = () => publish.mutate({ inputId: input.id, proposal }, { onSuccess: onPublished })
 
   const required = (v: string) => (v.trim() ? null : 'Obligatorio')
+  const unitText = (id: string) => input.units?.find((u) => u.id === id)?.text
+  const discarded = proposal.discarded ?? []
+  const discardedCount = discarded.reduce((n, d) => n + d.unit_ids.length, 0)
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex min-w-0 flex-wrap items-center gap-2 text-[13px]">
-          <span className="text-muted">Área</span>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="secondary" aria-label="Área detectada">
-                {areaTitle(proposal.area_id) || 'Sin área'}
-                <ChevronDown size={13} aria-hidden />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuRadioGroup
-                value={proposal.area_id}
-                onValueChange={(v) => {
-                  setProposal((p) => ({ ...p, area_id: v }))
-                  setAreaChanged(v !== initial.area_id)
-                }}
-              >
-                {areas.map((a) => (
-                  <DropdownMenuRadioItem key={a.id} value={a.id}>
-                    {a.title}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {proposal.template_name && !areaChanged && <span className="truncate text-muted">{proposal.template_name}</span>}
-        </div>
-        <span className="text-xs text-muted">{proposal.messages.length === 1 ? '1 mensaje' : `${proposal.messages.length} mensajes`}</span>
-      </div>
+    <div className="flex flex-col gap-4">
+      <p className="text-xs text-muted">{proposal.messages.length === 1 ? '1 mensaje' : `${proposal.messages.length} mensajes`}</p>
 
       <ol className="flex flex-col divide-y divide-line border-y border-line">
         {proposal.messages.map((m, i) => {
           const included = input.attachments.filter((a) => m.attachment_ids.includes(a.id))
           const available = input.attachments.filter((a) => !m.attachment_ids.includes(a.id))
           return (
-            <li key={i} className="flex flex-col gap-2 py-3">
+            <li key={i} className="flex flex-col gap-2.5 py-3.5">
               <div className="flex items-start gap-2">
+                <MessageArea
+                  areaId={m.area_id}
+                  templateId={m.template_id}
+                  onChange={(area_id, template_id) => patch(i, { area_id, template_id })}
+                />
                 <EditableText
                   value={m.title}
                   label="Título del mensaje"
@@ -186,7 +158,7 @@ function ProposalEditor({
                 <span className="mr-1">Para</span>
                 {m.assignee_ids.map((id) => (
                   <Badge key={id} tone="accent" className="h-6 gap-1 pl-0.5 pr-1">
-                    <Avatar name={memberName(id) || '?'} size={18} className="bg-raised" />
+                    <Avatar name={memberName(id) || '?'} size={18} />
                     {memberName(id)}
                     <button
                       type="button"
@@ -213,7 +185,7 @@ function ProposalEditor({
                         aria-label="Agregar adjunto"
                         className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-dashed border-line-strong text-muted hover:border-accent hover:text-accent"
                       >
-                        +
+                        <Plus size={14} aria-hidden />
                       </button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-2">
@@ -235,6 +207,34 @@ function ProposalEditor({
         })}
       </ol>
 
+      {discardedCount > 0 && (
+        <div>
+          <button
+            type="button"
+            aria-expanded={showDiscarded}
+            onClick={() => setShowDiscarded((v) => !v)}
+            className="inline-flex items-center gap-1 text-[13px] text-muted hover:text-fg"
+          >
+            <ChevronRight size={14} aria-hidden className={showDiscarded ? 'rotate-90' : ''} />
+            Sin acción <Badge tone="neutral">{discardedCount}</Badge>
+          </button>
+          {showDiscarded && (
+            <ul className="mt-2 flex flex-col gap-2 border-l-2 border-line pl-3">
+              {discarded.map((d, i) => (
+                <li key={i} className="text-[13px]">
+                  <p className="text-xs text-muted">{d.reason}</p>
+                  {d.unit_ids.map((id) => (
+                    <p key={id} className="whitespace-pre-wrap">
+                      {unitText(id) ?? id}
+                    </p>
+                  ))}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       <div className="flex items-center justify-end gap-2">
         {publish.isError && (
           <span role="alert" className="mr-auto text-xs text-danger">
@@ -249,6 +249,62 @@ function ProposalEditor({
         </Button>
       </div>
     </div>
+  )
+}
+
+/** Área de un mensaje como insignia cambiable. Al cambiarla, la plantilla pasa a ser la primera de la nueva área. */
+function MessageArea({
+  areaId,
+  templateId,
+  onChange,
+}: {
+  areaId: string
+  templateId: string | null
+  onChange: (areaId: string, templateId: string | null) => void
+}) {
+  const { areas, areaTitle } = useLookups()
+  const queryClient = useQueryClient()
+  const templates = useTemplates(areaId)
+  const templateName = templates.data?.find((t) => t.id === templateId)?.name
+
+  const choose = async (next: string) => {
+    if (next === areaId) return
+    let first: string | null = null
+    try {
+      const list = await queryClient.fetchQuery({
+        queryKey: ['templates', next],
+        queryFn: async () => unwrapList<Template>(await api(`/areas/${next}/templates`)),
+      })
+      first = list[0]?.id ?? null
+    } catch {
+      // Sin acceso a las plantillas del área, el servidor elige la que corresponde.
+    }
+    onChange(next, first)
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label={`Área: ${areaTitle(areaId) || 'sin área'}${templateName ? `, plantilla ${templateName}` : ''}`}
+          title={templateName}
+          className="mt-0.5 inline-flex h-6 shrink-0 items-center gap-1 rounded-sm border border-line-strong bg-raised pl-1.5 pr-1 text-xs font-medium text-fg hover:border-accent"
+        >
+          {areaTitle(areaId) || 'Sin área'}
+          <ChevronDown size={12} aria-hidden />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        <DropdownMenuRadioGroup value={areaId} onValueChange={(v) => void choose(v)}>
+          {areas.map((a) => (
+            <DropdownMenuRadioItem key={a.id} value={a.id}>
+              {a.title}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

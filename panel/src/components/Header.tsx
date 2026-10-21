@@ -1,4 +1,4 @@
-import { Bell, Menu, PanelLeft } from 'lucide-react'
+import { Bell, Menu, PanelLeft } from '@/components/icons'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'

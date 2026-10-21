@@ -1,4 +1,4 @@
-import { FileAudio, FileText, Film, Link2, X } from 'lucide-react'
+import { FileAudio, FileText, Film, Link2, X } from '@/components/icons'
 import { fileSize } from '@/lib/format'
 import type { AttachmentKind } from '@/lib/types'
 import { cn } from '@/lib/utils'

@@ -1,4 +1,4 @@
-import { Check } from 'lucide-react'
+import { Check } from '@/components/icons'
 import { DropdownMenu as Primitive } from 'radix-ui'
 import type { ComponentProps } from 'react'
 import { cn } from '@/lib/utils'

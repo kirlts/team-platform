@@ -1,4 +1,4 @@
-import { ChevronRight, Plus, Trash2 } from 'lucide-react'
+import { ChevronRight, Plus, Trash2 } from '@/components/icons'
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router'
 import { EditableText } from '@/components/EditableText'

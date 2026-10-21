@@ -1,4 +1,4 @@
-import { Check, Plus } from 'lucide-react'
+import { Check, Plus } from '@/components/icons'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { Member } from '@/lib/types'
 import { Avatar } from './Avatar'

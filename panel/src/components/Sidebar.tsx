@@ -1,4 +1,4 @@
-import { ChevronDown, Home, Inbox, Layers, LogOut, Plug, Plus, Settings, Users } from 'lucide-react'
+import { ChevronDown, Home, Inbox, Layers, LogOut, Plug, Plus, Settings, Users } from '@/components/icons'
 import { useState, type ReactNode } from 'react'
 import { NavLink, useMatch } from 'react-router'
 import { Badge } from '@/components/ui/badge'

@@ -1,4 +1,4 @@
-import { MessageSquare } from 'lucide-react'
+import { ArrowRight, MessageSquare } from '@/components/icons'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
@@ -57,23 +57,27 @@ export function MessageCard({ message, variant = 'message' }: { message: Message
             <p className="mt-1 line-clamp-2 whitespace-pre-line text-[13px] text-muted">{message.body}</p>
           )}
 
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted">
-            <span className="inline-flex items-center gap-1.5">
+          <div className="mt-2 flex items-center gap-3 text-xs text-muted">
+            <span className="inline-flex min-w-0 flex-1 items-center gap-1.5">
               <Avatar name={authorName || '?'} size={18} />
               <span className="truncate">
                 {authorName}
-                {recipients.length > 0 && <span className="text-faint"> a </span>}
-                {recipients.join(', ')}
+                {recipients.length > 0 && (
+                  <>
+                    <ArrowRight size={11} aria-label="para" className="mx-1 inline text-faint" />
+                    {recipients.join(', ')}
+                  </>
+                )}
               </span>
             </span>
             {message.reply_count > 0 && (
-              <span className="inline-flex items-center gap-1" title={`${message.reply_count} respuestas`}>
+              <span className="inline-flex shrink-0 items-center gap-1" title={`${message.reply_count} respuestas`}>
                 <MessageSquare size={13} aria-hidden />
                 {message.reply_count}
               </span>
             )}
             <StatusBadge status={message.status} />
-            <span className="relative z-10 ml-auto flex items-center gap-1">
+            <span className="relative z-10 flex shrink-0 items-center gap-1">
               {!isAuthor && !closed && (
                 <Button size="sm" variant="secondary" aria-expanded={replying} onClick={() => setReplying((v) => !v)}>
                   Responder

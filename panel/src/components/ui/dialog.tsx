@@ -1,4 +1,4 @@
-import { X } from 'lucide-react'
+import { X } from '@/components/icons'
 import { Dialog as Primitive } from 'radix-ui'
 import type { ComponentProps, ReactNode } from 'react'
 import { cn } from '@/lib/utils'

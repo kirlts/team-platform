@@ -290,6 +290,17 @@ function validar (config) {
   if (config.identity.password.minLength > config.identity.password.maxLength) {
     throw new Error('PASSWORD_MIN_LENGTH no puede superar PASSWORD_MAX_LENGTH.')
   }
+  if (config.identity.cookieMode === 'cross-origin' && config.corsOrigins.length === 0) {
+    throw new Error('COOKIE_MODE=cross-origin exige CORS_ORIGINS con los orígenes del otro frontend.')
+  }
+  if (config.identity.cookieMode === 'cross-origin' && config.identity.cookieInsecureDev) {
+    throw new Error('COOKIE_INSECURE_DEV no se combina con COOKIE_MODE=cross-origin: SameSite=None exige Secure.')
+  }
+  for (const origen of config.corsOrigins) {
+    let u
+    try { u = new URL(origen) } catch { throw new Error(`CORS_ORIGINS: «${origen}» no es un origen válido.`) }
+    if (u.origin !== origen) throw new Error(`CORS_ORIGINS: «${origen}» debe ser un origen sin ruta ni barra final (${u.origin}).`)
+  }
   if (!config.apiPrefix.startsWith('/') || config.apiPrefix.endsWith('/')) {
     throw new Error('API_PREFIX debe empezar con / y no terminar con /.')
   }

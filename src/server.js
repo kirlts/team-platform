@@ -44,7 +44,8 @@ export async function start (config, { env = process.env } = {}) {
   if (config.worker.mode === 'inline') worker.start()
 
   await app.listen({ host: config.host, port: config.port })
-  logger.info({ worker: config.worker.mode, prefix: config.apiPrefix }, `API escuchando en http://${config.host}:${config.port}`)
+  const { port } = app.server.address() // con PORT=0 el sistema elige uno libre
+  logger.info({ worker: config.worker.mode, prefix: config.apiPrefix, port }, `API escuchando en http://${config.host}:${port}`)
 
   let apagando = null
   function apagar (senal) {

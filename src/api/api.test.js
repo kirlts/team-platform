@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { test } from 'node:test'
 import { all, get } from '../db/index.js'
+import { createProviders } from '../providers/index.js'
 import { addMember, fakeExtract, login, makeEnv, multipart, postInput, until } from '../testing/helpers.js'
 
 const noIpLimit = { identity: { login: { ipMax: 1000 } } }
@@ -531,6 +532,16 @@ test('/health answers at the root and under /api, without a session', async () =
     assert.equal(r.statusCode, 200)
     assert.equal(r.json().status, 'ok')
   }
+  await env.close()
+})
+
+test('/health reports the text fallback provider to the editor and keeps it from anonymous probes (DT-003)', async () => {
+  const providers = createProviders({ ANTHROPIC_API_KEY: 'k', TEXT_FALLBACK_PROVIDER: 'deepseek', DEEPSEEK_API_KEY: 'd' })
+  const env = await team({ modules: { getProviders: () => providers } })
+  const slots = (await env.app.inject({ url: '/health', headers: { cookie: env.c.ed } })).json().providers
+  assert.deepEqual(slots.filter((p) => p.slot.startsWith('text')).map((p) => [p.slot, p.provider, p.available]), [['text', 'anthropic', true], ['text_fallback', 'deepseek', true]])
+  assert.ok(!JSON.stringify(slots).includes('"k"') && !JSON.stringify(slots).includes('"d"'), 'no key travels')
+  assert.equal((await env.app.inject({ url: '/health' })).json().providers, undefined)
   await env.close()
 })
 

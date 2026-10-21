@@ -48,7 +48,7 @@ Cada una protege una restricción de MASTER-SPEC §4 o una regla de §1.1. El ve
 | HP-005 | Nada llega al equipo sin confirmar: no existe ruta que cree mensajes desde una propuesta sin pasar por `POST /inputs/:id/publish` con sesión del emisor | §4.4, UD-003 | 🤖 |
 | HP-006 | Un contenedor y un volumen bastan: `compose.yml` tiene un solo servicio; la imagen arranca sin red salvo al proveedor y responde `/health` | §4.5 | 🤖 |
 | HP-007 | Ninguna credencial en el repositorio ni en la base: el gancho de pre-commit y una prueba sobre el esquema (ninguna columna guarda una llave) | §4.6 | 🤖 |
-| HP-008 | Identificadores en inglés y comentarios en español: una prueba estática sobre `src/` | §4.7, UD-005 | 🤖 |
+| HP-008 | Identificadores, comentarios, nombres de pruebas y mensajes de registro en inglés, y el texto visible del panel en español: pruebas estáticas sobre `src/`, `bench/`, `scripts/` y `panel/src` (`src/static.test.js`, detectores en `src/testing/language.js`) | §4.7, UD-005, UD-015 | 🤖 |
 | HP-009 | El emisor no responde su propio mensaje (403) y cualquier miembro cierra o reabre: lo impone la API, probado con dos sesiones | §4.8, §1.1 | 🤖 |
 | HP-010 | Todo número de operación nace declarado: una prueba estática falla ante un literal numérico en `src/` fuera de `config.js` que no cite su fuente en un comentario de la misma línea | §4.9 | 🤖 |
 | HP-011 | Toda dependencia es compatible con MIT: la prueba lee `package.json` y las licencias instaladas | §4.10, UD-004 | 🤖 |

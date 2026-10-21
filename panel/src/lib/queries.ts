@@ -167,7 +167,8 @@ export function useSaveTemplate(areaId: string) {
 export function useDeleteTemplate(areaId: string) {
   const invalidate = useInvalidator()
   return useMutation({
-    mutationFn: (id: string) => api(`/areas/${areaId}/templates/${id}`, { method: 'DELETE' }),
+    // Toda operación destructiva exige confirmación explícita (MASTER-SPEC, convenciones de API).
+    mutationFn: (id: string) => api(`/areas/${areaId}/templates/${id}?confirm=true`, { method: 'DELETE' }),
     onSuccess: () => invalidate('templates', 'areas'),
   })
 }

@@ -570,3 +570,20 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 - `bench/areas-classify.mjs` acepta `--project`, `--effort`, `--window` y `--label`; `bench/areas-stats.mjs` compara variantes por casos; `bench/probe-compound.mjs` y el caso público 09 miden las oraciones compuestas.
 **Condiciones de reversión:** Volver a la regla 4 anterior si una corrida del banco privado muestra mensajes con puntos inventados o de relleno por la obligación de cubrir cada punto.
 
+## [UD-080] La clasificación relee lo descartado y cada ventana ve las 40 unidades que la preceden
+
+**Fecha:** 2026-10-21
+**Contexto:** El dueño: «es difícil confiar en la herramienta si no sabe clasificar bien por área». H-1600 midió 8,2 % de unidades de referencia sin mensaje y H-1003 una desviación de 3,6 puntos entre repeticiones. Medición: `docs/investigaciones/mediciones/2026-10-21-reuniones-cobertura-y-estabilidad.md`. Gasto: 6,01 USD de un tope de 7.
+**Decisión:** Decisión de la sesión por encargo del dueño, sin cita suya. Dos perillas del analizador con valor por omisión medido: `coveragePasses` 1 (tras la clasificación, las unidades descartadas se leen de nuevo aparte y el modelo decide si alguna es un punto; el sistema sólo valida la forma) y `classifyContextUnits` 40 (cada ventana de clasificación recibe, de sólo lectura, las 40 unidades que la preceden). `classifyDraws` queda en 1.
+**Alternativas descartadas:**
+- Bajar la temperatura: Haiku 5.5 responde 400 a todo valor distinto de 1.
+- Ventana de 60 unidades: más grupos (174), más costo y sin mejora de acuerdo.
+- Una nota de cobertura que dice dejar las unidades sueltas en descartadas: +1,5 puntos de área, no significativo.
+- Contexto de 20 unidades: acuerdo 0,74 contra 0,78 con 40.
+- Tres lecturas con mayoría (`classifyDraws` 3): triplica el costo de la clasificación y no se midió con el modelo real.
+**Consecuencias:**
+- En 39 casos, 3 repeticiones: unidades sin grupo 8,1 a 2,1 %; área sobre todas las unidades esperadas 74,9 a 79,9 % (p 0,011); área por unidad agrupada sin cambio (81,7 y 81,6). Cinco transcripciones: acuerdo entre repeticiones 0,62 a 0,78.
+- Costo de clasificación +19 %, tiempo +11 %; sin llamadas nuevas más que una por entrada con descartes.
+- H-1003 se cierra. H-1900 a H-1904 quedan en el libro.
+- `classifyInput` se exporta para medir la etapa sola (`bench/classify-stage.mjs`).
+**Condiciones de reversión:** Poner `coveragePasses` en 0 y `classifyContextUnits` en 0 si una corrida del banco muestra que los grupos más gruesos funden puntos que el equipo necesita asignar por separado (H-1904).

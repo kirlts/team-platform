@@ -47,15 +47,18 @@ const acc = (rep, key = 'hits') => (100 * sum(rep, key)) / sum(rep, denominator)
 const mean = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
 const sd = (xs) => (xs.length < 2 ? 0 : Math.sqrt(xs.reduce((a, b) => a + (b - mean(xs)) ** 2, 0) / (xs.length - 1)));
 
-/** Cases present in every repetition of every set; the unit total is that of the first repetition (same references). */
+/** Cases that at least one repetition of every set has: a run that failed (an invalid output after its retry) leaves a case with one repetition fewer. */
 function common(sets) {
-  const ids = [...sets[0][0].rep.keys()].filter((id) => sets.every((reps) => reps.every((r) => r.rep.has(id))));
-  return ids;
+  const ids = [...new Set(sets.flatMap((reps) => reps.flatMap((r) => [...r.rep.keys()])))];
+  return ids.filter((id) => sets.every((reps) => reps.some((r) => r.rep.has(id))));
 }
 
-/** Mean per case over repetitions: {hits, units}. */
+/** Mean per case over the repetitions that have it: {hits, units}. */
 function perCase(reps, ids, key = 'hits') {
-  return new Map(ids.map((id) => [id, { h: mean(reps.map((r) => r.rep.get(id)[key])), n: mean(reps.map((r) => r.rep.get(id)[denominator])) }]));
+  return new Map(ids.map((id) => {
+    const have = reps.filter((r) => r.rep.has(id));
+    return [id, { h: mean(have.map((r) => r.rep.get(id)[key])), n: mean(have.map((r) => r.rep.get(id)[denominator])) }];
+  }));
 }
 
 function bootstrapDiff(a, b, ids, iterations = 20000) {

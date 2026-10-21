@@ -22,6 +22,7 @@ import {
   ProviderHttpError, ProviderMaxTokensError, ProviderOutputError, ProviderRefusalError,
 } from '../providers/errors.js';
 import { withSpan } from '../telemetry/api.js';
+import { consensus } from './consensus.js';
 import { AnalyzeInputError } from './errors.js';
 import {
   chunkNote, classifySystem, classifyUser, decomposeSystem, decomposeUser, membersBlock, rescueUser, resolveLanguage, retryUser,
@@ -393,12 +394,16 @@ export async function classifyInput(bundle, { providers, onProgress, config, red
     return { classifyChunks, results };
   };
 
-  const first = await classifyUnits(units);
-  const badClass = first.results.find((r) => r && r.status !== 'ok');
+  // H-1003: with `classifyDraws` above 1 the first reading is drawn several times, in parallel, and the system keeps the draw
+  // that agrees most with the others, with each group's area decided by the majority of the draws (set arithmetic only).
+  const draws = await Promise.all(Array.from({ length: config.classifyDraws }, () => classifyUnits(units)));
+  const badClass = draws.flatMap((d) => d.results).find((r) => r && r.status !== 'ok');
   if (badClass) return { ctx, units, failed: badClass };
-  const classifyChunks = first.classifyChunks;
-  let groups = first.results.flatMap((r) => r.json.groups);
-  let classDiscarded = first.results.flatMap((r) => r.json.discarded);
+  const classifyChunks = draws[0].classifyChunks;
+  const agreed = consensus(draws.map((d) => ({ groups: d.results.flatMap((r) => r.json.groups), discarded: d.results.flatMap((r) => r.json.discarded) })), templates);
+  let groups = agreed.groups;
+  let classDiscarded = agreed.discarded;
+  if (config.classifyDraws > 1) ctx.stats.classification_draws = config.classifyDraws;
 
   // -- Second reading (UD-021): a person does not send something for nothing --------------------
   // «Zero messages» is accepted only after a deeper pass: for images with no text, the images are described again in more

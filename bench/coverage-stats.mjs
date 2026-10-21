@@ -8,9 +8,10 @@
 //
 // Everything printed is a count or a rate. Reads bench/private/ (env BENCH_PRIVATE_DIR), which never enters git.
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const dir = process.env.BENCH_PRIVATE_DIR ?? 'bench/private';
+const dir = process.env.BENCH_PRIVATE_DIR ?? join(dirname(fileURLToPath(import.meta.url)), 'private');
 const refs = new Map();
 export function refOf(id) {
   if (!refs.has(id)) {

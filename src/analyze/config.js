@@ -83,13 +83,16 @@ export const KNOBS = Object.freeze({
   classifyWindowUnits: { value: 100, source: 'Measurement 2026-10-21 (docs/investigaciones/mediciones/2026-10-21-prompts-en-ingles-y-marcas-de-ia.md)' },
 
   // Coverage passes (H-1900): after the classification, the units it discarded are read again, apart from the surrounding talk,
-  // and the model decides whether any of them is a point. 0 turns it off. The value is fixed by the measurement in
-  // docs/investigaciones/mediciones/2026-10-21-reuniones-cobertura-y-estabilidad.md.
-  coveragePasses: { value: 0, source: 'H-1900 (provisional until the measurement of 2026-10-21 fixes it)' },
+  // and the model decides whether any of them is a point. 0 turns it off.
+  coveragePasses: { value: 1, source: 'Measurement 2026-10-21 (docs/investigaciones/mediciones/2026-10-21-reuniones-cobertura-y-estabilidad.md): 39 cases, units without a group from 8.1 to 2.1 %, area over every expected unit from 74.9 to 79.9 % (p 0.011)' },
 
   // Units shown read-only before each classification window of a long input, so a point that crosses a window boundary keeps
-  // its area (H-1003). 0 turns it off. Same measurement.
-  classifyContextUnits: { value: 0, source: 'H-1003 (provisional until the measurement of 2026-10-21 fixes it)' },
+  // its area (H-1003). 0 turns it off.
+  classifyContextUnits: { value: 40, source: 'Measurement 2026-10-21 (same file): five meeting transcripts, 10 repetitions, agreement between repetitions 0.62 to 0.78 (p 0.004); 20 units gave 0.74 and 40 units 0.78, and a larger value was not measured' },
+
+  // Independent draws of the first classification (H-1003). With more than one, the system keeps the draw that agrees most with
+  // the others and the majority decides each group's area. 1 is a single draw. Same measurement.
+  classifyDraws: { value: 1, source: 'H-1003: implemented and tested with a fake provider, not measured with the real one (three draws cost three times the classification); see the measurement of 2026-10-21' },
 
   // Units per section in the second reading (UD-021), which runs only when the first one found nothing: the input is
   // read again section by section (a heading or a change of source also cuts). Provisional: the bench calibrates it.
@@ -123,6 +126,7 @@ export function resolveConfig(overrides = {}) {
   for (const key of ['invalidOutputRetries', 'rescuePasses', 'httpRetries', 'coveragePasses', 'classifyContextUnits']) {
     if (!Number.isInteger(config[key]) || config[key] < 0) throw new TypeError(`${key} must be an integer greater than or equal to 0`);
   }
+  if (!Number.isInteger(config.classifyDraws) || config.classifyDraws < 1) throw new TypeError('classifyDraws must be an integer greater than or equal to 1');
   for (const key of ['classifyThinking', 'decomposeThinking']) {
     if (config[key] !== null && config[key] !== 'disabled') throw new TypeError(`${key} must be null or «disabled»`);
   }

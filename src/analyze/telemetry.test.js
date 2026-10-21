@@ -6,8 +6,10 @@ import { after, before, describe, it } from 'node:test';
 import { createFakeProviders } from '../providers/index.js';
 import { traceOfJob } from '../telemetry/trace.js';
 import { makeEnv } from '../testing/helpers.js';
-import { analyze } from './index.js';
-import { bugMessage, CLASSIFY_ERRORS, goodDecomposition, makeBundle } from './testing/fixtures.js';
+import { analyze as analyzeAll } from './index.js';
+import { bugMessage, CLASSIFY_ERRORS, goodDecomposition, makeBundle, firstReadingOnly } from './testing/fixtures.js';
+
+const analyze = firstReadingOnly(analyzeAll);
 
 const FAKE_CLAUDE = fileURLToPath(new URL('./testing/fake-claude.mjs', import.meta.url));
 

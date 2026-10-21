@@ -6,11 +6,13 @@ import { stat } from 'node:fs/promises';
 import { extract } from '../extract/index.js';
 import { makeAudio, makeTmp } from '../extract/test/helpers.js';
 import { createFakeProviders } from '../providers/index.js';
-import { analyze } from './index.js';
+import { analyze as analyzeAll } from './index.js';
 import { classifySystem, decomposeSystem } from './prompts.js';
 import { parseTemplate } from './templates.js';
-import { bugMessage, makeBundle, scriptByRequest, unitIdsIn } from './testing/fixtures.js';
+import { bugMessage, makeBundle, scriptByRequest, unitIdsIn, firstReadingOnly } from './testing/fixtures.js';
 import { numberUnits, partitionUnits, renderUnits } from './units.js';
+
+const analyze = firstReadingOnly(analyzeAll);
 
 const CHAT_4 = '1) popup vacío en agenda 2) idea de recordatorio por WhatsApp 3) pregunta a Pablo sobre la reunión 4) exportar a Excel tarda un minuto';
 

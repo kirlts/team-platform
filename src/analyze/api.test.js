@@ -6,12 +6,14 @@ import {
   createFakeProviders, ProviderHttpError, ProviderMaxTokensError, ProviderOutputError, ProviderRefusalError,
 } from '../providers/index.js';
 import { ProviderTimeoutError } from '../providers/errors.js';
-import { analyze, AnalyzeInputError, warmCatalog, warmTemplate } from './index.js';
+import { analyze as analyzeAll, AnalyzeInputError, warmCatalog, warmTemplate } from './index.js';
 import { classifySystem, decomposeSystem } from './prompts.js';
 import { parseTemplate } from './templates.js';
 import {
-  bugMessage, CLASSIFY_ERRORS, CLASSIFY_MULTI, goodDecomposition, lastUserText, makeBundle, MULTI_TEXT, scriptByRequest, seed, unitIdsIn,
+  bugMessage, CLASSIFY_ERRORS, CLASSIFY_MULTI, goodDecomposition, lastUserText, makeBundle, MULTI_TEXT, scriptByRequest, seed, unitIdsIn, firstReadingOnly,
 } from './testing/fixtures.js';
+
+const analyze = firstReadingOnly(analyzeAll);
 
 const ids = (messages) => messages.map((m) => m.unit_ids);
 

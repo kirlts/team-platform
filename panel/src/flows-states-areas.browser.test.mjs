@@ -129,6 +129,32 @@ describe('the view of an area (UD-041)', () => {
   })
 })
 
+describe('the state a message is served with (UD-042)', () => {
+  test('every message the API serves has the state its replies and its closing mark give: without replies open, with replies answered, closed only when closed', async () => {
+    const { page, context } = await session()
+    try {
+      const body = await (await page.request.get(`${origin}/api/messages?limit=100`)).json()
+      const items = body.items ?? body
+      assert.ok(items.length > 10, 'hay mensajes de ejemplo que revisar')
+      const wrong = items.filter((m) => m.status !== (m.status === 'closed' ? 'closed' : m.reply_count > 0 ? 'answered' : 'open'))
+      assert.deepEqual(wrong.map((m) => `${m.title}: ${m.status} con ${m.reply_count} respuestas`), [])
+      assert.ok(items.some((m) => m.status === 'closed') && items.some((m) => m.status === 'answered') && items.some((m) => m.status === 'open'), 'los tres estados están sembrados')
+      // The state of a message that gets a reply, and then is closed and reopened, follows the same rule through the API.
+      const open = items.find((m) => m.status === 'open' && m.author_id !== 'u-ana')
+      const reply = await page.request.post(`${origin}/api/messages/${open.id}/replies`, { data: { body: 'listo', kind: 'answer' }, headers: csrf })
+      assert.equal(reply.status(), 201)
+      const state = async () => (await (await page.request.get(`${origin}/api/messages/${open.id}`)).json()).status
+      assert.equal(await state(), 'answered')
+      await page.request.post(`${origin}/api/messages/${open.id}/close`, { headers: csrf })
+      assert.equal(await state(), 'closed')
+      await page.request.post(`${origin}/api/messages/${open.id}/reopen`, { headers: csrf })
+      assert.equal(await state(), 'answered')
+    } finally {
+      await context.close()
+    }
+  })
+})
+
 describe('colors and words of the states (UD-041)', () => {
   test('open is red, answered is yellow and closed is blue, always with their word', async () => {
     const { page, context } = await session('ana')

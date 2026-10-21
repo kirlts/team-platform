@@ -63,5 +63,6 @@ export async function login(page, origin, who = 'ana') {
   await page.getByLabel('Correo').fill(`${who}@dev.invalid`)
   await page.getByLabel('Contraseña').fill(PASSWORD)
   await page.getByRole('button', { name: 'Entrar' }).click()
-  await page.locator('main').first().waitFor()
+  // The sign-in page is also a <main>: waiting for any <main> returned while the person was still signing in (H-901). Only the signed-in shell has #main.
+  await page.locator('main#main').waitFor()
 }

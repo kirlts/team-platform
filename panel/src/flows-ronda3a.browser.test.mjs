@@ -29,7 +29,7 @@ async function session(who = 'ana', viewport = DESKTOP, { scheme = 'light' } = {
   const context = await panel.browser.newContext({ viewport, locale: 'es-CL', colorScheme: scheme, isMobile: mobile, hasTouch: mobile, deviceScaleFactor: mobile ? 2 : 1 })
   const page = await context.newPage()
   await login(page, origin, who)
-  await page.locator('main').first().waitFor()
+  await page.locator('main#main').waitFor()
   return { page, context }
 }
 
@@ -253,7 +253,7 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
     try {
       assert.equal(await page.locator('main time[datetime]').filter({ hasText: /de 20\d\d/ }).count(), 0, 'no hay fecha y hora corriendo')
       await page.goto(origin)
-      await page.locator('main').first().waitFor()
+      await page.locator('main#main').waitFor()
       await page.keyboard.press('Tab')
       assert.equal(await page.evaluate(() => document.activeElement?.textContent?.trim()), 'Ir al contenido')
       const ring = await page.evaluate(() => parseFloat(getComputedStyle(document.activeElement).outlineWidth))

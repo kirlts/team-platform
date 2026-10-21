@@ -162,6 +162,7 @@ export class UiTelemetry {
   private interactiveMs: number | undefined
   private renderStartedAt = 0
   private budget = new EventBudget()
+  private leaving = false
   private interactionAt: number | undefined
   private changeAt: number | undefined
   private changePending = false
@@ -214,6 +215,7 @@ export class UiTelemetry {
     // The page is going away for good (not entering the back-forward cache): a send that started and did not end is abandoned.
     on(window, 'pagehide', ((e: PageTransitionEvent) => {
       if (e.persisted) return
+      this.leaving = true // requests still in flight are cancelled by the browser: that is not a network error
       this.abandon()
       this.leaveScreen(true)
     }) as never)
@@ -227,6 +229,7 @@ export class UiTelemetry {
     this.armed = {}
     this.screen = null
     this.firstScreen = true
+    this.leaving = false
   }
 
   /** The person did something: the clock of «how long until the page showed anything» starts here. */
@@ -433,7 +436,7 @@ export class UiTelemetry {
 
   private settle(verb: string, route: string, result: { status: number; body?: unknown }, t0: number) {
     const ok = result.status >= 200 && result.status < 300
-    if (!ok && !(result.status === 401 && route === '/me')) {
+    if (!ok && !(result.status === 401 && route === '/me') && !(result.status === 0 && this.leaving)) {
       if (route !== '/telemetry/ui') this.error(result.status === 0 ? 'network' : 'http', { status: result.status, endpoint: route })
     }
     if (verb === 'POST' && route === '/inputs' && !ok && this.open?.task === 'send_publish') {

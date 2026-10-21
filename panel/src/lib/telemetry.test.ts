@@ -152,6 +152,20 @@ describe('tasks inferred from the traffic', () => {
   })
 })
 
+describe('requests cancelled by the page going away', () => {
+  it('are not network errors', () => {
+    const { telemetry, events } = rig()
+    telemetry.configure(true, 50)
+    telemetry.enterScreen('home')
+    const pending = telemetry.request('GET', '/messages')
+    window.dispatchEvent(new Event('pagehide'))
+    pending({ status: 0 }) // the browser cancels it while unloading
+    telemetry.flush()
+    expect(events().filter((e) => e.type === 'error')).toEqual([])
+    telemetry.configure(false, 50)
+  })
+})
+
 describe('the panel does not depend on it', () => {
   it('off, it records and sends nothing; on, a failing network never throws', () => {
     const off = rig()

@@ -4,7 +4,7 @@ Revisas una sola pantalla o flujo de la interfaz de team-platform. Tiempo previs
 
 ## Qué miras
 
-Abre cada imagen con la herramienta de lectura y mira la imagen, no el código. Ventana de escritorio de 1440 por 900 y de teléfono de 390 por 844, en tema claro y oscuro.
+Abre cada una de las imágenes con la herramienta de lectura, sin saltar ninguna: cada archivo es una combinación distinta de ventana y tema. Mira la imagen, no el código. Ventana de escritorio de 1440 por 900 y de teléfono de 390 por 844, en tema claro y oscuro.
 
 {{CAPTURES}}
 

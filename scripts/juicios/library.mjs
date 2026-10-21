@@ -8,7 +8,7 @@ export const SCREEN_IDS = ['home', 'messages', 'message-detail', 'areas', 'team'
 // Where a finding lives, by the first words of its title. The book titles every finding «Pantalla: hallazgo». A prefix
 // not listed here belongs to no screen and is only used to compare against.
 const PREFIXES = [
-  ['home', /^(Inicio|Compositor|Campana|Franja de Envíos|Fila)\b/i],
+  ['home', /^(Inicio|Compositor|Franja de Envíos|Fila)\b/i],
   ['messages', /^Mensajes\b/i],
   ['message-detail', /^(Ficha|Detalle)\b/i],
   ['areas', /^(Áreas|Plantilla|Nueva plantilla)\b/i],
@@ -17,7 +17,7 @@ const PREFIXES = [
   ['connections', /^Conexiones\b/i],
   ['login', /^(Login|Entrar|Entrada)\b/i],
   ['flow-send', /^(Ventana de envíos|Propuesta|Quitar un mensaje|Volver a analizar)\b/i],
-  ['global', /^(Lateral|Barra superior|Menú|Móvil|Tema oscuro)\b/i]
+  ['global', /^(Campana|Lateral|Barra superior|Menú|Móvil|Tema oscuro)\b/i]
 ]
 
 export function screenOfTitle (title) {
@@ -79,7 +79,8 @@ const SCREEN_WORDS = {
   connections: /conexiones|conector/i,
   login: /\blogin\b|\bentrar\b|inicio de sesi[oó]n/i
 }
-const WHOLE_INTERFACE = /cada vista|toda la interfaz|todo el panel|en todo el|íconos de medio|p[aá]rrafos largos|edici[oó]n en el lugar|se distingue a simple vista|estética/i
+// The header, the bell and the side menu are on every screen: a decision about them binds every brief.
+const WHOLE_INTERFACE = /campana|barra superior|barra lateral|insignia|cada vista|toda la interfaz|todo el panel|en todo el|íconos de medio|p[aá]rrafos largos|edici[oó]n en el lugar|se distingue a simple vista|estética/i
 
 export function decisionsFor (screen, decisions) {
   return decisions.filter((d) => d.ui && (WHOLE_INTERFACE.test(d.text) || SCREEN_WORDS[screen]?.test(d.text)))

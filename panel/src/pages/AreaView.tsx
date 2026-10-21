@@ -2,6 +2,7 @@ import { ChevronLeft } from '@/components/icons'
 import { useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { Templates, descriptionRule, nameRule } from '@/components/AreaTemplates'
+import { AreaColorPicker } from '@/components/AreaColorPicker'
 import { EditableText } from '@/components/EditableText'
 import { EmptyState } from '@/components/EmptyState'
 import { Fold } from '@/components/Fold'
@@ -56,6 +57,11 @@ function AreaViewBody({ area }: { area: Area }) {
     return undoStack.run({ label: t('areas.edited'), redo: () => save.mutateAsync({ id: area.id, [field]: next }), undo: () => save.mutateAsync({ id: area.id, [field]: prev }) })
   }
 
+  const changeColor = (next: string) => {
+    const prev = area.color
+    return undoStack.run({ label: t('areas.colorEdited'), redo: () => save.mutateAsync({ id: area.id, color: next }), undo: () => save.mutateAsync({ id: area.id, color: prev }) })
+  }
+
   return (
     <Page cols={12}>
       <header className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
@@ -64,6 +70,10 @@ function AreaViewBody({ area }: { area: Area }) {
             <ChevronLeft size={14} aria-hidden />
             {t('areas.back')}
           </Link>
+          {/* The same square the list of areas and the sidebar carry: the title says which area this is by its color too (UD-045), and it is the control to change it. */}
+          <span className="self-center">
+            <AreaColorPicker title={area.title} color={area.color} onChange={changeColor} />
+          </span>
           <h1 className="min-w-0 break-words">
             <EditableText value={area.title} label={t('areas.fieldTitle')} validate={nameRule(t)} onSave={(v) => change('title', v)} />
           </h1>

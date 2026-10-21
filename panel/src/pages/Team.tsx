@@ -34,6 +34,8 @@ export function Team() {
   const create = useCreateMember()
   const undo = useUndoStack()
   const [adding, setAdding] = useState(false)
+  /** The member whose profile is open: the list keeps that row on the visible page, since opening it makes it taller and fewer rows fit. */
+  const [opened, setOpened] = useState<string | undefined>()
   const editor = me?.role === 'editor'
   const rows = useMemo(() => members.data ?? [], [members.data])
 
@@ -57,6 +59,7 @@ export function Team() {
           rows={rows}
           rowKey={(m) => m.id}
           label={t('nav.team')}
+          reveal={opened}
           header={
             <div className={`hidden gap-4 border-b border-line bg-[linear-gradient(180deg,var(--color-chrome-1),var(--color-chrome-2))] px-4 py-2 text-sm font-semibold text-muted md:grid ${COLUMNS}`}>
               <span>{t('team.member')}</span>
@@ -65,7 +68,7 @@ export function Team() {
               <span />
             </div>
           }
-          renderRow={(m) => <MemberRow member={m} self={m.id === me?.id} viewerIsEditor={editor} />}
+          renderRow={(m) => <MemberRow member={m} self={m.id === me?.id} viewerIsEditor={editor} profileOpen={opened === m.id} onProfileOpen={(open) => setOpened(open ? m.id : undefined)} />}
           empty={<LoadState query={members} />}
         />
         <FormDialog
@@ -85,7 +88,7 @@ export function Team() {
   )
 }
 
-function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boolean; viewerIsEditor: boolean }) {
+function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }: { member: Member; self: boolean; viewerIsEditor: boolean; profileOpen: boolean; onProfileOpen: (open: boolean) => void }) {
   const t = useT()
   const undo = useUndo()
   const save = useSaveMember()
@@ -109,8 +112,8 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
     )
 
   return (
-    <div className={`grid items-start gap-x-4 gap-y-2 border-b border-line px-4 py-3 last:border-b-0 ${COLUMNS} ${member.active ? '' : 'bg-closed-bg/30'}`}>
-      <div className="flex min-w-0 items-start gap-2.5">
+    <div className={`grid items-start gap-x-4 gap-y-2 max-md:grid-cols-[minmax(0,1fr)_auto] border-b border-line px-4 py-3 last:border-b-0 ${COLUMNS} ${member.active ? '' : 'bg-closed-bg/30'}`}>
+      <div className="flex min-w-0 items-start gap-2.5 max-md:col-span-2">
         <Avatar name={member.name} size={30} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2">
@@ -120,7 +123,7 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
           <EditableText value={member.email} label={t('team.fieldEmail')} canEdit={canEditPeople} validate={(v) => (v.includes('@') ? null : t('team.invalidEmail'))} onSave={(v) => change('email', v)} displayClassName="break-words text-xs text-muted" render={withBreaks} />
         </div>
       </div>
-      <div className="flex min-w-0 flex-col items-start gap-1 max-md:flex-row max-md:flex-wrap max-md:items-center max-md:gap-x-3">
+      <div className="flex min-w-0 flex-col items-start gap-1 max-md:flex-row max-md:flex-wrap max-md:items-center max-md:gap-x-3 max-md:self-center">
         {canEditPeople && !self ? (
           <DropdownMenu>
             <DropdownMenuTrigger aria-label={t('team.roleOf', { name: member.name })} className="inline-flex rounded-full hover:bg-hover">
@@ -139,18 +142,19 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
         {/* Active is the normal state and has no tag: only the exception is marked (J1-A-41). */}
         {!member.active && <Badge tone="outline">{t('team.inactive')}</Badge>}
       </div>
-      <div className="min-w-0 text-sm">
+      <div className="min-w-0 text-sm max-md:col-span-2">
         {/* The profile is read in its first paragraph and the rest is one click away, whole and not cut (J3-A-42, UD-016). */}
-        <FoldedText value={member.profile ?? ''} label={t('team.profileOf', { name: member.name })} canEdit={self} placeholder={t('team.noProfile')} validate={(v) => (v.length > PROFILE_MAX ? t('form.maxLength', { n: PROFILE_MAX }) : null)} onSave={(v) => change('profile', v)} />
+        <FoldedText value={member.profile ?? ''} label={t('team.profileOf', { name: member.name })} canEdit={self} open={profileOpen} onOpenChange={onProfileOpen} placeholder={t('team.noProfile')} validate={(v) => (v.length > PROFILE_MAX ? t('form.maxLength', { n: PROFILE_MAX }) : null)} onSave={(v) => change('profile', v)} />
       </div>
-      <div className="flex min-w-0 flex-col items-end gap-1">
+      {/* On a phone the cell dissolves: the action shares the row of the role, on the right edge, and the failure takes its own row below the profile. */}
+      <div className="flex min-w-0 flex-col items-end gap-1 max-md:contents">
         {canEditPeople && !self && (
-          <Button size="sm" variant="ghost" className="text-xs font-normal text-muted hover:text-danger" onClick={() => void toggleActive()} aria-label={member.active ? t('team.deactivateOf', { name: member.name }) : t('team.reactivateOf', { name: member.name })}>
+          <Button size="sm" variant="ghost" className="text-xs font-normal text-muted hover:text-danger max-md:col-start-2 max-md:row-start-2 max-md:self-center" onClick={() => void toggleActive()} aria-label={member.active ? t('team.deactivateOf', { name: member.name }) : t('team.reactivateOf', { name: member.name })}>
             {member.active ? t('team.deactivate') : t('team.reactivate')}
           </Button>
         )}
         {problem && (
-          <span role="alert" className="text-right text-xs text-danger">
+          <span role="alert" className="text-right text-xs text-danger max-md:col-span-2 max-md:text-left">
             {problem}
           </span>
         )}

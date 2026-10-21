@@ -571,6 +571,23 @@ describe('flujo de publicación (ronda 1, juez B)', () => {
     }
   })
 
+  test('un área con varias plantillas deja elegir la plantilla desde la propuesta (J1-B-18)', async () => {
+    const { page, context } = await session('tomas')
+    try {
+      await clearTray(page)
+      await sendInput(page, 'Se rompe la pantalla de inicio: el botón queda cortado.')
+      await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
+      const pick = page.getByRole('button', { name: /^Plantilla: / })
+      await pick.waitFor()
+      await pick.click()
+      await page.getByRole('menuitemradio', { name: 'Error visual' }).click()
+      await page.getByRole('button', { name: 'Plantilla: Error visual' }).waitFor()
+      await page.getByRole('button', { name: 'Deshacer' }).first().waitFor()
+    } finally {
+      await context.close()
+    }
+  })
+
   test('en el teléfono Enviar y Descartar siguen a la vista con tres mensajes (J1-B-29)', async () => {
     const { page, context } = await session('bruno', { width: 390, height: 844 })
     try {

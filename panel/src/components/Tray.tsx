@@ -39,17 +39,12 @@ export const itemKey = (item: TrayItem) => (item.kind === 'upload' ? `upload-${i
  */
 export function Tray({ items, selectedId, hideTextId, onSelect, bare = false }: { items: readonly TrayItem[]; selectedId: string | undefined; hideTextId?: string; onSelect: (id: string) => void; bare?: boolean }) {
   const t = useT()
-  const failed = items.filter((i) => (i.kind === 'input' ? i.input.status === 'failed' : !!i.upload.error)).length
   return (
     <section aria-label={t('tray.title')} className="flex min-h-0 min-w-0 flex-col gap-2">
       {!bare && (
         <div className="flex items-center justify-between gap-2">
           <h2>{t('tray.title')}</h2>
-          <span className="flex items-center gap-2 text-xs">
-            {/* Said at the top, where it is seen even when the failed row is below the fold (J1-B-24). */}
-            {failed > 0 && <Badge tone="danger">{t('tray.failedCount', { n: failed })}</Badge>}
-            {items.length > 1 && <span className="tabular-nums text-muted">{t('tray.pending', { n: items.length })}</span>}
-          </span>
+          {items.length > 1 && <span className="text-xs tabular-nums text-muted">{t('tray.pending', { n: items.length })}</span>}
         </div>
       )}
       <FitList

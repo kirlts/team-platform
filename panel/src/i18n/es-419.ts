@@ -134,7 +134,6 @@ export const es419 = {
   'tray.pending': { one: '{n} envío', other: '{n} envíos' },
   'tray.discardUpload': 'Descartar el envío',
   'tray.none': 'Elegir un envío',
-  'tray.failedCount': '{n} con error',
 
   'ai.label': 'IA',
   'ai.name': 'Generado por IA',
@@ -170,6 +169,9 @@ export const es419 = {
   'proposal.removedReason': 'Quitado por el emisor',
   'proposal.removed': 'Mensaje quitado',
   'proposal.remove': 'Quitar el mensaje {title}',
+  'template.pick': 'Plantilla: {name}',
+  'proposal.templateChanged': 'Plantilla',
+  'publish.next': 'Se abrió el siguiente envío.',
   'proposal.removeShort': 'Quitar',
   'proposal.sendN': { one: 'Enviar {n} mensaje', other: 'Enviar {n} mensajes' },
   'proposal.noActionTitle': { one: '{n} parte del texto sin mensaje', other: '{n} partes del texto sin mensaje' },

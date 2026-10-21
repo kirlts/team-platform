@@ -4,11 +4,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useErrorText, useI18n, useT, type MessageKey } from '@/i18n'
 import { useJobProgress } from '@/lib/events'
 import { useNotices } from '@/lib/notices'
-import { useCancelInput, usePublish, useReprocess, useRestoreInput, useSaveProposal, useTemplates } from '@/lib/queries'
+import { useCancelInput, usePublish, useReprocess, useRestoreInput, useSaveProposal, useTemplates, useTray } from '@/lib/queries'
 import { missingRequired, parseTemplateFields, remapFields } from '@/lib/template'
 import type { Attachment, InputRecord, InputStatus, Proposal, ProposalMessage, Template } from '@/lib/types'
 import { useUndo } from '@/lib/undo'
@@ -180,6 +181,7 @@ function ProposalEditor({
   const notices = useNotices()
   const { memberName } = useLookups()
   const publish = usePublish()
+  const waiting = (useTray().data ?? []).filter((i) => i.id !== input.id).length
   const saveProposal = useSaveProposal(input.id)
   const queryClient = useQueryClient()
   const [proposal, setProposal] = useState<Proposal>(initial)
@@ -265,8 +267,10 @@ function ProposalEditor({
     const first = res?.message_ids?.[0]
     const who = recipientsText(sent.messages)
     // The most silent moment of the flow, said out loud: what went out, to whom and where to see it (J1-B-25).
+    // When other sends wait, the review moves on by itself: the notice says so, so the change of content is not taken for an error (J1-B-27).
+    const said = sent.messages.length === 1 ? t('publish.one', { title: sent.messages[0].title, who }) : t('publish.many', { n: sent.messages.length, who })
     notices.show({
-      text: sent.messages.length === 1 ? t('publish.one', { title: sent.messages[0].title, who }) : t('publish.many', { n: sent.messages.length, who }),
+      text: waiting > 0 ? `${said} ${t('publish.next')}` : said,
       link: first ? { to: sent.messages.length === 1 ? `/messages/${first}` : '/messages', label: sent.messages.length === 1 ? t('publish.viewOne') : t('publish.viewMany') } : undefined,
     })
     onPublished()
@@ -435,6 +439,31 @@ function ProposalRow({
             }))
           }
         />
+        {(templates.data?.length ?? 0) > 1 && template && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button type="button" aria-label={t('template.pick', { name: template.name })} className="hit inline-flex max-w-full items-center gap-1 rounded-md px-1.5 text-left text-xs font-semibold text-muted hover:bg-hover hover:text-accent">
+                {template.name}
+                <ChevronDown size={12} aria-hidden className="shrink-0" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" collisionPadding={8}>
+              <DropdownMenuRadioGroup
+                value={template.id}
+                onValueChange={(id) => {
+                  const next = templates.data?.find((x) => x.id === id)
+                  if (next) void patch(index, t('proposal.templateChanged'), (cur) => ({ template_id: next.id, fields: remapFields(cur.fields, parseTemplateFields(next.body_markdown ?? '')) }))
+                }}
+              >
+                {templates.data?.map((x) => (
+                  <DropdownMenuRadioItem key={x.id} value={x.id}>
+                    {x.name}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
         <EditableText value={m.title} label={t('proposal.title')} validate={required} onSave={(v) => patch(index, t('proposal.titleEdited'), { title: v })} displayClassName="text-[0.95rem] font-semibold" className="min-w-0 flex-1 basis-40" />
         {/* The only message cannot be removed: Descartar is the way out, so the button is not drawn instead of drawn off. */}
         {!only && (

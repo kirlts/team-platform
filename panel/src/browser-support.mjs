@@ -2,7 +2,7 @@
 import { spawn, execFileSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
-import { chromium } from 'playwright'
+import * as playwright from 'playwright'
 
 export const ROOT = fileURLToPath(new URL('..', import.meta.url))
 export const PASSWORD = randomBytes(12).toString('hex') // the dev server accepts any password of 15 characters or more
@@ -26,6 +26,16 @@ function controlOf(origin) {
   }
 }
 
+/**
+ * The engine the suites run on: `BROWSER=firefox` or `BROWSER=webkit`; Chromium by default (TASK-019). Only Chromium takes the
+ * Ozone flag that lets it start without a display.
+ */
+export const ENGINE = process.env.BROWSER ?? 'chromium'
+export function launchBrowser() {
+  if (!playwright[ENGINE]?.launch) throw new Error(`BROWSER=${ENGINE} no es un motor de Playwright (chromium, firefox o webkit)`)
+  return playwright[ENGINE].launch({ headless: true, ...(ENGINE === 'chromium' ? { args: ['--ozone-platform=headless'] } : {}) })
+}
+
 /** Builds panel/dist (unless told not to) and serves it with the dev server; returns what a test needs and how to stop it. */
 export async function startPanel(port, { build = !process.env.FIT_SIN_BUILD, stepMs = 120 } = {}) {
   if (build) execFileSync('npx', ['vite', 'build'], { cwd: ROOT, stdio: 'ignore' })
@@ -45,7 +55,7 @@ export async function startPanel(port, { build = !process.env.FIT_SIN_BUILD, ste
     server.once('exit', (code) => reject(new Error(`el servidor de ejemplo salió con ${code} antes de escuchar en el puerto ${port}; ¿está ocupado?`)))
     server.once('error', reject)
   })
-  const browser = await chromium.launch({ headless: true, args: ['--ozone-platform=headless'] })
+  const browser = await launchBrowser()
   const origin = `http://127.0.0.1:${port}`
   return {
     origin,
@@ -60,12 +70,27 @@ export async function startPanel(port, { build = !process.env.FIT_SIN_BUILD, ste
 
 /** Logs in as one of the dev members (ana is the Editor). */
 export async function login(page, origin, who = 'ana') {
-  await page.goto(origin)
-  await page.getByLabel('Correo').fill(`${who}@dev.invalid`)
-  await page.getByLabel('Contraseña').fill(PASSWORD)
-  await page.getByRole('button', { name: 'Entrar' }).click()
-  // The sign-in page is also a <main>: waiting for any <main> returned while the person was still signing in (H-901). Only the signed-in shell has #main.
-  await page.locator('main#main').waitFor()
+  // The requests are watched from the first navigation, so that what the shell asks for while it opens is known when it is open.
+  const requests = watchRequests(page)
+  try {
+    await page.goto(origin)
+    await page.getByLabel('Correo').fill(`${who}@dev.invalid`)
+    await page.getByLabel('Contraseña').fill(PASSWORD)
+    await page.getByRole('button', { name: 'Entrar' }).click()
+    // The sign-in page is also a <main>: waiting for any <main> returned while the person was still signing in (H-901). Only the signed-in shell has #main.
+    await page.locator('main#main').waitFor()
+    // Firefox never fires `load` for a page opened over a document of the same address that still has a video thumbnail loading (measured: 9 of 10
+    // navigations), and `page.goto` waits for it. Nothing is in flight when the shell has finished asking, so the next navigation starts from a quiet page.
+    if (ENGINE === 'firefox') {
+      await requests.idle()
+      // A video thumbnail has its first frame once it has data for it; until then it still holds the page.
+      await page.evaluate(() =>
+        Promise.all([...document.querySelectorAll('video')].map((v) => (v.readyState >= 2 || v.error ? undefined : new Promise((resolve) => { v.addEventListener('loadeddata', resolve, { once: true }); v.addEventListener('error', resolve, { once: true }) })))),
+      )
+    }
+  } finally {
+    requests.stop()
+  }
 }
 
 /**
@@ -83,6 +108,43 @@ export async function settled(page) {
       if (running().length === 0) return
     }
   })
+}
+
+/**
+ * Counts the requests of a page that are still in flight, leaving out the event stream: it is an open request by design (live updates), and
+ * Firefox counts it as in flight while Chromium does not, so `waitForLoadState('networkidle')` never returns in Firefox (TASK-019).
+ * Start it before navigating; `idle()` returns once nothing else has been in flight for `quietMs` (the same 500 ms that `networkidle` uses).
+ */
+export function watchRequests(page, { quietMs = 500 } = {}) {
+  const inFlight = new Set()
+  let lastChange = Date.now()
+  const isStream = (r) => r.resourceType() === 'eventsource' || new URL(r.url()).pathname === '/api/events'
+  const start = (r) => {
+    if (isStream(r)) return
+    inFlight.add(r)
+    lastChange = Date.now()
+  }
+  const end = (r) => {
+    if (inFlight.delete(r)) lastChange = Date.now()
+  }
+  page.on('request', start)
+  page.on('requestfinished', end)
+  page.on('requestfailed', end)
+  return {
+    /** Frames are the clock of the wait, so a slow machine waits longer instead of giving up on a guess. */
+    async idle({ timeout = 30000 } = {}) {
+      const deadline = Date.now() + timeout
+      while (inFlight.size > 0 || Date.now() - lastChange < quietMs) {
+        if (Date.now() > deadline) throw new Error(`Timeout ${timeout}ms exceeded with ${inFlight.size} requests in flight: ${[...inFlight].map((r) => r.url().replace(/^https?:\/\/[^/]+/, '')).slice(0, 6).join(', ')}`)
+        await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)))
+      }
+    },
+    stop() {
+      page.off('request', start)
+      page.off('requestfinished', end)
+      page.off('requestfailed', end)
+    },
+  }
 }
 
 /** Opens the folded «Plantillas» section of the view of an area (UD-041). */

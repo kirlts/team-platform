@@ -19,7 +19,7 @@
 
 import { after, before, describe, test } from 'node:test'
 import assert from 'node:assert'
-import { login, startPanel, settled } from './browser-support.mjs'
+import { login, startPanel, settled, watchRequests } from './browser-support.mjs'
 
 // These tests go through the review of a proposal, which is what the server does with publication by hand (UD-070): they start it with auto-publication off.
 // The automatic path has its own file, `flows-inicio.browser.test.mjs`.
@@ -158,13 +158,18 @@ function measureInPage({ lanes, withBreak }) {
 
 /** Opens a path and waits for the view's heading, then for the network and the layout to settle. */
 async function open(page, path) {
-  await page.goto(`${ORIGIN}${path}`)
-  await page.locator('main h1').first().waitFor()
-  // A view that never goes quiet says which one it is (the amplified lists once left a request loop open).
-  await page.waitForLoadState('networkidle').catch(async (error) => {
-    const recent = await page.evaluate(() => performance.getEntriesByType('resource').slice(-12).map((e) => e.name.replace(location.origin, '')))
-    throw new Error(`${path} never went quiet: ${error.message}; last requests: ${recent.join(', ')}`)
-  })
+  const requests = watchRequests(page)
+  try {
+    await page.goto(`${ORIGIN}${path}`)
+    await page.locator('main h1').first().waitFor()
+    // A view that never goes quiet says which one it is (the amplified lists once left a request loop open).
+    await requests.idle().catch(async (error) => {
+      const recent = await page.evaluate(() => performance.getEntriesByType('resource').slice(-12).map((e) => e.name.replace(location.origin, '')))
+      throw new Error(`${path} never went quiet: ${error.message}; last requests: ${recent.join(', ')}`)
+    })
+  } finally {
+    requests.stop()
+  }
   await settled(page)
 }
 

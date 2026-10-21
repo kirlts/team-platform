@@ -206,7 +206,7 @@ Desarrollo del panel: Vite 8, Tailwind 4.3 con `@tailwindcss/vite` (MIT), TypeSc
 
 **Flujo principal de la persona:**
 
-1. Entra. Ve Inicio: la franja «Para mí» y «Por área», el nombre del proyecto con la fecha, la barra «Nuevo mensaje» con clip (adjuntos), cámara (foto), micrófono (audio) y enviar, y el desplegable de envíos (UD-046).
+1. Entra. Ve Inicio: el nombre del proyecto con la fecha, la barra «Nuevo mensaje» con clip (adjuntos), cámara (foto), micrófono (audio) y enviar, y el desplegable de envíos (UD-046).
 2. Escribe, pega una captura o arrastra un docx, y envía. La barra se vacía. Debajo se abre el desplegable (UD-046): a la izquierda el original (texto y adjuntos con su galería), a la derecha el bloque «Análisis», con una barra de progreso y la frase del paso en curso («leyendo el documento», «3 de 7 adjuntos»).
 3. Al terminar, los mensajes ya están publicados (UD-070): no hay botón Enviar. Cada uno trae su área (insignia, cambiable), título, texto según la plantilla de esa área, destinatarios (chips, editables) y adjuntos (miniaturas, quitables), y su emisor lo edita en el lugar cuando quiera (UD-071).
 4. Los mensajes aparecen en «Últimos mensajes». Quien los recibe los ve en su Inicio, filtrados para él por omisión. Cada tarjeta muestra la insignia del área, el emisor, la fecha y la miniatura del adjunto principal.
@@ -216,7 +216,7 @@ Desarrollo del panel: Vite 8, Tailwind 4.3 con `@tailwindcss/vite` (MIT), TypeSc
 
 | Vista | Qué muestra | Quién |
 |---|---|---|
-| Inicio | De arriba abajo (UD-046): franja de una fila con «Para mí» (mensajes abiertos y respondidos que me afectan) y «Por área»; nombre del proyecto y fecha; «Nuevo mensaje» con la barra de texto; el desplegable en línea que se abre solo al enviar y muestra el original a la izquierda y el análisis a la derecha, con los mensajes ya publicados y editables por su autor (UD-070, UD-071), y el selector de los envíos propios con su estado; «Últimos mensajes» y «Últimas respuestas», que se pliegan a una franja cuando la ventana no alcanza para el desplegable y para ellas | Todos |
+| Inicio | De arriba abajo (UD-046): nombre del proyecto y fecha (los estados pendientes viven en la barra superior, UD-100); «Nuevo mensaje» con la barra de texto; el desplegable en línea que se abre solo al enviar y muestra el original a la izquierda y el análisis a la derecha, con los mensajes ya publicados y editables por su autor (UD-070, UD-071), y el selector de los envíos propios con su estado; «Últimos mensajes» y «Últimas respuestas», que se pliegan a una franja cuando la ventana no alcanza para el desplegable y para ellas | Todos |
 | Mensajes | Todos los mensajes del equipo con filtros: para mí, para X, por área, por estado, respuestas; búsqueda | Todos |
 | Áreas | Lista de áreas con su conteo de abiertos y respondidos, para crearlas y abrirlas. Cada área abre su vista (`/areas/:id`): sus mensajes primero, con el filtro por los tres estados y su conteo, y plegadas su descripción y sus plantillas, con edición en el lugar (UD-041) | Editor |
 | Equipo | Miembros con su perfil; cada uno edita el suyo | Todos |
@@ -228,7 +228,7 @@ Desarrollo del panel: Vite 8, Tailwind 4.3 con `@tailwindcss/vite` (MIT), TypeSc
 | Componente | Función | Archivo |
 | --- | --- | --- |
 | `Sidebar` | Navegación compacta y ocultable (UD-047), usuario, color y conteo de abiertos y respondidos por área | `panel/src/components/Sidebar.tsx` |
-| `NotifyBadge`, `StateMark` | Insignia y marca de estado: abierto rojo, respondido amarillo, cerrado azul, con forma, palabra y número; la campana toma el color del estado más alto presente (UD-029, UD-041). El estado más alto se decide en `panel/src/lib/states.ts` | `panel/src/components/NotifyBadge.tsx` |
+| `NotifyBadge`, `StateMark` | Insignia y marca de estado: abierto rojo, respondido amarillo, cerrado azul, con forma, palabra y número; en la barra superior las tres marcas son sólo forma, color y número, y la palabra es su nombre accesible (UD-100). El estado más alto se decide en `panel/src/lib/states.ts` | `panel/src/components/NotifyBadge.tsx` |
 | `ComposeBar` | Barra de nuevo mensaje con adjuntos, cámara, micrófono, enviar | `panel/src/components/ComposeBar.tsx` |
 | `SendDrawer`, `InputPreview`, `PublishedPane` | Desplegable bajo la barra: original editable con su galería, análisis publicado y editable en el lugar, selector de envíos (UD-046) | `panel/src/components/SendDrawer.tsx` |
 | `AreaChip`, `AreaColorPicker`, `lib/area-color.ts` | Chip de área, selector de un color y derivación del color secundario en OKLCH (UD-045) | `panel/src/components/AreaChip.tsx` |
@@ -241,7 +241,7 @@ Desarrollo del panel: Vite 8, Tailwind 4.3 con `@tailwindcss/vite` (MIT), TypeSc
 | `Settings` | Cuenta, tema, proveedores | `panel/src/pages/Settings.tsx` |
 | `MessageDetail` | Un mensaje con su hilo y sus acciones | `panel/src/pages/MessageDetail.tsx` |
 | `Login` | Inicio de sesión local | `panel/src/pages/Login.tsx` |
-| `Header` | Cabecera «[Nombre] TEAM», campana de avisos y menú de la cuenta | `panel/src/components/Header.tsx` |
+| `Header`, `StatusBar` | Cabecera «[Nombre] TEAM», las tres marcas de estado con su desplegable (UD-100), campana de novedades y menú de la cuenta | `panel/src/components/Header.tsx` |
 | `FilterBar` | Filtros de Mensajes como chips en la URL | `panel/src/components/FilterBar.tsx` |
 | `EditableText`, `EditableTags`, `MemberPicker` | Edición en el lugar de texto, dominios y destinatarios | `panel/src/components/` |
 | `MediaGallery`, `MediaGalleryDialog`, `MediaOpener`, `AttachmentStrip` | Visor y carrusel de adjuntos, reutilizado en la ficha, las respuestas, la lista, Inicio y la propuesta (UD-059) | `panel/src/components/MediaGallery.tsx` |

@@ -13,61 +13,28 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 52bfa24 Traspaso: auditoría de idea.md y brechas. Empujado a origin: `52bfa24`.
-- Ramas con commits sin fusionar: `wt-listas` 7 (hace 4 segundos), `wt-idea-brechas` 6 (hace 23 segundos), `wt-respuestas` 4 (hace 7 minutos), `wt-resto` 4 (hace 43 segundos).
-- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `idea-brechas`, `ingles`, `inicio-maqueta`, `listas`, `modelos`, `respuestas`, `resto`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
+- `main`: d1b004e Merge branch 'wt-resto'. Empujado a origin: `d1b004e`.
+- Ramas con commits sin fusionar: ninguna.
+- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `52bfa24` Traspaso: auditoría de idea.md y brechas (hace 10 minutos)
-- `bcd1db7` Traspaso: ronda 5 y última pasada de arreglos (hace 16 minutos)
-- `9b01530` Traspaso: miniaturas y remanentes fusionados, ronda 5 en curso (hace 18 minutos)
-- `0718496` Merge branch 'main' into wt-remanentes (hace 32 minutos)
-- `ffda0ff` Changelog for the remaining findings (H-2000, H-2302, H-2605) (hace 32 minutos)
-- `c4b1f4b` Merge branch 'wt-miniaturas' (hace 35 minutos)
-- `785af07` Fusión de main en wt-miniaturas (hace 42 minutos)
-- `febe443` Merge branch 'main' into wt-remanentes (hace 46 minutos)
-Actualizado 2026-10-21 22:02 UTC.
+- `d1b004e` Merge branch 'wt-resto' (hace 9 minutos)
+- `6038b8c` Retira capturas sueltas de panel/undefined (hace 9 minutos)
+- `bc2e07d` Merge branch 'wt-respuestas' (hace 10 minutos)
+- `f7e8cbc` Inicio: fecha y hora (UD-230) y prueba de Para mí al rótulo vigente (hace 10 minutos)
+- `a155083` Merge main into wt-respuestas (hace 17 minutos)
+- `01990ba` Named attachments in two columns from 1024 px so the detail fits at 1280x720 (hace 17 minutos)
+- `3f2dd8c` Fusión de main en wt-resto (hace 19 minutos)
+- `72edbbd` Merge branch 'wt-idea-brechas' (hace 21 minutos)
+Actualizado 2026-10-21 22:27 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo
 
-**Plan de cierre:** `docs/PLAN-DE-CIERRE.md` (2026-10-21 15:00). La sesión anterior murió a las 14:42 con la cuota de su cuenta agotada; sus agentes murieron con ella. Quien retome ejecuta ese plan desde la Fase 0: rescata lo sin commit de `configuracion`, `inicio-respira` y `barra-superior`, relanza los encargos A, B, C y G, y sigue el orden de fusión que dice. Encargo nuevo del dueño de hoy: la barra lateral (alineación, contadores sin contenedor, hover), encargo G.
+Ninguno. Todas las ramas `wt-*` están fusionadas en `main` y sus worktrees retirados. El plan de cierre (`docs/PLAN-DE-CIERRE.md`) está ejecutado. Estado de `main` el 2026-10-21 19:30: servidor 874 de 880 (6 omitidas), banco 74 de 74, panel 185 de 185, ajuste de pantalla 26 de 26, flujos de navegador 221 de 222. El VPS corre `d1b004e` y `node scripts/vps-check.mjs` imprime OK.
 
-**Avance 19:10.** Auditoría de `idea.md`: 47 requisitos, 33 cumplidos con prueba, 4 sin prueba, 5 distintos por decisión del dueño, 5 parciales, 0 que falten (informe en `~/.cache/claude-tmp/auditoria-idea.md`). Un agente cierra: perfil de Equipo editable sólo por su dueño en la API, adjunto en varios mensajes, envío combinado, búsqueda ampliada, prueba de «Para mí» por omisión y documentación y medición del harness. Pendiente propio, tras fusionar las listas: mostrar fecha y hora en Inicio, porque `idea.md` pide la hora y la exclusión salió de un juez (H-808), no del dueño.
+Última ronda de jueces (ronda 5, 10 pantallas): nota 2 en todas, 41 hallazgos, ninguno de severidad 4 o 5; atendidos o refutados con su fila. No se hace ronda 6: cada ronda halla lo siguiente de la fila.
 
-**Avance 19:00.** Ronda 5 consolidada: 10 jueces, nota 2 en todos, 41 hallazgos, 11 de severidad 3, ninguno mayor (la ronda 4 tuvo 40). Se decide no hacer ronda 6: cada ronda halla lo siguiente de la fila y el dueño pidió acortar las rondas. Tres agentes corrigen o refutan por pantalla: respuestas y ficha, listas y barra superior y Áreas, y Equipo con Configuración, entrada, Conexiones y envío. Un cuarto audita `idea.md` contra el código, sólo lectura: informe en `~/.cache/claude-tmp/auditoria-idea.md`.
-
-**Avance 18:45.** En `main` también el bucle de miniaturas (`c4b1f4b`) y los remanentes de código (`0718496`): `involved=me`, «Cerrar sesión» oculto sin sesión local, cinco hallazgos del detector. El VPS corre `0718496`, `vps-check` en OK. Corre la ronda 5 de 10 jueces en `~/.cache/claude-tmp/juicios/ronda5`. `main`: 867 de 873 pruebas del servidor, 169 del panel, 26 de ajuste, 188 de flujos.
-
-**Avance 17:50.** En `main` Áreas, tarjetas, Equipo, Configuración, desplegable de envío, Firefox y aviso, barra móvil (`046c978`). El VPS corre `046c978`, sano, `vps-check` en OK. Corren el arreglo del bucle de miniaturas de video y el cierre documental.
-
-**Avance 17:05.** En `main` también el banco (`d593179`): H-1901 a H-1904, TASK-013, TASK-015 y TASK-024 cerradas con medición, 5 casos privados nuevos. Gasto del banco: 4,2 USD. `classifyDraws` no se adopta. La regla 2 de clasificación baja el área 2 puntos, dentro del ruido (p 0,37); quitarla de los dos `prompts-*.js` la revierte. Siguen los cinco arreglos de pantalla y Firefox.
-
-**Avance 16:50.** Ronda 4 de jueces consolidada: 10 jueces, nota 2 en todos, 40 hallazgos, 35 nuevos, máxima severidad 3 (la ronda 3 tuvo 3 de severidad 5 y 10 de 4). Cinco agentes arreglan por pantalla: barra superior en teléfono, tarjetas y ficha, Áreas, Equipo y Configuración, desplegable de envío. Informes en `~/.cache/claude-tmp/juicios/ronda4`.
-
-**Avance 16:35.** En `main` también el barrido de lenguaje (`50a189a`): los catálogos ya cumplían UD-050 y se corrigió un falso positivo del detector. Corre la ronda 4 de 10 jueces en paralelo (`~/.cache/claude-tmp/juicios/ronda4`). El cambio de Firefox (H-904, H-2500) vuelve a su agente: rompe `test:fit` en Chromium al fusionar con `main`. Banco en curso.
-
-**Avance 16:15.** En `main` también Inicio con espacio (`8650d0c`). Fase 1 completa. Corren el barrido de lenguaje, el banco y el aviso con Firefox. Después: jueces, VPS y cierre.
-
-**Avance 16:00.** En `main` también Configuración (`d56b3cf`): editor del proyecto, proveedores con claves cifradas, explicación por ajuste. Inicio fusiona `main` por un choque en `fits-one-screen` y `USER-DECISIONS`. Falta el barrido de lenguaje, los jueces y el VPS.
-
-**Avance 15:50.** En `main` también la deuda técnica (`98443f7`): respaldo de texto, pruebas en inglés, guardia de idioma en aserciones. DT-010 descartado por el dueño. Falta de la deuda sólo DT-007 (HP-019, HP-020). Inicio y Configuración deben fusionar `main`.
-
-**Avance 15:40.** En `main` también la barra lateral (`8cb1eae`). La deuda técnica vuelve a su rama: el dueño descartó derivar `VERIFICATION.md` (H-45) y el agente lo retira.
-
-**Avance 15:25.** En `main` también la barra superior (`f0f5a2c`) y la telemetría pendiente (`63dc519`). Abierto: H-2000 y H-2001. Las ramas de Inicio y barra lateral deben fusionar `main`.
-
-**Avance 15:15.** Fusionado en `main` el encargo del VPS (`402faf6`): restauración con adjuntos, `IMAGE_TAG` para una segunda instancia, respaldos en modo 600, `trusted-header` documentado. Abiertos: H-2605 (cualquier proceso local suplanta a un miembro en ese modo; el botón «Cerrar sesión» da 404, decisión del dueño). En vuelo: barra superior, barra lateral, Inicio, Configuración, telemetría, H-904 y Firefox, banco, deuda técnica.
-
-Tres encargos siguen abiertos, cada uno en su worktree bajo `.claude/worktrees/<nombre>` y su rama `wt-<nombre>`. Los agentes no sobreviven a la sesión: la memoria de cada encargo es su rama y su fila de aquí. Para retomar: `git -C .claude/worktrees/<nombre> log --oneline main..HEAD`, leer sus filas en `docs/HALLAZGOS.md` y sus UD, y continuar en ese worktree. Ninguno empuja a `main`. Se fusiona con `git merge --no-edit wt-<nombre>`, luego `node scripts/check-conflict-markers.mjs`, `npm test`, `node --test bench/`, `cd panel && npx vitest run && npx tsc --noEmit` y las suites de navegador con puertos propios. Si dos ramas chocan en UD o H, se renumera la que entra después. Si una rama choca con `main` en más de dos archivos, se le pide a su agente (o a quien la retome) que haga `git merge main` en su rama y resuelva allí.
-
-| Rama | Pedido del dueño (textual o resumido) | Criterio de cierre | Rangos reservados |
-|---|---|---|---|
-| `wt-barra-superior` | «Todo esto (Para mí y Por área) debería quedar integrado de manera eficiente, ordenada y no redundante en la barra superior del sitio, siempre visible, pero NO en Inicio. Inicio ya tiene demasiados elementos» | Resumen de «Para mí» y por área en la barra superior de todas las páginas, sin repetirlo en la insignia de Mensajes ni en los contadores de la barra lateral; la franja sale de Inicio; pruebas migradas | UD-100.., H-2000.. |
-| `wt-inicio-respira` | «La barra de texto necesita respirar mucho más, la UI debe ocupar mejor el ancho en pantalla, tener más espacio negativo. Mira la página de Gemini para inspiración» | Compositor grande y centrado, contenedor que crece con la ventana, espacio entre secciones como tokens, envíos y desplegable sólo cuando hay un envío; UD-017 enmendada sin debilitar `test:fit`; capturas de 1280 a 2560 px | UD-110.., H-2100.. |
-| `wt-configuracion` | «La descripción del proyecto tiene texto truncado que obliga a desplazarse dentro de la página. No hay forma segura de reemplazar un proveedor o retirar una clave de API; no es utilizable para agregar un proveedor, reemplazar una clave o diagnosticar. Los rótulos no tienen explicación: Publicación y Telemetría de uso no significan nada» | Editor de descripción grande sin scroll interno; gestión de proveedores con claves cifradas, prueba previa al reemplazo, retiro con bloqueo, diagnóstico clasificado y auditoría sin valores (migración 0009); explicación breve en cada ajuste (enmienda de la regla de texto de ayuda sólo para Configuración) | UD-120.., H-2200.. |
-| `wt-voz` (barrido final) | Barrido de los textos nuevos de Inicio, Configuración, Áreas y telemetría con la guardia `ui-voice` | Hash de la rama con `main` fusionado y validada; no renombra abierto, respondido, cerrado, «Publicado» ni «Propuesta lista» | H-1500.. |
-
-Orden de fusión: `wt-inicio-maqueta` es la última rama en vuelo; fusiona `main` en su rama y entra cuando dé su hash, porque toca `Home.tsx`, los catálogos de textos y las pruebas de flujos que todas las demás tocaron. Tras fusionar Inicio: barrido de `wt-voz` sobre los textos nuevos, una ronda de jueces acotados y la actualización del VPS.
+Auditoría de `idea.md` (`~/.cache/claude-tmp/auditoria-idea.md`, 47 requisitos): sin requisitos faltantes; las brechas encontradas están cerradas (H-3600 a H-3606 y UD-230).
 
 ## Qué se midió
 
@@ -122,14 +89,18 @@ La gravedad 5 fue 2, 4 y 3; la gravedad 4 fue 8, 12 y 10. El recuento no baja de
 - Fusionados en `main` y todavía con worktree: `areas2`, `auto-publicar`, `estados-areas`, `galeria`, `heic`, `modelos`, `thinking`, `h901`, `h900`, `cierre`, `ingles` y `ronda3-b`. Se retiran con `git worktree remove .claude/worktrees/<nombre>` tras copiar a `~/.local/share/team-platform/archivo-de-worktrees/<nombre>` sus resultados de banco y capturas, que git ignora. `ingles` tiene un intérprete de comandos de una sesión anterior (`lsof +D .claude/worktrees/ingles`). Las ramas `wt-*` se borran con `git branch -d wt-<nombre>`.
 - En vuelo: los cuatro de «Trabajo en vuelo».
 
-## Lo que sigue, en orden
+## Lo que sigue
 
-1. Fusionar las ramas en vuelo en el orden de «Trabajo en vuelo». Dueño: la sesión coordinadora.
-2. El VPS corre `6c971d1` desde las 17:16 UTC del 2026-10-21: Inicio con color por área, tres estados, galería, HEIC, publicación automática y telemetría. Medido: la reconstrucción completa, con `ffmpeg` recompilado en ARM con `BUILD_JOBS=1` y prioridad baja, tardó 4 min 52 s. `node scripts/vps-check.mjs` imprime `OK` en todas las líneas. Las migraciones 0006, 0007 y 0008 corrieron solas.
-3. Cuando entren `wt-barra-superior` y `wt-inicio-respira`: barrido de `wt-voz` sobre los textos nuevos y una ronda con jueces acotados en paralelo (`node scripts/juicios.mjs preparar --out DIR`; no lanzarla antes, porque el diseño de Inicio cambia) (marco de `wt-telemetria-ui`) sobre Inicio, Mensajes, Áreas y el flujo de envío. Línea base de la ronda 3: 3 hallazgos de gravedad 5 y 10 de gravedad 4.
-4. Hallazgos abiertos con dueño: H-1903 (`classifyDraws` sin medir, 1,7 USD) y H-1904 (grosor de los grupos); H-1101 (llave de DeepSeek: `node scripts/llave.mjs DEEPSEEK_API_KEY`, la pone el dueño); H-1102 y H-1103 (Sonnet, sólo si se adopta); H-1804 cerrado; H-904 y H-1803 (Inicio).
-5. Revisar «Decisiones del dueño» de `docs/HALLAZGOS.md`: colores de área frente a colores de estado, UD-034 (justificado por ancho), UD-035 («Crear mensaje»), UD-072 (borrador por envío, decisión de la sesión), el retiro de Intro en la revisión y el orden del catálogo de áreas. No bloquea nada.
-6. H-56 (iPhone real): decisión del dueño UD-039, no se prueba todavía.
+Todo lo que queda necesita al dueño, una llave o dinero. Cada fila está en `docs/HALLAZGOS.md` con su comando: `grep -nE '\| (decisión|bloqueado|encargo)' docs/HALLAZGOS.md`.
+
+1. H-1101: `cd ~/team-platform && node scripts/llave.mjs DEEPSEEK_API_KEY`, luego medir DeepSeek.
+2. H-1102 y H-1103: sólo si se adopta Sonnet 5.5 (unos 5 USD). «Haiku se queda» las cierra.
+3. H-2605: el botón «Cerrar sesión» ya se oculta con identidad delegada que no lo soporta (UD-190); queda declarado el límite de `trusted-header`.
+4. H-3008: la nota de la pantalla de entrada no dice a quién pedir una cuenta; agregar un ajuste de contacto es decisión del dueño (UD-170).
+5. H-139: crear el área «Novedad» (decisión del dueño).
+6. H-56: iPhone real, UD-039 lo difiere.
+7. HP-019 y HP-020 (DT-007): repetir los siete casos con `node bench/run.mjs --repeat 5` (presupuesto de API) y mirar las capturas de cada pantalla.
+8. Presupuesto de API: tope total 100 USD (UD-140); gastados unos 55.
 
 ## Peticiones del dueño que cambian el diseño y no se pueden perder
 

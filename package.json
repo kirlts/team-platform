@@ -1,0 +1,24 @@
+{
+  "name": "team-platform-extractores",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "engines": { "node": ">=24.15" },
+  "scripts": {
+    "test": "node --test \"src/extract/**/*.test.js\""
+  },
+  "dependencies": {
+    "@hyzyla/pdfium": "3.0.0",
+    "@mozilla/readability": "0.6.0",
+    "linkedom": "0.18.13",
+    "officeparser": "8.2.0",
+    "sharp": "0.35.5",
+    "turndown": "7.2.4",
+    "undici": "8.12.3"
+  },
+  "devDependencies": {
+    "docx": "9.13.0",
+    "pdf-lib": "1.17.1"
+  }
+}

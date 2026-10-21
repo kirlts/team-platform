@@ -14,18 +14,18 @@
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
 - `main`: 61f61d6 Merge branch 'wt-cierre-docs'. Empujado a origin: `61f61d6`.
-- Ramas con commits sin fusionar: `wt-miniaturas` 1 (hace 65 segundos), `wt-remanentes` 1 (hace 13 segundos).
+- Ramas con commits sin fusionar: `wt-miniaturas` 2 (hace 2 minutos), `wt-remanentes` 1 (hace 4 minutos).
 - Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `miniaturas`, `modelos`, `remanentes`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `61f61d6` Merge branch 'wt-cierre-docs' (hace 2 minutos)
-- `13504f0` Cifras de pruebas del servidor: 865 en verde y 6 omitidas, 2026-10-21 (hace 2 minutos)
-- `6ffba9b` Merge branch 'main' into wt-cierre-docs (hace 3 minutos)
-- `ef2f47f` TODO y deuda técnica al día; HP-019 con la medición del monólogo (hace 3 minutos)
-- `47db1fd` README: llaves desde Configuración, pruebas del panel y cifras del 2026-10-21 (hace 5 minutos)
-- `f69d165` CHANGELOG: barras, Inicio, publicación automática, tarjetas, Firefox y cifras medidas (hace 5 minutos)
-- `07130fe` REPOMAP: bóveda, conexiones, herramientas de interfaz y scripts nuevos (hace 6 minutos)
-- `c6a522e` MASTER-SPEC: vistas, componentes y flujos reflejan el panel construido (hace 6 minutos)
-Actualizado 2026-10-21 21:04 UTC.
+- `61f61d6` Merge branch 'wt-cierre-docs' (hace 6 minutos)
+- `13504f0` Cifras de pruebas del servidor: 865 en verde y 6 omitidas, 2026-10-21 (hace 6 minutos)
+- `6ffba9b` Merge branch 'main' into wt-cierre-docs (hace 7 minutos)
+- `ef2f47f` TODO y deuda técnica al día; HP-019 con la medición del monólogo (hace 7 minutos)
+- `47db1fd` README: llaves desde Configuración, pruebas del panel y cifras del 2026-10-21 (hace 9 minutos)
+- `f69d165` CHANGELOG: barras, Inicio, publicación automática, tarjetas, Firefox y cifras medidas (hace 9 minutos)
+- `07130fe` REPOMAP: bóveda, conexiones, herramientas de interfaz y scripts nuevos (hace 10 minutos)
+- `c6a522e` MASTER-SPEC: vistas, componentes y flujos reflejan el panel construido (hace 10 minutos)
+Actualizado 2026-10-21 21:08 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

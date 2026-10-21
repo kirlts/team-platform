@@ -1,5 +1,5 @@
-// Errores tipados de los proveedores (MASTER-SPEC §7.5 y §7.6).
-// El analizador decide por `code`, nunca por el texto del mensaje.
+// Typed provider errors (MASTER-SPEC §7.5 and §7.6).
+// The analyzer decides by `code`, never by the message text.
 
 export class ProviderError extends Error {
   /**
@@ -12,13 +12,13 @@ export class ProviderError extends Error {
     this.code = 'provider_error';
     this.provider = meta.provider ?? null;
     this.model = meta.model ?? null;
-    // Un rechazo o un corte igual cuestan tokens: el núcleo los guarda en llm_calls.
+    // A refusal or a cut-off still costs tokens: the core stores them in llm_calls.
     this.usage = meta.usage ?? null;
     this.duration_ms = meta.duration_ms ?? null;
   }
 }
 
-/** Falta una llave, un modelo o una URL: no se puede ni armar la llamada. */
+/** A key, a model or a URL is missing: the call cannot even be assembled. */
 export class ProviderConfigError extends ProviderError {
   constructor(message, meta) {
     super(message, meta);
@@ -26,7 +26,7 @@ export class ProviderConfigError extends ProviderError {
   }
 }
 
-/** Respuesta HTTP no exitosa o fallo de red (status 0). */
+/** Unsuccessful HTTP response or network failure (status 0). */
 export class ProviderHttpError extends ProviderError {
   constructor(message, meta = {}) {
     super(message, meta);
@@ -47,8 +47,8 @@ export class ProviderTimeoutError extends ProviderError {
 }
 
 /**
- * `stop_reason: "refusal"` (Anthropic) o `content_filter`/`refusal` (compatibles).
- * No se reintenta igual: el rechazo suele repetirse (informe 02, F4).
+ * `stop_reason: "refusal"` (Anthropic) or `content_filter`/`refusal` (compatibles).
+ * It is not retried the same way: the refusal tends to repeat (report 02, F4).
  */
 export class ProviderRefusalError extends ProviderError {
   constructor(message, meta = {}) {
@@ -59,7 +59,7 @@ export class ProviderRefusalError extends ProviderError {
   }
 }
 
-/** `stop_reason: "max_tokens"` / `finish_reason: "length"`: la salida quedó cortada. */
+/** `stop_reason: "max_tokens"` / `finish_reason: "length"`: the output was cut off. */
 export class ProviderMaxTokensError extends ProviderError {
   constructor(message, meta = {}) {
     super(message, meta);
@@ -68,7 +68,7 @@ export class ProviderMaxTokensError extends ProviderError {
   }
 }
 
-/** La respuesta llegó pero no es JSON, está vacía o no cumple el esquema (modo JSON validado). */
+/** The response arrived but is not JSON, is empty or does not meet the schema (validated JSON mode). */
 export class ProviderOutputError extends ProviderError {
   constructor(message, meta = {}) {
     super(message, meta);
@@ -78,7 +78,7 @@ export class ProviderOutputError extends ProviderError {
   }
 }
 
-/** El proveedor no admite esa entrada (por ejemplo, PDF nativo en un compatible con OpenAI). */
+/** The provider does not support that input (for example, native PDF on an OpenAI-compatible one). */
 export class ProviderUnsupportedError extends ProviderError {
   constructor(message, meta) {
     super(message, meta);

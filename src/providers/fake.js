@@ -1,13 +1,13 @@
-// Proveedor falso para pruebas: respuestas escritas de antemano, llamadas registradas.
+// Fake provider for tests: pre-written responses, recorded calls.
 //
 //   const fake = createFakeProviders({ text: [ {json: {...}}, new ProviderRefusalError('x') ] });
 //   await analyze(bundle, { providers: fake });
-//   fake.calls.text  // lo que recibió cada llamada
+//   fake.calls.text  // what each call received
 //
-// Cada guion (text, vision, speech) puede ser una función `(req, n) => respuesta` o una lista
-// consumida en orden. Una respuesta es: un Error (se lanza), una función, `{json}`, `{text}`
-// u otro objeto cualquiera (se toma como `json`). Los campos `usage`, `duration_ms`, `provider`
-// y `model` se completan si faltan, con la forma del contrato de §7.6.
+// Each script (text, vision, speech) can be a function `(req, n) => response` or a list
+// consumed in order. A response is: an Error (thrown), a function, `{json}`, `{text}`
+// or any other object (taken as `json`). The fields `usage`, `duration_ms`, `provider`
+// and `model` are filled in if missing, with the shape of the §7.6 contract.
 import { withGenAiCall } from '../telemetry/api.js';
 
 function defaultUsage() {
@@ -17,19 +17,19 @@ function defaultUsage() {
 function resolver(slotName, script) {
   if (script === undefined) {
     return () => {
-      throw new Error(`fake: la ranura «${slotName}» no tiene guion`);
+      throw new Error(`fake: slot «${slotName}» has no script`);
     };
   }
   if (typeof script === 'function') return script;
   const queue = [...script];
   return () => {
-    if (queue.length === 0) throw new Error(`fake: se agotaron las respuestas de «${slotName}»`);
+    if (queue.length === 0) throw new Error(`fake: the responses of «${slotName}» ran out`);
     return queue.shift();
   };
 }
 
 async function materialize(response, req, n, identity) {
-  let value = await response; // el guion puede ser asíncrono
+  let value = await response; // the script may be asynchronous
   if (typeof value === 'function') value = await value(req, n);
   if (value instanceof Error) throw value;
   const hasShape = value && typeof value === 'object' && ('json' in value || 'text' in value || 'segments' in value);
@@ -50,8 +50,8 @@ export function createFakeProviders(scripts = {}) {
   const text = {
     ...identity,
     schemaProfile: scripts.textProfile ?? 'anthropic',
-    // Como los proveedores reales, deja un span por llamada (UD-014): así las pruebas y el banco con
-    // el proveedor falso producen el mismo árbol que producción.
+    // Like the real providers, it leaves one span per call (UD-014): so tests and the bench with
+    // the fake provider produce the same tree as production.
     complete(req) {
       return withGenAiCall({ provider: identity.name, model: identity.model, modality: 'text', request: req }, async () => {
         const n = calls.text.length;

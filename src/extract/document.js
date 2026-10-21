@@ -1,6 +1,6 @@
-// Extractor de documentos (MASTER-SPEC §7.4, UD-009): PDF con PDFium, Office con officeparser,
-// texto plano directo. La lectura corre en un hilo trabajador con plazo y límite de memoria
-// (informe 05 §8.3).
+// Document extractor (MASTER-SPEC §7.4, UD-009): PDF with PDFium, Office with officeparser,
+// plain text directly. Reading runs in a worker thread with a deadline and memory limit
+// (report 05 §8.3).
 import { stat } from 'node:fs/promises';
 import { Worker } from 'node:worker_threads';
 import { ExtractError } from './errors.js';
@@ -58,7 +58,7 @@ export async function extractDocument(attachment, ctx) {
   const startedAt = performance.now();
   const progress = createProgress(onProgress, 2);
   progress.report('leyendo el documento');
-  // La herramienta sólo se conoce cuando el hilo devuelve el formato: el span se renombra entonces.
+  // The tool is only known once the thread returns the format: the span is renamed then.
   const { text, meta } = await withSpan('extract.document', { 'team.step': 'extract.document', 'team.input_bytes': size }, async (span) => {
     const out = await runInWorker({ path: attachment.path, mime: attachment.mime, config }, cfg, signal);
     const tool = out.meta.format === 'pdf' ? 'pdfium' : (out.meta.format === 'text' ? 'text' : 'officeparser');

@@ -1,10 +1,10 @@
-// Error de extracción con un código estable en inglés y un motivo legible en español.
-// El motivo es lo que el panel muestra cuando un adjunto no se puede leer.
+// Extraction error with a stable code in English and a readable reason in Spanish.
+// The reason is what the panel shows when an attachment cannot be read.
 
 export class ExtractError extends Error {
   /**
-   * @param {string} code identificador estable (p. ej. `image_heic_unsupported`)
-   * @param {string} message motivo para la persona, en español
+   * @param {string} code stable identifier (e.g. `image_heic_unsupported`)
+   * @param {string} message reason for the person, in Spanish
    * @param {object} [details]
    */
   constructor(code, message, details = {}) {

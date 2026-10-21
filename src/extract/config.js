@@ -1,122 +1,123 @@
-// Perillas del módulo de extracción (MASTER-SPEC §4.9, RULES 3).
-// Cada valor lleva su origen: «informe NN §X» es un informe de docs/investigaciones/;
-// «MASTER-SPEC §X» es el documento de diseño. Un valor sin cita en ninguno de los dos
-// está declarado como cortesía y dice por qué.
+// Knobs of the extraction module (MASTER-SPEC §4.9, RULES 3).
+// Each value carries its origin: «report NN §X» is a report in docs/investigaciones/;
+// «MASTER-SPEC §X» is the design document. A value with a citation in neither
+// is declared as a courtesy and says why.
 
 const KiB = 1024;
 const MiB = 1024 * KiB;
 const GiB = 1024 * MiB;
 
 export const DEFAULTS = Object.freeze({
-  // Tope de texto que un extractor entrega al analizador. Sobre el tope el texto se corta
-  // en un salto de línea y `meta.warnings` lleva `text_truncated`.
+  // Cap on the text an extractor hands to the analyzer. Above the cap the text is cut
+  // at a line break and `meta.warnings` carries `text_truncated`.
   text: Object.freeze({
-    // informe 05 §8.3: 100 páginas (máximo por solicitud con contexto menor de 1 M tokens)
-    // por 2.700 caracteres por página (el mayor de los dos PDF medidos).
+    // report 05 §8.3: 100 pages (maximum per request with a context under 1 M tokens)
+    // times 2,700 characters per page (the larger of the two PDFs measured).
     maxChars: 270_000,
   }),
 
   image: Object.freeze({
-    // MASTER-SPEC §7.8: límite inicial de subida de imagen, 7 MB.
+    // MASTER-SPEC §7.8: initial image upload limit, 7 MB.
     maxBytes: 7 * MiB,
-    // informe 06 §2.7: los modelos 4.7 y posteriores de Anthropic admiten 2576 px de lado largo.
+    // report 06 §2.7: Anthropic models 4.7 and later accept 2576 px on the long side.
     maxSide: 2576,
-    // Formatos que los proveedores de visión aceptan tal cual (informe 06 §6.2: JPEG, PNG, GIF, WebP).
+    // Formats that vision providers accept as they are (report 06 §6.2: JPEG, PNG, GIF, WebP).
     passthroughFormats: Object.freeze(['jpeg', 'png', 'gif', 'webp']),
-    // Formato al que se convierte lo demás (TIFF, AVIF, SVG) o lo que hay que reducir o girar.
+    // Format everything else is converted to (TIFF, AVIF, SVG), or what must be shrunk or rotated.
     outputFormat: 'png',
-    // Prompt de descripción accionable (MASTER-SPEC §7.4: «describe todo lo que sea accionable
-    // para un equipo de software, textual»). Es una instrucción al modelo, no una regla de negocio.
+    // Actionable description prompt (MASTER-SPEC §7.4: describe everything actionable for a
+    // software team, verbatim). It is an instruction to the model, not a business rule.
     prompt:
-      'Describe esta imagen para un equipo de software. Transcribe textualmente todo el texto ' +
-      'visible: mensajes de error, etiquetas, botones, códigos, direcciones y números. Describe ' +
-      'todo lo que sea accionable: qué pantalla o componente se ve, en qué estado está, qué parece ' +
-      'fallar o faltar, qué se señala o se marca. No agregues intenciones que la imagen no muestre.',
+      'Describe this image for a software team. Transcribe verbatim all visible text: error ' +
+      'messages, labels, buttons, codes, addresses and numbers. Describe everything that is ' +
+      'actionable: which screen or component is shown, what state it is in, what seems to fail or ' +
+      'be missing, what is pointed at or marked. Do not add intentions that the image does not ' +
+      'show. Write the description in Spanish.',
   }),
 
   document: Object.freeze({
-    // informe 05 §8.3: 32 MB de solicitud al proveedor por 3/4 del base64.
+    // report 05 §8.3: 32 MB provider request times 3/4 of the base64.
     maxBytes: 24 * MiB,
-    // informe 05 §8.3: menos de 30 caracteres sin espacios por página es una página sin texto
-    // (escaneadas medidas: 0; página digital más pobre: 146).
+    // report 05 §8.3: fewer than 30 non-space characters per page is a page without text
+    // (scanned pages measured: 0; poorest digital page: 146).
     scannedPageMaxChars: 30,
-    // informe 05 §8.3: 100 páginas por llamada al modo nativo con contexto menor de 1 M tokens.
+    // report 05 §8.3: 100 pages per call in native mode with a context under 1 M tokens.
     nativePagesPerCall: 100,
-    // informe 05 §8.3: cortesía declarada, sin medición (lo más lento medido: 7,5 s).
+    // report 05 §8.3: declared courtesy, no measurement (slowest measured: 7.5 s).
     timeoutMs: 60_000,
-    // informe 05 §8.3: pico medido de 664 MB con 50.000 filas de XLSX; se fija con resourceLimits
-    // del hilo trabajador (propuesta del informe, probada aquí en document.test.js).
+    // report 05 §8.3: measured peak of 664 MB with 50,000 XLSX rows; set with the worker thread's
+    // resourceLimits (the report's proposal, tested here in document.test.js).
     memoryMb: 700,
   }),
 
   audio: Object.freeze({
-    // MASTER-SPEC §7.8: límite inicial de subida de audio, 25 MB.
+    // MASTER-SPEC §7.8: initial audio upload limit, 25 MB.
     maxBytes: 25 * MiB,
-    // MASTER-SPEC §7.4 e informe 06 §8: FLAC 16 kHz mono.
+    // MASTER-SPEC §7.4 and report 06 §8: FLAC 16 kHz mono.
     sampleRate: 16_000,
-    // MASTER-SPEC §7.4 e informe 06 §3.3: trozos de 600 s (18,5 MB medidos, bajo los 25 MB de Groq).
+    // MASTER-SPEC §7.4 and report 06 §3.3: 600 s chunks (18.5 MB measured, under Groq's 25 MB).
     chunkSeconds: 600,
-    // MASTER-SPEC §7.4 e informe 06 §3.3: solapamiento de 5 s.
+    // MASTER-SPEC §7.4 and report 06 §3.3: 5 s overlap.
     overlapSeconds: 5,
-    // informe 06 §3.2: Groq factura 10 s como mínimo por solicitud; un último trozo menor se
-    // absorbe en el anterior (informe 06 §3.3, regla de fusión).
+    // report 06 §3.2: Groq bills 10 s minimum per request; a shorter last chunk is
+    // absorbed into the previous one (report 06 §3.3, merge rule).
     minChunkSeconds: 10,
-    // informe 06 §3.2: tope de archivo de Groq, 25 MB (se diseña para 25 MB, informe 06 §7).
+    // report 06 §3.2: Groq file cap, 25 MB (designed for 25 MB, report 06 §7).
     maxChunkBytes: 25 * MiB,
     // MASTER-SPEC §7.4: language=es.
     language: 'es',
-    // informe 06 §3.2: el prompt de Whisper lleva sólo vocabulario (áreas, productos, personas)
-    // y nunca instrucciones. Vacío: no se envía prompt.
+    // report 06 §3.2: the Whisper prompt carries vocabulary only (areas, products, people)
+    // and never instructions. Empty: no prompt is sent.
     vocabulary: '',
-    // MASTER-SPEC §7.4 e informe 06 §3.2: 7.200 s de audio por hora para todo el equipo.
+    // MASTER-SPEC §7.4 and report 06 §3.2: 7,200 s of audio per hour for the whole team.
     budgetSecondsPerHour: 7_200,
-    // Ventana del presupuesto: «por hora» (informe 06 §3.2). Ventana deslizante, la lectura
-    // más conservadora de «por hora»; Groq no documenta cómo la cuenta.
+    // Budget window: «per hour» (report 06 §3.2). Sliding window, the most conservative
+    // reading of «per hour»; Groq does not document how it counts.
     budgetWindowMs: 3_600_000,
-    // Cortesía declarada: un video de 20 minutos produce 3 trozos (informe 06, cálculo con
-    // 600 s y 5 s) y los 20 req/min de Groq (informe 06 §3.2) no se acercan. No se midió
-    // contra el proveedor real; el banco (MASTER-SPEC §7.11) lo fija.
+    // Declared courtesy: a 20-minute video produces 3 chunks (report 06, computed with
+    // 600 s and 5 s) and Groq's 20 req/min (report 06 §3.2) is nowhere near. Not measured
+    // against the real provider; the bench (MASTER-SPEC §7.11) sets it.
     chunkConcurrency: 3,
   }),
 
   video: Object.freeze({
-    // MASTER-SPEC §7.4: tope de 20 minutos.
+    // MASTER-SPEC §7.4: 20-minute cap.
     maxSeconds: 20 * 60,
-    // MASTER-SPEC §7.4 e informe 06 §8: tope de 2 GB.
+    // MASTER-SPEC §7.4 and report 06 §8: 2 GB cap.
     maxBytes: 2 * GiB,
-    // informe 06 §8, `frameSampleSeconds`: 1 fotograma por segundo.
+    // report 06 §8, `frameSampleSeconds`: 1 frame per second.
     frameSampleSeconds: 1,
-    // informe 06 §8, `frameHashDistance`: dHash de 64 bits, se conserva si la distancia con el
-    // último conservado supera 6 (último valor sin pérdida de pantallas, informe 06 §2.5).
+    // report 06 §8, `frameHashDistance`: 64-bit dHash, kept if the distance to the
+    // last kept frame exceeds 6 (last value with no loss of screens, report 06 §2.5).
     frameHashDistance: 6,
-    // informe 06 §8, `maxFrames`: 48 × 1.456 = 69.888 tokens, bajo el escalón de 100.000.
+    // report 06 §8, `maxFrames`: 48 × 1,456 = 69,888 tokens, under the 100,000 step.
     maxFrames: 48,
-    // informe 06 §8, `frameWidth`: 720 px de ancho.
+    // report 06 §8, `frameWidth`: 720 px wide.
     frameWidth: 720,
-    // informe 06 §8: JPEG calidad 4 (`-q:v 4`), 60 KB y 1.456 tokens por fotograma.
+    // report 06 §8: JPEG quality 4 (`-q:v 4`), 60 KB and 1,456 tokens per frame.
     frameQuality: 4,
-    // informe 06 §8, `sceneThreshold`: apagado. No hay perilla: el cambio de escena se descartó
-    // como muestreo principal (informe 06 §2.3, cubre 8 de 16 pantallas con 0,20).
-    // Prompt de descripción por fotograma. Instrucción al modelo.
+    // report 06 §8, `sceneThreshold`: off. There is no knob: scene change was discarded
+    // as the main sampling (report 06 §2.3, covers 8 of 16 screens at 0.20).
+    // Per-frame description prompt. Instruction to the model.
     prompt:
-      'Recibes fotogramas de un video en orden cronológico, cada uno rotulado «Fotograma N». ' +
-      'Para cada fotograma, describe lo que se ve y que sea accionable para un equipo de ' +
-      'software: pantalla o componente, estado, texto visible transcrito textualmente, errores, ' +
-      'y qué cambió respecto del fotograma anterior. Responde un elemento por fotograma, con el ' +
-      'mismo número.',
+      'You receive frames of a video in chronological order, each labeled «Fotograma N». ' +
+      'For each frame, describe what is visible that is actionable for a software team: screen or ' +
+      'component, state, visible text transcribed verbatim, errors, and what changed compared to ' +
+      'the previous frame. Answer with one item per frame, with the same number. Write the ' +
+      'descriptions in Spanish.',
   }),
 
   link: Object.freeze({
-    // informe 05 §8.3: 5 MiB (Readability con linkedom: 388 ms y 301 MB a 5,2 MiB; a 10,5 MiB la
-    // salida cambia de forma).
+    // report 05 §8.3: 5 MiB (Readability with linkedom: 388 ms and 301 MB at 5.2 MiB; at 10.5 MiB the
+    // output changes shape).
     maxBytes: 5 * MiB,
-    // informe 05 §8.3: cortesía declarada, sin medición.
+    // report 05 §8.3: declared courtesy, no measurement.
     timeoutMs: 15_000,
-    // informe 05 §8.3: 0 redirecciones automáticas; cada salto se pide y se revalida, con 5 como
-    // máximo (cortesía declarada).
+    // report 05 §8.3: 0 automatic redirects; each hop is requested and revalidated, with 5 as
+    // the maximum (declared courtesy).
     maxRedirects: 5,
-    // Nombres o direcciones privadas exentas del bloqueo SSRF. Vacío por omisión; existe para el
-    // entorno de pruebas y para un anfitrión que sirva documentos desde su red interna.
+    // Private names or addresses exempt from the SSRF block. Empty by default; it exists for the
+    // test environment and for a host that serves documents from its internal network.
     allowedPrivateHosts: Object.freeze([]),
   }),
 });
@@ -125,15 +126,15 @@ function mergeSection(base, over) {
   return Object.freeze({ ...base, ...(over ?? {}) });
 }
 
-/** Mezcla las perillas dadas sobre los valores por omisión, sección por sección. */
+/** Merges the given knobs over the defaults, section by section. */
 export function resolveConfig(overrides = {}) {
   const out = {};
   for (const section of Object.keys(DEFAULTS)) out[section] = mergeSection(DEFAULTS[section], overrides[section]);
   for (const section of Object.keys(overrides)) {
-    if (section !== 'workDir' && !(section in DEFAULTS)) throw new Error(`perilla desconocida: ${section}`);
+    if (section !== 'workDir' && !(section in DEFAULTS)) throw new Error(`unknown knob: ${section}`);
   }
-  // `workDir`: directorio de trabajo para archivos intermedios (fotogramas, trozos de audio).
-  // Omisión: el temporal del sistema.
+  // `workDir`: working directory for intermediate files (frames, audio chunks).
+  // Default: the system temp directory.
   out.workDir = overrides.workDir ?? null;
   return Object.freeze(out);
 }

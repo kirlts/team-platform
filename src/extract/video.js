@@ -1,6 +1,6 @@
-// Extractor de video (MASTER-SPEC §7.4, informe 06): la pista de audio va al extractor de
-// audio; un fotograma por segundo, deduplicado por dHash, va al proveedor de visión en una
-// sola llamada; el sistema intercala voz y fotogramas por orden cronológico.
+// Video extractor (MASTER-SPEC §7.4, report 06): the audio track goes to the audio
+// extractor; one frame per second, deduplicated by dHash, goes to the vision provider in a
+// single call; the system interleaves speech and frames in chronological order.
 import { mkdir, readdir, readFile, stat } from 'node:fs/promises';
 import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
@@ -30,7 +30,7 @@ const FRAMES_SCHEMA = {
   additionalProperties: false,
 };
 
-/** Un fotograma por `frameSampleSeconds`, a `frameWidth` px, JPEG; el nombre es el segundo (`-frame_pts`). */
+/** One frame per `frameSampleSeconds`, at `frameWidth` px, JPEG; the name is the second (`-frame_pts`). */
 async function sampleFrames(videoPath, dir, cfg, signal) {
   await mkdir(dir, { recursive: true });
   await run(
@@ -45,7 +45,7 @@ async function sampleFrames(videoPath, dir, cfg, signal) {
   const names = (await readdir(dir)).filter((n) => n.endsWith('.jpg')).sort();
   return names.map((name) => ({
     path: join(dir, name),
-    // Con `fps=1/N` el tiempo de presentación de la salida cuenta fotogramas, no segundos.
+    // With `fps=1/N` the output's presentation time counts frames, not seconds.
     second: Number.parseInt(name, 10) * cfg.frameSampleSeconds,
   }));
 }
@@ -76,12 +76,12 @@ export async function extractVideo(attachment, ctx) {
   }
 
   const audioPlan = info.hasAudio ? planAudio(info.durationSeconds, config.audio) : null;
-  // Pasos: un fotograma por segundo, el hash, la llamada de visión, más un paso por trozo de audio.
+  // Steps: one frame per second, the hash, the vision call, plus one step per audio chunk.
   const progress = createProgress(onProgress, 3 + (audioPlan?.steps ?? 0));
   const warnings = [];
   const calls = [];
 
-  // La transcripción y los fotogramas no dependen una de otra: corren a la vez.
+  // Transcription and frames do not depend on each other: they run at the same time.
   const audioJob = audioPlan
     ? (async () => {
         const t = performance.now();
@@ -177,8 +177,8 @@ export async function extractVideo(attachment, ctx) {
 }
 
 /**
- * Línea de tiempo: fotogramas y segmentos de voz en orden cronológico, con el fotograma antes
- * de la voz que empieza en el mismo segundo (informe 06 §4.1: la imagen va antes del texto).
+ * Timeline: frames and speech segments in chronological order, with the frame before
+ * the speech that starts in the same second (report 06 §4.1: the image goes before the text).
  */
 export function buildTimeline(frames, segments) {
   const events = [

@@ -1,6 +1,6 @@
-// dHash de 64 bits (informe 06 §2.5): imagen reducida a 9×8 en grises; cada bit compara un
-// píxel con su vecino de la derecha. Se conserva un fotograma si su distancia de Hamming con el
-// último conservado supera el umbral.
+// 64-bit dHash (report 06 §2.5): image shrunk to 9×8 in grayscale; each bit compares a
+// pixel with its right-hand neighbour. A frame is kept if its Hamming distance from the
+// last kept one exceeds the threshold.
 import sharp from 'sharp';
 
 export async function dhash(input) {
@@ -25,10 +25,10 @@ export function hammingDistance(a, b) {
 }
 
 /**
- * Elige fotogramas: conserva los que cambian más que `distance` respecto del último conservado y,
- * si quedan más de `maxFrames`, los de mayor cambio (el primero siempre entra), devueltos en
- * orden temporal.
- * @param {{second:number, hash:bigint}[]} frames en orden temporal
+ * Picks frames: keeps those that change more than `distance` from the last kept one and,
+ * if more than `maxFrames` remain, those with the greatest change (the first always gets in), returned in
+ * temporal order.
+ * @param {{second:number, hash:bigint}[]} frames in temporal order
  */
 export function selectFrames(frames, { distance, maxFrames }) {
   const kept = [];

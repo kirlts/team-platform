@@ -1,5 +1,5 @@
-// Extractor de audio (MASTER-SPEC §7.4): FLAC 16 kHz mono, trozos de 600 s con 5 s de
-// solapamiento, transcripción con segmentos y fusión por marca de tiempo.
+// Audio extractor (MASTER-SPEC §7.4): FLAC 16 kHz mono, 600 s chunks with 5 s of
+// overlap, transcription with segments and merging by timestamp.
 import { mkdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ExtractError } from './errors.js';
@@ -10,15 +10,15 @@ import { createProgress } from './lib/progress.js';
 import { formatTimestamp } from './lib/time.js';
 import { annotate, withSpan } from '../telemetry/api.js';
 
-/** Pasos de progreso de una transcripción: uno por trozo. */
+/** Progress steps of a transcription: one per chunk. */
 export function planAudio(durationSeconds, cfg) {
   const plan = planChunks(durationSeconds, cfg);
   return { plan, steps: plan.length, billableSeconds: billableSeconds(plan, cfg.minChunkSeconds) };
 }
 
 /**
- * Transcribe un archivo con pista de audio (de un audio o de un video) y devuelve los segmentos
- * fusionados con tiempos absolutos. El llamador crea `progress` con un paso por trozo.
+ * Transcribes a file with an audio track (from an audio or a video) and returns the segments
+ * merged with absolute times. The caller creates `progress` with one step per chunk.
  */
 export async function transcribeFile(sourcePath, { durationSeconds, plan }, ctx, progress) {
   const { providers, config, signal } = ctx;
@@ -69,7 +69,7 @@ export async function transcribeFile(sourcePath, { durationSeconds, plan }, ctx,
   return mergeSegments(plan, perChunk);
 }
 
-// Un proveedor sin segmentos devuelve sólo `text`: se trata como un único segmento del trozo.
+// A provider without segments returns only `text`: it is treated as a single segment of the chunk.
 function normalizeSegments(result, chunk) {
   const segments = Array.isArray(result?.segments) ? result.segments : [];
   if (segments.length > 0) {
@@ -83,7 +83,7 @@ function normalizeSegments(result, chunk) {
   return [];
 }
 
-/** Una línea por segmento: `[mm:ss] texto`. */
+/** One line per segment: `[mm:ss] texto`. */
 export function formatSegments(segments) {
   return segments.map((s) => `[${formatTimestamp(s.start)}] ${s.text}`).join('\n');
 }

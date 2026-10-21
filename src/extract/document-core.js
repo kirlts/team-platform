@@ -1,6 +1,6 @@
-// Lectura de documentos a markdown. Corre dentro de un hilo trabajador (document.js) para que
-// un archivo patológico no congele el proceso de la API: PDFium y officeparser ocupan el bucle
-// de eventos mientras trabajan (informe 05 §4, README de unpdf).
+// Reading of documents into markdown. Runs inside a worker thread (document.js) so that
+// a pathological file does not freeze the API process: PDFium and officeparser occupy the event
+// loop while they work (report 05 §4, unpdf README).
 import { readFile } from 'node:fs/promises';
 import { PDFiumLibrary } from '@hyzyla/pdfium';
 import { OfficeParser } from 'officeparser';
@@ -9,12 +9,12 @@ import { batchPages } from './lib/pdf-pages.js';
 
 const PDF_SIGNATURE = '%PDF-';
 
-/** Formato por firma binaria; el tipo MIME sólo decide entre texto y lo desconocido. */
+/** Format by binary signature; the MIME type only decides between text and the unknown. */
 export function detectFormat(buffer, mime) {
   if (buffer.subarray(0, 1024).toString('latin1').includes(PDF_SIGNATURE)) return 'pdf';
   if (buffer[0] === 0x50 && buffer[1] === 0x4b) return 'office'; // zip: docx, pptx, xlsx, odt…
   if (typeof mime === 'string' && mime.startsWith('text/')) return 'text';
-  // Sin tipo útil (p. ej. `application/octet-stream`): texto si no tiene bytes nulos y es UTF-8 válido.
+  // No useful type (e.g. `application/octet-stream`): text if it has no null bytes and is valid UTF-8.
   if (!mime || mime === 'application/octet-stream') return isUtf8Text(buffer) ? 'text' : null;
   return null;
 }
@@ -53,8 +53,8 @@ async function readPdf(buffer, cfg) {
       meta: {
         format: 'pdf',
         pageCount,
-        // `scanned`: al menos una página bajo el umbral. El analizador manda al proveedor sólo
-        // `scannedPages`, en lotes de `nativePageBatches` (informe 05 §8.3).
+        // `scanned`: at least one page under the threshold. The analyzer sends the provider only
+        // `scannedPages`, in batches of `nativePageBatches` (report 05 §8.3).
         scanned: scannedPages.length > 0,
         scannedPages,
         nativePageBatches: batchPages(scannedPages, cfg.nativePagesPerCall),
@@ -68,13 +68,13 @@ async function readPdf(buffer, cfg) {
 
 async function readOffice(buffer) {
   const ast = await OfficeParser.parseOffice(buffer, { generateIds: false });
-  // Sin el bloque de autor y fechas que officeparser antepone como YAML (informe 05 §8.1).
+  // Without the author and dates block that officeparser prepends as YAML (report 05 §8.1).
   ast.metadata = {};
   const options = { generateIds: false };
   const nodes = ast.content;
   let text;
   if (ast.type === 'xlsx' && nodes.length > 0 && nodes.every((n) => n.type === 'sheet')) {
-    // officeparser separa las hojas sin nombrarlas; el nombre está en el AST (informe 05 §2.3).
+    // officeparser separates the sheets without naming them; the name is in the AST (report 05 §2.3).
     const parts = [];
     for (const sheet of nodes) {
       ast.content = [sheet];

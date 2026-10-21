@@ -1,7 +1,7 @@
-// Transcripción por la API de Groq compatible con OpenAI (MASTER-SPEC §3, §7.4 y §7.6; UD-001, UD-008).
-// Documentación consultada en el informe 01 §3: `whisper-large-v3-turbo`, 0,04 USD por hora de audio,
-// 25 MB por archivo gratis. El troceado del audio (600 s con 5 s de solapamiento) es del extractor
-// (§7.4); este módulo transcribe un archivo.
+// Transcription through Groq's OpenAI-compatible API (MASTER-SPEC §3, §7.4 and §7.6; UD-001, UD-008).
+// Documentation consulted in report 01 §3: `whisper-large-v3-turbo`, 0.04 USD per hour of audio,
+// 25 MB per file for free. Chunking the audio (600 s with 5 s of overlap) belongs to the extractor
+// (§7.4); this module transcribes one file.
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 import { ProviderConfigError, ProviderHttpError, ProviderTimeoutError } from './errors.js';
@@ -10,7 +10,7 @@ import { annotate, withGenAiCall } from '../telemetry/api.js';
 
 export const GROQ_SPEECH_DEFAULTS = Object.freeze({
   baseUrl: 'https://api.groq.com/openai/v1',
-  // Modelo por omisión de MASTER-SPEC §3.
+  // Default model from MASTER-SPEC §3.
   model: 'whisper-large-v3-turbo',
   // §7.4: `language=es`.
   language: 'es',
@@ -39,7 +39,7 @@ export function createGroqSpeechClient(cfg) {
     const form = new FormData();
     form.append('file', new Blob([bytes]), basename(audioPath));
     form.append('model', model);
-    // verbose_json + segmentos: marcas de tiempo por segmento para la línea de tiempo (§7.4).
+    // verbose_json + segments: per-segment timestamps for the timeline (§7.4).
     form.append('response_format', 'verbose_json');
     form.append('timestamp_granularities[]', 'segment');
     if (language) form.append('language', language);
@@ -91,7 +91,7 @@ export function createGroqSpeechClient(cfg) {
       text: String(json?.text ?? '').trim(),
       segments,
       language: json?.language ?? language ?? null,
-      // La cuota de Groq se cuenta en segundos de audio (7.200 s por hora, §7.4), no en tokens.
+      // Groq's quota is counted in seconds of audio (7,200 s per hour, §7.4), not in tokens.
       usage: { input_tokens: 0, output_tokens: 0, cached_tokens: 0, audio_seconds: json?.duration ?? segments.at(-1)?.end ?? 0 },
       duration_ms,
       provider,
@@ -105,8 +105,8 @@ export function createGroqSpeechClient(cfg) {
     /**
      * providers.speech.transcribe
      * @param {{audioPath: string, language?: string, prompt?: string}} req
-     * `prompt` sólo de vocabulario (nombres propios, términos del proyecto), nunca instrucciones (§7.4).
-     * Un span por llamada (UD-014): el audio queda por referencia y la transcripción completa en el evento.
+     * `prompt` is vocabulary only (proper names, project terms), never instructions (§7.4).
+     * One span per call (UD-014): the audio stays by reference and the full transcription in the event.
      */
     transcribe(req) {
       const request = { ...req, language: req.language === undefined ? GROQ_SPEECH_DEFAULTS.language : req.language };

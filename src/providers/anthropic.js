@@ -1,16 +1,16 @@
-// Proveedor Anthropic: Messages nativo por `fetch`, sin SDK (MASTER-SPEC §3 y §7.6).
+// Anthropic provider: native Messages over `fetch`, no SDK (MASTER-SPEC §3 and §7.6).
 //
-// Por qué sin SDK: el contrato de §7.6 usa cuatro campos de la API (system, messages,
-// output_config, usage). `fetch` alcanza, no suma una dependencia y deja que las pruebas
-// levanten un servidor HTTP local en vez de simular un cliente.
+// Why no SDK: the §7.6 contract uses four API fields (system, messages,
+// output_config, usage). `fetch` is enough, adds no dependency and lets tests
+// start a local HTTP server instead of mocking a client.
 //
-// Reglas del modelo por omisión (Claude Haiku 5.5, informe 02 §1.1 y guía de migración):
-//  - `temperature`, `top_p` y `top_k` no se envían: otro valor devuelve 400 (informe 02 [F3]).
-//  - Sin `prefill`: el último mensaje es siempre del usuario.
-//  - Salida estructurada con `output_config.format` de tipo `json_schema` [F1]; el esquema
-//    de la gramática exige `additionalProperties: false` y no admite `minLength`/`maxItems`.
-//  - `effort` va dentro de `output_config`, no en el nivel superior.
-//  - El prompt de sistema lleva `cache_control` (mínimo cacheable de Haiku 5.5: 512 tokens [F2]).
+// Rules of the default model (Claude Haiku 5.5, report 02 §1.1 and migration guide):
+//  - `temperature`, `top_p` and `top_k` are not sent: any other value returns 400 (report 02 [F3]).
+//  - No `prefill`: the last message is always from the user.
+//  - Structured output with `output_config.format` of type `json_schema` [F1]; the grammar's
+//    schema requires `additionalProperties: false` and does not support `minLength`/`maxItems`.
+//  - `effort` goes inside `output_config`, not at the top level.
+//  - The system prompt carries `cache_control` (Haiku 5.5 minimum cacheable: 512 tokens [F2]).
 import {
   ProviderConfigError,
   ProviderMaxTokensError,
@@ -22,26 +22,26 @@ import { withGenAiCall } from '../telemetry/api.js';
 
 export const ANTHROPIC_DEFAULTS = Object.freeze({
   baseUrl: 'https://api.anthropic.com',
-  // Modelo por omisión de MASTER-SPEC §3.
+  // Default model from MASTER-SPEC §3.
   model: 'claude-haiku-5-5',
   apiVersion: '2023-06-01',
-  // Valor por omisión de §10.2 del informe 02: provisional 16.000 (el banco fija el p95 real).
+  // Default from §10.2 of report 02: provisional 16,000 (the bench sets the real p95).
   maxTokens: 16_000,
-  // Vida de la caché de prompt: 5 minutos por omisión, 1 hora si el acierto medido es bajo (informe 02 §10.2 [F2]).
+  // Prompt cache lifetime: 5 minutes by default, 1 hour if the measured hit rate is low (report 02 §10.2 [F2]).
   cacheTtl: '5m',
 });
 
 const EFFORTS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 
-// Anthropic propone esta línea cuando el pensamiento está apagado y la salida es JSON:
-// subió la proporción de JSON completos y correctos en `low` y `medium` (informe 02 §10.2, F4).
+// Anthropic proposes this line when thinking is off and the output is JSON:
+// it raised the share of complete and correct JSON at `low` and `medium` (report 02 §10.2, F4).
 const JSON_FINAL_ANSWER_LINE = 'The JSON output format applies to your final answer only.';
 
 function buildSystem(blocks, { cacheTtl, thinking }) {
   const list = [...blocks];
   if (thinking === 'disabled') list.push(JSON_FINAL_ANSWER_LINE);
   if (list.length === 0) return undefined;
-  // El punto de caché va en el último bloque: todo el prefijo estable se cachea (prefijo exacto, [F2]).
+  // The cache point goes in the last block: the whole stable prefix is cached (exact prefix, [F2]).
   const cacheControl = cacheTtl === '1h' ? { type: 'ephemeral', ttl: '1h' } : { type: 'ephemeral' };
   return list.map((text, i) => (i === list.length - 1 ? { type: 'text', text, cache_control: cacheControl } : { type: 'text', text }));
 }
@@ -54,7 +54,7 @@ async function toAnthropicContent(content, provider) {
     } else if (part.type === 'image') {
       out.push({ type: 'image', source: { type: 'base64', media_type: part.mime, data: await partToBase64(part) } });
     } else if (part.type === 'document') {
-      // PDF nativo: bloque `document` en base64 (600 páginas por solicitud con contexto de 1M; informe 01 §2).
+      // Native PDF: `document` block in base64 (600 pages per request with a 1M context; report 01 §2).
       out.push({ type: 'document', source: { type: 'base64', media_type: part.mime ?? 'application/pdf', data: await partToBase64(part) } });
     } else {
       throw new ProviderConfigError(`${provider}: tipo de parte desconocido «${part.type}»`);
@@ -69,9 +69,9 @@ async function toAnthropicContent(content, provider) {
  * @param {string} [cfg.model]
  * @param {string} [cfg.baseUrl]
  * @param {'5m'|'1h'} [cfg.cacheTtl]
- * @param {'disabled'|undefined} [cfg.thinking] omitido = pensamiento adaptativo del modelo
+ * @param {'disabled'|undefined} [cfg.thinking] omitted = the model's adaptive thinking
  * @param {number} [cfg.timeoutMs]
- * @param {number} [cfg.maxTokens] valor por omisión de `complete`
+ * @param {number} [cfg.maxTokens] default for `complete`
  * @param {typeof fetch} [cfg.fetchImpl]
  */
 export function createAnthropicClient(cfg) {
@@ -83,12 +83,12 @@ export function createAnthropicClient(cfg) {
   const defaultMaxTokens = cfg.maxTokens ?? ANTHROPIC_DEFAULTS.maxTokens;
   const provider = 'anthropic';
 
-  // Un span por llamada con la entrada y la salida completas (UD-014, MASTER-SPEC §7.10 bis).
+  // One span per call with the full input and output (UD-014, MASTER-SPEC §7.10 bis).
   const call = (req, modality = 'text') =>
     withGenAiCall({ provider, model, modality, request: req, cacheTtl: req.cacheTtl ?? cacheTtl }, () => rawCall(req));
 
   async function rawCall({ system, messages, schema, effort, maxTokens, cacheTtl: callCacheTtl, thinking: callThinking }) {
-    // `thinking: 'disabled'` por llamada pisa al de la configuración: la clasificación y la descomposición se miden por separado.
+    // A per-call `thinking: 'disabled'` overrides the configured one: classification and decomposition are measured separately.
     const thinking = callThinking ?? cfg.thinking;
     if (effort !== undefined && !EFFORTS.has(effort)) {
       throw new ProviderConfigError(`anthropic: esfuerzo inválido «${effort}»`, { provider, model });
@@ -128,7 +128,7 @@ export function createAnthropicClient(cfg) {
     const usage = {
       input_tokens: u.input_tokens ?? 0,
       output_tokens: u.output_tokens ?? 0,
-      // Lectura de caché; la escritura va aparte porque se cobra a otra tarifa (1,25x; informe 02 [F2]).
+      // Cache read; the write is separate because it is billed at another rate (1.25x; report 02 [F2]).
       cached_tokens: u.cache_read_input_tokens ?? 0,
       cache_creation_tokens: u.cache_creation_input_tokens ?? 0,
     };
@@ -161,15 +161,15 @@ export function createAnthropicClient(cfg) {
     name: provider,
     model,
     schemaProfile: 'anthropic',
-    /** providers.text.complete: devuelve `json` si hay esquema, si no `text`. */
+    /** providers.text.complete: returns `json` if there is a schema, otherwise `text`. */
     complete: (req) => call(req),
-    /** providers.vision.describe: imágenes (y PDF) como bloques, luego el prompt. */
+    /** providers.vision.describe: images (and PDF) as blocks, then the prompt. */
     describe({ images, prompt, schema, system, effort, maxTokens, cacheTtl, thinking }) {
       if (!Array.isArray(images) || images.length === 0) {
         throw new ProviderConfigError('anthropic: describe necesita al menos una imagen', { provider, model });
       }
       const parts = images.map((img) => ({ type: img.mime === 'application/pdf' ? 'document' : 'image', ...img }));
-      // Las imágenes van antes del texto: así lo recomienda la documentación de visión.
+      // Images go before the text: that is what the vision documentation recommends.
       return call({ system, messages: [{ role: 'user', content: [...parts, { type: 'text', text: prompt }] }], schema, effort, maxTokens, cacheTtl, thinking }, 'vision');
     },
   };

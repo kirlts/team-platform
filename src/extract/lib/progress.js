@@ -1,5 +1,5 @@
-// Progreso por paso real (MASTER-SPEC §7.10): el porcentaje sale de pasos completados sobre
-// pasos totales, nunca de un reloj. Nunca baja y no repite un aviso idéntico.
+// Progress per real step (MASTER-SPEC §7.10): the percentage comes from completed steps over
+// total steps, never from a clock. It never goes down and does not repeat an identical notice.
 
 export function createProgress(onProgress, total) {
   let done = 0;
@@ -16,16 +16,16 @@ export function createProgress(onProgress, total) {
     try {
       onProgress(shown, phrase);
     } catch {
-      // Un avisador que falla (por ejemplo, un flujo SSE cerrado) no debe matar la extracción.
+      // A notifier that fails (for example, a closed SSE stream) must not kill the extraction.
     }
   }
 
   return {
-    /** Avisa la frase del paso en curso sin completar ninguno. */
+    /** Announces the phrase of the step in progress without completing any. */
     report(phrase) {
       emit(phrase);
     },
-    /** Completa un paso y avisa. */
+    /** Completes a step and announces it. */
     advance(phrase) {
       done = Math.min(total, done + 1);
       emit(phrase);
@@ -33,7 +33,7 @@ export function createProgress(onProgress, total) {
     setTotal(n) {
       total = n;
     },
-    /** Cierra en 100 %. */
+    /** Closes at 100 %. */
     finish(phrase = 'listo') {
       done = total;
       emit(phrase);

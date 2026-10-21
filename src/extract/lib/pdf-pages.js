@@ -1,10 +1,10 @@
-// Páginas de un PDF para el modo nativo del proveedor (informe 05 §5 y §8.3): sólo las páginas
-// sin texto viajan como PDF; el resto ya se extrajo. La partición con `pdf-lib` tomó 36 ms para
-// 3 de 6 páginas y 249 ms para 3 de 15 (informe 05 §5).
+// PDF pages for the provider's native mode (report 05 §5 and §8.3): only the pages
+// without text travel as PDF; the rest were already extracted. Splitting with `pdf-lib` took 36 ms for
+// 3 of 6 pages and 249 ms for 3 of 15 (report 05 §5).
 import { readFile } from 'node:fs/promises';
 import { PDFDocument } from 'pdf-lib';
 
-/** Agrupa números de página en lotes de a lo sumo `perCall` (límite por llamada del proveedor). */
+/** Groups page numbers into batches of at most `perCall` (the provider's per-call limit). */
 export function batchPages(pages, perCall) {
   const batches = [];
   for (let i = 0; i < pages.length; i += perCall) batches.push(pages.slice(i, i + perCall));
@@ -12,7 +12,7 @@ export function batchPages(pages, perCall) {
 }
 
 /**
- * Devuelve un PDF nuevo con sólo las páginas pedidas (numeradas desde 1), en el orden dado.
+ * Returns a new PDF with only the requested pages (numbered from 1), in the given order.
  * @param {string} path
  * @param {number[]} pages
  * @returns {Promise<Uint8Array>}

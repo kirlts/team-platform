@@ -1,14 +1,14 @@
-// Extractor de imagen (MASTER-SPEC §7.4): el proveedor de visión describe lo accionable.
-// HEIC de iPhone: `sharp` con sus binarios precompilados no lo decodifica (informe 06 §6.2),
-// así que se rechaza con motivo en vez de fallar adentro del proveedor.
+// Image extractor (MASTER-SPEC §7.4): the vision provider describes what is actionable.
+// iPhone HEIC: `sharp` with its precompiled binaries does not decode it (report 06 §6.2),
+// so it is rejected with a reason instead of failing inside the provider.
 import { open, readFile, stat } from 'node:fs/promises';
 import sharp from 'sharp';
 import { ExtractError } from './errors.js';
 import { createProgress } from './lib/progress.js';
 import { annotate, withSpan } from '../telemetry/api.js';
 
-// Marcas del contenedor ISO-BMFF que usan las fotos HEIC/HEIF con códec HEVC. `avif` queda fuera
-// a propósito: sharp sí lo lee. Es una firma binaria del formato, no texto humano.
+// Brands of the ISO-BMFF container used by HEIC/HEIF photos with the HEVC codec. `avif` is left out
+// on purpose: sharp does read it. It is a binary signature of the format, not human text.
 const HEIC_BRANDS = new Set(['heic', 'heix', 'hevc', 'hevx', 'heim', 'heis', 'hevm', 'hevs', 'mif1', 'msf1']);
 
 const MIME_BY_FORMAT = { jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp' };
@@ -26,8 +26,8 @@ async function readBrand(path) {
 }
 
 /**
- * Deja la imagen en un formato que los proveedores aceptan: la pasa tal cual si ya lo es, está
- * derecha y cabe; si no, la gira según EXIF, la reduce al lado máximo y la convierte.
+ * Leaves the image in a format providers accept: passes it as is if it already is one, is
+ * upright and fits; otherwise rotates it per EXIF, shrinks it to the maximum side and converts it.
  */
 export async function normalizeImage(path, cfg) {
   const brand = await readBrand(path);

@@ -1,11 +1,11 @@
-// ffmpeg y ffprobe por `spawn` (MASTER-SPEC §3, informe 06 §1): sin `fluent-ffmpeg`, sin WASM.
+// ffmpeg and ffprobe via `spawn` (MASTER-SPEC §3, report 06 §1): no `fluent-ffmpeg`, no WASM.
 import { spawn } from 'node:child_process';
 import { ExtractError } from '../errors.js';
 import { annotate, withSpan } from '../../telemetry/api.js';
 
 const STDERR_TAIL = 2000;
 
-/** Corre un binario y devuelve stdout. Rechaza con ExtractError si sale con error o se aborta. */
+/** Runs a binary and returns stdout. Rejects with ExtractError if it exits with an error or is aborted. */
 export function run(binary, args, { signal } = {}) {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) return reject(new ExtractError('aborted', 'La extracción se canceló.'));
@@ -30,7 +30,7 @@ export function run(binary, args, { signal } = {}) {
   });
 }
 
-/** Duración en segundos y si trae pista de audio o de video. */
+/** Duration in seconds and whether it has an audio or video track. */
 export function probe(path, { signal } = {}) {
   return withSpan('extract.ffprobe', { 'team.step': 'extract.ffprobe', 'team.tool': 'ffprobe' }, async () => {
     const raw = await run(

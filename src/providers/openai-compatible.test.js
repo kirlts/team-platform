@@ -1,4 +1,4 @@
-// Pruebas del proveedor compatible con OpenAI contra un servidor HTTP local.
+// Tests of the OpenAI-compatible provider against a local HTTP server.
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import {
@@ -32,7 +32,7 @@ describe('openai-compatible', () => {
   const client = (extra = {}) => createOpenAICompatibleClient({ name: 'deepseek', apiKey: 'clave-de-prueba', model: 'deepseek-flash', baseUrl: server.url, ...extra });
   const last = () => server.requests.at(-1);
 
-  it('modo json_schema: response_format estricto, sistema como primer mensaje, uso normalizado', async () => {
+  it('json_schema mode: strict response_format, system as the first message, normalized usage', async () => {
     reply = () => ({ body: completion({ content: '{"area_id": 2, "note": null}' }) });
     const out = await client({ structured: 'json_schema' }).complete({
       system: ['A', 'B'],
@@ -46,11 +46,11 @@ describe('openai-compatible', () => {
     assert.deepEqual(b.messages[1], { role: 'user', content: 'hola' });
     assert.deepEqual(b.response_format, { type: 'json_schema', json_schema: { name: 'response', strict: true, schema: SCHEMA } });
     assert.deepEqual(out.json, { area_id: 2, note: null });
-    // 1000 de prompt con 600 en caché: la entrada sin caché son 400.
+    // 1000 prompt tokens with 600 cached: the uncached input is 400.
     assert.deepEqual(out.usage, { input_tokens: 400, output_tokens: 20, cached_tokens: 600 });
   });
 
-  it('modo tool: herramienta estricta forzada y argumentos como salida', async () => {
+  it('tool mode: forced strict tool and arguments as output', async () => {
     reply = () => ({ body: completion({ content: null, tool_calls: [{ id: 'c1', type: 'function', function: { name: 'respond', arguments: '{"area_id": 5, "note": "x"}' } }] }) });
     const out = await client({ structured: 'tool' }).complete({ messages: [{ role: 'user', content: 'x' }], schema: SCHEMA });
     const b = last().json;
@@ -60,7 +60,7 @@ describe('openai-compatible', () => {
     assert.deepEqual(out.json, { area_id: 5, note: 'x' });
   });
 
-  it('modo json_object: el esquema va en el prompt y la salida se valida con Ajv', async () => {
+  it('json_object mode: the schema goes in the prompt and the output is validated with Ajv', async () => {
     reply = () => ({ body: completion({ content: '{"area_id": 1, "note": "ok"}' }) });
     const out = await client({ structured: 'json_object' }).complete({ system: 'Base', messages: [{ role: 'user', content: 'x' }], schema: SCHEMA });
     const b = last().json;
@@ -76,7 +76,7 @@ describe('openai-compatible', () => {
     );
   });
 
-  it('contenido vacío en modo JSON es ProviderOutputError', async () => {
+  it('empty content in JSON mode is ProviderOutputError', async () => {
     reply = () => ({ body: completion({ content: '' }) });
     await assert.rejects(
       client({ structured: 'json_object' }).complete({ messages: [{ role: 'user', content: 'x' }], schema: SCHEMA }),
@@ -84,7 +84,7 @@ describe('openai-compatible', () => {
     );
   });
 
-  it('finish_reason length es corte por max_tokens', async () => {
+  it('finish_reason length is a max_tokens cut-off', async () => {
     reply = () => ({ body: { choices: [{ finish_reason: 'length', message: { content: '{"a' } }], usage: { prompt_tokens: 5, completion_tokens: 5 } } });
     await assert.rejects(
       client().complete({ messages: [{ role: 'user', content: 'x' }], schema: SCHEMA }),
@@ -92,7 +92,7 @@ describe('openai-compatible', () => {
     );
   });
 
-  it('content_filter y refusal son rechazos tipados', async () => {
+  it('content_filter and refusal are typed refusals', async () => {
     reply = () => ({ body: { choices: [{ finish_reason: 'content_filter', message: { content: null } }], usage: {} } });
     await assert.rejects(
       client().complete({ messages: [{ role: 'user', content: 'x' }], schema: SCHEMA }),
@@ -102,18 +102,18 @@ describe('openai-compatible', () => {
     await assert.rejects(client().complete({ messages: [{ role: 'user', content: 'x' }], schema: SCHEMA }), ProviderRefusalError);
   });
 
-  it('visión: imagen como image_url con data URL; PDF nativo no se admite', async () => {
+  it('vision: image as image_url with a data URL; native PDF is not supported', async () => {
     reply = () => ({ body: completion({ content: 'una captura de chat' }) });
-    const out = await client().describe({ images: [{ mime: 'image/jpeg', data: Buffer.from('JPG'), label: 'captura-1' }], prompt: 'describí' });
+    const out = await client().describe({ images: [{ mime: 'image/jpeg', data: Buffer.from('JPG'), label: 'captura-1' }], prompt: 'describe' });
     const content = last().json.messages[0].content;
     assert.equal(content[0].type, 'image_url');
     assert.equal(content[0].image_url.url, `data:image/jpeg;base64,${Buffer.from('JPG').toString('base64')}`);
-    assert.deepEqual(content[1], { type: 'text', text: 'describí' });
+    assert.deepEqual(content[1], { type: 'text', text: 'describe' });
     assert.equal(out.text, 'una captura de chat');
     await assert.rejects(client().describe({ images: [{ mime: 'application/pdf', data: Buffer.from('%PDF') }], prompt: 'x' }), ProviderUnsupportedError);
   });
 
-  it('el esfuerzo sólo se envía si el proveedor declara su parámetro', async () => {
+  it('effort is sent only if the provider declares its parameter', async () => {
     reply = () => ({ body: completion({ content: 'ok' }) });
     await client().complete({ messages: [{ role: 'user', content: 'x' }], effort: 'low' });
     assert.ok(!('reasoning_effort' in last().json));

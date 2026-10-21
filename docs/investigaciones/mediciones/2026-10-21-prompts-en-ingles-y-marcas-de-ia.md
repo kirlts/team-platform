@@ -1,6 +1,13 @@
 # Prompts en dos idiomas, escritura sin marcas de IA, ventanas, asignación y áreas, 2026-10-21
 
-Resultado: en el banco privado completo (39 casos, 3 repeticiones, 117 corridas) ninguna corrida terminó `invalid` y ningún mensaje quedó sin responsable. Antes, 6 a 9 de 39 casos terminaban `invalid` en cada corrida y la mitad de los mensajes no tenía responsable. La asignación exacta pasó de 26 % a 50,6 % con perfiles y proyecto. Las marcas de escritura de IA bajaron de unas 0,3 por mensaje a 0,02 (`es-419`) y 0,05 (`en`), pero no llegan a cero. Cuatro objetivos no se cumplen, con su causa: cero marcas, tiempo bajo 30 s en las transcripciones de más de 360 unidades (33 a 37 s en la mayor), cobertura de u13 (8 % contra 12 % antes) y exactitud de área (66 % contra 74 % con las descripciones cortas).
+Resultado: en el banco privado completo (39 casos, 3 repeticiones, 117 corridas) ninguna corrida terminó `invalid` y ningún mensaje quedó sin responsable. Antes, 6 a 9 de 39 casos terminaban `invalid` en cada corrida y la mitad de los mensajes no tenía responsable. La asignación exacta pasó de 26 % a 50,6 % con perfiles y proyecto. Las marcas de escritura de IA bajaron de unas 0,3 por mensaje a 0,02 (`es-419`) y 0,05 (`en`), sin llegar a cero. Cuatro objetivos no se cumplen:
+
+- Cero marcas por mensaje.
+- Tiempo bajo 30 s en las transcripciones de más de 360 unidades (33 a 37 s en la mayor).
+- Cobertura de u13 (8 % contra 12 % antes).
+- Exactitud de área (66 % contra 74 % con las descripciones cortas).
+
+Cada causa está al final.
 
 ## Método
 
@@ -22,7 +29,7 @@ Resultado: en el banco privado completo (39 casos, 3 repeticiones, 117 corridas)
 | 07-video-de-pantalla | 100 % / 100 % / 5,7 s | 100 % / 100 % / 4,3 s | 100 % / 100 % / 3,8 s |
 | 08-reunion-10-minutos | 89 % / 96 % / 8,0 s | 100 % / 100 % / 6,7 s | 89 % / 100 % / 7,6 s |
 
-- La cobertura del caso 03 es 84 % y 90 %, sobre el 80 % que se pedía; el 01 en español promedia 73 % porque una de las cinco corridas agrupó mal (mediana 100 %).
+- La cobertura del caso 03 es 84 % y 90 %, sobre el 80 % que se pedía. El 01 en español promedia 73 % porque una de las cinco corridas agrupó mal (mediana 100 %).
 - El docx tarda 15 s contra 10 s antes. La causa es el semáforo de proveedores (7 peticiones simultáneas por proveedor, H-83): 41 llamadas en oleadas de 7. El pedido exceptuaba este caso del objetivo de 10 s.
 
 ## Marcas de IA por mensaje
@@ -36,7 +43,17 @@ Resultado: en el banco privado completo (39 casos, 3 repeticiones, 117 corridas)
 | 08-reunion-10-minutos | 0,15 | 0,04 | 0,07 |
 | Los otros tres casos | 0,00 | 0,00 | 0,00 |
 
-Antes había 77 marcas en 3 repeticiones (unas 0,3 por mensaje), casi todas «no se indica…». Ahora quedan 8 (`es-419`, 0,02 por mensaje) y 20 (`en`, 0,05) en 5 repeticiones, y una tanda dirigida a los casos 02 y 08 tras los últimos ajustes dio 0,00 de mediana con 3 marcas sueltas entre 255 mensajes. Lo que bajó la cifra, por orden de efecto: el contrato de redacción, una línea en el cuerpo de las cinco plantillas («lo que el input no da no se menciona»), pedir cada parte del cuerpo solo si el input la da, un recordatorio al final del mensaje de usuario y la regla de que un campo sin dato lleva el valor vacío y no una frase. Quedan frases sueltas «no se indica» en pedidos de funcionalidad, una especulación y cuerpos que empiezan con el título. El detector no cuenta la especulación que la persona dijo y el modelo reporta.
+Antes había 77 marcas en 3 repeticiones (unas 0,3 por mensaje), casi todas «no se indica…». Ahora quedan 8 (`es-419`, 0,02 por mensaje) y 20 (`en`, 0,05) en 5 repeticiones. Una tanda dirigida a los casos 02 y 08 tras los últimos ajustes dio 0,00 de mediana, con 3 marcas sueltas entre 255 mensajes.
+
+Lo que bajó la cifra, por orden de efecto:
+
+1. El contrato de redacción.
+2. Una línea en el cuerpo de las cinco plantillas («lo que el input no da no se menciona»).
+3. Pedir cada parte del cuerpo solo si el input la da.
+4. Un recordatorio al final del mensaje de usuario.
+5. La regla de que un campo sin dato lleva el valor vacío y no una frase.
+
+Quedan frases sueltas «no se indica» en pedidos de funcionalidad, una especulación y cuerpos que empiezan con el título. El detector no cuenta la especulación que la persona dijo y el modelo reporta.
 
 ## Banco privado completo (rerun-h72, 117 corridas)
 
@@ -64,7 +81,16 @@ La cobertura y la cantidad de mensajes no son comparables con la columna «antes
 | u12 ficha parte 1 (1.042) | 19 % / 208 s | 20 % / 33 a 37 s |
 | u13 ficha parte 2 (493) | 12 % / 87 s | 8 % / 18 a 23 s |
 
-Qué cambió: la clasificación recorre ventanas contiguas de 100 unidades en paralelo (con una sola llamada el modelo agrupaba por tema todo lo del mismo área y salían 4 grupos para 400 unidades); lo que el modelo descarta entre la primera y la última unidad de un grupo vuelve al grupo; un grupo da un solo mensaje; solapes y huecos que sobreviven al único rescate se cierran por aritmética de conjuntos, y lo mismo el reparto de la clasificación. Ventanas de 200 daban 36 % de cobertura media en estos cuatro casos pero 35 a 38 s; de 150, 29 % y 21 s; de 100, 28 % y 20 s. Con 100 el tiempo cumple salvo en los dos casos mayores. La causa de lo que falta es el semáforo: u12 hace unas 47 llamadas y con 7 simultáneas son siete oleadas de 5 a 6 s. No se pudo bajar de 30 s sin subir el tope, que depende del límite de la cuenta.
+Qué cambió:
+
+- La clasificación recorre ventanas contiguas de 100 unidades en paralelo. Con una sola llamada el modelo agrupaba por tema todo lo del mismo área y salían 4 grupos para 400 unidades.
+- Lo que el modelo descarta entre la primera y la última unidad de un grupo vuelve al grupo.
+- Un grupo da un solo mensaje.
+- Solapes y huecos que sobreviven al único rescate se cierran por aritmética de conjuntos, y lo mismo el reparto de la clasificación.
+
+Ventanas de 200 daban 36 % de cobertura media en estos cuatro casos pero 35 a 38 s. De 150: 29 % y 21 s. De 100: 28 % y 20 s. Con 100 el tiempo cumple salvo en los dos casos mayores.
+
+La causa de lo que falta es el semáforo: u12 hace unas 47 llamadas y con 7 simultáneas son siete oleadas de 5 a 6 s. Bajar de 30 s exige subir el tope, que depende del límite de la cuenta.
 
 ## Invalid (H-84) y reparto (H-138)
 
@@ -86,7 +112,7 @@ Se adoptó C: la gramática del modelo exige al menos un id en `assignee_ids` cu
 
 ## Áreas (H-91, UD-031)
 
-Las definiciones de frontera salieron del prompt y viven en las descripciones de `templates/areas.json`: cuatro párrafos por área (qué es, casos típicos, casos borde con el desempate hacia las vecinas, qué no es), con las fronteras del segundo lector. Exactitud de área, unidades con mensaje, primer lector / segundo lector / unión:
+Las definiciones de frontera salieron del prompt y viven en las descripciones de `templates/areas.json`. Cada área tiene cuatro párrafos: qué es, casos típicos, casos borde con el desempate hacia las vecinas, y qué no es. Llevan las fronteras del segundo lector. Exactitud de área, unidades con mensaje, primer lector / segundo lector / unión:
 
 | Descripciones | 39 casos | Cuatro reuniones largas |
 |---|---|---|
@@ -95,7 +121,7 @@ Las definiciones de frontera salieron del prompt y viven en las descripciones de
 | Largas con la regla de «debería» (1 repetición) | n/a | 62,6 % / 60,2 % / 67,5 % |
 | Largas, rerun completo (3 repeticiones) | 66,2 % / 65,3 % / 70,7 % | n/a |
 
-Las descripciones largas pedidas en UD-031 bajan la exactitud respecto de las cortas. La regla «mover, renombrar o reordenar es retroalimentación» hacía que el modelo clasificara como Retroalimentación o Pregunta lo que en las reuniones es una descripción de lo que el producto debe hacer. Con la regla de «debería» y la de que una sugerencia de arreglo es parte de la falla mejora, sin recuperar el nivel de las cortas. Es decisión del dueño mantener las largas; la medición queda como dato para ajustarlas desde el panel.
+Las descripciones largas pedidas en UD-031 bajan la exactitud respecto de las cortas. La regla «mover, renombrar o reordenar es retroalimentación» llevaba al modelo a clasificar como Retroalimentación o Pregunta lo que en las reuniones describe lo que el producto debe hacer. Con la regla de «debería» y la de que una sugerencia de arreglo es parte de la falla mejora, sin recuperar el nivel de las cortas. Es decisión del dueño mantener las largas; la medición queda como dato para ajustarlas desde el panel.
 
 ## Pendiente de la medición, con su causa
 

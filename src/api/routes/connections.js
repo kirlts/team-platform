@@ -13,6 +13,13 @@ import {
 import { conflict, notFound, unprocessable } from '../../domain/errors.js'
 import { MODALITIES } from '../../domain/settings.js'
 
+// Bounds of the request fields (UD-120). They refuse an empty or absurd value; they are not a model of any provider.
+const KEY_MAX_CHARS = 512 // a real key is 20 to 200 characters (report 11 §6 point 13); four times the longest known
+const KEY_MIN_CHARS = 8 // shorter than any real key
+const MODEL_MAX_CHARS = 120 // the longest model identifier listed by OpenRouter (report 11 §5), rounded up
+const LABEL_MAX_CHARS = 60 // a label fits one line of the provider list
+const ADDRESS_MAX_CHARS = 300 // report 11 §5: the longest base address listed (an OpenRouter or Gemini path) has under 100 characters
+
 const CAUSES = ['invalid_key', 'no_quota', 'model_not_found', 'no_network', 'rate_limited', 'timeout', 'bad_address', 'provider_error', 'unknown']
 const CAUSE_MESSAGE = {
   invalid_key: 'El proveedor rechazó la clave.',
@@ -89,7 +96,7 @@ export function registerConnectionRoutes (app, ctx) {
 
   const failed = (check) => unprocessable(CAUSE_MESSAGE[check.cause] ?? CAUSE_MESSAGE.unknown, 'provider_check_failed', { cause: check.cause ?? 'unknown', status_code: check.status ?? undefined, duration_ms: check.duration_ms })
 
-  const bodyKey = { type: 'string', minLength: 8, maxLength: 512 } // a real key is 20 to 200 characters; the bounds only refuse an empty or absurd value
+  const bodyKey = { type: 'string', minLength: KEY_MIN_CHARS, maxLength: KEY_MAX_CHARS } // a real key is 20 to 200 characters; the bounds only refuse an empty or absurd value
 
   app.get('/settings/connections', {
     onRequest: editor,
@@ -101,7 +108,7 @@ export function registerConnectionRoutes (app, ctx) {
     schema: {
       summary: 'Agregar un proveedor compatible con OpenAI',
       description: 'Un preajuste (`preset`) o uno propio (`name` y `base_url`). La clave se prueba antes de guardarse; si la prueba falla no se guarda nada (422 `provider_check_failed`).',
-      body: { type: 'object', required: ['api_key'], additionalProperties: false, properties: { preset: { type: 'string' }, name: { type: 'string' }, label: { type: 'string', maxLength: 60 }, base_url: { type: 'string', maxLength: 300 }, structured: { type: 'string', enum: ['json_schema', 'tool', 'json_object'] }, api_key: bodyKey, model: { type: 'string', maxLength: 120 } } },
+      body: { type: 'object', required: ['api_key'], additionalProperties: false, properties: { preset: { type: 'string' }, name: { type: 'string' }, label: { type: 'string', maxLength: LABEL_MAX_CHARS }, base_url: { type: 'string', maxLength: ADDRESS_MAX_CHARS }, structured: { type: 'string', enum: ['json_schema', 'tool', 'json_object'] }, api_key: bodyKey, model: { type: 'string', maxLength: MODEL_MAX_CHARS } } },
       response: { 201: { type: 'object', properties: { connection: connectionSchema, check: checkSchema } } }
     }
   }, async (request, reply) => {
@@ -132,7 +139,7 @@ export function registerConnectionRoutes (app, ctx) {
       summary: 'Reemplazar la clave de un proveedor, con prueba previa',
       description: 'La clave nueva se prueba con una llamada mínima. Sólo si funciona reemplaza a la anterior; si falla, la anterior sigue activa y la respuesta es 422 `provider_check_failed` con la causa.',
       params: nameParams,
-      body: { type: 'object', required: ['api_key'], additionalProperties: false, properties: { api_key: bodyKey, model: { type: 'string', maxLength: 120 } } },
+      body: { type: 'object', required: ['api_key'], additionalProperties: false, properties: { api_key: bodyKey, model: { type: 'string', maxLength: MODEL_MAX_CHARS } } },
       response: { 200: { type: 'object', properties: { connection: connectionSchema, check: checkSchema } } }
     }
   }, async (request) => {
@@ -193,7 +200,7 @@ export function registerConnectionRoutes (app, ctx) {
       summary: 'Diagnosticar un proveedor',
       description: 'Una llamada mínima con la clave vigente. Responde 200 aunque la prueba falle: `ok`, `cause`, `status`, `duration_ms` y, si el proveedor la ofrece, la lista de modelos. Guarda el resultado como último diagnóstico.',
       params: nameParams,
-      body: { type: 'object', additionalProperties: false, properties: { model: { type: 'string', maxLength: 120 } } },
+      body: { type: 'object', additionalProperties: false, properties: { model: { type: 'string', maxLength: MODEL_MAX_CHARS } } },
       response: { 200: { type: 'object', properties: { check: checkSchema } } }
     }
   }, async (request) => {

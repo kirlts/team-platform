@@ -15,7 +15,7 @@ export const badRequest = (message, code = 'bad_request', extra) => new AppError
 export const unauthenticated = (message = 'Se requiere iniciar sesión.', extra) => new AppError(401, 'unauthenticated', message, extra)
 export const forbidden = (message = 'Sin permiso para esta acción.', code = 'forbidden') => new AppError(403, code, message)
 export const notFound = (message = 'No se encontró el recurso.') => new AppError(404, 'not_found', message)
-export const conflict = (message, code = 'conflict') => new AppError(409, code, message)
+export const conflict = (message, code = 'conflict', extra) => new AppError(409, code, message, extra)
 export const tooLarge = (message) => new AppError(413, 'too_large', message)
 export const unsupported = (message) => new AppError(415, 'unsupported_media_type', message)
 export const unprocessable = (message, code = 'invalid_value', extra) => new AppError(422, code, message, extra)

@@ -59,7 +59,7 @@ export const SCROLLING_PAGES = ['configuración']
 /** Characters seeded into the project description of Configuración, to measure the editor with a long text. */
 const LONG_PROJECT = 12000
 
-// FIT_BREAK=textarea-con-tope puts a max height and an own scroll on the project editor (it must fail); FIT_BREAK=documento-alto adds a 2000 px block to the document; FIT_BREAK=carril adds a lane that
+// FIT_BREAK=textarea-capped puts a max height and an own scroll on the project editor (it must fail); FIT_BREAK=documento-alto adds a 2000 px block to the document; FIT_BREAK=carril adds a lane that
 // scrolls without being declared; FIT_BREAK=oculto hides the overflow of the document; FIT_BREAK=repetido draws the same sentence twice.
 const BREAK = process.env.FIT_BREAK ?? ''
 
@@ -312,7 +312,7 @@ for (const [width, height] of SIZES) {
             if (BREAK === 'carril' && view.name === 'equipo') await page.evaluate(() => document.querySelector('main').insertAdjacentHTML('beforeend', '<div style="height:80px;overflow-y:auto"><div style="height:400px">x</div></div>'))
             if (BREAK === 'repetido' && view.name === 'equipo') await page.evaluate(() => document.querySelector('main').insertAdjacentHTML('beforeend', '<p>Este texto aparece dos veces en la vista.</p><p>Este texto aparece dos veces en la vista.</p>'))
             if (BREAK === 'oculto' && view.name === 'mensajes') await page.evaluate(() => (document.documentElement.style.overflowY = 'hidden'))
-            if (BREAK === 'textarea-con-tope' && view.name === 'configuración') await page.evaluate(() => Object.assign(document.querySelector('textarea[aria-label="Proyecto"]').style, { maxHeight: '200px', overflowY: 'auto' }))
+            if (BREAK === 'textarea-capped' && view.name === 'configuración') await page.evaluate(() => Object.assign(document.querySelector('textarea[aria-label="Proyecto"]').style, { maxHeight: '200px', overflowY: 'auto' }))
             const m = await page.evaluate(measureInPage, { lanes: LANES, withBreak: BREAK })
             if (!amplified) {
               const repeats = await page.evaluate(repeatsInPage)

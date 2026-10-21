@@ -23,6 +23,8 @@ export interface Me extends Member {
   project_name?: string
   /** Shortest password the server accepts (PASSWORD_MIN_LENGTH). */
   password_min_length?: number
+  /** Interface telemetry (UD-061): the owner's switch and the largest batch the server accepts. */
+  ui_telemetry?: { enabled: boolean; max_events: number }
 }
 
 export interface Area {

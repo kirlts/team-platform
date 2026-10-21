@@ -20,6 +20,11 @@ import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { extname, join, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { DatabaseSync } from 'node:sqlite'
+import Ajv from 'ajv'
+import { loadConfig } from '../src/config.js'
+import { batchSchema } from '../src/telemetry/ui-spec.js'
+import { recordUiBatch, uiSummary } from '../src/telemetry/ui.js'
 
 const PORT = Number(process.env.PANEL_DEV_PORT ?? 8787)
 const STATIC = process.env.PANEL_DEV_STATIC === '1'
@@ -448,6 +453,32 @@ function serveStatic(req, res, pathname) {
   createReadStream(file).pipe(res)
 }
 
+// ---------------------------------------------------------------- interface telemetry (UD-061)
+// The same contract as the real server: the shape comes from src/telemetry/ui-spec.js, the events become spans through
+// `recordUiBatch` (here into an in-memory `spans` table made by the real migration) and the summary is `uiSummary`.
+// The body cap and the rate limit of the real route are not copied: this server has no one to protect.
+
+const uiConfig = loadConfig({ DATA_DIR: '/tmp/dev-server-unused' })
+const uiState = { enabled: uiConfig.uiTelemetry.enabledDefault }
+const uiDb = new DatabaseSync(':memory:')
+uiDb.exec(readFileSync(fileURLToPath(new URL('../src/telemetry/migration.sql', import.meta.url)), 'utf8'))
+const uiValidate = new Ajv({ strict: true, coerceTypes: false }).compile(
+  batchSchema({ maxEvents: uiConfig.uiTelemetry.maxEvents, maxDurationMs: uiConfig.identity.session.absoluteHours * 3_600_000 }),
+)
+const uiInsert = uiDb.prepare(`INSERT INTO spans (trace_id, span_id, parent_id, name, kind, start_ns, end_ns, status, status_message, attributes_json, events_json)
+  VALUES (?, ?, NULL, ?, 'INTERNAL', ?, ?, ?, NULL, ?, '[]')`)
+const uiTracer = {
+  startSpan(name, { startTime, attributes }) {
+    const attrs = { ...attributes }
+    let status = 'unset'
+    return {
+      setAttribute: (k, v) => { attrs[k] = v },
+      setStatus: ({ code }) => { status = code === 2 ? 'error' : 'ok' },
+      end(endMs) { uiInsert.run(randomUUID().replaceAll('-', ''), randomUUID().replaceAll('-', '').slice(0, 16), name, BigInt(Math.round(startTime)) * 1_000_000n, BigInt(Math.round(endMs)) * 1_000_000n, status, JSON.stringify(attrs)) },
+    }
+  },
+}
+
 // ---------------------------------------------------------------- routes
 
 const server = createServer(async (req, res) => {
@@ -486,7 +517,28 @@ const server = createServer(async (req, res) => {
       sessions.delete(cookieOf(req))
       return send(res, 204, undefined, { 'Set-Cookie': 'team_session=; Max-Age=0; Path=/' })
     }
-    if (path === '/me' && method === 'GET') return send(res, 200, { ...me, project_name: project.name, password_min_length: 15 })
+    if (path === '/me' && method === 'GET') return send(res, 200, { ...me, project_name: project.name, password_min_length: 15, ui_telemetry: { enabled: uiState.enabled, max_events: uiConfig.uiTelemetry.maxEvents } })
+
+    // --- interface telemetry (UD-061)
+    if (path === '/telemetry/ui' && method === 'POST') {
+      const body = await readJson(req)
+      if (!uiValidate(body)) return fail(res, 400, 'Datos inválidos.', 'validation')
+      if (uiState.enabled) recordUiBatch(body, { tracer: uiTracer })
+      return send(res, 204, undefined)
+    }
+    if (path === '/telemetry/ui-summary' && method === 'GET') {
+      if (needEditor()) return
+      const days = Number(url.searchParams.get('days') ?? uiConfig.worker.retentionDays)
+      const now = Date.now()
+      return send(res, 200, { ...uiSummary(uiDb, { sinceMs: now - days * 86_400_000, untilMs: now + 1 }), days })
+    }
+    if (path === '/settings/telemetry' && method === 'PATCH') {
+      if (needEditor()) return
+      const body = await readJson(req)
+      if (typeof body?.ui_enabled !== 'boolean') return fail(res, 400, 'Datos inválidos.', 'validation')
+      uiState.enabled = body.ui_enabled
+      return send(res, 200, { ui_enabled: uiState.enabled })
+    }
 
     // --- project description: the whole team sees it and only the Editor changes it (UD-024)
     if (path === '/settings/project' && method === 'GET') return send(res, 200, project)

@@ -12,16 +12,21 @@ import { iso, parseJson } from '../db/util.js'
 
 export const EVENT_KINDS = ['progress', 'done', 'message']
 
-/** Fila de `job_events` a la forma que ve el cliente. */
+const id = (v) => (v === null || v === undefined ? undefined : String(v))
+
+/**
+ * Fila de `job_events` a la forma que ve el cliente. Todo id viaja como texto, igual que en las respuestas
+ * REST (el panel compara `job_id` y `message_id` como cadenas).
+ */
 export function toWire (row) {
   const data = parseJson(row.data_json, {})
   if (row.kind === 'progress') {
-    return { id: String(row.seq), event: 'progress', data: { job_id: row.job_id, input_id: data.input_id ?? null, percent: row.percent, phrase: row.phrase, at: iso(row.at) } }
+    return { id: String(row.seq), event: 'progress', data: { job_id: id(row.job_id), input_id: id(data.input_id) ?? null, percent: row.percent, phrase: row.phrase, at: iso(row.at) } }
   }
   if (row.kind === 'done') {
-    return { id: String(row.seq), event: 'done', data: { job_id: row.job_id, done: true, ...data, at: iso(row.at) } }
+    return { id: String(row.seq), event: 'done', data: { ...data, job_id: id(row.job_id), input_id: id(data.input_id) ?? null, attachment_id: id(data.attachment_id), done: true, at: iso(row.at) } }
   }
-  return { id: String(row.seq), event: 'message', data: { ...data, at: iso(row.at) } }
+  return { id: String(row.seq), event: 'message', data: { ...data, message_id: id(data.message_id), author_id: id(data.author_id), input_id: id(data.input_id), at: iso(row.at) } }
 }
 
 export function createEvents ({ db, now = Date.now }) {

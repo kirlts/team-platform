@@ -8,8 +8,10 @@ import { randomUUID } from 'node:crypto'
 import { pathToFileURL } from 'node:url'
 import { loadConfig, loadEnvFile } from './config.js'
 import { openInitialized } from './db/index.js'
+import { parseJson } from './db/util.js'
 import { createEvents } from './events/index.js'
 import { createQueue } from './queue/index.js'
+import { createLogger } from './log.js'
 import { createPipeline } from './domain/pipeline.js'
 import { loadModules } from './domain/modules.js'
 import { sweepOrphans } from './domain/storage.js'
@@ -21,7 +23,7 @@ const MAX_TIMEOUT = 2 ** 31 - 1 // límite de setTimeout
  * `pollDataVersionMs`: sólo para el proceso aparte; despierta el reclamo cuando otra conexión confirma una
  * escritura (el trabajo encolado por la API).
  */
-export function createWorker ({ db, queue, events, config, handlers, workerId = `worker-${randomUUID()}`, log = () => {}, now = Date.now, pollDataVersionMs = null, onSweep = null }) {
+export function createWorker ({ db, queue, events, config, handlers, workerId = `worker-${randomUUID()}`, logger = createLogger({ logLevel: 'silent' }), now = Date.now, pollDataVersionMs = null, onSweep = null }) {
   const w = config.worker
   const activos = new Map() // job.id → { controller, promesa }
   let detenido = true
@@ -49,7 +51,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     if (detenido) return
     while (activos.size < w.concurrency) {
       let job
-      try { job = queue.claim(workerId) } catch (error) { log(`Error al reclamar: ${error.message}`); break }
+      try { job = queue.claim(workerId) } catch (error) { logger.error({ err: error }, 'error al reclamar'); break }
       if (!job) break
       ejecutar(job)
     }
@@ -57,6 +59,9 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
   }
 
   function ejecutar (job) {
+    // Toda línea del trabajo lleva job_id e input_id.
+    const jlog = logger.child({ job_id: job.id, input_id: parseJson(job.payload_json, {}).input_id ?? null, kind: job.kind, attempt: job.attempts, worker_id: workerId })
+    jlog.info('trabajo reclamado')
     const controller = new AbortController()
     const abortar = (razon) => { if (!controller.signal.aborted) controller.abort(razon) }
     const ctx = { signal: controller.signal, abort: abortar, workerId }
@@ -77,8 +82,9 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
           if (!queue.complete(job)) throw Object.assign(new Error('Se perdió el arriendo antes de terminar.'), { lost: true })
           finalizar?.()
         })
+        jlog.info('trabajo terminado')
       } catch (error) {
-        await manejarError(job, manejador, controller, error)
+        await manejarError(job, manejador, controller, error, jlog)
       } finally {
         clearInterval(latido)
         clearTimeout(limite)
@@ -89,38 +95,38 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     activos.set(job.id, { controller, promesa })
   }
 
-  async function manejarError (job, manejador, controller, error) {
+  async function manejarError (job, manejador, controller, error, jlog) {
     const razon = controller.signal.aborted ? controller.signal.reason : null
-    if (error?.lost || razon === 'lost') return // cancelado o arriendo ajeno: el estado ya no es nuestro
-    if (razon === 'shutdown') { queue.release(job); return }
+    if (error?.lost || razon === 'lost') { jlog.warn('trabajo cancelado o arriendo perdido; no se aplica nada'); return } // el estado ya no es nuestro
+    if (razon === 'shutdown') { queue.release(job); jlog.info('apagado: el trabajo vuelve a la cola y el intento se reembolsa'); return }
     if (error?.deferMs !== undefined) {
       // Sin cupo (presupuesto de audio): vuelve a la cola para más tarde y el intento no se gasta.
       if (queue.defer(job, error.deferMs)) {
-        try { manejador?.onDeferred?.(job, error) } catch (e) { log(`Error al registrar el aplazamiento del trabajo ${job.id}: ${e.message}`) }
-        log(`Trabajo ${job.id} aplazado ${Math.round(error.deferMs / 1000)} s: ${error.phrase}`)
+        try { manejador?.onDeferred?.(job, error) } catch (e) { jlog.error({ err: e }, 'error al registrar el aplazamiento') }
+        jlog.info({ delay_ms: error.deferMs }, `trabajo aplazado: ${error.phrase}`)
       }
       return
     }
     const causa = razon === 'timeout' ? new Error(`El trabajo superó el tiempo máximo de ${Math.round(w.maxRuntimeMs / 1000)} s.`) : error
     const resultado = queue.fail(job, causa)
     if (resultado.state === 'lost') return
-    try { manejador?.onFailure?.(job, causa, resultado) } catch (e) { log(`Error al registrar el fallo del trabajo ${job.id}: ${e.message}`) }
-    log(`Trabajo ${job.id} (${job.kind}) intento ${job.attempts}: ${causa.message} -> ${resultado.state}`)
+    try { manejador?.onFailure?.(job, causa, resultado) } catch (e) { jlog.error({ err: e }, 'error al registrar el fallo') }
+    jlog.warn({ outcome: resultado.state, delay_ms: resultado.delayMs, error_code: causa.code ?? null }, `trabajo fallido: ${causa.message}`)
   }
 
   function barrer () {
     try {
       queue.recoverExpiredLeases()
       despertar()
-    } catch (error) { log(`Error al recuperar arriendos: ${error.message}`) }
+    } catch (error) { logger.error({ err: error }, 'error al recuperar arriendos') }
   }
 
   async function barrerRetencion () {
     try {
       const r = queue.sweepRetention()
       const huerfanos = onSweep ? await onSweep() : 0
-      if (r.trabajos || r.eventos || r.sesiones || huerfanos) log(`Retención: ${JSON.stringify({ ...r, huerfanos })}`)
-    } catch (error) { log(`Error en la retención: ${error.message}`) }
+      if (r.trabajos || r.eventos || r.sesiones || huerfanos) logger.info({ ...r, huerfanos }, 'retención')
+    } catch (error) { logger.error({ err: error }, 'error en la retención') }
   }
 
   const alCancelar = (jobId) => activos.get(jobId)?.controller.abort('lost')
@@ -161,12 +167,12 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
 }
 
 /** Arma el worker con sus dependencias reales. Lo usan `server.js` y el modo proceso aparte. */
-export async function buildWorker ({ db, config, events, queue = null, env = process.env, log = () => {}, pollDataVersionMs = null }) {
+export async function buildWorker ({ db, config, events, queue = null, env = process.env, logger = createLogger(config), pollDataVersionMs = null }) {
   const cola = queue ?? createQueue({ db, config, events })
-  const modules = await loadModules(config, { db, env, log })
+  const modules = await loadModules(config, { db, env, log: (m) => logger.warn(m) })
   const handlers = createPipeline({ db, config, queue: cola, events, modules })
   const worker = createWorker({
-    db, queue: cola, events, config, handlers, log, pollDataVersionMs,
+    db, queue: cola, events, config, handlers, logger, pollDataVersionMs,
     onSweep: () => sweepOrphans(db, config, config.worker.retentionDays * 24 * 3600 * 1000)
   })
   return { worker, queue: cola, modules }
@@ -176,7 +182,7 @@ export async function buildWorker ({ db, config, events, queue = null, env = pro
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   loadEnvFile()
   const config = loadConfig()
-  const log = (m) => console.log(`[worker] ${m}`)
+  const logger = createLogger(config, { process: 'worker' })
   let db
   try {
     db = openInitialized(config)
@@ -185,11 +191,11 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
     process.exit(1)
   }
   const events = createEvents({ db })
-  const { worker } = await buildWorker({ db, config, events, log, pollDataVersionMs: config.worker.dataVersionPollMs })
+  const { worker } = await buildWorker({ db, config, events, logger, pollDataVersionMs: config.worker.dataVersionPollMs })
   worker.start()
-  log(`Worker ${worker.workerId} en marcha (concurrencia ${config.worker.concurrency}).`)
+  logger.info({ worker_id: worker.workerId, concurrency: config.worker.concurrency }, 'worker en marcha')
   const apagar = async (senal) => {
-    log(`${senal}: devolviendo los trabajos en curso a la cola.`)
+    logger.info(`${senal}: devolviendo los trabajos en curso a la cola`)
     await worker.stop()
     db.close()
     process.exit(0)

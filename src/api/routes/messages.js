@@ -1,7 +1,8 @@
 // Rutas de mensajes y respuestas (MASTER-SPEC §7.1).
 
 import { addReply, closeMessage, getMessage, listMessages, reopenMessage, REPLY_KINDS } from '../../domain/messages.js'
-import { idParams, messageCard, messageDetail } from '../schemas.js'
+import { pageEnvelope, pageParams, pageQuerySchema, pageResult } from '../pagination.js'
+import { idIn, idParams, messageCard, messageDetail } from '../schemas.js'
 
 export function registerMessageRoutes (app, ctx) {
   const { db, config, events, requireRole } = ctx
@@ -9,43 +10,47 @@ export function registerMessageRoutes (app, ctx) {
   app.get('/messages', {
     onRequest: [requireRole('member')],
     schema: {
+      summary: 'Mensajes del equipo, con filtros',
+      description: '`for`: «me» o el id de un miembro (mensajes asignados a). `replies=1`: sólo con respuestas, la última primero; con `for`, los que involucran a esa persona.',
       querystring: {
         type: 'object',
+        additionalProperties: false,
         properties: {
-          for: { type: 'string', pattern: '^(me|[0-9]+)$' }, // «me» o el id de un miembro
-          area: { type: 'integer', minimum: 1 },
+          ...pageQuerySchema(config),
+          for: { type: 'string', pattern: '^(me|[0-9]+)$' },
+          area: idIn,
           status: { type: 'string', enum: ['open', 'answered', 'closed'] },
           q: { type: 'string' },
-          replies: { type: 'integer', enum: [0, 1] },
-          limit: { type: 'integer', minimum: 1, maximum: config.list.pageMax },
-          offset: { type: 'integer', minimum: 0 }
-        },
-        additionalProperties: false
+          replies: { type: 'integer', enum: [0, 1] }
+        }
       },
-      response: { 200: { type: 'object', properties: { items: { type: 'array', items: messageCard }, next_offset: { type: ['integer', 'null'] } } } }
+      response: { 200: pageEnvelope(messageCard) }
     }
   }, async (request) => {
     const q = request.query
-    return listMessages(db, {
+    const p = pageParams(q, config)
+    const r = listMessages(db, {
       viewerId: request.member.id,
       forMember: q.for === undefined ? null : q.for === 'me' ? 'me' : Number(q.for),
       area: q.area ?? null,
       status: q.status ?? null,
       q: q.q ?? null,
       replies: q.replies === 1,
-      limit: q.limit ?? config.list.pageSize,
-      offset: q.offset ?? 0
+      limit: p.limit,
+      offset: p.offset
     })
+    return pageResult(r.items, r.total, p)
   })
 
   app.get('/messages/:id', {
     onRequest: [requireRole('member')],
-    schema: { params: idParams(), response: { 200: messageDetail } }
+    schema: { summary: 'Un mensaje con su hilo', params: idParams(), response: { 200: messageDetail } }
   }, async (request) => getMessage(db, request.params.id))
 
   app.post('/messages/:id/replies', {
     onRequest: [requireRole('member')],
     schema: {
+      summary: 'Responder un mensaje (403 si quien responde es su emisor)',
       params: idParams(),
       body: {
         type: 'object',
@@ -61,10 +66,10 @@ export function registerMessageRoutes (app, ctx) {
     return r.message
   })
 
-  for (const [accion, funcion] of [['close', closeMessage], ['reopen', reopenMessage]]) {
+  for (const [accion, funcion, resumen] of [['close', closeMessage, 'Cerrar un mensaje'], ['reopen', reopenMessage, 'Reabrir un mensaje cerrado']]) {
     app.post(`/messages/:id/${accion}`, {
       onRequest: [requireRole('member')],
-      schema: { params: idParams(), response: { 200: messageDetail } }
-    }, async (request) => funcion({ db, events }, request.params.id))
+      schema: { summary: resumen, params: idParams(), response: { 200: messageDetail } }
+    }, async (request) => funcion({ db, events }, request.params.id, request.member.id))
   }
 }

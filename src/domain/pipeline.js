@@ -12,6 +12,7 @@
 import { all, get, run } from '../db/index.js'
 import { parseJson } from '../db/util.js'
 import { llmCostUsd, speechCostUsd } from './costs.js'
+import { parseDomains } from './members.js'
 import { permanent } from './errors.js'
 import { transitionInput } from './inputs.js'
 import { blobPath } from './storage.js'
@@ -219,9 +220,9 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
         const bundle = {
           text: input.text,
           attachments: adjuntos,
-          areas: all(db, 'SELECT id, title, description, position FROM areas ORDER BY position, id'),
-          templates: all(db, 'SELECT id, area_id, name, description, body_markdown FROM templates ORDER BY id'),
-          members: all(db, 'SELECT id, name, responsibilities, domains FROM members ORDER BY id')
+          areas: all(db, 'SELECT id, title, description, position FROM areas WHERE deleted_at IS NULL ORDER BY position, id'),
+          templates: all(db, 'SELECT t.id, t.area_id, t.name, t.description, t.body_markdown FROM templates t JOIN areas a ON a.id = t.area_id WHERE t.deleted_at IS NULL AND a.deleted_at IS NULL ORDER BY t.id'),
+          members: all(db, 'SELECT id, name, responsibilities, domains FROM members ORDER BY id').map((m) => ({ ...m, domains: parseDomains(m.domains).join(', ') }))
         }
 
         let resultado
@@ -252,9 +253,10 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
 
         return () => {
           // Dentro de la transacción que cierra el trabajo. Cada mensaje lleva su área y plantilla.
-          run(db, `INSERT INTO proposals (input_id, area_id, template_id, payload_json, model_call_id, created_at) VALUES (?, NULL, NULL, ?, ?, ?)
-                   ON CONFLICT(input_id) DO UPDATE SET payload_json = excluded.payload_json, model_call_id = excluded.model_call_id, created_at = excluded.created_at`,
-          inputId, JSON.stringify(propuesta), ultimaLlamada, now())
+          run(db, `INSERT INTO proposals (input_id, area_id, template_id, payload_json, units_json, model_call_id, created_at) VALUES (?, NULL, NULL, ?, ?, ?, ?)
+                   ON CONFLICT(input_id) DO UPDATE SET payload_json = excluded.payload_json, units_json = excluded.units_json,
+                     model_call_id = excluded.model_call_id, created_at = excluded.created_at`,
+          inputId, JSON.stringify(propuesta), JSON.stringify((resultado.units ?? []).map((u) => ({ id: u.id, text: u.text }))), ultimaLlamada, now())
           transitionInput(db, inputId, 'proposed', { now })
           events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: 'Propuesta lista' })
           events.publishForJob(job.id, { kind: 'done', data: { status: 'done', input_status: 'proposed' } })

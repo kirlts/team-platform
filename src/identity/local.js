@@ -1,6 +1,7 @@
 // Proveedor `local`: correo y contraseña (MASTER-SPEC §7.7, UD-002). Sesión en tabla, cookie `__Host-`.
 
 import { get, run } from '../db/index.js'
+import { createMember } from '../domain/members.js'
 import { tooMany, unauthenticated } from '../domain/errors.js'
 import { dummyVerify, hashPassword, verifyPassword } from './password.js'
 import { clearSessionCookie, readSessionCookie, setSessionCookie } from './cookies.js'
@@ -82,7 +83,7 @@ export function createLocalProvider ({ db, config, sessions, now = Date.now }) {
       config: { public: true, rateLimit: { max: limites.ipMax, timeWindow: limites.ipWindowMs } },
       schema: {
         ...loginSchema,
-        response: { 200: { type: 'object', properties: { member: { type: 'object', properties: { id: { type: 'integer' }, email: { type: 'string' }, name: { type: 'string' }, role: { type: 'string' } } } } } }
+        response: { 200: { type: 'object', properties: { member: { type: 'object', properties: { id: { type: 'string' }, email: { type: 'string' }, name: { type: 'string' }, role: { type: 'string' } } } } } }
       }
     }, async (request, reply) => {
       const previo = readSessionCookie(request, config)
@@ -92,6 +93,33 @@ export function createLocalProvider ({ db, config, sessions, now = Date.now }) {
       setSessionCookie(reply, config, token)
       return { member: { id: miembro.id, email: miembro.email, name: miembro.name, role: miembro.role } }
     })
+
+    // Sólo desarrollo (NODE_ENV=development): entra como cualquier correo sin contraseña, creando el miembro si
+    // no existe, para probar el panel sin sembrar credenciales. No existe en producción.
+    if (config.nodeEnv === 'development') {
+      app.post('/auth/dev-login', {
+        config: { public: true },
+        schema: {
+          summary: 'Inicio de sesión de desarrollo, sin contraseña (sólo con NODE_ENV=development)',
+          body: {
+            type: 'object', required: ['email'], additionalProperties: false,
+            properties: { email: { type: 'string', minLength: 3, maxLength: 254 }, name: { type: 'string', minLength: 1 }, role: { type: 'string', enum: ['member', 'editor'] } }
+          },
+          response: { 200: { type: 'object', properties: { member: { type: 'object', properties: { id: { type: 'string' }, email: { type: 'string' }, name: { type: 'string' }, role: { type: 'string' } } } } } }
+        }
+      }, async (request, reply) => {
+        const { email, name, role } = request.body
+        let miembro = get(db, 'SELECT id, email, name, role FROM members WHERE email = ?', email)
+        if (!miembro) {
+          const id = createMember(db, { email, name: name ?? email.split('@')[0], role: role ?? 'editor' })
+          miembro = get(db, 'SELECT id, email, name, role FROM members WHERE id = ?', id)
+        }
+        const previo = readSessionCookie(request, config)
+        if (previo) sessions.destroy(previo)
+        setSessionCookie(reply, config, sessions.create(miembro.id).token)
+        return { member: miembro }
+      })
+    }
 
     app.post('/auth/logout', { config: { public: true }, schema: { response: { 204: { type: 'null', description: 'Sesión cerrada en el servidor.' } } } }, async (request, reply) => {
       sessions.destroy(readSessionCookie(request, config)) // OWASP: se invalida en el servidor, no sólo en el cliente

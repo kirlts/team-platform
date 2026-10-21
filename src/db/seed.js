@@ -6,6 +6,7 @@
 // El juego inicial lo define `loadSeed()` del analizador (`templates/areas.json` y los archivos que enumera):
 // una sola fuente para lo que se instala y lo que el analizador valida.
 
+import { randomBytes } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -70,6 +71,18 @@ export async function ensureEditor (db, config, { email, password, name }) {
     run(db, 'DELETE FROM sessions WHERE member_id = ?', id)
     return { id, email, name: name ?? email, created: !existente }
   })
+}
+
+/**
+ * Instalación: si no hay ningún miembro y se declaró ADMIN_EMAIL, crea el primer editor. La contraseña es
+ * ADMIN_PASSWORD o, si falta, una al azar que se devuelve para mostrarla una sola vez. Con miembros existentes
+ * no hace nada: ADMIN_EMAIL no es una vía para elevar a nadie.
+ */
+export async function bootstrapFirstEditor (db, config) {
+  if (!config.adminEmail || get(db, 'SELECT COUNT(*) AS n FROM members').n > 0) return null
+  const password = config.adminPassword || randomBytes(18).toString('base64url') // 24 caracteres, sobre el mínimo de 15
+  const r = await ensureEditor(db, config, { email: config.adminEmail, password, name: config.adminEmail.split('@')[0] })
+  return { ...r, password, generated: !config.adminPassword }
 }
 
 // ---- Línea de comandos

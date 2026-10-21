@@ -33,6 +33,7 @@
     "linkedom": "0.18.13",
     "officeparser": "8.2.0",
     "pdf-lib": "1.17.1",
+    "pino": "10.4.0",
     "sharp": "0.35.5",
     "turndown": "7.2.4",
     "undici": "8.12.3"

@@ -15,6 +15,7 @@
 --                           espera exponencial por cuenta y tope duro (informe 04 §2.4).
 --   sessions.created_at/last_seen_at
 --                           vencimiento por inactividad (informe 04 §2.2).
+--   audit_log               bitácora consultable por el editor (GET /audit).
 --   settings, identity_links, sso_nonces
 --                           proveedores configurables (§7.6), mapeo de identidad externa y nonce de uso
 --                           único del modo sso-redirect (§7.7).
@@ -25,7 +26,7 @@ CREATE TABLE members (
   name             TEXT    NOT NULL,
   role             TEXT    NOT NULL DEFAULT 'member' CHECK (role IN ('member', 'editor')), -- UD-007
   responsibilities TEXT    NOT NULL DEFAULT '',
-  domains          TEXT    NOT NULL DEFAULT '',
+  domains          TEXT    NOT NULL DEFAULT '[]', -- lista de dominios en JSON; la API la expone como arreglo
   created_at       INTEGER NOT NULL
 );
 
@@ -61,12 +62,16 @@ CREATE TABLE sso_nonces (
   used_at    INTEGER
 );
 
+-- Áreas y plantillas se borran en blando (`deleted_at`): los mensajes que las referencian no se pierden y se
+-- pueden restaurar. La unicidad rige sólo entre las vigentes.
 CREATE TABLE areas (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  title       TEXT    NOT NULL UNIQUE COLLATE NOCASE,
+  title       TEXT    NOT NULL COLLATE NOCASE,
   description TEXT    NOT NULL,
-  position    INTEGER NOT NULL DEFAULT 0
+  position    INTEGER NOT NULL DEFAULT 0,
+  deleted_at  INTEGER
 );
+CREATE UNIQUE INDEX areas_title_vigente ON areas (title) WHERE deleted_at IS NULL;
 
 CREATE TABLE templates (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -74,9 +79,11 @@ CREATE TABLE templates (
   name          TEXT    NOT NULL,
   description   TEXT    NOT NULL,
   body_markdown TEXT    NOT NULL, -- el archivo completo, con su frontmatter (§7.9)
-  updated_at    INTEGER NOT NULL
+  updated_at    INTEGER NOT NULL,
+  deleted_at    INTEGER
 );
 CREATE INDEX templates_area ON templates (area_id);
+CREATE UNIQUE INDEX templates_nombre_vigente ON templates (area_id, name COLLATE NOCASE) WHERE deleted_at IS NULL;
 
 CREATE TABLE inputs (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -160,6 +167,7 @@ CREATE TABLE proposals (
   area_id       INTEGER REFERENCES areas (id) ON DELETE SET NULL,
   template_id   INTEGER REFERENCES templates (id) ON DELETE SET NULL,
   payload_json  TEXT    NOT NULL,
+  units_json    TEXT, -- las unidades numeradas del input ({ id, text }): lo que cada mensaje cubre y lo descartado
   model_call_id INTEGER REFERENCES llm_calls (id) ON DELETE SET NULL,
   created_at    INTEGER NOT NULL
 );
@@ -211,3 +219,15 @@ CREATE TABLE settings (
   value_json TEXT    NOT NULL,
   updated_at INTEGER NOT NULL
 );
+
+-- Bitácora de lo que cambia el equipo: quién creó, publicó, cerró, reabrió o editó áreas y plantillas, y cuándo.
+CREATE TABLE audit_log (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  at          INTEGER NOT NULL,
+  member_id   INTEGER REFERENCES members (id) ON DELETE SET NULL,
+  action      TEXT    NOT NULL,
+  entity      TEXT    NOT NULL,
+  entity_id   INTEGER,
+  detail_json TEXT
+);
+CREATE INDEX audit_log_at ON audit_log (at DESC, id DESC);

@@ -10,6 +10,7 @@
 
 import { EventEmitter } from 'node:events'
 import { all, get, run, tx } from '../db/index.js'
+import { iso } from '../db/util.js'
 
 export function createQueue ({ db, config, events, now = Date.now, random = Math.random }) {
   const señales = new EventEmitter() // 'enqueued', 'cancelled'
@@ -162,6 +163,26 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
     return fila?.t ?? null
   }
 
+  const vistaTrabajo = (j) => ({
+    id: j.id, kind: j.kind, input_id: j.input_id, status: j.status, priority: j.priority, attempts: j.attempts, max_attempts: j.max_attempts,
+    run_at: iso(j.run_at), lease_until: iso(j.lease_until), worker_id: j.worker_id, last_error: j.last_error, created_at: iso(j.created_at), finished_at: iso(j.finished_at)
+  })
+
+  /** La cola, filtrable por estado y paginada, para el editor. */
+  function listJobs ({ state = null, limit, offset }) {
+    const cond = state ? 'WHERE status = ?' : ''
+    const params = state ? [state] : []
+    const total = get(db, `SELECT COUNT(*) AS n FROM jobs ${cond}`, ...params).n
+    const filas = all(db, `SELECT * FROM jobs ${cond} ORDER BY id DESC LIMIT ? OFFSET ?`, ...params, limit, offset)
+    return { total, items: filas.map(vistaTrabajo) }
+  }
+
+  /** Purga de trabajos terminados (done, failed o cancelled); sus eventos caen con ellos (ON DELETE CASCADE). */
+  function purgeJobs (state) {
+    if (!['done', 'failed', 'cancelled'].includes(state)) throw new Error('Sólo se purgan trabajos terminados.')
+    return run(db, 'DELETE FROM jobs WHERE status = ?', state).changes
+  }
+
   function stats () {
     const filas = all(db, 'SELECT status, COUNT(*) AS n FROM jobs GROUP BY status')
     return Object.fromEntries(filas.map((f) => [f.status, f.n]))
@@ -181,6 +202,6 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
 
   return {
     enqueue, claim, heartbeat, progress, complete, fail, release, defer, cancel, cancelForInput, recoverExpiredLeases,
-    sweepRetention, nextRunAt, stats, backoffMs, getJob, latestJobForInput, señales
+    sweepRetention, nextRunAt, stats, listJobs, purgeJobs, backoffMs, getJob, latestJobForInput, señales
   }
 }

@@ -6,7 +6,8 @@
 
 import Ajv from 'ajv'
 import { all, get, run } from '../db/index.js'
-import { loadTemplate } from './areas.js'
+import { defaultTemplateOf, loadTemplate } from './areas.js'
+import { audit } from './audit.js'
 import { conflict, notFound, unprocessable } from './errors.js'
 import { transitionInput } from './inputs.js'
 import { fieldsSchema } from './template-file.js'
@@ -46,16 +47,21 @@ export function publishProposal ({ db, events, now = Date.now }, { inputId, memb
       const donde = `Mensaje ${i + 1}`
       if (typeof m.title !== 'string' || m.title.trim() === '') throw unprocessable(`${donde}: el título es obligatorio.`, 'message_invalid')
       if (typeof m.body !== 'string' || m.body.trim() === '') throw unprocessable(`${donde}: el texto es obligatorio.`, 'message_invalid')
-      const area = get(db, 'SELECT id FROM areas WHERE id = ?', m.area_id)
+      const area = get(db, 'SELECT id FROM areas WHERE id = ? AND deleted_at IS NULL', m.area_id)
       if (!area) throw unprocessable(`${donde}: el área elegida no existe.`, 'area_invalid')
-      const plantilla = loadTemplate(db, m.template_id)
-      if (!plantilla || plantilla.area_id !== m.area_id) throw unprocessable(`${donde}: la plantilla elegida no existe en esa área.`, 'template_invalid')
-      if (!validadores.has(plantilla.id)) validadores.set(plantilla.id, ajv.compile(fieldsSchema(plantilla.parsed.fields)))
-      const validarCampos = validadores.get(plantilla.id)
+      // Sin plantilla elegida (el emisor cambió el área en la propuesta) se usa la primera vigente del área.
+      const plantilla = m.template_id === null || m.template_id === undefined ? defaultTemplateOf(db, m.area_id) : loadTemplate(db, m.template_id)
+      if ((m.template_id !== null && m.template_id !== undefined && !plantilla) || (plantilla && plantilla.area_id !== m.area_id)) {
+        throw unprocessable(`${donde}: la plantilla elegida no existe en esa área.`, 'template_invalid')
+      }
       // Los campos opcionales sin dato pueden venir como null (así los entrega el analizador): equivalen a ausentes.
       const campos = Object.fromEntries(Object.entries(m.fields ?? {}).filter(([, v]) => v !== null))
-      if (!validarCampos(campos)) {
-        throw unprocessable(`${donde}: ${validarCampos.errors.map(textoDeError).join('; ')}.`, 'fields_invalid')
+      if (plantilla) {
+        if (!validadores.has(plantilla.id)) validadores.set(plantilla.id, ajv.compile(fieldsSchema(plantilla.parsed.fields)))
+        const validarCampos = validadores.get(plantilla.id)
+        if (!validarCampos(campos)) {
+          throw unprocessable(`${donde}: ${validarCampos.errors.map(textoDeError).join('; ')}.`, 'fields_invalid')
+        }
       }
       const asignados = [...new Set(m.assignee_ids ?? [])]
       for (const id of asignados) if (!miembros.has(id)) throw unprocessable(`${donde}: el miembro ${id} no existe.`, 'assignee_invalid')
@@ -64,7 +70,7 @@ export function publishProposal ({ db, events, now = Date.now }, { inputId, memb
 
       const r = run(db, `INSERT INTO messages (input_id, area_id, template_id, author_id, title, body, fields_json, status, created_at)
                          VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?)`,
-      inputId, m.area_id, m.template_id, memberId, m.title.trim(), m.body, JSON.stringify(campos), t)
+      inputId, m.area_id, plantilla?.id ?? null, memberId, m.title.trim(), m.body, JSON.stringify(campos), t)
       const messageId = Number(r.lastInsertRowid)
       for (const id of asignados) run(db, 'INSERT INTO message_assignees (message_id, member_id) VALUES (?, ?)', messageId, id)
       adjuntos.forEach((id, posicion) => run(db, 'INSERT INTO message_attachments (message_id, attachment_id, position) VALUES (?, ?, ?)', messageId, id, posicion))
@@ -72,7 +78,11 @@ export function publishProposal ({ db, events, now = Date.now }, { inputId, memb
     })
 
     transitionInput(db, inputId, 'published', { now })
-    events.publish({ kind: 'message', data: { change: 'created', message_ids: creados, input_id: inputId } })
+    audit(db, { memberId, action: 'input.publish', entity: 'input', entityId: inputId, detail: { mensajes: creados }, now })
+    // Un aviso por mensaje nuevo, con la forma que consume la campana del panel.
+    for (const [i, id] of creados.entries()) {
+      events.publish({ kind: 'message', data: { message_id: id, title: proposal.messages[i].title.trim(), author_id: memberId, input_id: inputId } })
+    }
     return creados
   })
 }

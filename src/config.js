@@ -80,6 +80,12 @@ export function loadConfig (env = process.env, overrides = {}) {
     // ---- Red y servidor
     host: texto(env, 'HOST', '0.0.0.0'), // dentro de un contenedor; el compose publica el puerto en loopback
     port: entero(env, 'PORT', 3000),
+    nodeEnv: texto(env, 'NODE_ENV', 'production'), // `development` habilita POST /auth/dev-login
+    // Primer Editor (instalación): si no hay miembros, se crea con este correo. La contraseña viene de ADMIN_PASSWORD
+    // o, si falta, se genera una y se muestra una sola vez en el registro de arranque. Nada se siembra con contraseña fija.
+    adminEmail: texto(env, 'ADMIN_EMAIL', ''),
+    adminPassword: texto(env, 'ADMIN_PASSWORD', ''),
+    projectName: texto(env, 'PROJECT_NAME', 'Team'), // lo muestra el panel en la cabecera
     apiPrefix: texto(env, 'API_PREFIX', '/api'), // MS §7.8: el panel llama a /api; 404 JSON bajo /api
     publicUrl: texto(env, 'PUBLIC_URL', ''), // sólo lo exige el modo sso-redirect
     logLevel: texto(env, 'LOG_LEVEL', 'info'),
@@ -147,9 +153,10 @@ export function loadConfig (env = process.env, overrides = {}) {
     },
 
     // ---- Listas. Sin medición: MS §7.8 dice que no se virtualiza hasta que haya cientos de filas.
+    // Paginación uniforme ?page=&limit= (convención de la API). El tope de 100 lo fija Martín (2026-10-20).
     list: {
       pageSize: entero(env, 'LIST_PAGE_SIZE', 50, { min: 1 }),
-      pageMax: entero(env, 'LIST_PAGE_MAX', 200, { min: 1 })
+      pageMax: 100
     },
 
     // ---- Identidad (MS §7.7, I04 §11)

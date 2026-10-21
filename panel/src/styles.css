@@ -196,7 +196,7 @@
   --color-closed-fg: oklch(0.76 0.02 250);
   --color-closed-bg: oklch(0.3 0.015 255);
   --color-closed-led: oklch(0.6 0.02 255);
-  --color-ai-bg: oklch(0.27 0.07 300);
+  --color-ai-bg: oklch(0.255 0.052 285);
   --color-ai-edge: oklch(0.74 0.15 305);
   --color-ai-fg: oklch(0.86 0.1 305);
   --color-danger: oklch(0.74 0.16 25);
@@ -359,7 +359,7 @@
 
   /* One protagonist, the rest quiet (J2-B-03, J2-A-04, J3-A-04): the bell is the only filled red in the interface. Every other count (the messages
      tab, the chips of Inicio, areas, rows) is quiet: neutral ink on a neutral edge, and the priority only in the color of its own shape (triangle,
-     clock, dot), next to its word and its number (UD-035). The color is never alone and never a fill. */
+     clock, dot), next to its word and its number (UD-036). The color is never alone and never a fill. */
   [data-tone][data-weight='quiet'] {
     background-color: transparent;
     border-color: var(--color-line-strong);
@@ -632,5 +632,14 @@
     background: var(--color-glass-edge);
     padding: 2px;
     box-shadow: 0 1px 2px oklch(0.4 0.1 255 / 0.25);
+  }
+}
+
+/* Text that is edited in place says so at rest where there is no pointer to hover it: a dotted rule under it (J3-B-10). With a mouse the box on hover is the signal and the text stays quiet. */
+@media (hover: none) {
+  [data-editable] {
+    border-bottom-style: dotted;
+    border-bottom-color: var(--color-line-strong);
+    border-radius: 0;
   }
 }

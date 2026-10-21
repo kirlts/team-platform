@@ -52,7 +52,7 @@ describe('notice priority (UD-029)', () => {
     }
   })
 
-  it('every badge and mark is quiet: the solid fill belongs to the bell alone (J2-B-03, J3-A-04, UD-035)', () => {
+  it('every badge and mark is quiet: the solid fill belongs to the bell alone (J2-B-03, J3-A-04, UD-036)', () => {
     for (const counts of COMBINATIONS) {
       const { container, unmount } = render(
         <I18nProvider language="es-419">

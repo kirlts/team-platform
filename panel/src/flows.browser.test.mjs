@@ -925,7 +925,7 @@ describe('tray and proposal (round 2, judge B)', () => {
     }
   })
 
-  test('the window of a send being analyzed is as tall as what it shows, and Cancelar looks like a button (J2-B-09, J2-B-12)', async () => {
+  test('the window of a send being analyzed keeps the height of the one with a proposal (J3-B-04), and Cancelar looks like a button (J2-B-12)', async () => {
     const { page, context } = await session('eduardo')
     try {
       await clearTray(page)
@@ -937,7 +937,7 @@ describe('tray and proposal (round 2, judge B)', () => {
       await cancel.waitFor()
       assert.ok((await cancel.evaluate((el) => parseFloat(getComputedStyle(el).borderTopWidth))) >= 1, 'Cancelar tiene contorno')
       const box = await page.getByRole('dialog').boundingBox()
-      assert.ok(box.height < 520, `la ventana se ajusta a su contenido: ${box.height} px`)
+      assert.ok(box.height > 600, `la ventana conserva su alto desde la cola: ${box.height} px`)
     } finally {
       await context.close()
     }

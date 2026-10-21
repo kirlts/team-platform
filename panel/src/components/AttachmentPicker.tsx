@@ -1,4 +1,4 @@
-import { Check, Plus } from '@/components/icons'
+import { Check, Plus, X } from '@/components/icons'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useT } from '@/i18n'
 import { attachmentUrl } from '@/lib/api'
@@ -18,10 +18,15 @@ export function AttachmentPicker({ all, selected, onChange, max = 3 }: { all: At
   const hidden = included.length - shown.length
   if (all.length === 0) return null
   return (
-    <ul aria-label={t('media.attachments')} className="flex flex-wrap items-center gap-2">
+    <ul aria-label={t('media.attachments')} className="flex w-full flex-wrap items-center gap-2">
       {shown.map((a) => (
-        <li key={a.id}>
-          <Thumb item={{ kind: a.kind, src: a.kind === 'link' ? undefined : attachmentUrl(a.id), name: a.name, size: a.size }} px={32} onRemove={() => onChange(selected.filter((x) => x !== a.id))} />
+        // One chip per attachment, like the ones in the compose bar: the picture, its name and the remove inside the same frame (J3-B-11).
+        <li key={a.id} className="flex min-h-9 min-w-0 max-w-full items-center gap-2 rounded-md border border-line-strong bg-surface py-0.5 pl-1 pr-0.5">
+          <Thumb item={{ kind: a.kind, src: a.kind === 'link' ? undefined : attachmentUrl(a.id), name: a.name, size: a.size }} px={28} />
+          <span className="min-w-0 max-w-[14rem] text-xs leading-tight text-muted [overflow-wrap:anywhere]">{a.name}</span>
+          <button type="button" onClick={() => onChange(selected.filter((x) => x !== a.id))} aria-label={t('media.remove', { name: a.name ?? t(MEDIA_KEY[a.kind]) })} className="hit inline-flex shrink-0 items-center justify-center rounded-full text-muted hover:bg-hover hover:text-danger">
+            <X size={13} aria-hidden />
+          </button>
         </li>
       ))}
       <li>

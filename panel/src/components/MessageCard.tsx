@@ -15,7 +15,7 @@ import { Recipients } from './Recipients'
 import { STATUS_KEY, StatusBadge } from './StatusBadge'
 import { Thumb } from './Thumb'
 
-/** The edge of a row that affects me, in the color of its priority (UD-029): the one place where a row carries color (UD-035). */
+/** The edge of a row that affects me, in the color of its priority (UD-029): the one place where a row carries color (UD-036). */
 const EDGE = { red: 'shadow-[inset_3px_0_0_var(--color-tone-red-bg)]', yellow: 'shadow-[inset_3px_0_0_var(--color-tone-yellow-bg)]', blue: 'shadow-[inset_3px_0_0_var(--color-tone-blue-bg)]' } as const
 
 /** Recipients drawn before the rest fold into «y N más». */

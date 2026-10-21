@@ -443,6 +443,20 @@ RULES:
 - `bench/areas-classify.mjs` mide la clasificación sola, a unos 0,05 USD por corrida.
 **Condiciones de reversión:** Una corrida completa del pipeline con proyecto bajo el 82,6 % de las cortas, o que Martín prefiera el orden anterior.
 
+
+## [UD-035] Una parte que el análisis dejó sin mensaje se convierte en mensaje, de a una, desde su lista
+
+**Fecha:** 2026-10-21
+**Contexto:** El juez de la ronda 3 (J3-B-09) no pudo convertir en mensaje un párrafo que el análisis dejó sin acción y que era un error real: la lista «Partes sin mensaje» sólo se leía y la única salida era analizar todo de nuevo. Martín pidió atender el 100 % de los hallazgos de la ronda y dejó decidir lo que el informe dejaba abierto.
+**Decisión:** Decisión de la sesión, tomada por ese encargo; Martín no la dijo con estas palabras y puede revertirla. Cada parte de la lista lleva «Crear mensaje». El mensaje nuevo lleva el texto de esa parte como cuerpo, sus primeras ocho palabras como título provisional (se edita en el lugar, UD-017), el área del primer mensaje de la propuesta (o la primera del catálogo si no queda ninguno), la plantilla de esa área, sin destinatarios, y se abre al crearse. La parte sale de la lista y es una operación del historial: Deshacer la devuelve. El botón «Partes sin mensaje» pasa al pie de la propuesta, junto a Descartar envío, y no ocupa una fila propia.
+**Alternativas descartadas:**
+- Un solo botón que convierta todas las partes juntas: junta puntos distintos en un mensaje.
+- Elegir el área o los destinatarios leyendo el texto de la parte: es un `if` sobre texto humano, que la regla 4 de `docs/RULES.md` prohíbe. La persona los elige en el mensaje ya creado.
+- Abrir un editor aparte para la parte: UD-017 pide editar en el lugar.
+**Consecuencias:**
+- Prueba `flows` «a part without a message becomes a message, one part at a time, and Deshacer takes it back» (`panel/src/flows-ronda3b.browser.test.mjs`).
+- Un título provisional de ocho palabras no es una interpretación del texto: es su comienzo, y la persona lo cambia antes de publicar (el título es obligatorio).
+**Condiciones de reversión:** Que Martín prefiera que las partes sin mensaje sean sólo lectura, o que la medición de uso muestre que el título provisional se publica sin editar.
 ## [UD-034] El justificado de los párrafos depende del ancho del contenedor
 
 **Fecha:** 2026-10-21
@@ -458,7 +472,7 @@ RULES:
 - Prueba del navegador: a 390 px ningún bloque se justifica y a 1440 px los anchos desde 438 px sí, con el hueco medido en los párrafos reales.
 **Condiciones de reversión:** Si Martín prefiere justificar a cualquier ancho, se quita la condición `data-wide` de la hoja de estilos y `watchProse`; si cambia la tipografía o el tamaño de la raíz, se repite la medición.
 
-## [UD-035] Un solo relleno de color en la interfaz: la campana
+## [UD-036] Un solo relleno de color en la interfaz: la campana
 
 **Fecha:** 2026-10-21
 **Contexto:** UD-029 pidió que el aviso lleve el color de la prioridad más alta y que cada prioridad tenga forma, palabra y número. Martín pidió que el ícono de notificación fuera más prominente y que su fondo se tiñera del color de mayor prioridad. La ronda 3 del juez A contó en Inicio más de 18 elementos rojos con el mismo peso (J3-A-04, severidad 5): campana, pestaña Mensajes, chips, áreas, marcas y borde de cada fila. La ronda 2 los había bajado a un tono suave y no alcanzó.
@@ -470,7 +484,7 @@ RULES:
 - `[data-weight='quiet']` en `panel/src/styles.css` reemplaza al peso suave. Una prueba del navegador cuenta los elementos con fondo rojo de Inicio con 9 pendientes y con 4 y falla si hay más de uno.
 **Condiciones de reversión:** Que Martín pida de nuevo la insignia teñida: se restituye el peso suave de la ronda 2 cambiando `quiet` por `soft` en un solo lugar de la hoja de estilos.
 
-## [UD-036] Conexiones se lista una vez, apagada y con su razón
+## [UD-037] Conexiones se lista una vez, apagada y con su razón
 
 **Fecha:** 2026-10-21
 **Contexto:** UD-012 y MASTER-SPEC §4.1 dejan la vista Conexiones visible y apagada, con la razón, hasta que se pruebe que la descomposición funciona. La ronda 3 del juez A vio cinco filas idénticas «No disponible todavía» sin acción (J3-A-45) y un submenú en la barra lateral que desplazaba lo de abajo al abrirse (J3-A-46).

@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
-import { ChevronRight } from '@/components/icons'
+import { AlertTriangle, ChevronRight } from '@/components/icons'
 import { Meter } from '@/components/Meter'
 import { useNotices } from '@/lib/notices'
 import { sendPercent } from '@/lib/progress'
@@ -109,6 +109,16 @@ export function Home() {
     if (before !== null && readyCount > before && !trayOpen) notices.show({ text: t('tray.readyNotice', { n: readyCount }), action: { label: t('tray.readyOpen'), run: () => setTrayOpen(true) } })
   }, [readyCount, tray.data]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // A send that fails says so as an error, with the way to it: a pale chip in the folded control is not enough for something that needs the person (J3-B-14).
+  const failedCount = inputs.filter((i) => i.status === 'failed').length
+  const failedBefore = useRef<number | null>(null)
+  useEffect(() => {
+    if (!tray.data) return
+    const before = failedBefore.current
+    failedBefore.current = failedCount
+    if (before !== null && failedCount > before && !trayOpen) notices.show({ tone: 'danger', text: t('tray.failedNotice', { n: failedCount }), action: { label: t('tray.readyOpen'), run: () => setTrayOpen(true) } })
+  }, [failedCount, tray.data]) // eslint-disable-line react-hooks/exhaustive-deps
+
   /** Uploads one send; the bar is already empty. A failure keeps the draft in its row so the text is never lost. */
   const upload = useCallback(
     async (key: string, draft: SendDraft) => {
@@ -175,8 +185,6 @@ export function Home() {
   // The original of a send is folded unless the person opens it (UD-030).
   const originalOpen = !!selected && (originalChoice[selected.id] ?? false)
   const working = items.length > 0
-  // A send that is only being analyzed has nothing to fill the window with: it is as tall as what it shows (J2-B-09).
-  const compactWindow = !!selected && selected.status !== 'proposed' && items.length <= 3
   useEffect(() => {
     if (!working) setTrayOpen(false)
   }, [working])
@@ -206,7 +214,7 @@ export function Home() {
               {working && (
                 <DialogTrigger asChild>
                   {/* One control, folded and shaped as a button: the state and the progress of the sends are in its face (J2-B-07). */}
-                  <button type="button" data-testid="tray-control" className="btn btn-glass relative h-9 min-w-0 gap-x-2.5 overflow-hidden px-3.5 pb-1.5 text-left">
+                  <button type="button" data-testid="tray-control" className="btn btn-glass relative h-9 min-w-0 gap-x-2.5 overflow-hidden !border-accent !bg-accent-soft/70 px-3.5 pb-1.5 text-left">
                     <span className="text-sm font-bold">{t('tray.title')}</span>
                     <TrayState items={items} progress={events.progress} />
                     <ChevronRight size={16} aria-hidden className="shrink-0" />
@@ -218,16 +226,19 @@ export function Home() {
           <ComposeBar onSubmit={submit} problem={problem} />
         </section>
         {working && (
-          <DialogContent title={t('tray.title')} data-keys-ok="" onOpenAutoFocus={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).focus() }} className={`${compactWindow ? 'h-auto min-h-[18rem]' : 'h-[min(88dvh,54rem)]'} max-w-[72rem] max-md:left-0 max-md:top-0 max-md:h-dvh max-md:max-h-none max-md:w-screen max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-none`}>
+          <DialogContent title={t('tray.title')} data-keys-ok="" onOpenAutoFocus={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).focus() }} className={`h-[min(88dvh,54rem)] max-w-[72rem] max-md:left-0 max-md:top-0 max-md:h-dvh max-md:max-h-none max-md:w-screen max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-none`}>
             <NoticeHost inDialog />
             <div className="grid min-h-0 flex-1 content-start gap-x-6 gap-y-3 overflow-y-auto p-4 md:grid-cols-[minmax(0,3fr)_minmax(0,9fr)] md:grid-rows-[minmax(0,1fr)] md:overflow-visible" data-lane="tray-dialog">
               {/* On a phone the list folds behind the send in view, so the proposal gets the screen (J2-B-11). */}
               <div className="flex min-h-0 min-w-0 flex-col gap-2">
-                <button type="button" aria-expanded={listOpen} onClick={() => setListOpen((v) => !v)} className="btn btn-glass h-9 w-full justify-between px-3 md:hidden">
-                  <span className="min-w-0 text-sm font-semibold">{t('tray.pending', { n: items.length })}</span>
-                  <ChevronRight size={16} aria-hidden className={listOpen ? 'rotate-90' : ''} />
-                </button>
-                <div className={listOpen ? 'flex min-h-0 flex-1 flex-col' : 'flex min-h-0 flex-1 flex-col max-md:hidden'}>
+                {/* With one send there is nothing to choose between: on a phone the list is not drawn at all (J3-B-25). */}
+                {items.length > 1 && (
+                  <button type="button" aria-expanded={listOpen} onClick={() => setListOpen((v) => !v)} className="btn btn-glass h-9 w-full justify-between px-3 md:hidden">
+                    <span className="min-w-0 text-sm font-semibold">{t('tray.pending', { n: items.length })}</span>
+                    <ChevronRight size={16} aria-hidden className={listOpen ? 'rotate-90' : ''} />
+                  </button>
+                )}
+                <div className={listOpen && items.length > 1 ? 'flex min-h-0 flex-1 flex-col' : 'flex min-h-0 flex-1 flex-col max-md:hidden'}>
                   <Tray items={items} selectedId={selectedId} hideTextId={originalOpen ? selectedId : undefined} onSelect={(id) => { setDiscarded(null); setSelectedId(id); setListOpen(false) }} bare />
                 </div>
               </div>
@@ -306,14 +317,19 @@ function TrayState({ items, progress }: { items: readonly TrayItem[]; progress: 
           <Meter percent={mean} label={t('analysis.progress')} className="absolute inset-x-3.5 bottom-1 h-1" />
         </>
       )}
-      {failed > 0 && <Badge tone="danger">{t('tray.failed', { n: failed })}</Badge>}
+      {failed > 0 && (
+        <Badge tone="danger" className="gap-1 border border-danger">
+          <AlertTriangle size={12} aria-hidden strokeWidth={2.4} />
+          {t('tray.failed', { n: failed })}
+        </Badge>
+      )}
     </span>
   )
 }
 
 /**
  * What affects me, at the top of the page (UD-030): one chip per priority with its count and one per area with
- * what is pending in it. Both rows use the same chip, quiet (UD-035), and the same kind of label; each chip leads to
+ * what is pending in it. Both rows use the same chip, quiet (UD-036), and the same kind of label; each chip leads to
  * Mensajes already filtered (UD-028). The areas take one row: those that do not fit fold behind «+N» (J3-A-06, J3-A-10).
  */
 function Attention() {
@@ -354,7 +370,10 @@ function Attention() {
           </ul>
         )}
       </div>
-      {areas.length > 0 && (
+      {/* The row is always there, with the height of one chip: an area that gets something pending does not push the lists down (J3-B-15). */}
+      {areas.length === 0 ? (
+        <div aria-hidden className="min-h-6 md:col-span-2" />
+      ) : (
         <>
           <h2 className="min-w-16 max-md:mt-1.5">{t('home.byArea')}</h2>
           <AreaChips

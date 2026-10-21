@@ -15,7 +15,7 @@ export function ToneIcon({ tone, size = 14 }: { tone: Tone; size?: number }) {
 
 /**
  * The mark of one priority: its shape, its word and (optionally) a count. The shape and the word say it without the color.
- * It is quiet (UD-035): neutral ink, the priority only in the color of its shape. `plain` also drops the edge, for a row.
+ * It is quiet (UD-036): neutral ink, the priority only in the color of its shape. `plain` also drops the edge, for a row.
  */
 export function ToneMark({ tone, n, className, showWord = true, plain = false }: { tone: Tone; n?: number; className?: string; showWord?: boolean; plain?: boolean }) {
   const t = useT()
@@ -48,7 +48,7 @@ export function usePulse(value: number) {
 /**
  * The count badge: its tint is the highest priority present (red > yellow > blue), it carries the shape of
  * that priority and the total as a number, and its accessible name says both. Nothing present renders nothing.
- * It is the quiet weight: the only solid fill in the interface is the bell (J2-B-03, UD-035).
+ * It is the quiet weight: the only solid fill in the interface is the bell (J2-B-03, UD-036).
  */
 export function NotifyBadge({ counts, size = 'lg', className, ...rest }: { counts: ToneCounts; size?: 'lg' | 'md' | 'plain'; className?: string; 'data-testid'?: string }) {
   const t = useT()

@@ -52,10 +52,11 @@ export function AreaPicker({
           <ChevronDown size={12} aria-hidden className="shrink-0" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" collisionPadding={8}>
+      {/* A long area title wraps inside a bounded menu instead of widening it (J3-B-28); UD-016 rules out cutting it. */}
+      <DropdownMenuContent align="start" collisionPadding={8} className="max-w-[min(22rem,calc(100vw-1rem))]">
         <DropdownMenuRadioGroup value={areaId} onValueChange={(v) => void choose(v)}>
           {areas.map((a) => (
-            <DropdownMenuRadioItem key={a.id} value={a.id}>
+            <DropdownMenuRadioItem key={a.id} value={a.id} className="h-auto items-start">
               {a.title}
             </DropdownMenuRadioItem>
           ))}

@@ -1,4 +1,4 @@
-import { AlertTriangle, ChevronDown, ChevronRight, RotateCw, Trash2 } from '@/components/icons'
+import { AlertTriangle, ChevronDown, ChevronRight, Plus, RotateCw, Trash2, X } from '@/components/icons'
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
@@ -11,6 +11,7 @@ import { useJobProgress } from '@/lib/events'
 import { useNotices } from '@/lib/notices'
 import { sendPercent } from '@/lib/progress'
 import { useCancelInput, usePublish, useReprocess, useRestoreInput, useSaveProposal, useTemplates, useTray } from '@/lib/queries'
+import { firstWords } from '@/lib/first-words'
 import { missingRequired, parseTemplateFields, remapFields } from '@/lib/template'
 import type { Attachment, InputRecord, InputStatus, Proposal, ProposalMessage, Template } from '@/lib/types'
 import { useUndo } from '@/lib/undo'
@@ -72,25 +73,30 @@ export function AnalysisPanel({ input, onClose, onDiscarded }: { input: InputRec
   const failureCode = input.error_code ? `analysis.error.${input.error_code}` : ''
   const failureText = failureCode && has(failureCode) ? t(failureCode as MessageKey) : input.error || t('analysis.failed')
   const percent = sendPercent(input, progress)
-  const edited = undo.undoCount > 0
+  // What can be redone is also work the new analysis would take: asking is skipped only when the history is empty on both sides (J3-B-05).
+  const edited = undo.undoCount > 0 || undo.redoCount > 0
 
   /** Analyzing again drops the proposal, with what was edited in it: that is the one step here that cannot be taken back. */
   const again = () => {
     setConfirmAgain(false)
+    // The old proposal is gone: its history would restore edits of a proposal that no longer exists (J3-B-05).
+    undo.clear()
     reprocess.mutate(input.id)
   }
 
   return (
     // Only a proposal fills the frame; waiting or failing, the surface is as tall as what it says (J1-B-07).
-    <section aria-label={t('analysis.title')} className={cn('@container ai-surface flex min-h-0 min-w-0 flex-col gap-3 p-3 pl-4', input.status !== 'proposed' && 'w-full self-start')}>
-      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-        <div className="flex items-center gap-2">
-          <h2>{t('analysis.title')}</h2>
-          <AiMark />
+    <section aria-label={t('analysis.title')} className={cn('@container ai-surface flex min-h-0 min-w-0 flex-col gap-3 p-3 pl-4', input.status === 'proposed' ? 'flex-1' : 'w-full self-start')}>
+      <div className="flex min-h-7 flex-wrap items-center justify-between gap-x-2 gap-y-1">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <div className="flex items-center gap-2">
+            <h2>{t('analysis.title')}</h2>
+            <AiMark />
+          </div>
+          {/* The history beside the title and «Volver a analizar» alone at the right edge: the step that drops the proposal is not one of the pair that takes a step back (J3-B-27); neither moves the other (J2-B-15). */}
+          {input.status === 'proposed' && <UndoButtons stack={undo} />}
         </div>
-        {/* «Volver a analizar» keeps the right edge; the history appears to its left, so nothing that was there moves (J2-B-15). */}
         <div className="flex flex-wrap items-center gap-1.5">
-          <UndoButtons stack={undo} />
           {input.status === 'proposed' && (
             <Button size="sm" variant="ghost" className="hit" disabled={reprocess.isPending} onClick={() => (edited ? setConfirmAgain(true) : again())}>
               <RotateCw size={13} aria-hidden /> {t('analysis.again')}
@@ -119,7 +125,8 @@ export function AnalysisPanel({ input, onClose, onDiscarded }: { input: InputRec
           <div role="alert" className="flex flex-col gap-0.5 rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">
             <p className="font-semibold">{t('analysis.failed')}</p>
             <p>{failureText}.</p>
-            <p>{t('analysis.kept')}</p>
+            {/* What reassures is not an error: it goes in the ink of the text (J3-B-29). */}
+            <p className="text-fg">{t('analysis.kept')}</p>
           </div>
           {reprocess.isError && (
             <p role="alert" className="text-sm text-danger">
@@ -180,7 +187,7 @@ function ProposalEditor({
   const errorText = useErrorText()
   const undo = useUndo()
   const notices = useNotices()
-  const { memberName } = useLookups()
+  const { memberName, areas } = useLookups()
   const publish = usePublish()
   const waiting = (useTray().data ?? []).filter((i) => i.id !== input.id).length
   const saveProposal = useSaveProposal(input.id)
@@ -233,10 +240,31 @@ function ProposalEditor({
     notices.show({ text: t('proposal.removedNotice', { title }) })
   }
 
+  const unitText = (id: number) => input.units?.find((u) => u.id === id)?.text
+
+  /**
+   * A part the analysis left without a message becomes one (J3-B-09), one part at a time: its text is the body, its first words the title (the person
+   * edits it right there), the area is the one of the first message or, with none, the first of the catalog. Nobody is assigned and
+   * the template is the area's own: the person fills those in. The units leave «Partes sin mensaje» and go with the new message.
+   */
+  const createFrom = async (at: number, unitId: number) => {
+    const part = latest.current.discarded?.[at]
+    if (!part) return
+    const text = unitText(unitId) ?? ''
+    const area_id = latest.current.messages[0]?.area_id ?? areas[0]?.id
+    if (!area_id) return
+    // The new message opens at once, not after the draft is saved.
+    setOpenIndex(latest.current.messages.length)
+    await change(t('proposal.created'), (p) => ({
+      ...p,
+      messages: [...p.messages, { area_id, template_id: null, title: firstWords(text, 8), body: text, fields: null, assignee_ids: [], attachment_ids: [], unit_ids: [unitId] }],
+      discarded: (p.discarded ?? []).flatMap((d, i) => (i !== at ? [d] : d.unit_ids.length > 1 ? [{ ...d, unit_ids: d.unit_ids.filter((u) => u !== unitId) }] : [])),
+    }))
+  }
+
   const rows = useMemo<Row[]>(() => proposal.messages.map((m, i) => ({ m, i })), [proposal])
   const discarded = proposal.discarded ?? []
   const discardedCount = discarded.reduce((n, d) => n + d.unit_ids.length, 0)
-  const unitText = (id: number) => input.units?.find((u) => u.id === id)?.text
   const count = proposal.messages.length
 
   // What is missing per message: computed with each one's template.
@@ -286,33 +314,6 @@ function ProposalEditor({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      {discardedCount > 0 && (
-        <div className="flex items-center justify-end gap-3 text-xs text-muted">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button size="sm" variant="secondary" className="hit">
-                {t('proposal.noAction')} <Badge tone="neutral">{discardedCount}</Badge>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-96 p-3">
-              <p className="mb-2 text-xs font-semibold">{t('proposal.noActionTitle', { n: discardedCount })}</p>
-              <ul data-lane="discarded-units" className="scroll-thin flex max-h-72 flex-col overflow-y-auto">
-                {discarded.map((d, i) => (
-                  <li key={i} className="border-b border-line py-2 text-sm first:pt-0 last:border-b-0 last:pb-0">
-                    <p className="text-xs text-muted">{d.reason}</p>
-                    {d.unit_ids.map((id) => (
-                      <p key={id} className="whitespace-pre-wrap">
-                        {unitText(id) ?? id}
-                      </p>
-                    ))}
-                  </li>
-                ))}
-              </ul>
-            </PopoverContent>
-          </Popover>
-        </div>
-      )}
-
       <FitList
         bare
         rows={rows}
@@ -342,9 +343,38 @@ function ProposalEditor({
 
       {/* On a phone the actions stay on screen whatever the length of the list (J1-B-29). */}
       <div data-actions className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 max-md:sticky max-md:bottom-0 max-md:z-10 max-md:-mx-3 max-md:-mb-3 max-md:rounded-b-[10px] max-md:border-t max-md:border-line max-md:bg-surface max-md:px-3 max-md:py-2">
-        <Button variant="ghost" className="hit text-muted" onClick={onDiscard} disabled={publish.isPending || discarding}>
-          <Trash2 size={14} aria-hidden /> {t('analysis.discard')}
-        </Button>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <Button variant="ghost" className="hit text-danger" onClick={onDiscard} disabled={publish.isPending || discarding}>
+            <Trash2 size={14} aria-hidden /> {t('analysis.discard')}
+          </Button>
+          {discardedCount > 0 && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button size="sm" variant="secondary" className="hit">
+                  {t('proposal.noAction')} <Badge tone="neutral">{discardedCount}</Badge>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-96 p-3">
+                <p className="mb-2 text-xs font-semibold">{t('proposal.noActionTitle', { n: discardedCount })}</p>
+                <ul data-lane="discarded-units" className="scroll-thin flex max-h-72 flex-col overflow-y-auto">
+                  {discarded.map((d, i) => (
+                    <li key={i} className="flex flex-col items-start gap-1.5 border-b border-line py-2 text-sm first:pt-0 last:border-b-0 last:pb-0">
+                      <p className="text-xs text-muted">{d.reason}</p>
+                      {d.unit_ids.map((id) => (
+                        <div key={id} className="flex w-full flex-col items-start gap-1.5 border-t border-line pt-2 first:border-t-0 first:pt-0">
+                          <p className="whitespace-pre-wrap">{unitText(id) ?? id}</p>
+                          <Button size="sm" variant="secondary" className="hit" onClick={() => void createFrom(i, id)}>
+                            <Plus size={13} aria-hidden /> {t('proposal.create')}
+                          </Button>
+                        </div>
+                      ))}
+                    </li>
+                  ))}
+                </ul>
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
         <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
           {missingTotal > 0 && (
             <span role="status" className="text-xs font-semibold text-danger">
@@ -424,7 +454,7 @@ function ProposalRow({
     <li className="flex list-none flex-col gap-2 border-b border-line px-1.5 py-3 last:border-b-0">
       <div className="flex flex-wrap items-start gap-x-2 gap-y-1.5">
         {!only && (
-          <span className="flex shrink-0 items-center gap-1 self-center text-xs font-semibold tabular-nums text-muted">
+          <span className="flex shrink-0 items-center gap-1 self-start pt-2 text-xs font-semibold tabular-nums text-muted">
             <ChevronDown size={14} aria-hidden />
             {index + 1}
           </span>
@@ -466,16 +496,16 @@ function ProposalRow({
             </DropdownMenuContent>
           </DropdownMenu>
         )}
-        <EditableText value={m.title} label={t('proposal.title')} validate={required} onSave={(v) => patch(index, t('proposal.titleEdited'), { title: v })} displayClassName="text-sm font-semibold" className="min-w-0 flex-1 basis-40" />
+        <EditableText value={m.title} label={t('proposal.title')} validate={required} onSave={(v) => patch(index, t('proposal.titleEdited'), { title: v })} displayClassName="text-read font-bold" className="min-w-0 flex-1 basis-40" />
         {/* The only message cannot be removed: Descartar is the way out, so the button is not drawn instead of drawn off. */}
         {!only && (
           <Button size="sm" variant="ghost" className="hit shrink-0 text-muted" onClick={() => void remove(index)} aria-label={t('proposal.remove', { title: m.title })}>
-            <Trash2 size={13} aria-hidden /> {t('proposal.removeShort')}
+            <X size={13} aria-hidden /> {t('proposal.removeShort')}
           </Button>
         )}
       </div>
       <EditableText value={m.body} label={t('proposal.body')} multiline prose validate={required} onSave={(v) => patch(index, t('proposal.bodyEdited'), { body: v })} displayClassName="text-read text-fg" className="py-1" />
-      <TemplateFields template={template} values={m.fields} onSave={(name, value) => patch(index, t('proposal.fieldEdited'), (cur) => ({ fields: { ...(cur.fields ?? {}), [name]: value } }))} />
+      <TemplateFields boxed={false} template={template} values={m.fields} onSave={(name, value) => patch(index, t('proposal.fieldEdited'), (cur) => ({ fields: { ...(cur.fields ?? {}), [name]: value } }))} />
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
         <RecipientsEditor ids={m.assignee_ids} onChange={(ids) => void patch(index, t('proposal.recipientsChanged'), { assignee_ids: ids })} />
         <AttachmentPicker all={attachments} selected={m.attachment_ids} onChange={(ids) => void patch(index, t('proposal.attachmentsChanged'), { attachment_ids: ids })} />

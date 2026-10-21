@@ -26,6 +26,8 @@ export interface UndoStack {
   redoLabel: string | undefined
   /** An undo or redo is in flight. */
   busy: boolean
+  /** Forgets both lists: what they would restore no longer exists (the proposal was replaced by a new analysis). */
+  clear: () => void
 }
 
 /**
@@ -111,10 +113,15 @@ export function useUndoStack(): UndoStack {
       undoLabel: core.past[core.past.length - 1]?.label,
       redoLabel: core.future[core.future.length - 1]?.label,
       busy,
+      clear: () => {
+        core.past.length = 0
+        core.future.length = 0
+        bump()
+      },
     }),
     // The counts are read from the lists on every render; `version` is what changes them.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [core, guarded, busy, core.past.length, core.future.length, notices, t],
+    [core, guarded, bump, busy, core.past.length, core.future.length, notices, t],
   )
 
   latest.current = stack

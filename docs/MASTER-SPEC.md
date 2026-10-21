@@ -215,9 +215,9 @@ Desarrollo del panel: Vite 8, Tailwind 4.3 con `@tailwindcss/vite` (MIT), TypeSc
 
 | Vista | Qué muestra | Quién |
 |---|---|---|
-| Inicio | Barra de envío, aviso «Para mí» con los pendientes por prioridad y por área, últimos mensajes (para mí por omisión) y últimas respuestas (que me involucran) siempre a la vista; los envíos (cola, original y análisis) tras un solo control con su estado, que abre la revisión en un diálogo (UD-028 a UD-030) | Todos |
+| Inicio | Barra de envío, aviso «Para mí» con los mensajes abiertos y respondidos que me afectan y los de cada área, últimos mensajes (para mí por omisión) y últimas respuestas (que me involucran) siempre a la vista; los envíos (cola, original y análisis) tras un solo control con su estado, que abre la revisión en un diálogo (UD-028 a UD-030) | Todos |
 | Mensajes | Todos los mensajes del equipo con filtros: para mí, para X, por área, por estado, respuestas; búsqueda | Todos |
-| Áreas | Áreas con su conteo de abiertos y sus plantillas; edición en el lugar | Editor |
+| Áreas | Lista de áreas con su conteo de abiertos y respondidos, para crearlas y abrirlas. Cada área abre su vista (`/areas/:id`): sus mensajes primero, con el filtro por los tres estados y su conteo, y plegadas su descripción y sus plantillas, con edición en el lugar (UD-041) | Editor |
 | Equipo | Miembros con su perfil; cada uno edita el suyo | Todos |
 | Conexiones | API, MCP, correo, WhatsApp, GitHub Issues (UD-012). Apagada: visible como entrada deshabilitada con la razón | Editor |
 | Configuración | Cuenta, tema claro u oscuro, proveedores de modelo (Editor) | Todos |
@@ -226,8 +226,8 @@ Desarrollo del panel: Vite 8, Tailwind 4.3 con `@tailwindcss/vite` (MIT), TypeSc
 
 | Componente | Función | Archivo |
 | --- | --- | --- |
-| `Sidebar` | Navegación, usuario, conteo de abiertos por área | `panel/src/components/Sidebar.tsx` |
-| `NotifyBadge`, `ToneMark` | Insignia grande y marca de prioridad: fondo del color de la prioridad más alta presente (rojo, amarillo, azul), con forma, palabra y número (UD-029). La prioridad se decide en `panel/src/lib/priority.ts` | `panel/src/components/NotifyBadge.tsx` |
+| `Sidebar` | Navegación, usuario, conteo de abiertos y respondidos por área | `panel/src/components/Sidebar.tsx` |
+| `NotifyBadge`, `StateMark` | Insignia y marca de estado: abierto rojo, respondido amarillo, cerrado azul, con forma, palabra y número; la campana toma el color del estado más alto presente (UD-029, UD-041). El estado más alto se decide en `panel/src/lib/states.ts` | `panel/src/components/NotifyBadge.tsx` |
 | `ComposeBar` | Barra de nuevo mensaje con adjuntos, cámara, micrófono, enviar | `panel/src/components/ComposeBar.tsx` |
 | `InputPreview` | Texto y adjuntos del input enviado | `panel/src/components/InputPreview.tsx` |
 | `AnalysisPanel` | Progreso por SSE, propuesta editable con área por mensaje, Enviar | `panel/src/components/AnalysisPanel.tsx` |
@@ -275,7 +275,7 @@ POST   /api/inputs/:id/reprocess  (Editor) vuelve a encolar el análisis conserv
 GET    /api/events                SSE por miembro (§7.10); ?job_id= lo acota a un trabajo
 
 GET    /api/messages?for=me|id&area=&status=&q=&replies=1
-GET    /api/messages/summary      lo que afecta a quien tiene la sesión por prioridad (`mine`: red, yellow, blue, total) y los abiertos por área (`areas`: open, mine_open) (UD-028)
+GET    /api/messages/summary      lo que afecta a quien tiene la sesión por estado (`mine`: open, answered, total) y los mensajes de cada área por estado (`areas`: open, answered, closed, mine_open) (UD-028, UD-041)
 GET    /api/messages/:id          mensaje, hilo, adjuntos
 POST   /api/messages/:id/replies  { body, kind: answer|fix|clarification }   (403 si quien responde es el emisor)
 POST   /api/messages/:id/close · POST /api/messages/:id/reopen

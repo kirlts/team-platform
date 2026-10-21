@@ -57,19 +57,19 @@ describe('the drawer under the bar (UD-046, UD-070)', () => {
       const published = drawer.getByTestId('published-message').first()
       await published.waitFor({ timeout: 20000 })
       // No confirmation step: neither the button that published nor the one that discarded exist, and nothing opened over the page.
-      assert.equal(await page.getByRole('button', { name: /^Enviar \d+ mensajes?$/ }).count(), 0, 'ya no hay botón Enviar N mensajes')
-      assert.equal(await page.getByRole('button', { name: 'Descartar envío' }).count(), 0, 'Descartar envío no es un paso')
-      assert.equal(await page.getByRole('dialog').count(), 0, 'nada se abre sobre la página')
+      assert.equal(await page.getByRole('button', { name: /^Enviar \d+ mensajes?$/ }).count(), 0, 'there is no longer a «Enviar N mensajes» button')
+      assert.equal(await page.getByRole('button', { name: 'Descartar envío' }).count(), 0, '«Descartar envío» is not a step')
+      assert.equal(await page.getByRole('dialog').count(), 0, 'nothing opens over the page')
       // It sits under the bar of text (mockup), and the original is beside the analysis.
       const barBox = await bar(page).boundingBox()
       const drawerBox = await drawer.boundingBox()
-      assert.ok(drawerBox.y > barBox.y + barBox.height - 1, 'el desplegable queda bajo la barra')
+      assert.ok(drawerBox.y > barBox.y + barBox.height - 1, 'the dropdown sits below the bar')
       const original = await drawer.getByTestId('original-box').boundingBox()
       const analysis = await published.boundingBox()
-      assert.ok(original.x + original.width <= analysis.x + 1, 'el original queda a la izquierda del análisis')
+      assert.ok(original.x + original.width <= analysis.x + 1, 'the original sits to the left of the analysis')
       // The message is already in the team's list.
       const body = await api(page, '/messages')
-      assert.ok((body.body.items ?? body.body).some((m) => m.title.startsWith('El botón de guardar')), 'el mensaje está publicado')
+      assert.ok((body.body.items ?? body.body).some((m) => m.title.startsWith('El botón de guardar')), 'the message is published')
     } finally {
       await context.close()
     }
@@ -83,15 +83,15 @@ describe('the drawer under the bar (UD-046, UD-070)', () => {
       await box.waitFor({ timeout: 20000 })
       const original = page.getByTestId('original-box')
       const before = { analysis: await bg(box), original: await bg(original), area: await box.getAttribute('data-area-id') }
-      assert.notEqual(before.analysis, before.original, 'lo enviado y el análisis se ven distintos')
+      assert.notEqual(before.analysis, before.original, 'what was sent and the analysis look different')
       // The chip of the area carries the main color: not the same as the box's tint.
       const chip = box.getByTestId('area-picker')
-      assert.notEqual(await bg(chip), before.analysis, 'el chip y el fondo no son el mismo color')
+      assert.notEqual(await bg(chip), before.analysis, 'the chip and the background are not the same color')
       await chip.click()
       const other = page.getByRole('menuitemradio').filter({ hasNotText: /Idea|Accesibilidad/ }).first()
       await other.click()
       await page.waitForFunction((area) => document.querySelector('[data-testid="published-message"]')?.getAttribute('data-area-id') !== area, before.area)
-      assert.notEqual(await bg(box), before.analysis, 'al cambiar el área cambia el color del recuadro')
+      assert.notEqual(await bg(box), before.analysis, 'changing the area changes the color of the box')
       await box.getByTestId('edited-mark').waitFor()
     } finally {
       await context.close()
@@ -108,9 +108,9 @@ describe('the drawer under the bar (UD-046, UD-070)', () => {
       const chip = card.getByTestId('area-chip')
       const name = (await chip.innerText()).trim()
       const area = list.find((a) => a.title === name)
-      assert.ok(area, `el chip dice «${name}»`)
+      assert.ok(area, `the chip says «${name}»`)
       const hex = area.color.slice(1).match(/../g).map((h) => parseInt(h, 16))
-      assert.equal(await bg(chip), `rgb(${hex.join(', ')})`, 'el chip lleva el color principal del área')
+      assert.equal(await bg(chip), `rgb(${hex.join(', ')})`, 'the chip carries the main color of the area')
       // The state is a mark with its word, in its own element: a different one from the chip.
       assert.ok((await card.getByTestId('state-mark').count()) >= 1)
     } finally {
@@ -127,7 +127,7 @@ describe('the drawer under the bar (UD-046, UD-070)', () => {
       const switcher = page.getByTestId('send-switcher')
       await switcher.waitFor()
       const before = await page.getByTestId('send-drawer').boundingBox()
-      assert.ok((await switcher.getByRole('option').count()) >= 2, 'cada envío tiene su opción')
+      assert.ok((await switcher.getByRole('option').count()) >= 2, 'each submission has its own option')
       // «N para revisar» that obliges another click does not exist: everything is in the drawer.
       assert.equal(await page.getByText(/para revisar/).count(), 0)
       // Opening another send changes the content in place, not the place of the drawer.
@@ -135,7 +135,7 @@ describe('the drawer under the bar (UD-046, UD-070)', () => {
       await first.click()
       await page.getByTestId('original-box').getByText('Primer envío de la ráfaga').waitFor()
       const after = await page.getByTestId('send-drawer').boundingBox()
-      assert.equal(Math.round(after.y), Math.round(before.y), 'el desplegable no cambia de lugar')
+      assert.equal(Math.round(after.y), Math.round(before.y), 'the dropdown does not change place')
     } finally {
       await context.close()
     }
@@ -154,7 +154,7 @@ describe('the drawer under the bar (UD-046, UD-070)', () => {
       await box.getByRole('button', { name: /^Título del mensaje: Título corregido/ }).waitFor()
       await box.getByTestId('edited-mark').waitFor()
       const id = (await box.getByRole('link', { name: /^Abrir el mensaje/ }).getAttribute('href')).split('/').pop()
-      assert.equal((await api(page, `/messages/${id}`)).body.title, 'Título corregido por quien lo envió', 'quedó guardado en el mensaje publicado')
+      assert.equal((await api(page, `/messages/${id}`)).body.title, 'Título corregido por quien lo envió', 'it was saved in the published message')
       await page.getByRole('button', { name: 'Deshacer' }).first().click()
       await page.waitForFunction(() => !document.body.innerText.includes('Título corregido por quien lo envió'))
     } finally {
@@ -168,11 +168,11 @@ describe('the drawer under the bar (UD-046, UD-070)', () => {
       const list = (await api(page, '/messages')).body
       const mine = (await api(page, '/me')).body
       const other = (list.items ?? list).find((m) => m.author_id !== mine.id)
-      assert.ok(other, 'hay un mensaje de otra persona')
+      assert.ok(other, 'there is a message from another person')
       await page.goto(`${origin}/messages/${other.id}`)
       await page.locator('main h1').waitFor()
-      assert.equal(await page.getByRole('button', { name: /^Título del mensaje|^Texto del mensaje/ }).count(), 0, 'no hay edición en el lugar')
-      assert.equal(await page.getByTestId('area-picker').count(), 0, 'el área no se cambia')
+      assert.equal(await page.getByRole('button', { name: /^Título del mensaje|^Texto del mensaje/ }).count(), 0, 'there is no in-place editing')
+      assert.equal(await page.getByTestId('area-picker').count(), 0, 'the area is not changed')
       const refused = await api(page, `/messages/${other.id}`, { method: 'PATCH', data: { title: 'Intento ajeno', version: 1 } })
       assert.equal(refused.status, 403)
       assert.equal(refused.body.code, 'not_message_author')
@@ -196,10 +196,10 @@ describe('the drawer under the bar (UD-046, UD-070)', () => {
       await field.fill('Texto nuevo, sobre una versión vieja.')
       await field.press('Enter')
       await box.getByRole('button', { name: /^Texto del mensaje: Texto nuevo/ }).waitFor()
-      assert.equal(await page.getByRole('alert').count(), 0, 'el conflicto no se le muestra a quien editó otro campo')
+      assert.equal(await page.getByRole('alert').count(), 0, 'the conflict is not shown to whoever edited another field')
       const saved = (await api(page, `/messages/${id}`)).body
       assert.equal(saved.body, 'Texto nuevo, sobre una versión vieja.')
-      assert.equal(saved.title, 'Cambio desde otra pestaña', 'lo que se guardó antes se conserva')
+      assert.equal(saved.title, 'Cambio desde otra pestaña', 'what was saved earlier is kept')
     } finally {
       await context.close()
     }
@@ -222,12 +222,12 @@ describe('the drawer under the bar (UD-046, UD-070)', () => {
       // The box is read once the page is quiet, not while the notice is still coming in (H-904).
       await settled(page)
       const n = await notice.boundingBox()
-      assert.ok(n.y + n.height <= 56, `el aviso queda en la barra superior: ${n.y + n.height}`)
+      assert.ok(n.y + n.height <= 56, `the notice stays in the top bar: ${n.y + n.height}`)
       assert.match(await notice.innerText(), /publicado/)
-      assert.equal(await strip(), before, 'la franja de Para mí no cambia de alto al publicar')
+      assert.equal(await strip(), before, 'the «Para mí» strip does not change height on publishing')
       for (const b of await page.getByRole('button', { name: /^Página (siguiente|anterior)$/ }).all()) {
         const r = await b.boundingBox()
-        assert.equal(r.x < n.x + n.width && n.x < r.x + r.width && r.y < n.y + n.height && n.y < r.y + r.height, false, 'el aviso no tapa la paginación')
+        assert.equal(r.x < n.x + n.width && n.x < r.x + r.width && r.y < n.y + n.height && n.y < r.y + r.height, false, 'the notice does not cover the pagination')
       }
       // «Revisar» opens the drawer on that send, already published.
       await notice.getByRole('button', { name: 'Revisar' }).click()
@@ -246,14 +246,14 @@ describe('the side panel (UD-047)', () => {
       const sidebar = page.getByTestId('sidebar')
       await sidebar.waitFor()
       const width = (await sidebar.boundingBox()).width
-      assert.ok(width <= 260, `el panel mide ${width} px, antes 288`)
+      assert.ok(width <= 260, `the panel measures ${width} px, previously 288`)
       await page.getByTestId('sidebar-hide').click()
       await sidebar.waitFor({ state: 'detached' })
       const content = (await page.locator('main').boundingBox()).width
-      assert.ok(content > 1440 - 30, `la página usa el ancho: ${content}`)
+      assert.ok(content > 1440 - 30, `the page uses the width: ${content}`)
       await page.reload()
       await page.locator('main').first().waitFor()
-      assert.equal(await sidebar.count(), 0, 'se recuerda al volver')
+      assert.equal(await sidebar.count(), 0, 'it is remembered on return')
       await page.getByRole('button', { name: 'Mostrar el panel' }).click()
       await sidebar.waitFor()
       // Another person is not affected by this one's choice.
@@ -310,10 +310,10 @@ describe('the publication setting (UD-070)', () => {
       await page.goto(`${origin}/settings`)
       const group = page.getByRole('radiogroup', { name: 'Publicación' })
       await group.waitFor()
-      assert.equal(await group.getByRole('radio', { name: 'Automática' }).getAttribute('aria-checked'), 'true', 'nace automática')
+      assert.equal(await group.getByRole('radio', { name: 'Automática' }).getAttribute('aria-checked'), 'true', 'it starts as automatic')
       await group.getByRole('radio', { name: 'Manual' }).click()
       await group.getByRole('radio', { name: 'Manual', checked: true }).waitFor()
-      assert.equal((await api(page, '/settings/publication')).body.auto_publish, false, 'quedó guardado en el servidor')
+      assert.equal((await api(page, '/settings/publication')).body.auto_publish, false, 'it was saved on the server')
       // With it off, a send stays as a proposal to review: there is a button to send it and no message is published.
       await page.goto(origin)
       await send(page, 'Podríamos probar un resumen semanal por área.')
@@ -330,7 +330,7 @@ describe('the publication setting (UD-070)', () => {
     try {
       await member.page.goto(`${origin}/settings`)
       await member.page.getByRole('heading', { name: 'Tema' }).waitFor()
-      assert.equal(await member.page.getByRole('radiogroup', { name: 'Publicación' }).count(), 0, 'un miembro no ve la perilla')
+      assert.equal(await member.page.getByRole('radiogroup', { name: 'Publicación' }).count(), 0, 'a member does not see the knob')
       assert.equal((await api(member.page, '/settings/publication', { method: 'PATCH', data: { auto_publish: false } })).status, 403)
     } finally {
       await member.context.close()

@@ -30,7 +30,7 @@
 **Origin:** manual (`/document`, 2026-10-20)
 **Description:** `UPLOAD_MAX_DOCUMENT_BYTES` vale 25 MiB (`src/config.js`) y `document.maxBytes` vale 24 MiB (`src/extract/config.js`). Un documento de entre 24 y 25 MiB sube bien, se encola y falla al extraer con `document_too_large`. El extractor no recibe la configuración de la aplicación (`src/contracts.md` §1), así que no se alinean solos.
 **Remediation plan:** Bajar la subida a 24 MiB o subir el extractor a 25 MiB, según lo que indique el informe 05. Agregar una prueba que compare los dos topes.
-**Status:** ☐ Pending
+**Status:** ☑ Done 2026-10-21: un solo tope de 24 MiB y rechazo al subir (`src/size-limits.test.js`)
 
 ## [DT-006] La cabecera de `src/analyze/api.js` describe el diseño anterior
 

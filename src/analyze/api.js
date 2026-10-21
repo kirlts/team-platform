@@ -500,6 +500,16 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
     memberIds: new Set(members.map((m) => m.id)),
     attachmentIds: new Set(attachments.map((a) => a.id)),
   }));
+  if (finalCheck.errors.length === 0 && (finalCheck.conflicts.overlaps.length > 0 || finalCheck.conflicts.gaps.length > 0)) {
+    // Only bookkeeping is left (a unit cited twice or by nobody across the groups): closed by set arithmetic, as in the rescue.
+    const repaired = repairCoverage(merged.messages, merged.discarded, allIds);
+    if (repaired) {
+      ctx.stats.repaired = (ctx.stats.repaired ?? 0) + 1;
+      merged.messages = repaired.messages;
+      merged.discarded = repaired.discarded;
+      finalCheck.conflicts = coverage(merged.messages, merged.discarded, allIds);
+    }
+  }
   if (finalCheck.errors.length > 0 || finalCheck.conflicts.overlaps.length > 0 || finalCheck.conflicts.gaps.length > 0) {
     return fail({ status: 'invalid', step: 'reduce', reason: 'mece_conflict', errors: [...finalCheck.errors, ...describeConflicts(finalCheck.conflicts)], draft: merged });
   }

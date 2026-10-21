@@ -10,7 +10,6 @@ interface Props {
   originalOpen: boolean
   onToggleOriginal: () => void
   onClose: () => void
-  registerPublish: (publish: (() => void) | null) => void
 }
 
 /**
@@ -24,7 +23,7 @@ export function ReviewPane(props: Props) {
   return <Review key={props.inputId} {...props} inputId={props.inputId} />
 }
 
-function Review({ inputId, originalOpen, onToggleOriginal, onClose, registerPublish }: Props & { inputId: string }) {
+function Review({ inputId, originalOpen, onToggleOriginal, onClose }: Props & { inputId: string }) {
   const input = useInput(inputId)
   const undo = useUndoStack()
   if (!input.data) return null
@@ -34,7 +33,7 @@ function Review({ inputId, originalOpen, onToggleOriginal, onClose, registerPubl
       <div className="@container flex min-h-0 min-w-0 flex-1 flex-col gap-3">
         <div className={originalOpen ? 'grid min-h-0 min-w-0 flex-1 gap-x-6 gap-y-3 @2xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] @2xl:grid-rows-[minmax(0,1fr)]' : 'flex min-h-0 min-w-0 flex-1 flex-col gap-3'}>
           <InputPreview input={input.data} open={originalOpen} onToggle={onToggleOriginal} />
-          <AnalysisPanel input={input.data} onClose={onClose} registerPublish={registerPublish} />
+          <AnalysisPanel input={input.data} onClose={onClose} />
         </div>
       </div>
     </UndoProvider>

@@ -59,7 +59,6 @@ export function Home() {
   /** Sends already published or discarded here, hidden until the server's list catches up. */
   const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set())
   const events = useEventsSnapshot()
-  const publishRef = useRef<(() => void) | null>(null)
   const lastIndex = useRef(0)
 
   useEffect(() => {
@@ -133,7 +132,7 @@ export function Home() {
     void queryClient.invalidateQueries({ queryKey: ['inputs'] })
   }
 
-  // Keyboard through the tray: J or ArrowDown to the next send, K or ArrowUp to the previous, Enter publishes the one in view.
+  // Keyboard through the tray: J or ArrowDown to the next send, K or ArrowUp to the previous. Enter never publishes from here: publishing is a click on Enviar (J2-B-13).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey || isTyping(e.target)) return
@@ -142,18 +141,11 @@ export function Home() {
         e.preventDefault()
         const at = Math.max(0, inputs.findIndex((i) => i.id === selectedId))
         setSelectedId(inputs[Math.min(inputs.length - 1, Math.max(0, at + move))].id)
-      } else if (e.key === 'Enter' && publishRef.current) {
-        e.preventDefault()
-        publishRef.current()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [inputs, selectedId])
-
-  const registerPublish = useCallback((fn: (() => void) | null) => {
-    publishRef.current = fn
-  }, [])
 
   const selected = inputs.find((i) => i.id === selectedId)
   // The original of a send is folded unless the person opens it (UD-030).
@@ -192,7 +184,7 @@ export function Home() {
             <div className="grid min-h-0 flex-1 content-start gap-x-6 gap-y-4 overflow-y-auto p-4 md:grid-cols-[minmax(0,3fr)_minmax(0,9fr)] md:grid-rows-[minmax(0,1fr)] md:overflow-visible" data-lane="tray-dialog">
               <Tray items={items} selectedId={selectedId} hideTextId={originalOpen ? selectedId : undefined} onSelect={setSelectedId} bare />
               <div className="flex min-h-0 min-w-0 flex-col border-line md:border-l md:pl-6">
-                <ReviewPane inputId={selectedId} originalOpen={originalOpen} onToggleOriginal={() => selected && setOriginalChoice((c) => ({ ...c, [selected.id]: !originalOpen }))} onClose={finished} registerPublish={registerPublish} />
+                <ReviewPane inputId={selectedId} originalOpen={originalOpen} onToggleOriginal={() => selected && setOriginalChoice((c) => ({ ...c, [selected.id]: !originalOpen }))} onClose={finished} />
               </div>
             </div>
           </DialogContent>

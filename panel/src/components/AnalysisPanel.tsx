@@ -56,7 +56,7 @@ function useDiscard(input: InputRecord) {
  * «Análisis» block: progress over SSE while the job runs and, when it finishes, the editable
  * proposal. Nothing reaches the team until the sender presses Enviar (UD-003).
  */
-export function AnalysisPanel({ input, onClose, registerPublish }: { input: InputRecord; onClose: () => void; registerPublish?: (publish: (() => void) | null) => void }) {
+export function AnalysisPanel({ input, onClose }: { input: InputRecord; onClose: () => void }) {
   const t = useT()
   const { has } = useI18n()
   const undo = useUndo()
@@ -133,7 +133,7 @@ export function AnalysisPanel({ input, onClose, registerPublish }: { input: Inpu
         </div>
       )}
 
-      {input.status === 'proposed' && input.proposal && <ProposalEditor key={input.id} input={input} initial={input.proposal} registerPublish={registerPublish} onPublished={onClose} onDiscard={() => void discard.run()} discarding={discard.pending} />}
+      {input.status === 'proposed' && input.proposal && <ProposalEditor key={input.id} input={input} initial={input.proposal} onPublished={onClose} onDiscard={() => void discard.run()} discarding={discard.pending} />}
 
       <Dialog open={confirmAgain} onOpenChange={setConfirmAgain}>
         <DialogContent title={t('analysis.again')}>
@@ -165,14 +165,12 @@ function ProposalEditor({
   onPublished,
   onDiscard,
   discarding,
-  registerPublish,
 }: {
   input: InputRecord
   initial: Proposal
   onPublished: () => void
   onDiscard: () => void
   discarding: boolean
-  registerPublish?: (publish: (() => void) | null) => void
 }) {
   const t = useT()
   const { language } = useI18n()
@@ -275,15 +273,6 @@ function ProposalEditor({
     })
     onPublished()
   }
-
-  // The page can publish this proposal from the keyboard (Enter) while it is complete and not already going out.
-  const canSend = !publish.isPending && count > 0 && missingTotal === 0
-  const sendRef = useRef(send)
-  sendRef.current = send
-  useEffect(() => {
-    registerPublish?.(canSend ? () => void sendRef.current() : null)
-    return () => registerPublish?.(null)
-  }, [canSend]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(
     () => () => {

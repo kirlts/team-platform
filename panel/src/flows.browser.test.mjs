@@ -302,7 +302,7 @@ describe('envíos seguidos (UD-025)', () => {
       assert.ok(Math.abs((await tray.boundingBox()).height - baseFrame) <= 1, 'el control de envíos conserva su alto')
       assert.ok(base.main <= base.win, 'la región principal no desplaza')
 
-      // Teclado dentro de la revisión: J mueve al siguiente, K al anterior y Enter publica el que se ve; el siguiente se abre solo.
+      // Teclado dentro de la revisión: J mueve al siguiente y K al anterior. Enter no publica desde ningún lado (J2-B-13): publica el clic en Enviar o Enter con el foco puesto en ese botón; el siguiente se abre solo.
       await tray.click()
       await page.getByRole('dialog').waitFor()
       const selected = () => page.locator('[role="option"][aria-selected="true"]').first().getAttribute('aria-label')
@@ -311,6 +311,10 @@ describe('envíos seguidos (UD-025)', () => {
       await page.waitForFunction((prev) => document.querySelector('[role="option"][aria-selected="true"]')?.getAttribute('aria-label') !== prev, first)
       await page.keyboard.press('k')
       assert.equal(await selected(), first)
+      await page.keyboard.press('Enter')
+      await page.waitForTimeout(600)
+      await tray.getByText('10 para revisar').waitFor()
+      await page.getByRole('button', { name: /^Enviar \d+ mensajes?$/ }).focus()
       await page.keyboard.press('Enter')
       await tray.getByText('9 para revisar').waitFor()
       assert.notEqual(await selected(), first, 'al publicar se abre el siguiente')
@@ -772,6 +776,44 @@ describe('flujo de publicación (ronda 1, juez B)', () => {
       assert.ok(b.y + b.height <= 844 && b.y >= 0, `Enviar queda fuera de la pantalla: ${JSON.stringify(b)}`)
       const d = await page.getByRole('button', { name: 'Descartar' }).last().boundingBox()
       assert.ok(d.y + d.height <= 844, 'Descartar queda fuera de la pantalla')
+    } finally {
+      await context.close()
+    }
+  })
+})
+
+describe('flujo de publicación (ronda 2, juez B)', () => {
+  test('Intro nunca publica: tras guardar un campo el foco queda en él, y desde el contenedor no hace nada (J2-B-13)', async () => {
+    const { page, context } = await session('bruno')
+    try {
+      await clearTray(page)
+      await sendInput(page, THREE)
+      await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
+      const tray = page.getByTestId('tray-control')
+      const publishes = []
+      page.on('request', (r) => r.method() === 'POST' && /\/inputs\/[^/]+\/publish$/.test(r.url()) && publishes.push(r.url()))
+      await page.getByRole('button', { name: /^Texto del mensaje: / }).first().click()
+      const field = page.getByRole('textbox', { name: 'Texto del mensaje' })
+      await field.fill('Cuerpo corregido, guardado con Intro.')
+      await field.press('Enter')
+      const saved = page.getByRole('button', { name: /^Texto del mensaje: Cuerpo corregido/ })
+      await saved.waitFor()
+      // El foco vuelve al texto editado, no al contenedor de la ventana.
+      assert.equal(await saved.evaluate((el) => el === document.activeElement), true, 'el foco queda en el texto guardado')
+      // Un segundo Intro reabre ese mismo texto: es lo que hace en cualquier campo y no publica.
+      await page.keyboard.press('Enter')
+      await page.getByRole('textbox', { name: 'Texto del mensaje' }).waitFor()
+      await page.keyboard.press('Escape')
+      await saved.waitFor()
+      assert.equal(await saved.evaluate((el) => el === document.activeElement), true, 'Escape también devuelve el foco al texto')
+      // Desde el contenedor (la ventana misma, sin campo enfocado) Intro tampoco publica.
+      await page.getByRole('dialog').evaluate((el) => el.focus())
+      await page.keyboard.press('Enter')
+      await page.keyboard.press('Enter')
+      await page.waitForTimeout(800)
+      assert.equal(publishes.length, 0, 'ningún Intro publicó')
+      await page.getByRole('button', { name: 'Enviar 3 mensajes', exact: true }).waitFor()
+      assert.ok(await tray.count(), 'el envío sigue en la bandeja')
     } finally {
       await context.close()
     }

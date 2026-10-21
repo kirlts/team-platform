@@ -21,6 +21,10 @@ export function DialogContent({
       <Primitive.Overlay className="fixed inset-0 z-50 bg-[oklch(0.2_0.06_262/0.45)] backdrop-blur-[3px]" />
       <Primitive.Content
         aria-describedby={undefined}
+        // Escape inside a text field cancels that edit only; it must not close the window with the work in it (J2-B-13).
+        onEscapeKeyDown={(e) => {
+          if ((e.target as HTMLElement | null)?.closest?.('textarea, input')) e.preventDefault()
+        }}
         className={cn(
           'glass-strong fixed z-50 flex flex-col text-fg',
           side === 'center'

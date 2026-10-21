@@ -55,7 +55,10 @@ export function EditableText({
   const [error, setError] = useState<string | null>(null)
   const discard = useRef(false)
   const saving = useRef(false)
+  /** Set when the person ends the edit with the keyboard: focus goes back to the text, never to the container (J2-B-13). */
+  const refocus = useRef(false)
   const ref = useRef<HTMLTextAreaElement>(null)
+  const reading = useRef<HTMLSpanElement>(null)
   const hintId = useId()
   const shown = placeholder ?? t('editable.empty')
 
@@ -73,6 +76,13 @@ export function EditableText({
     // scrollHeight leaves out the border, which the box includes.
     el.style.height = `${el.scrollHeight + (el.offsetHeight - el.clientHeight)}px`
   }, [draft, editing])
+
+  // Back from editing by keyboard: the focus returns to the text that was edited, where the person expects it.
+  useEffect(() => {
+    if (editing || !refocus.current) return
+    refocus.current = false
+    reading.current?.focus()
+  }, [editing])
 
   useEffect(() => {
     if (editing) {
@@ -135,6 +145,7 @@ export function EditableText({
     return (
       <span className={cn('block min-w-0', className)}>
         <span
+          ref={reading}
           role="button"
           tabIndex={0}
           aria-label={`${label}: ${value || (emptyLabel ?? shown)}`}
@@ -177,10 +188,12 @@ export function EditableText({
         onKeyDown={(e) => {
           if (e.key === 'Escape') {
             e.preventDefault()
+            refocus.current = true
             discard.current = true
             ;(e.target as HTMLElement).blur()
           } else if (e.key === 'Enter' && (!multiline || !e.shiftKey)) {
             e.preventDefault()
+            refocus.current = true
             ;(e.target as HTMLElement).blur()
           }
         }}

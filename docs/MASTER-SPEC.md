@@ -29,7 +29,7 @@ Fuentes de este documento: `idea.md` (volcado de diseño de Martín, 2026-10-20)
 | Término | Definición | Reglas |
 |---|---|---|
 | **Input** | Lo que una persona envía desde la barra de Inicio o, más adelante, por una conexión: texto y cero o más adjuntos (fotos, videos, audio, documentos, enlaces). | Un input se analiza una vez y produce una propuesta. |
-| **Propuesta** | El resultado del análisis: área detectada, plantilla elegida y N mensajes redactados según la plantilla, cada uno con sus destinatarios y adjuntos. | Editable por el emisor; se publica al confirmar (UD-003). |
+| **Propuesta** | El resultado del análisis: N mensajes, cada uno en su área y redactado según la plantilla de esa área, con sus destinatarios y adjuntos. | Editable por el emisor; se publica al confirmar (UD-003). |
 | **Mensaje** | Una comunicación de una persona hacia el equipo o hacia un miembro. Siempre espera respuesta. | Estados: `abierto` (sin respuesta), `respondido` (con respuesta, no cerrado), `cerrado` (con o sin respuesta). Sólo un miembro distinto del emisor responde; cualquier miembro cierra o reabre. |
 | **Respuesta** | La contraparte del mensaje: respuesta directa, reporte de arreglo, pedido de aclaración. | Depende de un mensaje. |
 | **Hilo** | Una respuesta seguida de más respuestas sobre el mismo mensaje. | Lineal, como los comentarios de un issue de GitHub. |
@@ -153,7 +153,7 @@ Criterio: tecnologías que el autor ya probó en producción (Node, Fastify, Rea
 
 1. Entra. Ve Inicio: nombre del proyecto, fecha y hora, la barra «Nuevo mensaje» con clip (adjuntos), cámara (foto), micrófono (audio) y enviar.
 2. Escribe, pega una captura o arrastra un docx, y envía. La barra se vacía; debajo aparece la vista previa del input (texto y adjuntos con su miniatura) y, al lado, el bloque «Análisis» con una barra de progreso y la frase del paso en curso («leyendo el documento», «3 de 7 adjuntos»).
-3. Al terminar, el bloque muestra el área detectada y los mensajes propuestos: cada uno con título, texto según la plantilla, destinatarios (chips, editables) y adjuntos (miniaturas, quitables). Edita lo que quiera. Aprieta Enviar.
+3. Al terminar, el bloque muestra los mensajes propuestos: cada uno con su área (insignia, cambiable), título, texto según la plantilla de esa área, destinatarios (chips, editables) y adjuntos (miniaturas, quitables). Edita lo que quiera. Aprieta Enviar.
 4. Los mensajes aparecen en «Últimos mensajes». Quien los recibe los ve en su Inicio, filtrados para él por omisión, con la insignia del área, el emisor, la fecha y la miniatura del adjunto principal.
 5. Responde desde la tarjeta o desde Mensajes. El hilo crece debajo del mensaje. Cualquiera cierra; el estado se ve como insignia, nunca como prosa.
 
@@ -175,7 +175,7 @@ Criterio: tecnologías que el autor ya probó en producción (Node, Fastify, Rea
 | `Sidebar` | Navegación, usuario, conteo de abiertos por área | `panel/src/components/Sidebar.tsx` |
 | `ComposeBar` | Barra de nuevo mensaje con adjuntos, cámara, micrófono, enviar | `panel/src/components/ComposeBar.tsx` |
 | `InputPreview` | Texto y adjuntos del input enviado | `panel/src/components/InputPreview.tsx` |
-| `AnalysisPanel` | Progreso por SSE, área detectada, propuesta editable, Enviar | `panel/src/components/AnalysisPanel.tsx` |
+| `AnalysisPanel` | Progreso por SSE, propuesta editable con área por mensaje, Enviar | `panel/src/components/AnalysisPanel.tsx` |
 | `MessageCard` | Área, emisor, fecha, texto, adjunto principal, estado, acciones | `panel/src/components/MessageCard.tsx` |
 | `ReplyThread` | Hilo lineal de respuestas con formulario al pie | `panel/src/components/ReplyThread.tsx` |
 | `MessagesList` | Lista con filtros y búsqueda | `panel/src/pages/Messages.tsx` |
@@ -289,10 +289,10 @@ El worker corre en el mismo proceso que la API por omisión (un contenedor) y pu
 analyze(bundle, { onProgress }) → Proposal
 bundle = { text, attachments:[{id, kind, extracted}], areas:[{id,title,description}],
            templates:[{id,area_id,name,description}], members:[{id,name,responsibilities,domains}] }
-Proposal = { area_id, template_id, messages:[{ title, body, fields, assignee_ids, attachment_ids }] }
+Proposal = { messages:[{ area_id, template_id, title, body, fields, assignee_ids, attachment_ids, unit_ids }], discarded:[{ unit_ids, reason }] }
 ```
 
-**`api` (omisión):** dos llamadas con salida estructurada (variante A; las variantes B, una sola llamada, y C, clasificar dentro de la descomposición, se miden en el banco antes de fijar la elección). (1) Clasificar: área y plantilla, con la lista de títulos y descripciones; esfuerzo `low`. (2) Descomponer: con el cuerpo de la plantilla elegida, la lista MECE de mensajes; esfuerzo `medium` hasta que el banco diga otra cosa. Prompt de sistema cacheado (mínimo cacheable 512 tokens; TTL 5 minutos, 1 hora si el acierto medido es bajo).
+**`api` (omisión):** dos llamadas con salida estructurada (variante A; las variantes B, una sola llamada, y C, clasificar dentro de la descomposición, se miden en el banco antes de fijar la elección). (1) Clasificar: con la lista de títulos y descripciones de áreas y plantillas, agrupar las unidades del input en grupos `{ area_id, template_id, unit_ids }` que las cubran todas (más `discarded`), porque un mismo input trae un error, una idea y una pregunta y cada mensaje va en su área (`idea.md`); esfuerzo `low`. (2) Descomponer: una llamada por grupo, en paralelo, con el cuerpo de la plantilla del grupo, que devuelve la lista MECE de mensajes de ese grupo; esfuerzo `medium` hasta que el banco diga otra cosa. Prompt de sistema cacheado (mínimo cacheable 512 tokens; TTL 5 minutos, 1 hora si el acierto medido es bajo).
 
 MECE por construcción, no por confianza: antes de la segunda llamada el sistema numera las unidades del input extraído (párrafos, viñetas, segmentos de transcripción con marca de tiempo, fotogramas) y el esquema exige que cada mensaje cite sus `unit_ids` y que lo no accionable vaya en `discarded`. Con eso el sistema calcula solapes (una unidad en dos mensajes) y huecos (una unidad en ninguno) por aritmética de conjuntos, sin leer prosa. Si hay conflicto, un único pase de rescate sobre esas unidades; sin autoconsistencia por omisión (veinte muestras mejoran 0,4 %, informe 02). Si el input supera el umbral de partición (provisional: 100.000 tokens de entrada, frontera de precio del modelo; el banco lo fija), se parte sólo por fronteras estructurales en trozos disjuntos por unidad, se descompone en paralelo y la reducción es determinista por `unit_ids`; un monólogo transcrito no se parte. El esquema de salida de cada plantilla se compila una vez y se calienta por evento al guardar la plantilla (la gramática compilada se cachea 24 horas desde el último uso). Cada llamada queda en `llm_calls`.
 

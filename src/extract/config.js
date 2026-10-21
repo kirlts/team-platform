@@ -29,6 +29,14 @@ export const DEFAULTS = Object.freeze({
     lossyFormats: Object.freeze(['jpeg', 'webp']),
     // Floor of the halving when the result still does not fit in `maxBytes`: below this the image stops being legible.
     minSide: 320,
+    // HEIC/HEIF (UD-040). Pixel cap checked from the headers before decoding (decompression bomb). Measurement 2026-10-21
+    // (mediciones/2026-10-21-heic-via-ffmpeg.md) with the image's ffmpeg: 12 MP peaks at 281 MB, 48.8 MP at 476 MB, 96 MP at 932 MB.
+    // 50 MP covers the largest iPhone photo (48 MP, 8064x6048); above it the peak passes the 700 MiB of `document.memoryMb` (measurement 2026-10-21).
+    heicMaxPixels: 50_000_000,
+    // JPEG quality (ffmpeg -q:v, 2 = near lossless) of the intermediate decoded photo; sharp recompresses it afterwards.
+    heicQuality: 2,
+    // Decode time limit, declared courtesy: measured 0.9 s for 48.8 MP and 7.4 s for 96 MP (measurement 2026-10-21).
+    heicTimeoutMs: 30_000,
     // Actionable description prompt (MASTER-SPEC §7.4: describe everything actionable for a
     // software team, verbatim). It is an instruction to the model, not a business rule.
     prompt:

@@ -1,11 +1,13 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { stat } from 'node:fs/promises';
+import { readFile, readdir, stat, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import sharp from 'sharp';
 import { extract, ExtractError } from './index.js';
 import { fakeVision, makeHeicLike, makeImage, makeRotatedJpeg, makeTmp } from './test/helpers.js';
 
 const tmp = await makeTmp('image');
+const FIX = (name) => new URL(`./test/fixtures/${name}`, import.meta.url).pathname;
 after(() => tmp.cleanup());
 
 const att = async (path, extra = {}) => ({ id: 'a1', kind: 'image', path, mime: 'image/png', size: (await stat(path)).size, ...extra });
@@ -60,14 +62,88 @@ test('a phone JPEG with EXIF orientation is rotated before describing it', async
   assert.equal(sent.height, 300);
 });
 
-test('a HEIC photo is rejected with the reason and without calling the provider', async () => {
-  const path = await makeHeicLike(tmp.join('iphone.heic'));
+test('a HEIC photo is decoded to JPEG and reaches the provider', async () => {
+  const vision = fakeVision();
+  const { meta } = await extract(await att(FIX('libheif.heic'), { mime: 'image/heic' }), { providers: { vision } });
+  assert.equal(vision.calls.length, 1);
+  assert.equal(vision.calls[0].images[0].mime, 'image/jpeg');
+  assert.equal(meta.converted, true);
+  assert.equal(meta.width, 320);
+  assert.equal(meta.height, 240);
+  // The bytes are a JPEG that sharp can read, not the HEIC container.
+  assert.equal((await sharp(vision.calls[0].images[0].data).metadata()).format, 'jpeg');
+});
+
+for (const [file, angle, w, h] of [['rotated-6.heic', 270, 100, 300], ['rotated-3.heic', 180, 300, 100], ['tiled-rotated.heic', 270, 770, 1030]]) {
+  test(`a HEIC photo with a ${angle} degree rotation (${file}) arrives upright`, async () => {
+    const vision = fakeVision();
+    const { meta } = await extract(await att(FIX(file), { mime: 'image/heic' }), { providers: { vision } });
+    assert.equal(meta.width, w);
+    assert.equal(meta.height, h);
+    const sent = await sharp(vision.calls[0].images[0].data).metadata();
+    assert.equal(sent.width, w);
+    assert.equal(sent.height, h);
+  });
+}
+
+test('a rotated HEIC keeps its content upright, not only its dimensions (180 degrees: the red block ends at the bottom right)', async () => {
+  const vision = fakeVision();
+  await extract(await att(FIX('rotated-3.heic'), { mime: 'image/heic' }), { providers: { vision } });
+  const { data, info } = await sharp(vision.calls[0].images[0].data).raw().toBuffer({ resolveWithObject: true });
+  const px = (x, y) => [...data.subarray((y * info.width + x) * info.channels, (y * info.width + x) * info.channels + 3)];
+  const [r1, g1] = px(10, 10);
+  const [r2, g2] = px(info.width - 10, info.height - 10);
+  assert.ok(r2 > 150 && g2 < 100, `bottom right should be red, got ${r2},${g2}`);
+  assert.ok(!(r1 > 150 && g1 < 100), 'top left should not be red');
+});
+
+test('a HEIC file with several images decodes the primary one', async () => {
+  const vision = fakeVision();
+  const { meta } = await extract(await att(FIX('two-images.heic'), { mime: 'image/heic' }), { providers: { vision } });
+  assert.equal(vision.calls[0].images.length, 1);
+  // Primary: 300x100 rotated to 100x300. The second image (200x100) is not the one sent.
+  assert.deepEqual([meta.width, meta.height], [100, 300]);
+});
+
+test('a HEIC photo over the pixel cap is refused from its headers, before decoding it', async () => {
   const vision = fakeVision();
   await assert.rejects(
-    extract(await att(path, { mime: 'image/heic' }), { providers: { vision } }),
-    (e) => e instanceof ExtractError && e.code === 'image_heic_unsupported' && e.message.includes('HEIC') && e.message.includes('JPEG'),
+    extract(await att(FIX('rotated-6.heic'), { mime: 'image/heic' }), { providers: { vision }, config: { image: { heicMaxPixels: 29_999 } } }),
+    (e) => e instanceof ExtractError && e.code === 'image_too_many_pixels' && e.details.pixels === 30_000,
   );
   assert.equal(vision.calls.length, 0);
+  // Exactly at the cap it passes.
+  await extract(await att(FIX('rotated-6.heic'), { mime: 'image/heic' }), { providers: { vision }, config: { image: { heicMaxPixels: 30_000 } } });
+  assert.equal(vision.calls.length, 1);
+});
+
+test('a corrupt, truncated or header-only HEIC fails with image_heic_unreadable and a clear message, without calling the provider', async () => {
+  const path = tmp.join('roto.heic');
+  const whole = await readFile(FIX('libheif.heic'));
+  await makeHeicLike(tmp.join('cabecera.heic'));
+  for (const bytes of [whole.subarray(0, 700), await readFile(tmp.join('cabecera.heic'))]) {
+    await writeFile(path, bytes);
+    const vision = fakeVision();
+    await assert.rejects(
+      extract(await att(path, { mime: 'image/heic' }), { providers: { vision } }),
+      (e) => e instanceof ExtractError && e.code === 'image_heic_unreadable' && e.message.includes('HEIC'),
+    );
+    assert.equal(vision.calls.length, 0);
+  }
+});
+
+// Real phone photos (tiles composed as a grid, 12 MP): not versioned (1 to 3 MB each). Point TEAM_HEIC_SAMPLES at a directory with them.
+const SAMPLES = process.env.TEAM_HEIC_SAMPLES;
+test('real iPhone HEIC photos (TEAM_HEIC_SAMPLES) are decoded and fit the provider limit', { skip: !SAMPLES && 'set TEAM_HEIC_SAMPLES to a directory with .heic photos' }, async () => {
+  const names = (await readdir(SAMPLES)).filter((n) => n.toLowerCase().endsWith('.heic'));
+  assert.ok(names.length > 0);
+  for (const name of names) {
+    const vision = fakeVision();
+    const { meta } = await extract(await att(join(SAMPLES, name), { mime: 'image/heic' }), { providers: { vision } });
+    assert.equal(vision.calls[0].images[0].mime, 'image/jpeg', name);
+    assert.ok(vision.calls[0].images[0].data.length <= 7 * 1024 * 1024, name);
+    assert.ok(Math.max(meta.width, meta.height) <= 2576, name);
+  }
 });
 
 test('a file that is not an image is rejected', async () => {
@@ -110,12 +186,3 @@ test('a large phone photo is reduced to JPEG and fits the provider limit, not to
   assert.ok(sent.data.length <= 7 * 1024 * 1024, `pesa ${sent.data.length} bytes`);
 });
 
-test('a real HEIC container (libheif, HEVC payload) is rejected by its brand with the same code', async () => {
-  const path = new URL('./test/fixtures/libheif.heic', import.meta.url).pathname;
-  const vision = fakeVision();
-  await assert.rejects(
-    extract(await att(path, { mime: 'image/heic' }), { providers: { vision } }),
-    (e) => e instanceof ExtractError && e.code === 'image_heic_unsupported',
-  );
-  assert.equal(vision.calls.length, 0);
-});

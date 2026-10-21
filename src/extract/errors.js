@@ -3,7 +3,7 @@
 
 export class ExtractError extends Error {
   /**
-   * @param {string} code stable identifier (e.g. `image_heic_unsupported`)
+   * @param {string} code stable identifier (e.g. `image_heic_unreadable`)
    * @param {string} message reason for the person, in Spanish
    * @param {object} [details]
    */

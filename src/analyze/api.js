@@ -1,19 +1,26 @@
-// `api` analyzer (MASTER-SPEC §7.5, variant A): own loop with structured output.
+// `api` analyzer (MASTER-SPEC §7.5, variant A): own loop with structured output. Every call uses effort `low` and
+// thinking `disabled` (measurement 2026-10-20-primera-corrida-real.md); the values come from config.js.
 //
 //   1. number the units of the extracted input
-//   2. call 1: classify into groups {area_id, template_id, unit_ids} plus `discarded` (effort `low`, no thinking)
-//   2b. second reading (UD-021): if no group came out, read again with a deeper prompt, section by section; for an input
-//       that is only images, the images are described again in more detail first. «Zero messages» is accepted after it
-//   3. call 2, one per group and in parallel: decompose with the body of the group's template (effort `low`, no
-//      thinking); one message per group unless it holds two independent points. Nothing is discarded in this call
-//   4. overlaps and gaps by sets (per group, and at the end over the union of all); a single rescue pass
-//      per group with a conflict
-//   5. if the input or a group exceeds the threshold: split only at structural boundaries, process the
-//      chunks in parallel and reduce deterministically by `unit_ids`
-//   6. validation with our own Ajv; one retry with the error as context
+//   2. classification (`classifyInput`): groups {area_id, template_id, unit_ids} plus `discarded`. Long inputs are split at
+//      structural boundaries and then into windows of `classifyWindowUnits`; each window sees `classifyContextUnits`
+//      units before it, read-only (H-1900). `classifyDraws` readings can be drawn and merged by `consensus` (H-1003; 1 by default)
+//   2b. second reading (UD-021): if no group came out, read again section by section; for an input that is only images,
+//      the images are described again in more detail first. «Zero messages» is accepted after it
+//   2c. stretches the model discarded between two units of a group are closed into it, and `coveragePasses` reread
+//      what was discarded apart from the surrounding talk (H-1900); the system only validates the form
+//   3. decomposition, one call per group, in parallel, with the body of the group's template; one message per group
+//      unless it holds two independent points. Nothing is discarded in this call
+//   4. overlaps and gaps by sets (per group, and at the end over the union of all); a single rescue pass per group
+//      with a conflict, and what is left of pure bookkeeping is closed by set arithmetic (`repairCoverage`)
+//   5. a group that exceeds the threshold is split only at structural boundaries, its chunks are processed in
+//      parallel and everything is reduced deterministically by `unit_ids`, with no call
+//   6. validation with our own Ajv; one retry with the error as context (`invalidOutputRetries`)
 //
-// A refusal or a retryable HTTP failure of the text provider is repeated once on `providers.textFallback`, when one is
-// configured (H-18); the fallback call is in `calls` with `fallback: true` and under the span `analyze.fallback`.
+// A retryable HTTP failure (429, 5xx, network) is repeated on the same provider `httpRetries` times. After that, and
+// also after a refusal, the call is repeated once on `providers.textFallback` when one is configured (H-18, DT-003);
+// the fallback call is in `calls` with `fallback: true`, under the span `analyze.fallback`, and in `llm_calls` with the
+// provider that answered.
 //
 // Domain results are not thrown: a `refusal`, a cut by `max_tokens` and an invalid output are job
 // states and come back as `status` (see index.js). What is thrown is an operation failure (network, key,

@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { after, before, describe, it } from 'node:test';
-import { createFakeProviders } from '../providers/index.js';
+import { createFakeProviders, ProviderHttpError, ProviderRefusalError } from '../providers/index.js';
 import { traceOfJob } from '../telemetry/trace.js';
 import { makeEnv } from '../testing/helpers.js';
 import { analyze as analyzeAll } from './index.js';
@@ -12,6 +12,8 @@ import { bugMessage, CLASSIFY_ERRORS, goodDecomposition, makeBundle, firstReadin
 const analyze = firstReadingOnly(analyzeAll);
 
 const FAKE_CLAUDE = fileURLToPath(new URL('./testing/fake-claude.mjs', import.meta.url));
+
+const decomposeOnly = (req) => (req.schema?.properties?.messages ? goodDecomposition() : CLASSIFY_ERRORS);
 
 const walk = (nodes) => nodes.flatMap((n) => [n, ...walk(n.children)]);
 
@@ -69,6 +71,22 @@ describe('analyzer telemetry', () => {
     const spans2 = await spansOf(503);
     const withErrors = spans2.find((s) => s.name === 'validate' && s.attributes['team.valid'] === false);
     assert.match(withErrors.attributes['team.errors'].join(' '), /member 99 does not exist/);
+  });
+
+  it('fallback (DT-003): llm_calls records the provider that answered each call and the failed call of the primary', async () => {
+    const bundle = await makeBundle({ job_id: 505 });
+    for (const [primaryError, expectedStatus] of [[new ProviderRefusalError('no', { category: 'x' }), 'error'], [new ProviderHttpError('overloaded', { status: 529, retryable: true }), 'error']]) {
+      env.db.exec('DELETE FROM spans');
+      const fake = createFakeProviders({ text: (req, n) => (n === 0 ? primaryError : decomposeOnly(req)), textFallback: [CLASSIFY_ERRORS] });
+      const result = await analyze(bundle, { providers: fake, config: { httpRetries: 0 } });
+      assert.equal(result.status, 'ok');
+      await env.telemetry.flush();
+      const rows = env.db.prepare("SELECT provider, status, step FROM llm_calls WHERE modality = 'text' ORDER BY at, id").all();
+      assert.deepEqual(rows.slice(0, 2).map((r) => [r.provider, r.status]), [['fake', expectedStatus], ['fake-fallback', 'unset']]);
+      assert.equal(rows.filter((r) => r.provider === 'fake-fallback').length, 1, 'only the repeated call goes to the fallback');
+      const spans = walk(traceOfJob(env.db, 505).roots);
+      assert.equal(spans.filter((s) => s.name === 'analyze.fallback').length, 1);
+    }
   });
 
   it('harness: one span per invocation with the real cost from total_cost_usd', async () => {

@@ -2,7 +2,7 @@
 // TELEMETRY_QUEUE_MAX_BYTES (src/telemetry/config.js). Run on demand: `node src/telemetry/span-size.bench.mjs`
 // (not a test; `npm test` does not take it).
 //
-// Frames: 720 px wide JPEG with `-q:v 4`, as src/extract/video.js asks ffmpeg for them (informe 06 section 8: 60 KB each).
+// Frames: 720 px wide JPEG with `-q:v 4`, as src/extract/video.js asks ffmpeg for them (report 06 section 8: 60 KB each).
 // The frames of this run come from ffmpeg `testsrc2` with temporal noise, which lands at 57.5 KB.
 //
 // Result (2026-10-20, Node 24.20): 48 frames of 57.5 KB = 2,734,898 B of JPEG; the span of the call weighs 3,653,672 B
@@ -17,7 +17,7 @@ import { createFakeProviders } from '../providers/fake.js';
 import { initTelemetry } from './index.js';
 import { makeDb } from './test/helpers.js';
 
-const FRAMES = 48; // informe 06 section 8, `maxFrames`
+const FRAMES = 48; // report 06 section 8, `maxFrames`
 const dir = mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), 'span-size-'));
 const frames = [];
 for (let i = 0; i < FRAMES; i++) {

@@ -15,7 +15,7 @@ async function team () {
     modules: {
       analyze: async (bundle, opts) => {
         seen.push(bundle.text)
-        if (state.failing) throw Object.assign(new Error('el modelo rechazó el envío'), { code: 'refusal', retryable: false })
+        if (state.failing) throw Object.assign(new Error('the model rejected the submission'), { code: 'refusal', retryable: false })
         return fakeAnalyze(bundle, opts)
       }
     }
@@ -122,7 +122,7 @@ test('tray: a failed input appears with its error, proposed_count 0 and job perc
   await until(() => env.statusOf(proposed) === 'proposed')
   const body = (await env.api('GET', '/inputs?mine=1&status=queued,extracting,analyzing,proposed,failed', env.c.ana)).json()
   assert.deepEqual(body.items.map((i) => [i.id, i.status, i.proposed_count]), [[String(failed), 'failed', 0], [String(proposed), 'proposed', 1]])
-  assert.equal(body.items[0].error, 'el modelo rechazó el envío')
+  assert.equal(body.items[0].error, 'the model rejected the submission')
   assert.equal(body.items[0].error_code, 'refusal')
   assert.equal(typeof body.items[0].job.percent, 'number')
   assert.equal(typeof body.items[0].job.phrase, 'string')
@@ -172,7 +172,7 @@ test('POST /inputs/:id/cancel and /restore: a failed analysis can be discarded, 
   assert.equal(back.statusCode, 200)
   assert.equal(back.json().status, 'proposed')
   assert.equal((await env.api('GET', `/inputs/${id}`, env.c.ana)).json().proposal.messages[0].title, 'Título editado antes de descartar')
-  assert.equal(env.seen.length, analyzed, 'restaurar no vuelve a analizar')
+  assert.equal(env.seen.length, analyzed, 'restoring does not analyze again')
 
   // Only a cancelled input, and only its sender.
   assert.equal((await env.api('POST', `/inputs/${id}/restore`, env.c.ana)).json().code, 'not_cancelled')

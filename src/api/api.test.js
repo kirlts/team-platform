@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { test } from 'node:test'
 import { all, get } from '../db/index.js'
+import { createProviders } from '../providers/index.js'
 import { addMember, fakeExtract, login, makeEnv, multipart, postInput, until } from '../testing/helpers.js'
 
 const noIpLimit = { identity: { login: { ipMax: 1000 } } }
@@ -524,6 +525,39 @@ test('without a compiled panel the API starts anyway and the root answers a JSON
   await env.close()
 })
 
+test('HP-015: a member reads the areas without the template bodies and gets 403 on writing them, on reading a full template and on the providers', async () => {
+  const env = await team()
+  const ana = env.c.ana
+  const areas = (await env.api('GET', '/areas', ana)).json()
+  assert.equal(areas.length, 5)
+  assert.ok(areas.every((a) => a.templates.length > 0 && a.templates.every((t) => t.body_markdown === undefined)))
+  const area = areas[0]
+  const template = area.templates[0]
+  const forbidden = [
+    ['POST', '/areas', { title: 'Nueva', description: 'x' }],
+    ['PATCH', `/areas/${area.id}`, { description: 'x' }],
+    ['DELETE', `/areas/${area.id}`],
+    ['POST', `/areas/${area.id}/restore`],
+    ['GET', `/areas/${area.id}/templates`],
+    ['POST', `/areas/${area.id}/templates`, { body_markdown: '---\nname: X\ndescription: Y\n---\ncuerpo' }],
+    ['PATCH', `/areas/${area.id}/templates/${template.id}`, { name: 'x' }],
+    ['DELETE', `/areas/${area.id}/templates/${template.id}`],
+    ['POST', `/templates/${template.id}/restore`],
+    ['GET', '/settings/providers'],
+    ['PATCH', '/settings/providers', { analyzer: 'api' }]
+  ]
+  for (const [method, url, payload] of forbidden) {
+    const r = await env.api(method, url, ana, payload)
+    assert.equal(r.statusCode, 403, `${method} ${url}: ${r.body}`)
+  }
+  // The editor does the same things, so the 403 comes from the role and not from a malformed request.
+  assert.equal((await env.api('GET', `/areas/${area.id}/templates`, env.c.ed)).statusCode, 200)
+  assert.equal((await env.api('GET', '/settings/providers', env.c.ed)).statusCode, 200)
+  // Nothing changed.
+  assert.equal((await env.api('GET', '/areas', ana)).json().length, 5)
+  await env.close()
+})
+
 test('/health answers at the root and under /api, without a session', async () => {
   const env = await makeEnv()
   for (const url of ['/health', '/api/health']) {
@@ -531,6 +565,16 @@ test('/health answers at the root and under /api, without a session', async () =
     assert.equal(r.statusCode, 200)
     assert.equal(r.json().status, 'ok')
   }
+  await env.close()
+})
+
+test('/health reports the text fallback provider to the editor and keeps it from anonymous probes (DT-003)', async () => {
+  const providers = createProviders({ ANTHROPIC_API_KEY: 'k', TEXT_FALLBACK_PROVIDER: 'deepseek', DEEPSEEK_API_KEY: 'd' })
+  const env = await team({ modules: { getProviders: () => providers } })
+  const slots = (await env.app.inject({ url: '/health', headers: { cookie: env.c.ed } })).json().providers
+  assert.deepEqual(slots.filter((p) => p.slot.startsWith('text')).map((p) => [p.slot, p.provider, p.available]), [['text', 'anthropic', true], ['text_fallback', 'deepseek', true]])
+  assert.ok(!JSON.stringify(slots).includes('"k"') && !JSON.stringify(slots).includes('"d"'), 'no key travels')
+  assert.equal((await env.app.inject({ url: '/health' })).json().providers, undefined)
   await env.close()
 })
 
@@ -564,7 +608,7 @@ test('provider settings: the editor reads and changes them; an invalid provider 
   const attemptsList = []
   const env = await team({ modules: {
     getProviders: () => ({ describe: () => [{ slot: 'text', provider: 'anthropic', model: 'claude-haiku-5-5', available: false, reason: 'Falta ANTHROPIC_API_KEY' }] }),
-    buildProviders: (o) => { attemptsList.push(o); if (o.text?.provider === 'inexistente') throw new Error('Proveedor de texto desconocido «inexistente» en TEXT_PROVIDER'); return {} }
+    buildProviders: (o) => { attemptsList.push(o); if (o.text?.provider === 'inexistente') throw new Error('Unknown text provider «inexistente» in TEXT_PROVIDER'); return {} }
   } })
   assert.equal((await env.api('GET', '/settings/providers', env.c.ana)).statusCode, 403)
   const initialVersion = (await env.api('GET', '/settings/providers', env.c.ed)).json()
@@ -643,7 +687,7 @@ test('UD-028 · GET /messages/summary: each message falls into a single state (o
   // Closing removes the message from everyone's count.
   await env.api('POST', `/messages/${m2}/close`, env.c.ed)
   assert.deepEqual((await summary(env.c.beto)).mine, { open: 0, answered: 2, total: 2 })
-  assert.equal((await summary(env.c.beto)).items.some((i) => i.message_id === String(m2)), false, 'un mensaje cerrado no figura en la lista')
+  assert.equal((await summary(env.c.beto)).items.some((i) => i.message_id === String(m2)), false, 'a closed message is not in the list')
   assert.equal(areaRow(await summary(env.c.beto), questionArea).open, 0)
   assert.equal((await env.app.inject({ method: 'GET', url: '/api/messages/summary' })).statusCode, 401) // requires a session
   await env.close()

@@ -36,7 +36,7 @@ async function session(who = 'ana', viewport = { width: 1440, height: 900 }, { m
 async function openMessage(page, title) {
   const body = await (await page.request.get(`${origin}/api/messages?limit=200`)).json()
   const found = (body.items ?? body).find((m) => m.title === title)
-  assert.ok(found, `existe el mensaje «${title}»`)
+  assert.ok(found, `the message «${title}» exists`)
   await page.goto(`${origin}/messages/${found.id}`)
   await page.locator('[data-gallery]').first().waitFor()
 }
@@ -58,12 +58,12 @@ describe('selection and navigation', () => {
       assert.equal(await thumbs(page).count(), 6)
       await until(page, 1, 6)
       assert.equal(await thumbs(page).nth(0).getAttribute('aria-current'), 'true')
-      assert.equal(await gallery(page).locator('[data-gallery-viewer] img').count() > 0, true, 'el visor dibuja la foto elegida')
+      assert.equal(await gallery(page).locator('[data-gallery-viewer] img').count() > 0, true, 'the viewer draws the chosen photo')
       // Next arrow.
       await gallery(page).getByRole('button', { name: 'Siguiente' }).click()
       await until(page, 2, 6)
       assert.equal(await thumbs(page).nth(1).getAttribute('aria-current'), 'true')
-      assert.equal(await thumbs(page).nth(0).getAttribute('aria-current'), null, 'sólo una miniatura está marcada')
+      assert.equal(await thumbs(page).nth(0).getAttribute('aria-current'), null, 'only one thumbnail is marked')
       // A thumbnail.
       await thumbs(page).nth(4).click()
       await until(page, 5, 6)
@@ -87,7 +87,7 @@ describe('selection and navigation', () => {
         const r = el.getBoundingClientRect()
         return r.left >= list.left - 1 && r.right <= list.right + 1
       })
-      assert.equal(inView, true, 'la miniatura actual está a la vista en el carrusel')
+      assert.equal(inView, true, 'the current thumbnail is in view in the carousel')
       await shot(page, 'detalle-seis-fotos-1440-claro')
     } finally {
       await context.close()
@@ -104,7 +104,7 @@ describe('selection and navigation', () => {
       await until(page, 3, 6)
       assert.equal(await thumbs(page).nth(2).getAttribute('aria-current'), 'true')
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
-      assert.equal(overflow, false, 'la página no se desplaza de lado')
+      assert.equal(overflow, false, 'the page does not scroll sideways')
       await shot(page, 'detalle-seis-fotos-390-claro')
     } finally {
       await context.close()
@@ -135,7 +135,7 @@ describe('selection and navigation', () => {
       await dialog.locator('[data-gallery-zoomed]').waitFor()
       await page.keyboard.press('Escape')
       await dialog.locator('[data-gallery-zoomed]').waitFor({ state: 'detached' })
-      assert.equal(await dialog.count(), 1, 'la ventana sigue abierta')
+      assert.equal(await dialog.count(), 1, 'the window is still open')
       await page.keyboard.press('Escape')
       await dialog.waitFor({ state: 'detached' })
     } finally {
@@ -152,7 +152,7 @@ describe('one screen (UD-017)', () => {
         await openMessage(page, 'Galería de seis fotos')
         await until(page, 1, 6)
         const over = await page.evaluate(() => ({ doc: document.scrollingElement.scrollHeight - innerHeight, main: (() => { const m = document.querySelector('main'); return m.scrollHeight - m.clientHeight })() }))
-        assert.ok(over.doc <= 0 && over.main <= 0, `${viewport.width}x${viewport.height}: sobran ${JSON.stringify(over)} px`)
+        assert.ok(over.doc <= 0 && over.main <= 0, `${viewport.width}x${viewport.height}: ${JSON.stringify(over)} px too many`)
       } finally {
         await context.close()
       }
@@ -260,7 +260,7 @@ describe('where the gallery is used', () => {
         for (const f of files) form.append('files', new File([f.svg], f.name, { type: 'image/svg+xml' }))
         return (await fetch('/api/inputs', { method: 'POST', headers: { 'X-Team-Request': 'panel' }, body: form, credentials: 'include' })).ok
       }, [30, 200].map((h) => ({ name: `captura-${h}.svg`, svg: `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200"><rect width="320" height="200" fill="hsl(${h} 50% 70%)"/></svg>` })))
-      assert.ok(sent, 'el envío con dos fotos se crea')
+      assert.ok(sent, 'the submission with two photos is created')
       await page.goto(origin)
       await page.getByTestId('tray-control').click()
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 40000 })

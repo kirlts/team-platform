@@ -99,11 +99,11 @@ test('a transient failure is retried with backoff and ends well; the input goes 
 })
 
 test('once the attempts are exhausted the input fails with the last reason', async () => {
-  const env = await envVars({ worker: true, modules: { analyze: async () => { throw new Error('el proveedor no responde') } } })
+  const env = await envVars({ worker: true, modules: { analyze: async () => { throw new Error('the provider does not respond') } } })
   const { input_id: id, job_id: jobId } = await env.submit('x')
   await until(() => env.statusOf(id) === 'failed')
   assert.equal(get(env.db, 'SELECT attempts FROM jobs WHERE id = ?', jobId).attempts, 3)
-  assert.equal(env.input(id).error, 'el proveedor no responde')
+  assert.equal(env.input(id).error, 'the provider does not respond')
   await env.close()
 })
 

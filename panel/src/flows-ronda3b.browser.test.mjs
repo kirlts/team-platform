@@ -67,16 +67,16 @@ describe('compose bar (J3-B-01, J3-B-17, J3-B-19, J3-B-20)', () => {
       await bar(page).fill(FIVE)
       // Measured at once, without waiting: a background that fades in lets the card under it show through for 150 ms.
       const box = page.locator('[data-compose-box]')
-      assert.equal(await box.evaluate((el) => getComputedStyle(el).transitionProperty.includes('background')), false, 'el fondo de la barra no tiene transición')
+      assert.equal(await box.evaluate((el) => getComputedStyle(el).transitionProperty.includes('background')), false, 'the bar background has no transition')
       const alpha = await box.evaluate((el) => getComputedStyle(el).backgroundColor)
-      assert.ok(!/\/ ?0?\.\d|rgba\(.*,\s*0?\.\d+\)/.test(alpha), `el fondo es opaco: ${alpha}`)
-      assert.equal(await page.locator('[data-compose-scrim]').count(), 1, 'la página de abajo se atenúa mientras la barra crece')
+      assert.ok(!/\/ ?0?\.\d|rgba\(.*,\s*0?\.\d+\)/.test(alpha), `the background is opaque: ${alpha}`)
+      assert.equal(await page.locator('[data-compose-scrim]').count(), 1, 'the page below dims while the bar grows')
       // What is under the bar cannot be reached through it: the point inside its bottom edge belongs to the bar.
       const r = await rect(box)
       const hit = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('[data-compose-box]') !== null, { x: r.x + 60, y: r.y + r.height - 4 })
-      assert.equal(hit, true, 'el borde inferior de la barra es de la barra')
+      assert.equal(hit, true, 'the bottom border of the bar belongs to the bar')
       // And the page does not move.
-      assert.ok(r.height > 100, `la barra creció: ${r.height}`)
+      assert.ok(r.height > 100, `the bar grew: ${r.height}`)
     } finally {
       await context.close()
     }
@@ -92,10 +92,10 @@ describe('compose bar (J3-B-01, J3-B-17, J3-B-19, J3-B-20)', () => {
       const menu = page.getByRole('menu')
       await menu.waitFor()
       const m = await rect(menu)
-      assert.ok(m.y - (c.y + c.height) >= 7, `aire entre el clip y su menú: ${m.y - (c.y + c.height)} px`)
+      assert.ok(m.y - (c.y + c.height) >= 7, `space between the clip and its menu: ${m.y - (c.y + c.height)} px`)
       await page.getByRole('menuitem', { name: 'Enlace' }).click()
       const add = page.getByRole('button', { name: 'Agregar', exact: true })
-      assert.match(await add.getAttribute('class'), /btn-gel/, 'Agregar es la acción primaria de la fila')
+      assert.match(await add.getAttribute('class'), /btn-gel/, '«Agregar» is the primary action of the row')
     } finally {
       await context.close()
     }
@@ -112,7 +112,7 @@ describe('compose bar (J3-B-01, J3-B-17, J3-B-19, J3-B-20)', () => {
       const chip = page.locator('[aria-label="Adjuntos"] li').first()
       await chip.waitFor()
       const lines = await chip.locator('span.min-w-0').evaluate((el) => Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)))
-      assert.equal(lines, 1, `la dirección cabe en una línea de su ficha: ${lines}`)
+      assert.equal(lines, 1, `the address fits on one line of its tab: ${lines}`)
     } finally {
       await context.close()
     }
@@ -138,10 +138,10 @@ describe('drawer of sends (J3-B-04, J3-B-06, J3-B-07, J3-B-31, UD-046)', () => {
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 40000 })
       await settled(page)
       const ready = await rect(dialog)
-      assert.deepEqual({ y: ready.y, height: ready.height }, { y: queued.y, height: queued.height }, 'el desplegable no cambia de alto ni de lugar')
-      assert.equal(Math.round((await rect(page.getByRole('heading', { name: 'Análisis' }))).y), Math.round(titleQueued), 'el título del análisis no salta')
+      assert.deepEqual({ y: ready.y, height: ready.height }, { y: queued.y, height: queued.height }, 'the dropdown changes neither height nor place')
+      assert.equal(Math.round((await rect(page.getByRole('heading', { name: 'Análisis' }))).y), Math.round(titleQueued), 'the analysis title does not jump')
       const send = await rect(page.getByRole('button', { name: /^Enviar \d+ mensajes?$/ }))
-      assert.ok(ready.y + ready.height - (send.y + send.height) < 40, `el botón Enviar queda al pie del desplegable: ${ready.y + ready.height - (send.y + send.height)} px`)
+      assert.ok(ready.y + ready.height - (send.y + send.height) < 40, `the «Enviar» button sits at the foot of the dropdown: ${ready.y + ready.height - (send.y + send.height)} px`)
     } finally {
       await context.close()
     }
@@ -177,9 +177,9 @@ describe('drawer of sends (J3-B-04, J3-B-06, J3-B-07, J3-B-31, UD-046)', () => {
         const meters = [...d.querySelectorAll('[role=progressbar]')].map((m) => m.getAttribute('aria-valuenow'))
         return { queued: /En cola/.test(text) && !/Leyendo|Clasificando|Descomponiendo/.test(text), meters, percent: /\d+ ?%/.test(text) }
       })
-      assert.equal(sample.queued, true, 'el envío está en cola')
-      assert.deepEqual(sample.meters.filter((v) => v !== null), [], 'una barra sin cifra mientras está en cola')
-      assert.equal(sample.percent, false, 'sin porcentaje escrito mientras está en cola')
+      assert.equal(sample.queued, true, 'the submission is queued')
+      assert.deepEqual(sample.meters.filter((v) => v !== null), [], 'a bar with no figure while queued')
+      assert.equal(sample.percent, false, 'no written percentage while queued')
     } finally {
       await context.close()
     }
@@ -198,9 +198,9 @@ describe('drawer of sends (J3-B-04, J3-B-06, J3-B-07, J3-B-31, UD-046)', () => {
       await notice.waitFor()
       await settled(page)
       const n = await rect(notice)
-      assert.equal(overlap(n, before.control), false, 'el aviso no toca el control de envíos')
-      assert.equal(overlap(n, before.title), false, 'el aviso no tapa el título del análisis')
-      assert.deepEqual(await rect(control), before.control, 'el control de envíos no se movió')
+      assert.equal(overlap(n, before.control), false, 'the notice does not touch the submissions control')
+      assert.equal(overlap(n, before.title), false, 'the notice does not cover the analysis title')
+      assert.deepEqual(await rect(control), before.control, 'the submissions control did not move')
     } finally {
       await context.close()
     }
@@ -216,9 +216,9 @@ describe('proposal (J3-B-02, J3-B-05, J3-B-08, J3-B-09, J3-B-10, J3-B-11, J3-B-1
       const body = page.getByRole('button', { name: /^Texto del mensaje:/ }).first()
       const t = { size: parseFloat(await style(title, 'fontSize')), weight: Number(await style(title, 'fontWeight')) }
       const b = { size: parseFloat(await style(body, 'fontSize')), weight: Number(await style(body, 'fontWeight')) }
-      assert.ok(b.size >= 16.9, `el texto conserva el tamaño de lectura de UD-030: ${b.size}`)
-      assert.ok(t.size >= b.size, `el título no es menor que el texto: ${t.size} contra ${b.size}`)
-      assert.ok(t.weight >= 700 && t.weight > b.weight, `el título pesa más: ${t.weight} contra ${b.weight}`)
+      assert.ok(b.size >= 16.9, `the text keeps the reading size of UD-030: ${b.size}`)
+      assert.ok(t.size >= b.size, `the title is not smaller than the text: ${t.size} against ${b.size}`)
+      assert.ok(t.weight >= 700 && t.weight > b.weight, `the title weighs more: ${t.weight} against ${b.weight}`)
     } finally {
       await context.close()
     }
@@ -240,11 +240,11 @@ describe('proposal (J3-B-02, J3-B-05, J3-B-08, J3-B-09, J3-B-10, J3-B-11, J3-B-1
       await panel.control.hold()
       await page.getByRole('dialog').last().getByRole('button', { name: 'Volver a analizar' }).click()
       await page.getByText('En cola').first().waitFor()
-      assert.equal(await page.getByRole('button', { name: 'Deshacer', exact: true }).count(), 0, 'sin Deshacer mientras analiza')
-      assert.equal(await page.getByRole('button', { name: 'Rehacer', exact: true }).count(), 0, 'sin Rehacer mientras analiza')
+      assert.equal(await page.getByRole('button', { name: 'Deshacer', exact: true }).count(), 0, 'no «Deshacer» while analyzing')
+      assert.equal(await page.getByRole('button', { name: 'Rehacer', exact: true }).count(), 0, 'no «Rehacer» while analyzing')
       await panel.control.release()
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 40000 })
-      assert.equal(await page.getByRole('button', { name: 'Deshacer', exact: true }).count(), 0, 'la propuesta nueva empieza con el historial vacío')
+      assert.equal(await page.getByRole('button', { name: 'Deshacer', exact: true }).count(), 0, 'the new proposal starts with an empty history')
     } finally {
       await context.close()
     }
@@ -257,8 +257,8 @@ describe('proposal (J3-B-02, J3-B-05, J3-B-08, J3-B-09, J3-B-10, J3-B-11, J3-B-1
       const remove = page.getByRole('button', { name: /^Quitar el mensaje/ }).first()
       const discard = page.getByRole('button', { name: 'Descartar envío' })
       assert.notEqual((await remove.innerText()).trim(), (await discard.innerText()).trim())
-      assert.notEqual(await remove.locator('svg').first().evaluate((s) => s.innerHTML), await discard.locator('svg').first().evaluate((s) => s.innerHTML), 'no comparten ícono')
-      assert.notEqual(await style(remove, 'color'), await style(discard, 'color'), 'no comparten tinta')
+      assert.notEqual(await remove.locator('svg').first().evaluate((s) => s.innerHTML), await discard.locator('svg').first().evaluate((s) => s.innerHTML), 'they do not share an icon')
+      assert.notEqual(await style(remove, 'color'), await style(discard, 'color'), 'they do not share ink')
       // The history appears beside the title, away from the step that drops the proposal.
       await page.getByRole('button', { name: /^Título del mensaje:/ }).first().click()
       await page.keyboard.type(' x')
@@ -266,7 +266,7 @@ describe('proposal (J3-B-02, J3-B-05, J3-B-08, J3-B-09, J3-B-10, J3-B-11, J3-B-1
       const undo = await rect(page.getByRole('button', { name: 'Deshacer', exact: true }))
       const again = await rect(page.getByRole('button', { name: 'Volver a analizar' }))
       // Apart: far to its right on the same row, or alone on the next one when the column is narrow (the analysis shares the drawer with the original).
-      assert.ok(again.y > undo.y + undo.height - 1 || again.x - (undo.x + undo.width) > 120, `Volver a analizar queda aparte de Deshacer y Rehacer: ${again.x - (undo.x + undo.width)} px`)
+      assert.ok(again.y > undo.y + undo.height - 1 || again.x - (undo.x + undo.width) > 120, `«Volver a analizar» sits apart from «Deshacer» and «Rehacer»: ${again.x - (undo.x + undo.width)} px`)
     } finally {
       await context.close()
     }
@@ -278,7 +278,7 @@ describe('proposal (J3-B-02, J3-B-05, J3-B-08, J3-B-09, J3-B-10, J3-B-11, J3-B-1
       await sendAndOpen(page)
       await page.getByRole('button', { name: 'Enviar 3 mensajes', exact: true }).waitFor()
       await page.getByRole('button', { name: /^Partes sin mensaje/ }).click()
-      assert.equal(await page.getByRole('button', { name: 'Crear mensaje' }).count(), 2, 'un botón por parte')
+      assert.equal(await page.getByRole('button', { name: 'Crear mensaje' }).count(), 2, 'one button per part')
       await page.getByRole('button', { name: 'Crear mensaje' }).first().click()
       await page.getByRole('button', { name: 'Enviar 4 mensajes', exact: true }).waitFor()
       // The new message is open, with the text of the part as its body and a title to edit.
@@ -286,7 +286,7 @@ describe('proposal (J3-B-02, J3-B-05, J3-B-08, J3-B-09, J3-B-10, J3-B-11, J3-B-1
       assert.match(body, /Cuarto: la página de inicio/)
       await page.keyboard.press('Escape')
       await page.getByRole('button', { name: /^Partes sin mensaje/ }).waitFor()
-      assert.match(await page.getByRole('button', { name: /^Partes sin mensaje/ }).innerText(), /1/, 'queda una parte')
+      assert.match(await page.getByRole('button', { name: /^Partes sin mensaje/ }).innerText(), /1/, 'one part remains')
       await page.getByRole('button', { name: 'Deshacer', exact: true }).click()
       await page.getByRole('button', { name: 'Enviar 3 mensajes', exact: true }).waitFor()
     } finally {
@@ -316,9 +316,9 @@ describe('proposal (J3-B-02, J3-B-05, J3-B-08, J3-B-09, J3-B-10, J3-B-11, J3-B-1
       const field = page.getByRole('button', { name: /^Resumen:/ }).first()
       const b = await rect(body)
       const f = await rect(field)
-      assert.equal(Math.round(f.x), Math.round(b.x), 'mismo borde izquierdo')
-      assert.equal(Math.round(f.width), Math.round(b.width), 'mismo ancho')
-      assert.equal(await style(field, 'borderTopColor'), 'rgba(0, 0, 0, 0)', 'sin caja en reposo')
+      assert.equal(Math.round(f.x), Math.round(b.x), 'same left edge')
+      assert.equal(Math.round(f.width), Math.round(b.width), 'same width')
+      assert.equal(await style(field, 'borderTopColor'), 'rgba(0, 0, 0, 0)', 'no box at rest')
     } finally {
       await context.close()
     }
@@ -331,9 +331,9 @@ describe('proposal (J3-B-02, J3-B-05, J3-B-08, J3-B-09, J3-B-10, J3-B-11, J3-B-1
       await page.getByRole('button', { name: /^Área:/ }).first().click()
       const menu = page.getByRole('menu')
       await menu.waitFor()
-      assert.ok((await rect(menu)).width <= 360, `el menú no pasa de 22 rem: ${(await rect(menu)).width}`)
+      assert.ok((await rect(menu)).width <= 360, `the menu does not exceed 22 rem: ${(await rect(menu)).width}`)
       const long = menu.getByRole('menuitemradio', { name: /Accesibilidad y experiencia/ })
-      assert.ok((await rect(long)).height > 34, 'el título largo se envuelve en vez de ensanchar el menú')
+      assert.ok((await rect(long)).height > 34, 'the long title wraps instead of widening the menu')
     } finally {
       await context.close()
     }
@@ -369,9 +369,9 @@ describe('failure, publication and notices (J3-B-14, J3-B-15, J3-B-29)', () => {
       await alert.getByRole('button', { name: 'Revisar' }).click()
       const kept = page.getByText('Texto y adjuntos del envío conservados')
       await kept.waitFor()
-      assert.notEqual(await style(kept, 'color'), await style(page.getByText('El análisis no terminó'), 'color'), 'lo que tranquiliza no va en el rojo del error')
+      assert.notEqual(await style(kept, 'color'), await style(page.getByText('El análisis no terminó'), 'color'), 'what reassures is not in the error red')
       const chip = page.getByTestId('tray-control')
-      assert.notEqual(await chip.locator('text=/falló/').first().evaluate((el) => getComputedStyle(el).borderTopWidth), '0px', 'la marca de fallo lleva contorno')
+      assert.notEqual(await chip.locator('text=/falló/').first().evaluate((el) => getComputedStyle(el).borderTopWidth), '0px', 'the failure mark has an outline')
     } finally {
       await panel.control.release()
       await context.close()
@@ -391,12 +391,12 @@ describe('failure, publication and notices (J3-B-14, J3-B-15, J3-B-29)', () => {
       await settled(page)
       const n = await rect(notice)
       assert.ok(n.y + n.height <= 56, `el aviso queda en la barra superior: ${n.y + n.height}`)
-      assert.equal(await card(), before, 'la barra de estados no cambia de alto al publicar')
+      assert.equal(await card(), before, 'the status bar keeps its height on publishing')
       for (const label of ['Página siguiente', 'Página anterior']) {
         for (const b of await page.getByRole('button', { name: label }).all()) {
           // A pager arrow that is being measured again is not drawn for a moment: there is nothing under the notice then.
           const box = await rect(b)
-          if (box) assert.equal(overlap(n, box), false, `el aviso no tapa «${label}»`)
+          if (box) assert.equal(overlap(n, box), false, `the notice does not cover «${label}»`)
         }
       }
     } finally {
@@ -424,8 +424,8 @@ describe('attachments of a message (J3-B-11)', () => {
       await chip.waitFor()
       const c = await rect(chip)
       const remove = await rect(chip.getByRole('button', { name: /^Quitar/ }))
-      assert.ok(remove.x >= c.x && remove.x + remove.width <= c.x + c.width + 1, 'la X está dentro de la ficha')
-      assert.match(await chip.innerText(), /r3b-captura\.txt/, 'la ficha lleva el nombre')
+      assert.ok(remove.x >= c.x && remove.x + remove.width <= c.x + c.width + 1, 'the X is inside the tab')
+      assert.match(await chip.innerText(), /r3b-captura\.txt/, 'the tab carries the name')
     } finally {
       await context.close()
     }

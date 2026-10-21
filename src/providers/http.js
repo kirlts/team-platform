@@ -19,6 +19,31 @@ function parseRetryAfter(headers) {
   return Number.isFinite(seconds) ? Math.round(seconds * 1000) : null;
 }
 
+const REDACTED = '«clave omitida»';
+const MIN_SECRET_CHARS = 8; // shorter than any real key (the API refuses a shorter one): a shorter value would also blank ordinary words
+
+/** The secrets a request carries in its headers: the key itself, with or without its `Bearer ` prefix. */
+export function secretsOfHeaders(headers) {
+  const out = [];
+  for (const [name, value] of Object.entries(headers ?? {})) {
+    if (!/^(x-api-key|authorization)$/i.test(name) || typeof value !== 'string') continue;
+    out.push(value.replace(/^Bearer /i, ''));
+  }
+  return out.filter((secret) => secret.length >= MIN_SECRET_CHARS);
+}
+
+/**
+ * Replaces every occurrence of a secret in a text, or inside the strings of an object, so that an error body that repeats
+ * the key (some providers do) never reaches an error message, a job record or a span.
+ */
+export function redactSecrets(value, secrets) {
+  if (!secrets?.length) return value;
+  if (typeof value === 'string') return secrets.reduce((text, secret) => text.split(secret).join(REDACTED), value);
+  if (Array.isArray(value)) return value.map((item) => redactSecrets(item, secrets));
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, redactSecrets(v, secrets)]));
+  return value;
+}
+
 function errorMessageFrom(body, status) {
   if (body && typeof body === 'object') {
     const msg = body.error?.message ?? body.message ?? body.error;
@@ -33,6 +58,7 @@ function errorMessageFrom(body, status) {
  */
 export async function postRequest(url, { headers, body, timeoutMs = DEFAULT_TIMEOUT_MS, fetchImpl = fetch, provider, model }) {
   const started = performance.now();
+  const secrets = secretsOfHeaders(headers);
   let response;
   try {
     response = await fetchImpl(url, {
@@ -46,7 +72,7 @@ export async function postRequest(url, { headers, body, timeoutMs = DEFAULT_TIME
     if (cause?.name === 'TimeoutError' || cause?.name === 'AbortError') {
       throw new ProviderTimeoutError(`${provider}: la llamada superó ${timeoutMs} ms`, { provider, model, duration_ms, timeoutMs, cause });
     }
-    throw new ProviderHttpError(`${provider}: fallo de red (${cause?.message ?? cause})`, {
+    throw new ProviderHttpError(redactSecrets(`${provider}: fallo de red (${cause?.message ?? cause})`, secrets), {
       provider, model, duration_ms, status: 0, retryable: true, cause,
     });
   }
@@ -59,14 +85,14 @@ export async function postRequest(url, { headers, body, timeoutMs = DEFAULT_TIME
     json = null;
   }
   if (!response.ok) {
-    throw new ProviderHttpError(`${provider}: ${errorMessageFrom(json, response.status)}`, {
+    throw new ProviderHttpError(redactSecrets(`${provider}: ${errorMessageFrom(json, response.status)}`, secrets), {
       provider,
       model,
       duration_ms,
       status: response.status,
       retryable: isRetryableStatus(response.status),
       retryAfterMs: parseRetryAfter(response.headers),
-      body: json ?? text.slice(0, 2000),
+      body: redactSecrets(json ?? text.slice(0, 2000), secrets),
     });
   }
   return { status: response.status, json, headers: response.headers, duration_ms, raw: text };

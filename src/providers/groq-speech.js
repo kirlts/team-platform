@@ -5,7 +5,7 @@
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 import { ProviderConfigError, ProviderHttpError, ProviderTimeoutError } from './errors.js';
-import { DEFAULT_TIMEOUT_MS, isRetryableStatus } from './http.js';
+import { DEFAULT_TIMEOUT_MS, isRetryableStatus, redactSecrets, secretsOfHeaders } from './http.js';
 import { limiterFor } from './limiter.js';
 import { annotate, withGenAiCall } from '../telemetry/api.js';
 
@@ -53,6 +53,7 @@ export function createGroqSpeechClient(cfg) {
 
   async function send(form, language) {
     const started = performance.now();
+    const secrets = secretsOfHeaders({ authorization: `Bearer ${cfg.apiKey}` });
     let response;
     try {
       response = await fetchImpl(`${baseUrl}/audio/transcriptions`, {
@@ -66,7 +67,7 @@ export function createGroqSpeechClient(cfg) {
       if (cause?.name === 'TimeoutError' || cause?.name === 'AbortError') {
         throw new ProviderTimeoutError(`groq-speech: la llamada superó ${timeoutMs} ms`, { provider, model, duration_ms, timeoutMs, cause });
       }
-      throw new ProviderHttpError(`groq-speech: fallo de red (${cause?.message ?? cause})`, { provider, model, duration_ms, status: 0, retryable: true, cause });
+      throw new ProviderHttpError(redactSecrets(`groq-speech: fallo de red (${cause?.message ?? cause})`, secrets), { provider, model, duration_ms, status: 0, retryable: true, cause });
     }
     const raw = await response.text();
     const duration_ms = Math.round(performance.now() - started);
@@ -78,14 +79,14 @@ export function createGroqSpeechClient(cfg) {
     }
     if (!response.ok) {
       const retryAfter = Number(response.headers.get('retry-after'));
-      throw new ProviderHttpError(`groq-speech: ${json?.error?.message ?? `HTTP ${response.status}`}`, {
+      throw new ProviderHttpError(redactSecrets(`groq-speech: ${json?.error?.message ?? `HTTP ${response.status}`}`, secrets), {
         provider,
         model,
         duration_ms,
         status: response.status,
         retryable: isRetryableStatus(response.status),
         retryAfterMs: Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : null,
-        body: json ?? raw.slice(0, 2000),
+        body: redactSecrets(json ?? raw.slice(0, 2000), secrets),
       });
     }
     const segments = (json?.segments ?? []).map((s) => ({

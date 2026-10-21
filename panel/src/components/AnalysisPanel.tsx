@@ -95,6 +95,7 @@ export function AnalysisPanel({ input, onClose, onDiscarded }: { input: InputRec
     <section
       aria-label={t('analysis.title')}
       data-testid="analysis-box"
+      data-ui-stage={input.status === 'proposed' ? 'analysis' : undefined}
       data-area-id={tinted ? activeArea : undefined}
       style={tinted ? areaStyle : undefined}
       className={cn('@container flex min-h-0 min-w-0 flex-col gap-3 p-3 pl-4', tinted ? 'area-tint area-box' : 'ai-surface', input.status === 'proposed' ? 'flex-1' : 'w-full self-start')}
@@ -120,7 +121,7 @@ export function AnalysisPanel({ input, onClose, onDiscarded }: { input: InputRec
       </div>
 
       {processing && (
-        <div className="flex flex-col gap-2">
+        <div data-ui-stage="progress" className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-2 text-sm">
             <span>{progress?.phrase ? progressText(progress.phrase, t) : STATUS_PHRASE[input.status] ? t(STATUS_PHRASE[input.status]!) : ''}</span>
             {percent > 0 && <span className="tabular-nums text-muted">{percent} %</span>}
@@ -339,8 +340,8 @@ function ProposalEditor({
           <span className="font-semibold">{t('analysis.error.publish_blocked')}</span> {input.error}
         </p>
       )}
-      {/* The messages of the proposal are read whole: a text has no maximum length, so the list is a lane with its own scroll, declared, and never a frame that cuts the open message. */}
-      <ul data-lane="proposal-messages" aria-label={t('proposal.list')} className="scroll-thin flex min-h-0 flex-1 flex-col overflow-y-auto">
+      {/* The messages of the proposal are read whole: a text has no maximum length, so the list is as tall as it is and the page scrolls (UD-110); no frame cuts the open message. */}
+      <ul aria-label={t('proposal.list')} className="flex flex-1 flex-col">
         {rows.map(({ m, i }) => (
           <ProposalRow
             key={i}
@@ -404,7 +405,7 @@ function ProposalEditor({
               {t('proposal.missing', { n: missingTotal })}
             </span>
           )}
-          <Button variant="primary" onClick={() => void send()} disabled={publish.isPending || count === 0 || missingTotal > 0}>
+          <Button variant="primary" data-testid="proposal-send" onClick={() => void send()} disabled={publish.isPending || count === 0 || missingTotal > 0}>
             {t('proposal.sendN', { n: count })}
           </Button>
         </div>

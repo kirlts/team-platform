@@ -2,8 +2,11 @@
 // development double server (dev-server.mjs) and against the real server (src/server.js with the demo modules), and each
 // time the Editor's summary has to show what the person did, with no text of anything they wrote.
 //
-// The scenario: sign in, visit three screens, send a text and publish what the analysis proposes, answer a message,
-// close another one, and send one more text that is left unpublished while the page closes (an abandonment).
+// The scenario: sign in, visit three screens, send a text that is published by itself when the analysis ends (UD-070),
+// answer a message, close another one, and send one more text that is left in the air while the page closes (an
+// abandonment). A third test turns publication to manual and checks the stages with the marks the panel puts on the
+// progress and on the analysis (`data-ui-stage`, H-1705). Selectors are test ids and `data-ui-stage`, not texts: the
+// bar of text, the drawer and the navigation change with other work (H-1706).
 // Port: PANEL_TELEMETRY_PORT (the double server). The real server takes a free port of its own.
 
 import assert from 'node:assert'
@@ -38,7 +41,7 @@ async function hide(page) {
   assert.equal((await sent).status(), 204)
 }
 
-async function scenario({ origin, browser, signIn, pick, replier, autoPublish = false }) {
+async function scenario({ origin, browser, signIn, pick, replier }) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'es-CL' })
   const page = await context.newPage()
   const bodies = []
@@ -53,29 +56,17 @@ async function scenario({ origin, browser, signIn, pick, replier, autoPublish = 
   }
   track(page)
   await signIn(page)
-  for (const view of [/^Mensajes/, /^Configuración$/]) {
-    await page.getByRole('link', { name: view }).first().click()
+  for (const href of ['/messages', '/settings', '/']) {
+    await page.locator(`a[href="${href}"]`).first().click()
     await page.locator('main').first().waitFor()
   }
-  await page.getByRole('link', { name: /^Inicio$/ }).first().click()
 
-  // Send and publish: the text is the sentinel and must never be seen by the telemetry.
-  const bar = page.getByLabel('Nuevo mensaje', { exact: true }).last()
+  // Send: the text is the sentinel and must never be seen by the telemetry. The analysis ends and the message is published by itself.
+  const bar = page.getByTestId('compose-text').last()
   await bar.fill(`${SENTINEL}\n\nSegundo punto del mismo texto.`)
   await bar.press('End') // `fill` sets the value without keys: one real key press, whose identity is never read
-  await page.getByRole('button', { name: 'Enviar' }).first().click()
-  const notice = page.locator('[data-notice]').getByText(/^Se publicó|^Se publicaron/)
-  // The real server publishes by itself when the analysis ends (UD-070); the example server still waits for the person.
-  const tray = page.getByTestId('tray-control')
-  if (autoPublish) await page.getByText('Mensaje de prueba').first().waitFor({ timeout: 30000 }) // the new message is on the page
-  else {
-    await tray.click()
-    const publish = page.getByRole('button', { name: /^Enviar \d+ mensajes?$/ })
-    await publish.waitFor({ timeout: 30000 })
-    await page.waitForFunction((el) => !el.disabled, await publish.elementHandle()) // a required field is filled by the demo analysis
-    await publish.click()
-    await notice.waitFor({ timeout: 30000 }).catch(async (e) => { await dump('publish'); throw e })
-  }
+  await page.getByTestId('compose-send').first().click()
+  await page.getByTestId('published-message').first().waitFor({ timeout: 30000 }).catch(async (e) => { await dump('publish'); throw e })
 
   // Reply and close on a published message. The author cannot answer their own message: a replier is another person.
   const list = await (await page.request.get(`${origin}/api/messages`)).json()
@@ -97,9 +88,9 @@ async function scenario({ origin, browser, signIn, pick, replier, autoPublish = 
 
   // Leave the page with a send that was started and never published: the unload sends the abandonment.
   await page.goto(origin)
-  await page.getByLabel('Nuevo mensaje', { exact: true }).last().fill('Texto que se queda sin publicar.')
-  await page.getByRole('button', { name: 'Enviar' }).first().click()
-  await page.getByTestId('tray-control').waitFor()
+  await page.getByTestId('compose-text').last().fill('Texto que se queda sin publicar.')
+  await page.getByTestId('compose-send').first().click()
+  await page.getByTestId('send-drawer').waitFor()
   const closed = page.waitForEvent('close')
   await page.close({ runBeforeUnload: false })
   await closed
@@ -114,18 +105,14 @@ async function scenario({ origin, browser, signIn, pick, replier, autoPublish = 
   return { summary, bodies }
 }
 
-function check({ summary, bodies }, label, autoPublish = false) {
+function check({ summary, bodies }, label, { stages = true } = {}) {
   const sp = summary.tasks.send_publish
   assert.ok(sp, `${label}: no send_publish task in the summary: ${JSON.stringify(summary.tasks)}`)
-  // With auto-publication (UD-070) the second send races the page closing: it ends as completed or as abandoned, never lost.
-  if (autoPublish) assert.equal(sp.completed + sp.abandoned, 2, `${label}: both sends ended: ${JSON.stringify(summary.tasks)}`)
-  else {
-    assert.equal(sp.completed, 1, `${label}: sends published: ${JSON.stringify(summary.tasks)} errors ${JSON.stringify(summary.errors)}`)
-    assert.equal(sp.abandoned, 1, `${label}: sends left unpublished`)
-  }
-  assert.ok(sp.completed === 0 || sp.clicks.p50 >= 1, `${label}: sending takes at least one click (two where the person confirms the publication), and the summary says ${sp.clicks.p50}`)
+  // Publication is automatic (UD-070): the second send races the page closing and ends as completed or as abandoned, never lost.
+  assert.equal(sp.completed + sp.abandoned, 2, `${label}: both sends ended: ${JSON.stringify(summary.tasks)} errors ${JSON.stringify(summary.errors)}`)
+  assert.ok(sp.completed === 0 || sp.clicks.p50 >= 1, `${label}: sending takes at least one click, and the summary says ${sp.clicks.p50}`)
   // The demo analysis of the real server ends before the first paint, so its stages are not told apart there.
-  if (!autoPublish) for (const stage of ['feedback', 'analysis']) assert.ok(sp.stages_ms[stage].n >= 1 && sp.stages_ms[stage].p50 >= 0, `${label}: stage ${stage}: ${JSON.stringify(sp.stages_ms)}`)
+  if (stages) for (const stage of ['feedback', 'analysis']) assert.ok(sp.stages_ms[stage].n >= 1 && sp.stages_ms[stage].p50 >= 0, `${label}: stage ${stage}: ${JSON.stringify(sp.stages_ms)}`)
   assert.equal(summary.tasks.reply?.completed, 1, `${label}: one reply`)
   assert.equal(summary.tasks.close?.completed, 1, `${label}: one close`)
   for (const screen of ['home', 'messages', 'settings', 'message-detail']) assert.ok(summary.screens[screen]?.visits >= 1, `${label}: ${screen} was visited`)
@@ -148,6 +135,36 @@ describe('interface telemetry in a browser', () => {
     await panel.control.reset() // the sample data as it was born (H-901)
     const result = await scenario({ origin: panel.origin, browser: panel.browser, signIn: (page) => login(page, panel.origin, 'ana'), pick: (items) => items.find((m) => m.title.startsWith('Probar un resumen semanal')) ?? items[0] })
     check(result, 'double server')
+  })
+
+  test('with manual publication the marked progress and analysis are painted and give the three stages (H-1705)', async () => {
+    const panel = await startPanel(Number(process.env.PANEL_TELEMETRY_PORT ?? 8975) + 1, { stepMs: 80, build: false })
+    cleanups.push(() => panel.stop())
+    await panel.control.reset()
+    const context = await panel.browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'es-CL' })
+    const page = await context.newPage()
+    await login(page, panel.origin, 'ana')
+    const off = await page.request.fetch(`${panel.origin}/api/settings/publication`, { method: 'PATCH', headers: { ...csrf, 'content-type': 'application/json' }, data: { auto_publish: false } })
+    assert.equal(off.status(), 200)
+    await page.goto(panel.origin)
+    await page.getByTestId('compose-text').last().fill(`${SENTINEL}\n\nSegundo punto del mismo texto.`)
+    await page.getByTestId('compose-send').first().click()
+    // The marks are on the page for the person to see: the progress first, then the analysis.
+    await page.locator('[data-ui-stage="progress"]').first().waitFor({ timeout: 30000 })
+    await page.locator('[data-ui-stage="analysis"]').first().waitFor({ timeout: 30000 })
+    const publish = page.getByTestId('proposal-send')
+    await page.waitForFunction((el) => !el.disabled, await publish.elementHandle()) // a required field is filled by the demo analysis
+    await publish.click()
+    await page.getByTestId('published-message').first().waitFor({ timeout: 30000 })
+    await page.waitForFunction(async () => ((await (await fetch('/api/telemetry/ui-summary')).json()).tasks?.send_publish?.completed ?? 0) >= 1, null, { timeout: 30000 })
+    const summary = await (await page.request.get(`${panel.origin}/api/telemetry/ui-summary`)).json()
+    const sp = summary.tasks.send_publish
+    for (const stage of ['feedback', 'analysis', 'publish']) assert.ok(sp.stages_ms[stage].n >= 1 && sp.stages_ms[stage].p50 >= 0, `manual: stage ${stage}: ${JSON.stringify(sp.stages_ms)}`)
+    // The analysis is painted after the progress: its stage is a real stretch of the 80 ms steps of the double server.
+    assert.ok(sp.stages_ms.analysis.p50 >= 80, `manual: the analysis stage is measured from the painted progress: ${JSON.stringify(sp.stages_ms)}`)
+    assert.ok(!JSON.stringify(summary).includes(SENTINEL), 'manual: the text of the send is not in the telemetry')
+    console.log(`manual: stages ${JSON.stringify(Object.fromEntries(Object.entries(sp.stages_ms).map(([k, v]) => [k, v.p50])))}`)
+    await context.close()
   })
 
   test('against the real server', async () => {
@@ -182,7 +199,7 @@ describe('interface telemetry in a browser', () => {
       await page.getByLabel('Correo').fill('ana@humo.test')
       await page.getByLabel('Contraseña').fill(password)
       await page.getByRole('button', { name: 'Entrar' }).click()
-      await page.getByRole('link', { name: /^Inicio$/ }).first().waitFor()
+      await page.locator('a[href="/"]').first().waitFor()
     }
     const replier = async (context) => {
       const created = await fetch(`${origin}/api/members`, { method: 'POST', headers: { 'content-type': 'application/json', cookie: await cookieOf(context), 'x-team-request': 'panel' }, body: JSON.stringify({ email: 'beto@humo.test', name: 'Beto', password }) })
@@ -193,9 +210,9 @@ describe('interface telemetry in a browser', () => {
       await p.getByLabel('Correo').fill('beto@humo.test')
       await p.getByLabel('Contraseña').fill(password)
       await p.getByRole('button', { name: 'Entrar' }).click()
-      await p.getByRole('link', { name: /^Inicio$/ }).first().waitFor()
+      await p.locator('a[href="/"]').first().waitFor()
       return p
     }
-    check(await scenario({ origin, browser, signIn, pick: (items) => items[0], replier, autoPublish: true }), 'real server', true)
+    check(await scenario({ origin, browser, signIn, pick: (items) => items[0], replier }), 'real server', { stages: false })
   })
 })

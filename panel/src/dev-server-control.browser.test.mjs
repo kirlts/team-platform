@@ -37,7 +37,7 @@ test('a held analysis stays queued until the test steps it, and one explicit ord
   const id = await send('Un envío retenido.\n\nOtro punto.')
   assert.equal((await call(`/inputs/${id}`)).status, 'queued')
   await panel.control.step({ inputId: id })
-  assert.equal((await call(`/inputs/${id}`)).status, 'analyzing', 'un paso mueve el envío')
+  assert.equal((await call(`/inputs/${id}`)).status, 'analyzing', 'a step moves the submission')
   await panel.control.step({ inputId: id, finish: true })
   const done = await call(`/inputs/${id}`)
   assert.equal(done.status, 'proposed')
@@ -70,13 +70,13 @@ test('release hands the analysis back to the clock and reset forgets sends and e
   let said = ''
   while (!new RegExp(`event: done\\ndata: [^\\n]*${id}`).test(said)) {
     const { value, done } = await reader.read()
-    assert.ok(!done, 'el flujo de eventos se cerró antes de terminar el análisis')
+    assert.ok(!done, 'the event stream closed before the analysis finished')
     said += Buffer.from(value).toString()
   }
   await reader.cancel()
   assert.equal((await call(`/inputs/${id}`)).status, 'proposed')
   await call('/settings/project', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ description: 'Editada por la prueba' }) })
   await panel.control.reset()
-  assert.equal((await call('/inputs')).items.length, 0, 'sin envíos después de reiniciar')
+  assert.equal((await call('/inputs')).items.length, 0, 'no submissions after restarting')
   assert.notEqual((await call('/settings/project')).description, 'Editada por la prueba')
 })

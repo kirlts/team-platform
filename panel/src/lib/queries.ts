@@ -6,6 +6,9 @@ import { api, ApiError, unwrapList } from './api'
 import { applyClientFilters, toApiParams, type MessageQuery } from './filters'
 import type {
   Area,
+  Check,
+  Connection,
+  ConnectionsView,
   InputRecord,
   Language,
   Me,
@@ -14,9 +17,11 @@ import type {
   MessageDetail,
   MessageSummary,
   MessagePatch,
+  NewConnection,
   NewMember,
   Proposal,
   ProviderSetting,
+  ProviderSlot,
   ReplyKind,
   Template,
 } from './types'
@@ -371,13 +376,122 @@ export function useSaveLanguage() {
 export function useSaveProvider() {
   const invalidate = useInvalidator()
   return useMutation({
-    mutationFn: (v: Pick<ProviderSetting, 'slot' | 'provider' | 'model'>) => api('/settings/providers', { method: 'PATCH', body: { slot: v.slot, provider: v.provider, model: v.model } }),
-    onSuccess: () => invalidate('providers'),
+    // The server tests the combination before it applies it: a failure (422 provider_check_failed) leaves the previous setting.
+    mutationFn: (v: Pick<ProviderSetting, 'slot'> & Partial<Pick<ProviderSetting, 'provider' | 'model' | 'base_url'>>) => {
+      const body: Record<string, unknown> = { slot: v.slot }
+      if (v.provider !== undefined) body.provider = v.provider
+      if (v.model !== undefined) body.model = v.model
+      if (v.base_url !== undefined) body.base_url = v.base_url
+      return api('/settings/providers', { method: 'PATCH', body })
+    },
+    onSuccess: () => invalidate('providers', 'connections'),
+  })
+}
+
+/** Providers with the state of their keys, and the presets that can be added (Editor only). */
+export function useConnections(enabled = true) {
+  return useQuery({
+    queryKey: ['connections'],
+    queryFn: () => api<ConnectionsView>('/settings/connections'),
+    enabled,
+  })
+}
+
+/** The result of a test, kept per connection so the model field can offer the models the provider listed. */
+export function useRememberedModels(name: string | null | undefined): string[] {
+  // Never fetched (disabled): the data is whatever the tests wrote with setQueryData.
+  return useQuery({ queryKey: ['models', name ?? ''], queryFn: () => [] as string[], enabled: false }).data ?? []
+}
+
+function useRememberCheck() {
+  const qc = useQueryClient()
+  return (name: string, check: Check | undefined) => {
+    if (check?.models?.length) qc.setQueryData(['models', name], check.models)
+  }
+}
+
+const connectionPath = (name: string) => `/settings/connections/${encodeURIComponent(name)}`
+
+export interface ConnectionResult {
+  connection: Connection
+  check: Check
+}
+
+/** Adds a provider with its key; the server tests first and saves nothing when the test fails. */
+export function useAddConnection() {
+  const invalidate = useInvalidator()
+  const remember = useRememberCheck()
+  return useMutation({
+    // The body carries the key: the mutation leaves the cache as soon as nothing watches it.
+    gcTime: 0,
+    mutationFn: (v: NewConnection) => api<ConnectionResult>('/settings/connections', { method: 'POST', body: v }),
+    onSuccess: (r) => {
+      remember(r.connection.name, r.check)
+      return invalidate('connections', 'providers')
+    },
+  })
+}
+
+/** Replaces a key: tested first, applied only if it works; otherwise the previous key stays. */
+export function useReplaceKey() {
+  const invalidate = useInvalidator()
+  const remember = useRememberCheck()
+  return useMutation({
+    gcTime: 0,
+    mutationFn: (v: { name: string; api_key: string; model?: string }) => api<ConnectionResult>(`${connectionPath(v.name)}/key`, { method: 'PUT', body: { api_key: v.api_key, ...(v.model ? { model: v.model } : {}) } }),
+    onSuccess: (r) => {
+      remember(r.connection.name, r.check)
+      return invalidate('connections', 'providers')
+    },
+  })
+}
+
+export function useRetireKey() {
+  const invalidate = useInvalidator()
+  return useMutation({
+    mutationFn: (name: string) => api<{ connection: Connection }>(`${connectionPath(name)}/key`, { method: 'DELETE' }),
+    onSuccess: () => invalidate('connections', 'providers'),
+  })
+}
+
+export function useDeleteConnection() {
+  const invalidate = useInvalidator()
+  return useMutation({
+    mutationFn: (name: string) => api<{ deleted: boolean }>(connectionPath(name), { method: 'DELETE' }),
+    onSuccess: () => invalidate('connections', 'providers'),
+  })
+}
+
+/** Diagnosis of one provider (always answers 200; the body says whether it worked). */
+export function useCheckConnection() {
+  const invalidate = useInvalidator()
+  const remember = useRememberCheck()
+  return useMutation({
+    mutationFn: (v: { name: string; model?: string }) => api<{ check: Check }>(`${connectionPath(v.name)}/check`, { method: 'POST', body: v.model ? { model: v.model } : {} }).then((r) => ({ ...r, name: v.name })),
+    onSuccess: (r) => {
+      remember(r.name, r.check)
+      return invalidate('connections', 'providers')
+    },
+  })
+}
+
+/** Diagnosis of one function: the provider and the model it uses now. */
+export function useCheckSlot() {
+  const invalidate = useInvalidator()
+  const remember = useRememberCheck()
+  return useMutation({
+    mutationFn: (slot: ProviderSlot) => api<{ check: Check; slot: ProviderSlot; provider: string; model: string }>(`/settings/providers/${slot}/check`, { method: 'POST', body: {} }),
+    onSuccess: (r) => {
+      remember(r.provider, r.check)
+      return invalidate('connections', 'providers')
+    },
   })
 }
 
 /** Project description (UD-024): the whole team sees it and only the Editor changes it. */
 export interface Project {
+  /** Cap of characters (PROJECT_DESCRIPTION_MAX_CHARS); a server that does not send it leaves the counter without a cap. */
+  max_chars?: number
   name: string
   description: string
 }

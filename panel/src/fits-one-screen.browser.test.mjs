@@ -32,6 +32,8 @@ const TIMES = 8
 const SIZES = [
   [1440, 900],
   [1280, 720],
+  [1920, 1080],
+  [2560, 1440],
 ]
 
 /**
@@ -48,7 +50,18 @@ export const LANES = [
   '[role="menu"]',
 ]
 
-// FIT_BREAK=documento-alto adds a 2000 px block to the document; FIT_BREAK=carril adds a lane that
+/**
+ * Views whose page is allowed to scroll (UD-123). Dueño, 2026-10-21: «La parte para escribir la descripción del proyecto tiene texto
+ * truncado que obliga a desplazarse dentro de la misma página para escribir la configuración del proyecto. Eso es un gran problema.»
+ * Configuración holds a project description that can be as long as a master spec; the fix is not a smaller frame with a scroll inside it but an
+ * editor as tall as its text, and the page (the `<main>` of the shell) is what scrolls. These views are exempt ONLY from the checks of document
+ * height, region height and content below the window edge; own lanes, hidden overflow, text under 12 px and repeated text still apply to them.
+ */
+export const SCROLLING_PAGES = ['configuración']
+/** Characters seeded into the project description of Configuración, to measure the editor with a long text. */
+const LONG_PROJECT = 12000
+
+// FIT_BREAK=textarea-capped puts a max height and an own scroll on the project editor (it must fail); FIT_BREAK=documento-alto adds a 2000 px block to the document; FIT_BREAK=carril adds a lane that
 // scrolls without being declared; FIT_BREAK=oculto hides the overflow of the document; FIT_BREAK=repetido draws the same sentence twice.
 const BREAK = process.env.FIT_BREAK ?? ''
 
@@ -58,6 +71,7 @@ before(async () => {
 })
 
 after(async () => {
+  await panel?.control.reset().catch(() => {})
   await panel?.stop()
 })
 
@@ -116,7 +130,7 @@ function repeatsInPage() {
 }
 
 /** Runs in the page. */
-function measureInPage({ lanes, withBreak }) {
+function measureInPage({ lanes, withBreak, scrolls }) {
   const se = document.scrollingElement
   const main = document.querySelector('main')
   const matches = (el) => lanes.some((s) => el.matches(s) || el.closest(s))
@@ -125,11 +139,34 @@ function measureInPage({ lanes, withBreak }) {
   const carriles = [...document.querySelectorAll('body *')]
     .filter((el) => {
       const o = getComputedStyle(el).overflowY
+      // A view with a send open (UD-110) is taller than the window on purpose, and then the region <main> is what scrolls; nothing else may.
+      if (scrolls && el === main) return false
       return (o === 'auto' || o === 'scroll') && el.scrollHeight > el.clientHeight + 1 && !matches(el)
     })
     .map(label)
   // The region <main> is the shell's content: if it needs to scroll, the view does not fit.
   const mainOver = main ? main.scrollHeight - main.clientHeight : 0
+  // Nothing is cut or laid over anything else (UD-017, kept by UD-110). Cut: a box that hides its overflow while its content is larger than it.
+  // A thumbnail crops its image on purpose (no text in it) and a folded text fades out with a mask that says so; both are exempt, a cut text is not. Overlapped: two blocks of the page frame (the children of the view's first element) whose boxes cross; the bar to write, which grows over the page on purpose, is the one exemption.
+  const cut = [...document.querySelectorAll('main *')]
+    .filter((el) => {
+      if (el.closest('.sr-only, textarea, [aria-hidden=true], svg, [data-fit-measuring]') || matches(el)) return false
+      const st = getComputedStyle(el)
+      const hides = ['hidden', 'clip'].includes(st.overflowY) || ['hidden', 'clip'].includes(st.overflowX)
+      const r = rect(el)
+      const fades = (st.maskImage ?? 'none') !== 'none' || (st.webkitMaskImage ?? 'none') !== 'none'
+      return hides && !fades && el.innerText?.trim() && r.width > 0 && r.height > 0 && st.textOverflow !== 'ellipsis' && ((['hidden', 'clip'].includes(st.overflowY) && el.scrollHeight > el.clientHeight + 1) || (['hidden', 'clip'].includes(st.overflowX) && el.scrollWidth > el.clientWidth + 1))
+    })
+    .map(label)
+  const frame = main?.firstElementChild
+  const blocks = frame ? [...frame.children].filter((el) => !el.hasAttribute('data-compose-scrim') && rect(el).height > 0 && getComputedStyle(el).position !== 'fixed') : []
+  const overlapped = []
+  for (let i = 0; i < blocks.length; i++)
+    for (let j = i + 1; j < blocks.length; j++) {
+      const a = rect(blocks[i])
+      const b = rect(blocks[j])
+      if (Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1 && Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1) overlapped.push(`${label(blocks[i])} / ${label(blocks[j])}`)
+    }
   const below = Math.max(
     0,
     ...[...document.querySelectorAll('main *')]
@@ -153,7 +190,15 @@ function measureInPage({ lanes, withBreak }) {
   }
   // An open dialog locks the page's scroll on purpose (it is a layer over the page, not the page); without one, hidden overflow is a failure.
   const hidden = !document.querySelector('[role="dialog"]') && (getComputedStyle(document.documentElement).overflowY === 'hidden' || getComputedStyle(document.body).overflowY === 'hidden')
-  return { doc: se.scrollHeight, win: innerHeight, mainOver, mainBox: main ? main.clientHeight : 0, below, carriles, small: [...small], hidden, wide: se.scrollWidth - se.clientWidth, withBreak }
+  return { cut, overlapped, doc: se.scrollHeight, win: innerHeight, mainOver, mainBox: main ? main.clientHeight : 0, below, carriles, small: [...small], hidden, wide: se.scrollWidth - se.clientWidth, withBreak }
+}
+
+/** Puts a long description in the project, as the Editor would (the dev server keeps it until `control.reset`). */
+async function seedProject(page) {
+  const paragraph = 'Párrafo de una descripción larga del proyecto, con el contexto que el análisis recibe de cada mensaje del equipo. '
+  const description = paragraph.repeat(Math.ceil(LONG_PROJECT / paragraph.length)).slice(0, LONG_PROJECT)
+  const res = await page.request.patch(`${ORIGIN}/api/settings/project`, { data: { description }, headers: { 'x-team-request': 'panel' } })
+  assert.ok(res.ok(), `no se pudo sembrar el proyecto: ${res.status()}`)
 }
 
 /** Opens a path and waits for the view's heading, then for the network and the layout to settle. */
@@ -188,11 +233,12 @@ async function sendInput(page) {
 
 /**
  * Ten sends one after another (UD-025). The bar empties at each send and the tray keeps its frame: after the tenth
- * the page is exactly as tall as after the first. Returns that first measure to compare with.
+ * the bar and the top of the drawer are exactly where they were after the first. Returns that first measure to compare with.
  */
 async function sendTen(page) {
   const bar = page.getByLabel('Nuevo mensaje', { exact: true }).last()
-  const measure = () => page.evaluate(() => ({ doc: document.scrollingElement.scrollHeight, main: document.querySelector('main').scrollHeight }))
+  // What ten sends must not move (UD-025): the bar to write and the top of the drawer. The drawer is as tall as what it shows (UD-110), so its height is not compared.
+  const measure = () => page.evaluate(() => ({ doc: document.scrollingElement.scrollHeight, bar: Math.round(document.querySelector('[data-compose-box]').getBoundingClientRect().bottom), drawer: Math.round(document.querySelector('[data-testid="send-drawer"]')?.getBoundingClientRect().top ?? -1) }))
   let base
   for (let i = 1; i <= 10; i++) {
     await bar.fill(`Envío ${i} de la serie: revisar el punto ${i} y avisar al equipo.`)
@@ -213,8 +259,9 @@ async function sendTen(page) {
 /** The views: path, and an optional step that prepares the state (sending an input, for instance). */
 const VIEWS = [
   { name: 'inicio', path: '/' },
-  { name: 'inicio con propuesta', path: '/', prepare: sendInput },
-  { name: 'inicio con diez envíos', path: '/', prepare: sendTen, compare: true },
+  // With a send open the page is taller than the window and its region scrolls (UD-110, which amends UD-017): `scrolls` lifts only the height checks of these two.
+  { name: 'inicio con propuesta', path: '/', prepare: sendInput, scrolls: true },
+  { name: 'inicio con diez envíos', path: '/', prepare: sendTen, compare: true, scrolls: true },
   { name: 'mensajes', path: '/messages' },
   { name: 'detalle', path: null },
   { name: 'áreas', path: '/areas' },
@@ -224,6 +271,34 @@ const VIEWS = [
 ]
 
 const report = []
+
+// Inicio's air (UD-110): the page grows with the window up to 1680 px and the bar to write is centered in it, so no strip is left empty on one side.
+for (const [width, height] of SIZES) {
+  describe(`${width}x${height} Inicio uses the width of the window`, () => {
+    test('the frame fills the region up to 1680 px and the bar is centered with room around it', async () => {
+      const context = await panel.browser.newContext({ viewport: { width, height }, locale: 'es-CL' })
+      const page = await context.newPage()
+      try {
+        await login(page, ORIGIN)
+        await open(page, '/')
+        const m = await page.evaluate(() => {
+          const main = document.querySelector('main')
+          const frame = main.firstElementChild.getBoundingClientRect()
+          const bar = document.querySelector('[aria-label="Nuevo mensaje"]').closest('section').getBoundingClientRect()
+          const region = main.getBoundingClientRect()
+          return { frame: frame.width, left: frame.left - region.left, right: region.right - frame.right, barLeft: bar.left - frame.left, barRight: frame.right - bar.right, bar: bar.width }
+        })
+        // The frame is as wide as the region minus its margins (40 px a side), or 1680 px.
+        assert.ok(m.frame >= Math.min(1680, m.frame + m.left + m.right - 80) - 2, `frame ${m.frame} px with ${m.left} px at the left and ${m.right} px at the right`)
+        assert.ok(Math.abs(m.left - m.right) <= 2, `the frame is off center: ${m.left} px at the left, ${m.right} px at the right`)
+        assert.ok(Math.abs(m.barLeft - m.barRight) <= 2, `the bar is off center in the frame: ${m.barLeft} px, ${m.barRight} px`)
+        assert.ok(m.bar <= 841 && m.bar >= Math.min(840, m.frame) - 2, `the bar is ${m.bar} px wide`)
+      } finally {
+        await context.close()
+      }
+    })
+  })
+}
 
 // A list that has settled asks for nothing: its thumbnails are drawn once. The frame of a list measures itself against its neighbors, so a neighbor that
 // changes size at every measure (the strip of areas that wrapped and unwrapped, H-1405) made both lists draw their sixty measuring rows again and again,
@@ -262,7 +337,7 @@ for (const [width, height] of SIZES) {
             }),
         )
         const failures = [...asked].filter(([path, n]) => n > 2 * Math.max(1, thumbs[path] ?? 0)).map(([path, n]) => `${path} ×${n} (hay ${thumbs[path] ?? 0} en pantalla)`)
-        assert.deepStrictEqual(failures, [], `Peticiones repetidas en cinco segundos:\n${failures.join('\n')}`)
+        assert.deepStrictEqual(failures, [], `Repeated requests within five seconds:\n${failures.join('\n')}`)
       } finally {
         await page.unrouteAll({ behavior: 'ignoreErrors' })
         await context.close()
@@ -290,25 +365,50 @@ for (const [width, height] of SIZES) {
           const rich = list.find((m) => m.title.startsWith('Revisar la lectura')) ?? list[0]
           for (const view of VIEWS) {
             const path = view.path ?? `/messages/${rich.id}`
+            if (view.name === 'configuración') await seedProject(page)
             await open(page, path)
             const base = view.prepare ? await view.prepare(page) : undefined
             if (BREAK === 'documento-alto' && view.name === 'inicio') await page.evaluate(() => document.querySelector('main').insertAdjacentHTML('beforeend', '<div style="height:2000px">x</div>'))
             if (BREAK === 'carril' && view.name === 'equipo') await page.evaluate(() => document.querySelector('main').insertAdjacentHTML('beforeend', '<div style="height:80px;overflow-y:auto"><div style="height:400px">x</div></div>'))
             if (BREAK === 'repetido' && view.name === 'equipo') await page.evaluate(() => document.querySelector('main').insertAdjacentHTML('beforeend', '<p>Este texto aparece dos veces en la vista.</p><p>Este texto aparece dos veces en la vista.</p>'))
             if (BREAK === 'oculto' && view.name === 'mensajes') await page.evaluate(() => (document.documentElement.style.overflowY = 'hidden'))
-            const m = await page.evaluate(measureInPage, { lanes: LANES, withBreak: BREAK })
+            if (BREAK === 'textarea-capped' && view.name === 'configuración') await page.evaluate(() => Object.assign(document.querySelector('textarea[aria-label="Proyecto"]').style, { maxHeight: '200px', overflowY: 'auto' }))
+            const m = await page.evaluate(measureInPage, { lanes: LANES, withBreak: BREAK, scrolls: !!view.scrolls })
             if (!amplified) {
               const repeats = await page.evaluate(repeatsInPage)
               if (repeats.length) failures.push(`${view.name} (${path}): text repeated in the view: ${repeats.join('; ')}`)
             }
             report.push({ size: `${width}x${height}`, data: amplified ? `x${TIMES}` : 'sembrado', view: view.name, doc: m.doc, win: m.win, main: m.mainBox + m.mainOver, below: m.below })
-            if (m.doc > m.win) failures.push(`${view.name} (${path}): document of ${m.doc} px in a window of ${m.win} (${(m.doc / m.win).toFixed(2)} windows)`)
-            if (m.mainOver > 1) failures.push(`${view.name} (${path}): the main region scrolls ${m.mainOver} px on its own (${m.mainBox + m.mainOver} px in ${m.mainBox})`)
-            if (m.below > m.win) failures.push(`${view.name} (${path}): content down to ${m.below} px in a window of ${m.win}`)
-            if (m.carriles.length) failures.push(`${view.name} (${path}): own vertical lanes outside the allow-list: ${m.carriles.join(', ')}`)
+            const scrolls = SCROLLING_PAGES.includes(view.name)
+            if (scrolls) {
+              // The long description is what makes the page scroll, and the editor itself never does (it is as tall as its text).
+              const editor = await page.evaluate(() => {
+                const el = document.querySelector('textarea[aria-label="Proyecto"]')
+                return el ? { scrollHeight: el.scrollHeight, clientHeight: el.clientHeight, overflowY: getComputedStyle(el).overflowY, chars: el.value.length } : null
+              })
+              if (!editor) failures.push(`${view.name} (${path}): there is no project editor`)
+              else {
+                if (editor.chars < LONG_PROJECT) failures.push(`${view.name} (${path}): the long text was not seeded (${editor.chars} characters)`)
+                if (editor.scrollHeight > editor.clientHeight + 1 || editor.overflowY === 'auto' || editor.overflowY === 'scroll') failures.push(`${view.name} (${path}): the project editor scrolls on its own (${editor.scrollHeight} px of text in ${editor.clientHeight}, overflow-y ${editor.overflowY})`)
+              }
+              if (m.mainOver <= 1) failures.push(`${view.name} (${path}): with ${LONG_PROJECT} characters the page does not scroll, so the text is cut somewhere`)
+            }
+            if (m.cut.length) failures.push(`${view.name} (${path}): content cut by a box that hides its overflow: ${m.cut.slice(0, 5).join(', ')}`)
+            if (m.overlapped.length) failures.push(`${view.name} (${path}): blocks that overlap: ${m.overlapped.join('; ')}`)
+            // Inicio with a send open (UD-110) also lifts the height checks; its own lanes stay checked.
+            const lifts = scrolls || !!view.scrolls
+            if (!lifts && m.doc > m.win) failures.push(`${view.name} (${path}): document of ${m.doc} px in a window of ${m.win} (${(m.doc / m.win).toFixed(2)} windows)`)
+            if (!lifts && m.mainOver > 1) failures.push(`${view.name} (${path}): the main region scrolls ${m.mainOver} px on its own (${m.mainBox + m.mainOver} px in ${m.mainBox})`)
+            if (!lifts && m.below > m.win) failures.push(`${view.name} (${path}): content down to ${m.below} px in a window of ${m.win}`)
+            // On a page that scrolls (UD-123) the <main> of the shell is the page's own scrolling region; any other lane still fails.
+            const lanes = scrolls ? m.carriles.filter((c) => !c.startsWith('main.')) : m.carriles
+            if (lanes.length) failures.push(`${view.name} (${path}): own vertical lanes outside the allow-list: ${lanes.join(', ')}`)
             if (m.small.length) failures.push(`${view.name} (${path}): text below 12 px: ${m.small.slice(0, 5).join('; ')}`)
             if (m.hidden) failures.push(`${view.name} (${path}): the document hides its overflow with overflow hidden`)
-            if (view.compare && base && (m.doc !== base.doc || m.mainBox + m.mainOver !== base.main)) failures.push(`${view.name} (${path}): ten inputs changed the height (document ${base.doc} to ${m.doc}, region ${base.main} to ${m.mainBox + m.mainOver})`)
+            if (view.compare && base) {
+              const after = await page.evaluate(() => ({ bar: Math.round(document.querySelector('[data-compose-box]').getBoundingClientRect().bottom), drawer: Math.round(document.querySelector('[data-testid="send-drawer"]')?.getBoundingClientRect().top ?? -1) }))
+              if (after.bar !== base.bar || after.drawer !== base.drawer) failures.push(`${view.name} (${path}): ten inputs moved the bar or the drawer (bar ${base.bar} to ${after.bar}, drawer ${base.drawer} to ${after.drawer})`)
+            }
             if (m.wide > 0) failures.push(`${view.name} (${path}): the document is ${m.wide} px wider than the window`)
           }
         } finally {

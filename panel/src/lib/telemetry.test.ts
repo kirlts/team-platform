@@ -21,6 +21,7 @@ describe('screens and routes', () => {
     // Whatever a path holds that is not lowercase letters and hyphens never survives, text included.
     expect(endpointOf('/members/Ana%20Perez')).toBe('/members/:id')
     expect(endpointOf('/messages/a@b.cl/close')).toBe('/messages/:id/close')
+    expect(endpointOf('/settings/connections/mi-gateway/key')).toBe('/settings/connections/:id/key')
   })
 })
 
@@ -108,6 +109,58 @@ describe('tasks inferred from the traffic', () => {
     expect(task?.stage_feedback_ms).toBe(80)
     expect(task?.stage_analysis_ms).toBe(4000)
     expect(task?.stage_publish_ms).toBe(2000)
+  })
+
+  it('the stages are the first paint of the marked progress and analysis, not the arrival of the data (H-1705)', async () => {
+    const { telemetry, events, advance } = rig()
+    instances.push(telemetry)
+    telemetry.configure(true, 50)
+    telemetry.routeRenderStarted()
+    telemetry.enterScreen('home')
+    // An analysis of an earlier send is open: it is not this send's.
+    const earlier = document.createElement('section')
+    earlier.setAttribute('data-ui-stage', 'analysis')
+    document.body.append(earlier)
+    await Promise.resolve()
+    document.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }))
+    telemetry.request('POST', '/inputs')({ status: 202 })
+    advance(200)
+    const progress = document.createElement('div')
+    progress.setAttribute('data-ui-stage', 'progress')
+    document.body.append(progress)
+    await Promise.resolve()
+    advance(2300)
+    telemetry.analysisVisible() // the data arrived
+    advance(400)
+    const analysis = document.createElement('section')
+    analysis.setAttribute('data-ui-stage', 'analysis')
+    document.body.append(analysis) // and was painted 400 ms later
+    await Promise.resolve()
+    advance(1000)
+    telemetry.request('POST', '/inputs/8c1f/publish')({ status: 200, body: {} })
+    const task = events().find((e) => e.type === 'task')
+    expect(task).toMatchObject({ task: 'send_publish', outcome: 'completed', stage_feedback_ms: 200, stage_analysis_ms: 2700, stage_publish_ms: 1000 })
+    earlier.remove()
+    progress.remove()
+    analysis.remove()
+  })
+
+  it('a send whose marked elements never paint keeps the first change and the arrival of the analysis as its stages (H-1705)', async () => {
+    const { telemetry, events, advance } = rig()
+    instances.push(telemetry)
+    telemetry.configure(true, 50)
+    telemetry.enterScreen('home')
+    document.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }))
+    telemetry.request('POST', '/inputs')({ status: 202 })
+    advance(100)
+    const change = document.createElement('div')
+    document.body.append(change)
+    await Promise.resolve()
+    advance(900)
+    telemetry.analysisVisible()
+    telemetry.request('POST', '/inputs/8c1f/publish')({ status: 200, body: {} })
+    expect(events().find((e) => e.type === 'task')).toMatchObject({ stage_feedback_ms: 100, stage_analysis_ms: 900 })
+    change.remove()
   })
 
   it('a send left unpublished when the page goes away is an abandonment', () => {

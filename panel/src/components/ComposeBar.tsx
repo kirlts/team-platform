@@ -43,8 +43,10 @@ export function ComposeBar({ onSubmit, problem }: { onSubmit: (draft: SendDraft)
     const el = textArea.current
     if (!el) return
     el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, 120)}px`
-    setGrown(el.scrollHeight > 40)
+    const style = getComputedStyle(el)
+    el.style.height = `${Math.min(el.scrollHeight, parseFloat(style.maxHeight))}px`
+    // Grown is relative to the resting height of the field (its `min-height`), not to a number of pixels.
+    setGrown(el.scrollHeight > parseFloat(style.minHeight) + 2)
     setScrolled(el.scrollTop > 0)
   }, [text])
 
@@ -72,7 +74,7 @@ export function ComposeBar({ onSubmit, problem }: { onSubmit: (draft: SendDraft)
   }
 
   return (
-    <div className="relative z-20" style={{ height: rest ?? undefined }}>
+    <div className="relative z-20 mx-auto w-full max-w-compose" style={{ height: rest ?? undefined }}>
     {/* While the bar grows over the page, what is below is dimmed: the bar reads as a layer over it, and no sliver of the card under it shows (J3-B-01). It lets the pointer through. */}
     {expanded && <div aria-hidden data-compose-scrim className="pointer-events-none fixed inset-0 bg-[oklch(0.2_0.06_262/0.28)] backdrop-blur-[2px]" />}
     <div
@@ -88,10 +90,9 @@ export function ComposeBar({ onSubmit, problem }: { onSubmit: (draft: SendDraft)
         setDragging(false)
         draft.onDrop(e)
       }}
-      className={cn('leaf transition-[border-color] duration-150 focus-within:border-accent', expanded ? 'pop absolute inset-x-0 top-0' : 'glass', dragging && '!border-accent !bg-accent-soft')}
+      className={cn('rounded-[1.75rem] transition-[border-color] duration-150 focus-within:border-accent', expanded ? 'pop absolute inset-x-0 top-0' : 'glass', dragging && '!border-accent !bg-accent-soft')}
     >
-      <div className="flex flex-wrap items-end gap-1.5 p-2">
-        <ClipMenu draft={draft} />
+      <div className="px-bar-pad pt-bar-pad">
         {draft.recording ? (
           <RecordingStatus seconds={draft.recording.seconds} />
         ) : (
@@ -100,6 +101,7 @@ export function ComposeBar({ onSubmit, problem }: { onSubmit: (draft: SendDraft)
             rows={1}
             value={text}
             aria-label={t('compose.label')}
+            data-testid="compose-text"
             placeholder={t('compose.placeholder')}
             onChange={(e) => setText(e.target.value)}
             onPaste={draft.onPaste}
@@ -111,13 +113,19 @@ export function ComposeBar({ onSubmit, problem }: { onSubmit: (draft: SendDraft)
                 send()
               }
             }}
-            className={cn('max-h-[120px] min-h-8 min-w-0 flex-1 basis-40 resize-none bg-transparent px-2 py-1.5 placeholder:text-faint focus-visible:outline-none', expanded && 'max-sm:order-first max-sm:basis-full')}
+            className="block max-h-48 min-h-[3.5rem] w-full min-w-0 resize-none bg-transparent text-base placeholder:text-faint focus-visible:outline-none md:min-h-[3.5rem] [@media(min-height:800px)]:md:min-h-[4.5rem]"
           />
         )}
-        <CaptureButtons draft={draft} />
-        <Button variant="primary" size="icon" className={cn(expanded && 'max-sm:ml-auto')} aria-label={t('compose.send')} title={t('compose.sendHint')} disabled={empty || !!draft.recording} onClick={send}>
-          <Send size={16} aria-hidden />
-        </Button>
+      </div>
+      {/* The controls of the bar sit under the field, quiet: the clip on the left (as in the mockup) and, together, camera, microphone and send on the right. */}
+      <div className="flex items-center gap-1 px-3 pb-3 pt-2">
+        <ClipMenu draft={draft} />
+        <div className="ml-auto flex items-center gap-1">
+          <CaptureButtons draft={draft} />
+          <Button variant="primary" size="icon" data-testid="compose-send" aria-label={t('compose.send')} title={t('compose.sendHint')} disabled={empty || !!draft.recording} onClick={send}>
+            <Send size={16} aria-hidden />
+          </Button>
+        </div>
       </div>
 
       <MediaDraftList draft={draft} />

@@ -50,7 +50,7 @@ export async function startRecording(): Promise<Recording> {
         }
         recorder.onerror = () => {
           release()
-          reject(new Error('No se pudo grabar'))
+          reject(new Error('recorder error'))
         }
         if (recorder.state !== 'inactive') recorder.stop()
         else recorder.onstop?.(new Event('stop'))

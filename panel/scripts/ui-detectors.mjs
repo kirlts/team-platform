@@ -5,7 +5,8 @@
 // the pass itself fails.
 //
 // Usage: node scripts/ui-detectors.mjs [--out file] [--screens a,b] [--viewports desktop,phone]
-//        [--themes light,dark] [--max-saturated N] [--voice-patterns file.json] [--json] [--no-build]
+//        [--themes light,dark] [--max-saturated N] [--voice-patterns file.json] [--voice-lang es|en] [--json] [--no-build]
+// Without --voice-patterns the rule `voice` reads the patterns of the language guard (src/ui-voice-patterns.mjs).
 // The port comes from PANEL_DETECTORS_PORT (default 8974).
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -41,6 +42,10 @@ export const VALUE_MIN = 0.3
 export const OVERLAP_MIN_PX = 4
 /** Tolerance when comparing a computed font size with a token (rounding of rem times 15). */
 export const FONT_TOLERANCE_PX = 0.06
+/** Siblings of a column list whose trailing mark (a count, an icon) differs by more than this in right edge or vertical center are misaligned. 1 px is the tolerance of the sidebar test (UD-130); sub-pixel rounding stays under it. */
+export const ALIGN_TOLERANCE_PX = 1
+/** A trailing mark is small (a count or an icon), not a label: at most this wide, and in the right 40 % of its item. */
+export const MARK_MAX_WIDTH_PX = 80
 
 /** The type scale is read from the same source as src/type-scale.test.ts: the --text-* tokens of styles.css times the 15 px root. */
 export function readTypeScale() {
@@ -191,6 +196,56 @@ export const DETECTORS = {
           detail: `Se solapan ${Math.round(w)} x ${Math.round(h)} px: «${(ud.ownText(a.el) || a.el.tagName).slice(0, 24)}» y «${(ud.ownText(b.el) || b.el.tagName).slice(0, 24)}»`,
           measure: { width: Math.round(w), height: Math.round(h) },
         })
+      }
+    }
+    return { findings: out }
+  },
+
+  /**
+   * Siblings of a list that stacks (ul, ol, role=list, role=menu, nav): each item's trailing mark is its last visible leaf
+   * (a count, an icon), when it is small and sits in the right part of the item. Marks whose right edge differs by more than
+   * ALIGN_TOLERANCE_PX across the list, or whose vertical center differs from their item's by more than it, are findings (UD-130).
+   * Items with no such mark are skipped; the vertical check only looks at items of one line (a mark beside a block of text may sit at the top).
+   */
+  'sibling-alignment': () => {
+    const ud = window.__ud
+    const out = []
+    const trailing = (item) => {
+      const leaves = [...item.querySelectorAll('*')].filter((el) => el.children.length === 0 && !ud.hidden(el) && (ud.ownText(el) || el.tagName.toLowerCase() === 'svg' || el.tagName === 'IMG'))
+      for (let i = leaves.length - 1; i >= 0; i--) {
+        const r = leaves[i].getBoundingClientRect()
+        if (r.width > 0 && r.height > 0) return { el: leaves[i], r }
+      }
+      return null
+    }
+    for (const list of document.body.querySelectorAll('ul, ol, [role=list], [role=menu], nav')) {
+      if (list.closest(ud.LAYERS) && !list.matches(ud.LAYERS)) continue
+      if (ud.hidden(list)) continue
+      const items = [...list.children].filter((c) => !ud.hidden(c) && c.getBoundingClientRect().height > 0)
+      if (items.length < 2) continue
+      const boxes = items.map((c) => c.getBoundingClientRect())
+      let stacked = true
+      for (let i = 1; i < boxes.length; i++) if (boxes[i].top < boxes[i - 1].bottom - 1) stacked = false
+      if (!stacked) continue
+      const marks = []
+      items.forEach((item, i) => {
+        const t = trailing(item)
+        if (!t || t.r.width > MARK_MAX_WIDTH_PX) return
+        if (t.r.left < boxes[i].left + boxes[i].width * 0.6) return
+        marks.push({ item, box: boxes[i], mark: t })
+      })
+      if (marks.length < 2) continue
+      const rights = marks.map((m) => m.mark.r.right)
+      const spread = Math.max(...rights) - Math.min(...rights)
+      if (spread > ALIGN_TOLERANCE_PX) {
+        out.push({ rule: 'sibling-alignment', selector: ud.sel(list), detail: `Las marcas finales de los elementos de la lista terminan a ${Math.round(spread * 10) / 10} px entre sí (borde derecho)`, measure: { spread: Math.round(spread * 10) / 10, axis: 'right' } })
+      }
+      for (const m of marks) {
+        if (m.box.height > 56) continue
+        const dy = Math.abs(m.mark.r.top + m.mark.r.height / 2 - (m.box.top + m.box.height / 2))
+        if (dy > ALIGN_TOLERANCE_PX) {
+          out.push({ rule: 'sibling-alignment', selector: ud.sel(m.mark.el), detail: `La marca final está ${Math.round(dy * 10) / 10} px fuera del centro vertical de su fila`, measure: { offset: Math.round(dy * 10) / 10, axis: 'center' } })
+        }
       }
     }
     return { findings: out }
@@ -428,15 +483,23 @@ export const DETECTORS = {
   },
 
   /** Visible texts that match the patterns of the language guard (R1 to R14 of UD-050). Patterns arrive as { id, source, flags }. */
-  voice: ({ patterns }) => {
+  voice: ({ patterns, userTexts = [], maxHintChars = 90 }) => {
     const ud = window.__ud
     const out = []
     const seen = new Set()
+    const squash = (t) => t.replace(/\s+/g, ' ').trim()
+    const people = userTexts.map(squash)
     for (const el of document.body.querySelectorAll('*')) {
       const text = ud.ownText(el)
       if (!text || ud.hidden(el) || el.closest('textarea, [data-user-text]')) continue
+      // What a person wrote is not interface text: a text that is part of the data the pass read from the API is skipped.
+      const flat = squash(text)
+      const whole = squash(el.textContent ?? '') // an inline element (code, emphasis) splits the own text of its parent
+      if (people.some((p) => p.includes(flat) || p.includes(whole) || (p.length >= 8 && whole.includes(p)))) continue
+      // UD-122: the explanation of a setting measures its length in characters (a hint), not in words.
+      const hint = el.matches('[data-setting-hint]')
       for (const p of patterns) {
-        if (!new RegExp(p.source, p.flags).test(text)) continue
+        if (hint && p.id === 'length') { if (flat.length <= maxHintChars) continue } else if (!new RegExp(p.source, p.flags).test(text)) continue
         const key = ud.sel(el) + '|' + p.id
         if (seen.has(key)) continue
         seen.add(key)
@@ -464,17 +527,33 @@ const arg = (name) => {
 const flag = (name) => process.argv.includes(`--${name}`)
 const list = (name, all) => (arg(name) ? arg(name).split(',').map((s) => s.trim()).filter(Boolean) : all)
 
-/** Loads the voice patterns: the guard of wt-voz if this branch has it, otherwise the optional file. */
-export function loadVoicePatterns(file) {
+/** Loads the voice patterns: the module the guard shares (src/ui-voice-patterns.mjs, H-1703), or the optional file. */
+export async function loadVoicePatterns(file, lang = 'es') {
   if (file) {
     const raw = JSON.parse(readFileSync(file, 'utf8'))
     return { patterns: raw.map((p, i) => ({ id: p.id ?? `p${i}`, source: p.source ?? p.regex, flags: p.flags ?? 'iu' })) }
   }
-  const guard = join(PANEL, 'src/ui-voice.test.ts')
-  if (existsSync(guard)) {
-    return { reason: 'omitido: panel/src/ui-voice.test.ts existe pero es un archivo de prueba de vitest y no exporta patrones importables fuera de él; pasar --voice-patterns con un JSON [{id, source, flags}]' }
+  const module = join(PANEL, 'src/ui-voice-patterns.mjs')
+  if (!existsSync(module)) return { reason: 'omitido: panel/src/ui-voice-patterns.mjs no existe en esta rama' }
+  const { voicePatterns, MAX_HINT_CHARS } = await import(pathToFileURL(module).href)
+  return { patterns: voicePatterns(lang), maxHintChars: MAX_HINT_CHARS }
+}
+
+/** Every string of the data the example server holds (messages, replies, areas, members): what people wrote, not interface text. */
+export async function collectUserTexts(request, origin, messages, areas) {
+  const found = new Set()
+  const walk = (value) => {
+    if (typeof value === 'string') { if (value.trim().length >= 3) found.add(value) }
+    else if (Array.isArray(value)) value.forEach(walk)
+    else if (value && typeof value === 'object') Object.values(value).forEach(walk)
   }
-  return { reason: 'omitido: la guardia de wt-voz aún no está en esta rama' }
+  const get = async (path) => { try { const r = await request.get(`${origin}${path}`); return r.ok() ? await r.json() : null } catch { return null } }
+  walk(messages)
+  walk(areas)
+  walk(await get('/api/members'))
+  walk(await get('/api/settings/project'))
+  for (const m of await Promise.all(messages.map((m) => get(`/api/messages/${m.id}`)))) walk(m)
+  return [...found]
 }
 
 async function settle(page, hasMain) {
@@ -495,7 +574,7 @@ export async function run(options = {}) {
   for (const t of themes) if (!THEMES.includes(t)) throw new Error(`tema desconocido: ${t}`)
 
   const scale = readTypeScale()
-  const voice = loadVoicePatterns(options.voicePatterns ?? arg('voice-patterns'))
+  const voice = await loadVoicePatterns(options.voicePatterns ?? arg('voice-patterns'), options.voiceLang ?? arg('voice-lang') ?? 'es')
   const skipped = []
   if (voice.reason) skipped.push({ rule: 'voice', reason: voice.reason })
 
@@ -514,6 +593,7 @@ export async function run(options = {}) {
     const areasBody = await (await ppage.request.get(`${panel.origin}/api/areas`)).json()
     const areaList = Array.isArray(areasBody) ? areasBody : (areasBody.items ?? [])
     const area = areaList.find((a) => a.id === 'a-error') ?? areaList[0]
+    const userTexts = await collectUserTexts(ppage.request, panel.origin, items, areaList)
     await probe.close()
     const routes = {
       home: '/', messages: '/messages', 'message-detail': `/messages/${rich.id}`, areas: '/areas',
@@ -564,7 +644,7 @@ export async function run(options = {}) {
       const args = { type: scale, voice, maxSaturated }
       for (const [name, fn] of Object.entries(DETECTORS)) {
         if (name === 'voice' && !voice.patterns) continue
-        const input = name === 'type-scale' ? scale : name === 'equal-weight' ? { max: maxSaturated } : name === 'voice' ? { patterns: voice.patterns } : undefined
+        const input = name === 'type-scale' ? scale : name === 'equal-weight' ? { max: maxSaturated } : name === 'voice' ? { patterns: voice.patterns, userTexts, maxHintChars: voice.maxHintChars } : undefined
         const res = await runDetector(page, name, input)
         if (name === 'page-height') {
           ratios[id] ??= { route, ratios: {} }
@@ -620,7 +700,7 @@ export async function runDetector(page, name, input) {
 }
 
 /** Constants the in-page detectors read, shipped as globals. */
-const CONSTS = { OVERLAP_MIN_PX, FONT_TOLERANCE_PX, LARGE_PX, LARGE_BOLD_PX, CONTRAST_NORMAL, CONTRAST_LARGE, SATURATION_MIN, VALUE_MIN }
+const CONSTS = { ALIGN_TOLERANCE_PX, MARK_MAX_WIDTH_PX, OVERLAP_MIN_PX, FONT_TOLERANCE_PX, LARGE_PX, LARGE_BOLD_PX, CONTRAST_NORMAL, CONTRAST_LARGE, SATURATION_MIN, VALUE_MIN }
 
 export function summaryText(report, outFile) {
   const lines = []

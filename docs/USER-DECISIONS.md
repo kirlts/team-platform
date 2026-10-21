@@ -516,6 +516,8 @@ RULES:
 
 ## [UD-041] Los tres estados son la única categoría de un mensaje en la interfaz, y el área se abre en sus mensajes
 
+**Enmienda (UD-100):** en la barra superior los tres estados se dibujan sólo con su forma, su color y su número; la palabra es el nombre accesible y el tooltip.
+
 ## [UD-040] El HEIC de iPhone se decodifica con el `ffmpeg` de la imagen
 
 **Fecha:** 2026-10-21
@@ -610,6 +612,8 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 **Condiciones de reversión:** Si Martín prefiere una vista de documentos con primera página, se agrega el renderizado con una dependencia justificada en MASTER-SPEC §3.
 
 ## [UD-042] El estado de un mensaje se deriva de sus respuestas y de su cierre, y nunca se escribe a mano
+
+**Enmienda (UD-100):** el vocabulario y los colores (abierto rojo, respondido amarillo, cerrado azul) no cambian; la barra superior no escribe la palabra, la dice en el nombre accesible.
 
 **Fecha:** 2026-10-21
 **Contexto:** Inicio mostraba una tarjeta «Abierto» con dos respuestas. El servidor real ya pasa de abierto a respondido al responder; el servidor de ejemplo del panel sembraba el estado a mano y lo contradecía. Martín, textual: «El estado respondido debería aplicarse siempre automáticamente cuando exista una respuesta a un problema abierto, independiente de si esa respuesta agrega más información, porque eso ya no es algo que el sistema evalúe. Lo único que no importa es si un problema no tiene respuesta: eso es abierto. Si hay una o más respuestas, está respondido. Y si alguien lo marcó como cerrado, está cerrado.»
@@ -748,3 +752,99 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 **Consecuencias:** `panel/src/lib/sidebar.ts` con su prueba; una prueba de navegador oculta, recarga y muestra, y comprueba que otra persona no se ve afectada.
 **Condiciones de reversión:** Ninguna prevista.
 
+
+## [UD-120] Proveedores y claves de API se gestionan desde Configuración, con prueba antes de cambiar
+
+**Fecha:** 2026-10-21
+**Contexto:** Martín, textual: «Otro gran problema es que no hay una forma de reemplazar un proveedor con otro de una manera segura, o de simplemente retirar una clave de API. No es una interfaz utilizable para poder agregar un nuevo proveedor, reemplazar una clave de API, diagnosticar un proveedor, etc.» Investigación 11.
+**Decisión:** La sección «Proveedores» (sólo Editor) lista cada proveedor con estado (sin clave, configurada, fallando), últimos 4 caracteres de la clave, origen (guardada o entorno) y funciones que lo usan (Texto, Visión, Transcripción). Agregar un proveedor y reemplazar una clave prueban la clave nueva con una llamada mínima; sólo si funciona se guarda y la anterior sigue activa hasta entonces. Retirar una clave pide confirmación y se bloquea (409 `provider_in_use`) si una función depende de ella, con las funciones nombradas y el cambio de cada una ofrecido en el mismo diálogo. Cambiar proveedor o modelo de una función prueba antes de guardar; si falla queda la configuración anterior. El diagnóstico entrega duración, causa clasificada (clave inválida, sin cuota, modelo inexistente, sin red, límite de tasa, tiempo agotado, dirección inválida, error del proveedor) y los modelos que el proveedor lista. El plazo de cada prueba es `PROVIDER_PROBE_TIMEOUT_MS` (30 s). Cada cambio deja una fila de auditoría sin valores.
+**Alternativas descartadas:**
+- Guardar primero y probar después: deja una clave mala activa.
+- Mostrar la clave completa tras guardarla: ninguna ruta la devuelve.
+**Consecuencias:** Migración 0009, `src/api/routes/connections.js`, `src/providers/probe.js`, OpenAPI y MASTER-SPEC al día; el proveedor falso simula 401, 429, modelo inexistente, sin red y tiempo agotado.
+**Condiciones de reversión:** Si una prueba con costo real resulta frecuente, la prueba previa pasa a opcional por función.
+
+## [UD-121] Las claves guardadas se cifran en reposo y nunca salen del servidor
+
+**Fecha:** 2026-10-21
+**Contexto:** Mismo pedido que UD-120; la regla 6 de MASTER-SPEC §4.6 prohíbe credenciales en la base.
+**Decisión:** AES-256-GCM con nonce aleatorio por sellado y el nombre del proveedor como dato autenticado. La clave maestra es `SECRETS_KEY` o `<DATA_DIR>/secrets.key`, generada en el primer arranque con modo 600. La API sólo expone los últimos 4 caracteres. La clave no aparece en logs, spans, telemetría, errores, auditoría ni respuestas de prueba; los cuerpos de error del proveedor se redactan. Una variable de entorno sigue valiendo como valor de arranque, y una clave guardada la reemplaza. Rotación: `scripts/rotate-secrets-key.mjs`.
+**Alternativas descartadas:**
+- Mantener las claves sólo en variables de entorno: no permite reemplazo ni retiro desde la pantalla.
+**Consecuencias:** `src/api/secrets-never-leak.test.js` ejerce valores centinela en respuestas, registros, tablas y archivo SQLite. Respaldar la base sin la clave maestra deja las claves ilegibles; el panel las muestra «fallando».
+**Condiciones de reversión:** Si se adopta un gestor de secretos externo, `vault.js` se reemplaza por su cliente.
+
+## [UD-122] Configuración lleva una línea de explicación bajo cada ajuste
+
+**Fecha:** 2026-10-21
+**Contexto:** Martín, textual: «los rótulos no tienen explicación de lo que hacen. Por ejemplo "Publicación" y "Telemetría de uso" no significan nada para un usuario que configure esto.»
+**Decisión:** Sólo en Configuración, cada ajuste lleva bajo su rótulo una explicación de una línea (`hint.*`, componente `SettingHint`), impersonal y de hasta 90 caracteres. La guardia `panel/src/ui-voice.test.ts` la admite sólo con esas condiciones y falla con segunda persona, gerundio, imperativo, adjetivo valorativo o más de 90 caracteres. «Publicación» pasa a «Publicación automática».
+**Alternativas descartadas:**
+- Ícono de información con descripción emergente: oculta justo lo que faltaba.
+**Consecuencias:** Enmienda la regla «sin texto de ayuda por defecto» únicamente para esta pantalla.
+**Condiciones de reversión:** Ninguna prevista.
+
+## [UD-123] Configuración se desplaza como página y el texto largo crece con su contenido
+
+**Fecha:** 2026-10-21
+**Contexto:** Martín, textual: «La parte para escribir la descripción del proyecto tiene texto truncado que obliga a desplazarse dentro de la misma página para escribir la configuración del proyecto. Eso es un gran problema.»
+**Decisión:** La descripción del proyecto es un área de edición de al menos 16 filas que crece con el texto, a todo el ancho de su columna, sin caja con scroll propio. Tiene contador contra el tope, estado de guardado, deshacer y rehacer, «Reemplazar con .md» y «Descargar .md». Configuración se desplaza como página.
+**Alternativas descartadas:**
+- Alto máximo con scroll interno: es lo que se rechazó.
+**Consecuencias:** Enmienda UD-017 para esta vista; `test:fit` la exime sólo de las comprobaciones de alto de documento y mantiene las de carriles propios, texto bajo 12 px y repetidos.
+**Condiciones de reversión:** Ninguna prevista.
+## [UD-130] La barra lateral va sobre una grilla, sus contadores no llevan contenedor y todo lo clicable responde al puntero
+
+**Fecha:** 2026-10-21
+**Contexto:** Martín, textual, con una captura de la barra lateral: «Otro error que frecuentemente aparece son los problemas de alineación. Por ejemplo acá los iconos que se muestran con cada fila están desalineados verticalmente. Eso es inaceptable. Además arriba un icono está rodeado de un contenedor y abajo no. Necesito que no estén rodeados con contenedor, pero además que cuando uno pase el mouse por encima se ilumine el icono dando la sensación de que es cliqueable, igual que en la barra de arriba en el icono rojo que ya se ve súper cliqueable. Necesito que pasar el mouse por encima también tenga un efecto. Investiga cuál es el patrón imperante en 2026 para este tipo de cosas.»
+**Decisión:** Cada fila de la barra lateral (Inicio, Mensajes, Áreas, cada área, Equipo, Conexiones, Configuración, Cerrar sesión) es una caja con dos columnas: el enlace (ícono y rótulo) y la columna del contador. La columna mide al menos 2,75 rem (`--sidebar-count-col`), termina a 10 px del borde derecho en todas las filas y se centra en la altura de la fila. Los contadores son un ícono de estado con su número, sin contenedor ni borde, con la misma forma y color de la barra superior (`StateMark` y `NotifyBadge`, no copias). La fila entera es lo que se ilumina: al pasar el puntero el fondo cambia a `--color-hover` y el ícono pasa de `--color-muted` a `--color-accent`; con el teclado, el mismo cambio más un anillo de 2 px dentro de la fila. «+», desplegable de áreas, ocultar panel y el contador de cada área tienen su propio estado de hover y foco. La transición es de 100 ms (`--duration-hover`). El rótulo puede partirse sólo cuando el nombre lo escribió una persona y es largo; los rótulos fijos y las cinco áreas de plantilla caben en una línea en 256 px y en teléfono. Fuente: `docs/investigaciones/12 - Alineación y estados de los elementos de navegación.md` (R1 a R11).
+**Alternativas descartadas:**
+- Iluminar sólo el ícono: ninguno de los sistemas revisados lo hace; todos cambian el fondo de la fila, y el ícono acompaña. Se hacen las dos cosas.
+- Recortar el rótulo con puntos suspensivos (UD-016): la regla del dueño lo prohíbe.
+- Una píldora para todos los contadores: el dueño pidió que no hubiera contenedor.
+**Consecuencias:** `panel/src/sidebar-alignment.browser.test.mjs` (`npm run test:sidebar`, dentro de `test:flows`) mide coordenada derecha y centro vertical de los contadores con tolerancia de 1 px, una sola línea por rótulo, ausencia de contenedor y cambio de estilo calculado en hover y foco. `panel/scripts/ui-detectors.mjs` suma la regla `sibling-alignment`. `panel/DISENO.md` declara los tokens.
+**Condiciones de reversión:** Ninguna prevista.
+
+## [UD-100] La barra superior muestra los tres estados con ícono y número, y abre sus mensajes en un desplegable
+
+**Fecha:** 2026-10-21
+**Contexto:** El conteo de lo pendiente se repetía en la campana (insignia con 8), la insignia de Mensajes en la barra lateral, los conteos por área de la barra lateral y la franja «Para mí» y «Por área» de Inicio. El dueño, textual: «Todo esto debería quedar integrado de manera eficiente, ordenada y no redundante en la barra superior del sitio, siempre visible, pero NO en inicio. Inicio ya tiene demasiados elementos.» Después precisó: «Los rótulos "Abierto", "Respondido" o "Cerrado" no deben aparecer en la barra superior, sino que simplemente bastan los íconos de color con un número, que al ser clickeados deben desplegar un pequeño desplegable según el ícono desplegado que permita ver rápidamente los elementos sin salir de la página donde se está.» Y corrigió una primera versión que agregaba contadores por área: «Yo NO pedí esto, en la barra superior SOLO íconos de abierto, respondido y cerrado.»
+**Decisión:**
+- La barra superior de todas las páginas lleva tres marcas entre el nombre y la campana: abierto (triángulo, rojo), respondido (reloj, amarillo) y cerrado (punto, azul), cada una con su número y sin texto visible. La palabra del estado es el nombre accesible y el tooltip nativo («4 abiertos»), de modo que el color nunca va solo: lo acompañan la forma y el nombre. Las marcas son del peso callado de UD-036.
+- Un clic, Enter o Espacio abre bajo la marca un desplegable anclado (popover del kit; no un panel lateral ni un modal) con los mensajes de ese estado que me conciernen: título, chip de área con su color, autor y hora. Una fila abre el mensaje; el pie enlaza a Mensajes filtrado por ese estado y «para mí». Las flechas recorren las filas, Escape cierra y devuelve el foco a la marca. Abrir no navega.
+- «Me conciernen» es la regla de UD-028: asignado a mí, o emitido por mí y respondido; un cerrado cuenta si fui asignado o emisor. El desplegable lista exactamente lo que la marca cuenta.
+- La barra no lleva ningún contador por área, ni cuadros de color, ni «+N». Los conteos por área viven donde ya estaban: la barra lateral junto a cada área y la vista de cada área. El chip de área aparece sólo como parte de una fila del desplegable.
+- La campana queda para novedades: lista los mensajes que llegaron con el panel abierto y su única marca es cuántas no se leyeron. Ya no repite el conteo de pendientes ni lleva color de estado.
+- Se retiran la insignia de Mensajes de la barra lateral (repetía la suma de las dos primeras marcas) y la franja «Para mí» y «Por área» de Inicio. Los conteos por área de la barra lateral se conservan.
+- En el teléfono la barra es un solo botón con el estado pendiente más alto y su total; su desplegable lista los tres estados, cada línea un enlace a Mensajes ya filtrado.
+- Los cerrados no levantan aviso (UD-041), pero el dueño pidió los tres estados y se muestran. El total del botón del teléfono suma sólo abiertos y respondidos.
+**Enmienda a UD-041 y UD-042:** la regla «cada estado se dice con su forma, su palabra y su número» rige en las filas, las listas y la barra lateral. En la barra superior la palabra no se dibuja: se dice en el nombre accesible. UD-029 queda enmendada: el fondo saturado de la campana desaparece porque la campana ya no cuenta estados.
+**Alternativas descartadas:**
+- Desglose por área en la barra (menú, chips o «+N»): el dueño lo rechazó por escrito.
+- Mantener un conteo en la campana: repetía la cifra de la barra.
+- Un panel lateral deslizante para los mensajes: prohibido por el dueño (05-10).
+- Mostrar la palabra de cada estado en la barra: el dueño pidió sólo íconos.
+**Consecuencias:**
+- `StatusBar` en `panel/src/components/StatusBar.tsx`; `Header` la monta y la campana pierde el modo «pendientes».
+- Pruebas de flujos nuevas fallan si aparece un contador o chip de área en la barra o un texto visible de estado, abren cada desplegable por clic y por teclado, y comparan su lista con la cifra.
+- La lista que un mensaje del desplegable usa es la de `noticeState`, no el filtro «para» del servidor, que sólo conoce los asignados (H-2000).
+**Condiciones de reversión:** Si el dueño quiere ver los cerrados fuera de la barra, se quita la tercera marca sin tocar el resto.
+
+## [UD-140] El presupuesto de API sube a 100 USD en total
+
+**Fecha:** 2026-10-21
+**Contexto:** El tope de UD-038 (75 USD en total) tenía unos 25 USD por gastar. Quedan por hacer las mediciones de la Fase 4 del plan de cierre y la ampliación de casos del banco privado con insumos reales.
+**Decisión:** Martín, textual: «aumentemos el gasto por api hasta 100 dólares, es decir que de los 200 dólares que me da Anthropic por este plan de Devalis van a quedar 100 dólares». Se lee como un tope total de 100 USD para team-platform, 25 más que UD-038, y 100 USD que quedan para el otro proyecto del autor. Cada encargo declara su parte antes de gastar y se detiene en ella.
+**Consecuencias:** Quedan unos 50 USD por gastar sobre lo ya gastado, unos 50 USD. Cabe la ampliación de casos del banco (hasta 3 USD), la medición de Sonnet de H-1103 (unos 5 USD) y repeticiones para separar efectos del ruido.
+**Condiciones de reversión:** Si Martín quiso decir 100 USD más sobre los 75 de UD-038, el tope total es 175 y la parte del otro proyecto cae a 25 USD de los 200; se confirma con él antes de pasar de 100 de gasto acumulado.
+
+## [UD-110] Inicio con espacio: la barra de texto manda, la página crece con la ventana y un envío abierto desplaza la página
+
+**Fecha:** 2026-10-21
+**Contexto:** Martín, textual, con la captura de Inicio en una pantalla de 2000 px y una captura de Gemini: «La barra de texto necesita respirar mucho más, la UI debe ocupar mejor el ancho en pantalla, tener más espacio negativo para que los elementos respiren. Mira la página de Gemini para inspiración.» El contenido ocupaba una columna de 1215 px con unos 400 px vacíos a la derecha.
+**Decisión:** Decisión de la sesión, tomada por ese encargo; Martín no la dijo con estas palabras y puede revertirla. La barra de texto es una caja de 840 px centrada, de bordes muy redondeados y con 24 px de relleno; adjuntar, cámara, micrófono y enviar son controles pequeños dentro de ella. La página deja de ser una columna fija: crece con la ventana hasta 1680 px. Entre bloques hay 24 px, 16 px en una ventana de menos de 800 px de alto y 40 px en una de 1000 px o más; los valores son tokens (`--spacing-block-compact`, `--spacing-block`, `--spacing-section`, `--spacing-bar-pad`, `--container-compose`, `--container-inicio`) y están en `panel/DISENO.md`. El control «Envíos» sólo se dibuja cuando hay envíos. UD-017 se enmienda así: en reposo Inicio cabe sin desplazarse a todos los tamaños; con un envío abierto la región principal se desplaza y las dos listas toman un alto propio (el mayor entre 28 rem y el 56 % de la ventana), nunca una caja interna con desplazamiento propio salvo el texto largo de un original. La franja «Para mí» y «Por área» ya no está en Inicio (UD-100).
+**Alternativas descartadas:**
+- Ancho fijo mayor para la barra: a 2560 px sigue dejando vacío a los lados; un máximo con evidencia de capturas a 1280, 1440, 1920 y 2560 px lo evita sin estirar una línea de escritura.
+- Plegar las listas con un envío abierto: la enmienda de UD-017 las deja visibles y la página se desplaza.
+**Consecuencias:** `test:fit` mide también 1920x1080 y 2560x1440 y sigue fallando si algo se corta, se solapa o una caja desplaza por su cuenta; mide además que el contenido de Inicio use el ancho. `FitList` no vuelve a medir cuando el espacio lo sostiene su piso de una fila (H-2100).
+**Condiciones de reversión:** Si el espacio en blanco esconde las listas en pantallas bajas, vuelve el relleno de 16 px a todas las alturas.

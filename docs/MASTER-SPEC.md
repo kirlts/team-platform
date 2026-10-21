@@ -46,7 +46,7 @@ De ahí sale la invariante que más se incumple sola, adoptada de un proyecto an
 
 ### 1.3 Idempotencia
 
-Idempotencia en el sentido de las plantillas de trabajo. Una plantilla aplicada a un input produce mensajes de la misma forma, con los mismos campos y la misma completitud. No importa quién lo mande, cuándo ni por qué canal. Esa constancia la dan la plantilla (método y formato de salida) y el esquema estricto que el sistema valida, no una semilla del modelo. La prosa de un mensaje puede variar de una corrida a otra y eso no es un defecto. Un mismo input no crea un segundo trabajo ni una segunda propuesta: devuelve la que ya existe. Es el mismo input si coinciden el texto normalizado, los adjuntos por hash, los enlaces y el emisor. El emisor entra en el hash porque la propuesta es privada de quien la envía hasta que la publica. Dos personas que mandan el mismo texto tienen cada una su input. DT-001 anota que esa razón no está escrita en una decisión.
+Idempotencia en el sentido de las plantillas de trabajo. Una plantilla aplicada a un input produce mensajes de la misma forma, con los mismos campos y la misma completitud. No importa quién lo mande, cuándo ni por qué canal. Esa constancia la dan la plantilla (método y formato de salida) y el esquema estricto que el sistema valida, no una semilla del modelo. La prosa de un mensaje puede variar de una corrida a otra y eso no es un defecto. Un mismo input no crea un segundo trabajo ni una segunda propuesta: devuelve la que ya existe. Es el mismo input si coinciden el texto normalizado, los adjuntos por hash, los enlaces y el emisor. El emisor entra en el hash porque la propuesta es privada de quien la envía hasta que la publica. Dos personas que mandan el mismo texto tienen cada una su input.
 
 ---
 
@@ -159,7 +159,7 @@ Desarrollo del servidor: `docx` 9.13.0 y `fflate` 0.8.3 (MIT) arman los archivos
 
 Desarrollo del panel: Vite 8, Tailwind 4.3 con `@tailwindcss/vite` (MIT), TypeScript 7, Vitest 5, jsdom y `@testing-library/react` (MIT), Playwright y TypeScript (Apache-2.0).
 
-**Dos límites de licencia que quedan a la vista.** Primero, `sharp` trae `libvips` como binarios opcionales por plataforma, con licencia LGPL-3.0-or-later. Se enlaza de forma dinámica y se sustituye con otro `libvips`. HP-011 lo exceptúa por nombre. Segundo, la imagen incluye el binario `ffmpeg` del repositorio de Alpine, con la licencia de ese paquete. Se invoca como proceso externo y no se enlaza. El informe 06 anota que el `ffmpeg` estático es GPL-3.0-or-later. La decisión de conservarlos o cambiar de biblioteca queda en DT-002.
+**Dos límites de licencia que quedan a la vista.** Primero, `sharp` trae `libvips` como binarios opcionales por plataforma, con licencia LGPL-3.0-or-later. Se enlaza de forma dinámica y se sustituye con otro `libvips`. HP-011 lo exceptúa por nombre. Segundo, la imagen incluye el binario `ffmpeg` del repositorio de Alpine, con la licencia de ese paquete. Se invoca como proceso externo y no se enlaza. El informe 06 anota que el `ffmpeg` estático es GPL-3.0-or-later. UD-020 fija la regla: LGPL admitida en los binarios de la imagen, nunca GPL.
 
 ---
 
@@ -172,7 +172,7 @@ Desarrollo del panel: Vite 8, Tailwind 4.3 con `@tailwindcss/vite` (MIT), TypeSc
 3. **Un trabajo nunca depende del navegador.** Sobrevive al cierre de la pestaña y al reinicio del proceso. Al arrancar, el worker retoma los trabajos con arriendo vencido (UD-003, UD-010).
 4. **Una propuesta válida llega al equipo sola; una inválida no llega** (UD-070, que enmienda UD-003). La confirmación manual queda detrás de la perilla `auto_publish`. Los mensajes sólo nacen de publicar una propuesta validada, por un único camino (HP-005).
 5. **Un contenedor y un volumen bastan para correr.** Ningún componente obligatorio fuera de la imagen; los proveedores de modelo son externos y configurables.
-6. **Ninguna credencial en el repositorio ni en la base.** Variables de entorno o archivo fuera del repositorio. HP-007 comprueba que ninguna columna guarde una llave; `.gitignore` excluye `.env` y `scripts/llave.mjs` guarda las llaves locales en `~/.config/team-platform/env`. El gancho de pre-commit que escanea secretos todavía no existe (DT-004).
+6. **Ninguna credencial en el repositorio ni en la base.** Variables de entorno o archivo fuera del repositorio. HP-007 comprueba que ninguna columna guarde una llave; `.gitignore` excluye `.env` y `scripts/llave.mjs` guarda las llaves locales en `~/.config/team-platform/env`. El gancho `.githooks/pre-commit` escanea los archivos preparados y rechaza el commit con una credencial; `scripts/install.sh` lo activa con `git config core.hooksPath .githooks`.
 7. **Código y comentarios en inglés.** Interfaz, mensajes a la persona, plantillas iniciales y documentación van en español. UD-015 reemplaza a UD-005 en los comentarios. Sin esquema mezclado.
 8. **Sólo un miembro distinto del emisor responde un mensaje; cualquier miembro lo cierra o reabre.** Lo hace cumplir la API, no el panel.
 9. **Todo número que gobierna la operación nace declarado**: tamaño máximo de adjunto, fotogramas por video, páginas por llamada, reintentos, arriendo de un trabajo. Sale de una medición citada o de una perilla de configuración con su valor por omisión justificado, nunca de «parece razonable».
@@ -206,7 +206,7 @@ Desarrollo del panel: Vite 8, Tailwind 4.3 con `@tailwindcss/vite` (MIT), TypeSc
 
 **Flujo principal de la persona:**
 
-1. Entra. Ve Inicio: la franja «Para mí» y «Por área», el nombre del proyecto con la fecha, la barra «Nuevo mensaje» con clip (adjuntos), cámara (foto), micrófono (audio) y enviar, y el desplegable de envíos (UD-046).
+1. Entra. Ve Inicio: el nombre del proyecto con la fecha, la barra «Nuevo mensaje» con clip (adjuntos), cámara (foto), micrófono (audio) y enviar, y el desplegable de envíos (UD-046).
 2. Escribe, pega una captura o arrastra un docx, y envía. La barra se vacía. Debajo se abre el desplegable (UD-046): a la izquierda el original (texto y adjuntos con su galería), a la derecha el bloque «Análisis», con una barra de progreso y la frase del paso en curso («leyendo el documento», «3 de 7 adjuntos»).
 3. Al terminar, los mensajes ya están publicados (UD-070): no hay botón Enviar. Cada uno trae su área (insignia, cambiable), título, texto según la plantilla de esa área, destinatarios (chips, editables) y adjuntos (miniaturas, quitables), y su emisor lo edita en el lugar cuando quiera (UD-071).
 4. Los mensajes aparecen en «Últimos mensajes». Quien los recibe los ve en su Inicio, filtrados para él por omisión. Cada tarjeta muestra la insignia del área, el emisor, la fecha y la miniatura del adjunto principal.
@@ -216,7 +216,7 @@ Desarrollo del panel: Vite 8, Tailwind 4.3 con `@tailwindcss/vite` (MIT), TypeSc
 
 | Vista | Qué muestra | Quién |
 |---|---|---|
-| Inicio | De arriba abajo (UD-046): franja de una fila con «Para mí» (mensajes abiertos y respondidos que me afectan) y «Por área»; nombre del proyecto y fecha; «Nuevo mensaje» con la barra de texto; el desplegable en línea que se abre solo al enviar y muestra el original a la izquierda y el análisis a la derecha, con los mensajes ya publicados y editables por su autor (UD-070, UD-071), y el selector de los envíos propios con su estado; «Últimos mensajes» y «Últimas respuestas», que se pliegan a una franja cuando la ventana no alcanza para el desplegable y para ellas | Todos |
+| Inicio | De arriba abajo (UD-046): nombre del proyecto y fecha (los estados pendientes viven en la barra superior, UD-100); «Nuevo mensaje» con la barra de texto; el desplegable en línea que se abre solo al enviar y muestra el original a la izquierda y el análisis a la derecha, con los mensajes ya publicados y editables por su autor (UD-070, UD-071), y el selector de los envíos propios con su estado; «Últimos mensajes» y «Últimas respuestas», que se pliegan a una franja cuando la ventana no alcanza para el desplegable y para ellas | Todos |
 | Mensajes | Todos los mensajes del equipo con filtros: para mí, para X, por área, por estado, respuestas; búsqueda | Todos |
 | Áreas | Lista de áreas con su conteo de abiertos y respondidos, para crearlas y abrirlas. Cada área abre su vista (`/areas/:id`): sus mensajes primero, con el filtro por los tres estados y su conteo, y plegadas su descripción y sus plantillas, con edición en el lugar (UD-041) | Editor |
 | Equipo | Miembros con su perfil; cada uno edita el suyo | Todos |
@@ -228,7 +228,7 @@ Desarrollo del panel: Vite 8, Tailwind 4.3 con `@tailwindcss/vite` (MIT), TypeSc
 | Componente | Función | Archivo |
 | --- | --- | --- |
 | `Sidebar` | Navegación compacta y ocultable (UD-047), usuario, color y conteo de abiertos y respondidos por área | `panel/src/components/Sidebar.tsx` |
-| `NotifyBadge`, `StateMark` | Insignia y marca de estado: abierto rojo, respondido amarillo, cerrado azul, con forma, palabra y número; la campana toma el color del estado más alto presente (UD-029, UD-041). El estado más alto se decide en `panel/src/lib/states.ts` | `panel/src/components/NotifyBadge.tsx` |
+| `NotifyBadge`, `StateMark` | Insignia y marca de estado: abierto rojo, respondido amarillo, cerrado azul, con forma, palabra y número; en la barra superior las tres marcas son sólo forma, color y número, y la palabra es su nombre accesible (UD-100). El estado más alto se decide en `panel/src/lib/states.ts` | `panel/src/components/NotifyBadge.tsx` |
 | `ComposeBar` | Barra de nuevo mensaje con adjuntos, cámara, micrófono, enviar | `panel/src/components/ComposeBar.tsx` |
 | `SendDrawer`, `InputPreview`, `PublishedPane` | Desplegable bajo la barra: original editable con su galería, análisis publicado y editable en el lugar, selector de envíos (UD-046) | `panel/src/components/SendDrawer.tsx` |
 | `AreaChip`, `AreaColorPicker`, `lib/area-color.ts` | Chip de área, selector de un color y derivación del color secundario en OKLCH (UD-045) | `panel/src/components/AreaChip.tsx` |
@@ -241,7 +241,7 @@ Desarrollo del panel: Vite 8, Tailwind 4.3 con `@tailwindcss/vite` (MIT), TypeSc
 | `Settings` | Cuenta, tema, proveedores | `panel/src/pages/Settings.tsx` |
 | `MessageDetail` | Un mensaje con su hilo y sus acciones | `panel/src/pages/MessageDetail.tsx` |
 | `Login` | Inicio de sesión local | `panel/src/pages/Login.tsx` |
-| `Header` | Cabecera «[Nombre] TEAM», campana de avisos y menú de la cuenta | `panel/src/components/Header.tsx` |
+| `Header`, `StatusBar` | Cabecera «[Nombre] TEAM», las tres marcas de estado con su desplegable (UD-100), campana de novedades y menú de la cuenta | `panel/src/components/Header.tsx` |
 | `FilterBar` | Filtros de Mensajes como chips en la URL | `panel/src/components/FilterBar.tsx` |
 | `EditableText`, `EditableTags`, `MemberPicker` | Edición en el lugar de texto, dominios y destinatarios | `panel/src/components/` |
 | `MediaGallery`, `MediaGalleryDialog`, `MediaOpener`, `AttachmentStrip` | Visor y carrusel de adjuntos, reutilizado en la ficha, las respuestas, la lista, Inicio y la propuesta (UD-059) | `panel/src/components/MediaGallery.tsx` |
@@ -298,7 +298,11 @@ POST   /api/members               alta de un miembro                          (E
 PATCH  /api/members/me            perfil, idioma y contraseña propios (`profile`: texto, tope en `members.profileMaxLength`)
 PATCH  /api/members/:id                                                        (Editor)
 
-GET    /api/settings/providers · PATCH /api/settings/providers                (Editor; nunca devuelve una llave)
+GET    /api/settings/providers · PATCH /api/settings/providers                (Editor; nunca devuelve una llave; PATCH prueba antes de guardar, 422 `provider_check_failed`; UD-120)
+POST   /api/settings/providers/:slot/check                                    diagnóstico de una función (Editor)
+GET    /api/settings/connections · POST /api/settings/connections             proveedores con estado, últimos 4 de la clave y funciones que la usan; alta con prueba previa (Editor; UD-120)
+PUT    /api/settings/connections/:name/key · DELETE …/key                     reemplazo con prueba previa; retiro (409 `provider_in_use` con `used_by`, 409 `key_from_environment`)
+DELETE /api/settings/connections/:name · POST …/check                         eliminar un proveedor propio; diagnóstico con duración, causa y lista de modelos
 GET    /api/settings/publication · PATCH /api/settings/publication   { auto_publish } (lee cualquier miembro, escribe el Editor; UD-070)
 GET    /api/settings/project         { name, description } (cualquier miembro)
 PATCH  /api/settings/project         descripción del proyecto en markdown: JSON { description } o multipart con `file` (.md) (Editor; tope PROJECT_DESCRIPTION_MAX_CHARS, 413 al superarlo; bitácora `settings.project.update`)
@@ -400,7 +404,7 @@ Todo cambio de estado de un trabajo vale sólo si el trabajo sigue `running` con
 
 **Interfaz:** `extract(attachment, { providers, onProgress, signal }) → { text, meta }`. `meta` siempre trae `kind`, `warnings` y `elapsedMs`; `meta.calls` lista las llamadas a proveedores. Un fallo es un `ExtractError` con código estable y motivo en español (`document_too_large`, `video_too_long`, `image_heic_unreadable`, `link_blocked`, …). Sólo `link_timeout` y `link_fetch_failed` se reintentan. El resto es una propiedad del adjunto y falla de inmediato. Cada extractor es un archivo; registrar uno nuevo es agregarlo al mapa por tipo. `createAudioBudget()` lleva el presupuesto de audio por hora y la cola aplaza el trabajo sin gastar intento cuando no hay cupo.
 
-Los topes de tamaño por tipo se aplican en dos lugares: al subir (`src/config.js`, antes de encolar, 413) y al extraer (`src/extract/config.js`). La duración de un video (20 minutos) sólo se conoce al extraer, así que ese rechazo llega como fallo del trabajo con su código. El tope de un documento es 25 MiB al subir y 24 MiB al extraer (DT-005).
+Los topes de tamaño por tipo se aplican en dos lugares: al subir (`src/config.js`, antes de encolar, 413) y al extraer (`src/extract/config.js`). La duración de un video (20 minutos) se comprueba al subir con `ffprobe`. Ambos rechazos llevan el código del extractor y no dejan filas, trabajo ni archivos. El tope de un documento es de 24 MiB en los dos lugares.
 
 ### 7.5 Analizador (`src/analyze/`)
 
@@ -443,7 +447,7 @@ Si el input supera el umbral de partición, se parte sólo por fronteras estruct
 
 **`harness`:** el mismo bundle se escribe en un directorio de trabajo vacío y propio (`input.md`, `bundle.json`, `templates/<id>.md`); `claude -p --output-format json --json-schema <Proposal>` con sólo la herramienta de lectura; se lee `structured_output`, `usage` y `total_cost_usd`. Sin `--bare` para que use la suscripción [V]. Mismo validador de salida que `api`.
 
-**Validación (sistema, no modelo), con una instancia propia de Ajv**, porque los esquemas de respuesta de Fastify convierten tipos y descartan propiedades (informe 03). Se comprueba que el área y la plantilla existen y se corresponden. Cada `assignee_id` debe ser un miembro y cada `attachment_id` debe pertenecer al input. Cada `unit_id` debe existir y cada unidad debe estar en un mensaje o en `discarded`. Cada campo obligatorio de la plantilla debe estar presente y ningún mensaje queda vacío. Una salida inválida reintenta una vez con el error como contexto; después el trabajo falla con el motivo visible. Un `refusal` no se reintenta igual y un corte por `max_tokens` reintenta una vez con el doble. El proveedor de respaldo (`TEXT_FALLBACK_*`) se construye y se informa en `GET /health`, pero ningún paso lo invoca todavía (DT-003).
+**Validación (sistema, no modelo), con una instancia propia de Ajv**, porque los esquemas de respuesta de Fastify convierten tipos y descartan propiedades (informe 03). Se comprueba que el área y la plantilla existen y se corresponden. Cada `assignee_id` debe ser un miembro y cada `attachment_id` debe pertenecer al input. Cada `unit_id` debe existir y cada unidad debe estar en un mensaje o en `discarded`. Cada campo obligatorio de la plantilla debe estar presente y ningún mensaje queda vacío. Una salida inválida reintenta una vez con el error como contexto; después el trabajo falla con el motivo visible. Un `refusal` no se reintenta igual y un corte por `max_tokens` reintenta una vez con el doble. El proveedor de respaldo (`TEXT_FALLBACK_*`) se informa en `GET /health` y recibe una vez la llamada que el principal rechazó (`refusal`) o que falló por red o 5xx tras sus reintentos; `llm_calls` registra el proveedor que respondió.
 
 **Spans.** Un span `analyze` por análisis (`team.analyzer`, `team.status`, `team.units`, `team.messages`) con hijos `classify` (`team.groups`), `decompose` por grupo (`team.group_index`, `team.area_id`, `team.template_id`, `team.units`), `rescue` (`team.overlaps`, `team.gaps`), `validate` (`team.valid`, `team.error_count`, `team.errors`) y, en el harness, `harness`. Las llamadas a proveedores cuelgan de esos spans (§7.10 bis).
 
@@ -459,6 +463,12 @@ providers.textFallback  la misma firma; null si no se declara TEXT_FALLBACK_PROV
 providers.vision        .describe({ images[], prompt, schema })          → { json, usage }
 providers.speech        .transcribe({ audioPath, language })             → { text, segments }
 providers.describe()    estado de cada ranura para GET /settings/providers y GET /health, sin llaves
+probeConnection(spec)   llamada mínima: { ok, cause, status, duration_ms, models }; causas: invalid_key, no_quota, model_not_found, no_network, rate_limited, timeout, bad_address, provider_error, unknown
+```
+
+Claves de API desde Configuración (UD-120, UD-121): se guardan cifradas con AES-256-GCM (`src/domain/vault.js`) en `provider_connections` (migración 0009), con el nombre del proveedor como dato autenticado adicional. La clave maestra es `SECRETS_KEY` (64 hex o base64 de 32 bytes) o `<DATA_DIR>/secrets.key`, creada con modo 600 en el primer arranque. Una clave guardada prevalece sobre la variable de entorno, que sigue siendo el valor de arranque. Ninguna ruta devuelve una clave (sólo los últimos 4 caracteres); no se registra en logs, spans, telemetría, errores ni auditoría (`src/api/secrets-never-leak.test.js`). Rotación: con el servidor detenido, `node scripts/rotate-secrets-key.mjs` re-sella todo y deja `secrets.key.prev`. Respaldar la base sin respaldar la clave maestra deja las claves ilegibles; el panel las marca «fallando» y pide ingresarlas de nuevo.
+
+```
 ```
 
 Implementaciones: `anthropic` (texto, visión y PDF), `openai-compatible`, `groq-speech` y `fake` (para pruebas y para el banco). `anthropic` usa Messages nativo por `fetch`, sin SDK, con caché del prompt de sistema y sin `temperature`, `top_p` ni `top_k`. `openai-compatible` trae preajustes de DeepSeek, Groq, OpenRouter y Gemini, con tres modos de salida estructurada: `json_schema`, `tool` y `json_object` validado con Ajv. Modelo por omisión: `claude-haiku-5-5` en texto y visión, `deepseek-flash` si se elige DeepSeek, `whisper-large-v3-turbo` en transcripción. La configuración vive en variables de entorno (`TEXT_*`, `VISION_*`, `SPEECH_*`, `TEXT_FALLBACK_*`; lo que falte en visión se hereda de texto). Se edita desde Configuración (Editor). La base guarda sólo el nombre del proveedor y el modelo, nunca la llave (§4.6). Cada llamada abre su propio span `gen_ai.*` (§7.10 bis).
@@ -557,7 +567,7 @@ Cada intento de un trabajo es la raíz de su propio árbol (`job`, con `team.att
 
 **Límites** (cada uno con fuente en `src/config.js`): cuerpo 64 KiB, 145 eventos por lote, 100 peticiones cada 10 s por dirección; el cliente descarta por encima de 10 eventos por segundo con ráfaga de 100.
 
-**Tareas:** se infieren del tráfico de la API, sin leer contenido. El envío empieza en la interacción que lo pidió, el primer cambio visible es la primera mutación del documento pintada tras ella, el análisis visible es el `done` del flujo SSE y termina con `POST /inputs/:id/publish`; responder y cerrar cuentan desde que se entra a la ficha. Un envío iniciado y no publicado cuando la página se descarta es un abandono. Ver H-1705 para los puntos finos pendientes.
+**Tareas:** se infieren del tráfico de la API, sin leer contenido. El envío empieza en la interacción que lo pidió. El primer feedback visible es el primer pintado del elemento `data-ui-stage="progress"` (progreso de la subida o del análisis) y el análisis visible es el primer pintado de `data-ui-stage="analysis"`; el atributo no lleva contenido y sólo cuentan los elementos que no estaban al empezar el envío. Si el elemento nunca se pinta (un análisis que termina antes del primer pintado), la primera mutación del documento y el `done` del flujo SSE ocupan su lugar. El envío termina con la publicación automática (UD-070), que el panel reconoce por el `done` con `input_status` `published` o por el aviso `message` propio, o con `POST /inputs/:id/publish` en modo manual; responder y cerrar cuentan desde que se entra a la ficha. Un envío iniciado y no terminado cuando la página se descarta es un abandono.
 
 **Envío al cliente:** al llenarse el lote, al terminar una tarea y al ocultarse la página, con `fetch` y `keepalive`. Un fallo se descarta sin reintento. El interruptor está en Configuración (Editor); `GET /api/me` lleva `ui_telemetry: { enabled, max_events }`.
 

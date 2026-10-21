@@ -1,6 +1,6 @@
 // The UI detectors (scripts/ui-detectors.mjs): each one is a pure function over the DOM, so each is
 // tried on a minimal page with a failure and a clean case, and the whole pass is run once on a short
-// real corrida. Run with `node --test src/ui-detectors.test.mjs`; the port comes from PANEL_DETECTORS_PORT.
+// real run. Run with `node --test src/ui-detectors.test.mjs`; the port comes from PANEL_DETECTORS_PORT.
 // Not picked up by vitest (it only includes *.test.ts / *.test.tsx).
 
 import { after, before, describe, test } from 'node:test'
@@ -10,7 +10,7 @@ import { existsSync, mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { chromium } from 'playwright'
-import { DETECTORS, installHelpers, readTypeScale, runDetector, SCREEN_IDS } from '../scripts/ui-detectors.mjs'
+import { DETECTORS, installHelpers, loadVoicePatterns, readTypeScale, runDetector, SCREEN_IDS } from '../scripts/ui-detectors.mjs'
 
 let browser
 let page
@@ -49,6 +49,19 @@ describe('tap-target', () => {
   })
   test('accepts a 24 px control and an isolated small one', async () => {
     const r = await detect('tap-target', '<button style="width:24px;height:24px;padding:0">a</button><div style="height:200px"></div><button style="width:16px;height:16px;padding:0">b</button>')
+    assert.deepEqual(r.findings, [])
+  })
+})
+
+describe('sibling-alignment', () => {
+  const item = (right, top = 0) => `<li style="position:relative;height:32px;list-style:none"><span>Label</span><span style="position:absolute;right:${right}px;top:${top}px;width:12px;height:12px;background:#000">2</span></li>`
+  test('flags counts whose right edge differs by more than 1 px and one off the row center', async () => {
+    const r = await detect('sibling-alignment', `<ul style="width:240px;margin:0;padding:0">${item(8)}${item(14)}${item(8, 4)}</ul>`)
+    assert.ok(r.findings.some((f) => f.measure.axis === 'right' && f.measure.spread === 6), JSON.stringify(r.findings))
+    assert.ok(r.findings.some((f) => f.measure.axis === 'center'), JSON.stringify(r.findings))
+  })
+  test('accepts counts on one edge and one center, and rows without a count', async () => {
+    const r = await detect('sibling-alignment', `<ul style="width:240px;margin:0;padding:0">${item(8, 10)}<li style="height:32px;list-style:none">Only a label that is long enough to be wide</li>${item(8, 10)}</ul>`)
     assert.deepEqual(r.findings, [])
   })
 })
@@ -136,10 +149,32 @@ describe('voice', () => {
   test('accepts an instrument label', async () => {
     assert.deepEqual((await detect('voice', '<p>Mensajes</p>', { patterns })).findings, [])
   })
+  test('reads the patterns of the language guard, not a file (H-1703)', async () => {
+    const loaded = await loadVoicePatterns(undefined, 'es')
+    assert.equal(loaded.reason, undefined)
+    assert.ok(loaded.patterns.length >= 10)
+    const r = await detect('voice', '<p>Aquí puedes ver tus mensajes</p><p>Elige un envío</p><p>Mensajes</p><p>Existe una copia</p>', { patterns: loaded.patterns })
+    const ids = r.findings.map((f) => f.measure.pattern).sort()
+    assert.deepEqual([...new Set(ids)], ['imperative', 'opening', 'person'])
+    assert.ok(!r.findings.some((f) => /Mensajes|Existe/.test(f.detail)))
+  })
+  test('a setting hint measures its length in characters, 90 at most (UD-122)', async () => {
+    const loaded = await loadVoicePatterns(undefined, 'es')
+    const ok = 'Contexto en markdown que recibe el análisis con cada mensaje y que todo el equipo lee ya'.padEnd(90, 'x')
+    const hints = (text, attr) => detect('voice', `<p ${attr}>${text}</p>`, { patterns: loaded.patterns, maxHintChars: loaded.maxHintChars })
+    assert.deepEqual((await hints(ok, 'data-setting-hint')).findings, [])
+    assert.deepEqual((await hints(`${ok}x`, 'data-setting-hint')).findings.map((f) => f.measure.pattern), ['length'])
+    assert.deepEqual((await hints(ok, '')).findings.map((f) => f.measure.pattern), ['length'])
+  })
+  test('the English patterns are chosen with the language', async () => {
+    const loaded = await loadVoicePatterns(undefined, 'en')
+    const r = await detect('voice', '<p>Please enter an email</p><p>Messages</p>', { patterns: loaded.patterns })
+    assert.equal(r.findings.length, 1)
+  })
 })
 
 describe('the whole pass', () => {
-  test('a short real corrida writes a JSON with the declared shape', async () => {
+  test('a short real run writes a JSON with the declared shape', async () => {
     const out = join(mkdtempSync(join(tmpdir(), 'ui-detectors-')), 'detectors.json')
     // The unit browser is closed first: one browser at a time.
     await browser.close()

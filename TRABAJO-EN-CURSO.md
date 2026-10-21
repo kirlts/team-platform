@@ -13,24 +13,36 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 48ca4b1 Traspaso: Configuración en vuelo. Empujado a origin: `48ca4b1`.
-- Ramas con commits sin fusionar: `wt-barra-superior` 9 (hace 73 segundos), `wt-configuracion` 4 (hace 8 segundos), `wt-inicio-respira` 2 (hace 9 minutos).
-- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `barra-superior`, `cierre`, `configuracion`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `inicio-respira`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
+- `main`: 6664a58 Traspaso: Inicio fusionado, Fase 1 completa. Empujado a origin: `6664a58`.
+- Ramas con commits sin fusionar: `wt-banco-abiertos` 6 (hace 28 minutos), `wt-h904` 3 (hace 7 minutos).
+- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `banco-abiertos`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`, `voz2`.
 - Últimos commits en `main`:
-- `48ca4b1` Traspaso: Configuración en vuelo (hace 6 minutos)
-- `89a1d39` Traspaso: la barra superior no lleva contadores por área (hace 14 minutos)
-- `207697a` Traspaso: instrucción de la barra superior en su sección (hace 16 minutos)
-- `43cf09c` Traspaso: la barra superior sólo con íconos de color y número (hace 16 minutos)
-- `c40b15d` Traspaso: barra superior e Inicio con espacio en vuelo (hace 19 minutos)
-- `14bd755` Traspaso: VPS actualizado, duración medida de la reconstrucción (hace 24 minutos)
-- `0d608f7` Traspaso: Inicio completo en main y VPS reconstruyéndose (hace 29 minutos)
-- `6c971d1` Merge remote-tracking branch 'origin/main' into wt-inicio-maqueta (hace 33 minutos)
-Actualizado 2026-10-21 17:40 UTC.
+- `6664a58` Traspaso: Inicio fusionado, Fase 1 completa (hace 15 segundos)
+- `8650d0c` Merge branch 'wt-inicio-respira' (hace 11 minutos)
+- `5fb0eaf` Fusiona main (Configuración, UD-140) en wt-inicio-respira (hace 20 minutos)
+- `a4d075d` Traspaso: Configuración fusionada (hace 21 minutos)
+- `d56b3cf` Merge branch 'wt-configuracion' (hace 29 minutos)
+- `ea89282` UD-140: el presupuesto de API sube a 100 USD en total (hace 33 minutos)
+- `f909ec7` Fusiona main (barra lateral y deuda técnica) en wt-inicio-respira (hace 36 minutos)
+- `00ef3a6` Guardia de voz: los hint de Configuración quedan fuera del patrón de largo en palabras (hace 36 minutos)
+Actualizado 2026-10-21 19:19 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo
 
 **Plan de cierre:** `docs/PLAN-DE-CIERRE.md` (2026-10-21 15:00). La sesión anterior murió a las 14:42 con la cuota de su cuenta agotada; sus agentes murieron con ella. Quien retome ejecuta ese plan desde la Fase 0: rescata lo sin commit de `configuracion`, `inicio-respira` y `barra-superior`, relanza los encargos A, B, C y G, y sigue el orden de fusión que dice. Encargo nuevo del dueño de hoy: la barra lateral (alineación, contadores sin contenedor, hover), encargo G.
+
+**Avance 16:15.** En `main` también Inicio con espacio (`8650d0c`). Fase 1 completa. Corren el barrido de lenguaje, el banco y el aviso con Firefox. Después: jueces, VPS y cierre.
+
+**Avance 16:00.** En `main` también Configuración (`d56b3cf`): editor del proyecto, proveedores con claves cifradas, explicación por ajuste. Inicio fusiona `main` por un choque en `fits-one-screen` y `USER-DECISIONS`. Falta el barrido de lenguaje, los jueces y el VPS.
+
+**Avance 15:50.** En `main` también la deuda técnica (`98443f7`): respaldo de texto, pruebas en inglés, guardia de idioma en aserciones. DT-010 descartado por el dueño. Falta de la deuda sólo DT-007 (HP-019, HP-020). Inicio y Configuración deben fusionar `main`.
+
+**Avance 15:40.** En `main` también la barra lateral (`8cb1eae`). La deuda técnica vuelve a su rama: el dueño descartó derivar `VERIFICATION.md` (H-45) y el agente lo retira.
+
+**Avance 15:25.** En `main` también la barra superior (`f0f5a2c`) y la telemetría pendiente (`63dc519`). Abierto: H-2000 y H-2001. Las ramas de Inicio y barra lateral deben fusionar `main`.
+
+**Avance 15:15.** Fusionado en `main` el encargo del VPS (`402faf6`): restauración con adjuntos, `IMAGE_TAG` para una segunda instancia, respaldos en modo 600, `trusted-header` documentado. Abiertos: H-2605 (cualquier proceso local suplanta a un miembro en ese modo; el botón «Cerrar sesión» da 404, decisión del dueño). En vuelo: barra superior, barra lateral, Inicio, Configuración, telemetría, H-904 y Firefox, banco, deuda técnica.
 
 Tres encargos siguen abiertos, cada uno en su worktree bajo `.claude/worktrees/<nombre>` y su rama `wt-<nombre>`. Los agentes no sobreviven a la sesión: la memoria de cada encargo es su rama y su fila de aquí. Para retomar: `git -C .claude/worktrees/<nombre> log --oneline main..HEAD`, leer sus filas en `docs/HALLAZGOS.md` y sus UD, y continuar en ese worktree. Ninguno empuja a `main`. Se fusiona con `git merge --no-edit wt-<nombre>`, luego `node scripts/check-conflict-markers.mjs`, `npm test`, `node --test bench/`, `cd panel && npx vitest run && npx tsc --noEmit` y las suites de navegador con puertos propios. Si dos ramas chocan en UD o H, se renumera la que entra después. Si una rama choca con `main` en más de dos archivos, se le pide a su agente (o a quien la retome) que haga `git merge main` en su rama y resuelva allí.
 
@@ -88,6 +100,7 @@ La gravedad 5 fue 2, 4 y 3; la gravedad 4 fue 8, 12 y 10. El recuento no baja de
 
 - Tope: 25 USD (UD-027) más 50 USD que el dueño sumó el 2026-10-21 (UD-038, «subo el presupuesto 50 dólares»), 75 en total. Si el dueño quiso decir un tope total de 50, quedan unos 4 USD.
 - Gastado según las cuentas de los agentes: unos 24 USD antes de UD-038, 9,1 en la comparación de modelos, 10,1 en exactitud de área, menos de 0,2 en el arreglo de capacidades y pruebas en vivo: unos 50 USD (con 6,0 de reuniones largas). Quedan unos 25 USD sobre los 75.
+- **Actualización 2026-10-21 (UD-140):** el dueño subió el tope total a 100 USD, «de los 200 dólares que me da Anthropic por este plan, van a quedar 100» para el otro proyecto. Quedan unos 50 USD por gastar. No pasar de 100 de gasto acumulado sin confirmar la lectura (UD-140, condiciones de reversión).
 - Ningún encargo con gasto de API sigue corriendo. Cada encargo declara su gasto acumulado y se detiene en su parte. Libros de gasto: `bench/results/private-spend.jsonl` y los de cada worktree; los de worktrees retirados están en `~/.local/share/team-platform/archivo-de-worktrees/`.
 
 ## Ramas y worktrees

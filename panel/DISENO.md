@@ -92,6 +92,11 @@ Las fuentes están empaquetadas en `src/assets/fonts/` (WOFF2 variable, subconju
 
 Una animación continua: el destello del medidor de progreso, mientras un trabajo corre. Los botones se hunden 1 px al presionarse. `prefers-reduced-motion` apaga las animaciones.
 
+| Token | Valor | Uso |
+|---|---|---|
+| `--duration-hover` | 100 ms, `ease-out` | Cambio de fondo y color de las filas y controles de la barra lateral al pasar el puntero o enfocar (UD-130). Sólo color y fondo, sin desplazamiento |
+| `--sidebar-count-col` | 2,75 rem | Ancho mínimo de la columna del contador de la barra lateral; termina a 10 px del borde derecho en cada fila |
+
 ### Atmósfera
 
 `src/components/Atmosphere.tsx` dibuja una órbita anclada a la esquina superior derecha, fija y con `aria-hidden`; en teléfono no se dibuja. Una máscara la desvanece bajo la barra superior para que sus trazos no crucen títulos ni botones de la vista (J1-A-56). El cielo con brillos radiales cita el Frutiger Aero y la órbita el Y2K futurista. No hay destellos sueltos: un adorno sin ancla flota (UD-016).
@@ -172,9 +177,24 @@ UD-017. A 1440 por 900 y a 1280 por 720 ninguna vista desplaza el documento ni l
 
 - `Page` ocupa el alto de la región principal desde 768 px; el bloque que crece (una lista) toma lo que queda con `flex-1 min-h-0`, y las filas de cuadrícula usan `minmax(0, 1fr)` para que el contenido no estire la fila.
 - `FitList` mide el alto del espacio que le toca y el alto de cada fila ya dibujada, y deja las que caben; el resto está en las páginas siguientes, con el rango y dos flechas al pie. El tamaño de página no se escribe en ningún lado: sale de esas dos medidas, y se vuelve a medir cuando cambia la ventana, la lista o el alto de una fila (por ejemplo, cuando llega la plantilla de un campo). Si todas caben, el marco se ajusta a ellas y no hay paginador. Una página lleva al menos una fila: en una ventana más baja que esa fila, su encabezado y el paginador, el espacio de la lista no baja de esa suma y la página se desplaza, en vez de dibujar la fila sobre el paginador (H-96; `fit-list-low-window.browser.test.mjs`). En teléfono la página crece con su contenido y no hay páginas.
-- Con una propuesta abierta, Inicio pliega las dos listas en una línea con su cuenta; cada una lleva a Mensajes.
+- Con un envío abierto, Inicio se desplaza (UD-110, que enmienda esta regla): la región principal desplaza y las dos listas toman un alto propio de `max(28rem, 56dvh)`. En reposo cabe sin desplazarse.
 - Carriles con desplazamiento propio permitidos, todos declarados con `data-lane` y con el motivo en el código: el texto pegado de la vista previa, el cuerpo y los campos de un mensaje, la descripción del proyecto, la lista de áreas de la barra lateral y las listas de las ventanas emergentes. Los campos de texto desplazan por sí solos.
 - La prueba (`npm run test:fit`) abre cada vista a los dos tamaños, con lo sembrado y con cada lista multiplicada por ocho en el navegador, y falla si el documento o la región principal desbordan, si un elemento tiene un carril propio fuera de la lista blanca, si algo queda bajo el borde de la ventana o si el documento esconde su desborde.
+
+## Aire de Inicio
+
+UD-110. Inicio es la barra de texto con espacio alrededor y, debajo, las dos listas. Los valores son tokens de `styles.css`, no números sueltos en los componentes.
+
+| Token | Valor | Uso |
+|---|---|---|
+| `--spacing-block-compact` | 16 px | Entre bloques en una ventana de menos de 800 px de alto |
+| `--spacing-block` | 24 px | Entre bloques desde 800 px de alto |
+| `--spacing-section` | 40 px | Entre bloques y entre las dos listas desde 1000 px de alto |
+| `--spacing-bar-pad` | 24 px | Relleno interior de la barra de texto |
+| `--container-compose` | 56 rem (840 px) | Ancho de la barra de texto, centrada |
+| `--container-inicio` | 112 rem (1680 px) | Ancho máximo de la página; antes de él crece con la ventana |
+
+Capturas revisadas a 1280x800, 1440x900, 1920x1080, 2560x1440 y 390x844, claro y oscuro (`scripts/capturas-respira.mjs`).
 
 ## Edición en el lugar y deshacer
 
@@ -231,6 +251,8 @@ UD-025, UD-046, UD-070 y UD-071. Inicio va de arriba abajo como la maqueta: fran
 ## Panel izquierdo
 
 UD-047. Mide 256 px, antes 288. El botón de ocultar está junto al usuario; oculto, el botón de la barra superior lo muestra. La preferencia se guarda por persona en el navegador, con `try/catch`. En el teléfono es el menú de la barra y no lleva el botón. Cada área lleva su muestra de color y los conteos de abiertos y respondidos van bajo su nombre.
+
+UD-130 (barra lateral). Cada fila es una grilla de dos columnas, enlace y contador. El contador es el ícono de estado con su número, sin contenedor, y su borde derecho y su centro vertical coinciden en todas las filas (tolerancia 1 px, `sidebar-alignment.browser.test.mjs`). Al pasar el puntero se ilumina la fila entera y su ícono; con el teclado, el mismo cambio y un anillo de 2 px dentro de la fila. «+», desplegable, ocultar y el contador de cada área responden igual. El rótulo de plantilla no se parte en 256 px ni en teléfono; un nombre largo escrito por una persona puede partirse.
 
 ## Envíos, la barra y la edición
 

@@ -74,7 +74,7 @@ export function loadConfig (env = process.env, overrides = {}) {
     rootDir,
     version: JSON.parse(readFileSync(path.join(rootDir, 'package.json'), 'utf8')).version,
 
-    // ---- Red y servidor
+    // ---- Network and server
     host: textValue(env, 'HOST', '0.0.0.0'), // inside a container; the compose file publishes the port on loopback
     port: intVar(env, 'PORT', 3000), // I04 §5: the service listens on 127.0.0.1:3000 and the compose file publishes that port on loopback
     nodeEnv: textValue(env, 'NODE_ENV', 'production'), // `development` enables POST /auth/dev-login
@@ -139,7 +139,7 @@ export function loadConfig (env = process.env, overrides = {}) {
     uploads: {
       maxImageBytes: intVar(env, 'UPLOAD_MAX_IMAGE_BYTES', 7 * MIB, { min: 1 }), // MS §7.8: image 7 MB
       maxAudioBytes: intVar(env, 'UPLOAD_MAX_AUDIO_BYTES', 25 * MIB, { min: 1 }), // MS §7.8: audio 25 MB
-      maxDocumentBytes: intVar(env, 'UPLOAD_MAX_DOCUMENT_BYTES', 24 * MIB, { min: 1 }), // MS §7.4, informe 05 §8.3: 24 MB, the extractor's own cap (DT-005)
+      maxDocumentBytes: intVar(env, 'UPLOAD_MAX_DOCUMENT_BYTES', 24 * MIB, { min: 1 }), // MS §7.4, report 05 §8.3: 24 MB, the extractor's own cap (DT-005)
       maxVideoBytes: intVar(env, 'UPLOAD_MAX_VIDEO_BYTES', 2 * GIB, { min: 1 }), // MS §7.4: video, tope 2 GB
       // I07 §6.1: Slack accepts up to 10 files dragged at once. It is the referent, not a measurement.
       maxFiles: intVar(env, 'UPLOAD_MAX_FILES', 10, { min: 1 }),
@@ -165,7 +165,7 @@ export function loadConfig (env = process.env, overrides = {}) {
       // inputs of one working stretch with a break in the middle are context and the ones of yesterday are not.
       maxAgeMinutes: intVar(env, 'RECENT_INPUTS_MAX_AGE_MINUTES', 60, { min: 1 }),
       // Courtesy value, not measured: about one paragraph of text (≈ 200 tokens at 3 chars/token); with the 8 inputs
-      // above the context grows by at most 4,800 characters, far below the 100,000-token price step (informe 02 §10.2).
+      // above the context grows by at most 4,800 characters, far below the 100,000-token price step (report 02 §10.2).
       excerptChars: intVar(env, 'RECENT_INPUTS_EXCERPT_CHARS', 600, { min: 1 })
     },
 
@@ -173,24 +173,24 @@ export function loadConfig (env = process.env, overrides = {}) {
     project: {
       // The 100,000 input-token price step of the default model is ≈ 300,000 characters at 3 chars/token in Spanish.
       // 200,000 characters leave room for the input, the catalog and the team in the same call.
-      descriptionMaxChars: intVar(env, 'PROJECT_DESCRIPTION_MAX_CHARS', 200000, { min: 1 }) // informe 02 §10.2: the 100,000-token price step, UD-024
+      descriptionMaxChars: intVar(env, 'PROJECT_DESCRIPTION_MAX_CHARS', 200000, { min: 1 }) // report 02 §10.2: the 100,000-token price step, UD-024
     },
 
     // ---- Interface telemetry (UD-091, MASTER-SPEC §7.10 ter). Every number cites its source or is declared a courtesy.
     uiTelemetry: {
-      // UD-091: on by default (informe 09 §6 and §8.12: no cookies, storage, persistent identifier or content); the Editor
+      // UD-091: on by default (report 09 §6 and §8.12: no cookies, storage, persistent identifier or content); the Editor
       // turns it off in Configuración and the variable sets the initial value.
       enabledDefault: boolVar(env, 'UI_TELEMETRY', true),
       // Informe 09 §5 (fetch.spec.whatwg.org, 2026-10-19): the body quota of requests with `keepalive` is 64 KiB. A batch
       // that fits it can be sent while the page closes.
-      maxBodyBytes: intVar(env, 'UI_TELEMETRY_MAX_BODY_BYTES', 64 * 1024, { min: 1 }), // informe 09 §5: 64 KiB keepalive quota
-      // PostHog leaves 20 % of the keepalive quota free (informe 09 §5, posthog.com/docs, 2026-10-21): events per batch =
+      maxBodyBytes: intVar(env, 'UI_TELEMETRY_MAX_BODY_BYTES', 64 * 1024, { min: 1 }), // report 09 §5: 64 KiB keepalive quota
+      // PostHog leaves 20 % of the keepalive quota free (report 09 §5, posthog.com/docs, 2026-10-21): events per batch =
       // 80 % of the body over the longest possible event (MAX_EVENT_BYTES, measured from the schema).
-      maxEvents: intVar(env, 'UI_TELEMETRY_MAX_EVENTS', Math.floor((0.8 * 64 * 1024) / MAX_EVENT_BYTES), { min: 1 }), // informe 09 §5, PostHog 80 %
-      // PostHog's client allows 10 events a second with a burst of 100 (informe 09 §9, 2026-10-21); at most one event per
+      maxEvents: intVar(env, 'UI_TELEMETRY_MAX_EVENTS', Math.floor((0.8 * 64 * 1024) / MAX_EVENT_BYTES), { min: 1 }), // report 09 §5, PostHog 80 %
+      // PostHog's client allows 10 events a second with a burst of 100 (report 09 §9, 2026-10-21); at most one event per
       // request, so 100 requests in a 10 s window is the same sustained rate and the same burst.
-      rateMax: intVar(env, 'UI_TELEMETRY_RATE_MAX', 100, { min: 1 }), // informe 09 §9: PostHog, burst of 100
-      rateWindowMs: intVar(env, 'UI_TELEMETRY_RATE_WINDOW_MS', 10000, { min: 1 }) // informe 09 §9: PostHog, 10 events per second
+      rateMax: intVar(env, 'UI_TELEMETRY_RATE_MAX', 100, { min: 1 }), // report 09 §9: PostHog, burst of 100
+      rateWindowMs: intVar(env, 'UI_TELEMETRY_RATE_WINDOW_MS', 10000, { min: 1 }) // report 09 §9: PostHog, 10 events per second
     },
 
     // ---- Miembros
@@ -286,6 +286,9 @@ export function loadConfig (env = process.env, overrides = {}) {
         groq: intVar(env, 'PROVIDER_MAX_INFLIGHT_GROQ', PROVIDER_LIMIT_DEFAULTS.groq), // measurement 2026-10-21, see PROVIDER_LIMIT_DEFAULTS
         openaiCompatible: intVar(env, 'PROVIDER_MAX_INFLIGHT_OPENAI_COMPATIBLE', PROVIDER_LIMIT_DEFAULTS.openaiCompatible) // measurement 2026-10-21, see PROVIDER_LIMIT_DEFAULTS
       },
+      // Deadline of each request of a probe (key replacement, function change, diagnosis; UD-120). 30 s is what the project that
+      // inspired the screen measured for its own probe and half of LiteLLM's 60 s (report 11 §6 point 8); the probe sends one token.
+      probe: { timeoutMs: intVar(env, 'PROVIDER_PROBE_TIMEOUT_MS', 30000, { min: 1 }) }, // informe 11 §6 punto 8, consultado 2026-10-21
       // Adaptive backoff after a 429 on the cap: wait one cooldown, then give back one request per restore step.
       backoff: {
         cooldownMs: intVar(env, 'PROVIDER_BACKOFF_COOLDOWN_MS', PROVIDER_LIMIT_DEFAULTS.cooldownMs, { min: 1 }), // measurement 2026-10-21, see PROVIDER_LIMIT_DEFAULTS

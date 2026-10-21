@@ -40,11 +40,12 @@ export function screenOf(pathname: string): Screen {
 export function endpointOf(path: string): string {
   const bare = path.split('?')[0].replace(/^\/api(?=\/|$)/, '')
   const segments = bare.split('/').filter(Boolean).slice(0, 6) // ENDPOINT_PATTERN: at most six segments
-  return `/${segments.map((s) => (/^[a-z][a-z-]{0,31}$/.test(s) ? s : ':id')).join('/')}`
+  // The name of a provider is chosen by a person (`/settings/connections/mi-gateway/key`): the segment after `connections` is an identifier even when it looks like a word.
+  return `/${segments.map((s, i) => (/^[a-z][a-z-]{0,31}$/.test(s) && segments[i - 1] !== 'connections' ? s : ':id')).join('/')}`
 }
 
 // Core Web Vitals definition of a layout-shift session window: a window closes after a gap of 1 s without shifts or
-// when it lasts 5 s (web.dev/articles/cls, consulted 2026-10-21, informe 09). Unit conversion of the spec's numbers.
+// when it lasts 5 s (web.dev/articles/cls, consulted 2026-10-21, report 09). Unit conversion of the spec's numbers.
 const CLS_GAP_MS = 1000
 const CLS_WINDOW_MS = 5000
 
@@ -69,7 +70,7 @@ export class LayoutShift {
 
 /**
  * Interaction to Next Paint of one screen: the longest interaction, ignoring one more of the longest for every 50
- * interactions (web.dev/articles/inp, consulted 2026-10-21, informe 09). With fewer than 50 it is the longest.
+ * interactions (web.dev/articles/inp, consulted 2026-10-21, report 09). With fewer than 50 it is the longest.
  */
 export function interactionToNextPaint(durations: number[]): number | undefined {
   if (durations.length === 0) return undefined
@@ -81,7 +82,7 @@ type Listen = (target: EventTarget, type: string, fn: (e: never) => void, captur
 
 // Width classes: the lower edge of the Tailwind breakpoint the window is in (tailwindcss.com/docs/responsive-design,
 // consulted 2026-10-21; the panel has no custom ones). An exact window size is a fingerprint and the summary only needs
-// the class (informe 09 §8.11, Matomo's exempt mode drops the screen resolution).
+// the class (report 09 §8.11, Matomo's exempt mode drops the screen resolution).
 const WIDTH_EDGES = [0, 640, 768, 1024, 1280, 1536]
 // Height classes: steps of 100 px, a declared courtesy (the fit tests of the panel use 844 and 900 px windows).
 const HEIGHT_STEP = 100
@@ -93,7 +94,7 @@ export function viewportClass(width: number, height: number): { w: number; h: nu
 
 /**
  * Token bucket of the events the panel records: the rate and the burst of PostHog's client, 10 events a second with a
- * burst of 100 (informe 09 §9, posthog.com/docs, consulted 2026-10-21). A runaway loop of errors is the case it is for.
+ * burst of 100 (report 09 §9, posthog.com/docs, consulted 2026-10-21). A runaway loop of errors is the case it is for.
  */
 export class EventBudget {
   private tokens = 100
@@ -139,7 +140,16 @@ interface OpenTask {
   from: Counters
   feedbackAt?: number
   analysisAt?: number
+  /** Marked elements already on the page when the send began: they belong to an earlier send and do not count (H-1705). */
+  baseline?: WeakSet<Element>
+  /** When an element marked `data-ui-stage="progress"` / `"analysis"` was first painted (H-1705): the exact moments, when seen. */
+  stageFeedbackAt?: number
+  stageAnalysisAt?: number
 }
+
+/** The attribute the panel puts on the progress of a send and on its analysis, so the telemetry measures what is on screen. */
+export const UI_STAGE_ATTRIBUTE = 'data-ui-stage'
+export type UiStage = 'progress' | 'analysis'
 
 export class UiTelemetry {
   private enabled = false
@@ -252,10 +262,24 @@ export class UiTelemetry {
         const t = this.deps.now()
         if (this.interactionAt !== undefined && this.changeAt === undefined) this.changeAt = t
         if (this.open && this.open.feedbackAt === undefined && t >= this.open.startedAt) this.open.feedbackAt = t
+        this.scanStages(t)
       })
     })
     observer.observe(document.body, { childList: true, subtree: true, attributes: true, characterData: true })
     this.teardown.push(() => observer.disconnect())
+  }
+
+  /**
+   * The marked elements of the open send, once painted (H-1705). `data-ui-stage="progress"` is the first thing the person
+   * sees of the send and `"analysis"` is what the model made of it; their first paint is the stage, not the arrival of
+   * the data. Only the elements that were not on the page when the send began count. Nothing of their content is read.
+   */
+  private scanStages(t: number) {
+    const open = this.open
+    if (!open || open.task !== 'send_publish' || typeof document === 'undefined') return
+    const fresh = (stage: UiStage) => [...document.querySelectorAll(`[${UI_STAGE_ATTRIBUTE}="${stage}"]`)].some((el) => !open.baseline?.has(el))
+    if (open.stageFeedbackAt === undefined && fresh('progress')) open.stageFeedbackAt = t
+    if (open.stageAnalysisAt === undefined && fresh('analysis')) open.stageAnalysisAt = t
   }
 
   /** A scroll gesture is a run of scroll events ending in a frame with none: no timer, the frame cadence decides. */
@@ -459,7 +483,8 @@ export class UiTelemetry {
     // The send began with the interaction that asked for it, a moment before the request left.
     const startedAt = this.interactionAt !== undefined && this.interactionAt <= requested ? this.interactionAt : requested
     const seen = this.changeAt !== undefined && this.changeAt >= startedAt ? this.changeAt : undefined
-    this.open = { task: 'send_publish', startedAt, from: this.armed.send_publish ?? { ...this.counters }, feedbackAt: seen }
+    const baseline = typeof document === 'undefined' ? undefined : new WeakSet<Element>(document.querySelectorAll(`[${UI_STAGE_ATTRIBUTE}]`))
+    this.open = { task: 'send_publish', startedAt, from: this.armed.send_publish ?? { ...this.counters }, feedbackAt: seen, baseline }
   }
 
   /** The analysis of the open send is on screen (the job's `done` arrived or the input came back as proposed). */
@@ -475,7 +500,8 @@ export class UiTelemetry {
 
   /**
    * One of the person's own messages was published without them confirming it (auto-publication, UD-070): the open send
-   * is done. The panel tells it from the notice of the event stream, whose author is the person.
+   * is done. The panel tells it from the notice of the event stream, whose author is the person, or from the end of the
+   * job, whose `input_status` is `published`.
    */
   ownMessagePublished() {
     try {
@@ -497,10 +523,15 @@ export class UiTelemetry {
     this.open = null
     const end = this.deps.now()
     const stages: Fields = {}
-    // Each stage is the time between two moments that were seen; one that was not seen leaves its stage out.
-    if (open.feedbackAt !== undefined) stages.stage_feedback_ms = Math.max(0, Math.round(open.feedbackAt - open.startedAt))
-    if (open.analysisAt !== undefined) stages.stage_analysis_ms = Math.max(0, Math.round(open.analysisAt - (open.feedbackAt ?? open.startedAt)))
-    if (outcome === 'completed' && open.analysisAt !== undefined) stages.stage_publish_ms = Math.max(0, Math.round(end - open.analysisAt))
+    // Each stage is the time between two moments that were seen; one that was not seen leaves its stage out. The marked
+    // element wins: «first feedback» is the progress painted and «analysis visible» the analysis painted (H-1705). Without
+    // them (an analysis that ends before the first paint, a page without the marks) the first change after the
+    // interaction and the arrival of the analysis stand in.
+    const feedbackAt = open.stageFeedbackAt ?? open.feedbackAt
+    const analysisAt = open.stageAnalysisAt ?? open.analysisAt
+    if (feedbackAt !== undefined) stages.stage_feedback_ms = Math.max(0, Math.round(feedbackAt - open.startedAt))
+    if (analysisAt !== undefined) stages.stage_analysis_ms = Math.max(0, Math.round(analysisAt - (feedbackAt ?? open.startedAt)))
+    if (outcome === 'completed' && analysisAt !== undefined) stages.stage_publish_ms = Math.max(0, Math.round(end - analysisAt))
     this.emitTask(open.task, outcome, open.startedAt, open.from, stages, end)
   }
 
@@ -565,7 +596,7 @@ function randomSession(): string {
 /**
  * `fetch` with `keepalive`, not `navigator.sendBeacon`: a beacon cannot carry the `X-Team-Request` header that the
  * server demands of every request with a session (src/identity/csrf.js), and a request with `keepalive` does survive the
- * page closing, which is what the beacon is for (fetch.spec.whatwg.org, informe 09 §4).
+ * page closing, which is what the beacon is for (fetch.spec.whatwg.org, report 09 §4).
  */
 function sendWithFetch(body: string) {
   try {

@@ -95,7 +95,7 @@ describe('in-place editing', () => {
       await field.press('Enter')
       await page.getByRole('button', { name: /^Título: Agregar la exportación de mensajes cerrados a CSV/ }).waitFor()
 
-      // Escape descarta.
+      // Escape discards.
       await page.getByRole('button', { name: /^Título: Agregar la exportación/ }).click()
       await page.getByRole('textbox', { name: 'Título' }).fill('Otro título que no se guarda')
       await page.getByRole('textbox', { name: 'Título' }).press('Escape')
@@ -141,7 +141,7 @@ describe('analysis proposal', () => {
       await page.getByRole('button', { name: /^Pasos para reproducir: Obligatorio/ }).first().waitFor()
       const send = page.getByRole('button', { name: /^Enviar \d+ mensajes?$/ })
       assert.equal(await send.isDisabled(), true, 'it cannot be sent with required fields empty')
-      // Se llenan en el lugar.
+      // They are filled in place.
       for (const label of ['Pasos para reproducir', 'Qué se esperaba', 'Qué pasó']) {
         await page.getByRole('button', { name: new RegExp(`^${label}: Obligatorio`) }).first().click()
         await page.getByRole('textbox', { name: label }).first().fill('Abrir Inicio y mirar la barra')
@@ -307,13 +307,15 @@ describe('consecutive inputs (UD-025)', () => {
       await settled(page)
       const base = await heights()
       const baseFrame = (await tray.boundingBox()).height
+      const barY = (await bar.boundingBox()).y
       for (let i = 2; i <= 10; i++) await send(i)
       // They finish staggered: the folded header counts all ten once they are ready for review.
       await tray.getByText('10 para revisar').waitFor({ timeout: 40000 })
       await settled(page)
-      assert.deepEqual(await heights(), base, 'diez envíos no deben cambiar el alto de la página')
-      assert.ok(Math.abs((await tray.boundingBox()).height - baseFrame) <= 1, 'el control de envíos conserva su alto')
-      assert.ok(base.main <= base.win, 'la región principal no desplaza')
+      // UD-110: with a send open the region scrolls and the drawer is as tall as what it shows, so the region's height may grow; the document does not, and the bar does not move.
+      assert.equal((await heights()).doc, base.doc, 'ten submissions must not change the document height')
+      assert.equal((await bar.boundingBox()).y, barY, 'ten submissions do not move the text bar')
+      assert.ok(Math.abs((await tray.boundingBox()).height - baseFrame) <= 1, 'the submissions control keeps its height')
 
       // Keyboard inside the drawer: J moves to the next send of the list (an older one: the list is newest first) and K to the previous one. Enter publishes from nowhere (J2-B-13): a click on Enviar or Enter with the focus on that button does, and the send stays in view, published.
       await page.getByTestId('send-drawer').waitFor()
@@ -333,7 +335,7 @@ describe('consecutive inputs (UD-025)', () => {
       await page.keyboard.press('Enter')
       await tray.getByText('9 para revisar').waitFor()
       await page.getByTestId('published-pane').waitFor()
-      assert.equal(await selected(), first, 'al publicar el envío sigue a la vista, publicado')
+      assert.equal(await selected(), first, 'on publishing, the submission stays in view, published')
     } finally {
       await context.close()
     }
@@ -364,8 +366,10 @@ async function withSummary(page, mine, areas = []) {
   await page.route(/\/api\/messages\/summary$/, (route) => route.fulfill({ json: { mine: { ...mine, total: mine.open + mine.answered }, items, areas } }))
 }
 
-describe('insignia y estados (UD-028, UD-029, UD-041)', () => {
-  test('the bell takes the background of the highest state present, and the Messages badge and the Home notice carry it in the color of their shape, in all four combinations and both themes (UD-029, UD-036, UD-041)', async () => {
+describe('the top bar: states and areas (UD-028, UD-029, UD-041, UD-100)', () => {
+  const STATE_WORDS = /abiertos?|respondidos?|cerrados?/i
+
+  test('each state is its shape and its number with no visible word, its color is the shape and not a fill, in all four combinations and both themes (UD-036, UD-041, UD-100)', async () => {
     for (const scheme of ['light', 'dark']) {
       for (let bits = 0; bits < 4; bits++) {
         const mine = { open: bits & 1 ? 2 : 0, answered: bits & 2 ? 3 : 0 }
@@ -374,45 +378,34 @@ describe('insignia y estados (UD-028, UD-029, UD-041)', () => {
         try {
           await withSummary(page, mine)
           await login(page, origin, 'ana')
-          await page.getByTestId('attention').waitFor()
+          await page.getByTestId('status-bar').waitFor()
           const fills = await probeFills(page)
-          assert.equal(new Set(Object.values(fills)).size, 3, 'los tres estados tienen fondos distintos')
-          const top = mine.open ? 'open' : mine.answered ? 'answered' : null
-          const total = mine.open + mine.answered
-          const surfaces = {
-            pestaña: page.getByRole('navigation', { name: 'Navegación' }).locator('[data-testid="messages-badge"]'),
-            aviso: page.getByTestId('attention').locator(`[data-testid="state-mark"][data-status="${top}"]`),
-          }
-          for (const [name, badge] of Object.entries(surfaces)) {
-            if (!top) {
-              assert.equal(await badge.count(), 0, `${name}: sin nada abierto ni respondido no hay insignia (${scheme})`)
-              continue
-            }
-            assert.equal(await badge.getAttribute('data-status'), top, `${name}: estado ${top} (${scheme}, ${JSON.stringify(mine)})`)
+          assert.equal(new Set(Object.values(fills)).size, 3, 'the three states have different fills')
+          const bar = page.getByTestId('status-bar')
+          // The three states are always there (UD-100); closed ones are counted from the data, the other two from the mocked summary.
+          assert.equal(await bar.locator('[data-testid="state-button"]').count(), 3, 'three marks, one per state')
+          for (const status of ['open', 'answered', 'closed']) {
+            const mark = bar.locator(`[data-testid="state-button"][data-status="${status}"]`)
+            await mark.waitFor()
             // Quiet (UD-036): no tinted fill; the state is the color of the shape.
-            assert.equal(await badge.evaluate((el) => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)', `${name}: una marca callada no se rellena (${scheme}, ${JSON.stringify(mine)})`)
-            const shape = await badge.locator('svg').first().evaluate((el) => getComputedStyle(el).color)
-            assert.equal(shape, await page.evaluate((t) => { const p = document.createElement('i'); p.setAttribute('data-status', t); p.setAttribute('data-weight', 'quiet'); const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); p.append(s); document.body.append(p); const c = getComputedStyle(s).color; p.remove(); return c }, top), `${name}: la forma lleva el color de ${top} (${scheme})`)
-            if (name === 'pestaña') assert.equal((await badge.textContent()).trim(), String(total), `${name}: el número es el total`)
-            // The color is never alone: the aviso names the state with its word and its number.
-            if (name === 'aviso') assert.match((await badge.textContent()).trim(), new RegExp(`^\\d+ ${STATE_WORD[top]}s?$`))
+            assert.equal(await mark.evaluate((el) => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)', `una marca callada no se rellena (${scheme})`)
+            const shape = await mark.locator('svg').first().evaluate((el) => getComputedStyle(el).color)
+            assert.equal(shape, await page.evaluate((t) => { const p = document.createElement('i'); p.setAttribute('data-status', t); p.setAttribute('data-weight', 'quiet'); const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); p.append(s); document.body.append(p); const c = getComputedStyle(s).color; p.remove(); return c }, status), `la forma lleva el color de ${status} (${scheme})`)
+            // The word is not drawn: the mark is a shape and a number, and says its state by name and by tooltip.
+            assert.match((await mark.textContent()).trim(), /^\d+$/)
+            const shown = (await mark.textContent()).trim()
+            if (status !== 'closed') assert.equal(shown, String(mine[status]))
+            const name = await mark.getAttribute('aria-label')
+            assert.match(name, new RegExp(`^${shown} ${STATE_WORD[status]}s?$`))
+            assert.equal(await mark.getAttribute('title'), name, 'the tooltip says the same as the accessible name')
           }
+          assert.doesNotMatch(await bar.innerText(), STATE_WORDS, `la barra no escribe el nombre de un estado (${scheme}, ${JSON.stringify(mine)})`)
+          // The bell does not repeat the count and carries no state (UD-100): there is no saturated state fill anywhere.
           const bell = page.getByTestId('bell')
-          if (top) {
-            assert.equal(await bell.getAttribute('data-status'), top, `campana: estado ${top}`)
-            assert.equal(await bell.evaluate((el) => getComputedStyle(el).backgroundColor), fills[top], `campana: el fondo pintado es el de ${top} (${scheme})`)
-            assert.match((await bell.textContent()).trim(), new RegExp(`${total}$`))
-            // One source of truth (J2-B-03): the bell is the only saturated fill on the screen; everything else is quiet.
-            const weights = await page.evaluate(() => [...document.querySelectorAll('[data-status]')].map((el) => el.getAttribute('data-weight') ?? 'solid'))
-            assert.equal(weights.filter((w) => w === 'solid').length, 1, `un solo relleno saturado (${scheme}, ${JSON.stringify(mine)})`)
-            // The bell lists exactly what it counts (J2-A-43), each with the word of its state.
-            await bell.click()
-            assert.equal(await page.locator('[data-lane="bell-list"] li').count(), total, `la campana lista ${total} (${scheme}, ${JSON.stringify(mine)})`)
-            assert.equal(await page.locator('[data-lane="bell-list"] [data-testid="state-mark"]').first().textContent(), top === 'open' ? 'Abierto' : 'Respondido')
-          } else {
-            // With nothing open or answered that affects the member, the bell shows no state at all.
-            assert.equal(await bell.getAttribute('data-status'), null, 'campana: sin avisos no lleva estado')
-          }
+          assert.equal(await bell.getAttribute('data-status'), null, 'la campana no lleva estado')
+          assert.equal((await bell.textContent()).trim(), '', 'the bell does not repeat the count')
+          const weights = await page.evaluate(() => [...document.querySelectorAll('[data-status]')].map((el) => el.getAttribute('data-weight') ?? 'solid'))
+          assert.equal(weights.filter((w) => w === 'solid').length, 0, `ningún relleno saturado de estado (${scheme}, ${JSON.stringify(mine)})`)
         } finally {
           await context.close()
         }
@@ -420,26 +413,32 @@ describe('insignia y estados (UD-028, UD-029, UD-041)', () => {
     }
   })
 
-  test('real data: the Messages badge counts what the server says and the Home notice repeats it per state', async () => {
+  test('real data: the marks count what the server says, the sidebar and the Home do not repeat it', async () => {
     const { page, context } = await session('ana')
     try {
       const summary = await (await page.request.get(`${origin}/api/messages/summary`)).json()
-      assert.ok(summary.mine.open > 0 && summary.mine.answered > 0, 'los datos de desarrollo tienen abiertos y respondidos para Ana')
-      const badge = page.getByRole('navigation', { name: 'Navegación' }).locator('[data-testid="messages-badge"]')
-      await badge.waitFor()
-      assert.equal(await badge.getAttribute('data-status'), 'open')
-      assert.equal((await badge.textContent()).trim(), String(summary.mine.total))
-      const attention = page.getByTestId('attention')
-      for (const [status, word, n] of [['open', n1 => (n1 === 1 ? 'abierto' : 'abiertos'), summary.mine.open], ['answered', n1 => (n1 === 1 ? 'respondido' : 'respondidos'), summary.mine.answered]]) {
-        const mark = attention.locator(`[data-testid="state-mark"][data-status="${status}"]`).first()
-        assert.equal((await mark.textContent()).trim(), `${n} ${word(n)}`)
+      assert.ok(summary.mine.open > 0 && summary.mine.answered > 0, 'the development data has open and answered messages for Ana')
+      const bar = page.getByTestId('status-bar')
+      assert.equal(await bar.locator('[data-testid="state-button"][data-status="closed"]').count(), 1, 'the closed state has its mark too')
+      for (const [status, n] of [['open', summary.mine.open], ['answered', summary.mine.answered]]) {
+        const mark = bar.locator(`[data-testid="state-button"][data-status="${status}"]`)
+        await mark.waitFor()
+        assert.equal((await mark.textContent()).trim(), String(n))
+      }
+      // One source (UD-100): the Mensajes link has no figure of its own and Inicio has no strip of them; the counts of each area stay in the sidebar.
+      assert.equal(await page.getByTestId('messages-badge').count(), 0)
+      assert.equal(await page.getByTestId('attention').count(), 0)
+      // The bar is in every page.
+      for (const path of ['/messages', '/areas', '/team', '/settings']) {
+        await page.goto(`${origin}${path}`)
+        await page.getByTestId('status-bar').waitFor()
       }
     } finally {
       await context.close()
     }
   })
 
-  test('a closed message loses its notice and leaves the count and the bell, and keeps its color as a state (J2-A-09, J2-A-43, UD-041)', async () => {
+  test('a closed message loses its notice and leaves the counts and the menus, and keeps its color as a state (J2-A-09, UD-041)', async () => {
     const { page, context } = await session('bruno')
     try {
       await page.getByRole('heading', { name: 'Últimos mensajes' }).waitFor()
@@ -452,37 +451,117 @@ describe('insignia y estados (UD-028, UD-029, UD-041)', () => {
       await page.locator('article', { hasText: title }).first().getByText('Cerrado', { exact: true }).waitFor()
       for (const row of await page.locator('article', { hasText: 'Cerrado' }).all()) {
         assert.equal(await row.getAttribute('data-affects-me'), null, 'un cerrado no afecta a nadie')
-        // It is shown in its own state: the mark says «Cerrado» and the edge is the closed color.
         assert.equal(await row.locator('[data-testid="state-mark"]').getAttribute('data-status'), 'closed')
-        assert.notEqual(await row.evaluate((el) => getComputedStyle(el).boxShadow), 'none', 'el borde lleva el color del estado cerrado')
+        assert.notEqual(await row.evaluate((el) => getComputedStyle(el).boxShadow), 'none', 'the border carries the color of the closed state')
       }
-      await page.getByTestId('bell').click()
       await settled(page)
-      const listed = await page.locator('[data-lane="bell-list"] li').allInnerTexts()
-      assert.ok(listed.length <= before, 'la lista de la campana no crece')
-      assert.ok(!listed.some((t) => t.includes(title)), 'la campana ya no lista el mensaje cerrado')
+      const after = (await (await page.request.get(`${origin}/api/messages/summary`)).json()).mine.total
+      assert.ok(after < before, `el conteo baja (${before} → ${after})`)
+      let listed = 0
+      for (const mark of await page.locator('[data-testid="state-button"][data-status="open"], [data-testid="state-button"][data-status="answered"]').all()) {
+        await mark.click()
+        await page.getByTestId('status-menu').waitFor()
+        const texts = await page.locator('[data-testid="status-row"]').allInnerTexts()
+        listed += texts.length
+        assert.ok(!texts.some((t) => t.includes(title)), 'the dropdown no longer lists the closed message')
+        await page.keyboard.press('Escape')
+      }
+      assert.equal(listed, after, 'the dropdowns list exactly what the bar counts')
+      await page.locator('[data-testid="state-button"][data-status="closed"]').click()
+      await page.locator('[data-testid="status-row"]').first().waitFor()
+      assert.ok((await page.locator('[data-testid="status-row"]').allInnerTexts()).some((t) => t.includes(title)), 'the closed message appears in the closed dropdown')
+      await page.keyboard.press('Escape')
+      assert.equal(await page.getByTestId('state-button').first().evaluate((el) => !!el.closest('[data-testid="status-bar"]')), true)
     } finally {
       await context.close()
     }
   })
 
-  test('a count per area leads to Messages filtered by that area and by that state, and shows as many messages as the number says', async () => {
+  test('the top bar has no count per area, in any page and size; the counts of each area stay in the sidebar (UD-100)', async () => {
+    for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+      const { page, context } = await session('ana', viewport)
+      try {
+        for (const path of ['/', '/messages', '/areas', '/areas/a-error', '/team']) {
+          await page.goto(`${origin}${path}`)
+          await page.getByTestId('status-bar').waitFor()
+          await settled(page)
+          const bar = page.getByTestId('status-bar')
+          assert.equal(await bar.locator('[data-testid="area-pending"], [data-testid="area-chip"], [data-area-id], [data-testid="area-more"]').count(), 0, `${path} (${viewport.width}): contador por área en la barra`)
+          assert.equal(await bar.locator('button:visible').count(), viewport.width < 768 ? 1 : 3, `${path} (${viewport.width}): la barra son tres marcas (un resumen en el teléfono) y nada más`)
+          assert.doesNotMatch(await bar.innerText(), /abiertos?|respondidos?|cerrados?/i, `${path}: texto de estado visible`)
+          assert.equal(await page.locator('header [data-testid="area-pending"], header [data-area-id]').count(), 0)
+        }
+      } finally {
+        await context.close()
+      }
+    }
     const { page, context } = await session('ana')
     try {
-      const chip = page.getByTestId('area-pending').filter({ hasText: 'Error' }).first()
-      await chip.waitFor()
-      const summary = await (await page.request.get(`${origin}/api/messages/summary`)).json()
-      const areas = await (await page.request.get(`${origin}/api/areas`)).json()
-      const error = (areas.items ?? areas).find((a) => a.title === 'Error')
-      const open = summary.areas.find((a) => a.area_id === error.id).open
-      assert.ok(open > 0)
-      await chip.getByRole('link', { name: /abierto/ }).click()
-      await page.waitForURL(/\/messages\?/)
-      const url = new URL(page.url())
-      assert.deepEqual(url.searchParams.getAll('f').sort(), [`area:eq:${error.id}`, 'status:eq:open'])
-      await page.getByText(`${open} mensajes`, { exact: true }).waitFor()
-      assert.equal(await page.getByText('Abierto', { exact: true }).count() > 0, true)
-      assert.equal(await page.getByText('Respondido', { exact: true }).count(), 0, 'el filtro deja sólo abiertos')
+      const side = page.getByRole('navigation', { name: 'Navegación' })
+      await side.getByRole('link', { name: 'Error', exact: true }).waitFor()
+      await side.locator('[aria-label^="Error:"]').first().waitFor()
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('every mark opens its menu by click and by keyboard without leaving the page, the menu lists what the number counts, the arrows walk the rows and Escape gives the focus back (UD-100)', async () => {
+    const { page, context } = await session('ana')
+    try {
+      await page.getByTestId('status-bar').waitFor()
+      await settled(page)
+      const here = page.url()
+      const marks = await page.locator('[data-testid="status-bar"] [data-testid="state-button"]').count()
+      assert.equal(marks, 3, 'the three marks')
+      for (let i = 0; i < marks; i++) {
+        const mark = page.locator('[data-testid="status-bar"] [data-testid="state-button"]').nth(i)
+        const expected = Number((await mark.textContent()).trim())
+        for (const how of ['click', 'keyboard']) {
+          if (how === 'click') await mark.click()
+          else {
+            await mark.focus()
+            await page.keyboard.press(how === 'keyboard' && i % 2 ? 'Space' : 'Enter')
+          }
+          await page.getByTestId('status-menu').waitFor()
+          await page.locator('[data-lane="status-list"]').or(page.getByText('Sin mensajes')).first().waitFor()
+          assert.equal(await page.locator('[data-testid="status-row"]').count(), expected, `la marca ${i} (${await mark.getAttribute('aria-label')}) lista lo que cuenta (${how})`)
+          assert.equal(page.url(), here, 'abrir no navega')
+          if (how === 'keyboard' && expected > 0) {
+            await page.keyboard.press('ArrowDown')
+            const walked = await page.evaluate(() => document.activeElement?.closest('[data-lane="status-list"]') !== null && document.activeElement?.tagName === 'A')
+            assert.equal(walked, true, 'the arrows walk the rows')
+          }
+          await page.keyboard.press('Escape')
+          await page.getByTestId('status-menu').waitFor({ state: 'detached' })
+          await page.waitForFunction((el) => el === document.activeElement, await mark.elementHandle(), { timeout: 3000 }).catch(() => {})
+          assert.equal(await mark.evaluate((el) => el === document.activeElement), true, `Escape devuelve el foco a la marca (${how})`)
+        }
+      }
+      // A row opens its message.
+      await page.getByTestId('state-button').first().click()
+      const row = page.locator('[data-testid="status-row"] a').first()
+      await row.waitFor()
+      const href = await row.getAttribute('href')
+      await row.click()
+      await page.waitForURL(new RegExp(`${href}$`))
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('the bar never writes the name of a state, in any page, and the guard covers the accessible names (UD-100)', async () => {
+    const { page, context } = await session('ana')
+    try {
+      for (const path of ['/', '/messages', '/areas', '/team']) {
+        await page.goto(`${origin}${path}`)
+        await page.getByTestId('status-bar').waitFor()
+        await settled(page)
+        assert.doesNotMatch(await page.getByTestId('status-bar').innerText(), STATE_WORDS, `${path}: texto visible de la barra`)
+        // Every mark has a name, and the name is the word of the state (or the area with its words): color is never alone.
+        for (const mark of await page.locator('[data-testid="status-bar"] button').all()) {
+          assert.ok((await mark.getAttribute('aria-label'))?.trim(), `${path}: una marca sin nombre accesible`)
+        }
+      }
     } finally {
       await context.close()
     }
@@ -499,7 +578,7 @@ describe('Inicio (UD-030)', () => {
       const control = page.getByTestId('tray-control')
       await control.waitFor()
       await control.getByText('para revisar').waitFor({ timeout: 20000 })
-      assert.equal(await page.getByRole('dialog').count(), 0, 'nada se abre sobre la página')
+      assert.equal(await page.getByRole('dialog').count(), 0, 'nothing opens over the page')
       const drawer = page.getByTestId('send-drawer')
       await drawer.waitFor()
       assert.equal(await control.getAttribute('aria-expanded'), 'true')
@@ -517,11 +596,11 @@ describe('Inicio (UD-030)', () => {
       await body.waitFor()
       const fontOf = (locator) => locator.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
       const sizes = { text: await fontOf(body), other: await fontOf(drawer.getByRole('button', { name: /^Resumen/ }).first()) }
-      assert.ok(sizes.text >= 16, `el texto del análisis mide ${sizes.text} px`)
+      assert.ok(sizes.text >= 16, `the analysis text measures ${sizes.text} px`)
       assert.ok(sizes.text > sizes.other, 'the analysis text is larger than the analysis controls')
       // The original is always open, beside the analysis: it is half of the answer to «what did I send».
       assert.equal(await drawer.getByTestId('original-box').isVisible(), true)
-      assert.equal(await page.getByRole('button', { name: /^Original/, expanded: false }).count(), 0, 'el original ya no es un pliegue')
+      assert.equal(await page.getByRole('button', { name: /^Original/, expanded: false }).count(), 0, 'the original is no longer a fold')
     } finally {
       await context.close()
     }
@@ -529,7 +608,7 @@ describe('Inicio (UD-030)', () => {
 })
 
 // Round 1, judge A (J1-A-03, 10, 11, 15, 16, 21, 28, 32, 45, 57): what the judge found, as flows.
-describe('estados, teclado y filas', () => {
+describe('states, keyboard and rows', () => {
   test('an unknown address says so and a missing record offers to go back (J1-A-10)', async () => {
     const { page, context } = await session()
     try {
@@ -568,19 +647,19 @@ describe('estados, teclado y filas', () => {
       await page.goto(`${origin}/messages`)
       await page.locator('main article').first().waitFor()
       const xs = await page.evaluate(() => [...document.querySelectorAll('main article')].map((a) => Math.round((a.querySelector('.led') ?? a.querySelector('[data-testid="state-mark"]')).getBoundingClientRect().left)))
-      assert.ok(xs.length >= 3, 'hacen falta varias filas')
+      assert.ok(xs.length >= 3, 'several rows are needed')
       // J1-A-56: the background orbit fades under the top bar and does not cross titles or buttons.
       assert.match(await page.evaluate(() => getComputedStyle(document.querySelector('svg[aria-hidden]')).maskImage), /gradient/)
-      assert.equal(new Set(xs).size, 1, `el estado salta de columna: ${xs.join(', ')}`)
+      assert.equal(new Set(xs).size, 1, `the state jumps column: ${xs.join(', ')}`)
       const row = page.locator('main article').first()
       const reply = row.getByRole('link', { name: 'Responder' })
       const opacity = () => reply.evaluate((el) => getComputedStyle(el.parentElement).opacity)
       // J2-A-11: one rule for every row and screen: the actions are always drawn, with no pointer or focus, and at rest they are light.
       await page.mouse.move(0, 0)
-      assert.equal(await opacity(), '1', 'las acciones de la fila sólo existían al pasar el cursor')
+      assert.equal(await opacity(), '1', 'the row actions only existed on hover')
       assert.ok(await reply.isVisible())
       assert.ok(await row.getByRole('button', { name: 'Cerrar', exact: true }).isVisible())
-      assert.equal(await page.locator('main article').first().evaluate((el) => getComputedStyle(el.querySelector('.btn-ghost')).backgroundColor), 'rgba(0, 0, 0, 0)', 'en reposo la acción no es un botón pesado')
+      assert.equal(await page.locator('main article').first().evaluate((el) => getComputedStyle(el.querySelector('.btn-ghost')).backgroundColor), 'rgba(0, 0, 0, 0)', 'at rest the action is not a heavy button')
     } finally {
       await context.close()
     }
@@ -605,7 +684,7 @@ describe('estados, teclado y filas', () => {
       await openMessage(page, 'Revisar la lectura')
       const button = page.getByRole('button', { name: 'Cerrar', exact: true })
       const before = await button.boundingBox()
-      assert.equal(await page.getByRole('button', { name: 'Deshacer' }).count(), 0, 'sin cambios no hay Deshacer')
+      assert.equal(await page.getByRole('button', { name: 'Deshacer' }).count(), 0, 'with no changes there is no «Deshacer»')
       await button.click()
       await page.getByRole('button', { name: 'Reabrir', exact: true }).waitFor()
       await page.getByText('Cerrado').first().waitFor()
@@ -666,13 +745,13 @@ describe('templates as a form (J1-A-32)', () => {
       const dialog = page.getByRole('dialog')
       await dialog.getByRole('heading', { name: 'Campos' }).waitFor()
       const text = await dialog.innerText()
-      for (const raw of ['---', 'fields:', 'required:', 'name:', '{ name']) assert.ok(!text.includes(raw), `el formulario muestra sintaxis cruda: «${raw}»`)
+      for (const raw of ['---', 'fields:', 'required:', 'name:', '{ name']) assert.ok(!text.includes(raw), `the form shows raw syntax: «${raw}»`)
       await dialog.getByRole('button', { name: 'Campo', exact: true }).click()
       await dialog.getByRole('button', { name: /^Rótulo del campo: Campo nuevo/ }).waitFor()
       const required = dialog.getByLabel('Obligatorio').last()
       await required.click()
       await settled(page)
-      assert.equal(await required.isChecked(), true, 'la casilla Obligatorio guarda el cambio')
+      assert.equal(await required.isChecked(), true, 'the «Obligatorio» checkbox saves the change')
       await dialog.getByRole('button', { name: 'Quitar el campo Campo nuevo' }).click()
       await dialog.getByRole('button', { name: /^Rótulo del campo: Campo nuevo/ }).waitFor({ state: 'detached' })
       await page.keyboard.press('Escape')
@@ -700,18 +779,21 @@ describe('templates as a form (J1-A-32)', () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/settings`)
-      await page.getByRole('button', { name: 'Proveedor de Texto' }).click()
-      const options = await page.getByRole('menuitemradio').allInnerTexts()
-      assert.ok(options.includes('anthropic') && !options.includes('groq-speech'), `Texto ofrece: ${options.join(', ')}`)
-      await page.keyboard.press('Escape')
-      assert.equal(await page.getByRole('button', { name: 'Proveedor de Transcripción' }).count(), 0, 'una función con un solo proveedor no ofrece un control vacío')
+      const options = async (slot) => {
+        const select = page.locator(`li[data-slot="${slot}"] select`)
+        await select.waitFor()
+        return select.locator('option').allInnerTexts()
+      }
+      const text = await options('text')
+      assert.ok(text.includes('Anthropic') && !text.some((o) => o.includes('transcripción')), `Texto ofrece: ${text.join(', ')}`)
+      assert.deepEqual(await options('speech'), ['Groq (transcripción)'])
     } finally {
       await context.close()
     }
   })
 })
 
-// ---------------------------------------------------------------- Ronda 1, juez B: enviar, analizar, revisar y publicar
+// ---------------------------------------------------------------- Round 1, judge B: send, analyze, review and publish
 const THREE = 'Corregir el desalineado del sidebar en la vista dashboard.\n\nAgregar la sincronización con WhatsApp en el sidebar.\n\nPregunta: ¿el audio máximo sigue en 25 MB?'
 
 describe('publishing flow (round 1, judge B)', () => {
@@ -721,14 +803,15 @@ describe('publishing flow (round 1, judge B)', () => {
       await sendInput(page, THREE)
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
       // One open and the other two on one line: the three titles are in view, without paging.
-      assert.equal(await page.getByRole('button', { name: /^Abrir el mensaje \d/ }).count(), 2, 'dos mensajes plegados en una línea')
-      assert.equal(await page.getByRole('button', { name: 'Página siguiente' }).count(), 0, 'sin paginación para tres mensajes')
+      assert.equal(await page.getByRole('button', { name: /^Abrir el mensaje \d/ }).count(), 2, 'two folded messages on one line')
+      // The pager of the two lists of Home is outside the proposal: with the strip gone from Home they have room and page, which says nothing about the proposal.
+      assert.equal(await page.getByTestId('send-drawer').getByRole('button', { name: 'Página siguiente' }).count(), 0, 'no pagination for three messages')
       await page.getByRole('button', { name: 'Enviar 3 mensajes', exact: true }).waitFor()
       // Opening another folds the previous one: there are still three, one open.
       await page.getByRole('button', { name: /^Abrir el mensaje 2/ }).click()
       assert.equal(await page.getByRole('button', { name: /^Área:/ }).count(), 1)
       assert.equal(await page.getByRole('button', { name: /^Abrir el mensaje \d/ }).count(), 2)
-      assert.equal(await page.getByRole('button', { name: /^Abrir el mensaje 1/ }).count(), 1, 'el primero quedó plegado')
+      assert.equal(await page.getByRole('button', { name: /^Abrir el mensaje 1/ }).count(), 1, 'the first one stayed folded')
     } finally {
       await context.close()
     }
@@ -761,7 +844,7 @@ describe('publishing flow (round 1, judge B)', () => {
       await sendInput(page, 'Un punto para analizar dos veces.')
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
       await page.getByRole('button', { name: 'Volver a analizar' }).click()
-      assert.equal(await page.getByRole('dialog', { name: 'Volver a analizar' }).count(), 0, 'sin cambios no hace falta confirmar')
+      assert.equal(await page.getByRole('dialog', { name: 'Volver a analizar' }).count(), 0, 'with no changes there is no need to confirm')
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
       await page.getByRole('button', { name: /^Título del mensaje: / }).first().click()
       await page.getByRole('textbox', { name: 'Título del mensaje' }).fill('Cambio que se perdería')
@@ -799,11 +882,11 @@ describe('publishing flow (round 1, judge B)', () => {
       const one = await box()
       await input.setInputFiles([wav('uno.wav'), wav('dos.wav'), wav('tres.wav')])
       const three = await box()
-      assert.ok(one > none, 'el primer adjunto abre la fila')
-      assert.ok(Math.abs(three - one) <= 1, `tres adjuntos no agrandan más la barra que uno: ${one} contra ${three}`)
+      assert.ok(one > none, 'the first attachment opens the row')
+      assert.ok(Math.abs(three - one) <= 1, `three attachments do not enlarge the bar more than one: ${one} against ${three}`)
       for (const x of await page.getByRole('button', { name: /^Quitar / }).all()) {
         const b = await x.boundingBox()
-        assert.ok(b.width >= 24 && b.height >= 24, `blanco de ${b.width}x${b.height}`)
+        assert.ok(b.width >= 24 && b.height >= 24, `target of ${b.width}x${b.height}`)
       }
     } finally {
       await context.close()
@@ -833,9 +916,9 @@ describe('publishing flow (round 1, judge B)', () => {
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
       const send = page.getByRole('button', { name: 'Enviar 3 mensajes', exact: true })
       const b = await send.boundingBox()
-      assert.ok(b.y + b.height <= 844 && b.y >= 0, `Enviar queda fuera de la pantalla: ${JSON.stringify(b)}`)
+      assert.ok(b.y + b.height <= 844 && b.y >= 0, `«Enviar» is off screen: ${JSON.stringify(b)}`)
       const d = await page.getByRole('button', { name: 'Descartar' }).last().boundingBox()
-      assert.ok(d.y + d.height <= 844, 'Descartar queda fuera de la pantalla')
+      assert.ok(d.y + d.height <= 844, '«Descartar» is off screen')
     } finally {
       await context.close()
     }
@@ -858,28 +941,28 @@ describe('publishing flow (round 2, judge B)', () => {
       const saved = page.getByRole('button', { name: /^Texto del mensaje: Cuerpo corregido/ })
       await saved.waitFor()
       // The focus returns to the edited text, not to the window container.
-      assert.equal(await saved.evaluate((el) => el === document.activeElement), true, 'el foco queda en el texto guardado')
+      assert.equal(await saved.evaluate((el) => el === document.activeElement), true, 'focus stays on the saved text')
       // A second Enter reopens that same text: it is what it does in any field, and it does not publish.
       await page.keyboard.press('Enter')
       await page.getByRole('textbox', { name: 'Texto del mensaje' }).waitFor()
       await page.keyboard.press('Escape')
       await saved.waitFor()
-      assert.equal(await saved.evaluate((el) => el === document.activeElement), true, 'Escape también devuelve el foco al texto')
+      assert.equal(await saved.evaluate((el) => el === document.activeElement), true, 'Escape also returns focus to the text')
       // From the container (the drawer itself, no field focused) Enter does not publish either.
       await page.getByTestId('send-drawer').evaluate((el) => el.focus())
       await page.keyboard.press('Enter')
       await page.keyboard.press('Enter')
       await settled(page)
-      assert.equal(publishes.length, 0, 'ningún Intro publicó')
+      assert.equal(publishes.length, 0, 'no Enter published')
       await page.getByRole('button', { name: 'Enviar 3 mensajes', exact: true }).waitFor()
-      assert.ok(await tray.count(), 'el envío sigue en la bandeja')
+      assert.ok(await tray.count(), 'the submission is still in the tray')
     } finally {
       await context.close()
     }
   })
 })
 
-describe('compositor (ronda 2, juez B)', () => {
+describe('composer (round 2, judge B)', () => {
   test('«Enlace» leaves the focus in its field; long text grows over the page without moving it and keeps the writing line in view (J2-B-01, J2-B-02, J2-B-04)', async () => {
     const { page, context } = await session('sofia')
     try {
@@ -889,8 +972,8 @@ describe('compositor (ronda 2, juez B)', () => {
       await page.getByRole('menuitem', { name: 'Enlace' }).click()
       const field = page.getByLabel('Enlace', { exact: true })
       await field.waitFor()
-      assert.equal(await field.evaluate((el) => el === document.activeElement), true, 'el campo del enlace nace con el foco')
-      assert.ok((await page.locator('label[for="compose-link"]').count()) === 1, 'el campo lleva su rótulo visible')
+      assert.equal(await field.evaluate((el) => el === document.activeElement), true, 'the link field starts focused')
+      assert.ok((await page.locator('label[for="compose-link"]').count()) === 1, 'the field has its label visible')
       await page.keyboard.press('Escape')
       // Long text: the page does not move and the box stops at its maximum.
       const feed = page.getByRole('heading', { name: 'Últimos mensajes' })
@@ -900,12 +983,12 @@ describe('compositor (ronda 2, juez B)', () => {
       // `fill` sets the value without moving the caret into view in Firefox (Chromium scrolls on its own); the person's caret goes to the end of what they wrote.
       await page.keyboard.press('Control+End')
       await settled(page)
-      assert.equal((await feed.boundingBox()).y, y0, 'escribir un texto largo no mueve la página')
+      assert.equal((await feed.boundingBox()).y, y0, 'typing a long text does not move the page')
       const box = await bar.boundingBox()
-      assert.ok(box.height <= 124, `el cuadro de texto se detiene en su máximo: ${box.height}`)
+      assert.ok(box.height <= 192, `the text box stops at its maximum: ${box.height}`)
       // The writing line stays in view: the cursor is at the end and the box scrolled down to it.
-      assert.equal(await bar.evaluate((el) => el.scrollTop + el.clientHeight >= el.scrollHeight - 2), true, 'se ve el final del texto')
-      assert.ok((await bar.boundingBox()).y + (await bar.boundingBox()).height <= 900, 'el cuadro está dentro de la ventana')
+      assert.equal(await bar.evaluate((el) => el.scrollTop + el.clientHeight >= el.scrollHeight - 2), true, 'the end of the text is visible')
+      assert.ok((await bar.boundingBox()).y + (await bar.boundingBox()).height <= 900, 'the box is inside the window')
     } finally {
       await context.close()
     }
@@ -930,9 +1013,9 @@ describe('tray and proposal (round 2, judge B)', () => {
       await page.getByRole('button', { name: 'Enviar' }).first().click()
       const control = page.getByTestId('tray-control')
       await control.waitFor()
-      assert.equal(await control.evaluate((el) => el.tagName), 'BUTTON', 'la franja es un botón')
-      assert.ok((await control.evaluate((el) => getComputedStyle(el).borderTopWidth)) !== '0px', 'con forma de botón: tiene contorno')
-      assert.deepEqual(await y(), before, 'la franja aparece sin mover la barra ni su título')
+      assert.equal(await control.evaluate((el) => el.tagName), 'BUTTON', 'the strip is a button')
+      assert.ok((await control.evaluate((el) => getComputedStyle(el).borderTopWidth)) !== '0px', 'button-shaped: it has an outline')
+      assert.deepEqual(await y(), before, 'the strip appears without moving the bar or its title')
       // The progress shows with the strip folded.
       await control.getByRole('progressbar').waitFor()
       await panel.control.release()
@@ -941,7 +1024,7 @@ describe('tray and proposal (round 2, judge B)', () => {
       await page.getByRole('button', { name: 'Enviar' }).first().click()
       await control.getByText('2 para revisar').waitFor({ timeout: 40000 })
       const selected = await page.locator('[role="option"][aria-selected="true"]').first().getAttribute('aria-label')
-      assert.match(selected, /Segundo envío/, `el desplegable abre en el reciente: ${selected}`)
+      assert.match(selected, /Segundo envío/, `the dropdown opens on the latest: ${selected}`)
     } finally {
       await context.close()
     }
@@ -957,9 +1040,9 @@ describe('tray and proposal (round 2, judge B)', () => {
       await page.getByRole('button', { name: 'Enviar' }).first().click()
       const cancel = page.getByRole('button', { name: 'Cancelar', exact: true })
       await cancel.waitFor()
-      assert.ok((await cancel.evaluate((el) => parseFloat(getComputedStyle(el).borderTopWidth))) >= 1, 'Cancelar tiene contorno')
+      assert.ok((await cancel.evaluate((el) => parseFloat(getComputedStyle(el).borderTopWidth))) >= 1, '«Cancelar» has an outline')
       const box = await page.getByTestId('send-drawer').boundingBox()
-      assert.ok(box.height >= 250, `el desplegable conserva su alto desde la cola: ${box.height} px`)
+      assert.ok(box.height >= 250, `the dropdown keeps its height from the queue: ${box.height} px`)
     } finally {
       await context.close()
     }
@@ -976,22 +1059,22 @@ describe('tray and proposal (round 2, judge B)', () => {
       const sendY = (await send.boundingBox()).y
       await page.getByRole('button', { name: /^Quitar el mensaje/ }).first().click()
       await page.getByRole('button', { name: 'Enviar 2 mensajes', exact: true }).waitFor()
-      assert.equal((await again.boundingBox()).x, x0, 'Volver a analizar conserva su lugar cuando aparece el historial')
-      assert.equal(await page.getByRole('button', { name: 'Deshacer' }).count(), 1, 'un solo Deshacer a la vista')
+      assert.equal((await again.boundingBox()).x, x0, '«Volver a analizar» keeps its place when the history appears')
+      assert.equal(await page.getByRole('button', { name: 'Deshacer' }).count(), 1, 'a single «Deshacer» in view')
       await page.locator('[data-notice]').getByText(/^Mensaje quitado/).waitFor()
-      assert.equal(await page.locator('[data-notice]').getByRole('button', { name: 'Deshacer' }).count(), 0, 'el aviso no repite el Deshacer')
-      assert.ok((await page.getByRole('button', { name: 'Enviar 2 mensajes', exact: true }).boundingBox()).y <= sendY, 'quitar un mensaje no empuja Enviar hacia abajo por culpa del aviso')
+      assert.equal(await page.locator('[data-notice]').getByRole('button', { name: 'Deshacer' }).count(), 0, 'the notice does not repeat the «Deshacer»')
+      assert.ok((await page.getByRole('button', { name: 'Enviar 2 mensajes', exact: true }).boundingBox()).y <= sendY, 'removing a message does not push «Enviar» down because of the notice')
       // No field of the open message goes past the right edge of its surface (J2-B-18).
       const region = await page.getByRole('region', { name: 'Análisis' }).boundingBox()
       for (const field of await page.locator('dd [role="button"]').all()) {
         const b = await field.boundingBox()
-        assert.ok(b.x + b.width <= region.x + region.width - 1, `un campo se sale por la derecha: ${b.x + b.width} contra ${region.x + region.width}`)
+        assert.ok(b.x + b.width <= region.x + region.width - 1, `a field overflows on the right: ${b.x + b.width} against ${region.x + region.width}`)
       }
       // The original is beside the analysis and always open: the proposal keeps its width whatever the original says (J2-B-20, UD-046).
       const original = await page.getByTestId('original-box').boundingBox()
-      assert.ok(original.x + original.width <= region.x + 1, 'el original queda a la izquierda del análisis')
+      assert.ok(original.x + original.width <= region.x + 1, 'the original sits to the left of the analysis')
       const unitsButton = page.getByRole('button', { name: /^Partes sin mensaje/ })
-      assert.ok((await unitsButton.evaluate((el) => parseFloat(getComputedStyle(el).borderTopWidth))) >= 1, '«Partes sin mensaje» tiene forma de botón')
+      assert.ok((await unitsButton.evaluate((el) => parseFloat(getComputedStyle(el).borderTopWidth))) >= 1, '«Partes sin mensaje» has the shape of a button')
       await unitsButton.click()
       const items = page.locator('[data-lane="discarded-units"] li')
       assert.ok((await items.count()) >= 1)
@@ -1010,15 +1093,15 @@ describe('tray and proposal (round 2, judge B)', () => {
       const list = page.locator('[data-lane="member-picker"]')
       await list.waitFor()
       const b = await page.getByRole('menu').or(list.locator('..')).first().boundingBox()
-      assert.ok(b.y >= 0 && b.y + b.height <= 900, `el menú está dentro de la ventana: ${JSON.stringify(b)}`)
+      assert.ok(b.y >= 0 && b.y + b.height <= 900, `the menu is inside the window: ${JSON.stringify(b)}`)
       // With up to nine people (the team in the development data) there is nothing to scroll; with more, the box stays inside the window.
-      if ((await list.locator('li').count()) <= 9) assert.equal(await list.evaluate((el) => el.scrollHeight <= el.clientHeight + 1), true, 'con nueve personas no hace falta desplazar')
+      if ((await list.locator('li').count()) <= 9) assert.equal(await list.evaluate((el) => el.scrollHeight <= el.clientHeight + 1), true, 'with nine people there is no need to scroll')
       await page.keyboard.press('Escape')
       // Removing every recipient of the open message leaves its row marked once folded; the others stay plain.
       const chips = page.getByRole('button', { name: /^Quitar a / })
       while (await chips.count()) await chips.first().click({ force: true })
       await page.getByRole('button', { name: /^Abrir el mensaje 2/ }).click()
-      assert.equal(await page.locator('[data-needs-attention]').count(), 1, 'sólo la fila sin destinatario se señala')
+      assert.equal(await page.locator('[data-needs-attention]').count(), 1, 'only the row with no recipient is flagged')
     } finally {
       await context.close()
     }
@@ -1038,7 +1121,7 @@ describe('tray and proposal (round 2, judge B)', () => {
       await proposalReady(page)
       await page.getByRole('button', { name: 'Descartar' }).last().click()
       await page.getByRole('status').getByText('Envío descartado').waitFor()
-      assert.equal(await page.getByRole('button', { name: /^Área:/ }).count(), 0, 'el detalle no salta a otro envío')
+      assert.equal(await page.getByRole('button', { name: /^Área:/ }).count(), 0, 'the detail does not jump to another submission')
       await page.getByRole('status').getByRole('button', { name: 'Deshacer' }).click()
       await proposalReady(page)
     } finally {
@@ -1060,15 +1143,15 @@ describe('tray and proposal (round 2, judge B)', () => {
       await proposalReady(page)
       // One row that scrolls sideways, not a list that takes the screen: three sends do not push the proposal down.
       const switcher = await page.getByTestId('send-switcher').boundingBox()
-      assert.ok(switcher.height < 100, `el selector de envíos ocupa ${switcher.height} px de alto`)
-      assert.equal(await page.getByRole('option').count(), 3, 'cada envío tiene su opción')
+      assert.ok(switcher.height < 100, `the submissions selector is ${switcher.height} px tall`)
+      assert.equal(await page.getByRole('option').count(), 3, 'each submission has its own option')
       const proposal = await page.getByRole('region', { name: 'Análisis' }).boundingBox()
-      assert.ok(proposal.y < 844 * 1.2, `la propuesta empieza en las dos primeras pantallas: y=${proposal.y}`)
+      assert.ok(proposal.y < 844 * 1.2, `the proposal starts within the first two screens: y=${proposal.y}`)
       await page.getByRole('option').first().click()
       await proposalReady(page)
       await page.getByRole('button', { name: /^Área:/ }).first().click()
       const menu = await page.getByRole('menu').boundingBox()
-      assert.ok(menu.x >= 0 && menu.x + menu.width <= 390, `el menú de área cabe en el ancho: ${JSON.stringify(menu)}`)
+      assert.ok(menu.x >= 0 && menu.x + menu.width <= 390, `the area menu fits the width: ${JSON.stringify(menu)}`)
     } finally {
       await context.close()
     }
@@ -1087,10 +1170,10 @@ describe('tray and proposal (round 2, judge B)', () => {
       const heading = page.getByRole('heading', { name: 'Últimos mensajes' })
       const y = (await heading.boundingBox()).y
       await settled(page)
-      assert.equal((await heading.boundingBox()).y, y, 'el aviso flota: no empuja la página')
-      assert.equal(await notice.evaluate((el) => getComputedStyle(el.parentElement).position), 'fixed', 'el aviso de la página flota sobre ella')
+      assert.equal((await heading.boundingBox()).y, y, 'the notice floats: it does not push the page')
+      assert.equal(await notice.evaluate((el) => getComputedStyle(el.parentElement).position), 'fixed', 'the page notice floats over it')
       // The trace of the send: its three messages exist in Mensajes, where the link of the notice leads.
-      assert.equal(await total(), had + 3, 'los tres mensajes quedaron publicados')
+      assert.equal(await total(), had + 3, 'the three messages were published')
       await notice.getByRole('link', { name: 'Ver mensajes' }).click()
       await page.waitForURL(/\/messages/)
     } finally {

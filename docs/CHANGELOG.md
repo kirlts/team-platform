@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Proveedores en Configuración (UD-120, UD-121): lista con estado y últimos 4 de la clave, alta, reemplazo con prueba previa, retiro con bloqueo por dependencia, cambio de función con reversión y diagnóstico con causa clasificada; claves cifradas en reposo y `scripts/rotate-secrets-key.mjs`.
+- Configuración: editor de la descripción que crece con el texto (UD-123) y una línea de explicación bajo cada ajuste (UD-122).
+- HP-015 y HP-018 por tipo de adjunto como pruebas con su ID; pruebas de `llm_calls` y de `GET /health` con el proveedor de respaldo (DT-003).
+- HP-008 revisa también los mensajes de aserción y `.githooks/`.
 - Galería de medios del panel (`MediaGallery`, UD-059) y `GET /api/attachments/:id/transcript`.
 - Telemetría de la interfaz (UD-091): `POST /api/telemetry/ui`, `GET /api/telemetry/ui-summary`, `PATCH /api/settings/telemetry`, módulo `panel/src/lib/telemetry.ts`, interruptor en Configuración y `scripts/ui-report.mjs`.
 - `panel/scripts/ui-detectors.mjs`: detectores de interfaz en navegador sobre todas las rutas, dos ventanas y dos temas.
@@ -48,6 +52,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `README.md` para quien llega al repositorio público.
 
 ### Changed
+- `docs/TECHNICAL-DEBT.md` conserva solo DT-007 (HP-019 y HP-020). Quedaron cerradas DT-003 (proveedor de respaldo invocado), DT-004 (gancho de pre-commit), DT-005 (tope de documentos), DT-006 (cabecera de `src/analyze/api.js`), DT-008 (capas 3 y 5), DT-009 (inglés en comentarios, nombres, aserciones y registros). DT-010 queda descartada por el dueño (H-45).
+- `docs/TEST.md` numera HP-029 la prohibición de privacidad de la telemetría de la interfaz, que repetía HP-022.
 - Panel: Inicio muestra los últimos mensajes y las últimas respuestas como bloque principal y pliega la cola de envíos, el original y el análisis tras un solo control; el texto del análisis se dibuja a 17 px (UD-030).
 - UD-015: el código y sus comentarios pasan al inglés; la interfaz, los mensajes a la persona, las plantillas y la documentación siguen en español. Reemplaza a UD-005 en los comentarios.
 - El analizador clasifica y descompone con esfuerzo `low` y pensamiento apagado. El límite de llamadas a la vez sube a 16 (medición del 2026-10-20).

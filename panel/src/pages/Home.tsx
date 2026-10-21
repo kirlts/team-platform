@@ -1,15 +1,13 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
+import { cn } from '@/lib/utils'
 import { AlertTriangle, ChevronDown } from '@/components/icons'
-import { AreaChips } from '@/components/AreaChips'
 import { Meter } from '@/components/Meter'
-import { Button } from '@/components/ui/button'
 import { useNotices } from '@/lib/notices'
 import { sendPercent } from '@/lib/progress'
 import { ComposeBar, type SendDraft } from '@/components/ComposeBar'
-import { useLookups } from '@/components/lookups'
-import { StateMark, useCountsLabel, usePulse } from '@/components/NotifyBadge'
+import { usePulse } from '@/components/NotifyBadge'
 import { Badge } from '@/components/ui/badge'
 import { FitList } from '@/components/FitList'
 import { LoadState } from '@/components/LoadState'
@@ -19,11 +17,9 @@ import { SendDrawer } from '@/components/SendDrawer'
 import { Segmented } from '@/components/Segmented'
 import { type PendingUpload, type TrayItem } from '@/components/Tray'
 import { useErrorText, useFormat, useT } from '@/i18n'
-import { ME, serializeQuery, type MessageQuery } from '@/lib/filters'
-import { areaCounts, areaMessagesPath, mineCounts } from '@/lib/pending'
-import { topState } from '@/lib/states'
+import { ME, type MessageQuery } from '@/lib/filters'
 import { useEventsSnapshot } from '@/lib/events'
-import { useMe, useMessages, useProject, useSends, useSummary } from '@/lib/queries'
+import { useMe, useMessages, useProject, useSends } from '@/lib/queries'
 import { uploadInput } from '@/lib/upload'
 import { useDesktop } from '@/lib/useDesktop'
 
@@ -206,48 +202,13 @@ export function Home() {
   // browser's upload to the server's list in two steps (the cache notifies after the upload leaves), and that gap must not fold it.
   const working = items.length > 0
 
-  // With the drawer open and a window too low for it and the two lists (UD-017), the lists yield: they fold into one strip that says where they are. Measured, not guessed:
-  // the page folds them only when it does overflow with them drawn, and tries again whenever the window changes size.
-  const [listsFolded, setListsFolded] = useState(false)
+  // With a send open the page is taller than the window and its region scrolls (UD-110, which amends UD-017); at rest it fits.
+  // The two lists then get a height of their own: a frame that takes its height from its content would grow with the sixty rows the lists draw to measure themselves.
   const shown = working && drawerOpen && desktop
-  // A list that is still measuring draws sixty rows for a moment: the page is only read once none is (`data-fit-measuring`), and again whenever one finishes.
-  useEffect(() => {
-    const main = document.querySelector('main')
-    if (!shown) {
-      setListsFolded(false)
-      return
-    }
-    if (!main || listsFolded) return
-    const check = () => {
-      if (!main.querySelector('[data-fit-measuring]') && main.scrollHeight > main.clientHeight + 1) setListsFolded(true)
-    }
-    const observer = new MutationObserver(check)
-    observer.observe(main, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-fit-measuring', 'style'] })
-    check()
-    return () => observer.disconnect()
-  }, [shown, listsFolded])
-  useEffect(() => {
-    const main = document.querySelector('main')
-    if (!main || typeof ResizeObserver === 'undefined') return
-    let width = main.clientWidth
-    let height = main.clientHeight
-    const observer = new ResizeObserver(() => {
-      // A different window is a different question: draw the lists again and measure again.
-      if (Math.abs(main.clientWidth - width) > 1 || Math.abs(main.clientHeight - height) > 1) {
-        width = main.clientWidth
-        height = main.clientHeight
-        setListsFolded(false)
-      }
-    })
-    observer.observe(main)
-    return () => observer.disconnect()
-  }, [])
 
   return (
-    <Page cols={12} dense>
-      {/* From top to bottom (mockup, UD-046): what affects me, the project and the date, the bar to write, the drawer with what was sent and how it was analyzed, and the latest messages and replies. */}
-      <Attention />
-
+    <Page cols="inicio" airy scrolls={shown}>
+      {/* From top to bottom (mockup, UD-046): the project and the date, the bar to write, the drawer with what was sent and how it was analyzed, and the latest messages and replies. */}
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-0.5">
         {/* The header says the project's name too: this is the page's title (the mockup has both), so the repeat is declared. */}
         <h1 data-repeat-ok="page-title" className="min-w-0 break-words">
@@ -258,7 +219,7 @@ export function Home() {
         </time>
       </div>
 
-      <section aria-label={t('home.new')} className="flex flex-col gap-1.5">
+      <section aria-label={t('home.new')} className="mx-auto flex w-full max-w-compose flex-col gap-3 [@media(min-height:1000px)]:md:py-block">
         {/* The row keeps its height with or without sends, so the control appearing moves nothing (J2-B-08). */}
         <div className="flex min-h-7 items-center justify-between gap-x-6">
           <h2>{t('home.new')}</h2>
@@ -269,7 +230,7 @@ export function Home() {
               data-testid="tray-control"
               aria-expanded={drawerOpen}
               onClick={() => setDrawerOpen((v) => !v)}
-              className="btn btn-glass relative h-7 min-w-0 gap-x-2.5 overflow-hidden !border-accent !bg-accent-soft/70 px-3 pb-1.5 text-left"
+              className="btn relative h-7 min-w-0 gap-x-2.5 overflow-hidden border border-transparent px-3 pb-1.5 text-left text-muted hover:bg-hover hover:text-fg"
             >
               <span className="text-sm font-bold">{t('tray.title')}</span>
               <TrayState items={items} progress={events.progress} />
@@ -288,7 +249,6 @@ export function Home() {
             setDiscarded(null)
             setSelectedId(id)
           }}
-          fillRest={listsFolded}
           review={{
             onClose: finished,
             onDiscarded: (id, restore) => {
@@ -308,10 +268,8 @@ export function Home() {
       )}
 
       {/* The main block of the page (UD-030): the latest messages and replies, always in view. On a phone one list at a time, in a frame as tall as the screen (J3-A-10). */}
-      {desktop && listsFolded ? (
-        <FoldedLists onShow={() => setDrawerOpen(false)} />
-      ) : desktop ? (
-        <div className="grid min-h-[22rem] flex-1 gap-x-5 gap-y-4 md:min-h-0 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] md:grid-rows-[minmax(0,1fr)]">
+      {desktop ? (
+        <div className={cn('grid min-h-[22rem] flex-1 gap-x-section gap-y-block md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] md:grid-rows-[minmax(0,1fr)]', shown ? 'md:h-[max(28rem,56dvh)] md:flex-none' : 'md:min-h-0')}>
           <Feed kind="messages" meId={me?.id ?? ''} />
           <Feed kind="replies" meId={me?.id ?? ''} />
         </div>
@@ -330,28 +288,6 @@ export function Home() {
         </div>
       )}
     </Page>
-  )
-}
-
-/** The two lists, folded into one strip while the drawer has the room (low windows): each name leads to its list in Mensajes, and the button gives the room back. */
-function FoldedLists({ onShow }: { onShow: () => void }) {
-  const t = useT()
-  return (
-    <section aria-label={t('home.latestMessages')} data-testid="lists-folded" className="glass leaf flex shrink-0 flex-wrap items-center gap-x-6 gap-y-1 px-4 py-1.5">
-      <h2>
-        <Link to="/messages" className="hover:underline">
-          {t('home.latestMessages')}
-        </Link>
-      </h2>
-      <h2>
-        <Link to="/messages?f=replies:eq:con" className="hover:underline">
-          {t('home.latestReplies')}
-        </Link>
-      </h2>
-      <Button size="sm" variant="ghost" className="ml-auto" onClick={onShow}>
-        {t('tray.fold')}
-      </Button>
-    </section>
   )
 }
 
@@ -387,72 +323,6 @@ function TrayState({ items, progress }: { items: readonly TrayItem[]; progress: 
         </Badge>
       )}
     </span>
-  )
-}
-
-/**
- * What affects me, at the top of the page (UD-030): one chip per priority with its count and one per area with
- * what is open or answered in it. Both rows use the same chip, quiet (UD-036), and the same kind of label; each chip leads to
- * Mensajes already filtered (UD-028). The areas take one row: those that do not fit fold behind «+N» (J3-A-06, J3-A-10).
- * From 768 px the strip has a height of its own (one row of chips of up to two lines) and does not wrap: while the chips measure themselves they are
- * all drawn, and a strip that grew with them moved the two lists below it at every measure, so both lists drew their measuring rows again and the
- * thumbnails asked for their files without end (H-1405).
- */
-function Attention() {
-  const t = useT()
-  const summary = useSummary().data
-  const { areaTitle } = useLookups()
-  const counts = mineCounts(summary)
-  const label = useCountsLabel()
-  const top = topState(counts)
-  const areas = (summary?.areas ?? []).filter((a) => a.open + a.answered > 0)
-  const mineParams = (status: string) => serializeQuery({ filters: [{ prop: 'for', op: 'eq', value: ME }, { prop: 'status', op: 'eq', value: status }], q: '' }).toString()
-  return (
-    <section aria-label={t('home.mine')} data-testid="attention" data-state-top={top ?? 'none'} className="glass leaf flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-1 md:h-12 md:flex-nowrap md:overflow-hidden">
-      <h2>{t('home.mine')}</h2>
-      <div className="flex min-h-6 items-center">
-        {!top ? (
-          <span className="text-sm text-muted">{t('home.mineNone')}</span>
-        ) : (
-          <ul className="flex flex-wrap items-center gap-1.5">
-            {(['open', 'answered'] as const).map(
-              (status) =>
-                (counts[status] ?? 0) > 0 && (
-                  <li key={status}>
-                    <Link to={`/messages?${mineParams(status)}`} className="rounded-full">
-                      <StateMark status={status} n={counts[status]} />
-                    </Link>
-                  </li>
-                ),
-            )}
-          </ul>
-        )}
-      </div>
-      {/* The row is always there, with the height of one chip: an area that gets something pending does not push the lists down (J3-B-15). */}
-      {areas.length === 0 ? (
-        <div aria-hidden className="min-h-6" />
-      ) : (
-        <>
-          <h2 className="md:border-l md:border-line md:pl-4">{t('home.byArea')}</h2>
-          <AreaChips
-            className="min-w-0 flex-1 basis-60 md:basis-0"
-            chips={areas.map((a) => (
-              <span key={a.area_id} data-testid="area-pending" className="inline-flex min-h-6 max-w-[24rem] flex-wrap items-center gap-x-1.5 rounded-2xl border border-line-strong px-2 py-px text-xs font-semibold leading-tight">
-                <span className="min-w-0 break-words">{areaTitle(a.area_id)}</span>
-                {(['open', 'answered'] as const).map(
-                  (status) =>
-                    areaCounts(summary, a.area_id)[status] > 0 && (
-                      <Link key={status} to={areaMessagesPath(a.area_id, status)} aria-label={t('areas.countOf', { title: areaTitle(a.area_id), count: label({ [status]: areaCounts(summary, a.area_id)[status] }) })} className="rounded-full hover:bg-glass-edge">
-                        <StateMark status={status} n={areaCounts(summary, a.area_id)[status]} plain className="min-h-0" />
-                      </Link>
-                    ),
-                )}
-              </span>
-            ))}
-          />
-        </>
-      )}
-    </section>
   )
 }
 

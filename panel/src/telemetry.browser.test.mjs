@@ -83,8 +83,8 @@ async function scenario({ origin, browser, signIn, pick, replier }) {
     await page.goto(`${origin}/messages/${target.id}`)
     await page.locator('main h1').waitFor()
   }
-  await page.getByRole('button', { name: 'Cerrar', exact: true }).click()
-  await page.getByRole('button', { name: 'Reabrir', exact: true }).waitFor()
+  await page.getByRole('button', { name: 'Cerrar mensaje', exact: true }).click()
+  await page.getByRole('button', { name: 'Reabrir mensaje', exact: true }).waitFor()
 
   // Leave the page with a send that was started and never published: the unload sends the abandonment.
   await page.goto(origin)

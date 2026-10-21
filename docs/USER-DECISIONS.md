@@ -958,6 +958,25 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 **Consecuencias:** Pruebas `panel/src/type-scale.test.ts` (campo en teléfono, paso de la escala y 16 px o más), `panel/src/ui-detectors.test.mjs` (páginas declaradas) y la corrida de `ui-detectors` con 0 hallazgos en las tres pantallas.
 **Condiciones de reversión:** Si el dueño prefiere 16 px, se agrega ese paso a `styles.css` y a `type-scale.test.ts`. Si quiere la miniatura en azul, vuelve `bg-accent-soft` en `Thumb.tsx` y el detector vuelve a marcar la ficha.
 
+## [UD-200] La ficha dice qué cierra, qué escribe y qué tipo de medio es cada adjunto
+
+**Fecha:** 2026-10-21
+**Contexto:** La ronda 5 de jueces encontró once defectos en la ficha y el flujo de responder y cerrar (H-3300 a H-3310). Medido en 390x844: el aviso de cierre cubría «Reabrir», la página mide 1,87 ventanas, y el ícono de un audio y el de un documento compartían contorno.
+**Decisión:** Decisión de la sesión, tomada por ese encargo; Martín no la dijo con estas palabras y puede revertirla. Restricciones del dueño intactas: los estados Abierto, Respondido y Cerrado conservan nombre y color (UD-041) y el chip de área su color (UD-045, UD-151).
+- «Cerrar mensaje» y «Reabrir mensaje» en la ficha, sin relleno y a 16 px de «Responder». Las tarjetas de lista conservan «Cerrar» y «Reabrir».
+- El campo de respuesta dice «Texto» y el grupo de tipo «Tipo»; sus nombres accesibles siguen siendo «Respuesta» y «Tipo de respuesta». La opción de tipo sigue llamándose «Respuesta».
+- Clip, cámara y micrófono del campo de respuesta llevan su nombre visible. Un tooltip no existe en teléfono.
+- En teléfono el cierre no lanza aviso flotante: lo dicen la caja «Cerrado: no admite respuestas» y «Reabrir mensaje», que lo deshace. En escritorio el aviso con «Deshacer» se mantiene. Enmienda en el lugar el efecto de J2-A-18 sólo en teléfono.
+- La confirmación «Respuesta enviada» se dibuja sobre la esquina del campo y no ocupa fila. Tras enviar o cerrar, el pie del hilo se trae a la ventana.
+- En teléfono la fila superior de la ficha lleva «Responder», un enlace que lleva el foco al campo. UD-059 fija el orden de la página y no se toca.
+- Cada adjunto de una respuesta es una fila con su nombre. Un mapa único de íconos por tipo de medio (foto, video, audio, documento, enlace) sirve a miniaturas y filas; el audio usa el micrófono, que no comparte contorno con el documento.
+**Alternativas descartadas:**
+- Renombrar la opción de tipo «Respuesta»: es el nombre natural del tipo por omisión y ya se distingue del título por su lugar.
+- Un aviso flotante más arriba en teléfono: cubre el título y el estado.
+- Sólo tooltip en los íconos del campo: no hay hover en teléfono.
+**Consecuencias:** `panel/src/flows-ronda5-respuestas.browser.test.mjs` (12 pruebas), `panel/src/components/MediaIcon.test.tsx` y `src/domain/attachments.test.js`.
+**Condiciones de reversión:** Si el dueño quiere «Cerrar» a secas, se cambian `reply.close` y `reply.reopen` en los catálogos. Si quiere el aviso en teléfono, se quita la condición `desktop` de `CloseMessage.tsx`.
+
 ## [UD-210] Cada cifra de pendientes dice su alcance por su nombre, y las dos listas de Inicio nombran igual su filtro
 
 **Fecha:** 2026-10-21

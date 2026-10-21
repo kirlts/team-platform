@@ -23,7 +23,8 @@ function breakable(href: string) {
 const PROBLEM: Record<MediaProblem, MessageKey> = { record: 'media.recordFailed', microphone: 'media.noMicrophone', link: 'media.invalidLink' }
 
 /** Clip: file or link. */
-export function ClipMenu({ draft, disabled, size = 'icon' }: { draft: MediaDraft; disabled?: boolean; size?: 'icon' | 'icon-sm' }) {
+/** With `labeled` each control says its name beside the icon: a tooltip does not exist on a phone, and clip and camera look alike at 16 px (J5-message-detail). */
+export function ClipMenu({ draft, disabled, size = 'icon', labeled = false }: { draft: MediaDraft; disabled?: boolean; size?: 'icon' | 'icon-sm'; labeled?: boolean }) {
   const t = useT()
   const fileInput = useRef<HTMLInputElement>(null)
   /** Set by the choice itself, read by the menu when it gives the focus back: an order of events, not a value of some render. */
@@ -32,8 +33,9 @@ export function ClipMenu({ draft, disabled, size = 'icon' }: { draft: MediaDraft
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size={size} aria-label={t('media.attach')} title={t('media.attach')} disabled={disabled}>
+          <Button variant="ghost" size={labeled ? 'sm' : size} aria-label={t('media.attach')} title={t('media.attach')} disabled={disabled}>
             <Paperclip size={size === 'icon' ? 18 : 16} aria-hidden />
+            {labeled && <span className="text-xs">{t('media.attach')}</span>}
           </Button>
         </DropdownMenuTrigger>
         {/* Choosing «Enlace» hands the focus to its field, and it does so at the moment the menu would give it back to the clip: that
@@ -76,7 +78,7 @@ export function ClipMenu({ draft, disabled, size = 'icon' }: { draft: MediaDraft
 }
 
 /** Camera and microphone. */
-export function CaptureButtons({ draft, disabled, size = 'icon' }: { draft: MediaDraft; disabled?: boolean; size?: 'icon' | 'icon-sm' }) {
+export function CaptureButtons({ draft, disabled, size = 'icon', labeled = false }: { draft: MediaDraft; disabled?: boolean; size?: 'icon' | 'icon-sm'; labeled?: boolean }) {
   const t = useT()
   const cameraInput = useRef<HTMLInputElement>(null)
   const iconSize = size === 'icon' ? 18 : 16
@@ -93,12 +95,13 @@ export function CaptureButtons({ draft, disabled, size = 'icon' }: { draft: Medi
           e.target.value = ''
         }}
       />
-      <Button variant="ghost" size={size} aria-label={t('media.takePhoto')} title={t('media.takePhoto')} disabled={disabled || !!draft.recording} onClick={() => cameraInput.current?.click()}>
+      <Button variant="ghost" size={labeled ? 'sm' : size} aria-label={t('media.takePhoto')} title={t('media.takePhoto')} disabled={disabled || !!draft.recording} onClick={() => cameraInput.current?.click()}>
         <Camera size={iconSize} aria-hidden />
+        {labeled && <span className="text-xs">{t('media.takePhoto')}</span>}
       </Button>
       <Button
         variant="ghost"
-        size={size}
+        size={labeled ? 'sm' : size}
         aria-label={draft.recording ? t('media.stopRecording') : t('media.record')}
         title={draft.micAvailable ? (draft.recording ? t('media.stopRecording') : t('media.record')) : t('media.needsHttps')}
         disabled={disabled || !draft.micAvailable}
@@ -106,6 +109,7 @@ export function CaptureButtons({ draft, disabled, size = 'icon' }: { draft: Medi
         className={cn(draft.recording && 'text-danger')}
       >
         {draft.recording ? <Square size={iconSize - 2} fill="currentColor" aria-hidden /> : <Mic size={iconSize} aria-hidden />}
+        {labeled && <span className="text-xs">{draft.recording ? t('media.stopRecording') : t('media.record')}</span>}
       </Button>
     </>
   )
@@ -159,7 +163,7 @@ export function MediaDraftList({ draft, busy }: { draft: MediaDraft; busy?: bool
         <ul aria-label={t('media.attachments')} className="flex flex-wrap items-center gap-1.5">
           {draft.locals.map((l) => (
             <li key={l.key} className="flex min-h-9 min-w-0 max-w-full items-center gap-2 rounded-md border border-line-strong bg-surface py-0.5 pl-1 pr-0.5">
-              <Thumb item={{ kind: kindFromMime(l.file.type), src: l.url, name: l.file.name, size: l.file.size }} px={28} />
+              <Thumb item={{ kind: kindFromMime(l.file.type, l.file.name), src: l.url, name: l.file.name, size: l.file.size }} px={28} />
               <span className="min-w-0 max-w-[12rem] text-xs leading-tight text-muted [overflow-wrap:anywhere]">{l.file.name}</span>
               {!busy && (
                 <button type="button" aria-label={t('media.remove', { name: l.file.name })} className="hit inline-flex shrink-0 items-center justify-center rounded-full text-muted hover:bg-hover hover:text-danger" onClick={() => draft.removeLocal(l.key)}>

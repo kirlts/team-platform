@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { useFormat, useT } from '@/i18n'
 import { useMe } from '@/lib/queries'
@@ -21,6 +21,22 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
   const { memberName } = useLookups()
   const canReply = !!me && me.id !== message.author_id && message.status !== 'closed'
   const rows = useMemo(() => message.replies, [message.replies])
+  // What the person just did at the foot of the page (send, close) is brought into the window with its controls: on a phone the
+  // form would otherwise end flush with the edge and «Cerrar» would fall below it (J5-flow-reply-close).
+  const foot = useRef<HTMLDivElement>(null)
+  const [sentAt, setSentAt] = useState<number | null>(null)
+  useEffect(() => {
+    if (sentAt !== null && message.replies.length > sentAt) {
+      setSentAt(null)
+      foot.current?.scrollIntoView?.({ block: 'nearest' })
+    }
+  }, [message.replies.length, sentAt])
+  const status = useRef(message.status)
+  useEffect(() => {
+    if (status.current === message.status) return
+    status.current = message.status
+    foot.current?.scrollIntoView?.({ block: 'nearest' })
+  }, [message.status])
 
   return (
     <section aria-label={t('replies.title')} className="flex min-h-0 flex-1 flex-col gap-3 md:flex-initial">
@@ -53,9 +69,10 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
         )}
         empty={<p className="px-3 py-6 text-center text-sm text-muted">{t('replies.none')}</p>}
       />
+      <div ref={foot} className="scroll-mb-4">
       {canReply ? (
-        <ReplyForm messageId={message.id} autoFocus={focusForm}>
-          <CloseMessage id={message.id} closed={false} />
+        <ReplyForm messageId={message.id} autoFocus={focusForm} onSent={() => setSentAt(message.replies.length)}>
+          <CloseMessage id={message.id} closed={false} quiet />
         </ReplyForm>
       ) : (
         // Without the form, the reason and the way out: a missing control that says nothing looks like a fault (J3-A-17, J4-flow-01).
@@ -64,6 +81,7 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
           <CloseMessage id={message.id} closed={message.status === 'closed'} />
         </div>
       )}
+      </div>
     </section>
   )
 }

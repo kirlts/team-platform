@@ -682,18 +682,18 @@ describe('states, keyboard and rows', () => {
     const { page, context } = await session('carla')
     try {
       await openMessage(page, 'Revisar la lectura')
-      const button = page.getByRole('button', { name: 'Cerrar', exact: true })
+      const button = page.getByRole('button', { name: 'Cerrar mensaje', exact: true })
       const before = await button.boundingBox()
       assert.equal(await page.getByRole('button', { name: 'Deshacer' }).count(), 0, 'with no changes there is no «Deshacer»')
       await button.click()
-      await page.getByRole('button', { name: 'Reabrir', exact: true }).waitFor()
+      await page.getByRole('button', { name: 'Reabrir mensaje', exact: true }).waitFor()
       await page.getByText('Cerrado').first().waitFor()
       // J2-A-18: closing is confirmed under the bar with its Deshacer, next to the action.
       const notice = page.getByRole('status').filter({ hasText: 'Mensaje cerrado' })
       await notice.waitFor()
       await notice.getByRole('button', { name: 'Deshacer' }).click()
-      await page.getByRole('button', { name: 'Cerrar', exact: true }).waitFor()
-      assert.ok(Math.abs((await page.getByRole('button', { name: 'Cerrar', exact: true }).boundingBox()).x - before.x) <= 1)
+      await page.getByRole('button', { name: 'Cerrar mensaje', exact: true }).waitFor()
+      assert.ok(Math.abs((await page.getByRole('button', { name: 'Cerrar mensaje', exact: true }).boundingBox()).x - before.x) <= 1)
     } finally {
       await context.close()
     }

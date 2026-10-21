@@ -77,9 +77,17 @@ export function uploadInput(
   })
 }
 
-export function kindFromMime(mime: string): 'image' | 'video' | 'audio' | 'document' {
+const EXTENSION_KIND: Record<string, 'image' | 'video' | 'audio'> = {
+  png: 'image', jpg: 'image', jpeg: 'image', webp: 'image', gif: 'image', heic: 'image', heif: 'image', avif: 'image',
+  mp4: 'video', mov: 'video', webm: 'video', mkv: 'video', m4v: 'video',
+  mp3: 'audio', m4a: 'audio', aac: 'audio', wav: 'audio', wave: 'audio', ogg: 'audio', flac: 'audio',
+}
+
+/** Kind of a local file: by its declared type and, when the system declares none (a .wav often arrives empty), by its extension. */
+export function kindFromMime(mime: string, name = ''): 'image' | 'video' | 'audio' | 'document' {
   if (mime.startsWith('image/')) return 'image'
   if (mime.startsWith('video/')) return 'video'
   if (mime.startsWith('audio/')) return 'audio'
+  if (mime === '' || mime === 'application/octet-stream') return EXTENSION_KIND[name.split('.').pop()?.toLowerCase() ?? ''] ?? 'document'
   return 'document'
 }

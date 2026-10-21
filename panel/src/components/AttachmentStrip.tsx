@@ -6,13 +6,11 @@ import { cn } from '@/lib/utils'
 import { MediaGalleryDialog } from './MediaGallery'
 import { Thumb } from './Thumb'
 
-const showsName = (kind: Attachment['kind']) => kind === 'audio' || kind === 'document' || kind === 'link'
-
 /**
  * Attachments of a message, a reply or an input where the gallery has no room of its own: the first ones as thumbnails and the
  * rest behind «+N». Any of them opens the gallery over the page on that medium (`MediaGallery`), so what is looked at is
- * the same everywhere. The strip never grows past one row (UD-017). With `named`, what has no picture of its own (audio, document, link)
- * carries its name beside the icon, so equal icons are told apart (J4-flow-05); a photo or a video is its own picture.
+ * the same everywhere. The strip stays in one row (UD-017) unless it is `named`. With `named`, every item is a row of its own with its name beside it, so no thumbnail is left
+ * without one and each name sits next to what it names (J4-flow-05, J5-flow-reply-close: one name for two pictures).
  */
 export function AttachmentStrip({ items, scope = 'message', max = 4, px = 40, named = false, className }: { items: readonly Attachment[]; scope?: AttachmentScope; max?: number; px?: number; named?: boolean; className?: string }) {
   const t = useT()
@@ -23,12 +21,12 @@ export function AttachmentStrip({ items, scope = 'message', max = 4, px = 40, na
   const hidden = gallery.length - shown.length
   return (
     <>
-      <ul aria-label={t('media.attachments')} className={cn('flex flex-wrap items-center gap-2', className)}>
+      <ul aria-label={t('media.attachments')} className={cn(named ? 'grid grid-cols-1 items-start gap-x-3 gap-y-1.5 lg:grid-cols-2' : 'flex flex-wrap items-center gap-2', className)}>
         {shown.map((g, i) => (
-          <li key={g.id}>
-            <button type="button" aria-label={t('gallery.item', { n: i + 1, total: gallery.length, name: g.name ?? t(`media.kind.${g.kind}`) })} onClick={() => setOpen(i)} className={cn('rounded-md', named && showsName(g.kind) ? 'flex max-w-full items-center gap-2 pr-2 text-left hover:bg-hover' : 'block')}>
+          <li key={g.id} className="min-w-0">
+            <button type="button" aria-label={t('gallery.item', { n: i + 1, total: gallery.length, name: g.name ?? t(`media.kind.${g.kind}`) })} onClick={() => setOpen(i)} className={cn('rounded-md', named ? 'flex max-w-full items-center gap-2 pr-2 text-left hover:bg-hover' : 'block')}>
               <Thumb item={g} px={px} />
-              {named && showsName(g.kind) && <span className="min-w-0 break-all text-xs text-muted">{g.name ?? t(`media.kind.${g.kind}`)}</span>}
+              {named && <span className="min-w-0 break-all text-xs text-muted">{g.name ?? t(`media.kind.${g.kind}`)}</span>}
             </button>
           </li>
         ))}

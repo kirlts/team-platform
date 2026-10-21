@@ -261,7 +261,7 @@ describe('detail', () => {
       await patchAsSender(page, hit.id, { fields: { summary: '', device: 'x' } })
       await page.goto(`${origin}/messages/${hit.id}`)
       await page.getByRole('term').filter({ hasText: 'Obligatorio' }).waitFor()
-      await page.getByRole('button', { name: 'Cerrar', exact: true }).click()
+      await page.getByRole('button', { name: 'Cerrar mensaje', exact: true }).click()
       const notice = page.getByRole('status').filter({ hasText: 'Mensaje cerrado' })
       await notice.waitFor()
       assert.equal(await page.getByRole('term').filter({ hasText: 'Obligatorio' }).count(), 0, 'the «Obligatorio» notice survives closing')
@@ -277,8 +277,8 @@ describe('detail', () => {
     const { page, context } = await session()
     try {
       await openMessage(page, 'Confirmar el formato')
-      await page.getByRole('button', { name: 'Cerrar', exact: true }).click()
-      await page.getByRole('button', { name: 'Reabrir', exact: true }).click()
+      await page.getByRole('button', { name: 'Cerrar mensaje', exact: true }).click()
+      await page.getByRole('button', { name: 'Reabrir mensaje', exact: true }).click()
       await page.getByRole('status').filter({ hasText: /^Mensaje reabierto: (Abierto|Respondido)/ }).waitFor()
     } finally {
       await context.close()
@@ -289,12 +289,12 @@ describe('detail', () => {
     const { page, context } = await session('carla')
     try {
       await openMessage(page, 'Revisar la lectura')
-      await page.getByRole('button', { name: 'Cerrar', exact: true }).click()
+      await page.getByRole('button', { name: 'Cerrar mensaje', exact: true }).click()
       const group = page.getByRole('group', { name: 'Historial de cambios' })
       await group.waitFor()
       const undoBg = await group.getByRole('button', { name: 'Deshacer' }).evaluate((el) => getComputedStyle(el).backgroundColor)
       assert.equal(undoBg, 'rgba(0, 0, 0, 0)', '«Deshacer» weighs like a primary button')
-      await page.getByRole('button', { name: 'Reabrir', exact: true }).click()
+      await page.getByRole('button', { name: 'Reabrir mensaje', exact: true }).click()
       const border = await page.getByRole('button', { name: /^Resumen: / }).evaluate((el) => getComputedStyle(el).borderTopColor)
       assert.notEqual(border, 'rgba(0, 0, 0, 0)', 'a filled field has no cue that it is editable')
     } finally {
@@ -306,7 +306,7 @@ describe('detail', () => {
     const { page, context } = await session('carla', { width: 390, height: 844 }, true)
     try {
       await openMessage(page, 'Revisar la lectura')
-      const close = await page.getByRole('button', { name: 'Cerrar', exact: true }).boundingBox()
+      const close = await page.getByRole('button', { name: 'Cerrar mensaje', exact: true }).boundingBox()
       const title = await page.locator('main h1').boundingBox()
       const data = await page.getByRole('list', { name: 'Destinatarios' }).boundingBox()
       assert.ok(!(close.y > title.y && close.y < data.y + data.height), `«Cerrar» sits between the title and the data: ${close.y} against ${title.y}`)

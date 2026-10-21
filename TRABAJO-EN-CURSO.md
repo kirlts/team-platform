@@ -14,18 +14,18 @@
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
 - `main`: 74a382a Merge branch 'main' into wt-barra-movil. Empujado a origin: `74a382a`.
-- Ramas con commits sin fusionar: `wt-tarjetas` 6 (hace 4 minutos), `wt-equipo-config` 5 (hace 9 minutos), `wt-envio` 4 (hace 3 minutos), `wt-h904` 4 (hace 30 minutos), `wt-areas3` 2 (hace 20 minutos).
+- Ramas con commits sin fusionar: `wt-tarjetas` 6 (hace 5 minutos), `wt-equipo-config` 5 (hace 10 minutos), `wt-areas3` 4 (hace 25 segundos), `wt-envio` 4 (hace 4 minutos), `wt-h904` 4 (hace 31 minutos).
 - Worktrees abiertos: `team-platform`, `areas2`, `areas3`, `auto-publicar`, `cierre`, `envio`, `equipo-config`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `tarjetas`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `74a382a` Merge branch 'main' into wt-barra-movil (hace 5 minutos)
-- `62f2d4d` Flows: the top bar is three marks on a phone too (hace 5 minutos)
-- `8ba010d` UD-141 and H-2700: phone bar keeps the three state marks (hace 22 minutos)
-- `44cf70c` Merge branch 'main' into wt-barra-movil (hace 22 minutos)
-- `ea0db68` Phone bar: marks narrower, name wraps clear of them, menu rows put the area chip under the title (hace 22 minutos)
-- `ec34966` Traspaso: banco fusionado (hace 23 minutos)
-- `d593179` Merge branch 'wt-banco-abiertos' (hace 24 minutos)
-- `ffd966a` Top bar keeps the three state marks on a phone (hace 24 minutos)
-Actualizado 2026-10-21 20:13 UTC.
+- `74a382a` Merge branch 'main' into wt-barra-movil (hace 6 minutos)
+- `62f2d4d` Flows: the top bar is three marks on a phone too (hace 6 minutos)
+- `8ba010d` UD-141 and H-2700: phone bar keeps the three state marks (hace 23 minutos)
+- `44cf70c` Merge branch 'main' into wt-barra-movil (hace 23 minutos)
+- `ea0db68` Phone bar: marks narrower, name wraps clear of them, menu rows put the area chip under the title (hace 23 minutos)
+- `ec34966` Traspaso: banco fusionado (hace 24 minutos)
+- `d593179` Merge branch 'wt-banco-abiertos' (hace 25 minutos)
+- `ffd966a` Top bar keeps the three state marks on a phone (hace 25 minutos)
+Actualizado 2026-10-21 20:14 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

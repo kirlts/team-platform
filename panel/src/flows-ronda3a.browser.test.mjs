@@ -2,7 +2,7 @@
 // serving panel/dist: `npm run test:flows`. Every test can fail if the defect it names comes back.
 import assert from 'node:assert'
 import { after, before, beforeEach, describe, test } from 'node:test'
-import { login, startPanel } from './browser-support.mjs'
+import { login, startPanel, settled } from './browser-support.mjs'
 
 let panel
 let origin = ''
@@ -186,7 +186,7 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
     const { page, context } = await session('ana', PHONE)
     try {
       await page.locator('article').first().waitFor()
-      await page.waitForTimeout(400)
+      await settled(page)
       const height = await page.locator('main').evaluate((el) => el.scrollHeight)
       assert.ok(height < PHONE.height * 2.5, `Inicio mide ${height} px en el teléfono`)
       // The pager is there, so the eight messages are not eight cards of 330 px.
@@ -232,7 +232,7 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
     try {
       const region = page.getByRole('region', { name: 'Últimos mensajes' })
       await region.locator('article').first().waitFor()
-      await page.waitForTimeout(300)
+      await settled(page)
       const rows = region.locator('article')
       const n = await rows.count()
       assert.ok(n >= 3, `caben ${n} filas`)
@@ -416,7 +416,7 @@ describe('justification by width (J3-A-21, J3-A-47)', () => {
     const hit = await messageByTitle(page, 'Revisar la lectura del panel')
     await page.goto(`${origin}/messages/${hit.id}`)
     await page.locator('main h1').waitFor()
-    await page.waitForTimeout(400)
+    await settled(page)
   }
 
   test('on a phone no paragraph is justified and no gap opens beyond the natural space (J3-A-21)', async () => {
@@ -430,7 +430,7 @@ describe('justification by width (J3-A-21, J3-A-47)', () => {
       assert.ok(worst <= 5, `hueco de ${worst} px entre palabras en el teléfono`)
       await page.goto(`${origin}/settings`)
       await page.locator('main h1').waitFor()
-      await page.waitForTimeout(300)
+      await settled(page)
       const settings = await page.locator('.prose-block').evaluateAll((els) => els.map((el) => getComputedStyle(el).textAlign))
       assert.ok(settings.every((a) => a === 'left' || a === 'start'), 'ni en Configuración')
     } finally {

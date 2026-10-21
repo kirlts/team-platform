@@ -15,7 +15,7 @@
 
 import assert from 'node:assert'
 import { after, before, beforeEach, describe, test } from 'node:test'
-import { login, startPanel } from './browser-support.mjs'
+import { login, startPanel, settled } from './browser-support.mjs'
 
 let panel
 let origin = ''
@@ -71,7 +71,7 @@ async function showRow(page, text) {
     const next = page.getByRole('button', { name: 'Página siguiente' }).first()
     if (!(await next.isEnabled())) break
     await next.click()
-    await page.waitForTimeout(300)
+    await settled(page)
   }
   await page.getByText(text).first().waitFor({ timeout: 2000 })
 }
@@ -300,13 +300,13 @@ describe('consecutive inputs (UD-025)', () => {
       const tray = page.getByTestId('tray-control')
       await send(1)
       await tray.waitFor()
-      await page.waitForTimeout(500)
+      await settled(page)
       const base = await heights()
       const baseFrame = (await tray.boundingBox()).height
       for (let i = 2; i <= 10; i++) await send(i)
       // They finish staggered: the folded header counts all ten once they are ready for review.
       await tray.getByText('10 para revisar').waitFor({ timeout: 40000 })
-      await page.waitForTimeout(800)
+      await settled(page)
       assert.deepEqual(await heights(), base, 'diez envíos no deben cambiar el alto de la página')
       assert.ok(Math.abs((await tray.boundingBox()).height - baseFrame) <= 1, 'el control de envíos conserva su alto')
       assert.ok(base.main <= base.win, 'la región principal no desplaza')
@@ -322,7 +322,7 @@ describe('consecutive inputs (UD-025)', () => {
       await page.keyboard.press('j')
       await page.waitForFunction((prev) => document.querySelector('[role="option"][aria-selected="true"]')?.getAttribute('aria-label') === prev, first)
       await page.keyboard.press('Enter')
-      await page.waitForTimeout(600)
+      await settled(page)
       await tray.getByText('10 para revisar').waitFor()
       await page.getByRole('button', { name: /^Enviar \d+ mensajes?$/ }).focus()
       await page.keyboard.press('Enter')
@@ -445,7 +445,7 @@ describe('insignia y prioridad (UD-028, UD-029)', () => {
         assert.match(await row.evaluate((el) => getComputedStyle(el).boxShadow), /^none$/, 'sin borde de urgencia')
       }
       await page.getByTestId('bell').click()
-      await page.waitForTimeout(400)
+      await settled(page)
       const listed = await page.locator('[data-lane="bell-list"] li').allInnerTexts()
       assert.ok(listed.length <= before, 'la lista de la campana no crece')
       assert.ok(!listed.some((t) => t.includes(title)), 'la campana ya no lista el mensaje cerrado')
@@ -604,12 +604,16 @@ describe('estados, teclado y filas', () => {
   test('an API error and a slow load show as states, not as an empty screen (J1-A-57)', async () => {
     const { page, context } = await session()
     try {
+      // The answer is held until the test has seen the loading state, so the state is observed and not caught on its way.
+      let answer = () => {}
+      const gate = new Promise((resolve) => (answer = resolve))
       await page.route(/\/api\/messages(\?|$)/, async (route) => {
-        await new Promise((r) => setTimeout(r, 1200))
+        await gate
         await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: { message: 'Fallo de prueba' } }) })
       })
       await page.goto(`${origin}/messages`)
       await page.getByText('Cargando').first().waitFor()
+      answer()
       await page.getByRole('alert').first().waitFor()
       await page.unrouteAll({ behavior: 'ignoreErrors' })
     } finally {
@@ -647,7 +651,7 @@ describe('templates as a form (J1-A-32)', () => {
       await dialog.getByRole('button', { name: /^Rótulo del campo: Campo nuevo/ }).waitFor()
       const required = dialog.getByLabel('Obligatorio').last()
       await required.click()
-      await page.waitForTimeout(400)
+      await settled(page)
       assert.equal(await required.isChecked(), true, 'la casilla Obligatorio guarda el cambio')
       await dialog.getByRole('button', { name: 'Quitar el campo Campo nuevo' }).click()
       await dialog.getByRole('button', { name: /^Rótulo del campo: Campo nuevo/ }).waitFor({ state: 'detached' })
@@ -845,7 +849,7 @@ describe('publishing flow (round 2, judge B)', () => {
       await page.getByRole('dialog').evaluate((el) => el.focus())
       await page.keyboard.press('Enter')
       await page.keyboard.press('Enter')
-      await page.waitForTimeout(800)
+      await settled(page)
       assert.equal(publishes.length, 0, 'ningún Intro publicó')
       await page.getByRole('button', { name: 'Enviar 3 mensajes', exact: true }).waitFor()
       assert.ok(await tray.count(), 'el envío sigue en la bandeja')
@@ -873,7 +877,7 @@ describe('compositor (ronda 2, juez B)', () => {
       const y0 = (await feed.boundingBox()).y
       const bar = page.getByLabel('Nuevo mensaje', { exact: true }).last()
       await bar.fill(Array.from({ length: 12 }, (_, i) => `Párrafo ${i + 1} del texto largo que se escribe.`).join('\n\n'))
-      await page.waitForTimeout(300)
+      await settled(page)
       assert.equal((await feed.boundingBox()).y, y0, 'escribir un texto largo no mueve la página')
       const box = await bar.boundingBox()
       assert.ok(box.height <= 124, `el cuadro de texto se detiene en su máximo: ${box.height}`)
@@ -898,6 +902,8 @@ describe('tray and proposal (round 2, judge B)', () => {
       const y = async () => ({ feed: (await page.getByRole('heading', { name: 'Últimos mensajes' }).boundingBox()).y, bar: (await page.getByLabel('Nuevo mensaje', { exact: true }).last().boundingBox()).y })
       const before = await y()
       const bar = page.getByLabel('Nuevo mensaje', { exact: true }).last()
+      // The first send waits in the queue while the strip is looked at; the test lets the analysis run when it has seen it (H-901).
+      await panel.control.hold()
       await bar.fill('Primer envío: revisar el contraste del botón.')
       await page.getByRole('button', { name: 'Enviar' }).first().click()
       const control = page.getByTestId('tray-control')
@@ -907,6 +913,7 @@ describe('tray and proposal (round 2, judge B)', () => {
       assert.deepEqual(await y(), before, 'la franja aparece sin mover la barra ni las listas')
       // The progress shows with the strip folded.
       await control.getByRole('progressbar').waitFor()
+      await panel.control.release()
       // A second send: on opening, the window lands on the most recent one that needs the person, not the old one.
       await bar.fill('Segundo envío: agregar la sincronización con WhatsApp.')
       await page.getByRole('button', { name: 'Enviar' }).first().click()
@@ -1062,7 +1069,7 @@ describe('tray and proposal (round 2, judge B)', () => {
       await notice.getByText(/^Se publicaron 3 mensajes para \d+ personas?\./).waitFor()
       const heading = page.getByRole('heading', { name: 'Últimos mensajes' })
       const y = (await heading.boundingBox()).y
-      await page.waitForTimeout(300)
+      await settled(page)
       assert.equal((await heading.boundingBox()).y, y, 'el aviso flota: no empuja la página')
       assert.equal(await notice.evaluate((el) => getComputedStyle(el.parentElement).position), 'fixed', 'el aviso de la página flota sobre ella')
       // The trace of the send: its three messages exist in Mensajes, where the link of the notice leads.

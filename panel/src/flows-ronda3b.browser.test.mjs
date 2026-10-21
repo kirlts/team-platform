@@ -6,7 +6,7 @@ import { writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, before, beforeEach, describe, test } from 'node:test'
-import { login, startPanel } from './browser-support.mjs'
+import { login, startPanel, settled } from './browser-support.mjs'
 
 let panel
 let origin = ''
@@ -220,10 +220,13 @@ describe('proposal (J3-B-02, J3-B-05, J3-B-08, J3-B-09, J3-B-10, J3-B-11, J3-B-1
       // Only Rehacer is left: the edit is still recoverable, so dropping the proposal must ask.
       await page.getByRole('button', { name: 'Volver a analizar' }).click()
       await page.getByText('Se descarta esta propuesta con sus cambios').waitFor()
+      // The new analysis waits in the queue until the test has looked at it (H-901).
+      await panel.control.hold()
       await page.getByRole('dialog').last().getByRole('button', { name: 'Volver a analizar' }).click()
       await page.getByText('En cola').first().waitFor()
       assert.equal(await page.getByRole('button', { name: 'Deshacer', exact: true }).count(), 0, 'sin Deshacer mientras analiza')
       assert.equal(await page.getByRole('button', { name: 'Rehacer', exact: true }).count(), 0, 'sin Rehacer mientras analiza')
+      await panel.control.release()
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 40000 })
       assert.equal(await page.getByRole('button', { name: 'Deshacer', exact: true }).count(), 0, 'la propuesta nueva empieza con el historial vacío')
     } finally {
@@ -363,7 +366,7 @@ describe('failure, publication and notices (J3-B-14, J3-B-15, J3-B-29)', () => {
       await notice.waitFor()
       const n = await rect(notice)
       assert.ok(n.y + n.height <= 56, `el aviso queda en la barra superior: ${n.y + n.height}`)
-      await page.waitForTimeout(600)
+      await settled(page)
       assert.equal(await card(), before, 'la tarjeta de Para mí no cambia de alto al publicar')
       for (const label of ['Página siguiente', 'Página anterior']) {
         for (const b of await page.getByRole('button', { name: label }).all()) assert.equal(overlap(n, await rect(b)), false, `el aviso no tapa «${label}»`)

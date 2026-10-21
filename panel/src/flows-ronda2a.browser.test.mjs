@@ -2,7 +2,7 @@
 // serving panel/dist: `npm run test:flows`. Every test can fail if the defect it names comes back.
 import assert from 'node:assert'
 import { after, before, beforeEach, describe, test } from 'node:test'
-import { login, startPanel } from './browser-support.mjs'
+import { login, startPanel, settled } from './browser-support.mjs'
 
 let panel
 let origin = ''
@@ -454,8 +454,11 @@ describe('states', () => {
     const { page, context } = await session()
     try {
       let fail = true
+      // The first answer waits for the test: it measures the loading state, then lets the error through.
+      let answer = () => {}
+      let gate = new Promise((resolve) => (answer = resolve))
       await page.route(/\/api\/messages(\?|$)/, async (route) => {
-        await new Promise((r) => setTimeout(r, 400))
+        await gate
         if (fail) await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: { message: 'Fallo de prueba' } }) })
         else await route.continue()
       })
@@ -463,10 +466,12 @@ describe('states', () => {
       const waiting = page.getByRole('status', { name: 'Cargando' })
       await waiting.waitFor()
       assert.ok((await waiting.boundingBox()).height >= 120, 'la espera no reserva el lugar de las filas')
+      answer()
       const alert = page.getByRole('alert').filter({ hasText: 'No se pudo cargar' })
       await alert.waitFor({ timeout: 15000 })
       assert.equal(await alert.locator(':scope > svg').count(), 1, 'el error no lleva icono')
       fail = false
+      gate = Promise.resolve()
       await alert.getByRole('button', { name: 'Reintentar' }).click()
       await page.locator('main article').first().waitFor()
       await page.unrouteAll({ behavior: 'ignoreErrors' })
@@ -486,12 +491,12 @@ describe('states', () => {
       })
       await page.goto(origin)
       await page.getByRole('link', { name: 'Idea', exact: true }).first().waitFor()
-      await page.waitForTimeout(400)
+      await settled(page)
       const tops = () => page.evaluate(() => [...document.querySelectorAll('nav > a, nav > div > div > a, nav li > a')].map((a) => Math.round(a.getBoundingClientRect().top)))
       const before = await tops()
       release()
       await page.getByTestId('messages-badge').waitFor()
-      await page.waitForTimeout(300)
+      await settled(page)
       const after = (await tops()).slice(0, before.length)
       assert.deepEqual(after, before, 'algo de la barra lateral se corrió al llegar los números')
       await page.unrouteAll({ behavior: 'ignoreErrors' })

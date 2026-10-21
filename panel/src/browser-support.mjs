@@ -66,3 +66,20 @@ export async function login(page, origin, who = 'ana') {
   // The sign-in page is also a <main>: waiting for any <main> returned while the person was still signing in (H-901). Only the signed-in shell has #main.
   await page.locator('main#main').waitFor()
 }
+
+/**
+ * Waits for the page to be quiet, by what it does and not by a guessed pause (H-901): fonts loaded, every finite animation and
+ * transition finished, and two frames drawn after that, so the layout and the effects the last change set off have run.
+ * Infinite animations (the background) never finish and do not count.
+ */
+export async function settled(page) {
+  await page.evaluate(async () => {
+    const running = () => document.getAnimations().filter((a) => a.effect?.getComputedTiming().endTime !== Infinity && a.playState === 'running')
+    await document.fonts.ready
+    for (;;) {
+      await Promise.allSettled(running().map((a) => a.finished))
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      if (running().length === 0) return
+    }
+  })
+}

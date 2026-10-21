@@ -96,3 +96,16 @@ test('una descripción vacía del proveedor queda como aviso', async () => {
   assert.equal(text, '');
   assert.equal(meta.warnings[0].code, 'empty_description');
 });
+
+test('una foto grande de teléfono se reduce a JPEG y cabe en el tope del proveedor, no a un PNG enorme', async () => {
+  const path = tmp.join('foto-grande.jpg');
+  const raw = Buffer.alloc(3000 * 2000 * 3);
+  for (let i = 0; i < raw.length; i++) raw[i] = (i * 2654435761) >>> 24; // ruido: el peor caso para PNG
+  await sharp(raw, { raw: { width: 3000, height: 2000, channels: 3 } }).jpeg({ quality: 90 }).toFile(path);
+  const vision = fakeVision();
+  const { meta } = await extract(await att(path, { mime: 'image/jpeg' }), { providers: { vision }, config: { image: { maxBytes: 7 * 1024 * 1024 } } });
+  const sent = vision.calls[0].images[0];
+  assert.equal(meta.converted, true);
+  assert.equal(sent.mime, 'image/jpeg');
+  assert.ok(sent.data.length <= 7 * 1024 * 1024, `pesa ${sent.data.length} bytes`);
+});

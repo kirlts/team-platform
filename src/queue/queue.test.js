@@ -81,6 +81,21 @@ test('el latido renueva el arriendo y evita la recuperación', async () => {
   await env.close()
 })
 
+test('fail respeta el Retry-After que declara el proveedor como piso del retroceso, con tope en retryMaxMs', async () => {
+  const env = await envVars()
+  const { q, config } = env
+  q.enqueue('analyze', {})
+  const e = Object.assign(new Error('429'), { retryAfterMs: 20_000 })
+  const r = q.fail(q.claim('w'), e)
+  assert.equal(r.state, 'requeued')
+  assert.ok(r.delayMs >= 20_000 && r.delayMs <= config.worker.retryMaxMs, `espera ${r.delayMs}`)
+  q.enqueue('analyze', {})
+  const big = Object.assign(new Error('429'), { retryAfterMs: 10 * config.worker.retryMaxMs })
+  const job2 = q.claim('w')
+  assert.equal(q.fail(job2, big).delayMs, config.worker.retryMaxMs)
+  await env.close()
+})
+
 test('fail reencola con retroceso exponencial hasta max_attempts y luego falla con el motivo', async () => {
   const env = await envVars()
   const { q, clockObj, config } = env

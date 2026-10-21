@@ -128,7 +128,11 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
         t, msgRow, job.id, job.attempts)
       return { state: r.changes === 1 ? 'failed' : 'lost', delayMs: 0 }
     }
-    const waitUntil = backoffMs(job.attempts)
+    // Si el proveedor declaró cuánto esperar (cabecera Retry-After de un 429), esa espera es el piso del retroceso:
+    // con el jitter completo el retraso podía caer a ~100 ms y repetir el choque (medido en el VPS, 2026-10-21).
+    const declared = Number(error?.retryAfterMs)
+    const hinted = Number.isFinite(declared) && declared > 0 ? Math.min(declared, w.retryMaxMs) : 0
+    const waitUntil = Math.max(backoffMs(job.attempts), hinted)
     const r = run(db, "UPDATE jobs SET status = 'queued', lease_until = NULL, worker_id = NULL, run_at = ?, last_error = ? WHERE id = ? AND status = 'running' AND attempts = ?",
       t + waitUntil, msgRow, job.id, job.attempts)
     if (r.changes === 1) {

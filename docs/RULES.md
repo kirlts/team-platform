@@ -22,3 +22,5 @@ Todas las operaciones del agente sobre el repositorio: código, documentación, 
 7. **El cambio toca exactamente lo que la tarea nombra.** Sin mejoras «ya que estoy».
 8. **Una decisión de Martín se registra en `docs/USER-DECISIONS.md` con sus palabras**, nunca una decisión que todavía no tomó. Si pidió investigar, se investiga y se le presenta; la UD se escribe cuando contesta.
 9. **La maqueta y `idea.md` son fuentes; `idea.md` manda donde difieren.** Un cambio de diseño que los supere se anota en USER-DECISIONS y se refleja en MASTER-SPEC en el mismo commit.
+10. **La documentación del repositorio no nombra otros proyectos del autor** (Martín, 2026-10-20). Se habla en lenguaje neutro: «un proyecto anterior del autor», «un servicio comparable». Los informes de `docs/investigaciones/` quedan exentos. El repositorio es público.
+11. **Toda recomendación técnica nace de una investigación con fuentes fechadas**, hecha por subagentes en paralelo según `.agents/skills/standard-research/SKILL.md`, y queda como informe numerado en `docs/investigaciones/NN - Tema.md` con la fecha de consulta arriba. Una cifra de esos informes se cita siempre con su fecha.

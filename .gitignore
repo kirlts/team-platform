@@ -21,3 +21,4 @@ docs/*.epub
 
 # Worktrees de subagentes
 .claude/worktrees/
+!.env.example

@@ -467,9 +467,19 @@ export class UiTelemetry {
     try {
       const task = this.open
       if (!this.enabled || !task || task.task !== 'send_publish' || task.analysisAt !== undefined) return
-      this.deps.afterPaint(() => {
-        if (this.open === task && task.analysisAt === undefined) task.analysisAt = this.deps.now()
-      })
+      task.analysisAt = this.deps.now() // when it arrives: the paint is a frame later, and a publication can follow at once
+    } catch {
+      // Silent.
+    }
+  }
+
+  /**
+   * One of the person's own messages was published without them confirming it (auto-publication, UD-070): the open send
+   * is done. The panel tells it from the notice of the event stream, whose author is the person.
+   */
+  ownMessagePublished() {
+    try {
+      if (this.enabled && this.open?.task === 'send_publish') this.endTask('completed')
     } catch {
       // Silent.
     }

@@ -48,17 +48,14 @@ try {
   await page.getByLabel('Correo').fill('ana@humo.test')
   await page.getByLabel('Contraseña').fill(TEST_PASSWORD)
   await page.getByRole('button', { name: 'Entrar' }).click()
-  await page.getByText('Humo', { exact: true }).first().waitFor({ timeout: 10000 }) // project_name from GET /me
+  await page.getByText(/^Humo/).first().waitFor({ timeout: 10000 }) // project_name from GET /me
   console.log('logged in; the project name arrived from GET /me')
 
   await page.getByLabel('Nuevo mensaje', { exact: true }).last().fill('El botón de guardar no responde en la pantalla de ajustes.')
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64')
   await page.locator('input[type=file]:not([capture])').setInputFiles([{ name: 'captura.png', mimeType: 'image/png', buffer: png }])
   await page.getByRole('button', { name: 'Enviar', exact: true }).first().click()
-  console.log('input sent; waiting for the proposal over SSE')
-  await page.getByRole('region', { name: 'Análisis' }).getByRole('button', { name: 'Enviar' }).waitFor({ timeout: 20000 })
-  console.log('proposal ready')
-  await page.getByRole('region', { name: 'Análisis' }).getByRole('button', { name: 'Enviar' }).click()
+  console.log('input sent; it publishes itself when the analysis ends (UD-070)')
   // Publication is checked against the API and on screen: the message goes from «Sin mensajes» to «Últimos mensajes».
   let publishedCount = 0
   for (let i = 0; i < 100 && publishedCount === 0; i++) {
@@ -67,13 +64,13 @@ try {
   }
   if (publishedCount !== 1) throw new Error(`expected 1 published message and found ${publishedCount}`)
   await page.getByText('Sin mensajes', { exact: true }).first().waitFor({ state: 'hidden', timeout: 10000 })
-  await page.getByRole('link', { name: 'Mensajes', exact: true }).first().click()
+  await page.getByRole('link', { name: /^Mensajes/ }).first().click()
   await page.getByText('Mensaje de prueba').first().waitFor({ timeout: 10000 })
   console.log('message published: visible in Últimos mensajes and in the Mensajes view')
 
   // The editor's other views load their data without error responses.
   for (const view of ['Equipo', 'Configuración']) {
-    await page.getByRole('link', { name: view, exact: true }).first().click()
+    await page.getByRole('link', { name: new RegExp(`^${view}`) }).first().click()
     await page.waitForLoadState('networkidle')
     console.log(`view ${view}: loads without errors`)
   }

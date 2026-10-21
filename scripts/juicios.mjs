@@ -62,7 +62,7 @@ const short = (text, max) => (text.length <= max ? text : `${text.slice(0, max -
 // ---- Captures: one pass of a headless browser through the example server
 
 async function capture (outDir, items, { port }) {
-  const { startPanel, login } = await import(path.join(PANEL, 'src/browser-support.mjs'))
+  const { startPanel, login, settled } = await import(path.join(PANEL, 'src/browser-support.mjs'))
   const dir = path.join(outDir, 'capturas')
   mkdirSync(dir, { recursive: true })
   const panel = await startPanel(port, { build: !process.env.FIT_SIN_BUILD, stepMs: 60 })
@@ -94,7 +94,7 @@ async function capture (outDir, items, { port }) {
               await page.goto(url)
               await page.locator('main h1, main').first().waitFor({ timeout: 15000 }).catch(() => {})
               await page.waitForLoadState('networkidle').catch(() => {})
-              await page.waitForTimeout(400)
+              await settled(page)
               const name = `${item.id}${suffix}-${vpName}-${theme}.png`
               await page.screenshot({ path: path.join(dir, name) })
               add(item.id, name)
@@ -105,7 +105,7 @@ async function capture (outDir, items, { port }) {
               const lp = await anon.newPage()
               await lp.goto(panel.origin)
               await lp.getByLabel('Correo').waitFor()
-              await lp.waitForTimeout(300)
+              await settled(lp)
               const name = `${item.id}-${vpName}-${theme}.png`
               await lp.screenshot({ path: path.join(dir, name) })
               add(item.id, name)
@@ -132,7 +132,7 @@ async function capture (outDir, items, { port }) {
           try {
             await fn()
             const name = `${flow.id}-${n}-${label}-${vpName}-light.png`
-            await page.waitForTimeout(250)
+            await settled(page)
             await page.screenshot({ path: path.join(dir, name) })
             add(flow.id, name)
           } catch (error) {

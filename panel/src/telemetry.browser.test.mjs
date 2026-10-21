@@ -14,7 +14,7 @@ import path from 'node:path'
 import { after, describe, test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
-import { login, ROOT, startPanel } from './browser-support.mjs'
+import { login, ROOT, settled, startPanel } from './browser-support.mjs'
 
 const SENTINEL = 'SENTINELA-texto-privado-4471'
 const REPLY_SENTINEL = 'SENTINELA-respuesta-privada-8820'
@@ -38,7 +38,7 @@ async function hide(page) {
   assert.equal((await sent).status(), 204)
 }
 
-async function scenario({ origin, browser, signIn, pick, replier }) {
+async function scenario({ origin, browser, signIn, pick, replier, autoPublish = false }) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'es-CL' })
   const page = await context.newPage()
   const bodies = []
@@ -64,26 +64,32 @@ async function scenario({ origin, browser, signIn, pick, replier }) {
   await bar.fill(`${SENTINEL}\n\nSegundo punto del mismo texto.`)
   await bar.press('End') // `fill` sets the value without keys: one real key press, whose identity is never read
   await page.getByRole('button', { name: 'Enviar' }).first().click()
-  await page.getByTestId('tray-control').click()
-  const publish = page.getByRole('button', { name: /^Enviar \d+ mensajes?$/ })
-  await publish.waitFor({ timeout: 30000 })
-  for (let i = 0; i < 50 && (await publish.isDisabled()); i++) await page.waitForTimeout(100) // a required field is filled by the demo analysis
-  await publish.click()
-  await page.locator('[data-notice]').getByText(/^Se publicó|^Se publicaron/).waitFor({ timeout: 30000 }).catch(async (e) => { await dump('publish'); throw e })
+  const notice = page.locator('[data-notice]').getByText(/^Se publicó|^Se publicaron/)
+  // The real server publishes by itself when the analysis ends (UD-070); the example server still waits for the person.
+  const tray = page.getByTestId('tray-control')
+  if (autoPublish) await page.getByText('Mensaje de prueba').first().waitFor({ timeout: 30000 }) // the new message is on the page
+  else {
+    await tray.click()
+    const publish = page.getByRole('button', { name: /^Enviar \d+ mensajes?$/ })
+    await publish.waitFor({ timeout: 30000 })
+    await page.waitForFunction((el) => !el.disabled, await publish.elementHandle()) // a required field is filled by the demo analysis
+    await publish.click()
+    await notice.waitFor({ timeout: 30000 }).catch(async (e) => { await dump('publish'); throw e })
+  }
 
   // Reply and close on a published message. The author cannot answer their own message: a replier is another person.
   const list = await (await page.request.get(`${origin}/api/messages`)).json()
-  const first = pick(list.items ?? list)
+  const target = pick(list.items ?? list)
   const other = replier ? await replier(context) : page
   if (replier) track(other)
-  await other.goto(`${origin}/messages/${first.id}`)
+  await other.goto(`${origin}/messages/${target.id}`)
   await other.locator('main h1').waitFor()
   await other.getByLabel('Respuesta', { exact: true }).fill(REPLY_SENTINEL, { timeout: 15000 }).catch(async (e) => { await dump('reply', other); throw e })
   await other.getByRole('button', { name: 'Responder', exact: true }).click()
   await other.getByText(REPLY_SENTINEL).first().waitFor()
   if (replier) {
     await hide(other)
-    await page.goto(`${origin}/messages/${first.id}`)
+    await page.goto(`${origin}/messages/${target.id}`)
     await page.locator('main h1').waitFor()
   }
   await page.getByRole('button', { name: 'Cerrar', exact: true }).click()
@@ -98,25 +104,28 @@ async function scenario({ origin, browser, signIn, pick, replier }) {
   await page.close({ runBeforeUnload: false })
   await closed
   const reader = await context.newPage()
+  await reader.goto(origin)
+  // The unload sent the abandonment with keepalive: the page waits for the summary to show it, by what it says and not by a pause.
+  await reader.waitForFunction(async () => { const t = (await (await fetch('/api/telemetry/ui-summary')).json()).tasks?.send_publish; return (t?.completed ?? 0) + (t?.abandoned ?? 0) >= 2 }, null, { timeout: 30000 })
 
   // What the Editor reads.
-  let summary
-  for (let i = 0; i < 40; i++) {
-    summary = await (await reader.request.get(`${origin}/api/telemetry/ui-summary`)).json()
-    if (summary.tasks?.send_publish?.abandoned >= 1) break
-    await reader.waitForTimeout(150)
-  }
+  const summary = await (await reader.request.get(`${origin}/api/telemetry/ui-summary`)).json()
   await context.close()
   return { summary, bodies }
 }
 
-function check({ summary, bodies }, label) {
+function check({ summary, bodies }, label, autoPublish = false) {
   const sp = summary.tasks.send_publish
   assert.ok(sp, `${label}: no send_publish task in the summary: ${JSON.stringify(summary.tasks)}`)
-  assert.equal(sp.completed, 1, `${label}: one send was published: ${JSON.stringify(summary.tasks)} errors ${JSON.stringify(summary.errors)}`)
-  assert.equal(sp.abandoned, 1, `${label}: one send was left unpublished`)
-  assert.ok(sp.clicks.p50 >= 2, `${label}: sending and publishing take at least two clicks, and the summary says ${sp.clicks.p50}`)
-  for (const stage of ['feedback', 'analysis', 'publish']) assert.ok(sp.stages_ms[stage].n >= 1 && sp.stages_ms[stage].p50 >= 0, `${label}: stage ${stage}: ${JSON.stringify(sp.stages_ms)}`)
+  // With auto-publication (UD-070) the second send races the page closing: it ends as completed or as abandoned, never lost.
+  if (autoPublish) assert.equal(sp.completed + sp.abandoned, 2, `${label}: both sends ended: ${JSON.stringify(summary.tasks)}`)
+  else {
+    assert.equal(sp.completed, 1, `${label}: sends published: ${JSON.stringify(summary.tasks)} errors ${JSON.stringify(summary.errors)}`)
+    assert.equal(sp.abandoned, 1, `${label}: sends left unpublished`)
+  }
+  assert.ok(sp.completed === 0 || sp.clicks.p50 >= 1, `${label}: sending takes at least one click (two where the person confirms the publication), and the summary says ${sp.clicks.p50}`)
+  // The demo analysis of the real server ends before the first paint, so its stages are not told apart there.
+  if (!autoPublish) for (const stage of ['feedback', 'analysis']) assert.ok(sp.stages_ms[stage].n >= 1 && sp.stages_ms[stage].p50 >= 0, `${label}: stage ${stage}: ${JSON.stringify(sp.stages_ms)}`)
   assert.equal(summary.tasks.reply?.completed, 1, `${label}: one reply`)
   assert.equal(summary.tasks.close?.completed, 1, `${label}: one close`)
   for (const screen of ['home', 'messages', 'settings', 'message-detail']) assert.ok(summary.screens[screen]?.visits >= 1, `${label}: ${screen} was visited`)
@@ -136,6 +145,7 @@ describe('interface telemetry in a browser', () => {
   test('against the double server', async () => {
     const panel = await startPanel(Number(process.env.PANEL_TELEMETRY_PORT ?? 8975), { stepMs: 80 })
     cleanups.push(() => panel.stop())
+    await panel.control.reset() // the sample data as it was born (H-901)
     const result = await scenario({ origin: panel.origin, browser: panel.browser, signIn: (page) => login(page, panel.origin, 'ana'), pick: (items) => items.find((m) => m.title.startsWith('Probar un resumen semanal')) ?? items[0] })
     check(result, 'double server')
   })
@@ -186,6 +196,6 @@ describe('interface telemetry in a browser', () => {
       await p.getByRole('link', { name: /^Inicio$/ }).first().waitFor()
       return p
     }
-    check(await scenario({ origin, browser, signIn, pick: (items) => items[0], replier }), 'real server')
+    check(await scenario({ origin, browser, signIn, pick: (items) => items[0], replier, autoPublish: true }), 'real server', true)
   })
 })

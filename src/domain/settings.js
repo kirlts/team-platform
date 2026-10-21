@@ -94,6 +94,7 @@ export function getAutoPublish (db) {
 export function setAutoPublish (db, value, now = Date.now) {
   run(db, `INSERT INTO settings (key, value_json, updated_at) VALUES (?, ?, ?)
            ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`, AUTO_PUBLISH_KEY, JSON.stringify(value), now())
+}
 
 // ---- Interface telemetry (UD-091). One switch, written by the Editor; without a stored value the configuration decides.
 const UI_TELEMETRY_KEY = 'telemetry.ui_enabled'

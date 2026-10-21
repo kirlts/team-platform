@@ -12,7 +12,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { login, startPanel } from '../src/browser-support.mjs'
+import { login, settled, startPanel } from '../src/browser-support.mjs'
 
 const PANEL = fileURLToPath(new URL('..', import.meta.url))
 
@@ -480,7 +480,7 @@ export function loadVoicePatterns(file) {
 async function settle(page, hasMain) {
   if (hasMain) await page.locator('main h1').first().waitFor({ timeout: 15000 }).catch(() => {})
   await page.waitForLoadState('networkidle').catch(() => {})
-  await page.waitForTimeout(500)
+  await settled(page)
 }
 
 export async function run(options = {}) {
@@ -536,7 +536,7 @@ export async function run(options = {}) {
               const lp = await anon.newPage()
               await lp.goto(panel.origin)
               await lp.getByLabel('Correo').waitFor()
-              await lp.waitForTimeout(400)
+              await settled(lp)
               await measure(lp, id, route, viewport, theme)
               await anon.close()
               continue

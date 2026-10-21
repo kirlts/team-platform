@@ -10,7 +10,8 @@ import { screenOf, telemetry } from '@/lib/telemetry'
  */
 export function TelemetryBridge() {
   const location = useLocation()
-  const ui = useMe().data?.ui_telemetry
+  const me = useMe().data
+  const ui = me?.ui_telemetry
   const events = useEventsStore()
   const rendered = useRef<string | null>(null)
   if (rendered.current !== location.pathname) {
@@ -27,5 +28,11 @@ export function TelemetryBridge() {
   }, [location.pathname, ui?.enabled])
 
   useEffect(() => events.onDone(() => telemetry.analysisVisible()), [events])
+  useEffect(
+    () => events.onNewMessage((e) => {
+      if (me?.id && e.author_id === me.id) telemetry.ownMessagePublished()
+    }),
+    [events, me?.id],
+  )
   return null
 }

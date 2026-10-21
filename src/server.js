@@ -15,6 +15,7 @@ import { createEvents } from './events/index.js'
 import { createQueue } from './queue/index.js'
 import { createLogger } from './log.js'
 import { installTemplateWarmup } from './domain/modules.js'
+import { getProject } from './domain/settings.js'
 import { initTelemetry } from './domain/tracing.js'
 import { buildWorker } from './worker.js'
 
@@ -38,7 +39,7 @@ export async function start (config, { env = process.env } = {}) {
 
   const { worker, modules } = await buildWorker({ db, config, events, queue, env, logger, pollDataVersionMs: null })
   const { app, domainEvents } = await buildApp({ db, config, queue, events, modules, logger, telemetry })
-  installTemplateWarmup({ domainEvents, modules, log: (m) => logger.warn(m) })
+  installTemplateWarmup({ domainEvents, modules, getProject: () => getProject(db, config), log: (m) => logger.warn(m) })
 
   if (config.worker.mode === 'external') events.startPolling(config.worker.dataVersionPollMs)
   if (config.worker.mode === 'inline') worker.start()

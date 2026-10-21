@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { all, get, run } from './db/index.js'
 import { Deferred } from './domain/pipeline.js'
+import { setProjectDescription } from './domain/settings.js'
 import { addMember, fakeAnalyze, login, makeEnv, postInput, until } from './testing/helpers.js'
 
 const fast = { identity: { login: { ipMax: 1000 } }, worker: { retryBaseMs: 5, retryMaxMs: 20 } }
@@ -47,6 +48,7 @@ test('extractores y análisis reciben el contrato: adjunto con ruta absoluta, si
     }
   })
   const profile = 'Hago la API y la base de datos.\n\nNo toco la interfaz.'
+  setProjectDescription(env.db, '# Atlas\n\nStack: Node.')
   run(env.db, "UPDATE members SET profile = ? WHERE email = 'ana@x.org'", profile)
   const { input_id: id } = await env.submit('texto', [textFile()])
   await until(() => env.statusOf(id) === 'proposed')
@@ -56,6 +58,7 @@ test('extractores y análisis reciben el contrato: adjunto con ruta absoluta, si
   assert.deepEqual(seen.analyze.lookupKeys, ['analyzer', 'onProgress', 'providers', 'signal'])
   assert.equal(seen.analyze.bundle.templates[0].body_markdown.startsWith('---'), true)
   assert.ok(seen.analyze.bundle.areas.every((a) => a.position !== undefined))
+  assert.deepEqual(seen.analyze.bundle.project, { name: env.config.projectName, description: '# Atlas\n\nStack: Node.' }) // UD-024
   assert.deepEqual(seen.analyze.bundle.members, [{ id: 1, name: 'ana', profile }]) // UD-023: the whole profile, nothing else
   await env.close()
 })

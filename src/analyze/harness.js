@@ -32,6 +32,7 @@ async function writeWorkdir(dir, bundle, units) {
       {
         areas: bundle.areas.map((a) => ({ id: a.id, title: a.title, description: a.description })),
         templates: bundle.templates.map((t) => ({ id: t.id, area_id: t.area_id, name: t.name, description: t.description })),
+        project: { name: bundle.project?.name ?? '', description: bundle.project?.description ?? '' },
         members: (bundle.members ?? []).map((m) => ({ id: m.id, name: m.name, profile: m.profile ?? '' })),
         attachments: (bundle.attachments ?? []).map((a) => ({ id: a.id, kind: a.kind })),
         unit_count: units.length,

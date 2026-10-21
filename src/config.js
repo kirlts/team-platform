@@ -154,6 +154,13 @@ export function loadConfig (env = process.env, overrides = {}) {
       pageMax: 100 // decisión de Martín 2026-10-20: page cap of the API
     },
 
+    // ---- Proyecto (UD-024)
+    project: {
+      // The 100,000 input-token price step of the default model is ≈ 300,000 characters at 3 chars/token in Spanish.
+      // 200,000 characters leave room for the input, the catalog and the team in the same call.
+      descriptionMaxChars: intVar(env, 'PROJECT_DESCRIPTION_MAX_CHARS', 200000, { min: 1 }) // informe 02 §10.2: the 100,000-token price step, UD-024
+    },
+
     // ---- Miembros
     members: {
       // Not a model limit: the whole profile travels to the analyzer (UD-023).

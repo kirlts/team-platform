@@ -289,6 +289,8 @@ PATCH  /api/members/me            perfil, idioma y contraseña propios (`profile
 PATCH  /api/members/:id                                                        (Editor)
 
 GET    /api/settings/providers · PATCH /api/settings/providers                (Editor; nunca devuelve una llave)
+GET    /api/settings/project         { name, description } (cualquier miembro)
+PATCH  /api/settings/project         descripción del proyecto en markdown: JSON { description } o multipart con `file` (.md) (Editor; tope PROJECT_DESCRIPTION_MAX_CHARS, 413 al superarlo; bitácora `settings.project.update`)
 GET    /api/attachments/:id       archivo, con control de acceso y Range
 
 GET    /api/jobs?state=           la cola de trabajos                         (Editor)
@@ -383,7 +385,7 @@ Los topes de tamaño por tipo se aplican en dos lugares: al subir (`src/config.j
 ```
 analyze(bundle, { providers, onProgress, config, analyzer }) → AnalyzeResult
 bundle = { text, attachments:[{id, kind, name, extracted}], areas:[{id,title,description,position}],
-           templates:[{id,area_id,name,description,body_markdown}], members:[{id,name,profile}] }  -- profile: el texto completo, sin recortes (UD-023)
+           templates:[{id,area_id,name,description,body_markdown}], members:[{id,name,profile}], project:{name,description} }  -- project.description (UD-024) va en el sistema cacheado de las dos llamadas, tras el catálogo y la plantilla; profile: el texto completo, sin recortes (UD-023)
 AnalyzeResult = { status:'ok', proposal, units, calls, stats }
               | { status:'refusal' | 'max_tokens' | 'invalid', step, errors, …, units, calls, stats }
 Proposal = { messages:[{ area_id, template_id, title, body, fields, assignee_ids, attachment_ids, unit_ids }], discarded:[{ unit_ids, reason }] }

@@ -46,8 +46,25 @@ function catalogBlock({ areas, templates }) {
   return lines.join('\n').trimEnd();
 }
 
-export function classifySystem({ areas, templates }) {
-  return [CLASSIFY_INSTRUCTIONS, catalogBlock({ areas, templates })];
+/**
+ * UD-024: the project description the Editor keeps, in the cached system block after the catalog (classification)
+ * or the template (decomposition). Empty when there is none, so the block disappears and the prefix is unchanged.
+ */
+export function projectBlock(project) {
+  const description = (project?.description ?? '').trim();
+  if (!description) return null;
+  return [
+    `Proyecto: ${project.name}`,
+    'Descripción del proyecto, escrita por el Editor en markdown:',
+    '',
+    description,
+    '',
+    'Usa este contexto para entender qué es el producto, para distinguir un error de una idea y, cuando una plantilla pida enriquecer el mensaje con información del proyecto, para agregarla al mensaje. No inventes lo que la descripción no dice.',
+  ].join('\n');
+}
+
+export function classifySystem({ areas, templates, project }) {
+  return [CLASSIFY_INSTRUCTIONS, catalogBlock({ areas, templates }), projectBlock(project)].filter(Boolean);
 }
 
 export function attachmentsBlock(attachments, units) {
@@ -116,8 +133,8 @@ function templateBlock(template) {
   return lines.join('\n');
 }
 
-export function decomposeSystem(template) {
-  return [DECOMPOSE_INSTRUCTIONS, templateBlock(template)];
+export function decomposeSystem(template, project) {
+  return [DECOMPOSE_INSTRUCTIONS, templateBlock(template), projectBlock(project)].filter(Boolean);
 }
 
 export function decomposeUser({ members, attachments, units, scopeNote }) {
@@ -183,7 +200,7 @@ export function harnessPrompt({ unitCount, retryErrors }) {
   const lines = [
     'Eres el analizador de la bandeja de entrada de un equipo de software pequeño. En el directorio de trabajo tienes:',
     '- input.md: el input dividido en unidades numeradas ([u1] a [u' + unitCount + ']).',
-    '- bundle.json: áreas, plantillas (id, area_id, name, description), equipo y adjuntos.',
+    '- bundle.json: áreas, plantillas (id, area_id, name, description), equipo, adjuntos y project (nombre y descripción del proyecto, en markdown: úsala para entender el producto y para enriquecer un mensaje con contexto del proyecto cuando la plantilla lo pida).',
     '- templates/<id>.md: el cuerpo de cada plantilla (Método y Formato de salida).',
     '',
     'Pasos',

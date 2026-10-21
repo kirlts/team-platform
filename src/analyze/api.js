@@ -269,7 +269,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config }) 
   const profile = providers.text.schemaProfile ?? 'anthropic';
   const attachments = bundle.attachments ?? [];
   const members = bundle.members ?? [];
-  const { areas, templates } = bundle;
+  const { areas, templates, project } = bundle;
   const allIds = units.map((u) => u.id);
   const fail = (r) => ({ status: r.status, step: r.step, category: r.category, explanation: r.explanation, reason: r.reason, errors: r.errors ?? [], max_tokens: r.max_tokens, draft: r.draft, units, calls: ctx.calls, stats: ctx.stats });
 
@@ -278,7 +278,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config }) 
   // (idea.md: «uno o varios mensajes que agrupen el trabajo en categorías»). Si el input no cabe en una
   // llamada se clasifica por trozos estructurales disjuntos y los grupos se unen.
   ctx.report('clasificando el input');
-  const cSystem = classifySystem({ areas, templates });
+  const cSystem = classifySystem({ areas, templates, project });
   const fixedClassify = estimateTokens([...cSystem, membersBlock([])].join('\n'), config.charsPerToken);
   const classifyChunks = partitionUnits(units, { budgetTokens: config.partitionThresholdTokens - fixedClassify, charsPerToken: config.charsPerToken });
   ctx.stats.classification_chunks = classifyChunks.length;
@@ -318,7 +318,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config }) 
       throw new AnalyzeInputError(`La plantilla ${templateId} no trae «body_markdown»`, { calls: ctx.calls });
     }
     const template = parseTemplate(row.body_markdown, { source: `plantilla ${templateId}` });
-    const system = decomposeSystem(template);
+    const system = decomposeSystem(template, project);
     const entry = {
       template,
       system,
@@ -389,12 +389,12 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config }) 
  * cachea 24 horas desde el último uso; se llama al guardar o editar una plantilla, sin reloj).
  * @returns {Promise<object>} la entrada de llm_calls de la llamada de calentamiento
  */
-export async function warmTemplate({ providers, config, templateMarkdown }) {
+export async function warmTemplate({ providers, config, templateMarkdown, project }) {
   const template = parseTemplate(templateMarkdown, { source: 'calentamiento' });
   const ctx = createContext({ providers, config, unitCount: 0 });
   const profile = providers.text.schemaProfile ?? 'anthropic';
   const r = await callText(ctx, 'warmup', {
-    system: decomposeSystem(template),
+    system: decomposeSystem(template, project),
     messages: [{ role: 'user', content: 'Calentamiento de la plantilla. Devuelve messages vacío.' }],
     schema: buildDecompositionSchema(template.fields, { profile, withDiscarded: false }),
     effort: config.classifyEffort,
@@ -408,10 +408,10 @@ export async function warmTemplate({ providers, config, templateMarkdown }) {
  * plantillas (los `enum` de ids son parte de la estructura). Mismo criterio que `warmTemplate`.
  * @returns {Promise<object>} la entrada de llm_calls de la llamada de calentamiento
  */
-export async function warmCatalog({ providers, config, areas, templates }) {
+export async function warmCatalog({ providers, config, areas, templates, project }) {
   const ctx = createContext({ providers, config, unitCount: 0 });
   const r = await callText(ctx, 'warmup-classify', {
-    system: classifySystem({ areas, templates }),
+    system: classifySystem({ areas, templates, project }),
     messages: [{ role: 'user', content: 'Calentamiento del catálogo. Devuelve groups y discarded vacíos.' }],
     schema: buildClassificationSchema({ areas, templates }),
     effort: config.classifyEffort,

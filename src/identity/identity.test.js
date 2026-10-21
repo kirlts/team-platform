@@ -293,7 +293,7 @@ test('toda ruta protegida responde 401 sin sesión, y las de editor 403 a un mie
   assert.ok(checked >= 25)
   // Las que el spec marca como del editor.
   const editorRoutes = new Set(routeList.filter((r) => r.policy === 'editor').map((r) => `${r.method} ${r.url.replace(/^\/api/, '')}`))
-  for (const expectedRoute of ['PATCH /members/:id', 'POST /areas', 'PATCH /areas/:id', 'GET /settings/providers', 'PATCH /settings/providers', 'POST /areas/:id/templates', 'POST /members']) {
+  for (const expectedRoute of ['PATCH /members/:id', 'POST /areas', 'PATCH /areas/:id', 'GET /settings/providers', 'PATCH /settings/providers', 'PATCH /settings/project', 'POST /areas/:id/templates', 'POST /members']) {
     assert.ok(editorRoutes.has(expectedRoute), `${expectedRoute} debería ser de editor`)
   }
   await env.close()

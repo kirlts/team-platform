@@ -234,7 +234,7 @@ describe('proposal (J3-B-02, J3-B-05, J3-B-08, J3-B-09, J3-B-10, J3-B-11, J3-B-1
     }
   })
 
-  test('Quitar mensaje and Descartar envío are different words, icons and inks, and the history sits apart from Volver a analizar (J3-B-08, J3-B-27)', async () => {
+  test('removing one message and discarding the whole send are different words, icons and inks, and the history sits apart from Volver a analizar (J3-B-08, J3-B-27)', async () => {
     const { page, context } = await session('ana')
     try {
       await sendAndOpen(page)

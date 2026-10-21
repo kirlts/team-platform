@@ -175,6 +175,7 @@ describe('message list and home', () => {
       await page.goto(origin)
       const clock = page.locator('time').first()
       assert.equal(await clock.evaluate((el) => getComputedStyle(el.parentElement).textTransform), 'none')
+      await page.getByRole('button', { name: 'Página siguiente' }).first().waitFor()
       const next = await page.getByRole('button', { name: 'Página siguiente' }).first().boundingBox()
       assert.ok(next.width >= 32 && next.height >= 32, `la flecha mide ${next.width}x${next.height}`)
     } finally {

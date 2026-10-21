@@ -7,6 +7,7 @@ import { noticeState } from '@/lib/states'
 import { useMe, useSetClosed } from '@/lib/queries'
 import { cn } from '@/lib/utils'
 import type { Message } from '@/lib/types'
+import { AreaChip } from './AreaChip'
 import { useLookups } from './lookups'
 import { MediaKinds } from './MediaKinds'
 import { MediaOpener } from './MediaOpener'
@@ -36,7 +37,7 @@ export function MessageCard({ message, variant = 'message' }: { message: Message
   const t = useT()
   const format = useFormat()
   const me = useMe().data
-  const { areaTitle, memberName } = useLookups()
+  const { memberName } = useLookups()
   const setClosed = useSetClosed()
 
   const closed = message.status === 'closed'
@@ -51,21 +52,24 @@ export function MessageCard({ message, variant = 'message' }: { message: Message
     <article data-affects-me={affects ?? undefined} data-closed={closed || undefined} className={cn('group @container relative border-b border-line last:border-b-0 hover:bg-glass-edge', EDGE[message.status])}>
       {/* The layout follows the width of the row, not the window: the same row sits in the full list and in the half columns of Inicio. */}
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-1 px-4 py-3 @2xl:grid-cols-[minmax(0,1fr)_9.5rem_3rem] @2xl:grid-rows-[auto_auto_1fr]">
-      <h3 className={cn('col-start-1 row-start-1 break-words text-sm font-semibold leading-snug', closed && 'font-medium text-muted')}>
-        <Link
-          to={`/messages/${message.id}`}
-          className="outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:outline-2 focus-visible:after:outline-accent"
-        >
-          {reply && <span className="sr-only">{t('card.replyTo')} «{message.title}»: </span>}
-          {reply ? reply.body : message.title}
-        </Link>
-      </h3>
+      {/* The area is the tab of the card (mockup «Área» above each message): a chip in its own color, before the title. */}
+      <div className="col-start-1 row-start-1 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+        <AreaChip areaId={message.area_id} className="shrink-0" />
+        <h3 className={cn('min-w-0 break-words text-sm font-semibold leading-snug', closed && 'font-medium text-muted')}>
+          <Link
+            to={`/messages/${message.id}`}
+            className="outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:outline-2 focus-visible:after:outline-accent"
+          >
+            {reply && <span className="sr-only">{t('card.replyTo')} «{message.title}»: </span>}
+            {reply ? reply.body : message.title}
+          </Link>
+        </h3>
+      </div>
       {/* data-repeat-ok: the reply row names the message it answers; that message is listed on its own too. */}
       <p data-repeat-ok={reply ? 'reply-names-its-message' : undefined} className="col-start-1 row-start-2 whitespace-normal break-words text-xs text-muted" aria-hidden={reply ? true : undefined}>
         {reply ? t('card.inMessage', { title: message.title }) : message.body}
       </p>
       <div className="col-span-2 row-start-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted @2xl:col-span-1">
-        <span className="min-w-0 break-words font-medium text-fg" data-repeat-ok="category">{areaTitle(message.area_id)}</span>
         <span data-repeat-ok="person">{memberName(from.author_id)}</span>
         <time dateTime={from.created_at} title={format.fullStamp(from.created_at)} className="tabular-nums">
           {format.stamp(from.created_at)}

@@ -32,6 +32,8 @@ export interface Area {
   title: string
   description: string
   position: number
+  /** Color of the area, `#rrggbb` (UD-045). */
+  color?: string
   /** Assumption: GET /areas brings the area's count of open messages. */
   open_count?: number
   /** Open and answered: what is still pending. It is the number the sidebar carries. */
@@ -122,6 +124,10 @@ export interface InputRecord {
   job?: { id: string; status: string; percent: number | null; phrase: string | null } | null
   /** Count of proposed messages for the tray row; without it, the length of `proposal.messages`. */
   proposed_count?: number
+  updated_at?: string
+  /** The messages a published input produced, in order (UD-070). */
+  message_ids?: string[]
+  messages?: { id: string; title: string; area_id: string; status: MessageStatus; edited_at: string | null }[]
 }
 
 export type MessageStatus = 'open' | 'answered' | 'closed'
@@ -158,6 +164,11 @@ export interface Message {
   /** Media types attached, to draw one icon per type (UD-016). */
   attachment_kinds?: AttachmentKind[]
   updated_at?: string
+  /** Counter of real edits: the edit must carry the one that was read (UD-071). */
+  version?: number
+  /** When the sender last edited it; null when never (UD-071). */
+  edited_at?: string | null
+  edits?: { id: string; member_id: string; at: string; version: number; fields: string[] }[]
   /** List assumptions: number of replies and the latest, for «Últimas respuestas». */
   reply_count: number
   last_reply?: Reply | null
@@ -186,6 +197,7 @@ export interface MessagePatch {
   assignee_ids?: string[]
   area_id?: string
   template_id?: string
+  attachment_ids?: string[]
 }
 
 /** What is sent to add a member (POST /members). */

@@ -404,6 +404,7 @@ RULES:
 - Las pruebas de ajuste (`test:fit`) y de flujos (`test:flows`) abren el diálogo de envíos antes de revisar una propuesta; la medida de alto de diez envíos se toma sobre la página, que no cambia.
 - Una captura a 1440×900 y a 390×844, en claro y oscuro, de Inicio sin envíos, con el envío plegado y con el diálogo abierto.
 **Condiciones de reversión:** Si revisar en un diálogo resulta incómodo frente a ver los últimos mensajes mientras se revisa, se vuelve a una disposición en la página con alto repartido.
+**Enmienda (UD-046):** El diálogo de envíos y su botón dejan de ser el camino principal. Inicio sigue la maqueta: franja, título con fecha, barra de texto, desplegable en línea y listas. Con un envío abierto las listas pueden plegarse a una franja.
 ## [UD-031] Las descripciones de área son largas y detalladas, y juntas son mutuamente excluyentes y colectivamente exhaustivas
 
 **Fecha:** 2026-10-21
@@ -590,7 +591,7 @@ RULES:
 - Cancelar un `published` desde el guion: UD-070 lo define definitivo y los mensajes ya habrían llegado al equipo.
 - Barrer por reloj: el barrido por antigüedad (`sweepOrphans`) queda como red para una caída entre escribir el archivo y su fila; el caso normal no espera a un reloj.
 **Consecuencias:**
-- Columna `inputs.keep_draft` (migración 0007). Un envío repetido con el mismo contenido devuelve el que ya existe y no cambia su `keep_draft`.
+- Columna `inputs.keep_draft` (migración 0008). Un envío repetido con el mismo contenido devuelve el que ya existe y no cambia su `keep_draft`.
 - Un envío cancelado conserva sus archivos a propósito: Deshacer lo restaura (J1-B-26), así que no son huérfanos.
 **Condiciones de reversión:** Retirar el campo si el guion de verificación deja de enviar textos reales.
 
@@ -704,3 +705,46 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 **Consecuencias:**
 - Un hallazgo cuenta cuando se reproduce con captura o se mide.
 **Condiciones de reversión:** UD-090.
+
+## [UD-045] Cada área tiene un color que el Editor elige, y de él salen el chip y el fondo del análisis
+
+**Fecha:** 2026-10-21
+**Contexto:** El área en que se clasifica un mensaje se leía como una palabra más entre otras. Martín, textual: «es muy importante que el área en la cual se clasifica lo que uno escribió tenga un contraste visual marcado y su propio contenedor tipo chip, para que no haya dudas. Cada área debe poder tener su color y eso determina el chip que se muestra en cada mensaje; la idea es mejorar la comprensión a primer vistazo. Si el área es verde, todo el recuadro de análisis hecho por la IA debe tener fondo verde, un verde secundario; cada color tiene dos colores, principal y secundario, pero el usuario sólo escoge uno: si escojo rojo, el secundario será una especie de rosado pálido. Debe haber una distinción visual muy clara entre lo que envié como mensaje original y el área donde terminó ubicado, y si cambio el área en el mensaje analizado también cambian los colores.»
+**Decisión:** El área guarda un solo valor, `color`, en formato `#rrggbb` (columna `areas.color`, migración 0008, campo de `POST` y `PATCH /api/areas`, validado en el servidor). Cada área inicial de `templates/areas.json` trae el suyo y una área nueva toma el siguiente de una paleta de ocho. El panel deriva el resto con una función pura, `panel/src/lib/area-color.ts`, que trabaja en OKLCH: el chip lleva el color elegido con texto blanco o negro según cuál contraste más; el color secundario conserva el tono y lleva luminosidad 0,95 en el tema claro y 0,27 en el oscuro, con un tercio de la cromaticidad (hasta 0,05); el texto sobre el secundario es el mismo tono a luminosidad 0,25 o 0,95; el borde se oscurece o se aclara hasta quedar a 3:1 del secundario. Se eligió OKLCH y no HSL porque su luminosidad es perceptual: un amarillo y un azul con la misma luminosidad HSL difieren mucho en brillo, y el secundario de cada tono tiene que verse igual de suave. El chip de área se ve en cada tarjeta (como la pestaña «Área» de la maqueta), en el detalle y en el análisis; el recuadro de cada mensaje analizado lleva el fondo secundario de su área y cambia al cambiar el área. Lo enviado (el original) es neutro. El selector está en la vista de Áreas: ocho muestras y un color libre.
+**Regla de distinción:** El estado de un mensaje (abierto, respondido, cerrado; UD-041) es una marca con su forma y su palabra; el área es un chip con su nombre. Un color de área nunca sustituye a la palabra, y los colores de estado no se ofrecen en la paleta inicial.
+**Alternativas descartadas:**
+- Guardar los dos colores: el usuario elige uno, y dos valores se desalinean.
+- Derivar en HSL: tonos distintos con el mismo secundario de luminosidad diferente.
+- Teñir también la página: el contraste de lo enviado contra el análisis es el punto, y un tercer color lo diluye.
+**Consecuencias:**
+- `npm run contraste` mide, en los dos temas, el texto del chip (4,5), el texto sobre el secundario (4,5) y el borde sobre el secundario (3) para los cinco colores iniciales y para diez colores extremos (negro, blanco, amarillo, verde, azul, rojo, cian, magenta, gris y crema). La prueba de `area-color.test.ts` lo repite con trece.
+- Un área sin color (servidor anterior) usa un índigo de respaldo.
+**Condiciones de reversión:** Si el Editor necesita un segundo color por área, se agrega como campo aparte y la derivación pasa a ser su valor por omisión.
+
+## [UD-046] Inicio sigue la maqueta y el envío se ve en un desplegable bajo la barra de texto
+
+**Fecha:** 2026-10-21
+**Contexto:** UD-030 puso la revisión de los envíos en un diálogo tras un botón «Envíos». Martín, textual: «cuando escribo un mensaje o grabo un video o mando un audio y hago click en enviar, la única retroalimentación es una barra superior que muestra que algo está cargando y después tengo que hacer click y desplazarme hacia abajo en la bandeja de envíos para recién ver cómo quedó lo que mandé. Eso es súper contraintuitivo. En la interfaz original que maqueté había puesto un desplegable dinámico debajo de la barra de texto en la página principal, y es en ese desplegable donde esperaba que apareciera lo que uno está enviando y cómo lo analizó la IA. [...] Lo de la bandeja de envíos es bueno pero no me gusta que muestre esos 7 para revisar, porque significa que tengo que hacer otro clic; esperaba ver la respuesta en esta misma interfaz. Lo que te acabo de escribir es aún más importante que los últimos mensajes y las últimas respuestas. La barra de Para mí y por área debería estar arriba de todo, con la barra de texto más abajo, y mucho mejor distribuida a nivel de espacio, para que no ocupe tanto.» Después, con UD-070 y UD-071, los mensajes dejaron de esperar una confirmación.
+**Decisión:** Inicio se dibuja de arriba abajo así: una franja de una sola fila con «Para mí» y «Por área», el nombre del proyecto con la fecha, «Nuevo mensaje» con la barra de texto, el desplegable y, debajo, «Últimos mensajes» y «Últimas respuestas». El desplegable es un bloque de la página, no una ventana: se abre solo al enviar y muestra ese envío, a la izquierda el original (texto o transcripción editable y la galería de medios, cuya tira es la lista de adjuntos) y a la derecha lo que la IA hizo de él. Con el progreso real mientras corre, y al terminar los mensajes ya publicados, cada uno en su recuadro del color de su área, con chip, título, texto, campos, destinatarios y adjuntos editables en el lugar por quien lo envió; las ediciones guardan sobre el mensaje publicado y se pueden deshacer. No hay botón «Enviar N mensajes» ni «Descartar envío» como paso: sólo una propuesta que el sistema no pudo publicar sola (`publish_blocked`) o con la publicación automática apagada conserva la revisión de UD-003. Con varios envíos seguidos (UD-025) el desplegable muestra el actual y un selector compacto de todos los envíos propios con su estado (en cola, analizando, publicado, fallido), en el mismo lugar. El control «Envíos» de la fila del título plega y despliega el desplegable y lleva el estado de los envíos en su cara.
+**Alto (UD-017):** El desplegable mide entre 20 y 30 rem, 40 % de la altura de la ventana. Las dos listas de abajo necesitan una fila y su paginador para existir; cuando la ventana no alcanza para el desplegable y para ellas, se pliegan en una franja con su nombre y el botón que devuelve el espacio. La decisión sale de medir si la página se desborda con las listas dibujadas, no de un umbral de altura. En 1440×900 con un envío abierto las listas se pliegan; a ventanas más altas conviven.
+**Enmienda:** UD-030 queda enmendada: el diálogo de envíos y su botón dejan de ser el camino principal (la maqueta manda), y «Últimos mensajes» y «Últimas respuestas» dejan de ser lo más prominente cuando hay un envío abierto. La fecha del día vuelve a Inicio, porque la maqueta la lleva; sigue sin haber reloj.
+**Alternativas descartadas:**
+- Una pestaña por envío arriba de la barra: contradice el orden de la maqueta.
+- Dejar fuera el «+» de «Lista de adjuntos»: la API ahora lo permite (`POST /api/messages/:id/attachments`), así que cada mensaje publicado lo lleva y la tira de la galería hace de lista.
+- Paginar los mensajes de la propuesta en el desplegable: un texto no tiene largo máximo; la lista es un carril con su desplazamiento declarado, y ningún mensaje se corta.
+**Consecuencias:**
+- `SendDrawer`, `PublishedPane` y `SendSwitcher` reemplazan al diálogo y a la lista paginada de la bandeja; `ReviewPane` pasa a dos columnas.
+- Las pruebas que revisan una propuesta con el botón Enviar arrancan el servidor de ejemplo con la publicación automática apagada; el camino automático tiene su propio archivo, `flows-inicio.browser.test.mjs`.
+**Condiciones de reversión:** Si el desplegable resulta ser un mal lugar para revisar muchos envíos, la bandeja completa vuelve a una ventana, pero abierta desde el desplegable y no en su lugar.
+
+## [UD-047] El panel izquierdo es más compacto y se oculta con el botón junto al usuario
+
+**Fecha:** 2026-10-21
+**Contexto:** Martín, textual: «el panel de la izquierda debería ser un poco más compacto y ocultable; en la maqueta inicial hay un botón específico para ocultarlo.»
+**Decisión:** El panel mide 256 px en lugar de 288, con filas y márgenes más chicos, y los conteos de cada área van bajo su nombre para que un nombre largo no se parta letra por letra. El botón para ocultarlo está al lado del usuario, como en la maqueta; oculto, el botón de la barra superior lo muestra de nuevo. La preferencia se guarda por persona en el almacenamiento del navegador (`team-sidebar-hidden:<id>`), con `try/catch`: sin almacenamiento el panel arranca visible y la elección vale para la pestaña. En el teléfono es el menú de la barra, que se cierra solo, y el botón de ocultar no se dibuja. Cada área lleva en el panel una muestra de su color.
+**Alternativas descartadas:**
+- Ocultarlo con CSS desde un ancho: la persona decide, no el ancho.
+- Guardar la preferencia en el servidor: es una comodidad de ese navegador.
+**Consecuencias:** `panel/src/lib/sidebar.ts` con su prueba; una prueba de navegador oculta, recarga y muestra, y comprueba que otra persona no se ve afectada.
+**Condiciones de reversión:** Ninguna prevista.
+

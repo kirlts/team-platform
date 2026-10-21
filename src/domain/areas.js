@@ -16,7 +16,7 @@ const toTemplate = (f, withBody) => ({
 /** Areas with their counts and templates (without body). `includeDeleted`: the deleted ones too (to restore). */
 export function listAreas (db, { includeDeleted = false } = {}) {
   const areas = all(db, `
-    SELECT a.id, a.title, a.description, a.position, a.deleted_at,
+    SELECT a.id, a.title, a.description, a.position, a.color, a.deleted_at,
            (SELECT COUNT(*) FROM messages m WHERE m.area_id = a.id AND m.status = 'open') AS open_count,
            (SELECT COUNT(*) FROM messages m WHERE m.area_id = a.id AND m.status <> 'closed') AS unresolved_count,
            (SELECT COUNT(*) FROM templates t WHERE t.area_id = a.id AND t.deleted_at IS NULL) AS template_count
@@ -26,7 +26,7 @@ export function listAreas (db, { includeDeleted = false } = {}) {
 }
 
 export function getArea (db, id, { includeDeleted = false } = {}) {
-  const dbRow = get(db, `SELECT id, title, description, position, deleted_at FROM areas WHERE id = ? ${includeDeleted ? '' : 'AND deleted_at IS NULL'}`, id)
+  const dbRow = get(db, `SELECT id, title, description, position, color, deleted_at FROM areas WHERE id = ? ${includeDeleted ? '' : 'AND deleted_at IS NULL'}`, id)
   if (!dbRow) throw notFound('El área no existe.')
   return dbRow
 }
@@ -41,11 +41,17 @@ function titleIsFree (db, title, exceptId = null) {
   if (other) throw conflict('Ya existe un área con ese título.', 'area_title_taken')
 }
 
-export function createArea (db, { title, description, position }, { actorId = null, now = Date.now } = {}) {
+/** The area color palette (UD-045): the same eight values as migration 0008; a new area takes the next one. */
+export const AREA_PALETTE = ['#6d28d9', '#c2410c', '#15803d', '#0f766e', '#a21caf', '#4d7c0f', '#be185d', '#0369a1']
+
+export const AREA_COLOR_PATTERN = '^#[0-9a-fA-F]{6}$'
+
+export function createArea (db, { title, description, position, color }, { actorId = null, now = Date.now } = {}) {
   return tx(db, () => {
     titleIsFree(db, title)
+    const chosen = (color ?? AREA_PALETTE[get(db, 'SELECT COUNT(*) AS n FROM areas').n % AREA_PALETTE.length]).toLowerCase()
     const nextPos = position ?? (get(db, 'SELECT COALESCE(MAX(position), -1) + 1 AS p FROM areas').p)
-    const r = run(db, 'INSERT INTO areas (title, description, position) VALUES (?, ?, ?)', title, description, nextPos)
+    const r = run(db, 'INSERT INTO areas (title, description, position, color) VALUES (?, ?, ?, ?)', title, description, nextPos, chosen)
     const id = Number(r.lastInsertRowid)
     audit(db, { memberId: actorId, action: 'area.create', entity: 'area', entityId: id, detail: { title }, now })
     return view(db, id)
@@ -56,9 +62,9 @@ export function updateArea (db, id, patch, { actorId = null, now = Date.now } = 
   return tx(db, () => {
     getArea(db, id)
     if (patch.title !== undefined) titleIsFree(db, patch.title, id)
-    const edits = ['title', 'description', 'position'].filter((k) => patch[k] !== undefined)
+    const edits = ['title', 'description', 'position', 'color'].filter((k) => patch[k] !== undefined)
     if (edits.length > 0) {
-      run(db, `UPDATE areas SET ${edits.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`, ...edits.map((k) => patch[k]), id)
+      run(db, `UPDATE areas SET ${edits.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`, ...edits.map((k) => (k === 'color' ? patch[k].toLowerCase() : patch[k])), id)
       audit(db, { memberId: actorId, action: 'area.update', entity: 'area', entityId: id, detail: { fieldValues: edits }, now })
     }
     return view(db, id)

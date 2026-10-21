@@ -5,6 +5,10 @@ import assert from 'node:assert'
 import { after, before, beforeEach, describe, test } from 'node:test'
 import { login, settled, startPanel } from './browser-support.mjs'
 
+// These tests go through the review of a proposal, which is what the server does with publication by hand (UD-070): they start it with auto-publication off.
+// The automatic path has its own file, `flows-inicio.browser.test.mjs`.
+process.env.PANEL_DEV_AUTO_PUBLISH ??= '0'
+
 let panel
 let origin = ''
 

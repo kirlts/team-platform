@@ -8,6 +8,10 @@ import { join } from 'node:path'
 import { after, before, beforeEach, describe, test } from 'node:test'
 import { login, startPanel, settled } from './browser-support.mjs'
 
+// These tests go through the review of a proposal, which is what the server does with publication by hand (UD-070): they start it with auto-publication off.
+// The automatic path has its own file, `flows-inicio.browser.test.mjs`.
+process.env.PANEL_DEV_AUTO_PUBLISH ??= '0'
+
 let panel
 let origin = ''
 
@@ -47,7 +51,6 @@ async function sendAndOpen(page, text = FIVE) {
   await page.goto(origin)
   await bar(page).fill(text)
   await page.getByRole('button', { name: 'Enviar' }).first().click()
-  await page.getByTestId('tray-control').click()
   await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 40000 })
 }
 
@@ -116,8 +119,8 @@ describe('compose bar (J3-B-01, J3-B-17, J3-B-19, J3-B-20)', () => {
   })
 })
 
-describe('window of sends (J3-B-04, J3-B-06, J3-B-07, J3-B-31)', () => {
-  test('the window keeps its place and its height from the queue to the proposal, and the actions stay at its foot (J3-B-04, J3-B-31)', async () => {
+describe('drawer of sends (J3-B-04, J3-B-06, J3-B-07, J3-B-31, UD-046)', () => {
+  test('the drawer keeps its place and its height from the queue to the proposal, and the actions stay at its foot (J3-B-04, J3-B-31)', async () => {
     const { page, context } = await session('diego')
     try {
       // Held in the queue until the test lets it run: the queued state is measured, not caught on its way (H-901).
@@ -125,19 +128,20 @@ describe('window of sends (J3-B-04, J3-B-06, J3-B-07, J3-B-31)', () => {
       await page.goto(origin)
       await bar(page).fill(FIVE)
       await page.getByRole('button', { name: 'Enviar' }).first().click()
-      await page.getByTestId('tray-control').click()
-      const dialog = page.getByRole('dialog')
+      const dialog = page.getByTestId('send-drawer')
       await page.getByText('En cola').first().waitFor()
+      await settled(page)
       const queued = await rect(dialog)
       const title = page.getByRole('heading', { name: 'Análisis' })
       const titleQueued = (await rect(title)).y
       await panel.control.release()
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 40000 })
+      await settled(page)
       const ready = await rect(dialog)
-      assert.deepEqual({ y: ready.y, height: ready.height }, { y: queued.y, height: queued.height }, 'la ventana no cambia de alto ni de lugar')
+      assert.deepEqual({ y: ready.y, height: ready.height }, { y: queued.y, height: queued.height }, 'el desplegable no cambia de alto ni de lugar')
       assert.equal(Math.round((await rect(page.getByRole('heading', { name: 'Análisis' }))).y), Math.round(titleQueued), 'el título del análisis no salta')
       const send = await rect(page.getByRole('button', { name: /^Enviar \d+ mensajes?$/ }))
-      assert.ok(ready.y + ready.height - (send.y + send.height) < 40, `el botón Enviar queda al pie de la ventana: ${ready.y + ready.height - (send.y + send.height)} px`)
+      assert.ok(ready.y + ready.height - (send.y + send.height) < 40, `el botón Enviar queda al pie del desplegable: ${ready.y + ready.height - (send.y + send.height)} px`)
     } finally {
       await context.close()
     }
@@ -154,7 +158,7 @@ describe('window of sends (J3-B-04, J3-B-06, J3-B-07, J3-B-31)', () => {
     }
   })
 
-  test('«En cola» never carries a percentage, in the window, in its row or in the strip (J3-B-06)', async () => {
+  test('«En cola» never carries a percentage, in the drawer, in its option or in the strip (J3-B-06)', async () => {
     const { page, context } = await session('eduardo')
     try {
       const files = [join(tmpdir(), 'r3b-a.txt'), join(tmpdir(), 'r3b-b.txt')]
@@ -166,10 +170,9 @@ describe('window of sends (J3-B-04, J3-B-06, J3-B-07, J3-B-31)', () => {
       await bar(page).fill('Un envío con adjuntos, para ver el progreso mientras espera.\n\nOtro punto distinto.')
       await page.locator('input[type=file]').first().setInputFiles(files)
       await page.getByRole('button', { name: 'Enviar' }).first().click()
-      await page.getByTestId('tray-control').click()
-      await page.locator('[role=dialog] section[aria-label=Análisis]').getByText('En cola').first().waitFor()
+      await page.locator('[data-testid=send-drawer] section[aria-label=Análisis]').getByText('En cola').first().waitFor()
       const sample = await page.evaluate(() => {
-        const d = document.querySelector('[role=dialog]')
+        const d = document.querySelector('[data-testid=send-drawer]')
         const text = d.querySelector('section[aria-label=Análisis]')?.textContent ?? ''
         const meters = [...d.querySelectorAll('[role=progressbar]')].map((m) => m.getAttribute('aria-valuenow'))
         return { queued: /En cola/.test(text) && !/Leyendo|Clasificando|Descomponiendo/.test(text), meters, percent: /\d+ ?%/.test(text) }
@@ -182,20 +185,22 @@ describe('window of sends (J3-B-04, J3-B-06, J3-B-07, J3-B-31)', () => {
     }
   })
 
-  test('the notice inside the window hides neither its title nor its close button, and does not move them (J3-B-07)', async () => {
+  test('the notice of the screen hides neither the drawer\'s title nor its control, and does not move them (J3-B-07)', async () => {
     const { page, context } = await session('sofia')
     try {
       await sendAndOpen(page)
-      const close = page.getByRole('dialog').getByRole('button', { name: 'Cerrar', exact: true })
-      const title = page.getByRole('dialog').getByText('Envíos', { exact: true }).first()
-      const before = { close: await rect(close), title: await rect(title) }
+      await settled(page)
+      const control = page.getByTestId('tray-control')
+      const title = page.getByRole('heading', { name: 'Análisis' })
+      const before = { control: await rect(control), title: await rect(title) }
       await page.getByRole('button', { name: /^Quitar el mensaje/ }).first().click()
       const notice = page.locator('[data-notice]')
       await notice.waitFor()
+      await settled(page)
       const n = await rect(notice)
-      assert.equal(overlap(n, before.close), false, 'el aviso no toca el botón de cerrar')
-      assert.equal(overlap(n, before.title), false, 'el aviso no tapa el título de la ventana')
-      assert.deepEqual(await rect(close), before.close, 'el botón de cerrar no se movió')
+      assert.equal(overlap(n, before.control), false, 'el aviso no toca el control de envíos')
+      assert.equal(overlap(n, before.title), false, 'el aviso no tapa el título del análisis')
+      assert.deepEqual(await rect(control), before.control, 'el control de envíos no se movió')
     } finally {
       await context.close()
     }
@@ -260,7 +265,8 @@ describe('proposal (J3-B-02, J3-B-05, J3-B-08, J3-B-09, J3-B-10, J3-B-11, J3-B-1
       await page.keyboard.press('Enter')
       const undo = await rect(page.getByRole('button', { name: 'Deshacer', exact: true }))
       const again = await rect(page.getByRole('button', { name: 'Volver a analizar' }))
-      assert.ok(again.x - (undo.x + undo.width) > 120, `Volver a analizar queda aparte de Deshacer y Rehacer: ${again.x - (undo.x + undo.width)} px`)
+      // Apart: far to its right on the same row, or alone on the next one when the column is narrow (the analysis shares the drawer with the original).
+      assert.ok(again.y > undo.y + undo.height - 1 || again.x - (undo.x + undo.width) > 120, `Volver a analizar queda aparte de Deshacer y Rehacer: ${again.x - (undo.x + undo.width)} px`)
     } finally {
       await context.close()
     }
@@ -345,12 +351,18 @@ describe('proposal (J3-B-02, J3-B-05, J3-B-08, J3-B-09, J3-B-10, J3-B-11, J3-B-1
 })
 
 describe('failure, publication and notices (J3-B-14, J3-B-15, J3-B-29)', () => {
-  test('a failed send says so as an error with its way in, the chip has an edge, and the reassurance is not red (J3-B-14, J3-B-29)', async () => {
+  test('a failed send says so inside the drawer, the chip has an edge and the reassurance is not red; folded, it says so as an error with its way in (J3-B-14, J3-B-29)', async () => {
     const { page, context } = await session('valentina')
     try {
       await page.goto(origin)
+      // The analysis waits for the test: the drawer is folded before it fails, so the notice is what the person finds.
+      await panel.control.hold()
       await bar(page).fill('Un envío que falla. [simular falla]')
       await page.getByRole('button', { name: 'Enviar' }).first().click()
+      await page.getByTestId('send-drawer').waitFor()
+      await page.getByTestId('tray-control').click()
+      await page.getByTestId('send-drawer').waitFor({ state: 'detached' })
+      await panel.control.step({ finish: true })
       const alert = page.locator('[data-notice][role=alert]')
       await alert.waitFor({ timeout: 40000 })
       assert.match(await alert.innerText(), /falló/)
@@ -358,10 +370,10 @@ describe('failure, publication and notices (J3-B-14, J3-B-15, J3-B-29)', () => {
       const kept = page.getByText('Texto y adjuntos del envío conservados')
       await kept.waitFor()
       assert.notEqual(await style(kept, 'color'), await style(page.getByText('El análisis no terminó'), 'color'), 'lo que tranquiliza no va en el rojo del error')
-      await page.getByRole('dialog').getByRole('button', { name: 'Cerrar', exact: true }).click()
       const chip = page.getByTestId('tray-control')
       assert.notEqual(await chip.locator('text=/falló/').first().evaluate((el) => getComputedStyle(el).borderTopWidth), '0px', 'la marca de fallo lleva contorno')
     } finally {
+      await panel.control.release()
       await context.close()
     }
   })
@@ -375,9 +387,10 @@ describe('failure, publication and notices (J3-B-14, J3-B-15, J3-B-29)', () => {
       await page.getByRole('button', { name: /^Enviar \d+ mensajes$/ }).click()
       const notice = page.locator('[data-notice]')
       await notice.waitFor()
+      // The box is read once the page is quiet, not while the notice is still coming in with its entrance animation (H-904).
+      await settled(page)
       const n = await rect(notice)
       assert.ok(n.y + n.height <= 56, `el aviso queda en la barra superior: ${n.y + n.height}`)
-      await settled(page)
       assert.equal(await card(), before, 'la tarjeta de Para mí no cambia de alto al publicar')
       for (const label of ['Página siguiente', 'Página anterior']) {
         for (const b of await page.getByRole('button', { name: label }).all()) {
@@ -402,10 +415,9 @@ describe('attachments of a message (J3-B-11)', () => {
       await bar(page).fill(FIVE)
       await page.locator('input[type=file]').first().setInputFiles([file])
       await page.getByRole('button', { name: 'Enviar' }).first().click()
-      await page.getByTestId('tray-control').click()
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 40000 })
       // The files may go with any of the messages: open each until one carries the chip.
-      const list = page.getByRole('dialog').locator('section[aria-label="Análisis"] ul[aria-label="Adjuntos"]')
+      const list = page.getByTestId('send-drawer').locator('section[aria-label="Análisis"] ul[aria-label="Adjuntos"]')
       let chip
       for (let i = 1; i <= 3 && !(await list.count()); i++) await page.getByRole('button', { name: new RegExp(`^Abrir el mensaje ${i}:`) }).click({ timeout: 2000 }).catch(() => undefined)
       chip = list.locator('li').first()

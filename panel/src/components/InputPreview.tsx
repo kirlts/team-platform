@@ -1,20 +1,18 @@
-import { ChevronRight } from '@/components/icons'
 import { useT } from '@/i18n'
+import { toGalleryItems } from '@/lib/gallery'
 import { useSaveInputText } from '@/lib/queries'
 import type { InputRecord } from '@/lib/types'
 import { useUndo } from '@/lib/undo'
-import { cn } from '@/lib/utils'
-import { AttachmentStrip } from './AttachmentStrip'
 import { EditableText } from './EditableText'
-import { MediaKinds } from './MediaKinds'
+import { MediaGallery } from './MediaGallery'
 
 /**
- * The original of a send: its text and attachments, as they were when the person sent them. It is a
- * fold: closed, a bar with the word «Original» and one icon per kind of attachment; open, the text,
- * which is corrected in place while the proposal is open, and the attachments. The text lives only
- * here (UD-026): the tray row shows it only while this is closed.
+ * The original of a send, on the left of the drawer of Inicio (mockup «Mensaje o transcripción» with «Previsualización» and
+ * «Lista de adjuntos»): the text or the transcription, corrected in place while the proposal is open, and the attachments in the gallery,
+ * whose strip is the list of them. It is neutral on purpose: what the person sent must not be read as part of what the model made of it,
+ * which is the tinted box beside it (UD-045). It is always open: the original is half of the answer to «what did I send».
  */
-export function InputPreview({ input, open, onToggle }: { input: InputRecord; open: boolean; onToggle: () => void }) {
+export function InputPreview({ input }: { input: InputRecord }) {
   const t = useT()
   const undo = useUndo()
   const saveText = useSaveInputText(input.id)
@@ -26,21 +24,25 @@ export function InputPreview({ input, open, onToggle }: { input: InputRecord; op
   }
 
   return (
-    <section aria-label={t('input.sent')} className={cn('flex min-w-0 flex-col gap-2', open && 'min-h-0 max-h-48 shrink-0')}>
-      <button type="button" aria-expanded={open} onClick={onToggle} className="flex items-center gap-2 self-start rounded-md py-0.5 text-left hover:text-accent">
-        <ChevronRight size={14} aria-hidden className={cn('transition-transform', open && 'rotate-90')} />
-        <h2>{t('original.title')}</h2>
-        <MediaKinds of={{ attachments: input.attachments }} />
-      </button>
-      {open && (
-        <>
-          {/* A pasted text has no maximum length: it is a lane with its own scroll, declared. */}
-          <div data-lane="input-text" className="scroll-thin min-h-0 flex-1 overflow-y-auto px-1.5 text-sm">
-            <EditableText value={input.text} label={t('original.title')} multiline prose canEdit={editable} validate={(v) => (v ? null : t('common.required'))} onSave={change} />
-          </div>
-          <AttachmentStrip items={input.attachments} className="shrink-0" />
-        </>
+    <OriginalFrame>
+      {/* A pasted text has no maximum length: it is a lane with its own scroll, declared. */}
+      {input.text && (
+        <div data-lane="input-text" className="scroll-thin min-h-0 flex-1 overflow-y-auto px-1 text-sm">
+          <EditableText value={input.text} label={t('original.title')} multiline prose canEdit={editable} validate={(v) => (v ? null : t('common.required'))} onSave={change} />
+        </div>
       )}
+      {input.attachments.length > 0 && <MediaGallery items={toGalleryItems(input.attachments)} variant="compact" className="shrink-0" />}
+    </OriginalFrame>
+  )
+}
+
+/** The frame of the original: neutral surface, titled «Original». */
+export function OriginalFrame({ children }: { children: React.ReactNode }) {
+  const t = useT()
+  return (
+    <section aria-label={t('input.sent')} data-testid="original-box" className="flex min-h-0 min-w-0 flex-col gap-2 rounded-[3px_10px_3px_10px] border border-line-strong bg-surface p-3">
+      <h2>{t('original.title')}</h2>
+      {children}
     </section>
   )
 }

@@ -1,6 +1,7 @@
 import { ChevronRight, Plus } from '@/components/icons'
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router'
+import { AreaColorPicker } from '@/components/AreaColorPicker'
 import { descriptionRule } from '@/components/AreaTemplates'
 import { FitList } from '@/components/FitList'
 import { FoldedText } from '@/components/FoldedText'
@@ -105,8 +106,14 @@ function AreaRow({ area }: { area: Area }) {
     return undo.run({ label: t('areas.edited'), redo: () => save.mutateAsync({ id: area.id, description: next }), undo: () => save.mutateAsync({ id: area.id, description: prev }) })
   }
 
+  const changeColor = (next: string) => {
+    const prev = area.color
+    return undo.run({ label: t('areas.colorEdited'), redo: () => save.mutateAsync({ id: area.id, color: next }), undo: () => save.mutateAsync({ id: area.id, color: prev }) })
+  }
+
   return (
     <section className="flex flex-wrap items-start gap-x-3 gap-y-1.5 border-b border-line px-4 py-3 last:border-b-0">
+      <AreaColorPicker title={area.title} color={area.color} onChange={changeColor} />
       <div className="flex min-w-0 flex-1 basis-40 flex-col gap-0.5">
         <Link to={`/areas/${area.id}`} aria-label={t('areas.open', { title: area.title })} className="inline-flex items-center gap-1 self-start font-semibold hover:text-accent-deep hover:underline">
           {area.title}

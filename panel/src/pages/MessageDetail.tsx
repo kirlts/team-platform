@@ -1,6 +1,7 @@
 import { ArrowLeft } from '@/components/icons'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { AiMark } from '@/components/AiMark'
+import { AreaChip } from '@/components/AreaChip'
 import { AreaPicker } from '@/components/AreaPicker'
 import { MediaGallery } from '@/components/MediaGallery'
 import { toGalleryItems } from '@/lib/gallery'
@@ -82,13 +83,14 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
   const undo = useUndo()
   const setClosed = useSetClosed()
   const patchMessage = usePatchMessage()
-  const { areaTitle, memberName } = useLookups()
+  const { memberName } = useLookups()
   const templates = useTemplates(m.area_id)
   const template: Template | undefined = templates.data?.find((x) => x.id === m.template_id) ?? templates.data?.[0]
   // On a phone two chips fit before the rest fold behind «+N»: a name takes a whole row (J2-A-21).
   const desktop = useDesktop()
   const closed = m.status === 'closed'
-  const canEdit = !!me && (me.id === m.author_id || me.role === 'editor')
+  // Only the sender edits a published message, the Editor included (UD-071).
+  const canEdit = !!me && me.id === m.author_id
 
   /** A change to the message: what is requested and what undoes it. */
   const change = (label: string, forward: MessagePatch, back: MessagePatch) =>
@@ -155,7 +157,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
                 }
               />
             ) : (
-              <span className="inline-flex min-h-6 items-center font-semibold text-fg">{areaTitle(m.area_id)}</span>
+              <AreaChip areaId={m.area_id} />
             )}
             <StatusBadge status={m.status} quiet />
             <span data-repeat-ok="person" className="inline-flex items-center gap-1.5">
@@ -165,6 +167,11 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
             <time dateTime={m.created_at} className="tabular-nums">
               {format.stamp(m.created_at)}
             </time>
+            {m.edited_at && (
+              <time dateTime={m.edited_at} data-testid="edited-mark" className="tabular-nums">
+                {t('published.edited', { when: format.stamp(m.edited_at) })}
+              </time>
+            )}
             {m.input_id && <AiMark />}
           </div>
 

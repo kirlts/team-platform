@@ -21,6 +21,10 @@ import { after, before, describe, test } from 'node:test'
 import assert from 'node:assert'
 import { login, startPanel, settled } from './browser-support.mjs'
 
+// These tests go through the review of a proposal, which is what the server does with publication by hand (UD-070): they start it with auto-publication off.
+// The automatic path has its own file, `flows-inicio.browser.test.mjs`.
+process.env.PANEL_DEV_AUTO_PUBLISH ??= '0'
+
 const PORT = Number(process.env.PANEL_FIT_PORT ?? 8795)
 let panel
 let ORIGIN = ''
@@ -156,7 +160,11 @@ function measureInPage({ lanes, withBreak }) {
 async function open(page, path) {
   await page.goto(`${ORIGIN}${path}`)
   await page.locator('main h1').first().waitFor()
-  await page.waitForLoadState('networkidle')
+  // A view that never goes quiet says which one it is (the amplified lists once left a request loop open).
+  await page.waitForLoadState('networkidle').catch(async (error) => {
+    const recent = await page.evaluate(() => performance.getEntriesByType('resource').slice(-12).map((e) => e.name.replace(location.origin, '')))
+    throw new Error(`${path} never went quiet: ${error.message}; last requests: ${recent.join(', ')}`)
+  })
   await settled(page)
 }
 
@@ -168,8 +176,7 @@ async function sendInput(page) {
     { name: 'feedback.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: Buffer.from('ejemplo') },
   ])
   await page.getByRole('button', { name: 'Enviar' }).first().click()
-  // The sends are folded behind one control (UD-030); the review opens in a dialog over the page and stays open while it is measured.
-  await page.getByTestId('tray-control').click()
+  // The drawer under the bar opens by itself (UD-046) and stays open while it is measured.
   await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
   await settled(page)
 }

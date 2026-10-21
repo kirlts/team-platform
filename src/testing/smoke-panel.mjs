@@ -1,6 +1,6 @@
 // Smoke test of the compiled panel against this API: starts the real server with the panel from panel/dist, logs in
-// through the form, sends an input with text and an image, waits for the proposal over SSE, publishes it and checks that the
-// message appears in Mensajes. It fails if the browser logs console errors, CSP violations,
+// through the form, sends an input with text and an image, waits for the analysis to publish it by itself (UD-070), edits the message in place
+// (UD-071), adds a file to it and checks that it appears in Mensajes. It fails if the browser logs console errors, CSP violations,
 // requests to another origin or unexpected 4xx/5xx responses.
 //
 //   (cd panel && npm ci && npm run build) && node src/testing/smoke-panel.mjs
@@ -55,17 +55,35 @@ try {
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64')
   await page.locator('input[type=file]:not([capture])').setInputFiles([{ name: 'captura.png', mimeType: 'image/png', buffer: png }])
   await page.getByRole('button', { name: 'Enviar', exact: true }).first().click()
-  console.log('input sent; it publishes itself when the analysis ends (UD-070)')
-  // Publication is checked against the API and on screen: the message goes from «Sin mensajes» to «Últimos mensajes».
-  let publishedCount = 0
-  for (let i = 0; i < 100 && publishedCount === 0; i++) {
-    publishedCount = (await (await fetch(`${ORIGIN_URL}/api/messages`, { headers: { cookie } })).json()).total
-    if (publishedCount === 0) await new Promise((r) => setTimeout(r, 100))
+  console.log('input sent; waiting for the analysis to publish it over SSE (UD-070)')
+  // The drawer under the bar shows the send, already published, with no click after the send.
+  const published = page.getByTestId('published-message').first()
+  await published.waitFor({ timeout: 20000 })
+  if ((await page.getByRole('button', { name: /^Enviar \d+ mensajes?$/ }).count()) !== 0) throw new Error('the panel still asks for a confirmation to publish')
+  console.log('published, shown in the drawer under the bar')
+  // The sender edits it in place with the version that was read (UD-071) and the message says it was edited.
+  await published.getByRole('button', { name: /^Título del mensaje:/ }).click()
+  const title = published.getByRole('textbox', { name: 'Título del mensaje' })
+  await title.fill('Guardar ajustes no responde')
+  await title.press('Enter')
+  await published.getByTestId('edited-mark').waitFor({ timeout: 10000 })
+  const list = await (await fetch(`${ORIGIN_URL}/api/messages`, { headers: { cookie } })).json()
+  if (list.total !== 1) throw new Error(`expected 1 published message and found ${list.total}`)
+  if (!list.items.some((m) => m.title === 'Guardar ajustes no responde')) throw new Error('the edit did not reach the published message')
+  console.log('edited in place: the server has the new title')
+  // A file added to the published message (the mockup's «Lista de adjuntos ⊕»).
+  await published.getByTestId('published-files').setInputFiles([{ name: 'otra.png', mimeType: 'image/png', buffer: png }])
+  await published.getByLabel('Agregar adjuntos').waitFor()
+  for (let i = 0; i < 100; i++) {
+    const m = (await (await fetch(`${ORIGIN_URL}/api/messages`, { headers: { cookie } })).json()).items[0]
+    if ((m.attachments ?? []).length >= 2) break
+    if (i === 99) throw new Error('the added file did not reach the message')
+    await new Promise((r) => setTimeout(r, 100))
   }
-  if (publishedCount !== 1) throw new Error(`expected 1 published message and found ${publishedCount}`)
+  console.log('a file was added to the published message')
   await page.getByText('Sin mensajes', { exact: true }).first().waitFor({ state: 'hidden', timeout: 10000 })
   await page.getByRole('link', { name: /^Mensajes/ }).first().click()
-  await page.getByText('Mensaje de prueba').first().waitFor({ timeout: 10000 })
+  await page.getByText('Guardar ajustes no responde').first().waitFor({ timeout: 10000 })
   console.log('message published: visible in Últimos mensajes and in the Mensajes view')
 
   // The editor's other views load their data without error responses.

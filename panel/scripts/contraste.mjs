@@ -6,6 +6,7 @@
 
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { areaPalette, contrast as hexContrast } from '../src/lib/area-color.ts'
 
 const css = readFileSync(fileURLToPath(new URL('../src/styles.css', import.meta.url)), 'utf8')
 
@@ -113,6 +114,26 @@ for (const [theme, t] of [['light', light], ['dark', dark]]) {
   row(theme, 'texto del gel (30 % del alto, con brillo)', fg('gel-fg'), [gloss(at(0.3), 0.3), at(0.7)], 4.5)
   // Controls: a field's border against the glass must be visible (3:1).
   row(theme, 'borde de controles (edge) sobre vidrio', fg('edge'), onGlass('glass'), 3)
+}
+
+// Area colors (UD-045): the chip, the tint of the analysis box and the edge, derived from one color. The initial colors
+// of templates/areas.json and the extremes a person could pick, in both themes. The derivation is the panel's own
+// (src/lib/area-color.ts), so what is measured here is what is drawn.
+const areaColors = JSON.parse(readFileSync(fileURLToPath(new URL('../../templates/areas.json', import.meta.url)), 'utf8')).map((a) => [a.title, a.color])
+const extremes = ['#000000', '#ffffff', '#ffff00', '#00ff00', '#0000ff', '#ff0000', '#00ffff', '#ff00ff', '#808080', '#fffacd'].map((c) => [`extremo ${c}`, c])
+for (const theme of ['light', 'dark']) {
+  for (const [name, color] of [...areaColors, ...extremes]) {
+    const p = areaPalette(color, theme)
+    const pair = (label, a, b, min) => {
+      const value = hexContrast(a, b)
+      const ok = value >= min
+      if (!ok) failed++
+      console.log(`${ok ? 'ok ' : 'BAD'} ${theme.padEnd(6)} ${value.toFixed(2).padStart(5)} (min ${min})  área ${name}: ${label}`)
+    }
+    pair('texto del chip sobre su color', p.mainText, p.main, 4.5)
+    pair('texto del análisis sobre el fondo secundario', p.softText, p.soft, 4.5)
+    pair('borde del análisis sobre el fondo secundario', p.edge, p.soft, 3)
+  }
 }
 
 if (failed) {

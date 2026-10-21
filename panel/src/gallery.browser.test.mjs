@@ -7,6 +7,10 @@ import { mkdirSync } from 'node:fs'
 import { after, before, describe, test } from 'node:test'
 import { login, startPanel } from './browser-support.mjs'
 
+// These tests go through the review of a proposal, which is what the server does with publication by hand (UD-070): they start it with auto-publication off.
+// The automatic path has its own file, `flows-inicio.browser.test.mjs`.
+process.env.PANEL_DEV_AUTO_PUBLISH ??= '0'
+
 process.env.PANEL_DEV_MEDIA = '1'
 const CAPTURES = process.env.GALLERY_CAPTURES
 let panel
@@ -260,7 +264,7 @@ describe('where the gallery is used', () => {
       await page.goto(origin)
       await page.getByTestId('tray-control').click()
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 40000 })
-      const list = page.getByRole('dialog').getByRole('list', { name: 'Adjuntos' }).last()
+      const list = page.getByTestId('send-drawer').locator('section[aria-label="Análisis"]').getByRole('list', { name: 'Adjuntos' }).last()
       await list.getByRole('button', { name: /^Ver 1 de/ }).first().click()
       const inner = page.getByRole('dialog').last()
       await inner.locator('[data-gallery]').waitFor()

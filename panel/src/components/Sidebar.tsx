@@ -1,4 +1,4 @@
-import { ChevronDown, Home, Inbox, Layers, LogOut, Plug, Plus, Settings, Users } from '@/components/icons'
+import { ChevronDown, Home, PanelLeft, Inbox, Layers, LogOut, Plug, Plus, Settings, Users } from '@/components/icons'
 import { useState, type ReactNode } from 'react'
 import { NavLink, useMatch } from 'react-router'
 import { Link } from 'react-router'
@@ -12,7 +12,7 @@ import { Avatar } from './Avatar'
 import { FormDialog } from './FormDialog'
 
 const row =
-  'flex min-h-11 items-center gap-2.5 md:min-h-9 rounded-md border border-transparent px-3 py-1.5 text-sm font-medium text-fg transition-colors duration-150 hover:bg-glass'
+  'flex min-h-11 items-center gap-2.5 md:min-h-9 rounded-md border border-transparent px-2.5 py-1 text-sm font-medium text-fg transition-colors duration-150 hover:bg-glass'
 /** What is selected looks the same everywhere (J2-A-41): the `selected` fill and the accent bar on the edge, as the rows of Áreas. */
 const active = 'bg-selected font-semibold shadow-[inset_4px_0_0_var(--color-accent)] hover:bg-selected'
 
@@ -28,7 +28,7 @@ function Item({ to, icon, children, end, onNavigate, badge }: { to: string; icon
 }
 
 /** Sidebar: user, views, areas with what is pending in each (Editor) and Configuración at the foot. */
-export function Sidebar({ onNavigate, onLogout }: { onNavigate?: () => void; onLogout: () => void }) {
+export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => void; onLogout: () => void; onHide?: () => void }) {
   const t = useT()
   const me = useMe().data
   const areas = useAreas()
@@ -41,10 +41,16 @@ export function Sidebar({ onNavigate, onLogout }: { onNavigate?: () => void; onL
   const [creating, setCreating] = useState(false)
 
   return (
-    <nav aria-label={t('nav.label')} className="flex h-full min-h-0 flex-col gap-1 p-3">
-      <div className="mb-3 flex shrink-0 items-center gap-2.5 border-b border-line px-2 pb-3 pt-1">
-        <Avatar name={me?.name ?? '?'} size={30} />
+    <nav aria-label={t('nav.label')} className="flex h-full min-h-0 flex-col gap-0.5 p-2">
+      {/* The user and, at its side, the button that hides the panel (mockup). On a phone the panel is a menu that closes by itself, so there it is not drawn. */}
+      <div className="mb-2 flex shrink-0 items-center gap-2 border-b border-line px-1.5 pb-2 pt-0.5">
+        <Avatar name={me?.name ?? '?'} size={26} />
         <span className="min-w-0 flex-1 break-words text-sm font-medium leading-tight">{me?.name}</span>
+        {onHide && (
+          <button type="button" data-testid="sidebar-hide" aria-label={t('sidebar.hide')} title={t('sidebar.hide')} onClick={onHide} className="hit rounded-md p-1.5 text-muted hover:bg-glass hover:text-fg max-md:hidden">
+            <PanelLeft size={16} aria-hidden />
+          </button>
+        )}
       </div>
 
       <Item to="/" end icon={<Home size={16} aria-hidden />} onNavigate={onNavigate}>
@@ -76,14 +82,16 @@ export function Sidebar({ onNavigate, onLogout }: { onNavigate?: () => void; onL
           </div>
           {areasOpen && (
             // With many areas the list scrolls inside: it is a declared lane, not the page.
-            <ul data-lane="areas-nav" className="scroll-thin ml-3 mt-0.5 flex min-h-0 flex-col gap-0.5 overflow-y-auto border-l border-line-strong pl-1">
+            <ul data-lane="areas-nav" className="scroll-thin ml-2.5 mt-0.5 flex min-h-0 flex-col gap-0.5 overflow-y-auto border-l border-line-strong pl-1">
               {(areas.data ?? []).map((a) => (
                 <li key={a.id} className="flex items-center gap-1">
-                  <NavLink to={`/areas/${a.id}`} onClick={onNavigate} className={({ isActive }) => cn(row, 'min-h-11 min-w-0 flex-1 text-sm md:min-h-8', isActive && active)}>
+                  <NavLink to={`/areas/${a.id}`} onClick={onNavigate} className={({ isActive }) => cn(row, 'min-h-11 min-w-0 text-sm md:min-h-7', isActive && active)}>
+                    {/* The area's color, the same one its chip has in the messages (UD-045). */}
+                    <span aria-hidden data-testid="area-swatch-dot" className="h-2.5 w-2.5 shrink-0 rounded-sm border border-line-strong" style={{ background: a.color }} />
                     <span className="min-w-0 flex-1 break-words leading-tight">{a.title}</span>
                   </NavLink>
-                  {/* The counts' column is reserved: a name that wraps does so the same before and after the counts arrive. */}
-                  <span className="flex min-w-24 shrink-0 justify-end">
+                  {/* The counts' column is reserved and its marks are the shape and the number (the word is in the link's name): a name that wraps does so the same before and after they arrive, and a narrow panel keeps its width. */}
+                  <span className="flex min-w-20 shrink-0 items-center justify-end">
                     <AreaPending areaId={a.id} title={a.title} summary={summary} onNavigate={onNavigate} />
                   </span>
                 </li>
@@ -105,7 +113,7 @@ export function Sidebar({ onNavigate, onLogout }: { onNavigate?: () => void; onL
       )}
 
       {/* The foot: the settings and the way out, as tall as a finger needs (J3-A-48). */}
-      <div className="mt-auto flex shrink-0 flex-col gap-1 border-t border-line pt-3">
+      <div className="mt-auto flex shrink-0 flex-col gap-0.5 border-t border-line pt-2">
         <Item to="/settings" icon={<Settings size={16} aria-hidden />} onNavigate={onNavigate}>
           {t('nav.settings')}
         </Item>
@@ -140,7 +148,7 @@ function AreaPending({ areaId, title, summary, onNavigate }: { areaId: string; t
       {/* One line: the sidebar shows the open ones, so a count arriving does not change the height of its row. Áreas also shows the answered ones. */}
       {counts.open > 0 && (
         <Link to={areaMessagesPath(areaId, 'open')} onClick={onNavigate} aria-label={t('areas.countOf', { title, count: label({ open: counts.open }) })} className="rounded-full">
-          <StateMark status="open" n={counts.open} plain />
+          <StateMark status="open" n={counts.open} showWord={false} plain />
         </Link>
       )}
     </>

@@ -15,6 +15,8 @@ export function useLookups() {
       /** Those who can receive new messages: a deactivated account keeps its history but is not chosen. */
       activeMembers: (members.data ?? []).filter((m) => m.active !== false),
       areaTitle: (id: string) => areaById.get(id)?.title ?? '',
+      /** The color chosen for the area (`#rrggbb`); undefined when the id is unknown or an older server sent none. */
+      areaColor: (id: string) => areaById.get(id)?.color,
       memberName: (id: string) => memberById.get(id)?.name ?? '',
     }
   }, [areas.data, members.data])

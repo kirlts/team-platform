@@ -4,7 +4,7 @@
 
 import {
   createArea, createTemplate, deleteArea, deleteTemplate, listAreas, listTemplates,
-  restoreArea, restoreTemplate, updateArea, updateTemplate
+  AREA_COLOR_PATTERN, restoreArea, restoreTemplate, updateArea, updateTemplate
 } from '../../domain/areas.js'
 import { mirrorTemplate, removeTemplateMirror } from '../../domain/template-files.js'
 import { requireConfirm } from '../confirm.js'
@@ -15,6 +15,8 @@ const templateBody = {
   additionalProperties: false,
   properties: { body_markdown: { type: 'string', minLength: 1 }, name: { type: 'string', minLength: 1 }, description: { type: 'string', minLength: 1 } }
 }
+
+const colorProp = { type: 'string', pattern: AREA_COLOR_PATTERN }
 
 export function registerAreaRoutes (app, ctx) {
   const { db, config, requireRole, domainEvents } = ctx
@@ -43,7 +45,7 @@ export function registerAreaRoutes (app, ctx) {
     onRequest: [requireRole('editor')],
     schema: {
       summary: 'Create an area',
-      body: { type: 'object', required: ['title', 'description'], additionalProperties: false, properties: { title: { type: 'string', minLength: 1 }, description: { type: 'string', minLength: 1 }, position: { type: 'integer', minimum: 0 } } },
+      body: { type: 'object', required: ['title', 'description'], additionalProperties: false, properties: { title: { type: 'string', minLength: 1 }, description: { type: 'string', minLength: 1 }, position: { type: 'integer', minimum: 0 }, color: colorProp } },
       response: { 201: area }
     }
   }, async (request, reply) => { reply.code(201); return createArea(db, request.body, actor(request)) })
@@ -53,7 +55,7 @@ export function registerAreaRoutes (app, ctx) {
     schema: {
       summary: 'Edit an area',
       params: idParams(),
-      body: { type: 'object', additionalProperties: false, minProperties: 1, properties: { title: { type: 'string', minLength: 1 }, description: { type: 'string', minLength: 1 }, position: { type: 'integer', minimum: 0 } } },
+      body: { type: 'object', additionalProperties: false, minProperties: 1, properties: { title: { type: 'string', minLength: 1 }, description: { type: 'string', minLength: 1 }, position: { type: 'integer', minimum: 0 }, color: colorProp } },
       response: { 200: area }
     }
   }, async (request) => updateArea(db, request.params.id, request.body, actor(request)))

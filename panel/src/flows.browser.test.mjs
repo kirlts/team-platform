@@ -17,6 +17,10 @@ import assert from 'node:assert'
 import { after, before, beforeEach, describe, test } from 'node:test'
 import { login, startPanel, settled, openTemplates } from './browser-support.mjs'
 
+// These tests go through the review of a proposal, which is what the server does with publication by hand (UD-070): they start it with auto-publication off.
+// The automatic path has its own file, `flows-inicio.browser.test.mjs`.
+process.env.PANEL_DEV_AUTO_PUBLISH ??= '0'
+
 let panel
 let origin = ''
 
@@ -60,8 +64,7 @@ async function sendInput(page, text = TEXT) {
   await bar.fill(text)
   await page.getByRole('button', { name: 'Enviar' }).first().click()
   assert.equal(await bar.inputValue(), '', 'the bar empties on send, without waiting for the analysis')
-  // Submissions are folded behind a single control (UD-030): the review opens over the page.
-  await page.getByTestId('tray-control').click()
+  // The drawer under the bar opens by itself with what was sent (UD-046): no click is needed to see it.
 }
 
 /** Pages forward until the text shows (lists paginate inside their frame). */
@@ -78,7 +81,7 @@ async function showRow(page, text) {
 
 describe('in-place editing', () => {
   test('click opens, Enter saves, Escape cancels, and «Deshacer» and «Rehacer» step through it', async () => {
-    const { page, context } = await session()
+    const { page, context } = await session('diego')
     try {
       await openMessage(page, 'Agregar exportación')
       const title = page.getByRole('button', { name: /^Título: Agregar exportación/ })
@@ -150,7 +153,9 @@ describe('analysis proposal', () => {
       const notice = page.locator('[data-notice]')
       await notice.getByText(/^2 mensajes publicados/).waitFor({ timeout: 10000 })
       await notice.getByRole('link', { name: 'Ver mensajes' }).waitFor()
-      await page.getByRole('region', { name: 'Análisis' }).waitFor({ state: 'detached', timeout: 10000 })
+      // The send stays in the drawer, now as published (UD-070): the proposal's review is gone and its messages are the published ones.
+      await page.getByTestId('published-pane').waitFor({ timeout: 10000 })
+      assert.equal(await page.getByRole('button', { name: /^Enviar \d+ mensajes?$/ }).count(), 0)
     } finally {
       await context.close()
     }
@@ -173,7 +178,7 @@ describe('analysis proposal', () => {
       await page.getByRole('textbox', { name: 'Título del mensaje' }).press('Enter')
       await page.getByRole('button', { name: /^Título del mensaje: Primera idea, ya corregida/ }).waitFor()
       await page.reload()
-      await page.getByTestId('tray-control').click() // the review comes back folded
+      await page.getByTestId('tray-control').click() // after a reload the drawer is folded
       await page.getByRole('button', { name: /^Título del mensaje: Primera idea, ya corregida/ }).waitFor()
     } finally {
       await context.close()
@@ -202,8 +207,7 @@ describe('analysis proposal', () => {
       await page.locator('input[type=file]:not([capture])').setInputFiles([{ name: 'foto-demasiado-grande.png', mimeType: 'image/png', buffer: Buffer.alloc(32) }])
       await page.getByRole('button', { name: 'Enviar' }).first().click()
       await page.getByRole('alert').filter({ hasText: 'La foto supera el tamaño máximo' }).first().waitFor()
-      await page.getByTestId('tray-control').click()
-      // The tray row keeps the submission so it can be retried and the bar is left free.
+      // The drawer already shows the send; it keeps the submission so it can be retried and the bar is left free.
       await page.getByRole('button', { name: 'Reintentar' }).first().waitFor()
       assert.equal(await page.getByLabel('Nuevo mensaje', { exact: true }).last().inputValue(), '')
     } finally {
@@ -311,15 +315,16 @@ describe('consecutive inputs (UD-025)', () => {
       assert.ok(Math.abs((await tray.boundingBox()).height - baseFrame) <= 1, 'el control de envíos conserva su alto')
       assert.ok(base.main <= base.win, 'la región principal no desplaza')
 
-      // Keyboard inside the review: J moves to the next one and K to the previous one. Enter publishes from nowhere (J2-B-13): a click on Enviar or Enter with the focus on that button does; the next one opens by itself.
-      await tray.click()
-      await page.getByRole('dialog').waitFor()
+      // Keyboard inside the drawer: J moves to the next send of the list (an older one: the list is newest first) and K to the previous one. Enter publishes from nowhere (J2-B-13): a click on Enviar or Enter with the focus on that button does, and the send stays in view, published.
+      await page.getByTestId('send-drawer').waitFor()
+      // The focus is in the bar after a send, ready for the next one: the keys of the list work once it is out of a field.
+      await page.getByTestId('send-drawer').click({ position: { x: 2, y: 2 } })
       const selected = () => page.locator('[role="option"][aria-selected="true"]').first().getAttribute('aria-label')
       const first = await selected()
-      // The window opens on the most recent send (J2-B-10): K goes to the previous one and J comes back.
-      await page.keyboard.press('k')
-      await page.waitForFunction((prev) => document.querySelector('[role="option"][aria-selected="true"]')?.getAttribute('aria-label') !== prev, first)
+      // The drawer opens on the most recent send: J goes to an older one and K comes back.
       await page.keyboard.press('j')
+      await page.waitForFunction((prev) => document.querySelector('[role="option"][aria-selected="true"]')?.getAttribute('aria-label') !== prev, first)
+      await page.keyboard.press('k')
       await page.waitForFunction((prev) => document.querySelector('[role="option"][aria-selected="true"]')?.getAttribute('aria-label') === prev, first)
       await page.keyboard.press('Enter')
       await settled(page)
@@ -327,7 +332,8 @@ describe('consecutive inputs (UD-025)', () => {
       await page.getByRole('button', { name: /^Enviar \d+ mensajes?$/ }).focus()
       await page.keyboard.press('Enter')
       await tray.getByText('9 para revisar').waitFor()
-      assert.notEqual(await selected(), first, 'al publicar se abre el siguiente')
+      await page.getByTestId('published-pane').waitFor()
+      assert.equal(await selected(), first, 'al publicar el envío sigue a la vista, publicado')
     } finally {
       await context.close()
     }
@@ -484,7 +490,7 @@ describe('insignia y estados (UD-028, UD-029, UD-041)', () => {
 })
 
 describe('Inicio (UD-030)', () => {
-  test('with submissions in progress, the latest messages and replies stay in view and the submissions are folded with their status', async () => {
+  test('with a send in progress the drawer opens by itself under the bar, the control carries its status, and folding it gives the lists their room back (UD-046)', async () => {
     const { page, context } = await session('ana')
     try {
       await page.getByRole('heading', { name: 'Últimos mensajes' }).waitFor()
@@ -493,10 +499,16 @@ describe('Inicio (UD-030)', () => {
       const control = page.getByTestId('tray-control')
       await control.waitFor()
       await control.getByText('para revisar').waitFor({ timeout: 20000 })
-      assert.equal(await page.getByRole('dialog').count(), 0, 'los envíos nacen plegados')
+      assert.equal(await page.getByRole('dialog').count(), 0, 'nada se abre sobre la página')
+      const drawer = page.getByTestId('send-drawer')
+      await drawer.waitFor()
+      assert.equal(await control.getAttribute('aria-expanded'), 'true')
+      // Folded, the two lists are the main part of the page again: each one is at least a third of its height.
+      await control.click()
+      await drawer.waitFor({ state: 'detached' })
+      await settled(page)
       assert.equal(await page.getByRole('heading', { name: 'Últimos mensajes' }).isVisible(), true)
       assert.equal(await page.getByRole('heading', { name: 'Últimas respuestas' }).isVisible(), true)
-      // The two blocks take up the main part of the page: each one is at least a third of its height.
       const box = await page.getByRole('region', { name: 'Últimos mensajes' }).boundingBox()
       assert.ok(box.height >= 900 / 3, `the latest messages measure ${box.height} px`)
       // The analysis text stands out the most: larger than the rest of the analysis, in its justified reading typeface.
@@ -504,11 +516,12 @@ describe('Inicio (UD-030)', () => {
       const body = page.getByRole('button', { name: /^Texto del mensaje/ }).first()
       await body.waitFor()
       const fontOf = (locator) => locator.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
-      const sizes = { text: await fontOf(body), other: await fontOf(page.getByRole('dialog').getByRole('button', { name: /^Resumen/ }).first()) }
+      const sizes = { text: await fontOf(body), other: await fontOf(drawer.getByRole('button', { name: /^Resumen/ }).first()) }
       assert.ok(sizes.text >= 16, `el texto del análisis mide ${sizes.text} px`)
       assert.ok(sizes.text > sizes.other, 'the analysis text is larger than the analysis controls')
-      // The original stays folded until it is opened.
-      assert.equal(await page.getByRole('button', { name: /^Original/ }).getAttribute('aria-expanded'), 'false')
+      // The original is always open, beside the analysis: it is half of the answer to «what did I send».
+      assert.equal(await drawer.getByTestId('original-box').isVisible(), true)
+      assert.equal(await page.getByRole('button', { name: /^Original/, expanded: false }).count(), 0, 'el original ya no es un pliegue')
     } finally {
       await context.close()
     }
@@ -587,7 +600,7 @@ describe('estados, teclado y filas', () => {
   })
 
   test('closing a message enters Deshacer and the button does not change shape (J1-A-28)', async () => {
-    const { page, context } = await session()
+    const { page, context } = await session('carla')
     try {
       await openMessage(page, 'Revisar la lectura')
       const button = page.getByRole('button', { name: 'Cerrar', exact: true })
@@ -852,8 +865,8 @@ describe('publishing flow (round 2, judge B)', () => {
       await page.keyboard.press('Escape')
       await saved.waitFor()
       assert.equal(await saved.evaluate((el) => el === document.activeElement), true, 'Escape también devuelve el foco al texto')
-      // From the container (the window itself, no field focused) Enter does not publish either.
-      await page.getByRole('dialog').evaluate((el) => el.focus())
+      // From the container (the drawer itself, no field focused) Enter does not publish either.
+      await page.getByTestId('send-drawer').evaluate((el) => el.focus())
       await page.keyboard.press('Enter')
       await page.keyboard.press('Enter')
       await settled(page)
@@ -906,7 +919,7 @@ describe('tray and proposal (round 2, judge B)', () => {
     try {
       await page.goto(origin)
       await page.getByRole('heading', { name: 'Últimos mensajes' }).waitFor()
-      const y = async () => ({ feed: (await page.getByRole('heading', { name: 'Últimos mensajes' }).boundingBox()).y, bar: (await page.getByLabel('Nuevo mensaje', { exact: true }).last().boundingBox()).y })
+      const y = async () => ({ bar: (await page.getByLabel('Nuevo mensaje', { exact: true }).last().boundingBox()).y, row: (await page.getByRole('heading', { name: 'Nuevo mensaje' }).boundingBox()).y })
       const before = await y()
       const bar = page.getByLabel('Nuevo mensaje', { exact: true }).last()
       // The first send waits in the queue while the strip is looked at; the test lets the analysis run when it has seen it (H-901).
@@ -917,17 +930,16 @@ describe('tray and proposal (round 2, judge B)', () => {
       await control.waitFor()
       assert.equal(await control.evaluate((el) => el.tagName), 'BUTTON', 'la franja es un botón')
       assert.ok((await control.evaluate((el) => getComputedStyle(el).borderTopWidth)) !== '0px', 'con forma de botón: tiene contorno')
-      assert.deepEqual(await y(), before, 'la franja aparece sin mover la barra ni las listas')
+      assert.deepEqual(await y(), before, 'la franja aparece sin mover la barra ni su título')
       // The progress shows with the strip folded.
       await control.getByRole('progressbar').waitFor()
       await panel.control.release()
-      // A second send: on opening, the window lands on the most recent one that needs the person, not the old one.
+      // A second send: the drawer lands on the most recent one, not the old one.
       await bar.fill('Segundo envío: agregar la sincronización con WhatsApp.')
       await page.getByRole('button', { name: 'Enviar' }).first().click()
       await control.getByText('2 para revisar').waitFor({ timeout: 40000 })
-      await control.click()
       const selected = await page.locator('[role="option"][aria-selected="true"]').first().getAttribute('aria-label')
-      assert.match(selected, /Segundo envío/, `la ventana abre en el reciente: ${selected}`)
+      assert.match(selected, /Segundo envío/, `el desplegable abre en el reciente: ${selected}`)
     } finally {
       await context.close()
     }
@@ -941,12 +953,11 @@ describe('tray and proposal (round 2, judge B)', () => {
       await page.goto(origin)
       await page.getByLabel('Nuevo mensaje', { exact: true }).last().fill('Un envío que se queda analizando un rato.')
       await page.getByRole('button', { name: 'Enviar' }).first().click()
-      await page.getByTestId('tray-control').click()
       const cancel = page.getByRole('button', { name: 'Cancelar', exact: true })
       await cancel.waitFor()
       assert.ok((await cancel.evaluate((el) => parseFloat(getComputedStyle(el).borderTopWidth))) >= 1, 'Cancelar tiene contorno')
-      const box = await page.getByRole('dialog').boundingBox()
-      assert.ok(box.height > 600, `la ventana conserva su alto desde la cola: ${box.height} px`)
+      const box = await page.getByTestId('send-drawer').boundingBox()
+      assert.ok(box.height >= 250, `el desplegable conserva su alto desde la cola: ${box.height} px`)
     } finally {
       await context.close()
     }
@@ -974,11 +985,9 @@ describe('tray and proposal (round 2, judge B)', () => {
         const b = await field.boundingBox()
         assert.ok(b.x + b.width <= region.x + region.width - 1, `un campo se sale por la derecha: ${b.x + b.width} contra ${region.x + region.width}`)
       }
-      // With the original open, the proposal keeps its width (J2-B-20): the original goes above, not beside.
-      await page.getByRole('button', { name: /^Original/ }).first().click()
-      const open = await page.getByRole('region', { name: 'Análisis' }).boundingBox()
-      assert.ok(Math.abs(open.width - region.width) <= 2, `la propuesta cambió de ancho con el original abierto: ${region.width} a ${open.width}`)
-      await page.getByRole('button', { name: /^Original/ }).first().click()
+      // The original is beside the analysis and always open: the proposal keeps its width whatever the original says (J2-B-20, UD-046).
+      const original = await page.getByTestId('original-box').boundingBox()
+      assert.ok(original.x + original.width <= region.x + 1, 'el original queda a la izquierda del análisis')
       const unitsButton = page.getByRole('button', { name: /^Partes sin mensaje/ })
       assert.ok((await unitsButton.evaluate((el) => parseFloat(getComputedStyle(el).borderTopWidth))) >= 1, '«Partes sin mensaje» tiene forma de botón')
       await unitsButton.click()
@@ -1024,7 +1033,6 @@ describe('tray and proposal (round 2, judge B)', () => {
       }
       const control = page.getByTestId('tray-control')
       await control.getByText('2 para revisar').waitFor({ timeout: 40000 })
-      await control.click()
       await proposalReady(page)
       await page.getByRole('button', { name: 'Descartar' }).last().click()
       await page.getByRole('status').getByText('Envío descartado').waitFor()
@@ -1036,7 +1044,7 @@ describe('tray and proposal (round 2, judge B)', () => {
     }
   })
 
-  test('on the phone the list of sends folds and the proposal takes the screen; menus fit in it (J2-B-11, J2-B-23)', async () => {
+  test('on the phone the sends are one row of options and the proposal is within the first two screens; menus fit in it (J2-B-11, J2-B-23, UD-046)', async () => {
     const { page, context } = await session('ana', { width: 390, height: 844 })
     try {
       await page.goto(origin)
@@ -1047,13 +1055,13 @@ describe('tray and proposal (round 2, judge B)', () => {
       }
       const control = page.getByTestId('tray-control')
       await control.getByText('3 para revisar').waitFor({ timeout: 40000 })
-      await control.click()
       await proposalReady(page)
+      // One row that scrolls sideways, not a list that takes the screen: three sends do not push the proposal down.
+      const switcher = await page.getByTestId('send-switcher').boundingBox()
+      assert.ok(switcher.height < 100, `el selector de envíos ocupa ${switcher.height} px de alto`)
+      assert.equal(await page.getByRole('option').count(), 3, 'cada envío tiene su opción')
       const proposal = await page.getByRole('region', { name: 'Análisis' }).boundingBox()
-      assert.ok(proposal.y < 844 * 0.35, `la propuesta empieza arriba, sin la lista encima: y=${proposal.y}`)
-      assert.equal(await page.getByRole('option').count(), 0, 'la lista de envíos está plegada')
-      await page.getByRole('button', { name: '3 envíos' }).click()
-      assert.equal(await page.getByRole('option').count(), 3, 'se abre con un toque')
+      assert.ok(proposal.y < 844 * 1.2, `la propuesta empieza en las dos primeras pantallas: y=${proposal.y}`)
       await page.getByRole('option').first().click()
       await proposalReady(page)
       await page.getByRole('button', { name: /^Área:/ }).first().click()

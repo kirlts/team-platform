@@ -2,7 +2,7 @@
 // ['me'], ['members'], ['areas'], ['templates', areaId], ['messages', ...], ['message', id],
 // ['inputs', id], ['providers'].
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, unwrapList } from './api'
+import { api, ApiError, unwrapList } from './api'
 import { applyClientFilters, toApiParams, type MessageQuery } from './filters'
 import type {
   Area,
@@ -121,6 +121,18 @@ export function useTray(enabled = true) {
   })
 }
 
+/**
+ * Every send of mine, newest first, whatever its state (UD-070): the history the drawer of Inicio lists. The ones I discarded are not part of it.
+ * It is the same list the tray was, now also with what was published.
+ */
+export function useSends(enabled = true) {
+  return useQuery({
+    queryKey: ['inputs', 'history'],
+    queryFn: async () => unwrapList<InputRecord>(await api('/inputs?mine=1&order=desc')).filter((i) => i.status !== 'cancelled'),
+    enabled,
+  })
+}
+
 export function useProviders(enabled: boolean) {
   return useQuery({
     queryKey: ['providers'],
@@ -203,14 +215,62 @@ export function useReply(messageId: string) {
 }
 
 /** In-place edit of a published message (PATCH /messages/:id). Returns the saved message. */
+/**
+ * Edits a published message (UD-071). The request carries the `version` that was read: the one in the cache, so an edit that follows another
+ * (an undo, the next field) uses the version the previous one left. If another edit got in first the server answers 409 `edit_conflict`
+ * with the current version: the message is read again and the same change goes once more, so the person never sees the conflict for
+ * a change in a different field.
+ */
 export function usePatchMessage() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (v: { id: string; patch: MessagePatch }) => api<MessageDetail>(`/messages/${v.id}`, { method: 'PATCH', body: v.patch }),
+    mutationFn: async (v: { id: string; patch: MessagePatch }) => {
+      const read = () => (qc.getQueryData(['message', v.id]) as MessageDetail | undefined)?.version
+      const send = (version: number | undefined) => api<MessageDetail>(`/messages/${v.id}`, { method: 'PATCH', body: { ...v.patch, version } })
+      try {
+        return await send(read() ?? (await api<MessageDetail>(`/messages/${v.id}`)).version)
+      } catch (err) {
+        if (!(err instanceof ApiError) || err.code !== 'edit_conflict') throw err
+        const fresh = await api<MessageDetail>(`/messages/${v.id}`)
+        qc.setQueryData(['message', v.id], fresh)
+        return send(fresh.version)
+      }
+    },
     onSuccess: (saved, v) => {
-      qc.setQueryData(['message', v.id], (old: MessageDetail | undefined) => (old ? { ...old, ...saved, replies: saved.replies ?? old.replies } : old))
+      qc.setQueryData(['message', v.id], (old: MessageDetail | undefined) => (old ? { ...old, ...saved, replies: saved.replies ?? old.replies } : saved))
       void qc.invalidateQueries({ queryKey: ['messages'] })
       void qc.invalidateQueries({ queryKey: ['areas'] })
+      void qc.invalidateQueries({ queryKey: ['inputs'] })
+    },
+  })
+}
+
+/** New files and links on a published message (UD-071): they go at the end and count as an edit, with the version that was read. */
+export function useAddAttachments() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (v: { id: string; files: File[]; links?: string[] }) => {
+      const send = (version: number | undefined) => {
+        const form = new FormData()
+        form.append('version', String(version))
+        for (const f of v.files) form.append('files', f)
+        for (const l of v.links ?? []) form.append('links', l)
+        return api<MessageDetail>(`/messages/${v.id}/attachments`, { method: 'POST', form })
+      }
+      const read = () => (qc.getQueryData(['message', v.id]) as MessageDetail | undefined)?.version
+      try {
+        return await send(read() ?? (await api<MessageDetail>(`/messages/${v.id}`)).version)
+      } catch (err) {
+        if (!(err instanceof ApiError) || err.code !== 'edit_conflict') throw err
+        const fresh = await api<MessageDetail>(`/messages/${v.id}`)
+        qc.setQueryData(['message', v.id], fresh)
+        return send(fresh.version)
+      }
+    },
+    onSuccess: (saved, v) => {
+      qc.setQueryData(['message', v.id], (old: MessageDetail | undefined) => (old ? { ...old, ...saved, replies: saved.replies ?? old.replies } : saved))
+      void qc.invalidateQueries({ queryKey: ['messages'] })
+      void qc.invalidateQueries({ queryKey: ['inputs'] })
     },
   })
 }
@@ -227,10 +287,10 @@ export function useSetClosed() {
 export function useSaveArea() {
   const invalidate = useInvalidator()
   return useMutation({
-    mutationFn: (v: { id?: string; title?: string; description?: string }) =>
+    mutationFn: (v: { id?: string; title?: string; description?: string; color?: string }) =>
       v.id
-        ? api(`/areas/${v.id}`, { method: 'PATCH', body: { title: v.title, description: v.description } })
-        : api('/areas', { method: 'POST', body: { title: v.title, description: v.description } }),
+        ? api(`/areas/${v.id}`, { method: 'PATCH', body: { title: v.title, description: v.description, color: v.color } })
+        : api('/areas', { method: 'POST', body: { title: v.title, description: v.description, color: v.color } }),
     onSuccess: () => invalidate('areas'),
   })
 }

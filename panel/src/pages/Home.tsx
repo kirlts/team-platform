@@ -4,6 +4,7 @@ import { Link } from 'react-router'
 import { AlertTriangle, ChevronDown } from '@/components/icons'
 import { AreaChips } from '@/components/AreaChips'
 import { Meter } from '@/components/Meter'
+import { Button } from '@/components/ui/button'
 import { useNotices } from '@/lib/notices'
 import { sendPercent } from '@/lib/progress'
 import { ComposeBar, type SendDraft } from '@/components/ComposeBar'
@@ -209,8 +210,45 @@ export function Home() {
     if (!working) setDrawerOpen(false)
   }, [working])
 
+  // With the drawer open and a window too low for it and the two lists (UD-017), the lists yield: they fold into one strip that says where they are. Measured, not guessed:
+  // the page folds them only when it does overflow with them drawn, and tries again whenever the window changes size.
+  const [listsFolded, setListsFolded] = useState(false)
+  const shown = working && drawerOpen && desktop
+  // A list that is still measuring draws sixty rows for a moment: the page is only read once none is (`data-fit-measuring`), and again whenever one finishes.
+  useEffect(() => {
+    const main = document.querySelector('main')
+    if (!shown) {
+      setListsFolded(false)
+      return
+    }
+    if (!main || listsFolded) return
+    const check = () => {
+      if (!main.querySelector('[data-fit-measuring]') && main.scrollHeight > main.clientHeight + 1) setListsFolded(true)
+    }
+    const observer = new MutationObserver(check)
+    observer.observe(main, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-fit-measuring', 'style'] })
+    check()
+    return () => observer.disconnect()
+  }, [shown, listsFolded])
+  useEffect(() => {
+    const main = document.querySelector('main')
+    if (!main || typeof ResizeObserver === 'undefined') return
+    let width = main.clientWidth
+    let height = main.clientHeight
+    const observer = new ResizeObserver(() => {
+      // A different window is a different question: draw the lists again and measure again.
+      if (Math.abs(main.clientWidth - width) > 1 || Math.abs(main.clientHeight - height) > 1) {
+        width = main.clientWidth
+        height = main.clientHeight
+        setListsFolded(false)
+      }
+    })
+    observer.observe(main)
+    return () => observer.disconnect()
+  }, [])
+
   return (
-    <Page cols={12}>
+    <Page cols={12} dense>
       {/* From top to bottom (mockup, UD-046): what affects me, the project and the date, the bar to write, the drawer with what was sent and how it was analyzed, and the latest messages and replies. */}
       <Attention />
 
@@ -226,7 +264,7 @@ export function Home() {
 
       <section aria-label={t('home.new')} className="flex flex-col gap-1.5">
         {/* The row keeps its height with or without sends, so the control appearing moves nothing (J2-B-08). */}
-        <div className="flex min-h-8 items-center justify-between gap-x-6">
+        <div className="flex min-h-7 items-center justify-between gap-x-6">
           <h2>{t('home.new')}</h2>
           {working && (
             // One control, shaped as a button: the state and the progress of the sends are in its face, and it folds and unfolds the drawer (J2-B-07).
@@ -235,7 +273,7 @@ export function Home() {
               data-testid="tray-control"
               aria-expanded={drawerOpen}
               onClick={() => setDrawerOpen((v) => !v)}
-              className="btn btn-glass relative h-8 min-w-0 gap-x-2.5 overflow-hidden !border-accent !bg-accent-soft/70 px-3 pb-1.5 text-left"
+              className="btn btn-glass relative h-7 min-w-0 gap-x-2.5 overflow-hidden !border-accent !bg-accent-soft/70 px-3 pb-1.5 text-left"
             >
               <span className="text-sm font-bold">{t('tray.title')}</span>
               <TrayState items={items} progress={events.progress} />
@@ -254,6 +292,7 @@ export function Home() {
             setDiscarded(null)
             setSelectedId(id)
           }}
+          fillRest={listsFolded}
           review={{
             onClose: finished,
             onDiscarded: (id, restore) => {
@@ -273,7 +312,9 @@ export function Home() {
       )}
 
       {/* The main block of the page (UD-030): the latest messages and replies, always in view. On a phone one list at a time, in a frame as tall as the screen (J3-A-10). */}
-      {desktop ? (
+      {desktop && listsFolded ? (
+        <FoldedLists onShow={() => setDrawerOpen(false)} />
+      ) : desktop ? (
         <div className="grid min-h-[22rem] flex-1 gap-x-5 gap-y-4 md:min-h-0 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] md:grid-rows-[minmax(0,1fr)]">
           <Feed kind="messages" meId={me?.id ?? ''} />
           <Feed kind="replies" meId={me?.id ?? ''} />
@@ -293,6 +334,28 @@ export function Home() {
         </div>
       )}
     </Page>
+  )
+}
+
+/** The two lists, folded into one strip while the drawer has the room (low windows): each name leads to its list in Mensajes, and the button gives the room back. */
+function FoldedLists({ onShow }: { onShow: () => void }) {
+  const t = useT()
+  return (
+    <section aria-label={t('home.latestMessages')} data-testid="lists-folded" className="glass leaf flex shrink-0 flex-wrap items-center gap-x-6 gap-y-1 px-4 py-1.5">
+      <h2>
+        <Link to="/messages" className="hover:underline">
+          {t('home.latestMessages')}
+        </Link>
+      </h2>
+      <h2>
+        <Link to="/messages?f=replies:eq:con" className="hover:underline">
+          {t('home.latestReplies')}
+        </Link>
+      </h2>
+      <Button size="sm" variant="ghost" className="ml-auto" onClick={onShow}>
+        {t('tray.fold')}
+      </Button>
+    </section>
   )
 }
 
@@ -343,7 +406,7 @@ function Attention() {
   const areas = (summary?.areas ?? []).filter((a) => a.open > 0)
   const mineParams = (status: string) => serializeQuery({ filters: [{ prop: 'for', op: 'eq', value: ME }, { prop: 'status', op: 'eq', value: status }], q: '' }).toString()
   return (
-    <section aria-label={t('home.mine')} data-testid="attention" data-tone-top={tone ?? 'none'} className="glass leaf flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 py-1.5">
+    <section aria-label={t('home.mine')} data-testid="attention" data-tone-top={tone ?? 'none'} className="glass leaf flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-1">
       <h2>{t('home.mine')}</h2>
       <div className="flex min-h-6 items-center">
         {!tone ? (

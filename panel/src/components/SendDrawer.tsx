@@ -15,7 +15,7 @@ type ReviewProps = Parameters<typeof ReviewPane>[0]
  * (UD-046). With several sends in a row (UD-025) it shows the current one and a compact selector of the others, in the same place.
  * It is a block of the page and not a window: the lists below shrink to leave it room, the page does not grow (UD-017).
  */
-export function SendDrawer({ items, selectedId, onSelect, review }: { items: readonly TrayItem[]; selectedId: string | undefined; onSelect: (id: string) => void; review: Omit<ReviewProps, 'inputId'> }) {
+export function SendDrawer({ items, selectedId, onSelect, review, fillRest = false }: { items: readonly TrayItem[]; selectedId: string | undefined; onSelect: (id: string) => void; review: Omit<ReviewProps, 'inputId'>; fillRest?: boolean }) {
   const t = useT()
   const upload = items.find((i) => i.kind === 'upload' && i.upload.key === selectedId)
   return (
@@ -23,7 +23,7 @@ export function SendDrawer({ items, selectedId, onSelect, review }: { items: rea
       aria-label={t('tray.title')}
       data-testid="send-drawer"
       data-keys-ok=""
-      className="glass leaf flex min-h-0 min-w-0 flex-col gap-2 p-3 md:h-[clamp(17rem,40dvh,27rem)] md:shrink-0"
+      className={cn('glass leaf flex min-h-0 min-w-0 flex-col gap-2 p-3', fillRest ? 'md:flex-1' : 'md:h-[clamp(16rem,33dvh,26rem)] md:shrink-0')}
     >
       <SendSwitcher items={items} selectedId={selectedId} onSelect={onSelect} />
       {upload?.kind === 'upload' ? <UploadPane upload={upload.upload} /> : <ReviewPane inputId={selectedId} {...review} />}

@@ -6,6 +6,7 @@ import { StateMark, useCountsLabel } from '@/components/NotifyBadge'
 import { useT } from '@/i18n'
 import { areaCounts, areaMessagesPath } from '@/lib/pending'
 import type { MessageSummary } from '@/lib/types'
+import { canSignOut } from '@/lib/identity'
 import { useAreas, useMe, useSaveArea, useSummary } from '@/lib/queries'
 import { cn } from '@/lib/utils'
 import { Avatar } from './Avatar'
@@ -128,12 +129,14 @@ export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => v
         <Item to="/settings" icon={<Settings size={16} aria-hidden />} onNavigate={onNavigate}>
           {t('nav.settings')}
         </Item>
-        <div data-nav-row className={rowBox}>
-          <button type="button" onClick={onLogout} className={cn(link, 'w-full text-left text-muted')}>
-            <LogOut size={16} aria-hidden />
-            <span className="min-w-0 leading-tight">{t('nav.logout')}</span>
-          </button>
-        </div>
+        {me && canSignOut(me.provider) && (
+          <div data-nav-row className={rowBox}>
+            <button type="button" data-testid="sign-out" onClick={onLogout} className={cn(link, 'w-full text-left text-muted')}>
+              <LogOut size={16} aria-hidden />
+              <span className="min-w-0 leading-tight">{t('nav.logout')}</span>
+            </button>
+          </div>
+        )}
       </div>
 
       <FormDialog

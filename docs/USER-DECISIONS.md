@@ -928,3 +928,15 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 - Quitar la marca: H-906 la pide.
 - Un color de estado para la marca: los colores de estado son de los mensajes (UD-045).
 **Condiciones de reversión:** Si el nombre se lee como un dato del proyecto y no de la propuesta, vuelve «Simulado» con el texto emergente nuevo.
+
+## [UD-190] «Cerrar sesión» no se dibuja cuando el servidor no tiene ruta de cierre
+
+**Fecha:** 2026-10-21
+**Contexto:** En modo `trusted-header` el botón llamaba a `POST /api/auth/logout`, que no existe (404), y la persona seguía dentro (H-2605). `GET /api/me` informa el proveedor (`local` o `delegated:<modo>`). Medido en `src/identity/identity.test.js`: la ruta existe en `local` y en `delegated:sso-redirect`, y no en `trusted-header`, `jwt` ni `signed-header`.
+**Decisión:** Decisión de la sesión, tomada por ese encargo; Martín no la dijo con estas palabras y puede revertirla. La barra lateral no dibuja la fila «Cerrar sesión» cuando el proveedor no es `local` ni `delegated:sso-redirect` (`canSignOut` en `panel/src/lib/identity.ts`). El pedido decía «distinto de `local`»; se excluyó `sso-redirect` porque su ruta de cierre funciona y ocultarla quitaría una función que anda. El riesgo de suplantación en `trusted-header` sigue declarado en `docs/INSTALACION.md`.
+**Alternativas descartadas:**
+- Dejar el botón con el 404: es un botón que no hace nada.
+- Ocultarlo en todo proveedor distinto de `local`: quita el cierre de sesión a quien entra por `sso-redirect`.
+- Una ruta de cierre falsa en los modos sin sesión propia: aparenta cerrar una sesión que no existe.
+**Consecuencias:** Pruebas `panel/src/components/Sidebar.test.tsx`, `panel/src/flows-ronda3a.browser.test.mjs` (tres proveedores y teléfono) e `identity.test.js` «H-2605».
+**Condiciones de reversión:** Si el dueño quiere el botón visible en todo modo, se borra la condición `me && canSignOut(me.provider)` de `Sidebar.tsx`. Si un modo delegado nuevo trae ruta de cierre, se agrega su nombre a `canSignOut`.

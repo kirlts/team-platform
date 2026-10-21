@@ -499,3 +499,24 @@ test('invalid configuration prevents startup (no issuer/audience, no secrets, no
   assert.throws(() => loadConfig({ IDENTITY_PROVIDER: 'delegated', DELEGATED_MODE: 'jwt', JWT_SECRET: 'x' }), /JWT_ISSUER/)
   assert.throws(() => loadConfig({ IDENTITY_PROVIDER: 'delegated', DELEGATED_MODE: 'sso-redirect', SSO_LOGIN_URL: 'https://a', SSO_SECRET: 'x' }), /PUBLIC_URL/)
 })
+
+test('H-2605 · /me names the provider and only local and sso-redirect have a sign-out route', async () => {
+  const logout = (env) => env.app.inject({ method: 'POST', url: '/api/auth/logout', headers: { 'x-team-request': 'panel' } })
+  const trusted = await makeEnv(delegatedConfig({ mode: 'trusted-header' }))
+  await addMember(trusted, { email: 'ana@x.org' })
+  const me = await trusted.app.inject({ url: '/api/me', headers: { 'tailscale-user-login': 'ana@x.org' }, remoteAddress: '127.0.0.1' })
+  assert.equal(me.json().provider, 'delegated:trusted-header')
+  assert.equal((await logout(trusted)).statusCode, 404) // the panel hides its button for this provider
+  await trusted.close()
+
+  const local = await makeEnv(noIpLimit)
+  await addMember(local, { email: 'ana@x.org' })
+  const cookie = await login(local, 'ana@x.org')
+  assert.equal((await local.app.inject({ url: '/api/me', headers: { cookie } })).json().provider, 'local')
+  assert.equal((await logout(local)).statusCode, 204)
+  await local.close()
+
+  const sso = await makeEnv({ config: { publicUrl: 'https://team.example', identity: { provider: 'delegated', delegated: { mode: 'sso-redirect', sso: { loginUrl: 'https://anfitrion.example/sso', secret: 'secreto-sso' } } } } })
+  assert.equal((await logout(sso)).statusCode, 204) // the panel keeps its button here
+  await sso.close()
+})

@@ -213,7 +213,7 @@ Límites medidos:
 
 - La puerta de enlace cambia si Docker recrea la red con otra subred (`docker compose down` y `up`). Si todas las peticiones vuelven a dar 401, se repite el primer comando.
 - Cualquier proceso del servidor que llegue a `127.0.0.1:<puerto>` puede poner la cabecera y actuar como cualquier miembro (comprobado: `curl -H 'Tailscale-User-Login: <correo>' http://127.0.0.1:3300/api/me` da 200). Sólo es aceptable en un servidor donde nadie más tiene acceso a una sesión.
-- El panel no tiene cierre de sesión en este modo: `Cerrar sesión` llama a `/api/auth/logout`, que no existe (404), y la persona sigue dentro. Lo cierra Tailscale.
+- El panel no dibuja `Cerrar sesión` en este modo: `/api/me` informa `delegated:trusted-header`, `/api/auth/logout` no existe (404) y la persona sigue dentro. Lo cierra Tailscale (UD-190).
 - La defensa contra CSRF sigue activa: una petición con `Sec-Fetch-Site: cross-site` da 403.
 
 ## Licencias

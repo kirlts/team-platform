@@ -738,7 +738,7 @@ const server = createServer(async (req, res) => {
       sessions.delete(cookieOf(req))
       return send(res, 204, undefined, { 'Set-Cookie': 'team_session=; Max-Age=0; Path=/' })
     }
-    if (path === '/me' && method === 'GET') return send(res, 200, { ...me, project_name: project.name, password_min_length: 15, ui_telemetry: { enabled: uiState.enabled, max_events: uiConfig.uiTelemetry.maxEvents } })
+    if (path === '/me' && method === 'GET') return send(res, 200, { ...me, provider: 'local', project_name: project.name, password_min_length: 15, ui_telemetry: { enabled: uiState.enabled, max_events: uiConfig.uiTelemetry.maxEvents } })
 
     // --- interface telemetry (UD-091)
     if (path === '/telemetry/ui' && method === 'POST') {

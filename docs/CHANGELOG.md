@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `GET /api/messages?involved=me`: los mensajes asignados a la persona o emitidos por ella una vez respondidos o cerrados, la regla de `/api/messages/summary`. Los enlaces de las marcas de la barra superior lo usan y llevan a una lista del tamaño de su cifra (H-2000).
 - Barra superior de toda página con tres marcas de estado, abierto rojo, respondido amarillo y cerrado azul, cada una con su forma y su número. Al hacer clic abre un desplegable con esos mensajes y un enlace a Mensajes filtrado. En teléfono conserva las tres marcas (UD-100, UD-141).
 - Barra lateral de 256 px, ocultable, sobre una grilla con la columna de contador de ancho fijo. Los contadores no llevan contenedor y toda fila responde al puntero y al foco (UD-047, UD-130). Prueba `panel/src/sidebar-alignment.browser.test.mjs` y regla de alineación en `ui-detectors.mjs`.
 - Inicio con el compositor como protagonista, ancho que crece con la ventana y página que se desplaza con un envío abierto (UD-110). El envío se ve en un desplegable bajo la barra, con el original y el análisis (UD-046).

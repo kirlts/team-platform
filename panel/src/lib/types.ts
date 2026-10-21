@@ -20,6 +20,8 @@ export interface Member {
 
 /** Response of GET /me: the member and the project name (assumption: `project_name`). */
 export interface Me extends Member {
+  /** Identity provider of the server: `local` or `delegated:<mode>` (H-2605). */
+  provider?: string
   project_name?: string
   /** Shortest password the server accepts (PASSWORD_MIN_LENGTH). */
   password_min_length?: number

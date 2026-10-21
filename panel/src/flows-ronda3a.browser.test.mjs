@@ -306,6 +306,53 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
   })
 })
 
+describe('the sign-out row follows the identity provider (H-2605, UD-190)', () => {
+  /** A session whose /api/me names another provider, as a server behind a trusted header does. */
+  async function sessionWithProvider(provider, viewport = DESKTOP) {
+    const mobile = viewport.width < 768
+    const context = await panel.browser.newContext({ viewport, locale: 'es-CL', isMobile: mobile, hasTouch: mobile, deviceScaleFactor: mobile ? 2 : 1 })
+    await context.route('**/api/me', async (route) => {
+      const response = await route.fetch()
+      await route.fulfill({ response, json: { ...(await response.json()), provider } })
+    })
+    const page = await context.newPage()
+    await login(page, origin, 'ana')
+    await page.locator('main#main').waitFor()
+    return { page, context }
+  }
+
+  for (const [provider, shown] of [['local', true], ['delegated:sso-redirect', true], ['delegated:trusted-header', false]]) {
+    test(`with ${provider} the sidebar ${shown ? 'offers' : 'does not offer'} «Cerrar sesión»`, async () => {
+      const { page, context } = await sessionWithProvider(provider)
+      try {
+        await page.getByRole('link', { name: 'Configuración' }).waitFor()
+        await settled(page)
+        assert.equal(await page.getByRole('button', { name: 'Cerrar sesión' }).count(), shown ? 1 : 0)
+        if (!shown) {
+          // Nothing in the page leads to the 404 route: no request to it is made by pressing around the foot.
+          const sent = []
+          page.on('request', (r) => r.url().includes('/api/auth/logout') && sent.push(r.url()))
+          await page.getByRole('link', { name: 'Configuración' }).click()
+          assert.deepEqual(sent, [])
+        }
+      } finally {
+        await context.close()
+      }
+    })
+  }
+
+  test('on a phone the menu hides it as well', async () => {
+    const { page, context } = await sessionWithProvider('delegated:trusted-header', PHONE)
+    try {
+      await page.getByRole('button', { name: 'Abrir navegación' }).first().click()
+      await page.getByRole('link', { name: 'Configuración' }).waitFor()
+      assert.equal(await page.getByRole('button', { name: 'Cerrar sesión' }).count(), 0)
+    } finally {
+      await context.close()
+    }
+  })
+})
+
 describe('the menu of a state (J3-A-13, J3-A-14, J3-A-15, UD-100)', () => {
   test('it lists what it counts, says where the rest is and does not repeat the word on every row', async () => {
     const { page, context } = await session('ana')

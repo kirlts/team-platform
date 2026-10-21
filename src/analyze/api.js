@@ -16,6 +16,7 @@
 import {
   ProviderMaxTokensError, ProviderOutputError, ProviderRefusalError,
 } from '../providers/errors.js';
+import { withSpan } from '../telemetry/api.js';
 import { AnalyzeInputError } from './errors.js';
 import {
   chunkNote, classifySystem, classifyUser, decomposeSystem, decomposeUser, membersBlock, rescueUser, retryUser,
@@ -61,7 +62,7 @@ function createContext({ providers, config, onProgress, unitCount }) {
 }
 
 /** Una llamada al proveedor de texto, registrada para llm_calls. */
-async function callText(ctx, step, { system, messages, schema, effort, maxTokens }) {
+async function callText(ctx, step, { system, messages, schema, effort, maxTokens, thinking }) {
   const provider = ctx.providers.text;
   const systemTokens = estimateTokens([].concat(system ?? []).join('\n'), ctx.config.charsPerToken);
   const entry = {
@@ -70,6 +71,7 @@ async function callText(ctx, step, { system, messages, schema, effort, maxTokens
     provider: provider.name,
     model: provider.model,
     effort,
+    thinking: thinking ?? null,
     max_tokens: maxTokens,
     // Si el sistema no llega al mínimo cacheable no se cachea y la lectura de caché será cero (informe 02 §7).
     cacheable: systemTokens >= ctx.config.minCacheableSystemTokens,
@@ -79,7 +81,7 @@ async function callText(ctx, step, { system, messages, schema, effort, maxTokens
   };
   ctx.calls.push(entry);
   try {
-    const out = await provider.complete({ system, messages, schema, effort, maxTokens, cacheTtl: ctx.config.cacheTtl });
+    const out = await provider.complete({ system, messages, schema, effort, maxTokens, cacheTtl: ctx.config.cacheTtl, ...(thinking ? { thinking } : {}) });
     Object.assign(entry, { provider: out.provider ?? entry.provider, model: out.model ?? entry.model, usage: out.usage ?? null, duration_ms: out.duration_ms ?? null });
     return { ok: true, out };
   } catch (err) {
@@ -105,6 +107,17 @@ function withErrorContext(messages, raw, errors) {
   return [...messages.slice(0, -1), { role: 'user', content: `${lastText}\n\n${feedback}` }];
 }
 
+/** Un span `validate` alrededor de una validación: cuántos errores y cuáles (hasta diez). */
+function validateSpan(step, fn) {
+  return withSpan('validate', { 'team.step': 'validate', 'team.validated_step': step }, (span) => {
+    const v = fn();
+    const conflicts = (v.conflicts?.overlaps?.length ?? 0) + (v.conflicts?.gaps?.length ?? 0);
+    span.setAttributes({ 'team.valid': v.errors.length === 0 && conflicts === 0, 'team.error_count': v.errors.length, 'team.conflicts': conflicts });
+    if (v.errors.length > 0) span.setAttribute('team.errors', v.errors.slice(0, 10).map((e) => String(e).slice(0, 300)));
+    return v;
+  });
+}
+
 /**
  * Una llamada estructurada con su recuperación:
  *  - `refusal`: no se reintenta igual (informe 02 [F4]); vuelve como estado.
@@ -112,14 +125,14 @@ function withErrorContext(messages, raw, errors) {
  *  - salida inválida: un reintento con el error como contexto; después, estado `invalid`.
  * `validate(json)` devuelve `{ errors: string[], ...resto }`.
  */
-async function structuredStep(ctx, { step, system, messages, schema, effort, validate }) {
+async function structuredStep(ctx, { step, system, messages, schema, effort, thinking, validate }) {
   const { config } = ctx;
   let maxTokens = config.maxTokens;
   let cutRetried = false;
   let invalidRetries = 0;
   let current = messages;
   for (;;) {
-    const r = await callText(ctx, step, { system, messages: current, schema, effort, maxTokens });
+    const r = await callText(ctx, step, { system, messages: current, schema, effort, maxTokens, thinking });
     let errors;
     let raw;
     let rest = {};
@@ -139,7 +152,7 @@ async function structuredStep(ctx, { step, system, messages, schema, effort, val
       errors = [r.error.message, ...(r.error.errors ?? [])];
       raw = r.error.raw;
     } else {
-      const v = validate(r.out.json);
+      const v = validateSpan(step, () => validate(r.out.json));
       if (v.errors.length === 0) return { status: 'ok', json: r.out.json, ...v };
       ({ errors, ...rest } = v);
       raw = JSON.stringify(r.out.json);
@@ -155,11 +168,12 @@ async function structuredStep(ctx, { step, system, messages, schema, effort, val
 async function decomposeUnits(ctx, { bundle, template, system, schema, units, scopeNote, label }) {
   const { config } = ctx;
   const scope = new Set(units.map((u) => u.id));
-  const vctx = contextFromBundle(bundle, { fields: template.fields, scope });
+  const vctx = { ...contextFromBundle(bundle, { fields: template.fields, scope }), requireMessage: true, withDiscarded: false };
   const base = {
     system,
     schema,
     effort: config.decomposeEffort,
+    thinking: config.decomposeThinking ?? undefined,
   };
   const first = await structuredStep(ctx, {
     ...base,
@@ -169,7 +183,8 @@ async function decomposeUnits(ctx, { bundle, template, system, schema, units, sc
   });
   if (first.status !== 'ok') return first;
 
-  let { messages, discarded } = first.json;
+  let { messages } = first.json;
+  let discarded = [];
   let { overlaps, gaps } = first.conflicts;
   if (overlaps.length === 0 && gaps.length === 0) return { status: 'ok', messages, discarded, rescued: false };
 
@@ -190,8 +205,8 @@ async function decomposeUnits(ctx, { bundle, template, system, schema, units, sc
   const coverageIds = [...coverageSet].sort((a, b) => a - b);
 
   ctx.report(`corrigiendo ${coverageIds.length} unidades en conflicto`);
-  const rescueCtx = contextFromBundle(bundle, { fields: template.fields, scope: coverageSet });
-  const rescue = await structuredStep(ctx, {
+  const rescueCtx = { ...contextFromBundle(bundle, { fields: template.fields, scope: coverageSet }), withDiscarded: false };
+  const rescue = await withSpan('rescue', { 'team.step': 'rescue', 'team.units': coverageIds.length, 'team.overlaps': overlaps.length, 'team.gaps': gaps.length }, () => structuredStep(ctx, {
     ...base,
     step: `rescue${label}`,
     messages: [{
@@ -207,11 +222,11 @@ async function decomposeUnits(ctx, { bundle, template, system, schema, units, sc
       }),
     }],
     validate: (json) => validateDecomposition(json, rescueCtx),
-  });
+  }));
   if (rescue.status !== 'ok') return rescue;
 
   messages = [...keptMessages, ...rescue.json.messages];
-  discarded = [...keptDiscarded, ...rescue.json.discarded];
+  discarded = keptDiscarded;
   const remaining = rescue.conflicts.overlaps.length > 0 || rescue.conflicts.gaps.length > 0 ? rescue.conflicts : coverage(messages, discarded, scope);
   if (remaining.overlaps.length > 0 || remaining.gaps.length > 0) {
     return { status: 'invalid', step: `rescue${label}`, reason: 'mece_conflict', errors: describeConflicts(remaining), draft: { messages, discarded } };
@@ -277,12 +292,17 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config }) 
       messages: [{ role: 'user', content: classifyUser({ units: chunkUnits, attachments }) }],
       schema: cSchema,
       effort: config.classifyEffort,
+      thinking: config.classifyThinking ?? undefined,
       validate: (json) => validateClassification(json, { areas, templates, scope }),
     });
     if (r.status === 'ok') ctx.report('input clasificado', { advance: true });
     return r;
   });
-  const classified = await runPool(classifyTasks, config.partitionConcurrency);
+  const classified = await withSpan('classify', { 'team.step': 'classify', 'team.units': units.length, 'team.chunks': classifyChunks.length }, async (span) => {
+    const results = await runPool(classifyTasks, config.partitionConcurrency);
+    span.setAttribute('team.groups', results.reduce((n, r) => n + (r?.json?.groups?.length ?? 0), 0));
+    return results;
+  });
   const badClass = classified.find((r) => r && r.status !== 'ok');
   if (badClass) return fail(badClass);
   const groups = classified.flatMap((r) => r.json.groups);
@@ -302,7 +322,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config }) 
     const entry = {
       template,
       system,
-      schema: buildDecompositionSchema(template.fields, { profile }),
+      schema: buildDecompositionSchema(template.fields, { profile, withDiscarded: false }),
       fixed: estimateTokens([...system, membersBlock(members)].join('\n'), config.charsPerToken),
     };
     prepared.set(templateId, entry);
@@ -323,13 +343,20 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config }) 
   ctx.progress.total = classifyChunks.length + work.length + 1;
   ctx.report(work.length > 1 ? `descomponiendo ${work.length} grupos` : 'descomponiendo el input');
 
-  const tasks = work.map((w) => async () => {
+  const tasks = work.map((w) => () => withSpan('decompose', {
+    'team.step': 'decompose',
+    'team.group_index': w.gi,
+    'team.area_id': w.group.area_id,
+    'team.template_id': w.group.template_id,
+    'team.units': w.units.length,
+  }, async (span) => {
     const scopeNote = w.parts > 1 ? chunkNote({ index: w.pi, total: w.parts, first: w.units[0].id, last: w.units.at(-1).id }) : undefined;
     const label = `[t${w.group.template_id}]${w.parts > 1 ? `#${w.pi + 1}` : ''}`;
     const r = await decomposeUnits(ctx, { bundle, template: w.entry.template, system: w.entry.system, schema: w.entry.schema, units: w.units, scopeNote, label });
+    span.setAttributes({ 'team.status': r.status, 'team.rescued': r.rescued === true });
     if (r.status === 'ok') ctx.report('grupo descompuesto', { advance: true });
     return r.status === 'ok' ? { ...r, group: w.group } : r;
-  });
+  }));
   const results = await runPool(tasks, config.partitionConcurrency);
   const bad = results.find((r) => r && r.status !== 'ok');
   if (bad) return fail(bad);
@@ -342,13 +369,13 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config }) 
     discarded: [...classDiscarded, ...results.flatMap((r) => r.discarded)],
   };
   const fieldsByTemplate = new Map([...prepared].map(([id, e]) => [id, e.template.fields]));
-  const finalCheck = validateProposal(merged, {
+  const finalCheck = validateSpan('reduce', () => validateProposal(merged, {
     templates,
     fieldsByTemplate,
     scope: new Set(allIds),
     memberIds: new Set(members.map((m) => m.id)),
     attachmentIds: new Set(attachments.map((a) => a.id)),
-  });
+  }));
   if (finalCheck.errors.length > 0 || finalCheck.conflicts.overlaps.length > 0 || finalCheck.conflicts.gaps.length > 0) {
     return fail({ status: 'invalid', step: 'reduce', reason: 'mece_conflict', errors: [...finalCheck.errors, ...describeConflicts(finalCheck.conflicts)], draft: merged });
   }
@@ -368,8 +395,8 @@ export async function warmTemplate({ providers, config, templateMarkdown }) {
   const profile = providers.text.schemaProfile ?? 'anthropic';
   const r = await callText(ctx, 'warmup', {
     system: decomposeSystem(template),
-    messages: [{ role: 'user', content: 'Calentamiento de la plantilla. Devuelve messages y discarded vacíos.' }],
-    schema: buildDecompositionSchema(template.fields, { profile }),
+    messages: [{ role: 'user', content: 'Calentamiento de la plantilla. Devuelve messages vacío.' }],
+    schema: buildDecompositionSchema(template.fields, { profile, withDiscarded: false }),
     effort: config.classifyEffort,
     maxTokens: config.maxTokens,
   });

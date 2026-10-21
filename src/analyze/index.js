@@ -5,7 +5,8 @@
 // bundle = { text, attachments:[{id, kind, extracted}],
 //            areas:[{id, title, description, position?}],
 //            templates:[{id, area_id, name, description, body_markdown}],
-//            members:[{id, name, responsibilities, domains}] }
+//            members:[{id, name, responsibilities, domains}], job_id?, input_id? }
+//   job_id e input_id, si vienen, quedan como atributos `team.job_id` y `team.input_id` del span de análisis.
 //
 // AnalyzeResult
 //   { status: 'ok', proposal, units, calls, stats }
@@ -27,6 +28,7 @@
 // HarnessError y los errores de proveedor de red o configuración); `error.calls` trae las llamadas ya hechas.
 //
 // `onProgress({ percent, phrase })` se llama por paso real completado, nunca por reloj (§7.10).
+import { withSpan } from '../telemetry/api.js';
 import { analyzeWithApi, warmCatalog, warmTemplate } from './api.js';
 import { resolveConfig } from './config.js';
 import { AnalyzeInputError } from './errors.js';
@@ -50,7 +52,23 @@ export async function analyze(bundle, { providers, onProgress, config, analyzer,
   const kind = analyzer ?? (env.ANALYZER || 'api');
   if (!ANALYZERS.includes(kind)) throw new AnalyzeInputError(`ANALYZER debe ser «api» o «harness», no «${kind}»`);
   const resolved = resolveConfig(config);
-  if (kind === 'harness') return analyzeWithHarness(bundle, { onProgress, config: resolved });
-  if (!providers?.text) throw new AnalyzeInputError('El analizador «api» necesita providers.text');
-  return analyzeWithApi(bundle, { providers, onProgress, config: resolved });
+  if (kind === 'api' && !providers?.text) throw new AnalyzeInputError('El analizador «api» necesita providers.text');
+  // Un span por análisis; `team.job_id` y `team.input_id` salen del bundle si vienen (UD-014).
+  return withSpan(
+    'analyze',
+    { 'team.step': 'analyze', 'team.analyzer': kind, 'team.job_id': bundle?.job_id, 'team.input_id': bundle?.input_id },
+    async (span) => {
+      const result = kind === 'harness'
+        ? await analyzeWithHarness(bundle, { onProgress, config: resolved })
+        : await analyzeWithApi(bundle, { providers, onProgress, config: resolved });
+      span.setAttributes({
+        'team.status': result.status,
+        'team.units': result.units?.length,
+        'team.messages': result.proposal?.messages.length,
+        'team.invalid_retries': result.stats?.invalid_retries,
+        'team.rescues': result.stats?.rescues,
+      });
+      return result;
+    },
+  );
 }

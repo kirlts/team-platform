@@ -1,6 +1,6 @@
 ---
 name: Reporte de error
-description: Algo que antes funcionaba o debería funcionar y no lo hace. Úsala cuando el input cuenta una falla, un resultado incorrecto, un dato o un texto equivocado, o una pantalla que se ve o se comporta mal respecto de lo acordado.
+description: Algo que antes funcionaba o debería funcionar y no lo hace. Úsala cuando el input cuenta una falla, un resultado incorrecto, un dato o un texto equivocado, una pantalla que se ve o se comporta mal respecto de lo acordado, o una función que tarda mucho más de lo razonable.
 fields:
   - { name: steps,    label: Pasos para reproducir, required: true }
   - { name: expected, label: Qué se esperaba,       required: true }

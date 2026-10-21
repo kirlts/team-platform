@@ -145,19 +145,24 @@ function checkMessage(m, label, { fields, scope, memberIds, attachmentIds, error
  * @param {Set<number>} ctx.scope  unidades de este análisis (o de este trozo)
  * @param {Set<number>} ctx.memberIds
  * @param {Set<number>} ctx.attachmentIds  adjuntos del input
+ * @param {boolean} [ctx.requireMessage]  el grupo no puede quedar sin mensajes
+ * @param {boolean} [ctx.withDiscarded]  falso: la salida no lleva `discarded`
  */
-export function validateDecomposition(output, { fields, scope, memberIds, attachmentIds }) {
-  const validate = compile(buildDecompositionSchema(fields, { validation: true }));
+export function validateDecomposition(output, { fields, scope, memberIds, attachmentIds, requireMessage = false, withDiscarded = true }) {
+  const validate = compile(buildDecompositionSchema(fields, { validation: true, withDiscarded }));
   if (!validate(output)) {
     return { errors: formatAjvErrors(validate.errors), conflicts: { overlaps: [], gaps: [] } };
   }
   const errors = [];
+  // Un grupo lo eligió la clasificación como un punto de esta plantilla: no puede terminar sin mensaje.
+  if (requireMessage && output.messages.length === 0) errors.push('el grupo no produjo ningún mensaje: la clasificación lo eligió como un punto de esta plantilla, así que sus unidades tienen que ir en mensajes');
   output.messages.forEach((m, i) => checkMessage(m, `mensaje ${i + 1}`, { fields, scope, memberIds, attachmentIds, errors }));
-  output.discarded.forEach((d, i) => {
+  const discarded = output.discarded ?? [];
+  discarded.forEach((d, i) => {
     for (const id of d.unit_ids) if (!scope.has(id)) errors.push(`descarte ${i + 1}: la unidad ${id} no existe en este input`);
   });
   if (errors.length > 0) return { errors, conflicts: { overlaps: [], gaps: [] } };
-  return { errors: [], conflicts: coverage(output.messages, output.discarded, scope) };
+  return { errors: [], conflicts: coverage(output.messages, discarded, scope) };
 }
 
 /**

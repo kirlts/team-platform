@@ -98,6 +98,14 @@ describe('anthropic', () => {
     assert.match(b.system.at(-1).text, /applies to your final answer only/);
   });
 
+  it('el pensamiento apagado puede pedirse en una sola llamada', async () => {
+    reply = () => ({ body: okMessage() });
+    await client().complete({ system: 'A', messages: [{ role: 'user', content: 'x' }], schema: SCHEMA, thinking: 'disabled' });
+    assert.deepEqual(last().json.thinking, { type: 'disabled' });
+    await client().complete({ system: 'A', messages: [{ role: 'user', content: 'x' }], schema: SCHEMA });
+    assert.ok(!('thinking' in last().json));
+  });
+
   it('envía imágenes y PDF como bloques image y document en base64', async () => {
     reply = () => ({ body: okMessage({ content: [{ type: 'text', text: '{"area_id":1}' }] }) });
     await client().describe({

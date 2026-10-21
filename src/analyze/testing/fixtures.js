@@ -92,7 +92,6 @@ export function goodDecomposition() {
       bugMessage([3], 'Corregir formato de fechas en el CSV', { assignee_ids: [2] }),
       bugMessage([5], 'Corregir notificaciones duplicadas', { assignee_ids: [] }),
     ],
-    discarded: [],
   };
 }
 

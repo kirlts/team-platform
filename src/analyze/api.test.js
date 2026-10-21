@@ -31,10 +31,12 @@ describe('analyze (api): un input con tres puntos mezclados', () => {
     assert.equal(new Set(all).size, all.length, 'disjuntos');
     assert.equal(result.units.length, 6);
 
-    // Dos llamadas: clasificar con esfuerzo low y descomponer el grupo con medium (informe 02 §10.2).
+    // Dos llamadas, ambas con esfuerzo low y sin pensamiento (medición del 2026-10-20 citada en config.js).
     assert.equal(fake.calls.text.length, 2);
     assert.equal(fake.calls.text[0].effort, 'low');
-    assert.equal(fake.calls.text[1].effort, 'medium');
+    assert.equal(fake.calls.text[1].effort, 'low');
+    assert.equal(fake.calls.text[0].thinking, 'disabled');
+    assert.equal(fake.calls.text[1].thinking, 'disabled');
     assert.equal(fake.calls.text[0].maxTokens, 16_000);
     assert.equal(fake.calls.text[1].cacheTtl, '5m');
     assert.deepEqual(result.calls.map((c) => c.step), ['classify', 'decompose[t2]']);
@@ -51,7 +53,7 @@ describe('analyze (api): un input con tres puntos mezclados', () => {
     for (const a of bundle.areas) assert.ok(catalog.includes(a.description));
     for (const t of bundle.templates) assert.ok(catalog.includes(t.description));
     assert.ok(!catalog.includes('## Método'), 'la primera llamada no ve cuerpos');
-    assert.match(lastUserText(classify), /\[u1\] Hola equipo[\s\S]*\[u6\] Gracias/, 'la clasificación ve todo el input');
+    assert.match(lastUserText(classify), /\[u1\] \(p1\) Hola equipo[\s\S]*\[u6\] \(p6\) Gracias/, 'la clasificación ve todo el input');
     const groupItem = classify.schema.properties.groups.items.properties;
     assert.deepEqual(groupItem.area_id.enum, [1, 2, 3, 4, 5]);
     assert.deepEqual(groupItem.template_id.enum, [1, 2, 3, 4, 5]);
@@ -98,7 +100,6 @@ describe('analyze (api): solapes, huecos y rescate', () => {
     solapada.messages[1].unit_ids = [3, 4]; // u4 queda también en el mensaje A
     const rescate = {
       messages: [bugMessage([2, 3, 4], 'Corregir ingreso en blanco y fechas del CSV')],
-      discarded: [],
     };
     const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, solapada, rescate] });
     const result = await analyze(await makeBundle(), { providers: fake });
@@ -119,7 +120,7 @@ describe('analyze (api): solapes, huecos y rescate', () => {
   it('un hueco (unidad en ningún lugar) también se rescata, sólo con las unidades faltantes', async () => {
     const conHueco = goodDecomposition();
     conHueco.messages.pop(); // falta la u5
-    const rescate = { messages: [bugMessage([5], 'Corregir notificaciones duplicadas')], discarded: [] };
+    const rescate = { messages: [bugMessage([5], 'Corregir notificaciones duplicadas')] };
     const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, conHueco, rescate] });
     const result = await analyze(await makeBundle(), { providers: fake });
     assert.equal(result.status, 'ok');
@@ -134,7 +135,7 @@ describe('analyze (api): solapes, huecos y rescate', () => {
   it('si el rescate no resuelve el conflicto, el trabajo falla con el motivo y no hay un segundo rescate', async () => {
     const solapada = goodDecomposition();
     solapada.messages[1].unit_ids = [3, 4];
-    const rescateMalo = { messages: [bugMessage([2, 3, 4], 'A'), bugMessage([4], 'B')], discarded: [] };
+    const rescateMalo = { messages: [bugMessage([2, 3, 4], 'A'), bugMessage([4], 'B')] };
     const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, solapada, rescateMalo] });
     const result = await analyze(await makeBundle(), { providers: fake });
     assert.equal(result.status, 'invalid');
@@ -273,7 +274,7 @@ describe('analyze (api): partición', () => {
   // Guion del falso: cada trozo se clasifica como un grupo de errores y cada grupo se descompone con un mensaje por unidad.
   const errorGroupPerRequest = (req) => {
     if (req.schema.properties.groups) return { groups: [{ unit_ids: unitIdsIn(req), area_id: 2, template_id: 2 }], discarded: [] };
-    return { messages: unitIdsIn(req).map((u) => bugMessage([u], `Corregir pantalla ${u}`)), discarded: [] };
+    return { messages: unitIdsIn(req).map((u) => bugMessage([u], `Corregir pantalla ${u}`)) };
   };
   const smallThreshold = (bundle) => {
     const probe = decomposeSystem(parseTemplate(bundle.templates[1].body_markdown)).join('\n').length;
@@ -294,7 +295,7 @@ describe('analyze (api): partición', () => {
   it('un trozo que cita unidades de otro trozo es un error de referencia', async () => {
     const bundle = await makeBundle({ text: longBundleText(8), attachments: [] });
     const fake = createFakeProviders({
-      text: (req) => (req.schema.properties.groups ? errorGroupPerRequest(req) : { messages: [bugMessage([1, 8], 'x')], discarded: [] }),
+      text: (req) => (req.schema.properties.groups ? errorGroupPerRequest(req) : { messages: [bugMessage([1, 8], 'x')] }),
     });
     const result = await analyze(bundle, { providers: fake, config: { partitionThresholdTokens: smallThreshold(bundle), partitionConcurrency: 1, invalidOutputRetries: 0 } });
     assert.equal(result.status, 'invalid');
@@ -307,7 +308,7 @@ describe('analyze (api): partición', () => {
     const fake = createFakeProviders({
       text: (req) => (req.schema.properties.groups
         ? errorGroupPerRequest(req)
-        : { messages: [bugMessage(unitIdsIn(req), 'Corregir la falla del monólogo', { attachment_ids: [3] })], discarded: [] }),
+        : { messages: [bugMessage(unitIdsIn(req), 'Corregir la falla del monólogo', { attachment_ids: [3] })] }),
     });
     const result = await analyze(bundle, { providers: fake, config: { partitionThresholdTokens: smallThreshold(bundle) + 0 } });
     assert.equal(result.status, 'ok');
@@ -319,14 +320,12 @@ describe('analyze (api): partición', () => {
 
 describe('analyze (api): un input con un error, una idea y una pregunta', () => {
   const decompositions = (ruido = {}) => ({
-    'Reporte de error': { messages: [bugMessage([2], 'Corregir botón Enviar de la vista previa')], discarded: [] },
+    'Reporte de error': { messages: [bugMessage([2], 'Corregir botón Enviar de la vista previa')] },
     Idea: {
       messages: [{ unit_ids: [3], title: 'Agrupar los mensajes por día', fields: { idea: 'Agrupar por día', motivation: 'No indicado', reference: null }, body: 'Se propone agrupar los mensajes por día.', assignee_ids: [1], attachment_ids: [] }],
-      discarded: [],
     },
     Pregunta: {
       messages: [{ unit_ids: [4], title: 'Responsable del certificado del dominio', fields: { question: '¿Quién renueva el certificado?' }, body: 'Quién se encarga de renovar el certificado del dominio.', assignee_ids: [2], attachment_ids: [] }],
-      discarded: [],
     },
     ...ruido,
   });
@@ -375,7 +374,7 @@ describe('analyze (api): un input con un error, una idea y una pregunta', () => 
 
   it('un campo de otra plantilla en el mensaje de un grupo es un error de ese grupo', async () => {
     const bundle = await makeBundle({ text: MULTI_TEXT, attachments: [] });
-    const mala = decompositions({ Pregunta: { messages: [{ unit_ids: [4], title: 'Q', fields: { steps: 'x' }, body: 'Q', assignee_ids: [], attachment_ids: [] }], discarded: [] } });
+    const mala = decompositions({ Pregunta: { messages: [{ unit_ids: [4], title: 'Q', fields: { steps: 'x' }, body: 'Q', assignee_ids: [], attachment_ids: [] }] } });
     const fake = createFakeProviders({ text: scriptByRequest({ classification: CLASSIFY_MULTI, decompositions: mala }), });
     const result = await analyze(bundle, { providers: fake, config: { invalidOutputRetries: 0 } });
     assert.equal(result.status, 'invalid');
@@ -386,8 +385,8 @@ describe('analyze (api): un input con un error, una idea y una pregunta', () => 
   it('el rescate de un grupo no toca a los demás', async () => {
     const bundle = await makeBundle({ text: MULTI_TEXT, attachments: [] });
     let primera = true;
-    const solapada = { messages: [bugMessage([2], 'A'), bugMessage([2], 'B')], discarded: [] };
-    const rescate = { messages: [bugMessage([2], 'Corregir botón Enviar')], discarded: [] };
+    const solapada = { messages: [bugMessage([2], 'A'), bugMessage([2], 'B')] };
+    const rescate = { messages: [bugMessage([2], 'Corregir botón Enviar')] };
     const fake = createFakeProviders({
       text: scriptByRequest({
         classification: CLASSIFY_MULTI,
@@ -442,10 +441,45 @@ describe('analyze (api): caché del prompt de sistema', () => {
   });
 });
 
+describe('analyze (api): la descomposición de un grupo no descarta', () => {
+  it('el esquema de la segunda llamada no trae discarded y las unidades del grupo van todas en mensajes', async () => {
+    const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, goodDecomposition()] });
+    const result = await analyze(await makeBundle(), { providers: fake });
+    assert.deepEqual(Object.keys(fake.calls.text[1].schema.properties), ['messages']);
+    assert.deepEqual(Object.keys(fake.calls.text[0].schema.properties), ['groups', 'discarded']);
+    assert.equal(result.status, 'ok');
+  });
+
+  it('un grupo que vuelve sin mensajes se reintenta: la clasificación ya lo eligió como un punto', async () => {
+    const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, { messages: [] }, goodDecomposition()] });
+    const result = await analyze(await makeBundle(), { providers: fake });
+    assert.equal(result.status, 'ok');
+    assert.match(fake.calls.text[2].messages.at(-1).content, /el grupo no produjo ningún mensaje/);
+  });
+
+  it('una unidad del grupo que ningún mensaje cita es un hueco y va al rescate', async () => {
+    const conHueco = goodDecomposition();
+    conHueco.messages.pop();
+    const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, conHueco, { messages: [bugMessage([5], 'Corregir notificaciones duplicadas')] }] });
+    assert.equal((await analyze(await makeBundle(), { providers: fake })).status, 'ok');
+    assert.equal(fake.calls.text.length, 3);
+  });
+});
+
+describe('analyze (api): pensamiento por llamada', () => {
+  it('classifyThinking y decomposeThinking se pueden volver al pensamiento adaptativo, cada uno en su llamada', async () => {
+    const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, goodDecomposition()] });
+    await analyze(await makeBundle(), { providers: fake, config: { classifyThinking: null, decomposeThinking: 'disabled', decomposeEffort: 'medium' } });
+    assert.ok(!('thinking' in fake.calls.text[0]));
+    assert.equal(fake.calls.text[1].thinking, 'disabled');
+    assert.equal(fake.calls.text[1].effort, 'medium');
+  });
+});
+
 describe('warmTemplate', () => {
   it('manda una solicitud mínima con el sistema y el esquema de la plantilla y registra la llamada', async () => {
     const { templates } = await seed();
-    const fake = createFakeProviders({ text: [{ messages: [], discarded: [] }] });
+    const fake = createFakeProviders({ text: [{ messages: [] }] });
     const { resolveConfig } = await import('./config.js');
     const entry = await warmTemplate({ providers: fake, config: resolveConfig(), templateMarkdown: templates[1].body_markdown });
     assert.equal(entry.step, 'warmup');
@@ -458,7 +492,7 @@ describe('warmTemplate', () => {
 describe('warmCatalog', () => {
   it('calienta el esquema de la clasificación con los ids del catálogo', async () => {
     const { areas, templates } = await seed();
-    const fake = createFakeProviders({ text: [{ groups: [], discarded: [] }] });
+    const fake = createFakeProviders({ text: [{ groups: [] }] });
     const { resolveConfig } = await import('./config.js');
     const entry = await warmCatalog({ providers: fake, config: resolveConfig(), areas, templates });
     assert.equal(entry.step, 'warmup-classify');

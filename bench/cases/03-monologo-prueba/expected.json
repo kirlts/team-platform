@@ -106,20 +106,22 @@
     },
     {
       "id": "m9",
-      "title": "El calendario no marca feriados y no se sabe si toma los regionales",
-      "area_id": [
-        5,
-        2
-      ],
-      "template_id": [
-        5,
-        2
-      ],
+      "title": "El calendario no marca el lunes feriado y deja reprogramar sin avisar",
+      "area_id": 2,
+      "template_id": 2,
       "unit_ids": [
         32,
         33,
-        34,
         35
+      ]
+    },
+    {
+      "id": "m10",
+      "title": "¿El calendario toma los feriados regionales o solo los nacionales?",
+      "area_id": 5,
+      "template_id": 5,
+      "unit_ids": [
+        34
       ]
     }
   ],

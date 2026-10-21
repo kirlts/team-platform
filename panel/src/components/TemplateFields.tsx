@@ -15,6 +15,7 @@ export function TemplateFields({
   onSave,
   canEdit = true,
   closed = false,
+  boxed = true,
 }: {
   template: Template | undefined
   values: Record<string, string | null> | null | undefined
@@ -23,6 +24,8 @@ export function TemplateFields({
   canEdit?: boolean
   /** A closed message has nothing left to complete: an empty required field is not flagged (J2-A-17). */
   closed?: boolean
+  /** A filled field carries its box at rest (J2-A-20). The proposal turns it off: its text and its fields are one block, with one way of showing that they can be edited (J3-B-16, J3-B-24). */
+  boxed?: boolean
 }) {
   const t = useT()
   const fields = useMemo(() => parseTemplateFields(template?.body_markdown ?? ''), [template?.body_markdown])
@@ -43,6 +46,7 @@ export function TemplateFields({
               prose
               canEdit={canEdit}
               placeholder={closed ? t('fields.optional') : t('fields.fill')}
+              displayClassName={boxed ? 'border-line' : undefined}
                             emptyLabel={f.required && !closed ? t('fields.required') : t('fields.optional')}
               validate={f.required && !closed ? (v) => (v ? null : t('fields.requiredError')) : undefined}
               onSave={(v) => onSave(f.name, v)}

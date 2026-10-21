@@ -10,16 +10,18 @@ import type { useMessages } from '@/lib/queries'
 
 /**
  * The list of messages that fits its frame, one row per message. Mensajes and the view of an area draw the same list and
- * the same row (UD-041); they differ in the query they ask and in what they say when it is empty.
+ * the same row (UD-041); they differ in the query they ask and in what they say when it is empty. `hideArea` drops the area chip of
+ * each row when the whole view is that area; `footer` is drawn right under the list (see `FitList`).
  */
-export function MessageList({ list, query, onClear, none }: { list: ReturnType<typeof useMessages>; query: MessageQuery; onClear: () => void; none: ReactNode }) {
+export function MessageList({ list, query, onClear, none, hideArea = false, footer }: { list: ReturnType<typeof useMessages>; query: MessageQuery; onClear: () => void; none: ReactNode; hideArea?: boolean; footer?: ReactNode }) {
   const t = useT()
   const rows = useMemo(() => list.data ?? [], [list.data])
   return (
     <FitList
       rows={rows}
       rowKey={(m) => m.id}
-      renderRow={(m) => <MessageCard message={m} />}
+      footer={footer}
+      renderRow={(m) => <MessageCard message={m} hideArea={hideArea} />}
       empty={
         list.isPending || list.isError ? (
           <LoadState query={list} rows={4} />

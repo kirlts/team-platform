@@ -33,7 +33,7 @@ const RECIPIENTS_SHOWN = 2
  * In the `reply` variant the heading is the latest reply and the support line names the message it answers, so both
  * lists read in the same order: what happened, then where (J3-A-08).
  */
-export function MessageCard({ message, variant = 'message' }: { message: Message; variant?: 'message' | 'reply' }) {
+export function MessageCard({ message, variant = 'message', hideArea = false }: { message: Message; variant?: 'message' | 'reply'; hideArea?: boolean }) {
   const t = useT()
   const format = useFormat()
   const me = useMe().data
@@ -54,7 +54,7 @@ export function MessageCard({ message, variant = 'message' }: { message: Message
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-1 px-4 py-3 @2xl:grid-cols-[minmax(0,1fr)_9.5rem_3rem] @2xl:grid-rows-[auto_auto_1fr]">
       {/* The area is the tab of the card (mockup «Área» above each message): a chip in its own color, before the title. */}
       <div className="col-start-1 row-start-1 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
-        <AreaChip areaId={message.area_id} className="shrink-0" />
+        {!hideArea && <AreaChip areaId={message.area_id} className="shrink-0" />}
         <h3 className={cn('min-w-0 break-words text-sm font-semibold leading-snug', closed && 'font-medium text-muted')}>
           <Link
             to={`/messages/${message.id}`}

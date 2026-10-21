@@ -71,23 +71,31 @@ function AreaViewBody({ area }: { area: Area }) {
         <UndoButtons stack={undoStack} />
       </header>
       <StateTabs value={status} counts={counts} onChange={choose} label={t('areas.states')} />
-      <MessageList list={list} query={query} onClear={() => choose(null)} none={status ? t('areas.noMessagesState') : t('areas.noMessages')} />
-      <div className="flex shrink-0 flex-col gap-2">
-        <Fold title={t('areas.description')}>
-          {/* The description edited in place on the left; the right side is the place of the area's color control. */}
-          <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
-            <div data-lane="area-description" className="scroll-thin max-h-[32dvh] min-w-0 flex-1 basis-80 overflow-y-auto pr-1">
-              <FoldedText value={area.description} label={t('areas.fieldDescription')} validate={descriptionRule(t)} onSave={(v) => change('description', v)} displayClassName="text-sm" />
-            </div>
-            <div data-slot="area-color" className="shrink-0 empty:hidden" />
+      <MessageList
+        list={list}
+        query={query}
+        onClear={() => choose(null)}
+        none={status ? t('areas.noMessagesState') : t('areas.noMessages')}
+        hideArea
+        footer={
+          <div className="flex flex-col gap-2 pt-4">
+            <Fold title={t('areas.description')}>
+              {/* The description edited in place on the left; the right side is the place of the area's color control. */}
+              <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
+                <div data-lane="area-description" className="scroll-thin max-h-[32dvh] min-w-0 flex-1 basis-80 overflow-y-auto pr-1">
+                  <FoldedText value={area.description} label={t('areas.fieldDescription')} validate={descriptionRule(t)} onSave={(v) => change('description', v)} displayClassName="text-sm" />
+                </div>
+                <div data-slot="area-color" className="shrink-0 empty:hidden" />
+              </div>
+            </Fold>
+            <Fold title={t('areas.templates')} note={templateCount}>
+              <div className="flex h-[min(22rem,38dvh)] min-h-0 flex-col max-md:h-auto">
+                <Templates area={area} />
+              </div>
+            </Fold>
           </div>
-        </Fold>
-        <Fold title={t('areas.templates')} note={templateCount}>
-          <div className="flex h-[min(22rem,38dvh)] min-h-0 flex-col max-md:h-auto">
-            <Templates area={area} />
-          </div>
-        </Fold>
-      </div>
+        }
+      />
     </Page>
   )
 }

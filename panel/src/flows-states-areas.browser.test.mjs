@@ -138,6 +138,112 @@ describe('the view of an area (UD-041)', () => {
   })
 })
 
+describe('areas: list and view layout (H-2900 to H-2906)', () => {
+  const PHONE_LONG = 'Accesibilidad y experiencia de uso en dispositivos móviles'
+
+  test('the counts of every area sit in one column right after the name, on a desktop and on a phone, and the chevron stays whole next to the name', async () => {
+    for (const [viewport, maxGap] of [[DESKTOP, 340], [PHONE, 260]]) {
+      const { page, context } = await session('ana', viewport)
+      try {
+        await page.goto(`${origin}/areas`)
+        await page.locator('main section a[aria-label^="Abrir"]').first().waitFor()
+        const rows = await page.evaluate(() =>
+          [...document.querySelectorAll('main section')]
+            .filter((r) => r.querySelector('a[aria-label^="Abrir"]'))
+            .map((r) => {
+              const name = r.querySelector('a[aria-label^="Abrir"]')
+              const range = document.createRange()
+              range.selectNodeContents(name.firstChild.nodeType === 3 ? name : name)
+              const nameBox = name.getBoundingClientRect()
+              const chevron = name.querySelector('svg').getBoundingClientRect()
+              const marks = [...r.querySelectorAll('[data-testid="state-mark"]')].map((m) => m.getBoundingClientRect())
+              const lastWord = name.querySelector('span').getBoundingClientRect()
+              return { title: name.getAttribute('aria-label'), nameLeft: nameBox.left, chevronW: chevron.width, chevronGap: chevron.left - (lastWord.right - chevron.width - 4), markLeft: marks[0]?.left ?? null, markRight: marks[0]?.right ?? null, top: r.getBoundingClientRect().top, height: r.getBoundingClientRect().height, firstMarkTop: marks[0]?.top ?? null }
+            }),
+        )
+        assert.ok(rows.length >= 5, 'the sample areas are listed')
+        const withCounts = rows.filter((r) => r.markLeft !== null)
+        assert.ok(withCounts.length >= 3)
+        const lefts = withCounts.map((r) => r.markLeft)
+        assert.ok(Math.max(...lefts) - Math.min(...lefts) <= 1, `the counts share a left edge at ${viewport.width}: ${lefts}`)
+        for (const r of withCounts) assert.ok(r.markLeft - r.nameLeft <= maxGap, `${r.title}: counts ${Math.round(r.markLeft - r.nameLeft)} px from the name at ${viewport.width}`)
+        for (const r of rows) assert.ok(r.chevronW >= 14, `${r.title}: the chevron measures ${r.chevronW} px`)
+        // The counts begin at the height of the name, on the first line of the row (the one with two lines of counts does not push them down).
+        const tops = withCounts.map((r) => r.firstMarkTop - r.top)
+        assert.ok(Math.max(...tops) - Math.min(...tops) <= 3, `the first count sits at the same height in every row: ${tops}`)
+      } finally {
+        await context.close()
+      }
+    }
+  })
+
+  test('the long name keeps its chevron glued to the last word', async () => {
+    const { page, context } = await session('ana', PHONE)
+    try {
+      await page.goto(`${origin}/areas`)
+      const link = page.getByRole('link', { name: `Abrir ${PHONE_LONG}` })
+      await link.waitFor()
+      const gap = await link.evaluate((a) => {
+        const tail = a.querySelector('span')
+        const svg = a.querySelector('svg').getBoundingClientRect()
+        const range = document.createRange()
+        range.selectNodeContents(tail.firstChild)
+        const word = range.getBoundingClientRect()
+        return { gap: svg.left - word.right, w: svg.width, sameLine: Math.abs((svg.top + svg.bottom) / 2 - (word.top + word.bottom) / 2) <= 8 }
+      })
+      assert.ok(gap.w >= 14 && gap.gap >= 0 && gap.gap <= 8 && gap.sameLine, JSON.stringify(gap))
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('the area view has its folded sections right under the messages, with no void between', async () => {
+    const { page, context } = await session()
+    try {
+      await page.goto(`${origin}/areas/a-error`)
+      const rows = page.locator('main article')
+      await rows.first().waitFor()
+      await settled(page)
+      const last = (await rows.last().boundingBox())
+      const fold = await page.getByRole('button', { name: 'Descripción', exact: true }).boundingBox()
+      assert.ok(fold.y - (last.y + last.height) <= 28, `${Math.round(fold.y - (last.y + last.height))} px between the last message and the first section`)
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('the four state filters live in one container and, on a phone, make two equal rows', async () => {
+    for (const viewport of [DESKTOP, PHONE]) {
+      const { page, context } = await session('ana', viewport)
+      try {
+        await page.goto(`${origin}/areas/a-error`)
+        const group = page.getByRole('radiogroup', { name: 'Estado de los mensajes' })
+        await group.waitFor()
+        const info = await group.evaluate((g) => {
+          const box = g.getBoundingClientRect()
+          const radios = [...g.querySelectorAll('[role="radio"]')].map((r) => r.getBoundingClientRect())
+          const style = getComputedStyle(g)
+          return { box: { l: box.left, r: box.right }, radios: radios.map((r) => ({ top: Math.round(r.top), l: r.left, r: r.right })), bordered: parseFloat(style.borderTopWidth) > 0 || style.boxShadow !== 'none' || style.backgroundColor !== 'rgba(0, 0, 0, 0)' }
+        })
+        assert.equal(info.radios.length, 4)
+        assert.ok(info.bordered, 'the container is drawn, so the four read as controls')
+        for (const r of info.radios) assert.ok(r.l >= info.box.l - 1 && r.r <= info.box.r + 1, `a filter leaves its container at ${viewport.width}: ${JSON.stringify(info)}`)
+        const rowsOf = Object.values(Object.groupBy(info.radios, (r) => r.top))
+        if (viewport.width < 768) assert.deepEqual(rowsOf.map((x) => x.length), [2, 2], `two rows of two: ${JSON.stringify(info.radios)}`)
+        else assert.equal(rowsOf.length, 1, 'one row on a desktop')
+        // The view the person is already in drops the area chip of its rows; Mensajes keeps it.
+        await page.locator('main article').first().waitFor()
+        assert.equal(await page.getByTestId('area-chip').count(), 0, 'the rows of an area do not repeat the area')
+        await page.goto(`${origin}/messages`)
+        await page.locator('main article').first().waitFor()
+        assert.ok((await page.getByTestId('area-chip').count()) > 0, 'Mensajes keeps the chip of the area')
+      } finally {
+        await context.close()
+      }
+    }
+  })
+})
+
 describe('the state a message is served with (UD-042)', () => {
   test('every message the API serves has the state its replies and its closing mark give: without replies open, with replies answered, closed only when closed', async () => {
     const { page, context } = await session()

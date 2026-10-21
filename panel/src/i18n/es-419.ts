@@ -433,7 +433,7 @@ export const es419 = {
   'cause.bad_address': 'Dirección inválida',
   'cause.provider_error': 'Error del proveedor',
   'cause.unknown': 'Causa desconocida',
-  'error.connection_exists': 'Ya existe un proveedor con ese nombre',
+  'error.connection_exists': 'Existe un proveedor con ese nombre',
   'error.key_from_environment': 'La clave viene del entorno del servidor',
   'error.provider_check_failed': 'La prueba contra el proveedor falló',
   'error.provider_in_use': 'Una función usa este proveedor',

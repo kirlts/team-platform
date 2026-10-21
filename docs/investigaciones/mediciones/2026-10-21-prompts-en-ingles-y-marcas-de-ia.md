@@ -90,7 +90,7 @@ Qué cambió:
 
 Ventanas de 200 daban 36 % de cobertura media en estos cuatro casos pero 35 a 38 s. De 150: 29 % y 21 s. De 100: 28 % y 20 s. Con 100 el tiempo cumple salvo en los dos casos mayores.
 
-La causa de lo que falta es el semáforo: u12 hace unas 47 llamadas y con 7 simultáneas son siete oleadas de 5 a 6 s. Bajar de 30 s exige subir el tope, que depende del límite de la cuenta.
+Lo que falta se debe al semáforo: u12 hace unas 47 llamadas; con 7 simultáneas son siete oleadas de 5 a 6 s. Bajar de 30 s exige subir el tope, que depende del límite de la cuenta.
 
 ## Invalid (H-84) y reparto (H-138)
 

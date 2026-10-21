@@ -24,7 +24,6 @@
 - `8233b45` Libro: H-1405 cerrado con su causa y su medición; H-1406 y H-1407 cerrados (hace 17 minutos)
 - `e3e2f61` H-1405: la franja de Para mí tiene alto propio desde 768 px y no se parte, para que medirse sus chips no mueva las listas; H-1407: perilla de publicación en Configuración; prueba de peticiones repetidas; servidor de ejemplo con Range (hace 19 minutos)
 - `dddfcca` Traspaso: Inicio fusionado y H-1405 abierto (hace 26 minutos)
-- Dueño, textual: «Los rótulos Abierto, Respondido o Cerrado no deben aparecer en la barra superior; bastan los íconos de color con un número, que al clic desplieguen un pequeño desplegable para ver rápidamente los elementos sin salir de la página donde se está».
 - `8c50075` Merge branch 'wt-inicio-maqueta' (hace 33 minutos)
 Actualizado 2026-10-21 17:24 UTC.
 <!-- vivo:fin -->
@@ -104,6 +103,7 @@ La gravedad 5 fue 2, 4 y 3; la gravedad 4 fue 8, 12 y 10. El recuento no baja de
 
 ## Peticiones del dueño que cambian el diseño y no se pueden perder
 
+- Dueño, textual: «Los rótulos Abierto, Respondido o Cerrado no deben aparecer en la barra superior; bastan los íconos de color con un número, que al clic desplieguen un pequeño desplegable para ver rápidamente los elementos sin salir de la página donde se está».
 - Dueño, textual: «quien dijo esto de que por atender es distinto a abierto, no lo entiendo, yo creo que fui súper explícito: mensajes abiertos, mensajes respondidos y mensajes cerrados o atendidos. Esos son los tres estados que quiero ver en esta interfaz».
 - Dueño, textual: «si hago clic en Idea no espero que sea el lugar donde sólo puedo editar las plantillas; también quiero ver al tiro los mensajes asociados a esa área».
 - Dueño, textual: «cada área debe poder tener su color y eso determina el chip de cada mensaje; si el área es verde, el recuadro de análisis de la IA tiene un verde secundario; el usuario sólo escoge un color; si cambio de área también cambian los colores».

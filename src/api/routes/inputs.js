@@ -36,16 +36,23 @@ export function registerInputRoutes (app, ctx) {
     onRequest: [requireRole('member')],
     schema: {
       summary: 'Listar los inputs propios',
+      description: 'Siempre los del miembro de la sesión. `status` admite uno o varios estados separados por coma. `mine=1` pide la bandeja de envíos (UD-025), por ejemplo `?mine=1&status=queued,extracting,analyzing,proposed`: orden de creación ascendente, con `percent`, `phrase` y `proposed_count` en cada elemento. Sin `mine`, el orden es el más reciente primero; `order` lo fija a mano.',
       querystring: {
         type: 'object',
         additionalProperties: false,
-        properties: { ...pageQuerySchema(config), status: { type: 'string', enum: ['queued', 'extracting', 'analyzing', 'proposed', 'published', 'failed', 'cancelled'] } }
+        properties: {
+          ...pageQuerySchema(config),
+          status: { type: 'string', pattern: '^(queued|extracting|analyzing|proposed|published|failed|cancelled)(,(queued|extracting|analyzing|proposed|published|failed|cancelled))*$' },
+          mine: { type: 'string', enum: ['1', 'true'] },
+          order: { type: 'string', enum: ['asc', 'desc'] }
+        }
       },
       response: { 200: pageEnvelope(inputView) }
     }
   }, async (request) => {
     const p = pageParams(request.query, config)
-    const r = listInputs({ db, queue, events }, request.member.id, { status: request.query.status ?? null, limit: p.limit, offset: p.offset })
+    const order = request.query.order ?? (request.query.mine ? 'asc' : 'desc')
+    const r = listInputs({ db, queue, events }, request.member.id, { status: request.query.status ?? null, limit: p.limit, offset: p.offset, order })
     return pageResult(r.items, r.total, p)
   })
 

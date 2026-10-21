@@ -12,7 +12,7 @@ import { createHash } from 'node:crypto'
 import { all, get, run } from '../db/index.js'
 import { iso, parseJson } from '../db/util.js'
 import { audit } from './audit.js'
-import { conflict, notFound } from './errors.js'
+import { badRequest, conflict, notFound } from './errors.js'
 
 export const INPUT_STATUSES = ['queued', 'extracting', 'analyzing', 'proposed', 'published', 'failed', 'cancelled']
 
@@ -133,6 +133,10 @@ export function buildInputView ({ db, queue, events }, input) {
     error_code: input.error_code,
     created_at: iso(input.created_at),
     job_id: jobRow?.id ?? null,
+    // Flat copy of the job's progress and of the proposal's size, for the tray of in-flight inputs (UD-025).
+    percent: progressRow?.percent ?? null,
+    phrase: progressRow?.phrase ?? null,
+    proposed_count: proposalObj ? (parseJson(proposalObj.payload_json, {}).messages ?? []).length : 0,
     attachments: atts.map(attachmentView),
     job: jobRow
       ? { id: jobRow.id, status: jobRow.status, attempts: jobRow.attempts, percent: progressRow?.percent ?? null, phrase: progressRow?.phrase ?? null, last_error: jobRow.last_error }
@@ -143,14 +147,61 @@ export function buildInputView ({ db, queue, events }, input) {
   }
 }
 
-/** Lista paginada de los inputs propios (el emisor ve los suyos), con filtro opcional por estado. */
-export function listInputs (ctx, memberId, { status = null, limit, offset }) {
+const LIST_STATUSES = new Set(INPUT_STATUSES)
+
+/** `?status=` accepts one status or a comma-separated list; an unknown name is a 400. */
+export function parseStatusFilter (raw) {
+  if (raw === null || raw === undefined || raw === '') return []
+  const names = [...new Set(String(raw).split(',').map((n) => n.trim()).filter(Boolean))]
+  const unknown = names.filter((n) => !LIST_STATUSES.has(n))
+  if (unknown.length > 0) throw badRequest(`Estado desconocido: ${unknown.join(', ')}.`, 'invalid_status')
+  return names
+}
+
+/**
+ * Own inputs, paginated, filtered by one or several statuses. `order` is 'desc' (newest first, the history) or
+ * 'asc' (creation order, the tray of in-flight inputs where each new send lands after the previous one).
+ */
+export function listInputs (ctx, memberId, { status = null, limit, offset, order = 'desc' }) {
   const { db } = ctx
-  const cond = status ? 'WHERE author_id = ? AND status = ?' : 'WHERE author_id = ?'
-  const params = status ? [memberId, status] : [memberId]
+  const statuses = Array.isArray(status) ? status : parseStatusFilter(status)
+  const cond = statuses.length > 0 ? `WHERE author_id = ? AND status IN (${statuses.map(() => '?').join(', ')})` : 'WHERE author_id = ?'
+  const params = [memberId, ...statuses]
+  const direction = order === 'asc' ? 'ASC' : 'DESC'
   const total = get(db, `SELECT COUNT(*) AS n FROM inputs ${cond}`, ...params).n
-  const rows = all(db, `SELECT * FROM inputs ${cond} ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`, ...params, limit, offset)
+  const rows = all(db, `SELECT * FROM inputs ${cond} ORDER BY created_at ${direction}, id ${direction} LIMIT ? OFFSET ?`, ...params, limit, offset)
   return { total, items: rows.map((i) => buildInputView(ctx, i)) }
+}
+
+/** First `maxChars` characters of `text` without cutting a surrogate pair in half. */
+function excerptOf (text, maxChars) {
+  if (text.length <= maxChars) return text
+  const last = text.charCodeAt(maxChars - 1)
+  return text.slice(0, last >= 0xD800 && last <= 0xDBFF ? maxChars - 1 : maxChars)
+}
+
+/**
+ * UD-025: the author's other inputs that are still in flight or waiting for review (`analyzing` or `proposed`, never
+ * published), newest first, for the analysis of `input` to know what the person already said. It is context for the
+ * model: no similarity and no deduplication is computed here. Capped by count and age (`config.recentInputs`).
+ * Each item: { id, created_at, text_excerpt, proposed_titles }; the excerpt is the start of the extracted text of
+ * the input (what the person wrote followed by what each attachment yielded).
+ */
+export function recentInputsFor ({ db, config, now = Date.now }, input) {
+  const { max, maxAgeMinutes, excerptChars } = config.recentInputs
+  if (max === 0) return []
+  const since = now() - maxAgeMinutes * 60 * 1000
+  const rows = all(db,
+    `SELECT id, text, created_at FROM inputs
+      WHERE author_id = ? AND id != ? AND status IN ('analyzing', 'proposed') AND created_at >= ?
+      ORDER BY created_at DESC, id DESC LIMIT ?`, input.author_id, input.id, since, max)
+  return rows.map((r) => {
+    const extracted = all(db, 'SELECT extracted_text FROM attachments WHERE input_id = ? AND extracted_text IS NOT NULL ORDER BY id', r.id).map((a) => a.extracted_text)
+    const whole = [r.text, ...extracted].filter((part) => part.trim() !== '').join('\n\n')
+    const proposalRow = get(db, 'SELECT payload_json FROM proposals WHERE input_id = ?', r.id)
+    const titles = (parseJson(proposalRow?.payload_json, {}).messages ?? []).map((m) => m.title).filter((t) => typeof t === 'string' && t !== '')
+    return { id: r.id, created_at: iso(r.created_at), text_excerpt: excerptOf(whole, excerptChars), proposed_titles: titles }
+  })
 }
 
 /**

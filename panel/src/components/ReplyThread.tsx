@@ -4,6 +4,7 @@ import { useFormat, useT } from '@/i18n'
 import { useMe } from '@/lib/queries'
 import type { MessageDetail } from '@/lib/types'
 import { Avatar } from './Avatar'
+import { CloseMessage } from './CloseMessage'
 import { AttachmentStrip } from './AttachmentStrip'
 import { FitList } from './FitList'
 import { useLookups } from './lookups'
@@ -46,19 +47,22 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
                 </time>
               </div>
               {r.body && <p className="prose-block whitespace-pre-wrap break-words text-sm">{r.body}</p>}
-              <AttachmentStrip items={r.attachments ?? []} scope="reply" px={36} className="pt-0.5" />
+              <AttachmentStrip items={r.attachments ?? []} scope="reply" px={36} named className="pt-0.5" />
             </div>
           </article>
         )}
         empty={<p className="px-3 py-6 text-center text-sm text-muted">{t('replies.none')}</p>}
       />
       {canReply ? (
-        <ReplyForm messageId={message.id} autoFocus={focusForm} />
+        <ReplyForm messageId={message.id} autoFocus={focusForm}>
+          <CloseMessage id={message.id} closed={false} />
+        </ReplyForm>
       ) : (
-        // Without the form, the reason: a missing control that says nothing looks like a fault (J3-A-17).
-        <p role="status" className="text-sm text-muted">
-          {message.status === 'closed' ? t('status.closed') : t('replies.yours')}
-        </p>
+        // Without the form, the reason and the way out: a missing control that says nothing looks like a fault (J3-A-17, J4-flow-01).
+        <div role="status" className="well flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-muted">
+          <p className="min-w-0 break-words">{message.status === 'closed' ? t('replies.closedNote') : t('replies.yours')}</p>
+          <CloseMessage id={message.id} closed={message.status === 'closed'} />
+        </div>
       )}
     </section>
   )

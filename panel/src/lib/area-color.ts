@@ -43,7 +43,7 @@ export function hexToRgb(hex: string): Rgb {
 
 export const rgbToHex = (rgb: Rgb) => '#' + rgb.map((v) => Math.round(v).toString(16).padStart(2, '0')).join('')
 
-function rgbToOklch(rgb: Rgb): Oklch {
+export function rgbToOklch(rgb: Rgb): Oklch {
   const [r, g, b] = rgb.map((v) => toLinear(v / 255))
   const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b)
   const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b)

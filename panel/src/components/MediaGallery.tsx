@@ -324,7 +324,8 @@ function Slide({ item, active, zoomed, onZoom }: { item: GalleryItem; active: bo
             type="button"
             onClick={() => onZoom(!zoomed)}
             aria-pressed={zoomed}
-            className="btn btn-glass absolute bottom-2 right-2 px-2.5 text-xs"
+            // Over a photo the button has its own solid background: a translucent one takes the color of the image under it (J4-A-detail-03).
+            className="btn pop absolute bottom-2 right-2 px-2.5 text-xs text-fg"
           >
             {zoomed ? t('gallery.fit') : t('gallery.zoom')}
           </button>

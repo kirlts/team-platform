@@ -8,9 +8,9 @@ export const STATUS_KEY: Record<MessageStatus, MessageKey> = {
   closed: 'status.closed',
 }
 
-export function StatusBadge({ status, quiet = false }: { status: MessageStatus; quiet?: boolean }) {
+export function StatusBadge({ status, quiet = false, className }: { status: MessageStatus; quiet?: boolean; className?: string }) {
   const t = useT()
-  return <Badge tone={quiet ? (`${status}-quiet` as const) : status}>{t(STATUS_KEY[status])}</Badge>
+  return <Badge tone={quiet ? (`${status}-quiet` as const) : status} className={className}>{t(STATUS_KEY[status])}</Badge>
 }
 
 /** Area as a chrome tab: opposite corners rounded, as in the mockup. A long title wraps to a second line. */

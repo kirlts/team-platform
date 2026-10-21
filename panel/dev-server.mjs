@@ -57,7 +57,7 @@ const AREA_PALETTE = ['#6d28d9', '#c2410c', '#15803d', '#0f766e', '#a21caf', '#4
 
 const areas = [
   { id: 'a-idea', color: '#6d28d9', title: 'Idea', description: 'Una posibilidad sin compromiso de hacerla.', position: 1 },
-  { id: 'a-error', color: '#c2410c', title: 'Error', description: 'Algo que antes funcionaba o debería funcionar y no lo hace.', position: 2 },
+  { id: 'a-error', color: '#854d0e', title: 'Error', description: 'Algo que antes funcionaba o debería funcionar y no lo hace.', position: 2 },
   { id: 'a-feature', color: '#15803d', title: 'Nueva funcionalidad', description: 'Una capacidad que el sistema no tiene y alguien necesita.', position: 3 },
   { id: 'a-feedback', color: '#0f766e', title: 'Retroalimentación', description: 'Una opinión sobre algo que ya existe.', position: 4 },
   { id: 'a-pregunta', color: '#a21caf', title: 'Pregunta', description: 'Algo que alguien necesita saber para seguir.', position: 5 },

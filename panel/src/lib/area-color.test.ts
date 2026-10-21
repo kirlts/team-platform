@@ -1,8 +1,10 @@
+// @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { areaPalette, areaStyle, contrast, isAreaColor } from './area-color'
+import { readFileSync } from 'node:fs'
+import { areaPalette, areaStyle, contrast, hexToRgb, isAreaColor, rgbToOklch } from './area-color'
 
 /** The initial colors of templates/areas.json and the colors a person could pick at the extremes. */
-const INITIAL = ['#6d28d9', '#c2410c', '#15803d', '#0f766e', '#a21caf']
+const INITIAL = ['#6d28d9', '#854d0e', '#15803d', '#0f766e', '#a21caf']
 const EXTREMES = ['#000000', '#ffffff', '#ffff00', '#00ff00', '#0000ff', '#ff0000', '#00ffff', '#ff00ff', '#777777', '#808080', '#ffd700', '#fffacd', '#0a0a1a']
 
 describe('area palette', () => {
@@ -45,5 +47,22 @@ describe('area palette', () => {
     const style = areaStyle('#15803d')
     expect(style['--area-light-main']).toBe('#15803d')
     expect(Object.keys(style)).toHaveLength(10)
+  })
+})
+
+describe('initial area colors (J4-messages-01)', () => {
+  const seed = JSON.parse(readFileSync(new URL('../../../templates/areas.json', import.meta.url), 'utf8')) as { title: string; color: string }[]
+
+  it('are the ones this test measures', () => {
+    expect(seed.map((a) => a.color)).toEqual(['#6d28d9', '#854d0e', '#15803d', '#0f766e', '#a21caf'])
+  })
+
+  it('keep 30 degrees of hue from the red of the open state, so an area chip is never read as a state in the same row', () => {
+    const RED_OPEN_HUE = 25
+    for (const { title, color } of seed) {
+      const { h, c } = rgbToOklch(hexToRgb(color))
+      const gap = Math.min(Math.abs(h - RED_OPEN_HUE), 360 - Math.abs(h - RED_OPEN_HUE))
+      expect(c < 0.04 || gap >= 30, `${title} ${color}: hue ${h.toFixed(0)}`).toBe(true)
+    }
   })
 })

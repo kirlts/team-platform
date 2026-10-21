@@ -19,7 +19,12 @@ const SELF = path.join(root, 'src', 'testing', 'language.js')
 // Matching is case-sensitive on lowercase words, so an identifier such as `listaDeCosas` or a constant such as `DEL` never matches.
 export const SPANISH_WORDS = new Set(`que para con sin porque según segun también tambien los las del una por cuando donde cada pero desde hasta
   entre sobre esta este están esta además debe deben puede pueden tiene tienen nunca siempre sino cuyo cuya más muy sus mismo misma así aquí
-  qué cómo cuál todos todas otro otra ningún ninguna algún alguna antes después durante mientras aunque pues cuyos`.split(/\s+/))
+  qué cómo cuál todos todas otro otra ningún ninguna algún alguna antes después durante mientras aunque pues cuyos
+  como texto esto eso ese esos esas hay hace fue han sea solo sólo expone cadena contrato propuesta mensaje mensajes cuenta número`.split(/\s+/))
+
+// Short Spanish words that also occur in English or in code (`de-dup`, `en-US`, `es` as in ES modules): two of them in the same
+// comment are a violation, one is not.
+export const AMBIGUOUS_SPANISH = new Set('de la el un se lo al y'.split(' '))
 
 // Function words that exist in English and not in Spanish. A single hit in visible panel text is a violation.
 export const ENGLISH_WORDS = new Set('the and with for you your are this that from have will was been which when where into then than'.split(' '))
@@ -51,7 +56,10 @@ function stripQuoted (text) {
 export function spanishIn (text) {
   const clean = stripQuoted(text)
   const hits = []
-  for (const w of clean.match(/[A-Za-zÀ-ÿ]+/g) ?? []) if (SPANISH_WORDS.has(w)) hits.push(w)
+  const tokens = clean.match(/[A-Za-zÀ-ÿ]+/g) ?? []
+  for (const w of tokens) if (SPANISH_WORDS.has(w)) hits.push(w)
+  const ambiguous = tokens.filter((w) => AMBIGUOUS_SPANISH.has(w))
+  if (ambiguous.length >= 2) hits.push(...new Set(ambiguous))
   // An accent inside a lowercase word is Spanish; a capitalized name (Martín) is not judged.
   const accent = (clean.match(/[A-Za-zÀ-ÿ]*[áéíóúñ][A-Za-zÀ-ÿ]*/g) ?? []).find((w) => /^[a-zà-ÿ]/.test(w)) ?? clean.match(/[¿¡]/)?.[0]
   if (accent) hits.push(accent)

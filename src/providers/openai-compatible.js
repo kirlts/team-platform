@@ -20,8 +20,8 @@ import { withGenAiCall } from '../telemetry/api.js';
 
 // Addresses and modes of each provider, from each one's documentation consulted for
 // report 02 (2026-10-20). The default mode of each preset could not be tested with a real
-// key: it is confirmed when the provider is added (report 02 §8, «Semilla y temperatura de DeepSeek
-// y de OpenAI vigentes: probar al agregar el proveedor»).
+// key: it is confirmed when the provider is added (report 02 §8: the seed and the temperature of
+// DeepSeek and OpenAI are current, to be tested when adding the provider).
 export const OPENAI_COMPATIBLE_PRESETS = Object.freeze({
   deepseek: { baseUrl: 'https://api.deepseek.com/beta', keyVar: 'DEEPSEEK_API_KEY', model: 'deepseek-flash', structured: 'tool' },
   groq: { baseUrl: 'https://api.groq.com/openai/v1', keyVar: 'GROQ_API_KEY', model: null, structured: 'json_schema' },

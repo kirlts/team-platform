@@ -3,7 +3,7 @@
 // 1440x900 and 390x844 against the built panel served by the development double server
 // (with the same CSP the API would set) and leaves the PNGs in panel/capturas/.
 //
-//   npm run build && node scripts/capturas.mjs [--solo desktop|mobile]
+//   npm run build && node scripts/capturas.mjs `[--solo desktop|mobile]`
 //
 // It also fails if the panel tries to connect to another origin, if the browser reports a
 // CSP violation or if the console logs an error.

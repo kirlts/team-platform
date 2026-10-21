@@ -73,7 +73,7 @@ export function loadConfig (env = process.env, overrides = {}) {
     version: JSON.parse(readFileSync(path.join(rootDir, 'package.json'), 'utf8')).version,
 
     // ---- Red y servidor
-    host: textValue(env, 'HOST', '0.0.0.0'), // dentro de un contenedor; el compose publica el puerto en loopback
+    host: textValue(env, 'HOST', '0.0.0.0'), // inside a container; the compose file publishes the port on loopback
     port: intVar(env, 'PORT', 3000), // I04 §5: the service listens on 127.0.0.1:3000 and the compose file publishes that port on loopback
     nodeEnv: textValue(env, 'NODE_ENV', 'production'), // `development` enables POST /auth/dev-login
     // First Editor (installation): if there are no members, one is created with this email. The password comes from
@@ -167,7 +167,7 @@ export function loadConfig (env = process.env, overrides = {}) {
         parallelism: intVar(env, 'ARGON2_PARALLELISM', 1, { min: 1 }),
         saltBytes: intVar(env, 'ARGON2_SALT_BYTES', 16, { min: 8 }), // I04 §11, RFC 9106: 128-bit salt
         tagBytes: intVar(env, 'ARGON2_TAG_BYTES', 32, { min: 4 }), // I04 §11, RFC 9106: 256-bit tag
-        pepper: textValue(env, 'ARGON2_PEPPER', '') // opcional; el secreto vive fuera de la base
+        pepper: textValue(env, 'ARGON2_PEPPER', '') // optional; the secret lives outside the database
       },
       password: {
         minLength: intVar(env, 'PASSWORD_MIN_LENGTH', 15, { min: 1 }), // I04 §11: NIST SP 800-63B-4 3.1.1.2, single factor

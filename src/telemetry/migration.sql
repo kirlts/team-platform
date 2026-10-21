@@ -31,7 +31,7 @@ CREATE INDEX spans_operation ON spans (operation) WHERE operation IS NOT NULL;
 -- `llm_calls` keeps the columns of MASTER-SPEC §7.2 and adds the ones the tree already knows.
 -- It is a view of the model-call spans (those `recordGenAiCall` marks with
 -- `gen_ai.operation.name`); tools (`execute_tool`) do not count as a call.
---   id            = span_id (texto)
+--   id            = span_id (text)
 --   input_tokens  = gen_ai.usage.input_tokens, which per the GenAI convention includes what was read
 --                   and what was written in the cache; `cached_tokens` is the part read from the cache
 --   at            = start of the call in Unix milliseconds

@@ -331,3 +331,17 @@ RULES:
 - Tabla `settings` (clave y valor) con `project_description` (markdown); `GET /settings/project` para todos y `PATCH /settings/project` para el Editor; `bundle.project = { name, description }`; tope de tamaño como perilla con su cita (el escalón de precio de 100.000 tokens de entrada del modelo por omisión).
 - Las plantillas iniciales mencionan que pueden apoyarse en el contexto del proyecto cuando exista.
 **Condiciones de reversión:** Ninguna prevista.
+
+## [UD-025] Envíos seguidos: cada uno se analiza al tiempo, llegan uno tras otro en una bandeja compacta y la pantalla no crece
+
+**Fecha:** 2026-10-21
+**Contexto:** El uso diario normal es mandar algo, acordarse de otra cosa, mandarla, y otra más. La cola corría un trabajo a la vez y la vista de Inicio apilaba un bloque de análisis por envío.
+**Decisión:** Martín, textual: «asegúrate de que esté bien cubierto el caso de que alguien mande un mensaje e inmediatamente después piensa en otra cosa que quería mandar y lo mande, y luego mande otra cosa. Los mensajes procesados deben ir llegando uno tras otro sin que la interfaz se vuelva inmanejable ni que el usuario esté forzado a hacer scroll por toda la página … pensar en estos casos borde enfocados en la usabilidad a diario». Cuatro reglas: (1) la barra de envío se vacía al enviar y queda lista para el siguiente en el acto, sin esperar el análisis; (2) los envíos se analizan a la vez, no en fila, hasta el tope de concurrencia (perilla medida contra el límite de tasa del proveedor), y la cola atiende por orden de llegada dentro de cada persona; (3) en Inicio, los envíos en curso y los listos para revisar viven en una sola bandeja de alto fijo, una fila por envío con su estado, su progreso y la cuenta de mensajes propuestos, y la propuesta se revisa de a una en el mismo marco (la siguiente se abre sola al publicar o descartar la actual), de modo que diez envíos seguidos no agregan alto a la página; (4) el análisis de un envío recibe como contexto los envíos recientes de la misma persona que todavía no publicó, para que un punto que continúa o repite uno anterior se diga así y no salga duplicado.
+**Alternativas descartadas:**
+- Un bloque de análisis por envío apilado en la página: crece sin tope y obliga a desplazarse.
+- Juntar automáticamente envíos seguidos en uno: decidir que dos envíos son el mismo es interpretar texto con una regla; lo decide el modelo con el contexto de los recientes, y la persona en la revisión.
+**Consecuencias:**
+- `QUEUE_CONCURRENCY` deja de ser 1: se mide en el banco con cinco envíos simultáneos contra el límite de tasa de Anthropic y Groq y se fija con su cita.
+- `bundle.recent_inputs` con los envíos sin publicar de la misma persona (texto ya extraído y títulos propuestos), con un tope de cantidad y de antigüedad declarados.
+- Bandeja de envíos en Inicio con prueba de alto: diez envíos seguidos no cambian `scrollHeight` del documento.
+**Condiciones de reversión:** Ninguna prevista.

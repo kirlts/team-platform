@@ -97,13 +97,14 @@ export function registerMemberRoutes (app, ctx) {
   app.patch('/members/:id', {
     onRequest: [requireRole('editor')],
     schema: {
-      summary: 'Editar un miembro (editor)',
+      summary: 'Editar un miembro, o desactivarlo y reactivarlo con `active` (editor)',
       params: idParams(),
       body: {
         type: 'object', additionalProperties: false, minProperties: 1,
         properties: {
           name: { type: 'string', minLength: 1 }, email: emailAddr, role: { type: 'string', enum: ['member', 'editor'] },
-          responsibilities: { type: 'string' }, domains: domainList, password: { type: 'string' }
+          responsibilities: { type: 'string' }, domains: domainList, password: { type: 'string' },
+          active: { type: 'boolean', description: 'false desactiva la cuenta (no puede iniciar sesión y conserva su historial); true la reactiva.' }
         }
       },
       response: { 200: member }
@@ -115,8 +116,8 @@ export function registerMemberRoutes (app, ctx) {
       await savePassword(id, password, request.member.id) // también reinicia el contador de intentos fallidos
       identity.sessions.destroyForMember(id)
     }
-    const { member: updatedMember, roleChanged } = updateMember(db, id, edits, { actorId: request.member.id })
-    if (roleChanged) identity.sessions.destroyForMember(id) // regenerar al cambiar de rol
+    const { member: updatedMember, roleChanged, deactivated } = updateMember(db, id, edits, { actorId: request.member.id })
+    if (roleChanged || deactivated) identity.sessions.destroyForMember(id) // regenerar al cambiar de rol; cerrar todo al desactivar
     return updatedMember
   })
 }

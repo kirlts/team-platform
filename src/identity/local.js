@@ -2,7 +2,7 @@
 
 import { get, run } from '../db/index.js'
 import { createMember } from '../domain/members.js'
-import { tooMany, unauthenticated } from '../domain/errors.js'
+import { forbidden, tooMany, unauthenticated } from '../domain/errors.js'
 import { dummyVerify, hashPassword, verifyPassword } from './password.js'
 import { clearSessionCookie, readSessionCookie, setSessionCookie } from './cookies.js'
 
@@ -39,7 +39,7 @@ export function createLocalProvider ({ db, config, sessions, now = Date.now }) {
 
   async function login (email, password) {
     const t = now()
-    const memberRow = get(db, `SELECT m.id, m.email, m.name, m.role, c.password_hash, c.failed_count, c.next_attempt_at
+    const memberRow = get(db, `SELECT m.id, m.email, m.name, m.role, m.active, c.password_hash, c.failed_count, c.next_attempt_at
                               FROM members m JOIN credentials c ON c.member_id = m.id WHERE m.email = ?`, email)
     const lookupKey = email.toLowerCase()
 
@@ -69,6 +69,8 @@ export function createLocalProvider ({ db, config, sessions, now = Date.now }) {
       run(db, 'UPDATE credentials SET failed_count = ?, next_attempt_at = ? WHERE member_id = ?', failures, t + backoffWaitMs(failures), memberRow.id)
       throw unauthenticated(BAD_CREDENTIALS_MESSAGE)
     }
+    // Only after the password verified, so the message does not reveal which emails have an account.
+    if (!memberRow.active) throw forbidden('La cuenta está desactivada. Un editor puede reactivarla.', 'account_inactive')
     unknownEmails.delete(lookupKey)
     if (rehash) {
       // Los parámetros cambiaron desde que se guardó el hash (informe 04 §10): se vuelve a hashear al entrar.
@@ -109,7 +111,8 @@ export function createLocalProvider ({ db, config, sessions, now = Date.now }) {
         }
       }, async (request, reply) => {
         const { email, name, role } = request.body
-        let memberRow = get(db, 'SELECT id, email, name, role FROM members WHERE email = ?', email)
+        let memberRow = get(db, 'SELECT id, email, name, role, active FROM members WHERE email = ?', email)
+        if (memberRow && !memberRow.active) throw forbidden('La cuenta está desactivada. Un editor puede reactivarla.', 'account_inactive')
         if (!memberRow) {
           const id = createMember(db, { email, name: name ?? email.split('@')[0], role: role ?? 'editor' })
           memberRow = get(db, 'SELECT id, email, name, role FROM members WHERE id = ?', id)

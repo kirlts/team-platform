@@ -28,11 +28,21 @@ const PROBES = {
   }),
 };
 
+// Dónde se crea cada llave, para quien instala por primera vez.
+const GUIDES = {
+  ANTHROPIC_API_KEY: 'https://platform.claude.com → API keys → Create key. Cobra por uso; la cuenta necesita crédito cargado.',
+  GROQ_API_KEY: 'https://console.groq.com/keys → Create API Key. El plan gratuito alcanza para transcribir (whisper-large-v3-turbo); el tope de audio por hora está en docs/MASTER-SPEC.md §7.4.',
+  DEEPSEEK_API_KEY: 'https://platform.deepseek.com/api_keys → Create new API key. Cobra por uso.',
+  OPENROUTER_API_KEY: 'https://openrouter.ai/keys → Create key. Una sola llave para varios proveedores, con comisión.',
+};
+
 const name = process.argv[2] ?? 'ANTHROPIC_API_KEY';
 if (!PROBES[name]) {
   console.error(`No sé probar ${name}. Conozco: ${Object.keys(PROBES).join(', ')}`);
   process.exit(2);
 }
+console.log(`${name}: ${GUIDES[name]}`);
+console.log('Pegá la llave y Enter (no se muestra mientras escribís).');
 
 const key = await askHidden(`${name}: `);
 if (!key) {

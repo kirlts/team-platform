@@ -32,6 +32,8 @@ Actualizado 2026-10-21 21:44 UTC.
 
 **Plan de cierre:** `docs/PLAN-DE-CIERRE.md` (2026-10-21 15:00). La sesión anterior murió a las 14:42 con la cuota de su cuenta agotada; sus agentes murieron con ella. Quien retome ejecuta ese plan desde la Fase 0: rescata lo sin commit de `configuracion`, `inicio-respira` y `barra-superior`, relanza los encargos A, B, C y G, y sigue el orden de fusión que dice. Encargo nuevo del dueño de hoy: la barra lateral (alineación, contadores sin contenedor, hover), encargo G.
 
+**Avance 18:45.** En `main` también el bucle de miniaturas (`c4b1f4b`) y los remanentes de código (`0718496`): `involved=me`, «Cerrar sesión» oculto sin sesión local, cinco hallazgos del detector. El VPS corre `0718496`, `vps-check` en OK. Corre la ronda 5 de 10 jueces en `~/.cache/claude-tmp/juicios/ronda5`. `main`: 867 de 873 pruebas del servidor, 169 del panel, 26 de ajuste, 188 de flujos.
+
 **Avance 17:50.** En `main` Áreas, tarjetas, Equipo, Configuración, desplegable de envío, Firefox y aviso, barra móvil (`046c978`). El VPS corre `046c978`, sano, `vps-check` en OK. Corren el arreglo del bucle de miniaturas de video y el cierre documental.
 
 **Avance 17:05.** En `main` también el banco (`d593179`): H-1901 a H-1904, TASK-013, TASK-015 y TASK-024 cerradas con medición, 5 casos privados nuevos. Gasto del banco: 4,2 USD. `classifyDraws` no se adopta. La regla 2 de clasificación baja el área 2 puntos, dentro del ruido (p 0,37); quitarla de los dos `prompts-*.js` la revierte. Siguen los cinco arreglos de pantalla y Firefox.

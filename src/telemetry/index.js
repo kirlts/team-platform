@@ -111,7 +111,7 @@ export function initTelemetry({ db, env = process.env, serviceName = 'team-platf
     exportTimeoutMillis: DEFAULTS.exportTimeoutMs,
   };
 
-  const sqlite = new SqliteSpanExporter(db);
+  const sqlite = new SqliteSpanExporter(db, { rowsPerSlice: Number(env.TELEMETRY_SLICE_ROWS) || DEFAULTS.rowsPerSlice });
   const sqliteProcessor = new BatchSpanProcessor({ exporter: sqlite, ...batchOptions });
   const processors = [new InheritTeamAttributes(), sqliteProcessor];
 

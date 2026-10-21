@@ -14,8 +14,10 @@
 // OpenTelemetry y el lote se pierde. Medir no puede romper lo que se mide.
 //
 // Medición (2026-10-20, Node 24.20, SQLite en archivo con WAL y synchronous=FULL como el núcleo,
-// `src/telemetry/overhead.bench.mjs`): ver la cabecera de `overhead.bench.mjs` para las cifras de
-// sobrecarga por llamada y de duración de cada tajada; `rowsPerSlice` sale de ahí.
+// `overhead.bench.mjs`): con tajadas de 16 filas la mediana de una tajada es 0,92 ms; sin bajar
+// `synchronous` a NORMAL durante la tajada era 9,6 ms, porque cada COMMIT esperaba un fsync. El
+// resto de las pausas largas (~30 ms) son puntos de control automáticos de WAL, ajenos al exportador.
+// La cifra de sobrecarga por llamada está en la cabecera de `overhead.bench.mjs`.
 import { ExportResultCode } from '@opentelemetry/core';
 import { diag, SpanKind, SpanStatusCode } from '@opentelemetry/api';
 import { DEFAULTS, MS_PER_DAY, NS_PER_MS, NS_PER_SECOND } from './config.js';
@@ -35,6 +37,9 @@ const STATUS_NAMES = Object.freeze({
 });
 
 const hrToNs = ([seconds, nanos]) => BigInt(seconds) * NS_PER_SECOND + BigInt(nanos);
+
+// Niveles de `PRAGMA synchronous` de SQLite: 0 OFF, 1 NORMAL, 2 FULL, 3 EXTRA (sqlite.org/pragma.html).
+const SYNCHRONOUS_NORMAL = 1;
 
 const INSERT_SQL = `INSERT OR IGNORE INTO spans
   (trace_id, span_id, parent_id, name, kind, start_ns, end_ns, status, status_message, attributes_json, events_json)
@@ -67,6 +72,7 @@ export class SqliteSpanExporter {
   constructor(db, options = {}) {
     this.db = db;
     this.rowsPerSlice = options.rowsPerSlice ?? DEFAULTS.rowsPerSlice;
+    this.relaxDurability = options.relaxDurability ?? true;
     this.statement = null;
     this.pending = []; // lotes por escribir: { spans, callback }
     this.running = false; // hay un vaciado programado o en curso
@@ -111,6 +117,11 @@ export class SqliteSpanExporter {
   #writeSlice(spans) {
     this.statement ??= this.db.prepare(INSERT_SQL);
     const own = !this.db.isTransaction;
+    // Con synchronous=FULL cada COMMIT espera un fsync (7 ms medidos) y eso es lo que ocupa el
+    // bucle. Los spans son telemetría: perder los últimos tras un corte de luz es aceptable, un
+    // archivo corrupto no lo es y WAL con NORMAL no se corrompe. Se baja a NORMAL sólo durante
+    // esta tajada, que es síncrona, así que nadie más escribe con el ajuste cambiado.
+    const previous = own && this.relaxDurability ? this.#lowerDurability() : null;
     if (own) this.db.exec('BEGIN IMMEDIATE');
     try {
       for (const span of spans) this.statement.run(...spanToRow(span));
@@ -118,8 +129,18 @@ export class SqliteSpanExporter {
     } catch (error) {
       if (own && this.db.isTransaction) this.db.exec('ROLLBACK');
       throw error;
+    } finally {
+      if (previous !== null) this.db.exec(`PRAGMA synchronous = ${previous}`);
     }
     this.slices += 1;
+  }
+
+  /** Baja `synchronous` a NORMAL y devuelve el nivel anterior; null si ya era NORMAL o más laxo. */
+  #lowerDurability() {
+    const current = this.db.prepare('PRAGMA synchronous').get().synchronous;
+    if (current <= SYNCHRONOUS_NORMAL) return null;
+    this.db.exec(`PRAGMA synchronous = ${SYNCHRONOUS_NORMAL}`);
+    return current;
   }
 
   /** Resuelve cuando todo lo recibido hasta ahora ya está escrito. */

@@ -454,6 +454,28 @@ test('el exportador a SQLite escribe por tajadas y cede el bucle entre una y otr
   }
 });
 
+test('el exportador restaura synchronous=FULL de la conexión y se suma a una transacción abierta del núcleo', async () => {
+  const t = start();
+  try {
+    const synchronous = () => t.db.prepare('PRAGMA synchronous').get().synchronous;
+    const FULL = 2; // sqlite.org/pragma.html
+    assert.equal(synchronous(), FULL);
+    await withSpan('uno', {}, () => 1);
+    await t.telemetry.flush();
+    assert.equal(synchronous(), FULL, 'el ajuste de la conexión del núcleo queda como estaba');
+
+    // Con una transacción del núcleo abierta, las filas entran en ella y se deshacen con ella.
+    t.db.exec('BEGIN IMMEDIATE');
+    await withSpan('dentro', {}, () => 1);
+    await t.telemetry.flush();
+    assert.ok(t.db.isTransaction);
+    t.db.exec('ROLLBACK');
+    assert.deepEqual(t.db.prepare('SELECT name FROM spans').all().map((r) => r.name), ['uno']);
+  } finally {
+    await t.end();
+  }
+});
+
 /** Un span terminado con la forma que el SDK entrega al exportador, con otro identificador. */
 function fakeReadable(row, suffix) {
   const hr = (ns) => [Number(BigInt(ns) / 1_000_000_000n), Number(BigInt(ns) % 1_000_000_000n)];

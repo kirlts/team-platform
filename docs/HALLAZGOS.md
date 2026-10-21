@@ -240,3 +240,58 @@ Estados: `main` (resuelto y fusionado), `en curso` (asignado a un agente vivo), 
 | H-355 | Rótulos de sección en tipografía ancha de 11 px | J1-A-55 | listo en `wt-ronda1-a` (cd001a4): tipografía de texto a 12 px; Orbitron sólo en la marca |
 | H-356 | Fondo: las curvas cruzan títulos y botones | J1-A-56 | listo en `wt-ronda1-a` (0d04140): máscara que desvanece la órbita bajo la barra superior; prueba en el flujo de filas |
 | H-357 | Estados de carga y error sin juzgar | J1-A-57 | listo en `wt-ronda1-a` (0d04140): prueba «un error de la API y una carga lenta se ven como estados» (retrasa y falla `/api/messages` en el navegador) y prueba del inicio de sesión rechazado; los dos estados existen y se ven en el cuerpo |
+
+## Ronda 2, juez A (J2-A-01 a 49)
+
+> Informe `ronda2-A.md`. Las filas se actualizan con el commit del arreglo o la evidencia de la refutación.
+
+| # | Hallazgo | Origen | Estado |
+|---|---|---|---|
+| H-500 | Entrar: el error se inserta en el label, la tarjeta se recentra y salta | J2-A-01 | en curso (`wt-ronda2-a`) |
+| H-501 | Entrar: el texto sobre quién crea las cuentas es de 12 px y de contraste bajo | J2-A-02 | en curso (`wt-ronda2-a`) |
+| H-502 | Entrar: el error no dice qué campo falló ni lo marca | J2-A-03 | en curso (`wt-ronda2-a`) |
+| H-503 | Inicio: seis píldoras rojas iguales y la campana, sin jerarquía | J2-A-04 | asignado a `wt-ronda2-b` (dueño de los avisos de prioridad) |
+| H-504 | Inicio: tarjeta de mensaje con unos doce elementos y dos estados de color | J2-A-05 | en curso (`wt-ronda2-a`) |
+| H-505 | Inicio: Últimos mensajes y Últimas respuestas arrancan con el mismo mensaje | J2-A-06 | en curso (`wt-ronda2-a`) |
+| H-506 | Inicio, teléfono: Pendientes por área recorta la segunda fila y oculta áreas | J2-A-07 | asignado a `wt-ronda2-b` (dueño de los avisos de prioridad) |
+| H-507 | Inicio: hueco bajo la última tarjeta y paginación pequeña | J2-A-08 | en curso (`wt-ronda2-a`) |
+| H-508 | Inicio: un mensaje cerrado conserva el borde rojo de urgencia | J2-A-09 | asignado a `wt-ronda2-b` (dueño de los avisos de prioridad) |
+| H-509 | Inicio: reloj en mayúsculas de 11 px que decora | J2-A-10 | en curso (`wt-ronda2-a`) |
+| H-510 | Mensajes: Responder y Cerrar sólo al cursor en escritorio, siempre en Inicio y teléfono | J2-A-11 | en curso (`wt-ronda2-a`) |
+| H-511 | Mensajes: 14 elementos en la fila de metadatos, flecha sin nombre y «+6» sin explicar | J2-A-12 | en curso (`wt-ronda2-a`) |
+| H-512 | Mensajes: el menú Filtro no indica el valor activo | J2-A-13 | en curso (`wt-ronda2-a`) |
+| H-513 | Mensajes: el estado de ciclo queda lejos de lo que describe | J2-A-14 | en curso (`wt-ronda2-a`) |
+| H-514 | Mensajes: un mensaje cerrado pesa lo mismo que uno abierto | J2-A-15 | en curso (`wt-ronda2-a`) |
+| H-515 | Mensajes, teléfono: tarjetas de unos 650 px | J2-A-16 | en curso (`wt-ronda2-a`) |
+| H-516 | Ficha: tras cerrar, «Obligatorio» en rojo sigue visible en un campo vacío | J2-A-17 | en curso (`wt-ronda2-a`) |
+| H-517 | Ficha: cerrar y reabrir sin confirmación y con Deshacer del mismo peso que la acción | J2-A-18 | en curso (`wt-ronda2-a`) |
+| H-518 | Ficha: seis bloques del mismo azul pálido en la columna izquierda | J2-A-19 | en curso (`wt-ronda2-a`) |
+| H-519 | Ficha: campos de plantilla sin pista de que se editan | J2-A-20 | en curso (`wt-ronda2-a`) |
+| H-520 | Ficha, teléfono: chips con × en cuatro filas y Cerrar entre título y metadatos | J2-A-21 | en curso (`wt-ronda2-a`) |
+| H-521 | Ficha: cinco controles en la fila del compositor | J2-A-22 | en curso (`wt-ronda2-a`) |
+| H-522 | Plantilla: Eliminar borra sin confirmar y el Deshacer queda lejos | J2-A-23 | en curso (`wt-ronda2-a`) |
+| H-523 | Plantilla: el modal de edición no dice cómo se guarda y las casillas son nativas | J2-A-24 | en curso (`wt-ronda2-a`) |
+| H-524 | Nueva plantilla: Markdown crudo en las instrucciones | J2-A-25 | en curso (`wt-ronda2-a`) |
+| H-525 | Áreas: «0 pendientes» parece apagado y la flecha no indica estado | J2-A-26 | en curso (`wt-ronda2-a`) |
+| H-526 | Áreas: la fila elegida pesa más que el contenido | J2-A-27 | en curso (`wt-ronda2-a`) |
+| H-527 | Áreas: una tarjeta de plantillas en una columna vacía | J2-A-28 | en curso (`wt-ronda2-a`) |
+| H-528 | Nueva área: Cancelar y Crear casi sin diferencia de peso | J2-A-29 | en curso (`wt-ronda2-a`) |
+| H-529 | Configuración: Reemplazar con .md sin decir qué reemplaza y con peso de botón normal | J2-A-30 | en curso (`wt-ronda2-a`) |
+| H-530 | Configuración: el selector de proveedor no parece un control | J2-A-31 | en curso (`wt-ronda2-a`) |
+| H-531 | Configuración: el único error es una píldora de 10 px con la variable en monoespaciada | J2-A-32 | en curso (`wt-ronda2-a`) |
+| H-532 | Configuración, teléfono: texto justificado con huecos y tres pantallas hasta Proveedores | J2-A-33 | en curso (`wt-ronda2-a`) |
+| H-533 | Configuración: las conexiones de la lateral no navegan | J2-A-34 | en curso (`wt-ronda2-a`) |
+| H-534 | Equipo: cuatro botones Desactivar idénticos apilados | J2-A-35 | en curso (`wt-ronda2-a`) |
+| H-535 | Equipo: perfil de 12 px en párrafos de ancho fijo | J2-A-36 | en curso (`wt-ronda2-a`) |
+| H-536 | Equipo: «Idioma: ES» de 11 px como relleno bajo el rol | J2-A-37 | en curso (`wt-ronda2-a`) |
+| H-537 | Menú superior: duplica Configuración, Tema y Cerrar sesión y tapa la campana | J2-A-38 | en curso (`wt-ronda2-a`) |
+| H-538 | Lateral: contadores rojos por área repetidos y compitiendo con el contenido | J2-A-39 | asignado a `wt-ronda2-b` (dueño de los avisos de prioridad) |
+| H-539 | Barra superior, teléfono: dos iconos de menú casi iguales | J2-A-40 | en curso (`wt-ronda2-a`) |
+| H-540 | Resaltado de selección: tres lenguajes distintos | J2-A-41 | en curso (`wt-ronda2-a`) |
+| H-541 | Barra superior: el nombre del proyecto en mayúsculas espaciadas es lo más llamativo | J2-A-42 | en curso (`wt-ronda2-a`) |
+| H-542 | Campana: «9» rojo y al abrirla dice «Sin avisos» | J2-A-43 | asignado a `wt-ronda2-b` (dueño de los avisos de prioridad) |
+| H-543 | Campana: la píldora duplica el recuento de Por atender sin nombrar de qué es | J2-A-44 | asignado a `wt-ronda2-b` (dueño de los avisos de prioridad) |
+| H-544 | Error de carga: texto rojo sin reintento ni icono tras unos 10 s de «Cargando» | J2-A-46 | en curso (`wt-ronda2-a`) |
+| H-545 | Carga: sin esqueleto; la altura salta y la lateral se desplaza | J2-A-47 | en curso (`wt-ronda2-a`) |
+| H-546 | Teclado: el foco queda en la marca y no hay atajo visible al contenido | J2-A-48 | en curso (`wt-ronda2-a`) |
+| H-547 | Plantillas vacías: «Sin plantillas» sin acción propia | J2-A-49 | en curso (`wt-ronda2-a`) |

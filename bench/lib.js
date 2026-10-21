@@ -41,6 +41,9 @@ export function buildBundle(input, fixtures) {
     areas: fixtures.areas,
     templates: fixtures.templates,
     members: fixtures.members,
+    // As the pipeline builds it (src/domain/pipeline.js): the author's language and the project (UD-018, UD-024).
+    language: fixtures.language ?? 'es-419',
+    ...(fixtures.project ? { project: fixtures.project } : {}),
   };
 }
 

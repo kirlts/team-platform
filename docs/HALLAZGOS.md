@@ -35,11 +35,11 @@ Estados: `main` (resuelto y fusionado), `en curso` (asignado a un agente vivo), 
 |---|---|---|---|
 | H-21 | HEIC real de iPhone sin probar (sólo cabecera fabricada) | agente extractores | abierto |
 | H-22 | Word real con estilos propios, PDF real de cliente, descarga real de internet sin probar | agente extractores | `main` parcial: el banco privado probó 11 Word y 11 videos reales; falta el PDF real y la descarga |
-| H-23 | `resourceLimits` del hilo trabajador no cubre la memoria WASM de PDFium | agente extractores | abierto |
+| H-23 | `resourceLimits` del hilo trabajador no cubre la memoria WASM de PDFium | agente extractores | `main` (`document.wasmMemoryMb` en 700, `lib/pdfium-capped.js`; tres pruebas en `document.test.js`; medición `2026-10-20-memoria-wasm-pdfium.md`) |
 | H-24 | Tope de documentos 25 MiB al subir contra 24 MiB al extraer (DT-005) | documentación | `main` (tope único de 24 MiB) |
 | H-25 | Documento de más de 24 MiB y video de más de 20 minutos se rechazan después de encolar | batería | `main` (413/422 al subir, `ffprobe` en la subida) |
-| H-26 | Imagen SVG rechazada con 415; el guion de capturas pega un SVG | agente núcleo | abierto: el guion de capturas pasa a PNG |
-| H-27 | Opus 32 kbps contra FLAC en español sin medir | informe 06 | en curso (agente ffmpeg, parte 3) |
+| H-26 | Imagen SVG rechazada con 415; el guion de capturas pega un SVG | agente núcleo | `main` (el guion de capturas pega un PNG) |
+| H-27 | Opus 32 kbps contra FLAC en español sin medir | informe 06 | `main` (medido: Opus directo a Groq pierde 3 unidades de 20; se mantiene FLAC) |
 | H-28 | Video de 20 minutos pesa hasta 190 MB; el tope de 24 MB es para documentos | banco privado | `main`: el video tiene tope propio de 2 GB y 20 minutos |
 
 ## Núcleo, API y cola
@@ -57,10 +57,10 @@ Estados: `main` (resuelto y fusionado), `en curso` (asignado a un agente vivo), 
 | H-37 | Contexto de OpenTelemetry heredado entre trabajos sin `ROOT_CONTEXT` | agente núcleo | `main` |
 | H-38 | Checkpoint de WAL pausa 30 ms; `wal_autocheckpoint=0` sin adoptar | agente telemetría y núcleo | descartado (agente núcleo, razón en `src/contracts.md` §2) |
 | H-39 | `SELECT *` sobre `spans` falla por enteros de 64 bits | agente telemetría | `main` (documentado; `traceOfJob` y la vista) |
-| H-40 | Cola de lotes de telemetría admite 2048 spans con contenido de MB sin acotar | agente telemetría | abierto |
+| H-40 | Cola de lotes de telemetría admite 2048 spans con contenido de MB sin acotar | agente telemetría | `main` (`TELEMETRY_QUEUE_MAX_BYTES` en 4 MiB, medido con el span de 48 fotogramas: 3.653.672 B en `span-size.bench.mjs`; `budget.js` y `budget.test.js`: vaciado anticipado y, sobre el tope duro, imágenes con tamaño y sin bytes, con `team.telemetry.blobs_dropped`) |
 | H-41 | `sdk-trace-node` ahorraría 10 MiB, bloqueado por versiones | agente imagen | descartado hasta que `sdk-trace-node` llegue a 3.x |
-| H-42 | Gancho de pre-commit contra credenciales no estaba activado | batería (DT-004) | `main` (`git config core.hooksPath .githooks` en este clon; `scripts/install.sh` debe activarlo) |
-| H-43 | Lista de contraseñas bloqueadas sin fuente; la aporta quien instala | agente núcleo | abierto: `scripts/install.sh` descarga una lista pública con licencia libre y la cita |
+| H-42 | Gancho de pre-commit contra credenciales no estaba activado | batería (DT-004) | `main` (`scripts/install.sh` corre `git config core.hooksPath .githooks`; `src/install-script.test.js`; `docs/INSTALACION.md`) |
+| H-43 | Lista de contraseñas bloqueadas sin fuente; la aporta quien instala | agente núcleo | `main` (SecLists, MIT, fijada por commit y SHA-256, citada en `scripts/install.sh` y `docs/INSTALACION.md`; instalada y leída por la aplicación en una corrida real con Docker; límite: sólo 10.908 de 1.000.000 de entradas tienen 15 o más caracteres, y la licencia de los datos no se verificó aparte) |
 | H-44 | `Unknown text provider` llega a una persona por el 422 de `PATCH /settings/providers` en inglés | pasada a inglés | abierto: el panel traduce por código (UD-018) |
 | H-45 | `VERIFICATION.md` espera `/derive` (DT-010) | documentación | descartado (Martín: «no necesitamos que ejecutes derive»); el eje de verificación es `docs/TEST.md` |
 | H-46 | Faltan las capas 3 y 5 de la estrategia de pruebas (DT-008) | documentación | `main` parcial: capa 3 (`fast-check`) hecha; capa 5 (recorrido Playwright sobre la imagen) en curso (agente panel, `test:fit`) |
@@ -80,7 +80,7 @@ Estados: `main` (resuelto y fusionado), `en curso` (asignado a un agente vivo), 
 | H-55 | Destello de fondo bajo el contador en Mensajes en móvil | agente panel | en curso (agente panel, dentro de H-49) |
 | H-56 | Micrófono sólo probado con el dispositivo falso de Chromium; Safari e iPhone sin probar | agente panel | abierto: necesita un iPhone real (Martín) |
 | H-57 | SSE tras `tailscale serve` o un proxy con búfer sin probar | agente panel | abierto: se prueba al instalar en el VPS |
-| H-58 | Chromium headless no decodifica H.264: miniatura de video en blanco en la captura | juez | abierto: el juez repite con un video VP9 |
+| H-58 | Chromium headless no decodifica H.264: miniatura de video en blanco en la captura | juez | `main` (`bench/fixtures/make-webm.sh` genera el WebM VP9; el extractor lo lee: 24 fotogramas muestreados, 6 conservados; Chromium de Playwright lo decodifica; `docs/TEST.md` HP-020 lo indica; límite: el H.264 sí decodificó en este equipo, así que el defecto del juez no se reprodujo aquí) |
 | H-59 | `claude-session on-end` no registra desde un subagente | juez | descartado: limitación del entorno; el contenedor se bajó a mano |
 
 ## Empaquetado, imagen y licencias
@@ -88,9 +88,9 @@ Estados: `main` (resuelto y fusionado), `en curso` (asignado a un agente vivo), 
 | # | Hallazgo | Origen | Estado |
 |---|---|---|---|
 | H-60 | Imagen de 819 MB | medición | `main` (466 MB) |
-| H-61 | `ffmpeg` de Alpine pesa 129 MB y trae partes GPL | Martín, agente imagen | en curso (agente ffmpeg, LGPL mínimo) |
+| H-61 | `ffmpeg` de Alpine pesa 129 MB y trae partes GPL | Martín, agente imagen | `main` (ffmpeg 8.1.3 LGPL estático, 22 decodificadores, imagen 306 MB) |
 | H-62 | `libvips` LGPL en `sharp` (DT-002) | documentación | `main` (UD-020, dos capas) |
-| H-63 | `NOTICE` con binarios de la imagen y prueba de licencias | UD-020 | en curso (agente ffmpeg) |
+| H-63 | `NOTICE` con binarios de la imagen y prueba de licencias | UD-020 | `main` (`NOTICE` generado, textos de licencia en la imagen, pruebas HP-011) |
 | H-64 | Lockfile faltaba en main; imagen no reproducible | agente empaquetado | `main` |
 | H-65 | `.env.example` ignorado por `.gitignore` | agente empaquetado | `main` |
 | H-66 | Las tres formas de instalación sin probar en un VPS ni tailnet reales | agente empaquetado | abierto: se prueba al instalar en el VPS |
@@ -102,9 +102,10 @@ Estados: `main` (resuelto y fusionado), `en curso` (asignado a un agente vivo), 
 | # | Hallazgo | Origen | Estado |
 |---|---|---|---|
 | H-69 | Referencias del banco público sin auditar contra salidas de modelo | agente empaquetado | `main` (el agente analizador las corrigió con la corrida real) |
-| H-70 | Referencias del banco privado con criterio de un solo agente | banco privado | abierto: una segunda lectura por otro agente sobre los 10 casos con peor cobertura |
-| H-71 | Costo de Groq no entra en los dólares de la tabla | banco privado | abierto: `pricing.js` suma 0,04 USD por hora de audio |
+| H-70 | Referencias del banco privado con criterio de un solo agente | banco privado | `main` (segunda lectura hecha: 10 casos, 11 desacuerdos resueltos con regla escrita, 12 criterios dejados; referencias migradas a la numeración por oración, 5.329 unidades) |
+| H-71 | Costo de Groq no entra en los dólares de la tabla | banco privado | `main` (`pricing.js`: Groq 0,04 USD por hora de audio, sumado en los dos runners) |
 | H-72 | Rerun completo del banco privado tras los arreglos del analizador | banco privado | abierto: lo corre la sesión cuando entre la rama de prompts |
 | H-73 | HP-019 y HP-020 necesitan llave real y una persona | batería | abierto: HP-019 lo corre la sesión; HP-020 es el juez |
 | H-74 | Un docx con RUT y correos de pacientes reales quedó fuera del banco | banco privado | `main` (correcto, no entra) |
-| H-75 | `HP-001: a complete flow with an attachment of every kind` agotó su tiempo en dos corridas (9,5 s y 17 s) y pasa sola: carrera o carga, sin aislar | agente API | abierto (agente menores) |
+| H-75 | `HP-001: a complete flow with an attachment of every kind` agotó su tiempo en dos corridas (9,5 s y 17 s) y pasa sola: carrera o carga, sin aislar | agente API | `main` (causa: la prueba leía `spans` antes de que el lote de 5 s vaciara el span `analyze`; ahora aserta tras `shutDown`; 12 de 12 bajo carga) |
+| H-76 | Las referencias privadas descartan «informes sin pedido ni decisión» y 10 entradas `secondary` de voz y fotograma; UD-021 y el contrato nuevo dicen que lo reportado cuenta | segunda lectura | abierto: se alinean al correr el rerun (H-72) con la rama de prompts en main |

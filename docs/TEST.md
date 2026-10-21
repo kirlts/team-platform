@@ -83,7 +83,7 @@ Hallazgos del 2026-10-20 al escribir el criterio: 25 literales sin fuente recono
 ### Cómo se ejecutan HP-019 y HP-020
 
 - **HP-019 (🤖🧑).** La batería comprueba el puntaje y los siete casos con proveedores falsos. El cierre es de una persona con el proveedor real: `set -a; . ~/.config/team-platform/env; set +a; node bench/run.mjs --repeat 5`, y la tabla antes y después queda en `docs/investigaciones/mediciones/`. Se pasa cuando los siete casos dan cobertura 100 % y la mediana queda bajo el objetivo de la sección Métricas.
-- **HP-020 (🧑).** `cd panel && npm run build && npm run capturas` deja los PNG en `panel/capturas/`; una persona distinta de quien escribió la pantalla los mira contra §6 y registra el resultado en el informe de revisión de la pantalla. No se comparan por píxel.
+- **HP-020 (🧑).** `cd panel && npm run build && npm run capturas` deja los PNG en `panel/capturas/`; una persona distinta de quien escribió la pantalla los mira contra §6 y registra el resultado en el informe de revisión de la pantalla. No se comparan por píxel. Las miniaturas de video se juzgan con un video WebM VP9 (`bench/fixtures/make-webm.sh [salida.webm]`, ffmpeg con `lavfi`: seis pantallas distintas de cuatro segundos y pista de voz en Opus), no con un MP4: el Chromium sin ventana que toma las capturas puede no decodificar H.264 y la miniatura sale en blanco (H-58). En el equipo donde se escribió el guion (Chromium de Playwright, 2026-10-21) un MP4 H.264 sí decodificó y el WebM también; el WebM no depende del códec de la compilación.
 
 ## Pruebas de regresión
 

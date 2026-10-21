@@ -1,6 +1,6 @@
 # Instalación
 
-Requisitos: Docker 25 o superior con el plugin `compose` (el `HEALTHCHECK` usa `--start-interval`, desde Docker 25). La imagen ocupa 466 MB según `docker images` (medidos el 2026-10-20; 344 MB de contenido según `du`): 132 MB del binario de Node, 146 MB de Alpine con `ffmpeg` y 62 MB de dependencias de producción podadas (detalle en `docs/investigaciones/mediciones/2026-10-20-imagen-docker.md`). La base y los adjuntos viven en el volumen `/data`, que tiene que ser disco local. SQLite en modo WAL no funciona sobre sistemas de archivos de red.
+Requisitos: Docker 25 o superior con el plugin `compose` (el `HEALTHCHECK` usa `--start-interval`, desde Docker 25). La imagen ocupa 306 MB: Alpine con un `ffmpeg` mínimo compilado en la propia imagen (LGPL, 22 decodificadores), Node y 62 MB de dependencias de producción podadas (detalle en `docs/investigaciones/mediciones/2026-10-20-imagen-docker.md`). La base y los adjuntos viven en el volumen `/data`, que tiene que ser disco local. SQLite en modo WAL no funciona sobre sistemas de archivos de red.
 
 La aplicación escucha en el puerto 3000 del contenedor. `compose.yml` lo publica sólo en `127.0.0.1`. El acceso desde fuera del servidor lo da un proxy con TLS (formas 1 y 3) o la red del proyecto anfitrión (forma 2). La cookie de sesión es `__Host-` con `Secure`: sin HTTPS no inicia sesión, salvo en `localhost`.
 
@@ -15,6 +15,15 @@ La aplicación escucha en el puerto 3000 del contenedor. `compose.yml` lo public
 | `GROQ_API_KEY` | Transcripción de audio y video. Sin ella no se transcribe |
 | `DEEPSEEK_API_KEY` | Proveedor de respaldo, opcional |
 | `PUBLISH_PORT` | Puerto en el anfitrión. Vacío usa 3000 |
+
+## Lo que `scripts/install.sh` deja además
+
+- **Gancho de pre-commit.** Corre `git config core.hooksPath .githooks` en el clon que instala (también con `--no-start`). Git no activa solo un directorio de ganchos versionado: sin ese ajuste, `.githooks/pre-commit`, que escanea las credenciales de lo que se va a commitear, no corre (DT-004). En un clon donde no se usa `install.sh` el comando es el mismo.
+- **Lista de contraseñas bloqueadas.** Baja a `$DATA_DIR/password-blocklist.txt` del volumen (`/data` en el contenedor) las contraseñas más comunes, si el archivo no está. La aplicación lo usa sola cuando `PASSWORD_BLOCKLIST_FILE` no está definida; con la variable, manda la variable.
+  - Fuente: `Passwords/Common-Credentials/xato-net-10-million-passwords-1000000.txt` de [SecLists](https://github.com/danielmiessler/SecLists), de Daniel Miessler, licencia MIT (su `LICENSE`, leído el 2026-10-21). Fijado al commit `0c03d70db30ceedb941ac58b0ec910eb85906d6f` (consultado el 2026-10-20) y verificado por SHA-256 `424a3e03a17df0a2bc2b3ca749d81b04e79d59cb7aeec8876a5a3f308d0caf51`. La licencia MIT es la del repositorio; el archivo de datos no trae una propia, y su origen es la publicación de 10 millones de contraseñas filtradas de Mark Burnett (2015). No se verificó una licencia aparte para esos datos.
+  - Se guardan sólo las entradas de `PASSWORD_MIN_LENGTH` caracteres o más (15 por omisión): las más cortas ya las rechaza la validación de largo. Del archivo de 1.000.000 de entradas quedan 10.908. La lista de las 10.000 más comunes (`10k-most-common.txt`) tiene una sola entrada de 15 o más caracteres, así que no sirve con este mínimo. Si se baja el mínimo en `.env`, se borra el archivo del volumen y se corre `install.sh` otra vez.
+  - Sin red, sin `curl` o con un contenido que no coincide con el SHA-256, el instalador avisa y sigue: el servicio funciona validando sólo el largo. Con `--no-start` no se toca el volumen; la lista se instala en la primera corrida sin esa opción.
+  - `BLOCKLIST_URL` y `BLOCKLIST_SHA256` del entorno reemplazan la fuente (un espejo propio).
 
 ## 1. Sola en un VPS
 
@@ -146,4 +155,4 @@ docker compose start
 
 ## Licencias
 
-El código es MIT. La imagen incluye el binario `ffmpeg` del repositorio de Alpine, con la licencia de ese paquete.
+El código es MIT. La imagen incluye el binario `ffmpeg` compilado en la imagen en configuración LGPL (LGPL 2.1; ver `NOTICE` y `/usr/share/licenses/ffmpeg/`).

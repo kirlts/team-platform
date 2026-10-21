@@ -22,7 +22,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statS
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadFixtures, runCase, summarize, formatReport, unitsOf } from './lib.js';
-import { costOf } from './pricing.js';
+import { costOf, usageOfCall } from './pricing.js';
 import { analyze } from '../src/analyze/index.js';
 import { extract } from '../src/extract/index.js';
 import { createProviders } from '../src/providers/index.js';
@@ -128,8 +128,9 @@ async function extractCase(c, providers) {
     const ms = Math.round(performance.now() - t0);
     const calls = (r.meta.calls ?? []).map((call) => {
       const model = call.modality === 'vision' ? providers.vision.model : call.modality === 'speech' ? providers.speech.model : null;
-      const cost = call.usage ? costOf({ model, usage: call.usage }) : null;
-      if (call.usage) {
+      const usage = usageOfCall(call); // a speech call has billable seconds, not tokens: Groq charges per hour of audio
+      const cost = usage ? costOf({ model, usage }) : null;
+      if (usage) {
         if (cost === null) unpriced += 1;
         else costUsd += cost;
       }

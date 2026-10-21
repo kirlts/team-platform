@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { loadCases, loadFixtures, runCase, summarize, formatReport } from './lib.js';
 import { createBenchProviders } from './fake-providers.js';
-import { costOf, PRICES } from './pricing.js';
+import { costOf, PRICES, usageOfCall } from './pricing.js';
 import { analyze } from '../src/analyze/index.js';
 
 const cases = loadCases();
@@ -62,6 +62,37 @@ test('el costo sale de la tarifa de lista de la especificación y es null sin ta
   assert.ok(Math.abs(costOf({ model, usage: { input_tokens: 200_000 } }) - 200_000 * p.input_over_threshold / 1e6) < 1e-12);
   assert.equal(costOf({ model: 'otro-modelo', usage }), null);
   assert.equal(costOf({ model: 'otro-modelo', usage, cost_usd: 0.5 }), 0.5);
+});
+
+test('H-71: el costo de voz de Groq es 0,04 USD por hora de audio y no es null', () => {
+  const model = 'whisper-large-v3-turbo';
+  assert.equal(PRICES[model].audio_per_hour, 0.04);
+  assert.ok(Math.abs(costOf({ model, usage: { audio_seconds: 3600 } }) - 0.04) < 1e-12);
+  assert.ok(Math.abs(costOf({ model, usage: { audio_seconds: 1210 } }) - (1210 / 3600) * 0.04) < 1e-12); // el audio de 20 minutos de la medición de extractores
+  assert.equal(costOf({ model, usage: { input_tokens: 5 } }), null, 'sin segundos de audio no hay cifra que inventar');
+  // Una llamada de voz de un extractor trae los segundos facturables y ningún token.
+  const speech = { modality: 'speech', audioSeconds: 1210, requests: 3 };
+  assert.deepEqual(usageOfCall(speech), { audio_seconds: 1210 });
+  assert.deepEqual(usageOfCall({ modality: 'vision', usage: { input_tokens: 1 } }), { input_tokens: 1 });
+  assert.equal(usageOfCall({ modality: 'vision', images: 1 }), null);
+  assert.notEqual(costOf({ model, usage: usageOfCall(speech) }), null);
+});
+
+test('H-71: runCase suma el costo de voz al de las llamadas de texto', async () => {
+  const analyzeWithSpeech = async () => ({
+    status: 'ok',
+    proposal: { messages: [], discarded: [] },
+    units: [],
+    stats: {},
+    calls: [
+      { model: 'whisper-large-v3-turbo', usage: { audio_seconds: 7200 } },
+      { model: 'claude-haiku-5-5', usage: { input_tokens: 50_000, output_tokens: 0 } },
+    ],
+  });
+  const r = await runCase({ analyze: analyzeWithSpeech, providers: {}, testCase: byId('04-reporte-de-error'), fixtures });
+  const haiku = (50_000 * PRICES['claude-haiku-5-5'].input) / 1e6; // bajo el escalón de 100.000 tokens
+  assert.ok(Math.abs(r.usage.cost_usd - (0.08 + haiku)) < 1e-9, `costo ${r.usage.cost_usd}`);
+  assert.equal(r.calls[0].cost_usd !== null, true);
 });
 
 test('summarize agrega repeticiones y el reporte lista cada caso', async () => {

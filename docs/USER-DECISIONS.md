@@ -748,3 +748,15 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 **Consecuencias:** `panel/src/lib/sidebar.ts` con su prueba; una prueba de navegador oculta, recarga y muestra, y comprueba que otra persona no se ve afectada.
 **Condiciones de reversión:** Ninguna prevista.
 
+
+## [UD-130] La barra lateral va sobre una grilla, sus contadores no llevan contenedor y todo lo clicable responde al puntero
+
+**Fecha:** 2026-10-21
+**Contexto:** Martín, textual, con una captura de la barra lateral: «Otro error que frecuentemente aparece son los problemas de alineación. Por ejemplo acá los iconos que se muestran con cada fila están desalineados verticalmente. Eso es inaceptable. Además arriba un icono está rodeado de un contenedor y abajo no. Necesito que no estén rodeados con contenedor, pero además que cuando uno pase el mouse por encima se ilumine el icono dando la sensación de que es cliqueable, igual que en la barra de arriba en el icono rojo que ya se ve súper cliqueable. Necesito que pasar el mouse por encima también tenga un efecto. Investiga cuál es el patrón imperante en 2026 para este tipo de cosas.»
+**Decisión:** Cada fila de la barra lateral (Inicio, Mensajes, Áreas, cada área, Equipo, Conexiones, Configuración, Cerrar sesión) es una caja con dos columnas: el enlace (ícono y rótulo) y la columna del contador. La columna mide al menos 2,75 rem (`--sidebar-count-col`), termina a 10 px del borde derecho en todas las filas y se centra en la altura de la fila. Los contadores son un ícono de estado con su número, sin contenedor ni borde, con la misma forma y color de la barra superior (`StateMark` y `NotifyBadge`, no copias). La fila entera es lo que se ilumina: al pasar el puntero el fondo cambia a `--color-hover` y el ícono pasa de `--color-muted` a `--color-accent`; con el teclado, el mismo cambio más un anillo de 2 px dentro de la fila. «+», desplegable de áreas, ocultar panel y el contador de cada área tienen su propio estado de hover y foco. La transición es de 100 ms (`--duration-hover`). El rótulo puede partirse sólo cuando el nombre lo escribió una persona y es largo; los rótulos fijos y las cinco áreas de plantilla caben en una línea en 256 px y en teléfono. Fuente: `docs/investigaciones/12 - Alineación y estados de los elementos de navegación.md` (R1 a R11).
+**Alternativas descartadas:**
+- Iluminar sólo el ícono: ninguno de los sistemas revisados lo hace; todos cambian el fondo de la fila, y el ícono acompaña. Se hacen las dos cosas.
+- Recortar el rótulo con puntos suspensivos (UD-016): la regla del dueño lo prohíbe.
+- Una píldora para todos los contadores: el dueño pidió que no hubiera contenedor.
+**Consecuencias:** `panel/src/sidebar-alignment.browser.test.mjs` (`npm run test:sidebar`, dentro de `test:flows`) mide coordenada derecha y centro vertical de los contadores con tolerancia de 1 px, una sola línea por rótulo, ausencia de contenedor y cambio de estilo calculado en hover y foco. `panel/scripts/ui-detectors.mjs` suma la regla `sibling-alignment`. `panel/DISENO.md` declara los tokens.
+**Condiciones de reversión:** Ninguna prevista.

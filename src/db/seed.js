@@ -37,7 +37,7 @@ export async function seedDefaults (db, config, log = () => {}) {
     if (get(db, 'SELECT COUNT(*) AS n FROM areas').n > 0) return // another process won the race
     const areaIdMap = new Map()
     for (const area of seedSet.areas) {
-      const { lastInsertRowid } = run(db, 'INSERT INTO areas (title, description, position) VALUES (?, ?, ?)', area.title, area.description, area.position)
+      const { lastInsertRowid } = run(db, 'INSERT INTO areas (title, description, position, color) VALUES (?, ?, ?, ?)', area.title, area.description, area.position, area.color ?? '#4f46e5')
       areaIdMap.set(area.id, Number(lastInsertRowid))
     }
     for (const t of seedSet.templates) {

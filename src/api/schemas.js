@@ -53,7 +53,7 @@ export const template = {
 export const area = {
   type: 'object',
   properties: {
-    id, title: { type: 'string' }, description: { type: 'string' }, position: intVar, deleted_at: nullableText,
+    id, title: { type: 'string' }, description: { type: 'string' }, position: intVar, color: { type: 'string', description: 'Area color, `#rrggbb` (UD-045).' }, deleted_at: nullableText,
     open_count: intVar, unresolved_count: intVar, template_count: intVar,
     templates: { type: 'array', items: templateSummary }
   }

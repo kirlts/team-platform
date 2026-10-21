@@ -96,3 +96,13 @@ test('una descripción vacía del proveedor queda como aviso', async () => {
   assert.equal(text, '');
   assert.equal(meta.warnings[0].code, 'empty_description');
 });
+
+test('a real HEIC container (libheif, HEVC payload) is rejected by its brand with the same code', async () => {
+  const path = new URL('./test/fixtures/libheif.heic', import.meta.url).pathname;
+  const vision = fakeVision();
+  await assert.rejects(
+    extract(await att(path, { mime: 'image/heic' }), { providers: { vision } }),
+    (e) => e instanceof ExtractError && e.code === 'image_heic_unsupported',
+  );
+  assert.equal(vision.calls.length, 0);
+});

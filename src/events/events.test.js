@@ -27,6 +27,7 @@ test('los eventos viajan con id de texto y los nombres progress, done y message'
   const s = await openSse(env, '/api/events', { cookie: env.c.ana })
   assert.equal(s.status, 200)
   assert.equal(s.headers.get('content-type'), 'text/event-stream')
+  assert.equal(s.headers.get('x-accel-buffering'), 'no') // H-57: nginx and similar proxies stream the flow instead of buffering it
   assert.match(s.headers.get('content-security-policy'), /connect-src 'self'/) // las cabeceras de seguridad llegan también al flujo
   env.events.publishForJob(jobId, { kind: 'progress', percent: 40, phrase: 'leyendo' })
   env.events.publishForJob(jobId, { kind: 'done', data: { status: 'done' } })

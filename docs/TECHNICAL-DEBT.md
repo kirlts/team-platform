@@ -54,7 +54,7 @@
 **Origin:** manual (`/document`, 2026-10-20)
 **Description:** `docs/TEST.md` prevé pruebas de propiedades con `fast-check` y un recorrido con Playwright sobre la imagen Docker. `fast-check` no es dependencia de ningún `package.json` y el recorrido existe sólo como `src/testing/smoke-panel.mjs`, que se corre a mano.
 **Remediation plan:** Agregar `fast-check` como dependencia de desarrollo para la numeración de unidades, el puntaje del banco y la fusión de trozos de audio. Convertir el humo del panel en un recorrido que levante la imagen con proveedores falsos.
-**Status:** ☐ Pending
+**Status:** ☑ Done 2026-10-21: capa 3 con `fast-check` (pruebas de propiedades) y capa 5 en `src/image-walkthrough.docker.test.js` (`npm run test:image`) más `test:flows` y `test:fit` del panel
 
 ## [DT-009] El código y los comentarios siguen en español (UD-015)
 

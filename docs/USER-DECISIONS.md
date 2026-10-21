@@ -509,6 +509,20 @@ RULES:
 **Fecha:** 2026-10-21
 **Contexto:** H-56 pedía probar el micrófono y la cámara en Safari e iPhone con un aparato real.
 **Decisión:** Martín, textual: «Lo del iPhone me da lo mismo, no lo vamos a usar todavía porque en realidad muchas imágenes puede que se suban directamente en Whatsapp o algo así». No se prueba con un aparato real por ahora.
-**Consecuencias:** H-56 deja de ser trabajo pendiente y queda como decisión del dueño. Un HEIC subido directamente se rechaza con un error claro (`image_heic_unsupported`); el Editor puede pedir que se acepte más adelante.
+**Consecuencias:** H-56 deja de ser trabajo pendiente y queda como decisión del dueño. Un HEIC subido directamente se rechaza con un error claro (`image_heic_unsupported`); el Editor puede pedir que se acepte más adelante. UD-040 (2026-10-21) lo reemplaza: el HEIC se decodifica y deja de rechazarse.
 **Condiciones de reversión:** Se prueba cuando haya usuarios con iPhone en el panel.
 
+## [UD-040] El HEIC de iPhone se decodifica con el `ffmpeg` de la imagen
+
+**Fecha:** 2026-10-21
+**Contexto:** Martín, textual: «asumo que el código que hiciste ya es compatible con el formato de iPhone». No lo era: `sharp` trae `libvips` sin decodificador HEVC y la subida rechazaba un HEIC con 422 `image_heic_unsupported` (H-21, UD-039). UD-039 decidió no probar el aparato; no decidió que el formato no se aceptara cuando alguien lo suba. Safari suele convertir a JPEG en el selector de archivos y WhatsApp entrega JPEG, pero el sistema no depende de eso.
+**Decisión:** Decisión de la sesión por encargo de Martín (decidir la opción con una UD, sin llamar a ningún modelo). Un HEIC o HEIF se decodifica a JPEG con el `ffmpeg` que la imagen ya lleva y sigue el flujo normal de imágenes (rotación, reducción al lado máximo, tope de 7 MiB). El `ffmpeg` mínimo ya tenía el demultiplexor `mov` y el decodificador HEVC; se le añaden los filtros `xstack` (compone las teselas de la foto), `transpose`, `hflip` y `vflip` (aplican la rotación `irot` del contenedor). Se descarta la entrada por marca `image_heic_unsupported`: un HEIC dañado falla en la extracción con `image_heic_unreadable`, y uno de más de 50 millones de píxeles con `image_too_many_pixels`, leído de las cabeceras antes de decodificar (`image.heicMaxPixels`, medido en `docs/investigaciones/mediciones/2026-10-21-heic-via-ffmpeg.md`). Del archivo se toma la imagen principal.
+**Alternativas descartadas** (fuentes consultadas el 2026-10-21):
+- `heic-decode` o `libheif-js` (WASM): `libheif-js` 1.23.5 es LGPL-3.0 (npm, 2026-10-04) y entraría como dependencia de npm, lo que UD-020 reserva a licencias permisivas; el WASM incorpora la biblioteca y no puede sustituirse como una biblioteca compartida. Añade 9,0 MB desempaquetados y un segundo decodificador de HEVC. `heic-decode` es ISC pero depende de `libheif-js`.
+- `sharp` con `libvips` y `libheif` del sistema con HEVC: obliga a compilar `sharp` contra bibliotecas de Alpine en x86-64 y arm64 (libde265 LGPL, x265 GPL en la codificación) y rompe el binario precompilado que hoy se instala sin compilar.
+- Decodificar en el panel antes de subir: no cubre la API ni los adjuntos que no pasan por el panel, y repartiría un WASM LGPL dentro del paquete del panel.
+**Consecuencias:**
+- Sin dependencias nuevas de npm. La capa de binarios de UD-020 no cambia: `ffmpeg` sigue en configuración LGPL, sin `--enable-gpl`; el `NOTICE` actualiza la línea de configuración con los cuatro filtros.
+- La imagen crece 0,5 MB (306,96 a 307,48 MB). No hay binario nativo por arquitectura: `ffmpeg` se compila en la etapa de la imagen para la arquitectura de la construcción.
+- H-21 se cierra. UD-039 sigue vigente en lo que decidió (no se prueba Safari ni el micrófono con un iPhone, H-56).
+**Condiciones de reversión:** Que un redistribuidor no acepte el decodificador HEVC dentro de la imagen (patentes de HEVC); entonces el HEIC vuelve a rechazarse en la subida.

@@ -29,3 +29,4 @@ data/
 # Casos privados del banco (feedback real, nunca se publican)
 bench/private/
 bench/results/
+.local-ref/

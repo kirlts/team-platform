@@ -162,10 +162,12 @@ export function fakeVision({ failWith } = {}) {
 }
 
 /**
- * Voz doble: devuelve un segmento cada `every` segundos de lo que dure el trozo recibido y
- * registra la forma del archivo (códec, frecuencia, canales, duración).
+ * Voz doble: devuelve un segmento cada `every` segundos de lo que dure el trozo recibido (cada uno
+ * cierra oración con punto, para que la unión de segmentos no los junte) y registra la forma del
+ * archivo (códec, frecuencia, canales, duración).
+ * Con `punctuate: false` los segmentos no llevan punto final: el habla corrida de un proveedor real.
  */
-export function fakeSpeech({ every = 5, failWith } = {}) {
+export function fakeSpeech({ every = 5, failWith, punctuate = true } = {}) {
   const calls = [];
   return {
     calls,
@@ -176,7 +178,7 @@ export function fakeSpeech({ every = 5, failWith } = {}) {
       calls.push({ audioPath, language, prompt, codec: stream.codec_name, sampleRate: Number(stream.sample_rate), channels: stream.channels, duration });
       if (failWith) throw failWith;
       const segments = [];
-      for (let t = 0; t < duration - 0.5; t += every) segments.push({ start: t, end: Math.min(t + every, duration), text: ` segmento ${t}` });
+      for (let t = 0; t < duration - 0.5; t += every) segments.push({ start: t, end: Math.min(t + every, duration), text: ` segmento ${t}${punctuate ? '.' : ''}` });
       return { text: segments.map((s) => s.text).join(' '), segments };
     },
   };

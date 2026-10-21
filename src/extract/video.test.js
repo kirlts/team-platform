@@ -42,7 +42,7 @@ test('un video queda como línea de tiempo con un fotograma por pantalla distint
 
   const lines = text.split('\n');
   assert.equal(lines[0], '[00:00] Fotograma 1: pantalla distinta 1');
-  assert.match(lines[1], /^\[00:00-00:05\] Voz: segmento 0$/);
+  assert.match(lines[1], /^\[00:00-00:05\] Voz: segmento 0\.$/);
   // Fotogramas y voz en orden cronológico estricto.
   const stamps = lines.map((l) => l.slice(1, 6));
   assert.deepEqual([...stamps].sort(), stamps);

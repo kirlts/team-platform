@@ -27,7 +27,7 @@ Estados: `main` (resuelto y fusionado), `en curso` (asignado a un agente vivo), 
 | H-17 | Contrato de escritura sin marcas de IA y métrica `bench/ai-tells.js` | UD-019 | en curso (agente prompts) |
 | H-18 | Proveedor de respaldo `textFallback` se construye y nada lo invoca | documentación (DT-003) | abierto |
 | H-19 | Comentario de `src/analyze/api.js` describe el diseño anterior | documentación (DT-006) | abierto: lo resuelve la pasada a inglés |
-| H-20 | Capturas sin texto (c01, d01, u03) dan 0 mensajes; la referencia pide uno | banco privado | decisión: ¿una captura sola sin texto debe producir un mensaje con lo que muestra, o nada? |
+| H-20 | Capturas sin texto (c01, d01, u03) dan 0 mensajes; la referencia pide uno | banco privado | en curso (agente prompts, UD-021: segunda pasada más profunda antes de concluir cero) |
 
 ## Extracción
 
@@ -36,8 +36,8 @@ Estados: `main` (resuelto y fusionado), `en curso` (asignado a un agente vivo), 
 | H-21 | HEIC real de iPhone sin probar (sólo cabecera fabricada) | agente extractores | abierto |
 | H-22 | Word real con estilos propios, PDF real de cliente, descarga real de internet sin probar | agente extractores | `main` parcial: el banco privado probó 11 Word y 11 videos reales; falta el PDF real y la descarga |
 | H-23 | `resourceLimits` del hilo trabajador no cubre la memoria WASM de PDFium | agente extractores | listo en la rama `wt-menores`, pasa a `main` al fusionar (`document.wasmMemoryMb` en 700, `lib/pdfium-capped.js`; tres pruebas en `document.test.js`; medición `2026-10-20-memoria-wasm-pdfium.md`) |
-| H-24 | Tope de documentos 25 MiB al subir contra 24 MiB al extraer (DT-005) | documentación | en curso (agente API, HP-018) |
-| H-25 | Documento de más de 24 MiB y video de más de 20 minutos se rechazan después de encolar | batería | en curso (agente API, HP-018) |
+| H-24 | Tope de documentos 25 MiB al subir contra 24 MiB al extraer (DT-005) | documentación | `main` (tope único de 24 MiB) |
+| H-25 | Documento de más de 24 MiB y video de más de 20 minutos se rechazan después de encolar | batería | `main` (413/422 al subir, `ffprobe` en la subida) |
 | H-26 | Imagen SVG rechazada con 415; el guion de capturas pega un SVG | agente núcleo | listo en la rama `wt-menores`, pasa a `main` al fusionar (`panel/scripts/capturas.mjs` pega un PNG generado con sharp; el guion corrió completo y la captura 03 muestra la miniatura pegada; la API sigue rechazando SVG, `src/api/api.test.js`) |
 | H-27 | Opus 32 kbps contra FLAC en español sin medir | informe 06 | en curso (agente ffmpeg, parte 3) |
 | H-28 | Video de 20 minutos pesa hasta 190 MB; el tope de 24 MB es para documentos | banco privado | `main`: el video tiene tope propio de 2 GB y 20 minutos |
@@ -48,11 +48,11 @@ Estados: `main` (resuelto y fusionado), `en curso` (asignado a un agente vivo), 
 |---|---|---|---|
 | H-29 | Cambiar el área de un mensaje propuesto y publicar falla por campos de la plantilla anterior (A1) | juez de pantallas | en curso (agente panel; la API ya valida con `template_id`) |
 | H-30 | Un análisis fallido sólo ofrece «Descartar» y pierde el texto (A2) | juez de pantallas | en curso (agente panel) |
-| H-31 | El Editor no puede dar de alta ni quitar miembros (E1) | juez de pantallas | en curso (agente API: baja de miembros; agente panel) |
+| H-31 | El Editor no puede dar de alta ni quitar miembros (E1) | juez de pantallas | `main` en la API (`PATCH /members/:id` `active`); panel en curso |
 | H-32 | No se puede cambiar la contraseña (S1) | juez de pantallas | en curso (agente panel) |
-| H-33 | Las respuestas no llevan medios | juez de pantallas, maqueta | en curso (agente API y agente panel) |
-| H-34 | Publicar no revalida la propuesta editada (HP-014) | batería | en curso (agente API) |
-| H-35 | Un borrador con un campo obligatorio vacío se rechazaba | agente API | en curso (agente API) |
+| H-33 | Las respuestas no llevan medios | juez de pantallas, maqueta | `main` en la API (multipart en respuestas, `reply_attachments`); panel en curso |
+| H-34 | Publicar no revalida la propuesta editada (HP-014) | batería | `main` (publicar exige cada unidad en un mensaje o en `discarded`) |
+| H-35 | Un borrador con un campo obligatorio vacío se rechazaba | agente API | `main` (el borrador guarda incompleto; publicar exige) |
 | H-36 | Acaparamiento del candado de escritura con dos procesos y reclamos sin pausa | agente núcleo | `main` (anotado, no ocurre con trabajo real) |
 | H-37 | Contexto de OpenTelemetry heredado entre trabajos sin `ROOT_CONTEXT` | agente núcleo | `main` |
 | H-38 | Checkpoint de WAL pausa 30 ms; `wal_autocheckpoint=0` sin adoptar | agente telemetría y núcleo | descartado (agente núcleo, razón en `src/contracts.md` §2) |
@@ -107,3 +107,4 @@ Estados: `main` (resuelto y fusionado), `en curso` (asignado a un agente vivo), 
 | H-72 | Rerun completo del banco privado tras los arreglos del analizador | banco privado | abierto: lo corre la sesión cuando entre la rama de prompts |
 | H-73 | HP-019 y HP-020 necesitan llave real y una persona | batería | abierto: HP-019 lo corre la sesión; HP-020 es el juez |
 | H-74 | Un docx con RUT y correos de pacientes reales quedó fuera del banco | banco privado | `main` (correcto, no entra) |
+| H-75 | `HP-001: a complete flow with an attachment of every kind` agotó su tiempo en dos corridas (9,5 s y 17 s) y pasa sola: carrera o carga, sin aislar | agente API | abierto (agente menores) |

@@ -54,12 +54,17 @@ export function checkFields (tpl, values, { scope, fail, cache }) {
   }
 }
 
-/** Deduplicated member ids, all of which must exist. */
-export function checkAssignees (db, ids, { scope, fail }) {
+/**
+ * Deduplicated member ids, all of which must exist and be active. A deactivated member gets no new assignments, but
+ * one already assigned (`keep`) may stay.
+ */
+export function checkAssignees (db, ids, { scope, fail, keep = new Set() }) {
   const prefix = scope ? `${scope}: ` : ''
   const unique = [...new Set(ids ?? [])]
   for (const id of unique) {
-    if (!get(db, 'SELECT 1 AS e FROM members WHERE id = ?', id)) throw fail(`${prefix}el miembro ${id} no existe.`, 'assignee_invalid')
+    const row = get(db, 'SELECT active FROM members WHERE id = ?', id)
+    if (!row) throw fail(`${prefix}el miembro ${id} no existe.`, 'assignee_invalid')
+    if (!row.active && !keep.has(id)) throw fail(`${prefix}el miembro ${id} está desactivado.`, 'assignee_inactive')
   }
   return unique
 }

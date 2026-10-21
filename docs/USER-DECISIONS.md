@@ -748,3 +748,28 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 **Consecuencias:** `panel/src/lib/sidebar.ts` con su prueba; una prueba de navegador oculta, recarga y muestra, y comprueba que otra persona no se ve afectada.
 **Condiciones de reversión:** Ninguna prevista.
 
+
+## [UD-100] La barra superior muestra los tres estados con ícono y número, y abre sus mensajes en un desplegable
+
+**Fecha:** 2026-10-21
+**Contexto:** El conteo de lo pendiente se repetía en la campana (insignia con 8), la insignia de Mensajes en la barra lateral, los conteos por área de la barra lateral y la franja «Para mí» y «Por área» de Inicio. El dueño, textual: «Todo esto debería quedar integrado de manera eficiente, ordenada y no redundante en la barra superior del sitio, siempre visible, pero NO en inicio. Inicio ya tiene demasiados elementos.» Después precisó: «Los rótulos "Abierto", "Respondido" o "Cerrado" no deben aparecer en la barra superior, sino que simplemente bastan los íconos de color con un número, que al ser clickeados deben desplegar un pequeño desplegable según el ícono desplegado que permita ver rápidamente los elementos sin salir de la página donde se está.» Y corrigió una primera versión que agregaba contadores por área: «Yo NO pedí esto, en la barra superior SOLO íconos de abierto, respondido y cerrado.»
+**Decisión:**
+- La barra superior de todas las páginas lleva tres marcas entre el nombre y la campana: abierto (triángulo, rojo), respondido (reloj, amarillo) y cerrado (punto, azul), cada una con su número y sin texto visible. La palabra del estado es el nombre accesible y el tooltip nativo («4 abiertos»), de modo que el color nunca va solo: lo acompañan la forma y el nombre. Las marcas son del peso callado de UD-036.
+- Un clic, Enter o Espacio abre bajo la marca un desplegable anclado (popover del kit; no un panel lateral ni un modal) con los mensajes de ese estado que me conciernen: título, chip de área con su color, autor y hora. Una fila abre el mensaje; el pie enlaza a Mensajes filtrado por ese estado y «para mí». Las flechas recorren las filas, Escape cierra y devuelve el foco a la marca. Abrir no navega.
+- «Me conciernen» es la regla de UD-028: asignado a mí, o emitido por mí y respondido; un cerrado cuenta si fui asignado o emisor. El desplegable lista exactamente lo que la marca cuenta.
+- La barra no lleva ningún contador por área, ni cuadros de color, ni «+N». Los conteos por área viven donde ya estaban: la barra lateral junto a cada área y la vista de cada área. El chip de área aparece sólo como parte de una fila del desplegable.
+- La campana queda para novedades: lista los mensajes que llegaron con el panel abierto y su única marca es cuántas no se leyeron. Ya no repite el conteo de pendientes ni lleva color de estado.
+- Se retiran la insignia de Mensajes de la barra lateral (repetía la suma de las dos primeras marcas) y la franja «Para mí» y «Por área» de Inicio. Los conteos por área de la barra lateral se conservan.
+- En el teléfono la barra es un solo botón con el estado pendiente más alto y su total; su desplegable lista los tres estados, cada línea un enlace a Mensajes ya filtrado.
+- Los cerrados no levantan aviso (UD-041), pero el dueño pidió los tres estados y se muestran. El total del botón del teléfono suma sólo abiertos y respondidos.
+**Enmienda a UD-041 y UD-042:** la regla «cada estado se dice con su forma, su palabra y su número» rige en las filas, las listas y la barra lateral. En la barra superior la palabra no se dibuja: se dice en el nombre accesible. UD-029 queda enmendada: el fondo saturado de la campana desaparece porque la campana ya no cuenta estados.
+**Alternativas descartadas:**
+- Desglose por área en la barra (menú, chips o «+N»): el dueño lo rechazó por escrito.
+- Mantener un conteo en la campana: repetía la cifra de la barra.
+- Un panel lateral deslizante para los mensajes: prohibido por el dueño (05-10).
+- Mostrar la palabra de cada estado en la barra: el dueño pidió sólo íconos.
+**Consecuencias:**
+- `StatusBar` en `panel/src/components/StatusBar.tsx`; `Header` la monta y la campana pierde el modo «pendientes».
+- Pruebas de flujos nuevas fallan si aparece un contador o chip de área en la barra o un texto visible de estado, abren cada desplegable por clic y por teclado, y comparan su lista con la cifra.
+- La lista que un mensaje del desplegable usa es la de `noticeState`, no el filtro «para» del servidor, que sólo conoce los asignados (H-2000).
+**Condiciones de reversión:** Si el dueño quiere ver los cerrados fuera de la barra, se quita la tercera marca sin tocar el resto.

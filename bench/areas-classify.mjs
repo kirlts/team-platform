@@ -16,6 +16,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { classifySystem, classifyUser } from '../src/analyze/prompts.js';
 import * as es from '../src/analyze/prompts-es.js';
 import { buildClassificationSchema, numberUnits, partitionUnits, resolveConfig } from '../src/analyze/index.js';
+import { closeStretches, repairClassification, validateClassification } from '../src/analyze/validate.js';
+import { retryUser } from '../src/analyze/prompts.js';
 import { loadSeed } from '../src/analyze/seed.js';
 import { estimateTokens } from '../src/analyze/units.js';
 import { createProviders } from '../src/providers/index.js';
@@ -76,6 +78,30 @@ export function scoreFile(data, { only } = {}) {
   return { ...t, confusion };
 }
 
+/** Pipeline-style score for `--no-grouping` runs: per unit the model put in a group, as area-vs-references does. */
+export function scoreUnits(data) {
+  const t = { units: 0, a: 0, b: 0, union: 0, ref_units: 0, share: {} };
+  for (const c of data.cases) {
+    for (const run of c.runs) {
+      const lab = new Map(run.groups.flatMap((g) => (g.a && g.b ? g.unit_ids.map((u) => [u, g]) : [])));
+      t.ref_units += lab.size;
+      for (const [u, area] of run.unit_pred ?? []) {
+        const g = lab.get(u);
+        if (!g) continue;
+        t.units += 1;
+        const ha = g.a.includes(area); const hb = g.b.includes(area);
+        if (ha) t.a += 1; if (hb) t.b += 1; if (ha || hb) t.union += 1;
+        t.share[area] = (t.share[area] ?? 0) + 1;
+      }
+    }
+  }
+  return t;
+}
+
+function formatUnits(s, titles) {
+  return `  como el pipeline (por unidad que recibió grupo): ${s.units} de ${s.ref_units} unidades (${pct(s.units, s.ref_units)} %)   A ${pct(s.a, s.units)}   B ${pct(s.b, s.units)}   unión ${pct(s.union, s.units)}${ci(s.union, s.units)}\n  unidades por área: ${Object.entries(s.share).map(([k, n]) => `${titles?.[k] ?? k} ${n}`).join('  ')}`;
+}
+
 function format(label, s, areaTitles) {
   const lines = [`${label}`];
   lines.push(`  mensajes ${s.msgs}, unidades ${s.units}`);
@@ -117,6 +143,7 @@ if (positionals[0] === 'report') {
   for (const file of positionals.slice(1)) {
     const data = JSON.parse(readFileSync(file, 'utf8'));
     console.log(format(file, scoreFile(data), data.area_titles));
+    if (data.no_grouping) console.log(formatUnits(scoreUnits(data), data.area_titles));
   }
   process.exit(0);
 }
@@ -141,6 +168,16 @@ const cases = readdirSync(privateDir, { withFileTypes: true })
   .filter((d) => d.isDirectory() && existsSync(join(privateDir, d.name, 'manifest.json')) && existsSync(join(privateDir, '.cache', `${d.name}.json`)))
   .map((d) => d.name).sort().filter((id) => !values.cases || values.cases.split(',').includes(id));
 
+/** Contiguous windows of about `size` units, of equal size within each chunk (the pipeline's windowsOf). */
+function windowsOf(chunks, size) {
+  return chunks.flatMap((chunk) => {
+    const count = Math.ceil(chunk.length / size);
+    if (count <= 1) return [chunk];
+    const each = Math.ceil(chunk.length / count);
+    return Array.from({ length: count }, (_, i) => chunk.slice(i * each, (i + 1) * each));
+  });
+}
+
 async function runCase(id) {
   const cache = JSON.parse(readFileSync(join(privateDir, '.cache', `${id}.json`), 'utf8'));
   const a = labelsOf(join(privateDir, id, 'expected.json'));
@@ -151,25 +188,54 @@ async function runCase(id) {
   const all = expected.messages.map((m) => ({ id: m.id, unit_ids: [...m.unit_ids].sort((x, y) => x - y) }));
   const chunks = partitionUnits(units, { budgetTokens: config.partitionThresholdTokens - estimateTokens(system.join('\n'), config.charsPerToken), charsPerToken: config.charsPerToken });
   const mapped = new Map();
+  const unitPred = [];
   let cost = 0;
-  for (const chunk of chunks) {
-    const scope = new Set(chunk.map((u) => u.id));
-    const groups = all.map((g) => ({ ...g, unit_ids: g.unit_ids.filter((u) => scope.has(u)) })).filter((g) => g.unit_ids.length);
-    const discarded = (expected.discarded ?? []).map((d) => ({ ...d, unit_ids: d.unit_ids.filter((u) => scope.has(u)) })).filter((d) => d.unit_ids.length);
+  const call = async (messages) => {
     ledger.assertBudget(id);
     const out = await withQueueRetries(() => providers.text.complete({
-      system,
-      messages: [{ role: 'user', content: classifyUser({ units: chunk, attachments }) + (values['no-grouping'] ? '' : groupingNote(groups, discarded)) }],
-      schema, effort: config.classifyEffort, maxTokens: config.maxTokens, cacheTtl: config.cacheTtl,
+      system, messages, schema, effort: config.classifyEffort, maxTokens: config.maxTokens, cacheTtl: config.cacheTtl,
       ...(config.classifyThinking ? { thinking: config.classifyThinking } : {}),
     }), { attempts: 6 });
     const usd = costOf({ model: out.model, usage: out.usage }) ?? 0;
     cost += usd;
     ledger.add(`areas ${values.variant} ${id}`, usd);
-    for (const g of mapOntoReference(out.json?.groups ?? [], groups).groups) mapped.set(g.id, g);
+    return out;
+  };
+  if (values['no-grouping']) {
+    // The pipeline's classification: windows of classifyWindowUnits, validation with one retry, repair by set arithmetic and
+    // closing of stretches. The model draws its own groups; each unit is scored with the area of the group it landed in.
+    const windows = windowsOf(chunks, config.classifyWindowUnits);
+    const groups = [];
+    let discarded = [];
+    for (const [index, windowUnits] of windows.entries()) {
+      const scope = new Set(windowUnits.map((u) => u.id));
+      const window = windows.length > 1 ? { index, total: windows.length, first: windowUnits[0].id, last: windowUnits.at(-1).id } : undefined;
+      const first = [{ role: 'user', content: classifyUser({ units: windowUnits, attachments, window }) }];
+      let out = await call(first);
+      let v = validateClassification(out.json, { areas, templates, scope });
+      if (v.errors.length) {
+        out = await call([...first, { role: 'assistant', content: JSON.stringify(out.json) }, { role: 'user', content: retryUser(v.errors) }]);
+        v = validateClassification(out.json, { areas, templates, scope });
+      }
+      const json = v.errors.length === 0 ? out.json : v.repairable ? repairClassification(v.repairable, scope) : null;
+      if (!json) continue;
+      groups.push(...json.groups);
+      discarded = discarded.concat(json.discarded);
+    }
+    const closed = closeStretches(groups, discarded);
+    for (const g of mapOntoReference(closed.groups, all).groups) mapped.set(g.id, g);
+    for (const g of closed.groups) for (const u of g.unit_ids) unitPred.push([u, g.area_id]);
+  } else {
+    for (const chunk of chunks) {
+      const scope = new Set(chunk.map((u) => u.id));
+      const groups = all.map((g) => ({ ...g, unit_ids: g.unit_ids.filter((u) => scope.has(u)) })).filter((g) => g.unit_ids.length);
+      const discarded = (expected.discarded ?? []).map((d) => ({ ...d, unit_ids: d.unit_ids.filter((u) => scope.has(u)) })).filter((d) => d.unit_ids.length);
+      const out = await call([{ role: 'user', content: classifyUser({ units: chunk, attachments }) + groupingNote(groups, discarded) }]);
+      for (const g of mapOntoReference(out.json?.groups ?? [], groups).groups) mapped.set(g.id, g);
+    }
   }
   return {
-    case_id: id, cost_usd: cost,
+    case_id: id, cost_usd: cost, unit_pred: unitPred,
     groups: all.map((g) => ({ id: g.id, unit_ids: g.unit_ids, pred: mapped.get(g.id)?.area_id ?? null, a: a?.get(g.id) ?? null, b: b?.get(g.id) ?? null })),
   };
 }
@@ -189,4 +255,5 @@ const out = join(resultsDir, `areas-${values.variant}-${new Date().toISOString()
 const data = { at: new Date().toISOString(), variant: values.variant, no_grouping: values['no-grouping'], repeat, area_titles: areaTitles, cases: results };
 writeFileSync(out, JSON.stringify(data));
 console.log(format(`${values.variant}${values['no-grouping'] ? ' (sin agrupación)' : ''} -> ${out}`, scoreFile(data), areaTitles));
+if (values['no-grouping']) console.log(formatUnits(scoreUnits(data), areaTitles));
 console.log(`costo de esta corrida ${results.flatMap((r) => r.runs).reduce((s, r) => s + r.cost_usd, 0).toFixed(4)} USD; gasto acumulado de la tarea ${ledger.read().total_usd.toFixed(4)} USD`);

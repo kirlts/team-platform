@@ -111,7 +111,7 @@ describe('REG-004: a commission explained in a chat is not discarded', () => {
   it('the definition that makes it a new feature lives in the area description of the catalog, which the Editor can edit, and the prompt only keeps the deadline rule', async () => {
     const { areas, templates } = await makeBundle();
     const nueva = areas.find((a) => a.title === 'Nueva funcionalidad');
-    assert.match(nueva.description, /explicar cómo debe ser algo que todavía no existe/);
+    assert.match(nueva.description, /cómo debe (comportarse|ser) algo que todavía no existe/);
     for (const language of ['en', 'es-419']) {
       const prompt = classifySystem({ areas, templates, language }).join('\n');
       assert.ok(prompt.includes(nueva.description), `${language}: the catalog carries the description`);

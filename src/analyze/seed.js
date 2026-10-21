@@ -16,7 +16,8 @@ export async function loadSeed(dir = DEFAULT_TEMPLATES_DIR) {
   const areas = [];
   const templates = [];
   for (const [i, entry] of manifest.entries()) {
-    const area = { id: i + 1, title: entry.title, description: entry.description, position: i + 1 };
+    // The id follows the file order; `position` (optional) is the order in which the catalog lists the areas in the prompt and the panel.
+    const area = { id: i + 1, title: entry.title, description: entry.description, position: Number.isInteger(entry.position) ? entry.position : i + 1 };
     areas.push(area);
     const markdown = await readFile(join(dir, entry.template), 'utf8');
     const parsed = parseTemplate(markdown, { source: entry.template });

@@ -102,3 +102,8 @@ El puntaje de destinatarios (`score.js`, clave `assignment`) empareja cada mensa
 ## Modo oráculo y segunda referencia (H-90)
 
 `run --oracle` corre la clasificación con la agrupación de referencia (`bench/oracle.mjs`, con los constructores de `src/analyze/`) y la descomposición una vez por grupo. Todas las variantes se puntúan sobre los mismos mensajes. `expected-b.json` es la etiqueta de un segundo lector; `--reference a|b|union` elige contra cuál se puntúa y `compare --ceiling` agrega el otro lector como si fuera el analizador (el techo del desacuerdo). `compare` informa la clasificación solo sobre lo que recibió mensaje, intervalos de Wilson, la comparación de a pares con prueba de signos y `--common-cases` para variantes que se cortaron por el tope de gasto. `judge-usefulness.mjs --pooled --same-points --judge-model <id>` juzga los mismos puntos de todas las variantes en una llamada, sin etiquetas.
+
+## Descripciones de área (H-600)
+
+`areas-classify.mjs --variant <nombre>` corre solo la clasificación (sin descomposición) con las descripciones de `bench/area-variants/<nombre>.mjs`. Sin banderas, el modelo recibe la agrupación de referencia; con `--no-grouping` arma sus grupos con ventanas, validación y reparación como el pipeline. `compare a.json b.json` cuenta los mensajes donde solo acierta uno y `report` reimprime una corrida. Mide exactitud por unidad y por mensaje contra el lector A, el B y la unión, y los pares más confundidos. Lee `bench/private/` (`BENCH_PRIVATE_DIR`). Cada corrida cuesta unos 0,05 USD y se suma en `bench/results/private-spend.jsonl`.
+

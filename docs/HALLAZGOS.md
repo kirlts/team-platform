@@ -241,3 +241,12 @@ Estados: `main` (resuelto y fusionado), `en curso` (asignado a un agente vivo), 
 | H-355 | Rótulos de sección en tipografía ancha de 11 px | J1-A-55 | listo en `wt-ronda1-a` (cd001a4): tipografía de texto a 12 px; Orbitron sólo en la marca |
 | H-356 | Fondo: las curvas cruzan títulos y botones | J1-A-56 | listo en `wt-ronda1-a` (0d04140): máscara que desvanece la órbita bajo la barra superior; prueba en el flujo de filas |
 | H-357 | Estados de carga y error sin juzgar | J1-A-57 | listo en `wt-ronda1-a` (0d04140): prueba «un error de la API y una carga lenta se ven como estados» (retrasa y falla `/api/messages` en el navegador) y prueba del inicio de sesión rechazado; los dos estados existen y se ven en el cuerpo |
+
+## Descripciones de área (2026-10-21)
+
+| # | Hallazgo | Origen | Estado |
+|---|---|---|---|
+| H-600 | Las descripciones largas bajaron la exactitud de área de 82,6 % a 75,8 %: Pregunta y Retroalimentación atraían unidades de Nueva funcionalidad y Error | medición de áreas largas | `wt-areas` (UD-033): 86,4 % y 85,5 % con las descripciones corregidas y el catálogo reordenado |
+| H-601 | El modo oráculo no detecta la caída: con la agrupación dada, largas y cortas empatan | H-600 | `wt-areas`: `bench/areas-classify.mjs --no-grouping` reproduce el pipeline (82,6 % contra 82,4 % medido) |
+| H-602 | Falta la corrida completa del pipeline con proyecto y descomposición para la descripción nueva (0,27 USD sin proyecto) | H-600 | abierto: se agotó el tope de 1,5 USD de la tarea |
+

@@ -174,7 +174,9 @@ test('publish accepts the proposal exactly as GET delivers it (ids as text, disc
   const env = await team({ worker: true, modules: { analyze: numbered } })
   const { input_id: id } = (await postInput(env, env.c.ana, { text: 'x' })).json()
   const v = await until(async () => { const r = (await env.api('GET', `/inputs/${id}`, env.c.ana)).json(); return r.status === 'proposed' ? r : null })
-  const msgRows = v.proposal.messages.map((m) => ({ ...m, template_id: null, unit_ids: ['1', '2'], fields: { idea: 'i', motivation: 'm', reference: null } }))
+  // The test cites the fields of the Idea template, so the messages go in the Idea area whatever the catalog order is (templates/areas.json lists Nueva funcionalidad first).
+  const ideaArea = String(get(env.db, "SELECT id FROM areas WHERE title = 'Idea'").id)
+  const msgRows = v.proposal.messages.map((m) => ({ ...m, area_id: ideaArea, template_id: null, unit_ids: ['1', '2'], fields: { idea: 'i', motivation: 'm', reference: null } }))
   const r = await env.api('POST', `/inputs/${id}/publish`, env.c.ana, { messages: msgRows, discarded: [{ unit_ids: ['3'], reason: 'saludo' }] })
   assert.equal(r.statusCode, 200, r.body)
   assert.match(r.json().messages[0].template_id, /^\d+$/) // the area's template was chosen

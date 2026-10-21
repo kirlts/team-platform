@@ -18,6 +18,20 @@ export function wilson(k, n, z = 1.96) {
   return [Math.max(0, centre - half), Math.min(1, centre + half)];
 }
 
+/** Two-sided exact binomial (sign test) p-value for `a` against `b` wins under p = 0.5. */
+export function signTestP(a, b) {
+  const n = a + b;
+  if (n === 0) return 1;
+  const k = Math.min(a, b);
+  let logC = 0;
+  let tail = 0;
+  for (let i = 0; i <= k; i += 1) {
+    if (i > 0) logC += Math.log(n - i + 1) - Math.log(i);
+    tail += Math.exp(logC - n * Math.log(2));
+  }
+  return Math.min(1, 2 * tail);
+}
+
 const sum = (xs) => xs.reduce((a, b) => a + b, 0);
 const ratio = (n, d) => (d === 0 ? null : n / d);
 export function median(xs) {
@@ -68,8 +82,14 @@ export function compareResults(results, { inputOf = () => '', expectedOf = null 
     const u = r.usefulness;
     const scores = u ? u.cases.flatMap((c) => c.scores.map((s) => s.score)) : [];
     const pairs = new Map(runs.flatMap((x) => (x.score.assignment.pair_list ?? []).filter((p) => Array.isArray(p.expected)).map((p) => [`${x.case_id}:${x.slot}:${p.expected_id}`, p])));
+    // Exactness of each message's assignee set, for the paired comparison (only with one run per case).
+    const exactByKey = new Map(reps === 1 ? runs.flatMap((x) => (x.score.assignment.pair_list ?? []).filter((q) => Array.isArray(q.expected)).map((q) => {
+      const set = (v) => JSON.stringify([...(v ?? [])].sort());
+      return [`${x.case_id}:${q.expected_id}`, set(q.actual) === set(q.expected) || (q.alt ? set(q.actual) === set(q.alt) : false)];
+    })) : []);
     return {
       pairs,
+      exactByKey,
       label: r.variant ?? r.file,
       cases: r.cases.length,
       runs: runs.length,
@@ -100,11 +120,21 @@ export function compareResults(results, { inputOf = () => '', expectedOf = null 
   // the same rates over the pairs that every variant produced are.
   const keySets = variants.map((v) => new Set(v.pairs.keys()));
   const shared = keySets.length === 0 ? [] : [...keySets[0]].filter((k) => keySets.every((set) => set.has(k)));
+  // Paired exact-set comparison: over the messages both variants answered, how many only the row got right and how many
+  // only the column got right, with the two-sided exact binomial (sign test) p-value.
+  const paired = variants.map((a) => variants.map((b) => {
+    if (a === b || a.exactByKey.size === 0 || b.exactByKey.size === 0) return null;
+    let only = 0;
+    let other = 0;
+    for (const [k, ea] of a.exactByKey) if (b.exactByKey.has(k)) { const eb = b.exactByKey.get(k); if (ea && !eb) only += 1; if (!ea && eb) other += 1; }
+    return { only, other, p: signTestP(only, other) };
+  }));
   for (const v of variants) {
+    delete v.exactByKey;
     v.shared_assignment = assignmentFromPairs([...shared].map((k) => v.pairs.get(k)));
     delete v.pairs;
   }
-  return { variants };
+  return { variants, paired };
 }
 
 /** «rate [low–high]» with the Wilson interval; n is the number of observations and reps how many times each repeats. */
@@ -120,7 +150,7 @@ const pct = (x) => (x === null || x === undefined ? 'n/a' : `${(x * 100).toFixed
 const num = (x, digits = 2) => (x === null || x === undefined ? 'n/a' : x.toFixed(digits));
 
 /** Markdown tables: one row per measure, one column per variant; then one row per member. */
-export function formatComparison({ variants }) {
+export function formatComparison({ variants, paired }) {
   const table = (header, rows) => [
     `| ${header.join(' | ')} |`,
     `| ${header.map((_, i) => (i === 0 ? '---' : '---:')).join(' | ')} |`,
@@ -184,6 +214,9 @@ export function formatComparison({ variants }) {
     table(head, memberRows),
     'Assignment over the pairs that every variant produced',
     table(head, sharedRows),
+    ...(paired?.some((row) => row.some(Boolean))
+      ? ['Paired exact set on the same messages: only the row right / only the column right (sign test p)', table(['', ...variants.map((v) => v.label)], variants.map((v, i) => [v.label, ...variants.map((_, j) => { const c = paired[i][j]; return c ? `${c.only} / ${c.other} (p ${c.p < 0.001 ? '<0.001' : c.p.toFixed(3)})` : '-'; })]))]
+      : []),
   ].join('\n\n');
 }
 

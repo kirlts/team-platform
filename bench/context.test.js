@@ -205,3 +205,11 @@ test('oracle: runOracleCase classifies the reference groups and decomposes each 
   assert.match(seen[1].messages[0].content, /Miembro 1: A/);
   assert.ok(run.usage.cost_usd > 0);
 });
+
+test('signTestP: symmetric, exact and bounded', async () => {
+  const { signTestP } = await import('./compare.js');
+  assert.equal(signTestP(0, 0), 1);
+  assert.equal(signTestP(5, 5), 1);
+  assert.ok(Math.abs(signTestP(9, 1) - 0.021484375) < 1e-9);
+  assert.equal(signTestP(1, 9), signTestP(9, 1));
+});

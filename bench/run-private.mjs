@@ -21,6 +21,7 @@
 //   --oracle           run: classification gets the reference groups (bench/oracle.mjs); every variant is scored on the same messages
 //   --reference a|b|union  which reader's labels score area and assignees (default union: either reader's label is right)
 //   --first-reader-only  same as --reference a
+//   --common-cases     compare: restrict every variant to the cases all of them finished
 //   --ceiling          compare: add the other reader scored against this reference, the ceiling of the readers' disagreement
 //   --pool             compare: merge result files whose variant differs only by a «-b» suffix (a repetition) into one
 //   --variant <label>  written into the result and its file name
@@ -72,6 +73,7 @@ const { values, positionals } = parseArgs({
     oracle: { type: 'boolean', default: false },
     'first-reader-only': { type: 'boolean', default: false },
     reference: { type: 'string', default: 'union' },
+    'common-cases': { type: 'boolean', default: false },
     ceiling: { type: 'boolean', default: false },
   },
 });
@@ -344,6 +346,12 @@ if (command === 'list') {
     return { file, ...JSON.parse(readFileSync(file, 'utf8')), usefulness: existsSync(usefulnessFile) ? JSON.parse(readFileSync(usefulnessFile, 'utf8')) : null };
   });
   const allCases = loadPrivateCases();
+  if (values['common-cases']) {
+    // A run that stopped at the spending cap covers fewer cases: every variant is cut to the cases all of them finished.
+    const common = results.reduce((acc, r) => (acc ? new Set([...acc].filter((id) => r.cases.some((c) => c.case_id === id))) : new Set(r.cases.map((c) => c.case_id))), null);
+    for (const r of results) r.cases = r.cases.filter((c) => common.has(c.case_id));
+    console.error(`Common cases: ${common.size}`);
+  }
   const compared = values.pool ? poolResults(results, (r) => (r.variant ?? r.file).replace(/-b$/, '')) : results;
   if (values.usefulness) {
     // A pooled judgment file (judge-usefulness.mjs --pooled) holds the scores by variant label.

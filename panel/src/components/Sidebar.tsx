@@ -20,7 +20,8 @@ const active = 'bg-selected font-semibold shadow-[inset_4px_0_0_var(--color-acce
 
 function Item({ to, icon, children, end, onNavigate, badge }: { to: string; icon: ReactNode; children: ReactNode; end?: boolean; onNavigate?: () => void; badge?: ReactNode }) {
   return (
-    <NavLink to={to} end={end} onClick={onNavigate} className={({ isActive }) => cn(row, isActive && active)}>
+    // A row that carries a badge keeps the height it has with one, so the badge arriving does not move what is below (J2-A-47).
+    <NavLink to={to} end={end} onClick={onNavigate} className={({ isActive }) => cn(row, badge && 'min-h-[46px]', isActive && active)}>
       {icon}
       <span className="min-w-0 flex-1 break-words leading-tight">{children}</span>
       {badge}
@@ -88,7 +89,10 @@ export function Sidebar({ onNavigate, onLogout }: { onNavigate?: () => void; onL
                   <NavLink to={`/areas/${a.id}`} onClick={onNavigate} className={({ isActive }) => cn(row, 'min-h-8 min-w-0 flex-1 text-sm', isActive && active)}>
                     <span className="min-w-0 flex-1 break-words leading-tight">{a.title}</span>
                   </NavLink>
-                  <AreaPending areaId={a.id} title={a.title} summary={summary} onNavigate={onNavigate} />
+                  {/* The badge's column is reserved: a name that wraps does so the same before and after the counts arrive. */}
+                  <span className="flex min-w-12 shrink-0 justify-end">
+                    <AreaPending areaId={a.id} title={a.title} summary={summary} onNavigate={onNavigate} />
+                  </span>
                 </li>
               ))}
             </ul>

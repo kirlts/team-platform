@@ -23,6 +23,7 @@ import { useMe, useMessage, usePatchMessage, useSetClosed, useTemplates } from '
 import { parseTemplateFields, remapFields } from '@/lib/template'
 import type { MessageDetail as Detail, MessagePatch, MessageStatus, Template } from '@/lib/types'
 import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
+import { useDesktop } from '@/lib/useDesktop'
 
 export function MessageDetail() {
   const t = useT()
@@ -83,6 +84,8 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
   const { areaTitle, memberName } = useLookups()
   const templates = useTemplates(m.area_id)
   const template: Template | undefined = templates.data?.find((x) => x.id === m.template_id) ?? templates.data?.[0]
+  // On a phone two chips fit before the rest fold behind «+N»: a name takes a whole row (J2-A-21).
+  const desktop = useDesktop()
   const closed = m.status === 'closed'
   const canEdit = !!me && (me.id === m.author_id || me.role === 'editor')
 
@@ -165,13 +168,13 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
           </div>
 
           {canEdit ? (
-            <RecipientsEditor ids={m.assignee_ids} max={4} onChange={(ids) => void change(t('proposal.recipientsChanged'), { assignee_ids: ids }, { assignee_ids: m.assignee_ids })} />
+            <RecipientsEditor ids={m.assignee_ids} max={desktop ? 4 : 2} onChange={(ids) => void change(t('proposal.recipientsChanged'), { assignee_ids: ids }, { assignee_ids: m.assignee_ids })} />
           ) : (
-            <Recipients ids={m.assignee_ids} max={4} />
+            <Recipients ids={m.assignee_ids} max={desktop ? 4 : 2} />
           )}
 
           {/* A long text has no cap: the message column scrolls inside, and it is a declared lane. */}
-          <div data-lane="message-body" className="scroll-thin flex min-h-0 flex-initial flex-col gap-3 overflow-y-auto px-1.5">
+          <div data-lane="message-body" className="scroll-thin flex min-h-0 flex-initial flex-col gap-3 overflow-y-auto px-1.5 py-1">
             <EditableText value={m.body} label={t('detail.body')} multiline prose canEdit={canEdit} validate={required} onSave={(v) => change(t('proposal.bodyEdited'), { body: v }, { body: m.body })} displayClassName="text-read" />
             <TemplateFields
               template={template}

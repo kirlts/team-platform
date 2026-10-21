@@ -739,12 +739,13 @@ const server = createServer(async (req, res) => {
       if (m[2] === 'close' && method === 'POST') {
         msg.status = 'closed'
         msg.closed_at = new Date().toISOString()
-        return send(res, 204)
+        return send(res, 200, { id: msg.id, status: msg.status, closed_at: msg.closed_at })
       }
       if (m[2] === 'reopen' && method === 'POST') {
         msg.status = (replies.get(msg.id) ?? []).length ? 'answered' : 'open'
         msg.closed_at = null
-        return send(res, 204)
+        // As the real API: the reopened message says which state it went back to (answered when it has replies).
+        return send(res, 200, { id: msg.id, status: msg.status, closed_at: null })
       }
     }
 

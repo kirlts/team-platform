@@ -496,7 +496,6 @@ export const es419 = {
   'project.replacedDone': 'Descripción reemplazada',
   'provider.missingKey': 'Falta {variable} en el servidor',
   'filter.addActive': { one: 'Filtro, {n} aplicado', other: 'Filtro, {n} aplicados' },
-  'filter.removeProp': 'Quitar {prop}',
   'connections.editorOnly': 'Sólo el Editor administra las conexiones',
   'nav.foldConnections': 'Plegar conexiones',
   'nav.unfoldConnections': 'Desplegar conexiones',

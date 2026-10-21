@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight } from '@/components/icons'
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useT } from '@/i18n'
 import { fitCount, pageRange, total } from '@/lib/fit'
+import { useDesktop } from '@/lib/useDesktop'
 import { cn } from '@/lib/utils'
 
 /** Rows drawn at once, only while measuring which of them fit. */
@@ -9,17 +10,6 @@ const MEASURE_ROWS = 60
 
 /** Height of the pager strip: 32 px buttons, 8 px of padding above and below and a 1 px rule. Measured again once it is drawn. */
 const PAGER_HEIGHT = 49
-
-function useDesktop(): boolean {
-  const [desktop, setDesktop] = useState(() => window.matchMedia('(min-width: 768px)').matches)
-  useEffect(() => {
-    const query = window.matchMedia('(min-width: 768px)')
-    const sync = () => setDesktop(query.matches)
-    query.addEventListener('change', sync)
-    return () => query.removeEventListener('change', sync)
-  }, [])
-  return desktop
-}
 
 /**
  * A list that fits the frame it is in (UD-017). The frame takes the height its parent gives it; the

@@ -496,7 +496,6 @@ export const en: Record<MessageKey, Message> = {
   'project.replacedDone': 'Description replaced',
   'provider.missingKey': '{variable} missing on the server',
   'filter.addActive': { one: 'Filter, {n} applied', other: 'Filter, {n} applied' },
-  'filter.removeProp': 'Remove {prop}',
   'connections.editorOnly': 'Only the Editor manages connections',
   'nav.foldConnections': 'Fold connections',
   'nav.unfoldConnections': 'Unfold connections',

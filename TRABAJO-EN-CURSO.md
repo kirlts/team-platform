@@ -13,24 +13,28 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 9b01530 Traspaso: miniaturas y remanentes fusionados, ronda 5 en curso. Empujado a origin: `9b01530`.
-- Ramas con commits sin fusionar: ninguna.
-- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
+- `main`: 52bfa24 Traspaso: auditoría de idea.md y brechas. Empujado a origin: `52bfa24`.
+- Ramas con commits sin fusionar: `wt-listas` 5 (hace 14 segundos), `wt-idea-brechas` 3 (hace 17 segundos), `wt-resto` 3 (hace 82 segundos), `wt-respuestas` 1 (hace 6 minutos).
+- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `idea-brechas`, `ingles`, `inicio-maqueta`, `listas`, `modelos`, `respuestas`, `resto`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `9b01530` Traspaso: miniaturas y remanentes fusionados, ronda 5 en curso (hace 43 segundos)
-- `0718496` Merge branch 'main' into wt-remanentes (hace 15 minutos)
-- `ffda0ff` Changelog for the remaining findings (H-2000, H-2302, H-2605) (hace 15 minutos)
-- `c4b1f4b` Merge branch 'wt-miniaturas' (hace 18 minutos)
-- `785af07` Fusión de main en wt-miniaturas (hace 25 minutos)
-- `febe443` Merge branch 'main' into wt-remanentes (hace 29 minutos)
-- `f3c1357` Fix the ui-detectors findings of Equipo, Configuración and the message page (H-2302, UD-191) (hace 29 minutos)
-- `aaa0265` Hide the sign-out row when the identity provider has no sign-out route (H-2605, UD-190) (hace 34 minutos)
-Actualizado 2026-10-21 21:45 UTC.
+- `52bfa24` Traspaso: auditoría de idea.md y brechas (hace 2 minutos)
+- `bcd1db7` Traspaso: ronda 5 y última pasada de arreglos (hace 8 minutos)
+- `9b01530` Traspaso: miniaturas y remanentes fusionados, ronda 5 en curso (hace 10 minutos)
+- `0718496` Merge branch 'main' into wt-remanentes (hace 24 minutos)
+- `ffda0ff` Changelog for the remaining findings (H-2000, H-2302, H-2605) (hace 24 minutos)
+- `c4b1f4b` Merge branch 'wt-miniaturas' (hace 27 minutos)
+- `785af07` Fusión de main en wt-miniaturas (hace 34 minutos)
+- `febe443` Merge branch 'main' into wt-remanentes (hace 38 minutos)
+Actualizado 2026-10-21 21:54 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo
 
 **Plan de cierre:** `docs/PLAN-DE-CIERRE.md` (2026-10-21 15:00). La sesión anterior murió a las 14:42 con la cuota de su cuenta agotada; sus agentes murieron con ella. Quien retome ejecuta ese plan desde la Fase 0: rescata lo sin commit de `configuracion`, `inicio-respira` y `barra-superior`, relanza los encargos A, B, C y G, y sigue el orden de fusión que dice. Encargo nuevo del dueño de hoy: la barra lateral (alineación, contadores sin contenedor, hover), encargo G.
+
+**Avance 19:10.** Auditoría de `idea.md`: 47 requisitos, 33 cumplidos con prueba, 4 sin prueba, 5 distintos por decisión del dueño, 5 parciales, 0 que falten (informe en `~/.cache/claude-tmp/auditoria-idea.md`). Un agente cierra: perfil de Equipo editable sólo por su dueño en la API, adjunto en varios mensajes, envío combinado, búsqueda ampliada, prueba de «Para mí» por omisión y documentación y medición del harness. Pendiente propio, tras fusionar las listas: mostrar fecha y hora en Inicio, porque `idea.md` pide la hora y la exclusión salió de un juez (H-808), no del dueño.
+
+**Avance 19:00.** Ronda 5 consolidada: 10 jueces, nota 2 en todos, 41 hallazgos, 11 de severidad 3, ninguno mayor (la ronda 4 tuvo 40). Se decide no hacer ronda 6: cada ronda halla lo siguiente de la fila y el dueño pidió acortar las rondas. Tres agentes corrigen o refutan por pantalla: respuestas y ficha, listas y barra superior y Áreas, y Equipo con Configuración, entrada, Conexiones y envío. Un cuarto audita `idea.md` contra el código, sólo lectura: informe en `~/.cache/claude-tmp/auditoria-idea.md`.
 
 **Avance 18:45.** En `main` también el bucle de miniaturas (`c4b1f4b`) y los remanentes de código (`0718496`): `involved=me`, «Cerrar sesión» oculto sin sesión local, cinco hallazgos del detector. El VPS corre `0718496`, `vps-check` en OK. Corre la ronda 5 de 10 jueces en `~/.cache/claude-tmp/juicios/ronda5`. `main`: 867 de 873 pruebas del servidor, 169 del panel, 26 de ajuste, 188 de flujos.
 

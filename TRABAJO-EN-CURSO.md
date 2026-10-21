@@ -13,24 +13,26 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: bcd1db7 Traspaso: ronda 5 y última pasada de arreglos. Empujado a origin: `bcd1db7`.
-- Ramas con commits sin fusionar: `wt-respuestas` 1 (hace 89 segundos).
-- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `listas`, `modelos`, `respuestas`, `resto`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
+- `main`: 52bfa24 Traspaso: auditoría de idea.md y brechas. Empujado a origin: `52bfa24`.
+- Ramas con commits sin fusionar: `wt-listas` 7 (hace 4 segundos), `wt-idea-brechas` 6 (hace 23 segundos), `wt-respuestas` 4 (hace 7 minutos), `wt-resto` 4 (hace 43 segundos).
+- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `idea-brechas`, `ingles`, `inicio-maqueta`, `listas`, `modelos`, `respuestas`, `resto`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `bcd1db7` Traspaso: ronda 5 y última pasada de arreglos (hace 4 minutos)
-- `9b01530` Traspaso: miniaturas y remanentes fusionados, ronda 5 en curso (hace 6 minutos)
-- `0718496` Merge branch 'main' into wt-remanentes (hace 20 minutos)
-- `ffda0ff` Changelog for the remaining findings (H-2000, H-2302, H-2605) (hace 20 minutos)
-- `c4b1f4b` Merge branch 'wt-miniaturas' (hace 23 minutos)
-- `785af07` Fusión de main en wt-miniaturas (hace 30 minutos)
-- `febe443` Merge branch 'main' into wt-remanentes (hace 34 minutos)
-- `f3c1357` Fix the ui-detectors findings of Equipo, Configuración and the message page (H-2302, UD-191) (hace 34 minutos)
-Actualizado 2026-10-21 21:50 UTC.
+- `52bfa24` Traspaso: auditoría de idea.md y brechas (hace 10 minutos)
+- `bcd1db7` Traspaso: ronda 5 y última pasada de arreglos (hace 16 minutos)
+- `9b01530` Traspaso: miniaturas y remanentes fusionados, ronda 5 en curso (hace 18 minutos)
+- `0718496` Merge branch 'main' into wt-remanentes (hace 32 minutos)
+- `ffda0ff` Changelog for the remaining findings (H-2000, H-2302, H-2605) (hace 32 minutos)
+- `c4b1f4b` Merge branch 'wt-miniaturas' (hace 35 minutos)
+- `785af07` Fusión de main en wt-miniaturas (hace 42 minutos)
+- `febe443` Merge branch 'main' into wt-remanentes (hace 46 minutos)
+Actualizado 2026-10-21 22:02 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo
 
 **Plan de cierre:** `docs/PLAN-DE-CIERRE.md` (2026-10-21 15:00). La sesión anterior murió a las 14:42 con la cuota de su cuenta agotada; sus agentes murieron con ella. Quien retome ejecuta ese plan desde la Fase 0: rescata lo sin commit de `configuracion`, `inicio-respira` y `barra-superior`, relanza los encargos A, B, C y G, y sigue el orden de fusión que dice. Encargo nuevo del dueño de hoy: la barra lateral (alineación, contadores sin contenedor, hover), encargo G.
+
+**Avance 19:10.** Auditoría de `idea.md`: 47 requisitos, 33 cumplidos con prueba, 4 sin prueba, 5 distintos por decisión del dueño, 5 parciales, 0 que falten (informe en `~/.cache/claude-tmp/auditoria-idea.md`). Un agente cierra: perfil de Equipo editable sólo por su dueño en la API, adjunto en varios mensajes, envío combinado, búsqueda ampliada, prueba de «Para mí» por omisión y documentación y medición del harness. Pendiente propio, tras fusionar las listas: mostrar fecha y hora en Inicio, porque `idea.md` pide la hora y la exclusión salió de un juez (H-808), no del dueño.
 
 **Avance 19:00.** Ronda 5 consolidada: 10 jueces, nota 2 en todos, 41 hallazgos, 11 de severidad 3, ninguno mayor (la ronda 4 tuvo 40). Se decide no hacer ronda 6: cada ronda halla lo siguiente de la fila y el dueño pidió acortar las rondas. Tres agentes corrigen o refutan por pantalla: respuestas y ficha, listas y barra superior y Áreas, y Equipo con Configuración, entrada, Conexiones y envío. Un cuarto audita `idea.md` contra el código, sólo lectura: informe en `~/.cache/claude-tmp/auditoria-idea.md`.
 

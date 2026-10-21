@@ -82,6 +82,7 @@ for (const [name, size, mobile] of SIZES) {
       await bar.fill('Esto va a fallar [simular falla]')
       await page.getByRole('button', { name: 'Enviar' }).first().click()
       if (!(await page.getByRole('dialog').count())) await page.getByTestId('tray-control').click()
+      await page.getByRole('option', { name: /^Abrir el envío: Esto va a fallar/ }).click({ timeout: 30000 })
       await page.getByRole('button', { name: 'Reintentar' }).first().waitFor({ timeout: 30000 })
       await page.waitForTimeout(400)
       await shot(page, '11-falla')

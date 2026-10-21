@@ -1,7 +1,7 @@
 // Pruebas de score.js: cada medida del informe 02 §5.2 con un caso armado a mano.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { score } from './score.js';
+import { score, mergeAssignment } from './score.js';
 
 const units = [1, 2, 3, 4, 5, 6];
 const expected = {
@@ -180,4 +180,58 @@ test('las unidades pueden venir como objetos con id', () => {
     actual: { messages: [{ unit_ids: ['a', 'b'] }] },
   });
   assert.equal(r.mece, true);
+});
+
+// ---- assignment (H-77) ----
+
+const members = { units: [1, 2, 3, 4], expected: { messages: [
+  { id: 'a', unit_ids: [1, 2], assignee_ids: [1] },
+  { id: 'b', unit_ids: [3], assignee_ids: [2, 3] },
+  { id: 'c', unit_ids: [4], assignee_ids: [1] },
+] } };
+const assign = (messages) => score({ ...members, actual: { messages } }).assignment;
+
+test('assignment: exact sets give accuracy, precision and recall 1', () => {
+  const a = assign([{ unit_ids: [1, 2], assignee_ids: [1] }, { unit_ids: [3], assignee_ids: [3, 2] }, { unit_ids: [4], assignee_ids: [1] }]);
+  assert.deepEqual([a.pairs, a.exact, a.accuracy, a.precision, a.recall], [3, 3, 1, 1, 1]);
+});
+
+test('assignment: a missing member lowers recall and accuracy, not precision; an extra one lowers precision', () => {
+  const a = assign([{ unit_ids: [1, 2], assignee_ids: [1, 2] }, { unit_ids: [3], assignee_ids: [2] }, { unit_ids: [4], assignee_ids: [1] }]);
+  assert.equal(a.exact, 1);
+  assert.equal(a.accuracy, 1 / 3);
+  assert.equal(a.precision, 3 / 4); // tp: 1, 2, 1; fp: member 2 on the first message
+  assert.equal(a.recall, 3 / 4); // fn: member 3 on the second
+  assert.deepEqual([a.per_member['2'].tp, a.per_member['2'].fp, a.per_member['2'].fn], [1, 1, 0]);
+  assert.deepEqual([a.per_member['3'].tp, a.per_member['3'].fp, a.per_member['3'].fn], [0, 0, 1]);
+  assert.equal(a.per_member['3'].recall, 0);
+  assert.equal(a.per_member['3'].precision, null);
+  assert.equal(a.per_member['1'].exact_when_expected_rate, 1 / 2);
+  assert.equal(a.per_member['2'].exact_when_expected_rate, 0);
+});
+
+test('assignment: an expected point no message covers has no pair', () => {
+  const a = assign([{ unit_ids: [1], assignee_ids: [1] }, { unit_ids: [3], assignee_ids: [2, 3] }, { unit_ids: [4], assignee_ids: [1] }]);
+  assert.equal(a.pairs, 2);
+});
+
+test('assignment: when several messages cover a point the tightest one is compared', () => {
+  const a = assign([{ unit_ids: [1, 2, 3, 4], assignee_ids: [9] }, { unit_ids: [1, 2], assignee_ids: [1] }, { unit_ids: [3], assignee_ids: [2, 3] }, { unit_ids: [4], assignee_ids: [1] }]);
+  assert.equal(a.exact, 3);
+});
+
+test('assignment: without assignee_ids in the reference there is nothing to score; empty on both sides is exact', () => {
+  const none = score({ units, expected, actual: { messages: [{ unit_ids: [1, 2], assignee_ids: [1] }] } }).assignment;
+  assert.deepEqual([none.pairs, none.accuracy, none.precision, none.recall], [0, null, null, null]);
+  const empty = score({ units: [1], expected: { messages: [{ id: 'x', unit_ids: [1], assignee_ids: [] }] }, actual: { messages: [{ unit_ids: [1], assignee_ids: [] }] } }).assignment;
+  assert.deepEqual([empty.pairs, empty.exact, empty.accuracy, empty.precision, empty.recall], [1, 1, 1, null, null]);
+});
+
+test('assignment: merging cases sums the counts and a member absent from a case is a true negative there', () => {
+  const one = assign([{ unit_ids: [1, 2], assignee_ids: [1] }, { unit_ids: [3], assignee_ids: [2, 3] }, { unit_ids: [4], assignee_ids: [1] }]);
+  const other = score({ units: [1], expected: { messages: [{ id: 'z', unit_ids: [1], assignee_ids: [1] }] }, actual: { messages: [{ unit_ids: [1], assignee_ids: [1] }] } }).assignment;
+  const merged = mergeAssignment([one, other, null]);
+  assert.deepEqual([merged.pairs, merged.exact, merged.accuracy], [4, 4, 1]);
+  assert.equal(merged.per_member['2'].tn, 3);
+  assert.equal(merged.per_member['2'].accuracy, 1);
 });

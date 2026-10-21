@@ -13,6 +13,15 @@
 //   node bench/run-private.mjs units --case id                         print the numbered units
 //   node bench/run-private.mjs check                                   every unit in exactly one expected message or discard
 //   node bench/run-private.mjs run [--case id ...] [--repeat n] [--analyzer api|harness]
+//   node bench/run-private.mjs compare <result.json> <result.json> ...   side-by-side table of variants
+//   --team <file>      JSON array of { id, name, role, profile }: the members the analyzer receives (default: bench/fixtures.json)
+//   --no-profile       send members with id and name only (the «name only» baseline)
+//   --project <file>   markdown sent as bundle.project.description (default: no project); --project-name sets its name
+//   --pool             compare: merge result files whose variant differs only by a «-b» suffix (a repetition) into one
+//   --variant <label>  written into the result and its file name
+//   --cases a,b,c      comma list of case ids (same as repeating --case)
+//   --private-dir <d>  where the cases live (default bench/private; env BENCH_PRIVATE_DIR)
+//   --results-dir <d>  where results and the spending ledger go (default bench/results)
 //   --budget <USD>   spending cap accumulated over extraction and analysis (default 5)
 //   --speech auto|groq|local|none   speech provider: auto uses Groq when there is a key, else the local one
 //
@@ -22,6 +31,8 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statS
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadFixtures, runCase, summarize, formatReport, unitsOf } from './lib.js';
+import { createSpend, withQueueRetries } from './spend.mjs';
+import { compareResults, formatComparison, poolResults } from './compare.js';
 import { costOf, usageOfCall } from './pricing.js';
 import { analyze } from '../src/analyze/index.js';
 import { extract } from '../src/extract/index.js';
@@ -29,10 +40,6 @@ import { createProviders } from '../src/providers/index.js';
 import { createLocalSpeech } from './local-speech.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const privateDir = join(here, 'private');
-const cacheDir = join(privateDir, '.cache');
-const resultsDir = join(here, 'results');
-const spendFile = join(resultsDir, 'private-spend.jsonl');
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
@@ -44,10 +51,23 @@ const { values, positionals } = parseArgs({
     speech: { type: 'string', default: 'auto' },
     force: { type: 'boolean', default: false },
     out: { type: 'string' },
+    team: { type: 'string' },
+    project: { type: 'string' },
+    'project-name': { type: 'string' },
+    'no-profile': { type: 'boolean', default: false },
+    variant: { type: 'string' },
+    cases: { type: 'string' },
+    'private-dir': { type: 'string' },
+    'results-dir': { type: 'string' },
+    pool: { type: 'boolean', default: false },
   },
 });
 const command = positionals[0] ?? 'list';
 const budgetUsd = Number(values.budget);
+const privateDir = values['private-dir'] ?? process.env.BENCH_PRIVATE_DIR ?? join(here, 'private');
+const cacheDir = join(privateDir, '.cache');
+const resultsDir = values['results-dir'] ?? join(here, 'results');
+const wantedCases = [...(values.case ?? []), ...(values.cases ? values.cases.split(',').map((x) => x.trim()).filter(Boolean) : [])];
 
 // ---------- cases ----------
 
@@ -57,7 +77,7 @@ function loadPrivateCases() {
     .filter((d) => d.isDirectory() && existsSync(join(privateDir, d.name, 'manifest.json')))
     .map((d) => d.name)
     .sort()
-    .filter((id) => !values.case?.length || values.case.includes(id))
+    .filter((id) => !wantedCases.length || wantedCases.includes(id))
     .map((id) => ({
       id,
       manifest: JSON.parse(readFileSync(join(privateDir, id, 'manifest.json'), 'utf8')),
@@ -71,22 +91,9 @@ const readCache = (id) => (existsSync(cachePath(id)) ? JSON.parse(readFileSync(c
 
 // ---------- spending ----------
 
-// Spending is appended as JSON lines so concurrent runs do not overwrite each other.
-function readSpend() {
-  if (!existsSync(spendFile)) return { total_usd: 0, unpriced_calls: 0 };
-  const rows = readFileSync(spendFile, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
-  return { total_usd: rows.reduce((a, r) => a + r.usd, 0), unpriced_calls: rows.reduce((a, r) => a + (r.unpriced ?? 0), 0) };
-}
-function addSpend(label, usd, unpriced = 0) {
-  mkdirSync(resultsDir, { recursive: true });
-  appendFileSync(spendFile, `${JSON.stringify({ at: new Date().toISOString(), label, usd, unpriced })}\n`);
-  return readSpend().total_usd;
-}
-// Cuts before spending once the accumulated total reaches 90 % of the cap.
-function assertBudget(label) {
-  const { total_usd: spent } = readSpend();
-  if (spent >= budgetUsd * 0.9) throw new Error(`Presupuesto: gastado ${spent.toFixed(4)} USD de ${budgetUsd}; se corta antes de «${label}»`);
-}
+const ledger = createSpend({ resultsDir, budgetUsd });
+const addSpend = (label, usd, unpriced = 0) => ledger.add(label, usd, unpriced);
+const assertBudget = (label) => ledger.assertBudget(label);
 
 // ---------- providers ----------
 
@@ -147,6 +154,36 @@ async function extractCase(c, providers) {
     extraction: { total_ms: Math.round(performance.now() - started), cost_usd: costUsd, unpriced_calls: unpriced, attachments: metrics },
   };
 }
+
+// ---------- context under test (H-77) ----------
+
+/**
+ * The analyzer context of this run, shaped as `src/domain/pipeline.js` builds the bundle: members `{ id, name, profile }`
+ * and `project = { name, description }`. `--team` replaces the built-in members, `--no-profile` drops the profile of
+ * every member (the «name only» baseline) and `--project` sends the markdown file as the project description.
+ */
+async function buildContextFixtures() {
+  const fixtures = await loadFixtures();
+  let members = fixtures.members;
+  if (values.team) {
+    const team = JSON.parse(readFileSync(values.team, 'utf8'));
+    if (!Array.isArray(team) || team.some((m) => !Number.isInteger(m.id) || typeof m.name !== 'string')) throw new Error('--team: se espera un arreglo de { id, name, role, profile }');
+    members = team;
+  }
+  members = members.map((m) => (values['no-profile'] ? { id: m.id, name: m.name } : { id: m.id, name: m.name, profile: m.profile }));
+  const project = values.project
+    ? { name: values['project-name'] ?? process.env.PROJECT_NAME ?? 'Team', description: readFileSync(values.project, 'utf8') }
+    : undefined;
+  return { ...fixtures, members, ...(project ? { project } : {}) };
+}
+
+/** What the result file records about the context, without its text (the file lives in a git-ignored folder anyway). */
+const describeContext = (fixtures) => ({
+  members: fixtures.members.map((m) => ({ id: m.id, name: m.name, profile_chars: (m.profile ?? '').length })),
+  project: fixtures.project ? { name: fixtures.project.name, description_chars: fixtures.project.description.length, file: values.project } : null,
+  team_file: values.team ?? null,
+  no_profile: values['no-profile'],
+});
 
 // ---------- commands ----------
 
@@ -209,7 +246,7 @@ if (command === 'list') {
   process.exit(bad ? 1 : 0);
 } else if (command === 'run') {
   const repeat = Number(values.repeat);
-  const fixtures = await loadFixtures();
+  const fixtures = await buildContextFixtures();
   const providers = buildProviders();
   const all = [];
   for (const c of loadPrivateCases()) {
@@ -222,13 +259,17 @@ if (command === 'list') {
     const runs = [];
     for (let i = 0; i < repeat; i += 1) {
       assertBudget(`${c.id} #${i + 1}`);
-      const run = await runCase({
-        analyze,
-        providers,
-        testCase: { id: c.id, input: cache.input, expected },
-        fixtures,
-        options: values.analyzer ? { analyzer: values.analyzer } : {},
-      });
+      // A retryable provider error (rate limit, overload) repeats the whole case, as the job queue does in the product.
+      const run = await withQueueRetries(
+        () => runCase({
+          analyze,
+          providers,
+          testCase: { id: c.id, input: cache.input, expected },
+          fixtures,
+          options: values.analyzer ? { analyzer: values.analyzer } : {},
+        }),
+        { attempts: 6, onRetry: (e, attempt) => console.log(`${c.id}: reintento ${attempt} (${e.message.slice(0, 90)})`) },
+      );
       const total = addSpend(`analyze ${c.id}`, run.usage.cost_usd ?? 0, run.usage.cost_usd === null ? run.usage.calls : 0);
       console.log(`${c.id} #${i + 1}: ${run.status}, ${(run.total_ms / 1000).toFixed(1)} s, ${run.usage.calls} llamadas, ${run.usage.cost_usd?.toFixed(5) ?? 'sin tarifa'} USD (acumulado ${total.toFixed(4)})`);
       runs.push(run);
@@ -239,10 +280,23 @@ if (command === 'list') {
     console.log(`\n${formatReport(all.map((x) => x.summary))}`);
     mkdirSync(resultsDir, { recursive: true });
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const out = values.out ?? join(resultsDir, `private-${stamp}.json`);
-    writeFileSync(out, JSON.stringify({ at: new Date().toISOString(), repeat, models: providers.describe(), speech: providers.speechMode, cases: all }, null, 2));
+    const out = values.out ?? join(resultsDir, `private-${values.variant ? `${values.variant.replace(/[^\w+.-]/g, '_')}-` : ''}${stamp}.json`);
+    writeFileSync(out, JSON.stringify({ at: new Date().toISOString(), variant: values.variant ?? null, repeat, context: describeContext(fixtures), models: providers.describe(), speech: providers.speechMode, cases: all }, null, 2));
     console.log(`\nResultado completo: ${out}`);
   }
+} else if (command === 'compare') {
+  const files = positionals.slice(1);
+  if (files.length < 1) throw new Error('compare: faltan archivos de resultado');
+  const results = files.map((file) => {
+    const usefulnessFile = file.replace(/\.json$/, '.usefulness.json');
+    return { file, ...JSON.parse(readFileSync(file, 'utf8')), usefulness: existsSync(usefulnessFile) ? JSON.parse(readFileSync(usefulnessFile, 'utf8')) : null };
+  });
+  const compared = values.pool ? poolResults(results, (r) => (r.variant ?? r.file).replace(/-b$/, '')) : results;
+  const inputOf = (caseId) => {
+    const cache = readCache(caseId);
+    return cache ? [cache.input.text, ...cache.input.attachments.map((a) => a.extracted)].join('\n') : '';
+  };
+  console.log(formatComparison(compareResults(compared, { inputOf, expectedOf: (id) => { const c = loadPrivateCases().find((x) => x.id === id); return c ? readExpected(c) : null; } })));
 } else {
   throw new Error(`Orden desconocida «${command}»`);
 }

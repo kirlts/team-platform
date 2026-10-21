@@ -21,7 +21,8 @@
     "test:flows": "node --test --test-concurrency=1 src/flows.browser.test.mjs src/flows-ronda2a.browser.test.mjs src/flows-ronda3a.browser.test.mjs src/flows-ronda3b.browser.test.mjs src/startpanel-port.browser.test.mjs",
     "capturas:bandeja": "node scripts/capturas-bandeja.mjs",
     "capturas:ia": "node scripts/capturas-ia.mjs",
-    "contraste": "node scripts/contraste.mjs"
+    "contraste": "node scripts/contraste.mjs",
+    "ui-detectors": "node scripts/ui-detectors.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.5",

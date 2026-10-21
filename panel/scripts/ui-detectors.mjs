@@ -37,8 +37,8 @@ export const MAX_SATURATED_DEFAULT = 3
 /** A fill counts as saturated at HSV saturation of 0.5 or more with a value of 0.3 or more (not a near-black). Chosen to separate the accent blue and the status colors from the neutral glass and silver surfaces; falsified in the unit test. */
 export const SATURATION_MIN = 0.5
 export const VALUE_MIN = 0.3
-/** Overlaps under this many px in either axis are sub-pixel antialiasing, not a collision. */
-export const OVERLAP_MIN_PX = 2
+/** Overlaps under this many px in either axis are leading, not a collision: the line box of 15 px text at line-height 1.45 and the content area of its font differ by up to about 3 px (measured on the team screen, where a name and an email touch by 2 px). */
+export const OVERLAP_MIN_PX = 4
 /** Tolerance when comparing a computed font size with a token (rounding of rem times 15). */
 export const FONT_TOLERANCE_PX = 0.06
 
@@ -109,6 +109,14 @@ export function installHelpers() {
     return parts.join(' > ')
   }
   ud.interactive = (el) => el.matches('a[href], button, input:not([type=hidden]), select, textarea, [role=button], [role=tab], [role=menuitem], [role=menuitemcheckbox], [role=checkbox], [role=switch]')
+  /** Sticky and fixed elements (headers of a scrolled list, the shell bar) are laid over the content that scrolls under them on purpose. */
+  ud.pinned = (el) => {
+    for (let n = el; n && n.nodeType === 1; n = n.parentElement) {
+      const pos = getComputedStyle(n).position
+      if (pos === 'sticky' || pos === 'fixed') return true
+    }
+    return false
+  }
   /** Layers that sit over the page on purpose: they overlap what is behind them by design. */
   ud.LAYERS = '[role=dialog], [role=alertdialog], [role=menu], [role=listbox], [role=tooltip], [data-radix-popper-content-wrapper], [data-radix-portal], [data-notice], [role=status], [role=alert]'
   let canvas
@@ -152,13 +160,14 @@ export const DETECTORS = {
    * their own text or that are interactive are candidates (a container always overlaps its children).
    * Left out on purpose: layers that sit over the page by design (dialogs, menus, listboxes, tooltips,
    * popper content, the notice bar and live regions, see ud.LAYERS), aria-hidden decoration (the sky
-   * and the avatar initials), and anything clipped away by a scroll container (only the visible part counts).
+   * and the avatar initials), sticky and fixed elements (laid over scrolling content by design), and anything clipped away by a scroll container (only the visible part counts).
    */
   overlap: () => {
     const ud = window.__ud
     const candidates = []
     for (const el of document.body.querySelectorAll('*')) {
       if (el.closest(ud.LAYERS) || ud.hidden(el)) continue
+      if (ud.pinned(el)) continue
       if (!ud.ownText(el) && !ud.interactive(el)) continue
       const v = ud.visibleRect(el)
       if (v) candidates.push({ el, v })
@@ -556,14 +565,7 @@ export async function run(options = {}) {
       for (const [name, fn] of Object.entries(DETECTORS)) {
         if (name === 'voice' && !voice.patterns) continue
         const input = name === 'type-scale' ? scale : name === 'equal-weight' ? { max: maxSaturated } : name === 'voice' ? { patterns: voice.patterns } : undefined
-        const res = await page.evaluate(
-          ({ src, input, consts }) => {
-            // The constants the detectors read are declared in this file; they travel as globals of the page.
-            Object.assign(window, consts)
-            return new Function(`return (${src})`)()(input)
-          },
-          { src: fn.toString(), input, consts: CONSTS },
-        )
+        const res = await runDetector(page, name, input)
         if (name === 'page-height') {
           ratios[id] ??= { route, ratios: {} }
           ratios[id].ratios[`${viewport}-${theme}`] = res.ratio
@@ -603,6 +605,18 @@ export async function run(options = {}) {
   mkdirSync(dirname(outFile), { recursive: true })
   writeFileSync(outFile, JSON.stringify(report, null, 2) + '\n')
   return { report, outFile }
+}
+
+/** Evaluates one detector in a page that already has the helpers (see installHelpers). */
+export async function runDetector(page, name, input) {
+  return page.evaluate(
+    ({ src, input, consts }) => {
+      // The constants the detectors read are declared in this file; they travel as globals of the page.
+      Object.assign(window, consts)
+      return new Function(`return (${src})`)()(input)
+    },
+    { src: DETECTORS[name].toString(), input, consts: CONSTS },
+  )
 }
 
 /** Constants the in-page detectors read, shipped as globals. */

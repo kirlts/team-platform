@@ -47,6 +47,7 @@ export function billableSeconds(plan, minBilledSeconds) {
 /**
  * Fusiona los segmentos de cada trozo. Se conservan los del trozo k que empiezan antes del corte
  * y los del trozo k+1 que empiezan en el corte o después; los tiempos se suman al desfase del trozo.
+ * Each segment carries its chunk index (`chunk`): sentence joining (`sentences.js`) never crosses that boundary.
  *
  * @param {ReturnType<typeof planChunks>} plan
  * @param {{start:number,end:number,text:string}[][]} segmentsByChunk
@@ -57,7 +58,7 @@ export function mergeSegments(plan, segmentsByChunk) {
     for (const seg of segmentsByChunk[i] ?? []) {
       const start = chunk.start + seg.start;
       if (start < chunk.cutStart || start >= chunk.cutEnd) continue;
-      merged.push({ start, end: chunk.start + seg.end, text: seg.text });
+      merged.push({ start, end: chunk.start + seg.end, text: seg.text, chunk: chunk.index });
     }
   });
   return merged.sort((a, b) => a.start - b.start);

@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { ExtractError } from './errors.js';
 import { run, probe } from './lib/ffmpeg.js';
 import { planChunks, billableSeconds, mergeSegments } from './lib/chunks.js';
+import { joinSegments } from './lib/sentences.js';
 import { mapLimit } from './lib/pool.js';
 import { createProgress } from './lib/progress.js';
 import { formatTimestamp } from './lib/time.js';
@@ -19,6 +20,8 @@ export function planAudio(durationSeconds, cfg) {
 /**
  * Transcribe un archivo con pista de audio (de un audio o de un video) y devuelve los segmentos
  * fusionados con tiempos absolutos. El llamador crea `progress` con un paso por trozo.
+ * Segments come out already joined into sentence-sized phrases (`joinSegments`): the provider returns
+ * one short phrase per segment and the analyzer numbers one unit per line.
  */
 export async function transcribeFile(sourcePath, { durationSeconds, plan }, ctx, progress) {
   const { providers, config, signal } = ctx;
@@ -66,7 +69,7 @@ export async function transcribeFile(sourcePath, { durationSeconds, plan }, ctx,
     return normalizeSegments(result, chunk);
   });
 
-  return mergeSegments(plan, perChunk);
+  return joinSegments(mergeSegments(plan, perChunk), cfg.pauseSeconds, cfg.maxUnitWords);
 }
 
 // Un proveedor sin segmentos devuelve sólo `text`: se trata como un único segmento del trozo.
@@ -83,7 +86,7 @@ function normalizeSegments(result, chunk) {
   return [];
 }
 
-/** Una línea por segmento: `[mm:ss] texto`. */
+/** Una línea por segmento unido: `[mm:ss] texto`. */
 export function formatSegments(segments) {
   return segments.map((s) => `[${formatTimestamp(s.start)}] ${s.text}`).join('\n');
 }

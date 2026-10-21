@@ -31,10 +31,12 @@ describe('analyze (api): un input con tres puntos mezclados', () => {
     assert.equal(new Set(all).size, all.length, 'disjuntos');
     assert.equal(result.units.length, 6);
 
-    // Dos llamadas: clasificar con esfuerzo low y descomponer el grupo con medium (informe 02 §10.2).
+    // Dos llamadas, ambas con esfuerzo low y sin pensamiento (medición del 2026-10-20 citada en config.js).
     assert.equal(fake.calls.text.length, 2);
     assert.equal(fake.calls.text[0].effort, 'low');
-    assert.equal(fake.calls.text[1].effort, 'medium');
+    assert.equal(fake.calls.text[1].effort, 'low');
+    assert.equal(fake.calls.text[0].thinking, 'disabled');
+    assert.equal(fake.calls.text[1].thinking, 'disabled');
     assert.equal(fake.calls.text[0].maxTokens, 16_000);
     assert.equal(fake.calls.text[1].cacheTtl, '5m');
     assert.deepEqual(result.calls.map((c) => c.step), ['classify', 'decompose[t2]']);
@@ -465,12 +467,12 @@ describe('analyze (api): la descomposición de un grupo no descarta', () => {
 });
 
 describe('analyze (api): pensamiento por llamada', () => {
-  it('classifyThinking y decomposeThinking llegan al proveedor sólo en su llamada', async () => {
+  it('classifyThinking y decomposeThinking se pueden volver al pensamiento adaptativo, cada uno en su llamada', async () => {
     const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, goodDecomposition()] });
-    await analyze(await makeBundle(), { providers: fake, config: { decomposeThinking: 'disabled', decomposeEffort: 'low' } });
+    await analyze(await makeBundle(), { providers: fake, config: { classifyThinking: null, decomposeThinking: 'disabled', decomposeEffort: 'medium' } });
     assert.ok(!('thinking' in fake.calls.text[0]));
     assert.equal(fake.calls.text[1].thinking, 'disabled');
-    assert.equal(fake.calls.text[1].effort, 'low');
+    assert.equal(fake.calls.text[1].effort, 'medium');
   });
 });
 

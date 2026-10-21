@@ -7,16 +7,18 @@ export const KNOBS = Object.freeze({
   // Informe 02 §10.2, [F4][F5].
   classifyEffort: { value: 'low', source: 'Informe 02 §10.2 [F4][F5]; MASTER-SPEC §7.5 (1: clasificar, esfuerzo low)' },
 
-  // Esfuerzo de la descomposición (y del pase de rescate, que es la misma tarea sobre menos unidades):
-  // `medium` hasta que el banco muestre que `low` conserva la cobertura. En `low` aumenta la omisión
-  // de comprobaciones en prompts largos. Informe 02 §10.2, [F4][F5].
-  decomposeEffort: { value: 'medium', source: 'Informe 02 §10.2 [F4][F5]; MASTER-SPEC §3 y §7.5 (2: descomponer)' },
+  // Esfuerzo de la descomposición (y del pase de rescate, que es la misma tarea sobre menos unidades).
+  // El informe 02 §10.2 [F4][F5] fijaba `medium` hasta que el banco mostrara que `low` conserva la cobertura.
+  // La medición del 2026-10-20 (docs/investigaciones/mediciones/2026-10-20-primera-corrida-real.md) lo
+  // muestra: con la clasificación agrupando un punto por grupo, `low` sin pensamiento conserva la cobertura y
+  // baja el tiempo de 6 a 12 s por llamada a 1 a 3 s.
+  decomposeEffort: { value: 'low', source: 'Medición 2026-10-20 (docs/investigaciones/mediciones/2026-10-20-primera-corrida-real.md); informe 02 §10.2 [F4][F5]' },
 
   // Pensamiento por llamada: `null` deja el adaptativo del modelo; `'disabled'` lo apaga (sólo con esfuerzo `high` o
   // menos, y con la línea «The JSON output format applies to your final answer only.», informe 02 §10.2 [F4]).
   // El banco compara `low` adaptativo, `low` sin pensamiento y `medium` adaptativo (informe 02 §8).
-  classifyThinking: { value: null, source: 'Informe 02 §8 y §10.2 [F4]; medición de 2026-10-20 en docs/investigaciones/mediciones/' },
-  decomposeThinking: { value: null, source: 'Informe 02 §8 y §10.2 [F4]; medición de 2026-10-20 en docs/investigaciones/mediciones/' },
+  classifyThinking: { value: 'disabled', source: 'Medición 2026-10-20 (docs/investigaciones/mediciones/2026-10-20-primera-corrida-real.md); informe 02 §8 y §10.2 [F4]' },
+  decomposeThinking: { value: 'disabled', source: 'Medición 2026-10-20 (docs/investigaciones/mediciones/2026-10-20-primera-corrida-real.md); informe 02 §8 y §10.2 [F4]' },
 
   // Tope de salida por llamada. Provisional: el banco fija el p95 de salida por mensaje.
   // Informe 02 §10.2 [F1][F3]; MASTER-SPEC §7.5 (provisional: 16.000 y 32.000).
@@ -43,9 +45,11 @@ export const KNOBS = Object.freeze({
   // de Haiku 5.5, consultada el 2026-10-20): 4 / 1,3 ≈ 3. Las llamadas devuelven `usage` real; el banco calibra este valor.
   charsPerToken: { value: 3, source: 'Supuesto provisional; guía de migración de Haiku 5.5 (tokenizador con ~30 % más tokens); lo calibra el banco §7.11' },
 
-  // Trozos descompuestos a la vez cuando se parte el input. Ejemplo de cuatro trozos en paralelo
-  // del informe 02 §2.2. El límite de tasa de la cuenta no está medido: es convención hasta el banco.
-  partitionConcurrency: { value: 4, source: 'Informe 02 §2.2 (ejemplo de cuatro trozos); provisional hasta el banco §7.11' },
+  // Llamadas de clasificación y de descomposición a la vez (un grupo o un trozo cada una). Medido con el
+  // docx de 40 puntos (40 grupos) y proveedores reales el 2026-10-20: 4 a la vez, 26 s; 8, 16 s; 16, 10,5 s,
+  // sin errores 429 (docs/investigaciones/mediciones/2026-10-20-primera-corrida-real.md). El límite de tasa de
+  // otra cuenta puede ser menor: se baja por configuración.
+  partitionConcurrency: { value: 16, source: 'Medición 2026-10-20 (docs/investigaciones/mediciones/2026-10-20-primera-corrida-real.md)' },
 
   // Vida de la caché de prompt: 5 minutos por omisión, 1 hora si el acierto medido con
   // `cache_read_input_tokens` es bajo. Informe 02 §7 y §10.2 [F2].

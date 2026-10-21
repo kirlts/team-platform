@@ -84,7 +84,7 @@ export function createBenchProviders({ expected, mode = 'perfect', latencyMs = 0
         attachment_ids: [],
       }));
     if (mode === 'noisy') messages = corrupt(messages);
-    return respond({ messages, discarded: [] }, req);
+    return respond({ messages }, req);
   };
 
   return createFakeProviders({ text: script, name: 'fake', model });

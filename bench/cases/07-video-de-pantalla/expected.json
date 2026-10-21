@@ -48,11 +48,13 @@
       "title": "Cerrar jornada y Cancelar ruta están pegados",
       "area_id": [
         2,
-        4
+        4,
+        5
       ],
       "template_id": [
         2,
-        4
+        4,
+        5
       ],
       "unit_ids": [
         10,

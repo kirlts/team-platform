@@ -39,7 +39,7 @@ Estados: `main` (resuelto y fusionado), `en curso` (asignado a un agente vivo), 
 | H-24 | Tope de documentos 25 MiB al subir contra 24 MiB al extraer (DT-005) | documentación | `main` (tope único de 24 MiB) |
 | H-25 | Documento de más de 24 MiB y video de más de 20 minutos se rechazan después de encolar | batería | `main` (413/422 al subir, `ffprobe` en la subida) |
 | H-26 | Imagen SVG rechazada con 415; el guion de capturas pega un SVG | agente núcleo | abierto: el guion de capturas pasa a PNG |
-| H-27 | Opus 32 kbps contra FLAC en español sin medir | informe 06 | en curso (agente ffmpeg, parte 3) |
+| H-27 | Opus 32 kbps contra FLAC en español sin medir | informe 06 | `main` (medido: Opus directo a Groq pierde 3 unidades de 20; se mantiene FLAC) |
 | H-28 | Video de 20 minutos pesa hasta 190 MB; el tope de 24 MB es para documentos | banco privado | `main`: el video tiene tope propio de 2 GB y 20 minutos |
 
 ## Núcleo, API y cola
@@ -88,9 +88,9 @@ Estados: `main` (resuelto y fusionado), `en curso` (asignado a un agente vivo), 
 | # | Hallazgo | Origen | Estado |
 |---|---|---|---|
 | H-60 | Imagen de 819 MB | medición | `main` (466 MB) |
-| H-61 | `ffmpeg` de Alpine pesa 129 MB y trae partes GPL | Martín, agente imagen | en curso (agente ffmpeg, LGPL mínimo) |
+| H-61 | `ffmpeg` de Alpine pesa 129 MB y trae partes GPL | Martín, agente imagen | `main` (ffmpeg 8.1.3 LGPL estático, 22 decodificadores, imagen 306 MB) |
 | H-62 | `libvips` LGPL en `sharp` (DT-002) | documentación | `main` (UD-020, dos capas) |
-| H-63 | `NOTICE` con binarios de la imagen y prueba de licencias | UD-020 | en curso (agente ffmpeg) |
+| H-63 | `NOTICE` con binarios de la imagen y prueba de licencias | UD-020 | `main` (`NOTICE` generado, textos de licencia en la imagen, pruebas HP-011) |
 | H-64 | Lockfile faltaba en main; imagen no reproducible | agente empaquetado | `main` |
 | H-65 | `.env.example` ignorado por `.gitignore` | agente empaquetado | `main` |
 | H-66 | Las tres formas de instalación sin probar en un VPS ni tailnet reales | agente empaquetado | abierto: se prueba al instalar en el VPS |

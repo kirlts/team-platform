@@ -1,0 +1,70 @@
+team-platform: third-party notices
+
+team-platform is MIT licensed. Its code and every npm dependency it links are under permissive licences
+(MIT, ISC, BSD, Apache-2.0, 0BSD, PSF-2.0, CC0); package-lock.json lists them. This file lists the binaries and
+shared libraries of the image that are not npm packages. They are used as separate programs or loaded as
+unmodified shared libraries, which the LGPL allows without extending its terms to team-platform (UD-020).
+No GPL code is linked into team-platform or built into FFmpeg.
+
+1. FFmpeg 8.1.3  (/usr/local/bin/ffmpeg and /usr/local/bin/ffprobe)
+
+   Licence:   LGPL-2.1-or-later. Configured without --enable-gpl, --enable-nonfree and --enable-version3.
+              Text: /usr/share/licenses/ffmpeg/ffmpeg-COPYING.LGPLv2.1
+   Source:    https://ffmpeg.org/releases/ffmpeg-8.1.3.tar.xz
+   SHA-256:   7138d28c96d9d3e3af4ee3d8cad72741f8ffb40da90c1112235dea3ecd3178a3
+   Signature: https://ffmpeg.org/releases/ffmpeg-8.1.3.tar.xz.asc, key FCF986EA15E6E293A5644F10B4322F04D67658D8
+   Build:     unmodified source, built by the `ffmpeg` stage of the Dockerfile, which pins the version and the checksum.
+              The binaries are static. To use a different FFmpeg, change FFMPEG_VERSION and FFMPEG_SHA256 in the Dockerfile
+              (or patch the source in that stage) and run `docker build`.
+   Configure: --prefix=/opt/ffmpeg --enable-small --enable-static --disable-shared --pkg-config-flags=--static --extra-ldflags=-static --disable-everything --disable-autodetect --disable-network --disable-doc --disable-debug --disable-ffplay --disable-avdevice --enable-ffmpeg --enable-ffprobe --enable-libdav1d --enable-demuxer=mov,matroska,ogg,mp3,wav,aac,flac --enable-parser=aac,flac,h264,hevc,vp8,vp9,av1,opus,vorbis,mpegaudio --enable-decoder=h264,hevc,vp8,vp9,libdav1d,aac,alac,opus,vorbis,flac,mp3,mp3float,pcm_s16le,pcm_s24le,pcm_s32le,pcm_u8,pcm_f32le,pcm_alaw,pcm_mulaw --enable-encoder=flac,mjpeg --enable-muxer=flac,image2,null --enable-filter=scale,fps,aresample,aformat,format,null,anull --enable-protocol=file,pipe
+   It also contains statically linked:
+     dav1d 1.5.4, BSD-2-Clause. Text: /usr/share/licenses/ffmpeg/dav1d-COPYING
+     Source: https://downloads.videolan.org/pub/videolan/dav1d/1.5.4/dav1d-1.5.4.tar.xz
+     SHA-256: 686616b7c69eb88d44459391ab25cac13b6647a3b288835c5784e71c1514a5c5
+
+2. libvips 8.18.7, as shipped by @img/sharp-libvips-* 1.3.4  (node_modules/@img/sharp-libvips-linuxmusl-*/lib)
+
+   Licence: LGPL-3.0-or-later (https://www.gnu.org/licenses/lgpl-3.0.txt). Loaded by sharp as a shared library,
+            unmodified; any other build of libvips 8.18 can replace it.
+   Source:  https://github.com/libvips/libvips/releases/tag/v8.18.7
+            https://github.com/lovell/sharp-libvips/releases/tag/v1.3.4 (build scripts and the exact sources of the bundled libraries)
+   The package bundles these libraries, each under the licence in the table:
+
+   | Library       | Used under the terms of                                                                                   |
+   |---------------|-----------------------------------------------------------------------------------------------------------|
+   | aom           | BSD 2-Clause + [Alliance for Open Media Patent License 1.0](https://aomedia.org/license/patent-license/)  |
+   | cairo         | Mozilla Public License 1.1                                                                                |
+   | cgif          | MIT License                                                                                               |
+   | expat         | MIT License                                                                                               |
+   | fontconfig    | [fontconfig License](https://gitlab.freedesktop.org/fontconfig/fontconfig/blob/main/COPYING) (BSD-like)   |
+   | freetype      | [freetype License](https://git.savannah.gnu.org/cgit/freetype/freetype2.git/tree/docs/FTL.TXT) (BSD-like) |
+   | fribidi       | LGPLv3                                                                                                    |
+   | glib          | LGPLv3                                                                                                    |
+   | harfbuzz      | MIT License                                                                                               |
+   | highway       | BSD 3-Clause                                                                                              |
+   | lcms          | MIT License                                                                                               |
+   | libarchive    | BSD 2-Clause                                                                                              |
+   | libexif       | LGPLv3                                                                                                    |
+   | libffi        | MIT License                                                                                               |
+   | libheif       | LGPLv3                                                                                                    |
+   | libimagequant | [BSD 2-Clause](https://github.com/lovell/libimagequant/blob/main/COPYRIGHT)                               |
+   | libnsgif      | MIT License                                                                                               |
+   | libpng        | [libpng License](https://github.com/pnggroup/libpng/blob/master/LICENSE)                                  |
+   | librsvg       | LGPLv3                                                                                                    |
+   | libtiff       | [libtiff License](https://gitlab.com/libtiff/libtiff/blob/master/LICENSE.md) (BSD-like)                   |
+   | libultrahdr   | MIT License                                                                                               |
+   | libvips       | LGPLv3                                                                                                    |
+   | libwebp       | New BSD License                                                                                           |
+   | libxml2       | MIT License                                                                                               |
+   | mozjpeg       | [zlib License, IJG License, BSD 3-Clause](https://github.com/mozilla/mozjpeg/blob/master/LICENSE.md)      |
+   | pango         | LGPLv3                                                                                                    |
+   | pixman        | MIT License                                                                                               |
+   | proxy-libintl | LGPLv3                                                                                                    |
+   | zlib-ng       | [zlib License](https://github.com/zlib-ng/zlib-ng/blob/develop/LICENSE.md)                                |
+
+3. Alpine packages added to the image
+
+   libstdc++ and libgcc 15.2.0-r5 (Alpine 3.24 on 2026-10-20), needed by libvips. Licence declared by Alpine:
+   GPL-2.0-or-later AND LGPL-2.1-or-later; the runtime library carries the GCC Runtime Library Exception.
+   Source: https://gcc.gnu.org/ and https://gitlab.alpinelinux.org/alpine/aports/-/tree/3.24-stable/main/gcc
+   The rest of the base image (musl, busybox, apk) keeps its own licences; `apk info -a <package>` prints each one.

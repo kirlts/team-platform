@@ -7,7 +7,7 @@ import { stat, writeFile } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { extract } from '../index.js';
 import { extractDocumentContent } from '../document-core.js';
-import { fakeSpeech, fakeVision, makeAudio, makeDocx, makeImage, makePdf, makeTmp, makeVideo } from './helpers.js';
+import { FIXTURE_FFMPEG, fakeSpeech, fakeVision, makeAudio, makeDocx, makeImage, makePdf, makeTmp, makeVideo } from './helpers.js';
 import { makePptx, makeXlsx } from './office-fixtures.js';
 
 const exec = promisify(execFile);
@@ -59,7 +59,7 @@ await bench('audio 20 min (3 trozos FLAC)', async () => extract(await att('audio
 // Video de 20 minutos, vertical 1080x2340 como un teléfono: 6 pantallas repetidas en bucle
 const base = tmp.join('base.mp4');
 await makeVideo(base, { screens: 6, secondsPerScreen: 4, width: 1080, height: 2340 });
-await exec('ffmpeg', ['-v', 'error', '-y', '-stream_loop', '49', '-i', base, '-c', 'copy', '-t', '1199', tmp.join('v20.mp4')]);
+await exec(FIXTURE_FFMPEG, ['-v', 'error', '-y', '-stream_loop', '49', '-i', base, '-c', 'copy', '-t', '1199', tmp.join('v20.mp4')]);
 await bench('video 19:59 1080x2340', async () => extract(await att('video', tmp.join('v20.mp4'), 'video/mp4'), { providers: providers() }), (r) => `${r.meta.sampledFrames} muestreados, ${r.meta.dedupedFrames} tras dHash, ${r.meta.frames.length} enviados; ${JSON.stringify(r.meta.timings)}`);
 
 // Enlace en un servidor local

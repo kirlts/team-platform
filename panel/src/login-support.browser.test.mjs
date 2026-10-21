@@ -31,10 +31,10 @@ test('login does not return while the sign-in is still waiting for the server', 
     const signing = login(page, panel.origin, 'ana').then(() => (returned = true))
     await intercepted
     await settled(page)
-    assert.equal(returned, false, 'login volvió con la página de entrada a la vista, antes de que el servidor abriera la sesión')
+    assert.equal(returned, false, 'login returned with the entry page in view, before the server opened the session')
     answer()
     await signing
-    assert.equal(await page.locator('main#main').count(), 1, 'la sesión abierta muestra su carcasa')
+    assert.equal(await page.locator('main#main').count(), 1, 'the open session shows its shell')
   } finally {
     await context.close()
   }

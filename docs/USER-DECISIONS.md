@@ -216,3 +216,15 @@ RULES:
 **Consecuencias:**
 - Una pasada de traducción sobre todo el código existente; HP-008 pasa a exigir comentarios en inglés y textos de interfaz en español.
 **Condiciones de reversión:** Ninguna prevista.
+
+## [UD-016] Íconos de medio en cada mensaje y respuesta; nada desalineado, flotando ni truncado
+
+**Fecha:** 2026-10-20
+**Contexto:** Martín revisó las primeras capturas del panel contra su maqueta.
+**Decisión:** Martín, textual: «en los mensajes y en las respuestas hay íconos amigables que te dan a entender qué tipos de medios están asociados a un mensaje o a una respuesta. Además no me gusta que en la interfaz haya elementos que se vean desalineados o flotando innecesariamente, o peor aún, texto truncado o con puntos suspensivos que la gran mayoría de las veces quizás se puede mejorar de otra forma». Tres clases de defecto, y se arregla la clase: (1) cada tarjeta de mensaje y cada respuesta muestra, como en la maqueta, un ícono por tipo de medio adjunto (foto, video, audio, documento, enlace) además de la miniatura principal; (2) todo elemento se alinea a la grilla y nada queda flotando sin relación con lo que lo rodea; (3) ningún texto se trunca con puntos suspensivos: se envuelve, se reparte en otra línea o se cambia la disposición.
+**Alternativas descartadas:**
+- Truncar con título emergente al pasar el puntero: Martín lo rechaza como regla general.
+**Consecuencias:**
+- Prohibición en la batería del panel: ninguna clase `truncate`, `line-clamp` ni `text-overflow: ellipsis` en `panel/src` salvo con una justificación escrita en la misma línea.
+- El juez de pantalla revisa estas tres clases en cada vista.
+**Condiciones de reversión:** Ninguna prevista.

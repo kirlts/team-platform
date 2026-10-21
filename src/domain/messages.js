@@ -10,7 +10,7 @@ import { createHash } from 'node:crypto'
 import { all, get, run } from '../db/index.js'
 import { iso, parseJson } from '../db/util.js'
 import { audit } from './audit.js'
-import { badRequest, conflict, forbidden, notFound } from './errors.js'
+import { AppError, badRequest, conflict, forbidden, notFound } from './errors.js'
 import { checkAssignees, checkFields, newValidatorCache, resolveAreaAndTemplate, withoutNulls } from './validation.js'
 import { loadTemplate } from './areas.js'
 
@@ -104,6 +104,8 @@ function hydrate (db, rows) {
     last_reply: lastReplies.get(f.id) ?? null,
     created_at: iso(f.created_at),
     updated_at: iso(f.updated_at ?? f.created_at),
+    version: f.version,
+    edited_at: iso(f.edited_at),
     closed_at: iso(f.closed_at)
   }))
 }
@@ -185,22 +187,34 @@ export function getMessage (db, id) {
   const [msgRow] = hydrate(db, [dbRow])
   const replyRows = all(db, 'SELECT * FROM replies WHERE message_id = ? ORDER BY id', id)
   const atts = replyAttachmentsOf(db, replyRows.map((r) => r.id))
-  return { ...msgRow, replies: replyRows.map((r) => toReply(r, atts.get(r.id))) }
+  const edits = all(db, 'SELECT * FROM message_edits WHERE message_id = ? ORDER BY id', id)
+    .map((e) => ({ id: e.id, member_id: e.member_id, at: iso(e.at), version: e.version, fields: parseJson(e.fields_json, []) }))
+  return { ...msgRow, replies: replyRows.map((r) => toReply(r, atts.get(r.id))), edits }
 }
 
-const EDIT_KEYS = ['title', 'body', 'fields', 'assignee_ids', 'area_id', 'template_id']
-
 /**
- * In-place edit of a published message (UD-017): title, body, fields, assignees, area (a change of area needs a
- * `template_id` of the new area). The author and any editor may edit, in any status (answered and closed included).
- * Idempotent: a patch that changes nothing leaves the message, `updated_at` and the audit log as they were.
- * There is no version history (UD-017 rejects it); the audit row records which fields changed, not their values.
+ * In-place edit of a published message by its author (UD-071, which narrows UD-017): title, body, fields,
+ * assignees, area (a change of area needs a `template_id` of the new area), template and attachments (a subset or
+ * reordering of the attachments of the input the message came from). ONLY the author edits: an Editor does not
+ * (403 `not_message_author`); closing, reopening and replying stay open to everybody (§1.1). A message in any
+ * status can be edited, closed ones included.
+ *
+ * Optimistic concurrency: `patch.version` is the version the client read. If another edit landed in between it is a
+ * 409 `edit_conflict` carrying the current `version`, and nothing is written. The check and the write share one
+ * transaction (BEGIN IMMEDIATE), so two simultaneous patches cannot both pass it.
+ *
+ * Idempotent: a patch that changes nothing leaves the message, its version and its history as they were. Every
+ * real edit bumps `version`, sets `edited_at` and adds a `message_edits` row (who, when, which fields; never the
+ * values). New assignees receive a directed notice. Returns the message as `getMessage` shows it.
  */
 export function updateMessage ({ db, events, now = Date.now }, { messageId, actor, patch }) {
   events.transaction(() => {
     const row = get(db, 'SELECT * FROM messages WHERE id = ?', messageId)
     if (!row) throw notFound('El mensaje no existe.')
-    if (row.author_id !== actor.id && actor.role !== 'editor') throw forbidden('Sólo el emisor o un editor puede editar este mensaje.', 'not_message_editor')
+    if (row.author_id !== actor.id) throw forbidden('Sólo quien envió el mensaje puede editarlo.', 'not_message_author')
+    if (patch.version !== row.version) {
+      throw new AppError(409, 'edit_conflict', 'El mensaje cambió desde que lo abriste; vuelve a cargarlo.', { version: row.version })
+    }
 
     const fail = badRequest
     const next = {}
@@ -238,20 +252,38 @@ export function updateMessage ({ db, events, now = Date.now }, { messageId, acto
     const assigneeIds = patch.assignee_ids === undefined ? null : checkAssignees(db, patch.assignee_ids, { fail, keep: new Set(currentAssignees) })
     const sameAssignees = assigneeIds === null || (assigneeIds.length === currentAssignees.length && [...assigneeIds].sort((a, b) => a - b).every((id, i) => id === currentAssignees[i]))
 
-    const changed = Object.entries(next).filter(([k, v]) => row[k] !== v).map(([k]) => k)
-    if (changed.length === 0 && sameAssignees) return
-    const t = now()
-    if (changed.length > 0) {
-      run(db, `UPDATE messages SET ${changed.map((k) => `${k} = ?`).join(', ')}, updated_at = ? WHERE id = ?`, ...changed.map((k) => next[k]), t, messageId)
-    } else {
-      run(db, 'UPDATE messages SET updated_at = ? WHERE id = ?', t, messageId)
+    // Attachments: only those of the input the message came from, in the order given.
+    const currentAttachments = all(db, 'SELECT attachment_id FROM message_attachments WHERE message_id = ? ORDER BY position, attachment_id', messageId).map((a) => a.attachment_id)
+    let attachmentIds = null
+    if (patch.attachment_ids !== undefined) {
+      attachmentIds = [...new Set(patch.attachment_ids)]
+      const own = new Set(row.input_id === null ? [] : all(db, 'SELECT id FROM attachments WHERE input_id = ?', row.input_id).map((a) => a.id))
+      for (const id of attachmentIds) if (!own.has(id)) throw fail(`El adjunto ${id} no pertenece al envío de este mensaje.`, 'attachment_invalid')
     }
+    const sameAttachments = attachmentIds === null || (attachmentIds.length === currentAttachments.length && attachmentIds.every((id, i) => id === currentAttachments[i]))
+
+    const changed = Object.entries(next).filter(([k, v]) => row[k] !== v).map(([k]) => k)
+    if (changed.length === 0 && sameAssignees && sameAttachments) return
+    const t = now()
+    const version = row.version + 1
+    const setClause = [...changed.map((k) => `${k} = ?`), 'updated_at = ?', 'edited_at = ?', 'version = ?'].join(', ')
+    run(db, `UPDATE messages SET ${setClause} WHERE id = ?`, ...changed.map((k) => next[k]), t, t, version, messageId)
     if (!sameAssignees) {
       run(db, 'DELETE FROM message_assignees WHERE message_id = ?', messageId)
       for (const id of assigneeIds) run(db, 'INSERT INTO message_assignees (message_id, member_id) VALUES (?, ?)', messageId, id)
+      // The new assignees learn it (directed notice); whoever edits does not notify themselves.
+      for (const id of assigneeIds) {
+        if (currentAssignees.includes(id) || id === actor.id) continue
+        events.publish({ kind: 'message', memberId: id, data: { message_id: messageId, title: next.title ?? row.title, author_id: actor.id, input_id: row.input_id, reason: 'assigned' } })
+      }
     }
-    const names = [...changed.map((k) => (k === 'fields_json' ? 'fields' : k)), ...(sameAssignees ? [] : ['assignee_ids'])]
-    audit(db, { memberId: actor.id, action: 'message.update', entity: 'message', entityId: messageId, detail: { fields: names }, now })
+    if (!sameAttachments) {
+      run(db, 'DELETE FROM message_attachments WHERE message_id = ?', messageId)
+      attachmentIds.forEach((id, ordinal) => run(db, 'INSERT INTO message_attachments (message_id, attachment_id, position) VALUES (?, ?, ?)', messageId, id, ordinal))
+    }
+    const names = [...changed.map((k) => (k === 'fields_json' ? 'fields' : k)), ...(sameAssignees ? [] : ['assignee_ids']), ...(sameAttachments ? [] : ['attachment_ids'])]
+    run(db, 'INSERT INTO message_edits (message_id, member_id, at, version, fields_json) VALUES (?, ?, ?, ?, ?)', messageId, actor.id, t, version, JSON.stringify(names))
+    audit(db, { memberId: actor.id, action: 'message.update', entity: 'message', entityId: messageId, detail: { fields: names, version }, now })
   })
   return getMessage(db, messageId)
 }

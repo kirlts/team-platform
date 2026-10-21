@@ -8,7 +8,7 @@ import { all, get, run } from '../db/index.js'
 import { parseJson } from '../db/util.js'
 import { coverage } from '../analyze/validate.js'
 import { audit } from './audit.js'
-import { badRequest, conflict, forbidden, notFound, unprocessable } from './errors.js'
+import { AppError, badRequest, conflict, forbidden, notFound, unprocessable } from './errors.js'
 import { transitionInput } from './inputs.js'
 import { checkAssignees, checkFields, newValidatorCache, resolveAreaAndTemplate, withoutNulls } from './validation.js'
 
@@ -94,6 +94,33 @@ export function saveProposalDraft ({ db, events, now = Date.now }, { inputId, me
   })
 }
 
+/**
+ * Writes the messages of a validated proposal and closes the input as `published`. The only place that creates
+ * messages (HP-005). Inside a transaction. `via` is 'manual' (the sender confirmed) or 'auto' (UD-071).
+ */
+function insertMessages ({ db, events, now }, { input, entries, via }) {
+  const memberId = input.author_id
+  const inputId = input.id
+  const t = now()
+  const createdIds = []
+  for (const e of entries) {
+    const r = run(db, `INSERT INTO messages (input_id, area_id, template_id, author_id, title, body, fields_json, status, created_at, updated_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)`,
+    inputId, e.areaId, e.templateId, memberId, e.title, e.body, JSON.stringify(e.fields), t, t)
+    const messageId = Number(r.lastInsertRowid)
+    for (const id of e.assigneeIds) run(db, 'INSERT INTO message_assignees (message_id, member_id) VALUES (?, ?)', messageId, id)
+    e.attachmentIds.forEach((id, ordinal) => run(db, 'INSERT INTO message_attachments (message_id, attachment_id, position) VALUES (?, ?, ?)', messageId, id, ordinal))
+    createdIds.push(messageId)
+  }
+  transitionInput(db, inputId, 'published', { now })
+  audit(db, { memberId, action: 'input.publish', entity: 'input', entityId: inputId, detail: { msgRows: createdIds, via }, now })
+  // One notice per new message, in the shape the panel bell consumes.
+  for (const [i, id] of createdIds.entries()) {
+    events.publish({ kind: 'message', data: { message_id: id, title: entries[i].title, author_id: memberId, input_id: inputId } })
+  }
+  return createdIds
+}
+
 /** Validates and publishes. Without `proposal.messages` the saved draft is published. Returns the ids of the created messages. */
 export function publishProposal ({ db, events, now = Date.now }, { inputId, memberId, proposal }) {
   return events.transaction(() => {
@@ -108,25 +135,32 @@ export function publishProposal ({ db, events, now = Date.now }, { inputId, memb
       : proposal
     const entries = validateProposal(db, inputId, toPublish, unprocessable)
     checkUnits(db, inputId, toPublish, unprocessable, { complete: true })
-    const t = now()
-    const createdIds = []
-
-    for (const e of entries) {
-      const r = run(db, `INSERT INTO messages (input_id, area_id, template_id, author_id, title, body, fields_json, status, created_at, updated_at)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)`,
-      inputId, e.areaId, e.templateId, memberId, e.title, e.body, JSON.stringify(e.fields), t, t)
-      const messageId = Number(r.lastInsertRowid)
-      for (const id of e.assigneeIds) run(db, 'INSERT INTO message_assignees (message_id, member_id) VALUES (?, ?)', messageId, id)
-      e.attachmentIds.forEach((id, ordinal) => run(db, 'INSERT INTO message_attachments (message_id, attachment_id, position) VALUES (?, ?, ?)', messageId, id, ordinal))
-      createdIds.push(messageId)
-    }
-
-    transitionInput(db, inputId, 'published', { now })
-    audit(db, { memberId, action: 'input.publish', entity: 'input', entityId: inputId, detail: { msgRows: createdIds }, now })
-    // One notice per new message, in the shape the panel bell consumes.
-    for (const [i, id] of createdIds.entries()) {
-      events.publish({ kind: 'message', data: { message_id: id, title: entries[i].title, author_id: memberId, input_id: inputId } })
-    }
-    return createdIds
+    return insertMessages({ db, events, now }, { input, entries, via: 'manual' })
   })
+}
+
+/**
+ * Automatic publication (UD-071): called by the analysis in the transaction that closes its job, with the input
+ * already `proposed`. It publishes the saved proposal with the same validation as the manual route. It never
+ * throws for a proposal that does not validate (an empty one, a required field missing, a deleted area): the input
+ * stays `proposed` with `error_code = 'publish_blocked'` and the reason, visible to its sender, who fixes it and
+ * publishes by hand. Idempotent: an input that is not `proposed` (already published, cancelled) is left alone.
+ * Returns { published, messageIds, reason }.
+ */
+export function autoPublishProposal ({ db, events, now = Date.now }, inputId) {
+  const input = get(db, 'SELECT * FROM inputs WHERE id = ?', inputId)
+  if (!input || input.status !== 'proposed') return { published: false, messageIds: [], reason: 'not_proposed' }
+  const saved = parseJson(get(db, 'SELECT payload_json FROM proposals WHERE input_id = ?', inputId)?.payload_json, {})
+  let entries
+  try {
+    entries = validateProposal(db, inputId, saved, unprocessable)
+    checkUnits(db, inputId, saved, unprocessable, { complete: true })
+  } catch (error) {
+    if (!(error instanceof AppError)) throw error
+    run(db, 'UPDATE inputs SET error = ?, error_code = ?, updated_at = ? WHERE id = ?', error.message, 'publish_blocked', now(), inputId)
+    audit(db, { memberId: input.author_id, action: 'input.publish.blocked', entity: 'input', entityId: inputId, detail: { code: error.code }, now })
+    return { published: false, messageIds: [], reason: error.code }
+  }
+  const messageIds = insertMessages({ db, events, now }, { input, entries, via: 'auto' })
+  return { published: true, messageIds, reason: null }
 }

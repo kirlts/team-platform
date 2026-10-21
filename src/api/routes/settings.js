@@ -4,7 +4,7 @@
 // when configured and not when the first job fails.
 
 import { audit } from '../../domain/audit.js'
-import { getProject, getProviderOverrides, getProviderSettings, MODALITIES, mergeOverrides, setProjectDescription, setProviderOverrides } from '../../domain/settings.js'
+import { getAutoPublish, getProject, getProviderOverrides, getProviderSettings, MODALITIES, mergeOverrides, setAutoPublish, setProjectDescription, setProviderOverrides } from '../../domain/settings.js'
 import { tooLarge, unprocessable } from '../../domain/errors.js'
 import { readProjectUpload } from '../upload.js'
 
@@ -99,5 +99,27 @@ export function registerSettingsRoutes (app, ctx) {
     setProjectDescription(db, description)
     audit(db, { memberId: request.member.id, action: 'settings.project.update', entity: 'settings', detail: { length: [...description].length } })
     return getProject(db, config)
+  })
+
+  // Publication mode (UD-071): any member reads it, the editor writes it.
+  const publicationView = { type: 'object', properties: { auto_publish: { type: 'boolean' } }, required: ['auto_publish'] }
+
+  app.get('/settings/publication', {
+    onRequest: [requireRole('member')],
+    schema: { summary: 'Modo de publicación', description: '`auto_publish`: con `true` (por omisión) los mensajes de una propuesta válida se publican solos al terminar el análisis; con `false` la propuesta espera la confirmación de su emisor (UD-071).', response: { 200: publicationView } }
+  }, async () => ({ auto_publish: getAutoPublish(db) }))
+
+  app.patch('/settings/publication', {
+    onRequest: [requireRole('editor')],
+    schema: {
+      summary: 'Cambiar el modo de publicación (editor)',
+      description: 'Con `auto_publish: false` vuelve la revisión previa: la propuesta queda `proposed` hasta que su emisor la publique. Sólo afecta a los análisis que terminen después; lo ya publicado no se toca.',
+      body: { type: 'object', required: ['auto_publish'], additionalProperties: false, properties: { auto_publish: { type: 'boolean' } } },
+      response: { 200: publicationView }
+    }
+  }, async (request) => {
+    setAutoPublish(db, request.body.auto_publish)
+    audit(db, { memberId: request.member.id, action: 'settings.publication', entity: 'settings', detail: { auto_publish: request.body.auto_publish } })
+    return { auto_publish: getAutoPublish(db) }
   })
 }

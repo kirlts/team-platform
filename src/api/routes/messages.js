@@ -61,8 +61,8 @@ export function registerMessageRoutes (app, ctx) {
   app.patch('/messages/:id', {
     onRequest: [requireRole('member')],
     schema: {
-      summary: 'Editar un mensaje en el lugar (su emisor o un editor): título, texto, campos, destinatarios y área',
-      description: 'Actualización parcial (UD-017). Cambiar el área exige `template_id` de esa área. Se puede editar un mensaje respondido o cerrado. Repetir la misma edición deja el mismo estado. 403 si no es el emisor ni un editor; un valor inexistente o un campo desconocido es 400. No hay historial de versiones.',
+      summary: 'Editar un mensaje publicado (sólo su emisor): título, texto, campos, plantilla, área, destinatarios y adjuntos',
+      description: 'Actualización parcial (UD-017, UD-071). `version` es obligatoria: la que se leyó en el mensaje; si otra edición se coló en medio, 409 `edit_conflict` con la `version` vigente y no se escribe nada. Cambiar el área exige `template_id` de esa área. `attachment_ids` reordena o quita adjuntos del envío del que nació el mensaje. Se puede editar un mensaje respondido o cerrado. Repetir la misma edición deja el mismo estado y la misma `version`. Cada edición real sube `version`, fija `edited_at`, deja una fila en `edits` (quién, cuándo y qué campos, sin valores) y avisa a los destinatarios nuevos. 403 `not_message_author` si no es el emisor, tampoco un editor; un valor inexistente o un campo desconocido es 400.',
       params: idParams(),
       body: messagePatchBody,
       response: { 200: messageDetail }

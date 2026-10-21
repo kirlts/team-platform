@@ -14,7 +14,8 @@ import { parseJson } from '../db/util.js'
 import { permanent } from './errors.js'
 import { DEFAULT_LANGUAGE } from './language.js'
 import { recentInputsFor, transitionInput } from './inputs.js'
-import { getProject } from './settings.js'
+import { autoPublishProposal } from './proposals.js'
+import { getAutoPublish, getProject } from './settings.js'
 import { blobPath } from './storage.js'
 
 // ExtractError codes that can clear up by themselves on retry (network of the link's site). Any other
@@ -211,12 +212,20 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
 
         return () => {
           // Inside the transaction that closes the job. Each message carries its area and template.
+          // Idempotent: a repeated run on an input that is already published (or discarded) writes nothing (UD-071).
+          const current = get(db, 'SELECT status FROM inputs WHERE id = ?', inputId)?.status
+          if (current === 'published') return
           run(db, `INSERT INTO proposals (input_id, payload_json, units_json, created_at) VALUES (?, ?, ?, ?)
                    ON CONFLICT(input_id) DO UPDATE SET payload_json = excluded.payload_json, units_json = excluded.units_json, created_at = excluded.created_at`,
           inputId, JSON.stringify(proposalObj), JSON.stringify((result.units ?? []).map((u) => ({ id: u.id, text: u.text }))), now())
           transitionInput(db, inputId, 'proposed', { now })
-          events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: 'Propuesta lista' })
-          events.publishForJob(job.id, { kind: 'done', data: { status: 'done', input_status: 'proposed' } })
+          // UD-071: a valid proposal is published right here, in this same transaction; otherwise it waits as `proposed`.
+          const outcome = getAutoPublish(db) ? autoPublishProposal({ db, events, now }, inputId) : { published: false, messageIds: [] }
+          events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: outcome.published ? 'Publicado' : 'Propuesta lista' })
+          events.publishForJob(job.id, {
+            kind: 'done',
+            data: { status: 'done', input_status: outcome.published ? 'published' : 'proposed', message_ids: outcome.messageIds.map(String) }
+          })
         }
       },
 

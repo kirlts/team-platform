@@ -243,3 +243,15 @@ RULES:
 - Rutas `PATCH /messages/:id` (título, cuerpo, campos, destinatarios, área) y `PATCH /inputs/:id/proposal` (la propuesta antes de publicar, para que una edición no se pierda al cerrar la pestaña).
 - Prohibición del panel medida en el navegador, como en un proyecto anterior del autor: ninguna vista desplaza el documento a 1440×900 ni a 1280×720, con lo sembrado y con cada lista multiplicada por ocho, y ningún carril con desplazamiento propio fuera de una lista blanca declarada.
 **Condiciones de reversión:** Ninguna prevista.
+
+## [UD-018] El idioma de salida del análisis se fija por cuenta y se puede cambiar por envío
+
+**Fecha:** 2026-10-20
+**Contexto:** Con UD-015 los prompts del analizador pasan a inglés. Hacía falta fijar en qué idioma se redactan los mensajes que produce.
+**Decisión:** Martín, textual: «si vamos a tener prompt en inglés necesitamos poder fijar de alguna forma el lenguaje de output y que por defecto sea el que está configurado por cuenta». Cada miembro tiene un idioma en su cuenta (Configuración, por omisión el del equipo, `OUTPUT_LANGUAGE`, que por omisión es `es`); el análisis de un envío redacta títulos, cuerpos y campos en el idioma de la cuenta de quien envía, y la barra de envío permite cambiarlo para ese envío. El idioma viaja al modelo como dato del contexto (un código BCP 47), nunca se deduce con reglas sobre el texto.
+**Alternativas descartadas:**
+- Responder en el idioma del input: un audio en inglés de un cliente produciría mensajes en inglés para un equipo que trabaja en español.
+- Un idioma fijo para todo el equipo: no permite a un miembro que trabaja en otro idioma.
+**Consecuencias:**
+- Columna `language` en `members`, campo opcional `output_language` en `POST /inputs`, `bundle.output_language` hacia el analizador, y una prueba con el proveedor real de que un input en un idioma sale redactado en el idioma pedido.
+**Condiciones de reversión:** Ninguna prevista.

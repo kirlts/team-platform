@@ -14,20 +14,22 @@ import { checkAssignees, checkFields, newValidatorCache, resolveAreaAndTemplate,
 /**
  * Validates every message of a proposal against the database. Returns the normalised entries, in order:
  * { title, body, areaId, templateId, fields, assigneeIds, attachmentIds, unitIds }. `fail(message, code)` builds the
- * error to throw (422 when publishing, 400 when saving a draft).
+ * error to throw (422 when publishing, 400 when saving a draft). With `draft: true` only shape and ids are checked
+ * (area, template, members, attachments): a title, a text or a required template field still empty is accepted,
+ * because the panel saves after every in-place edit; completeness is enforced when publishing.
  */
-export function validateProposal (db, inputId, proposal, fail) {
+export function validateProposal (db, inputId, proposal, fail, { draft = false } = {}) {
   if (!Array.isArray(proposal.messages) || proposal.messages.length === 0) throw fail('La propuesta necesita al menos un mensaje.', 'messages_empty')
   const cache = newValidatorCache()
   const inputAttachmentIds = new Set(all(db, 'SELECT id FROM attachments WHERE input_id = ?', inputId).map((a) => a.id))
   return proposal.messages.map((m, i) => {
     const scope = `Mensaje ${i + 1}`
-    if (typeof m.title !== 'string' || m.title.trim() === '') throw fail(`${scope}: el título es obligatorio.`, 'message_invalid')
-    if (typeof m.body !== 'string' || m.body.trim() === '') throw fail(`${scope}: el texto es obligatorio.`, 'message_invalid')
+    if (!draft && (typeof m.title !== 'string' || m.title.trim() === '')) throw fail(`${scope}: el título es obligatorio.`, 'message_invalid')
+    if (!draft && (typeof m.body !== 'string' || m.body.trim() === '')) throw fail(`${scope}: el texto es obligatorio.`, 'message_invalid')
     // Without a chosen template (the sender changed the area in the proposal) the area's first current one applies.
     const tpl = resolveAreaAndTemplate(db, { areaId: m.area_id, templateId: m.template_id }, { scope, fail })
     const fields = withoutNulls(m.fields)
-    checkFields(tpl, fields, { scope, fail, cache })
+    if (!draft) checkFields(tpl, fields, { scope, fail, cache })
     const assigneeIds = checkAssignees(db, m.assignee_ids, { scope, fail })
     const attachmentIds = [...new Set(m.attachment_ids ?? [])]
     for (const id of attachmentIds) if (!inputAttachmentIds.has(id)) throw fail(`${scope}: el adjunto ${id} no pertenece al input.`, 'attachment_invalid')
@@ -37,7 +39,7 @@ export function validateProposal (db, inputId, proposal, fail) {
 
 /**
  * Saves the proposal as the input's current draft (UD-017: an edit must survive closing the tab). Only the author,
- * only while the input is `proposed`. The draft replaces the analyzer's proposal: there is no version history.
+ * only while the input is `proposed`. Shape and ids only: an incomplete draft is stored, and publishing demands completeness. The draft replaces the analyzer's proposal: there is no version history.
  * Returns the stored proposal, or null when nothing changed (same draft saved twice).
  */
 export function saveProposalDraft ({ db, events, now = Date.now }, { inputId, memberId, proposal }) {
@@ -48,7 +50,14 @@ export function saveProposalDraft ({ db, events, now = Date.now }, { inputId, me
     if (input.status === 'published') throw conflict('El input ya se publicó; sus mensajes se editan uno por uno.', 'already_published')
     if (input.status !== 'proposed') throw conflict(`El input está «${input.status}»; sólo se edita una propuesta lista.`, 'not_proposed')
 
-    const entries = validateProposal(db, inputId, proposal, badRequest)
+    const entries = validateProposal(db, inputId, proposal, badRequest, { draft: true })
+    // Units: every cited unit must be one the analysis numbered for this input.
+    const known = new Set(parseJson(get(db, 'SELECT units_json FROM proposals WHERE input_id = ?', inputId)?.units_json, []).map((u) => String(u.id)))
+    const cited = [
+      ...proposal.messages.flatMap((m, i) => (m.unit_ids ?? []).map((u) => [u, `Mensaje ${i + 1}: `])),
+      ...(proposal.discarded ?? []).flatMap((d) => (d.unit_ids ?? []).map((u) => [u, 'Descartado: ']))
+    ]
+    for (const [unit, scope] of cited) if (!known.has(String(unit))) throw badRequest(`${scope}la unidad ${unit} no existe en el input.`, 'unit_invalid')
     const draft = {
       messages: entries.map((e, i) => ({
         area_id: e.areaId, template_id: e.templateId, title: e.title, body: e.body, fields: e.fields,

@@ -43,7 +43,7 @@ export const ITEMS = [
   { id: 'settings', label: 'Configuración', route: '/settings', detector: ['settings'], telemetry: 'settings', tasks: [], book: 'settings' },
   { id: 'connections', label: 'Conexiones', route: '/connections', detector: ['connections'], telemetry: 'connections', tasks: [], book: 'connections' },
   { id: 'login', label: 'Entrada', route: 'anonymous', detector: ['login'], telemetry: null, tasks: [], book: 'login' },
-  { id: 'flow-send', label: 'Flujo enviar, revisar y publicar', route: 'flow', detector: ['home'], telemetry: 'home', tasks: ['send_publish'], book: 'flow-send' },
+  { id: 'flow-send', label: 'Flujo enviar y publicar', route: 'flow', detector: ['home'], telemetry: 'home', tasks: ['send_publish'], book: 'flow-send' },
   { id: 'flow-reply-close', label: 'Flujo responder y cerrar', route: 'flow', detector: ['message-detail'], telemetry: 'message-detail', tasks: ['reply', 'close'], book: 'message-detail' }
 ]
 
@@ -142,12 +142,12 @@ async function capture (outDir, items, { port }) {
         try {
           await login(page, panel.origin, 'ana')
           if (flow.id === 'flow-send') {
-            const bar = page.getByLabel('Nuevo mensaje', { exact: true }).last()
+            // The send as the interface works now: the analysis ends and the message is published by itself (UD-070). Test ids and `data-ui-stage`, not texts (H-1706).
+            const bar = page.getByTestId('compose-text').last()
             await step(1, 'redactar', async () => { await page.goto(panel.origin); await bar.fill('Corregir el desalineado del sidebar en la vista dashboard.\n\nAgregar la sincronización con WhatsApp en el sidebar.\n\nPregunta: ¿el audio máximo sigue en 25 MB?') })
-            await step(2, 'enviado', async () => { await page.getByRole('button', { name: 'Enviar' }).first().click() })
-            await step(3, 'bandeja', async () => { await page.getByTestId('tray-control').click() })
-            await step(4, 'analisis', async () => { await page.getByRole('button', { name: /^Enviar \d+ mensajes?$/ }).waitFor({ timeout: 30000 }) })
-            await step(5, 'publicado', async () => { await page.getByRole('button', { name: /^Enviar \d+ mensajes?$/ }).click(); await page.locator('[data-notice]').getByText(/^Se publicaron/).waitFor({ timeout: 15000 }) })
+            await step(2, 'enviado', async () => { await page.getByTestId('compose-send').first().click() })
+            await step(3, 'desplegable', async () => { await page.getByTestId('send-drawer').waitFor() })
+            await step(4, 'publicado', async () => { await page.getByTestId('published-message').first().waitFor({ timeout: 30000 }) })
           } else {
             await step(1, 'ficha', async () => { await page.goto(`${panel.origin}/messages/${message.id}`); await page.locator('main h1').waitFor() })
             await step(2, 'respuesta', async () => { await page.getByLabel('Respuesta', { exact: true }).fill('Confirmado: queda para esta semana.') })

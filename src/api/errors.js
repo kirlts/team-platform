@@ -1,4 +1,4 @@
-// Traducción de errores a la forma de la API: { code, message, ...extra }. Los mensajes van en español.
+// Translation of errors to the API shape: { code, message, ...extra }. Messages are in Spanish.
 
 import { AppError } from '../domain/errors.js'
 
@@ -27,7 +27,7 @@ const LABELS = {
   minItems: (e, fieldName) => `El campo «${fieldName}» necesita al menos ${e.params.limit} elemento(s).`
 }
 
-/** `schemaErrorFormatter` de Fastify: de los errores de Ajv a un 400 con mensaje en español. */
+/** Fastify's `schemaErrorFormatter`: from Ajv errors to a 400 with a Spanish message. */
 export function schemaErrorFormatter (errors, dataVar) {
   const firstEditor = errors[0]
   const fieldName = (firstEditor.instancePath || '').replace(/^\//, '').replaceAll('/', '.') || dataVar
@@ -43,7 +43,7 @@ export function installErrorHandler (app) {
     }
     const knownCode = MULTIPART[error.code]
     if (knownCode) {
-      reply.header('connection', 'close') // el cuerpo restante no se va a leer
+      reply.header('connection', 'close') // the remaining body will not be read
       return reply.code(knownCode[0]).send({ code: knownCode[1], message: knownCode[2] })
     }
     if (error.validation) {
@@ -52,8 +52,8 @@ export function installErrorHandler (app) {
     if (error.statusCode && error.statusCode < 500) {
       return reply.code(error.statusCode).send({ code: 'bad_request', message: 'Petición inválida.' })
     }
-    request.log.error({ err: error }, 'error no controlado')
-    if (process.env.TEAM_DEBUG_ERRORS) console.error(error.stack) // ayuda de desarrollo: las pruebas corren con el registro apagado
+    request.log.error({ err: error }, 'unhandled error')
+    if (process.env.TEAM_DEBUG_ERRORS) console.error(error.stack) // development aid: tests run with logging turned off
     return reply.code(500).send({ code: 'internal', message: 'Error interno del servidor.' })
   })
 }

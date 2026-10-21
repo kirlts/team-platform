@@ -1,6 +1,6 @@
-// Catálogo de la interfaz en español latinoamericano neutro (UD-018). Es la fuente de las claves:
-// `en.ts` tiene exactamente las mismas, y `src/i18n.test.ts` lo comprueba. Rótulos como sustantivos
-// cortos, sin segunda persona (UD-013, MASTER-SPEC §6).
+// Interface catalogue in neutral Latin American Spanish (UD-018). It is the source of the keys:
+// `en.ts` has exactly the same ones, and `src/i18n.test.ts` checks it. Labels are short nouns,
+// with no second person (UD-013, MASTER-SPEC §6).
 import type { Message } from './core'
 
 export const es419 = {
@@ -24,8 +24,6 @@ export const es419 = {
 
   'language.es-419': 'Español (Latinoamérica)',
   'language.en': 'English',
-  'language.short.es-419': 'ES',
-  'language.short.en': 'EN',
 
   'nav.label': 'Navegación',
   'nav.open': 'Abrir navegación',
@@ -41,7 +39,6 @@ export const es419 = {
   'nav.foldAreas': 'Plegar áreas',
   'nav.unfoldAreas': 'Desplegar áreas',
   'nav.pending': { one: '{n} pendiente', other: '{n} pendientes' },
-  'menu.label': 'Menú',
   'bell.label': 'Avisos',
   'bell.unread': 'Avisos, {n} sin leer',
   'bell.none': 'Sin avisos',
@@ -208,6 +205,7 @@ export const es419 = {
   'area.pick': 'Área: {area}. {template}',
 
   'recipients.label': 'Destinatarios',
+  'recipients.andMore': 'y {n} más',
   'recipients.to': 'para',
   'recipients.more': 'Ver los {n} destinatarios restantes',
   'recipients.addShort': 'Destinatario',
@@ -288,7 +286,6 @@ export const es419 = {
   'team.profile': 'Perfil',
   'team.profileOf': 'Perfil de {name}',
   'team.noProfile': 'Sin perfil',
-  'team.languageOf': 'Idioma: {code}',
   'team.roleMember': 'Miembro',
   'team.roleEditor': 'Editor',
   'team.roleOf': 'Rol de {name}',
@@ -334,9 +331,7 @@ export const es419 = {
   'project.edited': 'Descripción del proyecto',
   'project.uploaded': 'Archivo de la descripción',
 
-  'login.missing': 'Falta el correo o la contraseña',
   'areas.editorOnly': 'Sólo el Editor administra las áreas',
-  'nav.logoutShort': 'Salir',
   'nav.connectionsGroup': 'Conexiones',
   'connections.api': 'API',
   'connections.mcp': 'MCP',
@@ -490,6 +485,23 @@ export const es419 = {
   'error.image_heic_unsupported': 'La foto está en formato HEIC (iPhone); exportarla como JPEG',
   'analysis.error.image_heic_unsupported': 'La foto está en formato HEIC (iPhone); exportarla como JPEG',
   'analysis.error.invalid_output': 'La respuesta del modelo no fue válida',
+  'login.missingEmail': 'Falta el correo',
+  'login.missingPassword': 'Falta la contraseña',
+  'common.retrying': 'Reintentando',
+  'common.loadFailedTitle': 'No se pudo cargar',
+  'templates.done': 'Listo',
+  'templates.saved': 'Guardado',
+  'areas.deletedRow': '«{name}» eliminada',
+  'card.replyTo': 'Respuesta a',
+  'detail.reopenedAs': 'Mensaje reabierto: {status}',
+  'team.deactivatedDone': '{name} desactivado',
+  'team.reactivatedDone': '{name} reactivado',
+  'project.replacedDone': 'Descripción reemplazada',
+  'provider.missingKey': 'Falta {variable} en el servidor',
+  'filter.addActive': { one: 'Filtro, {n} aplicado', other: 'Filtro, {n} aplicados' },
+  'connections.editorOnly': 'Sólo el Editor administra las conexiones',
+  'nav.foldConnections': 'Plegar conexiones',
+  'nav.unfoldConnections': 'Desplegar conexiones',
 } as const satisfies Record<string, Message>
 
 export type MessageKey = keyof typeof es419

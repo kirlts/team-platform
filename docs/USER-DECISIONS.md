@@ -403,3 +403,28 @@ RULES:
 - Las pruebas de ajuste (`test:fit`) y de flujos (`test:flows`) abren el diálogo de envíos antes de revisar una propuesta; la medida de alto de diez envíos se toma sobre la página, que no cambia.
 - Una captura a 1440×900 y a 390×844, en claro y oscuro, de Inicio sin envíos, con el envío plegado y con el diálogo abierto.
 **Condiciones de reversión:** Si revisar en un diálogo resulta incómodo frente a ver los últimos mensajes mientras se revisa, se vuelve a una disposición en la página con alto repartido.
+## [UD-031] Las descripciones de área son largas y detalladas, y juntas son mutuamente excluyentes y colectivamente exhaustivas
+
+**Fecha:** 2026-10-21
+**Contexto:** El modelo clasificaba con una frontera entre áreas escondida en el prompt (H-91) que no coincidía con la de las referencias, y las descripciones cortas de `templates/areas.json` dejaban los casos borde sin regla de desempate.
+**Decisión:** Martín, textual: «La gracia es que este programa sea algo que uno puede demorarse un día entero en configurar, pensando muy bien las cosas y llegando a descripciones muy detalladas y buenas, de modo que sean orgánicamente exhaustivas y colectivamente inclusivas. Está bien que las descripciones sean largas y verbosas, porque eso aporta exactitud al contexto. Está bien enfocarse en que cubran los casos borde y hacer un diseño robusto. Ten en mente mutuamente excluyente y colectivamente exhaustivo.» Cada descripción tiene de dos a cuatro párrafos: qué es y qué la distingue, casos típicos, casos borde con la regla de desempate hacia las áreas vecinas, y qué no es. El prompt conserva solo la mecánica (unidades, grupos, esquema) y ninguna definición de producto.
+**Alternativas descartadas:**
+- Descripciones de una o dos oraciones con un ejemplo: dejan sin regla los casos que las dos lecturas de las referencias resuelven distinto.
+- Definiciones en el prompt: el Editor no las ve ni las edita.
+**Consecuencias:**
+- Una prueba exige de dos a cuatro párrafos, los títulos «Casos típicos» y «Casos borde» y que cada área sea el destino de un desempate en alguna vecina.
+- La vista de Áreas del panel debe mostrar textos de este largo plegados con vista previa (`test:fit`).
+- Las descripciones se miden contra las dos lecturas de las referencias con `bench/area-vs-references.mjs`.
+**Condiciones de reversión:** Que el costo de tokens del catálogo (cacheado) o la edición en el panel lo vuelvan inmanejable.
+
+## [UD-032] Un insumo sin pedido produce un mensaje que resume lo compartido; nunca una propuesta vacía
+
+**Fecha:** 2026-10-21
+**Contexto:** En la prueba en el VPS, un enlace compartido sin pedido («Mira este artículo, me parece relevante para nosotros») dejó 68 unidades descartadas y una propuesta con cero mensajes que no se podía publicar (`422 messages_empty`) (H-133). Con un video, además, la frase que solo señala el adjunto salió como un mensaje genérico aparte (H-135).
+**Decisión:** Se aplica UD-021 («una persona no manda algo por nada») a los insumos sin pedido: si tras la segunda lectura no hay un pedido explícito, el punto es lo compartido y se agrupa en el área que el catálogo describe para lo que se comparte sin pedido ni falla (hoy Idea), con un mensaje que lo resume para que el equipo lo vea y decida. La frase que solo señala un adjunto («mira este video») no es un punto: va con el punto que el adjunto muestra.
+**Alternativas descartadas:**
+- Un estado «sin pedido» en el panel con la publicación apagada: deja a la persona con un insumo que el sistema no entendió, que es lo que UD-021 prohíbe.
+- Una regla sobre las palabras del texto para reconocer un enlace sin pedido: interpretaría texto con una regla.
+**Consecuencias:**
+- Dos pruebas con el proveedor real (enlace sin pedido y video con una frase que lo señala) y dos regresiones de prompt (REG-010 y REG-011).
+**Condiciones de reversión:** Que Martín prefiera un estado explícito «sin pedido» en el panel.

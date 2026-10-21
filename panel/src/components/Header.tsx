@@ -1,8 +1,6 @@
-import { Bell, Menu, PanelLeft } from '@/components/icons'
-import { useEffect, useState } from 'react'
+import { Bell, PanelLeft } from '@/components/icons'
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useFormat, useT } from '@/i18n'
 import { ToneIcon, ToneMark } from '@/components/NotifyBadge'
@@ -11,22 +9,15 @@ import { mineCounts } from '@/lib/pending'
 import { topTone, toneTotal } from '@/lib/priority'
 import { useSummary } from '@/lib/queries'
 import { cn } from '@/lib/utils'
-import { readThemePref, saveTheme, type ThemePref } from '@/lib/theme'
-import { useNavigateTo } from './navigation'
 import { Wordmark } from './Wordmark'
 import { useLookups } from './lookups'
 
-/** «[Nombre] TEAM» header with the notice bell and the account menu. */
-export function Header({ projectName, onOpenNav, onLogout }: { projectName?: string; onOpenNav: () => void; onLogout: () => void }) {
+/**
+ * «[Nombre] TEAM» header with the notice bell. Configuración, the theme and the sign-out live in the sidebar and in
+ * Configuración, which on a phone is the drawer this bar opens: a menu here would be a second way to each of them (J2-A-38, J2-A-40).
+ */
+export function Header({ projectName, onOpenNav }: { projectName?: string; onOpenNav: () => void }) {
   const t = useT()
-  const go = useNavigateTo()
-  const [theme, setTheme] = useState<ThemePref>(readThemePref)
-
-  useEffect(() => {
-    const sync = () => setTheme(readThemePref())
-    window.addEventListener('team-theme', sync)
-    return () => window.removeEventListener('team-theme', sync)
-  }, [])
 
   return (
     <header className="chrome-bar flex min-h-[3.5rem] shrink-0 items-center justify-between gap-2 py-1 pl-2 pr-3 md:pl-5">
@@ -40,30 +31,6 @@ export function Header({ projectName, onOpenNav, onLogout }: { projectName?: str
       </div>
       <div className="flex items-center gap-0.5">
         <NotificationBell />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" aria-label={t('menu.label')} className="max-md:w-8 max-md:justify-center max-md:px-0">
-              <Menu size={18} aria-hidden />
-              <span className="max-md:hidden">{t('menu.label')}</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => go('/settings')}>{t('nav.settings')}</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuRadioGroup
-              value={theme}
-              onValueChange={(v) => {
-                if (v === 'light' || v === 'dark' || v === 'system') saveTheme(v)
-              }}
-            >
-              <DropdownMenuRadioItem value="light">{t('settings.themeLight')}</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="dark">{t('settings.themeDark')}</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="system">{t('settings.themeSystem')}</DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={onLogout}>{t('nav.logout')}</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
     </header>
   )

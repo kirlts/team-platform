@@ -1,21 +1,21 @@
-// Esquemas JSON de entrada y salida (MASTER-SPEC §7.1). Son la fuente del contrato OpenAPI que publica
-// `GET /api/openapi.json`: contrato primero. Los de salida pasan por fast-json-stringify: sirven al contrato de
-// la API y para no filtrar columnas. No validan lo que devuelve un modelo (eso lo hace la instancia propia de
-// Ajv del dominio, informe 03 §7.1).
+// JSON schemas for input and output (MASTER-SPEC §7.1). They are the source of the OpenAPI contract published by
+// `GET /api/openapi.json`: contract first. The output ones go through fast-json-stringify: they serve the contract of
+// the API and avoid leaking columns. They do not validate what a model returns (that is done by the domain's own
+// Ajv instance, report 03 §7.1).
 //
-// Convenciones de la API:
-//  - Todo id viaja como texto en las respuestas ({ type: 'string' } convierte el entero de la base). En las
-//    entradas se acepta texto o entero; un id con formato inválido es 400.
-//  - Todo POST y PATCH rechaza propiedades desconocidas (additionalProperties: false).
-//  - Toda lista es { items, page, limit, total } (src/api/pagination.js).
+// API conventions:
+//  - Every id travels as text in responses ({ type: 'string' } converts the database integer). In
+//    inputs, text or integer is accepted; an id with an invalid format is a 400.
+//  - Every POST and PATCH rejects unknown properties (additionalProperties: false).
+//  - Every list is { items, page, limit, total } (src/api/pagination.js).
 
 const id = { type: 'string' }
-// fast-json-stringify no convierte número a texto en una unión de tipos: un id que puede faltar es texto anulable.
+// fast-json-stringify does not convert a number to text in a type union: an id that may be missing is nullable text.
 const nullableId = { type: 'string', nullable: true }
 const nullableText = { type: 'string', nullable: true }
 const intVar = { type: 'integer' }
 
-/** Id en una entrada: acepta "12" o 12; Ajv lo convierte a entero y rechaza lo que no lo es. */
+/** Id in an input: accepts "12" or 12; Ajv converts it to an integer and rejects what is not one. */
 export const idIn = { type: 'integer', minimum: 1 }
 
 export const idParams = (nameValue = 'id') => ({
@@ -110,7 +110,8 @@ const proposalMessage = {
   properties: {
     area_id: id, template_id: nullableId, title: { type: 'string' }, body: { type: 'string' },
     fields: { type: 'object', additionalProperties: true },
-    assignee_ids: { type: 'array', items: id }, attachment_ids: { type: 'array', items: id }, unit_ids: { type: 'array', items: id }
+    assignee_ids: { type: 'array', items: id }, attachment_ids: { type: 'array', items: id }, unit_ids: { type: 'array', items: id },
+    source: { type: 'string', enum: ['frame'] }
   }
 }
 
@@ -144,9 +145,9 @@ export const inputView = {
 }
 
 /**
- * Propuesta (§7.5) que el emisor guarda como borrador (PATCH /inputs/:id/proposal) o publica: cada mensaje con su área y plantilla (la plantilla puede ir null y
- * entonces rige la primera vigente del área). `discarded` y `unit_ids` los trae la propuesta tal cual y se
- * aceptan sin usarse: la cobertura ya la verificó el analizador.
+ * Proposal (§7.5) that the sender saves as a draft (PATCH /inputs/:id/proposal) or publishes: each message with its area and
+ * template (the template may be null and then the first current one of the area applies). `discarded` and `unit_ids`
+ * come from the proposal as is and are accepted without being used: the analyzer already verified coverage.
  */
 export const proposalBody = {
   type: 'object',
@@ -168,7 +169,8 @@ export const proposalBody = {
           fields: { type: 'object', additionalProperties: { type: ['string', 'null'] } },
           assignee_ids: { type: 'array', items: idIn },
           attachment_ids: { type: 'array', items: idIn },
-          unit_ids: { type: 'array', items: { type: 'integer' } }
+          unit_ids: { type: 'array', items: { type: 'integer' } },
+          source: { type: 'string', enum: ['frame'] }
         }
       }
     },

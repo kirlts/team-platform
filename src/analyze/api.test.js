@@ -1,12 +1,13 @@
-// Pruebas del analizador `api` con el proveedor falso: la mecánica (numerar, validar, rescatar,
-// reintentar) se prueba sin red y sin modelo.
+// Tests of the `api` analyzer with the fake provider: the mechanics (numbering, validating, rescuing,
+// retrying) are tested without network and without a model.
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   createFakeProviders, ProviderHttpError, ProviderMaxTokensError, ProviderOutputError, ProviderRefusalError,
 } from '../providers/index.js';
+import { ProviderTimeoutError } from '../providers/errors.js';
 import { analyze, AnalyzeInputError, warmCatalog, warmTemplate } from './index.js';
-import { decomposeSystem } from './prompts.js';
+import { classifySystem, decomposeSystem } from './prompts.js';
 import { parseTemplate } from './templates.js';
 import {
   bugMessage, CLASSIFY_ERRORS, CLASSIFY_MULTI, goodDecomposition, lastUserText, makeBundle, MULTI_TEXT, scriptByRequest, seed, unitIdsIn,
@@ -14,24 +15,24 @@ import {
 
 const ids = (messages) => messages.map((m) => m.unit_ids);
 
-describe('analyze (api): un input con tres puntos mezclados', () => {
-  it('sale en tres mensajes con unit_ids disjuntos, sin huecos y con lo no accionable descartado', async () => {
+describe('analyze (api): an input with three mixed points', () => {
+  it('comes out as three messages with disjoint unit_ids, no gaps and the non-actionable discarded', async () => {
     const bundle = await makeBundle();
     const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, goodDecomposition()] });
     const result = await analyze(bundle, { providers: fake });
 
     assert.equal(result.status, 'ok');
     const { proposal } = result;
-    assert.ok(!('area_id' in proposal) && !('template_id' in proposal), 'el área y la plantilla son de cada mensaje, no de la raíz');
+    assert.ok(!('area_id' in proposal) && !('template_id' in proposal), 'the area and the template belong to each message, not to the root');
     assert.equal(proposal.messages.length, 3);
     assert.ok(proposal.messages.every((m) => m.area_id === 2 && m.template_id === 2));
     assert.deepEqual(ids(proposal.messages), [[2, 4], [3], [5]]);
     const all = [...proposal.messages.flatMap((m) => m.unit_ids), ...proposal.discarded.flatMap((d) => d.unit_ids)].sort((a, b) => a - b);
-    assert.deepEqual(all, [1, 2, 3, 4, 5, 6], 'cada unidad exactamente una vez');
-    assert.equal(new Set(all).size, all.length, 'disjuntos');
+    assert.deepEqual(all, [1, 2, 3, 4, 5, 6], 'each unit exactly once');
+    assert.equal(new Set(all).size, all.length, 'disjoint');
     assert.equal(result.units.length, 6);
 
-    // Dos llamadas, ambas con esfuerzo low y sin pensamiento (medición del 2026-10-20 citada en config.js).
+    // Two calls, both with low effort and no thinking (measurement of 2026-10-20 cited in config.js).
     assert.equal(fake.calls.text.length, 2);
     assert.equal(fake.calls.text[0].effort, 'low');
     assert.equal(fake.calls.text[1].effort, 'low');
@@ -44,7 +45,7 @@ describe('analyze (api): un input con tres puntos mezclados', () => {
     assert.equal(result.stats.groups, 1);
   });
 
-  it('la primera llamada ve áreas y plantillas con título y descripción; la segunda, el cuerpo de la plantilla del grupo y sólo sus unidades', async () => {
+  it('the first call sees areas and templates with title and description; the second, the body of the group template and only its units', async () => {
     const bundle = await makeBundle();
     const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, goodDecomposition()] });
     await analyze(bundle, { providers: fake });
@@ -52,27 +53,27 @@ describe('analyze (api): un input con tres puntos mezclados', () => {
     const catalog = classify.system.join('\n');
     for (const a of bundle.areas) assert.ok(catalog.includes(a.description));
     for (const t of bundle.templates) assert.ok(catalog.includes(t.description));
-    assert.ok(!catalog.includes('## Método'), 'la primera llamada no ve cuerpos');
-    assert.match(lastUserText(classify), /\[u1\] \(p1\) Hola equipo[\s\S]*\[u6\] \(p6\) Gracias/, 'la clasificación ve todo el input');
+    assert.ok(!catalog.includes('## Método'), 'the first call does not see bodies');
+    assert.match(lastUserText(classify), /\[u1\] \(p1\) Hola equipo[\s\S]*\[u6\] \(p6\) Gracias/, 'the classification sees the whole input');
     const groupItem = classify.schema.properties.groups.items.properties;
     assert.deepEqual(groupItem.area_id.enum, [1, 2, 3, 4, 5]);
     assert.deepEqual(groupItem.template_id.enum, [1, 2, 3, 4, 5]);
     assert.deepEqual(Object.keys(groupItem), ['unit_ids', 'area_id', 'template_id']);
 
-    assert.ok(decompose.system.join('\n').includes('Un mensaje por error.'), 'cuerpo de la plantilla del grupo');
+    assert.ok(decompose.system.join('\n').includes('Un mensaje por error.'), 'body of the group template');
     assert.ok(!decompose.system.join('\n').includes('Un mensaje por idea.'));
-    // Esquema compilado de los fields de la plantilla (gramática de Anthropic).
+    // Compiled schema of the template fields (Anthropic grammar).
     const f = decompose.schema.properties.messages.items.properties.fields;
     assert.deepEqual(f.required, ['steps', 'expected', 'actual']);
     assert.deepEqual(Object.keys(f.properties), ['steps', 'expected', 'actual', 'where', 'impact']);
-    // El usuario recibe equipo, adjuntos y sólo las unidades del grupo, con su numeración original.
+    // The user message carries the team, the attachments and only the units of the group, with their original numbering.
     const user = lastUserText(decompose);
-    assert.match(user, /Miembro 2: Bruno Silva/);
-    assert.match(user, /Adjunto 10: image \(sin texto extraído\)/);
+    assert.match(user, /Member 2: Bruno Silva/);
+    assert.match(user, /Attachment 10: image \(no extracted text\)/);
     assert.deepEqual(unitIdsIn(decompose), [2, 3, 4, 5]);
   });
 
-  it('el progreso avanza por pasos reales, sin retroceder, hasta 100', async () => {
+  it('progress advances in real steps, never going back, up to 100', async () => {
     const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, goodDecomposition()] });
     const progress = [];
     await analyze(await makeBundle(), { providers: fake, onProgress: (p) => progress.push(p) });
@@ -82,22 +83,22 @@ describe('analyze (api): un input con tres puntos mezclados', () => {
     assert.ok(progress.every((p) => typeof p.phrase === 'string' && p.phrase.length > 0));
   });
 
-  it('un input sin texto utilizable es un error de entrada', async () => {
+  it('an input without usable text is an input error', async () => {
     const bundle = await makeBundle({ text: '   ', attachments: [{ id: 1, kind: 'image', extracted: null }] });
     await assert.rejects(analyze(bundle, { providers: createFakeProviders({ text: [] }) }), AnalyzeInputError);
   });
 
-  it('ANALYZER desconocido es un error; por omisión es api', async () => {
+  it('an unknown ANALYZER is an error; the default is api', async () => {
     const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, goodDecomposition()] });
     await assert.rejects(analyze(await makeBundle(), { providers: fake, env: { ANALYZER: 'otro' } }), AnalyzeInputError);
     assert.equal((await analyze(await makeBundle(), { providers: fake, env: {} })).status, 'ok');
   });
 });
 
-describe('analyze (api): solapes, huecos y rescate', () => {
-  it('un solape dispara un único pase de rescate sobre el conflicto', async () => {
+describe('analyze (api): overlaps, gaps and rescue', () => {
+  it('an overlap triggers a single rescue pass over the conflict', async () => {
     const solapada = goodDecomposition();
-    solapada.messages[1].unit_ids = [3, 4]; // u4 queda también en el mensaje A
+    solapada.messages[1].unit_ids = [3, 4]; // u4 also stays in message A
     const rescate = {
       messages: [bugMessage([2, 3, 4], 'Corregir ingreso en blanco y fechas del CSV')],
     };
@@ -105,46 +106,48 @@ describe('analyze (api): solapes, huecos y rescate', () => {
     const result = await analyze(await makeBundle(), { providers: fake });
 
     assert.equal(result.status, 'ok');
-    assert.equal(fake.calls.text.length, 3, 'clasificar, descomponer y un rescate');
+    assert.equal(fake.calls.text.length, 3, 'classify, decompose and one rescue');
     assert.equal(result.stats.rescues, 1);
     assert.deepEqual(result.calls.map((c) => c.step), ['classify', 'decompose[t2]', 'rescue[t2]']);
-    // El rescate recibe sólo el conflicto: la u4 y los mensajes que la compartían, no el input entero.
+    // The rescue receives only the conflict: u4 and the messages that shared it, not the whole input.
     const prompt = lastUserText(fake.calls.text[2]);
-    assert.match(prompt, /u4: mensaje 1 y mensaje 2/);
+    assert.match(prompt, /u4: message 1 and message 2/);
     assert.match(prompt, /\[u4\]/);
-    assert.ok(!prompt.includes('[u5]'), 'las unidades sin conflicto no se reenvían');
-    assert.ok(!prompt.includes('[u1]'), 'ni las de otros grupos');
+    assert.ok(!prompt.includes('[u5]'), 'units without a conflict are not resent');
+    assert.ok(!prompt.includes('[u1]'), 'nor those of other groups');
     assert.deepEqual(result.proposal.messages.map((m) => m.unit_ids), [[2, 3, 4], [5]]);
   });
 
-  it('un hueco (unidad en ningún lugar) también se rescata, sólo con las unidades faltantes', async () => {
+  it('a gap (a unit in no place) is also rescued, with only the missing units', async () => {
     const conHueco = goodDecomposition();
-    conHueco.messages.pop(); // falta la u5
+    conHueco.messages.pop(); // u5 is missing
     const rescate = { messages: [bugMessage([5], 'Corregir notificaciones duplicadas')] };
     const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, conHueco, rescate] });
     const result = await analyze(await makeBundle(), { providers: fake });
     assert.equal(result.status, 'ok');
     assert.equal(fake.calls.text.length, 3);
     const prompt = lastUserText(fake.calls.text[2]);
-    assert.match(prompt, /Unidades que ninguna parte de la salida cubre: u5/);
-    assert.ok(!prompt.includes('Mensajes que hay que rehacer'));
+    assert.match(prompt, /Units that no part of the output covers: u5/);
+    assert.ok(!prompt.includes('Messages to redo'));
     assert.deepEqual(ids(result.proposal.messages), [[2, 4], [3], [5]]);
-    assert.deepEqual(result.proposal.discarded.map((d) => d.unit_ids), [[1], [6]], 'los descartes de la clasificación se conservan');
+    assert.deepEqual(result.proposal.discarded.map((d) => d.unit_ids), [[1], [6]], 'the discards of the classification are kept');
   });
 
-  it('si el rescate no resuelve el conflicto, el trabajo falla con el motivo y no hay un segundo rescate', async () => {
+  it('if the rescue does not resolve the conflict, there is no second rescue: the rest is repaired by set arithmetic', async () => {
     const solapada = goodDecomposition();
     solapada.messages[1].unit_ids = [3, 4];
     const rescateMalo = { messages: [bugMessage([2, 3, 4], 'A'), bugMessage([4], 'B')] };
     const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, solapada, rescateMalo] });
     const result = await analyze(await makeBundle(), { providers: fake });
-    assert.equal(result.status, 'invalid');
-    assert.equal(result.reason, 'mece_conflict');
-    assert.match(result.errors.join('\n'), /la unidad 4 está en más de un lugar/);
-    assert.equal(fake.calls.text.length, 3);
+    assert.equal(result.status, 'ok');
+    assert.equal(fake.calls.text.length, 3, 'one rescue and no more');
+    assert.equal(result.stats.repaired, 1);
+    // Unit 4 stays in the first message that cites it; every unit is in exactly one place.
+    assert.deepEqual(ids(result.proposal.messages).flat().sort((a, b) => a - b), [2, 3, 4, 5]);
+    assert.deepEqual(ids(result.proposal.messages)[0], [2, 3, 4]);
   });
 
-  it('con rescuePasses en 0 el conflicto falla sin llamar al rescate', async () => {
+  it('with rescuePasses at 0 the conflict fails without calling the rescue', async () => {
     const solapada = goodDecomposition();
     solapada.messages[1].unit_ids = [3, 4];
     const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, solapada] });
@@ -154,8 +157,8 @@ describe('analyze (api): solapes, huecos y rescate', () => {
   });
 });
 
-describe('analyze (api): salida inválida', () => {
-  it('se reintenta una vez con el error como contexto y la segunda salida buena se acepta', async () => {
+describe('analyze (api): invalid output', () => {
+  it('it retries once with the error as context and a good second output is accepted', async () => {
     const mala = goodDecomposition();
     delete mala.messages[0].fields.actual;
     const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, mala, goodDecomposition()] });
@@ -165,21 +168,21 @@ describe('analyze (api): salida inválida', () => {
     const retry = fake.calls.text[2];
     assert.equal(retry.messages.at(-2).role, 'assistant');
     assert.equal(retry.messages.at(-1).role, 'user');
-    assert.match(retry.messages.at(-1).content, /mensaje 1.*falta «actual»/);
+    assert.match(retry.messages.at(-1).content, /message 1.*missing «actual»/);
     assert.equal(result.stats.invalid_retries, 1);
   });
 
-  it('si el reintento también es inválido, el trabajo falla con los errores y no se reintenta otra vez', async () => {
+  it('if the retry is also invalid, the job fails with the errors and does not retry again', async () => {
     const mala = goodDecomposition();
     mala.messages[0].assignee_ids = [99];
     const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, mala, mala] });
     const result = await analyze(await makeBundle(), { providers: fake });
     assert.equal(result.status, 'invalid');
-    assert.match(result.errors.join('\n'), /el miembro 99 no existe/);
+    assert.match(result.errors.join('\n'), /member 99 does not exist/);
     assert.equal(fake.calls.text.length, 3);
   });
 
-  it('un adjunto que no es del input y una unidad inexistente son errores de referencia', async () => {
+  it('an attachment that is not from the input and a nonexistent unit are reference errors', async () => {
     const mala = goodDecomposition();
     mala.messages[1].attachment_ids = [55];
     mala.messages[2].unit_ids = [5, 77];
@@ -187,22 +190,22 @@ describe('analyze (api): salida inválida', () => {
     const result = await analyze(await makeBundle(), { providers: fake });
     assert.equal(result.status, 'invalid');
     const errors = result.errors.join('\n');
-    assert.match(errors, /el adjunto 55 no pertenece al input/);
-    assert.match(errors, /la unidad 77 no existe/);
+    assert.match(errors, /attachment 55 does not belong to the input/);
+    assert.match(errors, /unit 77 does not exist/);
   });
 
-  it('una clasificación con la plantilla de otra área se reintenta', async () => {
+  it('a classification with the template of another area is retried', async () => {
     const mala = { ...CLASSIFY_ERRORS, groups: [{ unit_ids: [2, 3, 4, 5], area_id: 1, template_id: 2 }] };
     const fake = createFakeProviders({ text: [mala, CLASSIFY_ERRORS, goodDecomposition()] });
     const result = await analyze(await makeBundle(), { providers: fake });
     assert.equal(result.status, 'ok');
-    assert.match(fake.calls.text[1].messages.at(-1).content, /grupo 1: la plantilla 2 no pertenece al área 1/);
+    assert.match(fake.calls.text[1].messages.at(-1).content, /group 1: template 2 does not belong to area 1/);
   });
 
-  it('una clasificación con una unidad en dos grupos o sin lugar se reintenta con ese conflicto', async () => {
+  it('a classification with a unit in two groups or in no place is retried with that conflict', async () => {
     const solapa = { groups: [{ unit_ids: [2, 3], area_id: 2, template_id: 2 }, { unit_ids: [3, 4, 5], area_id: 1, template_id: 1 }], discarded: CLASSIFY_ERRORS.discarded };
     const hueco = { groups: [{ unit_ids: [2, 3, 4], area_id: 2, template_id: 2 }], discarded: CLASSIFY_ERRORS.discarded };
-    for (const [mala, esperado] of [[solapa, /la unidad 3 está en más de un lugar \(grupo 1 y grupo 2\)/], [hueco, /las unidades 5 no están en ningún lugar/]]) {
+    for (const [mala, esperado] of [[solapa, /unit 3 is in more than one place \(group 1 and group 2\)/], [hueco, /units 5 are in no place/]]) {
       const fake = createFakeProviders({ text: [mala, CLASSIFY_ERRORS, goodDecomposition()] });
       const result = await analyze(await makeBundle(), { providers: fake });
       assert.equal(result.status, 'ok');
@@ -210,7 +213,18 @@ describe('analyze (api): salida inválida', () => {
     }
   });
 
-  it('una salida que ni es JSON (ProviderOutputError) se reintenta con su motivo', async () => {
+  it('a classification whose retry still leaves a gap is repaired by set arithmetic instead of failing the input', async () => {
+    const bundle = await makeBundle();
+    const withGap = { groups: [{ unit_ids: [2, 3, 5], area_id: 2, template_id: 2 }], discarded: [{ unit_ids: [1], reason: 'saludo' }] }; // units 4 and 6 are nowhere
+    const decomposition = { messages: [bugMessage([2, 3, 4, 5, 6], 'Corregir cinco puntos')] };
+    const fake = createFakeProviders({ text: [withGap, withGap, decomposition] });
+    const result = await analyze(bundle, { providers: fake });
+    assert.equal(result.status, 'ok');
+    assert.equal(result.stats.classification_repaired, 1);
+    assert.deepEqual(ids(result.proposal.messages), [[2, 3, 4, 5, 6]]);
+  });
+
+  it('an output that is not even JSON (ProviderOutputError) is retried with its reason', async () => {
     const roto = new ProviderOutputError('anthropic: la salida no es JSON', { raw: '{"messages": [' });
     const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, roto, goodDecomposition()] });
     const result = await analyze(await makeBundle(), { providers: fake });
@@ -220,9 +234,9 @@ describe('analyze (api): salida inválida', () => {
   });
 });
 
-describe('analyze (api): refusal y max_tokens son estados', () => {
-  it('un refusal en la clasificación no se reintenta y vuelve con su categoría', async () => {
-    const refusal = new ProviderRefusalError('rechazo', { category: 'cyber', usage: { input_tokens: 50, output_tokens: 0, cached_tokens: 0 } });
+describe('analyze (api): refusal and max_tokens are states', () => {
+  it('a refusal in the classification is not retried and returns with its category', async () => {
+    const refusal = new ProviderRefusalError('refusal', { category: 'cyber', usage: { input_tokens: 50, output_tokens: 0, cached_tokens: 0 } });
     const fake = createFakeProviders({ text: [refusal] });
     const result = await analyze(await makeBundle(), { providers: fake });
     assert.equal(result.status, 'refusal');
@@ -230,19 +244,19 @@ describe('analyze (api): refusal y max_tokens son estados', () => {
     assert.equal(result.step, 'classify');
     assert.equal(fake.calls.text.length, 1);
     assert.equal(result.calls[0].outcome, 'refusal');
-    assert.equal(result.calls[0].usage.input_tokens, 50, 'el rechazo también cuesta tokens y se registra');
+    assert.equal(result.calls[0].usage.input_tokens, 50, 'the refusal also costs tokens and is recorded');
   });
 
-  it('un refusal en la descomposición tampoco se reintenta igual', async () => {
-    const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, new ProviderRefusalError('rechazo', { category: 'general_harms' })] });
+  it('a refusal in the decomposition is not retried either', async () => {
+    const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, new ProviderRefusalError('refusal', { category: 'general_harms' })] });
     const result = await analyze(await makeBundle(), { providers: fake });
     assert.equal(result.status, 'refusal');
     assert.equal(result.step, 'decompose[t2]');
     assert.equal(fake.calls.text.length, 2);
   });
 
-  it('un corte por max_tokens reintenta una vez con el doble', async () => {
-    const corte = new ProviderMaxTokensError('corte', { maxTokens: 16_000 });
+  it('a max_tokens cutoff retries once with double', async () => {
+    const corte = new ProviderMaxTokensError('cutoff', { maxTokens: 16_000 });
     const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, corte, goodDecomposition()] });
     const result = await analyze(await makeBundle(), { providers: fake });
     assert.equal(result.status, 'ok');
@@ -251,8 +265,8 @@ describe('analyze (api): refusal y max_tokens son estados', () => {
     assert.equal(result.stats.max_tokens_retries, 1);
   });
 
-  it('dos cortes seguidos son el estado max_tokens', async () => {
-    const corte = new ProviderMaxTokensError('corte');
+  it('two cutoffs in a row are the max_tokens state', async () => {
+    const corte = new ProviderMaxTokensError('cutoff');
     const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, corte, corte] });
     const result = await analyze(await makeBundle(), { providers: fake });
     assert.equal(result.status, 'max_tokens');
@@ -260,49 +274,66 @@ describe('analyze (api): refusal y max_tokens son estados', () => {
     assert.equal(fake.calls.text.length, 3);
   });
 
-  it('un fallo de red se lanza con las llamadas ya hechas', async () => {
+  it('a network failure is thrown with the calls already made', async () => {
     const http = new ProviderHttpError('503', { status: 503, retryable: true });
     const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, http] });
-    await assert.rejects(analyze(await makeBundle(), { providers: fake }), (err) => err === http && err.calls.length === 2 && err.calls[1].outcome === 'http');
+    await assert.rejects(analyze(await makeBundle(), { providers: fake, config: { httpRetries: 0 } }), (err) => err === http && err.calls.length === 2 && err.calls[1].outcome === 'http');
+  });
+
+  it('a retryable HTTP failure is repeated on the same provider after the wait it asks for, and the analysis goes on', async () => {
+    const limited = new ProviderHttpError('429', { status: 429, retryable: true, retryAfterMs: 1 });
+    const good = scriptByRequest({ classification: CLASSIFY_ERRORS, decompositions: { 'Reporte de error': goodDecomposition() } });
+    const fake = createFakeProviders({ text: (req, n) => (n === 0 ? limited : good(req)) });
+    const result = await analyze(await makeBundle(), { providers: fake });
+    assert.equal(result.status, 'ok');
+    assert.equal(result.stats.http_retries, 1);
+    assert.deepEqual(result.calls.slice(0, 2).map((c) => c.outcome), ['http', 'ok']);
+  });
+
+  it('after the retries it is thrown, with every attempt in the calls', async () => {
+    const down = new ProviderHttpError('503', { status: 503, retryable: true, retryAfterMs: 1 });
+    const fake = createFakeProviders({ text: () => down });
+    await assert.rejects(analyze(await makeBundle(), { providers: fake, config: { httpRetries: 2 } }), (err) => err === down && err.calls.length === 3);
   });
 });
 
-describe('analyze (api): partición', () => {
+describe('analyze (api): partitioning', () => {
   function longBundleText(sections) {
     return Array.from({ length: sections }, (_, i) => `# Sección ${i + 1}\nLa pantalla ${i + 1} falla de una forma distinta.`).join('\n\n');
   }
-  // Guion del falso: cada trozo se clasifica como un grupo de errores y cada grupo se descompone con un mensaje por unidad.
+  // Fake script: each chunk is classified as one group of errors and each group is decomposed with one message per unit.
   const errorGroupPerRequest = (req) => {
     if (req.schema.properties.groups) return { groups: [{ unit_ids: unitIdsIn(req), area_id: 2, template_id: 2 }], discarded: [] };
     return { messages: unitIdsIn(req).map((u) => bugMessage([u], `Corregir pantalla ${u}`)) };
   };
   const smallThreshold = (bundle) => {
-    const probe = decomposeSystem(parseTemplate(bundle.templates[1].body_markdown)).join('\n').length;
-    return Math.ceil(probe / 3) + 150;
+    const decomposition = decomposeSystem(parseTemplate(bundle.templates[1].body_markdown), undefined, 'en').join('\n').length;
+    // The classification also carries the catalog, whose area descriptions are long: the threshold must leave room for both prefixes.
+    const classification = classifySystem({ areas: bundle.areas, templates: bundle.templates, language: 'en' }).join('\n').length;
+    return Math.ceil(Math.max(decomposition, classification) / 3) + 150;
   };
 
-  it('sobre el umbral parte en trozos disjuntos, clasifica y descompone en paralelo y reduce sin llamada extra', async () => {
+  it('above the threshold it splits into disjoint chunks, classifies and decomposes in parallel and reduces with no extra call', async () => {
     const bundle = await makeBundle({ text: longBundleText(8), attachments: [] });
     const fake = createFakeProviders({ text: errorGroupPerRequest });
     const result = await analyze(bundle, { providers: fake, config: { partitionThresholdTokens: smallThreshold(bundle), partitionConcurrency: 2 } });
     assert.equal(result.status, 'ok');
-    assert.ok(result.stats.partitioned && result.stats.chunks > 1, `trozos: ${result.stats.chunks}`);
-    assert.equal(fake.calls.text.length, result.stats.classification_chunks + result.stats.chunks, 'una clasificación por trozo y un mapa por trozo; la reducción es determinista');
+    assert.ok(result.stats.partitioned && result.stats.chunks > 1, `chunks: ${result.stats.chunks}`);
+    assert.equal(fake.calls.text.length, result.stats.classification_chunks + result.stats.chunks, 'one classification per chunk and one map per chunk; the reduction is deterministic');
     assert.deepEqual(result.proposal.messages.flatMap((m) => m.unit_ids), result.units.map((u) => u.id));
-    assert.ok(fake.calls.text.some((c) => /Este es el trozo \d de \d/.test(lastUserText(c))));
   });
 
-  it('un trozo que cita unidades de otro trozo es un error de referencia', async () => {
+  it('a chunk that cites units of another chunk is a reference error', async () => {
     const bundle = await makeBundle({ text: longBundleText(8), attachments: [] });
     const fake = createFakeProviders({
       text: (req) => (req.schema.properties.groups ? errorGroupPerRequest(req) : { messages: [bugMessage([1, 8], 'x')] }),
     });
     const result = await analyze(bundle, { providers: fake, config: { partitionThresholdTokens: smallThreshold(bundle), partitionConcurrency: 1, invalidOutputRetries: 0 } });
     assert.equal(result.status, 'invalid');
-    assert.match(result.errors.join('\n'), /no existe en este input/);
+    assert.match(result.errors.join('\n'), /does not exist in this input/);
   });
 
-  it('un monólogo transcrito va entero aunque supere el umbral', async () => {
+  it('a transcribed monologue goes whole even if it exceeds the threshold', async () => {
     const audio = Array.from({ length: 40 }, (_, i) => `[00:${String(i).padStart(2, '0')}] frase ${i} del monólogo sobre una falla`).join('\n');
     const bundle = await makeBundle({ text: '', attachments: [{ id: 3, kind: 'audio', extracted: audio }] });
     const fake = createFakeProviders({
@@ -318,7 +349,7 @@ describe('analyze (api): partición', () => {
   });
 });
 
-describe('analyze (api): un input con un error, una idea y una pregunta', () => {
+describe('analyze (api): an input with a bug, an idea and a question', () => {
   const decompositions = (ruido = {}) => ({
     'Reporte de error': { messages: [bugMessage([2], 'Corregir botón Enviar de la vista previa')] },
     Idea: {
@@ -330,7 +361,7 @@ describe('analyze (api): un input con un error, una idea y una pregunta', () => 
     ...ruido,
   });
 
-  it('cada mensaje va en su área con su plantilla; una llamada de descomposición por grupo, con la plantilla del grupo', async () => {
+  it('each message goes in its area with its template; one decomposition call per group, with the group template', async () => {
     const bundle = await makeBundle({ text: MULTI_TEXT, attachments: [] });
     const fake = createFakeProviders({ text: scriptByRequest({ classification: CLASSIFY_MULTI, decompositions: decompositions() }) });
     const result = await analyze(bundle, { providers: fake });
@@ -338,19 +369,19 @@ describe('analyze (api): un input con un error, una idea y una pregunta', () => 
     assert.equal(result.status, 'ok');
     assert.deepEqual(result.proposal.messages.map((m) => [m.unit_ids, m.area_id, m.template_id]), [[[2], 2, 2], [[3], 1, 1], [[4], 5, 5]]);
     assert.deepEqual(result.proposal.discarded.map((d) => d.unit_ids), [[1], [5]]);
-    assert.equal(fake.calls.text.length, 4, 'clasificar y un grupo por plantilla');
+    assert.equal(fake.calls.text.length, 4, 'classify and one group per template');
     assert.equal(result.stats.groups, 3);
     assert.deepEqual(result.calls.map((c) => c.step).sort(), ['classify', 'decompose[t1]', 'decompose[t2]', 'decompose[t5]']);
-    // Cada grupo ve el cuerpo de su plantilla y sólo sus unidades.
-    const byTemplate = (name) => fake.calls.text.find((c) => c.system.join('\n').includes(`Plantilla elegida: ${name}`));
+    // Each group sees the body of its template and only its units.
+    const byTemplate = (name) => fake.calls.text.find((c) => c.system.join('\n').includes(`Chosen template: ${name}`));
     assert.ok(byTemplate('Idea').system.join('\n').includes('Un mensaje por idea.'));
     assert.deepEqual(unitIdsIn(byTemplate('Idea')), [3]);
     assert.deepEqual(unitIdsIn(byTemplate('Pregunta')), [4]);
-    // El esquema de fields de cada grupo es el de su plantilla.
+    // The fields schema of each group is that of its template.
     assert.deepEqual(byTemplate('Pregunta').schema.properties.messages.items.properties.fields.required, ['question']);
   });
 
-  it('los grupos se descomponen a la vez (hasta partitionConcurrency)', async () => {
+  it('groups are decomposed at the same time (up to partitionConcurrency)', async () => {
     const bundle = await makeBundle({ text: MULTI_TEXT, attachments: [] });
     let activas = 0;
     let maximo = 0;
@@ -372,17 +403,17 @@ describe('analyze (api): un input con un error, una idea y una pregunta', () => 
     assert.equal(serie.status, 'ok', JSON.stringify(serie.errors));
   });
 
-  it('un campo de otra plantilla en el mensaje de un grupo es un error de ese grupo', async () => {
+  it('a field of another template in the message of a group is an error of that group', async () => {
     const bundle = await makeBundle({ text: MULTI_TEXT, attachments: [] });
     const mala = decompositions({ Pregunta: { messages: [{ unit_ids: [4], title: 'Q', fields: { steps: 'x' }, body: 'Q', assignee_ids: [], attachment_ids: [] }] } });
     const fake = createFakeProviders({ text: scriptByRequest({ classification: CLASSIFY_MULTI, decompositions: mala }), });
     const result = await analyze(bundle, { providers: fake, config: { invalidOutputRetries: 0 } });
     assert.equal(result.status, 'invalid');
-    assert.match(result.errors.join('\n'), /falta «question»/);
-    assert.match(result.errors.join('\n'), /sobra «steps»/);
+    assert.match(result.errors.join('\n'), /missing «question»/);
+    assert.match(result.errors.join('\n'), /unexpected «steps»/);
   });
 
-  it('el rescate de un grupo no toca a los demás', async () => {
+  it('the rescue of one group does not touch the others', async () => {
     const bundle = await makeBundle({ text: MULTI_TEXT, attachments: [] });
     let primera = true;
     const solapada = { messages: [bugMessage([2], 'A'), bugMessage([2], 'B')] };
@@ -400,18 +431,167 @@ describe('analyze (api): un input con un error, una idea y una pregunta', () => 
     assert.equal(result.proposal.messages.length, 3);
   });
 
-  it('un input sin nada accionable termina sin mensajes y con todo descartado', async () => {
+  it('an input with nothing actionable ends with no messages only after a second, deeper reading', async () => {
     const bundle = await makeBundle({ text: 'Hola.\n\nGracias.', attachments: [] });
-    const fake = createFakeProviders({ text: [{ groups: [], discarded: [{ unit_ids: [1, 2], reason: 'charla' }] }] });
+    const empty = { groups: [], discarded: [{ unit_ids: [1, 2], reason: 'charla' }] };
+    const fake = createFakeProviders({ text: [empty, empty] });
     const result = await analyze(bundle, { providers: fake });
     assert.equal(result.status, 'ok');
     assert.deepEqual(result.proposal, { messages: [], discarded: [{ unit_ids: [1, 2], reason: 'charla' }] });
-    assert.equal(fake.calls.text.length, 1);
+    assert.equal(result.stats.second_pass, true);
+    assert.equal(fake.calls.text.length, 2, 'the first reading and the second one');
+    assert.match(fake.calls.text[1].messages[0].content, /Second reading/);
+    assert.match(fake.calls.text[0].messages[0].content, /^(?!Second reading)/);
   });
 });
 
-describe('analyze (api): perfiles de esquema', () => {
-  it('con un proveedor que exige todo requerido, lo opcional viaja como nulo y se limpia al final', async () => {
+describe('analyze (api): second reading (UD-021)', () => {
+  const found = { groups: [{ unit_ids: [1], area_id: 2, template_id: 2 }], discarded: [] };
+  const emptyFor = (ids) => ({ groups: [], discarded: [{ unit_ids: ids, reason: 'sin pedido' }] });
+  /** First classification empty, the following ones as given; any decomposition answers with `message`. */
+  const script = (afterFirst, message) => {
+    let classifications = 0;
+    return (req) => {
+      if (req.schema.properties.groups) {
+        classifications += 1;
+        return classifications === 1 ? emptyFor([1]) : afterFirst;
+      }
+      return { messages: [message] };
+    };
+  };
+
+  it('a first reading with no groups is read again and the second one yields a message', async () => {
+    const bundle = await makeBundle({ text: 'El botón de exportar no hace nada.', attachments: [] });
+    const fake = createFakeProviders({ text: script(found, bugMessage([1], 'Corregir el botón de exportar')) });
+    const result = await analyze(bundle, { providers: fake });
+    assert.equal(result.status, 'ok');
+    assert.equal(result.stats.second_pass, true);
+    assert.deepEqual(result.proposal.messages.map((m) => m.title), ['Corregir el botón de exportar']);
+    assert.ok(!('source' in result.proposal.messages[0]), 'a message born from text is not marked as inferred from an image');
+    const steps = fake.calls.text.map((c) => (c.schema.properties.groups ? 'classify' : 'decompose'));
+    assert.deepEqual(steps, ['classify', 'classify', 'decompose']);
+    assert.match(lastUserText(fake.calls.text[1]), /Second reading/);
+    assert.doesNotMatch(lastUserText(fake.calls.text[0]), /Second reading/);
+  });
+
+  it('a first reading that finds something does not run a second one', async () => {
+    const bundle = await makeBundle({ text: 'El botón de exportar no hace nada.', attachments: [] });
+    const fake = createFakeProviders({
+      text: scriptByRequest({ classification: found, decompositions: { 'Reporte de error': { messages: [bugMessage([1], 'Corregir el botón de exportar')] } } }),
+    });
+    const result = await analyze(bundle, { providers: fake });
+    assert.equal(result.status, 'ok');
+    assert.ok(!result.stats.second_pass);
+  });
+
+  it('an image sent alone is described again in more detail, and what comes out of it is marked as inferred from the image', async () => {
+    const bundle = await makeBundle({ text: '', attachments: [{ id: 7, kind: 'image', extracted: 'Una pantalla.' }] });
+    const asked = [];
+    const redescribe = async (attachment) => {
+      asked.push(attachment.id);
+      return 'Formulario de ingreso con el campo Correo vacío y el botón Enviar desalineado.';
+    };
+    const fake = createFakeProviders({ text: script(found, bugMessage([1], 'Corregir el botón Enviar desalineado')) });
+    const result = await analyze(bundle, { providers: fake, redescribe });
+    assert.equal(result.status, 'ok');
+    assert.deepEqual(asked, [7]);
+    assert.equal(result.stats.second_pass, true);
+    assert.match(lastUserText(fake.calls.text[1]), /Formulario de ingreso con el campo Correo vacío/);
+    assert.equal(result.proposal.messages[0].source, 'frame');
+    assert.match(result.units[0].text, /Formulario de ingreso/);
+  });
+
+  it('an image alone with no way to describe it again still gets a second classification', async () => {
+    const bundle = await makeBundle({ text: '', attachments: [{ id: 7, kind: 'image', extracted: 'Una pantalla con un panel de indicadores.' }] });
+    const fake = createFakeProviders({ text: script(found, bugMessage([1], 'Revisar el panel de indicadores')) });
+    const result = await analyze(bundle, { providers: fake });
+    assert.equal(result.stats.second_pass, true);
+    assert.equal(result.proposal.messages[0].source, 'frame');
+  });
+
+  it('long text is read again by sections, one classification each', async () => {
+    const text = Array.from({ length: 5 }, (_, i) => `Párrafo ${i + 1} sin pedido claro.`).join('\n\n');
+    const bundle = await makeBundle({ text, attachments: [] });
+    let calls = 0;
+    const fake = createFakeProviders({ text: (req) => { calls += 1; return { groups: [], discarded: [{ unit_ids: unitIdsIn(req), reason: 'charla' }] }; } });
+    const result = await analyze(bundle, { providers: fake, config: { secondPassSectionUnits: 2 } });
+    assert.equal(result.proposal.messages.length, 0);
+    assert.equal(calls, 1 + 3, 'the first reading and three sections of 2, 2 and 1 units');
+    assert.ok(fake.calls.text.slice(1).every((c) => /Second reading/.test(lastUserText(c))));
+  });
+});
+
+describe('analyze (api): every message has an owner when the team has members (H-86)', () => {
+  const decompositionSchema = (fake) => fake.calls.text.find((c) => !c.schema.properties.groups).schema.properties.messages.items.properties.assignee_ids;
+  const run = async (members) => {
+    const fake = createFakeProviders({ text: scriptByRequest({ classification: CLASSIFY_ERRORS, decompositions: { 'Reporte de error': goodDecomposition() } }) });
+    await analyze(await makeBundle({ members }), { providers: fake });
+    return decompositionSchema(fake);
+  };
+
+  it('the grammar of the decomposition requires at least one assignee id', async () => {
+    assert.equal((await run([{ id: 1, name: 'Ana', profile: 'x' }])).minItems, 1);
+  });
+
+  it('with an empty team the grammar does not ask for an owner nobody can be', async () => {
+    assert.equal((await run([])).minItems, undefined);
+  });
+});
+
+describe('analyze (api): fallback provider (H-18)', () => {
+  const goodScript = () => scriptByRequest({ classification: CLASSIFY_ERRORS, decompositions: { 'Reporte de error': goodDecomposition() } });
+
+  it('a refusal in the classification is repeated once on the fallback, which is recorded in calls', async () => {
+    const bundle = await makeBundle();
+    const good = goodScript();
+    const fake = createFakeProviders({ text: (req, n) => (n === 0 ? new ProviderRefusalError('no', { category: 'x' }) : good(req)), textFallback: [CLASSIFY_ERRORS] });
+    const result = await analyze(bundle, { providers: fake });
+    assert.equal(result.status, 'ok');
+    assert.equal(fake.calls.text.length, 2, 'the primary provider is tried once for the classification and then decomposes');
+    assert.equal(fake.calls.textFallback.length, 1);
+    const [primary, fallback] = result.calls;
+    assert.equal(primary.fallback, undefined);
+    assert.equal(primary.outcome, 'refusal');
+    assert.equal(fallback.fallback, true);
+    assert.equal(fallback.provider, 'fake-fallback');
+    assert.equal(result.stats.fallbacks, 1);
+  });
+
+  it('a retryable HTTP failure goes to the fallback as well', async () => {
+    const bundle = await makeBundle();
+    const good = goodScript();
+    const fake = createFakeProviders({ text: (req, n) => (n === 0 ? new ProviderHttpError('overloaded', { status: 529, retryable: true }) : good(req)), textFallback: [CLASSIFY_ERRORS] });
+    const result = await analyze(bundle, { providers: fake, config: { httpRetries: 0 } });
+    assert.equal(result.status, 'ok');
+    assert.equal(result.calls.filter((c) => c.fallback).length, 1);
+  });
+
+  it('without a fallback the behavior is the current one: a refusal is a state and an HTTP failure is thrown', async () => {
+    const refused = createFakeProviders({ text: [new ProviderRefusalError('no', { category: 'x' })] });
+    assert.equal(refused.textFallback, null);
+    assert.equal((await analyze(await makeBundle(), { providers: refused })).status, 'refusal');
+    const down = createFakeProviders({ text: [new ProviderHttpError('down', { status: 503, retryable: true })] });
+    await assert.rejects(analyze(await makeBundle(), { providers: down, config: { httpRetries: 0 } }), ProviderHttpError);
+  });
+
+  it('what the fallback does not cover is not repeated: a non-retryable HTTP failure and a timeout', async () => {
+    for (const error of [new ProviderHttpError('bad key', { status: 401, retryable: false }), new ProviderTimeoutError('slow', { timeoutMs: 5 })]) {
+      const fake = createFakeProviders({ text: [error], textFallback: goodScript() });
+      await assert.rejects(analyze(await makeBundle(), { providers: fake }), error.constructor);
+      assert.equal(fake.calls.textFallback.length, 0);
+    }
+  });
+
+  it('a refusal of the fallback itself comes back as the refusal state, with both calls recorded', async () => {
+    const fake = createFakeProviders({ text: [new ProviderRefusalError('no')], textFallback: [new ProviderRefusalError('tampoco')] });
+    const result = await analyze(await makeBundle(), { providers: fake });
+    assert.equal(result.status, 'refusal');
+    assert.deepEqual(result.calls.map((c) => Boolean(c.fallback)), [false, true]);
+  });
+});
+
+describe('analyze (api): schema profiles', () => {
+  it('with a provider that requires everything, optional fields travel as null and are cleaned at the end', async () => {
     const bundle = await makeBundle();
     const out = goodDecomposition();
     for (const m of out.messages) m.fields = { steps: 'a', expected: 'b', actual: 'c', where: null, impact: null };
@@ -425,24 +605,24 @@ describe('analyze (api): perfiles de esquema', () => {
   });
 });
 
-describe('analyze (api): caché del prompt de sistema', () => {
-  it('el sistema de la descomposición de cada plantilla inicial supera el mínimo cacheable de 512 tokens', async () => {
+describe('analyze (api): system prompt cache', () => {
+  it('the decomposition system of each initial template exceeds the cacheable minimum of 512 tokens', async () => {
     const { templates } = await seed();
     for (const row of templates) {
-      const system = decomposeSystem(parseTemplate(row.body_markdown)).join('\n');
-      assert.ok(system.length / 3 >= 512, `${row.name}: ${Math.round(system.length / 3)} tokens estimados`);
+      const system = decomposeSystem(parseTemplate(row.body_markdown), undefined, 'en').join('\n');
+      assert.ok(system.length / 3 >= 512, `${row.name}: ${Math.round(system.length / 3)} estimated tokens`);
     }
   });
 
-  it('las llamadas registran si su sistema es cacheable', async () => {
+  it('calls record whether their system is cacheable', async () => {
     const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, goodDecomposition()] });
     const result = await analyze(await makeBundle(), { providers: fake });
     assert.equal(result.calls[1].cacheable, true);
   });
 });
 
-describe('analyze (api): la descomposición de un grupo no descarta', () => {
-  it('el esquema de la segunda llamada no trae discarded y las unidades del grupo van todas en mensajes', async () => {
+describe('analyze (api): the decomposition of a group does not discard', () => {
+  it('the schema of the second call has no discarded and the units of the group all go in messages', async () => {
     const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, goodDecomposition()] });
     const result = await analyze(await makeBundle(), { providers: fake });
     assert.deepEqual(Object.keys(fake.calls.text[1].schema.properties), ['messages']);
@@ -450,14 +630,14 @@ describe('analyze (api): la descomposición de un grupo no descarta', () => {
     assert.equal(result.status, 'ok');
   });
 
-  it('un grupo que vuelve sin mensajes se reintenta: la clasificación ya lo eligió como un punto', async () => {
+  it('a group that comes back with no messages is retried: the classification already chose it as a point', async () => {
     const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, { messages: [] }, goodDecomposition()] });
     const result = await analyze(await makeBundle(), { providers: fake });
     assert.equal(result.status, 'ok');
-    assert.match(fake.calls.text[2].messages.at(-1).content, /el grupo no produjo ningún mensaje/);
+    assert.match(fake.calls.text[2].messages.at(-1).content, /the group produced no message/);
   });
 
-  it('una unidad del grupo que ningún mensaje cita es un hueco y va al rescate', async () => {
+  it('a unit of the group that no message cites is a gap and goes to the rescue', async () => {
     const conHueco = goodDecomposition();
     conHueco.messages.pop();
     const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, conHueco, { messages: [bugMessage([5], 'Corregir notificaciones duplicadas')] }] });
@@ -466,8 +646,8 @@ describe('analyze (api): la descomposición de un grupo no descarta', () => {
   });
 });
 
-describe('analyze (api): pensamiento por llamada', () => {
-  it('classifyThinking y decomposeThinking se pueden volver al pensamiento adaptativo, cada uno en su llamada', async () => {
+describe('analyze (api): thinking per call', () => {
+  it('classifyThinking and decomposeThinking can be set back to adaptive thinking, each in its own call', async () => {
     const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, goodDecomposition()] });
     await analyze(await makeBundle(), { providers: fake, config: { classifyThinking: null, decomposeThinking: 'disabled', decomposeEffort: 'medium' } });
     assert.ok(!('thinking' in fake.calls.text[0]));
@@ -477,20 +657,20 @@ describe('analyze (api): pensamiento por llamada', () => {
 });
 
 describe('warmTemplate', () => {
-  it('manda una solicitud mínima con el sistema y el esquema de la plantilla y registra la llamada', async () => {
+  it('sends a minimal request with the template system and schema and records the call', async () => {
     const { templates } = await seed();
     const fake = createFakeProviders({ text: [{ messages: [] }] });
     const { resolveConfig } = await import('./config.js');
-    const entry = await warmTemplate({ providers: fake, config: resolveConfig(), templateMarkdown: templates[1].body_markdown });
+    const entry = await warmTemplate({ providers: fake, config: resolveConfig(), templateMarkdown: templates[1].body_markdown, language: 'en' });
     assert.equal(entry.step, 'warmup');
     assert.equal(entry.ok, true);
     assert.equal(fake.calls.text.length, 1);
-    assert.deepEqual(fake.calls.text[0].system, decomposeSystem(parseTemplate(templates[1].body_markdown)));
+    assert.deepEqual(fake.calls.text[0].system, decomposeSystem(parseTemplate(templates[1].body_markdown), undefined, 'en'));
   });
 });
 
 describe('warmCatalog', () => {
-  it('calienta el esquema de la clasificación con los ids del catálogo', async () => {
+  it('warms the classification schema with the ids of the catalog', async () => {
     const { areas, templates } = await seed();
     const fake = createFakeProviders({ text: [{ groups: [] }] });
     const { resolveConfig } = await import('./config.js');

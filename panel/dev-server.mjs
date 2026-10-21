@@ -371,7 +371,7 @@ function readBody(req) {
     req.on('data', (c) => {
       size += c.length
       if (size > MAX_BODY) {
-        reject(new Error('Cuerpo demasiado grande'))
+        reject(new Error('Body too large'))
         req.destroy()
         return
       }
@@ -514,7 +514,7 @@ const server = createServer(async (req, res) => {
       streams.add(stream)
       const last = Number(req.headers['last-event-id'] ?? 0)
       for (const ev of eventLog) if (ev.seq > last && (ev.member_id === null || ev.member_id === me.id)) writeEvent(res, ev)
-      const beat = setInterval(() => res.write(': latido\n\n'), 15_000)
+      const beat = setInterval(() => res.write(': heartbeat\n\n'), 15_000)
       req.on('close', () => {
         clearInterval(beat)
         streams.delete(stream)
@@ -743,12 +743,13 @@ const server = createServer(async (req, res) => {
       if (m[2] === 'close' && method === 'POST') {
         msg.status = 'closed'
         msg.closed_at = new Date().toISOString()
-        return send(res, 204)
+        return send(res, 200, { id: msg.id, status: msg.status, closed_at: msg.closed_at })
       }
       if (m[2] === 'reopen' && method === 'POST') {
         msg.status = (replies.get(msg.id) ?? []).length ? 'answered' : 'open'
         msg.closed_at = null
-        return send(res, 204)
+        // As the real API: the reopened message says which state it went back to (answered when it has replies).
+        return send(res, 200, { id: msg.id, status: msg.status, closed_at: null })
       }
     }
 
@@ -911,5 +912,5 @@ const server = createServer(async (req, res) => {
 })
 
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`[dev-server] SERVIDOR DOBLE DE DESARROLLO con datos de ejemplo en http://127.0.0.1:${PORT}/api${STATIC ? ' (sirve también panel/dist)' : ''}`)
+  console.log(`[dev-server] DEVELOPMENT DOUBLE SERVER with sample data at http://127.0.0.1:${PORT}/api${STATIC ? ' (also serves panel/dist)' : ''}`)
 })

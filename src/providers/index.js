@@ -1,21 +1,21 @@
-// Arma las ranuras de proveedor (texto, visión, transcripción) desde variables de entorno.
-// MASTER-SPEC §3 (valores por omisión), §4.6 (ninguna llave en el repositorio ni en la base) y §7.6.
+// Builds the provider slots (text, vision, transcription) from environment variables.
+// MASTER-SPEC §3 (defaults), §4.6 (no key in the repository or the database) and §7.6.
 //
-// Variables (nunca se escriben en la base: ésta sólo guarda el nombre del proveedor y el modelo):
-//   TEXT_PROVIDER      anthropic | deepseek | groq | openrouter | gemini | openai-compatible   (omisión: anthropic)
-//   TEXT_MODEL         (omisión: claude-haiku-5-5 con anthropic, deepseek-flash con deepseek)
-//   TEXT_BASE_URL      sobrescribe la dirección del proveedor
-//   TEXT_STRUCTURED    json_schema | tool | json_object  (sólo compatibles con OpenAI)
-//   TEXT_API_KEY       sobrescribe la llave del proveedor
-//   TEXT_FALLBACK_*    lo mismo para el proveedor de respaldo (sin respaldo si no se declara)
-//   VISION_*           lo mismo; lo que falte se hereda de TEXT_*
-//   SPEECH_PROVIDER    groq-speech  (omisión)
-//   SPEECH_MODEL       (omisión: whisper-large-v3-turbo)   SPEECH_BASE_URL   SPEECH_API_KEY
+// Variables (never written to the database: it only stores the provider name and the model):
+//   TEXT_PROVIDER      anthropic | deepseek | groq | openrouter | gemini | openai-compatible   (default: anthropic)
+//   TEXT_MODEL         (default: claude-haiku-5-5 with anthropic, deepseek-flash with deepseek)
+//   TEXT_BASE_URL      overrides the provider address
+//   TEXT_STRUCTURED    json_schema | tool | json_object  (OpenAI-compatible only)
+//   TEXT_API_KEY       overrides the provider key
+//   TEXT_FALLBACK_*    the same for the fallback provider (no fallback if not declared)
+//   VISION_*           the same; whatever is missing is inherited from TEXT_*
+//   SPEECH_PROVIDER    groq-speech  (default)
+//   SPEECH_MODEL       (default: whisper-large-v3-turbo)   SPEECH_BASE_URL   SPEECH_API_KEY
 //   ANTHROPIC_API_KEY · DEEPSEEK_API_KEY · GROQ_API_KEY · OPENROUTER_API_KEY · GEMINI_API_KEY · OPENAI_COMPATIBLE_API_KEY
-//   ANTHROPIC_CACHE_TTL   5m | 1h      ANTHROPIC_THINKING   disabled | (vacío)
-//   PROVIDER_TIMEOUT_MS   plazo por llamada (omisión: 900.000 ms, §7.3)
-//   PROVIDER_MAX_INFLIGHT_ANTHROPIC · _GROQ · _OPENAI_COMPATIBLE   peticiones simultáneas del proceso por proveedor (0 = sin tope)
-//   PROVIDER_BACKOFF_COOLDOWN_MS · PROVIDER_BACKOFF_RESTORE_STEP_MS   retroceso adaptativo tras un 429 de tope (limiter.js)
+//   ANTHROPIC_CACHE_TTL   5m | 1h      ANTHROPIC_THINKING   disabled | (empty)
+//   PROVIDER_TIMEOUT_MS   deadline per call (default: 900,000 ms, §7.3)
+//   PROVIDER_MAX_INFLIGHT_ANTHROPIC · _GROQ · _OPENAI_COMPATIBLE   simultaneous requests of the process per provider (0 = no cap)
+//   PROVIDER_BACKOFF_COOLDOWN_MS · PROVIDER_BACKOFF_RESTORE_STEP_MS   adaptive backoff after a cap 429 (limiter.js)
 import { ANTHROPIC_DEFAULTS, createAnthropicClient } from './anthropic.js';
 import { ProviderConfigError } from './errors.js';
 import { createGroqSpeechClient, GROQ_SPEECH_DEFAULTS } from './groq-speech.js';
@@ -68,9 +68,9 @@ function pick(env, prefix, field, inheritPrefix) {
   return undefined;
 }
 
-/** Construye el cliente de texto o visión de una ranura. Devuelve null si el proveedor no está declarado. */
+/** Builds the text or vision client of a slot. Returns null if the provider is not declared. */
 function buildModelClient(env, prefix, { inheritPrefix: wantedInherit, timeoutMs, limits }) {
-  // Si la ranura declara su propio proveedor no hereda nada de TEXT_*: un modelo de otro proveedor no sirve.
+  // If the slot declares its own provider it inherits nothing from TEXT_*: a model from another provider is useless.
   const inheritPrefix = env[`${prefix}_PROVIDER`] ? undefined : wantedInherit;
   const provider = pick(env, prefix, 'PROVIDER', inheritPrefix) ?? (prefix === 'TEXT_FALLBACK' ? undefined : TEXT_PROVIDER_DEFAULT);
   if (!provider) return null;
@@ -92,7 +92,7 @@ function buildModelClient(env, prefix, { inheritPrefix: wantedInherit, timeoutMs
   }
 
   const preset = OPENAI_COMPATIBLE_PRESETS[provider];
-  if (!preset) throw new ProviderConfigError(`Proveedor de texto desconocido «${provider}» en ${prefix}_PROVIDER`);
+  if (!preset) throw new ProviderConfigError(`Unknown text provider «${provider}» in ${prefix}_PROVIDER`);
   const apiKey = pick(env, prefix, 'API_KEY', inheritPrefix) ?? env[preset.keyVar];
   if (!apiKey) return { unavailable: `Falta ${preset.keyVar}` };
   const model = pick(env, prefix, 'MODEL', inheritPrefix) ?? preset.model;
@@ -131,7 +131,7 @@ function visionSlot(built, slot) {
  */
 export function createProviders(env = process.env) {
   const timeoutMs = env.PROVIDER_TIMEOUT_MS ? Number(env.PROVIDER_TIMEOUT_MS) : DEFAULT_TIMEOUT_MS;
-  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new ProviderConfigError('PROVIDER_TIMEOUT_MS debe ser un número positivo');
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new ProviderConfigError('PROVIDER_TIMEOUT_MS must be a positive number');
 
   const limits = limitsFromEnv(env);
   const text = textSlot(buildModelClient(env, 'TEXT', { timeoutMs, limits }), 'text');
@@ -141,7 +141,7 @@ export function createProviders(env = process.env) {
   const speechProvider = env.SPEECH_PROVIDER || SPEECH_PROVIDER_DEFAULT;
   let speech;
   if (speechProvider !== 'groq-speech') {
-    throw new ProviderConfigError(`Proveedor de transcripción desconocido «${speechProvider}» en SPEECH_PROVIDER`);
+    throw new ProviderConfigError(`Unknown transcription provider «${speechProvider}» in SPEECH_PROVIDER`);
   }
   const speechKey = env.SPEECH_API_KEY || env.GROQ_API_KEY;
   if (!speechKey) {
@@ -162,7 +162,7 @@ export function createProviders(env = process.env) {
     vision,
     speech,
     textFallback,
-    /** Lo que puede mostrar Configuración: nombres y modelos, nunca llaves. */
+    /** What Configuration can show: names and models, never keys. */
     describe() {
       return [
         ['text', text],

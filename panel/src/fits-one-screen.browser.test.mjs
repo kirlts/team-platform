@@ -219,7 +219,7 @@ for (const [width, height] of SIZES) {
     [`con cada lista ×${TIMES}`, true],
   ]) {
     describe(`${width}x${height} ${state}`, () => {
-      test('cada vista cabe en la ventana', async () => {
+      test('every view fits in the window', async () => {
         const context = await panel.browser.newContext({ viewport: { width, height }, locale: 'es-CL', colorScheme: 'light' })
         const page = await context.newPage()
         const failures = []
@@ -241,23 +241,23 @@ for (const [width, height] of SIZES) {
             const m = await page.evaluate(measureInPage, { lanes: LANES, withBreak: BREAK })
             if (!amplified) {
               const repeats = await page.evaluate(repeatsInPage)
-              if (repeats.length) failures.push(`${view.name} (${path}): texto repetido en la vista: ${repeats.join('; ')}`)
+              if (repeats.length) failures.push(`${view.name} (${path}): text repeated in the view: ${repeats.join('; ')}`)
             }
             report.push({ size: `${width}x${height}`, data: amplified ? `x${TIMES}` : 'sembrado', view: view.name, doc: m.doc, win: m.win, main: m.mainBox + m.mainOver, below: m.below })
-            if (m.doc > m.win) failures.push(`${view.name} (${path}): documento de ${m.doc} px en una ventana de ${m.win} (${(m.doc / m.win).toFixed(2)} ventanas)`)
-            if (m.mainOver > 1) failures.push(`${view.name} (${path}): la región principal desplaza ${m.mainOver} px por su cuenta (${m.mainBox + m.mainOver} px en ${m.mainBox})`)
-            if (m.below > m.win) failures.push(`${view.name} (${path}): contenido hasta ${m.below} px en una ventana de ${m.win}`)
-            if (m.carriles.length) failures.push(`${view.name} (${path}): carriles verticales propios fuera de la lista blanca: ${m.carriles.join(', ')}`)
-            if (m.small.length) failures.push(`${view.name} (${path}): texto por debajo de 12 px: ${m.small.slice(0, 5).join('; ')}`)
-            if (m.hidden) failures.push(`${view.name} (${path}): el documento esconde su desborde con overflow hidden`)
-            if (view.compare && base && (m.doc !== base.doc || m.mainBox + m.mainOver !== base.main)) failures.push(`${view.name} (${path}): diez envíos cambiaron el alto (documento ${base.doc} a ${m.doc}, región ${base.main} a ${m.mainBox + m.mainOver})`)
-            if (m.wide > 0) failures.push(`${view.name} (${path}): el documento se ensancha ${m.wide} px más que la ventana`)
+            if (m.doc > m.win) failures.push(`${view.name} (${path}): document of ${m.doc} px in a window of ${m.win} (${(m.doc / m.win).toFixed(2)} windows)`)
+            if (m.mainOver > 1) failures.push(`${view.name} (${path}): the main region scrolls ${m.mainOver} px on its own (${m.mainBox + m.mainOver} px in ${m.mainBox})`)
+            if (m.below > m.win) failures.push(`${view.name} (${path}): content down to ${m.below} px in a window of ${m.win}`)
+            if (m.carriles.length) failures.push(`${view.name} (${path}): own vertical lanes outside the allow-list: ${m.carriles.join(', ')}`)
+            if (m.small.length) failures.push(`${view.name} (${path}): text below 12 px: ${m.small.slice(0, 5).join('; ')}`)
+            if (m.hidden) failures.push(`${view.name} (${path}): the document hides its overflow with overflow hidden`)
+            if (view.compare && base && (m.doc !== base.doc || m.mainBox + m.mainOver !== base.main)) failures.push(`${view.name} (${path}): ten inputs changed the height (document ${base.doc} to ${m.doc}, region ${base.main} to ${m.mainBox + m.mainOver})`)
+            if (m.wide > 0) failures.push(`${view.name} (${path}): the document is ${m.wide} px wider than the window`)
           }
         } finally {
           await page.unrouteAll({ behavior: 'ignoreErrors' })
           await context.close()
         }
-        assert.deepStrictEqual(failures, [], `Vistas que no caben ${state} a ${width}x${height}:\n${failures.join('\n')}`)
+        assert.deepStrictEqual(failures, [], `Views that do not fit ${state} at ${width}x${height}:\n${failures.join('\n')}`)
       })
     })
   }
@@ -266,5 +266,5 @@ for (const [width, height] of SIZES) {
 after(() => {
   if (!process.env.FIT_REPORT && !report.length) return
   const rows = report.map((r) => `${r.size.padEnd(9)} ${r.data.padEnd(9)} ${r.view.padEnd(20)} documento ${String(r.doc).padStart(5)} · ventana ${r.win} · región ${String(r.main).padStart(5)} · contenido hasta ${r.below}`)
-  console.log('\nMedidas de ajuste (px):\n' + rows.join('\n'))
+  console.log('\nFit measurements (px):\n' + rows.join('\n'))
 })

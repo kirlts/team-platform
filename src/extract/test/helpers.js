@@ -1,5 +1,5 @@
-// Utilidades de prueba: directorio temporal dentro del worktree (nunca en /tmp), generadores de
-// archivos sintéticos y proveedores dobles que no usan llaves ni red.
+// Test utilities: temporary directory inside the worktree (never in /tmp), synthetic file
+// generators and fake providers that use neither keys nor network.
 import { execFile } from 'node:child_process';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -19,7 +19,7 @@ const exec = promisify(execFile);
 export const FIXTURE_FFMPEG = process.env.FIXTURE_FFMPEG ?? 'ffmpeg';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '.tmp');
 
-/** Directorio temporal propio de una prueba; `after(() => dir.cleanup())`. */
+/** A test's own temporary directory; `after(() => dir.cleanup())`. */
 export async function makeTmp(name = 'x') {
   await mkdir(ROOT, { recursive: true });
   const path = await mkdtemp(join(ROOT, `${name}-`));
@@ -31,20 +31,20 @@ export async function ffprobeJson(path) {
   return JSON.parse(stdout);
 }
 
-// ---- imágenes ------------------------------------------------------------------------------
+// ---- images ------------------------------------------------------------------------------
 
 export async function makeImage(path, { width = 320, height = 200, format = 'png', color = '#3366cc' } = {}) {
   await sharp({ create: { width, height, channels: 3, background: color } }).toFormat(format).toFile(path);
   return path;
 }
 
-/** JPEG con la orientación EXIF 6 (girada 90 grados), como sale de un teléfono. */
+/** JPEG with EXIF orientation 6 (rotated 90 degrees), as it comes out of a phone. */
 export async function makeRotatedJpeg(path, { width = 300, height = 100 } = {}) {
   await sharp({ create: { width, height, channels: 3, background: '#aa3333' } }).jpeg().withMetadata({ orientation: 6 }).toFile(path);
   return path;
 }
 
-/** Cabecera mínima de una foto HEIC de iPhone: caja `ftyp` con la marca `heic`. */
+/** Minimal header of an iPhone HEIC photo: `ftyp` box with the `heic` brand. */
 export async function makeHeicLike(path) {
   const head = Buffer.alloc(32);
   head.writeUInt32BE(24, 0);
@@ -53,9 +53,9 @@ export async function makeHeicLike(path) {
   return path;
 }
 
-// ---- documentos ----------------------------------------------------------------------------
+// ---- documents ----------------------------------------------------------------------------
 
-/** DOCX con `points` puntos (párrafo con negrita, viñeta y subviñeta) y una tabla; devuelve las cadenas esperadas. */
+/** DOCX with `points` points (paragraph with bold, bullet and sub-bullet) and a table; returns the expected strings. */
 export async function makeDocx(path, points = 40) {
   const children = [new Paragraph({ text: 'Minuta de la reunión', heading: HeadingLevel.HEADING_1 })];
   const expected = [];
@@ -73,8 +73,8 @@ export async function makeDocx(path, points = 40) {
 }
 
 /**
- * PDF de `pages` páginas. Las de `scanned` no llevan texto: sólo una imagen, como un escaneo.
- * Cada página con texto trae una línea con su número para comprobar el orden.
+ * PDF of `pages` pages. Those in `scanned` carry no text: only an image, like a scan.
+ * Each page with text has a line with its number to check the order.
  */
 export async function makePdf(path, pages = 20, { scanned = [] } = {}) {
   const doc = await PDFDocument.create();
@@ -133,7 +133,7 @@ export async function makeHeavyPdf(path, { pages = 1, reps = 600_000 } = {}) {
 
 // ---- audio y video -------------------------------------------------------------------------
 
-/** Tono de `seconds` segundos en AAC dentro de un m4a, como una nota de voz de teléfono. */
+/** Tone of `seconds` seconds in AAC inside an m4a, like a phone voice note. */
 export async function makeAudio(path, seconds, { codecArgs = ['-c:a', 'aac', '-b:a', '96k'] } = {}) {
   await exec(FIXTURE_FFMPEG, ['-v', 'error', '-y', '-f', 'lavfi', '-i', `sine=frequency=440:duration=${seconds}`, ...codecArgs, path]);
   return path;
@@ -151,8 +151,8 @@ function prng(seed) {
 }
 
 /**
- * Video de `screens` pantallas distintas de `secondsPerScreen` segundos cada una (bloques de gris
- * sembrados), con pista de audio opcional. Devuelve la duración.
+ * Video of `screens` distinct screens of `secondsPerScreen` seconds each (seeded gray
+ * blocks), with an optional audio track. Returns the duration.
  */
 export async function makeVideo(path, { screens = 6, secondsPerScreen = 4, audio = true, width = 640, height = 360 } = {}) {
   const dir = `${path}.frames`;
@@ -185,9 +185,9 @@ export async function makeVideo(path, { screens = 6, secondsPerScreen = 4, audio
   return seconds;
 }
 
-// ---- proveedores dobles --------------------------------------------------------------------
+// ---- fake providers --------------------------------------------------------------------
 
-/** Visión doble: describe cada imagen por su rótulo; registra las llamadas. */
+/** Fake vision: describes each image by its label; records the calls. */
 export function fakeVision({ failWith } = {}) {
   const calls = [];
   return {
@@ -205,10 +205,10 @@ export function fakeVision({ failWith } = {}) {
 }
 
 /**
- * Voz doble: devuelve un segmento cada `every` segundos de lo que dure el trozo recibido (cada uno
- * cierra oración con punto, para que la unión de segmentos no los junte) y registra la forma del
- * archivo (códec, frecuencia, canales, duración).
- * Con `punctuate: false` los segmentos no llevan punto final: el habla corrida de un proveedor real.
+ * Fake speech: returns one segment every `every` seconds of the received chunk's length (each one
+ * ends its sentence with a period, so that joining segments does not merge them) and records the
+ * shape of the file (codec, sample rate, channels, duration).
+ * With `punctuate: false` the segments carry no final period: the running speech of a real provider.
  */
 export function fakeSpeech({ every = 5, failWith, punctuate = true } = {}) {
   const calls = [];

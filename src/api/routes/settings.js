@@ -1,7 +1,7 @@
-// Configuración de proveedores (MASTER-SPEC §7.6). Sólo el editor. La base guarda el nombre del proveedor, el
-// modelo y la dirección base; la llave vive en el entorno y no se lee ni se escribe acá (MASTER-SPEC §4.6).
-// Un parche sólo se guarda si `createProviders` acepta la combinación: así un nombre inexistente se rechaza
-// al configurarlo y no cuando falla el primer trabajo.
+// Provider settings (MASTER-SPEC §7.6). Editor only. The database stores the provider name, the
+// model and the base URL; the key lives in the environment and is neither read nor written here (MASTER-SPEC §4.6).
+// A patch is only saved if `createProviders` accepts the combination: that way a nonexistent name is rejected
+// when configured and not when the first job fails.
 
 import { audit } from '../../domain/audit.js'
 import { getProject, getProviderOverrides, getProviderSettings, MODALITIES, mergeOverrides, setProjectDescription, setProviderOverrides } from '../../domain/settings.js'
@@ -21,7 +21,7 @@ export function registerSettingsRoutes (app, ctx) {
 
   const view = () => {
     const stored = getProviderSettings(db, config)
-    // `describe()` dice lo que `createProviders` efectivamente armó (proveedor, modelo y si falta una llave).
+    // `describe()` reports what `createProviders` actually built (provider, model and whether a key is missing).
     const built = modules.getProviders?.()?.describe?.() ?? []
     return {
       analyzer: stored.analyzer,
@@ -41,13 +41,13 @@ export function registerSettingsRoutes (app, ctx) {
 
   const responseSchema = { 200: { type: 'object', properties: { analyzer: { type: 'string', enum: ['api', 'harness'] }, items: { type: 'array', items: itemVista } } } }
 
-  app.get('/settings/providers', { onRequest: [requireRole('editor')], schema: { summary: 'Proveedores de modelo configurados (nunca las llaves)', response: responseSchema } }, async () => view())
+  app.get('/settings/providers', { onRequest: [requireRole('editor')], schema: { summary: 'Configured model providers (never the keys)', response: responseSchema } }, async () => view())
 
   app.patch('/settings/providers', {
     onRequest: [requireRole('editor')],
     schema: {
-      summary: 'Cambiar el proveedor de una ranura, o el analizador',
-      description: 'Cuerpo: { slot, provider, model, base_url? } o { analyzer }. Se rechaza lo que `createProviders` no acepta.',
+      summary: 'Change the provider of a slot, or the analyzer',
+      description: 'Body: { slot, provider, model, base_url? } or { analyzer }. Anything `createProviders` does not accept is rejected.',
       body: {
         anyOf: [
           { type: 'object', required: ['slot'], additionalProperties: false, minProperties: 2, properties: { slot: { type: 'string', enum: MODALITIES }, provider: { type: 'string', minLength: 1 }, model: { type: 'string', minLength: 1 }, base_url: { type: 'string' } } },
@@ -69,7 +69,7 @@ export function registerSettingsRoutes (app, ctx) {
     return view()
   })
 
-  // Descripción del proyecto (UD-024): la lee cualquier miembro, la escribe el editor. Markdown libre, entero al analizador.
+  // Project description (UD-024): any member reads it, the editor writes it. Free Markdown, passed whole to the analyzer.
   const projectView = { type: 'object', properties: { name: { type: 'string' }, description: { type: 'string' } }, required: ['name', 'description'] }
 
   app.get('/settings/project', {

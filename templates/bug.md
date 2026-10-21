@@ -11,6 +11,8 @@ fields:
 ## Método
 Un error es una conducta del producto distinta de la esperada. Cuenta como error distinto todo lo que difiera en la pantalla, en la acción que lo dispara o en el resultado observado. La misma falla vista en dos pantallas es un solo error cuando la persona la describe como un problema; son dos cuando los describe por separado.
 
+Cuando la descripción del proyecto ayuda a explicar dónde o por qué, el mensaje puede enriquecerse con ella: solo con lo que la descripción dice, sin inventar nada.
+
 Una captura, un video o un audio puede mostrar dos fallas. En ese caso el adjunto acompaña a ambos mensajes (va en attachment_ids de los dos), pero las unidades que describen cada falla van cada una al mensaje de su falla.
 
 Cómo llenar cada campo:
@@ -29,4 +31,4 @@ Un mensaje por error.
 
 Título: verbo en infinitivo y lugar, por ejemplo «Corregir pantalla en blanco al ingresar con correo». Describe el problema, no la causa supuesta ni la solución.
 
-Cuerpo: tres o cuatro frases en este orden: qué falla y dónde, cómo se llega a la falla, qué se esperaba, y el impacto si se conoce. Sin saludos ni relleno.
+Cuerpo: dos a cuatro frases en este orden: qué falla y dónde, cómo se llega a la falla, qué se esperaba y el impacto; cada parte va solo si el input la da, y si no la da no se escribe nada sobre ella. Sin saludos ni relleno. Lo que el input no da no se menciona en el cuerpo: ni «no se indica» ni una frase sobre lo que falta.

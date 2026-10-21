@@ -4,7 +4,7 @@
 // in the browser itself what a screenshot does not show: clipped or ellipsized text,
 // horizontal overflow and left edges of each view's blocks (UD-016).
 //
-//   npm run build && node scripts/capturas-vistas.mjs [--solo desktop|mobile] [--tema light|dark]
+//   `npm run build && node scripts/capturas-vistas.mjs [--solo desktop|mobile] [--tema light|dark]`
 //
 // Exits with code 1 if it finds clipping, ellipses or horizontal overflow.
 
@@ -93,7 +93,7 @@ async function shoot(browser, vp, theme, lang = 'es-419') {
   }, theme)
   // The language belongs to the account: it is set through the API before walking the views.
   const page = await context.newPage()
-  page.on('pageerror', (e) => problems.push(`[${vp}/${theme}] excepción: ${e.message}`))
+  page.on('pageerror', (e) => problems.push(`[${vp}/${theme}] exception: ${e.message}`))
   await page.goto(ORIGIN)
   await page.getByLabel('Correo').fill('ana@dev.invalid')
   await page.getByLabel('Contraseña').fill(password)
@@ -118,9 +118,9 @@ async function shoot(browser, vp, theme, lang = 'es-419') {
     await page.screenshot({ path: file, fullPage: !!opts.full })
     const a = await page.evaluate(audit)
     const tag = `[${vp}/${theme}/${name}]`
-    for (const x of a.ellipsis) problems.push(`${tag} puntos suspensivos: ${x}`)
-    for (const x of a.clipped) problems.push(`${tag} recortado: ${x}`)
-    if (a.hscroll) problems.push(`${tag} desborde horizontal: ${a.hscroll}`)
+    for (const x of a.ellipsis) problems.push(`${tag} ellipsis: ${x}`)
+    for (const x of a.clipped) problems.push(`${tag} clipped: ${x}`)
+    if (a.hscroll) problems.push(`${tag} horizontal overflow: ${a.hscroll}`)
     console.log(file.replace(root, ''), a.lefts.join(' '))
   }
 
@@ -179,14 +179,14 @@ try {
     }
   }
 } catch (err) {
-  problems.push(`fallo del recorrido: ${err.stack ?? err}`)
+  problems.push(`walkthrough failure: ${err.stack ?? err}`)
 } finally {
   await browser.close()
   server.kill()
 }
 
 if (problems.length) {
-  console.error('\nHallazgos:\n' + [...new Set(problems)].map((p) => ` - ${p}`).join('\n'))
+  console.error('\nFindings:\n' + [...new Set(problems)].map((p) => ` - ${p}`).join('\n'))
   process.exit(1)
 }
-console.log('\nSin recortes, sin puntos suspensivos y sin desborde horizontal.')
+console.log('\nNo clipping, no ellipses and no horizontal overflow.')

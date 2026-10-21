@@ -63,7 +63,7 @@ before(async () => {
         return;
       }
       case '/cuelga':
-        return; // nunca responde
+        return; // never responds
       default:
         res.writeHead(404);
         return res.end();
@@ -81,14 +81,14 @@ after(async () => {
 const link = (url) => ({ id: 'l1', kind: 'link', path: url, mime: 'text/uri-list', size: 0 });
 const cfg = (link = {}) => ({ link: { allowedPrivateHosts: PRIVATE, ...link } });
 
-test('un artículo queda como markdown con título, estructura y fuente, sin menú ni scripts', async () => {
+test('an article becomes markdown with title, structure and source, without menu or scripts', async () => {
   const progress = [];
   const { text, meta } = await extract(link(`${base}/articulo`), { config: cfg(), onProgress: (p) => progress.push(p) });
   assert.match(text, /^# Cómo reportar un error/);
   assert.match(text, /^## Pasos$/m);
   assert.match(text, /^-\s+Abrir la pantalla de pagos$/m);
   assert.match(text, /\*\*Confirmar\*\*/);
-  assert.match(text, /\[la guía\]\(http:\/\/127\.0\.0\.1:\d+\/guia\)/, 'los enlaces relativos se vuelven absolutos');
+  assert.match(text, /\[la guía\]\(http:\/\/127\.0\.0\.1:\d+\/guia\)/, 'relative links become absolute');
   assert.equal(text.includes('tracking'), false);
   assert.equal(text.includes('color:red'), false);
   assert.equal(text.includes('Todos los derechos reservados'), false);
@@ -99,17 +99,17 @@ test('un artículo queda como markdown con título, estructura y fuente, sin men
   assert.equal(progress.at(-1), 100);
 });
 
-test('la codificación se toma de la cabecera', async () => {
+test('the encoding is taken from the header', async () => {
   const { text } = await extract(link(`${base}/latin1`), { config: cfg() });
   assert.ok(text.includes('camión pequeño ñandú'));
 });
 
-test('un texto plano pasa tal cual', async () => {
+test('plain text passes as is', async () => {
   const { text } = await extract(link(`${base}/texto`), { config: cfg() });
   assert.ok(text.startsWith('línea uno\nlínea dos'));
 });
 
-test('una redirección se sigue a mano y cada salto se pide', async () => {
+test('a redirect is followed by hand and each hop is requested', async () => {
   hits.length = 0;
   const { meta } = await extract(link(`${base}/redirige`), { config: cfg() });
   assert.equal(meta.redirects, 1);
@@ -117,68 +117,68 @@ test('una redirección se sigue a mano y cada salto se pide', async () => {
   assert.equal(meta.finalUrl, `${base}/articulo`);
 });
 
-test('una redirección hacia una dirección interna se bloquea sin pedirla', async () => {
+test('a redirect to an internal address is blocked without requesting it', async () => {
   await assert.rejects(extract(link(`${base}/redirige-adentro`), { config: cfg() }), (e) => e.code === 'link_blocked' && e.details.host === '169.254.169.254');
 });
 
-test('un bucle de redirecciones se corta en el máximo', async () => {
+test('a redirect loop is cut at the maximum', async () => {
   hits.length = 0;
   await assert.rejects(extract(link(`${base}/bucle`), { config: cfg({ maxRedirects: 3 }) }), (e) => e.code === 'link_too_many_redirects');
   assert.equal(hits.length, 4);
 });
 
-test('por omisión localhost y las IP privadas están bloqueadas, aunque el servidor exista', async () => {
+test('by default localhost and private IPs are blocked, even if the server exists', async () => {
   hits.length = 0;
   for (const url of [`${base}/articulo`, `http://localhost:${server.address().port}/articulo`, 'http://169.254.169.254/', 'http://[::1]/', 'http://2130706433/', 'http://0x7f.1/', 'http://metadata.google.internal/']) {
     await assert.rejects(extract(link(url)), (e) => e.code === 'link_blocked', url);
   }
-  assert.deepEqual(hits, [], 'ninguna solicitud llegó al servidor');
+  assert.deepEqual(hits, [], 'no request reached the server');
 });
 
-test('sólo se admiten http y https, sin usuario ni contraseña', async () => {
+test('only http and https are accepted, without user or password', async () => {
   for (const url of ['file:///etc/passwd', 'ftp://example.com/', 'javascript:alert(1)', 'no es una dirección', 'http://usuario:clave@example.com/']) {
     await assert.rejects(extract(link(url)), (e) => e.code === 'link_invalid', url);
   }
 });
 
-test('la conexión va a la dirección ya validada y no a una segunda resolución del nombre', async () => {
-  // `app.example.test` no existe en ningún DNS: sólo se alcanza porque se conecta a la dirección fijada.
+test('the connection goes to the already validated address and not to a second resolution of the name', async () => {
+  // `app.example.test` exists in no DNS: it is reachable only because the connection goes to the pinned address.
   const lookup = async () => [{ address: '127.0.0.1', family: 4 }];
   const port = server.address().port;
   const { text } = await extract(link(`http://app.example.test:${port}/articulo`), { config: cfg({ allowedPrivateHosts: ['app.example.test'] }), deps: { lookup } });
   assert.match(text, /Cómo reportar un error/);
 });
 
-test('un nombre que resuelve a una dirección privada se bloquea aunque el nombre parezca público', async () => {
+test('a name that resolves to a private address is blocked even if the name looks public', async () => {
   const lookup = async () => [{ address: '10.0.0.7', family: 4 }];
   await assert.rejects(extract(link('http://publico.example/'), { deps: { lookup } }), (e) => e.code === 'link_blocked');
 });
 
-test('una página mayor que el tope se corta en el flujo y avisa', async () => {
+test('a page larger than the cap is cut in the stream and warns', async () => {
   const { meta } = await extract(link(`${base}/enorme`), { config: cfg({ maxBytes: 20_000 }) });
   assert.equal(meta.truncated, true);
   assert.equal(meta.bytes, 20_000);
   assert.equal(meta.warnings[0].code, 'link_truncated');
 });
 
-test('un sitio que no responde se corta en el plazo', async () => {
+test('a site that does not respond is cut at the deadline', async () => {
   const t = performance.now();
   await assert.rejects(extract(link(`${base}/cuelga`), { config: cfg({ timeoutMs: 300 }) }), (e) => e.code === 'link_timeout');
   assert.ok(performance.now() - t < 3000);
 });
 
-test('cancelar con la señal corta la descarga', async () => {
+test('cancelling with the signal cuts the download', async () => {
   const controller = new AbortController();
   const pending = extract(link(`${base}/cuelga`), { config: cfg(), signal: controller.signal });
   setTimeout(() => controller.abort(), 100);
   await assert.rejects(pending, (e) => e.code === 'aborted');
 });
 
-test('un código de error HTTP y un tipo que no es página se rechazan con motivo', async () => {
+test('an HTTP error code and a type that is not a page are rejected with a reason', async () => {
   await assert.rejects(extract(link(`${base}/no-existe`), { config: cfg() }), (e) => e.code === 'link_http_error' && e.details.status === 404);
   await assert.rejects(extract(link(`${base}/pdf`), { config: cfg() }), (e) => e.code === 'link_unsupported_type');
 });
 
-test('un puerto cerrado es un error de conexión, no un cuelgue', async () => {
+test('a closed port is a connection error, not a hang', async () => {
   await assert.rejects(extract(link('http://127.0.0.1:1/'), { config: cfg() }), (e) => e.code === 'link_fetch_failed');
 });

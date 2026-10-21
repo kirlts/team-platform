@@ -84,7 +84,7 @@
   --color-accent-hover: oklch(0.44 0.2 252);
   --color-accent-deep: oklch(0.38 0.17 255);
   --color-accent-fg: oklch(0.99 0 0);
-  /* Superficie de lo que genera el modelo (UD-026): tinte lila plano, borde izquierdo y marca de origen. */
+  /* Surface for what the model generates (UD-026): flat lilac tint, left border and origin mark. */
   --color-ai-bg: oklch(0.955 0.04 300);
   --color-ai-edge: oklch(0.5 0.19 300);
   --color-ai-fg: oklch(0.4 0.17 300);
@@ -296,7 +296,7 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 3px solid var(--color-accent);
     outline-offset: 2px;
   }
 
@@ -346,7 +346,7 @@
     color: var(--color-tone-blue-fg);
   }
 
-  /* One protagonist, the rest quiet (J2-B-03, J2-A-04): the bell is the only solid fill. Every other count (Mensajes, Para mí,
+  /* One protagonist, the rest quiet (J2-B-03, J2-A-04): the bell is the only solid fill. Every other count (the messages tab, the notice in Inicio,
      areas, rows) is soft: the same priority in a tint with its edge, its shape, its word and its number. */
   [data-tone='red'][data-weight='soft'] {
     background-color: var(--color-tone-red-soft-bg);

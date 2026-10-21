@@ -2,6 +2,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { BrowserRouter, Outlet, Route, Routes } from 'react-router'
 import { Atmosphere } from '@/components/Atmosphere'
+import { AlertTriangle, RotateCw } from '@/components/icons'
+import { Button } from '@/components/ui/button'
 import { Header } from '@/components/Header'
 import { I18nProvider, detectLanguage, isLanguage, useT } from '@/i18n'
 import { Sidebar } from '@/components/Sidebar'
@@ -13,6 +15,7 @@ import { NoticeProvider } from '@/lib/notices'
 import { NoticeHost } from '@/components/NoticeHost'
 import { useMe, useProject } from '@/lib/queries'
 import { Areas } from '@/pages/Areas'
+import { Connections } from '@/pages/Connections'
 import { Home } from '@/pages/Home'
 import { Login } from '@/pages/Login'
 import { MessageDetail } from '@/pages/MessageDetail'
@@ -51,7 +54,7 @@ function Shell() {
         {t('nav.skip')}
       </a>
       <div className="relative z-10 flex h-dvh flex-col">
-        <Header projectName={project?.name ?? me?.project_name} onOpenNav={() => setNavOpen(true)} onLogout={() => void logout()} />
+        <Header projectName={project?.name ?? me?.project_name} onOpenNav={() => setNavOpen(true)} />
         <NoticeHost />
         <div className="flex min-h-0 flex-1">
           <aside data-lane="sidebar" className="glass scroll-thin hidden w-72 shrink-0 overflow-y-auto border-0 border-r !shadow-none md:block">
@@ -89,8 +92,12 @@ function Routed({ me }: { me: ReturnType<typeof useMe> }) {
   if (me.isError) {
     if (me.error instanceof ApiError && me.error.status === 401) return <Login />
     return (
-      <div role="alert" className="flex min-h-dvh items-center justify-center px-4 text-center text-sm text-danger">
-        {t('app.noServer')}
+      <div role="alert" className="flex min-h-dvh flex-col items-center justify-center gap-3 px-4 text-center text-sm">
+        <AlertTriangle size={22} aria-hidden className="text-danger" />
+        <p className="text-danger">{t('app.noServer')}</p>
+        <Button onClick={() => void me.refetch()}>
+          <RotateCw size={14} aria-hidden /> {t('common.retry')}
+        </Button>
       </div>
     )
   }
@@ -104,6 +111,7 @@ function Routed({ me }: { me: ReturnType<typeof useMe> }) {
             <Route path="messages" element={<Messages />} />
             <Route path="messages/:id" element={<MessageDetail />} />
             <Route path="areas/:areaId?" element={<Areas />} />
+            <Route path="connections/:kind?" element={<Connections />} />
             <Route path="team" element={<Team />} />
             <Route path="settings" element={<Settings />} />
             <Route path="*" element={<NotFound />} />

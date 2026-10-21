@@ -18,13 +18,13 @@ async function envVars (opts = {}) {
 }
 const textFile = (n = 'a.txt') => ({ field: 'files', name: n, type: 'text/plain', content: 'contenido' })
 
-test('éxito: el avance sale de pasos completados y termina en 100 con done', async () => {
+test('success: progress comes from completed steps and ends at 100 with done', async () => {
   const env = await envVars({ worker: true })
   const { input_id: id, job_id: jobId } = await env.submit('hola', [textFile('1.txt'), textFile('2.txt')].map((a, i) => ({ ...a, content: `c${i}` })))
   await until(() => env.statusOf(id) === 'proposed')
   const progressRows = all(env.db, "SELECT percent, phrase FROM job_events WHERE job_id = ? AND kind = 'progress' ORDER BY seq", jobId)
   const percents = progressRows.map((p) => p.percent)
-  assert.deepEqual([...percents].sort((a, b) => a - b), percents) // nunca retrocede
+  assert.deepEqual([...percents].sort((a, b) => a - b), percents) // never goes backwards
   assert.equal(percents.at(-1), 100)
   assert.ok(percents.every((p) => Number.isInteger(p) && p >= 0 && p <= 100))
   assert.ok(progressRows.some((p) => /Leyendo adjunto 2 de 2/.test(p.phrase)))
@@ -32,12 +32,12 @@ test('éxito: el avance sale de pasos completados y termina en 100 con done', as
   const doneRow = get(env.db, "SELECT * FROM job_events WHERE job_id = ? AND kind = 'done'", jobId)
   assert.equal(JSON.parse(doneRow.data_json).status, 'done')
   assert.equal(get(env.db, 'SELECT status FROM jobs WHERE id = ?', jobId).status, 'done')
-  // La propuesta queda con sus mensajes y las unidades.
+  // The proposal keeps its messages and the units.
   assert.equal(JSON.parse(get(env.db, 'SELECT payload_json FROM proposals').payload_json).messages.length, 1)
   await env.close()
 })
 
-test('extractores y análisis reciben el contrato: adjunto con ruta absoluta, sin config de la aplicación', async () => {
+test('extractors and analysis receive the contract: attachment with an absolute path, without the application config', async () => {
   const seen = {}
   const env = await envVars({
     worker: true,
@@ -55,7 +55,7 @@ test('extractores y análisis reciben el contrato: adjunto con ruta absoluta, si
   assert.ok(seen.extract.a.path.startsWith('/'))
   assert.deepEqual(seen.extract.lookupKeys, ['onProgress', 'providers', 'signal'])
   assert.deepEqual(Object.keys(seen.extract.a).sort(), ['id', 'input_id', 'kind', 'mime', 'name', 'path', 'sha256', 'size'])
-  assert.deepEqual(seen.analyze.lookupKeys, ['analyzer', 'onProgress', 'providers', 'signal'])
+  assert.deepEqual(seen.analyze.lookupKeys, ['analyzer', 'onProgress', 'providers', 'redescribe', 'signal'])
   assert.equal(seen.analyze.bundle.templates[0].body_markdown.startsWith('---'), true)
   assert.ok(seen.analyze.bundle.areas.every((a) => a.position !== undefined))
   assert.deepEqual(seen.analyze.bundle.project, { name: env.config.projectName, description: '# Atlas\n\nStack: Node.' }) // UD-024
@@ -63,7 +63,7 @@ test('extractores y análisis reciben el contrato: adjunto con ruta absoluta, si
   await env.close()
 })
 
-test('un ExtractError definitivo falla de inmediato, con su código y el nombre del adjunto, sin reintentos', async () => {
+test('a permanent ExtractError fails immediately, with its code and the attachment name, without retries', async () => {
   const env = await envVars({
     worker: true,
     modules: { extract: async () => { throw Object.assign(new Error('El video supera los 20 minutos.'), { name: 'ExtractError', code: 'video_too_long' }) } }
@@ -78,11 +78,11 @@ test('un ExtractError definitivo falla de inmediato, con su código y el nombre 
   assert.equal(doneRow.status, 'failed')
   assert.equal(doneRow.error_code, 'video_too_long')
   const view = (await env.app.inject({ url: `/api/inputs/${id}`, headers: { cookie: env.ana } })).json()
-  assert.equal(view.error_code, 'video_too_long') // el código llega al cliente
+  assert.equal(view.error_code, 'video_too_long') // the code reaches the client
   await env.close()
 })
 
-test('un fallo transitorio se reintenta con retroceso y termina bien; el input vuelve a «queued» mientras espera', async () => {
+test('a transient failure is retried with backoff and ends well; the input goes back to «queued» while it waits', async () => {
   let callRows = 0
   const statusList = []
   const env = await envVars({
@@ -98,7 +98,7 @@ test('un fallo transitorio se reintenta con retroceso y termina bien; el input v
   await env.close()
 })
 
-test('agotados los intentos el input falla con el último motivo', async () => {
+test('once the attempts are exhausted the input fails with the last reason', async () => {
   const env = await envVars({ worker: true, modules: { analyze: async () => { throw new Error('el proveedor no responde') } } })
   const { input_id: id, job_id: jobId } = await env.submit('x')
   await until(() => env.statusOf(id) === 'failed')
@@ -107,7 +107,7 @@ test('agotados los intentos el input falla con el último motivo', async () => {
   await env.close()
 })
 
-test('los errores de configuración del proveedor y del analizador no se reintentan', async () => {
+test('provider and analyzer configuration errors are not retried', async () => {
   const env = await envVars({
     worker: true,
     modules: {
@@ -123,7 +123,7 @@ test('los errores de configuración del proveedor y del analizador no se reinten
   await env.close()
 })
 
-test('resultados de dominio del analizador que no son ok (refusal, max_tokens, invalid) fallan con el motivo, sin reintento', async () => {
+test('analyzer domain results that are not ok (refusal, max_tokens, invalid) fail with the reason, without a retry', async () => {
   const cases = [
     [{ status: 'refusal', explanation: 'política de contenido' }, /rechazó analizar el contenido: política de contenido/, 'refusal'],
     [{ status: 'max_tokens' }, /se cortó por tamaño/, 'max_tokens'],
@@ -141,7 +141,7 @@ test('resultados de dominio del analizador que no son ok (refusal, max_tokens, i
   }
 })
 
-test('un analizador que aún devuelve área y plantilla en la raíz se normaliza a una por mensaje', async () => {
+test('an analyzer that still returns area and template at the root is normalized to one per message', async () => {
   const env = await envVars({
     worker: true,
     modules: {
@@ -160,7 +160,7 @@ test('un analizador que aún devuelve área y plantilla en la raíz se normaliza
   await env.close()
 })
 
-test('una propuesta con forma inválida falla con motivo propio', async () => {
+test('a proposal with an invalid shape fails with its own reason', async () => {
   const env = await envVars({ worker: true, modules: { analyze: async () => ({ status: 'ok', proposal: { messages: [{ title: 'sin área' }] }, calls: [] }) } })
   const { input_id: id } = await env.submit('x')
   await until(() => env.statusOf(id) === 'failed')
@@ -168,7 +168,7 @@ test('una propuesta con forma inválida falla con motivo propio', async () => {
   await env.close()
 })
 
-test('el presupuesto de audio aplaza el trabajo sin gastar el intento y lo retoma cuando hay cupo', async () => {
+test('the audio budget defers the job without spending the attempt and resumes it when there is room', async () => {
   let budgetOk = false
   const queries = []
   const env = await envVars({
@@ -181,7 +181,7 @@ test('el presupuesto de audio aplaza el trabajo sin gastar el intento y lo retom
   const { input_id: id, job_id: jobId } = await env.submit('x', [{ field: 'files', name: 'a.mp3', type: 'audio/mpeg', content: 'sonido' }])
   await until(() => get(env.db, "SELECT COUNT(*) AS n FROM job_events WHERE phrase = 'Esperando cupo de transcripción'").n > 0)
   assert.equal(env.statusOf(id), 'queued')
-  assert.equal(get(env.db, 'SELECT attempts FROM jobs WHERE id = ?', jobId).attempts, 0) // intento reembolsado
+  assert.equal(get(env.db, 'SELECT attempts FROM jobs WHERE id = ?', jobId).attempts, 0) // attempt refunded
   budgetOk = true
   await until(() => env.statusOf(id) === 'proposed')
   assert.ok(queries.includes('record 600'))
@@ -189,7 +189,7 @@ test('el presupuesto de audio aplaza el trabajo sin gastar el intento y lo retom
   await env.close()
 })
 
-test('un audio que nunca cabría en el presupuesto falla con su código', async () => {
+test('audio that would never fit in the budget fails with its code', async () => {
   const env = await envVars({
     worker: true,
     modules: { estimateAudioSeconds: async () => 99999, audioBudget: { check: () => ({ allowed: false, waitMs: Infinity, reason: 'exceeds_budget' }), record () {} } }
@@ -200,7 +200,7 @@ test('un audio que nunca cabría en el presupuesto falla con su código', async 
   await env.close()
 })
 
-test('sin módulo de análisis el trabajo falla con module_unavailable y un mensaje claro', async () => {
+test('without an analysis module the job fails with module_unavailable and a clear message', async () => {
   const env = await envVars({ worker: true, modules: { analyze: null } })
   const { input_id: id } = await env.submit('x')
   await until(() => env.statusOf(id) === 'failed')
@@ -209,7 +209,7 @@ test('sin módulo de análisis el trabajo falla con module_unavailable y un mens
   await env.close()
 })
 
-test('cancelar con el trabajo en curso lo aborta: no queda propuesta ni cambia el estado', async () => {
+test('cancelling with the job in progress aborts it: no proposal is left and the state does not change', async () => {
   let unblock
   const stopped = new Promise((r) => { unblock = r })
   let wasAborted = false
@@ -227,7 +227,7 @@ test('cancelar con el trabajo en curso lo aborta: no queda propuesta ni cambia e
   await until(() => env.statusOf(id) === 'analyzing')
   const r = await env.app.inject({ method: 'POST', url: `/api/inputs/${id}/cancel`, headers: { cookie: env.ana, 'x-team-request': 'panel' } })
   assert.equal(r.statusCode, 200)
-  await until(() => wasAborted) // la señal llega de inmediato, sin esperar al latido
+  await until(() => wasAborted) // the signal arrives immediately, without waiting for the heartbeat
   unblock()
   await until(() => env.worker.active === 0)
   assert.equal(env.statusOf(id), 'cancelled')
@@ -236,7 +236,7 @@ test('cancelar con el trabajo en curso lo aborta: no queda propuesta ni cambia e
   await env.close()
 })
 
-test('apagar con un trabajo en curso lo devuelve a la cola con el intento reembolsado, sin esperarlo', async () => {
+test('shutting down with a job in progress returns it to the queue with the attempt refunded, without waiting for it', async () => {
   const env = await envVars({
     worker: true,
     modules: { analyze: (b, o) => new Promise((resolve, reject) => o.signal.addEventListener('abort', () => reject(o.signal.reason))) }
@@ -249,7 +249,7 @@ test('apagar con un trabajo en curso lo devuelve a la cola con el intento reembo
   const jobRow = get(env.db, 'SELECT * FROM jobs WHERE id = ?', jobId)
   assert.equal(jobRow.status, 'queued')
   assert.equal(jobRow.attempts, 0)
-  // Un worker nuevo retoma el trabajo (como tras reiniciar el proceso).
+  // A new worker picks the job up (as after restarting the process).
   let completed = false
   env.modules.analyze = async (b, o) => { completed = true; return fakeAnalyze(b, o) }
   const { createWorker } = await import('./worker.js')
@@ -262,10 +262,10 @@ test('apagar con un trabajo en curso lo devuelve a la cola con el intento reembo
   await env.close()
 })
 
-test('un worker que muere con el trabajo reclamado: el arriendo vence y otro lo recupera', async () => {
+test('a worker that dies holding a claimed job: the lease expires and another one recovers it', async () => {
   const env = await envVars({ config: { worker: { leaseMs: 60, heartbeatMs: 20 } } })
   const { input_id: id, job_id: jobId } = await env.submit('x')
-  const claimed = env.queue.claim('worker-muerto') // reclama y «muere»: nunca latirá ni cerrará
+  const claimed = env.queue.claim('worker-dead') // claims and «dies»: it will never heartbeat or close
   assert.equal(String(claimed.id), jobId)
   const { createWorker } = await import('./worker.js')
   const { createPipeline } = await import('./domain/pipeline.js')
@@ -277,11 +277,11 @@ test('un worker que muere con el trabajo reclamado: el arriendo vence y otro lo 
   await env.close()
 })
 
-test('límite de tiempo por trabajo: se aborta y falla con el motivo', async () => {
+test('per-job time limit: it is aborted and fails with the reason', async () => {
   const env = await envVars({
     worker: true,
     config: { worker: { maxRuntimeMs: 40, maxAttempts: 1 } },
-    modules: { analyze: (b, o) => new Promise((resolve, reject) => o.signal.addEventListener('abort', () => reject(new Error('abortado')))) }
+    modules: { analyze: (b, o) => new Promise((resolve, reject) => o.signal.addEventListener('abort', () => reject(new Error('aborted')))) }
   })
   const { input_id: id } = await env.submit('x')
   await until(() => env.statusOf(id) === 'failed')
@@ -289,7 +289,7 @@ test('límite de tiempo por trabajo: se aborta y falla con el motivo', async () 
   await env.close()
 })
 
-test('la concurrencia configurada acota los trabajos simultáneos', async () => {
+test('the configured concurrency bounds simultaneous jobs', async () => {
   let inFlight = 0
   let peak = 0
   const env = await envVars({
@@ -304,12 +304,12 @@ test('la concurrencia configurada acota los trabajos simultáneos', async () => 
   await env.close()
 })
 
-test('Deferred es la señal interna del aplazamiento', () => {
+test('Deferred is the internal deferral signal', () => {
   const d = new Deferred(100, 'x')
   assert.equal(d.deferMs, 100)
 })
 
-test('reprocesar: el editor vuelve a encolar el análisis conservando las extracciones', async () => {
+test('reprocess: the editor enqueues the analysis again, keeping the extractions', async () => {
   let extractions = 0
   const env = await envVars({ worker: true, modules: { extract: async () => { extractions++; return { text: 'x', meta: {} } } } })
   await addMember(env, { email: 'ed@x.org', role: 'editor' })
@@ -323,9 +323,9 @@ test('reprocesar: el editor vuelve a encolar el análisis conservando las extrac
   assert.equal(r.statusCode, 202)
   assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM proposals').n, 0)
   await until(() => env.statusOf(id) === 'proposed' && get(env.db, 'SELECT COUNT(*) AS n FROM proposals').n === 1)
-  assert.equal(extractions, 1) // no se extrajo de nuevo
+  assert.equal(extractions, 1) // nothing was extracted again
   assert.equal(get(env.db, "SELECT COUNT(*) AS n FROM audit_log WHERE action = 'input.reprocess'").n, 1)
-  // Un input publicado no se reprocesa.
+  // A published input is not reprocessed.
   const v = (await env.app.inject({ url: `/api/inputs/${id}`, headers: { cookie: env.ana } })).json()
   await env.app.inject({ method: 'POST', url: `/api/inputs/${id}/publish`, headers: { cookie: env.ana, 'x-team-request': 'panel' }, payload: { messages: v.proposal.messages } })
   assert.equal((await req(editor, '/reprocess')).statusCode, 409)

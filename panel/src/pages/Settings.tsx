@@ -1,8 +1,9 @@
-import { ChevronDown, Lock } from '@/components/icons'
+import { AlertTriangle, ChevronDown, Lock } from '@/components/icons'
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { EditableText } from '@/components/EditableText'
 import { FitList } from '@/components/FitList'
 import { FormDialog } from '@/components/FormDialog'
+import { LoadState } from '@/components/LoadState'
 import { Page } from '@/components/Page'
 import { PageHeader } from '@/components/PageHeader'
 import { Segmented } from '@/components/Segmented'
@@ -168,7 +169,7 @@ function Project({ editor }: { editor: boolean }) {
     setProblem(null)
     const before = current
     try {
-      await undo.run({ label: t('project.uploaded'), redo: () => save.mutateAsync({ file }), undo: () => save.mutateAsync({ description: before }) })
+      await undo.run({ label: t('project.uploaded'), redo: () => save.mutateAsync({ file }), undo: () => save.mutateAsync({ description: before }) }, { announce: t('project.replacedDone') })
     } catch (err) {
       setProblem(errorText(err))
     }
@@ -191,7 +192,7 @@ function Project({ editor }: { editor: boolean }) {
                 if (file) void replaceWith(file)
               }}
             />
-            <Button size="sm" onClick={() => upload.current?.click()}>
+            <Button size="sm" variant="ghost" className="text-accent-deep" onClick={() => upload.current?.click()}>
               {t('project.upload')}
             </Button>
           </>
@@ -239,7 +240,7 @@ function Providers() {
           </div>
         }
         renderRow={(p) => <ProviderRow provider={p} />}
-        empty={<p className="px-3 py-6 text-center text-sm text-muted">{providers.isPending ? t('common.loading') : t('settings.noProviders')}</p>}
+        empty={providers.isPending || providers.isError ? <LoadState query={providers} rows={2} /> : <p className="px-3 py-6 text-center text-sm text-muted">{t('settings.noProviders')}</p>}
       />
     </section>
   )
@@ -260,15 +261,18 @@ function ProviderRow({ provider: p }: { provider: ProviderSetting }) {
   }
   const reasonKey = p.reason ? `provider.reason.${p.reason}` : ''
   const reason = reasonKey && has(reasonKey) ? t(reasonKey as MessageKey) : (p.reason ?? t('provider.unavailable'))
+  const unavailable = p.available === false
+  // A missing key names the server variable that holds it, in the sentence, since that is what has to be set (J2-A-32).
+  const detail = p.reason === 'missing_api_key' && KEY_VARIABLE[p.provider] ? t('provider.missingKey', { variable: KEY_VARIABLE[p.provider] }) : reason
 
   return (
-    <div className={`grid items-start gap-x-4 gap-y-1 border-b border-line px-4 py-3 last:border-b-0 ${COLUMNS}`}>
+    <div className={`grid items-start gap-x-4 gap-y-1 border-b border-line px-4 py-3 last:border-b-0 ${COLUMNS} ${unavailable ? 'bg-danger-soft/60' : ''}`}>
       <span className="text-sm font-medium">{t(SLOT_KEY[p.slot])}</span>
       {PROVIDERS_BY_SLOT[p.slot].length > 1 ? (
         <DropdownMenu>
-          <DropdownMenuTrigger className="inline-flex min-h-6 max-w-full items-center gap-1 self-start rounded-md border border-transparent px-1.5 text-left text-sm hover:border-line-strong hover:bg-raised" aria-label={t('settings.providerOf', { slot: t(SLOT_KEY[p.slot]) })}>
+          <DropdownMenuTrigger className="inline-flex min-h-7 max-w-full items-center gap-1.5 self-start rounded-md border border-edge bg-glass px-2.5 text-left text-sm hover:border-accent" aria-label={t('settings.providerOf', { slot: t(SLOT_KEY[p.slot]) })}>
             <span className="min-w-0 break-words">{p.provider || t('editable.empty')}</span>
-            <ChevronDown size={12} aria-hidden className="shrink-0 text-muted" />
+            <ChevronDown size={13} aria-hidden className="shrink-0" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
             {/* The open menu names its function: it may cover the row it belongs to (J1-A-51). */}
@@ -284,16 +288,20 @@ function ProviderRow({ provider: p }: { provider: ProviderSetting }) {
         </DropdownMenu>
       ) : (
         // A function with one provider has nothing to choose: plain text, no control that offers nothing.
-        <span className="px-1.5 text-sm">{p.provider || t('editable.empty')}</span>
+        <span className="px-2.5 text-sm">{p.provider || t('editable.empty')}</span>
       )}
       <EditableText value={p.model} label={t('settings.modelOf', { slot: t(SLOT_KEY[p.slot]) })} validate={required} mono onSave={(v) => change({ model: v })} />
-      <span title={p.available === false ? reason : undefined} className="flex flex-col items-start gap-0.5">
-        <Badge tone={p.available === false ? 'danger' : 'answered'}>{p.available === false ? t('provider.unavailable') : t('provider.available')}</Badge>
-        {p.available === false && (
-          <span className="text-sm leading-tight text-fg">
-            {reason}
-            {p.reason === 'missing_api_key' && KEY_VARIABLE[p.provider] && <span className="block font-mono text-xs text-muted">{KEY_VARIABLE[p.provider]}</span>}
-          </span>
+      <span className="flex flex-col items-start gap-0.5">
+        {unavailable ? (
+          <>
+            {/* The one thing on the screen that needs someone: a mark, the word in the body size and what to do, not a 10 px pill (J2-A-32). */}
+            <span className="inline-flex items-center gap-1.5 font-semibold text-danger">
+              <AlertTriangle size={16} aria-hidden /> {t('provider.unavailable')}
+            </span>
+            <span className="text-sm leading-tight">{detail}</span>
+          </>
+        ) : (
+          <Badge tone="answered">{t('provider.available')}</Badge>
         )}
         {save.isError && <span role="alert" className="text-xs leading-tight text-danger">{errorText(save.error)}</span>}
       </span>

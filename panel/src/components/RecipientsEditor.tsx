@@ -4,7 +4,7 @@ import { Avatar } from './Avatar'
 import { useLookups } from './lookups'
 import { MemberPicker } from './MemberPicker'
 
-/** Chips of recipients with their ×, and the picker. Past `max` the rest fold behind «+N», which opens the picker. */
+/** Chips of recipients with their ×, always drawn (J2-A-21), and the picker. Past `max` the rest fold behind «+N», which opens the picker. */
 export function RecipientsEditor({ ids, onChange, max = 3 }: { ids: string[]; onChange: (ids: string[]) => void; max?: number }) {
   const t = useT()
   const { members, memberName } = useLookups()
@@ -12,10 +12,10 @@ export function RecipientsEditor({ ids, onChange, max = 3 }: { ids: string[]; on
   return (
     <ul aria-label={t('recipients.label')} className="flex flex-wrap items-center gap-1.5 text-xs">
       {shown.map((id) => (
-        <li key={id} data-repeat-ok="person" className="group/chip inline-flex min-h-6 max-w-full items-center gap-1 rounded-full bg-accent-soft py-0.5 pl-0.5 pr-0.5 leading-tight text-accent-deep">
+        <li key={id} data-repeat-ok="person" className="group/chip inline-flex min-h-6 max-w-full items-center gap-1 rounded-full border border-line-strong bg-glass-strong py-0.5 pl-0.5 pr-0.5 leading-tight text-fg">
           <Avatar name={memberName(id) || '?'} size={18} />
           {memberName(id)}
-          <button type="button" aria-label={t('recipients.remove', { name: memberName(id) })} className="hit inline-flex items-center justify-center rounded-full hover:bg-accent/15 md:opacity-0 md:group-focus-within/chip:opacity-100 md:group-hover/chip:opacity-100 focus-visible:!opacity-100 [@media(hover:none)]:opacity-100" onClick={() => onChange(ids.filter((x) => x !== id))}>
+          <button type="button" aria-label={t('recipients.remove', { name: memberName(id) })} className="hit inline-flex items-center justify-center rounded-full text-muted hover:bg-hover hover:text-fg" onClick={() => onChange(ids.filter((x) => x !== id))}>
             <X size={11} aria-hidden />
           </button>
         </li>

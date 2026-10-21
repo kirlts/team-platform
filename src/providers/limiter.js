@@ -3,7 +3,7 @@
 // Why it exists: one analysis fires up to 16 provider requests at once (`partitionConcurrency`) and Anthropic caps the
 // simultaneous requests of the whole organization (429 "Number of concurrent requests across all models has exceeded your
 // organization's limit", no Retry-After, the value is in no header). Measured in
-// docs/investigaciones/mediciones/2026-10-21-concurrencia-de-la-cola.md: above 3 queue jobs the 429s start. The queue
+// `docs/investigaciones/mediciones/2026-10-21-concurrencia-de-la-cola.md`: above 3 queue jobs the 429s start. The queue
 // concurrency counts jobs, the cap counts requests, so the cap is enforced where the requests leave: here.
 //
 // Rules of the semaphore:
@@ -22,15 +22,15 @@ import { annotate } from '../telemetry/api.js';
  * Defaults of the knobs (src/config.js reads the same constants).
  * anthropic: highest level with zero 429s minus one, probed three times (see the measurement file, section "Probe of the
  * Anthropic cap"). groq and openaiCompatible: Groq returned 0 429s in 45 requests at 17 in flight and the compatible
- * providers have no measurement, so they start at the Anthropic value, the only one measured (medición 2026-10-21).
- * cooldownMs and restoreStepMs: one request duration of Anthropic, measured in the same file (medición 2026-10-21).
+ * providers have no measurement, so they start at the Anthropic value, the only one measured (measurement 2026-10-21).
+ * cooldownMs and restoreStepMs: one request duration of Anthropic, measured in the same file (measurement 2026-10-21).
  */
 export const PROVIDER_LIMIT_DEFAULTS = Object.freeze({
-  anthropic: 7, // medición 2026-10-21, docs/investigaciones/mediciones/2026-10-21-concurrencia-de-la-cola.md
-  groq: 7, // medición 2026-10-21, same file: Groq had 0 429s, no cap measured
-  openaiCompatible: 7, // medición 2026-10-21, same file: not measured, inherits the Anthropic value
-  cooldownMs: 3300, // medición 2026-10-21, same file: p95 of the duration of an Anthropic call (3.3 s at the highest cell)
-  restoreStepMs: 3300, // medición 2026-10-21, same file: one call p95 per restored request
+  anthropic: 7, // measurement 2026-10-21, `docs/investigaciones/mediciones/2026-10-21-concurrencia-de-la-cola.md`
+  groq: 7, // measurement 2026-10-21, same file: Groq had 0 429s, no cap measured
+  openaiCompatible: 7, // measurement 2026-10-21, same file: not measured, inherits the Anthropic value
+  cooldownMs: 3300, // measurement 2026-10-21, same file: p95 of the duration of an Anthropic call (3.3 s at the highest cell)
+  restoreStepMs: 3300, // measurement 2026-10-21, same file: one call p95 per restored request
 });
 
 const jobScope = new AsyncLocalStorage();

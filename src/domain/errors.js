@@ -1,5 +1,5 @@
-// Errores de dominio. La API los traduce a { code, message } con el estado HTTP indicado.
-// Los mensajes van en español porque los lee una persona (UD-005).
+// Domain errors. The API translates them to { code, message } with the given HTTP status.
+// Messages are in Spanish because a person reads them (UD-005).
 
 export class AppError extends Error {
   constructor (status, code, message, extra = {}) {
@@ -21,7 +21,7 @@ export const unsupported = (message) => new AppError(415, 'unsupported_media_typ
 export const unprocessable = (message, code = 'invalid_value', extra) => new AppError(422, code, message, extra)
 export const tooMany = (message, retryAfterSeconds) => new AppError(429, 'too_many_requests', message, { retryAfterSeconds })
 
-/** Marca un error de trabajo como definitivo: la cola no lo reintenta (contracts.md). */
+/** Marks a job error as final: the queue does not retry it (contracts.md). */
 export function permanent (message, code = null) {
   const error = new Error(message)
   error.retryable = false

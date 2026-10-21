@@ -1,5 +1,5 @@
-// Servidor HTTP local para pruebas de proveedores: registra cada solicitud y responde lo que
-// la prueba le indique. Así se prueba la forma real de la solicitud (cabeceras, cuerpo) sin red.
+// Local HTTP server for provider tests: records each request and replies whatever
+// the test tells it to. This way the real shape of the request (headers, body) is tested without a network.
 import { createServer } from 'node:http';
 
 /**

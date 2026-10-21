@@ -41,7 +41,7 @@ export function EventsProvider({
 
 export function useEventsStore(): EventsStore {
   const store = useContext(EventsContext)
-  if (!store) throw new Error('useEventsStore fuera de EventsProvider')
+  if (!store) throw new Error('useEventsStore outside EventsProvider')
   return store
 }
 

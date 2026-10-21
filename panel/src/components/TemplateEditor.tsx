@@ -1,6 +1,7 @@
-import { Plus, X } from '@/components/icons'
-import { useMemo, useState } from 'react'
+import { Check, Plus, X } from '@/components/icons'
+import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input, Textarea } from '@/components/ui/input'
 import { useErrorText, useT } from '@/i18n'
@@ -10,8 +11,6 @@ import { EditableText } from './EditableText'
 
 /** Longest label the server accepts for a field (src/analyze/templates.js, FIELD_LABEL_MAX). */
 const LABEL_MAX = 120
-
-const checkbox = 'size-4 shrink-0 accent-[var(--color-accent)]'
 
 /**
  * What a person edits of a template: its fields (label and whether it is required) and the instructions to the
@@ -49,8 +48,8 @@ export function TemplateContentEditor({ name, description, markdown, onSave }: {
                 <div className="min-w-0 flex-1">
                   <EditableText value={f.label} label={t('templates.fieldLabel')} validate={label} onSave={(v) => save({ fields: fields.map((x, j) => (j === i ? { ...x, label: v } : x)) })} displayClassName="font-medium" />
                 </div>
-                <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted">
-                  <input type="checkbox" className={checkbox} checked={f.required} onChange={(e) => void save({ fields: fields.map((x, j) => (j === i ? { ...x, required: e.target.checked } : x)) })} />
+                <label className="flex shrink-0 items-center gap-2 text-sm text-muted">
+                  <Checkbox checked={f.required} onCheckedChange={(on) => void save({ fields: fields.map((x, j) => (j === i ? { ...x, required: on === true } : x)) })} />
                   {t('templates.required')}
                 </label>
                 <Button size="icon-sm" variant="ghost" aria-label={t('templates.removeField', { label: f.label })} title={t('templates.removeField', { label: f.label })} onClick={() => void save({ fields: fields.filter((_, j) => j !== i) })}>
@@ -72,14 +71,40 @@ export function TemplateContentEditor({ name, description, markdown, onSave }: {
   )
 }
 
-/** Window of a template's content: the form above, over its own scrolling lane. */
-export function TemplateContentDialog({ open, onOpenChange, title, ...editor }: { open: boolean; onOpenChange: (open: boolean) => void; title: string } & Parameters<typeof TemplateContentEditor>[0]) {
+/**
+ * Window of a template's content: the form above, over its own scrolling lane. Each change is saved as it is made
+ * (UD-017), so the foot says so with «Guardado» once something was saved, and has the one button that leaves (J2-A-24).
+ */
+export function TemplateContentDialog({ open, onOpenChange, title, onSave, ...editor }: { open: boolean; onOpenChange: (open: boolean) => void; title: string } & Parameters<typeof TemplateContentEditor>[0]) {
+  const t = useT()
+  const [saved, setSaved] = useState(false)
+  useEffect(() => {
+    if (!open) setSaved(false)
+  }, [open])
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent title={title} className="max-w-2xl">
         {/* The instructions can be as long as a method section: the window scrolls inside, a declared lane. */}
         <div data-lane="template-content" className="scroll-thin min-h-0 overflow-y-auto p-5">
-          <TemplateContentEditor {...editor} />
+          <TemplateContentEditor
+            {...editor}
+            onSave={async (next) => {
+              await onSave(next)
+              setSaved(true)
+            }}
+          />
+        </div>
+        <div className="flex shrink-0 items-center justify-between gap-3 border-t border-line px-5 py-3">
+          <span role="status" className="inline-flex items-center gap-1.5 text-sm text-muted">
+            {saved && (
+              <>
+                <Check size={15} aria-hidden className="text-accent" /> {t('templates.saved')}
+              </>
+            )}
+          </span>
+          <Button variant="primary" onClick={() => onOpenChange(false)}>
+            {t('templates.done')}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -175,8 +200,8 @@ function NewTemplateForm({ onCreate, onClose }: { onCreate: (v: { name: string; 
                 setFields((all) => all.map((x, j) => (j === i ? { ...x, label, name: fieldKey(label || t('templates.newField'), all.filter((_, k) => k !== i).map((y) => y.name)) } : x)))
               }}
             />
-            <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted">
-              <input type="checkbox" className={checkbox} checked={f.required} onChange={(e) => setFields((all) => all.map((x, j) => (j === i ? { ...x, required: e.target.checked } : x)))} />
+            <label className="flex shrink-0 items-center gap-2 text-sm text-muted">
+              <Checkbox checked={f.required} onCheckedChange={(on) => setFields((all) => all.map((x, j) => (j === i ? { ...x, required: on === true } : x)))} />
               {t('templates.required')}
             </label>
             <Button size="icon-sm" variant="ghost" aria-label={t('templates.removeField', { label: f.label || t('templates.newField') })} onClick={() => setFields((all) => all.filter((_, j) => j !== i))}>
@@ -186,11 +211,14 @@ function NewTemplateForm({ onCreate, onClose }: { onCreate: (v: { name: string; 
         ))}
         {error('fields')}
       </fieldset>
-      <label className="flex flex-col gap-1 text-sm font-medium">
-        {t('templates.instructions')}
-        <Textarea rows={6} value={instructions} aria-invalid={errors.instructions ? true : undefined} onChange={(e) => setInstructions(e.target.value)} />
+      <section aria-label={t('templates.instructions')} className="flex flex-col gap-1">
+        <h2 className="text-sm font-medium normal-case tracking-normal">{t('templates.instructions')}</h2>
+        {/* The same box and the same rendering as when a template is edited (J2-A-25). */}
+        <div className="rounded-md border border-line px-3 py-2">
+          <EditableText value={instructions} label={t('templates.instructions')} multiline prose validate={(v) => (v ? null : t('common.required'))} render={(v) => <Markdown source={v} />} onSave={(v) => setInstructions(v)} />
+        </div>
         {error('instructions')}
-      </label>
+      </section>
       {formError && (
         <p role="alert" className="text-xs text-danger">
           {formError}

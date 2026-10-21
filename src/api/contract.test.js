@@ -1,4 +1,4 @@
-// Pruebas del contrato de la API: OpenAPI generado de los esquemas, convenciones comunes y operación del editor.
+// API contract tests: OpenAPI generated from the schemas, common conventions and editor operations.
 
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
@@ -24,7 +24,7 @@ async function team (opts = {}) {
 }
 
 // ---------------------------------------------------------------- OpenAPI
-test('GET /api/openapi.json publica OpenAPI 3.1 con todas las rutas, sin sesión', async () => {
+test('GET /api/openapi.json publishes OpenAPI 3.1 with every route, without a session', async () => {
   const env = await makeEnv()
   const r = await env.app.inject({ url: '/api/openapi.json' })
   assert.equal(r.statusCode, 200)
@@ -33,10 +33,10 @@ test('GET /api/openapi.json publica OpenAPI 3.1 con todas las rutas, sin sesión
   assert.equal(doc.info.title, 'team-platform API')
   for (const routePath of ['/api/inputs', '/api/inputs/{id}', '/api/inputs/{id}/publish', '/api/messages', '/api/messages/{id}/replies', '/api/areas', '/api/areas/{id}/restore',
     '/api/templates/{id}/restore', '/api/members/me', '/api/settings/providers', '/api/jobs', '/api/jobs/{id}/trace', '/api/audit', '/api/events', '/api/attachments/{id}', '/api/auth/login', '/api/me', '/api/health']) {
-    assert.ok(doc.paths[routePath], `falta ${routePath} en el contrato`)
+    assert.ok(doc.paths[routePath], `${routePath} is missing from the contract`)
   }
-  assert.ok(!doc.paths['/api/openapi.json']) // el contrato no se describe a sí mismo
-  assert.deepEqual(doc.paths['/api/auth/login'].post.security, []) // pública
+  assert.ok(!doc.paths['/api/openapi.json']) // the contract does not describe itself
+  assert.deepEqual(doc.paths['/api/auth/login'].post.security, []) // public
   assert.equal(doc.components.securitySchemes.session.in, 'cookie')
   assert.ok(doc.paths['/api/inputs'].post.requestBody.content['multipart/form-data'])
   assert.ok(doc.paths['/api/messages'].get.responses['200'])
@@ -46,7 +46,7 @@ test('GET /api/openapi.json publica OpenAPI 3.1 con todas las rutas, sin sesión
   await env.close()
 })
 
-test('ninguna ruta queda sin esquema de respuesta', async () => {
+test('no route is left without a response schema', async () => {
   const env = await makeEnv()
   const without = routePolicies.get(env.app)
     .filter((r) => !['HEAD', 'OPTIONS'].includes(r.method))
@@ -56,7 +56,7 @@ test('ninguna ruta queda sin esquema de respuesta', async () => {
   await env.close()
 })
 
-test('todo POST y PATCH con cuerpo rechaza propiedades desconocidas (additionalProperties: false)', async () => {
+test('every POST and PATCH with a body rejects unknown properties (additionalProperties: false)', async () => {
   const env = await makeEnv()
   // A body declared per content type (`content`) is strict when each of its schemas is.
   const isStrict = (s) => (s.content ? Object.values(s.content).every((c) => isStrict(c.schema)) : false) || s.additionalProperties === false || (s.anyOf ?? s.oneOf ?? []).length > 0 && (s.anyOf ?? s.oneOf).every(isStrict)
@@ -65,14 +65,14 @@ test('todo POST y PATCH con cuerpo rechaza propiedades desconocidas (additionalP
     .filter((r) => !isStrict(r.schema.body))
     .map((r) => `${r.method} ${r.url}`)
   assert.deepEqual(loose, [])
-  // Y el cuerpo anidado de la publicación también.
+  // And the nested body of the publication too.
   const publishIt = routePolicies.get(env.app).find((r) => r.url.endsWith('/inputs/:id/publish'))
   assert.equal(publishIt.schema.body.properties.messages.items.additionalProperties, false)
   await env.close()
 })
 
-// ---------------------------------------------------------------- convenciones
-test('ids inválidos en el path son 400; 401 sin sesión y 403 sin rol son distintos; 404 si no existe', async () => {
+// ---------------------------------------------------------------- conventions
+test('invalid ids in the path are 400; 401 without a session and 403 without a role are different; 404 if it does not exist', async () => {
   const env = await team()
   for (const url of ['/messages/abc', '/messages/0', '/messages/-1', '/inputs/1.5', '/areas/x/templates', '/jobs/uno/trace']) {
     const r = await env.api('GET', url, env.c.ed)
@@ -85,7 +85,7 @@ test('ids inválidos en el path son 400; 401 sin sesión y 403 sin rol son disti
   await env.close()
 })
 
-test('toda lista es { items, page, limit, total } con tope de 100 por página', async () => {
+test('every list is { items, page, limit, total } capped at 100 per page', async () => {
   const env = await team()
   for (const url of ['/messages', '/inputs', '/members']) {
     const r = await env.api('GET', url, env.c.ana)
@@ -103,13 +103,13 @@ test('toda lista es { items, page, limit, total } con tope de 100 por página', 
     assert.deepEqual(Object.keys(payloadBody).sort(), ['items', 'limit', 'page', 'total'], url)
     assert.equal((await env.api('GET', `${url}?limit=101`, env.c.ed)).statusCode, 400)
   }
-  // Más allá del final: vacío, con el total verdadero.
+  // Past the end: empty, with the true total.
   const far = (await env.api('GET', '/members?page=9', env.c.ana)).json()
   assert.deepEqual({ n: far.items.length, total: far.total, page: far.page }, { n: 0, total: 2, page: 9 })
   await env.close()
 })
 
-test('GET /inputs lista los propios con filtro por estado', async () => {
+test('GET /inputs lists one\'s own with a status filter', async () => {
   const env = await team()
   await postInput(env, env.c.ana, { text: 'uno' })
   await postInput(env, env.c.ana, { text: 'dos' })
@@ -122,20 +122,20 @@ test('GET /inputs lista los propios con filtro por estado', async () => {
   await env.close()
 })
 
-test('el panel manda X-Team-Request: una petición no segura con cookie y sin la cabecera es 403', async () => {
+test('the panel sends X-Team-Request: an unsafe request with a cookie and without the header is 403', async () => {
   const env = await team()
   const without = await env.app.inject({ method: 'POST', url: '/api/messages/1/close', headers: { cookie: env.c.ana } })
   assert.equal(without.statusCode, 403)
   assert.equal(without.json().code, 'csrf')
   const withHeader = await env.app.inject({ method: 'POST', url: '/api/messages/1/close', headers: { cookie: env.c.ana, 'x-team-request': 'panel' } })
-  assert.equal(withHeader.statusCode, 404) // pasó la defensa
-  // Sin cookie (un cliente de API con otra credencial) no hace falta.
+  assert.equal(withHeader.statusCode, 404) // it passed the defense
+  // Without a cookie (an API client with another credential) it is not needed.
   const login_ = await env.app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: 'x@x.org', password: TEST_PASSWORD } })
   assert.equal(login_.statusCode, 401)
   await env.close()
 })
 
-test('GET /me trae project_name; GET /areas trae open_count y template_count; la lista de mensajes, reply_count y last_reply', async () => {
+test('GET /me brings project_name; GET /areas brings open_count and template_count; the message list, reply_count and last_reply', async () => {
   const env = await team({ config: { projectName: 'Atlas' } })
   const me = (await env.api('GET', '/me', env.c.ana)).json()
   assert.equal(me.project_name, 'Atlas')
@@ -147,7 +147,7 @@ test('GET /me trae project_name; GET /areas trae open_count y template_count; la
   await env.close()
 })
 
-test('borrado en blando: los mensajes de un área borrada siguen existiendo y siguen mostrándose', async () => {
+test('soft delete: the messages of a deleted area still exist and are still displayed', async () => {
   const env = await team({ worker: true })
   const { input_id: id } = (await postInput(env, env.c.ana, { text: 'x' })).json()
   const v = await until(async () => { const r = (await env.api('GET', `/inputs/${id}`, env.c.ana)).json(); return r.status === 'proposed' ? r : null })
@@ -158,17 +158,17 @@ test('borrado en blando: los mensajes de un área borrada siguen existiendo y si
   const listValue = (await env.api('GET', '/messages', env.c.ana)).json()
   assert.equal(listValue.total, 1)
   assert.equal(listValue.items[0].area_id, areaId)
-  // Una propuesta nueva no puede apuntar a un área borrada.
+  // A new proposal cannot point to a deleted area.
   const another = (await postInput(env, env.c.ana, { text: 'otro' })).json()
   const v2 = await until(async () => { const r = (await env.api('GET', `/inputs/${another.input_id}`, env.c.ana)).json(); return r.status === 'proposed' ? r : null })
   const bad = await env.api('POST', `/inputs/${another.input_id}/publish`, env.c.ana, { messages: [{ ...v2.proposal.messages[0], area_id: areaId }] })
   assert.equal(bad.json().code, 'area_invalid')
-  // Y el análisis ya no la ofrece.
+  // And the analysis no longer offers it.
   assert.ok(!all(env.db, 'SELECT id FROM areas WHERE deleted_at IS NULL').some((a) => String(a.id) === areaId))
   await env.close()
 })
 
-test('publicar acepta la propuesta tal cual la entrega GET (ids como texto, discarded y unit_ids) y una plantilla null usa la primera del área', async () => {
+test('publish accepts the proposal exactly as GET delivers it (ids as text, discarded and unit_ids) and a null template uses the first of the area', async () => {
   // HP-014: publishing checks that the units cited exist, so the analyzer double numbers the three the test cites.
   const numbered = async (bundle, opts) => ({ ...(await fakeAnalyze(bundle, opts)), units: [1, 2, 3].map((n) => ({ id: n, text: `unidad ${n}` })) })
   const env = await team({ worker: true, modules: { analyze: numbered } })
@@ -177,13 +177,13 @@ test('publicar acepta la propuesta tal cual la entrega GET (ids como texto, disc
   const msgRows = v.proposal.messages.map((m) => ({ ...m, template_id: null, unit_ids: ['1', '2'], fields: { idea: 'i', motivation: 'm', reference: null } }))
   const r = await env.api('POST', `/inputs/${id}/publish`, env.c.ana, { messages: msgRows, discarded: [{ unit_ids: ['3'], reason: 'saludo' }] })
   assert.equal(r.statusCode, 200, r.body)
-  assert.match(r.json().messages[0].template_id, /^\d+$/) // se eligió la plantilla del área
+  assert.match(r.json().messages[0].template_id, /^\d+$/) // the area's template was chosen
   assert.deepEqual(r.json().messages[0].fields, { idea: 'i', motivation: 'm' })
   await env.close()
 })
 
-// ---------------------------------------------------------------- operación del editor
-test('cola de trabajos: GET /jobs filtrable y DELETE /jobs purga los terminados sólo con confirm=true', async () => {
+// ---------------------------------------------------------------- editor operations
+test('job queue: GET /jobs is filterable and DELETE /jobs purges the finished ones only with confirm=true', async () => {
   const env = await team({ worker: true })
   for (const t of ['a', 'b', 'c']) await postInput(env, env.c.ana, { text: t })
   await until(() => get(env.db, "SELECT COUNT(*) AS n FROM jobs WHERE status = 'done'").n === 3)
@@ -199,7 +199,7 @@ test('cola de trabajos: GET /jobs filtrable y DELETE /jobs purga los terminados 
   const without = await env.api('DELETE', '/jobs?state=done', env.c.ed)
   assert.equal(without.statusCode, 400)
   assert.equal(without.json().code, 'confirm_required')
-  assert.equal((await env.api('DELETE', '/jobs?state=queued&confirm=true', env.c.ed)).statusCode, 400) // sólo terminados
+  assert.equal((await env.api('DELETE', '/jobs?state=queued&confirm=true', env.c.ed)).statusCode, 400) // finished ones only
   assert.equal((await env.api('DELETE', '/jobs?state=done&confirm=true', env.c.ana)).statusCode, 403)
   const purgeRes = await env.api('DELETE', '/jobs?state=done&confirm=true', env.c.ed)
   assert.equal(purgeRes.statusCode, 200)
@@ -209,7 +209,7 @@ test('cola de trabajos: GET /jobs filtrable y DELETE /jobs purga los terminados 
   await env.close()
 })
 
-test('bitácora: quién creó, publicó, cerró, reabrió o editó áreas y plantillas, con fecha', async () => {
+test('log: who created, published, closed, reopened or edited areas and templates, with date', async () => {
   const env = await team({ worker: true })
   const { input_id: id } = (await postInput(env, env.c.ana, { text: 'x' })).json()
   const v = await until(async () => { const r = (await env.api('GET', `/inputs/${id}`, env.c.ana)).json(); return r.status === 'proposed' ? r : null })
@@ -227,19 +227,19 @@ test('bitácora: quién creó, publicó, cerró, reabrió o editó áreas y plan
   const log = (await env.api('GET', '/audit?limit=100', env.c.ed)).json()
   const verbs = log.items.map((e) => e.action)
   for (const a of ['input.create', 'input.publish', 'message.close', 'message.reopen', 'area.create', 'area.update', 'template.create', 'template.delete']) {
-    assert.ok(verbs.includes(a), `falta ${a}`)
+    assert.ok(verbs.includes(a), `${a} is missing`)
   }
   const closing = log.items.find((e) => e.action === 'message.close')
   assert.equal(closing.member_name, 'Ed')
   assert.equal(closing.entity, 'message')
   assert.equal(closing.entity_id, mid)
   assert.match(closing.at, /^\d{4}-\d\d-\d\dT/)
-  assert.ok(log.items[0].at >= log.items.at(-1).at) // la más reciente primero
+  assert.ok(log.items[0].at >= log.items.at(-1).at) // the most recent first
   assert.equal((await env.api('GET', '/audit?action=message.close', env.c.ed)).json().total, 1)
   await env.close()
 })
 
-test('GET /jobs/:id/trace es del editor y responde 404 si el trabajo no dejó spans', async () => {
+test('GET /jobs/:id/trace belongs to the editor and answers 404 if the job left no spans', async () => {
   const env = await team()
   assert.equal((await env.api('GET', '/jobs/1/trace', env.c.ana)).statusCode, 403)
   const r = await env.api('GET', '/jobs/1/trace', env.c.ed)
@@ -248,7 +248,7 @@ test('GET /jobs/:id/trace es del editor y responde 404 si el trabajo no dejó sp
   await env.close()
 })
 
-test('/health: lo básico es público; el detalle de base, cola y proveedores es del editor; 503 si la base no está migrada', async () => {
+test('/health: the basics are public; the detail of database, queue and providers belongs to the editor; 503 if the database is not migrated', async () => {
   const env = await team({ modules: { getProviders: () => ({ describe: () => [{ slot: 'text', provider: 'anthropic', model: 'm', available: false, reason: 'Falta ANTHROPIC_API_KEY' }] }) } })
   const anonymous = (await env.app.inject({ url: '/health' })).json()
   assert.deepEqual(Object.keys(anonymous).sort(), ['status', 'version'])
@@ -262,7 +262,7 @@ test('/health: lo básico es público; el detalle de base, cola y proveedores es
   assert.equal(editor.worker, 'inline')
   assert.deepEqual(editor.providers[0], { slot: 'text', provider: 'anthropic', model: 'm', available: false, reason: 'Falta ANTHROPIC_API_KEY' })
   assert.ok(!JSON.stringify(editor).toLowerCase().includes('sk-'))
-  // Base sin migrar: el sondeo de Docker debe poder ponerse rojo.
+  // Unmigrated database: the Docker probe must be able to turn red.
   run(env.db, 'PRAGMA user_version = 0')
   const down = await env.app.inject({ url: '/health' })
   assert.equal(down.statusCode, 503)
@@ -271,8 +271,8 @@ test('/health: lo básico es público; el detalle de base, cola y proveedores es
   await env.close()
 })
 
-// ---------------------------------------------------------------- desarrollo y origen cruzado
-test('POST /auth/dev-login existe sólo con NODE_ENV=development y entra sin contraseña', async () => {
+// ---------------------------------------------------------------- development and cross-origin
+test('POST /auth/dev-login exists only with NODE_ENV=development and signs in without a password', async () => {
   const prod = await makeEnv()
   assert.equal((await prod.app.inject({ method: 'POST', url: '/api/auth/dev-login', payload: { email: 'dev@x.org' } })).statusCode, 404)
   await prod.close()
@@ -284,12 +284,12 @@ test('POST /auth/dev-login existe sólo con NODE_ENV=development y entra sin con
   assert.equal(typeof r.json().member.id, 'string')
   const cookie = `${r.cookies[0].name}=${r.cookies[0].value}`
   assert.equal((await dev.app.inject({ url: '/api/me', headers: { cookie } })).json().email, 'dev@x.org')
-  assert.equal((await dev.app.inject({ method: 'POST', url: '/api/auth/dev-login', payload: { email: 'dev@x.org', roleName: 'x' } })).statusCode, 400) // estricto
-  assert.equal(get(dev.db, 'SELECT COUNT(*) AS n FROM credentials').n, 0) // sin contraseñas sembradas
+  assert.equal((await dev.app.inject({ method: 'POST', url: '/api/auth/dev-login', payload: { email: 'dev@x.org', roleName: 'x' } })).statusCode, 400) // strict
+  assert.equal(get(dev.db, 'SELECT COUNT(*) AS n FROM credentials').n, 0) // no seeded passwords
   await dev.close()
 })
 
-test('CORS: sin CORS_ORIGINS no hay cabeceras de origen cruzado; con ellas, sólo esos orígenes y con credenciales', async () => {
+test('CORS: without CORS_ORIGINS there are no cross-origin headers; with them, only those origins and with credentials', async () => {
   const isClosed = await makeEnv()
   const without = await isClosed.app.inject({ url: '/api/health', headers: { origin: 'https://otro.example' } })
   assert.equal(without.headers['access-control-allow-origin'], undefined)
@@ -308,7 +308,7 @@ test('CORS: sin CORS_ORIGINS no hay cabeceras de origen cruzado; con ellas, sól
   await env.close()
 })
 
-test('cookie cross-origin: SameSite=None; Secure, y el gancho CSRF acepta sólo los orígenes de la lista', async () => {
+test('cross-origin cookie: SameSite=None; Secure, and the CSRF hook accepts only the origins on the list', async () => {
   const env = await makeEnv({ config: { corsOrigins: ['https://app.vercel.example'], identity: { cookieMode: 'cross-origin', login: { ipMax: 1000 } } } })
   await addMember(env, { email: 'ana@x.org' })
   const post = (headers) => env.app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: 'ana@x.org', password: TEST_PASSWORD }, headers })
@@ -320,35 +320,35 @@ test('cookie cross-origin: SameSite=None; Secure, y el gancho CSRF acepta sólo 
   assert.equal(c.secure, true)
   assert.equal(c.httpOnly, true)
   assert.equal((await post({ origin: 'https://evil.example', 'sec-fetch-site': 'cross-site' })).statusCode, 403)
-  assert.equal((await post({ 'sec-fetch-site': 'cross-site' })).statusCode, 403) // cruzado y sin origen declarado
-  assert.equal((await post({ origin: env.baseUrl ?? 'http://localhost:3000', 'sec-fetch-site': 'same-origin' })).statusCode, 403) // el propio origen tampoco está en la lista
-  // Con la cookie, la petición no segura desde el origen listado pasa si trae X-Team-Request.
+  assert.equal((await post({ 'sec-fetch-site': 'cross-site' })).statusCode, 403) // cross-site and with no declared origin
+  assert.equal((await post({ origin: env.baseUrl ?? 'http://localhost:3000', 'sec-fetch-site': 'same-origin' })).statusCode, 403) // the own origin is not on the list either
+  // With the cookie, the unsafe request from the listed origin passes if it carries X-Team-Request.
   const cookie = `${c.name}=${c.value}`
   const closing = await env.app.inject({ method: 'POST', url: '/api/messages/1/close', headers: { cookie, origin: 'https://app.vercel.example', 'sec-fetch-site': 'cross-site', 'x-team-request': 'panel' } })
   assert.equal(closing.statusCode, 404)
   await env.close()
 })
 
-test('la configuración de origen cruzado se valida al arrancar', async () => {
+test('the cross-origin configuration is validated at startup', async () => {
   const { loadConfig } = await import('../config.js')
   assert.throws(() => loadConfig({ COOKIE_MODE: 'cross-origin' }), /CORS_ORIGINS/)
-  assert.throws(() => loadConfig({ COOKIE_MODE: 'cross-origin', CORS_ORIGINS: 'https://a.example/ruta' }), /sin ruta/)
+  assert.throws(() => loadConfig({ COOKIE_MODE: 'cross-origin', CORS_ORIGINS: 'https://a.example/ruta' }), /no path/)
   assert.throws(() => loadConfig({ COOKIE_MODE: 'cross-origin', CORS_ORIGINS: 'https://a.example', COOKIE_INSECURE_DEV: 'true' }), /Secure/)
-  assert.throws(() => loadConfig({ CORS_ORIGINS: 'no-es-un-origen' }), /origen válido/)
+  assert.throws(() => loadConfig({ CORS_ORIGINS: 'no-es-un-origen' }), /not a valid origin/)
   assert.equal(loadConfig({ COOKIE_MODE: 'same-origin' }).corsOrigins.length, 0)
   assert.equal(loadConfig({ DATA_DIR: '/x' }).dbFile, '/x/team.db')
   assert.equal(loadConfig({ DATA_DIR: '/x', DB_PATH: '/y/z.db' }).dbFile, '/y/z.db')
   assert.equal(loadConfig({}).dataDir, '/data')
 })
 
-// ---------------------------------------------------------------- instalación y proceso
-test('el primer editor sale de ADMIN_EMAIL sólo si no hay miembros, con contraseña generada o la de ADMIN_PASSWORD', async () => {
+// ---------------------------------------------------------------- installation and process
+test('the first editor comes from ADMIN_EMAIL only if there are no members, with a generated password or the ADMIN_PASSWORD one', async () => {
   const env = await makeEnv({ config: { adminEmail: 'jefe@x.org' } })
   const r = await bootstrapFirstEditor(env.db, env.config)
   assert.equal(r.generated, true)
   assert.ok(r.password.length >= 15)
   assert.equal(get(env.db, "SELECT role FROM members WHERE email = 'jefe@x.org'").role, 'editor')
-  assert.equal(await bootstrapFirstEditor(env.db, env.config), null) // ya hay miembros: no eleva a nadie
+  assert.equal(await bootstrapFirstEditor(env.db, env.config), null) // there are members already: it promotes no one
   const loginRes = await env.app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: 'jefe@x.org', password: r.password } })
   assert.equal(loginRes.statusCode, 200)
   await env.close()
@@ -359,7 +359,7 @@ test('el primer editor sale de ADMIN_EMAIL sólo si no hay miembros, con contras
   await another.close()
 })
 
-test('plantillas editadas: quedan copiadas en DATA_DIR/templates y se retiran al borrarlas', async () => {
+test('edited templates: they are copied to DATA_DIR/templates and removed when deleted', async () => {
   const env = await team()
   const { existsSync, readFileSync } = await import('node:fs')
   const area = (await env.api('GET', '/areas', env.c.ed)).json()[0]
@@ -374,7 +374,7 @@ test('plantillas editadas: quedan copiadas en DATA_DIR/templates y se retiran al
   await env.close()
 })
 
-test('SIGTERM al proceso cierra ordenado en menos de 10 s y deja el trabajo en curso en la cola', async () => {
+test('SIGTERM to the process closes in an orderly way in under 10 s and leaves the in-progress job in the queue', async () => {
   const dir = tempDir()
   const rootDir = path.resolve(here, '../..')
   const envVars = {
@@ -386,8 +386,8 @@ test('SIGTERM al proceso cierra ordenado en menos de 10 s y deja el trabajo en c
   proc.stdout.on('data', (d) => { outText += d })
   proc.stderr.on('data', (d) => { outText += d })
   const toVersion = (re, ms = 15000) => until(() => re.test(outText), { timeoutMs: ms })
-  await toVersion(/API escuchando en http:\/\/127\.0\.0\.1:\d+/)
-  const portNumber = /API escuchando en http:\/\/127\.0\.0\.1:(\d+)/.exec(outText)[1] // PORT=0 pide uno libre; el registro lo informa
+  await toVersion(/API listening on http:\/\/127\.0\.0\.1:\d+/)
+  const portNumber = /API listening on http:\/\/127\.0\.0\.1:(\d+)/.exec(outText)[1] // PORT=0 asks for a free one; the log reports it
   const base = `http://127.0.0.1:${portNumber}`
   const loginResponse = await fetch(`${base}/api/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'jefe@x.org', password: TEST_PASSWORD }) })
   assert.equal(loginResponse.status, 200)
@@ -396,7 +396,7 @@ test('SIGTERM al proceso cierra ordenado en menos de 10 s y deja el trabajo en c
   form.append('text', 'algo que se queda analizando')
   const submission = await fetch(`${base}/api/inputs`, { method: 'POST', headers: { cookie, 'x-team-request': 'panel' }, body: form })
   assert.equal(submission.status, 202)
-  const sse = await fetch(`${base}/api/events`, { headers: { cookie } }) // un flujo abierto no debe frenar el cierre
+  const sse = await fetch(`${base}/api/events`, { headers: { cookie } }) // an open stream must not hold up the shutdown
   assert.equal(sse.status, 200)
   const db = openInitialized({ ...(await import('../config.js')).loadConfig({ DATA_DIR: dir }) })
   await until(() => get(db, "SELECT status FROM inputs WHERE id = 1").status === 'analyzing')
@@ -405,21 +405,21 @@ test('SIGTERM al proceso cierra ordenado en menos de 10 s y deja el trabajo en c
   const errorCodeValue = await new Promise((r) => proc.on('close', r))
   const elapsedMs = Date.now() - t0
   assert.equal(errorCodeValue, 0, outText)
-  assert.ok(elapsedMs < 10000, `tardó ${elapsedMs} ms`)
+  assert.ok(elapsedMs < 10000, `took ${elapsedMs} ms`)
   const jobRow = get(db, 'SELECT status, attempts FROM jobs WHERE id = 1')
-  assert.deepEqual({ ...jobRow }, { status: 'queued', attempts: 0 }) // vuelve a la cola con el intento reembolsado
-  assert.match(outText, /apagado completo/)
-  // Cada línea del worker lleva job_id e input_id, y todo es JSON.
+  assert.deepEqual({ ...jobRow }, { status: 'queued', attempts: 0 }) // it goes back to the queue with the attempt refunded
+  assert.match(outText, /shutdown complete/)
+  // Every worker line carries job_id and input_id, and everything is JSON.
   const lines = outText.split('\n').filter(Boolean).map((l) => JSON.parse(l))
   const jobLines = lines.filter((l) => l.job_id !== undefined)
   assert.ok(jobLines.length >= 2)
   assert.ok(jobLines.every((l) => l.input_id === 1 || l.input_id === '1'))
-  assert.ok(lines.some((l) => /Primer editor creado/.test(l.msg)) && !outText.includes(TEST_PASSWORD)) // la contraseña de ADMIN_PASSWORD nunca se imprime
+  assert.ok(lines.some((l) => /First editor created/.test(l.msg)) && !outText.includes(TEST_PASSWORD)) // the ADMIN_PASSWORD password is never printed
   db.close()
   rmSync(dir, { recursive: true, force: true })
 })
 
-test('HP-004 · un trabajo sobrevive a la muerte brusca del proceso: al reiniciar vence el arriendo y se retoma', async () => {
+test('HP-004 · a job survives the abrupt death of the process: on restart the lease expires and it is resumed', async () => {
   const dir = tempDir()
   const rootDir = path.resolve(here, '../..')
   const base = { ...process.env, DATA_DIR: dir, PORT: '0', HOST: '127.0.0.1', LOG_LEVEL: 'info', ADMIN_EMAIL: 'jefe@x.org', ADMIN_PASSWORD: TEST_PASSWORD, COOKIE_INSECURE_DEV: 'true', QUEUE_LEASE_MS: '600', QUEUE_HEARTBEAT_MS: '200' }
@@ -428,10 +428,10 @@ test('HP-004 · un trabajo sobrevive a la muerte brusca del proceso: al reinicia
     let output = ''
     proc.stdout.on('data', (d) => { output += d })
     proc.stderr.on('data', (d) => { output += d })
-    await until(() => /API escuchando en http:\/\/127\.0\.0\.1:\d+/.test(output), { timeoutMs: 15000 })
-    return { proc, url: `http://127.0.0.1:${/API escuchando en http:\/\/127\.0\.0\.1:(\d+)/.exec(output)[1]}` }
+    await until(() => /API listening on http:\/\/127\.0\.0\.1:\d+/.test(output), { timeoutMs: 15000 })
+    return { proc, url: `http://127.0.0.1:${/API listening on http:\/\/127\.0\.0\.1:(\d+)/.exec(output)[1]}` }
   }
-  // Primer proceso: el analizador no termina nunca; se envía un input y se lo mata con SIGKILL en pleno análisis.
+  // First process: the analyzer never finishes; an input is sent and the process is killed with SIGKILL mid-analysis.
   const first = await boot({ ANALYZE_MODULE: path.join(rootDir, 'src/testing/slow-analyze.js') })
   const entry = await fetch(`${first.url}/api/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'jefe@x.org', password: TEST_PASSWORD }) })
   const cookie = entry.headers.getSetCookie()[0].split(';')[0]
@@ -440,15 +440,15 @@ test('HP-004 · un trabajo sobrevive a la muerte brusca del proceso: al reinicia
   assert.equal((await fetch(`${first.url}/api/inputs`, { method: 'POST', headers: { cookie, 'x-team-request': 'panel' }, body: form })).status, 202)
   const db = openInitialized({ ...(await import('../config.js')).loadConfig({ DATA_DIR: dir }) })
   await until(() => get(db, 'SELECT status FROM inputs WHERE id = 1').status === 'analyzing')
-  first.proc.kill('SIGKILL') // sin apagado ordenado: nadie devuelve el trabajo a la cola
+  first.proc.kill('SIGKILL') // no orderly shutdown: nobody returns the job to the queue
   await new Promise((r) => first.proc.on('close', r))
-  assert.equal(get(db, 'SELECT status FROM jobs WHERE id = 1').status, 'running') // quedó con su arriendo a medias
+  assert.equal(get(db, 'SELECT status FROM jobs WHERE id = 1').status, 'running') // it was left with its lease half done
 
-  // Segundo proceso, con el analizador de prueba que sí termina: recupera el arriendo vencido y completa el trabajo.
+  // Second process, with the test analyzer that does finish: it recovers the expired lease and completes the job.
   const second = await boot({ ANALYZE_MODULE: path.join(rootDir, 'src/testing/demo-modules.js'), EXTRACT_MODULE: path.join(rootDir, 'src/testing/demo-modules.js') })
   await until(() => get(db, 'SELECT status FROM inputs WHERE id = 1').status === 'proposed', { timeoutMs: 15000 })
   assert.equal(get(db, 'SELECT status FROM jobs WHERE id = 1').status, 'done')
-  assert.equal(get(db, 'SELECT attempts FROM jobs WHERE id = 1').attempts, 2) // el intento perdido cuenta
+  assert.equal(get(db, 'SELECT attempts FROM jobs WHERE id = 1').attempts, 2) // the lost attempt counts
   second.proc.kill('SIGTERM')
   await new Promise((r) => second.proc.on('close', r))
   db.close()

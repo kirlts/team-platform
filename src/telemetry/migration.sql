@@ -1,24 +1,24 @@
--- Telemetría (MASTER-SPEC §7.10 bis, UD-014): la tabla `spans` y la vista `llm_calls`.
--- El núcleo copia este archivo a su carpeta de migraciones con el número que corresponda.
--- Sólo hacia adelante, sin BEGIN ni COMMIT: el ejecutor de migraciones ya abre la transacción.
--- Si el núcleo creó antes una tabla `llm_calls`, la migración que copia este archivo debe
--- eliminarla primero (`DROP TABLE llm_calls;`): desde UD-014 es una vista sobre `spans`.
+-- Telemetry (MASTER-SPEC §7.10 bis, UD-014): the `spans` table and the `llm_calls` view.
+-- The core copies this file to its migrations folder under the appropriate number.
+-- Forward only, no BEGIN or COMMIT: the migration runner already opens the transaction.
+-- If the core previously created an `llm_calls` table, the migration that copies this file must
+-- drop it first (`DROP TABLE llm_calls;`): since UD-014 it is a view over `spans`.
 
--- Un span es una unidad de trabajo medida: un trabajo, un paso, una llamada a un proveedor.
--- Los tiempos van en nanosegundos desde la época Unix (INTEGER de 64 bits de SQLite).
+-- A span is a measured unit of work: a job, a step, a call to a provider.
+-- Times are in nanoseconds since the Unix epoch (SQLite 64-bit INTEGER).
 CREATE TABLE spans (
   trace_id        TEXT    NOT NULL,
   span_id         TEXT    NOT NULL,
-  parent_id       TEXT,                       -- NULL en la raíz de un árbol
+  parent_id       TEXT,                       -- NULL at the root of a tree
   name            TEXT    NOT NULL,
   kind            TEXT    NOT NULL,           -- INTERNAL | SERVER | CLIENT | PRODUCER | CONSUMER
   start_ns        INTEGER NOT NULL,
   end_ns          INTEGER NOT NULL,
   status          TEXT    NOT NULL,           -- unset | ok | error
   status_message  TEXT,
-  attributes_json TEXT    NOT NULL,           -- objeto JSON: team.* y gen_ai.*
-  events_json     TEXT    NOT NULL,           -- lista JSON de {name, time_ns, attributes}
-  -- Columnas generadas: dejan buscar por trabajo y por operación sin duplicar el dato.
+  attributes_json TEXT    NOT NULL,           -- JSON object: team.* and gen_ai.*
+  events_json     TEXT    NOT NULL,           -- JSON list of {name, time_ns, attributes}
+  -- Generated columns: allow searching by job and by operation without duplicating the data.
   job_id          TEXT GENERATED ALWAYS AS (json_extract(attributes_json, '$."team.job_id"')) VIRTUAL,
   operation       TEXT GENERATED ALWAYS AS (json_extract(attributes_json, '$."gen_ai.operation.name"')) VIRTUAL,
   PRIMARY KEY (trace_id, span_id)
@@ -28,13 +28,13 @@ CREATE INDEX spans_job ON spans (job_id) WHERE job_id IS NOT NULL;
 CREATE INDEX spans_start ON spans (start_ns);
 CREATE INDEX spans_operation ON spans (operation) WHERE operation IS NOT NULL;
 
--- `llm_calls` conserva las columnas de MASTER-SPEC §7.2 y suma las que el árbol ya conoce.
--- Es una vista de los spans de llamada a un modelo (los que `recordGenAiCall` marca con
--- `gen_ai.operation.name`); las herramientas (`execute_tool`) no cuentan como llamada.
---   id            = span_id (texto)
---   input_tokens  = gen_ai.usage.input_tokens, que según la convención de GenAI incluye lo leído
---                   y lo escrito en la caché; `cached_tokens` es la parte leída de la caché
---   at            = inicio de la llamada en milisegundos Unix
+-- `llm_calls` keeps the columns of MASTER-SPEC §7.2 and adds the ones the tree already knows.
+-- It is a view of the model-call spans (those `recordGenAiCall` marks with
+-- `gen_ai.operation.name`); tools (`execute_tool`) do not count as a call.
+--   id            = span_id (text)
+--   input_tokens  = gen_ai.usage.input_tokens, which per the GenAI convention includes what was read
+--                   and what was written in the cache; `cached_tokens` is the part read from the cache
+--   at            = start of the call in Unix milliseconds
 CREATE VIEW llm_calls AS
 SELECT
   span_id                                                                            AS id,

@@ -1,9 +1,9 @@
 // @vitest-environment node
-// UD-018: toda la interfaz sale de los dos catálogos. Esta prueba comprueba, sin ejecutar nada:
-//   - los dos catálogos tienen exactamente las mismas claves, y las mismas variables en cada mensaje;
-//   - cada clave que el código nombra existe;
-//   - ningún texto visible está escrito fuera de los catálogos: ni texto en un JSX, ni un atributo
-//     visible (aria-label, placeholder, title, alt, label), ni un literal con acentos.
+// UD-018: the whole interface comes from the two catalogues. This test checks, without running anything:
+//   - the two catalogues have exactly the same keys, and the same variables in each message;
+//   - every key the code names exists;
+//   - no visible text is written outside the catalogues: neither text in a JSX, nor a visible
+//     attribute (aria-label, placeholder, title, alt, label), nor a literal with accents.
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -86,12 +86,12 @@ export function literalsIn(file: string, code: string): [string, string][] {
   return raw
 }
 
-describe('catálogos (UD-018)', () => {
-  it('tienen exactamente las mismas claves', () => {
+describe('catalogues (UD-018)', () => {
+  it('have exactly the same keys', () => {
     expect(Object.keys(en).sort()).toEqual(Object.keys(es419).sort())
   })
 
-  it('cada mensaje usa las mismas variables en los dos idiomas', () => {
+  it('every message uses the same variables in both languages', () => {
     const vars = (m: unknown) => {
       const text = typeof m === 'string' ? m : JSON.stringify(m)
       return [...new Set([...text.matchAll(/\{(\w+)\}/g)].map((x) => x[1]))].sort()
@@ -100,21 +100,21 @@ describe('catálogos (UD-018)', () => {
     expect(different).toEqual([])
   })
 
-  it('un mensaje con plural lo trae en las dos formas', () => {
+  it('a message with a plural carries both forms', () => {
     for (const [key, value] of [...Object.entries(es419), ...Object.entries(en)]) {
       if (typeof value === 'object') expect(Object.keys(value).sort(), key).toEqual(['one', 'other'])
     }
   })
 
-  it('ninguna clave queda vacía', () => {
+  it('no key is left empty', () => {
     for (const [key, value] of [...Object.entries(es419), ...Object.entries(en)]) {
       expect(typeof value === 'string' ? value : value.one + value.other, key).not.toBe('')
     }
   })
 })
 
-describe('el código sólo nombra claves que existen', () => {
-  it('cada clave literal del código está en el catálogo', () => {
+describe('the code only names keys that exist', () => {
+  it('every literal key in the code is in the catalogue', () => {
     const keys = new Set(Object.keys(es419))
     const missing: string[] = []
     for (const file of sources(SRC)) {
@@ -130,13 +130,13 @@ describe('el código sólo nombra claves que existen', () => {
   })
 })
 
-describe('ningún texto visible fuera de los catálogos', () => {
+describe('no visible text outside the catalogues', () => {
   it('recognises the forms', () => {
     const found = literalsIn('x.tsx', `const a = <div title="Cerrar" className="x">Texto<span aria-label={'Abrir'} />{'otro'}</div>; const o = { label: 'Nombre' }`)
     expect(found.map(([where]) => where.split(' ')[0] + ' ' + where.split(' ')[1])).toEqual(expect.arrayContaining(['atributo title', 'texto en', 'atributo aria-label', 'literal en', 'propiedad label']))
   })
 
-  it('cada archivo de src/ saca sus textos de t()', () => {
+  it('every file in src/ takes its texts from t()', () => {
     const found: string[] = []
     for (const file of sources(SRC)) {
       const rel = relative(SRC, file)

@@ -1,10 +1,10 @@
-// Mensajes, respuestas y estados (MASTER-SPEC §1.1, §4.8).
+// Messages, replies and statuses (MASTER-SPEC §1.1, §4.8).
 //
-// Estados de un mensaje: abierto (open) → respondido (answered) → cerrado (closed).
-//   - Sólo un miembro distinto del emisor responde (403). Lo hace cumplir esta capa, no el panel.
-//   - Cualquier miembro cierra o reabre.
-//   - Reabrir devuelve a `answered` si el mensaje ya tiene respuestas, y a `open` si no.
-// Tabla de transiciones de `status`; cualquier otra es 409.
+// Statuses of a message: open → answered → closed.
+//   - Only a member other than the sender replies (403). This layer enforces it, not the panel.
+//   - Any member closes or reopens.
+//   - Reopening returns to `answered` if the message already has replies, and to `open` if not.
+// Table of `status` transitions; any other is a 409.
 
 import { createHash } from 'node:crypto'
 import { all, get, run } from '../db/index.js'
@@ -18,9 +18,9 @@ export const MESSAGE_STATUSES = ['open', 'answered', 'closed']
 export const REPLY_KINDS = ['answer', 'fix', 'clarification']
 
 const TRANSITIONS = {
-  reply: { open: 'answered', answered: 'answered' }, // un mensaje cerrado no recibe respuestas hasta reabrirse
+  reply: { open: 'answered', answered: 'answered' }, // a closed message receives no replies until it is reopened
   close: { open: 'closed', answered: 'closed' },
-  reopen: { closed: null } // el destino depende de si tiene respuestas
+  reopen: { closed: null } // the destination depends on whether it has replies
 }
 
 const escapeLike = (q) => q.replace(/[\\%_]/g, (c) => `\\${c}`)
@@ -81,7 +81,7 @@ function lastRepliesOf (db, ids) {
   return new Map(rows.map((r) => [r.message_id, toReply(r, atts.get(r.id))]))
 }
 
-/** Forma plana que consume el panel: referencias por id; los nombres salen de las listas de miembros y áreas. */
+/** Flat shape the panel consumes: references by id; names come from the member and area lists. */
 function hydrate (db, rows) {
   const ids = rows.map((f) => f.id)
   const atts = attachmentsOf(db, ids)
@@ -113,9 +113,9 @@ const SELECT_MESSAGE = `
     FROM messages m`
 
 /**
- * Lista de mensajes del equipo (todos ven todos, §6). Filtros: `for` (me o id de miembro: asignado a),
- * `area`, `status`, `q` (subcadena en título o texto) y `replies` (sólo con respuestas; con `for`, los que
- * involucran a esa persona como emisor, asignada o autora de una respuesta). Devuelve { items, total }.
+ * List of the team's messages (everyone sees everything, §6). Filters: `for` (me or a member id: assigned to),
+ * `area`, `status`, `q` (substring in title or text) and `replies` (only with replies; with `for`, those
+ * that involve that person as sender, assignee or author of a reply). Returns { items, total }.
  */
 export function listMessages (db, { viewerId, forMember = null, area = null, status = null, q = null, replies = false, limit, offset = 0 }) {
   const scope = []
@@ -149,11 +149,11 @@ export function listMessages (db, { viewerId, forMember = null, area = null, sta
 }
 
 /**
- * Lo que afecta a un miembro, con su prioridad (UD-028). Cuenta sólo mensajes no cerrados.
- *   red: asignado al miembro y todavía abierto (nadie respondió; requiere su acción).
- *   yellow: asignado al miembro y ya respondido, sin cerrar (pendiente de cerrar).
- *   blue: emisor del mensaje, sin estar asignado, con respuestas sin cerrar (informativo).
- * Un mensaje cae en una sola prioridad. `areas` lista los abiertos por área y cuántos son rojos para el miembro.
+ * What affects a member, with its priority (UD-028). Counts only messages that are not closed.
+ *   red: assigned to the member and still open (nobody replied; it needs their action).
+ *   yellow: assigned to the member and already answered, not closed (waiting to be closed).
+ *   blue: issuer of the message, not assigned, with replies and not closed (informational).
+ * A message falls into a single priority. `areas` lists the open ones per area and how many are red for the member.
  */
 export function messageSummary (db, memberId) {
   const rows = all(db, `
@@ -162,7 +162,7 @@ export function messageSummary (db, memberId) {
            (m.author_id = ?) AS authored
       FROM messages m WHERE m.status <> 'closed'`, memberId, memberId)
   const mine = { red: 0, yellow: 0, blue: 0, total: 0 }
-  // Los mismos mensajes que se cuentan, uno por uno: el panel lista exactamente lo que suma (J2-A-43).
+  // The same messages that are counted, one by one: the panel lists exactly what adds up (J2-A-43).
   const items = []
   for (const r of rows) {
     const tone = r.assigned ? (r.status === 'open' ? 'red' : 'yellow') : r.authored && r.status === 'answered' ? 'blue' : null
@@ -260,7 +260,7 @@ export function updateMessage ({ db, events, now = Date.now }, { messageId, acto
 export function assertCanReply (db, messageId, authorId) {
   const msgRow = get(db, 'SELECT id, author_id, status FROM messages WHERE id = ?', messageId)
   if (!msgRow) throw notFound('El mensaje no existe.')
-  // §4.8: sólo un miembro distinto del emisor responde.
+  // §4.8: only a member other than the sender replies.
   if (msgRow.author_id === authorId) throw forbidden('El emisor de un mensaje no puede responderlo.', 'author_cannot_reply')
   const target = TRANSITIONS.reply[msgRow.status]
   if (!target) throw conflict('El mensaje está cerrado. Hay que reabrirlo para responder.', 'message_closed')
@@ -318,8 +318,8 @@ export function reopenMessage ({ db, events, now = Date.now }, messageId, actorI
 }
 
 /**
- * Control de acceso a un adjunto (§7.1: «archivo, con control de acceso»): lo lee el autor del input y, una
- * vez publicado en algún mensaje, todo el equipo (los mensajes son visibles para todos, §6).
+ * Access control for an attachment (§7.1: «file, with access control»): the input's author reads it and, once
+ * published in some message, the whole team does (messages are visible to everyone, §6).
  */
 export function canReadAttachment (db, memberId, attachmentId) {
   const dbRow = get(db, `

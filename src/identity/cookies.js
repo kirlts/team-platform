@@ -1,7 +1,7 @@
-// Cookie de sesión (MASTER-SPEC §7.7). `__Host-` obliga a Secure, Path=/ y sin Domain (informe 04 §2.2).
-//   same-origin    `__Host-session`, SameSite=Lax (panel y API comparten origen).
-//   cross-origin   `__Host-session`, SameSite=None; Secure, para un frontend en otro origen (CORS_ORIGINS).
-//   COOKIE_INSECURE_DEV  sólo desarrollo por http: sin prefijo ni Secure, SameSite=Lax.
+// Session cookie (MASTER-SPEC §7.7). `__Host-` requires Secure, Path=/ and no Domain (report 04 §2.2).
+//   same-origin    `__Host-session`, SameSite=Lax (panel and API share an origin).
+//   cross-origin   `__Host-session`, SameSite=None; Secure, for a frontend on another origin (CORS_ORIGINS).
+//   COOKIE_INSECURE_DEV  development over http only: no prefix and no Secure, SameSite=Lax.
 
 export function cookieSpec (config) {
   const maxAge = config.identity.session.absoluteHours * 3600

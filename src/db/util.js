@@ -1,4 +1,4 @@
-// Utilidades de tiempo y serialización compartidas por todos los módulos.
+// Time and serialization utilities shared by all modules.
 
 export const iso = (ms) => (ms === null || ms === undefined ? null : new Date(ms).toISOString())
 

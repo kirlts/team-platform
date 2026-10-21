@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { parseTemplate } from './templates.js';
 import {
-  coverage, normalizeDecomposition, validateClassification, validateDecomposition, validateProposal,
+  closeStretches, coverage, normalizeDecomposition, repairClassification, repairCoverage, validateClassification, validateDecomposition, validateProposal,
 } from './validate.js';
 import { bugMessage, CLASSIFY_ERRORS, CLASSIFY_MULTI, goodDecomposition, makeBundle } from './testing/fixtures.js';
 
@@ -14,66 +14,66 @@ async function setup() {
 }
 
 describe('coverage', () => {
-  it('detecta solapes y huecos por conjuntos', () => {
+  it('detects overlaps and gaps by sets', () => {
     const r = coverage([{ unit_ids: [1, 2] }, { unit_ids: [2, 3] }], [{ unit_ids: [3] }], [1, 2, 3, 4]);
-    assert.deepEqual(r.overlaps, [{ unit_id: 2, owners: ['mensaje 1', 'mensaje 2'] }, { unit_id: 3, owners: ['mensaje 2', 'descartada'] }]);
+    assert.deepEqual(r.overlaps, [{ unit_id: 2, owners: ['message 1', 'message 2'] }, { unit_id: 3, owners: ['message 2', 'discarded'] }]);
     assert.deepEqual(r.gaps, [4]);
   });
 });
 
 describe('validateDecomposition', () => {
-  it('acepta la descomposición correcta, sin errores ni conflictos', async () => {
+  it('accepts the correct decomposition, with no errors or conflicts', async () => {
     const { ctx } = await setup();
     const v = validateDecomposition(goodDecomposition(), ctx);
     assert.deepEqual(v.errors, []);
     assert.deepEqual(v.conflicts, { overlaps: [], gaps: [] });
   });
 
-  it('separa errores de forma y referencias de los conflictos MECE', async () => {
+  it('separates shape and reference errors from MECE conflicts', async () => {
     const { ctx } = await setup();
     const out = goodDecomposition();
-    out.messages[0].unit_ids = [2, 3]; // solape con el mensaje 2 y hueco en la u4
+    out.messages[0].unit_ids = [2, 3]; // overlap with message 2 and gap at u4
     const v = validateDecomposition(out, ctx);
     assert.deepEqual(v.errors, []);
     assert.deepEqual(v.conflicts.overlaps.map((o) => o.unit_id), [3]);
     assert.deepEqual(v.conflicts.gaps, [4]);
   });
 
-  it('señala campos obligatorios ausentes o vacíos, mensajes vacíos y propiedades de más', async () => {
+  it('flags missing or empty required fields, empty messages and extra properties', async () => {
     const { ctx } = await setup();
     const out = goodDecomposition();
     delete out.messages[0].fields.actual;
     out.messages[1].title = '';
     out.messages[2].extra = 1;
     const errors = validateDecomposition(out, ctx).errors.join('\n');
-    assert.match(errors, /falta «actual»/);
-    assert.match(errors, /no puede estar vacío/);
-    assert.match(errors, /sobra «extra»/);
+    assert.match(errors, /missing «actual»/);
+    assert.match(errors, /cannot be empty/);
+    assert.match(errors, /unexpected «extra»/);
   });
 
-  it('un campo obligatorio de sólo espacios o un cuerpo en blanco cuentan como vacíos', async () => {
+  it('a required field of only spaces or a blank body count as empty', async () => {
     const { ctx } = await setup();
     const out = goodDecomposition();
     out.messages[0].fields.steps = '   ';
     out.messages[1].body = '  ';
     const errors = validateDecomposition(out, ctx).errors.join('\n');
-    assert.match(errors, /«steps» está vacío/);
-    assert.match(errors, /el cuerpo está vacío/);
+    assert.match(errors, /the required field «steps» is empty/);
+    assert.match(errors, /the body is empty/);
   });
 
-  it('señala unidades, miembros y adjuntos que no existen', async () => {
+  it('flags units, members and attachments that do not exist', async () => {
     const { ctx } = await setup();
     const out = goodDecomposition();
     out.messages[0].unit_ids = [2, 4, 99];
     out.messages[1].assignee_ids = [42];
     out.messages[2].attachment_ids = [77];
     const errors = validateDecomposition(out, ctx).errors.join('\n');
-    assert.match(errors, /la unidad 99 no existe/);
-    assert.match(errors, /el miembro 42 no existe/);
-    assert.match(errors, /el adjunto 77 no pertenece al input/);
+    assert.match(errors, /unit 99 does not exist/);
+    assert.match(errors, /member 42 does not exist/);
+    assert.match(errors, /attachment 77 does not belong to the input/);
   });
 
-  it('no coacciona tipos ni recorta propiedades', async () => {
+  it('does not coerce types or trim properties', async () => {
     const { ctx } = await setup();
     const out = goodDecomposition();
     out.messages[0].unit_ids = ['2', 4];
@@ -81,51 +81,51 @@ describe('validateDecomposition', () => {
     assert.equal(out.messages[0].unit_ids[0], '2');
   });
 
-  it('acepta campos opcionales con null y la lista vacía de mensajes con todo descartado', async () => {
+  it('accepts optional fields with null and the empty message list with everything discarded', async () => {
     const { ctx } = await setup();
     const out = { messages: [bugMessage([2, 3, 4, 5], 'Un solo error', { fields: { steps: 'a', expected: 'b', actual: 'c', where: null } })] };
     assert.deepEqual(validateDecomposition(out, ctx).errors, []);
     const vacio = { messages: [], discarded: [{ unit_ids: [2, 3, 4, 5], reason: 'charla' }] };
     assert.deepEqual(validateDecomposition(vacio, { ...ctx, withDiscarded: true }), { errors: [], conflicts: { overlaps: [], gaps: [] } });
-    assert.match(validateDecomposition({ messages: [] }, { ...ctx, requireMessage: true }).errors[0], /el grupo no produjo ningún mensaje/);
-    assert.match(validateDecomposition(vacio, ctx).errors[0], /sobra «discarded»/);
+    assert.match(validateDecomposition({ messages: [] }, { ...ctx, requireMessage: true }).errors[0], /the group produced no message/);
+    assert.match(validateDecomposition(vacio, ctx).errors[0], /unexpected «discarded»/);
   });
 });
 
 describe('validateClassification', () => {
   const scope = new Set([1, 2, 3, 4, 5, 6]);
-  it('acepta grupos que con los descartes cubren cada unidad una vez', async () => {
+  it('accepts groups that with the discards cover each unit once', async () => {
     const { areas, templates } = await makeBundle();
     assert.deepEqual(validateClassification(CLASSIFY_ERRORS, { areas, templates, scope }), { errors: [] });
     const multi = { ...CLASSIFY_MULTI, discarded: [{ unit_ids: [1, 5, 6], reason: 'charla' }] };
     assert.deepEqual(validateClassification(multi, { areas, templates, scope: new Set([1, 2, 3, 4, 5, 6]) }).errors, []);
   });
 
-  it('exige que el área y la plantilla existan y se correspondan', async () => {
+  it('requires the area and the template to exist and to match', async () => {
     const { areas, templates } = await makeBundle();
     const group = (area_id, template_id) => ({ groups: [{ unit_ids: [2, 3, 4, 5], area_id, template_id }], discarded: CLASSIFY_ERRORS.discarded });
-    assert.match(validateClassification(group(2, 3), { areas, templates, scope }).errors[0], /grupo 1: la plantilla 3 no pertenece al área 2/);
-    assert.match(validateClassification(group(99, 2), { areas, templates, scope }).errors[0], /lista permitida/);
+    assert.match(validateClassification(group(2, 3), { areas, templates, scope }).errors[0], /group 1: template 3 does not belong to area 2/);
+    assert.match(validateClassification(group(99, 2), { areas, templates, scope }).errors[0], /allowed list/);
   });
 
-  it('señala unidades inexistentes, solapes entre grupos y huecos', async () => {
+  it('flags nonexistent units, overlaps between groups and gaps', async () => {
     const { areas, templates } = await makeBundle();
     const inexistente = { groups: [{ unit_ids: [2, 3, 4, 5, 77], area_id: 2, template_id: 2 }], discarded: CLASSIFY_ERRORS.discarded };
-    assert.match(validateClassification(inexistente, { areas, templates, scope }).errors[0], /la unidad 77 no existe/);
+    assert.match(validateClassification(inexistente, { areas, templates, scope }).errors[0], /unit 77 does not exist/);
     const solape = { groups: [{ unit_ids: [2, 3], area_id: 2, template_id: 2 }, { unit_ids: [3, 4, 5], area_id: 1, template_id: 1 }], discarded: CLASSIFY_ERRORS.discarded };
-    assert.match(validateClassification(solape, { areas, templates, scope }).errors[0], /unidad 3 está en más de un lugar \(grupo 1 y grupo 2\)/);
+    assert.match(validateClassification(solape, { areas, templates, scope }).errors[0], /unit 3 is in more than one place \(group 1 and group 2\)/);
     const hueco = { groups: [{ unit_ids: [2, 3], area_id: 2, template_id: 2 }], discarded: CLASSIFY_ERRORS.discarded };
-    assert.match(validateClassification(hueco, { areas, templates, scope }).errors[0], /las unidades 4, 5 no están en ningún lugar/);
+    assert.match(validateClassification(hueco, { areas, templates, scope }).errors[0], /units 4, 5 are in no place/);
     const descartadaYAgrupada = { groups: CLASSIFY_ERRORS.groups, discarded: [...CLASSIFY_ERRORS.discarded, { unit_ids: [2], reason: 'x' }] };
-    assert.match(validateClassification(descartadaYAgrupada, { areas, templates, scope }).errors[0], /unidad 2 está en más de un lugar \(grupo 1 y descartada\)/);
+    assert.match(validateClassification(descartadaYAgrupada, { areas, templates, scope }).errors[0], /unit 2 is in more than one place \(group 1 and discarded\)/);
   });
 
-  it('rechaza grupos vacíos y propiedades de más', async () => {
+  it('rejects empty groups and extra properties', async () => {
     const { areas, templates } = await makeBundle();
     const out = { groups: [{ unit_ids: [], area_id: 2, template_id: 2, extra: 1 }], discarded: [] };
     const errors = validateClassification(out, { areas, templates, scope }).errors.join('\n');
-    assert.match(errors, /al menos 1 elemento/);
-    assert.match(errors, /sobra «extra»/);
+    assert.match(errors, /at least 1 item/);
+    assert.match(errors, /unexpected «extra»/);
   });
 });
 
@@ -139,27 +139,27 @@ describe('validateProposal', () => {
   const pregunta = { unit_ids: [4], area_id: 5, template_id: 5, title: 'Q', fields: { question: '¿?' }, body: 'Q', assignee_ids: [], attachment_ids: [] };
   const error = { ...bugMessage([2], 'E'), area_id: 2, template_id: 2 };
 
-  it('valida cada mensaje contra su propia plantilla y los conflictos sobre la unión de los grupos', async () => {
+  it('validates each message against its own template and the conflicts over the union of the groups', async () => {
     const c = await ctx();
     const ok = validateProposal({ messages: [error, idea, pregunta], discarded: [{ unit_ids: [1, 5], reason: 'charla' }] }, c);
     assert.deepEqual(ok, { errors: [], conflicts: { overlaps: [], gaps: [] } });
     const cruzado = validateProposal({ messages: [error, { ...idea, fields: { question: 'x' } }, pregunta], discarded: [{ unit_ids: [1, 5], reason: 'c' }] }, c);
-    assert.match(cruzado.errors.join('\n'), /mensaje 2, campos: falta «idea»/);
+    assert.match(cruzado.errors.join('\n'), /message 2, fields: missing «idea»/);
     const hueco = validateProposal({ messages: [error, idea], discarded: [{ unit_ids: [1, 5], reason: 'c' }] }, c);
     assert.deepEqual(hueco.conflicts.gaps, [4]);
     const solape = validateProposal({ messages: [error, { ...idea, unit_ids: [2, 3] }, pregunta], discarded: [{ unit_ids: [1, 5], reason: 'c' }] }, c);
     assert.deepEqual(solape.conflicts.overlaps.map((o) => o.unit_id), [2]);
   });
 
-  it('rechaza una plantilla inexistente o de otra área', async () => {
+  it('rejects a nonexistent template or one from another area', async () => {
     const c = await ctx();
-    assert.match(validateProposal({ messages: [{ ...idea, template_id: 99 }], discarded: [] }, c).errors[0], /la plantilla 99 no existe/);
-    assert.match(validateProposal({ messages: [{ ...idea, area_id: 2 }], discarded: [] }, c).errors[0], /no pertenece al área 2/);
+    assert.match(validateProposal({ messages: [{ ...idea, template_id: 99 }], discarded: [] }, c).errors[0], /template 99 does not exist/);
+    assert.match(validateProposal({ messages: [{ ...idea, area_id: 2 }], discarded: [] }, c).errors[0], /does not belong to area 2/);
   });
 });
 
 describe('normalizeDecomposition', () => {
-  it('ordena, quita nulos y recorta', () => {
+  it('sorts, removes nulls and trims', () => {
     const out = normalizeDecomposition({
       messages: [bugMessage([5, 3], ' B ', { fields: { steps: ' a ', where: null }, assignee_ids: [2, 1, 2] }), bugMessage([1], 'A')],
       discarded: [{ unit_ids: [9], reason: ' x ' }],
@@ -169,5 +169,76 @@ describe('normalizeDecomposition', () => {
     assert.deepEqual(out.messages[1].fields, { steps: 'a' });
     assert.deepEqual(out.messages[1].assignee_ids, [1, 2]);
     assert.equal(out.discarded[0].reason, 'x');
+  });
+});
+
+describe('repairCoverage', () => {
+  const m = (...unit_ids) => ({ unit_ids, title: 't' });
+
+  it('a unit cited twice stays in the first message and a unit cited by none joins the closest one before it', () => {
+    const out = repairCoverage([m(1, 2, 4), m(4, 6)], [], [1, 2, 3, 4, 5, 6]);
+    assert.deepEqual(out.messages.map((x) => x.unit_ids), [[1, 2, 3, 4, 5], [6]]);
+  });
+
+  it('a gap before the first cited unit joins the first message; discarded units stay discarded', () => {
+    const out = repairCoverage([m(3, 4)], [{ unit_ids: [2], reason: 'x' }], [1, 2, 3, 4]);
+    assert.deepEqual(out.messages.map((x) => x.unit_ids), [[1, 3, 4]]);
+    assert.deepEqual(out.discarded, [{ unit_ids: [2], reason: 'x' }]);
+  });
+
+  it('a unit both cited and discarded is kept in its message, and a message left empty disappears', () => {
+    const out = repairCoverage([m(1, 2), m(2)], [{ unit_ids: [2], reason: 'x' }], [1, 2]);
+    assert.deepEqual(out.messages.map((x) => x.unit_ids), [[1, 2]]);
+    assert.deepEqual(out.discarded, []);
+  });
+
+  it('with no message there is nothing to repair into', () => {
+    assert.equal(repairCoverage([], [], [1, 2]), null);
+  });
+});
+
+describe('closeStretches', () => {
+  const g = (...unit_ids) => ({ unit_ids, area_id: 2, template_id: 2 });
+  const d = (reason, ...unit_ids) => ({ unit_ids, reason });
+
+  it('what is discarded inside the stretch of a group joins it; what lies outside every stretch stays discarded', () => {
+    const out = closeStretches([g(3, 6), g(9, 10)], [d('hola', 1, 2), d('charla', 4, 5, 7), d('cierre', 11)]);
+    assert.deepEqual(out.groups.map((x) => x.unit_ids), [[3, 4, 5, 6], [9, 10]]);
+    assert.deepEqual(out.discarded.map((x) => x.unit_ids), [[1, 2], [7], [11]]);
+  });
+
+  it('when the stretches of two groups overlap, the unit goes to the group with the closest member', () => {
+    const out = closeStretches([g(1, 10), g(4, 6)], [d('x', 5, 9)]);
+    assert.deepEqual(out.groups.map((x) => x.unit_ids), [[1, 9, 10], [4, 5, 6]]);
+  });
+
+  it('nothing is discarded, nothing changes', () => {
+    const groups = [g(1, 2), g(3)];
+    assert.deepEqual(closeStretches(groups, []).groups, groups);
+  });
+});
+
+describe('repairClassification', () => {
+  it('a unit cited twice stays in the first place; a unit cited nowhere goes where the closest unit before it went', () => {
+    const out = repairClassification({
+      groups: [{ unit_ids: [1, 2, 4], area_id: 2, template_id: 2 }, { unit_ids: [4, 7], area_id: 1, template_id: 1 }],
+      discarded: [{ unit_ids: [5], reason: 'charla' }],
+    }, [1, 2, 3, 4, 5, 6, 7]);
+    assert.deepEqual(out.groups.map((g) => g.unit_ids), [[1, 2, 3, 4], [7]]);
+    assert.deepEqual(out.discarded.map((d) => d.unit_ids), [[5, 6]]);
+  });
+
+  it('a first unit cited nowhere follows the closest unit after it', () => {
+    const out = repairClassification({ groups: [{ unit_ids: [2, 3], area_id: 2, template_id: 2 }], discarded: [] }, [1, 2, 3]);
+    assert.deepEqual(out.groups.map((g) => g.unit_ids), [[1, 2, 3]]);
+  });
+});
+
+describe('a message that only says there is no data', () => {
+  it('a title or a body that is exactly the empty-field value is an error', async () => {
+    const { ctx } = await setup();
+    const out = { messages: [{ ...bugMessage([2, 3, 4, 5], 'No indicado'), body: 'No indicado' }] };
+    const result = validateDecomposition(out, ctx);
+    assert.match(result.errors.join('\n'), /only says that there is no data/);
   });
 });

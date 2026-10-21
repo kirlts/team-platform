@@ -1,5 +1,5 @@
-// Registros estructurados en JSON a stdout, con pino (el registro de Fastify). Cada línea del worker lleva
-// `job_id` e `input_id` (log.child). Nunca se registran cabeceras de autorización ni cookies.
+// Structured JSON logs to stdout, with pino (Fastify's logger). Every worker line carries
+// `job_id` and `input_id` (log.child). Authorization headers and cookies are never logged.
 
 import pino from 'pino'
 

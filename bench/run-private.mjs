@@ -12,7 +12,7 @@
 //   node bench/run-private.mjs extract [--case id ...] [--force]      extract and store; measures time and cost
 //   node bench/run-private.mjs units --case id                         print the numbered units
 //   node bench/run-private.mjs check                                   every unit in exactly one expected message or discard
-//   node bench/run-private.mjs run [--case id ...] [--repeat n] [--analyzer api|harness]
+//   node bench/run-private.mjs run [--case id ...] [--repeat n] [--analyzer api|harness] [--config '{"knob":value}']
 //   node bench/run-private.mjs compare <result.json> <result.json> ...   side-by-side table of variants
 //   --team <file>      JSON array of { id, name, role, profile }: the members the analyzer receives (default: bench/fixtures.json)
 //   --no-profile       send members with id and name only (the «name only» baseline)
@@ -56,6 +56,7 @@ const { values, positionals } = parseArgs({
     case: { type: 'string', multiple: true },
     repeat: { type: 'string', default: '1' },
     analyzer: { type: 'string' },
+    config: { type: 'string' },
     budget: { type: 'string', default: '5' },
     speech: { type: 'string', default: 'auto' },
     force: { type: 'boolean', default: false },
@@ -246,7 +247,7 @@ if (command === 'list') {
       writeFileSync(cachePath(c.id), JSON.stringify(out, null, 2));
       const total = addSpend(`extract ${c.id}`, out.extraction.cost_usd, out.extraction.unpriced_calls);
       const units = unitsOf(out.input).length;
-      console.log(`${c.id}: ${(out.extraction.total_ms / 1000).toFixed(1)} s, ${units} unidades, ${out.extraction.cost_usd.toFixed(5)} USD (acumulado ${total.toFixed(4)})`);
+      console.log(`${c.id}: ${(out.extraction.total_ms / 1000).toFixed(1)} s, ${units} unidades, ${out.extraction.cost_usd.toFixed(5)} USD (acumulado ${total.toFixed(4)})${run.failure ? ` FAILURE ${run.failure.step} ${run.failure.reason ?? ''} ${run.failure.errors[0] ?? ''}` : ''}`);
     } catch (e) {
       console.log(`${c.id}: FALLÓ ${e.code ?? ''} ${e.message}`);
       if (/Presupuesto/.test(e.message)) process.exit(2);
@@ -320,9 +321,9 @@ if (command === 'list') {
             providers,
             testCase: { id: c.id, input: cache.input, expected },
             fixtures,
-            options: values.analyzer ? { analyzer: values.analyzer } : {},
+            options: { ...(values.analyzer ? { analyzer: values.analyzer } : {}), ...(values.config ? { config: JSON.parse(values.config) } : {}) },
           }),
-          { attempts: 6, onRetry: (e, attempt) => console.log(`${c.id}: reintento ${attempt} (${e.message.slice(0, 90)})`) },
+          { attempts: 6, onRetry: (e, attempt) => console.log(`${c.id}: retry ${attempt} (${e.message.slice(0, 90)})`) },
         );
       const total = addSpend(`analyze ${c.id}`, run.usage.cost_usd ?? 0, run.usage.cost_usd === null ? run.usage.calls : 0);
       console.log(`${c.id} #${i + 1}: ${run.status}, ${(run.total_ms / 1000).toFixed(1)} s, ${run.usage.calls} llamadas, ${run.usage.cost_usd?.toFixed(5) ?? 'sin tarifa'} USD (acumulado ${total.toFixed(4)})`);

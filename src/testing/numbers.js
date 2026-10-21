@@ -15,7 +15,7 @@
 import { lex } from './lex.js'
 
 export const NEUTRAL = new Set([0, 1, -1, 1000, 60, 1024])
-export const SOURCE_PATTERN = /\binforme\s*\d{1,2}\b|\bI\d{2}\b|\bMASTER-SPEC\s*§|\bMS\s*§|\bmedici[oó]n\s+\d{4}-\d{2}-\d{2}|\bcortes[ií]a declarada\b|\bUD-\d{3}\b|\bRFC\s?\d{3,4}\b|\bdecisi[oó]n de Martín\s+\d{4}-\d{2}-\d{2}/i
+export const SOURCE_PATTERN = /\binforme\s*\d{1,2}\b|\bI\d{2}\b|\bMASTER-SPEC\s*§|\bMS\s*§|\bmedici[oó]n\s+\d{4}-\d{2}-\d{2}|\bcortes[ií]a declarada\b|\bUD-\d{3}\b|\bRFC\s?\d{3,4}\b|\bdecisi[oó]n de Martín\s+\d{4}-\d{2}-\d{2}|\breport\s*\d{1,2}\b|\bmeasurement\s+\d{4}-\d{2}-\d{2}|\bdeclared courtesy\b|\bMartín's decision\s+\d{4}-\d{2}-\d{2}/i
 export const KEY_PATTERN = /limit|max|timeout|retr(?:y|ies)|lease|concurrency/i
 const SINKS = new Set(['setTimeout', 'setInterval'])
 const KNOB_READERS = new Set(['intVar', 'decimal'])

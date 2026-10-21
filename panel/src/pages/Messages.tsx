@@ -7,13 +7,13 @@ import { FitList } from '@/components/FitList'
 import { MessageCard } from '@/components/MessageCard'
 import { Page } from '@/components/Page'
 import { PageHeader } from '@/components/PageHeader'
-import { useErrorText, useT } from '@/i18n'
+import { LoadState } from '@/components/LoadState'
+import { useT } from '@/i18n'
 import { parseQuery, serializeQuery, type MessageQuery } from '@/lib/filters'
 import { useMe, useMessages } from '@/lib/queries'
 
 export function Messages() {
   const t = useT()
-  const errorText = useErrorText()
   const [params, setParams] = useSearchParams()
   const me = useMe().data
   const query = useMemo(() => parseQuery(params), [params])
@@ -31,12 +31,8 @@ export function Messages() {
         rowKey={(m) => m.id}
         renderRow={(m) => <MessageCard message={m} />}
         empty={
-          list.isPending ? (
-            <p className="px-3 py-8 text-center text-sm text-muted">{t('common.loading')}</p>
-          ) : list.isError ? (
-            <p role="alert" className="px-3 py-8 text-center text-sm text-danger">
-              {t('common.loadFailed', { reason: errorText(list.error) })}
-            </p>
+          list.isPending || list.isError ? (
+            <LoadState query={list} rows={4} />
           ) : query.q || query.filters.length > 0 ? (
             <EmptyState
               action={

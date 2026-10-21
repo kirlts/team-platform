@@ -1,4 +1,4 @@
-// Pruebas de la transcripción por Groq contra un servidor HTTP local.
+// Tests of Groq transcription against a local HTTP server.
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -26,7 +26,7 @@ describe('groq-speech', () => {
 
   const client = () => createGroqSpeechClient({ apiKey: 'clave-de-prueba', baseUrl: server.url });
 
-  it('pide verbose_json con segmentos, idioma y prompt, y devuelve segmentos con tiempos', async () => {
+  it('requests verbose_json with segments, language and prompt, and returns segments with times', async () => {
     reply = () => ({
       body: {
         text: ' Hola equipo. Hay un error en el login.',
@@ -47,7 +47,7 @@ describe('groq-speech', () => {
       'name="model"', 'whisper-large-v3-turbo', 'name="response_format"', 'verbose_json',
       'name="timestamp_granularities[]"', 'segment', 'name="language"', 'name="prompt"', 'Refine, Fastify', 'filename="nota.flac"', 'audio-de-prueba',
     ]) {
-      assert.ok(req.body.includes(needle), `falta «${needle}» en el formulario`);
+      assert.ok(req.body.includes(needle), `«${needle}» is missing from the form`);
     }
     assert.equal(out.text, 'Hola equipo. Hay un error en el login.');
     assert.deepEqual(out.segments.map((s) => [s.start, s.end, s.text]), [[0, 3.2, 'Hola equipo.'], [3.2, 12.5, 'Hay un error en el login.']]);
@@ -56,14 +56,14 @@ describe('groq-speech', () => {
     assert.equal(out.model, 'whisper-large-v3-turbo');
   });
 
-  it('el idioma por omisión es español', async () => {
+  it('the default language is Spanish', async () => {
     reply = () => ({ body: { text: 'x', segments: [], duration: 1 } });
     await client().transcribe({ audioPath });
     const req = server.requests.at(-1);
     assert.match(req.body, /name="language"\r\n\r\nes\r\n/);
   });
 
-  it('un 429 es ProviderHttpError reintentable', async () => {
+  it('a 429 is a retryable ProviderHttpError', async () => {
     reply = () => ({ status: 429, headers: { 'retry-after': '3' }, body: { error: { message: 'límite de audio por hora' } } });
     await assert.rejects(
       client().transcribe({ audioPath }),

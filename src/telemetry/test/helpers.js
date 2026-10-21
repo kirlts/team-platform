@@ -1,5 +1,5 @@
-// Utilidades de prueba de la telemetría: una base SQLite en archivo efímero, con WAL y las mismas
-// `PRAGMA` que usa el núcleo (MASTER-SPEC §3), y la migración de `migration.sql` aplicada.
+// Telemetry test utilities: a SQLite database in an ephemeral file, with WAL and the same
+// `PRAGMA`s the core uses (MASTER-SPEC §3), and the `migration.sql` migration applied.
 import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,7 +9,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '.tmp');
 export const MIGRATION_SQL = readFileSync(join(HERE, '..', 'migration.sql'), 'utf8');
 
-// Mismos valores que el núcleo: busy_timeout 5.000 ms y synchronous=FULL (MASTER-SPEC §3).
+// Same values as the core: busy_timeout 5,000 ms and synchronous=FULL (MASTER-SPEC §3).
 const BUSY_TIMEOUT_MS = 5000;
 
 export function makeDb(name = 'telemetria') {
@@ -26,7 +26,7 @@ export function makeDb(name = 'telemetria') {
       try {
         db.close();
       } catch {
-        // ya estaba cerrada
+        // it was already closed
       }
       rmSync(dir, { recursive: true, force: true });
     },
@@ -34,9 +34,9 @@ export function makeDb(name = 'telemetria') {
 }
 
 /**
- * Los spans guardados, con sus atributos y eventos ya leídos. Los tiempos van como texto: un
- * entero de 64 bits de época en nanosegundos no cabe en un número de JavaScript y `node:sqlite`
- * lo rechaza con ERR_OUT_OF_RANGE si se lo pide con `SELECT *`.
+ * The stored spans, with their attributes and events already parsed. Times go as text: a
+ * 64-bit epoch integer in nanoseconds does not fit in a JavaScript number and `node:sqlite`
+ * rejects it with ERR_OUT_OF_RANGE if asked for with `SELECT *`.
  */
 export function readSpans(db, where = '1 = 1', ...params) {
   return db

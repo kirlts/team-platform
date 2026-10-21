@@ -1,5 +1,5 @@
-// Miembros del equipo (MASTER-SPEC §1.1). Un miembro edita sólo su perfil (UD-023), idioma y contraseña; el editor
-// administra a los demás. Debe quedar al menos un editor.
+// Team members (MASTER-SPEC §1.1). A member edits only their own profile (UD-023), language and password; the editor
+// administers the rest. At least one editor must remain.
 
 import { all, get, run, tx } from '../db/index.js'
 import { iso } from '../db/util.js'
@@ -34,7 +34,7 @@ export function createMember (db, { email, name, role = 'member', profile = '', 
 
 const EDITABLE_FIELDS = ['name', 'email', 'role', 'profile', 'language', 'active']
 
-/** Aplica un parche. Devuelve { member, roleChanged, deactivated }. Rechaza dejar al equipo sin editor. */
+/** Applies a patch. Returns { member, roleChanged, deactivated }. Rejects leaving the team without an editor. */
 export function updateMember (db, id, patch, { actorId = null, now = Date.now } = {}) {
   return tx(db, () => {
     const current = get(db, `SELECT ${COLUMNS} FROM members WHERE id = ?`, id)

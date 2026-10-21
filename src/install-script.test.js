@@ -72,13 +72,13 @@ test('H-43: install.sh installs the list once, verified by SHA-256 and with only
   const vars = { BLOCKLIST_URL: `file://${source}`, BLOCKLIST_SHA256: sha256(content) }
   const first = install(env, vars)
   assert.equal(first.status, 0, first.stderr)
-  assert.match(first.stdout, /instalada: 2 entradas de 15 o más caracteres/)
+  assert.match(first.stdout, /installed: 2 entries of 15 or more characters/)
   const file = path.join(env.data, 'password-blocklist.txt')
   assert.equal(readFileSync(file, 'utf8'), '1qaz2wsx3edc4rfv\nUna contraseña de veinte\n')
   // The second run finds it and does not download again: a source that no longer exists does not matter.
   const second = install(env, { ...vars, BLOCKLIST_URL: 'file:///no/existe' })
-  assert.match(second.stdout, /ya está en el volumen/)
-  assert.equal(second.stderr.includes('Aviso'), false)
+  assert.match(second.stdout, /already in the volume/)
+  assert.equal(second.stderr.includes("Warning"), false)
 })
 
 test('H-43: a list that does not match its SHA-256 is not installed, and the installation goes on with a warning', () => {
@@ -87,9 +87,9 @@ test('H-43: a list that does not match its SHA-256 is not installed, and the ins
   writeFileSync(source, 'contenido distinto\n')
   const run = install(env, { BLOCKLIST_URL: `file://${source}`, BLOCKLIST_SHA256: sha256('lo esperado') })
   assert.equal(run.status, 0, run.stderr)
-  assert.match(run.stderr, /no coincide con el SHA-256 esperado/)
+  assert.match(run.stderr, /does not match the expected SHA-256/)
   assert.equal(existsSync(path.join(env.data, 'password-blocklist.txt')), false)
-  assert.match(run.stdout, /Servicio arriba/)
+  assert.match(run.stdout, /Service up at/)
 })
 
 test('H-43: the pinned source is the SecLists commit and file that were read, and the default is not changed by accident', () => {
@@ -97,5 +97,5 @@ test('H-43: the pinned source is the SecLists commit and file that were read, an
   assert.match(script, /BLOCKLIST_COMMIT=0c03d70db30ceedb941ac58b0ec910eb85906d6f/)
   assert.match(script, /xato-net-10-million-passwords-1000000\.txt/)
   assert.match(script, /424a3e03a17df0a2bc2b3ca749d81b04e79d59cb7aeec8876a5a3f308d0caf51/)
-  assert.match(script, /licencia MIT/)
+  assert.match(script, /MIT license/)
 })

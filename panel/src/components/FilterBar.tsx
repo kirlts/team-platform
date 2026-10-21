@@ -1,7 +1,7 @@
 import { ChevronDown, Plus, Search, X } from '@/components/icons'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useT, type MessageKey } from '@/i18n'
 import { FILTER_PROPS, ME, REPLIES_VALUES, STATUS_VALUES, removeFilter, upsertFilter, type Filter, type FilterOp, type FilterProp, type MessageQuery } from '@/lib/filters'
 import { cn } from '@/lib/utils'
@@ -52,7 +52,6 @@ export function FilterBar({ query, onChange }: { query: MessageQuery; onChange: 
   const labelOf = (f: Filter) => valueOptions(f.prop).find((o) => o.value === f.value)?.label ?? f.value
 
   const used = new Set(query.filters.map((f) => f.prop))
-  const free = FILTER_PROPS.filter((p) => !used.has(p))
 
   const add = (prop: FilterProp) => {
     const first = valueOptions(prop)[0]
@@ -75,22 +74,26 @@ export function FilterBar({ query, onChange }: { query: MessageQuery; onChange: 
             className="well h-8 w-full rounded-full pl-9 pr-3 text-sm placeholder:text-faint focus-visible:border-accent"
           />
         </div>
-        {free.length > 0 && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="secondary">
-                <Plus size={14} aria-hidden /> {t('filter.add')}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {free.map((p) => (
-                <DropdownMenuItem key={p} onSelect={() => add(p)}>
+        {/* The button wears what is applied: its edge, its count and, in the open menu, a check and the value of each filter that is on (J2-A-13). */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="secondary" aria-label={used.size > 0 ? t('filter.addActive', { n: used.size }) : undefined} className={cn(used.size > 0 && '!border-accent bg-selected text-fg')}>
+              <Plus size={14} aria-hidden /> {t('filter.add')}
+              {used.size > 0 && <span className="tabular-nums text-accent-deep">{used.size}</span>}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {FILTER_PROPS.map((p) => {
+              const on = query.filters.find((f) => f.prop === p)
+              return (
+                <DropdownMenuCheckboxItem key={p} checked={!!on} onCheckedChange={(next) => (next ? add(p) : onChange({ ...query, filters: removeFilter(query.filters, p) }))}>
                   {t(PROP_KEY[p])}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+                  {on && <span className="ml-auto pl-4 text-muted">{labelOf(on)}</span>}
+                </DropdownMenuCheckboxItem>
+              )
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {query.filters.length > 0 && (

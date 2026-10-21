@@ -1,10 +1,10 @@
-// Punto de entrada: `npm start`. Un contenedor, un proceso: inicialización de la base, API, y el worker de la
-// cola en el mismo proceso por omisión (MASTER-SPEC §7.3). Con WORKER_MODE=external el worker corre aparte
-// (`npm run worker`) y esta API se entera de sus eventos por `PRAGMA data_version`.
+// Entry point: `npm start`. One container, one process: database initialization, API, and the queue worker in
+// the same process by default (MASTER-SPEC §7.3). With WORKER_MODE=external the worker runs separately
+// (`npm run worker`) and this API learns of its events through `PRAGMA data_version`.
 //
-// Apagado (informe 03 §4): 1) dejar de reclamar, 2) cerrar los flujos SSE, 3) abortar los trabajos en curso,
-// 4) devolverlos a la cola con el intento reembolsado, 5) cerrar la API y la base. No se esperan trabajos largos,
-// de modo que SIGTERM cierra bien dentro de los 10 s que Docker concede.
+// Shutdown (report 03 §4): 1) stop claiming, 2) close the SSE streams, 3) abort the jobs in progress,
+// 4) return them to the queue with the attempt refunded, 5) close the API and the database. Long jobs are not awaited,
+// so SIGTERM finishes well within the 10 s that Docker allows.
 
 import { pathToFileURL } from 'node:url'
 import { loadConfig, loadEnvFile } from './config.js'
@@ -22,18 +22,18 @@ import { buildWorker } from './worker.js'
 export async function start (config, { env = process.env } = {}) {
   const logger = createLogger(config, { process: 'server' })
   const log = (m) => logger.info(m)
-  // Paso de inicialización único. Con el worker aparte se hace antes de arrancar ambos procesos
-  // (`npm run db:init`); acá se omite con SKIP_DB_INIT=1.
+  // Single initialization step. With a separate worker it is done before starting both processes
+  // (`npm run db:init`); here it is skipped with SKIP_DB_INIT=1.
   if (env.SKIP_DB_INIT !== '1') await initializeDatabase(config, { seed: seedDefaults, log })
   const db = openInitialized(config)
   const firstEditor = await bootstrapFirstEditor(db, config)
   if (firstEditor) {
-    // La única vez que se ve una contraseña generada: no se guarda en claro en ninguna parte.
+    // The only time a generated password is seen: it is not stored in plain text anywhere.
     logger.warn({ email: firstEditor.email }, firstEditor.generated
-      ? `Primer editor creado con la contraseña ${firstEditor.password} (se muestra una sola vez; cámbiela desde Equipo).`
-      : 'Primer editor creado con la contraseña de ADMIN_PASSWORD.')
+      ? `First editor created with password ${firstEditor.password} (shown only once; change it from Equipo).`
+      : 'First editor created with the ADMIN_PASSWORD password.')
   }
-  const telemetry = initTelemetry({ db, serviceVersion: config.version }) // tras migrar y antes de la API y del worker
+  const telemetry = initTelemetry({ db, serviceVersion: config.version }) // after migrating and before the API and the worker
   const events = createEvents({ db })
   const queue = createQueue({ db, config, events })
 
@@ -45,19 +45,19 @@ export async function start (config, { env = process.env } = {}) {
   if (config.worker.mode === 'inline') worker.start()
 
   await app.listen({ host: config.host, port: config.port })
-  const { port } = app.server.address() // con PORT=0 el sistema elige uno libre
-  logger.info({ worker: config.worker.mode, prefix: config.apiPrefix, port }, `API escuchando en http://${config.host}:${port}`)
+  const { port } = app.server.address() // with PORT=0 the system picks a free one
+  logger.info({ worker: config.worker.mode, prefix: config.apiPrefix, port }, `API listening on http://${config.host}:${port}`)
 
   let shuttingDown = null
   function shutDown (signalName) {
     shuttingDown ??= (async () => {
-      logger.info(`${signalName}: apagando`)
-      await worker.stop() // pasos 1, 3 y 4; los flujos SSE se cierran en el gancho preClose de la API (paso 2)
+      logger.info(`${signalName}: shutting down`)
+      await worker.stop() // steps 1, 3 and 4; the SSE streams are closed in the API's preClose hook (step 2)
       events.stopPolling()
-      await app.close() // paso 5
-      await telemetry.shutdown() // vacía los lotes de spans pendientes
+      await app.close() // step 5
+      await telemetry.shutdown() // flushes the pending span batches
       db.close()
-      logger.info('apagado completo')
+      logger.info('shutdown complete')
     })()
     return shuttingDown
   }

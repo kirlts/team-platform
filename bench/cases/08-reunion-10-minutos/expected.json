@@ -1,0 +1,144 @@
+{
+  "id": "08-reunion-10-minutos",
+  "messages": [
+    {
+      "id": "m1",
+      "title": "El popup de la agenda aparece vacío al abrir el menú",
+      "area_id": 2,
+      "template_id": 2,
+      "unit_ids": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        26,
+        27
+      ]
+    },
+    {
+      "id": "m2",
+      "title": "Cambiar el flujo de ramas para que cada arreglo salga con su propia rama",
+      "area_id": 1,
+      "template_id": 1,
+      "unit_ids": [
+        8,
+        9,
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "id": "m3",
+      "title": "Exportar a Excel tarda más de un minuto con quinientas filas",
+      "area_id": 2,
+      "template_id": 2,
+      "unit_ids": [
+        13,
+        14,
+        15
+      ]
+    },
+    {
+      "id": "m4",
+      "title": "¿Quién revisa el borrador del contrato con el cliente de Valparaíso antes de enviarlo?",
+      "area_id": 5,
+      "template_id": 5,
+      "unit_ids": [
+        18,
+        19,
+        20,
+        21
+      ]
+    },
+    {
+      "id": "m5",
+      "title": "Enviar un recordatorio por WhatsApp un día antes de cada entrega",
+      "area_id": 3,
+      "template_id": 3,
+      "unit_ids": [
+        22,
+        23,
+        24,
+        25
+      ]
+    },
+    {
+      "id": "m6",
+      "title": "Preparar un proceso de incorporación para el segundo cliente",
+      "area_id": 1,
+      "template_id": 1,
+      "unit_ids": [
+        28,
+        29,
+        30,
+        31
+      ]
+    },
+    {
+      "id": "m7",
+      "title": "El selector de fechas permite elegir días pasados al reprogramar",
+      "area_id": 2,
+      "template_id": 2,
+      "unit_ids": [
+        34,
+        35,
+        36
+      ]
+    },
+    {
+      "id": "m8",
+      "title": "¿Hay presupuesto para pagar el servidor de pruebas el próximo trimestre?",
+      "area_id": 5,
+      "template_id": 5,
+      "unit_ids": [
+        37,
+        38,
+        39
+      ]
+    },
+    {
+      "id": "m9",
+      "title": "Mostrar el historial de cambios de cada entrega en su ficha",
+      "area_id": 3,
+      "template_id": 3,
+      "unit_ids": [
+        40,
+        41,
+        42,
+        43
+      ]
+    }
+  ],
+  "discarded": [
+    {
+      "unit_ids": [
+        1,
+        2
+      ],
+      "reason": "saludo"
+    },
+    {
+      "unit_ids": [
+        16,
+        17
+      ],
+      "reason": "charla"
+    },
+    {
+      "unit_ids": [
+        32,
+        33
+      ],
+      "reason": "elogio"
+    },
+    {
+      "unit_ids": [
+        44,
+        45
+      ],
+      "reason": "cierre"
+    }
+  ]
+}

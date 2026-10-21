@@ -6,7 +6,7 @@ import { Meter } from './Meter'
 afterEach(cleanup)
 
 describe('Meter', () => {
-  it('sin avance real es indeterminada: sin valor y con la marca de trabajo en curso', () => {
+  it('without real progress it is indeterminate: no value and with the work-in-progress mark', () => {
     render(<Meter percent={0} label="Progreso" />)
     const bar = screen.getByRole('progressbar', { name: 'Progreso' })
     expect(bar.hasAttribute('aria-valuenow')).toBe(false)
@@ -14,7 +14,7 @@ describe('Meter', () => {
     expect(bar.querySelector('.meter-fill')).toBeNull()
   })
 
-  it('con un paso terminado muestra la cifra real', () => {
+  it('with a finished step it shows the real figure', () => {
     render(<Meter percent={34} label="Progreso" />)
     const bar = screen.getByRole('progressbar', { name: 'Progreso' })
     expect(bar.getAttribute('aria-valuenow')).toBe('34')

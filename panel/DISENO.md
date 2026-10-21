@@ -76,7 +76,7 @@ El desenfoque se usa en pocas superficies grandes. Las filas no lo llevan, por c
 
 | Rol | Familia | Tamaño | Notas |
 |---|---|---|---|
-| Marca de la cabecera y del inicio de sesión | Orbitron | 15 px | Peso 700, tracking 0,14 em, una sola tinta; el mismo componente (`Wordmark`) en la barra y en la tarjeta de entrada (J1-A-02, J1-A-04) |
+| Marca de la cabecera y del inicio de sesión | Orbitron | 15 px | Peso 600, tracking 0,10 em, una sola tinta; el mismo componente (`Wordmark`) en la barra y en la tarjeta de entrada (J1-A-02, J1-A-04, J2-A-42) |
 | Título de pantalla | Source Sans 3 | 20,8 a 26,4 px según el ancho (`clamp`) | Peso 700; las tildes de las mayúsculas de Orbitron tocan la letra (Á, Ó) |
 | Rótulo de sección | Source Sans 3 | 12 px | Peso 700, mayúsculas, tracking 0,08 em; Orbitron queda para la marca porque sus mayúsculas anchas se leen mal a 12 px (J1-A-55) |
 | Apoyo (`text-xs`) | Source Sans 3 | 12 px | Metadatos, extractos, rótulos de campo; ningún texto visible baja de 12 px (J1-A-53) |
@@ -219,6 +219,16 @@ La barra de nuevo mensaje crece sobre la página y nunca la empuja. En reposo re
 ## Teclado en la revisión
 
 J y K recorren los envíos. Intro no publica desde ningún lado: publicar es un clic en Enviar, o Intro con el foco en ese botón. Guardar o cancelar una edición con el teclado devuelve el foco al texto editado. Escape dentro de un campo cancela sólo esa edición y no cierra la ventana (`src/flows.browser.test.mjs`, «Intro nunca publica»).
+### Reglas de la ronda 2, juez A
+
+- Una acción de fila se dibuja siempre, en reposo sin fondo, en toda lista y en toda pantalla (J2-A-11). Lo que sólo existe bajo el cursor no existe para el teclado ni para el tacto: la × de un destinatario y Responder o Cerrar de una fila siguen la misma regla.
+- Lo elegido se ve igual en todas partes: relleno `selected` y barra de acento de 4 px en la barra lateral, en las filas de Áreas y de Conexiones, y borde de acento con ese relleno en los controles segmentados (J2-A-41).
+- El estado de un mensaje en una fila es la luz y la palabra, sin píldora (`StatusBadge quiet`): una fila tiene una sola marca rellena, la de prioridad (J2-A-05).
+- Una acción reversible se confirma bajo la barra superior con su Deshacer (`undo.run(op, { announce })`): cerrar o reabrir (con el estado al que vuelve), desactivar o reactivar, reemplazar la descripción del proyecto. Eliminar una plantilla deja en su lugar una fila ««Nombre» eliminada» con Deshacer, mientras no se haga otra cosa (J2-A-18, J2-A-23, J2-A-30, J2-A-35). Deshacer y Rehacer de la pantalla son de vidrio sin relleno: pesan menos que la acción.
+- La ventana de campos de una plantilla guarda al instante (UD-017) y lo dice con «Guardado» al pie, junto al único botón que sale, «Listo». Las casillas son `ui/checkbox` (pozo, borde y acento del panel), nunca las del navegador (J2-A-24).
+- Un menú de filtros marca lo aplicado: casilla y valor en cada filtro encendido, y el botón lleva su cuenta y el relleno elegido (J2-A-13).
+- Una lista que espera dibuja filas que guardan su lugar; una que falla dibuja icono, motivo y Reintentar, y dice «Reintentando» mientras repite (`LoadState`, J2-A-46, J2-A-47). Una fila de la barra lateral con insignia tiene el alto que tiene con ella y la columna de la insignia está reservada, así que nada se corre cuando llegan los números.
+- El anillo de foco mide 3 px (J2-A-48). Configuración, Tema y Cerrar sesión no se repiten en un menú superior: en teléfono la barra lateral es el cajón que abre el botón de la izquierda (J2-A-38, J2-A-40). Conexiones lleva a `/connections/:kind`, una lista con el estado de cada conector (J2-A-34).
 
 ## Archivos
 
@@ -234,5 +244,6 @@ J y K recorren los envíos. Intro no publica desde ningún lado: publicar es un 
 | `src/fits-one-screen.browser.test.mjs` | Cada vista cabe en una pantalla a dos tamaños, con lo sembrado y con las listas ×8 (`npm run test:fit`) |
 | `scripts/capturas-ronda2b.mjs` | El flujo de enviar a publicar a 1440×900 y 390×844, en claro y oscuro |
 | `src/flows.browser.test.mjs` | Edición en el lugar, deshacer, propuesta, reintento, respuestas con medios, equipo, contraseña e idioma (`npm run test:flows`) |
+| `src/flows-ronda2a.browser.test.mjs` | Los hallazgos de la ronda 2, juez A, cada uno con una comprobación que falla si vuelve (`npm run test:flows`) |
 | `src/i18n.test.ts` · `src/prose-block.test.ts` | Catálogos completos y sin texto visible fuera de ellos; una sola clase de justificado |
 | `src/no-truncation.test.ts` | Prohíbe `truncate`, `line-clamp` y `text-overflow` sin justificación en la misma línea |

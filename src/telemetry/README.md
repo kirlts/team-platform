@@ -1,67 +1,67 @@
-# Telemetría
+# Telemetry
 
-Trazabilidad de todo lo que pasa por un modelo (UD-014, MASTER-SPEC §7.10 bis). Hay un span por trabajo, por paso y por llamada a un proveedor. La entrada y la salida completas quedan en SQLite.
+Traceability of everything that goes through a model (UD-014, MASTER-SPEC §7.10 bis). There is one span per job, per step and per call to a provider. The full input and output are kept in SQLite.
 
-## Conexión con el núcleo
+## Connection with the core
 
-1. Copiar `migration.sql` a la carpeta de migraciones del núcleo. Crea la tabla `spans` y la vista `llm_calls`; si el núcleo creó antes una tabla `llm_calls`, la migración la elimina primero.
-2. Después de abrir la base y migrar, y antes de levantar la API y el worker:
+1. Copy `migration.sql` to the core's migrations folder. It creates the `spans` table and the `llm_calls` view; if the core previously created an `llm_calls` table, the migration drops it first.
+2. After opening the database and migrating, and before bringing up the API and the worker:
 
    ```js
    import { initTelemetry } from './telemetry/index.js';
    const telemetry = initTelemetry({ db, serviceVersion });
-   // al apagar: await telemetry.shutdown();
+   // on shutdown: await telemetry.shutdown();
    ```
 
-   La conexión `db` es la que abre el núcleo; la telemetría no abre ni cierra nada.
-3. `GET /jobs/:id/trace` responde `await telemetry.flush(); traceOfJob(db, id)` (404 si devuelve `null`). La forma de la respuesta está en `trace.js`; los nanosegundos viajan como texto.
-4. Retención: `pruneSpans(db)` borra lo anterior a 7 días, igual que `job_events`.
-5. El worker abre un span `withSpan('job', { 'team.job_id': id, 'team.input_id': inputId, 'team.step': 'job' }, ...)` por intento. Todo span hijo hereda `team.job_id` y `team.input_id`.
+   The `db` connection is the one the core opens; telemetry opens and closes nothing.
+3. `GET /jobs/:id/trace` answers `await telemetry.flush(); traceOfJob(db, id)` (404 if it returns `null`). The shape of the response is in `trace.js`; nanoseconds travel as text.
+4. Retention: `pruneSpans(db)` deletes anything older than 7 days, the same as `job_events`.
+5. The worker opens a `withSpan('job', { 'team.job_id': id, 'team.input_id': inputId, 'team.step': 'job' }, ...)` span per attempt. Every child span inherits `team.job_id` and `team.input_id`.
 
-Leer `spans` con `SELECT *` falla con `ERR_OUT_OF_RANGE`: `start_ns` y `end_ns` son enteros de 64 bits (nanosegundos Unix) y `node:sqlite` no los entrega como número sin perder precisión. Pedirlos con `CAST(start_ns AS TEXT)`, o leer la vista `llm_calls` y `traceOfJob`, que ya lo hacen.
+Reading `spans` with `SELECT *` fails with `ERR_OUT_OF_RANGE`: `start_ns` and `end_ns` are 64-bit integers (Unix nanoseconds) and `node:sqlite` does not hand them over as a number without losing precision. Ask for them with `CAST(start_ns AS TEXT)`, or read the `llm_calls` view and `traceOfJob`, which already do so.
 
-## Qué importar
+## What to import
 
-Los módulos instrumentados importan de `telemetry/api.js`, que sólo carga `@opentelemetry/api`. Sin `initTelemetry` el tracer es nulo y el código funciona igual. `telemetry/index.js` trae el SDK completo y reexporta lo mismo.
+Instrumented modules import from `telemetry/api.js`, which loads only `@opentelemetry/api`. Without `initTelemetry` the tracer is a no-op and the code works the same. `telemetry/index.js` brings in the full SDK and re-exports the same things.
 
-| Función | Uso |
+| Function | Use |
 |---|---|
-| `withSpan(name, attributes, fn)` | Un span activo alrededor de `fn(span)`; un error lanzado lo marca con `error.type` |
-| `withGenAiCall({ provider, model, modality, request }, fn)` | Span CLIENT de una llamada a un modelo; registra atributos `gen_ai.*` y el evento de contenido |
-| `recordGenAiCall(span, { provider, model, request, response, usage, cost })` | Lo mismo sobre un span ya abierto (el harness) |
-| `withToolSpan(tool, attributes, fn)` | Uso de una herramienta (`execute_tool`); no cuenta en `llm_calls` |
-| `annotate(attributes)` | Agrega atributos al span activo |
+| `withSpan(name, attributes, fn)` | An active span around `fn(span)`; a thrown error marks it with `error.type` |
+| `withGenAiCall({ provider, model, modality, request }, fn)` | CLIENT span of a model call; records `gen_ai.*` attributes and the content event |
+| `recordGenAiCall(span, { provider, model, request, response, usage, cost })` | The same on an already open span (the harness) |
+| `withToolSpan(tool, attributes, fn)` | Use of a tool (`execute_tool`); does not count in `llm_calls` |
+| `annotate(attributes)` | Adds attributes to the active span |
 
-## Para el analizador (`src/analyze/`, sin tocar desde este encargo)
+## For the analyzer (`src/analyze/`, left untouched by this assignment)
 
-- Importar `{ withSpan, recordGenAiCall } from '../telemetry/api.js'`. Envolver con `withSpan(nombre, { 'team.job_id': ..., 'team.step': nombre }, ...)` el análisis completo (`'analyze'`), la clasificación (`'classify'`), cada descomposición por grupo (`'decompose'`, con `team.group_index`, `team.area_id`, `team.template_id` y `team.units`), el pase de rescate (`'rescue'`) y cada validación (`'validate'`, con `team.errors` y el resultado).
-- Las llamadas de `api` quedan como hijos de esos spans sin más código: los proveedores traen su propio span y el contexto pasa solo por los `await`.
-- En el harness: `withSpan('harness', { 'team.step': 'harness' }, async (span) => { ...; recordGenAiCall(span, { provider: 'claude-code', model, request: { messages: [{ role: 'user', content: prompt }] }, response: { text: JSON.stringify(structured_output) }, usage, cost: result.total_cost_usd }); })`, pasando el costo real de `total_cost_usd` en `cost` para que no se estime.
+- Import `{ withSpan, recordGenAiCall } from '../telemetry/api.js'`. Wrap with `withSpan(name, { 'team.job_id': ..., 'team.step': name }, ...)` the whole analysis (`'analyze'`), the classification (`'classify'`), each per-group decomposition (`'decompose'`, with `team.group_index`, `team.area_id`, `team.template_id` and `team.units`), the rescue pass (`'rescue'`) and each validation (`'validate'`, with `team.errors` and the result).
+- The `api` calls become children of those spans with no further code: providers bring their own span and the context passes by itself across the `await`s.
+- In the harness: `withSpan('harness', { 'team.step': 'harness' }, async (span) => { ...; recordGenAiCall(span, { provider: 'claude-code', model, request: { messages: [{ role: 'user', content: prompt }] }, response: { text: JSON.stringify(structured_output) }, usage, cost: result.total_cost_usd }); })`, passing the real cost from `total_cost_usd` in `cost` so that it is not estimated.
 
 ## Variables
 
-| Variable | Efecto |
+| Variable | Effect |
 |---|---|
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | Si existe, los spans salen además por OTLP/HTTP a `<endpoint>/v1/traces`. Sin ella no sale ninguna conexión (HP-001) |
-| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | Dirección completa de trazas; manda sobre la anterior |
-| `OTEL_EXPORTER_OTLP_HEADERS` | Cabeceras del colector, `clave=valor,clave=valor` |
-| `OTEL_SDK_DISABLED=true` | Apaga el SDK; el código instrumentado sigue andando con el tracer nulo |
-| `TELEMETRY_INLINE_BLOBS=0` | Las imágenes y fotogramas quedan con su tamaño y sin los bytes en base64 (por omisión se guardan) |
-| `TELEMETRY_FLUSH_MS` | Intervalo de vaciado de los lotes; 5000 ms por omisión |
-| `TELEMETRY_QUEUE_MAX_BYTES` | Bytes en cola (por destino) que fuerzan un vaciado anticipado; 4 MiB por omisión: cabe el span de una llamada de 48 fotogramas (3,48 MiB medidos, `span-size.bench.mjs`) y no caben dos |
-| `TELEMETRY_QUEUE_HARD_BYTES` | Sobre este tope las llamadas nuevas guardan el tamaño de sus imágenes y fotogramas y no los bytes, y el span lleva `team.telemetry.blobs_dropped`; por omisión el tope anterior más 32 MiB (la mayor solicitud a un proveedor, informe 05 §8.3) |
-| `TELEMETRY_SLICE_ROWS` | Filas por transacción del exportador a SQLite; 16 por omisión |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | If set, spans are also sent over OTLP/HTTP to `<endpoint>/v1/traces`. Without it no connection is made (HP-001) |
+| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | Full traces address; takes precedence over the previous one |
+| `OTEL_EXPORTER_OTLP_HEADERS` | Collector headers, `key=value,key=value` |
+| `OTEL_SDK_DISABLED=true` | Turns the SDK off; the instrumented code keeps working with the null tracer |
+| `TELEMETRY_INLINE_BLOBS=0` | Images and frames keep their size and lose the base64 bytes (by default they are stored) |
+| `TELEMETRY_FLUSH_MS` | Batch flush interval; 5000 ms by default |
+| `TELEMETRY_QUEUE_MAX_BYTES` | Queued bytes (per destination) that force an early flush; 4 MiB by default: the span of a 48-frame call fits (3.48 MiB measured, `span-size.bench.mjs`) and two do not |
+| `TELEMETRY_QUEUE_HARD_BYTES` | Above this cap new calls store the size of their images and frames and not the bytes, and the span carries `team.telemetry.blobs_dropped`; by default the previous cap plus 32 MiB (the largest request to a provider, report 05 §8.3) |
+| `TELEMETRY_SLICE_ROWS` | Rows per transaction of the SQLite exporter; 16 by default |
 
-El audio nunca se copia al span: queda por referencia (`file://` y tamaño) y la transcripción completa en el evento de salida.
+Audio is never copied into the span: it stays by reference (`file://` and size) and the full transcription goes in the output event.
 
-## Atributos y eventos
+## Attributes and events
 
-Convención GenAI de OpenTelemetry vigente al 2026-10-20 (detalle y fuentes en la cabecera de `index.js`). Del proyecto: `team.job_id`, `team.input_id`, `team.step`, `team.cost_usd`, `team.provider`, `team.modality`, `team.input_bytes`, `team.output_bytes`, `team.output_chars`. El contenido de una llamada va en el evento `gen_ai.client.inference.operation.details`: `gen_ai.system_instructions`, `gen_ai.input.messages`, `gen_ai.output.messages`, `team.request.schema` y, en transcripción, `team.response.segments`.
+OpenTelemetry GenAI convention current as of 2026-10-20 (details and sources in the header of `index.js`). Project-specific: `team.job_id`, `team.input_id`, `team.step`, `team.cost_usd`, `team.provider`, `team.modality`, `team.input_bytes`, `team.output_bytes`, `team.output_chars`. The content of a call goes in the `gen_ai.client.inference.operation.details` event: `gen_ai.system_instructions`, `gen_ai.input.messages`, `gen_ai.output.messages`, `team.request.schema` and, in transcription, `team.response.segments`.
 
-`gen_ai.usage.input_tokens` incluye lo leído y lo escrito en la caché, como fija la convención. Los proveedores del proyecto informan `input_tokens` sin caché; la suma la hace `recordGenAiCall`. `llm_calls.input_tokens` es ese total y `llm_calls.cached_tokens` la parte leída.
+`gen_ai.usage.input_tokens` includes what was read and written in the cache, as the convention sets. The project's providers report `input_tokens` without cache; `recordGenAiCall` does the sum. `llm_calls.input_tokens` is that total and `llm_calls.cached_tokens` the part read.
 
-El costo sale de `pricing.js` para los modelos con precio documentado en el repositorio (Haiku 5.5 y Whisper turbo de Groq). Un modelo sin precio queda con `cost_usd` en `NULL`.
+The cost comes from `pricing.js` for the models with a price documented in the repository (Haiku 5.5 and Groq's Whisper turbo). A model without a price keeps `cost_usd` as `NULL`.
 
-## Medición
+## Measurement
 
-Sobrecarga por llamada y duración de cada tajada de escritura: cabecera de `overhead.bench.mjs` (se vuelve a medir con `node src/telemetry/overhead.bench.mjs`).
+Per-call overhead and duration of each write slice: header of `overhead.bench.mjs` (measure again with `node src/telemetry/overhead.bench.mjs`).

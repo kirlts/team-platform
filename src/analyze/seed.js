@@ -1,5 +1,5 @@
-// Juego inicial de áreas y plantillas (MASTER-SPEC §1.1 y §7.9): se siembra al instalar y se puede
-// editar o borrar. Los ids son consecutivos desde 1; la base real asigna los suyos.
+// Initial set of areas and templates (MASTER-SPEC §1.1 and §7.9): seeded on install and can be
+// edited or deleted. The ids are consecutive from 1; the real database assigns its own.
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,7 +8,7 @@ import { parseTemplate } from './templates.js';
 export const DEFAULT_TEMPLATES_DIR = fileURLToPath(new URL('../../templates/', import.meta.url));
 
 /**
- * Lee `templates/areas.json` y los archivos de plantilla que enumera.
+ * Reads `templates/areas.json` and the template files it lists.
  * @returns {Promise<{areas: object[], templates: object[]}>}
  */
 export async function loadSeed(dir = DEFAULT_TEMPLATES_DIR) {

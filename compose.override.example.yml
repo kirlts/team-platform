@@ -1,12 +1,12 @@
-# Agrega team-platform al compose de un proyecto existente.
+# Adds team-platform to the compose file of an existing project.
 #
-#   docker build -t team-platform:local /ruta/a/team-platform
-#   cp /ruta/a/team-platform/.env.example team-platform.env     # y completar
-#   docker compose -f compose.yml -f /ruta/a/team-platform/compose.override.example.yml up -d
+#   docker build -t team-platform:local /path/to/team-platform
+#   cp /path/to/team-platform/.env.example team-platform.env     # and fill in
+#   docker compose -f compose.yml -f /path/to/team-platform/compose.override.example.yml up -d
 #
-# El servicio queda en la red por omisión del proyecto, alcanzable desde los demás
-# servicios como http://team-platform:3000. No publica ningún puerto en el anfitrión.
-# Si el compose del proyecto no se llama compose.yml, se cambia el primer -f.
+# The service ends up on the project's default network, reachable from the other
+# services as http://team-platform:3000. It publishes no port on the host.
+# If the project's compose file is not called compose.yml, change the first -f.
 services:
   team-platform:
     image: team-platform:local

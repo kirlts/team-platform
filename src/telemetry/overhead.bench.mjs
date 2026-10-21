@@ -1,30 +1,30 @@
-// Medición de la sobrecarga de la telemetría por llamada a un modelo (MASTER-SPEC §7.10 bis, UD-014).
-// Se corre a pedido: `node src/telemetry/overhead.bench.mjs` (no es una prueba; `npm test` no lo toma).
+// Measurement of telemetry overhead per model call (MASTER-SPEC §7.10 bis, UD-014).
+// Run on demand: `node src/telemetry/overhead.bench.mjs` (it is not a test; `npm test` does not pick it up).
 //
-// Qué mide, con una llamada de proveedor falso que responde al instante (así lo medido es la
-// telemetría y no el proveedor):
-//   1. Camino caliente: costo extra por llamada con el SDK activo frente a la misma llamada sin SDK
-//      registrado (tracer nulo). Rondas alternadas y mediana, porque una sola ronda varía ±10 µs.
-//   2. Escritura: microsegundos por span y duración de cada tajada de `SqliteSpanExporter`, por
-//      tamaño de tajada, sobre SQLite en archivo con WAL y synchronous=FULL (como el núcleo).
-//   3. Bucle de eventos: el retraso más largo que ve un temporizador de 1 ms mientras se vuelcan
-//      los spans.
+// What it measures, with a fake provider call that answers instantly (so what is measured is the
+// telemetry and not the provider):
+//   1. Hot path: extra cost per call with the SDK active versus the same call with no SDK
+//      registered (no-op tracer). Alternating rounds and median, because a single round varies ±10 µs.
+//   2. Writing: microseconds per span and duration of each `SqliteSpanExporter` slice, by
+//      slice size, over SQLite on file with WAL and synchronous=FULL (like the core).
+//   3. Event loop: the longest delay seen by a 1 ms timer while the spans are being
+//      flushed.
 //
-// Resultado (2026-10-20, Node 24.20.0, SQLite 3.51+ de node:sqlite, Linux 7.2, archivo en disco local,
-// WAL, synchronous=FULL, busy_timeout 5000 ms, spans de llamada con 10 KB de contenido):
-//   Camino caliente: 9,4 µs por llamada sin SDK y 31,5 µs con SDK y exportador (mediana de 7 rondas
-//   de 2000 llamadas; rondas sueltas entre 21 y 40 µs). Sobrecarga por llamada: 22 µs en el camino
-//   de la llamada, a lo que se suma la escritura diferida a SQLite de 0,19 a 0,39 ms por span
-//   (2000 spans en 771 ms en el vaciado, 187 µs por span en lotes de 2048), repartida en tajadas
-//   de ~1 ms. Una llamada a un modelo tarda de 6,8 s a 33,9 s en el banco (TEST.md, Métricas), así
-//   que la telemetría añade menos de 0,01 % a la latencia de una llamada.
-//   Tajadas de 16 filas: mediana 0,92 ms, p99 26,6 ms. El p99 y el retraso máximo del bucle (~30 ms)
-//   son los puntos de control automáticos de WAL (cada 1000 páginas, unos 4 MiB, o sea cada ~400
-//   spans de este tamaño): con `PRAGMA wal_autocheckpoint = 0` en la misma corrida, tajadas de 16
-//   filas dan mediana 0,42 ms, p99 1,21 ms, retraso máximo del bucle 1,4 ms y 32 µs por span. El
-//   punto de control lo dispara cualquier escritura de la conexión del núcleo, no el exportador.
-//   Sin el ajuste de `synchronous` a NORMAL durante la tajada (sqlite-exporter.js) la misma tajada
-//   de 16 filas medía 9,6 ms de mediana: el fsync de cada COMMIT con FULL ocupaba el bucle.
+// Result (2026-10-20, Node 24.20.0, SQLite 3.51+ of node:sqlite, Linux 7.2, file on local disk,
+// WAL, synchronous=FULL, busy_timeout 5000 ms, call spans with 10 KB of content):
+//   Hot path: 9.4 µs per call without SDK and 31.5 µs with SDK and exporter (median of 7 rounds
+//   of 2000 calls; individual rounds between 21 and 40 µs). Overhead per call: 22 µs on the path
+//   of the call, plus the deferred write to SQLite of 0.19 to 0.39 ms per span
+//   (2000 spans in 771 ms in the flush, 187 µs per span in batches of 2048), spread over slices
+//   of ~1 ms. A model call takes 6.8 s to 33.9 s in the bench (TEST.md, Metrics), so
+//   telemetry adds less than 0.01 % to the latency of a call.
+//   Slices of 16 rows: median 0.92 ms, p99 26.6 ms. The p99 and the maximum loop delay (~30 ms)
+//   are the automatic WAL checkpoints (every 1000 pages, about 4 MiB, i.e. every ~400
+//   spans of this size): with `PRAGMA wal_autocheckpoint = 0` in the same run, slices of 16
+//   rows give median 0.42 ms, p99 1.21 ms, maximum loop delay 1.4 ms and 32 µs per span. The
+//   checkpoint is triggered by any write on the core's connection, not by the exporter.
+//   Without lowering `synchronous` to NORMAL during the slice (sqlite-exporter.js) the same slice
+//   of 16 rows measured a median of 9.6 ms: the fsync of each COMMIT under FULL hogged the loop.
 import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { dirname, join } from 'node:path';
@@ -35,13 +35,13 @@ import { initTelemetry } from './index.js';
 import { SqliteSpanExporter } from './sqlite-exporter.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-// Una llamada típica: un prompt de 8 KB (un input con adjuntos ya extraídos) y una respuesta de 2 KB.
+// A typical call: an 8 KB prompt (an input with already extracted attachments) and a 2 KB answer.
 const PROMPT = 'p'.repeat(8 * 1024);
 const ANSWER = 'r'.repeat(2 * 1024);
 const CALLS_PER_ROUND = 2000;
 const ROUNDS = 7;
 const SLICES = [1, 4, 16, 64, 512];
-const BATCH = 2048; // spans por lote en la sección de escritura; es el tope de la cola de BatchSpanProcessor (config.js)
+const BATCH = 2048; // spans per batch in the writing section; it is the cap of the BatchSpanProcessor queue (config.js)
 
 function openDb() {
   mkdirSync(join(HERE, '.tmp'), { recursive: true });
@@ -68,16 +68,16 @@ const pct = (sorted, q) => sorted[Math.min(sorted.length - 1, Math.floor(sorted.
 async function round(p) {
   const start = performance.now();
   for (let i = 0; i < CALLS_PER_ROUND; i++) await p.complete(request);
-  return ((performance.now() - start) * 1000) / CALLS_PER_ROUND; // µs por llamada
+  return ((performance.now() - start) * 1000) / CALLS_PER_ROUND; // µs per call
 }
 
-// 1. Camino caliente: rondas alternadas sin SDK y con SDK.
+// 1. Hot path: alternating rounds without SDK and with SDK.
 const without = [];
 const withSdk = [];
 let spansWritten = 0;
 let bytesWritten = 0;
 let flushMs = 0;
-await round(provider()); // calentamiento del JIT
+await round(provider()); // JIT warm-up
 for (let r = 0; r < ROUNDS; r++) {
   without.push(await round(provider()));
   const store = openDb();
@@ -92,13 +92,13 @@ for (let r = 0; r < ROUNDS; r++) {
   store.cleanup();
 }
 
-console.log(`--- Camino caliente (µs por llamada; mediana de ${ROUNDS} rondas de ${CALLS_PER_ROUND} llamadas) ---`);
-console.log(`sin SDK registrado (tracer nulo): ${median(without).toFixed(1)}   [rondas: ${without.map((v) => v.toFixed(0)).join(' ')}]`);
-console.log(`con SDK y exportador a SQLite:    ${median(withSdk).toFixed(1)}   [rondas: ${withSdk.map((v) => v.toFixed(0)).join(' ')}]`);
-console.log(`sobrecarga por llamada:           ${(median(withSdk) - median(without)).toFixed(1)}`);
-console.log(`vaciado final de ${spansWritten} spans: ${flushMs.toFixed(0)} ms (${((flushMs * 1000) / spansWritten).toFixed(0)} µs por span, ${(bytesWritten / spansWritten / 1024).toFixed(1)} KB de contenido por span)`);
+console.log(`--- Hot path (µs per call; median of ${ROUNDS} rounds of ${CALLS_PER_ROUND} calls) ---`);
+console.log(`without SDK registered (no-op tracer): ${median(without).toFixed(1)}   [rounds: ${without.map((v) => v.toFixed(0)).join(' ')}]`);
+console.log(`with SDK and SQLite exporter:         ${median(withSdk).toFixed(1)}   [rounds: ${withSdk.map((v) => v.toFixed(0)).join(' ')}]`);
+console.log(`overhead per call:                    ${(median(withSdk) - median(without)).toFixed(1)}`);
+console.log(`final flush of ${spansWritten} spans: ${flushMs.toFixed(0)} ms (${((flushMs * 1000) / spansWritten).toFixed(0)} µs per span, ${(bytesWritten / spansWritten / 1024).toFixed(1)} KB of content per span)`);
 
-// 2 y 3. Escritura por tajadas y bucle de eventos.
+// 2 and 3. Slice writing and event loop.
 const sample = (i) => ({
   name: `chat m${i}`,
   kind: 2,
@@ -111,8 +111,8 @@ const sample = (i) => ({
   events: [{ name: 'gen_ai.client.inference.operation.details', time: [1792548000, 100], attributes: { 'gen_ai.input.messages': PROMPT, 'gen_ai.output.messages': ANSWER } }],
 });
 
-console.log(`\n--- Escritura de ${BATCH} spans de llamada (10 KB de contenido) por tamaño de tajada ---`);
-console.log('filas/tajada | µs por span | tajada p50 ms | tajada p99 ms | retraso máx. del bucle ms');
+console.log(`\n--- Writing ${BATCH} call spans (10 KB of content) by slice size ---`);
+console.log('rows/slice | µs per span | slice p50 ms | slice p99 ms | max loop delay ms');
 for (const rows of SLICES) {
   const store = openDb();
   const exporter = new SqliteSpanExporter(store.db, { rowsPerSlice: rows });
@@ -143,4 +143,4 @@ const idle = monitorEventLoopDelay({ resolution: 1 });
 idle.enable();
 await new Promise((resolve) => setTimeout(resolve, 200));
 idle.disable();
-console.log(`\nbucle ocioso (referencia): retraso máx. ${(idle.max / 1e6).toFixed(1)} ms`);
+console.log(`\nidle loop (reference): max delay ${(idle.max / 1e6).toFixed(1)} ms`);

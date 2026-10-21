@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { countTells, tellsOfProposal, PATTERNS, SECTIONS } from './ai-tells.js';
+import { bodyRepeatsTitle, countTells, tellsOfProposal, PATTERNS, SECTIONS } from './ai-tells.js';
 
 const ids = (text, opts) => countTells(text, opts).map((t) => t.id);
 
@@ -20,6 +20,8 @@ describe('ai-tells', () => {
     assert.ok(ids('Es un cambio fundamental y robusto').includes('vocab-es'));
     assert.ok(ids('Un elemento clave del flujo').includes('vocab-es'));
     assert.ok(ids('It is not just a bug, but also a design problem').includes('not-just-en'));
+    assert.ok(ids("It's not a bug, it's a design problem").includes('not-just-en'));
+    assert.deepEqual(ids('It is not urgent, but every client will ask for it'), [], 'a concession is not a parallelism');
     assert.ok(ids('No solo falla el filtro, sino también el orden').includes('not-just-es'));
     assert.ok(ids('El botón falla — y nadie lo notó').includes('em-dash'));
     assert.ok(ids('Texto con **negrita**').includes('bold'));
@@ -47,5 +49,14 @@ describe('ai-tells', () => {
     assert.equal(result.total, 2);
     assert.equal(result.perMessage, 1);
     assert.equal(result.byPattern['vocab-es'], 2);
+  });
+
+  it('a body that repeats its title is a mark: equal once normalized, or opening with a sentence that contains the whole title', () => {
+    assert.equal(bodyRepeatsTitle('Corregir el popup vacío', 'Corregir el popup vacío.'), true);
+    assert.equal(bodyRepeatsTitle('Corregir el popup vacío', 'Corregir el popup vacío de la agenda. Pasa en Safari.'), true);
+    assert.equal(bodyRepeatsTitle('Corregir el popup vacío', 'El popup aparece vacío en Safari y no en el escritorio.'), false);
+    assert.equal(bodyRepeatsTitle('', 'texto'), false);
+    const result = tellsOfProposal({ messages: [{ title: 'Exportar tarda', body: 'Exportar tarda. Más de un minuto con 500 filas.', fields: {} }] });
+    assert.equal(result.byPattern['body-repeats-title'], 1);
   });
 });

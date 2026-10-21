@@ -11,6 +11,7 @@ import { NotifyBadge, ToneMark, usePulse } from '@/components/NotifyBadge'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog'
 import { FitList } from '@/components/FitList'
+import { LoadState } from '@/components/LoadState'
 import { MessageCard } from '@/components/MessageCard'
 import { Page } from '@/components/Page'
 import { NoticeHost } from '@/components/NoticeHost'
@@ -216,9 +217,9 @@ export function Home() {
                   </button>
                 </DialogTrigger>
               )}
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted max-md:hidden">
+              <p className="text-sm tabular-nums text-muted max-md:hidden">
                 <time dateTime={now.toISOString()}>
-                  {format.longDate(now)} <span className="text-accent-deep">{format.clock(now)}</span>
+                  {format.longDate(now)} {format.clock(now)}
                 </time>
               </p>
             </div>
@@ -401,7 +402,7 @@ function Feed({ kind, meId }: { kind: 'messages' | 'replies'; meId: string }) {
         rows={rows}
         rowKey={(m) => m.id}
         renderRow={(m) => <MessageCard message={m} variant={messagesFeed ? 'message' : 'reply'} />}
-        empty={<p className="px-3 py-6 text-center text-sm text-muted">{feed.isPending ? t('common.loading') : messagesFeed ? t('home.noMessages') : t('home.noReplies')}</p>}
+        empty={feed.isPending || feed.isError ? <LoadState query={feed} rows={2} /> : <p className="px-3 py-6 text-center text-sm text-muted">{messagesFeed ? t('home.noMessages') : t('home.noReplies')}</p>}
       />
     </section>
   )

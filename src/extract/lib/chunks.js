@@ -1,26 +1,26 @@
-// Partición del audio en trozos con solapamiento y fusión de sus segmentos por marca de tiempo.
-// Reglas de MASTER-SPEC §7.4 e informe 06 §3.3. Todo es aritmética sobre tiempos; no se lee prosa.
+// Splitting of audio into overlapping chunks and merging of their segments by timestamp.
+// Rules from MASTER-SPEC §7.4 and report 06 §3.3. It is all arithmetic over times; no prose is read.
 
 /**
- * Plan de trozos. Cada trozo empieza `overlapSeconds` antes de donde terminó el anterior.
- * `cutStart` y `cutEnd` marcan qué segmentos conserva cada trozo al fusionar: el corte entre dos
- * trozos está en el punto medio de su solapamiento.
+ * Chunk plan. Each chunk starts `overlapSeconds` before where the previous one ended.
+ * `cutStart` and `cutEnd` mark which segments each chunk keeps when merging: the cut between two
+ * chunks is at the midpoint of their overlap.
  *
  * @returns {{index:number,start:number,length:number,cutStart:number,cutEnd:number}[]}
  */
 export function planChunks(durationSeconds, { chunkSeconds, overlapSeconds, minChunkSeconds }) {
   const step = chunkSeconds - overlapSeconds;
-  if (step <= 0) throw new Error('el solapamiento debe ser menor que el trozo');
+  if (step <= 0) throw new Error('the overlap must be smaller than the chunk');
   const chunks = [];
   let start = 0;
   while (true) {
     const length = Math.min(chunkSeconds, durationSeconds - start);
     chunks.push({ start, length });
-    // Si este trozo ya llega al final del audio no hay otro.
+    // If this chunk already reaches the end of the audio there is no other.
     if (start + length >= durationSeconds) break;
     start += step;
   }
-  // Un último trozo más corto que el mínimo facturable no se emite: lo absorbe el anterior.
+  // A last chunk shorter than the billable minimum is not emitted: the previous one absorbs it.
   if (chunks.length > 1 && chunks.at(-1).length < minChunkSeconds) {
     chunks.pop();
     const prev = chunks.at(-1);
@@ -39,14 +39,14 @@ export function planChunks(durationSeconds, { chunkSeconds, overlapSeconds, minC
   });
 }
 
-/** Segundos que factura el proveedor por un plan: cada solicitud cuenta como mínimo `minBilledSeconds`. */
+/** Seconds the provider bills for a plan: each request counts as at least `minBilledSeconds`. */
 export function billableSeconds(plan, minBilledSeconds) {
   return plan.reduce((sum, c) => sum + Math.max(c.length, minBilledSeconds), 0);
 }
 
 /**
- * Fusiona los segmentos de cada trozo. Se conservan los del trozo k que empiezan antes del corte
- * y los del trozo k+1 que empiezan en el corte o después; los tiempos se suman al desfase del trozo.
+ * Merges the segments of each chunk. Those of chunk k that start before the cut are kept,
+ * and those of chunk k+1 that start at the cut or after; times are added to the chunk's offset.
  * Each segment carries its chunk index (`chunk`): sentence joining (`sentences.js`) never crosses that boundary.
  *
  * @param {ReturnType<typeof planChunks>} plan

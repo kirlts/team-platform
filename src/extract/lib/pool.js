@@ -1,5 +1,5 @@
-// Ejecuta `fn` sobre cada elemento con a lo sumo `limit` en vuelo y conserva el orden del resultado.
-// Si una falla, no arranca las que faltan y rechaza con el primer error.
+// Runs `fn` over each item with at most `limit` in flight and keeps the result order.
+// If one fails, it does not start the remaining ones and rejects with the first error.
 
 export async function mapLimit(items, limit, fn) {
   const results = new Array(items.length);

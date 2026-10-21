@@ -1,10 +1,11 @@
-// Aserción JavaScript de promptfoo: puntúa la propuesta con bench/score.js (aritmética de conjuntos).
-// Pasa sólo si la descomposición es MECE por definición: cobertura 1 y ninguna repetición,
-// mensaje de más, punto partido ni mensaje fusionado (informe 02, §5.2). La clasificación se
-// informa aparte y no decide el resultado (MASTER-SPEC §7.11).
+// promptfoo JavaScript assertion: scores the proposal with bench/score.js (set arithmetic).
+// Passes only if the decomposition is MECE by definition: coverage 1 and no repetition,
+// extra message, split point or fused message (report 02, §5.2). The classification is
+// reported separately and does not decide the result (MASTER-SPEC §7.11).
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tellsOfProposal } from './ai-tells.js';
 import { score } from './score.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -14,11 +15,14 @@ export default function assertMece(output, context) {
   try {
     run = typeof output === 'string' ? JSON.parse(output) : output;
   } catch {
-    return { pass: false, score: 0, reason: 'La salida no es JSON.' };
+    return { pass: false, score: 0, reason: 'The output is not JSON.' };
   }
   const expected = JSON.parse(readFileSync(join(here, 'cases', context.vars.case, 'expected.json'), 'utf8'));
   const result = score({ units: run.units, expected, actual: run.proposal ?? { messages: [] } });
   const { counts, rates } = result;
+  // Marks of generated writing per message (UD-019): reported, it does not decide the result.
+  const inputText = [run.units?.map((u) => u.text).join('\n') ?? ''].join('');
+  const tells = tellsOfProposal(run.proposal ?? { messages: [] }, { input: inputText });
   return {
     pass: run.status === 'ok' && result.mece,
     score: rates.coverage,
@@ -29,10 +33,12 @@ export default function assertMece(output, context) {
       split: rates.split,
       fused: rates.fused,
       classification: rates.classification_accuracy ?? 0,
+      tells_per_message: tells.perMessage,
     },
     reason:
-      `estado ${run.status}; cobertura ${counts.covered}/${counts.expected_messages}, repetidos ${counts.repeated}, ` +
-      `partidos ${counts.split}, fusionados ${counts.fused}, de más ${counts.extra}, solapes ${counts.overlap_units}, ` +
-      `huecos ${counts.hole_units}, clasificación ${counts.both_correct}/${counts.units} unidades`,
+      `status ${run.status}; coverage ${counts.covered}/${counts.expected_messages}, repeated ${counts.repeated}, ` +
+      `split ${counts.split}, fused ${counts.fused}, extra ${counts.extra}, overlaps ${counts.overlap_units}, ` +
+      `holes ${counts.hole_units}, classification ${counts.both_correct}/${counts.units} units, ` +
+      `${tells.total} marks of generated writing in ${tells.messages} messages`,
   };
 }

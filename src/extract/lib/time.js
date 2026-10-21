@@ -1,5 +1,5 @@
-// Marcas de tiempo `mm:ss` (informe 06 §8, `timestampFormat`). Los minutos no tienen tope:
-// una hora y cinco minutos se escribe 65:00.
+// `mm:ss` timestamps (report 06 §8, `timestampFormat`). Minutes have no cap:
+// one hour and five minutes is written 65:00.
 
 export function formatTimestamp(seconds) {
   const total = Math.max(0, Math.floor(seconds));

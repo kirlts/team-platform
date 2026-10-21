@@ -3,7 +3,7 @@
 // 1440x900 and 390x844 against the built panel served by the development double server
 // (with the same CSP the API would set) and leaves the PNGs in panel/capturas/.
 //
-//   npm run build && node scripts/capturas.mjs [--solo desktop|mobile]
+//   npm run build && node scripts/capturas.mjs `[--solo desktop|mobile]`
 //
 // It also fails if the panel tries to connect to another origin, if the browser reports a
 // CSP violation or if the console logs an error.
@@ -86,13 +86,13 @@ async function newPage(name, who = 'ana', scheme = 'light') {
   })
   const page = await context.newPage()
   page.on('console', (m) => {
-    if (m.type() === 'error' && !m.text().includes('401')) problems.push(`[${name}/${who}] consola: ${m.text()}`)
+    if (m.type() === 'error' && !m.text().includes('401')) problems.push(`[${name}/${who}] console: ${m.text()}`)
   })
-  page.on('pageerror', (e) => problems.push(`[${name}/${who}] excepción: ${e.message}`))
+  page.on('pageerror', (e) => problems.push(`[${name}/${who}] exception: ${e.message}`))
   page.on('request', (r) => {
     const u = new URL(r.url())
     if (!['http:', 'https:'].includes(u.protocol)) return
-    if (u.origin !== ORIGIN) problems.push(`[${name}/${who}] petición a otro origen: ${r.url()}`)
+    if (u.origin !== ORIGIN) problems.push(`[${name}/${who}] request to another origin: ${r.url()}`)
   })
   await page.addInitScript(() => {
     window.addEventListener('securitypolicyviolation', (e) => console.error(`CSP: ${e.violatedDirective} ${e.blockedURI}`))
@@ -114,7 +114,7 @@ async function shot(page, vp, name, opts = {}) {
   counter += 1
   const file = `${outDir}${String(counter).padStart(2, '0')}-${name}-${vp}.png`
   await page.screenshot({ path: file, fullPage: !!opts.full })
-  console.log('captura', file.replace(root, ''))
+  console.log('screenshot', file.replace(root, ''))
 }
 
 async function run(vp) {
@@ -199,7 +199,7 @@ async function run(vp) {
     const type = await page.evaluate(() => 'ok')
     void type
   } else {
-    problems.push(`[${vp}] el botón de micrófono quedó deshabilitado en un contexto seguro`)
+    problems.push(`[${vp}] the microphone button stayed disabled in a secure context`)
   }
 
   // --- Messages
@@ -231,7 +231,7 @@ async function run(vp) {
   await page.goto(`${ORIGIN}/messages`)
   await page.getByRole('link', { name: 'Revisar el tiempo de respuesta de la lista de mensajes' }).click()
   await page.getByRole('heading', { name: 'Respuestas' }).waitFor()
-  if ((await page.getByLabel('Respuesta', { exact: true }).count()) > 0) problems.push(`[${vp}] el emisor ve el formulario de respuesta`)
+  if ((await page.getByLabel('Respuesta', { exact: true }).count()) > 0) problems.push(`[${vp}] the sender sees the reply form`)
   await shot(page, vp, 'detalle-del-emisor')
   await page.goto(`${ORIGIN}/messages`)
   await page.getByRole('link', { name: 'Corregir el contraste del botón Enviar en el inicio' }).click()
@@ -320,7 +320,7 @@ async function run(vp) {
   await shot(member.page, vp, 'miembro-inicio')
   await member.page.goto(`${ORIGIN}/settings`)
   await member.page.getByRole('heading', { name: 'Tema' }).waitFor()
-  if ((await member.page.getByRole('heading', { name: 'Proveedores' }).count()) > 0) problems.push(`[${vp}] un Miembro ve Proveedores`)
+  if ((await member.page.getByRole('heading', { name: 'Proveedores' }).count()) > 0) problems.push(`[${vp}] a Member sees Proveedores`)
   await shot(member.page, vp, 'miembro-configuracion')
   await member.page.goto(`${ORIGIN}/areas`)
   await member.page.waitForURL(`${ORIGIN}/`)
@@ -336,14 +336,14 @@ try {
     await run(vp)
   }
 } catch (err) {
-  problems.push(`fallo del recorrido: ${err.stack ?? err}`)
+  problems.push(`walkthrough failure: ${err.stack ?? err}`)
 } finally {
   await browser.close()
   server.kill()
 }
 
 if (problems.length) {
-  console.error('\nProblemas:\n' + [...new Set(problems)].map((p) => ` - ${p}`).join('\n'))
+  console.error('\nProblems:\n' + [...new Set(problems)].map((p) => ` - ${p}`).join('\n'))
   process.exit(1)
 }
-console.log('\nSin problemas: ninguna petición a otro origen, ninguna violación de CSP, ningún error de consola.')
+console.log('\nNo problems: no request to another origin, no CSP violation, no console error.')

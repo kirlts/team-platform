@@ -40,7 +40,7 @@ async function session(who = 'ana', viewport = { width: 1440, height: 900 }) {
 async function openMessage(page, titleStart) {
   const body = await (await page.request.get(`${origin}/api/messages`)).json()
   const hit = (body.items ?? body).find((m) => m.title.startsWith(titleStart))
-  assert.ok(hit, `no hay un mensaje que empiece con «${titleStart}»`)
+  assert.ok(hit, `no message starts with «${titleStart}»`)
   await page.goto(`${origin}/messages/${hit.id}`)
   await page.locator('main h1').waitFor()
   return hit
@@ -54,8 +54,8 @@ async function sendInput(page, text = TEXT) {
   const bar = page.getByLabel('Nuevo mensaje', { exact: true }).last()
   await bar.fill(text)
   await page.getByRole('button', { name: 'Enviar' }).first().click()
-  assert.equal(await bar.inputValue(), '', 'la barra se vacía al enviar, sin esperar el análisis')
-  // Los envíos están plegados tras un solo control (UD-030): la revisión se abre sobre la página.
+  assert.equal(await bar.inputValue(), '', 'the bar empties on send, without waiting for the analysis')
+  // Submissions are folded behind a single control (UD-030): the review opens over the page.
   await page.getByTestId('tray-control').click()
 }
 
@@ -71,8 +71,8 @@ async function showRow(page, text) {
   await page.getByText(text).first().waitFor({ timeout: 2000 })
 }
 
-describe('edición en el lugar', () => {
-  test('clic abre, Enter guarda, Escape cancela, y Deshacer y Rehacer lo recorren', async () => {
+describe('in-place editing', () => {
+  test('click opens, Enter saves, Escape cancels, and «Deshacer» and «Rehacer» step through it', async () => {
     const { page, context } = await session()
     try {
       await openMessage(page, 'Agregar exportación')
@@ -81,8 +81,8 @@ describe('edición en el lugar', () => {
       await title.click()
       const field = page.getByRole('textbox', { name: 'Título' })
       const editing = await field.boundingBox()
-      // La misma caja y el mismo alto: nada salta al entrar en edición.
-      assert.ok(Math.abs(editing.y - before.y) <= 1 && Math.abs(editing.height - before.height) <= 2, `salto al editar: ${JSON.stringify({ before, editing })}`)
+      // The same box and the same height: nothing jumps when editing starts.
+      assert.ok(Math.abs(editing.y - before.y) <= 1 && Math.abs(editing.height - before.height) <= 2, `jump when editing: ${JSON.stringify({ before, editing })}`)
       await field.fill('Agregar la exportación de mensajes cerrados a CSV')
       await field.press('Enter')
       await page.getByRole('button', { name: /^Título: Agregar la exportación de mensajes cerrados a CSV/ }).waitFor()
@@ -93,46 +93,46 @@ describe('edición en el lugar', () => {
       await page.getByRole('textbox', { name: 'Título' }).press('Escape')
       await page.getByRole('button', { name: /^Título: Agregar la exportación de mensajes cerrados a CSV/ }).waitFor()
 
-      // Deshacer y Rehacer con los botones.
+      // «Deshacer» and «Rehacer» with the buttons.
       const undo = page.getByRole('button', { name: 'Deshacer' })
       const redo = page.getByRole('button', { name: 'Rehacer' })
-      assert.equal(await redo.isDisabled(), true, 'Rehacer debe estar apagado sin nada que rehacer')
+      assert.equal(await redo.isDisabled(), true, '«Rehacer» must be disabled with nothing to redo')
       await undo.click()
       await page.getByRole('button', { name: /^Título: Agregar exportación de mensajes cerrados$/ }).waitFor()
-      assert.equal(await undo.isDisabled(), true, 'Deshacer debe apagarse sin nada más que deshacer')
+      assert.equal(await undo.isDisabled(), true, '«Deshacer» must be disabled with nothing left to undo')
       await redo.click()
       await page.getByRole('button', { name: /^Título: Agregar la exportación de mensajes cerrados a CSV/ }).waitFor()
 
-      // Ctrl+Z y Ctrl+Shift+Z con el foco fuera de un campo.
+      // Ctrl+Z and Ctrl+Shift+Z with the focus outside a field.
       await page.getByRole('link', { name: 'Mensajes' }).first().focus()
       await page.keyboard.press('Control+z')
       await page.getByRole('button', { name: /^Título: Agregar exportación de mensajes cerrados$/ }).waitFor()
       await page.keyboard.press('Control+Shift+z')
       await page.getByRole('button', { name: /^Título: Agregar la exportación de mensajes cerrados a CSV/ }).waitFor()
 
-      // Lo guardado sobrevive a una recarga; la pila no.
+      // What was saved survives a reload; the stack does not.
       await page.reload()
       await page.getByRole('button', { name: /^Título: Agregar la exportación de mensajes cerrados a CSV/ }).waitFor()
-      assert.equal(await page.getByRole('button', { name: 'Deshacer' }).count(), 0, 'la pila vive en memoria: se pierde al recargar y Deshacer no se dibuja sin nada que deshacer')
+      assert.equal(await page.getByRole('button', { name: 'Deshacer' }).count(), 0, 'the stack lives in memory: it is lost on reload and Deshacer is not drawn with nothing to undo')
     } finally {
       await context.close()
     }
   })
 })
 
-describe('propuesta del análisis', () => {
-  test('cambiar el área conserva los campos que coinciden y la propuesta se publica', async () => {
+describe('analysis proposal', () => {
+  test('changing the area keeps the fields that match and the proposal is published', async () => {
     const { page, context } = await session()
     try {
       await sendInput(page, 'Podríamos probar un resumen semanal por área.\n\nAgregar la sincronización con WhatsApp en el sidebar.')
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
       const first = page.getByRole('button', { name: /^Área:/ }).first()
-      // Una de las áreas con plantilla de más campos obligatorios.
+      // One of the areas whose template has the most required fields.
       await first.click()
       await page.getByRole('menuitemradio', { name: 'Error', exact: true }).click()
       await page.getByRole('button', { name: /^Pasos para reproducir: Obligatorio/ }).first().waitFor()
       const send = page.getByRole('button', { name: /^Enviar \d+ mensajes?$/ })
-      assert.equal(await send.isDisabled(), true, 'con campos obligatorios vacíos no se puede enviar')
+      assert.equal(await send.isDisabled(), true, 'it cannot be sent with required fields empty')
       // Se llenan en el lugar.
       for (const label of ['Pasos para reproducir', 'Qué se esperaba', 'Qué pasó']) {
         await page.getByRole('button', { name: new RegExp(`^${label}: Obligatorio`) }).first().click()
@@ -141,7 +141,7 @@ describe('propuesta del análisis', () => {
       }
       await page.getByRole('button', { name: 'Deshacer' }).waitFor()
       await send.click()
-      // Publicar se dice: qué salió, cuántos y dónde verlo (J1-B-25).
+      // Publishing says what happened: what went out, how many and where to see it (J1-B-25).
       const notice = page.locator('[data-notice]')
       await notice.getByText(/^Se publicaron 2 mensajes/).waitFor({ timeout: 10000 })
       await notice.getByRole('link', { name: 'Ver mensajes' }).waitFor()
@@ -151,7 +151,7 @@ describe('propuesta del análisis', () => {
     }
   })
 
-  test('quitar un mensaje manda sus unidades a «Sin mensaje» y Deshacer las devuelve', async () => {
+  test('removing a message sends its units to «Sin mensaje» and Deshacer brings them back', async () => {
     const { page, context } = await session('bruno')
     try {
       await sendInput(page, 'Primera idea para el equipo.\n\nSegunda idea para el equipo.')
@@ -162,20 +162,20 @@ describe('propuesta del análisis', () => {
       await page.locator('[data-notice]').getByText(/^Mensaje quitado/).waitFor()
       await page.getByRole('group', { name: 'Historial de cambios' }).getByRole('button', { name: 'Deshacer' }).click()
       await page.getByRole('button', { name: /^Partes sin mensaje/ }).waitFor({ state: 'detached' })
-      // Lo editado sobrevive a recargar: el borrador está en el servidor.
+      // What was edited survives a reload: the draft is on the server.
       await page.getByRole('button', { name: /^Título del mensaje: Primera idea/ }).click()
       await page.getByRole('textbox', { name: 'Título del mensaje' }).fill('Primera idea, ya corregida')
       await page.getByRole('textbox', { name: 'Título del mensaje' }).press('Enter')
       await page.getByRole('button', { name: /^Título del mensaje: Primera idea, ya corregida/ }).waitFor()
       await page.reload()
-      await page.getByTestId('tray-control').click() // la revisión vuelve plegada
+      await page.getByTestId('tray-control').click() // the review comes back folded
       await page.getByRole('button', { name: /^Título del mensaje: Primera idea, ya corregida/ }).waitFor()
     } finally {
       await context.close()
     }
   })
 
-  test('un análisis fallido ofrece Reintentar y conserva el texto', async () => {
+  test('a failed analysis offers «Reintentar» and keeps the text', async () => {
     const { page, context } = await session()
     try {
       await sendInput(page, 'Texto que no se debe perder [simular falla]')
@@ -190,7 +190,7 @@ describe('propuesta del análisis', () => {
     }
   })
 
-  test('un archivo rechazado antes de encolar se explica bajo la barra', async () => {
+  test('a file rejected before queueing is explained under the bar', async () => {
     const { page, context } = await session('diego')
     try {
       await page.goto(origin)
@@ -198,7 +198,7 @@ describe('propuesta del análisis', () => {
       await page.getByRole('button', { name: 'Enviar' }).first().click()
       await page.getByRole('alert').filter({ hasText: 'La foto supera el tamaño máximo' }).first().waitFor()
       await page.getByTestId('tray-control').click()
-      // La fila de la bandeja conserva el envío para reintentarlo y la barra queda libre.
+      // The tray row keeps the submission so it can be retried and the bar is left free.
       await page.getByRole('button', { name: 'Reintentar' }).first().waitFor()
       assert.equal(await page.getByLabel('Nuevo mensaje', { exact: true }).last().inputValue(), '')
     } finally {
@@ -207,8 +207,8 @@ describe('propuesta del análisis', () => {
   })
 })
 
-describe('respuestas con medios', () => {
-  test('una respuesta con un archivo muestra su ícono de medio', async () => {
+describe('replies with media', () => {
+  test('a reply with a file shows its media icon', async () => {
     const { page, context } = await session('bruno')
     try {
       await openMessage(page, 'Probar un resumen semanal')
@@ -223,8 +223,8 @@ describe('respuestas con medios', () => {
   })
 })
 
-describe('equipo y cuenta', () => {
-  test('el Editor da de alta, desactiva y reactiva con Deshacer', async () => {
+describe('team and account', () => {
+  test('the Editor adds, deactivates and reactivates with «Deshacer»', async () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/team`)
@@ -236,14 +236,17 @@ describe('equipo y cuenta', () => {
       await showRow(page, 'Marta Nueva')
       await page.getByRole('button', { name: 'Desactivar a Marta Nueva' }).click()
       await page.getByText('Inactivo').first().waitFor()
-      await page.getByRole('button', { name: 'Deshacer' }).click()
+      // J2-A-18: the change is said under the bar and brings its Deshacer.
+      const notice = page.getByRole('status').filter({ hasText: 'Marta Nueva desactivado' })
+      await notice.waitFor()
+      await notice.getByRole('button', { name: 'Deshacer' }).click()
       await page.getByText('Inactivo').first().waitFor({ state: 'detached' })
     } finally {
       await context.close()
     }
   })
 
-  test('la contraseña se cambia con la actual', async () => {
+  test('the password is changed with the current one', async () => {
     const { page, context } = await session('carla')
     try {
       await page.goto(`${origin}/settings`)
@@ -257,7 +260,7 @@ describe('equipo y cuenta', () => {
     }
   })
 
-  test('el idioma cambia toda la interfaz al instante', async () => {
+  test('the language changes the whole interface at once', async () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/settings`)
@@ -276,8 +279,8 @@ describe('equipo y cuenta', () => {
   })
 })
 
-describe('envíos seguidos (UD-025)', () => {
-  test('diez envíos seguidos no cambian el alto, llegan de a uno y se revisan con el teclado', async () => {
+describe('consecutive inputs (UD-025)', () => {
+  test('ten consecutive inputs do not change the height, arrive one at a time and are reviewed with the keyboard', async () => {
     const { page, context } = await session('tomas')
     try {
       await page.goto(origin)
@@ -285,7 +288,7 @@ describe('envíos seguidos (UD-025)', () => {
       const send = async (i) => {
         await bar.fill(`Envío ${i}: revisar el punto ${i} del panel y avisar al equipo.`)
         await page.getByRole('button', { name: 'Enviar' }).first().click()
-        assert.equal(await bar.inputValue(), '', `la barra debe quedar vacía al enviar el ${i}`)
+        assert.equal(await bar.inputValue(), '', `the bar must be empty after sending input ${i}`)
       }
       const heights = () => page.evaluate(() => ({ doc: document.scrollingElement.scrollHeight, main: document.querySelector('main').scrollHeight, win: innerHeight }))
       const tray = page.getByTestId('tray-control')
@@ -295,19 +298,19 @@ describe('envíos seguidos (UD-025)', () => {
       const base = await heights()
       const baseFrame = (await tray.boundingBox()).height
       for (let i = 2; i <= 10; i++) await send(i)
-      // Terminan escalonados: la cabecera plegada cuenta los diez cuando están listos para revisar.
+      // They finish staggered: the folded header counts all ten once they are ready for review.
       await tray.getByText('10 para revisar').waitFor({ timeout: 40000 })
       await page.waitForTimeout(800)
       assert.deepEqual(await heights(), base, 'diez envíos no deben cambiar el alto de la página')
       assert.ok(Math.abs((await tray.boundingBox()).height - baseFrame) <= 1, 'el control de envíos conserva su alto')
       assert.ok(base.main <= base.win, 'la región principal no desplaza')
 
-      // Teclado dentro de la revisión: J mueve al siguiente y K al anterior. Enter no publica desde ningún lado (J2-B-13): publica el clic en Enviar o Enter con el foco puesto en ese botón; el siguiente se abre solo.
+      // Keyboard inside the review: J moves to the next one and K to the previous one. Enter publishes from nowhere (J2-B-13): a click on Enviar or Enter with the focus on that button does; the next one opens by itself.
       await tray.click()
       await page.getByRole('dialog').waitFor()
       const selected = () => page.locator('[role="option"][aria-selected="true"]').first().getAttribute('aria-label')
       const first = await selected()
-      // La ventana abre en el envío más reciente (J2-B-10): K va al anterior y J vuelve.
+      // The window opens on the most recent send (J2-B-10): K goes to the previous one and J comes back.
       await page.keyboard.press('k')
       await page.waitForFunction((prev) => document.querySelector('[role="option"][aria-selected="true"]')?.getAttribute('aria-label') !== prev, first)
       await page.keyboard.press('j')
@@ -325,7 +328,7 @@ describe('envíos seguidos (UD-025)', () => {
   })
 })
 
-// ---------------------------------------------------------------- UD-028, UD-029, UD-030: Inicio, la insignia y la prioridad
+// ---------------------------------------------------------------- UD-028, UD-029, UD-030: Home, the badge and the priority
 /** The fill each priority has, read from a probe element in the page: the reference every badge is compared with. */
 const probeFills = (page, weight) =>
   page.evaluate((w) => {
@@ -348,7 +351,7 @@ async function withSummary(page, mine, areas = []) {
 }
 
 describe('insignia y prioridad (UD-028, UD-029)', () => {
-  test('el fondo de la insignia de Mensajes, de la campana y del aviso de Inicio es el de la prioridad más alta presente, en las ocho combinaciones y en los dos temas', async () => {
+  test('the background of the Messages badge, the bell and the Home notice is that of the highest priority present, in all eight combinations and both themes', async () => {
     for (const scheme of ['light', 'dark']) {
       for (let bits = 0; bits < 8; bits++) {
         const mine = { red: bits & 1 ? 2 : 0, yellow: bits & 2 ? 3 : 0, blue: bits & 4 ? 4 : 0 }
@@ -382,15 +385,15 @@ describe('insignia y prioridad (UD-028, UD-029)', () => {
             assert.equal(await bell.getAttribute('data-tone'), top, `campana: prioridad ${top}`)
             assert.equal(await bell.evaluate((el) => getComputedStyle(el).backgroundColor), fills[top], `campana: el fondo pintado es el de ${top} (${scheme})`)
             assert.match((await bell.textContent()).trim(), new RegExp(`${total}$`))
-            // Una sola fuente de verdad (J2-B-03): la campana es el único relleno saturado de la pantalla; todo lo demás es suave.
+            // One source of truth (J2-B-03): the bell is the only saturated fill on the screen; everything else is soft.
             const weights = await page.evaluate(() => [...document.querySelectorAll('[data-tone]')].map((el) => el.getAttribute('data-weight') ?? 'solid'))
             assert.equal(weights.filter((w) => w === 'solid').length, 1, `un solo relleno saturado (${scheme}, ${JSON.stringify(mine)})`)
-            // La campana lista exactamente lo que cuenta (J2-A-43).
+            // The bell lists exactly what it counts (J2-A-43).
             await bell.click()
             assert.equal(await page.locator('[data-lane="bell-list"] li').count(), total, `la campana lista ${total} (${scheme}, ${JSON.stringify(mine)})`)
           } else {
-            // Sin nada que afecte al miembro, la campana sólo puede mostrar las novedades del flujo de eventos (azul), nunca otra prioridad.
-            assert.ok([null, 'blue'].includes(await bell.getAttribute('data-tone')), 'campana: sin pendientes sólo puede ser azul')
+            // With nothing affecting the member, the bell can only show the event-stream news (blue), never another priority.
+            assert.ok([null, 'blue'].includes(await bell.getAttribute('data-tone')), 'bell: with nothing pending it can only be blue')
           }
         } finally {
           await context.close()
@@ -399,7 +402,7 @@ describe('insignia y prioridad (UD-028, UD-029)', () => {
     }
   })
 
-  test('los datos reales: la insignia de Mensajes cuenta lo que dice el servidor y el aviso de Inicio la repite por prioridad', async () => {
+  test('real data: the Messages badge counts what the server says and the Home notice repeats it per priority', async () => {
     const { page, context } = await session('ana')
     try {
       const summary = await (await page.request.get(`${origin}/api/messages/summary`)).json()
@@ -418,7 +421,7 @@ describe('insignia y prioridad (UD-028, UD-029)', () => {
     }
   })
 
-  test('un mensaje cerrado pierde el borde y la marca de urgencia y sale de la cuenta y de la campana (J2-A-09, J2-A-43)', async () => {
+  test('a closed message loses its urgency edge and mark and leaves the count and the bell (J2-A-09, J2-A-43)', async () => {
     const { page, context } = await session('bruno')
     try {
       await page.getByRole('heading', { name: 'Últimos mensajes' }).waitFor()
@@ -444,7 +447,7 @@ describe('insignia y prioridad (UD-028, UD-029)', () => {
     }
   })
 
-  test('un pendiente por área lleva a Mensajes filtrado por esa área y por abiertos, y muestra tantos mensajes como dice el número', async () => {
+  test('a pending item per area leads to Messages filtered by that area and by open ones, and shows as many messages as the number says', async () => {
     const { page, context } = await session('ana')
     try {
       const chip = page.getByTestId('area-pending').filter({ hasText: 'Error' }).first()
@@ -468,7 +471,7 @@ describe('insignia y prioridad (UD-028, UD-029)', () => {
 })
 
 describe('Inicio (UD-030)', () => {
-  test('con envíos en curso, los últimos mensajes y respuestas siguen a la vista y los envíos quedan plegados con su estado', async () => {
+  test('with submissions in progress, the latest messages and replies stay in view and the submissions are folded with their status', async () => {
     const { page, context } = await session('ana')
     try {
       await page.getByRole('heading', { name: 'Últimos mensajes' }).waitFor()
@@ -480,18 +483,18 @@ describe('Inicio (UD-030)', () => {
       assert.equal(await page.getByRole('dialog').count(), 0, 'los envíos nacen plegados')
       assert.equal(await page.getByRole('heading', { name: 'Últimos mensajes' }).isVisible(), true)
       assert.equal(await page.getByRole('heading', { name: 'Últimas respuestas' }).isVisible(), true)
-      // Los dos bloques ocupan lo principal de la página: cada uno mide al menos un tercio de su alto.
+      // The two blocks take up the main part of the page: each one is at least a third of its height.
       const box = await page.getByRole('region', { name: 'Últimos mensajes' }).boundingBox()
-      assert.ok(box.height >= 900 / 3, `los últimos mensajes miden ${box.height} px`)
-      // El texto del análisis es lo que más destaca: más grande que el resto del análisis, en su tipografía de lectura justificada.
+      assert.ok(box.height >= 900 / 3, `the latest messages measure ${box.height} px`)
+      // The analysis text stands out the most: larger than the rest of the analysis, in its justified reading typeface.
       await control.click()
       const body = page.getByRole('button', { name: /^Texto del mensaje/ }).first()
       await body.waitFor()
       const fontOf = (locator) => locator.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
       const sizes = { text: await fontOf(body), other: await fontOf(page.getByRole('dialog').getByRole('button', { name: /^Resumen/ }).first()) }
       assert.ok(sizes.text >= 16, `el texto del análisis mide ${sizes.text} px`)
-      assert.ok(sizes.text > sizes.other, 'el texto del análisis es más grande que los controles del análisis')
-      // El original va plegado hasta que se abre.
+      assert.ok(sizes.text > sizes.other, 'the analysis text is larger than the analysis controls')
+      // The original stays folded until it is opened.
       assert.equal(await page.getByRole('button', { name: /^Original/ }).getAttribute('aria-expanded'), 'false')
     } finally {
       await context.close()
@@ -499,9 +502,9 @@ describe('Inicio (UD-030)', () => {
   })
 })
 
-// Ronda 1, juez A (J1-A-03, 10, 11, 15, 16, 21, 28, 32, 45, 57): lo que el juez encontró, como flujos.
+// Round 1, judge A (J1-A-03, 10, 11, 15, 16, 21, 28, 32, 45, 57): what the judge found, as flows.
 describe('estados, teclado y filas', () => {
-  test('una dirección desconocida lo dice y la ficha inexistente ofrece volver (J1-A-10)', async () => {
+  test('an unknown address says so and a missing record offers to go back (J1-A-10)', async () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/xyz`)
@@ -518,7 +521,7 @@ describe('estados, teclado y filas', () => {
     }
   })
 
-  test('la primera parada del teclado es «Ir al contenido» y lleva al contenido (J1-A-11)', async () => {
+  test('the first keyboard stop is «Ir al contenido» and it leads to the content (J1-A-11)', async () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/messages`)
@@ -533,34 +536,31 @@ describe('estados, teclado y filas', () => {
     }
   })
 
-  test('el estado de cada fila cae en la misma columna y las acciones aparecen al pasar el cursor (J1-A-15, J1-A-16)', async () => {
+  test('the status of each row falls in the same column and the actions are always in view (J1-A-15, J1-A-16, J2-A-11)', async () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/messages`)
       await page.locator('main article').first().waitFor()
       const xs = await page.evaluate(() => [...document.querySelectorAll('main article')].map((a) => Math.round(a.querySelector('.led').getBoundingClientRect().left)))
       assert.ok(xs.length >= 3, 'hacen falta varias filas')
-      // J1-A-56: la órbita de fondo se desvanece bajo la barra superior y no cruza títulos ni botones.
+      // J1-A-56: the background orbit fades under the top bar and does not cross titles or buttons.
       assert.match(await page.evaluate(() => getComputedStyle(document.querySelector('svg[aria-hidden]')).maskImage), /gradient/)
       assert.equal(new Set(xs).size, 1, `el estado salta de columna: ${xs.join(', ')}`)
       const row = page.locator('main article').first()
       const reply = row.getByRole('link', { name: 'Responder' })
       const opacity = () => reply.evaluate((el) => getComputedStyle(el.parentElement).opacity)
-      assert.equal(await opacity(), '0', 'las acciones de la fila no se leen once veces: aparecen al pasar el cursor')
-      await row.hover()
-      await page.waitForTimeout(300)
-      assert.equal(await opacity(), '1')
-      // Con el teclado también: el foco dentro de la fila las muestra.
+      // J2-A-11: one rule for every row and screen: the actions are always drawn, with no pointer or focus, and at rest they are light.
       await page.mouse.move(0, 0)
-      await reply.focus()
-      await page.waitForTimeout(300)
-      assert.equal(await opacity(), '1')
+      assert.equal(await opacity(), '1', 'las acciones de la fila sólo existían al pasar el cursor')
+      assert.ok(await reply.isVisible())
+      assert.ok(await row.getByRole('button', { name: 'Cerrar', exact: true }).isVisible())
+      assert.equal(await page.locator('main article').first().evaluate((el) => getComputedStyle(el.querySelector('.btn-ghost')).backgroundColor), 'rgba(0, 0, 0, 0)', 'en reposo la acción no es un botón pesado')
     } finally {
       await context.close()
     }
   })
 
-  test('una búsqueda sin resultados dice qué se buscó y ofrece mostrar todos (J1-A-21)', async () => {
+  test('a search without results says what was searched and offers to show everything (J1-A-21)', async () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/messages`)
@@ -573,7 +573,7 @@ describe('estados, teclado y filas', () => {
     }
   })
 
-  test('cerrar un mensaje entra en Deshacer y el botón no cambia de forma (J1-A-28)', async () => {
+  test('closing a message enters Deshacer and the button does not change shape (J1-A-28)', async () => {
     const { page, context } = await session()
     try {
       await openMessage(page, 'Revisar la lectura')
@@ -583,7 +583,10 @@ describe('estados, teclado y filas', () => {
       await button.click()
       await page.getByRole('button', { name: 'Reabrir', exact: true }).waitFor()
       await page.getByText('Cerrado').first().waitFor()
-      await page.getByRole('button', { name: 'Deshacer' }).click()
+      // J2-A-18: closing is confirmed under the bar with its Deshacer, next to the action.
+      const notice = page.getByRole('status').filter({ hasText: 'Mensaje cerrado' })
+      await notice.waitFor()
+      await notice.getByRole('button', { name: 'Deshacer' }).click()
       await page.getByRole('button', { name: 'Cerrar', exact: true }).waitFor()
       assert.ok(Math.abs((await page.getByRole('button', { name: 'Cerrar', exact: true }).boundingBox()).x - before.x) <= 1)
     } finally {
@@ -591,7 +594,7 @@ describe('estados, teclado y filas', () => {
     }
   })
 
-  test('un error de la API y una carga lenta se ven como estados, no como pantalla vacía (J1-A-57)', async () => {
+  test('an API error and a slow load show as states, not as an empty screen (J1-A-57)', async () => {
     const { page, context } = await session()
     try {
       await page.route(/\/api\/messages(\?|$)/, async (route) => {
@@ -607,7 +610,7 @@ describe('estados, teclado y filas', () => {
     }
   })
 
-  test('el inicio de sesión rechazado muestra el motivo bajo el campo (J1-A-03)', async () => {
+  test('a rejected login shows the reason under the field (J1-A-03)', async () => {
     const context = await panel.browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'es-CL' })
     const page = await context.newPage()
     try {
@@ -623,8 +626,8 @@ describe('estados, teclado y filas', () => {
   })
 })
 
-describe('plantillas como formulario (J1-A-32)', () => {
-  test('los campos se editan sin ver el archivo y una plantilla nueva se arma con campos', async () => {
+describe('templates as a form (J1-A-32)', () => {
+  test('the fields are edited without seeing the file and a new template is built with fields', async () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/areas/a-error`)
@@ -659,7 +662,7 @@ describe('plantillas como formulario (J1-A-32)', () => {
     }
   })
 
-  test('cada función ofrece sólo los proveedores que acepta (J1-A-45)', async () => {
+  test('each function offers only the providers it accepts (J1-A-45)', async () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/settings`)
@@ -685,18 +688,18 @@ async function clearTray(page) {
   }
 }
 
-describe('flujo de publicación (ronda 1, juez B)', () => {
-  test('la propuesta muestra todos los mensajes a la vez y el botón dice cuántos envía (J1-B-11)', async () => {
+describe('publishing flow (round 1, judge B)', () => {
+  test('the proposal shows all the messages at once and the button says how many it sends (J1-B-11)', async () => {
     const { page, context } = await session('bruno')
     try {
       await clearTray(page)
       await sendInput(page, THREE)
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
-      // Uno abierto y los otros dos en una línea: los tres títulos están a la vista, sin paginar.
+      // One open and the other two on one line: the three titles are in view, without paging.
       assert.equal(await page.getByRole('button', { name: /^Abrir el mensaje \d/ }).count(), 2, 'dos mensajes plegados en una línea')
       assert.equal(await page.getByRole('button', { name: 'Página siguiente' }).count(), 0, 'sin paginación para tres mensajes')
       await page.getByRole('button', { name: 'Enviar 3 mensajes', exact: true }).waitFor()
-      // Abrir otro pliega el anterior: sigue habiendo tres, uno abierto.
+      // Opening another folds the previous one: there are still three, one open.
       await page.getByRole('button', { name: /^Abrir el mensaje 2/ }).click()
       assert.equal(await page.getByRole('button', { name: /^Área:/ }).count(), 1)
       assert.equal(await page.getByRole('button', { name: /^Abrir el mensaje \d/ }).count(), 2)
@@ -706,7 +709,7 @@ describe('flujo de publicación (ronda 1, juez B)', () => {
     }
   })
 
-  test('descartar se puede deshacer y vuelve con lo editado; no hay descarte mudo (J1-B-26)', async () => {
+  test('a discard can be undone and returns with what was edited; there is no silent discard (J1-B-26)', async () => {
     const { page, context } = await session('carla')
     try {
       await clearTray(page)
@@ -721,14 +724,14 @@ describe('flujo de publicación (ronda 1, juez B)', () => {
       await notice.getByText('Envío descartado').waitFor()
       await page.getByRole('button', { name: /^Título del mensaje: Título corregido/ }).waitFor({ state: 'detached' })
       await notice.getByRole('button', { name: 'Deshacer' }).click()
-      // El envío vuelve a la bandeja, con la propuesta tal como se editó.
+      // The send goes back to the inbox, with the proposal as it was edited.
       await page.getByRole('button', { name: /^Título del mensaje: Título corregido antes de descartar/ }).waitFor({ timeout: 10000 })
     } finally {
       await context.close()
     }
   })
 
-  test('volver a analizar: sin cambios va directo; con cambios pide confirmar (J1-B-18)', async () => {
+  test('re-analyzing: without changes it goes straight; with changes it asks for confirmation (J1-B-18)', async () => {
     const { page, context } = await session('diego')
     try {
       await clearTray(page)
@@ -748,7 +751,7 @@ describe('flujo de publicación (ronda 1, juez B)', () => {
     }
   })
 
-  test('editar un cuerpo dice cómo se guarda y cómo se baja de línea (J1-B-19)', async () => {
+  test('editing a body says how it is saved and how to break a line (J1-B-19)', async () => {
     const { page, context } = await session('eduardo')
     try {
       await clearTray(page)
@@ -761,7 +764,7 @@ describe('flujo de publicación (ronda 1, juez B)', () => {
     }
   })
 
-  test('el compositor crece de un solo salto y quitar un adjunto tiene un blanco de 24 px (J1-B-01, J1-B-02, J1-B-30)', async () => {
+  test('the composer grows in a single jump and removing an attachment has a 24 px target (J1-B-01, J1-B-02, J1-B-30)', async () => {
     const { page, context } = await session('sofia')
     try {
       await page.goto(origin)
@@ -785,7 +788,7 @@ describe('flujo de publicación (ronda 1, juez B)', () => {
     }
   })
 
-  test('un área con varias plantillas deja elegir la plantilla desde la propuesta (J1-B-18)', async () => {
+  test('an area with several templates lets the user choose the template from the proposal (J1-B-18)', async () => {
     const { page, context } = await session('tomas')
     try {
       await clearTray(page)
@@ -802,7 +805,7 @@ describe('flujo de publicación (ronda 1, juez B)', () => {
     }
   })
 
-  test('en el teléfono Enviar y Descartar siguen a la vista con tres mensajes (J1-B-29)', async () => {
+  test('on the phone Enviar and Descartar stay in view with three messages (J1-B-29)', async () => {
     const { page, context } = await session('bruno', { width: 390, height: 844 })
     try {
       await clearTray(page)
@@ -819,8 +822,8 @@ describe('flujo de publicación (ronda 1, juez B)', () => {
   })
 })
 
-describe('flujo de publicación (ronda 2, juez B)', () => {
-  test('Intro nunca publica: tras guardar un campo el foco queda en él, y desde el contenedor no hace nada (J2-B-13)', async () => {
+describe('publishing flow (round 2, judge B)', () => {
+  test('Enter never publishes: after saving a field the focus stays on it, and from the container it does nothing (J2-B-13)', async () => {
     const { page, context } = await session('bruno')
     try {
       await clearTray(page)
@@ -835,15 +838,15 @@ describe('flujo de publicación (ronda 2, juez B)', () => {
       await field.press('Enter')
       const saved = page.getByRole('button', { name: /^Texto del mensaje: Cuerpo corregido/ })
       await saved.waitFor()
-      // El foco vuelve al texto editado, no al contenedor de la ventana.
+      // The focus returns to the edited text, not to the window container.
       assert.equal(await saved.evaluate((el) => el === document.activeElement), true, 'el foco queda en el texto guardado')
-      // Un segundo Intro reabre ese mismo texto: es lo que hace en cualquier campo y no publica.
+      // A second Enter reopens that same text: it is what it does in any field, and it does not publish.
       await page.keyboard.press('Enter')
       await page.getByRole('textbox', { name: 'Texto del mensaje' }).waitFor()
       await page.keyboard.press('Escape')
       await saved.waitFor()
       assert.equal(await saved.evaluate((el) => el === document.activeElement), true, 'Escape también devuelve el foco al texto')
-      // Desde el contenedor (la ventana misma, sin campo enfocado) Intro tampoco publica.
+      // From the container (the window itself, no field focused) Enter does not publish either.
       await page.getByRole('dialog').evaluate((el) => el.focus())
       await page.keyboard.press('Enter')
       await page.keyboard.press('Enter')
@@ -858,7 +861,7 @@ describe('flujo de publicación (ronda 2, juez B)', () => {
 })
 
 describe('compositor (ronda 2, juez B)', () => {
-  test('«Enlace» deja el foco en su campo; el texto largo crece sobre la página sin moverla y con la línea de escritura a la vista (J2-B-01, J2-B-02, J2-B-04)', async () => {
+  test('«Enlace» leaves the focus in its field; long text grows over the page without moving it and keeps the writing line in view (J2-B-01, J2-B-02, J2-B-04)', async () => {
     const { page, context } = await session('sofia')
     try {
       await page.goto(origin)
@@ -870,7 +873,7 @@ describe('compositor (ronda 2, juez B)', () => {
       assert.equal(await field.evaluate((el) => el === document.activeElement), true, 'el campo del enlace nace con el foco')
       assert.ok((await page.locator('label[for="compose-link"]').count()) === 1, 'el campo lleva su rótulo visible')
       await page.keyboard.press('Escape')
-      // Texto largo: la página no se mueve y el cuadro no pasa de su máximo.
+      // Long text: the page does not move and the box stops at its maximum.
       const feed = page.getByRole('heading', { name: 'Últimos mensajes' })
       const y0 = (await feed.boundingBox()).y
       const bar = page.getByLabel('Nuevo mensaje', { exact: true }).last()
@@ -879,7 +882,7 @@ describe('compositor (ronda 2, juez B)', () => {
       assert.equal((await feed.boundingBox()).y, y0, 'escribir un texto largo no mueve la página')
       const box = await bar.boundingBox()
       assert.ok(box.height <= 124, `el cuadro de texto se detiene en su máximo: ${box.height}`)
-      // La línea de escritura queda a la vista: el cursor está al final y el cuadro desplazó hasta él.
+      // The writing line stays in view: the cursor is at the end and the box scrolled down to it.
       assert.equal(await bar.evaluate((el) => el.scrollTop + el.clientHeight >= el.scrollHeight - 2), true, 'se ve el final del texto')
       assert.ok((await bar.boundingBox()).y + (await bar.boundingBox()).height <= 900, 'el cuadro está dentro de la ventana')
     } finally {
@@ -891,8 +894,8 @@ describe('compositor (ronda 2, juez B)', () => {
 /** Waits until the review of the open send shows its proposal. */
 const proposalReady = (page) => page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 30000 })
 
-describe('bandeja y propuesta (ronda 2, juez B)', () => {
-  test('la franja de envíos es un botón con su progreso, no mueve la página y la ventana nace en el envío reciente (J2-B-07, J2-B-08, J2-B-09, J2-B-10)', async () => {
+describe('tray and proposal (round 2, judge B)', () => {
+  test('the strip of sends is a button with its progress, does not move the page, and the window opens on the recent send (J2-B-07, J2-B-08, J2-B-09, J2-B-10)', async () => {
     const { page, context } = await session('diego')
     try {
       await clearTray(page)
@@ -908,9 +911,9 @@ describe('bandeja y propuesta (ronda 2, juez B)', () => {
       assert.equal(await control.evaluate((el) => el.tagName), 'BUTTON', 'la franja es un botón')
       assert.ok((await control.evaluate((el) => getComputedStyle(el).borderTopWidth)) !== '0px', 'con forma de botón: tiene contorno')
       assert.deepEqual(await y(), before, 'la franja aparece sin mover la barra ni las listas')
-      // El progreso se ve con la franja plegada.
+      // The progress shows with the strip folded.
       await control.getByRole('progressbar').waitFor()
-      // Un segundo envío: al abrir, la ventana nace en el más reciente que pide a la persona, no en el viejo.
+      // A second send: on opening, the window lands on the most recent one that needs the person, not the old one.
       await bar.fill('Segundo envío: agregar la sincronización con WhatsApp.')
       await page.getByRole('button', { name: 'Enviar' }).first().click()
       await control.getByText('2 para revisar').waitFor({ timeout: 40000 })
@@ -922,7 +925,7 @@ describe('bandeja y propuesta (ronda 2, juez B)', () => {
     }
   })
 
-  test('la ventana de un envío en análisis mide lo que muestra, y Cancelar tiene forma de botón (J2-B-09, J2-B-12)', async () => {
+  test('the window of a send being analyzed is as tall as what it shows, and Cancelar looks like a button (J2-B-09, J2-B-12)', async () => {
     const { page, context } = await session('eduardo')
     try {
       await clearTray(page)
@@ -940,7 +943,7 @@ describe('bandeja y propuesta (ronda 2, juez B)', () => {
     }
   })
 
-  test('el cuerpo y los botones del historial: Volver a analizar no se mueve, «Partes sin mensaje» es un botón y quitar tiene un solo Deshacer sin empujar nada (J2-B-14, J2-B-15, J2-B-21)', async () => {
+  test('history buttons: Volver a analizar does not move, «Partes sin mensaje» is a button and removing has a single Deshacer that pushes nothing (J2-B-14, J2-B-15, J2-B-21)', async () => {
     const { page, context } = await session('sofia')
     try {
       await clearTray(page)
@@ -957,13 +960,13 @@ describe('bandeja y propuesta (ronda 2, juez B)', () => {
       await page.locator('[data-notice]').getByText(/^Mensaje quitado/).waitFor()
       assert.equal(await page.locator('[data-notice]').getByRole('button', { name: 'Deshacer' }).count(), 0, 'el aviso no repite el Deshacer')
       assert.ok((await page.getByRole('button', { name: 'Enviar 2 mensajes', exact: true }).boundingBox()).y <= sendY, 'quitar un mensaje no empuja Enviar hacia abajo por culpa del aviso')
-      // Ningún campo del mensaje abierto se sale del borde derecho de su superficie (J2-B-18).
+      // No field of the open message goes past the right edge of its surface (J2-B-18).
       const region = await page.getByRole('region', { name: 'Análisis' }).boundingBox()
       for (const field of await page.locator('dd [role="button"]').all()) {
         const b = await field.boundingBox()
         assert.ok(b.x + b.width <= region.x + region.width - 1, `un campo se sale por la derecha: ${b.x + b.width} contra ${region.x + region.width}`)
       }
-      // Con el original abierto, la propuesta conserva el ancho (J2-B-20): el original va arriba, no al lado.
+      // With the original open, the proposal keeps its width (J2-B-20): the original goes above, not beside.
       await page.getByRole('button', { name: /^Original/ }).first().click()
       const open = await page.getByRole('region', { name: 'Análisis' }).boundingBox()
       assert.ok(Math.abs(open.width - region.width) <= 2, `la propuesta cambió de ancho con el original abierto: ${region.width} a ${open.width}`)
@@ -979,7 +982,7 @@ describe('bandeja y propuesta (ronda 2, juez B)', () => {
     }
   })
 
-  test('el menú de destinatarios cabe entero en la ventana y el que no tiene destinatario lo dice con marca (J2-B-17, J2-B-19)', async () => {
+  test('the recipients menu fits entirely in the window and a row with no recipient says so with a mark (J2-B-17, J2-B-19)', async () => {
     const { page, context } = await session('tomas')
     try {
       await clearTray(page)
@@ -990,10 +993,10 @@ describe('bandeja y propuesta (ronda 2, juez B)', () => {
       await list.waitFor()
       const b = await page.getByRole('menu').or(list.locator('..')).first().boundingBox()
       assert.ok(b.y >= 0 && b.y + b.height <= 900, `el menú está dentro de la ventana: ${JSON.stringify(b)}`)
-      // Con hasta nueve personas (el equipo de los datos de desarrollo) no hace falta desplazar; con más, el cuadro sigue dentro de la ventana.
+      // With up to nine people (the team in the development data) there is nothing to scroll; with more, the box stays inside the window.
       if ((await list.locator('li').count()) <= 9) assert.equal(await list.evaluate((el) => el.scrollHeight <= el.clientHeight + 1), true, 'con nueve personas no hace falta desplazar')
       await page.keyboard.press('Escape')
-      // Quitar a todos los destinatarios del mensaje abierto deja su fila marcada al plegarla; las demás quedan lisas.
+      // Removing every recipient of the open message leaves its row marked once folded; the others stay plain.
       const chips = page.getByRole('button', { name: /^Quitar a / })
       while (await chips.count()) await chips.first().click({ force: true })
       await page.getByRole('button', { name: /^Abrir el mensaje 2/ }).click()
@@ -1003,7 +1006,7 @@ describe('bandeja y propuesta (ronda 2, juez B)', () => {
     }
   })
 
-  test('descartar con más envíos deja el lugar con su Deshacer y no salta a otro envío (J2-B-22, J2-B-24)', async () => {
+  test('discarding with more sends leaves its place with its Undo and does not jump to another send (J2-B-22, J2-B-24)', async () => {
     const { page, context } = await session('valentina')
     try {
       await clearTray(page)
@@ -1027,7 +1030,7 @@ describe('bandeja y propuesta (ronda 2, juez B)', () => {
     }
   })
 
-  test('en el teléfono la lista de envíos se pliega y la propuesta ocupa la pantalla; los menús caben en ella (J2-B-11, J2-B-23)', async () => {
+  test('on the phone the list of sends folds and the proposal takes the screen; menus fit in it (J2-B-11, J2-B-23)', async () => {
     const { page, context } = await session('ana', { width: 390, height: 844 })
     try {
       await clearTray(page)
@@ -1056,7 +1059,7 @@ describe('bandeja y propuesta (ronda 2, juez B)', () => {
     }
   })
 
-  test('publicar dice cuántos mensajes y a cuántas personas, sin mover la ventana, y los mensajes quedan en Últimos mensajes (J2-B-25, J2-B-26)', async () => {
+  test('publishing says how many messages and to how many people, without moving the window, and the messages exist in Mensajes (J2-B-25, J2-B-26)', async () => {
     const { page, context } = await session('bruno')
     try {
       await clearTray(page)
@@ -1072,7 +1075,7 @@ describe('bandeja y propuesta (ronda 2, juez B)', () => {
       await page.waitForTimeout(300)
       assert.equal((await heading.boundingBox()).y, y, 'el aviso flota: no empuja la página')
       assert.equal(await notice.evaluate((el) => getComputedStyle(el.parentElement).position), 'fixed', 'el aviso de la página flota sobre ella')
-      // El rastro del envío: sus tres mensajes existen en Mensajes, adonde lleva el enlace del aviso.
+      // The trace of the send: its three messages exist in Mensajes, where the link of the notice leads.
       assert.equal(await total(), had + 3, 'los tres mensajes quedaron publicados')
       await notice.getByRole('link', { name: 'Ver mensajes' }).click()
       await page.waitForURL(/\/messages/)

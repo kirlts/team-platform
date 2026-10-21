@@ -1,6 +1,6 @@
-// Clasificación de adjuntos por tipo MIME declarado (o, si es genérico, por extensión). Es una tabla de
-// formatos de archivo, no una lectura de texto de personas. El tipo declarado por el navegador no es de
-// fiar: el extractor revisa el contenido real (src/contracts.md).
+// Classification of attachments by declared MIME type (or, if generic, by extension). It is a table of
+// file formats, not a reading of people's text. The type declared by the browser cannot be trusted:
+// the extractor checks the actual content (src/contracts.md).
 
 import path from 'node:path'
 
@@ -31,7 +31,7 @@ const EXTENSION_TO_MIME = new Map([
 
 const GENERIC_MIMES = new Set(['', 'application/octet-stream', 'binary/octet-stream'])
 
-/** Devuelve { kind, mime } o null si el formato no se admite (SVG queda fuera a propósito: puede llevar scripts). */
+/** Returns { kind, mime } or null if the format is not accepted (SVG is left out on purpose: it can carry scripts). */
 export function classify (declaredMime, filename) {
   const base = String(declaredMime ?? '').split(';')[0].trim().toLowerCase()
   let mime = base
@@ -40,7 +40,7 @@ export function classify (declaredMime, filename) {
   return kind ? { kind, mime } : null
 }
 
-/** Tipos que el navegador puede mostrar en línea sin riesgo; el resto se descarga. */
+/** Types the browser can display inline without risk; the rest is downloaded. */
 export const INLINE_MIMES = new Set([...MIME_TO_KIND.entries()].filter(([m, k]) => ['image', 'video', 'audio'].includes(k) || m === 'application/pdf').map(([m]) => m))
 
 export function maxBytesFor (kind, uploads) {

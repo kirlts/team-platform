@@ -114,6 +114,47 @@ tailscale serve reset
 
 La dirección es `https://<máquina>.<tailnet>.ts.net`. Con `compose.yml` el puerto 3000 sólo escucha en loopback, de modo que `tailscale serve` es la única entrada.
 
+## Analizador `harness` en el contenedor
+
+`ANALYZER=harness` hace que cada análisis corra `claude -p` con la suscripción de Claude Code en vez de llamar a la API (UD-008, MASTER-SPEC §7.5). La imagen no trae `claude`. Se agrega con una imagen derivada, y la credencial se pasa por el entorno del contenedor.
+
+Imagen derivada. `claude.exe` es el ejecutable que instala el paquete `@anthropic-ai/claude-code`; la variante `linux-x64-musl` (o `linux-arm64-musl`) corre sobre la base Alpine. Se fija la versión probada:
+
+```sh
+cat > Dockerfile.harness <<'EOF'
+FROM node:24-alpine AS claude
+RUN npm install -g @anthropic-ai/claude-code@2.1.284
+FROM team-platform:local
+USER root
+RUN apk add --no-cache libgcc ripgrep
+COPY --from=claude /usr/local/lib/node_modules/@anthropic-ai /usr/local/lib/node_modules/@anthropic-ai
+RUN ln -s /usr/local/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe /usr/local/bin/claude
+USER node
+EOF
+docker build -t team-platform:harness -f Dockerfile.harness .
+echo 'IMAGE_TAG=team-platform:harness' >> .env
+```
+
+Credencial. En una máquina con sesión de Claude Code, `claude setup-token` imprime un token de larga duración de la suscripción. Va en `.env` (modo 600, fuera de git y fuera de la imagen), que `compose.yml` pasa al contenedor con `env_file`:
+
+```sh
+printf 'ANALYZER=harness\nCLAUDE_CODE_OAUTH_TOKEN=<token>\n' >> .env
+docker compose up -d --wait
+docker compose exec team-platform claude auth status
+```
+
+`--bare` no lee la suscripción, por eso el harness corre sin esa opción (MASTER-SPEC §7.5). El token no se escribe en `compose.yml`, en un `Dockerfile` ni en el repositorio; el escáner de `.githooks/pre-commit` revisa lo que se commitea. Para revocarlo se corta la sesión en la cuenta de Claude y se cambia el valor de `.env`.
+
+Cuándo conviene:
+
+| Situación | Analizador |
+|---|---|
+| Sin presupuesto de API y con una suscripción de Claude Code que el equipo ya paga | `harness` |
+| Cada análisis debe terminar en segundos, o hay varios a la vez | `api` |
+| Hay que medir costo por análisis o usar un proveedor de respaldo | `api` |
+
+Medido el 2026-10-21 con una corrida de `01-chat-grupo`: 36,9 s con `harness` contra 4,4 s con `api`, con la misma cobertura y clasificación (`docs/investigaciones/mediciones/2026-10-21-harness-real.md`). El ejecutable de `claude` 2.1.284 sobre Alpine 3.24 se comprobó con `claude --version`. La imagen derivada completa sobre `team-platform:local` y el token de `setup-token` no se probaron: la medición usó el inicio de sesión de la máquina de desarrollo.
+
 ## Operación
 
 Registros y estado:

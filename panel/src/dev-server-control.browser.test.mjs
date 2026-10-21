@@ -4,6 +4,9 @@ import assert from 'node:assert'
 import { after, before, test } from 'node:test'
 import { PASSWORD, startPanel } from './browser-support.mjs'
 
+// This file looks at the proposal the simulated analysis leaves, which is what the server does with publication by hand (UD-070).
+process.env.PANEL_DEV_AUTO_PUBLISH ??= '0'
+
 let panel
 let cookie = ''
 

@@ -98,8 +98,9 @@ export function AnalysisPanel({ input, onClose, onDiscarded }: { input: InputRec
       style={tinted ? areaStyle : undefined}
       className={cn('@container flex min-h-0 min-w-0 flex-col gap-3 p-3 pl-4', tinted ? 'area-tint area-box' : 'ai-surface', input.status === 'proposed' ? 'flex-1' : 'w-full self-start')}
     >
-      <div className="flex min-h-7 flex-wrap items-center justify-between gap-x-2 gap-y-1">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      {/* «Volver a analizar» keeps the right edge of the first row whatever the history has: the left group wraps inside its own space and never pushes it down (J2-B-14). */}
+      <div className="flex min-h-7 items-start justify-between gap-x-2 gap-y-1">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
           <div className="flex items-center gap-2">
             <h2>{t('analysis.title')}</h2>
             <AiMark />
@@ -108,7 +109,7 @@ export function AnalysisPanel({ input, onClose, onDiscarded }: { input: InputRec
           {/* The history beside the title and «Volver a analizar» alone at the right edge: the step that drops the proposal is not one of the pair that takes a step back (J3-B-27); neither moves the other (J2-B-15). */}
           {input.status === 'proposed' && <UndoButtons stack={undo} />}
         </div>
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5">
           {input.status === 'proposed' && (
             <Button size="sm" variant="ghost" className="hit" disabled={reprocess.isPending} onClick={() => (edited ? setConfirmAgain(true) : again())}>
               <RotateCw size={13} aria-hidden /> {t('analysis.again')}

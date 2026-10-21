@@ -369,6 +369,10 @@
     border-color: transparent;
     padding-inline: 0;
   }
+  /* A count of zero keeps the format of the others and weighs less: muted ink (UD-211). */
+  [data-status][data-weight='quiet'][data-zero] {
+    color: var(--color-muted);
+  }
   [data-status='open'][data-weight='quiet'] > svg {
     color: var(--color-state-open-edge);
   }

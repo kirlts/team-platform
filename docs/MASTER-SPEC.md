@@ -299,7 +299,7 @@ DELETE /api/areas/:id/templates/:templateId?confirm=true · POST /api/templates/
 GET    /api/members
 POST   /api/members               alta de un miembro                          (Editor)
 PATCH  /api/members/me            perfil, idioma y contraseña propios (`profile`: texto, tope en `members.profileMaxLength`)
-PATCH  /api/members/:id                                                        (Editor)
+PATCH  /api/members/:id            nombre, correo, rol, contraseña y `active`; `profile` responde 400 `validation` (UD-023)   (Editor)
 
 GET    /api/settings/providers · PATCH /api/settings/providers                (Editor; nunca devuelve una llave; PATCH prueba antes de guardar, 422 `provider_check_failed`; UD-120)
 POST   /api/settings/providers/:slot/check                                    diagnóstico de una función (Editor)
@@ -449,7 +449,7 @@ Un rechazo del proveedor, un corte por `max_tokens` y una salida inválida o con
 
 Si el input supera el umbral de partición, se parte sólo por fronteras estructurales en trozos disjuntos por unidad. Los trozos se procesan en paralelo y la reducción es la misma concatenación. Un monólogo transcrito no se parte. El esquema de salida de cada plantilla se compila una vez. Se calienta por evento al guardar una plantilla (`warmTemplate`) o al cambiar el catálogo de áreas (`warmCatalog`). La gramática compilada se cachea 24 horas desde el último uso.
 
-**`harness`:** el mismo bundle se escribe en un directorio de trabajo vacío y propio (`input.md`, `bundle.json`, `templates/<id>.md`); `claude -p --output-format json --json-schema <Proposal>` con sólo la herramienta de lectura; se lee `structured_output`, `usage` y `total_cost_usd`. Sin `--bare` para que use la suscripción [V]. Mismo validador de salida que `api`.
+**`harness`:** el mismo bundle se escribe en un directorio de trabajo vacío y propio (`input.md`, `bundle.json`, `templates/<id>.md`); `claude -p --output-format json --json-schema <Proposal>` con sólo la herramienta de lectura; se lee `structured_output`, `usage` y `total_cost_usd`. Sin `--bare` para que use la suscripción [V]. Mismo validador de salida que `api`. Medido el 2026-10-21 sobre `01-chat-grupo` con `claude` 2.1.284: 36,9 s (23,9 s de modelo), 6 turnos, cobertura 100 %, validador aceptó sin reintento; `api` tarda 4,4 s en el mismo caso (`docs/investigaciones/mediciones/2026-10-21-harness-real.md`). En el contenedor se instala con una imagen derivada y la credencial viaja en `CLAUDE_CODE_OAUTH_TOKEN` del `.env` (`docs/INSTALACION.md`). La repetibilidad entre corridas del harness no está medida.
 
 **Validación (sistema, no modelo), con una instancia propia de Ajv**, porque los esquemas de respuesta de Fastify convierten tipos y descartan propiedades (informe 03). Se comprueba que el área y la plantilla existen y se corresponden. Cada `assignee_id` debe ser un miembro y cada `attachment_id` debe pertenecer al input. Cada `unit_id` debe existir y cada unidad debe estar en un mensaje o en `discarded`. Cada campo obligatorio de la plantilla debe estar presente y ningún mensaje queda vacío. Una salida inválida reintenta una vez con el error como contexto; después el trabajo falla con el motivo visible. Un `refusal` no se reintenta igual y un corte por `max_tokens` reintenta una vez con el doble. El proveedor de respaldo (`TEXT_FALLBACK_*`) se informa en `GET /health` y recibe una vez la llamada que el principal rechazó (`refusal`) o que falló por red o 5xx tras sus reintentos; `llm_calls` registra el proveedor que respondió.
 

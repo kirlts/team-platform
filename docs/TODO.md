@@ -228,7 +228,7 @@
 **Checks cubiertos:** HP-014
 
 - [x] `claude -p` sin `--bare` desde un directorio propio, con el mismo validador y pruebas con un ejecutable de mentira `2026-10-20 22:27:44`
-- [ ] Medir en el banco el costo y el tiempo del harness frente a `api` con una suscripción real. Espera al dueño: necesita su sesión; «no por ahora» la cierra
+- [x] Medir en el banco el costo y el tiempo del harness frente a `api` con una suscripción real: `01-chat-grupo` en 36,9 s (`api`: 4,4 s), cobertura 100 %, validador aceptó sin reintento `2026-10-21 22:00:23`. Detalle en `docs/investigaciones/mediciones/2026-10-21-harness-real.md`; instalación en `docs/INSTALACION.md`
 
 ### [TASK-017] Plantillas iniciales
 

@@ -11,19 +11,22 @@ import { cn } from '@/lib/utils'
 import { Avatar } from './Avatar'
 import { FormDialog } from './FormDialog'
 
-const row =
-  'flex min-h-11 items-center gap-2.5 md:min-h-9 rounded-md border border-transparent px-2.5 py-1 text-sm font-medium text-fg transition-colors duration-150 hover:bg-glass'
+/** One row, one grid (UD-130): icon, label and, on the right, the reserved column of the count. The look of hover and focus is `.nav-row` in styles.css. */
+const row = 'nav-row grid min-h-11 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2.5 rounded-md border border-transparent py-1 pl-2.5 pr-[var(--sidebar-count-col)] text-sm font-medium text-fg md:min-h-9'
 /** What is selected looks the same everywhere (J2-A-41): the `selected` fill and the accent bar on the edge, as the rows of Áreas. */
-const active = 'bg-selected font-semibold shadow-[inset_4px_0_0_var(--color-accent)] hover:bg-selected'
+const active = 'bg-selected font-semibold shadow-[inset_4px_0_0_var(--color-accent)]'
+/** The count column: the same right inset in every row, centered on the row's height. It sits over the row, so a count arriving never changes the row's height (J2-A-47). */
+const countCol = 'absolute inset-y-0 right-0 z-10 flex items-center justify-end pr-2.5'
 
 function Item({ to, icon, children, end, onNavigate, badge }: { to: string; icon: ReactNode; children: ReactNode; end?: boolean; onNavigate?: () => void; badge?: ReactNode }) {
   return (
-    // A row that carries a badge keeps the height it has with one, so the badge arriving does not move what is below (J2-A-47).
-    <NavLink to={to} end={end} onClick={onNavigate} className={({ isActive }) => cn(row, badge && 'min-h-[46px] md:min-h-[46px]', isActive && active)}>
-      {icon}
-      <span className="min-w-0 flex-1 break-words leading-tight">{children}</span>
-      {badge}
-    </NavLink>
+    <div data-nav-row className="relative">
+      <NavLink to={to} end={end} onClick={onNavigate} className={({ isActive }) => cn(row, isActive && active)}>
+        {icon}
+        <span className="min-w-0 break-words leading-tight">{children}</span>
+      </NavLink>
+      {badge && <span data-nav-count className={countCol}>{badge}</span>}
+    </div>
   )
 }
 
@@ -47,7 +50,7 @@ export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => v
         <Avatar name={me?.name ?? '?'} size={26} />
         <span className="min-w-0 flex-1 break-words text-sm font-medium leading-tight">{me?.name}</span>
         {onHide && (
-          <button type="button" data-testid="sidebar-hide" aria-label={t('sidebar.hide')} title={t('sidebar.hide')} onClick={onHide} className="hit rounded-md p-1.5 text-muted hover:bg-glass hover:text-fg max-md:hidden">
+          <button type="button" data-testid="sidebar-hide" aria-label={t('sidebar.hide')} title={t('sidebar.hide')} onClick={onHide} className="nav-ctl max-md:hidden">
             <PanelLeft size={16} aria-hidden />
           </button>
         )}
@@ -56,42 +59,46 @@ export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => v
       <Item to="/" end icon={<Home size={16} aria-hidden />} onNavigate={onNavigate}>
         {t('nav.home')}
       </Item>
-      <Item to="/messages" icon={<Inbox size={16} aria-hidden />} onNavigate={onNavigate} badge={<NotifyBadge counts={mine} data-testid="messages-badge" />}>
+      <Item to="/messages" icon={<Inbox size={16} aria-hidden />} onNavigate={onNavigate} badge={<NotifyBadge counts={mine} size="plain" data-testid="messages-badge" />}>
         {t('nav.messages')}
       </Item>
 
       {editor && (
         <div className="flex min-h-0 shrink flex-col">
-          <div className="flex shrink-0 items-center">
-            <NavLink to="/areas" onClick={onNavigate} className={() => cn(row, 'flex-1', inAreas && 'text-accent-deep')}>
+          <div data-nav-row className="relative shrink-0">
+            <NavLink to="/areas" onClick={onNavigate} className={() => cn(row, inAreas && 'text-accent-deep')}>
               <Layers size={16} aria-hidden />
               <span className="min-w-0 break-words leading-tight">{t('nav.areas')}</span>
             </NavLink>
-            <button type="button" aria-label={t('nav.newArea')} onClick={() => setCreating(true)} className="rounded-full p-1.5 text-muted hover:bg-glass hover:text-fg">
-              <Plus size={15} aria-hidden />
-            </button>
-            <button
-              type="button"
-              aria-label={areasOpen ? t('nav.foldAreas') : t('nav.unfoldAreas')}
-              aria-expanded={areasOpen}
-              onClick={() => setAreasOpen((v) => !v)}
-              className="rounded-full p-1.5 text-muted hover:bg-glass hover:text-fg"
-            >
-              <ChevronDown size={15} aria-hidden className={cn('transition-transform', !areasOpen && '-rotate-90')} />
-            </button>
+            {/* The two controls of the row end at the same right edge as every count. */}
+            <span data-nav-count className={cn(countCol, 'gap-0.5')}>
+              <button type="button" aria-label={t('nav.newArea')} title={t('nav.newArea')} onClick={() => setCreating(true)} className="nav-ctl">
+                <Plus size={15} aria-hidden />
+              </button>
+              <button
+                type="button"
+                aria-label={areasOpen ? t('nav.foldAreas') : t('nav.unfoldAreas')}
+                title={areasOpen ? t('nav.foldAreas') : t('nav.unfoldAreas')}
+                aria-expanded={areasOpen}
+                onClick={() => setAreasOpen((v) => !v)}
+                className="nav-ctl"
+              >
+                <ChevronDown size={15} aria-hidden className={cn('transition-transform', !areasOpen && '-rotate-90')} />
+              </button>
+            </span>
           </div>
           {areasOpen && (
             // With many areas the list scrolls inside: it is a declared lane, not the page.
             <ul data-lane="areas-nav" className="scroll-thin ml-2.5 mt-0.5 flex min-h-0 flex-col gap-0.5 overflow-y-auto border-l border-line-strong pl-1">
               {(areas.data ?? []).map((a) => (
-                <li key={a.id} className="flex items-center gap-1">
-                  <NavLink to={`/areas/${a.id}`} onClick={onNavigate} className={({ isActive }) => cn(row, 'min-h-11 min-w-0 text-sm md:min-h-7', isActive && active)}>
+                <li key={a.id} data-nav-row className="relative">
+                  <NavLink to={`/areas/${a.id}`} onClick={onNavigate} className={({ isActive }) => cn(row, 'min-h-11 md:min-h-8', isActive && active)}>
                     {/* The area's color, the same one its chip has in the messages (UD-045). */}
                     <span aria-hidden data-testid="area-swatch-dot" className="h-2.5 w-2.5 shrink-0 rounded-sm border border-line-strong" style={{ background: a.color }} />
-                    <span className="min-w-0 flex-1 break-words leading-tight">{a.title}</span>
+                    <span className="min-w-0 break-words leading-tight">{a.title}</span>
                   </NavLink>
-                  {/* The counts' column is reserved and its marks are the shape and the number (the word is in the link's name): a name that wraps does so the same before and after they arrive, and a narrow panel keeps its width. */}
-                  <span className="flex min-w-20 shrink-0 items-center justify-end">
+                  {/* The counts' column is the same one as every row's: a name wraps the same before and after they arrive. */}
+                  <span data-nav-count className={countCol}>
                     <AreaPending areaId={a.id} title={a.title} summary={summary} onNavigate={onNavigate} />
                   </span>
                 </li>
@@ -117,9 +124,9 @@ export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => v
         <Item to="/settings" icon={<Settings size={16} aria-hidden />} onNavigate={onNavigate}>
           {t('nav.settings')}
         </Item>
-        <button type="button" onClick={onLogout} className={cn(row, 'w-full text-left text-muted hover:text-fg')}>
+        <button type="button" onClick={onLogout} className={cn(row, 'w-full text-left text-muted')}>
           <LogOut size={16} aria-hidden />
-          <span className="min-w-0 flex-1 leading-tight">{t('nav.logout')}</span>
+          <span className="min-w-0 leading-tight">{t('nav.logout')}</span>
         </button>
       </div>
 
@@ -147,7 +154,7 @@ function AreaPending({ areaId, title, summary, onNavigate }: { areaId: string; t
     <>
       {/* One line: the sidebar shows the open ones, so a count arriving does not change the height of its row. Áreas also shows the answered ones. */}
       {counts.open > 0 && (
-        <Link to={areaMessagesPath(areaId, 'open')} onClick={onNavigate} aria-label={t('areas.countOf', { title, count: label({ open: counts.open }) })} className="rounded-full">
+        <Link to={areaMessagesPath(areaId, 'open')} onClick={onNavigate} aria-label={t('areas.countOf', { title, count: label({ open: counts.open }) })} className="nav-count">
           <StateMark status="open" n={counts.open} showWord={false} plain />
         </Link>
       )}

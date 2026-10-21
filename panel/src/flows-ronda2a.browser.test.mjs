@@ -510,7 +510,7 @@ describe('states', () => {
       await page.goto(origin)
       await page.getByRole('link', { name: 'Idea', exact: true }).first().waitFor()
       await settled(page)
-      const tops = () => page.evaluate(() => [...document.querySelectorAll('nav > a, nav > div > div > a, nav li > a')].map((a) => Math.round(a.getBoundingClientRect().top)))
+      const tops = () => page.evaluate(() => [...document.querySelectorAll('nav a')].map((a) => Math.round(a.getBoundingClientRect().top)))
       const before = await tops()
       release()
       await page.getByTestId('messages-badge').waitFor()

@@ -10,7 +10,7 @@ export function SimulatedMark({ proposal }: { proposal?: Proposal | null }) {
   const t = useT()
   if (proposal?.simulated !== true) return null
   return (
-    <Badge tone="outline" title={t('analysis.simulatedHint')} data-testid="simulated-mark">
+    <Badge tone="outline" className="border-dashed" title={t('analysis.simulatedHint')} data-testid="simulated-mark">
       {t('analysis.simulated')}
     </Badge>
   )

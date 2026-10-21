@@ -141,6 +141,103 @@ describe('the drawer under the bar (UD-046, UD-070)', () => {
     }
   })
 
+  test('two sends with the same words are told apart by their number and both fit the phone row (ronda 4)', async () => {
+    const { page, context } = await session('carla', PHONE)
+    try {
+      const text = 'Corregir el desalineado del sidebar en la vista dashboard. Agregar la sincronización.'
+      await send(page, text)
+      await page.getByTestId('published-message').first().waitFor({ timeout: 20000 })
+      await send(page, text)
+      const switcher = page.getByTestId('send-switcher')
+      await switcher.waitFor()
+      const options = switcher.getByRole('option')
+      assert.equal(await options.count(), 2)
+      const row = await switcher.boundingBox()
+      const labels = []
+      for (let i = 0; i < 2; i++) {
+        const box = await options.nth(i).boundingBox()
+        assert.ok(box.x >= row.x - 1 && box.x + box.width <= row.x + row.width + 1, `option ${i + 1} is inside the row: ${JSON.stringify({ box, row })}`)
+        labels.push(await options.nth(i).getByText(/^Envío \d+$/).innerText())
+      }
+      assert.deepEqual(labels, ['Envío 1', 'Envío 2'])
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('«Publicado» is a chip like the other states and the example mark says what it is, with a dashed edge (ronda 4)', async () => {
+    const { page, context } = await session('bruno')
+    try {
+      await send(page, 'Un punto para revisar con el equipo.')
+      const state = page.getByTestId('published-state')
+      await state.waitFor({ timeout: 20000 })
+      const mark = page.getByTestId('simulated-mark')
+      const edge = (l) => l.evaluate((el) => { const c = getComputedStyle(el); return { width: c.borderTopWidth, style: c.borderTopStyle, radius: c.borderTopLeftRadius } })
+      assert.notEqual((await edge(state)).width, '0px', 'the state has a chip edge')
+      assert.equal((await edge(mark)).style, 'dashed')
+      assert.equal(await mark.innerText(), 'Servidor de ejemplo')
+      assert.equal(await mark.getAttribute('title'), 'Propuesta inventada por el servidor de ejemplo')
+      // The state comes first and weighs at least as much as the mark.
+      assert.ok((await state.boundingBox()).x < (await mark.boundingBox()).x)
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('a published message has one control to add a recipient and one to add attachments, labeled, and the files go up from it (ronda 4)', async () => {
+    const { page, context } = await session('bruno')
+    try {
+      await send(page, 'Un punto para revisar con el equipo.')
+      const box = page.getByTestId('published-message').first()
+      await box.waitFor({ timeout: 20000 })
+      assert.equal(await box.getByRole('button', { name: /^Agregar destinatario$/ }).count(), 1)
+      const add = box.getByRole('button', { name: 'Agregar adjuntos' })
+      assert.equal(await add.count(), 1)
+      assert.match(await add.innerText(), /Adjunto/)
+      const [chooser] = await Promise.all([page.waitForEvent('filechooser'), add.click()])
+      assert.ok(chooser.isMultiple())
+      await chooser.setFiles({ name: 'nota.txt', mimeType: 'text/plain', buffer: Buffer.from('hola') })
+      await box.getByRole('list', { name: 'Adjuntos' }).getByText('nota.txt').waitFor()
+      // With attachments the same button opens the picker, whose last entry uploads more.
+      await box.getByRole('button', { name: 'Elegir adjuntos' }).click()
+      await page.getByRole('button', { name: 'Subir archivos' }).waitFor()
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('the original does not stretch to the height of the analysis beside it (ronda 4)', async () => {
+    const { page, context } = await session('bruno')
+    try {
+      await send(page, 'Un punto corto.\n\nOtro punto corto.\n\nPregunta: ¿sigue en 25 MB?')
+      await page.getByTestId('published-message').first().waitFor({ timeout: 20000 })
+      const original = await page.getByTestId('original-box').boundingBox()
+      const analysis = await page.getByTestId('published-pane').boundingBox()
+      assert.ok(original.height < analysis.height - 100, `original ${original.height} px against analysis ${analysis.height} px`)
+      const text = await page.getByTestId('original-box').locator('[data-lane="input-text"]').boundingBox()
+      assert.ok(original.y + original.height - (text.y + text.height) < 40, 'no empty band under the text')
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('with reduced motion the bar of a send that is being analyzed is not an empty track (ronda 4)', async () => {
+    const { page, context } = await session('bruno')
+    try {
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      await panel.control.hold()
+      await send(page, 'Un punto para revisar con el equipo.')
+      const meter = page.getByTestId('analysis-box').getByRole('progressbar')
+      await meter.waitFor()
+      const after = await meter.evaluate((el) => { const c = getComputedStyle(el, '::after'); return { name: c.animationName, width: parseFloat(c.width), track: el.getBoundingClientRect().width } })
+      assert.equal(after.name, 'none')
+      assert.ok(after.width >= after.track - 4, `the still hatch spans the track: ${JSON.stringify(after)}`)
+    } finally {
+      await panel.control.release()
+      await context.close()
+    }
+  })
+
   test('the sender edits the published message in place, it says «Editado» and the history takes the change back', async () => {
     const { page, context } = await session('diego')
     try {

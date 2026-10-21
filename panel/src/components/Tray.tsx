@@ -42,9 +42,10 @@ export function SendSwitcher({ items, selectedId, onSelect }: { items: readonly 
   if (items.length < 2) return null
   return (
     <div role="listbox" aria-label={t('tray.list')} data-testid="send-switcher" className="scroll-thin flex min-w-0 items-stretch gap-1.5 overflow-x-auto pb-1">
-      {items.map((item) => (
-        <div key={itemKey(item)} className="shrink-0">
-          {item.kind === 'upload' ? <UploadOption upload={item.upload} selected={item.upload.key === selectedId} onSelect={() => onSelect(item.upload.key)} /> : <InputOption input={item.input} selected={item.input.id === selectedId} onSelect={() => onSelect(item.input.id)} />}
+      {items.map((item, index) => (
+        // On a phone two options fill the row exactly, so none is cut at the edge; from the third on the row scrolls.
+        <div key={itemKey(item)} className="w-[calc((100%-0.375rem)/2)] shrink-0 md:w-44">
+          {item.kind === 'upload' ? <UploadOption n={index + 1} upload={item.upload} selected={item.upload.key === selectedId} onSelect={() => onSelect(item.upload.key)} /> : <InputOption n={index + 1} input={item.input} selected={item.input.id === selectedId} onSelect={() => onSelect(item.input.id)} />}
         </div>
       ))}
     </div>
@@ -62,12 +63,25 @@ function Label({ text, onlyMedia }: { text: string; onlyMedia: boolean }) {
   )
 }
 
-const OPTION = 'flex h-full w-44 cursor-pointer flex-col gap-1 rounded-md border border-line px-2.5 py-1.5 text-left hover:bg-glass-edge'
+const OPTION = 'flex h-full w-full cursor-pointer flex-col gap-1 rounded-md border border-line px-2.5 py-1.5 text-left hover:bg-glass-edge'
 const OPTION_SELECTED = 'border-accent bg-accent-soft/60 shadow-[inset_0_-3px_0_var(--color-accent)]'
 
-function InputOption({ input, selected, onSelect }: { input: InputRecord; selected: boolean; onSelect: () => void }) {
+/** The order of arrival and the time: what tells two sends with the same words apart. */
+function Heading({ n, at }: { n: number; at: string }) {
   const t = useT()
   const format = useFormat()
+  return (
+    <span className="flex flex-wrap items-baseline justify-between gap-x-2 text-xs text-muted">
+      <span className="font-semibold text-fg">{t('tray.ordinal', { n })}</span>
+      <time dateTime={at} className="tabular-nums">
+        {format.stamp(at)}
+      </time>
+    </span>
+  )
+}
+
+function InputOption({ n, input, selected, onSelect }: { n: number; input: InputRecord; selected: boolean; onSelect: () => void }) {
+  const t = useT()
   const progress = useJobProgress(input.job_id, input.id)
   const running = input.status === 'queued' || input.status === 'extracting' || input.status === 'analyzing'
   const percent = sendPercent(input, progress)
@@ -76,10 +90,8 @@ function InputOption({ input, selected, onSelect }: { input: InputRecord; select
   const state = t(STATE_KEY[input.status] ?? 'tray.state.queued')
   return (
     <button type="button" role="option" aria-selected={selected} aria-label={t('tray.open', { text: label || t('tray.onlyMedia') })} onClick={onSelect} className={cn(OPTION, selected && OPTION_SELECTED)}>
-      <span className="flex items-center justify-between gap-2 text-xs text-muted">
-        <time dateTime={input.created_at} className="tabular-nums">
-          {format.stamp(input.created_at)}
-        </time>
+      <Heading n={n} at={input.created_at} />
+      <span className="flex">
         <Badge tone={input.status === 'proposed' ? 'solid' : input.status === 'failed' ? 'danger' : input.status === 'published' ? 'neutral' : 'outline'}>
           {state}
           {running && input.status !== 'queued' && percent > 0 && <span className="ml-1 tabular-nums">{percent}%</span>}
@@ -91,16 +103,13 @@ function InputOption({ input, selected, onSelect }: { input: InputRecord; select
   )
 }
 
-function UploadOption({ upload, selected, onSelect }: { upload: PendingUpload; selected: boolean; onSelect: () => void }) {
+function UploadOption({ n, upload, selected, onSelect }: { n: number; upload: PendingUpload; selected: boolean; onSelect: () => void }) {
   const t = useT()
-  const format = useFormat()
   const percent = Math.round(upload.progress * 100)
   return (
     <button type="button" role="option" aria-selected={selected} aria-label={t('tray.open', { text: firstWords(upload.text, 6) || t('tray.onlyMedia') })} onClick={onSelect} className={cn(OPTION, selected && OPTION_SELECTED)}>
-      <span className="flex items-center justify-between gap-2 text-xs text-muted">
-        <time dateTime={upload.at} className="tabular-nums">
-          {format.stamp(upload.at)}
-        </time>
+      <Heading n={n} at={upload.at} />
+      <span className="flex">
         <Badge tone={upload.error ? 'danger' : 'neutral'}>
           {upload.error ? t('tray.state.notSent') : t('tray.state.uploading')}
           {!upload.error && percent > 0 && <span className="ml-1 tabular-nums">{percent}%</span>}

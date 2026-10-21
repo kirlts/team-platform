@@ -1,4 +1,4 @@
-import { ChevronRight, Plus } from '@/components/icons'
+import { ChevronRight } from '@/components/icons'
 import { useRef } from 'react'
 import { Link } from 'react-router'
 import { useErrorText, useFormat, useT } from '@/i18n'
@@ -6,6 +6,7 @@ import { useAddAttachments, useMe, useMessage, usePatchMessage, useTemplates } f
 import { parseTemplateFields, remapFields } from '@/lib/template'
 import type { InputRecord, MessageDetail, MessagePatch, Template } from '@/lib/types'
 import { useUndo } from '@/lib/undo'
+import { Badge } from '@/components/ui/badge'
 import { AiMark } from './AiMark'
 import { AreaChip, useAreaStyle } from './AreaChip'
 import { AreaPicker } from './AreaPicker'
@@ -31,8 +32,8 @@ export function PublishedPane({ input }: { input: InputRecord }) {
       <div className="flex min-h-7 flex-wrap items-center gap-x-3 gap-y-1">
         <h2>{t('analysis.title')}</h2>
         <AiMark />
+        <Badge tone="neutral" data-testid="published-state">{t('tray.state.published')}</Badge>
         <SimulatedMark proposal={input.proposal} />
-        <span className="text-xs font-semibold text-muted">{t('tray.state.published')}</span>
         <UndoButtons stack={stack} />
       </div>
       {/* The messages of a send have no maximum length: the list is as tall as it is and the page scrolls (UD-110); no box is ever cut. */}
@@ -130,27 +131,24 @@ function Box({ m, input }: { m: MessageDetail; input: InputRecord }) {
             all={[...input.attachments, ...m.attachments.filter((a) => !input.attachments.some((x) => x.id === a.id))]}
             selected={m.attachments.map((a) => a.id)}
             onChange={(ids) => void change(t('proposal.attachmentsChanged'), { attachment_ids: ids }, { attachment_ids: m.attachments.map((a) => a.id) })}
+            onUpload={() => picker.current?.click()}
+            uploading={addFiles.isPending}
           />
         )}
-        {/* The mockup's «Lista de adjuntos ⊕»: more files for a message that is already published. */}
+        {/* The mockup's «Lista de adjuntos ⊕»: more files for a message that is already published. One control to add, inside the attachment picker, and the input it opens. */}
         {canEdit && (
-          <>
-            <input
-              ref={picker}
-              type="file"
-              multiple
-              hidden
-              data-testid="published-files"
-              onChange={(e) => {
-                const files = [...(e.target.files ?? [])]
-                e.target.value = ''
-                if (files.length) addFiles.mutate({ id: m.id, files })
-              }}
-            />
-            <button type="button" aria-label={t('published.addFiles')} title={t('published.addFiles')} disabled={addFiles.isPending} onClick={() => picker.current?.click()} className="hit inline-flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-line-strong hover:border-accent hover:text-accent disabled:opacity-50">
-              <Plus size={14} aria-hidden />
-            </button>
-          </>
+          <input
+            ref={picker}
+            type="file"
+            multiple
+            hidden
+            data-testid="published-files"
+            onChange={(e) => {
+              const files = [...(e.target.files ?? [])]
+              e.target.value = ''
+              if (files.length) addFiles.mutate({ id: m.id, files })
+            }}
+          />
         )}
       </div>
       {(patchMessage.isError || addFiles.isError) && (

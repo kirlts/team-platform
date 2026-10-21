@@ -528,6 +528,35 @@ RULES:
 **Condiciones de reversión:** Que un redistribuidor no acepte el decodificador HEVC dentro de la imagen (patentes de HEVC); entonces el HEIC vuelve a rechazarse en la subida.
 
 
+## [UD-070] Los mensajes se publican solos al terminar el análisis; la bandeja pasa a ser historial
+
+**Fecha:** 2026-10-21
+**Contexto:** UD-003 dejó el acto de confirmar en el botón Enviar de la propuesta, para que una mala categorización no llegara al equipo sin filtro. Tras usar el programa, el dueño lo vio categorizar bien.
+**Decisión:** Martín, textual: «estoy viendo que el programa ya está funcionando bastante bien para categorizar. Quiero que cambiemos la lógica y dejemos a nivel de experiencia de usuario la bandeja como algo que sirve para que alguien pueda revisar todo lo que ha enviado desde la vista principal y también para que pueda revisar el estado de todos sus envíos que pueda haber mandado en ráfagas, pero en lugar de tener que presionar enviar mensaje, los mensajes ya queden enviados al equipo, ya quede listo todo: no sea necesario confirmar un mensaje porque estoy viendo que se hace bien.» Cuando el análisis termina con una propuesta válida, sus mensajes se publican en la misma transacción que cierra el trabajo (mismo camino y misma validación que la publicación manual, un solo lugar que inserta mensajes) y el input queda `published`. Una propuesta vacía o que no valida no publica nada: queda `proposed` con `error_code: publish_blocked` y su motivo, y su emisor la corrige y publica con `POST /api/inputs/:id/publish`. Un análisis fallido queda `failed`. La bandeja es el historial de los envíos propios (`GET /api/inputs?mine=1&order=desc`, todos los estados, paginado), con los mensajes de cada envío publicado.
+**Alternativas descartadas:**
+- Publicar fuera de la transacción del trabajo, en un paso aparte: una caída entre ambos deja un input `proposed` que nadie confirma, justo lo que el dueño quiere evitar.
+- Publicar aunque la propuesta no valide (completar campos vacíos): el sistema no inventa datos; un campo obligatorio vacío o un área borrada se arreglan a mano.
+**Consecuencias:**
+- Idempotencia: sólo un input `proposed` se publica. La cola repite el cierre de un trabajo sin duplicar (si el input ya está `published`, no escribe), `POST /publish` sobre un publicado es 409 `already_published` y reprocesar un publicado es 409 `not_reprocessable`: el contenido de un mensaje ya publicado se cambia editándolo (UD-071), no reanalizando su input.
+- El evento `done` trae `input_status` (`published` o `proposed`) y `message_ids`; los avisos `message` al equipo salen como hasta ahora.
+- Perilla del Editor `auto_publish` (`GET/PATCH /api/settings/publication`), encendida por omisión por decisión del dueño, no por medición. Apagada vuelve la revisión previa de UD-003.
+- UD-003 queda enmendada en el paso de confirmar; sigue vigente la cola de trabajos que desacopla el procesamiento del navegador. UD-017 sigue vigente para la edición en el lugar.
+**Condiciones de reversión:** Apagar `auto_publish` desde la configuración. La cuenta de ediciones por mensaje (`message_edits`) es la evidencia para decidir si se apaga por omisión.
+
+## [UD-071] Sólo el emisor edita su mensaje publicado, con historial y control de versión
+
+**Fecha:** 2026-10-21
+**Contexto:** Sin confirmación previa, la corrección ocurre después de publicar. UD-017 dejaba editar al emisor y a cualquier Editor.
+**Decisión:** Martín, textual: «Lo que sí me importa es que un mensaje ya enviado sea muy fácil de editar por la persona que envió dicho mensaje. Otra persona que no envió el mensaje no debe poder editar un mensaje ajeno.» `PATCH /api/messages/:id` lo hace sólo el emisor (título, texto, campos, plantilla, área, destinatarios y adjuntos del envío de origen); cualquier otro, también el Editor, recibe 403 `not_message_author`. Responder, cerrar y reabrir siguen abiertos a todos. El cuerpo lleva la `version` leída; si otra edición se coló, 409 `edit_conflict` con la versión vigente y nada se escribe. Cada edición real sube la versión, fija `edited_at` («editado» con la hora), deja una fila en `message_edits` (quién, cuándo y qué campos, sin valores) y avisa con un aviso dirigido a los destinatarios nuevos. Cambiar el área mueve el mensaje de área y exige una plantilla de ella.
+**Alternativas descartadas:**
+- Dejar editar al Editor como árbitro: el dueño lo excluye; el Editor corrige por la vía de siempre, pidiéndoselo al emisor o respondiendo.
+- Control de concurrencia por `updated_at`: dos ediciones en el mismo milisegundo comparten marca; un contador no se repite.
+- Guardar los valores anteriores: UD-017 descarta el historial de versiones; el historial dice qué campos cambiaron y quién, no su contenido.
+**Consecuencias:**
+- Un `PATCH` que no cambia nada deja el mensaje, su versión y su historial como estaban.
+- Los adjuntos se quitan o reordenan entre los del envío con `attachment_ids`, y se agregan archivos y enlaces nuevos con `POST /api/messages/:id/attachments` (multipart con `version`), que cuenta como una edición y encola la lectura del adjunto.
+**Condiciones de reversión:** Si el equipo necesita que un Editor corrija mensajes ajenos, se registra una decisión nueva que lo permita con su propia fila de historial.
+
 ## [UD-059] Los adjuntos van primero y se miran en una galería de medios que se reutiliza en todo el panel
 
 **Fecha:** 2026-10-21

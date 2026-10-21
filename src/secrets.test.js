@@ -44,7 +44,7 @@ test('HP-007: the pre-commit hook refuses a commit with a credential and accepts
     git('init', '-q')
     mkdirSync(path.join(repo, 'scripts'))
     mkdirSync(path.join(repo, 'src', 'testing'), { recursive: true })
-    for (const file of ['scripts/check-secrets.mjs', 'src/testing/secrets.js']) {
+    for (const file of ['scripts/check-secrets.mjs', 'scripts/check-conflict-markers.mjs', 'src/testing/secrets.js']) {
       writeFileSync(path.join(repo, file), execFileSync('cat', [path.join(root, file)]))
     }
     writeFileSync(path.join(repo, 'package.json'), '{"type":"module"}\n')

@@ -140,6 +140,22 @@ describe('selection and navigation', () => {
   })
 })
 
+describe('one screen (UD-017)', () => {
+  test('the detail with a gallery fits 1280x720 and 1440x900 without scrolling the page', async () => {
+    for (const viewport of [{ width: 1280, height: 720 }, { width: 1440, height: 900 }]) {
+      const { page, context } = await session('ana', viewport)
+      try {
+        await openMessage(page, 'Galería de seis fotos')
+        await until(page, 1, 6)
+        const over = await page.evaluate(() => ({ doc: document.scrollingElement.scrollHeight - innerHeight, main: (() => { const m = document.querySelector('main'); return m.scrollHeight - m.clientHeight })() }))
+        assert.ok(over.doc <= 0 && over.main <= 0, `${viewport.width}x${viewport.height}: sobran ${JSON.stringify(over)} px`)
+      } finally {
+        await context.close()
+      }
+    }
+  })
+})
+
 describe('each kind of medium', () => {
   test('photos mixed with a video: the video shows its controls and loads its first frame', async () => {
     const { page, context } = await session()

@@ -133,7 +133,7 @@ export function MediaGallery({
   useEffect(() => {
     const list = strip.current
     const thumb = list?.children[current] as HTMLElement | undefined
-    if (!list || !thumb) return
+    if (!list || !thumb || typeof list.scrollTo !== 'function') return
     list.scrollTo({ left: thumb.offsetLeft - (list.clientWidth - thumb.offsetWidth) / 2, behavior: calm() ? 'auto' : 'smooth' })
   }, [current])
 
@@ -161,7 +161,7 @@ export function MediaGallery({
 
   return (
     <section
-      aria-roledescription="carousel"
+      aria-roledescription={t('gallery.roleCarousel')}
       aria-label={label ?? t('gallery.region')}
       data-gallery
       data-gallery-zoomed={zoomed || undefined}
@@ -185,7 +185,7 @@ export function MediaGallery({
             <div
               key={it.id}
               role="group"
-              aria-roledescription="slide"
+              aria-roledescription={t('gallery.roleSlide')}
               aria-label={t('gallery.count', { n: i + 1, total })}
               aria-hidden={i === current ? undefined : true}
               data-index={i}

@@ -75,6 +75,21 @@ export function registerAttachmentRoutes (app, ctx) {
     return sendFile(att, request, reply)
   })
 
+  // The text the pipeline extracted from an audio or a video (its transcript), for the gallery. Same access as the file.
+  app.get('/attachments/:id/transcript', {
+    onRequest: [requireRole('member')],
+    schema: {
+      summary: 'La transcripción de un audio o un video adjunto',
+      description: 'El texto que el análisis extrajo del adjunto, con la marca `mm:ss` de cada segmento. 404 si el adjunto no existe, no es audio ni video, o todavía no se extrajo texto.',
+      params: idParams(),
+      response: { 200: { type: 'object', properties: { text: { type: 'string' } } } }
+    }
+  }, async (request) => {
+    const att = get(db, 'SELECT id, kind, extracted_text FROM attachments WHERE id = ?', request.params.id)
+    if (!att || !['audio', 'video'].includes(att.kind) || !att.extracted_text || !canReadAttachment(db, request.member.id, att.id)) throw notFound('El adjunto no tiene transcripción.')
+    return { text: att.extracted_text }
+  })
+
   // Reply files (own id, separate table): the whole team sees them, like the thread.
   app.get('/replies/attachments/:id', {
     onRequest: [requireRole('member')],

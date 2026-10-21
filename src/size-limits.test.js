@@ -126,16 +126,27 @@ test('HP-018: a file that is not a readable video is not refused by the probe: t
   } finally { await env.close() }
 })
 
-test('H-21: a real HEIC photo is refused at upload with image_heic_unsupported, judged by its brand and not by its name', async () => {
+test('H-21: a real HEIC photo is accepted at upload, judged by its brand and not by its name, and reaches the vision provider as JPEG', async () => {
   const env = await realExtractEnv()
   try {
     // 1.2 KB written by libheif (brand `heic`, HEVC payload): the container is real, not a fabricated header.
     const heic = await readFile(new URL('./extract/test/fixtures/libheif.heic', import.meta.url))
-    for (const [name, type] of [['IMG_0001.HEIC', 'image/heic'], ['foto.jpg', 'image/jpeg']]) {
-      const sent = await postInput(env, env.cookie, { text: 'x' }, [{ field: 'files', name, type, content: heic }])
-      assert.equal(sent.statusCode, 422, name)
-      assert.equal(sent.json().code, 'image_heic_unsupported', name)
+    for (const [i, [name, type]] of [['IMG_0001.HEIC', 'image/heic'], ['foto.jpg', 'image/jpeg']].entries()) {
+      const sent = await postInput(env, env.cookie, { text: `x${i}` }, [{ field: 'files', name, type, content: heic }])
+      assert.equal(sent.statusCode, 202, name)
+      await until(() => env.calls.vision === i + 1 || null, { timeoutMs: 20_000 })
     }
-    nothingLeft(env)
+  } finally { await env.close() }
+})
+
+test('H-21: a corrupt HEIC photo is accepted at upload and fails at extraction with image_heic_unreadable', async () => {
+  const env = await realExtractEnv()
+  try {
+    const heic = (await readFile(new URL('./extract/test/fixtures/libheif.heic', import.meta.url))).subarray(0, 700)
+    const sent = await postInput(env, env.cookie, { text: 'x' }, [{ field: 'files', name: 'IMG_0002.HEIC', type: 'image/heic', content: heic }])
+    assert.equal(sent.statusCode, 202)
+    const row = await failedInput(env, sent.json().input_id)
+    assert.equal(row.error_code, 'image_heic_unreadable')
+    assert.equal(env.calls.vision, 0)
   } finally { await env.close() }
 })

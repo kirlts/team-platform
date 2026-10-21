@@ -509,6 +509,76 @@ RULES:
 **Fecha:** 2026-10-21
 **Contexto:** H-56 pedía probar el micrófono y la cámara en Safari e iPhone con un aparato real.
 **Decisión:** Martín, textual: «Lo del iPhone me da lo mismo, no lo vamos a usar todavía porque en realidad muchas imágenes puede que se suban directamente en Whatsapp o algo así». No se prueba con un aparato real por ahora.
-**Consecuencias:** H-56 deja de ser trabajo pendiente y queda como decisión del dueño. Un HEIC subido directamente se rechaza con un error claro (`image_heic_unsupported`); el Editor puede pedir que se acepte más adelante.
+**Consecuencias:** H-56 deja de ser trabajo pendiente y queda como decisión del dueño. Un HEIC subido directamente se rechaza con un error claro (`image_heic_unsupported`); el Editor puede pedir que se acepte más adelante. UD-040 (2026-10-21) lo reemplaza: el HEIC se decodifica y deja de rechazarse.
 **Condiciones de reversión:** Se prueba cuando haya usuarios con iPhone en el panel.
+
+## [UD-040] El HEIC de iPhone se decodifica con el `ffmpeg` de la imagen
+
+**Fecha:** 2026-10-21
+**Contexto:** Martín, textual: «asumo que el código que hiciste ya es compatible con el formato de iPhone». No lo era: `sharp` trae `libvips` sin decodificador HEVC y la subida rechazaba un HEIC con 422 `image_heic_unsupported` (H-21, UD-039). UD-039 decidió no probar el aparato; no decidió que el formato no se aceptara cuando alguien lo suba. Safari suele convertir a JPEG en el selector de archivos y WhatsApp entrega JPEG, pero el sistema no depende de eso.
+**Decisión:** Decisión de la sesión por encargo de Martín (decidir la opción con una UD, sin llamar a ningún modelo). Un HEIC o HEIF se decodifica a JPEG con el `ffmpeg` que la imagen ya lleva y sigue el flujo normal de imágenes (rotación, reducción al lado máximo, tope de 7 MiB). El `ffmpeg` mínimo ya tenía el demultiplexor `mov` y el decodificador HEVC; se le añaden los filtros `xstack` (compone las teselas de la foto), `transpose`, `hflip` y `vflip` (aplican la rotación `irot` del contenedor). Se descarta la entrada por marca `image_heic_unsupported`: un HEIC dañado falla en la extracción con `image_heic_unreadable`, y uno de más de 50 millones de píxeles con `image_too_many_pixels`, leído de las cabeceras antes de decodificar (`image.heicMaxPixels`, medido en `docs/investigaciones/mediciones/2026-10-21-heic-via-ffmpeg.md`). Del archivo se toma la imagen principal.
+**Alternativas descartadas** (fuentes consultadas el 2026-10-21):
+- `heic-decode` o `libheif-js` (WASM): `libheif-js` 1.23.5 es LGPL-3.0 (npm, 2026-10-04) y entraría como dependencia de npm, lo que UD-020 reserva a licencias permisivas; el WASM incorpora la biblioteca y no puede sustituirse como una biblioteca compartida. Añade 9,0 MB desempaquetados y un segundo decodificador de HEVC. `heic-decode` es ISC pero depende de `libheif-js`.
+- `sharp` con `libvips` y `libheif` del sistema con HEVC: obliga a compilar `sharp` contra bibliotecas de Alpine en x86-64 y arm64 (libde265 LGPL, x265 GPL en la codificación) y rompe el binario precompilado que hoy se instala sin compilar.
+- Decodificar en el panel antes de subir: no cubre la API ni los adjuntos que no pasan por el panel, y repartiría un WASM LGPL dentro del paquete del panel.
+**Consecuencias:**
+- Sin dependencias nuevas de npm. La capa de binarios de UD-020 no cambia: `ffmpeg` sigue en configuración LGPL, sin `--enable-gpl`; el `NOTICE` actualiza la línea de configuración con los cuatro filtros.
+- La imagen crece 0,5 MB (306,96 a 307,48 MB). No hay binario nativo por arquitectura: `ffmpeg` se compila en la etapa de la imagen para la arquitectura de la construcción.
+- H-21 se cierra. UD-039 sigue vigente en lo que decidió (no se prueba Safari ni el micrófono con un iPhone, H-56).
+**Condiciones de reversión:** Que un redistribuidor no acepte el decodificador HEVC dentro de la imagen (patentes de HEVC); entonces el HEIC vuelve a rechazarse en la subida.
+
+
+## [UD-070] Los mensajes se publican solos al terminar el análisis; la bandeja pasa a ser historial
+
+**Fecha:** 2026-10-21
+**Contexto:** UD-003 dejó el acto de confirmar en el botón Enviar de la propuesta, para que una mala categorización no llegara al equipo sin filtro. Tras usar el programa, el dueño lo vio categorizar bien.
+**Decisión:** Martín, textual: «estoy viendo que el programa ya está funcionando bastante bien para categorizar. Quiero que cambiemos la lógica y dejemos a nivel de experiencia de usuario la bandeja como algo que sirve para que alguien pueda revisar todo lo que ha enviado desde la vista principal y también para que pueda revisar el estado de todos sus envíos que pueda haber mandado en ráfagas, pero en lugar de tener que presionar enviar mensaje, los mensajes ya queden enviados al equipo, ya quede listo todo: no sea necesario confirmar un mensaje porque estoy viendo que se hace bien.» Cuando el análisis termina con una propuesta válida, sus mensajes se publican en la misma transacción que cierra el trabajo (mismo camino y misma validación que la publicación manual, un solo lugar que inserta mensajes) y el input queda `published`. Una propuesta vacía o que no valida no publica nada: queda `proposed` con `error_code: publish_blocked` y su motivo, y su emisor la corrige y publica con `POST /api/inputs/:id/publish`. Un análisis fallido queda `failed`. La bandeja es el historial de los envíos propios (`GET /api/inputs?mine=1&order=desc`, todos los estados, paginado), con los mensajes de cada envío publicado.
+**Alternativas descartadas:**
+- Publicar fuera de la transacción del trabajo, en un paso aparte: una caída entre ambos deja un input `proposed` que nadie confirma, justo lo que el dueño quiere evitar.
+- Publicar aunque la propuesta no valide (completar campos vacíos): el sistema no inventa datos; un campo obligatorio vacío o un área borrada se arreglan a mano.
+**Consecuencias:**
+- Idempotencia: sólo un input `proposed` se publica. La cola repite el cierre de un trabajo sin duplicar (si el input ya está `published`, no escribe), `POST /publish` sobre un publicado es 409 `already_published` y reprocesar un publicado es 409 `not_reprocessable`: el contenido de un mensaje ya publicado se cambia editándolo (UD-071), no reanalizando su input.
+- El evento `done` trae `input_status` (`published` o `proposed`) y `message_ids`; los avisos `message` al equipo salen como hasta ahora.
+- Perilla del Editor `auto_publish` (`GET/PATCH /api/settings/publication`), encendida por omisión por decisión del dueño, no por medición. Apagada vuelve la revisión previa de UD-003.
+- UD-003 queda enmendada en el paso de confirmar; sigue vigente la cola de trabajos que desacopla el procesamiento del navegador. UD-017 sigue vigente para la edición en el lugar.
+**Condiciones de reversión:** Apagar `auto_publish` desde la configuración. La cuenta de ediciones por mensaje (`message_edits`) es la evidencia para decidir si se apaga por omisión.
+
+## [UD-071] Sólo el emisor edita su mensaje publicado, con historial y control de versión
+
+**Fecha:** 2026-10-21
+**Contexto:** Sin confirmación previa, la corrección ocurre después de publicar. UD-017 dejaba editar al emisor y a cualquier Editor.
+**Decisión:** Martín, textual: «Lo que sí me importa es que un mensaje ya enviado sea muy fácil de editar por la persona que envió dicho mensaje. Otra persona que no envió el mensaje no debe poder editar un mensaje ajeno.» `PATCH /api/messages/:id` lo hace sólo el emisor (título, texto, campos, plantilla, área, destinatarios y adjuntos del envío de origen); cualquier otro, también el Editor, recibe 403 `not_message_author`. Responder, cerrar y reabrir siguen abiertos a todos. El cuerpo lleva la `version` leída; si otra edición se coló, 409 `edit_conflict` con la versión vigente y nada se escribe. Cada edición real sube la versión, fija `edited_at` («editado» con la hora), deja una fila en `message_edits` (quién, cuándo y qué campos, sin valores) y avisa con un aviso dirigido a los destinatarios nuevos. Cambiar el área mueve el mensaje de área y exige una plantilla de ella.
+**Alternativas descartadas:**
+- Dejar editar al Editor como árbitro: el dueño lo excluye; el Editor corrige por la vía de siempre, pidiéndoselo al emisor o respondiendo.
+- Control de concurrencia por `updated_at`: dos ediciones en el mismo milisegundo comparten marca; un contador no se repite.
+- Guardar los valores anteriores: UD-017 descarta el historial de versiones; el historial dice qué campos cambiaron y quién, no su contenido.
+**Consecuencias:**
+- Un `PATCH` que no cambia nada deja el mensaje, su versión y su historial como estaban.
+- Agregar archivos nuevos a un mensaje ya publicado queda fuera: los adjuntos se quitan o se reordenan entre los del envío.
+**Condiciones de reversión:** Si el equipo necesita que un Editor corrija mensajes ajenos, se registra una decisión nueva que lo permita con su propia fila de historial.
+
+## [UD-059] Los adjuntos van primero y se miran en una galería de medios que se reutiliza en todo el panel
+
+**Fecha:** 2026-10-21
+**Contexto:** Martín revisó la lista de envíos y vio los adjuntos en un segundo plano.
+**Decisión:** Martín, textual: «Me parece que el archivo adjunto no tiene la prioridad en la interfaz que yo claramente puse en la maqueta inicial de este programa. Cuando veo la lista de envíos, en ese modal me gustaría ver al tiro la foto que haya, o la galería de fotos si son varias, o galería de medios si hay fotos mezcladas con videos, y poder ir moviéndome entre una y otra manteniendo un carrusel abajo de cuál es el que estoy viendo dentro de los otros. Yo creo que sería súper útil implementarlo en todo el sitio y que este componente de galería de medios sea reutilizado donde corresponda.»
+Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la revisión de un mensaje nuevo es un par de bloques lado a lado. A la izquierda, «Mensaje o transcripción» con «editar» y la «Lista de adjuntos» con su «+»; a su derecha, «Previsualización de: imagen o galería, video o carrusel, audio(s), docx o PDF». El análisis de la IA repite el mismo par: «Área detectada», «Descripción», su propia «Previsualización de…» y la «Descripción de adjuntos» con su «+», y «Enviar». En las tarjetas de «Últimos mensajes» y «Últimas respuestas» el adjunto es un círculo grande a la derecha del texto (una imagen, un audio con su forma de onda, un video con su triángulo), y junto a la fecha van los íconos de micrófono y cámara. Es decir, el adjunto tiene un bloque propio del mismo peso que el texto y no una fila de íconos.
+**Consecuencias:**
+- `MediaGallery` (`panel/src/components/MediaGallery.tsx`) es el único lugar donde se mira un adjunto: visor grande con el medio elegido, carrusel de miniaturas debajo con el actual marcado (borde grueso, barra inferior y `aria-current`, no sólo color), flechas, «2 de 5», teclas Izquierda, Derecha, Inicio y Fin, deslizar en el teléfono (el visor es una fila con ajuste de desplazamiento, así que el gesto es el del navegador y no lleva una distancia propia), y sin carrusel cuando hay un solo medio. Foto: ajustada al marco, «Ampliar» la muestra a su tamaño y Escape la devuelve sin cerrar la ventana que la contiene. Video: sus controles y su primer fotograma como portada. Audio: el reproductor y, si el servidor extrajo texto, la transcripción. Documento y enlace: nombre, tipo, dominio y la forma de abrirlo. Sólo las diapositivas vecinas a la actual cargan su contenido; un archivo que falla lo dice y se reintenta. Sin dependencias nuevas.
+- Se usa en: la ficha de un mensaje (los adjuntos van antes del texto), las respuestas de la ficha y la lista de Mensajes y las tarjetas de Inicio (la miniatura principal lleva la cuenta y abre la galería sobre la página), y el selector de adjuntos de cada mensaje propuesto (la miniatura abre la galería de lo que ese mensaje lleva). `AttachmentStrip` y `MediaOpener` son los dos disparadores: ambos abren `MediaGalleryDialog`, una ventana centrada, nunca un panel lateral.
+- Servidor: `GET /api/attachments/:id/transcript` entrega `{ text }` de un audio o video con el mismo acceso que el archivo; los adjuntos de un mensaje llevan `extracted` para que el panel sólo la pida cuando existe. Las respuestas no se analizan y no tienen transcripción.
+- Los datos de ejemplo de la galería (seis fotos, fotos con video, audio con transcripción, PDF con foto dañada y enlace, una sola foto) sólo se siembran con `PANEL_DEV_MEDIA=1`, para no alterar lo que cuentan las demás pruebas. `npm run test:gallery` las recorre en un navegador.
+- Se dejó fuera, con su razón: (1) la ventana de Envíos, porque el dueño cambió su diseño a un desplegable en línea y lo construye otra rama sobre `MediaGallery`; (2) los chips de la barra de nuevo mensaje (`MediaDraft`), que son archivos locales aún sin enviar y cuyo uso es quitarlos, no mirarlos; (3) las filas del menú del selector, que es una lista de casillas; (4) la vista de la primera página de un PDF, porque el servidor entrega cada archivo con una política que prohíbe incrustarlo y dibujarlo exigiría una dependencia de renderizado de PDF de más de un megabyte; (5) el título de un enlace, que el sistema no guarda; (6) un endpoint de miniaturas y portadas: exigiría convertir imágenes en el servidor, que toca el extractor de imágenes en otra rama; el panel pide el archivo con carga diferida y el navegador dibuja el primer fotograma del video sin una portada aparte.
+**Condiciones de reversión:** Si Martín prefiere una vista de documentos con primera página, se agrega el renderizado con una dependencia justificada en MASTER-SPEC §3.
+
+## [UD-058] El modelo por omisión sigue siendo Haiku 5.5
+
+**Fecha:** 2026-10-21
+**Contexto:** H-80 comparó Haiku 5.5 con Sonnet 5.5 sobre los mismos prompts (medición `docs/investigaciones/mediciones/2026-10-21-modelos-y-esfuerzo-de-clasificacion.md`). Sonnet asigna mejor (conjunto exacto 80,0 % contra 53,0 %, p 0,002) y cuesta 17 veces más por entrada; cobertura y área no se separan.
+**Decisión:** Propuesta del coordinador, no cita de Martín. Se mantiene Haiku 5.5 como modelo por omisión y `classifyEffort` en `low`. Sonnet 5.5 queda como opción por configuración (`TEXT_MODEL`) una vez resuelto H-1100.
+**Alternativas descartadas:**
+- Sonnet 5.5 por omisión: 0,31 USD por entrada con caché tibia contra 0,017, para ganar en destinatarios, que el equipo corrige en la revisión.
+- `classifyEffort` `medium`: el área baja de 94,7 % a 87,1 % (p 0,008) y 2 de 33 corridas quedan inválidas.
+**Consecuencias:** Sin cambios en el producto. H-1100 y H-1102 quedan abiertos.
+**Condiciones de reversión:** Se pasa a Sonnet 5.5 si la asignación de destinatarios pesa más que el costo (más de 20 entradas diarias con 0,31 USD cada una son 6 USD al día) o si el equipo mide que corrige más de la mitad de los destinatarios que propone Haiku.
 

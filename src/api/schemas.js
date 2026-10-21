@@ -70,7 +70,7 @@ export const messageSummary = {
 
 const attachmentSummary = {
   type: 'object',
-  properties: { id, input_id: id, kind: { type: 'string' }, name: { type: 'string' }, mime: { type: 'string' }, size: intVar }
+  properties: { id, input_id: id, kind: { type: 'string' }, name: { type: 'string' }, mime: { type: 'string' }, size: intVar, extracted: { type: 'boolean' } }
 }
 
 const replyAttachmentSummary = {
@@ -95,13 +95,17 @@ export const messageCard = {
     attachment_kinds: { type: 'array', items: { type: 'string' } },
     reply_count: intVar,
     last_reply: { ...reply, nullable: true },
-    created_at: { type: 'string' }, updated_at: { type: 'string' }, closed_at: nullableText
+    created_at: { type: 'string' }, updated_at: { type: 'string' }, version: intVar, edited_at: nullableText, closed_at: nullableText
   }
 }
 
 export const messageDetail = {
   type: 'object',
-  properties: { ...messageCard.properties, replies: { type: 'array', items: reply } }
+  properties: {
+    ...messageCard.properties,
+    replies: { type: 'array', items: reply },
+    edits: { type: 'array', items: { type: 'object', properties: { id, member_id: id, at: { type: 'string' }, version: intVar, fields: { type: 'array', items: { type: 'string' } } } } }
+  }
 }
 
 const proposalMessage = {
@@ -128,7 +132,7 @@ export const inputView = {
   type: 'object',
   properties: {
     id, author_id: id, text: { type: 'string' }, status: { type: 'string' }, error: nullableText, error_code: nullableText,
-    created_at: { type: 'string' }, job_id: nullableId,
+    created_at: { type: 'string' }, updated_at: { type: 'string' }, job_id: nullableId,
     percent: { type: ['integer', 'null'] }, phrase: nullableText, proposed_count: { type: 'integer' }, // UD-025: the tray of in-flight inputs
     attachments: {
       type: 'array',
@@ -140,7 +144,8 @@ export const inputView = {
     },
     units: { type: 'array', items: { type: 'object', properties: { id, text: { type: 'string' } } } },
     proposal: proposalView,
-    message_ids: { type: 'array', items: id }
+    message_ids: { type: 'array', items: id },
+    messages: { type: 'array', items: { type: 'object', properties: { id, title: { type: 'string' }, area_id: id, status: { type: 'string', enum: ['open', 'answered', 'closed'] }, edited_at: nullableText } } }
   }
 }
 
@@ -184,12 +189,15 @@ export const proposalBody = {
 /** Publishing without a body publishes the saved draft (UD-017), so `messages` is not required here. */
 export const publishBody = (() => { const { required: _required, ...rest } = proposalBody; return rest })()
 
-/** In-place edit of a published message (UD-017): a partial update; unknown fields are 400. */
+/** Edit of a published message by its author (UD-071): a partial update plus the `version` read; unknown fields are 400. */
 export const messagePatchBody = {
   type: 'object',
   additionalProperties: false,
-  minProperties: 1,
+  required: ['version'],
+  minProperties: 2,
   properties: {
+    version: { type: 'integer', minimum: 1 },
+    attachment_ids: { type: 'array', items: idIn },
     title: { type: 'string' },
     body: { type: 'string' },
     fields: { type: 'object', additionalProperties: { type: ['string', 'null'] } },

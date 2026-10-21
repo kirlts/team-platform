@@ -123,7 +123,7 @@ export function buildInputView ({ db, queue, events }, input) {
   const jobRow = queue.latestJobForInput(input.id)
   const progressRow = jobRow ? events.lastProgress(jobRow.id) : null
   const proposalObj = get(db, 'SELECT * FROM proposals WHERE input_id = ?', input.id)
-  const msgRows = input.status === 'published' ? all(db, 'SELECT id FROM messages WHERE input_id = ? ORDER BY id', input.id).map((m) => m.id) : []
+  const msgRows = input.status === 'published' ? all(db, 'SELECT id, title, area_id, status, edited_at FROM messages WHERE input_id = ? ORDER BY id', input.id) : []
   return {
     id: input.id,
     author_id: input.author_id,
@@ -132,6 +132,7 @@ export function buildInputView ({ db, queue, events }, input) {
     error: input.error,
     error_code: input.error_code,
     created_at: iso(input.created_at),
+    updated_at: iso(input.updated_at),
     job_id: jobRow?.id ?? null,
     // Flat copy of the job's progress and of the proposal's size, for the tray of in-flight inputs (UD-025).
     percent: progressRow?.percent ?? null,
@@ -143,7 +144,9 @@ export function buildInputView ({ db, queue, events }, input) {
       : null,
     units: proposalObj ? parseJson(proposalObj.units_json, []).map((u) => ({ id: String(u.id), text: u.text })) : [],
     proposal: proposalObj ? proposalView(parseJson(proposalObj.payload_json, {})) : null,
-    message_ids: msgRows
+    message_ids: msgRows.map((m) => m.id),
+    // UD-071: what the sender sees in the history without one request per message.
+    messages: msgRows.map((m) => ({ id: m.id, title: m.title, area_id: m.area_id, status: m.status, edited_at: iso(m.edited_at) }))
   }
 }
 

@@ -15,7 +15,14 @@ async function team (opts = {}) {
   await addMember(env, { email: 'ana@x.org', name: 'Ana' })
   await addMember(env, { email: 'beto@x.org', name: 'Beto' })
   env.c = { ed: await login(env, 'ed@x.org'), ana: await login(env, 'ana@x.org'), beto: await login(env, 'beto@x.org') }
-  env.api = (method, url, cookie, payload) => env.app.inject({ method, url: `/api${url}`, headers: { cookie, 'x-team-request': 'panel' }, payload })
+  // UD-071: editing a message carries the version it read. These tests are about what is edited, not about the
+  // concurrency check (src/api/message-author-edit.test.js), so a patch without `version` reads the current one.
+  env.api = (method, url, cookie, payload) => {
+    const target = method === 'PATCH' ? /^\/messages\/(\d+)$/.exec(url) : null
+    const row = target ? get(env.db, 'SELECT version FROM messages WHERE id = ?', Number(target[1])) : null
+    const body = row && payload && payload.version === undefined ? { ...payload, version: row.version } : payload
+    return env.app.inject({ method, url: `/api${url}`, headers: { cookie, 'x-team-request': 'panel' }, payload: body })
+  }
   return env
 }
 
@@ -211,18 +218,17 @@ test('UD-017 · the author edits title, body, fields and assignees of a publishe
   await env.close()
 })
 
-test('UD-017 · an editor may edit any message; another member may not (403) and nothing changes', async () => {
+test('UD-071 · only the sender edits a message: another member and an editor get 403 and nothing changes', async () => {
   const env = await team({ worker: true })
   const { messageId } = await published(env)
-  const denied = await env.api('PATCH', `/messages/${messageId}`, env.c.beto, { title: 'ajeno' })
-  assert.equal(denied.statusCode, 403)
-  assert.equal(denied.json().code, 'not_message_editor')
+  for (const who of ['beto', 'ed']) {
+    const denied = await env.api('PATCH', `/messages/${messageId}`, env.c[who], { title: 'ajeno' })
+    assert.equal(denied.statusCode, 403, who)
+    assert.equal(denied.json().code, 'not_message_author')
+  }
   assert.equal(get(env.db, 'SELECT title FROM messages WHERE id = ?', messageId).title, 'Original')
   assert.equal(get(env.db, "SELECT COUNT(*) AS n FROM audit_log WHERE action = 'message.update'").n, 0)
-  const ok = await env.api('PATCH', `/messages/${messageId}`, env.c.ed, { title: 'del editor' })
-  assert.equal(ok.statusCode, 200)
-  assert.equal(ok.json().title, 'del editor')
-  assert.equal((await env.api('PATCH', '/messages/9999', env.c.ed, { title: 'x' })).statusCode, 404)
+  assert.equal((await env.api('PATCH', '/messages/9999', env.c.ed, { version: 1, title: 'x' })).statusCode, 404)
   await env.close()
 })
 
@@ -304,7 +310,7 @@ test('UD-017 · an edit leaves an audit row naming what changed, and updated_at 
   assert.equal(rows[0].member_id, 2)
   assert.equal(rows[0].entity, 'message')
   assert.equal(rows[0].entity_id, Number(messageId))
-  assert.deepEqual(JSON.parse(rows[0].detail_json), { fields: ['title', 'assignee_ids'] }) // the names, never the values
+  assert.deepEqual(JSON.parse(rows[0].detail_json), { fields: ['title', 'assignee_ids'], version: 2 }) // the names, never the values
   const after = (await env.api('GET', `/messages/${messageId}`, env.c.ana)).json()
   assert.equal(after.created_at, created)
   assert.ok(Date.parse(after.updated_at) - Date.parse(after.created_at) >= 60000)
@@ -371,7 +377,8 @@ test('UD-017 · both routes are in the OpenAPI contract with request and respons
   const messageRoute = doc.paths['/api/messages/{id}'].patch
   const body = messageRoute.requestBody.content['application/json'].schema
   assert.equal(body.additionalProperties, false)
-  assert.deepEqual(Object.keys(body.properties).sort(), ['area_id', 'assignee_ids', 'body', 'fields', 'template_id', 'title'])
+  assert.deepEqual(Object.keys(body.properties).sort(), ['area_id', 'assignee_ids', 'attachment_ids', 'body', 'fields', 'template_id', 'title', 'version'])
+  assert.deepEqual(body.required, ['version'])
   assert.ok(messageRoute.responses['200'])
   const card = doc.paths['/api/messages'].get.responses['200'].content['application/json'].schema.properties.items.items.properties
   assert.ok(card.attachment_kinds && card.updated_at && card.last_reply.properties.attachment_kinds)

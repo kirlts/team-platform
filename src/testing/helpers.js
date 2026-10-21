@@ -11,6 +11,7 @@ import { initializeDatabase, openInitialized } from '../db/index.js'
 import { seedDefaults } from '../db/seed.js'
 import { createMember } from '../domain/members.js'
 import { createPipeline } from '../domain/pipeline.js'
+import { setAutoPublish } from '../domain/settings.js'
 import { parseTemplate } from '../domain/template-file.js'
 import { createEvents } from '../events/index.js'
 import { hashPassword } from '../identity/password.js'
@@ -71,11 +72,14 @@ export const fakeExtract = async (attachment, { onProgress } = {}) => {
  * Full environment. `modules` replaces the fakes; `worker: true` starts a worker (off by default, so that
  * the test controls when it runs). Returns everything needed and a `close()`.
  */
-export async function makeEnv ({ config: overrides = {}, modules = {}, worker = false, seed = true, clock = false, telemetry = false } = {}) {
+export async function makeEnv ({ config: overrides = {}, modules = {}, worker = false, seed = true, clock = false, telemetry = false, autoPublish = false } = {}) {
   const dir = tempDir()
   const config = testConfig(dir, overrides)
   await initializeDatabase(config, { seed: seed ? seedDefaults : null })
   const db = openInitialized(config)
+  // UD-070: the product default is automatic publication. Tests exercise the review path (`proposed` waits for its
+  // sender) unless they ask for `autoPublish: true`; `'default'` leaves the product default untouched.
+  if (autoPublish !== 'default') setAutoPublish(db, autoPublish)
   const events = createEvents({ db })
   const queue = createQueue({ db, config, events })
   // Telemetry is process-global: only one test per file can start it (`telemetry: true`).

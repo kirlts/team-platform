@@ -215,7 +215,7 @@ describe('replies with media', () => {
       await page.getByRole('button', { name: 'Responder', exact: true }).click()
       const row = page.getByRole('article').filter({ hasText: 'Adjunto el borrador' })
       // The tile of the file is the reply's media: one row of attachments, with the kind drawn in it (J3-A-25).
-      await row.getByRole('list', { name: 'Adjuntos' }).getByRole('link', { name: /borrador\.pdf/ }).waitFor()
+      await row.getByRole('list', { name: 'Adjuntos' }).getByRole('button', { name: /borrador\.pdf/ }).waitFor()
     } finally {
       await context.close()
     }

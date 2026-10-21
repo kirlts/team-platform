@@ -4,7 +4,7 @@
 
 ## Estado de `main`
 
-- `main` está en `66fdf7b` y empujado a origin. Fusionadas hoy: galería de medios (UD-059), HEIC con el `ffmpeg` de la imagen (UD-040), comparación de modelos (UD-058, Haiku 5.5 sigue por omisión), tabla de capacidades por modelo (H-1100), publicación automática y edición por el autor (UD-070 a UD-072, migraciones 0006 y 0007), descripciones de área v2 y regla de descomposición de H-1600 (UD-060), cierre de las pruebas bajo carga (H-901, H-905, H-906) los tres estados con la vista de área (UD-041, UD-042) el lenguaje de instrumento con su guardia (UD-050, H-1502), la telemetría de la interfaz y los jueces acotados (UD-090 a UD-092) y cobertura y estabilidad en reuniones largas (UD-080; `coveragePasses` y `classifyContextUnits`).
+- `main` está en `66fdf7b` y empujado a origin. Fusionadas hoy: galería de medios (UD-059), HEIC con el `ffmpeg` de la imagen (UD-040), comparación de modelos (UD-058, Haiku 5.5 sigue por omisión), tabla de capacidades por modelo (H-1100), publicación automática y edición por el autor (UD-070 a UD-072, migraciones 0006 y 0007), descripciones de área v2 y regla de descomposición de H-1600 (UD-060), cierre de las pruebas bajo carga (H-901, H-905, H-906) los tres estados con la vista de área (UD-041, UD-042) el lenguaje de instrumento con su guardia (UD-050, H-1502), la telemetría de la interfaz y los jueces acotados (UD-090 a UD-092) Inicio según la maqueta con color por área (UD-045 a UD-047, migración 0008) y cobertura y estabilidad en reuniones largas (UD-080; `coveragePasses` y `classifyContextUnits`).
 - Pruebas sobre `main` el 2026-10-21: `npm test` 725 pasan y 0 fallan, `node --test bench/` 74 de 74, panel `npx vitest run` 99 de 99, `tsc` limpio. Las suites de navegador (`test:fit`, `test:flows`) se corren con puertos propios: `PANEL_FIT_PORT=89xx PANEL_FLOWS_PORT=89xx PANEL_FLOWS_2A_PORT=89xx`.
 - Lo especificado está en `docs/MASTER-SPEC.md`. Las decisiones, con las palabras de Martín, en `docs/USER-DECISIONS.md`. Las pruebas, en `docs/TEST.md`. Los hallazgos, todos, en `docs/HALLAZGOS.md`: el 100 % queda atendido. Investigaciones y mediciones con fuentes fechadas, en `docs/investigaciones/`.
 - La maqueta inicial del dueño es `Plataforma Team.png` en la raíz y manda sobre cualquier decisión posterior de una sesión.
@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 9f22570 Guardia de marcas de conflicto con rutas no ASCII; traspaso al día. Empujado a origin: `9f22570`.
-- Ramas con commits sin fusionar: `wt-inicio-maqueta` 23 (hace 10 minutos).
-- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `tmp-main`, `voz`.
+- `main`: dddfcca Traspaso: Inicio fusionado y H-1405 abierto. Empujado a origin: `dddfcca`.
+- Ramas con commits sin fusionar: `wt-inicio-maqueta` 1 (hace 69 segundos).
+- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `9f22570` Guardia de marcas de conflicto con rutas no ASCII; traspaso al día (hace 8 minutos)
-- `cf4511c` Fusiona la telemetría de la interfaz y los jueces acotados (UD-090 a UD-092) (hace 9 minutos)
-- `5f92f94` Fusión con main: pruebas de telemetría al estilo de H-901, publicación automática (UD-070) y smoke-panel arreglado (hace 9 minutos)
-- `a8db6fc` Traspaso: lenguaje de instrumento fusionado (hace 12 minutos)
-- `294fb9a` Merge branch 'wt-voz' (hace 12 minutos)
-- `a588cd1` Comentario de la guardia en inglés (HP-008) (hace 17 minutos)
-- `6063afd` Fusiona main en wt-voz: estados, Áreas, publicación automática y reuniones largas (hace 18 minutos)
-- `328a6a9` Traspaso: reuniones largas fusionadas y presupuesto (hace 18 minutos)
-Actualizado 2026-10-21 16:46 UTC.
+- `dddfcca` Traspaso: Inicio fusionado y H-1405 abierto (hace 8 minutos)
+- `8c50075` Merge branch 'wt-inicio-maqueta' (hace 15 minutos)
+- `6a69c41` Libro: H-1400 a H-1407 de Inicio según la maqueta (hace 16 minutos)
+- `31684f8` Fusiona origin/main (instrumento, telemetría) en wt-inicio-maqueta (hace 16 minutos)
+- `19576aa` fits: el aviso de una vista que no se calma dice cuál es y qué pidió; gallery: el selector de la propuesta está en el desplegable (hace 17 minutos)
+- `9f22570` Guardia de marcas de conflicto con rutas no ASCII; traspaso al día (hace 28 minutos)
+- `cf4511c` Fusiona la telemetría de la interfaz y los jueces acotados (UD-090 a UD-092) (hace 29 minutos)
+- `5f92f94` Fusión con main: pruebas de telemetría al estilo de H-901, publicación automática (UD-070) y smoke-panel arreglado (hace 29 minutos)
+Actualizado 2026-10-21 17:06 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo
@@ -34,7 +34,7 @@ Un encargo sigue abierto, cada uno en su worktree bajo `.claude/worktrees/<nombr
 
 | Rama | Pedido del dueño (textual o resumido) | Criterio de cierre | Rangos reservados |
 |---|---|---|---|
-| `wt-inicio-maqueta` (20 commits) | «Cuando envío, la única retroalimentación es una barra de carga; en la maqueta puse un desplegable dinámico debajo de la barra de texto». Después: «los mensajes ya queden enviados al equipo, no sea necesario confirmar; que sea muy fácil de editar por quien lo envió; otra persona no debe poder editar un mensaje ajeno; la bandeja sirve para revisar todo lo enviado y el estado de las ráfagas» | Inicio como la maqueta: franja «Para mí» y por área arriba; desplegable en línea bajo la barra con original a la izquierda (con `MediaGallery`) y análisis de la IA a la derecha; al terminar los mensajes ya publicados y editables en el lugar sólo por su autor (con `version`, manejo de `edit_conflict`); sin «Enviar N mensajes», sin diálogo «Envíos»; bandeja = historial con `GET /api/inputs?mine=1&order=desc`; color por área (campo `color`, secundario derivado, chip de área, fondo del análisis, el selector va en la vista de área en `data-slot="area-color"`); panel izquierdo compacto y ocultable; H-1803 (el panel manda `version`) y H-904; pruebas de flujos reescritas al flujo nuevo. Enmienda UD-030 | UD-045.., H-1400.. |
+| `wt-inicio-maqueta` (fusionada en `main` `8c50075`; sigue abierta para tres filas) | Inicio como la maqueta con color por área, publicación automática y panel ocultable (UD-045 a UD-047) | H-1405: `test:fit` «1440x900 con cada lista ×8» falla porque las miniaturas piden videos sin fin; la causa la introdujo esta rama (`main` anterior pasa 10 de 10). H-1406: `analysis.error.publish_blocked` en segunda persona. H-1407: la perilla `auto_publish` sin control en Configuración | UD-048.., H-1408.. |
 
 Orden de fusión: `wt-inicio-maqueta` es la última rama en vuelo; fusiona `main` en su rama y entra cuando dé su hash, porque toca `Home.tsx`, los catálogos de textos y las pruebas de flujos que todas las demás tocaron. Tras fusionar Inicio: barrido de `wt-voz` sobre los textos nuevos, una ronda de jueces acotados y la actualización del VPS.
 
@@ -93,7 +93,7 @@ La gravedad 5 fue 2, 4 y 3; la gravedad 4 fue 8, 12 y 10. El recuento no baja de
 ## Lo que sigue, en orden
 
 1. Fusionar las ramas en vuelo en el orden de «Trabajo en vuelo». Dueño: la sesión coordinadora.
-2. Actualizar el VPS cuando Inicio esté en `main`. El VPS corre hoy la versión `49e113a` (antes de HEIC, publicación automática y estados). El `Dockerfile` cambió (filtros de `ffmpeg` para HEIC), así que la reconstrucción en ARM recompila `ffmpeg` y tarda mucho más: `ssh opc@toolset-oci-1-1 'cd ~/team-platform && git pull && docker compose build --build-arg BUILD_JOBS=1 && docker compose up -d --wait'`, y después `node scripts/vps-check.mjs` (debe imprimir `OK` en todas las líneas; el guion envía el texto en borrador con `auto_publish=false` y lo cancela, no publica nada al equipo). Acceso en `~/.config/team-platform/vps-admin`. Las migraciones 0006 y 0007 corren solas al arrancar.
+2. Actualizar el VPS cuando H-1405 esté cerrado (Inicio ya está en `main`). El VPS corre hoy la versión `49e113a` (antes de HEIC, publicación automática y estados). El `Dockerfile` cambió (filtros de `ffmpeg` para HEIC), así que la reconstrucción en ARM recompila `ffmpeg` y tarda mucho más: `ssh opc@toolset-oci-1-1 'cd ~/team-platform && git pull && docker compose build --build-arg BUILD_JOBS=1 && docker compose up -d --wait'`, y después `node scripts/vps-check.mjs` (debe imprimir `OK` en todas las líneas; el guion envía el texto en borrador con `auto_publish=false` y lo cancela, no publica nada al equipo). Acceso en `~/.config/team-platform/vps-admin`. Las migraciones 0006, 0007 y 0008 corren solas al arrancar.
 3. Barrido final de `wt-voz` sobre los textos nuevos, y una ronda con jueces acotados en paralelo (marco de `wt-telemetria-ui`) sobre Inicio, Mensajes, Áreas y el flujo de envío. Línea base de la ronda 3: 3 hallazgos de gravedad 5 y 10 de gravedad 4.
 4. Hallazgos abiertos con dueño: H-1903 (`classifyDraws` sin medir, 1,7 USD) y H-1904 (grosor de los grupos); H-1101 (llave de DeepSeek: `node scripts/llave.mjs DEEPSEEK_API_KEY`, la pone el dueño); H-1102 y H-1103 (Sonnet, sólo si se adopta); H-1804 cerrado; H-904 y H-1803 (Inicio).
 5. Revisar «Decisiones del dueño» de `docs/HALLAZGOS.md`: colores de área frente a colores de estado, UD-034 (justificado por ancho), UD-035 («Crear mensaje»), UD-072 (borrador por envío, decisión de la sesión), el retiro de Intro en la revisión y el orden del catálogo de áreas. No bloquea nada.

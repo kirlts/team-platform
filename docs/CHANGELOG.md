@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Barra superior de toda página con tres marcas de estado, abierto rojo, respondido amarillo y cerrado azul, cada una con su forma y su número. Al hacer clic abre un desplegable con esos mensajes y un enlace a Mensajes filtrado. En teléfono conserva las tres marcas (UD-100, UD-141).
+- Barra lateral de 256 px, ocultable, sobre una grilla con la columna de contador de ancho fijo. Los contadores no llevan contenedor y toda fila responde al puntero y al foco (UD-047, UD-130). Prueba `panel/src/sidebar-alignment.browser.test.mjs` y regla de alineación en `ui-detectors.mjs`.
+- Inicio con el compositor como protagonista, ancho que crece con la ventana y página que se desplaza con un envío abierto (UD-110). El envío se ve en un desplegable bajo la barra, con el original y el análisis (UD-046).
+- Publicación automática al terminar el análisis. El autor edita su mensaje con control de versión y puede dejar un envío en borrador (UD-070, UD-071, UD-072). Ajuste «Publicación» en Configuración.
+- Color por área, con migración `0008_area_color` (UD-045). Tarjetas de lista, ficha y respuesta con el estado en la línea de datos (UD-150, UD-151). La vista de un área no repite su chip (UD-160). El servidor doble lleva la marca «Servidor de ejemplo» (UD-180).
+- Equipo: «Agregar miembro» para el Editor y perfil plegable con «Ver más». Entrada sin vía de contacto, por decisión (UD-170).
+- El HEIC de iPhone se decodifica con el `ffmpeg` de la imagen (UD-040). La clasificación relee lo descartado y cada ventana ve las 40 unidades previas (UD-080).
+- Las suites de navegador corren en Firefox con `BROWSER=firefox` (`panel/src/browser-support.mjs`, H-2500). Guardia de lenguaje `panel/src/ui-voice.test.ts` con sus patrones en `panel/src/ui-voice-patterns.mjs` (UD-050).
+- Instalación: `IMAGE_TAG` para una segunda instancia, pregunta del puerto, respaldos legibles sólo por su dueño y restauración de adjuntos, medidos en el VPS (H-2600 a H-2606).
 - Proveedores en Configuración (UD-120, UD-121): lista con estado y últimos 4 de la clave, alta, reemplazo con prueba previa, retiro con bloqueo por dependencia, cambio de función con reversión y diagnóstico con causa clasificada; claves cifradas en reposo y `scripts/rotate-secrets-key.mjs`.
 - Configuración: editor de la descripción que crece con el texto (UD-123) y una línea de explicación bajo cada ajuste (UD-122).
 - HP-015 y HP-018 por tipo de adjunto como pruebas con su ID; pruebas de `llm_calls` y de `GET /health` con el proveedor de respaldo (DT-003).
@@ -16,11 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Telemetría de la interfaz (UD-091): `POST /api/telemetry/ui`, `GET /api/telemetry/ui-summary`, `PATCH /api/settings/telemetry`, módulo `panel/src/lib/telemetry.ts`, interruptor en Configuración y `scripts/ui-report.mjs`.
 - `panel/scripts/ui-detectors.mjs`: detectores de interfaz en navegador sobre todas las rutas, dos ventanas y dos temas.
 - Jueces acotados en paralelo (UD-092): `scripts/juicios.mjs` y `docs/JUICIOS.md`.
-- Investigaciones 09 (telemetría de la interfaz) y 10 (evaluación con jueces acotados).
+- Investigaciones 09 (telemetría de la interfaz), 10 (evaluación con jueces acotados), 11 (gestión de proveedores y claves) y 12 (alineación y estados de la navegación).
 - `scripts/vps-check.mjs`: comprobación de punta a punta de una instancia desplegada (página, salud, panel servido, inicio de sesión, un texto mixto y su propuesta), con `--last` para describir el último envío (H-89, H-56).
 - `bench/run-private.mjs run --plan`: ensayo en seco de una corrida del banco privado; no llama a ningún proveedor, rechaza un modelo sin tarifa y un tope ya gastado.
 - `GET /api/messages/summary`: lo que afecta a cada miembro por estado (abierto, respondido) y los mensajes de cada área por estado (UD-028, UD-041).
-- Panel: insignia grande en la pestaña Mensajes y en la campana, con el fondo del estado más alto presente (abierto rojo, respondido amarillo, cerrado azul); conteos por área clicables hacia Mensajes filtrado (UD-028, UD-029, UD-041).
+- Panel: los tres estados son la única categoría de un mensaje en la interfaz y el estado se deriva de las respuestas y del cierre. Los conteos por área llevan a Mensajes filtrado (UD-028, UD-041, UD-042).
 - Panel: cada área abre su vista con sus mensajes, el filtro por estado y, plegadas, su descripción y sus plantillas (UD-041).
 - Eje documental Kairós: MASTER-SPEC v0.1.0, RULES, REPOMAP, USER-DECISIONS (UD-001 a UD-015), TEST, TECHNICAL-DEBT y TODO con ocho épicos.
 - Investigaciones fechadas 2026-10-20 (siete informes) y dos mediciones: extractores y primera corrida real del analizador.
@@ -48,13 +57,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Empaquetado: `Dockerfile` multi-etapa, `compose.yml` de un servicio, `compose.override.example.yml`, `scripts/install.sh`, `scripts/backup.sh` y `docs/INSTALACION.md`.
 - Banco de referencia en `bench/`: siete casos, puntaje por conjuntos sobre `unit_ids`, corredor `run.mjs` y promptfoo.
 - `scripts/llave.mjs` para guardar una llave de proveedor fuera del repositorio y `scripts/analizar.mjs` para analizar un texto desde la terminal.
-- Pruebas: 387 del servidor, 56 del banco y 21 del panel; prohibiciones HP-001 a HP-008 y HP-011 en la batería.
+- Pruebas al 2026-10-21: 865 del servidor (6 omitidas por falta de llave, imagen o red), 74 del banco y 164 del panel en 29 archivos; prohibiciones HP-001 a HP-029 en `docs/TEST.md`.
 - `README.md` para quien llega al repositorio público.
 
 ### Changed
 - `docs/TECHNICAL-DEBT.md` conserva solo DT-007 (HP-019 y HP-020). Quedaron cerradas DT-003 (proveedor de respaldo invocado), DT-004 (gancho de pre-commit), DT-005 (tope de documentos), DT-006 (cabecera de `src/analyze/api.js`), DT-008 (capas 3 y 5), DT-009 (inglés en comentarios, nombres, aserciones y registros). DT-010 queda descartada por el dueño (H-45).
 - `docs/TEST.md` numera HP-029 la prohibición de privacidad de la telemetría de la interfaz, que repetía HP-022.
-- Panel: Inicio muestra los últimos mensajes y las últimas respuestas como bloque principal y pliega la cola de envíos, el original y el análisis tras un solo control; el texto del análisis se dibuja a 17 px (UD-030).
+- Panel: el texto del análisis se dibuja a 17 px (UD-030). La franja «Para mí» y «Por área» de Inicio sale y pasa a la barra superior (UD-100).
 - UD-015: el código y sus comentarios pasan al inglés; la interfaz, los mensajes a la persona, las plantillas y la documentación siguen en español. Reemplaza a UD-005 en los comentarios.
 - El analizador clasifica y descompone con esfuerzo `low` y pensamiento apagado. El límite de llamadas a la vez sube a 16 (medición del 2026-10-20).
 - `llm_calls` deja de ser tabla y pasa a ser una vista sobre `spans`.

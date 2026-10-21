@@ -282,6 +282,7 @@ GET    /api/messages/:id          mensaje, hilo, adjuntos
 GET    /api/attachments/:id/transcript  texto extraído de un audio o video (UD-059)
 POST   /api/messages/:id/replies  { body, kind: answer|fix|clarification }   (403 si quien responde es el emisor)
 PATCH  /api/messages/:id          { version, …campos } el emisor edita su mensaje; otro miembro, también el Editor, 403 `not_message_author`; versión vencida 409 `edit_conflict` (UD-071)
+POST   /api/messages/:id/attachments  multipart { version, files[], links[] } agrega adjuntos a un mensaje propio (UD-071)
 POST   /api/messages/:id/close · POST /api/messages/:id/reopen
 
 GET    /api/areas                 áreas con conteos y plantillas sin cuerpo   (?include_deleted=true: Editor)

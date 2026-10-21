@@ -47,11 +47,19 @@ export async function readReplyUpload (request, config) {
   return { body: text, kind: extra.kind, links, files }
 }
 
+/** Reads the multipart body that adds attachments to a published message: `version`, files[] and links[] (UD-071). */
+export async function readMessageAttachmentUpload (request, config) {
+  const { text, links, files } = await readUpload(request, config, {
+    textField: 'version', extraFields: [], emptyMessage: 'Falta un archivo o un enlace.', emptyCode: 'attachments_empty', textOptional: true
+  })
+  return { version: Number(text), links, files }
+}
+
 /**
  * Returns { text, links, files, extra } with the files already moved to their final name on the volume.
  * `extra` carries the additional text fields requested. On any error it deletes the temporary files it managed to write.
  */
-async function readUpload (request, config, { textField, extraFields, emptyMessage, emptyCode }) {
+async function readUpload (request, config, { textField, extraFields, emptyMessage, emptyCode, textOptional = false }) {
   if (!request.isMultipart()) throw unsupported('Se esperaba un envío multipart/form-data.')
   const u = config.uploads
   let text = ''
@@ -90,7 +98,7 @@ async function readUpload (request, config, { textField, extraFields, emptyMessa
       if (kindInfo.kind === 'video') await rejectLongVideo(r.tmp, part.filename)
     }
     if (Buffer.byteLength(text) > u.maxTextBytes) throw tooLarge('El texto supera el tamaño máximo permitido.')
-    if (text.trim() === '' && ingested.length === 0 && links.length === 0) {
+    if ((textOptional || text.trim() === '') && ingested.length === 0 && links.length === 0) {
       throw badRequest(emptyMessage, emptyCode)
     }
     // Everything validated: the temporary files move to their final name (the hash).

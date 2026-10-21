@@ -554,7 +554,7 @@ RULES:
 - Guardar los valores anteriores: UD-017 descarta el historial de versiones; el historial dice qué campos cambiaron y quién, no su contenido.
 **Consecuencias:**
 - Un `PATCH` que no cambia nada deja el mensaje, su versión y su historial como estaban.
-- Agregar archivos nuevos a un mensaje ya publicado queda fuera: los adjuntos se quitan o se reordenan entre los del envío.
+- Los adjuntos se quitan o reordenan entre los del envío con `attachment_ids`, y se agregan archivos y enlaces nuevos con `POST /api/messages/:id/attachments` (multipart con `version`), que cuenta como una edición y encola la lectura del adjunto.
 **Condiciones de reversión:** Si el equipo necesita que un Editor corrija mensajes ajenos, se registra una decisión nueva que lo permita con su propia fila de historial.
 
 ## [UD-059] Los adjuntos van primero y se miran en una galería de medios que se reutiliza en todo el panel

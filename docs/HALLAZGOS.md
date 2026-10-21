@@ -502,3 +502,13 @@ Criterio de cierre (UD-033): «Area per message that got one» de la comparació
 | H-1102 | La escritura de caché de Sonnet pesa la mitad de su costo privado (1,23 M de tokens a 2,50 USD por millón): el proyecto de 66.000 tokens se reescribe en cada caso separado por más de 5 minutos. Con caché tibia 0,31 USD por entrada en lugar de 0,57 | H-80 | abierto. Si se adopta Sonnet: probar `ANTHROPIC_CACHE_TTL=1h` contra `5m` con la misma metodología |
 | H-1103 | Sonnet tiene una repetición en los casos privados y le falta `w03-mp4-0947`; la comparación de latencia corrió con Haiku bajo otras cargas | H-80 | abierto, sin presupuesto: el encargo gastó 9,14 de 10 USD. Se cierra con 2 repeticiones más de Sonnet (unos 5 USD con caché fría) |
 
+## Publicación automática y edición por el autor (2026-10-21)
+
+| # | Hallazgo | Origen | Estado |
+|---|---|---|---|
+| H-1800 | Los mensajes pasan a publicarse solos al terminar el análisis (sin Enviar), con la perilla `auto_publish` del Editor y la propuesta inválida retenida como `publish_blocked` | UD-070, pedido del dueño del 2026-10-21 | `main` al fusionar `wt-auto-publicar`; `src/api/auto-publish.test.js` |
+| H-1801 | Sólo el emisor edita su mensaje; el Editor deja de poder hacerlo (`not_message_editor` pasa a `not_message_author`); control de versión (`edit_conflict`), historial `message_edits` y «editado» | UD-071 | `main` al fusionar `wt-auto-publicar`; `src/api/message-author-edit.test.js` |
+| H-1802 | La bandeja devuelve el historial de los envíos propios: todos los estados, paginados, con los mensajes de cada publicado | UD-070 | `main` al fusionar `wt-auto-publicar` |
+| H-1803 | La interfaz sigue mostrando Enviar y la revisión previa, y no manda `version` al editar: el panel falla con 400 hasta que `wt-inicio-maqueta` lo adapte | UD-070, UD-071 | `abierto`: es de `wt-inicio-maqueta`; contrato enviado a la sesión coordinadora |
+| H-1804 | Un mensaje publicado admite archivos y enlaces nuevos (`POST /api/messages/:id/attachments`), además de quitar y reordenar. Un archivo subido con una versión vencida deja su copia en el volumen sin mensaje que la use | UD-071 | `main` al fusionar `wt-auto-publicar`; lo segundo `abierto`: el volumen no tiene barrido de archivos huérfanos |
+

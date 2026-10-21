@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 5ea20d8 Traspaso: deuda técnica fusionada. Empujado a origin: `5ea20d8`.
-- Ramas con commits sin fusionar: `wt-configuracion` 25 (hace 57 segundos), `wt-inicio-respira` 9 (hace 24 segundos), `wt-banco-abiertos` 3 (hace 19 minutos), `wt-h904` 1 (hace 31 minutos).
+- `main`: ea89282 UD-140: el presupuesto de API sube a 100 USD en total. Empujado a origin: `ea89282`.
+- Ramas con commits sin fusionar: `wt-configuracion` 25 (hace 5 minutos), `wt-inicio-respira` 9 (hace 4 minutos), `wt-banco-abiertos` 3 (hace 23 minutos), `wt-h904` 1 (hace 35 minutos).
 - Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `banco-abiertos`, `cierre`, `configuracion`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `h904-old`, `heic`, `ingles`, `inicio-maqueta`, `inicio-respira`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `5ea20d8` Traspaso: deuda técnica fusionada (hace 3 minutos)
-- `98443f7` Merge branch 'wt-deuda' (hace 4 minutos)
-- `2860e44` Traspaso: barra lateral fusionada (hace 8 minutos)
-- `8cb1eae` Merge branch 'wt-barra-lateral' (hace 10 minutos)
-- `925e438` Fusiona main en wt-deuda: conserva la lógica de main y los mensajes en inglés (hace 10 minutos)
-- `9fbad62` Retira la derivación de VERIFICATION (H-45); DT-010 queda descartada (hace 11 minutos)
-- `b5553d0` Flows: J2-A-41 and J2-A-47 read the row box of the sidebar (UD-130) (hace 12 minutos)
-- `e890d6c` Merge main into wt-barra-lateral (hace 19 minutos)
-Actualizado 2026-10-21 18:44 UTC.
+- `ea89282` UD-140: el presupuesto de API sube a 100 USD en total (hace 2 minutos)
+- `5ea20d8` Traspaso: deuda técnica fusionada (hace 7 minutos)
+- `98443f7` Merge branch 'wt-deuda' (hace 8 minutos)
+- `2860e44` Traspaso: barra lateral fusionada (hace 12 minutos)
+- `8cb1eae` Merge branch 'wt-barra-lateral' (hace 14 minutos)
+- `925e438` Fusiona main en wt-deuda: conserva la lógica de main y los mensajes en inglés (hace 14 minutos)
+- `9fbad62` Retira la derivación de VERIFICATION (H-45); DT-010 queda descartada (hace 15 minutos)
+- `b5553d0` Flows: J2-A-41 and J2-A-47 read the row box of the sidebar (UD-130) (hace 16 minutos)
+Actualizado 2026-10-21 18:48 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

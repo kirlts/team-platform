@@ -242,6 +242,7 @@ Desarrollo del panel: Vite 8, Tailwind 4.3 con `@tailwindcss/vite` (MIT), TypeSc
 | `Header` | Cabecera «[Nombre] TEAM», campana de avisos y menú de la cuenta | `panel/src/components/Header.tsx` |
 | `FilterBar` | Filtros de Mensajes como chips en la URL | `panel/src/components/FilterBar.tsx` |
 | `EditableText`, `EditableTags`, `MemberPicker` | Edición en el lugar de texto, dominios y destinatarios | `panel/src/components/` |
+| `MediaGallery`, `MediaGalleryDialog`, `MediaOpener`, `AttachmentStrip` | Visor y carrusel de adjuntos, reutilizado en la ficha, las respuestas, la lista, Inicio y la propuesta (UD-040) | `panel/src/components/MediaGallery.tsx` |
 | `StatusBadge`, `Thumb`, `Avatar` | Estado como insignia, miniatura de adjunto, iniciales | `panel/src/components/` |
 | `Atmosphere`, `icons` | Fondo de la piel Y2K y juego propio de íconos | `panel/src/components/` |
 | `ui/*` | Componentes de shadcn/ui sobre Radix: botón, diálogo, menú, popover, tooltip, insignia, campo | `panel/src/components/ui/` |
@@ -277,6 +278,7 @@ GET    /api/events                SSE por miembro (§7.10); ?job_id= lo acota a 
 GET    /api/messages?for=me|id&area=&status=&q=&replies=1
 GET    /api/messages/summary      lo que afecta a quien tiene la sesión por estado (`mine`: open, answered, total) y los mensajes de cada área por estado (`areas`: open, answered, closed, mine_open) (UD-028, UD-041)
 GET    /api/messages/:id          mensaje, hilo, adjuntos
+GET    /api/attachments/:id/transcript  texto extraído de un audio o video (UD-040)
 POST   /api/messages/:id/replies  { body, kind: answer|fix|clarification }   (403 si quien responde es el emisor)
 POST   /api/messages/:id/close · POST /api/messages/:id/reopen
 

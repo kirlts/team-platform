@@ -2,7 +2,6 @@ import { MessageSquare } from '@/components/icons'
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { useFormat, useT } from '@/i18n'
-import { attachmentUrl, replyAttachmentUrl } from '@/lib/api'
 import { mainAttachment } from '@/lib/media'
 import { noticeState } from '@/lib/states'
 import { useMe, useSetClosed } from '@/lib/queries'
@@ -10,9 +9,9 @@ import { cn } from '@/lib/utils'
 import type { Message } from '@/lib/types'
 import { useLookups } from './lookups'
 import { MediaKinds } from './MediaKinds'
+import { MediaOpener } from './MediaOpener'
 import { StateMark } from './NotifyBadge'
 import { Recipients } from './Recipients'
-import { Thumb } from './Thumb'
 
 /** The edge of a row, in the color of its state (UD-041): with the mark of the state, the only color of a row (UD-036). */
 const EDGE = { open: 'shadow-[inset_3px_0_0_var(--color-state-open-bg)]', answered: 'shadow-[inset_3px_0_0_var(--color-state-answered-bg)]', closed: 'shadow-[inset_3px_0_0_var(--color-state-closed-bg)]' } as const
@@ -97,8 +96,8 @@ export function MessageCard({ message, variant = 'message' }: { message: Message
       </div>
 
       {main && (
-        <div className={cn('col-start-2 row-span-2 row-start-1 @2xl:col-start-3 @2xl:row-span-3', closed && 'opacity-60')}>
-          <Thumb item={{ kind: main.kind, src: main.kind === 'link' ? undefined : (reply ? replyAttachmentUrl : attachmentUrl)(main.id), name: main.name, size: main.size }} px={40} />
+        <div className={cn('relative z-10 col-start-2 row-span-2 row-start-1 @2xl:col-start-3 @2xl:row-span-3', closed && 'opacity-60')}>
+          <MediaOpener attachments={from.attachments ?? []} scope={reply ? 'reply' : 'message'} px={40} />
         </div>
       )}
       </div>

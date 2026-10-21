@@ -57,6 +57,8 @@ export interface Attachment {
   size?: number
   /** Original file name or address of the link. */
   name?: string
+  /** The server extracted text from it (audio and video: the transcript, served at `GET /attachments/:id/transcript`). */
+  extracted?: boolean
 }
 
 export type InputStatus =

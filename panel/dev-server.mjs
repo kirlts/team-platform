@@ -166,6 +166,21 @@ seedMessage({ area_id: 'a-error', author_id: 'u-diego', title: 'Grabación del c
 seedMessage({ area_id: 'a-idea', author_id: 'u-bruno', title: 'Nota de voz con la idea del resumen semanal', body: 'La dejé hablada porque es más rápido.', status: 'open', created_at: ago(40), assignee_ids: ['u-ana'], attachment_ids: [audioNota] })
 seedMessage({ area_id: 'a-pregunta', author_id: 'u-diego', title: 'Enlace al caso del cliente', body: 'El cliente lo escribió en su sistema.', status: 'open', created_at: ago(45), assignee_ids: ['u-ana'], attachment_ids: [linkIssue] })
 
+// Messages that show every kind of gallery, only with PANEL_DEV_MEDIA=1 so the other tests keep the data they count on.
+// Everything here is development sample data, like the rest of the file.
+if (process.env.PANEL_DEV_MEDIA === '1') {
+  const photos = ['Pantalla de inicio', 'Lista de mensajes', 'Detalle', 'Bandeja de envíos', 'Equipo', 'Áreas'].map((title, i) => seedAttachment('image', 'image/svg+xml', `foto-${i + 1}.svg`, svgCapture(title, 30 + i * 50)))
+  const pdf = seedAttachment('document', 'application/pdf', 'informe-del-cliente.pdf', Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF'))
+  const voice = seedAttachment('audio', 'audio/wav', 'nota-con-texto.wav', silentWav(8))
+  attachments.get(voice).transcript = 'Primero, el botón Enviar no se distingue en el tema oscuro. Segundo, la lista tarda en abrir cuando hay muchos mensajes.'
+  const broken = seedAttachment('image', 'image/png', 'foto-dañada.png', Buffer.from('no es una imagen'))
+  seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Galería de seis fotos', body: 'Seis capturas de la misma pantalla.', status: 'open', created_at: ago(2), assignee_ids: ['u-ana'], attachment_ids: photos })
+  seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Fotos mezcladas con un video', body: 'Tres capturas y la grabación.', status: 'open', created_at: ago(3), assignee_ids: ['u-ana'], attachment_ids: [photos[0], videoDemo, photos[1], photos[2]] })
+  seedMessage({ area_id: 'a-idea', author_id: 'u-bruno', title: 'Nota de voz con su transcripción', body: 'La nota dicha en voz alta.', status: 'open', created_at: ago(4), assignee_ids: ['u-ana'], attachment_ids: [voice] })
+  seedMessage({ area_id: 'a-pregunta', author_id: 'u-diego', title: 'Informe en PDF y una foto dañada', body: 'El informe del cliente y una foto que no abre.', status: 'open', created_at: ago(5), assignee_ids: ['u-ana'], attachment_ids: [pdf, broken, linkIssue] })
+  seedMessage({ area_id: 'a-error', author_id: 'u-diego', title: 'Una sola foto', body: 'Un solo medio no lleva carrusel.', status: 'open', created_at: ago(6), assignee_ids: ['u-ana'], attachment_ids: [photos[3]] })
+}
+
 /** Fields a template declares in its frontmatter: `- { name: x, label: Y, required: true }`. */
 function templateFields(t) {
   return [...(t?.body_markdown ?? '').matchAll(/^\s*-\s*\{\s*name:\s*(\w+),\s*label:\s*([^,}]+),\s*required:\s*(true|false)/gm)].map((m) => ({ name: m[1], label: m[2].trim(), required: m[3] === 'true' }))
@@ -244,7 +259,7 @@ function view(msg) {
 
 function attachmentView(attId) {
   const a = attachments.get(attId)
-  return a ? { id: a.id, input_id: a.input_id, kind: a.kind, mime: a.mime, size: a.size, name: a.name } : null
+  return a ? { id: a.id, input_id: a.input_id, kind: a.kind, mime: a.mime, size: a.size, name: a.name, extracted: a.transcript !== undefined } : null
 }
 
 function inputView(input) {
@@ -894,6 +909,13 @@ const server = createServer(async (req, res) => {
         slot.model = body.model.trim()
         return send(res, 200, view())
       }
+    }
+    // The text the server extracted from an audio or a video (the real server answers the same, from its `extracted_text`).
+    m = /^\/attachments\/([^/]+)\/transcript$/.exec(path)
+    if (m && method === 'GET') {
+      const a = attachments.get(m[1])
+      if (!a || a.transcript === undefined) return fail(res, 404, 'No hay transcripción', 'not_found')
+      return send(res, 200, { text: a.transcript })
     }
     m = /^\/(?:replies\/)?attachments\/([^/]+)$/.exec(path)
     if (m && method === 'GET') {

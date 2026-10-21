@@ -255,3 +255,14 @@ RULES:
 **Consecuencias:**
 - Columna `language` en `members`, campo opcional `output_language` en `POST /inputs`, `bundle.output_language` hacia el analizador, y una prueba con el proveedor real de que un input en un idioma sale redactado en el idioma pedido.
 **Condiciones de reversión:** Ninguna prevista.
+
+## [UD-019] Lo que redacta el analizador no lleva las marcas de la escritura generada por IA
+
+**Fecha:** 2026-10-20
+**Contexto:** Los mensajes que produce el analizador los lee el equipo y, a veces, el cliente.
+**Decisión:** Martín, textual: «es de suma importancia evitar los vicios de Signs of AI writing en el output de team-platform». La guía de Wikipedia «Signs of AI writing» se convierte en un contrato de redacción corto dentro del prompt de descomposición (hechos llanos, título con verbo y objeto, sin trascendencia inflada, sin adjetivos promocionales, sin atribuciones vagas, sin «no es X, sino Y», sin grupos de tres de relleno, sin vocabulario típico de IA en inglés ni en español, sin raya larga, sin negritas, sin emoji, sin cierre que resume, sin charla colaborativa).
+**Alternativas descartadas:**
+- Un filtro que reescriba o corte la prosa del modelo después de generarla: oculta el defecto en vez de corregir la causa, que está en el contexto del modelo.
+**Consecuencias:**
+- El banco cuenta las marcas por mensaje en cada caso (`bench/ai-tells.js`, con la sección de la guía citada por patrón), y el objetivo es cero en todos los casos.
+**Condiciones de reversión:** Ninguna prevista.

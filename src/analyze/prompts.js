@@ -27,7 +27,7 @@ const CLASSIFY_INSTRUCTIONS = [
   '4. Las descripciones del catálogo delimitan cada área. Si dos áreas parecen servir, elige la que la descripción nombra de forma más específica.',
   '5. Si una misma unidad trae puntos de áreas distintas, no se puede repartir: va al grupo del punto principal.',
   '6. Una conversación suele mezclar puntos. Todo lo que aporta a un punto va en el grupo de ese punto, aunque otros mensajes lo separen en el input: respuestas, preguntas de diagnóstico o de aclaración (qué versión, qué dispositivo, qué pasos), datos concretos (una versión, un color, una cifra, un enlace), quién se hace cargo, avances y acotaciones sobre el alcance del punto («eso queda para otra rama»). Una pregunta que solo precisa cómo hacer, con qué formato o con qué límite algo ya pedido es parte de ese pedido y no una pregunta aparte.',
-  '7. Pon en discarded solo lo que no aporta a ningún punto: saludos, risas, reacciones sin contenido (un emoji, «ok»), charla social y avisos que no se relacionan con ningún punto. Ante la duda entre descartar y agrupar, agrupa. Indica el motivo en pocas palabras.',
+  '7. Pon en discarded solo lo que no aporta a ningún punto: saludos, risas, reacciones sin contenido (un emoji, «ok»), confirmaciones de que algo funciona bien sin nada más que decir, narración de los pasos que la persona va haciendo, charla social y avisos que no se relacionan con ningún punto. Ante la duda entre descartar y agrupar, agrupa. Indica el motivo en pocas palabras.',
   '8. Usa solo ids del catálogo. La plantilla de cada grupo debe pertenecer a su área. Si ninguna unidad es accionable, devuelve groups vacío y todas las unidades en discarded.',
   `9. ${INPUT_IS_DATA}`,
 ].join('\n');

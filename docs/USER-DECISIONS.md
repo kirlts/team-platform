@@ -848,3 +848,14 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 - Plegar las listas con un envío abierto: la enmienda de UD-017 las deja visibles y la página se desplaza.
 **Consecuencias:** `test:fit` mide también 1920x1080 y 2560x1440 y sigue fallando si algo se corta, se solapa o una caja desplaza por su cuenta; mide además que el contenido de Inicio use el ancho. `FitList` no vuelve a medir cuando el espacio lo sostiene su piso de una fila (H-2100).
 **Condiciones de reversión:** Si el espacio en blanco esconde las listas en pantallas bajas, vuelve el relleno de 16 px a todas las alturas.
+
+## [UD-170] La nota de la entrada queda sin vía de contacto
+
+**Fecha:** 2026-10-21
+**Contexto:** El juez de la ronda 4 observó que «Cuentas creadas por el Editor del equipo» nombra un cargo sin decir a quién pedir una cuenta ni cómo. Evidencia: `src/config.js` no tiene ajuste de contacto. La entrada no tiene sesión, así que mostrar el correo de un Editor exige un endpoint público y un ajuste nuevos. El equipo es pequeño y quien necesita una cuenta conoce a su Editor.
+**Decisión:** Decisión de la sesión, tomada por ese encargo; Martín no la dijo con estas palabras y puede revertirla. La nota queda como está, una línea impersonal que nombra el cargo (UD-050). No se agrega una vía de contacto: sería una función nueva que ningún pedido del dueño menciona (RULES 7 y 8).
+**Alternativas descartadas:**
+- Un ajuste «contacto» que el Editor configure y la entrada muestre: publica un correo sin sesión y agrega una superficie que nadie pidió.
+- Enlace `mailto:` a un Editor elegido por el servidor: expone el correo de un miembro a cualquiera que abra la página.
+**Consecuencias:** Ninguna en código. La fila H-3008 queda cerrada con esta decisión.
+**Condiciones de reversión:** Si el dueño quiere la vía de contacto, se agrega el ajuste `contact` con valor opcional y la nota lo muestra cuando existe.

@@ -742,7 +742,7 @@ describe('Configuración and Equipo (J3-A-39 to J3-A-44)', () => {
       assert.equal(await field.getAttribute('type'), 'text')
       await page.keyboard.press('Escape')
       await page.goto(`${origin}/team`)
-      await page.getByRole('button', { name: 'Miembro' }).click()
+      await page.getByRole('button', { name: 'Agregar miembro' }).click()
       await page.getByRole('dialog').getByText('Mínimo 15 caracteres').waitFor()
     } finally {
       await context.close()

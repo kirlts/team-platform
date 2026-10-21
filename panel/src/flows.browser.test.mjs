@@ -238,7 +238,7 @@ describe('team and account', () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/team`)
-      await page.getByRole('button', { name: 'Miembro', exact: true }).click()
+      await page.getByRole('button', { name: 'Agregar miembro' }).click()
       const dialog = page.getByRole('dialog')
       await dialog.getByLabel('Nombre').fill('Marta Nueva')
       await dialog.getByLabel('Correo').fill('marta@dev.invalid')

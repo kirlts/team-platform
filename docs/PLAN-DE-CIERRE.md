@@ -1,6 +1,6 @@
 # Plan de cierre de team-platform
 
-Meta: `main` con todo lo pedido por el dueño, el libro `docs/HALLAZGOS.md` sin filas abiertas que dependan de una sesión, el VPS al día y el eje documental igual al código. Se ejecuta de principio a fin sin pedir permiso para lo reversible. Escrito el 2026-10-21 a las 15:00 (hora de Chile). Fuentes: la transcripción de la sesión anterior, `TRABAJO-EN-CURSO.md`, `idea.md`, `Plataforma Team.png`, los documentos de `docs/` y el estado de las ramas.
+Meta: `main` con todo lo pedido por el dueño y el VPS al día. El libro `docs/HALLAZGOS.md` sin filas abiertas que dependan de una sesión. El eje documental igual al código. Se ejecuta de principio a fin sin pedir permiso para lo reversible. Escrito el 2026-10-21 a las 15:00 (hora de Chile). Fuentes: la transcripción de la sesión anterior, `TRABAJO-EN-CURSO.md`, `idea.md`, `Plataforma Team.png`, los documentos de `docs/` y el estado de las ramas.
 
 ## Punto de partida medido
 

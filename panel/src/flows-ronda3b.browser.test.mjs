@@ -154,7 +154,7 @@ describe('drawer of sends (J3-B-04, J3-B-06, J3-B-07, J3-B-31, UD-046)', () => {
     try {
       await sendAndOpen(page)
       await page.locator('section[aria-label=Análisis]').getByTestId('simulated-mark').waitFor()
-      assert.equal(await page.getByTestId('simulated-mark').innerText(), 'Simulado')
+      assert.equal(await page.getByTestId('simulated-mark').innerText(), 'Servidor de ejemplo')
     } finally {
       await context.close()
     }

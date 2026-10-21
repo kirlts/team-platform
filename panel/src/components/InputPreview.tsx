@@ -36,11 +36,11 @@ export function InputPreview({ input }: { input: InputRecord }) {
   )
 }
 
-/** The frame of the original: neutral surface, titled «Original». */
+/** The frame of the original: neutral surface, titled «Original». It is as tall as what it holds and starts at the top: the analysis beside it may be taller, and the original does not stretch to meet it. */
 export function OriginalFrame({ children }: { children: React.ReactNode }) {
   const t = useT()
   return (
-    <section aria-label={t('input.sent')} data-testid="original-box" className="flex min-h-0 min-w-0 flex-col gap-2 rounded-[3px_10px_3px_10px] border border-line-strong bg-surface p-3">
+    <section aria-label={t('input.sent')} data-testid="original-box" className="flex min-h-0 min-w-0 flex-col gap-2 self-start rounded-[3px_10px_3px_10px] border border-line-strong bg-surface p-3">
       <h2>{t('original.title')}</h2>
       {children}
     </section>

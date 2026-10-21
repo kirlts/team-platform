@@ -749,6 +749,17 @@
     animation: travel 1.4s ease-in-out infinite;
   }
 
+  /* Without motion the glint cannot travel: the bar says «working, amount unknown» with a still diagonal hatch, which neither reads as full nor as empty. */
+  @media (prefers-reduced-motion: reduce) {
+    .meter-indeterminate::after {
+      inset-inline: 0;
+      width: auto;
+      background: repeating-linear-gradient(135deg, var(--color-aqua) 0 6px, transparent 6px 12px);
+      opacity: 0.6;
+      animation: none; /* the global reduced-motion rule matches elements, not their ::after */
+    }
+  }
+
   @keyframes travel {
     from {
       left: -38%;

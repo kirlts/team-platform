@@ -14,13 +14,26 @@ import { Thumb } from './Thumb'
  * Attachments of a proposed message: the first ones as removable thumbnails and, after them, the button
  * that opens the list of all the input's attachments with their mark. Past `max` the button says «+N».
  */
-export function AttachmentPicker({ all, selected, onChange, max = 3 }: { all: Attachment[]; selected: string[]; onChange: (ids: string[]) => void; max?: number }) {
+export function AttachmentPicker({ all, selected, onChange, max = 3, onUpload, uploading = false }: { all: Attachment[]; selected: string[]; onChange: (ids: string[]) => void; max?: number; onUpload?: () => void; uploading?: boolean }) {
   const t = useT()
   const [looking, setLooking] = useState<number | null>(null)
   const included = all.filter((a) => selected.includes(a.id))
   const shown = included.slice(0, max)
   const hidden = included.length - shown.length
-  if (all.length === 0) return null
+  const addClass = 'hit inline-flex items-center justify-center gap-1 rounded-md px-1.5 text-xs font-semibold text-muted hover:bg-hover hover:text-accent'
+  if (all.length === 0) {
+    if (!onUpload) return null
+    // Nothing to choose from: the one control to add goes straight to the files, with the same shape as «+ Destinatario».
+    return (
+      <ul aria-label={t('media.attachments')} className="flex flex-wrap items-center gap-2">
+        <li>
+          <button type="button" aria-label={t('published.addFiles')} title={t('published.addFiles')} disabled={uploading} onClick={onUpload} className={cn(addClass, 'disabled:opacity-50')}>
+            <Plus size={13} aria-hidden /> {t('media.addShort')}
+          </button>
+        </li>
+      </ul>
+    )
+  }
   return (
     <ul aria-label={t('media.attachments')} className="flex w-full flex-wrap items-center gap-2">
       {shown.map((a, i) => (
@@ -43,7 +56,7 @@ export function AttachmentPicker({ all, selected, onChange, max = 3 }: { all: At
               type="button"
               aria-label={t('media.pick')}
               title={t('media.pick')}
-              className="hit inline-flex items-center justify-center gap-1 rounded-md px-1.5 text-xs font-semibold text-muted hover:bg-hover hover:text-accent"
+              className={addClass}
             >
               {hidden > 0 ? `+${hidden}` : (
                 <>
@@ -78,6 +91,11 @@ export function AttachmentPicker({ all, selected, onChange, max = 3 }: { all: At
                 )
               })}
             </ul>
+            {onUpload && (
+              <button type="button" disabled={uploading} onClick={onUpload} className="flex min-h-9 w-full items-center gap-2 rounded-sm border-t border-line px-2 py-1 text-left text-sm font-semibold hover:bg-hover disabled:opacity-50">
+                <Plus size={14} aria-hidden /> {t('media.upload')}
+              </button>
+            )}
           </PopoverContent>
         </Popover>
       </li>

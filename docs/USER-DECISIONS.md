@@ -918,3 +918,13 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 - Quitar el chip de todas las listas: UD-045 lo fija como la marca del área en cada lugar donde el área no es evidente.
 **Consecuencias:** Una prueba de `flows-states-areas.browser.test.mjs` cuenta cero chips en la vista del área y más de cero en Mensajes.
 **Condiciones de reversión:** Si el dueño pide el color del área también en esta vista, vuelve el chip o se pinta el título con él.
+
+## [UD-180] La marca del servidor de ejemplo dice «Servidor de ejemplo» y lleva borde discontinuo
+
+**Fecha:** 2026-10-21
+**Contexto:** H-906 pidió que el análisis del servidor de ejemplo se marcara para que nadie lo juzgara como real. El juez de la ronda 4 leyó «Simulado» sin saber de qué.
+**Decisión:** Decisión de la sesión, tomada por ese encargo; Martín no la dijo con estas palabras y puede revertirla. La marca sigue en la cabecera del análisis, sólo cuando la propuesta trae `simulated`, y se llama «Servidor de ejemplo» con borde discontinuo; el texto emergente dice «Propuesta inventada por el servidor de ejemplo». El estado «Publicado» pasa a chip y va antes de la marca. Contra la API real no se dibuja nada.
+**Alternativas descartadas:**
+- Quitar la marca: H-906 la pide.
+- Un color de estado para la marca: los colores de estado son de los mensajes (UD-045).
+**Condiciones de reversión:** Si el nombre se lee como un dato del proyecto y no de la propuesta, vuelve «Simulado» con el texto emergente nuevo.

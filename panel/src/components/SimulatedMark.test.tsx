@@ -12,9 +12,9 @@ const wrap = (node: ReactNode) => render(<I18nProvider language="es-419">{node}<
 const proposal = (extra: Partial<Proposal>): Proposal => ({ messages: [], discarded: [], ...extra })
 
 describe('SimulatedMark', () => {
-  it('says «Simulado» for a simulated proposal', () => {
+  it('says «Servidor de ejemplo» for a simulated proposal', () => {
     wrap(<SimulatedMark proposal={proposal({ simulated: true })} />)
-    expect(screen.getByText('Simulado')).toBeTruthy()
+    expect(screen.getByText('Servidor de ejemplo')).toBeTruthy()
   })
   it('draws nothing for a proposal without the field, as the real API sends it, or without a proposal', () => {
     const first = wrap(<SimulatedMark proposal={proposal({})} />)

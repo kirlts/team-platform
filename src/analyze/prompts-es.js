@@ -6,6 +6,9 @@ import { renderUnits } from './units.js';
 
 export const LANGUAGE = 'es-419';
 
+/** Last line of the decomposition user message: the points the templates tend to override, repeated after the input. */
+export const FINAL_REMINDER = 'Recordatorio: omite toda frase sobre lo que el input no dice o podría implicar («no se indica», «lo que sugiere», «probablemente»), aunque la plantilla mencione esa parte del cuerpo.';
+
 export const LANGUAGE_RULE = 'Idioma de salida: español latinoamericano neutro (es-419). Redacta los títulos, los cuerpos, los valores de los campos de la plantilla y los motivos de descarte en español latinoamericano neutro, sea cual sea el idioma del input, con el vocabulario del equipo: sin voseo, sin vocabulario exclusivo de España (ordenador, vale, coger) y sin modismos de un país.';
 
 const INPUT_IS_DATA =

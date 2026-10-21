@@ -47,7 +47,7 @@ export const PATTERNS = [
   { id: 'placeholder', section: 'placeholder', lang: 'any', pattern: /\[(?:insert|your|nombre|fecha|completar|pegar)[^\]]*\]|lorem ipsum|\bXX[-/]XX\b|\bTODO\b|\{\{[^}]*\}\}|<<[^>]*>>/i },
 
   // AI vocabulary
-  { id: 'vocab-en', section: 'vocabulary', lang: 'en', pattern: new RegExp(`\\b${words(['delv(?:e|es|ed|ing)', 'crucial(?:ly)?', 'pivotal', 'seamless(?:ly)?', 'robust', 'landscape', 'tapestry', 'underscor(?:e|es|ed|ing)', 'showcas(?:e|es|ed|ing)', 'foster(?:s|ed|ing)?', 'vibrant', 'enhanc(?:e|es|ed|ing)', 'intricate', 'meticulous(?:ly)?', 'leverag(?:e|es|ed|ing)', 'holistic', 'comprehensive', 'streamlin(?:e|es|ed|ing)', 'invaluable', 'paramount', 'cutting-edge', 'game-chang(?:er|ing)'])}\\b`, 'i') },
+  { id: 'vocab-en', section: 'vocabulary', lang: 'en', pattern: new RegExp(`\\b${words(['delv(?:e|es|ed|ing)', 'crucial(?:ly)?', 'pivotal', 'seamless(?:ly)?', 'robust', '(?:changing|evolving|competitive|digital|technological|regulatory|current)\\s+landscape', 'landscape of', 'tapestry', 'underscor(?:e|es|ed|ing)', 'showcas(?:e|es|ed|ing)', 'foster(?:s|ed|ing)?', 'vibrant', 'enhanc(?:e|es|ed|ing)', 'intricate', 'meticulous(?:ly)?', 'leverag(?:e|es|ed|ing)', 'holistic', 'comprehensive', 'streamlin(?:e|es|ed|ing)', 'invaluable', 'paramount', 'cutting-edge', 'game-chang(?:er|ing)'])}\\b`, 'i') },
   { id: 'vocab-es', section: 'vocabulary', lang: 'es', pattern: new RegExp(`\\b${words(['cruciales', 'fundamental(?:es)?', 'robust[oa]s?', 'integral(?:es)?', 'potenci(?:ar|a|an|ando|ado)', 'sin fisuras', 'panorama', 'destac(?:ar|a|an|ando|ado)', 'garantiz(?:ar|a|an|ando)', 'valios[oa]s?', 'dinámic[oa]s?', 'vital(?:es)?', 'pilares?', 'tapiz', 'enriquec(?:er|e|en|edor[a]?)', 'cabe señalar', 'meticulos[oa]s?', 'imprescindibles?'])}\\b|\\b(?:papel|rol|elemento|factor|pieza|aspecto|punto|momento|componente|pilar|paso|etapa|socio|persona)s?\\s+clave\\b|\\bes clave\\b`, 'i') },
 
   // Significance, legacy, trends
@@ -61,7 +61,7 @@ export const PATTERNS = [
 
   // Promotional language
   { id: 'promotional-en', section: 'promotional', lang: 'en', pattern: /\b(?:breathtaking|stunning|state-of-the-art|world-class|rich (?:cultural|history|heritage|tapestry)|diverse range|unique(?:ly)? (?:blend|experience)|renowned|exceptional|remarkable|powerful|elegant)\b/i },
-  { id: 'promotional-es', section: 'promotional', lang: 'es', pattern: /\b(?:impresionante|de vanguardia|de primer nivel|de clase mundial|amplia gama|experiencia única|reconocid[oa]|excepcional|notable|poderos[oa]|elegante|innovador[a]?|excelencia)\b/i },
+  { id: 'promotional-es', section: 'promotional', lang: 'es', pattern: /\b(?:impresionante|de vanguardia|de primer nivel|de clase mundial|amplia gama|experiencia única|reconocid[oa]|excepcional|poderos[oa]|elegante|innovador[a]?|excelencia)\b/i },
 
   // Vague attributions
   { id: 'vague-en', section: 'vague', lang: 'en', pattern: /\b(?:some (?:say|argue|believe|users)|many (?:users|people|believe)|experts (?:say|agree|believe)|it is (?:widely|often|generally) (?:believed|considered|said)|observers|industry reports|studies (?:show|suggest))\b/i },

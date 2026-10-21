@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Proveedores de modelo `anthropic`, `openai-compatible`, `groq-speech` y `fake`, con configuración desde el entorno y desde Configuración.
 - Analizador `api`: unidades por oración, clasificación en grupos por área y plantilla, descomposición por grupo, rescate, partición y validación con Ajv.
 - Analizador `harness` sobre `claude -p`, con el mismo validador.
+- Código, comentarios, nombres de pruebas y registros en inglés (UD-015), con HP-008 como prueba estática; el texto visible del panel sigue en español.
+- Prompts del analizador en dos juegos completos, español latinoamericano neutro (`es-419`, por omisión) e inglés, elegidos por `bundle.language` (UD-018), con contrato de redacción sin marcas de IA (UD-019) y su medición en `bench/ai-tells.js`.
+- Segunda lectura del analizador cuando la primera no da grupos, con nueva descripción de las imágenes sueltas y origen `source: "frame"` (UD-021).
+- Reintento único en `textFallback` ante un rechazo o una falla HTTP reintentable del proveedor de texto.
+- Marcas de tiempo con rango (`[mm:ss-mm:ss]`, `h:mm:ss`) como límite de unidad; caso 08 del banco (reunión de diez minutos).
 - Plantillas iniciales de Idea, Error, Nueva funcionalidad, Retroalimentación y Pregunta en `templates/`.
 - Telemetría con OpenTelemetry (UD-014): spans en SQLite por un exportador propio, vista `llm_calls`, árbol por trabajo y OTLP opcional.
 - Panel React: Inicio, Mensajes, detalle, Áreas, Equipo y Configuración, con piel Y2K futurista (UD-013), filtros en la URL y capturas programáticas.

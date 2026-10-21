@@ -47,7 +47,6 @@ async function sendAndOpen(page, text = FIVE) {
   await page.goto(origin)
   await bar(page).fill(text)
   await page.getByRole('button', { name: 'Enviar' }).first().click()
-  await page.getByTestId('tray-control').click()
   await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 40000 })
 }
 
@@ -123,7 +122,6 @@ describe('window of sends (J3-B-04, J3-B-06, J3-B-07, J3-B-31)', () => {
       await page.goto(origin)
       await bar(page).fill(FIVE)
       await page.getByRole('button', { name: 'Enviar' }).first().click()
-      await page.getByTestId('tray-control').click()
       const dialog = page.getByRole('dialog')
       await page.getByText('En cola').first().waitFor()
       const queued = await rect(dialog)
@@ -150,7 +148,6 @@ describe('window of sends (J3-B-04, J3-B-06, J3-B-07, J3-B-31)', () => {
       await bar(page).fill('Un envío con adjuntos, para ver el progreso mientras espera.\n\nOtro punto distinto.')
       await page.locator('input[type=file]').first().setInputFiles(files)
       await page.getByRole('button', { name: 'Enviar' }).first().click()
-      await page.getByTestId('tray-control').click()
       let queuedSamples = 0
       for (let i = 0; i < 40; i++) {
         const sample = await page.evaluate(() => {
@@ -387,7 +384,6 @@ describe('attachments of a message (J3-B-11)', () => {
       await bar(page).fill(FIVE)
       await page.locator('input[type=file]').first().setInputFiles([file])
       await page.getByRole('button', { name: 'Enviar' }).first().click()
-      await page.getByTestId('tray-control').click()
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 40000 })
       // The files may go with any of the messages: open each until one carries the chip.
       const list = page.getByRole('dialog').locator('section[aria-label="Análisis"] ul[aria-label="Adjuntos"]')

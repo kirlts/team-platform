@@ -168,8 +168,7 @@ async function sendInput(page) {
     { name: 'feedback.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: Buffer.from('ejemplo') },
   ])
   await page.getByRole('button', { name: 'Enviar' }).first().click()
-  // The sends are folded behind one control (UD-030); the review opens in a dialog over the page and stays open while it is measured.
-  await page.getByTestId('tray-control').click()
+  // The drawer under the bar opens by itself (UD-046) and stays open while it is measured.
   await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
   await page.waitForTimeout(600)
 }

@@ -63,7 +63,7 @@ function Shell() {
         <NoticeHost />
         <div className="flex min-h-0 flex-1">
           {desktop && !hidden && (
-            <aside data-lane="sidebar" data-testid="sidebar" className="glass scroll-thin w-56 shrink-0 overflow-y-auto border-0 border-r !shadow-none">
+            <aside data-lane="sidebar" data-testid="sidebar" className="glass scroll-thin w-64 shrink-0 overflow-y-auto border-0 border-r !shadow-none">
               <Sidebar onLogout={() => void logout()} onHide={() => setHidden(true)} />
             </aside>
           )}

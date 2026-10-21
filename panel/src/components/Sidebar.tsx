@@ -12,7 +12,7 @@ import { Avatar } from './Avatar'
 import { FormDialog } from './FormDialog'
 
 const row =
-  'flex min-h-11 items-center gap-2.5 md:min-h-8 rounded-md border border-transparent px-2.5 py-1 text-sm font-medium text-fg transition-colors duration-150 hover:bg-glass'
+  'flex min-h-11 items-center gap-2.5 md:min-h-9 rounded-md border border-transparent px-2.5 py-1 text-sm font-medium text-fg transition-colors duration-150 hover:bg-glass'
 /** What is selected looks the same everywhere (J2-A-41): the `selected` fill and the accent bar on the edge, as the rows of Áreas. */
 const active = 'bg-selected font-semibold shadow-[inset_4px_0_0_var(--color-accent)] hover:bg-selected'
 
@@ -84,14 +84,14 @@ export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => v
             // With many areas the list scrolls inside: it is a declared lane, not the page.
             <ul data-lane="areas-nav" className="scroll-thin ml-2.5 mt-0.5 flex min-h-0 flex-col gap-0.5 overflow-y-auto border-l border-line-strong pl-1">
               {(areas.data ?? []).map((a) => (
-                <li key={a.id} className="flex items-center gap-1">
-                  <NavLink to={`/areas/${a.id}`} onClick={onNavigate} className={({ isActive }) => cn(row, 'min-h-11 min-w-0 flex-1 text-sm md:min-h-7', isActive && active)}>
+                <li key={a.id} className="flex flex-col">
+                  <NavLink to={`/areas/${a.id}`} onClick={onNavigate} className={({ isActive }) => cn(row, 'min-h-11 min-w-0 text-sm md:min-h-7', isActive && active)}>
                     {/* The area's color, the same one its chip has in the messages (UD-045). */}
-                    <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-sm border border-line-strong" style={{ background: a.color }} />
+                    <span aria-hidden data-testid="area-swatch-dot" className="h-2.5 w-2.5 shrink-0 rounded-sm border border-line-strong" style={{ background: a.color }} />
                     <span className="min-w-0 flex-1 break-words leading-tight">{a.title}</span>
                   </NavLink>
-                  {/* The counts' column is reserved: a name that wraps does so the same before and after the counts arrive. */}
-                  <span className="flex min-w-24 shrink-0 flex-col items-end">
+                  {/* The counts go under the name, so a long name keeps the width of the panel and the panel stays narrow. */}
+                  <span className="flex flex-wrap items-center gap-x-2 pb-0.5 pl-8">
                     <AreaPending areaId={a.id} title={a.title} summary={summary} onNavigate={onNavigate} />
                   </span>
                 </li>

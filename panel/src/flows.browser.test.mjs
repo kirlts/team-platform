@@ -55,8 +55,7 @@ async function sendInput(page, text = TEXT) {
   await bar.fill(text)
   await page.getByRole('button', { name: 'Enviar' }).first().click()
   assert.equal(await bar.inputValue(), '', 'the bar empties on send, without waiting for the analysis')
-  // Submissions are folded behind a single control (UD-030): the review opens over the page.
-  await page.getByTestId('tray-control').click()
+  // The drawer under the bar opens by itself with what was sent (UD-046): no click is needed to see it.
 }
 
 /** Pages forward until the text shows (lists paginate inside their frame). */
@@ -168,7 +167,7 @@ describe('analysis proposal', () => {
       await page.getByRole('textbox', { name: 'Título del mensaje' }).press('Enter')
       await page.getByRole('button', { name: /^Título del mensaje: Primera idea, ya corregida/ }).waitFor()
       await page.reload()
-      await page.getByTestId('tray-control').click() // the review comes back folded
+      await page.getByTestId('tray-control').click() // after a reload the drawer is folded
       await page.getByRole('button', { name: /^Título del mensaje: Primera idea, ya corregida/ }).waitFor()
     } finally {
       await context.close()
@@ -197,8 +196,7 @@ describe('analysis proposal', () => {
       await page.locator('input[type=file]:not([capture])').setInputFiles([{ name: 'foto-demasiado-grande.png', mimeType: 'image/png', buffer: Buffer.alloc(32) }])
       await page.getByRole('button', { name: 'Enviar' }).first().click()
       await page.getByRole('alert').filter({ hasText: 'La foto supera el tamaño máximo' }).first().waitFor()
-      await page.getByTestId('tray-control').click()
-      // The tray row keeps the submission so it can be retried and the bar is left free.
+      // The drawer already shows the send; it keeps the submission so it can be retried and the bar is left free.
       await page.getByRole('button', { name: 'Reintentar' }).first().waitFor()
       assert.equal(await page.getByLabel('Nuevo mensaje', { exact: true }).last().inputValue(), '')
     } finally {
@@ -307,8 +305,7 @@ describe('consecutive inputs (UD-025)', () => {
       assert.ok(base.main <= base.win, 'la región principal no desplaza')
 
       // Keyboard inside the review: J moves to the next one and K to the previous one. Enter publishes from nowhere (J2-B-13): a click on Enviar or Enter with the focus on that button does; the next one opens by itself.
-      await tray.click()
-      await page.getByRole('dialog').waitFor()
+      await page.getByTestId('send-drawer').waitFor()
       const selected = () => page.locator('[role="option"][aria-selected="true"]').first().getAttribute('aria-label')
       const first = await selected()
       // The window opens on the most recent send (J2-B-10): K goes to the previous one and J comes back.
@@ -929,7 +926,6 @@ describe('tray and proposal (round 2, judge B)', () => {
       await bar.fill('Segundo envío: agregar la sincronización con WhatsApp.')
       await page.getByRole('button', { name: 'Enviar' }).first().click()
       await control.getByText('2 para revisar').waitFor({ timeout: 40000 })
-      await control.click()
       const selected = await page.locator('[role="option"][aria-selected="true"]').first().getAttribute('aria-label')
       assert.match(selected, /Segundo envío/, `la ventana abre en el reciente: ${selected}`)
     } finally {
@@ -944,7 +940,6 @@ describe('tray and proposal (round 2, judge B)', () => {
       await page.goto(origin)
       await page.getByLabel('Nuevo mensaje', { exact: true }).last().fill('Un envío que se queda analizando un rato.')
       await page.getByRole('button', { name: 'Enviar' }).first().click()
-      await page.getByTestId('tray-control').click()
       const cancel = page.getByRole('button', { name: 'Cancelar', exact: true })
       await cancel.waitFor()
       assert.ok((await cancel.evaluate((el) => parseFloat(getComputedStyle(el).borderTopWidth))) >= 1, 'Cancelar tiene contorno')
@@ -1030,7 +1025,6 @@ describe('tray and proposal (round 2, judge B)', () => {
       }
       const control = page.getByTestId('tray-control')
       await control.getByText('2 para revisar').waitFor({ timeout: 40000 })
-      await control.click()
       await proposalReady(page)
       await page.getByRole('button', { name: 'Descartar' }).last().click()
       await page.getByRole('status').getByText('Envío descartado').waitFor()
@@ -1054,7 +1048,6 @@ describe('tray and proposal (round 2, judge B)', () => {
       }
       const control = page.getByTestId('tray-control')
       await control.getByText('3 para revisar').waitFor({ timeout: 40000 })
-      await control.click()
       await proposalReady(page)
       const proposal = await page.getByRole('region', { name: 'Análisis' }).boundingBox()
       assert.ok(proposal.y < 844 * 0.35, `la propuesta empieza arriba, sin la lista encima: y=${proposal.y}`)

@@ -111,8 +111,12 @@ export function CaptureButtons({ draft, disabled, size = 'icon' }: { draft: Medi
   )
 }
 
-/** Field to paste an address; it lives as its own row under the bar, it does not float. */
-function LinkRow({ draft }: { draft: MediaDraft }) {
+/**
+ * Field to paste an address; it lives as its own row under the bar, it does not float. It is born focused (J2-B-01): the focus
+ * is taken in the commit that draws it, and the menu that opened it does not take it back (see `ClipMenu`), so the field is
+ * never visible without the focus (H-901).
+ */
+export function LinkRow({ draft }: { draft: MediaDraft }) {
   const t = useT()
   const [value, setValue] = useState('')
   const close = () => {
@@ -132,7 +136,7 @@ function LinkRow({ draft }: { draft: MediaDraft }) {
         <label htmlFor="compose-link" className="shrink-0 text-xs font-semibold text-muted">
           {t('media.link')}
         </label>
-        <Input id="compose-link" type="url" inputMode="url" placeholder="https://" value={value} onChange={(e) => setValue(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && close()} className="h-8 flex-1" />
+        <Input id="compose-link" autoFocus type="url" inputMode="url" placeholder="https://" value={value} onChange={(e) => setValue(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && close()} className="h-8 flex-1" />
         {/* The one control with the weight of an action in the row: the field has its own border only when it has the focus (J3-B-19). */}
         <Button type="submit" variant="primary" className="h-8">
           {t('media.add')}

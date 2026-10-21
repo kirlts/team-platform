@@ -5,7 +5,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { I18nProvider } from '@/i18n'
 import type { MediaDraft } from '@/lib/useMediaDraft'
-import { ClipMenu } from './MediaDraft'
+import { ClipMenu, LinkRow } from './MediaDraft'
 
 beforeAll(() => {
   Object.assign(Element.prototype, { hasPointerCapture: () => false, setPointerCapture: () => {}, releasePointerCapture: () => {}, scrollIntoView: () => {} })
@@ -38,5 +38,14 @@ describe('ClipMenu', () => {
     expect(screen.queryByRole('menu')).toBeNull()
     expect(document.activeElement).toBe(screen.getByLabelText('campo'))
     expect(document.activeElement).not.toBe(trigger)
+  })
+
+  it('draws the link field already focused, in the same commit, with no timer', () => {
+    render(
+      <I18nProvider language="es-419">
+        <LinkRow draft={staleDraft} />
+      </I18nProvider>,
+    )
+    expect(document.activeElement).toBe(screen.getByLabelText('Enlace'))
   })
 })

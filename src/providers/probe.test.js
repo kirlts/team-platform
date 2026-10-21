@@ -238,3 +238,65 @@ test('a model rejected with an echoing body still returns the list but no provid
   assert.ok(!JSON.stringify(r).includes(key))
   assert.ok(r.models.length > 0)
 })
+
+// ---- The clients that make the real calls: an error body that repeats the key must not reach the error they throw.
+
+/** A fetch that answers every call with an error whose body repeats the key it received. */
+const echoingFetch = (status) => async (url, init) => {
+  const headers = new Headers(init.headers)
+  const key = headers.get('x-api-key') ?? (headers.get('authorization') ?? '').replace(/^Bearer /, '')
+  return new Response(JSON.stringify({ error: { message: `Incorrect API key provided: ${key}`, type: 'invalid_request_error' }, echo: [key] }), { status, headers: { 'content-type': 'application/json' } })
+}
+
+test('redactSecrets replaces a secret in strings, arrays and nested objects, and leaves short values and other types alone', async () => {
+  const { redactSecrets, secretsOfHeaders } = await import('./http.js')
+  const secrets = secretsOfHeaders({ 'X-Api-Key': 'sk-longer-than-eight', authorization: 'Bearer bearer-secret-123', 'content-type': 'application/json' })
+  assert.deepEqual(secrets, ['sk-longer-than-eight', 'bearer-secret-123'])
+  assert.deepEqual(secretsOfHeaders({ authorization: 'Bearer short' }), []) // below the minimum length of a key
+  const redacted = redactSecrets({ a: 'x sk-longer-than-eight y', b: ['bearer-secret-123', 5, null], c: { d: 'sk-longer-than-eightbearer-secret-123' } }, secrets)
+  assert.ok(!JSON.stringify(redacted).includes('sk-longer-than-eight'))
+  assert.ok(!JSON.stringify(redacted).includes('bearer-secret-123'))
+  assert.deepEqual(redacted.b.slice(1), [5, null])
+  assert.equal(redactSecrets('unchanged', []), 'unchanged')
+})
+
+test('the Anthropic and OpenAI-compatible clients throw errors without the key, in message and body', async () => {
+  const { createAnthropicClient, createOpenAICompatibleClient } = await import('./index.js')
+  const key = 'sk-LEAK-CHECK-client-0001-ABCDEFGH'
+  const clients = [
+    createAnthropicClient({ apiKey: key, fetchImpl: echoingFetch(401), timeoutMs: 1000 }),
+    createOpenAICompatibleClient({ name: 'probe-test', apiKey: key, model: 'm', baseUrl: BASE, structured: 'json_object', fetchImpl: echoingFetch(401), timeoutMs: 1000 })
+  ]
+  for (const client of clients) {
+    const error = await client.complete({ messages: [{ role: 'user', content: 'ping' }] }).then(() => null, (e) => e)
+    assert.ok(error, client.name)
+    assert.equal(error.status, 401)
+    assert.ok(!error.message.includes(key), `${client.name}: message`)
+    assert.ok(!JSON.stringify(error.body).includes(key), `${client.name}: body`)
+    assert.match(error.message, /Incorrect API key provided/) // the useful part of the error stays
+  }
+  const failing = createAnthropicClient({ apiKey: key, fetchImpl: async () => { throw new TypeError(`fetch failed (${key})`) }, timeoutMs: 1000 })
+  const network = await failing.complete({ messages: [{ role: 'user', content: 'ping' }] }).then(() => null, (e) => e)
+  assert.ok(!network.message.includes(key))
+})
+
+test('the transcription client throws errors without the key', async () => {
+  const { createGroqSpeechClient } = await import('./index.js')
+  const { writeFileSync, rmSync } = await import('node:fs')
+  const { tempDir } = await import('../testing/helpers.js')
+  const dir = tempDir()
+  const audioPath = `${dir}/a.wav`
+  writeFileSync(audioPath, Buffer.from('RIFF'))
+  const key = 'gsk-LEAK-CHECK-speech-0001-ABCDEFGH'
+  try {
+    const client = createGroqSpeechClient({ apiKey: key, fetchImpl: echoingFetch(401), timeoutMs: 1000 })
+    const error = await client.transcribe({ audioPath }).then(() => null, (e) => e)
+    assert.ok(error)
+    assert.ok(!error.message.includes(key))
+    assert.ok(!JSON.stringify(error.body).includes(key))
+    const down = createGroqSpeechClient({ apiKey: key, fetchImpl: async () => { throw new TypeError(`fetch failed (${key})`) }, timeoutMs: 1000 })
+    assert.ok(!(await down.transcribe({ audioPath }).then(() => null, (e) => e)).message.includes(key))
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

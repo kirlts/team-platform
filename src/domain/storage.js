@@ -8,14 +8,15 @@ import path from 'node:path'
 import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { get } from '../db/index.js'
-import { tooLarge } from './errors.js'
+import { AppError } from './errors.js'
 
 export function blobPath (config, sha256) {
   return path.join(config.attachmentsDir, sha256)
 }
 
-/** Escribe `stream` a un temporal en el volumen. Falla con 413 al pasar de `maxBytes`. */
-export async function ingest (config, stream, { maxBytes, tooLargeMessage }) {
+/** Escribe `stream` a un temporal en el volumen. Falla con 413 y `tooLargeCode` al pasar de `maxBytes`. */
+export async function ingest (config, stream, { maxBytes, tooLargeMessage, tooLargeCode = 'too_large' }) {
+  const tooLarge = (message) => new AppError(413, tooLargeCode, message)
   await mkdir(config.tmpDir, { recursive: true })
   const tmp = path.join(config.tmpDir, `${randomUUID()}.parcial`)
   const hash = createHash('sha256')

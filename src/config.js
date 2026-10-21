@@ -137,7 +137,7 @@ export function loadConfig (env = process.env, overrides = {}) {
     uploads: {
       maxImageBytes: intVar(env, 'UPLOAD_MAX_IMAGE_BYTES', 7 * MIB, { min: 1 }), // MS §7.8: imagen 7 MB
       maxAudioBytes: intVar(env, 'UPLOAD_MAX_AUDIO_BYTES', 25 * MIB, { min: 1 }), // MS §7.8: audio 25 MB
-      maxDocumentBytes: intVar(env, 'UPLOAD_MAX_DOCUMENT_BYTES', 25 * MIB, { min: 1 }), // MS §7.8: documento 25 MB
+      maxDocumentBytes: intVar(env, 'UPLOAD_MAX_DOCUMENT_BYTES', 24 * MIB, { min: 1 }), // MS §7.4, informe 05 §8.3: 24 MB, the extractor's own cap (DT-005)
       maxVideoBytes: intVar(env, 'UPLOAD_MAX_VIDEO_BYTES', 2 * GIB, { min: 1 }), // MS §7.4: video, tope 2 GB
       // I07 §6.1: Slack acepta hasta 10 archivos arrastrados a la vez. Es el referente, no una medición.
       maxFiles: intVar(env, 'UPLOAD_MAX_FILES', 10, { min: 1 }),

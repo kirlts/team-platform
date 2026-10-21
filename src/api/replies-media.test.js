@@ -119,6 +119,12 @@ test('a reply upload has the limits of an input upload: size per kind, number of
   assert.equal(links.statusCode, 413)
   const svg = await env.reply(messageId, env.c.beto, { body: 'x' }, [{ field: 'files', name: 'a.svg', type: 'image/svg+xml', content: '<svg/>' }])
   assert.equal(svg.statusCode, 415)
+  const heavy = await team({ worker: true })
+  const heavyId = await openMessage(heavy)
+  const tooBig = await heavy.reply(heavyId, heavy.c.beto, { body: 'x' }, [{ field: 'files', name: 'big.txt', type: 'text/plain', content: Buffer.alloc(24 * 1024 * 1024 + 1, 97) }])
+  assert.equal(tooBig.statusCode, 413) // HP-018: the extractor's cap, with its code, on replies too
+  assert.equal(tooBig.json().code, 'document_too_large')
+  await heavy.close()
   const badLink = await env.reply(messageId, env.c.beto, { body: 'x', links: 'ftp://a.example' })
   assert.equal(badLink.statusCode, 400)
   assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM replies').n, 0) // no half-made reply

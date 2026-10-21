@@ -21,8 +21,8 @@ test('a short audio goes in a single FLAC 16 kHz mono chunk with language=es and
   assert.equal(call.sampleRate, 16000);
   assert.equal(call.channels, 1);
   assert.equal(call.language, 'es');
-  assert.equal('prompt' in call && call.prompt !== undefined, false, 'without vocabulary no prompt is sent');
-  assert.equal(text, '[00:00] segmento 0\n[00:05] segmento 5\n[00:10] segmento 10');
+  assert.equal('prompt' in call && call.prompt !== undefined, false, 'sin vocabulario no se envía prompt');
+  assert.equal(text, '[00:00] segmento 0.\n[00:05] segmento 5.\n[00:10] segmento 10.');
   assert.equal(meta.chunks, 1);
   assert.ok(meta.durationSeconds > 11.9 && meta.durationSeconds < 12.2);
   assert.equal(meta.billableSeconds, meta.durationSeconds);
@@ -119,4 +119,39 @@ test('the track of a WAV with the native rate of the provider is also normalized
   await extract(await att(path, 'audio/wav'), { providers: { speech } });
   assert.equal(speech.calls[0].sampleRate, 16000);
   assert.equal(speech.calls[0].channels, 1);
+});
+
+test('phrase-sized segments from the provider come out as sentence lines, split at long pauses', async () => {
+  const path = await makeAudio(tmp.join('frases.m4a'), 11);
+  const segments = [
+    { start: 0, end: 1.5, text: ' pues' },
+    { start: 1.5, end: 3, text: ' cachai' },
+    { start: 3, end: 4, text: ' que el menú no abre.' },
+    { start: 4, end: 4.8, text: ' Eso.' },
+    { start: 4.8, end: 6, text: ' dos cositas,' },
+    { start: 6, end: 8, text: ' una sí y la otra no' },
+    { start: 9.4, end: 10.5, text: ' y listo' },
+  ];
+  const speech = { async transcribe() { return { text: '', segments }; } };
+  const { text, meta } = await extract(await att(path), { providers: { speech } });
+  assert.equal(text, '[00:00] pues cachai que el menú no abre.\n[00:04] Eso.\n[00:04] dos cositas, una sí y la otra no\n[00:09] y listo');
+  assert.equal(meta.segments, 4);
+});
+
+test('fragments are joined inside a chunk and never across the cut between two chunks', async () => {
+  const path = await makeAudio(tmp.join('corrido.m4a'), 50);
+  const speech = fakeSpeech({ every: 5, punctuate: false });
+  const { text } = await extract(await att(path), {
+    providers: { speech },
+    config: { audio: { chunkSeconds: 20, overlapSeconds: 5, minChunkSeconds: 10 } },
+  });
+  // The cuts fall at 17.5 s and 32.5 s: three lines, one per chunk, each starting at its first kept fragment.
+  assert.deepEqual(text.split('\n').map((l) => l.slice(0, 7)), ['[00:00]', '[00:20]', '[00:35]']);
+});
+
+test('the pause threshold and the word cap are knobs of the audio section', async () => {
+  const path = await makeAudio(tmp.join('perillas.m4a'), 50);
+  const run = async (audio) => (await extract(await att(path), { providers: { speech: fakeSpeech({ every: 5, punctuate: false }) }, config: { audio } })).text.split('\n').length;
+  assert.equal(await run({ pauseSeconds: 0 }), 10, 'a zero threshold keeps one line per segment');
+  assert.equal(await run({ maxUnitWords: 3 }), 10, 'a word cap of three words (each fake segment has two) keeps one line per segment');
 });

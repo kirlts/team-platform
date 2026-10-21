@@ -1,9 +1,9 @@
 // Message and reply routes (MASTER-SPEC §7.1).
 
-import { addReply, closeMessage, getMessage, listMessages, reopenMessage, REPLY_KINDS } from '../../domain/messages.js'
+import { addReply, closeMessage, getMessage, listMessages, reopenMessage, REPLY_KINDS, updateMessage } from '../../domain/messages.js'
 import { withSpan } from '../../domain/tracing.js'
 import { pageEnvelope, pageParams, pageQuerySchema, pageResult } from '../pagination.js'
-import { idIn, idParams, messageCard, messageDetail } from '../schemas.js'
+import { idIn, idParams, messageCard, messageDetail, messagePatchBody } from '../schemas.js'
 
 export function registerMessageRoutes (app, ctx) {
   const { db, config, events, requireRole } = ctx
@@ -47,6 +47,18 @@ export function registerMessageRoutes (app, ctx) {
     onRequest: [requireRole('member')],
     schema: { summary: 'A message with its thread', params: idParams(), response: { 200: messageDetail } }
   }, async (request) => getMessage(db, request.params.id))
+
+  app.patch('/messages/:id', {
+    onRequest: [requireRole('member')],
+    schema: {
+      summary: 'Editar un mensaje en el lugar (su emisor o un editor): título, texto, campos, destinatarios y área',
+      description: 'Actualización parcial (UD-017). Cambiar el área exige `template_id` de esa área. Se puede editar un mensaje respondido o cerrado. Repetir la misma edición deja el mismo estado. 403 si no es el emisor ni un editor; un valor inexistente o un campo desconocido es 400. No hay historial de versiones.',
+      params: idParams(),
+      body: messagePatchBody,
+      response: { 200: messageDetail }
+    }
+  }, async (request) => withSpan('message.update', { 'team.message_id': String(request.params.id), 'team.member_id': String(request.member.id) },
+    () => updateMessage({ db, events }, { messageId: request.params.id, actor: request.member, patch: request.body })))
 
   app.post('/messages/:id/replies', {
     onRequest: [requireRole('member')],

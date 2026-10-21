@@ -72,12 +72,12 @@ export function loadConfig (env = process.env, overrides = {}) {
     rootDir,
     version: JSON.parse(readFileSync(path.join(rootDir, 'package.json'), 'utf8')).version,
 
-    // ---- Network and server
-    host: textValue(env, 'HOST', '0.0.0.0'), // inside a container; the compose file publishes the port on loopback
-    port: intVar(env, 'PORT', 3000),
+    // ---- Red y servidor
+    host: textValue(env, 'HOST', '0.0.0.0'), // dentro de un contenedor; el compose publica el puerto en loopback
+    port: intVar(env, 'PORT', 3000), // I04 §5: the service listens on 127.0.0.1:3000 and the compose file publishes that port on loopback
     nodeEnv: textValue(env, 'NODE_ENV', 'production'), // `development` enables POST /auth/dev-login
-    // First Editor (installation): if there are no members, it is created with this email. The password comes from ADMIN_PASSWORD
-    // or, if missing, one is generated and shown only once in the startup log. Nothing is seeded with a fixed password.
+    // First Editor (installation): if there are no members, one is created with this email. The password comes from
+    // ADMIN_PASSWORD or, if missing, one is generated and shown once in the startup log. Nothing is seeded with a fixed password.
     adminEmail: textValue(env, 'ADMIN_EMAIL', ''),
     adminPassword: textValue(env, 'ADMIN_PASSWORD', ''),
     projectName: textValue(env, 'PROJECT_NAME', 'Team'), // the panel shows it in the header
@@ -110,20 +110,20 @@ export function loadConfig (env = process.env, overrides = {}) {
     // ---- Queue (MS §7.3, I03 §12)
     worker: {
       mode: choiceVar(env, 'WORKER_MODE', ['inline', 'external', 'off'], 'inline'), // MS §7.3: same process by default
-      leaseMs: intVar(env, 'QUEUE_LEASE_MS', 30000, { min: 1 }),
-      heartbeatMs: intVar(env, 'QUEUE_HEARTBEAT_MS', 10000, { min: 1 }), // pg-boss's heartbeat minimum: 10 s
-      maxAttempts: intVar(env, 'QUEUE_MAX_ATTEMPTS', 3, { min: 1 }), // pg-boss's retryLimit plus the first attempt
+      leaseMs: intVar(env, 'QUEUE_LEASE_MS', 30000, { min: 1 }), // I03 §12: 30 s, as walq
+      heartbeatMs: intVar(env, 'QUEUE_HEARTBEAT_MS', 10000, { min: 1 }), // I03 §12: pg-boss minimum heartbeat, 10 s
+      maxAttempts: intVar(env, 'QUEUE_MAX_ATTEMPTS', 3, { min: 1 }), // I03 §12 and MS §7.3: pg-boss retryLimit plus the first attempt
       retryBaseMs: intVar(env, 'QUEUE_RETRY_BASE_MS', 1000, { min: 1 }),
       retryMaxMs: intVar(env, 'QUEUE_RETRY_MAX_MS', 60000, { min: 1 }), // I03 §12: derived from Groq's per-minute limit
       // Full jitter (the fraction of the delay that is subtracted at random). I03 §3.4 cites walq for the mechanism and
       // the AWS guide [F41] for the principle, without fixing the fraction: 1 is that guide's «full jitter».
       retryJitter: decimal(env, 'QUEUE_RETRY_JITTER', 1, { min: 0, max: 1 }),
-      concurrency: intVar(env, 'QUEUE_CONCURRENCY', 1, { min: 1 }), // the only convention knob (I03 §12)
-      maxRuntimeMs: intVar(env, 'QUEUE_MAX_RUNTIME_MS', 900000, { min: 1 }), // pg-boss's expireInSeconds: 900 s
-      retentionDays: intVar(env, 'RETENTION_DAYS', 7, { min: 1 }), // pg-boss's deleteAfterSeconds: 7 days
+      concurrency: intVar(env, 'QUEUE_CONCURRENCY', 1, { min: 1 }), // the only knob that is a convention (I03 §12)
+      maxRuntimeMs: intVar(env, 'QUEUE_MAX_RUNTIME_MS', 900000, { min: 1 }), // pg-boss expireInSeconds: 900 s
+      retentionDays: intVar(env, 'RETENTION_DAYS', 7, { min: 1 }), // I03 §12: pg-boss deleteAfterSeconds, 7 days
       // Courtesy: retention is measured in days, one sweep per hour meets it with room to spare. It does not govern the
       // operation of any job.
-      retentionSweepMs: intVar(env, 'RETENTION_SWEEP_MS', 3600000, { min: 1 }),
+      retentionSweepMs: intVar(env, 'RETENTION_SWEEP_MS', 3600000, { min: 1 }), // declared courtesy, see above
       dataVersionPollMs: intVar(env, 'DATA_VERSION_POLL_MS', 100, { min: 1 }) // I03 §12: only with a separate worker
     },
 
@@ -141,8 +141,8 @@ export function loadConfig (env = process.env, overrides = {}) {
       maxVideoBytes: intVar(env, 'UPLOAD_MAX_VIDEO_BYTES', 2 * GIB, { min: 1 }), // MS §7.4: video, cap 2 GB
       // I07 §6.1: Slack accepts up to 10 files dragged at once. It is the reference, not a measurement.
       maxFiles: intVar(env, 'UPLOAD_MAX_FILES', 10, { min: 1 }),
-      maxLinks: intVar(env, 'UPLOAD_MAX_LINKS', 10, { min: 0 }), // same reference as the files
-      // I03 §7.2: @fastify/multipart's default is Fastify's bodyLimit, 1 MiB; a long text fits.
+      maxLinks: intVar(env, 'UPLOAD_MAX_LINKS', 10, { min: 0 }), // I07 §6.1: same reference as files
+      // I03 §7.2: the @fastify/multipart default is Fastify's bodyLimit, 1 MiB; a long text fits.
       maxTextBytes: intVar(env, 'UPLOAD_MAX_TEXT_BYTES', MIB, { min: 1 }),
       maxLinkLength: intVar(env, 'UPLOAD_MAX_LINK_LENGTH', 8000, { min: 1 }) // RFC 9110 §4.1: supporting URIs of at least 8000 octets is recommended
     },
@@ -150,8 +150,8 @@ export function loadConfig (env = process.env, overrides = {}) {
     // ---- Lists. No measurement: MS §7.8 says nothing is virtualized until there are hundreds of rows.
     // Uniform pagination ?page=&limit= (the API's convention). The cap of 100 is set by «Martín» (2026-10-20).
     list: {
-      pageSize: intVar(env, 'LIST_PAGE_SIZE', 50, { min: 1 }),
-      pageMax: 100
+      pageSize: intVar(env, 'LIST_PAGE_SIZE', 50, { min: 1 }), // MS §7.8: not measured, no virtualization until there are hundreds of rows
+      pageMax: 100 // Martín's decision 2026-10-20: page cap of the API
     },
 
     // ---- Identity (MS §7.7, I04 §11)
@@ -163,33 +163,33 @@ export function loadConfig (env = process.env, overrides = {}) {
       cookieInsecureDev: boolVar(env, 'COOKIE_INSECURE_DEV', false),
       argon2: {
         memoryKib: intVar(env, 'ARGON2_MEMORY_KIB', 19456, { min: 8 }), // OWASP minimum, I04 §1.1
-        passes: intVar(env, 'ARGON2_PASSES', 2, { min: 1 }),
+        passes: intVar(env, 'ARGON2_PASSES', 2, { min: 1 }), // I04 §11: same OWASP row as memory
         parallelism: intVar(env, 'ARGON2_PARALLELISM', 1, { min: 1 }),
-        saltBytes: intVar(env, 'ARGON2_SALT_BYTES', 16, { min: 8 }), // RFC 9106: 128-bit salt
-        tagBytes: intVar(env, 'ARGON2_TAG_BYTES', 32, { min: 4 }), // RFC 9106: 256-bit tag
-        pepper: textValue(env, 'ARGON2_PEPPER', '') // optional; the secret lives outside the database
+        saltBytes: intVar(env, 'ARGON2_SALT_BYTES', 16, { min: 8 }), // I04 §11, RFC 9106: 128-bit salt
+        tagBytes: intVar(env, 'ARGON2_TAG_BYTES', 32, { min: 4 }), // I04 §11, RFC 9106: 256-bit tag
+        pepper: textValue(env, 'ARGON2_PEPPER', '') // opcional; el secreto vive fuera de la base
       },
       password: {
-        minLength: intVar(env, 'PASSWORD_MIN_LENGTH', 15, { min: 1 }), // NIST SP 800-63B-4 3.1.1.2, single factor
-        maxLength: intVar(env, 'PASSWORD_MAX_LENGTH', 128, { min: 1 }), // NIST requires ≥ 64; 128 is Better Auth's
+        minLength: intVar(env, 'PASSWORD_MIN_LENGTH', 15, { min: 1 }), // I04 §11: NIST SP 800-63B-4 3.1.1.2, single factor
+        maxLength: intVar(env, 'PASSWORD_MAX_LENGTH', 128, { min: 1 }), // I04 §11: NIST requires at least 64; 128 is Better Auth's
         blocklistFile: textValue(env, 'PASSWORD_BLOCKLIST_FILE', '') // local list, one password per line (I04 §1.5)
       },
       session: {
         tokenBytes: intVar(env, 'SESSION_TOKEN_BYTES', 32, { min: 16 }), // MS §7.7
-        idleMinutes: intVar(env, 'SESSION_IDLE_MINUTES', 30, { min: 1 }), // OWASP: upper end, low risk
-        absoluteHours: intVar(env, 'SESSION_ABSOLUTE_HOURS', 8, { min: 1 }), // OWASP: office application
+        idleMinutes: intVar(env, 'SESSION_IDLE_MINUTES', 30, { min: 1 }), // I04 §11: OWASP, upper end, low risk
+        absoluteHours: intVar(env, 'SESSION_ABSOLUTE_HOURS', 8, { min: 1 }), // I04 §11: OWASP, office application
         // Courtesy: avoids a commit with fsync per request. The inactivity error stays at one minute
         // out of 30 (3 %). It does not govern security: the absolute expiry does not depend on it.
         touchSeconds: intVar(env, 'SESSION_TOUCH_SECONDS', 60, { min: 1 })
       },
       login: {
         ipMax: intVar(env, 'LOGIN_IP_LIMIT', 3, { min: 1 }), // I04 §11: Better Auth's /sign-in/email, 3 per 10 s
-        ipWindowMs: intVar(env, 'LOGIN_IP_WINDOW_MS', 10000, { min: 1 }),
+        ipWindowMs: intVar(env, 'LOGIN_IP_WINDOW_MS', 10000, { min: 1 }), // I04 §11: the 10 s of the Better Auth rule
         backoffBaseSeconds: intVar(env, 'LOGIN_BACKOFF_BASE_SECONDS', 1, { min: 1 }), // OWASP Authentication
-        // No source in I04 for the wait ceiling. It is derived from the session inactivity (30 min): the
-        // wait never exceeds how long an idle session lasts.
+        // I04 has no source for the ceiling of the wait. It is derived from session inactivity (30 min): the
+        // wait never exceeds what an idle session lasts (I04 §11).
         backoffMaxSeconds: intVar(env, 'LOGIN_BACKOFF_MAX_SECONDS', 30 * 60, { min: 1 }),
-        hardCap: intVar(env, 'LOGIN_HARD_CAP', 100, { min: 1 }) // NIST SP 800-63B-4 3.2.2
+        hardCap: intVar(env, 'LOGIN_HARD_CAP', 100, { min: 1 }) // I04 §11: NIST SP 800-63B-4 3.2.2
       },
       delegated: {
         mode: choiceVar(env, 'DELEGATED_MODE', ['signed-header', 'jwt', 'sso-redirect', 'trusted-header'], 'signed-header'),
@@ -199,7 +199,7 @@ export function loadConfig (env = process.env, overrides = {}) {
         jwt: {
           header: textValue(env, 'JWT_HEADER', 'authorization'),
           jwksUrl: textValue(env, 'JWT_JWKS_URL', ''),
-          // Minimum between two JWKS downloads on an unknown `kid`. `jose`'s default is 30 s (`cooldownDuration`).
+          // I04 §3.3: minimum between two JWKS downloads on an unknown `kid`. The `jose` default is 30 s (`cooldownDuration`).
           jwksCooldownMs: intVar(env, 'JWT_JWKS_COOLDOWN_MS', 30000),
           secret: textValue(env, 'JWT_SECRET', ''),
           algorithms: listValue(env, 'JWT_ALGORITHMS', []),
@@ -210,7 +210,7 @@ export function loadConfig (env = process.env, overrides = {}) {
         sso: {
           loginUrl: textValue(env, 'SSO_LOGIN_URL', ''),
           secret: textValue(env, 'SSO_SECRET', ''),
-          nonceMinutes: intVar(env, 'SSO_NONCE_MINUTES', 30, { min: 1 }) // DiscourseConnect
+          nonceMinutes: intVar(env, 'SSO_NONCE_MINUTES', 30, { min: 1 }) // I04 §11: DiscourseConnect nonce expiry
         },
         trustedHeaderName: textValue(env, 'TRUSTED_HEADER_NAME', 'tailscale-user-login').toLowerCase()
       }

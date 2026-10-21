@@ -1,0 +1,4 @@
+#!/bin/sh
+# Refuses a commit that contains a credential (MASTER-SPEC section 4.6). Enable it once per clone:
+#   git config core.hooksPath .githooks
+exec node "$(git rev-parse --show-toplevel)/scripts/check-secrets.mjs" --staged

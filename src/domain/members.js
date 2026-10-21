@@ -5,8 +5,10 @@ import { all, get, run, tx } from '../db/index.js'
 import { iso } from '../db/util.js'
 import { conflict, notFound } from './errors.js'
 import { audit } from './audit.js'
+import { DEFAULT_LANGUAGE, requireLanguage } from './language.js'
 
-const COLUMNS = 'id, email, name, role, responsibilities, domains, created_at'
+export const MEMBER_COLUMNS = 'id, email, name, role, responsibilities, domains, language, created_at'
+const COLUMNS = MEMBER_COLUMNS
 
 /** Domains are stored as a JSON list and come out as an array of strings. */
 export const parseDomains = (textValue) => {
@@ -15,7 +17,7 @@ export const parseDomains = (textValue) => {
 
 export const toMember = (dbRow) => ({
   id: dbRow.id, email: dbRow.email, name: dbRow.name, role: dbRow.role,
-  responsibilities: dbRow.responsibilities, domains: parseDomains(dbRow.domains), created_at: iso(dbRow.created_at)
+  responsibilities: dbRow.responsibilities, domains: parseDomains(dbRow.domains), language: dbRow.language, created_at: iso(dbRow.created_at)
 })
 
 export const listMembers = (db) => all(db, `SELECT ${COLUMNS} FROM members ORDER BY name COLLATE NOCASE, id`).map(toMember)
@@ -26,23 +28,24 @@ export function getMember (db, id) {
   return toMember(dbRow)
 }
 
-export function createMember (db, { email, name, role = 'member', responsibilities = '', domains = [] }, { now = Date.now, actorId = null } = {}) {
+export function createMember (db, { email, name, role = 'member', responsibilities = '', domains = [], language = DEFAULT_LANGUAGE }, { now = Date.now, actorId = null } = {}) {
   if (get(db, 'SELECT 1 AS e FROM members WHERE email = ?', email)) throw conflict('Ya existe un miembro con ese correo.', 'email_taken')
-  const r = run(db, 'INSERT INTO members (email, name, role, responsibilities, domains, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-    email, name, role, responsibilities, JSON.stringify(domains), now())
+  const r = run(db, 'INSERT INTO members (email, name, role, responsibilities, domains, language, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    email, name, role, responsibilities, JSON.stringify(domains), requireLanguage(language), now())
   const id = Number(r.lastInsertRowid)
   audit(db, { memberId: actorId, action: 'member.create', entity: 'member', entityId: id, detail: { email, role }, now })
   return id
 }
 
-const EDITABLE_FIELDS = ['name', 'email', 'role', 'responsibilities', 'domains']
+const EDITABLE_FIELDS = ['name', 'email', 'role', 'responsibilities', 'domains', 'language']
 
 /** Applies a patch. Returns { member, roleChanged }. Rejects leaving the team without an editor. */
 export function updateMember (db, id, patch, { actorId = null, now = Date.now } = {}) {
   return tx(db, () => {
     const current = get(db, `SELECT ${COLUMNS} FROM members WHERE id = ?`, id)
     if (!current) throw notFound('El miembro no existe.')
-    const edits = Object.entries(patch).filter(([k, v]) => EDITABLE_FIELDS.includes(k) && v !== undefined)
+    const normalized = patch.language === undefined ? patch : { ...patch, language: requireLanguage(patch.language) }
+    const edits = Object.entries(normalized).filter(([k, v]) => EDITABLE_FIELDS.includes(k) && v !== undefined)
     if (patch.email !== undefined && patch.email !== current.email) {
       const another = get(db, 'SELECT id FROM members WHERE email = ? AND id <> ?', patch.email, id)
       if (another) throw conflict('Ya existe un miembro con ese correo.', 'email_taken')

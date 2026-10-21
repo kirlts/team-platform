@@ -1,4 +1,4 @@
-# VERIFICATION: [Project Name] v0.1.0
+# VERIFICATION: team-platform v0.1.0
 
 > Canonical truth for all formal promise verifications and testing boundaries.
 > Generated and maintained exclusively by the `/derive` algorithm.
@@ -32,4 +32,4 @@ Implementation format (with mandatory timestamp):
   ✅ Implemented (🤖🧑 Pre-verified by [tool], confirmed by user; YYYY-MM-DD HH:MM)
 -->
 
-> Pending formal verification; the agent executes `/derive` to populate this section.
+> Pending formal verification; the agent executes `/derive` to populate this section. Mientras tanto, las prohibiciones HP-001 a HP-020 de `docs/TEST.md` son los checks que `docs/TODO.md` cita (DT-010).

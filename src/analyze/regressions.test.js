@@ -1,7 +1,10 @@
-// Regression tests (docs/TEST.md, REG-001 to REG-004): each one reproduces a defect found in real use or in the
+// Regression tests (docs/TEST.md, REG-001 to REG-005): each one reproduces a defect found in real use or in the
 // bench and fails if it comes back. The real-provider ones are in regressions.live.test.js.
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { stat } from 'node:fs/promises';
+import { extract } from '../extract/index.js';
+import { makeAudio, makeTmp } from '../extract/test/helpers.js';
 import { createFakeProviders } from '../providers/index.js';
 import { analyze } from './index.js';
 import { classifySystem } from './prompts.js';
@@ -111,5 +114,38 @@ describe('REG-004: a commission explained in a chat is not discarded', () => {
     assert.match(prompt, /Never discard a unit that describes something to be built or changed, nor one that sets a deadline, a date or a delivery commitment/);
     const nueva = areas.find((a) => a.title === 'Nueva funcionalidad');
     assert.match(nueva.description, /descripción de lo que hay que construir/);
+  });
+});
+
+describe('REG-005: a voice note transcribed in short phrases becomes sentence-sized units', () => {
+  // Phrase-level segments as Groq returns them: contiguous, one to five seconds, punctuation only now and then.
+  const PHRASES = [
+    [0, 2, 'pues cachai'], [2, 4, 'que el menú de la agenda'], [4, 6, 'no abre en el celular.'], [6, 7, 'Eso.'],
+    [7, 9, 'dos cositas,'], [9, 11, 'una sí y la otra no'], [11, 13, 'la del filtro de fechas'], [13, 16, 'sí funciona bien.'],
+    [19, 21, 'ahora lo del correo'], [21, 23, 'llega duplicado'], [23, 26, 'cada vez que se guarda un cambio.'],
+  ];
+
+  it('eleven phrase segments give four units, each one a whole sentence', async () => {
+    const tmp = await makeTmp('reg005');
+    try {
+      const path = await makeAudio(tmp.join('nota.m4a'), 28);
+      const segments = PHRASES.map(([start, end, text]) => ({ start, end, text: ` ${text}` }));
+      const speech = { async transcribe() { return { text: '', segments }; } };
+      const attachment = { id: 1, kind: 'audio', path, mime: 'audio/mp4', size: (await stat(path)).size };
+      const { text } = await extract(attachment, { providers: { speech } });
+
+      const units = numberUnits({ attachments: [{ id: 1, kind: 'audio', extracted: text }] });
+      assert.equal(segments.length, 11);
+      assert.deepEqual(units.map((u) => u.text), [
+        '[00:00] pues cachai que el menú de la agenda no abre en el celular.',
+        '[00:06] Eso.',
+        '[00:07] dos cositas, una sí y la otra no la del filtro de fechas sí funciona bien.',
+        '[00:19] ahora lo del correo llega duplicado cada vez que se guarda un cambio.',
+      ]);
+      // Every unit but the one-word "Eso." is a whole sentence.
+      assert.ok(units.filter((u) => u.text.split(' ').length > 3).every((u) => /[.?!…]$/.test(u.text)));
+    } finally {
+      await tmp.cleanup();
+    }
   });
 });

@@ -11,8 +11,8 @@ export const DEFAULTS = Object.freeze({
   // Cap on the text an extractor hands to the analyzer. Above the cap the text is cut
   // at a line break and `meta.warnings` carries `text_truncated`.
   text: Object.freeze({
-    // report 05 §8.3: 100 pages (maximum per request with a context under 1 M tokens)
-    // times 2,700 characters per page (the larger of the two PDFs measured).
+    // 100 pages (maximum per request with a context under 1 M tokens)
+    // times 2,700 characters per page (the larger of the two PDFs measured), report 05 §8.3.
     maxChars: 270_000,
   }),
 
@@ -38,8 +38,8 @@ export const DEFAULTS = Object.freeze({
   document: Object.freeze({
     // report 05 §8.3: 32 MB provider request times 3/4 of the base64.
     maxBytes: 24 * MiB,
-    // report 05 §8.3: fewer than 30 non-space characters per page is a page without text
-    // (scanned pages measured: 0; poorest digital page: 146).
+    // Fewer than 30 non-space characters per page is a page without text
+    // (scanned pages measured: 0; poorest digital page: 146), report 05 §8.3.
     scannedPageMaxChars: 30,
     // report 05 §8.3: 100 pages per call in native mode with a context under 1 M tokens.
     nativePagesPerCall: 100,
@@ -78,6 +78,19 @@ export const DEFAULTS = Object.freeze({
     // 600 s and 5 s) and Groq's 20 req/min (report 06 §3.2) is nowhere near. Not measured
     // against the real provider; the bench (MASTER-SPEC §7.11) sets it.
     chunkConcurrency: 3,
+    // Measured 2026-10-20 on three real voice notes (51 to 118 s, 98 Groq whisper-large-v3-turbo
+    // segments): docs/investigaciones/mediciones/2026-10-20-unidades-de-audio.md.
+    // Longest pause between two segments that still joins them into one line when the previous one
+    // does not close a sentence. Smallest of the tested values (0.5, 0.8, 1.2, 2.0 s) that already puts
+    // the median unit at 11.5 words, a full sentence (10 to 25); larger values join across pauses of
+    // 0.5 to 2 s and gain nothing on the median. Groq segments are contiguous (79 of 95 measured gaps
+    // are under 0.3 s), so the knob only cuts at the few real pauses.
+    pauseSeconds: 0.5,
+    // Word cap of a joined line. Declared courtesy, measured in the same run: with no cap, run-on speech
+    // without punctuation gave units of 109 words and 52 s (p90 of 68 words); with 40 the p90 drops to 39,
+    // the median rises to 17 and the longest joined unit is a single 50-word segment. 40 keeps whole the
+    // longest punctuated sentences measured (29 words) plus one typical segment (p90 of 14 words).
+    maxUnitWords: 40, // declared courtesy, measurement 2026-10-20 (see above)
   }),
 
   video: Object.freeze({
@@ -108,8 +121,8 @@ export const DEFAULTS = Object.freeze({
   }),
 
   link: Object.freeze({
-    // report 05 §8.3: 5 MiB (Readability with linkedom: 388 ms and 301 MB at 5.2 MiB; at 10.5 MiB the
-    // output changes shape).
+    // 5 MiB (Readability with linkedom: 388 ms and 301 MB at 5.2 MiB; at 10.5 MiB the
+    // output changes shape), report 05 §8.3.
     maxBytes: 5 * MiB,
     // report 05 §8.3: declared courtesy, no measurement.
     timeoutMs: 15_000,

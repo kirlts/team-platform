@@ -162,10 +162,12 @@ export function fakeVision({ failWith } = {}) {
 }
 
 /**
- * Fake speech: returns one segment every `every` seconds of the received chunk's length and
- * records the shape of the file (codec, sample rate, channels, duration).
+ * Fake speech: returns one segment every `every` seconds of the received chunk's length (each one
+ * ends its sentence with a period, so that joining segments does not merge them) and records the
+ * shape of the file (codec, sample rate, channels, duration).
+ * With `punctuate: false` the segments carry no final period: the running speech of a real provider.
  */
-export function fakeSpeech({ every = 5, failWith } = {}) {
+export function fakeSpeech({ every = 5, failWith, punctuate = true } = {}) {
   const calls = [];
   return {
     calls,
@@ -176,7 +178,7 @@ export function fakeSpeech({ every = 5, failWith } = {}) {
       calls.push({ audioPath, language, prompt, codec: stream.codec_name, sampleRate: Number(stream.sample_rate), channels: stream.channels, duration });
       if (failWith) throw failWith;
       const segments = [];
-      for (let t = 0; t < duration - 0.5; t += every) segments.push({ start: t, end: Math.min(t + every, duration), text: ` segmento ${t}` });
+      for (let t = 0; t < duration - 0.5; t += every) segments.push({ start: t, end: Math.min(t + every, duration), text: ` segmento ${t}${punctuate ? '.' : ''}` });
       return { text: segments.map((s) => s.text).join(' '), segments };
     },
   };

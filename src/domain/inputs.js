@@ -93,8 +93,8 @@ export function submitInput ({ db, queue, events, now = Date.now }, { authorId, 
 
 const attachmentView = (a) => ({ id: a.id, input_id: a.input_id, kind: a.kind, name: a.name, mime: a.mime, size: a.size, sha256: a.sha256, extracted: a.extracted_at !== null && a.extracted_at !== undefined })
 
-/** Proposal ids as text: the API contract exposes every id as a string. */
-function proposalView (payload) {
+/** Ids de la propuesta como texto: el contrato de la API expone todo id como cadena. */
+export function proposalView (payload) {
   const id = (v) => (v === null || v === undefined ? null : String(v))
   const listValue = (v) => (Array.isArray(v) ? v.map(String) : [])
   return {

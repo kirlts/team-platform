@@ -13,7 +13,7 @@ import fastifySwagger from '@fastify/swagger'
 import { EventEmitter } from 'node:events'
 import { get, latestVersion, userVersion } from '../db/index.js'
 import { AppError } from '../domain/errors.js'
-import { toMember } from '../domain/members.js'
+import { MEMBER_COLUMNS, toMember } from '../domain/members.js'
 import { createLogger } from '../log.js'
 import { getProviderSettings } from '../domain/settings.js'
 import { installErrorHandler, schemaErrorFormatter } from './errors.js'
@@ -135,7 +135,7 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
       files: config.uploads.maxFiles,
       fieldSize: config.uploads.maxTextBytes,
       fields: 1 + config.uploads.maxLinks + 1, // text, each link and a margin of one field
-      parts: config.uploads.maxFiles + config.uploads.maxLinks + 2
+      parts: config.uploads.maxFiles + config.uploads.maxLinks + 2 // I03 §7.2: files, links, the text field and a one-field margin
     }
   })
 
@@ -189,7 +189,7 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
         response: { 200: { type: 'object', properties: { ...memberSchema.properties, project_name: { type: 'string' }, provider: { type: 'string' } } } }
       }
     }, async (request) => {
-      const dbRow = get(db, 'SELECT id, email, name, role, responsibilities, domains, created_at FROM members WHERE id = ?', request.member.id)
+      const dbRow = get(db, `SELECT ${MEMBER_COLUMNS} FROM members WHERE id = ?`, request.member.id)
       return { ...toMember(dbRow), project_name: config.projectName, provider: identity.provider.name }
     })
     api.get('/health', { config: { public: true }, schema: healthSchema }, healthHandler)

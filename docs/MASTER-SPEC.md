@@ -165,7 +165,7 @@ Criterio: tecnologías que el autor ya probó en producción (Node, Fastify, Rea
 | Mensajes | Todos los mensajes del equipo con filtros: para mí, para X, por área, por estado, respuestas; búsqueda | Todos |
 | Áreas | Áreas con su conteo de abiertos y sus plantillas; edición en el lugar | Editor |
 | Equipo | Miembros con responsabilidades y dominios; cada uno edita lo suyo | Todos |
-| Conexiones | API, MCP, correo, WhatsApp. Apagada: visible como entrada deshabilitada con la razón | Editor |
+| Conexiones | API, MCP, correo, WhatsApp, GitHub Issues (UD-012). Apagada: visible como entrada deshabilitada con la razón | Editor |
 | Configuración | Cuenta, tema claro u oscuro, proveedores de modelo (Editor) | Todos |
 
 **Componentes de interfaz:**

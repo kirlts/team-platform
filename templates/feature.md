@@ -10,6 +10,8 @@ fields:
 ## Método
 Un pedido de funcionalidad es un comportamiento nuevo que alguien espera. Cada capacidad distinta es un mensaje. Dos pedidos son uno solo cuando no se pueden entregar por separado sin que el primero deje de servir; son dos cuando cada uno se puede construir y usar sin el otro.
 
+Cuando la descripción del proyecto ayuda a explicar dónde o por qué, el mensaje puede enriquecerse con ella: solo con lo que la descripción dice, sin inventar nada.
+
 Una lista de requisitos en viñetas suele traer un pedido por viñeta, pero un requisito que solo precisa a otro (un formato, un límite, un caso borde) pertenece al mensaje del pedido que precisa. Separa por capacidad, no por línea.
 
 Cómo llenar cada campo:

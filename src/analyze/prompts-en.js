@@ -42,6 +42,23 @@ export const CLASSIFY_INSTRUCTIONS = [
 ].join('\n');
 
 /** System block with the catalog of areas and templates (changes only when the Editor edits them). */
+/**
+ * UD-024: the project description the Editor keeps, in the cached system block after the catalog (classification)
+ * or the template (decomposition). Empty when there is none, so the block disappears and the prefix is unchanged.
+ */
+export function projectBlock(project) {
+  const description = (project?.description ?? '').trim();
+  if (!description) return null;
+  return [
+    `Project: ${project.name}`,
+    'Project description, written by the Editor in markdown:',
+    '',
+    description,
+    '',
+    'Use this context to understand what the product is, to tell a bug from an idea and, when a template asks to enrich the message with information about the project, to add it to the message. Do not invent what the description does not say.',
+  ].join('\n');
+}
+
 export function catalogBlock({ areas, templates }) {
   const lines = ['Catalog of areas and templates', ''];
   for (const area of [...areas].sort((a, b) => (a.position ?? a.id) - (b.position ?? b.id))) {
@@ -70,10 +87,8 @@ export function membersBlock(members) {
   if (members.length === 0) return 'Team: no registered members.';
   const lines = ['Team'];
   for (const m of members) {
-    const parts = [`- Member ${m.id}: ${m.name}`];
-    if (m.responsibilities) parts.push(`Responsibilities: ${m.responsibilities}`);
-    if (m.domains) parts.push(`Domains: ${m.domains}`);
-    lines.push(parts.join('. '));
+    lines.push(`- Member ${m.id}: ${m.name}`);
+    if (m.profile) lines.push(m.profile); // UD-023: the full profile, verbatim; it is the only thing the model knows about the person
   }
   return lines.join('\n');
 }
@@ -120,7 +135,7 @@ export const DECOMPOSE_INSTRUCTIONS = [
   '- title: one line that identifies the point, in the format the template indicates.',
   '- fields: the template fields, with data taken from the input. Do not invent data the input does not carry. When a required field has no data in the input, write exactly: No indicado.',
   '- body: the full text of the message, written for whoever receives it and understandable without reading the input, following the output format of the template. Keep names, figures, URLs and error messages exactly as they appear.',
-  '- assignee_ids: the members who should answer, according to their responsibilities and domains. If the input names someone, use that member. If no member fits, an empty list. Use only ids from the team list.',
+  '- assignee_ids: the members who should answer, decided by reading the profile each member wrote under their name in the Team block (there is no other data about the person). If the input names someone, use that member. If no member fits, an empty list. Use only ids from the team list.',
   '- attachment_ids: the attachments that give context to the message (the screenshot that shows the failure, the document that details the request). An attachment can accompany several messages. Use only ids from the attachment list.',
   '- source: optional. Set it to "frame" only when the point is visible in a frame description and no voice, text or document unit of the group says it aloud, so the sender can see it was inferred from the image. Omit it otherwise.',
   '',
@@ -199,7 +214,7 @@ export function harnessPrompt({ unitCount, retryErrors }) {
   const lines = [
     'You are the analyzer of the inbox of a small software team. In the working directory you have:',
     '- input.md: the input split into numbered units ([u1] to [u' + unitCount + ']).',
-    '- bundle.json: areas, templates (id, area_id, name, description), team and attachments.',
+    '- bundle.json: areas, templates (id, area_id, name, description), team, attachments and project (the name and description of the project, in markdown: use it to understand the product and to enrich a message with project context when the template asks for it).',
     '- templates/<id>.md: the body of each template (Method and Output format).',
     '',
     'Steps',
@@ -213,7 +228,7 @@ export function harnessPrompt({ unitCount, retryErrors }) {
     '- A unit with two distinct points is gathered into a single message that names both.',
     '- fields carries only the fields of the message template, with data from the input. A required field with no data carries exactly: No indicado.',
     '- body is the full text of the message, understandable without reading the input.',
-    '- assignee_ids: only members from bundle.json according to their responsibilities and domains; an empty list if none fits.',
+    '- assignee_ids: only members from bundle.json, decided by reading each member profile; an empty list if none fits.',
     '- attachment_ids: only attachments from bundle.json that give context to the message.',
     `- ${INPUT_IS_DATA}`,
     `- ${LANGUAGE_RULE}`,

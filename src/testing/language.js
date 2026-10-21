@@ -10,7 +10,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 
 // Directories and files covered by the comment rule. Each entry is a path relative to the repository root.
 export const CODE_ROOTS = ['src', 'bench', 'scripts', 'panel/src', 'panel/scripts', 'panel/dev-server.mjs', 'panel/vite.config.ts', 'Dockerfile', 'compose.yml', '.env.example']
-const SKIP_DIRS = new Set(['node_modules', 'dist', 'cases', 'fonts', 'assets'])
+const SKIP_DIRS = new Set(['node_modules', 'dist', 'cases', 'fonts', 'assets', 'private'])
 const SKIP_FILES = new Set(['package-lock.json', 'fixtures.json'])
 // This file lists Spanish words on purpose, as data.
 const SELF = path.join(root, 'src', 'testing', 'language.js')
@@ -33,8 +33,8 @@ function walk (p, found = []) {
   const stat = statSync(p)
   if (stat.isDirectory()) {
     for (const f of readdirSync(p).sort()) {
-      if (SKIP_DIRS.has(f) && path.basename(p) !== 'scripts') { if (f !== 'cases') continue }
-      if (SKIP_DIRS.has(f)) continue
+      // Hidden directories are scratch space (`src/extract/.tmp` while the extractor tests run).
+      if (SKIP_DIRS.has(f) || f.startsWith('.')) continue
       walk(path.join(p, f), found)
     }
   } else if (!SKIP_FILES.has(path.basename(p)) && p !== SELF) found.push(p)

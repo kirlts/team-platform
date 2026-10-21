@@ -3,9 +3,9 @@
 import { loadSeed } from '../seed.js';
 
 export const MEMBERS = [
-  { id: 1, name: 'Ana Rojas', responsibilities: 'Interfaz y pantallas del panel', domains: 'frontend, accesibilidad' },
-  { id: 2, name: 'Bruno Silva', responsibilities: 'API, base de datos y exportaciones', domains: 'backend, SQLite, CSV' },
-  { id: 3, name: 'Carla Díaz', responsibilities: 'Producto y comunicación con clientes', domains: 'requerimientos' },
+  { id: 1, name: 'Ana Rojas', profile: 'Diseño las pantallas del panel y cuido la accesibilidad. Decido cómo se ve y se usa la interfaz.\n\nPrefiero recibir capturas y pasos para reproducir.' },
+  { id: 2, name: 'Bruno Silva', profile: 'Me encargo de la API, la base de datos SQLite y las exportaciones CSV.\n\nNo toco la interfaz.' },
+  { id: 3, name: 'Carla Díaz', profile: 'Llevo el producto y la comunicación con clientes. Defino requerimientos y prioridades.' },
 ];
 
 // Three mixed bugs: A is told in two separate moments (u2 and u4).

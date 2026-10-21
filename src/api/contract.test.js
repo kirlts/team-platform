@@ -139,7 +139,8 @@ test('GET /me brings project_name; GET /areas brings open_count and template_cou
   const env = await team({ config: { projectName: 'Atlas' } })
   const me = (await env.api('GET', '/me', env.c.ana)).json()
   assert.equal(me.project_name, 'Atlas')
-  assert.deepEqual(me.domains, [])
+  assert.equal(me.profile, '')
+  assert.equal('domains' in me || 'responsibilities' in me, false) // UD-023
   assert.equal(typeof me.id, 'string')
   const areas = (await env.api('GET', '/areas', env.c.ana)).json()
   assert.ok(areas.every((a) => typeof a.open_count === 'number' && a.template_count === 1))

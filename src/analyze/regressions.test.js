@@ -185,7 +185,7 @@ describe('REG-007: one point said once is one message, whatever the units in bet
       const { areas, templates } = await makeBundle();
       const classify = classifySystem({ areas, templates, language }).join('\n');
       assert.match(classify, split);
-      const decompose = decomposeSystem(parseTemplate(templates[1].body_markdown), language).join('\n');
+      const decompose = decomposeSystem(parseTemplate(templates[1].body_markdown), undefined, language).join('\n');
       assert.match(decompose, contiguous);
     });
   }
@@ -211,7 +211,7 @@ describe('REG-009: a rhetorical question or a closing filler is not a Question m
     it(`the classification and the decomposition of ${language} leave it out`, async () => {
       const { areas, templates } = await makeBundle();
       assert.match(classifySystem({ areas, templates, language }).join('\n'), rhetorical);
-      assert.match(decomposeSystem(parseTemplate(templates[1].body_markdown), language).join('\n'), decomposition);
+      assert.match(decomposeSystem(parseTemplate(templates[1].body_markdown), undefined, language).join('\n'), decomposition);
     });
   }
 });

@@ -64,7 +64,7 @@ describe('prompt sets', () => {
     assert.match(classifySystem({ areas, templates, language: 'en' }).join('\n'), /You are the classifier/);
     const template = parseTemplate(templates[1].body_markdown);
     assert.match(decomposeSystem(template).join('\n'), /Plantilla elegida:/);
-    assert.match(decomposeSystem(template, 'en').join('\n'), /Chosen template:/);
+    assert.match(decomposeSystem(template, undefined, 'en').join('\n'), /Chosen template:/);
     assert.match(harnessPrompt({ unitCount: 2, language: 'en' }), /You are the analyzer/);
   });
 

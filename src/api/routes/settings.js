@@ -4,8 +4,9 @@
 // when configured and not when the first job fails.
 
 import { audit } from '../../domain/audit.js'
-import { getProviderOverrides, getProviderSettings, MODALITIES, mergeOverrides, setProviderOverrides } from '../../domain/settings.js'
-import { unprocessable } from '../../domain/errors.js'
+import { getProject, getProviderOverrides, getProviderSettings, MODALITIES, mergeOverrides, setProjectDescription, setProviderOverrides } from '../../domain/settings.js'
+import { tooLarge, unprocessable } from '../../domain/errors.js'
+import { readProjectUpload } from '../upload.js'
 
 const itemVista = {
   type: 'object',
@@ -66,5 +67,37 @@ export function registerSettingsRoutes (app, ctx) {
     setProviderOverrides(db, patchObj)
     audit(db, { memberId: request.member.id, action: 'settings.providers', entity: 'settings', detail: analyzer !== undefined ? { analyzer } : { slot, provider: slotBody.provider, model: slotBody.model } })
     return view()
+  })
+
+  // Project description (UD-024): any member reads it, the editor writes it. Free Markdown, passed whole to the analyzer.
+  const projectView = { type: 'object', properties: { name: { type: 'string' }, description: { type: 'string' } }, required: ['name', 'description'] }
+
+  app.get('/settings/project', {
+    onRequest: [requireRole('member')],
+    schema: { summary: 'Nombre y descripción del proyecto', response: { 200: projectView } }
+  }, async () => getProject(db, config))
+
+  app.patch('/settings/project', {
+    onRequest: [requireRole('editor')],
+    schema: {
+      summary: 'Cambiar la descripción del proyecto (editor)',
+      description: 'JSON `{ description }` o multipart con un archivo `file` (.md) o un campo `description`. El texto reemplaza al anterior y viaja entero al analizador. El tope es `PROJECT_DESCRIPTION_MAX_CHARS` caracteres (413 `too_large` si lo supera).',
+      // Per content type: the multipart body is read by the handler, only the JSON body is validated by schema.
+      body: {
+        content: {
+          'application/json': {
+            schema: { type: 'object', required: ['description'], additionalProperties: false, properties: { description: { type: 'string' } } }
+          }
+        }
+      },
+      response: { 200: projectView }
+    }
+  }, async (request) => {
+    const maxChars = config.project.descriptionMaxChars
+    const description = request.isMultipart() ? await readProjectUpload(request, maxChars) : request.body.description
+    if ([...description].length > maxChars) throw tooLarge(`La descripción del proyecto supera el máximo de ${maxChars} caracteres.`)
+    setProjectDescription(db, description)
+    audit(db, { memberId: request.member.id, action: 'settings.project.update', entity: 'settings', detail: { length: [...description].length } })
+    return getProject(db, config)
   })
 }

@@ -9,6 +9,8 @@ fields:
 ## Método
 Una idea es una propuesta abierta: nadie dice que haya que hacerla ya. Cada idea distinta es un mensaje. Dos ideas son la misma cuando resuelven el mismo problema por el mismo camino; son distintas cuando resuelven problemas distintos o toman caminos incompatibles, aunque se mencionen juntas.
 
+Cuando la descripción del proyecto ayuda a explicar dónde o por qué, el mensaje puede enriquecerse con ella: solo con lo que la descripción dice, sin inventar nada.
+
 Si dentro de un mismo párrafo la persona propone algo y justifica por qué, ambas partes sostienen un solo mensaje. Una justificación que apoya a dos ideas distintas se cita en la idea principal y se nombra en la otra.
 
 Cómo llenar cada campo:

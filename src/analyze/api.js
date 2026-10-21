@@ -323,7 +323,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
   const profile = providers.text.schemaProfile ?? 'anthropic';
   let attachments = workBundle.attachments ?? [];
   const members = bundle.members ?? [];
-  const { areas, templates } = bundle;
+  const { areas, templates, project } = bundle;
   const fail = (r) => ({ status: r.status, step: r.step, category: r.category, explanation: r.explanation, reason: r.reason, errors: r.errors ?? [], max_tokens: r.max_tokens, draft: r.draft, units, calls: ctx.calls, stats: ctx.stats });
 
   // -- Call 1: classify into groups by area and template -------------------------------------
@@ -331,7 +331,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
   // (idea.md: «one or several messages that group the work into categories»). If the input does not fit
   // in one call it is classified in disjoint structural chunks and the groups are joined.
   ctx.report('clasificando el input');
-  const cSystem = classifySystem({ areas, templates, language });
+  const cSystem = classifySystem({ areas, templates, project, language });
   const fixedClassify = estimateTokens([...cSystem, membersBlock([], language)].join('\n'), config.charsPerToken);
   const cSchema = buildClassificationSchema({ areas, templates });
 
@@ -413,7 +413,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
       throw new AnalyzeInputError(`La plantilla ${templateId} no trae «body_markdown»`, { calls: ctx.calls });
     }
     const template = parseTemplate(row.body_markdown, { source: `template ${templateId}` });
-    const system = decomposeSystem(template, language);
+    const system = decomposeSystem(template, project, language);
     const entry = {
       template,
       system,
@@ -490,12 +490,12 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
  * cached for 24 hours since the last use; it is called when saving or editing a template, no clock).
  * @returns {Promise<object>} the llm_calls entry of the warm-up call
  */
-export async function warmTemplate({ providers, config, templateMarkdown, language }) {
+export async function warmTemplate({ providers, config, templateMarkdown, project, language }) {
   const template = parseTemplate(templateMarkdown, { source: 'warm-up' });
   const ctx = createContext({ providers, config, unitCount: 0, language: resolveLanguage(language) });
   const profile = providers.text.schemaProfile ?? 'anthropic';
   const r = await callText(ctx, 'warmup', {
-    system: decomposeSystem(template, language),
+    system: decomposeSystem(template, project, language),
     messages: [{ role: 'user', content: 'Template warm-up. Return an empty messages array.' }],
     schema: buildDecompositionSchema(template.fields, { profile, withDiscarded: false }),
     effort: config.classifyEffort,
@@ -509,10 +509,10 @@ export async function warmTemplate({ providers, config, templateMarkdown, langua
  * areas or templates (the id `enum`s are part of the structure). Same criterion as `warmTemplate`.
  * @returns {Promise<object>} the llm_calls entry of the warm-up call
  */
-export async function warmCatalog({ providers, config, areas, templates, language }) {
+export async function warmCatalog({ providers, config, areas, templates, project, language }) {
   const ctx = createContext({ providers, config, unitCount: 0, language: resolveLanguage(language) });
   const r = await callText(ctx, 'warmup-classify', {
-    system: classifySystem({ areas, templates, language }),
+    system: classifySystem({ areas, templates, project, language }),
     messages: [{ role: 'user', content: 'Catalog warm-up. Return empty groups and discarded arrays.' }],
     schema: buildClassificationSchema({ areas, templates }),
     effort: config.classifyEffort,

@@ -35,7 +35,7 @@ Fuentes de este documento: `idea.md` (volcado de diseño de Martín, 2026-10-20)
 | **Hilo** | Una respuesta seguida de más respuestas sobre el mismo mensaje. | Lineal, como los comentarios de un issue de GitHub. |
 | **Área** | Categoría de un mensaje. Las áreas son mutuamente excluyentes y colectivamente exhaustivas para toda comunicación interna que busque respuesta. | Título y descripción. Las gestiona el Editor. Juego inicial: idea, error, nueva funcionalidad, retroalimentación, pregunta. |
 | **Plantilla** | Archivo markdown que describe cómo analizar un input de su área y qué forma tiene cada mensaje de salida. | N plantillas por área, cada plantilla de una sola área. Nombre y descripción. Las gestiona el Editor. |
-| **Miembro** | Persona del equipo, con nombre, descripción breve de responsabilidades y dominios. | Edita sólo su propia descripción y dominios. Rol `member` o `editor` (UD-007). |
+| **Miembro** | Persona del equipo, con nombre y un perfil: un par de párrafos en primera persona sobre qué hace, qué sabe, qué decide y cómo prefiere recibir las cosas (UD-023). | Edita sólo su propio perfil. Rol `member` o `editor` (UD-007). |
 | **Trabajo** | Unidad de la cola: extraer un adjunto, analizar un input. | Sobrevive al navegador y al reinicio del proceso (UD-003, UD-010). |
 
 ### 1.2 El modelo lee y propone; el sistema valida y decide
@@ -80,7 +80,7 @@ Idempotencia en el sentido de las plantillas de trabajo. Una plantilla aplicada 
 
 1. La persona escribe en la barra de Inicio, adjunta lo que tenga y envía. `POST /api/inputs` guarda el input, cada adjunto en el volumen con su hash, calcula el hash del input y encola un trabajo `analyze`. Si el hash ya existe, devuelve lo que ya hay (§1.3). Respuesta inmediata con el id del input y el id del trabajo.
 2. El worker toma el trabajo con arriendo. Por cada adjunto corre el extractor de su tipo (§7.4) y escribe el texto o la descripción obtenida en la fila del adjunto. Cada paso emite un evento de progreso (porcentaje y frase breve) en `job_events`; el panel los recibe por SSE (`GET /api/events`).
-3. El analizador (§7.5) arma el paquete. Lo componen el texto del input y las extracciones de los adjuntos. Suma los títulos y descripciones de áreas y plantillas, y el equipo con sus responsabilidades y dominios. Numera las unidades del input. Primera llamada: reparte las unidades en grupos de un solo punto, cada grupo con su área y su plantilla. Segunda llamada, una por grupo y en paralelo, con el cuerpo de la plantilla del grupo. Devuelve los mensajes MECE del grupo, cada uno con título, campos de la plantilla, destinatarios propuestos y adjuntos que lo contextualizan. El sistema calcula solapes y huecos por conjuntos, valida cada campo contra la base y, si hay conflicto, hace un único pase de rescate.
+3. El analizador (§7.5) arma el paquete. Lo componen el texto del input y las extracciones de los adjuntos. Suma los títulos y descripciones de áreas y plantillas, y el equipo con el perfil completo de cada miembro. Numera las unidades del input. Primera llamada: reparte las unidades en grupos de un solo punto, cada grupo con su área y su plantilla. Segunda llamada, una por grupo y en paralelo, con el cuerpo de la plantilla del grupo. Devuelve los mensajes MECE del grupo, cada uno con título, campos de la plantilla, destinatarios propuestos y adjuntos que lo contextualizan. El sistema calcula solapes y huecos por conjuntos, valida cada campo contra la base y, si hay conflicto, hace un único pase de rescate.
 4. El input pasa a `proposed`. En Inicio aparece la propuesta editable: área, cada mensaje, sus destinatarios, sus adjuntos. La persona corrige lo que quiera y aprieta Enviar. `POST /api/inputs/:id/publish` crea los mensajes en estado `abierto`.
 5. Los destinatarios los ven en Inicio («últimos mensajes», filtrados para mí) y en Mensajes. Responden (`POST /api/messages/:id/replies`), con lo que el mensaje pasa a `respondido`; cualquiera lo cierra o reabre.
 
@@ -218,7 +218,7 @@ Desarrollo del panel: Vite 8, Tailwind 4.3 con `@tailwindcss/vite` (MIT), TypeSc
 | Inicio | Barra de envío, vista previa, análisis, últimos mensajes (para mí por omisión), últimas respuestas (que me involucran) | Todos |
 | Mensajes | Todos los mensajes del equipo con filtros: para mí, para X, por área, por estado, respuestas; búsqueda | Todos |
 | Áreas | Áreas con su conteo de abiertos y sus plantillas; edición en el lugar | Editor |
-| Equipo | Miembros con responsabilidades y dominios; cada uno edita lo suyo | Todos |
+| Equipo | Miembros con su perfil; cada uno edita el suyo | Todos |
 | Conexiones | API, MCP, correo, WhatsApp, GitHub Issues (UD-012). Apagada: visible como entrada deshabilitada con la razón | Editor |
 | Configuración | Cuenta, tema claro u oscuro, proveedores de modelo (Editor) | Todos |
 
@@ -285,10 +285,12 @@ DELETE /api/areas/:id/templates/:templateId?confirm=true · POST /api/templates/
 
 GET    /api/members
 POST   /api/members               alta de un miembro                          (Editor)
-PATCH  /api/members/me            descripción, dominios y contraseña propias
+PATCH  /api/members/me            perfil, idioma y contraseña propios (`profile`: texto, tope en `members.profileMaxLength`)
 PATCH  /api/members/:id                                                        (Editor)
 
 GET    /api/settings/providers · PATCH /api/settings/providers                (Editor; nunca devuelve una llave)
+GET    /api/settings/project         { name, description } (cualquier miembro)
+PATCH  /api/settings/project         descripción del proyecto en markdown: JSON { description } o multipart con `file` (.md) (Editor; tope PROJECT_DESCRIPTION_MAX_CHARS, 413 al superarlo; bitácora `settings.project.update`)
 GET    /api/attachments/:id       archivo, con control de acceso y Range
 
 GET    /api/jobs?state=           la cola de trabajos                         (Editor)
@@ -308,7 +310,7 @@ Un Miembro lee las áreas (con sus plantillas sin cuerpo) porque necesita nombra
 **Propósito:** Las tablas son la especificación. Identificadores en inglés (UD-005, UD-015). Las marcas de tiempo son enteros en milisegundos Unix (UTC) y la API las expone en ISO 8601; los spans van en nanosegundos.
 
 ```
-members              id, email (único sin distinguir mayúsculas), name, role(member|editor), responsibilities, domains (JSON; la API lo expone como lista), created_at
+members              id, email (único sin distinguir mayúsculas), name, role(member|editor), profile (texto libre, UD-023; reemplaza a responsibilities y domains), created_at
 credentials          member_id, password_hash, updated_at, failed_count, next_attempt_at        (proveedor local; espera exponencial por cuenta)
 sessions             id (SHA-256 de la ficha), member_id, created_at, last_seen_at, expires_at
 identity_links       provider, external_id, member_id, created_at                               (identidad delegada)
@@ -383,7 +385,7 @@ Los topes de tamaño por tipo se aplican en dos lugares: al subir (`src/config.j
 ```
 analyze(bundle, { providers, onProgress, config, analyzer }) → AnalyzeResult
 bundle = { text, attachments:[{id, kind, name, extracted}], areas:[{id,title,description,position}],
-           templates:[{id,area_id,name,description,body_markdown}], members:[{id,name,responsibilities,domains}] }
+           templates:[{id,area_id,name,description,body_markdown}], members:[{id,name,profile}], project:{name,description} }  -- project.description (UD-024) va en el sistema cacheado de las dos llamadas, tras el catálogo y la plantilla; profile: el texto completo, sin recortes (UD-023)
 AnalyzeResult = { status:'ok', proposal, units, calls, stats }
               | { status:'refusal' | 'max_tokens' | 'invalid', step, errors, …, units, calls, stats }
 Proposal = { messages:[{ area_id, template_id, title, body, fields, assignee_ids, attachment_ids, unit_ids }], discarded:[{ unit_ids, reason }] }

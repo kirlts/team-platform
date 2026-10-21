@@ -3,32 +3,27 @@
     {
       "id": 1,
       "name": "Camila Reyes",
-      "responsibilities": "Diseño de interfaz y accesibilidad",
-      "domains": "diseño, accesibilidad"
+      "profile": "Diseño la interfaz y cuido la accesibilidad. Decido cómo se ve y cómo se usa cada pantalla.\n\nPrefiero recibir capturas y los pasos para llegar a la pantalla."
     },
     {
       "id": 2,
       "name": "Tomás Aguirre",
-      "responsibilities": "Servidor, API y base de datos",
-      "domains": "backend, infraestructura"
+      "profile": "Me encargo del servidor, la API y la base de datos, y de la infraestructura donde corren. Decido el esquema y los contratos de la API.\n\nNo toco la interfaz."
     },
     {
       "id": 3,
       "name": "Valentina Soto",
-      "responsibilities": "Aplicación del repartidor y panel web",
-      "domains": "frontend, móvil"
+      "profile": "Hago la aplicación del repartidor y el panel web, con foco en el móvil. Decido cómo se arma el frontend.\n\nPrefiero recibir el dispositivo y la versión en que ocurre."
     },
     {
       "id": 4,
       "name": "Joaquín Paredes",
-      "responsibilities": "Producto, requerimientos y prioridades",
-      "domains": "producto, clientes"
+      "profile": "Llevo el producto: los requerimientos, las prioridades y la relación con los clientes. Decido qué entra y qué espera.\n\nPrefiero recibir el problema del cliente antes que la solución."
     },
     {
       "id": 5,
       "name": "Isidora Fuentes",
-      "responsibilities": "Pruebas y soporte a clientes",
-      "domains": "calidad, soporte"
+      "profile": "Hago las pruebas y el soporte a clientes. Reproduzco los errores y sigo los reclamos hasta cerrarlos.\n\nPrefiero recibir pasos para reproducir y datos del cliente."
     }
   ]
 }

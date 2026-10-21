@@ -154,7 +154,20 @@ export function loadConfig (env = process.env, overrides = {}) {
       pageMax: 100 // Martín's decision 2026-10-20: page cap of the API
     },
 
-    // ---- Identity (MS §7.7, I04 §11)
+    // ---- Proyecto (UD-024)
+    project: {
+      // The 100,000 input-token price step of the default model is ≈ 300,000 characters at 3 chars/token in Spanish.
+      // 200,000 characters leave room for the input, the catalog and the team in the same call.
+      descriptionMaxChars: intVar(env, 'PROJECT_DESCRIPTION_MAX_CHARS', 200000, { min: 1 }) // informe 02 §10.2: the 100,000-token price step, UD-024
+    },
+
+    // ---- Miembros
+    members: {
+      // Not a model limit: the whole profile travels to the analyzer (UD-023).
+      profileMaxLength: 4000 // declared courtesy: two paragraphs ≈ 2,000 characters; 4,000 leaves room (UD-023)
+    },
+
+    // ---- Identidad (MS §7.7, I04 §11)
     identity: {
       provider: choiceVar(env, 'IDENTITY_PROVIDER', ['local', 'delegated'], 'local'),
       // same-origin: `__Host-` + SameSite=Lax. cross-origin: SameSite=None; Secure (a frontend on another origin).

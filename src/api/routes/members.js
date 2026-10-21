@@ -1,5 +1,5 @@
-// Member routes (MASTER-SPEC §7.1, UD-007). A member edits only their own description and domains; the editor
-// adds and manages the others. Changing the role or the password closes that person's sessions
+// Member routes (MASTER-SPEC §7.1, UD-007). A member edits only their own profile (UD-023); the editor
+// creates and administers the rest. Changing the role or the password closes that person's sessions
 // (the session is regenerated on a privilege change, report 04 §2.2).
 
 import { get, run, tx } from '../../db/index.js'
@@ -12,11 +12,11 @@ import { pageEnvelope, pageParams, pageQuerySchema, pageResult } from '../pagina
 import { idParams, member } from '../schemas.js'
 
 const emailAddr = { type: 'string', minLength: 3, maxLength: 254, pattern: '^[^@\\s]+@[^@\\s]+$' } // 254: maximum length of an address (RFC 5321)
-const domainList = { type: 'array', items: { type: 'string' } }
 const languageTag = { type: 'string', enum: LANGUAGES } // UD-018: exactly two values; anything else is 400 'validation'
 
 export function registerMemberRoutes (app, ctx) {
   const { db, config, requireRole, identity, blocklist } = ctx
+  const profileText = { type: 'string', maxLength: config.members.profileMaxLength, description: 'Perfil: un par de párrafos en primera persona (UD-023).' }
   const local = config.identity.provider === 'local'
 
   async function savePassword (memberId, password, actorId) {
@@ -47,7 +47,7 @@ export function registerMemberRoutes (app, ctx) {
         type: 'object', required: ['email', 'name'], additionalProperties: false,
         properties: {
           email: emailAddr, name: { type: 'string', minLength: 1 }, role: { type: 'string', enum: ['member', 'editor'] },
-          responsibilities: { type: 'string' }, domains: domainList, password: { type: 'string' }
+          profile: profileText, password: { type: 'string' }
         }
       },
       response: { 201: member }
@@ -68,14 +68,14 @@ export function registerMemberRoutes (app, ctx) {
     return getMember(db, id)
   })
 
-  // The member themself: description, domains and, with the current password, the password.
+  // The member themselves: profile, language and, with the current password, the password.
   app.patch('/members/me', {
     onRequest: [requireRole('member')],
     schema: {
-      summary: 'Editar lo propio: descripción, dominios, idioma de salida y contraseña',
+      summary: 'Editar lo propio: perfil, idioma de salida y contraseña',
       body: {
         type: 'object', additionalProperties: false, minProperties: 1,
-        properties: { responsibilities: { type: 'string' }, domains: domainList, language: languageTag, current_password: { type: 'string' }, new_password: { type: 'string' } }
+        properties: { profile: profileText, language: languageTag, current_password: { type: 'string' }, new_password: { type: 'string' } }
       },
       response: { 200: member }
     }
@@ -103,7 +103,7 @@ export function registerMemberRoutes (app, ctx) {
         type: 'object', additionalProperties: false, minProperties: 1,
         properties: {
           name: { type: 'string', minLength: 1 }, email: emailAddr, role: { type: 'string', enum: ['member', 'editor'] },
-          responsibilities: { type: 'string' }, domains: domainList, password: { type: 'string' },
+          profile: profileText, password: { type: 'string' },
           active: { type: 'boolean', description: 'false desactiva la cuenta (no puede iniciar sesión y conserva su historial); true la reactiva.' }
         }
       },

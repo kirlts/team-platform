@@ -48,7 +48,7 @@ test('HP-008 · code identifiers are in English (UD-005, §4.7)', () => {
 })
 
 test('HP-003 · no code decides with the text a person writes (§1.2, §4.2)', () => {
-  const humanText = new Set(['text', 'body', 'title', 'message', 'description', 'responsibilities', 'domains', 'reply'])
+  const humanText = new Set(['text', 'body', 'title', 'message', 'description', 'profile', 'reply'])
   const methods = new Set(['test', 'match', 'matchAll', 'includes', 'startsWith', 'endsWith', 'search', 'indexOf', 'localeCompare'])
   const findings = []
   for (const f of listFiles(['domain', 'api', 'identity', 'queue', 'events']).filter((x) => !isTest(x))) {

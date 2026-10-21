@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url'
 import { lex } from './testing/lex.js'
 
 const analyzeDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'analyze')
-const HUMAN_TEXT = new Set(['text', 'body', 'title', 'message', 'description', 'responsibilities', 'domains', 'reply', 'extracted'])
+const HUMAN_TEXT = new Set(['text', 'body', 'title', 'message', 'description', 'profile', 'reply', 'extracted'])
 const MATCHING = new Set(['test', 'match', 'matchAll', 'includes', 'startsWith', 'endsWith', 'search', 'indexOf', 'localeCompare'])
 
 // file: reason. Only these files may use a matching method on human text, and only for the stated reason.

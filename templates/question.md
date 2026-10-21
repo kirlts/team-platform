@@ -9,6 +9,8 @@ fields:
 ## Método
 Una pregunta espera una respuesta de una persona concreta. Cada pregunta distinta es un mensaje. Dos preguntas son una sola cuando se contestan con la misma explicación; son dos cuando exigen respuestas distintas o a personas distintas, aunque estén en la misma frase.
 
+Cuando la descripción del proyecto ayuda a explicar dónde o por qué, el mensaje puede enriquecerse con ella: solo con lo que la descripción dice, sin inventar nada.
+
 Una pregunta retórica o una queja con signos de interrogación no pide información: se clasifica según lo que realmente pide la persona (error, retroalimentación). Las preguntas encadenadas que dependen una de la otra («¿existe X? y si no, ¿cuándo?») forman un solo mensaje.
 
 Cómo llenar cada campo:

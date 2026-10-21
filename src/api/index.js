@@ -104,6 +104,24 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
           }
         }
       }
+      if (route?.method === 'PATCH' && url === `${config.apiPrefix}/settings/project`) {
+        // Besides JSON, the description may come as a .md file; the handler reads it, the schema only documents it.
+        copyOf.body = {
+          ...copyOf.body,
+          content: {
+            ...copyOf.body?.content,
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                properties: {
+                  file: { type: 'string', format: 'binary', description: 'Archivo .md que reemplaza la descripción.' },
+                  description: { type: 'string', description: 'Texto markdown que reemplaza la descripción (alternativa al archivo).' }
+                }
+              }
+            }
+          }
+        }
+      }
       return { schema: copyOf, url }
     }
   })

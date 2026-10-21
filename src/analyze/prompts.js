@@ -34,9 +34,10 @@ export function resolveLanguage(language) {
 // First call: classify
 // ---------------------------------------------------------------------------------------------
 
-export function classifySystem({ areas, templates, language }) {
+export function classifySystem({ areas, templates, project, language }) {
   const set = promptSet(language);
-  return [set.CLASSIFY_INSTRUCTIONS, set.catalogBlock({ areas, templates })];
+  // UD-024: the project description is the last block of the cached system prompt; with none, the block disappears.
+  return [set.CLASSIFY_INSTRUCTIONS, set.catalogBlock({ areas, templates }), set.projectBlock(project)].filter(Boolean);
 }
 
 export function attachmentsBlock(attachments, units, language) {
@@ -57,9 +58,9 @@ export function classifyUser({ units, attachments, language, secondPass = false 
 // Second call: decompose
 // ---------------------------------------------------------------------------------------------
 
-export function decomposeSystem(template, language) {
+export function decomposeSystem(template, project, language) {
   const set = promptSet(language);
-  return [set.DECOMPOSE_INSTRUCTIONS, set.templateBlock(template)];
+  return [set.DECOMPOSE_INSTRUCTIONS, set.templateBlock(template), set.projectBlock(project)].filter(Boolean);
 }
 
 export function decomposeUser({ members, attachments, units, scopeNote, language }) {

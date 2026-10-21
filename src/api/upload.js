@@ -101,3 +101,40 @@ async function readUpload (request, config, { textField, extraFields, emptyMessa
     throw error
   }
 }
+
+/**
+ * Reads the multipart body of PATCH /settings/project (UD-024): a `file` part (.md) or a `description` field, both
+ * capped at `maxChars` characters. The file is read into memory only up to 4 bytes per allowed character (the UTF-8
+ * worst case), so an oversized upload is refused without being stored.
+ */
+export async function readProjectUpload (request, maxChars) {
+  if (!request.isMultipart()) throw unsupported('Se esperaba un envío multipart/form-data.')
+  const tooBig = () => tooLarge(`La descripción del proyecto supera el máximo de ${maxChars} caracteres.`)
+  let description
+  for await (const part of request.parts()) {
+    if (part.type === 'field') {
+      if (part.fieldname !== 'description') continue
+      if (part.valueTruncated) throw tooBig()
+      description = String(part.value)
+      continue
+    }
+    if (part.fieldname !== 'file') { part.file.resume(); continue }
+    if (!/\.md$/i.test(part.filename || '')) {
+      part.file.resume()
+      throw unsupported(`«${part.filename || 'archivo'}» no es un archivo .md.`)
+    }
+    const chunks = []
+    let size = 0
+    for await (const chunk of part.file) {
+      size += chunk.length
+      if (size > maxChars * 4) { part.file.resume(); throw tooBig() }
+      chunks.push(chunk)
+    }
+    try { description = new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks)).replace(/^\uFEFF/, '') } catch {
+      throw badRequest(`«${part.filename}» no está codificado en UTF-8.`, 'file_encoding')
+    }
+  }
+  if (description === undefined) throw badRequest('Falta el archivo .md o el campo «description».', 'description_required')
+  if ([...description].length > maxChars) throw tooBig()
+  return description
+}

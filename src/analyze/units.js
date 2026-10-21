@@ -19,9 +19,8 @@ const CLOCK = '\\d{1,2}:\\d{2}(?::\\d{2})?';
 const TIMESTAMP = new RegExp(`^\\s*[[(]?${CLOCK}(?:\\s*[-–]\\s*${CLOCK})?[\\])]?(?:[\\s,]|$)`);
 // Time of a unit: `mm:ss`, `h:mm:ss` or the range `mm:ss-mm:ss` at the start of its text (an optional heading aside).
 // Lines the video extractor writes (§7.4): «[mm:ss-mm:ss] Voz: …» and «[mm:ss] Fotograma N: …». Each one is a single
-// unit even when it holds several sentences; so is any line that starts with a time range.
+// unit even when it holds several sentences. Other speakers (a meeting transcript) still go down to sentences.
 const EXTRACTOR_SENDER = /^(?:Voz|Fotograma \d+)$/;
-const RANGE_START = new RegExp(`^\\s*[[(]?${CLOCK}\\s*[-–]\\s*${CLOCK}`);
 const UNIT_TIME = new RegExp(`^(?:#.*\\n)*\\s*[[(]?(${CLOCK}(?:\\s*[-–]\\s*${CLOCK})?)[\\])]?(?:[\\s,]|$)`);
 // Chat line with a sender: «[15:55, 7/10/2026] Name: …», «[09:12] Name: …» and «7/10/2026 15:55 - Name: …».
 const CHAT_BRACKET = /^\s*(\[[^\]\n]*\d{1,2}:\d{2}[^\]\n]*\])\s*([^:\n]{1,60}?):\s+(\S.*)$/;
@@ -221,7 +220,7 @@ function splitText(text, { atomic }) {
       continue;
     }
     const body = block.chat ? block.chat.body.join(' ') : block.lines.join(' ');
-    const wholeLine = EXTRACTOR_SENDER.test(block.chat?.sender ?? '') || RANGE_START.test(block.lines[0]);
+    const wholeLine = EXTRACTOR_SENDER.test(block.chat?.sender ?? '');
     const pieces = atomic ? [block.lines.join('\n')] : wholeLine ? [body] : splitBlock(body);
     pieces.forEach((piece, i) => {
       // The first sentence of a chat line keeps its timestamp and its sender; the others carry the sender.

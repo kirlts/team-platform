@@ -278,7 +278,7 @@ describe('analyze (api): partitioning', () => {
     return { messages: unitIdsIn(req).map((u) => bugMessage([u], `Corregir pantalla ${u}`)) };
   };
   const smallThreshold = (bundle) => {
-    const probe = decomposeSystem(parseTemplate(bundle.templates[1].body_markdown), 'en').join('\n').length;
+    const probe = decomposeSystem(parseTemplate(bundle.templates[1].body_markdown), undefined, 'en').join('\n').length;
     return Math.ceil(probe / 3) + 150;
   };
 
@@ -562,7 +562,7 @@ describe('analyze (api): system prompt cache', () => {
   it('the decomposition system of each initial template exceeds the cacheable minimum of 512 tokens', async () => {
     const { templates } = await seed();
     for (const row of templates) {
-      const system = decomposeSystem(parseTemplate(row.body_markdown), 'en').join('\n');
+      const system = decomposeSystem(parseTemplate(row.body_markdown), undefined, 'en').join('\n');
       assert.ok(system.length / 3 >= 512, `${row.name}: ${Math.round(system.length / 3)} estimated tokens`);
     }
   });
@@ -618,7 +618,7 @@ describe('warmTemplate', () => {
     assert.equal(entry.step, 'warmup');
     assert.equal(entry.ok, true);
     assert.equal(fake.calls.text.length, 1);
-    assert.deepEqual(fake.calls.text[0].system, decomposeSystem(parseTemplate(templates[1].body_markdown), 'en'));
+    assert.deepEqual(fake.calls.text[0].system, decomposeSystem(parseTemplate(templates[1].body_markdown), undefined, 'en'));
   });
 });
 

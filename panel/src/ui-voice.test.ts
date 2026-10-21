@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { en } from './i18n/en'
 import { es419 } from './i18n/es-419'
+import { progressKey } from './lib/progress-text'
 
 type Lang = 'es' | 'en'
 type RuleId = 'length' | 'opening' | 'person' | 'imperative' | 'punctuation' | 'gerund' | 'vague'
@@ -130,6 +131,13 @@ describe('the interface speaks like an instrument (UD-050)', () => {
       .filter((p) => p.rule && !EXCEPTIONS[p.text]?.some((e) => e.rule === p.rule))
       .map((p) => `${p.file} [${p.rule}]: ${p.text}`)
     expect(out).toEqual([])
+  })
+
+  it('every phrase of the server maps to a key of the catalogues, so the language of the account applies (H-1502)', () => {
+    const unmapped = progressPhrases()
+      .map((p) => p.text.replace('Transcripción: X X', 'Transcripción: 3 trozos').replace(/X/g, '3'))
+      .filter((text) => !progressKey(text))
+    expect(unmapped).toEqual([])
   })
 
   it('every exception still lifts something: none is left over', () => {

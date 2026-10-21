@@ -5,9 +5,11 @@ import { mmss } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 /** Audio player with the product's skin: play or pause, progress and time. Replaces the browser's native control. */
-export function AudioPlayer({ src, name, className }: { src: string; name: string; className?: string }) {
+export function AudioPlayer({ src, name, className, onError, onReady }: { src: string; name: string; className?: string; onError?: () => void; onReady?: () => void }) {
   const t = useT()
   const audio = useRef<HTMLAudioElement>(null)
+  const handlers = useRef({ onError, onReady })
+  handlers.current = { onError, onReady }
   const [playing, setPlaying] = useState(false)
   const [time, setTime] = useState(0)
   const [length, setLength] = useState(0)
@@ -18,6 +20,10 @@ export function AudioPlayer({ src, name, className }: { src: string; name: strin
     const onTime = () => setTime(el.currentTime)
     const onMeta = () => setLength(Number.isFinite(el.duration) ? el.duration : 0)
     const onEnd = () => setPlaying(false)
+    const fail = () => handlers.current.onError?.()
+    const ready = () => handlers.current.onReady?.()
+    el.addEventListener('error', fail)
+    el.addEventListener('loadedmetadata', ready)
     el.addEventListener('timeupdate', onTime)
     el.addEventListener('loadedmetadata', onMeta)
     el.addEventListener('durationchange', onMeta)
@@ -27,6 +33,8 @@ export function AudioPlayer({ src, name, className }: { src: string; name: strin
       el.removeEventListener('loadedmetadata', onMeta)
       el.removeEventListener('durationchange', onMeta)
       el.removeEventListener('ended', onEnd)
+      el.removeEventListener('error', fail)
+      el.removeEventListener('loadedmetadata', ready)
     }
   }, [])
 

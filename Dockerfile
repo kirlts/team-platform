@@ -101,7 +101,7 @@ export PKG_CONFIG_PATH=/opt/dav1d/lib/pkgconfig
   --enable-decoder=h264,hevc,vp8,vp9,libdav1d,aac,alac,opus,vorbis,flac,mp3,mp3float,pcm_s16le,pcm_s24le,pcm_s32le,pcm_u8,pcm_f32le,pcm_alaw,pcm_mulaw \
   --enable-encoder=flac,mjpeg \
   --enable-muxer=flac,image2,null \
-  --enable-filter=scale,fps,aresample,aformat,format,null,anull \
+  --enable-filter=scale,fps,aresample,aformat,format,null,anull,xstack,transpose,hflip,vflip \
   --enable-protocol=file,pipe \
   $ASM
 # configure-end

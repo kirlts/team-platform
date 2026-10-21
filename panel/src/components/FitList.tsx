@@ -87,13 +87,20 @@ export function FitList<T>({
   /** The floor the slot was given after the last measure (see `fit.floor`): a slot held up by its floor is where the measure expects it, not a changed frame. */
   const measuredFloor = useRef(0)
 
+  /**
+   * Whether the slot, now `now` px high, is somewhere the last measure did not expect. Taller than the measure assumed: the room grew. Shorter: only a problem
+   * when the rows are squeezed by it. A slot that hugs its rows (`flex-initial`) ends lower than the height it had while the sixty measuring rows were drawn,
+   * and that is the measure being right, not a changed frame: judging it by the height alone drew the measuring rows again after every measure (H-3200).
+   */
+  const movedFrom = (now: number, expected: number) => now > expected + 0.5 || (now < expected - 0.5 && (body.current ? body.current.scrollHeight > body.current.clientHeight + 1 : true))
+
   useEffect(() => {
     const el = slot.current
     if (!el || typeof ResizeObserver === 'undefined') return
     let last = el.clientHeight
     const observer = new ResizeObserver(() => {
       const now = el.clientHeight
-      if (Math.abs(now - last) > 0.5 || (measuredBox.current !== null && Math.abs(now - Math.max(measuredBox.current, measuredFloor.current)) > 0.5)) {
+      if (Math.abs(now - last) > 0.5 || (measuredBox.current !== null && movedFrom(now, Math.max(measuredBox.current, measuredFloor.current)))) {
         last = now
         setFrameVersion((v) => v + 1)
       }
@@ -148,7 +155,7 @@ export function FitList<T>({
     // no change then, and the measure taken in the dip would stay. One look after the frame, at the height this measure used, is that event.
     const taken = box.clientHeight
     requestAnimationFrame(() => {
-      if (slot.current && Math.abs(slot.current.clientHeight - Math.max(taken, measuredFloor.current)) > 0.5) setFrameVersion((v) => v + 1)
+      if (slot.current && movedFrom(slot.current.clientHeight, Math.max(taken, measuredFloor.current))) setFrameVersion((v) => v + 1)
     })
     // Everything left fits without a pager when it is the first page.
     if (first === 0 && heights.length === remaining && total(heights) <= room - above + 0.5) {

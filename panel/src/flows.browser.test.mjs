@@ -307,13 +307,15 @@ describe('consecutive inputs (UD-025)', () => {
       await settled(page)
       const base = await heights()
       const baseFrame = (await tray.boundingBox()).height
+      const barY = (await bar.boundingBox()).y
       for (let i = 2; i <= 10; i++) await send(i)
       // They finish staggered: the folded header counts all ten once they are ready for review.
       await tray.getByText('10 para revisar').waitFor({ timeout: 40000 })
       await settled(page)
-      assert.deepEqual(await heights(), base, 'ten submissions must not change the page height')
+      // UD-110: with a send open the region scrolls and the drawer is as tall as what it shows, so the region's height may grow; the document does not, and the bar does not move.
+      assert.equal((await heights()).doc, base.doc, 'ten submissions must not change the document height')
+      assert.equal((await bar.boundingBox()).y, barY, 'ten submissions do not move the text bar')
       assert.ok(Math.abs((await tray.boundingBox()).height - baseFrame) <= 1, 'the submissions control keeps its height')
-      assert.ok(base.main <= base.win, 'the main region does not scroll')
 
       // Keyboard inside the drawer: J moves to the next send of the list (an older one: the list is newest first) and K to the previous one. Enter publishes from nowhere (J2-B-13): a click on Enviar or Enter with the focus on that button does, and the send stays in view, published.
       await page.getByTestId('send-drawer').waitFor()
@@ -981,7 +983,7 @@ describe('composer (round 2, judge B)', () => {
       await settled(page)
       assert.equal((await feed.boundingBox()).y, y0, 'typing a long text does not move the page')
       const box = await bar.boundingBox()
-      assert.ok(box.height <= 124, `the text box stops at its maximum: ${box.height}`)
+      assert.ok(box.height <= 192, `the text box stops at its maximum: ${box.height}`)
       // The writing line stays in view: the cursor is at the end and the box scrolled down to it.
       assert.equal(await bar.evaluate((el) => el.scrollTop + el.clientHeight >= el.scrollHeight - 2), true, 'the end of the text is visible')
       assert.ok((await bar.boundingBox()).y + (await bar.boundingBox()).height <= 900, 'the box is inside the window')

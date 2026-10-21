@@ -340,8 +340,8 @@ function ProposalEditor({
           <span className="font-semibold">{t('analysis.error.publish_blocked')}</span> {input.error}
         </p>
       )}
-      {/* The messages of the proposal are read whole: a text has no maximum length, so the list is a lane with its own scroll, declared, and never a frame that cuts the open message. */}
-      <ul data-lane="proposal-messages" aria-label={t('proposal.list')} className="scroll-thin flex min-h-0 flex-1 flex-col overflow-y-auto">
+      {/* The messages of the proposal are read whole: a text has no maximum length, so the list is as tall as it is and the page scrolls (UD-110); no frame cuts the open message. */}
+      <ul aria-label={t('proposal.list')} className="flex flex-1 flex-col">
         {rows.map(({ m, i }) => (
           <ProposalRow
             key={i}

@@ -35,8 +35,8 @@ export function PublishedPane({ input }: { input: InputRecord }) {
         <span className="text-xs font-semibold text-muted">{t('tray.state.published')}</span>
         <UndoButtons stack={stack} />
       </div>
-      {/* The messages of a send have no maximum length: the list is a lane with its own scroll, declared, and no box is ever cut. */}
-      <ul data-lane="published-messages" className="scroll-thin flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
+      {/* The messages of a send have no maximum length: the list is as tall as it is and the page scrolls (UD-110); no box is ever cut. */}
+      <ul className="flex flex-1 flex-col gap-2">
         {ids.map((id) => (
           <PublishedMessage key={id} id={id} input={input} />
         ))}

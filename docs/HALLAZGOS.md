@@ -604,3 +604,10 @@ Debe decir `OK Último envío: estado proposed, adjuntos: audio` con al menos un
 | H-2300 | Los contadores de la barra lateral quedaban a distinta distancia del borde derecho y a distinta altura; Mensajes llevaba contorno de píldora y las áreas no; «Retroalimentación» se partía en dos líneas | UD-130 | `wt-barra-lateral`: una grilla con columna de contador fija, contadores sin contenedor, hover y foco en toda la fila; prueba `sidebar-alignment` |
 | H-2301 | Ningún detector medía la alineación entre hermanos de una lista | UD-130 | `wt-barra-lateral`: regla `sibling-alignment` en `ui-detectors.mjs` con su prueba; sin hallazgos en las ocho pantallas |
 | H-2302 | `ui-detectors` registra 8 controles bajo 24 px con vecino a menos de 24 px (enlaces «Abrir área» en teléfono, botón de la lista de equipo, botón de Configuración) y un texto fuera de la escala (`code` en Configuración); ninguno es de la barra lateral | UD-130 | abierto: pertenecen a Áreas, Equipo y Configuración (`wt-configuracion` toca la última) |
+
+## Inicio con espacio (2026-10-21)
+
+| # | Hallazgo | Origen | Estado |
+|---|---|---|---|
+| H-2100 | `FitList` entraba en un ciclo de medida cuando el espacio de la lista lo sostenía su piso de una fila (ventana baja con la franja de Inicio): 40 peticiones por segundo al archivo de cada miniatura de video, medidas con un contador de peticiones y trazas de `ResizeObserver` | UD-110 | `wt-inicio-respira`: el observador compara con el mayor entre la medida y el piso; `test:fit` «1280x720 las listas no piden de nuevo» |
+| H-2101 | Con un envío abierto las dos listas de Inicio tomaban el alto de su contenido (9.501 px a 1440x900 ×8) | UD-110 | `wt-inicio-respira`: las listas tienen alto propio mientras la página se desplaza; `test:fit` «inicio con propuesta» |

@@ -80,6 +80,8 @@ export function FitList<T>({
 
   /** The height of the slot the last measure was taken at: a slot that ends at another height than that one makes the measure stale, even when it passed through other heights in between. */
   const measuredBox = useRef<number | null>(null)
+  /** The floor the slot was given after the last measure (see `fit.floor`): a slot held up by its floor is where the measure expects it, not a changed frame. */
+  const measuredFloor = useRef(0)
 
   useEffect(() => {
     const el = slot.current
@@ -87,7 +89,7 @@ export function FitList<T>({
     let last = el.clientHeight
     const observer = new ResizeObserver(() => {
       const now = el.clientHeight
-      if (Math.abs(now - last) > 0.5 || (measuredBox.current !== null && Math.abs(now - measuredBox.current) > 0.5)) {
+      if (Math.abs(now - last) > 0.5 || (measuredBox.current !== null && Math.abs(now - Math.max(measuredBox.current, measuredFloor.current)) > 0.5)) {
         last = now
         setFrameVersion((v) => v + 1)
       }
@@ -122,10 +124,11 @@ export function FitList<T>({
     // no change then, and the measure taken in the dip would stay. One look after the frame, at the height this measure used, is that event.
     const taken = box.clientHeight
     requestAnimationFrame(() => {
-      if (slot.current && Math.abs(slot.current.clientHeight - taken) > 0.5) setFrameVersion((v) => v + 1)
+      if (slot.current && Math.abs(slot.current.clientHeight - Math.max(taken, measuredFloor.current)) > 0.5) setFrameVersion((v) => v + 1)
     })
     // Everything left fits without a pager when it is the first page.
     if (first === 0 && heights.length === remaining && total(heights) <= box.clientHeight - above + 0.5) {
+      measuredFloor.current = 0
       setFit({ ...stamp, n: remaining, sum: total(heights), floor: 0 })
       return
     }
@@ -133,7 +136,9 @@ export function FitList<T>({
     const n = Math.min(remaining, fitCount(heights, box.clientHeight - above - pager))
     // A page always holds one row (`fitCount`), so the slot is never lower than that row, the header and the pager: in a window
     // lower than that the page scrolls, and the row is not drawn over the pager (H-96). In a taller window this changes nothing.
-    setFit({ ...stamp, n, sum: total(heights.slice(0, n)), floor: Math.ceil((heights[0] ?? 0) + above + pager + chrome(frame.current)) })
+    const floor = Math.ceil((heights[0] ?? 0) + above + pager + chrome(frame.current))
+    measuredFloor.current = floor
+    setFit({ ...stamp, n, sum: total(heights.slice(0, n)), floor })
   })
 
   // A row that changes height after it was measured (its template arrives, a field is edited) makes the measure stale.

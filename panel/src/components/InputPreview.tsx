@@ -25,9 +25,9 @@ export function InputPreview({ input }: { input: InputRecord }) {
 
   return (
     <OriginalFrame>
-      {/* A pasted text has no maximum length: it is a lane with its own scroll, declared. */}
+      {/* A pasted text has no maximum length: it is a lane with its own scroll, declared, and the only one the drawer keeps (UD-110); its cap comes from the window. */}
       {input.text && (
-        <div data-lane="input-text" className="scroll-thin min-h-0 flex-1 overflow-y-auto px-1 text-sm">
+        <div data-lane="input-text" className="scroll-thin min-h-0 flex-1 overflow-y-auto px-1 text-sm md:max-h-[60dvh]">
           <EditableText value={input.text} label={t('original.title')} multiline prose canEdit={editable} validate={(v) => (v ? null : t('common.required'))} onSave={change} />
         </div>
       )}

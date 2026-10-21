@@ -107,3 +107,7 @@ El puntaje de destinatarios (`score.js`, clave `assignment`) empareja cada mensa
 
 `areas-classify.mjs --variant <nombre>` corre solo la clasificación (sin descomposición) con las descripciones de `bench/area-variants/<nombre>.mjs`. Sin banderas, el modelo recibe la agrupación de referencia; con `--no-grouping` arma sus grupos con ventanas, validación y reparación como el pipeline. `compare a.json b.json` cuenta los mensajes donde solo acierta uno y `report` reimprime una corrida. Mide exactitud por unidad y por mensaje contra el lector A, el B y la unión, y los pares más confundidos. Lee `bench/private/` (`BENCH_PRIVATE_DIR`). Cada corrida cuesta unos 0,05 USD y se suma en `bench/results/private-spend.jsonl`.
 
+## Comparación de modelos (H-80)
+
+`h80-report.mjs` agrupa archivos de resultado por modelo o esfuerzo y calcula cobertura, área, asignación, marcas de IA, tiempo p50 y p95, costo por entrada (también con caché tibia), la comparación de a pares por punto con prueba de signos (`h80.js`) y la utilidad de los archivos del juez agrupado. Sonnet 5.5 necesita `--config '{"classifyThinking":null,"decomposeThinking":null}'` (H-1100). La medición está en `docs/investigaciones/mediciones/2026-10-21-modelos-y-esfuerzo-de-clasificacion.md`.
+

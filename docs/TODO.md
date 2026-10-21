@@ -179,7 +179,7 @@
 
 **Checks cubiertos:** HP-018 `[Requiere validación humana]`
 
-- [ ] Una foto HEIC real de iPhone: confirmar el rechazo con `image_heic_unsupported` o implementar la conversión
+- [x] Una foto HEIC real de iPhone: se decodifica con el `ffmpeg` de la imagen (UD-040, H-21)
 - [ ] Latencia de Groq, Anthropic y DeepSeek con archivos reales (la medición del 2026-10-20 usó dobles de latencia cero)
 - [ ] Un Word con estilos propios, un PDF real de cliente y una grabación real de teléfono
 - [ ] Descarga de enlaces contra internet real y contra servidores que entregan bytes lentamente

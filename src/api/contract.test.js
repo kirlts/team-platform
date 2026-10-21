@@ -414,3 +414,39 @@ test('SIGTERM al proceso cierra ordenado en menos de 10 s y deja el trabajo en c
   db.close()
   rmSync(dir, { recursive: true, force: true })
 })
+
+test('HP-004 · un trabajo sobrevive a la muerte brusca del proceso: al reiniciar vence el arriendo y se retoma', async () => {
+  const dir = tempDir()
+  const rootDir = path.resolve(here, '../..')
+  const base = { ...process.env, DATA_DIR: dir, PORT: '0', HOST: '127.0.0.1', LOG_LEVEL: 'info', ADMIN_EMAIL: 'jefe@x.org', ADMIN_PASSWORD: TEST_PASSWORD, COOKIE_INSECURE_DEV: 'true', QUEUE_LEASE_MS: '600', QUEUE_HEARTBEAT_MS: '200' }
+  const boot = async (extraEnv) => {
+    const proc = spawn(process.execPath, ['src/server.js'], { cwd: rootDir, env: { ...base, ...extraEnv }, stdio: ['ignore', 'pipe', 'pipe'] })
+    let output = ''
+    proc.stdout.on('data', (d) => { output += d })
+    proc.stderr.on('data', (d) => { output += d })
+    await until(() => /API escuchando en http:\/\/127\.0\.0\.1:\d+/.test(output), { timeoutMs: 15000 })
+    return { proc, url: `http://127.0.0.1:${/API escuchando en http:\/\/127\.0\.0\.1:(\d+)/.exec(output)[1]}` }
+  }
+  // Primer proceso: el analizador no termina nunca; se envía un input y se lo mata con SIGKILL en pleno análisis.
+  const first = await boot({ ANALYZE_MODULE: path.join(rootDir, 'src/testing/slow-analyze.js') })
+  const entry = await fetch(`${first.url}/api/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'jefe@x.org', password: TEST_PASSWORD }) })
+  const cookie = entry.headers.getSetCookie()[0].split(';')[0]
+  const form = new FormData()
+  form.append('text', 'algo que se queda a medias')
+  assert.equal((await fetch(`${first.url}/api/inputs`, { method: 'POST', headers: { cookie, 'x-team-request': 'panel' }, body: form })).status, 202)
+  const db = openInitialized({ ...(await import('../config.js')).loadConfig({ DATA_DIR: dir }) })
+  await until(() => get(db, 'SELECT status FROM inputs WHERE id = 1').status === 'analyzing')
+  first.proc.kill('SIGKILL') // sin apagado ordenado: nadie devuelve el trabajo a la cola
+  await new Promise((r) => first.proc.on('close', r))
+  assert.equal(get(db, 'SELECT status FROM jobs WHERE id = 1').status, 'running') // quedó con su arriendo a medias
+
+  // Segundo proceso, con el analizador de prueba que sí termina: recupera el arriendo vencido y completa el trabajo.
+  const second = await boot({ ANALYZE_MODULE: path.join(rootDir, 'src/testing/demo-modules.js'), EXTRACT_MODULE: path.join(rootDir, 'src/testing/demo-modules.js') })
+  await until(() => get(db, 'SELECT status FROM inputs WHERE id = 1').status === 'proposed', { timeoutMs: 15000 })
+  assert.equal(get(db, 'SELECT status FROM jobs WHERE id = 1').status, 'done')
+  assert.equal(get(db, 'SELECT attempts FROM jobs WHERE id = 1').attempts, 2) // el intento perdido cuenta
+  second.proc.kill('SIGTERM')
+  await new Promise((r) => second.proc.on('close', r))
+  db.close()
+  rmSync(dir, { recursive: true, force: true })
+})

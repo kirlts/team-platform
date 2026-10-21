@@ -57,7 +57,7 @@ export function contentHash ({ authorId, text, fileHashes, links }) {
  * [{ kind, name, mime, size, sha256 }]; `links`, already-validated URLs.
  * Returns { input, jobId, created, restarted }.
  */
-export function submitInput ({ db, queue, events, now = Date.now }, { authorId, text, files, links }) {
+export function submitInput ({ db, queue, events, now = Date.now }, { authorId, text, files, links, keepDraft = false }) {
   const hash = contentHash({ authorId, text, fileHashes: files.map((f) => f.sha256), links })
   return events.transaction(() => {
     const existing = get(db, 'SELECT * FROM inputs WHERE content_hash = ?', hash)
@@ -74,7 +74,7 @@ export function submitInput ({ db, queue, events, now = Date.now }, { authorId, 
       return { input: existing, jobId: jobRow?.id ?? null, created: false, restarted: false }
     }
     const t = now()
-    const r = run(db, 'INSERT INTO inputs (author_id, text, content_hash, status, created_at, updated_at) VALUES (?, ?, ?, \'queued\', ?, ?)', authorId, text, hash, t, t)
+    const r = run(db, 'INSERT INTO inputs (author_id, text, content_hash, status, keep_draft, created_at, updated_at) VALUES (?, ?, ?, \'queued\', ?, ?, ?)', authorId, text, hash, keepDraft ? 1 : 0, t, t)
     const inputId = Number(r.lastInsertRowid)
     for (const f of files) {
       run(db, 'INSERT INTO attachments (input_id, kind, name, path, mime, size, sha256) VALUES (?, ?, ?, ?, ?, ?, ?)', inputId, f.kind, f.name, f.sha256, f.mime, f.size, f.sha256)

@@ -460,6 +460,7 @@ export const es419 = {
   'error.not_deleted': 'El elemento no está borrado',
   'error.not_editable': 'El envío ya no se puede editar',
   'error.not_message_author': 'Sólo quien envió el mensaje lo edita',
+  'error.auto_publish_invalid': 'El valor de auto_publish no es válido',
   'error.attachments_empty': 'Falta un archivo o un enlace',
   'error.input_missing': 'El envío de origen de este mensaje ya no existe',
   'error.version_required': 'Falta la versión del mensaje',

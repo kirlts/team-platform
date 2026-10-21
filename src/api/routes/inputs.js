@@ -1,6 +1,7 @@
 // Input routes (MASTER-SPEC §7.1): create (multipart, idempotent by hash), list one's own, query,
 // publish, cancel and, for the editor, reprocess.
 
+import { releaseBlobs } from '../../domain/storage.js'
 import { cancelInput, editInputText, getInputView, listInputs, proposalView as presentProposal, reprocessInput, restoreInput, submitInput } from '../../domain/inputs.js'
 import { getMessage } from '../../domain/messages.js'
 import { publishProposal, saveProposalDraft } from '../../domain/proposals.js'
@@ -20,13 +21,20 @@ export function registerInputRoutes (app, ctx) {
   app.post('/inputs', {
     onRequest: [requireRole('member')],
     schema: {
-      summary: 'Submit an input (multipart: text, files[], links[])',
-      description: 'Idempotent by content: the same normalized text, the same attachments by hash and the same sender return the input that already exists (200). A new input, or a failed or cancelled one that is resubmitted, is queued (202).',
+      summary: 'Submit an input (multipart: text, files[], links[], auto_publish; or JSON { text, links, auto_publish })',
+      description: '`auto_publish=false` (UD-072) pide que ESTE envío no se publique solo: su propuesta espera como `proposed` aunque la perilla del proyecto esté encendida, y se publica a mano con `POST /inputs/:id/publish` o se cancela. `true` o sin el campo sigue la perilla. Cualquier otro valor es 400 `auto_publish_invalid`; en un envío repetido (ya existente) el campo no cambia lo que ya hay. El envío sólo con JSON no lleva archivos. Idempotent by content: the same normalized text, the same attachments by hash and the same sender return the input that already exists (200). A new input, or a failed or cancelled one that is resubmitted, is queued (202).',
       response: { 200: createdSchema, 202: createdSchema }
     }
   }, async (request, reply) => {
-    const { text, links, files } = await readInputUpload(request, config)
-    const r = submitInput({ db, queue, events }, { authorId: request.member.id, text, files, links })
+    const { text, links, files, keepDraft } = await readInputUpload(request, config, db)
+    let r
+    try {
+      r = submitInput({ db, queue, events }, { authorId: request.member.id, text, files, links, keepDraft })
+    } catch (error) {
+      await releaseBlobs(db, config, files, { discard: true })
+      throw error
+    }
+    await releaseBlobs(db, config, files, { discard: false })
     // 202: the analysis is queued. 200: the same content already existed and what is there is returned (§1.3).
     reply.code(r.created || r.restarted ? 202 : 200)
     return { input_id: r.input.id, job_id: r.jobId, status: r.input.status, duplicate: !r.created && !r.restarted, restarted: r.restarted }

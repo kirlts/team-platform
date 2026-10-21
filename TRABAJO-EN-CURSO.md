@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: a88806c Traspaso: ronda 4 de jueces y cinco arreglos. Empujado a origin: `a88806c`.
-- Ramas con commits sin fusionar: `wt-banco-abiertos` 6 (hace 56 minutos), `wt-h904` 4 (hace 5 minutos).
-- Worktrees abiertos: `team-platform`, `areas2`, `areas3`, `auto-publicar`, `banco-abiertos`, `barra-movil`, `cierre`, `envio`, `equipo-config`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `tarjetas`, `telemetria-ui`, `thinking`, `voz`.
+- `main`: ec34966 Traspaso: banco fusionado. Empujado a origin: `ec34966`.
+- Ramas con commits sin fusionar: `wt-h904` 4 (hace 7 minutos), `wt-barra-movil` 1 (hace 82 segundos).
+- Worktrees abiertos: `team-platform`, `areas2`, `areas3`, `auto-publicar`, `barra-movil`, `cierre`, `envio`, `equipo-config`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `tarjetas`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `a88806c` Traspaso: ronda 4 de jueces y cinco arreglos (hace 17 segundos)
-- `b38bcf8` Traspaso: barrido fusionado, jueces en curso (hace 3 minutos)
-- `50a189a` Merge branch 'wt-voz2' (hace 7 minutos)
-- `def9572` Voice detector: setting hints measured in characters (hace 26 minutos)
-- `6664a58` Traspaso: Inicio fusionado, Fase 1 completa (hace 29 minutos)
-- `8650d0c` Merge branch 'wt-inicio-respira' (hace 40 minutos)
-- `5fb0eaf` Fusiona main (Configuración, UD-140) en wt-inicio-respira (hace 49 minutos)
-- `a4d075d` Traspaso: Configuración fusionada (hace 49 minutos)
-Actualizado 2026-10-21 19:48 UTC.
+- `ec34966` Traspaso: banco fusionado (hace 15 segundos)
+- `d593179` Merge branch 'wt-banco-abiertos' (hace 61 segundos)
+- `a88806c` Traspaso: ronda 4 de jueces y cinco arreglos (hace 2 minutos)
+- `b38bcf8` Traspaso: barrido fusionado, jueces en curso (hace 4 minutos)
+- `50a189a` Merge branch 'wt-voz2' (hace 8 minutos)
+- `def9572` Voice detector: setting hints measured in characters (hace 28 minutos)
+- `6664a58` Traspaso: Inicio fusionado, Fase 1 completa (hace 31 minutos)
+- `8650d0c` Merge branch 'wt-inicio-respira' (hace 41 minutos)
+Actualizado 2026-10-21 19:50 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

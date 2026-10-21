@@ -483,7 +483,7 @@ export const DETECTORS = {
   },
 
   /** Visible texts that match the patterns of the language guard (R1 to R14 of UD-050). Patterns arrive as { id, source, flags }. */
-  voice: ({ patterns, userTexts = [] }) => {
+  voice: ({ patterns, userTexts = [], maxHintChars = 90 }) => {
     const ud = window.__ud
     const out = []
     const seen = new Set()
@@ -496,8 +496,10 @@ export const DETECTORS = {
       const flat = squash(text)
       const whole = squash(el.textContent ?? '') // an inline element (code, emphasis) splits the own text of its parent
       if (people.some((p) => p.includes(flat) || p.includes(whole) || (p.length >= 8 && whole.includes(p)))) continue
+      // UD-122: the explanation of a setting measures its length in characters (a hint), not in words.
+      const hint = el.matches('[data-setting-hint]')
       for (const p of patterns) {
-        if (!new RegExp(p.source, p.flags).test(text)) continue
+        if (hint && p.id === 'length') { if (flat.length <= maxHintChars) continue } else if (!new RegExp(p.source, p.flags).test(text)) continue
         const key = ud.sel(el) + '|' + p.id
         if (seen.has(key)) continue
         seen.add(key)
@@ -533,8 +535,8 @@ export async function loadVoicePatterns(file, lang = 'es') {
   }
   const module = join(PANEL, 'src/ui-voice-patterns.mjs')
   if (!existsSync(module)) return { reason: 'omitido: panel/src/ui-voice-patterns.mjs no existe en esta rama' }
-  const { voicePatterns } = await import(pathToFileURL(module).href)
-  return { patterns: voicePatterns(lang) }
+  const { voicePatterns, MAX_HINT_CHARS } = await import(pathToFileURL(module).href)
+  return { patterns: voicePatterns(lang), maxHintChars: MAX_HINT_CHARS }
 }
 
 /** Every string of the data the example server holds (messages, replies, areas, members): what people wrote, not interface text. */
@@ -642,7 +644,7 @@ export async function run(options = {}) {
       const args = { type: scale, voice, maxSaturated }
       for (const [name, fn] of Object.entries(DETECTORS)) {
         if (name === 'voice' && !voice.patterns) continue
-        const input = name === 'type-scale' ? scale : name === 'equal-weight' ? { max: maxSaturated } : name === 'voice' ? { patterns: voice.patterns, userTexts } : undefined
+        const input = name === 'type-scale' ? scale : name === 'equal-weight' ? { max: maxSaturated } : name === 'voice' ? { patterns: voice.patterns, userTexts, maxHintChars: voice.maxHintChars } : undefined
         const res = await runDetector(page, name, input)
         if (name === 'page-height') {
           ratios[id] ??= { route, ratios: {} }

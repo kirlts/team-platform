@@ -39,7 +39,7 @@ async function session(who = 'ana', viewport = DESKTOP, scheme = 'light') {
 
 const row = (page, name) => page.locator(`li[data-connection="${name}"]`)
 
-describe('Proveedores en Configuración (UD-120)', () => {
+describe('Providers section of Configuración (UD-120)', () => {
   test('the Editor sees the functions and the providers with status and last four characters; a Member does not see the section', async () => {
     const { page, context } = await session()
     try {

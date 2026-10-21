@@ -30,7 +30,7 @@
 //
 // `onProgress({ percent, phrase })` is called per real completed step, never by clock (§7.10).
 import { withSpan } from '../telemetry/api.js';
-import { analyzeWithApi, warmCatalog, warmTemplate } from './api.js';
+import { analyzeWithApi, classifyInput, warmCatalog, warmTemplate } from './api.js';
 import { resolveConfig } from './config.js';
 import { AnalyzeInputError } from './errors.js';
 import { analyzeWithHarness } from './harness.js';
@@ -40,7 +40,7 @@ export { DEFAULT_CONFIG, KNOBS, resolveConfig } from './config.js';
 export { compileFieldsSchema, loadTemplateFile, parseTemplate } from './templates.js';
 export { buildClassificationSchema, buildDecompositionSchema, buildProposalSchema } from './schema.js';
 export { numberUnits, partitionUnits, renderUnits } from './units.js';
-export { warmCatalog, warmTemplate };
+export { classifyInput, warmCatalog, warmTemplate };
 
 export const ANALYZERS = Object.freeze(['api', 'harness']);
 

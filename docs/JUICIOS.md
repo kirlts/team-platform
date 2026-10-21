@@ -4,7 +4,7 @@ Método para evaluar la interfaz con jueces acotados en paralelo (UD-092). Fuent
 
 ## Orden de los instrumentos
 
-1. Detectores en navegador (`panel/scripts/ui-detectors.mjs`): solapes, objetivos táctiles de menos de 24 px, escala tipográfica, contraste, desbordes, scroll horizontal, alto de página, elementos de igual peso visual y lenguaje de instrumento. Una pasada de 9 pantallas, 2 ventanas y 2 temas dura unos 80 s.
+1. Detectores en navegador (`panel/scripts/ui-detectors.mjs`): solapes, objetivos táctiles de menos de 24 px, escala tipográfica, contraste, desbordes, scroll horizontal, alto de página, elementos de igual peso visual y lenguaje de instrumento. Este último usa los patrones de `panel/src/ui-voice-patterns.mjs`, los de la guardia `ui-voice.test.ts`; `--voice-lang en` elige el inglés y el texto de las personas no se juzga. Una pasada de 9 pantallas, 2 ventanas y 2 temas dura unos 80 s.
 2. Telemetría de uso (`GET /api/telemetry/ui-summary`, `scripts/ui-report.mjs`): duración, clics y desplazamientos por tarea, errores, abandono, CLS, INP, tareas largas.
 3. Jueces acotados: sólo lo que los dos instrumentos no ven (significado de rótulos, jerarquía, composición, consistencia, flujo).
 

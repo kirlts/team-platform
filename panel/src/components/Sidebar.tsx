@@ -2,9 +2,9 @@ import { ChevronDown, Home, PanelLeft, Inbox, Layers, LogOut, Plug, Plus, Settin
 import { useState, type ReactNode } from 'react'
 import { NavLink, useMatch } from 'react-router'
 import { Link } from 'react-router'
-import { NotifyBadge, StateMark, useCountsLabel } from '@/components/NotifyBadge'
+import { StateMark, useCountsLabel } from '@/components/NotifyBadge'
 import { useT } from '@/i18n'
-import { areaCounts, areaMessagesPath, mineCounts } from '@/lib/pending'
+import { areaCounts, areaMessagesPath } from '@/lib/pending'
 import type { MessageSummary } from '@/lib/types'
 import { useAreas, useMe, useSaveArea, useSummary } from '@/lib/queries'
 import { cn } from '@/lib/utils'
@@ -33,7 +33,6 @@ export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => v
   const me = useMe().data
   const areas = useAreas()
   const summary = useSummary().data
-  const mine = mineCounts(summary)
   const saveArea = useSaveArea()
   const editor = me?.role === 'editor'
   const inAreas = !!useMatch('/areas/*')
@@ -56,7 +55,7 @@ export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => v
       <Item to="/" end icon={<Home size={16} aria-hidden />} onNavigate={onNavigate}>
         {t('nav.home')}
       </Item>
-      <Item to="/messages" icon={<Inbox size={16} aria-hidden />} onNavigate={onNavigate} badge={<NotifyBadge counts={mine} data-testid="messages-badge" />}>
+      <Item to="/messages" icon={<Inbox size={16} aria-hidden />} onNavigate={onNavigate}>
         {t('nav.messages')}
       </Item>
 

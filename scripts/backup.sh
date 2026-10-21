@@ -19,7 +19,10 @@ WITH_FILES="${WITH_FILES:-0}"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 NAME="team-$STAMP.db"
 
+# The copy holds the password hashes and the attachments: only its owner reads it.
+umask 077
 mkdir -p "$DEST"
+chmod 700 "$DEST"
 
 # Inside the container: consistent snapshot to a temporary file, check and rename.
 docker compose exec -T "$SERVICE" node -e '
@@ -44,6 +47,7 @@ fs.renameSync(tmp, final);
 
 # To the host, also with a temporary file and rename; then the volume is freed.
 docker compose cp "$SERVICE:/data/backups/$NAME" "$DEST/$NAME.tmp"
+chmod 600 "$DEST/$NAME.tmp"
 mv "$DEST/$NAME.tmp" "$DEST/$NAME"
 docker compose exec -T "$SERVICE" rm -f "/data/backups/$NAME"
 

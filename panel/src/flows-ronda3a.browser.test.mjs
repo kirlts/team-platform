@@ -79,14 +79,14 @@ const redFills = (page) =>
 
 describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3-A-18)', () => {
   for (const [who, scheme] of [['ana', 'light'], ['ana', 'dark'], ['bruno', 'light'], ['bruno', 'dark']]) {
-    test(`the bell is the only red fill, with ${who === 'ana' ? 'nine' : 'few'} pending (${scheme})`, async () => {
+    test(`no state paints a red fill, with ${who === 'ana' ? 'nine' : 'few'} pending (${scheme})`, async () => {
       const { page, context } = await session(who, DESKTOP, { scheme })
       try {
-        await page.getByTestId('attention').waitFor()
+        await page.getByTestId('status-bar').waitFor()
         await page.locator('article[data-affects-me]').first().waitFor()
+        // The bell no longer counts states (UD-100): no element is filled red, the states are the color of their shape.
         const reds = await redFills(page)
-        assert.equal(reds.length, 1, `red fills: ${reds.join(', ')}`)
-        assert.match(reds[0], /bell/, 'the only red fill is the bell')
+        assert.equal(reds.length, 0, `rellenos rojos: ${reds.join(', ')}`)
         // The marks that are left carry their priority in the shape only: no tinted background, no colored edge.
         const marks = await page.locator('[data-weight="quiet"]').evaluateAll((els) => els.map((el) => getComputedStyle(el).backgroundColor))
         assert.ok(marks.length >= 4, 'there are priority marks to review')
@@ -154,50 +154,42 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
     }
   })
 
-  test('the summary has one style of chip and one kind of label, on one row of areas (J3-A-06)', async () => {
+  test('the three marks of the top bar share one style, one height and no label (J3-A-06, UD-100)', async () => {
     const { page, context } = await session('ana')
     try {
-      const attention = page.getByTestId('attention')
-      await attention.waitFor()
-      const chips = await attention.locator('[data-testid="state-mark"]:not([data-plain]), [data-testid="area-pending"]').evaluateAll((els) =>
+      const bar = page.getByTestId('status-bar')
+      await bar.waitFor()
+      const marks = await bar.locator('[data-testid="state-button"]').evaluateAll((els) =>
         els.map((el) => {
           const s = getComputedStyle(el)
           return { height: Math.round(el.getBoundingClientRect().height), size: s.fontSize, weight: s.fontWeight, border: s.borderTopWidth, bg: s.backgroundColor }
         }),
       )
-      assert.ok(chips.length >= 3)
-      // Single-line chips share height, size, weight and edge; a long area name takes a second line and nothing else changes.
-      const single = chips.filter((c) => c.height < 32)
-      assert.equal(new Set(single.map((c) => `${c.size}|${c.border}|${c.bg}`)).size, 1, JSON.stringify(single))
-      assert.ok(Math.max(...single.map((c) => c.height)) - Math.min(...single.map((c) => c.height)) <= 1, `different heights: ${single.map((c) => c.height)}`)
-      const labels = await attention.locator('h2').evaluateAll((els) => els.map((el) => ({ size: getComputedStyle(el).fontSize, x: Math.round(el.getBoundingClientRect().left), transform: getComputedStyle(el).textTransform })))
-      assert.equal(labels.length, 2)
-      // Both labels sit in one row now (UD-046): they share their size and their capitals, not their left edge.
-      assert.equal(new Set(labels.map((l) => `${l.size}|${l.transform}`)).size, 1, JSON.stringify(labels))
+      assert.equal(marks.length, 3)
+      assert.equal(new Set(marks.map((c) => `${c.height}|${c.size}|${c.weight}|${c.border}|${c.bg}`)).size, 1, JSON.stringify(marks))
+      assert.equal(await bar.locator('h2').count(), 0, 'the bar carries no visible labels')
     } finally {
       await context.close()
     }
   })
 
-  test('on a phone the areas take one row and the rest open behind «+N» (J3-A-06, J3-A-10)', async () => {
+  test('on a phone the bar is one button whose menu has the three states, each one a link to Mensajes (J3-A-06, UD-100)', async () => {
     const { page, context } = await session('ana', PHONE)
     try {
-      // Every area with something pending, whatever the earlier tests left in the data: the row has to give up some of them.
-      const areaList = await (await page.request.get(`${origin}/api/areas`)).json()
-      const areas = (areaList.items ?? areaList).map((a) => ({ area_id: a.id, open: 2, answered: 0, closed: 0, mine_open: 1 }))
-      await page.route(/\/api\/messages\/summary$/, (route) => route.fulfill({ json: { mine: { open: 1, answered: 0, total: 1 }, items: [], areas } }))
-      await page.goto(origin)
-      const attention = page.getByTestId('attention')
-      await attention.waitFor()
-      const more = attention.getByRole('button', { name: /áreas? más|área más/ })
-      await more.waitFor()
-      const tops = await attention.locator('[data-testid="area-pending"]').evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)))
-      assert.equal(new Set(tops).size, 1, `the areas take up more than one row: ${tops.join(', ')}`)
-      const before = tops.length
-      await more.click()
-      const after = await attention.locator('[data-testid="area-pending"]').count()
-      assert.ok(after > before, `opening shows the rest (${before} → ${after})`)
-      assert.equal(after, areas.length, 'open, all of them are there')
+      const bar = page.getByTestId('status-bar')
+      await bar.waitFor()
+      assert.equal(await bar.locator('button:visible').count(), 1)
+      const button = page.getByTestId('summary-menu')
+      const box = await button.boundingBox()
+      assert.ok(box.height >= 44 && box.width >= 44, `el botón mide ${box.width}x${box.height}`)
+      await button.click()
+      const links = page.getByTestId('status-menu').getByRole('link')
+      await links.first().waitFor()
+      assert.equal(await links.count(), 3)
+      const names = await links.evaluateAll((els) => els.map((el) => el.getAttribute('aria-label')))
+      assert.match(names.join('|'), /abiertos?.*respondidos?.*cerrados?/)
+      await links.first().click()
+      await page.waitForURL(/\/messages\?/)
     } finally {
       await context.close()
     }
@@ -301,24 +293,24 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
   })
 })
 
-describe('the bell (J3-A-13, J3-A-14, J3-A-15)', () => {
+describe('the menu of a state (J3-A-13, J3-A-14, J3-A-15, UD-100)', () => {
   test('it lists what it counts, says where the rest is and does not repeat the word on every row', async () => {
     const { page, context } = await session('ana')
     try {
-      const total = (await (await page.request.get(`${origin}/api/messages/summary`)).json()).mine.total
-      await page.getByTestId('bell').click()
-      const list = page.locator('[data-lane="bell-list"]')
+      const mark = page.locator('[data-testid="state-button"][data-status="open"]')
+      await mark.waitFor()
+      const total = Number((await mark.textContent()).trim())
+      await mark.click()
+      const list = page.locator('[data-lane="status-list"]')
       await list.waitFor()
       assert.equal(await list.locator('li').count(), total)
       const seeAll = page.getByRole('link', { name: /^Ver todos/ })
       await seeAll.waitFor()
-      assert.equal((await seeAll.innerText()).replace(/\s+/g, ' ').trim(), `Ver todos ${total}`)
-      // The state is its shape and its word (UD-041): every row of the bell says «Abierto» or «Respondido».
-      const marks = await list.locator('[data-testid="state-mark"]').evaluateAll((els) => els.map((el) => el.textContent.trim()))
-      assert.ok(marks.length > 0 && marks.every((t) => t === 'Abierto' || t === 'Respondido'), `state of the bell rows: ${marks.join(',')}`)
+      // The state is the mark that opened the menu: no row repeats its word.
+      assert.equal(await list.locator('[data-testid="state-mark"]').count(), 0)
       // It opens below the bar with room between them.
-      const popover = await page.locator('[data-lane="bell-list"]').locator('xpath=ancestor::*[contains(@class,"pop")]').boundingBox()
-      assert.ok(popover.y >= 52 + 6, `the bell opens at ${popover.y} px, attached to the bar`)
+      const popover = await list.locator('xpath=ancestor::*[contains(@class,"pop")]').boundingBox()
+      assert.ok(popover.y >= 52 + 6, `el desplegable se abre a ${popover.y} px, pegado a la barra`)
       await seeAll.click()
       await page.waitForURL(/\/messages\?/)
     } finally {
@@ -326,17 +318,16 @@ describe('the bell (J3-A-13, J3-A-14, J3-A-15)', () => {
     }
   })
 
-  test('on a phone the list fits the screen and scrolls inside, with «Ver todos» in view', async () => {
-    const { page, context } = await session('ana', PHONE)
+  test('with many messages the list fits the screen and scrolls inside, with «Ver todos» in view', async () => {
+    const { page, context } = await session('ana', { width: 768, height: 480 })
     try {
-      await page.getByTestId('bell').click()
-      await page.locator('[data-lane="bell-list"]').waitFor()
-      const box = await page.locator('[data-lane="bell-list"]').locator('xpath=ancestor::*[contains(@class,"pop")]').boundingBox()
-      assert.ok(box.y + box.height <= PHONE.height + 0.5, `the bell ends at ${box.y + box.height}, the screen measures ${PHONE.height}`)
+      await page.locator('[data-testid="state-button"][data-status="answered"]').click()
+      await page.locator('[data-lane="status-list"]').waitFor()
+      const box = await page.locator('[data-lane="status-list"]').locator('xpath=ancestor::*[contains(@class,"pop")]').boundingBox()
+      assert.ok(box.y + box.height <= 480 + 0.5, `el desplegable termina en ${box.y + box.height}, la pantalla mide 480`)
       const link = await page.getByRole('link', { name: /^Ver todos/ }).boundingBox()
-      assert.ok(link.y + link.height <= PHONE.height, '«Ver todos» stays in view')
-      // Whatever the list needs, the box never outgrows the screen: it either fits or scrolls inside.
-      const lane = await page.locator('[data-lane="bell-list"]').evaluate((el) => ({ scroll: el.scrollHeight, client: el.clientHeight }))
+      assert.ok(link.y + link.height <= 480, '«Ver todos» queda a la vista')
+      const lane = await page.locator('[data-lane="status-list"]').evaluate((el) => ({ scroll: el.scrollHeight, client: el.clientHeight }))
       assert.ok(lane.client > 0 && lane.scroll >= lane.client)
     } finally {
       await context.close()
@@ -397,14 +388,15 @@ describe('sidebar, sign-out and Conexiones (J3-A-45, J3-A-46, J3-A-48, J3-A-49, 
     }
   })
 
-  test('the number of the bell and the one of Mensajes are the same figure, once each, and only the bell is loud (J3-A-49)', async () => {
+  test('the pending figure is said once, in the top bar: the bell has no count and Mensajes has no badge (J3-A-49, UD-100)', async () => {
     const { page, context } = await session('ana')
     try {
       const summary = await (await page.request.get(`${origin}/api/messages/summary`)).json()
-      assert.equal((await page.getByTestId('messages-badge').innerText()).trim(), String(summary.mine.total))
-      assert.match((await page.getByTestId('bell').innerText()).trim(), new RegExp(`${summary.mine.total}$`))
+      assert.equal(await page.getByTestId('messages-badge').count(), 0)
+      assert.equal((await page.getByTestId('bell').innerText()).trim(), '')
+      assert.equal((await page.locator('[data-testid="state-button"][data-status="open"]').innerText()).trim(), String(summary.mine.open))
       const loud = await redFills(page)
-      assert.equal(loud.length, 1)
+      assert.equal(loud.length, 0)
     } finally {
       await context.close()
     }

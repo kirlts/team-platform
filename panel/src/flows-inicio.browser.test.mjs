@@ -204,10 +204,10 @@ describe('the drawer under the bar (UD-046, UD-070)', () => {
       await context.close()
     }
   })
-  test('with the drawer folded, a send that publishes says so in the top bar, over no content, and the strip of pending messages does not grow (J3-B-15, H-904)', async () => {
+  test('with the drawer folded, a send that publishes says so in the top bar, over no content, and the status bar does not grow (J3-B-15, H-904)', async () => {
     const { page, context } = await session('sofia')
     try {
-      const strip = async () => (await page.getByTestId('attention').boundingBox()).height
+      const strip = async () => (await page.getByTestId('status-bar').boundingBox()).height
       // The analysis waits for the test: the drawer is folded first, and the send is published when the test says so.
       await panel.control.hold()
       await send(page, 'Pregunta: ¿el audio máximo sigue en 25 MB?')
@@ -224,7 +224,7 @@ describe('the drawer under the bar (UD-046, UD-070)', () => {
       const n = await notice.boundingBox()
       assert.ok(n.y + n.height <= 56, `the notice stays in the top bar: ${n.y + n.height}`)
       assert.match(await notice.innerText(), /publicado/)
-      assert.equal(await strip(), before, 'the «Para mí» strip does not change height on publishing')
+      assert.equal(await strip(), before, 'the status bar keeps its height on publishing')
       for (const b of await page.getByRole('button', { name: /^Página (siguiente|anterior)$/ }).all()) {
         const r = await b.boundingBox()
         assert.equal(r.x < n.x + n.width && n.x < r.x + r.width && r.y < n.y + n.height && n.y < r.y + r.height, false, 'the notice does not cover the pagination')

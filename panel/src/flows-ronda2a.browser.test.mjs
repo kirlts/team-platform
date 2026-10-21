@@ -513,7 +513,7 @@ describe('states', () => {
       const tops = () => page.evaluate(() => [...document.querySelectorAll('nav > a, nav > div > div > a, nav li > a')].map((a) => Math.round(a.getBoundingClientRect().top)))
       const before = await tops()
       release()
-      await page.getByTestId('messages-badge').waitFor()
+      await page.getByTestId('status-bar').waitFor()
       await settled(page)
       const after = (await tops()).slice(0, before.length)
       assert.deepEqual(after, before, 'something in the sidebar shifted when the numbers arrived')

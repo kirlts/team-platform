@@ -294,7 +294,7 @@
 
 **Checks cubiertos:** HP-016
 
-- [ ] `trusted-header` detrás de `tailscale serve` con una tailnet real
+- [x] `trusted-header` detrás de `tailscale serve` con una tailnet real `2026-10-21 18:10:00`
 - [ ] Inicio de sesión con TLS real detrás de Caddy (la cookie `__Host-` exige HTTPS)
 - [ ] `sso-redirect` con un sitio anfitrión real
 
@@ -323,7 +323,7 @@
 **Checks cubiertos:** HP-006, HP-011 `[Requiere validación humana]`
 
 - [ ] Instalar con `scripts/install.sh` en un VPS limpio y recorrer las tres formas de `docs/INSTALACION.md`
-- [ ] Restaurar un respaldo siguiendo `docs/INSTALACION.md`
+- [x] Restaurar un respaldo siguiendo `docs/INSTALACION.md` `2026-10-21 18:03:00`
 - [ ] Decidir sobre `libvips` (LGPL) y `ffmpeg` en la imagen (DT-002)
 
 ---

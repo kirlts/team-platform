@@ -378,11 +378,11 @@ describe('failure, publication and notices (J3-B-14, J3-B-15, J3-B-29)', () => {
     }
   })
 
-  test('the notice of a publication sits in the top bar, over no content, and the card of pending sends does not grow (J3-B-15)', async () => {
+  test('the notice of a publication sits in the top bar, over no content, and the status bar does not grow (J3-B-15)', async () => {
     const { page, context } = await session('ana')
     try {
       await sendAndOpen(page)
-      const card = async () => (await rect(page.getByTestId('attention'))).height
+      const card = async () => (await rect(page.getByTestId('status-bar'))).height
       const before = await card()
       await page.getByRole('button', { name: /^Enviar \d+ mensajes$/ }).click()
       const notice = page.locator('[data-notice]')
@@ -390,8 +390,8 @@ describe('failure, publication and notices (J3-B-14, J3-B-15, J3-B-29)', () => {
       // The box is read once the page is quiet, not while the notice is still coming in with its entrance animation (H-904).
       await settled(page)
       const n = await rect(notice)
-      assert.ok(n.y + n.height <= 56, `the notice stays in the top bar: ${n.y + n.height}`)
-      assert.equal(await card(), before, 'the «Para mí» card does not change height on publishing')
+      assert.ok(n.y + n.height <= 56, `el aviso queda en la barra superior: ${n.y + n.height}`)
+      assert.equal(await card(), before, 'the status bar keeps its height on publishing')
       for (const label of ['Página siguiente', 'Página anterior']) {
         for (const b of await page.getByRole('button', { name: label }).all()) {
           // A pager arrow that is being measured again is not drawn for a moment: there is nothing under the notice then.

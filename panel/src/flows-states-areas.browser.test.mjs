@@ -218,13 +218,13 @@ describe('colors and words of the states (UD-041)', () => {
           await page.locator('main').first().waitFor()
           await settled(page)
           // The chrome of every screen: navigation, header, counts and states. The texts people wrote are data.
-          const words = await page.evaluate(() => [...document.querySelectorAll('nav, header, h1, h2, [data-testid="attention"], [data-testid="state-mark"], [data-testid="area-pending"], [aria-label]')].flatMap((el) => [el.textContent ?? '', el.getAttribute('aria-label') ?? '']).join(' | '))
+          const words = await page.evaluate(() => [...document.querySelectorAll('nav, header, h1, h2, [data-testid="status-bar"], [data-testid="state-mark"], [data-testid="area-pending"], [aria-label]')].flatMap((el) => [el.textContent ?? '', el.getAttribute('aria-label') ?? '']).join(' | '))
           assert.doesNotMatch(words, RETIRED, `${path} (${viewport.width}): ${words.match(RETIRED)?.[0]}`)
         }
         if (viewport.width > 768) {
           await page.goto(origin)
-          await page.getByTestId('bell').click()
-          const popover = await page.locator('[data-lane="bell-list"]').innerText()
+          await page.getByTestId('state-button').first().click()
+          const popover = await page.getByTestId('status-menu').innerText()
           assert.doesNotMatch(popover, RETIRED)
         }
       } finally {

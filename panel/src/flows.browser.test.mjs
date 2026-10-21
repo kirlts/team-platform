@@ -76,7 +76,7 @@ async function showRow(page, text) {
 
 describe('in-place editing', () => {
   test('click opens, Enter saves, Escape cancels, and «Deshacer» and «Rehacer» step through it', async () => {
-    const { page, context } = await session()
+    const { page, context } = await session('diego')
     try {
       await openMessage(page, 'Agregar exportación')
       const title = page.getByRole('button', { name: /^Título: Agregar exportación/ })
@@ -583,7 +583,7 @@ describe('estados, teclado y filas', () => {
   })
 
   test('closing a message enters Deshacer and the button does not change shape (J1-A-28)', async () => {
-    const { page, context } = await session()
+    const { page, context } = await session('carla')
     try {
       await openMessage(page, 'Revisar la lectura')
       const button = page.getByRole('button', { name: 'Cerrar', exact: true })

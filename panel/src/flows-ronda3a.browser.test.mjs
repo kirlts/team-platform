@@ -41,6 +41,13 @@ async function messageByTitle(page, titleStart) {
 
 const csrf = { 'x-team-request': 'panel' }
 
+/** Edits a published message through the API as its sender (UD-071): the PATCH carries the version that was read. */
+async function patchAsSender(page, id, data) {
+  const current = await (await page.request.get(`${origin}/api/messages/${id}`)).json()
+  const res = await page.request.patch(`${origin}/api/messages/${id}`, { data: { ...data, version: current.version }, headers: csrf })
+  assert.equal(res.status(), 200, await res.text())
+}
+
 /** The elements whose own background is a saturated red, found by painting each computed color on a canvas. */
 const redFills = (page) =>
   page.evaluate(() => {
@@ -489,7 +496,7 @@ describe('Mensajes and the detail (J3-A-16, J3-A-22 to J3-A-29)', () => {
   })
 
   test('the detail tells the state quietly, labels Deshacer on a desktop and says why there is no reply form (J3-A-24, J3-A-26, J3-A-27, J3-A-28)', async () => {
-    const { page, context } = await session('ana')
+    const { page, context } = await session('carla')
     try {
       const hit = await messageByTitle(page, 'Revisar la lectura del panel')
       await page.goto(`${origin}/messages/${hit.id}`)
@@ -515,10 +522,10 @@ describe('Mensajes and the detail (J3-A-16, J3-A-22 to J3-A-29)', () => {
   })
 
   test('a required field that is empty says so in ink, not in red, and the editable fields look editable only for who can edit (J3-A-22, J3-A-23)', async () => {
-    const { page, context } = await session('ana')
+    const { page, context } = await session('carla')
     try {
       const hit = await messageByTitle(page, 'Revisar la lectura del panel')
-      await page.request.patch(`${origin}/api/messages/${hit.id}`, { headers: csrf, data: { fields: { summary: '', device: '' } } })
+      await patchAsSender(page, hit.id, { fields: { summary: '', device: '' } })
       await page.goto(`${origin}/messages/${hit.id}`)
       const required = page.locator('dt', { hasText: 'Obligatorio' }).first()
       await required.locator('span').waitFor()

@@ -43,6 +43,13 @@ async function openMessage(page, titleStart) {
 
 const csrf = { 'x-team-request': 'panel' }
 
+/** Edits a published message through the API as its sender (UD-071): the PATCH carries the version that was read. */
+async function patchAsSender(page, id, data) {
+  const current = await (await page.request.get(`${origin}/api/messages/${id}`)).json()
+  const res = await page.request.patch(`${origin}/api/messages/${id}`, { data: { ...data, version: current.version }, headers: csrf })
+  assert.equal(res.status(), 200, await res.text())
+}
+
 describe('sign-in and navigation', () => {
   test('the sign-in error does not move the card, stays out of the field name and marks the field (J2-A-01, J2-A-03)', async () => {
     const context = await panel.browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'es-CL' })
@@ -241,10 +248,10 @@ describe('message list and home', () => {
 
 describe('detail', () => {
   test('closing with an empty required field leaves no red warning, and is confirmed with Deshacer (J2-A-17, J2-A-18)', async () => {
-    const { page, context } = await session()
+    const { page, context } = await session('carla')
     try {
       const hit = await messageByTitle(page, 'Revisar la lectura')
-      await page.request.patch(`${origin}/api/messages/${hit.id}`, { data: { fields: { summary: '', device: 'x' } }, headers: csrf })
+      await patchAsSender(page, hit.id, { fields: { summary: '', device: 'x' } })
       await page.goto(`${origin}/messages/${hit.id}`)
       await page.getByRole('term').filter({ hasText: 'Obligatorio' }).waitFor()
       await page.getByRole('button', { name: 'Cerrar', exact: true }).click()
@@ -253,7 +260,7 @@ describe('detail', () => {
       assert.equal(await page.getByRole('term').filter({ hasText: 'Obligatorio' }).count(), 0, 'el aviso Obligatorio sobrevive al cierre')
       await notice.getByRole('button', { name: 'Deshacer' }).click()
       await page.getByRole('term').filter({ hasText: 'Obligatorio' }).waitFor()
-      await page.request.patch(`${origin}/api/messages/${hit.id}`, { data: { fields: { summary: 'La fila se desborda.', device: 'x' } }, headers: csrf })
+      await patchAsSender(page, hit.id, { fields: { summary: 'La fila se desborda.', device: 'x' } })
     } finally {
       await context.close()
     }
@@ -272,7 +279,7 @@ describe('detail', () => {
   })
 
   test('Deshacer and Rehacer weigh less than the screen action, and the fields look editable (J2-A-18, J2-A-20)', async () => {
-    const { page, context } = await session()
+    const { page, context } = await session('carla')
     try {
       await openMessage(page, 'Revisar la lectura')
       await page.getByRole('button', { name: 'Cerrar', exact: true }).click()
@@ -289,7 +296,7 @@ describe('detail', () => {
   })
 
   test('on a phone the actions go on top, with nothing between the title and what it describes, and the chips fit in three rows (J2-A-21)', async () => {
-    const { page, context } = await session('ana', { width: 390, height: 844 }, true)
+    const { page, context } = await session('carla', { width: 390, height: 844 }, true)
     try {
       await openMessage(page, 'Revisar la lectura')
       const close = await page.getByRole('button', { name: 'Cerrar', exact: true }).boundingBox()
@@ -506,7 +513,7 @@ describe('states', () => {
   })
 
   test('the detail ranks the message text over the fields and the data, and the mark weighs less (J2-A-19, J2-A-42)', async () => {
-    const { page, context } = await session()
+    const { page, context } = await session('carla')
     try {
       await openMessage(page, 'Revisar la lectura')
       const size = (loc) => loc.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))

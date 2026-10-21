@@ -204,21 +204,21 @@ UD-018. La interfaz sale de dos catálogos, `src/i18n/es-419.ts` (por omisión) 
 
 ## Avisos de prioridad
 
-UD-029 y ronda 2. Una sola fuente de verdad de lo que afecta a la persona, `GET /messages/summary`, y un solo lugar protagonista: la campana de la barra superior, el único relleno saturado de la interfaz. Mensajes, los chips de Para mí, los pendientes por área y la marca de cada fila llevan la misma prioridad en peso suave: tinte (`tone-*-soft-bg`), contorno de 1 px, forma, palabra y número. El color sigue siendo el de la prioridad más alta presente. Para mí no repite el total de la campana: lleva un chip por prioridad. La campana lista, mensaje por mensaje, lo que su número suma (`items` del resumen); un mensaje cerrado no figura, no lleva borde de urgencia ni marca. Un contador que cambia de una cifra a otra pulsa una vez. `npm run contraste` mide el texto suave sobre su tinte (4,5) y el contorno sobre el tinte (3).
+UD-029 y ronda 2. Lo que afecta a la persona sale de una sola fuente, `GET /messages/summary`. Hay un solo lugar protagonista: la campana de la barra superior, el único relleno saturado de la interfaz. Mensajes, los chips de Para mí, los pendientes por área y la marca de cada fila llevan la misma prioridad en peso suave. El peso suave es un tinte (`tone-*-soft-bg`) con contorno de 1 px, forma, palabra y número. El color sigue siendo el de la prioridad más alta presente. Para mí no repite el total de la campana: lleva un chip por prioridad. La campana lista, mensaje por mensaje, lo que su número suma (`items` del resumen); un mensaje cerrado no figura, no lleva borde de urgencia ni marca. Un contador que cambia de una cifra a otra pulsa una vez. `npm run contraste` mide el texto suave sobre su tinte (4,5) y el contorno sobre el tinte (3).
 
 ## Avisos de la pantalla
 
-Un aviso no mueve lo que se lee. En la página flota al pie, sobre el contenido; dentro de la ventana de envíos ocupa la barra del título, que sólo tiene el título y el botón de cerrar. Lleva un enlace o una acción, nunca los dos Deshacer: lo que está en el historial se deshace con los botones del historial.
+Un aviso no mueve lo que se lee. En la página flota al pie, sobre el contenido. Dentro de la ventana de envíos ocupa la barra del título, que sólo tiene el título y el botón de cerrar. Lleva un enlace o una acción, nunca los dos Deshacer: lo que está en el historial se deshace con los botones del historial.
 
 ## Envíos, ventana y revisión
 
-UD-025, UD-030 y ronda 2. El control de envíos es un botón de vidrio en la fila del título del compositor, que mantiene su alto con o sin envíos; muestra el estado, la barra de progreso del conjunto y la flecha. Un envío que queda listo con la ventana plegada se avisa. La ventana abre en el envío más reciente que pide a la persona; un envío en cola no tiene porcentaje (barra indeterminada) y la ventana de un envío en análisis mide lo que muestra. En el teléfono ocupa la pantalla y la lista de envíos se pliega tras un botón con su cuenta. El original, abierto, va arriba de la propuesta en un marco propio. El historial (Deshacer, Rehacer) aparece a la izquierda de «Volver a analizar», que no se mueve. Descartar con más envíos deja su lugar con Deshacer.
+UD-025, UD-030 y ronda 2. El control de envíos es un botón de vidrio en la fila del título del compositor. Esa fila mantiene su alto con o sin envíos. El botón muestra el estado, la barra de progreso del conjunto y la flecha. Un envío que queda listo con la ventana plegada se avisa. La ventana abre en el envío más reciente que pide a la persona. Un envío en cola no tiene porcentaje y su barra es indeterminada. La ventana de un envío en análisis mide lo que muestra. En el teléfono ocupa la pantalla y la lista de envíos se pliega tras un botón con su cuenta. El original, abierto, va arriba de la propuesta en un marco propio. El historial (Deshacer, Rehacer) aparece a la izquierda de «Volver a analizar», que no se mueve. Descartar con más envíos deja su lugar con Deshacer.
 
-La barra de nuevo mensaje crece sobre la página, nunca la empuja: en reposo reserva su alto, y con texto largo, adjuntos o enlace se abre encima con fondo opaco; el campo de texto llega a 120 px y desde ahí desplaza con un desvanecido arriba.
+La barra de nuevo mensaje crece sobre la página y nunca la empuja. En reposo reserva su alto. Con texto largo, adjuntos o enlace se abre encima, con fondo opaco. El campo de texto llega a 120 px y desde ahí desplaza, con un desvanecido arriba.
 
 ## Teclado en la revisión
 
-J y K recorren los envíos. Intro no publica desde ningún lado: publicar es un clic en Enviar, o Intro con el foco en ese botón. Guardar o cancelar una edición con el teclado devuelve el foco al texto editado, y Escape dentro de un campo cancela sólo esa edición, no cierra la ventana (`src/flows.browser.test.mjs`, «Intro nunca publica»).
+J y K recorren los envíos. Intro no publica desde ningún lado: publicar es un clic en Enviar, o Intro con el foco en ese botón. Guardar o cancelar una edición con el teclado devuelve el foco al texto editado. Escape dentro de un campo cancela sólo esa edición y no cierra la ventana (`src/flows.browser.test.mjs`, «Intro nunca publica»).
 
 ## Archivos
 

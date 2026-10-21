@@ -766,7 +766,7 @@ describe('flujo de publicación (ronda 1, juez B)', () => {
     try {
       await page.goto(origin)
       const bar = page.getByLabel('Nuevo mensaje', { exact: true }).last()
-      const box = () => bar.evaluate((el) => el.closest('.glass').getBoundingClientRect().height)
+      const box = () => bar.evaluate((el) => el.closest('[data-compose-box]').getBoundingClientRect().height)
       const none = await box()
       const wav = (name) => ({ name, mimeType: 'audio/wav', buffer: Buffer.alloc(8044, 128) })
       const input = page.locator('input[type=file]:not([capture])')

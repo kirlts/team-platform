@@ -676,7 +676,7 @@ describe('Mensajes and the detail (J3-A-16, J3-A-22 to J3-A-29)', () => {
 })
 
 describe('Áreas and templates (J3-A-30 to J3-A-38)', () => {
-  test('an area with nothing open or answered says nothing, and its counts are centered on its row (J3-A-33, UD-041)', async () => {
+  test('an area with nothing open or answered shows both counts at zero, and its counts are centered on its row (UD-211, UD-041)', async () => {
     const { page, context } = await session('ana')
     try {
       await page.goto(`${origin}/areas`)
@@ -691,8 +691,9 @@ describe('Áreas and templates (J3-A-30 to J3-A-38)', () => {
           return { text: marks.map((m) => m.textContent.trim()).join(' '), offset: marks.length ? Math.abs((top + bottom) / 2 - (box.top + box.height / 2)) : null }
         }),
       )
-      assert.ok(rows.some((r) => r.text === ''), 'an area with no open or answered messages does not say «0 abiertos»')
-      assert.ok(rows.every((r) => !/^0 /.test(r.text) && !/pendiente/i.test(r.text)))
+      assert.ok(rows.every((r) => r.text !== ''), 'no area leaves its column of counts blank')
+      assert.ok(rows.some((r) => /^0 abiertos 0 respondidos$/.test(r.text)), 'an area with no open or answered messages says both at zero')
+      assert.ok(rows.every((r) => !/pendiente/i.test(r.text)))
       for (const r of rows.filter((x) => x.offset !== null)) assert.ok(r.offset <= 4, `the counts are ${r.offset} px from the center of their row`)
     } finally {
       await context.close()

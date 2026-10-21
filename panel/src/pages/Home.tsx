@@ -355,8 +355,8 @@ function Feed({ kind, meId, phone = false }: { kind: 'messages' | 'replies'; meI
           value={mine ? 'mine' : 'all'}
           onChange={(v) => setMine(v === 'mine')}
           options={[
-            { value: 'mine', label: messagesFeed ? t('home.forMe') : t('home.involveMe') },
-            { value: 'all', label: messagesFeed ? t('home.everyone') : t('home.all') },
+            { value: 'mine', label: t('home.forMe') },
+            { value: 'all', label: t('home.everyone') },
           ]}
         />
       </div>

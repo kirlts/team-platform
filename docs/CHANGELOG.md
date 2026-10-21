@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `scripts/vps-check.mjs`: comprobación de punta a punta de una instancia desplegada (página, salud, panel servido, inicio de sesión, un texto mixto y su propuesta), con `--last` para describir el último envío (H-89, H-56).
+- `bench/run-private.mjs run --plan`: ensayo en seco de una corrida del banco privado; no llama a ningún proveedor, rechaza un modelo sin tarifa y un tope ya gastado.
 - `GET /api/messages/summary`: lo que afecta a cada miembro por prioridad (rojo, amarillo, azul) y los mensajes abiertos por área (UD-028).
 - Panel: insignia grande en la pestaña Mensajes y en la campana, con el fondo de la prioridad más alta presente; pendientes por área clicables hacia Mensajes filtrado (UD-028, UD-029).
 - Eje documental Kairós: MASTER-SPEC v0.1.0, RULES, REPOMAP, USER-DECISIONS (UD-001 a UD-015), TEST, TECHNICAL-DEBT y TODO con ocho épicos.
@@ -47,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MASTER-SPEC §2, §3, §6 y §7 describen el código real; §3.1 lista las dependencias con su licencia.
 
 ### Fixed
+- Panel: en una ventana más baja que una fila de la lista, la fila ya no se dibuja sobre el paginador (H-96).
 - Audio y video: los segmentos de Groq se unen en líneas del tamaño de una oración (`audio.pauseSeconds`, `audio.maxUnitWords`); una nota de 107 s pasa de 46 unidades a 9 (REG-005).
 
 <!--

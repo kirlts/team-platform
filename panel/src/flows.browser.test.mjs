@@ -487,7 +487,7 @@ describe('the top bar: states and areas (UD-028, UD-029, UD-041, UD-100)', () =>
           await settled(page)
           const bar = page.getByTestId('status-bar')
           assert.equal(await bar.locator('[data-testid="area-pending"], [data-testid="area-chip"], [data-area-id], [data-testid="area-more"]').count(), 0, `${path} (${viewport.width}): contador por área en la barra`)
-          assert.equal(await bar.locator('button:visible').count(), viewport.width < 768 ? 1 : 3, `${path} (${viewport.width}): la barra son tres marcas (un resumen en el teléfono) y nada más`)
+          assert.equal(await bar.locator('button:visible').count(), 3, `${path} (${viewport.width}): la barra son tres marcas, también en el teléfono, y nada más`)
           assert.doesNotMatch(await bar.innerText(), /abiertos?|respondidos?|cerrados?/i, `${path}: texto de estado visible`)
           assert.equal(await page.locator('header [data-testid="area-pending"], header [data-area-id]').count(), 0)
         }

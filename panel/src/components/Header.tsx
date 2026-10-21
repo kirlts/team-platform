@@ -17,7 +17,7 @@ export function Header({ projectName, panelHidden = false, onOpenNav }: { projec
   const t = useT()
 
   return (
-    <header className="chrome-bar flex min-h-[3.5rem] shrink-0 items-center justify-between gap-2 py-1 pl-2 pr-3 md:pl-5">
+    <header className="chrome-bar flex min-h-[3.5rem] shrink-0 items-center justify-between gap-2 py-1 pl-2 pr-2 md:pl-5 md:pr-3">
       <div className="flex min-w-0 items-center gap-1">
         {/* A phone opens the menu with it; from 768 px it only appears while the side panel is hidden, and shows it again. */}
         <Button variant="ghost" size="icon" data-testid="nav-open" aria-label={panelHidden ? t('sidebar.show') : t('nav.open')} className={cn('h-11 w-11', !panelHidden && 'md:hidden')} onClick={onOpenNav}>
@@ -27,7 +27,7 @@ export function Header({ projectName, panelHidden = false, onOpenNav }: { projec
           <Wordmark project={projectName} name={t('brand.name')} />
         </Link>
       </div>
-      <div className="flex min-w-0 flex-1 items-center justify-end gap-1 pl-2">
+      <div className="flex shrink-0 items-center justify-end gap-1 md:pl-2">
         <StatusBar />
         <NotificationBell />
       </div>
@@ -54,7 +54,7 @@ function NotificationBell() {
           data-unread={snap.unread}
           aria-label={snap.unread > 0 ? t('bell.unread', { n: snap.unread }) : t('bell.label')}
           title={t('bell.label')}
-          className="relative inline-flex h-10 w-10 items-center justify-center rounded-full text-fg hover:bg-glass"
+          className="relative inline-flex h-9 w-9 items-center md:h-10 md:w-10 justify-center rounded-full text-fg hover:bg-glass"
         >
           <Bell size={22} aria-hidden strokeWidth={2} />
           {snap.unread > 0 && (

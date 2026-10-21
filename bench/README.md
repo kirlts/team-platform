@@ -19,7 +19,7 @@ Cada carpeta de `cases/` tiene `input.json` (texto y adjuntos ya extraídos, com
 |---|---|---|
 | `01-chat-grupo` | Captura de un chat de grupo, 16 líneas | 3 |
 | `02-docx-40-puntos` | Documento de retroalimentación, 47 unidades | 40 |
-| `03-monologo-prueba` | Transcripción de 10 minutos, 50 segmentos | 10 |
+| `03-monologo-prueba` | Transcripción de 10 minutos, 50 segmentos | 11 |
 | `04-reporte-de-error` | Reporte con pasos y una captura | 1 |
 | `05-idea-suelta` | Cuatro párrafos | 1 |
 | `06-mensaje-mezclado` | Un mensaje con tres pedidos de tres áreas | 3 |

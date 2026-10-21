@@ -251,7 +251,7 @@ if (command === 'list') {
       writeFileSync(cachePath(c.id), JSON.stringify(out, null, 2));
       const total = addSpend(`extract ${c.id}`, out.extraction.cost_usd, out.extraction.unpriced_calls);
       const units = unitsOf(out.input).length;
-      console.log(`${c.id}: ${(out.extraction.total_ms / 1000).toFixed(1)} s, ${units} unidades, ${out.extraction.cost_usd.toFixed(5)} USD (acumulado ${total.toFixed(4)})${run.failure ? ` FAILURE ${run.failure.step} ${run.failure.reason ?? ''} ${run.failure.errors[0] ?? ''}` : ''}`);
+      console.log(`${c.id}: ${(out.extraction.total_ms / 1000).toFixed(1)} s, ${units} unidades, ${out.extraction.cost_usd.toFixed(5)} USD (acumulado ${total.toFixed(4)})`);
     } catch (e) {
       console.log(`${c.id}: FALLÓ ${e.code ?? ''} ${e.message}`);
       if (/Presupuesto/.test(e.message)) process.exit(2);

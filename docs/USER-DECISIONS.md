@@ -816,8 +816,8 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 - La barra no lleva ningún contador por área, ni cuadros de color, ni «+N». Los conteos por área viven donde ya estaban: la barra lateral junto a cada área y la vista de cada área. El chip de área aparece sólo como parte de una fila del desplegable.
 - La campana queda para novedades: lista los mensajes que llegaron con el panel abierto y su única marca es cuántas no se leyeron. Ya no repite el conteo de pendientes ni lleva color de estado.
 - Se retiran la insignia de Mensajes de la barra lateral (repetía la suma de las dos primeras marcas) y la franja «Para mí» y «Por área» de Inicio. Los conteos por área de la barra lateral se conservan.
-- En el teléfono la barra es un solo botón con el estado pendiente más alto y su total; su desplegable lista los tres estados, cada línea un enlace a Mensajes ya filtrado.
-- Los cerrados no levantan aviso (UD-041), pero el dueño pidió los tres estados y se muestran. El total del botón del teléfono suma sólo abiertos y respondidos.
+- En el teléfono la barra lleva las mismas tres marcas con su número, cada una con su desplegable (enmendado por UD-141).
+- Los cerrados no levantan aviso (UD-041), pero el dueño pidió los tres estados y se muestran.
 **Enmienda a UD-041 y UD-042:** la regla «cada estado se dice con su forma, su palabra y su número» rige en las filas, las listas y la barra lateral. En la barra superior la palabra no se dibuja: se dice en el nombre accesible. UD-029 queda enmendada: el fondo saturado de la campana desaparece porque la campana ya no cuenta estados.
 **Alternativas descartadas:**
 - Desglose por área en la barra (menú, chips o «+N»): el dueño lo rechazó por escrito.
@@ -829,6 +829,23 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 - Pruebas de flujos nuevas fallan si aparece un contador o chip de área en la barra o un texto visible de estado, abren cada desplegable por clic y por teclado, y comparan su lista con la cifra.
 - La lista que un mensaje del desplegable usa es la de `noticeState`, no el filtro «para» del servidor, que sólo conoce los asignados (H-2000).
 **Condiciones de reversión:** Si el dueño quiere ver los cerrados fuera de la barra, se quita la tercera marca sin tocar el resto.
+
+## [UD-141] En el teléfono la barra superior conserva las tres marcas de estado
+
+**Fecha:** 2026-10-21
+**Contexto:** Cinco de diez jueces de la ronda 4 marcaron lo mismo con severidad 3: en el teléfono la barra juntaba los tres estados en un solo «9» con el triángulo rojo de abierto (4 abiertos y 5 respondidos sumados), mientras el escritorio mostraba tres marcas separadas. El dueño pidió, textual, que la barra superior lleve «SÓLO los íconos de abierto (rojo), respondido (amarillo) y cerrado (azul), cada uno con su número, sin rótulos» y que al hacer clic despliegue «un pequeño desplegable con esos mensajes».
+**Decisión:**
+- En todos los anchos la barra lleva tres marcas, abierto rojo, respondido amarillo y cerrado azul, cada una con su número y su propio desplegable. Se retira el botón único del teléfono y su menú de tres líneas. Esto enmienda la viñeta del teléfono de UD-100; el vocabulario y los colores no cambian.
+- En el teléfono cada marca mide 36 x 36 px (mínimo exigido 24 px; escritorio 50 x 36 px) con 4 px entre ellas. La campana mide 36 x 36 px y el margen derecho de la barra baja a 8 px.
+- Medida en 360 px: el nombre del proyecto («DESARROLLO TEAM») cabe en dos líneas con espacio de sobra y las marcas y la campana terminan dentro de la pantalla; en 390 px también. Con 38 px por marca el nombre se partía a mitad de palabra en 360 px, de modo que el espaciado de las marcas se estrechó y el rastreo del nombre en teléfono bajó de 0,08 em a 0,05 em. No hizo falta ocultar nada en 360 px.
+- Las filas del desplegable llevan el título en una línea propia y debajo el chip de área, el autor y la hora. Con el chip a la derecha del título, un área de nombre largo reducía el título a una columna de 130 px.
+**Alternativas descartadas:**
+- Un solo botón con el total en el teléfono: sumaba abiertos y respondidos bajo el ícono de abierto y ocultaba el cerrado.
+- Ocultar el cerrado en el teléfono: el dueño pidió los tres.
+**Consecuencias:**
+- La prueba de flujos «on a phone the bar keeps the three marks» mide a 390 y 360 px: tres marcas, sólo el número visible, cada una de al menos 24 x 24 px, el nombre del proyecto termina antes que la primera marca, las marcas terminan antes que la campana, sin desborde horizontal, y el desplegable cabe en la pantalla y devuelve el foco con Escape.
+- La barra no tiene un botón de resumen: `summary-menu` desaparece.
+**Condiciones de reversión:** Si en una pantalla de menos de 360 px las marcas no caben, se decide con medida y se registra aquí.
 
 ## [UD-140] El presupuesto de API sube a 100 USD en total
 

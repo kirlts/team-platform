@@ -136,12 +136,11 @@ test('HP-001: a complete flow with an attachment of every kind reaches only allo
     const view = await until(async () => {
       const v = await (await call('GET', `/inputs/${inputId}`)).json()
       if (v.status === 'failed') throw new Error(`the input failed: ${v.error}`)
-      return v.status === 'proposed' ? v : null
+      return v.status === 'published' ? v : null // UD-070: the analysis publishes by itself
     })
     assert.equal(view.attachments.length, 5)
     assert.ok(view.attachments.every((a) => a.extracted), 'every attachment was extracted')
-    const published = await call('POST', `/inputs/${inputId}/publish`, view.proposal)
-    assert.equal(published.status, 200, await published.clone().text())
+    assert.equal(view.message_ids.length, 1)
 
     // The blocked-link door: a link to the loopback and one to the cloud metadata service never connect.
     const blocked = new FormData()

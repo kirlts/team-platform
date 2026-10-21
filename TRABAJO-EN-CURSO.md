@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 553ee44 Guion que refresca el estado vivo del traspaso. Empujado a origin: `553ee44`.
-- Ramas con commits sin fusionar: `wt-inicio-maqueta` 20 (hace 8 minutos), `wt-telemetria-ui` 14 (hace 3 minutos), `wt-voz` 4 (hace 32 minutos).
+- `main`: 328a6a9 Traspaso: reuniones largas fusionadas y presupuesto. Empujado a origin: `328a6a9`.
+- Ramas con commits sin fusionar: `wt-inicio-maqueta` 22 (hace 60 segundos), `wt-telemetria-ui` 14 (hace 5 minutos), `wt-voz` 6 (hace 45 segundos).
 - Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `553ee44` Guion que refresca el estado vivo del traspaso (hace 2 minutos)
-- `cc3d26a` Fusiona cobertura y estabilidad en reuniones largas (UD-080, H-1003) (hace 4 minutos)
-- `048767e` UD-080: la clasificación relee lo descartado y cada ventana ve 40 unidades previas; cierra H-1003 y abre H-1900 a H-1904 (hace 4 minutos)
-- `01a6cd9` Traspaso: estado al día, trabajo en vuelo y VPS (hace 6 minutos)
-- `66fdf7b` Libro: H-901 en su versión cerrada y la galería apunta a UD-059 (hace 11 minutos)
-- `6e50efb` Fusiona estados y Áreas (UD-041, UD-042); quita filas duplicadas del libro (hace 11 minutos)
-- `9648f93` Libro: H-1302 con sus hermanas (hace 12 minutos)
-- `d59b0f9` Fusiona main (H-904 a H-906) en wt-estados-areas (hace 12 minutos)
-Actualizado 2026-10-21 16:28 UTC.
+- `328a6a9` Traspaso: reuniones largas fusionadas y presupuesto (hace 2 minutos)
+- `553ee44` Guion que refresca el estado vivo del traspaso (hace 4 minutos)
+- `cc3d26a` Fusiona cobertura y estabilidad en reuniones largas (UD-080, H-1003) (hace 6 minutos)
+- `048767e` UD-080: la clasificación relee lo descartado y cada ventana ve 40 unidades previas; cierra H-1003 y abre H-1900 a H-1904 (hace 6 minutos)
+- `01a6cd9` Traspaso: estado al día, trabajo en vuelo y VPS (hace 8 minutos)
+- `66fdf7b` Libro: H-901 en su versión cerrada y la galería apunta a UD-059 (hace 13 minutos)
+- `6e50efb` Fusiona estados y Áreas (UD-041, UD-042); quita filas duplicadas del libro (hace 13 minutos)
+- `9648f93` Libro: H-1302 con sus hermanas (hace 14 minutos)
+Actualizado 2026-10-21 16:30 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

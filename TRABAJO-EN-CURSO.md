@@ -14,18 +14,18 @@
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
 - `main`: 9014c44 Plan de cierre: primera oración. Empujado a origin: `9014c44`.
-- Ramas con commits sin fusionar: `wt-barra-superior` 12 (hace 3 minutos), `wt-configuracion` 8 (hace 2 minutos), `wt-inicio-respira` 3 (hace 8 minutos).
+- Ramas con commits sin fusionar: `wt-barra-superior` 12 (hace 5 minutos), `wt-configuracion` 12 (hace 10 segundos), `wt-inicio-respira` 3 (hace 10 minutos), `wt-telemetria-2` 2 (hace 34 segundos), `wt-deuda-ingles` 1 (hace 2 minutos).
 - Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `banco-abiertos`, `barra-lateral`, `barra-superior`, `cierre`, `configuracion`, `deuda`, `deuda-ingles`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `h904-old`, `heic`, `ingles`, `inicio-maqueta`, `inicio-respira`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-2`, `telemetria-ui`, `thinking`, `voz`, `vps-restauracion`.
 - Últimos commits en `main`:
-- `9014c44` Plan de cierre: primera oración (hace 13 minutos)
-- `ba40c27` Plan de cierre: títulos sin subtítulo y oraciones cortas (hace 14 minutos)
-- `3bf56d6` Plan de cierre: fases, encargos relanzables y barra lateral (hace 14 minutos)
-- `48ca4b1` Traspaso: Configuración en vuelo (hace 32 minutos)
-- `89a1d39` Traspaso: la barra superior no lleva contadores por área (hace 40 minutos)
-- `207697a` Traspaso: instrucción de la barra superior en su sección (hace 42 minutos)
-- `43cf09c` Traspaso: la barra superior sólo con íconos de color y número (hace 42 minutos)
-- `c40b15d` Traspaso: barra superior e Inicio con espacio en vuelo (hace 45 minutos)
-Actualizado 2026-10-21 18:06 UTC.
+- `9014c44` Plan de cierre: primera oración (hace 15 minutos)
+- `ba40c27` Plan de cierre: títulos sin subtítulo y oraciones cortas (hace 16 minutos)
+- `3bf56d6` Plan de cierre: fases, encargos relanzables y barra lateral (hace 16 minutos)
+- `48ca4b1` Traspaso: Configuración en vuelo (hace 34 minutos)
+- `89a1d39` Traspaso: la barra superior no lleva contadores por área (hace 42 minutos)
+- `207697a` Traspaso: instrucción de la barra superior en su sección (hace 44 minutos)
+- `43cf09c` Traspaso: la barra superior sólo con íconos de color y número (hace 44 minutos)
+- `c40b15d` Traspaso: barra superior e Inicio con espacio en vuelo (hace 47 minutos)
+Actualizado 2026-10-21 18:08 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

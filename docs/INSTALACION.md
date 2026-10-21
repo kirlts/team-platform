@@ -12,6 +12,7 @@ La aplicación escucha en el puerto 3000 del contenedor. `compose.yml` lo public
 |---|---|
 | `ADMIN_EMAIL` | Correo del primer Editor |
 | `ANTHROPIC_API_KEY` | Texto, visión y PDF |
+| `SECRETS_KEY` | Clave maestra de las claves guardadas desde Configuración (64 hex). Sin ella se crea `secrets.key` en el volumen de datos. Respaldarla junto con la base |
 | `GROQ_API_KEY` | Transcripción de audio y video. Sin ella no se transcribe |
 | `DEEPSEEK_API_KEY` | Proveedor de respaldo, opcional |
 | `PUBLISH_PORT` | Puerto en el anfitrión. Vacío usa 3000 |

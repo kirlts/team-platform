@@ -298,7 +298,11 @@ POST   /api/members               alta de un miembro                          (E
 PATCH  /api/members/me            perfil, idioma y contraseña propios (`profile`: texto, tope en `members.profileMaxLength`)
 PATCH  /api/members/:id                                                        (Editor)
 
-GET    /api/settings/providers · PATCH /api/settings/providers                (Editor; nunca devuelve una llave)
+GET    /api/settings/providers · PATCH /api/settings/providers                (Editor; nunca devuelve una llave; PATCH prueba antes de guardar, 422 `provider_check_failed`; UD-120)
+POST   /api/settings/providers/:slot/check                                    diagnóstico de una función (Editor)
+GET    /api/settings/connections · POST /api/settings/connections             proveedores con estado, últimos 4 de la clave y funciones que la usan; alta con prueba previa (Editor; UD-120)
+PUT    /api/settings/connections/:name/key · DELETE …/key                     reemplazo con prueba previa; retiro (409 `provider_in_use` con `used_by`, 409 `key_from_environment`)
+DELETE /api/settings/connections/:name · POST …/check                         eliminar un proveedor propio; diagnóstico con duración, causa y lista de modelos
 GET    /api/settings/publication · PATCH /api/settings/publication   { auto_publish } (lee cualquier miembro, escribe el Editor; UD-070)
 GET    /api/settings/project         { name, description } (cualquier miembro)
 PATCH  /api/settings/project         descripción del proyecto en markdown: JSON { description } o multipart con `file` (.md) (Editor; tope PROJECT_DESCRIPTION_MAX_CHARS, 413 al superarlo; bitácora `settings.project.update`)
@@ -459,6 +463,12 @@ providers.textFallback  la misma firma; null si no se declara TEXT_FALLBACK_PROV
 providers.vision        .describe({ images[], prompt, schema })          → { json, usage }
 providers.speech        .transcribe({ audioPath, language })             → { text, segments }
 providers.describe()    estado de cada ranura para GET /settings/providers y GET /health, sin llaves
+probeConnection(spec)   llamada mínima: { ok, cause, status, duration_ms, models }; causas: invalid_key, no_quota, model_not_found, no_network, rate_limited, timeout, bad_address, provider_error, unknown
+```
+
+Claves de API desde Configuración (UD-120, UD-121): se guardan cifradas con AES-256-GCM (`src/domain/vault.js`) en `provider_connections` (migración 0009), con el nombre del proveedor como dato autenticado adicional. La clave maestra es `SECRETS_KEY` (64 hex o base64 de 32 bytes) o `<DATA_DIR>/secrets.key`, creada con modo 600 en el primer arranque. Una clave guardada prevalece sobre la variable de entorno, que sigue siendo el valor de arranque. Ninguna ruta devuelve una clave (sólo los últimos 4 caracteres); no se registra en logs, spans, telemetría, errores ni auditoría (`src/api/secrets-never-leak.test.js`). Rotación: con el servidor detenido, `node scripts/rotate-secrets-key.mjs` re-sella todo y deja `secrets.key.prev`. Respaldar la base sin respaldar la clave maestra deja las claves ilegibles; el panel las marca «fallando» y pide ingresarlas de nuevo.
+
+```
 ```
 
 Implementaciones: `anthropic` (texto, visión y PDF), `openai-compatible`, `groq-speech` y `fake` (para pruebas y para el banco). `anthropic` usa Messages nativo por `fetch`, sin SDK, con caché del prompt de sistema y sin `temperature`, `top_p` ni `top_k`. `openai-compatible` trae preajustes de DeepSeek, Groq, OpenRouter y Gemini, con tres modos de salida estructurada: `json_schema`, `tool` y `json_object` validado con Ajv. Modelo por omisión: `claude-haiku-5-5` en texto y visión, `deepseek-flash` si se elige DeepSeek, `whisper-large-v3-turbo` en transcripción. La configuración vive en variables de entorno (`TEXT_*`, `VISION_*`, `SPEECH_*`, `TEXT_FALLBACK_*`; lo que falte en visión se hereda de texto). Se edita desde Configuración (Editor). La base guarda sólo el nombre del proveedor y el modelo, nunca la llave (§4.6). Cada llamada abre su propio span `gen_ai.*` (§7.10 bis).

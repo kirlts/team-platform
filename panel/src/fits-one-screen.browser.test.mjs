@@ -336,7 +336,9 @@ for (const [width, height] of SIZES) {
             if (!scrolls && m.doc > m.win) failures.push(`${view.name} (${path}): document of ${m.doc} px in a window of ${m.win} (${(m.doc / m.win).toFixed(2)} windows)`)
             if (!scrolls && m.mainOver > 1) failures.push(`${view.name} (${path}): the main region scrolls ${m.mainOver} px on its own (${m.mainBox + m.mainOver} px in ${m.mainBox})`)
             if (!scrolls && m.below > m.win) failures.push(`${view.name} (${path}): content down to ${m.below} px in a window of ${m.win}`)
-            if (m.carriles.length) failures.push(`${view.name} (${path}): own vertical lanes outside the allow-list: ${m.carriles.join(', ')}`)
+            // On a page that scrolls (UD-123) the <main> of the shell is the page's own scrolling region; any other lane still fails.
+            const lanes = scrolls ? m.carriles.filter((c) => !c.startsWith('main.')) : m.carriles
+            if (lanes.length) failures.push(`${view.name} (${path}): own vertical lanes outside the allow-list: ${lanes.join(', ')}`)
             if (m.small.length) failures.push(`${view.name} (${path}): text below 12 px: ${m.small.slice(0, 5).join('; ')}`)
             if (m.hidden) failures.push(`${view.name} (${path}): the document hides its overflow with overflow hidden`)
             if (view.compare && base && (m.doc !== base.doc || m.mainBox + m.mainOver !== base.main)) failures.push(`${view.name} (${path}): ten inputs changed the height (document ${base.doc} to ${m.doc}, region ${base.main} to ${m.mainBox + m.mainOver})`)

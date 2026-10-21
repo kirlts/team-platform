@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Proveedores en Configuración (UD-120, UD-121): lista con estado y últimos 4 de la clave, alta, reemplazo con prueba previa, retiro con bloqueo por dependencia, cambio de función con reversión y diagnóstico con causa clasificada; claves cifradas en reposo y `scripts/rotate-secrets-key.mjs`.
+- Configuración: editor de la descripción que crece con el texto (UD-123) y una línea de explicación bajo cada ajuste (UD-122).
 - Galería de medios del panel (`MediaGallery`, UD-059) y `GET /api/attachments/:id/transcript`.
 - Telemetría de la interfaz (UD-091): `POST /api/telemetry/ui`, `GET /api/telemetry/ui-summary`, `PATCH /api/settings/telemetry`, módulo `panel/src/lib/telemetry.ts`, interruptor en Configuración y `scripts/ui-report.mjs`.
 - `panel/scripts/ui-detectors.mjs`: detectores de interfaz en navegador sobre todas las rutas, dos ventanas y dos temas.

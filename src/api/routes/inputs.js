@@ -4,6 +4,7 @@
 import { cancelInput, getInputView, listInputs, reprocessInput, submitInput } from '../../domain/inputs.js'
 import { getMessage } from '../../domain/messages.js'
 import { publishProposal } from '../../domain/proposals.js'
+import { withSpan } from '../../domain/tracing.js'
 import { pageEnvelope, pageParams, pageQuerySchema, pageResult } from '../pagination.js'
 import { idParams, inputView, messageDetail, publishBody } from '../schemas.js'
 import { readInputUpload } from '../upload.js'
@@ -62,7 +63,8 @@ export function registerInputRoutes (app, ctx) {
       response: { 200: { type: 'object', properties: { message_ids: { type: 'array', items: { type: 'string' } }, messages: { type: 'array', items: messageDetail } } } }
     }
   }, async (request) => {
-    const ids = publishProposal({ db, events }, { inputId: request.params.id, memberId: request.member.id, proposal: request.body })
+    const ids = await withSpan('input.publish', { 'team.input_id': String(request.params.id), 'team.member_id': String(request.member.id) }, () =>
+      publishProposal({ db, events }, { inputId: request.params.id, memberId: request.member.id, proposal: request.body }))
     return { message_ids: ids, messages: ids.map((mid) => getMessage(db, mid)) }
   })
 

@@ -1,6 +1,7 @@
 // Rutas de mensajes y respuestas (MASTER-SPEC §7.1).
 
 import { addReply, closeMessage, getMessage, listMessages, reopenMessage, REPLY_KINDS } from '../../domain/messages.js'
+import { withSpan } from '../../domain/tracing.js'
 import { pageEnvelope, pageParams, pageQuerySchema, pageResult } from '../pagination.js'
 import { idIn, idParams, messageCard, messageDetail } from '../schemas.js'
 
@@ -70,6 +71,7 @@ export function registerMessageRoutes (app, ctx) {
     app.post(`/messages/:id/${accion}`, {
       onRequest: [requireRole('member')],
       schema: { summary: resumen, params: idParams(), response: { 200: messageDetail } }
-    }, async (request) => funcion({ db, events }, request.params.id, request.member.id))
+    }, async (request) => withSpan(`message.${accion}`, { 'team.message_id': String(request.params.id), 'team.member_id': String(request.member.id) },
+      () => funcion({ db, events }, request.params.id, request.member.id)))
   }
 }

@@ -1,6 +1,8 @@
 // Rutas de operación del editor: la cola de trabajos, su purga y la bitácora.
 
 import { audit, listAudit } from '../../domain/audit.js'
+import { traceOfJob } from '../../domain/tracing.js'
+import { idParams } from '../schemas.js'
 import { requireConfirm } from '../confirm.js'
 import { pageEnvelope, pageParams, pageQuerySchema, pageResult } from '../pagination.js'
 
@@ -40,6 +42,16 @@ export function registerOpsRoutes (app, ctx) {
     const r = queue.listJobs({ state: request.query.state ?? null, limit: p.limit, offset: p.offset })
     return pageResult(r.items, r.total, p)
   })
+
+  app.get('/jobs/:id/trace', {
+    onRequest: [requireRole('editor')],
+    schema: {
+      summary: 'El árbol de spans de un trabajo (editor)',
+      description: 'Tiempos por paso, llamadas a proveedores con sus tokens y costo. Vacío si la telemetría no está instalada.',
+      params: idParams(),
+      response: { 200: { type: 'object', additionalProperties: true } }
+    }
+  }, async (request) => traceOfJob(db, request.params.id))
 
   app.delete('/jobs', {
     onRequest: [requireRole('editor')],

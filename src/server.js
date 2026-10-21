@@ -15,6 +15,7 @@ import { createEvents } from './events/index.js'
 import { createQueue } from './queue/index.js'
 import { createLogger } from './log.js'
 import { installTemplateWarmup } from './domain/modules.js'
+import { initTelemetry, shutdownTelemetry } from './domain/tracing.js'
 import { buildWorker } from './worker.js'
 
 export async function start (config, { env = process.env } = {}) {
@@ -31,6 +32,7 @@ export async function start (config, { env = process.env } = {}) {
       ? `Primer editor creado con la contraseña ${primero.password} (se muestra una sola vez; cámbiela desde Equipo).`
       : 'Primer editor creado con la contraseña de ADMIN_PASSWORD.')
   }
+  await initTelemetry({ db })
   const events = createEvents({ db })
   const queue = createQueue({ db, config, events })
 
@@ -51,6 +53,7 @@ export async function start (config, { env = process.env } = {}) {
       await worker.stop() // pasos 1, 3 y 4; los flujos SSE se cierran en el gancho preClose de la API (paso 2)
       events.stopPolling()
       await app.close() // paso 5
+      await shutdownTelemetry()
       db.close()
       logger.info('apagado completo')
     })()

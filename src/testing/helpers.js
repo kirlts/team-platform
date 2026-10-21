@@ -139,3 +139,70 @@ export async function until (fn, { timeoutMs = 5000, everyMs = 10 } = {}) {
     await new Promise((r) => setTimeout(r, everyMs))
   }
 }
+
+/**
+ * Cliente SSE mínimo sobre `fetch` contra un servidor real en un puerto efímero. `next(n)` espera n eventos
+ * (los comentarios de latido se acumulan en `comments`). `close()` corta la conexión.
+ */
+export async function openSse (env, url, { cookie, headers = {} } = {}) {
+  if (!env.baseUrl) {
+    await env.app.listen({ host: '127.0.0.1', port: 0 })
+    env.baseUrl = `http://127.0.0.1:${env.app.server.address().port}`
+  }
+  const controller = new AbortController()
+  const res = await fetch(`${env.baseUrl}${url}`, { headers: { accept: 'text/event-stream', cookie, ...headers }, signal: controller.signal })
+  const eventos = []
+  const comments = []
+  let cerrado = false
+  const espera = []
+  const avisar = () => { for (const f of espera.splice(0)) f() }
+  if (res.status === 200) {
+    ;(async () => {
+      const decoder = new TextDecoder()
+      let buffer = ''
+      try {
+        for await (const trozo of res.body) {
+          buffer += decoder.decode(trozo, { stream: true })
+          let corte
+          while ((corte = buffer.indexOf('\n\n')) >= 0) {
+            const bloque = buffer.slice(0, corte)
+            buffer = buffer.slice(corte + 2)
+            const ev = { id: null, event: 'message', data: null }
+            for (const linea of bloque.split('\n')) {
+              if (linea.startsWith(':')) comments.push(linea.slice(1).trim())
+              else if (linea.startsWith('id: ')) ev.id = linea.slice(4)
+              else if (linea.startsWith('event: ')) ev.event = linea.slice(7)
+              else if (linea.startsWith('data: ')) ev.data = JSON.parse(linea.slice(6))
+            }
+            if (ev.data !== null) eventos.push(ev)
+          }
+          avisar()
+        }
+      } catch { /* conexión cortada */ }
+      cerrado = true
+      avisar()
+    })()
+  } else {
+    cerrado = true
+  }
+  return {
+    status: res.status,
+    headers: res.headers,
+    eventos,
+    comments,
+    get cerrado () { return cerrado },
+    async next (n, timeoutMs = 3000) {
+      const limite = Date.now() + timeoutMs
+      while (eventos.length < n && !cerrado && Date.now() < limite) {
+        await new Promise((r) => { espera.push(r); setTimeout(r, 25) })
+      }
+      return eventos.slice(0, n)
+    },
+    async untilClosed (timeoutMs = 3000) {
+      const limite = Date.now() + timeoutMs
+      while (!cerrado && Date.now() < limite) await new Promise((r) => { espera.push(r); setTimeout(r, 25) })
+      return cerrado
+    },
+    close () { controller.abort() }
+  }
+}

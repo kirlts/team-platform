@@ -12,6 +12,7 @@ import { parseJson } from './db/util.js'
 import { createEvents } from './events/index.js'
 import { createQueue } from './queue/index.js'
 import { createLogger } from './log.js'
+import { initTelemetry, withSpan } from './domain/tracing.js'
 import { createPipeline } from './domain/pipeline.js'
 import { loadModules } from './domain/modules.js'
 import { sweepOrphans } from './domain/storage.js'
@@ -68,7 +69,9 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     const latido = setInterval(() => { if (!queue.heartbeat(job)) abortar('lost') }, w.heartbeatMs)
     const limite = setTimeout(() => abortar('timeout'), w.maxRuntimeMs)
 
-    const promesa = (async () => {
+    const inputId = parseJson(job.payload_json, {}).input_id ?? null
+    // Cada trabajo de la cola es un span (UD-014): los extractores y proveedores cuelgan de él.
+    const promesa = withSpan('job', { 'team.job_id': String(job.id), 'team.input_id': inputId === null ? '' : String(inputId), kind: job.kind }, async () => {
       const manejador = handlers[job.kind]
       try {
         if (!manejador) {
@@ -91,7 +94,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
         activos.delete(job.id)
         despertar()
       }
-    })()
+    })
     activos.set(job.id, { controller, promesa })
   }
 
@@ -191,6 +194,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
     process.exit(1)
   }
   const events = createEvents({ db })
+  await initTelemetry({ db })
   const { worker } = await buildWorker({ db, config, events, logger, pollDataVersionMs: config.worker.dataVersionPollMs })
   worker.start()
   logger.info({ worker_id: worker.workerId, concurrency: config.worker.concurrency }, 'worker en marcha')

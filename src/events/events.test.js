@@ -1,0 +1,198 @@
+import assert from 'node:assert/strict'
+import { test } from 'node:test'
+import { get, run } from '../db/index.js'
+import { openDatabase } from '../db/index.js'
+import { addMember, login, makeEnv, openSse } from '../testing/helpers.js'
+import { createEvents, toWire } from './index.js'
+
+const sinLimiteIp = { identity: { login: { ipMax: 1000 } } }
+
+async function equipo (opts = {}) {
+  const env = await makeEnv({ config: sinLimiteIp, ...opts })
+  await addMember(env, { email: 'ana@x.org' })
+  await addMember(env, { email: 'beto@x.org' })
+  env.c = { ana: await login(env, 'ana@x.org'), beto: await login(env, 'beto@x.org') }
+  return env
+}
+
+/** Un input de Ana con un trabajo, para que sus eventos le pertenezcan. */
+function inputDeAna (env) {
+  run(env.db, "INSERT INTO inputs (author_id, content_hash, status, created_at, updated_at) VALUES (1, 'h', 'analyzing', 1, 1)")
+  return env.queue.enqueue('analyze', {}, { inputId: 1 })
+}
+
+test('los eventos viajan con id de texto y los nombres progress, done y message', async () => {
+  const env = await equipo()
+  const jobId = inputDeAna(env)
+  const s = await openSse(env, '/api/events', { cookie: env.c.ana })
+  assert.equal(s.status, 200)
+  assert.equal(s.headers.get('content-type'), 'text/event-stream')
+  assert.match(s.headers.get('content-security-policy'), /connect-src 'self'/) // las cabeceras de seguridad llegan también al flujo
+  env.events.publishForJob(jobId, { kind: 'progress', percent: 40, phrase: 'leyendo' })
+  env.events.publishForJob(jobId, { kind: 'done', data: { status: 'done' } })
+  env.events.publish({ kind: 'message', data: { message_id: 7, title: 'Hola', author_id: 2 } })
+  const [p, d, m] = await s.next(3)
+  assert.equal(p.event, 'progress')
+  assert.deepEqual({ ...p.data, at: undefined }, { job_id: String(jobId), input_id: '1', percent: 40, phrase: 'leyendo', at: undefined })
+  assert.match(p.id, /^\d+$/)
+  assert.equal(d.event, 'done')
+  assert.equal(d.data.done, true)
+  assert.equal(d.data.job_id, String(jobId))
+  assert.equal(d.data.input_id, '1')
+  assert.equal(m.event, 'message')
+  assert.equal(m.data.message_id, '7')
+  assert.equal(m.data.author_id, '2')
+  assert.equal(m.data.title, 'Hola')
+  assert.ok(Number(m.id) > Number(p.id)) // ids crecientes
+  s.close()
+  await env.close()
+})
+
+test('el progreso llega sólo a su autor; los avisos de mensajes, a todo el equipo', async () => {
+  const env = await equipo()
+  const jobId = inputDeAna(env)
+  const ana = await openSse(env, '/api/events', { cookie: env.c.ana })
+  const beto = await openSse(env, '/api/events', { cookie: env.c.beto })
+  env.events.publishForJob(jobId, { kind: 'progress', percent: 10, phrase: 'x' })
+  env.events.publish({ kind: 'message', data: { message_id: 1, title: 't', author_id: 1 } })
+  assert.deepEqual((await ana.next(2)).map((e) => e.event), ['progress', 'message'])
+  assert.deepEqual((await beto.next(2, 600)).map((e) => e.event), ['message'])
+  ana.close(); beto.close()
+  await env.close()
+})
+
+test('sin sesión el flujo responde 401 (no un 200 vacío)', async () => {
+  const env = await equipo()
+  const s = await openSse(env, '/api/events', {})
+  assert.equal(s.status, 401)
+  await env.close()
+})
+
+test('Last-Event-ID repone lo posterior sin repetir ni dejar huecos', async () => {
+  const env = await equipo()
+  const jobId = inputDeAna(env)
+  const seqs = []
+  for (let i = 1; i <= 5; i++) seqs.push(env.events.publishForJob(jobId, { kind: 'progress', percent: i * 10, phrase: `p${i}` }))
+  const s = await openSse(env, '/api/events', { cookie: env.c.ana, headers: { 'last-event-id': String(seqs[1]) } })
+  const recibidos = await s.next(3)
+  assert.deepEqual(recibidos.map((e) => Number(e.id)), seqs.slice(2))
+  // Un evento nuevo sigue llegando después de la reposición.
+  const nuevo = env.events.publishForJob(jobId, { kind: 'progress', percent: 99, phrase: 'último' })
+  assert.equal(Number((await s.next(4))[3].id), nuevo)
+  s.close()
+  await env.close()
+})
+
+test('suscribir antes de reponer: con eventos publicándose durante la conexión, cada flujo es contiguo y sin repetidos', async () => {
+  const env = await equipo()
+  const jobId = inputDeAna(env)
+  const total = 120
+  let publicados = 0
+  const publicar = () => new Promise((resolve) => {
+    const paso = () => {
+      env.events.publishForJob(jobId, { kind: 'progress', percent: publicados % 100, phrase: `p${publicados}` })
+      if (++publicados < total) setImmediate(paso)
+      else resolve()
+    }
+    paso()
+  })
+  const produccion = publicar()
+  // Varias conexiones abiertas con Last-Event-ID 0 mientras se publica.
+  const flujos = await Promise.all(Array.from({ length: 6 }, () => openSse(env, '/api/events', { cookie: env.c.ana, headers: { 'last-event-id': '0' } })))
+  await produccion
+  const ultimo = get(env.db, 'SELECT MAX(seq) AS m FROM job_events').m
+  for (const f of flujos) {
+    const limite = Date.now() + 5000
+    while (Date.now() < limite && !(f.eventos.length && Number(f.eventos.at(-1).id) === ultimo)) await new Promise((r) => setTimeout(r, 25))
+    const ids = f.eventos.map((e) => Number(e.id))
+    assert.equal(new Set(ids).size, ids.length, 'sin repetidos')
+    for (let i = 1; i < ids.length; i++) assert.equal(ids[i], ids[i - 1] + 1, `hueco entre ${ids[i - 1]} y ${ids[i]}`)
+    assert.equal(ids[0], 1)
+    assert.equal(ids.at(-1), ultimo)
+    f.close()
+  }
+  await env.close()
+})
+
+test('una conexión nueva recibe el último progreso de cada trabajo en curso (la barra donde va)', async () => {
+  const env = await equipo()
+  const jobId = inputDeAna(env)
+  env.events.publishForJob(jobId, { kind: 'progress', percent: 10, phrase: 'a' })
+  env.events.publishForJob(jobId, { kind: 'progress', percent: 55, phrase: 'b' })
+  const s = await openSse(env, '/api/events', { cookie: env.c.ana })
+  const [e] = await s.next(1)
+  assert.equal(e.data.percent, 55)
+  assert.equal((await s.next(2, 300)).length, 1) // sólo ése
+  s.close()
+  await env.close()
+})
+
+test('?job_id: un trabajo terminado sin nada que reponer responde 204; con lo perdido repone y cierra tras done', async () => {
+  const env = await equipo()
+  const jobId = inputDeAna(env)
+  const primero = env.events.publishForJob(jobId, { kind: 'progress', percent: 50, phrase: 'x' })
+  const fin = env.events.publishForJob(jobId, { kind: 'done', data: { status: 'done' } })
+  env.queue.claim('w'); env.queue.complete(env.queue.getJob(jobId)) // el trabajo ya terminó
+  run(env.db, "UPDATE jobs SET status = 'done' WHERE id = ?", jobId)
+
+  const alDia = await openSse(env, `/api/events?job_id=${jobId}`, { cookie: env.c.ana, headers: { 'last-event-id': String(fin) } })
+  assert.equal(alDia.status, 204) // el navegador deja de reconectar
+
+  const perdido = await openSse(env, `/api/events?job_id=${jobId}`, { cookie: env.c.ana, headers: { 'last-event-id': String(primero) } })
+  assert.equal(perdido.status, 200)
+  const [d] = await perdido.next(1)
+  assert.equal(d.event, 'done')
+  assert.equal(await perdido.untilClosed(), true) // el servidor cierra después del done
+
+  assert.equal((await openSse(env, `/api/events?job_id=${jobId}`, { cookie: env.c.beto })).status, 404) // no es su trabajo
+  assert.equal((await openSse(env, '/api/events?job_id=abc', { cookie: env.c.ana })).status, 400)
+  await env.close()
+})
+
+test('el latido llega como comentario a la cadencia configurada', async () => {
+  const env = await equipo({ config: { ...sinLimiteIp, sse: { heartbeatMs: 40 } } })
+  const s = await openSse(env, '/api/events', { cookie: env.c.ana })
+  const limite = Date.now() + 2000
+  while (s.comments.filter((c) => c === 'heartbeat').length < 2 && Date.now() < limite) await new Promise((r) => setTimeout(r, 20))
+  assert.ok(s.comments.filter((c) => c === 'heartbeat').length >= 2)
+  s.close()
+  await env.close()
+})
+
+test('app.close() con un flujo abierto termina enseguida (forceCloseConnections y cierre en preClose)', async () => {
+  const env = await equipo()
+  const s = await openSse(env, '/api/events', { cookie: env.c.ana })
+  assert.equal(s.status, 200)
+  const t0 = Date.now()
+  await env.close()
+  assert.ok(Date.now() - t0 < 2000, `tardó ${Date.now() - t0} ms`)
+  assert.equal(await s.untilClosed(), true)
+})
+
+test('con el worker en otro proceso, PRAGMA data_version despierta al despachador', async () => {
+  const env = await equipo()
+  const recibidos = []
+  env.events.subscribe(1, (fila) => recibidos.push(fila))
+  env.events.startPolling(10)
+  // Otra conexión (como lo haría el proceso del worker) escribe sin pasar por el bus de la API.
+  const otra = openDatabase(env.config.dbFile)
+  const ajeno = createEvents({ db: otra })
+  ajeno.publish({ kind: 'message', data: { message_id: 3, title: 't', author_id: 2 } })
+  const limite = Date.now() + 2000
+  while (recibidos.length === 0 && Date.now() < limite) await new Promise((r) => setTimeout(r, 10))
+  assert.equal(recibidos.length, 1)
+  assert.equal(toWire(recibidos[0]).data.message_id, '3')
+  otra.close()
+  await env.close()
+})
+
+test('la retención borra los eventos viejos y deja los recientes', async () => {
+  const env = await equipo()
+  env.events.publish({ kind: 'message', data: {} })
+  const corte = Date.now() + 1000
+  env.events.publish({ kind: 'message', data: {} })
+  run(env.db, 'UPDATE job_events SET at = ? WHERE seq = 2', corte + 5000)
+  assert.equal(env.events.purge(corte), 1)
+  assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM job_events').n, 1)
+  await env.close()
+})

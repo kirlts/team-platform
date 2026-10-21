@@ -1,6 +1,6 @@
 # TODO: team-platform v0.1.0
 
-> Trazabilidad directa: cada tarea referencia checks de `VERIFICATION.md`. Mientras ese archivo espera a `/derive` (DT-010), los checks son las prohibiciones HP-001 a HP-020 de `docs/TEST.md`.
+> Trazabilidad directa: cada tarea referencia checks de `VERIFICATION.md`, con el formato `[ACTOR.CAT.NN.VER]`.
 >
 > Las marcas de tiempo de las tareas cerradas son la hora del commit que entregó cada ítem. Se verificaron contra el código y las pruebas el 2026-10-20: 387 del servidor, 56 del banco y 21 del panel, todas en verde.
 
@@ -62,12 +62,13 @@
 
 > Ref: MASTER-SPEC §4.7, UD-015, DT-009
 
-**Checks cubiertos:** HP-008
+**Checks cubiertos:** `[DEV.IN.04.LLM]`
 
 - [x] RULES regla 1, MASTER-SPEC §4.7 y UD-015 `2026-10-20 23:27:31`
 - [x] UD-005 anotada como reemplazada en los comentarios, TEST.md HP-008 y DT-009 `2026-10-20 23:40:00`
-- [ ] Traducir comentarios, nombres y descripciones de pruebas, mensajes de registro y prompts de `src/`, `panel/`, `bench/` y `scripts/`
-- [ ] HP-008 falla también ante comentarios en español y cubre `analyze`, `extract`, `providers`, `telemetry`, `panel` y `bench`
+- [x] Traducir comentarios, nombres y descripciones de pruebas, mensajes de aserción y de registro, y prompts de `src/`, `panel/`, `bench/` y `scripts/` `2026-10-21 15:35:00`
+- [x] HP-008 falla también ante comentarios y mensajes de aserción en español y cubre `src/`, `panel/`, `bench/`, `scripts/` y `.githooks/` (`[DEV.IN.04.LLM]`) `2026-10-21 15:35:00`
+- [x] [TASK-004]; 2026-10-21 15:35:00 [🤖 Verified by tool]
 
 ---
 
@@ -79,7 +80,7 @@
 
 > Ref: MASTER-SPEC §7.2
 
-**Checks cubiertos:** HP-007
+**Checks cubiertos:** `[DEV.IN.03.LLM]`
 
 - [x] Conexión `node:sqlite` con WAL, `busy_timeout` y `synchronous=FULL`; exige Node 24.15 y SQLite 3.51.3 `2026-10-20 22:19:19`
 - [x] Migración `0001_initial.sql` y ejecutor con `PRAGMA user_version`, respaldo previo y numeración contigua `2026-10-20 22:19:19`
@@ -91,20 +92,20 @@
 
 > Ref: MASTER-SPEC §7.3
 
-**Checks cubiertos:** HP-004
+**Checks cubiertos:** `[SYS.RS.01.LLM]`
 
 - [x] Reclamo atómico con arriendo, latido, reintentos con retroceso y jitter, barrera de intento `2026-10-20 22:19:19`
 - [x] Worker en el mismo proceso o aparte (`WORKER_MODE`), presupuesto de audio y aplazamiento sin gastar intento `2026-10-20 22:28:28`
 - [x] Pruebas de cola y de dos procesos reclamando sin duplicados `2026-10-20 22:40:26`
 - [x] Apagado ordenado con SIGTERM en menos de 10 s `2026-10-20 23:03:03`
-- [x] HP-004: el trabajo sobrevive a SIGKILL `2026-10-20 23:16:33`
+- [x] `[SYS.RS.01.LLM]`: el trabajo sobrevive a SIGKILL `2026-10-20 23:16:33`
 - [x] [TASK-006]; 2026-10-20 23:16:33 [🤖 Verified by tool]
 
 ### [TASK-007] API, convenciones y contrato OpenAPI
 
 > Ref: MASTER-SPEC §7.1, §4.11
 
-**Checks cubiertos:** HP-005, HP-009, HP-012, HP-013, HP-014
+**Checks cubiertos:** `[DEV.IN.02.LLM]`, `[SYS.IN.02.LLM]`, `[SYS.CR.02.LLM]`, `[DEV.IN.07.LLM]`, `[SYS.IN.03.LLM]`, `[SYS.IN.04.LLM]`
 
 - [x] Rutas de inputs, mensajes, áreas, plantillas, miembros, configuración y adjuntos `2026-10-20 22:28:28`
 - [x] OpenAPI 3.1 generado de los esquemas, CORS y cookie de origen cruzado `2026-10-20 22:45:35`
@@ -116,7 +117,7 @@
 
 > Ref: MASTER-SPEC §7.10
 
-**Checks cubiertos:** HP-017
+**Checks cubiertos:** `[SYS.RS.02.LLM]`
 
 - [x] Un flujo por miembro con reposición por `Last-Event-ID`, `?job_id=` y latido `2026-10-20 22:28:28`
 - [x] Pruebas de reposición sin repetidos ni huecos y de cierre con flujo abierto `2026-10-20 22:58:21`
@@ -126,17 +127,18 @@
 
 > Ref: MASTER-SPEC §7.1
 
-**Checks cubiertos:** HP-015
+**Checks cubiertos:** `[MEM.IN.01.LLM]`
 
 - [x] `GET /api/jobs`, `DELETE /api/jobs`, `GET /api/jobs/:id/trace`, `GET /api/audit`, `POST /api/inputs/:id/reprocess` y detalle de `/health` `2026-10-20 22:52:04`
 - [x] Pruebas de la operación del Editor `2026-10-20 23:03:03`
-- [ ] HP-015 como prueba con su ID (hoy son afirmaciones sueltas de `src/api/api.test.js`, DT-007)
+- [x] HP-015 como prueba con su ID (`[MEM.IN.01.LLM]`, DT-007) `2026-10-21 15:35:00`
+- [x] [TASK-009]; 2026-10-21 15:35:00 [🤖 Verified by tool]
 
 ### [TASK-010] Telemetría con OpenTelemetry (UD-014)
 
 > Ref: MASTER-SPEC §7.10 bis, UD-014
 
-**Checks cubiertos:** HP-001, HP-002
+**Checks cubiertos:** `[SYS.IN.01.LLM]`, `[SYS.CR.01.LLM]`
 
 - [x] `src/telemetry/`: spans en SQLite por un exportador propio, vista `llm_calls`, OTLP opcional `2026-10-20 23:03:18`
 - [x] Instrumentación de proveedores, extractores, cola y publicación `2026-10-20 23:07:27`
@@ -148,11 +150,11 @@
 
 > Ref: MASTER-SPEC §4
 
-**Checks cubiertos:** HP-003, HP-007, HP-010, HP-011
+**Checks cubiertos:** `[DEV.IN.01.LLM]`, `[DEV.IN.03.LLM]`, `[DEV.IN.05.LLM]`, `[DEV.IN.06.LLM]`
 
-- [x] HP-003, HP-005, HP-006, HP-007, HP-008 y HP-011 en `src/static.test.js` `2026-10-20 23:12:20`
-- [x] HP-003 sobre `src/analyze/` (DT-007) `2026-10-20 23:47:49`
-- [x] HP-010: un literal numérico fuera de `src/config.js` sin su fuente falla (DT-007) `2026-10-20 23:47:49`
+- [x] `[DEV.IN.01.LLM]`, `[DEV.IN.02.LLM]`, `[DEV.IN.08.LLM]`, `[DEV.IN.03.LLM]`, `[DEV.IN.04.LLM]` y `[DEV.IN.06.LLM]` en `src/static.test.js` `2026-10-20 23:12:20`
+- [x] `[DEV.IN.01.LLM]` sobre `src/analyze/` (DT-007) `2026-10-20 23:47:49`
+- [x] `[DEV.IN.05.LLM]`: un literal numérico fuera de `src/config.js` sin su fuente falla (DT-007) `2026-10-20 23:47:49`
 - [x] Gancho de pre-commit que escanea credenciales (DT-004) `2026-10-20 23:47:49`
 
 ---
@@ -165,19 +167,19 @@
 
 > Ref: MASTER-SPEC §7.4
 
-**Checks cubiertos:** HP-018
+**Checks cubiertos:** `[SYS.IN.06.LLM]`
 
 - [x] Imagen, documento (PDF, DOCX, PPTX, XLSX, texto), audio, video y enlace con guardia SSRF `2026-10-20 22:18:22`
 - [x] Pruebas de cada extractor y del registro por tipo `2026-10-20 22:21:39`
 - [x] Medición de tiempos por tipo en `docs/investigaciones/mediciones/2026-10-20-extractores.md` `2026-10-20 22:24:12`
 - [x] Presupuesto de audio de 7.200 s por hora y troceado FLAC de 600 s con 5 s de solapamiento `2026-10-20 22:18:22`
-- [ ] Alinear el tope de documentos entre la subida y la extracción (DT-005)
+- [x] Alinear el tope de documentos entre la subida y la extracción (DT-005) `2026-10-20 23:59:28`
 
 ### [TASK-013] Mediciones pendientes de los extractores
 
 > Ref: MASTER-SPEC §7.4, §7.11
 
-**Checks cubiertos:** HP-018 `[Requiere validación humana]`
+**Checks cubiertos:** `[SYS.IN.06.LLM]` `[Requiere validación humana]`
 
 - [x] Una foto HEIC real de iPhone: se decodifica con el `ffmpeg` de la imagen (UD-040, H-21)
 - [ ] Latencia de Groq, Anthropic y DeepSeek con archivos reales (la medición del 2026-10-20 usó dobles de latencia cero)
@@ -195,17 +197,19 @@
 
 > Ref: MASTER-SPEC §7.6
 
-**Checks cubiertos:** HP-002
+**Checks cubiertos:** `[SYS.CR.01.LLM]`, `[ANA.RS.01.LLM]`, `[SYS.AV.01.LLM]`
 
 - [x] `anthropic`, `openai-compatible` (DeepSeek, Groq, OpenRouter, Gemini), `groq-speech` y `fake` `2026-10-20 22:17:46`
 - [x] Configuración desde el entorno y desde Configuración (Editor), sin llaves en la base `2026-10-20 22:28:28`
-- [ ] Proveedor de texto de respaldo invocado ante un rechazo o un error (DT-003)
+- [x] Proveedor de texto de respaldo invocado ante un rechazo o un error de red o 5xx (DT-003) `2026-10-20 23:59:58`
+- [x] `llm_calls` registra el proveedor que respondió y `GET /health` informa la ranura `text_fallback` (`[ANA.RS.01.LLM]`, `[SYS.CR.01.LLM]`, `[SYS.AV.01.LLM]`) `2026-10-21 15:35:00`
+- [x] [TASK-014]; 2026-10-21 15:35:00 [🤖 Verified by tool]
 
 ### [TASK-015] Analizador `api`
 
 > Ref: MASTER-SPEC §7.5
 
-**Checks cubiertos:** HP-003, HP-014
+**Checks cubiertos:** `[DEV.IN.01.LLM]`, `[SYS.IN.04.LLM]`, `[ANA.CR.01.LLM]`, `[ANA.CR.02.LLM]`, `[ANA.CR.03.LLM]`, `[ANA.CR.04.LLM]`, `[ANA.CR.05.LLM]`, `[ANA.CR.06.LLM]`, `[ANA.CR.07.LLM]`
 
 - [x] Numeración de unidades, clasificación, descomposición MECE, rescate, partición y validación con Ajv `2026-10-20 22:27:02`
 - [x] Cada mensaje con su área y plantilla; clasificación en grupos y descomposición por grupo `2026-10-20 22:33:22`
@@ -219,7 +223,7 @@
 
 > Ref: MASTER-SPEC §7.5, UD-008
 
-**Checks cubiertos:** HP-014
+**Checks cubiertos:** `[SYS.IN.04.LLM]`
 
 - [x] `claude -p` sin `--bare` desde un directorio propio, con el mismo validador y pruebas con un ejecutable de mentira `2026-10-20 22:27:44`
 - [ ] Medir en el banco el costo y el tiempo del harness frente a `api` con una suscripción real
@@ -228,7 +232,7 @@
 
 > Ref: MASTER-SPEC §7.9
 
-**Checks cubiertos:** HP-013
+**Checks cubiertos:** `[SYS.IN.03.LLM]`
 
 - [x] Cinco áreas y cinco plantillas en `templates/`, con siembra desde `loadSeed` `2026-10-20 22:27:02`
 - [x] Retroalimentación: una confirmación sin comentarios no es un mensaje `2026-10-20 23:13:47`
@@ -244,7 +248,7 @@
 
 > Ref: MASTER-SPEC §7.8
 
-**Checks cubiertos:** HP-001, HP-017
+**Checks cubiertos:** `[SYS.IN.01.LLM]`, `[SYS.RS.02.LLM]`, `[PAN.FN.01.LLM]`, `[PAN.CR.02.LLM]`, `[PAN.CR.03.LLM]`, `[PAN.CR.04.LLM]`, `[PAN.CR.05.LLM]`
 
 - [x] Esqueleto con Vite, TanStack Query, React Router, filtros en la URL y flujo de eventos `2026-10-20 22:15:35`
 - [x] Servidor doble de desarrollo, subida con progreso, grabación de audio y consultas `2026-10-20 22:18:10`
@@ -258,11 +262,11 @@
 
 > Ref: MASTER-SPEC §6, UD-013
 
-**Checks cubiertos:** HP-020 `[Requiere validación humana]`
+**Checks cubiertos:** `[PAN.CR.01.HUM]` `[Requiere validación humana]`
 
 - [x] Tokens, vidrio y cromo, fuentes OFL empaquetadas y `panel/DISENO.md` con referencias fechadas `2026-10-20 22:38:40`
 - [x] Medición de contraste de cada par de texto y de peso del paquete `2026-10-20 22:43:30`
-- [ ] Martín mira las capturas de cada vista y confirma o corrige la jerarquía visual (HP-020)
+- [ ] Martín mira las capturas de cada vista y confirma o corrige la jerarquía visual (`[PAN.CR.01.HUM]`)
 - [ ] Probar en Safari 16.4 y en Firefox 128, la base de navegadores de §3
 - [ ] Probar la grabación de audio en un iPhone (Safari anterior a 18.4 sólo graba MP4)
 
@@ -276,7 +280,7 @@
 
 > Ref: MASTER-SPEC §7.7
 
-**Checks cubiertos:** HP-015, HP-016
+**Checks cubiertos:** `[MEM.IN.01.LLM]`, `[SYS.IN.05.LLM]`, `[SYS.IN.12.LLM]`, `[MEM.FN.01.LLM]`
 
 - [x] Local: Argon2id, sesión opaca, cookie `__Host-`, CSRF, límite por IP y espera por cuenta `2026-10-20 22:28:28`
 - [x] Delegada: `signed-header`, `jwt` (secreto y JWKS), `sso-redirect` y `trusted-header` `2026-10-20 22:28:28`
@@ -288,7 +292,7 @@
 
 > Ref: MASTER-SPEC §7.7
 
-**Checks cubiertos:** HP-016
+**Checks cubiertos:** `[SYS.IN.05.LLM]`
 
 - [ ] `trusted-header` detrás de `tailscale serve` con una tailnet real
 - [ ] Inicio de sesión con TLS real detrás de Caddy (la cookie `__Host-` exige HTTPS)
@@ -304,7 +308,7 @@
 
 > Ref: MASTER-SPEC §3
 
-**Checks cubiertos:** HP-006
+**Checks cubiertos:** `[DEV.IN.08.LLM]`, `[OPS.AV.01.LLM]`
 
 - [x] `Dockerfile` multi-etapa, `compose.yml` de un servicio y `compose.override.example.yml` `2026-10-20 22:22:53`
 - [x] `scripts/install.sh`, `scripts/backup.sh` y `docs/INSTALACION.md` `2026-10-20 22:26:19`
@@ -316,7 +320,7 @@
 
 > Ref: MASTER-SPEC §3, §4.5
 
-**Checks cubiertos:** HP-006, HP-011 `[Requiere validación humana]`
+**Checks cubiertos:** `[DEV.IN.08.LLM]`, `[OPS.AV.01.LLM]`, `[DEV.IN.06.LLM]` `[Requiere validación humana]`
 
 - [ ] Instalar con `scripts/install.sh` en un VPS limpio y recorrer las tres formas de `docs/INSTALACION.md`
 - [ ] Restaurar un respaldo siguiendo `docs/INSTALACION.md`
@@ -332,12 +336,12 @@
 
 > Ref: MASTER-SPEC §7.11
 
-**Checks cubiertos:** HP-019
+**Checks cubiertos:** `[ANA.CR.08.MIX]`
 
 - [x] `bench/score.js` con aritmética de conjuntos sobre `unit_ids` y exactitud de la clasificación `2026-10-20 22:29:36`
 - [x] Siete casos con su referencia, corredor `run.mjs`, proveedores falsos y aserción de promptfoo `2026-10-20 22:34:16`
 - [x] Primera corrida real: 6 de 7 casos con cobertura 100 % y referencias corregidas `2026-10-20 23:17:52`
-- [ ] Llevar `03-monologo-prueba` de 90 % a 100 % de cobertura (HP-019)
+- [ ] Llevar `03-monologo-prueba` de 90 % a 100 % de cobertura (`[ANA.CR.08.MIX]`)
 - [ ] Reemplazar los textos inventados por casos reales anonimizados en `bench/private/`
 - [ ] Repetir el banco con DeepSeek como proveedor de respaldo y al cambiar de modelo
 
@@ -348,12 +352,12 @@
 | Épico | Tareas | Estado | 🤖 .LLM | 🧑 .HUM | 🤖🧑 .MIX | Total checks |
 | --- | --- | --- | --- | --- | --- | --- |
 | EPIC-001 | TASK-001 a 004 | ⏳ En curso | 1 | 0 | 0 | 1 |
-| EPIC-002 | TASK-005 a 011 | ⏳ En curso | 10 | 0 | 0 | 10 |
+| EPIC-002 | TASK-005 a 011 | ⏳ En curso | 15 | 0 | 0 | 15 |
 | EPIC-003 | TASK-012 a 013 | ⏳ En curso | 1 | 0 | 0 | 1 |
-| EPIC-004 | TASK-014 a 017 | ⏳ En curso | 2 | 0 | 0 | 2 |
-| EPIC-005 | TASK-018 a 019 | ⏳ En curso | 0 | 1 | 0 | 1 |
-| EPIC-006 | TASK-020 a 021 | ⏳ En curso | 2 | 0 | 0 | 2 |
+| EPIC-004 | TASK-014 a 017 | ⏳ En curso | 9 | 0 | 0 | 9 |
+| EPIC-005 | TASK-018 a 019 | ⏳ En curso | 5 | 1 | 0 | 6 |
+| EPIC-006 | TASK-020 a 021 | ⏳ En curso | 3 | 0 | 0 | 3 |
 | EPIC-007 | TASK-022 a 023 | ⏳ En curso | 2 | 0 | 0 | 2 |
 | EPIC-008 | TASK-024 | ⏳ En curso | 0 | 0 | 1 | 1 |
 
-Cada prohibición se cuenta una vez, en el épico que la cierra; una tarea puede citar además otras que la tocan.
+Cada check se cuenta una vez, en el primer épico que lo cita; una tarea puede citar además otros que la tocan.

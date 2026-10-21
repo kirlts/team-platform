@@ -40,9 +40,9 @@ Fuentes de este documento: `idea.md` (volcado de diseño de Martín, 2026-10-20)
 
 ### 1.2 La tesis: el modelo lee y propone; el sistema valida y decide
 
-Igual que en Devalis. El modelo de lenguaje ocupa el borde: convierte un input desordenado en una propuesta estructurada. Todo lo demás es sistema determinista: qué áreas existen, qué plantillas tiene cada una, quiénes son los miembros, qué adjuntos hay, qué estados puede tener un mensaje, quién puede responder. El modelo recibe eso como contexto y como esquema de salida; no se le enseñan reglas de negocio en prosa que el sistema pueda hacer cumplir solo.
+El modelo de lenguaje ocupa el borde: convierte un input desordenado en una propuesta estructurada. Todo lo demás es sistema determinista: qué áreas existen, qué plantillas tiene cada una, quiénes son los miembros, qué adjuntos hay, qué estados puede tener un mensaje, quién puede responder. El modelo recibe eso como contexto y como esquema de salida; no se le enseñan reglas de negocio en prosa que el sistema pueda hacer cumplir solo.
 
-De ahí sale la invariante que más se incumple sola, heredada de Devalis y adoptada acá: **ningún `if`, expresión regular ni lista de palabras sobre el texto que escribe una persona decide un área, un destinatario ni un estado.** Lo interpreta el modelo y lo entrega por campos del esquema; el sistema valida la forma del valor (el área existe, el miembro existe, el adjunto pertenece al input) y escribe el dato exacto.
+De ahí sale la invariante que más se incumple sola, adoptada de un proyecto anterior del autor: **ningún `if`, expresión regular ni lista de palabras sobre el texto que escribe una persona decide un área, un destinatario ni un estado.** Lo interpreta el modelo y lo entrega por campos del esquema; el sistema valida la forma del valor (el área existe, el miembro existe, el adjunto pertenece al input) y escribe el dato exacto.
 
 ### 1.3 Idempotencia
 
@@ -88,18 +88,18 @@ Dos sentidos, ambos medibles. Primero, un mismo input (mismo texto normalizado, 
 
 ## §3. Stack técnico
 
-Criterio: lo mismo que Devalis donde Devalis ya pagó la elección (Node, Fastify, React, Refine, Vite), y menos piezas donde Devalis tiene más de las que un equipo de 10 necesita (UD-010).
+Criterio: tecnologías que el autor ya probó en producción (Node, Fastify, React, Refine, Vite), y menos piezas de las que ese proyecto lleva, porque un equipo de 10 no las necesita (UD-010).
 
 | Capa | Tecnología | Justificación |
 | --- | --- | --- |
-| Frontend | React 19 + Vite + Refine 5 + Tailwind | Lo que usan el panel y la consola de Devalis; Refine resuelve listas, filtros y formularios contra una API REST sin escribir el plomo. |
-| API | Node 24 + Fastify 5, validación de esquemas con Ajv | Igual que Devalis. Fastify valida entrada y salida por esquema JSON, que es el mismo mecanismo con que se valida lo que devuelve el modelo. |
+| Frontend | React 19 + Vite + Refine 5 + Tailwind | Ya probado en producción por el autor; Refine resuelve listas, filtros y formularios contra una API REST sin escribir el plomo. |
+| API | Node 24 + Fastify 5, validación de esquemas con Ajv | Fastify valida entrada y salida por esquema JSON, que es el mismo mecanismo con que se valida lo que devuelve el modelo. |
 | Datos | SQLite por `node:sqlite` (Node 24, sin dependencia nativa), modo WAL | `idea.md` pide SQLite; `node:sqlite` evita compilar `better-sqlite3` en cada arquitectura. Un archivo en el volumen es todo el respaldo. |
 | Cola de trabajos | Tabla `jobs` propia con arriendo, reintentos y prioridad, patrón de pg-boss | Las librerías de cola sobre SQLite tienen 8 estrellas o 3 años sin versión (investigación §4); la lógica cabe en un módulo. |
 | Progreso | SSE desde la API; cancelación por `POST` | Un solo sentido, reconexión automática del navegador; WebSocket sólo si hiciera falta control bidireccional. |
 | Adjuntos | Archivos en el volumen, nombrados por hash | Sin S3 ni MinIO: un equipo de 10 no los necesita; el adaptador de almacenamiento permite agregarlos. |
 | Modelo: texto, visión y PDF | Contrato de proveedor por modalidad. Omisión: Anthropic `claude-haiku-5-5` con salida estructurada, esfuerzo `low` y prompt de sistema cacheado | 0,10 USD entrada / 0,50 salida por MTok, lectura de caché 0,01; visión y PDF nativo de 600 páginas en el mismo proveedor. Alternativa configurable: DeepSeek `deepseek-flash` (texto e imagen, sin PDF). |
-| Modelo: transcripción | Groq `whisper-large-v3-turbo` por la API compatible con OpenAI | Es lo que ya usa `stt-nobara`; 0,04 USD por hora de audio (UD-008). Alternativa: faster-whisper local. |
+| Modelo: transcripción | Groq `whisper-large-v3-turbo` por la API compatible con OpenAI | Ya en uso por el autor; 0,04 USD por hora de audio (UD-008). Alternativa: faster-whisper local. |
 | Video | `ffmpeg`: pista de audio a transcripción; fotogramas por cambio de escena (umbral y máximo de fotogramas: perillas con valor medido, §4.9), deduplicados por hash perceptual; fotogramas al proveedor de visión | Sin un tercer proveedor. Alternativa configurable: Gemini Flash-Lite con video nativo. |
 | Extracción de documentos | Dentro del contenedor, la más rápida que alcance calidad suficiente: `markitdown-node` (MIT, PDF/DOCX/PPTX/XLSX en Node), MarkItDown en Python como proceso, o pieza propia en WASM (UD-009) | Se mide por documento con el banco de referencia; la que gana queda. |
 | Analizador alternativo | `claude -p` por trabajo, sin `--bare`, desde un directorio de trabajo vacío propio | Reutiliza una suscripción de Claude Code ya pagada (UD-008). `--bare` exige `ANTHROPIC_API_KEY` y no lee OAuth [V 2026-10-20, documentación oficial]. |

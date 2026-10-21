@@ -81,7 +81,7 @@ Haiku 5.5 sobre 100K tokens de prompt sube a 0,50 / 2,50. Haiku 5.5 tiene salida
 | faster-whisper / whisper.cpp local | 0 | CPU del VPS | Whisper, 99 idiomas, MIT | — |
 | Parakeet TDT 0.6B v3 | 0 | 25 idiomas europeos, CC-BY-4.0 | WER 6,32 en inglés contra 7,83 de v3-turbo (Open ASR Leaderboard, arxiv.org/pdf/2510.06961); español sin medir | — |
 
-Es lo mismo que ya usa `stt-nobara` en este notebook: Groq `whisper-large-v3-turbo` por `curl`.
+Es lo que el autor ya usa en otra herramienta propia: Groq `whisper-large-v3-turbo` por `curl`.
 
 ### Video
 

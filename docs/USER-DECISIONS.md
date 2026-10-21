@@ -34,7 +34,7 @@ RULES:
 
 **Fecha:** 2026-10-20
 **Contexto:** El análisis necesita texto, visión (imágenes, PDF, fotogramas de video) y transcripción (audio y pista de audio del video).
-**Decisión:** Una ranura de proveedor por modalidad, configurable por el operador. Martín corrige el dato de partida: DeepSeek sí tiene visión (DeepSeek V4.1 Vision). La transcripción va por la API de Groq (gratuita, como en su repo `stt-nobara`, Whisper large-v3-turbo). El video se convierte a fotogramas «de forma eficiente y repetible».
+**Decisión:** Una ranura de proveedor por modalidad, configurable por el operador. Martín corrige el dato de partida: DeepSeek sí tiene visión (DeepSeek V4.1 Vision). La transcripción va por la API de Groq (gratuita, Whisper large-v3-turbo, como ya la usa el autor en otra herramienta propia). El video se convierte a fotogramas «de forma eficiente y repetible».
 **Alternativas descartadas:**
 - Un solo proveedor para todo: ata el proyecto a una empresa.
 - Sólo texto en la primera versión: no cumple la promesa central (captura de chat, docx de 40 puntos).
@@ -60,7 +60,7 @@ RULES:
 
 **Fecha:** 2026-10-20
 **Contexto:** La maqueta dibuja «Enviar» en el bloque de análisis. Había que decidir si la descomposición se publica sola o la revisa el emisor, y cómo se desacopla del navegador.
-**Decisión:** El emisor revisa y confirma. Y, textual: «DEBE haber una cola de trabajos como en Devalis que desacople completamente el procesamiento en curso del navegador».
+**Decisión:** El emisor revisa y confirma. Y, textual: «DEBE haber una cola de trabajos [como en un proyecto anterior del autor] que desacople completamente el procesamiento en curso del navegador».
 **Alternativas descartadas:**
 - Publicar sola: una mala categorización llega al equipo sin filtro.
 - Configurable por miembro: dos comportamientos que probar.
@@ -82,11 +82,11 @@ RULES:
 - Archivo `LICENSE` MIT en la raíz; toda dependencia tiene que ser compatible con MIT.
 **Condiciones de reversión:** Que Martín pida una de las tres últimas por nombre.
 
-## [UD-005] Idioma: como Devalis
+## [UD-005] Idioma: código en inglés, comentarios y documentación en español
 
 **Fecha:** 2026-10-20
 **Contexto:** Proyecto abierto escrito por alguien que piensa en español.
-**Decisión:** «Como Devalis: código en inglés, comentarios y docs en español». Identificadores, esquema, rutas y nombres de archivo de código en inglés; comentarios, eje documental y textos de trabajo en español.
+**Decisión:** «Como [en un proyecto anterior del autor]: código en inglés, comentarios y docs en español». Identificadores, esquema, rutas y nombres de archivo de código en inglés; comentarios, eje documental y textos de trabajo en español.
 **Alternativas descartadas:**
 - Todo en inglés: Martín leería y decidiría sobre su segundo idioma.
 - Código en inglés, `docs/` en español y README en inglés: no la eligió; el README también va en español.
@@ -143,16 +143,16 @@ RULES:
 - La extracción corre dentro del mismo contenedor y se mide por documento: la herramienta que gane en tiempo con calidad suficiente para que el modelo descomponga bien es la que queda. Candidatas en orden: un port a Node de MarkItDown (`markitdown-node`), MarkItDown en Python invocado como proceso, y una pieza propia en WASM si ninguna alcanza.
 **Condiciones de reversión:** Que un tipo de documento (escaneado, tablas anidadas) salga roto en uso real; entonces entra Docling sólo para ese tipo.
 
-## [UD-010] Arquitectura como Devalis: una API resiliente que lo sirve todo
+## [UD-010] Arquitectura: una API resiliente que lo sirve todo
 
 **Fecha:** 2026-10-20
-**Contexto:** `idea.md` pide Docker con React+Refine, SQLite y un harness. Devalis usa Postgres, cola de trabajos (pg-boss) y varios servicios.
-**Decisión:** Martín, textual: «tenemos que tomar más inspiración del stack de Devalis. Piensa que Devalis utiliza Postgres con cola de trabajo y orquestador y un montón de cosas. Quizás no necesitamos todo eso, pero algo necesitamos. Además quiero que este programa funcione parecido a como funciona Devalis en cuanto a que el frontend solamente hace llamadas por API y que hay algo sirviendo la API y que la API es resiliente, y eso facilita mucho las cosas cuando necesitas que sistemas externos interactúen con esto».
+**Contexto:** `idea.md` pide Docker con React+Refine, SQLite y un harness. Un proyecto anterior del autor usa Postgres, cola de trabajos (pg-boss) y varios servicios.
+**Decisión:** Martín, textual: «tenemos que tomar más inspiración del stack de [un proyecto anterior del autor]. Piensa que [ese proyecto] utiliza Postgres con cola de trabajo y orquestador y un montón de cosas. Quizás no necesitamos todo eso, pero algo necesitamos. Además quiero que este programa funcione parecido a como funciona [ese proyecto] en cuanto a que el frontend solamente hace llamadas por API y que hay algo sirviendo la API y que la API es resiliente, y eso facilita mucho las cosas cuando necesitas que sistemas externos interactúen con esto».
 **Alternativas descartadas:**
 - Frontend con acceso directo a la base o renderizado en servidor: cierra la puerta a sistemas externos.
-- Copiar la pila entera de Devalis (Postgres, pooler, Caddy, Loki, Grafana): contradice «mínimos componentes».
+- Copiar la pila entera de ese proyecto (Postgres, pooler, Caddy, Loki, Grafana): contradice «mínimos componentes».
 **Consecuencias:**
-- Una API HTTP (Fastify, como Devalis) es la única puerta: el panel, las Conexiones futuras y cualquier sistema externo hablan con ella con el mismo contrato.
+- Una API HTTP (Fastify) es la única puerta: el panel, las Conexiones futuras y cualquier sistema externo hablan con ella con el mismo contrato.
 - Cola de trabajos propia sobre SQLite con arriendo y reintentos, en el mismo proceso o en un worker aparte del mismo contenedor; el patrón es el de pg-boss, la base es `node:sqlite`.
 - Resiliencia medida: un trabajo sobrevive al cierre del navegador y al reinicio del proceso; la API responde mientras hay trabajos corriendo.
 **Condiciones de reversión:** Que un equipo supere lo que SQLite en un solo nodo aguanta; entonces el adaptador de base cambia a Postgres sin tocar la API.

@@ -2,7 +2,7 @@
 
 > Trazabilidad directa: cada tarea referencia checks de `VERIFICATION.md`, con el formato `[ACTOR.CAT.NN.VER]`.
 >
-> Las marcas de tiempo de las tareas cerradas son la hora del commit que entregó cada ítem. Se verificaron contra el código y las pruebas el 2026-10-20: 387 del servidor, 56 del banco y 21 del panel, todas en verde.
+> Las marcas de tiempo de las tareas cerradas son la hora del commit que entregó cada ítem. Se verificaron contra el código y las pruebas el 2026-10-21 15:24: 771 del servidor (764 en verde, 7 omitidas por falta de llave, imagen o red), 74 del banco y 129 del panel.
 
 ## Leyenda de símbolos Kairós
 
@@ -66,9 +66,9 @@
 
 - [x] RULES regla 1, MASTER-SPEC §4.7 y UD-015 `2026-10-20 23:27:31`
 - [x] UD-005 anotada como reemplazada en los comentarios, TEST.md HP-008 y DT-009 `2026-10-20 23:40:00`
-- [x] Traducir comentarios, nombres y descripciones de pruebas, mensajes de aserción y de registro, y prompts de `src/`, `panel/`, `bench/` y `scripts/` `2026-10-21 15:35:00`
-- [x] HP-008 falla también ante comentarios y mensajes de aserción en español y cubre `src/`, `panel/`, `bench/`, `scripts/` y `.githooks/` (`[DEV.IN.04.LLM]`) `2026-10-21 15:35:00`
-- [x] [TASK-004]; 2026-10-21 15:35:00 [🤖 Verified by tool]
+- [x] Traducir comentarios, nombres y descripciones de pruebas, mensajes de aserción y de registro, y prompts de `src/`, `panel/`, `bench/` y `scripts/` `2026-10-21 15:24:00`
+- [x] HP-008 falla también ante comentarios y mensajes de aserción en español y cubre `src/`, `panel/`, `bench/`, `scripts/` y `.githooks/` (`[DEV.IN.04.LLM]`) `2026-10-21 15:24:00`
+- [x] [TASK-004]; 2026-10-21 15:24:00 [🤖 Verified by tool]
 
 ---
 
@@ -131,8 +131,8 @@
 
 - [x] `GET /api/jobs`, `DELETE /api/jobs`, `GET /api/jobs/:id/trace`, `GET /api/audit`, `POST /api/inputs/:id/reprocess` y detalle de `/health` `2026-10-20 22:52:04`
 - [x] Pruebas de la operación del Editor `2026-10-20 23:03:03`
-- [x] HP-015 como prueba con su ID (`[MEM.IN.01.LLM]`, DT-007) `2026-10-21 15:35:00`
-- [x] [TASK-009]; 2026-10-21 15:35:00 [🤖 Verified by tool]
+- [x] HP-015 como prueba con su ID (`[MEM.IN.01.LLM]`, DT-007) `2026-10-21 15:24:00`
+- [x] [TASK-009]; 2026-10-21 15:24:00 [🤖 Verified by tool]
 
 ### [TASK-010] Telemetría con OpenTelemetry (UD-014)
 
@@ -202,8 +202,8 @@
 - [x] `anthropic`, `openai-compatible` (DeepSeek, Groq, OpenRouter, Gemini), `groq-speech` y `fake` `2026-10-20 22:17:46`
 - [x] Configuración desde el entorno y desde Configuración (Editor), sin llaves en la base `2026-10-20 22:28:28`
 - [x] Proveedor de texto de respaldo invocado ante un rechazo o un error de red o 5xx (DT-003) `2026-10-20 23:59:58`
-- [x] `llm_calls` registra el proveedor que respondió y `GET /health` informa la ranura `text_fallback` (`[ANA.RS.01.LLM]`, `[SYS.CR.01.LLM]`, `[SYS.AV.01.LLM]`) `2026-10-21 15:35:00`
-- [x] [TASK-014]; 2026-10-21 15:35:00 [🤖 Verified by tool]
+- [x] `llm_calls` registra el proveedor que respondió y `GET /health` informa la ranura `text_fallback` (`[ANA.RS.01.LLM]`, `[SYS.CR.01.LLM]`, `[SYS.AV.01.LLM]`) `2026-10-21 15:24:00`
+- [x] [TASK-014]; 2026-10-21 15:24:00 [🤖 Verified by tool]
 
 ### [TASK-015] Analizador `api`
 

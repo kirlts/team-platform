@@ -46,10 +46,10 @@ Estados: `main` (resuelto y fusionado), `en curso` (asignado a un agente vivo), 
 
 | # | Hallazgo | Origen | Estado |
 |---|---|---|---|
-| H-29 | Cambiar el área de un mensaje propuesto y publicar falla por campos de la plantilla anterior (A1) | juez de pantallas | en curso (agente panel; la API ya valida con `template_id`) |
-| H-30 | Un análisis fallido sólo ofrece «Descartar» y pierde el texto (A2) | juez de pantallas | en curso (agente panel) |
+| H-29 | Cambiar el área de un mensaje propuesto y publicar falla por campos de la plantilla anterior (A1) | juez de pantallas | `main` (cambiar área remapea campos) |
+| H-30 | Un análisis fallido sólo ofrece «Descartar» y pierde el texto (A2) | juez de pantallas | `main` («Reintentar» en la fila, texto conservado) |
 | H-31 | El Editor no puede dar de alta ni quitar miembros (E1) | juez de pantallas | `main` en la API (`PATCH /members/:id` `active`); panel en curso |
-| H-32 | No se puede cambiar la contraseña (S1) | juez de pantallas | en curso (agente panel) |
+| H-32 | No se puede cambiar la contraseña (S1) | juez de pantallas | `main` (cambio de contraseña en Configuración) |
 | H-33 | Las respuestas no llevan medios | juez de pantallas, maqueta | `main` en la API (multipart en respuestas, `reply_attachments`); panel en curso |
 | H-34 | Publicar no revalida la propuesta editada (HP-014) | batería | `main` (publicar exige cada unidad en un mensaje o en `discarded`) |
 | H-35 | Un borrador con un campo obligatorio vacío se rechazaba | agente API | `main` (el borrador guarda incompleto; publicar exige) |
@@ -70,14 +70,14 @@ Estados: `main` (resuelto y fusionado), `en curso` (asignado a un agente vivo), 
 
 | # | Hallazgo | Origen | Estado |
 |---|---|---|---|
-| H-48 | Sin íconos por tipo de medio en mensajes y respuestas | Martín, juez | en curso (agente panel, UD-016) |
-| H-49 | Elementos desalineados: título en x=339 a 417, estado en x=515 a 620 | Martín, juez | en curso (agente panel, UD-016) |
-| H-50 | Diez textos truncados con puntos suspensivos | Martín, juez | en curso (agente panel, UD-016) |
-| H-51 | Edición en el lugar con deshacer y rehacer | Martín (UD-017) | en curso (agente panel) |
-| H-52 | Cada vista cabe en una pantalla; prueba `test:fit` | Martín (UD-017) | en curso (agente panel) |
+| H-48 | Sin íconos por tipo de medio en mensajes y respuestas | Martín, juez | `main` (un ícono por tipo de medio) |
+| H-49 | Elementos desalineados: título en x=339 a 417, estado en x=515 a 620 | Martín, juez | `main` (grilla de 12 columnas, columnas fijas) |
+| H-50 | Diez textos truncados con puntos suspensivos | Martín, juez | `main` (cero truncados, prueba `no-truncation.test.ts`) |
+| H-51 | Edición en el lugar con deshacer y rehacer | Martín (UD-017) | `main` (`EditableText`, `useUndoStack`) |
+| H-52 | Cada vista cabe en una pantalla; prueba `test:fit` | Martín (UD-017) | `main` (`test:fit` en 1440×900 y 1280×720, con datos ×8) |
 | H-53 | Un solo control de idioma que cambia interfaz, prompts y salida | Martín (UD-018) | en curso (agente panel, API y prompts) |
-| H-54 | Notas del juez de 1,0 a 2,0 por vista; informe con 8 a 14 hallazgos por vista | juez de pantallas | en curso (agente panel trabaja el informe entero) |
-| H-55 | Destello de fondo bajo el contador en Mensajes en móvil | agente panel | en curso (agente panel, dentro de H-49) |
+| H-54 | Notas del juez de 1,0 a 2,0 por vista; informe con 8 a 14 hallazgos por vista | juez de pantallas | en curso (agente panel: 59 hallazgos del juez hechos, 39 por hacer o refutar con razón escrita) |
+| H-55 | Destello de fondo bajo el contador en Mensajes en móvil | agente panel | `main` (destellos retirados) |
 | H-56 | Micrófono sólo probado con el dispositivo falso de Chromium; Safari e iPhone sin probar | agente panel | abierto: necesita un iPhone real (Martín) |
 | H-57 | SSE tras `tailscale serve` o un proxy con búfer sin probar | agente panel | abierto: se prueba al instalar en el VPS |
 | H-58 | Chromium headless no decodifica H.264: miniatura de video en blanco en la captura | juez | `main` (`bench/fixtures/make-webm.sh` genera el WebM VP9; el extractor lo lee: 24 fotogramas muestreados, 6 conservados; Chromium de Playwright lo decodifica; `docs/TEST.md` HP-020 lo indica; límite: el H.264 sí decodificó en este equipo, así que el defecto del juez no se reprodujo aquí) |
@@ -114,3 +114,4 @@ Estados: `main` (resuelto y fusionado), `en curso` (asignado a un agente vivo), 
 | H-79 | Envíos seguidos: barra lista al instante, análisis en paralelo, bandeja de alto fijo, revisión de a una, contexto de envíos recientes (UD-025) | Martín | en curso (agente panel compose; agente cola; agente prompts) |
 | H-80 | Comparar Haiku 5.5 contra Sonnet 5.5 y DeepSeek Flash con los mismos prompts sobre los 7 casos públicos y 12 privados representativos (cobertura, clasificación, asignación, marcas de IA, utilidad, tiempo, costo) | sesión | abierto: corre apenas entre la rama de prompts, para no mezclar el efecto del modelo con el de los prompts |
 | H-81 | Captura móvil de Inicio: el análisis no se distingue del mensaje; Envíos repite el texto del mensaje; título repetido en la cabecera y en la página; «3 mensajes» y «Propuesta» repiten «Para revisar · 3 mensajes»; cuerpo del mensaje igual al título; Deshacer y Rehacer ocupan una fila deshabilitados; área «Idea» para un error en los datos de desarrollo (UD-026) | Martín | en curso (agente panel; agente prompts para el cuerpo que repite el título) |
+| H-82 | API que el panel necesita: bandeja con `failed`, `PATCH /inputs/:id {text}`, reintento para el autor, `unresolved_count` | agente panel | en curso (agente cola) |

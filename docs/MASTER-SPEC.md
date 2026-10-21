@@ -1,121 +1,364 @@
-# MASTER-SPEC: [Project Name] v0.1.0
+# MASTER-SPEC: team-platform v0.1.0
 
-> [One-line project description]
+> Una bandeja de entrada para equipos de 3 a 10 personas: cualquier input (texto, capturas, video, audio, documentos, enlaces) se descompone en mensajes categorizados, asignados y rastreables.
 
----
-
-## §1. Project Identity
-
-**Purpose:** [What it does, for whom, and why it matters. Not as an elevator pitch; as an intention statement that a contributor can use to make decisions without asking.]
-
-**Name:** [Project Name]
-
-**Domain:** [Problem category: e.g., "Data Security", "Education", "RegTech"]
-
-**Problem it solves:** [What friction, inefficiency, or concrete need this project attacks. A person unfamiliar with the project should be able to understand the pain it alleviates.]
-
-**Direct beneficiary:** [Who receives concrete value from this project. Not "users" in the abstract; the specific entity whose situation improves.]
-
-**Indirect beneficiary:** [If applicable: who benefits as a secondary consequence.]
-
-**What it IS NOT:** [What this project does NOT attempt to be. This protects the scope from unintended expansion. If there are no scope constraints, the statement "No defined scope constraints." is written.]
+Fuentes de este documento: `idea.md` (volcado de diseño de Martín, 2026-10-20), `Plataforma Team.png` (maqueta dibujada antes del volcado; `idea.md` manda donde difieren), `docs/USER-DECISIONS.md` (UD-001 a UD-010) y `docs/investigaciones/01 - Motor de análisis y adjuntos.md`. Cada hecho sobre un tercero lleva su fuente ahí; acá sólo se cita la conclusión.
 
 ---
 
-## §2. Architecture
+## §1. Identidad del proyecto
 
-**Type:** [Zero-backend / Client-Server / Monolith / Microservices / etc.]
+**Propósito:** En los proyectos donde una persona es el desarrollador principal, la comunicación del equipo vive dispersa: correos, capturas con audio en un grupo, videos narrados, documentos. Reportes de errores, requerimientos, retroalimentación e ideas se mezclan con conversación casual. team-platform centraliza esa comunicación sin obligar a nadie a cambiar su forma de comunicar: cada miembro manda lo que tiene, como lo tiene, y la plataforma lo convierte en el mínimo conjunto de mensajes accionables, cada uno en su área, con su plantilla, con su destinatario y con los adjuntos que lo contextualizan.
 
-**Component Diagram:**
+**El vector de trascendencia**, la cualidad que todo lo demás sirve (Martín, 2026-10-20): **velocidad de respuesta por input y descomposición correcta.** Correcta quiere decir MECE: mutuamente excluyente (ningún punto repartido en dos mensajes) y colectivamente exhaustiva (ningún punto del input que no esté en un mensaje). Cada decisión de este documento se puede leer como una respuesta a «¿esto hace que un input se descomponga mejor o más rápido?».
+
+**Nombre:** team-platform
+
+**Dominio:** Comunicación interna de equipos de software pequeños; triage asistido por modelos de lenguaje.
+
+**Problema que resuelve:** Tres fricciones medibles en el equipo: ordenar, categorizar y asignar el trabajo que llega; responder a cada mensaje, petición, reporte o idea de forma individual y oportuna; y llevar trazabilidad de lo hecho. Hoy las tres se hacen a mano sobre un chat de grupo, o no se hacen.
+
+**Beneficiario directo:** El equipo del proyecto, de 3 a 10 miembros con responsabilidades y dominios distintos. En primer lugar quien desarrolla, que es a quien más le llega.
+
+**Beneficiario indirecto:** Quien instala team-platform dentro de un sitio propio para recibir lo que sus usuarios o clientes mandan (UD-002, UD-010), y cualquier sistema externo que hable con la API.
+
+**Lo que NO es:** No es un chat: un mensaje espera una respuesta, no una conversación continua. No es un gestor de proyectos: sin tableros, sprints ni estimaciones. No es un rastreador de incidencias que reemplace a GitHub: los mensajes se cierran, no se versionan. En la fase inicial no manda nada hacia afuera (correo, WhatsApp, API, MCP): la vista Conexiones existe apagada hasta que se pruebe que la descomposición funciona bien sin importar la procedencia y la forma del input (`idea.md`).
+
+### 1.1 Vocabulario
+
+| Término | Definición | Reglas |
+|---|---|---|
+| **Input** | Lo que una persona envía desde la barra de Inicio o, más adelante, por una conexión: texto y cero o más adjuntos (fotos, videos, audio, documentos, enlaces). | Un input se analiza una vez y produce una propuesta. |
+| **Propuesta** | El resultado del análisis: área detectada, plantilla elegida y N mensajes redactados según la plantilla, cada uno con sus destinatarios y adjuntos. | Editable por el emisor; se publica al confirmar (UD-003). |
+| **Mensaje** | Una comunicación de una persona hacia el equipo o hacia un miembro. Siempre espera respuesta. | Estados: `abierto` (sin respuesta), `respondido` (con respuesta, no cerrado), `cerrado` (con o sin respuesta). Sólo un miembro distinto del emisor responde; cualquier miembro cierra o reabre. |
+| **Respuesta** | La contraparte del mensaje: respuesta directa, reporte de arreglo, pedido de aclaración. | Depende de un mensaje. |
+| **Hilo** | Una respuesta seguida de más respuestas sobre el mismo mensaje. | Lineal, como los comentarios de un issue de GitHub. |
+| **Área** | Categoría de un mensaje. Las áreas son mutuamente excluyentes y colectivamente exhaustivas para toda comunicación interna que busque respuesta. | Título y descripción. Las gestiona el Editor. Juego inicial: idea, error, nueva funcionalidad, retroalimentación, pregunta. |
+| **Plantilla** | Archivo markdown que describe cómo analizar un input de su área y qué forma tiene cada mensaje de salida. | N plantillas por área, cada plantilla de una sola área. Nombre y descripción. Las gestiona el Editor. |
+| **Miembro** | Persona del equipo, con nombre, descripción breve de responsabilidades y dominios. | Edita sólo su propia descripción y dominios. Rol `member` o `editor` (UD-007). |
+| **Trabajo** | Unidad de la cola: extraer un adjunto, analizar un input. | Sobrevive al navegador y al reinicio del proceso (UD-003, UD-010). |
+
+### 1.2 La tesis: el modelo lee y propone; el sistema valida y decide
+
+Igual que en Devalis. El modelo de lenguaje ocupa el borde: convierte un input desordenado en una propuesta estructurada. Todo lo demás es sistema determinista: qué áreas existen, qué plantillas tiene cada una, quiénes son los miembros, qué adjuntos hay, qué estados puede tener un mensaje, quién puede responder. El modelo recibe eso como contexto y como esquema de salida; no se le enseñan reglas de negocio en prosa que el sistema pueda hacer cumplir solo.
+
+De ahí sale la invariante que más se incumple sola, heredada de Devalis y adoptada acá: **ningún `if`, expresión regular ni lista de palabras sobre el texto que escribe una persona decide un área, un destinatario ni un estado.** Lo interpreta el modelo y lo entrega por campos del esquema; el sistema valida la forma del valor (el área existe, el miembro existe, el adjunto pertenece al input) y escribe el dato exacto.
+
+### 1.3 Idempotencia
+
+Dos sentidos, ambos medibles. Primero, un mismo input (mismo texto normalizado, mismos adjuntos por hash) no crea un segundo trabajo: devuelve la propuesta o los mensajes que ya existen. Segundo, el mismo input con las mismas áreas, plantillas, equipo y modelo produce la misma propuesta: temperatura cero, esquema de salida estricto, y un banco de inputs de referencia con su descomposición esperada que la batería compara (§7.11).
+
+---
+
+## §2. Arquitectura
+
+**Tipo:** Cliente-servidor en un solo contenedor. La API es la única puerta (UD-010): el panel es un cliente estático servido por la misma API, y cualquier conexión futura o sistema externo entra por el mismo contrato.
+
+**Diagrama de componentes:**
 
 ```
-[Component A] → [Component B] → [Component C]
+┌───────────────────────── contenedor team-platform ──────────────────────────┐
+│                                                                              │
+│  Panel (React + Refine, estático) ──HTTP/JSON + SSE──▶  API (Fastify)        │
+│                                                          │                   │
+│                                                          ├─ Identidad (local │ email+clave,
+│                                                          │   o delegada)     │ UD-002
+│                                                          ├─ Dominio          │ mensajes, áreas,
+│                                                          │                   │ plantillas, equipo
+│                                                          └─ Cola (SQLite)  ◀─┼── Worker
+│                                                                              │   ├─ Extractores
+│  SQLite (node:sqlite, WAL)  ◀──────────────────────────────────────────────  │   │  imagen, pdf, docx,
+│  Volumen /data: base + adjuntos + plantillas                                 │   │  audio, video, enlace
+│                                                                              │   └─ Analizador
+└──────────────────────────────────────────────────────────────────────────────┘   ├─ api: bucle propio
+                                                                                   └─ harness: claude -p
+                 ▲ proveedores externos, configurables por modalidad (UD-001):
+                 texto y visión · transcripción · (video: fotogramas propios + transcripción)
 ```
 
-**Main Data Flow:**
+**Flujo principal de datos:**
 
-1. [Step 1]
-2. [Step 2]
-3. [Step N]
+1. La persona escribe en la barra de Inicio, adjunta lo que tenga y envía. `POST /inputs` guarda el input, cada adjunto en el volumen con su hash, calcula el hash del input y encola un trabajo `analyze`. Si el hash ya existe, devuelve lo que ya hay (§1.3). Respuesta inmediata con el id del input y el id del trabajo.
+2. El worker toma el trabajo con arriendo. Por cada adjunto corre el extractor de su tipo (§7.4) y escribe el texto o la descripción obtenida en la fila del adjunto. Cada paso emite un evento de progreso (porcentaje y frase breve) en `job_events`; el panel los recibe por SSE (`GET /jobs/:id/events`).
+3. El analizador (§7.5) arma el paquete: texto del input, extracciones de los adjuntos, títulos y descripciones de todas las áreas y de todas las plantillas, equipo con responsabilidades y dominios. Primera llamada: área y plantilla. Segunda llamada, con el cuerpo de la plantilla elegida: la lista MECE de mensajes, cada uno con título, campos de la plantilla, destinatarios propuestos y adjuntos que lo contextualizan. El sistema valida cada campo contra la base.
+4. El input pasa a `proposed`. En Inicio aparece la propuesta editable: área, cada mensaje, sus destinatarios, sus adjuntos. La persona corrige lo que quiera y aprieta Enviar. `POST /inputs/:id/publish` crea los mensajes en estado `abierto`.
+5. Los destinatarios los ven en Inicio («últimos mensajes», filtrados para mí) y en Mensajes. Responden (`POST /messages/:id/replies`), con lo que el mensaje pasa a `respondido`; cualquiera lo cierra o reabre.
 
 ---
 
-## §3. Technical Stack
+## §3. Stack técnico
 
-| Layer | Technology | Justification |
+Criterio: lo mismo que Devalis donde Devalis ya pagó la elección (Node, Fastify, React, Refine, Vite), y menos piezas donde Devalis tiene más de las que un equipo de 10 necesita (UD-010).
+
+| Capa | Tecnología | Justificación |
 | --- | --- | --- |
-| Frontend | [e.g., React + Vite] | [why this and not another] |
-| Backend | [e.g., Zero-backend] | [why] |
-| Data | [e.g., IndexedDB] | [why] |
-| Hosting | [e.g., GitHub Pages] | [why] |
+| Frontend | React 19 + Vite + Refine 5 + Tailwind | Lo que usan el panel y la consola de Devalis; Refine resuelve listas, filtros y formularios contra una API REST sin escribir el plomo. |
+| API | Node 24 + Fastify 5, validación de esquemas con Ajv | Igual que Devalis. Fastify valida entrada y salida por esquema JSON, que es el mismo mecanismo con que se valida lo que devuelve el modelo. |
+| Datos | SQLite por `node:sqlite` (Node 24, sin dependencia nativa), modo WAL | `idea.md` pide SQLite; `node:sqlite` evita compilar `better-sqlite3` en cada arquitectura. Un archivo en el volumen es todo el respaldo. |
+| Cola de trabajos | Tabla `jobs` propia con arriendo, reintentos y prioridad, patrón de pg-boss | Las librerías de cola sobre SQLite tienen 8 estrellas o 3 años sin versión (investigación §4); la lógica cabe en un módulo. |
+| Progreso | SSE desde la API; cancelación por `POST` | Un solo sentido, reconexión automática del navegador; WebSocket sólo si hiciera falta control bidireccional. |
+| Adjuntos | Archivos en el volumen, nombrados por hash | Sin S3 ni MinIO: un equipo de 10 no los necesita; el adaptador de almacenamiento permite agregarlos. |
+| Modelo: texto, visión y PDF | Contrato de proveedor por modalidad. Omisión: Anthropic `claude-haiku-5-5` con salida estructurada, esfuerzo `low` y prompt de sistema cacheado | 0,10 USD entrada / 0,50 salida por MTok, lectura de caché 0,01; visión y PDF nativo de 600 páginas en el mismo proveedor. Alternativa configurable: DeepSeek `deepseek-flash` (texto e imagen, sin PDF). |
+| Modelo: transcripción | Groq `whisper-large-v3-turbo` por la API compatible con OpenAI | Es lo que ya usa `stt-nobara`; 0,04 USD por hora de audio (UD-008). Alternativa: faster-whisper local. |
+| Video | `ffmpeg`: pista de audio a transcripción; fotogramas por cambio de escena (umbral y máximo de fotogramas: perillas con valor medido, §4.9), deduplicados por hash perceptual; fotogramas al proveedor de visión | Sin un tercer proveedor. Alternativa configurable: Gemini Flash-Lite con video nativo. |
+| Extracción de documentos | Dentro del contenedor, la más rápida que alcance calidad suficiente: `markitdown-node` (MIT, PDF/DOCX/PPTX/XLSX en Node), MarkItDown en Python como proceso, o pieza propia en WASM (UD-009) | Se mide por documento con el banco de referencia; la que gana queda. |
+| Analizador alternativo | `claude -p` por trabajo, sin `--bare`, desde un directorio de trabajo vacío propio | Reutiliza una suscripción de Claude Code ya pagada (UD-008). `--bare` exige `ANTHROPIC_API_KEY` y no lee OAuth [V 2026-10-20, documentación oficial]. |
+| Identidad | Contrato de proveedor. Omisión: local, correo y contraseña con argon2 y sesión en cookie `HttpOnly`. Delegada: el sitio anfitrión entrega la identidad por cabecera firmada o token | UD-002: «segura pero ligera» y reemplazable. |
+| Red | Tailscale opcional por fuera: `tailscale serve` da TLS y restringe a la tailnet | La aplicación no sabe de Tailscale; en un VPS público el TLS lo pone el proxy del anfitrión. |
+| Empaquetado | Una imagen Docker, un `compose.yml` con un servicio y un volumen | «Mínimos componentes»; instalar en un proyecto existente es agregar un servicio al compose del proyecto. |
+| Pruebas | Node test runner (`node --test`) sobre una base SQLite efímera; Playwright para el panel | Sin framework extra para el servidor. |
 
 ---
 
-## §4. Constraints (Inviolable Boundaries)
+## §4. Restricciones (límites inviolables)
 
-> These constraints override any other decision. They are lines that the system prevents from being crossed.
+> Estas restricciones mandan sobre cualquier otra decisión. Cada una tiene su prohibición en la batería o su candado en el código.
 
-1. [e.g., Zero user data transmission outside the browser]
-2. [e.g., Compatibility with Chrome, Firefox, and Safari]
-3. [constraint N]
+1. **Ningún dato del equipo sale del contenedor** salvo hacia los proveedores de modelo configurados, y cada envío queda registrado en `llm_calls` con proveedor, modelo, modalidad, tokens y costo.
+2. **Ningún `if`, expresión regular ni lista de palabras sobre texto humano decide área, destinatario ni estado** (§1.2). El modelo entrega campos; el sistema valida la forma.
+3. **Un trabajo nunca depende del navegador.** Sobrevive al cierre de la pestaña y al reinicio del proceso; al arrancar, el worker retoma los trabajos con arriendo vencido (UD-003, UD-010).
+4. **Nada llega al equipo sin que el emisor confirme** la propuesta (UD-003). Las conexiones futuras que publiquen directo lo harán por una perilla propia, apagada por omisión.
+5. **Un contenedor y un volumen bastan para correr.** Ningún componente obligatorio fuera de la imagen; los proveedores de modelo son externos y configurables.
+6. **Ninguna credencial en el repositorio ni en la base.** Variables de entorno o archivo fuera del repositorio; un gancho de pre-commit lo impide.
+7. **Código en inglés; comentarios, documentación y textos de interfaz en español** (UD-005). Sin esquema mezclado.
+8. **Sólo un miembro distinto del emisor responde un mensaje; cualquier miembro lo cierra o reabre.** Lo hace cumplir la API, no el panel.
+9. **Todo número que gobierna la operación nace declarado**: tamaño máximo de adjunto, fotogramas por video, páginas por llamada, reintentos, arriendo de un trabajo. Sale de una medición citada o de una perilla de configuración con su valor por omisión justificado, nunca de «parece razonable».
+10. **Toda dependencia es compatible con MIT** (UD-004).
+11. **La API es la única puerta.** El panel no lee la base ni el volumen; lo que el panel puede hacer, un sistema externo lo puede hacer con el mismo contrato (UD-010).
 
 ---
 
-## §5. Agreed Trade-offs
+## §5. Compromisos acordados
 
-> Decisions where one quality was sacrificed in favor of another, with the explicit reason.
+> Decisiones donde una cualidad se sacrificó a favor de otra, con la razón explícita.
 
-| Trade-off | In favor of | Against | Justification |
+| Compromiso | A favor de | En contra de | Justificación |
 | --- | --- | --- | --- |
-| [e.g., Bundle size vs functionality] | [Functionality] | [Bundle size] | [why this was chosen] |
+| SQLite en vez de Postgres | Un contenedor, instalación trivial, respaldo de un archivo | Concurrencia de escritura alta, varias réplicas | Equipos de 3 a 10. El adaptador de base permite Postgres si un equipo lo supera (UD-010). |
+| Confirmación del emisor en vez de publicación automática | Que nada mal categorizado llegue al equipo | Un paso más por input | UD-003. La maqueta ya lo dibuja. |
+| Extraer a texto antes del modelo, en vez de PDF nativo siempre | Velocidad y costo; proveedores sin PDF | Figuras y layout de un PDF | UD-009. El PDF nativo queda disponible cuando el extractor devuelve poco texto (escaneado). |
+| Haiku 5.5 por omisión, no DeepSeek | Un solo proveedor para texto, imagen y PDF; más barato por llamada en lista | Pesos abiertos | Investigación §3. DeepSeek queda a un cambio de configuración. |
+| Cola propia en vez de librería | Sin dependencia frágil; lógica corta y medible | Reescribir reintentos y arriendo | Investigación §4. |
+| Harness sin `--bare` para la suscripción | Reutilizar la cuenta de Claude Code ya pagada | 27k a 31k tokens de sistema por trabajo y arranque de proceso | UD-008. Se mide con `--output-format json`; el bucle propio sigue siendo la omisión. |
+| Fotogramas propios + transcripción en vez de video nativo | Sin tercer proveedor | Menor fidelidad temporal que Gemini nativo | UD-008 («lo que salga más fácil»). Gemini queda configurable. |
+| Panel estático servido por la API, sin Caddy | Un proceso | Sin TLS propio | `tailscale serve` o el proxy del anfitrión lo dan. |
 
 ---
 
-## §6. UI and User Experience
+## §6. Interfaz y experiencia
 
-**Reference atmosphere:** [Description of the desired "feel". Not generic adjectives ("modern", "clean"); concrete referents, colors, sensations, analogies.]
+**Atmósfera de referencia:** Un programa de gestión estándar, no una web que conversa. Rótulos de una a tres palabras como sustantivos («Mensajes», «Equipo»), sin texto de ayuda por omisión, sin segunda persona. Densidad de una bandeja de entrada de correo de escritorio: todo lo que se necesita ahora cabe sin desplazarse; lo demás nace plegado. La maqueta manda en la disposición: barra lateral a la izquierda, cabecera «[Nombre] TEAM» con campana y menú, contenido a la derecha.
 
-**Main user flow:**
+**Flujo principal de la persona:**
 
-1. [Step 1]
-2. [Step 2]
-3. [Step N]
+1. Entra. Ve Inicio: nombre del proyecto, fecha y hora, la barra «Nuevo mensaje» con clip (adjuntos), cámara (foto), micrófono (audio) y enviar.
+2. Escribe, pega una captura o arrastra un docx, y envía. La barra se vacía; debajo aparece la vista previa del input (texto y adjuntos con su miniatura) y, al lado, el bloque «Análisis» con una barra de progreso y la frase del paso en curso («leyendo el documento», «3 de 7 adjuntos»).
+3. Al terminar, el bloque muestra el área detectada y los mensajes propuestos: cada uno con título, texto según la plantilla, destinatarios (chips, editables) y adjuntos (miniaturas, quitables). Edita lo que quiera. Aprieta Enviar.
+4. Los mensajes aparecen en «Últimos mensajes». Quien los recibe los ve en su Inicio, filtrados para él por omisión, con la insignia del área, el emisor, la fecha y la miniatura del adjunto principal.
+5. Responde desde la tarjeta o desde Mensajes. El hilo crece debajo del mensaje. Cualquiera cierra; el estado se ve como insignia, nunca como prosa.
 
-**Interface components:**
+**Vistas** (barra lateral, en este orden; `idea.md` y UD-006):
 
-| Component | Function | File |
+| Vista | Qué muestra | Quién |
+|---|---|---|
+| Inicio | Barra de envío, vista previa, análisis, últimos mensajes (para mí por omisión), últimas respuestas (que me involucran) | Todos |
+| Mensajes | Todos los mensajes del equipo con filtros: para mí, para X, por área, por estado, respuestas; búsqueda | Todos |
+| Áreas | Áreas con su conteo de abiertos y sus plantillas; edición en el lugar | Editor |
+| Equipo | Miembros con responsabilidades y dominios; cada uno edita lo suyo | Todos |
+| Conexiones | API, MCP, correo, WhatsApp. Apagada: visible como entrada deshabilitada con la razón | Editor |
+| Configuración | Cuenta, tema claro u oscuro, proveedores de modelo (Editor) | Todos |
+
+**Componentes de interfaz:**
+
+| Componente | Función | Archivo |
 | --- | --- | --- |
-| [e.g., DropZone] | [e.g., File upload area] | [e.g., src/components/DropZone.tsx] |
+| `Sidebar` | Navegación, usuario, conteo de abiertos por área | `panel/src/components/Sidebar.tsx` |
+| `ComposeBar` | Barra de nuevo mensaje con adjuntos, cámara, micrófono, enviar | `panel/src/components/ComposeBar.tsx` |
+| `InputPreview` | Texto y adjuntos del input enviado | `panel/src/components/InputPreview.tsx` |
+| `AnalysisPanel` | Progreso por SSE, área detectada, propuesta editable, Enviar | `panel/src/components/AnalysisPanel.tsx` |
+| `MessageCard` | Área, emisor, fecha, texto, adjunto principal, estado, acciones | `panel/src/components/MessageCard.tsx` |
+| `ReplyThread` | Hilo lineal de respuestas con formulario al pie | `panel/src/components/ReplyThread.tsx` |
+| `MessagesList` | Lista con filtros y búsqueda | `panel/src/pages/Messages.tsx` |
+| `AreasEditor` | Áreas y plantillas, edición en el lugar | `panel/src/pages/Areas.tsx` |
+| `Team` | Miembros, edición de lo propio | `panel/src/pages/Team.tsx` |
+| `Settings` | Cuenta, tema, proveedores | `panel/src/pages/Settings.tsx` |
 
 ---
 
-## §7. Module Specifications
+## §7. Especificación de módulos
 
-> Technical detail of each module or critical system component.
+### 7.1 API (`src/api/`)
 
-### 7.1. [Module Name]
+**Propósito:** La única puerta (§4.11). Fastify con esquemas JSON de entrada y salida en cada ruta.
 
-**Purpose:** [what it does and why it exists as a separate module]
-
-**Interface:**
+**Interfaz:**
 
 ```
-[function/API/endpoint signature]
+POST   /auth/login                 { email, password } → sesión          (proveedor local)
+POST   /auth/logout
+GET    /me
+
+POST   /inputs                     multipart: text, files[], links[] → { input_id, job_id }   (idempotente por hash)
+GET    /inputs/:id                 input, adjuntos, estado, propuesta si existe
+POST   /inputs/:id/publish         propuesta editada → mensajes creados
+POST   /inputs/:id/cancel
+
+GET    /jobs/:id/events            SSE: { percent, phrase, at } … { done }
+
+GET    /messages?for=me|member_id&area=&status=&q=&replies=1
+GET    /messages/:id               mensaje, hilo, adjuntos
+POST   /messages/:id/replies       { body, kind }            (403 si el autor es el emisor)
+POST   /messages/:id/close · /reopen
+
+GET    /areas · POST /areas · PATCH /areas/:id            (editor)
+GET    /areas/:id/templates · POST · PATCH · DELETE       (editor)
+
+GET    /members · PATCH /members/me · PATCH /members/:id  (editor para :id)
+GET    /settings/providers · PATCH                        (editor)
+GET    /attachments/:id            archivo, con control de acceso
+GET    /health
 ```
 
-**Dependencies:** [dependency list]
+**Dependencias:** `fastify`, `@fastify/multipart`, `@fastify/cookie`, `@fastify/static`, `ajv`.
+
+### 7.2 Dominio y esquema (`src/db/`)
+
+**Propósito:** Las tablas son la especificación. Identificadores en inglés (UD-005).
+
+```
+members          id, email, name, role(member|editor), responsibilities, domains, created_at
+credentials      member_id, password_hash, updated_at                       (proveedor local)
+sessions         id, member_id, expires_at
+areas            id, title, description, position
+templates        id, area_id, name, description, body_markdown, updated_at
+inputs           id, author_id, text, content_hash UNIQUE, status(queued|extracting|analyzing|proposed|published|failed|cancelled), created_at
+attachments      id, input_id, kind(image|video|audio|document|link), path, mime, size, sha256, extracted_text, extracted_at
+proposals        input_id, area_id, template_id, payload_json, model_call_id, created_at
+messages         id, input_id, area_id, template_id, author_id, title, body, fields_json, status(open|answered|closed), created_at, closed_at
+message_assignees  message_id, member_id
+message_attachments message_id, attachment_id
+replies          id, message_id, author_id, body, kind, created_at
+jobs             id, kind(extract|analyze), payload_json, status(queued|running|done|failed), priority, attempts, run_at, lease_until, error, created_at
+job_events       job_id, seq, percent, phrase, at
+llm_calls        id, job_id, provider, model, modality, input_tokens, output_tokens, cached_tokens, cost_usd, duration_ms, at
+```
+
+**Dependencias:** `node:sqlite`. Migraciones como archivos SQL numerados aplicados al arrancar.
+
+### 7.3 Cola de trabajos (`src/queue/`)
+
+**Propósito:** Desacoplar el procesamiento del navegador (UD-003) con el patrón de pg-boss sobre SQLite.
+
+**Interfaz:**
+
+```
+enqueue(kind, payload, { priority, runAt })      → job_id
+claim(workerId, leaseMs)                          → job | null   (UPDATE … WHERE status='queued' AND run_at<=now LIMIT 1, atómico)
+heartbeat(jobId) · progress(jobId, percent, phrase) · complete(jobId) · fail(jobId, error)
+recoverExpiredLeases()                            al arrancar y por ciclo
+```
+
+El worker corre en el mismo proceso que la API por omisión (un contenedor) y puede correr como segundo proceso de la misma imagen (`node src/worker.js`). Los reintentos, el arriendo y la concurrencia son perillas con su valor por omisión justificado (§4.9).
+
+### 7.4 Extractores (`src/extract/`)
+
+**Propósito:** Convertir cada adjunto en texto o descripción antes del analizador, de forma determinista y medida.
+
+| Tipo | Extractor | Salida |
+|---|---|---|
+| imagen | proveedor de visión: «describe todo lo que sea accionable para un equipo de software, textual» | texto |
+| documento (pdf, docx, pptx, xlsx, txt, md) | extractor a markdown (UD-009); si devuelve menos texto que un umbral medido, PDF nativo al proveedor | markdown |
+| audio | proveedor de transcripción | texto con marcas de tiempo |
+| video | `ffmpeg`: pista de audio → transcripción; fotogramas por cambio de escena, deduplicados por hash perceptual → proveedor de visión, en una sola llamada con todos los fotogramas | transcripción + descripción por fotograma |
+| enlace | descarga con límite de tamaño y lectura del contenido principal | markdown |
+
+**Interfaz:** `extract(attachment, { onProgress }) → { text, meta }`. Cada extractor es un archivo; registrar uno nuevo es agregarlo al mapa por tipo.
+
+### 7.5 Analizador (`src/analyze/`)
+
+**Propósito:** La mecánica central: de un input extraído a una propuesta MECE. Un contrato y dos implementaciones (UD-008).
+
+**Interfaz:**
+
+```
+analyze(bundle, { onProgress }) → Proposal
+bundle = { text, attachments:[{id, kind, extracted}], areas:[{id,title,description}],
+           templates:[{id,area_id,name,description}], members:[{id,name,responsibilities,domains}] }
+Proposal = { area_id, template_id, messages:[{ title, body, fields, assignee_ids, attachment_ids }] }
+```
+
+**`api` (omisión):** dos llamadas con salida estructurada. (1) Clasificar: área y plantilla, con la lista de títulos y descripciones. (2) Descomponer: con el cuerpo de la plantilla elegida, la lista MECE de mensajes. Prompt de sistema cacheado; esfuerzo bajo; temperatura cero. Si el input extraído supera el presupuesto de tokens de una llamada (perilla medida), la descomposición corre por partes en paralelo y una llamada de consolidación une y deduplica (mapa y reducción). Cada llamada queda en `llm_calls`.
+
+**`harness`:** el mismo bundle se escribe en un directorio de trabajo vacío y propio; `claude -p --output-format json --json-schema <Proposal>` con el prompt y las herramientas de lectura permitidas; se lee `structured_output`, `usage` y `total_cost_usd`. Sin `--bare` para que use la suscripción [V]. Mismo validador de salida que `api`.
+
+**Validación (sistema, no modelo):** área y plantilla existen y se corresponden; cada `assignee_id` es un miembro; cada `attachment_id` pertenece al input; cada campo obligatorio de la plantilla está presente; ningún mensaje vacío. Una salida inválida reintenta una vez con el error como contexto; después, el trabajo falla con el motivo visible.
+
+### 7.6 Proveedores de modelo (`src/providers/`)
+
+**Propósito:** Una ranura por modalidad, configurable (UD-001).
+
+```
+providers.text    .complete({ system, messages, schema, effort }) → { json, usage }
+providers.vision  .describe({ images[], prompt, schema })          → { json, usage }
+providers.speech  .transcribe({ audioPath, language })             → { text, segments }
+```
+
+Implementaciones iniciales: `anthropic` (texto, visión, PDF; Messages nativo con caché), `openai-compatible` (DeepSeek, Groq, OpenRouter, Gemini por su endpoint compatible), `groq-speech`. La configuración vive en variables de entorno y se edita desde Configuración (Editor); la base guarda sólo el nombre del proveedor y el modelo, nunca la llave (§4.6).
+
+### 7.7 Identidad (`src/identity/`)
+
+**Propósito:** Un contrato con dos implementaciones (UD-002).
+
+```
+identify(request) → { member_id, role } | null
+```
+
+`local`: correo y contraseña (argon2id), sesión en cookie `HttpOnly` + `SameSite=Lax`, límite de intentos. `delegated`: el sitio anfitrión manda la identidad por una cabecera firmada (HMAC con secreto compartido) o un JWT que el módulo verifica; el correo se mapea a un miembro. El rol sigue siendo el de la tabla `members` (UD-007).
+
+### 7.8 Panel (`panel/`)
+
+**Propósito:** Cliente estático React + Refine contra `/api`. No sabe de la base ni del volumen (§4.11). Servido por `@fastify/static` desde la misma imagen; en desarrollo, Vite con proxy.
+
+### 7.9 Plantillas (`templates/` y tabla `templates`)
+
+**Propósito:** La metodología de análisis y el formato de salida de cada área, en markdown editable por el Editor.
+
+```markdown
+---
+name: Reporte de error
+description: Algo que antes funcionaba o debería funcionar y no lo hace.
+fields:
+  - { name: steps,    label: Pasos para reproducir, required: true }
+  - { name: expected, label: Qué se esperaba,        required: true }
+  - { name: actual,   label: Qué pasó,               required: true }
+  - { name: where,    label: Dónde (pantalla, URL),  required: false }
+---
+## Método
+Cómo leer el input para esta área: qué cuenta como un error distinto, cómo separar dos errores
+que comparten una captura, qué va en cada campo.
+
+## Formato de salida
+Un mensaje por error. Título: verbo en infinitivo y lugar.
+```
+
+El frontmatter se convierte en el esquema JSON de `fields` que el analizador exige; el cuerpo entra al prompt de la segunda llamada. El juego inicial (idea, error, nueva funcionalidad, retroalimentación, pregunta) se siembra al instalar y se puede editar o borrar.
+
+### 7.10 Eventos y progreso (`src/events/`)
+
+**Propósito:** Que la persona vea el trabajo avanzar sin sondeo.
+
+`GET /jobs/:id/events` abre un flujo SSE y repone desde `job_events` lo que ya pasó (`Last-Event-ID`), así una pestaña que se reabre no pierde el progreso. Los extractores y el analizador emiten `progress(percent, phrase)` por paso real; el porcentaje sale de pasos completados sobre pasos totales, nunca de un reloj.
+
+### 7.11 Banco de referencia y mediciones (`bench/`)
+
+**Propósito:** Que el vector (§1) sea un número. Un conjunto de inputs reales anonimizados (captura de chat, docx con N puntos, transcripción de un monólogo, video corto) con su descomposición esperada. La batería corre el analizador sobre cada uno y reporta: tiempo total por input, tiempo por paso, tokens y costo por llamada, y puntaje MECE contra la esperada (puntos cubiertos, puntos repetidos, mensajes de más). Lo mismo para cada extractor candidato (UD-009). Toda perilla de §4.9 cita una corrida de este banco.
 
 ---
 
-## §8. Operational Rules
+## §8. Reglas operativas
 
-> How the AI agent operates within this repository.
+> Cómo opera el agente de IA dentro de este repositorio.
 
-**Rules location:** [One of the following]
-- `docs/RULES.md`
-- [Custom path or system description]
-- No operational rules defined for this repository.
+**Ubicación de las reglas:** `docs/RULES.md`
 
-**Scope:** [When do the rules apply? Examples: "All file modifications",
-"Only changes to src/", "Only database migrations". If no scope is defined,
-rules apply to all agent operations.]
+**Alcance:** Todas las operaciones del agente sobre el repositorio: código, documentación, dependencias y despliegue.

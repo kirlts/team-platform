@@ -116,3 +116,43 @@ RULES:
 **Consecuencias:**
 - Los roles son un enumerado del código; cambiar el rol de alguien es una edición de datos, no de configuración del proveedor.
 **Condiciones de reversión:** Que una integración anfitriona necesite derivar el rol de su propio sistema.
+
+## [UD-008] Bucle propio con un contrato de analizador que también admite un harness
+
+**Fecha:** 2026-10-20
+**Contexto:** Con la investigación de `docs/investigaciones/01 - Motor de análisis y adjuntos.md` delante (un harness paga 27k a 150k tokens y 0,6 a 4 s por invocación; con DeepSeek pierde el PDF; ningún producto de bandeja de entrada encontrado embebe uno), había que elegir qué ejecuta el análisis.
+**Decisión:** Martín, textual (dictado): «implementaremos el bucle propio siguiendo las mejores y más eficientes prácticas documentadas a octubre de 2026 considerando que también debemos poder implementar un harness. La razón de esto es porque la idea es poder instalar esta página en proyectos donde por ejemplo ya se esté pagando una suscripción a Claude Code y se pueda utilizar directamente la misma cuenta que ya se está pagando … utilizando el harness de Claude Code en modo bare». Y el vector que ordena todo: «la cualidad máxima a maximizar es la velocidad de respuesta y la correcta descomposición de un input».
+**Alternativas descartadas:**
+- Harness como único motor: paga el arranque en cada input y no puede fijar el presupuesto de tokens por paso.
+- Bucle propio sin contrato de harness: deja afuera a quien ya paga una suscripción.
+**Consecuencias:**
+- Un contrato `Analyzer` con dos implementaciones: `api` (bucle propio, por omisión) y `harness` (`claude -p` por input, trabajo en cola). Las dos reciben el mismo paquete de entrada (texto, adjuntos ya extraídos, áreas, plantillas, equipo) y devuelven el mismo resultado validado contra esquema.
+- Hecho verificado en la documentación oficial (code.claude.com/docs/en/headless, 2026-10-20): `--bare` «no usa el login de suscripción; nunca lee credenciales OAuth ni el llavero» y exige `ANTHROPIC_API_KEY`. Reutilizar la suscripción obliga a correr `claude -p` sin `--bare`, desde un directorio de trabajo vacío y propio del adaptador, que es lo más cerca de bare que permite la suscripción. El adaptador queda escrito así y se mide su sobrecarga real con `--output-format json` (`usage`, `total_cost_usd`).
+- Audio: Groq por ahora; cuando se cambie, la sesión propone su mejor opción medida, no necesariamente Whisper. Video: lo que salga más fácil.
+**Condiciones de reversión:** Que Anthropic habilite la suscripción en modo bare (el adaptador pasa a `--bare`), o que la medición del adaptador lo haga inviable (se deja como experimental).
+
+## [UD-009] Extracción de documentos: lo más rápido, con MarkItDown como referencia
+
+**Fecha:** 2026-10-20
+**Contexto:** PDF y DOCX tienen que pasar a texto antes del modelo (DeepSeek no lee PDF; un PDF nativo cuesta 1.500 a 3.000 tokens por página).
+**Decisión:** Martín, textual: «Lo que salga más rápido, quizás MarkItDown es muy bueno, pero también no olvides que nosotros mismos podemos programar nuestra propia herramienta utilizando WASM o ocupando uno que ya exista. En fin, hay que hacerlo más rápido, no más posible».
+**Alternativas descartadas:**
+- Sidecar Docling: tablas y OCR excelentes, un contenedor más y 41 s por 14 páginas.
+- Escalonado MarkItDown + Docling: dos caminos que probar.
+**Consecuencias:**
+- La extracción corre dentro del mismo contenedor y se mide por documento: la herramienta que gane en tiempo con calidad suficiente para que el modelo descomponga bien es la que queda. Candidatas en orden: un port a Node de MarkItDown (`markitdown-node`), MarkItDown en Python invocado como proceso, y una pieza propia en WASM si ninguna alcanza.
+**Condiciones de reversión:** Que un tipo de documento (escaneado, tablas anidadas) salga roto en uso real; entonces entra Docling sólo para ese tipo.
+
+## [UD-010] Arquitectura como Devalis: una API resiliente que lo sirve todo
+
+**Fecha:** 2026-10-20
+**Contexto:** `idea.md` pide Docker con React+Refine, SQLite y un harness. Devalis usa Postgres, cola de trabajos (pg-boss) y varios servicios.
+**Decisión:** Martín, textual: «tenemos que tomar más inspiración del stack de Devalis. Piensa que Devalis utiliza Postgres con cola de trabajo y orquestador y un montón de cosas. Quizás no necesitamos todo eso, pero algo necesitamos. Además quiero que este programa funcione parecido a como funciona Devalis en cuanto a que el frontend solamente hace llamadas por API y que hay algo sirviendo la API y que la API es resiliente, y eso facilita mucho las cosas cuando necesitas que sistemas externos interactúen con esto».
+**Alternativas descartadas:**
+- Frontend con acceso directo a la base o renderizado en servidor: cierra la puerta a sistemas externos.
+- Copiar la pila entera de Devalis (Postgres, pooler, Caddy, Loki, Grafana): contradice «mínimos componentes».
+**Consecuencias:**
+- Una API HTTP (Fastify, como Devalis) es la única puerta: el panel, las Conexiones futuras y cualquier sistema externo hablan con ella con el mismo contrato.
+- Cola de trabajos propia sobre SQLite con arriendo y reintentos, en el mismo proceso o en un worker aparte del mismo contenedor; el patrón es el de pg-boss, la base es `node:sqlite`.
+- Resiliencia medida: un trabajo sobrevive al cierre del navegador y al reinicio del proceso; la API responde mientras hay trabajos corriendo.
+**Condiciones de reversión:** Que un equipo supere lo que SQLite en un solo nodo aguanta; entonces el adaptador de base cambia a Postgres sin tocar la API.

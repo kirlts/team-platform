@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-*Nothing pending.*
+### Added
+- Eje documental Kairós: MASTER-SPEC v0.1.0 (identidad, arquitectura, stack, restricciones, compromisos, interfaz, once módulos, reglas), RULES, REPOMAP, USER-DECISIONS UD-001 a UD-010, TODO con los ocho épicos.
+- Investigación fechada 2026-10-20 sobre motor de análisis, adjuntos grandes, modelos y precios, cola y progreso, y productos comparables.
+- Licencia MIT.
+- `idea.md` y la maqueta `Plataforma Team.png` como fuentes de diseño.
 
 <!--
 INPUT FORMAT:

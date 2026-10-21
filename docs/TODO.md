@@ -1,56 +1,94 @@
-# TODO: [Project Name] v0.1.0
+# TODO: team-platform v0.1.0
 
-> Direct traceability: each task references checks from `VERIFICATION.md`.
+> Trazabilidad directa: cada tarea referencia checks de `VERIFICATION.md`.
 
-## Kairós Symbol Legend
+## Leyenda de símbolos Kairós
 
-| Symbol | Meaning |
+| Símbolo | Significado |
 |---|---|
-| 🤖 | Check verifiable by AI/automated tool |
-| 🧑 | Check requiring human verification |
-| 🤖🧑 | Check pre-verifiable by AI, final human validation |
-| ⏳ | In progress |
-| 🔲 | Pending |
-| 🚨 | Critical block |
+| 🤖 | Check verificable por IA o herramienta automática |
+| 🧑 | Check que requiere verificación humana |
+| 🤖🧑 | Check pre-verificable por IA, validación final humana |
+| ⏳ | En curso |
+| 🔲 | Pendiente |
+| 🚨 | Bloqueo crítico |
 
 ---
 
-## [EPIC-001] [Descriptive epic name]
+## [EPIC-001] Eje documental y diseño
 
-> Ref: MASTER-SPEC §[N]
+> Ref: MASTER-SPEC §1 a §8
 
-### [TASK-001] [Descriptive task name]
+### [TASK-001] Inicializar el eje documental Kairós
 
-> Ref: MASTER-SPEC §[N]
+> Ref: MASTER-SPEC §1
 
-**Covered checks:** `[ACTOR.CAT.NN.LLM]`, `[ACTOR.CAT.NN.HUM]`
+**Checks cubiertos:** Gobernanza transversal
 
-- [ ] [Atomic subtask 1]
-- [ ] [Atomic subtask 2]
+- [x] `docs/` desde las plantillas, REPOMAP, `.gitignore` con el bloque Kairós `2026-10-20 21:05:00`
+- [x] Decisiones UD-001 a UD-010 con las palabras de Martín `2026-10-20 22:10:00`
+- [x] Investigación del motor de análisis y adjuntos en `docs/investigaciones/` `2026-10-20 21:50:00`
+- [x] MASTER-SPEC §1 a §8, RULES, LICENSE MIT `2026-10-20 22:30:00`
+- [ ] Ejecutar `/derive` sobre MASTER-SPEC para poblar VERIFICATION.md y las tareas de los épicos siguientes
 
-<!-- 
-COMPLETION TIMESTAMP FORMAT:
-- [x] Subtask completed `YYYY-MM-DD HH:MM:SS`
+### [TASK-002] Revisión humana del MASTER-SPEC
 
-CLOSING RULE CONDITIONED BY VERIFIER TYPE:
-- Tasks EXCLUSIVELY containing .LLM checks are closed autonomously by the AI with a timestamp.
-  Format: - [x] [TASK-NNN]; YYYY-MM-DD HH:MM [🤖 Verified by tool]
-- Tasks containing AT LEAST ONE .HUM or .MIX check are not marked as completed by the AI
-  without explicit user confirmation.
-  Format: - [x] [TASK-NNN]; YYYY-MM-DD HH:MM [🧑 Verified by user]
-  Format: - [x] [TASK-NNN]; YYYY-MM-DD HH:MM [🤖🧑 Pre-verified + confirmed by user]
+> Ref: MASTER-SPEC §1 a §7
 
-GENERAL RULES:
-- Every TASK has the "Covered checks:" field with VERIFICATION.md IDs (including .LLM/.HUM/.MIX suffix).
-- If the task is purely governance: **Covered checks:** Transversal governance
-- Timestamps are applied when marking a subtask as completed.
-- The use of generic terms like "active" or leaving the field empty is prevented.
--->
+**Checks cubiertos:** Gobernanza transversal `[Requiere validación humana]`
+
+- [ ] Martín confirma o corrige §1 (vector, vocabulario, lo que NO es)
+- [ ] Martín confirma o corrige §3 (valores por omisión por modalidad) y §5
 
 ---
 
-## Overall Coverage Summary
+## [EPIC-002] Núcleo: esquema, API y cola
 
-| Epic | Tasks | Status | 🤖 .LLM | 🧑 .HUM | 🤖🧑 .MIX | Total Checks |
+> Ref: MASTER-SPEC §7.1, §7.2, §7.3, §7.10
+
+*Tareas por derivar con `/derive`.*
+
+## [EPIC-003] Extractores
+
+> Ref: MASTER-SPEC §7.4, UD-009
+
+*Tareas por derivar con `/derive`.*
+
+## [EPIC-004] Analizador y proveedores
+
+> Ref: MASTER-SPEC §7.5, §7.6, §7.9, UD-001, UD-008
+
+*Tareas por derivar con `/derive`.*
+
+## [EPIC-005] Panel
+
+> Ref: MASTER-SPEC §6, §7.8, UD-006
+
+*Tareas por derivar con `/derive`.*
+
+## [EPIC-006] Identidad
+
+> Ref: MASTER-SPEC §7.7, UD-002, UD-007
+
+*Tareas por derivar con `/derive`.*
+
+## [EPIC-007] Empaquetado e instalación
+
+> Ref: MASTER-SPEC §3 (Empaquetado), §4.5
+
+*Tareas por derivar con `/derive`.*
+
+## [EPIC-008] Banco de referencia y mediciones
+
+> Ref: MASTER-SPEC §7.11, §1.3, §4.9
+
+*Tareas por derivar con `/derive`.*
+
+---
+
+## Resumen de cobertura
+
+| Épico | Tareas | Estado | 🤖 .LLM | 🧑 .HUM | 🤖🧑 .MIX | Total checks |
 | --- | --- | --- | --- | --- | --- | --- |
-| EPIC-001 | TASK-001 to NNN | ☐ In progress | [N] | [N] | [N] | [N] |
+| EPIC-001 | TASK-001 a 002 | ☐ En curso | 0 | 0 | 0 | 0 |
+| EPIC-002 a 008 | por derivar | 🔲 Pendiente | 0 | 0 | 0 | 0 |

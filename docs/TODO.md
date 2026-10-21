@@ -50,13 +50,13 @@
 
 **Checks cubiertos:** Gobernanza transversal
 
-- [x] MASTER-SPEC §2, §3, §6 y §7 reescritos desde `src/`, `panel/`, `bench/`, `Dockerfile` y `compose.yml` `2026-10-20 23:45:00`
-- [x] Dependencias de producción de `package.json` y `panel/package.json` con licencia y justificación (MASTER-SPEC §3.1) `2026-10-20 23:45:00`
-- [x] Rutas de `GET /api/openapi.json` en §7.1 y migraciones 0001 y 0002 en §7.2 `2026-10-20 23:45:00`
-- [x] TEST.md con el estado de cada prohibición y las métricas reales `2026-10-20 23:45:00`
-- [x] TECHNICAL-DEBT.md con las desviaciones que el código no justifica (DT-001 a DT-010) `2026-10-20 23:45:00`
-- [x] REPOMAP, README, CHANGELOG y este archivo `2026-10-20 23:45:00`
-- [x] [TASK-003]; 2026-10-20 23:45:00 [🤖 Verified by tool]
+- [x] MASTER-SPEC §2, §3, §6 y §7 reescritos desde `src/`, `panel/`, `bench/`, `Dockerfile` y `compose.yml` `2026-10-20 23:40:00`
+- [x] Dependencias de producción de `package.json` y `panel/package.json` con licencia y justificación (MASTER-SPEC §3.1) `2026-10-20 23:40:00`
+- [x] Rutas de `GET /api/openapi.json` en §7.1 y migraciones 0001 y 0002 en §7.2 `2026-10-20 23:40:00`
+- [x] TEST.md con el estado de cada prohibición y las métricas reales `2026-10-20 23:40:00`
+- [x] TECHNICAL-DEBT.md con las desviaciones que el código no justifica (DT-001 a DT-010) `2026-10-20 23:40:00`
+- [x] REPOMAP, README, CHANGELOG y este archivo `2026-10-20 23:40:00`
+- [x] [TASK-003]; 2026-10-20 23:40:00 [🤖 Verified by tool]
 
 ### [TASK-004] Aplicar UD-015 (código y comentarios en inglés)
 
@@ -65,7 +65,7 @@
 **Checks cubiertos:** HP-008
 
 - [x] RULES regla 1, MASTER-SPEC §4.7 y UD-015 `2026-10-20 23:27:31`
-- [x] UD-005 anotada como reemplazada en los comentarios, TEST.md HP-008 y DT-009 `2026-10-20 23:45:00`
+- [x] UD-005 anotada como reemplazada en los comentarios, TEST.md HP-008 y DT-009 `2026-10-20 23:40:00`
 - [ ] Traducir comentarios, nombres y descripciones de pruebas, mensajes de registro y prompts de `src/`, `panel/`, `bench/` y `scripts/`
 - [ ] HP-008 falla también ante comentarios en español y cubre `analyze`, `extract`, `providers`, `telemetry`, `panel` y `bench`
 

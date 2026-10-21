@@ -8,7 +8,7 @@
 --   job_events.kind/member_id/data_json
 --                           un solo flujo con reposición por seq lleva progreso, fin de trabajo y avisos
 --                           de mensajes (§7.10: «un flujo SSE por miembro»).
---   inputs.error            motivo visible de un input fallido (§7.5).
+--   inputs.error/error_code motivo visible y código estable de un input fallido (§7.5).
 --   attachments.name        nombre original, para mostrarlo y para elegir el extractor por extensión.
 --   attachments.extract_*   metadatos de la extracción (`meta` del extractor).
 --   credentials.failed_count/next_attempt_at
@@ -86,6 +86,7 @@ CREATE TABLE inputs (
   status       TEXT    NOT NULL DEFAULT 'queued'
                CHECK (status IN ('queued', 'extracting', 'analyzing', 'proposed', 'published', 'failed', 'cancelled')),
   error        TEXT,
+  error_code   TEXT, -- código estable del fallo (p. ej. el de un ExtractError) para que el cliente lo muestre
   created_at   INTEGER NOT NULL,
   updated_at   INTEGER NOT NULL
 );

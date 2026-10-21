@@ -200,6 +200,12 @@ export function loadConfig (env = process.env, overrides = {}) {
       }
     },
 
+    // Precio del audio (MS §3, UD-008: 0,04 USD por hora de audio con Groq). Sirve para llenar `llm_calls.cost_usd`
+    // de las llamadas de transcripción, que el extractor declara en segundos y no en tokens.
+    pricing: {
+      speechUsdPerHour: decimal(env, 'SPEECH_USD_PER_HOUR', 0.04, { min: 0 })
+    },
+
     // ---- Módulos que escriben otros agentes (src/contracts.md)
     modules: {
       analyze: texto(env, 'ANALYZE_MODULE', './analyze/index.js'),

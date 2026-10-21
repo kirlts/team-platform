@@ -130,6 +130,16 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
     return r.changes === 1
   }
 
+  /**
+   * Aplaza el trabajo `delayMs` y reembolsa el intento: no falló, no tuvo cupo (p. ej. el presupuesto de audio
+   * por hora de los extractores, MASTER-SPEC §7.4).
+   */
+  function defer (job, delayMs) {
+    const r = run(db, "UPDATE jobs SET status = 'queued', lease_until = NULL, worker_id = NULL, run_at = ?, attempts = attempts - 1 WHERE id = ? AND status = 'running' AND attempts = ?",
+      now() + delayMs, job.id, job.attempts)
+    return r.changes === 1
+  }
+
   /** Cancela un trabajo en cola o en curso. El worker se entera por la barrera (latido o progreso) o por la señal. */
   function cancel (jobId) {
     const r = run(db, "UPDATE jobs SET status = 'cancelled', lease_until = NULL, worker_id = NULL, finished_at = ? WHERE id = ? AND status IN ('queued', 'running')", now(), jobId)
@@ -170,7 +180,7 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
   }
 
   return {
-    enqueue, claim, heartbeat, progress, complete, fail, release, cancel, cancelForInput, recoverExpiredLeases,
+    enqueue, claim, heartbeat, progress, complete, fail, release, defer, cancel, cancelForInput, recoverExpiredLeases,
     sweepRetention, nextRunAt, stats, backoffMs, getJob, latestJobForInput, señales
   }
 }

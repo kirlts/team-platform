@@ -120,7 +120,7 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
           <EditableText value={member.email} label={t('team.fieldEmail')} canEdit={canEditPeople} validate={(v) => (v.includes('@') ? null : t('team.invalidEmail'))} onSave={(v) => change('email', v)} displayClassName="break-words text-xs text-muted" render={withBreaks} />
         </div>
       </div>
-      <div className="flex min-w-0 flex-col items-start gap-1">
+      <div className="flex min-w-0 flex-col items-start gap-1 max-md:flex-row max-md:flex-wrap max-md:items-center max-md:gap-x-3">
         {canEditPeople && !self ? (
           <DropdownMenu>
             <DropdownMenuTrigger aria-label={t('team.roleOf', { name: member.name })} className="inline-flex rounded-full hover:bg-hover">

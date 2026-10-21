@@ -99,7 +99,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
         </h1>
         <Button
           variant="secondary"
-          className="max-md:self-start"
+          className="max-md:justify-self-start"
           disabled={setClosed.isPending}
           onClick={() =>
             // Closing is an operation of the screen like any edit: it shows in Deshacer, which takes it back (J1-A-28).

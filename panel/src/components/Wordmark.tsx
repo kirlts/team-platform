@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
  */
 export function Wordmark({ project, name, className }: { project?: string; name: string; className?: string }) {
   return (
-    <span className={cn('flex min-w-0 items-center gap-2.5 font-[family-name:var(--font-display)] text-sm font-bold uppercase leading-tight tracking-[0.14em] text-fg', className)}>
+    <span className={cn('flex min-w-0 items-center gap-2.5 font-[family-name:var(--font-display)] text-sm font-bold uppercase leading-tight tracking-[0.14em] text-fg max-md:text-xs max-md:tracking-[0.1em]', className)}>
       <span aria-hidden className="orb h-4 w-4 shrink-0 rounded-full" />
       <span className="min-w-0 break-words">{project ? `${project} ${name}` : name}</span>
     </span>

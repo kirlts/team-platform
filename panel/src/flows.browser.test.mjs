@@ -492,6 +492,8 @@ describe('estados, teclado y filas', () => {
       await page.locator('main article').first().waitFor()
       const xs = await page.evaluate(() => [...document.querySelectorAll('main article')].map((a) => Math.round(a.querySelector('.led').getBoundingClientRect().left)))
       assert.ok(xs.length >= 3, 'hacen falta varias filas')
+      // J1-A-56: la órbita de fondo se desvanece bajo la barra superior y no cruza títulos ni botones.
+      assert.match(await page.evaluate(() => getComputedStyle(document.querySelector('svg[aria-hidden]')).maskImage), /gradient/)
       assert.equal(new Set(xs).size, 1, `el estado salta de columna: ${xs.join(', ')}`)
       const row = page.locator('main article').first()
       const reply = row.getByRole('link', { name: 'Responder' })

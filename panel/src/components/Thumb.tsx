@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
-import { FileAudio, FileText, Film, Link2, Play, X } from '@/components/icons'
+import { Play, X } from '@/components/icons'
 import { useFormat, useT } from '@/i18n'
 import { MEDIA_KEY } from '@/lib/media'
 import type { AttachmentKind } from '@/lib/types'
 import { cn } from '@/lib/utils'
+import { MediaIcon } from './MediaIcon'
 
 export interface ThumbSource {
   kind: AttachmentKind
@@ -13,8 +14,6 @@ export interface ThumbSource {
   name?: string
   size?: number
 }
-
-const ICON = { video: Film, audio: FileAudio, document: FileText, link: Link2, image: FileText } as const
 
 /** Square thumbnail of an attachment. A video carries its play mark. With `onRemove` it can be removed. */
 export function Thumb({
@@ -32,7 +31,6 @@ export function Thumb({
 }) {
   const t = useT()
   const format = useFormat()
-  const Icon = ICON[item.kind]
   const [zoomed, setZoomed] = useState(false)
   const label = item.name ?? t(MEDIA_KEY[item.kind])
   const inner =
@@ -49,7 +47,7 @@ export function Thumb({
       </span>
     ) : (
       <span className="flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-[4px] bg-raised text-accent-deep">
-        <Icon size={Math.round(px * 0.38)} aria-hidden />
+        <MediaIcon kind={item.kind} size={Math.round(px * 0.38)} />
       </span>
     )
   const body = (

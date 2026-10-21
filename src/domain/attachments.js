@@ -7,7 +7,7 @@ import path from 'node:path'
 const MIME_TO_KIND = new Map([
   ...['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/heic', 'image/heif', 'image/avif'].map((m) => [m, 'image']),
   ...['video/mp4', 'video/quicktime', 'video/webm', 'video/x-matroska', 'video/mpeg', 'video/x-m4v'].map((m) => [m, 'video']),
-  ...['audio/mpeg', 'audio/mp3', 'audio/mp4', 'audio/x-m4a', 'audio/m4a', 'audio/aac', 'audio/wav', 'audio/x-wav', 'audio/webm', 'audio/ogg', 'audio/flac', 'audio/x-flac'].map((m) => [m, 'audio']),
+  ...['audio/mpeg', 'audio/mp3', 'audio/mp4', 'audio/x-m4a', 'audio/m4a', 'audio/aac', 'audio/wav', 'audio/x-wav', 'audio/wave', 'audio/vnd.wave', 'audio/webm', 'audio/ogg', 'audio/flac', 'audio/x-flac'].map((m) => [m, 'audio']),
   ...[
     'application/pdf',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -21,7 +21,7 @@ const EXTENSION_TO_MIME = new Map([
   ['.png', 'image/png'], ['.jpg', 'image/jpeg'], ['.jpeg', 'image/jpeg'], ['.webp', 'image/webp'], ['.gif', 'image/gif'],
   ['.heic', 'image/heic'], ['.heif', 'image/heif'], ['.avif', 'image/avif'],
   ['.mp4', 'video/mp4'], ['.mov', 'video/quicktime'], ['.webm', 'video/webm'], ['.mkv', 'video/x-matroska'], ['.m4v', 'video/x-m4v'],
-  ['.mp3', 'audio/mpeg'], ['.m4a', 'audio/mp4'], ['.aac', 'audio/aac'], ['.wav', 'audio/wav'], ['.ogg', 'audio/ogg'], ['.flac', 'audio/flac'],
+  ['.mp3', 'audio/mpeg'], ['.m4a', 'audio/mp4'], ['.aac', 'audio/aac'], ['.wav', 'audio/wav'], ['.wave', 'audio/wav'], ['.ogg', 'audio/ogg'], ['.flac', 'audio/flac'],
   ['.pdf', 'application/pdf'],
   ['.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
   ['.pptx', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'],

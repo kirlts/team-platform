@@ -1,0 +1,34 @@
+{
+  "members": [
+    {
+      "id": 1,
+      "name": "Camila Reyes",
+      "responsibilities": "Diseño de interfaz y accesibilidad",
+      "domains": "diseño, accesibilidad"
+    },
+    {
+      "id": 2,
+      "name": "Tomás Aguirre",
+      "responsibilities": "Servidor, API y base de datos",
+      "domains": "backend, infraestructura"
+    },
+    {
+      "id": 3,
+      "name": "Valentina Soto",
+      "responsibilities": "Aplicación del repartidor y panel web",
+      "domains": "frontend, móvil"
+    },
+    {
+      "id": 4,
+      "name": "Joaquín Paredes",
+      "responsibilities": "Producto, requerimientos y prioridades",
+      "domains": "producto, clientes"
+    },
+    {
+      "id": 5,
+      "name": "Isidora Fuentes",
+      "responsibilities": "Pruebas y soporte a clientes",
+      "domains": "calidad, soporte"
+    }
+  ]
+}

@@ -428,3 +428,18 @@ RULES:
 **Consecuencias:**
 - Dos pruebas con el proveedor real (enlace sin pedido y video con una frase que lo señala) y dos regresiones de prompt (REG-010 y REG-011).
 **Condiciones de reversión:** Que Martín prefiera un estado explícito «sin pedido» en el panel.
+
+## [UD-033] Las descripciones de área se corrigen contra la exactitud medida en el pipeline, y el catálogo lista Nueva funcionalidad primero
+
+**Fecha:** 2026-10-21
+**Contexto:** Las descripciones largas de UD-031 bajaron la exactitud de área de 82,6 % a 75,8 % (unión de lectores). Martín: «El dueño necesita poder confiar en la clasificación por área: esa es la métrica que más importa.» La causa medida son dos frases que atraían unidades a Pregunta y a Retroalimentación (`docs/investigaciones/mediciones/2026-10-21-descripciones-de-area-largas.md`).
+**Decisión:** Las descripciones siguen siendo de dos a cuatro párrafos con casos típicos y casos borde, y se reescriben así: «debe», «tiene que», «hay que» y «en vez de» marcan un pedido (Nueva funcionalidad o Error), nunca una valoración; Retroalimentación es la impresión sin pedido; Pregunta es lo que se le pregunta a alguien, y la gestión solo cuando el punto es averiguarla; poder editar, borrar o ver el historial es una capacidad. El orden del catálogo es Nueva funcionalidad, Error, Retroalimentación, Idea, Pregunta, por el campo opcional `position` de `templates/areas.json`; los ids no cambian. La exactitud sube a 86,4 % y 85,5 % (pipeline, clasificación).
+**Alternativas descartadas:**
+- Una regla de prioridad explícita hacia Nueva funcionalidad en tres áreas: bajó la exactitud a 77,8 %.
+- Volver a las descripciones cortas: pierden los casos borde que UD-031 exige.
+**Consecuencias:**
+- La prueba de REG-004 acepta «cómo debe comportarse algo que todavía no existe». La prueba de publicación usa el área Idea de forma explícita, porque la primera del catálogo ahora es Nueva funcionalidad.
+- El panel lista las áreas en ese orden (el Editor puede cambiarlo).
+- `bench/areas-classify.mjs` mide la clasificación sola, a unos 0,05 USD por corrida.
+**Condiciones de reversión:** Una corrida completa del pipeline con proyecto bajo el 82,6 % de las cortas, o que Martín prefiera el orden anterior.
+

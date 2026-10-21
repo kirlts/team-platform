@@ -44,3 +44,8 @@ export async function login(page, origin, who = 'ana') {
   await page.getByRole('button', { name: 'Entrar' }).click()
   await page.locator('main').first().waitFor()
 }
+
+/** Opens the folded «Plantillas» section of the view of an area (UD-041). */
+export async function openTemplates(page) {
+  await page.getByRole('button', { name: /^Plantillas/, expanded: false }).click()
+}

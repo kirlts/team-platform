@@ -1,5 +1,5 @@
-// Sesiones opacas en la tabla `sessions` (MASTER-SPEC §7.7, informe 04 §2.2). La ficha son 32 bytes al azar que
-// sólo viven en la cookie; la base guarda su SHA-256. Un volcado de la base no permite suplantar a nadie.
+// Opaque sessions in the `sessions` table (MASTER-SPEC §7.7, report 04 §2.2). The token is 32 random bytes that
+// live only in the cookie; the database stores its SHA-256. A database dump does not allow impersonating anyone.
 
 import { createHash, randomBytes } from 'node:crypto'
 import { get, run } from '../db/index.js'
@@ -12,7 +12,7 @@ export function createSessions ({ db, config, now = Date.now }) {
   const idleMs = s.idleMinutes * 60 * 1000
   const touchMs = s.touchSeconds * 1000
 
-  /** Sesión nueva (siempre regenerada: nunca se reutiliza una ficha previa, OWASP Session Management). */
+  /** New session (always regenerated: a previous token is never reused, OWASP Session Management). */
   function create (memberId) {
     const token = randomBytes(s.tokenBytes).toString('base64url')
     const t = now()
@@ -21,7 +21,7 @@ export function createSessions ({ db, config, now = Date.now }) {
     return { token, maxAgeSeconds: Math.floor(absoluteMs / 1000) }
   }
 
-  /** Devuelve el miembro dueño de la ficha, o null si no existe, venció o estuvo ociosa demasiado. */
+  /** Returns the member who owns the token, or null if it does not exist, expired or was idle too long. */
   function lookup (token) {
     if (!token || typeof token !== 'string') return null
     const id = hashToken(token)
@@ -40,7 +40,7 @@ export function createSessions ({ db, config, now = Date.now }) {
 
   const destroy = (token) => { if (token) run(db, 'DELETE FROM sessions WHERE id = ?', hashToken(token)) }
 
-  /** Invalida las sesiones de un miembro (cambio de rol o de contraseña). `exceptToken` conserva la actual. */
+  /** Invalidates a member's sessions (role or password change). `exceptToken` keeps the current one. */
   function destroyForMember (memberId, exceptToken = null) {
     if (exceptToken) run(db, 'DELETE FROM sessions WHERE member_id = ? AND id <> ?', memberId, hashToken(exceptToken))
     else run(db, 'DELETE FROM sessions WHERE member_id = ?', memberId)

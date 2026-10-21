@@ -1,12 +1,12 @@
-// Defensa CSRF por `Sec-Fetch-Site` y `Origin` en un gancho `onRequest` (MASTER-SPEC §7.7, informe 04 §2.3).
-// OWASP: SameSite solo no basta. JavaScript no puede fijar Sec-Fetch-Site; llega en los navegadores desde 2023.
+// CSRF defense by `Sec-Fetch-Site` and `Origin` in an `onRequest` hook (MASTER-SPEC §7.7, report 04 §2.3).
+// OWASP: SameSite alone is not enough. JavaScript cannot set Sec-Fetch-Site; browsers send it since 2023.
 //
-//   same-origin    pasa lo que el navegador marca como mismo origen (o `none`: navegación directa), más los
-//                  orígenes de CORS_ORIGINS si los hay.
-//   cross-origin   el frontend vive en otro origen: pasa sólo un `Origin` listado en CORS_ORIGINS.
+//   same-origin    whatever the browser marks as same origin passes (or `none`: direct navigation), plus the
+//                  origins in CORS_ORIGINS if there are any.
+//   cross-origin   the frontend lives on another origin: only an `Origin` listed in CORS_ORIGINS passes.
 //
-// Además, una petición no segura que trae la cookie de sesión debe traer la cabecera `X-Team-Request` (el panel
-// manda `panel`): un formulario de otro sitio no puede fijarla, y entre orígenes obliga a un preflight CORS.
+// In addition, an unsafe request that carries the session cookie must carry the `X-Team-Request` header (the panel
+// sends `panel`): a form on another site cannot set it, and across origins it forces a CORS preflight.
 
 import { forbidden } from '../domain/errors.js'
 import { cookieSpec } from './cookies.js'
@@ -27,12 +27,12 @@ export function csrfGuard (config) {
     const originValue = request.headers.origin
 
     if (crossOrigin) {
-      // El navegador siempre manda Origin en una petición no segura entre orígenes.
+      // The browser always sends Origin on an unsafe cross-origin request.
       if (originValue) {
         if (allowedSet.has(originValue)) return
         throw forbidden(REJECTION, 'csrf')
       }
-      if (site === undefined || site === 'none') return // cliente que no es un navegador
+      if (site === undefined || site === 'none') return // a client that is not a browser
       throw forbidden(REJECTION, 'csrf')
     }
 
@@ -40,14 +40,14 @@ export function csrfGuard (config) {
     if (originValue && allowedSet.has(originValue)) return
     if (site) throw forbidden(REJECTION, 'csrf')
 
-    // Navegadores sin Sec-Fetch-Site: se compara el origen con el anfitrión.
+    // Browsers without Sec-Fetch-Site: the origin is compared with the host.
     if (originValue) {
       let hostName = null
-      try { hostName = new URL(originValue).host } catch { /* origen «null» u opaco */ }
+      try { hostName = new URL(originValue).host } catch { /* a «null» or opaque origin */ }
       if (hostName && hostName === request.headers.host) return
       throw forbidden(REJECTION, 'csrf')
     }
-    // Sin ninguno de los dos encabezados no hay navegador de por medio (curl, un sistema externo): no hay
-    // credencial ambiente que un tercero pueda aprovechar.
+    // With neither header there is no browser involved (curl, an external system): there is no ambient
+    // credential for a third party to exploit.
   }
 }

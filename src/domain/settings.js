@@ -1,16 +1,16 @@
-// Configuración de proveedores (MASTER-SPEC §7.6). La base guarda sólo el nombre del proveedor, el modelo y la
-// dirección base; las llaves viven en el entorno y nunca pasan por acá (MASTER-SPEC §4.6).
+// Provider settings (MASTER-SPEC §7.6). The database stores only the provider name, the model and the
+// base URL; keys live in the environment and never pass through here (MASTER-SPEC §4.6).
 //
-// Lo guardado actúa como sobrescritura del entorno: `providerEnv()` lo traduce a las variables que lee
-// `createProviders(env)` (TEXT_*, VISION_*, SPEECH_*), de modo que cambiar un proveedor desde Configuración no
-// exige reiniciar ni tocar el entorno.
+// What is stored acts as an override of the environment: `providerEnv()` translates it to the variables read by
+// `createProviders(env)` (TEXT_*, VISION_*, SPEECH_*), so changing a provider from `Configuración` does not
+// require restarting or touching the environment.
 
 import { all, run } from '../db/index.js'
 
 export const MODALITIES = ['text', 'vision', 'speech']
 const SLOT_PREFIX = { text: 'TEXT', vision: 'VISION', speech: 'SPEECH' }
 
-/** Sobrescrituras guardadas: { analyzer?, text?, vision?, speech? }. */
+/** Stored overrides: { analyzer?, text?, vision?, speech? }. */
 export function getProviderOverrides (db) {
   const rows = all(db, "SELECT key, value_json FROM settings WHERE key LIKE 'providers.%'")
   const outText = {}
@@ -23,7 +23,7 @@ export function getProviderOverrides (db) {
   return outText
 }
 
-/** Valores efectivos para mostrar: lo guardado sobre lo que dice el entorno. */
+/** Effective values to display: what is stored over what the environment says. */
 export function getProviderSettings (db, config) {
   const stored = getProviderOverrides(db)
   const effective = { analyzer: stored.analyzer ?? config.providers.analyzer }
@@ -31,7 +31,7 @@ export function getProviderSettings (db, config) {
   return effective
 }
 
-/** Variables de entorno que implican las sobrescrituras guardadas. */
+/** Environment variables implied by the stored overrides. */
 export function providerEnv (overrides) {
   const env = {}
   for (const m of MODALITIES) {
@@ -44,7 +44,7 @@ export function providerEnv (overrides) {
   return env
 }
 
-/** Combina un parche con lo guardado (sin escribir). */
+/** Merges a patch with what is stored (without writing). */
 export function mergeOverrides (previous, patch) {
   const merged = { ...previous }
   for (const [lookupKey, val] of Object.entries(patch)) {

@@ -1,5 +1,5 @@
-// Paso de inicialización único (MASTER-SPEC §3): WAL, migraciones y siembra. Corre antes de la API y del
-// worker. Con dos procesos (API y `node src/worker.js`) se ejecuta una vez, antes de ambos:
+// Single initialization step (MASTER-SPEC §3): WAL, migrations and seeding. It runs before the API and the
+// worker. With two processes (API and `node src/worker.js`) it runs once, before both:
 //   npm run db:init && (npm start & npm run worker)
 
 import { pathToFileURL } from 'node:url'

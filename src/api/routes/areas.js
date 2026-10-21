@@ -1,6 +1,6 @@
-// Rutas de áreas y plantillas (MASTER-SPEC §7.1). Leer áreas lo hace cualquier miembro (la barra lateral, las
-// insignias y los filtros las necesitan); crear, editar, borrar, restaurar y todo lo de plantillas es del editor.
-// Borrar es en blando y exige ?confirm=true; los mensajes que referencian un área o plantilla nunca se pierden.
+// Area and template routes (MASTER-SPEC §7.1). Any member can read areas (the sidebar, the badges and the
+// filters need them); creating, editing, deleting, restoring and everything about templates belongs to the editor.
+// Deleting is soft and requires ?confirm=true; messages that reference an area or template are never lost.
 
 import {
   createArea, createTemplate, deleteArea, deleteTemplate, listAreas, listTemplates,
@@ -21,18 +21,18 @@ export function registerAreaRoutes (app, ctx) {
   const templateParams = { type: 'object', required: ['id', 'templateId'], properties: { id: { type: 'integer', minimum: 1 }, templateId: { type: 'integer', minimum: 1 } } }
   const actor = (request) => ({ actorId: request.member.id })
 
-  // Copia en archivos en el volumen (DATA_DIR/templates): la base manda, el archivo sirve a los respaldos.
-  const mirror = (t) => { try { mirrorTemplate(config, t) } catch (e) { app.log.warn({ err: e }, 'no se pudo copiar la plantilla al volumen') } }
+  // File copy in the volume (DATA_DIR/templates): the database rules, the file serves the backups.
+  const mirror = (t) => { try { mirrorTemplate(config, t) } catch (e) { app.log.warn({ err: e }, 'could not copy the template to the volume') } }
 
   app.get('/areas', {
     onRequest: [requireRole('member')],
     schema: {
-      summary: 'Áreas con sus conteos y plantillas (sin cuerpo)',
+      summary: 'Areas with their counts and templates (without body)',
       querystring: { type: 'object', additionalProperties: false, properties: { include_deleted: { type: 'boolean' } } },
       response: { 200: { type: 'array', items: area } }
     }
   }, async (request, reply) => {
-    // Las borradas sólo las ve el editor, para restaurarlas.
+    // Only the editor sees the deleted ones, to restore them.
     if (request.query.include_deleted === true && request.member.role !== 'editor') {
       return reply.code(403).send({ code: 'forbidden', message: 'Ver lo borrado corresponde a un editor.' })
     }
@@ -42,7 +42,7 @@ export function registerAreaRoutes (app, ctx) {
   app.post('/areas', {
     onRequest: [requireRole('editor')],
     schema: {
-      summary: 'Crear un área',
+      summary: 'Create an area',
       body: { type: 'object', required: ['title', 'description'], additionalProperties: false, properties: { title: { type: 'string', minLength: 1 }, description: { type: 'string', minLength: 1 }, position: { type: 'integer', minimum: 0 } } },
       response: { 201: area }
     }
@@ -51,7 +51,7 @@ export function registerAreaRoutes (app, ctx) {
   app.patch('/areas/:id', {
     onRequest: [requireRole('editor')],
     schema: {
-      summary: 'Editar un área',
+      summary: 'Edit an area',
       params: idParams(),
       body: { type: 'object', additionalProperties: false, minProperties: 1, properties: { title: { type: 'string', minLength: 1 }, description: { type: 'string', minLength: 1 }, position: { type: 'integer', minimum: 0 } } },
       response: { 200: area }
@@ -60,7 +60,7 @@ export function registerAreaRoutes (app, ctx) {
 
   app.delete('/areas/:id', {
     onRequest: [requireRole('editor')],
-    schema: { summary: 'Borrar un área en blando (exige ?confirm=true)', params: idParams(), querystring: confirmQuery, response: { 204: { type: 'null', description: 'Área borrada; se restaura con POST /areas/:id/restore.' } } }
+    schema: { summary: 'Soft-delete an area (requires ?confirm=true)', params: idParams(), querystring: confirmQuery, response: { 204: { type: 'null', description: 'Area deleted; restored with POST /areas/:id/restore.' } } }
   }, async (request, reply) => {
     requireConfirm(request)
     deleteArea(db, request.params.id, actor(request))
@@ -69,13 +69,13 @@ export function registerAreaRoutes (app, ctx) {
 
   app.post('/areas/:id/restore', {
     onRequest: [requireRole('editor')],
-    schema: { summary: 'Restaurar un área borrada', params: idParams(), response: { 200: area } }
+    schema: { summary: 'Restore a deleted area', params: idParams(), response: { 200: area } }
   }, async (request) => restoreArea(db, request.params.id, actor(request)))
 
   app.get('/areas/:id/templates', {
     onRequest: [requireRole('editor')],
     schema: {
-      summary: 'Plantillas de un área, con el archivo completo',
+      summary: 'Templates of an area, with the complete file',
       params: idParams(),
       querystring: { type: 'object', additionalProperties: false, properties: { include_deleted: { type: 'boolean' } } },
       response: { 200: { type: 'array', items: template } }
@@ -84,18 +84,18 @@ export function registerAreaRoutes (app, ctx) {
 
   app.post('/areas/:id/templates', {
     onRequest: [requireRole('editor')],
-    schema: { summary: 'Crear una plantilla (body_markdown es el archivo completo con su encabezado)', params: idParams(), body: { ...templateBody, required: ['body_markdown'] }, response: { 201: template } }
+    schema: { summary: 'Create a template (body_markdown is the complete file with its header)', params: idParams(), body: { ...templateBody, required: ['body_markdown'] }, response: { 201: template } }
   }, async (request, reply) => {
     const createdTemplate = createTemplate(db, request.params.id, request.body, actor(request))
     mirror(createdTemplate)
-    domainEvents.emit('template.saved', createdTemplate) // el analizador calienta el esquema de salida por evento (MS §7.5)
+    domainEvents.emit('template.saved', createdTemplate) // the analyzer warms the output schema on the event (MS §7.5)
     reply.code(201)
     return createdTemplate
   })
 
   app.patch('/areas/:id/templates/:templateId', {
     onRequest: [requireRole('editor')],
-    schema: { summary: 'Editar una plantilla', params: templateParams, body: { ...templateBody, minProperties: 1 }, response: { 200: template } }
+    schema: { summary: 'Edit a template', params: templateParams, body: { ...templateBody, minProperties: 1 }, response: { 200: template } }
   }, async (request) => {
     const updatedTemplate = updateTemplate(db, request.params.id, request.params.templateId, request.body, actor(request))
     mirror(updatedTemplate)
@@ -105,17 +105,17 @@ export function registerAreaRoutes (app, ctx) {
 
   app.delete('/areas/:id/templates/:templateId', {
     onRequest: [requireRole('editor')],
-    schema: { summary: 'Borrar una plantilla en blando (exige ?confirm=true)', params: templateParams, querystring: confirmQuery, response: { 204: { type: 'null', description: 'Plantilla borrada; se restaura con POST /templates/:id/restore.' } } }
+    schema: { summary: 'Soft-delete a template (requires ?confirm=true)', params: templateParams, querystring: confirmQuery, response: { 204: { type: 'null', description: 'Template deleted; restored with POST /templates/:id/restore.' } } }
   }, async (request, reply) => {
     requireConfirm(request)
     deleteTemplate(db, request.params.id, request.params.templateId, actor(request))
-    try { removeTemplateMirror(config, request.params.id, request.params.templateId) } catch (e) { app.log.warn({ err: e }, 'no se pudo retirar la copia de la plantilla') }
+    try { removeTemplateMirror(config, request.params.id, request.params.templateId) } catch (e) { app.log.warn({ err: e }, 'could not remove the template copy') }
     return reply.code(204).send()
   })
 
   app.post('/templates/:id/restore', {
     onRequest: [requireRole('editor')],
-    schema: { summary: 'Restaurar una plantilla borrada', params: idParams(), response: { 200: template } }
+    schema: { summary: 'Restore a deleted template', params: idParams(), response: { 200: template } }
   }, async (request) => {
     const restored = restoreTemplate(db, request.params.id, actor(request))
     mirror(restored)

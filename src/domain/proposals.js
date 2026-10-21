@@ -1,8 +1,8 @@
-// Publicación de una propuesta (MASTER-SPEC §2 paso 4, UD-003): el emisor confirma la propuesta, editada o no,
-// y recién entonces se crean los mensajes. Cada mensaje trae su propia área y plantilla (un input puede traer
-// un error, una idea y una pregunta). El sistema valida la FORMA de cada valor contra la base (el área existe,
-// la plantilla es de esa área, los miembros existen, los adjuntos son del input, los campos obligatorios de
-// la plantilla están); no lee la prosa (MASTER-SPEC §4.2).
+// Publication of a proposal (MASTER-SPEC §2 step 4, UD-003): the sender confirms the proposal, edited or not,
+// and only then are the messages created. Each message brings its own area and template (one input can bring
+// an error, an idea and a question). The system validates the FORM of each value against the database (the area
+// exists, the template belongs to that area, the members exist, the attachments belong to the input, the
+// template's required fields are present); it does not read the prose (MASTER-SPEC §4.2).
 
 import Ajv from 'ajv'
 import { all, get, run } from '../db/index.js'
@@ -12,8 +12,8 @@ import { conflict, notFound, unprocessable } from './errors.js'
 import { transitionInput } from './inputs.js'
 import { fieldsSchema } from './template-file.js'
 
-// Instancia propia de Ajv, estricta: los esquemas de respuesta de Fastify convierten tipos y descartan
-// propiedades, así que no sirven para validar lo que viene de una persona o de un modelo (informe 03 §7.1).
+// Own Ajv instance, strict: Fastify's response schemas coerce types and drop properties, so they are
+// no use for validating what comes from a person or a model (report 03 §7.1).
 const ajv = new Ajv({ strict: true, allErrors: true, allowUnionTypes: true })
 
 const fieldNameOf = (error) => error.instancePath.replace(/^\//, '') || error.params?.missingProperty || error.params?.additionalProperty || 'campo'
@@ -27,7 +27,7 @@ function errorText (error) {
   return `el campo «${fieldName}» no es válido`
 }
 
-/** Valida y publica. Devuelve los ids de los mensajes creados. */
+/** Validates and publishes. Returns the ids of the created messages. */
 export function publishProposal ({ db, events, now = Date.now }, { inputId, memberId, proposal }) {
   return events.transaction(() => {
     const input = get(db, 'SELECT * FROM inputs WHERE id = ?', inputId)
@@ -37,7 +37,7 @@ export function publishProposal ({ db, events, now = Date.now }, { inputId, memb
 
     if (!Array.isArray(proposal.messages) || proposal.messages.length === 0) throw unprocessable('La propuesta necesita al menos un mensaje.', 'messages_empty')
 
-    const validators = new Map() // plantilla → validador de sus campos, compilado una vez por publicación
+    const validators = new Map() // template → validator of its fields, compiled once per publication
     const inputAttachmentIds = new Set(all(db, 'SELECT id FROM attachments WHERE input_id = ?', inputId).map((a) => a.id))
     const memberRows = new Set(all(db, 'SELECT id FROM members').map((m) => m.id))
     const t = now()
@@ -49,12 +49,12 @@ export function publishProposal ({ db, events, now = Date.now }, { inputId, memb
       if (typeof m.body !== 'string' || m.body.trim() === '') throw unprocessable(`${scope}: el texto es obligatorio.`, 'message_invalid')
       const area = get(db, 'SELECT id FROM areas WHERE id = ? AND deleted_at IS NULL', m.area_id)
       if (!area) throw unprocessable(`${scope}: el área elegida no existe.`, 'area_invalid')
-      // Sin plantilla elegida (el emisor cambió el área en la propuesta) se usa la primera vigente del área.
+      // With no template chosen (the sender changed the area in the proposal), the first current one of the area is used.
       const tpl = m.template_id === null || m.template_id === undefined ? defaultTemplateOf(db, m.area_id) : loadTemplate(db, m.template_id)
       if ((m.template_id !== null && m.template_id !== undefined && !tpl) || (tpl && tpl.area_id !== m.area_id)) {
         throw unprocessable(`${scope}: la plantilla elegida no existe en esa área.`, 'template_invalid')
       }
-      // Los campos opcionales sin dato pueden venir como null (así los entrega el analizador): equivalen a ausentes.
+      // Optional fields with no data may come as null (that is how the analyzer delivers them): they are equivalent to absent.
       const fieldValues = Object.fromEntries(Object.entries(m.fields ?? {}).filter(([, v]) => v !== null))
       if (tpl) {
         if (!validators.has(tpl.id)) validators.set(tpl.id, ajv.compile(fieldsSchema(tpl.parsed.fields)))
@@ -79,7 +79,7 @@ export function publishProposal ({ db, events, now = Date.now }, { inputId, memb
 
     transitionInput(db, inputId, 'published', { now })
     audit(db, { memberId, action: 'input.publish', entity: 'input', entityId: inputId, detail: { msgRows: createdIds }, now })
-    // Un aviso por mensaje nuevo, con la forma que consume la campana del panel.
+    // One notice per new message, in the shape the panel's bell consumes.
     for (const [i, id] of createdIds.entries()) {
       events.publish({ kind: 'message', data: { message_id: id, title: proposal.messages[i].title.trim(), author_id: memberId, input_id: inputId } })
     }

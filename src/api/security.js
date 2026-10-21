@@ -1,16 +1,16 @@
-// Cabeceras de seguridad (MASTER-SPEC §4.1): el panel no se conecta a ningún otro dominio.
-// Se fijan en `onRequest` para que lleguen también a las respuestas SSE, que escriben sobre `reply.raw`.
+// Security headers (MASTER-SPEC §4.1): the panel connects to no other domain.
+// They are set in `onRequest` so they also reach SSE responses, which write on `reply.raw`.
 
 export function contentSecurityPolicy (config) {
   return [
     "default-src 'self'",
     "script-src 'self'",
-    // Radix y Tailwind escriben estilos en línea; sin esto los componentes de shadcn/ui pierden su posición.
+    // Radix and Tailwind write inline styles; without this the shadcn/ui components lose their positioning.
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' blob: data:", // MS §4.1
     "media-src 'self' blob:",
     "font-src 'self'",
-    "connect-src 'self'", // MS §4.1: excluye cualquier telemetría de una librería
+    "connect-src 'self'", // MS §4.1: rules out any telemetry from a library
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

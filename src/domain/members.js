@@ -1,5 +1,5 @@
-// Miembros del equipo (MASTER-SPEC §1.1). Un miembro edita sólo su descripción y dominios; el editor
-// administra a los demás. Debe quedar al menos un editor.
+// Team members (MASTER-SPEC §1.1). A member edits only their own description and domains; the editor
+// manages the others. At least one editor must remain.
 
 import { all, get, run, tx } from '../db/index.js'
 import { iso } from '../db/util.js'
@@ -8,7 +8,7 @@ import { audit } from './audit.js'
 
 const COLUMNS = 'id, email, name, role, responsibilities, domains, created_at'
 
-/** Los dominios se guardan como lista en JSON y salen como arreglo de textos. */
+/** Domains are stored as a JSON list and come out as an array of strings. */
 export const parseDomains = (textValue) => {
   try { const v = JSON.parse(textValue); return Array.isArray(v) ? v.map(String) : [] } catch { return [] }
 }
@@ -37,7 +37,7 @@ export function createMember (db, { email, name, role = 'member', responsibiliti
 
 const EDITABLE_FIELDS = ['name', 'email', 'role', 'responsibilities', 'domains']
 
-/** Aplica un parche. Devuelve { member, roleChanged }. Rechaza dejar al equipo sin editor. */
+/** Applies a patch. Returns { member, roleChanged }. Rejects leaving the team without an editor. */
 export function updateMember (db, id, patch, { actorId = null, now = Date.now } = {}) {
   return tx(db, () => {
     const current = get(db, `SELECT ${COLUMNS} FROM members WHERE id = ?`, id)

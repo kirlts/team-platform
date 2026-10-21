@@ -1,4 +1,4 @@
-// Toda operación destructiva exige `?confirm=true`: sin eso responde 400 y no hace nada.
+// Every destructive operation requires `?confirm=true`: without it, it answers 400 and does nothing.
 import { badRequest } from '../domain/errors.js'
 
 export function requireConfirm (request) {

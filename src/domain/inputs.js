@@ -1,11 +1,11 @@
-// Inputs: lo que una persona envía desde la barra de Inicio (MASTER-SPEC §1.1, §1.3, §2).
+// Inputs: what a person sends from the Inicio bar (MASTER-SPEC §1.1, §1.3, §2).
 //
-// Estados de un input y transiciones permitidas (cualquier otra es 409):
+// Statuses of an input and allowed transitions (any other is a 409):
 //   queued → extracting | analyzing | failed | cancelled
-//   extracting → analyzing | queued (reintento) | failed | cancelled
-//   analyzing → proposed | queued (reintento) | failed | cancelled
+//   extracting → analyzing | queued (retry) | failed | cancelled
+//   analyzing → proposed | queued (retry) | failed | cancelled
 //   proposed → published | cancelled
-//   failed, cancelled → queued (el mismo input enviado de nuevo)
+//   failed, cancelled → queued (the same input sent again)
 //   published → (final)
 
 import { createHash } from 'node:crypto'
@@ -20,7 +20,7 @@ const TRANSITIONS = {
   queued: ['extracting', 'analyzing', 'failed', 'cancelled'],
   extracting: ['analyzing', 'queued', 'failed', 'cancelled'],
   analyzing: ['proposed', 'queued', 'failed', 'cancelled'],
-  proposed: ['published', 'cancelled', 'queued'], // queued: el editor reprocesa el análisis
+  proposed: ['published', 'cancelled', 'queued'], // queued: the editor reprocesses the analysis
   failed: ['queued'],
   cancelled: ['queued'],
   published: []
@@ -28,7 +28,7 @@ const TRANSITIONS = {
 
 export const isTerminalInput = (status) => ['proposed', 'published', 'failed', 'cancelled'].includes(status)
 
-/** Cambia el estado verificando la tabla de transiciones. Dentro de una transacción. */
+/** Changes the status, checking the transition table. Inside a transaction. */
 export function transitionInput (db, id, to, { error = null, errorCode = null, now = Date.now } = {}) {
   const current = get(db, 'SELECT status FROM inputs WHERE id = ?', id)
   if (!current) throw notFound('El input no existe.')
@@ -41,10 +41,10 @@ export function transitionInput (db, id, to, { error = null, errorCode = null, n
 }
 
 /**
- * Hash de contenido (§1.3): el mismo texto normalizado, los mismos adjuntos por hash y el mismo emisor dan el
- * mismo input. El emisor entra en el hash porque el input es suyo: dos personas que mandan la misma captura
- * tienen cada una su propuesta y su responsabilidad como emisoras. Sin él, la segunda recibiría un input ajeno.
- * Normalización: NFC, saltos de línea \n y sin espacios en los extremos. No interpreta el texto.
+ * Content hash (§1.3): the same normalized text, the same attachments by hash and the same sender give the
+ * same input. The sender goes into the hash because the input is theirs: two people who send the same screenshot
+ * each have their own proposal and their own responsibility as senders. Without it, the second one would receive
+ * someone else's input. Normalization: NFC, \n line breaks and no spaces at the ends. It does not interpret the text.
  */
 export function contentHash ({ authorId, text, fileHashes, links }) {
   const normal = text.normalize('NFC').replaceAll('\r\n', '\n').trim()
@@ -53,9 +53,9 @@ export function contentHash ({ authorId, text, fileHashes, links }) {
 }
 
 /**
- * Registra un input y encola su análisis. Idempotente por hash. `files` ya están en el volumen:
- * [{ kind, name, mime, size, sha256 }]; `links`, URL ya validadas.
- * Devuelve { input, jobId, created, restarted }.
+ * Registers an input and enqueues its analysis. Idempotent by hash. `files` are already in the volume:
+ * [{ kind, name, mime, size, sha256 }]; `links`, already-validated URLs.
+ * Returns { input, jobId, created, restarted }.
  */
 export function submitInput ({ db, queue, events, now = Date.now }, { authorId, text, files, links }) {
   const hash = contentHash({ authorId, text, fileHashes: files.map((f) => f.sha256), links })
@@ -64,7 +64,7 @@ export function submitInput ({ db, queue, events, now = Date.now }, { authorId, 
     if (existing) {
       const jobRow = queue.latestJobForInput(existing.id)
       if (existing.status === 'failed' || existing.status === 'cancelled') {
-        // El mismo contenido enviado otra vez tras un fallo o una cancelación: se reintenta sobre la misma fila.
+        // The same content sent again after a failure or a cancellation: it is retried on the same row.
         transitionInput(db, existing.id, 'queued', { now })
         audit(db, { memberId: authorId, action: 'input.resubmit', entity: 'input', entityId: existing.id, now })
         const jobId = queue.enqueue('analyze', { input_id: existing.id }, { inputId: existing.id })
@@ -80,7 +80,7 @@ export function submitInput ({ db, queue, events, now = Date.now }, { authorId, 
       run(db, 'INSERT INTO attachments (input_id, kind, name, path, mime, size, sha256) VALUES (?, ?, ?, ?, ?, ?, ?)', inputId, f.kind, f.name, f.sha256, f.mime, f.size, f.sha256)
     }
     for (const url of links) {
-      // Para kind=link la columna `path` guarda la URL; el hash identifica el enlace.
+      // For kind=link the `path` column stores the URL; the hash identifies the link.
       run(db, 'INSERT INTO attachments (input_id, kind, name, path, mime, size, sha256) VALUES (?, \'link\', ?, ?, \'text/uri-list\', 0, ?)',
         inputId, url, url, createHash('sha256').update(url).digest('hex'))
     }
@@ -93,7 +93,7 @@ export function submitInput ({ db, queue, events, now = Date.now }, { authorId, 
 
 const attachmentView = (a) => ({ id: a.id, input_id: a.input_id, kind: a.kind, name: a.name, mime: a.mime, size: a.size, sha256: a.sha256, extracted: a.extracted_at !== null && a.extracted_at !== undefined })
 
-/** Ids de la propuesta como texto: el contrato de la API expone todo id como cadena. */
+/** Proposal ids as text: the API contract exposes every id as a string. */
 function proposalView (payload) {
   const id = (v) => (v === null || v === undefined ? null : String(v))
   const listValue = (v) => (Array.isArray(v) ? v.map(String) : [])
@@ -110,10 +110,10 @@ function proposalView (payload) {
   }
 }
 
-/** Vista de un input para su emisor: adjuntos, estado, trabajo vigente, unidades y propuesta si existe. */
+/** View of an input for its sender: attachments, status, current job, units and proposal if one exists. */
 export function getInputView ({ db, queue, events }, inputId, memberId) {
   const input = get(db, 'SELECT * FROM inputs WHERE id = ?', inputId)
-  // Un input ajeno no se distingue de uno inexistente.
+  // Someone else's input is indistinguishable from a nonexistent one.
   if (!input || input.author_id !== memberId) throw notFound('El input no existe.')
   return buildInputView({ db, queue, events }, input)
 }
@@ -143,7 +143,7 @@ export function buildInputView ({ db, queue, events }, input) {
   }
 }
 
-/** Lista paginada de los inputs propios (el emisor ve los suyos), con filtro opcional por estado. */
+/** Paginated list of one's own inputs (the sender sees theirs), with an optional status filter. */
 export function listInputs (ctx, memberId, { status = null, limit, offset }) {
   const { db } = ctx
   const cond = status ? 'WHERE author_id = ? AND status = ?' : 'WHERE author_id = ?'
@@ -154,8 +154,8 @@ export function listInputs (ctx, memberId, { status = null, limit, offset }) {
 }
 
 /**
- * Vuelve a encolar el análisis de un input ya extraído (útil cuando cambió una plantilla). Las extracciones se
- * conservan: el trabajo sólo extrae lo que falte. Sólo del editor; no sobre un input publicado ni en curso.
+ * Re-enqueues the analysis of an already-extracted input (useful when a template changed). Extractions are
+ * kept: the job only extracts what is missing. Editor only; not on a published or in-progress input.
  */
 export function reprocessInput ({ db, queue, events, now = Date.now }, inputId, actorId) {
   return events.transaction(() => {
@@ -173,7 +173,7 @@ export function reprocessInput ({ db, queue, events, now = Date.now }, inputId, 
   })
 }
 
-/** Cancela un input propio: cancela sus trabajos y lo marca. Un input publicado no se cancela. */
+/** Cancels one's own input: cancels its jobs and marks it. A published input is not cancelled. */
 export function cancelInput ({ db, queue, events, now = Date.now }, inputId, memberId) {
   return events.transaction(() => {
     const input = get(db, 'SELECT * FROM inputs WHERE id = ?', inputId)

@@ -1,16 +1,16 @@
-// Proveedor `delegated` (MASTER-SPEC §7.7, UD-002, informe 04 §3): el sitio anfitrión dice quién es la persona.
-// Cuatro modos bajo el mismo contrato `identify(request)`. Ninguno da de alta miembros (UD-007): el correo
-// tiene que existir en `members`, o la respuesta es 403.
+// `delegated` provider (MASTER-SPEC §7.7, UD-002, report 04 §3): the host site says who the person is.
+// Four modes under the same `identify(request)` contract. None of them creates members (UD-007): the email
+// has to exist in `members`, or the response is 403.
 //
-//   signed-header   X-Team-User, X-Team-Ts, X-Team-Sig. HMAC-SHA256 sobre
-//                   `${ts}.${MÉTODO}.${ruta}.${correo}` (o `${ts}.${correo}` con DELEGATED_BIND_REQUEST=false).
-//                   `ts` en segundos Unix; tolerancia de 5 minutos (patrón de firma de webhooks de Stripe).
-//   jwt             Cabecera con un JWT verificado con `jose` contra JWKS o secreto, con issuer, audience y
-//                   algoritmos fijados en la configuración (nunca leídos de la ficha, RFC 8725).
-//   sso-redirect    Redirección firmada con nonce de uso único (patrón DiscourseConnect). Tras el retorno se
-//                   emite una sesión propia, igual que la del proveedor local.
-//   trusted-header  Cabecera de identidad que inyecta un proxy (Tailscale Serve). Sólo se acepta si la conexión
-//                   llega desde una dirección de TRUSTED_PROXIES.
+//   signed-header   X-Team-User, X-Team-Ts, X-Team-Sig. HMAC-SHA256 over
+//                   `${ts}.${METHOD}.${path}.${email}` (or `${ts}.${email}` with DELEGATED_BIND_REQUEST=false).
+//                   `ts` in Unix seconds; 5-minute tolerance (Stripe's webhook signing pattern).
+//   jwt             A header with a JWT verified with `jose` against a JWKS or a secret, with issuer, audience and
+//                   algorithms fixed in the configuration (never read from the token, RFC 8725).
+//   sso-redirect    Signed redirect with a single-use nonce (DiscourseConnect pattern). After the return
+//                   a session of our own is issued, the same as the local provider's.
+//   trusted-header  Identity header injected by a proxy (Tailscale Serve). Only accepted if the connection
+//                   comes from an address in TRUSTED_PROXIES.
 
 import { BlockList, isIPv4, isIPv6 } from 'node:net'
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
@@ -27,7 +27,7 @@ function asIdentity (memberRow) {
   return { member_id: memberRow.id, role: memberRow.role, email: memberRow.email, name: memberRow.name }
 }
 
-/** UD-007: la identidad delegada sin fila en `members` recibe 403, nunca un alta automática. */
+/** UD-007: a delegated identity with no row in `members` gets 403, never an automatic sign-up. */
 function demandMember (db, email) {
   const memberRow = findMember(db, email)
   if (!memberRow) throw forbidden('La cuenta no está registrada en el equipo. Un editor debe agregarla.', 'member_not_registered')
@@ -66,7 +66,7 @@ function signedHeaderMode ({ db, config, now }) {
 function jwtMode ({ db, config }) {
   const j = config.identity.delegated.jwt
   const algs = j.algorithms.length > 0 ? j.algorithms : [j.jwksUrl ? 'RS256' : 'HS256']
-  // createRemoteJWKSet vuelve a pedir las llaves cuando llega un `kid` desconocido (rotación de llaves).
+  // createRemoteJWKSet fetches the keys again when an unknown `kid` arrives (key rotation).
   const lookupKey = j.jwksUrl ? createRemoteJWKSet(new URL(j.jwksUrl), { cooldownDuration: j.jwksCooldownMs }) : new TextEncoder().encode(j.secret)
   return {
     async identify (request) {
@@ -96,7 +96,7 @@ function trustedHeaderMode ({ db, config }) {
   for (const loginResponse of config.trustedProxies) {
     const [addr, prefixPath] = loginResponse.split('/')
     const family = isIPv6(addr) ? 'ipv6' : isIPv4(addr) ? 'ipv4' : null
-    if (!family) throw new Error(`TRUSTED_PROXIES: «${loginResponse}» no es una IP ni un CIDR.`)
+    if (!family) throw new Error(`TRUSTED_PROXIES: «${loginResponse}» is neither an IP nor a CIDR.`)
     if (prefixPath === undefined) listValue.addAddress(addr, family)
     else listValue.addSubnet(addr, Number(prefixPath), family)
   }
@@ -108,7 +108,7 @@ function trustedHeaderMode ({ db, config }) {
       if (!originValue) return null
       const normal = originValue.startsWith('::ffff:') ? originValue.slice(7) : originValue
       const family = isIPv6(normal) ? 'ipv6' : 'ipv4'
-      // Sin esto, cualquiera que alcance el puerto fijaría la cabecera a mano (informe 04 §3.1).
+      // Without this, anyone who can reach the port would set the header by hand (report 04 §3.1).
       if (!listValue.check(normal, family)) return null
       return asIdentity(demandMember(db, String(val)))
     }
@@ -125,13 +125,13 @@ function ssoMode ({ db, config, sessions, now }) {
   const lifetimeMs = d.nonceMinutes * 60 * 1000
 
   return {
-    // La sesión es la misma que la del proveedor local.
+    // The session is the same as the local provider's.
     identify (request) {
       const memberRow = sessions.lookup(readSessionCookie(request, config))
       return memberRow ? { member_id: memberRow.id, role: memberRow.role, email: memberRow.email, name: memberRow.name } : null
     },
     routes (app) {
-      // 1. Salida: nonce de uso único atado al navegador por una cookie corta.
+      // 1. Outbound: single-use nonce tied to the browser by a short-lived cookie.
       app.get('/auth/sso/start', { config: { public: true }, schema: { response: { 302: { type: 'null', description: 'Redirección firmada al inicio de sesión del anfitrión.' } } } }, async (request, reply) => {
         const nonce = randomBytes(24).toString('base64url')
         run(db, 'INSERT INTO sso_nonces (nonce, created_at) VALUES (?, ?)', nonce, now())
@@ -144,7 +144,7 @@ function ssoMode ({ db, config, sessions, now }) {
         return reply.redirect(target.toString(), 302)
       })
 
-      // 2. Retorno: firma, nonce vigente y atado al navegador, correo verificado por el anfitrión.
+      // 2. Return: signature, nonce still valid and tied to the browser, email verified by the host.
       app.get('/auth/sso/callback', { config: { public: true }, schema: { response: { 302: { type: 'null', description: 'Sesión creada; vuelve al panel.' } } } }, async (request, reply) => {
         const { sso, sig } = request.query
         if (typeof sso !== 'string' || typeof sig !== 'string' || !safeEqual(signHex(d.secret, sso), sig)) {
@@ -156,7 +156,7 @@ function ssoMode ({ db, config, sessions, now }) {
         if (!payloadData.nonce || !cookieNonce || !safeEqual(String(payloadData.nonce), cookieNonce)) {
           throw forbidden('La respuesta no corresponde a este navegador.', 'sso_invalid')
         }
-        // Uso único: se consume dentro de una transacción para que dos retornos simultáneos no pasen ambos.
+        // Single use: consumed inside a transaction so two simultaneous returns cannot both pass.
         const consumed = tx(db, () => {
           const dbRow = get(db, 'SELECT created_at, used_at FROM sso_nonces WHERE nonce = ?', payloadData.nonce)
           if (!dbRow || dbRow.used_at !== null || dbRow.created_at + lifetimeMs < now()) return false
@@ -165,11 +165,11 @@ function ssoMode ({ db, config, sessions, now }) {
         })
         reply.clearCookie(nonceCookieName, { path: '/', httpOnly: true, secure: spec.options.secure, sameSite: 'lax' })
         if (!consumed) throw forbidden('La respuesta del inicio de sesión venció o ya se usó.', 'sso_invalid')
-        // DiscourseConnect: sin correo verificado por el anfitrión, la cuenta queda expuesta a ser tomada.
+        // DiscourseConnect: without an email verified by the host, the account is exposed to takeover.
         if (payloadData.email_verified !== true) throw forbidden('El anfitrión no verificó el correo.', 'sso_unverified')
         if (typeof payloadData.email !== 'string' || !payloadData.email) throw badRequest('Falta el correo en la respuesta.', 'sso_invalid')
 
-        // Mapeo por identificador externo estable; el correo sólo vale la primera vez.
+        // Mapping by stable external identifier; the email only counts the first time.
         let memberRow = null
         if (payloadData.external_id !== undefined && payloadData.external_id !== null && String(payloadData.external_id) !== '') {
           const externalValue = String(payloadData.external_id)

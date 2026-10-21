@@ -1,6 +1,6 @@
-// Áreas y plantillas (MASTER-SPEC §1.1, §7.9). Las gestiona el Editor. Se borran en blando (`deleted_at`):
-// ningún mensaje que las referencie se pierde, y `restore` las devuelve. La unicidad (título del área, nombre
-// de la plantilla dentro de un área) rige entre las vigentes y su choque es 409.
+// Areas and templates (MASTER-SPEC §1.1, §7.9). The Editor manages them. They are soft-deleted (`deleted_at`):
+// no message that references them is lost, and `restore` brings them back. Uniqueness (area title, template name
+// within an area) applies among the current ones and a clash is a 409.
 
 import { all, get, run, tx } from '../db/index.js'
 import { iso } from '../db/util.js'
@@ -13,7 +13,7 @@ const toTemplate = (f, withBody) => ({
   ...(withBody ? { body_markdown: f.body_markdown } : {})
 })
 
-/** Áreas con sus conteos y plantillas (sin cuerpo). `includeDeleted`: también las borradas (para restaurar). */
+/** Areas with their counts and templates (without body). `includeDeleted`: the deleted ones too (to restore). */
 export function listAreas (db, { includeDeleted = false } = {}) {
   const areas = all(db, `
     SELECT a.id, a.title, a.description, a.position, a.deleted_at,
@@ -77,7 +77,7 @@ export function restoreArea (db, id, { actorId = null, now = Date.now } = {}) {
   return tx(db, () => {
     const dbRow = getArea(db, id, { includeDeleted: true })
     if (dbRow.deleted_at === null) throw conflict('El área no está borrada.', 'not_deleted')
-    titleIsFree(db, dbRow.title, id) // otra área vigente pudo tomar el título mientras tanto
+    titleIsFree(db, dbRow.title, id) // another current area may have taken the title in the meantime
     run(db, 'UPDATE areas SET deleted_at = NULL WHERE id = ?', id)
     audit(db, { memberId: actorId, action: 'area.restore', entity: 'area', entityId: id, now })
     return view(db, id)
@@ -101,8 +101,8 @@ function nameIsFree (db, areaId, name, exceptId = null) {
 }
 
 /**
- * Crea una plantilla. `body_markdown` es el archivo completo con su encabezado (§7.9); `name` y `description`
- * opcionales reescriben el encabezado. Las columnas `name` y `description` siempre salen del encabezado.
+ * Creates a template. `body_markdown` is the complete file with its header (§7.9); optional `name` and
+ * `description` rewrite the header. The `name` and `description` columns always come from the header.
  */
 export function createTemplate (db, areaId, { body_markdown: markdown, name, description }, { actorId = null, now = Date.now } = {}) {
   return tx(db, () => {
@@ -141,7 +141,7 @@ export function deleteTemplate (db, areaId, id, { actorId = null, now = Date.now
   })
 }
 
-/** Restaura una plantilla borrada. La ruta es /templates/:id/restore: el área sale de la propia plantilla. */
+/** Restores a deleted template. The route is /templates/:id/restore: the area comes from the template itself. */
 export function restoreTemplate (db, id, { actorId = null, now = Date.now } = {}) {
   return tx(db, () => {
     const dbRow = get(db, 'SELECT * FROM templates WHERE id = ?', id)
@@ -154,7 +154,7 @@ export function restoreTemplate (db, id, { actorId = null, now = Date.now } = {}
   })
 }
 
-/** Plantilla vigente con su archivo ya interpretado, para validar mensajes contra sus campos. */
+/** Current template with its file already parsed, to validate messages against its fields. */
 export function loadTemplate (db, id) {
   const dbRow = get(db, 'SELECT * FROM templates WHERE id = ? AND deleted_at IS NULL', id)
   if (!dbRow) return null
@@ -165,7 +165,7 @@ export function loadTemplate (db, id) {
   }
 }
 
-/** La plantilla vigente de menor id de un área: la que se usa cuando una propuesta cambia de área sin elegir plantilla. */
+/** The current template with the lowest id of an area: the one used when a proposal changes area without choosing a template. */
 export function defaultTemplateOf (db, areaId) {
   const dbRow = get(db, 'SELECT id FROM templates WHERE area_id = ? AND deleted_at IS NULL ORDER BY id LIMIT 1', areaId)
   return dbRow ? loadTemplate(db, dbRow.id) : null

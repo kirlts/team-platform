@@ -1,6 +1,6 @@
-// La API (MASTER-SPEC §7.1, §4.11): Fastify 5, la única puerta. Sirve también el panel estático y publica su
-// contrato OpenAPI 3.1 generado de los esquemas de las rutas (`GET /api/openapi.json`).
-// Rutas bajo `config.apiPrefix` (/api por omisión, §7.8); /health además en la raíz para los sondeos de Docker.
+// The API (MASTER-SPEC §7.1, §4.11): Fastify 5, the only door. It also serves the static panel and publishes its
+// OpenAPI 3.1 contract generated from the route schemas (`GET /api/openapi.json`).
+// Routes under `config.apiPrefix` (/api by default, §7.8); /health also at the root for Docker probes.
 
 import { readFileSync, existsSync } from 'node:fs'
 import path from 'node:path'
@@ -32,55 +32,55 @@ import { registerOpsRoutes } from './routes/ops.js'
 import { errorSchema, member as memberSchema } from './schemas.js'
 
 
-const LABELS = { auth: 'Sesión', me: 'Sesión', inputs: 'Inputs', messages: 'Mensajes', areas: 'Áreas y plantillas', templates: 'Áreas y plantillas', members: 'Equipo', settings: 'Configuración', attachments: 'Adjuntos', events: 'Eventos', jobs: 'Operación', audit: 'Operación', health: 'Operación', openapi: 'Operación' }
+const LABELS = { auth: 'Session', me: 'Session', inputs: 'Inputs', messages: 'Messages', areas: 'Areas and templates', templates: 'Areas and templates', members: 'Team', settings: 'Settings', attachments: 'Attachments', events: 'Events', jobs: 'Operations', audit: 'Operations', health: 'Operations', openapi: 'Operations' }
 
 /**
- * Arma la aplicación. `deps`: { db, config, queue, events, modules, logger }. No escucha ni arranca el worker.
- * `logger`: instancia pino, `true` para crear una desde la configuración, o `false` para silencio (pruebas).
- * Devuelve { app, domainEvents, identity, openapi }.
+ * Builds the application. `deps`: { db, config, queue, events, modules, logger }. It neither listens nor starts the worker.
+ * `logger`: a pino instance, `true` to create one from the configuration, or `false` for silence (tests).
+ * Returns { app, domainEvents, identity, openapi }.
  */
 export async function buildApp ({ db, config, queue, events, modules = {}, logger = false, now = Date.now, telemetry = null }) {
   const { version } = config
   const app = Fastify({
     ...(logger === false ? { logger: false } : { loggerInstance: logger === true ? createLogger(config) : logger }),
-    trustProxy: config.trustedProxies, // lista exacta de IP o CIDR, nunca `true` (informe 04 §2.4)
-    forceCloseConnections: true, // un flujo SSE abierto cuelga `app.close()` (informe 03, M5)
+    trustProxy: config.trustedProxies, // exact list of IPs or CIDRs, never `true` (report 04 §2.4)
+    forceCloseConnections: true, // an open SSE stream hangs `app.close()` (report 03, M5)
     ajv: { customOptions: { removeAdditional: false, coerceTypes: 'array', useDefaults: true, allErrors: false } },
     schemaErrorFormatter
   })
-  const domainEvents = new EventEmitter() // 'template.saved': el analizador calienta su esquema por evento
+  const domainEvents = new EventEmitter() // 'template.saved': the analyzer warms its schema on the event
   installErrorHandler(app)
   installSecurityHeaders(app, config)
 
-  // ---- Contrato OpenAPI 3.1, generado de los esquemas de las rutas. Se registra antes que ellas.
+  // ---- OpenAPI 3.1 contract, generated from the route schemas. It is registered before them.
   await app.register(fastifySwagger, {
     openapi: {
       openapi: '3.1.0',
       info: {
         title: 'team-platform API',
         version,
-        description: 'La única puerta del sistema: el panel y cualquier otro cliente usan este mismo contrato. Los ids viajan como texto; toda lista es { items, page, limit, total } con tope de 100; toda operación destructiva exige ?confirm=true.'
+        description: 'The only door of the system: the panel and any other client use this same contract. Ids travel as text; every list is { items, page, limit, total } capped at 100; every destructive operation requires ?confirm=true.'
       },
       servers: [{ url: '/' }],
-      components: { securitySchemes: { session: { type: 'apiKey', in: 'cookie', name: cookieSpec(config).name, description: 'Cookie de sesión que entrega POST /api/auth/login.' } } },
+      components: { securitySchemes: { session: { type: 'apiKey', in: 'cookie', name: cookieSpec(config).name, description: 'Session cookie issued by POST /api/auth/login.' } } },
       security: [{ session: [] }]
     },
     transform ({ schema, url, route }) {
       const copyOf = { ...schema }
       const lookupKey = url.replace(config.apiPrefix, '').split('/').filter(Boolean)[0] ?? 'health'
-      copyOf.tags = [LABELS[lookupKey] ?? 'Otros']
+      copyOf.tags = [LABELS[lookupKey] ?? 'Other']
       if (route?.config?.public) copyOf.security = []
-      // Los errores comparten una forma; se declaran una vez en cada ruta documentada.
+      // Errors share one shape; they are declared once in each documented route.
       copyOf.response = { '4XX': { description: 'Error: { code, message }.', ...errorSchema }, ...(schema.response ?? {}) }
       if (route?.method === 'POST' && url === `${config.apiPrefix}/inputs`) {
-        // La subida es multipart y la lee el manejador; el esquema sólo sirve a la documentación.
+        // The upload is multipart and the handler reads it; the schema only serves the documentation.
         copyOf.consumes = ['multipart/form-data']
         copyOf.body = {
           type: 'object',
           properties: {
-            text: { type: 'string', description: 'Texto del input.' },
-            files: { type: 'array', items: { type: 'string', format: 'binary' }, description: 'Archivos adjuntos (imagen, video, audio, documento).' },
-            links: { type: 'array', items: { type: 'string', format: 'uri' }, description: 'Enlaces.' }
+            text: { type: 'string', description: 'Text of the input.' },
+            files: { type: 'array', items: { type: 'string', format: 'binary' }, description: 'Attached files (image, video, audio, document).' },
+            links: { type: 'array', items: { type: 'string', format: 'uri' }, description: 'Links.' }
           }
         }
       }
@@ -88,7 +88,7 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
     }
   })
 
-  // ---- Origen cruzado: sólo si se declaran orígenes (CORS_ORIGINS). Vacío = mismo origen, sin CORS.
+  // ---- Cross-origin: only if origins are declared (CORS_ORIGINS). Empty = same origin, no CORS.
   if (config.corsOrigins.length > 0) {
     await app.register(fastifyCors, {
       origin: config.corsOrigins,
@@ -99,14 +99,14 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
     })
   }
 
-  // ---- Panel estático. Se registra antes de las políticas de ruta: sus archivos son públicos.
+  // ---- Static panel. It is registered before the route policies: its files are public.
   const hasPanel = existsSync(path.join(config.panelDist, 'index.html'))
   if (hasPanel) {
     await app.register(fastifyStatic, {
       root: config.panelDist,
-      wildcard: false, // sólo los archivos que existen; lo demás cae al manejador de 404
+      wildcard: false, // only files that exist; everything else falls to the 404 handler
       index: false,
-      // Activos con hash: caché larga e inmutable. index.html: sin caché (informe 03 §7.3, I07 §8).
+      // Hashed assets: long, immutable cache. index.html: no cache (report 03 §7.3, I07 §8).
       setHeaders (reply, routePath) {
         reply.header('cache-control', path.relative(config.panelDist, routePath).startsWith(`assets${path.sep}`)
           ? `public, max-age=${config.assetsMaxAgeSeconds}, immutable`
@@ -114,14 +114,14 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
       }
     })
   } else {
-    app.log.warn(`No hay panel compilado en ${config.panelDist}; sólo se sirve la API.`)
+    app.log.warn(`No compiled panel at ${config.panelDist}; only the API is served.`)
   }
   const apiPrefixPath = config.apiPrefix
   app.setNotFoundHandler((request, reply) => {
     const routePath = request.raw.url.split('?')[0]
     const isApi = routePath === apiPrefixPath || routePath.startsWith(`${apiPrefixPath}/`)
     const isAsset = routePath.startsWith('/assets/')
-    // Rutas de la SPA: index.html sólo a GET fuera de /api y de /assets (un activo ausente es un 404 de verdad).
+    // SPA routes: index.html only for GET outside /api and /assets (a missing asset is a real 404).
     if (hasPanel && !isApi && !isAsset && (request.method === 'GET' || request.method === 'HEAD')) {
       return reply.header('cache-control', 'no-cache').type('text/html; charset=utf-8').send(readFileSync(path.join(config.panelDist, 'index.html')))
     }
@@ -129,17 +129,17 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
   })
 
   await app.register(fastifyMultipart, {
-    // I03 §7.2: sin fijar los cinco límites, la omisión es 1 MiB por archivo y 1.000 partes.
+    // I03 §7.2: without setting the five limits, the default is 1 MiB per file and 1,000 parts.
     limits: {
       fileSize: Math.max(config.uploads.maxVideoBytes, config.uploads.maxImageBytes, config.uploads.maxAudioBytes, config.uploads.maxDocumentBytes),
       files: config.uploads.maxFiles,
       fieldSize: config.uploads.maxTextBytes,
-      fields: 1 + config.uploads.maxLinks + 1, // text, cada enlace y un margen de un campo
+      fields: 1 + config.uploads.maxLinks + 1, // text, each link and a margin of one field
       parts: config.uploads.maxFiles + config.uploads.maxLinks + 2
     }
   })
 
-  // ---- Identidad. A partir de acá cada ruta debe declarar su política.
+  // ---- Identity. From here on each route must declare its policy.
   const identity = await registerIdentity(app, { db, config, now })
   const { requireRole } = identity
   const blocklist = loadBlocklist(config.identity.password.blocklistFile)
@@ -148,12 +148,12 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
 
   const healthHandler = async (request) => {
     const migrated = userVersion(db) === latestVersion()
-    get(db, 'SELECT 1 AS ok') // si la base no responde, esto lanza y /health devuelve 500: es lo que debe poder ponerse rojo
+    get(db, 'SELECT 1 AS ok') // if the database does not respond, this throws and /health returns 500: it is what must be able to turn red
     if (!migrated) throw new AppError(503, 'unavailable', 'La base no está migrada.')
     const basic = { status: 'ok', version }
-    // El detalle (base, cola, proveedores) es del editor: un sondeo anónimo sólo ve si el servicio vive.
+    // The detail (database, queue, providers) is for the editor: an anonymous probe only sees whether the service is alive.
     let caller = null
-    try { caller = await identity.provider.identify(request) } catch { /* sin identidad: respuesta básica */ }
+    try { caller = await identity.provider.identify(request) } catch { /* no identity: basic response */ }
     if (caller?.role !== 'editor') return basic
     return {
       ...basic,
@@ -165,7 +165,7 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
     }
   }
   const healthSchema = {
-    summary: 'Estado del servicio (el detalle de base, cola y proveedores, sólo para el editor)',
+    summary: 'Service status (the detail of database, queue and providers is for the editor only)',
     response: {
       200: {
         type: 'object',
@@ -175,7 +175,7 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
           providers: { type: 'array', items: { type: 'object', additionalProperties: true } }, analyzer: { type: 'string' }
         }
       },
-      503: { description: 'La base no está migrada o no responde.', ...errorSchema }
+      503: { description: 'The database is not migrated or does not respond.', ...errorSchema }
     }
   }
 
@@ -185,7 +185,7 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
     api.get('/me', {
       onRequest: [requireRole('member')],
       schema: {
-        summary: 'La persona con sesión y el nombre del proyecto',
+        summary: 'The signed-in person and the project name',
         response: { 200: { type: 'object', properties: { ...memberSchema.properties, project_name: { type: 'string' }, provider: { type: 'string' } } } }
       }
     }, async (request) => {
@@ -195,7 +195,7 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
     api.get('/health', { config: { public: true }, schema: healthSchema }, healthHandler)
     api.get('/openapi.json', {
       config: { public: true },
-      schema: { hide: true, summary: 'Contrato OpenAPI 3.1 de esta API', response: { 200: { type: 'object', additionalProperties: true } } }
+      schema: { hide: true, summary: 'OpenAPI 3.1 contract of this API', response: { 200: { type: 'object', additionalProperties: true } } }
     }, async () => { openapiDoc ??= app.swagger(); return openapiDoc })
     registerInputRoutes(api, ctx)
     registerMessageRoutes(api, ctx)

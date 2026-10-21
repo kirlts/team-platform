@@ -1,6 +1,6 @@
-// Copia en archivos de las plantillas editadas, en el volumen: DATA_DIR/templates/area-<id>/template-<id>.md.
-// La base es la fuente (MASTER-SPEC §7.9: tabla `templates`); la copia deja las plantillas legibles y entra en el
-// respaldo con adjuntos (`scripts/backup.sh`, WITH_FILES=1). Si falla la escritura el guardado no se detiene.
+// File copy of the edited templates, in the volume: DATA_DIR/templates/area-<id>/template-<id>.md.
+// The database is the source (MASTER-SPEC §7.9: `templates` table); the copy keeps the templates readable and goes into
+// the backup with attachments (`scripts/backup.sh`, WITH_FILES=1). If the write fails, saving does not stop.
 
 import { mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -12,7 +12,7 @@ export function mirrorTemplate (config, t) {
   mkdirSync(path.dirname(target), { recursive: true })
   const tmpFile = `${target}.parcial`
   writeFileSync(tmpFile, t.body_markdown)
-  renameSync(tmpFile, target) // atómico: un respaldo nunca ve un archivo a medio escribir
+  renameSync(tmpFile, target) // atomic: a backup never sees a half-written file
 }
 
 export function removeTemplateMirror (config, areaId, templateId) {

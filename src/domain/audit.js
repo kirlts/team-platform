@@ -1,6 +1,6 @@
-// Bitácora de cambios (GET /audit, sólo el editor): quién creó, publicó, cerró, reabrió o editó áreas y
-// plantillas, y cuándo. Se escribe dentro de la misma transacción que el cambio, así que no hay cambio sin
-// registro ni registro sin cambio.
+// Change log (GET /audit, editor only): who created, published, closed, reopened or edited areas and
+// templates, and when. It is written inside the same transaction as the change, so there is no change without
+// a record and no record without a change.
 
 import { all, get, run } from '../db/index.js'
 import { iso, parseJson } from '../db/util.js'

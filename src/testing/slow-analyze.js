@@ -1,4 +1,4 @@
-// Analizador doble para la prueba de apagado del proceso: no termina hasta que lo abortan.
+// Fake analyzer for the process shutdown test: it does not finish until it is aborted.
 export const analyze = (bundle, { signal }) => new Promise((resolve, reject) => {
-  signal.addEventListener('abort', () => reject(signal.reason ?? new Error('abortado')))
+  signal.addEventListener('abort', () => reject(signal.reason ?? new Error('aborted')))
 })

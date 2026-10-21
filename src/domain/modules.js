@@ -1,5 +1,5 @@
-// Carga de los módulos que escriben otros agentes: analizador, extractores y proveedores (src/contracts.md).
-// Si el archivo no existe todavía, el servidor arranca igual y los trabajos fallan con un motivo claro.
+// Loading of the modules that other agents write: analyzer, extractors and providers (src/contracts.md).
+// If the file does not exist yet, the server starts anyway and the jobs fail with a clear reason.
 
 import { existsSync } from 'node:fs'
 import path from 'node:path'
@@ -11,16 +11,16 @@ const srcDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 async function importFile (routePath) {
   const absolutePath = path.resolve(srcDir, routePath)
   if (!existsSync(absolutePath)) return null
-  return import(pathToFileURL(absolutePath).href) // si existe pero falla, el error sube: no se oculta un módulo roto
+  return import(pathToFileURL(absolutePath).href) // if it exists but fails, the error propagates: a broken module is not hidden
 }
 
 /**
- * Devuelve el conjunto de módulos listo para el pipeline y la API:
+ * Returns the set of modules ready for the pipeline and the API:
  *   analyze, extract, estimateAudioSeconds, audioBudget, warmTemplate, resolveAnalyzeConfig, providersModule
- *   getProviders()   proveedores vigentes. Se reconstruyen cuando Configuración cambia lo guardado (el proceso
- *                    del worker lee la base cada vez, así que ve el cambio aunque lo haya hecho otro proceso).
- *   getAnalyzer()    'api' | 'harness' vigente
- *   buildProviders(overrides)  construye proveedores con sobrescrituras de prueba (valida un parche sin guardarlo)
+ *   getProviders()   current providers. They are rebuilt when `Configuración` changes what is stored (the worker
+ *                    process reads the database every time, so it sees the change even if another process made it).
+ *   getAnalyzer()    current 'api' | 'harness'
+ *   buildProviders(overrides)  builds providers with test overrides (validates a patch without saving it)
  */
 export async function loadModules (config, { db = null, env = process.env, log = () => {} } = {}) {
   const [analyzerModule, extractor, providerSet] = await Promise.all([
@@ -29,10 +29,10 @@ export async function loadModules (config, { db = null, env = process.env, log =
     importFile(config.modules.providers)
   ])
   const absent = []
-  if (!analyzerModule?.analyze) absent.push(`analizador (${config.modules.analyze})`)
-  if (!extractor?.extract) absent.push(`extractores (${config.modules.extract})`)
-  if (!providerSet?.createProviders) absent.push(`proveedores (${config.modules.providers})`)
-  for (const f of absent) log(`Módulo no disponible: ${f}. Los trabajos que lo necesiten fallarán con ese motivo.`)
+  if (!analyzerModule?.analyze) absent.push(`analyzer (${config.modules.analyze})`)
+  if (!extractor?.extract) absent.push(`extractors (${config.modules.extract})`)
+  if (!providerSet?.createProviders) absent.push(`providers (${config.modules.providers})`)
+  for (const f of absent) log(`Module not available: ${f}. Jobs that need it will fail with that reason.`)
 
   const overridesNow = () => (db ? getProviderOverrides(db) : {})
   const build = (overrides) => {
@@ -53,7 +53,7 @@ export async function loadModules (config, { db = null, env = process.env, log =
     resolveAnalyzeConfig: analyzerModule?.resolveConfig ?? null,
     extract: extractor?.extract ?? null,
     estimateAudioSeconds: extractor?.estimateAudioSeconds ?? null,
-    // El presupuesto de audio por hora vive en el módulo de extractores; este proceso lo consulta antes de transcribir.
+    // The hourly audio budget lives in the extractors module; this process consults it before transcribing.
     audioBudget: extractor?.createAudioBudget ? extractor.createAudioBudget() : null,
     getProviders,
     getAnalyzer: () => overridesNow().analyzer ?? config.providers.analyzer,
@@ -64,19 +64,19 @@ export async function loadModules (config, { db = null, env = process.env, log =
 }
 
 /**
- * Calentamiento por evento al guardar una plantilla (MS §7.5): el analizador compila el esquema y calienta la
- * caché del prompt. No es una espera por reloj. La llamada queda en `spans` como cualquier otra (UD-014). Un fallo
- * se registra y no afecta al guardado.
+ * Event-driven warm-up when a template is saved (MS §7.5): the analyzer compiles the schema and warms the
+ * prompt cache. It is not a clock-based wait. The call is recorded in `spans` like any other (UD-014). A failure
+ * is logged and does not affect saving.
  */
 export function installTemplateWarmup ({ domainEvents, modules, log = () => {} }) {
   domainEvents.on('template.saved', async (tpl) => {
     if (!modules.warmTemplate) return
     try {
       const providers = modules.getProviders()
-      if (!providers?.text || providers.text.unavailable) return // sin proveedor de texto no hay nada que calentar
+      if (!providers?.text || providers.text.unavailable) return // without a text provider there is nothing to warm
       await modules.warmTemplate({ providers, config: modules.resolveAnalyzeConfig?.(), templateMarkdown: tpl.body_markdown })
     } catch (error) {
-      log(`No se pudo calentar la plantilla «${tpl.name}»: ${error.message}`)
+      log(`Could not warm the template «${tpl.name}»: ${error.message}`)
     }
   })
 }

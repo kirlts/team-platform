@@ -1,4 +1,4 @@
-// Paginación uniforme de toda lista: ?page=&limit= con tope de 100, respuesta { items, page, limit, total }.
+// Uniform pagination for every list: ?page=&limit= capped at 100, response { items, page, limit, total }.
 
 export const pageQuerySchema = (config) => ({
   page: { type: 'integer', minimum: 1 },

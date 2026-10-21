@@ -1,5 +1,5 @@
-// Adjuntos en el volumen, nombrados por su SHA-256 (MASTER-SPEC §3). La subida se escribe a disco con
-// `pipeline` mientras se calcula el hash: 500 MB en 1,3 s con 134 a 165 MB de memoria (informe 03 §7.2).
+// Attachments in the volume, named by their SHA-256 (MASTER-SPEC §3). The upload is written to disk with
+// `pipeline` while the hash is computed: 500 MB in 1.3 s with 134 to 165 MB of memory (report 03 §7.2).
 
 import { createHash, randomUUID } from 'node:crypto'
 import { createWriteStream, existsSync } from 'node:fs'
@@ -14,7 +14,7 @@ export function blobPath (config, sha256) {
   return path.join(config.attachmentsDir, sha256)
 }
 
-/** Escribe `stream` a un temporal en el volumen. Falla con 413 al pasar de `maxBytes`. */
+/** Writes `stream` to a temporary file in the volume. Fails with 413 when it exceeds `maxBytes`. */
 export async function ingest (config, stream, { maxBytes, tooLargeMessage }) {
   await mkdir(config.tmpDir, { recursive: true })
   const tmp = path.join(config.tmpDir, `${randomUUID()}.parcial`)
@@ -38,7 +38,7 @@ export async function ingest (config, stream, { maxBytes, tooLargeMessage }) {
   return { tmp, sha256: hash.digest('hex'), size }
 }
 
-/** Mueve el temporal a su nombre definitivo. Si el archivo ya existe se descarta el temporal. */
+/** Moves the temporary file to its final name. If the file already exists, the temporary one is discarded. */
 export async function commit (config, tmp, sha256) {
   await mkdir(config.attachmentsDir, { recursive: true })
   const target = blobPath(config, sha256)
@@ -51,10 +51,10 @@ export async function commit (config, tmp, sha256) {
 }
 
 /**
- * Recolección de huérfanos: archivos del volumen que ningún adjunto referencia y con más de `olderThanMs`
- * de antigüedad. Nunca se borra al rechazar una subida: dos subidas del mismo archivo en curso podrían
- * pisarse (el segundo ve el archivo del primero antes de que exista su fila). La antigüedad mínima es la
- * retención de la cola (7 días, informe 03 §12).
+ * Orphan collection: files in the volume that no attachment references and that are older than `olderThanMs`.
+ * Nothing is deleted when an upload is rejected: two in-flight uploads of the same file could overwrite
+ * each other (the second sees the first one's file before its row exists). The minimum age is the
+ * queue retention (7 days, report 03 §12).
  */
 export async function sweepOrphans (db, config, olderThanMs, now = Date.now()) {
   let removedRows = 0

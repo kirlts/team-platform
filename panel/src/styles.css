@@ -1,0 +1,128 @@
+@import 'tailwindcss';
+
+/*
+ * Tokens de diseño. Un solo acento (azul tinta, el de la maqueta), neutros fríos,
+ * tipografía del sistema (sin fuentes remotas: CSP connect-src/img-src 'self').
+ * El tema oscuro redefine los mismos tokens bajo [data-theme='dark'].
+ */
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+
+  --color-bg: oklch(0.99 0.002 250);
+  --color-surface: oklch(0.965 0.005 250);
+  --color-raised: oklch(1 0 0);
+  --color-hover: oklch(0.945 0.008 250);
+  --color-line: oklch(0.9 0.008 250);
+  --color-line-strong: oklch(0.8 0.012 250);
+  --color-fg: oklch(0.23 0.02 255);
+  --color-muted: oklch(0.5 0.02 255);
+  --color-faint: oklch(0.65 0.015 255);
+  --color-accent: oklch(0.45 0.18 262);
+  --color-accent-hover: oklch(0.4 0.18 262);
+  --color-accent-fg: oklch(0.99 0 0);
+  --color-accent-soft: oklch(0.94 0.035 262);
+  --color-danger: oklch(0.52 0.2 27);
+  --color-danger-soft: oklch(0.95 0.03 27);
+  --color-open-fg: oklch(0.45 0.12 70);
+  --color-open-bg: oklch(0.95 0.06 90);
+  --color-answered-fg: oklch(0.42 0.15 262);
+  --color-answered-bg: oklch(0.94 0.035 262);
+  --color-closed-fg: oklch(0.45 0.015 255);
+  --color-closed-bg: oklch(0.93 0.006 250);
+
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-bg: oklch(0.2 0.012 255);
+  --color-surface: oklch(0.235 0.014 255);
+  --color-raised: oklch(0.26 0.014 255);
+  --color-hover: oklch(0.29 0.016 255);
+  --color-line: oklch(0.33 0.016 255);
+  --color-line-strong: oklch(0.43 0.02 255);
+  --color-fg: oklch(0.93 0.008 250);
+  --color-muted: oklch(0.72 0.015 250);
+  --color-faint: oklch(0.58 0.015 250);
+  --color-accent: oklch(0.7 0.14 262);
+  --color-accent-hover: oklch(0.76 0.13 262);
+  --color-accent-fg: oklch(0.18 0.02 262);
+  --color-accent-soft: oklch(0.3 0.06 262);
+  --color-danger: oklch(0.72 0.16 27);
+  --color-danger-soft: oklch(0.3 0.06 27);
+  --color-open-fg: oklch(0.85 0.12 85);
+  --color-open-bg: oklch(0.32 0.06 85);
+  --color-answered-fg: oklch(0.82 0.1 262);
+  --color-answered-bg: oklch(0.3 0.06 262);
+  --color-closed-fg: oklch(0.75 0.012 250);
+  --color-closed-bg: oklch(0.3 0.012 255);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+html {
+  font-size: 14px;
+  -webkit-text-size-adjust: 100%;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  border-color: var(--color-line);
+}
+
+button,
+[role='button'],
+a {
+  cursor: pointer;
+}
+
+button:disabled,
+[aria-disabled='true'] {
+  cursor: not-allowed;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* En un teléfono, 16 px evita el zoom automático de iOS al enfocar un campo. */
+@media (max-width: 640px) {
+  input,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Las columnas con scroll propio no muestran la barra hasta que hace falta. */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

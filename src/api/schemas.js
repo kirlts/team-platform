@@ -64,9 +64,14 @@ const attachmentSummary = {
   properties: { id, input_id: id, kind: { type: 'string' }, name: { type: 'string' }, mime: { type: 'string' }, size: intVar }
 }
 
+const replyAttachmentSummary = {
+  type: 'object',
+  properties: { id, reply_id: id, kind: { type: 'string' }, name: { type: 'string' }, mime: { type: 'string' }, size: intVar }
+}
+
 export const reply = {
   type: 'object',
-  properties: { id, message_id: id, author_id: id, body: { type: 'string' }, kind: { type: 'string', enum: ['answer', 'fix', 'clarification'] }, attachment_kinds: { type: 'array', items: { type: 'string' } }, created_at: { type: 'string' } }
+  properties: { id, message_id: id, author_id: id, body: { type: 'string' }, kind: { type: 'string', enum: ['answer', 'fix', 'clarification'] }, attachments: { type: 'array', items: replyAttachmentSummary }, attachment_kinds: { type: 'array', items: { type: 'string' } }, created_at: { type: 'string' } }
 }
 
 export const messageCard = {

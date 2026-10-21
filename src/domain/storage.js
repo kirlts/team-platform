@@ -64,7 +64,8 @@ export async function sweepOrphans (db, config, olderThanMs, now = Date.now()) {
       const routePath = path.join(dir, nameValue)
       const info = await stat(routePath)
       if (!info.isFile() || now - info.mtimeMs < olderThanMs) continue
-      if (dir === config.attachmentsDir && get(db, "SELECT 1 AS u FROM attachments WHERE sha256 = ? AND kind <> 'link' LIMIT 1", nameValue)) continue
+      if (dir === config.attachmentsDir && (get(db, "SELECT 1 AS u FROM attachments WHERE sha256 = ? AND kind <> 'link' LIMIT 1", nameValue) ||
+        get(db, "SELECT 1 AS u FROM reply_attachments WHERE sha256 = ? AND kind <> 'link' LIMIT 1", nameValue))) continue
       await rm(routePath, { force: true })
       removedRows++
     }

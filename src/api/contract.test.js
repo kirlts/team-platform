@@ -58,7 +58,8 @@ test('ninguna ruta queda sin esquema de respuesta', async () => {
 
 test('todo POST y PATCH con cuerpo rechaza propiedades desconocidas (additionalProperties: false)', async () => {
   const env = await makeEnv()
-  const isStrict = (s) => s.additionalProperties === false || (s.anyOf ?? s.oneOf ?? []).length > 0 && (s.anyOf ?? s.oneOf).every(isStrict)
+  // A body declared per content type (`content`) is strict when each of its schemas is.
+  const isStrict = (s) => (s.content ? Object.values(s.content).every((c) => isStrict(c.schema)) : false) || s.additionalProperties === false || (s.anyOf ?? s.oneOf ?? []).length > 0 && (s.anyOf ?? s.oneOf).every(isStrict)
   const loose = routePolicies.get(env.app)
     .filter((r) => ['POST', 'PATCH'].includes(r.method) && r.schema?.body)
     .filter((r) => !isStrict(r.schema.body))

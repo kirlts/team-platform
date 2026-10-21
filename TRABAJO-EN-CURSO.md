@@ -14,18 +14,18 @@
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
 - `main`: bcd1db7 Traspaso: ronda 5 y última pasada de arreglos. Empujado a origin: `bcd1db7`.
-- Ramas con commits sin fusionar: ninguna.
+- Ramas con commits sin fusionar: `wt-respuestas` 1 (hace 89 segundos).
 - Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `listas`, `modelos`, `respuestas`, `resto`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `bcd1db7` Traspaso: ronda 5 y última pasada de arreglos (hace 14 segundos)
-- `9b01530` Traspaso: miniaturas y remanentes fusionados, ronda 5 en curso (hace 2 minutos)
-- `0718496` Merge branch 'main' into wt-remanentes (hace 17 minutos)
-- `ffda0ff` Changelog for the remaining findings (H-2000, H-2302, H-2605) (hace 17 minutos)
-- `c4b1f4b` Merge branch 'wt-miniaturas' (hace 20 minutos)
-- `785af07` Fusión de main en wt-miniaturas (hace 27 minutos)
-- `febe443` Merge branch 'main' into wt-remanentes (hace 31 minutos)
-- `f3c1357` Fix the ui-detectors findings of Equipo, Configuración and the message page (H-2302, UD-191) (hace 31 minutos)
-Actualizado 2026-10-21 21:46 UTC.
+- `bcd1db7` Traspaso: ronda 5 y última pasada de arreglos (hace 4 minutos)
+- `9b01530` Traspaso: miniaturas y remanentes fusionados, ronda 5 en curso (hace 6 minutos)
+- `0718496` Merge branch 'main' into wt-remanentes (hace 20 minutos)
+- `ffda0ff` Changelog for the remaining findings (H-2000, H-2302, H-2605) (hace 20 minutos)
+- `c4b1f4b` Merge branch 'wt-miniaturas' (hace 23 minutos)
+- `785af07` Fusión de main en wt-miniaturas (hace 30 minutos)
+- `febe443` Merge branch 'main' into wt-remanentes (hace 34 minutos)
+- `f3c1357` Fix the ui-detectors findings of Equipo, Configuración and the message page (H-2302, UD-191) (hace 34 minutos)
+Actualizado 2026-10-21 21:50 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

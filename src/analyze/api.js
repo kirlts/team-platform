@@ -30,7 +30,7 @@ import { buildClassificationSchema, buildDecompositionSchema } from './schema.js
 import { parseTemplate } from './templates.js';
 import { estimateTokens, numberUnits, partitionUnits, renderUnits } from './units.js';
 import {
-  contextFromBundle, coverage, describeConflicts, normalizeDecomposition, validateClassification, validateDecomposition, validateProposal,
+  closeStretches, contextFromBundle, coverage, describeConflicts, normalizeDecomposition, repairClassification, repairCoverage, validateClassification, validateDecomposition, validateProposal,
 } from './validate.js';
 
 const TYPED = new Map([
@@ -119,6 +119,13 @@ async function callText(ctx, step, { system, messages, schema, effort, maxTokens
   };
 
   let result = await attempt(ctx.providers.text, newEntry(ctx.providers.text, false));
+  // A retryable HTTP failure (429, 5xx, network) is repeated on the same provider after the wait it asks for.
+  for (let retry = 0; !result.ok && result.err instanceof ProviderHttpError && result.err.retryable && retry < ctx.config.httpRetries; retry += 1) {
+    const wait = result.err.retryAfterMs ?? ctx.config.httpRetryBaseMs * 2 ** retry; // declared courtesy: doubling wait when the provider sends no retry-after
+    await new Promise((resolve) => { setTimeout(resolve, wait); });
+    ctx.stats.http_retries = (ctx.stats.http_retries ?? 0) + 1;
+    result = await attempt(ctx.providers.text, newEntry(ctx.providers.text, false));
+  }
   const fallback = usableFallback(ctx.providers);
   if (!result.ok && fallback && fallbackApplies(result.err)) {
     ctx.stats.fallbacks = (ctx.stats.fallbacks ?? 0) + 1;
@@ -262,7 +269,11 @@ async function decomposeUnits(ctx, { bundle, template, system, schema, units, sc
   discarded = keptDiscarded;
   const remaining = rescue.conflicts.overlaps.length > 0 || rescue.conflicts.gaps.length > 0 ? rescue.conflicts : coverage(messages, discarded, scope);
   if (remaining.overlaps.length > 0 || remaining.gaps.length > 0) {
-    return { status: 'invalid', step: `rescue${label}`, reason: 'mece_conflict', errors: describeConflicts(remaining), draft: { messages, discarded } };
+    // The rescue pass was the only model turn the conflict gets; what is left is bookkeeping and is repaired by set arithmetic.
+    const repaired = repairCoverage(messages, discarded, scope);
+    if (!repaired) return { status: 'invalid', step: `rescue${label}`, reason: 'mece_conflict', errors: describeConflicts(remaining), draft: { messages, discarded } };
+    ctx.stats.repaired = (ctx.stats.repaired ?? 0) + 1;
+    return { status: 'ok', messages: repaired.messages, discarded: repaired.discarded, rescued: true, repaired: true };
   }
   return { status: 'ok', messages, discarded, rescued: true };
 }
@@ -288,6 +299,16 @@ function checkBundle(bundle) {
   if (!bundle || typeof bundle !== 'object') throw new AnalyzeInputError('El bundle es obligatorio');
   if (!Array.isArray(bundle.areas) || bundle.areas.length === 0) throw new AnalyzeInputError('El bundle no trae áreas');
   if (!Array.isArray(bundle.templates) || bundle.templates.length === 0) throw new AnalyzeInputError('El bundle no trae plantillas');
+}
+
+/** Splits each chunk in `chunks` into contiguous windows of about `size` units or fewer, of equal size within the chunk. */
+function windowsOf(chunks, size) {
+  return chunks.flatMap((chunk) => {
+    const count = Math.ceil(chunk.length / size);
+    if (count <= 1) return [chunk];
+    const each = Math.ceil(chunk.length / count);
+    return Array.from({ length: count }, (_, i) => chunk.slice(i * each, (i + 1) * each));
+  });
 }
 
 /** Sections of the units for the second reading: by heading, and no more than `size` units each. */
@@ -337,7 +358,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
 
   /** Classifies `list` in structural chunks (or, in the second reading, the given sections) and joins the groups. */
   const classifyUnits = async (list, { secondPass = false, chunks } = {}) => {
-    const classifyChunks = chunks ?? partitionUnits(list, { budgetTokens: config.partitionThresholdTokens - fixedClassify, charsPerToken: config.charsPerToken });
+    const classifyChunks = chunks ?? windowsOf(partitionUnits(list, { budgetTokens: config.partitionThresholdTokens - fixedClassify, charsPerToken: config.charsPerToken }), config.classifyWindowUnits);
     if (!secondPass) {
       ctx.stats.classification_chunks = classifyChunks.length;
       ctx.progress.total = classifyChunks.length + 2;
@@ -347,7 +368,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
       const r = await structuredStep(ctx, {
         step: `${secondPass ? 'classify2' : 'classify'}${classifyChunks.length > 1 ? `#${index + 1}` : ''}`,
         system: cSystem,
-        messages: [{ role: 'user', content: classifyUser({ units: chunkUnits, attachments, language, secondPass, recent: bundle.recent_inputs }) }],
+        messages: [{ role: 'user', content: classifyUser({ units: chunkUnits, attachments, language, secondPass, recent: bundle.recent_inputs, window: classifyChunks.length > 1 && !secondPass ? { index, total: classifyChunks.length, first: chunkUnits[0].id, last: chunkUnits.at(-1).id } : undefined }) }],
         schema: cSchema,
         effort: config.classifyEffort,
         thinking: config.classifyThinking ?? undefined,
@@ -356,8 +377,14 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
       if (r.status === 'ok' && !secondPass) ctx.report('input clasificado', { advance: true });
       return r;
     });
+    // What the single retry did not fix (overlaps and gaps only) is closed by set arithmetic instead of failing the whole input.
+    const repairable = (r, scope) => {
+      if (r.status !== 'invalid' || !r.repairable) return r;
+      ctx.stats.classification_repaired = (ctx.stats.classification_repaired ?? 0) + 1;
+      return { status: 'ok', json: repairClassification(r.repairable, scope), errors: [], repaired: true };
+    };
     const results = await withSpan(secondPass ? 'classify.second_pass' : 'classify', { 'team.step': secondPass ? 'classify2' : 'classify', 'team.units': list.length, 'team.chunks': classifyChunks.length }, async (span) => {
-      const out = await runPool(tasks, config.partitionConcurrency);
+      const out = (await runPool(tasks, config.partitionConcurrency)).map((r, i) => (r ? repairable(r, classifyChunks[i].map((u) => u.id)) : r));
       span.setAttribute('team.groups', out.reduce((n, r) => n + (r?.json?.groups?.length ?? 0), 0));
       return out;
     });
@@ -401,6 +428,8 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
     groups = outcome.results.flatMap((r) => r.json.groups);
     classDiscarded = outcome.results.flatMap((r) => r.json.discarded);
   }
+  // A point is a continuous stretch: what the model discarded between the first and the last unit of a group belongs to it.
+  ({ groups, discarded: classDiscarded } = closeStretches(groups, classDiscarded));
   const allIds = units.map((u) => u.id);
   ctx.stats.groups = groups.length;
 

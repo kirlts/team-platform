@@ -133,16 +133,18 @@ describe('analyze (api): overlaps, gaps and rescue', () => {
     assert.deepEqual(result.proposal.discarded.map((d) => d.unit_ids), [[1], [6]], 'the discards of the classification are kept');
   });
 
-  it('if the rescue does not resolve the conflict, the job fails with the reason and there is no second rescue', async () => {
+  it('if the rescue does not resolve the conflict, there is no second rescue: the rest is repaired by set arithmetic', async () => {
     const solapada = goodDecomposition();
     solapada.messages[1].unit_ids = [3, 4];
     const rescateMalo = { messages: [bugMessage([2, 3, 4], 'A'), bugMessage([4], 'B')] };
     const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, solapada, rescateMalo] });
     const result = await analyze(await makeBundle(), { providers: fake });
-    assert.equal(result.status, 'invalid');
-    assert.equal(result.reason, 'mece_conflict');
-    assert.match(result.errors.join('\n'), /unit 4 is in more than one place/);
-    assert.equal(fake.calls.text.length, 3);
+    assert.equal(result.status, 'ok');
+    assert.equal(fake.calls.text.length, 3, 'one rescue and no more');
+    assert.equal(result.stats.repaired, 1);
+    // Unit 4 stays in the first message that cites it; every unit is in exactly one place.
+    assert.deepEqual(ids(result.proposal.messages).flat().sort((a, b) => a - b), [2, 3, 4, 5]);
+    assert.deepEqual(ids(result.proposal.messages)[0], [2, 3, 4]);
   });
 
   it('with rescuePasses at 0 the conflict fails without calling the rescue', async () => {
@@ -211,6 +213,17 @@ describe('analyze (api): invalid output', () => {
     }
   });
 
+  it('a classification whose retry still leaves a gap is repaired by set arithmetic instead of failing the input', async () => {
+    const bundle = await makeBundle();
+    const withGap = { groups: [{ unit_ids: [2, 3, 5], area_id: 2, template_id: 2 }], discarded: [{ unit_ids: [1], reason: 'saludo' }] }; // units 4 and 6 are nowhere
+    const decomposition = { messages: [bugMessage([2, 3, 4, 5, 6], 'Corregir cinco puntos')] };
+    const fake = createFakeProviders({ text: [withGap, withGap, decomposition] });
+    const result = await analyze(bundle, { providers: fake });
+    assert.equal(result.status, 'ok');
+    assert.equal(result.stats.classification_repaired, 1);
+    assert.deepEqual(ids(result.proposal.messages), [[2, 3, 4, 5, 6]]);
+  });
+
   it('an output that is not even JSON (ProviderOutputError) is retried with its reason', async () => {
     const roto = new ProviderOutputError('anthropic: la salida no es JSON', { raw: '{"messages": [' });
     const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, roto, goodDecomposition()] });
@@ -264,7 +277,23 @@ describe('analyze (api): refusal and max_tokens are states', () => {
   it('a network failure is thrown with the calls already made', async () => {
     const http = new ProviderHttpError('503', { status: 503, retryable: true });
     const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, http] });
-    await assert.rejects(analyze(await makeBundle(), { providers: fake }), (err) => err === http && err.calls.length === 2 && err.calls[1].outcome === 'http');
+    await assert.rejects(analyze(await makeBundle(), { providers: fake, config: { httpRetries: 0 } }), (err) => err === http && err.calls.length === 2 && err.calls[1].outcome === 'http');
+  });
+
+  it('a retryable HTTP failure is repeated on the same provider after the wait it asks for, and the analysis goes on', async () => {
+    const limited = new ProviderHttpError('429', { status: 429, retryable: true, retryAfterMs: 1 });
+    const good = scriptByRequest({ classification: CLASSIFY_ERRORS, decompositions: { 'Reporte de error': goodDecomposition() } });
+    const fake = createFakeProviders({ text: (req, n) => (n === 0 ? limited : good(req)) });
+    const result = await analyze(await makeBundle(), { providers: fake });
+    assert.equal(result.status, 'ok');
+    assert.equal(result.stats.http_retries, 1);
+    assert.deepEqual(result.calls.slice(0, 2).map((c) => c.outcome), ['http', 'ok']);
+  });
+
+  it('after the retries it is thrown, with every attempt in the calls', async () => {
+    const down = new ProviderHttpError('503', { status: 503, retryable: true, retryAfterMs: 1 });
+    const fake = createFakeProviders({ text: () => down });
+    await assert.rejects(analyze(await makeBundle(), { providers: fake, config: { httpRetries: 2 } }), (err) => err === down && err.calls.length === 3);
   });
 });
 
@@ -514,7 +543,7 @@ describe('analyze (api): fallback provider (H-18)', () => {
     const bundle = await makeBundle();
     const good = goodScript();
     const fake = createFakeProviders({ text: (req, n) => (n === 0 ? new ProviderHttpError('overloaded', { status: 529, retryable: true }) : good(req)), textFallback: [CLASSIFY_ERRORS] });
-    const result = await analyze(bundle, { providers: fake });
+    const result = await analyze(bundle, { providers: fake, config: { httpRetries: 0 } });
     assert.equal(result.status, 'ok');
     assert.equal(result.calls.filter((c) => c.fallback).length, 1);
   });
@@ -524,7 +553,7 @@ describe('analyze (api): fallback provider (H-18)', () => {
     assert.equal(refused.textFallback, null);
     assert.equal((await analyze(await makeBundle(), { providers: refused })).status, 'refusal');
     const down = createFakeProviders({ text: [new ProviderHttpError('down', { status: 503, retryable: true })] });
-    await assert.rejects(analyze(await makeBundle(), { providers: down }), ProviderHttpError);
+    await assert.rejects(analyze(await makeBundle(), { providers: down, config: { httpRetries: 0 } }), ProviderHttpError);
   });
 
   it('what the fallback does not cover is not repeated: a non-retryable HTTP failure and a timeout', async () => {

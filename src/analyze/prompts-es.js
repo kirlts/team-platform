@@ -25,7 +25,7 @@ export const CLASSIFY_INSTRUCTIONS = [
   '',
   'Reglas',
   '1. Cada unidad aparece exactamente una vez en tu salida: en unit_ids de un único grupo o en discarded. Ninguna queda fuera y ninguna se repite.',
-  '2. Un grupo es exactamente un punto: un pedido, una falla, una idea, una opinión o una pregunta, con todas las unidades que lo sostienen. Dos puntos independientes van en dos grupos, aunque tengan la misma plantilla o estén seguidos; el mismo punto contado en dos momentos del input va completo en un solo grupo. Un punto es todo lo que la persona pidió, decidió o informó, sea o no del producto: un proceso, un contrato, un cliente nuevo, un costo o el flujo de ramas también son puntos, y nunca se descartan por «no ser producto». Un punto que la persona dice una sola vez es un solo punto aunque ocupe varias unidades seguidas o aunque entre ellas haya descripciones de fotogramas: nunca lo partas por oración. La descripción de un fotograma que muestra de qué habla la persona va al grupo de ese punto. Las unidades de un grupo no tienen que ser contiguas.',
+  '2. Un grupo es exactamente un punto: un pedido, una falla, una idea, una opinión o una pregunta, con todas las unidades que lo sostienen. Dos puntos independientes van en dos grupos, aunque tengan la misma plantilla o estén seguidos; el mismo punto contado en dos momentos del input va completo en un solo grupo. Un punto es todo lo que la persona pidió, decidió o informó, sea o no del producto: un proceso, un contrato, un cliente nuevo, un costo o el flujo de ramas también son puntos, y nunca se descartan por «no ser producto». Un punto que la persona dice una sola vez es un solo punto aunque ocupe varias unidades seguidas o aunque entre ellas haya descripciones de fotogramas: nunca lo partas por oración. La descripción de un fotograma que muestra de qué habla la persona va al grupo de ese punto. En una conversación o una reunión un punto ocupa un tramo seguido: las intervenciones breves, las confirmaciones y los comentarios sueltos dentro del tramo pertenecen al punto, y solo se descarta lo que queda fuera de todo tramo. Las unidades de un grupo no tienen que ser contiguas cuando el punto vuelve más adelante.',
   '3. Clasifica cada punto por lo que la persona necesita que ocurra (arreglar una falla, considerar una idea, construir algo, tomar nota de una opinión, recibir una respuesta), no por el tono ni por las palabras sueltas. Quien explica cómo debe ser algo que todavía no existe (un widget, una pantalla, un informe) está encargando que se construya: es una nueva funcionalidad, aunque no pida nada con esas palabras.',
   '4. Las descripciones del catálogo delimitan cada área. Si dos áreas parecen servir, elige la que la descripción nombra de forma más específica.',
   '5. Si una misma unidad trae puntos de áreas distintas, no se puede repartir: va al grupo del punto principal.',
@@ -124,14 +124,14 @@ export const SECOND_PASS_NOTE = 'Segunda lectura. Una persona envió este input 
 // nothing at runtime rewrites the prose.
 const WRITING_CONTRACT = [
   'Contrato de redacción para cada título, cuerpo y valor de campo:',
-  '- Enuncia los hechos con llaneza, con verbos simples y cópulas (es, tiene, falla, tarda), nunca «se erige como» ni «sirve como». El título es un verbo más su objeto («Corregir el popup vacío de la agenda»).',
-  '- No agregues relevancia, legado, impacto ni tendencias, ni adjetivos promocionales o elogiosos, ni análisis que la persona no dijo (nada de gerundios finales como «destacando la importancia de»). Atribuye solo a personas que el input nombra.',
+  '- Enuncia los hechos con llaneza, con verbos simples y cópulas (es, tiene, falla, tarda), nunca «se erige como» ni «sirve como». El título es un verbo más su objeto («Corregir el popup vacío»).',
+  '- No agregues relevancia, legado, impacto ni tendencias, ni adjetivos promocionales o elogiosos, ni análisis que la persona no dijo (nada de gerundios finales como «destacando la importancia de»). Atribuye solo a quien el input nombra.',
   '- Nada de «no es X, sino Y», «no solo X, sino también Y» ni «X en lugar de Y». Nada de tríadas por ritmo.',
-  '- Evita el vocabulario del texto generado, en español y en inglés: crucial, fundamental, clave, robusto, integral, potenciar, sin fisuras, panorama, destacar, garantizar, y delve, pivotal, seamless, tapestry, underscore, foster.',
-  '- Solo texto plano: sin negritas, encabezados, emojis, rayas largas ni comillas tipográficas; sin viñetas en un cuerpo, salvo que la plantilla pida pasos.',
+  '- Evita el vocabulario del texto generado, en español y en inglés: crucial, fundamental, clave, robusto, integral, potenciar, sin fisuras, panorama, destacar, y delve, pivotal, seamless, tapestry, foster.',
+  '- Solo texto plano: sin negritas, encabezados, emojis, rayas largas ni comillas tipográficas; sin viñetas salvo que la plantilla pida pasos.',
   '- Sin frase final que resuma, sin charla («aquí tienes», «espero que sirva», «avísame si») y sin texto de relleno.',
   '- No digas lo que el input no dice («no se indica», «se desconoce») ni adivines causas («lo que sugiere», «probablemente»): omite el detalle del cuerpo, aunque la plantilla lo mencione. Un campo obligatorio sin dato lleva exactamente el valor de campo vacío.',
-  '- El cuerpo enuncia el punto en pocas frases, las que pide la plantilla, sin repetir palabra por palabra los campos ni recontar el input. Los valores de los campos son breves.',
+  '- El cuerpo nunca repite el título: agrega lo que el título no puede (dónde, qué se esperaba, por qué importa, lo que dice la descripción del proyecto si sirve), en pocas frases, sin repetir los campos ni recontar el input. Los valores de los campos son breves.',
 ].join('\n');
 
 export const DECOMPOSE_INSTRUCTIONS = [
@@ -141,7 +141,7 @@ export const DECOMPOSE_INSTRUCTIONS = [
   '',
   'Reglas de descomposición',
   '1. Cada unidad que recibes aparece exactamente una vez en tu salida, en unit_ids de un único mensaje. Ninguna queda fuera y ninguna se repite. En este paso no se descarta nada: el paso previo ya apartó los saludos y la charla social, así que todo lo que recibes es contenido de algún punto.',
-  '2. El paso previo agrupó las unidades que recibes como un solo punto, así que el grupo entero es un solo mensaje: un mensaje por cada punto que la persona planteó, y las unidades seguidas sobre un mismo punto quedan en el mismo mensaje aunque entre ellas haya descripciones de fotogramas. Haz más de uno únicamente cuando las unidades traten con claridad de dos pedidos o fallas independientes que se resuelven por separado, nunca para partir un solo punto por oración. Una pregunta retórica o una muletilla de cierre no es un mensaje de pregunta: déjala fuera del título y de los campos. Una unidad que solo aporta un dato, una respuesta, una aclaración o una acotación a un punto (una versión, un color, un «yo lo reviso», un «eso queda para otra rama») se cita en el mensaje de ese punto. Los detalles de cómo hacer un pedido (el formato, el límite, la forma de elegir, un caso borde) son parte de ese pedido y no un mensaje aparte.',
+  '2. El paso previo agrupó las unidades que recibes como un solo punto, así que el grupo entero es un solo mensaje: un mensaje por cada punto que la persona planteó, y las unidades seguidas sobre un mismo punto quedan en el mismo mensaje aunque entre ellas haya descripciones de fotogramas. Devuelve un solo mensaje con todas las unidades del grupo: el paso previo ya separó los puntos independientes, así que no partas el grupo ni un solo punto por oración. Una pregunta retórica o una muletilla de cierre no es un mensaje de pregunta: déjala fuera del título y de los campos. Una unidad que solo aporta un dato, una respuesta, una aclaración o una acotación a un punto (una versión, un color, un «yo lo reviso», un «eso queda para otra rama») se cita en el mensaje de ese punto. Los detalles de cómo hacer un pedido (el formato, el límite, la forma de elegir, un caso borde) son parte de ese pedido y no un mensaje aparte.',
   '3. El grupo origina al menos un mensaje. Un punto enunciado en pocas palabras, sin motivo ni detalle, sigue siendo un mensaje: redáctalo con lo que dice y escribe No indicado en los campos obligatorios que el input no responde.',
   '4. Si una misma unidad trae dos puntos distintos, no se puede repartir: recógela en un solo mensaje y nombra ambos puntos en su cuerpo.',
   '5. Lista de unit_ids en orden ascendente y solo con números que existen en la lista que recibes.',
@@ -172,6 +172,11 @@ export function templateBlock(template) {
   }
   lines.push('', template.body);
   return lines.join('\n');
+}
+
+/** Added to the classification of one window of a long input: the points are stretches of the conversation. */
+export function windowNote({ index, total, first, last }) {
+  return `Este es el tramo ${index + 1} de ${total} de un input más largo, y llega en orden: u${first} a u${last}. Clasifica solo estas unidades, cada una exactamente una vez. Un punto es un tramo seguido de la conversación; un tramo puede continuar en el tramo anterior o en el siguiente, y aun así su parte de este tramo va completa en un grupo.`;
 }
 
 /** Note for a chunk when the input is split (the model must know it does not see everything). */

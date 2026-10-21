@@ -94,7 +94,9 @@ export function validateClassification(output, { areas, templates, scope }) {
   });
   if (errors.length > 0) return { errors };
   const conflicts = coverage(output.groups.map((g) => ({ unit_ids: g.unit_ids })), output.discarded, scope, 'group');
-  return { errors: describeConflicts(conflicts) };
+  // Only overlaps and gaps are left: if the retry does not fix them, `repairClassification` closes them (the output travels in `repairable`).
+  const conflictErrors = describeConflicts(conflicts);
+  return conflictErrors.length > 0 ? { errors: conflictErrors, repairable: output } : { errors: [] };
 }
 
 /**
@@ -116,6 +118,86 @@ export function coverage(messages, discarded, scope, noun = 'message') {
   overlaps.sort((a, b) => a.unit_id - b.unit_id);
   const gaps = [...scope].filter((id) => !owners.has(id)).sort((a, b) => a - b);
   return { overlaps, gaps };
+}
+
+/**
+ * Closes the overlaps and gaps of a classification that the single retry did not fix, by set arithmetic alone. A unit cited
+ * twice stays in the first place that cites it; a unit cited nowhere goes where the closest unit before it went (or after it,
+ * when it is the first), whether that is a group or `discarded`.
+ * @param {{groups: object[], discarded: object[]}} output
+ * @param {Iterable<number>} scope
+ */
+export function repairClassification(output, scope) {
+  const order = [...scope].sort((a, b) => a - b);
+  const owner = new Map(); // unit -> 'g<i>' | 'd<i>'
+  output.groups.forEach((g, i) => g.unit_ids.forEach((id) => { if (!owner.has(id)) owner.set(id, `g${i}`); }));
+  output.discarded.forEach((d, i) => d.unit_ids.forEach((id) => { if (!owner.has(id)) owner.set(id, `d${i}`); }));
+  const first = order.map((id) => owner.get(id)).find((o) => o !== undefined);
+  let last = null;
+  for (const id of order) {
+    if (owner.has(id)) last = owner.get(id);
+    else if (last ?? first) owner.set(id, last ?? first);
+  }
+  const keep = (prefix, list) => list.map((x, i) => ({ ...x, unit_ids: order.filter((id) => owner.get(id) === `${prefix}${i}`) })).filter((x) => x.unit_ids.length > 0);
+  return { groups: keep('g', output.groups), discarded: keep('d', output.discarded) };
+}
+
+/**
+ * A point occupies a continuous stretch (classification rule 2): a unit discarded between the first and the last unit of a group
+ * belongs to that group. Applied after the classification, by set arithmetic alone: no text is read. When the spans of several
+ * groups contain the unit (interleaved points), it goes to the group with the closest member.
+ * @param {{unit_ids: number[]}[]} groups
+ * @param {{unit_ids: number[], reason: string}[]} discarded
+ */
+export function closeStretches(groups, discarded) {
+  const spans = groups.map((g) => ({ min: Math.min(...g.unit_ids), max: Math.max(...g.unit_ids) }));
+  const added = groups.map(() => []);
+  const kept = [];
+  for (const d of discarded) {
+    const stay = [];
+    for (const id of d.unit_ids) {
+      let best = -1;
+      let bestDistance = Infinity;
+      groups.forEach((g, i) => {
+        if (id <= spans[i].min || id >= spans[i].max) return;
+        const distance = Math.min(...g.unit_ids.map((u) => Math.abs(u - id)));
+        if (distance < bestDistance) { best = i; bestDistance = distance; }
+      });
+      if (best === -1) stay.push(id);
+      else added[best].push(id);
+    }
+    if (stay.length > 0) kept.push({ ...d, unit_ids: stay });
+  }
+  return {
+    groups: groups.map((g, i) => ({ ...g, unit_ids: [...g.unit_ids, ...added[i]].sort((a, b) => a - b) })),
+    discarded: kept,
+  };
+}
+
+/**
+ * Last resort after the single rescue pass: restores exact coverage by set arithmetic alone. A unit cited by several messages
+ * stays in the first one; a unit cited by none (and not discarded) joins the message of the closest unit before it, or after it
+ * when it is the first. No text is read. Returns null when there is no message to receive a unit.
+ * @param {{unit_ids: number[]}[]} messages
+ * @param {{unit_ids: number[]}[]} discarded
+ * @param {Iterable<number>} scope
+ */
+export function repairCoverage(messages, discarded, scope) {
+  if (messages.length === 0) return null;
+  const order = [...scope].sort((a, b) => a - b);
+  const owner = new Map();
+  messages.forEach((m, i) => m.unit_ids.forEach((id) => { if (!owner.has(id)) owner.set(id, i); }));
+  const dropped = new Set(discarded.flatMap((d) => d.unit_ids).filter((id) => !owner.has(id)));
+  const firstOwner = order.map((id) => owner.get(id)).find((i) => i !== undefined);
+  let last = null;
+  for (const id of order) {
+    if (owner.has(id)) last = owner.get(id);
+    else if (!dropped.has(id)) owner.set(id, last ?? firstOwner);
+  }
+  return {
+    messages: messages.map((m, i) => ({ ...m, unit_ids: order.filter((id) => owner.get(id) === i) })).filter((m) => m.unit_ids.length > 0),
+    discarded: discarded.map((d) => ({ ...d, unit_ids: d.unit_ids.filter((id) => !owner.has(id)) })).filter((d) => d.unit_ids.length > 0),
+  };
 }
 
 /** References, empty texts and blank required fields of a message already validated in shape. */

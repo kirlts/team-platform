@@ -30,7 +30,7 @@ export const CLASSIFY_INSTRUCTIONS = [
   '',
   'Rules',
   '1. Each unit appears exactly once in your output: in unit_ids of a single group or in discarded. None is left out and none is repeated.',
-  '2. A group is exactly one point: one request, one failure, one idea, one opinion or one question, with all the units that support it. Two independent points go in two groups, even if they share a template or follow each other; the same point mentioned at two moments of the input goes whole in a single group. A point is whatever the person asked for, decided or reported, whether or not it is about the product: a process, a contract, a new client, a cost or a branch workflow are points too, and are never discarded for being «not product». A point the person says once is one point even when it spans several consecutive units, or when descriptions of frames come between them: never split it by sentence. A frame description that shows what the person is talking about belongs to the group of that point. The units of a group need not be contiguous.',
+  '2. A group is exactly one point: one request, one failure, one idea, one opinion or one question, with all the units that support it. Two independent points go in two groups, even if they share a template or follow each other; the same point mentioned at two moments of the input goes whole in a single group. A point is whatever the person asked for, decided or reported, whether or not it is about the product: a process, a contract, a new client, a cost or a branch workflow are points too, and are never discarded for being «not product». A point the person says once is one point even when it spans several consecutive units, or when descriptions of frames come between them: never split it by sentence. A frame description that shows what the person is talking about belongs to the group of that point. In a conversation or a meeting a point occupies a continuous stretch: the short interjections, acknowledgements and stray remarks inside the stretch belong to the point, and only what lies outside every stretch is discarded. The units of a group need not be contiguous when the point comes back later.',
   '3. Classify each point by what the person needs to happen (fix a failure, consider an idea, build something, take note of an opinion, receive an answer), not by tone or isolated words. Whoever explains how something that does not exist yet should be (a widget, a screen, a report) is commissioning that it be built: it is a new feature, even if nothing is requested in those words.',
   '4. The catalog descriptions delimit each area. If two areas seem to fit, choose the one the description names more specifically.',
   '5. If a single unit carries points from different areas, it cannot be split: it goes to the group of the main point.',
@@ -130,14 +130,14 @@ export const SECOND_PASS_NOTE = 'Second reading. A person sent this input to the
 // chatter, cut-off disclaimers and placeholders. It is measured by bench/ai-tells.js; nothing at runtime rewrites the prose.
 const WRITING_CONTRACT = [
   'Writing contract for every title, body and field value:',
-  '- State facts plainly, with plain verbs and copulas (is, has, fails, takes), never "serves as" or "boasts". A title is a verb plus its object ("Fix the empty popup in the agenda").',
+  '- State facts plainly, with plain verbs and copulas (is, has, fails, takes), never "serves as" or "boasts". A title is a verb plus its object ("Fix the empty popup").',
   '- Add no significance, legacy, impact or trend, no promotional or praising adjectives, no analysis the person did not say (no "-ing" tails such as "highlighting the importance of"). Attribute only to people the input names.',
   '- No "not X but Y", "not only X but also Y" or "X rather than Y". No triplets added for rhythm.',
-  '- Avoid the vocabulary of generated text in any language: delve, crucial, pivotal, seamless, robust, landscape, tapestry, underscore, showcase, foster, vibrant, and the Spanish crucial, fundamental, clave, robusto, integral, potenciar, sin fisuras, panorama, destacar.',
+  '- Avoid the vocabulary of generated text in any language: delve, crucial, pivotal, seamless, robust, landscape, tapestry, underscore, showcase, foster, vibrant, and the Spanish crucial, fundamental, clave, robusto, integral, potenciar, panorama, destacar.',
   '- Plain text only: no bold, headings, emoji, em dashes or curly quotes; no bullet lists in a body unless the template asks for steps.',
   '- No closing summary, no chatter ("here is", "I hope this helps", "let me know"), no placeholder text.',
   '- Never say what the input does not say ("not specified", "unknown") nor guess at causes ("which suggests", "likely"): leave the detail out of the body, even when the template lists it. A required field with no data takes exactly the empty-field value.',
-  '- The body states the point briefly in the sentences the template asks for, without repeating the field values word for word or retelling the input. Field values are short.',
+  '- The body never repeats the title: it adds what the title cannot (where, what was expected, why it matters, what the project description says when useful), briefly, without repeating the field values or retelling the input. Field values are short.',
 ].join('\n');
 
 export const DECOMPOSE_INSTRUCTIONS = [
@@ -147,7 +147,7 @@ export const DECOMPOSE_INSTRUCTIONS = [
   '',
   'Decomposition rules',
   '1. Each unit you receive appears exactly once in your output, in unit_ids of a single message. None is left out and none is repeated. Nothing is discarded in this step: the previous step already set aside greetings and social chatter, so everything you receive is content of some point.',
-  '2. The previous step grouped the units you receive as a single point, so the whole group is one message: one message per point the person raised, and consecutive units about the same point stay in the same message even when descriptions of frames come between them. Make more than one only when the units clearly deal with two independent requests or failures that are resolved separately, never to split one point by sentence. A rhetorical question or a closing filler is not a question message: leave it out of the title and the fields. A unit that only contributes a datum, an answer, a clarification or a scope remark to a point (a version, a color, an «I will check it», a «that stays for another branch») is cited in that point\'s message. The details of how to make a request (the format, the limit, the way of choosing, an edge case) are part of that request and not a separate message.',
+  '2. The previous step grouped the units you receive as a single point, so the whole group is one message: one message per point the person raised, and consecutive units about the same point stay in the same message even when descriptions of frames come between them. Return a single message with all the units of the group: the previous step already separated the independent points, so do not split the group, and never split one point by sentence. A rhetorical question or a closing filler is not a question message: leave it out of the title and the fields. A unit that only contributes a datum, an answer, a clarification or a scope remark to a point (a version, a color, an «I will check it», a «that stays for another branch») is cited in that point\'s message. The details of how to make a request (the format, the limit, the way of choosing, an edge case) are part of that request and not a separate message.',
   '3. The group yields at least one message. A point stated in a few words, with no reason or detail, is still a message: write it up with what it says and write No indicado in the required fields the input does not answer.',
   '4. If a single unit carries two distinct points, it cannot be split: gather it into a single message and name both points in its body.',
   '5. List unit_ids in ascending order and only with numbers that exist in the list you receive.',
@@ -178,6 +178,11 @@ export function templateBlock(template) {
   }
   lines.push('', template.body);
   return lines.join('\n');
+}
+
+/** Added to the classification of one window of a long input: the points are stretches of the conversation. */
+export function windowNote({ index, total, first, last }) {
+  return `This is stretch ${index + 1} of ${total} of a longer input, and it arrives in order: u${first} to u${last}. Classify only these units, each exactly once. A point is a continuous stretch of the conversation; a stretch may continue from the previous one or into the next, and its part inside this window still goes whole in one group.`;
 }
 
 /** Note for a chunk when the input is split (the model must know it does not see everything). */

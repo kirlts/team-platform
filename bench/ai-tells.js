@@ -30,6 +30,7 @@ export const SECTIONS = Object.freeze({
   cutoff: 'Knowledge-cutoff disclaimers and speculation about gaps in sources',
   placeholder: 'Phrasal templates and placeholder text',
   summary: 'Section summaries (historical indicators)',
+  repetition: 'Not in the guide: UD-026 (a body that repeats its title)',
   didactic: 'Didactic disclaimers (historical indicators)',
 });
 
@@ -133,6 +134,18 @@ export function languageShare(proposal, language) {
   return judged.length === 0 ? null : judged.filter((l) => l === language).length / judged.length;
 }
 
+const plain = (text) => String(text ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9ñ]+/g, ' ').trim();
+
+/** UD-026: the body is the title again (equal once normalized) or opens with a sentence that contains the whole title. */
+export function bodyRepeatsTitle(title, body) {
+  const t = plain(title);
+  if (t === '') return false;
+  const b = plain(body);
+  if (b === t) return true;
+  const firstSentence = plain(String(body ?? '').split(/(?<=[.!?])\s|\n/)[0]);
+  return firstSentence.includes(t);
+}
+
 /** Texts of a message that carry prose: title, body and every field value. */
 export function proseOf(message) {
   return [message.title, message.body, ...Object.values(message.fields ?? {}).filter((v) => typeof v === 'string')];
@@ -149,6 +162,7 @@ export function tellsOfProposal(proposal, { input = '' } = {}) {
   const found = [];
   messages.forEach((message, index) => {
     for (const text of proseOf(message)) for (const tell of countTells(text, { input })) found.push({ ...tell, message: index + 1 });
+    if (bodyRepeatsTitle(message.title, message.body)) found.push({ id: 'body-repeats-title', section: 'repetition', match: message.title, message: index + 1 });
   });
   const byPattern = {};
   for (const t of found) byPattern[t.id] = (byPattern[t.id] ?? 0) + 1;

@@ -71,6 +71,17 @@ export const KNOBS = Object.freeze({
   // null = the system temporary directory.
   harnessWorkRoot: { value: null, source: 'UD-008 (empty working directory owned by the adapter)' },
 
+  // Retries of a call that fails with a retryable HTTP error (429, 5xx, network) before the fallback or the failure.
+  // The wait is the provider's own `retry-after` when it sends one; otherwise `httpRetryBaseMs` doubled at each retry.
+  // Anthropic documents 429 with retry-after and a limit on concurrent requests shared by every process of the account.
+  httpRetries: { value: 2, source: 'Measurement 2026-10-21 (docs/investigaciones/mediciones/2026-10-21-prompts-en-ingles-y-marcas-de-ia.md): 429 for concurrent requests with several processes on one key' },
+  httpRetryBaseMs: { value: 1000, source: 'declared courtesy: the base of the doubling wait when the provider sends no retry-after' },
+
+  // Units per window in the classification of a long input: the units are classified in contiguous windows, in parallel, so
+  // that a group is a stretch of the conversation and not every unit of the same area spread over the whole input.
+  // Provisional until the private bench fixes it (see `docs/investigaciones/mediciones/2026-10-21-prompts-en-ingles-y-marcas-de-ia.md`).
+  classifyWindowUnits: { value: 100, source: 'Measurement 2026-10-21 (docs/investigaciones/mediciones/2026-10-21-prompts-en-ingles-y-marcas-de-ia.md)' },
+
   // Units per section in the second reading (UD-021), which runs only when the first one found nothing: the input is
   // read again section by section (a heading or a change of source also cuts). Provisional: the bench calibrates it.
   secondPassSectionUnits: { value: 20, source: 'UD-021 (provisional; calibrated by the bench §7.11)' },
@@ -97,10 +108,10 @@ export function resolveConfig(overrides = {}) {
   for (const key of ['classifyEffort', 'decomposeEffort']) {
     if (!EFFORTS.has(config[key])) throw new TypeError(`${key} must be one of ${[...EFFORTS].join(', ')}`);
   }
-  for (const key of ['maxTokens', 'maxTokensRetry', 'partitionThresholdTokens', 'charsPerToken', 'partitionConcurrency', 'minCacheableSystemTokens', 'harnessTimeoutMs', 'secondPassSectionUnits']) {
+  for (const key of ['maxTokens', 'maxTokensRetry', 'partitionThresholdTokens', 'charsPerToken', 'partitionConcurrency', 'minCacheableSystemTokens', 'harnessTimeoutMs', 'secondPassSectionUnits', 'classifyWindowUnits', 'httpRetryBaseMs']) {
     if (!Number.isFinite(config[key]) || config[key] <= 0) throw new TypeError(`${key} must be a positive number`);
   }
-  for (const key of ['invalidOutputRetries', 'rescuePasses']) {
+  for (const key of ['invalidOutputRetries', 'rescuePasses', 'httpRetries']) {
     if (!Number.isInteger(config[key]) || config[key] < 0) throw new TypeError(`${key} must be an integer greater than or equal to 0`);
   }
   for (const key of ['classifyThinking', 'decomposeThinking']) {

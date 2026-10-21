@@ -12,7 +12,7 @@
 //   node bench/run-private.mjs extract [--case id ...] [--force]      extract and store; measures time and cost
 //   node bench/run-private.mjs units --case id                         print the numbered units
 //   node bench/run-private.mjs check                                   every unit in exactly one expected message or discard
-//   node bench/run-private.mjs run [--case id ...] [--repeat n] [--analyzer api|harness]
+//   node bench/run-private.mjs run [--case id ...] [--repeat n] [--analyzer api|harness] [--config '{"knob":value}']
 //   --budget <USD>   spending cap accumulated over extraction and analysis (default 5)
 //   --speech auto|groq|local|none   speech provider: auto uses Groq when there is a key, else the local one
 //
@@ -40,6 +40,7 @@ const { values, positionals } = parseArgs({
     case: { type: 'string', multiple: true },
     repeat: { type: 'string', default: '1' },
     analyzer: { type: 'string' },
+    config: { type: 'string' },
     budget: { type: 'string', default: '5' },
     speech: { type: 'string', default: 'auto' },
     force: { type: 'boolean', default: false },
@@ -227,7 +228,7 @@ if (command === 'list') {
         providers,
         testCase: { id: c.id, input: cache.input, expected },
         fixtures,
-        options: values.analyzer ? { analyzer: values.analyzer } : {},
+        options: { ...(values.analyzer ? { analyzer: values.analyzer } : {}), ...(values.config ? { config: JSON.parse(values.config) } : {}) },
       });
       const total = addSpend(`analyze ${c.id}`, run.usage.cost_usd ?? 0, run.usage.cost_usd === null ? run.usage.calls : 0);
       console.log(`${c.id} #${i + 1}: ${run.status}, ${(run.total_ms / 1000).toFixed(1)} s, ${run.usage.calls} llamadas, ${run.usage.cost_usd?.toFixed(5) ?? 'sin tarifa'} USD (acumulado ${total.toFixed(4)})`);

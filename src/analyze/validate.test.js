@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { parseTemplate } from './templates.js';
 import {
-  coverage, normalizeDecomposition, validateClassification, validateDecomposition, validateProposal,
+  closeStretches, coverage, normalizeDecomposition, repairClassification, repairCoverage, validateClassification, validateDecomposition, validateProposal,
 } from './validate.js';
 import { bugMessage, CLASSIFY_ERRORS, CLASSIFY_MULTI, goodDecomposition, makeBundle } from './testing/fixtures.js';
 
@@ -169,5 +169,67 @@ describe('normalizeDecomposition', () => {
     assert.deepEqual(out.messages[1].fields, { steps: 'a' });
     assert.deepEqual(out.messages[1].assignee_ids, [1, 2]);
     assert.equal(out.discarded[0].reason, 'x');
+  });
+});
+
+describe('repairCoverage', () => {
+  const m = (...unit_ids) => ({ unit_ids, title: 't' });
+
+  it('a unit cited twice stays in the first message and a unit cited by none joins the closest one before it', () => {
+    const out = repairCoverage([m(1, 2, 4), m(4, 6)], [], [1, 2, 3, 4, 5, 6]);
+    assert.deepEqual(out.messages.map((x) => x.unit_ids), [[1, 2, 3, 4, 5], [6]]);
+  });
+
+  it('a gap before the first cited unit joins the first message; discarded units stay discarded', () => {
+    const out = repairCoverage([m(3, 4)], [{ unit_ids: [2], reason: 'x' }], [1, 2, 3, 4]);
+    assert.deepEqual(out.messages.map((x) => x.unit_ids), [[1, 3, 4]]);
+    assert.deepEqual(out.discarded, [{ unit_ids: [2], reason: 'x' }]);
+  });
+
+  it('a unit both cited and discarded is kept in its message, and a message left empty disappears', () => {
+    const out = repairCoverage([m(1, 2), m(2)], [{ unit_ids: [2], reason: 'x' }], [1, 2]);
+    assert.deepEqual(out.messages.map((x) => x.unit_ids), [[1, 2]]);
+    assert.deepEqual(out.discarded, []);
+  });
+
+  it('with no message there is nothing to repair into', () => {
+    assert.equal(repairCoverage([], [], [1, 2]), null);
+  });
+});
+
+describe('closeStretches', () => {
+  const g = (...unit_ids) => ({ unit_ids, area_id: 2, template_id: 2 });
+  const d = (reason, ...unit_ids) => ({ unit_ids, reason });
+
+  it('what is discarded inside the stretch of a group joins it; what lies outside every stretch stays discarded', () => {
+    const out = closeStretches([g(3, 6), g(9, 10)], [d('hola', 1, 2), d('charla', 4, 5, 7), d('cierre', 11)]);
+    assert.deepEqual(out.groups.map((x) => x.unit_ids), [[3, 4, 5, 6], [9, 10]]);
+    assert.deepEqual(out.discarded.map((x) => x.unit_ids), [[1, 2], [7], [11]]);
+  });
+
+  it('when the stretches of two groups overlap, the unit goes to the group with the closest member', () => {
+    const out = closeStretches([g(1, 10), g(4, 6)], [d('x', 5, 9)]);
+    assert.deepEqual(out.groups.map((x) => x.unit_ids), [[1, 9, 10], [4, 5, 6]]);
+  });
+
+  it('nothing is discarded, nothing changes', () => {
+    const groups = [g(1, 2), g(3)];
+    assert.deepEqual(closeStretches(groups, []).groups, groups);
+  });
+});
+
+describe('repairClassification', () => {
+  it('a unit cited twice stays in the first place; a unit cited nowhere goes where the closest unit before it went', () => {
+    const out = repairClassification({
+      groups: [{ unit_ids: [1, 2, 4], area_id: 2, template_id: 2 }, { unit_ids: [4, 7], area_id: 1, template_id: 1 }],
+      discarded: [{ unit_ids: [5], reason: 'charla' }],
+    }, [1, 2, 3, 4, 5, 6, 7]);
+    assert.deepEqual(out.groups.map((g) => g.unit_ids), [[1, 2, 3, 4], [7]]);
+    assert.deepEqual(out.discarded.map((d) => d.unit_ids), [[5, 6]]);
+  });
+
+  it('a first unit cited nowhere follows the closest unit after it', () => {
+    const out = repairClassification({ groups: [{ unit_ids: [2, 3], area_id: 2, template_id: 2 }], discarded: [] }, [1, 2, 3]);
+    assert.deepEqual(out.groups.map((g) => g.unit_ids), [[1, 2, 3]]);
   });
 });

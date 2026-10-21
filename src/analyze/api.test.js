@@ -447,6 +447,61 @@ describe('analyze (api): an input with a bug, an idea and a question', () => {
   });
 });
 
+describe('analyze (api): a speaker mark alone is not a point (H-1902)', () => {
+  const text = '00:00:09 Ana\nEl ingreso falla al entrar.\n00:00:12 Beto\nAgregar filtro por fecha.\nGracias.';
+  const idea = (unit_ids) => ({ unit_ids, title: 'Filtro por fecha', fields: { idea: 'Filtrar por fecha', motivation: 'No indicado', reference: null }, body: 'Se propone un filtro por fecha.', assignee_ids: [1], attachment_ids: [] });
+
+  it('a group made of marks joins the group of the intervention that follows it, so the decomposition never gets it alone', async () => {
+    const bundle = await makeBundle({ text, attachments: [] });
+    const classification = {
+      groups: [
+        { unit_ids: [1], area_id: 2, template_id: 2 },
+        { unit_ids: [2], area_id: 2, template_id: 2 },
+        { unit_ids: [3], area_id: 1, template_id: 1 },
+        { unit_ids: [4], area_id: 1, template_id: 1 },
+      ],
+      discarded: [{ unit_ids: [5], reason: 'cierre' }],
+    };
+    const fake = createFakeProviders({
+      text: scriptByRequest({ classification, decompositions: { 'Reporte de error': { messages: [bugMessage([1, 2], 'Corregir el ingreso')] }, Idea: { messages: [idea([3, 4])] } } }),
+    });
+    const result = await analyze(bundle, { providers: fake });
+
+    assert.equal(result.status, 'ok');
+    assert.deepEqual(result.proposal.messages.map((m) => [m.unit_ids, m.area_id]), [[[1, 2], 2], [[3, 4], 1]]);
+    assert.deepEqual(result.proposal.discarded.map((d) => d.unit_ids), [[5]]);
+    const asked = fake.calls.text.filter((c) => !c.schema.properties.groups).map(unitIdsIn);
+    assert.ok(asked.every((list) => list.length === 2), 'each decomposition received the mark with its intervention');
+    assert.equal(result.stats.empty_groups_folded, 2);
+  });
+
+  it('a mark the decomposition left out is closed into the next message without a rescue call', async () => {
+    const bundle = await makeBundle({ text, attachments: [] });
+    const classification = { groups: [{ unit_ids: [1, 2], area_id: 2, template_id: 2 }], discarded: [{ unit_ids: [3, 4, 5], reason: 'charla' }] };
+    const fake = createFakeProviders({ text: scriptByRequest({ classification, decompositions: { 'Reporte de error': { messages: [bugMessage([2], 'Corregir el ingreso')] } } }) });
+    const result = await analyze(bundle, { providers: fake });
+
+    assert.equal(result.status, 'ok');
+    assert.deepEqual(result.proposal.messages.map((m) => m.unit_ids), [[1, 2]]);
+    assert.equal(fake.calls.text.length, 2, 'classification and decomposition only');
+    assert.equal(result.stats.empty_gaps_closed, 1);
+  });
+
+  it('a mark followed by a discarded unit is discarded with it', async () => {
+    const bundle = await makeBundle({ text, attachments: [] });
+    const classification = {
+      groups: [{ unit_ids: [1, 2], area_id: 2, template_id: 2 }, { unit_ids: [3], area_id: 1, template_id: 1 }],
+      discarded: [{ unit_ids: [4, 5], reason: 'charla' }],
+    };
+    const fake = createFakeProviders({ text: scriptByRequest({ classification, decompositions: { 'Reporte de error': { messages: [bugMessage([1, 2], 'Corregir el ingreso')] } } }) });
+    const result = await analyze(bundle, { providers: fake });
+
+    assert.equal(result.status, 'ok');
+    assert.deepEqual(result.proposal.messages.map((m) => m.unit_ids), [[1, 2]]);
+    assert.deepEqual(result.proposal.discarded.flatMap((d) => d.unit_ids).sort(), [3, 4, 5]);
+  });
+});
+
 describe('analyze (api): second reading (UD-021)', () => {
   const found = { groups: [{ unit_ids: [1], area_id: 2, template_id: 2 }], discarded: [] };
   const emptyFor = (ids) => ({ groups: [], discarded: [{ unit_ids: ids, reason: 'sin pedido' }] });

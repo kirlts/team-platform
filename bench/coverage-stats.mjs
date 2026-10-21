@@ -5,18 +5,35 @@
 //   node bench/coverage-stats.mjs table <label>=<file>[,<file>...] ...      units without group, discards grouped by mistake, lost points, groups
 //   node bench/coverage-stats.mjs stability <label>=<files> ...              groups per repetition and agreement between repetitions (adjusted Rand index)
 //   node bench/coverage-stats.mjs pair <labelA>=<files> <labelB>=<files>     paired comparison by case: lost units, lost points, agreement
+//   node bench/coverage-stats.mjs empty                                      reference units with no content of their own, per kind of input (H-1901)
+//
+// `--ignore-empty` (any command) measures by point: units with no content of their own (a speaker mark with its time, a list
+// number; `isEmptyUnit` of src/analyze/units.js) leave the reference messages, and a message made only of them leaves the list.
+// Without it the figures count every unit, as before.
 //
 // Everything printed is a count or a rate. Reads bench/private/ (env BENCH_PRIVATE_DIR), which never enters git.
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isEmptyUnit, numberUnits } from '../src/analyze/units.js';
 
+const ignoreEmpty = process.argv.includes('--ignore-empty');
 const dir = process.env.BENCH_PRIVATE_DIR ?? join(dirname(fileURLToPath(import.meta.url)), 'private');
 const refs = new Map();
+/** Ids of the units of a case that say nothing by themselves, from the extraction the runs were measured against. */
+export function emptyUnitsOf(id) {
+  const file = join(dir, '.cache', `${id}.json`);
+  if (!existsSync(file)) return new Set();
+  return new Set(numberUnits(JSON.parse(readFileSync(file, 'utf8')).input).filter((u) => isEmptyUnit(u.text)).map((u) => u.id));
+}
 export function refOf(id) {
   if (!refs.has(id)) {
     const e = JSON.parse(readFileSync(join(dir, id, 'expected.json'), 'utf8'));
-    refs.set(id, { messages: e.messages.map((m) => m.unit_ids), discarded: new Set((e.discarded ?? []).flatMap((d) => d.unit_ids)) });
+    const empty = ignoreEmpty ? emptyUnitsOf(id) : new Set();
+    refs.set(id, {
+      messages: e.messages.map((m) => m.unit_ids.filter((u) => !empty.has(u))).filter((m) => m.length > 0),
+      discarded: new Set((e.discarded ?? []).flatMap((d) => d.unit_ids).filter((u) => !empty.has(u))),
+    });
   }
   return refs.get(id);
 }
@@ -107,7 +124,7 @@ function bootstrap(a, b, ids, iterations = 20000) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const [cmd, ...args] = process.argv.slice(2);
+  const [cmd, ...args] = process.argv.slice(2).filter((a) => a !== '--ignore-empty');
   if (cmd === 'table') {
     for (const arg of args) {
       const [label, files] = parse(arg); const data = load(files);
@@ -146,8 +163,28 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       const r = bootstrap(fn(A), fn(B), ids);
       console.log(`${name}: ${lb} menos ${la} = ${r.point >= 0 ? '+' : ''}${r.point.toFixed(3)}  IC95 [${r.lo.toFixed(3)}; ${r.hi.toFixed(3)}]  p ${r.p.toFixed(3)}  (${ids.length} casos)`);
     }
+  } else if (cmd === 'empty') {
+    const byKind = new Map();
+    for (const id of readdirSync(dir, { withFileTypes: true }).filter((d) => d.isDirectory() && existsSync(join(dir, d.name, 'expected.json'))).map((d) => d.name).sort()) {
+      const e = JSON.parse(readFileSync(join(dir, id, 'expected.json'), 'utf8'));
+      const empty = emptyUnitsOf(id);
+      const kind = JSON.parse(readFileSync(join(dir, id, 'manifest.json'), 'utf8')).kind;
+      const inMessage = e.messages.flatMap((m) => m.unit_ids);
+      const row = byKind.get(kind) ?? { cases: 0, units: 0, empty: 0, messages: 0, only: 0, withEmpty: 0 };
+      row.cases += 1; row.units += inMessage.length; row.empty += inMessage.filter((u) => empty.has(u)).length;
+      row.messages += e.messages.length;
+      row.only += e.messages.filter((m) => m.unit_ids.every((u) => empty.has(u))).length;
+      row.withEmpty += e.messages.filter((m) => m.unit_ids.some((u) => empty.has(u))).length;
+      byKind.set(kind, row);
+    }
+    const total = { cases: 0, units: 0, empty: 0, messages: 0, only: 0, withEmpty: 0 };
+    for (const [kind, r] of byKind) {
+      for (const k of Object.keys(total)) total[k] += r[k];
+      console.log(`${kind.padEnd(10)} casos ${r.cases}  unidades en mensajes ${r.units}  sin contenido ${r.empty} (${((100 * r.empty) / r.units).toFixed(1)} %)  mensajes ${r.messages}  con alguna unidad vacía ${r.withEmpty}  sólo vacías ${r.only}`);
+    }
+    console.log(`${'total'.padEnd(10)} casos ${total.cases}  unidades en mensajes ${total.units}  sin contenido ${total.empty} (${((100 * total.empty) / total.units).toFixed(1)} %)  mensajes ${total.messages}  con alguna unidad vacía ${total.withEmpty}  sólo vacías ${total.only}`);
   } else {
-    console.error('Uso: table | stability | pair');
+    console.error('Uso: table | stability | pair | empty');
     process.exit(2);
   }
 }

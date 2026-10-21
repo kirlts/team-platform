@@ -138,7 +138,7 @@ export function usePublish() {
   const invalidate = useInvalidator()
   return useMutation({
     mutationFn: (v: { inputId: string; proposal: Proposal }) =>
-      api(`/inputs/${v.inputId}/publish`, { method: 'POST', body: v.proposal }),
+      api<{ message_ids?: string[] }>(`/inputs/${v.inputId}/publish`, { method: 'POST', body: v.proposal }),
     onSuccess: () => invalidate('messages', 'areas', 'inputs'),
   })
 }
@@ -164,6 +164,15 @@ export function useReprocess() {
   const invalidate = useInvalidator()
   return useMutation({
     mutationFn: (inputId: string) => api<{ input_id: string; job_id: string }>(`/inputs/${inputId}/reprocess`, { method: 'POST' }),
+    onSuccess: () => invalidate('inputs'),
+  })
+}
+
+/** Undoes a discard (POST /inputs/:id/restore): the send comes back with the proposal and the edits it had. */
+export function useRestoreInput() {
+  const invalidate = useInvalidator()
+  return useMutation({
+    mutationFn: (inputId: string) => api<{ input_id: string; status: string }>(`/inputs/${inputId}/restore`, { method: 'POST' }),
     onSuccess: () => invalidate('inputs'),
   })
 }

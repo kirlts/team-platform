@@ -58,7 +58,7 @@ export function Thumb({
     </span>
   )
   return (
-    <span className={cn('relative inline-block shrink-0', className)}>
+    <span className={cn('inline-flex shrink-0 items-center gap-1', className)}>
       {href && item.kind === 'image' && item.src ? (
         // A photo opens large in the page, where a capture can be read; a link in the corner still opens it in a new tab.
         <>
@@ -84,13 +84,9 @@ export function Thumb({
         body
       )}
       {onRemove && (
-        <button
-          type="button"
-          onClick={onRemove}
-          aria-label={t('media.remove', { name: label })}
-          className={cn('btn-glass absolute right-0.5 top-0.5 inline-flex items-center justify-center rounded-full text-muted hover:!text-danger', px <= 36 ? 'h-4 w-4' : 'h-5 w-5')}
-        >
-          <X size={px <= 36 ? 9 : 11} aria-hidden />
+        // Beside the picture, never over it: a target of its own, 24 px at the least (J1-B-02).
+        <button type="button" onClick={onRemove} aria-label={t('media.remove', { name: label })} className="hit inline-flex shrink-0 items-center justify-center rounded-full text-muted hover:bg-hover hover:text-danger">
+          <X size={13} aria-hidden />
         </button>
       )}
     </span>

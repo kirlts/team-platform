@@ -574,7 +574,7 @@ const server = createServer(async (req, res) => {
       return send(res, 200, envelope(mine.map(inputView)))
     }
 
-    let m = /^\/inputs\/([^/]+)(?:\/(publish|cancel|reprocess|proposal))?$/.exec(path)
+    let m = /^\/inputs\/([^/]+)(?:\/(publish|cancel|restore|reprocess|proposal))?$/.exec(path)
     if (m) {
       const input = inputs.get(m[1])
       if (!input || input.author_id !== me.id) return fail(res, 404, 'No existe')
@@ -601,13 +601,20 @@ const server = createServer(async (req, res) => {
         return send(res, 200, input.proposal)
       }
       if (m[2] === 'cancel' && method === 'POST') {
+        if (input.status === 'published' || input.status === 'cancelled') return fail(res, 409, 'El input no se puede cancelar', 'conflict')
         clearTimeout(jobs.get(input.job_id))
         input.status = 'cancelled'
         return send(res, 204)
       }
+      if (m[2] === 'restore' && method === 'POST') {
+        if (input.status !== 'cancelled') return fail(res, 409, 'El input no está cancelado', 'not_cancelled')
+        input.status = input.proposal ? 'proposed' : 'failed'
+        if (!input.proposal) input.error = 'Se descartó antes de terminar el análisis.'
+        return send(res, 200, { input_id: input.id, status: input.status })
+      }
       if (m[2] === 'reprocess' && method === 'POST') {
-        if (!isEditor) return fail(res, 403, 'Requiere rol Editor', 'forbidden')
-        if (input.status !== 'failed') return fail(res, 409, 'Sólo se reprocesa un input que falló', 'conflict')
+        if (!['proposed', 'failed', 'cancelled'].includes(input.status)) return fail(res, 409, 'Sólo se reprocesa un input con propuesta, fallido o cancelado', 'not_reprocessable')
+        input.proposal = null
         input.error = null
         input.error_code = null
         input.text = input.text.replace('[simular falla]', '').trim() || input.text

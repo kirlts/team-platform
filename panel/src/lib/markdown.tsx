@@ -90,7 +90,7 @@ export function parseBlocks(source: string): Block[] {
   return blocks
 }
 
-const HEADING = ['', 'text-base', 'text-[0.95rem]', 'text-sm', 'text-sm'] as const
+const HEADING = ['', 'text-lg', 'text-base', 'text-sm', 'text-sm'] as const
 
 /** The source as React nodes. Paragraphs and lists use the shared `prose-block` class (UD-022). */
 export function Markdown({ source, className }: { source: string; className?: string }) {
@@ -124,7 +124,7 @@ export function Markdown({ source, className }: { source: string; className?: st
             )
           case 'code':
             return (
-              <pre key={i} className="my-1.5 whitespace-pre-wrap break-words rounded-md bg-accent-soft p-2 font-mono text-[13px]">
+              <pre key={i} className="my-1.5 whitespace-pre-wrap break-words rounded-md bg-accent-soft p-2 font-mono text-xs">
                 {b.text}
               </pre>
             )

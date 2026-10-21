@@ -4,10 +4,10 @@ import { Button } from '@/components/ui/button'
 import { useFormat, useT, type MessageKey } from '@/i18n'
 import { useJobProgress } from '@/lib/events'
 import { firstWords } from '@/lib/first-words'
-import { useReprocess } from '@/lib/queries'
 import type { InputRecord } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { FitList } from './FitList'
+import { Meter } from './Meter'
 
 /** An upload that has not finished, or did not go through: it lives in the browser until the server has the input. */
 export interface PendingUpload {
@@ -61,19 +61,20 @@ export function Tray({ items, selectedId, hideTextId, onSelect, bare = false }: 
 function Label({ text, onlyMedia }: { text: string; onlyMedia: boolean }) {
   const t = useT()
   const words = firstWords(text)
-  return <p className="break-words text-[13px] leading-snug">{words || (onlyMedia ? t('tray.onlyMedia') : '')}</p>
+  return <p className="break-words text-sm leading-snug">{words || (onlyMedia ? t('tray.onlyMedia') : '')}</p>
 }
 
 function InputRow({ input, selected, hideText, onSelect }: { input: InputRecord; selected: boolean; hideText: boolean; onSelect: () => void }) {
   const t = useT()
   const format = useFormat()
   const progress = useJobProgress(input.job_id, input.id)
-  const reprocess = useReprocess()
   const running = input.status === 'queued' || input.status === 'extracting' || input.status === 'analyzing'
   const percent = Math.round(progress?.percent ?? input.job?.percent ?? 0)
   const count = input.proposed_count ?? input.proposal?.messages.length ?? 0
-  const tone = input.status === 'proposed' ? 'accent' : input.status === 'failed' ? 'danger' : running && input.status !== 'queued' ? 'answered' : 'neutral'
   const label = firstWords(input.text)
+  // The row in view hands its progress to the review beside it: the same state is not drawn twice (J1-B-08).
+  const showProgress = running && input.status !== 'queued' && !selected
+  const state = t(STATE_KEY[input.status] ?? 'tray.state.queued')
 
   return (
     <div
@@ -87,33 +88,19 @@ function InputRow({ input, selected, hideText, onSelect }: { input: InputRecord;
         <time dateTime={input.created_at} className="tabular-nums">
           {format.stamp(input.created_at)}
         </time>
-        <Badge tone={tone}>
-          {t(STATE_KEY[input.status] ?? 'tray.state.queued')}
-          {running && input.status !== 'queued' && <span className="ml-1 tabular-nums">{percent}%</span>}
-          {input.status === 'proposed' && <span className="ml-1">· {t('tray.messages', { n: count })}</span>}
-        </Badge>
+        {/* One badge is filled: the one that waits for a person. The others are quiet (J1-B-09). */}
+        {input.status === 'queued' ? (
+          <span className="font-semibold">{state}</span>
+        ) : (
+          <Badge tone={input.status === 'proposed' ? 'solid' : input.status === 'failed' ? 'danger' : 'outline'}>
+            {state}
+            {showProgress && percent > 0 && <span className="ml-1 tabular-nums">{percent}%</span>}
+            {input.status === 'proposed' && <span className="ml-1">· {t('tray.messages', { n: count })}</span>}
+          </Badge>
+        )}
       </div>
       {!hideText && <Label text={input.text} onlyMedia={input.attachments.length > 0} />}
-      {running && (
-        <div role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} aria-label={t('analysis.progress')} className="meter h-1.5">
-          <div className="meter-fill" style={{ width: `${percent}%` }} />
-        </div>
-      )}
-      {input.status === 'failed' && (
-        <div>
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={reprocess.isPending}
-            onClick={(e) => {
-              e.stopPropagation()
-              reprocess.mutate(input.id)
-            }}
-          >
-            <RotateCw size={13} aria-hidden /> {t('common.retry')}
-          </Button>
-        </div>
-      )}
+      {showProgress && <Meter percent={percent} label={t('analysis.progress')} className="h-1.5" />}
     </div>
   )
 }
@@ -130,7 +117,7 @@ function UploadRow({ upload }: { upload: PendingUpload }) {
         </time>
         <Badge tone={upload.error ? 'danger' : 'neutral'}>
           {upload.error ? t('tray.state.notSent') : t('tray.state.uploading')}
-          {!upload.error && <span className="ml-1 tabular-nums">{percent}%</span>}
+          {!upload.error && percent > 0 && <span className="ml-1 tabular-nums">{percent}%</span>}
         </Badge>
       </div>
       <Label text={upload.text} onlyMedia />
@@ -149,9 +136,7 @@ function UploadRow({ upload }: { upload: PendingUpload }) {
           </div>
         </>
       ) : (
-        <div role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} aria-label={t('compose.upload')} className="meter h-1.5">
-          <div className="meter-fill" style={{ width: `${percent}%` }} />
-        </div>
+        <Meter percent={percent} label={t('compose.upload')} className="h-1.5" />
       )}
     </div>
   )

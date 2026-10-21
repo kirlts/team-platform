@@ -23,12 +23,13 @@ const EDGE = { red: 'shadow-[inset_4px_0_0_var(--color-tone-red-bg)]', yellow: '
 const RECIPIENTS_SHOWN = 2
 
 /**
- * Message row, with the mockup's layout: area tab and sender on top; below,
- * date, media icons and status in three fixed columns (so they line up row by row), the
- * title and the text, and on the right the main thumbnail; at the foot, the recipients and the actions.
- * The whole row leads to the detail; Responder opens the detail with the form at hand (a row does not
- * grow: the list fits its frame) and Cerrar or Reabrir apply instantly. In the `reply` variant it shows the latest reply: its author, its date,
- * its media and its text.
+ * Message row, in three levels (J1-A-13): the title and its status come first; the extract is support text
+ * (12 px, muted, whole, never cut: UD-016); date, media, sender and recipients close it as one line of metadata.
+ * The status has its own fixed column, so it lines up row by row (J1-A-15). Responder and Cerrar are real
+ * buttons that appear on hover or keyboard focus and are always there on a touch screen (J1-A-16); their slot is
+ * reserved, so a row never changes height when they show. The thumbnail keeps its place beside the media icons (UD-016).
+ * The whole row leads to the detail; Responder opens it with the form at hand and Cerrar or Reabrir apply instantly.
+ * In the `reply` variant it shows the latest reply: its author, its date, its media and its text.
  */
 export function MessageCard({ message, variant = 'message' }: { message: Message; variant?: 'message' | 'reply' }) {
   const t = useT()
@@ -46,45 +47,31 @@ export function MessageCard({ message, variant = 'message' }: { message: Message
   const main = mainAttachment(from.attachments)
 
   return (
-    <article data-affects-me={tone ?? undefined} className={cn('relative flex flex-col gap-2 border-b border-line px-4 py-3 last:border-b-0 hover:bg-glass-edge', tone && EDGE[tone])}>
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3">
-        <span className="flex flex-wrap items-center gap-1.5">
-          <AreaBadge title={areaTitle(message.area_id)} />
-          {tone && <ToneMark tone={tone} />}
-        </span>
-        <span data-repeat-ok="person" className="inline-flex max-w-[11rem] items-center gap-1.5 text-xs leading-tight text-muted">
-          <Avatar name={memberName(from.author_id) || '?'} size={22} />
+    <article data-affects-me={tone ?? undefined} className={cn('group @container relative border-b border-line last:border-b-0 hover:bg-glass-edge', tone && EDGE[tone])}>
+      {/* The layout follows the width of the row, not the window: the same row sits in the full list and in the half columns of Inicio. */}
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-1 px-4 py-3 @2xl:grid-cols-[minmax(0,1fr)_9.5rem_3.5rem] @2xl:grid-rows-[auto_auto_1fr]">
+      {/* data-repeat-ok: the reply row names the message it answers; that message is listed on its own too. */}
+      <h3 data-repeat-ok={reply ? 'reply-names-its-message' : undefined} className="col-start-1 row-start-1 break-words text-sm font-semibold leading-snug">
+        <Link
+          to={`/messages/${message.id}`}
+          className="outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:outline-2 focus-visible:after:outline-accent"
+        >
+          {message.title}
+        </Link>
+      </h3>
+      <p className="col-start-1 row-start-2 whitespace-normal break-words text-xs text-muted">{reply ? reply.body : message.body}</p>
+      <div className="col-span-2 row-start-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted @2xl:col-span-1">
+        <AreaBadge title={areaTitle(message.area_id)} />
+        {tone && <ToneMark tone={tone} />}
+        <span data-repeat-ok="person" className="inline-flex items-center gap-1.5 leading-tight">
+          <Avatar name={memberName(from.author_id) || '?'} size={18} />
           {memberName(from.author_id)}
         </span>
-      </div>
-
-      <div className="flex items-start gap-3">
-        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted sm:grid sm:grid-cols-[5.5rem_7.5rem_minmax(0,1fr)] sm:gap-x-2">
-            <time dateTime={from.created_at} title={format.fullStamp(from.created_at)} className="tabular-nums">
-              {format.stamp(from.created_at)}
-            </time>
-            <MediaKinds of={from} />
-            <span className="flex">
-              <StatusBadge status={message.status} />
-            </span>
-          </div>
-          {/* data-repeat-ok: the reply row names the message it answers; that message is listed on its own too. */}
-          <h3 data-repeat-ok={reply ? 'reply-names-its-message' : undefined} className="break-words">
-            <Link
-              to={`/messages/${message.id}`}
-              className="outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:outline-2 focus-visible:after:outline-accent"
-            >
-              {message.title}
-            </Link>
-          </h3>
-          <p className="prose-block whitespace-pre-line break-words text-sm text-muted">{reply ? reply.body : message.body}</p>
-        </div>
-        {main && <Thumb item={{ kind: main.kind, src: main.kind === 'link' ? undefined : (reply ? replyAttachmentUrl : attachmentUrl)(main.id), name: main.name, size: main.size }} px={56} />}
-      </div>
-
-      <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-1.5 text-xs text-muted">
-        <Recipients ids={variant === 'message' ? message.assignee_ids : []} max={RECIPIENTS_SHOWN} className="min-w-0 flex-1 basis-full sm:basis-40">
+        <time dateTime={from.created_at} title={format.fullStamp(from.created_at)} className="tabular-nums">
+          {format.stamp(from.created_at)}
+        </time>
+        <MediaKinds of={from} />
+        <Recipients ids={variant === 'message' ? message.assignee_ids : []} max={RECIPIENTS_SHOWN} className="min-w-0 text-xs text-muted empty:hidden">
           {message.reply_count > 0 && (
             <li className="inline-flex items-center gap-1" title={t('card.replies', { n: message.reply_count })}>
               <MessageSquare size={13} aria-hidden />
@@ -92,19 +79,27 @@ export function MessageCard({ message, variant = 'message' }: { message: Message
             </li>
           )}
         </Recipients>
-        <span className="relative z-10 ml-auto flex items-center gap-1">
-          {!isAuthor && !closed ? (
-            <Button asChild size="sm" variant="ghost" className="text-accent-deep">
+      </div>
+
+      <div className="col-span-2 row-start-4 flex items-center justify-between gap-2 @2xl:col-span-1 @2xl:col-start-2 @2xl:row-span-3 @2xl:row-start-1 @2xl:flex-col @2xl:items-start @2xl:justify-start @2xl:gap-1.5">
+        <StatusBadge status={message.status} />
+        <span className="relative z-10 flex items-center gap-1 transition-opacity duration-150 @2xl:-ml-2 @2xl:opacity-0 @2xl:group-focus-within:opacity-100 @2xl:group-hover:opacity-100 [@media(hover:none)]:opacity-100">
+          {!isAuthor && !closed && (
+            <Button asChild size="sm" variant="ghost" className="px-2 text-xs text-accent-deep">
               <Link to={`/messages/${message.id}?reply=1`}>{t('card.reply')}</Link>
             </Button>
-          ) : (
-            // The sender cannot reply to the message: its slot stays empty so «Cerrar» is in the same place in every row.
-            <span aria-hidden className="inline-block w-[5.5rem]" />
           )}
-          <Button size="sm" variant="ghost" className="text-muted" disabled={setClosed.isPending} onClick={() => setClosed.mutate({ id: message.id, closed: !closed })}>
+          <Button size="sm" variant="ghost" className="px-2 text-xs text-muted" disabled={setClosed.isPending} onClick={() => setClosed.mutate({ id: message.id, closed: !closed })}>
             {closed ? t('card.reopen') : t('card.close')}
           </Button>
         </span>
+      </div>
+
+      {main && (
+        <div className="col-start-2 row-span-2 row-start-1 @2xl:col-start-3 @2xl:row-span-3">
+          <Thumb item={{ kind: main.kind, src: main.kind === 'link' ? undefined : (reply ? replyAttachmentUrl : attachmentUrl)(main.id), name: main.name, size: main.size }} px={48} />
+        </div>
+      )}
       </div>
     </article>
   )

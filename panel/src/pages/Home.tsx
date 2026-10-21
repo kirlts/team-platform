@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog'
 import { FitList } from '@/components/FitList'
 import { MessageCard } from '@/components/MessageCard'
 import { Page } from '@/components/Page'
+import { NoticeHost } from '@/components/NoticeHost'
 import { ReviewPane } from '@/components/ReviewPane'
 import { Segmented } from '@/components/Segmented'
 import { Tray, type PendingUpload, type TrayItem } from '@/components/Tray'
@@ -181,13 +182,14 @@ export function Home() {
           <DialogTrigger asChild>
             <button type="button" data-testid="tray-control" className="glass leaf flex w-full shrink-0 flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-left hover:bg-glass-edge">
               <ChevronRight size={16} aria-hidden className="shrink-0" />
-              <span className="text-[0.95rem] font-bold">{t('tray.title')}</span>
+              <span className="text-sm font-bold">{t('tray.title')}</span>
               <TrayState items={items} />
               <span className="ml-auto text-xs text-muted">{t('tray.unfold')}</span>
             </button>
           </DialogTrigger>
           <DialogContent title={t('tray.title')} data-keys-ok="" onOpenAutoFocus={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).focus() }} className="h-[min(88dvh,54rem)] max-w-[72rem]">
-            <div className="grid min-h-0 flex-1 gap-x-6 gap-y-4 overflow-y-auto p-4 md:grid-cols-[minmax(0,3fr)_minmax(0,9fr)] md:grid-rows-[minmax(0,1fr)] md:overflow-visible" data-lane="tray-dialog">
+            <NoticeHost inDialog />
+            <div className="grid min-h-0 flex-1 content-start gap-x-6 gap-y-4 overflow-y-auto p-4 md:grid-cols-[minmax(0,3fr)_minmax(0,9fr)] md:grid-rows-[minmax(0,1fr)] md:overflow-visible" data-lane="tray-dialog">
               <Tray items={items} selectedId={selectedId} hideTextId={originalOpen ? selectedId : undefined} onSelect={setSelectedId} bare />
               <div className="flex min-h-0 min-w-0 flex-col border-line md:border-l md:pl-6">
                 <ReviewPane inputId={selectedId} originalOpen={originalOpen} onToggleOriginal={() => selected && setOriginalChoice((c) => ({ ...c, [selected.id]: !originalOpen }))} onClose={finished} registerPublish={registerPublish} />
@@ -300,7 +302,7 @@ function Feed({ kind, meId }: { kind: 'messages' | 'replies'; meId: string }) {
   return (
     <section aria-label={messagesFeed ? t('home.latestMessages') : t('home.latestReplies')} className="glass leaf flex min-h-0 min-w-0 flex-col gap-2 px-1 pb-1 pt-3">
       <div className="flex flex-wrap items-center justify-between gap-2 px-3">
-        <h2 className="text-[1.05rem]">
+        <h2 className="text-base">
           <Link to={`/messages?${params.toString()}`} className="hover:underline">
             {messagesFeed ? t('home.latestMessages') : t('home.latestReplies')}
           </Link>

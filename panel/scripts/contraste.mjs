@@ -82,6 +82,8 @@ for (const [theme, t] of [['light', light], ['dark', dark]]) {
   row(theme, 'fg sobre pozo (campos)', fg('fg'), [fg('raised')], 4.5)
   row(theme, 'fg sobre cromo (cabecera, claro)', fg('fg'), ['chrome-1', 'chrome-2', 'chrome-3', 'chrome-4'].map(fg), 4.5)
   row(theme, 'danger sobre vidrio', fg('danger'), onGlass('glass'), 4.5)
+  row(theme, 'danger sobre danger-soft (aviso de falla)', fg('danger'), [fg('danger-soft')], 4.5)
+  row(theme, 'danger sobre vidrio fuerte (aviso de la pantalla)', fg('danger'), onGlass('glass-strong'), 4.5)
   for (const s of ['open', 'answered', 'closed']) row(theme, `estado ${s}: texto sobre su fondo`, fg(`${s}-fg`), [fg(`${s}-bg`)], 4.5)
   row(theme, 'accent-deep sobre accent-soft', fg('accent-deep'), [fg('accent-soft')], 4.5)
   // Surface of AI-generated content (UD-026): text, origin mark and the left edge on its own background.
@@ -89,6 +91,12 @@ for (const [theme, t] of [['light', light], ['dark', dark]]) {
   row(theme, 'muted sobre superficie IA', fg('muted'), [fg('ai-bg')], 4.5)
   row(theme, 'marca de origen IA sobre su superficie', fg('ai-fg'), [fg('ai-bg')], 4.5)
   row(theme, 'borde de acento IA sobre su superficie', fg('ai-edge'), [fg('ai-bg')], 3)
+  // Selected row (J1-A-33): the juez measured 1.1:1 between the old fill and the glass and the selection was not seen. Now the
+  // fill is at least 1.25:1 from the glass, the accent bar 3:1 from the fill (WCAG 1.4.11), and the text keeps 4.5:1 on it.
+  row(theme, 'relleno de fila elegida contra el vidrio', fg('selected'), onGlass('glass'), 1.25)
+  row(theme, 'barra de fila elegida (accent) sobre su relleno', fg('accent'), [fg('selected')], 3)
+  row(theme, 'fg sobre fila elegida', fg('fg'), [fg('selected')], 4.5)
+  row(theme, 'muted sobre fila elegida', fg('muted'), [fg('selected')], 4.5)
   // Notification priorities (UD-029): text on its fill (4.5), and the fill against the glass and the header (3, non-text).
   for (const tone of ['red', 'yellow', 'blue']) {
     row(theme, `prioridad ${tone}: texto sobre su fondo`, fg(`tone-${tone}-fg`), [fg(`tone-${tone}-bg`)], 4.5)

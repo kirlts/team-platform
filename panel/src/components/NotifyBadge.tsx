@@ -42,7 +42,7 @@ export function NotifyBadge({ counts, size = 'lg', className, ...rest }: { count
       data-count={total}
       role="img"
       aria-label={t('notify.label', { n: total, tone: t(TONE_WORD[tone]) })}
-      className={cn('inline-flex shrink-0 items-center justify-center gap-1 rounded-full border-2 font-bold leading-none shadow-glass', size === 'lg' ? 'h-8 min-w-12 px-2.5 text-[15px]' : 'h-6 min-w-9 px-2 text-[13px]', className)}
+      className={cn('inline-flex shrink-0 items-center justify-center gap-1 rounded-full border-2 font-bold leading-none shadow-glass', size === 'lg' ? 'h-8 min-w-12 px-2.5 text-sm' : 'h-6 min-w-9 px-2 text-xs', className)}
     >
       <Icon size={size === 'lg' ? 16 : 13} aria-hidden strokeWidth={2.2} />
       <span className="tabular-nums">{total}</span>

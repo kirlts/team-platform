@@ -113,7 +113,7 @@ describe('in-place editing', () => {
       // What was saved survives a reload; the stack does not.
       await page.reload()
       await page.getByRole('button', { name: /^Título: Agregar la exportación de mensajes cerrados a CSV/ }).waitFor()
-      assert.equal(await page.getByRole('button', { name: 'Deshacer' }).isDisabled(), true, 'the stack lives in memory: it is lost on reload')
+      assert.equal(await page.getByRole('button', { name: 'Deshacer' }).count(), 0, 'the stack lives in memory: it is lost on reload and Deshacer is not drawn with nothing to undo')
     } finally {
       await context.close()
     }
@@ -131,7 +131,7 @@ describe('analysis proposal', () => {
       await first.click()
       await page.getByRole('menuitemradio', { name: 'Error', exact: true }).click()
       await page.getByRole('button', { name: /^Pasos para reproducir: Obligatorio/ }).first().waitFor()
-      const send = page.getByRole('button', { name: 'Enviar', exact: true }).last()
+      const send = page.getByRole('button', { name: /^Enviar \d+ mensajes?$/ })
       assert.equal(await send.isDisabled(), true, 'it cannot be sent with required fields empty')
       // Se llenan en el lugar.
       for (const label of ['Pasos para reproducir', 'Qué se esperaba', 'Qué pasó']) {
@@ -141,22 +141,27 @@ describe('analysis proposal', () => {
       }
       await page.getByRole('button', { name: 'Deshacer' }).waitFor()
       await send.click()
+      // Publishing says what happened: what went out, how many and where to see it (J1-B-25).
+      const notice = page.locator('[data-notice]')
+      await notice.getByText(/^Se publicaron 2 mensajes/).waitFor({ timeout: 10000 })
+      await notice.getByRole('link', { name: 'Ver mensajes' }).waitFor()
       await page.getByRole('region', { name: 'Análisis' }).waitFor({ state: 'detached', timeout: 10000 })
     } finally {
       await context.close()
     }
   })
 
-  test('removing a message sends its units to «Sin acción» and «Deshacer» brings them back', async () => {
+  test('removing a message sends its units to «Sin mensaje» and Deshacer brings them back', async () => {
     const { page, context } = await session('bruno')
     try {
       await sendInput(page, 'Primera idea para el equipo.\n\nSegunda idea para el equipo.')
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
-      assert.equal(await page.getByRole('button', { name: /^Sin acción/ }).count(), 0)
+      assert.equal(await page.getByRole('button', { name: /^Sin mensaje/ }).count(), 0)
       await page.getByRole('button', { name: /^Quitar el mensaje/ }).first().click()
-      await page.getByRole('button', { name: /^Sin acción/ }).waitFor()
-      await page.getByRole('button', { name: 'Deshacer' }).click()
-      await page.getByRole('button', { name: /^Sin acción/ }).waitFor({ state: 'detached' })
+      await page.getByRole('button', { name: /^Sin mensaje/ }).waitFor()
+      await page.locator('[data-notice]').getByText(/^Mensaje quitado/).waitFor()
+      await page.getByRole('group', { name: 'Historial de cambios' }).getByRole('button', { name: 'Deshacer' }).click()
+      await page.getByRole('button', { name: /^Sin mensaje/ }).waitFor({ state: 'detached' })
       // What was edited survives a reload: the draft is on the server.
       await page.getByRole('button', { name: /^Título del mensaje: Primera idea/ }).click()
       await page.getByRole('textbox', { name: 'Título del mensaje' }).fill('Primera idea, ya corregida')
@@ -174,8 +179,10 @@ describe('analysis proposal', () => {
     const { page, context } = await session()
     try {
       await sendInput(page, 'Texto que no se debe perder [simular falla]')
-      await page.getByRole('alert').filter({ hasText: 'proveedor de modelo' }).waitFor({ timeout: 20000 })
+      await page.getByRole('alert').filter({ hasText: 'servicio de análisis' }).waitFor({ timeout: 20000 })
       await page.getByText('Texto que no se debe perder', { exact: false }).first().waitFor()
+      await page.getByText('El texto y los adjuntos del envío se conservaron.').waitFor()
+      assert.equal(await page.getByRole('button', { name: 'Reintentar' }).count(), 1)
       await page.getByRole('button', { name: 'Reintentar' }).first().click()
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
     } finally {
@@ -445,6 +452,326 @@ describe('Inicio (UD-030)', () => {
       assert.ok(sizes.text > sizes.other, 'the analysis text is larger than the analysis controls')
       // The original stays folded until it is opened.
       assert.equal(await page.getByRole('button', { name: /^Original/ }).getAttribute('aria-expanded'), 'false')
+    } finally {
+      await context.close()
+    }
+  })
+})
+
+// Round 1, judge A (J1-A-03, 10, 11, 15, 16, 21, 28, 32, 45, 57): what the judge found, as flows.
+describe('estados, teclado y filas', () => {
+  test('an unknown address says so and a missing record offers to go back (J1-A-10)', async () => {
+    const { page, context } = await session()
+    try {
+      await page.goto(`${origin}/xyz`)
+      await page.getByRole('heading', { name: 'Página no encontrada', level: 1 }).waitFor()
+      await page.getByText('La dirección no existe').waitFor()
+      await page.getByRole('link', { name: 'Ir a Inicio' }).waitFor()
+      await page.goto(`${origin}/messages/zzz`)
+      await page.getByText('El mensaje no existe').waitFor()
+      assert.equal(await page.getByRole('alert').getByText('El mensaje no existe').isVisible(), true)
+      await page.getByRole('link', { name: 'Volver a mensajes' }).click()
+      await page.getByRole('heading', { name: 'Mensajes', level: 1 }).waitFor()
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('the first keyboard stop is «Ir al contenido» and it leads to the content (J1-A-11)', async () => {
+    const { page, context } = await session()
+    try {
+      await page.goto(`${origin}/messages`)
+      await page.locator('main h1').waitFor()
+      await page.keyboard.press('Tab')
+      const first = await page.evaluate(() => document.activeElement?.textContent?.trim())
+      assert.equal(first, 'Ir al contenido')
+      await page.keyboard.press('Enter')
+      assert.equal(await page.evaluate(() => document.activeElement?.id), 'main')
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('the status of each row falls in the same column and the actions appear on hover (J1-A-15, J1-A-16)', async () => {
+    const { page, context } = await session()
+    try {
+      await page.goto(`${origin}/messages`)
+      await page.locator('main article').first().waitFor()
+      const xs = await page.evaluate(() => [...document.querySelectorAll('main article')].map((a) => Math.round(a.querySelector('.led').getBoundingClientRect().left)))
+      assert.ok(xs.length >= 3, 'hacen falta varias filas')
+      // J1-A-56: the background orbit fades under the top bar and does not cross titles or buttons.
+      assert.match(await page.evaluate(() => getComputedStyle(document.querySelector('svg[aria-hidden]')).maskImage), /gradient/)
+      assert.equal(new Set(xs).size, 1, `el estado salta de columna: ${xs.join(', ')}`)
+      const row = page.locator('main article').first()
+      const reply = row.getByRole('link', { name: 'Responder' })
+      const opacity = () => reply.evaluate((el) => getComputedStyle(el.parentElement).opacity)
+      assert.equal(await opacity(), '0', 'las acciones de la fila no se leen once veces: aparecen al pasar el cursor')
+      await row.hover()
+      await page.waitForTimeout(300)
+      assert.equal(await opacity(), '1')
+      // With the keyboard too: focus inside the row shows them.
+      await page.mouse.move(0, 0)
+      await reply.focus()
+      await page.waitForTimeout(300)
+      assert.equal(await opacity(), '1')
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('a search without results says what was searched and offers to show everything (J1-A-21)', async () => {
+    const { page, context } = await session()
+    try {
+      await page.goto(`${origin}/messages`)
+      await page.getByRole('searchbox', { name: 'Buscar' }).fill('zzqx')
+      await page.getByText('Sin resultados para «zzqx»').waitFor()
+      await page.getByRole('button', { name: 'Mostrar todos' }).click()
+      await page.locator('main article').first().waitFor()
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('closing a message enters Deshacer and the button does not change shape (J1-A-28)', async () => {
+    const { page, context } = await session()
+    try {
+      await openMessage(page, 'Revisar la lectura')
+      const button = page.getByRole('button', { name: 'Cerrar', exact: true })
+      const before = await button.boundingBox()
+      assert.equal(await page.getByRole('button', { name: 'Deshacer' }).count(), 0, 'sin cambios no hay Deshacer')
+      await button.click()
+      await page.getByRole('button', { name: 'Reabrir', exact: true }).waitFor()
+      await page.getByText('Cerrado').first().waitFor()
+      await page.getByRole('button', { name: 'Deshacer' }).click()
+      await page.getByRole('button', { name: 'Cerrar', exact: true }).waitFor()
+      assert.ok(Math.abs((await page.getByRole('button', { name: 'Cerrar', exact: true }).boundingBox()).x - before.x) <= 1)
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('an API error and a slow load show as states, not as an empty screen (J1-A-57)', async () => {
+    const { page, context } = await session()
+    try {
+      await page.route(/\/api\/messages(\?|$)/, async (route) => {
+        await new Promise((r) => setTimeout(r, 1200))
+        await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: { message: 'Fallo de prueba' } }) })
+      })
+      await page.goto(`${origin}/messages`)
+      await page.getByText('Cargando').first().waitFor()
+      await page.getByRole('alert').first().waitFor()
+      await page.unrouteAll({ behavior: 'ignoreErrors' })
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('a rejected login shows the reason under the field (J1-A-03)', async () => {
+    const context = await panel.browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'es-CL' })
+    const page = await context.newPage()
+    try {
+      await page.goto(origin)
+      await page.getByLabel('Correo').fill('ana@dev.invalid')
+      await page.getByLabel('Contraseña').fill('corta')
+      await page.getByRole('button', { name: 'Entrar' }).click()
+      await page.getByRole('alert').first().waitFor()
+      await page.getByText('Las cuentas las crea el Editor del equipo').waitFor()
+    } finally {
+      await context.close()
+    }
+  })
+})
+
+describe('templates as a form (J1-A-32)', () => {
+  test('the fields are edited without seeing the file and a new template is built with fields', async () => {
+    const { page, context } = await session()
+    try {
+      await page.goto(`${origin}/areas/a-error`)
+      await page.getByRole('button', { name: /^Campos e instrucciones/ }).first().click()
+      const dialog = page.getByRole('dialog')
+      await dialog.getByRole('heading', { name: 'Campos' }).waitFor()
+      const text = await dialog.innerText()
+      for (const raw of ['---', 'fields:', 'required:', 'name:', '{ name']) assert.ok(!text.includes(raw), `el formulario muestra sintaxis cruda: «${raw}»`)
+      await dialog.getByRole('button', { name: 'Campo', exact: true }).click()
+      await dialog.getByRole('button', { name: /^Rótulo del campo: Campo nuevo/ }).waitFor()
+      const required = dialog.getByLabel('Obligatorio').last()
+      await required.click()
+      await page.waitForTimeout(400)
+      assert.equal(await required.isChecked(), true, 'la casilla Obligatorio guarda el cambio')
+      await dialog.getByRole('button', { name: 'Quitar el campo Campo nuevo' }).click()
+      await dialog.getByRole('button', { name: /^Rótulo del campo: Campo nuevo/ }).waitFor({ state: 'detached' })
+      await page.keyboard.press('Escape')
+
+      await page.getByRole('button', { name: 'Plantilla', exact: true }).click()
+      const form = page.getByRole('dialog')
+      await form.getByLabel('Nombre').fill('Observación de prueba')
+      await form.getByLabel('Descripción').fill('Una plantilla creada desde el formulario.')
+      await form.getByRole('button', { name: 'Campo', exact: true }).click()
+      await form.getByLabel('Rótulo del campo').fill('Qué se observó')
+      await form.getByRole('button', { name: 'Crear' }).click()
+      await page.getByRole('button', { name: /^Nombre: Observación de prueba/ }).waitFor()
+      const created = await (await page.request.get(`${origin}/api/areas/a-error/templates`)).json()
+      const file = (created.items ?? created).find((t) => t.name === 'Observación de prueba').body_markdown
+      assert.match(file, /label: "Qué se observó", required: false/)
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('each function offers only the providers it accepts (J1-A-45)', async () => {
+    const { page, context } = await session()
+    try {
+      await page.goto(`${origin}/settings`)
+      await page.getByRole('button', { name: 'Proveedor de Texto' }).click()
+      const options = await page.getByRole('menuitemradio').allInnerTexts()
+      assert.ok(options.includes('anthropic') && !options.includes('groq-speech'), `Texto ofrece: ${options.join(', ')}`)
+      await page.keyboard.press('Escape')
+      assert.equal(await page.getByRole('button', { name: 'Proveedor de Transcripción' }).count(), 0, 'una función con un solo proveedor no ofrece un control vacío')
+    } finally {
+      await context.close()
+    }
+  })
+})
+
+// ---------------------------------------------------------------- Ronda 1, juez B: enviar, analizar, revisar y publicar
+const THREE = 'Corregir el desalineado del sidebar en la vista dashboard.\n\nAgregar la sincronización con WhatsApp en el sidebar.\n\nPregunta: ¿el audio máximo sigue en 25 MB?'
+
+/** Leaves the person with an empty tray: tests that count messages must not inherit the sends of an earlier test. */
+async function clearTray(page) {
+  const body = await (await page.request.get(`${origin}/api/inputs`)).json()
+  for (const input of body.items ?? body) {
+    if (!['published', 'cancelled'].includes(input.status)) await page.request.post(`${origin}/api/inputs/${input.id}/cancel`, { headers: { 'X-Team-Request': 'panel' } })
+  }
+}
+
+describe('publishing flow (round 1, judge B)', () => {
+  test('the proposal shows all the messages at once and the button says how many it sends (J1-B-11)', async () => {
+    const { page, context } = await session('bruno')
+    try {
+      await clearTray(page)
+      await sendInput(page, THREE)
+      await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
+      // One open and the other two on one line: the three titles are in view, without paging.
+      assert.equal(await page.getByRole('button', { name: /^Abrir el mensaje \d/ }).count(), 2, 'dos mensajes plegados en una línea')
+      assert.equal(await page.getByRole('button', { name: 'Página siguiente' }).count(), 0, 'sin paginación para tres mensajes')
+      await page.getByRole('button', { name: 'Enviar 3 mensajes', exact: true }).waitFor()
+      // Opening another folds the previous one: there are still three, one open.
+      await page.getByRole('button', { name: /^Abrir el mensaje 2/ }).click()
+      assert.equal(await page.getByRole('button', { name: /^Área:/ }).count(), 1)
+      assert.equal(await page.getByRole('button', { name: /^Abrir el mensaje \d/ }).count(), 2)
+      assert.equal(await page.getByRole('button', { name: /^Abrir el mensaje 1/ }).count(), 1, 'el primero quedó plegado')
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('a discard can be undone and returns with what was edited; there is no silent discard (J1-B-26)', async () => {
+    const { page, context } = await session('carla')
+    try {
+      await clearTray(page)
+      await sendInput(page, 'Una idea que se descarta por error.\n\nOtra idea.')
+      await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
+      await page.getByRole('button', { name: /^Título del mensaje: / }).first().click()
+      await page.getByRole('textbox', { name: 'Título del mensaje' }).fill('Título corregido antes de descartar')
+      await page.getByRole('textbox', { name: 'Título del mensaje' }).press('Enter')
+      await page.getByRole('button', { name: /^Título del mensaje: Título corregido/ }).waitFor()
+      await page.getByRole('button', { name: 'Descartar' }).last().click()
+      const notice = page.locator('[data-notice]')
+      await notice.getByText('Envío descartado').waitFor()
+      await page.getByRole('button', { name: /^Título del mensaje: Título corregido/ }).waitFor({ state: 'detached' })
+      await notice.getByRole('button', { name: 'Deshacer' }).click()
+      // The send goes back to the inbox, with the proposal as it was edited.
+      await page.getByRole('button', { name: /^Título del mensaje: Título corregido antes de descartar/ }).waitFor({ timeout: 10000 })
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('re-analyzing: without changes it goes straight; with changes it asks for confirmation (J1-B-18)', async () => {
+    const { page, context } = await session('diego')
+    try {
+      await clearTray(page)
+      await sendInput(page, 'Un punto para analizar dos veces.')
+      await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
+      await page.getByRole('button', { name: 'Volver a analizar' }).click()
+      assert.equal(await page.getByRole('dialog', { name: 'Volver a analizar' }).count(), 0, 'sin cambios no hace falta confirmar')
+      await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
+      await page.getByRole('button', { name: /^Título del mensaje: / }).first().click()
+      await page.getByRole('textbox', { name: 'Título del mensaje' }).fill('Cambio que se perdería')
+      await page.getByRole('textbox', { name: 'Título del mensaje' }).press('Enter')
+      await page.getByRole('button', { name: /^Título del mensaje: Cambio/ }).waitFor()
+      await page.getByRole('button', { name: 'Volver a analizar' }).click()
+      await page.getByText(/Se descarta esta propuesta con sus cambios/).waitFor()
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('editing a body says how it is saved and how to break a line (J1-B-19)', async () => {
+    const { page, context } = await session('eduardo')
+    try {
+      await clearTray(page)
+      await sendInput(page, 'Un punto con cuerpo para editar.')
+      await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
+      await page.getByRole('button', { name: /^Texto del mensaje: / }).first().click()
+      await page.locator('[data-edit-hint]').getByText(/Intro guarda/).waitFor()
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('the composer grows in a single jump and removing an attachment has a 24 px target (J1-B-01, J1-B-02, J1-B-30)', async () => {
+    const { page, context } = await session('sofia')
+    try {
+      await page.goto(origin)
+      const bar = page.getByLabel('Nuevo mensaje', { exact: true }).last()
+      const box = () => bar.evaluate((el) => el.closest('.glass').getBoundingClientRect().height)
+      const none = await box()
+      const wav = (name) => ({ name, mimeType: 'audio/wav', buffer: Buffer.alloc(8044, 128) })
+      const input = page.locator('input[type=file]:not([capture])')
+      await input.setInputFiles([wav('uno.wav')])
+      const one = await box()
+      await input.setInputFiles([wav('uno.wav'), wav('dos.wav'), wav('tres.wav')])
+      const three = await box()
+      assert.ok(one > none, 'el primer adjunto abre la fila')
+      assert.ok(Math.abs(three - one) <= 1, `tres adjuntos no agrandan más la barra que uno: ${one} contra ${three}`)
+      for (const x of await page.getByRole('button', { name: /^Quitar / }).all()) {
+        const b = await x.boundingBox()
+        assert.ok(b.width >= 24 && b.height >= 24, `blanco de ${b.width}x${b.height}`)
+      }
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('an area with several templates lets the user choose the template from the proposal (J1-B-18)', async () => {
+    const { page, context } = await session('tomas')
+    try {
+      await clearTray(page)
+      await sendInput(page, 'Se rompe la pantalla de inicio: el botón queda cortado.')
+      await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
+      const pick = page.getByRole('button', { name: /^Plantilla: / })
+      await pick.waitFor()
+      await pick.click()
+      await page.getByRole('menuitemradio', { name: 'Error visual' }).click()
+      await page.getByRole('button', { name: 'Plantilla: Error visual' }).waitFor()
+      await page.getByRole('button', { name: 'Deshacer' }).first().waitFor()
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('on the phone Enviar and Descartar stay in view with three messages (J1-B-29)', async () => {
+    const { page, context } = await session('bruno', { width: 390, height: 844 })
+    try {
+      await clearTray(page)
+      await sendInput(page, THREE)
+      await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
+      const send = page.getByRole('button', { name: 'Enviar 3 mensajes', exact: true })
+      const b = await send.boundingBox()
+      assert.ok(b.y + b.height <= 844 && b.y >= 0, `Enviar queda fuera de la pantalla: ${JSON.stringify(b)}`)
+      const d = await page.getByRole('button', { name: 'Descartar' }).last().boundingBox()
+      assert.ok(d.y + d.height <= 844, 'Descartar queda fuera de la pantalla')
     } finally {
       await context.close()
     }

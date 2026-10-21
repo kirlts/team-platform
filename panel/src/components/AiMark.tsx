@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 export function AiMark({ className }: { className?: string }) {
   const t = useT()
   return (
-    <span role="img" aria-label={t('ai.name')} title={t('ai.name')} className={cn('inline-flex shrink-0 items-center gap-1 rounded-full bg-ai-edge/15 px-1.5 py-0.5 text-[11px] font-bold leading-none tracking-wide text-ai-fg', className)}>
+    <span role="img" aria-label={t('ai.name')} title={t('ai.name')} className={cn('inline-flex shrink-0 items-center gap-1 rounded-full bg-ai-edge/15 px-1.5 py-0.5 text-xs font-bold leading-none tracking-wide text-ai-fg', className)}>
       <Sparkles size={12} aria-hidden />
       <span aria-hidden>{t('ai.label')}</span>
     </span>

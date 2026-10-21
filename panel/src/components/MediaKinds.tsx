@@ -24,7 +24,7 @@ export function MediaKinds({ of, className }: { of: { attachments?: readonly Pic
           <li key={kind} className="inline-flex items-center gap-0.5 text-accent-deep" title={label}>
             <Icon size={15} aria-hidden />
             {count > 1 && (
-              <span aria-hidden className="text-[11px] font-semibold tabular-nums leading-none">
+              <span aria-hidden className="text-xs font-semibold tabular-nums leading-none">
                 {count}
               </span>
             )}

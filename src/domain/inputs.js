@@ -21,8 +21,8 @@ const TRANSITIONS = {
   extracting: ['analyzing', 'queued', 'failed', 'cancelled'],
   analyzing: ['proposed', 'queued', 'failed', 'cancelled'],
   proposed: ['published', 'cancelled', 'queued'], // queued: the editor reprocesses the analysis
-  failed: ['queued'],
-  cancelled: ['queued'],
+  failed: ['queued', 'cancelled'], // cancelled: the sender discards a failed analysis
+  cancelled: ['queued', 'proposed', 'failed'], // proposed / failed: the sender undoes a discard (restoreInput)
   published: []
 }
 
@@ -256,6 +256,24 @@ export function editInputText ({ db, config, queue, events, now = Date.now }, in
     events.publishForJob(jobId, { kind: 'progress', percent: 0, phrase: 'En cola' })
     audit(db, { memberId, action: 'input.edit', entity: 'input', entityId: inputId, detail: { chars: text.length }, now })
     return buildInputView({ db, queue, events }, get(db, 'SELECT * FROM inputs WHERE id = ?', inputId))
+  })
+}
+
+/**
+ * Undoes a discard (J1-B-26): a cancelled input goes back to the state it was in. With its saved proposal it
+ * is `proposed` again, with the edits it had; without one (the analysis had failed) it is `failed`.
+ * Nothing is analyzed again. Only the sender, and only while the input is `cancelled`.
+ */
+export function restoreInput ({ db, events, now = Date.now }, inputId, memberId) {
+  return events.transaction(() => {
+    const input = get(db, 'SELECT * FROM inputs WHERE id = ?', inputId)
+    if (!input || input.author_id !== memberId) throw notFound('El input no existe.')
+    if (input.status !== 'cancelled') throw conflict(`El input está «${input.status}»; sólo se restaura uno cancelado.`, 'not_cancelled')
+    const hasProposal = !!get(db, 'SELECT 1 AS x FROM proposals WHERE input_id = ?', inputId)
+    const to = hasProposal ? 'proposed' : 'failed'
+    transitionInput(db, inputId, to, { now, error: hasProposal ? null : 'Se descartó antes de terminar el análisis.', errorCode: null })
+    audit(db, { memberId, action: 'input.restore', entity: 'input', entityId: inputId, now })
+    return { input_id: inputId, status: to }
   })
 }
 

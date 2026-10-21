@@ -24,11 +24,16 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
   const rows = useMemo(() => message.replies, [message.replies])
 
   return (
-    <section aria-label={t('replies.title')} className="flex min-h-0 flex-1 flex-col gap-3">
-      <h2>
-        {t('replies.title')} <span className="ml-1 text-muted">{message.replies.length}</span>
-      </h2>
+    <section aria-label={t('replies.title')} className="flex min-h-0 flex-1 flex-col gap-3 md:flex-initial">
+      <div className="flex items-center gap-2">
+        <h2>{t('replies.title')}</h2>
+        <Badge tone="neutral" className="tabular-nums">
+          {message.replies.length}
+        </Badge>
+      </div>
+      {/* The slot does not grow: the form follows the last reply instead of sitting at the foot of the screen (J1-A-24). */}
       <FitList
+        className="flex-initial"
         rows={rows}
         rowKey={(r) => r.id}
         renderRow={(r) => (
@@ -36,7 +41,7 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
             <Avatar name={memberName(r.author_id) || '?'} size={28} />
             <div className="flex min-w-0 flex-1 flex-col gap-1">
               <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted">
-                <span data-repeat-ok="person" className="break-words text-[13px] font-semibold text-fg">{memberName(r.author_id)}</span>
+                <span data-repeat-ok="person" className="break-words text-sm font-semibold text-fg">{memberName(r.author_id)}</span>
                 {r.kind !== 'answer' && <Badge tone={r.kind === 'fix' ? 'answered' : 'neutral'}>{t(KIND_KEY[r.kind])}</Badge>}
                 <time dateTime={r.created_at} className="tabular-nums">
                   {format.stamp(r.created_at)}

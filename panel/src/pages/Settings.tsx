@@ -9,7 +9,7 @@ import { Segmented } from '@/components/Segmented'
 import { UndoButtons } from '@/components/UndoButtons'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { LANGUAGES, useErrorText, useI18n, useT, type MessageKey } from '@/i18n'
 import { Markdown } from '@/lib/markdown'
 import { useMe, useProject, useProviders, useSaveLanguage, useSaveMember, useSaveProject, useSaveProvider } from '@/lib/queries'
@@ -19,9 +19,23 @@ import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 
 const SLOT_KEY: Record<ProviderSlot, MessageKey> = { text: 'settings.slot.text', vision: 'settings.slot.vision', speech: 'settings.slot.speech' }
 const LANGUAGE_KEY: Record<Language, MessageKey> = { 'es-419': 'language.es-419', en: 'language.en' }
-/** Provider implementations from MASTER-SPEC §7.6. */
-const KNOWN_PROVIDERS = ['anthropic', 'openai-compatible', 'groq-speech']
-const COLUMNS = 'sm:grid-cols-[6rem_minmax(0,1fr)_minmax(0,1.3fr)_7.5rem]'
+/** The providers each function accepts (src/providers/index.js: TEXT_PROVIDER, VISION_* inherits it, SPEECH_PROVIDER). */
+const PROVIDERS_BY_SLOT: Record<ProviderSlot, readonly string[]> = {
+  text: ['anthropic', 'deepseek', 'groq', 'openrouter', 'gemini', 'openai-compatible'],
+  vision: ['anthropic', 'deepseek', 'groq', 'openrouter', 'gemini', 'openai-compatible'],
+  speech: ['groq-speech'],
+}
+/** The server variable that holds each provider's key (the keys never reach the panel: MASTER-SPEC §4.6). */
+const KEY_VARIABLE: Record<string, string> = {
+  anthropic: 'ANTHROPIC_API_KEY',
+  deepseek: 'DEEPSEEK_API_KEY',
+  groq: 'GROQ_API_KEY',
+  'groq-speech': 'GROQ_API_KEY',
+  openrouter: 'OPENROUTER_API_KEY',
+  gemini: 'GEMINI_API_KEY',
+  'openai-compatible': 'OPENAI_COMPATIBLE_API_KEY',
+}
+const COLUMNS = 'sm:grid-cols-[5.5rem_minmax(8rem,1fr)_minmax(12rem,1.3fr)_10rem]'
 
 export function Settings() {
   const t = useT()
@@ -33,7 +47,7 @@ export function Settings() {
     <UndoProvider stack={undo}>
       <Page cols={12}>
         <PageHeader title={t('nav.settings')} aside={editor ? <UndoButtons stack={undo} /> : undefined} />
-        <div className="grid min-h-0 flex-1 md:grid-rows-[minmax(0,1fr)] gap-x-10 gap-y-5 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+        <div className="grid min-h-0 flex-1 md:grid-rows-[minmax(0,1fr)] gap-x-10 gap-y-5 md:grid-cols-[minmax(0,4fr)_minmax(0,8fr)]">
           <div className="flex min-w-0 flex-col gap-5">
             <Account />
             <Theme />
@@ -161,7 +175,7 @@ function Project({ editor }: { editor: boolean }) {
   }
 
   return (
-    <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 border-t border-line-strong pt-3">
+    <section className="flex min-h-0 min-w-0 max-h-[55%] flex-col gap-3 border-t border-line-strong pt-3">
       <div className="flex items-center justify-between gap-2">
         <h2>{t('project.title')}</h2>
         {editor && (
@@ -184,7 +198,7 @@ function Project({ editor }: { editor: boolean }) {
         )}
       </div>
       {/* The description can be as long as a master spec: it is a lane with its own declared scrolling. */}
-      <div data-lane="project-description" className="glass leaf scroll-thin min-h-0 flex-1 overflow-y-auto px-4 py-3 text-[13px]">
+      <div data-lane="project-description" className="glass leaf scroll-thin min-h-0 overflow-y-auto px-4 py-3 text-sm">
         <EditableText
           value={current}
           label={t('project.title')}
@@ -217,7 +231,7 @@ function Providers() {
         rowKey={(p) => p.slot}
         label={t('settings.providers')}
         header={
-          <div className={`hidden gap-4 border-b border-line bg-[linear-gradient(180deg,var(--color-chrome-1),var(--color-chrome-2))] px-4 py-2 text-[13px] font-semibold text-muted sm:grid ${COLUMNS}`}>
+          <div className={`hidden gap-4 border-b border-line bg-[linear-gradient(180deg,var(--color-chrome-1),var(--color-chrome-2))] px-4 py-2 text-sm font-semibold text-muted sm:grid ${COLUMNS}`}>
             <span>{t('settings.function')}</span>
             <span>{t('settings.provider')}</span>
             <span>{t('settings.model')}</span>
@@ -250,25 +264,37 @@ function ProviderRow({ provider: p }: { provider: ProviderSetting }) {
   return (
     <div className={`grid items-start gap-x-4 gap-y-1 border-b border-line px-4 py-3 last:border-b-0 ${COLUMNS}`}>
       <span className="text-sm font-medium">{t(SLOT_KEY[p.slot])}</span>
-      <DropdownMenu>
-        <DropdownMenuTrigger className="inline-flex min-h-6 max-w-full items-center gap-1 self-start rounded-md border border-transparent px-1.5 text-left text-sm hover:border-line-strong hover:bg-raised" aria-label={t('settings.providerOf', { slot: t(SLOT_KEY[p.slot]) })}>
-          <span className="min-w-0 break-words">{p.provider || t('editable.empty')}</span>
-          <ChevronDown size={12} aria-hidden className="shrink-0 text-muted" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
-          <DropdownMenuRadioGroup value={p.provider} onValueChange={(v) => change({ provider: v }).catch(() => {})}>
-            {KNOWN_PROVIDERS.map((name) => (
-              <DropdownMenuRadioItem key={name} value={name}>
-                {name}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {PROVIDERS_BY_SLOT[p.slot].length > 1 ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger className="inline-flex min-h-6 max-w-full items-center gap-1 self-start rounded-md border border-transparent px-1.5 text-left text-sm hover:border-line-strong hover:bg-raised" aria-label={t('settings.providerOf', { slot: t(SLOT_KEY[p.slot]) })}>
+            <span className="min-w-0 break-words">{p.provider || t('editable.empty')}</span>
+            <ChevronDown size={12} aria-hidden className="shrink-0 text-muted" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            {/* The open menu names its function: it may cover the row it belongs to (J1-A-51). */}
+            <DropdownMenuLabel>{t('settings.providerOf', { slot: t(SLOT_KEY[p.slot]) })}</DropdownMenuLabel>
+            <DropdownMenuRadioGroup value={p.provider} onValueChange={(v) => change({ provider: v }).catch(() => {})}>
+              {PROVIDERS_BY_SLOT[p.slot].map((name) => (
+                <DropdownMenuRadioItem key={name} value={name}>
+                  {name}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        // A function with one provider has nothing to choose: plain text, no control that offers nothing.
+        <span className="px-1.5 text-sm">{p.provider || t('editable.empty')}</span>
+      )}
       <EditableText value={p.model} label={t('settings.modelOf', { slot: t(SLOT_KEY[p.slot]) })} validate={required} mono onSave={(v) => change({ model: v })} />
       <span title={p.available === false ? reason : undefined} className="flex flex-col items-start gap-0.5">
         <Badge tone={p.available === false ? 'danger' : 'answered'}>{p.available === false ? t('provider.unavailable') : t('provider.available')}</Badge>
-        {p.available === false && <span className="text-xs leading-tight text-muted">{reason}</span>}
+        {p.available === false && (
+          <span className="text-sm leading-tight text-fg">
+            {reason}
+            {p.reason === 'missing_api_key' && KEY_VARIABLE[p.provider] && <span className="block font-mono text-xs text-muted">{KEY_VARIABLE[p.provider]}</span>}
+          </span>
+        )}
         {save.isError && <span role="alert" className="text-xs leading-tight text-danger">{errorText(save.error)}</span>}
       </span>
     </div>

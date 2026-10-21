@@ -159,11 +159,15 @@ export function deleteConnection (db, name) {
 }
 
 /**
- * Records the outcome of a check on the connection (creating no row for a connection that has none). A model the
- * provider does not know says nothing against the key or the address, so it is not recorded as a failure.
+ * Records the outcome of a check on the connection. A known connection that runs on an environment key has no row yet
+ * and gets one (without a key), so its diagnosis is kept too; an unknown name gets none. A model the provider does not
+ * know says nothing against the key or the address, so it is not recorded as a failure.
  */
 export function recordCheck (db, name, check, now = Date.now) {
-  if (!rowOf(db, name)) return
+  if (!rowOf(db, name)) {
+    if (!catalog()[name]) return
+    ensureRow(db, name, null, now)
+  }
   const ok = check.ok || check.cause === 'model_not_found'
   run(db, 'UPDATE provider_connections SET check_at = ?, check_ok = ?, check_cause = ?, check_ms = ?, updated_at = ? WHERE name = ?', now(), ok ? 1 : 0, ok ? null : check.cause, check.duration_ms, now(), name)
 }

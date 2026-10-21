@@ -73,6 +73,20 @@ describe('numberUnits', () => {
     assert.deepEqual(units.map((u) => u.text), ['[00:01] Hola. Esto es largo; sigue.', '[00:05] el menú no abre']);
   });
 
+  it('a joined transcript line with several sentences, semicolons and numbering stays one unit', () => {
+    const extracted = [
+      '[00:00] pues cachai que el menú no abre. Eso. Dos cositas; una sí y la otra no',
+      '[00:21] 1) el popup 2) el filtro',
+      '[00:30-00:41] Voz: el Sr. García dice que sigue igual.',
+    ].join('\n');
+    for (const kind of ['audio', 'video']) {
+      const units = numberUnits({ attachments: [{ id: 3, kind, extracted }] });
+      assert.deepEqual(units.map((u) => u.text), extracted.split('\n'));
+      assert.deepEqual(units.map((u) => u.label), ['a3.p1', 'a3.p2', 'a3.p3'], 'one paragraph per line, no sentence suffix');
+      assert.ok(units.every((u) => u.atomic));
+    }
+  });
+
   it('un encabezado se pega a la unidad que sigue y abre una sección', () => {
     const units = numberUnits({ text: '# Errores\nLa pantalla falla.\n\n# Ideas\nUn filtro.' });
     assert.deepEqual(units.map((u) => u.text), ['# Errores\nLa pantalla falla.', '# Ideas\nUn filtro.']);

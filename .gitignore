@@ -30,3 +30,4 @@ data/
 bench/private/
 bench/results/
 .cache/
+.local-ref/

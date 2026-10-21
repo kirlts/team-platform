@@ -36,9 +36,9 @@ import {
 } from './prompts.js';
 import { buildClassificationSchema, buildDecompositionSchema } from './schema.js';
 import { parseTemplate } from './templates.js';
-import { estimateTokens, numberUnits, partitionUnits, renderUnits } from './units.js';
+import { estimateTokens, isEmptyUnit, numberUnits, partitionUnits, renderUnits } from './units.js';
 import {
-  closeStretches, contextFromBundle, coverage, describeConflicts, normalizeDecomposition, repairClassification, repairCoverage, validateClassification, validateDecomposition, validateProposal,
+  closeEmptyGaps, closeStretches, contextFromBundle, foldEmptyGroups, foldEmptyMessages, coverage, describeConflicts, normalizeDecomposition, repairClassification, repairCoverage, validateClassification, validateDecomposition, validateProposal,
 } from './validate.js';
 
 const TYPED = new Map([
@@ -234,6 +234,12 @@ async function decomposeUnits(ctx, { bundle, template, system, schema, units, sc
   let discarded = [];
   let { overlaps, gaps } = first.conflicts;
   if (overlaps.length === 0 && gaps.length === 0) return { status: 'ok', messages, discarded, rescued: false };
+  // H-1902: gaps made only of speaker marks and list numbers are closed by set arithmetic; the rescue would write a message about them.
+  const emptyOf = new Set(units.filter((u) => isEmptyUnit(u.text)).map((u) => u.id));
+  if (overlaps.length === 0 && gaps.every((id) => emptyOf.has(id))) {
+    ctx.stats.empty_gaps_closed = (ctx.stats.empty_gaps_closed ?? 0) + gaps.length;
+    return { status: 'ok', messages: closeEmptyGaps(messages, gaps, scope), discarded, rescued: false };
+  }
 
   // Mutual-exclusivity or exhaustiveness conflict: a single rescue pass over what failed.
   if (config.rescuePasses < 1) {
@@ -462,7 +468,10 @@ export async function classifyInput(bundle, { providers, onProgress, config, red
     const kept = classDiscarded.map((d) => ({ ...d, unit_ids: d.unit_ids.filter((id) => failedIds.has(id)) })).filter((d) => d.unit_ids.length > 0);
     ({ groups, discarded: classDiscarded } = closeStretches([...groups, ...rereadGroups], [...rereadDiscarded, ...kept]));
   }
-  return { ctx, language, units, workBundle, attachments, classifyChunks, groups, discarded: classDiscarded };
+  // H-1902: a group of speaker marks alone joins the intervention it introduces; the decomposition never receives it.
+  const folding = foldEmptyGroups(groups, classDiscarded, new Set(units.filter((u) => isEmptyUnit(u.text)).map((u) => u.id)), language === 'en' ? 'Mark with no content' : 'Marca sin contenido');
+  if (folding.folded > 0) ctx.stats.empty_groups_folded = folding.folded;
+  return { ctx, language, units, workBundle, attachments, classifyChunks, groups: folding.groups, discarded: folding.discarded };
 }
 
 /**
@@ -542,6 +551,12 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
     messages: results.flatMap((r) => r.messages.map((m) => ({ ...m, area_id: r.group.area_id, template_id: r.group.template_id }))),
     discarded: [...classDiscarded, ...results.flatMap((r) => r.discarded)],
   };
+  // H-1902: a message the rescue wrote about speaker marks alone joins the message of the intervention that follows.
+  const folded = foldEmptyMessages(merged.messages, new Set(units.filter((u) => isEmptyUnit(u.text)).map((u) => u.id)));
+  if (folded.folded > 0) {
+    merged.messages = folded.messages;
+    ctx.stats.empty_messages_folded = folded.folded;
+  }
   const fieldsByTemplate = new Map([...prepared].map(([id, e]) => [id, e.template.fields]));
   const finalCheck = validateSpan('reduce', () => validateProposal(merged, {
     templates,

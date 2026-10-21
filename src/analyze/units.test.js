@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { numberUnits, partitionUnits, renderUnits } from './units.js';
+import { isEmptyUnit, numberUnits, partitionUnits, renderUnits } from './units.js';
 
 describe('numberUnits', () => {
   it('splits paragraphs, bullets and timestamps, and numbers the input and the attachments continuously', () => {
@@ -148,5 +148,19 @@ describe('partitionUnits', () => {
     const chunks = partitionUnits(units, { budgetTokens: 40, charsPerToken: chars });
     assert.equal(chunks.at(-1).length, 30);
     assert.ok(chunks.slice(0, -1).every((c) => c.every((u) => u.source.type === 'input')));
+  });
+});
+
+describe('isEmptyUnit (H-1902)', () => {
+  it('a speaker mark with its time, a speaker label, a bare list number and a line of symbols say nothing by themselves', () => {
+    for (const text of ['00:12:41 Martín', '[00:12] Ana Gil', '1:02:05 Ana María Gil', 'Martín:', '27.', '3)', '\\', '- ']) {
+      assert.equal(isEmptyUnit(text), true, text);
+    }
+  });
+
+  it('a sentence, a timed line with punctuation and a line with a sender and a body carry content', () => {
+    for (const text of ['Exacto.', '00:12:41 Sí.', '[00:03 - 00:14] Speaker 1: hola', 'Revisar el login', '00:00:09 Ana María Gil Pérez']) {
+      assert.equal(isEmptyUnit(text), false, text);
+    }
   });
 });

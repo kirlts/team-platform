@@ -175,6 +175,85 @@ export function closeStretches(groups, discarded) {
 }
 
 /**
+ * H-1902: a group made only of units with no content of their own (a speaker mark, a list number) would reach the
+ * decomposition, whose rule 3 asks for one message per group, and come out as a message about the unit itself. The mark
+ * introduces what follows it, so the group joins the group of the unit right after its last unit. When that unit belongs to no
+ * group (it was discarded, or the mark is the last unit) the mark is discarded with it. Set arithmetic over `unit_ids`
+ * and a predicate on the units already numbered; no text is read here.
+ * @param {{unit_ids: number[], area_id: number, template_id: number}[]} groups
+ * @param {{unit_ids: number[], reason: string}[]} discarded
+ * @param {Set<number>} emptyIds  ids of the units that say nothing by themselves
+ * @param {string} reason  discard reason for a mark that has no group to join
+ */
+export function foldEmptyGroups(groups, discarded, emptyIds, reason) {
+  let current = groups.map((g) => ({ ...g, unit_ids: [...g.unit_ids] }));
+  const dropped = [];
+  let folded = 0;
+  for (;;) {
+    const index = current.findIndex((g) => g.unit_ids.every((id) => emptyIds.has(id)));
+    if (index === -1) break;
+    const mark = current[index];
+    const next = Math.max(...mark.unit_ids) + 1;
+    current = current.filter((_, i) => i !== index);
+    const target = current.find((g) => g.unit_ids.includes(next));
+    folded += 1;
+    if (target) target.unit_ids = [...target.unit_ids, ...mark.unit_ids].sort((a, b) => a - b);
+    else dropped.push(...mark.unit_ids);
+  }
+  if (folded === 0) return { groups, discarded, folded };
+  return { groups: current, discarded: dropped.length > 0 ? [...discarded, { unit_ids: dropped.sort((a, b) => a - b), reason }] : discarded, folded };
+}
+
+/**
+ * H-1902: units with no content of their own that no message cited (gaps) join the message of the unit right after them, or of
+ * the one right before when nothing follows. Only meant for gaps made of such units: the rescue call would give them a
+ * message about the unit itself. Set arithmetic over `unit_ids`.
+ * @param {{unit_ids: number[]}[]} messages
+ * @param {number[]} gaps
+ * @param {Iterable<number>} scope
+ */
+export function closeEmptyGaps(messages, gaps, scope) {
+  const order = [...scope].sort((a, b) => a - b);
+  const owner = new Map();
+  messages.forEach((m, i) => m.unit_ids.forEach((id) => owner.set(id, i)));
+  const added = messages.map(() => []);
+  const missing = new Set(gaps);
+  order.forEach((id, at) => {
+    if (!missing.has(id)) return;
+    const after = order.slice(at + 1).find((x) => owner.has(x));
+    const before = order.slice(0, at).reverse().find((x) => owner.has(x));
+    const target = owner.get(after ?? before);
+    if (target !== undefined) added[target].push(id);
+  });
+  return messages.map((m, i) => ({ ...m, unit_ids: [...m.unit_ids, ...added[i]].sort((a, b) => a - b) }));
+}
+
+/**
+ * H-1902: a message whose units all say nothing by themselves (a speaker mark the rescue or the decomposition cited apart)
+ * joins the message of the unit right after it, or of the one right before when nothing follows.
+ * @param {{unit_ids: number[]}[]} messages
+ * @param {Set<number>} emptyIds
+ */
+export function foldEmptyMessages(messages, emptyIds) {
+  let current = messages.map((m) => ({ ...m, unit_ids: [...m.unit_ids] }));
+  let folded = 0;
+  for (;;) {
+    const index = current.findIndex((m) => m.unit_ids.every((id) => emptyIds.has(id)));
+    if (index === -1 || current.length === 1) break;
+    const mark = current[index];
+    const rest = current.filter((_, i) => i !== index);
+    const next = Math.max(...mark.unit_ids) + 1;
+    const target = rest.find((m) => m.unit_ids.includes(next))
+      ?? rest.find((m) => m.unit_ids.some((id) => id > next))
+      ?? rest.at(-1);
+    target.unit_ids = [...target.unit_ids, ...mark.unit_ids].sort((a, b) => a - b);
+    current = rest;
+    folded += 1;
+  }
+  return { messages: current, folded };
+}
+
+/**
  * Last resort after the single rescue pass: restores exact coverage by set arithmetic alone. A unit cited by several messages
  * stays in the first one; a unit cited by none (and not discarded) joins the message of the closest unit before it, or after it
  * when it is the first. No text is read. Returns null when there is no message to receive a unit.

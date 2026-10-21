@@ -122,5 +122,5 @@ Se activa cuando cambia un flujo visible (§6), el empaquetado o la identidad. N
 |---|---|---|
 | Prohibiciones de alta prioridad con prueba completa | 25 de 29 cubiertas y en verde; 2 con una brecha anotada (HP-006: la mitad de la imagen corre a pedido; HP-007: cada clon activa el gancho); 2 pendientes de una persona (HP-019, HP-020) | 29 de 29 |
 | Pruebas | 771 en `npm test` (764 en verde, 7 omitidas: proveedor real, imagen Docker y red real) + 74 (banco, `node --test bench/`) + 129 (panel, `vitest`); `tsc` sin errores (2026-10-21 15:24) | crece |
-| Casos del banco con cobertura 100 % contra el modelo real | 6 de 7 (`03-monologo-prueba` llega a 90 %; medición 2026-10-20 con `--repeat 3`) | 7 de 7 |
+| Casos del banco con cobertura 100 % contra el modelo real | 9 de 9 en mediana; `03-monologo-prueba` 98,8 % medio en 30 repeticiones (medición 2026-10-21) | 7 de 7 |
 | Mediana de tiempo por caso del banco | 3,0 s a 10,5 s (el docx de 40 puntos es el máximo) | bajo 10 s salvo el docx de 40 puntos |

@@ -104,7 +104,7 @@ describe('openai-compatible', () => {
 
   it('visión: imagen como image_url con data URL; PDF nativo no se admite', async () => {
     reply = () => ({ body: completion({ content: 'una captura de chat' }) });
-    const out = await client().describe({ images: [{ mime: 'image/jpeg', data: Buffer.from('JPG') }], prompt: 'describí' });
+    const out = await client().describe({ images: [{ mime: 'image/jpeg', data: Buffer.from('JPG'), label: 'captura-1' }], prompt: 'describí' });
     const content = last().json.messages[0].content;
     assert.equal(content[0].type, 'image_url');
     assert.equal(content[0].image_url.url, `data:image/jpeg;base64,${Buffer.from('JPG').toString('base64')}`);

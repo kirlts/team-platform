@@ -82,7 +82,7 @@ export function createAnthropicClient(cfg) {
   const defaultMaxTokens = cfg.maxTokens ?? ANTHROPIC_DEFAULTS.maxTokens;
   const provider = 'anthropic';
 
-  async function call({ system, messages, schema, effort, maxTokens }) {
+  async function call({ system, messages, schema, effort, maxTokens, cacheTtl: callCacheTtl }) {
     if (effort !== undefined && !EFFORTS.has(effort)) {
       throw new ProviderConfigError(`anthropic: esfuerzo inválido «${effort}»`, { provider, model });
     }
@@ -95,7 +95,7 @@ export function createAnthropicClient(cfg) {
       max_tokens,
       messages: await Promise.all(messages.map(async (m) => ({ role: m.role, content: await toAnthropicContent(m.content, provider) }))),
     };
-    const sys = buildSystem(systemBlocks(system), { cacheTtl, thinking: cfg.thinking });
+    const sys = buildSystem(systemBlocks(system), { cacheTtl: callCacheTtl ?? cacheTtl, thinking: cfg.thinking });
     if (sys) body.system = sys;
     if (cfg.thinking === 'disabled') body.thinking = { type: 'disabled' };
     const outputConfig = {};
@@ -157,13 +157,13 @@ export function createAnthropicClient(cfg) {
     /** providers.text.complete: devuelve `json` si hay esquema, si no `text`. */
     complete: (req) => call(req),
     /** providers.vision.describe: imágenes (y PDF) como bloques, luego el prompt. */
-    describe({ images, prompt, schema, system, effort, maxTokens }) {
+    describe({ images, prompt, schema, system, effort, maxTokens, cacheTtl }) {
       if (!Array.isArray(images) || images.length === 0) {
         throw new ProviderConfigError('anthropic: describe necesita al menos una imagen', { provider, model });
       }
       const parts = images.map((img) => ({ type: img.mime === 'application/pdf' ? 'document' : 'image', ...img }));
       // Las imágenes van antes del texto: así lo recomienda la documentación de visión.
-      return call({ system, messages: [{ role: 'user', content: [...parts, { type: 'text', text: prompt }] }], schema, effort, maxTokens });
+      return call({ system, messages: [{ role: 'user', content: [...parts, { type: 'text', text: prompt }] }], schema, effort, maxTokens, cacheTtl });
     },
   };
 }

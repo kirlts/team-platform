@@ -84,6 +84,12 @@ describe('anthropic', () => {
     assert.deepEqual(last().json.system[0].cache_control, { type: 'ephemeral', ttl: '1h' });
   });
 
+  it('el TTL de la caché puede indicarse en cada llamada', async () => {
+    reply = () => ({ body: okMessage() });
+    await client().complete({ system: 'A', messages: [{ role: 'user', content: 'x' }], schema: SCHEMA, cacheTtl: '1h' });
+    assert.deepEqual(last().json.system[0].cache_control, { type: 'ephemeral', ttl: '1h' });
+  });
+
   it('con el pensamiento apagado agrega la línea de salida JSON', async () => {
     reply = () => ({ body: okMessage() });
     await client({ thinking: 'disabled' }).complete({ system: 'A', messages: [{ role: 'user', content: 'x' }], schema: SCHEMA, effort: 'low' });
@@ -96,7 +102,7 @@ describe('anthropic', () => {
     reply = () => ({ body: okMessage({ content: [{ type: 'text', text: '{"area_id":1}' }] }) });
     await client().describe({
       images: [
-        { mime: 'image/png', data: Buffer.from('PNG') },
+        { mime: 'image/png', data: Buffer.from('PNG'), label: 'fotograma 3' },
         { mime: 'application/pdf', data: Buffer.from('%PDF').toString('base64') },
       ],
       prompt: 'describí',

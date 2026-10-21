@@ -1,0 +1,27 @@
+[
+  {
+    "title": "Idea",
+    "description": "Ocurrencia o propuesta sobre cómo mejorar el producto, el proceso o el equipo. No pide que se construya ahora ni reporta una falla: se comparte para pensarla y decidir después.",
+    "template": "idea.md"
+  },
+  {
+    "title": "Error",
+    "description": "Algo que antes funcionaba o que debería funcionar según lo acordado y no lo hace: fallas, resultados incorrectos, datos o textos equivocados, pantallas rotas.",
+    "template": "bug.md"
+  },
+  {
+    "title": "Nueva funcionalidad",
+    "description": "Pedido explícito de que el producto haga algo que hoy no hace, con una necesidad concreta detrás. Quien lo envía espera que se construya.",
+    "template": "feature.md"
+  },
+  {
+    "title": "Retroalimentación",
+    "description": "Opinión o valoración sobre algo que ya existe y funciona como fue diseñado: qué gusta, qué confunde, qué cuesta usar, qué sobra o qué se ve mal.",
+    "template": "feedback.md"
+  },
+  {
+    "title": "Pregunta",
+    "description": "Petición de información o de una aclaración que alguien del equipo puede contestar: cómo funciona algo, qué se decidió, quién se encarga, cuándo estará listo.",
+    "template": "question.md"
+  }
+]

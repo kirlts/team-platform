@@ -179,3 +179,15 @@ RULES:
 **Consecuencias:**
 - La vista Conexiones lista GitHub Issues entre los conectores previstos, apagado.
 **Condiciones de reversión:** Que el equipo que use team-platform viva entero en GitHub y nadie mande audio; entonces el conector se construye antes que el resto de Conexiones.
+
+## [UD-013] Estética Y2K futurista
+
+**Fecha:** 2026-10-20
+**Contexto:** El panel se estaba construyendo con la estética de un programa de gestión estándar y sin referente visual propio.
+**Decisión:** Martín, textual: «la estética tiene que ser MUCHO mejor, inspirada en y2k futurista». Vidrio translúcido, cromo y metal líquido, degradados iridiscentes, formas redondeadas, azul eléctrico, plata, lima y lila, tipografía de la época con licencia libre. Lo funcional no cambia: rótulos cortos, densidad de bandeja de escritorio, estado como insignia, edición en el lugar.
+**Alternativas descartadas:**
+- Estética neutra de panel administrativo: era la omisión y no la quiso.
+**Consecuencias:**
+- `panel/DISENO.md` con referencias fechadas y los tokens derivados; modo claro y oscuro.
+- Ninguna fuente ni recurso cargado desde otro dominio (§4.1): las tipografías van empaquetadas.
+**Condiciones de reversión:** Que Martín nombre otro referente.

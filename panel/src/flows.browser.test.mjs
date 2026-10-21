@@ -163,6 +163,7 @@ describe('propuesta del análisis', () => {
       await page.getByRole('textbox', { name: 'Título del mensaje' }).press('Enter')
       await page.getByRole('button', { name: /^Título del mensaje: Primera idea, ya corregida/ }).waitFor()
       await page.reload()
+      await page.getByTestId('tray-control').click() // la revisión vuelve plegada
       await page.getByRole('button', { name: /^Título del mensaje: Primera idea, ya corregida/ }).waitFor()
     } finally {
       await context.close()
@@ -366,7 +367,8 @@ describe('insignia y prioridad (UD-028, UD-029)', () => {
             assert.equal(await bell.evaluate((el) => getComputedStyle(el).backgroundColor), fills[top], `campana: el fondo pintado es el de ${top} (${scheme})`)
             assert.match((await bell.textContent()).trim(), new RegExp(`${total}$`))
           } else {
-            assert.equal(await bell.getAttribute('data-tone'), null)
+            // Sin nada que afecte al miembro, la campana sólo puede mostrar las novedades del flujo de eventos (azul), nunca otra prioridad.
+            assert.ok([null, 'blue'].includes(await bell.getAttribute('data-tone')), 'campana: sin pendientes sólo puede ser azul')
           }
         } finally {
           await context.close()

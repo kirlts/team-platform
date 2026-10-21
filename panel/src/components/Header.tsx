@@ -93,7 +93,7 @@ function NotificationBell() {
           data-count={total}
           aria-label={total > 0 ? t('bell.unread', { n: total }) : t('bell.label')}
           className={cn(
-            'inline-flex h-10 items-center justify-center gap-1.5 rounded-full border-2 transition-colors duration-150',
+            'inline-flex h-10 items-center justify-center gap-1.5 rounded-full border-2',
             tone ? 'min-w-[4.25rem] px-3 shadow-glass' : 'w-10 border-transparent text-fg hover:bg-glass',
           )}
         >

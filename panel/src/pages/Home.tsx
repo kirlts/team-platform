@@ -266,14 +266,19 @@ function Attention() {
         </ul>
       )}
       {areas.length > 0 && (
-        <nav aria-label={t('home.byArea')} className="flex min-w-0 flex-wrap items-center gap-1.5 md:ml-auto">
-          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">{t('home.byArea')}</span>
-          {areas.map((a) => (
-            <Link key={a.area_id} to={areaMessagesPath(a.area_id)} aria-label={t('home.areaOpen', { title: areaTitle(a.area_id), n: a.open })} data-testid="area-pending" className="inline-flex items-center gap-1.5 rounded-full border border-line-strong bg-glass-strong py-0.5 pl-2.5 pr-0.5 text-xs font-semibold hover:bg-glass-edge">
-              <span className="min-w-0 break-words">{areaTitle(a.area_id)}</span>
-              <NotifyBadge counts={areaPendingCounts(summary, a.area_id)} size="md" />
-            </Link>
-          ))}
+        <nav aria-label={t('home.byArea')} className="flex min-w-0 items-start gap-2 md:ml-auto">
+          <span className="shrink-0 pt-1 text-xs font-semibold uppercase tracking-[0.12em] text-muted">{t('home.byArea')}</span>
+          {/* With many areas the chips scroll inside two rows: a declared lane, not the page. */}
+          <ul data-lane="area-pending" className="scroll-thin flex max-h-[4.25rem] min-w-0 flex-wrap items-center gap-1.5 overflow-y-auto">
+            {areas.map((a) => (
+              <li key={a.area_id}>
+                <Link to={areaMessagesPath(a.area_id)} aria-label={t('home.areaOpen', { title: areaTitle(a.area_id), n: a.open })} data-testid="area-pending" className="inline-flex items-center gap-1.5 rounded-full border border-line-strong bg-glass-strong py-0.5 pl-2.5 pr-0.5 text-xs font-semibold hover:bg-glass-edge">
+                  <span className="min-w-0 break-words">{areaTitle(a.area_id)}</span>
+                  <NotifyBadge counts={areaPendingCounts(summary, a.area_id)} size="md" />
+                </Link>
+              </li>
+            ))}
+          </ul>
         </nav>
       )}
     </section>

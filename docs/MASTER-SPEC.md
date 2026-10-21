@@ -46,7 +46,7 @@ De ahí sale la invariante que más se incumple sola, adoptada de un proyecto an
 
 ### 1.3 Idempotencia
 
-Dos sentidos, ambos medibles. Primero, un mismo input (mismo texto normalizado, mismos adjuntos por hash) no crea un segundo trabajo: devuelve la propuesta o los mensajes que ya existen. Segundo, el mismo input con las mismas áreas, plantillas, equipo y modelo produce la misma propuesta: temperatura cero, esquema de salida estricto, y un banco de inputs de referencia con su descomposición esperada que la batería compara (§7.11).
+Dos sentidos, ambos medibles. Primero, idempotencia por persistencia: un mismo input (mismo texto normalizado, mismos adjuntos por hash) no crea un segundo trabajo ni una segunda propuesta; devuelve la que ya existe. Segundo, estabilidad: el mismo input con las mismas áreas, plantillas, equipo y modelo produce una propuesta equivalente. Ningún proveedor garantiza salidas idénticas (un estudio midió 80 salidas distintas en 1.000 corridas a temperatura cero, y Haiku 5.5 rechaza cualquier temperatura distinta de 1; informe 02, 2026-10-20), así que la estabilidad no se promete: se mide con cinco repeticiones por input del banco de referencia y un puntaje de conjuntos (§7.11), y el esquema de salida estricto la sostiene.
 
 ---
 
@@ -98,7 +98,7 @@ Criterio: tecnologías que el autor ya probó en producción (Node, Fastify, Rea
 | Cola de trabajos | Tabla `jobs` propia con arriendo, reintentos y prioridad, patrón de pg-boss | Las librerías de cola sobre SQLite tienen 8 estrellas o 3 años sin versión (investigación §4); la lógica cabe en un módulo. |
 | Progreso | SSE desde la API; cancelación por `POST` | Un solo sentido, reconexión automática del navegador; WebSocket sólo si hiciera falta control bidireccional. |
 | Adjuntos | Archivos en el volumen, nombrados por hash | Sin S3 ni MinIO: un equipo de 10 no los necesita; el adaptador de almacenamiento permite agregarlos. |
-| Modelo: texto, visión y PDF | Contrato de proveedor por modalidad. Omisión: Anthropic `claude-haiku-5-5` con salida estructurada, esfuerzo `low` y prompt de sistema cacheado | 0,10 USD entrada / 0,50 salida por MTok, lectura de caché 0,01; visión y PDF nativo de 600 páginas en el mismo proveedor. Alternativa configurable: DeepSeek `deepseek-flash` (texto e imagen, sin PDF). |
+| Modelo: texto, visión y PDF | Contrato de proveedor por modalidad. Omisión: Anthropic `claude-haiku-5-5` con salida estructurada, prompt de sistema cacheado, esfuerzo `low` para clasificar y `medium` para descomponer hasta que el banco muestre que `low` conserva la cobertura; sin `temperature`, `top_p` ni `top_k` (el modelo los rechaza) | 0,10 USD entrada / 0,50 salida por MTok, lectura de caché 0,01; visión y PDF nativo de 600 páginas en el mismo proveedor. Alternativa y respaldo configurable: DeepSeek `deepseek-flash` (texto e imagen, sin PDF; esquema sólo por herramienta estricta en beta, o modo JSON validado con Ajv). Perillas y fuentes en el informe 02. |
 | Modelo: transcripción | Groq `whisper-large-v3-turbo` por la API compatible con OpenAI | Ya en uso por el autor; 0,04 USD por hora de audio (UD-008). Alternativa: faster-whisper local. |
 | Video | `ffmpeg`: pista de audio a transcripción; fotogramas por cambio de escena (umbral y máximo de fotogramas: perillas con valor medido, §4.9), deduplicados por hash perceptual; fotogramas al proveedor de visión | Sin un tercer proveedor. Alternativa configurable: Gemini Flash-Lite con video nativo. |
 | Extracción de documentos | Dentro del contenedor, la más rápida que alcance calidad suficiente: `markitdown-node` (MIT, PDF/DOCX/PPTX/XLSX en Node), MarkItDown en Python como proceso, o pieza propia en WASM (UD-009) | Se mide por documento con el banco de referencia; la que gana queda. |
@@ -287,11 +287,13 @@ bundle = { text, attachments:[{id, kind, extracted}], areas:[{id,title,descripti
 Proposal = { area_id, template_id, messages:[{ title, body, fields, assignee_ids, attachment_ids }] }
 ```
 
-**`api` (omisión):** dos llamadas con salida estructurada. (1) Clasificar: área y plantilla, con la lista de títulos y descripciones. (2) Descomponer: con el cuerpo de la plantilla elegida, la lista MECE de mensajes. Prompt de sistema cacheado; esfuerzo bajo; temperatura cero. Si el input extraído supera el presupuesto de tokens de una llamada (perilla medida), la descomposición corre por partes en paralelo y una llamada de consolidación une y deduplica (mapa y reducción). Cada llamada queda en `llm_calls`.
+**`api` (omisión):** dos llamadas con salida estructurada (variante A; las variantes B, una sola llamada, y C, clasificar dentro de la descomposición, se miden en el banco antes de fijar la elección). (1) Clasificar: área y plantilla, con la lista de títulos y descripciones; esfuerzo `low`. (2) Descomponer: con el cuerpo de la plantilla elegida, la lista MECE de mensajes; esfuerzo `medium` hasta que el banco diga otra cosa. Prompt de sistema cacheado (mínimo cacheable 512 tokens; TTL 5 minutos, 1 hora si el acierto medido es bajo).
+
+MECE por construcción, no por confianza: antes de la segunda llamada el sistema numera las unidades del input extraído (párrafos, viñetas, segmentos de transcripción con marca de tiempo, fotogramas) y el esquema exige que cada mensaje cite sus `unit_ids` y que lo no accionable vaya en `discarded`. Con eso el sistema calcula solapes (una unidad en dos mensajes) y huecos (una unidad en ninguno) por aritmética de conjuntos, sin leer prosa. Si hay conflicto, un único pase de rescate sobre esas unidades; sin autoconsistencia por omisión (veinte muestras mejoran 0,4 %, informe 02). Si el input supera el umbral de partición (provisional: 100.000 tokens de entrada, frontera de precio del modelo; el banco lo fija), se parte sólo por fronteras estructurales en trozos disjuntos por unidad, se descompone en paralelo y la reducción es determinista por `unit_ids`; un monólogo transcrito no se parte. El esquema de salida de cada plantilla se compila una vez y se calienta por evento al guardar la plantilla (la gramática compilada se cachea 24 horas desde el último uso). Cada llamada queda en `llm_calls`.
 
 **`harness`:** el mismo bundle se escribe en un directorio de trabajo vacío y propio; `claude -p --output-format json --json-schema <Proposal>` con el prompt y las herramientas de lectura permitidas; se lee `structured_output`, `usage` y `total_cost_usd`. Sin `--bare` para que use la suscripción [V]. Mismo validador de salida que `api`.
 
-**Validación (sistema, no modelo):** área y plantilla existen y se corresponden; cada `assignee_id` es un miembro; cada `attachment_id` pertenece al input; cada campo obligatorio de la plantilla está presente; ningún mensaje vacío. Una salida inválida reintenta una vez con el error como contexto; después, el trabajo falla con el motivo visible.
+**Validación (sistema, no modelo):** área y plantilla existen y se corresponden; cada `assignee_id` es un miembro; cada `attachment_id` pertenece al input; cada `unit_id` existe y cada unidad está en un mensaje o en `discarded`; cada campo obligatorio de la plantilla está presente; ningún mensaje vacío. Una salida inválida reintenta una vez con el error como contexto; después, el trabajo falla con el motivo visible. Un `refusal` del proveedor y un corte por `max_tokens` son estados propios del trabajo: el rechazo no se reintenta igual (se ofrece el proveedor de respaldo); el corte reintenta una vez con el doble de `max_tokens` (provisional: 16.000 y 32.000; el banco fija el p95 real).
 
 ### 7.6 Proveedores de modelo (`src/providers/`)
 
@@ -341,7 +343,7 @@ que comparten una captura, qué va en cada campo.
 Un mensaje por error. Título: verbo en infinitivo y lugar.
 ```
 
-El frontmatter se convierte en el esquema JSON de `fields` que el analizador exige; el cuerpo entra al prompt de la segunda llamada. El juego inicial (idea, error, nueva funcionalidad, retroalimentación, pregunta) se siembra al instalar y se puede editar o borrar.
+El frontmatter se convierte en el esquema JSON de `fields` que el analizador exige; el cuerpo entra al prompt de la segunda llamada. `name` y `description` respetan los límites de la especificación Agent Skills (64 y 1.024 caracteres), porque la primera llamada sólo ve esos dos campos de cada plantilla y el cuerpo se revela recién en la segunda: la misma divulgación progresiva. El juego inicial (idea, error, nueva funcionalidad, retroalimentación, pregunta) se siembra al instalar y se puede editar o borrar.
 
 ### 7.10 Eventos y progreso (`src/events/`)
 
@@ -351,7 +353,7 @@ El frontmatter se convierte en el esquema JSON de `fields` que el analizador exi
 
 ### 7.11 Banco de referencia y mediciones (`bench/`)
 
-**Propósito:** Que el vector (§1) sea un número. Un conjunto de inputs reales anonimizados (captura de chat, docx con N puntos, transcripción de un monólogo, video corto) con su descomposición esperada. La batería corre el analizador sobre cada uno y reporta: tiempo total por input, tiempo por paso, tokens y costo por llamada, y puntaje MECE contra la esperada (puntos cubiertos, puntos repetidos, mensajes de más). Lo mismo para cada extractor candidato (UD-009). Toda perilla de §4.9 cita una corrida de este banco.
+**Propósito:** Que el vector (§1) sea un número. Un conjunto de inputs reales anonimizados (captura de chat, docx con N puntos, transcripción de un monólogo, video corto) con su descomposición esperada, auditada contra las salidas de los modelos (una referencia escrita a mano omitió 227 intervalos en un estudio de 2026). El runner es promptfoo con versión fijada en `package-lock.json` (MIT, corre en Node, `--repeat`, caché) y una aserción en JavaScript que importa `bench/score.js`: puntaje por aritmética de conjuntos sobre `unit_ids` (cobertura, repetición, mensajes de más, mensajes partidos, mensajes fusionados). Cinco repeticiones por input para medir estabilidad (§1.3). La batería reporta además tiempo total por input, tiempo por paso, tokens y costo por llamada. Lo mismo para cada extractor candidato (UD-009). El banco se repite al cambiar de modelo, no sólo al editar una plantilla: cambiar de modelo reasigna la etiqueta en casi la mitad de los casos de un estudio de 2026. Toda perilla de §4.9 cita una corrida de este banco.
 
 ---
 

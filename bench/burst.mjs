@@ -130,8 +130,9 @@ export function createFetchTally(baseFetch) {
       slot.statuses[response.status] = (slot.statuses[response.status] ?? 0) + 1;
       if (response.status === 429) {
         slot.s429 += 1;
-        const after = Number(response.headers.get('retry-after'));
-        if (Number.isFinite(after)) slot.retry_after_ms.push(Math.round(after * 1000));
+        const header = response.headers.get('retry-after');
+        if (header !== null && Number.isFinite(Number(header))) slot.retry_after_ms.push(Math.round(Number(header) * 1000));
+        slot.last_429_body ??= (await response.clone().text().catch(() => '')).slice(0, 200);
       } else if (response.status >= 500) {
         slot.s5xx += 1;
       }

@@ -343,7 +343,7 @@ Todas consultadas el 2026-10-20.
 - `max_attempts`: 3, primer intento más 2 reintentos. Es el `retryLimit` de pg-boss [F15] y coincide con el `maxRetries` del SDK de Anthropic [F38]. El peor caso son 9 llamadas al proveedor. AWS recomienda un solo punto de reintento [F41]. Si el banco muestra 429 en cadena, se baja `maxRetries` del SDK a 0 y el retroceso queda en la cola. Un 429 sin `retry-after` falla sin reintentar [F39].
 - `retry_base_ms`: 1.000, con retroceso exponencial y jitter. pg-boss parte de 1 s [F15]; el jitter es el de `walq` [F16].
 - `retry_max_ms`: 60.000. Derivado del límite por minuto de Groq, 20 peticiones [F40]. No hay otra fuente.
-- `concurrency`: 1 trabajo a la vez, el valor por omisión de pg-boss, `walq` y `liteque` [F15, F16, F19]. Es la única perilla cuyo valor es convención y no medición. Subirlo depende de §7.11 y del tope de 20 peticiones por minuto de transcripción [F40].
+- `concurrency`: 1 trabajo a la vez, el valor por omisión de pg-boss, `walq` y `liteque` [F15, F16, F19]. Era la única perilla cuyo valor era convención. El 2026-10-21 se midió y quedó en 3 (`docs/investigaciones/mediciones/2026-10-21-concurrencia-de-la-cola.md`).
 - `busy_timeout_ms`: 5.000, el valor de `better-sqlite3` y del ejemplo de `walq` [F42, F16]. M2 midió 0 errores contra 19.040 con 0.
 - `synchronous`: `FULL` [M1, M8]. `NORMAL` solo si el banco sostiene más de 100 confirmaciones por segundo.
 - `wal_autocheckpoint`: 1.000 páginas, la omisión de SQLite [F4].

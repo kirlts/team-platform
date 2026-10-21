@@ -347,7 +347,7 @@ llm_calls            VISTA sobre los spans de llamada a un modelo: id, job_id, p
 enqueue(kind, payload, { priority, runAt })      → job_id
 claim(workerId, leaseMs)                          → job | null
    BEGIN IMMEDIATE; UPDATE jobs SET status='running', worker_id=?, lease_until=?, attempts=attempts+1
-   WHERE id = (SELECT id FROM jobs WHERE status='queued' AND run_at<=? ORDER BY priority DESC, run_at, id LIMIT 1)
+   WHERE id = (SELECT id FROM <trabajos vencidos con su turno por persona> ORDER BY turn, priority DESC, run_at, id LIMIT 1)
    RETURNING *; COMMIT        (UPDATE … LIMIT 1 directo es error de sintaxis en SQLite)
 heartbeat(jobId)                                  renueva el arriendo; progress(jobId, percent, phrase)
 complete(jobId) · fail(jobId, error)              fail reencola con retroceso exponencial y jitter hasta max_attempts
@@ -358,7 +358,7 @@ cancel(jobId) · cancelForInput(inputId)           el dueño del trabajo lo nota
 listJobs · purgeJobs · stats · sweepRetention     operación del editor y retención
 ```
 
-Todo cambio de estado de un trabajo vale sólo si el trabajo sigue `running` con el mismo número de intento (barrera de intento). Un worker cuyo arriendo venció no cierra el intento de otro. `WORKER_MODE` elige `inline` (omisión: el worker corre en el mismo proceso que la API, un contenedor), `external` (segundo proceso de la misma imagen, `node src/worker.js`, tras `npm run db:init`) u `off`. Con proceso aparte, la API se entera de cambios por `PRAGMA data_version` (1,15 µs por consulta). Al apagar no se esperan los trabajos: se abortan, vuelven a la cola y el intento se reembolsa. La API cierra con `forceCloseConnections: true` porque un flujo SSE abierto cuelga `app.close()`. Perillas y fuentes en el informe 03: arriendo de 30 s con latido cada 10 s. `max_attempts` 3, y el reintento del SDK del proveedor en 0 si el banco muestra 429 en cadena, para que haya un solo punto de reintento. Retroceso desde 1 s hasta 60 s. Concurrencia 1 hasta que el banco (§7.11) la suba; es la única perilla cuyo valor es convención y no medición. Duración máxima por trabajo de 900 s.
+Todo cambio de estado de un trabajo vale sólo si el trabajo sigue `running` con el mismo número de intento (barrera de intento). Un worker cuyo arriendo venció no cierra el intento de otro. `WORKER_MODE` elige `inline` (omisión: el worker corre en el mismo proceso que la API, un contenedor), `external` (segundo proceso de la misma imagen, `node src/worker.js`, tras `npm run db:init`) u `off`. Con proceso aparte, la API se entera de cambios por `PRAGMA data_version` (1,15 µs por consulta). Al apagar no se esperan los trabajos: se abortan, vuelven a la cola y el intento se reembolsa. La API cierra con `forceCloseConnections: true` porque un flujo SSE abierto cuelga `app.close()`. Perillas y fuentes en el informe 03: arriendo de 30 s con latido cada 10 s. `max_attempts` 3, y el reintento del SDK del proveedor en 0 si el banco muestra 429 en cadena, para que haya un solo punto de reintento. Retroceso desde 1 s hasta 60 s. Concurrencia 3, medida con ráfagas de 8 envíos contra Anthropic y Groq (`bench/burst.mjs`, `docs/investigaciones/mediciones/2026-10-21-concurrencia-de-la-cola.md`, UD-025). El reclamo reparte turnos por persona: los envíos de una persona se reclaman en el orden en que llegaron y las personas se turnan (los trabajos que ya corren de una persona cuentan como sus turnos usados). Duración máxima por trabajo de 900 s.
 
 ### 7.4 Extractores (`src/extract/`)
 

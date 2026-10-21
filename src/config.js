@@ -118,7 +118,7 @@ export function loadConfig (env = process.env, overrides = {}) {
       // Jitter completo (fracción del retraso que se resta al azar). I03 §3.4 cita a walq para el mecanismo y
       // la guía de AWS [F41] para el principio, sin fijar la fracción: 1 es el «full jitter» de esa guía.
       retryJitter: decimal(env, 'QUEUE_RETRY_JITTER', 1, { min: 0, max: 1 }),
-      concurrency: intVar(env, 'QUEUE_CONCURRENCY', 1, { min: 1 }), // única perilla de convención (I03 §12)
+      concurrency: intVar(env, 'QUEUE_CONCURRENCY', 3, { min: 1 }), // docs/investigaciones/mediciones/2026-10-21-concurrencia-de-la-cola.md (medición 2026-10-21, UD-025): the largest C with no 429 in 15 bursts of 8
       maxRuntimeMs: intVar(env, 'QUEUE_MAX_RUNTIME_MS', 900000, { min: 1 }), // expireInSeconds de pg-boss: 900 s
       retentionDays: intVar(env, 'RETENTION_DAYS', 7, { min: 1 }), // I03 §12: pg-boss deleteAfterSeconds, 7 days
       // Cortesía: la retención se mide en días, un barrido por hora la cumple con holgura. No gobierna la

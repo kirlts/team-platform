@@ -2,7 +2,7 @@
 // serving panel/dist: `npm run test:flows`. Every test can fail if the defect it names comes back.
 import assert from 'node:assert'
 import { after, before, describe, test } from 'node:test'
-import { login, startPanel } from './browser-support.mjs'
+import { login, startPanel, openTemplates } from './browser-support.mjs'
 
 let panel
 let origin = ''
@@ -54,7 +54,7 @@ const redFills = (page) =>
       const box = el.getBoundingClientRect()
       if (box.width < 8 || box.height < 8) continue
       const { r, g, b, a } = toRgb(getComputedStyle(el).backgroundColor)
-      if (a > 200 && r > 120 && r > g * 2.2 && r > b * 2.2) found.push(`${el.tagName.toLowerCase()}[${el.getAttribute('data-testid') ?? el.getAttribute('data-tone') ?? el.className.toString().slice(0, 40)}]`)
+      if (a > 200 && r > 120 && r > g * 2.2 && r > b * 2.2) found.push(`${el.tagName.toLowerCase()}[${el.getAttribute('data-testid') ?? el.getAttribute('data-status') ?? el.className.toString().slice(0, 40)}]`)
     }
     return found
   })
@@ -85,7 +85,7 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
       const row = page.locator('article[data-affects-me]').first()
       await row.waitFor()
       // One marker of state or priority: the mark with its word, or the light of the state, never both.
-      const markers = await row.locator('[data-testid="tone-mark"], .led').count()
+      const markers = await row.locator('[data-testid="state-mark"]').count()
       assert.equal(markers, 1, 'la fila dice su prioridad o su estado una vez')
       // The edge on the left is the only color: no element of the row has a colored background.
       assert.deepEqual((await redFills(page)).filter((x) => !/bell/.test(x)), [])
@@ -134,7 +134,7 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
     try {
       const attention = page.getByTestId('attention')
       await attention.waitFor()
-      const chips = await attention.locator('[data-testid="tone-mark"], [data-testid="area-pending"]').evaluateAll((els) =>
+      const chips = await attention.locator('[data-testid="state-mark"]:not([data-plain]), [data-testid="area-pending"]').evaluateAll((els) =>
         els.map((el) => {
           const s = getComputedStyle(el)
           return { height: Math.round(el.getBoundingClientRect().height), size: s.fontSize, weight: s.fontWeight, border: s.borderTopWidth, bg: s.backgroundColor }
@@ -158,8 +158,8 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
     try {
       // Every area with something pending, whatever the earlier tests left in the data: the row has to give up some of them.
       const areaList = await (await page.request.get(`${origin}/api/areas`)).json()
-      const areas = (areaList.items ?? areaList).map((a) => ({ area_id: a.id, open: 2, mine_open: 1 }))
-      await page.route(/\/api\/messages\/summary$/, (route) => route.fulfill({ json: { mine: { red: 1, yellow: 0, blue: 0, total: 1 }, items: [], areas } }))
+      const areas = (areaList.items ?? areaList).map((a) => ({ area_id: a.id, open: 2, answered: 0, closed: 0, mine_open: 1 }))
+      await page.route(/\/api\/messages\/summary$/, (route) => route.fulfill({ json: { mine: { open: 1, answered: 0, total: 1 }, items: [], areas } }))
       await page.goto(origin)
       const attention = page.getByTestId('attention')
       await attention.waitFor()
@@ -286,9 +286,9 @@ describe('the bell (J3-A-13, J3-A-14, J3-A-15)', () => {
       const seeAll = page.getByRole('link', { name: /^Ver todos/ })
       await seeAll.waitFor()
       assert.equal((await seeAll.innerText()).replace(/\s+/g, ' ').trim(), `Ver todos ${total}`)
-      // The priority is the shape: no visible word in the row (the word is for the screen reader).
-      const marks = await list.locator('[data-testid="tone-mark"]').evaluateAll((els) => els.map((el) => el.textContent.trim()))
-      assert.ok(marks.length > 0 && marks.every((t) => t === ''), `palabras repetidas en la campana: ${marks.join(',')}`)
+      // The state is its shape and its word (UD-041): every row of the bell says «Abierto» or «Respondido».
+      const marks = await list.locator('[data-testid="state-mark"]').evaluateAll((els) => els.map((el) => el.textContent.trim()))
+      assert.ok(marks.length > 0 && marks.every((t) => t === 'Abierto' || t === 'Respondido'), `estado de las filas de la campana: ${marks.join(',')}`)
       // It opens below the bar with room between them.
       const popover = await page.locator('[data-lane="bell-list"]').locator('xpath=ancestor::*[contains(@class,"pop")]').boundingBox()
       assert.ok(popover.y >= 52 + 6, `la campana se abre a ${popover.y} px, pegada a la barra`)
@@ -566,22 +566,24 @@ describe('Mensajes and the detail (J3-A-16, J3-A-22 to J3-A-29)', () => {
 })
 
 describe('Áreas and templates (J3-A-30 to J3-A-38)', () => {
-  test('an area with nothing pending says nothing, and a count is centered on its row (J3-A-33)', async () => {
+  test('an area with nothing open or answered says nothing, and its counts are centered on its row (J3-A-33, UD-041)', async () => {
     const { page, context } = await session('ana')
     try {
       await page.goto(`${origin}/areas`)
-      await page.locator('main section[aria-current]').first().waitFor()
-      const rows = await page.locator('main section[aria-current], main section:has(button[aria-pressed])').evaluateAll((els) =>
+      await page.locator('main section').first().waitFor()
+      const rows = await page.locator('main section').evaluateAll((els) =>
         els.map((el) => {
           const box = el.getBoundingClientRect()
-          const pending = [...el.querySelectorAll('span')].find((s) => /pendiente/.test(s.textContent ?? ''))
-          const p = pending?.getBoundingClientRect()
-          return { text: pending?.textContent ?? '', offset: p ? Math.abs(p.top + p.height / 2 - (box.top + box.height / 2)) : null }
+          const marks = [...el.querySelectorAll('[data-testid="state-mark"]')]
+          const rects = marks.map((m) => m.getBoundingClientRect())
+          const top = Math.min(...rects.map((r) => r.top))
+          const bottom = Math.max(...rects.map((r) => r.bottom))
+          return { text: marks.map((m) => m.textContent.trim()).join(' '), offset: marks.length ? Math.abs((top + bottom) / 2 - (box.top + box.height / 2)) : null }
         }),
       )
-      assert.ok(rows.some((r) => r.text === ''), 'Retroalimentación no dice «0 pendientes»')
-      assert.ok(rows.every((r) => !/^0 /.test(r.text)))
-      for (const r of rows.filter((x) => x.offset !== null)) assert.ok(r.offset <= 4, `el conteo queda a ${r.offset} px del centro de su fila`)
+      assert.ok(rows.some((r) => r.text === ''), 'un área sin mensajes abiertos ni respondidos no dice «0 abiertos»')
+      assert.ok(rows.every((r) => !/^0 /.test(r.text) && !/pendiente/i.test(r.text)))
+      for (const r of rows.filter((x) => x.offset !== null)) assert.ok(r.offset <= 4, `los conteos quedan a ${r.offset} px del centro de su fila`)
     } finally {
       await context.close()
     }
@@ -591,6 +593,7 @@ describe('Áreas and templates (J3-A-30 to J3-A-38)', () => {
     const { page, context } = await session('ana')
     try {
       await page.goto(`${origin}/areas/a-error`)
+      await openTemplates(page)
       const card = page.locator('section[aria-label="Plantillas"] article').first()
       await card.waitFor()
       for (const field of ['Resumen', 'Pasos para reproducir', 'Qué se esperaba']) await card.getByText(field, { exact: false }).first().waitFor()
@@ -619,6 +622,7 @@ describe('Áreas and templates (J3-A-30 to J3-A-38)', () => {
     const { page, context } = await session('ana')
     try {
       await page.goto(`${origin}/areas/a-error`)
+      await openTemplates(page)
       await page.getByRole('button', { name: 'Campos e instrucciones', exact: true }).first().click()
       const dialog = page.getByRole('dialog')
       await dialog.waitFor()

@@ -101,33 +101,27 @@
   --color-gel-fg: oklch(0.99 0 0);
 
   /* States: text, background and light. */
-  --color-open-fg: oklch(0.4 0.09 65);
-  --color-open-bg: oklch(0.94 0.075 88);
-  --color-open-led: oklch(0.8 0.17 80);
-  --color-answered-fg: oklch(0.4 0.15 252);
-  --color-answered-bg: oklch(0.925 0.05 245);
-  --color-answered-led: oklch(0.68 0.17 245);
-  --color-closed-fg: oklch(0.42 0.03 255);
-  --color-closed-bg: oklch(0.925 0.012 250);
-  --color-closed-led: oklch(0.72 0.02 255);
   --color-danger: oklch(0.5 0.2 25);
   --color-danger-soft: oklch(0.94 0.035 25);
   /* Notification priorities (UD-029): red > yellow > blue. Solid fills with their own text color. */
-  --color-tone-red-bg: oklch(0.5 0.21 25);
-  --color-tone-red-fg: oklch(0.99 0 0);
-  --color-tone-red-edge: oklch(0.4 0.19 25);
-  --color-tone-yellow-bg: oklch(0.86 0.17 88);
-  --color-tone-yellow-fg: oklch(0.25 0.06 70);
-  --color-tone-yellow-edge: oklch(0.45 0.11 75);
-  --color-tone-blue-bg: oklch(0.5 0.2 250);
-  --color-tone-blue-fg: oklch(0.99 0 0);
-  --color-tone-blue-edge: oklch(0.38 0.17 255);
-  --color-tone-red-soft-bg: oklch(0.95 0.035 25);
-  --color-tone-red-soft-fg: oklch(0.38 0.17 25);
-  --color-tone-yellow-soft-bg: oklch(0.96 0.06 92);
-  --color-tone-yellow-soft-fg: oklch(0.36 0.08 70);
-  --color-tone-blue-soft-bg: oklch(0.95 0.03 250);
-  --color-tone-blue-soft-fg: oklch(0.38 0.17 255);
+  --color-state-open-bg: oklch(0.5 0.21 25);
+  --color-state-open-fg: oklch(0.99 0 0);
+  --color-state-open-edge: oklch(0.4 0.19 25);
+  --color-open-led: oklch(0.4 0.19 25);
+  --color-state-answered-bg: oklch(0.86 0.17 88);
+  --color-state-answered-fg: oklch(0.25 0.06 70);
+  --color-state-answered-edge: oklch(0.45 0.11 75);
+  --color-answered-led: oklch(0.45 0.11 75);
+  --color-state-closed-bg: oklch(0.5 0.2 250);
+  --color-state-closed-fg: oklch(0.99 0 0);
+  --color-state-closed-edge: oklch(0.38 0.17 255);
+  --color-closed-led: oklch(0.38 0.17 255);
+  --color-open-bg: oklch(0.95 0.035 25);
+  --color-open-fg: oklch(0.38 0.17 25);
+  --color-answered-bg: oklch(0.96 0.06 92);
+  --color-answered-fg: oklch(0.36 0.08 70);
+  --color-closed-bg: oklch(0.95 0.03 250);
+  --color-closed-fg: oklch(0.38 0.17 255);
 
   /* Shape: short radii; the large rounding is left for controls. */
   --radius-sm: 3px;
@@ -187,35 +181,29 @@
   --color-gel-bottom: oklch(0.66 0.18 245);
   --color-gel-fg: oklch(0.18 0.04 260);
 
-  --color-open-fg: oklch(0.87 0.12 85);
-  --color-open-bg: oklch(0.33 0.06 85);
-  --color-open-led: oklch(0.84 0.17 85);
-  --color-answered-fg: oklch(0.84 0.1 240);
-  --color-answered-bg: oklch(0.3 0.07 255);
-  --color-answered-led: oklch(0.76 0.15 240);
-  --color-closed-fg: oklch(0.76 0.02 250);
-  --color-closed-bg: oklch(0.3 0.015 255);
-  --color-closed-led: oklch(0.6 0.02 255);
   --color-ai-bg: oklch(0.255 0.052 285);
   --color-ai-edge: oklch(0.74 0.15 305);
   --color-ai-fg: oklch(0.86 0.1 305);
   --color-danger: oklch(0.74 0.16 25);
   --color-danger-soft: oklch(0.32 0.07 25);
-  --color-tone-red-bg: oklch(0.66 0.2 25);
-  --color-tone-red-fg: oklch(0.16 0.04 25);
-  --color-tone-red-edge: oklch(0.9 0.07 25);
-  --color-tone-yellow-bg: oklch(0.85 0.17 88);
-  --color-tone-yellow-fg: oklch(0.22 0.05 70);
-  --color-tone-yellow-edge: oklch(0.93 0.1 88);
-  --color-tone-blue-bg: oklch(0.74 0.14 245);
-  --color-tone-blue-fg: oklch(0.16 0.04 260);
-  --color-tone-blue-edge: oklch(0.92 0.06 245);
-  --color-tone-red-soft-bg: oklch(0.3 0.07 25);
-  --color-tone-red-soft-fg: oklch(0.9 0.07 25);
-  --color-tone-yellow-soft-bg: oklch(0.3 0.06 88);
-  --color-tone-yellow-soft-fg: oklch(0.92 0.09 88);
-  --color-tone-blue-soft-bg: oklch(0.3 0.07 250);
-  --color-tone-blue-soft-fg: oklch(0.9 0.06 245);
+  --color-state-open-bg: oklch(0.66 0.2 25);
+  --color-state-open-fg: oklch(0.16 0.04 25);
+  --color-state-open-edge: oklch(0.9 0.07 25);
+  --color-open-led: oklch(0.9 0.07 25);
+  --color-state-answered-bg: oklch(0.85 0.17 88);
+  --color-state-answered-fg: oklch(0.22 0.05 70);
+  --color-state-answered-edge: oklch(0.93 0.1 88);
+  --color-answered-led: oklch(0.93 0.1 88);
+  --color-state-closed-bg: oklch(0.74 0.14 245);
+  --color-state-closed-fg: oklch(0.16 0.04 260);
+  --color-state-closed-edge: oklch(0.92 0.06 245);
+  --color-closed-led: oklch(0.92 0.06 245);
+  --color-open-bg: oklch(0.3 0.07 25);
+  --color-open-fg: oklch(0.9 0.07 25);
+  --color-answered-bg: oklch(0.3 0.06 88);
+  --color-answered-fg: oklch(0.92 0.09 88);
+  --color-closed-bg: oklch(0.3 0.07 250);
+  --color-closed-fg: oklch(0.9 0.06 245);
 
   --shadow-glass: inset 0 1px 0 oklch(1 0 0 / 0.14), 0 1px 2px oklch(0.1 0.05 260 / 0.5), 0 12px 30px -12px oklch(0.05 0.05 260 / 0.7);
   --shadow-pop: inset 0 1px 0 oklch(1 0 0 / 0.16), 0 2px 4px oklch(0.1 0.05 260 / 0.5), 0 20px 44px -14px oklch(0.05 0.05 260 / 0.85);
@@ -340,44 +328,44 @@
     text-align: justify;
   }
 
-  /* Notification fills (UD-029): one class per priority; the component sets data-tone to the highest present. */
-  [data-tone='red'] {
-    background-color: var(--color-tone-red-bg);
-    border-color: var(--color-tone-red-edge);
-    color: var(--color-tone-red-fg);
+  /* Message state fills (UD-029, UD-041): one rule per state; the component sets data-status to the highest present (open > answered > closed). */
+  [data-status='open'] {
+    background-color: var(--color-state-open-bg);
+    border-color: var(--color-state-open-edge);
+    color: var(--color-state-open-fg);
   }
-  [data-tone='yellow'] {
-    background-color: var(--color-tone-yellow-bg);
-    border-color: var(--color-tone-yellow-edge);
-    color: var(--color-tone-yellow-fg);
+  [data-status='answered'] {
+    background-color: var(--color-state-answered-bg);
+    border-color: var(--color-state-answered-edge);
+    color: var(--color-state-answered-fg);
   }
-  [data-tone='blue'] {
-    background-color: var(--color-tone-blue-bg);
-    border-color: var(--color-tone-blue-edge);
-    color: var(--color-tone-blue-fg);
+  [data-status='closed'] {
+    background-color: var(--color-state-closed-bg);
+    border-color: var(--color-state-closed-edge);
+    color: var(--color-state-closed-fg);
   }
 
   /* One protagonist, the rest quiet (J2-B-03, J2-A-04, J3-A-04): the bell is the only filled red in the interface. Every other count (the messages
      tab, the chips of Inicio, areas, rows) is quiet: neutral ink on a neutral edge, and the priority only in the color of its own shape (triangle,
      clock, dot), next to its word and its number (UD-036). The color is never alone and never a fill. */
-  [data-tone][data-weight='quiet'] {
+  [data-status][data-weight='quiet'] {
     background-color: transparent;
     border-color: var(--color-line-strong);
     color: var(--color-fg);
     box-shadow: none;
   }
-  [data-tone][data-weight='quiet'][data-plain] {
+  [data-status][data-weight='quiet'][data-plain] {
     border-color: transparent;
     padding-inline: 0;
   }
-  [data-tone='red'][data-weight='quiet'] > svg {
-    color: var(--color-tone-red-edge);
+  [data-status='open'][data-weight='quiet'] > svg {
+    color: var(--color-state-open-edge);
   }
-  [data-tone='yellow'][data-weight='quiet'] > svg {
-    color: var(--color-tone-yellow-edge);
+  [data-status='answered'][data-weight='quiet'] > svg {
+    color: var(--color-state-answered-edge);
   }
-  [data-tone='blue'][data-weight='quiet'] > svg {
-    color: var(--color-tone-blue-edge);
+  [data-status='closed'][data-weight='quiet'] > svg {
+    color: var(--color-state-closed-edge);
   }
   /* A count that just changed pulses once (J2-B-27); no motion when the person asks for less. */
   @keyframes count-pulse {

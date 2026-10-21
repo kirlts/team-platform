@@ -3,11 +3,11 @@ import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useFormat, useT } from '@/i18n'
-import { TONE_WORD, ToneIcon, ToneMark } from '@/components/NotifyBadge'
+import { StateIcon, StateMark, useCountsLabel } from '@/components/NotifyBadge'
 import { ME } from '@/lib/filters'
 import { useEventsSnapshot, useEventsStore } from '@/lib/events'
 import { mineCounts } from '@/lib/pending'
-import { topTone, toneTotal } from '@/lib/priority'
+import { stateTotal, topState } from '@/lib/states'
 import { useSummary } from '@/lib/queries'
 import { cn } from '@/lib/utils'
 import { Wordmark } from './Wordmark'
@@ -45,31 +45,31 @@ function NotificationBell() {
   const store = useEventsStore()
   const { memberName } = useLookups()
   const summary = useSummary().data
-  // The bell counts what affects me; news from the stream (blue) count only while nothing else does, so nothing is counted twice.
-  const mine = mineCounts(summary)
-  const counts = toneTotal(mine) > 0 ? mine : snap.unread > 0 ? { blue: snap.unread } : {}
-  const tone = topTone(counts)
-  const total = toneTotal(counts)
-  const listed = toneTotal(mine) > 0 && (summary?.items.length ?? 0) > 0
+  const countsLabel = useCountsLabel()
+  // The bell counts the open and answered messages that affect me (UD-028, UD-041); closed ones raise no notice.
+  const counts = mineCounts(summary)
+  const status = topState(counts)
+  const total = stateTotal(counts)
+  const listed = total > 0 && (summary?.items.length ?? 0) > 0
   return (
     <Popover onOpenChange={(open) => open && store.markRead()}>
       <PopoverTrigger asChild>
         <button
           type="button"
           data-testid="bell"
-          data-tone={tone ?? undefined}
+          data-status={status ?? undefined}
           data-weight="solid"
           data-count={total}
-          aria-label={total > 0 ? t('bell.unread', { n: total }) : t('bell.label')}
+          aria-label={total > 0 ? t('bell.counts', { counts: countsLabel(counts) }) : t('bell.label')}
           className={cn(
             'inline-flex h-10 items-center justify-center gap-1.5 rounded-full border-2',
-            tone ? 'min-w-[4.25rem] px-3 shadow-glass' : 'w-10 border-transparent text-fg hover:bg-glass',
+            status ? 'min-w-[4.25rem] px-3 shadow-glass' : 'w-10 border-transparent text-fg hover:bg-glass',
           )}
         >
           <Bell size={22} aria-hidden strokeWidth={2} />
-          {tone && (
+          {status && (
             <>
-              <ToneIcon tone={tone} size={15} />
+              <StateIcon status={status} size={15} />
               <span className="text-sm font-bold leading-none tabular-nums">{total}</span>
             </>
           )}
@@ -85,8 +85,7 @@ function NotificationBell() {
                 <li key={n.message_id} className="border-b border-line">
                   <Link to={`/messages/${n.message_id}`} className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2 px-3 py-2 hover:bg-hover">
                     <span className="pt-0.5">
-                      <ToneMark tone={n.tone} showWord={false} plain />
-                      <span className="sr-only">{t(TONE_WORD[n.tone])}</span>
+                      <StateMark status={n.status} plain />
                     </span>
                     <span className="break-words text-sm font-medium leading-snug">{n.title}</span>
                     <span className="col-start-2 text-xs text-muted">{format.stamp(n.at)}</span>

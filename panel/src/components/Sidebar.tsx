@@ -2,9 +2,9 @@ import { ChevronDown, Home, PanelLeft, Inbox, Layers, LogOut, Plug, Plus, Settin
 import { useState, type ReactNode } from 'react'
 import { NavLink, useMatch } from 'react-router'
 import { Link } from 'react-router'
-import { NotifyBadge } from '@/components/NotifyBadge'
+import { NotifyBadge, StateMark, useCountsLabel } from '@/components/NotifyBadge'
 import { useT } from '@/i18n'
-import { areaMessagesPath, areaPendingCounts, mineCounts } from '@/lib/pending'
+import { areaCounts, areaMessagesPath, mineCounts } from '@/lib/pending'
 import type { MessageSummary } from '@/lib/types'
 import { useAreas, useMe, useSaveArea, useSummary } from '@/lib/queries'
 import { cn } from '@/lib/utils'
@@ -90,8 +90,8 @@ export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => v
                     <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-sm border border-line-strong" style={{ background: a.color }} />
                     <span className="min-w-0 flex-1 break-words leading-tight">{a.title}</span>
                   </NavLink>
-                  {/* The badge's column is reserved: a name that wraps does so the same before and after the counts arrive. */}
-                  <span className="flex min-w-12 shrink-0 justify-end">
+                  {/* The counts' column is reserved: a name that wraps does so the same before and after the counts arrive. */}
+                  <span className="flex min-w-24 shrink-0 flex-col items-end">
                     <AreaPending areaId={a.id} title={a.title} summary={summary} onNavigate={onNavigate} />
                   </span>
                 </li>
@@ -138,15 +138,21 @@ export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => v
   )
 }
 
-/** The pending (open) messages of an area; it leads to Mensajes filtered by that area and by open (UD-028). */
+/** The open and answered messages of an area, each count leading to Mensajes filtered by that area and that state (UD-028, UD-041). */
 function AreaPending({ areaId, title, summary, onNavigate }: { areaId: string; title: string; summary: MessageSummary | undefined; onNavigate?: () => void }) {
   const t = useT()
-  const counts = areaPendingCounts(summary, areaId)
-  const open = counts.red ?? counts.yellow ?? 0
-  if (open === 0) return null
+  const label = useCountsLabel()
+  const counts = areaCounts(summary, areaId)
   return (
-    <Link to={areaMessagesPath(areaId)} onClick={onNavigate} aria-label={t('home.areaOpen', { title, n: open })} className="rounded-full">
-      <NotifyBadge counts={counts} size="plain" />
-    </Link>
+    <>
+      {(['open', 'answered'] as const).map(
+        (status) =>
+          counts[status] > 0 && (
+            <Link key={status} to={areaMessagesPath(areaId, status)} onClick={onNavigate} aria-label={t('areas.countOf', { title, count: label({ [status]: counts[status] }) })} className="rounded-full">
+              <StateMark status={status} n={counts[status]} plain />
+            </Link>
+          ),
+      )}
+    </>
   )
 }

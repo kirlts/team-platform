@@ -15,7 +15,7 @@
 
 import assert from 'node:assert'
 import { after, before, describe, test } from 'node:test'
-import { login, startPanel } from './browser-support.mjs'
+import { login, startPanel, openTemplates } from './browser-support.mjs'
 
 let panel
 let origin = ''
@@ -329,17 +329,19 @@ describe('consecutive inputs (UD-025)', () => {
   })
 })
 
-// ---------------------------------------------------------------- UD-028, UD-029, UD-030: Home, the badge and the priority
-/** The fill each priority has, read from a probe element in the page: the reference every badge is compared with. */
+// ---------------------------------------------------------------- UD-028, UD-029, UD-030, UD-041: Home, the badge and the states
+const STATE_WORD = { open: 'abierto', answered: 'respondido', closed: 'cerrado' }
+
+/** The fill each state has, read from a probe element in the page: the reference every badge is compared with. */
 const probeFills = (page, weight) =>
   page.evaluate((w) => {
     const out = {}
-    for (const tone of ['red', 'yellow', 'blue']) {
+    for (const status of ['open', 'answered', 'closed']) {
       const probe = document.createElement('span')
-      probe.setAttribute('data-tone', tone)
+      probe.setAttribute('data-status', status)
       if (w) probe.setAttribute('data-weight', w)
       document.body.append(probe)
-      out[tone] = getComputedStyle(probe).backgroundColor
+      out[status] = getComputedStyle(probe).backgroundColor
       probe.remove()
     }
     return out
@@ -347,15 +349,15 @@ const probeFills = (page, weight) =>
 
 /** Replaces GET /api/messages/summary with the given counts, to draw every combination without touching the data. */
 async function withSummary(page, mine, areas = []) {
-  const items = ['red', 'yellow', 'blue'].flatMap((tone) => Array.from({ length: mine[tone] }, (_, i) => ({ message_id: `${tone}-${i}`, title: `Mensaje ${tone} ${i}`, tone, at: '2026-10-21T10:00:00.000Z' })))
-  await page.route(/\/api\/messages\/summary$/, (route) => route.fulfill({ json: { mine: { ...mine, total: mine.red + mine.yellow + mine.blue }, items, areas } }))
+  const items = ['open', 'answered'].flatMap((status) => Array.from({ length: mine[status] }, (_, i) => ({ message_id: `${status}-${i}`, title: `Mensaje ${status} ${i}`, status, at: '2026-10-21T10:00:00.000Z' })))
+  await page.route(/\/api\/messages\/summary$/, (route) => route.fulfill({ json: { mine: { ...mine, total: mine.open + mine.answered }, items, areas } }))
 }
 
-describe('insignia y prioridad (UD-028, UD-029)', () => {
-  test('the bell takes the background of the highest priority present, and the Messages badge and the Home notice carry it in the color of their shape, in all eight combinations and both themes (UD-029, UD-036)', async () => {
+describe('insignia y estados (UD-028, UD-029, UD-041)', () => {
+  test('the bell takes the background of the highest state present, and the Messages badge and the Home notice carry it in the color of their shape, in all four combinations and both themes (UD-029, UD-036, UD-041)', async () => {
     for (const scheme of ['light', 'dark']) {
-      for (let bits = 0; bits < 8; bits++) {
-        const mine = { red: bits & 1 ? 2 : 0, yellow: bits & 2 ? 3 : 0, blue: bits & 4 ? 4 : 0 }
+      for (let bits = 0; bits < 4; bits++) {
+        const mine = { open: bits & 1 ? 2 : 0, answered: bits & 2 ? 3 : 0 }
         const context = await panel.browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'es-CL', colorScheme: scheme })
         const page = await context.newPage()
         try {
@@ -363,39 +365,42 @@ describe('insignia y prioridad (UD-028, UD-029)', () => {
           await login(page, origin, 'ana')
           await page.getByTestId('attention').waitFor()
           const fills = await probeFills(page)
-                    assert.equal(new Set(Object.values(fills)).size, 3, 'las tres prioridades tienen fondos distintos')
-                    const top = mine.red ? 'red' : mine.yellow ? 'yellow' : mine.blue ? 'blue' : null
-          const total = mine.red + mine.yellow + mine.blue
+          assert.equal(new Set(Object.values(fills)).size, 3, 'los tres estados tienen fondos distintos')
+          const top = mine.open ? 'open' : mine.answered ? 'answered' : null
+          const total = mine.open + mine.answered
           const surfaces = {
             pestaña: page.getByRole('navigation', { name: 'Navegación' }).locator('[data-testid="messages-badge"]'),
-            aviso: page.getByTestId('attention').locator(`[data-testid="tone-mark"][data-tone="${mine.red ? 'red' : mine.yellow ? 'yellow' : 'blue'}"]`),
+            aviso: page.getByTestId('attention').locator(`[data-testid="state-mark"][data-status="${top}"]`),
           }
           for (const [name, badge] of Object.entries(surfaces)) {
             if (!top) {
-              assert.equal(await badge.count(), 0, `${name}: sin nada pendiente no hay insignia (${scheme})`)
+              assert.equal(await badge.count(), 0, `${name}: sin nada abierto ni respondido no hay insignia (${scheme})`)
               continue
             }
-            assert.equal(await badge.getAttribute('data-tone'), top, `${name}: prioridad ${top} (${scheme}, ${JSON.stringify(mine)})`)
-            // Quiet (UD-036): no tinted fill; the priority is the color of the shape.
+            assert.equal(await badge.getAttribute('data-status'), top, `${name}: estado ${top} (${scheme}, ${JSON.stringify(mine)})`)
+            // Quiet (UD-036): no tinted fill; the state is the color of the shape.
             assert.equal(await badge.evaluate((el) => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)', `${name}: una marca callada no se rellena (${scheme}, ${JSON.stringify(mine)})`)
             const shape = await badge.locator('svg').first().evaluate((el) => getComputedStyle(el).color)
-            assert.equal(shape, await page.evaluate((t) => { const p = document.createElement('i'); p.setAttribute('data-tone', t); p.setAttribute('data-weight', 'quiet'); const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); p.append(s); document.body.append(p); const c = getComputedStyle(s).color; p.remove(); return c }, top), `${name}: la forma lleva el color de ${top} (${scheme})`)
+            assert.equal(shape, await page.evaluate((t) => { const p = document.createElement('i'); p.setAttribute('data-status', t); p.setAttribute('data-weight', 'quiet'); const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); p.append(s); document.body.append(p); const c = getComputedStyle(s).color; p.remove(); return c }, top), `${name}: la forma lleva el color de ${top} (${scheme})`)
             if (name === 'pestaña') assert.equal((await badge.textContent()).trim(), String(total), `${name}: el número es el total`)
+            // The color is never alone: the aviso names the state with its word and its number.
+            if (name === 'aviso') assert.match((await badge.textContent()).trim(), new RegExp(`^\\d+ ${STATE_WORD[top]}s?$`))
           }
           const bell = page.getByTestId('bell')
           if (top) {
-            assert.equal(await bell.getAttribute('data-tone'), top, `campana: prioridad ${top}`)
+            assert.equal(await bell.getAttribute('data-status'), top, `campana: estado ${top}`)
             assert.equal(await bell.evaluate((el) => getComputedStyle(el).backgroundColor), fills[top], `campana: el fondo pintado es el de ${top} (${scheme})`)
             assert.match((await bell.textContent()).trim(), new RegExp(`${total}$`))
             // One source of truth (J2-B-03): the bell is the only saturated fill on the screen; everything else is quiet.
-            const weights = await page.evaluate(() => [...document.querySelectorAll('[data-tone]')].map((el) => el.getAttribute('data-weight') ?? 'solid'))
+            const weights = await page.evaluate(() => [...document.querySelectorAll('[data-status]')].map((el) => el.getAttribute('data-weight') ?? 'solid'))
             assert.equal(weights.filter((w) => w === 'solid').length, 1, `un solo relleno saturado (${scheme}, ${JSON.stringify(mine)})`)
-            // The bell lists exactly what it counts (J2-A-43).
+            // The bell lists exactly what it counts (J2-A-43), each with the word of its state.
             await bell.click()
             assert.equal(await page.locator('[data-lane="bell-list"] li').count(), total, `la campana lista ${total} (${scheme}, ${JSON.stringify(mine)})`)
+            assert.equal(await page.locator('[data-lane="bell-list"] [data-testid="state-mark"]').first().textContent(), top === 'open' ? 'Abierto' : 'Respondido')
           } else {
-            // With nothing affecting the member, the bell can only show the event-stream news (blue), never another priority.
-            assert.ok([null, 'blue'].includes(await bell.getAttribute('data-tone')), 'bell: with nothing pending it can only be blue')
+            // With nothing open or answered that affects the member, the bell shows no state at all.
+            assert.equal(await bell.getAttribute('data-status'), null, 'campana: sin avisos no lleva estado')
           }
         } finally {
           await context.close()
@@ -404,26 +409,26 @@ describe('insignia y prioridad (UD-028, UD-029)', () => {
     }
   })
 
-  test('real data: the Messages badge counts what the server says and the Home notice repeats it per priority', async () => {
+  test('real data: the Messages badge counts what the server says and the Home notice repeats it per state', async () => {
     const { page, context } = await session('ana')
     try {
       const summary = await (await page.request.get(`${origin}/api/messages/summary`)).json()
-      assert.ok(summary.mine.red > 0 && summary.mine.yellow > 0 && summary.mine.blue > 0, 'los datos de desarrollo tienen las tres prioridades para Ana')
+      assert.ok(summary.mine.open > 0 && summary.mine.answered > 0, 'los datos de desarrollo tienen abiertos y respondidos para Ana')
       const badge = page.getByRole('navigation', { name: 'Navegación' }).locator('[data-testid="messages-badge"]')
       await badge.waitFor()
-      assert.equal(await badge.getAttribute('data-tone'), 'red')
+      assert.equal(await badge.getAttribute('data-status'), 'open')
       assert.equal((await badge.textContent()).trim(), String(summary.mine.total))
       const attention = page.getByTestId('attention')
-      for (const [tone, word, n] of [['red', 'Por atender', summary.mine.red], ['yellow', 'Pendiente', summary.mine.yellow], ['blue', 'Novedad', summary.mine.blue]]) {
-        const mark = attention.locator(`[data-testid="tone-mark"][data-tone="${tone}"]`)
-        assert.equal((await mark.textContent()).replace(/\s+/g, ''), `${word}${n}`.replace(/\s+/g, ''))
+      for (const [status, word, n] of [['open', n1 => (n1 === 1 ? 'abierto' : 'abiertos'), summary.mine.open], ['answered', n1 => (n1 === 1 ? 'respondido' : 'respondidos'), summary.mine.answered]]) {
+        const mark = attention.locator(`[data-testid="state-mark"][data-status="${status}"]`).first()
+        assert.equal((await mark.textContent()).trim(), `${n} ${word(n)}`)
       }
     } finally {
       await context.close()
     }
   })
 
-  test('a closed message loses its urgency edge and mark and leaves the count and the bell (J2-A-09, J2-A-43)', async () => {
+  test('a closed message loses its notice and leaves the count and the bell, and keeps its color as a state (J2-A-09, J2-A-43, UD-041)', async () => {
     const { page, context } = await session('bruno')
     try {
       await page.getByRole('heading', { name: 'Últimos mensajes' }).waitFor()
@@ -436,8 +441,9 @@ describe('insignia y prioridad (UD-028, UD-029)', () => {
       await page.locator('article', { hasText: title }).first().getByText('Cerrado', { exact: true }).waitFor()
       for (const row of await page.locator('article', { hasText: 'Cerrado' }).all()) {
         assert.equal(await row.getAttribute('data-affects-me'), null, 'un cerrado no afecta a nadie')
-        assert.equal(await row.locator('[data-testid="tone-mark"]').count(), 0, 'sin marca de prioridad')
-        assert.match(await row.evaluate((el) => getComputedStyle(el).boxShadow), /^none$/, 'sin borde de urgencia')
+        // It is shown in its own state: the mark says «Cerrado» and the edge is the closed color.
+        assert.equal(await row.locator('[data-testid="state-mark"]').getAttribute('data-status'), 'closed')
+        assert.notEqual(await row.evaluate((el) => getComputedStyle(el).boxShadow), 'none', 'el borde lleva el color del estado cerrado')
       }
       await page.getByTestId('bell').click()
       await page.waitForTimeout(400)
@@ -449,7 +455,7 @@ describe('insignia y prioridad (UD-028, UD-029)', () => {
     }
   })
 
-  test('a pending item per area leads to Messages filtered by that area and by open ones, and shows as many messages as the number says', async () => {
+  test('a count per area leads to Messages filtered by that area and by that state, and shows as many messages as the number says', async () => {
     const { page, context } = await session('ana')
     try {
       const chip = page.getByTestId('area-pending').filter({ hasText: 'Error' }).first()
@@ -459,7 +465,7 @@ describe('insignia y prioridad (UD-028, UD-029)', () => {
       const error = (areas.items ?? areas).find((a) => a.title === 'Error')
       const open = summary.areas.find((a) => a.area_id === error.id).open
       assert.ok(open > 0)
-      await chip.click()
+      await chip.getByRole('link', { name: /abierto/ }).click()
       await page.waitForURL(/\/messages\?/)
       const url = new URL(page.url())
       assert.deepEqual(url.searchParams.getAll('f').sort(), [`area:eq:${error.id}`, 'status:eq:open'])
@@ -543,7 +549,7 @@ describe('estados, teclado y filas', () => {
     try {
       await page.goto(`${origin}/messages`)
       await page.locator('main article').first().waitFor()
-      const xs = await page.evaluate(() => [...document.querySelectorAll('main article')].map((a) => Math.round((a.querySelector('.led') ?? a.querySelector('[data-testid="tone-mark"]')).getBoundingClientRect().left)))
+      const xs = await page.evaluate(() => [...document.querySelectorAll('main article')].map((a) => Math.round((a.querySelector('.led') ?? a.querySelector('[data-testid="state-mark"]')).getBoundingClientRect().left)))
       assert.ok(xs.length >= 3, 'hacen falta varias filas')
       // J1-A-56: the background orbit fades under the top bar and does not cross titles or buttons.
       assert.match(await page.evaluate(() => getComputedStyle(document.querySelector('svg[aria-hidden]')).maskImage), /gradient/)
@@ -633,6 +639,7 @@ describe('templates as a form (J1-A-32)', () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/areas/a-error`)
+      await openTemplates(page)
       await page.getByRole('button', { name: /^Campos e instrucciones/ }).first().click()
       const dialog = page.getByRole('dialog')
       await dialog.getByRole('heading', { name: 'Campos' }).waitFor()

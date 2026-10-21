@@ -5,9 +5,9 @@
 ## Estado de `main`
 
 - `main` está en `23b5a3b`, empujado a origin y desplegado en el VPS hasta `fafe5ab` (la interfaz de tres rondas de jueces). Todo lo anterior a esta fecha está fusionado: `wt-cierre`, `wt-h900` y las 17 ramas de la noche (`git rev-list --count main..<rama>` da 0).
-- Pruebas ejecutadas sobre `main` el 2026-10-21: `npm test` 664 pasan y 5 se omiten, `node --test bench/` 70 de 70, panel `npx vitest run` 81 de 81, `npm run test:fit` y `npm run test:flows` en verde con puertos propios (`PANEL_FIT_PORT`, `PANEL_FLOWS_PORT`, `PANEL_FLOWS_2A_PORT`). H-900 (prueba intermitente de AreaChips) está cerrado de raíz; H-901 (otras pruebas sensibles a la carga) está en vuelo.
+- Pruebas ejecutadas sobre `main` el 2026-10-21: `npm test` 664 pasan y 5 se omiten. `node --test bench/` 70 de 70. Panel `npx vitest run` 81 de 81. `npm run test:fit` y `npm run test:flows` en verde con puertos propios (`PANEL_FIT_PORT`, `PANEL_FLOWS_PORT`, `PANEL_FLOWS_2A_PORT`). H-900 (prueba intermitente de AreaChips) está cerrado de raíz; H-901 (otras pruebas sensibles a la carga) está en vuelo.
 - Lo especificado está en `docs/MASTER-SPEC.md`. Las decisiones, con las palabras de Martín, en `docs/USER-DECISIONS.md` (hasta UD-039; las ramas en vuelo reservan UD-040 en adelante). Las pruebas, en `docs/TEST.md`. Los hallazgos, en `docs/HALLAZGOS.md`: el 100 % queda atendido, ninguno huérfano ni a medio hacer. Investigaciones con fuentes fechadas, en `docs/investigaciones/`.
-- La maqueta inicial del dueño es `Plataforma Team.png` en la raíz y manda sobre cualquier decisión posterior de una sesión: Inicio con «Para mí» y por área arriba, «Nuevo mensaje» con la barra de texto, desplegable en línea debajo con original a la izquierda y análisis de la IA a la derecha, y abajo «Últimos mensajes» y «Últimas respuestas» con pestaña de área; panel izquierdo ocultable con botón junto al usuario.
+- La maqueta inicial del dueño es `Plataforma Team.png` en la raíz y manda sobre cualquier decisión posterior de una sesión. Inicio lleva «Para mí» y por área arriba, y «Nuevo mensaje» con la barra de texto. Debajo va un desplegable en línea con el original a la izquierda y el análisis de la IA a la derecha. Abajo van «Últimos mensajes» y «Últimas respuestas», con pestaña de área. El panel izquierdo se oculta con un botón junto al usuario.
 - Reglas del repositorio: `docs/RULES.md`. Dos se rompen fácil. La documentación pública no nombra otros proyectos del autor. El código, sus comentarios y los nombres de pruebas van en inglés (UD-015, detector HP-008); la interfaz y la documentación, en español.
 
 ## Trabajo en vuelo
@@ -60,7 +60,7 @@ La gravedad 5 fue 2, 4 y 3; la gravedad 4 fue 8, 12 y 10. El recuento no baja de
 ## VPS (H-89)
 
 - Dirección, sólo para la tailnet (`tailscale serve`, sin Funnel): `https://toolset-oci-1-1.tail2d4c18.ts.net:8444`. Usuario y contraseña del Editor en `~/.config/team-platform/vps-admin` (modo 600; nunca se imprimen ni se copian).
-- Prueba de punta a punta del 2026-10-21 06:09, con `node scripts/vps-check.mjs`. `GET /` y `GET /health` responden 200 (`{"status":"ok","version":"0.1.0"}`). El panel servido tiene los mismos archivos compilados que este árbol (`/assets/index-DhGVCPpF.js` y `/assets/index-D_WgRPHG.css`): es la interfaz nueva. El inicio de sesión responde 200. Un texto mixto corto (un reporte de contraste y un pedido de filtro) entra con 202 y produce una propuesta de 2 mensajes en 4,8 s. El envío de prueba se descarta.
+- Prueba de punta a punta del 2026-10-21 06:09, con `node scripts/vps-check.mjs`. `GET /` y `GET /health` responden 200 (`{"status":"ok","version":"0.1.0"}`). El panel servido tiene los mismos archivos compilados que este árbol (`/assets/index-DhGVCPpF.js` y `/assets/index-D_WgRPHG.css`): es la interfaz nueva. El inicio de sesión responde 200. Un texto mixto corto entra con 202. Produce una propuesta de 2 mensajes en 4,8 s. El envío de prueba se descarta.
 - Costo de esa prueba: estimado, no medido, porque la API no lo devuelve por envío. La prueba equivalente anterior usó 4 llamadas y 12.547 tokens de entrada. A la tarifa de lista de `bench/pricing.js` son centésimas de dólar como mucho, bajo el tope de 0,05 USD.
 - Repetir la prueba: `node scripts/vps-check.mjs` (con `--keep` deja el envío en la bandeja; con `--last` sólo describe el último envío). Necesita `panel/dist` compilado para comparar la interfaz (`cd panel && npx vite build`).
 - Actualizar, como el usuario que tiene el repositorio clonado en el VPS: `cd ~/team-platform && git pull && docker compose build --build-arg BUILD_JOBS=1 && docker compose up -d --wait`. Con `BUILD_JOBS=1` el compilado de ffmpeg para ARM tarda lo que tarda un solo hilo.
@@ -77,16 +77,16 @@ La gravedad 5 fue 2, 4 y 3; la gravedad 4 fue 8, 12 y 10. El recuento no baja de
 ## Ramas y worktrees
 
 - Fusionados y retirados con `git worktree remove` (sus resultados de banco y capturas, que git ignora, se copiaron a `~/.local/share/team-platform/archivo-de-worktrees/`): `areas`, `audio-unidades`, `banco-contexto`, `banco-contexto-2`, `hallazgos`, `inicio`, `panel-2`, `rafaga`, `ronda1-a`, `ronda1-b`, `ronda2-a`, `ronda2-b`, `ronda3-a`, `semaforo`, `vps-media`. Las ramas `wt-*` siguen existiendo; se borran con `git branch -d wt-<nombre>`.
-- Fusionados y todavía con worktree por una causa concreta: `ingles` (hay un intérprete de comandos de una sesión anterior con ese directorio abierto; `lsof +D .claude/worktrees/ingles`) y `ronda3-b` (un servidor de desarrollo lo tiene como cwd). También `cierre`, `h900` y `h901-base`, sin trabajo propio.
+- Fusionados y con worktree por una causa concreta: `ingles` y `ronda3-b`. En `ingles` hay un intérprete de comandos de una sesión anterior (`lsof +D .claude/worktrees/ingles`). En `ronda3-b` un servidor de desarrollo tiene el directorio como cwd. `cierre`, `h900` y `h901-base` no tienen trabajo propio.
 - En vuelo: los ocho de «Trabajo en vuelo».
 
 ## Lo que sigue, en orden
 
 1. Fusionar las ramas en vuelo en el orden de «Trabajo en vuelo», con renumeración de UD y H si chocan, y empujar. Dueño: la sesión coordinadora.
 2. Actualizar el VPS después de cada fusión grande: `ssh opc@toolset-oci-1-1 'cd ~/team-platform && git pull && docker compose build --build-arg BUILD_JOBS=1 && docker compose up -d --wait'` y luego `node scripts/vps-check.mjs` (debe imprimir `OK` en las siete líneas). Acceso en `~/.config/team-platform/vps-admin`.
-3. Barrido final de `wt-voz` sobre los textos nuevos de las demás ramas, y una ronda 4 de jueces de pantalla con las mismas dos lentes y sin decirles qué cambió (línea base de la ronda 3: gravedad 5 y 4 = 3 y 10).
-4. Cerrar H-602, H-80 y H-15 con las mediciones de `wt-areas2` y `wt-modelos`; si H-602 da menos de 82,6 %, volver a las descripciones de área cortas (commit `5a66b37` tiene las cortas; `areas-largas-v1` marca las largas originales) o adoptar la variante ganadora de `wt-areas2`.
-5. Revisar «Decisiones del dueño» de `docs/HALLAZGOS.md` (UD-029 y UD-036 sobre los colores de estado: quedan reemplazados por los tres estados abierto, respondido y cerrado; UD-034 justificado por ancho; UD-035 «Crear mensaje»; retiro de Intro en la revisión). No bloquea nada.
+3. Barrido final de `wt-voz` sobre los textos nuevos de las demás ramas. Después, una ronda 4 de jueces con las mismas dos lentes y sin decirles qué cambió. Línea base de la ronda 3: 3 hallazgos de gravedad 5 y 10 de gravedad 4.
+4. Cerrar H-602, H-80 y H-15 con las mediciones de `wt-areas2` y `wt-modelos`. Si H-602 da menos de 82,6 %, volver a las descripciones cortas o adoptar la variante ganadora de `wt-areas2`. El commit `5a66b37` tiene las cortas y la etiqueta `areas-largas-v1` marca las largas originales.
+5. Revisar «Decisiones del dueño» de `docs/HALLAZGOS.md`. UD-029 y UD-036 quedan reemplazadas por los tres estados abierto, respondido y cerrado. Siguen UD-034 (justificado por ancho), UD-035 («Crear mensaje») y el retiro de Intro en la revisión. No bloquea nada.
 6. H-56 (iPhone real): decisión del dueño UD-039, no se prueba todavía.
 
 ## Peticiones del dueño que cambian el diseño y no se pueden perder
@@ -98,13 +98,13 @@ La gravedad 5 fue 2, 4 y 3; la gravedad 4 fue 8, 12 y 10. El recuento no baja de
 - Dueño, textual: «el archivo adjunto no tiene la prioridad que puse en la maqueta; quiero ver al tiro la foto, la galería de fotos o la galería de medios con un carrusel abajo, reutilizado en todo el sitio».
 - Dueño, textual: «lo del iPhone me da lo mismo, no lo vamos a usar todavía». Y sobre el HEIC asume que el código ya es compatible: hoy no lo era, por eso `wt-heic`.
 - Dueño, textual: «rótulos y textos que parecen estar hablándole directamente al lector… reemplazar por lenguaje estándar de software, como un instrumento que se ocupa».
-- Procesos: hasta 8 agentes simultáneos más 2 jueces de interfaz con perspectiva de usuario que se satura con jerarquía visual plana (tres rondas hechas); cada hallazgo se atiende al 100 %; cada instrucción del dueño termina como UD con sus palabras.
+- Procesos: hasta 8 agentes simultáneos más 2 jueces de interfaz. El juez encarna a un usuario que se satura con jerarquía visual plana; hubo tres rondas. Cada hallazgo se atiende al 100 % y cada instrucción del dueño termina como UD con sus palabras.
 
 ## Cómo se trabaja en esta sesión
 
-- Martín da instrucciones sueltas durante el turno; cada una se convierte en una UD con sus palabras, entra a `docs/HALLAZGOS.md` si deja trabajo, y se asigna a un subagente (Sonnet, alto razonamiento) con su propio worktree bajo `.claude/worktrees/<nombre>` (ignorado por git). La sesión coordinadora fusiona a `main` con `git merge --no-edit <rama>`, corre `node scripts/check-conflict-markers.mjs`, `npm test` y `node --test bench/`, y empuja. Nunca se fusiona con un conflicto sin resolver (el gancho de pre-commit lo impide).
+- Martín da instrucciones sueltas durante el turno. Cada una se convierte en una UD con sus palabras y entra a `docs/HALLAZGOS.md` si deja trabajo. Se asigna a un subagente (Sonnet, alto razonamiento) con su propio worktree bajo `.claude/worktrees/<nombre>`, ignorado por git. La sesión coordinadora fusiona a `main` con `git merge --no-edit <rama>`, corre `node scripts/check-conflict-markers.mjs`, `npm test` y `node --test bench/`, y empuja. El gancho de pre-commit impide fusionar con un conflicto sin resolver.
 - Se paraleliza todo lo independiente. La ruta crítica manda sobre la suma.
-- Ningún subagente cierra con números parciales ni con un plazo que invente la sesión: trabaja hasta cumplir el objetivo medido o hasta que algo externo lo bloquee, y entonces dice qué.
+- Ningún subagente cierra con números parciales ni con un plazo que invente la sesión. Trabaja hasta cumplir el objetivo medido o hasta que algo externo lo bloquee, y entonces dice qué.
 - Llaves: `~/.config/team-platform/env` (modo 600; `node scripts/llave.mjs [NOMBRE]` pide, prueba y guarda). Nunca en el repositorio.
 
 ## Lo privado que existe sólo en este equipo

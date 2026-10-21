@@ -8,7 +8,7 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { stat, writeFile } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { extract } from './index.js';
@@ -16,8 +16,11 @@ import { FIXTURE_FFMPEG, ffprobeJson, fakeSpeech, fakeVision, makeAudio, makeTmp
 
 const exec = promisify(execFile);
 const root = new URL('../../', import.meta.url);
-const dockerfile = readFileSync(new URL('Dockerfile', root), 'utf8');
-const checkScript = readFileSync(new URL('scripts/check-ffmpeg.sh', root), 'utf8');
+// The Dockerfile is not part of the image's build context (.dockerignore): the static checks run from the repository.
+const HAS_SOURCES = existsSync(new URL('Dockerfile', root));
+const dockerfile = HAS_SOURCES ? readFileSync(new URL('Dockerfile', root), 'utf8') : '';
+const checkScript = existsSync(new URL('scripts/check-ffmpeg.sh', root)) ? readFileSync(new URL('scripts/check-ffmpeg.sh', root), 'utf8') : '';
+const STATIC = { skip: !HAS_SOURCES && 'the Dockerfile is not in the image' };
 const IN_IMAGE = process.env.TEAM_FFMPEG_MINIMAL === '1';
 
 const FLAGS = { demuxer: 'DEMUXERS', parser: null, decoder: 'DECODERS', encoder: 'ENCODERS', muxer: 'MUXERS', filter: 'FILTERS', protocol: 'PROTOCOLS' };
@@ -33,21 +36,21 @@ function scriptList(variable) {
   return m[1].split(/\s+/).sort();
 }
 
-test('the Dockerfile and scripts/check-ffmpeg.sh list the same components', () => {
+test('the Dockerfile and scripts/check-ffmpeg.sh list the same components', STATIC, () => {
   for (const [kind, variable] of Object.entries(FLAGS)) {
     if (!variable) continue;
     assert.deepEqual(scriptList(variable), dockerfileList(kind), `${kind} lists differ`);
   }
 });
 
-test('the ffmpeg stage pins the version and verifies the tarball checksums', () => {
+test('the ffmpeg stage pins the version and verifies the tarball checksums', STATIC, () => {
   assert.match(dockerfile, /^ARG FFMPEG_VERSION=\d+\.\d+(\.\d+)?$/m);
   assert.match(dockerfile, /^ARG FFMPEG_SHA256=[0-9a-f]{64}$/m);
   assert.match(dockerfile, /^ARG DAV1D_SHA256=[0-9a-f]{64}$/m);
   assert.equal((dockerfile.match(/sha256sum -c -/g) ?? []).length, 2);
 });
 
-test('the shipped image carries the two static binaries and not the Alpine ffmpeg package', () => {
+test('the shipped image carries the two static binaries and not the Alpine ffmpeg package', STATIC, () => {
   const base = /FROM alpine:[\d.]+ AS base\n([\s\S]*?)\n\n/.exec(dockerfile)?.[1] ?? '';
   assert.ok(base.includes('COPY --from=ffmpeg /out/bin/ffmpeg /out/bin/ffprobe /usr/local/bin/'));
   assert.ok(!/apk add[^\n]*\bffmpeg\b/.test(base), 'the base stage installs the full ffmpeg package');

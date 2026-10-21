@@ -12,7 +12,7 @@ import { createHash } from 'node:crypto'
 import { all, get, run } from '../db/index.js'
 import { iso, parseJson } from '../db/util.js'
 import { audit } from './audit.js'
-import { badRequest, conflict, notFound } from './errors.js'
+import { badRequest, conflict, notFound, tooLarge } from './errors.js'
 
 export const INPUT_STATUSES = ['queued', 'extracting', 'analyzing', 'proposed', 'published', 'failed', 'cancelled']
 
@@ -205,13 +205,14 @@ export function recentInputsFor ({ db, config, now = Date.now }, input) {
 }
 
 /**
- * Vuelve a encolar el análisis de un input ya extraído (útil cuando cambió una plantilla). Las extracciones se
- * conservan: el trabajo sólo extrae lo que falte. Sólo del editor; no sobre un input publicado ni en curso.
+ * Queues the analysis of an input again (useful when a template changed, or to retry a failed analysis). The
+ * extractions are kept: the job only extracts what is missing. The editor can do it on any input; a member only on
+ * their own (for anybody else an input of another person does not exist). Not on a published or in-flight input.
  */
-export function reprocessInput ({ db, queue, events, now = Date.now }, inputId, actorId) {
+export function reprocessInput ({ db, queue, events, now = Date.now }, inputId, actor) {
   return events.transaction(() => {
     const input = get(db, 'SELECT * FROM inputs WHERE id = ?', inputId)
-    if (!input) throw notFound('El input no existe.')
+    if (!input || (actor.role !== 'editor' && input.author_id !== actor.id)) throw notFound('El input no existe.')
     if (!['proposed', 'failed', 'cancelled'].includes(input.status)) {
       throw conflict(`El input está «${input.status}»; sólo se reprocesa uno con propuesta, fallido o cancelado.`, 'not_reprocessable')
     }
@@ -219,8 +220,42 @@ export function reprocessInput ({ db, queue, events, now = Date.now }, inputId, 
     run(db, 'DELETE FROM proposals WHERE input_id = ?', inputId)
     const jobId = queue.enqueue('analyze', { input_id: inputId }, { inputId })
     events.publishForJob(jobId, { kind: 'progress', percent: 0, phrase: 'En cola' })
-    audit(db, { memberId: actorId, action: 'input.reprocess', entity: 'input', entityId: inputId, now })
+    audit(db, { memberId: actor.id, action: 'input.reprocess', entity: 'input', entityId: inputId, now })
     return { input_id: inputId, job_id: jobId }
+  })
+}
+
+/**
+ * Replaces the text of an own input that is waiting for review (`proposed`) or failed, and queues its analysis again
+ * with the new text. The attachments and their extractions stay. The content hash is recomputed (§1.3): if another
+ * input of the same author already has that content the edit is a 409, as sending it again would have been a duplicate.
+ */
+export function editInputText ({ db, config, queue, events, now = Date.now }, inputId, memberId, text) {
+  return events.transaction(() => {
+    const input = get(db, 'SELECT * FROM inputs WHERE id = ?', inputId)
+    if (!input || input.author_id !== memberId) throw notFound('El input no existe.')
+    if (!['proposed', 'failed'].includes(input.status)) {
+      throw conflict(`El input está «${input.status}»; sólo se edita el texto de uno con propuesta o fallido.`, 'not_editable')
+    }
+    if (Buffer.byteLength(text) > config.uploads.maxTextBytes) throw tooLarge('El texto supera el tamaño máximo permitido.')
+    const atts = all(db, 'SELECT kind, path, sha256 FROM attachments WHERE input_id = ?', inputId)
+    if (text.trim() === '' && atts.length === 0) throw badRequest('El envío está vacío: falta texto, archivo o enlace.', 'input_empty')
+    const hash = contentHash({
+      authorId: memberId, text,
+      fileHashes: atts.filter((a) => a.kind !== 'link').map((a) => a.sha256),
+      links: atts.filter((a) => a.kind === 'link').map((a) => a.path)
+    })
+    if (get(db, 'SELECT 1 AS e FROM inputs WHERE content_hash = ? AND id != ?', hash, inputId)) {
+      throw conflict('Ya existe un envío tuyo con ese contenido.', 'duplicate_input')
+    }
+    const t = now()
+    run(db, 'UPDATE inputs SET text = ?, content_hash = ?, updated_at = ? WHERE id = ?', text, hash, t, inputId)
+    transitionInput(db, inputId, 'queued', { now })
+    run(db, 'DELETE FROM proposals WHERE input_id = ?', inputId)
+    const jobId = queue.enqueue('analyze', { input_id: inputId }, { inputId })
+    events.publishForJob(jobId, { kind: 'progress', percent: 0, phrase: 'En cola' })
+    audit(db, { memberId, action: 'input.edit', entity: 'input', entityId: inputId, detail: { chars: text.length }, now })
+    return buildInputView({ db, queue, events }, get(db, 'SELECT * FROM inputs WHERE id = ?', inputId))
   })
 }
 

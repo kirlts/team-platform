@@ -1,7 +1,7 @@
 // Rutas de inputs (MASTER-SPEC §7.1): crear (multipart, idempotente por hash), listar los propios, consultar,
 // publicar, cancelar y, para el editor, reprocesar.
 
-import { cancelInput, getInputView, listInputs, proposalView as presentProposal, reprocessInput, submitInput } from '../../domain/inputs.js'
+import { cancelInput, editInputText, getInputView, listInputs, proposalView as presentProposal, reprocessInput, submitInput } from '../../domain/inputs.js'
 import { getMessage } from '../../domain/messages.js'
 import { publishProposal, saveProposalDraft } from '../../domain/proposals.js'
 import { withSpan } from '../../domain/tracing.js'
@@ -61,6 +61,17 @@ export function registerInputRoutes (app, ctx) {
     schema: { summary: 'Un input propio, con su avance y su propuesta', params: idParams(), response: { 200: inputView } }
   }, async (request) => getInputView({ db, queue, events }, request.params.id, request.member.id))
 
+  app.patch('/inputs/:id', {
+    onRequest: [requireRole('member')],
+    schema: {
+      summary: 'Cambiar el texto de un input propio y volver a analizarlo',
+      description: 'Sólo su emisor, mientras esté `proposed` o `failed`. Reemplaza el texto, descarta la propuesta vigente y encola el análisis otra vez con el texto nuevo; los adjuntos y sus extracciones se conservan. 404 si el input no es suyo; 409 si está en otro estado (`not_editable`) o si ya existe otro envío suyo con ese contenido (`duplicate_input`); 400 si el envío queda vacío.',
+      params: idParams(),
+      body: { type: 'object', additionalProperties: false, required: ['text'], properties: { text: { type: 'string' } } },
+      response: { 200: inputView }
+    }
+  }, async (request) => editInputText({ db, config, queue, events }, request.params.id, request.member.id, request.body.text))
+
   app.patch('/inputs/:id/proposal', {
     onRequest: [requireRole('member')],
     schema: {
@@ -104,15 +115,15 @@ export function registerInputRoutes (app, ctx) {
   })
 
   app.post('/inputs/:id/reprocess', {
-    onRequest: [requireRole('editor')],
+    onRequest: [requireRole('member')],
     schema: {
-      summary: 'Volver a encolar el análisis de un input ya extraído (editor)',
-      description: 'Útil cuando cambió una plantilla. Conserva las extracciones; sólo extrae lo que falte.',
+      summary: 'Volver a encolar el análisis de un input ya extraído (su emisor o el editor)',
+      description: 'Útil cuando cambió una plantilla o el análisis falló. Conserva las extracciones; sólo extrae lo que falte. Un miembro lo hace sobre sus propios inputs (en otro caso, 404); el editor, sobre cualquiera.',
       params: idParams(),
       response: { 202: { type: 'object', properties: { input_id: { type: 'string' }, job_id: { type: 'string' } } } }
     }
   }, async (request, reply) => {
-    const r = reprocessInput({ db, queue, events }, request.params.id, request.member.id)
+    const r = reprocessInput({ db, queue, events }, request.params.id, request.member)
     reply.code(202)
     return r
   })

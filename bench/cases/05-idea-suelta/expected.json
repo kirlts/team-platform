@@ -1,21 +1,23 @@
 {
   "id": "05-idea-suelta",
-  "area": "idea",
-  "template": "tpl-idea",
   "messages": [
     {
       "id": "m1",
       "title": "Ordenar las paradas por ventana horaria además de la distancia",
+      "area_id": 1,
+      "template_id": 1,
       "unit_ids": [
-        "u1",
-        "u2",
-        "u3"
+        1,
+        2,
+        3
       ]
     }
   ],
   "discarded": [
     {
-      "unit_id": "u4",
+      "unit_ids": [
+        4
+      ],
       "reason": "firma"
     }
   ]

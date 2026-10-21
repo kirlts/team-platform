@@ -1,321 +1,589 @@
 {
   "id": "02-docx-40-puntos",
-  "area": "feedback",
-  "template": "tpl-feedback",
   "messages": [
     {
       "id": "m1",
       "title": "El mapa tarda más de lo esperado en centrar la posición actual al abrir la ruta",
+      "area_id": [
+        2,
+        4
+      ],
+      "template_id": [
+        2,
+        4
+      ],
       "unit_ids": [
-        "u4"
+        2
       ]
     },
     {
       "id": "m2",
       "title": "La lista de paradas no deja ver el nombre completo del cliente cuando es largo",
+      "area_id": [
+        2,
+        4
+      ],
+      "template_id": [
+        2,
+        4
+      ],
       "unit_ids": [
-        "u5"
+        3
       ]
     },
     {
       "id": "m3",
       "title": "Falta una forma de reordenar paradas arrastrándolas; hoy hay que borrar y volver a crear",
+      "area_id": [
+        3,
+        4
+      ],
+      "template_id": [
+        3,
+        4
+      ],
       "unit_ids": [
-        "u6",
-        "u7"
+        4,
+        5
       ]
     },
     {
       "id": "m4",
       "title": "El botón \"Iniciar ruta\" queda tapado por la barra del navegador en pantallas chicas",
+      "area_id": [
+        2,
+        4
+      ],
+      "template_id": [
+        2,
+        4
+      ],
       "unit_ids": [
-        "u8"
+        6
       ]
     },
     {
       "id": "m5",
       "title": "No se entiende la diferencia entre el ícono azul y el verde en el mapa",
+      "area_id": 4,
+      "template_id": 4,
       "unit_ids": [
-        "u9"
+        7
       ]
     },
     {
       "id": "m6",
       "title": "Cuando se pierde la señal, la app no avisa que los datos son antiguos",
+      "area_id": [
+        3,
+        4
+      ],
+      "template_id": [
+        3,
+        4
+      ],
       "unit_ids": [
-        "u10"
+        8
       ]
     },
     {
       "id": "m7",
       "title": "El orden sugerido de paradas a veces manda a cruzar la ciudad dos veces",
+      "area_id": [
+        2,
+        4
+      ],
+      "template_id": [
+        2,
+        4
+      ],
       "unit_ids": [
-        "u11"
+        9
       ]
     },
     {
       "id": "m8",
       "title": "Querrían ver el tiempo estimado total de la ruta arriba, no al final de la lista",
+      "area_id": [
+        3,
+        4
+      ],
+      "template_id": [
+        3,
+        4
+      ],
       "unit_ids": [
-        "u12"
+        10
       ]
     },
     {
       "id": "m9",
       "title": "La distancia aparece en millas en un teléfono con el idioma en inglés",
+      "area_id": [
+        2,
+        4
+      ],
+      "template_id": [
+        2,
+        4
+      ],
       "unit_ids": [
-        "u13"
+        11
       ]
     },
     {
       "id": "m10",
       "title": "El zoom del mapa se reinicia cada vez que se completa una entrega",
+      "area_id": [
+        2,
+        4
+      ],
+      "template_id": [
+        2,
+        4
+      ],
       "unit_ids": [
-        "u14",
-        "u15"
+        12,
+        13
       ]
     },
     {
       "id": "m11",
       "title": "Marcar una entrega como completada exige tres toques; con guantes cuesta atinar",
+      "area_id": 4,
+      "template_id": 4,
       "unit_ids": [
-        "u17"
+        14
       ]
     },
     {
       "id": "m12",
       "title": "No hay forma de adjuntar una foto del paquete en la puerta",
+      "area_id": [
+        3,
+        4
+      ],
+      "template_id": [
+        3,
+        4
+      ],
       "unit_ids": [
-        "u18"
+        15
       ]
     },
     {
       "id": "m13",
       "title": "Cuando el cliente no está no existe la opción \"ausente\", se usa \"cancelada\" y eso ensucia los informes",
+      "area_id": [
+        3,
+        4
+      ],
+      "template_id": [
+        3,
+        4
+      ],
       "unit_ids": [
-        "u19"
+        16
       ]
     },
     {
       "id": "m14",
       "title": "Falta guardar una firma o el nombre de quien recibió",
+      "area_id": [
+        3,
+        4
+      ],
+      "template_id": [
+        3,
+        4
+      ],
       "unit_ids": [
-        "u20",
-        "u21"
+        17,
+        18
       ]
     },
     {
       "id": "m15",
       "title": "El mensaje de confirmación desaparece demasiado rápido para leerlo",
+      "area_id": 4,
+      "template_id": 4,
       "unit_ids": [
-        "u22"
+        19
       ]
     },
     {
       "id": "m16",
       "title": "Las notas de la entrega no se ven en la lista, solo al abrirla",
+      "area_id": [
+        3,
+        4
+      ],
+      "template_id": [
+        3,
+        4
+      ],
       "unit_ids": [
-        "u23"
+        20
       ]
     },
     {
       "id": "m17",
       "title": "El teléfono del cliente no se puede tocar para llamar; hay que copiarlo a mano",
+      "area_id": [
+        3,
+        4
+      ],
+      "template_id": [
+        3,
+        4
+      ],
       "unit_ids": [
-        "u24"
+        21
       ]
     },
     {
       "id": "m18",
       "title": "A veces una entrega completada vuelve a aparecer como pendiente después de cerrar la app",
+      "area_id": [
+        2,
+        4
+      ],
+      "template_id": [
+        2,
+        4
+      ],
       "unit_ids": [
-        "u25"
+        22
       ]
     },
     {
       "id": "m19",
       "title": "No se puede deshacer una entrega marcada por error",
+      "area_id": [
+        3,
+        4
+      ],
+      "template_id": [
+        3,
+        4
+      ],
       "unit_ids": [
-        "u26"
+        23
       ]
     },
     {
       "id": "m20",
       "title": "Querrían avisar al cliente \"voy en camino\" con un solo botón",
+      "area_id": [
+        3,
+        4
+      ],
+      "template_id": [
+        3,
+        4
+      ],
       "unit_ids": [
-        "u27"
+        24
       ]
     },
     {
       "id": "m21",
       "title": "El panel carga lento cuando hay más de un día de rutas",
+      "area_id": [
+        2,
+        4
+      ],
+      "template_id": [
+        2,
+        4
+      ],
       "unit_ids": [
-        "u29"
+        25
       ]
     },
     {
       "id": "m22",
       "title": "Los filtros por fecha no recuerdan el último rango usado",
+      "area_id": [
+        3,
+        4
+      ],
+      "template_id": [
+        3,
+        4
+      ],
       "unit_ids": [
-        "u30"
+        26
       ]
     },
     {
       "id": "m23",
       "title": "La tabla de rutas no permite ordenar por hora de salida",
+      "area_id": [
+        3,
+        4
+      ],
+      "template_id": [
+        3,
+        4
+      ],
       "unit_ids": [
-        "u31"
+        27
       ]
     },
     {
       "id": "m24",
       "title": "Falta exportar las rutas del día a una planilla",
+      "area_id": [
+        3,
+        4
+      ],
+      "template_id": [
+        3,
+        4
+      ],
       "unit_ids": [
-        "u32",
-        "u33"
+        28,
+        29
       ]
     },
     {
       "id": "m25",
       "title": "Los repartidores aparecen por correo en vez de por nombre",
+      "area_id": [
+        2,
+        4
+      ],
+      "template_id": [
+        2,
+        4
+      ],
       "unit_ids": [
-        "u34"
+        30
       ]
     },
     {
       "id": "m26",
       "title": "El mapa del panel no muestra dónde está cada repartidor en este momento",
+      "area_id": [
+        3,
+        4
+      ],
+      "template_id": [
+        3,
+        4
+      ],
       "unit_ids": [
-        "u35"
+        31
       ]
     },
     {
       "id": "m27",
       "title": "Los colores de estado (en curso, atrasada, completada) se parecen entre sí para una persona con daltonismo",
+      "area_id": [
+        2,
+        4
+      ],
+      "template_id": [
+        2,
+        4
+      ],
       "unit_ids": [
-        "u36"
+        32
       ]
     },
     {
       "id": "m28",
       "title": "No hay forma de reasignar una ruta a otro repartidor cuando alguien falta",
+      "area_id": [
+        3,
+        4
+      ],
+      "template_id": [
+        3,
+        4
+      ],
       "unit_ids": [
-        "u37"
+        33
       ]
     },
     {
       "id": "m29",
       "title": "El botón \"Cerrar jornada\" está pegado al botón \"Cancelar ruta\" y es fácil equivocarse",
+      "area_id": 4,
+      "template_id": 4,
       "unit_ids": [
-        "u38"
+        34
       ]
     },
     {
       "id": "m30",
       "title": "Las fechas se muestran como 2026-10-12 y en la bodega prefieren 12/10/2026",
+      "area_id": 4,
+      "template_id": 4,
       "unit_ids": [
-        "u39"
+        35
       ]
     },
     {
       "id": "m31",
       "title": "El inicio de sesión no recuerda el correo después de cerrar sesión",
+      "area_id": [
+        3,
+        4
+      ],
+      "template_id": [
+        3,
+        4
+      ],
       "unit_ids": [
-        "u41"
+        36
       ]
     },
     {
       "id": "m32",
       "title": "No se entiende qué hacer la primera vez que se abre la app; falta una guía corta",
+      "area_id": [
+        3,
+        4
+      ],
+      "template_id": [
+        3,
+        4
+      ],
       "unit_ids": [
-        "u42"
+        37
       ]
     },
     {
       "id": "m33",
       "title": "Los mensajes de error están en inglés en algunas pantallas",
+      "area_id": [
+        2,
+        4
+      ],
+      "template_id": [
+        2,
+        4
+      ],
       "unit_ids": [
-        "u43"
+        38
       ]
     },
     {
       "id": "m34",
       "title": "La app consume mucha batería después de dos horas de ruta",
+      "area_id": [
+        2,
+        4
+      ],
+      "template_id": [
+        2,
+        4
+      ],
       "unit_ids": [
-        "u44",
-        "u45"
+        39,
+        40
       ]
     },
     {
       "id": "m35",
       "title": "Falta un modo oscuro para la ruta de la tarde",
+      "area_id": [
+        3,
+        4
+      ],
+      "template_id": [
+        3,
+        4
+      ],
       "unit_ids": [
-        "u46"
+        41
       ]
     },
     {
       "id": "m36",
       "title": "El tamaño de letra no crece cuando se sube el tamaño de fuente del sistema",
+      "area_id": [
+        2,
+        4
+      ],
+      "template_id": [
+        2,
+        4
+      ],
       "unit_ids": [
-        "u47"
+        42
       ]
     },
     {
       "id": "m37",
       "title": "Los permisos de ubicación se piden dos veces",
+      "area_id": [
+        2,
+        4
+      ],
+      "template_id": [
+        2,
+        4
+      ],
       "unit_ids": [
-        "u48"
+        43
       ]
     },
     {
       "id": "m38",
       "title": "No hay un lugar para reportar un problema desde la app",
+      "area_id": [
+        3,
+        4
+      ],
+      "template_id": [
+        3,
+        4
+      ],
       "unit_ids": [
-        "u49"
+        44
       ]
     },
     {
       "id": "m39",
       "title": "Las notificaciones suenan igual para avisos urgentes y para informativos",
+      "area_id": 4,
+      "template_id": 4,
       "unit_ids": [
-        "u50"
+        45
       ]
     },
     {
       "id": "m40",
       "title": "Sería bueno ver un resumen semanal de entregas por repartidor",
+      "area_id": [
+        1,
+        3,
+        4
+      ],
+      "template_id": [
+        1,
+        3,
+        4
+      ],
       "unit_ids": [
-        "u51"
+        46
       ]
     }
   ],
   "discarded": [
     {
-      "unit_id": "u1",
-      "reason": "título"
+      "unit_ids": [
+        1
+      ],
+      "reason": "título; presentación del documento"
     },
     {
-      "unit_id": "u2",
-      "reason": "presentación del documento"
-    },
-    {
-      "unit_id": "u3",
-      "reason": "encabezado de sección"
-    },
-    {
-      "unit_id": "u16",
-      "reason": "encabezado de sección"
-    },
-    {
-      "unit_id": "u28",
-      "reason": "encabezado de sección"
-    },
-    {
-      "unit_id": "u40",
-      "reason": "encabezado de sección"
-    },
-    {
-      "unit_id": "u52",
+      "unit_ids": [
+        47
+      ],
       "reason": "cierre"
     }
   ]

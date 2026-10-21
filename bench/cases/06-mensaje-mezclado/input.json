@@ -3,47 +3,6 @@
   "title": "Un mensaje con tres pedidos distintos",
   "kind": "texto",
   "description": "Un mensaje del encargado de producto antes de un viaje: un error, un pedido de funcionalidad y una pregunta dirigida a una persona. Cada tema ocupa dos líneas. Es el caso que más tensiona la regla de un solo área por propuesta.",
-  "attachments": [],
-  "units": [
-    {
-      "id": "u1",
-      "source": "t",
-      "text": "Equipo, tres cosas rápidas antes de mi vuelo."
-    },
-    {
-      "id": "u2",
-      "source": "t",
-      "text": "Primero: el cliente de Peñalolén dice que desde ayer las rutas le salen con las paradas duplicadas."
-    },
-    {
-      "id": "u3",
-      "source": "t",
-      "text": "En pantalla se ve dos veces cada dirección, pero en la planilla exportada están bien."
-    },
-    {
-      "id": "u4",
-      "source": "t",
-      "text": "Segundo: quiero que el reporte semanal se pueda mandar por correo automáticamente cada lunes."
-    },
-    {
-      "id": "u5",
-      "source": "t",
-      "text": "La lista de destinatarios la tendría que configurar el encargado de bodega."
-    },
-    {
-      "id": "u6",
-      "source": "t",
-      "text": "Tercero: Tomás, ¿cuántas rutas por día soporta hoy el servidor antes de degradarse?"
-    },
-    {
-      "id": "u7",
-      "source": "t",
-      "text": "Lo necesito para la propuesta de precio."
-    },
-    {
-      "id": "u8",
-      "source": "t",
-      "text": "Vuelvo el jueves, escríbanme por aquí si es urgente."
-    }
-  ]
+  "text": "Equipo, tres cosas rápidas antes de mi vuelo.\n\nPrimero: el cliente de Peñalolén dice que desde ayer las rutas le salen con las paradas duplicadas.\n\nEn pantalla se ve dos veces cada dirección, pero en la planilla exportada están bien.\n\nSegundo: quiero que el reporte semanal se pueda mandar por correo automáticamente cada lunes.\n\nLa lista de destinatarios la tendría que configurar el encargado de bodega.\n\nTercero: Tomás, ¿cuántas rutas por día soporta hoy el servidor antes de degradarse?\n\nLo necesito para la propuesta de precio.\n\nVuelvo el jueves, escríbanme por aquí si es urgente.",
+  "attachments": []
 }

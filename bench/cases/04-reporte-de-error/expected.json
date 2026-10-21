@@ -1,34 +1,38 @@
 {
   "id": "04-reporte-de-error",
-  "area": "error",
-  "template": "tpl-error",
   "messages": [
     {
       "id": "m1",
       "title": "La app se cierra al completar una entrega con foto de cámara",
+      "area_id": 2,
+      "template_id": 2,
       "unit_ids": [
-        "u2",
-        "u3",
-        "u4",
-        "u5",
-        "u6",
-        "u7",
-        "u8",
-        "u9",
-        "u10",
-        "u11",
-        "u12",
-        "u13"
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        14
       ]
     }
   ],
   "discarded": [
     {
-      "unit_id": "u1",
+      "unit_ids": [
+        1
+      ],
       "reason": "saludo"
     },
     {
-      "unit_id": "u14",
+      "unit_ids": [
+        13
+      ],
       "reason": "despedida"
     }
   ]

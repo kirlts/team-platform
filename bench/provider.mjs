@@ -1,19 +1,17 @@
-// Proveedor de promptfoo: ejecuta el analizador sobre un caso del banco y devuelve la propuesta como JSON.
-// config.analyzer = "fake" usa el analizador falso (config.mode: perfect | noisy);
-// cualquier otro valor es la ruta de un módulo que exporta analyze(bundle, { onProgress, onCall }).
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import { loadCases, loadFixtures, buildBundle } from './lib.js';
-import { createFakeAnalyze } from './fake-analyzer.js';
-
-const here = dirname(fileURLToPath(import.meta.url));
+// Proveedor de promptfoo: ejecuta el analizador real (src/analyze) sobre un caso del banco y devuelve
+// el resultado como JSON. config.providers = "fake" usa proveedores falsos con la referencia
+// (config.mode: perfect | noisy); "real" usa los proveedores de src/providers/index.js desde el entorno.
+import { loadCases, loadFixtures, runCase } from './lib.js';
+import { createBenchProviders } from './fake-providers.js';
+import { analyze } from '../src/analyze/index.js';
+import { createProviders } from '../src/providers/index.js';
 
 export default class TeamPlatformAnalyzer {
   constructor(options = {}) {
     this.config = options.config ?? {};
     this.providerId = options.id ?? 'team-platform-analyzer';
     this.cases = new Map(loadCases().map((c) => [c.id, c]));
-    this.fixtures = loadFixtures();
+    this.fixturesPromise = loadFixtures();
   }
 
   id() {
@@ -23,29 +21,27 @@ export default class TeamPlatformAnalyzer {
   async callApi(_prompt, context) {
     const testCase = this.cases.get(context?.vars?.case);
     if (!testCase) return { error: `Caso desconocido: ${context?.vars?.case}` };
-
-    let analyze;
-    if (this.config.analyzer === 'fake' || this.config.analyzer === undefined) {
-      analyze = createFakeAnalyze({ expected: testCase.expected, mode: this.config.mode ?? 'perfect', latencyMs: this.config.latencyMs ?? 0 });
-    } else {
-      const mod = await import(pathToFileURL(resolve(here, this.config.analyzer)).href);
-      analyze = mod.analyze ?? mod.default;
-    }
-
-    const calls = [];
-    const startedAt = performance.now();
+    const providers =
+      (this.config.providers ?? 'fake') === 'fake'
+        ? createBenchProviders({ expected: testCase.expected, mode: this.config.mode ?? 'perfect', latencyMs: this.config.latencyMs ?? 0 })
+        : createProviders(process.env);
     try {
-      const proposal = await analyze(buildBundle(testCase.input, this.fixtures), { onProgress: () => {}, onCall: (c) => calls.push(c) });
-      const sum = (key) => calls.reduce((acc, c) => acc + (c[key] ?? 0), 0);
+      const run = await runCase({
+        analyze,
+        providers,
+        testCase,
+        fixtures: await this.fixturesPromise,
+        options: this.config.analyzer ? { analyzer: this.config.analyzer } : {},
+      });
       return {
-        output: JSON.stringify(proposal),
-        latencyMs: performance.now() - startedAt,
-        cost: sum('cost_usd'),
+        output: JSON.stringify({ status: run.status, proposal: run.proposal ?? run.draft, units: run.units }),
+        latencyMs: run.total_ms,
+        cost: run.usage.cost_usd ?? 0,
         tokenUsage: {
-          prompt: sum('input_tokens'),
-          completion: sum('output_tokens'),
-          total: sum('input_tokens') + sum('output_tokens'),
-          cached: sum('cached_tokens'),
+          prompt: run.usage.input_tokens,
+          completion: run.usage.output_tokens,
+          total: run.usage.input_tokens + run.usage.output_tokens,
+          cached: run.usage.cached_tokens,
         },
       };
     } catch (error) {

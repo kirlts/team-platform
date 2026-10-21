@@ -3,73 +3,13 @@
   "title": "Video corto de pantalla narrado",
   "kind": "video",
   "description": "Línea de tiempo de un video de un minuto: voz transcrita y fotogramas descritos, intercalados por marca de tiempo. Cuatro hallazgos, uno de ellos apoyado sólo por un fotograma y una frase.",
+  "text": "",
   "attachments": [
     {
-      "id": "a1",
+      "id": 1,
       "kind": "video",
-      "name": "panel-de-bodega.mp4"
-    }
-  ],
-  "units": [
-    {
-      "id": "u1",
-      "source": "a1",
-      "text": "[00:00] voz: Hola, grabo esto para mostrar cómo se ve el panel de bodega en la nueva versión."
-    },
-    {
-      "id": "u2",
-      "source": "a1",
-      "text": "[00:00] fotograma: Panel de bodega, tabla de rutas del día con columnas Repartidor, Estado, Paradas y Salida."
-    },
-    {
-      "id": "u3",
-      "source": "a1",
-      "text": "[00:08] voz: Fíjense en la columna Estado, los colores de en curso y atrasada son casi iguales."
-    },
-    {
-      "id": "u4",
-      "source": "a1",
-      "text": "[00:08] fotograma: Tabla con insignias de estado; en curso en verde claro, atrasada en verde amarillento."
-    },
-    {
-      "id": "u5",
-      "source": "a1",
-      "text": "[00:21] voz: Para alguien con daltonismo es imposible distinguirlas."
-    },
-    {
-      "id": "u6",
-      "source": "a1",
-      "text": "[00:30] voz: Ahora hago clic en Exportar."
-    },
-    {
-      "id": "u7",
-      "source": "a1",
-      "text": "[00:31] fotograma: Menú de Exportar con las opciones CSV y PDF; el texto de PDF está cortado en el borde derecho."
-    },
-    {
-      "id": "u8",
-      "source": "a1",
-      "text": "[00:36] voz: Ah, mira, al exportar a PDF el nombre del repartidor sale con signos raros en lugar de las tildes."
-    },
-    {
-      "id": "u9",
-      "source": "a1",
-      "text": "[00:37] fotograma: Vista previa del PDF con \"Mar&#237;a Jos&#233;\" en la columna Repartidor."
-    },
-    {
-      "id": "u10",
-      "source": "a1",
-      "text": "[00:50] voz: Y esto no sé si es un error o está pensado así: el botón Cerrar jornada está pegado a Cancelar ruta."
-    },
-    {
-      "id": "u11",
-      "source": "a1",
-      "text": "[00:51] fotograma: Barra inferior con los botones Cerrar jornada y Cancelar ruta sin separación entre ellos."
-    },
-    {
-      "id": "u12",
-      "source": "a1",
-      "text": "[01:05] voz: Eso nada más, gracias, corto aquí."
+      "name": "panel-de-bodega.mp4",
+      "extracted": "[00:00] voz: Hola, grabo esto para mostrar cómo se ve el panel de bodega en la nueva versión.\n[00:00] fotograma: Panel de bodega, tabla de rutas del día con columnas Repartidor, Estado, Paradas y Salida.\n[00:08] voz: Fíjense en la columna Estado, los colores de en curso y atrasada son casi iguales.\n[00:08] fotograma: Tabla con insignias de estado; en curso en verde claro, atrasada en verde amarillento.\n[00:21] voz: Para alguien con daltonismo es imposible distinguirlas.\n[00:30] voz: Ahora hago clic en Exportar.\n[00:31] fotograma: Menú de Exportar con las opciones CSV y PDF; el texto de PDF está cortado en el borde derecho.\n[00:36] voz: Ah, mira, al exportar a PDF el nombre del repartidor sale con signos raros en lugar de las tildes.\n[00:37] fotograma: Vista previa del PDF con \"Mar&#237;a Jos&#233;\" en la columna Repartidor.\n[00:50] voz: Y esto no sé si es un error o está pensado así: el botón Cerrar jornada está pegado a Cancelar ruta.\n[00:51] fotograma: Barra inferior con los botones Cerrar jornada y Cancelar ruta sin separación entre ellos.\n[01:05] voz: Eso nada más, gracias, corto aquí."
     }
   ]
 }

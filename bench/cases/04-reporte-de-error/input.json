@@ -3,83 +3,13 @@
   "title": "Reporte de error con pasos y una captura",
   "kind": "texto con captura",
   "description": "Un único error descrito con pasos, esperado, actual y entorno. La prueba es no partirlo: los pasos y el entorno pertenecen al mismo mensaje. Saludo y despedida no son accionables.",
+  "text": "Hola equipo, reporto un problema que me pasó hoy en producción.\n\nTítulo: Al completar una entrega con foto, la app se cierra sola\n\nPasos:\n1. Abrir una ruta con al menos una parada pendiente\n2. Tocar la parada y luego \"Completar entrega\"\n3. Tocar \"Agregar foto\" y elegir \"Cámara\"\n4. Sacar la foto y tocar \"Usar foto\"\n\nEsperado: la foto queda adjunta y la entrega se marca como completada\n\nActual: la app se cierra y al volver a abrirla la entrega sigue pendiente, sin foto\n\nDispositivo: Samsung A14, Android 13, app versión 2.4.1\n\nMe pasó tres de tres veces; con la galería en vez de la cámara sí funciona\n\nAdjunto una captura del momento justo antes del cierre.\n\nGracias!",
   "attachments": [
     {
-      "id": "a1",
+      "id": 1,
       "kind": "image",
-      "name": "cierre-al-adjuntar-foto.png"
-    }
-  ],
-  "units": [
-    {
-      "id": "u1",
-      "source": "t",
-      "text": "Hola equipo, reporto un problema que me pasó hoy en producción."
-    },
-    {
-      "id": "u2",
-      "source": "t",
-      "text": "Título: Al completar una entrega con foto, la app se cierra sola"
-    },
-    {
-      "id": "u3",
-      "source": "t",
-      "text": "Pasos:"
-    },
-    {
-      "id": "u4",
-      "source": "t",
-      "text": "1. Abrir una ruta con al menos una parada pendiente"
-    },
-    {
-      "id": "u5",
-      "source": "t",
-      "text": "2. Tocar la parada y luego \"Completar entrega\""
-    },
-    {
-      "id": "u6",
-      "source": "t",
-      "text": "3. Tocar \"Agregar foto\" y elegir \"Cámara\""
-    },
-    {
-      "id": "u7",
-      "source": "t",
-      "text": "4. Sacar la foto y tocar \"Usar foto\""
-    },
-    {
-      "id": "u8",
-      "source": "t",
-      "text": "Esperado: la foto queda adjunta y la entrega se marca como completada"
-    },
-    {
-      "id": "u9",
-      "source": "t",
-      "text": "Actual: la app se cierra y al volver a abrirla la entrega sigue pendiente, sin foto"
-    },
-    {
-      "id": "u10",
-      "source": "t",
-      "text": "Dispositivo: Samsung A14, Android 13, app versión 2.4.1"
-    },
-    {
-      "id": "u11",
-      "source": "t",
-      "text": "Me pasó tres de tres veces; con la galería en vez de la cámara sí funciona"
-    },
-    {
-      "id": "u12",
-      "source": "t",
-      "text": "Adjunto una captura del momento justo antes del cierre."
-    },
-    {
-      "id": "u13",
-      "source": "a1",
-      "text": "Captura: pantalla \"Completar entrega\" con la vista previa de una foto de una caja en una puerta; botones \"Volver a sacar\" y \"Usar foto\"; hora 14:32 y batería al 9 %."
-    },
-    {
-      "id": "u14",
-      "source": "t",
-      "text": "Gracias!"
+      "name": "cierre-al-adjuntar-foto.png",
+      "extracted": "Captura: pantalla \"Completar entrega\" con la vista previa de una foto de una caja en una puerta; botones \"Volver a sacar\" y \"Usar foto\"; hora 14:32 y batería al 9 %."
     }
   ]
 }

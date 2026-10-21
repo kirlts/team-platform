@@ -1,59 +1,67 @@
 {
   "id": "01-chat-grupo",
-  "area": [
-    "error",
-    "feature",
-    "feedback"
-  ],
-  "template": [
-    "tpl-error",
-    "tpl-feature",
-    "tpl-feedback"
-  ],
   "messages": [
     {
       "id": "m1",
       "title": "El mapa no carga en Safari de iPhone",
+      "area_id": 2,
+      "template_id": 2,
       "unit_ids": [
-        "u1",
-        "u2",
-        "u3",
-        "u4",
-        "u14",
-        "u15"
+        1,
+        2,
+        3,
+        4,
+        14,
+        15
       ]
     },
     {
       "id": "m2",
       "title": "Marcar una entrega como reprogramada con calendario y feriados",
+      "area_id": 3,
+      "template_id": 3,
       "unit_ids": [
-        "u6",
-        "u7",
-        "u8",
-        "u9"
+        6,
+        7,
+        8,
+        9
       ]
     },
     {
       "id": "m3",
       "title": "El botón Iniciar ruta no cumple el contraste mínimo",
+      "area_id": [
+        2,
+        4
+      ],
+      "template_id": [
+        2,
+        4
+      ],
       "unit_ids": [
-        "u11",
-        "u12",
-        "u13"
+        11,
+        12,
+        13
       ]
     }
   ],
   "discarded": [
     {
-      "unit_id": "u5",
+      "unit_ids": [
+        5
+      ],
       "reason": "saludo"
     },
     {
-      "unit_id": "u10",
+      "unit_ids": [
+        10
+      ],
       "reason": "reacción sin contenido"
     },
     {
-      "unit_id": "u16",
+      "unit_ids": [
+        16
+      ],
       "reason": "aviso sin pedido"
     }
   ]

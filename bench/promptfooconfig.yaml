@@ -10,13 +10,13 @@ providers:
   - id: file://provider.mjs
     label: analizador-falso
     config:
-      analyzer: fake
+      providers: fake
       mode: perfect
-  # Analizador real, cuando src/analyze/index.js exista y haya llaves en el entorno:
+  # Proveedores reales de src/providers, con las llaves en el entorno (TEXT_PROVIDER, ANTHROPIC_API_KEY, ...):
   # - id: file://provider.mjs
   #   label: analizador-api
   #   config:
-  #     analyzer: ../src/analyze/index.js
+  #     providers: real
 
 defaultTest:
   assert:

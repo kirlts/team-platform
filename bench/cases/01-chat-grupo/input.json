@@ -3,93 +3,13 @@
   "title": "Captura de un chat de grupo del equipo",
   "kind": "captura de chat",
   "description": "Captura de pantalla del grupo del equipo, transcrita por el extractor de imagen. Mezcla un error, un pedido de funcionalidad y un aviso de accesibilidad con charla suelta. Las respuestas a un tema quedan separadas por mensajes de otros temas.",
+  "text": "",
   "attachments": [
     {
-      "id": "a1",
+      "id": 1,
       "kind": "image",
-      "name": "captura-grupo-lunes.png"
-    }
-  ],
-  "units": [
-    {
-      "id": "u1",
-      "source": "a1",
-      "text": "[09:12] Isidora: buenas! alguien más ve que el mapa no carga en el celular?"
-    },
-    {
-      "id": "u2",
-      "source": "a1",
-      "text": "[09:13] Isidora: me pasa en Safari, en Chrome sí carga"
-    },
-    {
-      "id": "u3",
-      "source": "a1",
-      "text": "[09:14] Tomás: yo lo veo bien en mi iPhone, qué versión de iOS tienes?"
-    },
-    {
-      "id": "u4",
-      "source": "a1",
-      "text": "[09:15] Isidora: 16.1"
-    },
-    {
-      "id": "u5",
-      "source": "a1",
-      "text": "[09:17] Camila: jajaja feliz lunes"
-    },
-    {
-      "id": "u6",
-      "source": "a1",
-      "text": "[09:18] Joaquín: ya, el sprint de esta semana: necesito que los repartidores puedan marcar una entrega como \"reprogramada\" y elegir nueva fecha"
-    },
-    {
-      "id": "u7",
-      "source": "a1",
-      "text": "[09:19] Joaquín: eso lo pidió el cliente de Maipú ayer"
-    },
-    {
-      "id": "u8",
-      "source": "a1",
-      "text": "[09:21] Valentina: la fecha la elige con un calendario o con botones de +1 día, +2 días?"
-    },
-    {
-      "id": "u9",
-      "source": "a1",
-      "text": "[09:22] Joaquín: calendario, pero que muestre los feriados"
-    },
-    {
-      "id": "u10",
-      "source": "a1",
-      "text": "[09:25] Camila: 👍"
-    },
-    {
-      "id": "u11",
-      "source": "a1",
-      "text": "[09:26] Camila: por cierto, el contraste del botón naranja de \"Iniciar ruta\" no llega a 4,5 a 1, lo medí con el verificador y da 2,9 a 1"
-    },
-    {
-      "id": "u12",
-      "source": "a1",
-      "text": "[09:27] Camila: lo puedo corregir yo si me dicen cuál es el naranja de marca"
-    },
-    {
-      "id": "u13",
-      "source": "a1",
-      "text": "[09:29] Tomás: el naranja de marca es #E8590C"
-    },
-    {
-      "id": "u14",
-      "source": "a1",
-      "text": "[09:31] Isidora: volviendo al mapa en Safari: ya probé borrar caché y nada"
-    },
-    {
-      "id": "u15",
-      "source": "a1",
-      "text": "[09:33] Tomás: le echo un ojo después de almuerzo"
-    },
-    {
-      "id": "u16",
-      "source": "a1",
-      "text": "[09:40] Joaquín: ojo que mañana hay demo con el cliente a las 11"
+      "name": "captura-grupo-lunes.png",
+      "extracted": "[09:12] Isidora: buenas! alguien más ve que el mapa no carga en el celular?\n[09:13] Isidora: me pasa en Safari, en Chrome sí carga\n[09:14] Tomás: yo lo veo bien en mi iPhone, qué versión de iOS tienes?\n[09:15] Isidora: 16.1\n[09:17] Camila: jajaja feliz lunes\n[09:18] Joaquín: ya, el sprint de esta semana: necesito que los repartidores puedan marcar una entrega como \"reprogramada\" y elegir nueva fecha\n[09:19] Joaquín: eso lo pidió el cliente de Maipú ayer\n[09:21] Valentina: la fecha la elige con un calendario o con botones de +1 día, +2 días?\n[09:22] Joaquín: calendario, pero que muestre los feriados\n[09:25] Camila: 👍\n[09:26] Camila: por cierto, el contraste del botón naranja de \"Iniciar ruta\" no llega a 4,5 a 1, lo medí con el verificador y da 2,9 a 1\n[09:27] Camila: lo puedo corregir yo si me dicen cuál es el naranja de marca\n[09:29] Tomás: el naranja de marca es #E8590C\n[09:31] Isidora: volviendo al mapa en Safari: ya probé borrar caché y nada\n[09:33] Tomás: le echo un ojo después de almuerzo\n[09:40] Joaquín: ojo que mañana hay demo con el cliente a las 11"
     }
   ]
 }

@@ -1,62 +1,88 @@
 {
   "id": "07-video-de-pantalla",
-  "area": [
-    "error",
-    "feedback"
-  ],
-  "template": [
-    "tpl-error",
-    "tpl-feedback"
-  ],
   "messages": [
     {
       "id": "m1",
       "title": "Los colores de estado se confunden con daltonismo",
+      "area_id": [
+        2,
+        4
+      ],
+      "template_id": [
+        2,
+        4
+      ],
       "unit_ids": [
-        "u3",
-        "u4",
-        "u5"
+        3,
+        4,
+        5
       ]
     },
     {
       "id": "m2",
       "title": "La opción PDF del menú Exportar queda cortada",
+      "area_id": [
+        2,
+        4
+      ],
+      "template_id": [
+        2,
+        4
+      ],
       "unit_ids": [
-        "u7"
+        7
       ]
     },
     {
       "id": "m3",
       "title": "El PDF exportado muestra mal las tildes de los nombres",
+      "area_id": 2,
+      "template_id": 2,
       "unit_ids": [
-        "u8",
-        "u9"
+        8,
+        9
       ]
     },
     {
       "id": "m4",
       "title": "Cerrar jornada y Cancelar ruta están pegados",
+      "area_id": [
+        2,
+        4
+      ],
+      "template_id": [
+        2,
+        4
+      ],
       "unit_ids": [
-        "u10",
-        "u11"
+        10,
+        11
       ]
     }
   ],
   "discarded": [
     {
-      "unit_id": "u1",
+      "unit_ids": [
+        1
+      ],
       "reason": "presentación"
     },
     {
-      "unit_id": "u2",
+      "unit_ids": [
+        2
+      ],
       "reason": "contexto"
     },
     {
-      "unit_id": "u6",
+      "unit_ids": [
+        6
+      ],
       "reason": "navegación"
     },
     {
-      "unit_id": "u12",
+      "unit_ids": [
+        12
+      ],
       "reason": "cierre"
     }
   ]

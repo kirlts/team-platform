@@ -1,5 +1,5 @@
-// Puntaje MECE por aritmética de conjuntos sobre unit_ids (informe 02, §5.2 y §10).
-// Módulo puro: sin red, sin disco, sin leer prosa (MASTER-SPEC §1.2).
+// Puntaje MECE por aritmética de conjuntos sobre unit_ids (informe 02, §5.2 y §10) y exactitud de
+// la clasificación por unidad (MASTER-SPEC §7.11). Módulo puro: sin red, sin disco, sin leer prosa (§1.2).
 //
 // Vocabulario:
 //   G = mensajes esperados de la referencia, cada uno un punto atómico con sus unit_ids.
@@ -7,27 +7,34 @@
 //   unidad = fragmento numerado del input (párrafo, viñeta, segmento con marca de tiempo).
 
 /**
- * @typedef {{ id: string, unit_ids: string[] }} ExpectedMessage
- * @typedef {{ unit_ids: string[], area_id?: string }} ActualMessage
+ * @typedef {number | string} UnitId
+ * @typedef {{ id: string, unit_ids: UnitId[], area_id?: number | number[], template_id?: number | number[] }} ExpectedMessage
+ * @typedef {{ unit_ids: UnitId[], area_id?: number, template_id?: number }} ActualMessage
  * @typedef {{
- *   units: Array<string | { id: string }>,
- *   expected: { messages: ExpectedMessage[], discarded?: string[], area?: string | string[], template?: string | string[] },
- *   actual: { messages: ActualMessage[], discarded?: Array<string | { unit_id: string }>, area_id?: string, template_id?: string }
+ *   units: Array<UnitId | { id: UnitId }>,
+ *   expected: { messages: ExpectedMessage[] },
+ *   actual: { messages?: ActualMessage[], discarded?: Array<UnitId | { unit_id?: UnitId, unit_ids?: UnitId[] }> }
  * }} ScoreInput
  */
 
-const idOf = (unit) => (typeof unit === 'string' ? unit : unit.id);
+const idOf = (unit) => (typeof unit === 'object' && unit !== null ? unit.id : unit);
 const isSubset = (small, big) => [...small].every((x) => big.has(x));
 const intersects = (a, b) => [...a].some((x) => b.has(x));
 const ratio = (n, d) => (d === 0 ? 0 : n / d);
-const accepts = (expected, value) => {
-  if (expected === undefined || expected === null) return null;
-  return Array.isArray(expected) ? expected.includes(value) : expected === value;
-};
+const asList = (v) => (v === undefined || v === null ? null : [].concat(v));
+
+/** Los descartados llegan como ids sueltos, `{ unit_id }` o `{ unit_ids, reason }`. */
+function discardedIds(discarded) {
+  return (discarded ?? []).flatMap((d) => {
+    if (typeof d !== 'object' || d === null) return [d];
+    return [...(d.unit_ids ?? []), ...(d.unit_id === undefined ? [] : [d.unit_id])];
+  });
+}
 
 /**
- * Calcula las medidas del informe 02 §5.2 más los solapes y huecos por unidad (§3.3).
- * Las unidades que el analizador cita y no existen en el input se ignoran y se informan.
+ * Calcula las medidas del informe 02 §5.2, los solapes y huecos por unidad (§3.3) y la exactitud
+ * de área y plantilla por unidad. Las unidades que el analizador cita y no existen en el input se
+ * ignoran y se informan.
  * @param {ScoreInput} input
  */
 export function score({ units, expected, actual }) {
@@ -44,11 +51,9 @@ export function score({ units, expected, actual }) {
     return out;
   };
 
-  const G = expected.messages.map((m) => ({ id: m.id, units: clean(m.unit_ids, false) }));
-  const P = (actual.messages ?? []).map((m, index) => ({ index, units: clean(m.unit_ids, true) }));
-  const discarded = new Set(
-    (actual.discarded ?? []).map((d) => (typeof d === 'string' ? d : d.unit_id)).filter((id) => known.has(id)),
-  );
+  const G = expected.messages.map((m) => ({ ...m, units: clean(m.unit_ids, false) }));
+  const P = (actual.messages ?? []).map((m, index) => ({ ...m, index, units: clean(m.unit_ids, true) }));
+  const discarded = new Set(discardedIds(actual.discarded).filter((id) => known.has(id)));
 
   const union = new Set(P.flatMap((p) => [...p.units]));
 
@@ -89,8 +94,25 @@ export function score({ units, expected, actual }) {
   const overlapUnits = [...messageCount].filter(([, n]) => n > 1).map(([id]) => id);
   const holeUnits = [...known].filter((id) => !union.has(id) && !discarded.has(id));
 
-  const areaOk = accepts(expected.area, actual.area_id);
-  const templateOk = accepts(expected.template, actual.template_id);
+  // Clasificación por unidad: cada unidad de un punto esperado tiene que estar sólo en mensajes
+  // cuya área (y plantilla) estén entre las aceptadas para ese punto.
+  const classification = { units: 0, area_correct: 0, template_correct: 0, both_correct: 0 };
+  let classified = false;
+  for (const g of G) {
+    const areas = asList(g.area_id);
+    const templates = asList(g.template_id);
+    if (!areas && !templates) continue;
+    classified = true;
+    for (const unit of g.units) {
+      const holders = P.filter((p) => p.units.has(unit));
+      const areaOk = holders.length > 0 && (!areas || holders.every((p) => areas.includes(p.area_id)));
+      const templateOk = holders.length > 0 && (!templates || holders.every((p) => templates.includes(p.template_id)));
+      classification.units += 1;
+      if (areaOk) classification.area_correct += 1;
+      if (templateOk) classification.template_correct += 1;
+      if (areaOk && templateOk) classification.both_correct += 1;
+    }
+  }
 
   const counts = {
     expected_messages: nG,
@@ -105,6 +127,7 @@ export function score({ units, expected, actual }) {
     overlap_units: overlapUnits.length,
     hole_units: holeUnits.length,
     invalid_unit_ids: invalid.size,
+    ...classification,
   };
   const rates = {
     coverage: ratio(covered, nG),
@@ -112,9 +135,13 @@ export function score({ units, expected, actual }) {
     extra: ratio(extraMessages.length, nP),
     split: ratio(split, nG),
     fused: ratio(fusedMessages.length, nP),
+    area_accuracy: classified ? ratio(classification.area_correct, classification.units) : null,
+    template_accuracy: classified ? ratio(classification.template_correct, classification.units) : null,
+    classification_accuracy: classified ? ratio(classification.both_correct, classification.units) : null,
   };
 
   // MECE por definición: nada falta, nada se repite, ningún punto roto ni fusionado, ningún mensaje sin punto.
+  // La clasificación se califica aparte (MASTER-SPEC §7.11).
   const mece =
     rates.coverage === 1 &&
     counts.repeated === 0 &&
@@ -129,8 +156,6 @@ export function score({ units, expected, actual }) {
     counts,
     rates,
     mece,
-    area_ok: areaOk,
-    template_ok: templateOk,
     details: {
       points: perPoint,
       extra_messages: extraMessages,

@@ -1,48 +1,48 @@
 {
   "id": "06-mensaje-mezclado",
-  "area": [
-    "error",
-    "feature",
-    "question"
-  ],
-  "template": [
-    "tpl-error",
-    "tpl-feature",
-    "tpl-question"
-  ],
   "messages": [
     {
       "id": "m1",
       "title": "Paradas duplicadas en pantalla para el cliente de Peñalolén",
+      "area_id": 2,
+      "template_id": 2,
       "unit_ids": [
-        "u2",
-        "u3"
+        2,
+        3
       ]
     },
     {
       "id": "m2",
       "title": "Enviar el reporte semanal por correo cada lunes",
+      "area_id": 3,
+      "template_id": 3,
       "unit_ids": [
-        "u4",
-        "u5"
+        4,
+        5
       ]
     },
     {
       "id": "m3",
       "title": "¿Cuántas rutas por día soporta el servidor?",
+      "area_id": 5,
+      "template_id": 5,
       "unit_ids": [
-        "u6",
-        "u7"
+        6,
+        7
       ]
     }
   ],
   "discarded": [
     {
-      "unit_id": "u1",
+      "unit_ids": [
+        1
+      ],
       "reason": "anuncio"
     },
     {
-      "unit_id": "u8",
+      "unit_ids": [
+        8
+      ],
       "reason": "aviso de ausencia"
     }
   ]

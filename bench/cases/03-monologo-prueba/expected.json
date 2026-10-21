@@ -1,181 +1,241 @@
 {
   "id": "03-monologo-prueba",
-  "area": [
-    "error",
-    "feature",
-    "idea",
-    "question",
-    "feedback"
-  ],
-  "template": [
-    "tpl-error",
-    "tpl-feature",
-    "tpl-idea",
-    "tpl-question",
-    "tpl-feedback"
-  ],
   "messages": [
     {
       "id": "m1",
       "title": "El mapa queda en blanco varios segundos con rutas de veinte paradas",
+      "area_id": 2,
+      "template_id": 2,
       "unit_ids": [
-        "u2",
-        "u3",
-        "u4",
-        "u5",
-        "u6",
-        "u39",
-        "u40",
-        "u41"
+        2,
+        3,
+        4,
+        5,
+        6,
+        39,
+        40,
+        41
       ]
     },
     {
       "id": "m2",
       "title": "El texto del botón Reprogramar entrega se corta en pantallas chicas",
+      "area_id": [
+        2,
+        4
+      ],
+      "template_id": [
+        2,
+        4
+      ],
       "unit_ids": [
-        "u9",
-        "u10"
+        9,
+        10
       ]
     },
     {
       "id": "m3",
       "title": "El calendario deja elegir fechas pasadas",
+      "area_id": 2,
+      "template_id": 2,
       "unit_ids": [
-        "u12",
-        "u13"
+        12,
+        13
       ]
     },
     {
       "id": "m4",
       "title": "La confirmación de reprogramación desaparece demasiado rápido",
+      "area_id": 4,
+      "template_id": 4,
       "unit_ids": [
-        "u15"
+        15
       ]
     },
     {
       "id": "m5",
       "title": "El contador de paradas pendientes no baja al reprogramar",
+      "area_id": 2,
+      "template_id": 2,
       "unit_ids": [
-        "u17",
-        "u18",
-        "u37",
-        "u38"
+        17,
+        18,
+        37,
+        38
       ]
     },
     {
       "id": "m6",
       "title": "¿El repartidor ve las notas internas de la bodega?",
+      "area_id": 5,
+      "template_id": 5,
       "unit_ids": [
-        "u19",
-        "u20",
-        "u21"
+        19,
+        20,
+        21
       ]
     },
     {
       "id": "m7",
       "title": "Avisar al cliente por WhatsApp cuando se reprograma",
+      "area_id": [
+        3,
+        1
+      ],
+      "template_id": [
+        3,
+        1
+      ],
       "unit_ids": [
-        "u24",
-        "u25",
-        "u26",
-        "u27"
+        24,
+        25,
+        26,
+        27
       ]
     },
     {
       "id": "m8",
       "title": "Agrupar las paradas por barrio",
+      "area_id": 1,
+      "template_id": 1,
       "unit_ids": [
-        "u29",
-        "u30",
-        "u31"
+        29,
+        30,
+        31
       ]
     },
     {
       "id": "m9",
       "title": "El calendario no marca feriados y no se sabe si toma los regionales",
+      "area_id": [
+        5,
+        2
+      ],
+      "template_id": [
+        5,
+        2
+      ],
       "unit_ids": [
-        "u32",
-        "u33",
-        "u34",
-        "u35"
+        32,
+        33,
+        34,
+        35
       ]
     }
   ],
   "discarded": [
     {
-      "unit_id": "u1",
+      "unit_ids": [
+        1
+      ],
       "reason": "presentación"
     },
     {
-      "unit_id": "u7",
+      "unit_ids": [
+        7
+      ],
       "reason": "navegación"
     },
     {
-      "unit_id": "u8",
+      "unit_ids": [
+        8
+      ],
       "reason": "navegación"
     },
     {
-      "unit_id": "u11",
+      "unit_ids": [
+        11
+      ],
       "reason": "navegación"
     },
     {
-      "unit_id": "u14",
+      "unit_ids": [
+        14
+      ],
       "reason": "navegación"
     },
     {
-      "unit_id": "u16",
+      "unit_ids": [
+        16
+      ],
       "reason": "resultado correcto"
     },
     {
-      "unit_id": "u22",
+      "unit_ids": [
+        22
+      ],
       "reason": "navegación"
     },
     {
-      "unit_id": "u23",
+      "unit_ids": [
+        23
+      ],
       "reason": "interrupción"
     },
     {
-      "unit_id": "u28",
+      "unit_ids": [
+        28
+      ],
       "reason": "navegación"
     },
     {
-      "unit_id": "u36",
+      "unit_ids": [
+        36
+      ],
       "reason": "relleno"
     },
     {
-      "unit_id": "u42",
+      "unit_ids": [
+        42
+      ],
       "reason": "pausa"
     },
     {
-      "unit_id": "u43",
+      "unit_ids": [
+        43
+      ],
       "reason": "resultado correcto"
     },
     {
-      "unit_id": "u44",
+      "unit_ids": [
+        44
+      ],
       "reason": "resultado correcto"
     },
     {
-      "unit_id": "u45",
+      "unit_ids": [
+        45
+      ],
       "reason": "resultado correcto"
     },
     {
-      "unit_id": "u46",
+      "unit_ids": [
+        46
+      ],
       "reason": "cierre"
     },
     {
-      "unit_id": "u47",
+      "unit_ids": [
+        47
+      ],
       "reason": "resumen de lo ya dicho"
     },
     {
-      "unit_id": "u48",
+      "unit_ids": [
+        48
+      ],
       "reason": "resumen de lo ya dicho"
     },
     {
-      "unit_id": "u49",
+      "unit_ids": [
+        49
+      ],
       "reason": "cierre"
     },
     {
-      "unit_id": "u50",
+      "unit_ids": [
+        50
+      ],
       "reason": "cierre"
     }
   ]

@@ -16,7 +16,8 @@
     "test": "node --test \"src/**/*.test.js\"",
     "test:bench": "node --test bench/",
     "posttest": "node scripts/test-quick.mjs --mark",
-    "test:rapido": "node scripts/test-quick.mjs"
+    "test:rapido": "node scripts/test-quick.mjs",
+    "test:image": "docker build -t team-platform:test . && TEAM_PLATFORM_IMAGE=team-platform:test node --test src/image.docker.test.js"
   },
   "dependencies": {
     "@fastify/cookie": "11.1.3",

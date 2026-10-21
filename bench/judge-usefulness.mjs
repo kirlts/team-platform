@@ -8,8 +8,13 @@
 // variant so that «right project context» can be checked against it.
 //
 //   node bench/judge-usefulness.mjs <result.json> [<result.json> ...] [--project file] [--concurrency n] [--budget USD]
+//   node bench/judge-usefulness.mjs --pooled <result.json> ... [--per-run-cap n] [--judge-model id] [--out file]
 //
-// Writes <result>.usefulness.json next to each result: per-message scores, the median per case and overall.
+// Default mode writes <result>.usefulness.json next to each result: per-message scores, the median per case and overall.
+// --pooled puts the messages of every variant of a case in one call, shuffled and without labels, so the judge sees
+// them side by side and cannot tell which variant wrote which; it writes one file with the scores by variant label.
+// --judge-model sets the judge model (the analyzer's by default); with a model other than Haiku the judge runs at
+// effort low with thinking left to the model (Sonnet 5.5 rejects thinking disabled).
 import { parseArgs } from 'node:util';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
@@ -17,6 +22,7 @@ import { fileURLToPath } from 'node:url';
 import { createProviders } from '../src/providers/index.js';
 import { costOf } from './pricing.js';
 import { createSpend, withQueueRetries } from './spend.mjs';
+import { mkdirSync } from 'node:fs';
 import { median } from './compare.js';
 
 export const RUBRIC = `You judge the messages that a tool wrote for a small software team from raw input (a meeting transcript, a chat, a feedback document, a screen recording). The messages are in Spanish. Rate each one from 1 to 5 on a single question: can a person on the team read the message body and understand what to do and why, with the right project context, without the message inventing facts?
@@ -70,6 +76,31 @@ export function judgeUser({ messages, units }) {
   return parts.join('\n');
 }
 
+/** Deterministic pseudo-random generator (mulberry32) and a seed from a string, so that the shuffle can be repeated. */
+export function seeded(text) {
+  let h = 2166136261;
+  for (const ch of text) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  return () => {
+    h = (h + 0x6d2b79f5) | 0;
+    let t = Math.imul(h ^ (h >>> 15), 1 | h);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Up to `cap` items spread evenly over the list, in order. */
+export const spread = (list, cap) => (list.length <= cap ? list : Array.from({ length: cap }, (_, i) => list[Math.floor((i * list.length) / cap)]));
+
+/** Fisher-Yates with the given random source. */
+export function shuffle(list, random) {
+  const out = [...list];
+  for (let i = out.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 /** Pure part of the pipeline: validates the judge output against the messages it had to rate. */
 export function readRatings(json, count) {
   const seen = new Map();
@@ -89,76 +120,147 @@ if (isMain) {
       concurrency: { type: 'string', default: '4' },
       budget: { type: 'string', default: '3' },
       'results-dir': { type: 'string' },
+      'judge-model': { type: 'string' },
+      'judge-effort': { type: 'string' },
+      pooled: { type: 'boolean', default: false },
+      'per-run-cap': { type: 'string', default: '4' },
+      out: { type: 'string' },
+      cases: { type: 'string' },
     },
   });
   if (positionals.length === 0) throw new Error('Usage: judge-usefulness.mjs <result.json> [...] [--project file]');
-  const ledger = createSpend({ resultsDir: values['results-dir'] ?? join(here, 'results'), budgetUsd: Number(values.budget) });
-  const providers = createProviders(process.env);
+  const resultsDir = values['results-dir'] ?? join(here, 'results');
+  const ledger = createSpend({ resultsDir, budgetUsd: Number(values.budget) });
+  const env = values['judge-model'] ? { ...process.env, TEXT_MODEL: values['judge-model'] } : process.env;
+  const providers = createProviders(env);
   if (providers.text.unavailable) throw new Error(providers.text.unavailable);
+  const haiku = /haiku/.test(providers.text.model ?? '');
+  const effort = values['judge-effort'] ?? (values['judge-model'] ? 'low' : 'medium');
+  const thinking = haiku ? 'disabled' : undefined;
   const project = values.project ? readFileSync(values.project, 'utf8') : '';
   const system = [RUBRIC, ...(project.trim() ? [`Project description (the same for every message you judge). Use it to check the project context:\n\n${project}`] : [])];
 
-  // Jobs: every run of every case of every file. They are independent, so a bounded pool runs them side by side.
-  const jobs = [];
-  const outputs = positionals.map((file) => {
-    const result = JSON.parse(readFileSync(file, 'utf8'));
-    const out = { file, judged_at: new Date().toISOString(), source: basename(file), model: providers.text.model, project_in_prompt: Boolean(project.trim()), cases: [], cost_usd: 0 };
-    for (const c of result.cases) {
-      c.runs.forEach((run, runIndex) => {
-        const entry = { case_id: c.case_id, run: runIndex + 1, scores: [], median: null, missing: [] };
-        out.cases.push(entry);
-        const messages = run.proposal?.messages ?? [];
-        if (messages.length > 0) jobs.push({ out, entry, messages, units: run.units });
-      });
-    }
-    return out;
-  });
-
-  async function judgeOne({ out, entry, messages, units }) {
+  /** One judge call over `messages` (with the units they cite); returns Map(index -> rating) and the cost. */
+  async function rate(label, messages, units) {
     let missing = messages.map((_, i) => i + 1);
     const got = new Map();
+    let cost = 0;
     for (let attempt = 0; attempt < 2 && missing.length > 0; attempt += 1) {
-      const label = `judge ${entry.case_id}`;
-      ledger.assertBudget(label);
+      ledger.assertBudget(`judge ${label}`);
       const subset = missing.map((i) => messages[i - 1]);
       const response = await withQueueRetries(() => providers.text.complete({
         system,
         messages: [{ role: 'user', content: judgeUser({ messages: subset, units }) }],
         schema: RATINGS_SCHEMA,
-        effort: 'medium',
-        thinking: 'disabled',
-      }), { onRetry: (e, n) => console.log(`${entry.case_id}: retry ${n} (${e.message.slice(0, 90)})`) });
-      const cost = costOf({ model: response.model, usage: response.usage });
-      out.cost_usd += cost ?? 0;
-      const total = ledger.add(label, cost ?? 0, cost === null ? 1 : 0);
+        effort,
+        maxTokens: 32000,
+        ...(thinking ? { thinking } : {}),
+      }), { attempts: 6, onRetry: (e, n) => console.log(`${label}: retry ${n} (${e.message.slice(0, 90)})`) });
+      const spent = costOf({ model: response.model, usage: response.usage });
+      cost += spent ?? 0;
+      const total = ledger.add(`judge ${label}`, spent ?? 0, spent === null ? 1 : 0);
       const { ratings } = readRatings(response.json, subset.length);
       for (const [local, r] of ratings) got.set(missing[local - 1], r);
       missing = missing.filter((i) => !got.has(i));
-      console.log(`${basename(out.file)} ${entry.case_id}: ${got.size}/${messages.length} rated (accumulated ${total.toFixed(4)} USD)`);
+      console.log(`${label}: ${got.size}/${messages.length} rated (accumulated ${total.toFixed(4)} USD)`);
     }
-    entry.scores = [...got].sort((a, b) => a[0] - b[0]).map(([index, r]) => ({ message_index: index, score: r.score, reason: r.reason }));
-    entry.missing = missing;
-    entry.median = median(entry.scores.map((s) => s.score));
+    return { got, missing, cost };
   }
 
-  let next = 0;
-  let failure = null;
-  await Promise.all(Array.from({ length: Number(values.concurrency) }, async () => {
-    while (next < jobs.length && !failure) {
-      const job = jobs[next++];
-      try {
-        await judgeOne(job);
-      } catch (e) {
-        failure = e;
+  async function pool(jobs) {
+    let next = 0;
+    let failure = null;
+    await Promise.all(Array.from({ length: Number(values.concurrency) }, async () => {
+      while (next < jobs.length && !failure) {
+        const job = jobs[next++];
+        try {
+          await job();
+        } catch (e) {
+          failure = e;
+        }
+      }
+    }));
+    return failure;
+  }
+
+  let failure;
+  if (values.pooled) {
+    // Group the runs of every file by variant label (a «-b» suffix marks a repetition of the same variant).
+    const cap = Number(values['per-run-cap']);
+    const labelOf = (r) => (r.variant ?? basename(r.file)).replace(/-b$/, '');
+    const byCase = new Map();
+    for (const file of positionals) {
+      const result = JSON.parse(readFileSync(file, 'utf8'));
+      const label = labelOf({ ...result, file });
+      for (const c of result.cases) {
+        const entry = byCase.get(c.case_id) ?? { units: null, byLabel: new Map() };
+        byCase.set(c.case_id, entry);
+        for (const run of c.runs) {
+          entry.units ??= run.units;
+          if (run.proposal?.messages?.length) entry.byLabel.set(label, [...(entry.byLabel.get(label) ?? []), ...run.proposal.messages]);
+        }
       }
     }
-  }));
-
-  for (const out of outputs) {
-    const all = out.cases.flatMap((c) => c.scores.map((s) => s.score));
-    out.overall = { judged: all.length, median: median(all), mean: all.length ? all.reduce((a, b) => a + b, 0) / all.length : null };
-    writeFileSync(out.file.replace(/\.json$/, '.usefulness.json'), JSON.stringify(out, null, 2));
-    console.log(`${basename(out.file)}: ${all.length} messages, median ${out.overall.median}, mean ${out.overall.mean?.toFixed(2)}, ${out.cost_usd.toFixed(4)} USD`);
+    const out = { judged_at: new Date().toISOString(), model: providers.text.model, effort, per_run_cap: cap, project_in_prompt: Boolean(project.trim()), cost_usd: 0, variants: {} };
+    const wanted = values.cases ? values.cases.split(',') : null;
+    const jobs = [...byCase].filter(([id]) => !wanted || wanted.includes(id)).sort(([a], [b]) => a.localeCompare(b)).map(([caseId, entry]) => async () => {
+      const items = [];
+      for (const [label, messages] of entry.byLabel) for (const message of spread(messages, cap)) items.push({ label, message });
+      if (items.length === 0) return;
+      const shuffled = shuffle(items, seeded(caseId));
+      const { got, cost } = await rate(caseId, shuffled.map((x) => x.message), entry.units);
+      out.cost_usd += cost;
+      shuffled.forEach((item, i) => {
+        const v = (out.variants[item.label] ??= { cases: [] });
+        let c = v.cases.find((x) => x.case_id === caseId);
+        if (!c) v.cases.push((c = { case_id: caseId, scores: [], median: null }));
+        const r = got.get(i + 1);
+        if (r) c.scores.push({ score: r.score, reason: r.reason });
+      });
+    });
+    failure = await pool(jobs);
+    for (const v of Object.values(out.variants)) {
+      for (const c of v.cases) c.median = median(c.scores.map((s) => s.score));
+      const all = v.cases.flatMap((c) => c.scores.map((s) => s.score));
+      v.judged = all.length;
+      v.median = median(all);
+      v.mean = all.length ? all.reduce((a, b) => a + b, 0) / all.length : null;
+    }
+    mkdirSync(resultsDir, { recursive: true });
+    const file = values.out ?? join(resultsDir, `usefulness-${providers.text.model}-${out.judged_at.replace(/[:.]/g, '-')}.json`);
+    writeFileSync(file, JSON.stringify(out, null, 2));
+    for (const [label, v] of Object.entries(out.variants)) console.log(`${label}: ${v.judged} messages, median ${v.median}, mean ${v.mean?.toFixed(2)}`);
+    console.log(`Judge cost ${out.cost_usd.toFixed(4)} USD; written ${file}`);
+  } else {
+    const jobs = [];
+    const outputs = positionals.map((file) => {
+      const result = JSON.parse(readFileSync(file, 'utf8'));
+      const out = { file, judged_at: new Date().toISOString(), source: basename(file), model: providers.text.model, project_in_prompt: Boolean(project.trim()), cases: [], cost_usd: 0 };
+      for (const c of result.cases) {
+        c.runs.forEach((run, runIndex) => {
+          const entry = { case_id: c.case_id, run: runIndex + 1, scores: [], median: null, missing: [] };
+          out.cases.push(entry);
+          const messages = run.proposal?.messages ?? [];
+          if (messages.length > 0) {
+            jobs.push(async () => {
+              const { got, missing, cost } = await rate(`${basename(file)} ${c.case_id}`, messages, run.units);
+              out.cost_usd += cost;
+              entry.scores = [...got].sort((x, y) => x[0] - y[0]).map(([index, r]) => ({ message_index: index, score: r.score, reason: r.reason }));
+              entry.missing = missing;
+              entry.median = median(entry.scores.map((x) => x.score));
+            });
+          }
+        });
+      }
+      return out;
+    });
+    failure = await pool(jobs);
+    for (const out of outputs) {
+      const all = out.cases.flatMap((c) => c.scores.map((s) => s.score));
+      out.overall = { judged: all.length, median: median(all), mean: all.length ? all.reduce((a, b) => a + b, 0) / all.length : null };
+      writeFileSync(out.file.replace(/\.json$/, '.usefulness.json'), JSON.stringify(out, null, 2));
+      console.log(`${basename(out.file)}: ${all.length} messages, median ${out.overall.median}, mean ${out.overall.mean?.toFixed(2)}, ${out.cost_usd.toFixed(4)} USD`);
+    }
   }
   if (failure) {
     console.error(`Stopped: ${failure.message}`);

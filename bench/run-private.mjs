@@ -17,6 +17,9 @@
 //   --team <file>      JSON array of { id, name, role, profile }: the members the analyzer receives (default: bench/fixtures.json)
 //   --no-profile       send members with id and name only (the «name only» baseline)
 //   --project <file>   markdown sent as bundle.project.description (default: no project); --project-name sets its name
+//   --usefulness <f>   compare: scores by variant from a pooled judgment file instead of <result>.usefulness.json
+//   --oracle           run: classification gets the reference groups (bench/oracle.mjs); every variant is scored on the same messages
+//   --first-reader-only  ignore expected-b.json (the second reader's labels)
 //   --pool             compare: merge result files whose variant differs only by a «-b» suffix (a repetition) into one
 //   --variant <label>  written into the result and its file name
 //   --cases a,b,c      comma list of case ids (same as repeating --case)
@@ -31,7 +34,10 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statS
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadFixtures, runCase, summarize, formatReport, unitsOf } from './lib.js';
+import { score } from './score.js';
 import { createSpend, withQueueRetries } from './spend.mjs';
+import { runOracleCase } from './oracle.mjs';
+import { mergeSecondLabeler } from './labels.js';
 import { compareResults, formatComparison, poolResults } from './compare.js';
 import { costOf, usageOfCall } from './pricing.js';
 import { analyze } from '../src/analyze/index.js';
@@ -60,6 +66,9 @@ const { values, positionals } = parseArgs({
     'private-dir': { type: 'string' },
     'results-dir': { type: 'string' },
     pool: { type: 'boolean', default: false },
+    usefulness: { type: 'string' },
+    oracle: { type: 'boolean', default: false },
+    'first-reader-only': { type: 'boolean', default: false },
   },
 });
 const command = positionals[0] ?? 'list';
@@ -85,7 +94,13 @@ function loadPrivateCases() {
     }));
 }
 
-const readExpected = (c) => (existsSync(c.expectedPath) ? JSON.parse(readFileSync(c.expectedPath, 'utf8')) : null);
+// The second reader's labels (expected-b.json), when they exist, widen the accepted area, template and assignees.
+function readExpected(c) {
+  if (!existsSync(c.expectedPath)) return null;
+  const first = JSON.parse(readFileSync(c.expectedPath, 'utf8'));
+  const secondPath = join(dirname(c.expectedPath), 'expected-b.json');
+  return existsSync(secondPath) && !values['first-reader-only'] ? mergeSecondLabeler(first, JSON.parse(readFileSync(secondPath, 'utf8'))) : first;
+}
 const cachePath = (id) => join(cacheDir, `${id}.json`);
 const readCache = (id) => (existsSync(cachePath(id)) ? JSON.parse(readFileSync(cachePath(id), 'utf8')) : null);
 
@@ -185,6 +200,18 @@ const describeContext = (fixtures) => ({
   no_profile: values['no-profile'],
 });
 
+/** One case in oracle mode (bench/oracle.mjs), scored like runCase: the reference groups are the points. */
+async function runOracleScored({ cache, expected, fixtures, providers, caseId }) {
+  const run = await runOracleCase({
+    providers,
+    input: cache.input,
+    context: fixtures,
+    expected,
+    onRetry: (e, attempt) => console.log(`${caseId}: reintento ${attempt} (${e.message.slice(0, 90)})`),
+  });
+  return { case_id: caseId, ...run, score: score({ units: run.units, expected, actual: run.proposal }) };
+}
+
 // ---------- commands ----------
 
 if (command === 'list') {
@@ -260,16 +287,18 @@ if (command === 'list') {
     for (let i = 0; i < repeat; i += 1) {
       assertBudget(`${c.id} #${i + 1}`);
       // A retryable provider error (rate limit, overload) repeats the whole case, as the job queue does in the product.
-      const run = await withQueueRetries(
-        () => runCase({
-          analyze,
-          providers,
-          testCase: { id: c.id, input: cache.input, expected },
-          fixtures,
-          options: values.analyzer ? { analyzer: values.analyzer } : {},
-        }),
-        { attempts: 6, onRetry: (e, attempt) => console.log(`${c.id}: reintento ${attempt} (${e.message.slice(0, 90)})`) },
-      );
+      const run = values.oracle
+        ? await runOracleScored({ cache, expected, fixtures, providers, caseId: c.id })
+        : await withQueueRetries(
+          () => runCase({
+            analyze,
+            providers,
+            testCase: { id: c.id, input: cache.input, expected },
+            fixtures,
+            options: values.analyzer ? { analyzer: values.analyzer } : {},
+          }),
+          { attempts: 6, onRetry: (e, attempt) => console.log(`${c.id}: reintento ${attempt} (${e.message.slice(0, 90)})`) },
+        );
       const total = addSpend(`analyze ${c.id}`, run.usage.cost_usd ?? 0, run.usage.cost_usd === null ? run.usage.calls : 0);
       console.log(`${c.id} #${i + 1}: ${run.status}, ${(run.total_ms / 1000).toFixed(1)} s, ${run.usage.calls} llamadas, ${run.usage.cost_usd?.toFixed(5) ?? 'sin tarifa'} USD (acumulado ${total.toFixed(4)})`);
       runs.push(run);
@@ -281,7 +310,7 @@ if (command === 'list') {
     mkdirSync(resultsDir, { recursive: true });
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
     const out = values.out ?? join(resultsDir, `private-${values.variant ? `${values.variant.replace(/[^\w+.-]/g, '_')}-` : ''}${stamp}.json`);
-    writeFileSync(out, JSON.stringify({ at: new Date().toISOString(), variant: values.variant ?? null, repeat, context: describeContext(fixtures), models: providers.describe(), speech: providers.speechMode, cases: all }, null, 2));
+    writeFileSync(out, JSON.stringify({ at: new Date().toISOString(), variant: values.variant ?? null, mode: values.oracle ? 'oracle' : 'full', second_reader: !values['first-reader-only'] && existsSync(join(privateDir, loadPrivateCases()[0]?.id ?? '', 'expected-b.json')), repeat, context: describeContext(fixtures), models: providers.describe(), speech: providers.speechMode, cases: all }, null, 2));
     console.log(`\nResultado completo: ${out}`);
   }
 } else if (command === 'compare') {
@@ -292,6 +321,11 @@ if (command === 'list') {
     return { file, ...JSON.parse(readFileSync(file, 'utf8')), usefulness: existsSync(usefulnessFile) ? JSON.parse(readFileSync(usefulnessFile, 'utf8')) : null };
   });
   const compared = values.pool ? poolResults(results, (r) => (r.variant ?? r.file).replace(/-b$/, '')) : results;
+  if (values.usefulness) {
+    // A pooled judgment file (judge-usefulness.mjs --pooled) holds the scores by variant label.
+    const judged = JSON.parse(readFileSync(values.usefulness, 'utf8'));
+    for (const r of compared) r.usefulness = judged.variants[r.variant ?? r.file] ? { cost_usd: null, cases: judged.variants[r.variant ?? r.file].cases } : null;
+  }
   const inputOf = (caseId) => {
     const cache = readCache(caseId);
     return cache ? [cache.input.text, ...cache.input.attachments.map((a) => a.extracted)].join('\n') : '';

@@ -4,6 +4,20 @@
 import { assignmentFromPairs, mergeAssignment, score } from './score.js';
 import { tellsOfProposal } from './ai-tells.js';
 
+/**
+ * Wilson score interval for k successes in n trials (z = 1.96, 95 %). Trials are taken as independent, so with
+ * repetitions the caller passes the number of distinct messages as n, not repetitions times messages.
+ * @returns {[number, number] | null}
+ */
+export function wilson(k, n, z = 1.96) {
+  if (!(n > 0)) return null;
+  const p = k / n;
+  const denom = 1 + (z * z) / n;
+  const centre = (p + (z * z) / (2 * n)) / denom;
+  const half = (z * Math.sqrt((p * (1 - p)) / n + (z * z) / (4 * n * n))) / denom;
+  return [Math.max(0, centre - half), Math.min(1, centre + half)];
+}
+
 const sum = (xs) => xs.reduce((a, b) => a + b, 0);
 const ratio = (n, d) => (d === 0 ? null : n / d);
 export function median(xs) {

@@ -86,7 +86,7 @@ export function ComposeBar({ onSubmit, problem }: { onSubmit: (draft: SendDraft)
         setDragging(false)
         draft.onDrop(e)
       }}
-      className={cn('glass leaf transition-colors duration-150 focus-within:border-accent', expanded && 'glass-strong absolute inset-x-0 top-0 shadow-pop', dragging && '!border-accent !bg-accent-soft')}
+      className={cn('leaf transition-colors duration-150 focus-within:border-accent', expanded ? 'pop absolute inset-x-0 top-0' : 'glass', dragging && '!border-accent !bg-accent-soft')}
     >
       <div className="flex flex-wrap items-end gap-1.5 p-2">
         <ClipMenu draft={draft} />

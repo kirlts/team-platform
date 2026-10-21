@@ -957,6 +957,17 @@ describe('bandeja y propuesta (ronda 2, juez B)', () => {
       await page.locator('[data-notice]').getByText(/^Mensaje quitado/).waitFor()
       assert.equal(await page.locator('[data-notice]').getByRole('button', { name: 'Deshacer' }).count(), 0, 'el aviso no repite el Deshacer')
       assert.ok((await page.getByRole('button', { name: 'Enviar 2 mensajes', exact: true }).boundingBox()).y <= sendY, 'quitar un mensaje no empuja Enviar hacia abajo por culpa del aviso')
+      // Ningún campo del mensaje abierto se sale del borde derecho de su superficie (J2-B-18).
+      const region = await page.getByRole('region', { name: 'Análisis' }).boundingBox()
+      for (const field of await page.locator('dd [role="button"]').all()) {
+        const b = await field.boundingBox()
+        assert.ok(b.x + b.width <= region.x + region.width - 1, `un campo se sale por la derecha: ${b.x + b.width} contra ${region.x + region.width}`)
+      }
+      // Con el original abierto, la propuesta conserva el ancho (J2-B-20): el original va arriba, no al lado.
+      await page.getByRole('button', { name: /^Original/ }).first().click()
+      const open = await page.getByRole('region', { name: 'Análisis' }).boundingBox()
+      assert.ok(Math.abs(open.width - region.width) <= 2, `la propuesta cambió de ancho con el original abierto: ${region.width} a ${open.width}`)
+      await page.getByRole('button', { name: /^Original/ }).first().click()
       const unitsButton = page.getByRole('button', { name: /^Partes sin mensaje/ })
       assert.ok((await unitsButton.evaluate((el) => parseFloat(getComputedStyle(el).borderTopWidth))) >= 1, '«Partes sin mensaje» tiene forma de botón')
       await unitsButton.click()

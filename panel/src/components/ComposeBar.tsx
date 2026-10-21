@@ -92,7 +92,7 @@ export function ComposeBar({ onSubmit, problem }: { onSubmit: (draft: SendDraft)
       }}
       className={cn('rounded-[1.75rem] transition-[border-color] duration-150 focus-within:border-accent', expanded ? 'pop absolute inset-x-0 top-0' : 'glass', dragging && '!border-accent !bg-accent-soft')}
     >
-      <div className="px-compose pt-compose">
+      <div className="px-bar-pad pt-bar-pad">
         {draft.recording ? (
           <RecordingStatus seconds={draft.recording.seconds} />
         ) : (

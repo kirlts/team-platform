@@ -45,12 +45,12 @@
   /* Space unit: exactly 4 px. With the 15 px base font, Tailwind's default (0.25 rem) would give 3.75 px. */
   --spacing: 4px;
   /* Inicio's air (UD-110). The space between the sections of the page is 24 px and, in a window 1000 px tall or more, 40 px; the inner padding
-     of the bar to write is 24 px; the bar is 56 rem wide (840 px) and the page grows with the window up to 100 rem (1500 px). See «Aire de Inicio» in DISENO.md. */
+     of the bar to write is 24 px; the bar is 56 rem wide (840 px) and the page grows with the window up to 112 rem (1680 px). See «Aire de Inicio» in DISENO.md. */
   --spacing-block: 24px;
   --spacing-section: 40px;
-  --spacing-compose: 24px;
+  --spacing-bar-pad: 24px;
   --container-compose: 56rem;
-  --container-inicio: 100rem;
+  --container-inicio: 112rem;
 
   /* Sky: background of the whole application. */
   --color-sky-a: oklch(0.955 0.045 205);

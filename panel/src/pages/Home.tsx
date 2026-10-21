@@ -224,7 +224,7 @@ export function Home() {
         </time>
       </div>
 
-      <section aria-label={t('home.new')} className="mx-auto flex w-full max-w-compose flex-col gap-3 md:py-block [@media(min-height:1000px)]:md:py-section">
+      <section aria-label={t('home.new')} className="mx-auto flex w-full max-w-compose flex-col gap-3 [@media(min-height:1000px)]:md:py-block">
         {/* The row keeps its height with or without sends, so the control appearing moves nothing (J2-B-08). */}
         <div className="flex min-h-7 items-center justify-between gap-x-6">
           <h2>{t('home.new')}</h2>

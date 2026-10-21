@@ -116,7 +116,7 @@ function repeatsInPage() {
 }
 
 /** Runs in the page. */
-function measureInPage({ lanes, withBreak }) {
+function measureInPage({ lanes, withBreak, scrolls }) {
   const se = document.scrollingElement
   const main = document.querySelector('main')
   const matches = (el) => lanes.some((s) => el.matches(s) || el.closest(s))
@@ -125,11 +125,34 @@ function measureInPage({ lanes, withBreak }) {
   const carriles = [...document.querySelectorAll('body *')]
     .filter((el) => {
       const o = getComputedStyle(el).overflowY
+      // A view with a send open (UD-110) is taller than the window on purpose, and then the region <main> is what scrolls; nothing else may.
+      if (scrolls && el === main) return false
       return (o === 'auto' || o === 'scroll') && el.scrollHeight > el.clientHeight + 1 && !matches(el)
     })
     .map(label)
   // The region <main> is the shell's content: if it needs to scroll, the view does not fit.
   const mainOver = main ? main.scrollHeight - main.clientHeight : 0
+  // Nothing is cut or laid over anything else (UD-017, kept by UD-110). Cut: a box that hides its overflow while its content is larger than it.
+  // A thumbnail crops its image on purpose (no text in it) and a folded text fades out with a mask that says so; both are exempt, a cut text is not. Overlapped: two blocks of the page frame (the children of the view's first element) whose boxes cross; the bar to write, which grows over the page on purpose, is the one exemption.
+  const cut = [...document.querySelectorAll('main *')]
+    .filter((el) => {
+      if (el.closest('.sr-only, textarea, [aria-hidden=true], svg, [data-fit-measuring]') || matches(el)) return false
+      const st = getComputedStyle(el)
+      const hides = ['hidden', 'clip'].includes(st.overflowY) || ['hidden', 'clip'].includes(st.overflowX)
+      const r = rect(el)
+      const fades = (st.maskImage ?? 'none') !== 'none' || (st.webkitMaskImage ?? 'none') !== 'none'
+      return hides && !fades && el.innerText?.trim() && r.width > 0 && r.height > 0 && st.textOverflow !== 'ellipsis' && (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1)
+    })
+    .map(label)
+  const frame = main?.firstElementChild
+  const blocks = frame ? [...frame.children].filter((el) => !el.hasAttribute('data-compose-scrim') && rect(el).height > 0 && getComputedStyle(el).position !== 'fixed') : []
+  const overlapped = []
+  for (let i = 0; i < blocks.length; i++)
+    for (let j = i + 1; j < blocks.length; j++) {
+      const a = rect(blocks[i])
+      const b = rect(blocks[j])
+      if (Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1 && Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1) overlapped.push(`${label(blocks[i])} / ${label(blocks[j])}`)
+    }
   const below = Math.max(
     0,
     ...[...document.querySelectorAll('main *')]
@@ -153,7 +176,7 @@ function measureInPage({ lanes, withBreak }) {
   }
   // An open dialog locks the page's scroll on purpose (it is a layer over the page, not the page); without one, hidden overflow is a failure.
   const hidden = !document.querySelector('[role="dialog"]') && (getComputedStyle(document.documentElement).overflowY === 'hidden' || getComputedStyle(document.body).overflowY === 'hidden')
-  return { doc: se.scrollHeight, win: innerHeight, mainOver, mainBox: main ? main.clientHeight : 0, below, carriles, small: [...small], hidden, wide: se.scrollWidth - se.clientWidth, withBreak }
+  return { cut, overlapped, doc: se.scrollHeight, win: innerHeight, mainOver, mainBox: main ? main.clientHeight : 0, below, carriles, small: [...small], hidden, wide: se.scrollWidth - se.clientWidth, withBreak }
 }
 
 /** Opens a path and waits for the view's heading, then for the network and the layout to settle. */
@@ -183,11 +206,12 @@ async function sendInput(page) {
 
 /**
  * Ten sends one after another (UD-025). The bar empties at each send and the tray keeps its frame: after the tenth
- * the page is exactly as tall as after the first. Returns that first measure to compare with.
+ * the bar and the top of the drawer are exactly where they were after the first. Returns that first measure to compare with.
  */
 async function sendTen(page) {
   const bar = page.getByLabel('Nuevo mensaje', { exact: true }).last()
-  const measure = () => page.evaluate(() => ({ doc: document.scrollingElement.scrollHeight, main: document.querySelector('main').scrollHeight }))
+  // What ten sends must not move (UD-025): the bar to write and the top of the drawer. The drawer is as tall as what it shows (UD-110), so its height is not compared.
+  const measure = () => page.evaluate(() => ({ doc: document.scrollingElement.scrollHeight, bar: Math.round(document.querySelector('[data-compose-box]').getBoundingClientRect().bottom), drawer: Math.round(document.querySelector('[data-testid="send-drawer"]')?.getBoundingClientRect().top ?? -1) }))
   let base
   for (let i = 1; i <= 10; i++) {
     await bar.fill(`Envío ${i} de la serie: revisar el punto ${i} y avisar al equipo.`)
@@ -208,8 +232,9 @@ async function sendTen(page) {
 /** The views: path, and an optional step that prepares the state (sending an input, for instance). */
 const VIEWS = [
   { name: 'inicio', path: '/' },
-  { name: 'inicio con propuesta', path: '/', prepare: sendInput },
-  { name: 'inicio con diez envíos', path: '/', prepare: sendTen, compare: true },
+  // With a send open the page is taller than the window and its region scrolls (UD-110, which amends UD-017): `scrolls` lifts only the height checks of these two.
+  { name: 'inicio con propuesta', path: '/', prepare: sendInput, scrolls: true },
+  { name: 'inicio con diez envíos', path: '/', prepare: sendTen, compare: true, scrolls: true },
   { name: 'mensajes', path: '/messages' },
   { name: 'detalle', path: null },
   { name: 'áreas', path: '/areas' },
@@ -291,19 +316,24 @@ for (const [width, height] of SIZES) {
             if (BREAK === 'carril' && view.name === 'equipo') await page.evaluate(() => document.querySelector('main').insertAdjacentHTML('beforeend', '<div style="height:80px;overflow-y:auto"><div style="height:400px">x</div></div>'))
             if (BREAK === 'repetido' && view.name === 'equipo') await page.evaluate(() => document.querySelector('main').insertAdjacentHTML('beforeend', '<p>Este texto aparece dos veces en la vista.</p><p>Este texto aparece dos veces en la vista.</p>'))
             if (BREAK === 'oculto' && view.name === 'mensajes') await page.evaluate(() => (document.documentElement.style.overflowY = 'hidden'))
-            const m = await page.evaluate(measureInPage, { lanes: LANES, withBreak: BREAK })
+            const m = await page.evaluate(measureInPage, { lanes: LANES, withBreak: BREAK, scrolls: !!view.scrolls })
             if (!amplified) {
               const repeats = await page.evaluate(repeatsInPage)
               if (repeats.length) failures.push(`${view.name} (${path}): text repeated in the view: ${repeats.join('; ')}`)
             }
             report.push({ size: `${width}x${height}`, data: amplified ? `x${TIMES}` : 'sembrado', view: view.name, doc: m.doc, win: m.win, main: m.mainBox + m.mainOver, below: m.below })
+            if (m.cut.length) failures.push(`${view.name} (${path}): content cut by a box that hides its overflow: ${m.cut.slice(0, 5).join(', ')}`)
+            if (m.overlapped.length) failures.push(`${view.name} (${path}): blocks that overlap: ${m.overlapped.join('; ')}`)
             if (m.doc > m.win) failures.push(`${view.name} (${path}): document of ${m.doc} px in a window of ${m.win} (${(m.doc / m.win).toFixed(2)} windows)`)
-            if (m.mainOver > 1) failures.push(`${view.name} (${path}): the main region scrolls ${m.mainOver} px on its own (${m.mainBox + m.mainOver} px in ${m.mainBox})`)
-            if (m.below > m.win) failures.push(`${view.name} (${path}): content down to ${m.below} px in a window of ${m.win}`)
+            if (m.mainOver > 1 && !view.scrolls) failures.push(`${view.name} (${path}): the main region scrolls ${m.mainOver} px on its own (${m.mainBox + m.mainOver} px in ${m.mainBox})`)
+            if (m.below > m.win && !view.scrolls) failures.push(`${view.name} (${path}): content down to ${m.below} px in a window of ${m.win}`)
             if (m.carriles.length) failures.push(`${view.name} (${path}): own vertical lanes outside the allow-list: ${m.carriles.join(', ')}`)
             if (m.small.length) failures.push(`${view.name} (${path}): text below 12 px: ${m.small.slice(0, 5).join('; ')}`)
             if (m.hidden) failures.push(`${view.name} (${path}): the document hides its overflow with overflow hidden`)
-            if (view.compare && base && (m.doc !== base.doc || m.mainBox + m.mainOver !== base.main)) failures.push(`${view.name} (${path}): ten inputs changed the height (document ${base.doc} to ${m.doc}, region ${base.main} to ${m.mainBox + m.mainOver})`)
+            if (view.compare && base) {
+              const after = await page.evaluate(() => ({ bar: Math.round(document.querySelector('[data-compose-box]').getBoundingClientRect().bottom), drawer: Math.round(document.querySelector('[data-testid="send-drawer"]')?.getBoundingClientRect().top ?? -1) }))
+              if (after.bar !== base.bar || after.drawer !== base.drawer) failures.push(`${view.name} (${path}): ten inputs moved the bar or the drawer (bar ${base.bar} to ${after.bar}, drawer ${base.drawer} to ${after.drawer})`)
+            }
             if (m.wide > 0) failures.push(`${view.name} (${path}): the document is ${m.wide} px wider than the window`)
           }
         } finally {

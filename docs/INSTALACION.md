@@ -1,6 +1,6 @@
 # Instalación
 
-Requisitos: Docker 25 o superior con el plugin `compose` (el `HEALTHCHECK` usa `--start-interval`, desde Docker 25). La imagen ocupa 306 MB: Alpine con un `ffmpeg` mínimo compilado en la propia imagen (LGPL, 22 decodificadores), Node y las dependencias podadas y 62 MB de dependencias de producción podadas (detalle en `docs/investigaciones/mediciones/2026-10-20-imagen-docker.md`). La base y los adjuntos viven en el volumen `/data`, que tiene que ser disco local. SQLite en modo WAL no funciona sobre sistemas de archivos de red.
+Requisitos: Docker 25 o superior con el plugin `compose` (el `HEALTHCHECK` usa `--start-interval`, desde Docker 25). La imagen ocupa 306 MB: Alpine con un `ffmpeg` mínimo compilado en la propia imagen (LGPL, 22 decodificadores), Node y 62 MB de dependencias de producción podadas (detalle en `docs/investigaciones/mediciones/2026-10-20-imagen-docker.md`). La base y los adjuntos viven en el volumen `/data`, que tiene que ser disco local. SQLite en modo WAL no funciona sobre sistemas de archivos de red.
 
 La aplicación escucha en el puerto 3000 del contenedor. `compose.yml` lo publica sólo en `127.0.0.1`. El acceso desde fuera del servidor lo da un proxy con TLS (formas 1 y 3) o la red del proyecto anfitrión (forma 2). La cookie de sesión es `__Host-` con `Secure`: sin HTTPS no inicia sesión, salvo en `localhost`.
 
@@ -146,4 +146,4 @@ docker compose start
 
 ## Licencias
 
-El código es MIT. La imagen incluye el binario `ffmpeg` compilado en la imagen en configuración LGPL (ver `NOTICE`), con la licencia de ese paquete.
+El código es MIT. La imagen incluye el binario `ffmpeg` compilado en la imagen en configuración LGPL (LGPL 2.1; ver `NOTICE` y `/usr/share/licenses/ffmpeg/`).

@@ -180,7 +180,7 @@
 **Checks cubiertos:** HP-018 `[Requiere validación humana]`
 
 - [x] Una foto HEIC real de iPhone: se decodifica con el `ffmpeg` de la imagen (UD-040, H-21)
-- [ ] Latencia de Groq, Anthropic y DeepSeek con archivos reales (la medición del 2026-10-20 usó dobles de latencia cero)
+- [x] Latencia de Groq y Anthropic con archivos reales (`mediciones/2026-10-21-latencia-de-proveedores-por-tipo-de-archivo.md`); DeepSeek sin medir `2026-10-21`
 - [ ] Un Word con estilos propios, un PDF real de cliente y una grabación real de teléfono
 - [ ] Descarga de enlaces contra internet real y contra servidores que entregan bytes lentamente
 - [ ] Opus contra FLAC en español y legibilidad de texto en fotogramas de 540, 720 y 1080 px
@@ -212,7 +212,7 @@
 - [x] Unidades por oración, enumeraciones en línea y pensamiento por llamada `2026-10-20 22:41:22`
 - [x] Descomposición sin descartes y reintento de un grupo vacío `2026-10-20 23:01:23`
 - [x] Esfuerzo `low` sin pensamiento y concurrencia 16 por omisión, con la medición citada `2026-10-20 23:10:55`
-- [ ] Medir las variantes B (una sola llamada) y C (clasificar dentro de la descomposición) en el banco
+- [x] Medir las variantes B (una sola llamada) y C (descomposición especulativa) en el banco: se mantiene A (`mediciones/2026-10-21-variantes-b-y-c-del-analizador.md`) `2026-10-21`
 - [ ] Calibrar con el banco `partitionThresholdTokens`, `charsPerToken` y el p95 de `maxTokens` (hoy provisionales)
 
 ### [TASK-016] Analizador `harness`
@@ -337,7 +337,7 @@
 - [x] `bench/score.js` con aritmética de conjuntos sobre `unit_ids` y exactitud de la clasificación `2026-10-20 22:29:36`
 - [x] Siete casos con su referencia, corredor `run.mjs`, proveedores falsos y aserción de promptfoo `2026-10-20 22:34:16`
 - [x] Primera corrida real: 6 de 7 casos con cobertura 100 % y referencias corregidas `2026-10-20 23:17:52`
-- [ ] Llevar `03-monologo-prueba` de 90 % a 100 % de cobertura (HP-019)
+- [x] Llevar `03-monologo-prueba` de 90 % a 100 % de cobertura (HP-019): 98,8 % medio, 28 de 30 repeticiones al 100 % (`mediciones/2026-10-21-monologo-de-prueba.md`) `2026-10-21`
 - [ ] Reemplazar los textos inventados por casos reales anonimizados en `bench/private/`
 - [ ] Repetir el banco con DeepSeek como proveedor de respaldo y al cambiar de modelo
 

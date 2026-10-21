@@ -97,7 +97,7 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
   }
 
   function exigir (modulo, nombre) {
-    if (!modulo) throw permanent(`El módulo de ${nombre} no está disponible en esta instalación.`)
+    if (!modulo) throw permanent(`El módulo de ${nombre} no está disponible en esta instalación.`, 'module_unavailable')
     return modulo
   }
 

@@ -525,6 +525,39 @@ test('without a compiled panel the API starts anyway and the root answers a JSON
   await env.close()
 })
 
+test('HP-015: a member reads the areas without the template bodies and gets 403 on writing them, on reading a full template and on the providers', async () => {
+  const env = await team()
+  const ana = env.c.ana
+  const areas = (await env.api('GET', '/areas', ana)).json()
+  assert.equal(areas.length, 5)
+  assert.ok(areas.every((a) => a.templates.length > 0 && a.templates.every((t) => t.body_markdown === undefined)))
+  const area = areas[0]
+  const template = area.templates[0]
+  const forbidden = [
+    ['POST', '/areas', { title: 'Nueva', description: 'x' }],
+    ['PATCH', `/areas/${area.id}`, { description: 'x' }],
+    ['DELETE', `/areas/${area.id}`],
+    ['POST', `/areas/${area.id}/restore`],
+    ['GET', `/areas/${area.id}/templates`],
+    ['POST', `/areas/${area.id}/templates`, { body_markdown: '---\nname: X\ndescription: Y\n---\ncuerpo' }],
+    ['PATCH', `/areas/${area.id}/templates/${template.id}`, { name: 'x' }],
+    ['DELETE', `/areas/${area.id}/templates/${template.id}`],
+    ['POST', `/templates/${template.id}/restore`],
+    ['GET', '/settings/providers'],
+    ['PATCH', '/settings/providers', { analyzer: 'api' }]
+  ]
+  for (const [method, url, payload] of forbidden) {
+    const r = await env.api(method, url, ana, payload)
+    assert.equal(r.statusCode, 403, `${method} ${url}: ${r.body}`)
+  }
+  // The editor does the same things, so the 403 comes from the role and not from a malformed request.
+  assert.equal((await env.api('GET', `/areas/${area.id}/templates`, env.c.ed)).statusCode, 200)
+  assert.equal((await env.api('GET', '/settings/providers', env.c.ed)).statusCode, 200)
+  // Nothing changed.
+  assert.equal((await env.api('GET', '/areas', ana)).json().length, 5)
+  await env.close()
+})
+
 test('/health answers at the root and under /api, without a session', async () => {
   const env = await makeEnv()
   for (const url of ['/health', '/api/health']) {

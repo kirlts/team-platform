@@ -124,3 +124,38 @@ Estados: `main` (resuelto y fusionado), `en curso` (asignado a un agente vivo), 
 | H-89 | Montar team-platform en el VPS del toolset (ARM, 2 núcleos, Tailscale) y probarlo de punta a punta con los proveedores reales | Martín | en curso (sesión): imagen compilándose en el VPS, `tailscale serve` en el puerto 8444 sólo para la tailnet |
 | H-90 | La medición de perfiles y proyecto (H-77) mezcla tres cosas: puntos sin mensaje (19 % de las unidades), errores de área con mensaje (34 %) y referencias de un solo lector; la frontera Error contra Nueva funcionalidad que usa el prompt (lo lento es error) no coincide con la de las referencias (293 unidades esperadas como Nueva funcionalidad salieron como Error); la variante con proyecto cubre más puntos difíciles y se compara sobre 207 pares de 322 a 476; Javiera no existe en los datos reales y sus 123 asignaciones salen de una regla por título; el juez es el mismo modelo | Martín | en curso (agente banco contexto 2: banco rediseñado con clasificación y asignación sobre el mensaje de referencia; agente lector 2: etiquetas de área y destinatario independientes para los 376 mensajes) |
 | H-91 | Las reglas de frontera entre áreas viven escondidas en el prompt del analizador y el Editor no las ve ni las edita (contradice «las instrucciones al modelo viven donde el usuario las edita») | sesión | en curso (agente prompts: mover cada regla de frontera a la descripción del área en `templates/areas.json`) |
+
+## Ronda 1, juez B: enviar, analizar, revisar y publicar (informe `ronda1-B.md`, 30 hallazgos)
+
+| # | Hallazgo | Origen | Estado |
+|---|---|---|---|
+| H-200 | Compositor: la barra crece de 52 a 138 px con adjuntos y enlace y empuja las listas | J1-B-01 (severidad 3), agente ronda1-b | en curso (rama `wt-ronda1-b`) |
+| H-201 | Compositor: la × de quitar un adjunto mide 12 px y está sobre la miniatura | J1-B-02 (severidad 2), agente ronda1-b | en curso (rama `wt-ronda1-b`) |
+| H-202 | Compositor: Enviar deshabilitado en tema claro casi no se distingue del fondo | J1-B-03 (severidad 2), agente ronda1-b | en curso (rama `wt-ronda1-b`) |
+| H-203 | Compositor: filas con alineaciones propias; en móvil la columna de texto queda estrecha | J1-B-04 (severidad 2), agente ronda1-b | en curso (rama `wt-ronda1-b`) |
+| H-204 | Compositor: no hay selector de idioma | J1-B-05 (severidad 2), agente ronda1-b | en curso (rama `wt-ronda1-b`) |
+| H-205 | Progreso del análisis en 0 % durante unos 8 s, parece colgado | J1-B-06 (severidad 4), agente ronda1-b | en curso (rama `wt-ronda1-b`) |
+| H-206 | Panel de Análisis en espera ocupa 380x650 px para una línea | J1-B-07 (severidad 3), agente ronda1-b | en curso (rama `wt-ronda1-b`) |
+| H-207 | Estado y barra duplicados entre la fila de Envíos y el panel de Análisis | J1-B-08 (severidad 3), agente ronda1-b | en curso (rama `wt-ronda1-b`) |
+| H-208 | Tres insignias de estado de peso parecido en la bandeja | J1-B-09 (severidad 2), agente ronda1-b | en curso (rama `wt-ronda1-b`) |
+| H-209 | Al enviar desaparecen las listas de Inicio y el enlace para volver pesa 12 px | J1-B-10 (severidad 2), agente ronda1-b | en curso (rama `wt-ronda1-b`) |
+| H-210 | Propuesta: un mensaje por vez con «1–1 de 3» y Enviar no dice cuántos manda | J1-B-11 (severidad 4), agente ronda1-b | en curso (rama `wt-ronda1-b`) |
+| H-211 | «Sin acción 2» sin explicación | J1-B-12 (severidad 3), agente ronda1-b | en curso (rama `wt-ronda1-b`) |
+| H-212 | Jerarquía plana de chips en cada mensaje de la propuesta | J1-B-13 (severidad 3), agente ronda1-b | en curso (rama `wt-ronda1-b`) |
+| H-213 | Quitar un mensaje: sin aviso ni deshacer cerca, y se apaga sin decir por qué | J1-B-14 (severidad 3), agente ronda1-b | en curso (rama `wt-ronda1-b`) |
+| H-214 | Desplegable de destinatarios: 4 de 9 visibles, filas de 3 líneas, sin barra de desplazamiento | J1-B-15 (severidad 3), agente ronda1-b | en curso (rama `wt-ronda1-b`) |
+| H-215 | Deshacer y Rehacer sin mensaje de lo deshecho y presentes sin nada que deshacer | J1-B-16 (severidad 2), agente ronda1-b | en curso (rama `wt-ronda1-b`) |
+| H-216 | Desplegable de áreas en móvil sale del contenedor | J1-B-17 (severidad 2), agente ronda1-b | en curso (rama `wt-ronda1-b`) |
+| H-217 | Sin «Volver a analizar» ni plantilla visible en la propuesta | J1-B-18 (severidad 3), agente ronda1-b | en curso (rama `wt-ronda1-b`) |
+| H-218 | Enter dentro del cuerpo guarda y cierra sin pista del atajo | J1-B-19 (severidad 2), agente ronda1-b | en curso (rama `wt-ronda1-b`) |
+| H-219 | Dos «Reintentar» con estilos distintos | J1-B-20 (severidad 3), agente ronda1-b | en curso (rama `wt-ronda1-b`) |
+| H-220 | Mensaje de error de proveedor sin decir si el envío se conservó | J1-B-21 (severidad 3), agente ronda1-b | en curso (rama `wt-ronda1-b`) |
+| H-221 | Falla del análisis: Deshacer y Rehacer y panel vacío con tres cromas fuertes | J1-B-22 (severidad 2), agente ronda1-b | en curso (rama `wt-ronda1-b`) |
+| H-222 | Tema oscuro: contraste bajo del rojo de error | J1-B-23 (severidad 2), agente ronda1-b | en curso (rama `wt-ronda1-b`) |
+| H-223 | Móvil: la falla de un segundo envío queda bajo la propuesta abierta | J1-B-24 (severidad 2), agente ronda1-b | en curso (rama `wt-ronda1-b`) |
+| H-224 | Publicar sin confirmación ni rastro | J1-B-25 (severidad 5), agente ronda1-b | en curso (rama `wt-ronda1-b`) |
+| H-225 | Descartar elimina la propuesta de un clic, sin confirmar ni deshacer | J1-B-26 (severidad 4), agente ronda1-b | en curso (rama `wt-ronda1-b`) |
+| H-226 | Al publicar con envíos en cola el panel salta al siguiente sin aviso | J1-B-27 (severidad 3), agente ronda1-b | en curso (rama `wt-ronda1-b`) |
+| H-227 | Móvil: el Original ya leído va antes del Análisis mientras analiza | J1-B-28 (severidad 3), agente ronda1-b | en curso (rama `wt-ronda1-b`) |
+| H-228 | Móvil: Enviar y Descartar quedan al final de la lista, sin ancla fija | J1-B-29 (severidad 3), agente ronda1-b | en curso (rama `wt-ronda1-b`) |
+| H-229 | Objetivos táctiles de 12 a 28 px | J1-B-30 (severidad 2), agente ronda1-b | en curso (rama `wt-ronda1-b`) |

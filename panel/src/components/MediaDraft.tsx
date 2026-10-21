@@ -1,4 +1,4 @@
-import { Camera, Link2, Mic, Paperclip, Square } from '@/components/icons'
+import { Camera, Link2, Mic, Paperclip, Square, X } from '@/components/icons'
 import { useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -119,20 +119,21 @@ export function MediaDraftList({ draft, busy }: { draft: MediaDraft; busy?: bool
       {(!draft.empty || draft.problem) && (
     <div className="flex flex-col gap-1.5 border-t border-line px-2.5 py-2">
       {!draft.empty && (
-        <ul className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        // One row of chips, all of one height class: attaching one more does not move what is below until the row is full (J1-B-01).
+        <ul aria-label={t('media.attachments')} className="flex flex-wrap items-center gap-1.5">
           {draft.locals.map((l) => (
-            <li key={l.key} className="flex min-w-0 max-w-full items-center gap-2">
-              <Thumb item={{ kind: kindFromMime(l.file.type), src: l.url, name: l.file.name, size: l.file.size }} px={36} onRemove={busy ? undefined : () => draft.removeLocal(l.key)} />
-              <span className="min-w-0 break-all text-xs leading-tight text-muted">{l.file.name}</span>
+            <li key={l.key} className="flex min-h-9 min-w-0 max-w-full items-center gap-2 rounded-md border border-line-strong bg-surface py-0.5 pl-1 pr-0.5">
+              <Thumb item={{ kind: kindFromMime(l.file.type), src: l.url, name: l.file.name, size: l.file.size }} px={28} onRemove={busy ? undefined : () => draft.removeLocal(l.key)} />
+              <span className="min-w-0 max-w-[12rem] text-xs leading-tight text-muted [overflow-wrap:anywhere]">{l.file.name}</span>
             </li>
           ))}
           {draft.links.map((href) => (
-            <li key={href} className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-line-strong bg-surface px-2 py-1 text-xs">
-              <Link2 size={13} aria-hidden className="shrink-0 text-muted" />
-              <span className="min-w-0 break-all">{href}</span>
+            <li key={href} className="flex min-h-9 min-w-0 max-w-full items-center gap-1.5 rounded-md border border-line-strong bg-surface py-0.5 pl-2 pr-0.5 text-xs">
+              <Link2 size={14} aria-hidden className="shrink-0 text-muted" />
+              <span className="min-w-0 max-w-[12rem] [overflow-wrap:anywhere]">{href}</span>
               {!busy && (
-                <button type="button" aria-label={t('media.remove', { name: href })} className="text-muted hover:text-danger" onClick={() => draft.removeLink(href)}>
-                  ×
+                <button type="button" aria-label={t('media.remove', { name: href })} className="hit inline-flex shrink-0 items-center justify-center rounded-full text-muted hover:bg-hover hover:text-danger" onClick={() => draft.removeLink(href)}>
+                  <X size={13} aria-hidden />
                 </button>
               )}
             </li>

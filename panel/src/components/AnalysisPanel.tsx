@@ -1,20 +1,25 @@
-import { RotateCw, Trash2 } from '@/components/icons'
+import { ChevronDown, ChevronRight, RotateCw, Trash2 } from '@/components/icons'
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useErrorText, useI18n, useT, type MessageKey } from '@/i18n'
 import { useJobProgress } from '@/lib/events'
-import { useCancelInput, usePublish, useReprocess, useSaveProposal, useTemplates } from '@/lib/queries'
+import { useNotices } from '@/lib/notices'
+import { useCancelInput, usePublish, useReprocess, useRestoreInput, useSaveProposal, useTemplates } from '@/lib/queries'
 import { missingRequired, parseTemplateFields, remapFields } from '@/lib/template'
 import type { Attachment, InputRecord, InputStatus, Proposal, ProposalMessage, Template } from '@/lib/types'
 import { useUndo } from '@/lib/undo'
+import { cn } from '@/lib/utils'
 import { AiMark } from './AiMark'
 import { AreaPicker } from './AreaPicker'
 import { AttachmentPicker } from './AttachmentPicker'
 import { EditableText } from './EditableText'
 import { FitList } from './FitList'
+import { useLookups } from './lookups'
+import { Meter } from './Meter'
 import { RecipientsEditor } from './RecipientsEditor'
 import { TemplateFields } from './TemplateFields'
 import { UndoButtons } from './UndoButtons'
@@ -23,6 +28,24 @@ const STATUS_PHRASE: Partial<Record<InputStatus, MessageKey>> = {
   queued: 'analysis.queued',
   extracting: 'analysis.extracting',
   analyzing: 'analysis.analyzing',
+}
+
+/** Discards a send and says so where the person is looking, with the way back (J1-B-26): nothing is lost by one wrong click. */
+function useDiscard(input: InputRecord, onClosed: () => void) {
+  const t = useT()
+  const cancel = useCancelInput()
+  const restore = useRestoreInput()
+  const notices = useNotices()
+  return {
+    pending: cancel.isPending,
+    run: () =>
+      cancel.mutate(input.id, {
+        onSuccess: () => {
+          onClosed()
+          notices.show({ text: t('discard.done'), action: { label: t('undo.undo'), run: () => restore.mutateAsync(input.id) } })
+        },
+      }),
+  }
 }
 
 /**
@@ -34,34 +57,49 @@ export function AnalysisPanel({ input, onClose, registerPublish }: { input: Inpu
   const { has } = useI18n()
   const undo = useUndo()
   const progress = useJobProgress(input.job_id, input.id)
-  const cancel = useCancelInput()
   const reprocess = useReprocess()
+  const discard = useDiscard(input, onClose)
   const errorText = useErrorText()
+  const [confirmAgain, setConfirmAgain] = useState(false)
   const processing = input.status === 'queued' || input.status === 'extracting' || input.status === 'analyzing'
   const failureCode = input.error_code ? `analysis.error.${input.error_code}` : ''
   const failureText = failureCode && has(failureCode) ? t(failureCode as MessageKey) : input.error || t('analysis.failed')
+  const percent = Math.round(progress?.percent ?? input.job?.percent ?? 0)
+  const edited = undo.undoCount > 0
+
+  /** Analyzing again drops the proposal, with what was edited in it: that is the one step here that cannot be taken back. */
+  const again = () => {
+    setConfirmAgain(false)
+    reprocess.mutate(input.id)
+  }
 
   return (
-    <section aria-label={t('analysis.title')} className="@container ai-surface flex min-h-0 min-w-0 flex-col gap-3 p-3 pl-4">
+    // Only a proposal fills the frame; waiting or failing, the surface is as tall as what it says (J1-B-07).
+    <section aria-label={t('analysis.title')} className={cn('@container ai-surface flex min-h-0 min-w-0 flex-col gap-3 p-3 pl-4', input.status !== 'proposed' && 'self-start')}>
       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <div className="flex items-center gap-2">
           <h2>{t('analysis.title')}</h2>
           <AiMark />
         </div>
-        {(input.status === 'proposed' || input.status === 'failed') && <UndoButtons stack={undo} compact />}
+        <div className="flex items-center gap-1.5">
+          {input.status === 'proposed' && (
+            <Button size="sm" variant="ghost" className="hit" disabled={reprocess.isPending} onClick={() => (edited ? setConfirmAgain(true) : again())}>
+              <RotateCw size={13} aria-hidden /> {t('analysis.again')}
+            </Button>
+          )}
+          <UndoButtons stack={undo} compact hideWhenEmpty />
+        </div>
       </div>
 
       {processing && (
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-2 text-[13px]">
             <span>{progress?.phrase || (STATUS_PHRASE[input.status] ? t(STATUS_PHRASE[input.status]!) : '')}</span>
-            <span className="tabular-nums text-muted">{Math.round(progress?.percent ?? 0)} %</span>
+            {percent > 0 && <span className="tabular-nums text-muted">{percent} %</span>}
           </div>
-          <div role="progressbar" aria-label={t('analysis.progress')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress?.percent ?? 0)} className="meter h-2.5">
-            <div className="meter-fill" style={{ width: `${progress?.percent ?? 0}%` }} />
-          </div>
+          <Meter percent={percent} label={t('analysis.progress')} className="h-2.5" />
           <div>
-            <Button size="sm" variant="ghost" disabled={cancel.isPending} onClick={() => cancel.mutate(input.id, { onSuccess: onClose })}>
+            <Button size="sm" variant="ghost" className="hit" disabled={discard.pending} onClick={discard.run}>
               {t('analysis.cancel')}
             </Button>
           </div>
@@ -70,9 +108,11 @@ export function AnalysisPanel({ input, onClose, registerPublish }: { input: Inpu
 
       {input.status === 'failed' && (
         <div className="flex flex-col gap-3">
-          <p role="alert" className="rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">
-            {failureText}
-          </p>
+          <div role="alert" className="flex flex-col gap-0.5 rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">
+            <p className="font-semibold">{t('analysis.failed')}</p>
+            <p>{failureText}.</p>
+            <p>{t('analysis.kept')}</p>
+          </div>
           {reprocess.isError && (
             <p role="alert" className="text-sm text-danger">
               {errorText(reprocess.error)}
@@ -82,14 +122,30 @@ export function AnalysisPanel({ input, onClose, registerPublish }: { input: Inpu
             <Button variant="primary" disabled={reprocess.isPending} onClick={() => reprocess.mutate(input.id)}>
               <RotateCw size={14} aria-hidden /> {t('common.retry')}
             </Button>
-            <Button variant="ghost" onClick={() => cancel.mutate(input.id, { onSuccess: onClose })} disabled={cancel.isPending}>
+            <Button variant="ghost" className="hit" onClick={discard.run} disabled={discard.pending}>
               {t('analysis.discard')}
             </Button>
           </div>
         </div>
       )}
 
-      {input.status === 'proposed' && input.proposal && <ProposalEditor key={input.id} input={input} initial={input.proposal} registerPublish={registerPublish} onPublished={onClose} onDiscard={() => cancel.mutate(input.id, { onSuccess: onClose })} />}
+      {input.status === 'proposed' && input.proposal && <ProposalEditor key={input.id} input={input} initial={input.proposal} registerPublish={registerPublish} onPublished={onClose} onDiscard={discard.run} discarding={discard.pending} />}
+
+      <Dialog open={confirmAgain} onOpenChange={setConfirmAgain}>
+        <DialogContent title={t('analysis.again')}>
+          <div className="flex flex-col gap-4 p-5">
+            <p className="text-sm">{t('analysis.againWarning')}</p>
+            <div className="flex justify-end gap-2">
+              <DialogClose asChild>
+                <Button variant="ghost">{t('common.cancel')}</Button>
+              </DialogClose>
+              <Button variant="primary" onClick={again}>
+                {t('analysis.again')}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   )
 }
@@ -99,14 +155,33 @@ interface Row {
   i: number
 }
 
-function ProposalEditor({ input, initial, onPublished, onDiscard, registerPublish }: { input: InputRecord; initial: Proposal; onPublished: () => void; onDiscard: () => void; registerPublish?: (publish: (() => void) | null) => void }) {
+function ProposalEditor({
+  input,
+  initial,
+  onPublished,
+  onDiscard,
+  discarding,
+  registerPublish,
+}: {
+  input: InputRecord
+  initial: Proposal
+  onPublished: () => void
+  onDiscard: () => void
+  discarding: boolean
+  registerPublish?: (publish: (() => void) | null) => void
+}) {
   const t = useT()
+  const { language } = useI18n()
   const errorText = useErrorText()
   const undo = useUndo()
+  const notices = useNotices()
+  const { memberName } = useLookups()
   const publish = usePublish()
   const saveProposal = useSaveProposal(input.id)
   const queryClient = useQueryClient()
   const [proposal, setProposal] = useState<Proposal>(initial)
+  /** The message that is open: the others are one line each, so all of them are in view at once (J1-B-11). */
+  const [openIndex, setOpenIndex] = useState(0)
   const latest = useRef<Proposal>(initial)
   const chain = useRef<Promise<unknown>>(Promise.resolve())
   const [saveError, setSaveError] = useState<unknown>(null)
@@ -136,9 +211,10 @@ function ProposalEditor({ input, initial, onPublished, onDiscard, registerPublis
   const patch = (index: number, label: string, fix: Partial<ProposalMessage> | ((m: ProposalMessage) => Partial<ProposalMessage>)) =>
     change(label, (p) => ({ ...p, messages: p.messages.map((m, i) => (i === index ? { ...m, ...(typeof fix === 'function' ? fix(m) : fix) } : m)) }))
 
-  /** Removing a message does not lose its text: its units move to «Sin acción», which is what publishing requires. */
-  const remove = (index: number) =>
-    change(t('proposal.removed'), (p) => {
+  /** Removing a message does not lose its text: its units move to «Sin mensaje», which is what publishing requires. The notice offers the way back. */
+  const remove = async (index: number) => {
+    const title = latest.current.messages[index]?.title ?? ''
+    await change(t('proposal.removed'), (p) => {
       const gone = p.messages[index]
       return {
         ...p,
@@ -146,15 +222,28 @@ function ProposalEditor({ input, initial, onPublished, onDiscard, registerPublis
         discarded: gone.unit_ids.length > 0 ? [...(p.discarded ?? []), { unit_ids: gone.unit_ids, reason: t('proposal.removedReason') }] : (p.discarded ?? []),
       }
     })
+    setOpenIndex((open) => Math.max(0, Math.min(open > index ? open - 1 : open, latest.current.messages.length - 1)))
+    notices.show({ text: t('proposal.removedNotice', { title }), action: { label: t('undo.undo'), run: () => undo.undo() } })
+  }
 
   const rows = useMemo<Row[]>(() => proposal.messages.map((m, i) => ({ m, i })), [proposal])
   const discarded = proposal.discarded ?? []
   const discardedCount = discarded.reduce((n, d) => n + d.unit_ids.length, 0)
   const unitText = (id: number) => input.units?.find((u) => u.id === id)?.text
+  const count = proposal.messages.length
 
   // What is missing per message: computed with each one's template.
   const [missing, setMissing] = useState<Record<number, string[]>>({})
   const missingTotal = Object.values(missing).reduce((n, list) => n + list.length, 0)
+
+  /** «Ana, Beto y Carla»: the people the messages go to, each once. */
+  const recipientsText = (messages: ProposalMessage[]) => {
+    const names = [...new Set(messages.flatMap((m) => m.assignee_ids))].map(memberName).filter(Boolean)
+    if (names.length === 0) return t('publish.nobody')
+    const shown = names.slice(0, 3)
+    const rest = names.length - shown.length
+    return t('publish.to', { names: new Intl.ListFormat(language, { style: 'long', type: 'conjunction' }).format(rest > 0 ? [...shown, t('publish.andMore', { n: rest })] : shown) })
+  }
 
   const send = async () => {
     try {
@@ -162,11 +251,26 @@ function ProposalEditor({ input, initial, onPublished, onDiscard, registerPublis
     } catch {
       // The save error is already on screen; publishing is attempted anyway with what is on screen.
     }
-    publish.mutate({ inputId: input.id, proposal: latest.current }, { onSuccess: onPublished })
+    const sent = latest.current
+    publish.mutate(
+      { inputId: input.id, proposal: sent },
+      {
+        onSuccess: (res) => {
+          const first = res?.message_ids?.[0]
+          const who = recipientsText(sent.messages)
+          // The most silent moment of the flow, said out loud: what went out, to whom and where to see it (J1-B-25).
+          notices.show({
+            text: sent.messages.length === 1 ? t('publish.one', { title: sent.messages[0].title, who }) : t('publish.many', { n: sent.messages.length, who }),
+            link: first ? { to: sent.messages.length === 1 ? `/messages/${first}` : '/messages', label: sent.messages.length === 1 ? t('publish.viewOne') : t('publish.viewMany') } : undefined,
+          })
+          onPublished()
+        },
+      },
+    )
   }
 
   // The page can publish this proposal from the keyboard (Enter) while it is complete and not already going out.
-  const canSend = !publish.isPending && proposal.messages.length > 0 && missingTotal === 0
+  const canSend = !publish.isPending && count > 0 && missingTotal === 0
   const sendRef = useRef(send)
   sendRef.current = send
   useEffect(() => {
@@ -184,15 +288,15 @@ function ProposalEditor({ input, initial, onPublished, onDiscard, registerPublis
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       {discardedCount > 0 && (
-      <div className="flex items-center justify-end gap-3 text-xs text-muted">
-        {(
+        <div className="flex items-center justify-end gap-3 text-xs text-muted">
           <Popover>
             <PopoverTrigger asChild>
-              <button type="button" className="inline-flex items-center gap-1.5 text-[13px] text-muted hover:text-fg">
+              <button type="button" className="hit inline-flex items-center gap-1.5 text-[13px] text-muted hover:text-fg">
                 {t('proposal.noAction')} <Badge tone="neutral">{discardedCount}</Badge>
               </button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-96 p-3">
+              <p className="mb-2 text-xs font-semibold">{t('proposal.noActionTitle', { n: discardedCount })}</p>
               <ul data-lane="discarded-units" className="scroll-thin flex max-h-72 flex-col gap-2 overflow-y-auto">
                 {discarded.map((d, i) => (
                   <li key={i} className="text-[13px]">
@@ -207,8 +311,7 @@ function ProposalEditor({ input, initial, onPublished, onDiscard, registerPublis
               </ul>
             </PopoverContent>
           </Popover>
-        )}
-      </div>
+        </div>
       )}
 
       <FitList
@@ -220,11 +323,14 @@ function ProposalEditor({ input, initial, onPublished, onDiscard, registerPublis
           <ProposalRow
             message={m}
             index={i}
+            total={count}
+            open={count === 1 || i === openIndex}
+            onOpen={() => setOpenIndex(i)}
             attachments={input.attachments}
-            onlyOne={proposal.messages.length === 1}
             patch={patch}
             remove={remove}
             onMissing={(names) => setMissing((prev) => (prev[i]?.join() === names.join() ? prev : { ...prev, [i]: names }))}
+            missingCount={missing[i]?.length ?? 0}
           />
         )}
       />
@@ -235,13 +341,21 @@ function ProposalEditor({ input, initial, onPublished, onDiscard, registerPublis
         </p>
       )}
 
-      <div className="flex shrink-0 items-center justify-end gap-2">
-        <Button variant="ghost" onClick={onDiscard} disabled={publish.isPending}>
-          {t('analysis.discard')}
+      {/* On a phone the actions stay on screen whatever the length of the list (J1-B-29). */}
+      <div data-actions className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 max-md:sticky max-md:bottom-0 max-md:z-10 max-md:-mx-3 max-md:-mb-3 max-md:rounded-b-[10px] max-md:border-t max-md:border-line max-md:bg-surface max-md:px-3 max-md:py-2">
+        <Button variant="ghost" className="hit text-muted" onClick={onDiscard} disabled={publish.isPending || discarding}>
+          <Trash2 size={14} aria-hidden /> {t('analysis.discard')}
         </Button>
-        <Button variant="primary" onClick={() => void send()} disabled={publish.isPending || proposal.messages.length === 0 || missingTotal > 0} title={missingTotal > 0 ? t('proposal.missing', { n: missingTotal }) : undefined}>
-          {t('proposal.send')}
-        </Button>
+        <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
+          {missingTotal > 0 && (
+            <span role="status" className="text-xs font-semibold text-danger">
+              {t('proposal.missing', { n: missingTotal })}
+            </span>
+          )}
+          <Button variant="primary" onClick={() => void send()} disabled={publish.isPending || count === 0 || missingTotal > 0}>
+            {t('proposal.sendN', { n: count })}
+          </Button>
+        </div>
       </div>
     </div>
   )
@@ -250,31 +364,62 @@ function ProposalEditor({ input, initial, onPublished, onDiscard, registerPublis
 function ProposalRow({
   message: m,
   index,
+  total,
+  open,
+  onOpen,
   attachments,
-  onlyOne,
   patch,
   remove,
   onMissing,
+  missingCount,
 }: {
   message: ProposalMessage
   index: number
+  total: number
+  open: boolean
+  onOpen: () => void
   attachments: Attachment[]
-  onlyOne: boolean
   patch: (index: number, label: string, fix: Partial<ProposalMessage> | ((m: ProposalMessage) => Partial<ProposalMessage>)) => Promise<void>
   remove: (index: number) => Promise<void>
   onMissing: (names: string[]) => void
+  missingCount: number
 }) {
   const t = useT()
+  const { areaTitle, memberName } = useLookups()
   const templates = useTemplates(m.area_id)
   const template: Template | undefined = templates.data?.find((x) => x.id === m.template_id) ?? templates.data?.[0]
   const required = (v: string) => (v.trim() ? null : t('common.required'))
   const fieldDefs = useMemo(() => parseTemplateFields(template?.body_markdown ?? ''), [template?.body_markdown])
   const missingNames = missingRequired(m.fields, fieldDefs).join(',')
   useEffect(() => onMissing(missingNames ? missingNames.split(',') : []), [missingNames]) // eslint-disable-line react-hooks/exhaustive-deps
+  const only = total === 1
+
+  if (!open) {
+    const to = m.assignee_ids.map(memberName).filter(Boolean).join(', ')
+    return (
+      <li className="list-none border-b border-line last:border-b-0">
+        <button type="button" aria-expanded={false} aria-label={t('proposal.open', { n: index + 1, title: m.title })} onClick={onOpen} className="hit flex w-full items-start gap-2 px-1 py-2 text-left hover:bg-hover">
+          <ChevronRight size={14} aria-hidden className="mt-0.5 shrink-0 text-muted" />
+          <span className="mt-px w-4 shrink-0 text-xs font-semibold tabular-nums text-muted">{index + 1}</span>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="break-words text-[13px] font-semibold">{m.title}</span>
+            <span className="break-words text-xs text-muted">{[areaTitle(m.area_id), to ? t('proposal.to', { names: to }) : t('proposal.noRecipients')].join(' · ')}</span>
+          </span>
+          {missingCount > 0 && <Badge tone="danger">{t('proposal.missingShort')}</Badge>}
+        </button>
+      </li>
+    )
+  }
 
   return (
     <li className="flex list-none flex-col gap-2 border-b border-line px-1 py-3 last:border-b-0">
       <div className="flex flex-wrap items-start gap-x-2 gap-y-1.5">
+        {!only && (
+          <span className="flex shrink-0 items-center gap-1 self-center text-xs font-semibold tabular-nums text-muted">
+            <ChevronDown size={14} aria-hidden />
+            {index + 1}
+          </span>
+        )}
         <AreaPicker
           areaId={m.area_id}
           templateName={template?.name}
@@ -288,9 +433,12 @@ function ProposalRow({
           }
         />
         <EditableText value={m.title} label={t('proposal.title')} validate={required} onSave={(v) => patch(index, t('proposal.titleEdited'), { title: v })} displayClassName="font-semibold" className="min-w-0 flex-1 basis-40" />
-        <Button size="sm" variant="ghost" className="shrink-0 text-muted" onClick={() => void remove(index)} disabled={onlyOne} aria-label={t('proposal.remove', { title: m.title })}>
-          <Trash2 size={13} aria-hidden /> {t('proposal.removeShort')}
-        </Button>
+        {/* The only message cannot be removed: Descartar is the way out, so the button is not drawn instead of drawn off. */}
+        {!only && (
+          <Button size="sm" variant="ghost" className="hit shrink-0 text-muted" onClick={() => void remove(index)} aria-label={t('proposal.remove', { title: m.title })}>
+            <Trash2 size={13} aria-hidden /> {t('proposal.removeShort')}
+          </Button>
+        )}
       </div>
       <EditableText value={m.body} label={t('proposal.body')} multiline prose validate={required} onSave={(v) => patch(index, t('proposal.bodyEdited'), { body: v })} displayClassName="text-[13px]" />
       <TemplateFields template={template} values={m.fields} onSave={(name, value) => patch(index, t('proposal.fieldEdited'), (cur) => ({ fields: { ...(cur.fields ?? {}), [name]: value } }))} />

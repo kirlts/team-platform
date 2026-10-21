@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useErrorText, useT } from '@/i18n'
 import { cn } from '@/lib/utils'
 
@@ -53,6 +53,7 @@ export function EditableText({
   const discard = useRef(false)
   const saving = useRef(false)
   const ref = useRef<HTMLTextAreaElement>(null)
+  const hintId = useId()
   const shown = placeholder ?? t('editable.empty')
 
   useEffect(() => {
@@ -155,13 +156,14 @@ export function EditableText({
   }
 
   return (
-    <span className={cn('block min-w-0', className)}>
+    <span className={cn('relative block min-w-0', className)}>
       <textarea
         ref={ref}
         rows={1}
         value={draft}
         aria-label={label}
         aria-invalid={error ? true : undefined}
+        aria-describedby={multiline && !error ? hintId : undefined}
         onChange={(e) => {
           const next = multiline ? e.target.value : e.target.value.replace(/\n/g, ' ')
           setDraft(next)
@@ -180,10 +182,17 @@ export function EditableText({
         }}
         className={cn(box, 'well resize-none overflow-hidden text-inherit outline-none focus-visible:outline-none', error ? '!border-danger' : '!border-accent', type)}
       />
-      {error && (
+      {error ? (
         <span role="alert" className="mt-1 block text-xs text-danger">
           {error}
         </span>
+      ) : (
+        multiline && (
+          // Over the next line, not between: the field keeps its height while it is edited (J1-B-19).
+          <span id={hintId} data-edit-hint className="pointer-events-none absolute left-0 top-full z-10 mt-0.5 rounded bg-surface px-1.5 py-0.5 text-[11px] leading-tight text-muted shadow-sm">
+            {t('editable.hint')}
+          </span>
+        )
       )}
     </span>
   )

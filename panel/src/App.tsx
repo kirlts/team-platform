@@ -9,6 +9,8 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { api, ApiError } from '@/lib/api'
 import { EventsProvider } from '@/lib/events'
+import { NoticeProvider } from '@/lib/notices'
+import { NoticeHost } from '@/components/NoticeHost'
 import { useMe, useProject } from '@/lib/queries'
 import { Areas } from '@/pages/Areas'
 import { Home } from '@/pages/Home'
@@ -41,6 +43,7 @@ function Shell() {
 
   return (
     <EventsProvider>
+      <NoticeProvider>
       <Atmosphere />
       <div className="relative z-10 flex h-dvh flex-col">
         <Header projectName={project?.name ?? me?.project_name} onOpenNav={() => setNavOpen(true)} onLogout={() => void logout()} />
@@ -58,6 +61,8 @@ function Shell() {
           <Sidebar onNavigate={() => setNavOpen(false)} onLogout={() => void logout()} />
         </DialogContent>
       </Dialog>
+      <NoticeHost />
+      </NoticeProvider>
     </EventsProvider>
   )
 }

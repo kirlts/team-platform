@@ -1,4 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useT } from '@/i18n'
+import { useNotices } from './notices'
 
 /** One thing a person did that can be taken back: how to undo it and how to do it again. */
 export interface UndoOp {
@@ -57,6 +59,8 @@ export function createUndoCore() {
 /** One stack per screen. Ctrl+Z and Ctrl+Shift+Z (or Ctrl+Y) work anywhere except inside a text field, which keeps its own. */
 export function useUndoStack(): UndoStack {
   const core = useRef(createUndoCore()).current
+  const t = useT()
+  const notices = useNotices()
   const [, setVersion] = useState(0)
   const [busy, setBusy] = useState(false)
   const bump = useCallback(() => setVersion((v) => v + 1), [])
@@ -77,8 +81,19 @@ export function useUndoStack(): UndoStack {
   const stack = useMemo<UndoStack>(
     () => ({
       run: (op) => guarded(() => core.run(op)),
-      undo: () => guarded(() => core.undo()),
-      redo: () => guarded(() => core.redo()),
+      // Said after the fact, in words, so a person who undoes knows what came back (J1-B-16).
+      undo: () =>
+        guarded(async () => {
+          const label = core.past[core.past.length - 1]?.label
+          await core.undo()
+          if (label) notices.show({ text: t('undo.done', { label }) })
+        }),
+      redo: () =>
+        guarded(async () => {
+          const label = core.future[core.future.length - 1]?.label
+          await core.redo()
+          if (label) notices.show({ text: t('undo.redone', { label }) })
+        }),
       undoCount: core.past.length,
       redoCount: core.future.length,
       undoLabel: core.past[core.past.length - 1]?.label,
@@ -87,7 +102,7 @@ export function useUndoStack(): UndoStack {
     }),
     // The counts are read from the lists on every render; `version` is what changes them.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [core, guarded, busy, core.past.length, core.future.length],
+    [core, guarded, busy, core.past.length, core.future.length, notices, t],
   )
 
   const latest = useRef(stack)

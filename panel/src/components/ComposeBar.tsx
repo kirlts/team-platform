@@ -78,11 +78,11 @@ export function ComposeBar({ onSubmit, problem }: { onSubmit: (draft: SendDraft)
                 send()
               }
             }}
-            className="max-h-[120px] min-h-8 min-w-0 flex-1 basis-40 resize-none bg-transparent px-2 py-1.5 placeholder:text-faint focus-visible:outline-none"
+            className="max-h-[120px] min-h-8 min-w-0 flex-1 basis-40 resize-none bg-transparent px-2 py-1.5 placeholder:text-faint focus-visible:outline-none max-sm:order-first max-sm:basis-full"
           />
         )}
         <CaptureButtons draft={draft} />
-        <Button variant="primary" size="icon" aria-label={t('compose.send')} title={t('compose.sendHint')} disabled={empty || !!draft.recording} onClick={send}>
+        <Button variant="primary" size="icon" className="max-sm:ml-auto" aria-label={t('compose.send')} title={t('compose.sendHint')} disabled={empty || !!draft.recording} onClick={send}>
           <Send size={16} aria-hidden />
         </Button>
       </div>

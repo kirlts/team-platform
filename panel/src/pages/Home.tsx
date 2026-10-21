@@ -29,8 +29,21 @@ const isTyping = (target: EventTarget | null) => {
   return !!el && (el.isContentEditable || !!el.closest('input, textarea, select, button, a, [role="dialog"], [role="menu"], [role="menuitemradio"]'))
 }
 
+/** Whether the window is as wide as a desktop (the same breakpoint the lists use to paginate). */
+function useWide(): boolean {
+  const [wide, setWide] = useState(() => window.matchMedia('(min-width: 768px)').matches)
+  useEffect(() => {
+    const query = window.matchMedia('(min-width: 768px)')
+    const sync = () => setWide(query.matches)
+    query.addEventListener('change', sync)
+    return () => query.removeEventListener('change', sync)
+  }, [])
+  return wide
+}
+
 export function Home() {
   const t = useT()
+  const wide = useWide()
   const format = useFormat()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
@@ -142,7 +155,8 @@ export function Home() {
   }, [])
 
   const selected = inputs.find((i) => i.id === selectedId)
-  const originalOpen = !!selected && (originalChoice[selected.id] ?? selected.status !== 'proposed')
+  // On a phone the original, which the person just wrote, starts folded so the progress is the first thing in view (J1-B-28).
+  const originalOpen = !!selected && (originalChoice[selected.id] ?? (selected.status !== 'proposed' && wide))
   const working = items.length > 0
 
   return (

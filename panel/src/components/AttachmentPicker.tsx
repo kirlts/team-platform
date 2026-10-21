@@ -31,7 +31,7 @@ export function AttachmentPicker({ all, selected, onChange, max = 3 }: { all: At
               type="button"
               aria-label={t('media.pick')}
               title={t('media.pick')}
-              className="inline-flex h-7 min-w-7 items-center justify-center gap-1 rounded-md border border-dashed border-line-strong px-1.5 text-xs font-semibold text-muted hover:border-accent hover:text-accent"
+              className="hit inline-flex items-center justify-center gap-1 rounded-md px-1.5 text-xs font-semibold text-muted hover:bg-hover hover:text-accent"
             >
               {hidden > 0 ? `+${hidden}` : (
                 <>
@@ -40,7 +40,7 @@ export function AttachmentPicker({ all, selected, onChange, max = 3 }: { all: At
               )}
             </button>
           </PopoverTrigger>
-          <PopoverContent align="start" className="w-72 p-1">
+          <PopoverContent align="start" className="w-72 p-1" collisionPadding={8}>
             <ul data-lane="attachment-picker" className="scroll-thin flex max-h-72 flex-col overflow-y-auto">
               {all.map((a) => {
                 const on = selected.includes(a.id)

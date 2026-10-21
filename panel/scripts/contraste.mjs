@@ -82,6 +82,8 @@ for (const [theme, t] of [['claro', light], ['oscuro', dark]]) {
   row(theme, 'fg sobre pozo (campos)', fg('fg'), [fg('raised')], 4.5)
   row(theme, 'fg sobre cromo (cabecera, claro)', fg('fg'), ['chrome-1', 'chrome-2', 'chrome-3', 'chrome-4'].map(fg), 4.5)
   row(theme, 'danger sobre vidrio', fg('danger'), onGlass('glass'), 4.5)
+  row(theme, 'danger sobre danger-soft (aviso de falla)', fg('danger'), [fg('danger-soft')], 4.5)
+  row(theme, 'danger sobre vidrio fuerte (aviso de la pantalla)', fg('danger'), onGlass('glass-strong'), 4.5)
   for (const s of ['open', 'answered', 'closed']) row(theme, `estado ${s}: texto sobre su fondo`, fg(`${s}-fg`), [fg(`${s}-bg`)], 4.5)
   row(theme, 'accent-deep sobre accent-soft', fg('accent-deep'), [fg('accent-soft')], 4.5)
   // Surface of AI-generated content (UD-026): text, origin mark and the left edge on its own background.

@@ -9,6 +9,8 @@ const tones = {
   closed: 'led bg-closed-bg text-closed-fg [--led:var(--color-closed-led)]',
   danger: 'bg-danger-soft text-danger',
   outline: 'border border-line-strong text-muted',
+  /** What waits for a person: the one badge that is filled. */
+  solid: 'bg-accent text-accent-fg',
 } as const
 
 export function Badge({

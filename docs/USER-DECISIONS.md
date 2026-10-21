@@ -184,7 +184,7 @@ RULES:
 
 **Fecha:** 2026-10-20
 **Contexto:** El panel se estaba construyendo con la estética de un programa de gestión estándar y sin referente visual propio.
-**Decisión:** Martín, textual: «la estética tiene que ser MUCHO mejor, inspirada en y2k futurista». Vidrio translúcido, cromo y metal líquido, degradados iridiscentes, formas redondeadas, azul eléctrico, plata, lima y lila, tipografía de la época con licencia libre. Lo funcional no cambia: rótulos cortos, densidad de bandeja de escritorio, estado como insignia, edición en el lugar.
+**Decisión:** Martín, textual: «la estética tiene que ser MUCHO mejor, inspirada en y2k futurista», y a continuación: «nada muy loco, pero con más identidad, espaciado, y jerarquía visual con el uso de alineaciones, tamaños, formas, distribución, etc.». El Y2K futurista es la cita (vidrio, cromo, iridiscencia, formas redondeadas, azul eléctrico, plata, lima y lila, tipografía de la época con licencia libre); lo que manda es la jerarquía visual y una identidad propia, sin efectos por todos lados. Lo funcional no cambia: rótulos cortos, densidad de bandeja de escritorio, estado como insignia, edición en el lugar. Los valores que delatan diseño generado por IA (paleta índigo y degradado púrpura a azul, superficies zinc, centrado simétrico universal, radios y sombras por omisión) quedan prohibidos.
 **Alternativas descartadas:**
 - Estética neutra de panel administrativo: era la omisión y no la quiso.
 **Consecuencias:**

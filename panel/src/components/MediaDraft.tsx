@@ -1,5 +1,5 @@
 import { Camera, Link2, Mic, Paperclip, Square, X } from '@/components/icons'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
@@ -26,6 +26,8 @@ const PROBLEM: Record<MediaProblem, MessageKey> = { record: 'media.recordFailed'
 export function ClipMenu({ draft, disabled, size = 'icon' }: { draft: MediaDraft; disabled?: boolean; size?: 'icon' | 'icon-sm' }) {
   const t = useT()
   const fileInput = useRef<HTMLInputElement>(null)
+  /** Set by the choice itself, read by the menu when it gives the focus back: an order of events, not a value of some render. */
+  const choseLink = useRef(false)
   return (
     <>
       <DropdownMenu>
@@ -34,12 +36,27 @@ export function ClipMenu({ draft, disabled, size = 'icon' }: { draft: MediaDraft
             <Paperclip size={size === 'icon' ? 18 : 16} aria-hidden />
           </Button>
         </DropdownMenuTrigger>
-        {/* Choosing «Enlace» hands the focus to its field: the menu must not give it back to the clip (J2-B-01). */}
-        <DropdownMenuContent align="start" sideOffset={8} onCloseAutoFocus={(e) => draft.linkOpen && e.preventDefault()}>
+        {/* Choosing «Enlace» hands the focus to its field, and it does so at the moment the menu would give it back to the clip: that
+            event is the one that decides, so no timer or render order can put the focus on the clip afterwards (J2-B-01, H-901). */}
+        <DropdownMenuContent
+          align="start"
+          sideOffset={8}
+          onCloseAutoFocus={(e) => {
+            if (!choseLink.current) return
+            choseLink.current = false
+            e.preventDefault()
+            document.getElementById('compose-link')?.focus()
+          }}
+        >
           <DropdownMenuItem onSelect={() => fileInput.current?.click()}>
             <Paperclip size={15} aria-hidden /> {t('media.file')}
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => draft.setLinkOpen(true)}>
+          <DropdownMenuItem
+            onSelect={() => {
+              choseLink.current = true
+              draft.setLinkOpen(true)
+            }}
+          >
             <Link2 size={15} aria-hidden /> {t('media.link')}
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -98,12 +115,6 @@ export function CaptureButtons({ draft, disabled, size = 'icon' }: { draft: Medi
 function LinkRow({ draft }: { draft: MediaDraft }) {
   const t = useT()
   const [value, setValue] = useState('')
-  const field = useRef<HTMLInputElement>(null)
-  // The field is born focused, after the menu that opened it has closed (J2-B-01).
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => field.current?.focus())
-    return () => cancelAnimationFrame(frame)
-  }, [])
   const close = () => {
     draft.setLinkOpen(false)
     setValue('')
@@ -121,7 +132,7 @@ function LinkRow({ draft }: { draft: MediaDraft }) {
         <label htmlFor="compose-link" className="shrink-0 text-xs font-semibold text-muted">
           {t('media.link')}
         </label>
-        <Input id="compose-link" ref={field} type="url" inputMode="url" placeholder="https://" value={value} onChange={(e) => setValue(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && close()} className="h-8 flex-1" />
+        <Input id="compose-link" type="url" inputMode="url" placeholder="https://" value={value} onChange={(e) => setValue(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && close()} className="h-8 flex-1" />
         {/* The one control with the weight of an action in the row: the field has its own border only when it has the focus (J3-B-19). */}
         <Button type="submit" variant="primary" className="h-8">
           {t('media.add')}

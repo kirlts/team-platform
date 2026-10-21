@@ -21,4 +21,11 @@ docs/*.epub
 
 # Worktrees de subagentes
 .claude/worktrees/
+
+# Volumen de datos local (base, adjuntos)
+data/
 !.env.example
+
+# Casos privados del banco (feedback real, nunca se publican)
+bench/private/
+bench/results/

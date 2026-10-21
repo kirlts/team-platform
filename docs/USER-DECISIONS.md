@@ -191,3 +191,17 @@ RULES:
 - `panel/DISENO.md` con referencias fechadas y los tokens derivados; modo claro y oscuro.
 - Ninguna fuente ni recurso cargado desde otro dominio (§4.1): las tipografías van empaquetadas.
 **Condiciones de reversión:** Que Martín nombre otro referente.
+
+## [UD-014] Todo lo que pasa por un modelo se mide con OpenTelemetry y se guarda
+
+**Fecha:** 2026-10-20
+**Contexto:** Las llamadas al modelo quedaban en `llm_calls` (proveedor, modelo, tokens, costo). Martín pide trazabilidad completa para mejorar el sistema.
+**Decisión:** Martín, textual: «estrictamente es necesario que todo lo que pase por un modelo de inteligencia artificial en general se mida con OpenTelemetry y almacenemos los resultados de cada llamada de API y de cada uso de herramienta y cada cosa que podamos guardar porque todo eso nos da trazabilidad para poder ir mejorando este sistema».
+**Alternativas descartadas:**
+- Seguir con `llm_calls` a mano: no tiene árbol de spans ni el contenido de cada llamada, y no lo lee ninguna herramienta estándar.
+- Un colector externo obligatorio: rompe «un contenedor y un volumen» (§4.5).
+**Consecuencias:**
+- Un span por trabajo, por paso (extraer cada adjunto, clasificar, descomponer cada grupo, rescatar, validar, publicar), por llamada a proveedor y por invocación del harness, con las convenciones semánticas de GenAI de OpenTelemetry (`gen_ai.*`) y el contenido completo de entrada y salida de cada llamada guardado en el volumen.
+- Los spans se guardan en SQLite por un exportador propio (sin componente externo) y, si se configura `OTEL_EXPORTER_OTLP_ENDPOINT`, también salen por OTLP a un colector. `llm_calls` pasa a ser una vista sobre los spans de llamada.
+- El banco (§7.11) lee los spans para sus tiempos por paso en vez de medir aparte.
+**Condiciones de reversión:** Ninguna prevista.

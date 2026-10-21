@@ -8,6 +8,7 @@ import TurndownService from 'turndown';
 import { ExtractError } from './errors.js';
 import { resolveSafeHost } from './lib/ssrf.js';
 import { createProgress } from './lib/progress.js';
+import { annotate, withSpan } from '../telemetry/api.js';
 
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const HTML_TYPES = new Set(['text/html', 'application/xhtml+xml']);
@@ -146,7 +147,18 @@ export async function extractLink(attachment, ctx) {
   const startedAt = performance.now();
   const url = parseUrl(attachment.url ?? attachment.path);
   progress.report('descargando el enlace');
-  const got = await download(url, ctx);
+  const got = await withSpan('extract.link_download', { 'team.step': 'extract.link_download', 'team.tool': 'undici', 'url.full': url.href }, async () => {
+    const out = await download(url, ctx);
+    annotate({
+      'url.final': out.url.href,
+      'http.response.status_code': out.status,
+      'http.response.content_type': out.contentType,
+      'team.redirects': out.redirects,
+      'team.output_bytes': out.bytes.length,
+      'team.truncated': out.truncated,
+    });
+    return out;
+  });
   progress.advance('enlace descargado');
 
   const type = got.contentType.split(';')[0].trim().toLowerCase();
@@ -160,7 +172,15 @@ export async function extractLink(attachment, ctx) {
   if (PLAIN_TYPES.has(type)) {
     markdown = decode(got.bytes, got.contentType).trim();
   } else if (HTML_TYPES.has(type) || type === '') {
-    ({ title, markdown, readable } = toMarkdown(decode(got.bytes, got.contentType), got.url));
+    ({ title, markdown, readable } = withSpan(
+      'extract.readability',
+      { 'team.step': 'extract.readability', 'team.tool': 'readability', 'team.input_bytes': got.bytes.length },
+      () => {
+        const out = toMarkdown(decode(got.bytes, got.contentType), got.url);
+        annotate({ 'team.output_chars': out.markdown.length, 'team.readable': out.readable });
+        return out;
+      },
+    ));
   } else {
     throw new ExtractError('link_unsupported_type', 'El enlace no apunta a una página que se pueda leer.', { contentType: type });
   }

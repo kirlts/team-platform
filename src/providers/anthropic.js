@@ -18,6 +18,7 @@ import {
   ProviderRefusalError,
 } from './errors.js';
 import { DEFAULT_TIMEOUT_MS, partToBase64, postRequest, systemBlocks, toParts } from './http.js';
+import { withGenAiCall } from '../telemetry/api.js';
 
 export const ANTHROPIC_DEFAULTS = Object.freeze({
   baseUrl: 'https://api.anthropic.com',
@@ -82,7 +83,11 @@ export function createAnthropicClient(cfg) {
   const defaultMaxTokens = cfg.maxTokens ?? ANTHROPIC_DEFAULTS.maxTokens;
   const provider = 'anthropic';
 
-  async function call({ system, messages, schema, effort, maxTokens, cacheTtl: callCacheTtl, thinking: callThinking }) {
+  // Un span por llamada con la entrada y la salida completas (UD-014, MASTER-SPEC §7.10 bis).
+  const call = (req, modality = 'text') =>
+    withGenAiCall({ provider, model, modality, request: req, cacheTtl: req.cacheTtl ?? cacheTtl }, () => rawCall(req));
+
+  async function rawCall({ system, messages, schema, effort, maxTokens, cacheTtl: callCacheTtl, thinking: callThinking }) {
     // `thinking: 'disabled'` por llamada pisa al de la configuración: la clasificación y la descomposición se miden por separado.
     const thinking = callThinking ?? cfg.thinking;
     if (effort !== undefined && !EFFORTS.has(effort)) {
@@ -165,7 +170,7 @@ export function createAnthropicClient(cfg) {
       }
       const parts = images.map((img) => ({ type: img.mime === 'application/pdf' ? 'document' : 'image', ...img }));
       // Las imágenes van antes del texto: así lo recomienda la documentación de visión.
-      return call({ system, messages: [{ role: 'user', content: [...parts, { type: 'text', text: prompt }] }], schema, effort, maxTokens, cacheTtl, thinking });
+      return call({ system, messages: [{ role: 'user', content: [...parts, { type: 'text', text: prompt }] }], schema, effort, maxTokens, cacheTtl, thinking }, 'vision');
     },
   };
 }

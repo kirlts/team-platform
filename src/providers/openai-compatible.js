@@ -16,6 +16,7 @@ import {
   ProviderUnsupportedError,
 } from './errors.js';
 import { DEFAULT_TIMEOUT_MS, partToBase64, postRequest, systemBlocks, toParts } from './http.js';
+import { withGenAiCall } from '../telemetry/api.js';
 
 // Direcciones y modos de cada proveedor, de la documentación de cada uno consultada para el
 // informe 02 (2026-10-20). El modo por omisión de cada preajuste no se pudo probar con llave
@@ -101,7 +102,10 @@ export function createOpenAICompatibleClient(cfg) {
   const timeoutMs = cfg.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const defaultMaxTokens = cfg.maxTokens ?? 16_000; // mismo valor provisional que el proveedor por omisión (informe 02 §10.2)
 
-  async function call({ system, messages, schema, effort, maxTokens }) {
+  // Un span por llamada con la entrada y la salida completas (UD-014, MASTER-SPEC §7.10 bis).
+  const call = (req, modality = 'text') => withGenAiCall({ provider, model, modality, request: req }, () => rawCall(req));
+
+  async function rawCall({ system, messages, schema, effort, maxTokens }) {
     if (!Array.isArray(messages) || messages.length === 0) {
       throw new ProviderConfigError(`${provider}: «messages» no puede estar vacío`, { provider, model });
     }
@@ -185,7 +189,7 @@ export function createOpenAICompatibleClient(cfg) {
         throw new ProviderConfigError(`${provider}: describe necesita al menos una imagen`, { provider, model });
       }
       const parts = images.map((img) => ({ type: img.mime === 'application/pdf' ? 'document' : 'image', ...img }));
-      return call({ system, messages: [{ role: 'user', content: [...parts, { type: 'text', text: prompt }] }], schema, effort, maxTokens });
+      return call({ system, messages: [{ role: 'user', content: [...parts, { type: 'text', text: prompt }] }], schema, effort, maxTokens }, 'vision');
     },
   };
 }

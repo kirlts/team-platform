@@ -1,6 +1,6 @@
-// Message filters: property, operator and value, stored in the URL.
+// Mensajes filters: property, operator and value, kept in the URL.
 // The server only understands equality (GET /messages?for=&area=&status=&q=&replies=);
-// negation («no es») and «sin respuestas» are applied here over the received list.
+// negation («no es») and «sin respuestas» are applied here on the received list.
 import type { Message } from './types'
 
 export type FilterProp = 'for' | 'area' | 'status' | 'replies'
@@ -20,7 +20,7 @@ export interface MessageQuery {
 export const FILTER_PROPS: FilterProp[] = ['for', 'area', 'status', 'replies']
 export const REPLIES_VALUES = ['con', 'sin'] as const
 export const STATUS_VALUES = ['open', 'answered', 'closed'] as const
-/** Value of the «Para» filter that means the person holding the session. */
+/** Value of the «Para» filter meaning the person holding the session. */
 export const ME = 'me'
 
 const PROP_SET = new Set<string>(FILTER_PROPS)
@@ -38,7 +38,7 @@ function validFilter(prop: string, op: string, value: string): Filter | null {
   return { prop: p, op, value }
 }
 
-/** `?f=for:eq:me&f=status:neq:closed&q=texto` → query. One filter per property; invalid input is ignored. */
+/** `?f=for:eq:me&f=status:neq:closed&q=texto` → query. One filter per property; invalid ones are ignored. */
 export function parseQuery(params: URLSearchParams): MessageQuery {
   const filters: Filter[] = []
   for (const raw of params.getAll('f')) {

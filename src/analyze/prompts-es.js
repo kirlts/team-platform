@@ -151,7 +151,7 @@ export const DECOMPOSE_INSTRUCTIONS = [
   '- title: una línea que identifica el punto, con el formato que indica la plantilla.',
   '- fields: los campos de la plantilla, con datos tomados del input. No inventes datos que el input no trae. Cuando un campo obligatorio no tiene dato en el input, escribe exactamente: No indicado.',
   '- body: el texto completo del mensaje, redactado para quien lo recibe y entendible sin leer el input, según el Formato de salida de la plantilla. Conserva nombres, cifras, URL y mensajes de error tal como aparecen.',
-  '- assignee_ids: los miembros a quienes corresponde responder, decididos leyendo el perfil que cada miembro escribió bajo su nombre en el bloque Equipo (no hay otro dato de la persona). Si el input nombra a alguien, usa a ese miembro. Si ningún miembro corresponde, lista vacía. Usa solo ids de la lista del equipo.',
+  '- assignee_ids: los miembros a quienes corresponde responder, decididos leyendo el perfil que cada miembro escribió bajo su nombre en el bloque Equipo (no hay otro dato de la persona). Asigna solo a quien el perfil hace responsable de este punto, nunca «por si acaso» ni para informar; la mayoría de los puntos de ingeniería tienen un solo responsable, y se suma un segundo solo si el perfil de cada uno dice que debe actuar. Todo mensaje lleva al menos un responsable cuando el equipo tiene miembros: si ningún perfil lo cubre con claridad, el del perfil más cercano. Si el input nombra a alguien, usa a ese miembro. Usa solo ids de la lista del equipo.',
   '- attachment_ids: los adjuntos que dan contexto al mensaje (la captura que muestra la falla, el documento que detalla el pedido). Un adjunto puede acompañar a varios mensajes. Usa solo ids de la lista de adjuntos.',
   '- source: opcional. Ponlo en "frame" solo cuando el punto se ve en la descripción de un fotograma y ninguna unidad de voz, de texto o de documento del grupo lo dice en voz alta, para que quien envía vea que se dedujo de la imagen. Omítelo en los demás casos.',
   '',
@@ -200,7 +200,7 @@ export function retryUser(errors) {
 
 /** Rescue pass: only the conflict (report 02 §3.1 and §3.3; MASTER-SPEC §7.5). */
 export function rescueUser({ members, attachments, units, coverageIds, involved, overlaps, gaps }) {
-  const lines = [membersBlock(members), '', attachmentsBlock(attachments, units), '', 'Corrección de una descomposición con conflictos', ''];
+  const lines = [...(members === null ? [] : [membersBlock(members), '']), attachmentsBlock(attachments, units), '', 'Corrección de una descomposición con conflictos', ''];
   if (overlaps.length > 0) {
     lines.push('Unidades citadas más de una vez:');
     for (const o of overlaps) lines.push(`- u${o.unit_id}: ${o.owners.join(' y ')}`);

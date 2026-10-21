@@ -331,3 +331,35 @@ RULES:
 - Tabla `settings` (clave y valor) con `project_description` (markdown); `GET /settings/project` para todos y `PATCH /settings/project` para el Editor; `bundle.project = { name, description }`; tope de tamaño como perilla con su cita (el escalón de precio de 100.000 tokens de entrada del modelo por omisión).
 - Las plantillas iniciales mencionan que pueden apoyarse en el contexto del proyecto cuando exista.
 **Condiciones de reversión:** Ninguna prevista.
+
+## [UD-025] Envíos seguidos: cada uno se analiza al tiempo, llegan uno tras otro en una bandeja compacta y la pantalla no crece
+
+**Fecha:** 2026-10-21
+**Contexto:** El uso diario normal es mandar algo, acordarse de otra cosa, mandarla, y otra más. La cola corría un trabajo a la vez y la vista de Inicio apilaba un bloque de análisis por envío.
+**Decisión:** Martín, textual: «asegúrate de que esté bien cubierto el caso de que alguien mande un mensaje e inmediatamente después piensa en otra cosa que quería mandar y lo mande, y luego mande otra cosa. Los mensajes procesados deben ir llegando uno tras otro sin que la interfaz se vuelva inmanejable ni que el usuario esté forzado a hacer scroll por toda la página … pensar en estos casos borde enfocados en la usabilidad a diario». Cuatro reglas: (1) la barra de envío se vacía al enviar y queda lista para el siguiente en el acto, sin esperar el análisis; (2) los envíos se analizan a la vez, no en fila, hasta el tope de concurrencia (perilla medida contra el límite de tasa del proveedor), y la cola atiende por orden de llegada dentro de cada persona; (3) en Inicio, los envíos en curso y los listos para revisar viven en una sola bandeja de alto fijo, una fila por envío con su estado, su progreso y la cuenta de mensajes propuestos, y la propuesta se revisa de a una en el mismo marco (la siguiente se abre sola al publicar o descartar la actual), de modo que diez envíos seguidos no agregan alto a la página; (4) el análisis de un envío recibe como contexto los envíos recientes de la misma persona que todavía no publicó, para que un punto que continúa o repite uno anterior se diga así y no salga duplicado.
+**Alternativas descartadas:**
+- Un bloque de análisis por envío apilado en la página: crece sin tope y obliga a desplazarse.
+- Juntar automáticamente envíos seguidos en uno: decidir que dos envíos son el mismo es interpretar texto con una regla; lo decide el modelo con el contexto de los recientes, y la persona en la revisión.
+**Consecuencias:**
+- `QUEUE_CONCURRENCY` deja de ser 1: se mide en el banco con cinco envíos simultáneos contra el límite de tasa de Anthropic y Groq y se fija con su cita.
+- `bundle.recent_inputs` con los envíos sin publicar de la misma persona (texto ya extraído y títulos propuestos), con un tope de cantidad y de antigüedad declarados.
+- Bandeja de envíos en Inicio con prueba de alto: diez envíos seguidos no cambian `scrollHeight` del documento.
+**Condiciones de reversión:** Ninguna prevista.
+
+## [UD-026] Lo que genera la IA se distingue a simple vista; nada se muestra dos veces; el móvil aprovecha el espacio
+
+**Fecha:** 2026-10-21
+**Contexto:** Martín revisó una captura móvil de Inicio con una propuesta abierta.
+**Decisión:** Martín, textual: «la parte de análisis no está muy visualmente separada de la parte del mensaje … a simple vista cuesta entender que una parte de la pantalla corresponde a algo que generó una inteligencia artificial. Una forma de combatir esto es dándole un fondo de color distinto a la parte de análisis, pero también puedes ver cómo lo hacen otras interfaces de usuario 2026», y «en Envíos aparece el mismo texto que después se muestra en el mensaje, es ridículo, hay que fusionar ese componente … en móvil tenemos que aprovechar mucho mejor el espacio». Tres reglas de clase: (1) todo contenido generado por el modelo vive en una superficie propia y reconocible (fondo distinto del kit, marca de origen e ícono consistentes, siguiendo el patrón investigado de las interfaces de 2026) en todas las pantallas donde aparece, no sólo en Análisis; (2) ningún dato se muestra dos veces en la misma vista: la fila del envío seleccionado se convierte en la cabecera de su revisión, el texto original no se repite, y los conteos y estados aparecen una sola vez; (3) en móvil, lo que no se necesita para decidir nace plegado (el texto original se abre a pedido cuando la propuesta está lista), y los controles secundarios son íconos con nombre accesible.
+**Alternativas descartadas:**
+- Separar por una línea o un título: la captura muestra que no alcanza.
+**Consecuencias:**
+- Prueba del panel que falla si un mismo texto de más de 20 caracteres aparece dos veces en una vista; captura móvil revisada a 390×844 de Inicio con propuesta abierta.
+- El banco cuenta como marca de baja calidad un cuerpo de mensaje que repite su título.
+**Condiciones de reversión:** Ninguna prevista.
+
+## [UD-027] Presupuesto de API de Anthropic para el desarrollo y las mediciones
+
+**Fecha:** 2026-10-21
+**Decisión:** Martín, textual: «podemos gastar hasta 25 usd en api de anthropic». Es un tope total para lo que falta de desarrollo, mediciones y pruebas con el proveedor real, repartido entre los agentes (cada encargo declara su parte) y llevado en `bench/results/` por los guiones de gasto. Una corrida que lo supere se detiene y lo dice.
+**Consecuencias:** Las comparaciones de modelos (Haiku 5.5, Sonnet 5.5, DeepSeek), las repeticiones del banco y las pruebas de punta a punta en el VPS cuentan contra este tope.

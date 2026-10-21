@@ -12,7 +12,7 @@ import { createHash } from 'node:crypto'
 import { all, get, run } from '../db/index.js'
 import { iso, parseJson } from '../db/util.js'
 import { audit } from './audit.js'
-import { conflict, notFound } from './errors.js'
+import { badRequest, conflict, notFound, tooLarge } from './errors.js'
 
 export const INPUT_STATUSES = ['queued', 'extracting', 'analyzing', 'proposed', 'published', 'failed', 'cancelled']
 
@@ -133,6 +133,10 @@ export function buildInputView ({ db, queue, events }, input) {
     error_code: input.error_code,
     created_at: iso(input.created_at),
     job_id: jobRow?.id ?? null,
+    // Flat copy of the job's progress and of the proposal's size, for the tray of in-flight inputs (UD-025).
+    percent: progressRow?.percent ?? null,
+    phrase: progressRow?.phrase ?? null,
+    proposed_count: proposalObj ? (parseJson(proposalObj.payload_json, {}).messages ?? []).length : 0,
     attachments: atts.map(attachmentView),
     job: jobRow
       ? { id: jobRow.id, status: jobRow.status, attempts: jobRow.attempts, percent: progressRow?.percent ?? null, phrase: progressRow?.phrase ?? null, last_error: jobRow.last_error }
@@ -143,24 +147,72 @@ export function buildInputView ({ db, queue, events }, input) {
   }
 }
 
-/** Paginated list of one's own inputs (the sender sees theirs), with an optional status filter. */
-export function listInputs (ctx, memberId, { status = null, limit, offset }) {
-  const { db } = ctx
-  const cond = status ? 'WHERE author_id = ? AND status = ?' : 'WHERE author_id = ?'
-  const params = status ? [memberId, status] : [memberId]
-  const total = get(db, `SELECT COUNT(*) AS n FROM inputs ${cond}`, ...params).n
-  const rows = all(db, `SELECT * FROM inputs ${cond} ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`, ...params, limit, offset)
-  return { total, items: rows.map((i) => buildInputView(ctx, i)) }
+const LIST_STATUSES = new Set(INPUT_STATUSES)
+
+/** `?status=` accepts one status or a comma-separated list; an unknown name is a 400. */
+export function parseStatusFilter (raw) {
+  if (raw === null || raw === undefined || raw === '') return []
+  const names = [...new Set(String(raw).split(',').map((n) => n.trim()).filter(Boolean))]
+  const unknown = names.filter((n) => !LIST_STATUSES.has(n))
+  if (unknown.length > 0) throw badRequest(`Estado desconocido: ${unknown.join(', ')}.`, 'invalid_status')
+  return names
 }
 
 /**
- * Re-enqueues the analysis of an already-extracted input (useful when a template changed). Extractions are
- * kept: the job only extracts what is missing. Editor only; not on a published or in-progress input.
+ * Own inputs, paginated, filtered by one or several statuses. `order` is 'desc' (newest first, the history) or
+ * 'asc' (creation order, the tray of in-flight inputs where each new send lands after the previous one).
  */
-export function reprocessInput ({ db, queue, events, now = Date.now }, inputId, actorId) {
+export function listInputs (ctx, memberId, { status = null, limit, offset, order = 'desc' }) {
+  const { db } = ctx
+  const statuses = Array.isArray(status) ? status : parseStatusFilter(status)
+  const cond = statuses.length > 0 ? `WHERE author_id = ? AND status IN (${statuses.map(() => '?').join(', ')})` : 'WHERE author_id = ?'
+  const params = [memberId, ...statuses]
+  const direction = order === 'asc' ? 'ASC' : 'DESC'
+  const total = get(db, `SELECT COUNT(*) AS n FROM inputs ${cond}`, ...params).n
+  const rows = all(db, `SELECT * FROM inputs ${cond} ORDER BY created_at ${direction}, id ${direction} LIMIT ? OFFSET ?`, ...params, limit, offset)
+  return { total, items: rows.map((i) => buildInputView(ctx, i)) }
+}
+
+/** First `maxChars` characters of `text` without cutting a surrogate pair in half. */
+function excerptOf (text, maxChars) {
+  if (text.length <= maxChars) return text
+  const last = text.charCodeAt(maxChars - 1)
+  return text.slice(0, last >= 0xD800 && last <= 0xDBFF ? maxChars - 1 : maxChars)
+}
+
+/**
+ * UD-025: the author's other inputs that are still in flight or waiting for review (`analyzing` or `proposed`, never
+ * published), newest first, for the analysis of `input` to know what the person already said. It is context for the
+ * model: no similarity and no deduplication is computed here. Capped by count and age (`config.recentInputs`).
+ * Each item: { id, created_at, text_excerpt, proposed_titles }; the excerpt is the start of the extracted text of
+ * the input (what the person wrote followed by what each attachment yielded).
+ */
+export function recentInputsFor ({ db, config, now = Date.now }, input) {
+  const { max, maxAgeMinutes, excerptChars } = config.recentInputs
+  if (max === 0) return []
+  const since = now() - maxAgeMinutes * 60 * 1000
+  const rows = all(db,
+    `SELECT id, text, created_at FROM inputs
+      WHERE author_id = ? AND id != ? AND status IN ('analyzing', 'proposed') AND created_at >= ?
+      ORDER BY created_at DESC, id DESC LIMIT ?`, input.author_id, input.id, since, max)
+  return rows.map((r) => {
+    const extracted = all(db, 'SELECT extracted_text FROM attachments WHERE input_id = ? AND extracted_text IS NOT NULL ORDER BY id', r.id).map((a) => a.extracted_text)
+    const whole = [r.text, ...extracted].filter((part) => part.trim() !== '').join('\n\n')
+    const proposalRow = get(db, 'SELECT payload_json FROM proposals WHERE input_id = ?', r.id)
+    const titles = (parseJson(proposalRow?.payload_json, {}).messages ?? []).map((m) => m.title).filter((t) => typeof t === 'string' && t !== '')
+    return { id: r.id, created_at: iso(r.created_at), text_excerpt: excerptOf(whole, excerptChars), proposed_titles: titles }
+  })
+}
+
+/**
+ * Queues the analysis of an input again (useful when a template changed, or to retry a failed analysis). The
+ * extractions are kept: the job only extracts what is missing. The editor can do it on any input; a member only on
+ * their own (for anybody else an input of another person does not exist). Not on a published or in-flight input.
+ */
+export function reprocessInput ({ db, queue, events, now = Date.now }, inputId, actor) {
   return events.transaction(() => {
     const input = get(db, 'SELECT * FROM inputs WHERE id = ?', inputId)
-    if (!input) throw notFound('El input no existe.')
+    if (!input || (actor.role !== 'editor' && input.author_id !== actor.id)) throw notFound('El input no existe.')
     if (!['proposed', 'failed', 'cancelled'].includes(input.status)) {
       throw conflict(`El input está «${input.status}»; sólo se reprocesa uno con propuesta, fallido o cancelado.`, 'not_reprocessable')
     }
@@ -168,12 +220,46 @@ export function reprocessInput ({ db, queue, events, now = Date.now }, inputId, 
     run(db, 'DELETE FROM proposals WHERE input_id = ?', inputId)
     const jobId = queue.enqueue('analyze', { input_id: inputId }, { inputId })
     events.publishForJob(jobId, { kind: 'progress', percent: 0, phrase: 'En cola' })
-    audit(db, { memberId: actorId, action: 'input.reprocess', entity: 'input', entityId: inputId, now })
+    audit(db, { memberId: actor.id, action: 'input.reprocess', entity: 'input', entityId: inputId, now })
     return { input_id: inputId, job_id: jobId }
   })
 }
 
-/** Cancels one's own input: cancels its jobs and marks it. A published input is not cancelled. */
+/**
+ * Replaces the text of an own input that is waiting for review (`proposed`) or failed, and queues its analysis again
+ * with the new text. The attachments and their extractions stay. The content hash is recomputed (§1.3): if another
+ * input of the same author already has that content the edit is a 409, as sending it again would have been a duplicate.
+ */
+export function editInputText ({ db, config, queue, events, now = Date.now }, inputId, memberId, text) {
+  return events.transaction(() => {
+    const input = get(db, 'SELECT * FROM inputs WHERE id = ?', inputId)
+    if (!input || input.author_id !== memberId) throw notFound('El input no existe.')
+    if (!['proposed', 'failed'].includes(input.status)) {
+      throw conflict(`El input está «${input.status}»; sólo se edita el texto de uno con propuesta o fallido.`, 'not_editable')
+    }
+    if (Buffer.byteLength(text) > config.uploads.maxTextBytes) throw tooLarge('El texto supera el tamaño máximo permitido.')
+    const atts = all(db, 'SELECT kind, path, sha256 FROM attachments WHERE input_id = ?', inputId)
+    if (text.trim() === '' && atts.length === 0) throw badRequest('El envío está vacío: falta texto, archivo o enlace.', 'input_empty')
+    const hash = contentHash({
+      authorId: memberId, text,
+      fileHashes: atts.filter((a) => a.kind !== 'link').map((a) => a.sha256),
+      links: atts.filter((a) => a.kind === 'link').map((a) => a.path)
+    })
+    if (get(db, 'SELECT 1 AS e FROM inputs WHERE content_hash = ? AND id != ?', hash, inputId)) {
+      throw conflict('Ya existe un envío tuyo con ese contenido.', 'duplicate_input')
+    }
+    const t = now()
+    run(db, 'UPDATE inputs SET text = ?, content_hash = ?, updated_at = ? WHERE id = ?', text, hash, t, inputId)
+    transitionInput(db, inputId, 'queued', { now })
+    run(db, 'DELETE FROM proposals WHERE input_id = ?', inputId)
+    const jobId = queue.enqueue('analyze', { input_id: inputId }, { inputId })
+    events.publishForJob(jobId, { kind: 'progress', percent: 0, phrase: 'En cola' })
+    audit(db, { memberId, action: 'input.edit', entity: 'input', entityId: inputId, detail: { chars: text.length }, now })
+    return buildInputView({ db, queue, events }, get(db, 'SELECT * FROM inputs WHERE id = ?', inputId))
+  })
+}
+
+/** Cancels an input of one's own: cancels its jobs and marks it. A published input is not cancelled. */
 export function cancelInput ({ db, queue, events, now = Date.now }, inputId, memberId) {
   return events.transaction(() => {
     const input = get(db, 'SELECT * FROM inputs WHERE id = ?', inputId)

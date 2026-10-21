@@ -28,10 +28,13 @@
   --font-display: 'Orbitron', 'Eurostile', 'Bank Gothic', 'Arial Narrow', sans-serif;
   --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
 
+  /* Space unit: exactly 4 px. With the 15 px base font, Tailwind's default (0.25 rem) would give 3.75 px. */
+  --spacing: 4px;
+
   /* Sky: background of the whole application. */
   --color-sky-a: oklch(0.955 0.045 205);
   --color-sky-b: oklch(0.945 0.03 250);
-  --color-sky-c: oklch(0.95 0.03 300);
+  --color-sky-c: oklch(0.95 0.03 232);
   --color-glow-1: oklch(0.9 0.1 205 / 0.55);
   --color-glow-2: oklch(0.9 0.08 305 / 0.38);
   --color-glow-3: oklch(0.94 0.13 125 / 0.28);
@@ -67,6 +70,10 @@
   --color-accent-hover: oklch(0.44 0.2 252);
   --color-accent-deep: oklch(0.38 0.17 255);
   --color-accent-fg: oklch(0.99 0 0);
+  /* Surface for what the model generates (UD-026): flat lilac tint, left border and origin mark. */
+  --color-ai-bg: oklch(0.955 0.04 300);
+  --color-ai-edge: oklch(0.5 0.19 300);
+  --color-ai-fg: oklch(0.4 0.17 300);
   --color-accent-soft: oklch(0.925 0.05 245);
   --color-aqua: oklch(0.78 0.13 205);
   --color-lime: oklch(0.88 0.19 125);
@@ -90,7 +97,7 @@
   --color-danger: oklch(0.5 0.2 25);
   --color-danger-soft: oklch(0.94 0.035 25);
 
-  /* Shape: short radii; the large rounding is kept for controls. */
+  /* Shape: short radii; the large rounding is left for controls. */
   --radius-sm: 3px;
   --radius-md: 6px;
   --radius-lg: 8px;
@@ -107,7 +114,7 @@
 
   --color-sky-a: oklch(0.2 0.05 255);
   --color-sky-b: oklch(0.17 0.045 270);
-  --color-sky-c: oklch(0.2 0.065 300);
+  --color-sky-c: oklch(0.2 0.065 240);
   --color-glow-1: oklch(0.45 0.18 250 / 0.38);
   --color-glow-2: oklch(0.4 0.16 305 / 0.28);
   --color-glow-3: oklch(0.5 0.15 125 / 0.14);
@@ -156,6 +163,9 @@
   --color-closed-fg: oklch(0.76 0.02 250);
   --color-closed-bg: oklch(0.3 0.015 255);
   --color-closed-led: oklch(0.6 0.02 255);
+  --color-ai-bg: oklch(0.27 0.07 300);
+  --color-ai-edge: oklch(0.74 0.15 305);
+  --color-ai-fg: oklch(0.86 0.1 305);
   --color-danger: oklch(0.74 0.16 25);
   --color-danger-soft: oklch(0.32 0.07 25);
 
@@ -201,19 +211,20 @@
     border-color: var(--color-line);
   }
 
-  /* Modular scale of ratio 1.25 over 15 px: 12 · 15 · 18.75 · 23.4 · 29.3. */
+  /* Modular scale with ratio 1.25 over 15 px: 12 · 15 · 18.75 · 23.4 · 29.3. */
+  /* The title of a screen is set in the text face: the capital accents of Orbitron touch the letter (Á, Ó). */
   h1 {
-    font-family: var(--font-display);
-    font-size: clamp(1.25rem, 1.05rem + 0.9vw, 1.56rem);
-    font-weight: 600;
-    letter-spacing: 0.01em;
+    font-family: var(--font-sans);
+    font-size: clamp(1.3rem, 1.1rem + 0.9vw, 1.65rem);
+    font-weight: 700;
+    letter-spacing: 0.005em;
     line-height: 1.3;
   }
 
-  /* Section label: instrument display, uppercase and letter spacing. */
+  /* Section label: instrument screen, uppercase and letter spacing. */
   h2 {
     font-family: var(--font-display);
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -240,7 +251,7 @@
     outline-offset: 2px;
   }
 
-  /* On a phone, 16 px avoids iOS automatic zoom when focusing a field. */
+  /* On a phone, 16 px avoids iOS's automatic zoom when focusing a field. */
   @media (max-width: 640px) {
     input,
     textarea {
@@ -262,6 +273,13 @@
 }
 
 @layer components {
+  /* Running text of more than two lines (UD-022): justified, without hyphenation. It is the only class that justifies. */
+  .prose-block {
+    text-align: justify;
+    hyphens: none;
+    text-wrap: pretty;
+  }
+
   /* Glass: translucent panel with a light border. Used on a few large surfaces. */
   .glass {
     background: var(--color-glass);
@@ -279,7 +297,7 @@
     box-shadow: var(--shadow-pop);
   }
 
-  /* Sheet: opposite rounded corners, the shape of the mockup's tabs. */
+  /* Sheet: opposite corners rounded, the shape of the mockup's tabs. */
   .leaf {
     border-radius: 3px 10px 3px 10px;
   }
@@ -289,6 +307,15 @@
     background: var(--color-raised);
     box-shadow: var(--shadow-well);
     border: 1px solid var(--color-edge);
+  }
+
+  /* What an AI generated: its own background, a left accent edge and, in its header, the origin mark (UD-026). */
+  .ai-surface {
+    background: var(--color-ai-bg);
+    border: 1px solid color-mix(in oklch, var(--color-ai-edge) 30%, transparent);
+    border-left: 3px solid var(--color-ai-edge);
+    border-radius: 3px 10px 3px 10px;
+    color: var(--color-fg);
   }
 
   /* Chrome bar: silver tube with a horizon line. */
@@ -304,7 +331,7 @@
     box-shadow: 0 8px 20px -12px oklch(0.35 0.14 255 / 0.5);
   }
 
-  /* Buttons. The gel carries a gloss on the upper half; the glass is the secondary one. */
+  /* Buttons. The gel carries a highlight on the upper half; the glass is the secondary. */
   .btn {
     display: inline-flex;
     flex-shrink: 0;
@@ -397,7 +424,7 @@
       0 1px 2px oklch(0.3 0.12 255 / 0.45);
   }
 
-  /* Status light: dot with a halo, before the badge text. */
+  /* Status light: dot with halo, before the badge text. */
   .led::before {
     content: '';
     display: inline-block;
@@ -411,7 +438,7 @@
       0 0 6px 1px var(--led);
   }
 
-  /* Meter: well with a crystal fill and a sparkle that runs across it while working. */
+  /* Meter: well with glass fill and a glint that runs along it while working. */
   .meter {
     background: var(--color-raised);
     box-shadow: var(--shadow-well);

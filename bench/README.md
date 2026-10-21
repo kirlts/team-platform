@@ -80,3 +80,21 @@ La numeración de unidades depende del texto extraído, y la descripción de una
 El gasto se suma en `bench/results/private-spend.jsonl` (una línea por llamada) y `--budget` corta antes de que el acumulado pase del 90 % del tope.
 
 Voz: `--speech auto` usa Groq si hay `GROQ_API_KEY`; sin llave usa `local-speech.mjs`, que lanza `local-whisper.py` (faster-whisper) con el Python de `LOCAL_WHISPER_PYTHON`. `--speech local` lo fuerza y `--speech none` omite la transcripción. El resultado declara qué proveedor de voz se usó.
+
+## Contexto bajo prueba (H-77)
+
+`run-private.mjs run` acepta el contexto que recibe el analizador, armado como lo arma `src/domain/pipeline.js`: `members` con `profile` y `project = { name, description }`.
+
+```sh
+node bench/run-private.mjs run --variant name-only --team bench/private/team.json --no-profile
+node bench/run-private.mjs run --variant profiles --team bench/private/team.json
+node bench/run-private.mjs run --variant profiles+project --team bench/private/team.json --project bench/private/project.md --project-name Devalis
+node bench/judge-usefulness.mjs bench/results/private-<variante>-<fecha>.json --project bench/private/project.md
+node bench/run-private.mjs compare bench/results/private-<a>.json bench/results/private-<b>.json
+```
+
+`--cases a,b,c` acota los casos, `--private-dir` (o `BENCH_PRIVATE_DIR`) apunta a los casos desde un worktree y `--results-dir` mueve los resultados y el registro de gasto.
+
+El puntaje de destinatarios (`score.js`, clave `assignment`) empareja cada mensaje esperado con `assignee_ids` con el mensaje obtenido que contiene todas sus unidades (el más estrecho si hay varios) y compara los dos conjuntos: exactitud de conjunto, precisión y recall, en total y por miembro. Un punto que ningún mensaje cubre no tiene pareja.
+
+`judge-usefulness.mjs` pide al proveedor de texto una nota de 1 a 5 por mensaje con una rúbrica fija y salida estructurada. El juez no ve la variante ni los perfiles. Escribe `<resultado>.usefulness.json` con las notas por mensaje y la mediana por caso, y `compare` la lee si existe. Es medición: nada de esto corre en el producto.

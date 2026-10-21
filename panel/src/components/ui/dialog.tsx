@@ -1,4 +1,5 @@
 import { X } from '@/components/icons'
+import { useT } from '@/i18n'
 import { Dialog as Primitive } from 'radix-ui'
 import type { ComponentProps, ReactNode } from 'react'
 import { cn } from '@/lib/utils'
@@ -14,6 +15,7 @@ export function DialogContent({
   children,
   ...props
 }: Omit<ComponentProps<typeof Primitive.Content>, 'title'> & { title: ReactNode; side?: 'center' | 'left' }) {
+  const t = useT()
   return (
     <Primitive.Portal>
       <Primitive.Overlay className="fixed inset-0 z-50 bg-[oklch(0.2_0.06_262/0.45)] backdrop-blur-[3px]" />
@@ -28,13 +30,12 @@ export function DialogContent({
         )}
         {...props}
       >
-        <div className={cn('flex items-center justify-between gap-2 border-b border-line px-5 py-3', side === 'left' && 'sr-only')}>
+        <div className="flex items-center justify-between gap-2 border-b border-line px-5 py-3">
           <Primitive.Title className="text-xs font-semibold">{title}</Primitive.Title>
-          <Primitive.Close className="rounded-full p-1.5 text-muted hover:bg-hover" aria-label="Cerrar">
+          <Primitive.Close className="rounded-full p-1.5 text-muted hover:bg-hover" aria-label={t('common.close')}>
             <X size={16} aria-hidden />
           </Primitive.Close>
         </div>
-        {side === 'left' && <Primitive.Title className="sr-only">{title}</Primitive.Title>}
         {children}
       </Primitive.Content>
     </Primitive.Portal>

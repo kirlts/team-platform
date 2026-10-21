@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Measures the contrast (WCAG 2) of the panel's text pairs by reading the OKLCH tokens of
 // src/styles.css, in light and dark theme. Glass surfaces (with transparency) are
-// composed over the sky extremes, and the worst case is taken. Exits with 1 if a pair
+// composited over both extremes of the sky, and the worst case is taken. Exits with 1 if a pair
 // falls below its minimum. Usage: npm run contraste
 
 import { readFileSync } from 'node:fs'
@@ -71,28 +71,33 @@ for (const [theme, t] of [['light', light], ['dark', dark]]) {
   const onGlass = (token) => skyEnds.map((sky) => over(t[token], sky))
   const fg = (name) => flat(t[name])
   // Text over the sky and over the glass (worst case among the three extremes).
-  row(theme, 'fg on sky', fg('fg'), skyEnds, 4.5)
-  row(theme, 'fg on glass', fg('fg'), onGlass('glass'), 4.5)
-  row(theme, 'fg on strong glass', fg('fg'), onGlass('glass-strong'), 4.5)
-  row(theme, 'muted on glass', fg('muted'), onGlass('glass'), 4.5)
-  row(theme, 'muted on strong glass', fg('muted'), onGlass('glass-strong'), 4.5)
-  row(theme, 'faint on glass (placeholders)', fg('faint'), onGlass('glass'), 4.5)
-  row(theme, 'accent-deep on glass', fg('accent-deep'), onGlass('glass'), 4.5)
-  row(theme, 'accent on glass (links)', fg('accent'), onGlass('glass'), 4.5)
-  row(theme, 'fg on well (fields)', fg('fg'), [fg('raised')], 4.5)
-  row(theme, 'fg on chrome (header, light)', fg('fg'), ['chrome-1', 'chrome-2', 'chrome-3', 'chrome-4'].map(fg), 4.5)
-  row(theme, 'danger on glass', fg('danger'), onGlass('glass'), 4.5)
-  for (const s of ['open', 'answered', 'closed']) row(theme, `state ${s}: text on its background`, fg(`${s}-fg`), [fg(`${s}-bg`)], 4.5)
-  row(theme, 'accent-deep on accent-soft', fg('accent-deep'), [fg('accent-soft')], 4.5)
-  // Gel button: text over the gradient at the text point (30 % of the height), with the gloss.
+  row(theme, 'fg sobre cielo', fg('fg'), skyEnds, 4.5)
+  row(theme, 'fg sobre vidrio', fg('fg'), onGlass('glass'), 4.5)
+  row(theme, 'fg sobre vidrio fuerte', fg('fg'), onGlass('glass-strong'), 4.5)
+  row(theme, 'muted sobre vidrio', fg('muted'), onGlass('glass'), 4.5)
+  row(theme, 'muted sobre vidrio fuerte', fg('muted'), onGlass('glass-strong'), 4.5)
+  row(theme, 'faint sobre vidrio (marcadores de posición)', fg('faint'), onGlass('glass'), 4.5)
+  row(theme, 'accent-deep sobre vidrio', fg('accent-deep'), onGlass('glass'), 4.5)
+  row(theme, 'accent sobre vidrio (enlaces)', fg('accent'), onGlass('glass'), 4.5)
+  row(theme, 'fg sobre pozo (campos)', fg('fg'), [fg('raised')], 4.5)
+  row(theme, 'fg sobre cromo (cabecera, claro)', fg('fg'), ['chrome-1', 'chrome-2', 'chrome-3', 'chrome-4'].map(fg), 4.5)
+  row(theme, 'danger sobre vidrio', fg('danger'), onGlass('glass'), 4.5)
+  for (const s of ['open', 'answered', 'closed']) row(theme, `estado ${s}: texto sobre su fondo`, fg(`${s}-fg`), [fg(`${s}-bg`)], 4.5)
+  row(theme, 'accent-deep sobre accent-soft', fg('accent-deep'), [fg('accent-soft')], 4.5)
+  // Surface of AI-generated content (UD-026): text, origin mark and the left edge on its own background.
+  row(theme, 'fg sobre superficie IA', fg('fg'), [fg('ai-bg')], 4.5)
+  row(theme, 'muted sobre superficie IA', fg('muted'), [fg('ai-bg')], 4.5)
+  row(theme, 'marca de origen IA sobre su superficie', fg('ai-fg'), [fg('ai-bg')], 4.5)
+  row(theme, 'borde de acento IA sobre su superficie', fg('ai-edge'), [fg('ai-bg')], 3)
+  // Gel button: text over the gradient at the text point (30 % of the height), with the highlight.
   const mix = (a, b, k) => a.map((v, i) => v * (1 - k) + b[i] * k)
   const top = fg('gel-top')
   const bottom = fg('gel-bottom')
   const at = (k) => mix(top, bottom, k)
   const gloss = (rgb, k) => mix(rgb, [1, 1, 1], 0.22 * (1 - k / 0.5))
-  row(theme, 'gel text (30 % of the height, with gloss)', fg('gel-fg'), [gloss(at(0.3), 0.3), at(0.7)], 4.5)
-  // Controls: the border of a field against the glass must be visible (3:1).
-  row(theme, 'control border (edge) on glass', fg('edge'), onGlass('glass'), 3)
+  row(theme, 'texto del gel (30 % del alto, con brillo)', fg('gel-fg'), [gloss(at(0.3), 0.3), at(0.7)], 4.5)
+  // Controls: a field's border against the glass must be visible (3:1).
+  row(theme, 'borde de controles (edge) sobre vidrio', fg('edge'), onGlass('glass'), 3)
 }
 
 if (failed) {

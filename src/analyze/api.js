@@ -217,7 +217,7 @@ async function decomposeUnits(ctx, { bundle, template, system, schema, units, sc
   const first = await structuredStep(ctx, {
     ...base,
     step: `decompose${label}`,
-    messages: [{ role: 'user', content: decomposeUser({ members: bundle.members ?? [], attachments: bundle.attachments ?? [], units, scopeNote, language: ctx.language, recent: bundle.recent_inputs }) }],
+    messages: [{ role: 'user', content: decomposeUser({ members: config.membersInSystem ? null : (bundle.members ?? []), attachments: bundle.attachments ?? [], units, scopeNote, language: ctx.language, recent: bundle.recent_inputs }) }],
     validate: (json) => validateDecomposition(json, vctx),
   });
   if (first.status !== 'ok') return first;
@@ -252,7 +252,7 @@ async function decomposeUnits(ctx, { bundle, template, system, schema, units, sc
       role: 'user',
       content: rescueUser({
         language: ctx.language,
-        members: bundle.members ?? [],
+        members: config.membersInSystem ? null : (bundle.members ?? []),
         attachments: bundle.attachments ?? [],
         units,
         coverageIds,
@@ -442,11 +442,11 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
       throw new AnalyzeInputError(`La plantilla ${templateId} no trae «body_markdown»`, { calls: ctx.calls });
     }
     const template = parseTemplate(row.body_markdown, { source: `template ${templateId}` });
-    const system = decomposeSystem(template, project, language);
+    const system = decomposeSystem(template, project, language, config.membersInSystem ? members : undefined);
     const entry = {
       template,
       system,
-      schema: buildDecompositionSchema(template.fields, { profile, withDiscarded: false }),
+      schema: buildDecompositionSchema(template.fields, { profile, withDiscarded: false, requireAssignee: config.requireAssignee && members.length > 0 && profile === 'anthropic' }),
       fixed: estimateTokens([...system, membersBlock(members, language)].join('\n'), config.charsPerToken),
     };
     prepared.set(templateId, entry);

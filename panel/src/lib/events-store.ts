@@ -1,5 +1,5 @@
 // Ephemeral state of the SSE stream (GET /events): progress per job_id and notices of new messages.
-// A single stream per member (MASTER-SPEC §7.10). None of this is stored in the query cache.
+// One stream per member (MASTER-SPEC §7.10). None of this is kept in the query cache.
 import type { DoneEvent, NewMessageEvent, ProgressEvent } from './types'
 
 export interface JobProgress {
@@ -24,7 +24,7 @@ export interface EventsSnapshot {
   connected: boolean
 }
 
-/** Maximum number of notices the bell keeps. It is a screen setting, not an operation setting. */
+/** Maximum number of notices the bell keeps. It is a screen matter, not an operation matter. */
 const MAX_NOTICES = 20
 
 export class EventsStore {
@@ -188,7 +188,7 @@ export function connectEvents(
     es.onopen = () => {
       attempt = 0
       store.setConnected(true)
-      // After a drop, what happened in the meantime arrives by replay; the queries are refreshed just in case.
+      // After a drop, what happened meanwhile arrives by replay; queries are refreshed just in case.
       if (hadError) onReconnect?.()
       hadError = false
     }

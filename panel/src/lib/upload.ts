@@ -1,4 +1,4 @@
-// Upload of an input with progress. `fetch` does not give upload progress in a portable way
+// Upload of an input with progress. `fetch` does not give upload progress portably
 // (report 07, §6.3), so XMLHttpRequest is used. The retry resends everything: it is safe
 // because POST /inputs is idempotent by hash (MASTER-SPEC §1.3).
 import { API_BASE, CSRF_HEADER } from './api'
@@ -16,9 +16,12 @@ export interface CreatedInput {
 
 export class UploadError extends Error {
   status: number
-  constructor(status: number, message: string) {
+  /** Stable API code (`{ code, message }`); the panel translates it. */
+  code: string
+  constructor(status: number, message: string, code = '') {
     super(message)
     this.status = status
+    this.code = code
   }
 }
 
@@ -46,22 +49,23 @@ export function uploadInput(
         try {
           resolve(JSON.parse(xhr.responseText) as CreatedInput)
         } catch {
-          reject(new UploadError(xhr.status, 'Respuesta inválida'))
+          reject(new UploadError(xhr.status, '', 'invalid_response'))
         }
         return
       }
-      let message = `Error ${xhr.status}`
+      let message = ''
+      let code = `http_${xhr.status}`
       try {
         const body = JSON.parse(xhr.responseText)
         if (typeof body?.message === 'string') message = body.message
-        else if (typeof body?.error === 'string') message = body.error
+        if (typeof body?.code === 'string') code = body.code
       } catch {
-        // Without a JSON body: the HTTP status remains.
+        // No JSON body: the HTTP status remains.
       }
-      reject(new UploadError(xhr.status, message))
+      reject(new UploadError(xhr.status, message, code))
     }
-    xhr.onerror = () => reject(new UploadError(0, 'Sin conexión'))
-    xhr.onabort = () => reject(new UploadError(0, 'Cancelado'))
+    xhr.onerror = () => reject(new UploadError(0, '', 'network'))
+    xhr.onabort = () => reject(new UploadError(0, '', 'cancelled'))
     signal?.addEventListener('abort', () => xhr.abort())
     xhr.send(form)
   })

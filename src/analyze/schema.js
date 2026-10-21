@@ -39,7 +39,7 @@ export function buildClassificationSchema({ areas, templates }, { validation = f
   };
 }
 
-function messageSchema(fieldsSchema, { validation }) {
+function messageSchema(fieldsSchema, { validation, requireAssignee = false }) {
   // `unit_ids` goes first: the model anchors the message to its evidence before writing it (report 02 §6.2).
   // All the properties are required, so the output order is that of the schema [F1].
   const unitIds = validation ? intArray({ minItems: 1, uniqueItems: true }) : intArray({ minItems: 1 });
@@ -52,7 +52,8 @@ function messageSchema(fieldsSchema, { validation }) {
       title: text,
       fields: fieldsSchema,
       body: text,
-      assignee_ids: ids,
+      // With a team, every message has an owner (H-86): the grammar of the model requires at least one id.
+      assignee_ids: requireAssignee ? { ...ids, minItems: 1 } : ids,
       attachment_ids: ids,
       // Optional: `frame` marks a point seen only in the image and never said aloud, so the sender can discard it in the preview.
       source: { type: 'string', enum: ['frame'] },
@@ -86,9 +87,9 @@ function discardedSchema({ validation }) {
  *   discarded is the classification, and a model without thinking used `discarded` for data it had already put
  *   in the body of the message.
  */
-export function buildDecompositionSchema(fields, { profile = 'anthropic', validation = false, withDiscarded = true } = {}) {
+export function buildDecompositionSchema(fields, { profile = 'anthropic', validation = false, withDiscarded = true, requireAssignee = false } = {}) {
   const fieldsSchema = compileFieldsSchema(fields, { profile, validation });
-  const properties = { messages: { type: 'array', items: messageSchema(fieldsSchema, { validation }) } };
+  const properties = { messages: { type: 'array', items: messageSchema(fieldsSchema, { validation, requireAssignee: requireAssignee && !validation }) } };
   if (withDiscarded) properties.discarded = discardedSchema({ validation });
   return {
     type: 'object',

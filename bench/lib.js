@@ -43,6 +43,9 @@ export function buildBundle(input, fixtures, { language } = {}) {
     areas: fixtures.areas,
     templates: fixtures.templates,
     members: fixtures.members,
+    // As the pipeline builds it (src/domain/pipeline.js): the author's language and the project (UD-018, UD-024).
+    language: fixtures.language ?? 'es-419',
+    ...(fixtures.project ? { project: fixtures.project } : {}),
   };
 }
 
@@ -86,6 +89,8 @@ export async function runCase({ analyze, providers, testCase, fixtures, options 
   return {
     case_id: testCase.id,
     status: result.status,
+    // Why a run ended without a proposal (H-84): the step, the reason and the first validation errors.
+    failure: result.status === 'ok' ? null : { step: result.step ?? null, reason: result.reason ?? null, errors: (result.errors ?? []).slice(0, 3).map((e) => String(e).slice(0, 200)) },
     tells: { total: tells.total, per_message: tells.perMessage, by_pattern: tells.byPattern, found: tells.found, language_share: languageShare(scored, outputLanguage) },
     total_ms: endedAt - startedAt,
     steps,

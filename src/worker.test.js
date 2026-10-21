@@ -317,7 +317,8 @@ test('reprocess: the editor enqueues the analysis again, keeping the extractions
   const { input_id: id } = await env.submit('x', [textFile()])
   await until(() => env.statusOf(id) === 'proposed')
   const req = (cookie, url) => env.app.inject({ method: 'POST', url: `/api/inputs/${id}${url}`, headers: { cookie, 'x-team-request': 'panel' } })
-  assert.equal((await req(env.ana, '/reprocess')).statusCode, 403) // editor only
+  await addMember(env, { email: 'beto@x.org' })
+  assert.equal((await req(await login(env, 'beto@x.org'), '/reprocess')).statusCode, 404) // an input of someone else does not exist for a member
   const r = await req(editor, '/reprocess')
   assert.equal(r.statusCode, 202)
   assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM proposals').n, 0)

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Programmatic screenshots of the panel with headless Chromium (Playwright). Walks each view at
+// Programmatic panel screenshots with headless Chromium (Playwright). Walks every view at
 // 1440x900 and 390x844 against the built panel served by the development double server
 // (with the same CSP the API would set) and leaves the PNGs in panel/capturas/.
 //
@@ -152,7 +152,7 @@ async function run(vp) {
   await page.getByRole('button', { name: 'Agregar', exact: true }).click()
   await shot(page, vp, 'barra-con-adjuntos')
 
-  // --- Submission and analysis in progress
+  // --- Submit and analysis in progress
   await page.getByRole('button', { name: 'Enviar' }).first().click()
   await page.getByRole('progressbar', { name: 'Progreso del análisis' }).waitFor()
   await page.waitForFunction(() => Number(document.querySelector('[aria-label="Progreso del análisis"]')?.getAttribute('aria-valuenow')) >= 40)
@@ -219,7 +219,7 @@ async function run(vp) {
   await page.getByRole('list', { name: 'Filtros aplicados' }).waitFor()
   await shot(page, vp, 'mensajes-con-respuestas')
 
-  // --- Detail of someone else's message, with form; and of one's own, without form
+  // --- Detail of another member's message, with form; and of one's own, without form
   await page.goto(`${ORIGIN}/messages`)
   await page.getByRole('link', { name: 'Agregar exportación de mensajes cerrados' }).click()
   await page.getByRole('heading', { name: 'Respuestas' }).waitFor()
@@ -278,7 +278,7 @@ async function run(vp) {
   await page.getByRole('heading', { name: 'Proveedores' }).waitFor()
   await shot(page, vp, 'configuracion')
 
-  // --- Notices over SSE (the bell)
+  // --- SSE notices (the bell)
   await page.goto(ORIGIN)
   await page.getByText('Para mí').first().waitFor()
   await page.waitForTimeout(1500)
@@ -313,7 +313,7 @@ async function run(vp) {
   }
   await context.close()
 
-  // --- A Member: without Areas, counts or providers
+  // --- A Member: no Areas, counts or providers
   const member = await newPage(vp, 'bruno')
   await login(member.page, 'bruno')
   await member.page.getByText('Para mí').first().waitFor()

@@ -3,8 +3,8 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
 
-// Target of the /api proxy: the real API if PANEL_API is defined; otherwise,
-// the development double server (dev-server.mjs). The routes live under /api
+// Target of the /api proxy: the real API if PANEL_API is defined; otherwise
+// the development double server (dev-server.mjs). Routes live under /api
 // in both, so the route is not rewritten.
 const apiTarget = process.env.PANEL_API ?? `http://127.0.0.1:${process.env.PANEL_DEV_PORT ?? '8787'}`
 

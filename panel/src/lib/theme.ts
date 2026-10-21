@@ -1,4 +1,4 @@
-// Light theme, dark theme or the system's. It is stored only as a convenience of this browser.
+// Light, dark or system theme. Stored only as a convenience of this browser.
 
 export type ThemePref = 'light' | 'dark' | 'system'
 const KEY = 'team-theme'
@@ -8,7 +8,7 @@ export function readThemePref(): ThemePref {
     const v = localStorage.getItem(KEY)
     if (v === 'light' || v === 'dark' || v === 'system') return v
   } catch {
-    // Storage blocked: the system theme is followed.
+    // Storage blocked: carries on with the system theme.
   }
   return 'system'
 }
@@ -26,13 +26,13 @@ export function saveTheme(pref: ThemePref) {
   try {
     localStorage.setItem(KEY, pref)
   } catch {
-    // Without storage the theme applies to this tab.
+    // Without storage the theme only holds for this tab.
   }
   applyTheme(pref)
   window.dispatchEvent(new Event('team-theme'))
 }
 
-/** Applies the stored theme and keeps it up to date if it is «sistema». */
+/** Applies the saved theme and keeps it up to date if it is «sistema». */
 export function initTheme() {
   applyTheme(readThemePref())
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {

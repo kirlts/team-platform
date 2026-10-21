@@ -1,7 +1,7 @@
 // Input routes (MASTER-SPEC §7.1): create (multipart, idempotent by hash), list one's own, query,
 // publish, cancel and, for the editor, reprocess.
 
-import { cancelInput, getInputView, listInputs, proposalView as presentProposal, reprocessInput, submitInput } from '../../domain/inputs.js'
+import { cancelInput, editInputText, getInputView, listInputs, proposalView as presentProposal, reprocessInput, submitInput } from '../../domain/inputs.js'
 import { getMessage } from '../../domain/messages.js'
 import { publishProposal, saveProposalDraft } from '../../domain/proposals.js'
 import { withSpan } from '../../domain/tracing.js'
@@ -35,17 +35,24 @@ export function registerInputRoutes (app, ctx) {
   app.get('/inputs', {
     onRequest: [requireRole('member')],
     schema: {
-      summary: 'List one\'s own inputs',
+      summary: 'Listar los inputs propios',
+      description: 'Siempre los del miembro de la sesión. `status` admite uno o varios estados separados por coma. `mine=1` pide la bandeja de envíos (UD-025), por ejemplo `?mine=1&status=queued,extracting,analyzing,proposed`: orden de creación ascendente, con `percent`, `phrase` y `proposed_count` en cada elemento. Sin `mine`, el orden es el más reciente primero; `order` lo fija a mano.',
       querystring: {
         type: 'object',
         additionalProperties: false,
-        properties: { ...pageQuerySchema(config), status: { type: 'string', enum: ['queued', 'extracting', 'analyzing', 'proposed', 'published', 'failed', 'cancelled'] } }
+        properties: {
+          ...pageQuerySchema(config),
+          status: { type: 'string', pattern: '^(queued|extracting|analyzing|proposed|published|failed|cancelled)(,(queued|extracting|analyzing|proposed|published|failed|cancelled))*$' },
+          mine: { type: 'string', enum: ['1', 'true'] },
+          order: { type: 'string', enum: ['asc', 'desc'] }
+        }
       },
       response: { 200: pageEnvelope(inputView) }
     }
   }, async (request) => {
     const p = pageParams(request.query, config)
-    const r = listInputs({ db, queue, events }, request.member.id, { status: request.query.status ?? null, limit: p.limit, offset: p.offset })
+    const order = request.query.order ?? (request.query.mine ? 'asc' : 'desc')
+    const r = listInputs({ db, queue, events }, request.member.id, { status: request.query.status ?? null, limit: p.limit, offset: p.offset, order })
     return pageResult(r.items, r.total, p)
   })
 
@@ -53,6 +60,17 @@ export function registerInputRoutes (app, ctx) {
     onRequest: [requireRole('member')],
     schema: { summary: 'One of one\'s own inputs, with its progress and proposal', params: idParams(), response: { 200: inputView } }
   }, async (request) => getInputView({ db, queue, events }, request.params.id, request.member.id))
+
+  app.patch('/inputs/:id', {
+    onRequest: [requireRole('member')],
+    schema: {
+      summary: 'Cambiar el texto de un input propio y volver a analizarlo',
+      description: 'Sólo su emisor, mientras esté `proposed` o `failed`. Reemplaza el texto, descarta la propuesta vigente y encola el análisis otra vez con el texto nuevo; los adjuntos y sus extracciones se conservan. 404 si el input no es suyo; 409 si está en otro estado (`not_editable`) o si ya existe otro envío suyo con ese contenido (`duplicate_input`); 400 si el envío queda vacío.',
+      params: idParams(),
+      body: { type: 'object', additionalProperties: false, required: ['text'], properties: { text: { type: 'string' } } },
+      response: { 200: inputView }
+    }
+  }, async (request) => editInputText({ db, config, queue, events }, request.params.id, request.member.id, request.body.text))
 
   app.patch('/inputs/:id/proposal', {
     onRequest: [requireRole('member')],
@@ -97,15 +115,15 @@ export function registerInputRoutes (app, ctx) {
   })
 
   app.post('/inputs/:id/reprocess', {
-    onRequest: [requireRole('editor')],
+    onRequest: [requireRole('member')],
     schema: {
-      summary: 'Re-enqueue the analysis of an already-extracted input (editor)',
-      description: 'Useful when a template changed. Keeps the extractions; only extracts what is missing.',
+      summary: 'Volver a encolar el análisis de un input ya extraído (su emisor o el editor)',
+      description: 'Útil cuando cambió una plantilla o el análisis falló. Conserva las extracciones; sólo extrae lo que falte. Un miembro lo hace sobre sus propios inputs (en otro caso, 404); el editor, sobre cualquiera.',
       params: idParams(),
       response: { 202: { type: 'object', properties: { input_id: { type: 'string' }, job_id: { type: 'string' } } } }
     }
   }, async (request, reply) => {
-    const r = reprocessInput({ db, queue, events }, request.params.id, request.member.id)
+    const r = reprocessInput({ db, queue, events }, request.params.id, request.member)
     reply.code(202)
     return r
   })

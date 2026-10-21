@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input, Textarea } from '@/components/ui/input'
+import { useErrorText, useT } from '@/i18n'
 
 export interface FieldSpec {
   name: string
@@ -12,9 +13,11 @@ export interface FieldSpec {
   initial?: string
   rows?: number
   mono?: boolean
+  type?: 'text' | 'email' | 'password'
+  autoComplete?: string
 }
 
-/** Short form in a dialog: creates an area or a template. The error lives under the field that caused it. */
+/** Short form in a window: creates an area or a template. The error lives under the field that caused it. */
 export function FormDialog({
   open,
   onOpenChange,
@@ -50,6 +53,8 @@ function FormBody({
   onSubmit: (values: Record<string, string>) => Promise<unknown>
   onClose: () => void
 }) {
+  const t = useT()
+  const errorText = useErrorText()
   const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(fields.map((f) => [f.name, f.initial ?? ''])))
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState<string | null>(null)
@@ -59,8 +64,8 @@ function FormBody({
     const found: Record<string, string> = {}
     for (const f of fields) {
       const v = values[f.name].trim()
-      if (f.required && !v) found[f.name] = 'Obligatorio'
-      else if (f.maxLength && v.length > f.maxLength) found[f.name] = `Máximo ${f.maxLength} caracteres`
+      if (f.required && !v) found[f.name] = t('common.required')
+      else if (f.maxLength && v.length > f.maxLength) found[f.name] = t('form.maxLength', { n: f.maxLength })
     }
     setErrors(found)
     if (Object.keys(found).length > 0) return
@@ -70,7 +75,7 @@ function FormBody({
       await onSubmit(Object.fromEntries(fields.map((f) => [f.name, values[f.name].trim()])))
       onClose()
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'No se pudo guardar')
+      setFormError(errorText(err))
     } finally {
       setPending(false)
     }
@@ -85,18 +90,29 @@ function FormBody({
       }}
     >
       {fields.map((f, i) => {
-        const Control = f.multiline ? Textarea : Input
         return (
           <label key={f.name} className="flex flex-col gap-1 text-[13px] font-medium">
             {f.label}
-            <Control
-              autoFocus={i === 0}
-              value={values[f.name]}
-              rows={f.multiline ? (f.rows ?? 3) : undefined}
-              aria-invalid={errors[f.name] ? true : undefined}
-              className={f.mono ? 'font-mono text-[13px]' : undefined}
-              onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
-            />
+            {f.multiline ? (
+              <Textarea
+                autoFocus={i === 0}
+                value={values[f.name]}
+                rows={f.rows ?? 3}
+                aria-invalid={errors[f.name] ? true : undefined}
+                className={f.mono ? 'font-mono text-[13px]' : undefined}
+                onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
+              />
+            ) : (
+              <Input
+                autoFocus={i === 0}
+                type={f.type}
+                autoComplete={f.autoComplete}
+                value={values[f.name]}
+                aria-invalid={errors[f.name] ? true : undefined}
+                className={f.mono ? 'font-mono text-[13px]' : undefined}
+                onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
+              />
+            )}
             {errors[f.name] && (
               <span role="alert" className="text-xs font-normal text-danger">
                 {errors[f.name]}
@@ -112,7 +128,7 @@ function FormBody({
       )}
       <div className="flex justify-end gap-2 pt-1">
         <Button variant="ghost" onClick={onClose}>
-          Cancelar
+          {t('common.cancel')}
         </Button>
         <Button type="submit" variant="primary" disabled={pending}>
           {submitLabel}

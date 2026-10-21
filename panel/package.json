@@ -14,8 +14,13 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "vitest run src/lib",
+    "test": "vitest run",
     "capturas": "node scripts/capturas.mjs",
+    "capturas:vistas": "node scripts/capturas-vistas.mjs",
+    "test:fit": "node --test src/fits-one-screen.browser.test.mjs",
+    "test:flows": "node --test src/flows.browser.test.mjs",
+    "capturas:bandeja": "node scripts/capturas-bandeja.mjs",
+    "capturas:ia": "node scripts/capturas-ia.mjs",
     "contraste": "node scripts/contraste.mjs"
   },
   "dependencies": {

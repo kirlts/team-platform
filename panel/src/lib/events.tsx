@@ -14,7 +14,7 @@ export function EventsProvider({
   children: ReactNode
   /** Own store (tests). By default one is created. */
   store?: EventsStore
-  /** False in tests: does not open the real stream. */
+  /** False in tests: it does not open the real stream. */
   connect?: boolean
 }) {
   const queryClient = useQueryClient()
@@ -51,8 +51,8 @@ export function useEventsSnapshot() {
 }
 
 /**
- * Ephemeral progress of a job, read from the single stream. When `done` arrives it invalidates the
- * input query to fetch the proposal.
+ *  Ephemeral progress of a job, read from the single stream. When `done` arrives it invalidates the
+ *  input's query to bring the proposal.
  */
 export function useJobProgress(jobId: string | undefined, inputId: string | undefined): JobProgress | undefined {
   const store = useEventsStore()

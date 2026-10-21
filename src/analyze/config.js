@@ -77,6 +77,11 @@ export const KNOBS = Object.freeze({
   httpRetries: { value: 2, source: 'Measurement 2026-10-21 (docs/investigaciones/mediciones/2026-10-21-prompts-en-ingles-y-marcas-de-ia.md): 429 for concurrent requests with several processes on one key' },
   httpRetryBaseMs: { value: 1000, source: 'declared courtesy: the base of the doubling wait when the provider sends no retry-after' },
 
+  // Assignment experiments (H-85, H-86), decided by the private bench: members in the cached system prompt after the project
+  // block, and a grammar that requires at least one assignee per message when the team has members.
+  membersInSystem: { value: false, source: 'Measurement 2026-10-21 (docs/investigaciones/mediciones/2026-10-21-prompts-en-ingles-y-marcas-de-ia.md)' },
+  requireAssignee: { value: false, source: 'Measurement 2026-10-21 (docs/investigaciones/mediciones/2026-10-21-prompts-en-ingles-y-marcas-de-ia.md)' },
+
   // Units per window in the classification of a long input: the units are classified in contiguous windows, in parallel, so
   // that a group is a stretch of the conversation and not every unit of the same area spread over the whole input.
   // Provisional until the private bench fixes it (see `docs/investigaciones/mediciones/2026-10-21-prompts-en-ingles-y-marcas-de-ia.md`).

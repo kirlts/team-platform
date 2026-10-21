@@ -59,16 +59,17 @@ export function classifyUser({ units, attachments, language, secondPass = false,
 // Second call: decompose
 // ---------------------------------------------------------------------------------------------
 
-export function decomposeSystem(template, project, language) {
+export function decomposeSystem(template, project, language, members) {
   const set = promptSet(language);
-  return [set.DECOMPOSE_INSTRUCTIONS, set.templateBlock(template), set.projectBlock(project)].filter(Boolean);
+  // `members` (H-86) puts the team after the project block, in the cached prefix, instead of in the user message.
+  return [set.DECOMPOSE_INSTRUCTIONS, set.templateBlock(template), set.projectBlock(project), members ? set.membersBlock(members) : null].filter(Boolean);
 }
 
 export function decomposeUser({ members, attachments, units, scopeNote, language, recent }) {
   const set = promptSet(language);
   const recentBlock = set.recentInputsBlock(recent);
   // UD-025: after the members block, outside the cached prefix.
-  const parts = [set.membersBlock(members), '', ...(recentBlock ? [recentBlock, ''] : []), set.attachmentsBlock(attachments, units), ''];
+  const parts = [...(members === null ? [] : [set.membersBlock(members), '']), ...(recentBlock ? [recentBlock, ''] : []), set.attachmentsBlock(attachments, units), ''];
   if (scopeNote) parts.push(scopeNote, '');
   parts.push(set.INPUT_HEADING, renderUnits(units, set.LANGUAGE));
   // The templates are written by the team, in its own language, and weigh more than a rule far above them: the language of

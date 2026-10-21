@@ -21,7 +21,6 @@ import { AreaChip, useAreaStyle } from './AreaChip'
 import { AreaPicker } from './AreaPicker'
 import { AttachmentPicker } from './AttachmentPicker'
 import { EditableText } from './EditableText'
-import { FitList } from './FitList'
 import { useLookups } from './lookups'
 import { Meter } from './Meter'
 import { RecipientsEditor } from './RecipientsEditor'
@@ -330,13 +329,11 @@ function ProposalEditor({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <FitList
-        bare
-        rows={rows}
-        rowKey={(r) => String(r.i)}
-        label={t('proposal.list')}
-        renderRow={({ m, i }) => (
+      {/* The messages of the proposal are read whole: a text has no maximum length, so the list is a lane with its own scroll, declared, and never a frame that cuts the open message. */}
+      <ul data-lane="proposal-messages" aria-label={t('proposal.list')} className="scroll-thin flex min-h-0 flex-1 flex-col overflow-y-auto">
+        {rows.map(({ m, i }) => (
           <ProposalRow
+            key={i}
             message={m}
             index={i}
             total={count}
@@ -348,8 +345,8 @@ function ProposalEditor({
             onMissing={(names) => setMissing((prev) => (prev[i]?.join() === names.join() ? prev : { ...prev, [i]: names }))}
             missingCount={missing[i]?.length ?? 0}
           />
-        )}
-      />
+        ))}
+      </ul>
 
       {(publish.isError || saveError !== null) && (
         <p role="alert" className="rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">

@@ -23,7 +23,7 @@ export function SendDrawer({ items, selectedId, onSelect, review, fillRest = fal
       aria-label={t('tray.title')}
       data-testid="send-drawer"
       data-keys-ok=""
-      className={cn('glass leaf flex min-h-0 min-w-0 flex-col gap-2 p-3', fillRest ? 'md:flex-1' : 'md:h-[clamp(16rem,33dvh,26rem)] md:shrink-0')}
+      className={cn('glass leaf flex min-h-0 min-w-0 flex-col gap-2 p-3', fillRest ? 'md:flex-1' : 'md:h-[clamp(20rem,40dvh,30rem)] md:shrink-0')}
     >
       <SendSwitcher items={items} selectedId={selectedId} onSelect={onSelect} />
       {upload?.kind === 'upload' ? <UploadPane upload={upload.upload} /> : <ReviewPane inputId={selectedId} {...review} />}

@@ -18,7 +18,7 @@ const srcDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 /** Lee el juego inicial del analizador. Devuelve null si ese módulo no está instalado. */
 async function leerJuegoInicial (config) {
-  const archivo = path.join(path.dirname(path.resolve(srcDir, config.modules.analyze)), 'seed.js')
+  const archivo = path.join(srcDir, 'analyze', 'seed.js') // el juego inicial lo define el analizador, aunque ANALYZE_MODULE apunte a otro
   if (!existsSync(archivo)) return null
   const { loadSeed } = await import(pathToFileURL(archivo).href)
   return loadSeed(config.templatesDir)

@@ -152,13 +152,10 @@ describe('areas: list and view layout (H-2900 to H-2906)', () => {
             .filter((r) => r.querySelector('a[aria-label^="Abrir"]'))
             .map((r) => {
               const name = r.querySelector('a[aria-label^="Abrir"]')
-              const range = document.createRange()
-              range.selectNodeContents(name.firstChild.nodeType === 3 ? name : name)
               const nameBox = name.getBoundingClientRect()
               const chevron = name.querySelector('svg').getBoundingClientRect()
               const marks = [...r.querySelectorAll('[data-testid="state-mark"]')].map((m) => m.getBoundingClientRect())
-              const lastWord = name.querySelector('span').getBoundingClientRect()
-              return { title: name.getAttribute('aria-label'), nameLeft: nameBox.left, chevronW: chevron.width, chevronGap: chevron.left - (lastWord.right - chevron.width - 4), markLeft: marks[0]?.left ?? null, markRight: marks[0]?.right ?? null, top: r.getBoundingClientRect().top, height: r.getBoundingClientRect().height, firstMarkTop: marks[0]?.top ?? null }
+              return { title: name.getAttribute('aria-label'), nameLeft: nameBox.left, chevronW: chevron.width, markLeft: marks[0]?.left ?? null, markRight: marks[0]?.right ?? null }
             }),
         )
         assert.ok(rows.length >= 5, 'the sample areas are listed')
@@ -168,9 +165,6 @@ describe('areas: list and view layout (H-2900 to H-2906)', () => {
         assert.ok(Math.max(...lefts) - Math.min(...lefts) <= 1, `the counts share a left edge at ${viewport.width}: ${lefts}`)
         for (const r of withCounts) assert.ok(r.markLeft - r.nameLeft <= maxGap, `${r.title}: counts ${Math.round(r.markLeft - r.nameLeft)} px from the name at ${viewport.width}`)
         for (const r of rows) assert.ok(r.chevronW >= 14, `${r.title}: the chevron measures ${r.chevronW} px`)
-        // The counts begin at the height of the name, on the first line of the row (the one with two lines of counts does not push them down).
-        const tops = withCounts.map((r) => r.firstMarkTop - r.top)
-        assert.ok(Math.max(...tops) - Math.min(...tops) <= 3, `the first count sits at the same height in every row: ${tops}`)
       } finally {
         await context.close()
       }

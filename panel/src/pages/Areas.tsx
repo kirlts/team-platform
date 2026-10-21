@@ -125,7 +125,7 @@ function AreaRow({ area }: { area: Area }) {
         </span>
       </Link>
       {/* Fixed-width column right after the name: the counts line up row by row, and an area with none says nothing (J3-A-33). Each count leads to Mensajes filtered by the area and that state. */}
-      <span className="col-start-3 row-span-2 row-start-1 flex flex-col items-start sm:row-span-1">
+      <span className="col-start-3 row-span-2 row-start-1 flex flex-col items-start self-center sm:row-span-1">
         {(['open', 'answered'] as const).map(
           (status) =>
             counts[status] > 0 && (

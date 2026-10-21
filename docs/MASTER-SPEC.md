@@ -29,7 +29,7 @@ Fuentes de este documento: `idea.md` (volcado de diseño de Martín, 2026-10-20)
 | Término | Definición | Reglas |
 |---|---|---|
 | **Input** | Lo que una persona envía desde la barra de Inicio o, más adelante, por una conexión: texto y cero o más adjuntos (fotos, videos, audio, documentos, enlaces). | Un input se analiza una vez y produce una propuesta. |
-| **Propuesta** | El resultado del análisis: área detectada, plantilla elegida y N mensajes redactados según la plantilla, cada uno con sus destinatarios y adjuntos. | Editable por el emisor; se publica al confirmar (UD-003). |
+| **Propuesta** | El resultado del análisis: N mensajes, cada uno en su área y redactado según la plantilla de esa área, con sus destinatarios y adjuntos. | Editable por el emisor; se publica al confirmar (UD-003). |
 | **Mensaje** | Una comunicación de una persona hacia el equipo o hacia un miembro. Siempre espera respuesta. | Estados: `abierto` (sin respuesta), `respondido` (con respuesta, no cerrado), `cerrado` (con o sin respuesta). Sólo un miembro distinto del emisor responde; cualquier miembro cierra o reabre. |
 | **Respuesta** | La contraparte del mensaje: respuesta directa, reporte de arreglo, pedido de aclaración. | Depende de un mensaje. |
 | **Hilo** | Una respuesta seguida de más respuestas sobre el mismo mensaje. | Lineal, como los comentarios de un issue de GitHub. |
@@ -101,7 +101,7 @@ Criterio: tecnologías que el autor ya probó en producción (Node, Fastify, Rea
 | Modelo: texto, visión y PDF | Contrato de proveedor por modalidad. Omisión: Anthropic `claude-haiku-5-5` con salida estructurada, prompt de sistema cacheado, esfuerzo `low` para clasificar y `medium` para descomponer hasta que el banco muestre que `low` conserva la cobertura; sin `temperature`, `top_p` ni `top_k` (el modelo los rechaza) | 0,10 USD entrada / 0,50 salida por MTok, lectura de caché 0,01; visión y PDF nativo de 600 páginas en el mismo proveedor. Alternativa y respaldo configurable: DeepSeek `deepseek-flash` (texto e imagen, sin PDF; esquema sólo por herramienta estricta en beta, o modo JSON validado con Ajv). Perillas y fuentes en el informe 02. |
 | Modelo: transcripción | Groq `whisper-large-v3-turbo` por la API compatible con OpenAI | Ya en uso por el autor; 0,04 USD por hora de audio (UD-008). Alternativa: faster-whisper local. |
 | Video | Binario `ffmpeg` por `spawn` (`fluent-ffmpeg` está archivado desde 2025-05-22 y el WASM no corre en Node): pista de audio a transcripción; un fotograma por segundo deduplicado por dHash de 64 bits a distancia 6, tope de 48 fotogramas de 720 px; el umbral de cambio de escena queda apagado (en una grabación de pantalla sintética `scene>0,2` cubrió 8 de 16 pantallas; 1 fps más dHash dejó 18 fotogramas y cubrió 16 de 16; informe 06) | Sin un tercer proveedor; costo del mismo orden que el video nativo de Gemini (0,0019 USD por minuto contra 0,001 a 0,005), que queda como alternativa configurable porque pierde el muestreo determinista y la vista auditable. |
-| Extracción de documentos | Dentro del contenedor, la más rápida que alcance calidad suficiente: `markitdown-node` (MIT, PDF/DOCX/PPTX/XLSX en Node), MarkItDown en Python como proceso, o pieza propia en WASM (UD-009) | Se mide por documento con el banco de referencia; la que gana queda. |
+| Extracción de documentos | Dentro del contenedor, en un hilo trabajador con `resourceLimits`: PDF digital con `@hyzyla/pdfium` (WASM, MIT, 14 MB; 29 a 67 ms por documento, 337 ms en 304 páginas, conteo de caracteres por página); DOCX, PPTX y XLSX con `officeparser` (MIT; 17 a 91 ms; listas anidadas, tablas, notas) | Medido en el informe 05 contra `markitdown-node` (63 % de cobertura en DOCX, medio segundo de importación), MarkItDown en Python (18 veces más lento, 583 MB más de imagen), Kreuzberg, `downmark` y `anymd`; MuPDF.js y `pandoc-wasm` quedan fuera por licencia (UD-009). Docling queda como reversión para tablas anidadas y OCR. |
 | Analizador alternativo | `claude -p` por trabajo, sin `--bare`, desde un directorio de trabajo vacío propio | Reutiliza una suscripción de Claude Code ya pagada (UD-008). `--bare` exige `ANTHROPIC_API_KEY` y no lee OAuth [V 2026-10-20, documentación oficial]. |
 | Identidad | Contrato de proveedor, sin librería de autenticación. Omisión: local, correo y contraseña con `crypto.argon2` de Node (Argon2id, sin compilación nativa) y sesión en tabla con ficha opaca y cookie `__Host-`. Delegada: cabecera firmada con HMAC, JWT verificado con `jose`, o redirección firmada con nonce | UD-002: «segura pero ligera» y reemplazable. Lucia está deprecada, Auth.js pasó a Better Auth y Better Auth impone sus tablas y suma diez avisos de seguridad en 2026 (informe 04). |
 | Red | Tailscale opcional por fuera: `tailscale serve` da TLS y restringe a la tailnet | La aplicación no sabe de Tailscale; en un VPS público el TLS lo pone el proxy del anfitrión. |
@@ -147,13 +147,13 @@ Criterio: tecnologías que el autor ya probó en producción (Node, Fastify, Rea
 
 ## §6. Interfaz y experiencia
 
-**Atmósfera de referencia:** Un programa de gestión estándar, no una web que conversa. Rótulos de una a tres palabras como sustantivos («Mensajes», «Equipo»), sin texto de ayuda por omisión, sin segunda persona. Densidad de una bandeja de entrada de correo de escritorio: todo lo que se necesita ahora cabe sin desplazarse; lo demás nace plegado. La maqueta manda en la disposición: barra lateral a la izquierda, cabecera «[Nombre] TEAM» con campana y menú, contenido a la derecha.
+**Atmósfera de referencia:** Y2K futurista (UD-013): vidrio translúcido con reflejos, cromo y metal líquido, degradados iridiscentes, formas redondeadas, azul eléctrico sobre plata con acentos lima y lila, tipografía de la época con licencia libre y empaquetada; un producto de 2026 que cita el 2000, con referencias fechadas y tokens en `panel/DISENO.md`. Nada muy loco: manda la jerarquía visual (escala de tamaños, alineación a grilla, formas con intención, espacio negativo activo, distribución asimétrica donde corresponde) y una identidad reconocible; los valores que delatan diseño generado por IA están prohibidos. En lo funcional, un programa de gestión estándar, no una web que conversa. Rótulos de una a tres palabras como sustantivos («Mensajes», «Equipo»), sin texto de ayuda por omisión, sin segunda persona. Densidad de una bandeja de entrada de correo de escritorio: todo lo que se necesita ahora cabe sin desplazarse; lo demás nace plegado. La maqueta manda en la disposición: barra lateral a la izquierda, cabecera «[Nombre] TEAM» con campana y menú, contenido a la derecha.
 
 **Flujo principal de la persona:**
 
 1. Entra. Ve Inicio: nombre del proyecto, fecha y hora, la barra «Nuevo mensaje» con clip (adjuntos), cámara (foto), micrófono (audio) y enviar.
 2. Escribe, pega una captura o arrastra un docx, y envía. La barra se vacía; debajo aparece la vista previa del input (texto y adjuntos con su miniatura) y, al lado, el bloque «Análisis» con una barra de progreso y la frase del paso en curso («leyendo el documento», «3 de 7 adjuntos»).
-3. Al terminar, el bloque muestra el área detectada y los mensajes propuestos: cada uno con título, texto según la plantilla, destinatarios (chips, editables) y adjuntos (miniaturas, quitables). Edita lo que quiera. Aprieta Enviar.
+3. Al terminar, el bloque muestra los mensajes propuestos: cada uno con su área (insignia, cambiable), título, texto según la plantilla de esa área, destinatarios (chips, editables) y adjuntos (miniaturas, quitables). Edita lo que quiera. Aprieta Enviar.
 4. Los mensajes aparecen en «Últimos mensajes». Quien los recibe los ve en su Inicio, filtrados para él por omisión, con la insignia del área, el emisor, la fecha y la miniatura del adjunto principal.
 5. Responde desde la tarjeta o desde Mensajes. El hilo crece debajo del mensaje. Cualquiera cierra; el estado se ve como insignia, nunca como prosa.
 
@@ -165,7 +165,7 @@ Criterio: tecnologías que el autor ya probó en producción (Node, Fastify, Rea
 | Mensajes | Todos los mensajes del equipo con filtros: para mí, para X, por área, por estado, respuestas; búsqueda | Todos |
 | Áreas | Áreas con su conteo de abiertos y sus plantillas; edición en el lugar | Editor |
 | Equipo | Miembros con responsabilidades y dominios; cada uno edita lo suyo | Todos |
-| Conexiones | API, MCP, correo, WhatsApp. Apagada: visible como entrada deshabilitada con la razón | Editor |
+| Conexiones | API, MCP, correo, WhatsApp, GitHub Issues (UD-012). Apagada: visible como entrada deshabilitada con la razón | Editor |
 | Configuración | Cuenta, tema claro u oscuro, proveedores de modelo (Editor) | Todos |
 
 **Componentes de interfaz:**
@@ -175,7 +175,7 @@ Criterio: tecnologías que el autor ya probó en producción (Node, Fastify, Rea
 | `Sidebar` | Navegación, usuario, conteo de abiertos por área | `panel/src/components/Sidebar.tsx` |
 | `ComposeBar` | Barra de nuevo mensaje con adjuntos, cámara, micrófono, enviar | `panel/src/components/ComposeBar.tsx` |
 | `InputPreview` | Texto y adjuntos del input enviado | `panel/src/components/InputPreview.tsx` |
-| `AnalysisPanel` | Progreso por SSE, área detectada, propuesta editable, Enviar | `panel/src/components/AnalysisPanel.tsx` |
+| `AnalysisPanel` | Progreso por SSE, propuesta editable con área por mensaje, Enviar | `panel/src/components/AnalysisPanel.tsx` |
 | `MessageCard` | Área, emisor, fecha, texto, adjunto principal, estado, acciones | `panel/src/components/MessageCard.tsx` |
 | `ReplyThread` | Hilo lineal de respuestas con formulario al pie | `panel/src/components/ReplyThread.tsx` |
 | `MessagesList` | Lista con filtros y búsqueda | `panel/src/pages/Messages.tsx` |
@@ -272,10 +272,10 @@ El worker corre en el mismo proceso que la API por omisión (un contenedor) y pu
 | Tipo | Extractor | Salida |
 |---|---|---|
 | imagen | proveedor de visión: «describe todo lo que sea accionable para un equipo de software, textual». HEIC de iPhone se convierte antes o se rechaza con motivo (`sharp` no lo lee) | texto |
-| documento (pdf, docx, pptx, xlsx, txt, md) | extractor a markdown (UD-009); si devuelve menos texto que un umbral medido, PDF nativo al proveedor | markdown |
+| documento (pdf, docx, pptx, xlsx, txt, md) | `@hyzyla/pdfium` para PDF y `officeparser` para Office (informe 05); una página con menos de 30 caracteres sin espacios cuenta como escaneada (las escaneadas medidas dieron 0; la digital más pobre, 146) y sólo esas páginas van al proveedor en modo nativo, partiendo el PDF con `pdf-lib`; tope de 270.000 caracteres extraídos (100 páginas por 2.700) y de 100 páginas por llamada nativa | markdown o texto por página |
 | audio | FLAC 16 kHz mono (1,83 MB por minuto; Opus a 32 kbps, 0,21 MB por minuto, queda como opción tras medir la tasa de error en español); trozos de 600 s con 5 s de solapamiento para el tope de 25 MB de Groq, fusionados por marca de tiempo; `verbose_json`, segmentos, `language=es`, `prompt` sólo de vocabulario. La cola lleva un presupuesto de audio de 7.200 s por hora (límite del plan de Groq: seis videos de 20 minutos por hora para todo el equipo) | texto con marcas de tiempo `mm:ss` por segmento |
 | video | `ffmpeg`: pista de audio → extractor de audio; un fotograma por segundo → dHash 64 bits, distancia 6 → a lo sumo 48 fotogramas de 720 px (JPEG calidad 4, 1.456 tokens y 60 KB cada uno, 69.888 tokens en total, bajo el escalón de precio de 100.000) elegidos por orden de cambio y reordenados en el tiempo → proveedor de visión en una sola llamada; transcripción y fotogramas se intercalan por orden cronológico con su marca `mm:ss`. Tope 20 minutos y 2 GB | transcripción + descripción por fotograma, en una línea de tiempo |
-| enlace | descarga con límite de tamaño y lectura del contenido principal | markdown |
+| enlace | `undici` con `lookup` filtrado y revisión de IP literales (nada a redes privadas ni a `localhost`), `redirect: 'manual'` revalidando cada salto hasta 5, tope de 5 MiB en el flujo y 15 s; contenido principal con `@mozilla/readability` sobre `linkedom` (24 a 98 ms; `jsdom` duplica el tiempo) | markdown |
 
 **Interfaz:** `extract(attachment, { onProgress }) → { text, meta }`. Cada extractor es un archivo; registrar uno nuevo es agregarlo al mapa por tipo.
 
@@ -289,10 +289,10 @@ El worker corre en el mismo proceso que la API por omisión (un contenedor) y pu
 analyze(bundle, { onProgress }) → Proposal
 bundle = { text, attachments:[{id, kind, extracted}], areas:[{id,title,description}],
            templates:[{id,area_id,name,description}], members:[{id,name,responsibilities,domains}] }
-Proposal = { area_id, template_id, messages:[{ title, body, fields, assignee_ids, attachment_ids }] }
+Proposal = { messages:[{ area_id, template_id, title, body, fields, assignee_ids, attachment_ids, unit_ids }], discarded:[{ unit_ids, reason }] }
 ```
 
-**`api` (omisión):** dos llamadas con salida estructurada (variante A; las variantes B, una sola llamada, y C, clasificar dentro de la descomposición, se miden en el banco antes de fijar la elección). (1) Clasificar: área y plantilla, con la lista de títulos y descripciones; esfuerzo `low`. (2) Descomponer: con el cuerpo de la plantilla elegida, la lista MECE de mensajes; esfuerzo `medium` hasta que el banco diga otra cosa. Prompt de sistema cacheado (mínimo cacheable 512 tokens; TTL 5 minutos, 1 hora si el acierto medido es bajo).
+**`api` (omisión):** dos llamadas con salida estructurada (variante A; las variantes B, una sola llamada, y C, clasificar dentro de la descomposición, se miden en el banco antes de fijar la elección). (1) Clasificar: con la lista de títulos y descripciones de áreas y plantillas, agrupar las unidades del input en grupos `{ area_id, template_id, unit_ids }` que las cubran todas (más `discarded`), porque un mismo input trae un error, una idea y una pregunta y cada mensaje va en su área (`idea.md`); esfuerzo `low`. (2) Descomponer: una llamada por grupo, en paralelo, con el cuerpo de la plantilla del grupo, que devuelve la lista MECE de mensajes de ese grupo; esfuerzo `medium` hasta que el banco diga otra cosa. Prompt de sistema cacheado (mínimo cacheable 512 tokens; TTL 5 minutos, 1 hora si el acierto medido es bajo).
 
 MECE por construcción, no por confianza: antes de la segunda llamada el sistema numera las unidades del input extraído (párrafos, viñetas, segmentos de transcripción con marca de tiempo, fotogramas) y el esquema exige que cada mensaje cite sus `unit_ids` y que lo no accionable vaya en `discarded`. Con eso el sistema calcula solapes (una unidad en dos mensajes) y huecos (una unidad en ninguno) por aritmética de conjuntos, sin leer prosa. Si hay conflicto, un único pase de rescate sobre esas unidades; sin autoconsistencia por omisión (veinte muestras mejoran 0,4 %, informe 02). Si el input supera el umbral de partición (provisional: 100.000 tokens de entrada, frontera de precio del modelo; el banco lo fija), se parte sólo por fronteras estructurales en trozos disjuntos por unidad, se descompone en paralelo y la reducción es determinista por `unit_ids`; un monólogo transcrito no se parte. El esquema de salida de cada plantilla se compila una vez y se calienta por evento al guardar la plantilla (la gramática compilada se cachea 24 horas desde el último uso). Cada llamada queda en `llm_calls`.
 

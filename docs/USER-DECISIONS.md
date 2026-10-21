@@ -168,3 +168,26 @@ RULES:
 - 26 KB comprimidos menos en el panel (medición del informe 07) y ninguna conexión del navegador a otro dominio (§4.1).
 - Las listas, filtros y formularios contra la API se escriben en el proyecto; los filtros viven en la URL.
 **Condiciones de reversión:** Que Refine vuelva a publicar y a seguir a React Router, y que el módulo propio de filtros crezca más de lo que Refine costaría.
+
+## [UD-012] GitHub Issues es un conector futuro, no el almacén
+
+**Fecha:** 2026-10-20
+**Contexto:** Martín preguntó si el sistema podía construirse sobre GitHub Issues en vez de a medida. El mapeo es directo (issue, comentarios, etiquetas, formularios, assignees, abierto y cerrado), y lo que de todos modos hay que construir es la barra de entrada, la extracción, la descomposición y la vista previa de confirmación. Lo que se pierde: cuenta de GitHub obligatoria para cada miembro, sin adjuntos de audio ni carga de adjuntos por API, sin estado «respondido», y la instalación dentro de un sitio ajeno o sola en un VPS deja de ser cierta.
+**Decisión:** Martín, textual: «github issues debería ser un conector a construir a futuro». Se sigue con el almacén propio; GitHub Issues entra como una Conexión (un adaptador que crea issues y lee comentarios) cuando la descomposición esté probada.
+**Alternativas descartadas:**
+- GitHub Issues como único almacén: lo anterior.
+**Consecuencias:**
+- La vista Conexiones lista GitHub Issues entre los conectores previstos, apagado.
+**Condiciones de reversión:** Que el equipo que use team-platform viva entero en GitHub y nadie mande audio; entonces el conector se construye antes que el resto de Conexiones.
+
+## [UD-013] Estética Y2K futurista
+
+**Fecha:** 2026-10-20
+**Contexto:** El panel se estaba construyendo con la estética de un programa de gestión estándar y sin referente visual propio.
+**Decisión:** Martín, textual: «la estética tiene que ser MUCHO mejor, inspirada en y2k futurista», y a continuación: «nada muy loco, pero con más identidad, espaciado, y jerarquía visual con el uso de alineaciones, tamaños, formas, distribución, etc.». El Y2K futurista es la cita (vidrio, cromo, iridiscencia, formas redondeadas, azul eléctrico, plata, lima y lila, tipografía de la época con licencia libre); lo que manda es la jerarquía visual y una identidad propia, sin efectos por todos lados. Lo funcional no cambia: rótulos cortos, densidad de bandeja de escritorio, estado como insignia, edición en el lugar. Los valores que delatan diseño generado por IA (paleta índigo y degradado púrpura a azul, superficies zinc, centrado simétrico universal, radios y sombras por omisión) quedan prohibidos.
+**Alternativas descartadas:**
+- Estética neutra de panel administrativo: era la omisión y no la quiso.
+**Consecuencias:**
+- `panel/DISENO.md` con referencias fechadas y los tokens derivados; modo claro y oscuro.
+- Ninguna fuente ni recurso cargado desde otro dominio (§4.1): las tipografías van empaquetadas.
+**Condiciones de reversión:** Que Martín nombre otro referente.

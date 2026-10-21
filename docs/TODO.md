@@ -30,7 +30,7 @@
 - [x] Investigación del motor de análisis y adjuntos en `docs/investigaciones/` `2026-10-20 21:50:00`
 - [x] MASTER-SPEC §1 a §8, RULES, LICENSE MIT `2026-10-20 22:30:00`
 - [x] Cruzar los informes 02, 03, 04, 06 y 07 con el MASTER-SPEC `2026-10-20 22:05:00`
-- [ ] Cruzar el informe 05 (extracción de documentos) con el MASTER-SPEC
+- [x] Cruzar el informe 05 (extracción de documentos) con el MASTER-SPEC `2026-10-20 22:40:00`
 
 ### [TASK-002] Revisión humana del MASTER-SPEC
 

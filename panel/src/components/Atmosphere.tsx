@@ -1,9 +1,8 @@
 /**
- * Adorno de fondo: una órbita y tres destellos de cuatro puntas sobre el cielo. Va detrás de
- * todo, sin interacción y sin significado (aria-hidden); en teléfono sólo quedan los destellos.
+ * Background ornament: an orbit anchored to the top-right corner. It sits behind everything, with no
+ * interaction and no meaning (aria-hidden), and is not drawn on a phone. No loose sparkle:
+ * an ornament that is not anchored to anything floats (UD-016).
  */
-const SPARKLE = 'M0 -10C1 -3 3 -1 10 0C3 1 1 3 0 10C-1 3 -3 1 -10 0C-3 -1 -1 -3 0 -10Z'
-
 export function Atmosphere() {
   return (
     <svg
@@ -18,11 +17,6 @@ export function Atmosphere() {
           <ellipse cx="1400" cy="40" rx="500" ry="140" />
           <ellipse cx="1400" cy="40" rx="360" ry="96" strokeDasharray="2 7" />
         </g>
-              </g>
-      <g fill="var(--color-glass-edge)" stroke="var(--color-orbit)" strokeWidth="1">
-        <path d={SPARKLE} transform="translate(1404 96) scale(1.4)" />
-        <path className="hidden md:inline" d={SPARKLE} transform="translate(1362 520) scale(0.8)" />
-        <path className="hidden md:inline" d={SPARKLE} transform="translate(330 804) scale(1.05)" />
       </g>
     </svg>
   )

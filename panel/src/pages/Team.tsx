@@ -1,91 +1,155 @@
+import { UserPlus } from '@/components/icons'
+import { useMemo, useState } from 'react'
 import { Avatar } from '@/components/Avatar'
-import { EditableTags } from '@/components/EditableTags'
-import { PageHeader } from '@/components/PageHeader'
 import { EditableText } from '@/components/EditableText'
+import { FitList } from '@/components/FitList'
+import { FormDialog } from '@/components/FormDialog'
+import { Page } from '@/components/Page'
+import { PageHeader } from '@/components/PageHeader'
+import { UndoButtons } from '@/components/UndoButtons'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { useMe, useMembers, useSaveMember } from '@/lib/queries'
-import type { Member, Role } from '@/lib/types'
+import { useErrorText, useT, type MessageKey } from '@/i18n'
+import { useCreateMember, useMe, useMembers, useSaveMember } from '@/lib/queries'
+import type { Language, Member, Role } from '@/lib/types'
+import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 
-const ROLE_LABEL: Record<Role, string> = { member: 'Miembro', editor: 'Editor' }
+/** Maximum length of the profile the API accepts (UD-023). */
+const PROFILE_MAX = 4000
+const LANGUAGE_KEY: Record<Language, MessageKey> = { 'es-419': 'language.es-419', en: 'language.en' }
+const SHORT_LANGUAGE_KEY: Record<Language, MessageKey> = { 'es-419': 'language.short.es-419', en: 'language.short.en' }
+const COLUMNS = 'md:grid-cols-[15rem_8rem_minmax(0,1fr)_6.5rem]'
 
-/** Miembros con sus responsabilidades y dominios. Cada uno edita lo suyo; el Editor puede cambiar el rol de los demás. */
+/** Members with their responsibilities and domains. Each one edits their own; the Editor adds, and changes name, email and role of the others. */
 export function Team() {
+  const t = useT()
   const me = useMe().data
   const members = useMembers()
+  const create = useCreateMember()
+  const undo = useUndoStack()
+  const [adding, setAdding] = useState(false)
+  const editor = me?.role === 'editor'
+  const rows = useMemo(() => members.data ?? [], [members.data])
 
   return (
-    <div className="flex w-full max-w-[64rem] flex-col gap-6 px-5 py-7 md:px-10 md:py-10">
-      <PageHeader title="Equipo" />
-      <div className="glass leaf overflow-hidden">
-        <div className="hidden grid-cols-[minmax(11rem,1fr)_6.5rem_minmax(0,2fr)_minmax(0,1.4fr)] gap-4 border-b border-line bg-[linear-gradient(180deg,var(--color-chrome-1),var(--color-chrome-2))] px-4 py-2 text-xs font-semibold text-muted md:grid">
-          <span>Miembro</span>
-          <span>Rol</span>
-          <span>Responsabilidades</span>
-          <span>Dominios</span>
-        </div>
-        {members.isPending ? (
-          <p className="px-3 py-8 text-center text-sm text-muted">Cargando</p>
-        ) : (
-          (members.data ?? []).map((m) => <MemberRow key={m.id} member={m} self={m.id === me?.id} viewerIsEditor={me?.role === 'editor'} />)
-        )}
-      </div>
-    </div>
+    <UndoProvider stack={undo}>
+      <Page cols={12}>
+        <PageHeader
+          title={t('nav.team')}
+          aside={
+            <div className="flex items-center gap-2">
+              <UndoButtons stack={undo} />
+              {editor && (
+                <Button variant="primary" size="sm" onClick={() => setAdding(true)}>
+                  <UserPlus size={14} aria-hidden /> {t('team.add')}
+                </Button>
+              )}
+            </div>
+          }
+        />
+        <FitList
+          rows={rows}
+          rowKey={(m) => m.id}
+          label={t('nav.team')}
+          header={
+            <div className={`hidden gap-4 border-b border-line bg-[linear-gradient(180deg,var(--color-chrome-1),var(--color-chrome-2))] px-4 py-2 text-[13px] font-semibold text-muted md:grid ${COLUMNS}`}>
+              <span>{t('team.member')}</span>
+              <span>{t('team.role')}</span>
+              <span>{t('team.profile')}</span>
+              <span />
+            </div>
+          }
+          renderRow={(m) => <MemberRow member={m} self={m.id === me?.id} viewerIsEditor={editor} />}
+          empty={<p className="px-3 py-8 text-center text-sm text-muted">{t('common.loading')}</p>}
+        />
+        <FormDialog
+          open={adding}
+          onOpenChange={setAdding}
+          title={t('team.new')}
+          submitLabel={t('common.create')}
+          fields={[
+            { name: 'name', label: t('team.fieldName'), required: true },
+            { name: 'email', label: t('team.fieldEmail'), required: true, type: 'email', autoComplete: 'off' },
+            { name: 'password', label: t('team.fieldPassword'), type: 'password', autoComplete: 'new-password' },
+          ]}
+          onSubmit={(v) => create.mutateAsync({ name: v.name, email: v.email, ...(v.password ? { password: v.password } : {}) })}
+        />
+      </Page>
+    </UndoProvider>
   )
 }
 
 function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boolean; viewerIsEditor: boolean }) {
+  const t = useT()
+  const undo = useUndo()
   const save = useSaveMember()
-  const canEdit = self
-  const patch = (p: Parameters<typeof save.mutateAsync>[0]['patch']) => save.mutateAsync({ id: member.id, self, patch: p })
+  const errorText = useErrorText()
+  const [problem, setProblem] = useState<string | null>(null)
+  const roleLabel: Record<Role, string> = { member: t('team.roleMember'), editor: t('team.roleEditor') }
+  const canEditPeople = viewerIsEditor
+
+  /** Each save is an operation undone with the previous value. */
+  const change = <K extends 'profile' | 'role' | 'name' | 'email' | 'active'>(key: K, next: Member[K]) => {
+    const prev = member[key]
+    const apply = (value: Member[K]) => save.mutateAsync({ id: member.id, self: self && key === 'profile', patch: { [key]: value } })
+    return undo.run({ label: t('team.edited'), redo: () => apply(next), undo: () => apply(prev) })
+  }
+  const required = (v: string) => (v ? null : t('common.required'))
+  /** Deactivating or reactivating is undone with the opposite gesture; the API refuses if it is oneself or the last Editor. */
+  const toggleActive = () =>
+    change('active', !member.active).then(
+      () => setProblem(null),
+      (err) => setProblem(errorText(err)),
+    )
 
   return (
-    <div className="grid gap-x-4 gap-y-2 border-b border-line px-4 py-4 last:border-b-0 md:grid-cols-[minmax(11rem,1fr)_6.5rem_minmax(0,2fr)_minmax(0,1.4fr)]">
-      <div className="flex min-w-0 items-center gap-2.5">
+    <div className={`grid items-start gap-x-4 gap-y-2 border-b border-line px-4 py-3 last:border-b-0 ${COLUMNS} ${member.active ? '' : 'bg-closed-bg/30'}`}>
+      <div className="flex min-w-0 items-start gap-2.5">
         <Avatar name={member.name} size={30} />
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">
-            {member.name} {self && <Badge tone="accent">Yo</Badge>}
-          </p>
-          <p className="truncate text-xs text-muted">{member.email}</p>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2">
+            <EditableText value={member.name} label={t('team.fieldName')} canEdit={canEditPeople} validate={required} onSave={(v) => change('name', v)} displayClassName="text-sm font-semibold" className="w-auto" />
+            {self && <Badge tone="accent">{t('team.me')}</Badge>}
+          </div>
+          <EditableText value={member.email} label={t('team.fieldEmail')} canEdit={canEditPeople} validate={(v) => (v.includes('@') ? null : t('team.invalidEmail'))} onSave={(v) => change('email', v)} displayClassName="break-all text-xs text-muted" />
         </div>
       </div>
-      <div className="flex items-start md:pt-1">
-        {viewerIsEditor && !self ? (
+      <div className="flex min-w-0 flex-col items-start gap-1">
+        {canEditPeople && !self ? (
           <DropdownMenu>
-            <DropdownMenuTrigger aria-label={`Rol de ${member.name}`} className="rounded-sm hover:bg-hover">
-              <Badge tone={member.role === 'editor' ? 'accent' : 'neutral'}>{ROLE_LABEL[member.role]}</Badge>
+            <DropdownMenuTrigger aria-label={t('team.roleOf', { name: member.name })} className="inline-flex rounded-full hover:bg-hover">
+              <Badge tone={member.role === 'editor' ? 'accent' : 'neutral'}>{roleLabel[member.role]}</Badge>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="min-w-32">
-              <DropdownMenuRadioGroup value={member.role} onValueChange={(role) => void patch({ role: role as Role })}>
-                <DropdownMenuRadioItem value="member">Miembro</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="editor">Editor</DropdownMenuRadioItem>
+              <DropdownMenuRadioGroup value={member.role} onValueChange={(role) => void change('role', role as Role)}>
+                <DropdownMenuRadioItem value="member">{roleLabel.member}</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="editor">{roleLabel.editor}</DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         ) : (
-          <Badge tone={member.role === 'editor' ? 'accent' : 'neutral'}>{ROLE_LABEL[member.role]}</Badge>
+          <Badge tone={member.role === 'editor' ? 'accent' : 'neutral'}>{roleLabel[member.role]}</Badge>
         )}
+        <Badge tone={member.active ? 'answered' : 'outline'}>{member.active ? t('team.active') : t('team.inactive')}</Badge>
+        <span className="text-xs text-muted" title={t(LANGUAGE_KEY[member.language])}>
+          {t('team.languageOf', { code: t(SHORT_LANGUAGE_KEY[member.language]) })}
+        </span>
       </div>
       <div className="min-w-0 text-[13px]">
-        <EditableText
-          value={member.responsibilities}
-          label={`Responsabilidades de ${member.name}`}
-          multiline
-          rows={2}
-          canEdit={canEdit}
-          placeholder="Sin responsabilidades"
-          onSave={(responsibilities) => patch({ responsibilities })}
-        />
+        <EditableText value={member.profile ?? ''} label={t('team.profileOf', { name: member.name })} multiline prose canEdit={self} placeholder={t('team.noProfile')} validate={(v) => (v.length > PROFILE_MAX ? t('form.maxLength', { n: PROFILE_MAX }) : null)} onSave={(v) => change('profile', v)} />
       </div>
-      <div className="min-w-0 text-[13px]">
-        <EditableTags
-          values={member.domains}
-          label={`Dominios de ${member.name}`}
-          canEdit={canEdit}
-          placeholder="Sin dominios"
-          onSave={(domains) => patch({ domains })}
-        />
+      <div className="flex min-w-0 flex-col items-end gap-1">
+        {canEditPeople && !self && (
+          <Button size="sm" variant="ghost" className="text-muted" onClick={() => void toggleActive()} aria-label={member.active ? t('team.deactivateOf', { name: member.name }) : t('team.reactivateOf', { name: member.name })}>
+            {member.active ? t('team.deactivate') : t('team.reactivate')}
+          </Button>
+        )}
+        {problem && (
+          <span role="alert" className="text-right text-xs text-danger">
+            {problem}
+          </span>
+        )}
       </div>
     </div>
   )

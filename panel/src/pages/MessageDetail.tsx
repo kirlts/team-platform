@@ -1,105 +1,159 @@
 import { ArrowLeft } from '@/components/icons'
-import { Link, useParams } from 'react-router'
+import { Link, useParams, useSearchParams } from 'react-router'
+import { AreaPicker } from '@/components/AreaPicker'
+import { AttachmentStrip } from '@/components/AttachmentStrip'
 import { Avatar } from '@/components/Avatar'
+import { EditableText } from '@/components/EditableText'
 import { useLookups } from '@/components/lookups'
+import { MediaKinds } from '@/components/MediaKinds'
+import { Page } from '@/components/Page'
+import { PageHeader } from '@/components/PageHeader'
+import { Recipients } from '@/components/Recipients'
+import { RecipientsEditor } from '@/components/RecipientsEditor'
 import { ReplyThread } from '@/components/ReplyThread'
-import { AreaBadge, StatusBadge } from '@/components/StatusBadge'
-import { Thumb } from '@/components/Thumb'
+import { StatusBadge } from '@/components/StatusBadge'
+import { TemplateFields } from '@/components/TemplateFields'
+import { UndoButtons } from '@/components/UndoButtons'
 import { Button } from '@/components/ui/button'
-import { ApiError, attachmentUrl } from '@/lib/api'
-import { stamp } from '@/lib/format'
-import { useMessage, useSetClosed } from '@/lib/queries'
+import { useErrorText, useFormat, useT } from '@/i18n'
+import { ApiError } from '@/lib/api'
+import { useMe, useMessage, usePatchMessage, useSetClosed, useTemplates } from '@/lib/queries'
+import { parseTemplateFields, remapFields } from '@/lib/template'
+import type { MessageDetail as Detail, MessagePatch, Template } from '@/lib/types'
+import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 
 export function MessageDetail() {
+  const t = useT()
+  const errorText = useErrorText()
   const { id } = useParams()
+  const [params] = useSearchParams()
   const message = useMessage(id)
-  const setClosed = useSetClosed()
-  const { areaTitle, memberName } = useLookups()
+  const undo = useUndoStack()
 
-  if (message.isPending) return <p className="p-6 text-sm text-muted">Cargando</p>
+  if (message.isPending) {
+    return (
+      <Page cols={12}>
+        <p className="text-sm text-muted">{t('common.loading')}</p>
+      </Page>
+    )
+  }
   if (message.isError) {
     const missing = message.error instanceof ApiError && message.error.status === 404
     return (
-      <div className="flex flex-col items-start gap-3 p-6">
+      <Page cols={12}>
+        <PageHeader title={t('nav.messages')} />
         <p role="alert" className="text-sm text-danger">
-          {missing ? 'El mensaje no existe' : `No se pudo cargar: ${message.error.message}`}
+          {missing ? t('detail.missing') : t('common.loadFailed', { reason: errorText(message.error) })}
         </p>
-        <Button asChild>
-          <Link to="/messages">Mensajes</Link>
-        </Button>
-      </div>
+        <div>
+          <Button asChild>
+            <Link to="/messages">{t('nav.messages')}</Link>
+          </Button>
+        </div>
+      </Page>
     )
   }
 
-  const m = message.data
+  return (
+    <UndoProvider stack={undo}>
+      <DetailBody message={message.data} focusReply={params.get('reply') === '1'} />
+    </UndoProvider>
+  )
+}
+
+function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: boolean }) {
+  const t = useT()
+  const format = useFormat()
+  const me = useMe().data
+  const undo = useUndo()
+  const setClosed = useSetClosed()
+  const patchMessage = usePatchMessage()
+  const { areaTitle, memberName } = useLookups()
+  const templates = useTemplates(m.area_id)
+  const template: Template | undefined = templates.data?.find((x) => x.id === m.template_id) ?? templates.data?.[0]
   const closed = m.status === 'closed'
-  const audios = m.attachments.filter((a) => a.kind === 'audio')
-  const others = m.attachments.filter((a) => a.kind !== 'audio')
+  const canEdit = !!me && (me.id === m.author_id || me.role === 'editor')
+
+  /** A change to the message: what is requested and what undoes it. */
+  const change = (label: string, forward: MessagePatch, back: MessagePatch) =>
+    undo.run({ label, redo: () => patchMessage.mutateAsync({ id: m.id, patch: forward }), undo: () => patchMessage.mutateAsync({ id: m.id, patch: back }) })
+
+  const required = (v: string) => (v.trim() ? null : t('common.required'))
 
   return (
-    <div className="flex w-full max-w-[50rem] flex-col gap-7 px-5 py-7 md:px-10 md:py-10">
-      <Link to="/messages" className="inline-flex items-center gap-1 self-start text-xs text-muted hover:text-fg">
-        <ArrowLeft size={13} aria-hidden /> Mensajes
-      </Link>
+    <Page cols={12}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Link to="/messages" className="inline-flex items-center gap-1 text-xs text-muted hover:text-fg">
+          <ArrowLeft size={13} aria-hidden /> {t('nav.messages')}
+        </Link>
+        {canEdit && <UndoButtons stack={undo} />}
+      </div>
 
-      <header className="flex flex-col gap-2">
-        <div className="flex items-start justify-between gap-3">
-          <h1 className="min-w-0 font-sans text-[1.5rem] font-semibold leading-snug">{m.title}</h1>
-          <Button
-            variant="secondary"
-            disabled={setClosed.isPending}
-            onClick={() => setClosed.mutate({ id: m.id, closed: !closed })}
-          >
-            {closed ? 'Reabrir' : 'Cerrar'}
-          </Button>
-        </div>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted">
-          <AreaBadge title={areaTitle(m.area_id)} />
-          <StatusBadge status={m.status} />
-          <span className="inline-flex items-center gap-1.5">
-            <Avatar name={memberName(m.author_id) || '?'} size={18} />
-            {memberName(m.author_id)}
-          </span>
-          <time dateTime={m.created_at}>{stamp(m.created_at)}</time>
-          {m.assignee_ids.length > 0 && <span>Para {m.assignee_ids.map(memberName).join(', ')}</span>}
-          {setClosed.isError && (
-            <span role="alert" className="text-danger">
-              {setClosed.error.message}
-            </span>
-          )}
-        </div>
+      <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4">
+        <h1 className="min-w-0">
+          <EditableText value={m.title} label={t('detail.title')} canEdit={canEdit} validate={required} onSave={(v) => change(t('proposal.titleEdited'), { title: v }, { title: m.title })} displayClassName="font-sans text-[1.375rem] font-semibold leading-snug" />
+        </h1>
+        <Button variant="secondary" disabled={setClosed.isPending} onClick={() => setClosed.mutate({ id: m.id, closed: !closed })}>
+          {closed ? t('card.reopen') : t('card.close')}
+        </Button>
       </header>
-
-      <p className="whitespace-pre-wrap leading-relaxed">{m.body}</p>
-
-      {m.attachments.length > 0 && (
-        <section aria-label="Adjuntos" className="flex flex-col gap-3">
-          {others.length > 0 && (
-            <ul className="flex flex-wrap gap-3">
-              {others.map((a) => (
-                <li key={a.id}>
-                  <Thumb
-                    item={{ kind: a.kind, src: a.kind === 'link' ? undefined : attachmentUrl(a.id), name: a.name, size: a.size }}
-                    px={96}
-                    href={a.kind === 'link' ? a.name : attachmentUrl(a.id)}
-                  />
-                  <span className="mt-1 block max-w-24 truncate text-xs text-muted">{a.name}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-          {audios.map((a) => (
-            <figure key={a.id} className="flex flex-col gap-1">
-              <figcaption className="text-xs text-muted">{a.name}</figcaption>
-              <audio controls preload="metadata" src={attachmentUrl(a.id)} className="h-9 w-full max-w-sm" />
-            </figure>
-          ))}
-        </section>
+      {setClosed.isError && (
+        <p role="alert" className="text-xs text-danger">
+          {setClosed.error.message}
+        </p>
       )}
 
-      <div className="border-t border-line-strong pt-6">
-        <ReplyThread message={m} />
+      <div className="grid min-h-0 flex-1 md:grid-rows-[minmax(0,1fr)] gap-x-10 gap-y-4 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+        <div className="flex min-h-0 min-w-0 flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted">
+            {canEdit ? (
+              <AreaPicker
+                areaId={m.area_id}
+                templateName={template?.name}
+                onChange={(area_id, next) =>
+                  change(
+                    t('proposal.areaChanged'),
+                    { area_id, ...(next ? { template_id: next.id } : {}), fields: remapFields(m.fields, parseTemplateFields(next?.body_markdown ?? '')) },
+                    { area_id: m.area_id, ...(m.template_id ? { template_id: m.template_id } : {}), fields: m.fields ?? {} },
+                  )
+                }
+              />
+            ) : (
+              <span className="inline-flex min-h-6 items-center rounded-[3px_9px_3px_9px] border border-edge px-2 font-semibold text-fg">{areaTitle(m.area_id)}</span>
+            )}
+            <StatusBadge status={m.status} />
+            <span className="inline-flex items-center gap-1.5">
+              <Avatar name={memberName(m.author_id) || '?'} size={20} />
+              {memberName(m.author_id)}
+            </span>
+            <time dateTime={m.created_at} className="tabular-nums">
+              {format.stamp(m.created_at)}
+            </time>
+            <MediaKinds of={m} />
+          </div>
+
+          {canEdit ? (
+            <RecipientsEditor ids={m.assignee_ids} max={4} onChange={(ids) => void change(t('proposal.recipientsChanged'), { assignee_ids: ids }, { assignee_ids: m.assignee_ids })} />
+          ) : (
+            <Recipients ids={m.assignee_ids} max={4} />
+          )}
+
+          {/* A long text has no cap: the message column scrolls inside, and it is a declared lane. */}
+          <div data-lane="message-body" className="scroll-thin flex min-h-0 flex-initial flex-col gap-3 overflow-y-auto px-1.5">
+            <EditableText value={m.body} label={t('detail.body')} multiline prose canEdit={canEdit} validate={required} onSave={(v) => change(t('proposal.bodyEdited'), { body: v }, { body: m.body })} displayClassName="leading-relaxed" />
+            <TemplateFields
+              template={template}
+              values={m.fields}
+              canEdit={canEdit}
+              onSave={(name, value) => change(t('proposal.fieldEdited'), { fields: { ...(m.fields ?? {}), [name]: value } }, { fields: m.fields ?? {} })}
+            />
+          </div>
+
+          <AttachmentStrip items={m.attachments} px={44} className="shrink-0" />
+        </div>
+
+        <ReplyThread message={m} focusForm={focusReply} />
       </div>
-    </div>
+    </Page>
   )
 }

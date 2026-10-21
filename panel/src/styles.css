@@ -1,10 +1,10 @@
 @import 'tailwindcss';
 
 /*
- * Piel del panel. Funcionalmente es un programa de gestión; la cita al 2000 está en los
- * materiales: vidrio translúcido, plata cromada, gel azul eléctrico y luces de estado.
- * Fuentes y derivación de cada valor: panel/DISENO.md. Todo color es OKLCH.
- * Los contrastes de los pares de texto se miden con `npm run contraste`.
+ * Panel skin. Functionally it is a management program; the nod to the year 2000 is in the
+ * materials: translucent glass, chrome silver, electric blue gel and status lights.
+ * Sources and derivation of each value: panel/DISENO.md. Every color is OKLCH.
+ * The contrasts of the text pairs are measured with `npm run contraste`.
  */
 
 @font-face {
@@ -28,38 +28,41 @@
   --font-display: 'Orbitron', 'Eurostile', 'Bank Gothic', 'Arial Narrow', sans-serif;
   --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
 
-  /* Cielo: fondo de toda la aplicación. */
+  /* Space unit: exactly 4 px. With the 15 px base font, Tailwind's default (0.25 rem) would give 3.75 px. */
+  --spacing: 4px;
+
+  /* Sky: background of the whole application. */
   --color-sky-a: oklch(0.955 0.045 205);
   --color-sky-b: oklch(0.945 0.03 250);
-  --color-sky-c: oklch(0.95 0.03 300);
+  --color-sky-c: oklch(0.95 0.03 232);
   --color-glow-1: oklch(0.9 0.1 205 / 0.55);
   --color-glow-2: oklch(0.9 0.08 305 / 0.38);
   --color-glow-3: oklch(0.94 0.13 125 / 0.28);
   --color-orbit: oklch(0.55 0.12 250 / 0.2);
 
-  /* Superficies opacas. */
+  /* Opaque surfaces. */
   --color-bg: oklch(0.965 0.02 235);
   --color-surface: oklch(0.955 0.017 240);
   --color-raised: oklch(0.995 0.004 240);
   --color-hover: oklch(0.935 0.025 240);
   --color-line: oklch(0.86 0.025 245);
   --color-line-strong: oklch(0.72 0.045 250);
-  /* Borde de controles: 3:1 contra el vidrio (criterio 1.4.11 de WCAG). */
+  /* Control border: 3:1 against the glass (WCAG criterion 1.4.11). */
   --color-edge: oklch(0.58 0.07 252);
 
-  /* Vidrio: translúcido, con borde de luz. */
+  /* Glass: translucent, with a light border. */
   --color-glass: oklch(1 0 0 / 0.64);
   --color-glass-strong: oklch(1 0 0 / 0.88);
   --color-glass-edge: oklch(1 0 0 / 0.95);
   --color-glass-line: oklch(0.7 0.05 250 / 0.42);
 
-  /* Cromo: barra superior (tubo plateado con horizonte). */
+  /* Chrome: top bar (silver tube with horizon). */
   --color-chrome-1: oklch(0.995 0.004 240);
   --color-chrome-2: oklch(0.92 0.018 245);
   --color-chrome-3: oklch(0.84 0.026 250);
   --color-chrome-4: oklch(0.94 0.014 245);
 
-  /* Tinta y acento. */
+  /* Ink and accent. */
   --color-fg: oklch(0.25 0.05 265);
   --color-muted: oklch(0.45 0.04 260);
   --color-faint: oklch(0.52 0.03 255);
@@ -72,12 +75,12 @@
   --color-lime: oklch(0.88 0.19 125);
   --color-lilac: oklch(0.72 0.14 305);
 
-  /* Gel: botón primario. */
+  /* Gel: primary button. */
   --color-gel-top: oklch(0.47 0.21 250);
   --color-gel-bottom: oklch(0.38 0.18 256);
   --color-gel-fg: oklch(0.99 0 0);
 
-  /* Estados: texto, fondo y luz. */
+  /* States: text, background and light. */
   --color-open-fg: oklch(0.4 0.09 65);
   --color-open-bg: oklch(0.94 0.075 88);
   --color-open-led: oklch(0.8 0.17 80);
@@ -90,12 +93,12 @@
   --color-danger: oklch(0.5 0.2 25);
   --color-danger-soft: oklch(0.94 0.035 25);
 
-  /* Forma: radios cortos; el redondeo grande queda para controles. */
+  /* Shape: short radii; the large rounding is left for controls. */
   --radius-sm: 3px;
   --radius-md: 6px;
   --radius-lg: 8px;
 
-  /* Sombras: coloreadas y de varias capas. */
+  /* Shadows: colored and multi-layered. */
   --shadow-glass: inset 0 1px 0 oklch(1 0 0 / 0.9), 0 1px 2px oklch(0.4 0.1 255 / 0.18), 0 10px 28px -12px oklch(0.4 0.14 255 / 0.32);
   --shadow-pop: inset 0 1px 0 oklch(1 0 0 / 0.9), 0 2px 4px oklch(0.4 0.1 255 / 0.18), 0 18px 40px -14px oklch(0.35 0.14 255 / 0.5);
   --shadow-gel: inset 0 1px 0 oklch(1 0 0 / 0.55), inset 0 -1px 0 oklch(0.2 0.1 260 / 0.35), 0 1px 2px oklch(0.3 0.12 255 / 0.4), 0 8px 16px -8px oklch(0.5 0.2 250 / 0.7);
@@ -107,7 +110,7 @@
 
   --color-sky-a: oklch(0.2 0.05 255);
   --color-sky-b: oklch(0.17 0.045 270);
-  --color-sky-c: oklch(0.2 0.065 300);
+  --color-sky-c: oklch(0.2 0.065 240);
   --color-glow-1: oklch(0.45 0.18 250 / 0.38);
   --color-glow-2: oklch(0.4 0.16 305 / 0.28);
   --color-glow-3: oklch(0.5 0.15 125 / 0.14);
@@ -201,7 +204,7 @@
     border-color: var(--color-line);
   }
 
-  /* Escala modular de razón 1,25 sobre 15 px: 12 · 15 · 18,75 · 23,4 · 29,3. */
+  /* Modular scale with ratio 1.25 over 15 px: 12 · 15 · 18.75 · 23.4 · 29.3. */
   h1 {
     font-family: var(--font-display);
     font-size: clamp(1.25rem, 1.05rem + 0.9vw, 1.56rem);
@@ -210,7 +213,7 @@
     line-height: 1.3;
   }
 
-  /* Rótulo de sección: pantalla de instrumento, mayúsculas y aire entre letras. */
+  /* Section label: instrument screen, uppercase and letter spacing. */
   h2 {
     font-family: var(--font-display);
     font-size: 0.75rem;
@@ -240,7 +243,7 @@
     outline-offset: 2px;
   }
 
-  /* En un teléfono, 16 px evita el zoom automático de iOS al enfocar un campo. */
+  /* On a phone, 16 px avoids iOS's automatic zoom when focusing a field. */
   @media (max-width: 640px) {
     input,
     textarea {
@@ -262,7 +265,14 @@
 }
 
 @layer components {
-  /* Vidrio: panel translúcido con borde de luz. Se usa en pocas superficies grandes. */
+  /* Running text of more than two lines (UD-022): justified, without hyphenation. It is the only class that justifies. */
+  .prose-block {
+    text-align: justify;
+    hyphens: none;
+    text-wrap: pretty;
+  }
+
+  /* Glass: translucent panel with a light border. Used on a few large surfaces. */
   .glass {
     background: var(--color-glass);
     -webkit-backdrop-filter: blur(14px) saturate(1.5);
@@ -279,19 +289,19 @@
     box-shadow: var(--shadow-pop);
   }
 
-  /* Hoja: esquinas opuestas redondeadas, la forma de las pestañas de la maqueta. */
+  /* Sheet: opposite corners rounded, the shape of the mockup's tabs. */
   .leaf {
     border-radius: 3px 10px 3px 10px;
   }
 
-  /* Pozo: campo hundido en la superficie. */
+  /* Well: field sunk into the surface. */
   .well {
     background: var(--color-raised);
     box-shadow: var(--shadow-well);
     border: 1px solid var(--color-edge);
   }
 
-  /* Barra de cromo: tubo plateado con línea de horizonte. */
+  /* Chrome bar: silver tube with a horizon line. */
   .chrome-bar {
     background: linear-gradient(
       180deg,
@@ -304,7 +314,7 @@
     box-shadow: 0 8px 20px -12px oklch(0.35 0.14 255 / 0.5);
   }
 
-  /* Botones. El gel lleva un brillo en la mitad superior; el vidrio es el secundario. */
+  /* Buttons. The gel carries a highlight on the upper half; the glass is the secondary. */
   .btn {
     display: inline-flex;
     flex-shrink: 0;
@@ -384,7 +394,7 @@
     border-color: var(--color-danger);
   }
 
-  /* Esfera de vidrio: avatares y marca. */
+  /* Glass sphere: avatars and brand. */
   .orb {
     background:
       radial-gradient(circle at 32% 26%, oklch(1 0 0 / 0.95) 0 11%, oklch(1 0 0 / 0) 34%),
@@ -397,7 +407,7 @@
       0 1px 2px oklch(0.3 0.12 255 / 0.45);
   }
 
-  /* Luz de estado: punto con halo, antes del texto de la insignia. */
+  /* Status light: dot with halo, before the badge text. */
   .led::before {
     content: '';
     display: inline-block;
@@ -411,7 +421,7 @@
       0 0 6px 1px var(--led);
   }
 
-  /* Medidor: pozo con relleno de cristal y un destello que lo recorre mientras trabaja. */
+  /* Meter: well with glass fill and a glint that runs along it while working. */
   .meter {
     background: var(--color-raised);
     box-shadow: var(--shadow-well);
@@ -440,7 +450,7 @@
     }
   }
 
-  /* Marco de miniatura: borde de luz y sombra azul. */
+  /* Thumbnail frame: light border and blue shadow. */
   .frame {
     border: 1px solid var(--color-glass-line);
     background: var(--color-glass-edge);

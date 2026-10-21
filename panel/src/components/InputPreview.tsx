@@ -1,47 +1,33 @@
-import { useState } from 'react'
-import { attachmentUrl } from '@/lib/api'
+import { useT } from '@/i18n'
+import { useSaveInputText } from '@/lib/queries'
 import type { InputRecord } from '@/lib/types'
-import { Thumb } from './Thumb'
+import { useUndo } from '@/lib/undo'
+import { AttachmentStrip } from './AttachmentStrip'
+import { EditableText } from './EditableText'
 
-/** Texto y adjuntos del input enviado, tal como quedaron en el servidor. */
+/**
+ * Text and attachments of the submitted input, as they were left on the server. The text is corrected in
+ * place while the proposal is open; each change can be undone.
+ */
 export function InputPreview({ input }: { input: InputRecord }) {
-  const [expanded, setExpanded] = useState(false)
-  const long = input.text.length > 320 || input.text.split('\n').length > 6
-  const audios = input.attachments.filter((a) => a.kind === 'audio')
-  const visual = input.attachments.filter((a) => a.kind !== 'audio')
+  const t = useT()
+  const undo = useUndo()
+  const saveText = useSaveInputText(input.id)
+  const editable = input.status === 'proposed' || input.status === 'failed'
+
+  const change = (next: string) => {
+    const prev = input.text
+    return undo.run({ label: t('input.edited'), redo: () => saveText.mutateAsync(next), undo: () => saveText.mutateAsync(prev) })
+  }
 
   return (
-    <section aria-label="Mensaje enviado" className="flex min-w-0 flex-col gap-3">
-      <h2>Mensaje</h2>
-      {input.text.trim() && (
-        <div>
-          <p className={`whitespace-pre-wrap break-words text-sm ${expanded ? '' : 'line-clamp-8'}`}>{input.text}</p>
-          {long && (
-            <button type="button" className="mt-1 text-xs text-accent hover:underline" onClick={() => setExpanded((v) => !v)}>
-              {expanded ? 'Ver menos' : 'Ver más'}
-            </button>
-          )}
-        </div>
-      )}
-      {visual.length > 0 && (
-        <ul className="flex flex-wrap gap-2.5">
-          {visual.map((a) => (
-            <li key={a.id}>
-              <Thumb
-                item={{ kind: a.kind, src: a.kind === 'link' ? undefined : attachmentUrl(a.id), name: a.name, size: a.size }}
-                px={72}
-                href={a.kind === 'link' ? a.name : attachmentUrl(a.id)}
-              />
-            </li>
-          ))}
-        </ul>
-      )}
-      {audios.map((a) => (
-        <figure key={a.id} className="flex flex-col gap-1">
-          <figcaption className="truncate text-xs text-muted">{a.name}</figcaption>
-          <audio controls preload="metadata" src={attachmentUrl(a.id)} className="h-9 w-full max-w-sm" />
-        </figure>
-      ))}
+    <section aria-label={t('input.sent')} className="flex min-h-0 min-w-0 flex-col gap-3">
+      <h2>{t('input.title')}</h2>
+      {/* A pasted text has no maximum length: it is a lane with its own declared scrolling. */}
+      <div data-lane="input-text" className="scroll-thin min-h-0 flex-1 overflow-y-auto px-1.5 text-sm">
+        <EditableText value={input.text} label={t('input.title')} multiline prose canEdit={editable} validate={(v) => (v ? null : t('common.required'))} onSave={change} />
+      </div>
+      <AttachmentStrip items={input.attachments} className="shrink-0" />
     </section>
   )
 }

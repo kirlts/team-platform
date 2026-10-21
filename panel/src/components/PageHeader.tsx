@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-/** Título de pantalla con la esfera de la marca a su izquierda y, opcional, un dato a la derecha. */
+/** Screen title with the brand sphere on its left and, optionally, a datum on the right. */
 export function PageHeader({ title, aside }: { title: string; aside?: ReactNode }) {
   return (
     <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1">

@@ -1,4 +1,4 @@
-// Consultas y mutaciones contra la API, con TanStack Query. Las claves son:
+// Queries and mutations against the API, with TanStack Query. The keys are:
 // ['me'], ['members'], ['areas'], ['templates', areaId], ['messages', ...], ['message', id],
 // ['inputs', id], ['providers'].
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -7,10 +7,13 @@ import { applyClientFilters, toApiParams, type MessageQuery } from './filters'
 import type {
   Area,
   InputRecord,
+  Language,
   Me,
   Member,
   Message,
   MessageDetail,
+  MessagePatch,
+  NewMember,
   Proposal,
   ProviderSetting,
   ReplyKind,
@@ -56,7 +59,7 @@ export function useTemplates(areaId: string | undefined, enabled = true) {
 export interface MessagesParams {
   query: MessageQuery
   meId: string
-  /** Sólo mensajes con respuestas, ordenados por la última (Inicio). */
+  /** Only messages with replies, ordered by the latest (Inicio). */
   repliesFeed?: boolean
   enabled?: boolean
 }
@@ -92,6 +95,21 @@ export function useInput(id: string | undefined) {
   })
 }
 
+/** Statuses of an input that still needs the person: running, ready to review or failed (UD-025). */
+export const TRAY_STATUSES = ['queued', 'extracting', 'analyzing', 'proposed', 'failed'] as const
+
+/** My inputs in the tray: oldest first, so the ones that arrived first are reviewed first. */
+export function useTray(enabled = true) {
+  return useQuery({
+    queryKey: ['inputs', 'tray'],
+    queryFn: async () => {
+      const list = unwrapList<InputRecord>(await api(`/inputs?mine=1&status=${TRAY_STATUSES.join(',')}`))
+      return [...list].sort((a, b) => a.created_at.localeCompare(b.created_at))
+    },
+    enabled,
+  })
+}
+
 export function useProviders(enabled: boolean) {
   return useQuery({
     queryKey: ['providers'],
@@ -114,6 +132,31 @@ export function usePublish() {
   })
 }
 
+/** Saves the proposal draft (PATCH /inputs/:id/proposal): what was edited survives closing the tab. */
+export function useSaveProposal(inputId: string) {
+  return useMutation({
+    mutationFn: (proposal: Proposal) => api<Proposal>(`/inputs/${inputId}/proposal`, { method: 'PATCH', body: proposal }),
+  })
+}
+
+/** Changes the text of the submitted input (PATCH /inputs/:id). */
+export function useSaveInputText(inputId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (text: string) => api<InputRecord>(`/inputs/${inputId}`, { method: 'PATCH', body: { text } }),
+    onSuccess: (saved) => qc.setQueryData(['inputs', inputId], (old: InputRecord | undefined) => (old ? { ...old, text: saved.text ?? old.text } : old)),
+  })
+}
+
+/** Requeues the analysis of an input that failed; keeps the text and the extractions (POST /inputs/:id/reprocess). */
+export function useReprocess() {
+  const invalidate = useInvalidator()
+  return useMutation({
+    mutationFn: (inputId: string) => api<{ input_id: string; job_id: string }>(`/inputs/${inputId}/reprocess`, { method: 'POST' }),
+    onSuccess: () => invalidate('inputs'),
+  })
+}
+
 export function useCancelInput() {
   const invalidate = useInvalidator()
   return useMutation({
@@ -122,12 +165,33 @@ export function useCancelInput() {
   })
 }
 
+/** Replies; with files, the submit is multipart (POST /messages/:id/replies with `files` and `links`). */
 export function useReply(messageId: string) {
   const invalidate = useInvalidator()
   return useMutation({
-    mutationFn: (v: { body: string; kind: ReplyKind }) =>
-      api(`/messages/${messageId}/replies`, { method: 'POST', body: v }),
+    mutationFn: (v: { body: string; kind: ReplyKind; files?: File[]; links?: string[] }) => {
+      if (!v.files?.length && !v.links?.length) return api(`/messages/${messageId}/replies`, { method: 'POST', body: { body: v.body, kind: v.kind } })
+      const form = new FormData()
+      form.append('body', v.body)
+      form.append('kind', v.kind)
+      for (const f of v.files ?? []) form.append('files', f, f.name)
+      for (const l of v.links ?? []) form.append('links', l)
+      return api(`/messages/${messageId}/replies`, { method: 'POST', form })
+    },
     onSuccess: () => invalidate('message', 'messages', 'areas'),
+  })
+}
+
+/** In-place edit of a published message (PATCH /messages/:id). Returns the saved message. */
+export function usePatchMessage() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (v: { id: string; patch: MessagePatch }) => api<MessageDetail>(`/messages/${v.id}`, { method: 'PATCH', body: v.patch }),
+    onSuccess: (saved, v) => {
+      qc.setQueryData(['message', v.id], (old: MessageDetail | undefined) => (old ? { ...old, ...saved, replies: saved.replies ?? old.replies } : old))
+      void qc.invalidateQueries({ queryKey: ['messages'] })
+      void qc.invalidateQueries({ queryKey: ['areas'] })
+    },
   })
 }
 
@@ -167,8 +231,17 @@ export function useSaveTemplate(areaId: string) {
 export function useDeleteTemplate(areaId: string) {
   const invalidate = useInvalidator()
   return useMutation({
-    // Toda operación destructiva exige confirmación explícita (MASTER-SPEC, convenciones de API).
+    // Every destructive operation requires explicit confirmation (MASTER-SPEC, API conventions).
     mutationFn: (id: string) => api(`/areas/${areaId}/templates/${id}?confirm=true`, { method: 'DELETE' }),
+    onSuccess: () => invalidate('templates', 'areas'),
+  })
+}
+
+/** Restores a deleted template (POST /templates/:id/restore): it is what undoes a deletion. */
+export function useRestoreTemplate() {
+  const invalidate = useInvalidator()
+  return useMutation({
+    mutationFn: (id: string) => api<Template>(`/templates/${id}/restore`, { method: 'POST' }),
     onSuccess: () => invalidate('templates', 'areas'),
   })
 }
@@ -176,16 +249,79 @@ export function useDeleteTemplate(areaId: string) {
 export function useSaveMember() {
   const invalidate = useInvalidator()
   return useMutation({
-    mutationFn: (v: { id: string; self: boolean; patch: Partial<Pick<Member, 'responsibilities' | 'domains' | 'role'>> }) =>
-      api(v.self ? '/members/me' : `/members/${v.id}`, { method: 'PATCH', body: v.patch }),
+    mutationFn: (v: {
+      id: string
+      self: boolean
+      patch: Partial<Pick<Member, 'profile' | 'role' | 'name' | 'email' | 'active'>> & { language?: Language; current_password?: string; new_password?: string }
+    }) => api<Member>(v.self ? '/members/me' : `/members/${v.id}`, { method: 'PATCH', body: v.patch }),
     onSuccess: () => invalidate('members', 'me'),
+  })
+}
+
+/** Adding a member (POST /members, Editor only). */
+export function useCreateMember() {
+  const invalidate = useInvalidator()
+  return useMutation({
+    mutationFn: (v: NewMember) => api<Member>('/members', { method: 'POST', body: v }),
+    onSuccess: () => invalidate('members'),
+  })
+}
+
+/** The account language changes the interface instantly: it is written into `me` before the server answers. */
+export function useSaveLanguage() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (language: Language) => api<Member>('/members/me', { method: 'PATCH', body: { language } }),
+    onMutate: async (language) => {
+      await qc.cancelQueries({ queryKey: ['me'] })
+      const before = qc.getQueryData<Me>(['me'])
+      if (before) qc.setQueryData<Me>(['me'], { ...before, language })
+      return { before }
+    },
+    onError: (_err, _language, ctx) => {
+      if (ctx?.before) qc.setQueryData(['me'], ctx.before)
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: ['me'] })
+      void qc.invalidateQueries({ queryKey: ['members'] })
+    },
   })
 }
 
 export function useSaveProvider() {
   const invalidate = useInvalidator()
   return useMutation({
-    mutationFn: (v: ProviderSetting) => api('/settings/providers', { method: 'PATCH', body: v }),
+    mutationFn: (v: Pick<ProviderSetting, 'slot' | 'provider' | 'model'>) => api('/settings/providers', { method: 'PATCH', body: { slot: v.slot, provider: v.provider, model: v.model } }),
     onSuccess: () => invalidate('providers'),
+  })
+}
+
+/** Project description (UD-024): the whole team sees it and only the Editor changes it. */
+export interface Project {
+  name: string
+  description: string
+}
+
+export function useProject() {
+  return useQuery({
+    queryKey: ['project'],
+    queryFn: () => api<Project>('/settings/project'),
+    staleTime: 60_000,
+  })
+}
+
+/** Changes the description with text (in-place edit) or with a `.md` file (multipart `file`). */
+export function useSaveProject() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (v: { description: string } | { file: File }) => {
+      if ('file' in v) {
+        const form = new FormData()
+        form.append('file', v.file, v.file.name)
+        return api<Project>('/settings/project', { method: 'PATCH', form })
+      }
+      return api<Project>('/settings/project', { method: 'PATCH', body: { description: v.description } })
+    },
+    onSuccess: (saved) => qc.setQueryData(['project'], saved),
   })
 }

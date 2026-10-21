@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// Mide el contraste (WCAG 2) de los pares de texto del panel leyendo los tokens OKLCH de
-// src/styles.css, en tema claro y oscuro. Las superficies de vidrio (con transparencia) se
-// componen sobre los dos extremos del cielo, y se toma el peor caso. Sale con 1 si un par
-// queda bajo su mínimo. Uso: npm run contraste
+// Measures the contrast (WCAG 2) of the panel's text pairs by reading the OKLCH tokens of
+// src/styles.css, in light and dark theme. Glass surfaces (with transparency) are
+// composited over both extremes of the sky, and the worst case is taken. Exits with 1 if a pair
+// falls below its minimum. Usage: npm run contraste
 
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -70,7 +70,7 @@ for (const [theme, t] of [['claro', light], ['oscuro', dark]]) {
   const skyEnds = [t['sky-a'], t['sky-b'], t['sky-c']].map(flat)
   const onGlass = (token) => skyEnds.map((sky) => over(t[token], sky))
   const fg = (name) => flat(t[name])
-  // Texto sobre el cielo y sobre el vidrio (peor caso entre los tres extremos).
+  // Text over the sky and over the glass (worst case among the three extremes).
   row(theme, 'fg sobre cielo', fg('fg'), skyEnds, 4.5)
   row(theme, 'fg sobre vidrio', fg('fg'), onGlass('glass'), 4.5)
   row(theme, 'fg sobre vidrio fuerte', fg('fg'), onGlass('glass-strong'), 4.5)
@@ -84,14 +84,14 @@ for (const [theme, t] of [['claro', light], ['oscuro', dark]]) {
   row(theme, 'danger sobre vidrio', fg('danger'), onGlass('glass'), 4.5)
   for (const s of ['open', 'answered', 'closed']) row(theme, `estado ${s}: texto sobre su fondo`, fg(`${s}-fg`), [fg(`${s}-bg`)], 4.5)
   row(theme, 'accent-deep sobre accent-soft', fg('accent-deep'), [fg('accent-soft')], 4.5)
-  // Botón gel: texto sobre el gradiente en el punto del texto (30 % del alto), con el brillo.
+  // Gel button: text over the gradient at the text point (30 % of the height), with the highlight.
   const mix = (a, b, k) => a.map((v, i) => v * (1 - k) + b[i] * k)
   const top = fg('gel-top')
   const bottom = fg('gel-bottom')
   const at = (k) => mix(top, bottom, k)
   const gloss = (rgb, k) => mix(rgb, [1, 1, 1], 0.22 * (1 - k / 0.5))
   row(theme, 'texto del gel (30 % del alto, con brillo)', fg('gel-fg'), [gloss(at(0.3), 0.3), at(0.7)], 4.5)
-  // Controles: el borde de un campo contra el vidrio debe ser visible (3:1).
+  // Controls: a field's border against the glass must be visible (3:1).
   row(theme, 'borde de controles (edge) sobre vidrio', fg('edge'), onGlass('glass'), 3)
 }
 

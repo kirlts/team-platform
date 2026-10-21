@@ -1,6 +1,6 @@
 # Hallazgos de la sesión del 2026-10-20
 
-> Registro de todo lo que cualquier agente encontró o dejó sin hacer en esta sesión, con su dueño y su estado. Regla de Martín, textual: «es súper súper importante que absolutamente el 100 % de los hallazgos que cualquier subagente tuyo haya tenido en esta sesión quede totalmente atendido. No pueden haber hallazgos huérfanos o a medio hacer». Una fila sale de acá sólo cuando su arreglo está en `main` con su prueba, o cuando Martín la descarta por nombre.
+> Registro de todo lo que cualquier agente encontró o dejó sin hacer en esta sesión, con su dueño y su estado. Regla de Martín, textual: «es súper súper importante que absolutamente el 100 % de los hallazgos que cualquier subagente tuyo haya tenido en esta sesión quede totalmente atendido. No pueden haber hallazgos huérfanos o a medio hacer». Una fila sale de acá sólo cuando su arreglo está en `main` con su prueba, o cuando Martín la descarta por nombre. Ningún agente cierra un trabajo con números parciales ni con un plazo puesto por la sesión: se trabaja hasta cumplir el objetivo, salvo que algo externo lo bloquee, y entonces se nombra qué (Martín, 2026-10-21: «no te pedí que fusionara con lo que tenía, pedí que se trabajara todo»).
 
 Estados: `main` (resuelto y fusionado), `en curso` (asignado a un agente vivo), `abierto` (sin agente todavía), `decisión` (necesita a Martín), `descartado` (con quién lo descartó).
 

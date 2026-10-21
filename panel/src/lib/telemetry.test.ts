@@ -104,8 +104,8 @@ describe('tasks inferred from the traffic', () => {
     publish({ status: 200, body: { message_ids: ['1'] } })
     const task = events().find((e) => e.type === 'task')
     expect(task).toMatchObject({ task: 'send_publish', outcome: 'completed', clicks: 2, screens: 1 })
-    expect(task?.duration_ms).toBe(6030 - 0)
-    expect(task?.stage_feedback_ms).toBe(30)
+    expect(task?.duration_ms).toBe(6080) // from the click that asked for the send, 50 ms before the request
+    expect(task?.stage_feedback_ms).toBe(80)
     expect(task?.stage_analysis_ms).toBe(4000)
     expect(task?.stage_publish_ms).toBe(2000)
   })

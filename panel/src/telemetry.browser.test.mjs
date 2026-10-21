@@ -8,7 +8,7 @@
 
 import assert from 'node:assert'
 import { spawn } from 'node:child_process'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { after, describe, test } from 'node:test'
@@ -24,6 +24,10 @@ after(async () => {
   for (const fn of cleanups.reverse()) await fn().catch(() => {})
 })
 
+async function cookieOf(context) {
+  return (await context.cookies()).map((c) => `${c.name}=${c.value}`).join('; ')
+}
+
 /** Hides the page the way a browser does when the person leaves: the queue is sent with `keepalive`. */
 async function hide(page) {
   const sent = page.waitForResponse((r) => r.url().endsWith('/api/telemetry/ui') && r.request().method() === 'POST')
@@ -34,39 +38,54 @@ async function hide(page) {
   assert.equal((await sent).status(), 204)
 }
 
-async function scenario({ origin, browser, signIn, expectedTasks }) {
+async function scenario({ origin, browser, signIn, pick, replier }) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'es-CL' })
   const page = await context.newPage()
   const bodies = []
-  page.on('request', (r) => {
+  const track = (p) => p.on('request', (r) => {
     if (r.url().endsWith('/api/telemetry/ui') && r.method() === 'POST') bodies.push(r.postData() ?? '')
   })
+  const dump = async (label, pg = page) => {
+    const dir = path.join(process.env.HOME ?? tmpdir(), '.cache/claude-tmp/team-platform-ui')
+    mkdirSync(dir, { recursive: true })
+    await pg.screenshot({ path: path.join(dir, `telemetry-${label}.png`) }).catch(() => {})
+    console.error(`${label}: ${(await pg.locator('body').innerText().catch(() => '')).slice(0, 1500)}`)
+  }
+  track(page)
   await signIn(page)
-  for (const view of ['Mensajes', 'Configuración']) {
-    await page.getByRole('link', { name: view, exact: true }).first().click()
+  for (const view of [/^Mensajes/, /^Configuración$/]) {
+    await page.getByRole('link', { name: view }).first().click()
     await page.locator('main').first().waitFor()
   }
-  await page.getByRole('link', { name: 'Inicio', exact: true }).first().click()
+  await page.getByRole('link', { name: /^Inicio$/ }).first().click()
 
   // Send and publish: the text is the sentinel and must never be seen by the telemetry.
   const bar = page.getByLabel('Nuevo mensaje', { exact: true }).last()
   await bar.fill(`${SENTINEL}\n\nSegundo punto del mismo texto.`)
+  await bar.press('End') // `fill` sets the value without keys: one real key press, whose identity is never read
   await page.getByRole('button', { name: 'Enviar' }).first().click()
   await page.getByTestId('tray-control').click()
   const publish = page.getByRole('button', { name: /^Enviar \d+ mensajes?$/ })
   await publish.waitFor({ timeout: 30000 })
   for (let i = 0; i < 50 && (await publish.isDisabled()); i++) await page.waitForTimeout(100) // a required field is filled by the demo analysis
   await publish.click()
-  await page.locator('[data-notice]').getByText(/^Se publicaron/).waitFor({ timeout: 15000 })
+  await page.locator('[data-notice]').getByText(/^Se publicó|^Se publicaron/).waitFor({ timeout: 30000 }).catch(async (e) => { await dump('publish'); throw e })
 
-  // Reply and close on a published message.
+  // Reply and close on a published message. The author cannot answer their own message: a replier is another person.
   const list = await (await page.request.get(`${origin}/api/messages`)).json()
-  const first = (list.items ?? list)[0]
-  await page.goto(`${origin}/messages/${first.id}`)
-  await page.locator('main h1').waitFor()
-  await page.getByLabel('Respuesta', { exact: true }).fill(REPLY_SENTINEL)
-  await page.getByRole('button', { name: 'Responder', exact: true }).click()
-  await page.getByText(REPLY_SENTINEL).first().waitFor()
+  const first = pick(list.items ?? list)
+  const other = replier ? await replier(context) : page
+  if (replier) track(other)
+  await other.goto(`${origin}/messages/${first.id}`)
+  await other.locator('main h1').waitFor()
+  await other.getByLabel('Respuesta', { exact: true }).fill(REPLY_SENTINEL, { timeout: 15000 }).catch(async (e) => { await dump('reply', other); throw e })
+  await other.getByRole('button', { name: 'Responder', exact: true }).click()
+  await other.getByText(REPLY_SENTINEL).first().waitFor()
+  if (replier) {
+    await hide(other)
+    await page.goto(`${origin}/messages/${first.id}`)
+    await page.locator('main h1').waitFor()
+  }
   await page.getByRole('button', { name: 'Cerrar', exact: true }).click()
   await page.getByRole('button', { name: 'Reabrir', exact: true }).waitFor()
 
@@ -79,7 +98,6 @@ async function scenario({ origin, browser, signIn, expectedTasks }) {
   await page.close({ runBeforeUnload: false })
   await closed
   const reader = await context.newPage()
-  await hide(page).catch(() => {}) // the page is gone: the unload already sent it
 
   // What the Editor reads.
   let summary
@@ -95,7 +113,7 @@ async function scenario({ origin, browser, signIn, expectedTasks }) {
 function check({ summary, bodies }, label) {
   const sp = summary.tasks.send_publish
   assert.ok(sp, `${label}: no send_publish task in the summary: ${JSON.stringify(summary.tasks)}`)
-  assert.equal(sp.completed, 1, `${label}: one send was published`)
+  assert.equal(sp.completed, 1, `${label}: one send was published: ${JSON.stringify(summary.tasks)} errors ${JSON.stringify(summary.errors)}`)
   assert.equal(sp.abandoned, 1, `${label}: one send was left unpublished`)
   assert.ok(sp.clicks.p50 >= 2, `${label}: sending and publishing take at least two clicks, and the summary says ${sp.clicks.p50}`)
   for (const stage of ['feedback', 'analysis', 'publish']) assert.ok(sp.stages_ms[stage].n >= 1 && sp.stages_ms[stage].p50 >= 0, `${label}: stage ${stage}: ${JSON.stringify(sp.stages_ms)}`)
@@ -118,7 +136,7 @@ describe('interface telemetry in a browser', () => {
   test('against the double server', async () => {
     const panel = await startPanel(Number(process.env.PANEL_TELEMETRY_PORT ?? 8975), { stepMs: 80 })
     cleanups.push(() => panel.stop())
-    const result = await scenario({ origin: panel.origin, browser: panel.browser, signIn: (page) => login(page, panel.origin, 'ana') })
+    const result = await scenario({ origin: panel.origin, browser: panel.browser, signIn: (page) => login(page, panel.origin, 'ana'), pick: (items) => items.find((m) => m.title.startsWith('Probar un resumen semanal')) ?? items[0] })
     check(result, 'double server')
   })
 
@@ -154,8 +172,20 @@ describe('interface telemetry in a browser', () => {
       await page.getByLabel('Correo').fill('ana@humo.test')
       await page.getByLabel('Contraseña').fill(password)
       await page.getByRole('button', { name: 'Entrar' }).click()
-      await page.locator('main').first().waitFor()
+      await page.getByRole('link', { name: /^Inicio$/ }).first().waitFor()
     }
-    check(await scenario({ origin, browser, signIn }), 'real server')
+    const replier = async (context) => {
+      const created = await fetch(`${origin}/api/members`, { method: 'POST', headers: { 'content-type': 'application/json', cookie: await cookieOf(context), 'x-team-request': 'panel' }, body: JSON.stringify({ email: 'beto@humo.test', name: 'Beto', password }) })
+      assert.ok(created.ok, `creating the second member: ${created.status} ${await created.text()}`)
+      const second = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'es-CL' })
+      const p = await second.newPage()
+      await p.goto(origin)
+      await p.getByLabel('Correo').fill('beto@humo.test')
+      await p.getByLabel('Contraseña').fill(password)
+      await p.getByRole('button', { name: 'Entrar' }).click()
+      await p.getByRole('link', { name: /^Inicio$/ }).first().waitFor()
+      return p
+    }
+    check(await scenario({ origin, browser, signIn, pick: (items) => items[0], replier }), 'real server')
   })
 })

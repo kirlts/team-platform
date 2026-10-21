@@ -162,6 +162,9 @@ export class UiTelemetry {
   private interactiveMs: number | undefined
   private renderStartedAt = 0
   private budget = new EventBudget()
+  private interactionAt: number | undefined
+  private changeAt: number | undefined
+  private changePending = false
   private teardown: Array<() => void> = []
 
   constructor(private deps: Deps) {}
@@ -193,12 +196,15 @@ export class UiTelemetry {
       this.teardown.push(() => target.removeEventListener(type, fn as EventListener, { capture }))
     }
     on(document, 'click', ((e: MouseEvent) => {
+      this.interacted()
       if (e.detail > 0) this.counters.clicks++ // a click from the keyboard has detail 0: it counts as a key press
     }) as never, true)
     on(document, 'pointerdown', (() => this.counters.pointers++) as never, true)
     on(document, 'keydown', ((e: KeyboardEvent) => {
+      this.interacted()
       if (!e.repeat) this.counters.keys++ // the key itself is never read
     }) as never, true)
+    this.watchChanges()
     this.watchScroll(on)
     on(window, 'error', (() => this.error('js')) as never)
     on(window, 'unhandledrejection', (() => this.error('promise')) as never)
@@ -221,6 +227,32 @@ export class UiTelemetry {
     this.armed = {}
     this.screen = null
     this.firstScreen = true
+  }
+
+  /** The person did something: the clock of «how long until the page showed anything» starts here. */
+  private interacted() {
+    this.interactionAt = this.deps.now()
+    this.changeAt = undefined
+  }
+
+  /**
+   * The first change to the page after an interaction, once it is painted, is the first feedback the person sees. One
+   * observer for the whole page records it; it reads no content, only that something changed.
+   */
+  private watchChanges() {
+    if (typeof MutationObserver === 'undefined' || typeof document === 'undefined') return
+    const observer = new MutationObserver(() => {
+      if (this.changePending) return
+      this.changePending = true
+      this.deps.afterPaint(() => {
+        this.changePending = false
+        const t = this.deps.now()
+        if (this.interactionAt !== undefined && this.changeAt === undefined) this.changeAt = t
+        if (this.open && this.open.feedbackAt === undefined && t >= this.open.startedAt) this.open.feedbackAt = t
+      })
+    })
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, characterData: true })
+    this.teardown.push(() => observer.disconnect())
   }
 
   /** A scroll gesture is a run of scroll events ending in a frame with none: no timer, the frame cadence decides. */
@@ -414,26 +446,17 @@ export class UiTelemetry {
       if (status === 'failed') this.endTask('failed')
     }
     if (!ok) return
-    if (verb === 'POST' && route === '/inputs/:id/publish' && this.open?.task === 'send_publish') this.deps.afterPaint(() => this.endTask('completed'))
+    if (verb === 'POST' && route === '/inputs/:id/publish' && this.open?.task === 'send_publish') this.endTask('completed') // at once: a frame later the page may already be gone
     if (verb === 'POST' && route === '/messages/:id/replies') this.completeSimple('reply', t0)
     if (verb === 'POST' && route === '/messages/:id/close') this.completeSimple('close', t0)
   }
 
-  private beginSend(t0: number) {
+  private beginSend(requested: number) {
     if (this.open) this.abandon() // a second send while one is open: the first never got published
-    this.open = { task: 'send_publish', startedAt: t0, from: this.armed.send_publish ?? { ...this.counters } }
-    // The first visible feedback is the first change to the page after the send: whatever it is, it is what the
-    // person sees first. It is observed, not asked of the component, so no component needs to know about this.
-    if (typeof MutationObserver === 'undefined' || typeof document === 'undefined') return
-    const task = this.open
-    const observer = new MutationObserver(() => {
-      observer.disconnect()
-      this.deps.afterPaint(() => {
-        if (this.open === task && task.feedbackAt === undefined) task.feedbackAt = this.deps.now()
-      })
-    })
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true, characterData: true })
-    this.teardown.push(() => observer.disconnect())
+    // The send began with the interaction that asked for it, a moment before the request left.
+    const startedAt = this.interactionAt !== undefined && this.interactionAt <= requested ? this.interactionAt : requested
+    const seen = this.changeAt !== undefined && this.changeAt >= startedAt ? this.changeAt : undefined
+    this.open = { task: 'send_publish', startedAt, from: this.armed.send_publish ?? { ...this.counters }, feedbackAt: seen }
   }
 
   /** The analysis of the open send is on screen (the job's `done` arrived or the input came back as proposed). */

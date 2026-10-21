@@ -63,13 +63,11 @@ export function Login() {
         <Button type="submit" variant="primary" disabled={pending}>
           {t('login.enter')}
         </Button>
-        {/* The foot of the card: the note about who creates the accounts, and an error takes its place without moving the card, which reserves two lines (J2-A-01, J3-A-03). */}
-        <div className="min-h-[2.9rem] text-sm">
-          <p id="login-error" role="alert" className="text-danger">
-            {error}
-          </p>
-          {!error && <p className="text-muted">{t('login.noAccount')}</p>}
-        </div>
+        <p className="text-sm text-muted">{t('login.noAccount')}</p>
+        {/* The error has its row at the foot of the card, always reserved, so it fills the row and does not move the card, and no gap opens between the fields and Entrar (J2-A-01, J3-A-03). Outside the labels, so it is not part of a field's name. */}
+        <p id="login-error" role="alert" className="-mt-2 min-h-[1.45rem] text-sm text-danger">
+          {error}
+        </p>
       </form>
     </main>
   )

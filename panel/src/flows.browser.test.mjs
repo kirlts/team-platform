@@ -216,7 +216,8 @@ describe('replies with media', () => {
       await page.locator('input[type=file]:not([capture])').setInputFiles([{ name: 'borrador.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF') }])
       await page.getByRole('button', { name: 'Responder', exact: true }).click()
       const row = page.getByRole('article').filter({ hasText: 'Adjunto el borrador' })
-      await row.getByRole('list', { name: 'Adjuntos' }).first().getByText('Documento').waitFor({ state: 'attached' })
+      // The tile of the file is the reply's media: one row of attachments, with the kind drawn in it (J3-A-25).
+      await row.getByRole('list', { name: 'Adjuntos' }).getByRole('link', { name: /borrador\.pdf/ }).waitFor()
     } finally {
       await context.close()
     }
@@ -351,7 +352,7 @@ async function withSummary(page, mine, areas = []) {
 }
 
 describe('insignia y prioridad (UD-028, UD-029)', () => {
-  test('the background of the Messages badge, the bell and the Home notice is that of the highest priority present, in all eight combinations and both themes', async () => {
+  test('the bell takes the background of the highest priority present, and the Messages badge and the Home notice carry it in the color of their shape, in all eight combinations and both themes (UD-029, UD-036)', async () => {
     for (const scheme of ['light', 'dark']) {
       for (let bits = 0; bits < 8; bits++) {
         const mine = { red: bits & 1 ? 2 : 0, yellow: bits & 2 ? 3 : 0, blue: bits & 4 ? 4 : 0 }
@@ -362,10 +363,8 @@ describe('insignia y prioridad (UD-028, UD-029)', () => {
           await login(page, origin, 'ana')
           await page.getByTestId('attention').waitFor()
           const fills = await probeFills(page)
-          const soft = await probeFills(page, 'soft')
-          assert.equal(new Set(Object.values(fills)).size, 3, 'las tres prioridades tienen fondos distintos')
-          assert.equal(new Set(Object.values(soft)).size, 3, 'las tres prioridades suaves tienen fondos distintos')
-          const top = mine.red ? 'red' : mine.yellow ? 'yellow' : mine.blue ? 'blue' : null
+                    assert.equal(new Set(Object.values(fills)).size, 3, 'las tres prioridades tienen fondos distintos')
+                    const top = mine.red ? 'red' : mine.yellow ? 'yellow' : mine.blue ? 'blue' : null
           const total = mine.red + mine.yellow + mine.blue
           const surfaces = {
             pestaña: page.getByRole('navigation', { name: 'Navegación' }).locator('[data-testid="messages-badge"]'),
@@ -377,7 +376,10 @@ describe('insignia y prioridad (UD-028, UD-029)', () => {
               continue
             }
             assert.equal(await badge.getAttribute('data-tone'), top, `${name}: prioridad ${top} (${scheme}, ${JSON.stringify(mine)})`)
-            assert.equal(await badge.evaluate((el) => getComputedStyle(el).backgroundColor), soft[top], `${name}: el fondo pintado es el suave de ${top} (${scheme}, ${JSON.stringify(mine)})`)
+            // Quiet (UD-036): no tinted fill; the priority is the color of the shape.
+            assert.equal(await badge.evaluate((el) => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)', `${name}: una marca callada no se rellena (${scheme}, ${JSON.stringify(mine)})`)
+            const shape = await badge.locator('svg').first().evaluate((el) => getComputedStyle(el).color)
+            assert.equal(shape, await page.evaluate((t) => { const p = document.createElement('i'); p.setAttribute('data-tone', t); p.setAttribute('data-weight', 'quiet'); const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); p.append(s); document.body.append(p); const c = getComputedStyle(s).color; p.remove(); return c }, top), `${name}: la forma lleva el color de ${top} (${scheme})`)
             if (name === 'pestaña') assert.equal((await badge.textContent()).trim(), String(total), `${name}: el número es el total`)
           }
           const bell = page.getByTestId('bell')
@@ -385,7 +387,7 @@ describe('insignia y prioridad (UD-028, UD-029)', () => {
             assert.equal(await bell.getAttribute('data-tone'), top, `campana: prioridad ${top}`)
             assert.equal(await bell.evaluate((el) => getComputedStyle(el).backgroundColor), fills[top], `campana: el fondo pintado es el de ${top} (${scheme})`)
             assert.match((await bell.textContent()).trim(), new RegExp(`${total}$`))
-            // One source of truth (J2-B-03): the bell is the only saturated fill on the screen; everything else is soft.
+            // One source of truth (J2-B-03): the bell is the only saturated fill on the screen; everything else is quiet.
             const weights = await page.evaluate(() => [...document.querySelectorAll('[data-tone]')].map((el) => el.getAttribute('data-weight') ?? 'solid'))
             assert.equal(weights.filter((w) => w === 'solid').length, 1, `un solo relleno saturado (${scheme}, ${JSON.stringify(mine)})`)
             // The bell lists exactly what it counts (J2-A-43).
@@ -541,7 +543,7 @@ describe('estados, teclado y filas', () => {
     try {
       await page.goto(`${origin}/messages`)
       await page.locator('main article').first().waitFor()
-      const xs = await page.evaluate(() => [...document.querySelectorAll('main article')].map((a) => Math.round(a.querySelector('.led').getBoundingClientRect().left)))
+      const xs = await page.evaluate(() => [...document.querySelectorAll('main article')].map((a) => Math.round((a.querySelector('.led') ?? a.querySelector('[data-testid="tone-mark"]')).getBoundingClientRect().left)))
       assert.ok(xs.length >= 3, 'hacen falta varias filas')
       // J1-A-56: the background orbit fades under the top bar and does not cross titles or buttons.
       assert.match(await page.evaluate(() => getComputedStyle(document.querySelector('svg[aria-hidden]')).maskImage), /gradient/)
@@ -652,6 +654,9 @@ describe('templates as a form (J1-A-32)', () => {
       await form.getByLabel('Descripción').fill('Una plantilla creada desde el formulario.')
       await form.getByRole('button', { name: 'Campo', exact: true }).click()
       await form.getByLabel('Rótulo del campo').fill('Qué se observó')
+      await form.getByRole('button', { name: /^Instrucciones al modelo:/ }).click()
+      await page.keyboard.type('Leer el texto y anotar lo observado.')
+      await page.keyboard.press('Enter')
       await form.getByRole('button', { name: 'Crear' }).click()
       await page.getByRole('button', { name: /^Nombre: Observación de prueba/ }).waitFor()
       const created = await (await page.request.get(`${origin}/api/areas/a-error/templates`)).json()

@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { Avatar } from '@/components/Avatar'
 import { EditableText } from '@/components/EditableText'
 import { FitList } from '@/components/FitList'
+import { FoldedText } from '@/components/FoldedText'
 import { FormDialog } from '@/components/FormDialog'
 import { LoadState } from '@/components/LoadState'
 import { Page } from '@/components/Page'
@@ -90,8 +91,6 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
   const save = useSaveMember()
   const errorText = useErrorText()
   const [problem, setProblem] = useState<string | null>(null)
-  const [more, setMore] = useState(false)
-  const paragraphs = (member.profile ?? '').split(/\n\s*\n/).filter((x) => x.trim()).length
   const roleLabel: Record<Role, string> = { member: t('team.roleMember'), editor: t('team.roleEditor') }
   const canEditPeople = viewerIsEditor
 
@@ -140,24 +139,9 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
         {/* Active is the normal state and has no tag: only the exception is marked (J1-A-41). */}
         {!member.active && <Badge tone="outline">{t('team.inactive')}</Badge>}
       </div>
-      <div className="flex min-w-0 flex-col items-start gap-1 text-sm">
-        {/* The profile is read in its first paragraph and the rest is one click away, whole and not cut (J3-A-42, UD-016). Editing always shows all of it. */}
-        <EditableText
-          value={member.profile ?? ''}
-          label={t('team.profileOf', { name: member.name })}
-          multiline
-          prose
-          canEdit={self}
-          placeholder={t('team.noProfile')}
-          render={more ? undefined : (v) => <span className="prose-block block whitespace-pre-wrap break-words">{v.split(/\n\s*\n/)[0]}</span>}
-          validate={(v) => (v.length > PROFILE_MAX ? t('form.maxLength', { n: PROFILE_MAX }) : null)}
-          onSave={(v) => change('profile', v)}
-        />
-        {paragraphs > 1 && (
-          <button type="button" aria-expanded={more} onClick={() => setMore((v) => !v)} className="text-xs font-semibold text-accent-deep hover:underline">
-            {more ? t('team.profileLess') : t('team.profileMore')}
-          </button>
-        )}
+      <div className="min-w-0 text-sm">
+        {/* The profile is read in its first paragraph and the rest is one click away, whole and not cut (J3-A-42, UD-016). */}
+        <FoldedText value={member.profile ?? ''} label={t('team.profileOf', { name: member.name })} canEdit={self} placeholder={t('team.noProfile')} validate={(v) => (v.length > PROFILE_MAX ? t('form.maxLength', { n: PROFILE_MAX }) : null)} onSave={(v) => change('profile', v)} />
       </div>
       <div className="flex min-w-0 flex-col items-end gap-1">
         {canEditPeople && !self && (

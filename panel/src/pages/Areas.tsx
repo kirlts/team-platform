@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { EditableText } from '@/components/EditableText'
 import { FitList } from '@/components/FitList'
+import { FoldedText } from '@/components/FoldedText'
 import { FormDialog } from '@/components/FormDialog'
 import { Page } from '@/components/Page'
 import { PageHeader } from '@/components/PageHeader'
@@ -116,7 +117,7 @@ function AreaRow({ area, selected, onSelect }: { area: Area; selected: boolean; 
         <EditableText value={area.title} label={t('areas.fieldTitle')} validate={nameRule(t)} onSave={(v) => change('title', v)} displayClassName="font-semibold" />
         {/* On a phone only the chosen area shows its description, so the templates under the list stay on the first screen (J1-A-38). */}
         <div className={cn(!selected && 'max-md:hidden')}>
-          <EditableText value={area.description} label={t('areas.fieldDescription')} multiline validate={descriptionRule(t)} onSave={(v) => change('description', v)} displayClassName="text-xs text-muted" />
+          <FoldedText value={area.description} label={t('areas.fieldDescription')} validate={descriptionRule(t)} onSave={(v) => change('description', v)} displayClassName="text-xs text-muted" />
         </div>
       </div>
       {/* Fixed-width column, centered on the row: what is pending lines up row by row, and an area with nothing pending says nothing instead of «0 pendientes» (J3-A-33). A count is text; the colors are for what changes state (J1-A-34). */}
@@ -251,16 +252,16 @@ function TemplateRow({ template, areaId, onRemove }: { template: Template; areaI
       </dl>
       {/* The instructions can be as long as a method section: they fold, and the window below is where they are edited. */}
       <details className="group text-sm">
-        <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-xs font-semibold text-muted hover:text-fg [&::-webkit-details-marker]:hidden">
+        <summary data-repeat-ok="per-template" className="inline-flex cursor-pointer list-none items-center gap-1 text-xs font-semibold text-muted hover:text-fg [&::-webkit-details-marker]:hidden">
           <ChevronRight size={13} aria-hidden className="transition-transform group-open:rotate-90" />
           {t('templates.instructions')}
         </summary>
-        <div data-lane="template-instructions" className="scroll-thin mt-2 max-h-48 overflow-y-auto pr-1">
+        <div data-lane="template-instructions" data-repeat-ok="per-template" className="scroll-thin mt-2 max-h-48 overflow-y-auto pr-1">
           <Markdown source={instructions} />
         </div>
       </details>
       <div>
-        <Button size="sm" onClick={() => setShowContent(true)}>
+        <Button size="sm" data-repeat-ok="per-template" onClick={() => setShowContent(true)}>
           {t('areas.content')}
         </Button>
       </div>

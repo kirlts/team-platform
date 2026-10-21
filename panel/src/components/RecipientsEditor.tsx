@@ -11,6 +11,7 @@ export function RecipientsEditor({ ids, onChange, max = 3 }: { ids: string[]; on
   const shown = ids.slice(0, max)
   return (
     <ul aria-label={t('recipients.label')} className="flex flex-wrap items-center gap-1.5 text-xs">
+      {ids.length > 0 && <li className="text-muted">{t('recipients.to')}</li>}
       {shown.map((id) => (
         <li key={id} data-repeat-ok="person" className="group/chip inline-flex min-h-6 max-w-full items-center gap-1 rounded-full border border-line-strong bg-glass-strong py-0.5 pl-0.5 pr-0.5 leading-tight text-fg">
           <Avatar name={memberName(id) || '?'} size={18} />

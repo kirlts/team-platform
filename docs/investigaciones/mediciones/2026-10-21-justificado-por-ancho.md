@@ -39,6 +39,6 @@ Con el cuerpo de un mensaje (17 px) la referencia sube a 19,0 px y el ancho esta
 
 ## Consecuencias
 
-- Una pantalla de 390 px da a un párrafo unos 290 a 330 px: queda a la izquierda. A 1440 px la ficha de un mensaje daba 394 px a su cuerpo (5 fr de 12); con 6 fr de 12 pasa a unos 508 px y sigue justificado.
+- Una pantalla de 390 px da a un párrafo unos 290 a 330 px: queda a la izquierda. A 1440 px la ficha de un mensaje daba 394 px a su cuerpo (columnas de 5 y 7 partes de 12); con columnas de 0,9 y 1 partes el cuerpo mide unos 480 px y las respuestas unos 480 px, y siguen justificados.
 - `panel/src/lib/prose-width.ts` guarda el valor y lo cita; `panel/src/prose-block.test.ts` falla si el valor o UD-034 se mueven por separado, y `flows-ronda3a.browser.test.mjs` mide en el navegador los huecos de los párrafos reales a 390 px y a 1440 px.
 - Límite: el corpus son 22 párrafos de ejemplo en español. Un párrafo con una palabra muy larga puede abrir un hueco mayor a cualquier ancho; la regla acota el caso común, no lo elimina.

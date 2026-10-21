@@ -252,7 +252,6 @@ export const es419 = {
   'detail.missing': 'El mensaje no existe',
   'detail.title': 'Título',
   'detail.body': 'Texto',
-  'replies.closed': 'Mensaje cerrado',
   'replies.yours': 'Lo enviaste tú',
   'replies.title': 'Respuestas',
   'replies.none': 'Sin respuestas',

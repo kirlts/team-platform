@@ -19,7 +19,7 @@ const active = 'bg-selected font-semibold shadow-[inset_4px_0_0_var(--color-acce
 function Item({ to, icon, children, end, onNavigate, badge }: { to: string; icon: ReactNode; children: ReactNode; end?: boolean; onNavigate?: () => void; badge?: ReactNode }) {
   return (
     // A row that carries a badge keeps the height it has with one, so the badge arriving does not move what is below (J2-A-47).
-    <NavLink to={to} end={end} onClick={onNavigate} className={({ isActive }) => cn(row, badge && 'min-h-[46px]', isActive && active)}>
+    <NavLink to={to} end={end} onClick={onNavigate} className={({ isActive }) => cn(row, badge && 'min-h-[46px] md:min-h-[46px]', isActive && active)}>
       {icon}
       <span className="min-w-0 flex-1 break-words leading-tight">{children}</span>
       {badge}
@@ -97,7 +97,7 @@ export function Sidebar({ onNavigate, onLogout }: { onNavigate?: () => void; onL
         {t('nav.team')}
       </Item>
 
-      {/* Conexiones is one destination, listed in its page: opening it moves nothing below it, and Configuración and Cerrar sesión keep their place (J3-A-46). */}
+      {/* Conexiones is one destination, listed in its page: opening it moves nothing below it, and the settings and the sign-out keep their place (J3-A-46). */}
       {editor && (
         <Item to="/connections" icon={<Plug size={16} aria-hidden />} onNavigate={onNavigate}>
           {t('nav.connections')}

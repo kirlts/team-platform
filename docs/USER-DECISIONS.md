@@ -468,7 +468,7 @@ RULES:
 - Guionizar: Martín lo descartó en UD-022.
 **Consecuencias:**
 - `panel/src/lib/prose-width.ts` (`JUSTIFY_MIN_REM = 29.2`) marca con `data-wide` cada `.prose-block` que mide eso o más; la hoja de estilos justifica sólo `.prose-block[data-wide]` y alinea a la izquierda el resto.
-- La columna del mensaje en la ficha pasa de 5 a 6 de 12 para que su cuerpo siga justificado a 1440 px.
+- Las dos columnas de la ficha pasan de 5 y 7 partes de 12 a 0,9 y 1 partes: a 1440 px el cuerpo del mensaje (394 px antes) y el texto de las respuestas miden más de 438 px y siguen justificados.
 - Prueba del navegador: a 390 px ningún bloque se justifica y a 1440 px los anchos desde 438 px sí, con el hueco medido en los párrafos reales.
 **Condiciones de reversión:** Si Martín prefiere justificar a cualquier ancho, se quita la condición `data-wide` de la hoja de estilos y `watchProse`; si cambia la tipografía o el tamaño de la raíz, se repite la medición.
 

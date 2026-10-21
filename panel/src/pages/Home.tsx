@@ -26,6 +26,7 @@ import { useEventsSnapshot } from '@/lib/events'
 import { useMe, useMessages, useSummary, useTray } from '@/lib/queries'
 import { uploadInput } from '@/lib/upload'
 import { useDesktop } from '@/lib/useDesktop'
+import { cn } from '@/lib/utils'
 
 /** One send that is going up to the server: what was sent, how far it is and why it failed, if it did. */
 interface Upload {
@@ -383,7 +384,7 @@ function Attention() {
                 to={areaMessagesPath(a.area_id)}
                 aria-label={t('home.areaOpen', { title: areaTitle(a.area_id), n: a.open })}
                 data-testid="area-pending"
-                className="inline-flex min-h-6 max-w-[16rem] items-center gap-1.5 rounded-2xl border border-line-strong px-2 py-0.5 text-xs font-semibold leading-tight hover:bg-glass-edge"
+                className="inline-flex min-h-6 max-w-[16rem] items-center gap-1.5 rounded-2xl border border-line-strong px-2 py-px text-xs font-semibold leading-tight hover:bg-glass-edge"
               >
                 <span className="min-w-0 break-words">{areaTitle(a.area_id)}</span>
                 <NotifyBadge counts={areaPendingCounts(summary, a.area_id)} size="plain" />
@@ -443,9 +444,16 @@ function AreaChips({ chips }: { chips: ReactNode[] }) {
           <li key={i}>{chip}</li>
         ))}
       </ul>
-      {(hidden > 0 || (open && fitting !== null && fitting < chips.length)) && (
-        <button type="button" aria-expanded={open} aria-label={open ? t('home.fewerAreas') : t('home.moreAreasAria', { n: hidden })} onClick={() => setOpen((v) => !v)} className="inline-flex min-h-6 shrink-0 items-center rounded-full border border-line-strong px-2 text-xs font-semibold hover:bg-glass-edge">
-          {open ? t('home.fewerAreas') : t('home.moreAreas', { n: hidden })}
+      {/* The button takes its room while the chips are measured (hidden, so it is not seen or reached), otherwise it would shrink the row after the count and push a chip to a second one. */}
+      {(fitting === null || hidden > 0 || (open && fitting < chips.length)) && (
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-label={open ? t('home.fewerAreas') : t('home.moreAreasAria', { n: hidden })}
+          onClick={() => setOpen((v) => !v)}
+          className={cn('inline-flex min-h-6 shrink-0 items-center rounded-full border border-line-strong px-2 text-xs font-semibold hover:bg-glass-edge', fitting === null && 'invisible')}
+        >
+          {open ? t('home.fewerAreas') : t('home.moreAreas', { n: Math.max(hidden, 1) })}
         </button>
       )}
     </div>

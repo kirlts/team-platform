@@ -36,7 +36,7 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
         rows={rows}
         rowKey={(r) => r.id}
         renderRow={(r) => (
-          <article className="flex gap-3 border-b border-line px-4 py-3 last:border-b-0">
+          <article className="flex gap-3 border-b border-line px-3 py-3 last:border-b-0">
             <Avatar name={memberName(r.author_id) || '?'} size={28} />
             <div className="flex min-w-0 flex-1 flex-col gap-1">
               <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted">
@@ -66,7 +66,7 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
       ) : (
         // Without the form, the reason: a missing control that says nothing looks like a fault (J3-A-17).
         <p role="status" className="text-sm text-muted">
-          {message.status === 'closed' ? t('replies.closed') : t('replies.yours')}
+          {message.status === 'closed' ? t('status.closed') : t('replies.yours')}
         </p>
       )}
     </section>

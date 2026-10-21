@@ -138,7 +138,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
         </p>
       )}
 
-      <div className="grid min-h-0 flex-1 md:grid-rows-[minmax(0,1fr)] gap-x-10 gap-y-4 md:grid-cols-[minmax(0,6fr)_minmax(0,6fr)]">
+      <div className="grid min-h-0 flex-1 md:grid-rows-[minmax(0,1fr)] gap-x-8 gap-y-4 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)]">
         <div className="flex min-h-0 min-w-0 flex-col gap-3">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted">
             {canEdit ? (

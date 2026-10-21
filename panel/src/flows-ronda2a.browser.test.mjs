@@ -78,15 +78,17 @@ describe('sign-in and navigation', () => {
     }
   })
 
-  test('the sidebar connections navigate and mark the chosen one (J2-A-34)', async () => {
+  test('Conexiones is one destination of the sidebar, listing each connector once (J2-A-34, J3-A-45)', async () => {
     const { page, context } = await session()
     try {
-      await page.getByRole('button', { name: 'Desplegar conexiones' }).click()
-      await page.getByRole('link', { name: 'MCP' }).click()
-      await page.waitForURL(/\/connections\/mcp$/)
+      await page.getByRole('link', { name: 'Conexiones' }).click()
+      await page.waitForURL(/\/connections$/)
       await page.getByRole('heading', { name: 'Conexiones', level: 1 }).waitFor()
-      assert.equal(await page.getByRole('button', { name: /^MCP/ }).getAttribute('aria-current'), 'true')
-      assert.equal((await page.getByText('No disponible todavía').count()) >= 5, true, 'cada conexión dice su estado')
+      for (const name of ['API', 'MCP', 'Correo', 'WhatsApp', 'GitHub']) await page.getByText(name, { exact: true }).first().waitFor()
+      // The address of a connector still opens the view with it marked.
+      await page.goto(`${origin}/connections/mcp`)
+      await page.getByRole('heading', { name: 'Conexiones', level: 1 }).waitFor()
+      assert.equal(await page.locator('main [aria-current="true"]').innerText(), 'MCP')
     } finally {
       await context.close()
     }
@@ -130,14 +132,19 @@ describe('message list and home', () => {
   test('the status has no pill, the recipients say «para» and «y N más», with no spheres (J2-A-05, J2-A-12)', async () => {
     const { page, context } = await session()
     try {
-      await page.goto(`${origin}/messages`)
+      // A row that does not affect me tells its state with the light; one that does tells its priority instead (J3-A-18).
+      // The data is shared with the tests before this one: close a message here so there is a closed row to read.
+      await page.request.post(`${origin}/api/messages/${(await messageByTitle(page, 'Probar un resumen')).id}/close`, { headers: csrf })
+      await page.goto(`${origin}/messages?f=status:eq:closed`)
       const row = page.locator('main article').first()
       await row.waitFor()
       const bg = await row.locator('.led').first().evaluate((el) => getComputedStyle(el).backgroundColor)
       assert.equal(bg, 'rgba(0, 0, 0, 0)', 'el estado de la fila sigue siendo una píldora de color')
-      assert.ok((await row.getByText('para', { exact: true }).count()) === 1, 'falta la palabra «para» ante los destinatarios')
-      assert.ok((await row.getByText(/^y \d+ más$/).count()) === 1, 'el pliegue de destinatarios no dice qué es')
-      const spheres = await row.evaluate((el) => el.querySelectorAll('ul[aria-label="Destinatarios"] .orb').length)
+      await page.goto(`${origin}/messages`)
+      const many = page.locator('main article').filter({ hasText: /y \d+ más/ }).first()
+      assert.ok((await many.getByText('para', { exact: true }).count()) === 1, 'falta la palabra «para» ante los destinatarios')
+      assert.ok((await many.getByText(/^y \d+ más$/).count()) === 1, 'el pliegue de destinatarios no dice qué es')
+      const spheres = await many.evaluate((el) => el.querySelectorAll('ul[aria-label="Destinatarios"] .orb').length)
       assert.equal(spheres, 0, 'cada destinatario repite una esfera')
     } finally {
       await context.close()
@@ -152,8 +159,10 @@ describe('message list and home', () => {
       const message = page.getByRole('region', { name: 'Últimos mensajes' }).locator('article').first()
       await reply.waitFor()
       const size = (loc) => loc.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
-      assert.ok((await size(reply.locator('h3'))) < (await size(reply.locator('p').first())), 'el título del mensaje todavía manda sobre la respuesta')
+      // Both lists read in the same order, the heading over its support line (J3-A-08); in replies the heading is the reply.
+      assert.ok((await size(reply.locator('h3'))) > (await size(reply.locator('p').first())), 'en Últimas respuestas el encabezado lidera')
       assert.ok((await size(message.locator('h3'))) > (await size(message.locator('p').first())), 'en Últimos mensajes el título lidera')
+      assert.match(await reply.locator('p').first().innerText(), /^En «/, 'la línea de apoyo nombra el mensaje')
     } finally {
       await context.close()
     }
@@ -177,13 +186,15 @@ describe('message list and home', () => {
     try {
       await page.goto(`${origin}/messages`)
       await page.getByRole('button', { name: 'Filtro', exact: true }).click()
-      await page.getByRole('menuitemcheckbox', { name: 'Estado' }).click()
+      await page.getByRole('menuitem', { name: 'Estado' }).hover()
+      await page.getByRole('menuitemradio', { name: 'Abierto' }).click()
       await page.keyboard.press('Escape')
       const button = page.getByRole('button', { name: 'Filtro, 1 aplicado' })
       await button.waitFor()
       await button.click()
-      assert.equal(await page.getByRole('menuitemcheckbox', { name: /^Estado/ }).getAttribute('aria-checked'), 'true')
-      assert.equal(await page.getByRole('menuitemcheckbox', { name: /^Área/ }).getAttribute('aria-checked'), 'false')
+      // The menu names the filter that is on with its value; the others carry none.
+      await page.getByRole('menuitem', { name: 'Estado: Abierto' }).waitFor()
+      assert.equal(await page.getByRole('menuitem', { name: 'Área', exact: true }).count(), 1)
     } finally {
       await context.close()
     }
@@ -345,6 +356,12 @@ describe('areas, templates and settings', () => {
       await page.goto(`${origin}/areas/a-error`)
       await page.getByRole('region', { name: 'Plantillas' }).getByRole('button', { name: 'Plantilla', exact: true }).click()
       const dialog = page.getByRole('dialog')
+      // It starts empty, with no orphan headings (J3-A-36), and what is written shows rendered, not as hash marks.
+      await dialog.getByText('Sin campos').waitFor()
+      assert.ok(!(await dialog.innerText()).includes('## '), 'se ve Markdown crudo')
+      await dialog.getByRole('button', { name: /^Instrucciones al modelo:/ }).click()
+      await page.keyboard.type('## Método\n\nLeer el texto.')
+      await page.keyboard.press('Enter')
       await dialog.getByRole('heading', { name: 'Método' }).waitFor()
       assert.ok(!(await dialog.innerText()).includes('## '), 'se ve Markdown crudo')
     } finally {
@@ -365,6 +382,8 @@ describe('areas, templates and settings', () => {
       await page.keyboard.press('Escape')
       const weights = await page.locator('section[aria-current], section').filter({ hasText: /pendiente/ }).evaluateAll((els) => els.map((el) => [...el.querySelectorAll('span')].filter((s) => /pendiente/.test(s.textContent)).map((s) => getComputedStyle(s).fontWeight + getComputedStyle(s).color).join()))
       assert.equal(new Set(weights.filter(Boolean)).size, 1, `los pendientes no pesan igual: ${weights.join(' | ')}`)
+      // An area with nothing pending says nothing instead of «0 pendientes» (J3-A-33).
+      assert.equal(await page.getByText(/^0 pendientes$/).count(), 0)
     } finally {
       await context.close()
     }
@@ -486,7 +505,9 @@ describe('states', () => {
       assert.ok(body > field && field > meta, `texto ${body}, campo ${field}, dato ${meta}`)
       const chip = await page.getByRole('list', { name: 'Destinatarios' }).locator('li').first().evaluate((el) => getComputedStyle(el).backgroundColor)
       const state = await page.locator('.led').first().evaluate((el) => getComputedStyle(el).backgroundColor)
-      assert.notEqual(chip, state, 'los chips de personas y el estado comparten relleno')
+      // The state is the light and the word, with no fill at all (J2-A-05); the chips of people keep their own.
+      assert.equal(state, 'rgba(0, 0, 0, 0)', 'el estado vuelve a ser una píldora')
+      assert.ok(chip !== undefined)
       const mark = await page.getByRole('link', { name: /Team$/i }).first().evaluate((el) => getComputedStyle(el.firstElementChild).fontWeight)
       assert.ok(Number(mark) <= 600, `la marca pesa ${mark}`)
     } finally {

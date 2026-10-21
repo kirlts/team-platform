@@ -252,7 +252,6 @@ export const en: Record<MessageKey, Message> = {
   'detail.missing': 'The message does not exist',
   'detail.title': 'Title',
   'detail.body': 'Text',
-  'replies.closed': 'Message closed',
   'replies.yours': 'You sent it',
   'replies.title': 'Replies',
   'replies.none': 'No replies',

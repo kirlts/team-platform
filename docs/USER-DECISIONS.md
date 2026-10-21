@@ -977,6 +977,19 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 **Consecuencias:** `panel/src/flows-ronda5-respuestas.browser.test.mjs` (12 pruebas), `panel/src/components/MediaIcon.test.tsx` y `src/domain/attachments.test.js`.
 **Condiciones de reversión:** Si el dueño quiere «Cerrar» a secas, se cambian `reply.close` y `reply.reopen` en los catálogos. Si quiere el aviso en teléfono, se quita la condición `desktop` de `CloseMessage.tsx`.
 
+
+## [UD-220] Equipo y Conexiones explican con texto emergente, no con texto visible; el desplegable de Inicio conserva su alto mínimo
+
+**Fecha:** 2026-10-21
+**Contexto:** La ronda 5 de jueces pidió que los roles «Editor» y «Miembro» y las conexiones «API», «MCP» y «Correo» dijeran qué son, y vio 120 px vacíos bajo el análisis en el desplegable de envío. UD-122 admite texto de ayuda visible sólo en Configuración; UD-037 fija las conexiones como un nombre cada una, apagadas y con su razón en el título; UD-110 pide que el desplegable mida lo que muestra.
+**Decisión:** Decisión de la sesión, tomada por ese encargo; Martín no la dijo con estas palabras y puede revertirla. (1) En Equipo el chip de rol lleva un texto emergente y su nombre accesible incluye lo que permite el rol (UD-007): «Envía mensajes y responde» y «Administra áreas, plantillas, equipo y conexiones». (2) En Conexiones cada fila lleva un texto emergente de una línea; no se agrega texto visible. (3) La fila de Conexiones no gana flecha, interruptor ni acción: UD-037 descartó «una acción por conector» porque ningún conector existe, y la vista vacía bajo cinco filas es lo que esa decisión deja. (4) El desplegable de envío conserva su alto mínimo de 20 rem aunque deje una banda vacía bajo un original corto: lo exige H-703 (salto de 247 px de severidad 4) y H-730 ya registró que los dos hallazgos no se cumplen a la vez. (5) Un envío de sólo texto dice «Enviando» y no «Subiendo» (el rótulo sigue a lo que viaja). (6) En teléfono, con el resultado publicado, el original se lee como su primer párrafo con «Ver más». (7) La repetición del título en el cuerpo de la tarjeta publicada no se toca: el cuerpo lo escribe el modelo, cuyo mensaje de sistema ya dice que no empiece repitiendo el título (`FINAL_REMINDER` en `src/analyze/prompts-en.js`), y en el servidor de ejemplo lo copia del texto enviado.
+**Alternativas descartadas:**
+- Texto visible bajo cada rol en Equipo: contradice la regla de ninguna ayuda por omisión fuera de Configuración.
+- Una columna «Qué permite» en Equipo: repite en cada fila lo que dos roles explican.
+- Una acción por conexión: UD-037.
+- Quitar el alto mínimo del desplegable: mide 179 px en la cola y reaparece el salto de H-703 (la prueba de J3-B-04 falló con ese cambio).
+**Consecuencias:** `panel/src/flows-ronda5-resto.browser.test.mjs` (13 pruebas, todas fallan sobre el código anterior). En teléfono los textos emergentes no se ven con el dedo; el nombre accesible sí lo dice.
+**Condiciones de reversión:** Si el dueño quiere los roles explicados a la vista, se agrega una línea impersonal bajo el chip y UD-122 se enmienda para Equipo; si prefiere el desplegable sin alto mínimo, se quita `md:min-h-[20rem]` de `SendDrawer.tsx` y se enmienda H-703.
 ## [UD-210] Cada cifra de pendientes dice su alcance por su nombre, y las dos listas de Inicio nombran igual su filtro
 
 **Fecha:** 2026-10-21

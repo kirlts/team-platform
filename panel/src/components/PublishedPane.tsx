@@ -29,7 +29,7 @@ export function PublishedPane({ input }: { input: InputRecord }) {
   const ids = input.message_ids ?? input.messages?.map((m) => m.id) ?? []
   return (
     <section aria-label={t('analysis.title')} data-testid="published-pane" className="@container flex min-h-0 min-w-0 flex-col gap-2">
-      <div className="flex min-h-7 flex-wrap items-center gap-x-3 gap-y-1">
+      <div className="flex min-h-8 flex-wrap items-center gap-x-3 gap-y-1">
         <h2>{t('analysis.title')}</h2>
         <AiMark />
         <Badge tone="neutral" data-testid="published-state">{t('tray.state.published')}</Badge>

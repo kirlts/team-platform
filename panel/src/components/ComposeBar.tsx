@@ -113,7 +113,7 @@ export function ComposeBar({ onSubmit, problem }: { onSubmit: (draft: SendDraft)
                 send()
               }
             }}
-            className="block max-h-48 min-h-[3.5rem] w-full min-w-0 resize-none bg-transparent text-base placeholder:text-faint focus-visible:outline-none md:min-h-[3.5rem] [@media(min-height:800px)]:md:min-h-[4.5rem]"
+            className="block max-h-[8lh] min-h-[3.5rem] w-full min-w-0 resize-none bg-transparent text-base placeholder:text-faint focus-visible:outline-none md:min-h-[3.5rem] [@media(min-height:800px)]:md:min-h-[4.5rem]"
           />
         )}
       </div>

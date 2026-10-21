@@ -28,7 +28,7 @@ export function ProviderSettings() {
         <SettingHint id="hint-providers">{t('hint.providers')}</SettingHint>
       </div>
       <div className="flex flex-col gap-1">
-        <h3 className="text-sm">{t('providers.slots')}</h3>
+        <h3 className="border-b border-line pb-1 text-sm font-normal text-muted">{t('providers.slots')}</h3>
         {settings.data && connections.data ? (
           <ul className="flex flex-col">
             {SLOTS.map((slot) => {
@@ -42,7 +42,7 @@ export function ProviderSettings() {
       </div>
       <div className="flex flex-col gap-1">
         <div className="flex flex-col gap-0.5">
-          <h3 className="text-sm">{t('providers.connections')}</h3>
+          <h3 className="border-b border-line pb-1 text-sm font-normal text-muted">{t('providers.connections')}</h3>
           <SettingHint id="hint-connections">{t('hint.connections')}</SettingHint>
         </div>
         <ProviderConnections />
@@ -111,7 +111,7 @@ function SlotRow({ slot, saved }: { slot: ProviderSlot; saved: ProviderSetting }
   return (
     <li data-slot={slot} role="group" aria-label={slotName} className="flex flex-col gap-3 border-t border-line py-3 first:border-t-0">
       <div className="flex flex-col gap-0.5">
-        <h3 className="text-sm">{slotName}</h3>
+        <h4 className="text-sm font-semibold">{slotName}</h4>
         <SettingHint id={hintId}>{t(`hint.slot.${slot}` as MessageKey)}</SettingHint>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">

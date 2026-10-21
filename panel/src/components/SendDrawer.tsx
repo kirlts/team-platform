@@ -13,7 +13,7 @@ type ReviewProps = Parameters<typeof ReviewPane>[0]
  * The drawer under the bar of Inicio (mockup «desplegable dinámico»): it opens by itself when something is sent and shows
  * that send where the person is looking, the original on the left and what the model made of it on the right, without another click
  * (UD-046). With several sends in a row (UD-025) it shows the current one and a compact selector of the others, in the same place.
- * It is a block of the page and not a window: it is as tall as what it shows (at least 20 rem) and, with it open, the page scrolls (UD-110, which amends UD-017).
+ * It is a block of the page and not a window: it is as tall as what it shows (at least 20 rem: the floor that keeps its height from the queue to the proposal, H-703, J3-B-04; the blank band it leaves under a short original is the price H-730 recorded) and, with it open, the page scrolls (UD-110, which amends UD-017).
  */
 export function SendDrawer({ items, selectedId, onSelect, review }: { items: readonly TrayItem[]; selectedId: string | undefined; onSelect: (id: string) => void; review: Omit<ReviewProps, 'inputId'> }) {
   const t = useT()
@@ -35,6 +35,8 @@ export function SendDrawer({ items, selectedId, onSelect, review }: { items: rea
 function UploadPane({ upload }: { upload: PendingUpload }) {
   const t = useT()
   const percent = Math.round(upload.progress * 100)
+  // A send of text alone has nothing to upload: it is being sent (the wording follows what travels).
+  const sending = upload.names.length === 0
   return (
     <div className="grid min-h-0 flex-1 gap-3 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:grid-rows-[minmax(0,1fr)]">
       <OriginalFrame>
@@ -50,7 +52,9 @@ function UploadPane({ upload }: { upload: PendingUpload }) {
         )}
       </OriginalFrame>
       <section aria-label={t('analysis.title')} className={cn('ai-surface flex min-h-0 min-w-0 flex-col gap-3 self-start p-3 pl-4 md:w-full')}>
-        <h2>{t('analysis.title')}</h2>
+        <div className="flex min-h-8 items-center gap-2">
+          <h2>{t('analysis.title')}</h2>
+        </div>
         {upload.error ? (
           <>
             <p role="alert" className="rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">
@@ -68,10 +72,10 @@ function UploadPane({ upload }: { upload: PendingUpload }) {
         ) : (
           <div data-ui-stage="progress" className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2 text-sm">
-              <span>{t('tray.state.uploading')}</span>
+              <span>{t(sending ? 'tray.state.sending' : 'tray.state.uploading')}</span>
               {percent > 0 && <span className="tabular-nums text-muted">{percent} %</span>}
             </div>
-            <Meter percent={percent} label={t('compose.upload')} className="h-2.5" />
+            <Meter percent={percent} label={t(sending ? 'compose.sending' : 'compose.upload')} className="h-2.5" />
           </div>
         )}
       </section>

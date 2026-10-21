@@ -65,7 +65,7 @@ export function Team() {
               <span>{t('team.member')}</span>
               <span>{t('team.role')}</span>
               <span>{t('team.profile')}</span>
-              <span />
+              <span>{editor ? t('team.actions') : null}</span>
             </div>
           }
           renderRow={(m) => <MemberRow member={m} self={m.id === me?.id} viewerIsEditor={editor} profileOpen={opened === m.id} onProfileOpen={(open) => setOpened(open ? m.id : undefined)} />}
@@ -95,6 +95,8 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
   const errorText = useErrorText()
   const [problem, setProblem] = useState<string | null>(null)
   const roleLabel: Record<Role, string> = { member: t('team.roleMember'), editor: t('team.roleEditor') }
+  /** What each role allows (UD-007), said on hover and to a screen reader and not as visible text: Equipo has no help text by default. */
+  const roleHint: Record<Role, string> = { member: t('team.roleMemberHint'), editor: t('team.roleEditorHint') }
   const canEditPeople = viewerIsEditor
 
   /** Each save is an operation undone with the previous value. */
@@ -126,18 +128,24 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
       <div className="flex min-w-0 flex-col items-start gap-1 max-md:flex-row max-md:flex-wrap max-md:items-center max-md:gap-x-3 max-md:self-center">
         {canEditPeople && !self ? (
           <DropdownMenu>
-            <DropdownMenuTrigger aria-label={t('team.roleOf', { name: member.name })} className="inline-flex rounded-full hover:bg-hover">
+            <DropdownMenuTrigger aria-label={`${t('team.roleOf', { name: member.name })}: ${roleLabel[member.role]}. ${roleHint[member.role]}`} title={roleHint[member.role]} className="inline-flex rounded-full hover:bg-hover">
               <Badge tone={member.role === 'editor' ? 'accent' : 'neutral'}>{roleLabel[member.role]}</Badge>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="min-w-32">
               <DropdownMenuRadioGroup value={member.role} onValueChange={(role) => void change('role', role as Role)}>
-                <DropdownMenuRadioItem value="member">{roleLabel.member}</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="editor">{roleLabel.editor}</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="member" title={roleHint.member}>
+                  {roleLabel.member}
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="editor" title={roleHint.editor}>
+                  {roleLabel.editor}
+                </DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         ) : (
-          <Badge tone={member.role === 'editor' ? 'accent' : 'neutral'}>{roleLabel[member.role]}</Badge>
+          <Badge tone={member.role === 'editor' ? 'accent' : 'neutral'} title={roleHint[member.role]}>
+            {roleLabel[member.role]}
+          </Badge>
         )}
         {/* Active is the normal state and has no tag: only the exception is marked (J1-A-41). */}
         {!member.active && <Badge tone="outline">{t('team.inactive')}</Badge>}
@@ -149,7 +157,7 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
       {/* On a phone the cell dissolves: the action shares the row of the role, on the right edge, and the failure takes its own row below the profile. */}
       <div className="flex min-w-0 flex-col items-end gap-1 max-md:contents">
         {canEditPeople && !self && (
-          <Button size="sm" variant="ghost" className="text-xs font-normal text-muted hover:text-danger max-md:col-start-2 max-md:row-start-2 max-md:self-center" onClick={() => void toggleActive()} aria-label={member.active ? t('team.deactivateOf', { name: member.name }) : t('team.reactivateOf', { name: member.name })}>
+          <Button size="sm" variant="secondary" className="font-normal hover:border-danger hover:text-danger max-md:col-start-2 max-md:row-start-2 max-md:self-center" onClick={() => void toggleActive()} aria-label={member.active ? t('team.deactivateOf', { name: member.name }) : t('team.reactivateOf', { name: member.name })}>
             {member.active ? t('team.deactivate') : t('team.reactivate')}
           </Button>
         )}

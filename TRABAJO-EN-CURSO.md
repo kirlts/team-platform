@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 402faf6 Merge branch 'wt-vps-restauracion'. Empujado a origin: `402faf6`.
-- Ramas con commits sin fusionar: `wt-configuracion` 14 (hace 55 segundos), `wt-barra-superior` 12 (hace 11 minutos), `wt-deuda` 8 (hace 68 segundos), `wt-inicio-respira` 4 (hace 2 minutos), `wt-deuda-ingles` 3 (hace 4 minutos), `wt-telemetria-2` 3 (hace 22 segundos), `wt-h904` 1 (hace 43 segundos).
+- `main`: c879c8c Traspaso: VPS fusionado y avance de fases. Empujado a origin: `c879c8c`.
+- Ramas con commits sin fusionar: `wt-configuracion` 17 (hace 33 segundos), `wt-barra-superior` 12 (hace 11 minutos), `wt-deuda` 8 (hace 2 minutos), `wt-inicio-respira` 4 (hace 3 minutos), `wt-deuda-ingles` 3 (hace 5 minutos), `wt-telemetria-2` 3 (hace 64 segundos), `wt-barra-lateral` 2 (hace 15 segundos), `wt-h904` 1 (hace 85 segundos).
 - Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `banco-abiertos`, `barra-lateral`, `barra-superior`, `cierre`, `configuracion`, `deuda`, `deuda-ingles`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `h904-old`, `heic`, `ingles`, `inicio-maqueta`, `inicio-respira`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-2`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `402faf6` Merge branch 'wt-vps-restauracion' (hace 2 minutos)
-- `9b20211` Instalacion: restauracion de adjuntos, segunda instancia y trusted-header medidos en el VPS (H-2600 a H-2606) (hace 2 minutos)
-- `ce4a6cf` Install: IMAGE_TAG for a second instance, port prompt, password hint (H-2601, H-2603) (hace 2 minutos)
-- `e8c0a59` Backup: copies readable only by their owner (H-2602) (hace 2 minutos)
-- `9014c44` Plan de cierre: primera oración (hace 20 minutos)
-- `ba40c27` Plan de cierre: títulos sin subtítulo y oraciones cortas (hace 21 minutos)
+- `c879c8c` Traspaso: VPS fusionado y avance de fases (hace 40 segundos)
+- `402faf6` Merge branch 'wt-vps-restauracion' (hace 3 minutos)
+- `9b20211` Instalacion: restauracion de adjuntos, segunda instancia y trusted-header medidos en el VPS (H-2600 a H-2606) (hace 3 minutos)
+- `ce4a6cf` Install: IMAGE_TAG for a second instance, port prompt, password hint (H-2601, H-2603) (hace 3 minutos)
+- `e8c0a59` Backup: copies readable only by their owner (H-2602) (hace 3 minutos)
+- `9014c44` Plan de cierre: primera oración (hace 21 minutos)
+- `ba40c27` Plan de cierre: títulos sin subtítulo y oraciones cortas (hace 22 minutos)
 - `3bf56d6` Plan de cierre: fases, encargos relanzables y barra lateral (hace 22 minutos)
-- `48ca4b1` Traspaso: Configuración en vuelo (hace 39 minutos)
-Actualizado 2026-10-21 18:13 UTC.
+Actualizado 2026-10-21 18:14 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

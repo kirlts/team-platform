@@ -14,7 +14,9 @@
     "db:init": "node src/db/init.js",
     "seed": "node src/db/seed.js",
     "test": "node --test \"src/**/*.test.js\"",
-    "test:bench": "node --test bench/"
+    "test:bench": "node --test bench/",
+    "posttest": "node scripts/test-quick.mjs --mark",
+    "test:rapido": "node scripts/test-quick.mjs"
   },
   "dependencies": {
     "@fastify/cookie": "11.1.3",

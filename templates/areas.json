@@ -11,7 +11,7 @@
   },
   {
     "title": "Nueva funcionalidad",
-    "description": "Pedido explícito de que el producto haga algo que hoy no hace, con una necesidad concreta detrás. Quien lo envía espera que se construya.",
+    "description": "Pedido explícito de que el producto haga algo que hoy no hace, con una necesidad concreta detrás. Incluye la descripción de lo que hay que construir, con su plazo si lo trae, aunque no use la palabra pedir.",
     "template": "feature.md"
   },
   {

@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: ea89282 UD-140: el presupuesto de API sube a 100 USD en total. Empujado a origin: `ea89282`.
-- Ramas con commits sin fusionar: `wt-configuracion` 25 (hace 7 minutos), `wt-inicio-respira` 9 (hace 6 minutos), `wt-banco-abiertos` 4 (hace 82 segundos), `wt-h904` 1 (hace 37 minutos).
-- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `banco-abiertos`, `cierre`, `configuracion`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `h904-old`, `heic`, `ingles`, `inicio-maqueta`, `inicio-respira`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
+- `main`: d56b3cf Merge branch 'wt-configuracion'. Empujado a origin: `d56b3cf`.
+- Ramas con commits sin fusionar: `wt-inicio-respira` 9 (hace 15 minutos), `wt-banco-abiertos` 6 (hace 7 minutos), `wt-h904` 2 (hace 2 minutos).
+- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `banco-abiertos`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `h904-old`, `heic`, `ingles`, `inicio-maqueta`, `inicio-respira`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `ea89282` UD-140: el presupuesto de API sube a 100 USD en total (hace 4 minutos)
-- `5ea20d8` Traspaso: deuda técnica fusionada (hace 9 minutos)
-- `98443f7` Merge branch 'wt-deuda' (hace 10 minutos)
-- `2860e44` Traspaso: barra lateral fusionada (hace 14 minutos)
-- `8cb1eae` Merge branch 'wt-barra-lateral' (hace 16 minutos)
-- `925e438` Fusiona main en wt-deuda: conserva la lógica de main y los mensajes en inglés (hace 16 minutos)
-- `9fbad62` Retira la derivación de VERIFICATION (H-45); DT-010 queda descartada (hace 17 minutos)
-- `b5553d0` Flows: J2-A-41 and J2-A-47 read the row box of the sidebar (UD-130) (hace 18 minutos)
-Actualizado 2026-10-21 18:50 UTC.
+- `d56b3cf` Merge branch 'wt-configuracion' (hace 9 minutos)
+- `ea89282` UD-140: el presupuesto de API sube a 100 USD en total (hace 12 minutos)
+- `00ef3a6` Guardia de voz: los hint de Configuración quedan fuera del patrón de largo en palabras (hace 16 minutos)
+- `45f1fb5` Fusiona main en wt-configuracion (hace 17 minutos)
+- `5ea20d8` Traspaso: deuda técnica fusionada (hace 18 minutos)
+- `978def6` Pruebas de flujos: J1-A-45, J2-A-31, J3-A-39 y J3-A-40 migran a la sección Proveedores y al editor que crece (hace 18 minutos)
+- `98443f7` Merge branch 'wt-deuda' (hace 19 minutos)
+- `2860e44` Traspaso: barra lateral fusionada (hace 23 minutos)
+Actualizado 2026-10-21 18:59 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

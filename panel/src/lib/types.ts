@@ -213,10 +213,10 @@ export interface NewMessageEvent {
   at?: string
 }
 
-/** GET /messages/summary: what affects me by priority, and the open messages of each area (UD-028). */
+/** GET /messages/summary: what affects me by state, and the messages of each area by state (UD-028, UD-041). */
 export interface MessageSummary {
-  mine: { red: number; yellow: number; blue: number; total: number }
+  mine: { open: number; answered: number; total: number }
   /** The messages that make up `mine`, one by one: what the bell lists (J2-A-43). */
-  items: { message_id: string; title: string; tone: 'red' | 'yellow' | 'blue'; at: string }[]
-  areas: { area_id: string; open: number; mine_open: number }[]
+  items: { message_id: string; title: string; status: 'open' | 'answered'; at: string }[]
+  areas: { area_id: string; open: number; answered: number; closed: number; mine_open: number }[]
 }

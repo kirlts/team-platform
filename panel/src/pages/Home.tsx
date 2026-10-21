@@ -8,7 +8,7 @@ import { useNotices } from '@/lib/notices'
 import { sendPercent } from '@/lib/progress'
 import { ComposeBar, type SendDraft } from '@/components/ComposeBar'
 import { useLookups } from '@/components/lookups'
-import { NotifyBadge, ToneMark, usePulse } from '@/components/NotifyBadge'
+import { StateMark, useCountsLabel, usePulse } from '@/components/NotifyBadge'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog'
 import { FitList } from '@/components/FitList'
@@ -21,8 +21,8 @@ import { Segmented } from '@/components/Segmented'
 import { Tray, type PendingUpload, type TrayItem } from '@/components/Tray'
 import { useErrorText, useT } from '@/i18n'
 import { ME, serializeQuery, type MessageQuery } from '@/lib/filters'
-import { areaMessagesPath, areaPendingCounts, mineCounts } from '@/lib/pending'
-import { topTone } from '@/lib/priority'
+import { areaCounts, areaMessagesPath, mineCounts } from '@/lib/pending'
+import { topState } from '@/lib/states'
 import { useEventsSnapshot } from '@/lib/events'
 import { useMe, useMessages, useSummary, useTray } from '@/lib/queries'
 import { uploadInput } from '@/lib/upload'
@@ -314,7 +314,7 @@ function TrayState({ items, progress }: { items: readonly TrayItem[]; progress: 
       )}
       {running > 0 && (
         <>
-          <Badge tone="answered">{t('tray.running', { n: running })}</Badge>
+          <Badge tone="neutral">{t('tray.running', { n: running })}</Badge>
           <Meter percent={mean} label={t('analysis.progress')} className="absolute inset-x-3.5 bottom-1 h-1" />
         </>
       )}
@@ -330,7 +330,7 @@ function TrayState({ items, progress }: { items: readonly TrayItem[]; progress: 
 
 /**
  * What affects me, at the top of the page (UD-030): one chip per priority with its count and one per area with
- * what is pending in it. Both rows use the same chip, quiet (UD-036), and the same kind of label; each chip leads to
+ * what is open or answered in it. Both rows use the same chip, quiet (UD-036), and the same kind of label; each chip leads to
  * Mensajes already filtered (UD-028). The areas take one row: those that do not fit fold behind «+N» (J3-A-06, J3-A-10).
  */
 function Attention() {
@@ -338,35 +338,27 @@ function Attention() {
   const summary = useSummary().data
   const { areaTitle } = useLookups()
   const counts = mineCounts(summary)
-  const tone = topTone(counts)
-  const areas = (summary?.areas ?? []).filter((a) => a.open > 0)
+  const label = useCountsLabel()
+  const top = topState(counts)
+  const areas = (summary?.areas ?? []).filter((a) => a.open + a.answered > 0)
   const mineParams = (status: string) => serializeQuery({ filters: [{ prop: 'for', op: 'eq', value: ME }, { prop: 'status', op: 'eq', value: status }], q: '' }).toString()
   return (
-    <section aria-label={t('home.mine')} data-testid="attention" data-tone-top={tone ?? 'none'} className="glass leaf grid grid-cols-1 items-center gap-x-4 gap-y-1 px-4 py-2.5 md:grid-cols-[auto_minmax(0,1fr)] md:gap-y-2">
+    <section aria-label={t('home.mine')} data-testid="attention" data-state-top={top ?? 'none'} className="glass leaf grid grid-cols-1 items-center gap-x-4 gap-y-1 px-4 py-2.5 md:grid-cols-[auto_minmax(0,1fr)] md:gap-y-2">
       <h2 className="min-w-16">{t('home.mine')}</h2>
       <div className="flex min-h-6 items-center">
-        {!tone ? (
+        {!top ? (
           <span className="text-sm text-muted">{t('home.mineNone')}</span>
         ) : (
           <ul className="flex flex-wrap items-center gap-1.5">
-            {(counts.red ?? 0) > 0 && (
-              <li>
-                <Link to={`/messages?${mineParams('open')}`} className="rounded-full">
-                  <ToneMark tone="red" n={counts.red} />
-                </Link>
-              </li>
-            )}
-            {(counts.yellow ?? 0) > 0 && (
-              <li>
-                <Link to={`/messages?${mineParams('answered')}`} className="rounded-full">
-                  <ToneMark tone="yellow" n={counts.yellow} />
-                </Link>
-              </li>
-            )}
-            {(counts.blue ?? 0) > 0 && (
-              <li>
-                <ToneMark tone="blue" n={counts.blue} />
-              </li>
+            {(['open', 'answered'] as const).map(
+              (status) =>
+                (counts[status] ?? 0) > 0 && (
+                  <li key={status}>
+                    <Link to={`/messages?${mineParams(status)}`} className="rounded-full">
+                      <StateMark status={status} n={counts[status]} />
+                    </Link>
+                  </li>
+                ),
             )}
           </ul>
         )}
@@ -379,16 +371,17 @@ function Attention() {
           <h2 className="min-w-16 max-md:mt-1.5">{t('home.byArea')}</h2>
           <AreaChips
             chips={areas.map((a) => (
-              <Link
-                key={a.area_id}
-                to={areaMessagesPath(a.area_id)}
-                aria-label={t('home.areaOpen', { title: areaTitle(a.area_id), n: a.open })}
-                data-testid="area-pending"
-                className="inline-flex min-h-6 max-w-[16rem] items-center gap-1.5 rounded-2xl border border-line-strong px-2 py-px text-xs font-semibold leading-tight hover:bg-glass-edge"
-              >
+              <span key={a.area_id} data-testid="area-pending" className="inline-flex min-h-6 max-w-[24rem] flex-wrap items-center gap-x-1.5 rounded-2xl border border-line-strong px-2 py-px text-xs font-semibold leading-tight">
                 <span className="min-w-0 break-words">{areaTitle(a.area_id)}</span>
-                <NotifyBadge counts={areaPendingCounts(summary, a.area_id)} size="plain" />
-              </Link>
+                {(['open', 'answered'] as const).map(
+                  (status) =>
+                    areaCounts(summary, a.area_id)[status] > 0 && (
+                      <Link key={status} to={areaMessagesPath(a.area_id, status)} aria-label={t('areas.countOf', { title: areaTitle(a.area_id), count: label({ [status]: areaCounts(summary, a.area_id)[status] }) })} className="rounded-full hover:bg-glass-edge">
+                        <StateMark status={status} n={areaCounts(summary, a.area_id)[status]} plain />
+                      </Link>
+                    ),
+                )}
+              </span>
             ))}
           />
         </>

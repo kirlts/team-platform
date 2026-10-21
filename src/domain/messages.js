@@ -161,18 +161,18 @@ export function messageSummary (db, memberId) {
            EXISTS (SELECT 1 FROM message_assignees x WHERE x.message_id = m.id AND x.member_id = ?) AS assigned,
            (m.author_id = ?) AS authored
       FROM messages m WHERE m.status <> 'closed'`, memberId, memberId)
-  const mine = { red: 0, yellow: 0, blue: 0, total: 0 }
+  const mine = { open: 0, answered: 0, total: 0 }
   // The same messages that are counted, one by one: the panel lists exactly what adds up (J2-A-43).
   const items = []
   for (const r of rows) {
-    const tone = r.assigned ? (r.status === 'open' ? 'red' : 'yellow') : r.authored && r.status === 'answered' ? 'blue' : null
-    if (tone) { mine[tone]++; mine.total++; items.push({ message_id: String(r.id), title: r.title, tone, at: r.created_at }) }
+    const status = r.assigned || (r.authored && r.status === 'answered') ? r.status : null
+    if (status) { mine[status]++; mine.total++; items.push({ message_id: String(r.id), title: r.title, status, at: r.created_at }) }
   }
-  const rank = { red: 0, yellow: 1, blue: 2 }
-  items.sort((a, b) => rank[a.tone] - rank[b.tone] || (a.at < b.at ? 1 : a.at > b.at ? -1 : 0))
+  const rank = { open: 0, answered: 1 }
+  items.sort((a, b) => rank[a.status] - rank[b.status] || (a.at < b.at ? 1 : a.at > b.at ? -1 : 0))
+  const count = (status) => `(SELECT COUNT(*) FROM messages m WHERE m.area_id = a.id AND m.status = '${status}')`
   const areas = all(db, `
-    SELECT a.id AS area_id,
-           (SELECT COUNT(*) FROM messages m WHERE m.area_id = a.id AND m.status = 'open') AS open,
+    SELECT a.id AS area_id, ${count('open')} AS open, ${count('answered')} AS answered, ${count('closed')} AS closed,
            (SELECT COUNT(*) FROM messages m WHERE m.area_id = a.id AND m.status = 'open'
                AND EXISTS (SELECT 1 FROM message_assignees x WHERE x.message_id = m.id AND x.member_id = ?)) AS mine_open
       FROM areas a WHERE a.deleted_at IS NULL ORDER BY a.position, a.id`, memberId)

@@ -1,24 +1,20 @@
-// Reads GET /messages/summary into the counts the priority badges draw (UD-028, UD-029).
+// Reads GET /messages/summary into the counts the state badges draw (UD-028, UD-041).
 import { serializeQuery } from './filters'
-import type { ToneCounts } from './priority'
-import type { MessageSummary } from './types'
+import type { StateCounts } from './states'
+import type { MessageStatus, MessageSummary } from './types'
 
-/** What affects me, by priority. */
-export function mineCounts(summary: MessageSummary | undefined): ToneCounts {
-  return summary ? { red: summary.mine.red, yellow: summary.mine.yellow, blue: summary.mine.blue } : {}
+/** What affects me, by state. */
+export function mineCounts(summary: MessageSummary | undefined): StateCounts {
+  return summary ? { open: summary.mine.open, answered: summary.mine.answered } : {}
 }
 
-/**
- * The open messages of an area as one count: red when at least one is assigned to me and still open, yellow
- * otherwise. An area with nothing open has no count.
- */
-export function areaPendingCounts(summary: MessageSummary | undefined, areaId: string): ToneCounts {
+/** The messages of an area, one count per state; the states with nothing are absent. */
+export function areaCounts(summary: MessageSummary | undefined, areaId: string): Record<MessageStatus, number> {
   const row = summary?.areas.find((a) => a.area_id === areaId)
-  if (!row || row.open === 0) return {}
-  return row.mine_open > 0 ? { red: row.open } : { yellow: row.open }
+  return { open: row?.open ?? 0, answered: row?.answered ?? 0, closed: row?.closed ?? 0 }
 }
 
-/** Mensajes filtered by one area and by open: where a pending count leads. */
-export function areaMessagesPath(areaId: string): string {
-  return `/messages?${serializeQuery({ filters: [{ prop: 'area', op: 'eq', value: areaId }, { prop: 'status', op: 'eq', value: 'open' }], q: '' }).toString()}`
+/** Mensajes filtered by one area and one state: where a count of an area leads (UD-028). */
+export function areaMessagesPath(areaId: string, status: MessageStatus = 'open'): string {
+  return `/messages?${serializeQuery({ filters: [{ prop: 'area', op: 'eq', value: areaId }, { prop: 'status', op: 'eq', value: status }], q: '' }).toString()}`
 }

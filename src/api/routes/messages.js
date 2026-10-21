@@ -47,8 +47,8 @@ export function registerMessageRoutes (app, ctx) {
   app.get('/messages/summary', {
     onRequest: [requireRole('member')],
     schema: {
-      summary: 'Lo que afecta a quien tiene la sesión, por prioridad, y los abiertos por área',
-      description: '`mine`: mensajes no cerrados que afectan al miembro. `red`: asignados a él y abiertos; `yellow`: asignados a él y respondidos; `blue`: emitidos por él, sin asignarle, con respuestas. `areas`: abiertos por área y cuántos son rojos para él (UD-028).',
+      summary: 'Lo que afecta a quien tiene la sesión, por estado, y los mensajes de cada área por estado',
+      description: '`mine`: mensajes no cerrados que afectan al miembro, por su estado. `open`: asignados a él y abiertos; `answered`: asignados a él y respondidos, o emitidos por él con respuestas. `areas`: abiertos, respondidos y cerrados por área, y cuántos de los abiertos son suyos (UD-028, UD-041).',
       response: { 200: messageSummarySchema }
     }
   }, async (request) => messageSummary(db, request.member.id))

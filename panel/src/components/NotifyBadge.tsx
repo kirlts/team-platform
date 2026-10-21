@@ -1,32 +1,43 @@
 import { AlertTriangle, Clock, InfoDot } from '@/components/icons'
 import { useEffect, useRef, useState } from 'react'
 import { useT, type MessageKey } from '@/i18n'
-import { topTone, toneTotal, type Tone, type ToneCounts } from '@/lib/priority'
+import { STATUS_KEY } from '@/components/StatusBadge'
+import { STATES, stateTotal, topState, type StateCounts } from '@/lib/states'
+import type { MessageStatus } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
-const ICON = { red: AlertTriangle, yellow: Clock, blue: InfoDot } as const
-export const TONE_WORD: Record<Tone, MessageKey> = { red: 'tone.red', yellow: 'tone.yellow', blue: 'tone.blue' }
+const ICON = { open: AlertTriangle, answered: Clock, closed: InfoDot } as const
+/** «N abiertos», «N respondidos», «N cerrados»: the count with the word of its state. */
+const COUNT_KEY: Record<MessageStatus, MessageKey> = { open: 'state.open', answered: 'state.answered', closed: 'state.closed' }
 
-/** The shape of a priority (triangle, clock, dot), for places that draw their own pill. */
-export function ToneIcon({ tone, size = 14 }: { tone: Tone; size?: number }) {
-  const Icon = ICON[tone]
+/** The shape of a state (triangle, clock, dot), for places that draw their own pill. */
+export function StateIcon({ status, size = 14 }: { status: MessageStatus; size?: number }) {
+  const Icon = ICON[status]
   return <Icon size={size} aria-hidden strokeWidth={2.2} />
 }
 
 /**
- * The mark of one priority: its shape, its word and (optionally) a count. The shape and the word say it without the color.
- * It is quiet (UD-036): neutral ink, the priority only in the color of its shape. `plain` also drops the edge, for a row.
+ * The mark of one state: its shape, its word and (optionally) a count. The shape and the word say it without the color.
+ * It is quiet (UD-036): neutral ink, the state only in the color of its shape. `plain` also drops the edge, for a row.
+ * With `n` the word agrees with the count («3 abiertos», «1 respondido»).
  */
-export function ToneMark({ tone, n, className, showWord = true, plain = false }: { tone: Tone; n?: number; className?: string; showWord?: boolean; plain?: boolean }) {
+export function StateMark({ status, n, className, showWord = true, plain = false }: { status: MessageStatus; n?: number; className?: string; showWord?: boolean; plain?: boolean }) {
   const t = useT()
-  const Icon = ICON[tone]
   return (
-    <span data-tone={tone} data-weight="quiet" data-plain={plain || undefined} data-testid="tone-mark" className={cn('inline-flex min-h-6 items-center gap-1 rounded-full border px-2 text-xs font-bold leading-none', className)}>
-      <Icon size={13} aria-hidden strokeWidth={2.2} />
-      {showWord && <span>{t(TONE_WORD[tone])}</span>}
-      {n !== undefined && <span className="tabular-nums">{n}</span>}
+    <span data-status={status} data-weight="quiet" data-plain={plain || undefined} data-testid="state-mark" className={cn('inline-flex min-h-6 items-center gap-1 rounded-full border px-2 text-xs font-bold leading-none', className)}>
+      <StateIcon status={status} size={13} />
+      {n !== undefined ? <span className="tabular-nums">{showWord ? t(COUNT_KEY[status], { n }) : n}</span> : showWord && <span>{t(STATUS_KEY[status])}</span>}
     </span>
   )
+}
+
+/** «1 abierto, 2 respondidos»: the accessible name of a count that mixes states. */
+export function useCountsLabel() {
+  const t = useT()
+  return (counts: StateCounts) =>
+    STATES.filter((status) => (counts[status] ?? 0) > 0)
+      .map((status) => t(COUNT_KEY[status], { n: counts[status] ?? 0 }))
+      .join(', ')
 }
 
 /** True for a moment after `value` changes (not on the first draw): the count that moved says so (J2-B-27). */
@@ -46,30 +57,29 @@ export function usePulse(value: number) {
 }
 
 /**
- * The count badge: its tint is the highest priority present (red > yellow > blue), it carries the shape of
- * that priority and the total as a number, and its accessible name says both. Nothing present renders nothing.
+ * The count badge: its tint is the highest state present (open > answered > closed), it carries the shape of
+ * that state and the total as a number, and its accessible name says each count with its word. Nothing present renders nothing.
  * It is the quiet weight: the only solid fill in the interface is the bell (J2-B-03, UD-036).
  */
-export function NotifyBadge({ counts, size = 'lg', className, ...rest }: { counts: ToneCounts; size?: 'lg' | 'md' | 'plain'; className?: string; 'data-testid'?: string }) {
-  const t = useT()
-  const tone = topTone(counts)
-  const total = toneTotal(counts)
+export function NotifyBadge({ counts, size = 'lg', className, ...rest }: { counts: StateCounts; size?: 'lg' | 'md' | 'plain'; className?: string; 'data-testid'?: string }) {
+  const label = useCountsLabel()
+  const status = topState(counts)
+  const total = stateTotal(counts)
   const pulse = usePulse(total)
-  if (!tone) return null
-  const Icon = ICON[tone]
+  if (!status) return null
   return (
     <span
       {...rest}
-      data-tone={tone}
+      data-status={status}
       data-weight="quiet"
       data-pulse={pulse}
       data-plain={size === 'plain' || undefined}
       data-count={total}
       role="img"
-      aria-label={t('notify.label', { n: total, tone: t(TONE_WORD[tone]) })}
+      aria-label={label(counts)}
       className={cn('inline-flex shrink-0 items-center justify-center gap-1 rounded-full border font-bold leading-none', size === 'lg' ? 'h-8 min-w-12 px-2.5 text-sm' : size === 'md' ? 'h-6 min-w-9 px-2 text-xs' : 'text-xs', className)}
     >
-      <Icon size={size === 'lg' ? 16 : 13} aria-hidden strokeWidth={2.2} />
+      <StateIcon status={status} size={size === 'lg' ? 16 : 13} />
       <span className="tabular-nums">{total}</span>
     </span>
   )

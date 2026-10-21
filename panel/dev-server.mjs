@@ -655,22 +655,22 @@ const server = createServer(async (req, res) => {
       return send(res, 200, envelope(list.map(view)))
     }
     if (path === '/messages/summary' && method === 'GET') {
-      // Same rule as the API (UD-028): red = assigned to me and open; yellow = assigned to me and answered; blue = mine, not assigned, answered.
-      const mine = { red: 0, yellow: 0, blue: 0, total: 0 }
+      // Same rule as the API (UD-028, UD-041): assigned to me, open or answered; or mine, not assigned and answered.
+      const mine = { open: 0, answered: 0, total: 0 }
       const items = []
       for (const x of messages) {
         if (x.status === 'closed') continue
-        const tone = x.assignee_ids.includes(me.id) ? (x.status === 'open' ? 'red' : 'yellow') : x.author_id === me.id && x.status === 'answered' ? 'blue' : null
-        if (tone) {
-          mine[tone]++
+        const status = x.assignee_ids.includes(me.id) || (x.author_id === me.id && x.status === 'answered') ? x.status : null
+        if (status) {
+          mine[status]++
           mine.total++
-          items.push({ message_id: x.id, title: x.title, tone, at: x.created_at })
+          items.push({ message_id: x.id, title: x.title, status, at: x.created_at })
         }
       }
-      const rank = { red: 0, yellow: 1, blue: 2 }
-      items.sort((a, b) => rank[a.tone] - rank[b.tone] || b.at.localeCompare(a.at))
-      const open = (a) => messages.filter((x) => x.area_id === a.id && x.status === 'open')
-      return send(res, 200, { mine, items, areas: areas.map((a) => ({ area_id: a.id, open: open(a).length, mine_open: open(a).filter((x) => x.assignee_ids.includes(me.id)).length })) })
+      const rank = { open: 0, answered: 1 }
+      items.sort((a, b) => rank[a.status] - rank[b.status] || b.at.localeCompare(a.at))
+      const inArea = (a, status) => messages.filter((x) => x.area_id === a.id && x.status === status)
+      return send(res, 200, { mine, items, areas: areas.map((a) => ({ area_id: a.id, open: inArea(a, 'open').length, answered: inArea(a, 'answered').length, closed: inArea(a, 'closed').length, mine_open: inArea(a, 'open').filter((x) => x.assignee_ids.includes(me.id)).length })) })
     }
     m = /^\/messages\/([^/]+)(?:\/(replies|close|reopen))?$/.exec(path)
     if (m) {

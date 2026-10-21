@@ -41,7 +41,7 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
             <div className="flex min-w-0 flex-1 flex-col gap-1">
               <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted">
                 <span data-repeat-ok="person" className="break-words text-sm font-semibold text-fg">{memberName(r.author_id)}</span>
-                {r.kind !== 'answer' && <Badge tone={r.kind === 'fix' ? 'answered' : 'neutral'}>{t(KIND_KEY[r.kind])}</Badge>}
+                {r.kind !== 'answer' && <Badge tone={'neutral'}>{t(KIND_KEY[r.kind])}</Badge>}
                 <time dateTime={r.created_at} className="tabular-nums">
                   {format.stamp(r.created_at)}
                 </time>

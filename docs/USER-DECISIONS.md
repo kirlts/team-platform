@@ -404,7 +404,7 @@ RULES:
 - Las pruebas de ajuste (`test:fit`) y de flujos (`test:flows`) abren el diálogo de envíos antes de revisar una propuesta; la medida de alto de diez envíos se toma sobre la página, que no cambia.
 - Una captura a 1440×900 y a 390×844, en claro y oscuro, de Inicio sin envíos, con el envío plegado y con el diálogo abierto.
 **Condiciones de reversión:** Si revisar en un diálogo resulta incómodo frente a ver los últimos mensajes mientras se revisa, se vuelve a una disposición en la página con alto repartido.
-**Enmienda (UD-046):** El diálogo de envíos y su botón dejan de ser el camino principal. Inicio sigue la maqueta: franja, título con fecha, barra de texto, desplegable en línea y listas. Con un envío abierto las listas pueden plegarse a una franja.
+**Enmienda (UD-046):** El diálogo de envíos y su botón dejan de ser el camino principal. Inicio sigue la maqueta: título con fecha, barra de texto, desplegable en línea y listas (la franja de UD-046 salió de Inicio por UD-100). Con un envío abierto las listas pueden plegarse a una franja.
 ## [UD-031] Las descripciones de área son largas y detalladas, y juntas son mutuamente excluyentes y colectivamente exhaustivas
 
 **Fecha:** 2026-10-21
@@ -725,12 +725,13 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 - Un área sin color (servidor anterior) usa un índigo de respaldo.
 **Condiciones de reversión:** Si el Editor necesita un segundo color por área, se agrega como campo aparte y la derivación pasa a ser su valor por omisión.
 
-## [UD-046] Inicio sigue la maqueta y el envío se ve en un desplegable bajo la barra de texto
+## [UD-046] Inicio sigue la maqueta y el envío se ve en un desplegable bajo la barra de texto (enmendada por UD-100)
 
 **Fecha:** 2026-10-21
 **Contexto:** UD-030 puso la revisión de los envíos en un diálogo tras un botón «Envíos». Martín, textual: «cuando escribo un mensaje o grabo un video o mando un audio y hago click en enviar, la única retroalimentación es una barra superior que muestra que algo está cargando y después tengo que hacer click y desplazarme hacia abajo en la bandeja de envíos para recién ver cómo quedó lo que mandé. Eso es súper contraintuitivo. En la interfaz original que maqueté había puesto un desplegable dinámico debajo de la barra de texto en la página principal, y es en ese desplegable donde esperaba que apareciera lo que uno está enviando y cómo lo analizó la IA. [...] Lo de la bandeja de envíos es bueno pero no me gusta que muestre esos 7 para revisar, porque significa que tengo que hacer otro clic; esperaba ver la respuesta en esta misma interfaz. Lo que te acabo de escribir es aún más importante que los últimos mensajes y las últimas respuestas. La barra de Para mí y por área debería estar arriba de todo, con la barra de texto más abajo, y mucho mejor distribuida a nivel de espacio, para que no ocupe tanto.» Después, con UD-070 y UD-071, los mensajes dejaron de esperar una confirmación.
-**Decisión:** Inicio se dibuja de arriba abajo así: una franja de una sola fila con «Para mí» y «Por área», el nombre del proyecto con la fecha, «Nuevo mensaje» con la barra de texto, el desplegable y, debajo, «Últimos mensajes» y «Últimas respuestas». El desplegable es un bloque de la página, no una ventana: se abre solo al enviar y muestra ese envío, a la izquierda el original (texto o transcripción editable y la galería de medios, cuya tira es la lista de adjuntos) y a la derecha lo que la IA hizo de él. Con el progreso real mientras corre, y al terminar los mensajes ya publicados, cada uno en su recuadro del color de su área, con chip, título, texto, campos, destinatarios y adjuntos editables en el lugar por quien lo envió; las ediciones guardan sobre el mensaje publicado y se pueden deshacer. No hay botón «Enviar N mensajes» ni «Descartar envío» como paso: sólo una propuesta que el sistema no pudo publicar sola (`publish_blocked`) o con la publicación automática apagada conserva la revisión de UD-003. Con varios envíos seguidos (UD-025) el desplegable muestra el actual y un selector compacto de todos los envíos propios con su estado (en cola, analizando, publicado, fallido), en el mismo lugar. El control «Envíos» de la fila del título plega y despliega el desplegable y lleva el estado de los envíos en su cara.
+**Decisión:** Inicio se dibuja de arriba abajo así: el nombre del proyecto con la fecha, «Nuevo mensaje» con la barra de texto, el desplegable y, debajo, «Últimos mensajes» y «Últimas respuestas». El desplegable es un bloque de la página, no una ventana: se abre solo al enviar y muestra ese envío, a la izquierda el original (texto o transcripción editable y la galería de medios, cuya tira es la lista de adjuntos) y a la derecha lo que la IA hizo de él. Con el progreso real mientras corre, y al terminar los mensajes ya publicados, cada uno en su recuadro del color de su área, con chip, título, texto, campos, destinatarios y adjuntos editables en el lugar por quien lo envió; las ediciones guardan sobre el mensaje publicado y se pueden deshacer. No hay botón «Enviar N mensajes» ni «Descartar envío» como paso: sólo una propuesta que el sistema no pudo publicar sola (`publish_blocked`) o con la publicación automática apagada conserva la revisión de UD-003. Con varios envíos seguidos (UD-025) el desplegable muestra el actual y un selector compacto de todos los envíos propios con su estado (en cola, analizando, publicado, fallido), en el mismo lugar. El control «Envíos» de la fila del título plega y despliega el desplegable y lleva el estado de los envíos en su cara.
 **Alto (UD-017):** El desplegable mide entre 20 y 30 rem, 40 % de la altura de la ventana. Las dos listas de abajo necesitan una fila y su paginador para existir; cuando la ventana no alcanza para el desplegable y para ellas, se pliegan en una franja con su nombre y el botón que devuelve el espacio. La decisión sale de medir si la página se desborda con las listas dibujadas, no de un umbral de altura. En 1440×900 con un envío abierto las listas se pliegan; a ventanas más altas conviven.
+**Enmienda (UD-100):** la franja «Para mí» y «Por área» ya no está en Inicio. El dueño la sacó de la página y la pidió en la barra superior: «debería quedar integrado […] en la barra superior del sitio, siempre visible, pero NO en inicio. Inicio ya tiene demasiados elementos». Sus tres cifras son las marcas de estado de esa barra. Una captura de Inicio sin la franja cumple UD-046 y UD-100.
 **Enmienda:** UD-030 queda enmendada: el diálogo de envíos y su botón dejan de ser el camino principal (la maqueta manda), y «Últimos mensajes» y «Últimas respuestas» dejan de ser lo más prominente cuando hay un envío abierto. La fecha del día vuelve a Inicio, porque la maqueta la lleva; sigue sin haber reloj.
 **Alternativas descartadas:**
 - Una pestaña por envío arriba de la barra: contradice el orden de la maqueta.
@@ -956,3 +957,39 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 - Subir el límite `--max-saturated` o excluir las miniaturas en el detector: tapa la medida en vez de calmar la pantalla.
 **Consecuencias:** Pruebas `panel/src/type-scale.test.ts` (campo en teléfono, paso de la escala y 16 px o más), `panel/src/ui-detectors.test.mjs` (páginas declaradas) y la corrida de `ui-detectors` con 0 hallazgos en las tres pantallas.
 **Condiciones de reversión:** Si el dueño prefiere 16 px, se agrega ese paso a `styles.css` y a `type-scale.test.ts`. Si quiere la miniatura en azul, vuelve `bg-accent-soft` en `Thumb.tsx` y el detector vuelve a marcar la ficha.
+
+## [UD-210] Cada cifra de pendientes dice su alcance por su nombre, y las dos listas de Inicio nombran igual su filtro
+
+**Fecha:** 2026-10-21
+**Contexto:** La ronda 5 de jueces anotó que el 4 de la barra superior no coincide con la suma de los conteos de la barra lateral (6), que «Para mí» y «Por área» de UD-046 no aparece en Inicio y que las dos listas de Inicio nombran su filtro con fórmulas distintas («Para mí» y «Que me involucran»). Medido en los datos de ejemplo: la barra superior cuenta lo que me concierne (`mine.open`, UD-028) y la lateral cuenta por área a todo el equipo (`areas[].open`); 4 contra 6 es la diferencia entre los dos alcances, no un error de cuenta. UD-100, textual: «Los conteos por área viven donde ya estaban: la barra lateral junto a cada área».
+**Decisión:** Decisión de la sesión, tomada por ese encargo; Martín no la dijo con estas palabras y puede revertirla. Las dos cifras se conservan con su alcance. Cada marca de la barra superior dice en su nombre accesible y en su tooltip «4 abiertos para mí». Cada conteo de la barra lateral y de la lista de Áreas dice «Idea: 2 abiertos en el equipo», también como tooltip. No se agrega texto visible ni contador por área a la barra superior (UD-100). Los estados no cambian de nombre ni de color. En Inicio, las dos listas usan las mismas opciones, «Para mí» y «Todos» (en inglés «For me» y «Everyone»); «Que me involucran» y «Todas» salen del catálogo. Las dos listas piden lo mismo (`for=me`), así que un solo rótulo es exacto.
+**Alternativas descartadas:**
+- Hacer que la barra lateral cuente lo mismo que la superior: el dueño pidió los conteos por área del equipo junto a cada área (UD-028 y UD-100).
+- Un rótulo visible junto al número de la barra superior: el dueño lo rechazó por escrito (UD-100).
+- Devolver la franja «Para mí» y «Por área» a Inicio: UD-100 la retiró por pedido del dueño.
+**Consecuencias:** Claves `bar.open`, `bar.answered` y `bar.closed` en los dos catálogos; `areas.countOf` termina en «en el equipo». Prueba «the marks of the top bar say they count what is for me» en `flows-ronda5-listas.browser.test.mjs`.
+**Condiciones de reversión:** Si el dueño quiere un solo alcance, se quita el sufijo de `areas.countOf` y de las claves `bar.*`, y el conteo lateral pasa a leer `mine_open`.
+
+## [UD-211] Un área sin mensajes abiertos ni respondidos muestra sus dos conteos en cero
+
+**Fecha:** 2026-10-21
+**Contexto:** En la lista de Áreas, una fila sin mensajes dejaba en blanco la columna de estado. El juez de la ronda 5 la tomó por datos sin cargar. La ronda 3 había pedido lo contrario: «0 pendientes» pesaba como «4» (J3-A-33, H-832).
+**Decisión:** Decisión de la sesión, tomada por ese encargo; Martín no la dijo con estas palabras y puede revertirla. Un área con 0 abiertos y 0 respondidos muestra «0 abiertos» y «0 respondidos» con el formato de las demás: forma, número y palabra. La tinta es apagada (`--color-muted`), para que pese menos que un conteo con mensajes. Una fila con al menos un conteo muestra sólo los que tienen mensajes, como antes. En teléfono la descripción ocupa el ancho de la fila y los conteos van debajo, en una línea.
+**Alternativas descartadas:**
+- Dejar la columna en blanco: no se distingue de una fila sin cargar.
+- Mostrar el cero en todas las filas: repite «0 respondidos» en áreas que ya dicen algo.
+- Un guion o «Sin mensajes»: otro formato para el mismo dato.
+**Consecuencias:** `AreaRow` en `panel/src/pages/Areas.tsx`; la prueba J3-A-33 pasa a exigir los dos ceros. Enmienda J3-A-33.
+**Condiciones de reversión:** Si el dueño no quiere ceros, se quita el bloque `empty` de `AreaRow` y la prueba vuelve a exigir la columna vacía.
+
+## [UD-212] El nombre del proyecto en la barra superior cabe en una línea a 390 px y se parte a 360 px
+
+**Fecha:** 2026-10-21
+**Contexto:** Cuatro jueces de la ronda 5 vieron «DESARROLLO TEAM» en dos líneas en teléfono. Medido: el texto mide 149 px a 12 px con espaciado de 0,05 em. Entre el botón del menú y las tres marcas quedan 138 px a 390 px y 108 px a 360 px.
+**Decisión:** Decisión de la sesión, tomada por ese encargo; Martín no la dijo con estas palabras y puede revertirla. En teléfono el espaciado de letras baja a 0,02 em, la separación de la esfera a 6 px y el ancho mínimo de cada marca de 36 a 32 px (el alto sigue en 36 px). A 390 px el nombre ocupa una línea. A 360 px necesita 143 px y quedan unos 122, así que se parte en dos líneas. Bajar la letra de 12 px rompe la escala de tipos (J1-A-53) y quitar la esfera o una marca contradice UD-100 y UD-141. El nombre lo escribe la persona: uno más largo también se parte, y `break-words` lo permite.
+**Alternativas descartadas:**
+- Letra de 10 o 11 px: bajo el piso de 12 px de la escala.
+- Ocultar la esfera de la marca en 360 px: quita la identidad de la barra por 24 px.
+- Quitar el espaciado por completo: 140 px, no alcanza en 360 px.
+**Consecuencias:** `Wordmark.tsx` y `StatusBar.tsx`. Prueba «on a phone the name in the top bar is one line at 390 px» exige una línea a 390 px y que a 360 px no pase bajo las marcas.
+**Condiciones de reversión:** Si el dueño quiere una línea a 360 px, se oculta la esfera bajo 380 px (`max-[380px]:hidden` en `Wordmark.tsx`), que libera 24 px y deja 146 px para el texto.

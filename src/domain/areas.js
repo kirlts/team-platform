@@ -41,7 +41,7 @@ function titleIsFree (db, title, exceptId = null) {
   if (other) throw conflict('Ya existe un área con ese título.', 'area_title_taken')
 }
 
-/** The area color palette (UD-045): the same eight values as migration 0007; a new area takes the next one. */
+/** The area color palette (UD-045): the same eight values as migration 0008; a new area takes the next one. */
 export const AREA_PALETTE = ['#6d28d9', '#c2410c', '#15803d', '#0f766e', '#a21caf', '#4d7c0f', '#be185d', '#0369a1']
 
 export const AREA_COLOR_PATTERN = '^#[0-9a-fA-F]{6}$'

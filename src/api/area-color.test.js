@@ -47,7 +47,7 @@ test('UD-045 · only the editor changes the color, and a value that is not #rrgg
 test('UD-045 · the migration palette and the one that new areas take are the same eight colors', async () => {
   const { readFileSync } = await import('node:fs')
   const { AREA_PALETTE } = await import('../domain/areas.js')
-  const sql = readFileSync(new URL('../db/migrations/0007_area_color.sql', import.meta.url), 'utf8')
+  const sql = readFileSync(new URL('../db/migrations/0008_area_color.sql', import.meta.url), 'utf8')
   const fallback = sql.slice(sql.indexOf('ELSE CASE'))
   assert.deepEqual([...fallback.matchAll(/#[0-9a-f]{6}/g)].map((m) => m[0]), AREA_PALETTE)
 })

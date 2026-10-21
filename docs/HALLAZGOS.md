@@ -35,7 +35,7 @@ Estados: `main` (resuelto y fusionado), `en curso` (asignado a un agente vivo), 
 |---|---|---|---|
 | H-21 | HEIC real de iPhone sin probar (sólo cabecera fabricada) | agente extractores | abierto |
 | H-22 | Word real con estilos propios, PDF real de cliente, descarga real de internet sin probar | agente extractores | `main` parcial: el banco privado probó 11 Word y 11 videos reales; falta el PDF real y la descarga |
-| H-23 | `resourceLimits` del hilo trabajador no cubre la memoria WASM de PDFium | agente extractores | abierto |
+| H-23 | `resourceLimits` del hilo trabajador no cubre la memoria WASM de PDFium | agente extractores | listo en la rama `wt-menores`, pasa a `main` al fusionar (`document.wasmMemoryMb` en 700, `lib/pdfium-capped.js`; tres pruebas en `document.test.js`; medición `2026-10-20-memoria-wasm-pdfium.md`) |
 | H-24 | Tope de documentos 25 MiB al subir contra 24 MiB al extraer (DT-005) | documentación | en curso (agente API, HP-018) |
 | H-25 | Documento de más de 24 MiB y video de más de 20 minutos se rechazan después de encolar | batería | en curso (agente API, HP-018) |
 | H-26 | Imagen SVG rechazada con 415; el guion de capturas pega un SVG | agente núcleo | abierto: el guion de capturas pasa a PNG |

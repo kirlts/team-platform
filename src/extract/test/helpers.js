@@ -5,6 +5,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
+import { deflateSync } from 'node:zlib';
 import { Document, HeadingLevel, Packer, Paragraph, Table, TableCell, TableRow, TextRun } from 'docx';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
 import sharp from 'sharp';
@@ -86,6 +87,42 @@ export async function makePdf(path, pages = 20, { scanned = [] } = {}) {
     }
   }
   await writeFile(path, await doc.save());
+}
+
+/**
+ * PDF whose pages share one deflated content stream of `reps` text operators: small on disk, large
+ * once PDFium parses a page (19.2 MB inflated = 47 KB on disk = about 183 MiB of WASM heap). It is
+ * the synthetic «huge PDF» of the memory cap tests (H-23).
+ */
+export async function makeHeavyPdf(path, { pages = 1, reps = 600_000 } = {}) {
+  const content = Buffer.from('BT /F1 8 Tf 50 800 Td (x) Tj ET\n'.repeat(reps));
+  const stream = deflateSync(content, { level: 9 });
+  const objects = new Map([
+    [1, '<< /Type /Catalog /Pages 2 0 R >>'],
+    [2, `<< /Type /Pages /Count ${pages} /Kids [${Array.from({ length: pages }, (_, i) => `${5 + i} 0 R`).join(' ')}] >>`],
+    [3, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'],
+  ]);
+  for (let i = 0; i < pages; i++) {
+    objects.set(5 + i, '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 4 0 R >>');
+  }
+  const chunks = [Buffer.from('%PDF-1.7\n')];
+  const offsets = new Map();
+  let position = chunks[0].length;
+  const add = (number, body) => {
+    offsets.set(number, position);
+    const chunk = Buffer.concat([Buffer.from(`${number} 0 obj\n`), body, Buffer.from('\nendobj\n')]);
+    chunks.push(chunk);
+    position += chunk.length;
+  };
+  for (const [number, body] of objects) if (number < 4) add(number, Buffer.from(body));
+  add(4, Buffer.concat([Buffer.from(`<< /Length ${stream.length} /Filter /FlateDecode >>\nstream\n`), stream, Buffer.from('\nendstream')]));
+  for (const [number, body] of objects) if (number > 4) add(number, Buffer.from(body));
+  const size = 5 + pages;
+  let xref = `xref\n0 ${size}\n0000000000 65535 f \n`;
+  for (let n = 1; n < size; n++) xref += `${String(offsets.get(n)).padStart(10, '0')} 00000 n \n`;
+  chunks.push(Buffer.from(`${xref}trailer\n<< /Size ${size} /Root 1 0 R >>\nstartxref\n${position}\n%%EOF\n`));
+  await writeFile(path, Buffer.concat(chunks));
+  return { inflatedBytes: content.length, fileBytes: Buffer.concat(chunks).length };
 }
 
 // ---- audio y video -------------------------------------------------------------------------

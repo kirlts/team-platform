@@ -47,6 +47,11 @@ export const DEFAULTS = Object.freeze({
     // informe 05 §8.3: pico medido de 664 MB con 50.000 filas de XLSX; se fija con resourceLimits
     // del hilo trabajador (propuesta del informe, probada aquí en document.test.js).
     memoryMb: 700,
+    // H-23: the heap of the PDFium WebAssembly is external memory and `memoryMb` does not count
+    // it. Same cap as the thread, 700 MiB (informe 05 §8.3), enforced in lib/pdfium-capped.js.
+    // Measured 2026-10-20 (mediciones/2026-10-20-memoria-wasm-pdfium.md): 17.9 MiB at start,
+    // about 10.8 MiB of heap per MB of inflated page content (1212 MiB for 112 MB), and a 300-page text PDF stays at 17.9 MiB.
+    wasmMemoryMb: 700,
   }),
 
   audio: Object.freeze({

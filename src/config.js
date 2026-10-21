@@ -154,6 +154,12 @@ export function loadConfig (env = process.env, overrides = {}) {
       pageMax: 100 // decisión de Martín 2026-10-20: page cap of the API
     },
 
+    // ---- Miembros
+    members: {
+      // Not a model limit: the whole profile travels to the analyzer (UD-023).
+      profileMaxLength: 4000 // cortesía declarada: two paragraphs ≈ 2,000 characters; 4,000 leaves room (UD-023)
+    },
+
     // ---- Identidad (MS §7.7, I04 §11)
     identity: {
       provider: choiceVar(env, 'IDENTITY_PROVIDER', ['local', 'delegated'], 'local'),

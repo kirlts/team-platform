@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { all, get } from './db/index.js'
+import { all, get, run } from './db/index.js'
 import { Deferred } from './domain/pipeline.js'
 import { addMember, fakeAnalyze, login, makeEnv, postInput, until } from './testing/helpers.js'
 
@@ -46,6 +46,8 @@ test('extractores y análisis reciben el contrato: adjunto con ruta absoluta, si
       getAnalyzer: () => 'harness'
     }
   })
+  const profile = 'Hago la API y la base de datos.\n\nNo toco la interfaz.'
+  run(env.db, "UPDATE members SET profile = ? WHERE email = 'ana@x.org'", profile)
   const { input_id: id } = await env.submit('texto', [textFile()])
   await until(() => env.statusOf(id) === 'proposed')
   assert.ok(seen.extract.a.path.startsWith('/'))
@@ -54,7 +56,7 @@ test('extractores y análisis reciben el contrato: adjunto con ruta absoluta, si
   assert.deepEqual(seen.analyze.lookupKeys, ['analyzer', 'onProgress', 'providers', 'signal'])
   assert.equal(seen.analyze.bundle.templates[0].body_markdown.startsWith('---'), true)
   assert.ok(seen.analyze.bundle.areas.every((a) => a.position !== undefined))
-  assert.equal(typeof seen.analyze.bundle.members[0].domains, 'string')
+  assert.deepEqual(seen.analyze.bundle.members, [{ id: 1, name: 'ana', profile }]) // UD-023: the whole profile, nothing else
   await env.close()
 })
 

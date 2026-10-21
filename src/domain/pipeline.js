@@ -11,7 +11,6 @@
 
 import { all, get, run } from '../db/index.js'
 import { parseJson } from '../db/util.js'
-import { parseDomains } from './members.js'
 import { permanent } from './errors.js'
 import { DEFAULT_LANGUAGE } from './language.js'
 import { transitionInput } from './inputs.js'
@@ -171,7 +170,7 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
           attachments: atts,
           areas: all(db, 'SELECT id, title, description, position FROM areas WHERE deleted_at IS NULL ORDER BY position, id'),
           templates: all(db, 'SELECT t.id, t.area_id, t.name, t.description, t.body_markdown FROM templates t JOIN areas a ON a.id = t.area_id WHERE t.deleted_at IS NULL AND a.deleted_at IS NULL ORDER BY t.id'),
-          members: all(db, 'SELECT id, name, responsibilities, domains FROM members WHERE active = 1 ORDER BY id').map((m) => ({ ...m, domains: parseDomains(m.domains).join(', ') }))
+          members: all(db, 'SELECT id, name, profile FROM members WHERE active = 1 ORDER BY id').map((m) => ({ id: m.id, name: m.name, profile: m.profile })) // UD-023: the whole profile, no truncation
         }
 
         let result

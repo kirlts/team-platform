@@ -35,7 +35,7 @@ export const member = {
   type: 'object',
   properties: {
     id, email: { type: 'string' }, name: { type: 'string' }, role: { type: 'string', enum: ['member', 'editor'] },
-    responsibilities: { type: 'string' }, domains: { type: 'array', items: { type: 'string' } }, language: { type: 'string', enum: ['es-419', 'en'] }, active: { type: 'boolean' }, created_at: { type: 'string' }
+    profile: { type: 'string' }, language: { type: 'string', enum: ['es-419', 'en'] }, active: { type: 'boolean' }, created_at: { type: 'string' }
   },
   required: ['id', 'email', 'name', 'role', 'language', 'active']
 }

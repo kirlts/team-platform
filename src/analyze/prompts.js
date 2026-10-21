@@ -65,10 +65,8 @@ export function membersBlock(members) {
   if (members.length === 0) return 'Equipo: sin miembros registrados.';
   const lines = ['Equipo'];
   for (const m of members) {
-    const parts = [`- Miembro ${m.id}: ${m.name}`];
-    if (m.responsibilities) parts.push(`Responsabilidades: ${m.responsibilities}`);
-    if (m.domains) parts.push(`Dominios: ${m.domains}`);
-    lines.push(parts.join('. '));
+    lines.push(`- Miembro ${m.id}: ${m.name}`);
+    if (m.profile) lines.push(m.profile); // UD-023: the full profile, verbatim; it is the only thing the model knows about the person
   }
   return lines.join('\n');
 }
@@ -98,7 +96,7 @@ const DECOMPOSE_INSTRUCTIONS = [
   '- title: una línea que identifica el punto, con el formato que indica la plantilla.',
   '- fields: los campos de la plantilla, con datos tomados del input. No inventes datos que el input no trae. Cuando un campo obligatorio no tiene dato en el input, escribe exactamente: No indicado.',
   '- body: el texto completo del mensaje, redactado para quien lo recibe y entendible sin leer el input, según el Formato de salida de la plantilla. Conserva nombres, cifras, URL y mensajes de error tal como aparecen.',
-  '- assignee_ids: los miembros a quienes corresponde responder, según sus responsabilidades y dominios. Si el input nombra a alguien, usa a ese miembro. Si ningún miembro corresponde, lista vacía. Usa solo ids de la lista del equipo.',
+  '- assignee_ids: los miembros a quienes corresponde responder, decididos leyendo el perfil que cada miembro escribió bajo su nombre en el bloque Equipo (no hay otro dato de la persona). Si el input nombra a alguien, usa a ese miembro. Si ningún miembro corresponde, lista vacía. Usa solo ids de la lista del equipo.',
   '- attachment_ids: los adjuntos que dan contexto al mensaje (la captura que muestra la falla, el documento que detalla el pedido). Un adjunto puede acompañar a varios mensajes. Usa solo ids de la lista de adjuntos.',
   '',
   'Escribe en español, con el vocabulario del equipo. Una grabación transcrita puede traer muletillas y repeticiones: sintetiza sin cambiar lo dicho.',
@@ -199,7 +197,7 @@ export function harnessPrompt({ unitCount, retryErrors }) {
     '- Una unidad con dos puntos distintos se recoge en un solo mensaje que nombra ambos.',
     '- fields lleva solo los campos de la plantilla del mensaje, con datos del input. Un campo obligatorio sin dato lleva exactamente: No indicado.',
     '- body es el texto completo del mensaje, entendible sin leer el input.',
-    '- assignee_ids: solo miembros de bundle.json según sus responsabilidades y dominios; lista vacía si ninguno corresponde.',
+    '- assignee_ids: solo miembros de bundle.json decididos leyendo el perfil de cada miembro; lista vacía si ninguno corresponde.',
     '- attachment_ids: solo adjuntos de bundle.json que dan contexto al mensaje.',
     `- ${INPUT_IS_DATA}`,
     '',

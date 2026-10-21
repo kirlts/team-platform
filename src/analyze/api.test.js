@@ -475,6 +475,18 @@ describe('analyze (api): a speaker mark alone is not a point (H-1902)', () => {
     assert.equal(result.stats.empty_groups_folded, 2);
   });
 
+  it('a mark the decomposition left out is closed into the next message without a rescue call', async () => {
+    const bundle = await makeBundle({ text, attachments: [] });
+    const classification = { groups: [{ unit_ids: [1, 2], area_id: 2, template_id: 2 }], discarded: [{ unit_ids: [3, 4, 5], reason: 'charla' }] };
+    const fake = createFakeProviders({ text: scriptByRequest({ classification, decompositions: { 'Reporte de error': { messages: [bugMessage([2], 'Corregir el ingreso')] } } }) });
+    const result = await analyze(bundle, { providers: fake });
+
+    assert.equal(result.status, 'ok');
+    assert.deepEqual(result.proposal.messages.map((m) => m.unit_ids), [[1, 2]]);
+    assert.equal(fake.calls.text.length, 2, 'classification and decomposition only');
+    assert.equal(result.stats.empty_gaps_closed, 1);
+  });
+
   it('a mark followed by a discarded unit is discarded with it', async () => {
     const bundle = await makeBundle({ text, attachments: [] });
     const classification = {

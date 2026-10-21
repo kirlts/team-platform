@@ -205,6 +205,55 @@ export function foldEmptyGroups(groups, discarded, emptyIds, reason) {
 }
 
 /**
+ * H-1902: units with no content of their own that no message cited (gaps) join the message of the unit right after them, or of
+ * the one right before when nothing follows. Only meant for gaps made of such units: the rescue call would give them a
+ * message about the unit itself. Set arithmetic over `unit_ids`.
+ * @param {{unit_ids: number[]}[]} messages
+ * @param {number[]} gaps
+ * @param {Iterable<number>} scope
+ */
+export function closeEmptyGaps(messages, gaps, scope) {
+  const order = [...scope].sort((a, b) => a - b);
+  const owner = new Map();
+  messages.forEach((m, i) => m.unit_ids.forEach((id) => owner.set(id, i)));
+  const added = messages.map(() => []);
+  const missing = new Set(gaps);
+  order.forEach((id, at) => {
+    if (!missing.has(id)) return;
+    const after = order.slice(at + 1).find((x) => owner.has(x));
+    const before = order.slice(0, at).reverse().find((x) => owner.has(x));
+    const target = owner.get(after ?? before);
+    if (target !== undefined) added[target].push(id);
+  });
+  return messages.map((m, i) => ({ ...m, unit_ids: [...m.unit_ids, ...added[i]].sort((a, b) => a - b) }));
+}
+
+/**
+ * H-1902: a message whose units all say nothing by themselves (a speaker mark the rescue or the decomposition cited apart)
+ * joins the message of the unit right after it, or of the one right before when nothing follows.
+ * @param {{unit_ids: number[]}[]} messages
+ * @param {Set<number>} emptyIds
+ */
+export function foldEmptyMessages(messages, emptyIds) {
+  let current = messages.map((m) => ({ ...m, unit_ids: [...m.unit_ids] }));
+  let folded = 0;
+  for (;;) {
+    const index = current.findIndex((m) => m.unit_ids.every((id) => emptyIds.has(id)));
+    if (index === -1 || current.length === 1) break;
+    const mark = current[index];
+    const rest = current.filter((_, i) => i !== index);
+    const next = Math.max(...mark.unit_ids) + 1;
+    const target = rest.find((m) => m.unit_ids.includes(next))
+      ?? rest.find((m) => m.unit_ids.some((id) => id > next))
+      ?? rest.at(-1);
+    target.unit_ids = [...target.unit_ids, ...mark.unit_ids].sort((a, b) => a - b);
+    current = rest;
+    folded += 1;
+  }
+  return { messages: current, folded };
+}
+
+/**
  * Last resort after the single rescue pass: restores exact coverage by set arithmetic alone. A unit cited by several messages
  * stays in the first one; a unit cited by none (and not discarded) joins the message of the closest unit before it, or after it
  * when it is the first. No text is read. Returns null when there is no message to receive a unit.

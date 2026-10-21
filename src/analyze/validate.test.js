@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { parseTemplate } from './templates.js';
 import {
-  closeStretches, coverage, foldEmptyGroups, normalizeDecomposition, repairClassification, repairCoverage, validateClassification, validateDecomposition, validateProposal,
+  closeEmptyGaps, closeStretches, coverage, foldEmptyGroups, foldEmptyMessages, normalizeDecomposition, repairClassification, repairCoverage, validateClassification, validateDecomposition, validateProposal,
 } from './validate.js';
 import { bugMessage, CLASSIFY_ERRORS, CLASSIFY_MULTI, goodDecomposition, makeBundle } from './testing/fixtures.js';
 
@@ -244,6 +244,26 @@ describe('foldEmptyGroups (H-1902)', () => {
     const out = foldEmptyGroups(groups, [], empty, 'r');
     assert.equal(out.groups, groups);
     assert.equal(out.folded, 0);
+  });
+});
+
+describe('closeEmptyGaps and foldEmptyMessages (H-1902)', () => {
+  const m = (...unit_ids) => ({ unit_ids, title: 't' });
+
+  it('a unit nobody cited joins the message of the unit right after it, or the one before at the end', () => {
+    const out = closeEmptyGaps([m(2, 3), m(5, 6)], [1, 4, 7], [1, 2, 3, 4, 5, 6, 7]);
+    assert.deepEqual(out.map((x) => x.unit_ids), [[1, 2, 3], [4, 5, 6, 7]]);
+  });
+
+  it('a message of marks alone joins the message that follows; the last one joins the previous', () => {
+    const empty = new Set([2, 5]);
+    const out = foldEmptyMessages([m(1), m(2), m(3, 4), m(5)], empty);
+    assert.deepEqual(out.messages.map((x) => x.unit_ids), [[1], [2, 3, 4, 5]]);
+    assert.equal(out.folded, 2);
+  });
+
+  it('the only message stays even if it is made of marks', () => {
+    assert.deepEqual(foldEmptyMessages([m(1)], new Set([1])).messages.map((x) => x.unit_ids), [[1]]);
   });
 });
 

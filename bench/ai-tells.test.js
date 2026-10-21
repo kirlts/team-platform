@@ -20,6 +20,8 @@ describe('ai-tells', () => {
     assert.ok(ids('Es un cambio fundamental y robusto').includes('vocab-es'));
     assert.ok(ids('Un elemento clave del flujo').includes('vocab-es'));
     assert.ok(ids('It is not just a bug, but also a design problem').includes('not-just-en'));
+    assert.ok(ids("It's not a bug, it's a design problem").includes('not-just-en'));
+    assert.deepEqual(ids('It is not urgent, but every client will ask for it'), [], 'a concession is not a parallelism');
     assert.ok(ids('No solo falla el filtro, sino también el orden').includes('not-just-es'));
     assert.ok(ids('El botón falla — y nadie lo notó').includes('em-dash'));
     assert.ok(ids('Texto con **negrita**').includes('bold'));

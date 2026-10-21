@@ -25,4 +25,4 @@ Un mensaje por pregunta.
 
 Título: la pregunta en forma breve, por ejemplo «Fecha de entrega del módulo de reportes».
 
-Cuerpo: la pregunta completa y, si existe, el contexto y el plazo, en dos o tres frases. Sin intentar contestarla. Lo que el input no da no se menciona en el cuerpo: ni «no se indica» ni una frase sobre lo que falta.
+Cuerpo: el contexto y el plazo, si existen, en dos o tres frases; la pregunta completa va en el campo Pregunta y el cuerpo no repite el título. Sin intentar contestarla. Lo que el input no da no se menciona en el cuerpo: ni «no se indica» ni una frase sobre lo que falta.

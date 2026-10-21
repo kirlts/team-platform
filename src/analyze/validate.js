@@ -207,6 +207,8 @@ function checkMessage(m, label, { fields, scope, memberIds, attachmentIds, error
   for (const id of m.attachment_ids) if (!attachmentIds.has(id)) errors.push(`${label}: attachment ${id} does not belong to the input`);
   // «No empty message»: the schema requires a minimum length; here the whitespace-only texts are rejected.
   if (m.title.trim() === '') errors.push(`${label}: the title is empty`);
+  // The value a field takes when the input does not answer it is not a title or a body: the point has no message to write.
+  if (m.title.trim() === 'No indicado' || m.body.trim() === 'No indicado') errors.push(`${label}: the title or the body only says that there is no data`);
   if (m.body.trim() === '') errors.push(`${label}: the body is empty`);
   for (const f of fields) {
     if (f.required && typeof m.fields[f.name] === 'string' && m.fields[f.name].trim() === '') {

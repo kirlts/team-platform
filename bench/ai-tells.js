@@ -75,7 +75,7 @@ export const PATTERNS = [
   { id: 'copula-es', section: 'copulatives', lang: 'es', pattern: /\b(?:se erige|sirve como|actúa como|cuenta con|constituye|representa un|funciona como|ostenta|alberga)\b/i },
 
   // Negative parallelisms
-  { id: 'not-just-en', section: 'parallelism', lang: 'en', pattern: /\bnot (?:just|only|merely|simply)\b[^.]{0,100}\b(?:but|rather)\b|\b(?:it|this|that)(?:'s| is| isn't| is not)\s+not\b[^.;]{0,80}[,;—]\s*(?:but|it'?s|it is)\b|\brather than\b/i },
+  { id: 'not-just-en', section: 'parallelism', lang: 'en', pattern: /\bnot (?:just|only|merely|simply)\b[^.]{0,100}\b(?:but|rather)\b|\b(?:it|this|that)(?:'s| is| isn't| is not)\s+not\b[^.;]{0,80}[,;—]\s*(?:it'?s|it is|this is|that is)\b/i },
   { id: 'not-just-es', section: 'parallelism', lang: 'es', pattern: /\bno (?:solo|sólo|únicamente|simplemente|es solo|es sólo)\b[^.]{0,100}\b(?:sino|pero también)\b|\bno es\b[^.;]{0,80}[,;]\s*(?:sino|es)\b/i },
   { id: 'triplet', section: 'triplet', lang: 'any', pattern: /\b[a-záéíóúñ]+(?:ive|ful|ous|able|ible|ic|ivo|iva|oso|osa|able|ente|ico|ica),\s+[a-záéíóúñ]+(?:ive|ful|ous|able|ible|ic|ivo|iva|oso|osa|ente|ico|ica),?\s+(?:and|y|e|or|o)\s+[a-záéíóúñ]+(?:ive|ful|ous|able|ible|ic|ivo|iva|oso|osa|ente|ico|ica)\b/i },
 

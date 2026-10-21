@@ -131,12 +131,12 @@ export const SECOND_PASS_NOTE = 'Second reading. A person sent this input to the
 const WRITING_CONTRACT = [
   'Writing contract for every title, body and field value:',
   '- State facts plainly, with plain verbs and copulas (is, has, fails, takes), never "serves as" or "boasts". A title is a verb plus its object ("Fix the empty popup").',
-  '- Add no significance, legacy, impact or trend, no promotional or praising adjectives, no analysis the person did not say (no "-ing" tails such as "highlighting the importance of"). Attribute only to people the input names.',
+  '- Add no significance, legacy, impact or trend, no promotional or praising adjectives, no analysis the person did not say (no "-ing" tails such as "highlighting the importance of"), no vague sources ("some say").',
   '- No "not X but Y", "not only X but also Y" or "X rather than Y". No triplets added for rhythm.',
-  '- Avoid the vocabulary of generated text in any language: delve, crucial, pivotal, seamless, robust, landscape, tapestry, underscore, showcase, foster, vibrant, and the Spanish crucial, fundamental, clave, robusto, integral, potenciar, panorama, destacar.',
-  '- Plain text only: no bold, headings, emoji, em dashes or curly quotes; no bullet lists in a body unless the template asks for steps.',
+  '- Avoid the vocabulary of generated text in any language: delve, crucial, pivotal, seamless, robust, tapestry, underscore, foster, and the Spanish crucial, fundamental, clave, robusto, integral, potenciar, panorama, destacar.',
+  '- Plain text only: no bold, headings, emoji or em dashes; no bullet lists in a body unless the template asks for steps.',
   '- No closing summary, no chatter ("here is", "I hope this helps", "let me know"), no placeholder text.',
-  '- Never say what the input does not say ("not specified", "unknown") nor guess at causes ("which suggests", "likely"): leave the detail out of the body, even when the template lists it. A required field with no data takes exactly the empty-field value.',
+  '- Never say what the input does not say ("not specified", "unknown") nor guess at causes ("which suggests", "likely"): leave the detail out of the body, even when the template lists it. A field with no data takes exactly the empty-field value, or stays empty if optional, never a sentence about what is missing.',
   '- The body never repeats the title: it adds what the title cannot (where, what was expected, why it matters, what the project description says when useful), briefly, without repeating the field values or retelling the input. Field values are short.',
 ].join('\n');
 

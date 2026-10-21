@@ -233,3 +233,12 @@ describe('repairClassification', () => {
     assert.deepEqual(out.groups.map((g) => g.unit_ids), [[1, 2, 3]]);
   });
 });
+
+describe('a message that only says there is no data', () => {
+  it('a title or a body that is exactly the empty-field value is an error', async () => {
+    const { ctx } = await setup();
+    const out = { messages: [{ ...bugMessage([2, 3, 4, 5], 'No indicado'), body: 'No indicado' }] };
+    const result = validateDecomposition(out, ctx);
+    assert.match(result.errors.join('\n'), /only says that there is no data/);
+  });
+});

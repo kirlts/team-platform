@@ -14,18 +14,18 @@
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
 - `main`: 9014c44 Plan de cierre: primera oración. Empujado a origin: `9014c44`.
-- Ramas con commits sin fusionar: `wt-barra-superior` 11 (hace 37 segundos), `wt-configuracion` 7 (hace 2 minutos), `wt-inicio-respira` 3 (hace 2 minutos).
-- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `banco-abiertos`, `barra-lateral`, `barra-superior`, `cierre`, `configuracion`, `deuda`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `heic`, `ingles`, `inicio-maqueta`, `inicio-respira`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-2`, `telemetria-ui`, `thinking`, `voz`, `vps-restauracion`.
+- Ramas con commits sin fusionar: `wt-barra-superior` 11 (hace 3 minutos), `wt-configuracion` 7 (hace 4 minutos), `wt-inicio-respira` 3 (hace 4 minutos).
+- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `banco-abiertos`, `barra-lateral`, `barra-superior`, `cierre`, `configuracion`, `deuda`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `h904-old`, `heic`, `ingles`, `inicio-maqueta`, `inicio-respira`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-2`, `telemetria-ui`, `thinking`, `voz`, `vps-restauracion`.
 - Últimos commits en `main`:
-- `9014c44` Plan de cierre: primera oración (hace 7 minutos)
-- `ba40c27` Plan de cierre: títulos sin subtítulo y oraciones cortas (hace 8 minutos)
-- `3bf56d6` Plan de cierre: fases, encargos relanzables y barra lateral (hace 8 minutos)
-- `48ca4b1` Traspaso: Configuración en vuelo (hace 26 minutos)
-- `89a1d39` Traspaso: la barra superior no lleva contadores por área (hace 34 minutos)
-- `207697a` Traspaso: instrucción de la barra superior en su sección (hace 36 minutos)
-- `43cf09c` Traspaso: la barra superior sólo con íconos de color y número (hace 36 minutos)
-- `c40b15d` Traspaso: barra superior e Inicio con espacio en vuelo (hace 39 minutos)
-Actualizado 2026-10-21 18:00 UTC.
+- `9014c44` Plan de cierre: primera oración (hace 9 minutos)
+- `ba40c27` Plan de cierre: títulos sin subtítulo y oraciones cortas (hace 10 minutos)
+- `3bf56d6` Plan de cierre: fases, encargos relanzables y barra lateral (hace 10 minutos)
+- `48ca4b1` Traspaso: Configuración en vuelo (hace 28 minutos)
+- `89a1d39` Traspaso: la barra superior no lleva contadores por área (hace 36 minutos)
+- `207697a` Traspaso: instrucción de la barra superior en su sección (hace 38 minutos)
+- `43cf09c` Traspaso: la barra superior sólo con íconos de color y número (hace 38 minutos)
+- `c40b15d` Traspaso: barra superior e Inicio con espacio en vuelo (hace 41 minutos)
+Actualizado 2026-10-21 18:02 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

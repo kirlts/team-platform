@@ -14,18 +14,18 @@
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
 - `main`: 52bfa24 Traspaso: auditoría de idea.md y brechas. Empujado a origin: `52bfa24`.
-- Ramas con commits sin fusionar: `wt-idea-brechas` 5 (hace 6 segundos), `wt-listas` 5 (hace 4 minutos), `wt-respuestas` 4 (hace 3 minutos), `wt-resto` 3 (hace 5 minutos).
+- Ramas con commits sin fusionar: `wt-listas` 7 (hace 4 segundos), `wt-idea-brechas` 6 (hace 23 segundos), `wt-respuestas` 4 (hace 7 minutos), `wt-resto` 4 (hace 43 segundos).
 - Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `idea-brechas`, `ingles`, `inicio-maqueta`, `listas`, `modelos`, `respuestas`, `resto`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `52bfa24` Traspaso: auditoría de idea.md y brechas (hace 6 minutos)
-- `bcd1db7` Traspaso: ronda 5 y última pasada de arreglos (hace 12 minutos)
-- `9b01530` Traspaso: miniaturas y remanentes fusionados, ronda 5 en curso (hace 14 minutos)
-- `0718496` Merge branch 'main' into wt-remanentes (hace 28 minutos)
-- `ffda0ff` Changelog for the remaining findings (H-2000, H-2302, H-2605) (hace 28 minutos)
-- `c4b1f4b` Merge branch 'wt-miniaturas' (hace 31 minutos)
-- `785af07` Fusión de main en wt-miniaturas (hace 38 minutos)
-- `febe443` Merge branch 'main' into wt-remanentes (hace 42 minutos)
-Actualizado 2026-10-21 21:58 UTC.
+- `52bfa24` Traspaso: auditoría de idea.md y brechas (hace 10 minutos)
+- `bcd1db7` Traspaso: ronda 5 y última pasada de arreglos (hace 16 minutos)
+- `9b01530` Traspaso: miniaturas y remanentes fusionados, ronda 5 en curso (hace 18 minutos)
+- `0718496` Merge branch 'main' into wt-remanentes (hace 32 minutos)
+- `ffda0ff` Changelog for the remaining findings (H-2000, H-2302, H-2605) (hace 32 minutos)
+- `c4b1f4b` Merge branch 'wt-miniaturas' (hace 35 minutos)
+- `785af07` Fusión de main en wt-miniaturas (hace 42 minutos)
+- `febe443` Merge branch 'main' into wt-remanentes (hace 46 minutos)
+Actualizado 2026-10-21 22:02 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

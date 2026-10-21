@@ -59,7 +59,7 @@ Idempotencia en el sentido de las plantillas de trabajo: una plantilla aplicada 
 ```
 ┌───────────────────────── contenedor team-platform ──────────────────────────┐
 │                                                                              │
-│  Panel (React + Refine, estático) ──HTTP/JSON + SSE──▶  API (Fastify)        │
+│  Panel (React, estático) ──────────HTTP/JSON + SSE──▶  API (Fastify)        │
 │                                                          │                   │
 │                                                          ├─ Identidad (local │ email+clave,
 │                                                          │   o delegada)     │ UD-002
@@ -88,11 +88,11 @@ Idempotencia en el sentido de las plantillas de trabajo: una plantilla aplicada 
 
 ## §3. Stack técnico
 
-Criterio: tecnologías que el autor ya probó en producción (Node, Fastify, React, Refine, Vite), y menos piezas de las que ese proyecto lleva, porque un equipo de 10 no las necesita (UD-010).
+Criterio: tecnologías que el autor ya probó en producción (Node, Fastify, React, Vite), y menos piezas de las que ese proyecto lleva, porque un equipo de 10 no las necesita (UD-010).
 
 | Capa | Tecnología | Justificación |
 | --- | --- | --- |
-| Frontend | React 19 + Vite + Refine 5 + Tailwind | Ya probado en producción por el autor; Refine resuelve listas, filtros y formularios contra una API REST sin escribir el plomo. |
+| Frontend | React 19.3 + Vite 8 + Tailwind 4.3 + TanStack Query 5 + React Router 8; componentes de shadcn/ui sobre Radix copiados al repositorio | Refine 5 quedó fuera (UD-011): sin paquete publicado desde el 2026-04-02, adaptador atado a React Router 7 y telemetría a un tercero por omisión. Lo que daba hecho (listas, filtros, formularios contra REST) cabe en un módulo propio de filtros a parámetros. Base de navegadores: Chrome 111, Safari 16.4, Firefox 128 (informe 07). |
 | API | Node 24 + Fastify 5, validación de esquemas con Ajv | Fastify valida entrada y salida por esquema JSON, que es el mismo mecanismo con que se valida lo que devuelve el modelo. |
 | Datos | SQLite por `node:sqlite` (Node 24, sin dependencia nativa), modo WAL | `idea.md` pide SQLite; `node:sqlite` evita compilar `better-sqlite3` en cada arquitectura. Un archivo en el volumen es todo el respaldo. |
 | Cola de trabajos | Tabla `jobs` propia con arriendo, reintentos y prioridad, patrón de pg-boss | Las librerías de cola sobre SQLite tienen 8 estrellas o 3 años sin versión (investigación §4); la lógica cabe en un módulo. |
@@ -114,7 +114,7 @@ Criterio: tecnologías que el autor ya probó en producción (Node, Fastify, Rea
 
 > Estas restricciones mandan sobre cualquier otra decisión. Cada una tiene su prohibición en la batería o su candado en el código.
 
-1. **Ningún dato del equipo sale del contenedor** salvo hacia los proveedores de modelo configurados, y cada envío queda registrado en `llm_calls` con proveedor, modelo, modalidad, tokens y costo.
+1. **Ningún dato del equipo sale del contenedor** salvo hacia los proveedores de modelo configurados, y cada envío queda registrado en `llm_calls` con proveedor, modelo, modalidad, tokens y costo. Vale también para el navegador: el panel no se conecta a ningún otro dominio (CSP `connect-src 'self'`, `img-src 'self' blob: data:`), lo que excluye cualquier telemetría de una librería.
 2. **Ningún `if`, expresión regular ni lista de palabras sobre texto humano decide área, destinatario ni estado** (§1.2). El modelo entrega campos; el sistema valida la forma.
 3. **Un trabajo nunca depende del navegador.** Sobrevive al cierre de la pestaña y al reinicio del proceso; al arrancar, el worker retoma los trabajos con arriendo vencido (UD-003, UD-010).
 4. **Nada llega al equipo sin que el emisor confirme** la propuesta (UD-003). Las conexiones futuras que publiquen directo lo harán por una perilla propia, apagada por omisión.
@@ -319,7 +319,7 @@ identify(request) → { member_id, role } | null
 
 ### 7.8 Panel (`panel/`)
 
-**Propósito:** Cliente estático React + Refine contra `/api`. No sabe de la base ni del volumen (§4.11). Servido por `@fastify/static` desde la misma imagen; en desarrollo, Vite con proxy.
+**Propósito:** Cliente estático React contra `/api`. No sabe de la base ni del volumen (§4.11). Servido por `@fastify/static` desde la misma imagen: activos con hash e inmutables, `index.html` sin caché, 404 para un activo ausente y 404 JSON bajo `/api`; en desarrollo, Vite con proxy de `/api`. Panel y API comparten origen, así que la cookie de sesión y `EventSource` no necesitan CORS. Entrada multimodal: arrastrar y pegar capturas; cámara del teléfono por `<input capture>`; audio con `MediaRecorder` probando `audio/webm;codecs=opus`, `audio/webm` y `audio/mp4` y leyendo `recorder.mimeType` (Safari anterior a 18.4 sólo graba MP4); subida multipart con `XMLHttpRequest` para tener progreso (`fetch` no lo da de forma portable), reintento reenviando el archivo; límites declarados en `@fastify/multipart` (`fileSize`, `files`, `parts`) con valores iniciales imagen 7 MB, audio 25 MB, documento 25 MB, y video según el banco (informe 07). Mensajes es una lista de `MessageCard` con los filtros en la URL como chips de propiedad, operador y valor (patrón de Linear, Plane y Front); sin tabla virtualizada hasta que haya cientos de filas. Componentes de shadcn/ui copiados al repositorio, sobre Radix (38 KB comprimidos menos que Base UI, medido en el informe 07).
 
 ### 7.9 Plantillas (`templates/` y tabla `templates`)
 
@@ -349,7 +349,7 @@ El frontmatter se convierte en el esquema JSON de `fields` que el analizador exi
 
 **Propósito:** Que la persona vea el trabajo avanzar sin sondeo.
 
-`GET /jobs/:id/events` abre un flujo SSE y repone desde `job_events` lo que ya pasó (`Last-Event-ID`), así una pestaña que se reabre no pierde el progreso. Los extractores y el analizador emiten `progress(percent, phrase)` por paso real; el porcentaje sale de pasos completados sobre pasos totales, nunca de un reloj.
+`GET /jobs/:id/events` abre un flujo SSE con `@fastify/sse` (versión exacta) y repone desde `job_events` lo que ya pasó: el `id` de cada evento es `job_events.seq`, así una pestaña que se reabre manda `Last-Event-ID` y no pierde el progreso (reposición medida en 35 ms; sin acumulación con `@fastify/compress` ni con el proxy de Vite; informe 07). El flujo termina con un evento `done` y el cliente cierra; si el trabajo ya terminó, la ruta responde 204, que es lo que el estándar fija para que el navegador deje de reconectar. En el panel, un hook `useJobProgress` sobre `EventSource` guarda el progreso como estado efímero e invalida la consulta del input al `done`. El progreso va por su propio flujo; «Últimos mensajes» usa un canal SSE por sesión aparte, porque HTTP/1.1 limita a seis conexiones por dominio. Los extractores y el analizador emiten `progress(percent, phrase)` por paso real; el porcentaje sale de pasos completados sobre pasos totales, nunca de un reloj.
 
 ### 7.11 Banco de referencia y mediciones (`bench/`)
 

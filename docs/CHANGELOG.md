@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `GET /api/messages/summary`: lo que afecta a cada miembro por prioridad (rojo, amarillo, azul) y los mensajes abiertos por área (UD-028).
+- Panel: insignia grande en la pestaña Mensajes y en la campana, con el fondo de la prioridad más alta presente; pendientes por área clicables hacia Mensajes filtrado (UD-028, UD-029).
 - Eje documental Kairós: MASTER-SPEC v0.1.0, RULES, REPOMAP, USER-DECISIONS (UD-001 a UD-015), TEST, TECHNICAL-DEBT y TODO con ocho épicos.
 - Investigaciones fechadas 2026-10-20 (siete informes) y dos mediciones: extractores y primera corrida real del analizador.
 - Licencia MIT; `idea.md` y la maqueta `Plataforma Team.png` como fuentes de diseño.
@@ -33,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `README.md` para quien llega al repositorio público.
 
 ### Changed
+- Panel: Inicio muestra los últimos mensajes y las últimas respuestas como bloque principal y pliega la cola de envíos, el original y el análisis tras un solo control; el texto del análisis se dibuja a 17 px (UD-030).
 - UD-015: el código y sus comentarios pasan al inglés; la interfaz, los mensajes a la persona, las plantillas y la documentación siguen en español. Reemplaza a UD-005 en los comentarios.
 - El analizador clasifica y descompone con esfuerzo `low` y pensamiento apagado. El límite de llamadas a la vez sube a 16 (medición del 2026-10-20).
 - `llm_calls` deja de ser tabla y pasa a ser una vista sobre `spans`.

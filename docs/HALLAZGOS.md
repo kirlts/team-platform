@@ -82,6 +82,12 @@ Estados: `main` (resuelto y fusionado), `en curso` (asignado a un agente vivo), 
 | H-57 | SSE tras `tailscale serve` o un proxy con búfer sin probar | agente panel | abierto: se prueba al instalar en el VPS |
 | H-58 | Chromium headless no decodifica H.264: miniatura de video en blanco en la captura | juez | `main` (`bench/fixtures/make-webm.sh` genera el WebM VP9; el extractor lo lee: 24 fotogramas muestreados, 6 conservados; Chromium de Playwright lo decodifica; `docs/TEST.md` HP-020 lo indica; límite: el H.264 sí decodificó en este equipo, así que el defecto del juez no se reprodujo aquí) |
 | H-59 | `claude-session on-end` no registra desde un subagente | juez | descartado: limitación del entorno; el contenedor se bajó a mano |
+| H-92 | Inicio dejaba «Últimos mensajes» y «Últimas respuestas» como un hipervínculo plegado mientras hubiera envíos, y la cola, el original y el análisis ocupaban todo el alto | Martín (captura en teléfono y PC) | `wt-inicio` (UD-030) |
+| H-93 | La API no guarda quién leyó qué: «respuestas sin leer» no existe como dato. El criterio mínimo (UD-028) baja la insignia al responder o cerrar, no al leer | sesión | abierto: se evalúa un estado de lectura por miembro si el criterio mínimo deja avisos ya vistos |
+| H-94 | Los pendientes por área sólo se veían al Editor en la barra lateral, sin enlace a Mensajes | Martín | `wt-inicio` (UD-028; Inicio los muestra a todos y la barra los enlaza) |
+| H-95 | El texto de descripción del análisis se dibujaba a 13 px, igual que los demás textos secundarios | Martín | `wt-inicio` (UD-030: 17 px, interlineado 1,65, texto pleno) |
+| H-96 | `FitList` dibuja al menos una fila aunque el marco no la tenga: con un marco más bajo que una fila, la fila se monta sobre el paginador | sesión (captura con la revisión abierta bajo los dos bloques) | abierto: Inicio ya no estrecha los bloques (el diálogo no ocupa la página), el defecto queda para cualquier vista con un marco bajo |
+| H-97 | La campana sólo contaba avisos del flujo de eventos; no decía nada de lo que afecta al miembro | Martín | `wt-inicio` (UD-029: la campana cuenta el resumen y tiñe su fondo con la prioridad más alta) |
 
 ## Empaquetado, imagen y licencias
 

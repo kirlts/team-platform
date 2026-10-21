@@ -96,6 +96,16 @@
   --color-closed-led: oklch(0.72 0.02 255);
   --color-danger: oklch(0.5 0.2 25);
   --color-danger-soft: oklch(0.94 0.035 25);
+  /* Notification priorities (UD-029): red > yellow > blue. Solid fills with their own text color. */
+  --color-tone-red-bg: oklch(0.5 0.21 25);
+  --color-tone-red-fg: oklch(0.99 0 0);
+  --color-tone-red-edge: oklch(0.4 0.19 25);
+  --color-tone-yellow-bg: oklch(0.86 0.17 88);
+  --color-tone-yellow-fg: oklch(0.25 0.06 70);
+  --color-tone-yellow-edge: oklch(0.45 0.11 75);
+  --color-tone-blue-bg: oklch(0.5 0.2 250);
+  --color-tone-blue-fg: oklch(0.99 0 0);
+  --color-tone-blue-edge: oklch(0.38 0.17 255);
 
   /* Shape: short radii; the large rounding is left for controls. */
   --radius-sm: 3px;
@@ -168,6 +178,15 @@
   --color-ai-fg: oklch(0.86 0.1 305);
   --color-danger: oklch(0.74 0.16 25);
   --color-danger-soft: oklch(0.32 0.07 25);
+  --color-tone-red-bg: oklch(0.66 0.2 25);
+  --color-tone-red-fg: oklch(0.16 0.04 25);
+  --color-tone-red-edge: oklch(0.9 0.07 25);
+  --color-tone-yellow-bg: oklch(0.85 0.17 88);
+  --color-tone-yellow-fg: oklch(0.22 0.05 70);
+  --color-tone-yellow-edge: oklch(0.93 0.1 88);
+  --color-tone-blue-bg: oklch(0.74 0.14 245);
+  --color-tone-blue-fg: oklch(0.16 0.04 260);
+  --color-tone-blue-edge: oklch(0.92 0.06 245);
 
   --shadow-glass: inset 0 1px 0 oklch(1 0 0 / 0.14), 0 1px 2px oklch(0.1 0.05 260 / 0.5), 0 12px 30px -12px oklch(0.05 0.05 260 / 0.7);
   --shadow-pop: inset 0 1px 0 oklch(1 0 0 / 0.16), 0 2px 4px oklch(0.1 0.05 260 / 0.5), 0 20px 44px -14px oklch(0.05 0.05 260 / 0.85);
@@ -278,6 +297,23 @@
     text-align: justify;
     hyphens: none;
     text-wrap: pretty;
+  }
+
+  /* Notification fills (UD-029): one class per priority; the component sets data-tone to the highest present. */
+  [data-tone='red'] {
+    background-color: var(--color-tone-red-bg);
+    border-color: var(--color-tone-red-edge);
+    color: var(--color-tone-red-fg);
+  }
+  [data-tone='yellow'] {
+    background-color: var(--color-tone-yellow-bg);
+    border-color: var(--color-tone-yellow-edge);
+    color: var(--color-tone-yellow-fg);
+  }
+  [data-tone='blue'] {
+    background-color: var(--color-tone-blue-bg);
+    border-color: var(--color-tone-blue-edge);
+    color: var(--color-tone-blue-fg);
   }
 
   /* Glass: translucent panel with a light border. Used on a few large surfaces. */

@@ -5,7 +5,12 @@ import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useFormat, useT } from '@/i18n'
+import { ToneIcon } from '@/components/NotifyBadge'
 import { useEventsSnapshot, useEventsStore } from '@/lib/events'
+import { mineCounts } from '@/lib/pending'
+import { topTone, toneTotal } from '@/lib/priority'
+import { useSummary } from '@/lib/queries'
+import { cn } from '@/lib/utils'
 import { readThemePref, saveTheme, type ThemePref } from '@/lib/theme'
 import { useNavigateTo } from './navigation'
 import { useLookups } from './lookups'
@@ -72,17 +77,34 @@ function NotificationBell() {
   const snap = useEventsSnapshot()
   const store = useEventsStore()
   const { memberName } = useLookups()
+  const summary = useSummary().data
+  // The bell counts what affects me; news from the stream (blue) count only while nothing else does, so nothing is counted twice.
+  const mine = mineCounts(summary)
+  const counts = toneTotal(mine) > 0 ? mine : snap.unread > 0 ? { blue: snap.unread } : {}
+  const tone = topTone(counts)
+  const total = toneTotal(counts)
   return (
     <Popover onOpenChange={(open) => open && store.markRead()}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label={snap.unread > 0 ? t('bell.unread', { n: snap.unread }) : t('bell.label')} className="relative">
-          <Bell size={18} aria-hidden />
-          {snap.unread > 0 && (
-            <span className="absolute right-0.5 top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold leading-none text-accent-fg">
-              {snap.unread}
-            </span>
+        <button
+          type="button"
+          data-testid="bell"
+          data-tone={tone ?? undefined}
+          data-count={total}
+          aria-label={total > 0 ? t('bell.unread', { n: total }) : t('bell.label')}
+          className={cn(
+            'inline-flex h-10 items-center justify-center gap-1.5 rounded-full border-2 transition-colors duration-150',
+            tone ? 'min-w-[4.25rem] px-3 shadow-glass' : 'w-10 border-transparent text-fg hover:bg-glass',
           )}
-        </Button>
+        >
+          <Bell size={22} aria-hidden strokeWidth={2} />
+          {tone && (
+            <>
+              <ToneIcon tone={tone} size={15} />
+              <span className="text-[15px] font-bold leading-none tabular-nums">{total}</span>
+            </>
+          )}
+        </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-0">
         {snap.notices.length === 0 ? (

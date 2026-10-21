@@ -302,13 +302,15 @@ describe('detail', () => {
     }
   })
 
-  test('on a phone the actions go on top, with nothing between the title and what it describes, and the chips fit in three rows (J2-A-21)', async () => {
+  test('on a phone nothing sits between the title and what it describes, «Cerrar» goes with the reply form, and the chips fit in three rows (J2-A-21, J4-flow-02)', async () => {
     const { page, context } = await session('carla', { width: 390, height: 844 }, true)
     try {
       await openMessage(page, 'Revisar la lectura')
       const close = await page.getByRole('button', { name: 'Cerrar', exact: true }).boundingBox()
       const title = await page.locator('main h1').boundingBox()
-      assert.ok(close.y + close.height <= title.y, `«Cerrar» sits between the title and the data: ${close.y} against ${title.y}`)
+      const data = await page.getByRole('list', { name: 'Destinatarios' }).boundingBox()
+      assert.ok(!(close.y > title.y && close.y < data.y + data.height), `«Cerrar» sits between the title and the data: ${close.y} against ${title.y}`)
+      assert.ok(close.y > data.y + data.height, '«Cerrar» is not under the replies and the form it belongs to')
       const chips = await page.getByRole('list', { name: 'Destinatarios' }).boundingBox()
       assert.ok(chips.height <= 130, `the recipients take up ${chips.height} px`)
       assert.ok((await page.getByRole('button', { name: /^Quitar a / }).first().isVisible()), 'the × of a recipient is not drawn')

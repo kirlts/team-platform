@@ -15,15 +15,15 @@ import { PageHeader } from '@/components/PageHeader'
 import { Recipients } from '@/components/Recipients'
 import { RecipientsEditor } from '@/components/RecipientsEditor'
 import { ReplyThread } from '@/components/ReplyThread'
-import { STATUS_KEY, StatusBadge } from '@/components/StatusBadge'
+import { StatusBadge } from '@/components/StatusBadge'
 import { TemplateFields } from '@/components/TemplateFields'
 import { UndoButtons } from '@/components/UndoButtons'
 import { Button } from '@/components/ui/button'
 import { useFormat, useT } from '@/i18n'
 import { ApiError } from '@/lib/api'
-import { useMe, useMessage, usePatchMessage, useSetClosed, useTemplates } from '@/lib/queries'
+import { useMe, useMessage, usePatchMessage, useTemplates } from '@/lib/queries'
 import { parseTemplateFields, remapFields } from '@/lib/template'
-import type { MessageDetail as Detail, MessagePatch, MessageStatus, Template } from '@/lib/types'
+import type { MessageDetail as Detail, MessagePatch, Template } from '@/lib/types'
 import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 import { useDesktop } from '@/lib/useDesktop'
 
@@ -81,7 +81,6 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
   const format = useFormat()
   const me = useMe().data
   const undo = useUndo()
-  const setClosed = useSetClosed()
   const patchMessage = usePatchMessage()
   const { memberName } = useLookups()
   const templates = useTemplates(m.area_id)
@@ -107,39 +106,12 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
         </Link>
         <div className="flex items-center gap-2">
           {canEdit && <UndoButtons stack={undo} compact={!desktop} />}
-          <Button
-            variant="secondary"
-            disabled={setClosed.isPending}
-            onClick={() =>
-              // Closing is an operation of the screen like any edit: it shows in Deshacer, which takes it back (J1-A-28), and it is said under the header (J2-A-18).
-              void undo.run(
-                {
-                  label: closed ? t('detail.reopened') : t('detail.closed'),
-                  redo: () => setClosed.mutateAsync({ id: m.id, closed: !closed }),
-                  undo: () => setClosed.mutateAsync({ id: m.id, closed }),
-                },
-                {
-                  announce: (result) => {
-                    const status = (result as { status?: MessageStatus } | undefined)?.status
-                    return closed ? (status ? t('detail.reopenedAs', { status: t(STATUS_KEY[status]) }) : t('detail.reopened')) : t('detail.closed')
-                  },
-                },
-              )
-            }
-          >
-            {closed ? t('card.reopen') : t('card.close')}
-          </Button>
         </div>
       </div>
 
       <h1 className="min-w-0">
         <EditableText value={m.title} label={t('detail.title')} canEdit={canEdit} validate={required} onSave={(v) => change(t('proposal.titleEdited'), { title: v }, { title: m.title })} displayClassName="font-sans text-lg font-semibold leading-snug md:text-[1.375rem]" />
       </h1>
-      {setClosed.isError && (
-        <p role="alert" className="text-xs text-danger">
-          {setClosed.error.message}
-        </p>
-      )}
 
       <div className="grid min-h-0 flex-1 md:grid-rows-[minmax(0,1fr)] gap-x-8 gap-y-4 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)]">
         <div className="flex min-h-0 min-w-0 flex-col gap-3">
@@ -159,7 +131,8 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
             ) : (
               <AreaChip areaId={m.area_id} />
             )}
-            <StatusBadge status={m.status} quiet />
+            {/* The state keeps the light and the word, no pill (J2-A-05); one size up so that the area chip, which keeps its color (UD-045), does not outweigh it. */}
+            <StatusBadge status={m.status} quiet className="text-sm" />
             <span data-repeat-ok="person" className="inline-flex items-center gap-1.5">
               <Avatar name={memberName(m.author_id) || '?'} size={20} />
               {memberName(m.author_id)}

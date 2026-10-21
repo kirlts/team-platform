@@ -454,7 +454,8 @@
     border-radius: 6px;
     padding: 1px 0.5rem;
     font-size: 0.8rem;
-    font-weight: 700;
+    /* Semibold, not bold: with the state beside it in the detail, the chip keeps its color and its name but not the heaviest weight of the line (J4-detail-02, UD-045). */
+    font-weight: 600;
     line-height: 1.35;
     overflow-wrap: anywhere;
   }

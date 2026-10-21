@@ -692,3 +692,32 @@ test('UD-028 · GET /messages/summary: each message falls into a single state (o
   assert.equal((await env.app.inject({ method: 'GET', url: '/api/messages/summary' })).statusCode, 401) // requires a session
   await env.close()
 })
+
+// ---------------------------------------------------------------- H-2000: the list behind each number of the bar
+test('H-2000 · GET /messages?involved=me lists exactly what GET /messages/summary counts, per state', async () => {
+  const env = await team({ worker: true })
+  const { idea, m2 } = await withMessages(env) // Ana (2) issued m1 and m2; Beto (3) issued m3. m1 → Beto; m2 → Beto and Ana; m3 → Ed (1)
+  const ids = async (cookie, query) => (await env.api('GET', `/messages?${query}`, cookie)).json().items.map((m) => m.id).sort()
+  const summaryIds = async (cookie, status) => (await env.api('GET', '/messages/summary', cookie)).json().items.filter((i) => i.status === status).map((i) => i.message_id).sort()
+  const m1 = (await env.api('GET', `/messages?area=${idea.id}`, env.c.ana)).json().items[0].id
+  const m3 = (await env.api('GET', '/messages?for=1', env.c.ana)).json().items[0].id
+  await env.api('POST', `/messages/${m1}/replies`, env.c.beto, { body: 'listo' }) // Ana issued m1: answered for her
+  await env.api('POST', `/messages/${m3}/replies`, env.c.ana, { body: 'visto' }) // Beto issued m3: answered for him
+
+  // Ana: m2 open (assigned); m1 answered (issued, with replies); the open ones she issued and did not get assigned are not hers.
+  assert.deepEqual(await ids(env.c.ana, 'involved=me&status=open'), await summaryIds(env.c.ana, 'open'))
+  assert.deepEqual(await ids(env.c.ana, 'involved=me&status=answered'), await summaryIds(env.c.ana, 'answered'))
+  assert.ok((await summaryIds(env.c.ana, 'answered')).includes(String(m1)))
+  assert.equal((await env.api('GET', '/messages?for=me&status=answered', env.c.ana)).json().total, 0) // `for` knows only the assigned ones: the 4-against-5 gap of H-2000
+  for (const cookie of [env.c.beto, env.c.ed]) {
+    for (const status of ['open', 'answered']) assert.deepEqual(await ids(cookie, `involved=me&status=${status}`), await summaryIds(cookie, status))
+  }
+
+  // Closed: assigned or issued, as the bar counts them.
+  await env.api('POST', `/messages/${m2}/close`, env.c.ed)
+  assert.deepEqual(await ids(env.c.ana, 'involved=me&status=closed'), [String(m2)])
+  assert.deepEqual(await ids(env.c.ed, 'involved=me&status=closed'), [])
+  assert.equal((await env.api('GET', '/messages?involved=otro', env.c.ana)).statusCode, 400)
+  assert.equal((await env.app.inject({ method: 'GET', url: '/api/messages?involved=me' })).statusCode, 401)
+  await env.close()
+})

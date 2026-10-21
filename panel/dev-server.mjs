@@ -928,7 +928,9 @@ const server = createServer(async (req, res) => {
       const q = url.searchParams
       const forId = q.get('for') === 'me' ? me.id : q.get('for')
       const needle = (q.get('q') ?? '').toLowerCase()
-      let list = messages.filter((x) => (!forId || x.assignee_ids.includes(forId)) && (!q.get('area') || x.area_id === q.get('area')) && (!q.get('status') || x.status === q.get('status')) && (!needle || `${x.title} ${x.body}`.toLowerCase().includes(needle)))
+      // `involved=me`: the rule of the summary (UD-028), assigned to me or sent by me once answered or closed.
+      const involved = (x) => q.get('involved') !== 'me' || x.assignee_ids.includes(me.id) || (x.author_id === me.id && x.status !== 'open')
+      let list = messages.filter((x) => involved(x) && (!forId || x.assignee_ids.includes(forId)) && (!q.get('area') || x.area_id === q.get('area')) && (!q.get('status') || x.status === q.get('status')) && (!needle || `${x.title} ${x.body}`.toLowerCase().includes(needle)))
       if (q.get('replies') === '1') list = list.filter((x) => (replies.get(x.id) ?? []).length > 0)
       const stamp = (x) => (q.get('replies') === '1' ? (replies.get(x.id) ?? []).at(-1)?.created_at : x.created_at)
       list.sort((a, b) => stamp(b).localeCompare(stamp(a)))

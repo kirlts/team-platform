@@ -10,6 +10,7 @@ import { STATUS_KEY } from './StatusBadge'
 
 const PROP_KEY: Record<FilterProp, MessageKey> = {
   for: 'filter.for',
+  involved: 'filter.involved',
   area: 'filter.area',
   status: 'filter.status',
   replies: 'filter.replies',
@@ -40,6 +41,8 @@ export function FilterBar({ query, onChange }: { query: MessageQuery; onChange: 
     switch (prop) {
       case 'for':
         return [{ value: ME, label: t('filter.me') }, ...members.map((m) => ({ value: m.id, label: m.name }))]
+      case 'involved':
+        return [{ value: ME, label: t('filter.me') }]
       case 'area':
         return areas.map((a) => ({ value: a.id, label: a.title }))
       case 'status':
@@ -112,7 +115,7 @@ export function FilterBar({ query, onChange }: { query: MessageQuery; onChange: 
           {query.filters.map((f) => (
             <li key={f.prop} className="glass inline-flex min-h-7 items-stretch overflow-hidden rounded-[14px] text-sm leading-tight !shadow-none">
               <span className="flex items-center bg-[linear-gradient(180deg,var(--color-chrome-1),var(--color-chrome-2))] px-3 py-1 font-semibold">{t(PROP_KEY[f.prop])}</span>
-              {f.prop === 'replies' ? null : (
+              {f.prop === 'replies' || f.prop === 'involved' ? null : (
                 <DropdownMenu>
                   <DropdownMenuTrigger className="px-1.5 text-muted hover:bg-hover" aria-label={t('filter.operatorOf', { prop: t(PROP_KEY[f.prop]) })}>
                     {t(OP_KEY[f.op])}

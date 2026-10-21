@@ -14,13 +14,14 @@ export function registerMessageRoutes (app, ctx) {
     onRequest: [requireRole('member')],
     schema: {
       summary: 'Team messages, with filters',
-      description: '`for`: «me» or a member id (messages assigned to). `replies=1`: only with replies, latest first; with `for`, those that involve that person.',
+      description: '`for`: «me» or a member id (messages assigned to). `involved=me`: los mensajes que afectan a quien tiene la sesión, con la misma regla que `/messages/summary`: asignados a esa persona, o emitidos por ella cuando ya tienen respuesta o están cerrados (UD-028). `replies=1`: only with replies, latest first; with `for`, those that involve that person.',
       querystring: {
         type: 'object',
         additionalProperties: false,
         properties: {
           ...pageQuerySchema(config),
           for: { type: 'string', pattern: '^(me|[0-9]+)$' },
+          involved: { type: 'string', enum: ['me'] },
           area: idIn,
           status: { type: 'string', enum: ['open', 'answered', 'closed'] },
           q: { type: 'string' },
@@ -35,6 +36,7 @@ export function registerMessageRoutes (app, ctx) {
     const r = listMessages(db, {
       viewerId: request.member.id,
       forMember: q.for === undefined ? null : q.for === 'me' ? 'me' : Number(q.for),
+      involved: q.involved === 'me',
       area: q.area ?? null,
       status: q.status ?? null,
       q: q.q ?? null,

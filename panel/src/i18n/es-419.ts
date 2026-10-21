@@ -247,6 +247,7 @@ export const es419 = {
   'filter.add': 'Filtro',
   'filter.applied': 'Filtros aplicados',
   'filter.for': 'Para',
+  'filter.involved': 'Concierne a',
   'filter.area': 'Área',
   'filter.status': 'Estado',
   'filter.replies': 'Respuestas',

@@ -331,6 +331,37 @@ describe('the menu of a state (J3-A-13, J3-A-14, J3-A-15, UD-100)', () => {
     }
   })
 
+  test('H-2000 · the number of each mark, the rows of its menu and the list «Ver todos» leads to are the same count', async () => {
+    const { page, context } = await session('ana')
+    try {
+      // The sample data has no closed message: one assigned to Ana is closed first, so the third mark counts something.
+      const toClose = await messageByTitle(page, 'Corregir el contraste del botón Enviar')
+      assert.equal((await page.request.post(`${origin}/api/messages/${toClose.id}/close`, { headers: csrf })).status(), 200)
+      for (const status of ['open', 'answered', 'closed']) {
+        await page.goto(origin)
+        const mark = page.locator(`[data-testid="state-button"][data-status="${status}"]`)
+        await mark.waitFor()
+        const total = Number((await mark.textContent()).trim())
+        assert.ok(total > 0, `Ana has ${status} messages in the sample data`)
+        await mark.click()
+        const list = page.locator('[data-lane="status-list"]')
+        await list.waitFor()
+        assert.equal(await list.locator('li').count(), total, `${status}: rows of the menu`)
+        await page.getByRole('link', { name: /^Ver todos/ }).click()
+        await page.waitForURL(/\/messages\?/)
+        assert.match(page.url(), /involved%3Aeq%3Ame/)
+        await page.locator('main article').first().waitFor()
+        await settled(page)
+        // The list fits its frame and pages: the total is the one the pager states, or the rows when everything fits.
+        const range = await page.locator('main [aria-live="polite"]').filter({ hasText: / de \d+$/ }).first().textContent({ timeout: 1500 }).catch(() => null)
+        const listed = range ? Number(/ de (\d+)$/.exec(range.trim())[1]) : await page.locator('main article').count()
+        assert.equal(listed, total, `${status}: size of the list the link leads to`)
+      }
+    } finally {
+      await context.close()
+    }
+  })
+
   test('with many messages the list fits the screen and scrolls inside, with «Ver todos» in view', async () => {
     const { page, context } = await session('ana', { width: 768, height: 480 })
     try {

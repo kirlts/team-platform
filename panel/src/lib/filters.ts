@@ -1,9 +1,9 @@
 // Mensajes filters: property, operator and value, kept in the URL.
-// The server only understands equality (GET /messages?for=&area=&status=&q=&replies=);
+// The server only understands equality (GET /messages?for=&involved=&area=&status=&q=&replies=);
 // negation («no es») and «sin respuestas» are applied here on the received list.
 import type { Message } from './types'
 
-export type FilterProp = 'for' | 'area' | 'status' | 'replies'
+export type FilterProp = 'for' | 'involved' | 'area' | 'status' | 'replies'
 export type FilterOp = 'eq' | 'neq'
 
 export interface Filter {
@@ -18,18 +18,21 @@ export interface MessageQuery {
 }
 
 export const FILTER_PROPS: FilterProp[] = ['for', 'area', 'status', 'replies']
+/** `involved` is not in the menu: it is only reached from the state marks of the bar, which count what concerns me (H-2000). */
+const PROP_SET_EXTRA: FilterProp[] = ['involved']
 export const REPLIES_VALUES = ['con', 'sin'] as const
 export const STATUS_VALUES = ['open', 'answered', 'closed'] as const
 /** Value of the «Para» filter meaning the person holding the session. */
 export const ME = 'me'
 
-const PROP_SET = new Set<string>(FILTER_PROPS)
+const PROP_SET = new Set<string>([...FILTER_PROPS, ...PROP_SET_EXTRA])
 
 function validFilter(prop: string, op: string, value: string): Filter | null {
   if (!PROP_SET.has(prop)) return null
   if (op !== 'eq' && op !== 'neq') return null
   if (!value) return null
   const p = prop as FilterProp
+  if (p === 'involved') return value === ME ? { prop: p, op: 'eq', value } : null
   if (p === 'replies') {
     if (!(REPLIES_VALUES as readonly string[]).includes(value)) return null
     return { prop: p, op: 'eq', value }
@@ -97,6 +100,8 @@ export function applyClientFilters(messages: Message[], query: MessageQuery, meI
           const target = f.value === ME ? meId : f.value
           return !m.assignee_ids.includes(target)
         }
+        case 'involved':
+          return true
         case 'area':
           return f.op === 'eq' ? true : m.area_id !== f.value
         case 'status':

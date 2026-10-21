@@ -17,8 +17,8 @@ const STATES_SHOWN = ['open', 'answered', 'closed'] as const
 const WORD: Record<MessageStatus, MessageKey> = { open: 'state.open', answered: 'state.answered', closed: 'state.closed' }
 
 const messagesPath = (filters: Filter[]) => `/messages?${serializeQuery({ filters, q: '' }).toString()}`
-/** Where a mark leads: Mensajes filtered by the state and by «para mí» (the assigned ones; the server has no filter for «sent by me with replies»). */
-const mineFilters = (status: MessageStatus): Filter[] => [{ prop: 'for', op: 'eq', value: ME }, { prop: 'status', op: 'eq', value: status }]
+/** Where a mark leads: Mensajes filtered by the state and by what concerns me (`involved=me`: the assigned ones and the ones I sent that have a reply), the rule the bar counts with. */
+const mineFilters = (status: MessageStatus): Filter[] => [{ prop: 'involved', op: 'eq', value: ME }, { prop: 'status', op: 'eq', value: status }]
 
 /**
  * The messages of one state that concern me: the same rule the server uses for the counts (UD-028): assigned to me, or sent by me and answered.

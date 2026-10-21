@@ -281,7 +281,7 @@ POST   /api/inputs/:id/reprocess  (Editor) vuelve a encolar el análisis conserv
 
 GET    /api/events                SSE por miembro (§7.10); ?job_id= lo acota a un trabajo
 
-GET    /api/messages?for=me|id&area=&status=&q=&replies=1
+GET    /api/messages?for=me|id&involved=me&area=&status=&q=&replies=1
 GET    /api/messages/summary      lo que afecta a quien tiene la sesión por estado (`mine`: open, answered, total) y los mensajes de cada área por estado (`areas`: open, answered, closed, mine_open) (UD-028, UD-041)
 GET    /api/messages/:id          mensaje, hilo, adjuntos
 GET    /api/attachments/:id/transcript  texto extraído de un audio o video (UD-059)

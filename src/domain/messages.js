@@ -119,7 +119,7 @@ const SELECT_MESSAGE = `
  * `area`, `status`, `q` (substring in title or text) and `replies` (only with replies; with `for`, those
  * that involve that person as sender, assignee or author of a reply). Returns { items, total }.
  */
-export function listMessages (db, { viewerId, forMember = null, area = null, status = null, q = null, replies = false, limit, offset = 0 }) {
+export function listMessages (db, { viewerId, forMember = null, involved = false, area = null, status = null, q = null, replies = false, limit, offset = 0 }) {
   const scope = []
   const params = []
   const memberRow = forMember === 'me' ? viewerId : forMember
@@ -132,6 +132,11 @@ export function listMessages (db, { viewerId, forMember = null, area = null, sta
       scope.push('EXISTS (SELECT 1 FROM message_assignees x WHERE x.message_id = m.id AND x.member_id = ?)')
       params.push(memberRow)
     }
+  }
+  if (involved) {
+    // The same rule as messageSummary and the closed count of the bar: assigned to the viewer, or sent by the viewer once it is answered or closed.
+    scope.push("(EXISTS (SELECT 1 FROM message_assignees x WHERE x.message_id = m.id AND x.member_id = ?) OR (m.author_id = ? AND m.status <> 'open'))")
+    params.push(viewerId, viewerId)
   }
   if (area !== null) { scope.push('m.area_id = ?'); params.push(area) }
   if (status !== null) { scope.push('m.status = ?'); params.push(status) }

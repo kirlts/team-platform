@@ -247,6 +247,7 @@ export const en: Record<MessageKey, Message> = {
   'filter.add': 'Filter',
   'filter.applied': 'Applied filters',
   'filter.for': 'For',
+  'filter.involved': 'Concerns',
   'filter.area': 'Area',
   'filter.status': 'Status',
   'filter.replies': 'Replies',

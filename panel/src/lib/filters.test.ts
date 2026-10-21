@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   applyClientFilters,
+  FILTER_PROPS,
   parseQuery,
   removeFilter,
   serializeQuery,
@@ -102,5 +103,21 @@ describe('client-side filters', () => {
   })
   it('equalities are resolved by the server and are not repeated here', () => {
     expect(ids({ filters: [{ prop: 'area', op: 'eq', value: 'a2' }], q: '' })).toEqual(['1', '2', '3'])
+  })
+})
+
+describe('«involved» (H-2000)', () => {
+  it('travels to the server as involved=me, comes back from the URL and is not in the menu', () => {
+    const query: MessageQuery = { filters: [{ prop: 'involved', op: 'eq', value: 'me' }, { prop: 'status', op: 'eq', value: 'answered' }], q: '' }
+    expect(toApiParams(query).toString()).toBe('involved=me&status=answered')
+    expect(parseQuery(serializeQuery(query))).toEqual(query)
+    expect(FILTER_PROPS).not.toContain('involved')
+  })
+
+  it('accepts only «me», only as equality, and leaves the list as the server sent it', () => {
+    expect(parseQuery(new URLSearchParams('f=involved:eq:u2')).filters).toEqual([])
+    expect(parseQuery(new URLSearchParams('f=involved:neq:me')).filters).toEqual([{ prop: 'involved', op: 'eq', value: 'me' }])
+    const list = [msg({ id: '1' }), msg({ id: '2', assignee_ids: ['u1'] })]
+    expect(applyClientFilters(list, { filters: [{ prop: 'involved', op: 'eq', value: 'me' }], q: '' }, 'u1')).toHaveLength(2)
   })
 })

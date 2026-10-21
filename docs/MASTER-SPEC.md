@@ -299,7 +299,7 @@ DELETE /api/areas/:id/templates/:templateId?confirm=true · POST /api/templates/
 GET    /api/members
 POST   /api/members               alta de un miembro                          (Editor)
 PATCH  /api/members/me            perfil, idioma y contraseña propios (`profile`: texto, tope en `members.profileMaxLength`)
-PATCH  /api/members/:id                                                        (Editor)
+PATCH  /api/members/:id            nombre, correo, rol, contraseña y `active`; `profile` responde 400 `validation` (UD-023)   (Editor)
 
 GET    /api/settings/providers · PATCH /api/settings/providers                (Editor; nunca devuelve una llave; PATCH prueba antes de guardar, 422 `provider_check_failed`; UD-120)
 POST   /api/settings/providers/:slot/check                                    diagnóstico de una función (Editor)

@@ -93,6 +93,7 @@ RULES:
 **Consecuencias:**
 - Un esquema mezclado no existe: no se traducen identificadores ni se escriben comentarios nuevos en inglés.
 **Condiciones de reversión:** Que el proyecto reciba contribuidores que no lean español y Martín decida abrir el README.
+**Vigencia:** UD-015 (2026-10-20) reemplaza esta decisión en los comentarios: ahora van en inglés junto con el código. Siguen vigentes aquí la documentación y el README en español.
 
 ## [UD-006] Una sola vista Mensajes, con filtro Respuestas
 

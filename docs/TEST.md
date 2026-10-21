@@ -1,13 +1,15 @@
 # Estrategia de pruebas
 
-> Contrato de pruebas del proyecto. Doctrina: pirámide invertida (contratos y prohibiciones primero, dobles al final) heredada de dos proyectos anteriores del autor; cada comprobación es una prohibición que cita la restricción o la fila de la especificación que protege.
+> Contrato de pruebas del proyecto. Doctrina: pirámide invertida, con contratos y prohibiciones primero y dobles al final, heredada de proyectos anteriores del autor. Cada comprobación es una prohibición que cita la restricción o la fila de la especificación que protege.
 > Fecha: 2026-10-20
 
 ## La regla que ordena todo
 
-**Cada comprobación es una prohibición.** Una prueba que afirma «el sistema puede hacer X» se aprueba escribiendo más código; una que afirma «el sistema no puede hacer Y» no. Por eso la batería intenta hacer lo que el sistema debe impedir (responder el propio mensaje, publicar sin confirmar, perder un trabajo al reiniciar, mandar un dato a otro dominio) y falla si lo logra. Cada prohibición cita su origen: una restricción de MASTER-SPEC §4, una decisión de `USER-DECISIONS.md` o una perilla de un informe.
+**Cada comprobación es una prohibición.** Una prueba que afirma «el sistema puede hacer X» se aprueba escribiendo más código; una que afirma «el sistema no puede hacer Y» no. Por eso la batería intenta hacer lo que el sistema debe impedir y falla si lo logra. Por ejemplo responder el propio mensaje, publicar sin confirmar, perder un trabajo al reiniciar o mandar un dato a otro dominio. Cada prohibición cita su origen: una restricción de MASTER-SPEC §4, una decisión de `USER-DECISIONS.md` o una perilla de un informe.
 
-**Una comprobación corre en las condiciones de la aplicación o no prueba lo que dice probar.** La base es SQLite real en un archivo efímero con las mismas migraciones y los mismos `PRAGMA`; la API se levanta entera con Fastify en memoria (`app.inject`) o en un puerto libre; el worker es el de verdad. Los dobles existen sólo para los proveedores de modelo (`src/providers/fake.js`) y para el harness externo, porque son terceros con costo.
+**Una comprobación corre en las condiciones de la aplicación o no prueba lo que dice probar.**
+
+La base es SQLite real en un archivo efímero, con las mismas migraciones y los mismos `PRAGMA`. La API se levanta entera con Fastify en memoria (`app.inject`) o en un puerto libre. El worker es el de verdad. Los dobles existen sólo para los proveedores de modelo (`src/providers/fake.js`) y para el harness externo, porque son terceros con costo.
 
 **Nada se declara funcionando sin haberse ejecutado**, y un reintento repite sólo lo que falló.
 
@@ -19,10 +21,10 @@
 | 2. Prohibiciones | `node --test` sobre la API entera y SQLite real | §4 completo, reglas de dominio de §1.1, idempotencia de §1.3 | Es la batería; sin dependencias fuera de Node |
 | 3. Propiedades | `fast-check` sobre funciones puras: numeración de unidades, aritmética de conjuntos del puntaje, fusión de trozos de audio, reclamo de la cola bajo concurrencia | Invariantes que un ejemplo no cubre (solapes y huecos con miles de particiones aleatorias) | Encuentra lo que el caso escrito a mano no ve |
 | 4. Banco de referencia | `bench/` con promptfoo fijado y `bench/score.js` | §1 (el vector): velocidad y descomposición correcta, medidas contra el modelo real | Es el único lugar donde se mide el modelo de verdad; corre a pedido y antes de cambiar modelo, plantilla o esfuerzo |
-| 5. Recorrido | Playwright headless contra la imagen Docker levantada con `compose.yml` y proveedores falsos por variable de entorno | El flujo principal de §6 de punta a punta: entrar, enviar con adjuntos, ver el progreso, corregir la propuesta, publicar, responder, cerrar | Es funcional, no visual; las capturas se miran con los ojos en la revisión de pantalla, no se comparan por píxel |
+| 5. Recorrido | Playwright headless contra la imagen Docker levantada con `compose.yml` y proveedores falsos por variable de entorno | El flujo principal completo de §6: entrar, enviar con adjuntos, ver el progreso, corregir la propuesta, publicar, responder, cerrar | Es funcional, no visual; las capturas se miran con los ojos en la revisión de pantalla, no se comparan por píxel |
 | 6. Unidad | `node --test` para funciones puras | Validadores, parseo de plantillas, `config` | Sin dobles de infraestructura en esta capa |
 
-Lo que no entra, y por qué: Jest (CJS, transformaciones para ESM; `node:test` es nativo), Pact (flujo consumidor primero, secuencial; el contrato ya es el OpenAPI generado), pruebas visuales por comparación de píxeles (dieron más daño que beneficio en un proyecto anterior del autor; una pantalla se aprueba mirándola). Mutación (Stryker) queda para cuando la batería supere las 300 prohibiciones: audita que las pruebas generadas detecten defectos deliberados.
+Lo que no entra, y por qué. Jest: exige transformaciones para ESM y `node:test` es nativo. Pact: su flujo parte del consumidor y el contrato ya es el OpenAPI generado. Pruebas visuales por comparación de píxeles: dieron más daño que beneficio en un proyecto anterior del autor, y una pantalla se aprueba mirándola. Mutación (Stryker) queda para cuando la batería supere las 300 prohibiciones: audita que las pruebas generadas detecten defectos deliberados.
 
 ## Disparadores automáticos
 
@@ -39,28 +41,28 @@ Lo que no entra, y por qué: Jest (CJS, transformaciones para ESM; `node:test` e
 
 Cada una protege una restricción de MASTER-SPEC §4 o una regla de §1.1. El verificador dice quién juzga: 🤖 la batería, 🧑 una persona, 🤖🧑 la batería con cierre humano.
 
-| ID | Prohibición | Origen | Verificador |
-|---|---|---|---|
-| HP-001 | Ningún dato sale del contenedor salvo al proveedor configurado: toda salida de red del servidor y del panel va a `connect-src 'self'` o a la URL del proveedor; una llamada a otro host falla la prueba | §4.1 | 🤖 |
-| HP-002 | Cada llamada a un proveedor deja una fila en `llm_calls` con proveedor, modelo, modalidad, tokens y costo; un análisis sin filas falla | §4.1 | 🤖 |
-| HP-003 | Ningún `if`, expresión regular ni lista de palabras sobre texto humano decide área, destinatario ni estado: una prueba de código estático falla si `src/analyze/` o `src/domain/` comparan el texto del input contra literales para decidir | §4.2, §1.2 | 🤖 |
-| HP-004 | Un trabajo sobrevive al reinicio: se mata el proceso a mitad de un análisis y, al arrancar, el trabajo se retoma y termina | §4.3 | 🤖 |
-| HP-005 | Nada llega al equipo sin confirmar: no existe ruta que cree mensajes desde una propuesta sin pasar por `POST /inputs/:id/publish` con sesión del emisor | §4.4, UD-003 | 🤖 |
-| HP-006 | Un contenedor y un volumen bastan: `compose.yml` tiene un solo servicio; la imagen arranca sin red salvo al proveedor y responde `/health` | §4.5 | 🤖 |
-| HP-007 | Ninguna credencial en el repositorio ni en la base: el gancho de pre-commit y una prueba sobre el esquema (ninguna columna guarda una llave) | §4.6 | 🤖 |
-| HP-008 | Identificadores en inglés y comentarios en español: una prueba estática sobre `src/` | §4.7, UD-005 | 🤖 |
-| HP-009 | El emisor no responde su propio mensaje (403) y cualquier miembro cierra o reabre: lo impone la API, probado con dos sesiones | §4.8, §1.1 | 🤖 |
-| HP-010 | Todo número de operación nace declarado: una prueba estática falla ante un literal numérico en `src/` fuera de `config.js` que no cite su fuente en un comentario de la misma línea | §4.9 | 🤖 |
-| HP-011 | Toda dependencia es compatible con MIT: la prueba lee `package.json` y las licencias instaladas | §4.10, UD-004 | 🤖 |
-| HP-012 | Ninguna ruta sin esquema de respuesta; el OpenAPI generado valida contra su propio esquema | §4.11 | 🤖 |
-| HP-013 | Un mismo input no crea un segundo trabajo ni una segunda propuesta: dos envíos iguales devuelven el mismo id | §1.3 | 🤖 |
-| HP-014 | Una propuesta inválida (área inexistente, miembro inexistente, adjunto ajeno, unidad fuera de todo mensaje y de `discarded`) no se publica | §7.5 | 🤖 |
-| HP-015 | Un miembro no ve Áreas ni Proveedores y la API devuelve 403 en esas rutas | UD-007 | 🤖 |
-| HP-016 | La sesión es opaca y la cookie lleva `__Host-`, `HttpOnly`, `Secure`, `SameSite`; un método no seguro sin la cabecera propia y sin `Sec-Fetch-Site` válido devuelve 403 | §7.7 | 🤖 |
-| HP-017 | El flujo SSE repone sin repetidos ni huecos al reconectar con `Last-Event-ID` | §7.10 | 🤖 |
-| HP-018 | Un video de más de 20 minutos o un adjunto de más de 24 MB se rechaza con su código antes de encolar | §7.4 | 🤖 |
-| HP-019 | La descomposición de los siete casos del banco cubre el 100 % de las unidades con el proveedor real, y la mediana queda bajo el objetivo del vector | §1, §7.11 | 🤖🧑 |
-| HP-020 | Cada pantalla se ve como la especificación §6 dice, mirada en captura por alguien distinto de quien la escribió | §6 | 🧑 |
+| ID | Prohibición | Origen | Verificador | Estado |
+|---|---|---|---|---|
+| HP-001 | Ningún dato sale del contenedor salvo al proveedor configurado: toda salida de red del servidor y del panel va a `connect-src 'self'` o a la URL del proveedor; una llamada a otro host falla la prueba | §4.1 | 🤖 | ✅ `src/telemetry/telemetry.test.js` |
+| HP-002 | Cada llamada a un proveedor deja una fila en `llm_calls` con proveedor, modelo, modalidad, tokens y costo; un análisis sin filas falla | §4.1 | 🤖 | ✅ `src/telemetry-integration.test.js`, `src/telemetry/telemetry.test.js` |
+| HP-003 | Ningún `if`, expresión regular ni lista de palabras sobre texto humano decide área, destinatario ni estado: una prueba de código estático falla si `src/analyze/` o `src/domain/` comparan el texto del input contra literales para decidir | §4.2, §1.2 | 🤖 | ✅ parcial: `src/static.test.js` revisa `domain`, `api`, `identity`, `queue` y `events`, no `analyze` (DT-007) |
+| HP-004 | Un trabajo sobrevive al reinicio: se mata el proceso a mitad de un análisis y, al arrancar, el trabajo se retoma y termina | §4.3 | 🤖 | ✅ `src/api/contract.test.js` |
+| HP-005 | Nada llega al equipo sin confirmar: no existe ruta que cree mensajes desde una propuesta sin pasar por `POST /inputs/:id/publish` con sesión del emisor | §4.4, UD-003 | 🤖 | ✅ `src/static.test.js` |
+| HP-006 | Un contenedor y un volumen bastan: `compose.yml` tiene un solo servicio; la imagen arranca sin red salvo al proveedor y responde `/health` | §4.5 | 🤖 | ✅ `src/static.test.js` |
+| HP-007 | Ninguna credencial en el repositorio ni en la base: el gancho de pre-commit y una prueba sobre el esquema (ninguna columna guarda una llave) | §4.6 | 🤖 | ✅ parcial: `src/static.test.js` revisa el esquema; el gancho de pre-commit no existe (DT-004) |
+| HP-008 | Código y comentarios en inglés, interfaz en español: una prueba estática sobre `src/` falla ante un identificador o un comentario en español | §4.7, UD-015 | 🤖 | ✅ parcial: `src/static.test.js` revisa identificadores del núcleo; falta comentarios y el resto de los módulos (DT-009) |
+| HP-009 | El emisor no responde su propio mensaje (403) y cualquier miembro cierra o reabre: lo impone la API, probado con dos sesiones | §4.8, §1.1 | 🤖 | ✅ `src/api/api.test.js` (flujo completo, respuesta propia 403) |
+| HP-010 | Todo número de operación nace declarado: una prueba estática falla ante un literal numérico en `src/` fuera de `config.js` que no cite su fuente en un comentario de la misma línea | §4.9 | 🤖 | 🔲 sin prueba (DT-007) |
+| HP-011 | Toda dependencia es compatible con MIT: la prueba lee `package.json` y las licencias instaladas | §4.10, UD-004 | 🤖 | ✅ `src/static.test.js`, con `@img/sharp-*` exceptuado (DT-002) |
+| HP-012 | Ninguna ruta sin esquema de respuesta; el OpenAPI generado valida contra su propio esquema | §4.11 | 🤖 | ✅ `src/api/contract.test.js` |
+| HP-013 | Un mismo input no crea un segundo trabajo ni una segunda propuesta: dos envíos iguales devuelven el mismo id | §1.3 | 🤖 | ✅ `src/api/api.test.js` |
+| HP-014 | Una propuesta inválida (área inexistente, miembro inexistente, adjunto ajeno, unidad fuera de todo mensaje y de `discarded`) no se publica | §7.5 | 🤖 | ✅ `src/api/api.test.js`, `src/analyze/validate.test.js` |
+| HP-015 | Un miembro lee las áreas sin el cuerpo de las plantillas, pero la API le devuelve 403 al escribirlas, al leer una plantilla completa y al leer o cambiar los proveedores | UD-007 | 🤖 | ✅ parcial: afirmaciones sueltas de `src/api/api.test.js` (DT-007) |
+| HP-016 | La sesión es opaca y la cookie lleva `__Host-`, `HttpOnly`, `Secure`, `SameSite`; un método no seguro sin la cabecera propia y sin `Sec-Fetch-Site` válido devuelve 403 | §7.7 | 🤖 | ✅ `src/identity/identity.test.js`, `src/api/contract.test.js` |
+| HP-017 | El flujo SSE repone sin repetidos ni huecos al reconectar con `Last-Event-ID` | §7.10 | 🤖 | ✅ `src/events/events.test.js` |
+| HP-018 | Un adjunto sobre el tope de su tipo se rechaza con su código: al subir si es de tamaño (413), al extraer si es de duración (un video de más de 20 minutos falla con `video_too_long`) | §7.4 | 🤖 | ✅ parcial: topes por tipo al subir (`src/api/api.test.js`) y duración y tamaño al extraer (`src/extract/video.test.js`, `src/extract/document.test.js`) |
+| HP-019 | La descomposición de los siete casos del banco cubre el 100 % de las unidades con el proveedor real, y la mediana queda bajo el objetivo del vector | §1, §7.11 | 🤖🧑 | 🔲 6 de 7 casos con cobertura 100 %; el monólogo llega a 90 % (medición 2026-10-20) |
+| HP-020 | Cada pantalla se ve como la especificación §6 dice, mirada en captura por alguien distinto de quien la escribió | §6 | 🧑 | 🔲 espera revisión humana |
 
 ## Pruebas de regresión
 
@@ -78,7 +80,7 @@ Se activa cuando cambia un flujo visible (§6), el empaquetado o la identidad. N
 
 | Métrica | Valor actual | Objetivo |
 |---|---|---|
-| Prohibiciones de alta prioridad en verde | 0/20 (la batería se escribe cuando entre el núcleo) | 20/20 |
-| Pruebas en `main` | 209 (extractores, proveedores, analizador) + 56 (banco) + 21 (panel) | crece |
-| Casos del banco con cobertura 100 % contra el modelo real | 4/7 (corrida 2026-10-21T01:44Z) | 7/7 |
-| Mediana de tiempo por caso del banco | 6,8 s a 33,9 s | bajo 10 s salvo el docx de 40 puntos |
+| Prohibiciones de alta prioridad con prueba completa | 12 de 20 (5 parciales y 3 sin prueba; ver la columna Estado) | 20 de 20 |
+| Pruebas | 387 del servidor (`npm test`) + 56 del banco (`npm run test:bench`) + 21 del panel (`npm test` en `panel/`), todas en verde el 2026-10-20 | crece |
+| Casos del banco con cobertura 100 % contra el modelo real | 6 de 7 (`03-monologo-prueba` llega a 90 %; medición 2026-10-20 con `--repeat 3`) | 7 de 7 |
+| Mediana de tiempo por caso del banco | 3,0 s a 10,5 s (el docx de 40 puntos es el máximo) | bajo 10 s salvo el docx de 40 puntos |

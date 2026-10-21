@@ -18,6 +18,20 @@ type RuleId = 'length' | 'opening' | 'person' | 'imperative' | 'punctuation' | '
 /** R1. The longest text a catalogue held on 2026-10-21 (measured: docs/investigaciones/08, section 6). */
 const MAX_WORDS = 10
 const MAX_WORDS_ERROR = 14
+/**
+ * UD-122: Configuración is the one screen where a setting carries a visible explanation under its label (`hint.*` keys,
+ * drawn by SettingHint). It answers the rules of voice but measures its length in characters, not in words.
+ */
+const MAX_HINT_CHARS = 90
+/** The only files that may name a `hint.*` key or draw a SettingHint: Configuración and the components it is made of. */
+const HINT_FILES = new Set([
+  'pages/Settings.tsx',
+  'components/SettingHint.tsx',
+  'components/ProjectEditor.tsx',
+  'components/ProviderSettings.tsx',
+  'components/PublicationSetting.tsx',
+  'components/UiTelemetrySetting.tsx',
+])
 
 /**
  * Exceptions, by key (catalogue) or by quoted phrase (server). Each one names the rule it lifts and why.
@@ -55,7 +69,9 @@ export function breaksVoice(key: string, text: string, lang: Lang): RuleId | nul
   const plain = strip(text)
   const words = wordsOf(text)
   const isError = /(^|\.)error\./.test(key)
-  if (words.length > (isError ? MAX_WORDS_ERROR : MAX_WORDS)) return 'length'
+  if (key.startsWith('hint.')) {
+    if (plain.length > MAX_HINT_CHARS) return 'length'
+  } else if (words.length > (isError ? MAX_WORDS_ERROR : MAX_WORDS)) return 'length'
   if ((lang === 'es' ? ES_OPENING : EN_OPENING).test(plain.trim()) || (lang === 'es' ? ES_ANYWHERE : EN_ANYWHERE).test(plain)) return 'opening'
   if ((lang === 'es' ? ES_PERSON : EN_PERSON).test(plain) || (lang === 'es' && (preterite(plain) || ES_CLITIC_IMPERATIVE.test(plain)))) return 'person'
   if (lang === 'es' && ES_COLLOQUIAL_IMPERATIVES.has(first(text))) return 'imperative'
@@ -158,6 +174,39 @@ describe('the interface speaks like an instrument (UD-050)', () => {
     }
     const stale = Object.entries(EXCEPTIONS).flatMap(([key, list]) => list.filter((e) => !live.has(`${key}:${e.rule}`)).map((e) => `${key}:${e.rule}`))
     expect(stale).toEqual([])
+  })
+
+  it('the hint keys only appear in Configuración (UD-122)', () => {
+    const used: string[] = []
+    const walk = (dir: string) => {
+      for (const name of readdirSync(dir)) {
+        const path = join(dir, name)
+        if (statSync(path).isDirectory()) walk(path)
+        else if (/\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name) && !path.includes(join('src', 'i18n'))) {
+          if (/['"`]hint\.|SettingHint/.test(readFileSync(path, 'utf8'))) used.push(relative(SRC, path).split('\\').join('/'))
+        }
+      }
+    }
+    walk(SRC)
+    expect(used.filter((f) => !HINT_FILES.has(f))).toEqual([])
+    expect(used).toContain('pages/Settings.tsx')
+  })
+
+  it('the hint rules fail what they name: 91 characters, second person, an opening, an imperative, a gerund, an adjective (UD-122)', () => {
+    const exact = 'Contexto en markdown que recibe el análisis con cada mensaje y que todo el equipo lee ya'.padEnd(90, 'x')
+    expect(exact).toHaveLength(90)
+    expect(breaksVoice('hint.probe', exact, 'es')).toBeNull()
+    expect(breaksVoice('hint.probe', `${exact}x`, 'es')).toBe('length')
+    expect(breaksVoice('hint.probe', 'Nombre que aparece en los mensajes, la lista de respuestas y las menciones del resto del equipo', 'es')).toBe('length')
+    expect(breaksVoice('hint.probe', 'Aquí se elige el idioma de la cuenta', 'es')).toBe('opening')
+    expect(breaksVoice('hint.probe', 'Si cambias el idioma, tu cuenta lo recuerda', 'es')).toBe('person')
+    expect(breaksVoice('hint.probe', 'Elige el idioma de la cuenta', 'es')).toBe('imperative')
+    expect(breaksVoice('hint.probe', 'Mostrando el idioma de esta cuenta en toda la interfaz', 'es')).toBe('gerund')
+    expect(breaksVoice('hint.probe', 'Un ajuste robusto del idioma', 'es')).toBe('vague')
+    expect(breaksVoice('hint.probe', 'Idioma de la interfaz.', 'es')).toBe('punctuation')
+    expect(breaksVoice('hint.probe', 'Language you can choose for your account', 'en')).toBe('person')
+    // Outside Configuración the limit stays at ten words.
+    expect(breaksVoice('areas.probe', 'Contexto en markdown que recibe el análisis con cada mensaje del equipo', 'es')).toBe('length')
   })
 
   it('the rules themselves catch the pattern they name', () => {

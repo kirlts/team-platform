@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: dddfcca Traspaso: Inicio fusionado y H-1405 abierto. Empujado a origin: `dddfcca`.
-- Ramas con commits sin fusionar: `wt-inicio-maqueta` 1 (hace 69 segundos).
+- `main`: 6c971d1 Merge remote-tracking branch 'origin/main' into wt-inicio-maqueta. Empujado a origin: `6c971d1`.
+- Ramas con commits sin fusionar: ninguna.
 - Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `dddfcca` Traspaso: Inicio fusionado y H-1405 abierto (hace 8 minutos)
-- `8c50075` Merge branch 'wt-inicio-maqueta' (hace 15 minutos)
-- `6a69c41` Libro: H-1400 a H-1407 de Inicio según la maqueta (hace 16 minutos)
-- `31684f8` Fusiona origin/main (instrumento, telemetría) en wt-inicio-maqueta (hace 16 minutos)
-- `19576aa` fits: el aviso de una vista que no se calma dice cuál es y qué pidió; gallery: el selector de la propuesta está en el desplegable (hace 17 minutos)
-- `9f22570` Guardia de marcas de conflicto con rutas no ASCII; traspaso al día (hace 28 minutos)
-- `cf4511c` Fusiona la telemetría de la interfaz y los jueces acotados (UD-090 a UD-092) (hace 29 minutos)
-- `5f92f94` Fusión con main: pruebas de telemetría al estilo de H-901, publicación automática (UD-070) y smoke-panel arreglado (hace 29 minutos)
-Actualizado 2026-10-21 17:06 UTC.
+- `6c971d1` Merge remote-tracking branch 'origin/main' into wt-inicio-maqueta (hace 4 minutos)
+- `8233b45` Libro: H-1405 cerrado con su causa y su medición; H-1406 y H-1407 cerrados (hace 4 minutos)
+- `e3e2f61` H-1405: la franja de Para mí tiene alto propio desde 768 px y no se parte, para que medirse sus chips no mueva las listas; H-1407: perilla de publicación en Configuración; prueba de peticiones repetidas; servidor de ejemplo con Range (hace 6 minutos)
+- `dddfcca` Traspaso: Inicio fusionado y H-1405 abierto (hace 13 minutos)
+- `8c50075` Merge branch 'wt-inicio-maqueta' (hace 21 minutos)
+- `6a69c41` Libro: H-1400 a H-1407 de Inicio según la maqueta (hace 21 minutos)
+- `31684f8` Fusiona origin/main (instrumento, telemetría) en wt-inicio-maqueta (hace 22 minutos)
+- `19576aa` fits: el aviso de una vista que no se calma dice cuál es y qué pidió; gallery: el selector de la propuesta está en el desplegable (hace 22 minutos)
+Actualizado 2026-10-21 17:11 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

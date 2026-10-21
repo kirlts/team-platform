@@ -173,25 +173,37 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
     }
   })
 
-  test('on a phone the bar is one button whose menu has the three states, each one a link to Mensajes (J3-A-06, UD-100)', async () => {
-    const { page, context } = await session('ana', PHONE)
-    try {
-      const bar = page.getByTestId('status-bar')
-      await bar.waitFor()
-      assert.equal(await bar.locator('button:visible').count(), 1)
-      const button = page.getByTestId('summary-menu')
-      const box = await button.boundingBox()
-      assert.ok(box.height >= 44 && box.width >= 44, `el botón mide ${box.width}x${box.height}`)
-      await button.click()
-      const links = page.getByTestId('status-menu').getByRole('link')
-      await links.first().waitFor()
-      assert.equal(await links.count(), 3)
-      const names = await links.evaluateAll((els) => els.map((el) => el.getAttribute('aria-label')))
-      assert.match(names.join('|'), /abiertos?.*respondidos?.*cerrados?/)
-      await links.first().click()
-      await page.waitForURL(/\/messages\?/)
-    } finally {
-      await context.close()
+  test('on a phone the bar keeps the three marks, each with its number, and each opens its own menu (UD-100, UD-141)', async () => {
+    for (const width of [390, 360]) {
+      const { page, context } = await session('ana', { ...PHONE, width })
+      try {
+        const bar = page.getByTestId('status-bar')
+        await bar.waitFor()
+        const marks = bar.locator('[data-testid="state-button"]')
+        assert.equal(await marks.count(), 3)
+        assert.equal(await bar.locator('button:visible').count(), 3, 'no summary button')
+        const boxes = await marks.evaluateAll((els) => els.map((el) => { const r = el.getBoundingClientRect(); return { w: r.width, h: r.height, right: r.right, left: r.left, status: el.dataset.status, n: el.innerText.trim() } }))
+        for (const b of boxes) assert.ok(b.w >= 24 && b.h >= 24, `${b.status} measures ${b.w}x${b.h} at ${width}`)
+        assert.deepEqual(boxes.map((b) => b.status), ['open', 'answered', 'closed'])
+        for (const b of boxes) assert.match(b.n, /^\d+$/, 'only the number is visible')
+        const word = await page.locator('header a').first().boundingBox()
+        assert.ok(word.x + word.width <= boxes[0].left, `the name (ends ${word.x + word.width}) does not run under the marks (start ${boxes[0].left}) at ${width}`)
+        const bell = await page.getByTestId('bell').boundingBox()
+        assert.ok(boxes[2].right <= bell.x, 'the marks end before the bell')
+        const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+        assert.ok(overflow <= 0, `horizontal overflow ${overflow} px at ${width}`)
+        await marks.nth(1).click()
+        const menu = page.getByTestId('status-menu')
+        await menu.waitFor()
+        assert.match(await menu.getAttribute('aria-label'), /respondid/i)
+        const menuBox = await menu.boundingBox()
+        assert.ok(menuBox.x >= 0 && menuBox.x + menuBox.width <= width, `the menu fits the ${width} px screen`)
+        await page.keyboard.press('Escape')
+        await menu.waitFor({ state: 'detached' })
+        await marks.nth(1).evaluate((el) => new Promise((resolve, reject) => { const end = Date.now() + 2000; const look = () => (document.activeElement === el ? resolve() : Date.now() > end ? reject(new Error('Escape does not return the focus to the mark')) : requestAnimationFrame(look)); look() }))
+      } finally {
+        await context.close()
+      }
     }
   })
 

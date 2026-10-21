@@ -611,6 +611,7 @@ Debe decir `OK Último envío: estado proposed, adjuntos: audio` con al menos un
 |---|---|---|---|
 | H-2100 | `FitList` entraba en un ciclo de medida cuando el espacio de la lista lo sostenía su piso de una fila (ventana baja con la franja de Inicio): 40 peticiones por segundo al archivo de cada miniatura de video, medidas con un contador de peticiones y trazas de `ResizeObserver` | UD-110 | `wt-inicio-respira`: el observador compara con el mayor entre la medida y el piso; `test:fit` «1280x720 las listas no piden de nuevo» |
 | H-2101 | Con un envío abierto las dos listas de Inicio tomaban el alto de su contenido (9.501 px a 1440x900 ×8) | UD-110 | `wt-inicio-respira`: las listas tienen alto propio mientras la página se desplaza; `test:fit` «inicio con propuesta» |
+| H-2700 | En teléfono la barra superior juntaba los tres estados en un solo «9» con el triángulo de abierto (suma de abiertos y respondidos); cinco jueces de la ronda 4, severidad 3 | UD-141 | `wt-barra-movil`: tres marcas con su número en 390 y 360 px, cada una con su desplegable; `test:flows` «on a phone the bar keeps the three marks» |
 
 ## Desplegable de envío, ronda 4 (2026-10-21)
 

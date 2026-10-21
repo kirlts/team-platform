@@ -71,6 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MASTER-SPEC §2, §3, §6 y §7 describen el código real; §3.1 lista las dependencias con su licencia.
 
 ### Fixed
+- Panel, ronda 5: el texto de «Entrar» se centra en su botón; «Desactivar» es un botón con contorno y la columna de acciones de Equipo tiene encabezado; los roles dicen lo que permiten en un texto emergente; el selector de Proveedor usa el chevron del panel como el de Idioma; «Funciones» y cada función se distinguen; la publicación automática dice qué publica; Conexiones explica cada fila en un texto emergente; el desplegable de envío no deja banda vacía, dice «Enviando» para un texto sin adjuntos y en teléfono pliega el original cuando hay resultado (UD-220, H-3500 a H-3514).
 - «Cerrar sesión» no se dibuja con un proveedor de identidad sin ruta de cierre (UD-190). Equipo, Configuración y la ficha del mensaje sin hallazgos de `ui-detectors`: objetivos de 24 px, campo a 17 px en teléfono, miniaturas sin relleno saturado (UD-191).
 - Panel: en una ventana más baja que una fila de la lista, la fila ya no se dibuja sobre el paginador (H-96).
 - Audio y video: los segmentos de Groq se unen en líneas del tamaño de una oración (`audio.pauseSeconds`, `audio.maxUnitWords`); una nota de 107 s pasa de 46 unidades a 9 (REG-005).

@@ -956,3 +956,16 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 - Subir el límite `--max-saturated` o excluir las miniaturas en el detector: tapa la medida en vez de calmar la pantalla.
 **Consecuencias:** Pruebas `panel/src/type-scale.test.ts` (campo en teléfono, paso de la escala y 16 px o más), `panel/src/ui-detectors.test.mjs` (páginas declaradas) y la corrida de `ui-detectors` con 0 hallazgos en las tres pantallas.
 **Condiciones de reversión:** Si el dueño prefiere 16 px, se agrega ese paso a `styles.css` y a `type-scale.test.ts`. Si quiere la miniatura en azul, vuelve `bg-accent-soft` en `Thumb.tsx` y el detector vuelve a marcar la ficha.
+
+## [UD-220] Equipo y Conexiones explican con texto emergente, no con texto visible; el desplegable de Inicio no lleva alto mínimo
+
+**Fecha:** 2026-10-21
+**Contexto:** La ronda 5 de jueces pidió que los roles «Editor» y «Miembro» y las conexiones «API», «MCP» y «Correo» dijeran qué son, y vio 120 px vacíos bajo el análisis en el desplegable de envío. UD-122 admite texto de ayuda visible sólo en Configuración; UD-037 fija las conexiones como un nombre cada una, apagadas y con su razón en el título; UD-110 pide que el desplegable mida lo que muestra.
+**Decisión:** Decisión de la sesión, tomada por ese encargo; Martín no la dijo con estas palabras y puede revertirla. (1) En Equipo el chip de rol lleva un texto emergente y su nombre accesible incluye lo que permite el rol (UD-007): «Envía mensajes y responde» y «Administra áreas, plantillas, equipo y conexiones». (2) En Conexiones cada fila lleva un texto emergente de una línea; no se agrega texto visible. (3) La fila de Conexiones no gana flecha, interruptor ni acción: UD-037 descartó «una acción por conector» porque ningún conector existe, y la vista vacía bajo cinco filas es lo que esa decisión deja. (4) El desplegable de envío pierde su alto mínimo de 20 rem, que dejaba una banda vacía bajo un original corto; mide lo que contiene y sólo crece. (5) Un envío de sólo texto dice «Enviando» y no «Subiendo» (el rótulo sigue a lo que viaja). (6) En teléfono, con el resultado publicado, el original se lee como su primer párrafo con «Ver más». (7) La repetición del título en el cuerpo de la tarjeta publicada no se toca: el cuerpo lo escribe el modelo, cuyo mensaje de sistema ya dice que no empiece repitiendo el título (`FINAL_REMINDER` en `src/analyze/prompts-en.js`), y en el servidor de ejemplo lo copia del texto enviado.
+**Alternativas descartadas:**
+- Texto visible bajo cada rol en Equipo: contradice la regla de ninguna ayuda por omisión fuera de Configuración.
+- Una columna «Qué permite» en Equipo: repite en cada fila lo que dos roles explican.
+- Una acción por conexión: UD-037.
+- Alto mínimo menor en lugar de ninguno: el alto del contenido cambia con el texto enviado; cualquier cifra deja una banda en algún caso.
+**Consecuencias:** `panel/src/flows-ronda5-resto.browser.test.mjs` (14 pruebas, todas fallan sobre el código anterior). En teléfono los textos emergentes no se ven con el dedo; el nombre accesible sí lo dice.
+**Condiciones de reversión:** Si el dueño quiere los roles explicados a la vista, se agrega una línea impersonal bajo el chip y UD-122 se enmienda para Equipo; si quiere el alto mínimo, vuelve `md:min-h-[20rem]` en `SendDrawer.tsx`.

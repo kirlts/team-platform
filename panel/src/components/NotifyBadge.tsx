@@ -77,7 +77,7 @@ export function NotifyBadge({ counts, size = 'lg', className, ...rest }: { count
       data-count={total}
       role="img"
       aria-label={label(counts)}
-      className={cn('inline-flex shrink-0 items-center justify-center gap-1 rounded-full border font-bold leading-none', size === 'lg' ? 'h-8 min-w-12 px-2.5 text-sm' : size === 'md' ? 'h-6 min-w-9 px-2 text-xs' : 'text-xs', className)}
+      className={cn('inline-flex shrink-0 items-center justify-center gap-1 rounded-full border font-bold leading-none', size === 'lg' ? 'h-8 min-w-12 px-2.5 text-sm' : size === 'md' ? 'h-6 min-w-9 px-2 text-xs' : 'h-6 text-xs', className)}
     >
       <StateIcon status={status} size={size === 'lg' ? 16 : 13} />
       <span className="tabular-nums">{total}</span>

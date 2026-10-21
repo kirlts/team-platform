@@ -10,6 +10,24 @@
 - La maqueta inicial del dueño es `Plataforma Team.png` en la raíz y manda sobre cualquier decisión posterior de una sesión.
 - Reglas: `docs/RULES.md`. La documentación pública no nombra otros proyectos del autor. Código, comentarios y nombres de pruebas en inglés (detector HP-008); interfaz y documentación en español. Nunca se envía una señal (`pkill`, `kill`) a procesos que la propia sesión no lanzó: dos agentes lo hicieron hoy y cortaron pruebas de otras sesiones.
 
+<!-- vivo:inicio -->
+### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
+
+- `main`: cc3d26a Fusiona cobertura y estabilidad en reuniones largas (UD-080, H-1003). Empujado a origin: `cc3d26a`.
+- Ramas con commits sin fusionar: `wt-inicio-maqueta` 20 (hace 6 minutos), `wt-telemetria-ui` 14 (hace 49 segundos), `wt-voz` 4 (hace 30 minutos).
+- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
+- Últimos commits en `main`:
+- `cc3d26a` Fusiona cobertura y estabilidad en reuniones largas (UD-080, H-1003) (hace 73 segundos)
+- `048767e` UD-080: la clasificación relee lo descartado y cada ventana ve 40 unidades previas; cierra H-1003 y abre H-1900 a H-1904 (hace 2 minutos)
+- `01a6cd9` Traspaso: estado al día, trabajo en vuelo y VPS (hace 4 minutos)
+- `66fdf7b` Libro: H-901 en su versión cerrada y la galería apunta a UD-059 (hace 8 minutos)
+- `6e50efb` Fusiona estados y Áreas (UD-041, UD-042); quita filas duplicadas del libro (hace 8 minutos)
+- `9648f93` Libro: H-1302 con sus hermanas (hace 10 minutos)
+- `d59b0f9` Fusiona main (H-904 a H-906) en wt-estados-areas (hace 10 minutos)
+- `94b424a` Fusiona el cierre de H-901 (H-904 a H-906) (hace 14 minutos)
+Actualizado 2026-10-21 16:26 UTC.
+<!-- vivo:fin -->
+
 ## Trabajo en vuelo
 
 Cuatro encargos siguen abiertos, cada uno en su worktree bajo `.claude/worktrees/<nombre>` y su rama `wt-<nombre>`. Los agentes no sobreviven a la sesión: la memoria de cada encargo es su rama y su fila de aquí. Para retomar: `git -C .claude/worktrees/<nombre> log --oneline main..HEAD`, leer sus filas en `docs/HALLAZGOS.md` y sus UD, y continuar en ese worktree. Ninguno empuja a `main`. Se fusiona con `git merge --no-edit wt-<nombre>`, luego `node scripts/check-conflict-markers.mjs`, `npm test`, `node --test bench/`, `cd panel && npx vitest run && npx tsc --noEmit` y las suites de navegador con puertos propios. Si dos ramas chocan en UD o H, se renumera la que entra después. Si una rama choca con `main` en más de dos archivos, se le pide a su agente (o a quien la retome) que haga `git merge main` en su rama y resuelva allí.

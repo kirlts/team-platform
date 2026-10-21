@@ -52,7 +52,8 @@ export function saveProposalDraft ({ db, events, now = Date.now }, { inputId, me
     const draft = {
       messages: entries.map((e, i) => ({
         area_id: e.areaId, template_id: e.templateId, title: e.title, body: e.body, fields: e.fields,
-        assignee_ids: e.assigneeIds, attachment_ids: e.attachmentIds, unit_ids: proposal.messages[i].unit_ids?.map(Number) ?? []
+        assignee_ids: e.assigneeIds, attachment_ids: e.attachmentIds, unit_ids: proposal.messages[i].unit_ids?.map(Number) ?? [],
+        ...(proposal.messages[i].source === 'frame' ? { source: 'frame' } : {})
       })),
       discarded: (proposal.discarded ?? []).map((d) => ({ unit_ids: (d.unit_ids ?? []).map(Number), reason: d.reason ?? '' }))
     }

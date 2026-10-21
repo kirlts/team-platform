@@ -229,6 +229,7 @@ export function normalizeDecomposition(output) {
     fields: Object.fromEntries(Object.entries(m.fields).filter(([, v]) => typeof v === 'string').map(([k, v]) => [k, v.trim()])),
     assignee_ids: sortedUnique(m.assignee_ids),
     attachment_ids: sortedUnique(m.attachment_ids),
+    ...(m.source === 'frame' ? { source: 'frame' } : {}),
   }));
   messages.sort((a, b) => a.unit_ids[0] - b.unit_ids[0] || a.title.localeCompare(b.title));
   const discarded = output.discarded

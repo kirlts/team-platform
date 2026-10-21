@@ -96,7 +96,8 @@ const proposalMessage = {
   properties: {
     area_id: id, template_id: nullableId, title: { type: 'string' }, body: { type: 'string' },
     fields: { type: 'object', additionalProperties: true },
-    assignee_ids: { type: 'array', items: id }, attachment_ids: { type: 'array', items: id }, unit_ids: { type: 'array', items: id }
+    assignee_ids: { type: 'array', items: id }, attachment_ids: { type: 'array', items: id }, unit_ids: { type: 'array', items: id },
+    source: { type: 'string', enum: ['frame'] }
   }
 }
 
@@ -153,7 +154,8 @@ export const proposalBody = {
           fields: { type: 'object', additionalProperties: { type: ['string', 'null'] } },
           assignee_ids: { type: 'array', items: idIn },
           attachment_ids: { type: 'array', items: idIn },
-          unit_ids: { type: 'array', items: { type: 'integer' } }
+          unit_ids: { type: 'array', items: { type: 'integer' } },
+          source: { type: 'string', enum: ['frame'] }
         }
       }
     },

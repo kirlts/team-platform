@@ -54,6 +54,8 @@ function messageSchema(fieldsSchema, { validation }) {
       body: text,
       assignee_ids: ids,
       attachment_ids: ids,
+      // Optional: `frame` marks a point seen only in the image and never said aloud, so the sender can discard it in the preview.
+      source: { type: 'string', enum: ['frame'] },
     },
     required: ['unit_ids', 'title', 'fields', 'body', 'assignee_ids', 'attachment_ids'],
     additionalProperties: false,

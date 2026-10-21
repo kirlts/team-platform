@@ -1,4 +1,4 @@
-// Regression tests (docs/TEST.md, REG-001 to REG-005): each one reproduces a defect found in real use or in the
+// Regression tests (docs/TEST.md, REG-001 to REG-009): each one reproduces a defect found in real use or in the
 // bench and fails if it comes back. The real-provider ones are in regressions.live.test.js.
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
@@ -7,7 +7,8 @@ import { extract } from '../extract/index.js';
 import { makeAudio, makeTmp } from '../extract/test/helpers.js';
 import { createFakeProviders } from '../providers/index.js';
 import { analyze } from './index.js';
-import { classifySystem } from './prompts.js';
+import { classifySystem, decomposeSystem } from './prompts.js';
+import { parseTemplate } from './templates.js';
 import { bugMessage, makeBundle, scriptByRequest, unitIdsIn } from './testing/fixtures.js';
 import { numberUnits, partitionUnits, renderUnits } from './units.js';
 
@@ -147,5 +148,81 @@ describe('REG-005: a voice note transcribed in short phrases becomes sentence-si
     } finally {
       await tmp.cleanup();
     }
+  });
+});
+
+describe('REG-006: a time range is a unit boundary and the voice does not glue to the previous frame', () => {
+  // The video extractor writes «[mm:ss] Fotograma N: …» and «[mm:ss-mm:ss] Voz: …»; a transcript line may also carry just the range.
+  const VIDEO = [
+    '[00:00] Fotograma 1: Pantalla de agenda con el menú abierto. Se ve el botón azul.',
+    '[00:05] Fotograma 2: El popup aparece vacío.',
+    '[00:05-00:10] Voz: miren, aquí sale vacío. ¿Qué pasa ahí?',
+    '[1:02:05-1:02:09] otra cosa dicha mucho después',
+    '[1:02:10] Fotograma 3: Se cierra.',
+  ].join('\n');
+
+  it('each frame and each voice line is one unit and keeps its time, whatever the kind of the source', () => {
+    for (const bundle of [{ text: VIDEO }, { attachments: [{ id: 1, kind: 'video', extracted: VIDEO }] }]) {
+      const units = numberUnits(bundle);
+      assert.deepEqual(units.map((u) => u.time), ['00:00', '00:05', '00:05-00:10', '1:02:05-1:02:09', '1:02:10']);
+      assert.deepEqual(units.map((u) => u.text), VIDEO.split('\n'), 'no line is glued to the previous one nor split by sentence');
+    }
+  });
+
+  it('a range alone is not taken for a continuation of the previous line', () => {
+    const units = numberUnits({ text: '[00:05] Fotograma 2: El popup aparece vacío.\n[00:05-00:10] miren, aquí sale vacío' });
+    assert.equal(units.length, 2);
+    assert.equal(units[1].time, '00:05-00:10');
+  });
+});
+
+describe('REG-007: one point said once is one message, whatever the units in between', () => {
+  for (const [language, split, contiguous] of [
+    ['es-419', /nunca lo partas por oración/, /aunque entre ellas haya descripciones de fotogramas/],
+    ['en', /never split it by sentence/, /even when descriptions of frames come between them/],
+  ]) {
+    it(`the prompts of ${language} tell the model not to split a point and to keep consecutive units together`, async () => {
+      const { areas, templates } = await makeBundle();
+      const classify = classifySystem({ areas, templates, language }).join('\n');
+      assert.match(classify, split);
+      const decompose = decomposeSystem(parseTemplate(templates[1].body_markdown), language).join('\n');
+      assert.match(decompose, contiguous);
+    });
+  }
+});
+
+describe('REG-008: praise with nothing to decide and rhetorical questions are not messages', () => {
+  for (const [language, praise, rhetorical] of [
+    ['es-419', /elogios o aprobaciones sin nada que decidir ni responder/, /preguntas retóricas y muletillas de cierre/],
+    ['en', /praise or approval with nothing to decide or answer/, /rhetorical questions and closing fillers/],
+  ]) {
+    it(`the classification of ${language} discards both`, async () => {
+      const { areas, templates } = await makeBundle();
+      const prompt = classifySystem({ areas, templates, language }).join('\n');
+      assert.match(prompt, praise);
+      assert.match(prompt, rhetorical);
+    });
+  }
+});
+
+describe('REG-009: a point seen only in a frame carries source «frame» into the proposal', () => {
+  const script = (source) => scriptByRequest({
+    classification: { groups: [{ unit_ids: [1, 2], area_id: 2, template_id: 2 }], discarded: [] },
+    decompositions: { 'Reporte de error': { messages: [{ ...bugMessage([1, 2], 'Corregir el icono desalineado'), ...(source ? { source } : {}) }] } },
+  });
+  const run = async (source) => analyze(await makeBundle({ text: '[00:03] Fotograma 1: El icono sale desalineado.\n[00:04] Fotograma 2: El icono sigue desalineado.', attachments: [] }), { providers: createFakeProviders({ text: script(source) }) });
+
+  it('the field survives the validation and the normalization', async () => {
+    const result = await run('frame');
+    assert.equal(result.status, 'ok');
+    assert.equal(result.proposal.messages[0].source, 'frame');
+  });
+
+  it('a message without the field stays without it, and any other value is invalid', async () => {
+    const without = await run(undefined);
+    assert.equal(without.status, 'ok');
+    assert.ok(!('source' in without.proposal.messages[0]));
+    const other = await run('audio');
+    assert.equal(other.status, 'invalid');
   });
 });

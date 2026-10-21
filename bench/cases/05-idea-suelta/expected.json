@@ -1,0 +1,24 @@
+{
+  "id": "05-idea-suelta",
+  "messages": [
+    {
+      "id": "m1",
+      "title": "Ordenar las paradas por ventana horaria además de la distancia",
+      "area_id": 1,
+      "template_id": 1,
+      "unit_ids": [
+        1,
+        2,
+        3
+      ]
+    }
+  ],
+  "discarded": [
+    {
+      "unit_ids": [
+        4
+      ],
+      "reason": "firma"
+    }
+  ]
+}

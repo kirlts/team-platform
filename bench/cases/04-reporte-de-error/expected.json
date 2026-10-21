@@ -1,0 +1,39 @@
+{
+  "id": "04-reporte-de-error",
+  "messages": [
+    {
+      "id": "m1",
+      "title": "La app se cierra al completar una entrega con foto de cámara",
+      "area_id": 2,
+      "template_id": 2,
+      "unit_ids": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        14
+      ]
+    }
+  ],
+  "discarded": [
+    {
+      "unit_ids": [
+        1
+      ],
+      "reason": "saludo"
+    },
+    {
+      "unit_ids": [
+        13
+      ],
+      "reason": "despedida"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+import type { InputHTMLAttributes, TextareaHTMLAttributes } from 'react'
+import { cn } from '@/lib/utils'
+
+const field = 'well w-full rounded-md px-3 text-sm text-fg placeholder:text-faint focus-visible:border-accent disabled:opacity-50'
+
+export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
+  return <input className={cn(field, 'h-8', className)} {...props} />
+}
+
+export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return <textarea className={cn(field, 'min-h-16 resize-y py-2', className)} {...props} />
+}

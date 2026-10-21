@@ -1,0 +1,49 @@
+{
+  "id": "06-mensaje-mezclado",
+  "messages": [
+    {
+      "id": "m1",
+      "title": "Paradas duplicadas en pantalla para el cliente de Peñalolén",
+      "area_id": 2,
+      "template_id": 2,
+      "unit_ids": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "m2",
+      "title": "Enviar el reporte semanal por correo cada lunes",
+      "area_id": 3,
+      "template_id": 3,
+      "unit_ids": [
+        4,
+        5
+      ]
+    },
+    {
+      "id": "m3",
+      "title": "¿Cuántas rutas por día soporta el servidor?",
+      "area_id": 5,
+      "template_id": 5,
+      "unit_ids": [
+        6,
+        7
+      ]
+    }
+  ],
+  "discarded": [
+    {
+      "unit_ids": [
+        1
+      ],
+      "reason": "anuncio"
+    },
+    {
+      "unit_ids": [
+        8
+      ],
+      "reason": "aviso de ausencia"
+    }
+  ]
+}

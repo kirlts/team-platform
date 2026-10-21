@@ -124,7 +124,7 @@ Criterio: tecnologías que el autor ya probó en producción (Node, Fastify, Rea
 8. **Sólo un miembro distinto del emisor responde un mensaje; cualquier miembro lo cierra o reabre.** Lo hace cumplir la API, no el panel.
 9. **Todo número que gobierna la operación nace declarado**: tamaño máximo de adjunto, fotogramas por video, páginas por llamada, reintentos, arriendo de un trabajo. Sale de una medición citada o de una perilla de configuración con su valor por omisión justificado, nunca de «parece razonable».
 10. **Toda dependencia es compatible con MIT** (UD-004).
-11. **La API es la única puerta.** El panel no lee la base ni el volumen; lo que el panel puede hacer, un sistema externo lo puede hacer con el mismo contrato (UD-010).
+11. **La API es la única puerta.** El panel no lee la base ni el volumen; lo que el panel puede hacer, un sistema externo lo puede hacer con el mismo contrato (UD-010). El contrato se publica generado desde los esquemas de las rutas (`GET /api/openapi.json`, OpenAPI 3.1) y ninguna ruta queda sin esquema de respuesta: un frontend distinto (otro dominio, otro framework, otros componentes y tipografías) reimplementa sólo las vistas; `CORS_ORIGINS` y `COOKIE_MODE=cross-origin` son las dos perillas que lo permiten desde otro origen.
 
 ---
 

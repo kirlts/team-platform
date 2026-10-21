@@ -1,0 +1,89 @@
+{
+  "id": "07-video-de-pantalla",
+  "messages": [
+    {
+      "id": "m1",
+      "title": "Los colores de estado se confunden con daltonismo",
+      "area_id": [
+        2,
+        4
+      ],
+      "template_id": [
+        2,
+        4
+      ],
+      "unit_ids": [
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "id": "m2",
+      "title": "La opción PDF del menú Exportar queda cortada",
+      "area_id": [
+        2,
+        4
+      ],
+      "template_id": [
+        2,
+        4
+      ],
+      "unit_ids": [
+        7
+      ]
+    },
+    {
+      "id": "m3",
+      "title": "El PDF exportado muestra mal las tildes de los nombres",
+      "area_id": 2,
+      "template_id": 2,
+      "unit_ids": [
+        8,
+        9
+      ]
+    },
+    {
+      "id": "m4",
+      "title": "Cerrar jornada y Cancelar ruta están pegados",
+      "area_id": [
+        2,
+        4
+      ],
+      "template_id": [
+        2,
+        4
+      ],
+      "unit_ids": [
+        10,
+        11
+      ]
+    }
+  ],
+  "discarded": [
+    {
+      "unit_ids": [
+        1
+      ],
+      "reason": "presentación"
+    },
+    {
+      "unit_ids": [
+        2
+      ],
+      "reason": "contexto"
+    },
+    {
+      "unit_ids": [
+        6
+      ],
+      "reason": "navegación"
+    },
+    {
+      "unit_ids": [
+        12
+      ],
+      "reason": "cierre"
+    }
+  ]
+}

@@ -7,7 +7,7 @@ import type { ReactNode } from 'react'
 export function PageHeader({ title, count, aside }: { title: string; count?: string; aside?: ReactNode }) {
   return (
     <header className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-      <div className="flex items-baseline gap-3">
+      <div className="flex flex-wrap items-baseline gap-x-3">
         <h1>{title}</h1>
         {count && (
           <span aria-live="polite" className="text-sm tabular-nums text-muted">

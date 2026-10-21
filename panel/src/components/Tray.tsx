@@ -111,7 +111,7 @@ function UploadOption({ n, upload, selected, onSelect }: { n: number; upload: Pe
       <span className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
         <Ordinal n={n} at={upload.at} />
         <Badge tone={upload.error ? 'danger' : 'neutral'}>
-          {upload.error ? t('tray.state.notSent') : t('tray.state.uploading')}
+          {upload.error ? t('tray.state.notSent') : t(upload.names.length === 0 ? 'tray.state.sending' : 'tray.state.uploading')}
           {!upload.error && percent > 0 && <span className="ml-1 tabular-nums">{percent}%</span>}
         </Badge>
       </span>

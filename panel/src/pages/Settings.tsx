@@ -1,4 +1,5 @@
 import { ChevronDown, Lock } from '@/components/icons'
+import { SELECT_FACE } from '@/components/NativeSelect'
 import { useState, type ReactNode } from 'react'
 import { FormDialog } from '@/components/FormDialog'
 import { PageHeader } from '@/components/PageHeader'
@@ -96,7 +97,7 @@ function Account() {
         </Row>
         <Row label={t('settings.language')} hint={t('hint.account.language')} hintId="hint-account-language">
           <DropdownMenu>
-            <DropdownMenuTrigger aria-describedby="hint-account-language" className="inline-flex min-h-7 items-center gap-1.5 rounded-md border border-edge bg-glass px-2.5 text-sm hover:border-accent" aria-label={t('settings.languageAria', { value: t(LANGUAGE_KEY[language]) })}>
+            <DropdownMenuTrigger aria-describedby="hint-account-language" className={`${SELECT_FACE} inline-flex min-w-40 items-center justify-between gap-2`} aria-label={t('settings.languageAria', { value: t(LANGUAGE_KEY[language]) })}>
               {t(LANGUAGE_KEY[language])}
               <ChevronDown size={13} aria-hidden />
             </DropdownMenuTrigger>

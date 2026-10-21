@@ -2,8 +2,10 @@ import { useT } from '@/i18n'
 import { toGalleryItems } from '@/lib/gallery'
 import { useSaveInputText } from '@/lib/queries'
 import type { InputRecord } from '@/lib/types'
+import { useNarrow } from '@/lib/useNarrow'
 import { useUndo } from '@/lib/undo'
 import { EditableText } from './EditableText'
+import { FoldedText } from './FoldedText'
 import { MediaGallery } from './MediaGallery'
 
 /**
@@ -17,6 +19,8 @@ export function InputPreview({ input }: { input: InputRecord }) {
   const undo = useUndo()
   const saveText = useSaveInputText(input.id)
   const editable = input.status === 'proposed' || input.status === 'failed'
+  // On a phone, once the result is published the original reads as its first paragraph and opens whole with «Ver más»: the result is what the person came for and it was left under the fold of the screen (ronda 5). Nothing is cut or hidden.
+  const folded = useNarrow() && input.status === 'published'
 
   const change = (next: string) => {
     const prev = input.text
@@ -28,7 +32,11 @@ export function InputPreview({ input }: { input: InputRecord }) {
       {/* A pasted text has no maximum length: it is a lane with its own scroll, declared, and the only one the drawer keeps (UD-110); its cap comes from the window. */}
       {input.text && (
         <div data-lane="input-text" className="scroll-thin min-h-0 flex-1 overflow-y-auto px-1 text-sm md:max-h-[60dvh]">
-          <EditableText value={input.text} label={t('original.title')} multiline prose canEdit={editable} validate={(v) => (v ? null : t('common.required'))} onSave={change} />
+          {folded ? (
+            <FoldedText value={input.text} label={t('original.title')} canEdit={false} onSave={change} />
+          ) : (
+            <EditableText value={input.text} label={t('original.title')} multiline prose canEdit={editable} validate={(v) => (v ? null : t('common.required'))} onSave={change} />
+          )}
         </div>
       )}
       {input.attachments.length > 0 && <MediaGallery items={toGalleryItems(input.attachments)} variant="compact" className="shrink-0" />}

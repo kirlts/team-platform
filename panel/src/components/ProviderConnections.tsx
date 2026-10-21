@@ -61,7 +61,7 @@ function ConnectionRow({ connection: c }: { connection: Connection }) {
   return (
     <li data-connection={c.name} data-status={c.status} role="group" aria-label={c.label} className="flex flex-col gap-3 border-t border-line py-3 first:border-t-0">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h3 className="min-w-0 break-words text-sm">{c.label}</h3>
+        <h4 className="min-w-0 break-words text-sm font-semibold">{c.label}</h4>
         <ConnectionStatusMark status={c.status} />
       </div>
       <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-3">

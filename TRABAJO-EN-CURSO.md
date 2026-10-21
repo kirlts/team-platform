@@ -1,6 +1,6 @@
 # Trabajo en curso: team-platform
 
-> Documento de traspaso. Quien retome (otra sesión, otro modelo, otra cuenta) lo lee antes de actuar y lo mantiene al día en cada cambio de estado: una rama fusionada, un agente lanzado o terminado, una decisión de Martín, una medición. Sin llaves ni datos privados. Última actualización: 2026-10-21 01:37.
+> Documento de traspaso. Quien retome (otra sesión, otro modelo, otra cuenta) lo lee antes de actuar y lo mantiene al día en cada cambio de estado: una rama fusionada, un agente lanzado o terminado, una decisión de Martín, una medición. Sin llaves ni datos privados. Última actualización: 2026-10-21 01:50.
 
 ## Estado de `main`
 
@@ -30,10 +30,10 @@ Fusionado y sin trabajo pendiente: núcleo (API, cola, identidad), extractores, 
 
 ## Despliegue en el VPS
 
-1. Estado: repositorio clonado, `.env` creado (modo 600) con `PUBLISH_PORT=3200`, el correo de administración, una contraseña generada, el nombre del proyecto y las llaves de los dos proveedores. La imagen se compila con `docker compose build --build-arg BUILD_JOBS=1` para no ahogar los otros servicios del equipo (2 núcleos, 4 GB libres).
-2. Al terminar la imagen: `docker compose up -d --wait` en `~/team-platform` del VPS; comprobar `curl -s http://127.0.0.1:3200/health`.
-3. Publicar sólo para la tailnet: `sudo tailscale serve --bg --https=8444 http://127.0.0.1:3200`. **No activar Funnel** y **no usar `tailscale serve reset`**: el VPS ya expone otros servicios y esa configuración no se toca.
-4. Probar desde este equipo, con la URL y las credenciales de `~/.config/team-platform/vps-admin`: entrar, enviar un texto mixto, esperar la propuesta, publicar, responder; después con un audio y un video corto, con los proveedores reales.
+1. Estado (2026-10-21 01:50): imagen compilada para ARM, contenedor sano, `curl http://127.0.0.1:3200/health` responde `ok`. Publicado sólo para la tailnet en `https://toolset-oci-1-1.tail2d4c18.ts.net:8444` (`tailscale serve`, sin Funnel). Acceso en `~/.config/team-platform/vps-admin`.
+2. Prueba de punta a punta hecha con texto mixto: login, input, propuesta de 3 mensajes en 4 s, 4 llamadas, 12.547 tokens de entrada. Falta probar audio y video con los proveedores reales, y publicar y responder desde el panel.
+3. Actualizar: `git pull && docker compose build --build-arg BUILD_JOBS=1 && docker compose up -d --wait`.
+4. Bajarlo: `docker compose down` y `sudo tailscale serve --https=8444 off`.
 5. Si el compilado de ffmpeg falla en ARM, la rama de ensamblador (`nasm`) del `Dockerfile` está escrita pero no se había ejecutado nunca: arreglarla ahí y volver a empujar. Actualizar el VPS: `git pull && docker compose build --build-arg BUILD_JOBS=1 && docker compose up -d`.
 6. Bajarlo: `docker compose down` y `sudo tailscale serve --https=8444 off`.
 

@@ -13,24 +13,26 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 007491c Merge branch 'wt-equipo-config'. Empujado a origin: `007491c`.
-- Ramas con commits sin fusionar: `wt-tarjetas` 7 (hace 76 segundos), `wt-areas3` 4 (hace 5 minutos), `wt-envio` 4 (hace 9 minutos), `wt-h904` 4 (hace 35 minutos).
-- Worktrees abiertos: `team-platform`, `areas2`, `areas3`, `auto-publicar`, `cierre`, `envio`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `tarjetas`, `telemetria-ui`, `thinking`, `voz`.
+- `main`: 61f61d6 Merge branch 'wt-cierre-docs'. Empujado a origin: `61f61d6`.
+- Ramas con commits sin fusionar: `wt-remanentes` 5 (hace 15 segundos), `wt-miniaturas` 2 (hace 10 minutos).
+- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `miniaturas`, `modelos`, `remanentes`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `007491c` Merge branch 'wt-equipo-config' (hace 4 minutos)
-- `74a382a` Merge branch 'main' into wt-barra-movil (hace 10 minutos)
-- `62f2d4d` Flows: the top bar is three marks on a phone too (hace 10 minutos)
-- `d482a86` Merge branch 'main' into wt-equipo-config (hace 14 minutos)
-- `b217c51` Ronda 4 de Equipo, Configuración y entrada: pruebas, UD-170, hallazgos H-3000 a H-3009 y diseño (hace 14 minutos)
-- `371a979` Configuración: ayuda de idioma completa, ayudas de nombre y correo con su vía de cambio, rótulos de Proveedores como los de Cuenta (hace 14 minutos)
-- `7ee4a0f` Entrada: el aviso de error sale de la tarjeta y la nota queda a la misma distancia del borde que el logo (hace 14 minutos)
-- `6c441d5` Equipo: alta con verbo, acción de teléfono en la fila del rol y fila abierta siempre visible (hace 14 minutos)
-Actualizado 2026-10-21 20:18 UTC.
+- `61f61d6` Merge branch 'wt-cierre-docs' (hace 14 minutos)
+- `13504f0` Cifras de pruebas del servidor: 865 en verde y 6 omitidas, 2026-10-21 (hace 14 minutos)
+- `6ffba9b` Merge branch 'main' into wt-cierre-docs (hace 15 minutos)
+- `ef2f47f` TODO y deuda técnica al día; HP-019 con la medición del monólogo (hace 15 minutos)
+- `47db1fd` README: llaves desde Configuración, pruebas del panel y cifras del 2026-10-21 (hace 17 minutos)
+- `f69d165` CHANGELOG: barras, Inicio, publicación automática, tarjetas, Firefox y cifras medidas (hace 17 minutos)
+- `07130fe` REPOMAP: bóveda, conexiones, herramientas de interfaz y scripts nuevos (hace 18 minutos)
+- `c6a522e` MASTER-SPEC: vistas, componentes y flujos reflejan el panel construido (hace 18 minutos)
+Actualizado 2026-10-21 21:16 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo
 
 **Plan de cierre:** `docs/PLAN-DE-CIERRE.md` (2026-10-21 15:00). La sesión anterior murió a las 14:42 con la cuota de su cuenta agotada; sus agentes murieron con ella. Quien retome ejecuta ese plan desde la Fase 0: rescata lo sin commit de `configuracion`, `inicio-respira` y `barra-superior`, relanza los encargos A, B, C y G, y sigue el orden de fusión que dice. Encargo nuevo del dueño de hoy: la barra lateral (alineación, contadores sin contenedor, hover), encargo G.
+
+**Avance 17:50.** En `main` Áreas, tarjetas, Equipo, Configuración, desplegable de envío, Firefox y aviso, barra móvil (`046c978`). El VPS corre `046c978`, sano, `vps-check` en OK. Corren el arreglo del bucle de miniaturas de video y el cierre documental.
 
 **Avance 17:05.** En `main` también el banco (`d593179`): H-1901 a H-1904, TASK-013, TASK-015 y TASK-024 cerradas con medición, 5 casos privados nuevos. Gasto del banco: 4,2 USD. `classifyDraws` no se adopta. La regla 2 de clasificación baja el área 2 puntos, dentro del ruido (p 0,37); quitarla de los dos `prompts-*.js` la revierte. Siguen los cinco arreglos de pantalla y Firefox.
 

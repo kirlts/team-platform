@@ -200,16 +200,16 @@ Desarrollo del panel: Vite 8, Tailwind 4.3 con `@tailwindcss/vite` (MIT), TypeSc
 
 ## §6. Interfaz y experiencia
 
-**Atmósfera de referencia:** Y2K futurista (UD-013). Vidrio translúcido con reflejos, cromo y metal líquido, degradados iridiscentes, formas redondeadas, azul eléctrico sobre plata con acentos lima y lila. La tipografía es de la época, con licencia libre y empaquetada. Es un producto de 2026 que cita el 2000, con referencias fechadas y tokens en `panel/DISENO.md`. Nada muy loco. Manda la jerarquía visual (escala de tamaños, alineación a grilla, formas con intención, espacio negativo activo, distribución asimétrica donde corresponde) y una identidad reconocible. Los valores que delatan diseño generado por IA están prohibidos. En lo funcional, un programa de gestión estándar, no una web que conversa. Rótulos de una a tres palabras como sustantivos («Mensajes», «Equipo»), sin texto de ayuda por omisión, sin segunda persona. Densidad de una bandeja de entrada de correo de escritorio: todo lo que se necesita ahora cabe sin desplazarse; lo demás nace plegado. La maqueta manda en la disposición: barra lateral a la izquierda, cabecera «[Nombre] TEAM» con campana y menú, contenido a la derecha.
+**Atmósfera de referencia:** Y2K futurista (UD-013). Vidrio translúcido con reflejos, cromo y metal líquido, degradados iridiscentes, formas redondeadas, azul eléctrico sobre plata con acentos lima y lila. La tipografía es de la época, con licencia libre y empaquetada. Es un producto de 2026 que cita el 2000, con referencias fechadas y tokens en `panel/DISENO.md`. Nada muy loco. Manda la jerarquía visual (escala de tamaños, alineación a grilla, formas con intención, espacio negativo activo, distribución asimétrica donde corresponde) y una identidad reconocible. Los valores que delatan diseño generado por IA están prohibidos. En lo funcional, un programa de gestión estándar, no una web que conversa. Rótulos de una a tres palabras como sustantivos («Mensajes», «Equipo»), sin texto de ayuda por omisión y sin segunda persona. La única excepción es Configuración: cada ajuste lleva una línea impersonal de hasta 90 caracteres bajo su rótulo (`SettingHint`, UD-122). Densidad de una bandeja de entrada de correo de escritorio: todo lo que se necesita ahora cabe sin desplazarse; lo demás nace plegado. La maqueta manda en la disposición. Barra lateral de 256 px a la izquierda (UD-047). Cabecera «[Nombre] TEAM» con las tres marcas de estado y la campana. Contenido a la derecha.
 
-**Edición y alto (UD-017):** todo texto editable se edita en el lugar (clic entra, clic afuera o Enter guarda, Escape cancela), con deshacer y rehacer visibles y por teclado, sin historial de versiones; cada vista cabe en una pantalla a 1440×900 y a 1280×720, con revelación progresiva (lo que se necesita ahora a la vista, lo demás plegado con su cuenta) y listas que paginan dentro del marco con un tamaño medido.
+**Edición y alto (UD-017):** todo texto editable se edita en el lugar (clic entra, clic afuera o Enter guarda, Escape cancela), con deshacer y rehacer visibles y por teclado, sin historial de versiones; cada vista cabe en una pantalla a 1440×900 y a 1280×720, con revelación progresiva (lo que se necesita ahora a la vista, lo demás plegado con su cuenta) y listas que paginan dentro del marco con un tamaño medido. Dos enmiendas. Con un envío abierto, Inicio puede desplazar la página; nunca lo hace una caja interna con scroll propio, salvo el texto largo de un original (UD-110). Configuración se desplaza como página y su texto largo crece con el contenido (UD-123).
 
 **Flujo principal de la persona:**
 
-1. Entra. Ve Inicio: el nombre del proyecto con la fecha, la barra «Nuevo mensaje» con clip (adjuntos), cámara (foto), micrófono (audio) y enviar, y el desplegable de envíos (UD-046).
+1. Entra. Ve Inicio: el nombre del proyecto con la fecha, el compositor «Nuevo mensaje» y el desplegable de envíos (UD-046). El compositor es centrado, de bordes redondeados y con aire alrededor (UD-110), con clip (adjuntos), cámara (foto), micrófono (audio) y enviar. En todas las páginas, la barra superior muestra tres marcas con su número: abierto (rojo), respondido (amarillo) y cerrado (azul) (UD-100).
 2. Escribe, pega una captura o arrastra un docx, y envía. La barra se vacía. Debajo se abre el desplegable (UD-046): a la izquierda el original (texto y adjuntos con su galería), a la derecha el bloque «Análisis», con una barra de progreso y la frase del paso en curso («leyendo el documento», «3 de 7 adjuntos»).
 3. Al terminar, los mensajes ya están publicados (UD-070): no hay botón Enviar. Cada uno trae su área (insignia, cambiable), título, texto según la plantilla de esa área, destinatarios (chips, editables) y adjuntos (miniaturas, quitables), y su emisor lo edita en el lugar cuando quiera (UD-071).
-4. Los mensajes aparecen en «Últimos mensajes». Quien los recibe los ve en su Inicio, filtrados para él por omisión. Cada tarjeta muestra la insignia del área, el emisor, la fecha y la miniatura del adjunto principal.
+4. Los mensajes aparecen en «Últimos mensajes». Quien los recibe los ve en su Inicio, filtrados para él por omisión, y cuentan en la marca de la barra superior que corresponde a su estado. El clic en una marca abre un desplegable anclado a ella con esos mensajes (título, área, quién, hora) y un enlace a Mensajes ya filtrado. El desplegable no tapa la página. Cada tarjeta muestra la insignia del área, el emisor, la fecha y la miniatura del adjunto principal.
 5. Responde desde la tarjeta o desde Mensajes. El hilo crece debajo del mensaje. Cualquiera cierra; el estado se ve como insignia, nunca como prosa.
 
 **Vistas** (barra lateral, en este orden; `idea.md` y UD-006):
@@ -217,36 +217,39 @@ Desarrollo del panel: Vite 8, Tailwind 4.3 con `@tailwindcss/vite` (MIT), TypeSc
 | Vista | Qué muestra | Quién |
 |---|---|---|
 | Inicio | De arriba abajo (UD-046): nombre del proyecto y fecha (los estados pendientes viven en la barra superior, UD-100); «Nuevo mensaje» con la barra de texto; el desplegable en línea que se abre solo al enviar y muestra el original a la izquierda y el análisis a la derecha, con los mensajes ya publicados y editables por su autor (UD-070, UD-071), y el selector de los envíos propios con su estado; «Últimos mensajes» y «Últimas respuestas», que se pliegan a una franja cuando la ventana no alcanza para el desplegable y para ellas | Todos |
-| Mensajes | Todos los mensajes del equipo con filtros: para mí, para X, por área, por estado, respuestas; búsqueda | Todos |
-| Áreas | Lista de áreas con su conteo de abiertos y respondidos, para crearlas y abrirlas. Cada área abre su vista (`/areas/:id`): sus mensajes primero, con el filtro por los tres estados y su conteo, y plegadas su descripción y sus plantillas, con edición en el lugar (UD-041) | Editor |
-| Equipo | Miembros con su perfil; cada uno edita el suyo | Todos |
-| Conexiones | API, MCP, correo, WhatsApp, GitHub Issues (UD-012). Apagada: visible como entrada deshabilitada con la razón | Editor |
-| Configuración | Cuenta, tema claro u oscuro, proveedores de modelo (Editor) | Todos |
+| Mensajes | Todos los mensajes del equipo como tarjetas (UD-150): línea de área, título, extracto, una línea de datos con el estado (forma, color y palabra) y la columna de acciones «Responder» y «Cerrar». Filtros en la URL: para mí, para X, por área, por estado, respuestas; búsqueda. La ficha agrega el hilo, la galería de adjuntos y el cierre con «Reabrir» | Todos |
+| Áreas | Lista de áreas en filas de grilla: nombre, conteos de abiertos y respondidos en una columna fija a la derecha del nombre, color editable y descripción debajo. «Área» crea una. Cada área abre su vista (`/areas/:id`): sus mensajes primero, sin repetir el chip del área (UD-160), con el filtro por los tres estados y su conteo en la URL, y plegadas su descripción y sus plantillas, con edición en el lugar (UD-041). Sin mensajes dice «Sin mensajes en esta área» | Editor |
+| Equipo | Miembros con su perfil, que se lee entero con «Ver más». Cada uno edita el suyo. El Editor usa «Agregar miembro», cambia nombre, correo y rol de los demás, y desactiva o reactiva con Deshacer | Todos |
+| Conexiones | API, MCP, correo, WhatsApp, GitHub Issues (UD-012). Ninguna existe todavía: se lista una vez, apagada y con su razón en el título (UD-037), con una sola entrada en la barra lateral | Editor |
+| Configuración | Dos columnas que se desplazan como página (UD-123). Cuenta (nombre, correo, rol, idioma, contraseña), tema claro, oscuro o del sistema, descripción del proyecto en un editor que crece con el texto, y para el Editor «Publicación» (automática o manual, UD-070), «Telemetría de uso» (UD-091) y «Proveedores»: funciones con su proveedor y modelo, y conexiones con el estado y los últimos 4 caracteres de su clave, alta, reemplazo, retiro y diagnóstico (UD-120, UD-121). Cada ajuste lleva su `SettingHint` | Todos |
 
 **Componentes de interfaz:**
 
 | Componente | Función | Archivo |
 | --- | --- | --- |
-| `Sidebar` | Navegación compacta y ocultable (UD-047), usuario, color y conteo de abiertos y respondidos por área | `panel/src/components/Sidebar.tsx` |
-| `NotifyBadge`, `StateMark` | Insignia y marca de estado: abierto rojo, respondido amarillo, cerrado azul, con forma, palabra y número; en la barra superior las tres marcas son sólo forma, color y número, y la palabra es su nombre accesible (UD-100). El estado más alto se decide en `panel/src/lib/states.ts` | `panel/src/components/NotifyBadge.tsx` |
+| `Sidebar` | Navegación de 256 px, ocultable (UD-047), sobre una grilla de dos columnas por fila: el enlace y una columna de contador de ancho fijo (`--sidebar-count-col`) que termina en el mismo borde derecho y el mismo centro vertical en toda fila. Inicio, Mensajes, Áreas con cada área y su contador de abiertos, Equipo, Conexiones, Configuración y salida. Sin contenedor en los contadores; hover y foco iluminan la fila entera (UD-130) | `panel/src/components/Sidebar.tsx` |
+| `NotifyBadge`, `StateMark`, `StateIcon` | Marca de estado: abierto rojo, respondido amarillo, cerrado azul, con forma, palabra y número. Es el mismo componente en la barra superior (sólo forma, color y número, con la palabra como nombre accesible, UD-100), en la barra lateral y en las tarjetas. El estado más alto se decide en `panel/src/lib/states.ts` y los conteos por área en `panel/src/lib/pending.ts` | `panel/src/components/NotifyBadge.tsx` |
 | `ComposeBar` | Barra de nuevo mensaje con adjuntos, cámara, micrófono, enviar | `panel/src/components/ComposeBar.tsx` |
 | `SendDrawer`, `InputPreview`, `PublishedPane` | Desplegable bajo la barra: original editable con su galería, análisis publicado y editable en el lugar, selector de envíos (UD-046) | `panel/src/components/SendDrawer.tsx` |
 | `AreaChip`, `AreaColorPicker`, `lib/area-color.ts` | Chip de área, selector de un color y derivación del color secundario en OKLCH (UD-045) | `panel/src/components/AreaChip.tsx` |
 | `AnalysisPanel` | Progreso por SSE, propuesta editable con área por mensaje, Enviar | `panel/src/components/AnalysisPanel.tsx` |
-| `MessageCard` | Área, emisor, fecha, texto, adjunto principal, estado, acciones | `panel/src/components/MessageCard.tsx` |
+| `MessageCard` | Tarjeta en tres niveles (UD-150): chip de área sobre el título, extracto sin recorte, una línea de datos con el estado y la fecha, miniatura del adjunto principal y la columna de acciones. `hideArea` quita el chip en la vista de un área (UD-160) | `panel/src/components/MessageCard.tsx` |
 | `ReplyThread` | Hilo lineal de respuestas con formulario al pie | `panel/src/components/ReplyThread.tsx` |
 | `MessagesList` | Lista con filtros y búsqueda | `panel/src/pages/Messages.tsx` |
 | `AreasEditor` | Áreas y plantillas, edición en el lugar | `panel/src/pages/Areas.tsx` |
-| `Team` | Miembros, edición de lo propio | `panel/src/pages/Team.tsx` |
-| `Settings` | Cuenta, tema, proveedores | `panel/src/pages/Settings.tsx` |
+| `Team` | Miembros, perfil plegable, edición de lo propio y altas del Editor | `panel/src/pages/Team.tsx` |
+| `Page`, `FitList`, `FoldedText` | Marco de una vista sobre la grilla de 12 columnas, lista que pagina con un tamaño medido (UD-017) y texto largo plegado a su primer párrafo con «Ver más» | `panel/src/components/` |
+| `Settings`, `SettingHint`, `ProjectEditor`, `PublicationSetting`, `UiTelemetrySetting` | Cuenta, tema, descripción del proyecto, publicación y telemetría, con su línea de explicación (tope de 90 caracteres en `ui-voice.test.ts`) | `panel/src/pages/Settings.tsx` |
+| `ProviderSettings`, `ProviderConnections`, `ProviderKeyForm`, `ProviderRemoval`, `ProviderCheck`, `AddConnection` | Sección Proveedores: función, proveedor y modelo con prueba previa y reversión; conexiones con estado, últimos 4 de la clave, alta, reemplazo, retiro con bloqueo por dependencia y diagnóstico con causa clasificada y lista de modelos. La clave se borra del campo antes de salir la petición | `panel/src/components/Provider*.tsx`, `AddConnection.tsx` |
 | `MessageDetail` | Un mensaje con su hilo y sus acciones | `panel/src/pages/MessageDetail.tsx` |
 | `Login` | Inicio de sesión local | `panel/src/pages/Login.tsx` |
-| `Header`, `StatusBar` | Cabecera «[Nombre] TEAM», las tres marcas de estado con su desplegable (UD-100), campana de novedades y menú de la cuenta | `panel/src/components/Header.tsx` |
+| `Header`, `StatusBar` | Cabecera «[Nombre] TEAM» de toda página: botón del panel lateral, las tres marcas de estado con su desplegable anclado (UD-100; Enter abre, Escape cierra y devuelve el foco, flechas recorren) y la campana, que sólo cuenta novedades. En teléfono las tres marcas se conservan, más angostas (UD-141). Sin cuadros por área ni palabra visible de estado | `panel/src/components/Header.tsx`, `StatusBar.tsx` |
 | `FilterBar` | Filtros de Mensajes como chips en la URL | `panel/src/components/FilterBar.tsx` |
 | `EditableText`, `EditableTags`, `MemberPicker` | Edición en el lugar de texto, dominios y destinatarios | `panel/src/components/` |
-| `MediaGallery`, `MediaGalleryDialog`, `MediaOpener`, `AttachmentStrip` | Visor y carrusel de adjuntos, reutilizado en la ficha, las respuestas, la lista, Inicio y la propuesta (UD-059) | `panel/src/components/MediaGallery.tsx` |
-| `StatusBadge`, `Thumb`, `Avatar` | Estado como insignia, miniatura de adjunto, iniciales | `panel/src/components/` |
+| `MediaGallery`, `MediaGalleryDialog`, `MediaOpener`, `AttachmentStrip` | Galería de medios: visor grande con tira de miniaturas, flechas, «2 de 5», teclado y deslizamiento en teléfono; tamaños `inline`, `compact` y `dialog`. Se reutiliza en la ficha, las respuestas, la lista, el original del desplegable de Inicio y la propuesta (UD-059) | `panel/src/components/MediaGallery.tsx` |
+| `StatusBadge`, `Thumb`, `Avatar`, `SimulatedMark` | Estado como insignia, miniatura de adjunto, iniciales y marca «Servidor de ejemplo» con borde discontinuo cuando la propuesta viene del servidor doble (UD-180) | `panel/src/components/` |
 | `Atmosphere`, `icons` | Fondo de la piel Y2K y juego propio de íconos | `panel/src/components/` |
+| `Tray` | Selector de envíos dentro del desplegable de Inicio, con «Envío N», hora y estado (UD-025) | `panel/src/components/Tray.tsx` |
 | `ui/*` | Componentes de shadcn/ui sobre Radix: botón, diálogo, menú, popover, tooltip, insignia, campo | `panel/src/components/ui/` |
 
 ---
@@ -344,7 +347,7 @@ credentials          member_id, password_hash, updated_at, failed_count, next_at
 sessions             id (SHA-256 de la ficha), member_id, created_at, last_seen_at, expires_at
 identity_links       provider, external_id, member_id, created_at                               (identidad delegada)
 sso_nonces           nonce, created_at, used_at                                                 (modo sso-redirect; uso único)
-areas                id, title (único entre las vigentes), description, position, deleted_at
+areas                id, title (único entre las vigentes), description, position, color (migración 0008, UD-045), deleted_at
 templates            id, area_id, name (único dentro del área entre las vigentes), description, body_markdown (archivo completo con su encabezado), updated_at, deleted_at
 inputs               id, author_id, text, content_hash UNIQUE (incluye al emisor), status(queued|extracting|analyzing|proposed|published|failed|cancelled), error, error_code, keep_draft (0|1, UD-072), created_at, updated_at
 attachments          id, input_id, kind(image|video|audio|document|link), name, path (sha256 en el volumen; la URL si es un enlace), mime, size, sha256, extracted_text, extracted_at, extract_meta_json
@@ -358,6 +361,7 @@ jobs                 id, kind(extract|analyze), input_id, payload_json, status(q
                      índice (status, priority DESC, run_at, id): reclamo en 23 µs (informe 03)
 job_events           seq, job_id, kind(progress|done|message), member_id (destinatario; NULL = todo el equipo), percent, phrase, data_json, at     retención 7 días
 settings             key, value_json, updated_at                                                (proveedor y modelo por ranura; nunca una llave)
+provider_connections name, label, kind(anthropic|openai-compatible|groq-speech), custom, base_url, structured, sealed_value (AES-256-GCM), last4, key_updated_at, check_at, check_ok, check_cause, check_ms, created_at, updated_at      (migración 0009; la clave sólo sale sellada de la base y nunca por la API)
 audit_log            id, at, member_id, action, entity, entity_id, detail_json
 spans                trace_id, span_id, parent_id, name, kind, start_ns, end_ns, status, status_message, attributes_json, events_json; job_id y operation generadas      (migración 0002)
 llm_calls            VISTA sobre los spans de llamada a un modelo: id, job_id, provider, model, modality, input_tokens, output_tokens, cached_tokens, cost_usd, duration_ms, at, trace_id, status, error_type, step
@@ -365,7 +369,7 @@ llm_calls            VISTA sobre los spans de llamada a un modelo: id, job_id, p
 
 Áreas y plantillas se borran en blando (`deleted_at`) y se restauran: los mensajes que las referencian no se pierden. Los estados de un mensaje se muestran en la interfaz como «abierto», «respondido» y «cerrado» (§1.1). Cada propuesta lleva el área y la plantilla en cada mensaje, no en la raíz (§7.5). No guarda un id de llamada a modelo: las llamadas son spans, enlazados al trabajo por `team.job_id` (§7.10 bis).
 
-**Dependencias:** `node:sqlite`. Las migraciones son archivos SQL numerados en `src/db/migrations/` (`0001_initial.sql` y `0002_telemetry.sql`, copia de `src/telemetry/migration.sql`). Sólo avanzan. Un ejecutor propio las aplica dentro de una transacción, lleva la cuenta en `PRAGMA user_version` y corre en el paso de inicialización único (§3). El ejecutor exige numeración contigua y se niega a arrancar si la base es más nueva que el último archivo. Antes de migrar una base existente deja un respaldo consistente.
+**Dependencias:** `node:sqlite`. Las migraciones son archivos SQL numerados en `src/db/migrations/` (`0001_initial.sql` a `0009_provider_connections.sql`; `0002_telemetry.sql` es copia de `src/telemetry/migration.sql`). Sólo avanzan. Un ejecutor propio las aplica dentro de una transacción, lleva la cuenta en `PRAGMA user_version` y corre en el paso de inicialización único (§3). El ejecutor exige numeración contigua y se niega a arrancar si la base es más nueva que el último archivo. Antes de migrar una base existente deja un respaldo consistente.
 
 ### 7.3 Cola de trabajos (`src/queue/`)
 
@@ -504,9 +508,19 @@ Entrada multimodal:
 
 Los límites iniciales son imagen 7 MB, audio 25 MB, documento 25 MB y video 2 GB, declarados en `src/config.js` (informe 07).
 
-Mensajes es una lista de `MessageCard`. Los filtros viven en la URL como chips de propiedad, operador y valor (`panel/src/lib/filters.ts`; patrón de Linear, Plane y Front). No hay tabla virtualizada hasta que haya cientos de filas. Los componentes de shadcn/ui están copiados a `panel/src/components/ui/`, sobre Radix (38 KB comprimidos menos que Base UI, medido en el informe 07). Las tipografías van empaquetadas (Orbitron y Source Sans 3, OFL-1.1), con tema claro y oscuro. La base de navegadores es Chrome 111, Safari 16.4 y Firefox 128. El paquete único mide 506 kB (156 kB comprimidos, medido el 2026-10-20).
+Mensajes es una lista de `MessageCard`. Los filtros viven en la URL como chips de propiedad, operador y valor (`panel/src/lib/filters.ts`; patrón de Linear, Plane y Front). No hay tabla virtualizada hasta que haya cientos de filas. Los componentes de shadcn/ui están copiados a `panel/src/components/ui/`, sobre Radix (38 KB comprimidos menos que Base UI, medido en el informe 07). Las tipografías van empaquetadas (Orbitron y Source Sans 3, OFL-1.1), con tema claro y oscuro. La base de navegadores es Chrome 111, Safari 16.4 y Firefox 128. El paquete único mide 720 kB (213 kB comprimidos, medido el 2026-10-21 con `vite build`).
 
-`panel/DISENO.md` guarda las referencias y los tokens de la piel Y2K (UD-013). `npm run contraste` mide el contraste de cada par de texto. `npm run capturas` recorre cada vista a 1440x900 y 390x844 con Chromium sin ventana.
+`panel/DISENO.md` guarda las referencias y los tokens de la piel Y2K (UD-013), entre ellos `--duration-hover` y `--sidebar-count-col` (UD-130). Las rutas son `/`, `/messages`, `/messages/:id`, `/areas`, `/areas/:id`, `/team`, `/connections` y `/settings`; las del Editor se ocultan a los miembros. La barra superior pide `GET /api/messages/summary` y la lista de cada estado a `GET /api/messages`; la barra lateral reutiliza el resumen para los contadores por área. Configuración llama a `/api/settings/connections` (§7.1) y nunca recibe una clave, sólo sus últimos 4 caracteres.
+
+Herramientas del panel:
+
+| Orden | Qué hace |
+|---|---|
+| `npm test` | Vitest: catálogos es-419 y en con las mismas claves, guardia de lenguaje (`ui-voice.test.ts`), escala tipográfica, sin truncado y componentes |
+| `npm run contraste` | Contraste de cada par de texto en los dos temas |
+| `npm run capturas`, `capturas:vistas` | Capturas de cada vista a 1440x900 y 390x844 con Chromium sin ventana |
+| `npm run test:fit`, `test:flows`, `test:gallery`, `test:sidebar`, `test:telemetry` | Suites en navegador sin ventana. Con `BROWSER=firefox` corren en Firefox (`panel/src/browser-support.mjs`, H-2500); sin esa variable, en Chromium |
+| `npm run ui-detectors` | `panel/scripts/ui-detectors.mjs`: detectores de interfaz sobre todas las rutas, dos ventanas y dos temas (UD-090); informa, no falla |
 
 ### 7.9 Plantillas (`templates/` y tabla `templates`)
 

@@ -12,17 +12,9 @@
 
 **Severity:** Medium
 **Origin:** manual (`/document`, 2026-10-20)
-**Description:** HP-003, HP-010, HP-015 y HP-018 tienen prueba completa con su ID (2026-10-21). Faltan dos. HP-019: con el proveedor real el monólogo del banco llega a 90 % de cobertura y el criterio es 100 %. HP-020: ninguna persona distinta de quien escribió cada pantalla la revisó en captura.
-**Remediation plan:** HP-019: revisar la referencia de `03-monologo-prueba` y después el prompt, con `node bench/run.mjs --repeat 5` (TASK-024). HP-020: una persona mira las capturas de `cd panel && npm run build && npm run capturas` contra MASTER-SPEC §6 (TASK-019).
+**Description:** HP-003, HP-010, HP-015 y HP-018 tienen prueba completa con su ID (2026-10-21). Faltan dos. HP-019: con el proveedor real el monólogo del banco (`03-monologo-prueba`) llega a 98,8 % de cobertura media y 28 de 30 repeticiones al 100 % (`docs/investigaciones/mediciones/2026-10-21-monologo-de-prueba.md`). El criterio es 100 % en los siete casos. El banco completo no se repitió desde la corrida del 2026-10-20 (`--repeat 3`). HP-020: ninguna persona distinta de quien escribió cada pantalla la revisó en captura.
+**Remediation plan:** HP-019: `node bench/run.mjs --repeat 5` con llave y unos dólares de presupuesto de API (TASK-024); esta sesión tiene presupuesto 0. HP-020: una persona mira las capturas de `cd panel && npm run build && npm run capturas` contra MASTER-SPEC §6 (TASK-019).
 **Status:** ☐ Pending
-
-## [DT-010] `VERIFICATION.md` no tiene checks
-
-**Severity:** Medium
-**Origin:** manual (`/document`, 2026-10-20)
-**Description:** El archivo conserva el cuerpo de la plantilla y los checks de `docs/TODO.md` son las prohibiciones HP-001 a HP-029 de `docs/TEST.md`.
-**Remediation plan:** Ninguno. El eje de verificación es `docs/TEST.md`.
-**Status:** ✅ Descartada por el dueño el 2026-10-20 22:06 (H-45): «no necesitamos que ejecutes derive»
 
 ---
 

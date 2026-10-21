@@ -14,7 +14,19 @@
 // transcripción y de los fotogramas, viñetas y encabezados del markdown del documento.
 const BULLET = /^\s*(?:[-*•]|\d{1,3}[.)]|[a-z][.)])\s+\S/;
 const BULLET_PREFIX = /^\s*(?:[-*•]|\d{1,3}[.)]|[a-z][.)])\s+/;
-const TIMESTAMP = /^\s*[[(]?\d{1,2}:\d{2}(?::\d{2})?[\])]?(?:\s|$)/;
+// Marca de tiempo al inicio de la línea: «[00:12] …», «00:12 …» y «[15:55, 7/10/2026] …» (la coma sigue a la hora).
+const TIMESTAMP = /^\s*[[(]?\d{1,2}:\d{2}(?::\d{2})?[\])]?(?:[\s,]|$)/;
+// Línea de chat con emisor: «[15:55, 7/10/2026] Nombre: …», «[09:12] Nombre: …» y «7/10/2026 15:55 - Nombre: …».
+const CHAT_BRACKET = /^\s*(\[[^\]\n]*\d{1,2}:\d{2}[^\]\n]*\])\s*([^:\n]{1,60}?):\s+(\S.*)$/;
+const CHAT_DASH = /^\s*(\d{1,2}[/.]\d{1,2}[/.]\d{2,4},?\s+\d{1,2}:\d{2}(?::\d{2})?(?:\s*[ap]\.?\s?m\.?)?\s*-)\s*([^:\n]{1,60}?):\s+(\S.*)$/i;
+// Fila de una tabla markdown y su línea separadora («|---|:--:|»).
+const TABLE_ROW = /^\s*\|.*\|\s*$/;
+const TABLE_SEPARATOR = /^\s*\|?\s*:?-{2,}:?\s*(?:\|\s*:?-{2,}:?\s*)*\|?\s*$/;
+
+function parseChatLine(line) {
+  const m = line.match(CHAT_BRACKET) ?? line.match(CHAT_DASH);
+  return m ? { prefix: `${m[1]} ${m[2].trim()}:`, sender: m[2].trim(), body: m[3] } : null;
+}
 const HEADING = /^\s{0,3}#{1,6}\s+\S/;
 // Una línea con sangría después de una viñeta continúa esa viñeta.
 const INDENTED = /^(?: {2,}|\t)\S/;
@@ -110,12 +122,19 @@ function splitBlock(text) {
   return out;
 }
 
-/** Bloques de un texto: una línea o una viñeta con sus líneas con sangría. Cada línea no vacía es un bloque. */
-function splitBlocks(text) {
+/**
+ * Bloques de un texto. Cada línea no vacía es un bloque (un párrafo), salvo:
+ *  - una viñeta absorbe las líneas con sangría que la siguen;
+ *  - una línea de chat con emisor absorbe las líneas siguientes que no empiezan otra línea de chat;
+ *  - una tabla markdown es un solo párrafo y cada fila es un bloque; la cabecera queda como contexto de la tabla.
+ * En una fuente atómica (audio, video) no hay chat ni tablas: cada línea con su marca de tiempo es un bloque.
+ */
+function splitBlocks(text, { atomic }) {
   const blocks = [];
   let current = null;
   let pendingHeading = [];
   let section = 0;
+  let paragraph = 0;
   const flush = () => {
     if (current) {
       blocks.push(current);
@@ -124,10 +143,14 @@ function splitBlocks(text) {
   };
   const begin = (line, item) => {
     flush();
-    current = { section, item, heading: pendingHeading, lines: [line] };
+    paragraph += 1;
+    current = { section, item, paragraph, heading: pendingHeading, lines: [line] };
     pendingHeading = [];
+    return current;
   };
-  for (const line of String(text).replace(/\r\n?/g, '\n').split('\n')) {
+  const lines = String(text).replace(/\r\n?/g, '\n').split('\n');
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
     if (line.trim() === '') {
       flush();
     } else if (HEADING.test(line)) {
@@ -135,16 +158,40 @@ function splitBlocks(text) {
       flush();
       section += 1;
       pendingHeading.push(line.trim());
+    } else if (!atomic && TABLE_ROW.test(line)) {
+      flush();
+      const rows = [];
+      while (i < lines.length && TABLE_ROW.test(lines[i])) {
+        rows.push(lines[i].trim());
+        i += 1;
+      }
+      i -= 1;
+      const hasHeader = rows.length >= 2 && TABLE_SEPARATOR.test(rows[1]);
+      const header = hasHeader ? rows[0] : null;
+      const data = hasHeader ? rows.slice(2) : rows;
+      paragraph += 1;
+      data.forEach((row, k) => {
+        blocks.push({ section, item: true, paragraph, row: k + 1, table: { header }, heading: k === 0 ? pendingHeading : [], lines: [row] });
+        if (k === 0) pendingHeading = [];
+      });
+    } else if (!atomic && current?.chat && !parseChatLine(line) && !TIMESTAMP.test(line)) {
+      current.lines.push(line.trim());
+      current.chat.body.push(line.trim());
     } else if (current?.item && INDENTED.test(line)) {
       current.lines.push(line.trim());
     } else {
       // En un chat un salto de línea es un corte deliberado: cada línea es un párrafo.
-      begin(line.trim(), BULLET.test(line));
+      const chat = atomic ? null : parseChatLine(line.trim());
+      const block = begin(line.trim(), BULLET.test(line));
+      if (chat) block.chat = { prefix: chat.prefix, sender: chat.sender, body: [chat.body] };
     }
   }
   flush();
   // Un encabezado final sin contenido es un bloque propio: no puede quedar sin contar.
-  if (pendingHeading.length > 0) blocks.push({ section, item: false, heading: [], lines: pendingHeading });
+  if (pendingHeading.length > 0) {
+    paragraph += 1;
+    blocks.push({ section, item: false, paragraph, heading: [], lines: pendingHeading });
+  }
   return blocks;
 }
 
@@ -152,35 +199,48 @@ function splitBlocks(text) {
  * Divide un texto en unidades. En fuentes atómicas (audio, video) el bloque es la unidad: una línea de la
  * transcripción lleva su marca de tiempo y no se parte. En el resto, el bloque baja a oración cuando tiene
  * más de una (Intl.Segmenter, locale `es`), y una enumeración en línea, un guion o un punto y coma también cortan.
- * @returns {{section: number, item: boolean, paragraph: number, sentence: number|null, text: string}[]}
+ * Una fila de tabla es una unidad (`p3.r12`) y su cabecera viaja como contexto. Una línea de chat guarda su emisor.
  */
 function splitText(text, { atomic }) {
   const units = [];
-  splitBlocks(text).forEach((block, index) => {
-    const paragraph = index + 1;
-    const body = block.lines.join(' ');
+  for (const block of splitBlocks(text, { atomic })) {
+    const { paragraph } = block;
+    const heading = block.heading.length > 0 ? `${block.heading.join('\n')}\n` : '';
+    if (block.table) {
+      units.push({
+        section: block.section, item: true, paragraph, row: block.row, sentence: null, sender: null,
+        table: { paragraph, header: block.table.header }, text: `${heading}${block.lines[0]}`,
+      });
+      continue;
+    }
+    const body = block.chat ? block.chat.body.join(' ') : block.lines.join(' ');
     const pieces = atomic ? [block.lines.join('\n')] : splitBlock(body);
     pieces.forEach((piece, i) => {
-      const prefix = i === 0 && block.heading.length > 0 ? `${block.heading.join('\n')}\n` : '';
+      // La primera oración de una línea de chat conserva su marca de tiempo y su emisor; las demás llevan el emisor.
+      const withSender = block.chat ? `${i === 0 ? block.chat.prefix : `${block.chat.sender}:`} ${piece}` : piece;
       units.push({
         section: block.section,
         item: block.item && i === 0,
         paragraph,
+        row: null,
         sentence: pieces.length > 1 ? i + 1 : null,
-        text: `${prefix}${piece}`,
+        sender: block.chat?.sender ?? null,
+        table: null,
+        text: `${i === 0 ? heading : ''}${withSender}`,
       });
     });
     if (pieces.length === 0 && block.heading.length > 0) {
-      units.push({ section: block.section, item: false, paragraph, sentence: null, text: block.heading.join('\n') });
+      units.push({ section: block.section, item: false, paragraph, row: null, sentence: null, sender: null, table: null, text: block.heading.join('\n') });
     }
-  });
+  }
   return units;
 }
 
 /**
  * Numera las unidades del bundle: primero el texto del input y luego cada adjunto con texto extraído.
  * El `id` es un entero consecutivo (el contrato de `unit_ids` del esquema); el `label` (`p3.s2`: párrafo 3,
- * oración 2; `a7.p3` en un adjunto) deja ver al modelo de qué párrafo viene cada oración.
+ * oración 2; `p3.r12`: fila 12 de la tabla del párrafo 3; `a7.p3` en un adjunto) deja ver al modelo la estructura.
+ * `sender` es el emisor de una línea de chat, o `null`.
  * @param {{text?: string, attachments?: {id: number, kind: string, extracted?: string|null}[]}} bundle
  */
 export function numberUnits(bundle) {
@@ -189,8 +249,12 @@ export function numberUnits(bundle) {
   const push = (source, atomic, text, sourceIndex, labelPrefix) => {
     for (const u of splitText(text, { atomic })) {
       id += 1;
-      const label = `${labelPrefix}p${u.paragraph}${u.sentence ? `.s${u.sentence}` : ''}`;
-      out.push({ id, label, source, section: u.section, atomic, item: u.item, sourceIndex, text: u.text });
+      const suffix = u.row ? `.r${u.row}` : (u.sentence ? `.s${u.sentence}` : '');
+      const label = `${labelPrefix}p${u.paragraph}${suffix}`;
+      out.push({
+        id, label, source, section: u.section, atomic, item: u.item, sourceIndex, text: u.text, sender: u.sender,
+        ...(u.table ? { table: { label: `${labelPrefix}p${u.table.paragraph}`, header: u.table.header } } : {}),
+      });
     }
   };
   let sourceIndex = 0;
@@ -212,6 +276,7 @@ function sourceLabel(source) {
 export function renderUnits(units) {
   const lines = [];
   let lastKey = null;
+  let lastTable = null;
   for (const u of units) {
     const key = u.source.type === 'input' ? 'input' : `a${u.source.attachment_id}`;
     if (key !== lastKey) {
@@ -219,6 +284,9 @@ export function renderUnits(units) {
       lines.push(`### ${sourceLabel(u.source)}`);
       lastKey = key;
     }
+    // La cabecera de una tabla es contexto, no una unidad: va una vez antes de sus filas.
+    if (u.table?.header && u.table.label !== lastTable) lines.push(`Cabecera de la tabla ${u.table.label}: ${u.table.header}`);
+    lastTable = u.table?.label ?? null;
     lines.push(`[u${u.id}] (${u.label}) ${u.text.replace(/\n/g, '\n      ')}`);
   }
   return lines.join('\n');

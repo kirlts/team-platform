@@ -47,6 +47,7 @@ function Shell() {
       <Atmosphere />
       <div className="relative z-10 flex h-dvh flex-col">
         <Header projectName={project?.name ?? me?.project_name} onOpenNav={() => setNavOpen(true)} onLogout={() => void logout()} />
+        <NoticeHost />
         <div className="flex min-h-0 flex-1">
           <aside data-lane="sidebar" className="glass scroll-thin hidden w-64 shrink-0 overflow-y-auto border-0 border-r !shadow-none md:block">
             <Sidebar onLogout={() => void logout()} />
@@ -61,7 +62,6 @@ function Shell() {
           <Sidebar onNavigate={() => setNavOpen(false)} onLogout={() => void logout()} />
         </DialogContent>
       </Dialog>
-      <NoticeHost />
       </NoticeProvider>
     </EventsProvider>
   )

@@ -6,8 +6,9 @@ import { useNotices } from '@/lib/notices'
 import { cn } from '@/lib/utils'
 
 /**
- * Where the current notice is drawn: a strip under the header, above everything, that does not push the
- * page down (UD-017). Its text says what happened and to whom, the link goes to it, the action undoes it.
+ * Where the current notice is drawn: a strip under the header, in the flow of the page. It never covers a
+ * control (the undo buttons, Enviar and the pager sit where an overlay would land), and the lists under it
+ * fit the room that is left (UD-017). Its text says what happened and to whom, the link goes to it, the action undoes it.
  */
 export function NoticeHost() {
   const t = useT()
@@ -15,15 +16,15 @@ export function NoticeHost() {
   if (!current) return null
   const danger = current.tone === 'danger'
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-16 z-50 flex justify-center px-4 sm:justify-end">
+    <div className="shrink-0 px-4 pt-2 md:px-10">
       <div
         key={current.id}
         role={danger ? 'alert' : 'status'}
         data-notice
-        className={cn('glass-strong pointer-events-auto flex w-full max-w-md items-start gap-2 rounded-lg py-2 pl-3 pr-1.5 text-sm', danger ? 'text-danger' : 'text-fg')}
+        className={cn('glass-strong flex w-full items-start gap-2 rounded-lg py-1.5 pl-3 pr-1.5 text-sm', danger ? 'text-danger' : 'text-fg')}
       >
-        {!danger && <Check size={16} aria-hidden className="mt-0.5 shrink-0 text-accent" />}
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
+        {!danger && <Check size={16} aria-hidden className="mt-1 shrink-0 text-accent" />}
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-0.5 self-center">
           <p className="break-words">{current.text}</p>
           {(current.link || current.action) && (
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] font-semibold">

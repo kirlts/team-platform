@@ -1,0 +1,11 @@
+{
+  "id": "09-oracion-compuesta",
+  "messages": [
+    { "id": "m1", "title": "Corregir el menú cortado en el teléfono y la lentitud de la página de ajustes", "area_id": 2, "template_id": 2, "unit_ids": [2], "mentions": ["menú", "ajustes"] },
+    { "id": "m2", "title": "Corregir la lentitud de la lista de entregas y los botones desalineados en la tableta", "area_id": 2, "template_id": 2, "unit_ids": [3], "mentions": ["entregas", "botones"] }
+  ],
+  "discarded": [
+    { "unit_ids": [1], "reason": "saludo" },
+    { "unit_ids": [4], "reason": "firma" }
+  ]
+}

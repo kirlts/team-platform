@@ -14,23 +14,23 @@ after(() => tmp.cleanup());
 const att = async (path, mime) => ({ id: 'd1', kind: 'document', path, mime, size: (await stat(path)).size });
 const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
-test('un DOCX de 40 puntos conserva todas las cadenas, la estructura y no lleva metadatos', async () => {
+test('a 40-point DOCX keeps all strings and the structure and carries no metadata', async () => {
   const path = tmp.join('minuta.docx');
   const expected = await makeDocx(path, 40);
   const { text, meta } = await extract(await att(path, DOCX));
   const missing = expected.filter((s) => !text.includes(s));
-  assert.deepEqual(missing, [], 'cadenas perdidas');
+  assert.deepEqual(missing, [], 'lost strings');
   assert.match(text, /^# Minuta de la reunión/);
   assert.match(text, /^- Criterio 1\.a$/m);
-  assert.match(text, /^ {4}- Subcriterio 1\.a\.1$/m, 'la subviñeta queda anidada');
+  assert.match(text, /^ {4}- Subcriterio 1\.a\.1$/m, 'the sub-bullet stays nested');
   assert.match(text, /\| Responsable \| Plazo \|/);
   assert.equal(text.includes('author:'), false);
-  assert.equal(text.includes('{#'), false, 'sin anclas de encabezado');
+  assert.equal(text.includes('{#'), false, 'no heading anchors');
   assert.equal(meta.format, 'docx');
   assert.equal(meta.kind, 'document');
 });
 
-test('un PDF digital de 20 páginas sale con una sección por página en orden', async () => {
+test('a 20-page digital PDF comes out with one section per page in order', async () => {
   const path = tmp.join('informe.pdf');
   await makePdf(path, 20);
   const progress = [];
@@ -38,13 +38,13 @@ test('un PDF digital de 20 páginas sale con una sección por página en orden',
   assert.equal(meta.pageCount, 20);
   assert.equal(meta.scanned, false);
   assert.deepEqual(meta.scannedPages, []);
-  for (let n = 1; n <= 20; n++) assert.ok(text.includes(`## Página ${n}\n\nContenido de la página ${n}`), `página ${n}`);
+  for (let n = 1; n <= 20; n++) assert.ok(text.includes(`## Página ${n}\n\nContenido de la página ${n}`), `page ${n}`);
   assert.ok(text.indexOf('## Página 2\n') < text.indexOf('## Página 10\n'));
   assert.ok(text.includes('Línea 12 de la página 20'));
   assert.equal(progress.at(-1), 100);
 });
 
-test('un PDF con páginas escaneadas marca meta.scanned y lista esas páginas en lotes', async () => {
+test('a PDF with scanned pages sets meta.scanned and lists those pages in batches', async () => {
   const path = tmp.join('mixto.pdf');
   await makePdf(path, 6, { scanned: [2, 4, 6] });
   const { text, meta } = await extract(await att(path, 'application/pdf'));
@@ -56,14 +56,14 @@ test('un PDF con páginas escaneadas marca meta.scanned y lista esas páginas en
   assert.ok(text.includes('Contenido de la página 1'));
 });
 
-test('los lotes del modo nativo respetan las páginas por llamada', async () => {
+test('native-mode batches respect the pages per call', async () => {
   const path = tmp.join('todo-escaneado.pdf');
   await makePdf(path, 7, { scanned: [1, 2, 3, 4, 5, 6, 7] });
   const { meta } = await extract(await att(path, 'application/pdf'), { config: { document: { nativePagesPerCall: 3 } } });
   assert.deepEqual(meta.nativePageBatches, [[1, 2, 3], [4, 5, 6], [7]]);
 });
 
-test('selectPdfPages parte el PDF y deja sólo las páginas pedidas', async () => {
+test('selectPdfPages splits the PDF and leaves only the requested pages', async () => {
   const path = tmp.join('para-partir.pdf');
   await makePdf(path, 6, { scanned: [2, 4, 6] });
   const part = await selectPdfPages(path, [2, 6]);
@@ -76,7 +76,7 @@ test('selectPdfPages parte el PDF y deja sólo las páginas pedidas', async () =
   assert.deepEqual(meta.scannedPages, [1, 2]);
 });
 
-test('un XLSX rotula cada hoja con su nombre', async () => {
+test('an XLSX labels each sheet with its name', async () => {
   const path = tmp.join('pedidos.xlsx');
   await writeFile(path, makeXlsx([
     { name: 'Pedidos', rows: [['cliente', 'monto'], ['Ana', 1200]] },
@@ -90,7 +90,7 @@ test('un XLSX rotula cada hoja con su nombre', async () => {
   assert.ok(text.indexOf('Hoja: Pedidos') < text.indexOf('Hoja: Notas'));
 });
 
-test('un PPTX entrega el título y las viñetas de cada diapositiva', async () => {
+test('a PPTX delivers the title and bullets of each slide', async () => {
   const path = tmp.join('plan.pptx');
   await writeFile(path, makePptx([{ title: 'Plan', bullets: ['uno', 'dos'] }, { title: 'Riesgos', bullets: ['tres'] }]));
   const { text, meta } = await extract(await att(path, 'application/vnd.openxmlformats-officedocument.presentationml.presentation'));
@@ -98,32 +98,32 @@ test('un PPTX entrega el título y las viñetas de cada diapositiva', async () =
   for (const s of ['Plan', 'uno', 'dos', 'Riesgos', 'tres']) assert.ok(text.includes(s), s);
 });
 
-test('un texto plano y un markdown pasan sin cambios, y sin tipo útil se detecta UTF-8', async () => {
+test('plain text and markdown pass unchanged, and with no useful type UTF-8 is detected', async () => {
   const path = tmp.join('notas.md');
   await writeFile(path, '# Notas\n\n- revisar el módulo de pagos\n');
   assert.equal((await extract(await att(path, 'text/markdown'))).text, '# Notas\n\n- revisar el módulo de pagos');
   assert.equal((await extract(await att(path, 'application/octet-stream'))).text, '# Notas\n\n- revisar el módulo de pagos');
 });
 
-test('un binario desconocido se rechaza con el motivo', async () => {
+test('an unknown binary is rejected with the reason', async () => {
   const path = tmp.join('raro.bin');
   await writeFile(path, Buffer.from([0, 1, 2, 3, 255, 254]));
   await assert.rejects(extract(await att(path, 'application/octet-stream')), (e) => e instanceof ExtractError && e.code === 'document_unsupported');
 });
 
-test('un PDF dañado se rechaza con el motivo', async () => {
+test('a damaged PDF is rejected with the reason', async () => {
   const path = tmp.join('danado.pdf');
   await writeFile(path, '%PDF-1.7\nesto no es un pdf de verdad');
   await assert.rejects(extract(await att(path, 'application/pdf')), (e) => e.code === 'document_unreadable');
 });
 
-test('un documento sobre el tamaño máximo se rechaza antes de leerlo', async () => {
+test('a document over the maximum size is rejected before reading it', async () => {
   const path = tmp.join('pesado.docx');
   await makeDocx(path, 5);
   await assert.rejects(extract(await att(path, DOCX), { config: { document: { maxBytes: 100 } } }), (e) => e.code === 'document_too_large');
 });
 
-test('el plazo de la lectura corta el hilo trabajador', async () => {
+test('the read deadline cuts the worker thread', async () => {
   const path = tmp.join('lento.pdf');
   await makePdf(path, 20);
   const t = performance.now();
@@ -131,7 +131,7 @@ test('el plazo de la lectura corta el hilo trabajador', async () => {
   assert.ok(performance.now() - t < 2000);
 });
 
-test('el límite de memoria del hilo trabajador corta una lectura que lo supera', async () => {
+test('the memory limit of the worker thread cuts a read that exceeds it', async () => {
   const path = tmp.join('memoria.docx');
   await makeDocx(path, 300);
   await assert.rejects(
@@ -185,7 +185,7 @@ test('H-23: the WASM heap never goes over the cap, and the growth the cap predic
   assert.equal(predictedHeapSize(16 * MiB, 17 * MiB), Math.ceil(16 * MiB * 1.2 / 65_536) * 65_536);
 });
 
-test('cancelar con la señal corta la lectura', async () => {
+test('cancelling with the signal cuts the read short', async () => {
   const path = tmp.join('cancelar.pdf');
   await makePdf(path, 20);
   const controller = new AbortController();
@@ -194,7 +194,7 @@ test('cancelar con la señal corta la lectura', async () => {
   await assert.rejects(pending, (e) => e.code === 'aborted');
 });
 
-test('el texto extraído sobre el tope se corta en un salto de línea y avisa', async () => {
+test('extracted text over the cap is cut at a line break and warns', async () => {
   const path = tmp.join('largo.docx');
   await makeDocx(path, 40);
   const { text, meta } = await extract(await att(path, DOCX), { config: { text: { maxChars: 1000 } } });

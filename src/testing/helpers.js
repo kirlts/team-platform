@@ -1,6 +1,6 @@
-// Utilidades de las pruebas: base SQLite efímera en disco (WAL no existe en :memory:), aplicación completa con
-// dobles del analizador y los extractores, y ayudas para iniciar sesión y subir archivos. Es soporte de pruebas:
-// nada de acá se importa desde el código de producción.
+// Test utilities: an ephemeral SQLite database on disk (WAL does not exist in :memory:), the full application with
+// fake analyzer and extractors, and helpers to log in and upload files. This is test support:
+// nothing here is imported from production code.
 
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -19,9 +19,9 @@ import { createWorker } from '../worker.js'
 import { initTelemetry } from '../domain/tracing.js'
 import { run } from '../db/index.js'
 
-export const TEST_PASSWORD = 'una clave larga de prueba 1' // 27 caracteres: cumple el mínimo de 15
+export const TEST_PASSWORD = 'una clave larga de prueba 1' // 27 characters: meets the minimum of 15
 
-/** Directorio temporal propio de la prueba, dentro de TMPDIR (el de la sesión, no /tmp). */
+/** Temporary directory owned by the test, inside TMPDIR (the session's, not /tmp). */
 export function tempDir () {
   return mkdtempSync(path.join(process.env.TMPDIR ?? tmpdir(), 'team-platform-test-'))
 }
@@ -31,8 +31,8 @@ export function testConfig (dir, overrides = {}) {
 }
 
 /**
- * Analizador doble con la forma del contrato real: { status, proposal, units, calls, stats }. Elige la primera
- * área con plantilla y devuelve un mensaje con todo el texto y todos los adjuntos.
+ * Fake analyzer with the shape of the real contract: { status, proposal, units, calls, stats }. It picks the first
+ * area with a template and returns one message with all the text and all the attachments.
  */
 export const fakeAnalyze = async (bundle, { onProgress } = {}) => {
   onProgress?.({ percent: 50, phrase: 'Analizando' })
@@ -46,7 +46,7 @@ export const fakeAnalyze = async (bundle, { onProgress } = {}) => {
         template_id: tpl.id,
         title: 'Mensaje de prueba',
         body: `${bundle.text}${bundle.attachments.map((a) => `\n[${a.kind}] ${a.extracted}`).join('')}`,
-        // Los campos obligatorios de la plantilla elegida, llenados como lo haría el analizador real.
+        // The required fields of the chosen template, filled in the way the real analyzer would.
         fields: Object.fromEntries(parseTemplate(tpl.body_markdown).fields.filter((f) => f.required).map((f) => [f.name, 'dato'])),
         assignee_ids: bundle.members.slice(0, 1).map((m) => m.id),
         attachment_ids: bundle.attachments.map((a) => a.id),
@@ -60,7 +60,7 @@ export const fakeAnalyze = async (bundle, { onProgress } = {}) => {
   }
 }
 
-/** Extractor doble: devuelve el texto «extraído de <nombre>» y avanza por pasos. */
+/** Fake extractor: returns the text «extraído de <name>» and advances in steps. */
 export const fakeExtract = async (attachment, { onProgress } = {}) => {
   onProgress?.(40, 'leyendo')
   onProgress?.(100, 'listo')
@@ -68,8 +68,8 @@ export const fakeExtract = async (attachment, { onProgress } = {}) => {
 }
 
 /**
- * Entorno completo. `modules` reemplaza los dobles; `worker: true` arranca un worker (por omisión no, para que
- * la prueba controle cuándo corre). Devuelve todo lo necesario y un `close()`.
+ * Full environment. `modules` replaces the fakes; `worker: true` starts a worker (off by default, so that
+ * the test controls when it runs). Returns everything needed and a `close()`.
  */
 export async function makeEnv ({ config: overrides = {}, modules = {}, worker = false, seed = true, clock = false, telemetry = false } = {}) {
   const dir = tempDir()
@@ -78,13 +78,13 @@ export async function makeEnv ({ config: overrides = {}, modules = {}, worker = 
   const db = openInitialized(config)
   const events = createEvents({ db })
   const queue = createQueue({ db, config, events })
-  // La telemetría es global del proceso: sólo una prueba por archivo puede iniciarla (`telemetry: true`).
+  // Telemetry is process-global: only one test per file can start it (`telemetry: true`).
   const telemetryHandle = telemetry ? initTelemetry({ db, serviceVersion: config.version }) : null
   const mods = {
     analyze: fakeAnalyze, extract: fakeExtract, getProviders: () => ({ describe: () => [] }), getAnalyzer: () => 'api',
     buildProviders: () => ({}), audioBudget: null, estimateAudioSeconds: null, warmTemplate: null, ...modules
   }
-  // `clock`: reloj controlable para la identidad (esperas de login, vencimiento de sesión) sin dormir de verdad.
+  // `clock`: a controllable clock for identity (login waits, session expiry) without really sleeping.
   const clockObj = { t: Date.now() }
   const { app, domainEvents, identity } = await buildApp({ db, config, queue, events, modules: mods, telemetry: telemetryHandle, ...(clock ? { now: () => clockObj.t } : {}) })
   const handlers = createPipeline({ db, config, queue, events, modules: mods })
@@ -103,7 +103,7 @@ export async function makeEnv ({ config: overrides = {}, modules = {}, worker = 
   }
 }
 
-/** Alta directa de un miembro con contraseña (saltando la API). */
+/** Direct creation of a member with a password (bypassing the API). */
 export async function addMember (env, { email, name = email.split('@')[0], role = 'member', password = TEST_PASSWORD } = {}) {
   const id = createMember(env.db, { email, name, role })
   const hash = await hashPassword(password, env.config.identity.argon2)
@@ -111,7 +111,7 @@ export async function addMember (env, { email, name = email.split('@')[0], role 
   return id
 }
 
-/** Inicia sesión por la API y devuelve la cabecera Cookie lista para usar. */
+/** Logs in through the API and returns the Cookie header ready to use. */
 export async function login (env, email, password = TEST_PASSWORD) {
   const res = await env.app.inject({ method: 'POST', url: '/api/auth/login', payload: { email, password } })
   if (res.statusCode !== 200) throw new Error(`login ${res.statusCode}: ${res.body}`)
@@ -119,7 +119,7 @@ export async function login (env, email, password = TEST_PASSWORD) {
   return `${c.name}=${c.value}`
 }
 
-/** Cuerpo multipart para `inject`, armado con FormData de Node. */
+/** Multipart body for `inject`, built with Node's FormData. */
 export async function multipart (fieldValues = {}, filePaths = []) {
   const fd = new FormData()
   for (const [k, v] of Object.entries(fieldValues)) for (const val of [].concat(v)) fd.append(k, val)
@@ -133,20 +133,20 @@ export async function postInput (env, cookie, fieldValues, filePaths = []) {
   return env.app.inject({ method: 'POST', url: '/api/inputs', payload, headers: { ...headers, cookie, 'x-team-request': 'panel' } })
 }
 
-/** Espera a que `fn` devuelva un valor verdadero, reintentando sobre un evento de la cola (sin reloj fijo). */
+/** Waits until `fn` returns a truthy value, retrying on a queue event (no fixed clock). */
 export async function until (fn, { timeoutMs = 5000, everyMs = 10 } = {}) {
   const cap = Date.now() + timeoutMs
   for (;;) {
     const v = await fn()
     if (v) return v
-    if (Date.now() > cap) throw new Error('until: se agotó el tiempo esperando la condición')
+    if (Date.now() > cap) throw new Error('until: timed out waiting for the condition')
     await new Promise((r) => setTimeout(r, everyMs))
   }
 }
 
 /**
- * Cliente SSE mínimo sobre `fetch` contra un servidor real en un puerto efímero. `next(n)` espera n eventos
- * (los comentarios de latido se acumulan en `comments`). `close()` corta la conexión.
+ * Minimal SSE client over `fetch` against a real server on an ephemeral port. `next(n)` waits for n events
+ * (heartbeat comments accumulate in `comments`). `close()` cuts the connection.
  */
 export async function openSse (env, url, { cookie, headers = {} } = {}) {
   if (!env.baseUrl) {
@@ -182,7 +182,7 @@ export async function openSse (env, url, { cookie, headers = {} } = {}) {
           }
           notify()
         }
-      } catch { /* conexión cortada */ }
+      } catch { /* connection cut */ }
       isClosed = true
       notify()
     })()

@@ -1,12 +1,12 @@
-// Prueba contra la API real de Anthropic. Corre sólo si existe ANTHROPIC_API_KEY en el entorno;
-// sin llave se omite (no hay llave en la máquina de desarrollo ni en el repositorio, §4.6).
+// Test against the real Anthropic API. Runs only if ANTHROPIC_API_KEY exists in the environment;
+// without a key it is skipped (there is no key on the development machine or in the repository, §4.6).
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { createAnthropicClient } from './anthropic.js';
 
 const apiKey = process.env.ANTHROPIC_API_KEY;
 
-describe('anthropic (API real)', { skip: apiKey ? false : 'falta ANTHROPIC_API_KEY' }, () => {
+describe('anthropic (API real)', { skip: apiKey ? false : 'ANTHROPIC_API_KEY is missing' }, () => {
   const schema = {
     type: 'object',
     properties: { area: { type: 'string', enum: ['error', 'idea', 'pregunta'] } },
@@ -14,10 +14,10 @@ describe('anthropic (API real)', { skip: apiKey ? false : 'falta ANTHROPIC_API_K
     additionalProperties: false,
   };
 
-  it('clasifica una frase con salida estructurada, esfuerzo low y sistema cacheable', async () => {
+  it('classifies a sentence with structured output, low effort and a cacheable system prompt', async () => {
     const client = createAnthropicClient({ apiKey });
     const out = await client.complete({
-      system: 'Clasificás mensajes de un equipo de software. Respondé con el área.',
+      system: 'You classify messages from a software team. Answer with the area.',
       messages: [{ role: 'user', content: 'La pantalla de ingreso se queda en blanco al apretar Entrar.' }],
       schema,
       effort: 'low',

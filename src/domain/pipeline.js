@@ -1,13 +1,13 @@
-// Manejadores de trabajos (MASTER-SPEC §2 pasos 2 a 4). El trabajo `analyze` extrae cada adjunto pendiente,
-// arma el paquete y llama al analizador; el trabajo `extract` extrae un solo adjunto. Todo número de avance
-// sale de pasos completados sobre pasos totales, nunca de un reloj (§7.10).
+// Job handlers (MASTER-SPEC §2 steps 2 to 4). The `analyze` job extracts each pending attachment,
+// builds the bundle and calls the analyzer; the `extract` job extracts a single attachment. Every progress number
+// comes from completed steps over total steps, never from a clock (§7.10).
 //
-// Un manejador es { run(job, ctx) → finalize?, onFailure(job, error, outcome), onDeferred(job, deferral) }:
-//   run         trabaja sin transacción abierta (las llamadas a proveedores son lentas) y devuelve una función
-//               síncrona `finalize` con las escrituras finales. El worker la ejecuta en la MISMA transacción
-//               que cierra el trabajo, con la barrera de intento: si el arriendo se perdió, no se aplica nada.
-//   onFailure   refleja en el input el fallo del intento (reintento o fallo definitivo).
-//   onDeferred  el trabajo se aplazó sin gastar intento (presupuesto de audio).
+// A handler is { run(job, ctx) → finalize?, onFailure(job, error, outcome), onDeferred(job, deferral) }:
+//   run         works with no open transaction (provider calls are slow) and returns a synchronous
+//               `finalize` function with the final writes. The worker runs it in the SAME transaction
+//               that closes the job, with the attempt barrier: if the lease was lost, nothing is applied.
+//   onFailure   reflects the attempt's failure on the input (retry or final failure).
+//   onDeferred  the job was postponed without spending an attempt (audio budget).
 
 import { all, get, run } from '../db/index.js'
 import { parseJson } from '../db/util.js'
@@ -17,16 +17,16 @@ import { recentInputsFor, transitionInput } from './inputs.js'
 import { getProject } from './settings.js'
 import { blobPath } from './storage.js'
 
-// Códigos de ExtractError que pueden pasar solos al reintentar (red del sitio del enlace). Todo otro
-// ExtractError es una propiedad del adjunto (formato, tamaño, duración, archivo ilegible) y no mejora
-// reintentando: falla de inmediato con su motivo (src/contracts.md).
+// ExtractError codes that can clear up by themselves on retry (network of the link's site). Any other
+// ExtractError is a property of the attachment (format, size, duration, unreadable file) and does not improve
+// on retry: it fails immediately with its reason (src/contracts.md).
 const EXTRACT_TRANSIENT = new Set(['link_timeout', 'link_fetch_failed'])
 
-// Errores del analizador y de los proveedores que se repetirían igual: configuración, rechazo, corte, salida
-// inválida, entrada o plantilla mal formadas, ejecutable ausente. Los de red y plazo sí se reintentan.
+// Analyzer and provider errors that would repeat identically: configuration, refusal, cutoff, invalid
+// output, malformed input or template, missing executable. Network and timeout ones are retried.
 const ANALYSIS_FINAL_CODES = new Set(['input', 'template', 'harness_unavailable', 'config', 'refusal', 'max_tokens', 'invalid_output', 'unsupported'])
 
-/** Señal interna: el presupuesto de audio por hora no alcanza; el worker aplaza el trabajo sin gastar el intento. */
+/** Internal signal: the hourly audio budget is not enough; the worker postpones the job without spending the attempt. */
 export class Deferred extends Error {
   constructor (delayMs, phrase) {
     super(phrase)
@@ -35,7 +35,7 @@ export class Deferred extends Error {
   }
 }
 
-/** `onProgress` de extractores es (percent, frase); el del analizador, ({ percent, phrase }). Se aceptan las dos. */
+/** The extractors' `onProgress` is (percent, phrase); the analyzer's is ({ percent, phrase }). Both are accepted. */
 const normalizeProgress = (a, b) => (a !== null && typeof a === 'object' ? [a.percent, a.phrase] : [a, b])
 
 export function createPipeline ({ db, config, queue, events, modules, now = Date.now }) {
@@ -47,13 +47,13 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
     mime: a.mime,
     size: a.size,
     sha256: a.sha256,
-    // Archivos: ruta absoluta en el volumen. Enlaces: la URL.
+    // Files: absolute path in the volume. Links: the URL.
     path: a.kind === 'link' ? a.path : blobPath(config, a.sha256)
   })
 
   /**
-   * Presupuesto de audio por hora (MS §7.4): antes de gastar transcripción se consulta; si no cabe, el trabajo
-   * se aplaza hasta que la ventana libere lugar. Se anota el consumo al empezar a extraer.
+   * Hourly audio budget (MS §7.4): it is consulted before spending transcription; if it does not fit, the job
+   * is postponed until the window frees up room. Consumption is recorded when extraction starts.
    */
   async function reserveAudio (pending, ctx) {
     const budget = modules.audioBudget
@@ -83,7 +83,7 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
     const extract = demand(modules.extract, 'extractores')
     let outText
     try {
-      // `config` del extractor son sobrescrituras de sus perillas, no la configuración de la aplicación.
+      // The extractor's `config` is overrides of its knobs, not the application configuration.
       outText = await extract(attachmentForExtractor(att), { providers: modules.getProviders(), onProgress, signal: ctx.signal })
     } catch (error) {
       if (error?.name === 'ExtractError') {
@@ -97,25 +97,25 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
       throw error
     }
     if (!outText || typeof outText.text !== 'string') throw new Error(`El extractor de «${att.name || att.kind}» no devolvió texto.`)
-    // Escribir es una sola sentencia: no hace falta transacción ni se retiene el candado durante la llamada.
+    // Writing is a single statement: no transaction is needed and the lock is not held during the call.
     run(db, 'UPDATE attachments SET extracted_text = ?, extracted_at = ?, extract_meta_json = ? WHERE id = ?',
       outText.text, now(), JSON.stringify(outText.meta ?? {}), att.id)
   }
 
-  /** Avance global = (pasos terminados + fracción del paso actual) / pasos totales. */
+  /** Overall progress = (finished steps + fraction of the current step) / total steps. */
   function meter (job, ctx, totalSteps) {
     let lastSeqValue = { percent: -1, phrase: null }
     return (stepsDone, fraction, phraseText) => {
       const rawValue = ((stepsDone + Math.max(0, Math.min(1, fraction))) / totalSteps) * 100
-      const percent = Math.min(99, Math.floor(rawValue)) // el 100 lo marca el evento `done`
-      // Sólo se escribe lo que cambia: cada evento es un commit con fsync (131 por segundo con FULL, I03 §2.3).
+      const percent = Math.min(99, Math.floor(rawValue)) // 100 is marked by the `done` event
+      // Only what changes is written: each event is a commit with fsync (131 per second with FULL, I03 §2.3).
       if (percent === lastSeqValue.percent && phraseText === lastSeqValue.phrase) return
       lastSeqValue = { percent, phrase: phraseText }
       if (!queue.progress(job, percent, phraseText)) ctx.abort('lost')
     }
   }
 
-  /** Mensaje visible de un resultado de dominio del analizador que no es `ok`. */
+  /** Visible message for a domain result of the analyzer that is not `ok`. */
   function reasonOfResult (r) {
     if (r.status === 'refusal') return `El proveedor rechazó analizar el contenido${r.explanation ? `: ${r.explanation}` : '.'}`
     if (r.status === 'max_tokens') return 'La respuesta del modelo se cortó por tamaño, incluso con el doble de límite.'
@@ -123,7 +123,7 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
     return `El modelo devolvió una salida inválida tras el reintento${r.errors?.length ? `: ${String(r.errors[0]).slice(0, 300)}` : '.'}`
   }
 
-  /** Normaliza la propuesta: cada mensaje lleva su área y plantilla (si la raíz las trae, se heredan). */
+  /** Normalizes the proposal: each message carries its area and template (if the root has them, they are inherited). */
   function normalizeProposal (proposalObj) {
     if (!proposalObj || !Array.isArray(proposalObj.messages)) return null
     const messages = proposalObj.messages.map((m) => ({
@@ -146,7 +146,7 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
 
         const pending = all(db, 'SELECT * FROM attachments WHERE input_id = ? AND extracted_at IS NULL ORDER BY id', inputId)
         const total = all(db, 'SELECT id FROM attachments WHERE input_id = ?', inputId).length
-        const totalSteps = pending.length + 1 // cada extracción pendiente y el análisis
+        const totalSteps = pending.length + 1 // each pending extraction and the analysis
         const advance = meter(job, ctx, totalSteps)
 
         await reserveAudio(pending, ctx)
@@ -186,24 +186,31 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
               const [percent, phraseText] = normalizeProgress(a, b)
               advance(pending.length, (percent ?? 0) / 100, phraseText || 'Analizando')
             },
-            signal: ctx.signal
+            signal: ctx.signal,
+            // UD-021: the second reading describes an image again in more detail when the first one found nothing.
+            redescribe: async (a) => {
+              const row = get(db, 'SELECT * FROM attachments WHERE id = ?', a.id)
+              if (!row || row.kind !== 'image') return null
+              const deep = await modules.extract(attachmentForExtractor(row), { providers: modules.getProviders(), signal: ctx.signal, deep: true })
+              return deep.text
+            }
           })
         } catch (error) {
-          // Las llamadas ya hechas quedan en `spans` (y en la vista llm_calls) aunque el trabajo falle: cada
-          // proveedor abre su propio span (UD-014).
+          // The calls already made stay in `spans` (and in the llm_calls view) even if the job fails: each
+          // provider opens its own span (UD-014).
           if (ANALYSIS_FINAL_CODES.has(error.code)) error.retryable = false
           throw error
         }
         ctx.signal.throwIfAborted()
         if (result?.status !== 'ok') {
-          // Rechazo, corte o salida inválida: no mejoran reintentando igual. Falla con el motivo visible.
+          // Refusal, cutoff or invalid output: they do not improve on retry either. It fails with the visible reason.
           throw permanent(reasonOfResult(result ?? {}), result?.status ?? 'invalid')
         }
         const proposalObj = normalizeProposal(result.proposal)
         if (!proposalObj) throw permanent('El analizador devolvió una propuesta con forma inválida.', 'proposal_invalid')
 
         return () => {
-          // Dentro de la transacción que cierra el trabajo. Cada mensaje lleva su área y plantilla.
+          // Inside the transaction that closes the job. Each message carries its area and template.
           run(db, `INSERT INTO proposals (input_id, payload_json, units_json, created_at) VALUES (?, ?, ?, ?)
                    ON CONFLICT(input_id) DO UPDATE SET payload_json = excluded.payload_json, units_json = excluded.units_json, created_at = excluded.created_at`,
           inputId, JSON.stringify(proposalObj), JSON.stringify((result.units ?? []).map((u) => ({ id: u.id, text: u.text }))), now())

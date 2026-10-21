@@ -1,8 +1,8 @@
-// Lectura de los spans de un trabajo para `GET /jobs/:id/trace` y para el banco (MASTER-SPEC §7.10 bis).
+// Reading the spans of a job for `GET /jobs/:id/trace` and for the bench (MASTER-SPEC §7.10 bis).
 //
-// Un trabajo puede dejar más de un árbol: cada intento de la cola (§7.3) abre su propio trace. Se
-// devuelven todos, uno por raíz. Los nanosegundos viajan como texto decimal porque un entero de
-// 64 bits no cabe en un número de JavaScript sin perder precisión.
+// A job can leave more than one tree: each queue attempt (§7.3) opens its own trace. All of them
+// are returned, one per root. Nanoseconds travel as decimal text because a 64-bit
+// integer does not fit in a JavaScript number without losing precision.
 import { NS_PER_MS } from './config.js';
 
 const SPAN_COLUMNS = `trace_id, span_id, parent_id, name, kind, status, status_message,
@@ -30,7 +30,7 @@ function toNode(row) {
 }
 
 /**
- * El árbol de spans de un trabajo, o `null` si no hay ninguno.
+ * The span tree of a job, or `null` if there is none.
  * @param {import('node:sqlite').DatabaseSync} db
  * @param {string|number} jobId
  */
@@ -47,7 +47,7 @@ export function traceOfJob(db, jobId) {
   const roots = [];
   for (const node of nodes) {
     const parent = node.parent_id ? byId.get(`${node.trace_id}/${node.parent_id}`) : null;
-    // Sin padre guardado (raíz de verdad, o padre aún sin exportar) el nodo abre un árbol.
+    // With no stored parent (a true root, or a parent not yet exported) the node opens a tree.
     if (parent) parent.children.push(node);
     else roots.push(node);
   }

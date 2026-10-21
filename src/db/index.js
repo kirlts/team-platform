@@ -1,8 +1,8 @@
-// Conexión a SQLite por `node:sqlite` (MASTER-SPEC §3). WAL, busy_timeout y synchronous=FULL.
-// Dos pasos separados a propósito (informe 03 §4, M7):
-//   openDatabase()      abre una conexión y fija los pragmas de CONEXIÓN. No toca el modo del diario.
-//   initializeDatabase()  paso único previo a la API y al worker: fija WAL, migra y siembra.
-// Dos arranques simultáneos que fijan WAL fallaron con «database is locked» en 2 de 20 casos (M7).
+// SQLite connection through `node:sqlite` (MASTER-SPEC §3). WAL, busy_timeout and synchronous=FULL.
+// Two steps, kept separate on purpose (report 03 §4, M7):
+//   openDatabase()      opens a connection and sets the CONNECTION pragmas. It does not touch the journal mode.
+//   initializeDatabase()  the single step before the API and the worker: sets WAL, migrates and seeds.
+// Two simultaneous startups that set WAL failed with «database is locked» in 2 of 20 cases (M7).
 
 import { DatabaseSync } from 'node:sqlite'
 import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync } from 'node:fs'
@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url'
 
 const migrationsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'migrations')
 
-/** Compara versiones «a.b.c». Devuelve negativo, cero o positivo. */
+/** Compares «a.b.c» versions. Returns negative, zero or positive. */
 function compareVersions (a, b) {
   const pa = a.split('.').map(Number)
   const pb = b.split('.').map(Number)
@@ -23,28 +23,28 @@ function compareVersions (a, b) {
 }
 
 /**
- * Exige Node ≥ 24.15 (node:sqlite como release candidate) y SQLite ≥ 3.51.3 (corrección del error de
- * reinicio de WAL, informe 03 §2.1). Un proceso API y un worker escriben a la vez: ése es el perfil afectado.
+ * Requires Node ≥ 24.15 (node:sqlite as a release candidate) and SQLite ≥ 3.51.3 (fix for the WAL reset
+ * bug, report 03 §2.1). An API process and a worker write at the same time: that is the affected profile.
  */
 export function assertRuntime () {
   const minNode = '24.15.0'
   const minSqlite = '3.51.3'
   if (compareVersions(process.versions.node, minNode) < 0) {
-    throw new Error(`Se requiere Node ${minNode} o posterior; esta es la ${process.versions.node}.`)
+    throw new Error(`Node ${minNode} or later is required; this is ${process.versions.node}.`)
   }
   const probe = new DatabaseSync(':memory:')
   const { v } = probe.prepare('SELECT sqlite_version() AS v').get()
   probe.close()
   if (compareVersions(v, minSqlite) < 0) {
-    throw new Error(`Se requiere SQLite ${minSqlite} o posterior (error de WAL corregido); esta es la ${v}.`)
+    throw new Error(`SQLite ${minSqlite} or later is required (WAL bug fixed); this is ${v}.`)
   }
   return { node: process.versions.node, sqlite: v }
 }
 
-/** Abre una conexión con los pragmas de conexión. No cambia el modo del diario. */
+/** Opens a connection with the connection pragmas. It does not change the journal mode. */
 export function openDatabase (file, sqliteConfig = { busyTimeoutMs: 5000, synchronous: 'FULL' }) {
   if (file !== ':memory:') mkdirSync(path.dirname(file), { recursive: true })
-  // `timeout` es el busy_timeout (I03 §2.3: sin él, 16 % de las transacciones concurrentes fallaron).
+  // `timeout` is the busy_timeout (I03 §2.3: without it, 16 % of the concurrent transactions failed).
   const db = new DatabaseSync(file, { timeout: sqliteConfig.busyTimeoutMs, enableForeignKeyConstraints: true })
   db.exec(`PRAGMA synchronous = ${sqliteConfig.synchronous === 'NORMAL' ? 'NORMAL' : 'FULL'}`)
   db.exec(`PRAGMA busy_timeout = ${Number(sqliteConfig.busyTimeoutMs)}`)
@@ -53,9 +53,9 @@ export function openDatabase (file, sqliteConfig = { busyTimeoutMs: 5000, synchr
 }
 
 /**
- * Ejecuta `fn` dentro de una transacción `BEGIN IMMEDIATE` (MS §3: toda transacción que lee y luego escribe).
- * Si ya hay una abierta, `fn` participa en ella. `fn` debe ser síncrona: ninguna llamada a un proveedor de
- * modelo ocurre dentro de una transacción (I03 §2.3).
+ * Runs `fn` inside a `BEGIN IMMEDIATE` transaction (MS §3: every transaction that reads and then writes).
+ * If one is already open, `fn` takes part in it. `fn` must be synchronous: no call to a model provider
+ * happens inside a transaction (I03 §2.3).
  */
 export function tx (db, fn) {
   if (db.isTransaction) return fn()
@@ -65,14 +65,14 @@ export function tx (db, fn) {
     db.exec('COMMIT')
     return result
   } catch (error) {
-    try { db.exec('ROLLBACK') } catch { /* la transacción ya terminó */ }
+    try { db.exec('ROLLBACK') } catch { /* the transaction already ended */ }
     throw error
   }
 }
 
 const cacheSentencias = new WeakMap()
 
-/** Sentencia preparada con caché por conexión. */
+/** Prepared statement, cached per connection. */
 export function stmt (db, sql) {
   let bySql = cacheSentencias.get(db)
   if (!bySql) {
@@ -91,14 +91,14 @@ export const get = (db, sql, ...params) => stmt(db, sql).get(...params)
 export const all = (db, sql, ...params) => stmt(db, sql).all(...params)
 export const run = (db, sql, ...params) => stmt(db, sql).run(...params)
 
-/** Lista las migraciones: archivos `NNNN_nombre.sql` ordenados, con numeración contigua desde 1. */
+/** Lists the migrations: `NNNN_name.sql` files in order, numbered contiguously from 1. */
 export function listMigrations (dir = migrationsDir) {
   const filePaths = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort()
   return filePaths.map((filePath, i) => {
     const m = /^(\d+)_.+\.sql$/.exec(filePath)
-    if (!m) throw new Error(`Nombre de migración inválido: ${filePath}`)
+    if (!m) throw new Error(`Invalid migration name: ${filePath}`)
     const version = Number(m[1])
-    if (version !== i + 1) throw new Error(`La numeración de migraciones debe ser contigua; ${filePath} ocupa el lugar ${i + 1}.`)
+    if (version !== i + 1) throw new Error(`Migration numbering must be contiguous; ${filePath} is in position ${i + 1}.`)
     return { version, filePath, sql: readFileSync(path.join(dir, filePath), 'utf8') }
   })
 }
@@ -113,13 +113,13 @@ function enableWal (db) {
   try {
     db.exec('PRAGMA journal_mode = WAL')
   } catch (error) {
-    // I03 §4, M7: un reintento corto tras releer el modo (otro proceso pudo ganar la carrera).
+    // I03 §4, M7: one short retry after rereading the mode (another process may have won the race).
     if (db.prepare('PRAGMA journal_mode').get().journal_mode === 'wal') return
     db.exec('PRAGMA journal_mode = WAL')
   }
 }
 
-/** Copia consistente con `VACUUM INTO` a un temporal y `rename` (I03 §2.4: 123 ms con escritor activo). */
+/** Consistent copy with `VACUUM INTO` to a temporary file and `rename` (I03 §2.4: 123 ms with an active writer). */
 export function backupDatabase (db, target) {
   mkdirSync(path.dirname(target), { recursive: true })
   const tmpFile = `${target}.parcial`
@@ -130,32 +130,32 @@ export function backupDatabase (db, target) {
 }
 
 /**
- * Aplica las migraciones pendientes. Cada una corre en su propia transacción `BEGIN IMMEDIATE` que lee
- * `user_version` adentro, así dos procesos simultáneos aplican cada archivo una sola vez (M7).
- * Se niega a arrancar si la base es más nueva que el último archivo. Antes de migrar una base existente
- * deja un respaldo (la vía de vuelta de un ejecutor que sólo avanza).
+ * Applies the pending migrations. Each one runs in its own `BEGIN IMMEDIATE` transaction that reads
+ * `user_version` inside, so two simultaneous processes apply each file only once (M7).
+ * Refuses to start if the database is newer than the last file. Before migrating an existing database
+ * it leaves a backup (the way back for a runner that only moves forward).
  */
 export function migrate (db, { dir = migrationsDir, backupsDir = null, log = () => {} } = {}) {
   const migrations = listMigrations(dir)
   const lastVersion = migrations.length
   const initialVersion = userVersion(db)
   if (initialVersion > lastVersion) {
-    throw new Error(`La base está en la versión ${initialVersion} y esta compilación sólo conoce hasta la ${lastVersion}. Actualiza el programa.`)
+    throw new Error(`The database is at version ${initialVersion} and this build only knows up to ${lastVersion}. Update the program.`)
   }
   if (initialVersion > 0 && initialVersion < lastVersion && backupsDir) {
     const target = path.join(backupsDir, `antes-de-migrar-v${initialVersion}-${Date.now()}.db`)
     backupDatabase(db, target)
-    log(`Respaldo previo a la migración: ${target}`)
+    log(`Backup before migration: ${target}`)
   }
   let applied = 0
   for (const m of migrations) {
     tx(db, () => {
       if (userVersion(db) >= m.version) return
       db.exec(m.sql)
-      // PRAGMA no admite parámetros; `version` es un entero validado arriba.
+      // PRAGMA does not accept parameters; `version` is an integer validated above.
       db.exec(`PRAGMA user_version = ${m.version}`)
       applied++
-      log(`Migración aplicada: ${m.filePath}`)
+      log(`Migration applied: ${m.filePath}`)
     })
   }
   return { fromVersion: initialVersion, toVersion: lastVersion, applied }
@@ -164,8 +164,8 @@ export function migrate (db, { dir = migrationsDir, backupsDir = null, log = () 
 export const latestVersion = () => listMigrations().length
 
 /**
- * El paso de inicialización único: WAL, migraciones y siembra. Corre antes de la API y del worker.
- * `seed` se inyecta para que las pruebas migren sin sembrar.
+ * The single initialization step: WAL, migrations and seeding. It runs before the API and the worker.
+ * `seed` is injected so tests can migrate without seeding.
  */
 export async function initializeDatabase (config, { seed = null, log = () => {} } = {}) {
   assertRuntime()
@@ -184,8 +184,8 @@ export async function initializeDatabase (config, { seed = null, log = () => {} 
 }
 
 /**
- * Abre la conexión de trabajo y verifica que el esquema esté al día. Quien llama a esto (el worker aparte)
- * no migra: si falta la inicialización, falla con un mensaje y el supervisor lo reinicia.
+ * Opens the working connection and checks that the schema is up to date. Whoever calls this (the separate
+ * worker) does not migrate: if initialization is missing, it fails with a message and the supervisor restarts it.
  */
 export function openInitialized (config) {
   assertRuntime()
@@ -194,7 +194,7 @@ export function openInitialized (config) {
   const expectedRoute = latestVersion()
   if (version !== expectedRoute) {
     db.close()
-    throw new Error(`La base está en la versión ${version} y se esperaba la ${expectedRoute}. Ejecuta primero «npm run db:init».`)
+    throw new Error(`The database is at version ${version} and ${expectedRoute} was expected. Run «npm run db:init» first.`)
   }
   return db
 }

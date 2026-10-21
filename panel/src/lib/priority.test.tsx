@@ -13,7 +13,7 @@ const COMBINATIONS: ToneCounts[] = Array.from({ length: 8 }, (_, bits) => ({ red
 
 const highest = (counts: ToneCounts): Tone | null => (counts.red ? 'red' : counts.yellow ? 'yellow' : counts.blue ? 'blue' : null)
 
-describe('prioridad de los avisos (UD-029)', () => {
+describe('notice priority (UD-029)', () => {
   it('the order of the priorities is red, yellow, blue', () => {
     expect([...TONES]).toEqual(['red', 'yellow', 'blue'])
   })
@@ -70,7 +70,7 @@ describe('prioridad de los avisos (UD-029)', () => {
   })
 })
 
-describe('qué prioridad tiene un mensaje para mí', () => {
+describe('which priority a message has for me', () => {
   const base = { author_id: 'u-otro', assignee_ids: [] as string[] }
   it('assigned to me and open is red; assigned and answered is yellow', () => {
     expect(messageTone({ ...base, status: 'open', assignee_ids: ['me'] }, 'me')).toBe('red')
@@ -86,7 +86,7 @@ describe('qué prioridad tiene un mensaje para mí', () => {
   })
 })
 
-describe('pendientes por área (UD-028)', () => {
+describe('pending items per area (UD-028)', () => {
   const summary = {
     mine: { red: 1, yellow: 2, blue: 0, total: 3 },
     areas: [

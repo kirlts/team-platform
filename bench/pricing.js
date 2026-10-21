@@ -1,13 +1,13 @@
-// Costo de una llamada a partir de su uso. El analizador registra tokens, no dólares (src/analyze/api.js);
-// el banco los convierte con la tarifa de lista del modelo. Un modelo sin tarifa da costo null.
+// Cost of a call from its usage. The analyzer records tokens, not dollars (src/analyze/api.js);
+// the bench converts them with the model's list price. A model without a price yields cost null.
 //
-// Groq `whisper-large-v3-turbo`: 0,04 USD por hora de audio (informe 01 y informe 06 §3.2, console.groq.com/docs/speech-to-text,
-// consulta 2026-10-20; la misma cifra que `src/telemetry/pricing.js`). Se factura por segundo de audio, con mínimo de 10 s
-// por solicitud: el extractor ya informa los segundos facturables (`audioSeconds`, con los solapamientos). No hay tokens.
+// Groq `whisper-large-v3-turbo`: 0.04 USD per hour of audio (report 01 and report 06 §3.2, console.groq.com/docs/speech-to-text,
+// consulted 2026-10-20; the same figure as `src/telemetry/pricing.js`). Billed per second of audio, with a 10 s minimum
+// per request: the extractor already reports the billable seconds (`audioSeconds`, with the overlaps). There are no tokens.
 //
-// Haiku 5.5 (MASTER-SPEC §3, informe 02 [F2], consulta 2026-10-20), USD por millón de tokens:
-//   entrada 0,10 hasta 100.000 tokens de entrada por solicitud y 0,50 sobre ese umbral (informe 02 §2.2);
-//   salida 0,50; lectura de caché 0,01; escritura de caché 1,25 veces la entrada.
+// Haiku 5.5 (MASTER-SPEC §3, report 02 [F2], consulted 2026-10-20), USD per million tokens:
+//   input 0.10 up to 100,000 input tokens per request and 0.50 above that threshold (report 02 §2.2);
+//   output 0.50; cache read 0.01; cache write 1.25 times the input.
 export const PRICES = {
   'claude-haiku-5-5': {
     input: 0.1,
@@ -34,7 +34,7 @@ const SECONDS_PER_HOUR = 3600;
 
 /**
  * @param {{ model?: string, usage?: { audio_seconds?: number, input_tokens?: number, output_tokens?: number, cached_tokens?: number, cache_creation_tokens?: number } | null, cost_usd?: number | null }} call
- * @returns {number | null} dólares, o null si no hay tarifa ni costo informado
+ * @returns {number | null} dollars, or null if there is no price nor reported cost
  */
 export function costOf(call) {
   if (typeof call.cost_usd === 'number') return call.cost_usd;

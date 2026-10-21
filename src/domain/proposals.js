@@ -1,8 +1,8 @@
-// Publicación de una propuesta (MASTER-SPEC §2 paso 4, UD-003): el emisor confirma la propuesta, editada o no,
-// y recién entonces se crean los mensajes. Cada mensaje trae su propia área y plantilla (un input puede traer
-// un error, una idea y una pregunta). El sistema valida la FORMA de cada valor contra la base (el área existe,
-// la plantilla es de esa área, los miembros existen, los adjuntos son del input, los campos obligatorios de
-// la plantilla están); no lee la prosa (MASTER-SPEC §4.2).
+// Publication of a proposal (MASTER-SPEC §2 step 4, UD-003): the sender confirms the proposal, edited or not,
+// and only then are the messages created. Each message brings its own area and template (one input can bring
+// an error, an idea and a question). The system validates the FORM of each value against the database (the area
+// exists, the template belongs to that area, the members exist, the attachments belong to the input, the
+// template's required fields are present); it does not read the prose (MASTER-SPEC §4.2).
 
 import { all, get, run } from '../db/index.js'
 import { parseJson } from '../db/util.js'
@@ -78,7 +78,8 @@ export function saveProposalDraft ({ db, events, now = Date.now }, { inputId, me
     const draft = {
       messages: entries.map((e, i) => ({
         area_id: e.areaId, template_id: e.templateId, title: e.title, body: e.body, fields: e.fields,
-        assignee_ids: e.assigneeIds, attachment_ids: e.attachmentIds, unit_ids: proposal.messages[i].unit_ids?.map(Number) ?? []
+        assignee_ids: e.assigneeIds, attachment_ids: e.attachmentIds, unit_ids: proposal.messages[i].unit_ids?.map(Number) ?? [],
+        ...(proposal.messages[i].source === 'frame' ? { source: 'frame' } : {})
       })),
       discarded: (proposal.discarded ?? []).map((d) => ({ unit_ids: (d.unit_ids ?? []).map(Number), reason: d.reason ?? '' }))
     }

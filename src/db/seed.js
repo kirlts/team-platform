@@ -1,10 +1,10 @@
-// Siembra de instalación: las áreas y plantillas iniciales (MASTER-SPEC §1.1, §7.9) y, por línea de comandos,
-// el primer editor. Ninguna contraseña viene sembrada (informe 04 §4: Umami obliga a cambiar la suya; acá no
-// existe ninguna): el primer editor se crea con
-//   node src/db/seed.js --editor correo contraseña [nombre]
+// Installation seeding: the initial areas and templates (MASTER-SPEC §1.1, §7.9) and, from the command line,
+// the first editor. No password comes seeded (report 04 §4: Umami forces a change of its own; here none
+// exists): the first editor is created with
+//   `node src/db/seed.js --editor correo contraseña [nombre]`
 //
-// El juego inicial lo define `loadSeed()` del analizador (`templates/areas.json` y los archivos que enumera):
-// una sola fuente para lo que se instala y lo que el analizador valida.
+// The initial set is defined by the analyzer's `loadSeed()` (`templates/areas.json` and the files it lists):
+// a single source for what gets installed and what the analyzer validates.
 
 import { randomBytes } from 'node:crypto'
 import { existsSync } from 'node:fs'
@@ -16,41 +16,41 @@ import { parseTemplate } from '../domain/template-file.js'
 
 const srcDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
-/** Lee el juego inicial del analizador. Devuelve null si ese módulo no está instalado. */
+/** Reads the analyzer's initial set. Returns null if that module is not installed. */
 async function readSeedSet (config) {
-  const filePath = path.join(srcDir, 'analyze', 'seed.js') // el juego inicial lo define el analizador, aunque ANALYZE_MODULE apunte a otro
+  const filePath = path.join(srcDir, 'analyze', 'seed.js') // the analyzer defines the initial set, even if ANALYZE_MODULE points to another one
   if (!existsSync(filePath)) return null
   const { loadSeed } = await import(pathToFileURL(filePath).href)
   return loadSeed(config.templatesDir)
 }
 
-/** Siembra áreas y plantillas sólo si la tabla `areas` está vacía (instalación nueva). */
+/** Seeds areas and templates only if the `areas` table is empty (new installation). */
 export async function seedDefaults (db, config, log = () => {}) {
   if (get(db, 'SELECT COUNT(*) AS n FROM areas').n > 0) return { areas: 0, templates: 0 }
   const seedSet = await readSeedSet(config)
   if (!seedSet) {
-    log('No se sembraron áreas: falta el módulo del analizador que define el juego inicial.')
+    log('No areas were seeded: the analyzer module that defines the initial set is missing.')
     return { areas: 0, templates: 0 }
   }
   const nowMs = Date.now()
   tx(db, () => {
-    if (get(db, 'SELECT COUNT(*) AS n FROM areas').n > 0) return // otro proceso ganó la carrera
+    if (get(db, 'SELECT COUNT(*) AS n FROM areas').n > 0) return // another process won the race
     const areaIdMap = new Map()
     for (const area of seedSet.areas) {
       const { lastInsertRowid } = run(db, 'INSERT INTO areas (title, description, position) VALUES (?, ?, ?)', area.title, area.description, area.position)
       areaIdMap.set(area.id, Number(lastInsertRowid))
     }
     for (const t of seedSet.templates) {
-      const parsed = parseTemplate(t.body_markdown) // una plantilla inválida detiene la instalación con su motivo
+      const parsed = parseTemplate(t.body_markdown) // an invalid template stops the installation with its reason
       run(db, 'INSERT INTO templates (area_id, name, description, body_markdown, updated_at) VALUES (?, ?, ?, ?, ?)',
         areaIdMap.get(t.area_id), parsed.name, parsed.description, t.body_markdown, nowMs)
     }
   })
-  log(`Sembradas ${seedSet.areas.length} áreas y ${seedSet.templates.length} plantillas.`)
+  log(`Seeded ${seedSet.areas.length} areas and ${seedSet.templates.length} templates.`)
   return { areas: seedSet.areas.length, templates: seedSet.templates.length }
 }
 
-/** Crea (o eleva y reinicia) un editor. Es la única vía de alta del primer miembro (UD-007). */
+/** Creates (or promotes and resets) an editor. It is the only way to add the first member (UD-007). */
 export async function ensureEditor (db, config, { email, password, name }) {
   const { hashPassword, validatePassword } = await import('../identity/password.js')
   validatePassword(password, config.identity.password)
@@ -74,18 +74,18 @@ export async function ensureEditor (db, config, { email, password, name }) {
 }
 
 /**
- * Instalación: si no hay ningún miembro y se declaró ADMIN_EMAIL, crea el primer editor. La contraseña es
- * ADMIN_PASSWORD o, si falta, una al azar que se devuelve para mostrarla una sola vez. Con miembros existentes
- * no hace nada: ADMIN_EMAIL no es una vía para elevar a nadie.
+ * Installation: if there is no member and ADMIN_EMAIL is set, creates the first editor. The password is
+ * ADMIN_PASSWORD or, if missing, a random one that is returned so it can be shown only once. With existing
+ * members it does nothing: ADMIN_EMAIL is not a way to promote anyone.
  */
 export async function bootstrapFirstEditor (db, config) {
   if (!config.adminEmail || get(db, 'SELECT COUNT(*) AS n FROM members').n > 0) return null
-  const password = config.adminPassword || randomBytes(18).toString('base64url') // 24 caracteres, sobre el mínimo de 15
+  const password = config.adminPassword || randomBytes(18).toString('base64url') // 24 characters, above the minimum of 15
   const r = await ensureEditor(db, config, { email: config.adminEmail, password, name: config.adminEmail.split('@')[0] })
   return { ...r, password, generated: !config.adminPassword }
 }
 
-// ---- Línea de comandos
+// ---- Command line
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   loadEnvFile()
   const config = loadConfig()

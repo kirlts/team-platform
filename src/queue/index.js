@@ -1,12 +1,12 @@
-// Cola de trabajos sobre SQLite (MASTER-SPEC §7.3, informe 03). Patrón de pg-boss: reclamo atómico con
-// arriendo, latido, reintentos con retroceso exponencial y jitter, barrera de intento al cerrar.
+// SQLite job queue (MASTER-SPEC §7.3, report 03). pg-boss pattern: atomic claim with
+// lease, heartbeat, retries with exponential backoff and jitter, attempt fence on close.
 //
-// Reglas medidas en el informe 03:
-//  - El reclamo es UPDATE … WHERE id = (SELECT … LIMIT 1) RETURNING. `UPDATE … LIMIT 1` es error de sintaxis.
-//  - Toda transacción que lee y luego escribe empieza con BEGIN IMMEDIATE; con busy_timeout de 5 s no hubo
-//    un solo error ni reclamo duplicado (M2: 13.768 reclamos, 13.768 trabajos distintos).
-//  - Barrera de intento (attempt fence): complete/fail/heartbeat/progress sólo valen si el trabajo sigue
-//    `running` con el mismo número de intento. Un worker cuyo arriendo venció no puede cerrar el intento de otro.
+// Rules measured in report 03:
+//  - The claim is UPDATE … WHERE id = (SELECT … LIMIT 1) RETURNING. `UPDATE … LIMIT 1` is a syntax error.
+//  - Every transaction that reads and then writes starts with BEGIN IMMEDIATE; with a 5 s busy_timeout there was not
+//    a single error or duplicate claim (M2: 13,768 claims, 13,768 distinct jobs).
+//  - Attempt fence: complete/fail/heartbeat/progress only count if the job is still
+//    `running` with the same attempt number. A worker whose lease expired cannot close another's attempt.
 
 import { EventEmitter } from 'node:events'
 import { all, get, run, tx } from '../db/index.js'
@@ -17,7 +17,7 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
   const signals = new EventEmitter() // 'enqueued', 'cancelled'
   const w = config.worker
 
-  /** Retraso del reintento n (n ≥ 1): min(tope, base × 2^(n−1)) menos una fracción al azar de hasta `jitter`. */
+  /** Delay of retry n (n ≥ 1): min(cap, base × 2^(n−1)) minus a random fraction of up to `jitter`. */
   function backoffMs (attempt) {
     const base = Math.min(w.retryMaxMs, w.retryBaseMs * 2 ** (attempt - 1))
     return Math.max(0, Math.round(base * (1 - random() * w.retryJitter)))
@@ -30,14 +30,14 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
        VALUES (?, ?, ?, 'queued', ?, 0, ?, ?, ?)`,
       kind, inputId, JSON.stringify(payload), priority, maxAttempts, runAt ?? t, t)
     const id = Number(r.lastInsertRowid)
-    // Avisa al worker del mismo proceso; con worker aparte lo despierta `PRAGMA data_version`.
+    // Notifies the worker in the same process; with a separate worker `PRAGMA data_version` wakes it.
     queueMicrotask(() => signals.emit('enqueued', id))
     return id
   }
 
   /**
-   * Devuelve a la cola, o marca fallidos, los trabajos `running` con arriendo vencido (MS §7.3, §4.3).
-   * El intento ya se contó al reclamar: si agotó `max_attempts` pasa a `failed`.
+   * Returns to the queue, or marks as failed, the `running` jobs with an expired lease (MS §7.3, §4.3).
+   * The attempt was already counted on claim: if it exhausted `max_attempts` it goes to `failed`.
    */
   function recoverExpiredLeases () {
     const t = now()
@@ -92,13 +92,13 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
 
   const isCurrent = (job) => get(db, "SELECT 1 AS ok FROM jobs WHERE id = ? AND status = 'running' AND attempts = ?", job.id, job.attempts)
 
-  /** Renueva el arriendo. Devuelve false si el trabajo ya no es de este intento (cancelado, vencido, reasignado). */
+  /** Renews the lease. Returns false if the job is no longer this attempt's (cancelled, expired, reassigned). */
   function heartbeat (job, leaseMs = w.leaseMs) {
     const r = run(db, "UPDATE jobs SET lease_until = ? WHERE id = ? AND status = 'running' AND attempts = ?", now() + leaseMs, job.id, job.attempts)
     return r.changes === 1
   }
 
-  /** Registra el avance del trabajo (porcentaje y frase breve). Devuelve false si se perdió el intento. */
+  /** Records the job's progress (percentage and short phrase). Returns false if the attempt was lost. */
   function progress (job, percent, phrase) {
     return events.transaction(() => {
       if (!isCurrent(job)) return false
@@ -107,7 +107,7 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
     })
   }
 
-  /** Cierra el intento con éxito. Devuelve false si se perdió la barrera de intento. */
+  /** Closes the attempt successfully. Returns false if the attempt fence was lost. */
   function complete (job) {
     const r = run(db, "UPDATE jobs SET status = 'done', lease_until = NULL, worker_id = NULL, finished_at = ?, last_error = NULL WHERE id = ? AND status = 'running' AND attempts = ?",
       now(), job.id, job.attempts)
@@ -115,9 +115,9 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
   }
 
   /**
-   * Cierra el intento con error. Reencola con retroceso exponencial y jitter hasta `max_attempts`; un error con
-   * `retryable === false` (o `permanent: true`) falla de inmediato con el motivo visible.
-   * Devuelve { state: 'requeued' | 'failed' | 'lost', delayMs } ('lost': se perdió la barrera de intento).
+   * Closes the attempt with an error. Requeues with exponential backoff and jitter up to `max_attempts`; an error with
+   * `retryable === false` (or `permanent: true`) fails immediately with the reason visible.
+   * Returns { state: 'requeued' | 'failed' | 'lost', delayMs } ('lost': the attempt fence was lost).
    */
   function fail (job, error, { permanent = false } = {}) {
     const msgRow = String(error?.message ?? error ?? 'Error desconocido').slice(0, 2000)
@@ -128,8 +128,8 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
         t, msgRow, job.id, job.attempts)
       return { state: r.changes === 1 ? 'failed' : 'lost', delayMs: 0 }
     }
-    // Si el proveedor declaró cuánto esperar (cabecera Retry-After de un 429), esa espera es el piso del retroceso:
-    // con el jitter completo el retraso podía caer a ~100 ms y repetir el choque (medido en el VPS, 2026-10-21).
+    // If the provider declared how long to wait (Retry-After header of a 429), that wait is the floor of the backoff:
+    // with full jitter the delay could drop to ~100 ms and repeat the collision (measured on the VPS, 2026-10-21).
     const declared = Number(error?.retryAfterMs)
     const hinted = Number.isFinite(declared) && declared > 0 ? Math.min(declared, w.retryMaxMs) : 0
     const waitUntil = Math.max(backoffMs(job.attempts), hinted)
@@ -142,7 +142,7 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
     return { state: 'lost', delayMs: 0 }
   }
 
-  /** Apagado: el trabajo vuelve a la cola y el intento se reembolsa (MS §7.3; `refundRetry` de liteque). */
+  /** Shutdown: the job returns to the queue and the attempt is refunded (MS §7.3; `refundRetry` of liteque). */
   function release (job) {
     const r = run(db, "UPDATE jobs SET status = 'queued', lease_until = NULL, worker_id = NULL, run_at = ?, attempts = attempts - 1 WHERE id = ? AND status = 'running' AND attempts = ?",
       now(), job.id, job.attempts)
@@ -150,8 +150,8 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
   }
 
   /**
-   * Aplaza el trabajo `delayMs` y reembolsa el intento: no falló, no tuvo cupo (p. ej. el presupuesto de audio
-   * por hora de los extractores, MASTER-SPEC §7.4).
+   * Defers the job `delayMs` and refunds the attempt: it did not fail, it had no capacity (e.g. the hourly audio
+   * budget of the extractors, MASTER-SPEC §7.4).
    */
   function defer (job, delayMs) {
     const r = run(db, "UPDATE jobs SET status = 'queued', lease_until = NULL, worker_id = NULL, run_at = ?, attempts = attempts - 1 WHERE id = ? AND status = 'running' AND attempts = ?",
@@ -159,7 +159,7 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
     return r.changes === 1
   }
 
-  /** Cancela un trabajo en cola o en curso. El worker se entera por la barrera (latido o progreso) o por la señal. */
+  /** Cancels a queued or running job. The worker learns of it through the fence (heartbeat or progress) or the signal. */
   function cancel (jobId) {
     const r = run(db, "UPDATE jobs SET status = 'cancelled', lease_until = NULL, worker_id = NULL, finished_at = ? WHERE id = ? AND status IN ('queued', 'running')", now(), jobId)
     if (r.changes === 1) signals.emit('cancelled', jobId)
@@ -175,7 +175,7 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
   const getJob = (id) => get(db, 'SELECT * FROM jobs WHERE id = ?', id)
   const latestJobForInput = (inputId) => get(db, 'SELECT * FROM jobs WHERE input_id = ? ORDER BY id DESC LIMIT 1', inputId)
 
-  /** Instante del próximo trabajo en cola con `run_at` futuro (para dormir exactamente hasta entonces), o null. */
+  /** Instant of the next queued job with a future `run_at` (to sleep exactly until then), or null. */
   function nextRunAt () {
     const dbRow = get(db, "SELECT MIN(run_at) AS t FROM jobs WHERE status = 'queued'")
     return dbRow?.t ?? null
@@ -186,7 +186,7 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
     run_at: iso(j.run_at), lease_until: iso(j.lease_until), worker_id: j.worker_id, last_error: j.last_error, created_at: iso(j.created_at), finished_at: iso(j.finished_at)
   })
 
-  /** La cola, filtrable por estado y paginada, para el editor. */
+  /** The queue, filterable by state and paginated, for the editor. */
   function listJobs ({ state = null, limit, offset }) {
     const cond = state ? 'WHERE status = ?' : ''
     const params = state ? [state] : []
@@ -195,7 +195,7 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
     return { total, items: rows.map(jobView) }
   }
 
-  /** Purga de trabajos terminados (done, failed o cancelled); sus eventos caen con ellos (ON DELETE CASCADE). */
+  /** Purge of finished jobs (done, failed or cancelled); their events go with them (ON DELETE CASCADE). */
   function purgeJobs (state) {
     if (!['done', 'failed', 'cancelled'].includes(state)) throw new Error('Sólo se purgan trabajos terminados.')
     return run(db, 'DELETE FROM jobs WHERE status = ?', state).changes
@@ -206,7 +206,7 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
     return Object.fromEntries(rows.map((f) => [f.status, f.n]))
   }
 
-  /** Retención (I03 §12): trabajos terminados y eventos con más de `retentionDays` días. */
+  /** Retention (I03 §12): finished jobs and events older than `retentionDays` days. */
   function sweepRetention () {
     const cap = now() - w.retentionDays * 24 * 3600 * 1000
     return tx(db, () => {
@@ -214,7 +214,7 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
       const eventsDeleted = events.purge(cap)
       const sessions = run(db, 'DELETE FROM sessions WHERE expires_at < ?', now()).changes
       const nonces = run(db, 'DELETE FROM sso_nonces WHERE created_at < ?', cap).changes
-      const spans = pruneSpans(db, { now: now(), retentionDays: w.retentionDays }) // misma retención que los eventos (§7.10 bis)
+      const spans = pruneSpans(db, { now: now(), retentionDays: w.retentionDays }) // same retention as the events (§7.10 bis)
       return { jobs, events: eventsDeleted, sessions, nonces, spans }
     })
   }

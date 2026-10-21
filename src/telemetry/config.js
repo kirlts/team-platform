@@ -1,14 +1,14 @@
-// Perillas de la telemetría (MASTER-SPEC §4.9: todo número nace declarado, con su fuente).
+// Telemetry knobs (MASTER-SPEC §4.9: every number is born declared, with its source).
 
-// Conversión de unidades, no una elección.
+// Unit conversion, not a choice.
 export const NS_PER_SECOND = 1_000_000_000n;
 export const NS_PER_MS = 1_000_000n;
 export const MS_PER_SECOND = 1000;
 
 export const DEFAULTS = Object.freeze({
-  // Valores por omisión de `BatchSpanProcessor` en la documentación de OpenTelemetry JS
-  // (opentelemetry.io/docs/specs/otel/trace/sdk/#batching-processor, consultada el 2026-10-20):
-  // cola de 2048 spans, lotes de 512, vaciado cada 5000 ms, plazo de exportación de 30000 ms.
+  // Default values of `BatchSpanProcessor` in the OpenTelemetry JS documentation
+  // (opentelemetry.io/docs/specs/otel/trace/sdk/#batching-processor, consulted on 2026-10-20):
+  // queue of 2048 spans, batches of 512, flush every 5000 ms, export timeout of 30000 ms.
   maxQueueSize: 2048,
   maxExportBatchSize: 512,
   scheduledDelayMs: 5000,
@@ -23,15 +23,15 @@ export const DEFAULTS = Object.freeze({
   // blobs of a call are dropped only when the queue has a backlog and not for being large themselves. Knob:
   // TELEMETRY_QUEUE_HARD_BYTES.
   largestRequestBytes: 32 * 1024 * 1024,
-  // Filas por transacción antes de ceder el bucle de eventos con `setImmediate`. Medido en
-  // `overhead.bench.mjs` (2026-10-20): 4 filas, tajada de 0,29 ms y 279 µs por span; 16 filas,
-  // 0,92 ms y 187 µs; 64 filas, 4,22 ms y 157 µs; 512 filas, 61,72 ms y 116 µs. Se elige 16, la
-  // mayor cuya mediana sigue bajo 1 ms. Perilla: TELEMETRY_SLICE_ROWS.
+  // Rows per transaction before yielding the event loop with `setImmediate`. Measured in
+  // `overhead.bench.mjs` (measurement 2026-10-20): 4 rows, 0.29 ms slice and 279 µs per span; 16 rows,
+  // 0.92 ms and 187 µs; 64 rows, 4.22 ms and 157 µs; 512 rows, 61.72 ms and 116 µs. 16 is chosen, the
+  // largest whose median stays under 1 ms. Knob: TELEMETRY_SLICE_ROWS.
   rowsPerSlice: 16,
-  // Retención de los spans: la misma que `job_events` y los trabajos terminados, 7 días (§7.2).
+  // Span retention: the same as `job_events` and finished jobs, 7 days (§7.2).
   retentionDays: 7,
-  // Largo máximo del mensaje de estado de un span en error; el error completo queda en el
-  // evento `exception`. Es un recorte de presentación, no un límite operativo.
+  // Maximum length of the status message of a span in error; the full error stays in the
+  // `exception` event. It is a presentation cut, not an operational limit.
   statusMessageMaxChars: 500,
 });
 

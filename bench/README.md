@@ -24,6 +24,7 @@ Cada carpeta de `cases/` tiene `input.json` (texto y adjuntos ya extraídos, com
 | `05-idea-suelta` | Cuatro párrafos | 1 |
 | `06-mensaje-mezclado` | Un mensaje con tres pedidos de tres áreas | 3 |
 | `07-video-de-pantalla` | Voz y fotogramas de un video de un minuto | 4 |
+| `08-reunion-10-minutos` | Transcripción de una reunión de equipo de diez minutos, con bloques de proceso (ramas, contrato, incorporación) que son puntos aunque no sean producto | 9 |
 
 Las unidades las numera `src/analyze/units.js` (`numberUnits`). `expected.json` cita esos números, y `cases.test.js` falla si la segmentación cambia y deja de coincidir. Cada mensaje esperado es un punto atómico: dos puntos en un mensaje cuentan como fusión. `area_id` y `template_id` van por mensaje; una lista significa que cualquiera de esos ids es correcto. Los ids son los del juego inicial de `templates/areas.json`.
 

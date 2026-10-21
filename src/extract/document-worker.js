@@ -1,4 +1,4 @@
-// Punto de entrada del hilo trabajador: lee `workerData`, extrae y devuelve el resultado.
+// Entry point of the worker thread: reads `workerData`, extracts and returns the result.
 import { parentPort, workerData } from 'node:worker_threads';
 import { extractDocumentContent } from './document-core.js';
 

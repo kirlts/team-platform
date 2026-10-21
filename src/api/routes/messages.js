@@ -1,4 +1,4 @@
-// Rutas de mensajes y respuestas (MASTER-SPEC §7.1).
+// Message and reply routes (MASTER-SPEC §7.1).
 
 import { addReply, assertCanReply, closeMessage, getMessage, listMessages, messageSummary, reopenMessage, REPLY_KINDS, updateMessage } from '../../domain/messages.js'
 import { withSpan } from '../../domain/tracing.js'
@@ -12,8 +12,8 @@ export function registerMessageRoutes (app, ctx) {
   app.get('/messages', {
     onRequest: [requireRole('member')],
     schema: {
-      summary: 'Mensajes del equipo, con filtros',
-      description: '`for`: «me» o el id de un miembro (mensajes asignados a). `replies=1`: sólo con respuestas, la última primero; con `for`, los que involucran a esa persona.',
+      summary: 'Team messages, with filters',
+      description: '`for`: «me» or a member id (messages assigned to). `replies=1`: only with replies, latest first; with `for`, those that involve that person.',
       querystring: {
         type: 'object',
         additionalProperties: false,
@@ -55,7 +55,7 @@ export function registerMessageRoutes (app, ctx) {
 
   app.get('/messages/:id', {
     onRequest: [requireRole('member')],
-    schema: { summary: 'Un mensaje con su hilo', params: idParams(), response: { 200: messageDetail } }
+    schema: { summary: 'A message with its thread', params: idParams(), response: { 200: messageDetail } }
   }, async (request) => getMessage(db, request.params.id))
 
   app.patch('/messages/:id', {
@@ -105,7 +105,7 @@ export function registerMessageRoutes (app, ctx) {
     return r.message
   })
 
-  for (const [verb, handlerFn, summaryText] of [['close', closeMessage, 'Cerrar un mensaje'], ['reopen', reopenMessage, 'Reabrir un mensaje cerrado']]) {
+  for (const [verb, handlerFn, summaryText] of [['close', closeMessage, 'Close a message'], ['reopen', reopenMessage, 'Reopen a closed message']]) {
     app.post(`/messages/:id/${verb}`, {
       onRequest: [requireRole('member')],
       schema: { summary: summaryText, params: idParams(), response: { 200: messageDetail } }

@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { connectEvents, EventsStore, REOPEN_DELAYS_MS } from './events-store'
 import { EventsProvider, useJobProgress } from './events'
 
-// Reemplaza el contexto por una tienda propia para no abrir un EventSource real.
+// Replaces the context with its own store so as not to open a real EventSource.
 function wrapperWith(store: EventsStore, client: QueryClient) {
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
@@ -43,7 +43,7 @@ class FakeEventSource {
 }
 
 describe('EventsStore', () => {
-  it('guarda el progreso por job_id y no retrocede con un evento repetido', () => {
+  it('stores progress per job_id and does not go backwards on a repeated event', () => {
     const store = new EventsStore()
     store.dispatch('progress', JSON.stringify({ job_id: 'j1', percent: 40, phrase: 'leyendo el documento' }))
     store.dispatch('progress', JSON.stringify({ job_id: 'j1', percent: 20, phrase: 'repetido' }))
@@ -53,7 +53,7 @@ describe('EventsStore', () => {
     expect(snap.progress.j2.percent).toBe(10)
   })
 
-  it('infiere el tipo de evento por su forma cuando llega sin nombre', () => {
+  it('infers the event type from its shape when it arrives without a name', () => {
     const store = new EventsStore()
     store.dispatch(undefined, JSON.stringify({ job_id: 'j1', percent: 55, phrase: 'x' }))
     store.dispatch(undefined, JSON.stringify({ job_id: 'j1', done: true }))
@@ -65,7 +65,7 @@ describe('EventsStore', () => {
     expect(snap.unread).toBe(1)
   })
 
-  it('ignora JSON inválido y avisos repetidos', () => {
+  it('ignores invalid JSON and repeated notices', () => {
     const store = new EventsStore()
     store.dispatch('progress', 'no es json')
     store.dispatch('message', JSON.stringify({ message_id: 'm1', title: 'a', author_id: 'u' }))
@@ -77,7 +77,7 @@ describe('EventsStore', () => {
 })
 
 describe('connectEvents', () => {
-  it('reparte los eventos nombrados y cierra al salir', () => {
+  it('dispatches named events and closes on exit', () => {
     FakeEventSource.instances = []
     const store = new EventsStore()
     const close = connectEvents(store, '/api/events', (u) => new FakeEventSource(u) as never)
@@ -89,7 +89,7 @@ describe('connectEvents', () => {
     expect(es.closed).toBe(true)
   })
 
-  it('reabre el flujo que el servidor cerró, con espera creciente', () => {
+  it('reopens the stream the server closed, with growing wait', () => {
     vi.useFakeTimers()
     FakeEventSource.instances = []
     const store = new EventsStore()
@@ -103,7 +103,7 @@ describe('connectEvents', () => {
     vi.useRealTimers()
   })
 
-  it('avisa la reconexión sólo después de una caída', () => {
+  it('announces the reconnection only after a drop', () => {
     FakeEventSource.instances = []
     const onReconnect = vi.fn()
     connectEvents(new EventsStore(), '/api/events', (u) => new FakeEventSource(u) as never, onReconnect)
@@ -117,7 +117,7 @@ describe('connectEvents', () => {
 })
 
 describe('useJobProgress', () => {
-  it('entrega el progreso del trabajo y al done invalida la consulta del input', () => {
+  it('delivers the job progress and on done invalidates the input query', () => {
     const store = new EventsStore()
     const client = new QueryClient()
     const spy = vi.spyOn(client, 'invalidateQueries')
@@ -132,7 +132,7 @@ describe('useJobProgress', () => {
     expect(spy).toHaveBeenCalledWith({ queryKey: ['inputs', 'i1'] })
   })
 
-  it('ignora el progreso de otros trabajos', () => {
+  it('ignores the progress of other jobs', () => {
     const store = new EventsStore()
     const { result } = renderHook(() => useJobProgress('j1', 'i1'), {
       wrapper: wrapperWith(store, new QueryClient()),

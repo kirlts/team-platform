@@ -1,11 +1,11 @@
-// Eventos y progreso (MASTER-SPEC §7.10). Todo evento se escribe en `job_events`; su `seq` autoincremental
-// es el `id` del evento SSE y, por lo tanto, el `Last-Event-ID` que el navegador reenvía al reconectar.
-// Un solo hilo de eventos para progreso, fin de trabajo y avisos de mensajes: un flujo SSE por miembro.
+// Events and progress (MASTER-SPEC §7.10). Every event is written to `job_events`; its autoincrement `seq`
+// is the id of the SSE event and, therefore, the `Last-Event-ID` the browser resends on reconnect.
+// A single event thread for progress, job completion and message notices: one SSE stream per member.
 //
-// Cómo se entera un suscriptor de lo que escribió otro proceso: con el worker aparte, la API consulta
-// `PRAGMA data_version` (1,15 µs por consulta, I03 §5.3) y lee lo que no ha despachado. Con el worker en el
-// mismo proceso basta el despacho directo. En ambos casos el despacho siempre lee la base en orden, así que
-// no hay huecos aunque dos procesos escriban a la vez.
+// How a subscriber learns of what another process wrote: with the worker separate, the API queries
+// `PRAGMA data_version` (1.15 µs per query, I03 §5.3) and reads what it has not yet dispatched. With the worker in the
+// same process, direct dispatch is enough. In both cases dispatch always reads the database in order, so
+// there are no gaps even if two processes write at the same time.
 
 import { all, get, run, tx } from '../db/index.js'
 import { iso, parseJson } from '../db/util.js'
@@ -15,8 +15,8 @@ export const EVENT_KINDS = ['progress', 'done', 'message']
 const id = (v) => (v === null || v === undefined ? undefined : String(v))
 
 /**
- * Fila de `job_events` a la forma que ve el cliente. Todo id viaja como texto, igual que en las respuestas
- * REST (el panel compara `job_id` y `message_id` como cadenas).
+ * `job_events` row to the shape the client sees. Every id travels as text, as in the REST responses
+ * (the panel compares `job_id` and `message_id` as strings).
  */
 export function toWire (row) {
   const data = parseJson(row.data_json, {})
@@ -35,23 +35,23 @@ export function createEvents ({ db, now = Date.now }) {
   let dataVersion = null
   let timerHandle = null
 
-  /** Despacha a los suscriptores todo lo que la base tenga después de lo ya despachado. */
+  /** Dispatches to the subscribers everything the database has after what was already dispatched. */
   function drain () {
     const rows = all(db, 'SELECT * FROM job_events WHERE seq > ? ORDER BY seq', lastDispatched)
     for (const dbRow of rows) {
       lastDispatched = dbRow.seq
       for (const s of [...subscribers]) {
         if (dbRow.member_id === null || dbRow.member_id === s.memberId) {
-          try { s.callback(dbRow) } catch { /* un suscriptor roto no frena a los demás */ }
+          try { s.callback(dbRow) } catch { /* a broken subscriber does not hold back the others */ }
         }
       }
     }
     return rows.length
   }
 
-  /** Escribe un evento. `memberId` null lo dirige a todo el equipo. Devuelve el `seq`. */
+  /** Writes an event. A null `memberId` directs it to the whole team. Returns the `seq`. */
   function publish ({ kind, jobId = null, memberId = null, percent = null, phrase = null, data = null }) {
-    if (!EVENT_KINDS.includes(kind)) throw new Error(`Tipo de evento desconocido: ${kind}`)
+    if (!EVENT_KINDS.includes(kind)) throw new Error(`Unknown event kind: ${kind}`)
     const result = run(db,
       'INSERT INTO job_events (job_id, kind, member_id, percent, phrase, data_json, at) VALUES (?, ?, ?, ?, ?, ?, ?)',
       jobId, kind, memberId, percent, phrase, data === null ? null : JSON.stringify(data), now())
@@ -59,14 +59,14 @@ export function createEvents ({ db, now = Date.now }) {
     return Number(result.lastInsertRowid)
   }
 
-  /** Igual que `publish`, pero el destinatario es el autor del input al que pertenece el trabajo. */
+  /** Same as `publish`, but the recipient is the author of the input the job belongs to. */
   function publishForJob (jobId, { kind, percent = null, phrase = null, data = {} }) {
     const jobRow = get(db, 'SELECT j.input_id, i.author_id FROM jobs j LEFT JOIN inputs i ON i.id = j.input_id WHERE j.id = ?', jobId)
     if (!jobRow) return null
     return publish({ kind, jobId, memberId: jobRow.author_id, percent, phrase, data: { input_id: jobRow.input_id, ...data } })
   }
 
-  /** Transacción que despacha lo publicado adentro una vez confirmada (nunca antes: un evento no confirmado no existe). */
+  /** Transaction that dispatches what was published inside once committed (never before: an uncommitted event does not exist). */
   function transaction (fn) {
     const outer = !db.isTransaction
     const result = tx(db, fn)
@@ -80,7 +80,7 @@ export function createEvents ({ db, now = Date.now }) {
     return () => subscribers.delete(s)
   }
 
-  /** Eventos con `seq` mayor que `afterSeq` que ve el miembro, en orden. `jobId` acota a un trabajo. */
+  /** Events with `seq` greater than `afterSeq` that the member sees, in order. `jobId` narrows to one job. */
   function replay (memberId, afterSeq, { jobId = null } = {}) {
     if (jobId !== null) {
       return all(db, 'SELECT * FROM job_events WHERE seq > ? AND job_id = ? AND (member_id IS NULL OR member_id = ?) ORDER BY seq', afterSeq, jobId, memberId)
@@ -89,8 +89,8 @@ export function createEvents ({ db, now = Date.now }) {
   }
 
   /**
-   * Foto inicial de una conexión nueva sin `Last-Event-ID`: el último progreso de cada trabajo en curso del
-   * miembro, para que una pestaña recién abierta muestre la barra donde va.
+   * Initial snapshot of a new connection without `Last-Event-ID`: the latest progress of each of the member's
+   * running jobs, so that a freshly opened tab shows the bar where it stands.
    */
   function snapshot (memberId) {
     return all(db, `
@@ -106,8 +106,8 @@ export function createEvents ({ db, now = Date.now }) {
   }
 
   /**
-   * Con el worker en otro proceso: consulta `PRAGMA data_version` cada `intervalMs` y despacha lo nuevo.
-   * El valor sólo cambia por confirmaciones de OTRAS conexiones (I03 §5.3).
+   * With the worker in another process: queries `PRAGMA data_version` every `intervalMs` and dispatches what is new.
+   * The value only changes through commits from OTHER connections (I03 §5.3).
    */
   function startPolling (intervalMs) {
     stopPolling()
@@ -127,7 +127,7 @@ export function createEvents ({ db, now = Date.now }) {
     timerHandle = null
   }
 
-  /** Retención: I03 §12, `job_events_retention_days` igual que los trabajos terminados. */
+  /** Retention: I03 §12, `job_events_retention_days` the same as finished jobs. */
   function purge (olderThanMs) {
     return run(db, 'DELETE FROM job_events WHERE at < ?', olderThanMs).changes
   }

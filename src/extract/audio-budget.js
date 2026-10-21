@@ -1,6 +1,6 @@
-// Presupuesto de audio por hora (MASTER-SPEC §7.4, informe 06 §3.2): Groq permite 7.200 s de
-// audio por hora y el equipo comparte la cifra. La cola consulta `check` antes de reclamar un
-// trabajo que transcribe, y llama `record` cuando lo reclama.
+// Hourly audio budget (MASTER-SPEC §7.4, report 06 §3.2): Groq allows 7,200 s of
+// audio per hour and the team shares that figure. The queue calls `check` before claiming a
+// job that transcribes, and calls `record` when it claims it.
 
 import { DEFAULTS } from './config.js';
 
@@ -25,7 +25,7 @@ export function createAudioBudget({
       return events.reduce((s, e) => s + e.seconds, 0);
     },
 
-    /** ¿Cabe `seconds` ahora? Si no, cuántos milisegundos hay que esperar a que la ventana libere lugar. */
+    /** Does `seconds` fit now? If not, how many milliseconds to wait for the window to free up room. */
     check(seconds, at = Date.now()) {
       if (seconds > secondsPerHour) {
         return { allowed: false, waitMs: Number.POSITIVE_INFINITY, reason: 'exceeds_budget' };

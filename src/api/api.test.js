@@ -8,7 +8,7 @@ import { addMember, fakeExtract, login, makeEnv, multipart, postInput, until } f
 const noIpLimit = { identity: { login: { ipMax: 1000 } } }
 const TEXT_FILE = (nameValue, contents = 'contenido de prueba') => ({ field: 'files', name: nameValue, type: 'text/plain', content: contents })
 
-/** Equipo de prueba: un editor y dos miembros con sesión iniciada. */
+/** Test team: an editor and two members with an open session. */
 async function team (opts = {}) {
   const env = await makeEnv({ config: noIpLimit, ...opts })
   await addMember(env, { email: 'ed@x.org', name: 'Ed', role: 'editor' })
@@ -28,13 +28,13 @@ async function waitForProposal (env, cookie, inputId) {
   return until(async () => {
     const r = await env.api('GET', `/inputs/${inputId}`, cookie)
     const v = r.json()
-    if (v.status === 'failed') throw new Error(`el input falló: ${v.error}`)
+    if (v.status === 'failed') throw new Error(`the input failed: ${v.error}`)
     return v.status === 'proposed' ? v : null
   })
 }
 
-// ---------------------------------------------------------------- flujo completo
-test('flujo completo: enviar, analizar, editar, publicar, responder, cerrar y reabrir', async () => {
+// ---------------------------------------------------------------- full flow
+test('full flow: submit, analyze, edit, publish, reply, close and reopen', async () => {
   const env = await team({ worker: true, modules: {
     extract: async (a, { onProgress }) => {
       onProgress(50, 'leyendo')
@@ -52,23 +52,23 @@ test('flujo completo: enviar, analizar, editar, publicar, responder, cerrar y re
   assert.ok(view.attachments.every((a) => a.extracted))
   assert.equal(view.proposal.messages.length, 1)
   const proposalObj = view.proposal.messages[0]
-  assert.match(proposalObj.area_id, /^\d+$/) // todo id viaja como texto
+  assert.match(proposalObj.area_id, /^\d+$/) // every id travels as text
   assert.match(proposalObj.template_id, /^\d+$/)
-  assert.deepEqual(view.units, []) // el doble del analizador no numera unidades
+  assert.deepEqual(view.units, []) // the analyzer double does not number units
   assert.equal(view.job_id, String(jobId))
   assert.match(proposalObj.body, /texto de document/)
   assert.equal(view.job.status, 'done')
 
-  // El emisor edita la propuesta (título, destinatario Beto) y la publica.
+  // The sender edits the proposal (title, assignee Beto) and publishes it.
   const edited = { messages: [{ ...proposalObj, title: 'Guardar no responde', assignee_ids: [3], attachment_ids: [view.attachments[0].id] }] }
   const pubRes = await env.api('POST', `/inputs/${inputId}/publish`, env.c.ana, edited)
   assert.equal(pubRes.statusCode, 200, pubRes.body)
   const [messageIdValue] = pubRes.json().message_ids
   assert.equal(pubRes.json().messages[0].status, 'open')
   assert.equal((await env.api('GET', `/inputs/${inputId}`, env.c.ana)).json().status, 'published')
-  assert.equal((await env.api('POST', `/inputs/${inputId}/publish`, env.c.ana, edited)).statusCode, 409) // no se publica dos veces
+  assert.equal((await env.api('POST', `/inputs/${inputId}/publish`, env.c.ana, edited)).statusCode, 409) // it is not published twice
 
-  // Beto lo ve en «para mí»; Ed (no asignado) no.
+  // Beto sees it in «para mí»; Ed (not assigned) does not.
   const forBeto = (await env.api('GET', '/messages?for=me', env.c.beto)).json()
   assert.deepEqual(forBeto.items.map((m) => m.id), [messageIdValue])
   assert.equal(forBeto.items[0].author_id, '2') // Ana
@@ -76,9 +76,9 @@ test('flujo completo: enviar, analizar, editar, publicar, responder, cerrar y re
   assert.equal(forBeto.total, 1)
   assert.equal(forBeto.items[0].attachments.length, 1)
   assert.equal((await env.api('GET', '/messages?for=me', env.c.ed)).json().items.length, 0)
-  assert.equal((await env.api('GET', '/messages', env.c.ed)).json().items.length, 1) // todos ven todos en Mensajes
+  assert.equal((await env.api('GET', '/messages', env.c.ed)).json().items.length, 1) // everyone sees everything in Mensajes
 
-  // Sólo un miembro distinto del emisor responde.
+  // Only a member other than the sender replies.
   const ownReply = await env.api('POST', `/messages/${messageIdValue}/replies`, env.c.ana, { body: 'yo mismo' })
   assert.equal(ownReply.statusCode, 403)
   assert.equal(ownReply.json().code, 'author_cannot_reply')
@@ -89,22 +89,22 @@ test('flujo completo: enviar, analizar, editar, publicar, responder, cerrar y re
   assert.equal(resp.json().replies[0].kind, 'clarification')
   assert.equal(resp.json().reply_count, 1)
   assert.equal(resp.json().last_reply.author_id, '3')
-  assert.equal((await env.api('POST', `/messages/${messageIdValue}/replies`, env.c.ed, { body: 'otra' })).json().replies.length, 2) // un hilo
+  assert.equal((await env.api('POST', `/messages/${messageIdValue}/replies`, env.c.ed, { body: 'otra' })).json().replies.length, 2) // a thread
 
-  // Cualquiera cierra y reabre; un cerrado no recibe respuestas.
+  // Anyone closes and reopens; a closed one receives no replies.
   const isClosed = await env.api('POST', `/messages/${messageIdValue}/close`, env.c.ed)
   assert.equal(isClosed.json().status, 'closed')
   assert.ok(isClosed.json().closed_at)
   assert.equal((await env.api('POST', `/messages/${messageIdValue}/close`, env.c.ed)).statusCode, 409)
   assert.equal((await env.api('POST', `/messages/${messageIdValue}/replies`, env.c.beto, { body: 'x' })).statusCode, 409)
   const reopened = await env.api('POST', `/messages/${messageIdValue}/reopen`, env.c.ana)
-  assert.equal(reopened.json().status, 'answered') // tiene respuestas
+  assert.equal(reopened.json().status, 'answered') // it has replies
   assert.equal(reopened.json().closed_at, null)
   assert.equal((await env.api('POST', `/messages/${messageIdValue}/reopen`, env.c.ana)).statusCode, 409)
   await env.close()
 })
 
-test('reabrir un mensaje sin respuestas lo devuelve a abierto', async () => {
+test('reopening a message without replies returns it to open', async () => {
   const env = await team({ worker: true })
   const { input_id: id } = (await postInput(env, env.c.ana, { text: 'hola' })).json()
   const v = await waitForProposal(env, env.c.ana, id)
@@ -115,28 +115,28 @@ test('reabrir un mensaje sin respuestas lo devuelve a abierto', async () => {
   await env.close()
 })
 
-// ---------------------------------------------------------------- idempotencia
-test('el mismo contenido del mismo emisor devuelve lo que ya hay; otro emisor tiene su propio input', async () => {
+// ---------------------------------------------------------------- idempotency
+test('the same content from the same sender returns what already exists; another sender has their own input', async () => {
   const env = await team()
   const submit = (cookie) => postInput(env, cookie, { text: '  mismo texto  \r\n' }, [TEXT_FILE('a.txt', 'abc')])
   const a = await submit(env.c.ana)
-  const b = await postInput(env, env.c.ana, { text: 'mismo texto' }, [TEXT_FILE('otro-nombre.txt', 'abc')]) // texto normalizado y mismo adjunto por hash
+  const b = await postInput(env, env.c.ana, { text: 'mismo texto' }, [TEXT_FILE('otro-nombre.txt', 'abc')]) // normalized text and same attachment by hash
   assert.equal(a.statusCode, 202)
   assert.equal(b.statusCode, 200)
   assert.equal(b.json().duplicate, true)
   assert.equal(b.json().input_id, a.json().input_id)
   assert.equal(b.json().job_id, a.json().job_id)
-  assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM jobs').n, 1) // ni un segundo trabajo
+  assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM jobs').n, 1) // not even a second job
   assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM attachments').n, 1)
   const c = await submit(env.c.beto)
   assert.equal(c.statusCode, 202)
   assert.notEqual(c.json().input_id, a.json().input_id)
-  // Un adjunto distinto es otro input.
+  // A different attachment is another input.
   assert.equal((await postInput(env, env.c.ana, { text: 'mismo texto' }, [TEXT_FILE('a.txt', 'abd')])).statusCode, 202)
   await env.close()
 })
 
-test('reenviar un input fallido o cancelado lo reintenta sobre la misma fila', async () => {
+test('resubmitting a failed or cancelled input retries it on the same row', async () => {
   const env = await team()
   const a = (await postInput(env, env.c.ana, { text: 'x' })).json()
   const cancel = await env.api('POST', `/inputs/${a.input_id}/cancel`, env.c.ana)
@@ -152,8 +152,8 @@ test('reenviar un input fallido o cancelado lo reintenta sobre la misma fila', a
   await env.close()
 })
 
-// ---------------------------------------------------------------- validación de la subida
-test('subida: envío vacío, formato no admitido, enlace inválido y cuerpo no multipart', async () => {
+// ---------------------------------------------------------------- upload validation
+test('upload: empty submission, unsupported format, invalid link and non-multipart body', async () => {
   const env = await team()
   const emptyBody = await postInput(env, env.c.ana, { text: '   ' })
   assert.equal(emptyBody.statusCode, 400)
@@ -168,11 +168,11 @@ test('subida: envío vacío, formato no admitido, enlace inválido y cuerpo no m
   assert.equal(json.statusCode, 415)
   const emptyFile = await postInput(env, env.c.ana, { text: 'x' }, [TEXT_FILE('v.txt', '')])
   assert.equal(emptyFile.statusCode, 400)
-  assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM inputs').n, 0) // nada quedó a medias
+  assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM inputs').n, 0) // nothing was left half done
   await env.close()
 })
 
-test('subida: el tipo octet-stream se clasifica por extensión', async () => {
+test('upload: the octet-stream type is classified by extension', async () => {
   const env = await team()
   const r = await postInput(env, env.c.ana, { text: 'x' }, [{ field: 'files', name: 'informe.pdf', type: 'application/octet-stream', content: '%PDF-1.4' }])
   assert.equal(r.statusCode, 202)
@@ -180,12 +180,12 @@ test('subida: el tipo octet-stream se clasifica por extensión', async () => {
   await env.close()
 })
 
-test('subida: topes por tipo, cantidad de archivos y de enlaces, con los límites de la configuración', async () => {
+test('upload: caps per type, number of files and of links, with the configuration limits', async () => {
   const env = await team({ config: { ...noIpLimit, uploads: { maxImageBytes: 10, maxFiles: 2, maxLinks: 1 } } })
   const bigBody = await postInput(env, env.c.ana, { text: 'x' }, [{ field: 'files', name: 'a.png', type: 'image/png', content: 'x'.repeat(11) }])
   assert.equal(bigBody.statusCode, 413)
   assert.match(bigBody.json().message, /supera el máximo/)
-  const longDocument = await postInput(env, env.c.ana, { text: 'x' }, [TEXT_FILE('largo.txt', 'x'.repeat(11))]) // el tope del documento es otro
+  const longDocument = await postInput(env, env.c.ana, { text: 'x' }, [TEXT_FILE('largo.txt', 'x'.repeat(11))]) // the document cap is a different one
   assert.equal(longDocument.statusCode, 202)
   const three = await postInput(env, env.c.ana, { text: 'otro' }, [TEXT_FILE('1.txt'), TEXT_FILE('2.txt'), TEXT_FILE('3.txt')])
   assert.equal(three.statusCode, 413)
@@ -194,7 +194,7 @@ test('subida: topes por tipo, cantidad de archivos y de enlaces, con los límite
   await env.close()
 })
 
-test('subida: un archivo grande se escribe a disco y queda nombrado por su hash', async () => {
+test('upload: a large file is written to disk and named by its hash', async () => {
   const env = await team()
   const contents = Buffer.alloc(3 * 1024 * 1024, 7)
   const r = await postInput(env, env.c.ana, { text: 'x' }, [{ field: 'files', name: 'grande.mp3', type: 'audio/mpeg', content: contents }])
@@ -207,12 +207,12 @@ test('subida: un archivo grande se escribe a disco y queda nombrado por su hash'
   assert.equal(dbRow.path, dbRow.sha256)
   const { statSync, readdirSync } = await import('node:fs')
   assert.equal(statSync(path.join(env.config.attachmentsDir, dbRow.sha256)).size, contents.length)
-  assert.deepEqual(readdirSync(env.config.tmpDir), []) // sin temporales
+  assert.deepEqual(readdirSync(env.config.tmpDir), []) // no temporary files
   await env.close()
 })
 
-// ---------------------------------------------------------------- publicación
-test('publicar valida la forma: área, plantilla de esa área, miembros, adjuntos y campos obligatorios', async () => {
+// ---------------------------------------------------------------- publication
+test('publishing validates the shape: area, template of that area, members, attachments and required fields', async () => {
   const env = await team({ worker: true })
   const { input_id: id } = (await postInput(env, env.c.ana, { text: 'algo' }, [TEXT_FILE('a.txt')])).json()
   const v = await waitForProposal(env, env.c.ana, id)
@@ -224,7 +224,7 @@ test('publicar valida la forma: área, plantilla de esa área, miembros, adjunto
 
   assert.equal((await publishIt({ area_id: 999 })).json().code, 'area_invalid')
   assert.equal((await publishIt({ template_id: 999 })).json().code, 'template_invalid')
-  assert.equal((await publishIt({ area_id: idea.id, template_id: error.templates[0].id })).json().code, 'template_invalid') // plantilla de otra área
+  assert.equal((await publishIt({ area_id: idea.id, template_id: error.templates[0].id })).json().code, 'template_invalid') // template of another area
   assert.equal((await publishIt({ assignee_ids: [999] })).json().code, 'assignee_invalid')
   assert.equal((await publishIt({ attachment_ids: [999] })).json().code, 'attachment_invalid')
   assert.equal((await publishIt({ title: '   ' })).json().code, 'message_invalid')
@@ -236,10 +236,10 @@ test('publicar valida la forma: área, plantilla de esa área, miembros, adjunto
   const extra = await publishIt({ area_id: error.id, template_id: error.templates[0].id, fields: { steps: 'a', expected: 'b', actual: 'c', invented: 'd' } })
   assert.match(extra.json().message, /invented/)
   assert.equal((await env.api('POST', `/inputs/${id}/publish`, env.c.ana, { messages: [] })).statusCode, 400)
-  assert.equal((await publishIt({}, env.c.beto)).statusCode, 404) // el input es de Ana
-  assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM messages').n, 0) // ningún intento a medias dejó filas
+  assert.equal((await publishIt({}, env.c.beto)).statusCode, 404) // the input belongs to Ana
+  assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM messages').n, 0) // no half-done attempt left rows behind
 
-  // Un mensaje por área, cada uno con su plantilla; los campos opcionales pueden ir null.
+  // One message per area, each with its template; optional fields may be null.
   const two = await env.api('POST', `/inputs/${id}/publish`, env.c.ana, { messages: [
     { ...base, title: 'Falla', area_id: error.id, template_id: error.templates[0].id, fields: { steps: 'a', expected: 'b', actual: 'c', where: null } },
     { ...base, title: 'Idea', area_id: idea.id, template_id: idea.templates[0].id, fields: { idea: 'i', motivation: 'm' } }
@@ -250,7 +250,7 @@ test('publicar valida la forma: área, plantilla de esa área, miembros, adjunto
   await env.close()
 })
 
-test('GET /inputs/:id es del emisor: otro miembro recibe 404', async () => {
+test('GET /inputs/:id belongs to the sender: another member gets 404', async () => {
   const env = await team()
   const { input_id: id } = (await postInput(env, env.c.ana, { text: 'x' })).json()
   assert.equal((await env.api('GET', `/inputs/${id}`, env.c.beto)).statusCode, 404)
@@ -259,7 +259,7 @@ test('GET /inputs/:id es del emisor: otro miembro recibe 404', async () => {
   await env.close()
 })
 
-// ---------------------------------------------------------------- mensajes: filtros
+// ---------------------------------------------------------------- messages: filters
 async function withMessages (env) {
   const areas = (await env.api('GET', '/areas', env.c.ana)).json()
   const make = async (textValue, area, assigned, sender = env.c.ana) => {
@@ -279,19 +279,19 @@ async function withMessages (env) {
   }
 }
 
-test('mensajes: filtros por destinatario, área, estado, búsqueda y respuestas, con paginación', async () => {
+test('messages: filters by assignee, area, status, search and replies, with pagination', async () => {
   const env = await team({ worker: true })
   const { idea, questionArea, m1, m2, m3 } = await withMessages(env)
   const ids = async (query, cookie = env.c.ana) => (await env.api('GET', `/messages${query}`, cookie)).json().items.map((m) => m.id)
 
-  assert.deepEqual(await ids(''), [m3, m2, m1]) // más nuevos primero
+  assert.deepEqual(await ids(''), [m3, m2, m1]) // newest first
   assert.deepEqual(await ids('?for=me', env.c.beto), [m2, m1])
   assert.deepEqual(await ids('?for=me', env.c.ana), [m2])
-  assert.deepEqual(await ids('?for=1', env.c.beto), [m3]) // para X
+  assert.deepEqual(await ids('?for=1', env.c.beto), [m3]) // for X
   assert.deepEqual(await ids(`?area=${idea.id}`), [m1])
   assert.deepEqual(await ids(`?area=${questionArea.id}`), [m3, m2])
   assert.deepEqual(await ids('?q=beta'), [m2])
-  assert.deepEqual(await ids('?q=100%25'), [m3]) // el % se busca literal, no como comodín
+  assert.deepEqual(await ids('?q=100%25'), [m3]) // the % is searched literally, not as a wildcard
   assert.deepEqual(await ids('?q=%25'), [m3])
   assert.deepEqual(await ids('?status=open'), [m3, m2, m1])
   assert.deepEqual(await ids('?replies=1'), [])
@@ -301,28 +301,28 @@ test('mensajes: filtros por destinatario, área, estado, búsqueda y respuestas,
   await env.api('POST', `/messages/${m2}/close`, env.c.ed)
   assert.deepEqual(await ids('?status=answered'), [m3, m1])
   assert.deepEqual(await ids('?status=closed'), [m2])
-  assert.deepEqual(await ids('?replies=1'), [m3, m1]) // última respuesta primero
-  assert.deepEqual(await ids('?replies=1&for=me', env.c.ana), [m3, m1]) // Ana es emisora de m1 y m2 y respondió m3
-  assert.deepEqual(await ids('?replies=1&for=me', env.c.ed), [m3]) // Ed es destinatario de m3, que tiene respuestas
+  assert.deepEqual(await ids('?replies=1'), [m3, m1]) // latest reply first
+  assert.deepEqual(await ids('?replies=1&for=me', env.c.ana), [m3, m1]) // Ana is the sender of m1 and m2 and replied to m3
+  assert.deepEqual(await ids('?replies=1&for=me', env.c.ed), [m3]) // Ed is the assignee of m3, which has replies
   const page1 = (await env.api('GET', '/messages?limit=2', env.c.ana)).json()
   assert.equal(page1.items.length, 2)
   assert.deepEqual({ page: page1.page, limit: page1.limit, total: page1.total }, { page: 1, limit: 2, total: 3 })
   const page2 = (await env.api('GET', '/messages?limit=2&page=2', env.c.ana)).json()
   assert.deepEqual(page2.items.map((m) => m.id), [m1])
   assert.equal(page2.page, 2)
-  assert.equal((await env.api('GET', '/messages?limit=101', env.c.ana)).statusCode, 400) // tope de 100
+  assert.equal((await env.api('GET', '/messages?limit=101', env.c.ana)).statusCode, 400) // cap of 100
   assert.equal((await env.api('GET', '/messages?page=0', env.c.ana)).statusCode, 400)
   assert.equal((await env.api('GET', '/messages?status=raro', env.c.ana)).statusCode, 400)
   assert.equal((await env.api('GET', '/messages?for=pepe', env.c.ana)).statusCode, 400)
 
   const areasAfter = (await env.api('GET', '/areas', env.c.ana)).json()
   assert.equal(areasAfter.find((a) => a.id === idea.id).open_count, 0)
-  assert.equal(areasAfter.find((a) => a.id === questionArea.id).unresolved_count, 1) // m3 respondido, m2 cerrado
+  assert.equal(areasAfter.find((a) => a.id === questionArea.id).unresolved_count, 1) // m3 answered, m2 closed
   await env.close()
 })
 
-// ---------------------------------------------------------------- áreas y plantillas
-test('áreas y plantillas: el editor las gestiona; el miembro sólo las lee sin el cuerpo', async () => {
+// ---------------------------------------------------------------- areas and templates
+test('areas and templates: the editor manages them; the member only reads them without the body', async () => {
   const env = await team()
   const views = []
   env.domainEvents.on('template.saved', (t) => views.push(t.name))
@@ -333,8 +333,8 @@ test('áreas y plantillas: el editor las gestiona; el miembro sólo las lee sin 
   assert.equal((await env.api('POST', '/areas', env.c.ana, { title: 'Nueva', description: 'x' })).statusCode, 403)
   const createdTemplate = await env.api('POST', '/areas', env.c.ed, { title: 'Soporte', description: 'Pedidos de ayuda' })
   assert.equal(createdTemplate.statusCode, 201)
-  assert.equal(createdTemplate.json().position, 6) // las sembradas ocupan 1 a 5
-  assert.equal((await env.api('POST', '/areas', env.c.ed, { title: 'soporte', description: 'x' })).statusCode, 409) // título único sin distinguir mayúsculas
+  assert.equal(createdTemplate.json().position, 6) // the seeded ones take 1 to 5
+  assert.equal((await env.api('POST', '/areas', env.c.ed, { title: 'soporte', description: 'x' })).statusCode, 409) // unique title, case-insensitive
   const edited = await env.api('PATCH', `/areas/${createdTemplate.json().id}`, env.c.ed, { description: 'Pedidos de ayuda del equipo' })
   assert.equal(edited.json().description, 'Pedidos de ayuda del equipo')
   assert.equal((await env.api('PATCH', '/areas/999', env.c.ed, { title: 'x' })).statusCode, 404)
@@ -346,7 +346,7 @@ test('áreas y plantillas: el editor las gestiona; el miembro sólo las lee sin 
   assert.equal(t.json().name, 'Ayuda')
   assert.deepEqual(views, ['Ayuda'])
 
-  // name y description por separado reescriben el encabezado y siguen siendo una plantilla válida.
+  // name and description separately rewrite the header and remain a valid template.
   const renamed = await env.api('PATCH', `/areas/${createdTemplate.json().id}/templates/${t.json().id}`, env.c.ed, { name: 'Pedir ayuda', description: 'Nueva descripción' })
   assert.equal(renamed.statusCode, 200, renamed.body)
   assert.equal(renamed.json().name, 'Pedir ayuda')
@@ -357,7 +357,7 @@ test('áreas y plantillas: el editor las gestiona; el miembro sólo las lee sin 
   assert.ok(templateList[0].body_markdown)
   assert.equal((await env.api('GET', `/areas/${createdTemplate.json().id}/templates`, env.c.ana)).statusCode, 403)
 
-  // Formas inválidas: 422 con el motivo, sin guardar.
+  // Invalid shapes: 422 with the reason, nothing saved.
   for (const [badCase, reasonText] of [
     ['sin encabezado', /empezar con un frontmatter/],
     ['---\nname: X\n---\ncuerpo', /description/],
@@ -369,15 +369,15 @@ test('áreas y plantillas: el editor las gestiona; el miembro sólo las lee sin 
     assert.equal(r.json().code, 'template_invalid')
     assert.match(r.json().message, reasonText)
   }
-  assert.equal((await env.api('POST', `/areas/${createdTemplate.json().id}/templates`, env.c.ed, { body_markdown: `---\nname: ${'n'.repeat(65)}\ndescription: Y\n---\ncuerpo` })).statusCode, 422) // 64 caracteres de Agent Skills
+  assert.equal((await env.api('POST', `/areas/${createdTemplate.json().id}/templates`, env.c.ed, { body_markdown: `---\nname: ${'n'.repeat(65)}\ndescription: Y\n---\ncuerpo` })).statusCode, 422) // 64 characters, per Agent Skills
   assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM templates WHERE area_id = ?', createdTemplate.json().id).n, 1)
 
-  // Borrar es en blando y exige confirmación; se restaura.
+  // Deleting is soft and requires confirmation; it can be restored.
   const templateUrl = `/areas/${createdTemplate.json().id}/templates/${t.json().id}`
   const unconfirmed = await env.api('DELETE', templateUrl, env.c.ed)
   assert.equal(unconfirmed.statusCode, 400)
   assert.equal(unconfirmed.json().code, 'confirm_required')
-  assert.equal((await env.api('GET', `/areas/${createdTemplate.json().id}/templates`, env.c.ed)).json().length, 1) // no se borró
+  assert.equal((await env.api('GET', `/areas/${createdTemplate.json().id}/templates`, env.c.ed)).json().length, 1) // it was not deleted
   assert.equal((await env.api('DELETE', `${templateUrl}?confirm=true`, env.c.ed)).statusCode, 204)
   assert.equal((await env.api('DELETE', `${templateUrl}?confirm=true`, env.c.ed)).statusCode, 404)
   assert.equal((await env.api('GET', `/areas/${createdTemplate.json().id}/templates`, env.c.ed)).json().length, 0)
@@ -386,27 +386,27 @@ test('áreas y plantillas: el editor las gestiona; el miembro sólo las lee sin 
   const restored = await env.api('POST', `/templates/${t.json().id}/restore`, env.c.ed)
   assert.equal(restored.statusCode, 200)
   assert.equal(restored.json().deleted_at, null)
-  assert.equal((await env.api('POST', `/templates/${t.json().id}/restore`, env.c.ed)).statusCode, 409) // no estaba borrada
-  // El nombre de una plantilla es único dentro del área (409), no entre áreas.
+  assert.equal((await env.api('POST', `/templates/${t.json().id}/restore`, env.c.ed)).statusCode, 409) // it was not deleted
+  // A template's name is unique within the area (409), not across areas.
   assert.equal((await env.api('POST', `/areas/${createdTemplate.json().id}/templates`, env.c.ed, { body_markdown: md.replace('name: Ayuda', 'name: pedir AYUDA') })).statusCode, 409)
   const otherArea = await env.api('POST', '/areas', env.c.ed, { title: 'Otra', description: 'x' })
   assert.equal((await env.api('POST', `/areas/${otherArea.json().id}/templates`, env.c.ed, { body_markdown: md })).statusCode, 201)
 
-  // Un área borrada en blando desaparece de la lista y se restaura sin perder nada.
+  // A soft-deleted area disappears from the list and is restored without losing anything.
   const areaUrl = `/areas/${createdTemplate.json().id}`
   assert.equal((await env.api('DELETE', areaUrl, env.c.ed)).statusCode, 400)
   assert.equal((await env.api('DELETE', `${areaUrl}?confirm=true`, env.c.ed)).statusCode, 204)
   assert.ok(!(await env.api('GET', '/areas', env.c.ana)).json().some((a) => a.id === createdTemplate.json().id))
   assert.equal((await env.api('GET', '/areas?include_deleted=true', env.c.ana)).statusCode, 403)
   assert.ok((await env.api('GET', '/areas?include_deleted=true', env.c.ed)).json().some((a) => a.id === createdTemplate.json().id))
-  // Su título queda libre mientras está borrada, y restaurar choca si alguien lo tomó.
+  // Its title is free while it is deleted, and restoring clashes if someone took it.
   assert.equal((await env.api('POST', '/areas', env.c.ed, { title: 'Soporte', description: 'nueva' })).statusCode, 201)
   assert.equal((await env.api('POST', `${areaUrl}/restore`, env.c.ed)).statusCode, 409)
   await env.close()
 })
 
-// ---------------------------------------------------------------- miembros
-test('miembros: alta por el editor, correo único, y siempre queda un editor', async () => {
+// ---------------------------------------------------------------- members
+test('members: creation by the editor, unique email, and one editor always remains', async () => {
   const env = await team()
   const fresh = await env.api('POST', '/members', env.c.ed, { email: 'Carla@x.org', name: 'Carla', profile: 'Hago la interfaz.', password: 'una clave larga de prueba 2' })
   assert.equal(fresh.statusCode, 201)
@@ -417,10 +417,10 @@ test('miembros: alta por el editor, correo único, y siempre queda un editor', a
   assert.equal((await env.api('POST', '/members', env.c.ed, { email: 'd@x.org', name: 'D', password: 'corta' })).statusCode, 400)
   assert.equal((await env.api('POST', '/members', env.c.ana, { email: 'e@x.org', name: 'E' })).statusCode, 403)
   assert.equal(get(env.db, "SELECT COUNT(*) AS n FROM members WHERE email = 'd@x.org'").n, 0)
-  // El editor edita a otros; el último editor no puede dejar de serlo.
+  // The editor edits others; the last editor cannot stop being one.
   const editedResponse = await env.api('PATCH', '/members/2', env.c.ed, { profile: 'Hago la API.\n\nNo toco la interfaz.' })
-  assert.equal(editedResponse.json().profile, 'Hago la API.\n\nNo toco la interfaz.') // texto libre, párrafos incluidos
-  assert.equal((await env.api('PATCH', '/members/2', env.c.ed, { responsibilities: 'API' })).statusCode, 400) // UD-023: el campo viejo ya no existe
+  assert.equal(editedResponse.json().profile, 'Hago la API.\n\nNo toco la interfaz.') // free text, paragraphs included
+  assert.equal((await env.api('PATCH', '/members/2', env.c.ed, { responsibilities: 'API' })).statusCode, 400) // UD-023: the old field no longer exists
   const lastSeqValue = await env.api('PATCH', '/members/1', env.c.ed, { role: 'member' })
   assert.equal(lastSeqValue.statusCode, 409)
   assert.equal(lastSeqValue.json().code, 'last_editor')
@@ -431,15 +431,15 @@ test('miembros: alta por el editor, correo único, y siempre queda un editor', a
   assert.equal(pageBody.total, 4)
   assert.equal(listValue.length, 4)
   assert.ok(listValue.every((m) => m.password === undefined && m.password_hash === undefined))
-  // El editor reinicia la contraseña de otra persona y cierra sus sesiones.
+  // The editor resets another person's password and closes their sessions.
   const resetRes = await env.api('PATCH', '/members/3', env.c.ed, { password: 'clave reiniciada por editor' })
   assert.equal(resetRes.statusCode, 200)
   assert.equal((await env.api('GET', '/me', env.c.beto)).statusCode, 401)
   await env.close()
 })
 
-// ---------------------------------------------------------------- adjuntos
-test('adjuntos: el emisor los ve antes de publicar, el equipo después, con Range y cabeceras seguras', async () => {
+// ---------------------------------------------------------------- attachments
+test('attachments: the sender sees them before publishing, the team afterwards, with Range and safe headers', async () => {
   const env = await team({ worker: true })
   const contents = '0123456789abcdefghij'
   const { input_id: id } = (await postInput(env, env.c.ana, { text: 'x', links: 'https://example.org' }, [{ field: 'files', name: 'dato.txt', type: 'text/plain', content: contents }, { field: 'files', name: 'foto.png', type: 'image/png', content: 'PNG!' }])).json()
@@ -449,17 +449,17 @@ test('adjuntos: el emisor los ve antes de publicar, el equipo después, con Rang
   const ask = (cookie, att, headers = {}) => env.app.inject({ url: `/api/attachments/${att.id}`, headers: { cookie, ...headers } })
 
   assert.equal((await ask(env.c.ana, textFile)).statusCode, 200)
-  assert.equal((await ask(env.c.beto, textFile)).statusCode, 404) // sin publicar, sólo el emisor
-  assert.equal((await ask(env.c.ana, linkItem)).statusCode, 404) // un enlace no es un archivo
+  assert.equal((await ask(env.c.beto, textFile)).statusCode, 404) // unpublished, only the sender
+  assert.equal((await ask(env.c.ana, linkItem)).statusCode, 404) // a link is not a file
   assert.equal((await env.app.inject({ url: `/api/attachments/${textFile.id}` })).statusCode, 401)
 
   await env.api('POST', `/inputs/${id}/publish`, env.c.ana, { messages: [{ ...v.proposal.messages[0], attachment_ids: [png.id] }] })
-  assert.equal((await ask(env.c.beto, png)).statusCode, 200) // publicado en un mensaje: lo ve el equipo
-  assert.equal((await ask(env.c.beto, textFile)).statusCode, 404) // el que no se adjuntó a ningún mensaje sigue siendo del emisor
+  assert.equal((await ask(env.c.beto, png)).statusCode, 200) // published in a message: the team sees it
+  assert.equal((await ask(env.c.beto, textFile)).statusCode, 404) // the one not attached to any message still belongs to the sender
 
   const fullBody = await ask(env.c.ana, textFile)
   assert.equal(fullBody.body, contents)
-  assert.equal(fullBody.headers['content-disposition'], "attachment; filename*=UTF-8''dato.txt") // texto: se descarga
+  assert.equal(fullBody.headers['content-disposition'], "attachment; filename*=UTF-8''dato.txt") // text: it is downloaded
   assert.equal(fullBody.headers['x-content-type-options'], 'nosniff')
   assert.match(fullBody.headers['content-security-policy'], /sandbox/)
   const imageResp = await ask(env.c.ana, png)
@@ -477,8 +477,8 @@ test('adjuntos: el emisor los ve antes de publicar, el equipo después, con Rang
   await env.close()
 })
 
-// ---------------------------------------------------------------- panel estático y bordes
-test('panel estático: activos con caché inmutable, index.html sin caché, 404 JSON bajo /api, SPA para el resto', async () => {
+// ---------------------------------------------------------------- static panel and edges
+test('static panel: assets with immutable cache, index.html without cache, JSON 404 under /api, SPA for the rest', async () => {
   const dir = (await import('../testing/helpers.js')).tempDir()
   mkdirSync(path.join(dir, 'assets'), { recursive: true })
   writeFileSync(path.join(dir, 'index.html'), '<!doctype html><title>Panel</title>')
@@ -498,25 +498,25 @@ test('panel estático: activos con caché inmutable, index.html sin caché, 404 
   assert.equal(index.headers['cache-control'], 'no-cache')
   const routePath = await env.app.inject({ url: '/mensajes/12' })
   assert.equal(routePath.statusCode, 200)
-  assert.match(routePath.body, /<title>Panel/) // ruta de la SPA
+  assert.match(routePath.body, /<title>Panel/) // SPA route
   assert.equal(routePath.headers['cache-control'], 'no-cache')
   const absentAsset = await env.app.inject({ url: '/assets/otro-compilado.js' })
   assert.equal(absentAsset.statusCode, 404)
-  assert.equal(absentAsset.json().code, 'not_found') // un activo con hash de otra compilación no se confunde con una página
+  assert.equal(absentAsset.json().code, 'not_found') // an asset hash from another build is not mistaken for a page
   const api404 = await env.app.inject({ url: '/api/no-existe' })
   assert.equal(api404.statusCode, 404)
   assert.equal(api404.headers['content-type'], 'application/json; charset=utf-8')
   assert.equal(api404.json().code, 'not_found')
   assert.equal((await env.app.inject({ method: 'POST', url: '/api/no-existe' })).statusCode, 404)
-  assert.equal((await env.app.inject({ method: 'POST', url: '/cualquier-cosa' })).statusCode, 404) // sólo GET cae en la SPA
-  // La CSP del panel: sólo el mismo origen.
+  assert.equal((await env.app.inject({ method: 'POST', url: '/cualquier-cosa' })).statusCode, 404) // only GET falls to the SPA
+  // The panel's CSP: same origin only.
   assert.match(rootDir.headers['content-security-policy'], /connect-src 'self'/)
   assert.match(rootDir.headers['content-security-policy'], /img-src 'self' blob: data:/)
   assert.match(rootDir.headers['content-security-policy'], /frame-ancestors 'none'/)
   await env.close()
 })
 
-test('sin panel compilado la API arranca igual y la raíz responde 404 JSON', async () => {
+test('without a compiled panel the API starts anyway and the root answers a JSON 404', async () => {
   const env = await makeEnv({ config: { panelDist: '/ruta/que/no/existe/panel' } })
   const r = await env.app.inject({ url: '/' })
   assert.equal(r.statusCode, 404)
@@ -524,7 +524,7 @@ test('sin panel compilado la API arranca igual y la raíz responde 404 JSON', as
   await env.close()
 })
 
-test('/health responde en la raíz y bajo /api, sin sesión', async () => {
+test('/health answers at the root and under /api, without a session', async () => {
   const env = await makeEnv()
   for (const url of ['/health', '/api/health']) {
     const r = await env.app.inject({ url })
@@ -534,7 +534,7 @@ test('/health responde en la raíz y bajo /api, sin sesión', async () => {
   await env.close()
 })
 
-test('los errores de validación llegan en español con la forma { code, message }', async () => {
+test('validation errors arrive in Spanish with the { code, message } shape', async () => {
   const env = await team()
   const r = await env.api('POST', '/messages/1/replies', env.c.ana, {})
   assert.equal(r.statusCode, 400)
@@ -548,7 +548,7 @@ test('los errores de validación llegan en español con la forma { code, message
   await env.close()
 })
 
-test('el panel no recibe columnas internas: el hash de contraseña y la ficha nunca salen', async () => {
+test('the panel receives no internal columns: the password hash and the token never leave', async () => {
   const env = await team()
   const bodies = [
     (await env.api('GET', '/me', env.c.ana)).body,
@@ -559,8 +559,8 @@ test('el panel no recibe columnas internas: el hash de contraseña y la ficha nu
   await env.close()
 })
 
-// ---------------------------------------------------------------- configuración de proveedores
-test('Configuración de proveedores: el editor la lee y la cambia; un proveedor inválido se rechaza al configurarlo', async () => {
+// ---------------------------------------------------------------- provider settings
+test('provider settings: the editor reads and changes them; an invalid provider is rejected when configured', async () => {
   const attemptsList = []
   const env = await team({ modules: {
     getProviders: () => ({ describe: () => [{ slot: 'text', provider: 'anthropic', model: 'claude-haiku-5-5', available: false, reason: 'Falta ANTHROPIC_API_KEY' }] }),
@@ -573,25 +573,25 @@ test('Configuración de proveedores: el editor la lee y la cambia; un proveedor 
   assert.equal(initialVersion.items[0].provider, 'anthropic')
   assert.equal(initialVersion.items[0].available, false)
   assert.equal(initialVersion.items[0].reason, 'Falta ANTHROPIC_API_KEY')
-  assert.ok(!JSON.stringify(initialVersion).includes('API_KEY=')) // nunca una llave
+  assert.ok(!JSON.stringify(initialVersion).includes('API_KEY=')) // never a key
 
   const badCase = await env.api('PATCH', '/settings/providers', env.c.ed, { slot: 'text', provider: 'inexistente', model: 'x' })
   assert.equal(badCase.statusCode, 422)
   assert.equal(badCase.json().code, 'provider_invalid')
-  assert.equal((await env.api('GET', '/settings/providers', env.c.ed)).json().items[0].provider, 'anthropic') // no se guardó
+  assert.equal((await env.api('GET', '/settings/providers', env.c.ed)).json().items[0].provider, 'anthropic') // it was not saved
 
   const ok = await env.api('PATCH', '/settings/providers', env.c.ed, { slot: 'text', provider: 'deepseek', model: 'deepseek-flash' })
   assert.equal(ok.statusCode, 200)
   assert.deepEqual(attemptsList.at(-1).text, { provider: 'deepseek', model: 'deepseek-flash' })
   const change = await env.api('PATCH', '/settings/providers', env.c.ed, { analyzer: 'harness' })
   assert.equal(change.json().analyzer, 'harness')
-  assert.equal((await env.api('PATCH', '/settings/providers', env.c.ed, { slot: 'text', api_key: 'x' })).statusCode, 400) // la llave no se acepta
+  assert.equal((await env.api('PATCH', '/settings/providers', env.c.ed, { slot: 'text', api_key: 'x' })).statusCode, 400) // the key is not accepted
   assert.equal((await env.api('PATCH', '/settings/providers', env.c.ed, { slot: 'otra', provider: 'x' })).statusCode, 400)
   assert.equal((await env.api('PATCH', '/settings/providers', env.c.ed, { analyzer: 'otro' })).statusCode, 400)
   await env.close()
 })
 
-test('loadModules arma los proveedores con lo guardado en Configuración sobre el entorno', async () => {
+test('loadModules builds the providers with the stored settings over the environment', async () => {
   const env = await team()
   const { loadModules } = await import('../domain/modules.js')
   const { setProviderOverrides } = await import('../domain/settings.js')
@@ -599,29 +599,29 @@ test('loadModules arma los proveedores con lo guardado en Configuración sobre e
   assert.equal(moduleSet.getProviders().text.name, 'anthropic')
   assert.equal(moduleSet.getAnalyzer(), 'api')
   setProviderOverrides(env.db, { analyzer: 'harness', text: { provider: 'deepseek', model: 'deepseek-flash' } })
-  // Sin llave de DeepSeek el proveedor queda «no disponible» y lo dice, sin lanzar.
+  // Without a DeepSeek key the provider is left «unavailable» and says so, without throwing.
   const fresh = moduleSet.getProviders()
   assert.equal(fresh.text.unavailable, 'Falta DEEPSEEK_API_KEY')
   assert.equal(moduleSet.getAnalyzer(), 'harness')
-  assert.throws(() => moduleSet.buildProviders({ text: { provider: 'inexistente' } }), /desconocido/)
+  assert.throws(() => moduleSet.buildProviders({ text: { provider: 'inexistente' } }), /Unknown text provider/)
   await env.close()
 })
 
-// ---------------------------------------------------------------- resumen de lo que afecta (UD-028)
-test('UD-028 · GET /messages/summary: cada mensaje cae en una sola prioridad, el cerrado no cuenta y los abiertos se cuentan por área', async () => {
+// ---------------------------------------------------------------- summary of what affects a member (UD-028)
+test('UD-028 · GET /messages/summary: each message falls into a single priority, a closed one does not count and open ones are counted per area', async () => {
   const env = await team({ worker: true })
-  const { idea, questionArea, m2 } = await withMessages(env) // Ana (2) emitió m1 y m2; Beto (3) emitió m3. m1 → Beto; m2 → Beto y Ana; m3 → Ed (1)
+  const { idea, questionArea, m2 } = await withMessages(env) // Ana (2) issued m1 and m2; Beto (3) issued m3. m1 → Beto; m2 → Beto and Ana; m3 → Ed (1)
   const summary = async (cookie) => (await env.api('GET', '/messages/summary', cookie)).json()
   const areaRow = (s, area) => s.areas.find((a) => a.area_id === String(area.id))
 
-  // Todo abierto: lo asignado es rojo; emitir sin respuestas no cuenta.
+  // Everything open: what is assigned is red; issuing without replies does not count.
   assert.deepEqual((await summary(env.c.beto)).mine, { red: 2, yellow: 0, blue: 0, total: 2 })
   assert.deepEqual((await summary(env.c.ana)).mine, { red: 1, yellow: 0, blue: 0, total: 1 })
   assert.deepEqual((await summary(env.c.ed)).mine, { red: 1, yellow: 0, blue: 0, total: 1 })
   assert.deepEqual(areaRow(await summary(env.c.ana), questionArea), { area_id: String(questionArea.id), open: 2, mine_open: 1 })
   assert.deepEqual(areaRow(await summary(env.c.ed), idea), { area_id: String(idea.id), open: 1, mine_open: 0 })
 
-  // Respuestas: lo asignado y respondido baja a amarillo; lo emitido por mí y respondido es azul.
+  // Replies: what is assigned and answered drops to yellow; what I issued and was answered is blue.
   const m1 = (await env.api('GET', `/messages?area=${idea.id}`, env.c.ana)).json().items[0].id
   const m3 = (await env.api('GET', `/messages?for=1`, env.c.ana)).json().items[0].id
   await env.api('POST', `/messages/${m1}/replies`, env.c.beto, { body: 'listo' })
@@ -629,13 +629,13 @@ test('UD-028 · GET /messages/summary: cada mensaje cae en una sola prioridad, e
   assert.deepEqual((await summary(env.c.beto)).mine, { red: 1, yellow: 1, blue: 1, total: 3 })
   assert.deepEqual((await summary(env.c.ana)).mine, { red: 1, yellow: 0, blue: 1, total: 2 })
   assert.deepEqual((await summary(env.c.ed)).mine, { red: 0, yellow: 1, blue: 0, total: 1 })
-  assert.equal(areaRow(await summary(env.c.ana), idea).open, 0) // lo respondido ya no es «abierto»
+  assert.equal(areaRow(await summary(env.c.ana), idea).open, 0) // an answered message is no longer «open»
   assert.equal(areaRow(await summary(env.c.ana), questionArea).open, 1)
 
-  // Cerrar saca el mensaje de la cuenta de todos.
+  // Closing removes the message from everyone's count.
   await env.api('POST', `/messages/${m2}/close`, env.c.ed)
   assert.deepEqual((await summary(env.c.beto)).mine, { red: 0, yellow: 1, blue: 1, total: 2 })
   assert.equal(areaRow(await summary(env.c.beto), questionArea).open, 0)
-  assert.equal((await env.app.inject({ method: 'GET', url: '/api/messages/summary' })).statusCode, 401) // exige sesión
+  assert.equal((await env.app.inject({ method: 'GET', url: '/api/messages/summary' })).statusCode, 401) // requires a session
   await env.close()
 })

@@ -1,19 +1,19 @@
-// Proveedores falsos para correr el analizador real sin red ni llaves (src/providers/fake.js).
-// Responden con la referencia de un caso: la clasificación agrupa las unidades esperadas por área y
-// plantilla, y la descomposición devuelve los mensajes esperados de cada grupo.
+// Fake providers to run the real analyzer without network or keys (src/providers/fake.js).
+// They answer with a case's reference: the classification groups the expected units by area and
+// template, and the decomposition returns each group's expected messages.
 //
-// Modos:
-//   perfect  devuelve exactamente la referencia.
-//   noisy    la corrompe de forma determinista: en la clasificación cambia el área del primer grupo;
-//            en la descomposición fusiona los dos primeros mensajes, parte el tercero, repite una unidad
-//            y quita el último. El analizador real lo detecta y falla con `invalid`; el banco puntúa el borrador.
+// Modes:
+//   perfect  returns exactly the reference.
+//   noisy    corrupts it deterministically: in the classification it changes the area of the first group;
+//            in the decomposition it fuses the first two messages, splits the third, repeats a unit
+//            and removes the last one. The real analyzer detects it and fails with `invalid`; the bench scores the draft.
 import { createFakeProviders } from '../src/providers/fake.js';
 
 const sleep = (ms) => (ms > 0 ? new Promise((resolve) => setTimeout(resolve, ms)) : Promise.resolve());
 const first = (v) => [].concat(v)[0];
 const wrongAreaFor = (accepted) => [1, 2, 3, 4, 5].find((id) => !accepted.includes(id));
 
-/** Los números de unidad [uN] del último mensaje de usuario de una solicitud. */
+/** The unit numbers [uN] of the last user message of a request. */
 export function unitIdsIn(req) {
   const last = req.messages.at(-1);
   const text = typeof last.content === 'string' ? last.content : JSON.stringify(last.content);
@@ -37,10 +37,10 @@ function corrupt(messages) {
 
 /**
  * @param {{ expected: object, mode?: 'perfect'|'noisy', latencyMs?: number, model?: string }} options
- * @returns proveedores con la forma de §7.6 más `calls`, como createFakeProviders
+ * @returns providers with the shape of §7.6 plus `calls`, like createFakeProviders
  */
 export function createBenchProviders({ expected, mode = 'perfect', latencyMs = 0, model = 'claude-haiku-5-5' }) {
-  const pairs = new Map(); // "área/plantilla" → { area_id, template_id, unit_ids }
+  const pairs = new Map(); // "area/template" → { area_id, template_id, unit_ids }
   expected.messages.forEach((m) => {
     const area_id = first(m.area_id);
     const template_id = first(m.template_id);
@@ -70,7 +70,7 @@ export function createBenchProviders({ expected, mode = 'perfect', latencyMs = 0
       }));
       return respond({ groups: sent, discarded: expected.discarded.map((d) => ({ ...d })) }, req);
     }
-    // Descomposición: los mensajes esperados cuyas unidades están todas en lo que se pidió.
+    // Decomposition: the expected messages whose units are all within what was requested.
     const scope = new Set(unitIdsIn(req));
     const fieldProps = Object.keys(req.schema.properties.messages.items.properties.fields.properties ?? {});
     let messages = expected.messages

@@ -1,5 +1,5 @@
-// Lectura de la subida multipart de `POST /inputs` (MASTER-SPEC §7.1, §7.8). Cada archivo se escribe a disco con
-// `pipeline` mientras se calcula su SHA-256, con el tope de su tipo; nada se acumula en memoria (informe 03 §7.2).
+// Reading of the multipart upload of `POST /inputs` (MASTER-SPEC §7.1, §7.8). Each file is written to disk with
+// `pipeline` while its SHA-256 is computed, with the cap of its type; nothing accumulates in memory (report 03 §7.2).
 
 import { rm } from 'node:fs/promises'
 import { classify, maxBytesFor } from '../domain/attachments.js'
@@ -11,7 +11,7 @@ import { commit, ingest } from '../domain/storage.js'
 
 const MB = (bytes) => `${Math.round(bytes / (1024 * 1024))} MB`
 
-/** Valida una URL de enlace: sólo http(s), con el largo máximo configurado. */
+/** Validates a link URL: http(s) only, with the configured maximum length. */
 function normalizeLink (rawValue, uploads) {
   const textValue = String(rawValue).trim()
   if (textValue.length > uploads.maxLinkLength) throw badRequest('Un enlace supera el largo máximo permitido.', 'link_too_long')
@@ -57,8 +57,8 @@ export async function readReplyUpload (request, config) {
 }
 
 /**
- * Devuelve { text, links, files, extra } con los archivos ya movidos a su nombre definitivo en el volumen.
- * `extra` trae los campos de texto adicionales pedidos. Ante cualquier error borra los temporales que alcanzó a escribir.
+ * Returns { text, links, files, extra } with the files already moved to their final name on the volume.
+ * `extra` carries the additional text fields requested. On any error it deletes the temporary files it managed to write.
  */
 async function readUpload (request, config, { textField, extraFields, emptyMessage, emptyCode }) {
   if (!request.isMultipart()) throw unsupported('Se esperaba un envío multipart/form-data.')
@@ -81,7 +81,7 @@ async function readUpload (request, config, { textField, extraFields, emptyMessa
         }
         continue
       }
-      // Archivo
+      // File
       const kindInfo = classify(part.mimetype, part.filename)
       if (!kindInfo) {
         part.file.resume()
@@ -103,7 +103,7 @@ async function readUpload (request, config, { textField, extraFields, emptyMessa
     if (text.trim() === '' && ingested.length === 0 && links.length === 0) {
       throw badRequest(emptyMessage, emptyCode)
     }
-    // Todo validado: los temporales pasan a su nombre definitivo (el hash).
+    // Everything validated: the temporary files move to their final name (the hash).
     for (const f of ingested) await commit(config, f.tmp, f.sha256)
     return { text, links: [...new Set(links)], files: ingested.map(({ tmp, ...rest }) => rest), extra }
   } catch (error) {

@@ -30,6 +30,7 @@ export const SECTIONS = Object.freeze({
   cutoff: 'Knowledge-cutoff disclaimers and speculation about gaps in sources',
   placeholder: 'Phrasal templates and placeholder text',
   summary: 'Section summaries (historical indicators)',
+  repetition: 'Not in the guide: UD-026 (a body that repeats its title)',
   didactic: 'Didactic disclaimers (historical indicators)',
 });
 
@@ -74,7 +75,7 @@ export const PATTERNS = [
   { id: 'copula-es', section: 'copulatives', lang: 'es', pattern: /\b(?:se erige|sirve como|actúa como|cuenta con|constituye|representa un|funciona como|ostenta|alberga)\b/i },
 
   // Negative parallelisms
-  { id: 'not-just-en', section: 'parallelism', lang: 'en', pattern: /\bnot (?:just|only|merely|simply)\b[^.]{0,100}\b(?:but|rather)\b|\b(?:it|this|that)(?:'s| is| isn't| is not)\s+not\b[^.;]{0,80}[,;—]\s*(?:but|it'?s|it is)\b|\brather than\b/i },
+  { id: 'not-just-en', section: 'parallelism', lang: 'en', pattern: /\bnot (?:just|only|merely|simply)\b[^.]{0,100}\b(?:but|rather)\b|\b(?:it|this|that)(?:'s| is| isn't| is not)\s+not\b[^.;]{0,80}[,;—]\s*(?:it'?s|it is|this is|that is)\b/i },
   { id: 'not-just-es', section: 'parallelism', lang: 'es', pattern: /\bno (?:solo|sólo|únicamente|simplemente|es solo|es sólo)\b[^.]{0,100}\b(?:sino|pero también)\b|\bno es\b[^.;]{0,80}[,;]\s*(?:sino|es)\b/i },
   { id: 'triplet', section: 'triplet', lang: 'any', pattern: /\b[a-záéíóúñ]+(?:ive|ful|ous|able|ible|ic|ivo|iva|oso|osa|able|ente|ico|ica),\s+[a-záéíóúñ]+(?:ive|ful|ous|able|ible|ic|ivo|iva|oso|osa|ente|ico|ica),?\s+(?:and|y|e|or|o)\s+[a-záéíóúñ]+(?:ive|ful|ous|able|ible|ic|ivo|iva|oso|osa|ente|ico|ica)\b/i },
 
@@ -84,7 +85,7 @@ export const PATTERNS = [
   // Statements about what the input does not say, and guesses about what it might mean (guide: «speculation about gaps in sources»).
   { id: 'missing-info', section: 'cutoff', lang: 'es', pattern: /\bno se (?:indica|indican|indicó|indicaron|menciona|mencionan|mencionó|especifica|especifican|especificó|sabe|aclara|informa|señala)\b|\bsin (?:plazo|fecha|detalle|detalles) (?:indicad[oa]s?|especificad[oa]s?)\b/i },
   { id: 'missing-info-en', section: 'cutoff', lang: 'en', pattern: /\b(?:no|not) (?:deadline |date |detail |details )?(?:was |were |is |are )?(?:specified|mentioned|indicated|stated|given|provided)\b/i },
-  { id: 'speculation', section: 'cutoff', lang: 'any', pattern: /\b(?:lo que|which) (?:sugiere|apunta|indica|implica|suggests|points to|indicates|implies)\b|\b(?:probablemente|presumiblemente|posiblemente|likely|probably|presumably)\b|\bsuggesting\b|\bsugiriendo\b/i },
+  { id: 'speculation', section: 'cutoff', lang: 'any', pattern: /\b(?:lo que|which) (?:sugiere|suggests)\b|\b(?:probablemente|presumiblemente|posiblemente|likely|probably|presumably)\b|\bsuggesting\b|\bsugiriendo\b/i },
   { id: 'cutoff', section: 'cutoff', lang: 'any', pattern: /\b(?:as of my last|not widely documented|not (?:publicly )?available|likely (?:supports|has|is)|no está (?:ampliamente )?documentad[oa]|no hay información (?:disponible|pública)|hasta mi última actualización)\b/i },
   { id: 'didactic', section: 'didactic', lang: 'any', pattern: /\b(?:it(?:'s| is) (?:important|worth|crucial) (?:to|noting)|worth noting|note that|es importante (?:señalar|destacar|notar|tener en cuenta|recordar)|cabe (?:destacar|señalar|mencionar|resaltar)|vale la pena (?:destacar|señalar|mencionar))\b/i },
   { id: 'closing-summary', section: 'summary', lang: 'any', pattern: /(?:^|[.!?]\s+|\n)(?:in (?:summary|conclusion)|to (?:summarize|sum up)|overall|en (?:resumen|conclusión|síntesis|definitiva)|para (?:resumir|concluir)|en general)\b/i },
@@ -133,6 +134,18 @@ export function languageShare(proposal, language) {
   return judged.length === 0 ? null : judged.filter((l) => l === language).length / judged.length;
 }
 
+const plain = (text) => String(text ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9ñ]+/g, ' ').trim();
+
+/** UD-026: the body is the title again (equal once normalized) or opens with a sentence that contains the whole title. */
+export function bodyRepeatsTitle(title, body) {
+  const t = plain(title);
+  if (t === '') return false;
+  const b = plain(body);
+  if (b === t) return true;
+  const firstSentence = plain(String(body ?? '').split(/(?<=[.!?])\s|\n/)[0]);
+  return firstSentence.includes(t);
+}
+
 /** Texts of a message that carry prose: title, body and every field value. */
 export function proseOf(message) {
   return [message.title, message.body, ...Object.values(message.fields ?? {}).filter((v) => typeof v === 'string')];
@@ -149,6 +162,7 @@ export function tellsOfProposal(proposal, { input = '' } = {}) {
   const found = [];
   messages.forEach((message, index) => {
     for (const text of proseOf(message)) for (const tell of countTells(text, { input })) found.push({ ...tell, message: index + 1 });
+    if (bodyRepeatsTitle(message.title, message.body)) found.push({ id: 'body-repeats-title', section: 'repetition', match: message.title, message: index + 1 });
   });
   const byPattern = {};
   for (const t of found) byPattern[t.id] = (byPattern[t.id] ?? 0) + 1;

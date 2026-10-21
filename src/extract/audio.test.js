@@ -9,7 +9,7 @@ after(() => tmp.cleanup());
 
 const att = async (path, mime = 'audio/mp4') => ({ id: 'au1', kind: 'audio', path, mime, size: (await stat(path)).size });
 
-test('un audio corto va en un solo trozo FLAC 16 kHz mono con language=es y marcas mm:ss', async () => {
+test('a short audio goes in a single FLAC 16 kHz mono chunk with language=es and mm:ss marks', async () => {
   const path = await makeAudio(tmp.join('nota.m4a'), 12);
   const speech = fakeSpeech({ every: 5 });
   const progress = [];
@@ -30,14 +30,14 @@ test('un audio corto va en un solo trozo FLAC 16 kHz mono con language=es y marc
   assert.equal(progress.at(-1)[0], 100);
 });
 
-test('el vocabulario configurado viaja como prompt y nada más', async () => {
+test('the configured vocabulary travels as the prompt and nothing else', async () => {
   const path = await makeAudio(tmp.join('vocab.m4a'), 11);
   const speech = fakeSpeech();
   await extract(await att(path), { providers: { speech }, config: { audio: { vocabulary: 'Sidebar, ComposeBar, Ana' } } });
   assert.equal(speech.calls[0].prompt, 'Sidebar, ComposeBar, Ana');
 });
 
-test('un audio largo se parte en trozos con solapamiento y se fusiona sin repetir', async () => {
+test('a long audio is split into overlapping chunks and merged without repeating', async () => {
   const path = await makeAudio(tmp.join('largo.m4a'), 50);
   const speech = fakeSpeech({ every: 5 });
   const progress = [];
@@ -54,53 +54,53 @@ test('un audio largo se parte en trozos con solapamiento y se fusiona sin repeti
   const lines = text.split('\n');
   assert.deepEqual(lines.map((l) => l.slice(0, 7)), ['[00:00]', '[00:05]', '[00:10]', '[00:15]', '[00:20]', '[00:25]', '[00:30]', '[00:35]', '[00:40]', '[00:45]']);
   assert.equal(meta.segments, 10);
-  // El presupuesto cuenta los solapamientos: 3 solicitudes de 20 s.
+  // The budget counts the overlaps: 3 requests of 20 s.
   assert.equal(meta.billableSeconds, 60);
-  // Un paso por trozo: el porcentaje sale de pasos completados, 33, 66, 100.
+  // One step per chunk: the percentage comes from completed steps, 33, 66, 100.
   assert.deepEqual([...new Set(progress)], [0, 33, 66, 100]);
 });
 
-test('la cola consulta cuántos segundos facturará un audio antes de reclamarlo', async () => {
+test('the queue asks how many seconds an audio will bill before claiming it', async () => {
   const path = await makeAudio(tmp.join('estimar.m4a'), 50);
   const seconds = await estimateAudioSeconds(await att(path), { config: { audio: { chunkSeconds: 20, overlapSeconds: 5, minChunkSeconds: 10 } } });
   assert.equal(seconds, 60);
   assert.equal(await estimateAudioSeconds({ kind: 'image', path }), 0);
 });
 
-test('un audio de menos de 10 s se factura como 10 s', async () => {
+test('an audio under 10 s is billed as 10 s', async () => {
   const path = await makeAudio(tmp.join('cortito.m4a'), 3);
   assert.equal(await estimateAudioSeconds(await att(path)), 10);
 });
 
-test('un archivo que no es audio se rechaza', async () => {
+test('a file that is not audio is rejected', async () => {
   const path = tmp.join('texto.m4a');
   await import('node:fs/promises').then((fs) => fs.writeFile(path, 'no es audio'));
   await assert.rejects(extract(await att(path), { providers: { speech: fakeSpeech() } }), (e) => e.code === 'ffmpeg_failed');
 });
 
-test('un video mudo enviado como audio se rechaza por no tener pista', async () => {
+test('a silent video sent as audio is rejected for having no track', async () => {
   const path = tmp.join('mudo.mp4');
   await makeVideo(path, { screens: 2, secondsPerScreen: 2, audio: false });
   await assert.rejects(extract(await att(path, 'video/mp4'), { providers: { speech: fakeSpeech() } }), (e) => e.code === 'audio_no_stream');
 });
 
-test('un proveedor que falla propaga el error y no deja archivos de trabajo', async () => {
+test('a failing provider propagates the error and leaves no working files', async () => {
   const path = await makeAudio(tmp.join('falla.m4a'), 11);
   const workDir = tmp.join('trabajo');
-  const boom = new Error('proveedor caído');
-  await assert.rejects(extract(await att(path), { providers: { speech: fakeSpeech({ failWith: boom }) }, config: { workDir } }), /proveedor caído/);
+  const boom = new Error('provider down');
+  await assert.rejects(extract(await att(path), { providers: { speech: fakeSpeech({ failWith: boom }) }, config: { workDir } }), /provider down/);
   const { readdir } = await import('node:fs/promises');
   assert.deepEqual(await readdir(workDir), []);
 });
 
-test('un proveedor sin segmentos aporta su texto como un único segmento del trozo', async () => {
+test('a provider without segments contributes its text as a single segment of the chunk', async () => {
   const path = await makeAudio(tmp.join('sin-segmentos.m4a'), 11);
   const speech = { async transcribe() { return { text: ' hola equipo ', segments: [] }; } };
   const { text } = await extract(await att(path), { providers: { speech } });
   assert.equal(text, '[00:00] hola equipo');
 });
 
-test('un audio sin voz queda con aviso y texto vacío', async () => {
+test('an audio without speech ends up with a warning and empty text', async () => {
   const path = await makeAudio(tmp.join('silencio.m4a'), 11);
   const speech = { async transcribe() { return { text: '', segments: [] }; } };
   const { text, meta } = await extract(await att(path), { providers: { speech } });
@@ -108,12 +108,12 @@ test('un audio sin voz queda con aviso y texto vacío', async () => {
   assert.equal(meta.warnings[0].code, 'no_speech');
 });
 
-test('un audio sobre el tamaño máximo se rechaza antes de leerlo', async () => {
+test('an audio over the maximum size is rejected before reading it', async () => {
   const path = await makeAudio(tmp.join('pesado.m4a'), 11);
   await assert.rejects(extract(await att(path), { providers: { speech: fakeSpeech() }, config: { audio: { maxBytes: 100 } } }), (e) => e.code === 'audio_too_large');
 });
 
-test('la pista de un WAV con la tasa nativa del proveedor también se normaliza', async () => {
+test('the track of a WAV with the native rate of the provider is also normalized', async () => {
   const path = await makeAudio(tmp.join('estudio.wav'), 11, { codecArgs: ['-ar', '44100', '-ac', '2', '-c:a', 'pcm_s16le'] });
   const speech = fakeSpeech();
   await extract(await att(path, 'audio/wav'), { providers: { speech } });

@@ -1,4 +1,4 @@
-# team-platform: un servicio, un volumen (MASTER-SPEC §4.5).
+# team-platform: one service, one volume (MASTER-SPEC §4.5).
 services:
   team-platform:
     build: .
@@ -8,11 +8,11 @@ services:
     environment:
       DATA_DIR: /data
     ports:
-      # Sólo loopback: el TLS y el acceso público los pone el proxy del anfitrión.
+      # Loopback only: TLS and public access are provided by the host's proxy.
       - "127.0.0.1:${PUBLISH_PORT:-3000}:3000"
     volumes:
       - team-data:/data
-    # stop_grace_period: sin definir, queda la omisión de Docker (10 s; informe 03).
+    # stop_grace_period: left undefined, so Docker's default applies (10 s; report 03).
 
 volumes:
   team-data:

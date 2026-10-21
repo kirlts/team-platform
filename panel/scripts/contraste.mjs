@@ -63,10 +63,10 @@ function row(theme, name, fg, bgs, min) {
   const worst = Math.min(...bgs.map((bg) => ratio(fg, bg)))
   const ok = worst >= min
   if (!ok) failed++
-  console.log(`${ok ? 'ok ' : 'MAL'} ${theme.padEnd(6)} ${worst.toFixed(2).padStart(5)} (mín ${min})  ${name}`)
+  console.log(`${ok ? 'ok ' : 'BAD'} ${theme.padEnd(6)} ${worst.toFixed(2).padStart(5)} (min ${min})  ${name}`)
 }
 
-for (const [theme, t] of [['claro', light], ['oscuro', dark]]) {
+for (const [theme, t] of [['light', light], ['dark', dark]]) {
   const skyEnds = [t['sky-a'], t['sky-b'], t['sky-c']].map(flat)
   const onGlass = (token) => skyEnds.map((sky) => over(t[token], sky))
   const fg = (name) => flat(t[name])
@@ -115,7 +115,7 @@ for (const [theme, t] of [['claro', light], ['oscuro', dark]]) {
 }
 
 if (failed) {
-  console.error(`\n${failed} par(es) bajo el mínimo.`)
+  console.error(`\n${failed} pair(s) below the minimum.`)
   process.exit(1)
 }
-console.log('\nTodos los pares cumplen su mínimo.')
+console.log('\nAll pairs meet their minimum.')

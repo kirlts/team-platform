@@ -1,6 +1,6 @@
-// Identidad (MASTER-SPEC §7.7): un contrato `identify(request) → { member_id, role } | null` con dos
-// implementaciones, `local` y `delegated`. Aquí se arma el conjunto: cookie, CSRF, límite de intentos por IP,
-// el gancho `requireRole` y la política de «denegar por omisión» que verifica cada ruta al registrarse.
+// Identity (MASTER-SPEC §7.7): a contract `identify(request) → { member_id, role } | null` with two
+// implementations, `local` and `delegated`. This file assembles the set: cookie, CSRF, per-IP attempt limit,
+// the `requireRole` hook and the «deny by default» policy that every route is checked against when registered.
 
 import fastifyCookie from '@fastify/cookie'
 import fastifyRateLimit from '@fastify/rate-limit'
@@ -13,7 +13,7 @@ import { createDelegatedProvider } from './delegated.js'
 export const ROLES = ['member', 'editor']
 const RANK = { member: 1, editor: 2 }
 
-/** Rutas registradas con su política, para que una prueba recorra la tabla (informe 04 §6). */
+/** Registered routes with their policy, so a test can walk the table (report 04 §6). */
 export const routePolicies = new WeakMap()
 
 export async function registerIdentity (app, { db, config, now = Date.now }) {
@@ -26,7 +26,7 @@ export async function registerIdentity (app, { db, config, now = Date.now }) {
   await app.register(fastifyCookie)
   await app.register(fastifyRateLimit, {
     global: false,
-    // La IP sale de `trustProxy` (lista exacta): tras un proxy, sin ella todos compartirían un contador (informe 04 §2.4).
+    // The IP comes from `trustProxy` (exact list): behind a proxy, without it everyone would share one counter (report 04 §2.4).
     errorResponseBuilder: (_request, context) => new AppError(429, 'too_many_requests',
       `Demasiados intentos desde esta dirección. Se puede reintentar en ${Math.ceil(context.ttl / 1000)} s.`,
       { retryAfterSeconds: Math.ceil(context.ttl / 1000) })
@@ -36,11 +36,11 @@ export async function registerIdentity (app, { db, config, now = Date.now }) {
   app.addHook('onRequest', csrfGuard(config))
 
   /**
-   * Gancho de ruta que autentica y exige un rol mínimo. El editor puede todo lo del miembro.
-   * Corre en `onRequest`: una carga multiparte de una persona sin sesión se rechaza antes de leerla.
+   * Route hook that authenticates and requires a minimum role. The editor can do everything the member can.
+   * Runs in `onRequest`: a multipart upload from a person without a session is rejected before it is read.
    */
   function requireRole (roleName) {
-    if (!(roleName in RANK)) throw new Error(`Rol desconocido: ${roleName}`)
+    if (!(roleName in RANK)) throw new Error(`Unknown role: ${roleName}`)
     const hookFn = async function requireRoleHook (request) {
       const identityInfo = request.member ? { member_id: request.member.id, role: request.member.role } : await provider.identify(request)
       if (!identityInfo) {
@@ -55,14 +55,14 @@ export async function registerIdentity (app, { db, config, now = Date.now }) {
     return hookFn
   }
 
-  // Denegar por omisión: toda ruta nueva declara `config.public: true` o un `requireRole(...)`.
+  // Deny by default: every new route declares `config.public: true` or a `requireRole(...)`.
   app.addHook('onRoute', (routeOptions) => {
     if (routeOptions.method === 'HEAD' || routeOptions.method === 'OPTIONS') return
     const hookFns = [].concat(routeOptions.onRequest ?? [])
     const withRole = hookFns.find((g) => g.requiredRole)
     const isPublic = routeOptions.config?.public === true
     if (!withRole && !isPublic) {
-      throw new Error(`La ruta ${routeOptions.method} ${routeOptions.url} no declara su política: use requireRole('member'|'editor') o config.public.`)
+      throw new Error(`Route ${routeOptions.method} ${routeOptions.url} does not declare its policy: use requireRole('member'|'editor') or config.public.`)
     }
     const registryList = routePolicies.get(app) ?? []
     registryList.push({ method: routeOptions.method, url: routeOptions.url, policy: isPublic ? 'public' : withRole.requiredRole, schema: routeOptions.schema ?? null })

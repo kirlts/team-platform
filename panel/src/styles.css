@@ -84,7 +84,7 @@
   --color-accent-hover: oklch(0.44 0.2 252);
   --color-accent-deep: oklch(0.38 0.17 255);
   --color-accent-fg: oklch(0.99 0 0);
-  /* Superficie de lo que genera el modelo (UD-026): tinte lila plano, borde izquierdo y marca de origen. */
+  /* Surface for what the model generates (UD-026): flat lilac tint, left border and origin mark. */
   --color-ai-bg: oklch(0.955 0.04 300);
   --color-ai-edge: oklch(0.5 0.19 300);
   --color-ai-fg: oklch(0.4 0.17 300);

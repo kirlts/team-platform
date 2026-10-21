@@ -1,6 +1,6 @@
-// Catálogo de la interfaz en español latinoamericano neutro (UD-018). Es la fuente de las claves:
-// `en.ts` tiene exactamente las mismas, y `src/i18n.test.ts` lo comprueba. Rótulos como sustantivos
-// cortos, sin segunda persona (UD-013, MASTER-SPEC §6).
+// Interface catalogue in neutral Latin American Spanish (UD-018). It is the source of the keys:
+// `en.ts` has exactly the same ones, and `src/i18n.test.ts` checks it. Labels are short nouns,
+// with no second person (UD-013, MASTER-SPEC §6).
 import type { Message } from './core'
 
 export const es419 = {

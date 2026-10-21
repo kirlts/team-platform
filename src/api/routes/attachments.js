@@ -1,5 +1,5 @@
-// GET /attachments/:id: el archivo, con control de acceso y soporte de rangos (los navegadores piden rangos
-// para buscar dentro de un video o un audio).
+// GET /attachments/:id: the file, with access control and range support (browsers request ranges
+// to seek within a video or an audio).
 
 import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
@@ -10,13 +10,13 @@ import { badRequest, notFound } from '../../domain/errors.js'
 import { blobPath } from '../../domain/storage.js'
 import { idParams } from '../schemas.js'
 
-/** Interpreta «bytes=a-b» de un solo rango. Devuelve { start, end } o null si no hay rango. */
+/** Parses a single-range «bytes=a-b». Returns { start, end } or null if there is no range. */
 function parseRange (headerValue, sizeBytes) {
   if (!headerValue) return null
   const m = /^bytes=(\d*)-(\d*)$/.exec(headerValue.trim())
   if (!m || (m[1] === '' && m[2] === '')) throw Object.assign(badRequest('Rango inválido.', 'range_invalid'), { status: 416 })
   let start, end
-  if (m[1] === '') { // últimos N bytes
+  if (m[1] === '') { // last N bytes
     start = Math.max(0, sizeBytes - Number(m[2]))
     end = sizeBytes - 1
   } else {
@@ -41,10 +41,10 @@ export function registerAttachmentRoutes (app, ctx) {
     reply.header('content-type', isInline ? att.mime : 'application/octet-stream')
     reply.header('content-disposition', `${isInline ? 'inline' : 'attachment'}; filename*=UTF-8''${nameValue}`)
     reply.header('accept-ranges', 'bytes')
-    // El contenido es inmutable: su nombre es su hash. Privado: lo ven sólo quienes tienen sesión.
+    // The content is immutable: its name is its hash. Private: only those with a session see it.
     reply.header('cache-control', 'private, max-age=31536000, immutable')
     reply.header('etag', `"${att.sha256}"`)
-    reply.header('content-security-policy', "default-src 'none'; sandbox") // un adjunto abierto directo no corre nada
+    reply.header('content-security-policy', "default-src 'none'; sandbox") // an attachment opened directly runs nothing
 
     let rangeSpec
     try {
@@ -70,12 +70,12 @@ export function registerAttachmentRoutes (app, ctx) {
 
   app.get('/attachments/:id', { onRequest: [requireRole('member')], schema: { params: idParams(), response: responses } }, async (request, reply) => {
     const att = get(db, 'SELECT * FROM attachments WHERE id = ?', request.params.id)
-    // Un adjunto al que no se tiene acceso no se distingue de uno inexistente.
+    // An attachment the member cannot access is indistinguishable from a nonexistent one.
     if (!att || att.kind === 'link' || !canReadAttachment(db, request.member.id, att.id)) throw notFound('El adjunto no existe.')
     return sendFile(att, request, reply)
   })
 
-  // Archivos de las respuestas (id propio, otra tabla): los ve todo el equipo, como el hilo.
+  // Reply files (own id, separate table): the whole team sees them, like the thread.
   app.get('/replies/attachments/:id', {
     onRequest: [requireRole('member')],
     schema: { summary: 'El archivo adjunto a una respuesta, con soporte de rangos', params: idParams(), response: responses }

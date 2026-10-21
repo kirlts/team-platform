@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFAULTS, resolveConfig } from './config.js';
 
-test('los valores por omisión son los del informe 06 y del informe 05', () => {
+test('defaults are those of report 06 and report 05', () => {
   assert.equal(DEFAULTS.audio.chunkSeconds, 600);
   assert.equal(DEFAULTS.audio.overlapSeconds, 5);
   assert.equal(DEFAULTS.audio.budgetSecondsPerHour, 7200);
@@ -19,17 +19,17 @@ test('los valores por omisión son los del informe 06 y del informe 05', () => {
   assert.deepEqual(DEFAULTS.link.allowedPrivateHosts, []);
 });
 
-test('una perilla dada pisa sólo ese valor de su sección', () => {
+test('a given knob overrides only that value of its section', () => {
   const cfg = resolveConfig({ audio: { chunkSeconds: 20 } });
   assert.equal(cfg.audio.chunkSeconds, 20);
   assert.equal(cfg.audio.overlapSeconds, 5);
   assert.equal(cfg.video.maxFrames, 48);
 });
 
-test('una sección desconocida se rechaza', () => {
-  assert.throws(() => resolveConfig({ audio2: {} }), /perilla desconocida/);
+test('an unknown section is rejected', () => {
+  assert.throws(() => resolveConfig({ audio2: {} }), /unknown knob/);
 });
 
-test('los valores por omisión no se pueden modificar', () => {
+test('defaults cannot be modified', () => {
   assert.throws(() => { 'use strict'; DEFAULTS.audio.chunkSeconds = 1; });
 });

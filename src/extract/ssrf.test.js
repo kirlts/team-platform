@@ -12,46 +12,46 @@ const blocked = [
 ];
 const allowed = ['8.8.8.8', '1.1.1.1', '93.184.216.34', '172.32.0.1', '2606:4700:4700::1111', '::ffff:8.8.8.8', '2001:4860:4860::8888'];
 
-test('se bloquean las direcciones privadas, de enlace local, de metadatos y de multidifusión', () => {
+test('private, link-local, metadata and multicast addresses are blocked', () => {
   for (const ip of blocked) assert.equal(classifyAddress(ip).allowed, false, ip);
 });
 
-test('se permiten las direcciones públicas, también las IPv4 mapeadas públicas', () => {
+test('public addresses are allowed, including public mapped IPv4', () => {
   for (const ip of allowed) assert.equal(classifyAddress(ip).allowed, true, ip);
 });
 
 const rejects = (host, opts) =>
   assert.rejects(resolveSafeHost(host, opts), (e) => e instanceof ExtractError && e.code === 'link_blocked');
 
-test('las IP literales privadas se rechazan sin consultar el DNS', async () => {
-  const lookup = async () => assert.fail('no debe resolver una IP literal');
+test('private literal IPs are rejected without querying DNS', async () => {
+  const lookup = async () => assert.fail('must not resolve a literal IP');
   for (const host of ['127.0.0.1', '[::1]', '169.254.169.254', '10.1.1.1', '[::ffff:127.0.0.1]']) await rejects(host, { lookup });
 });
 
-test('localhost y los nombres internos se rechazan sin consultar el DNS', async () => {
-  const lookup = async () => assert.fail('no debe resolver un nombre interno');
+test('localhost and internal names are rejected without querying DNS', async () => {
+  const lookup = async () => assert.fail('must not resolve an internal name');
   for (const host of ['localhost', 'LOCALHOST', 'app.localhost', 'impresora.local', 'metadata.google.internal', 'localhost.']) await rejects(host, { lookup });
 });
 
-test('un nombre que resuelve a una dirección privada se rechaza (rebinding)', async () => {
+test('a name that resolves to a private address is rejected (rebinding)', async () => {
   await rejects('legit.example', { lookup: async () => [{ address: '127.0.0.1', family: 4 }] });
-  // Basta una sola dirección privada entre varias.
+  // A single private address among several is enough.
   await rejects('mixed.example', { lookup: async () => [{ address: '8.8.8.8', family: 4 }, { address: '10.0.0.1', family: 4 }] });
 });
 
-test('un nombre público devuelve las direcciones validadas para fijar la conexión', async () => {
+test('a public name returns the validated addresses to pin the connection', async () => {
   const out = await resolveSafeHost('ok.example', { lookup: async () => [{ address: '93.184.216.34', family: 4 }] });
   assert.deepEqual(out, [{ address: '93.184.216.34', family: 4 }]);
 });
 
-test('un nombre que no resuelve es un error propio', async () => {
+test('a name that does not resolve is its own error', async () => {
   await assert.rejects(
     resolveSafeHost('no-existe.example', { lookup: async () => { throw Object.assign(new Error('x'), { code: 'ENOTFOUND' }); } }),
     (e) => e.code === 'link_unresolved',
   );
 });
 
-test('un anfitrión exento explícitamente puede ser privado', async () => {
+test('a host explicitly exempted may be private', async () => {
   const out = await resolveSafeHost('127.0.0.1', { allowedPrivateHosts: ['127.0.0.1'] });
   assert.equal(out[0].address, '127.0.0.1');
 });

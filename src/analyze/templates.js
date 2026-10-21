@@ -1,16 +1,16 @@
-// Plantillas de análisis: markdown con frontmatter (MASTER-SPEC §7.9).
+// Analysis templates: markdown with frontmatter (MASTER-SPEC §7.9).
 //
 //   ---
-//   name: Reporte de error            (hasta 64 caracteres)
-//   description: …                    (hasta 1.024 caracteres)
+//   name: Reporte de error            (up to 64 characters)
+//   description: …                    (up to 1,024 characters)
 //   fields:
-//     - { name: steps, label: Pasos para reproducir, required: true }
+//     - { name: steps, label: «Pasos para reproducir», required: true }
 //   ---
-//   ## Método … ## Formato de salida …
+//   «## Método» … «## Formato de salida» …
 //
-// `name` y `description` respetan los límites de la especificación Agent Skills (informe 02 §6.1 [F32]):
-// la primera llamada sólo ve esos dos campos de cada plantilla y el cuerpo se revela en la segunda.
-// `fields` es un campo propio del frontmatter: Agent Skills no lo define y su `metadata` sólo admite cadenas.
+// `name` and `description` respect the limits of the Agent Skills specification (report 02 §6.1 [F32]):
+// the first call sees only those two fields of each template and the body is revealed in the second.
+// `fields` is a frontmatter field of our own: Agent Skills does not define it and its `metadata` only admits strings.
 import { readFile } from 'node:fs/promises';
 import { load as loadYaml } from 'js-yaml';
 import { TemplateError } from './errors.js';
@@ -20,8 +20,8 @@ export const TEMPLATE_DESCRIPTION_MAX = 1024;
 export const FIELD_NAME_MAX = 64;
 export const FIELD_LABEL_MAX = 120;
 
-// Identificador de un campo: letra minúscula inicial y luego minúsculas, dígitos o guion bajo.
-// Es la forma de una clave de esquema, no una lectura de texto humano.
+// Identifier of a field: initial lowercase letter and then lowercase letters, digits or underscore.
+// It is the shape of a schema key, not a reading of human text.
 const FIELD_NAME_FORMAT = /^[a-z][a-z0-9_]*$/;
 
 function splitFrontmatter(markdown, source) {
@@ -59,9 +59,9 @@ function validateFields(raw, source) {
 }
 
 /**
- * Lee y valida una plantilla.
+ * Reads and validates a template.
  * @param {string} markdown
- * @param {{source?: string}} [opts] nombre del archivo, sólo para los mensajes de error
+ * @param {{source?: string}} [opts] file name, only for the error messages
  * @returns {{name: string, description: string, fields: {name: string, label: string, required: boolean}[], body: string, warnings: string[]}}
  */
 export function parseTemplate(markdown, { source } = {}) {
@@ -86,7 +86,7 @@ export function parseTemplate(markdown, { source } = {}) {
   if (body === '') throw new TemplateError('La plantilla no tiene cuerpo (Método y Formato de salida)', { source });
   const fields = validateFields(meta.fields, source);
 
-  // El cuerpo se carga entero en la segunda llamada; las dos secciones son convención de §7.9, no condición.
+  // The body is loaded whole in the second call; the two sections are a convention of §7.9, not a condition.
   const warnings = [];
   for (const heading of ['## Método', '## Formato de salida']) {
     if (!body.split('\n').some((line) => line.trim() === heading)) warnings.push(`Falta la sección «${heading}»`);
@@ -98,19 +98,19 @@ export async function loadTemplateFile(path) {
   return parseTemplate(await readFile(path, 'utf8'), { source: path });
 }
 
-// Tope de propiedades opcionales por esquema en la gramática de Anthropic (informe 02 §1.1 [F1]: 24 en total).
+// Cap on optional properties per schema in Anthropic's grammar (report 02 §1.1 [F1]: 24 in total).
 export const ANTHROPIC_MAX_OPTIONAL_PROPERTIES = 24;
 
 /**
- * Compila los `fields` de una plantilla a un esquema JSON del objeto `fields` de cada mensaje.
+ * Compiles the `fields` of a template into a JSON schema for the `fields` object of each message.
  *
- * Dos usos:
- *  - Gramática del proveedor (`validation: false`): sin `minLength` (no admitido), y según el perfil:
- *      `anthropic`     lo opcional es una propiedad opcional (cuenta contra el tope de 24);
- *      `all-required`  el servidor exige todo requerido: lo opcional se emula con `null`.
- *  - Validación con Ajv (`validation: true`): esquema completo; lo obligatorio no puede ir vacío y
- *    lo opcional admite ausencia o `null`. Ajv valida después con el esquema completo porque el de
- *    la gramática es un subconjunto (informe 02 §1.4).
+ * Two uses:
+ *  - Provider grammar (`validation: false`): no `minLength` (not supported), and depending on the profile:
+ *      `anthropic`     optional means an optional property (counts against the cap of 24);
+ *      `all-required`  the server requires everything: optional is emulated with `null`.
+ *  - Validation with Ajv (`validation: true`): full schema; a required field cannot be empty and
+ *    an optional one admits absence or `null`. Ajv then validates with the full schema because the
+ *    grammar one is a subset (report 02 §1.4).
  *
  * @param {{name: string, label: string, required: boolean}[]} fields
  * @param {{profile?: 'anthropic'|'all-required', validation?: boolean}} [opts]

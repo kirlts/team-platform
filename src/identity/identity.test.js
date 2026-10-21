@@ -11,8 +11,8 @@ import { hashPassword, loadBlocklist, validatePassword, verifyPassword } from '.
 
 const noIpLimit = { identity: { login: { ipMax: 1000 } } }
 
-// ---------------------------------------------------------------- contraseñas
-test('Argon2id: hash PHC con los parámetros de OWASP y verificación', async () => {
+// ---------------------------------------------------------------- passwords
+test('Argon2id: PHC hash with the OWASP parameters, and verification', async () => {
   const { loadConfig } = await import('../config.js')
   const params = loadConfig({}).identity.argon2
   const hash = await hashPassword(TEST_PASSWORD, params)
@@ -20,11 +20,11 @@ test('Argon2id: hash PHC con los parámetros de OWASP y verificación', async ()
   assert.equal((await verifyPassword(TEST_PASSWORD, hash, params)).ok, true)
   assert.equal((await verifyPassword(TEST_PASSWORD + 'x', hash, params)).ok, false)
   assert.equal((await verifyPassword(TEST_PASSWORD, hash, params)).rehash, false)
-  // Dos hashes de la misma clave difieren (sal distinta).
+  // Two hashes of the same password differ (different salt).
   assert.notEqual(hash, await hashPassword(TEST_PASSWORD, params))
 })
 
-test('si cambian los parámetros, el hash viejo verifica y pide rehash', async () => {
+test('if the parameters change, the old hash verifies and asks for a rehash', async () => {
   const { loadConfig } = await import('../config.js')
   const oldParams = loadConfig({ ARGON2_MEMORY_KIB: '8192' }).identity.argon2
   const freshParams = loadConfig({}).identity.argon2
@@ -32,25 +32,25 @@ test('si cambian los parámetros, el hash viejo verifica y pide rehash', async (
   assert.deepEqual(await verifyPassword(TEST_PASSWORD, hash, freshParams), { ok: true, rehash: true })
 })
 
-test('un valor que no es PHC no verifica (y no lanza)', async () => {
+test('a value that is not PHC does not verify (and does not throw)', async () => {
   const { loadConfig } = await import('../config.js')
   assert.deepEqual(await verifyPassword('x', 'texto-plano', loadConfig({}).identity.argon2), { ok: false, rehash: false })
 })
 
-test('política: 15 a 128 caracteres sin reglas de composición, NFKC y lista de bloqueo', () => {
+test('policy: 15 to 128 characters with no composition rules, NFKC and a blocklist', () => {
   const policyText = { minLength: 15, maxLength: 128 }
   assert.throws(() => validatePassword('corta', policyText), /al menos 15/)
   assert.throws(() => validatePassword('a'.repeat(129), policyText), /hasta 128/)
-  validatePassword('a'.repeat(15), policyText) // sin mayúsculas, números ni símbolos: vale
-  validatePassword('あ'.repeat(15), policyText) // cuenta caracteres, no bytes
-  // NFKC: «ｐａｓｓ…» de ancho completo se normaliza antes de contar y de comparar.
+  validatePassword('a'.repeat(15), policyText) // no uppercase, digits or symbols: valid
+  validatePassword('あ'.repeat(15), policyText) // counts characters, not bytes
+  // NFKC: full-width «ｐａｓｓ…» is normalized before counting and comparing.
   const blockList = new Set(['contraseña-comun-1'])
   assert.throws(() => validatePassword('contraseña-comun-1', policyText, blockList), /no permitidas/)
   assert.equal(loadBlocklist(''), null)
 })
 
-// ---------------------------------------------------------------- inicio de sesión
-test('login correcto: cookie __Host- HttpOnly Secure SameSite=Lax, ficha opaca y sólo su hash en la base', async () => {
+// ---------------------------------------------------------------- login
+test('successful login: __Host- cookie HttpOnly Secure SameSite=Lax, opaque token and only its hash in the database', async () => {
   const env = await makeEnv({ config: noIpLimit })
   await addMember(env, { email: 'ana@x.org', role: 'editor' })
   const res = await env.app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: 'ana@x.org', password: TEST_PASSWORD } })
@@ -62,16 +62,16 @@ test('login correcto: cookie __Host- HttpOnly Secure SameSite=Lax, ficha opaca y
   assert.equal(c.sameSite, 'Lax')
   assert.equal(c.path, '/')
   assert.equal(c.domain, undefined)
-  assert.equal(Buffer.from(c.value, 'base64url').length, 32) // 32 bytes al azar
+  assert.equal(Buffer.from(c.value, 'base64url').length, 32) // 32 random bytes
   const rows = env.db.prepare('SELECT id FROM sessions').all()
   assert.equal(rows.length, 1)
-  assert.notEqual(rows[0].id, c.value) // la base no guarda la ficha
-  assert.equal(rows[0].id.length, 64) // SHA-256 hexadecimal
+  assert.notEqual(rows[0].id, c.value) // the database does not store the token
+  assert.equal(rows[0].id.length, 64) // hexadecimal SHA-256
   assert.deepEqual(res.json().member, { id: '1', email: 'ana@x.org', name: 'ana', role: 'editor' })
   await env.close()
 })
 
-test('el correo no distingue mayúsculas', async () => {
+test('the email is case-insensitive', async () => {
   const env = await makeEnv({ config: noIpLimit })
   await addMember(env, { email: 'ana@x.org' })
   const res = await env.app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: 'ANA@X.ORG', password: TEST_PASSWORD } })
@@ -79,26 +79,26 @@ test('el correo no distingue mayúsculas', async () => {
   await env.close()
 })
 
-test('correo inexistente, clave errónea y cuenta bloqueada responden exactamente lo mismo', async () => {
+test('a nonexistent email, a wrong password and a locked account respond exactly the same', async () => {
   const env = await makeEnv({ config: noIpLimit, clock: true })
   await addMember(env, { email: 'ana@x.org' })
   await addMember(env, { email: 'bloqueada@x.org' })
   run(env.db, "UPDATE credentials SET failed_count = ? WHERE member_id = 2", env.config.identity.login.hardCap)
   const attemptNo = async (email, password) => {
-    env.clock.t += 3_600_000 // sin espera pendiente
+    env.clock.t += 3_600_000 // no pending wait
     const r = await env.app.inject({ method: 'POST', url: '/api/auth/login', payload: { email, password } })
     return { status: r.statusCode, body: r.body }
   }
   const a = await attemptNo('nadie@x.org', TEST_PASSWORD)
   const b = await attemptNo('ana@x.org', 'incorrecta-incorrecta')
-  const c = await attemptNo('bloqueada@x.org', TEST_PASSWORD) // aunque la clave sea correcta
+  const c = await attemptNo('bloqueada@x.org', TEST_PASSWORD) // even though the password is correct
   assert.equal(a.status, 401)
   assert.deepEqual(a, b)
   assert.deepEqual(b, c)
   await env.close()
 })
 
-test('espera exponencial por cuenta (1 s, 2 s, 4 s) con Retry-After, también para correos inexistentes', async () => {
+test('exponential wait per account (1 s, 2 s, 4 s) with Retry-After, also for nonexistent emails', async () => {
   const env = await makeEnv({ config: noIpLimit, clock: true })
   await addMember(env, { email: 'ana@x.org' })
   for (const email of ['ana@x.org', 'fantasma@x.org']) {
@@ -107,21 +107,21 @@ test('espera exponencial por cuenta (1 s, 2 s, 4 s) con Retry-After, también pa
       const badTry = await env.app.inject({ method: 'POST', url: '/api/auth/login', payload: { email, password: 'incorrecta-incorrecta' } })
       assert.equal(badTry.statusCode, 401)
       const immediate = await env.app.inject({ method: 'POST', url: '/api/auth/login', payload: { email, password: TEST_PASSWORD } })
-      assert.equal(immediate.statusCode, 429) // ni con la clave correcta mientras dure la espera
+      assert.equal(immediate.statusCode, 429) // not even with the correct password while the wait lasts
       waits.push(Number(immediate.headers['retry-after']))
       env.clock.t += Number(immediate.headers['retry-after']) * 1000
     }
     assert.deepEqual(waits, [1, 2, 4])
     env.clock.t += 3_600_000
   }
-  // Pasada la espera, la clave correcta entra y el contador vuelve a cero.
+  // Once the wait has passed, the correct password gets in and the counter goes back to zero.
   const ok = await env.app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: 'ana@x.org', password: TEST_PASSWORD } })
   assert.equal(ok.statusCode, 200)
   assert.equal(get(env.db, 'SELECT failed_count FROM credentials WHERE member_id = 1').failed_count, 0)
   await env.close()
 })
 
-test('límite por IP: el cuarto intento en la ventana recibe 429', async () => {
+test('per-IP limit: the fourth attempt in the window gets 429', async () => {
   const env = await makeEnv()
   const codeList = []
   for (let i = 0; i < 4; i++) {
@@ -131,17 +131,17 @@ test('límite por IP: el cuarto intento en la ventana recibe 429', async () => {
   await env.close()
 })
 
-test('con proxy de confianza, cada cliente tiene su propio contador (X-Forwarded-For)', async () => {
+test('with a trusted proxy, each client has its own counter (X-Forwarded-For)', async () => {
   const env = await makeEnv()
-  let n = 0 // cada intento usa un correo distinto: acá se mide el contador por IP, no la espera por cuenta
+  let n = 0 // each attempt uses a different email: this measures the per-IP counter, not the per-account wait
   const ask = (ip) => env.app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: `x${n++}@x.org`, password: TEST_PASSWORD }, remoteAddress: '127.0.0.1', headers: { 'x-forwarded-for': ip } })
   for (let i = 0; i < 3; i++) await ask('198.51.100.1')
   assert.equal((await ask('198.51.100.1')).statusCode, 429)
-  assert.equal((await ask('198.51.100.2')).statusCode, 401) // otro cliente, otro contador
+  assert.equal((await ask('198.51.100.2')).statusCode, 401) // another client, another counter
   await env.close()
 })
 
-test('sin proxy de confianza, X-Forwarded-For no se puede falsificar para esquivar el límite', async () => {
+test('without a trusted proxy, X-Forwarded-For cannot be forged to evade the limit', async () => {
   const env = await makeEnv()
   let n = 0
   const ask = (xff) => env.app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: `y${n++}@x.org`, password: TEST_PASSWORD }, remoteAddress: '203.0.113.50', headers: { 'x-forwarded-for': xff } })
@@ -150,7 +150,7 @@ test('sin proxy de confianza, X-Forwarded-For no se puede falsificar para esquiv
   await env.close()
 })
 
-test('la sesión se regenera en cada inicio y logout la invalida en el servidor', async () => {
+test('the session is regenerated on every login and logout invalidates it on the server', async () => {
   const env = await makeEnv({ config: noIpLimit })
   await addMember(env, { email: 'ana@x.org' })
   const c1 = await login(env, 'ana@x.org')
@@ -159,33 +159,33 @@ test('la sesión se regenera en cada inicio y logout la invalida en el servidor'
   assert.equal((await env.app.inject({ url: '/api/me', headers: { cookie: c1 } })).statusCode, 200)
   const outText = await env.app.inject({ method: 'POST', url: '/api/auth/logout', headers: { 'x-team-request': 'panel', cookie: c1 } })
   assert.equal(outText.statusCode, 204)
-  assert.equal((await env.app.inject({ url: '/api/me', headers: { cookie: c1 } })).statusCode, 401) // la ficha ya no vale aunque el cliente la conserve
+  assert.equal((await env.app.inject({ url: '/api/me', headers: { cookie: c1 } })).statusCode, 401) // the token is no longer valid even if the client keeps it
   assert.equal((await env.app.inject({ url: '/api/me', headers: { cookie: c2 } })).statusCode, 200)
   await env.close()
 })
 
-test('la sesión vence por inactividad y por antigüedad absoluta', async () => {
+test('the session expires by inactivity and by absolute age', async () => {
   const env = await makeEnv({ config: noIpLimit, clock: true })
   await addMember(env, { email: 'ana@x.org' })
   const cookie = await login(env, 'ana@x.org')
   const s = env.config.identity.session
   env.clock.t += (s.idleMinutes - 1) * 60_000
-  assert.equal((await env.app.inject({ url: '/api/me', headers: { cookie } })).statusCode, 200) // activa: renueva
+  assert.equal((await env.app.inject({ url: '/api/me', headers: { cookie } })).statusCode, 200) // active: renews
   env.clock.t += (s.idleMinutes + 1) * 60_000
-  assert.equal((await env.app.inject({ url: '/api/me', headers: { cookie } })).statusCode, 401) // ociosa
+  assert.equal((await env.app.inject({ url: '/api/me', headers: { cookie } })).statusCode, 401) // idle
   const c2 = await login(env, 'ana@x.org')
-  // Actividad cada 20 minutos (siempre bajo la inactividad): cae sólo por llegar al máximo absoluto.
+  // Activity every 20 minutes (always under the inactivity limit): it drops only on reaching the absolute maximum.
   const stepCount = (s.absoluteHours * 60) / 20
   for (let i = 1; i < stepCount; i++) {
     env.clock.t += 20 * 60_000
-    assert.equal((await env.app.inject({ url: '/api/me', headers: { cookie: c2 } })).statusCode, 200, `paso ${i}`)
+    assert.equal((await env.app.inject({ url: '/api/me', headers: { cookie: c2 } })).statusCode, 200, `step ${i}`)
   }
-  env.clock.t += 20 * 60_000 // se cumplen las horas absolutas
+  env.clock.t += 20 * 60_000 // the absolute hours are reached
   assert.equal((await env.app.inject({ url: '/api/me', headers: { cookie: c2 } })).statusCode, 401)
   await env.close()
 })
 
-test('cambiar el rol de un miembro cierra sus sesiones', async () => {
+test('changing the role of a member closes their sessions', async () => {
   const env = await makeEnv({ config: noIpLimit })
   await addMember(env, { email: 'ed@x.org', role: 'editor' })
   await addMember(env, { email: 'ana@x.org' })
@@ -197,7 +197,7 @@ test('cambiar el rol de un miembro cierra sus sesiones', async () => {
   await env.close()
 })
 
-test('el cambio de contraseña propio exige la actual, cierra las demás sesiones y conserva la actual', async () => {
+test('changing your own password requires the current one, closes the other sessions and keeps the current one', async () => {
   const env = await makeEnv({ config: noIpLimit })
   await addMember(env, { email: 'ana@x.org' })
   const a = await login(env, 'ana@x.org')
@@ -215,22 +215,22 @@ test('el cambio de contraseña propio exige la actual, cierra las demás sesione
 })
 
 // ---------------------------------------------------------------- CSRF
-test('CSRF: Sec-Fetch-Site cross-site y same-site se rechazan en métodos no seguros; same-origin y none pasan', async () => {
+test('CSRF: Sec-Fetch-Site cross-site and same-site are rejected on unsafe methods; same-origin and none pass', async () => {
   const env = await makeEnv({ config: noIpLimit })
   await addMember(env, { email: 'ana@x.org' })
   const cookie = await login(env, 'ana@x.org')
   const post = (headers) => env.app.inject({ method: 'POST', url: '/api/inputs/1/cancel', headers: { 'x-team-request': 'panel', cookie, ...headers } })
   assert.equal((await post({ 'sec-fetch-site': 'cross-site' })).statusCode, 403)
   assert.equal((await post({ 'sec-fetch-site': 'same-site' })).statusCode, 403)
-  assert.equal((await post({ 'sec-fetch-site': 'same-origin' })).statusCode, 404) // pasó la defensa; el input no existe
+  assert.equal((await post({ 'sec-fetch-site': 'same-origin' })).statusCode, 404) // it passed the defense; the input does not exist
   assert.equal((await post({ 'sec-fetch-site': 'none' })).statusCode, 404)
-  // Los métodos seguros no se tocan.
+  // Safe methods are not touched.
   const get_ = await env.app.inject({ url: '/api/me', headers: { cookie, 'sec-fetch-site': 'cross-site' } })
   assert.equal(get_.statusCode, 200)
   await env.close()
 })
 
-test('CSRF: sin Sec-Fetch-Site se compara Origin con el anfitrión; sin ninguno, pasa (cliente no navegador)', async () => {
+test('CSRF: without Sec-Fetch-Site, Origin is compared with the host; with neither, it passes (non-browser client)', async () => {
   const env = await makeEnv({ config: noIpLimit })
   await addMember(env, { email: 'ana@x.org' })
   const cookie = await login(env, 'ana@x.org')
@@ -242,7 +242,7 @@ test('CSRF: sin Sec-Fetch-Site se compara Origin con el anfitrión; sin ninguno,
   await env.close()
 })
 
-test('CSRF: un origen listado en CORS_ORIGINS pasa', async () => {
+test('CSRF: an origin listed in CORS_ORIGINS passes', async () => {
   const env = await makeEnv({ config: { ...noIpLimit, corsOrigins: ['https://sitio.example.org'] } })
   await addMember(env, { email: 'ana@x.org' })
   const cookie = await login(env, 'ana@x.org')
@@ -251,7 +251,7 @@ test('CSRF: un origen listado en CORS_ORIGINS pasa', async () => {
   await env.close()
 })
 
-test('CSRF de inicio de sesión: un POST /auth/login desde otro sitio se rechaza', async () => {
+test('login CSRF: a POST /auth/login from another site is rejected', async () => {
   const env = await makeEnv({ config: noIpLimit })
   await addMember(env, { email: 'ana@x.org' })
   const r = await env.app.inject({ method: 'POST', url: '/api/auth/login', headers: { 'sec-fetch-site': 'cross-site' }, payload: { email: 'ana@x.org', password: TEST_PASSWORD } })
@@ -259,21 +259,21 @@ test('CSRF de inicio de sesión: un POST /auth/login desde otro sitio se rechaza
   await env.close()
 })
 
-// ---------------------------------------------------------------- roles y política por ruta
-test('denegar por omisión: toda ruta declara su política y el servidor no arranca con una que no', async () => {
+// ---------------------------------------------------------------- roles and per-route policy
+test('deny by default: every route declares its policy and the server does not start with one that does not', async () => {
   const env = await makeEnv()
   const routeList = routePolicies.get(env.app)
   assert.ok(routeList.length > 25)
   for (const r of routeList) assert.ok(['public', 'member', 'editor'].includes(r.policy), `${r.method} ${r.url}`)
-  // Una ruta sin política hace fallar el registro.
+  // A route without a policy makes registration fail.
   await assert.rejects(async () => {
     env.app.get('/api/sin-politica', async () => 'x')
     await env.app.ready()
-  }, /no declara su política/)
+  }, /does not declare its policy/)
   await env.close()
 })
 
-test('toda ruta protegida responde 401 sin sesión, y las de editor 403 a un miembro', async () => {
+test('every protected route answers 401 without a session, and editor routes 403 to a member', async () => {
   const env = await makeEnv({ config: noIpLimit })
   await addMember(env, { email: 'ana@x.org' })
   const cookie = await login(env, 'ana@x.org')
@@ -283,15 +283,15 @@ test('toda ruta protegida responde 401 sin sesión, y las de editor 403 a un mie
     if (r.policy === 'public') continue
     const url = r.url.replace(/:[A-Za-z]+/g, '1')
     const noSession = await env.app.inject({ method: r.method, url })
-    assert.equal(noSession.statusCode, 401, `${r.method} ${url} sin sesión`)
+    assert.equal(noSession.statusCode, 401, `${r.method} ${url} without a session`)
     if (r.policy === 'editor') {
       const asMember = await env.app.inject({ method: r.method, url, headers: { cookie, 'x-team-request': 'panel' }, payload: r.method === 'GET' || r.method === 'DELETE' ? undefined : {} })
-      assert.equal(asMember.statusCode, 403, `${r.method} ${url} como miembro`)
+      assert.equal(asMember.statusCode, 403, `${r.method} ${url} as a member`)
     }
     checked++
   }
   assert.ok(checked >= 25)
-  // Las que el spec marca como del editor.
+  // The ones the spec marks as editor routes.
   const editorRoutes = new Set(routeList.filter((r) => r.policy === 'editor').map((r) => `${r.method} ${r.url.replace(/^\/api/, '')}`))
   for (const expectedRoute of ['PATCH /members/:id', 'POST /areas', 'PATCH /areas/:id', 'GET /settings/providers', 'PATCH /settings/providers', 'PATCH /settings/project', 'POST /areas/:id/templates', 'POST /members']) {
     assert.ok(editorRoutes.has(expectedRoute), `${expectedRoute} debería ser de editor`)
@@ -299,7 +299,7 @@ test('toda ruta protegida responde 401 sin sesión, y las de editor 403 a un mie
   await env.close()
 })
 
-test('un miembro edita sólo su perfil, idioma y contraseña', async () => {
+test('a member edits only their own profile, language and password', async () => {
   const env = await makeEnv({ config: noIpLimit })
   await addMember(env, { email: 'ana@x.org' })
   const cookie = await login(env, 'ana@x.org')
@@ -321,14 +321,14 @@ test('un miembro edita sólo su perfil, idioma y contraseña', async () => {
   await env.close()
 })
 
-// ---------------------------------------------------------------- identidad delegada
+// ---------------------------------------------------------------- delegated identity
 const delegatedConfig = (extra) => ({ config: { identity: { provider: 'delegated', delegated: extra } } })
 const signedHeaders = (sharedSecret, { email, ts = Math.floor(Date.now() / 1000), method = 'GET', pathname = '/api/me' }) => ({
   'x-team-user': email, 'x-team-ts': String(ts),
   'x-team-sig': signHeader(sharedSecret, { ts, method, pathname, email, bind: true })
 })
 
-test('signed-header: firma válida entra; firma, marca de tiempo, ruta o método alterados no', async () => {
+test('signed-header: a valid signature gets in; a tampered signature, timestamp, route or method does not', async () => {
   const env = await makeEnv(delegatedConfig({ mode: 'signed-header', secrets: ['secreto-uno'] }))
   await addMember(env, { email: 'ana@x.org', role: 'editor' })
   const ok = await env.app.inject({ url: '/api/me', headers: signedHeaders('secreto-uno', { email: 'ana@x.org' }) })
@@ -341,7 +341,7 @@ test('signed-header: firma válida entra; firma, marca de tiempo, ruta o método
   assert.equal(stale.statusCode, 401)
   const future = await env.app.inject({ url: '/api/me', headers: signedHeaders('secreto-uno', { email: 'ana@x.org', ts: Math.floor(Date.now() / 1000) + 301 }) })
   assert.equal(future.statusCode, 401)
-  // Una firma capturada para GET /api/me no sirve para otra ruta ni otro método (la firma cubre ambos).
+  // A signature captured for GET /api/me is no good for another route or method (the signature covers both).
   const otherRoute = await env.app.inject({ url: '/api/members', headers: signedHeaders('secreto-uno', { email: 'ana@x.org' }) })
   assert.equal(otherRoute.statusCode, 401)
   const otherEmail = await env.app.inject({ url: '/api/me', headers: { ...signedHeaders('secreto-uno', { email: 'ana@x.org' }), 'x-team-user': 'otra@x.org' } })
@@ -350,7 +350,7 @@ test('signed-header: firma válida entra; firma, marca de tiempo, ruta o método
   await env.close()
 })
 
-test('signed-header: acepta dos secretos durante la rotación', async () => {
+test('signed-header: accepts two secrets during rotation', async () => {
   const env = await makeEnv(delegatedConfig({ mode: 'signed-header', secrets: ['nuevo', 'viejo'] }))
   await addMember(env, { email: 'ana@x.org' })
   for (const s of ['nuevo', 'viejo']) assert.equal((await env.app.inject({ url: '/api/me', headers: signedHeaders(s, { email: 'ana@x.org' }) })).statusCode, 200)
@@ -358,17 +358,17 @@ test('signed-header: acepta dos secretos durante la rotación', async () => {
   await env.close()
 })
 
-test('delegada: ningún modo da de alta miembros (403) y /auth/login no existe', async () => {
+test('delegated: no mode creates members (403) and /auth/login does not exist', async () => {
   const env = await makeEnv(delegatedConfig({ mode: 'signed-header', secrets: ['s'] }))
   const r = await env.app.inject({ url: '/api/me', headers: signedHeaders('s', { email: 'desconocida@x.org' }) })
   assert.equal(r.statusCode, 403)
   assert.equal(r.json().code, 'member_not_registered')
-  assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM members').n, 0) // no se creó nada
+  assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM members').n, 0) // nothing was created
   assert.equal((await env.app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: 'a@b.c', password: TEST_PASSWORD } })).statusCode, 404)
   await env.close()
 })
 
-test('delegada: el rol sale de la base y no del proveedor (UD-007)', async () => {
+test('delegated: the role comes from the database and not from the provider (UD-007)', async () => {
   const env = await makeEnv(delegatedConfig({ mode: 'signed-header', secrets: ['s'] }))
   await addMember(env, { email: 'ana@x.org', role: 'member' })
   const r = await env.app.inject({ url: '/api/settings/providers', headers: signedHeaders('s', { email: 'ana@x.org', pathname: '/api/settings/providers' }) })
@@ -380,7 +380,7 @@ const JWT = { mode: 'jwt', jwt: { secret: 'clave-compartida-de-al-menos-32-bytes
 const signJwt = (payload, { secret = JWT.jwt.secret, alg = 'HS256', iss = JWT.jwt.issuer, aud = JWT.jwt.audience, exp = '5m' } = {}) =>
   new SignJWT(payload).setProtectedHeader({ alg }).setIssuer(iss).setAudience(aud).setIssuedAt().setExpirationTime(exp).sign(new TextEncoder().encode(secret))
 
-test('jwt (secreto compartido): válido entra; issuer, audience, vencimiento, firma o algoritmo distintos no', async () => {
+test('jwt (shared secret): a valid one gets in; a different issuer, audience, expiry, signature or algorithm does not', async () => {
   const env = await makeEnv(delegatedConfig(JWT))
   await addMember(env, { email: 'ana@x.org' })
   const ask = (tokenValue) => env.app.inject({ url: '/api/me', headers: { authorization: `Bearer ${tokenValue}` } })
@@ -389,16 +389,16 @@ test('jwt (secreto compartido): válido entra; issuer, audience, vencimiento, fi
   assert.equal((await ask(await signJwt({ email: 'ana@x.org' }, { aud: 'otra-app' }))).statusCode, 401)
   assert.equal((await ask(await signJwt({ email: 'ana@x.org' }, { exp: Math.floor(Date.now() / 1000) - 60 }))).statusCode, 401)
   assert.equal((await ask(await signJwt({ email: 'ana@x.org' }, { secret: 'otra-clave-compartida-de-32-bytes!!!!' }))).statusCode, 401)
-  assert.equal((await ask(await signJwt({ email: 'ana@x.org' }, { alg: 'HS512' }))).statusCode, 401) // el algoritmo lo fija la configuración
+  assert.equal((await ask(await signJwt({ email: 'ana@x.org' }, { alg: 'HS512' }))).statusCode, 401) // the algorithm is fixed by the configuration
   const unsigned = `${Buffer.from('{"alg":"none"}').toString('base64url')}.${Buffer.from(JSON.stringify({ email: 'ana@x.org', iss: JWT.jwt.issuer, aud: JWT.jwt.audience })).toString('base64url')}.`
   assert.equal((await ask(unsigned)).statusCode, 401) // alg none
-  assert.equal((await ask(await signJwt({}))).statusCode, 401) // sin correo
-  assert.equal((await ask(await signJwt({ email: 'nadie@x.org' }))).statusCode, 403) // no registrado
+  assert.equal((await ask(await signJwt({}))).statusCode, 401) // no email
+  assert.equal((await ask(await signJwt({ email: 'nadie@x.org' }))).statusCode, 403) // not registered
   assert.equal((await env.app.inject({ url: '/api/me', headers: { authorization: 'Basic abc' } })).statusCode, 401)
   await env.close()
 })
 
-test('jwt (JWKS remoto RS256): elige la llave por kid y vuelve a pedirla ante un kid nuevo', async () => {
+test('jwt (remote JWKS RS256): picks the key by kid and fetches again on a new kid', async () => {
   const pair1 = generateKeyPairSync('rsa', { modulusLength: 2048 })
   const pair2 = generateKeyPairSync('rsa', { modulusLength: 2048 })
   const jwk = async (pair, kid) => ({ ...(await exportJWK(pair.publicKey)), kid, alg: 'RS256', use: 'sig' })
@@ -411,24 +411,24 @@ test('jwt (JWKS remoto RS256): elige la llave por kid y vuelve a pedirla ante un
   const signature = (pair, kid) => new SignJWT({ email: 'ana@x.org' }).setProtectedHeader({ alg: 'RS256', kid }).setIssuer('https://anfitrion.example').setAudience('team-platform').setExpirationTime('5m').sign(pair.privateKey)
   const ask = (tokenValue) => env.app.inject({ url: '/api/me', headers: { 'cf-access-jwt-assertion': tokenValue } })
   assert.equal((await ask(await signature(pair1, 'k1'))).statusCode, 200)
-  assert.equal((await ask(await signature(pair2, 'k1'))).statusCode, 401) // otra llave con el kid conocido
-  jwks = [await jwk(pair1, 'k1'), await jwk(pair2, 'k2')] // el anfitrión rota
+  assert.equal((await ask(await signature(pair2, 'k1'))).statusCode, 401) // another key with the known kid
+  jwks = [await jwk(pair1, 'k1'), await jwk(pair2, 'k2')] // the host rotates
   assert.equal((await ask(await signature(pair2, 'k2'))).statusCode, 200)
   await env.close()
   await new Promise((r) => serverProc.close(r))
 })
 
-test('trusted-header: sólo vale si la conexión viene de una dirección de confianza', async () => {
+test('trusted-header: only valid if the connection comes from a trusted address', async () => {
   const env = await makeEnv(delegatedConfig({ mode: 'trusted-header' }))
   await addMember(env, { email: 'ana@x.org' })
   const h = { 'tailscale-user-login': 'ana@x.org' }
   assert.equal((await env.app.inject({ url: '/api/me', headers: h, remoteAddress: '127.0.0.1' })).statusCode, 200)
-  assert.equal((await env.app.inject({ url: '/api/me', headers: h, remoteAddress: '203.0.113.7' })).statusCode, 401) // cualquiera fijaría la cabecera
+  assert.equal((await env.app.inject({ url: '/api/me', headers: h, remoteAddress: '203.0.113.7' })).statusCode, 401) // anyone could set the header
   assert.equal((await env.app.inject({ url: '/api/me', headers: { 'tailscale-user-login': 'nadie@x.org' }, remoteAddress: '127.0.0.1' })).statusCode, 403)
   await env.close()
 })
 
-test('sso-redirect: nonce de uso único atado al navegador, firma, correo verificado y mapeo por identificador externo', async () => {
+test('sso-redirect: single-use nonce tied to the browser, signature, verified email and mapping by external identifier', async () => {
   const sharedSecret = 'secreto-sso'
   const env = await makeEnv({
     config: { publicUrl: 'https://team.example', identity: { provider: 'delegated', delegated: { mode: 'sso-redirect', sso: { loginUrl: 'https://anfitrion.example/sso', secret: sharedSecret } } } }
@@ -457,7 +457,7 @@ test('sso-redirect: nonce de uso único atado al navegador, firma, correo verifi
     return env.app.inject({ url: `/api/auth/sso/callback?sso=${sso}&sig=${sig}`, headers: { cookie } })
   }
 
-  // Camino feliz.
+  // Happy path.
   const a = await startFlow()
   const ok = await callbackRes(a, { email: 'ana@x.org', external_id: 'u-77', email_verified: true })
   assert.equal(ok.statusCode, 302)
@@ -465,35 +465,35 @@ test('sso-redirect: nonce de uso único atado al navegador, firma, correo verifi
   const sessionRow = ok.cookies.find((c) => c.name === '__Host-session')
   const me = await env.app.inject({ url: '/api/me', headers: { cookie: `${sessionRow.name}=${sessionRow.value}` } })
   assert.equal(me.json().email, 'ana@x.org')
-  // El nonce es de un solo uso.
+  // The nonce is single use.
   assert.equal((await callbackRes(a, { email: 'ana@x.org', external_id: 'u-77', email_verified: true })).statusCode, 403)
-  // Firma falsa.
+  // Forged signature.
   const b = await startFlow()
   assert.equal((await callbackRes(b, { email: 'ana@x.org', email_verified: true }, { secret: 'otro' })).statusCode, 403)
-  // Nonce de otro navegador: la cookie no coincide.
+  // Nonce from another browser: the cookie does not match.
   const c = await startFlow()
   assert.equal((await callbackRes({ nonce: c.nonce, cookie: b.cookie }, { email: 'ana@x.org', email_verified: true })).statusCode, 403)
-  // Correo sin verificar por el anfitrión.
+  // Email not verified by the host.
   const d = await startFlow()
   assert.equal((await callbackRes(d, { email: 'ana@x.org', external_id: 'u-1', email_verified: false })).statusCode, 403)
-  // Miembro inexistente: no se da de alta.
+  // Nonexistent member: not created.
   const e = await startFlow()
   const notMember = await callbackRes(e, { email: 'nadie@x.org', external_id: 'u-9', email_verified: true })
   assert.equal(notMember.statusCode, 403)
   assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM members').n, 2)
-  // Mapeo por identificador externo estable: u-77 sigue siendo Ana aunque el anfitrión mande otro correo.
+  // Mapping by stable external identifier: u-77 is still Ana even if the host sends another email.
   const f = await startFlow()
   const byExternal = await callbackRes(f, { email: 'otra@x.org', external_id: 'u-77', email_verified: true })
   const s2 = byExternal.cookies.find((c) => c.name === '__Host-session')
   assert.equal((await env.app.inject({ url: '/api/me', headers: { cookie: `${s2.name}=${s2.value}` } })).json().email, 'ana@x.org')
-  // Nonce vencido.
+  // Expired nonce.
   const g = await startFlow()
   run(env.db, 'UPDATE sso_nonces SET created_at = created_at - ?', (env.config.identity.delegated.sso.nonceMinutes + 1) * 60_000)
   assert.equal((await callbackRes(g, { email: 'ana@x.org', email_verified: true })).statusCode, 403)
   await env.close()
 })
 
-test('la configuración inválida impide arrancar (sin issuer/audience, sin secretos, sin publicUrl)', async () => {
+test('invalid configuration prevents startup (no issuer/audience, no secrets, no publicUrl)', async () => {
   const { loadConfig } = await import('../config.js')
   assert.throws(() => loadConfig({ IDENTITY_PROVIDER: 'delegated', DELEGATED_MODE: 'signed-header' }), /DELEGATED_SECRETS/)
   assert.throws(() => loadConfig({ IDENTITY_PROVIDER: 'delegated', DELEGATED_MODE: 'jwt', JWT_SECRET: 'x' }), /JWT_ISSUER/)

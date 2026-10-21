@@ -23,7 +23,7 @@ Cómo leer el input.
 Un mensaje por error.
 `;
 
-// Palabras clave que la gramática de Anthropic no admite (informe 02 §1.1 [F1]).
+// Keywords that Anthropic's grammar does not support (report 02 §1.1 [F1]).
 const FORBIDDEN_IN_GRAMMAR = ['minimum', 'maximum', 'multipleOf', 'minLength', 'maxLength', 'maxItems', 'uniqueItems', 'pattern'];
 
 function walk(node, visit) {
@@ -35,7 +35,7 @@ function walk(node, visit) {
 }
 
 describe('parseTemplate', () => {
-  it('lee nombre, descripción, campos y cuerpo', () => {
+  it('reads name, description, fields and body', () => {
     const t = parseTemplate(VALID);
     assert.equal(t.name, 'Reporte de error');
     assert.deepEqual(t.fields, [
@@ -46,12 +46,12 @@ describe('parseTemplate', () => {
     assert.deepEqual(t.warnings, []);
   });
 
-  it('avisa si faltan las secciones Método o Formato de salida', () => {
+  it('warns if the `Método` or `Formato de salida` sections are missing', () => {
     const t = parseTemplate(VALID.replace('## Formato de salida', '## Otra cosa'));
     assert.deepEqual(t.warnings, ['Falta la sección «## Formato de salida»']);
   });
 
-  it('rechaza lo que no cumple los límites y la forma', () => {
+  it('rejects what does not meet the limits and the shape', () => {
     const rechaza = (markdown, fragmento) =>
       assert.throws(() => parseTemplate(markdown), (e) => e instanceof TemplateError && e.message.includes(fragmento), fragmento);
     rechaza('sin frontmatter', 'frontmatter');
@@ -67,7 +67,7 @@ describe('parseTemplate', () => {
     rechaza('---\nname: x\ndescription: y\n---\n', 'no tiene cuerpo');
   });
 
-  it('el YAML no ejecuta etiquetas de código', () => {
+  it('the YAML does not execute code tags', () => {
     assert.throws(() => parseTemplate('---\nname: !!js/function "function(){}"\ndescription: y\n---\ncuerpo'), TemplateError);
   });
 });
@@ -75,20 +75,20 @@ describe('parseTemplate', () => {
 describe('compileFieldsSchema', () => {
   const fields = parseTemplate(VALID).fields;
 
-  it('perfil anthropic: lo opcional es una propiedad opcional', () => {
+  it('anthropic profile: optional means an optional property', () => {
     const s = compileFieldsSchema(fields, { profile: 'anthropic' });
     assert.deepEqual(s.required, ['steps']);
     assert.deepEqual(s.properties.where, { type: 'string' });
     assert.equal(s.additionalProperties, false);
   });
 
-  it('perfil all-required: todo requerido y lo opcional admite null', () => {
+  it('all-required profile: everything required and optional admits null', () => {
     const s = compileFieldsSchema(fields, { profile: 'all-required' });
     assert.deepEqual(s.required, ['steps', 'where']);
     assert.deepEqual(s.properties.where, { type: ['string', 'null'] });
   });
 
-  it('la validación exige texto no vacío en lo obligatorio y acepta ausencia o null en lo opcional', () => {
+  it('validation requires non-empty text in required fields and accepts absence or null in optional ones', () => {
     const validate = new Ajv({ strict: true, allowUnionTypes: true }).compile(compileFieldsSchema(fields, { validation: true }));
     assert.ok(validate({ steps: 'a' }));
     assert.ok(validate({ steps: 'a', where: null }));
@@ -97,7 +97,7 @@ describe('compileFieldsSchema', () => {
     assert.ok(!validate({ steps: 'a', extra: 'x' }));
   });
 
-  it('más de 24 opcionales exceden la gramática de Anthropic pero no la de los compatibles', () => {
+  it('more than 24 optionals exceed Anthropic\'s grammar but not that of the compatible ones', () => {
     const many = Array.from({ length: ANTHROPIC_MAX_OPTIONAL_PROPERTIES + 1 }, (_, i) => ({ name: `f${i}`, label: `Campo ${i}`, required: false }));
     assert.throws(() => compileFieldsSchema(many, { profile: 'anthropic' }), TemplateError);
     assert.doesNotThrow(() => compileFieldsSchema(many, { profile: 'all-required' }));
@@ -105,8 +105,8 @@ describe('compileFieldsSchema', () => {
   });
 });
 
-describe('juego inicial de plantillas', () => {
-  it('trae las cinco plantillas de MASTER-SPEC §7.9 y no sobran archivos sueltos', async () => {
+describe('initial set of templates', () => {
+  it('brings the five templates of MASTER-SPEC §7.9 and no stray files', async () => {
     const { areas, templates } = await loadSeed();
     assert.deepEqual(areas.map((a) => a.title), ['Idea', 'Error', 'Nueva funcionalidad', 'Retroalimentación', 'Pregunta']);
     assert.equal(templates.length, 5);
@@ -114,34 +114,34 @@ describe('juego inicial de plantillas', () => {
     assert.deepEqual(files, ['bug.md', 'feature.md', 'feedback.md', 'idea.md', 'question.md']);
   });
 
-  it('cada plantilla es válida, trae Método y Formato de salida y define al menos un campo obligatorio', async () => {
+  it('each template is valid, has `Método` and `Formato de salida` and defines at least one required field', async () => {
     const { templates } = await loadSeed();
     for (const row of templates) {
       const t = parseTemplate(row.body_markdown, { source: row.name });
       assert.deepEqual(t.warnings, [], row.name);
       assert.ok(t.name.length <= TEMPLATE_NAME_MAX);
       assert.ok(t.description.length <= TEMPLATE_DESCRIPTION_MAX);
-      assert.ok(t.fields.some((f) => f.required), `${row.name} sin campos obligatorios`);
-      assert.match(t.body, /Un mensaje por /, `${row.name}: el Formato de salida fija la unidad de un mensaje`);
+      assert.ok(t.fields.some((f) => f.required), `${row.name} has no required fields`);
+      assert.match(t.body, /Un mensaje por /, `${row.name}: the Formato de salida fixes the unit of a message`);
     }
   });
 
-  it('los esquemas de gramática de cada plantilla cumplen los límites de Anthropic', async () => {
+  it('the grammar schemas of each template meet Anthropic\'s limits', async () => {
     const { templates } = await loadSeed();
     for (const row of templates) {
       const t = parseTemplate(row.body_markdown);
       const schema = buildDecompositionSchema(t.fields, { profile: 'anthropic' });
       walk(schema, (node) => {
-        for (const k of FORBIDDEN_IN_GRAMMAR) assert.ok(!(k in node), `${row.name}: «${k}» no se admite en la gramática`);
+        for (const k of FORBIDDEN_IN_GRAMMAR) assert.ok(!(k in node), `${row.name}: «${k}» is not supported in the grammar`);
         if ('minItems' in node) assert.ok(node.minItems === 0 || node.minItems === 1);
         if (node.type === 'object' && node.properties && !node.additionalProperties?.type) assert.equal(node.additionalProperties, false);
       });
-      // El orden de la salida es el del esquema: unit_ids primero (informe 02 §6.2).
+      // The output order is that of the schema: unit_ids first (report 02 §6.2).
       assert.deepEqual(Object.keys(schema.properties.messages.items.properties).slice(0, 2), ['unit_ids', 'title']);
     }
   });
 
-  it('el esquema del Proposal del harness compila', () => {
+  it('the harness Proposal schema compiles', () => {
     const ajv = new Ajv({ strict: true, allowUnionTypes: true });
     assert.doesNotThrow(() => ajv.compile(buildProposalSchema()));
   });

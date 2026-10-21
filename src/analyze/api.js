@@ -1,31 +1,36 @@
-// Analizador `api` (MASTER-SPEC §7.5, variante A): bucle propio con salida estructurada.
+// `api` analyzer (MASTER-SPEC §7.5, variant A): own loop with structured output.
 //
-//   1. numerar las unidades del input extraído
-//   2. llamada 1: clasificar en grupos {area_id, template_id, unit_ids} más `discarded` (esfuerzo `low`)
-//   3. llamada 2, una por grupo y en paralelo: descomponer con el cuerpo de la plantilla del grupo (esfuerzo
-//      `medium`), exigiendo `unit_ids` y `discarded`
-//   4. solapes y huecos por conjuntos (por grupo, y al final sobre la unión de todos); un único pase de
-//      rescate por grupo con conflicto
-//   5. si el input o un grupo supera el umbral: partir sólo por fronteras estructurales, procesar los
-//      trozos en paralelo y reducir de forma determinista por `unit_ids`
-//   6. validación con Ajv propio; un reintento con el error como contexto
+//   1. number the units of the extracted input
+//   2. call 1: classify into groups {area_id, template_id, unit_ids} plus `discarded` (effort `low`, no thinking)
+//   2b. second reading (UD-021): if no group came out, read again with a deeper prompt, section by section; for an input
+//       that is only images, the images are described again in more detail first. «Zero messages» is accepted after it
+//   3. call 2, one per group and in parallel: decompose with the body of the group's template (effort `low`, no
+//      thinking); one message per group unless it holds two independent points. Nothing is discarded in this call
+//   4. overlaps and gaps by sets (per group, and at the end over the union of all); a single rescue pass
+//      per group with a conflict
+//   5. if the input or a group exceeds the threshold: split only at structural boundaries, process the
+//      chunks in parallel and reduce deterministically by `unit_ids`
+//   6. validation with our own Ajv; one retry with the error as context
 //
-// Los resultados de dominio no se lanzan: un `refusal`, un corte por `max_tokens` y una salida inválida
-// son estados del trabajo y vuelven como `status` (ver index.js). Lo que sí se lanza es un fallo de
-// operación (red, llave, plazo), con las llamadas ya hechas en `error.calls`.
+// A refusal or a retryable HTTP failure of the text provider is repeated once on `providers.textFallback`, when one is
+// configured (H-18); the fallback call is in `calls` with `fallback: true` and under the span `analyze.fallback`.
+//
+// Domain results are not thrown: a `refusal`, a cut by `max_tokens` and an invalid output are job
+// states and come back as `status` (see index.js). What is thrown is an operation failure (network, key,
+// timeout), with the calls already made in `error.calls`.
 import {
-  ProviderMaxTokensError, ProviderOutputError, ProviderRefusalError,
+  ProviderHttpError, ProviderMaxTokensError, ProviderOutputError, ProviderRefusalError,
 } from '../providers/errors.js';
 import { withSpan } from '../telemetry/api.js';
 import { AnalyzeInputError } from './errors.js';
 import {
-  chunkNote, classifySystem, classifyUser, decomposeSystem, decomposeUser, membersBlock, rescueUser, retryUser,
+  chunkNote, classifySystem, classifyUser, decomposeSystem, decomposeUser, membersBlock, rescueUser, resolveLanguage, retryUser,
 } from './prompts.js';
 import { buildClassificationSchema, buildDecompositionSchema } from './schema.js';
 import { parseTemplate } from './templates.js';
 import { estimateTokens, numberUnits, partitionUnits, renderUnits } from './units.js';
 import {
-  contextFromBundle, coverage, describeConflicts, normalizeDecomposition, validateClassification, validateDecomposition, validateProposal,
+  closeStretches, contextFromBundle, coverage, describeConflicts, normalizeDecomposition, repairClassification, repairCoverage, validateClassification, validateDecomposition, validateProposal,
 } from './validate.js';
 
 const TYPED = new Map([
@@ -39,13 +44,14 @@ function typedKind(err) {
   return null;
 }
 
-/** Contexto de ejecución compartido por los pasos de un análisis. */
-function createContext({ providers, config, onProgress, unitCount }) {
+/** Execution context shared by the steps of an analysis. */
+function createContext({ providers, config, onProgress, unitCount, language }) {
   const ctx = {
     providers,
     config,
     calls: [],
     stats: { chunks: 1, groups: 0, classification_chunks: 1, rescues: 0, invalid_retries: 0, max_tokens_retries: 0, partitioned: false, units: unitCount },
+    language,
     stopped: false,
     progress: { done: 0, total: 3, last: 0 },
     onProgress,
@@ -53,7 +59,7 @@ function createContext({ providers, config, onProgress, unitCount }) {
   ctx.report = (phrase, { advance = false, total } = {}) => {
     if (total !== undefined) ctx.progress.total = total;
     if (advance) ctx.progress.done += 1;
-    // El porcentaje sale de pasos completados sobre pasos totales, nunca de un reloj (§7.10); no retrocede.
+    // The percentage comes from completed steps over total steps, never from a clock (§7.10); it does not go back.
     const pct = Math.min(100, Math.round((100 * ctx.progress.done) / ctx.progress.total));
     ctx.progress.last = Math.max(ctx.progress.last, pct);
     ctx.onProgress?.({ percent: ctx.progress.last, phrase });
@@ -61,53 +67,86 @@ function createContext({ providers, config, onProgress, unitCount }) {
   return ctx;
 }
 
-/** Una llamada al proveedor de texto, registrada para llm_calls. */
-async function callText(ctx, step, { system, messages, schema, effort, maxTokens, thinking }) {
-  const provider = ctx.providers.text;
-  const systemTokens = estimateTokens([].concat(system ?? []).join('\n'), ctx.config.charsPerToken);
-  const entry = {
-    step,
-    modality: 'text',
-    provider: provider.name,
-    model: provider.model,
-    effort,
-    thinking: thinking ?? null,
-    max_tokens: maxTokens,
-    // Si el sistema no llega al mínimo cacheable no se cachea y la lectura de caché será cero (informe 02 §7).
-    cacheable: systemTokens >= ctx.config.minCacheableSystemTokens,
-    usage: null,
-    duration_ms: null,
-    outcome: 'ok',
-  };
-  ctx.calls.push(entry);
-  try {
-    const out = await provider.complete({ system, messages, schema, effort, maxTokens, cacheTtl: ctx.config.cacheTtl, ...(thinking ? { thinking } : {}) });
-    Object.assign(entry, { provider: out.provider ?? entry.provider, model: out.model ?? entry.model, usage: out.usage ?? null, duration_ms: out.duration_ms ?? null });
-    return { ok: true, out };
-  } catch (err) {
-    Object.assign(entry, {
-      provider: err.provider ?? entry.provider,
-      model: err.model ?? entry.model,
-      usage: err.usage ?? null,
-      duration_ms: err.duration_ms ?? null,
-      outcome: err.code ?? 'error',
-    });
-    const kind = typedKind(err);
-    if (kind) return { ok: false, kind, error: err };
-    err.calls = ctx.calls;
-    throw err;
-  }
+/** A configured fallback provider, not the placeholder of an unavailable slot (H-18). */
+function usableFallback(providers) {
+  const fallback = providers.textFallback;
+  return fallback && typeof fallback.complete === 'function' && !fallback.unavailable ? fallback : null;
 }
 
-function withErrorContext(messages, raw, errors) {
-  const feedback = retryUser(errors);
+/** What the fallback covers: a refusal, or a retryable HTTP failure that the provider's own retries did not fix. */
+function fallbackApplies(err) {
+  return err instanceof ProviderRefusalError || (err instanceof ProviderHttpError && err.retryable === true);
+}
+
+/** One call to the text provider, recorded for llm_calls. After a refusal or a retryable HTTP failure it is repeated once on the fallback. */
+async function callText(ctx, step, { system, messages, schema, effort, maxTokens, thinking }) {
+  const request = { system, messages, schema, effort, maxTokens, cacheTtl: ctx.config.cacheTtl, ...(thinking ? { thinking } : {}) };
+  const systemTokens = estimateTokens([].concat(system ?? []).join('\n'), ctx.config.charsPerToken);
+  const newEntry = (provider, fallback) => {
+    const entry = {
+      step,
+      modality: 'text',
+      provider: provider.name,
+      model: provider.model,
+      effort,
+      thinking: thinking ?? null,
+      max_tokens: maxTokens,
+      // If the system prompt does not reach the cacheable minimum it is not cached and the cache read will be zero (report 02 §7).
+      cacheable: systemTokens >= ctx.config.minCacheableSystemTokens,
+      usage: null,
+      duration_ms: null,
+      outcome: 'ok',
+      ...(fallback ? { fallback: true } : {}),
+    };
+    ctx.calls.push(entry);
+    return entry;
+  };
+  const attempt = async (provider, entry) => {
+    try {
+      const out = await provider.complete(request);
+      Object.assign(entry, { provider: out.provider ?? entry.provider, model: out.model ?? entry.model, usage: out.usage ?? null, duration_ms: out.duration_ms ?? null });
+      return { ok: true, out };
+    } catch (err) {
+      Object.assign(entry, {
+        provider: err.provider ?? entry.provider,
+        model: err.model ?? entry.model,
+        usage: err.usage ?? null,
+        duration_ms: err.duration_ms ?? null,
+        outcome: err.code ?? 'error',
+      });
+      return { ok: false, err };
+    }
+  };
+
+  let result = await attempt(ctx.providers.text, newEntry(ctx.providers.text, false));
+  // A retryable HTTP failure (429, 5xx, network) is repeated on the same provider after the wait it asks for.
+  for (let retry = 0; !result.ok && result.err instanceof ProviderHttpError && result.err.retryable && retry < ctx.config.httpRetries; retry += 1) {
+    const wait = result.err.retryAfterMs ?? ctx.config.httpRetryBaseMs * 2 ** retry; // declared courtesy: doubling wait when the provider sends no retry-after
+    await new Promise((resolve) => { setTimeout(resolve, wait); });
+    ctx.stats.http_retries = (ctx.stats.http_retries ?? 0) + 1;
+    result = await attempt(ctx.providers.text, newEntry(ctx.providers.text, false));
+  }
+  const fallback = usableFallback(ctx.providers);
+  if (!result.ok && fallback && fallbackApplies(result.err)) {
+    ctx.stats.fallbacks = (ctx.stats.fallbacks ?? 0) + 1;
+    result = await withSpan('analyze.fallback', { 'team.step': step, 'team.fallback': true, 'team.fallback_reason': result.err.code }, () => attempt(fallback, newEntry(fallback, true)));
+  }
+  if (result.ok) return result;
+  const kind = typedKind(result.err);
+  if (kind) return { ok: false, kind, error: result.err };
+  result.err.calls = ctx.calls;
+  throw result.err;
+}
+
+function withErrorContext(messages, raw, errors, language) {
+  const feedback = retryUser(errors, language);
   if (raw) return [...messages, { role: 'assistant', content: raw }, { role: 'user', content: feedback }];
   const last = messages.at(-1);
   const lastText = typeof last.content === 'string' ? last.content : JSON.stringify(last.content);
   return [...messages.slice(0, -1), { role: 'user', content: `${lastText}\n\n${feedback}` }];
 }
 
-/** Un span `validate` alrededor de una validación: cuántos errores y cuáles (hasta diez). */
+/** A `validate` span around a validation: how many errors and which ones (up to ten). */
 function validateSpan(step, fn) {
   return withSpan('validate', { 'team.step': 'validate', 'team.validated_step': step }, (span) => {
     const v = fn();
@@ -119,11 +158,11 @@ function validateSpan(step, fn) {
 }
 
 /**
- * Una llamada estructurada con su recuperación:
- *  - `refusal`: no se reintenta igual (informe 02 [F4]); vuelve como estado.
- *  - `max_tokens`: un reintento con el doble (MASTER-SPEC §7.5); un segundo corte vuelve como estado.
- *  - salida inválida: un reintento con el error como contexto; después, estado `invalid`.
- * `validate(json)` devuelve `{ errors: string[], ...resto }`.
+ * A structured call with its recovery:
+ *  - `refusal`: not retried the same way (report 02 [F4]); comes back as a state.
+ *  - `max_tokens`: one retry with double (MASTER-SPEC §7.5); a second cut comes back as a state.
+ *  - invalid output: one retry with the error as context; then, state `invalid`.
+ * `validate(json)` returns `{ errors: string[], ...rest }`.
  */
 async function structuredStep(ctx, { step, system, messages, schema, effort, thinking, validate }) {
   const { config } = ctx;
@@ -160,11 +199,11 @@ async function structuredStep(ctx, { step, system, messages, schema, effort, thi
     if (invalidRetries >= config.invalidOutputRetries) return { status: 'invalid', step, errors, ...rest };
     invalidRetries += 1;
     ctx.stats.invalid_retries += 1;
-    current = withErrorContext(messages, raw, errors);
+    current = withErrorContext(messages, raw, errors, ctx.language);
   }
 }
 
-/** Descompone un conjunto de unidades (todo el input o un trozo) con recuperación y un único rescate. */
+/** Decomposes a set of units (the whole input or a chunk) with recovery and a single rescue. */
 async function decomposeUnits(ctx, { bundle, template, system, schema, units, scopeNote, label }) {
   const { config } = ctx;
   const scope = new Set(units.map((u) => u.id));
@@ -178,7 +217,7 @@ async function decomposeUnits(ctx, { bundle, template, system, schema, units, sc
   const first = await structuredStep(ctx, {
     ...base,
     step: `decompose${label}`,
-    messages: [{ role: 'user', content: decomposeUser({ members: bundle.members ?? [], attachments: bundle.attachments ?? [], units, scopeNote }) }],
+    messages: [{ role: 'user', content: decomposeUser({ members: bundle.members ?? [], attachments: bundle.attachments ?? [], units, scopeNote, language: ctx.language, recent: bundle.recent_inputs }) }],
     validate: (json) => validateDecomposition(json, vctx),
   });
   if (first.status !== 'ok') return first;
@@ -188,7 +227,7 @@ async function decomposeUnits(ctx, { bundle, template, system, schema, units, sc
   let { overlaps, gaps } = first.conflicts;
   if (overlaps.length === 0 && gaps.length === 0) return { status: 'ok', messages, discarded, rescued: false };
 
-  // Conflicto de exclusión mutua o de exhaustividad: un único pase de rescate sobre lo que falló.
+  // Mutual-exclusivity or exhaustiveness conflict: a single rescue pass over what failed.
   if (config.rescuePasses < 1) {
     return { status: 'invalid', step: `decompose${label}`, reason: 'mece_conflict', errors: describeConflicts(first.conflicts), draft: first.json };
   }
@@ -212,6 +251,7 @@ async function decomposeUnits(ctx, { bundle, template, system, schema, units, sc
     messages: [{
       role: 'user',
       content: rescueUser({
+        language: ctx.language,
         members: bundle.members ?? [],
         attachments: bundle.attachments ?? [],
         units,
@@ -229,12 +269,16 @@ async function decomposeUnits(ctx, { bundle, template, system, schema, units, sc
   discarded = keptDiscarded;
   const remaining = rescue.conflicts.overlaps.length > 0 || rescue.conflicts.gaps.length > 0 ? rescue.conflicts : coverage(messages, discarded, scope);
   if (remaining.overlaps.length > 0 || remaining.gaps.length > 0) {
-    return { status: 'invalid', step: `rescue${label}`, reason: 'mece_conflict', errors: describeConflicts(remaining), draft: { messages, discarded } };
+    // The rescue pass was the only model turn the conflict gets; what is left is bookkeeping and is repaired by set arithmetic.
+    const repaired = repairCoverage(messages, discarded, scope);
+    if (!repaired) return { status: 'invalid', step: `rescue${label}`, reason: 'mece_conflict', errors: describeConflicts(remaining), draft: { messages, discarded } };
+    ctx.stats.repaired = (ctx.stats.repaired ?? 0) + 1;
+    return { status: 'ok', messages: repaired.messages, discarded: repaired.discarded, rescued: true, repaired: true };
   }
   return { status: 'ok', messages, discarded, rescued: true };
 }
 
-/** Ejecuta `tasks` con a lo sumo `limit` a la vez; deja de iniciar nuevas si una devuelve un estado que no es `ok`. */
+/** Runs `tasks` with at most `limit` at a time; stops starting new ones if one returns a state other than `ok`. */
 async function runPool(tasks, limit) {
   const results = new Array(tasks.length);
   let next = 0;
@@ -257,79 +301,159 @@ function checkBundle(bundle) {
   if (!Array.isArray(bundle.templates) || bundle.templates.length === 0) throw new AnalyzeInputError('El bundle no trae plantillas');
 }
 
+/** Splits each chunk in `chunks` into contiguous windows of about `size` units or fewer, of equal size within the chunk. */
+function windowsOf(chunks, size) {
+  return chunks.flatMap((chunk) => {
+    const count = Math.ceil(chunk.length / size);
+    if (count <= 1) return [chunk];
+    const each = Math.ceil(chunk.length / count);
+    return Array.from({ length: count }, (_, i) => chunk.slice(i * each, (i + 1) * each));
+  });
+}
+
+/** Sections of the units for the second reading: by heading, and no more than `size` units each. */
+function sectionsOf(units, size) {
+  const sections = [];
+  for (const u of units) {
+    const last = sections.at(-1);
+    if (last && last[0].sourceIndex === u.sourceIndex && last[0].section === u.section && last.length < size) last.push(u);
+    else sections.push([u]);
+  }
+  return sections;
+}
+
+/** An input whose only content is images: no text of the person and no attachment other than images with extracted text. */
+function isImageOnly(bundle) {
+  if (typeof bundle.text === 'string' && bundle.text.trim() !== '') return false;
+  const withText = (bundle.attachments ?? []).filter((a) => typeof a.extracted === 'string' && a.extracted.trim() !== '');
+  return withText.length > 0 && withText.every((a) => a.kind === 'image');
+}
+
 /**
- * @param {object} bundle  ver MASTER-SPEC §7.5; las plantillas traen además `body_markdown`
- * @param {{providers: object, onProgress?: Function, config: object}} opts  `config` ya resuelta
+ * @param {object} bundle  see MASTER-SPEC §7.5; the templates also carry `body_markdown`
+ * @param {{providers: object, onProgress?: Function, config: object, redescribe?: Function}} opts  `config` already resolved.
+ *   `redescribe(attachment)` returns a more detailed text for an image; the second pass uses it (UD-021).
  */
-export async function analyzeWithApi(bundle, { providers, onProgress, config }) {
+export async function analyzeWithApi(bundle, { providers, onProgress, config, redescribe }) {
   checkBundle(bundle);
-  const units = numberUnits(bundle);
+  let workBundle = bundle; // the second pass may replace the text of the images
+  let units = numberUnits(workBundle);
   if (units.length === 0) throw new AnalyzeInputError('El input no tiene texto ni adjuntos con texto extraído');
-  const ctx = createContext({ providers, config, onProgress, unitCount: units.length });
+  const language = resolveLanguage(bundle.language);
+  const ctx = createContext({ providers, config, onProgress, unitCount: units.length, language });
   const profile = providers.text.schemaProfile ?? 'anthropic';
-  const attachments = bundle.attachments ?? [];
+  let attachments = workBundle.attachments ?? [];
   const members = bundle.members ?? [];
   const { areas, templates, project } = bundle;
-  const allIds = units.map((u) => u.id);
   const fail = (r) => ({ status: r.status, step: r.step, category: r.category, explanation: r.explanation, reason: r.reason, errors: r.errors ?? [], max_tokens: r.max_tokens, draft: r.draft, units, calls: ctx.calls, stats: ctx.stats });
 
-  // -- Llamada 1: clasificar en grupos por área y plantilla ----------------------------------
-  // Un input puede traer un error, una idea y una pregunta: cada grupo lleva su área y su plantilla
-  // (idea.md: «uno o varios mensajes que agrupen el trabajo en categorías»). Si el input no cabe en una
-  // llamada se clasifica por trozos estructurales disjuntos y los grupos se unen.
+  // -- Call 1: classify into groups by area and template -------------------------------------
+  // An input can bring a bug, an idea and a question: each group carries its area and its template
+  // (idea.md: «one or several messages that group the work into categories»). If the input does not fit
+  // in one call it is classified in disjoint structural chunks and the groups are joined.
   ctx.report('clasificando el input');
-  const cSystem = classifySystem({ areas, templates, project });
-  const fixedClassify = estimateTokens([...cSystem, membersBlock([])].join('\n'), config.charsPerToken);
-  const classifyChunks = partitionUnits(units, { budgetTokens: config.partitionThresholdTokens - fixedClassify, charsPerToken: config.charsPerToken });
-  ctx.stats.classification_chunks = classifyChunks.length;
-  ctx.progress.total = classifyChunks.length + 2;
+  const cSystem = classifySystem({ areas, templates, project, language });
+  const fixedClassify = estimateTokens([...cSystem, membersBlock([], language)].join('\n'), config.charsPerToken);
   const cSchema = buildClassificationSchema({ areas, templates });
-  const classifyTasks = classifyChunks.map((chunkUnits, index) => async () => {
-    const scope = new Set(chunkUnits.map((u) => u.id));
-    const r = await structuredStep(ctx, {
-      step: classifyChunks.length > 1 ? `classify#${index + 1}` : 'classify',
-      system: cSystem,
-      messages: [{ role: 'user', content: classifyUser({ units: chunkUnits, attachments }) }],
-      schema: cSchema,
-      effort: config.classifyEffort,
-      thinking: config.classifyThinking ?? undefined,
-      validate: (json) => validateClassification(json, { areas, templates, scope }),
+
+  /** Classifies `list` in structural chunks (or, in the second reading, the given sections) and joins the groups. */
+  const classifyUnits = async (list, { secondPass = false, chunks } = {}) => {
+    const classifyChunks = chunks ?? windowsOf(partitionUnits(list, { budgetTokens: config.partitionThresholdTokens - fixedClassify, charsPerToken: config.charsPerToken }), config.classifyWindowUnits);
+    if (!secondPass) {
+      ctx.stats.classification_chunks = classifyChunks.length;
+      ctx.progress.total = classifyChunks.length + 2;
+    }
+    const tasks = classifyChunks.map((chunkUnits, index) => async () => {
+      const scope = new Set(chunkUnits.map((u) => u.id));
+      const r = await structuredStep(ctx, {
+        step: `${secondPass ? 'classify2' : 'classify'}${classifyChunks.length > 1 ? `#${index + 1}` : ''}`,
+        system: cSystem,
+        messages: [{ role: 'user', content: classifyUser({ units: chunkUnits, attachments, language, secondPass, recent: bundle.recent_inputs, window: classifyChunks.length > 1 && !secondPass ? { index, total: classifyChunks.length, first: chunkUnits[0].id, last: chunkUnits.at(-1).id } : undefined }) }],
+        schema: cSchema,
+        effort: config.classifyEffort,
+        thinking: config.classifyThinking ?? undefined,
+        validate: (json) => validateClassification(json, { areas, templates, scope }),
+      });
+      if (r.status === 'ok' && !secondPass) ctx.report('input clasificado', { advance: true });
+      return r;
     });
-    if (r.status === 'ok') ctx.report('input clasificado', { advance: true });
-    return r;
-  });
-  const classified = await withSpan('classify', { 'team.step': 'classify', 'team.units': units.length, 'team.chunks': classifyChunks.length }, async (span) => {
-    const results = await runPool(classifyTasks, config.partitionConcurrency);
-    span.setAttribute('team.groups', results.reduce((n, r) => n + (r?.json?.groups?.length ?? 0), 0));
-    return results;
-  });
-  const badClass = classified.find((r) => r && r.status !== 'ok');
+    // What the single retry did not fix (overlaps and gaps only) is closed by set arithmetic instead of failing the whole input.
+    const repairable = (r, scope) => {
+      if (r.status !== 'invalid' || !r.repairable) return r;
+      ctx.stats.classification_repaired = (ctx.stats.classification_repaired ?? 0) + 1;
+      return { status: 'ok', json: repairClassification(r.repairable, scope), errors: [], repaired: true };
+    };
+    const results = await withSpan(secondPass ? 'classify.second_pass' : 'classify', { 'team.step': secondPass ? 'classify2' : 'classify', 'team.units': list.length, 'team.chunks': classifyChunks.length }, async (span) => {
+      const out = (await runPool(tasks, config.partitionConcurrency)).map((r, i) => (r ? repairable(r, classifyChunks[i].map((u) => u.id)) : r));
+      span.setAttribute('team.groups', out.reduce((n, r) => n + (r?.json?.groups?.length ?? 0), 0));
+      return out;
+    });
+    return { classifyChunks, results };
+  };
+
+  const first = await classifyUnits(units);
+  const badClass = first.results.find((r) => r && r.status !== 'ok');
   if (badClass) return fail(badClass);
-  const groups = classified.flatMap((r) => r.json.groups);
-  const classDiscarded = classified.flatMap((r) => r.json.discarded);
+  const classifyChunks = first.classifyChunks;
+  let groups = first.results.flatMap((r) => r.json.groups);
+  let classDiscarded = first.results.flatMap((r) => r.json.discarded);
+
+  // -- Second reading (UD-021): a person does not send something for nothing --------------------
+  // «Zero messages» is accepted only after a deeper pass: for images with no text, the images are described again in more
+  // detail; for anything else, the input is read again section by section with the instruction that it was sent for a reason.
+  if (groups.length === 0) {
+    ctx.stats.second_pass = true;
+    ctx.report('leyendo el input a más profundidad');
+    const outcome = await withSpan('analyze.second_pass', { 'team.step': 'second_pass', 'team.units': units.length, 'team.image_only': isImageOnly(workBundle) }, async (span) => {
+      let described = 0;
+      if (isImageOnly(workBundle) && typeof redescribe === 'function') {
+        const redone = await Promise.all((workBundle.attachments ?? []).map(async (a) => {
+          if (a.kind !== 'image' || typeof a.extracted !== 'string' || a.extracted.trim() === '') return a;
+          const text = await redescribe(a);
+          if (typeof text !== 'string' || text.trim() === '') return a;
+          described += 1;
+          return { ...a, extracted: text };
+        }));
+        workBundle = { ...workBundle, attachments: redone };
+        attachments = redone;
+        units = numberUnits(workBundle);
+      }
+      const sections = sectionsOf(units, config.secondPassSectionUnits);
+      const second = await classifyUnits(units, { secondPass: true, chunks: sections });
+      span.setAttributes({ 'team.redescribed': described, 'team.sections': sections.length, 'team.groups': second.results.reduce((n, r) => n + (r?.json?.groups?.length ?? 0), 0) });
+      return second;
+    });
+    const badSecond = outcome.results.find((r) => r && r.status !== 'ok');
+    if (badSecond) return fail(badSecond);
+    groups = outcome.results.flatMap((r) => r.json.groups);
+    classDiscarded = outcome.results.flatMap((r) => r.json.discarded);
+  }
+  // A point is a continuous stretch: what the model discarded between the first and the last unit of a group belongs to it.
+  ({ groups, discarded: classDiscarded } = closeStretches(groups, classDiscarded));
+  const allIds = units.map((u) => u.id);
   ctx.stats.groups = groups.length;
 
-  // -- Llamada 2: descomponer cada grupo con la plantilla del grupo --------------------------
-  const prepared = new Map(); // template_id -> plantilla leída, sistema y esquema
+  // -- Call 2: decompose each group with the group's template --------------------------------
+  const prepared = new Map(); // template_id -> parsed template, system prompt and schema
   const prepare = (templateId) => {
     if (prepared.has(templateId)) return prepared.get(templateId);
     const row = templates.find((t) => t.id === templateId);
     if (typeof row.body_markdown !== 'string') {
       throw new AnalyzeInputError(`La plantilla ${templateId} no trae «body_markdown»`, { calls: ctx.calls });
     }
-    const template = parseTemplate(row.body_markdown, { source: `plantilla ${templateId}` });
-    const system = decomposeSystem(template, project);
+    const template = parseTemplate(row.body_markdown, { source: `template ${templateId}` });
+    const system = decomposeSystem(template, project, language);
     const entry = {
       template,
       system,
-      schema: buildDecompositionSchema(template.fields, { profile, withDiscarded: false }),
-      fixed: estimateTokens([...system, membersBlock(members)].join('\n'), config.charsPerToken),
+      schema: buildDecompositionSchema(template.fields, { profile, withDiscarded: false, requireAssignee: members.length > 0 && profile === 'anthropic' }),
+      fixed: estimateTokens([...system, membersBlock(members, language)].join('\n'), config.charsPerToken),
     };
     prepared.set(templateId, entry);
     return entry;
   };
 
-  const work = []; // una tarea por grupo, o por trozo de un grupo que no cabe
+  const work = []; // one task per group, or per chunk of a group that does not fit
   for (const [gi, group] of groups.entries()) {
     const entry = prepare(group.template_id);
     const ids = new Set(group.unit_ids);
@@ -339,7 +463,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config }) 
   }
   ctx.stats.chunks = work.length;
   ctx.stats.partitioned = work.length > groups.length || classifyChunks.length > 1;
-  ctx.stats.estimated_input_tokens = estimateTokens(renderUnits(units), config.charsPerToken);
+  ctx.stats.estimated_input_tokens = estimateTokens(renderUnits(units, language), config.charsPerToken);
   ctx.progress.total = classifyChunks.length + work.length + 1;
   ctx.report(work.length > 1 ? `descomponiendo ${work.length} grupos` : 'descomponiendo el input');
 
@@ -350,9 +474,9 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config }) 
     'team.template_id': w.group.template_id,
     'team.units': w.units.length,
   }, async (span) => {
-    const scopeNote = w.parts > 1 ? chunkNote({ index: w.pi, total: w.parts, first: w.units[0].id, last: w.units.at(-1).id }) : undefined;
+    const scopeNote = w.parts > 1 ? chunkNote({ index: w.pi, total: w.parts, first: w.units[0].id, last: w.units.at(-1).id, language }) : undefined;
     const label = `[t${w.group.template_id}]${w.parts > 1 ? `#${w.pi + 1}` : ''}`;
-    const r = await decomposeUnits(ctx, { bundle, template: w.entry.template, system: w.entry.system, schema: w.entry.schema, units: w.units, scopeNote, label });
+    const r = await decomposeUnits(ctx, { bundle: workBundle, template: w.entry.template, system: w.entry.system, schema: w.entry.schema, units: w.units, scopeNote, label });
     span.setAttributes({ 'team.status': r.status, 'team.rescued': r.rescued === true });
     if (r.status === 'ok') ctx.report('grupo descompuesto', { advance: true });
     return r.status === 'ok' ? { ...r, group: w.group } : r;
@@ -361,8 +485,8 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config }) 
   const bad = results.find((r) => r && r.status !== 'ok');
   if (bad) return fail(bad);
 
-  // -- Reducción determinista por unit_ids ---------------------------------------------------
-  // Los grupos son disjuntos por unidad: la reducción es una concatenación, sin llamada (informe 02 §3.3).
+  // -- Deterministic reduction by unit_ids ---------------------------------------------------
+  // Groups are disjoint by unit: the reduction is a concatenation, with no call (report 02 §3.3).
   ctx.report('validando la propuesta');
   const merged = {
     messages: results.flatMap((r) => r.messages.map((m) => ({ ...m, area_id: r.group.area_id, template_id: r.group.template_id }))),
@@ -376,26 +500,42 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config }) 
     memberIds: new Set(members.map((m) => m.id)),
     attachmentIds: new Set(attachments.map((a) => a.id)),
   }));
+  if (finalCheck.errors.length === 0 && (finalCheck.conflicts.overlaps.length > 0 || finalCheck.conflicts.gaps.length > 0)) {
+    // Only bookkeeping is left (a unit cited twice or by nobody across the groups): closed by set arithmetic, as in the rescue.
+    const repaired = repairCoverage(merged.messages, merged.discarded, allIds);
+    if (repaired) {
+      ctx.stats.repaired = (ctx.stats.repaired ?? 0) + 1;
+      merged.messages = repaired.messages;
+      merged.discarded = repaired.discarded;
+      finalCheck.conflicts = coverage(merged.messages, merged.discarded, allIds);
+    }
+  }
   if (finalCheck.errors.length > 0 || finalCheck.conflicts.overlaps.length > 0 || finalCheck.conflicts.gaps.length > 0) {
     return fail({ status: 'invalid', step: 'reduce', reason: 'mece_conflict', errors: [...finalCheck.errors, ...describeConflicts(finalCheck.conflicts)], draft: merged });
   }
   const { messages, discarded } = normalizeDecomposition(merged);
+  // A message born only from images, with no text from the person, is marked as inferred from the image (UD-021): the
+  // sender sees it in the preview and can discard it. It is decided by the source of the units, never by the prose.
+  if (isImageOnly(workBundle)) {
+    const imageUnits = new Set(units.filter((u) => u.source.type === 'attachment' && u.source.kind === 'image').map((u) => u.id));
+    for (const m of messages) if (m.unit_ids.every((id) => imageUnits.has(id))) m.source = 'frame';
+  }
   ctx.report('propuesta lista', { advance: true });
   return { status: 'ok', proposal: { messages, discarded }, units, calls: ctx.calls, stats: ctx.stats };
 }
 
 /**
- * Calienta por evento el esquema y el prompt de una plantilla (informe 02 §7 y §10.2: la gramática se
- * cachea 24 horas desde el último uso; se llama al guardar o editar una plantilla, sin reloj).
- * @returns {Promise<object>} la entrada de llm_calls de la llamada de calentamiento
+ * Warms up, by event, the schema and the prompt of a template (report 02 §7 and §10.2: the grammar is
+ * cached for 24 hours since the last use; it is called when saving or editing a template, no clock).
+ * @returns {Promise<object>} the llm_calls entry of the warm-up call
  */
-export async function warmTemplate({ providers, config, templateMarkdown, project }) {
-  const template = parseTemplate(templateMarkdown, { source: 'calentamiento' });
-  const ctx = createContext({ providers, config, unitCount: 0 });
+export async function warmTemplate({ providers, config, templateMarkdown, project, language }) {
+  const template = parseTemplate(templateMarkdown, { source: 'warm-up' });
+  const ctx = createContext({ providers, config, unitCount: 0, language: resolveLanguage(language) });
   const profile = providers.text.schemaProfile ?? 'anthropic';
   const r = await callText(ctx, 'warmup', {
-    system: decomposeSystem(template, project),
-    messages: [{ role: 'user', content: 'Calentamiento de la plantilla. Devuelve messages vacío.' }],
+    system: decomposeSystem(template, project, language),
+    messages: [{ role: 'user', content: 'Template warm-up. Return an empty messages array.' }],
     schema: buildDecompositionSchema(template.fields, { profile, withDiscarded: false }),
     effort: config.classifyEffort,
     maxTokens: config.maxTokens,
@@ -404,15 +544,15 @@ export async function warmTemplate({ providers, config, templateMarkdown, projec
 }
 
 /**
- * Calienta por evento el esquema y el prompt de la clasificación: cambian cuando el Editor edita áreas o
- * plantillas (los `enum` de ids son parte de la estructura). Mismo criterio que `warmTemplate`.
- * @returns {Promise<object>} la entrada de llm_calls de la llamada de calentamiento
+ * Warms up, by event, the schema and the prompt of the classification: they change when the Editor edits
+ * areas or templates (the id `enum`s are part of the structure). Same criterion as `warmTemplate`.
+ * @returns {Promise<object>} the llm_calls entry of the warm-up call
  */
-export async function warmCatalog({ providers, config, areas, templates, project }) {
-  const ctx = createContext({ providers, config, unitCount: 0 });
+export async function warmCatalog({ providers, config, areas, templates, project, language }) {
+  const ctx = createContext({ providers, config, unitCount: 0, language: resolveLanguage(language) });
   const r = await callText(ctx, 'warmup-classify', {
-    system: classifySystem({ areas, templates, project }),
-    messages: [{ role: 'user', content: 'Calentamiento del catálogo. Devuelve groups y discarded vacíos.' }],
+    system: classifySystem({ areas, templates, project, language }),
+    messages: [{ role: 'user', content: 'Catalog warm-up. Return empty groups and discarded arrays.' }],
     schema: buildClassificationSchema({ areas, templates }),
     effort: config.classifyEffort,
     maxTokens: config.maxTokens,

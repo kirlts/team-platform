@@ -1,18 +1,19 @@
-// Extractores de adjuntos (MASTER-SPEC §7.4): convierten cada adjunto en texto o descripción
-// antes del analizador, de forma determinista y medida. Un archivo por tipo; registrar uno
-// nuevo es agregarlo al mapa `EXTRACTORS`.
+// Attachment extractors (MASTER-SPEC §7.4): they turn each attachment into text or a description
+// ahead of the analyzer, deterministically and measured. One file per type; registering a
+// new one means adding it to the `EXTRACTORS` map.
 //
 // extract(attachment, { providers, onProgress, config, signal, deps }) → { text, meta }
-//   attachment: { id, kind, path, mime, size }   (para `link`, `path` lleva la dirección)
+//   attachment: { id, kind, path, mime, size }   (for `link`, `path` carries the address)
 //   providers:  { vision.describe({ images, prompt, schema }), speech.transcribe({ audioPath, language }) }
-//               (MASTER-SPEC §7.6). Cada imagen es { data: Buffer, mime, label }.
-//   onProgress: (percent, phrase) por paso real (MASTER-SPEC §7.10)
-//   config:     perillas sobre los valores de config.js
-//   signal:     AbortSignal para cancelar al apagar el worker (MASTER-SPEC §7.3)
-//   deps:       { lookup } sólo para pruebas del enlace
+//               (MASTER-SPEC §7.6). Each image is { data: Buffer, mime, label }.
+//   onProgress: (percent, phrase) per real step (MASTER-SPEC §7.10)
+//   config:     knobs over the values of config.js
+//   signal:     AbortSignal to cancel when the worker shuts down (MASTER-SPEC §7.3)
+//   deps:       { lookup } only for link tests
+//   deep:       true for the second reading of the analyzer (UD-021): an image is described in more detail
 //
-// `meta` siempre trae `kind`, `warnings` y `elapsedMs`; `meta.calls` lista las llamadas a
-// proveedores para la tabla `llm_calls`. Un fallo es un `ExtractError` con código y motivo.
+// `meta` always carries `kind`, `warnings` and `elapsedMs`; `meta.calls` lists the calls to
+// providers for the `llm_calls` table. A failure is an `ExtractError` with a code and a reason.
 import { access, mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -48,14 +49,14 @@ async function exists(path) {
   }
 }
 
-// Corta en el último salto de línea que cabe, para no partir una frase por la mitad.
+// Cuts at the last line break that fits, so as not to split a sentence in half.
 function truncate(text, maxChars) {
   if (text.length <= maxChars) return null;
   const cut = text.lastIndexOf('\n', maxChars);
   return text.slice(0, cut > 0 ? cut : maxChars);
 }
 
-export async function extract(attachment, { providers, onProgress, config, signal, deps } = {}) {
+export async function extract(attachment, { providers, onProgress, config, signal, deps, deep = false } = {}) {
   const extractor = EXTRACTORS[attachment?.kind];
   if (!extractor) {
     throw new ExtractError('kind_unsupported', 'Este tipo de adjunto no se puede leer.', { kind: attachment?.kind });
@@ -73,7 +74,7 @@ export async function extract(attachment, { providers, onProgress, config, signa
   await mkdir(base, { recursive: true });
   const workDir = await mkdtemp(join(base, 'tp-extract-'));
   try {
-    // Un span por adjunto (UD-014); los pasos de cada extractor cuelgan de él.
+    // One span per attachment (UD-014); each extractor's steps hang from it.
     const result = await withSpan(
       'extract.attachment',
       {
@@ -85,7 +86,7 @@ export async function extract(attachment, { providers, onProgress, config, signa
         'team.input_bytes': attachment.size,
       },
       async () => {
-        const out = await extractor(attachment, { providers, config: cfg, onProgress: tracked, signal, deps, workDir });
+        const out = await extractor(attachment, { providers, config: cfg, onProgress: tracked, signal, deps, workDir, deep });
         annotate({
           'team.output_chars': out.text.length,
           'team.warnings': out.meta.warnings?.length ?? 0,
@@ -111,9 +112,9 @@ export async function extract(attachment, { providers, onProgress, config, signa
 }
 
 /**
- * Segundos de audio que facturará el proveedor de transcripción por este adjunto, para que la cola
- * consulte el presupuesto por hora antes de reclamar el trabajo (MASTER-SPEC §7.4). Cero para lo
- * que no transcribe.
+ * Seconds of audio the transcription provider will bill for this attachment, so the queue
+ * can check the hourly budget before claiming the job (MASTER-SPEC §7.4). Zero for what
+ * does not transcribe.
  */
 export async function estimateAudioSeconds(attachment, { config, signal } = {}) {
   if (attachment.kind !== 'audio' && attachment.kind !== 'video') return 0;

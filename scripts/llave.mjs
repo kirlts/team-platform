@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// Pide una llave de proveedor sin mostrarla, la prueba contra el proveedor y la guarda
-// fuera del repositorio, en ~/.config/team-platform/env (modo 600).
+// Asks for a provider key without echoing it, tests it against the provider and stores it
+// outside the repository, in ~/.config/team-platform/env (mode 600).
 //
 //   node scripts/llave.mjs                 → ANTHROPIC_API_KEY
 //   node scripts/llave.mjs GROQ_API_KEY
 //
-// Ninguna llave pasa por un argumento ni por un archivo del repositorio (MASTER-SPEC §4.6).
+// No key goes through an argument or through a file in the repository (MASTER-SPEC §4.6).
 
 import { createInterface } from 'node:readline';
 import { mkdirSync, readFileSync, writeFileSync, chmodSync, existsSync } from 'node:fs';
@@ -13,7 +13,7 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 
 const PROBES = {
-  // Una lectura barata que exige la llave y no gasta tokens.
+  // A cheap read that requires the key and spends no tokens.
   ANTHROPIC_API_KEY: (key) => fetch('https://api.anthropic.com/v1/models?limit=1', {
     headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01' },
   }),
@@ -28,31 +28,31 @@ const PROBES = {
   }),
 };
 
-// Dónde se crea cada llave, para quien instala por primera vez.
+// Where each key is created, for whoever installs for the first time.
 const GUIDES = {
-  ANTHROPIC_API_KEY: 'https://platform.claude.com → API keys → Create key. Cobra por uso; la cuenta necesita crédito cargado.',
-  GROQ_API_KEY: 'https://console.groq.com/keys → Create API Key. El plan gratuito alcanza para transcribir (whisper-large-v3-turbo); el tope de audio por hora está en docs/MASTER-SPEC.md §7.4.',
-  DEEPSEEK_API_KEY: 'https://platform.deepseek.com/api_keys → Create new API key. Cobra por uso.',
-  OPENROUTER_API_KEY: 'https://openrouter.ai/keys → Create key. Una sola llave para varios proveedores, con comisión.',
+  ANTHROPIC_API_KEY: 'https://platform.claude.com → API keys → Create key. Billed by usage; the account needs credit loaded.',
+  GROQ_API_KEY: 'https://console.groq.com/keys → Create API Key. The free plan is enough to transcribe (whisper-large-v3-turbo); the hourly audio cap is in docs/MASTER-SPEC.md §7.4.',
+  DEEPSEEK_API_KEY: 'https://platform.deepseek.com/api_keys → Create new API key. Billed by usage.',
+  OPENROUTER_API_KEY: 'https://openrouter.ai/keys → Create key. A single key for several providers, with a fee.',
 };
 
 const name = process.argv[2] ?? 'ANTHROPIC_API_KEY';
 if (!PROBES[name]) {
-  console.error(`No sé probar ${name}. Conozco: ${Object.keys(PROBES).join(', ')}`);
+  console.error(`Cannot test ${name}. Known keys: ${Object.keys(PROBES).join(', ')}`);
   process.exit(2);
 }
 console.log(`${name}: ${GUIDES[name]}`);
-console.log('Pegá la llave y Enter (no se muestra mientras escribís).');
+console.log('Paste the key and press Enter (it is not echoed while you type).');
 
 const key = await askHidden(`${name}: `);
 if (!key) {
-  console.error('Vacía. Nada guardado.');
+  console.error('Empty. Nothing saved.');
   process.exit(2);
 }
 
 const response = await PROBES[name](key);
 if (!response.ok) {
-  console.error(`El proveedor contestó ${response.status}. Nada guardado.`);
+  console.error(`The provider answered ${response.status}. Nothing saved.`);
   process.exit(1);
 }
 
@@ -65,8 +65,8 @@ const lines = existsSync(file)
 lines.push(`${name}=${key}`);
 writeFileSync(file, lines.join('\n') + '\n', { mode: 0o600 });
 chmodSync(file, 0o600);
-console.log(`${name} probada (${response.status}) y guardada en ${file}`);
-console.log(`Para usarla: set -a; . ${file}; set +a`);
+console.log(`${name} tested (${response.status}) and saved in ${file}`);
+console.log(`To use it: set -a; . ${file}; set +a`);
 
 function askHidden(prompt) {
   return new Promise((resolve) => {
@@ -82,7 +82,7 @@ function askHidden(prompt) {
       rl.close();
       resolve(answer.trim());
     });
-    // Entrada cerrada sin respuesta (sin terminal): se trata como vacía.
+    // Input closed without an answer (no terminal): treated as empty.
     rl.on('close', () => { if (!answered) resolve(''); });
   });
 }

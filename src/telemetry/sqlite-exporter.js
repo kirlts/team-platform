@@ -1,23 +1,23 @@
-// Exportador de spans a SQLite (MASTER-SPEC §7.10 bis, UD-014).
+// Span exporter to SQLite (MASTER-SPEC §7.10 bis, UD-014).
 //
-// La conexión llega por inyección: la base la abre el núcleo (§3) con sus `PRAGMA`. Este módulo
-// no abre ni cierra nada. `node:sqlite` es síncrono, así que escribir un lote de 512 spans de una
-// vez ocuparía el bucle de eventos. Por eso:
-//   1. `BatchSpanProcessor` junta los spans y los entrega en lotes (nunca uno por uno).
-//   2. El exportador parte cada lote en tajadas de `rowsPerSlice` filas, una transacción por
-//      tajada, y cede el bucle con `setImmediate` entre una y otra. Lo que esté esperando
-//      (una petición HTTP, un latido de la cola) corre entre tajadas.
-//   3. Si el llamador ya tiene una transacción abierta en la misma conexión, las filas entran en
-//      ella en vez de abrir otra (SQLite no anida `BEGIN`).
+// The connection arrives by injection: the core opens the database (§3) with its `PRAGMA`s. This module
+// opens and closes nothing. `node:sqlite` is synchronous, so writing a batch of 512 spans at
+// once would hog the event loop. Therefore:
+//   1. `BatchSpanProcessor` gathers the spans and delivers them in batches (never one by one).
+//   2. The exporter splits each batch into slices of `rowsPerSlice` rows, one transaction per
+//      slice, and yields the loop with `setImmediate` between slices. Whatever is waiting
+//      (an HTTP request, a queue heartbeat) runs between slices.
+//   3. If the caller already has a transaction open on the same connection, the rows go into
+//      it instead of opening another (SQLite does not nest `BEGIN`).
 //
-// Un fallo de escritura no llega a la aplicación: se informa por el canal de diagnóstico de
-// OpenTelemetry y el lote se pierde. Medir no puede romper lo que se mide.
+// A write failure does not reach the application: it is reported through the OpenTelemetry
+// diagnostic channel and the batch is lost. Measuring cannot break what is measured.
 //
-// Medición (2026-10-20, Node 24.20, SQLite en archivo con WAL y synchronous=FULL como el núcleo,
-// `overhead.bench.mjs`): con tajadas de 16 filas la mediana de una tajada es 0,92 ms; sin bajar
-// `synchronous` a NORMAL durante la tajada era 9,6 ms, porque cada COMMIT esperaba un fsync. El
-// resto de las pausas largas (~30 ms) son puntos de control automáticos de WAL, ajenos al exportador.
-// La cifra de sobrecarga por llamada está en la cabecera de `overhead.bench.mjs`.
+// Measurement (2026-10-20, Node 24.20, SQLite on file with WAL and synchronous=FULL like the core,
+// `overhead.bench.mjs`): with slices of 16 rows the median of a slice is 0.92 ms; without lowering
+// `synchronous` to NORMAL during the slice it was 9.6 ms, because each COMMIT waited for an fsync. The
+// remaining long pauses (~30 ms) are automatic WAL checkpoints, unrelated to the exporter.
+// The per-call overhead figure is in the header of `overhead.bench.mjs`.
 import { ExportResultCode } from '@opentelemetry/core';
 import { diag, SpanKind, SpanStatusCode } from '@opentelemetry/api';
 import { DEFAULTS, MS_PER_DAY, NS_PER_MS, NS_PER_SECOND } from './config.js';
@@ -38,14 +38,14 @@ const STATUS_NAMES = Object.freeze({
 
 const hrToNs = ([seconds, nanos]) => BigInt(seconds) * NS_PER_SECOND + BigInt(nanos);
 
-// Niveles de `PRAGMA synchronous` de SQLite: 0 OFF, 1 NORMAL, 2 FULL, 3 EXTRA (sqlite.org/pragma.html).
+// SQLite `PRAGMA synchronous` levels: 0 OFF, 1 NORMAL, 2 FULL, 3 EXTRA (sqlite.org/pragma.html).
 const SYNCHRONOUS_NORMAL = 1;
 
 const INSERT_SQL = `INSERT OR IGNORE INTO spans
   (trace_id, span_id, parent_id, name, kind, start_ns, end_ns, status, status_message, attributes_json, events_json)
   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
-/** Fila de la tabla `spans` para un span terminado del SDK. */
+/** Row of the `spans` table for a finished SDK span. */
 export function spanToRow(span) {
   const ctx = span.spanContext();
   const events = span.events.map((e) => ({ name: e.name, time_ns: hrToNs(e.time).toString(), attributes: e.attributes ?? {} }));
@@ -66,7 +66,7 @@ export function spanToRow(span) {
 
 export class SqliteSpanExporter {
   /**
-   * @param {import('node:sqlite').DatabaseSync} db conexión abierta por el núcleo, con la migración aplicada
+   * @param {import('node:sqlite').DatabaseSync} db connection opened by the core, with the migration applied
    * @param {{rowsPerSlice?: number}} [options]
    */
   constructor(db, options = {}) {
@@ -74,11 +74,11 @@ export class SqliteSpanExporter {
     this.rowsPerSlice = options.rowsPerSlice ?? DEFAULTS.rowsPerSlice;
     this.relaxDurability = options.relaxDurability ?? true;
     this.statement = null;
-    this.pending = []; // lotes por escribir: { spans, callback }
-    this.running = false; // hay un vaciado programado o en curso
+    this.pending = []; // batches to write: { spans, callback }
+    this.running = false; // a drain is scheduled or in progress
     this.stopped = false;
     this.waiters = [];
-    this.slices = 0; // contador para las pruebas y las mediciones
+    this.slices = 0; // counter for tests and measurements
   }
 
   export(spans, resultCallback) {
@@ -98,12 +98,12 @@ export class SqliteSpanExporter {
         try {
           while (batch.spans.length > 0) {
             this.#writeSlice(batch.spans.splice(0, this.rowsPerSlice));
-            // Cede el bucle: lo que haya esperando corre antes de la tajada siguiente.
+            // Yield the loop: whatever is waiting runs before the next slice.
             if (batch.spans.length > 0) await new Promise((resolve) => setImmediate(resolve));
           }
         } catch (error) {
           ok = false;
-          diag.error(`telemetría: no se pudieron escribir los spans en SQLite (${error?.message ?? error})`);
+          diag.error(`telemetry: could not write the spans to SQLite (${error?.message ?? error})`);
         }
         this.pending.shift();
         batch.callback({ code: ok ? ExportResultCode.SUCCESS : ExportResultCode.FAILED });
@@ -117,10 +117,10 @@ export class SqliteSpanExporter {
   #writeSlice(spans) {
     this.statement ??= this.db.prepare(INSERT_SQL);
     const own = !this.db.isTransaction;
-    // Con synchronous=FULL cada COMMIT espera un fsync (7 ms medidos) y eso es lo que ocupa el
-    // bucle. Los spans son telemetría: perder los últimos tras un corte de luz es aceptable, un
-    // archivo corrupto no lo es y WAL con NORMAL no se corrompe. Se baja a NORMAL sólo durante
-    // esta tajada, que es síncrona, así que nadie más escribe con el ajuste cambiado.
+    // With synchronous=FULL each COMMIT waits for an fsync (7 ms measured) and that is what hogs
+    // the loop. Spans are telemetry: losing the last ones after a power cut is acceptable, a
+    // corrupt file is not and WAL with NORMAL does not get corrupted. It is lowered to NORMAL only during
+    // this slice, which is synchronous, so nobody else writes with the setting changed.
     const previous = own && this.relaxDurability ? this.#lowerDurability() : null;
     if (own) this.db.exec('BEGIN IMMEDIATE');
     try {
@@ -135,7 +135,7 @@ export class SqliteSpanExporter {
     this.slices += 1;
   }
 
-  /** Baja `synchronous` a NORMAL y devuelve el nivel anterior; null si ya era NORMAL o más laxo. */
+  /** Lowers `synchronous` to NORMAL and returns the previous level; null if it was already NORMAL or looser. */
   #lowerDurability() {
     const current = this.db.prepare('PRAGMA synchronous').get().synchronous;
     if (current <= SYNCHRONOUS_NORMAL) return null;
@@ -143,7 +143,7 @@ export class SqliteSpanExporter {
     return current;
   }
 
-  /** Resuelve cuando todo lo recibido hasta ahora ya está escrito. */
+  /** Resolves when everything received so far has been written. */
   forceFlush() {
     if (!this.running && this.pending.length === 0) return Promise.resolve();
     return new Promise((resolve) => this.waiters.push(resolve));
@@ -156,7 +156,7 @@ export class SqliteSpanExporter {
   }
 }
 
-/** Borra los spans más viejos que `retentionDays` (misma retención que `job_events`, §7.10 bis). */
+/** Deletes spans older than `retentionDays` (same retention as `job_events`, §7.10 bis). */
 export function pruneSpans(db, { now = Date.now(), retentionDays = DEFAULTS.retentionDays } = {}) {
   const cutoffNs = BigInt(now - retentionDays * MS_PER_DAY) * NS_PER_MS;
   return Number(db.prepare('DELETE FROM spans WHERE end_ns < ?').run(cutoffNs).changes);

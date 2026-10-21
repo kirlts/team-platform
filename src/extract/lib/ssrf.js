@@ -1,8 +1,8 @@
-// Protección contra SSRF para la descarga de enlaces (informe 05 §7.2, OWASP SSRF Prevention
-// Cheat Sheet, CVE-2026-61704). Reglas: nada a redes privadas, de enlace local, de metadatos,
-// de multidifusión ni a `localhost`, en IPv4 e IPv6 (incluidas IPv4 mapeadas, NAT64 y 6to4);
-// las IP literales se revisan antes porque el gancho `lookup` no se ejecuta con ellas.
-// Rangos: registros de direcciones de propósito especial de IANA (RFC 6890 y sucesores).
+// SSRF protection for link downloads (report 05 §7.2, OWASP SSRF Prevention
+// Cheat Sheet, CVE-2026-61704). Rules: nothing to private, link-local, metadata,
+// or multicast networks, nor to `localhost`, in IPv4 and IPv6 (including mapped IPv4, NAT64 and 6to4);
+// literal IPs are checked beforehand because the `lookup` hook does not run for them.
+// Ranges: IANA special-purpose address registries (RFC 6890 and successors).
 import { BlockList, isIP } from 'node:net';
 import { lookup as dnsLookup } from 'node:dns/promises';
 import { ExtractError } from '../errors.js';
@@ -16,7 +16,7 @@ for (const [net, prefix] of [
 
 const v6 = new BlockList();
 for (const [net, prefix] of [
-  ['::', 96], // no especificada, loopback y compatibles con IPv4 (obsoletas)
+  ['::', 96], // unspecified, loopback and IPv4-compatible (obsolete)
   ['100::', 64], ['2001::', 32], ['2001:db8::', 32], ['fc00::', 7], ['fe80::', 10], ['fec0::', 10], ['ff00::', 8],
 ]) v6.addSubnet(net, prefix, 'ipv6');
 
@@ -45,7 +45,7 @@ export function classifyAddress(address) {
   if (family !== 6) return { allowed: false, reason: 'not_an_ip' };
   const g = parseIPv6(address);
   const zeros = (from, to) => g.slice(from, to).every((x) => x === 0);
-  // IPv4 mapeada (::ffff:a.b.c.d), NAT64 (64:ff9b::/96) y 6to4 (2002::/16) llevan una IPv4 adentro.
+  // Mapped IPv4 (::ffff:a.b.c.d), NAT64 (64:ff9b::/96) and 6to4 (2002::/16) carry an IPv4 inside.
   if (zeros(0, 5) && g[5] === 0xffff) return classifyAddress(quad(g[6], g[7]));
   if (g[0] === 0x64 && g[1] === 0xff9b && zeros(2, 6)) return classifyAddress(quad(g[6], g[7]));
   if (g[0] === 0x2002) return classifyAddress(quad(g[1], g[2]));
@@ -57,8 +57,8 @@ function blocked(host, reason) {
 }
 
 /**
- * Resuelve el nombre una sola vez y devuelve las direcciones validadas. La conexión se hace a
- * esas direcciones, nunca a una segunda resolución (informe 05 §7.2).
+ * Resolves the name once and returns the validated addresses. The connection is made to
+ * those addresses, never to a second resolution (report 05 §7.2).
  * @returns {Promise<{address:string,family:number}[]>}
  */
 export async function resolveSafeHost(rawHost, { lookup = dnsLookup, allowedPrivateHosts = [] } = {}) {

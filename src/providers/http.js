@@ -1,13 +1,13 @@
-// Utilidades compartidas por las implementaciones: POST JSON con plazo, partes de contenido neutras.
+// Utilities shared by the implementations: JSON POST with a deadline, neutral content parts.
 import { readFile } from 'node:fs/promises';
 import { ProviderHttpError, ProviderTimeoutError, ProviderConfigError } from './errors.js';
 
-// Plazo de una llamada: la duración máxima de un trabajo es 900 s (MASTER-SPEC §7.3);
-// una llamada no puede durar más que el trabajo que la contiene.
+// Deadline of a call: the maximum duration of a job is 900 s (MASTER-SPEC §7.3);
+// a call cannot last longer than the job that contains it.
 export const DEFAULT_TIMEOUT_MS = 900_000;
 
-// 408, 409, 429 y 5xx (incluido 529 «overloaded» de Anthropic) se marcan reintentables;
-// quién reintenta es la cola (max_attempts 3, §7.3), no el proveedor.
+// 408, 409, 429 and 5xx (including Anthropic's 529 «overloaded») are marked retryable;
+// who retries is the queue (max_attempts 3, §7.3), not the provider.
 export function isRetryableStatus(status) {
   return status === 408 || status === 409 || status === 429 || status >= 500;
 }
@@ -28,7 +28,7 @@ function errorMessageFrom(body, status) {
 }
 
 /**
- * POST y lectura de la respuesta como JSON. Lanza ProviderHttpError o ProviderTimeoutError.
+ * POST and read the response as JSON. Throws ProviderHttpError or ProviderTimeoutError.
  * @returns {Promise<{status: number, json: any, headers: Headers, duration_ms: number}>}
  */
 export async function postRequest(url, { headers, body, timeoutMs = DEFAULT_TIMEOUT_MS, fetchImpl = fetch, provider, model }) {
@@ -72,14 +72,14 @@ export async function postRequest(url, { headers, body, timeoutMs = DEFAULT_TIME
   return { status: response.status, json, headers: response.headers, duration_ms, raw: text };
 }
 
-/** Normaliza `content` (cadena o lista de partes) a lista de partes neutras. */
+/** Normalizes `content` (string or list of parts) to a list of neutral parts. */
 export function toParts(content) {
   if (typeof content === 'string') return [{ type: 'text', text: content }];
   if (Array.isArray(content)) return content;
   throw new ProviderConfigError('El contenido de un mensaje debe ser una cadena o una lista de partes');
 }
 
-/** Devuelve el contenido binario de una parte (`data` en base64 o Buffer, o `path` en disco) como base64. */
+/** Returns the binary content of a part (`data` as base64 or Buffer, or `path` on disk) as base64. */
 export async function partToBase64(part) {
   if (part.data !== undefined && part.data !== null) {
     return Buffer.isBuffer(part.data) ? part.data.toString('base64') : String(part.data);
@@ -88,7 +88,7 @@ export async function partToBase64(part) {
   throw new ProviderConfigError(`La parte ${part.type} necesita «data» o «path»`);
 }
 
-/** `system` admite una cadena o una lista de cadenas; vacío si no hay. */
+/** `system` accepts a string or a list of strings; empty if there is none. */
 export function systemBlocks(system) {
   if (system === undefined || system === null) return [];
   const list = Array.isArray(system) ? system : [system];

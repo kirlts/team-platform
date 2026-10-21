@@ -1,5 +1,5 @@
-// Rutas de inputs (MASTER-SPEC §7.1): crear (multipart, idempotente por hash), listar los propios, consultar,
-// publicar, cancelar y, para el editor, reprocesar.
+// Input routes (MASTER-SPEC §7.1): create (multipart, idempotent by hash), list one's own, query,
+// publish, cancel and, for the editor, reprocess.
 
 import { cancelInput, editInputText, getInputView, listInputs, proposalView as presentProposal, reprocessInput, restoreInput, submitInput } from '../../domain/inputs.js'
 import { getMessage } from '../../domain/messages.js'
@@ -20,14 +20,14 @@ export function registerInputRoutes (app, ctx) {
   app.post('/inputs', {
     onRequest: [requireRole('member')],
     schema: {
-      summary: 'Enviar un input (multipart: text, files[], links[])',
-      description: 'Idempotente por contenido: el mismo texto normalizado, los mismos adjuntos por hash y el mismo emisor devuelven el input que ya existe (200). Un input nuevo, o uno fallido o cancelado que se reenvía, queda en cola (202).',
+      summary: 'Submit an input (multipart: text, files[], links[])',
+      description: 'Idempotent by content: the same normalized text, the same attachments by hash and the same sender return the input that already exists (200). A new input, or a failed or cancelled one that is resubmitted, is queued (202).',
       response: { 200: createdSchema, 202: createdSchema }
     }
   }, async (request, reply) => {
     const { text, links, files } = await readInputUpload(request, config)
     const r = submitInput({ db, queue, events }, { authorId: request.member.id, text, files, links })
-    // 202: el análisis queda en cola. 200: el mismo contenido ya existía y se devuelve lo que hay (§1.3).
+    // 202: the analysis is queued. 200: the same content already existed and what is there is returned (§1.3).
     reply.code(r.created || r.restarted ? 202 : 200)
     return { input_id: r.input.id, job_id: r.jobId, status: r.input.status, duplicate: !r.created && !r.restarted, restarted: r.restarted }
   })
@@ -58,7 +58,7 @@ export function registerInputRoutes (app, ctx) {
 
   app.get('/inputs/:id', {
     onRequest: [requireRole('member')],
-    schema: { summary: 'Un input propio, con su avance y su propuesta', params: idParams(), response: { 200: inputView } }
+    schema: { summary: 'One of one\'s own inputs, with its progress and proposal', params: idParams(), response: { 200: inputView } }
   }, async (request) => getInputView({ db, queue, events }, request.params.id, request.member.id))
 
   app.patch('/inputs/:id', {
@@ -105,7 +105,7 @@ export function registerInputRoutes (app, ctx) {
   app.post('/inputs/:id/cancel', {
     onRequest: [requireRole('member')],
     schema: {
-      summary: 'Cancelar un input propio y sus trabajos',
+      summary: 'Cancel one\'s own input and its jobs',
       params: idParams(),
       response: { 200: { type: 'object', properties: { input_id: { type: 'string' }, status: { type: 'string' }, cancelled_jobs: { type: 'array', items: { type: 'string' } } } } }
     }

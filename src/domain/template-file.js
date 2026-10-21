@@ -1,14 +1,14 @@
-// Plantillas como archivo markdown con frontmatter YAML (MASTER-SPEC §7.9). La lectura y validación son las
-// del analizador (`src/analyze/templates.js`): una sola definición de qué es una plantilla válida, para que
-// nada que se guarde acá falle después al analizar. Este módulo sólo traduce sus errores a 422 de la API y
-// reescribe name y description cuando el editor los cambia por separado.
+// Templates as a markdown file with YAML frontmatter (MASTER-SPEC §7.9). Reading and validation are those
+// of the analyzer (`src/analyze/templates.js`): a single definition of what a valid template is, so that
+// nothing saved here fails later during analysis. This module only translates its errors to API 422s and
+// rewrites name and description when the editor changes them separately.
 
 import { dump, load } from 'js-yaml'
 import { TemplateError } from '../analyze/errors.js'
 import { compileFieldsSchema, parseTemplate as parseFromAnalyzer } from '../analyze/templates.js'
 import { unprocessable } from './errors.js'
 
-/** Valida y normaliza. Devuelve { name, description, fields:[{name,label,required}], body }. Lanza 422. */
+/** Validates and normalizes. Returns { name, description, fields:[{name,label,required}], body }. Throws 422. */
 export function parseTemplate (markdown) {
   if (typeof markdown !== 'string' || markdown.trim() === '') throw unprocessable('La plantilla está vacía.', 'template_invalid')
   try {
@@ -19,12 +19,12 @@ export function parseTemplate (markdown) {
   }
 }
 
-/** Esquema JSON del objeto `fields` de un mensaje, con el que el analizador valida (obligatorio no vacío). */
+/** JSON schema of a message's `fields` object, with which the analyzer validates (required means non-empty). */
 export function fieldsSchema (fields) {
   return compileFieldsSchema(fields, { validation: true })
 }
 
-/** Reescribe name y description en el encabezado conservando el resto del archivo. */
+/** Rewrites name and description in the header, keeping the rest of the file. */
 export function withFrontmatter (markdown, { name, description }) {
   const textValue = String(markdown).replace(/\r\n?/g, '\n')
   const lines = textValue.split('\n')

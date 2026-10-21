@@ -1,6 +1,6 @@
 // @vitest-environment node
-// UD-022: el texto corrido se justifica sin guiones de corte, con una sola clase compartida,
-// `.prose-block`. Ningún componente justifica por su cuenta y la clase nunca enciende `hyphens`.
+// UD-022: running text is justified without hyphenation, with a single shared class,
+// `.prose-block`. No component justifies on its own and the class never turns `hyphens` on.
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'

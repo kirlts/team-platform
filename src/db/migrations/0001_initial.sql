@@ -1,25 +1,25 @@
--- Esquema inicial de team-platform (MASTER-SPEC §7.2).
--- Las marcas de tiempo son enteros en milisegundos desde la época Unix (UTC); la API las expone en ISO 8601.
--- Las migraciones sólo avanzan: el ejecutor corre cada archivo dentro de una transacción y fija
--- PRAGMA user_version al número del archivo (informe 03 §6).
+-- Initial schema of team-platform (MASTER-SPEC §7.2).
+-- Timestamps are integers in milliseconds since the Unix epoch (UTC); the API exposes them as ISO 8601.
+-- Migrations only move forward: the runner runs each file inside a transaction and sets
+-- PRAGMA user_version to the file's number (report 03 §6).
 --
--- Columnas y tablas agregadas a §7.2, con su motivo:
---   jobs.input_id           permite saber a qué miembro pertenece el progreso sin leer payload_json.
+-- Columns and tables added to §7.2, with the reason:
+--   jobs.input_id           makes it possible to know which member the progress belongs to without reading payload_json.
 --   job_events.kind/member_id/data_json
---                           un solo flujo con reposición por seq lleva progreso, fin de trabajo y avisos
---                           de mensajes (§7.10: «un flujo SSE por miembro»).
---   inputs.error/error_code motivo visible y código estable de un input fallido (§7.5).
---   attachments.name        nombre original, para mostrarlo y para elegir el extractor por extensión.
---   attachments.extract_*   metadatos de la extracción (`meta` del extractor).
+--                           a single stream with replay by seq carries progress, job completion and message
+--                           notices (§7.10: «one SSE stream per member»).
+--   inputs.error/error_code visible reason and stable code of a failed input (§7.5).
+--   attachments.name        original name, to display it and to choose the extractor by extension.
+--   attachments.extract_*   extraction metadata (the extractor's `meta`).
 --   credentials.failed_count/next_attempt_at
---                           espera exponencial por cuenta y tope duro (informe 04 §2.4).
+--                           exponential wait per account and hard cap (report 04 §2.4).
 --   sessions.created_at/last_seen_at
---                           vencimiento por inactividad (informe 04 §2.2).
---   audit_log               bitácora consultable por el editor (GET /audit).
---   (llm_calls ya no es tabla: es una vista sobre `spans`, ver 0002_telemetry.sql, UD-014)
+--                           expiry by inactivity (report 04 §2.2).
+--   audit_log               log queryable by the editor (GET /audit).
+--   (llm_calls is no longer a table: it is a view over `spans`, see 0002_telemetry.sql, UD-014)
 --   settings, identity_links, sso_nonces
---                           proveedores configurables (§7.6), mapeo de identidad externa y nonce de uso
---                           único del modo sso-redirect (§7.7).
+--                           configurable providers (§7.6), external identity mapping and single-use nonce
+--                           of the sso-redirect mode (§7.7).
 
 CREATE TABLE members (
   id               INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -27,7 +27,7 @@ CREATE TABLE members (
   name             TEXT    NOT NULL,
   role             TEXT    NOT NULL DEFAULT 'member' CHECK (role IN ('member', 'editor')), -- UD-007
   responsibilities TEXT    NOT NULL DEFAULT '',
-  domains          TEXT    NOT NULL DEFAULT '[]', -- lista de dominios en JSON; la API la expone como arreglo
+  domains          TEXT    NOT NULL DEFAULT '[]', -- list of domains as JSON; the API exposes it as an array
   created_at       INTEGER NOT NULL
 );
 
@@ -40,7 +40,7 @@ CREATE TABLE credentials (
 );
 
 CREATE TABLE sessions (
-  id           TEXT    PRIMARY KEY, -- SHA-256 hexadecimal de la ficha; la ficha sólo vive en la cookie
+  id           TEXT    PRIMARY KEY, -- hexadecimal SHA-256 of the token; the token only lives in the cookie
   member_id    INTEGER NOT NULL REFERENCES members (id) ON DELETE CASCADE,
   created_at   INTEGER NOT NULL,
   last_seen_at INTEGER NOT NULL,
@@ -63,8 +63,8 @@ CREATE TABLE sso_nonces (
   used_at    INTEGER
 );
 
--- Áreas y plantillas se borran en blando (`deleted_at`): los mensajes que las referencian no se pierden y se
--- pueden restaurar. La unicidad rige sólo entre las vigentes.
+-- Areas and templates are soft-deleted (`deleted_at`): the messages that reference them are not lost and can
+-- be restored. Uniqueness applies only among the current ones.
 CREATE TABLE areas (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   title       TEXT    NOT NULL COLLATE NOCASE,
@@ -76,10 +76,10 @@ CREATE UNIQUE INDEX areas_title_vigente ON areas (title) WHERE deleted_at IS NUL
 
 CREATE TABLE templates (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
-  area_id       INTEGER NOT NULL REFERENCES areas (id) ON DELETE CASCADE, -- cada plantilla, de una sola área
+  area_id       INTEGER NOT NULL REFERENCES areas (id) ON DELETE CASCADE, -- each template belongs to a single area
   name          TEXT    NOT NULL,
   description   TEXT    NOT NULL,
-  body_markdown TEXT    NOT NULL, -- el archivo completo, con su frontmatter (§7.9)
+  body_markdown TEXT    NOT NULL, -- the complete file, with its frontmatter (§7.9)
   updated_at    INTEGER NOT NULL,
   deleted_at    INTEGER
 );
@@ -90,11 +90,11 @@ CREATE TABLE inputs (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   author_id    INTEGER NOT NULL REFERENCES members (id),
   text         TEXT    NOT NULL DEFAULT '',
-  content_hash TEXT    NOT NULL UNIQUE, -- §1.3: mismo input, mismo trabajo
+  content_hash TEXT    NOT NULL UNIQUE, -- §1.3: same input, same job
   status       TEXT    NOT NULL DEFAULT 'queued'
                CHECK (status IN ('queued', 'extracting', 'analyzing', 'proposed', 'published', 'failed', 'cancelled')),
   error        TEXT,
-  error_code   TEXT, -- código estable del fallo (p. ej. el de un ExtractError) para que el cliente lo muestre
+  error_code   TEXT, -- stable failure code (e.g. that of an ExtractError) for the client to display
   created_at   INTEGER NOT NULL,
   updated_at   INTEGER NOT NULL
 );
@@ -105,7 +105,7 @@ CREATE TABLE attachments (
   input_id            INTEGER NOT NULL REFERENCES inputs (id) ON DELETE CASCADE,
   kind                TEXT    NOT NULL CHECK (kind IN ('image', 'video', 'audio', 'document', 'link')),
   name                TEXT    NOT NULL DEFAULT '',
-  path                TEXT    NOT NULL, -- nombre del archivo en el volumen (su sha256); para kind=link, la URL
+  path                TEXT    NOT NULL, -- file name in the volume (its sha256); for kind=link, the URL
   mime                TEXT    NOT NULL DEFAULT '',
   size                INTEGER NOT NULL DEFAULT 0,
   sha256              TEXT    NOT NULL,
@@ -131,15 +131,15 @@ CREATE TABLE jobs (
   created_at   INTEGER NOT NULL,
   finished_at  INTEGER
 );
--- §7.2: reclamo en 23 µs con este índice (informe 03).
+-- §7.2: claim in 23 µs with this index (report 03).
 CREATE INDEX jobs_claim ON jobs (status, priority DESC, run_at, id);
 CREATE INDEX jobs_input ON jobs (input_id);
 
 CREATE TABLE job_events (
-  seq         INTEGER PRIMARY KEY AUTOINCREMENT, -- id del evento SSE: Last-Event-ID (§7.10)
+  seq         INTEGER PRIMARY KEY AUTOINCREMENT, -- SSE event id: Last-Event-ID (§7.10)
   job_id      INTEGER REFERENCES jobs (id) ON DELETE CASCADE,
   kind        TEXT    NOT NULL CHECK (kind IN ('progress', 'done', 'message')),
-  member_id   INTEGER REFERENCES members (id) ON DELETE CASCADE, -- destinatario; NULL = todo el equipo
+  member_id   INTEGER REFERENCES members (id) ON DELETE CASCADE, -- recipient; NULL = the whole team
   percent     INTEGER,
   phrase      TEXT,
   data_json   TEXT,
@@ -149,9 +149,9 @@ CREATE INDEX job_events_job ON job_events (job_id, seq);
 CREATE INDEX job_events_at ON job_events (at);
 
 CREATE TABLE proposals (
-  input_id      INTEGER PRIMARY KEY REFERENCES inputs (id) ON DELETE CASCADE, -- una propuesta por input
-  payload_json  TEXT    NOT NULL, -- { messages: [{ area_id, template_id, … }], discarded }: el área y la plantilla son de cada mensaje
-  units_json    TEXT, -- las unidades numeradas del input ({ id, text }): lo que cada mensaje cubre y lo descartado
+  input_id      INTEGER PRIMARY KEY REFERENCES inputs (id) ON DELETE CASCADE, -- one proposal per input
+  payload_json  TEXT    NOT NULL, -- { messages: [{ area_id, template_id, … }], discarded }: the area and the template belong to each message
+  units_json    TEXT, -- the numbered units of the input ({ id, text }): what each message covers and what was discarded
   created_at    INTEGER NOT NULL
 );
 
@@ -182,7 +182,7 @@ CREATE INDEX message_assignees_member ON message_assignees (member_id);
 CREATE TABLE message_attachments (
   message_id    INTEGER NOT NULL REFERENCES messages (id) ON DELETE CASCADE,
   attachment_id INTEGER NOT NULL REFERENCES attachments (id) ON DELETE CASCADE,
-  position      INTEGER NOT NULL DEFAULT 0, -- el primero es el adjunto principal de la tarjeta
+  position      INTEGER NOT NULL DEFAULT 0, -- the first one is the card's main attachment
   PRIMARY KEY (message_id, attachment_id)
 );
 CREATE INDEX message_attachments_attachment ON message_attachments (attachment_id);
@@ -203,7 +203,7 @@ CREATE TABLE settings (
   updated_at INTEGER NOT NULL
 );
 
--- Bitácora de lo que cambia el equipo: quién creó, publicó, cerró, reabrió o editó áreas y plantillas, y cuándo.
+-- Log of what the team changes: who created, published, closed, reopened or edited areas and templates, and when.
 CREATE TABLE audit_log (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   at          INTEGER NOT NULL,

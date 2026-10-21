@@ -1,16 +1,20 @@
-// Léxico mínimo de JavaScript para las pruebas estáticas: separa identificadores, cadenas, plantillas, expresiones
-// regulares y comentarios, de modo que una regla sobre el código no se confunda con el texto de un comentario o de
-// un mensaje. No es un analizador sintáctico: alcanza para recorrer identificadores y comentarios.
+// Minimal JavaScript lexer for the static tests: it separates identifiers, strings, templates, regular
+// expressions and comments, so that a rule about the code is not confused by the text of a comment or of
+// a message. It is not a parser: it is enough to walk identifiers and comments.
 
 const REGEX_PRECEDERS = new Set(['(', ',', '=', ':', '[', '!', '&', '|', '?', '{', '}', ';', '+', '-', '*', '%', '<', '>', '~', '^', '=>'])
 const KEYWORDS_BEFORE_REGEX = new Set(['return', 'typeof', 'case', 'in', 'of', 'delete', 'void', 'throw', 'new', 'await', 'yield', 'else', 'do'])
 const IDENT_START = /[\p{L}_$]/u
 const IDENT_PART = /[\p{L}\p{N}_$]/u
 
-/** Devuelve tokens { type: 'ident' | 'string' | 'template' | 'regex' | 'comment' | 'number' | 'punct', value, start, end }. */
-export function lex (src) {
+/**
+ * Returns tokens { type: 'ident' | 'string' | 'template' | 'regex' | 'comment' | 'number' | 'punct', value, start, end }.
+ * With `jsx: true` it tolerates TSX: `</` and `/>` are punctuation (never a regular expression) and an unclosed string ends at the
+ * line break (an apostrophe inside an element's text does not open a string).
+ */
+export function lex (src, { jsx = false } = {}) {
   const tokens = []
-  const tpls = [] // profundidad de llaves dentro de cada ${ … } abierto
+  const tpls = [] // brace depth inside each open ${ … }
   let i = 0
   const n = src.length
   let previous = null
@@ -21,7 +25,7 @@ export function lex (src) {
     if (type !== 'comment') previous = t
   }
 
-  const readTemplateChunk = () => { // desde el interior de una plantilla hasta `${` o el cierre
+  const readTemplateChunk = () => { // from inside a template up to `${` or the closing
     const startFlow = i
     while (i < n) {
       if (src[i] === '\\') { i += 2; continue }
@@ -39,7 +43,7 @@ export function lex (src) {
     if (c === '/' && src[i + 1] === '*') { const s = i; i = src.indexOf('*/', i + 2); i = i < 0 ? n : i + 2; push('comment', s, i); continue }
     if (c === '"' || c === "'") {
       const s = i; i++
-      while (i < n && src[i] !== c) i += src[i] === '\\' ? 2 : 1
+      while (i < n && src[i] !== c && !(jsx && src[i] === '\n')) i += src[i] === '\\' ? 2 : 1
       i++; push('string', s, i); continue
     }
     if (c === '`') { const s = i; i++; const before = tokens.length; readTemplateChunk(); tokens[before].start = s; tokens[before].value = src.slice(s, tokens[before].end); continue }
@@ -50,6 +54,7 @@ export function lex (src) {
       tokens[before].start = s; tokens[before].value = src.slice(s, tokens[before].end)
       continue
     }
+    if (c === '/' && jsx && (src[i + 1] === '>' || previous?.value === '<')) { push('punct', i, i + 1); i++; continue }
     if (c === '/') {
       const regexAllowed = previous === null || (previous.type === 'punct' && REGEX_PRECEDERS.has(previous.value)) || (previous.type === 'ident' && KEYWORDS_BEFORE_REGEX.has(previous.value))
       if (regexAllowed) {
@@ -77,7 +82,7 @@ export function lex (src) {
   return tokens
 }
 
-/** Reescribe los identificadores del código (nunca cadenas, plantillas ni comentarios) con `mapa`. */
+/** Rewrites the identifiers of the code (never strings, templates or comments) using `table`. */
 export function renameIdentifiers (src, table) {
   let outText = ''
   let cursor = 0

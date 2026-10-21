@@ -1,8 +1,8 @@
-// Worker de la cola (MASTER-SPEC §7.3). Dos formas de correrlo con el mismo código:
-//   - dentro de la API (WORKER_MODE=inline, la omisión): `server.js` llama a createWorker().
-//   - como proceso aparte de la misma imagen (WORKER_MODE=external): `node src/worker.js`. Este proceso NO migra
-//     ni siembra: eso es el paso de inicialización único (`npm run db:init`) que corre antes de los dos.
-// La exclusión entre workers la pone SQLite, no el proceso (M2: cuatro procesos, cero duplicados).
+// Queue worker (MASTER-SPEC §7.3). Two ways to run it with the same code:
+//   - inside the API (WORKER_MODE=inline, the default): `server.js` calls createWorker().
+//   - as a separate process of the same image (WORKER_MODE=external): `node src/worker.js`. This process does NOT migrate
+//     or seed: that is the single initialization step (`npm run db:init`) that runs before both.
+// Mutual exclusion between workers is provided by SQLite, not by the process (M2: four processes, zero duplicates).
 
 import { randomUUID } from 'node:crypto'
 import { pathToFileURL } from 'node:url'
@@ -19,17 +19,17 @@ import { loadModules } from './domain/modules.js'
 import { sweepOrphans } from './domain/storage.js'
 import { runInJobScope, setLimiterLogger } from './providers/limiter.js'
 
-const MAX_TIMEOUT = 2 ** 31 - 1 // cortesía declarada: the maximum Node's own setTimeout accepts; it does not govern operation
+const MAX_TIMEOUT = 2 ** 31 - 1 // declared courtesy: the maximum Node's own setTimeout accepts; it does not govern operation
 
 /**
- * Worker de la cola. `handlers[kind] = { run(job, ctx) → finalize?, onFailure(job, error, outcome) }`.
- * `pollDataVersionMs`: sólo para el proceso aparte; despierta el reclamo cuando otra conexión confirma una
- * escritura (el trabajo encolado por la API).
+ * Queue worker. `handlers[kind] = { run(job, ctx) → finalize?, onFailure(job, error, outcome) }`.
+ * `pollDataVersionMs`: only for the separate process; wakes the claim when another connection commits a
+ * write (the job enqueued by the API).
  */
 export function createWorker ({ db, queue, events, config, handlers, workerId = `worker-${randomUUID()}`, logger = createLogger({ logLevel: 'silent' }), now = Date.now, pollDataVersionMs = null, onSweep = null }) {
   const w = config.worker
   setLimiterLogger(logger) // the cap reductions of the provider limiters go to the worker's log (H-83)
-  const runningJobs = new Map() // job.id → { controller, promesa }
+  const runningJobs = new Map() // job.id → { controller, promise }
   let stopped = true
   let tickTimer = null
   let nextTimer = null
@@ -41,7 +41,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     if (stopped) return
     const nextAt = queue.nextRunAt()
     if (nextAt === null) return
-    // Duerme exactamente hasta el próximo `run_at` (reintentos con retroceso): no hay sondeo de reloj.
+    // Sleeps exactly until the next `run_at` (retries with backoff): there is no clock polling.
     nextTimer = setTimeout(kick, Math.min(MAX_TIMEOUT, Math.max(0, nextAt - now())))
     nextTimer.unref?.()
   }
@@ -55,7 +55,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     if (stopped) return
     while (runningJobs.size < w.concurrency) {
       let job
-      try { job = queue.claim(workerId) } catch (error) { logger.error({ err: error }, 'error al reclamar'); break }
+      try { job = queue.claim(workerId) } catch (error) { logger.error({ err: error }, 'error while claiming'); break }
       if (!job) break
       execute(job)
     }
@@ -63,9 +63,9 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
   }
 
   function execute (job) {
-    // Toda línea del trabajo lleva job_id e input_id.
+    // Every line of the job carries job_id and input_id.
     const jobLog = logger.child({ job_id: job.id, input_id: parseJson(job.payload_json, {}).input_id ?? null, kind: job.kind, attempt: job.attempts, worker_id: workerId })
-    jobLog.info('trabajo reclamado')
+    jobLog.info('job claimed')
     const controller = new AbortController()
     const abortJob = (abortReason) => { if (!controller.signal.aborted) controller.abort(abortReason) }
     const ctx = { signal: controller.signal, abort: abortJob, workerId }
@@ -73,8 +73,8 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     const cap = setTimeout(() => abortJob('timeout'), w.maxRuntimeMs)
 
     const inputId = parseJson(job.payload_json, {}).input_id ?? null
-    // Cada trabajo de la cola es un span (UD-014): los extractores y proveedores cuelgan de él.
-    // Cada intento es la raíz de su propio árbol: sin ROOT_CONTEXT el span heredaría el del trabajo que lo despertó.
+    // Every queue job is a span (UD-014): the extractors and providers hang from it.
+    // Each attempt is the root of its own tree: without ROOT_CONTEXT the span would inherit that of the job that woke it.
     // The provider calls of this job wait for their slot as this job (round-robin across jobs) and stop waiting if the job is aborted.
     const running = runInJobScope({ jobId: job.id, signal: controller.signal }, () => context.with(ROOT_CONTEXT, () => withSpan('job', { 'team.job_id': String(job.id), 'team.input_id': inputId === null ? '' : String(inputId), 'team.step': 'job', 'team.job_kind': job.kind, 'team.attempt': job.attempts }, async (span) => {
       const handlerObj = handlers[job.kind]
@@ -85,13 +85,13 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
         }
         const finalize = await handlerObj.run(job, ctx)
         controller.signal.throwIfAborted()
-        // Cierra el trabajo y aplica las escrituras finales en una sola transacción, bajo la barrera de intento.
+        // Closes the job and applies the final writes in a single transaction, under the attempt barrier.
         events.transaction(() => {
           if (!queue.complete(job)) throw Object.assign(new Error('Se perdió el arriendo antes de terminar.'), { lost: true })
           finalize?.()
         })
         span.setAttribute('team.outcome', 'done')
-        jobLog.info('trabajo terminado')
+        jobLog.info('job finished')
       } catch (error) {
         await handleError(job, handlerObj, controller, error, jobLog, span)
       } finally {
@@ -106,14 +106,14 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
 
   async function handleError (job, handlerObj, controller, error, jobLog, span) {
     const abortReason = controller.signal.aborted ? controller.signal.reason : null
-    if (error?.lost || abortReason === 'lost') { span.setAttribute('team.outcome', 'lost'); jobLog.warn('trabajo cancelado o arriendo perdido; no se aplica nada'); return } // el estado ya no es nuestro
-    if (abortReason === 'shutdown') { queue.release(job); span.setAttribute('team.outcome', 'released'); jobLog.info('apagado: el trabajo vuelve a la cola y el intento se reembolsa'); return }
+    if (error?.lost || abortReason === 'lost') { span.setAttribute('team.outcome', 'lost'); jobLog.warn('job cancelled or lease lost; nothing is applied'); return } // the state is no longer ours
+    if (abortReason === 'shutdown') { queue.release(job); span.setAttribute('team.outcome', 'released'); jobLog.info('shutdown: the job goes back to the queue and the attempt is refunded'); return }
     if (error?.deferMs !== undefined) {
-      // Sin cupo (presupuesto de audio): vuelve a la cola para más tarde y el intento no se gasta.
+      // No quota left (audio budget): goes back to the queue for later and the attempt is not spent.
       if (queue.defer(job, error.deferMs)) {
         span.setAttribute('team.outcome', 'deferred')
-        try { handlerObj?.onDeferred?.(job, error) } catch (e) { jobLog.error({ err: e }, 'error al registrar el aplazamiento') }
-        jobLog.info({ delay_ms: error.deferMs }, `trabajo aplazado: ${error.phrase}`)
+        try { handlerObj?.onDeferred?.(job, error) } catch (e) { jobLog.error({ err: e }, 'error while recording the deferral') }
+        jobLog.info({ delay_ms: error.deferMs }, `job deferred: ${error.phrase}`)
       }
       return
     }
@@ -122,23 +122,23 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     span.setAttribute('team.outcome', result.state === 'lost' ? 'lost' : result.state)
     span.setAttribute('error.type', errorType(failureCause))
     if (result.state === 'lost') return
-    try { handlerObj?.onFailure?.(job, failureCause, result) } catch (e) { jobLog.error({ err: e }, 'error al registrar el fallo') }
-    jobLog.warn({ outcome: result.state, delay_ms: result.delayMs, error_code: failureCause.code ?? null }, `trabajo fallido: ${failureCause.message}`)
+    try { handlerObj?.onFailure?.(job, failureCause, result) } catch (e) { jobLog.error({ err: e }, 'error while recording the failure') }
+    jobLog.warn({ outcome: result.state, delay_ms: result.delayMs, error_code: failureCause.code ?? null }, `job failed: ${failureCause.message}`)
   }
 
   function sweepLeases () {
     try {
       queue.recoverExpiredLeases()
       kick()
-    } catch (error) { logger.error({ err: error }, 'error al recuperar arriendos') }
+    } catch (error) { logger.error({ err: error }, 'error while recovering leases') }
   }
 
   async function sweepRetentionJob () {
     try {
       const r = queue.sweepRetention()
       const orphans = onSweep ? await onSweep() : 0
-      if (r.jobs || r.events || r.sessions || r.spans || orphans) logger.info({ ...r, orphans }, 'retención')
-    } catch (error) { logger.error({ err: error }, 'error en la retención') }
+      if (r.jobs || r.events || r.sessions || r.spans || orphans) logger.info({ ...r, orphans }, 'retention')
+    } catch (error) { logger.error({ err: error }, 'error in retention') }
   }
 
   const onCancelled = (jobId) => runningJobs.get(jobId)?.controller.abort('lost')
@@ -148,8 +148,8 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     stopped = false
     queue.signals.on('enqueued', kick)
     queue.signals.on('cancelled', onCancelled)
-    queue.recoverExpiredLeases() // al arrancar (MS §7.3)
-    timers.push(setInterval(sweepLeases, w.heartbeatMs)) // por ciclo, a la cadencia del latido
+    queue.recoverExpiredLeases() // at startup (MS §7.3)
+    timers.push(setInterval(sweepLeases, w.heartbeatMs)) // per cycle, at the heartbeat's cadence
     timers.push(setInterval(sweepRetentionJob, w.retentionSweepMs))
     if (pollDataVersionMs) {
       version = db.prepare('PRAGMA data_version').get().data_version
@@ -163,7 +163,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     kick()
   }
 
-  /** Apagado ordenado: deja de reclamar, aborta lo que corre y devuelve esos trabajos a la cola (sin esperar). */
+  /** Orderly shutdown: stops claiming, aborts what is running and returns those jobs to the queue (without waiting). */
   async function stop () {
     stopped = true
     clearTimeout(nextTimer)
@@ -178,7 +178,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
   return { start, stop, wake: kick, get active () { return runningJobs.size }, workerId }
 }
 
-/** Arma el worker con sus dependencias reales. Lo usan `server.js` y el modo proceso aparte. */
+/** Builds the worker with its real dependencies. Used by `server.js` and the separate-process mode. */
 export async function buildWorker ({ db, config, events, queue = null, env = process.env, logger = createLogger(config), pollDataVersionMs = null }) {
   const outbox = queue ?? createQueue({ db, config, events })
   const modules = await loadModules(config, { db, env, log: (m) => logger.warn(m) })
@@ -190,7 +190,7 @@ export async function buildWorker ({ db, config, events, queue = null, env = pro
   return { worker, queue: outbox, modules }
 }
 
-// ---- Proceso aparte
+// ---- Separate process
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   loadEnvFile()
   const config = loadConfig()
@@ -206,9 +206,9 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   const telemetry = initTelemetry({ db, serviceVersion: config.version })
   const { worker } = await buildWorker({ db, config, events, logger, pollDataVersionMs: config.worker.dataVersionPollMs })
   worker.start()
-  logger.info({ worker_id: worker.workerId, concurrency: config.worker.concurrency }, 'worker en marcha')
+  logger.info({ worker_id: worker.workerId, concurrency: config.worker.concurrency }, 'worker running')
   const shutDown = async (signalName) => {
-    logger.info(`${signalName}: devolviendo los trabajos en curso a la cola`)
+    logger.info(`${signalName}: returning the jobs in progress to the queue`)
     await worker.stop()
     await telemetry.shutdown()
     db.close()

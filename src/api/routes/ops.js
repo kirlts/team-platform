@@ -1,4 +1,4 @@
-// Rutas de operación del editor: la cola de trabajos, su purga y la bitácora.
+// Editor operations routes: the job queue, its purge and the log.
 
 import { audit, listAudit } from '../../domain/audit.js'
 import { notFound } from '../../domain/errors.js'
@@ -31,7 +31,7 @@ export function registerOpsRoutes (app, ctx) {
   app.get('/jobs', {
     onRequest: [requireRole('editor')],
     schema: {
-      summary: 'La cola de trabajos, filtrable por estado (editor)',
+      summary: 'The job queue, filterable by state (editor)',
       querystring: {
         type: 'object', additionalProperties: false,
         properties: { ...pageQuerySchema(config), state: { type: 'string', enum: ['queued', 'running', 'done', 'failed', 'cancelled'] } }
@@ -47,13 +47,13 @@ export function registerOpsRoutes (app, ctx) {
   app.get('/jobs/:id/trace', {
     onRequest: [requireRole('editor')],
     schema: {
-      summary: 'El árbol de spans de un trabajo (editor)',
-      description: 'Un árbol por intento de la cola: tiempos por paso, llamadas a proveedores con sus tokens y costo. Los nanosegundos viajan como texto. 404 si el trabajo no dejó spans.',
+      summary: 'The span tree of a job (editor)',
+      description: 'One tree per queue attempt: times per step, provider calls with their tokens and cost. Nanoseconds travel as text. 404 if the job left no spans.',
       params: idParams(),
       response: { 200: { type: 'object', additionalProperties: true } }
     }
   }, async (request) => {
-    await telemetry?.flush() // escribe ya lo que esté en cola: el trabajo recién terminado también se ve
+    await telemetry?.flush() // writes now whatever is queued: a job that has just finished is visible too
     const trace = traceOfJob(db, request.params.id)
     if (!trace) throw notFound('El trabajo no dejó spans.')
     return trace
@@ -62,7 +62,7 @@ export function registerOpsRoutes (app, ctx) {
   app.delete('/jobs', {
     onRequest: [requireRole('editor')],
     schema: {
-      summary: 'Purgar los trabajos terminados de un estado (exige ?confirm=true)',
+      summary: 'Purge the finished jobs of a state (requires ?confirm=true)',
       querystring: {
         type: 'object', additionalProperties: false, required: ['state'],
         properties: { state: { type: 'string', enum: ['done', 'failed', 'cancelled'] }, confirm: { type: 'boolean' } }
@@ -79,7 +79,7 @@ export function registerOpsRoutes (app, ctx) {
   app.get('/audit', {
     onRequest: [requireRole('editor')],
     schema: {
-      summary: 'Bitácora: quién creó, publicó, cerró, reabrió o editó, y cuándo (editor)',
+      summary: 'Log: who created, published, closed, reopened or edited, and when (editor)',
       querystring: {
         type: 'object', additionalProperties: false,
         properties: { ...pageQuerySchema(config), entity: { type: 'string' }, action: { type: 'string' } }

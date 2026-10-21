@@ -1,5 +1,5 @@
-// Contraseñas: Argon2id con `crypto.argon2` de Node ≥ 24.7, sin compilación nativa (informe 04 §1.2).
-// El formato PHC lo escribe y lo lee este archivo; es el mismo de @node-rs/argon2 (interoperabilidad medida).
+// Passwords: Argon2id with Node's `crypto.argon2` (Node ≥ 24.7), no native compilation (report 04 §1.2).
+// This file writes and reads the PHC format; it is the same one @node-rs/argon2 uses (interoperability measured).
 
 import { argon2 as argon2Callback, randomBytes, timingSafeEqual } from 'node:crypto'
 import { readFileSync } from 'node:fs'
@@ -7,14 +7,14 @@ import { promisify } from 'node:util'
 import { badRequest } from '../domain/errors.js'
 
 const argon2 = promisify(argon2Callback)
-const VERSION = 19 // 0x13, la única versión vigente de Argon2
+const VERSION = 19 // 0x13, the only current Argon2 version
 
 const b64 = (buf) => Buffer.from(buf).toString('base64').replace(/=+$/, '')
 const deB64 = (textValue) => Buffer.from(textValue, 'base64')
 
 async function derive (password, salt, { memoryKib, passes, parallelism, tagBytes, pepper }) {
   return argon2('argon2id', {
-    message: Buffer.from(password.normalize('NFKC'), 'utf8'), // NFKC antes de hashear (informe 04 §1.5)
+    message: Buffer.from(password.normalize('NFKC'), 'utf8'), // NFKC before hashing (report 04 §1.5)
     nonce: salt,
     parallelism,
     tagLength: tagBytes,
@@ -24,7 +24,7 @@ async function derive (password, salt, { memoryKib, passes, parallelism, tagByte
   })
 }
 
-/** Hash PHC: $argon2id$v=19$m=…,t=…,p=…$sal$etiqueta */
+/** PHC hash: $argon2id$v=19$m=…,t=…,p=…$salt$tag */
 export async function hashPassword (password, params) {
   const salt = randomBytes(params.saltBytes)
   const tagBytesValue = await derive(password, salt, params)
@@ -37,7 +37,7 @@ function parsePhc (phc) {
   return { memoryKib: Number(m[2]), passes: Number(m[3]), parallelism: Number(m[4]), salt: deB64(m[5]), tagBytesValue: deB64(m[6]) }
 }
 
-/** Compara en tiempo constante. `rehash` es true si los parámetros guardados difieren de los vigentes. */
+/** Compares in constant time. `rehash` is true if the stored parameters differ from the current ones. */
 export async function verifyPassword (password, phc, params) {
   const p = parsePhc(phc)
   if (!p) return { ok: false, rehash: false }
@@ -48,27 +48,27 @@ export async function verifyPassword (password, phc, params) {
 }
 
 /**
- * Política de NIST SP 800-63B-4 (informe 04 §1.5): longitud mínima y máxima, ninguna regla de composición.
- * Cuenta caracteres Unicode tras normalizar con NFKC.
+ * NIST SP 800-63B-4 policy (report 04 §1.5): minimum and maximum length, no composition rules.
+ * Counts Unicode characters after normalizing with NFKC.
  */
 export function validatePassword (password, { minLength, maxLength }, blocklist = null) {
   if (typeof password !== 'string') throw badRequest('La contraseña es obligatoria.', 'password_invalid')
   const len = [...password.normalize('NFKC')].length
   if (len < minLength) throw badRequest(`La contraseña debe tener al menos ${minLength} caracteres.`, 'password_too_short')
   if (len > maxLength) throw badRequest(`La contraseña admite hasta ${maxLength} caracteres.`, 'password_too_long')
-  // Lista de bloqueo local, comparada contra la contraseña completa (la consulta a un servicio externo
-  // contradice MASTER-SPEC §4.1). La lista la provee quien instala: informe 04 §8 deja sin fuente su origen.
+  // Local blocklist, compared against the whole password (querying an external service
+  // contradicts MASTER-SPEC §4.1). Whoever installs provides the list: report 04 §8 leaves its source open.
   if (blocklist?.has(password.normalize('NFKC'))) throw badRequest('Esa contraseña figura en la lista de contraseñas no permitidas.', 'password_blocked')
 }
 
-/** Lee la lista de bloqueo: una contraseña por línea, comparación exacta. */
+/** Reads the blocklist: one password per line, exact comparison. */
 export function loadBlocklist (file) {
   if (!file) return null
   return new Set(readFileSync(file, 'utf8').split(/\r?\n/).filter(Boolean).map((l) => l.normalize('NFKC')))
 }
 
 let fillerHash = null
-/** Hash de relleno para igualar el tiempo de respuesta cuando el correo no existe (OWASP Authentication). */
+/** Filler hash to equalize response time when the email does not exist (OWASP Authentication). */
 export async function dummyVerify (password, params) {
   fillerHash ??= await hashPassword(randomBytes(16).toString('hex'), params)
   return verifyPassword(password, fillerHash, params)

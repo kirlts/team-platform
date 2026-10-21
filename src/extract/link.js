@@ -1,6 +1,6 @@
-// Extractor de enlaces (MASTER-SPEC §7.4, informe 05 §7): descarga con límite de tamaño y de
-// tiempo, protección contra SSRF, contenido principal con Readability sobre linkedom, a markdown.
-// Para un adjunto `link`, `attachment.path` lleva la dirección (la tabla no tiene otra columna).
+// Link extractor (MASTER-SPEC §7.4, report 05 §7): download with size and time limits,
+// SSRF protection, main content with Readability over linkedom, to markdown.
+// For a `link` attachment, `attachment.path` carries the address (the table has no other column).
 import { Agent, fetch } from 'undici';
 import { parseHTML } from 'linkedom';
 import { Readability } from '@mozilla/readability';
@@ -30,7 +30,7 @@ function parseUrl(raw) {
   return url;
 }
 
-/** Un `lookup` que devuelve siempre las direcciones ya validadas. */
+/** A `lookup` that always returns the already validated addresses. */
 function pinnedLookup(addresses) {
   return (_hostname, options, callback) => {
     if (options?.all) return callback(null, addresses);
@@ -38,7 +38,7 @@ function pinnedLookup(addresses) {
   };
 }
 
-// Lee el flujo hasta `maxBytes`; si hay más, corta y lo avisa.
+// Reads the stream up to `maxBytes`; if there is more, it cuts and reports it.
 async function readCapped(response, maxBytes) {
   const chunks = [];
   let total = 0;
@@ -70,7 +70,7 @@ function decode(bytes, contentType) {
     try {
       return new TextDecoder(label).decode(bytes);
     } catch {
-      // etiqueta de codificación desconocida: se prueba la siguiente
+      // unknown encoding label: try the next one
     }
   }
   return bytes.toString('utf8');
@@ -127,7 +127,7 @@ async function download(startUrl, ctx) {
 
 function toMarkdown(html, url) {
   const { document } = parseHTML(html);
-  // Readability resuelve las direcciones relativas contra estas dos propiedades.
+  // Readability resolves relative addresses against these two properties.
   Object.defineProperty(document, 'baseURI', { value: url.href });
   Object.defineProperty(document, 'documentURI', { value: url.href });
   const turndown = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced', bulletListMarker: '-' });
@@ -136,7 +136,7 @@ function toMarkdown(html, url) {
     const body = turndown.turndown(article.content).trim();
     return { title: article.title?.trim() || '', markdown: body, readable: true };
   }
-  // Sin contenido principal reconocible: se convierte el cuerpo entero, sin guiones ni estilos.
+  // No recognizable main content: the whole body is converted, without scripts or styles.
   for (const el of document.querySelectorAll('script, style, noscript, template')) el.remove();
   const title = document.title?.trim() || '';
   return { title, markdown: turndown.turndown(document.body?.innerHTML ?? '').trim(), readable: false };

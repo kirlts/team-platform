@@ -10,6 +10,8 @@ fields:
 ## Método
 Un pedido de funcionalidad es un comportamiento nuevo que alguien espera. Cada capacidad distinta es un mensaje. Dos pedidos son uno solo cuando no se pueden entregar por separado sin que el primero deje de servir; son dos cuando cada uno se puede construir y usar sin el otro.
 
+Cuando la descripción del proyecto ayuda a explicar dónde o por qué, el mensaje puede enriquecerse con ella: solo con lo que la descripción dice, sin inventar nada.
+
 Una lista de requisitos en viñetas suele traer un pedido por viñeta, pero un requisito que solo precisa a otro (un formato, un límite, un caso borde) pertenece al mensaje del pedido que precisa. Separa por capacidad, no por línea.
 
 Cómo llenar cada campo:
@@ -27,4 +29,4 @@ Un mensaje por funcionalidad.
 
 Título: verbo en infinitivo y objeto, por ejemplo «Exportar el listado de mensajes a CSV».
 
-Cuerpo: tres o cuatro frases: la necesidad, lo que el producto debería hacer, quién lo necesita y los criterios de listo que el input dio. Sin proponer diseño ni tecnología que el input no mencione.
+Cuerpo: dos o tres frases: la necesidad y lo que el producto debería hacer; quién lo necesita y los criterios de listo van solo si el input los da, y si no los da no se escribe nada sobre ellos. Sin proponer diseño ni tecnología que el input no mencione. Lo que el input no da no se menciona en el cuerpo: ni «no se indica» ni una frase sobre lo que falta.

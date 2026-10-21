@@ -1,14 +1,14 @@
-// Extractor de imagen (MASTER-SPEC §7.4): el proveedor de visión describe lo accionable.
-// HEIC de iPhone: `sharp` con sus binarios precompilados no lo decodifica (informe 06 §6.2),
-// así que se rechaza con motivo en vez de fallar adentro del proveedor.
+// Image extractor (MASTER-SPEC §7.4): the vision provider describes what is actionable.
+// iPhone HEIC: `sharp` with its precompiled binaries does not decode it (report 06 §6.2),
+// so it is rejected with a reason instead of failing inside the provider.
 import { open, readFile, stat } from 'node:fs/promises';
 import sharp from 'sharp';
 import { ExtractError } from './errors.js';
 import { createProgress } from './lib/progress.js';
 import { annotate, withSpan } from '../telemetry/api.js';
 
-// Marcas del contenedor ISO-BMFF que usan las fotos HEIC/HEIF con códec HEVC. `avif` queda fuera
-// a propósito: sharp sí lo lee. Es una firma binaria del formato, no texto humano.
+// Brands of the ISO-BMFF container used by HEIC/HEIF photos with the HEVC codec. `avif` is left out
+// on purpose: sharp does read it. It is a binary signature of the format, not human text.
 const HEIC_BRANDS = new Set(['heic', 'heix', 'hevc', 'hevx', 'heim', 'heis', 'hevm', 'hevs', 'mif1', 'msf1']);
 
 const MIME_BY_FORMAT = { jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp' };
@@ -35,8 +35,8 @@ async function readBrand(path) {
 }
 
 /**
- * Deja la imagen en un formato que los proveedores aceptan: la pasa tal cual si ya lo es, está
- * derecha y cabe; si no, la gira según EXIF, la reduce al lado máximo y la convierte.
+ * Leaves the image in a format providers accept: passes it as is if it already is one, is
+ * upright and fits; otherwise rotates it per EXIF, shrinks it to the maximum side and converts it.
  */
 export async function normalizeImage(path, cfg) {
   const brand = await readBrand(path);
@@ -59,8 +59,8 @@ export async function normalizeImage(path, cfg) {
   if (passthrough && !needsRotation && longSide <= cfg.maxSide) {
     return { data: await readFile(path), mime: MIME_BY_FORMAT[meta.format], width: meta.width, height: meta.height, converted: false };
   }
-  // Una foto reducida a PNG (sin pérdida) pesa varias veces más que su JPEG: una de 12 MP salió de 17 MB en base64
-  // y Anthropic la rechazó («image exceeds 10 MB maximum», VPS, 2026-10-21). Lo que ya era con pérdida sigue con pérdida.
+  // A photo downscaled to PNG (lossless) weighs several times more than its JPEG: a 12 MP one came out at 17 MB in base64
+  // and Anthropic rejected it («image exceeds 10 MB maximum», VPS, 2026-10-21). What was already lossy stays lossy.
   const lossy = cfg.lossyFormats.includes(meta.format);
   let side = Math.min(cfg.maxSide, longSide);
   for (;;) {
@@ -70,7 +70,7 @@ export async function normalizeImage(path, cfg) {
       .flatten(lossy ? { background: '#ffffff' } : false)
       .toFormat(lossy ? 'jpeg' : cfg.outputFormat)
       .toBuffer({ resolveWithObject: true });
-    // El proveedor mide la imagen en base64 contra 10 MiB: con `maxBytes` (7 MiB) de binario cabe. Si no cabe, se reduce a la mitad.
+    // The provider measures the image in base64 against 10 MiB: with `maxBytes` (7 MiB) of binary it fits. If it does not fit, the side is halved.
     if (data.length <= cfg.maxBytes || side <= cfg.minSide) {
       return { data, mime: `image/${info.format}`, width: info.width, height: info.height, converted: true };
     }
@@ -107,7 +107,7 @@ export async function extractImage(attachment, ctx) {
   const { json, usage } = await withSpan('extract.vision', { 'team.step': 'extract.vision', 'team.images': 1, 'team.input_bytes': image.data.length }, async () => {
     const out = await providers.vision.describe({
       images: [{ data: image.data, mime: image.mime, label: 'Imagen' }],
-      prompt: cfg.prompt,
+      prompt: ctx.deep ? cfg.deepPrompt : cfg.prompt,
       schema: DESCRIPTION_SCHEMA,
     });
     annotate({ 'team.output_chars': typeof out.json?.description === 'string' ? out.json.description.length : 0 });

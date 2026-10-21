@@ -10,6 +10,8 @@ fields:
 ## Método
 La retroalimentación valora algo que existe. Cada objeto valorado es un mensaje: una pantalla, un flujo, un texto, una decisión de diseño o una forma de trabajar. Dos observaciones sobre el mismo objeto van en el mismo mensaje cuando apuntan a la misma experiencia; van separadas cuando una es sobre el contenido y otra sobre la forma de uso, o cuando las sostienen unidades de momentos distintos del input.
 
+Cuando la descripción del proyecto ayuda a explicar dónde o por qué, el mensaje puede enriquecerse con ella: solo con lo que la descripción dice, sin inventar nada.
+
 Una opinión positiva con un detalle que el equipo debe saber (qué gustó y por qué, qué no hay que cambiar) también es retroalimentación. Una confirmación sin nada que decidir ni responder («funciona bien, sin comentarios») no es un mensaje: queda descartada.
 
 Cómo llenar cada campo:
@@ -27,4 +29,4 @@ Un mensaje por objeto valorado.
 
 Título: el objeto y la valoración en pocas palabras, por ejemplo «Confusión con el botón Enviar en la vista previa».
 
-Cuerpo: dos o tres frases: qué se valora, qué percibe la persona y, si lo dijo, qué efecto tiene y qué propone. Sin responder a la observación ni defender el diseño.
+Cuerpo: dos o tres frases: qué se valora, qué percibe la persona y, si lo dijo, qué efecto tiene y qué propone. Sin responder a la observación ni defender el diseño. Lo que el input no da no se menciona en el cuerpo: ni «no se indica» ni una frase sobre lo que falta.

@@ -1,6 +1,6 @@
-// Generadores de archivos de prueba para formatos de Office que ninguna
-// dependencia de desarrollo escribe: XLSX y PPTX mínimos armados a mano con fflate.
-// Los archivos son sintéticos y se usan sólo en pruebas.
+// Test file generators for Office formats that no development
+// dependency writes: minimal XLSX and PPTX built by hand with fflate.
+// The files are synthetic and used only in tests.
 import { zipSync, strToU8 } from 'fflate';
 
 const XML = '<?xml version="1.0" encoding="UTF-8"?>';
@@ -13,7 +13,7 @@ function zip(files) {
 
 const esc = (s) => String(s).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 
-/** XLSX con hojas `{ name, rows: string|number [][] }`. */
+/** XLSX with sheets `{ name, rows: string|number [][] }`. */
 export function makeXlsx(sheets) {
   const files = {
     '[Content_Types].xml': `${XML}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${sheets
@@ -41,7 +41,7 @@ export function makeXlsx(sheets) {
   return zip(files);
 }
 
-/** PPTX con diapositivas `{ title, bullets[] }`. */
+/** PPTX with slides `{ title, bullets[] }`. */
 export function makePptx(slides) {
   const P = 'http://schemas.openxmlformats.org/presentationml/2006/main';
   const A = 'http://schemas.openxmlformats.org/drawingml/2006/main';

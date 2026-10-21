@@ -21,7 +21,7 @@ test('a short audio goes in a single FLAC 16 kHz mono chunk with language=es and
   assert.equal(call.sampleRate, 16000);
   assert.equal(call.channels, 1);
   assert.equal(call.language, 'es');
-  assert.equal('prompt' in call && call.prompt !== undefined, false, 'sin vocabulario no se envía prompt');
+  assert.equal('prompt' in call && call.prompt !== undefined, false, 'without vocabulary no prompt is sent');
   assert.equal(text, '[00:00] segmento 0.\n[00:05] segmento 5.\n[00:10] segmento 10.');
   assert.equal(meta.chunks, 1);
   assert.ok(meta.durationSeconds > 11.9 && meta.durationSeconds < 12.2);

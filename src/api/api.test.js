@@ -564,7 +564,7 @@ test('provider settings: the editor reads and changes them; an invalid provider 
   const attemptsList = []
   const env = await team({ modules: {
     getProviders: () => ({ describe: () => [{ slot: 'text', provider: 'anthropic', model: 'claude-haiku-5-5', available: false, reason: 'Falta ANTHROPIC_API_KEY' }] }),
-    buildProviders: (o) => { attemptsList.push(o); if (o.text?.provider === 'inexistente') throw new Error('Proveedor de texto desconocido «inexistente» en TEXT_PROVIDER'); return {} }
+    buildProviders: (o) => { attemptsList.push(o); if (o.text?.provider === 'inexistente') throw new Error('Unknown text provider «inexistente» in TEXT_PROVIDER'); return {} }
   } })
   assert.equal((await env.api('GET', '/settings/providers', env.c.ana)).statusCode, 403)
   const initialVersion = (await env.api('GET', '/settings/providers', env.c.ed)).json()
@@ -643,7 +643,7 @@ test('UD-028 · GET /messages/summary: each message falls into a single state (o
   // Closing removes the message from everyone's count.
   await env.api('POST', `/messages/${m2}/close`, env.c.ed)
   assert.deepEqual((await summary(env.c.beto)).mine, { open: 0, answered: 2, total: 2 })
-  assert.equal((await summary(env.c.beto)).items.some((i) => i.message_id === String(m2)), false, 'un mensaje cerrado no figura en la lista')
+  assert.equal((await summary(env.c.beto)).items.some((i) => i.message_id === String(m2)), false, 'a closed message is not in the list')
   assert.equal(areaRow(await summary(env.c.beto), questionArea).open, 0)
   assert.equal((await env.app.inject({ method: 'GET', url: '/api/messages/summary' })).statusCode, 401) // requires a session
   await env.close()

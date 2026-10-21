@@ -1,22 +1,22 @@
-import { useNavigate, useParams } from 'react-router'
+import { useParams } from 'react-router'
 import { FitList } from '@/components/FitList'
 import { Page } from '@/components/Page'
 import { PageHeader } from '@/components/PageHeader'
-import { Badge } from '@/components/ui/badge'
 import { useT, type MessageKey } from '@/i18n'
 import { CONNECTIONS, isConnection } from '@/lib/connections'
 import { useMe } from '@/lib/queries'
 import { cn } from '@/lib/utils'
 
 /**
- * The connectors UD-012 foresees, each with its state. None exists yet, so each one says «No disponible todavía»:
- * the sidebar's entries lead here and the one chosen is marked, like a row of Áreas (J2-A-34).
+ * The connectors UD-012 foresees. None exists yet, and the specification keeps the view visible and off with its reason
+ * (MASTER-SPEC §4.1, idea.md): the reason is said once, with the title, and each connector is a name, not a row that
+ * repeats «No disponible todavía» five times (J3-A-45, UD-036). The sidebar has one entry, Conexiones; the address of a
+ * connector (`/connections/api`) still opens this view with it marked.
  */
 export function Connections() {
   const t = useT()
   const me = useMe().data
   const { kind } = useParams()
-  const navigate = useNavigate()
   const chosen = isConnection(kind) ? kind : undefined
 
   if (me && me.role !== 'editor') {
@@ -32,21 +32,15 @@ export function Connections() {
 
   return (
     <Page cols={12}>
-      <PageHeader title={t('nav.connections')} />
+      <PageHeader title={t('nav.connections')} count={t('connections.off')} />
       <FitList
         rows={CONNECTIONS}
         rowKey={(c) => c}
         label={t('nav.connections')}
         renderRow={(c) => (
-          <button
-            type="button"
-            aria-current={c === chosen ? 'true' : undefined}
-            onClick={() => navigate(`/connections/${c}`)}
-            className={cn('flex w-full items-center justify-between gap-4 border-b border-line px-4 py-3 text-left last:border-b-0 hover:bg-hover', c === chosen && 'bg-selected shadow-[inset_4px_0_0_var(--color-accent)]')}
-          >
-            <span className="font-semibold">{t(`connections.${c}` as MessageKey)}</span>
-            <Badge tone="closed">{t('nav.connectionsReason')}</Badge>
-          </button>
+          <div aria-current={c === chosen ? 'true' : undefined} className={cn('border-b border-line px-4 py-3 font-semibold last:border-b-0', c === chosen && 'bg-selected shadow-[inset_4px_0_0_var(--color-accent)]')}>
+            {t(`connections.${c}` as MessageKey)}
+          </div>
         )}
       />
     </Page>

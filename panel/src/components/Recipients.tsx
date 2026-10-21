@@ -20,21 +20,23 @@ export function Recipients({ ids, max, className, children, plain = false }: { i
   const shown = max === undefined ? named : named.slice(0, max)
   const hidden = max === undefined ? [] : named.slice(max)
   return (
-    <ul aria-label={t('recipients.label')} className={cn('flex flex-wrap items-center gap-1.5', className)}>
+    <ul aria-label={t('recipients.label')} className={cn('flex flex-wrap items-center', plain ? 'gap-x-1' : 'gap-1.5', className)}>
       {named.length > 0 && (
-        <li className="inline-flex h-5 items-center">{t('recipients.to')}</li>
+        <li className={cn('inline-flex items-center', !plain && 'h-5')}>{t('recipients.to')}</li>
       )}
-      {shown.map((id) => (
-        <li key={id} data-repeat-ok="person" className={cn(chip, plain && 'pl-0')}>
+      {shown.map((id, i) => (
+        <li key={id} data-repeat-ok="person" className={cn(chip, plain && 'min-h-0 pl-0 pr-0')}>
           {!plain && <Avatar name={memberName(id)} size={16} />}
+          {/* In a row the names read as one sentence, «para Ana, Bruno y 2 más» (J3-A-20). */}
           {memberName(id)}
+          {plain && i < shown.length - 1 && ','}
         </li>
       ))}
       {hidden.length > 0 && (
         <li>
           <Popover>
             <PopoverTrigger asChild>
-              <button type="button" aria-label={t('recipients.more', { n: hidden.length })} className={cn(chip, 'relative z-10 pl-2 font-semibold hover:bg-accent-soft/70')}>
+              <button type="button" aria-label={t('recipients.more', { n: hidden.length })} className={cn(chip, 'relative z-10 pl-2 font-semibold hover:bg-accent-soft/70', plain && 'min-h-0 px-0 hover:bg-transparent hover:underline')}>
                 {t('recipients.andMore', { n: hidden.length })}
               </button>
             </PopoverTrigger>

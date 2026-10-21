@@ -3,7 +3,8 @@ import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useFormat, useT } from '@/i18n'
-import { ToneIcon, ToneMark } from '@/components/NotifyBadge'
+import { TONE_WORD, ToneIcon, ToneMark } from '@/components/NotifyBadge'
+import { ME } from '@/lib/filters'
 import { useEventsSnapshot, useEventsStore } from '@/lib/events'
 import { mineCounts } from '@/lib/pending'
 import { topTone, toneTotal } from '@/lib/priority'
@@ -22,7 +23,7 @@ export function Header({ projectName, onOpenNav }: { projectName?: string; onOpe
   return (
     <header className="chrome-bar flex min-h-[3.5rem] shrink-0 items-center justify-between gap-2 py-1 pl-2 pr-3 md:pl-5">
       <div className="flex min-w-0 items-center gap-1">
-        <Button variant="ghost" size="icon" aria-label={t('nav.open')} className="md:hidden" onClick={onOpenNav}>
+        <Button variant="ghost" size="icon" aria-label={t('nav.open')} className="h-11 w-11 md:hidden" onClick={onOpenNav}>
           <PanelLeft size={18} aria-hidden />
         </Button>
         <Link to="/" className="min-w-0">
@@ -73,24 +74,35 @@ function NotificationBell() {
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 p-0">
+      {/* Below the bar with room between them, and never taller than the space that is left: on a phone the list scrolls inside instead of being cut (J3-A-13, J3-A-15). */}
+      <PopoverContent align="end" sideOffset={12} collisionPadding={8} className="flex max-h-[var(--radix-popover-content-available-height)] w-80 flex-col p-0">
         {listed ? (
-          // What the number counts, message by message: the bell lists exactly its own count (J2-A-43).
-          <ul data-lane="bell-list" className="scroll-thin max-h-80 overflow-y-auto" aria-label={t('bell.label')}>
-            {(summary?.items ?? []).map((n) => (
-              <li key={n.message_id} className="border-b border-line last:border-b-0">
-                <Link to={`/messages/${n.message_id}`} className="flex flex-col items-start gap-1 px-3 py-2 hover:bg-hover">
-                  <ToneMark tone={n.tone} />
-                  <span className="break-words text-sm font-medium">{n.title}</span>
-                  <span className="text-xs text-muted">{format.stamp(n.at)}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          // What the number counts, message by message: the bell lists exactly its own count (J2-A-43). The priority is its shape, not a word repeated on every row (J3-A-14).
+          <>
+            <ul data-lane="bell-list" className="scroll-thin min-h-0 flex-1 overflow-y-auto" aria-label={t('bell.label')}>
+              {(summary?.items ?? []).map((n) => (
+                <li key={n.message_id} className="border-b border-line">
+                  <Link to={`/messages/${n.message_id}`} className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2 px-3 py-2 hover:bg-hover">
+                    <span className="pt-0.5">
+                      <ToneMark tone={n.tone} showWord={false} plain />
+                      <span className="sr-only">{t(TONE_WORD[n.tone])}</span>
+                    </span>
+                    <span className="break-words text-sm font-medium leading-snug">{n.title}</span>
+                    <span className="col-start-2 text-xs text-muted">{format.stamp(n.at)}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            {/* The list is as long as the number: when it does not all fit, this says where the rest is. */}
+            <Link to={`/messages?f=for:eq:${ME}`} className="flex shrink-0 items-center justify-between gap-2 px-3 py-2 text-sm font-semibold text-accent-deep hover:bg-hover">
+              {t('bell.seeAll')}
+              <span className="tabular-nums text-muted">{total}</span>
+            </Link>
+          </>
         ) : snap.notices.length === 0 ? (
           <p className="px-3 py-4 text-center text-muted">{t('bell.none')}</p>
         ) : (
-          <ul className="max-h-80 overflow-y-auto">
+          <ul className="scroll-thin min-h-0 flex-1 overflow-y-auto">
             {snap.notices.map((n) => (
               <li key={n.key} className="border-b border-line last:border-b-0">
                 <Link to={`/messages/${n.message_id}`} className="flex flex-col gap-0.5 px-3 py-2 hover:bg-hover">

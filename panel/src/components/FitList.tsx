@@ -17,7 +17,8 @@ const PAGER_HEIGHT = 49
  * range and the two arrows at the foot. The page size is the measured height over the measured rows:
  * it changes when the window, the rows or the frame change, and it is never written down.
  *
- * On a phone the page is allowed to grow with its content, so every row is drawn and there are no pages.
+ * On a phone the page is allowed to grow with its content, so every row is drawn and there are no pages, unless the caller
+ * gives the list a frame of its own height and asks `pagedOnPhone`: then it pages inside that frame like on a desktop (J3-A-10).
  * `rows` must keep its identity between renders unless the list changed.
  */
 export function FitList<T>({
@@ -31,6 +32,7 @@ export function FitList<T>({
   bare = false,
   rowsRole,
   reveal,
+  pagedOnPhone = false,
 }: {
   rows: readonly T[]
   rowKey: (row: T) => string
@@ -47,9 +49,13 @@ export function FitList<T>({
   rowsRole?: string
   /** Key of a row that has to be on the visible page when it changes (the selected one): the list pages to it (J2-B-10). */
   reveal?: string
+  /** On a phone the list also pages, inside the height its parent gives it. */
+  pagedOnPhone?: boolean
 }) {
   const t = useT()
-  const desktop = useDesktop()
+  // «desktop» below means «pages»: the window is wide, or the caller gave the list a frame of its own on a phone.
+  const wide = useDesktop()
+  const desktop = wide || pagedOnPhone
   /** The space the list may take: stable, whatever the list holds. The visible frame hugs its rows inside it. */
   const slot = useRef<HTMLDivElement>(null)
   const frame = useRef<HTMLDivElement>(null)

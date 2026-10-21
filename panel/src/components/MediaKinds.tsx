@@ -21,7 +21,7 @@ export function MediaKinds({ of, className }: { of: { attachments?: readonly Pic
         const Icon = ICON[kind]
         const label = count > 1 ? `${t(MEDIA_KEY[kind])}, ${count}` : t(MEDIA_KEY[kind])
         return (
-          <li key={kind} className="inline-flex items-center gap-0.5 text-accent-deep" title={label}>
+          <li key={kind} className="inline-flex items-center gap-0.5 text-muted" title={label}>
             <Icon size={15} aria-hidden />
             {count > 1 && (
               <span aria-hidden className="text-xs font-semibold tabular-nums leading-none">

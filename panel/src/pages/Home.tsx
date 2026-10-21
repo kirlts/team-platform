@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { ChevronRight } from '@/components/icons'
 import { Meter } from '@/components/Meter'
@@ -18,13 +18,14 @@ import { NoticeHost } from '@/components/NoticeHost'
 import { ReviewPane } from '@/components/ReviewPane'
 import { Segmented } from '@/components/Segmented'
 import { Tray, type PendingUpload, type TrayItem } from '@/components/Tray'
-import { useErrorText, useFormat, useT } from '@/i18n'
+import { useErrorText, useT } from '@/i18n'
 import { ME, serializeQuery, type MessageQuery } from '@/lib/filters'
 import { areaMessagesPath, areaPendingCounts, mineCounts } from '@/lib/pending'
 import { topTone } from '@/lib/priority'
 import { useEventsSnapshot } from '@/lib/events'
 import { useMe, useMessages, useSummary, useTray } from '@/lib/queries'
 import { uploadInput } from '@/lib/upload'
+import { useDesktop } from '@/lib/useDesktop'
 
 /** One send that is going up to the server: what was sent, how far it is and why it failed, if it did. */
 interface Upload {
@@ -47,12 +48,12 @@ const isTyping = (target: EventTarget | null) => {
 
 export function Home() {
   const t = useT()
-  const format = useFormat()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const me = useMe().data
+  const desktop = useDesktop()
+  const [feedTab, setFeedTab] = useState<'messages' | 'replies'>('messages')
   const tray = useTray()
-  const [now, setNow] = useState(() => new Date())
   const [uploads, setUploads] = useState<Upload[]>([])
   const [problem, setProblem] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | undefined>()
@@ -71,11 +72,6 @@ export function Home() {
   const advance = useRef(false)
   /** The send just discarded keeps its place in the window with its own Deshacer; nothing else is opened in its stead (J2-B-22). */
   const [discarded, setDiscarded] = useState<{ id: string; restore: () => Promise<unknown> } | null>(null)
-
-  useEffect(() => {
-    const tick = setInterval(() => setNow(new Date()), 15_000)
-    return () => clearInterval(tick)
-  }, [])
 
   // The tray follows the stream: a job that starts and a job that ends both bring the list up to date, so the state of a row is never older than its progress bar.
   const started = Object.keys(events.progress).length
@@ -217,11 +213,6 @@ export function Home() {
                   </button>
                 </DialogTrigger>
               )}
-              <p className="text-sm tabular-nums text-muted max-md:hidden">
-                <time dateTime={now.toISOString()}>
-                  {format.longDate(now)} {format.clock(now)}
-                </time>
-              </p>
             </div>
           </div>
           <ComposeBar onSubmit={submit} problem={problem} />
@@ -267,11 +258,26 @@ export function Home() {
 
       <Attention />
 
-      {/* The main block of the page (UD-030): the latest messages and replies, always in view. */}
-      <div className="grid min-h-[22rem] flex-1 gap-x-5 gap-y-4 md:min-h-0 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] md:grid-rows-[minmax(0,1fr)]">
-        <Feed kind="messages" meId={me?.id ?? ''} />
-        <Feed kind="replies" meId={me?.id ?? ''} />
-      </div>
+      {/* The main block of the page (UD-030): the latest messages and replies, always in view. On a phone one list at a time, in a frame as tall as the screen (J3-A-10). */}
+      {desktop ? (
+        <div className="grid min-h-[22rem] flex-1 gap-x-5 gap-y-4 md:min-h-0 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] md:grid-rows-[minmax(0,1fr)]">
+          <Feed kind="messages" meId={me?.id ?? ''} />
+          <Feed kind="replies" meId={me?.id ?? ''} />
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <Segmented
+            label={t('home.shownFeed')}
+            value={feedTab}
+            onChange={setFeedTab}
+            options={[
+              { value: 'messages', label: t('home.latestMessages') },
+              { value: 'replies', label: t('home.latestReplies') },
+            ]}
+          />
+          <Feed key={feedTab} kind={feedTab} meId={me?.id ?? ''} phone />
+        </div>
+      )}
 
     </Page>
   )
@@ -306,8 +312,9 @@ function TrayState({ items, progress }: { items: readonly TrayItem[]; progress: 
 }
 
 /**
- * What affects me, at the top of the page (UD-030): the big badge in the color of the highest priority, one chip
- * per priority with its count and the pending of each area. Each chip leads to Mensajes already filtered.
+ * What affects me, at the top of the page (UD-030): one chip per priority with its count and one per area with
+ * what is pending in it. Both rows use the same chip, quiet (UD-035), and the same kind of label; each chip leads to
+ * Mensajes already filtered (UD-028). The areas take one row: those that do not fit fold behind «+N» (J3-A-06, J3-A-10).
  */
 function Attention() {
   const t = useT()
@@ -318,55 +325,111 @@ function Attention() {
   const areas = (summary?.areas ?? []).filter((a) => a.open > 0)
   const mineParams = (status: string) => serializeQuery({ filters: [{ prop: 'for', op: 'eq', value: ME }, { prop: 'status', op: 'eq', value: status }], q: '' }).toString()
   return (
-    <section aria-label={t('home.mine')} data-testid="attention" data-tone-top={tone ?? 'none'} className="glass leaf flex flex-wrap items-center gap-x-5 gap-y-2 px-4 py-2.5">
-      <div className="flex items-center gap-2.5">
-        <h2>{t('home.mine')}</h2>
-        {!tone && <span className="text-sm text-muted">{t('home.mineNone')}</span>}
-      </div>
-      {tone && (
-        <ul className="flex flex-wrap items-center gap-1.5">
-          {(counts.red ?? 0) > 0 && (
-            <li>
-              <Link to={`/messages?${mineParams('open')}`} className="rounded-full">
-                <ToneMark tone="red" n={counts.red} />
-              </Link>
-            </li>
-          )}
-          {(counts.yellow ?? 0) > 0 && (
-            <li>
-              <Link to={`/messages?${mineParams('answered')}`} className="rounded-full">
-                <ToneMark tone="yellow" n={counts.yellow} />
-              </Link>
-            </li>
-          )}
-          {(counts.blue ?? 0) > 0 && (
-            <li>
-              <ToneMark tone="blue" n={counts.blue} />
-            </li>
-          )}
-        </ul>
-      )}
-      {areas.length > 0 && (
-        <nav aria-label={t('home.byArea')} className="flex min-w-0 items-start gap-2 md:ml-auto">
-          <span className="shrink-0 pt-1 text-xs font-semibold uppercase tracking-[0.12em] text-muted">{t('home.byArea')}</span>
-          {/* With many areas the chips scroll inside two rows: a declared lane, not the page. */}
-          <ul data-lane="area-pending" className="scroll-thin flex max-h-[4.25rem] min-w-0 flex-wrap items-center gap-1.5 overflow-y-auto">
-            {areas.map((a) => (
-              <li key={a.area_id}>
-                <Link to={areaMessagesPath(a.area_id)} aria-label={t('home.areaOpen', { title: areaTitle(a.area_id), n: a.open })} data-testid="area-pending" className="inline-flex items-center gap-1.5 rounded-full border border-line-strong bg-glass-strong py-0.5 pl-2.5 pr-0.5 text-xs font-semibold hover:bg-glass-edge">
-                  <span className="min-w-0 break-words">{areaTitle(a.area_id)}</span>
-                  <NotifyBadge counts={areaPendingCounts(summary, a.area_id)} size="md" />
+    <section aria-label={t('home.mine')} data-testid="attention" data-tone-top={tone ?? 'none'} className="glass leaf grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-2 px-4 py-2.5">
+      <h2 className="min-w-16">{t('home.mine')}</h2>
+      <div className="flex min-h-6 items-center">
+        {!tone ? (
+          <span className="text-sm text-muted">{t('home.mineNone')}</span>
+        ) : (
+          <ul className="flex flex-wrap items-center gap-1.5">
+            {(counts.red ?? 0) > 0 && (
+              <li>
+                <Link to={`/messages?${mineParams('open')}`} className="rounded-full">
+                  <ToneMark tone="red" n={counts.red} />
                 </Link>
               </li>
-            ))}
+            )}
+            {(counts.yellow ?? 0) > 0 && (
+              <li>
+                <Link to={`/messages?${mineParams('answered')}`} className="rounded-full">
+                  <ToneMark tone="yellow" n={counts.yellow} />
+                </Link>
+              </li>
+            )}
+            {(counts.blue ?? 0) > 0 && (
+              <li>
+                <ToneMark tone="blue" n={counts.blue} />
+              </li>
+            )}
           </ul>
-        </nav>
+        )}
+      </div>
+      {areas.length > 0 && (
+        <>
+          <h2 className="min-w-16">{t('home.byArea')}</h2>
+          <AreaChips
+            chips={areas.map((a) => (
+              <Link
+                key={a.area_id}
+                to={areaMessagesPath(a.area_id)}
+                aria-label={t('home.areaOpen', { title: areaTitle(a.area_id), n: a.open })}
+                data-testid="area-pending"
+                className="inline-flex min-h-6 max-w-[16rem] items-center gap-1.5 rounded-2xl border border-line-strong px-2 py-0.5 text-xs font-semibold leading-tight hover:bg-glass-edge"
+              >
+                <span className="min-w-0 break-words">{areaTitle(a.area_id)}</span>
+                <NotifyBadge counts={areaPendingCounts(summary, a.area_id)} size="plain" />
+              </Link>
+            ))}
+          />
+        </>
       )}
     </section>
   )
 }
 
-function Feed({ kind, meId }: { kind: 'messages' | 'replies'; meId: string }) {
+/**
+ * Chips on one row. All of them are drawn once to see how many share the first row; the rest fold behind «+N», which
+ * opens them in place. The count is measured, and measured again when the row changes width.
+ */
+function AreaChips({ chips }: { chips: ReactNode[] }) {
+  const t = useT()
+  const box = useRef<HTMLUListElement>(null)
+  const [fitting, setFitting] = useState<number | null>(null)
+  const [open, setOpen] = useState(false)
+
+  // A different list or a different width makes the measure stale: draw them all again and measure.
+  const width = useRef(0)
+  useEffect(() => {
+    const el = box.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => {
+      if (Math.abs(el.clientWidth - width.current) > 0.5) {
+        width.current = el.clientWidth
+        setFitting(null)
+      }
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+  useEffect(() => setFitting(null), [chips.length])
+
+  useLayoutEffect(() => {
+    const el = box.current
+    if (!el || fitting !== null) return
+    const items = [...el.children] as HTMLElement[]
+    const top = items[0]?.offsetTop ?? 0
+    setFitting(Math.max(1, items.filter((li) => li.offsetTop <= top + 1).length))
+  }, [fitting, chips])
+
+  const hidden = fitting === null || open ? 0 : chips.length - fitting
+  const shown = fitting === null || open ? chips : chips.slice(0, fitting)
+  return (
+    <div className="flex min-w-0 items-start gap-1.5">
+      <ul data-lane="area-pending" ref={box} className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+        {shown.map((chip, i) => (
+          <li key={i}>{chip}</li>
+        ))}
+      </ul>
+      {(hidden > 0 || (open && fitting !== null && fitting < chips.length)) && (
+        <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="inline-flex min-h-6 shrink-0 items-center rounded-full border border-line-strong px-2 text-xs font-semibold hover:bg-glass-edge">
+          {open ? t('home.fewerAreas') : t('home.moreAreas', { n: hidden })}
+        </button>
+      )}
+    </div>
+  )
+}
+
+function Feed({ kind, meId, phone = false }: { kind: 'messages' | 'replies'; meId: string; phone?: boolean }) {
   const t = useT()
   const [mine, setMine] = useState(true)
   const query: MessageQuery = { filters: mine ? [{ prop: 'for', op: 'eq', value: ME }] : [], q: '' }
@@ -379,9 +442,11 @@ function Feed({ kind, meId }: { kind: 'messages' | 'replies'; meId: string }) {
   if (!messagesFeed) params.append('f', 'replies:eq:con')
 
   return (
-    <section aria-label={messagesFeed ? t('home.latestMessages') : t('home.latestReplies')} className="glass leaf flex min-h-0 min-w-0 flex-col gap-2 px-1 pb-1 pt-3">
+    // On a phone the frame is as tall as what is left of the screen under the header and the page margins, and the list pages inside it (J3-A-10).
+    <section aria-label={messagesFeed ? t('home.latestMessages') : t('home.latestReplies')} className={`glass leaf flex min-h-0 min-w-0 flex-col gap-2 px-1 pb-1 pt-3 ${phone ? 'h-[calc(100dvh-6.5rem)]' : ''}`}>
       <div className="flex flex-wrap items-center justify-between gap-2 px-3">
-        <h2 className="text-base">
+        {/* On a phone the switch above already names the list. */}
+        <h2 className={phone ? 'sr-only' : 'text-base'}>
           <Link to={`/messages?${params.toString()}`} className="hover:underline">
             {messagesFeed ? t('home.latestMessages') : t('home.latestReplies')}
           </Link>
@@ -399,6 +464,7 @@ function Feed({ kind, meId }: { kind: 'messages' | 'replies'; meId: string }) {
       </div>
       <FitList
         bare
+        pagedOnPhone={phone}
         rows={rows}
         rowKey={(m) => m.id}
         renderRow={(m) => <MessageCard message={m} variant={messagesFeed ? 'message' : 'reply'} />}

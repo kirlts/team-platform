@@ -13,12 +13,15 @@ export function ToneIcon({ tone, size = 14 }: { tone: Tone; size?: number }) {
   return <Icon size={size} aria-hidden strokeWidth={2.2} />
 }
 
-/** The mark of one priority: its shape, its word and (optionally) a count. The shape and the word say it without the color. */
-export function ToneMark({ tone, n, className, showWord = true }: { tone: Tone; n?: number; className?: string; showWord?: boolean }) {
+/**
+ * The mark of one priority: its shape, its word and (optionally) a count. The shape and the word say it without the color.
+ * It is quiet (UD-035): neutral ink, the priority only in the color of its shape. `plain` also drops the edge, for a row.
+ */
+export function ToneMark({ tone, n, className, showWord = true, plain = false }: { tone: Tone; n?: number; className?: string; showWord?: boolean; plain?: boolean }) {
   const t = useT()
   const Icon = ICON[tone]
   return (
-    <span data-tone={tone} data-weight="soft" data-testid="tone-mark" className={cn('inline-flex min-h-6 items-center gap-1 rounded-full border px-2 text-xs font-bold leading-none', className)}>
+    <span data-tone={tone} data-weight="quiet" data-plain={plain || undefined} data-testid="tone-mark" className={cn('inline-flex min-h-6 items-center gap-1 rounded-full border px-2 text-xs font-bold leading-none', className)}>
       <Icon size={13} aria-hidden strokeWidth={2.2} />
       {showWord && <span>{t(TONE_WORD[tone])}</span>}
       {n !== undefined && <span className="tabular-nums">{n}</span>}
@@ -45,9 +48,9 @@ export function usePulse(value: number) {
 /**
  * The count badge: its tint is the highest priority present (red > yellow > blue), it carries the shape of
  * that priority and the total as a number, and its accessible name says both. Nothing present renders nothing.
- * It is the soft weight: the only solid fill in the interface is the bell (J2-B-03).
+ * It is the quiet weight: the only solid fill in the interface is the bell (J2-B-03, UD-035).
  */
-export function NotifyBadge({ counts, size = 'lg', className, ...rest }: { counts: ToneCounts; size?: 'lg' | 'md'; className?: string; 'data-testid'?: string }) {
+export function NotifyBadge({ counts, size = 'lg', className, ...rest }: { counts: ToneCounts; size?: 'lg' | 'md' | 'plain'; className?: string; 'data-testid'?: string }) {
   const t = useT()
   const tone = topTone(counts)
   const total = toneTotal(counts)
@@ -58,12 +61,13 @@ export function NotifyBadge({ counts, size = 'lg', className, ...rest }: { count
     <span
       {...rest}
       data-tone={tone}
-      data-weight="soft"
+      data-weight="quiet"
       data-pulse={pulse}
+      data-plain={size === 'plain' || undefined}
       data-count={total}
       role="img"
       aria-label={t('notify.label', { n: total, tone: t(TONE_WORD[tone]) })}
-      className={cn('inline-flex shrink-0 items-center justify-center gap-1 rounded-full border font-bold leading-none', size === 'lg' ? 'h-8 min-w-12 px-2.5 text-sm' : 'h-6 min-w-9 px-2 text-xs', className)}
+      className={cn('inline-flex shrink-0 items-center justify-center gap-1 rounded-full border font-bold leading-none', size === 'lg' ? 'h-8 min-w-12 px-2.5 text-sm' : size === 'md' ? 'h-6 min-w-9 px-2 text-xs' : 'text-xs', className)}
     >
       <Icon size={size === 'lg' ? 16 : 13} aria-hidden strokeWidth={2.2} />
       <span className="tabular-nums">{total}</span>

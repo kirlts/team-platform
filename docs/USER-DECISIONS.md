@@ -245,17 +245,20 @@ RULES:
 - Prohibición del panel medida en el navegador, como en un proyecto anterior del autor: ninguna vista desplaza el documento a 1440×900 ni a 1280×720, con lo sembrado y con cada lista multiplicada por ocho, y ningún carril con desplazamiento propio fuera de una lista blanca declarada.
 **Condiciones de reversión:** Ninguna prevista.
 
-## [UD-018] El idioma de salida del análisis se fija por cuenta y se puede cambiar por envío
+## [UD-018] Un solo ajuste de idioma por cuenta: español o inglés, para prompts, salida e interfaz
 
 **Fecha:** 2026-10-20
-**Contexto:** Con UD-015 los prompts del analizador pasan a inglés. Hacía falta fijar en qué idioma se redactan los mensajes que produce.
-**Decisión:** Martín, textual: «si vamos a tener prompt en inglés necesitamos poder fijar de alguna forma el lenguaje de output y que por defecto sea el que está configurado por cuenta». Cada miembro tiene un idioma en su cuenta (Configuración, por omisión el del equipo, `OUTPUT_LANGUAGE`, que por omisión es `es-419`: Martín, textual, «por defecto el lenguaje configurado debe ser español latino neutro»); el análisis de un envío redacta títulos, cuerpos y campos en el idioma de la cuenta de quien envía, y la barra de envío permite cambiarlo para ese envío. El idioma viaja al modelo como dato del contexto (un código BCP 47), nunca se deduce con reglas sobre el texto.
+**Contexto:** Con UD-015 el código pasa a inglés. Hacía falta fijar en qué idioma se redactan los mensajes, en qué idioma se le habla al modelo y en qué idioma se ve la interfaz.
+**Decisión:** Martín, textual: «si vamos a tener prompt en inglés necesitamos poder fijar de alguna forma el lenguaje de output y que por defecto sea el que está configurado por cuenta», «por defecto el lenguaje configurado debe ser español latino neutro», y al ver la propuesta de un selector junto a Enviar: «no me parece correcto el chip junto a enviar … basta con tenerlo en ajustes por ahora. Cambiar entre español e inglés en los ajustes, porque esos son los únicos dos idiomas que quiero por ahora, debe cambiar tanto el lenguaje de las prompts como el lenguaje del output como toda la interfaz de usuario al idioma seleccionado, y solamente debe haber un botón». Cada cuenta tiene un solo ajuste, `language`, con dos valores: `es-419` (español latino neutro, la omisión) y `en`. Ese único control en Configuración cambia a la vez: el idioma de los prompts que recibe el modelo (los prompts existen en los dos idiomas), el idioma en que se redactan los mensajes de los envíos de esa cuenta, y toda la interfaz del panel. No hay selector por envío.
 **Alternativas descartadas:**
 - Responder en el idioma del input: un audio en inglés de un cliente produciría mensajes en inglés para un equipo que trabaja en español.
-- Un idioma fijo para todo el equipo: no permite a un miembro que trabaja en otro idioma.
+- Un selector de idioma junto a Enviar: Martín lo rechazó.
+- Más idiomas: por ahora sólo español e inglés.
 **Consecuencias:**
-- Columna `language` en `members`, campo opcional `output_language` en `POST /inputs`, `bundle.output_language` hacia el analizador, y una prueba con el proveedor real de que un input en un idioma sale redactado en el idioma pedido.
-**Condiciones de reversión:** Ninguna prevista.
+- Columna `language` en `members` (`es-419` o `en`, `CHECK`), editable en `PATCH /members/me`; el envío toma el idioma de su autor; `bundle.language` hacia el analizador, que elige el juego de prompts de ese idioma.
+- El panel tiene dos catálogos de textos (`es-419`, `en`) y ningún texto visible fuera de ellos; los mensajes de error de la API llegan con un código y el panel los traduce.
+- Una prueba con el proveedor real de que un input en un idioma sale redactado en el idioma de la cuenta, en los dos sentidos.
+**Condiciones de reversión:** Que Martín pida un tercer idioma o un cambio por envío.
 
 ## [UD-019] Lo que redacta el analizador no lleva las marcas de la escritura generada por IA
 

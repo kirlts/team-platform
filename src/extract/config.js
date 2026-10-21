@@ -25,6 +25,10 @@ export const DEFAULTS = Object.freeze({
     passthroughFormats: Object.freeze(['jpeg', 'png', 'gif', 'webp']),
     // Formato al que se convierte lo demás (TIFF, AVIF, SVG) o lo que hay que reducir o girar.
     outputFormat: 'png',
+    // Formatos que ya tienen pérdida: al reducirlos o girarlos salen como JPEG, no como PNG.
+    lossyFormats: Object.freeze(['jpeg', 'webp']),
+    // Piso de la reducción a la mitad cuando el resultado aún no cabe en `maxBytes`: debajo de esto la imagen deja de ser legible.
+    minSide: 320,
     // Prompt de descripción accionable (MASTER-SPEC §7.4: «describe todo lo que sea accionable
     // para un equipo de software, textual»). Es una instrucción al modelo, no una regla de negocio.
     prompt:

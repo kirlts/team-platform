@@ -12,6 +12,7 @@ import type {
   Member,
   Message,
   MessageDetail,
+  MessageSummary,
   MessagePatch,
   NewMember,
   Proposal,
@@ -75,6 +76,16 @@ export function useMessages({ query, meId, repliesFeed, enabled = true }: Messag
       return applyClientFilters(list, query, meId)
     },
     placeholderData: keepPreviousData,
+    enabled,
+  })
+}
+
+/** What affects the person and the pending of each area. Lives under ['messages'], so every change to a message refreshes it. */
+export function useSummary(enabled = true) {
+  return useQuery({
+    queryKey: ['messages', 'summary'],
+    queryFn: () => api<MessageSummary>('/messages/summary'),
+    staleTime: 10_000,
     enabled,
   })
 }

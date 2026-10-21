@@ -149,6 +149,11 @@ seedMessage({ area_id: 'a-feedback', author_id: 'u-bruno', title: 'Las fechas de
 ])
 seedMessage({ area_id: 'a-error', author_id: 'u-ana', title: 'Revisar el tiempo de respuesta de la lista de mensajes', body: 'Con más de doscientos mensajes la lista tarda en abrir.', status: 'open', created_at: ago(96 * 60), assignee_ids: ['u-bruno'], attachment_ids: [] })
 
+// A message Ana sent that someone answered: blue for her (informative), since it is not assigned to her.
+seedMessage({ area_id: 'a-pregunta', author_id: 'u-ana', title: 'Confirmar el formato de las capturas del informe', body: 'Para el informe mensual necesito saber si las capturas van en PNG o en JPG.', status: 'answered', created_at: ago(40), fields: { question: 'PNG o JPG para las capturas del informe.' }, assignee_ids: ['u-bruno'], attachment_ids: [] }, [
+  { author_id: 'u-bruno', kind: 'answer', body: 'PNG: las capturas con texto se ven nítidas.', created_at: ago(18) },
+])
+
 // Messages with every media type, long titles and many recipients, to see how the text is distributed.
 const everyone = members.map((x) => x.id)
 seedMessage({ area_id: 'a-accesibilidad', author_id: 'u-carla', title: 'Revisar la lectura del panel en teléfonos pequeños con el tamaño de letra del sistema al máximo y el tema oscuro activado', body: 'En un teléfono de 360 píxeles de ancho con la letra del sistema al máximo, varias filas se desbordan. Adjunto una captura, la grabación, una nota de voz, el documento con el detalle y el caso en GitHub.', status: 'open', created_at: ago(12), fields: { summary: 'La fila de mensajes se desborda con la letra del sistema al máximo.', device: 'Teléfono de 360 píxeles de ancho con Android' }, assignee_ids: everyone.filter((x) => x !== 'u-carla'), attachment_ids: [imgDashboard, videoDemo, audioNota, docFeedback, linkIssue] }, [
@@ -648,6 +653,20 @@ const server = createServer(async (req, res) => {
       const stamp = (x) => (q.get('replies') === '1' ? (replies.get(x.id) ?? []).at(-1)?.created_at : x.created_at)
       list.sort((a, b) => stamp(b).localeCompare(stamp(a)))
       return send(res, 200, envelope(list.map(view)))
+    }
+    if (path === '/messages/summary' && method === 'GET') {
+      // Same rule as the API (UD-028): red = assigned to me and open; yellow = assigned to me and answered; blue = mine, not assigned, answered.
+      const mine = { red: 0, yellow: 0, blue: 0, total: 0 }
+      for (const x of messages) {
+        if (x.status === 'closed') continue
+        const tone = x.assignee_ids.includes(me.id) ? (x.status === 'open' ? 'red' : 'yellow') : x.author_id === me.id && x.status === 'answered' ? 'blue' : null
+        if (tone) {
+          mine[tone]++
+          mine.total++
+        }
+      }
+      const open = (a) => messages.filter((x) => x.area_id === a.id && x.status === 'open')
+      return send(res, 200, { mine, areas: areas.map((a) => ({ area_id: a.id, open: open(a).length, mine_open: open(a).filter((x) => x.assignee_ids.includes(me.id)).length })) })
     }
     m = /^\/messages\/([^/]+)(?:\/(replies|close|reopen))?$/.exec(path)
     if (m) {

@@ -37,19 +37,21 @@ export const itemKey = (item: TrayItem) => (item.kind === 'upload' ? `upload-${i
  * inside a frame that keeps its height whatever the number of rows (they paginate). A row shows the
  * time, the first words, the state, the live progress and, once ready, the count of proposed messages.
  */
-export function Tray({ items, selectedId, hideTextId, onSelect }: { items: readonly TrayItem[]; selectedId: string | undefined; hideTextId?: string; onSelect: (id: string) => void }) {
+export function Tray({ items, selectedId, hideTextId, onSelect, bare = false }: { items: readonly TrayItem[]; selectedId: string | undefined; hideTextId?: string; onSelect: (id: string) => void; bare?: boolean }) {
   const t = useT()
   const failed = items.filter((i) => (i.kind === 'input' ? i.input.status === 'failed' : !!i.upload.error)).length
   return (
     <section aria-label={t('tray.title')} className="flex min-h-0 min-w-0 flex-col gap-2">
-      <div className="flex items-center justify-between gap-2">
-        <h2>{t('tray.title')}</h2>
-        <span className="flex items-center gap-2 text-xs">
-          {/* Said at the top, where it is seen even when the failed row is below the fold (J1-B-24). */}
-          {failed > 0 && <Badge tone="danger">{t('tray.failedCount', { n: failed })}</Badge>}
-          {items.length > 1 && <span className="tabular-nums text-muted">{t('tray.pending', { n: items.length })}</span>}
-        </span>
-      </div>
+      {!bare && (
+        <div className="flex items-center justify-between gap-2">
+          <h2>{t('tray.title')}</h2>
+          <span className="flex items-center gap-2 text-xs">
+            {/* Said at the top, where it is seen even when the failed row is below the fold (J1-B-24). */}
+            {failed > 0 && <Badge tone="danger">{t('tray.failedCount', { n: failed })}</Badge>}
+            {items.length > 1 && <span className="tabular-nums text-muted">{t('tray.pending', { n: items.length })}</span>}
+          </span>
+        </div>
+      )}
       <FitList
         rows={items}
         rowKey={itemKey}

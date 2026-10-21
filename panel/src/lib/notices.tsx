@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 /**
  * A notice of the screen: what just happened, said where the person is looking (J1-B-25, J1-B-26).
@@ -21,6 +21,9 @@ interface NoticeApi {
   current: NoticeState | null
   show: (notice: Notice) => void
   dismiss: () => void
+  /** How many dialogs hold their own copy of the strip: the page's own is not drawn under their overlay. */
+  dialogs: number
+  setDialogs: (update: (n: number) => number) => void
 }
 
 const NoticeContext = createContext<NoticeApi | null>(null)
@@ -29,13 +32,24 @@ export function NoticeProvider({ children }: { children: ReactNode }) {
   const [current, setCurrent] = useState<NoticeState | null>(null)
   const show = useCallback((notice: Notice) => setCurrent((prev) => ({ ...notice, id: (prev?.id ?? 0) + 1 })), [])
   const dismiss = useCallback(() => setCurrent(null), [])
-  const api = useMemo(() => ({ current, show, dismiss }), [current, show, dismiss])
+  const [dialogs, setDialogs] = useState(0)
+  const api = useMemo(() => ({ current, show, dismiss, dialogs, setDialogs }), [current, show, dismiss, dialogs])
   return <NoticeContext.Provider value={api}>{children}</NoticeContext.Provider>
 }
 
 /** Outside a provider (a test of one component) notices go nowhere instead of failing. */
-const SILENT: NoticeApi = { current: null, show: () => undefined, dismiss: () => undefined }
+const SILENT: NoticeApi = { current: null, show: () => undefined, dismiss: () => undefined, dialogs: 0, setDialogs: () => undefined }
 
 export function useNotices(): NoticeApi {
   return useContext(NoticeContext) ?? SILENT
+}
+
+/** A dialog that is open calls this and draws `<NoticeHost inDialog />` at its top, so a notice is never left behind its overlay. */
+export function useNoticeInDialog(active: boolean) {
+  const { setDialogs } = useNotices()
+  useEffect(() => {
+    if (!active) return
+    setDialogs((n) => n + 1)
+    return () => setDialogs((n) => n - 1)
+  }, [active, setDialogs])
 }

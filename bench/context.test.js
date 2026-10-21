@@ -4,7 +4,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildBundle } from './lib.js';
 import { compareResults, formatComparison, median } from './compare.js';
-import { judgeUser, readRatings, RATINGS_SCHEMA, RUBRIC } from './judge-usefulness.mjs';
+import { judgeUser, readRatings, RATINGS_SCHEMA, RUBRIC, seeded, shuffle, spread } from './judge-usefulness.mjs';
+import { costOf } from './pricing.js';
 import { score } from './score.js';
 
 const input = { text: 'hello', attachments: [{ id: 1, kind: 'document', extracted: 'x' }] };
@@ -124,4 +125,91 @@ test('poolResults concatenates the runs and the judged scores of a variant and i
 test('compare: pairs in common counts every pair that all variants produced', () => {
   const out = compareResults([fakeResult('a', [[1], [1]], null), fakeResult('b', [[1], [2]], null), fakeResult('c', [[2], [2]], null)]);
   for (const v of out.variants) assert.equal(v.shared_assignment.pairs, 2);
+});
+
+test('judge: spread keeps order and takes evenly; shuffle is a repeatable permutation', () => {
+  const list = Array.from({ length: 10 }, (_, i) => i);
+  assert.deepEqual(spread(list, 4), [0, 2, 5, 7]);
+  assert.deepEqual(spread([1, 2], 4), [1, 2]);
+  const a = shuffle(list, seeded('c01'));
+  assert.deepEqual(a, shuffle(list, seeded('c01')));
+  assert.deepEqual([...a].sort((x, y) => x - y), list);
+  assert.notDeepEqual(a, shuffle(list, seeded('c02')));
+});
+
+test('pricing: Sonnet 5.5 is priced per the model list', () => {
+  const usd = costOf({ model: 'claude-sonnet-5-5', usage: { input_tokens: 1_000_000, output_tokens: 1_000_000, cached_tokens: 1_000_000 } });
+  assert.equal(Number(usd.toFixed(6)), 12.2);
+});
+
+test('wilson: known values, bounds and the empty case', async () => {
+  const { wilson } = await import('./compare.js');
+  const [lo, hi] = wilson(50, 100);
+  assert.ok(Math.abs(lo - 0.4038) < 0.001 && Math.abs(hi - 0.5962) < 0.001);
+  const [l0, h0] = wilson(0, 10);
+  assert.equal(l0, 0);
+  assert.ok(h0 > 0.25 && h0 < 0.30);
+  assert.deepEqual(wilson(10, 10).map((x) => Math.round(x * 100)), [72, 100]);
+  assert.equal(wilson(0, 0), null);
+});
+
+test('labels: the second reader widens area and template and adds an alternative assignee set', async () => {
+  const { mergeSecondLabeler, labelerAgreement } = await import('./labels.js');
+  const a = { messages: [{ id: 'm1', unit_ids: [1], area_id: 2, template_id: 2, assignee_ids: [1] }, { id: 'm2', unit_ids: [2], area_id: [3, 4], template_id: 3, assignee_ids: [1, 4] }] };
+  const b = { messages: [{ id: 'm1', area_id: 3, template_id: 3, assignee_ids: [4] }, { id: 'm2', area_id: 4, template_id: 3, assignee_ids: [1, 4] }] };
+  const merged = mergeSecondLabeler(a, b);
+  assert.deepEqual([merged.messages[0].area_id, merged.messages[0].template_id, merged.messages[0].assignee_ids_alt], [[2, 3], [2, 3], [4]]);
+  assert.deepEqual([merged.messages[1].area_id, merged.messages[1].template_id], [[3, 4], 3]);
+  assert.deepEqual(labelerAgreement(a, b), { messages: 2, area: 0, template: 1, assignees: 1 });
+  assert.deepEqual(mergeSecondLabeler(a, { messages: [] }), a);
+});
+
+test('oracle: reference groups take the area and template most of their units got; exact drawings are counted', async () => {
+  const { mapOntoReference, groupingNote } = await import('./oracle.mjs');
+  const model = [{ unit_ids: [1], area_id: 2, template_id: 2 }, { unit_ids: [2], area_id: 3, template_id: 3 }, { unit_ids: [3, 4], area_id: 5, template_id: 5 }];
+  const out = mapOntoReference(model, [{ id: 'a', unit_ids: [1, 2] }, { id: 'b', unit_ids: [3, 4] }, { id: 'c', unit_ids: [9] }]);
+  assert.deepEqual(out.groups.map((g) => [g.area_id, g.template_id]), [[2, 2], [5, 5], [null, null]]);
+  assert.equal(out.exact, 1);
+  assert.equal(out.unmapped, 1);
+  assert.match(groupingNote([{ unit_ids: [1, 2] }], [{ unit_ids: [4] }]), /Grupo 1: u1, u2\nDescartadas: u4/);
+});
+
+test('oracle: runOracleCase classifies the reference groups and decomposes each one with the model template', async () => {
+  const { runOracleCase } = await import('./oracle.mjs');
+  const { loadFixtures } = await import('./lib.js');
+  const fixtures = await loadFixtures();
+  const seen = [];
+  const providers = {
+    text: {
+      model: 'claude-haiku-5-5',
+      complete: async (req) => {
+        seen.push(req);
+        if (req.schema.properties.groups) {
+          return { model: 'claude-haiku-5-5', usage: { input_tokens: 100, output_tokens: 10 }, json: { groups: [{ unit_ids: [1], area_id: 2, template_id: 2 }, { unit_ids: [2, 3], area_id: 3, template_id: 3 }], discarded: [] } };
+        }
+        return { model: 'claude-haiku-5-5', usage: { input_tokens: 50, output_tokens: 5 }, json: { messages: [{ unit_ids: [1], title: 'T', fields: {}, body: 'B', assignee_ids: [1, 99], attachment_ids: [] }, { unit_ids: [2], title: 'U', fields: {}, body: 'C', assignee_ids: [2], attachment_ids: [] }] } };
+      },
+    },
+  };
+  const run = await runOracleCase({
+    providers,
+    input: { text: 'uno.\n\ndos.\n\ntres.', attachments: [] },
+    context: { areas: fixtures.areas, templates: fixtures.templates, members: [{ id: 1, name: 'A', profile: 'p' }, { id: 2, name: 'B', profile: 'q' }] },
+    expected: { messages: [{ id: 'm1', unit_ids: [1] }, { id: 'm2', unit_ids: [2, 3] }], discarded: [] },
+  });
+  assert.equal(run.status, 'ok');
+  assert.match(seen[0].messages[0].content, /Grupo 1: u1\nGrupo 2: u2, u3/);
+  assert.equal(run.proposal.messages.length, 2);
+  assert.deepEqual(run.proposal.messages[0].assignee_ids, [1, 2]); // 99 is not a member; the parts of a split group are joined
+    assert.deepEqual(run.oracle, { groups: 2, exact_grouping: 2, split_groups: 2, failed: [] });
+  assert.match(seen[1].messages[0].content, /Miembro 1: A/);
+  assert.ok(run.usage.cost_usd > 0);
+});
+
+test('signTestP: symmetric, exact and bounded', async () => {
+  const { signTestP } = await import('./compare.js');
+  assert.equal(signTestP(0, 0), 1);
+  assert.equal(signTestP(5, 5), 1);
+  assert.ok(Math.abs(signTestP(9, 1) - 0.021484375) < 1e-9);
+  assert.equal(signTestP(1, 9), signTestP(9, 1));
 });

@@ -10,13 +10,13 @@ import { cn } from '@/lib/utils'
  * control (the undo buttons, Enviar and the pager sit where an overlay would land), and the lists under it
  * fit the room that is left (UD-017). Its text says what happened and to whom, the link goes to it, the action undoes it.
  */
-export function NoticeHost() {
+export function NoticeHost({ inDialog = false }: { inDialog?: boolean }) {
   const t = useT()
-  const { current, dismiss } = useNotices()
-  if (!current) return null
+  const { current, dismiss, dialogs } = useNotices()
+  if (!current || (!inDialog && dialogs > 0)) return null
   const danger = current.tone === 'danger'
   return (
-    <div className="shrink-0 px-4 pt-2 md:px-10">
+    <div className={inDialog ? 'shrink-0 px-4 pt-2' : 'shrink-0 px-4 pt-2 md:px-10'}>
       <div
         key={current.id}
         role={danger ? 'alert' : 'status'}

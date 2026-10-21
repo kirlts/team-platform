@@ -50,12 +50,23 @@ export async function normalizeImage(path, cfg) {
   if (passthrough && !needsRotation && longSide <= cfg.maxSide) {
     return { data: await readFile(path), mime: MIME_BY_FORMAT[meta.format], width: meta.width, height: meta.height, converted: false };
   }
-  const { data, info } = await sharp(path)
-    .rotate()
-    .resize({ width: cfg.maxSide, height: cfg.maxSide, fit: 'inside', withoutEnlargement: true })
-    .toFormat(cfg.outputFormat)
-    .toBuffer({ resolveWithObject: true });
-  return { data, mime: `image/${info.format}`, width: info.width, height: info.height, converted: true };
+  // Una foto reducida a PNG (sin pérdida) pesa varias veces más que su JPEG: una de 12 MP salió de 17 MB en base64
+  // y Anthropic la rechazó («image exceeds 10 MB maximum», VPS, 2026-10-21). Lo que ya era con pérdida sigue con pérdida.
+  const lossy = cfg.lossyFormats.includes(meta.format);
+  let side = Math.min(cfg.maxSide, longSide);
+  for (;;) {
+    const { data, info } = await sharp(path)
+      .rotate()
+      .resize({ width: side, height: side, fit: 'inside', withoutEnlargement: true })
+      .flatten(lossy ? { background: '#ffffff' } : false)
+      .toFormat(lossy ? 'jpeg' : cfg.outputFormat)
+      .toBuffer({ resolveWithObject: true });
+    // El proveedor mide la imagen en base64 contra 10 MiB: con `maxBytes` (7 MiB) de binario cabe. Si no cabe, se reduce a la mitad.
+    if (data.length <= cfg.maxBytes || side <= cfg.minSide) {
+      return { data, mime: `image/${info.format}`, width: info.width, height: info.height, converted: true };
+    }
+    side = Math.max(cfg.minSide, Math.floor(side / 2));
+  }
 }
 
 const DESCRIPTION_SCHEMA = {

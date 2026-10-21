@@ -9,10 +9,19 @@ import { cn } from '@/lib/utils'
 export function AreaChips({ chips }: { chips: ReactNode[] }) {
   const t = useT()
   const box = useRef<HTMLUListElement>(null)
-  const [fitting, setFitting] = useState<number | null>(null)
   const [open, setOpen] = useState(false)
+  // What was measured, and for how many chips. A measure for another count is not a measure: `fitting` is derived while rendering, so
+  // there is no effect that has to remember to reset it and no order of effects that can leave it dropped without a new reading (H-900).
+  const [measure, setMeasure] = useState<{ fit: number; n: number } | null>(null)
+  // Each request to measure again changes this, so the reading effect runs even when `measure` was already empty.
+  const [round, setRound] = useState(0)
+  const fitting = measure && measure.n === chips.length ? measure.fit : null
+  const remeasure = () => {
+    setMeasure(null)
+    setRound((r) => r + 1)
+  }
 
-  // A different list, a different width, a chip that changes size (the font arrives) or a chip that wraps makes the measure stale: draw them all again and measure.
+  // A different width, a chip that changes size (the font arrives) or a chip that wraps makes the measure stale: draw them all again and measure.
   const width = useRef(0)
   useEffect(() => {
     const el = box.current
@@ -22,7 +31,7 @@ export function AreaChips({ chips }: { chips: ReactNode[] }) {
       const wrapped = items.length > 1 && items.some((li) => li.offsetTop > items[0].offsetTop + 1)
       if (Math.abs(el.clientWidth - width.current) > 0.5 || wrapped) {
         width.current = el.clientWidth
-        setFitting(null)
+        remeasure()
       }
     }
     const observer = new ResizeObserver(stale)
@@ -30,15 +39,15 @@ export function AreaChips({ chips }: { chips: ReactNode[] }) {
     for (const child of el.children) observer.observe(child)
     return () => observer.disconnect()
   })
-  useEffect(() => setFitting(null), [chips.length])
 
+  // Runs whenever there is nothing measured for the chips drawn: all of them are in the row, the first row is counted.
   useLayoutEffect(() => {
     const el = box.current
     if (!el || fitting !== null) return
     const items = [...el.children] as HTMLElement[]
     const top = items[0]?.offsetTop ?? 0
-    setFitting(Math.max(1, items.filter((li) => li.offsetTop <= top + 1).length))
-  }, [fitting, chips])
+    setMeasure({ fit: Math.max(1, items.filter((li) => li.offsetTop <= top + 1).length), n: chips.length })
+  }, [fitting, round, chips.length])
 
   const hidden = fitting === null || open ? 0 : chips.length - fitting
   const shown = fitting === null || open ? chips : chips.slice(0, fitting)

@@ -61,4 +61,28 @@ describe('AreaChips', () => {
     view.rerender(<AreaChips chips={list} />)
     expect(screen.getByRole('button', { name: /más/ }).className).not.toMatch(/invisible/)
   })
+
+  it('when the row changes width after settling, it measures again and settles on the new count', () => {
+    let notify: () => void = () => {}
+    class FakeObserver {
+      constructor(callback: () => void) {
+        notify = callback
+      }
+      observe() {}
+      disconnect() {}
+    }
+    const real = globalThis.ResizeObserver
+    globalThis.ResizeObserver = FakeObserver as unknown as typeof ResizeObserver
+    try {
+      render(<AreaChips chips={chips(6)} />, { wrapper })
+      act(() => notify())
+      expect(screen.getAllByText(/^área \d$/)).toHaveLength(FIT)
+      width = 180
+      act(() => notify())
+      expect(screen.getAllByText(/^área \d$/)).toHaveLength(FIT)
+      expect(screen.getByRole('button', { name: /más/ }).className).not.toMatch(/invisible/)
+    } finally {
+      globalThis.ResizeObserver = real
+    }
+  })
 })

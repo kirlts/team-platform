@@ -150,3 +150,32 @@ test('H-21: a corrupt HEIC photo is accepted at upload and fails at extraction w
     assert.equal(env.calls.vision, 0)
   } finally { await env.close() }
 })
+
+test('HP-018: each attachment type refuses with its own code one byte over its cap and accepts a file exactly at it', async () => {
+  // Different caps, so that a file over one kind's cap is still under the multipart limit (the largest cap of all).
+  const caps = { image: 12, audio: 14, document: 16, video: 18 }
+  const env = await realExtractEnv({ uploads: { maxImageBytes: caps.image, maxAudioBytes: caps.audio, maxDocumentBytes: caps.document, maxVideoBytes: caps.video } })
+  try {
+    const kinds = [
+      ['image', 'a.png', 'image/png', caps.image, 'image_too_large'],
+      ['audio', 'a.mp3', 'audio/mpeg', caps.audio, 'audio_too_large'],
+      ['document (pdf)', 'a.pdf', 'application/pdf', caps.document, 'document_too_large'],
+      ['document (text)', 'a.txt', 'text/plain', caps.document, 'document_too_large']
+    ]
+    for (const [kind, name, type, cap, code] of kinds) {
+      const res = await postInput(env, env.cookie, { text: 'x' }, [{ field: 'files', name, type, content: 'x'.repeat(cap + 1) }])
+      assert.equal(res.statusCode, 413, kind)
+      assert.equal(res.json().code, code, kind)
+      nothingLeft(env)
+    }
+    // The video has the largest cap, which is also the multipart limit: over it the refusal carries the generic code.
+    const video = await postInput(env, env.cookie, { text: 'x' }, [{ field: 'files', name: 'a.mp4', type: 'video/mp4', content: 'x'.repeat(caps.video + 1) }])
+    assert.equal(video.statusCode, 413)
+    assert.equal(video.json().code, 'file_too_large')
+    nothingLeft(env)
+    for (const [kind, name, type, cap] of kinds.slice(0, 3)) {
+      const res = await postInput(env, env.cookie, { text: `at the cap ${kind}` }, [{ field: 'files', name: `b-${name}`, type, content: 'x'.repeat(cap) }])
+      assert.equal(res.statusCode, 202, `${kind}: ${res.body}`)
+    }
+  } finally { await env.close() }
+})

@@ -97,6 +97,7 @@ else
   umask 077
   cp .env.example .env
   ask ADMIN_EMAIL "Email of the first Editor" 0
+  ask PUBLISH_PORT "Port on the host (Enter for 3000)" 0
   ask ANTHROPIC_API_KEY "Anthropic key" 1
   ask GROQ_API_KEY "Groq key (audio and video, Enter to skip)" 1
   echo ".env created (mode 600)."
@@ -108,4 +109,7 @@ if [ "$START" = "1" ]; then
   docker compose up -d --wait
   PORT_PUBLISHED="$(sed -n 's/^PUBLISH_PORT=\(.\+\)$/\1/p' .env | head -n 1)"
   echo "Service up at http://127.0.0.1:${PORT_PUBLISHED:-3000}"
+  if ! grep -q '^ADMIN_PASSWORD=.' .env; then
+    echo "With a new database, the first Editor's password is generated and shown once in the log: docker compose logs team-platform | grep 'First editor'"
+  fi
 fi

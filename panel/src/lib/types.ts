@@ -287,6 +287,8 @@ export interface ProgressEvent {
 export interface DoneEvent {
   job_id: string
   input_id?: string
+  /** What the job left the input as: `published` when the publication was automatic (UD-070), `proposed` when it waits for review. */
+  input_status?: string
   done: true
 }
 

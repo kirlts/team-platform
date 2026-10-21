@@ -14,7 +14,7 @@ const WIDGET = [
   'Ana: Martín, el cliente lo ve el lunes 26.',
 ].join('\n');
 
-describe('REG-004 (proveedor real)', { skip: process.env.ANTHROPIC_API_KEY ? false : 'missing ANTHROPIC_API_KEY' }, () => {
+describe('REG-004 (real provider)', { skip: process.env.ANTHROPIC_API_KEY ? false : 'missing ANTHROPIC_API_KEY' }, () => {
   it('a chat that explains a widget produces new-feature messages, with the deadline included and without discarding the commission', async () => {
     const bundle = await makeBundle({ text: WIDGET, attachments: [] });
     const result = await analyze(bundle, { providers: createProviders(process.env) });
@@ -52,7 +52,7 @@ const languageOf = (text) => {
 };
 const proseOf = (m) => [m.title, m.body, ...Object.values(m.fields ?? {}).filter((v) => typeof v === 'string' && v !== 'No indicado')].join(' ');
 
-describe('UD-018 (proveedor real): the output follows bundle.language, not the language of the input', { skip: process.env.ANTHROPIC_API_KEY ? false : 'missing ANTHROPIC_API_KEY' }, () => {
+describe('UD-018 (real provider): the output follows bundle.language, not the language of the input', { skip: process.env.ANTHROPIC_API_KEY ? false : 'missing ANTHROPIC_API_KEY' }, () => {
   for (const [name, text, language, expected] of [
     ['an English input with language es-419 yields Spanish messages', ENGLISH_INPUT, 'es-419', 'es'],
     ['a Spanish input with language en yields English messages', SPANISH_INPUT, 'en', 'en'],
@@ -68,7 +68,7 @@ describe('UD-018 (proveedor real): the output follows bundle.language, not the l
 });
 
 // UD-025 with the real provider: a second input that repeats a point of the first is not dropped; its message says which recent input it continues.
-describe('UD-025 (proveedor real): a point that repeats a recent input is kept and says which one it continues', { skip: process.env.ANTHROPIC_API_KEY ? false : 'missing ANTHROPIC_API_KEY' }, () => {
+describe('UD-025 (real provider): a point that repeats a recent input is kept and says which one it continues', { skip: process.env.ANTHROPIC_API_KEY ? false : 'missing ANTHROPIC_API_KEY' }, () => {
   it('the second input keeps the repeated point and names the recent input by its time', async () => {
     const providers = createProviders(process.env);
     const first = await analyze(await makeBundle({ text: 'El botón Exportar del tablero no hace nada cuando lo aprieto en Safari.', attachments: [], language: 'es-419' }), { providers });
@@ -104,7 +104,7 @@ const VIDEO = [
   '[00:09] Fotograma 3: El popup sigue vacío.',
 ].join('\n');
 
-describe('UD-032 and H-135 (proveedor real)', { skip: process.env.ANTHROPIC_API_KEY ? false : 'missing ANTHROPIC_API_KEY' }, () => {
+describe('UD-032 and H-135 (real provider)', { skip: process.env.ANTHROPIC_API_KEY ? false : 'missing ANTHROPIC_API_KEY' }, () => {
   it('a link shared with no request is never a proposal with zero messages (H-133)', async () => {
     const bundle = await makeBundle({ text: 'Mira este artículo, me parece relevante para nosotros', attachments: [{ id: 1, kind: 'link', extracted: ARTICLE }], language: 'es-419' });
     const result = await analyze(bundle, { providers: createProviders(process.env) });

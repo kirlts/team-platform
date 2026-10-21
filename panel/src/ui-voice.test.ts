@@ -11,19 +11,13 @@ import { describe, expect, it } from 'vitest'
 import { en } from './i18n/en'
 import { es419 } from './i18n/es-419'
 import { progressKey } from './lib/progress-text'
+import { breaksVoice, voicePatterns } from './ui-voice-patterns.mjs'
 
 type Lang = 'es' | 'en'
 type RuleId = 'length' | 'opening' | 'person' | 'imperative' | 'punctuation' | 'gerund' | 'vague'
+// The rules and their patterns live in ./ui-voice-patterns.mjs (H-1703), shared with the in-browser detector.
 
-/** R1. The longest text a catalogue held on 2026-10-21 (measured: docs/investigaciones/08, section 6). */
-const MAX_WORDS = 10
-const MAX_WORDS_ERROR = 14
-/**
- * UD-122: Configuración is the one screen where a setting carries a visible explanation under its label (`hint.*` keys,
- * drawn by SettingHint). It answers the rules of voice but measures its length in characters, not in words.
- */
-const MAX_HINT_CHARS = 90
-/** The only files that may name a `hint.*` key or draw a SettingHint: Configuración and the components it is made of. */
+/** The only files that may name a `hint.*` key or draw a SettingHint: Configuración and the components it is made of (UD-122). */
 const HINT_FILES = new Set([
   'pages/Settings.tsx',
   'components/SettingHint.tsx',
@@ -43,45 +37,6 @@ const EXCEPTIONS: Record<string, { rule: RuleId; why: string }[]> = {
 
 const SRC = fileURLToPath(new URL('.', import.meta.url))
 const SERVER_SRC = join(SRC, '..', '..', 'src')
-
-const strip = (text: string) => text.replace(/\{[A-Za-z]+\}/g, 'X').replace(/«[^»]*»|“[^”]*”/g, 'X')
-const wordsOf = (text: string) => strip(text).split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w))
-const first = (text: string) => (wordsOf(text)[0] ?? '').toLowerCase().replace(/[^\p{L}]/gu, '')
-const ES_COLLOQUIAL_IMPERATIVES = new Set(
-  'escribe adjunta elige selecciona ingresa introduce haz mira revisa usa pega sube toca pulsa aprieta arrastra prueba intenta espera recuerda verifica comprueba corrige completa confirma vuelve inténtalo escoge busca añade agrega pon'.split(' ')
-)
-const ES_PERSON = /(?<![\p{L}])(tú|tu|tus|tuyo|tuya|tuyos|tuyas|usted|ustedes|vos|te|ti|contigo|puedes|tienes|debes|quieres|necesitas|sabes|eres|estás|haces|ves|podés|tenés)(?![\p{L}])/iu
-/** Second person of the preterite (enviaste, escribiste). The third person of these verbs ends the same way. */
-const ES_PRETERITE = /(?<![\p{L}])(\p{L}+(?:aste|iste))(?![\p{L}])/giu
-const ES_THIRD_PERSON = new Set(['existe', 'insiste', 'persiste', 'asiste', 'resiste', 'consiste', 'subsiste', 'desiste', 'triste'])
-/** Imperative with a clitic pronoun attached: the accent sits before the pronoun. */
-const ES_CLITIC_IMPERATIVE = /(?<![\p{L}])\p{L}*[áéíóú]\p{L}{0,2}[ae](la|lo|las|los)(?![\p{L}])/iu
-const preterite = (text: string) => [...text.matchAll(ES_PRETERITE)].some((m) => !ES_THIRD_PERSON.has(m[1].toLowerCase()))
-const EN_PERSON = /(?<![\p{L}'])(you|your|yours|yourself|we|our|ours|let's|please)(?![\p{L}])/iu
-const ES_OPENING = /^(aquí|ya|todavía|aún|hola|bienvenid[oa]s?|gracias|oops|ups|parece que|vaya)(?![\p{L}])/iu
-const EN_OPENING = /^(here|already|yet|still|hi|hello|welcome|thanks|thank you|oops|sorry|looks like|seems|it seems|nothing)(?![\p{L}])/iu
-const ES_ANYWHERE = /(?<![\p{L}])(todavía|aún no|por ahora)(?![\p{L}])/iu
-const EN_ANYWHERE = /(?<![\p{L}])yet(?![\p{L}])/iu
-const VAGUE = /(?<![\p{L}])(simplemente|fácilmente|realmente|sencillamente|robust[oa]s?|integral(es)?|sin duda|seamless|seamlessly|simply|easily|effortless(ly)?|robust|powerful)(?![\p{L}])/iu
-
-/** The rules every visible text answers to. Returns the broken rule or null. */
-export function breaksVoice(key: string, text: string, lang: Lang): RuleId | null {
-  const plain = strip(text)
-  const words = wordsOf(text)
-  const isError = /(^|\.)error\./.test(key)
-  if (key.startsWith('hint.')) {
-    if (plain.length > MAX_HINT_CHARS) return 'length'
-  } else if (words.length > (isError ? MAX_WORDS_ERROR : MAX_WORDS)) return 'length'
-  if ((lang === 'es' ? ES_OPENING : EN_OPENING).test(plain.trim()) || (lang === 'es' ? ES_ANYWHERE : EN_ANYWHERE).test(plain)) return 'opening'
-  if ((lang === 'es' ? ES_PERSON : EN_PERSON).test(plain) || (lang === 'es' && (preterite(plain) || ES_CLITIC_IMPERATIVE.test(plain)))) return 'person'
-  if (lang === 'es' && ES_COLLOQUIAL_IMPERATIVES.has(first(text))) return 'imperative'
-  // R7: no question, no exclamation, no ellipsis in three dots, no final period, one sentence.
-  if (/[?¿!¡]/.test(plain) || /\.\.\./.test(plain) || /\.\s*$/.test(plain) || /[.]\s+\p{Lu}/u.test(plain)) return 'punctuation'
-  // R8: a gerund opens only a state of one or two words.
-  if (words.length > 2 && (lang === 'es' ? /(ando|iendo|yendo)$/ : /ing$/).test(first(text))) return 'gerund'
-  if (VAGUE.test(plain)) return 'vague'
-  return null
-}
 
 function variants(message: unknown): string[] {
   if (typeof message === 'string') return [message]
@@ -131,6 +86,29 @@ function progressPhrases(): { file: string; text: string }[] {
   }
   return found
 }
+
+const BAD: [string, Lang, RuleId][] = [
+  ['Nota de voz con su transcripción y los detalles del archivo adjunto', 'es', 'length'],
+  ['Aquí puedes ver tus mensajes', 'es', 'opening'],
+  ['Todavía no hay nada', 'es', 'opening'],
+  ['Lo enviaste tú', 'es', 'person'],
+  ['Elige un envío', 'es', 'imperative'],
+  ['Revísala y publícala', 'es', 'person'],
+  ['¿Qué quieres hacer?', 'es', 'person'],
+  ['Guardado.', 'es', 'punctuation'],
+  ['¡Guardado!', 'es', 'punctuation'],
+  ['Leyendo el documento con paciencia', 'es', 'gerund'],
+  ['Una experiencia simplemente fluida', 'es', 'vague'],
+  ['Here you can see your messages', 'en', 'opening'],
+  ['You sent it', 'en', 'person'],
+  ['Please enter an email', 'en', 'person'],
+  ['Reading the document patiently now', 'en', 'gerund'],
+  ['Saved.', 'en', 'punctuation'],
+  ]
+const GOOD: [string, Lang][] = [
+  ['Nota de voz', 'es'], ['Enviado por mí', 'es'], ['Leyendo adjuntos', 'es'], ['Sin mensajes', 'es'], ['Correo en uso', 'es'],
+  ['Voice note', 'en'], ['Sent by me', 'en'], ['Reading attachments', 'en'], ['No messages', 'en'], ['Email in use', 'en'],
+]
 
 describe('the interface speaks like an instrument (UD-050)', () => {
   it('Spanish catalogue: no text falls in the chatty pattern', () => {
@@ -210,29 +188,30 @@ describe('the interface speaks like an instrument (UD-050)', () => {
   })
 
   it('the rules themselves catch the pattern they name', () => {
-    const bad: [string, Lang, RuleId][] = [
-      ['Nota de voz con su transcripción y los detalles del archivo adjunto', 'es', 'length'],
-      ['Aquí puedes ver tus mensajes', 'es', 'opening'],
-      ['Todavía no hay nada', 'es', 'opening'],
-      ['Lo enviaste tú', 'es', 'person'],
-      ['Elige un envío', 'es', 'imperative'],
-      ['Revísala y publícala', 'es', 'person'],
-      ['¿Qué quieres hacer?', 'es', 'person'],
-      ['Guardado.', 'es', 'punctuation'],
-      ['¡Guardado!', 'es', 'punctuation'],
-      ['Leyendo el documento con paciencia', 'es', 'gerund'],
-      ['Una experiencia simplemente fluida', 'es', 'vague'],
-      ['Here you can see your messages', 'en', 'opening'],
-      ['You sent it', 'en', 'person'],
-      ['Please enter an email', 'en', 'person'],
-      ['Reading the document patiently now', 'en', 'gerund'],
-      ['Saved.', 'en', 'punctuation'],
-    ]
-    for (const [text, lang, rule] of bad) expect(breaksVoice('probe', text, lang), text).toBe(rule)
-    const good: [string, Lang][] = [
-      ['Nota de voz', 'es'], ['Enviado por mí', 'es'], ['Leyendo adjuntos', 'es'], ['Sin mensajes', 'es'], ['Correo en uso', 'es'],
-      ['Voice note', 'en'], ['Sent by me', 'en'], ['Reading attachments', 'en'], ['No messages', 'en'], ['Email in use', 'en'],
-    ]
-    for (const [text, lang] of good) expect(breaksVoice('probe', text, lang), text).toBeNull()
+    for (const [text, lang, rule] of BAD) expect(breaksVoice('probe', text, lang), text).toBe(rule)
+    for (const [text, lang] of GOOD) expect(breaksVoice('probe', text, lang), text).toBeNull()
+  })
+
+  it('the exported patterns, which the in-browser detector reads, agree with the guard on its own samples (H-1703)', () => {
+    const matches = (text: string, lang: Lang) => voicePatterns(lang).filter((p) => new RegExp(p.source, p.flags).test(text)).map((p) => p.id)
+    for (const [text, lang, rule] of BAD) expect(matches(text, lang), text).toContain(rule)
+    for (const [text, lang] of GOOD) expect(matches(text, lang), text).toEqual([])
+    // The third person of the verbs that end like a preterite is not a second person.
+    expect(matches('Existe una copia', 'es')).toEqual([])
+  })
+
+  it('no text of the catalogues that the guard accepts is flagged by the patterns', () => {
+    const flagged: string[] = []
+    for (const [catalog, lang] of [[es419, 'es'], [en, 'en']] as const) {
+      for (const [key, message] of Object.entries(catalog)) {
+        for (const text of variants(message)) {
+          if (breaksVoice(key, text, lang) || /\{|«|“/.test(text)) continue
+          // An error text may run to MAX_WORDS_ERROR words; the pattern for length knows only the common limit.
+          const ids = voicePatterns(lang).filter((p) => new RegExp(p.source, p.flags).test(text)).map((p) => p.id).filter((id) => !(id === 'length' && /(^|\.)error\./.test(key)))
+          if (ids.length) flagged.push(`${lang} ${key} [${ids}]: ${text}`)
+        }
+      }
+    }
+    expect(flagged).toEqual([])
   })
 })

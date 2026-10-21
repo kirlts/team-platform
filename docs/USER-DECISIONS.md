@@ -516,6 +516,8 @@ RULES:
 
 ## [UD-041] Los tres estados son la única categoría de un mensaje en la interfaz, y el área se abre en sus mensajes
 
+**Enmienda (UD-100):** en la barra superior los tres estados se dibujan sólo con su forma, su color y su número; la palabra es el nombre accesible y el tooltip.
+
 ## [UD-040] El HEIC de iPhone se decodifica con el `ffmpeg` de la imagen
 
 **Fecha:** 2026-10-21
@@ -610,6 +612,8 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 **Condiciones de reversión:** Si Martín prefiere una vista de documentos con primera página, se agrega el renderizado con una dependencia justificada en MASTER-SPEC §3.
 
 ## [UD-042] El estado de un mensaje se deriva de sus respuestas y de su cierre, y nunca se escribe a mano
+
+**Enmienda (UD-100):** el vocabulario y los colores (abierto rojo, respondido amarillo, cerrado azul) no cambian; la barra superior no escribe la palabra, la dice en el nombre accesible.
 
 **Fecha:** 2026-10-21
 **Contexto:** Inicio mostraba una tarjeta «Abierto» con dos respuestas. El servidor real ya pasa de abierto a respondido al responder; el servidor de ejemplo del panel sembraba el estado a mano y lo contradecía. Martín, textual: «El estado respondido debería aplicarse siempre automáticamente cuando exista una respuesta a un problema abierto, independiente de si esa respuesta agrega más información, porque eso ya no es algo que el sistema evalúe. Lo único que no importa es si un problema no tiene respuesta: eso es abierto. Si hay una o más respuestas, está respondido. Y si alguien lo marcó como cerrado, está cerrado.»
@@ -789,3 +793,39 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 - Alto máximo con scroll interno: es lo que se rechazó.
 **Consecuencias:** Enmienda UD-017 para esta vista; `test:fit` la exime sólo de las comprobaciones de alto de documento y mantiene las de carriles propios, texto bajo 12 px y repetidos.
 **Condiciones de reversión:** Ninguna prevista.
+## [UD-130] La barra lateral va sobre una grilla, sus contadores no llevan contenedor y todo lo clicable responde al puntero
+
+**Fecha:** 2026-10-21
+**Contexto:** Martín, textual, con una captura de la barra lateral: «Otro error que frecuentemente aparece son los problemas de alineación. Por ejemplo acá los iconos que se muestran con cada fila están desalineados verticalmente. Eso es inaceptable. Además arriba un icono está rodeado de un contenedor y abajo no. Necesito que no estén rodeados con contenedor, pero además que cuando uno pase el mouse por encima se ilumine el icono dando la sensación de que es cliqueable, igual que en la barra de arriba en el icono rojo que ya se ve súper cliqueable. Necesito que pasar el mouse por encima también tenga un efecto. Investiga cuál es el patrón imperante en 2026 para este tipo de cosas.»
+**Decisión:** Cada fila de la barra lateral (Inicio, Mensajes, Áreas, cada área, Equipo, Conexiones, Configuración, Cerrar sesión) es una caja con dos columnas: el enlace (ícono y rótulo) y la columna del contador. La columna mide al menos 2,75 rem (`--sidebar-count-col`), termina a 10 px del borde derecho en todas las filas y se centra en la altura de la fila. Los contadores son un ícono de estado con su número, sin contenedor ni borde, con la misma forma y color de la barra superior (`StateMark` y `NotifyBadge`, no copias). La fila entera es lo que se ilumina: al pasar el puntero el fondo cambia a `--color-hover` y el ícono pasa de `--color-muted` a `--color-accent`; con el teclado, el mismo cambio más un anillo de 2 px dentro de la fila. «+», desplegable de áreas, ocultar panel y el contador de cada área tienen su propio estado de hover y foco. La transición es de 100 ms (`--duration-hover`). El rótulo puede partirse sólo cuando el nombre lo escribió una persona y es largo; los rótulos fijos y las cinco áreas de plantilla caben en una línea en 256 px y en teléfono. Fuente: `docs/investigaciones/12 - Alineación y estados de los elementos de navegación.md` (R1 a R11).
+**Alternativas descartadas:**
+- Iluminar sólo el ícono: ninguno de los sistemas revisados lo hace; todos cambian el fondo de la fila, y el ícono acompaña. Se hacen las dos cosas.
+- Recortar el rótulo con puntos suspensivos (UD-016): la regla del dueño lo prohíbe.
+- Una píldora para todos los contadores: el dueño pidió que no hubiera contenedor.
+**Consecuencias:** `panel/src/sidebar-alignment.browser.test.mjs` (`npm run test:sidebar`, dentro de `test:flows`) mide coordenada derecha y centro vertical de los contadores con tolerancia de 1 px, una sola línea por rótulo, ausencia de contenedor y cambio de estilo calculado en hover y foco. `panel/scripts/ui-detectors.mjs` suma la regla `sibling-alignment`. `panel/DISENO.md` declara los tokens.
+**Condiciones de reversión:** Ninguna prevista.
+
+## [UD-100] La barra superior muestra los tres estados con ícono y número, y abre sus mensajes en un desplegable
+
+**Fecha:** 2026-10-21
+**Contexto:** El conteo de lo pendiente se repetía en la campana (insignia con 8), la insignia de Mensajes en la barra lateral, los conteos por área de la barra lateral y la franja «Para mí» y «Por área» de Inicio. El dueño, textual: «Todo esto debería quedar integrado de manera eficiente, ordenada y no redundante en la barra superior del sitio, siempre visible, pero NO en inicio. Inicio ya tiene demasiados elementos.» Después precisó: «Los rótulos "Abierto", "Respondido" o "Cerrado" no deben aparecer en la barra superior, sino que simplemente bastan los íconos de color con un número, que al ser clickeados deben desplegar un pequeño desplegable según el ícono desplegado que permita ver rápidamente los elementos sin salir de la página donde se está.» Y corrigió una primera versión que agregaba contadores por área: «Yo NO pedí esto, en la barra superior SOLO íconos de abierto, respondido y cerrado.»
+**Decisión:**
+- La barra superior de todas las páginas lleva tres marcas entre el nombre y la campana: abierto (triángulo, rojo), respondido (reloj, amarillo) y cerrado (punto, azul), cada una con su número y sin texto visible. La palabra del estado es el nombre accesible y el tooltip nativo («4 abiertos»), de modo que el color nunca va solo: lo acompañan la forma y el nombre. Las marcas son del peso callado de UD-036.
+- Un clic, Enter o Espacio abre bajo la marca un desplegable anclado (popover del kit; no un panel lateral ni un modal) con los mensajes de ese estado que me conciernen: título, chip de área con su color, autor y hora. Una fila abre el mensaje; el pie enlaza a Mensajes filtrado por ese estado y «para mí». Las flechas recorren las filas, Escape cierra y devuelve el foco a la marca. Abrir no navega.
+- «Me conciernen» es la regla de UD-028: asignado a mí, o emitido por mí y respondido; un cerrado cuenta si fui asignado o emisor. El desplegable lista exactamente lo que la marca cuenta.
+- La barra no lleva ningún contador por área, ni cuadros de color, ni «+N». Los conteos por área viven donde ya estaban: la barra lateral junto a cada área y la vista de cada área. El chip de área aparece sólo como parte de una fila del desplegable.
+- La campana queda para novedades: lista los mensajes que llegaron con el panel abierto y su única marca es cuántas no se leyeron. Ya no repite el conteo de pendientes ni lleva color de estado.
+- Se retiran la insignia de Mensajes de la barra lateral (repetía la suma de las dos primeras marcas) y la franja «Para mí» y «Por área» de Inicio. Los conteos por área de la barra lateral se conservan.
+- En el teléfono la barra es un solo botón con el estado pendiente más alto y su total; su desplegable lista los tres estados, cada línea un enlace a Mensajes ya filtrado.
+- Los cerrados no levantan aviso (UD-041), pero el dueño pidió los tres estados y se muestran. El total del botón del teléfono suma sólo abiertos y respondidos.
+**Enmienda a UD-041 y UD-042:** la regla «cada estado se dice con su forma, su palabra y su número» rige en las filas, las listas y la barra lateral. En la barra superior la palabra no se dibuja: se dice en el nombre accesible. UD-029 queda enmendada: el fondo saturado de la campana desaparece porque la campana ya no cuenta estados.
+**Alternativas descartadas:**
+- Desglose por área en la barra (menú, chips o «+N»): el dueño lo rechazó por escrito.
+- Mantener un conteo en la campana: repetía la cifra de la barra.
+- Un panel lateral deslizante para los mensajes: prohibido por el dueño (05-10).
+- Mostrar la palabra de cada estado en la barra: el dueño pidió sólo íconos.
+**Consecuencias:**
+- `StatusBar` en `panel/src/components/StatusBar.tsx`; `Header` la monta y la campana pierde el modo «pendientes».
+- Pruebas de flujos nuevas fallan si aparece un contador o chip de área en la barra o un texto visible de estado, abren cada desplegable por clic y por teclado, y comparan su lista con la cifra.
+- La lista que un mensaje del desplegable usa es la de `noticeState`, no el filtro «para» del servidor, que sólo conoce los asignados (H-2000).
+**Condiciones de reversión:** Si el dueño quiere ver los cerrados fuera de la barra, se quita la tercera marca sin tocar el resto.

@@ -15,11 +15,11 @@ export const DEFAULTS = Object.freeze({
   exportTimeoutMs: 30000,
   // Byte budget of the span queues (H-40, budget.js). The count limit above does not bound memory: a call with
   // 48 video frames weighs 3,653,672 B in its span (3.48 MiB, `span-size.bench.mjs`, 2026-10-20: 48 frames of
-  // 57.5 KB each, informe 06 section 8, 4/3 for base64). The soft threshold is that span rounded up to 4 MiB:
+  // 57.5 KB each, report 06 section 8, 4/3 for base64). The soft threshold is that span rounded up to 4 MiB:
   // the queue holds one such call and is flushed early as soon as a second one arrives. Knob:
   // TELEMETRY_QUEUE_MAX_BYTES.
   queueMaxBytes: 4 * 1024 * 1024,
-  // Hard threshold: the soft one plus the largest request a provider takes, 32 MB (informe 05 section 8.3), so the
+  // Hard threshold: the soft one plus the largest request a provider takes, 32 MB (report 05 section 8.3), so the
   // blobs of a call are dropped only when the queue has a backlog and not for being large themselves. Knob:
   // TELEMETRY_QUEUE_HARD_BYTES.
   largestRequestBytes: 32 * 1024 * 1024,

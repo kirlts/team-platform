@@ -13,29 +13,38 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 89a1d39 Traspaso: la barra superior no lleva contadores por área. Empujado a origin: `89a1d39`.
-- Ramas con commits sin fusionar: `wt-barra-superior` 8 (hace 16 segundos), `wt-inicio-respira` 2 (hace 62 segundos).
-- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `barra-superior`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `inicio-respira`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
+- `main`: 2860e44 Traspaso: barra lateral fusionada. Empujado a origin: `2860e44`.
+- Ramas con commits sin fusionar: `wt-configuracion` 22 (hace 10 minutos), `wt-deuda` 13 (hace 4 minutos), `wt-inicio-respira` 7 (hace 6 minutos), `wt-banco-abiertos` 3 (hace 13 minutos), `wt-h904` 1 (hace 25 minutos).
+- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `banco-abiertos`, `cierre`, `configuracion`, `deuda`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `h904-old`, `heic`, `ingles`, `inicio-maqueta`, `inicio-respira`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `89a1d39` Traspaso: la barra superior no lleva contadores por área (hace 6 minutos)
-- `207697a` Traspaso: instrucción de la barra superior en su sección (hace 8 minutos)
-- `43cf09c` Traspaso: la barra superior sólo con íconos de color y número (hace 8 minutos)
-- `c40b15d` Traspaso: barra superior e Inicio con espacio en vuelo (hace 11 minutos)
-- `14bd755` Traspaso: VPS actualizado, duración medida de la reconstrucción (hace 16 minutos)
-- `0d608f7` Traspaso: Inicio completo en main y VPS reconstruyéndose (hace 21 minutos)
-- `6c971d1` Merge remote-tracking branch 'origin/main' into wt-inicio-maqueta (hace 25 minutos)
-- `8233b45` Libro: H-1405 cerrado con su causa y su medición; H-1406 y H-1407 cerrados (hace 25 minutos)
-Actualizado 2026-10-21 17:32 UTC.
+- `2860e44` Traspaso: barra lateral fusionada (hace 2 minutos)
+- `8cb1eae` Merge branch 'wt-barra-lateral' (hace 4 minutos)
+- `b5553d0` Flows: J2-A-41 and J2-A-47 read the row box of the sidebar (UD-130) (hace 6 minutos)
+- `e890d6c` Merge main into wt-barra-lateral (hace 12 minutos)
+- `dfe5ead` Traspaso: barra superior y telemetría fusionadas (hace 14 minutos)
+- `1005e84` UD-130, H-2300 to H-2302 and tokens of the sidebar (hace 16 minutos)
+- `c837d82` Sidebar: the row is the box that lights; the link no longer covers the count column (hace 18 minutos)
+- `63dc519` Merge branch 'wt-telemetria-2' (hace 19 minutos)
+Actualizado 2026-10-21 18:38 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo
 
-Dos encargos siguen abiertos, cada uno en su worktree bajo `.claude/worktrees/<nombre>` y su rama `wt-<nombre>`. Los agentes no sobreviven a la sesión: la memoria de cada encargo es su rama y su fila de aquí. Para retomar: `git -C .claude/worktrees/<nombre> log --oneline main..HEAD`, leer sus filas en `docs/HALLAZGOS.md` y sus UD, y continuar en ese worktree. Ninguno empuja a `main`. Se fusiona con `git merge --no-edit wt-<nombre>`, luego `node scripts/check-conflict-markers.mjs`, `npm test`, `node --test bench/`, `cd panel && npx vitest run && npx tsc --noEmit` y las suites de navegador con puertos propios. Si dos ramas chocan en UD o H, se renumera la que entra después. Si una rama choca con `main` en más de dos archivos, se le pide a su agente (o a quien la retome) que haga `git merge main` en su rama y resuelva allí.
+**Plan de cierre:** `docs/PLAN-DE-CIERRE.md` (2026-10-21 15:00). La sesión anterior murió a las 14:42 con la cuota de su cuenta agotada; sus agentes murieron con ella. Quien retome ejecuta ese plan desde la Fase 0: rescata lo sin commit de `configuracion`, `inicio-respira` y `barra-superior`, relanza los encargos A, B, C y G, y sigue el orden de fusión que dice. Encargo nuevo del dueño de hoy: la barra lateral (alineación, contadores sin contenedor, hover), encargo G.
+
+**Avance 15:40.** En `main` también la barra lateral (`8cb1eae`). La deuda técnica vuelve a su rama: el dueño descartó derivar `VERIFICATION.md` (H-45) y el agente lo retira.
+
+**Avance 15:25.** En `main` también la barra superior (`f0f5a2c`) y la telemetría pendiente (`63dc519`). Abierto: H-2000 y H-2001. Las ramas de Inicio y barra lateral deben fusionar `main`.
+
+**Avance 15:15.** Fusionado en `main` el encargo del VPS (`402faf6`): restauración con adjuntos, `IMAGE_TAG` para una segunda instancia, respaldos en modo 600, `trusted-header` documentado. Abiertos: H-2605 (cualquier proceso local suplanta a un miembro en ese modo; el botón «Cerrar sesión» da 404, decisión del dueño). En vuelo: barra superior, barra lateral, Inicio, Configuración, telemetría, H-904 y Firefox, banco, deuda técnica.
+
+Tres encargos siguen abiertos, cada uno en su worktree bajo `.claude/worktrees/<nombre>` y su rama `wt-<nombre>`. Los agentes no sobreviven a la sesión: la memoria de cada encargo es su rama y su fila de aquí. Para retomar: `git -C .claude/worktrees/<nombre> log --oneline main..HEAD`, leer sus filas en `docs/HALLAZGOS.md` y sus UD, y continuar en ese worktree. Ninguno empuja a `main`. Se fusiona con `git merge --no-edit wt-<nombre>`, luego `node scripts/check-conflict-markers.mjs`, `npm test`, `node --test bench/`, `cd panel && npx vitest run && npx tsc --noEmit` y las suites de navegador con puertos propios. Si dos ramas chocan en UD o H, se renumera la que entra después. Si una rama choca con `main` en más de dos archivos, se le pide a su agente (o a quien la retome) que haga `git merge main` en su rama y resuelva allí.
 
 | Rama | Pedido del dueño (textual o resumido) | Criterio de cierre | Rangos reservados |
 |---|---|---|---|
 | `wt-barra-superior` | «Todo esto (Para mí y Por área) debería quedar integrado de manera eficiente, ordenada y no redundante en la barra superior del sitio, siempre visible, pero NO en Inicio. Inicio ya tiene demasiados elementos» | Resumen de «Para mí» y por área en la barra superior de todas las páginas, sin repetirlo en la insignia de Mensajes ni en los contadores de la barra lateral; la franja sale de Inicio; pruebas migradas | UD-100.., H-2000.. |
 | `wt-inicio-respira` | «La barra de texto necesita respirar mucho más, la UI debe ocupar mejor el ancho en pantalla, tener más espacio negativo. Mira la página de Gemini para inspiración» | Compositor grande y centrado, contenedor que crece con la ventana, espacio entre secciones como tokens, envíos y desplegable sólo cuando hay un envío; UD-017 enmendada sin debilitar `test:fit`; capturas de 1280 a 2560 px | UD-110.., H-2100.. |
+| `wt-configuracion` | «La descripción del proyecto tiene texto truncado que obliga a desplazarse dentro de la página. No hay forma segura de reemplazar un proveedor o retirar una clave de API; no es utilizable para agregar un proveedor, reemplazar una clave o diagnosticar. Los rótulos no tienen explicación: Publicación y Telemetría de uso no significan nada» | Editor de descripción grande sin scroll interno; gestión de proveedores con claves cifradas, prueba previa al reemplazo, retiro con bloqueo, diagnóstico clasificado y auditoría sin valores (migración 0009); explicación breve en cada ajuste (enmienda de la regla de texto de ayuda sólo para Configuración) | UD-120.., H-2200.. |
 | `wt-voz` (barrido final) | Barrido de los textos nuevos de Inicio, Configuración, Áreas y telemetría con la guardia `ui-voice` | Hash de la rama con `main` fusionado y validada; no renombra abierto, respondido, cerrado, «Publicado» ni «Propuesta lista» | H-1500.. |
 
 Orden de fusión: `wt-inicio-maqueta` es la última rama en vuelo; fusiona `main` en su rama y entra cuando dé su hash, porque toca `Home.tsx`, los catálogos de textos y las pruebas de flujos que todas las demás tocaron. Tras fusionar Inicio: barrido de `wt-voz` sobre los textos nuevos, una ronda de jueces acotados y la actualización del VPS.

@@ -92,6 +92,11 @@ Las fuentes están empaquetadas en `src/assets/fonts/` (WOFF2 variable, subconju
 
 Una animación continua: el destello del medidor de progreso, mientras un trabajo corre. Los botones se hunden 1 px al presionarse. `prefers-reduced-motion` apaga las animaciones.
 
+| Token | Valor | Uso |
+|---|---|---|
+| `--duration-hover` | 100 ms, `ease-out` | Cambio de fondo y color de las filas y controles de la barra lateral al pasar el puntero o enfocar (UD-130). Sólo color y fondo, sin desplazamiento |
+| `--sidebar-count-col` | 2,75 rem | Ancho mínimo de la columna del contador de la barra lateral; termina a 10 px del borde derecho en cada fila |
+
 ### Atmósfera
 
 `src/components/Atmosphere.tsx` dibuja una órbita anclada a la esquina superior derecha, fija y con `aria-hidden`; en teléfono no se dibuja. Una máscara la desvanece bajo la barra superior para que sus trazos no crucen títulos ni botones de la vista (J1-A-56). El cielo con brillos radiales cita el Frutiger Aero y la órbita el Y2K futurista. No hay destellos sueltos: un adorno sin ancla flota (UD-016).
@@ -231,6 +236,8 @@ UD-025, UD-046, UD-070 y UD-071. Inicio va de arriba abajo como la maqueta: fran
 ## Panel izquierdo
 
 UD-047. Mide 256 px, antes 288. El botón de ocultar está junto al usuario; oculto, el botón de la barra superior lo muestra. La preferencia se guarda por persona en el navegador, con `try/catch`. En el teléfono es el menú de la barra y no lleva el botón. Cada área lleva su muestra de color y los conteos de abiertos y respondidos van bajo su nombre.
+
+UD-130 (barra lateral). Cada fila es una grilla de dos columnas, enlace y contador. El contador es el ícono de estado con su número, sin contenedor, y su borde derecho y su centro vertical coinciden en todas las filas (tolerancia 1 px, `sidebar-alignment.browser.test.mjs`). Al pasar el puntero se ilumina la fila entera y su ícono; con el teclado, el mismo cambio y un anillo de 2 px dentro de la fila. «+», desplegable, ocultar y el contador de cada área responden igual. El rótulo de plantilla no se parte en 256 px ni en teléfono; un nombre largo escrito por una persona puede partirse.
 
 ## Envíos, la barra y la edición
 

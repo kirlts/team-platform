@@ -11,6 +11,7 @@ import { initializeDatabase, openInitialized } from '../db/index.js'
 import { seedDefaults } from '../db/seed.js'
 import { createMember } from '../domain/members.js'
 import { createPipeline } from '../domain/pipeline.js'
+import { parseTemplate } from '../domain/template-file.js'
 import { createEvents } from '../events/index.js'
 import { hashPassword } from '../identity/password.js'
 import { createQueue } from '../queue/index.js'
@@ -25,7 +26,7 @@ export function tempDir () {
 }
 
 export function testConfig (dir, overrides = {}) {
-  return loadConfig({ DATA_DIR: dir, LOG_LEVEL: 'silent' }, overrides)
+  return loadConfig({ DATA_DIR: dir, LOG_LEVEL: "silent" }, overrides)
 }
 
 /**
@@ -44,7 +45,8 @@ export const fakeAnalyze = async (bundle, { onProgress } = {}) => {
         template_id: plantilla.id,
         title: 'Mensaje de prueba',
         body: `${bundle.text}${bundle.attachments.map((a) => `\n[${a.kind}] ${a.extracted}`).join('')}`,
-        fields: {},
+        // Los campos obligatorios de la plantilla elegida, llenados como lo haría el analizador real.
+        fields: Object.fromEntries(parseTemplate(plantilla.body_markdown).fields.filter((f) => f.required).map((f) => [f.name, 'dato'])),
         assignee_ids: bundle.members.slice(0, 1).map((m) => m.id),
         attachment_ids: bundle.attachments.map((a) => a.id),
         unit_ids: []

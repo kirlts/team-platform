@@ -48,8 +48,8 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
       wildcard: false, // sólo los archivos que existen; lo demás cae al manejador de 404
       index: false,
       // Activos con hash: caché larga e inmutable. index.html: sin caché (informe 03 §7.3, I07 §8).
-      setHeaders (res, ruta) {
-        res.setHeader('cache-control', ruta.includes(`${path.sep}assets${path.sep}`)
+      setHeaders (reply, ruta) {
+        reply.header('cache-control', path.relative(config.panelDist, ruta).startsWith(`assets${path.sep}`)
           ? `public, max-age=${config.assetsMaxAgeSeconds}, immutable`
           : 'no-cache')
       }

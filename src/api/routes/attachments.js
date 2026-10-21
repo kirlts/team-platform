@@ -53,7 +53,7 @@ export function registerAttachmentRoutes (app, ctx) {
       rango = leerRango(request.headers.range, info.size)
     } catch (error) {
       reply.header('content-range', `bytes */${info.size}`)
-      return reply.code(416).send({ code: error.code, message: error.message })
+      return reply.code(416).type('application/json; charset=utf-8').send({ code: error.code, message: error.message })
     }
     if (!rango) {
       reply.header('content-length', info.size)

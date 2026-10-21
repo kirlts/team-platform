@@ -102,9 +102,10 @@ Estados: `main` (resuelto y fusionado), `en curso` (asignado a un agente vivo), 
 | # | Hallazgo | Origen | Estado |
 |---|---|---|---|
 | H-69 | Referencias del banco público sin auditar contra salidas de modelo | agente empaquetado | `main` (el agente analizador las corrigió con la corrida real) |
-| H-70 | Referencias del banco privado con criterio de un solo agente | banco privado | abierto: una segunda lectura por otro agente sobre los 10 casos con peor cobertura |
+| H-70 | Referencias del banco privado con criterio de un solo agente | banco privado | `main` (segunda lectura hecha: 10 casos, 11 desacuerdos resueltos con regla escrita, 12 criterios dejados; referencias migradas a la numeración por oración, 5.329 unidades) |
 | H-71 | Costo de Groq no entra en los dólares de la tabla | banco privado | abierto: `pricing.js` suma 0,04 USD por hora de audio |
 | H-72 | Rerun completo del banco privado tras los arreglos del analizador | banco privado | abierto: lo corre la sesión cuando entre la rama de prompts |
 | H-73 | HP-019 y HP-020 necesitan llave real y una persona | batería | abierto: HP-019 lo corre la sesión; HP-020 es el juez |
 | H-74 | Un docx con RUT y correos de pacientes reales quedó fuera del banco | banco privado | `main` (correcto, no entra) |
 | H-75 | `HP-001: a complete flow with an attachment of every kind` agotó su tiempo en dos corridas (9,5 s y 17 s) y pasa sola: carrera o carga, sin aislar | agente API | abierto (agente menores) |
+| H-76 | Las referencias privadas descartan «informes sin pedido ni decisión» y 10 entradas `secondary` de voz y fotograma; UD-021 y el contrato nuevo dicen que lo reportado cuenta | segunda lectura | abierto: se alinean al correr el rerun (H-72) con la rama de prompts en main |

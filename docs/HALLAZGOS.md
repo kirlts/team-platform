@@ -121,3 +121,4 @@ Estados: `main` (resuelto y fusionado), `en curso` (asignado a un agente vivo), 
 | H-86 | La descripción del proyecto baja la asignación de 48 % a 26 % y deja 20 % de mensajes sin destinatario | banco contexto | en curso (agente prompts) |
 | H-87 | La condición de reversión de UD-023 (prosa contra listas) no está medida: falta una variante con los mismos hechos en lista | banco contexto | en curso (agente banco contexto) |
 | H-88 | El juez de utilidad es el mismo modelo que el analizador y no distingue variantes | banco contexto | en curso (agente banco contexto: juez con Sonnet 5.5) |
+| H-89 | Montar team-platform en el VPS del toolset (ARM, 2 núcleos, Tailscale) y probarlo de punta a punta con los proveedores reales | Martín | en curso (sesión): imagen compilándose en el VPS, `tailscale serve` en el puerto 8444 sólo para la tailnet |

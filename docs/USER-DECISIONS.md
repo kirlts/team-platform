@@ -357,3 +357,9 @@ RULES:
 - Prueba del panel que falla si un mismo texto de más de 20 caracteres aparece dos veces en una vista; captura móvil revisada a 390×844 de Inicio con propuesta abierta.
 - El banco cuenta como marca de baja calidad un cuerpo de mensaje que repite su título.
 **Condiciones de reversión:** Ninguna prevista.
+
+## [UD-027] Presupuesto de API de Anthropic para el desarrollo y las mediciones
+
+**Fecha:** 2026-10-21
+**Decisión:** Martín, textual: «podemos gastar hasta 25 usd en api de anthropic». Es un tope total para lo que falta de desarrollo, mediciones y pruebas con el proveedor real, repartido entre los agentes (cada encargo declara su parte) y llevado en `bench/results/` por los guiones de gasto. Una corrida que lo supere se detiene y lo dice.
+**Consecuencias:** Las comparaciones de modelos (Haiku 5.5, Sonnet 5.5, DeepSeek), las repeticiones del banco y las pruebas de punta a punta en el VPS cuentan contra este tope.

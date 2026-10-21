@@ -248,7 +248,7 @@ RULES:
 
 **Fecha:** 2026-10-20
 **Contexto:** Con UD-015 los prompts del analizador pasan a inglés. Hacía falta fijar en qué idioma se redactan los mensajes que produce.
-**Decisión:** Martín, textual: «si vamos a tener prompt en inglés necesitamos poder fijar de alguna forma el lenguaje de output y que por defecto sea el que está configurado por cuenta». Cada miembro tiene un idioma en su cuenta (Configuración, por omisión el del equipo, `OUTPUT_LANGUAGE`, que por omisión es `es`); el análisis de un envío redacta títulos, cuerpos y campos en el idioma de la cuenta de quien envía, y la barra de envío permite cambiarlo para ese envío. El idioma viaja al modelo como dato del contexto (un código BCP 47), nunca se deduce con reglas sobre el texto.
+**Decisión:** Martín, textual: «si vamos a tener prompt en inglés necesitamos poder fijar de alguna forma el lenguaje de output y que por defecto sea el que está configurado por cuenta». Cada miembro tiene un idioma en su cuenta (Configuración, por omisión el del equipo, `OUTPUT_LANGUAGE`, que por omisión es `es-419`: Martín, textual, «por defecto el lenguaje configurado debe ser español latino neutro»); el análisis de un envío redacta títulos, cuerpos y campos en el idioma de la cuenta de quien envía, y la barra de envío permite cambiarlo para ese envío. El idioma viaja al modelo como dato del contexto (un código BCP 47), nunca se deduce con reglas sobre el texto.
 **Alternativas descartadas:**
 - Responder en el idioma del input: un audio en inglés de un cliente produciría mensajes en inglés para un equipo que trabaja en español.
 - Un idioma fijo para todo el equipo: no permite a un miembro que trabaja en otro idioma.

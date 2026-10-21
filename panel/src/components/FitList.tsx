@@ -103,6 +103,8 @@ export function FitList<T>({
   // The row to reveal is looked for once per change of `reveal`, as soon as the page size is known.
   const revealed = useRef<string | undefined>(undefined)
   useEffect(() => {
+    // No row to reveal: the next one that asks (even the same one, again) is looked for.
+    if (reveal === undefined) revealed.current = undefined
     if (!desktop || count === null || reveal === undefined || revealed.current === reveal) return
     const at = rows.findIndex((r) => rowKey(r) === reveal)
     if (at < 0) return
@@ -147,7 +149,11 @@ export function FitList<T>({
     if (!el || !fit || count === null || typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(() => {
       const sum = total([...el.children].map((c) => c.getBoundingClientRect().height))
-      if (Math.abs(sum - fit.sum) > 1) setFrameVersion((v) => v + 1)
+      if (Math.abs(sum - fit.sum) > 1) {
+        // The row to reveal may have been pushed off the page by its own growth: it is looked for again after the new measure.
+        revealed.current = undefined
+        setFrameVersion((v) => v + 1)
+      }
     })
     for (const child of el.children) observer.observe(child)
     return () => observer.disconnect()
@@ -158,6 +164,8 @@ export function FitList<T>({
   const range = pageRange(first, count ?? shown.length, rows.length)
 
   const go = (to: number, back: boolean) => {
+    // Paging by hand is the person's choice: the row to reveal does not pull the list back.
+    revealed.current = reveal
     setHistory((h) => (back ? h.slice(0, -1) : [...h, first]))
     setStart(to)
   }

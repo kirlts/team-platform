@@ -106,7 +106,7 @@ function SwitchRow({ slot, leaving, onSwitched }: { slot: ProviderSlot; leaving:
     <li data-switch={slot} className="flex flex-col gap-2">
       <span className="font-semibold">{slotName}</span>
       <div className="grid gap-2 sm:grid-cols-2">
-        <label className="flex min-w-0 flex-col gap-1 text-xs font-medium">
+        <label className="flex min-w-0 flex-col gap-1 text-sm text-muted">
           {t('providers.switchTo')}
           <NativeSelect value={provider} onChange={(e) => choose(e.target.value)} aria-label={`${t('providers.switchTo')}: ${slotName}`}>
             {options.map((c) => (
@@ -116,7 +116,7 @@ function SwitchRow({ slot, leaving, onSwitched }: { slot: ProviderSlot; leaving:
             ))}
           </NativeSelect>
         </label>
-        <label className="flex min-w-0 flex-col gap-1 text-xs font-medium">
+        <label className="flex min-w-0 flex-col gap-1 text-sm text-muted">
           {t('providers.model')}
           <Input value={model} onChange={(e) => setModel(e.target.value)} autoComplete="off" spellCheck={false} aria-label={t('settings.modelOf', { slot: slotName })} className="font-mono text-xs" />
         </label>

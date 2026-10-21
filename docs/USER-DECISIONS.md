@@ -896,3 +896,14 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 - Quitar el relleno del chip o pasarlo a contorno: contradice la cita de UD-045.
 - Poner el estado en píldora para que pese lo mismo: UD-036 reserva el relleno de color a la campana.
 **Condiciones de reversión:** Si Martín sigue viendo el chip más pesado, la medida siguiente es bajar su letra a 12 px en `.area-chip`. Esa decisión es suya porque cambia la escala de tipos.
+
+## [UD-170] La nota de la entrada queda sin vía de contacto
+
+**Fecha:** 2026-10-21
+**Contexto:** El juez de la ronda 4 observó que «Cuentas creadas por el Editor del equipo» nombra un cargo sin decir a quién pedir una cuenta ni cómo. Evidencia: `src/config.js` no tiene ajuste de contacto. La entrada no tiene sesión, así que mostrar el correo de un Editor exige un endpoint público y un ajuste nuevos. El equipo es pequeño y quien necesita una cuenta conoce a su Editor.
+**Decisión:** Decisión de la sesión, tomada por ese encargo; Martín no la dijo con estas palabras y puede revertirla. La nota queda como está, una línea impersonal que nombra el cargo (UD-050). No se agrega una vía de contacto: sería una función nueva que ningún pedido del dueño menciona (RULES 7 y 8).
+**Alternativas descartadas:**
+- Un ajuste «contacto» que el Editor configure y la entrada muestre: publica un correo sin sesión y agrega una superficie que nadie pidió.
+- Enlace `mailto:` a un Editor elegido por el servidor: expone el correo de un miembro a cualquiera que abra la página.
+**Consecuencias:** Ninguna en código. La fila H-3008 queda cerrada con esta decisión.
+**Condiciones de reversión:** Si el dueño quiere la vía de contacto, se agrega el ajuste `contact` con valor opcional y la nota lo muestra cuando existe.

@@ -134,7 +134,10 @@ COPY package.json package-lock.json* ./
 RUN npm ci && npm cache clean --force
 
 FROM base AS extract-test
-ENV NODE_ENV=test
+# A full ffmpeg, under /usr/bin, only to generate test inputs (libx264, aac and the lavfi sources);
+# the code under test uses the minimal one in /usr/local/bin, which comes first on PATH.
+RUN apk add --no-cache ffmpeg
+ENV NODE_ENV=test FIXTURE_FFMPEG=/usr/bin/ffmpeg TEAM_FFMPEG_MINIMAL=1
 WORKDIR /app
 COPY --from=test-deps /app/node_modules ./node_modules
 COPY package.json ./

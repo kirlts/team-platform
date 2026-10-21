@@ -10,6 +10,12 @@ import { PDFDocument, StandardFonts } from 'pdf-lib';
 import sharp from 'sharp';
 
 const exec = promisify(execFile);
+/**
+ * ffmpeg that generates the test inputs (encoders such as libx264 and aac, the lavfi sources). The
+ * image ships a minimal ffmpeg that cannot encode them, so the test stage points FIXTURE_FFMPEG at a
+ * full one; the code under test always runs the `ffmpeg` and `ffprobe` found on PATH.
+ */
+export const FIXTURE_FFMPEG = process.env.FIXTURE_FFMPEG ?? 'ffmpeg';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '.tmp');
 
 /** Directorio temporal propio de una prueba; `after(() => dir.cleanup())`. */
@@ -92,7 +98,7 @@ export async function makePdf(path, pages = 20, { scanned = [] } = {}) {
 
 /** Tono de `seconds` segundos en AAC dentro de un m4a, como una nota de voz de teléfono. */
 export async function makeAudio(path, seconds, { codecArgs = ['-c:a', 'aac', '-b:a', '96k'] } = {}) {
-  await exec('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', `sine=frequency=440:duration=${seconds}`, ...codecArgs, path]);
+  await exec(FIXTURE_FFMPEG, ['-v', 'error', '-y', '-f', 'lavfi', '-i', `sine=frequency=440:duration=${seconds}`, ...codecArgs, path]);
   return path;
 }
 
@@ -137,7 +143,7 @@ export async function makeVideo(path, { screens = 6, secondsPerScreen = 4, audio
   args.push('-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-r', '5');
   if (audio) args.push('-c:a', 'aac', '-shortest');
   args.push(path);
-  await exec('ffmpeg', args);
+  await exec(FIXTURE_FFMPEG, args);
   await rm(dir, { recursive: true, force: true });
   return seconds;
 }

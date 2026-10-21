@@ -12,7 +12,6 @@ import { createEvents } from './events/index.js'
 import { createQueue } from './queue/index.js'
 import { createPipeline } from './domain/pipeline.js'
 import { loadModules } from './domain/modules.js'
-import { getProviderSettings } from './domain/settings.js'
 import { sweepOrphans } from './domain/storage.js'
 
 const MAX_TIMEOUT = 2 ** 31 - 1 // límite de setTimeout
@@ -162,9 +161,9 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
 }
 
 /** Arma el worker con sus dependencias reales. Lo usan `server.js` y el modo proceso aparte. */
-export async function buildWorker ({ db, config, events, queue = null, log = () => {}, pollDataVersionMs = null }) {
+export async function buildWorker ({ db, config, events, queue = null, env = process.env, log = () => {}, pollDataVersionMs = null }) {
   const cola = queue ?? createQueue({ db, config, events })
-  const modules = await loadModules(config, { getSettings: () => getProviderSettings(db, config), log })
+  const modules = await loadModules(config, { db, env, log })
   const handlers = createPipeline({ db, config, queue: cola, events, modules })
   const worker = createWorker({
     db, queue: cola, events, config, handlers, log, pollDataVersionMs,

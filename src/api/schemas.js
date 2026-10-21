@@ -102,23 +102,23 @@ export const inputView = {
   }
 }
 
-/** Propuesta editada que el emisor publica. Los campos desconocidos por mensaje se ignoran (unit_ids, etc.). */
+/** Propuesta editada que el emisor publica: cada mensaje con su área y plantilla. Los campos que no se listan (unit_ids, discarded) se ignoran. */
 export const publishBody = {
   type: 'object',
-  required: ['area_id', 'template_id', 'messages'],
+  required: ['messages'],
   properties: {
-    area_id: { type: 'integer', minimum: 1 },
-    template_id: { type: 'integer', minimum: 1 },
     messages: {
       type: 'array',
       minItems: 1,
       items: {
         type: 'object',
-        required: ['title', 'body'],
+        required: ['area_id', 'template_id', 'title', 'body'],
         properties: {
+          area_id: { type: 'integer', minimum: 1 },
+          template_id: { type: 'integer', minimum: 1 },
           title: { type: 'string' },
           body: { type: 'string' },
-          fields: { type: 'object', additionalProperties: { type: 'string' } },
+          fields: { type: 'object', additionalProperties: { type: ['string', 'null'] } },
           assignee_ids: { type: 'array', items: { type: 'integer', minimum: 1 } },
           attachment_ids: { type: 'array', items: { type: 'integer', minimum: 1 } }
         }

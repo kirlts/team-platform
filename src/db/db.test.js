@@ -5,7 +5,8 @@ import { spawn } from 'node:child_process'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { assertRuntime, get, initializeDatabase, latestVersion, listMigrations, migrate, openDatabase, openInitialized, run, tx, userVersion } from './index.js'
-import { seedDefaults, DEFAULT_AREAS } from './seed.js'
+import { seedDefaults } from './seed.js'
+const CINCO_AREAS = 5 // templates/areas.json trae Idea, Error, Nueva funcionalidad, Retroalimentación y Pregunta
 import { tempDir, testConfig } from '../testing/helpers.js'
 
 const aquí = path.dirname(fileURLToPath(import.meta.url))
@@ -25,27 +26,27 @@ test('pragmas de conexión: busy_timeout, synchronous=FULL y claves foráneas', 
   rmSync(dir, { recursive: true, force: true })
 })
 
-test('la inicialización fija WAL, migra al último archivo y siembra las cinco áreas', () => {
+test('la inicialización fija WAL, migra al último archivo y siembra las cinco áreas', async () => {
   const dir = tempDir()
   const config = testConfig(dir)
-  const r = initializeDatabase(config, { seed: seedDefaults })
+  const r = await initializeDatabase(config, { seed: seedDefaults })
   assert.equal(r.hasta, latestVersion())
   const db = openInitialized(config)
   assert.equal(db.prepare('PRAGMA journal_mode').get().journal_mode, 'wal')
   assert.equal(userVersion(db), latestVersion())
-  assert.equal(get(db, 'SELECT COUNT(*) AS n FROM areas').n, DEFAULT_AREAS.length)
-  assert.ok(get(db, 'SELECT COUNT(*) AS n FROM templates').n >= DEFAULT_AREAS.length)
+  assert.equal(get(db, 'SELECT COUNT(*) AS n FROM areas').n, CINCO_AREAS)
+  assert.ok(get(db, 'SELECT COUNT(*) AS n FROM templates').n >= CINCO_AREAS)
   // Sembrar de nuevo no duplica nada.
-  assert.deepEqual(seedDefaults(db, config), { areas: 0, templates: 0 })
+  assert.deepEqual(await seedDefaults(db, config), { areas: 0, templates: 0 })
   db.close()
   rmSync(dir, { recursive: true, force: true })
 })
 
-test('inicializar dos veces no reaplica migraciones', () => {
+test('inicializar dos veces no reaplica migraciones', async () => {
   const dir = tempDir()
   const config = testConfig(dir)
-  initializeDatabase(config)
-  const segunda = initializeDatabase(config)
+  await initializeDatabase(config)
+  const segunda = await initializeDatabase(config)
   assert.equal(segunda.aplicadas, 0)
   rmSync(dir, { recursive: true, force: true })
 })
@@ -103,10 +104,10 @@ test('antes de migrar una base existente deja un respaldo consistente', () => {
   rmSync(dir, { recursive: true, force: true })
 })
 
-test('restricciones del esquema: rol y estados con CHECK, claves foráneas activas', () => {
+test('restricciones del esquema: rol y estados con CHECK, claves foráneas activas', async () => {
   const dir = tempDir()
   const config = testConfig(dir)
-  initializeDatabase(config)
+  await initializeDatabase(config)
   const db = openInitialized(config)
   assert.throws(() => run(db, "INSERT INTO members (email, name, role, created_at) VALUES ('a@b.c', 'A', 'admin', 1)"), /CHECK/)
   assert.throws(() => run(db, "INSERT INTO inputs (author_id, content_hash, created_at, updated_at) VALUES (999, 'h', 1, 1)"), /FOREIGN KEY/)
@@ -140,7 +141,7 @@ test('dos procesos que inicializan a la vez aplican cada migración una sola vez
   const resultados = await Promise.all([correr(), correr(), correr()])
   for (const r of resultados) assert.equal(r.codigo, 0, r.salida)
   const db = openInitialized(testConfig(dir))
-  assert.equal(get(db, 'SELECT COUNT(*) AS n FROM areas').n, DEFAULT_AREAS.length) // sembrado una sola vez
+  assert.equal(get(db, 'SELECT COUNT(*) AS n FROM areas').n, CINCO_AREAS) // sembrado una sola vez
   assert.equal(userVersion(db), latestVersion())
   db.close()
   assert.ok(existsSync(path.join(dir, 'team.db')))

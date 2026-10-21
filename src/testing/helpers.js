@@ -28,21 +28,32 @@ export function testConfig (dir, overrides = {}) {
   return loadConfig({ DATA_DIR: dir, LOG_LEVEL: 'silent' }, overrides)
 }
 
-/** Analizador doble: elige la primera área y su primera plantilla y devuelve un mensaje por unidad de texto. */
+/**
+ * Analizador doble con la forma del contrato real: { status, proposal, units, calls, stats }. Elige la primera
+ * área con plantilla y devuelve un mensaje con todo el texto y todos los adjuntos.
+ */
 export const fakeAnalyze = async (bundle, { onProgress } = {}) => {
-  onProgress?.(50, 'Analizando')
+  onProgress?.({ percent: 50, phrase: 'Analizando' })
   const area = bundle.areas[0]
   const plantilla = bundle.templates.find((t) => t.area_id === area.id)
   return {
-    area_id: area.id,
-    template_id: plantilla.id,
-    messages: [{
-      title: 'Mensaje de prueba',
-      body: `${bundle.text}${bundle.attachments.map((a) => `\n[${a.kind}] ${a.extracted}`).join('')}`,
-      fields: {},
-      assignee_ids: bundle.members.slice(0, 1).map((m) => m.id),
-      attachment_ids: bundle.attachments.map((a) => a.id)
-    }]
+    status: 'ok',
+    proposal: {
+      messages: [{
+        area_id: area.id,
+        template_id: plantilla.id,
+        title: 'Mensaje de prueba',
+        body: `${bundle.text}${bundle.attachments.map((a) => `\n[${a.kind}] ${a.extracted}`).join('')}`,
+        fields: {},
+        assignee_ids: bundle.members.slice(0, 1).map((m) => m.id),
+        attachment_ids: bundle.attachments.map((a) => a.id),
+        unit_ids: []
+      }],
+      discarded: []
+    },
+    units: [],
+    calls: [{ step: 'classify', provider: 'doble', model: 'claude-haiku-5-5', usage: { input_tokens: 1000, output_tokens: 200, cached_tokens: 0 }, duration_ms: 12, outcome: 'ok' }],
+    stats: {}
   }
 }
 
@@ -60,13 +71,13 @@ export const fakeExtract = async (attachment, { onProgress } = {}) => {
 export async function makeEnv ({ config: overrides = {}, modules = {}, worker = false, seed = true } = {}) {
   const dir = tempDir()
   const config = testConfig(dir, overrides)
-  initializeDatabase(config, { seed: seed ? seedDefaults : null })
+  await initializeDatabase(config, { seed: seed ? seedDefaults : null })
   const db = openInitialized(config)
   const events = createEvents({ db })
   const queue = createQueue({ db, config, events })
   const mods = {
-    analyze: fakeAnalyze, extract: fakeExtract, providers: {}, getSettings: () => config.providers,
-    audioBudget: null, estimateAudioSeconds: null, ...modules
+    analyze: fakeAnalyze, extract: fakeExtract, getProviders: () => ({ describe: () => [] }), getAnalyzer: () => 'api',
+    buildProviders: () => ({}), audioBudget: null, estimateAudioSeconds: null, warmTemplate: null, ...modules
   }
   const { app, domainEvents, identity } = await buildApp({ db, config, queue, events, modules: mods })
   const handlers = createPipeline({ db, config, queue, events, modules: mods })

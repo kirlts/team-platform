@@ -11,7 +11,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   loadEnvFile()
   const config = loadConfig()
   try {
-    const r = initializeDatabase(config, { seed: seedDefaults, log: (m) => console.log(m) })
+    const r = await initializeDatabase(config, { seed: seedDefaults, log: (m) => console.log(m) })
     console.log(`Base lista en ${config.dbFile} (versión ${r.hasta}).`)
   } catch (error) {
     console.error(error.message)

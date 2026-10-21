@@ -1,7 +1,9 @@
-// Configuración de proveedores (MASTER-SPEC §7.6). Sólo el editor. La base guarda el nombre del proveedor y
-// el modelo; la llave vive en el entorno y no se lee ni se escribe acá (MASTER-SPEC §4.6).
+// Configuración de proveedores (MASTER-SPEC §7.6). Sólo el editor. La base guarda el nombre del proveedor, el
+// modelo y la dirección base; la llave vive en el entorno y no se lee ni se escribe acá (MASTER-SPEC §4.6).
+// Un parche sólo se guarda si `createProviders` acepta la combinación: así un nombre inexistente se rechaza
+// al configurarlo y no cuando falla el primer trabajo.
 
-import { getProviderSettings, setProviderSettings } from '../../domain/settings.js'
+import { getProviderOverrides, getProviderSettings, mergeOverrides, setProviderOverrides } from '../../domain/settings.js'
 import { unprocessable } from '../../domain/errors.js'
 import { providerSlot } from '../schemas.js'
 
@@ -10,17 +12,18 @@ export function registerSettingsRoutes (app, ctx) {
 
   const vista = () => ({
     ...getProviderSettings(db, config),
-    // Los proveedores que el módulo de proveedores declara; null si todavía no está instalado.
-    catalog: modules.providersModule?.catalog ?? null
+    // Lo que `createProviders` efectivamente armó: proveedor, modelo y si falta una llave (nunca la llave).
+    slots: modules.getProviders?.()?.describe?.() ?? []
   })
 
+  const slotVista = { type: 'object', properties: { slot: { type: 'string' }, provider: { type: ['string', 'null'] }, model: { type: ['string', 'null'] }, available: { type: 'boolean' }, reason: { type: ['string', 'null'] } } }
   const respuesta = {
     200: {
       type: 'object',
       properties: {
         analyzer: { type: 'string' },
         text: providerSlot, vision: providerSlot, speech: providerSlot,
-        catalog: { type: ['object', 'null'], additionalProperties: true }
+        slots: { type: 'array', items: slotVista }
       }
     }
   }
@@ -37,14 +40,13 @@ export function registerSettingsRoutes (app, ctx) {
       response: respuesta
     }
   }, async (request) => {
-    const catalogo = modules.providersModule?.catalog
-    for (const modalidad of ['text', 'vision', 'speech']) {
-      const nombre = request.body[modalidad]?.provider
-      if (nombre && catalogo?.[modalidad] && !catalogo[modalidad].includes(nombre)) {
-        throw unprocessable(`El proveedor «${nombre}» no está disponible para ${modalidad}.`, 'provider_unknown')
-      }
+    const candidato = mergeOverrides(getProviderOverrides(db), request.body)
+    try {
+      modules.buildProviders?.(candidato)
+    } catch (error) {
+      throw unprocessable(error.message, 'provider_invalid')
     }
-    setProviderSettings(db, request.body)
+    setProviderOverrides(db, request.body)
     return vista()
   })
 }

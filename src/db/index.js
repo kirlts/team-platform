@@ -167,7 +167,7 @@ export const latestVersion = () => listMigrations().length
  * El paso de inicialización único: WAL, migraciones y siembra. Corre antes de la API y del worker.
  * `seed` se inyecta para que las pruebas migren sin sembrar.
  */
-export function initializeDatabase (config, { seed = null, log = () => {} } = {}) {
+export async function initializeDatabase (config, { seed = null, log = () => {} } = {}) {
   assertRuntime()
   mkdirSync(config.dataDir, { recursive: true })
   mkdirSync(config.attachmentsDir, { recursive: true })
@@ -176,7 +176,7 @@ export function initializeDatabase (config, { seed = null, log = () => {} } = {}
   try {
     fijarWal(db)
     const resultado = migrate(db, { backupsDir: config.backupsDir, log })
-    if (seed) seed(db, config, log)
+    if (seed) await seed(db, config, log)
     return resultado
   } finally {
     db.close()

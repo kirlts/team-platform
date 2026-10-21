@@ -11,19 +11,21 @@ import { seedDefaults } from './db/seed.js'
 import { buildApp } from './api/index.js'
 import { createEvents } from './events/index.js'
 import { createQueue } from './queue/index.js'
+import { installTemplateWarmup } from './domain/modules.js'
 import { buildWorker } from './worker.js'
 
 export async function start (config) {
   const log = (m) => console.log(`[servidor] ${m}`)
   // Paso de inicialización único. Con el worker aparte se hace antes de arrancar ambos procesos
   // (`npm run db:init`); acá se omite con SKIP_DB_INIT=1.
-  if (process.env.SKIP_DB_INIT !== '1') initializeDatabase(config, { seed: seedDefaults, log })
+  if (process.env.SKIP_DB_INIT !== '1') await initializeDatabase(config, { seed: seedDefaults, log })
   const db = openInitialized(config)
   const events = createEvents({ db })
   const queue = createQueue({ db, config, events })
 
   const { worker, modules } = await buildWorker({ db, config, events, queue, log, pollDataVersionMs: null })
-  const { app } = await buildApp({ db, config, queue, events, modules, logger: true })
+  const { app, domainEvents } = await buildApp({ db, config, queue, events, modules, logger: true })
+  installTemplateWarmup({ domainEvents, modules, db, config, log })
 
   if (config.worker.mode === 'external') events.startPolling(config.worker.dataVersionPollMs)
   if (config.worker.mode === 'inline') worker.start()

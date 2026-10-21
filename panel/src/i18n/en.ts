@@ -355,6 +355,7 @@ export const en: Record<MessageKey, Message> = {
   'connections.github': 'GitHub',
   'media.zoom': 'Enlarge {name}',
   'media.openNewTab': 'Open in a new tab',
+  'gallery.openMany': 'Show all {n} media',
   'gallery.region': 'Media gallery',
   'gallery.count': '{n} of {total}',
   'gallery.prev': 'Previous',

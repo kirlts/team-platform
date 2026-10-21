@@ -2,7 +2,8 @@ import { ArrowLeft } from '@/components/icons'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { AiMark } from '@/components/AiMark'
 import { AreaPicker } from '@/components/AreaPicker'
-import { AttachmentStrip } from '@/components/AttachmentStrip'
+import { MediaGallery } from '@/components/MediaGallery'
+import { toGalleryItems } from '@/lib/gallery'
 import { Avatar } from '@/components/Avatar'
 import { EmptyState } from '@/components/EmptyState'
 import { EditableText } from '@/components/EditableText'
@@ -173,6 +174,9 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
             <Recipients ids={m.assignee_ids} max={desktop ? 4 : 2} />
           )}
 
+          {/* What was attached comes before the words (mockup: «Previsualización de»): the gallery shows the medium and its siblings. */}
+          <MediaGallery items={toGalleryItems(m.attachments)} className="shrink-0" />
+
           {/* A long text has no cap: the message column scrolls inside, and it is a declared lane. */}
           <div data-lane="message-body" className="scroll-thin flex min-h-0 flex-initial flex-col gap-3 overflow-y-auto px-1.5 py-1">
             <EditableText value={m.body} label={t('detail.body')} multiline prose canEdit={canEdit} validate={required} onSave={(v) => change(t('proposal.bodyEdited'), { body: v }, { body: m.body })} displayClassName="text-read" />
@@ -185,7 +189,6 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
             />
           </div>
 
-          <AttachmentStrip items={m.attachments} px={44} className="shrink-0" />
         </div>
 
         <ReplyThread message={m} focusForm={focusReply} />

@@ -355,6 +355,7 @@ export const es419 = {
   'connections.github': 'GitHub',
   'media.zoom': 'Ampliar {name}',
   'media.openNewTab': 'Abrir en otra pestaña',
+  'gallery.openMany': 'Ver los {n} medios',
   'gallery.region': 'Galería de medios',
   'gallery.count': '{n} de {total}',
   'gallery.prev': 'Anterior',

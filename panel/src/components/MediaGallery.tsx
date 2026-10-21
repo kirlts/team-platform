@@ -8,11 +8,12 @@ import { cn } from '@/lib/utils'
 import { AudioPlayer } from './AudioPlayer'
 import { Thumb } from './Thumb'
 
-/** Size of the viewer: `inline` shares the page with other things (UD-017), `dialog` has the window to itself. */
-type Variant = 'inline' | 'dialog'
+/** Size of the viewer: `inline` shares the page with other things (UD-017), `compact` shares a window with the analysis, `dialog` has the window to itself. */
+type Variant = 'inline' | 'compact' | 'dialog'
 
 const VIEWER_HEIGHT: Record<Variant, string> = {
   inline: 'h-[clamp(8rem,26dvh,15rem)]',
+  compact: 'h-[clamp(7rem,20dvh,12rem)]',
   dialog: 'h-[min(58dvh,36rem)]',
 }
 

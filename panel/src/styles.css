@@ -425,6 +425,56 @@
   }
 
   /* What an AI generated: its own background, a left accent edge and, in its header, the origin mark (UD-026). */
+  /* Color of an area (UD-045). A box or chip carries `--area-light-*` and `--area-dark-*` from `areaStyle()`; `.area-tint` picks
+     the pair of the current theme. Only the area color is chosen by a person: the tint, the text and the edge are derived from it
+     (src/lib/area-color.ts) and measured in `npm run contraste`. */
+  .area-tint {
+    --area-main: var(--area-light-main);
+    --area-main-text: var(--area-light-mainText);
+    --area-soft: var(--area-light-soft);
+    --area-soft-text: var(--area-light-softText);
+    --area-edge: var(--area-light-edge);
+  }
+  :root[data-theme='dark'] .area-tint {
+    --area-main: var(--area-dark-main);
+    --area-main-text: var(--area-dark-mainText);
+    --area-soft: var(--area-dark-soft);
+    --area-soft-text: var(--area-dark-softText);
+    --area-edge: var(--area-dark-edge);
+  }
+
+  /* The area chip: the area color as a fill, its name in black or white, a thin edge. The only place the main color is a fill. */
+  .area-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    max-width: 100%;
+    background: var(--area-main);
+    color: var(--area-main-text);
+    border: 1px solid var(--area-edge);
+    border-radius: 6px;
+    padding: 1px 0.5rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+
+  /* The box of the analysis of one message: the secondary color of its area as background and the ink of that hue. Inside it, the muted
+     ink follows the box, so the text that says less keeps its contrast on the tint. */
+  .area-box {
+    --color-fg: var(--area-soft-text);
+    --color-muted: color-mix(in oklch, var(--area-soft-text) 78%, var(--area-soft));
+    --color-faint: color-mix(in oklch, var(--area-soft-text) 70%, var(--area-soft));
+    --color-ai-fg: var(--area-soft-text);
+    --color-ai-edge: var(--area-soft-text);
+    background: var(--area-soft);
+    color: var(--area-soft-text);
+    border: 1px solid var(--area-edge);
+    border-left-width: 4px;
+    border-radius: 3px 10px 3px 10px;
+  }
+
   .ai-surface {
     background: var(--color-ai-bg);
     border: 1px solid color-mix(in oklch, var(--color-ai-edge) 30%, transparent);

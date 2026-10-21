@@ -227,10 +227,10 @@ export function useSetClosed() {
 export function useSaveArea() {
   const invalidate = useInvalidator()
   return useMutation({
-    mutationFn: (v: { id?: string; title?: string; description?: string }) =>
+    mutationFn: (v: { id?: string; title?: string; description?: string; color?: string }) =>
       v.id
-        ? api(`/areas/${v.id}`, { method: 'PATCH', body: { title: v.title, description: v.description } })
-        : api('/areas', { method: 'POST', body: { title: v.title, description: v.description } }),
+        ? api(`/areas/${v.id}`, { method: 'PATCH', body: { title: v.title, description: v.description, color: v.color } })
+        : api('/areas', { method: 'POST', body: { title: v.title, description: v.description, color: v.color } }),
     onSuccess: () => invalidate('areas'),
   })
 }

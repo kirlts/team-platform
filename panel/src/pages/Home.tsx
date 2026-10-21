@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
-import { AlertTriangle, ChevronRight } from '@/components/icons'
+import { AlertTriangle, ChevronDown } from '@/components/icons'
 import { AreaChips } from '@/components/AreaChips'
 import { Meter } from '@/components/Meter'
 import { useNotices } from '@/lib/notices'
@@ -10,21 +10,19 @@ import { ComposeBar, type SendDraft } from '@/components/ComposeBar'
 import { useLookups } from '@/components/lookups'
 import { NotifyBadge, ToneMark, usePulse } from '@/components/NotifyBadge'
 import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog'
 import { FitList } from '@/components/FitList'
 import { LoadState } from '@/components/LoadState'
 import { MessageCard } from '@/components/MessageCard'
 import { Page } from '@/components/Page'
-import { NoticeHost } from '@/components/NoticeHost'
-import { ReviewPane } from '@/components/ReviewPane'
+import { SendDrawer } from '@/components/SendDrawer'
 import { Segmented } from '@/components/Segmented'
-import { Tray, type PendingUpload, type TrayItem } from '@/components/Tray'
-import { useErrorText, useT } from '@/i18n'
+import { type PendingUpload, type TrayItem } from '@/components/Tray'
+import { useErrorText, useFormat, useT } from '@/i18n'
 import { ME, serializeQuery, type MessageQuery } from '@/lib/filters'
 import { areaMessagesPath, areaPendingCounts, mineCounts } from '@/lib/pending'
 import { topTone } from '@/lib/priority'
 import { useEventsSnapshot } from '@/lib/events'
-import { useMe, useMessages, useSummary, useTray } from '@/lib/queries'
+import { useMe, useMessages, useProject, useSummary, useTray } from '@/lib/queries'
 import { uploadInput } from '@/lib/upload'
 import { useDesktop } from '@/lib/useDesktop'
 
@@ -41,7 +39,7 @@ interface Upload {
 const isTyping = (target: EventTarget | null) => {
   const el = target as HTMLElement | null
   if (!el) return false
-  // The dialog of the sends marks itself: the keys of the tray work inside it, but not in another dialog.
+  // The drawer of the sends is not a dialog: its keys work in it, but not inside a dialog that is open over the page (the gallery).
   const dialog = el.closest('[role="dialog"]')
   const inOtherDialog = !!dialog && !dialog.hasAttribute('data-keys-ok')
   return el.isContentEditable || inOtherDialog || !!el.closest('input, textarea, select, button, a, [role="menu"], [role="menuitemradio"]')
@@ -49,21 +47,20 @@ const isTyping = (target: EventTarget | null) => {
 
 export function Home() {
   const t = useT()
+  const format = useFormat()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const me = useMe().data
+  const project = useProject().data
   const desktop = useDesktop()
   const [feedTab, setFeedTab] = useState<'messages' | 'replies'>('messages')
   const tray = useTray()
   const [uploads, setUploads] = useState<Upload[]>([])
   const [problem, setProblem] = useState<string | null>(null)
+  /** The send in view: the key of an upload that is still going up, or the id of an input the server already has. */
   const [selectedId, setSelectedId] = useState<string | undefined>()
-  /** The sends (tray, original and analysis) are folded until the person opens them; the header carries their state. */
-  const [trayOpen, setTrayOpen] = useState(false)
-  /** On a phone, whether the list of sends is open above the review. */
-  const [listOpen, setListOpen] = useState(false)
-  /** The original of a send, open or folded, when the person chose; else open while it is analyzed and folded once ready. */
-  const [originalChoice, setOriginalChoice] = useState<Readonly<Record<string, boolean>>>({})
+  /** The drawer under the bar (UD-046): it opens by itself when something is sent and the person can fold it; the control above carries the state of the sends. */
+  const [drawerOpen, setDrawerOpen] = useState(false)
   /** Sends already published or discarded here, hidden until the server's list catches up. */
   const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set())
   const events = useEventsSnapshot()
@@ -71,7 +68,11 @@ export function Home() {
   const notices = useNotices()
   /** A send was published or discarded here: the next selection continues the order instead of starting over. */
   const advance = useRef(false)
-  /** The send just discarded keeps its place in the window with its own Deshacer; nothing else is opened in its stead (J2-B-22). */
+  /** The person just sent something: the drawer moves to that send as soon as the server has it, whatever else is waiting for review. */
+  const followNew = useRef(false)
+  /** The inputs the server had when the last send went out: the first one that is not in it is that send. */
+  const knownIds = useRef<ReadonlySet<string>>(new Set())
+  /** The send just discarded keeps its place in the drawer with its own Deshacer; nothing else is opened in its stead (J2-B-22). */
   const [discarded, setDiscarded] = useState<{ id: string; restore: () => Promise<unknown> } | null>(null)
 
   // The tray follows the stream: a job that starts and a job that ends both bring the list up to date, so the state of a row is never older than its progress bar.
@@ -83,10 +84,40 @@ export function Home() {
 
   const inputs = useMemo(() => (tray.data ?? []).filter((i) => !gone.has(i.id)), [tray.data, gone])
 
-  // The review opens on the send that needs the person and is the most recent (ready or failed), never on an old one (J2-B-10);
+  const items = useMemo<TrayItem[]>(() => {
+    const sending: TrayItem[] = uploads.map((u): TrayItem => {
+      const pending: PendingUpload = {
+        key: u.key,
+        text: u.draft.text,
+        names: [...u.draft.files.map((f) => f.name), ...u.draft.links],
+        at: u.at,
+        progress: u.progress,
+        error: u.error,
+        onRetry: () => void upload(u.key, u.draft),
+        onDiscard: () => setUploads((list) => list.filter((x) => x.key !== u.key)),
+      }
+      return { kind: 'upload', upload: pending }
+    })
+    return [...inputs.map((input): TrayItem => ({ kind: 'input', input })), ...sending]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inputs, uploads])
+  const ids = useMemo(() => items.map((i) => (i.kind === 'upload' ? i.upload.key : i.input.id)), [items])
+
+  // The drawer opens on the send the person just made; otherwise on the one that needs the person and is the most recent (ready or failed), never on an old one (J2-B-10);
   // when the one in view goes out it continues with the next ready one, in order of arrival.
   useEffect(() => {
-    const at = inputs.findIndex((i) => i.id === selectedId)
+    if (followNew.current) {
+      const fresh = inputs.filter((i) => !knownIds.current.has(i.id)).at(-1)
+      if (fresh) {
+        followNew.current = false
+        setDiscarded(null)
+        setSelectedId(fresh.id)
+        return
+      }
+      // While the upload is going up it is the send in view.
+      if (selectedId && ids.includes(selectedId)) return
+    }
+    const at = ids.indexOf(selectedId ?? '')
     if (at >= 0) {
       lastIndex.current = at
       return
@@ -98,16 +129,16 @@ export function Home() {
       : (waiting.at(-1) ?? inputs.at(-1))
     if (next) advance.current = false
     setSelectedId(next?.id)
-  }, [inputs, selectedId, discarded])
+  }, [inputs, ids, selectedId, discarded])
 
-  // A send that becomes ready while the window is folded says so where the person is looking (J2-B-07).
+  // A send that becomes ready while the drawer is folded says so where the person is looking (J2-B-07).
   const readyCount = inputs.filter((i) => i.status === 'proposed').length
   const readyBefore = useRef<number | null>(null)
   useEffect(() => {
     if (!tray.data) return
     const before = readyBefore.current
     readyBefore.current = readyCount
-    if (before !== null && readyCount > before && !trayOpen) notices.show({ text: t('tray.readyNotice', { n: readyCount }), action: { label: t('tray.readyOpen'), run: () => setTrayOpen(true) } })
+    if (before !== null && readyCount > before && !drawerOpen) notices.show({ text: t('tray.readyNotice', { n: readyCount }), action: { label: t('tray.readyOpen'), run: () => setDrawerOpen(true) } })
   }, [readyCount, tray.data]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // A send that fails says so as an error, with the way to it: a pale chip in the folded control is not enough for something that needs the person (J3-B-14).
@@ -117,7 +148,7 @@ export function Home() {
     if (!tray.data) return
     const before = failedBefore.current
     failedBefore.current = failedCount
-    if (before !== null && failedCount > before && !trayOpen) notices.show({ tone: 'danger', text: t('tray.failedNotice', { n: failedCount }), action: { label: t('tray.readyOpen'), run: () => setTrayOpen(true) } })
+    if (before !== null && failedCount > before && !drawerOpen) notices.show({ tone: 'danger', text: t('tray.failedNotice', { n: failedCount }), action: { label: t('tray.readyOpen'), run: () => setDrawerOpen(true) } })
   }, [failedCount, tray.data]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Uploads one send; the bar is already empty. A failure keeps the draft in its row so the text is never lost. */
@@ -126,8 +157,9 @@ export function Home() {
       setUploads((list) => list.map((u) => (u.key === key ? { ...u, error: undefined, progress: 0 } : u)))
       try {
         await uploadInput({ text: draft.text, files: draft.files, links: draft.links }, (progress) => setUploads((list) => list.map((u) => (u.key === key ? { ...u, progress } : u))))
-        setUploads((list) => list.filter((u) => u.key !== key))
+        // The server's list first, then the upload leaves: the send passes from one to the other without a moment in which it is neither.
         await queryClient.invalidateQueries({ queryKey: ['inputs'] })
+        setUploads((list) => list.filter((u) => u.key !== key))
       } catch (err) {
         const reason = errorText(err)
         setUploads((list) => list.map((u) => (u.key === key ? { ...u, error: reason } : u)))
@@ -141,24 +173,14 @@ export function Home() {
     const key = crypto.randomUUID()
     setProblem(null)
     setUploads((list) => [...list, { key, draft, at: new Date().toISOString(), progress: 0 }])
+    // What was sent is shown in the drawer under the bar, at once and without another click (UD-046).
+    knownIds.current = new Set((tray.data ?? []).map((i) => i.id))
+    followNew.current = true
+    setDiscarded(null)
+    setSelectedId(key)
+    setDrawerOpen(true)
     void upload(key, draft)
   }
-
-  const items = useMemo<TrayItem[]>(() => {
-    const sending: TrayItem[] = uploads.map((u): TrayItem => {
-      const pending: PendingUpload = {
-        key: u.key,
-        text: u.draft.text,
-        at: u.at,
-        progress: u.progress,
-        error: u.error,
-        onRetry: () => void upload(u.key, u.draft),
-        onDiscard: () => setUploads((list) => list.filter((x) => x.key !== u.key)),
-      }
-      return { kind: 'upload', upload: pending }
-    })
-    return [...inputs.map((input): TrayItem => ({ kind: 'input', input })), ...sending]
-  }, [inputs, uploads, upload])
 
   const finished = () => {
     advance.current = true
@@ -167,108 +189,88 @@ export function Home() {
     void queryClient.invalidateQueries({ queryKey: ['inputs'] })
   }
 
-  // Keyboard through the tray: J or ArrowDown to the next send, K or ArrowUp to the previous. Enter never publishes from here: publishing is a click on Enviar (J2-B-13).
+  // Keyboard through the sends: J or ArrowDown to the next send, K or ArrowUp to the previous. Enter never publishes from here: publishing is a click on Enviar (J2-B-13).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey || isTyping(e.target)) return
       const move = e.key === 'j' || e.key === 'ArrowDown' ? 1 : e.key === 'k' || e.key === 'ArrowUp' ? -1 : 0
-      if (move !== 0 && inputs.length > 0) {
+      if (move !== 0 && ids.length > 1) {
         e.preventDefault()
-        const at = Math.max(0, inputs.findIndex((i) => i.id === selectedId))
-        setSelectedId(inputs[Math.min(inputs.length - 1, Math.max(0, at + move))].id)
+        const at = Math.max(0, ids.indexOf(selectedId ?? ''))
+        setSelectedId(ids[Math.min(ids.length - 1, Math.max(0, at + move))])
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [inputs, selectedId])
+  }, [ids, selectedId])
 
-  const selected = inputs.find((i) => i.id === selectedId)
-  // The original of a send is folded unless the person opens it (UD-030).
-  const originalOpen = !!selected && (originalChoice[selected.id] ?? false)
   const working = items.length > 0
   useEffect(() => {
-    if (!working) setTrayOpen(false)
+    if (!working) setDrawerOpen(false)
   }, [working])
 
   return (
     <Page cols={12}>
-      {/* The header already says the project's name: the page does not repeat it (UD-026). */}
-      <h1 className="sr-only">{t('nav.home')}</h1>
-      <Dialog
-        open={trayOpen && working}
-        onOpenChange={(open) => {
-          setTrayOpen(open)
-          // Opening the window lands on the most recent send that needs the person, whatever was selected before (J2-B-10).
-          if (open) {
-            setDiscarded(null)
-            const waiting = inputs.filter((i) => i.status === 'proposed' || i.status === 'failed')
-            const next = waiting.at(-1) ?? inputs.at(-1)
-            if (next) setSelectedId(next.id)
-          }
-        }}
-      >
-        <section aria-label={t('home.new')} className="flex flex-col gap-2">
-          {/* The row keeps its height with or without sends, so the control appearing moves nothing (J2-B-08). */}
-          <div className="flex min-h-9 items-center justify-between gap-x-6">
-            <h2>{t('home.new')}</h2>
-            <div className="flex min-w-0 items-center gap-4">
-              {working && (
-                <DialogTrigger asChild>
-                  {/* One control, folded and shaped as a button: the state and the progress of the sends are in its face (J2-B-07). */}
-                  <button type="button" data-testid="tray-control" className="btn btn-glass relative h-9 min-w-0 gap-x-2.5 overflow-hidden !border-accent !bg-accent-soft/70 px-3.5 pb-1.5 text-left">
-                    <span className="text-sm font-bold">{t('tray.title')}</span>
-                    <TrayState items={items} progress={events.progress} />
-                    <ChevronRight size={16} aria-hidden className="shrink-0" />
-                  </button>
-                </DialogTrigger>
-              )}
-            </div>
-          </div>
-          <ComposeBar onSubmit={submit} problem={problem} />
-        </section>
-        {working && (
-          <DialogContent title={t('tray.title')} data-keys-ok="" onOpenAutoFocus={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).focus() }} className={`h-[min(88dvh,54rem)] max-w-[72rem] max-md:left-0 max-md:top-0 max-md:h-dvh max-md:max-h-none max-md:w-screen max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-none`}>
-            <NoticeHost inDialog />
-            <div className="grid min-h-0 flex-1 content-start gap-x-6 gap-y-3 overflow-y-auto p-4 md:grid-cols-[minmax(0,3fr)_minmax(0,9fr)] md:grid-rows-[minmax(0,1fr)] md:overflow-visible" data-lane="tray-dialog">
-              {/* On a phone the list folds behind the send in view, so the proposal gets the screen (J2-B-11). */}
-              <div className="flex min-h-0 min-w-0 flex-col gap-2">
-                {/* With one send there is nothing to choose between: on a phone the list is not drawn at all (J3-B-25). */}
-                {items.length > 1 && (
-                  <button type="button" aria-expanded={listOpen} onClick={() => setListOpen((v) => !v)} className="btn btn-glass h-9 w-full justify-between px-3 md:hidden">
-                    <span className="min-w-0 text-sm font-semibold">{t('tray.pending', { n: items.length })}</span>
-                    <ChevronRight size={16} aria-hidden className={listOpen ? 'rotate-90' : ''} />
-                  </button>
-                )}
-                <div className={listOpen && items.length > 1 ? 'flex min-h-0 flex-1 flex-col' : 'flex min-h-0 flex-1 flex-col max-md:hidden'}>
-                  <Tray items={items} selectedId={selectedId} hideTextId={originalOpen ? selectedId : undefined} onSelect={(id) => { setDiscarded(null); setSelectedId(id); setListOpen(false) }} bare />
-                </div>
-              </div>
-              <div className="flex min-h-0 min-w-0 flex-col border-line md:border-l md:pl-6">
-                <ReviewPane
-                  inputId={selectedId}
-                  originalOpen={originalOpen}
-                  onToggleOriginal={() => selected && setOriginalChoice((c) => ({ ...c, [selected.id]: !originalOpen }))}
-                  onClose={finished}
-                  onDiscarded={(id, restore) => {
-                    // With other sends in the window, the discarded one stays as a placeholder with Deshacer; alone, the notice says it and brings the window back with the send.
-                    if (inputs.filter((i) => i.id !== id).length === 0) {
-                      notices.show({ text: t('discard.done'), action: { label: t('undo.undo'), run: async () => { await restore(); setTrayOpen(true) } } })
-                      return true
-                    }
-                    setGone((set) => new Set(set).add(id))
-                    setSelectedId(undefined)
-                    setDiscarded({ id, restore })
-                    return true
-                  }}
-                  discarded={discarded ? { onUndo: async () => { await discarded.restore(); setGone((set) => { const next = new Set(set); next.delete(discarded.id); return next }); setSelectedId(discarded.id); setDiscarded(null) } } : undefined}
-                />
-              </div>
-            </div>
-          </DialogContent>
-        )}
-      </Dialog>
-
+      {/* From top to bottom (mockup, UD-046): what affects me, the project and the date, the bar to write, the drawer with what was sent and how it was analyzed, and the latest messages and replies. */}
       <Attention />
+
+      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-0.5">
+        {/* The header says the project's name too: this is the page's title (the mockup has both), so the repeat is declared. */}
+        <h1 data-repeat-ok="page-title" className="min-w-0 break-words">
+          {project?.name ?? me?.project_name ?? t('nav.home')}
+        </h1>
+        <time dateTime={new Date().toISOString()} className="text-sm tabular-nums text-muted">
+          {format.longDate(new Date())}
+        </time>
+      </div>
+
+      <section aria-label={t('home.new')} className="flex flex-col gap-1.5">
+        {/* The row keeps its height with or without sends, so the control appearing moves nothing (J2-B-08). */}
+        <div className="flex min-h-8 items-center justify-between gap-x-6">
+          <h2>{t('home.new')}</h2>
+          {working && (
+            // One control, shaped as a button: the state and the progress of the sends are in its face, and it folds and unfolds the drawer (J2-B-07).
+            <button
+              type="button"
+              data-testid="tray-control"
+              aria-expanded={drawerOpen}
+              onClick={() => setDrawerOpen((v) => !v)}
+              className="btn btn-glass relative h-8 min-w-0 gap-x-2.5 overflow-hidden !border-accent !bg-accent-soft/70 px-3 pb-1.5 text-left"
+            >
+              <span className="text-sm font-bold">{t('tray.title')}</span>
+              <TrayState items={items} progress={events.progress} />
+              <ChevronDown size={16} aria-hidden className={drawerOpen ? 'shrink-0' : 'shrink-0 -rotate-90'} />
+            </button>
+          )}
+        </div>
+        <ComposeBar onSubmit={submit} problem={problem} />
+      </section>
+
+      {working && drawerOpen && (
+        <SendDrawer
+          items={items}
+          selectedId={selectedId}
+          onSelect={(id) => {
+            setDiscarded(null)
+            setSelectedId(id)
+          }}
+          review={{
+            onClose: finished,
+            onDiscarded: (id, restore) => {
+              // With other sends in the drawer, the discarded one stays as a placeholder with Deshacer; alone, the notice says it and brings the drawer back with the send.
+              if (inputs.filter((i) => i.id !== id).length === 0 && uploads.length === 0) {
+                notices.show({ text: t('discard.done'), action: { label: t('undo.undo'), run: async () => { await restore(); setDrawerOpen(true) } } })
+                return true
+              }
+              setGone((set) => new Set(set).add(id))
+              setSelectedId(undefined)
+              setDiscarded({ id, restore })
+              return true
+            },
+            discarded: discarded ? { onUndo: async () => { await discarded.restore(); setGone((set) => { const next = new Set(set); next.delete(discarded.id); return next }); setSelectedId(discarded.id); setDiscarded(null) } } : undefined,
+          }}
+        />
+      )}
 
       {/* The main block of the page (UD-030): the latest messages and replies, always in view. On a phone one list at a time, in a frame as tall as the screen (J3-A-10). */}
       {desktop ? (
@@ -290,7 +292,6 @@ export function Home() {
           <Feed key={feedTab} kind={feedTab} meId={me?.id ?? ''} phone />
         </div>
       )}
-
     </Page>
   )
 }
@@ -342,8 +343,8 @@ function Attention() {
   const areas = (summary?.areas ?? []).filter((a) => a.open > 0)
   const mineParams = (status: string) => serializeQuery({ filters: [{ prop: 'for', op: 'eq', value: ME }, { prop: 'status', op: 'eq', value: status }], q: '' }).toString()
   return (
-    <section aria-label={t('home.mine')} data-testid="attention" data-tone-top={tone ?? 'none'} className="glass leaf grid grid-cols-1 items-center gap-x-4 gap-y-1 px-4 py-2.5 md:grid-cols-[auto_minmax(0,1fr)] md:gap-y-2">
-      <h2 className="min-w-16">{t('home.mine')}</h2>
+    <section aria-label={t('home.mine')} data-testid="attention" data-tone-top={tone ?? 'none'} className="glass leaf flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 py-1.5">
+      <h2>{t('home.mine')}</h2>
       <div className="flex min-h-6 items-center">
         {!tone ? (
           <span className="text-sm text-muted">{t('home.mineNone')}</span>
@@ -373,11 +374,12 @@ function Attention() {
       </div>
       {/* The row is always there, with the height of one chip: an area that gets something pending does not push the lists down (J3-B-15). */}
       {areas.length === 0 ? (
-        <div aria-hidden className="min-h-6 md:col-span-2" />
+        <div aria-hidden className="min-h-6" />
       ) : (
         <>
-          <h2 className="min-w-16 max-md:mt-1.5">{t('home.byArea')}</h2>
+          <h2 className="md:border-l md:border-line md:pl-4">{t('home.byArea')}</h2>
           <AreaChips
+            className="min-w-0 flex-1 basis-60"
             chips={areas.map((a) => (
               <Link
                 key={a.area_id}

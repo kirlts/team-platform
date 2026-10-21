@@ -26,6 +26,9 @@ interface Oklch { l: number; c: number; h: number }
 
 export const AREA_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/
 export const isAreaColor = (value: unknown): value is string => typeof value === 'string' && AREA_COLOR_PATTERN.test(value)
+/** The colors the picker offers first: the eight the server hands out to new areas, in the same order. */
+export const AREA_SWATCHES = ['#6d28d9', '#c2410c', '#15803d', '#0f766e', '#a21caf', '#4d7c0f', '#be185d', '#0369a1'] as const
+
 /** What an area shows when the server did not send one (an older server). */
 export const FALLBACK_AREA_COLOR = '#4f46e5'
 

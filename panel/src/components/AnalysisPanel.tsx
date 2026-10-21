@@ -17,6 +17,7 @@ import type { Attachment, InputRecord, InputStatus, Proposal, ProposalMessage, T
 import { useUndo } from '@/lib/undo'
 import { cn } from '@/lib/utils'
 import { AiMark } from './AiMark'
+import { AreaChip, useAreaStyle } from './AreaChip'
 import { AreaPicker } from './AreaPicker'
 import { AttachmentPicker } from './AttachmentPicker'
 import { EditableText } from './EditableText'
@@ -69,6 +70,10 @@ export function AnalysisPanel({ input, onClose, onDiscarded }: { input: InputRec
   const discard = useDiscard(input, onDiscarded)
   const errorText = useErrorText()
   const [confirmAgain, setConfirmAgain] = useState(false)
+  /** The area of the message in view: the whole box of the analysis wears its color (UD-045) and changes with it. */
+  const [activeArea, setActiveArea] = useState<string | undefined>(input.proposal?.messages[0]?.area_id)
+  const areaStyle = useAreaStyle(activeArea)
+  const tinted = input.status === 'proposed' && !!activeArea
   const processing = input.status === 'queued' || input.status === 'extracting' || input.status === 'analyzing'
   const failureCode = input.error_code ? `analysis.error.${input.error_code}` : ''
   const failureText = failureCode && has(failureCode) ? t(failureCode as MessageKey) : input.error || t('analysis.failed')
@@ -86,7 +91,13 @@ export function AnalysisPanel({ input, onClose, onDiscarded }: { input: InputRec
 
   return (
     // Only a proposal fills the frame; waiting or failing, the surface is as tall as what it says (J1-B-07).
-    <section aria-label={t('analysis.title')} className={cn('@container ai-surface flex min-h-0 min-w-0 flex-col gap-3 p-3 pl-4', input.status === 'proposed' ? 'flex-1' : 'w-full self-start')}>
+    <section
+      aria-label={t('analysis.title')}
+      data-testid="analysis-box"
+      data-area-id={tinted ? activeArea : undefined}
+      style={tinted ? areaStyle : undefined}
+      className={cn('@container flex min-h-0 min-w-0 flex-col gap-3 p-3 pl-4', tinted ? 'area-tint area-box' : 'ai-surface', input.status === 'proposed' ? 'flex-1' : 'w-full self-start')}
+    >
       <div className="flex min-h-7 flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <div className="flex items-center gap-2">
@@ -144,7 +155,7 @@ export function AnalysisPanel({ input, onClose, onDiscarded }: { input: InputRec
         </div>
       )}
 
-      {input.status === 'proposed' && input.proposal && <ProposalEditor key={input.id} input={input} initial={input.proposal} onPublished={onClose} onDiscard={() => void discard.run()} discarding={discard.pending} />}
+      {input.status === 'proposed' && input.proposal && <ProposalEditor key={input.id} input={input} initial={input.proposal} onActiveArea={setActiveArea} onPublished={onClose} onDiscard={() => void discard.run()} discarding={discard.pending} />}
 
       <Dialog open={confirmAgain} onOpenChange={setConfirmAgain}>
         <DialogContent title={t('analysis.again')}>
@@ -173,12 +184,14 @@ interface Row {
 function ProposalEditor({
   input,
   initial,
+  onActiveArea,
   onPublished,
   onDiscard,
   discarding,
 }: {
   input: InputRecord
   initial: Proposal
+  onActiveArea: (areaId: string | undefined) => void
   onPublished: () => void
   onDiscard: () => void
   discarding: boolean
@@ -263,6 +276,9 @@ function ProposalEditor({
   }
 
   const rows = useMemo<Row[]>(() => proposal.messages.map((m, i) => ({ m, i })), [proposal])
+  // The box of the analysis takes the area of the message that is open, and changing that message's area changes the box.
+  const activeId = proposal.messages[Math.min(openIndex, proposal.messages.length - 1)]?.area_id
+  useEffect(() => onActiveArea(activeId), [activeId]) // eslint-disable-line react-hooks/exhaustive-deps
   const discarded = proposal.discarded ?? []
   const discardedCount = discarded.reduce((n, d) => n + d.unit_ids.length, 0)
   const count = proposal.messages.length
@@ -414,7 +430,7 @@ function ProposalRow({
   missingCount: number
 }) {
   const t = useT()
-  const { areaTitle, memberName } = useLookups()
+  const { memberName } = useLookups()
   const templates = useTemplates(m.area_id)
   const template: Template | undefined = templates.data?.find((x) => x.id === m.template_id) ?? templates.data?.[0]
   const required = (v: string) => (v.trim() ? null : t('common.required'))
@@ -430,11 +446,13 @@ function ProposalRow({
         <button type="button" aria-expanded={false} aria-label={t('proposal.open', { n: index + 1, title: m.title })} onClick={onOpen} className="hit flex w-full items-start gap-2 px-1 py-2 text-left hover:bg-hover">
           <ChevronRight size={14} aria-hidden className="mt-0.5 shrink-0 text-muted" />
           <span className="mt-px w-4 shrink-0 text-xs font-semibold tabular-nums text-muted">{index + 1}</span>
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span className="break-words text-sm font-semibold">{m.title}</span>
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+              <AreaChip areaId={m.area_id} className="text-xs" />
+              <span className="min-w-0 break-words text-sm font-semibold">{m.title}</span>
+            </span>
             {/* Only the row that asks something of the person stands out: one without recipients says so with its mark, the rest stay plain (J2-B-17). */}
             <span className="break-words text-xs text-muted">
-              {areaTitle(m.area_id)} ·{' '}
               {to ? (
                 t('proposal.to', { names: to })
               ) : (

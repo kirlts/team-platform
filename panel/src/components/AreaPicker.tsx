@@ -4,6 +4,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenu
 import { useT } from '@/i18n'
 import { api, unwrapList } from '@/lib/api'
 import type { Template } from '@/lib/types'
+import { cn } from '@/lib/utils'
+import { useAreaStyle } from './AreaChip'
 import { useLookups } from './lookups'
 
 /**
@@ -25,6 +27,7 @@ export function AreaPicker({
   const t = useT()
   const { areas, areaTitle } = useLookups()
   const queryClient = useQueryClient()
+  const style = useAreaStyle(areaId)
 
   const choose = async (next: string) => {
     if (next === areaId) return
@@ -46,7 +49,10 @@ export function AreaPicker({
           disabled={disabled}
           aria-label={t('area.pick', { area: areaTitle(areaId) || t('area.none'), template: templateName ?? '' })}
           title={templateName}
-          className="hit inline-flex max-w-full items-center gap-1 rounded-md border border-transparent py-0.5 pl-0 pr-1.5 text-left text-xs font-semibold leading-tight text-fg hover:border-line-strong hover:bg-glass disabled:opacity-60"
+          style={style}
+          data-testid="area-picker"
+          // The area is the chip of its color; choosing another repaints the box of the analysis (UD-045).
+          className={cn('hit area-tint area-chip text-left hover:brightness-95 disabled:opacity-60')}
         >
           {areaTitle(areaId) || t('area.none')}
           <ChevronDown size={12} aria-hidden className="shrink-0" />

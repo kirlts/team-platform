@@ -14,6 +14,8 @@ import { EventsProvider } from '@/lib/events'
 import { NoticeProvider } from '@/lib/notices'
 import { NoticeHost } from '@/components/NoticeHost'
 import { useMe, useProject } from '@/lib/queries'
+import { useSidebarHidden } from '@/lib/sidebar'
+import { useDesktop } from '@/lib/useDesktop'
 import { Areas } from '@/pages/Areas'
 import { Connections } from '@/pages/Connections'
 import { Home } from '@/pages/Home'
@@ -30,6 +32,9 @@ function Shell() {
   const project = useProject().data
   const queryClient = useQueryClient()
   const [navOpen, setNavOpen] = useState(false)
+  const desktop = useDesktop()
+  // The side panel is hidden with the button next to the user and shown again with the one in the bar; the choice is the person's (UD-047).
+  const [hidden, setHidden] = useSidebarHidden(me?.id)
 
   const logout = async () => {
     try {
@@ -54,12 +59,14 @@ function Shell() {
         {t('nav.skip')}
       </a>
       <div className="relative z-10 flex h-dvh flex-col">
-        <Header projectName={project?.name ?? me?.project_name} onOpenNav={() => setNavOpen(true)} />
+        <Header projectName={project?.name ?? me?.project_name} panelHidden={hidden} onOpenNav={() => (desktop ? setHidden(false) : setNavOpen(true))} />
         <NoticeHost />
         <div className="flex min-h-0 flex-1">
-          <aside data-lane="sidebar" className="glass scroll-thin hidden w-72 shrink-0 overflow-y-auto border-0 border-r !shadow-none md:block">
-            <Sidebar onLogout={() => void logout()} />
-          </aside>
+          {desktop && !hidden && (
+            <aside data-lane="sidebar" data-testid="sidebar" className="glass scroll-thin w-56 shrink-0 overflow-y-auto border-0 border-r !shadow-none">
+              <Sidebar onLogout={() => void logout()} onHide={() => setHidden(true)} />
+            </aside>
+          )}
           <main id="main" tabIndex={-1} className="scroll-thin min-w-0 flex-1 overflow-y-auto outline-none">
             <Outlet />
           </main>

@@ -46,13 +46,15 @@ const members = [
   { id: 'u-valentina', email: 'valentina@dev.invalid', name: 'Valentina Prueba', role: 'member', language: 'es-419', active: true, profile: 'Llevo la operación y el soporte. Contesto las dudas del equipo del cliente.\n\nNo toco el código.' },
 ]
 
+const AREA_PALETTE = ['#6d28d9', '#c2410c', '#15803d', '#0f766e', '#a21caf', '#4d7c0f', '#be185d', '#0369a1']
+
 const areas = [
-  { id: 'a-idea', title: 'Idea', description: 'Una posibilidad sin compromiso de hacerla.', position: 1 },
-  { id: 'a-error', title: 'Error', description: 'Algo que antes funcionaba o debería funcionar y no lo hace.', position: 2 },
-  { id: 'a-feature', title: 'Nueva funcionalidad', description: 'Una capacidad que el sistema no tiene y alguien necesita.', position: 3 },
-  { id: 'a-feedback', title: 'Retroalimentación', description: 'Una opinión sobre algo que ya existe.', position: 4 },
-  { id: 'a-pregunta', title: 'Pregunta', description: 'Algo que alguien necesita saber para seguir.', position: 5 },
-  { id: 'a-accesibilidad', title: 'Accesibilidad y experiencia de uso en dispositivos móviles', description: 'Observaciones sobre cómo se lee, se toca y se entiende el panel desde un teléfono, con lector de pantalla o con el teclado solamente.', position: 6 },
+  { id: 'a-idea', color: '#6d28d9', title: 'Idea', description: 'Una posibilidad sin compromiso de hacerla.', position: 1 },
+  { id: 'a-error', color: '#c2410c', title: 'Error', description: 'Algo que antes funcionaba o debería funcionar y no lo hace.', position: 2 },
+  { id: 'a-feature', color: '#15803d', title: 'Nueva funcionalidad', description: 'Una capacidad que el sistema no tiene y alguien necesita.', position: 3 },
+  { id: 'a-feedback', color: '#0f766e', title: 'Retroalimentación', description: 'Una opinión sobre algo que ya existe.', position: 4 },
+  { id: 'a-pregunta', color: '#a21caf', title: 'Pregunta', description: 'Algo que alguien necesita saber para seguir.', position: 5 },
+  { id: 'a-accesibilidad', color: '#4d7c0f', title: 'Accesibilidad y experiencia de uso en dispositivos móviles', description: 'Observaciones sobre cómo se lee, se toca y se entiende el panel desde un teléfono, con lector de pantalla o con el teclado solamente.', position: 6 },
 ]
 
 const templateBody = (name, description, extra = '') =>
@@ -776,7 +778,7 @@ const server = createServer(async (req, res) => {
       if (needEditor()) return
       const body = await readJson(req)
       if (!String(body?.title ?? '').trim()) return fail(res, 422, 'El título es obligatorio')
-      const area = { id: `a-${id()}`, title: body.title.trim(), description: String(body.description ?? '').trim(), position: areas.length + 1 }
+      const area = { id: `a-${id()}`, title: body.title.trim(), description: String(body.description ?? '').trim(), position: areas.length + 1, color: /^#[0-9a-fA-F]{6}$/.test(body.color ?? '') ? body.color.toLowerCase() : AREA_PALETTE[areas.length % AREA_PALETTE.length] }
       areas.push(area)
       return send(res, 201, area)
     }
@@ -791,6 +793,10 @@ const server = createServer(async (req, res) => {
         area.title = String(body.title).trim()
       }
       if (body.description !== undefined) area.description = String(body.description).trim()
+      if (body.color !== undefined) {
+        if (!/^#[0-9a-fA-F]{6}$/.test(body.color)) return fail(res, 400, 'El color debe ser #rrggbb', 'validation')
+        area.color = body.color.toLowerCase()
+      }
       return send(res, 200, area)
     }
     m = /^\/areas\/([^/]+)\/templates(?:\/([^/]+))?$/.exec(path)

@@ -1,6 +1,7 @@
 import { ChevronRight, Plus, Trash2 } from '@/components/icons'
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
+import { AreaColorPicker } from '@/components/AreaColorPicker'
 import { EditableText } from '@/components/EditableText'
 import { FitList } from '@/components/FitList'
 import { FoldedText } from '@/components/FoldedText'
@@ -98,6 +99,11 @@ function AreaRow({ area, selected, onSelect }: { area: Area; selected: boolean; 
     return undo.run({ label: t('areas.edited'), redo: () => save.mutateAsync({ id: area.id, [field]: next }), undo: () => save.mutateAsync({ id: area.id, [field]: prev }) })
   }
 
+  const changeColor = (next: string) => {
+    const prev = area.color
+    return undo.run({ label: t('areas.colorEdited'), redo: () => save.mutateAsync({ id: area.id, color: next }), undo: () => save.mutateAsync({ id: area.id, color: prev }) })
+  }
+
   return (
     <section
       aria-current={selected ? 'true' : undefined}
@@ -113,6 +119,7 @@ function AreaRow({ area, selected, onSelect }: { area: Area; selected: boolean; 
       >
         <ChevronRight size={16} aria-hidden className={cn('transition-transform', selected && 'rotate-90 text-accent')} />
       </button>
+      <AreaColorPicker title={area.title} color={area.color} onChange={changeColor} />
       <div className="flex min-w-0 flex-1 basis-40 flex-col gap-0.5">
         <EditableText value={area.title} label={t('areas.fieldTitle')} validate={nameRule(t)} onSave={(v) => change('title', v)} displayClassName="font-semibold" />
         {/* On a phone only the chosen area shows its description, so the templates under the list stay on the first screen (J1-A-38). */}

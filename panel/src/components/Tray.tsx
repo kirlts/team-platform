@@ -1,19 +1,17 @@
-import { RotateCw, X } from '@/components/icons'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { useFormat, useT, type MessageKey } from '@/i18n'
 import { useJobProgress } from '@/lib/events'
 import { firstWords } from '@/lib/first-words'
 import { sendPercent } from '@/lib/progress'
 import type { InputRecord } from '@/lib/types'
 import { cn } from '@/lib/utils'
-import { FitList } from './FitList'
-import { Meter } from './Meter'
 
 /** An upload that has not finished, or did not go through: it lives in the browser until the server has the input. */
 export interface PendingUpload {
   key: string
   text: string
+  /** Names of the files and addresses of the links that go with the text. */
+  names: string[]
   at: string
   progress: number
   error?: string
@@ -34,29 +32,22 @@ const STATE_KEY: Record<string, MessageKey> = {
 export const itemKey = (item: TrayItem) => (item.kind === 'upload' ? `upload-${item.upload.key}` : item.input.id)
 
 /**
- * The tray of sends (UD-025): one compact row per input that is still in play, in order of arrival,
- * inside a frame that keeps its height whatever the number of rows (they paginate). A row shows the
- * time, the first words, the state, the live progress and, once ready, the count of proposed messages.
+ * The sends in play (UD-025), as a compact selector inside the drawer of Inicio (UD-046): one small option per send, in order
+ * of arrival, in a single row that scrolls sideways when there are many; with one send it is not drawn. An option shows the time, the state with
+ * its live progress and, once ready, how many messages were proposed. The one in view does not repeat its text (it is the original beside
+ * the analysis); the others carry their first words so they can be told apart.
  */
-export function Tray({ items, selectedId, hideTextId, onSelect, bare = false }: { items: readonly TrayItem[]; selectedId: string | undefined; hideTextId?: string; onSelect: (id: string) => void; bare?: boolean }) {
+export function SendSwitcher({ items, selectedId, onSelect }: { items: readonly TrayItem[]; selectedId: string | undefined; onSelect: (id: string) => void }) {
   const t = useT()
+  if (items.length < 2) return null
   return (
-    <section aria-label={t('tray.title')} className="flex min-h-0 min-w-0 flex-col gap-2">
-      {!bare && (
-        <div className="flex items-center justify-between gap-2">
-          <h2>{t('tray.title')}</h2>
-          {items.length > 1 && <span className="text-xs tabular-nums text-muted">{t('tray.pending', { n: items.length })}</span>}
+    <div role="listbox" aria-label={t('tray.list')} data-testid="send-switcher" className="scroll-thin flex min-w-0 items-stretch gap-1.5 overflow-x-auto pb-1">
+      {items.map((item) => (
+        <div key={itemKey(item)} className="shrink-0">
+          {item.kind === 'upload' ? <UploadOption upload={item.upload} selected={item.upload.key === selectedId} onSelect={() => onSelect(item.upload.key)} /> : <InputOption input={item.input} selected={item.input.id === selectedId} onSelect={() => onSelect(item.input.id)} />}
         </div>
-      )}
-      <FitList
-        rows={items}
-        rowKey={itemKey}
-        label={t('tray.list')}
-        rowsRole="listbox"
-        reveal={selectedId}
-        renderRow={(item) => (item.kind === 'upload' ? <UploadRow upload={item.upload} /> : <InputRow input={item.input} selected={item.input.id === selectedId} hideText={item.input.id === hideTextId} onSelect={() => onSelect(item.input.id)} />)}
-      />
-    </section>
+      ))}
+    </div>
   )
 }
 
@@ -66,54 +57,42 @@ function Label({ text, onlyMedia }: { text: string; onlyMedia: boolean }) {
   return <p className="break-words text-sm leading-snug">{words || (onlyMedia ? t('tray.onlyMedia') : '')}</p>
 }
 
-function InputRow({ input, selected, hideText, onSelect }: { input: InputRecord; selected: boolean; hideText: boolean; onSelect: () => void }) {
+const OPTION = 'flex h-full w-44 cursor-pointer flex-col gap-1 rounded-md border border-line px-2.5 py-1.5 text-left hover:bg-glass-edge'
+const OPTION_SELECTED = 'border-accent bg-accent-soft/60 shadow-[inset_0_-3px_0_var(--color-accent)]'
+
+function InputOption({ input, selected, onSelect }: { input: InputRecord; selected: boolean; onSelect: () => void }) {
   const t = useT()
   const format = useFormat()
   const progress = useJobProgress(input.job_id, input.id)
   const running = input.status === 'queued' || input.status === 'extracting' || input.status === 'analyzing'
   const percent = sendPercent(input, progress)
   const count = input.proposed_count ?? input.proposal?.messages.length ?? 0
-  const label = firstWords(input.text)
-  // The row in view hands its progress to the review beside it: the same state is not drawn twice (J1-B-08).
-  const showProgress = running && input.status !== 'queued' && !selected
+  const label = firstWords(input.text, 6)
   const state = t(STATE_KEY[input.status] ?? 'tray.state.queued')
-
   return (
-    <div
-      role="option"
-      aria-selected={selected}
-      aria-label={t('tray.open', { text: label || t('tray.onlyMedia') })}
-      onClick={onSelect}
-      className={cn('flex cursor-pointer flex-col gap-1 border-b border-line px-3 py-2 last:border-b-0 hover:bg-glass-edge', selected && 'bg-accent-soft/60 shadow-[inset_3px_0_0_var(--color-accent)]')}
-    >
-      <div className="flex items-center justify-between gap-2 text-xs text-muted">
+    <button type="button" role="option" aria-selected={selected} aria-label={t('tray.open', { text: label || t('tray.onlyMedia') })} onClick={onSelect} className={cn(OPTION, selected && OPTION_SELECTED)}>
+      <span className="flex items-center justify-between gap-2 text-xs text-muted">
         <time dateTime={input.created_at} className="tabular-nums">
           {format.stamp(input.created_at)}
         </time>
-        {/* One badge is filled: the one that waits for a person. The others are quiet (J1-B-09). */}
-        {input.status === 'queued' ? (
-          <span className="font-semibold">{state}</span>
-        ) : (
-          <Badge tone={input.status === 'proposed' ? 'solid' : input.status === 'failed' ? 'danger' : 'outline'}>
-            {state}
-            {showProgress && percent > 0 && <span className="ml-1 tabular-nums">{percent}%</span>}
-            {input.status === 'proposed' && <span className="ml-1">· {t('tray.messages', { n: count })}</span>}
-          </Badge>
-        )}
-      </div>
-      {!hideText && <Label text={input.text} onlyMedia={input.attachments.length > 0} />}
-      {showProgress && <Meter percent={percent} label={t('analysis.progress')} className="h-1.5" />}
-    </div>
+        <Badge tone={input.status === 'proposed' ? 'solid' : input.status === 'failed' ? 'danger' : 'outline'}>
+          {state}
+          {running && input.status !== 'queued' && percent > 0 && <span className="ml-1 tabular-nums">{percent}%</span>}
+          {input.status === 'proposed' && <span className="ml-1">· {count}</span>}
+        </Badge>
+      </span>
+      {!selected && <Label text={input.text} onlyMedia={input.attachments.length > 0} />}
+    </button>
   )
 }
 
-function UploadRow({ upload }: { upload: PendingUpload }) {
+function UploadOption({ upload, selected, onSelect }: { upload: PendingUpload; selected: boolean; onSelect: () => void }) {
   const t = useT()
   const format = useFormat()
   const percent = Math.round(upload.progress * 100)
   return (
-    <div className="flex flex-col gap-1 border-b border-line px-3 py-2 last:border-b-0">
-      <div className="flex items-center justify-between gap-2 text-xs text-muted">
+    <button type="button" role="option" aria-selected={selected} aria-label={t('tray.open', { text: firstWords(upload.text, 6) || t('tray.onlyMedia') })} onClick={onSelect} className={cn(OPTION, selected && OPTION_SELECTED)}>
+      <span className="flex items-center justify-between gap-2 text-xs text-muted">
         <time dateTime={upload.at} className="tabular-nums">
           {format.stamp(upload.at)}
         </time>
@@ -121,25 +100,8 @@ function UploadRow({ upload }: { upload: PendingUpload }) {
           {upload.error ? t('tray.state.notSent') : t('tray.state.uploading')}
           {!upload.error && percent > 0 && <span className="ml-1 tabular-nums">{percent}%</span>}
         </Badge>
-      </div>
-      <Label text={upload.text} onlyMedia />
-      {upload.error ? (
-        <>
-          <p role="alert" className="text-xs text-danger">
-            {upload.error}
-          </p>
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="secondary" onClick={upload.onRetry}>
-              <RotateCw size={13} aria-hidden /> {t('common.retry')}
-            </Button>
-            <Button size="sm" variant="ghost" aria-label={t('tray.discardUpload')} onClick={upload.onDiscard}>
-              <X size={13} aria-hidden /> {t('analysis.discard')}
-            </Button>
-          </div>
-        </>
-      ) : (
-        <Meter percent={percent} label={t('compose.upload')} className="h-1.5" />
-      )}
-    </div>
+      </span>
+      {!selected && <Label text={upload.text} onlyMedia />}
+    </button>
   )
 }

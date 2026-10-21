@@ -30,6 +30,8 @@ export interface Area {
   title: string
   description: string
   position: number
+  /** Color of the area, `#rrggbb` (UD-045). */
+  color?: string
   /** Assumption: GET /areas brings the area's count of open messages. */
   open_count?: number
   /** Open and answered: what is still pending. It is the number the sidebar carries. */

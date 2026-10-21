@@ -323,13 +323,8 @@ const AREA_HINTS = [
   [/agregar|nueva|sincroniz|pedido|exportar|soporte para/i, 'a-feature'],
   [/idea|podr[ií]amos|ser[ií]a bueno|probar/i, 'a-idea'],
 ]
-const AREA_NOTES = {
-  'a-error': 'Se observó al abrir la vista; falta confirmar en qué navegador ocurre y si se repite.',
-  'a-feature': 'Pedido de una capacidad que hoy no existe; falta definir quién la usa primero.',
-  'a-pregunta': 'Queda a la espera de una respuesta de quien conoce el tema.',
-  'a-idea': 'Sin compromiso de construirla; se decide en la próxima revisión del equipo.',
-  'a-feedback': 'Opinión sobre algo que ya existe; no pide un cambio inmediato.',
-}
+/** What the double writes under every message it proposes: it does not read the text, and it says so. */
+const SIMULATED_NOTE = 'Propuesta simulada por el servidor de ejemplo: no es el análisis real y su área es la primera del catálogo, no una clasificación.'
 const FIELD_SAMPLES = {
   summary: 'Punto detectado en el texto enviado; el detalle está en el cuerpo del mensaje.',
   steps: 'Abrir la pantalla indicada y repetir la acción descrita.',
@@ -351,13 +346,14 @@ function analyze(input) {
   const rest = units.slice(keep.length)
   return {
     messages: keep.map((u, i) => {
-      const areaId = AREA_HINTS.find(([pattern]) => pattern.test(u.text))?.[1] ?? 'a-feedback'
+      // Without a keyword the area is the first of the catalog, and the proposal says it is simulated: no pretended classification.
+      const areaId = AREA_HINTS.find(([pattern]) => pattern.test(u.text))?.[1] ?? areas[0].id
       const template = activeTemplate(areaId, null)
       return {
         area_id: areaId,
         template_id: template?.id ?? null,
         title: titleOf(u.text),
-        body: `${u.text}\n\n${AREA_NOTES[areaId]}`,
+        body: `${u.text}\n\n${SIMULATED_NOTE}`,
         fields: Object.fromEntries(templateFields(template).map((f) => [f.name, f.required ? (FIELD_SAMPLES[f.name] ?? '') : ''])),
         assignee_ids: [others[i % others.length].id],
         attachment_ids: i === 0 ? input.attachment_ids : images,
@@ -365,6 +361,7 @@ function analyze(input) {
       }
     }),
     discarded: rest.length ? [{ unit_ids: rest.map((u) => u.id), reason: 'Sin acción para el equipo' }] : [],
+    simulated: true,
   }
 }
 
@@ -685,7 +682,7 @@ const server = createServer(async (req, res) => {
           if (!areas.some((x) => x.id === pm.area_id)) return fail(res, 422, 'El área no existe', 'validation')
           if (!(pm.assignee_ids ?? []).every((x) => members.some((mm) => mm.id === x))) return fail(res, 422, 'Un destinatario no existe', 'validation')
         }
-        input.proposal = { messages: body.messages, discarded: body.discarded ?? input.proposal?.discarded ?? [] }
+        input.proposal = { messages: body.messages, discarded: body.discarded ?? input.proposal?.discarded ?? [], simulated: input.proposal?.simulated }
         return send(res, 200, input.proposal)
       }
       if (m[2] === 'cancel' && method === 'POST') {
@@ -999,6 +996,12 @@ const server = createServer(async (req, res) => {
     else res.end()
   }
 })
+
+// A test that starts this server holds its stdin: when the test process ends, however it ends, the pipe closes and the server leaves with it, so a killed run never leaves a server holding the port (H-901).
+if (process.env.PANEL_DEV_EXIT_WITH_PARENT === '1') {
+  process.stdin.resume()
+  process.stdin.on('close', () => process.exit(0))
+}
 
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`[dev-server] DEVELOPMENT DOUBLE SERVER with sample data at http://127.0.0.1:${PORT}/api${STATIC ? ' (also serves panel/dist)' : ''}`)

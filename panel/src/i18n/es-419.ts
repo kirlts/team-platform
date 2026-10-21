@@ -147,6 +147,8 @@ export const es419 = {
   'input.edited': 'Texto del mensaje',
 
   'analysis.title': 'Análisis',
+  'analysis.simulated': 'Simulado',
+  'analysis.simulatedHint': 'Propuesta del servidor de ejemplo, no del análisis real',
   'analysis.proposal': 'Propuesta',
   'analysis.failedBadge': 'Falló',
   'analysis.failed': 'El análisis no terminó',

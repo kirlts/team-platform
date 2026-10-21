@@ -41,6 +41,21 @@ test('a held analysis stays queued until the test steps it, and one explicit ord
   assert.ok(done.proposed_count > 0)
 })
 
+test('the proposal says it is simulated and, with no keyword, its area is the first of the catalog and not a classification', async () => {
+  await panel.control.reset()
+  await panel.control.hold()
+  const id = await send('Texto sin ninguna palabra clave del servidor de ejemplo.')
+  await panel.control.step({ inputId: id, finish: true })
+  const input = await call(`/inputs/${id}`)
+  assert.equal(input.proposal.simulated, true)
+  const areas = (await call('/areas')).items
+  assert.equal(input.proposal.messages[0].area_id, areas[0].id)
+  assert.match(input.proposal.messages[0].body, /Propuesta simulada/)
+  // Editing the proposal keeps the mark: it is the double's, not the person's.
+  const edited = await call(`/inputs/${id}/proposal`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ messages: input.proposal.messages }) })
+  assert.equal(edited.simulated, true)
+})
+
 test('release hands the analysis back to the clock and reset forgets sends and edits', async () => {
   await panel.control.reset()
   await panel.control.hold()

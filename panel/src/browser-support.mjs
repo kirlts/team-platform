@@ -31,8 +31,9 @@ export async function startPanel(port, { build = !process.env.FIT_SIN_BUILD, ste
   if (build) execFileSync('npx', ['vite', 'build'], { cwd: ROOT, stdio: 'ignore' })
   const server = spawn('node', ['dev-server.mjs'], {
     cwd: ROOT,
-    env: { ...process.env, PANEL_DEV_PORT: String(port), PANEL_DEV_STATIC: '1', PANEL_DEV_STEP_MS: String(stepMs), PANEL_DEV_CONTROL: '1' },
-    stdio: ['ignore', 'pipe', 'inherit'],
+    env: { ...process.env, PANEL_DEV_PORT: String(port), PANEL_DEV_STATIC: '1', PANEL_DEV_STEP_MS: String(stepMs), PANEL_DEV_CONTROL: '1', PANEL_DEV_EXIT_WITH_PARENT: '1' },
+    // The pipe on stdin is what ties the server to this process: it closes when this process ends, and the server leaves with it.
+    stdio: ['pipe', 'pipe', 'inherit'],
   })
   // The server says when it listens; a port already taken makes it exit. Neither is guessed with a pause: a test never talks to a server that is not its own (H-900).
   await new Promise((resolve, reject) => {

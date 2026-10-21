@@ -143,6 +143,17 @@ describe('window of sends (J3-B-04, J3-B-06, J3-B-07, J3-B-31)', () => {
     }
   })
 
+  test('a proposal of the example server says it is simulated, in the header of the analysis', async () => {
+    const { page, context } = await session('lucia')
+    try {
+      await sendAndOpen(page)
+      await page.locator('section[aria-label=Análisis]').getByTestId('simulated-mark').waitFor()
+      assert.equal(await page.getByTestId('simulated-mark').innerText(), 'Simulado')
+    } finally {
+      await context.close()
+    }
+  })
+
   test('«En cola» never carries a percentage, in the window, in its row or in the strip (J3-B-06)', async () => {
     const { page, context } = await session('eduardo')
     try {

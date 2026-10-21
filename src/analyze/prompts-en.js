@@ -120,6 +120,14 @@ export const INPUT_HEADING = 'Input';
 /** Added to the classification of the second reading (UD-021), after the first one found nothing. */
 export const SECOND_PASS_NOTE = 'Second reading. A person sent this input to the team for a reason, so it holds at least one point: a request, a failure, an idea, a question or something shown that they want the team to see. The first reading found nothing. Read it again, section by section and more carefully, and name what the person is most likely pointing at, even when it is implicit or only visible in the description of an image. If there is no explicit request (a link or a text shared without comment), the point is what was shared: group it in the area the catalog describes for what is shared with no request or failure, so the team sees it and decides. Put a unit in discarded only when it holds nothing beyond a greeting or social chatter.';
 
+/** Added to the classification of the coverage pass (H-1900): units the first reading left out of every group. */
+export const COVERAGE_NOTE = 'Review of what was set aside. These units were left out of every group in the first reading, which took them for greetings, social talk or filler. In a long conversation or meeting that reading sometimes sets aside, together with the filler, units that carried a request, a failure, an idea, an opinion about the product, a question someone has to answer, a commitment or a decision. Read them again, one by one. Group each point you find with the usual rules, and leave in discarded only what adds to no point. The units arrive without the ones around them.';
+
+/** Read-only units placed before a window of a long input (H-1003). */
+export function contextBlock(units) {
+  return [`Context: units u${units[0].id} to u${units.at(-1).id} come right before this stretch and are already classified. Do not cite or classify them; they help you see where the stretch starts and which point it continues.`, '', renderUnits(units, LANGUAGE)].join('\n');
+}
+
 // ---------------------------------------------------------------------------------------------
 // Second call: decompose
 // ---------------------------------------------------------------------------------------------
@@ -149,7 +157,7 @@ export const DECOMPOSE_INSTRUCTIONS = [
   '1. Each unit you receive appears exactly once in your output, in unit_ids of a single message. None is left out and none is repeated. Nothing is discarded in this step: the previous step already set aside greetings and social chatter, so everything you receive is content of some point.',
   '2. The previous step grouped the units you receive as a single point, so the whole group is one message: one message per point the person raised, and consecutive units about the same point stay in the same message even when descriptions of frames come between them. Return a single message with all the units of the group: the previous step already separated the independent points, so do not split the group, and never split one point by sentence. A rhetorical question or a closing filler is not a question message: leave it out of the title and the fields. A unit that only contributes a datum, an answer, a clarification or a scope remark to a point (a version, a color, an «I will check it», a «that stays for another branch») is cited in that point\'s message. The details of how to make a request (the format, the limit, the way of choosing, an edge case) are part of that request and not a separate message.',
   '3. The group yields at least one message. A point stated in a few words, with no reason or detail, is still a message: write it up with what it says and write No indicado in the required fields the input does not answer.',
-  '4. If a single unit carries two distinct points, it cannot be split: gather it into a single message and name both points in its body.',
+  '4. If a single unit carries two or more distinct points, it cannot be split between messages: gather it into a single message that covers all of them. The title names each point, the body gives at least one sentence to each with its data (figures, devices, screens, messages) and the template fields hold the data of all of them. Before answering, check that every failure, request, question or idea in the unit appears in the message; a point the unit states and the message omits is lost to the team. The only thing left out is praise or an assessment with nothing to decide.',
   '5. List unit_ids in ascending order and only with numbers that exist in the list you receive.',
   '',
   'Fields of each message',

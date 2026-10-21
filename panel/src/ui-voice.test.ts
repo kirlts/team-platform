@@ -40,6 +40,8 @@ const ES_PERSON = /(?<![\p{L}])(tú|tu|tus|tuyo|tuya|tuyos|tuyas|usted|ustedes|v
 /** Second person of the preterite (enviaste, escribiste). The third person of these verbs ends the same way. */
 const ES_PRETERITE = /(?<![\p{L}])(\p{L}+(?:aste|iste))(?![\p{L}])/giu
 const ES_THIRD_PERSON = new Set(['existe', 'insiste', 'persiste', 'asiste', 'resiste', 'consiste', 'subsiste', 'desiste', 'triste'])
+/** Imperative with a clitic (revísala, publícalo): the accent sits before the pronoun. */
+const ES_CLITIC_IMPERATIVE = /(?<![\p{L}])\p{L}*[áéíóú]\p{L}{0,2}[ae](la|lo|las|los)(?![\p{L}])/iu
 const preterite = (text: string) => [...text.matchAll(ES_PRETERITE)].some((m) => !ES_THIRD_PERSON.has(m[1].toLowerCase()))
 const EN_PERSON = /(?<![\p{L}'])(you|your|yours|yourself|we|our|ours|let's|please)(?![\p{L}])/iu
 const ES_OPENING = /^(aquí|ya|todavía|aún|hola|bienvenid[oa]s?|gracias|oops|ups|parece que|vaya)(?![\p{L}])/iu
@@ -55,7 +57,7 @@ export function breaksVoice(key: string, text: string, lang: Lang): RuleId | nul
   const isError = /(^|\.)error\./.test(key)
   if (words.length > (isError ? MAX_WORDS_ERROR : MAX_WORDS)) return 'length'
   if ((lang === 'es' ? ES_OPENING : EN_OPENING).test(plain.trim()) || (lang === 'es' ? ES_ANYWHERE : EN_ANYWHERE).test(plain)) return 'opening'
-  if ((lang === 'es' ? ES_PERSON : EN_PERSON).test(plain) || (lang === 'es' && preterite(plain))) return 'person'
+  if ((lang === 'es' ? ES_PERSON : EN_PERSON).test(plain) || (lang === 'es' && (preterite(plain) || ES_CLITIC_IMPERATIVE.test(plain)))) return 'person'
   if (lang === 'es' && ES_COLLOQUIAL_IMPERATIVES.has(first(text))) return 'imperative'
   // R7: no question, no exclamation, no ellipsis in three dots, no final period, one sentence.
   if (/[?¿!¡]/.test(plain) || /\.\.\./.test(plain) || /\.\s*$/.test(plain) || /[.]\s+\p{Lu}/u.test(plain)) return 'punctuation'
@@ -165,6 +167,7 @@ describe('the interface speaks like an instrument (UD-050)', () => {
       ['Todavía no hay nada', 'es', 'opening'],
       ['Lo enviaste tú', 'es', 'person'],
       ['Elige un envío', 'es', 'imperative'],
+      ['Revísala y publícala', 'es', 'person'],
       ['¿Qué quieres hacer?', 'es', 'person'],
       ['Guardado.', 'es', 'punctuation'],
       ['¡Guardado!', 'es', 'punctuation'],

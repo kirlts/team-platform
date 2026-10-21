@@ -1,8 +1,8 @@
 // Round 3, judge A (J3-A-01 to J3-A-51): each flow reads what the screen shows, in a real browser, against dev-server.mjs
 // serving panel/dist: `npm run test:flows`. Every test can fail if the defect it names comes back.
 import assert from 'node:assert'
-import { after, before, describe, test } from 'node:test'
-import { login, startPanel } from './browser-support.mjs'
+import { after, before, beforeEach, describe, test } from 'node:test'
+import { login, startPanel, settled, openTemplates } from './browser-support.mjs'
 
 let panel
 let origin = ''
@@ -10,6 +10,11 @@ let origin = ''
 before(async () => {
   panel = await startPanel(Number(process.env.PANEL_FLOWS_3A_PORT ?? 8884), { stepMs: 80 })
   origin = panel.origin
+})
+
+// Every test starts from the sample data as the server was born with it (H-901): none inherits what another left in the tray or the lists.
+beforeEach(async () => {
+  await panel.control.reset()
 })
 
 after(async () => {
@@ -24,7 +29,7 @@ async function session(who = 'ana', viewport = DESKTOP, { scheme = 'light' } = {
   const context = await panel.browser.newContext({ viewport, locale: 'es-CL', colorScheme: scheme, isMobile: mobile, hasTouch: mobile, deviceScaleFactor: mobile ? 2 : 1 })
   const page = await context.newPage()
   await login(page, origin, who)
-  await page.locator('main').first().waitFor()
+  await page.locator('main#main').waitFor()
   return { page, context }
 }
 
@@ -54,7 +59,7 @@ const redFills = (page) =>
       const box = el.getBoundingClientRect()
       if (box.width < 8 || box.height < 8) continue
       const { r, g, b, a } = toRgb(getComputedStyle(el).backgroundColor)
-      if (a > 200 && r > 120 && r > g * 2.2 && r > b * 2.2) found.push(`${el.tagName.toLowerCase()}[${el.getAttribute('data-testid') ?? el.getAttribute('data-tone') ?? el.className.toString().slice(0, 40)}]`)
+      if (a > 200 && r > 120 && r > g * 2.2 && r > b * 2.2) found.push(`${el.tagName.toLowerCase()}[${el.getAttribute('data-testid') ?? el.getAttribute('data-status') ?? el.className.toString().slice(0, 40)}]`)
     }
     return found
   })
@@ -85,7 +90,7 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
       const row = page.locator('article[data-affects-me]').first()
       await row.waitFor()
       // One marker of state or priority: the mark with its word, or the light of the state, never both.
-      const markers = await row.locator('[data-testid="tone-mark"], .led').count()
+      const markers = await row.locator('[data-testid="state-mark"]').count()
       assert.equal(markers, 1, 'la fila dice su prioridad o su estado una vez')
       // The edge on the left is the only color: no element of the row has a colored background.
       assert.deepEqual((await redFills(page)).filter((x) => !/bell/.test(x)), [])
@@ -110,6 +115,12 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
     try {
       await page.goto(`${origin}/messages`)
       await page.locator('main article').first().waitFor()
+      // The rows are measured once they are laid out: every Close/Reopen button has a box. A button without one (right edge 0) is a row that was not drawn yet, not a column (H-901).
+      await page.waitForFunction(() => {
+        const rows = [...document.querySelectorAll('main article')]
+        return rows.length > 0 && rows.every((r) => [...r.querySelectorAll('button')].filter((b) => /Cerrar|Reabrir/.test(b.textContent ?? '')).every((b) => b.getBoundingClientRect().width > 0))
+      })
+      await settled(page)
       const rights = await page.locator('main article').evaluateAll((rows) =>
         rows.map((r) => {
           const close = [...r.querySelectorAll('button')].find((b) => /Cerrar|Reabrir/.test(b.textContent ?? ''))
@@ -134,7 +145,7 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
     try {
       const attention = page.getByTestId('attention')
       await attention.waitFor()
-      const chips = await attention.locator('[data-testid="tone-mark"], [data-testid="area-pending"]').evaluateAll((els) =>
+      const chips = await attention.locator('[data-testid="state-mark"]:not([data-plain]), [data-testid="area-pending"]').evaluateAll((els) =>
         els.map((el) => {
           const s = getComputedStyle(el)
           return { height: Math.round(el.getBoundingClientRect().height), size: s.fontSize, weight: s.fontWeight, border: s.borderTopWidth, bg: s.backgroundColor }
@@ -158,8 +169,8 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
     try {
       // Every area with something pending, whatever the earlier tests left in the data: the row has to give up some of them.
       const areaList = await (await page.request.get(`${origin}/api/areas`)).json()
-      const areas = (areaList.items ?? areaList).map((a) => ({ area_id: a.id, open: 2, mine_open: 1 }))
-      await page.route(/\/api\/messages\/summary$/, (route) => route.fulfill({ json: { mine: { red: 1, yellow: 0, blue: 0, total: 1 }, items: [], areas } }))
+      const areas = (areaList.items ?? areaList).map((a) => ({ area_id: a.id, open: 2, answered: 0, closed: 0, mine_open: 1 }))
+      await page.route(/\/api\/messages\/summary$/, (route) => route.fulfill({ json: { mine: { open: 1, answered: 0, total: 1 }, items: [], areas } }))
       await page.goto(origin)
       const attention = page.getByTestId('attention')
       await attention.waitFor()
@@ -181,7 +192,7 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
     const { page, context } = await session('ana', PHONE)
     try {
       await page.locator('article').first().waitFor()
-      await page.waitForTimeout(400)
+      await settled(page)
       const height = await page.locator('main').evaluate((el) => el.scrollHeight)
       assert.ok(height < PHONE.height * 2.5, `Inicio mide ${height} px en el teléfono`)
       // The pager is there, so the eight messages are not eight cards of 330 px.
@@ -227,7 +238,7 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
     try {
       const region = page.getByRole('region', { name: 'Últimos mensajes' })
       await region.locator('article').first().waitFor()
-      await page.waitForTimeout(300)
+      await settled(page)
       const rows = region.locator('article')
       const n = await rows.count()
       assert.ok(n >= 3, `caben ${n} filas`)
@@ -248,7 +259,7 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
     try {
       assert.equal(await page.locator('main time[datetime]').filter({ hasText: /de 20\d\d/ }).count(), 0, 'no hay fecha y hora corriendo')
       await page.goto(origin)
-      await page.locator('main').first().waitFor()
+      await page.locator('main#main').waitFor()
       await page.keyboard.press('Tab')
       assert.equal(await page.evaluate(() => document.activeElement?.textContent?.trim()), 'Ir al contenido')
       const ring = await page.evaluate(() => parseFloat(getComputedStyle(document.activeElement).outlineWidth))
@@ -286,9 +297,9 @@ describe('the bell (J3-A-13, J3-A-14, J3-A-15)', () => {
       const seeAll = page.getByRole('link', { name: /^Ver todos/ })
       await seeAll.waitFor()
       assert.equal((await seeAll.innerText()).replace(/\s+/g, ' ').trim(), `Ver todos ${total}`)
-      // The priority is the shape: no visible word in the row (the word is for the screen reader).
-      const marks = await list.locator('[data-testid="tone-mark"]').evaluateAll((els) => els.map((el) => el.textContent.trim()))
-      assert.ok(marks.length > 0 && marks.every((t) => t === ''), `palabras repetidas en la campana: ${marks.join(',')}`)
+      // The state is its shape and its word (UD-041): every row of the bell says «Abierto» or «Respondido».
+      const marks = await list.locator('[data-testid="state-mark"]').evaluateAll((els) => els.map((el) => el.textContent.trim()))
+      assert.ok(marks.length > 0 && marks.every((t) => t === 'Abierto' || t === 'Respondido'), `estado de las filas de la campana: ${marks.join(',')}`)
       // It opens below the bar with room between them.
       const popover = await page.locator('[data-lane="bell-list"]').locator('xpath=ancestor::*[contains(@class,"pop")]').boundingBox()
       assert.ok(popover.y >= 52 + 6, `la campana se abre a ${popover.y} px, pegada a la barra`)
@@ -411,7 +422,7 @@ describe('justification by width (J3-A-21, J3-A-47)', () => {
     const hit = await messageByTitle(page, 'Revisar la lectura del panel')
     await page.goto(`${origin}/messages/${hit.id}`)
     await page.locator('main h1').waitFor()
-    await page.waitForTimeout(400)
+    await settled(page)
   }
 
   test('on a phone no paragraph is justified and no gap opens beyond the natural space (J3-A-21)', async () => {
@@ -425,7 +436,7 @@ describe('justification by width (J3-A-21, J3-A-47)', () => {
       assert.ok(worst <= 5, `hueco de ${worst} px entre palabras en el teléfono`)
       await page.goto(`${origin}/settings`)
       await page.locator('main h1').waitFor()
-      await page.waitForTimeout(300)
+      await settled(page)
       const settings = await page.locator('.prose-block').evaluateAll((els) => els.map((el) => getComputedStyle(el).textAlign))
       assert.ok(settings.every((a) => a === 'left' || a === 'start'), 'ni en Configuración')
     } finally {
@@ -566,22 +577,24 @@ describe('Mensajes and the detail (J3-A-16, J3-A-22 to J3-A-29)', () => {
 })
 
 describe('Áreas and templates (J3-A-30 to J3-A-38)', () => {
-  test('an area with nothing pending says nothing, and a count is centered on its row (J3-A-33)', async () => {
+  test('an area with nothing open or answered says nothing, and its counts are centered on its row (J3-A-33, UD-041)', async () => {
     const { page, context } = await session('ana')
     try {
       await page.goto(`${origin}/areas`)
-      await page.locator('main section[aria-current]').first().waitFor()
-      const rows = await page.locator('main section[aria-current], main section:has(button[aria-pressed])').evaluateAll((els) =>
+      await page.locator('main section').first().waitFor()
+      const rows = await page.locator('main section').evaluateAll((els) =>
         els.map((el) => {
           const box = el.getBoundingClientRect()
-          const pending = [...el.querySelectorAll('span')].find((s) => /pendiente/.test(s.textContent ?? ''))
-          const p = pending?.getBoundingClientRect()
-          return { text: pending?.textContent ?? '', offset: p ? Math.abs(p.top + p.height / 2 - (box.top + box.height / 2)) : null }
+          const marks = [...el.querySelectorAll('[data-testid="state-mark"]')]
+          const rects = marks.map((m) => m.getBoundingClientRect())
+          const top = Math.min(...rects.map((r) => r.top))
+          const bottom = Math.max(...rects.map((r) => r.bottom))
+          return { text: marks.map((m) => m.textContent.trim()).join(' '), offset: marks.length ? Math.abs((top + bottom) / 2 - (box.top + box.height / 2)) : null }
         }),
       )
-      assert.ok(rows.some((r) => r.text === ''), 'Retroalimentación no dice «0 pendientes»')
-      assert.ok(rows.every((r) => !/^0 /.test(r.text)))
-      for (const r of rows.filter((x) => x.offset !== null)) assert.ok(r.offset <= 4, `el conteo queda a ${r.offset} px del centro de su fila`)
+      assert.ok(rows.some((r) => r.text === ''), 'un área sin mensajes abiertos ni respondidos no dice «0 abiertos»')
+      assert.ok(rows.every((r) => !/^0 /.test(r.text) && !/pendiente/i.test(r.text)))
+      for (const r of rows.filter((x) => x.offset !== null)) assert.ok(r.offset <= 4, `los conteos quedan a ${r.offset} px del centro de su fila`)
     } finally {
       await context.close()
     }
@@ -591,6 +604,7 @@ describe('Áreas and templates (J3-A-30 to J3-A-38)', () => {
     const { page, context } = await session('ana')
     try {
       await page.goto(`${origin}/areas/a-error`)
+      await openTemplates(page)
       const card = page.locator('section[aria-label="Plantillas"] article').first()
       await card.waitFor()
       for (const field of ['Resumen', 'Pasos para reproducir', 'Qué se esperaba']) await card.getByText(field, { exact: false }).first().waitFor()
@@ -619,6 +633,7 @@ describe('Áreas and templates (J3-A-30 to J3-A-38)', () => {
     const { page, context } = await session('ana')
     try {
       await page.goto(`${origin}/areas/a-error`)
+      await openTemplates(page)
       await page.getByRole('button', { name: 'Campos e instrucciones', exact: true }).first().click()
       const dialog = page.getByRole('dialog')
       await dialog.waitFor()

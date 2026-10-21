@@ -2,12 +2,14 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { createFakeProviders } from '../providers/index.js';
-import { analyze } from './index.js';
+import { analyze as analyzeAll } from './index.js';
 import { chunkNote, classifySystem, DEFAULT_LANGUAGE, decomposeSystem, harnessPrompt, LANGUAGES, promptSet, resolveLanguage } from './prompts.js';
 import * as en from './prompts-en.js';
 import * as es from './prompts-es.js';
 import { parseTemplate } from './templates.js';
-import { bugMessage, CLASSIFY_ERRORS, makeBundle, scriptByRequest } from './testing/fixtures.js';
+import { bugMessage, CLASSIFY_ERRORS, makeBundle, scriptByRequest, firstReadingOnly } from './testing/fixtures.js';
+
+const analyze = firstReadingOnly(analyzeAll);
 
 const VOSEO = /\b(vos|sos|tenés|podés|querés|hacé|mirá|decí|fijate|acordate|poné|escribí|devolvé|usá|elegí|recogé)\b/i;
 const SPAIN = /\b(ordenador|vale|coger|vosotros|móvil)\b/i;

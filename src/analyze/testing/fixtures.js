@@ -113,10 +113,20 @@ export function scriptByRequest({ classification, decompositions }) {
 export function unitIdsIn(req) {
   const last = req.messages.at(-1);
   const text = typeof last.content === 'string' ? last.content : JSON.stringify(last.content);
-  return [...text.matchAll(/\[u(\d+)\]/g)].map((m) => Number(m[1]));
+  // The read-only context block of a window comes before the heading «Input»: its units are not the ones to classify.
+  const own = text.includes('\nInput\n') ? text.slice(text.lastIndexOf('\nInput\n')) : text;
+  return [...own.matchAll(/\[u(\d+)\]/g)].map((m) => Number(m[1]));
 }
 
 export const lastUserText = (req) => {
   const user = [...req.messages].reverse().find((m) => m.role === 'user');
   return typeof user.content === 'string' ? user.content : JSON.stringify(user.content);
 };
+
+/**
+ * `analyze` with the coverage pass off: the older tests describe the first reading and count the calls of the pipeline one by one;
+ * the coverage pass has its own tests (coverage.test.js).
+ */
+export function firstReadingOnly(analyze) {
+  return (bundle, opts = {}) => analyze(bundle, { ...opts, config: { coveragePasses: 0, ...opts.config } });
+}

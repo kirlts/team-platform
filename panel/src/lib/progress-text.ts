@@ -42,6 +42,7 @@ const entries: Entry[] = [
   { key: 'progress.attachmentN', pattern: /^Lectura de adjunto (\d+) de (\d+)$/, vars: ['n', 'total'] },
   { key: 'progress.waiting', pattern: /^En espera: cupo de transcripción$/, vars: [] },
   { key: 'progress.retry', pattern: /^Intento (\d+) de (\d+) fallido; se reintenta$/, vars: ['n', 'total'] },
+  { key: 'progress.review', pattern: /^Revisión de lo apartado$/, vars: [] },
   { key: 'progress.done', pattern: /^Listo$/, vars: [] },
   { key: 'analysis.queued', pattern: /^En cola$/, vars: [] },
   { key: 'analysis.analyzing', pattern: /^Analizando$/, vars: [] },

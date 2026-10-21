@@ -78,13 +78,17 @@ export function FitList<T>({
   /** Rows on this page; `null` while it is being measured. */
   const count = fit && fit.rows === rows && fit.desktop === desktop && fit.start === first && fit.version === frameVersion ? fit.n : null
 
+  /** The height of the slot the last measure was taken at: a slot that ends at another height than that one makes the measure stale, even when it passed through other heights in between. */
+  const measuredBox = useRef<number | null>(null)
+
   useEffect(() => {
     const el = slot.current
     if (!el || typeof ResizeObserver === 'undefined') return
     let last = el.clientHeight
     const observer = new ResizeObserver(() => {
-      if (Math.abs(el.clientHeight - last) > 0.5) {
-        last = el.clientHeight
+      const now = el.clientHeight
+      if (Math.abs(now - last) > 0.5 || (measuredBox.current !== null && Math.abs(now - measuredBox.current) > 0.5)) {
+        last = now
         setFrameVersion((v) => v + 1)
       }
     })
@@ -113,6 +117,13 @@ export function FitList<T>({
     const remaining = rows.length - first
     const above = head.current?.getBoundingClientRect().height ?? 0
     const stamp = { rows, desktop, start: first, version: frameVersion }
+    measuredBox.current = box.clientHeight
+    // A slot can dip while its neighbors settle (chips measuring themselves) and be back where it was before the frame ends: the observer reports
+    // no change then, and the measure taken in the dip would stay. One look after the frame, at the height this measure used, is that event.
+    const taken = box.clientHeight
+    requestAnimationFrame(() => {
+      if (slot.current && Math.abs(slot.current.clientHeight - taken) > 0.5) setFrameVersion((v) => v + 1)
+    })
     // Everything left fits without a pager when it is the first page.
     if (first === 0 && heights.length === remaining && total(heights) <= box.clientHeight - above + 0.5) {
       setFit({ ...stamp, n: remaining, sum: total(heights), floor: 0 })

@@ -115,6 +115,14 @@ export const INPUT_HEADING = 'Input';
 /** Added to the classification of the second reading (UD-021), after the first one found nothing. */
 export const SECOND_PASS_NOTE = 'Segunda lectura. Una persona envió este input al equipo por algún motivo, así que contiene al menos un punto: un pedido, una falla, una idea, una pregunta o algo que muestra y quiere que el equipo vea. La primera lectura no encontró nada. Léelo de nuevo, sección por sección y con más cuidado, y nombra a qué apunta con más probabilidad la persona, aunque sea implícito o solo se vea en la descripción de una imagen. Si no hay ningún pedido explícito (un enlace o un texto compartido sin comentario), el punto es lo compartido: agrúpalo en el área que el catálogo describe para lo que se comparte sin pedido ni falla, para que el equipo lo vea y decida. Pon una unidad en discarded solo cuando no contenga nada más que un saludo o charla social.';
 
+/** Added to the classification of the coverage pass (H-1900): units the first reading left out of every group. */
+export const COVERAGE_NOTE = 'Revisión de lo apartado. Estas unidades quedaron fuera de todo grupo en la primera lectura, que las tomó por saludos, charla social o relleno. En una conversación o una reunión larga esa lectura aparta a veces, junto con el relleno, unidades que traían un pedido, una falla, una idea, una opinión sobre el producto, una pregunta que alguien tiene que responder, un compromiso o una decisión. Léelas de nuevo, una por una. Agrupa cada punto que encuentres con las mismas reglas de siempre, y deja en discarded solo lo que no aporta a ningún punto. Las unidades llegan sin las que las rodean.';
+
+/** Read-only units placed before a window of a long input (H-1003). */
+export function contextBlock(units) {
+  return [`Contexto: las unidades u${units[0].id} a u${units.at(-1).id} van justo antes de este tramo y ya se clasificaron. No las cites ni las clasifiques; sirven para entender dónde empieza el tramo y de qué punto viene.`, '', renderUnits(units, LANGUAGE)].join('\n');
+}
+
 // ---------------------------------------------------------------------------------------------
 // Second call: decompose
 // ---------------------------------------------------------------------------------------------
@@ -143,7 +151,7 @@ export const DECOMPOSE_INSTRUCTIONS = [
   '1. Cada unidad que recibes aparece exactamente una vez en tu salida, en unit_ids de un único mensaje. Ninguna queda fuera y ninguna se repite. En este paso no se descarta nada: el paso previo ya apartó los saludos y la charla social, así que todo lo que recibes es contenido de algún punto.',
   '2. El paso previo agrupó las unidades que recibes como un solo punto, así que el grupo entero es un solo mensaje: un mensaje por cada punto que la persona planteó, y las unidades seguidas sobre un mismo punto quedan en el mismo mensaje aunque entre ellas haya descripciones de fotogramas. Devuelve un solo mensaje con todas las unidades del grupo: el paso previo ya separó los puntos independientes, así que no partas el grupo ni un solo punto por oración. Una pregunta retórica o una muletilla de cierre no es un mensaje de pregunta: déjala fuera del título y de los campos. Una unidad que solo aporta un dato, una respuesta, una aclaración o una acotación a un punto (una versión, un color, un «yo lo reviso», un «eso queda para otra rama») se cita en el mensaje de ese punto. Los detalles de cómo hacer un pedido (el formato, el límite, la forma de elegir, un caso borde) son parte de ese pedido y no un mensaje aparte.',
   '3. El grupo origina al menos un mensaje. Un punto enunciado en pocas palabras, sin motivo ni detalle, sigue siendo un mensaje: redáctalo con lo que dice y escribe No indicado en los campos obligatorios que el input no responde.',
-  '4. Si una misma unidad trae dos puntos distintos, no se puede repartir: recógela en un solo mensaje y nombra ambos puntos en su cuerpo.',
+  '4. Si una misma unidad trae dos o más puntos distintos, no se puede repartir entre mensajes: recógela en un solo mensaje que atienda a todos. El título nombra cada punto, el cuerpo dedica al menos una frase a cada uno con sus datos (cifras, dispositivos, pantallas, mensajes) y los campos de la plantilla recogen los de todos. Antes de responder, revisa que cada falla, pedido, pregunta o idea de la unidad aparece en el mensaje; un punto que la unidad dice y el mensaje no, se pierde para el equipo. Lo único que se deja fuera es un elogio o una valoración sin nada que decidir.',
   '5. Lista de unit_ids en orden ascendente y solo con números que existen en la lista que recibes.',
   '',
   'Campos de cada mensaje',

@@ -2,7 +2,7 @@ import type { HTMLAttributes } from 'react'
 import { cn } from '@/lib/utils'
 
 const tones = {
-  neutral: 'bg-closed-bg text-closed-fg',
+  neutral: 'border border-line bg-hover text-fg',
   accent: 'bg-accent-soft text-accent-deep',
   open: 'led bg-open-bg text-open-fg [--led:var(--color-open-led)]',
   answered: 'led bg-answered-bg text-answered-fg [--led:var(--color-answered-led)]',

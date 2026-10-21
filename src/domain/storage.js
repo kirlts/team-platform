@@ -51,11 +51,36 @@ export async function commit (config, tmp, sha256) {
   return { existed: false }
 }
 
+// Blobs written by an upload that has not yet reached its database row. A failed upload deletes what it wrote, but
+// never a blob another in-flight upload of the same file is about to reference (UD-072): the count decides, not a clock.
+const inFlight = new Map()
+
+/** Marks a blob as owned by an upload in flight. Call before `commit`. */
+export function holdBlob (sha256) {
+  inFlight.set(sha256, (inFlight.get(sha256) ?? 0) + 1)
+}
+
+const referenced = (db, sha256) => Boolean(
+  get(db, "SELECT 1 AS u FROM attachments WHERE sha256 = ? AND kind <> 'link' LIMIT 1", sha256) ||
+  get(db, "SELECT 1 AS u FROM reply_attachments WHERE sha256 = ? AND kind <> 'link' LIMIT 1", sha256))
+
+/**
+ * Ends the hold of an upload. With `discard` (the upload failed or was refused) each blob it wrote is deleted when no
+ * row references it and no other upload holds it. Without it the rows exist and nothing is deleted.
+ */
+export async function releaseBlobs (db, config, files, { discard }) {
+  for (const f of files) {
+    const left = (inFlight.get(f.sha256) ?? 1) - 1
+    if (left > 0) inFlight.set(f.sha256, left)
+    else inFlight.delete(f.sha256)
+    if (discard && left <= 0 && !referenced(db, f.sha256)) await rm(blobPath(config, f.sha256), { force: true })
+  }
+}
+
 /**
  * Orphan collection: files in the volume that no attachment references and that are older than `olderThanMs`.
- * Nothing is deleted when an upload is rejected: two in-flight uploads of the same file could overwrite
- * each other (the second sees the first one's file before its row exists). The minimum age is the
- * queue retention (7 days, report 03 §12).
+ * It is the safety net for a crash between writing a file and its row; an upload that is refused or fails cleans up
+ * after itself through `releaseBlobs`. The minimum age is the queue retention (7 days, report 03 §12).
  */
 export async function sweepOrphans (db, config, olderThanMs, now = Date.now()) {
   let removedRows = 0

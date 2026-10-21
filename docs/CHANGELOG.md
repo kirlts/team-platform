@@ -71,6 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MASTER-SPEC §2, §3, §6 y §7 describen el código real; §3.1 lista las dependencias con su licencia.
 
 ### Fixed
+- «Cerrar sesión» no se dibuja con un proveedor de identidad sin ruta de cierre (UD-190). Equipo, Configuración y la ficha del mensaje sin hallazgos de `ui-detectors`: objetivos de 24 px, campo a 17 px en teléfono, miniaturas sin relleno saturado (UD-191).
 - Panel: en una ventana más baja que una fila de la lista, la fila ya no se dibuja sobre el paginador (H-96).
 - Audio y video: los segmentos de Groq se unen en líneas del tamaño de una oración (`audio.pauseSeconds`, `audio.maxUnitWords`); una nota de 107 s pasa de 46 unidades a 9 (REG-005).
 

@@ -67,7 +67,7 @@ test('login correcto: cookie __Host- HttpOnly Secure SameSite=Lax, ficha opaca y
   assert.equal(filas.length, 1)
   assert.notEqual(filas[0].id, c.value) // la base no guarda la ficha
   assert.equal(filas[0].id.length, 64) // SHA-256 hexadecimal
-  assert.deepEqual(res.json().member, { id: 1, email: 'ana@x.org', name: 'ana', role: 'editor' })
+  assert.deepEqual(res.json().member, { id: '1', email: 'ana@x.org', name: 'ana', role: 'editor' })
   await env.close()
 })
 
@@ -157,7 +157,7 @@ test('la sesión se regenera en cada inicio y logout la invalida en el servidor'
   const c2 = await login(env, 'ana@x.org')
   assert.notEqual(c1, c2)
   assert.equal((await env.app.inject({ url: '/api/me', headers: { cookie: c1 } })).statusCode, 200)
-  const salida = await env.app.inject({ method: 'POST', url: '/api/auth/logout', headers: { cookie: c1 } })
+  const salida = await env.app.inject({ method: 'POST', url: '/api/auth/logout', headers: { 'x-team-request': 'panel', cookie: c1 } })
   assert.equal(salida.statusCode, 204)
   assert.equal((await env.app.inject({ url: '/api/me', headers: { cookie: c1 } })).statusCode, 401) // la ficha ya no vale aunque el cliente la conserve
   assert.equal((await env.app.inject({ url: '/api/me', headers: { cookie: c2 } })).statusCode, 200)
@@ -191,7 +191,7 @@ test('cambiar el rol de un miembro cierra sus sesiones', async () => {
   await addMember(env, { email: 'ana@x.org' })
   const editor = await login(env, 'ed@x.org')
   const ana = await login(env, 'ana@x.org')
-  const r = await env.app.inject({ method: 'PATCH', url: '/api/members/2', headers: { cookie: editor }, payload: { role: 'editor' } })
+  const r = await env.app.inject({ method: 'PATCH', url: '/api/members/2', headers: { 'x-team-request': 'panel', cookie: editor }, payload: { role: 'editor' } })
   assert.equal(r.statusCode, 200)
   assert.equal((await env.app.inject({ url: '/api/me', headers: { cookie: ana } })).statusCode, 401)
   await env.close()
@@ -202,11 +202,11 @@ test('el cambio de contraseña propio exige la actual, cierra las demás sesione
   await addMember(env, { email: 'ana@x.org' })
   const a = await login(env, 'ana@x.org')
   const b = await login(env, 'ana@x.org')
-  const mal = await env.app.inject({ method: 'PATCH', url: '/api/members/me', headers: { cookie: a }, payload: { current_password: 'no-es-la-actual-xxxx', new_password: 'otra clave larga de prueba' } })
+  const mal = await env.app.inject({ method: 'PATCH', url: '/api/members/me', headers: { 'x-team-request': 'panel', cookie: a }, payload: { current_password: 'no-es-la-actual-xxxx', new_password: 'otra clave larga de prueba' } })
   assert.equal(mal.statusCode, 401)
-  const corta = await env.app.inject({ method: 'PATCH', url: '/api/members/me', headers: { cookie: a }, payload: { current_password: CLAVE, new_password: 'corta' } })
+  const corta = await env.app.inject({ method: 'PATCH', url: '/api/members/me', headers: { 'x-team-request': 'panel', cookie: a }, payload: { current_password: CLAVE, new_password: 'corta' } })
   assert.equal(corta.statusCode, 400)
-  const ok = await env.app.inject({ method: 'PATCH', url: '/api/members/me', headers: { cookie: a }, payload: { current_password: CLAVE, new_password: 'otra clave larga de prueba' } })
+  const ok = await env.app.inject({ method: 'PATCH', url: '/api/members/me', headers: { 'x-team-request': 'panel', cookie: a }, payload: { current_password: CLAVE, new_password: 'otra clave larga de prueba' } })
   assert.equal(ok.statusCode, 200)
   assert.equal((await env.app.inject({ url: '/api/me', headers: { cookie: a } })).statusCode, 200)
   assert.equal((await env.app.inject({ url: '/api/me', headers: { cookie: b } })).statusCode, 401)
@@ -219,7 +219,7 @@ test('CSRF: Sec-Fetch-Site cross-site y same-site se rechazan en métodos no seg
   const env = await makeEnv({ config: sinLimiteIp })
   await addMember(env, { email: 'ana@x.org' })
   const cookie = await login(env, 'ana@x.org')
-  const post = (headers) => env.app.inject({ method: 'POST', url: '/api/inputs/1/cancel', headers: { cookie, ...headers } })
+  const post = (headers) => env.app.inject({ method: 'POST', url: '/api/inputs/1/cancel', headers: { 'x-team-request': 'panel', cookie, ...headers } })
   assert.equal((await post({ 'sec-fetch-site': 'cross-site' })).statusCode, 403)
   assert.equal((await post({ 'sec-fetch-site': 'same-site' })).statusCode, 403)
   assert.equal((await post({ 'sec-fetch-site': 'same-origin' })).statusCode, 404) // pasó la defensa; el input no existe
@@ -234,7 +234,7 @@ test('CSRF: sin Sec-Fetch-Site se compara Origin con el anfitrión; sin ninguno,
   const env = await makeEnv({ config: sinLimiteIp })
   await addMember(env, { email: 'ana@x.org' })
   const cookie = await login(env, 'ana@x.org')
-  const post = (headers) => env.app.inject({ method: 'POST', url: '/api/inputs/1/cancel', headers: { cookie, host: 'team.example.org', ...headers } })
+  const post = (headers) => env.app.inject({ method: 'POST', url: '/api/inputs/1/cancel', headers: { 'x-team-request': 'panel', cookie, host: 'team.example.org', ...headers } })
   assert.equal((await post({ origin: 'https://evil.example.com' })).statusCode, 403)
   assert.equal((await post({ origin: 'null' })).statusCode, 403)
   assert.equal((await post({ origin: 'https://team.example.org' })).statusCode, 404)
@@ -246,7 +246,7 @@ test('CSRF: un origen listado en CORS_ORIGINS pasa', async () => {
   const env = await makeEnv({ config: { ...sinLimiteIp, corsOrigins: ['https://sitio.example.org'] } })
   await addMember(env, { email: 'ana@x.org' })
   const cookie = await login(env, 'ana@x.org')
-  const r = await env.app.inject({ method: 'POST', url: '/api/inputs/1/cancel', headers: { cookie, origin: 'https://sitio.example.org', 'sec-fetch-site': 'cross-site' } })
+  const r = await env.app.inject({ method: 'POST', url: '/api/inputs/1/cancel', headers: { 'x-team-request': 'panel', cookie, origin: 'https://sitio.example.org', 'sec-fetch-site': 'cross-site' } })
   assert.equal(r.statusCode, 404)
   await env.close()
 })
@@ -285,7 +285,7 @@ test('toda ruta protegida responde 401 sin sesión, y las de editor 403 a un mie
     const sinSesion = await env.app.inject({ method: r.method, url })
     assert.equal(sinSesion.statusCode, 401, `${r.method} ${url} sin sesión`)
     if (r.policy === 'editor') {
-      const comoMiembro = await env.app.inject({ method: r.method, url, headers: { cookie }, payload: r.method === 'GET' || r.method === 'DELETE' ? undefined : {} })
+      const comoMiembro = await env.app.inject({ method: r.method, url, headers: { cookie, 'x-team-request': 'panel' }, payload: r.method === 'GET' || r.method === 'DELETE' ? undefined : {} })
       assert.equal(comoMiembro.statusCode, 403, `${r.method} ${url} como miembro`)
     }
     verificadas++
@@ -303,11 +303,11 @@ test('un miembro edita sólo su descripción y dominios', async () => {
   const env = await makeEnv({ config: sinLimiteIp })
   await addMember(env, { email: 'ana@x.org' })
   const cookie = await login(env, 'ana@x.org')
-  const ok = await env.app.inject({ method: 'PATCH', url: '/api/members/me', headers: { cookie }, payload: { responsibilities: 'API', domains: 'backend' } })
+  const ok = await env.app.inject({ method: 'PATCH', url: '/api/members/me', headers: { 'x-team-request': 'panel', cookie }, payload: { responsibilities: 'API', domains: ['backend'] } })
   assert.equal(ok.statusCode, 200)
   assert.equal(ok.json().responsibilities, 'API')
   for (const campo of ['role', 'name', 'email']) {
-    const r = await env.app.inject({ method: 'PATCH', url: '/api/members/me', headers: { cookie }, payload: { [campo]: 'editor' } })
+    const r = await env.app.inject({ method: 'PATCH', url: '/api/members/me', headers: { 'x-team-request': 'panel', cookie }, payload: { [campo]: 'editor' } })
     assert.equal(r.statusCode, 400, campo)
   }
   await env.close()

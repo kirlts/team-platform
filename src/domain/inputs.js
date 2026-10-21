@@ -10,7 +10,7 @@
 
 import { createHash } from 'node:crypto'
 import { all, get, run } from '../db/index.js'
-import { iso } from '../db/util.js'
+import { iso, parseJson } from '../db/util.js'
 import { audit } from './audit.js'
 import { conflict, notFound } from './errors.js'
 

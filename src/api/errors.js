@@ -53,6 +53,7 @@ export function installErrorHandler (app) {
       return reply.code(error.statusCode).send({ code: 'bad_request', message: 'Petición inválida.' })
     }
     request.log.error({ err: error }, 'error no controlado')
+    if (process.env.TEAM_DEBUG_ERRORS) console.error(error.stack) // ayuda de desarrollo: las pruebas corren con el registro apagado
     return reply.code(500).send({ code: 'internal', message: 'Error interno del servidor.' })
   })
 }

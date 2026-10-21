@@ -126,7 +126,7 @@ export async function multipart (campos = {}, archivos = []) {
 
 export async function postInput (env, cookie, campos, archivos = []) {
   const { payload, headers } = await multipart(campos, archivos)
-  return env.app.inject({ method: 'POST', url: '/api/inputs', payload, headers: { ...headers, cookie } })
+  return env.app.inject({ method: 'POST', url: '/api/inputs', payload, headers: { ...headers, cookie, 'x-team-request': 'panel' } })
 }
 
 /** Espera a que `fn` devuelva un valor verdadero, reintentando sobre un evento de la cola (sin reloj fijo). */

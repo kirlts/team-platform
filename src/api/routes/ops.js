@@ -7,18 +7,18 @@ import { pageEnvelope, pageParams, pageQuerySchema, pageResult } from '../pagina
 const trabajo = {
   type: 'object',
   properties: {
-    id: { type: 'string' }, kind: { type: 'string' }, input_id: { type: ['string', 'null'] }, status: { type: 'string' },
+    id: { type: 'string' }, kind: { type: 'string' }, input_id: { type: 'string', nullable: true }, status: { type: 'string' },
     priority: { type: 'integer' }, attempts: { type: 'integer' }, max_attempts: { type: 'integer' },
-    run_at: { type: 'string' }, lease_until: { type: ['string', 'null'] }, worker_id: { type: ['string', 'null'] },
-    last_error: { type: ['string', 'null'] }, created_at: { type: 'string' }, finished_at: { type: ['string', 'null'] }
+    run_at: { type: 'string' }, lease_until: { type: 'string', nullable: true }, worker_id: { type: 'string', nullable: true },
+    last_error: { type: 'string', nullable: true }, created_at: { type: 'string' }, finished_at: { type: 'string', nullable: true }
   }
 }
 
 const registro = {
   type: 'object',
   properties: {
-    id: { type: 'string' }, at: { type: 'string' }, member_id: { type: ['string', 'null'] }, member_name: { type: ['string', 'null'] },
-    action: { type: 'string' }, entity: { type: 'string' }, entity_id: { type: ['string', 'null'] }, detail: { type: ['object', 'null'], additionalProperties: true }
+    id: { type: 'string' }, at: { type: 'string' }, member_id: { type: 'string', nullable: true }, member_name: { type: 'string', nullable: true },
+    action: { type: 'string' }, entity: { type: 'string' }, entity_id: { type: 'string', nullable: true }, detail: { type: ['object', 'null'], additionalProperties: true }
   }
 }
 

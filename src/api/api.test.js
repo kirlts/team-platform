@@ -19,7 +19,7 @@ async function equipo (opts = {}) {
     ana: await login(env, 'ana@x.org'),
     beto: await login(env, 'beto@x.org')
   }
-  const api = (method, url, cookie, payload) => env.app.inject({ method, url: `/api${url}`, headers: { cookie }, payload })
+  const api = (method, url, cookie, payload) => env.app.inject({ method, url: `/api${url}`, headers: { cookie, 'x-team-request': 'panel' }, payload })
   env.api = api
   return env
 }
@@ -52,7 +52,10 @@ test('flujo completo: enviar, analizar, editar, publicar, responder, cerrar y re
   assert.ok(vista.attachments.every((a) => a.extracted))
   assert.equal(vista.proposal.messages.length, 1)
   const propuesta = vista.proposal.messages[0]
-  assert.ok(Number.isInteger(propuesta.area_id) && Number.isInteger(propuesta.template_id))
+  assert.match(propuesta.area_id, /^\d+$/) // todo id viaja como texto
+  assert.match(propuesta.template_id, /^\d+$/)
+  assert.deepEqual(vista.units, []) // el doble del analizador no numera unidades
+  assert.equal(vista.job_id, String(jobId))
   assert.match(propuesta.body, /texto de document/)
   assert.equal(vista.job.status, 'done')
 
@@ -76,8 +79,9 @@ test('flujo completo: enviar, analizar, editar, publicar, responder, cerrar y re
   // Beto lo ve en «para mí»; Ed (no asignado) no.
   const paraBeto = (await env.api('GET', '/messages?for=me', env.c.beto)).json()
   assert.deepEqual(paraBeto.items.map((m) => m.id), [mensajeId])
-  assert.equal(paraBeto.items[0].author.name, 'Ana')
-  assert.equal(paraBeto.items[0].assignees[0].name, 'Beto')
+  assert.equal(paraBeto.items[0].author_id, '2') // Ana
+  assert.deepEqual(paraBeto.items[0].assignee_ids, ['3']) // Beto
+  assert.equal(paraBeto.total, 1)
   assert.equal(paraBeto.items[0].attachments.length, 1)
   assert.equal((await env.api('GET', '/messages?for=me', env.c.ed)).json().items.length, 0)
   assert.equal((await env.api('GET', '/messages', env.c.ed)).json().items.length, 1) // todos ven todos en Mensajes
@@ -91,6 +95,8 @@ test('flujo completo: enviar, analizar, editar, publicar, responder, cerrar y re
   assert.equal(resp.json().status, 'answered')
   assert.equal(resp.json().replies.length, 1)
   assert.equal(resp.json().replies[0].kind, 'clarification')
+  assert.equal(resp.json().reply_count, 1)
+  assert.equal(resp.json().last_reply.author_id, '3')
   assert.equal((await env.api('POST', `/messages/${mensajeId}/replies`, env.c.ed, { body: 'otra' })).json().replies.length, 2) // un hilo
 
   // Cualquiera cierra y reabre; un cerrado no recibe respuestas.
@@ -166,7 +172,7 @@ test('subida: envío vacío, formato no admitido, enlace inválido y cuerpo no m
   assert.equal(exe.statusCode, 415)
   assert.equal((await postInput(env, env.c.ana, { text: 'x', links: 'no es una url' })).statusCode, 400)
   assert.equal((await postInput(env, env.c.ana, { text: 'x', links: 'ftp://host/archivo' })).statusCode, 400)
-  const json = await env.app.inject({ method: 'POST', url: '/api/inputs', headers: { cookie: env.c.ana }, payload: { text: 'x' } })
+  const json = await env.app.inject({ method: 'POST', url: '/api/inputs', headers: { cookie: env.c.ana, 'x-team-request': 'panel' }, payload: { text: 'x' } })
   assert.equal(json.statusCode, 415)
   const vacioArchivo = await postInput(env, env.c.ana, { text: 'x' }, [TEXTO('v.txt', '')])
   assert.equal(vacioArchivo.statusCode, 400)
@@ -247,7 +253,7 @@ test('publicar valida la forma: área, plantilla de esa área, miembros, adjunto
     { ...base, title: 'Idea', area_id: idea.id, template_id: idea.templates[0].id, fields: { idea: 'i', motivation: 'm' } }
   ] })
   assert.equal(dos.statusCode, 200, dos.body)
-  assert.deepEqual(dos.json().messages.map((m) => m.area.title), ['Error', 'Idea'])
+  assert.deepEqual(dos.json().messages.map((m) => m.area_id), [String(error.id), String(idea.id)])
   assert.deepEqual(dos.json().messages[0].fields, { steps: 'a', expected: 'b', actual: 'c' })
   await env.close()
 })
@@ -308,11 +314,12 @@ test('mensajes: filtros por destinatario, área, estado, búsqueda y respuestas,
   assert.deepEqual(await ids('?replies=1&for=me', env.c.ed), [m3]) // Ed es destinatario de m3, que tiene respuestas
   const pag1 = (await env.api('GET', '/messages?limit=2', env.c.ana)).json()
   assert.equal(pag1.items.length, 2)
-  assert.equal(pag1.next_offset, 2)
-  const pag2 = (await env.api('GET', '/messages?limit=2&offset=2', env.c.ana)).json()
+  assert.deepEqual({ page: pag1.page, limit: pag1.limit, total: pag1.total }, { page: 1, limit: 2, total: 3 })
+  const pag2 = (await env.api('GET', '/messages?limit=2&page=2', env.c.ana)).json()
   assert.deepEqual(pag2.items.map((m) => m.id), [m1])
-  assert.equal(pag2.next_offset, null)
-  assert.equal((await env.api('GET', '/messages?limit=100000', env.c.ana)).statusCode, 400)
+  assert.equal(pag2.page, 2)
+  assert.equal((await env.api('GET', '/messages?limit=101', env.c.ana)).statusCode, 400) // tope de 100
+  assert.equal((await env.api('GET', '/messages?page=0', env.c.ana)).statusCode, 400)
   assert.equal((await env.api('GET', '/messages?status=raro', env.c.ana)).statusCode, 400)
   assert.equal((await env.api('GET', '/messages?for=pepe', env.c.ana)).statusCode, 400)
 
@@ -373,8 +380,36 @@ test('áreas y plantillas: el editor las gestiona; el miembro sólo las lee sin 
   assert.equal((await env.api('POST', `/areas/${creada.json().id}/templates`, env.c.ed, { body_markdown: `---\nname: ${'n'.repeat(65)}\ndescription: Y\n---\ncuerpo` })).statusCode, 422) // 64 caracteres de Agent Skills
   assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM templates WHERE area_id = ?', creada.json().id).n, 1)
 
-  assert.equal((await env.api('DELETE', `/areas/${creada.json().id}/templates/${t.json().id}`, env.c.ed)).statusCode, 204)
-  assert.equal((await env.api('DELETE', `/areas/${creada.json().id}/templates/${t.json().id}`, env.c.ed)).statusCode, 404)
+  // Borrar es en blando y exige confirmación; se restaura.
+  const urlPlantilla = `/areas/${creada.json().id}/templates/${t.json().id}`
+  const sinConfirmar = await env.api('DELETE', urlPlantilla, env.c.ed)
+  assert.equal(sinConfirmar.statusCode, 400)
+  assert.equal(sinConfirmar.json().code, 'confirm_required')
+  assert.equal((await env.api('GET', `/areas/${creada.json().id}/templates`, env.c.ed)).json().length, 1) // no se borró
+  assert.equal((await env.api('DELETE', `${urlPlantilla}?confirm=true`, env.c.ed)).statusCode, 204)
+  assert.equal((await env.api('DELETE', `${urlPlantilla}?confirm=true`, env.c.ed)).statusCode, 404)
+  assert.equal((await env.api('GET', `/areas/${creada.json().id}/templates`, env.c.ed)).json().length, 0)
+  assert.equal((await env.api('GET', `/areas/${creada.json().id}/templates?include_deleted=true`, env.c.ed)).json().length, 1)
+  assert.equal((await env.api('POST', `/templates/${t.json().id}/restore`, env.c.ana)).statusCode, 403)
+  const restaurada = await env.api('POST', `/templates/${t.json().id}/restore`, env.c.ed)
+  assert.equal(restaurada.statusCode, 200)
+  assert.equal(restaurada.json().deleted_at, null)
+  assert.equal((await env.api('POST', `/templates/${t.json().id}/restore`, env.c.ed)).statusCode, 409) // no estaba borrada
+  // El nombre de una plantilla es único dentro del área (409), no entre áreas.
+  assert.equal((await env.api('POST', `/areas/${creada.json().id}/templates`, env.c.ed, { body_markdown: md.replace('name: Ayuda', 'name: pedir AYUDA') })).statusCode, 409)
+  const otraArea = await env.api('POST', '/areas', env.c.ed, { title: 'Otra', description: 'x' })
+  assert.equal((await env.api('POST', `/areas/${otraArea.json().id}/templates`, env.c.ed, { body_markdown: md })).statusCode, 201)
+
+  // Un área borrada en blando desaparece de la lista y se restaura sin perder nada.
+  const areaUrl = `/areas/${creada.json().id}`
+  assert.equal((await env.api('DELETE', areaUrl, env.c.ed)).statusCode, 400)
+  assert.equal((await env.api('DELETE', `${areaUrl}?confirm=true`, env.c.ed)).statusCode, 204)
+  assert.ok(!(await env.api('GET', '/areas', env.c.ana)).json().some((a) => a.id === creada.json().id))
+  assert.equal((await env.api('GET', '/areas?include_deleted=true', env.c.ana)).statusCode, 403)
+  assert.ok((await env.api('GET', '/areas?include_deleted=true', env.c.ed)).json().some((a) => a.id === creada.json().id))
+  // Su título queda libre mientras está borrada, y restaurar choca si alguien lo tomó.
+  assert.equal((await env.api('POST', '/areas', env.c.ed, { title: 'Soporte', description: 'nueva' })).statusCode, 201)
+  assert.equal((await env.api('POST', `${areaUrl}/restore`, env.c.ed)).statusCode, 409)
   await env.close()
 })
 
@@ -391,14 +426,17 @@ test('miembros: alta por el editor, correo único, y siempre queda un editor', a
   assert.equal((await env.api('POST', '/members', env.c.ana, { email: 'e@x.org', name: 'E' })).statusCode, 403)
   assert.equal(get(env.db, "SELECT COUNT(*) AS n FROM members WHERE email = 'd@x.org'").n, 0)
   // El editor edita a otros; el último editor no puede dejar de serlo.
-  const edita = await env.api('PATCH', '/members/2', env.c.ed, { responsibilities: 'API', domains: 'backend' })
+  const edita = await env.api('PATCH', '/members/2', env.c.ed, { responsibilities: 'API', domains: ['backend', 'datos'] })
   assert.equal(edita.json().responsibilities, 'API')
+  assert.deepEqual(edita.json().domains, ['backend', 'datos']) // los dominios son una lista
   const ultimo = await env.api('PATCH', '/members/1', env.c.ed, { role: 'member' })
   assert.equal(ultimo.statusCode, 409)
   assert.equal(ultimo.json().code, 'last_editor')
   assert.equal((await env.api('PATCH', '/members/1', env.c.ed, { email: 'ana@x.org' })).statusCode, 409)
   assert.equal((await env.api('PATCH', '/members/999', env.c.ed, { name: 'x' })).statusCode, 404)
-  const lista = (await env.api('GET', '/members', env.c.ana)).json()
+  const pagina = (await env.api('GET', '/members', env.c.ana)).json()
+  const lista = pagina.items
+  assert.equal(pagina.total, 4)
   assert.equal(lista.length, 4)
   assert.ok(lista.every((m) => m.password === undefined && m.password_hash === undefined))
   // El editor reinicia la contraseña de otra persona y cierra sus sesiones.
@@ -539,20 +577,24 @@ test('Configuración de proveedores: el editor la lee y la cambia; un proveedor 
   assert.equal((await env.api('GET', '/settings/providers', env.c.ana)).statusCode, 403)
   const inicial = (await env.api('GET', '/settings/providers', env.c.ed)).json()
   assert.equal(inicial.analyzer, 'api')
-  assert.equal(inicial.text.provider, 'anthropic')
-  assert.equal(inicial.slots[0].available, false)
+  assert.deepEqual(inicial.items.map((i) => i.slot), ['text', 'vision', 'speech'])
+  assert.equal(inicial.items[0].provider, 'anthropic')
+  assert.equal(inicial.items[0].available, false)
+  assert.equal(inicial.items[0].reason, 'Falta ANTHROPIC_API_KEY')
   assert.ok(!JSON.stringify(inicial).includes('API_KEY=')) // nunca una llave
 
-  const malo = await env.api('PATCH', '/settings/providers', env.c.ed, { text: { provider: 'inexistente' } })
+  const malo = await env.api('PATCH', '/settings/providers', env.c.ed, { slot: 'text', provider: 'inexistente', model: 'x' })
   assert.equal(malo.statusCode, 422)
   assert.equal(malo.json().code, 'provider_invalid')
-  assert.equal((await env.api('GET', '/settings/providers', env.c.ed)).json().text.provider, 'anthropic') // no se guardó
+  assert.equal((await env.api('GET', '/settings/providers', env.c.ed)).json().items[0].provider, 'anthropic') // no se guardó
 
-  const ok = await env.api('PATCH', '/settings/providers', env.c.ed, { analyzer: 'harness', text: { provider: 'deepseek', model: 'deepseek-flash' } })
+  const ok = await env.api('PATCH', '/settings/providers', env.c.ed, { slot: 'text', provider: 'deepseek', model: 'deepseek-flash' })
   assert.equal(ok.statusCode, 200)
-  assert.equal(ok.json().analyzer, 'harness')
-  assert.deepEqual({ p: ok.json().text.provider, m: ok.json().text.model }, { p: 'deepseek', m: 'deepseek-flash' })
-  assert.equal((await env.api('PATCH', '/settings/providers', env.c.ed, { text: { api_key: 'x' } })).statusCode, 400) // la llave no se acepta
+  assert.deepEqual(intentos.at(-1).text, { provider: 'deepseek', model: 'deepseek-flash' })
+  const cambio = await env.api('PATCH', '/settings/providers', env.c.ed, { analyzer: 'harness' })
+  assert.equal(cambio.json().analyzer, 'harness')
+  assert.equal((await env.api('PATCH', '/settings/providers', env.c.ed, { slot: 'text', api_key: 'x' })).statusCode, 400) // la llave no se acepta
+  assert.equal((await env.api('PATCH', '/settings/providers', env.c.ed, { slot: 'otra', provider: 'x' })).statusCode, 400)
   assert.equal((await env.api('PATCH', '/settings/providers', env.c.ed, { analyzer: 'otro' })).statusCode, 400)
   await env.close()
 })

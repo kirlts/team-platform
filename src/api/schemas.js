@@ -10,8 +10,9 @@
 //  - Toda lista es { items, page, limit, total } (src/api/pagination.js).
 
 const id = { type: 'string' }
-const idNulo = { type: ['string', 'null'] }
-const textoNulo = { type: ['string', 'null'] }
+// fast-json-stringify no convierte número a texto en una unión de tipos: un id que puede faltar es texto anulable.
+const idNulo = { type: 'string', nullable: true }
+const textoNulo = { type: 'string', nullable: true }
 const entero = { type: 'integer' }
 
 /** Id en una entrada: acepta "12" o 12; Ajv lo convierte a entero y rechaza lo que no lo es. */
@@ -78,7 +79,7 @@ export const messageCard = {
     assignee_ids: { type: 'array', items: id },
     attachments: { type: 'array', items: attachmentSummary },
     reply_count: entero,
-    last_reply: { anyOf: [{ type: 'null' }, reply] },
+    last_reply: { ...reply, nullable: true },
     created_at: { type: 'string' }, closed_at: textoNulo
   }
 }

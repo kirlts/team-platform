@@ -10,7 +10,7 @@ import { readInputUpload } from '../upload.js'
 
 const creado = {
   type: 'object',
-  properties: { input_id: { type: 'string' }, job_id: { type: ['string', 'null'] }, status: { type: 'string' }, duplicate: { type: 'boolean' }, restarted: { type: 'boolean' } }
+  properties: { input_id: { type: 'string' }, job_id: { type: 'string', nullable: true }, status: { type: 'string' }, duplicate: { type: 'boolean' }, restarted: { type: 'boolean' } }
 }
 
 export function registerInputRoutes (app, ctx) {

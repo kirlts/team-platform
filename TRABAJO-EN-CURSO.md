@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 046c978 Merge branch 'wt-envio'. Empujado a origin: `046c978`.
+- `main`: 35b0bee Traspaso: VPS al día en 046c978. Empujado a origin: `35b0bee`.
 - Ramas con commits sin fusionar: ninguna.
-- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `miniaturas`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
+- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `cierre`, `cierre-docs`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `miniaturas`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `046c978` Merge branch 'wt-envio' (hace 7 minutos)
-- `371442f` Merge branch 'wt-tarjetas' (hace 15 minutos)
-- `c66b5c9` Merge branch 'wt-areas3' (hace 15 minutos)
-- `3b2a5af` Pruebas: mensaje de aserción en inglés y orden de llm_calls sin depender del milisegundo (hace 15 minutos)
-- `05b0914` Mensaje de aserción en inglés (HP-008) en flows-ronda3b (hace 17 minutos)
-- `1769121` Fusiona main en wt-envio (hace 19 minutos)
-- `cd1dd06` Prueba de números de envío: el texto incluye la hora para lectores de pantalla (hace 19 minutos)
-- `6868ad1` Merge branch 'wt-h904' (hace 26 minutos)
-Actualizado 2026-10-21 20:46 UTC.
+- `35b0bee` Traspaso: VPS al día en 046c978 (hace 2 minutos)
+- `046c978` Merge branch 'wt-envio' (hace 12 minutos)
+- `371442f` Merge branch 'wt-tarjetas' (hace 19 minutos)
+- `c66b5c9` Merge branch 'wt-areas3' (hace 19 minutos)
+- `3b2a5af` Pruebas: mensaje de aserción en inglés y orden de llm_calls sin depender del milisegundo (hace 19 minutos)
+- `05b0914` Mensaje de aserción en inglés (HP-008) en flows-ronda3b (hace 21 minutos)
+- `1769121` Fusiona main en wt-envio (hace 23 minutos)
+- `cd1dd06` Prueba de números de envío: el texto incluye la hora para lectores de pantalla (hace 24 minutos)
+Actualizado 2026-10-21 20:50 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

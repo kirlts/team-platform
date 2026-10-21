@@ -157,7 +157,7 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
       {/* On a phone the cell dissolves: the action shares the row of the role, on the right edge, and the failure takes its own row below the profile. */}
       <div className="flex min-w-0 flex-col items-end gap-1 max-md:contents">
         {canEditPeople && !self && (
-          <Button size="sm" variant="secondary" className="hover:border-danger hover:text-danger max-md:col-start-2 max-md:row-start-2 max-md:self-center" onClick={() => void toggleActive()} aria-label={member.active ? t('team.deactivateOf', { name: member.name }) : t('team.reactivateOf', { name: member.name })}>
+          <Button size="sm" variant="secondary" className="font-normal hover:border-danger hover:text-danger max-md:col-start-2 max-md:row-start-2 max-md:self-center" onClick={() => void toggleActive()} aria-label={member.active ? t('team.deactivateOf', { name: member.name }) : t('team.reactivateOf', { name: member.name })}>
             {member.active ? t('team.deactivate') : t('team.reactivate')}
           </Button>
         )}

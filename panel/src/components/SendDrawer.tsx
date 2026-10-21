@@ -13,7 +13,7 @@ type ReviewProps = Parameters<typeof ReviewPane>[0]
  * The drawer under the bar of Inicio (mockup «desplegable dinámico»): it opens by itself when something is sent and shows
  * that send where the person is looking, the original on the left and what the model made of it on the right, without another click
  * (UD-046). With several sends in a row (UD-025) it shows the current one and a compact selector of the others, in the same place.
- * It is a block of the page and not a window: it is as tall as what it shows, with no floor that leaves a blank band under a short original, and, with it open, the page scrolls (UD-110, which amends UD-017).
+ * It is a block of the page and not a window: it is as tall as what it shows (at least 20 rem: the floor that keeps its height from the queue to the proposal, H-703, J3-B-04; the blank band it leaves under a short original is the price H-730 recorded) and, with it open, the page scrolls (UD-110, which amends UD-017).
  */
 export function SendDrawer({ items, selectedId, onSelect, review }: { items: readonly TrayItem[]; selectedId: string | undefined; onSelect: (id: string) => void; review: Omit<ReviewProps, 'inputId'> }) {
   const t = useT()
@@ -23,7 +23,7 @@ export function SendDrawer({ items, selectedId, onSelect, review }: { items: rea
       aria-label={t('tray.title')}
       data-testid="send-drawer"
       data-keys-ok=""
-      className="glass leaf flex min-w-0 flex-col gap-3 p-4 md:shrink-0"
+      className="glass leaf flex min-w-0 flex-col gap-3 p-4 md:min-h-[20rem] md:shrink-0"
     >
       <SendSwitcher items={items} selectedId={selectedId} onSelect={onSelect} />
       {upload?.kind === 'upload' ? <UploadPane upload={upload.upload} /> : <ReviewPane inputId={selectedId} {...review} />}

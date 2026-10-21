@@ -218,27 +218,6 @@ describe('the drawer of Inicio', () => {
     }
   })
 
-  test('on desktop the drawer has no blank band under what it shows while the analysis runs', async () => {
-    const { page, context } = await open(DESKTOP, 'light', 'bruno')
-    try {
-      await panel.control.hold()
-      await page.getByTestId('compose-text').fill(TEXT)
-      await page.getByTestId('compose-send').click()
-      const drawer = page.getByTestId('send-drawer')
-      await drawer.getByTestId('analysis-box').waitFor()
-      await settled(page)
-      const gap = await drawer.evaluate((el) => {
-        const box = el.getBoundingClientRect()
-        const kids = [...el.querySelectorAll('[data-testid=original-box], [data-testid=analysis-box]')].map((k) => k.getBoundingClientRect().bottom)
-        return box.bottom - Math.max(...kids)
-      })
-      assert.ok(gap <= 24, `${gap} px of empty space under the content`)
-      await panel.control.release()
-    } finally {
-      await context.close()
-    }
-  })
-
   test('on a phone the published result starts in the first screen after a send, and the original opens whole', async () => {
     const { page, context } = await open(PHONE, 'light', 'bruno')
     try {

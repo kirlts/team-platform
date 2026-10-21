@@ -1,6 +1,6 @@
 ---
 name: Pedido de funcionalidad
-description: Pedido explícito de que el producto haga algo que hoy no hace, con una necesidad concreta detrás. Úsala cuando el input dice «necesitamos», «hay que agregar», «falta que» o describe una capacidad que quien escribe espera que se construya.
+description: Pedido explícito de que el producto haga algo que hoy no hace, con una necesidad concreta detrás. Úsala cuando el input dice «necesitamos», «hay que agregar», «falta que», o describe cómo debe ser algo que todavía no existe (un widget, una pantalla, un informe) y quien escribe espera que se construya, con o sin plazo.
 fields:
   - { name: need,       label: Necesidad,                       required: true }
   - { name: request,    label: Qué debería hacer el producto,   required: true }
@@ -16,7 +16,7 @@ Cómo llenar cada campo:
 - Necesidad: el problema o la tarea que hoy no se puede resolver, tal como la persona lo cuenta.
 - Qué debería hacer el producto: el comportamiento pedido, en términos observables: quién hace qué y con qué resultado.
 - Quién lo necesita: el rol, el cliente o el equipo que lo usaría, solo si el input lo dice.
-- Cómo se sabrá que está listo: criterios que el input mencione (un formato, un plazo, un ejemplo de resultado). No inventes criterios.
+- Cómo se sabrá que está listo: criterios que el input mencione (un formato, un plazo, un ejemplo de resultado). Un plazo o una fecha comprometida se conserva siempre, tal como el input la dice. No inventes criterios.
 
 Destinatarios: los miembros cuyos dominios incluyen la parte del producto que cambiaría. Si el input nombra a alguien, esa persona.
 

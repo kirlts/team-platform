@@ -121,7 +121,7 @@ Criterio: tecnologías que el autor ya probó en producción (Node, Fastify, Rea
 4. **Nada llega al equipo sin que el emisor confirme** la propuesta (UD-003). Las conexiones futuras que publiquen directo lo harán por una perilla propia, apagada por omisión.
 5. **Un contenedor y un volumen bastan para correr.** Ningún componente obligatorio fuera de la imagen; los proveedores de modelo son externos y configurables.
 6. **Ninguna credencial en el repositorio ni en la base.** Variables de entorno o archivo fuera del repositorio; un gancho de pre-commit lo impide.
-7. **Código en inglés; comentarios, documentación y textos de interfaz en español** (UD-005). Sin esquema mezclado.
+7. **Código y comentarios en inglés; interfaz, mensajes a la persona, plantillas iniciales y documentación en español** (UD-015, que reemplaza a UD-005 en los comentarios). Sin esquema mezclado.
 8. **Sólo un miembro distinto del emisor responde un mensaje; cualquier miembro lo cierra o reabre.** Lo hace cumplir la API, no el panel.
 9. **Todo número que gobierna la operación nace declarado**: tamaño máximo de adjunto, fotogramas por video, páginas por llamada, reintentos, arriendo de un trabajo. Sale de una medición citada o de una perilla de configuración con su valor por omisión justificado, nunca de «parece razonable».
 10. **Toda dependencia es compatible con MIT** (UD-004).

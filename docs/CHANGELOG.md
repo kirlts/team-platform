@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Telemetría con OpenTelemetry (UD-014): `src/telemetry/`, spans en SQLite, vista `llm_calls`, instrumentación de proveedores y extractores.
 - `idea.md` y la maqueta `Plataforma Team.png` como fuentes de diseño.
 
+### Fixed
+- Audio y video: los segmentos de Groq se unen en líneas del tamaño de una oración (`audio.pauseSeconds`, `audio.maxUnitWords`); una nota de 107 s pasa de 46 unidades a 9 (REG-005).
+
 <!--
 INPUT FORMAT:
 

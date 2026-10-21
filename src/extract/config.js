@@ -77,6 +77,19 @@ export const DEFAULTS = Object.freeze({
     // 600 s y 5 s) y los 20 req/min de Groq (informe 06 §3.2) no se acercan. No se midió
     // contra el proveedor real; el banco (MASTER-SPEC §7.11) lo fija.
     chunkConcurrency: 3,
+    // Measured 2026-10-20 on three real voice notes (51 to 118 s, 98 Groq whisper-large-v3-turbo
+    // segments): docs/investigaciones/mediciones/2026-10-20-unidades-de-audio.md.
+    // Longest pause between two segments that still joins them into one line when the previous one
+    // does not close a sentence. Smallest of the tested values (0.5, 0.8, 1.2, 2.0 s) that already puts
+    // the median unit at 11.5 words, a full sentence (10 to 25); larger values join across pauses of
+    // 0.5 to 2 s and gain nothing on the median. Groq segments are contiguous (79 of 95 measured gaps
+    // are under 0.3 s), so the knob only cuts at the few real pauses.
+    pauseSeconds: 0.5,
+    // Word cap of a joined line. Declared courtesy, measured in the same run: with no cap, run-on speech
+    // without punctuation gave units of 109 words and 52 s (p90 of 68 words); with 40 the p90 drops to 39,
+    // the median rises to 17 and the longest joined unit is a single 50-word segment. 40 keeps whole the
+    // longest punctuated sentences measured (29 words) plus one typical segment (p90 of 14 words).
+    maxUnitWords: 40,
   }),
 
   video: Object.freeze({

@@ -438,7 +438,7 @@ export const es419 = {
   'error.provider_check_failed': 'La prueba contra el proveedor falló',
   'error.provider_in_use': 'Una función usa este proveedor',
   'error.provider_no_key': 'El proveedor no tiene clave',
-  'error.provider_invalid': 'Proveedor inválido',
+  'error.provider_invalid': 'El proveedor o el modelo no es válido',
   'project.counter': '{n} de {max} caracteres',
   'project.counterFree': '{n} caracteres',
   'project.near': 'Cerca del tope',

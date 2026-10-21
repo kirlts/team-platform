@@ -438,7 +438,7 @@ export const en: Record<MessageKey, Message> = {
   'error.provider_check_failed': 'The test against the provider failed',
   'error.provider_in_use': 'A function uses this provider',
   'error.provider_no_key': 'The provider has no key',
-  'error.provider_invalid': 'Invalid provider',
+  'error.provider_invalid': 'The provider or the model is not valid',
   'project.counter': '{n} of {max} characters',
   'project.counterFree': '{n} characters',
   'project.near': 'Near the cap',

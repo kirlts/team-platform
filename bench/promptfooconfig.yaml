@@ -1,0 +1,47 @@
+# Banco de referencia de team-platform (MASTER-SPEC §7.11).
+# Un proveedor, un caso por prueba, una aserción que importa bench/score.js.
+# Uso: npm run eval (desde bench/). La versión de promptfoo está fijada en bench/package.json.
+description: Descomposición MECE de los inputs del banco
+
+prompts:
+  - "{{case}}"   # el proveedor ignora el texto y lee el caso por su id
+
+providers:
+  - id: file://provider.mjs
+    label: analizador-falso
+    config:
+      analyzer: fake
+      mode: perfect
+  # Analizador real, cuando src/analyze/index.js exista y haya llaves en el entorno:
+  # - id: file://provider.mjs
+  #   label: analizador-api
+  #   config:
+  #     analyzer: ../src/analyze/index.js
+
+defaultTest:
+  assert:
+    - type: javascript
+      value: file://assert.mjs
+
+tests:
+  - description: 01-chat-grupo
+    vars:
+      case: 01-chat-grupo
+  - description: 02-docx-40-puntos
+    vars:
+      case: 02-docx-40-puntos
+  - description: 03-monologo-prueba
+    vars:
+      case: 03-monologo-prueba
+  - description: 04-reporte-de-error
+    vars:
+      case: 04-reporte-de-error
+  - description: 05-idea-suelta
+    vars:
+      case: 05-idea-suelta
+  - description: 06-mensaje-mezclado
+    vars:
+      case: 06-mensaje-mezclado
+  - description: 07-video-de-pantalla
+    vars:
+      case: 07-video-de-pantalla

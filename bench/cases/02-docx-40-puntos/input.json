@@ -1,0 +1,275 @@
+{
+  "id": "02-docx-40-puntos",
+  "title": "Documento de 40 puntos de retroalimentación",
+  "kind": "docx convertido a markdown",
+  "description": "Un docx con cuarenta puntos de retroalimentación de un piloto, en cuatro secciones. Cinco puntos llevan una viñeta de continuación que no se puede separar de su punto. Encabezados, presentación y cierre no son accionables.",
+  "attachments": [
+    {
+      "id": "a1",
+      "kind": "document",
+      "name": "retroalimentacion-piloto-semana-3.docx"
+    }
+  ],
+  "units": [
+    {
+      "id": "u1",
+      "source": "a1",
+      "text": "# Retroalimentación de la prueba piloto, semana 3"
+    },
+    {
+      "id": "u2",
+      "source": "a1",
+      "text": "Documento armado por Isidora con lo que dijeron los tres repartidores del piloto y el encargado de la bodega. Va en el orden en que salió en las entrevistas."
+    },
+    {
+      "id": "u3",
+      "source": "a1",
+      "text": "## Pantalla de ruta"
+    },
+    {
+      "id": "u4",
+      "source": "a1",
+      "text": "- El mapa tarda más de lo esperado en centrar la posición actual al abrir la ruta."
+    },
+    {
+      "id": "u5",
+      "source": "a1",
+      "text": "- La lista de paradas no deja ver el nombre completo del cliente cuando es largo."
+    },
+    {
+      "id": "u6",
+      "source": "a1",
+      "text": "- Falta una forma de reordenar paradas arrastrándolas; hoy hay que borrar y volver a crear."
+    },
+    {
+      "id": "u7",
+      "source": "a1",
+      "text": "  - Lo pidieron los tres repartidores."
+    },
+    {
+      "id": "u8",
+      "source": "a1",
+      "text": "- El botón \"Iniciar ruta\" queda tapado por la barra del navegador en pantallas chicas."
+    },
+    {
+      "id": "u9",
+      "source": "a1",
+      "text": "- No se entiende la diferencia entre el ícono azul y el verde en el mapa."
+    },
+    {
+      "id": "u10",
+      "source": "a1",
+      "text": "- Cuando se pierde la señal, la app no avisa que los datos son antiguos."
+    },
+    {
+      "id": "u11",
+      "source": "a1",
+      "text": "- El orden sugerido de paradas a veces manda a cruzar la ciudad dos veces."
+    },
+    {
+      "id": "u12",
+      "source": "a1",
+      "text": "- Querrían ver el tiempo estimado total de la ruta arriba, no al final de la lista."
+    },
+    {
+      "id": "u13",
+      "source": "a1",
+      "text": "- La distancia aparece en millas en un teléfono con el idioma en inglés."
+    },
+    {
+      "id": "u14",
+      "source": "a1",
+      "text": "- El zoom del mapa se reinicia cada vez que se completa una entrega."
+    },
+    {
+      "id": "u15",
+      "source": "a1",
+      "text": "  - Pasa sobre todo en rutas de más de 15 paradas."
+    },
+    {
+      "id": "u16",
+      "source": "a1",
+      "text": "## Entregas"
+    },
+    {
+      "id": "u17",
+      "source": "a1",
+      "text": "- Marcar una entrega como completada exige tres toques; con guantes cuesta atinar."
+    },
+    {
+      "id": "u18",
+      "source": "a1",
+      "text": "- No hay forma de adjuntar una foto del paquete en la puerta."
+    },
+    {
+      "id": "u19",
+      "source": "a1",
+      "text": "- Cuando el cliente no está no existe la opción \"ausente\", se usa \"cancelada\" y eso ensucia los informes."
+    },
+    {
+      "id": "u20",
+      "source": "a1",
+      "text": "- Falta guardar una firma o el nombre de quien recibió."
+    },
+    {
+      "id": "u21",
+      "source": "a1",
+      "text": "  - El encargado de bodega dijo que sin eso no pueden cerrar reclamos."
+    },
+    {
+      "id": "u22",
+      "source": "a1",
+      "text": "- El mensaje de confirmación desaparece demasiado rápido para leerlo."
+    },
+    {
+      "id": "u23",
+      "source": "a1",
+      "text": "- Las notas de la entrega no se ven en la lista, solo al abrirla."
+    },
+    {
+      "id": "u24",
+      "source": "a1",
+      "text": "- El teléfono del cliente no se puede tocar para llamar; hay que copiarlo a mano."
+    },
+    {
+      "id": "u25",
+      "source": "a1",
+      "text": "- A veces una entrega completada vuelve a aparecer como pendiente después de cerrar la app."
+    },
+    {
+      "id": "u26",
+      "source": "a1",
+      "text": "- No se puede deshacer una entrega marcada por error."
+    },
+    {
+      "id": "u27",
+      "source": "a1",
+      "text": "- Querrían avisar al cliente \"voy en camino\" con un solo botón."
+    },
+    {
+      "id": "u28",
+      "source": "a1",
+      "text": "## Panel de bodega"
+    },
+    {
+      "id": "u29",
+      "source": "a1",
+      "text": "- El panel carga lento cuando hay más de un día de rutas."
+    },
+    {
+      "id": "u30",
+      "source": "a1",
+      "text": "- Los filtros por fecha no recuerdan el último rango usado."
+    },
+    {
+      "id": "u31",
+      "source": "a1",
+      "text": "- La tabla de rutas no permite ordenar por hora de salida."
+    },
+    {
+      "id": "u32",
+      "source": "a1",
+      "text": "- Falta exportar las rutas del día a una planilla."
+    },
+    {
+      "id": "u33",
+      "source": "a1",
+      "text": "  - Hoy las copian a mano a una hoja de cálculo."
+    },
+    {
+      "id": "u34",
+      "source": "a1",
+      "text": "- Los repartidores aparecen por correo en vez de por nombre."
+    },
+    {
+      "id": "u35",
+      "source": "a1",
+      "text": "- El mapa del panel no muestra dónde está cada repartidor en este momento."
+    },
+    {
+      "id": "u36",
+      "source": "a1",
+      "text": "- Los colores de estado (en curso, atrasada, completada) se parecen entre sí para una persona con daltonismo."
+    },
+    {
+      "id": "u37",
+      "source": "a1",
+      "text": "- No hay forma de reasignar una ruta a otro repartidor cuando alguien falta."
+    },
+    {
+      "id": "u38",
+      "source": "a1",
+      "text": "- El botón \"Cerrar jornada\" está pegado al botón \"Cancelar ruta\" y es fácil equivocarse."
+    },
+    {
+      "id": "u39",
+      "source": "a1",
+      "text": "- Las fechas se muestran como 2026-10-12 y en la bodega prefieren 12/10/2026."
+    },
+    {
+      "id": "u40",
+      "source": "a1",
+      "text": "## General"
+    },
+    {
+      "id": "u41",
+      "source": "a1",
+      "text": "- El inicio de sesión no recuerda el correo después de cerrar sesión."
+    },
+    {
+      "id": "u42",
+      "source": "a1",
+      "text": "- No se entiende qué hacer la primera vez que se abre la app; falta una guía corta."
+    },
+    {
+      "id": "u43",
+      "source": "a1",
+      "text": "- Los mensajes de error están en inglés en algunas pantallas."
+    },
+    {
+      "id": "u44",
+      "source": "a1",
+      "text": "- La app consume mucha batería después de dos horas de ruta."
+    },
+    {
+      "id": "u45",
+      "source": "a1",
+      "text": "  - Uno de los repartidores tuvo que cargar el teléfono a mitad de jornada."
+    },
+    {
+      "id": "u46",
+      "source": "a1",
+      "text": "- Falta un modo oscuro para la ruta de la tarde."
+    },
+    {
+      "id": "u47",
+      "source": "a1",
+      "text": "- El tamaño de letra no crece cuando se sube el tamaño de fuente del sistema."
+    },
+    {
+      "id": "u48",
+      "source": "a1",
+      "text": "- Los permisos de ubicación se piden dos veces."
+    },
+    {
+      "id": "u49",
+      "source": "a1",
+      "text": "- No hay un lugar para reportar un problema desde la app."
+    },
+    {
+      "id": "u50",
+      "source": "a1",
+      "text": "- Las notificaciones suenan igual para avisos urgentes y para informativos."
+    },
+    {
+      "id": "u51",
+      "source": "a1",
+      "text": "- Sería bueno ver un resumen semanal de entregas por repartidor."
+    },
+    {
+      "id": "u52",
+      "source": "a1",
+      "text": "Gracias a quienes participaron del piloto."
+    }
+  ]
+}

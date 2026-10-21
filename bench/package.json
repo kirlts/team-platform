@@ -9,9 +9,9 @@
     "node": ">=24.15"
   },
   "scripts": {
-    "test": "node --test .",
+    "test": "node --test",
     "run": "node run.mjs",
-    "eval": "promptfoo eval -c promptfooconfig.yaml"
+    "eval": "PROMPTFOO_DISABLE_TELEMETRY=1 PROMPTFOO_DISABLE_UPDATE=1 promptfoo eval -c promptfooconfig.yaml --no-share"
   },
   "devDependencies": {
     "promptfoo": "0.124.1"

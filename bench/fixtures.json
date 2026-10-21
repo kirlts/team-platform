@@ -1,0 +1,23 @@
+{
+  "areas": [
+    { "id": "idea", "title": "Idea", "description": "Algo que podría existir y todavía no está pedido por nadie." },
+    { "id": "error", "title": "Error", "description": "Algo que antes funcionaba o debería funcionar y no lo hace." },
+    { "id": "feature", "title": "Nueva funcionalidad", "description": "Un pedido concreto de algo que el producto todavía no hace." },
+    { "id": "feedback", "title": "Retroalimentación", "description": "Una opinión o una observación sobre algo que existe, sin pedir un cambio puntual." },
+    { "id": "question", "title": "Pregunta", "description": "Algo que una persona necesita que otra le responda para seguir." }
+  ],
+  "templates": [
+    { "id": "tpl-idea", "area_id": "idea", "name": "Idea", "description": "Una idea con el problema que resolvería." },
+    { "id": "tpl-error", "area_id": "error", "name": "Reporte de error", "description": "Un error con pasos, resultado esperado y resultado obtenido." },
+    { "id": "tpl-feature", "area_id": "feature", "name": "Pedido de funcionalidad", "description": "Una funcionalidad nueva con quién la pidió y para qué." },
+    { "id": "tpl-feedback", "area_id": "feedback", "name": "Observación", "description": "Una observación sobre lo existente con el lugar donde se nota." },
+    { "id": "tpl-question", "area_id": "question", "name": "Pregunta", "description": "Una pregunta dirigida a una persona, con lo que se necesita saber." }
+  ],
+  "members": [
+    { "id": "m1", "name": "Camila Reyes", "responsibilities": "Diseño de interfaz y accesibilidad", "domains": ["diseño", "accesibilidad"] },
+    { "id": "m2", "name": "Tomás Aguirre", "responsibilities": "Servidor, API y base de datos", "domains": ["backend", "infraestructura"] },
+    { "id": "m3", "name": "Valentina Soto", "responsibilities": "Aplicación del repartidor y panel web", "domains": ["frontend", "móvil"] },
+    { "id": "m4", "name": "Joaquín Paredes", "responsibilities": "Producto, requerimientos y prioridades", "domains": ["producto", "clientes"] },
+    { "id": "m5", "name": "Isidora Fuentes", "responsibilities": "Pruebas y soporte a clientes", "domains": ["calidad", "soporte"] }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "id": "05-idea-suelta",
+  "title": "Una idea suelta",
+  "kind": "texto corto",
+  "description": "Un texto breve con una idea, un comentario sobre el estado actual que la sostiene y una firma. Un solo mensaje.",
+  "attachments": [],
+  "units": [
+    {
+      "id": "u1",
+      "source": "t",
+      "text": "Se me ocurrió algo en el bus: ¿y si Ruta sugiriera qué paradas hacer primero según la ventana horaria que puso el cliente, y no solo por distancia?"
+    },
+    {
+      "id": "u2",
+      "source": "t",
+      "text": "Hoy el orden sale solo por cercanía y los clientes con ventana de nueve a once quedan para el final."
+    },
+    {
+      "id": "u3",
+      "source": "t",
+      "text": "No sé si es difícil, solo lo dejo anotado."
+    },
+    {
+      "id": "u4",
+      "source": "t",
+      "text": "Saludos, Camila"
+    }
+  ]
+}

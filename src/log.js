@@ -3,6 +3,6 @@
 
 import pino from 'pino'
 
-export function createLogger (config, bindings = {}) {
-  return pino({ level: config.logLevel, base: { app: 'team-platform', ...bindings }, redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'] })
+export function createLogger (config, bindings = {}, destination = undefined) {
+  return pino({ level: config.logLevel, base: { app: 'team-platform', ...bindings }, redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'] }, destination)
 }

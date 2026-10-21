@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 50a189a Merge branch 'wt-voz2'. Empujado a origin: `50a189a`.
-- Ramas con commits sin fusionar: `wt-banco-abiertos` 6 (hace 54 minutos), `wt-h904` 4 (hace 2 minutos).
-- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `banco-abiertos`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
+- `main`: b38bcf8 Traspaso: barrido fusionado, jueces en curso. Empujado a origin: `b38bcf8`.
+- Ramas con commits sin fusionar: `wt-banco-abiertos` 6 (hace 56 minutos), `wt-h904` 4 (hace 5 minutos).
+- Worktrees abiertos: `team-platform`, `areas2`, `areas3`, `auto-publicar`, `banco-abiertos`, `barra-movil`, `cierre`, `envio`, `equipo-config`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `tarjetas`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `50a189a` Merge branch 'wt-voz2' (hace 4 minutos)
-- `def9572` Voice detector: setting hints measured in characters (hace 23 minutos)
-- `6664a58` Traspaso: Inicio fusionado, Fase 1 completa (hace 26 minutos)
-- `8650d0c` Merge branch 'wt-inicio-respira' (hace 37 minutos)
-- `5fb0eaf` Fusiona main (Configuración, UD-140) en wt-inicio-respira (hace 47 minutos)
-- `a4d075d` Traspaso: Configuración fusionada (hace 47 minutos)
-- `d56b3cf` Merge branch 'wt-configuracion' (hace 55 minutos)
-- `ea89282` UD-140: el presupuesto de API sube a 100 USD en total (hace 59 minutos)
-Actualizado 2026-10-21 19:45 UTC.
+- `b38bcf8` Traspaso: barrido fusionado, jueces en curso (hace 2 minutos)
+- `50a189a` Merge branch 'wt-voz2' (hace 6 minutos)
+- `def9572` Voice detector: setting hints measured in characters (hace 26 minutos)
+- `6664a58` Traspaso: Inicio fusionado, Fase 1 completa (hace 29 minutos)
+- `8650d0c` Merge branch 'wt-inicio-respira' (hace 39 minutos)
+- `5fb0eaf` Fusiona main (Configuración, UD-140) en wt-inicio-respira (hace 49 minutos)
+- `a4d075d` Traspaso: Configuración fusionada (hace 49 minutos)
+- `d56b3cf` Merge branch 'wt-configuracion' (hace 58 minutos)
+Actualizado 2026-10-21 19:48 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

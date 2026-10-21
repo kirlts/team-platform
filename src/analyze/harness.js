@@ -13,6 +13,7 @@ import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { recordGenAiCall, withSpan } from '../telemetry/api.js';
 import { AnalyzeInputError, HarnessError, HarnessUnavailableError } from './errors.js';
 import { harnessPrompt } from './prompts.js';
 import { buildProposalSchema } from './schema.js';
@@ -180,14 +181,28 @@ export async function analyzeWithHarness(bundle, { onProgress, config }) {
     for (let attempt = 0; ; attempt += 1) {
       report(attempt === 0 ? 'analizando con Claude Code' : 'corrigiendo la propuesta');
       let result;
+      const prompt = harnessPrompt({ unitCount: units.length, retryErrors });
       try {
-        result = await runClaude({
-          bin: config.harnessBin,
-          args,
-          prompt: harnessPrompt({ unitCount: units.length, retryErrors }),
-          cwd: dir,
-          env: config.harnessEnv,
-          timeoutMs: config.harnessTimeoutMs,
+        // Un span por invocación de `claude -p`, con el costo real que informa (`total_cost_usd`), sin estimarlo.
+        result = await withSpan('harness', { 'team.step': 'harness', 'team.attempt': attempt + 1 }, async (span) => {
+          const r = await runClaude({
+            bin: config.harnessBin,
+            args,
+            prompt,
+            cwd: dir,
+            env: config.harnessEnv,
+            timeoutMs: config.harnessTimeoutMs,
+          });
+          const call = toCallEntry(r, 'harness');
+          recordGenAiCall(span, {
+            provider: PROVIDER,
+            model: call.model,
+            request: { messages: [{ role: 'user', content: prompt }] },
+            response: { text: JSON.stringify(r.structured_output ?? r.result ?? null), model: call.model, stop_reason: r.stop_reason },
+            usage: call.usage,
+            cost: r.total_cost_usd ?? null,
+          });
+          return r;
         });
       } catch (err) {
         err.calls = calls;
@@ -215,7 +230,12 @@ export async function analyzeWithHarness(bundle, { onProgress, config }) {
         if (proposal === undefined) {
           errors = ['claude -p no devolvió structured_output'];
         } else {
-          checked = validateHarnessProposal(proposal, bundle, units);
+          checked = withSpan('validate', { 'team.step': 'validate', 'team.validated_step': 'harness' }, (span) => {
+            const v = validateHarnessProposal(proposal, bundle, units);
+            span.setAttributes({ 'team.valid': v.errors.length === 0, 'team.error_count': v.errors.length });
+            if (v.errors.length > 0) span.setAttribute('team.errors', v.errors.slice(0, 10).map((e) => String(e).slice(0, 300)));
+            return v;
+          });
           errors = checked.errors;
           if (errors.length === 0) {
             done = 2;

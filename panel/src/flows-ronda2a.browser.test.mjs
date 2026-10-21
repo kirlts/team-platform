@@ -114,7 +114,8 @@ describe('sign-in and navigation', () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/areas/a-error`)
-      const bg = (loc) => loc.evaluate((el) => getComputedStyle(el).backgroundColor)
+      // The row is the box that is filled (UD-130); the segmented control is its own box.
+      const bg = (loc) => loc.evaluate((el) => getComputedStyle(el.closest('[data-nav-row]') ?? el).backgroundColor)
       const side = await bg(page.locator('nav a[aria-current="page"]', { hasText: 'Error' }))
       assert.notEqual(side, 'rgba(0, 0, 0, 0)', 'el área elegida en la barra lateral lleva relleno')
       const row = side
@@ -510,7 +511,7 @@ describe('states', () => {
       await page.goto(origin)
       await page.getByRole('link', { name: 'Idea', exact: true }).first().waitFor()
       await settled(page)
-      const tops = () => page.evaluate(() => [...document.querySelectorAll('nav a')].map((a) => Math.round(a.getBoundingClientRect().top)))
+      const tops = () => page.evaluate(() => [...document.querySelectorAll('nav a.nav-row')].map((a) => Math.round(a.getBoundingClientRect().top)))
       const before = await tops()
       release()
       await page.getByTestId('status-bar').waitFor()

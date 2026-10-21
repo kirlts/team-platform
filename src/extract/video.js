@@ -11,6 +11,7 @@ import { run, probe } from './lib/ffmpeg.js';
 import { mapLimit } from './lib/pool.js';
 import { createProgress } from './lib/progress.js';
 import { formatTimestamp } from './lib/time.js';
+import { annotate, withSpan } from '../telemetry/api.js';
 
 const FRAMES_SCHEMA = {
   type: 'object',
@@ -98,12 +99,20 @@ export async function extractVideo(attachment, ctx) {
   const framesJob = (async () => {
     progress.report('extrayendo fotogramas del video');
     let t = performance.now();
-    const sampled = await sampleFrames(attachment.path, join(ctx.workDir, 'frames'), cfg, signal);
+    const sampled = await withSpan('extract.ffmpeg', { 'team.step': 'extract.ffmpeg', 'team.tool': 'ffmpeg', 'team.input_bytes': size }, async () => {
+      const out = await sampleFrames(attachment.path, join(ctx.workDir, 'frames'), cfg, signal);
+      annotate({ 'team.frames': out.length });
+      return out;
+    });
     timings.framesMs = Math.round(performance.now() - t);
     progress.advance('fotogramas extraídos');
     t = performance.now();
-    const hashed = await mapLimit(sampled, availableParallelism(), async (f) => ({ ...f, hash: await dhash(f.path) }));
-    const { frames, dedupedCount } = selectFrames(hashed, { distance: cfg.frameHashDistance, maxFrames: cfg.maxFrames });
+    const { frames, dedupedCount } = await withSpan('extract.dhash', { 'team.step': 'extract.dhash', 'team.frames': sampled.length }, async () => {
+      const hashed = await mapLimit(sampled, availableParallelism(), async (f) => ({ ...f, hash: await dhash(f.path) }));
+      const picked = selectFrames(hashed, { distance: cfg.frameHashDistance, maxFrames: cfg.maxFrames });
+      annotate({ 'team.selected_frames': picked.frames.length, 'team.deduped_frames': picked.dedupedCount });
+      return picked;
+    });
     timings.hashMs = Math.round(performance.now() - t);
     progress.advance('fotogramas comparados');
     return { frames, dedupedCount, sampledCount: sampled.length };
@@ -125,7 +134,15 @@ export async function extractVideo(attachment, ctx) {
       label: `Fotograma ${i + 1} [${formatTimestamp(f.second)}]`,
     })),
   );
-  const { json, usage } = await providers.vision.describe({ images, prompt: cfg.prompt, schema: FRAMES_SCHEMA });
+  const { json, usage } = await withSpan(
+    'extract.vision',
+    { 'team.step': 'extract.vision', 'team.images': images.length, 'team.input_bytes': images.reduce((sum, img) => sum + img.data.length, 0) },
+    async () => {
+      const out = await providers.vision.describe({ images, prompt: cfg.prompt, schema: FRAMES_SCHEMA });
+      annotate({ 'team.output_chars': JSON.stringify(out.json ?? '').length });
+      return out;
+    },
+  );
   timings.visionMs = Math.round(performance.now() - t0);
   progress.advance('fotogramas descritos');
   calls.push({ modality: 'vision', images: images.length, usage });

@@ -31,7 +31,7 @@
 // arma exportadores OTLP de trazas, métricas y registros desde las variables de entorno; por eso acá
 // se le pasan procesadores de spans explícitos y listas vacías de lectores de métricas y de
 // procesadores de registros, y se desactiva la detección de recursos.
-import { context, propagation, trace } from '@opentelemetry/api';
+import { context, diag, metrics, propagation, trace } from '@opentelemetry/api';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import { NodeSDK } from '@opentelemetry/sdk-node';
@@ -143,9 +143,11 @@ export function initTelemetry({ db, env = process.env, serviceName = 'team-platf
     sqlite,
     /** Escribe ya lo que esté en cola: para leer el árbol de un trabajo recién terminado. */
     async flush() {
-      await sqliteProcessor.forceFlush();
+      // Un destino caído (la tabla, el colector) no puede romper a quien pide el vaciado: el
+      // error ya salió por el canal de diagnóstico de OpenTelemetry.
+      const settled = await Promise.allSettled([sqliteProcessor.forceFlush(), otlpProcessor?.forceFlush()]);
       await sqlite.forceFlush();
-      if (otlpProcessor) await otlpProcessor.forceFlush();
+      for (const outcome of settled) if (outcome.status === 'rejected') diag.warn(`telemetría: vaciado incompleto (${outcome.reason?.message ?? outcome.reason})`);
     },
     /** Vacía las colas, cierra el SDK y deja la API lista para otra inicialización. */
     async shutdown() {
@@ -153,6 +155,7 @@ export function initTelemetry({ db, env = process.env, serviceName = 'team-platf
       await handle.flush();
       await sdk.shutdown();
       trace.disable();
+      metrics.disable();
       context.disable();
       propagation.disable();
       current = null;

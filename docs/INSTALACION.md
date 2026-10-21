@@ -147,14 +147,73 @@ WITH_FILES=1 DEST=/var/backups/team scripts/backup.sh
 0 3 * * * cd /opt/team-platform && scripts/backup.sh
 ```
 
-Restaurar una copia, con el servicio detenido:
+Restaurar una copia, con el servicio detenido. La base y los adjuntos se restauran por separado: la base nombra archivos que sólo existen en el `tar`, y sin él los adjuntos devuelven error.
 
 ```sh
 docker compose stop
 docker compose run --rm --no-deps -v "$PWD/backups:/restore:ro" --entrypoint sh team-platform \
   -c 'rm -f /data/team.db-wal /data/team.db-shm && cp /restore/team-<fecha>.db /data/team.db'
+docker compose run --rm --no-deps -T -v "$PWD/backups:/restore:ro" --entrypoint sh team-platform \
+  -c 'cd /data && tar -xf /restore/files-<fecha>.tar'
 docker compose start
 ```
+
+La segunda orden sólo hace falta si el respaldo se hizo con `WITH_FILES=1`. Los miembros y las contraseñas vienen en la base: tras restaurar, entran las cuentas del servicio de origen, no `ADMIN_EMAIL`. El respaldo queda con modo 600 en una carpeta 700 porque guarda las claves con hash y los adjuntos.
+
+Medido el 2026-10-21 en el VPS de 2 núcleos, con una base de 19 MB y adjuntos de 82 MB. Respaldo con `WITH_FILES=1`: 1,8 s. Detener, restaurar la base y volver a estar sano: 5,1 s. Restaurar los adjuntos: 5,6 s.
+
+## Segunda instancia en el mismo servidor
+
+Sirve para ensayar una restauración o una configuración sin tocar el servicio real. Cada instancia necesita su carpeta, su puerto y su etiqueta de imagen. El nombre de la carpeta fija el proyecto de compose y, con él, el volumen y la red. Sin `IMAGE_TAG`, la construcción de la segunda mueve la etiqueta `team-platform:local` y el siguiente `docker compose up -d` de la primera la recrea con otro código.
+
+```sh
+git clone <URL-DEL-REPOSITORIO> ~/team-platform-ensayo
+cd ~/team-platform-ensayo
+ADMIN_EMAIL=ensayo@ejemplo.invalid PUBLISH_PORT=3300 scripts/install.sh --no-start
+echo 'IMAGE_TAG=team-platform:ensayo' >> .env
+scripts/install.sh
+```
+
+La contraseña del primer Editor se genera y aparece una vez en el registro: `docker compose logs team-platform | grep 'First editor'`. Con el respaldo restaurado, las cuentas son las del servicio de origen.
+
+Retiro, sin tocar la instancia real:
+
+```sh
+cd ~/team-platform-ensayo
+docker compose down -v
+docker image rm team-platform:ensayo
+cd .. && rm -rf team-platform-ensayo
+```
+
+Medido el 2026-10-21 en el VPS. Clonar: 5 s. `install.sh` con la caché de capas de la imagen: 29 s. Compilación desde cero con `ffmpeg`, sin caché y con `BUILD_JOBS=1`: 4 min 52 s. Servicio sano a los 10 s de levantarse.
+
+## Identidad por cabecera detrás de `tailscale serve`
+
+`IDENTITY_PROVIDER=delegated` con `DELEGATED_MODE=trusted-header` toma la identidad de la cabecera `Tailscale-User-Login` que `tailscale serve` agrega a cada petición de la tailnet. No hay pantalla de inicio de sesión ni cookie de sesión. El correo de la cabecera tiene que existir en `members` (UD-007): una cuenta que no está da 403 `member_not_registered`. El rol sale de la base.
+
+Con Docker, `TRUSTED_PROXIES` no puede quedar en su valor por omisión (`127.0.0.0/8`). `tailscale serve` llega al puerto publicado en `127.0.0.1`. Docker lo reenvía desde la puerta de enlace de la red del proyecto, y la aplicación ve esa dirección (por ejemplo `172.28.0.1`). Descarta la cabecera y toda petición da 401. La dirección es la puerta de enlace de la red de la instancia.
+
+```sh
+GW=$(docker network inspect "$(docker compose ps -q team-platform | xargs docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}')" --format '{{(index .IPAM.Config 0).Gateway}}')
+printf 'IDENTITY_PROVIDER=delegated\nDELEGATED_MODE=trusted-header\nTRUSTED_PROXIES=%s\n' "$GW" >> .env
+docker compose up -d --wait
+sudo tailscale serve --bg --https=8445 localhost:3300
+```
+
+El último comando usa el puerto `PUBLISH_PORT` de la instancia y no activa Funnel. Comprobación desde un equipo de la tailnet:
+
+```sh
+curl -s https://<máquina>.<tailnet>.ts.net:8445/api/me
+```
+
+Responde el miembro dueño de la sesión de Tailscale, con `"provider":"delegated:trusted-header"`. Una cabecera `Tailscale-User-Login` puesta a mano por el cliente no cambia el resultado, porque `tailscale serve` la sobrescribe (comprobado el 2026-10-21).
+
+Límites medidos:
+
+- La puerta de enlace cambia si Docker recrea la red con otra subred (`docker compose down` y `up`). Si todas las peticiones vuelven a dar 401, se repite el primer comando.
+- Cualquier proceso del servidor que llegue a `127.0.0.1:<puerto>` puede poner la cabecera y actuar como cualquier miembro (comprobado: `curl -H 'Tailscale-User-Login: <correo>' http://127.0.0.1:3300/api/me` da 200). Sólo es aceptable en un servidor donde nadie más tiene acceso a una sesión.
+- El panel no tiene cierre de sesión en este modo: `Cerrar sesión` llama a `/api/auth/logout`, que no existe (404), y la persona sigue dentro. Lo cierra Tailscale.
+- La defensa contra CSRF sigue activa: una petición con `Sec-Fetch-Site: cross-site` da 403.
 
 ## Licencias
 

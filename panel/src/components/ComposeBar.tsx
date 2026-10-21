@@ -101,6 +101,7 @@ export function ComposeBar({ onSubmit, problem }: { onSubmit: (draft: SendDraft)
             rows={1}
             value={text}
             aria-label={t('compose.label')}
+            data-testid="compose-text"
             placeholder={t('compose.placeholder')}
             onChange={(e) => setText(e.target.value)}
             onPaste={draft.onPaste}
@@ -121,7 +122,7 @@ export function ComposeBar({ onSubmit, problem }: { onSubmit: (draft: SendDraft)
         <ClipMenu draft={draft} />
         <div className="ml-auto flex items-center gap-1">
           <CaptureButtons draft={draft} />
-          <Button variant="primary" size="icon" aria-label={t('compose.send')} title={t('compose.sendHint')} disabled={empty || !!draft.recording} onClick={send}>
+          <Button variant="primary" size="icon" data-testid="compose-send" aria-label={t('compose.send')} title={t('compose.sendHint')} disabled={empty || !!draft.recording} onClick={send}>
             <Send size={16} aria-hidden />
           </Button>
         </div>

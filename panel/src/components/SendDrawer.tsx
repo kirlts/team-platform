@@ -66,7 +66,7 @@ function UploadPane({ upload }: { upload: PendingUpload }) {
             </div>
           </>
         ) : (
-          <div className="flex flex-col gap-2">
+          <div data-ui-stage="progress" className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2 text-sm">
               <span>{t('tray.state.uploading')}</span>
               {percent > 0 && <span className="tabular-nums text-muted">{percent} %</span>}

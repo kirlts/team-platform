@@ -13,27 +13,36 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 14bd755 Traspaso: VPS actualizado, duración medida de la reconstrucción. Empujado a origin: `14bd755`.
-- Ramas con commits sin fusionar: ninguna.
-- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `barra-superior`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
+- `main`: dfe5ead Traspaso: barra superior y telemetría fusionadas. Empujado a origin: `dfe5ead`.
+- Ramas con commits sin fusionar: `wt-configuracion` 22 (hace 15 segundos), `wt-deuda` 11 (hace 4 minutos), `wt-barra-lateral` 7 (hace 2 minutos), `wt-inicio-respira` 5 (hace 7 minutos), `wt-banco-abiertos` 3 (hace 3 minutos), `wt-deuda-ingles` 3 (hace 19 minutos), `wt-h904` 1 (hace 15 minutos).
+- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `banco-abiertos`, `barra-lateral`, `cierre`, `configuracion`, `deuda`, `deuda-ingles`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `h904-old`, `heic`, `ingles`, `inicio-maqueta`, `inicio-respira`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `14bd755` Traspaso: VPS actualizado, duración medida de la reconstrucción (hace 5 minutos)
-- `0d608f7` Traspaso: Inicio completo en main y VPS reconstruyéndose (hace 10 minutos)
-- `6c971d1` Merge remote-tracking branch 'origin/main' into wt-inicio-maqueta (hace 14 minutos)
-- `8233b45` Libro: H-1405 cerrado con su causa y su medición; H-1406 y H-1407 cerrados (hace 14 minutos)
-- `e3e2f61` H-1405: la franja de Para mí tiene alto propio desde 768 px y no se parte, para que medirse sus chips no mueva las listas; H-1407: perilla de publicación en Configuración; prueba de peticiones repetidas; servidor de ejemplo con Range (hace 17 minutos)
-- `dddfcca` Traspaso: Inicio fusionado y H-1405 abierto (hace 23 minutos)
-- `8c50075` Merge branch 'wt-inicio-maqueta' (hace 31 minutos)
-- `6a69c41` Libro: H-1400 a H-1407 de Inicio según la maqueta (hace 31 minutos)
-Actualizado 2026-10-21 17:21 UTC.
+- `dfe5ead` Traspaso: barra superior y telemetría fusionadas (hace 4 minutos)
+- `63dc519` Merge branch 'wt-telemetria-2' (hace 9 minutos)
+- `786b37f` Smoke test, judges' flow and docs follow the current send flow; close H-1703, H-1705, H-1706 (hace 10 minutos)
+- `f0f5a2c` Merge branch 'wt-barra-superior' (hace 10 minutos)
+- `c879c8c` Traspaso: VPS fusionado y avance de fases (hace 15 minutos)
+- `6eb101f` Telemetry ends an automatic send on the job's own published end; test ids for the send flow of the browser test (H-1705, H-1706) (hace 15 minutos)
+- `402faf6` Merge branch 'wt-vps-restauracion' (hace 17 minutos)
+- `9b20211` Instalacion: restauracion de adjuntos, segunda instancia y trusted-header medidos en el VPS (H-2600 a H-2606) (hace 17 minutos)
+Actualizado 2026-10-21 18:28 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo
 
-Un encargo sigue abierto, cada uno en su worktree bajo `.claude/worktrees/<nombre>` y su rama `wt-<nombre>`. Los agentes no sobreviven a la sesión: la memoria de cada encargo es su rama y su fila de aquí. Para retomar: `git -C .claude/worktrees/<nombre> log --oneline main..HEAD`, leer sus filas en `docs/HALLAZGOS.md` y sus UD, y continuar en ese worktree. Ninguno empuja a `main`. Se fusiona con `git merge --no-edit wt-<nombre>`, luego `node scripts/check-conflict-markers.mjs`, `npm test`, `node --test bench/`, `cd panel && npx vitest run && npx tsc --noEmit` y las suites de navegador con puertos propios. Si dos ramas chocan en UD o H, se renumera la que entra después. Si una rama choca con `main` en más de dos archivos, se le pide a su agente (o a quien la retome) que haga `git merge main` en su rama y resuelva allí.
+**Plan de cierre:** `docs/PLAN-DE-CIERRE.md` (2026-10-21 15:00). La sesión anterior murió a las 14:42 con la cuota de su cuenta agotada; sus agentes murieron con ella. Quien retome ejecuta ese plan desde la Fase 0: rescata lo sin commit de `configuracion`, `inicio-respira` y `barra-superior`, relanza los encargos A, B, C y G, y sigue el orden de fusión que dice. Encargo nuevo del dueño de hoy: la barra lateral (alineación, contadores sin contenedor, hover), encargo G.
+
+**Avance 15:25.** En `main` también la barra superior (`f0f5a2c`) y la telemetría pendiente (`63dc519`). Abierto: H-2000 y H-2001. Las ramas de Inicio y barra lateral deben fusionar `main`.
+
+**Avance 15:15.** Fusionado en `main` el encargo del VPS (`402faf6`): restauración con adjuntos, `IMAGE_TAG` para una segunda instancia, respaldos en modo 600, `trusted-header` documentado. Abiertos: H-2605 (cualquier proceso local suplanta a un miembro en ese modo; el botón «Cerrar sesión» da 404, decisión del dueño). En vuelo: barra superior, barra lateral, Inicio, Configuración, telemetría, H-904 y Firefox, banco, deuda técnica.
+
+Tres encargos siguen abiertos, cada uno en su worktree bajo `.claude/worktrees/<nombre>` y su rama `wt-<nombre>`. Los agentes no sobreviven a la sesión: la memoria de cada encargo es su rama y su fila de aquí. Para retomar: `git -C .claude/worktrees/<nombre> log --oneline main..HEAD`, leer sus filas en `docs/HALLAZGOS.md` y sus UD, y continuar en ese worktree. Ninguno empuja a `main`. Se fusiona con `git merge --no-edit wt-<nombre>`, luego `node scripts/check-conflict-markers.mjs`, `npm test`, `node --test bench/`, `cd panel && npx vitest run && npx tsc --noEmit` y las suites de navegador con puertos propios. Si dos ramas chocan en UD o H, se renumera la que entra después. Si una rama choca con `main` en más de dos archivos, se le pide a su agente (o a quien la retome) que haga `git merge main` en su rama y resuelva allí.
 
 | Rama | Pedido del dueño (textual o resumido) | Criterio de cierre | Rangos reservados |
 |---|---|---|---|
+| `wt-barra-superior` | «Todo esto (Para mí y Por área) debería quedar integrado de manera eficiente, ordenada y no redundante en la barra superior del sitio, siempre visible, pero NO en Inicio. Inicio ya tiene demasiados elementos» | Resumen de «Para mí» y por área en la barra superior de todas las páginas, sin repetirlo en la insignia de Mensajes ni en los contadores de la barra lateral; la franja sale de Inicio; pruebas migradas | UD-100.., H-2000.. |
+| `wt-inicio-respira` | «La barra de texto necesita respirar mucho más, la UI debe ocupar mejor el ancho en pantalla, tener más espacio negativo. Mira la página de Gemini para inspiración» | Compositor grande y centrado, contenedor que crece con la ventana, espacio entre secciones como tokens, envíos y desplegable sólo cuando hay un envío; UD-017 enmendada sin debilitar `test:fit`; capturas de 1280 a 2560 px | UD-110.., H-2100.. |
+| `wt-configuracion` | «La descripción del proyecto tiene texto truncado que obliga a desplazarse dentro de la página. No hay forma segura de reemplazar un proveedor o retirar una clave de API; no es utilizable para agregar un proveedor, reemplazar una clave o diagnosticar. Los rótulos no tienen explicación: Publicación y Telemetría de uso no significan nada» | Editor de descripción grande sin scroll interno; gestión de proveedores con claves cifradas, prueba previa al reemplazo, retiro con bloqueo, diagnóstico clasificado y auditoría sin valores (migración 0009); explicación breve en cada ajuste (enmienda de la regla de texto de ayuda sólo para Configuración) | UD-120.., H-2200.. |
 | `wt-voz` (barrido final) | Barrido de los textos nuevos de Inicio, Configuración, Áreas y telemetría con la guardia `ui-voice` | Hash de la rama con `main` fusionado y validada; no renombra abierto, respondido, cerrado, «Publicado» ni «Propuesta lista» | H-1500.. |
 
 Orden de fusión: `wt-inicio-maqueta` es la última rama en vuelo; fusiona `main` en su rama y entra cuando dé su hash, porque toca `Home.tsx`, los catálogos de textos y las pruebas de flujos que todas las demás tocaron. Tras fusionar Inicio: barrido de `wt-voz` sobre los textos nuevos, una ronda de jueces acotados y la actualización del VPS.
@@ -94,13 +103,15 @@ La gravedad 5 fue 2, 4 y 3; la gravedad 4 fue 8, 12 y 10. El recuento no baja de
 
 1. Fusionar las ramas en vuelo en el orden de «Trabajo en vuelo». Dueño: la sesión coordinadora.
 2. El VPS corre `6c971d1` desde las 17:16 UTC del 2026-10-21: Inicio con color por área, tres estados, galería, HEIC, publicación automática y telemetría. Medido: la reconstrucción completa, con `ffmpeg` recompilado en ARM con `BUILD_JOBS=1` y prioridad baja, tardó 4 min 52 s. `node scripts/vps-check.mjs` imprime `OK` en todas las líneas. Las migraciones 0006, 0007 y 0008 corrieron solas.
-3. Barrido final de `wt-voz` sobre los textos nuevos, y una ronda con jueces acotados en paralelo (marco de `wt-telemetria-ui`) sobre Inicio, Mensajes, Áreas y el flujo de envío. Línea base de la ronda 3: 3 hallazgos de gravedad 5 y 10 de gravedad 4.
+3. Cuando entren `wt-barra-superior` y `wt-inicio-respira`: barrido de `wt-voz` sobre los textos nuevos y una ronda con jueces acotados en paralelo (`node scripts/juicios.mjs preparar --out DIR`; no lanzarla antes, porque el diseño de Inicio cambia) (marco de `wt-telemetria-ui`) sobre Inicio, Mensajes, Áreas y el flujo de envío. Línea base de la ronda 3: 3 hallazgos de gravedad 5 y 10 de gravedad 4.
 4. Hallazgos abiertos con dueño: H-1903 (`classifyDraws` sin medir, 1,7 USD) y H-1904 (grosor de los grupos); H-1101 (llave de DeepSeek: `node scripts/llave.mjs DEEPSEEK_API_KEY`, la pone el dueño); H-1102 y H-1103 (Sonnet, sólo si se adopta); H-1804 cerrado; H-904 y H-1803 (Inicio).
 5. Revisar «Decisiones del dueño» de `docs/HALLAZGOS.md`: colores de área frente a colores de estado, UD-034 (justificado por ancho), UD-035 («Crear mensaje»), UD-072 (borrador por envío, decisión de la sesión), el retiro de Intro en la revisión y el orden del catálogo de áreas. No bloquea nada.
 6. H-56 (iPhone real): decisión del dueño UD-039, no se prueba todavía.
 
 ## Peticiones del dueño que cambian el diseño y no se pueden perder
 
+- Dueño, textual: «Yo NO pedí esto, en la barra superior SOLO íconos de abierto, respondido y cerrado». La barra superior no lleva contadores por área. Una instrucción precisada se aplica a lo precisado, sin conservar el resto «por si acaso».
+- Dueño, textual: «Los rótulos Abierto, Respondido o Cerrado no deben aparecer en la barra superior; bastan los íconos de color con un número, que al clic desplieguen un pequeño desplegable para ver rápidamente los elementos sin salir de la página donde se está».
 - Dueño, textual: «quien dijo esto de que por atender es distinto a abierto, no lo entiendo, yo creo que fui súper explícito: mensajes abiertos, mensajes respondidos y mensajes cerrados o atendidos. Esos son los tres estados que quiero ver en esta interfaz».
 - Dueño, textual: «si hago clic en Idea no espero que sea el lugar donde sólo puedo editar las plantillas; también quiero ver al tiro los mensajes asociados a esa área».
 - Dueño, textual: «cada área debe poder tener su color y eso determina el chip de cada mensaje; si el área es verde, el recuadro de análisis de la IA tiene un verde secundario; el usuario sólo escoge un color; si cambio de área también cambian los colores».

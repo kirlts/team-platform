@@ -5,7 +5,8 @@
 // the pass itself fails.
 //
 // Usage: node scripts/ui-detectors.mjs [--out file] [--screens a,b] [--viewports desktop,phone]
-//        [--themes light,dark] [--max-saturated N] [--voice-patterns file.json] [--json] [--no-build]
+//        [--themes light,dark] [--max-saturated N] [--voice-patterns file.json] [--voice-lang es|en] [--json] [--no-build]
+// Without --voice-patterns the rule `voice` reads the patterns of the language guard (src/ui-voice-patterns.mjs).
 // The port comes from PANEL_DETECTORS_PORT (default 8974).
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -428,13 +429,19 @@ export const DETECTORS = {
   },
 
   /** Visible texts that match the patterns of the language guard (R1 to R14 of UD-050). Patterns arrive as { id, source, flags }. */
-  voice: ({ patterns }) => {
+  voice: ({ patterns, userTexts = [] }) => {
     const ud = window.__ud
     const out = []
     const seen = new Set()
+    const squash = (t) => t.replace(/\s+/g, ' ').trim()
+    const people = userTexts.map(squash)
     for (const el of document.body.querySelectorAll('*')) {
       const text = ud.ownText(el)
       if (!text || ud.hidden(el) || el.closest('textarea, [data-user-text]')) continue
+      // What a person wrote is not interface text: a text that is part of the data the pass read from the API is skipped.
+      const flat = squash(text)
+      const whole = squash(el.textContent ?? '') // an inline element (code, emphasis) splits the own text of its parent
+      if (people.some((p) => p.includes(flat) || p.includes(whole) || (p.length >= 8 && whole.includes(p)))) continue
       for (const p of patterns) {
         if (!new RegExp(p.source, p.flags).test(text)) continue
         const key = ud.sel(el) + '|' + p.id
@@ -464,17 +471,33 @@ const arg = (name) => {
 const flag = (name) => process.argv.includes(`--${name}`)
 const list = (name, all) => (arg(name) ? arg(name).split(',').map((s) => s.trim()).filter(Boolean) : all)
 
-/** Loads the voice patterns: the guard of wt-voz if this branch has it, otherwise the optional file. */
-export function loadVoicePatterns(file) {
+/** Loads the voice patterns: the module the guard shares (src/ui-voice-patterns.mjs, H-1703), or the optional file. */
+export async function loadVoicePatterns(file, lang = 'es') {
   if (file) {
     const raw = JSON.parse(readFileSync(file, 'utf8'))
     return { patterns: raw.map((p, i) => ({ id: p.id ?? `p${i}`, source: p.source ?? p.regex, flags: p.flags ?? 'iu' })) }
   }
-  const guard = join(PANEL, 'src/ui-voice.test.ts')
-  if (existsSync(guard)) {
-    return { reason: 'omitido: panel/src/ui-voice.test.ts existe pero es un archivo de prueba de vitest y no exporta patrones importables fuera de él; pasar --voice-patterns con un JSON [{id, source, flags}]' }
+  const module = join(PANEL, 'src/ui-voice-patterns.mjs')
+  if (!existsSync(module)) return { reason: 'omitido: panel/src/ui-voice-patterns.mjs no existe en esta rama' }
+  const { voicePatterns } = await import(pathToFileURL(module).href)
+  return { patterns: voicePatterns(lang) }
+}
+
+/** Every string of the data the example server holds (messages, replies, areas, members): what people wrote, not interface text. */
+export async function collectUserTexts(request, origin, messages, areas) {
+  const found = new Set()
+  const walk = (value) => {
+    if (typeof value === 'string') { if (value.trim().length >= 3) found.add(value) }
+    else if (Array.isArray(value)) value.forEach(walk)
+    else if (value && typeof value === 'object') Object.values(value).forEach(walk)
   }
-  return { reason: 'omitido: la guardia de wt-voz aún no está en esta rama' }
+  const get = async (path) => { try { const r = await request.get(`${origin}${path}`); return r.ok() ? await r.json() : null } catch { return null } }
+  walk(messages)
+  walk(areas)
+  walk(await get('/api/members'))
+  walk(await get('/api/settings/project'))
+  for (const m of await Promise.all(messages.map((m) => get(`/api/messages/${m.id}`)))) walk(m)
+  return [...found]
 }
 
 async function settle(page, hasMain) {
@@ -495,7 +518,7 @@ export async function run(options = {}) {
   for (const t of themes) if (!THEMES.includes(t)) throw new Error(`tema desconocido: ${t}`)
 
   const scale = readTypeScale()
-  const voice = loadVoicePatterns(options.voicePatterns ?? arg('voice-patterns'))
+  const voice = await loadVoicePatterns(options.voicePatterns ?? arg('voice-patterns'), options.voiceLang ?? arg('voice-lang') ?? 'es')
   const skipped = []
   if (voice.reason) skipped.push({ rule: 'voice', reason: voice.reason })
 
@@ -514,6 +537,7 @@ export async function run(options = {}) {
     const areasBody = await (await ppage.request.get(`${panel.origin}/api/areas`)).json()
     const areaList = Array.isArray(areasBody) ? areasBody : (areasBody.items ?? [])
     const area = areaList.find((a) => a.id === 'a-error') ?? areaList[0]
+    const userTexts = await collectUserTexts(ppage.request, panel.origin, items, areaList)
     await probe.close()
     const routes = {
       home: '/', messages: '/messages', 'message-detail': `/messages/${rich.id}`, areas: '/areas',
@@ -564,7 +588,7 @@ export async function run(options = {}) {
       const args = { type: scale, voice, maxSaturated }
       for (const [name, fn] of Object.entries(DETECTORS)) {
         if (name === 'voice' && !voice.patterns) continue
-        const input = name === 'type-scale' ? scale : name === 'equal-weight' ? { max: maxSaturated } : name === 'voice' ? { patterns: voice.patterns } : undefined
+        const input = name === 'type-scale' ? scale : name === 'equal-weight' ? { max: maxSaturated } : name === 'voice' ? { patterns: voice.patterns, userTexts } : undefined
         const res = await runDetector(page, name, input)
         if (name === 'page-height') {
           ratios[id] ??= { route, ratios: {} }

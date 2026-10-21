@@ -60,7 +60,7 @@ export function registerAreaRoutes (app, ctx) {
 
   app.delete('/areas/:id/templates/:templateId', {
     onRequest: [requireRole('editor')],
-    schema: { params: plantillaParams }
+    schema: { params: plantillaParams, response: { 204: { type: 'null', description: 'Plantilla eliminada.' } } }
   }, async (request, reply) => {
     deleteTemplate(db, request.params.id, request.params.templateId)
     return reply.code(204).send()

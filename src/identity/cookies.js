@@ -1,17 +1,15 @@
 // Cookie de sesión (MASTER-SPEC §7.7). `__Host-` obliga a Secure, Path=/ y sin Domain (informe 04 §2.2).
-// Modo iframe: SameSite=None; Secure; Partitioned (CHIPS). Modo insecure-dev: sin prefijo ni Secure, sólo
-// para desarrollo por http en navegadores que no tratan localhost como contexto seguro.
+//   same-origin    `__Host-session`, SameSite=Lax (panel y API comparten origen).
+//   cross-origin   `__Host-session`, SameSite=None; Secure, para un frontend en otro origen (CORS_ORIGINS).
+//   COOKIE_INSECURE_DEV  sólo desarrollo por http: sin prefijo ni Secure, SameSite=Lax.
 
 export function cookieSpec (config) {
-  const modo = config.identity.cookieMode
   const maxAge = config.identity.session.absoluteHours * 3600
-  if (modo === 'insecure-dev') {
+  if (config.identity.cookieInsecureDev) {
     return { name: 'session', options: { path: '/', httpOnly: true, secure: false, sameSite: 'lax', maxAge } }
   }
-  if (modo === 'iframe') {
-    return { name: '__Host-session', options: { path: '/', httpOnly: true, secure: true, sameSite: 'none', partitioned: true, maxAge } }
-  }
-  return { name: '__Host-session', options: { path: '/', httpOnly: true, secure: true, sameSite: 'lax', maxAge } }
+  const sameSite = config.identity.cookieMode === 'cross-origin' ? 'none' : 'lax'
+  return { name: '__Host-session', options: { path: '/', httpOnly: true, secure: true, sameSite, maxAge } }
 }
 
 export function setSessionCookie (reply, config, token) {

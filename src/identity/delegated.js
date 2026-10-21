@@ -121,7 +121,7 @@ const firmaHex = (secreto, texto) => createHmac('sha256', secreto).update(texto)
 function modoSso ({ db, config, sessions, now }) {
   const d = config.identity.delegated.sso
   const spec = cookieSpec(config)
-  const nombreNonce = spec.name === '__Host-session' ? '__Host-sso' : 'sso-nonce'
+  const nombreNonce = spec.name.startsWith('__Host-') ? '__Host-sso' : 'sso-nonce'
   const vidaMs = d.nonceMinutes * 60 * 1000
 
   return {
@@ -132,7 +132,7 @@ function modoSso ({ db, config, sessions, now }) {
     },
     routes (app) {
       // 1. Salida: nonce de uso único atado al navegador por una cookie corta.
-      app.get('/auth/sso/start', { config: { public: true } }, async (request, reply) => {
+      app.get('/auth/sso/start', { config: { public: true }, schema: { response: { 302: { type: 'null', description: 'Redirección firmada al inicio de sesión del anfitrión.' } } } }, async (request, reply) => {
         const nonce = randomBytes(24).toString('base64url')
         run(db, 'INSERT INTO sso_nonces (nonce, created_at) VALUES (?, ?)', nonce, now())
         const retorno = `${config.publicUrl.replace(/\/$/, '')}${config.apiPrefix}/auth/sso/callback`
@@ -145,7 +145,7 @@ function modoSso ({ db, config, sessions, now }) {
       })
 
       // 2. Retorno: firma, nonce vigente y atado al navegador, correo verificado por el anfitrión.
-      app.get('/auth/sso/callback', { config: { public: true } }, async (request, reply) => {
+      app.get('/auth/sso/callback', { config: { public: true }, schema: { response: { 302: { type: 'null', description: 'Sesión creada; vuelve al panel.' } } } }, async (request, reply) => {
         const { sso, sig } = request.query
         if (typeof sso !== 'string' || typeof sig !== 'string' || !igualesSeguro(firmaHex(d.secret, sso), sig)) {
           throw forbidden('La respuesta del inicio de sesión no es válida.', 'sso_invalid')
@@ -188,7 +188,7 @@ function modoSso ({ db, config, sessions, now }) {
         return reply.redirect('/', 302)
       })
 
-      app.post('/auth/logout', { config: { public: true } }, async (request, reply) => {
+      app.post('/auth/logout', { config: { public: true }, schema: { response: { 204: { type: 'null', description: 'Sesión cerrada en el servidor.' } } } }, async (request, reply) => {
         sessions.destroy(readSessionCookie(request, config))
         clearSessionCookie(reply, config)
         return reply.code(204).send()

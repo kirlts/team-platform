@@ -21,7 +21,13 @@ export async function registerEventRoutes (app, { db, config, events, requireRol
   app.get('/events', {
     onRequest: [requireRole('member')],
     sse: 'manual',
-    schema: { querystring: { type: 'object', properties: { job_id: { type: 'integer', minimum: 1 } }, additionalProperties: false } }
+    schema: {
+      querystring: { type: 'object', properties: { job_id: { type: 'integer', minimum: 1 } }, additionalProperties: false },
+      response: {
+        200: { type: 'string', description: 'Flujo text/event-stream. Eventos: progress, done, message. El id es job_events.seq (Last-Event-ID).' },
+        204: { type: 'null', description: 'Con job_id: el trabajo ya terminó y no hay nada que reponer; el navegador deja de reconectar.' }
+      }
+    }
   }, async (request, reply) => {
     const miembro = request.member.id
     const jobId = request.query.job_id ?? null

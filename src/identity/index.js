@@ -65,7 +65,7 @@ export async function registerIdentity (app, { db, config, now = Date.now }) {
       throw new Error(`La ruta ${opciones.method} ${opciones.url} no declara su política: use requireRole('member'|'editor') o config.public.`)
     }
     const registro = routePolicies.get(app) ?? []
-    registro.push({ method: opciones.method, url: opciones.url, policy: publica ? 'public' : conRol.requiredRole })
+    registro.push({ method: opciones.method, url: opciones.url, policy: publica ? 'public' : conRol.requiredRole, schema: opciones.schema ?? null })
     routePolicies.set(app, registro)
   })
 

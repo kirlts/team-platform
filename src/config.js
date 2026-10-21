@@ -71,7 +71,8 @@ const GIB = 1024 * MIB
  * (lo usan las pruebas); no pasa por la validación del entorno.
  */
 export function loadConfig (env = process.env, overrides = {}) {
-  const dataDir = path.resolve(texto(env, 'DATA_DIR', path.join(raiz, 'data')))
+  // El Dockerfile fija DATA_DIR=/data. Fuera del contenedor se declara DATA_DIR (el volumen vive ahí).
+  const dataDir = path.resolve(texto(env, 'DATA_DIR', '/data'))
 
   const config = {
     raiz,
@@ -84,20 +85,22 @@ export function loadConfig (env = process.env, overrides = {}) {
     logLevel: texto(env, 'LOG_LEVEL', 'info'),
     // I04 §11 TRUSTED_PROXIES: omisión de Gitea; Fastify exige lista exacta de IP o CIDR, nunca `true`.
     trustedProxies: lista(env, 'TRUSTED_PROXIES', ['127.0.0.0/8', '::1/128']),
-    allowedOrigins: lista(env, 'ALLOWED_ORIGINS', []), // orígenes extra aceptados por la defensa CSRF
+    // Orígenes de otro frontend que pueden llamar a la API (MS §4.11). Vacía = mismo origen, sin CORS.
+    corsOrigins: lista(env, 'CORS_ORIGINS', []),
     frameAncestors: texto(env, 'FRAME_ANCESTORS', "'none'"), // se amplía sólo si la aplicación vive en un iframe
-    panelDist: path.resolve(texto(env, 'PANEL_DIST', path.join(raiz, 'panel', 'dist'))),
+    panelDist: path.resolve(texto(env, 'PANEL_DIR', path.join(raiz, 'panel', 'dist'))),
     // I03 §7.3: activos con hash, caché larga e inmutable (README de @fastify/static, 30 días en el ejemplo
     // del informe; un año es lo que usa el proyecto con el que se contrastó en I07 §8).
     assetsMaxAgeSeconds: entero(env, 'ASSETS_MAX_AGE_SECONDS', 31536000),
 
     // ---- Datos
     dataDir,
-    dbFile: path.resolve(texto(env, 'DB_FILE', path.join(dataDir, 'team.db'))),
+    dbFile: path.resolve(texto(env, 'DB_PATH', path.join(dataDir, 'team.db'))),
     attachmentsDir: path.join(dataDir, 'attachments'),
     tmpDir: path.join(dataDir, 'tmp'),
     backupsDir: path.join(dataDir, 'backups'),
-    templatesDir: path.resolve(texto(env, 'TEMPLATES_DIR', path.join(raiz, 'templates'))),
+    templatesDir: path.resolve(texto(env, 'TEMPLATES_DIR', path.join(raiz, 'templates'))), // el juego inicial que se instala
+    editedTemplatesDir: path.join(dataDir, 'templates'), // copia en archivos de las plantillas editadas, en el volumen (la base manda)
     sqlite: {
       busyTimeoutMs: entero(env, 'SQLITE_BUSY_TIMEOUT_MS', 5000), // MS §3, I03 §12: 0 errores contra 19.040 con 0
       synchronous: opcion(env, 'SQLITE_SYNCHRONOUS', ['FULL', 'NORMAL'], 'FULL') // MS §3, I03 §2.3: FULL es durable
@@ -152,7 +155,10 @@ export function loadConfig (env = process.env, overrides = {}) {
     // ---- Identidad (MS §7.7, I04 §11)
     identity: {
       provider: opcion(env, 'IDENTITY_PROVIDER', ['local', 'delegated'], 'local'),
-      cookieMode: opcion(env, 'COOKIE_MODE', ['host', 'iframe', 'insecure-dev'], 'host'),
+      // same-origin: `__Host-` + SameSite=Lax. cross-origin: SameSite=None; Secure (un frontend en otro origen).
+      cookieMode: opcion(env, 'COOKIE_MODE', ['same-origin', 'cross-origin'], 'same-origin'),
+      // Sólo desarrollo por http: quita Secure y el prefijo `__Host-` (que lo exige). Nunca con cross-origin.
+      cookieInsecureDev: booleano(env, 'COOKIE_INSECURE_DEV', false),
       argon2: {
         memoryKib: entero(env, 'ARGON2_MEMORY_KIB', 19456, { min: 8 }), // mínimo OWASP, I04 §1.1
         passes: entero(env, 'ARGON2_PASSES', 2, { min: 1 }),

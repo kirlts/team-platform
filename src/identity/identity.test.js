@@ -242,8 +242,8 @@ test('CSRF: sin Sec-Fetch-Site se compara Origin con el anfitrión; sin ninguno,
   await env.close()
 })
 
-test('CSRF: un origen listado en ALLOWED_ORIGINS pasa', async () => {
-  const env = await makeEnv({ config: { ...sinLimiteIp, allowedOrigins: ['https://sitio.example.org'] } })
+test('CSRF: un origen listado en CORS_ORIGINS pasa', async () => {
+  const env = await makeEnv({ config: { ...sinLimiteIp, corsOrigins: ['https://sitio.example.org'] } })
   await addMember(env, { email: 'ana@x.org' })
   const cookie = await login(env, 'ana@x.org')
   const r = await env.app.inject({ method: 'POST', url: '/api/inputs/1/cancel', headers: { cookie, origin: 'https://sitio.example.org', 'sec-fetch-site': 'cross-site' } })

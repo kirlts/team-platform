@@ -80,7 +80,10 @@ export function createLocalProvider ({ db, config, sessions, now = Date.now }) {
   function routes (app) {
     app.post('/auth/login', {
       config: { public: true, rateLimit: { max: limites.ipMax, timeWindow: limites.ipWindowMs } },
-      schema: loginSchema
+      schema: {
+        ...loginSchema,
+        response: { 200: { type: 'object', properties: { member: { type: 'object', properties: { id: { type: 'integer' }, email: { type: 'string' }, name: { type: 'string' }, role: { type: 'string' } } } } } }
+      }
     }, async (request, reply) => {
       const previo = readSessionCookie(request, config)
       const miembro = await login(request.body.email.trim(), request.body.password)
@@ -90,7 +93,7 @@ export function createLocalProvider ({ db, config, sessions, now = Date.now }) {
       return { member: { id: miembro.id, email: miembro.email, name: miembro.name, role: miembro.role } }
     })
 
-    app.post('/auth/logout', { config: { public: true } }, async (request, reply) => {
+    app.post('/auth/logout', { config: { public: true }, schema: { response: { 204: { type: 'null', description: 'Sesión cerrada en el servidor.' } } } }, async (request, reply) => {
       sessions.destroy(readSessionCookie(request, config)) // OWASP: se invalida en el servidor, no sólo en el cliente
       clearSessionCookie(reply, config)
       return reply.code(204).send()

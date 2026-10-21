@@ -30,7 +30,10 @@ function leerRango (cabecera, tamano) {
 export function registerAttachmentRoutes (app, ctx) {
   const { db, config, requireRole } = ctx
 
-  app.get('/attachments/:id', { onRequest: [requireRole('member')], schema: { params: idParams() } }, async (request, reply) => {
+  app.get('/attachments/:id', { onRequest: [requireRole('member')], schema: { params: idParams(), response: {
+    200: { type: 'string', format: 'binary', description: 'El archivo.' },
+    206: { type: 'string', format: 'binary', description: 'Un rango del archivo (cabecera Range).' }
+  } } }, async (request, reply) => {
     const adjunto = get(db, 'SELECT * FROM attachments WHERE id = ?', request.params.id)
     // Un adjunto al que no se tiene acceso no se distingue de uno inexistente.
     if (!adjunto || adjunto.kind === 'link' || !canReadAttachment(db, request.member.id, adjunto.id)) throw notFound('El adjunto no existe.')

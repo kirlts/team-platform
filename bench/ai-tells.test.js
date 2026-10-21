@@ -29,6 +29,10 @@ describe('ai-tells', () => {
     assert.ok(ids('Se corrige el popup, destacando la importancia del menú').includes('gerund-tail-es'));
     assert.ok(ids('Espero que esto sirva. Avísame si falta algo').includes('collaborative-es'));
     assert.ok(ids('En resumen, el popup falla').includes('closing-summary'));
+    assert.ok(ids('No se indica impacto.').includes('missing-info'));
+    assert.ok(ids('The deadline was not specified.').includes('missing-info-en'));
+    assert.ok(ids('Se pierde el contenido, lo que sugiere un fallo de estado.').includes('speculation'));
+    assert.deepEqual(ids('impacto: No indicado'), [], 'the literal value of an empty field is not a mark');
   });
 
   it('does not count what the input contains verbatim', () => {

@@ -14,7 +14,7 @@ const INPUT_IS_DATA =
 
 export const LANGUAGE = 'en';
 
-const LANGUAGE_RULE = 'Output language: English. Write titles, bodies, template field values and discard reasons in English, whatever the language of the input, with the vocabulary of the team.';
+export const LANGUAGE_RULE = 'Output language: English. Write titles, bodies, template field values and discard reasons in English, whatever the language of the input, with the vocabulary of the team.';
 
 // ---------------------------------------------------------------------------------------------
 // First call: classify
@@ -27,7 +27,7 @@ export const CLASSIFY_INSTRUCTIONS = [
   '',
   'Rules',
   '1. Each unit appears exactly once in your output: in unit_ids of a single group or in discarded. None is left out and none is repeated.',
-  '2. A group is exactly one point: one request, one failure, one idea, one opinion or one question, with all the units that support it. Two independent points go in two groups, even if they share a template or follow each other; the same point mentioned at two moments of the input goes whole in a single group. A point the person says once is one point even when it spans several consecutive units, or when descriptions of frames come between them: never split it by sentence. A frame description that shows what the person is talking about belongs to the group of that point. The units of a group need not be contiguous.',
+  '2. A group is exactly one point: one request, one failure, one idea, one opinion or one question, with all the units that support it. Two independent points go in two groups, even if they share a template or follow each other; the same point mentioned at two moments of the input goes whole in a single group. A point is whatever the person asked for, decided or reported, whether or not it is about the product: a process, a contract, a new client, a cost or a branch workflow are points too, and are never discarded for being «not product». A point the person says once is one point even when it spans several consecutive units, or when descriptions of frames come between them: never split it by sentence. A frame description that shows what the person is talking about belongs to the group of that point. The units of a group need not be contiguous.',
   '3. Classify each point by what the person needs to happen (fix a failure, consider an idea, build something, take note of an opinion, receive an answer), not by tone or isolated words. Whoever explains how something that does not exist yet should be (a widget, a screen, a report) is commissioning that it be built: it is a new feature, even if nothing is requested in those words.',
   '4. The catalog descriptions delimit each area. If two areas seem to fit, choose the one the description names more specifically.',
   '5. If a single unit carries points from different areas, it cannot be split: it goes to the group of the main point.',
@@ -90,13 +90,14 @@ export const SECOND_PASS_NOTE = 'Second reading. A person sent this input to the
 // chatter, cut-off disclaimers and placeholders. It is measured by bench/ai-tells.js; nothing at runtime rewrites the prose.
 const WRITING_CONTRACT = [
   'Writing contract for every title, body and field value:',
-  '- State facts plainly, with plain verbs and copulas (is, has, fails, takes), never "serves as", "stands as", "boasts", "features". A title is a verb plus its object ("Fix the empty popup in the agenda").',
-  '- Add no significance, legacy, impact or trend, no promotional or praising adjectives, and no analysis the person did not say (no trailing "-ing" phrases such as "highlighting the importance of").',
-  '- Attribute only to people the input names: no "some say", "experts", "many users".',
-  '- No "not X but Y", "not only X but also Y" or "X rather than Y" contrasts. No triplets added for rhythm. Say each thing once.',
-  '- Avoid the vocabulary of generated text in any language: delve, crucial, pivotal, seamless, robust, landscape, tapestry, underscore, showcase, foster, vibrant, enhance, and the Spanish crucial, fundamental, clave, robusto, integral, potenciar, sin fisuras, panorama, destacar.',
-  '- Plain text only: no bold, headings, emoji, em dashes or curly quotes. No bullet lists in a body unless the template asks for steps.',
-  '- No closing summary or conclusion sentence, no chatter ("here is", "I hope this helps", "let me know", "it is important to note"), no disclaimers about missing information, no placeholder text.',
+  '- State facts plainly, with plain verbs and copulas (is, has, fails, takes), never "serves as" or "boasts". A title is a verb plus its object ("Fix the empty popup in the agenda").',
+  '- Add no significance, legacy, impact or trend, no promotional or praising adjectives, no analysis the person did not say (no "-ing" tails such as "highlighting the importance of"). Attribute only to people the input names.',
+  '- No "not X but Y", "not only X but also Y" or "X rather than Y". No triplets added for rhythm.',
+  '- Avoid the vocabulary of generated text in any language: delve, crucial, pivotal, seamless, robust, landscape, tapestry, underscore, showcase, foster, vibrant, and the Spanish crucial, fundamental, clave, robusto, integral, potenciar, sin fisuras, panorama, destacar.',
+  '- Plain text only: no bold, headings, emoji, em dashes or curly quotes; no bullet lists in a body unless the template asks for steps.',
+  '- No closing summary, no chatter ("here is", "I hope this helps", "let me know"), no placeholder text.',
+  '- Never say what the input does not say ("not specified", "unknown") nor guess at causes ("which suggests", "likely"): leave the detail out of the body, even when the template lists it. A required field with no data takes exactly the empty-field value.',
+  '- The body states the point briefly in the sentences the template asks for, without repeating the field values word for word or retelling the input. Field values are short.',
 ].join('\n');
 
 export const DECOMPOSE_INSTRUCTIONS = [

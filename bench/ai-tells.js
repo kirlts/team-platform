@@ -81,6 +81,10 @@ export const PATTERNS = [
   // Communication aimed at the user, disclaimers, closing summaries
   { id: 'collaborative-en', section: 'collaborative', lang: 'en', pattern: /(?:^|[.!?]\s+)(?:here(?:'s| is| are)|certainly|sure|of course|great question)\b|\bI hope (?:this|that)\b|\blet me know\b|\bfeel free\b|\bas an ai\b/i },
   { id: 'collaborative-es', section: 'collaborative', lang: 'es', pattern: /(?:^|[.!?]\s+)(?:aquí (?:tienes|está|van)|claro|por supuesto|con gusto)\b|\bespero que (?:esto|te|sirva)\b|\bavísame\b|\bno dudes en\b|\bcomo (?:un )?modelo de lenguaje\b/i },
+  // Statements about what the input does not say, and guesses about what it might mean (guide: «speculation about gaps in sources»).
+  { id: 'missing-info', section: 'cutoff', lang: 'es', pattern: /\bno se (?:indica|indican|indicó|indicaron|menciona|mencionan|mencionó|especifica|especifican|especificó|sabe|aclara|informa|señala)\b|\bsin (?:plazo|fecha|detalle|detalles) (?:indicad[oa]s?|especificad[oa]s?)\b/i },
+  { id: 'missing-info-en', section: 'cutoff', lang: 'en', pattern: /\b(?:no|not) (?:deadline |date |detail |details )?(?:was |were |is |are )?(?:specified|mentioned|indicated|stated|given|provided)\b/i },
+  { id: 'speculation', section: 'cutoff', lang: 'any', pattern: /\b(?:lo que|which) (?:sugiere|apunta|indica|implica|suggests|points to|indicates|implies)\b|\b(?:probablemente|presumiblemente|posiblemente|likely|probably|presumably)\b|\bsuggesting\b|\bsugiriendo\b/i },
   { id: 'cutoff', section: 'cutoff', lang: 'any', pattern: /\b(?:as of my last|not widely documented|not (?:publicly )?available|likely (?:supports|has|is)|no está (?:ampliamente )?documentad[oa]|no hay información (?:disponible|pública)|hasta mi última actualización)\b/i },
   { id: 'didactic', section: 'didactic', lang: 'any', pattern: /\b(?:it(?:'s| is) (?:important|worth|crucial) (?:to|noting)|worth noting|note that|es importante (?:señalar|destacar|notar|tener en cuenta|recordar)|cabe (?:destacar|señalar|mencionar|resaltar)|vale la pena (?:destacar|señalar|mencionar))\b/i },
   { id: 'closing-summary', section: 'summary', lang: 'any', pattern: /(?:^|[.!?]\s+|\n)(?:in (?:summary|conclusion)|to (?:summarize|sum up)|overall|en (?:resumen|conclusión|síntesis|definitiva)|para (?:resumir|concluir)|en general)\b/i },
@@ -106,6 +110,27 @@ export function countTells(text, { input = '' } = {}) {
     }
   }
   return found;
+}
+
+// Function words used to tell which language a generated text is written in; each list holds words that the other
+// language does not use. The bench uses it to check the output language (UD-018); nothing at runtime reads it.
+const ES_WORDS = new Set('el la los las de del que y en un una por para con no se es al lo como más pero sus le ya o este esta son está cuando también sin sobre'.split(' '));
+const EN_WORDS = new Set('the of and to in is are was for that this with it on as be at by from or an not but have has can will when also into than then which'.split(' '));
+
+/** 'es', 'en' or null (too little text) by the weight of the function words of each language. */
+export function detectLanguage(text) {
+  const words = String(text ?? '').toLowerCase().match(/[a-záéíóúñü]+/g) ?? [];
+  const es = words.filter((w) => ES_WORDS.has(w)).length;
+  const en = words.filter((w) => EN_WORDS.has(w)).length;
+  if (es + en < 4) return null;
+  return es >= en ? 'es' : 'en';
+}
+
+/** Share of the messages of a proposal whose prose is written in `language` ('es' or 'en'); null without messages. */
+export function languageShare(proposal, language) {
+  const messages = proposal?.messages ?? [];
+  const judged = messages.map((m) => detectLanguage(proseOf(m).join(' '))).filter((l) => l !== null);
+  return judged.length === 0 ? null : judged.filter((l) => l === language).length / judged.length;
 }
 
 /** Texts of a message that carry prose: title, body and every field value. */

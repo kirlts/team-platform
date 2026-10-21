@@ -5,6 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tellsOfProposal } from './ai-tells.js';
 import { score } from './score.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -19,6 +20,9 @@ export default function assertMece(output, context) {
   const expected = JSON.parse(readFileSync(join(here, 'cases', context.vars.case, 'expected.json'), 'utf8'));
   const result = score({ units: run.units, expected, actual: run.proposal ?? { messages: [] } });
   const { counts, rates } = result;
+  // Marks of generated writing per message (UD-019): reported, it does not decide the result.
+  const inputText = [run.units?.map((u) => u.text).join('\n') ?? ''].join('');
+  const tells = tellsOfProposal(run.proposal ?? { messages: [] }, { input: inputText });
   return {
     pass: run.status === 'ok' && result.mece,
     score: rates.coverage,
@@ -29,10 +33,12 @@ export default function assertMece(output, context) {
       split: rates.split,
       fused: rates.fused,
       classification: rates.classification_accuracy ?? 0,
+      tells_per_message: tells.perMessage,
     },
     reason:
       `status ${run.status}; coverage ${counts.covered}/${counts.expected_messages}, repeated ${counts.repeated}, ` +
       `split ${counts.split}, fused ${counts.fused}, extra ${counts.extra}, overlaps ${counts.overlap_units}, ` +
-      `holes ${counts.hole_units}, classification ${counts.both_correct}/${counts.units} units`,
+      `holes ${counts.hole_units}, classification ${counts.both_correct}/${counts.units} units, ` +
+      `${tells.total} marks of generated writing in ${tells.messages} messages`,
   };
 }

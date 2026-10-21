@@ -31,6 +31,7 @@ export default class TeamPlatformAnalyzer {
         providers,
         testCase,
         fixtures: await this.fixturesPromise,
+        language: this.config.language,
         options: this.config.analyzer ? { analyzer: this.config.analyzer } : {},
       });
       return {

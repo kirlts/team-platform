@@ -6,6 +6,7 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { score } from './score.js';
+import { languageShare, tellsOfProposal } from './ai-tells.js';
 import { costOf } from './pricing.js';
 import { loadSeed } from '../src/analyze/seed.js';
 import { numberUnits } from '../src/analyze/units.js';
@@ -34,8 +35,9 @@ export function loadCases(dir = casesDir) {
 }
 
 /** Analyzer input bundle (§7.5) for a case. */
-export function buildBundle(input, fixtures) {
+export function buildBundle(input, fixtures, { language } = {}) {
   return {
+    ...(language ? { language } : {}),
     text: input.text,
     attachments: input.attachments.map((a) => ({ id: a.id, kind: a.kind, extracted: a.extracted })),
     areas: fixtures.areas,
@@ -54,8 +56,8 @@ export const unitsOf = (input) => numberUnits({ text: input.text, attachments: i
  * @param {(bundle: object, options: object) => Promise<object>} analyze
  * @param {object} providers  providers with the shape of §7.6
  */
-export async function runCase({ analyze, providers, testCase, fixtures, options = {} }) {
-  const bundle = buildBundle(testCase.input, fixtures);
+export async function runCase({ analyze, providers, testCase, fixtures, options = {}, language }) {
+  const bundle = buildBundle(testCase.input, fixtures, { language });
   const events = [];
   const startedAt = performance.now();
   const result = await analyze(bundle, { ...options, providers, onProgress: (e) => events.push({ ...e, t: performance.now() }) });
@@ -76,9 +78,15 @@ export async function runCase({ analyze, providers, testCase, fixtures, options 
   const s = score({ units, expected: testCase.expected, actual: scored });
   if (result.status !== 'ok') s.mece = false;
 
+  // Marks of generated writing in what the analyzer wrote (UD-019). A fragment that the input itself contains is not counted.
+  const inputText = [testCase.input.text, ...testCase.input.attachments.map((a) => a.extracted)].join('\n');
+  const tells = tellsOfProposal(scored, { input: inputText });
+  const outputLanguage = language === 'en' ? 'en' : 'es';
+
   return {
     case_id: testCase.id,
     status: result.status,
+    tells: { total: tells.total, per_message: tells.perMessage, by_pattern: tells.byPattern, found: tells.found, language_share: languageShare(scored, outputLanguage) },
     total_ms: endedAt - startedAt,
     steps,
     calls,
@@ -126,6 +134,10 @@ export function summarize(runs) {
       cost_usd: medianOrNull(runs.map((r) => r.usage.cost_usd)),
       model_ms: median(runs.map((r) => r.usage.model_ms)),
     },
+    tells_per_message_median: median(runs.map((r) => r.tells.per_message)),
+    tells_total_max: Math.max(...runs.map((r) => r.tells.total)),
+    language_share_median: medianOrNull(runs.map((r) => r.tells.language_share)),
+    messages_median: median(runs.map((r) => r.proposal?.messages.length ?? 0)),
     rates_median: Object.fromEntries(
       Object.keys(runs[0].score.rates).map((k) => [k, medianOrNull(runs.map((r) => r.score.rates[k]))]),
     ),
@@ -138,7 +150,7 @@ const ms = (x) => `${x.toFixed(0)} ms`;
 /** Report text for the terminal. */
 export function formatReport(summaries) {
   const rows = [
-    ['case', 'status', 'MECE', 'cover.', 'repeat.', 'extra', 'split', 'fused', 'classif.', 'time (median)', 'calls', 'tokens i/o/c', 'cost USD'],
+    ['case', 'status', 'MECE', 'cover.', 'repeat.', 'extra', 'split', 'fused', 'classif.', 'time (median)', 'calls', 'tokens i/o/c', 'cost USD', 'msgs', 'tells/msg', 'lang'],
   ];
   for (const s of summaries) {
     const u = s.usage_median;
@@ -157,6 +169,9 @@ export function formatReport(summaries) {
       String(u.calls),
       `${u.input_tokens}/${u.output_tokens}/${u.cached_tokens}`,
       u.cost_usd === null ? 'no price' : u.cost_usd.toFixed(6),
+      String(s.messages_median),
+      s.tells_per_message_median.toFixed(2),
+      pct(s.language_share_median),
     ]);
   }
   const widths = rows[0].map((_, i) => Math.max(...rows.map((r) => r[i].length)));

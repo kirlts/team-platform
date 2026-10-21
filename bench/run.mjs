@@ -5,6 +5,7 @@
 //   node bench/run.mjs --fake perfect                   fake providers with the reference, no network
 //   node bench/run.mjs                                  real providers, configured by environment (src/providers)
 //   node bench/run.mjs --repeat 5 --case 03-monologo-prueba --analyzer harness
+//   node bench/run.mjs --language en                    prompts and output in English (default es-419, UD-018)
 //   node bench/run.mjs --config '{"decomposeEffort":"low","decomposeThinking":"disabled"}'   analyzer knobs (src/analyze/config.js)
 import { parseArgs } from 'node:util';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -25,6 +26,7 @@ const { values } = parseArgs({
     config: { type: 'string' },
     repeat: { type: 'string', default: '1' },
     case: { type: 'string', multiple: true },
+    language: { type: 'string' },
     out: { type: 'string' },
     'no-write': { type: 'boolean', default: false },
   },
@@ -55,6 +57,7 @@ for (const testCase of cases) {
       providers: providersFor(testCase),
       testCase,
       fixtures,
+      language: values.language,
       options: { ...(values.analyzer ? { analyzer: values.analyzer } : {}), ...(values.config ? { config: JSON.parse(values.config) } : {}) },
     }));
   }

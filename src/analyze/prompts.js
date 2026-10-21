@@ -67,6 +67,9 @@ export function decomposeUser({ members, attachments, units, scopeNote, language
   const parts = [set.membersBlock(members), '', set.attachmentsBlock(attachments, units), ''];
   if (scopeNote) parts.push(scopeNote, '');
   parts.push(set.INPUT_HEADING, renderUnits(units, set.LANGUAGE));
+  // The templates are written by the team, in its own language, and weigh more than a rule far above them: the language of
+  // the output is repeated after the input (UD-018).
+  parts.push('', set.LANGUAGE_RULE);
   return parts.join('\n');
 }
 

@@ -1,6 +1,6 @@
 // The UI detectors (scripts/ui-detectors.mjs): each one is a pure function over the DOM, so each is
 // tried on a minimal page with a failure and a clean case, and the whole pass is run once on a short
-// real corrida. Run with `node --test src/ui-detectors.test.mjs`; the port comes from PANEL_DETECTORS_PORT.
+// real run. Run with `node --test src/ui-detectors.test.mjs`; the port comes from PANEL_DETECTORS_PORT.
 // Not picked up by vitest (it only includes *.test.ts / *.test.tsx).
 
 import { after, before, describe, test } from 'node:test'
@@ -139,7 +139,7 @@ describe('voice', () => {
 })
 
 describe('the whole pass', () => {
-  test('a short real corrida writes a JSON with the declared shape', async () => {
+  test('a short real run writes a JSON with the declared shape', async () => {
     const out = join(mkdtempSync(join(tmpdir(), 'ui-detectors-')), 'detectors.json')
     // The unit browser is closed first: one browser at a time.
     await browser.close()

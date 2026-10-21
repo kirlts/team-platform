@@ -356,6 +356,8 @@ export const en: Record<MessageKey, Message> = {
   'media.zoom': 'Enlarge {name}',
   'media.openNewTab': 'Open in a new tab',
   'gallery.openMany': 'Show all {n} media',
+  'gallery.roleCarousel': 'carousel',
+  'gallery.roleSlide': 'slide',
   'gallery.region': 'Media gallery',
   'gallery.count': '{n} of {total}',
   'gallery.prev': 'Previous',

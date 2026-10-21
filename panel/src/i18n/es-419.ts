@@ -356,6 +356,8 @@ export const es419 = {
   'media.zoom': 'Ampliar {name}',
   'media.openNewTab': 'Abrir en otra pestaña',
   'gallery.openMany': 'Ver los {n} medios',
+  'gallery.roleCarousel': 'carrusel',
+  'gallery.roleSlide': 'medio',
   'gallery.region': 'Galería de medios',
   'gallery.count': '{n} de {total}',
   'gallery.prev': 'Anterior',

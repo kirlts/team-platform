@@ -48,7 +48,7 @@ export function StatusBar() {
   const pulse = usePulse(total)
   if (!summary) return null
   return (
-    <section aria-label={t('bar.label')} data-testid="status-bar" data-state-top={top ?? 'none'} data-pulse={pulse} className="flex min-w-0 items-center justify-end gap-2">
+    <section aria-label={t('bar.label')} data-testid="status-bar" data-state-top={top ?? 'none'} data-pulse={pulse} className="flex shrink-0 items-center justify-end gap-1 md:gap-2">
       <ul aria-label={t('bar.mine')} className="flex shrink-0 items-center gap-1">
         {STATES_SHOWN.map((status) => (
           <li key={status}>
@@ -68,7 +68,7 @@ function StateButton({ status, n }: { status: MessageStatus; n: number }) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button type="button" data-testid="state-button" data-status={status} data-weight="quiet" data-count={n} aria-label={word} title={word} className="inline-flex h-9 min-w-10 items-center justify-center gap-1 rounded-full border px-1.5 text-sm md:min-w-11 md:px-2.5 font-bold leading-none hover:bg-glass">
+        <button type="button" data-testid="state-button" data-status={status} data-weight="quiet" data-count={n} aria-label={word} title={word} className="inline-flex h-9 min-w-9 items-center justify-center gap-1 rounded-full border px-0.5 text-sm md:min-w-11 md:px-2.5 font-bold leading-none hover:bg-glass">
           <StateIcon status={status} size={16} />
           <span className="tabular-nums">{n}</span>
         </button>
@@ -103,13 +103,13 @@ function MessageMenu({ name, status, seeAll }: { name: string; status: MessageSt
         <ul data-lane="status-list" className="scroll-thin min-h-0 flex-1 overflow-y-auto">
           {rows.map((m) => (
             <li key={m.id} data-testid="status-row" className="border-b border-line">
-              <Link to={`/messages/${m.id}`} className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 gap-y-1 px-3 py-2 hover:bg-hover">
-                <span className="flex min-w-0 items-start gap-1.5">
-                  <span className="break-words text-sm font-medium leading-snug">{m.title}</span>
-                </span>
-                <AreaChip areaId={m.area_id} className="justify-self-end" />
-                <span className="col-span-2 text-xs text-muted">
-                  {memberName(m.author_id)} · {format.stamp(m.updated_at ?? m.created_at)}
+              <Link to={`/messages/${m.id}`} className="flex flex-col gap-1 px-3 py-2 hover:bg-hover">
+                <span className="break-words text-sm font-medium leading-snug">{m.title}</span>
+                <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+                  <AreaChip areaId={m.area_id} />
+                  <span>
+                    {memberName(m.author_id)} · {format.stamp(m.updated_at ?? m.created_at)}
+                  </span>
                 </span>
               </Link>
             </li>

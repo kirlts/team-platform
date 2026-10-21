@@ -186,6 +186,8 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
         for (const b of boxes) assert.ok(b.w >= 24 && b.h >= 24, `${b.status} measures ${b.w}x${b.h} at ${width}`)
         assert.deepEqual(boxes.map((b) => b.status), ['open', 'answered', 'closed'])
         for (const b of boxes) assert.match(b.n, /^\d+$/, 'only the number is visible')
+        const word = await page.locator('header a').first().boundingBox()
+        assert.ok(word.x + word.width <= boxes[0].left, `the name (ends ${word.x + word.width}) does not run under the marks (start ${boxes[0].left}) at ${width}`)
         const bell = await page.getByTestId('bell').boundingBox()
         assert.ok(boxes[2].right <= bell.x, 'the marks end before the bell')
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)

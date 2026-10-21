@@ -346,6 +346,49 @@ for (const [width, height] of SIZES) {
   })
 }
 
+// The replies of a message are a list that hugs its rows. While it measured, its slot was taller (sixty rows drawn) than after it settled, and the check that
+// looks for a frame that moved took that drop for a new frame and measured again, for good: ~600 `<video>` mounts per second in the detail of a message (H-3200).
+// The count is of mounts and not of requests because the browser answers most of the repeated requests from its cache, which is what hid the loop.
+for (const [width, height] of SIZES) {
+  describe(`${width}x${height} the replies of a message do not draw their thumbnails again`, () => {
+    test('no video is mounted in the detail of a message once it is quiet, with every list ×8', async () => {
+      const context = await panel.browser.newContext({ viewport: { width, height }, locale: 'es-CL' })
+      const page = await context.newPage()
+      try {
+        await login(page, ORIGIN)
+        await amplify(page)
+        const body = await (await page.request.get(`${ORIGIN}/api/messages`)).json()
+        const list = Array.isArray(body) ? body : body.items
+        const rich = list.find((m) => m.title.startsWith('Revisar la lectura')) ?? list[0]
+        await open(page, `/messages/${rich.id}`)
+        const thumbs = await page.evaluate(() => document.querySelectorAll('main video').length)
+        assert.ok(thumbs > 0, 'the message has no video thumbnail on screen: the test would prove nothing')
+        // From here on the page is quiet: any `<video>` added is a thumbnail drawn again.
+        await page.evaluate(() => {
+          window.__videosAdded = 0
+          new MutationObserver((records) => {
+            for (const r of records) for (const n of r.addedNodes) if (n.nodeType === 1) window.__videosAdded += n.tagName === 'VIDEO' ? 1 : n.querySelectorAll('video').length
+          }).observe(document, { childList: true, subtree: true })
+        })
+        // Five seconds of the page left alone, counted by what the browser does (a frame clock), not by a pause.
+        await page.evaluate(
+          () =>
+            new Promise((resolve) => {
+              const start = performance.now()
+              const tick = () => (performance.now() - start >= 5000 ? resolve(undefined) : requestAnimationFrame(tick))
+              requestAnimationFrame(tick)
+            }),
+        )
+        const added = await page.evaluate(() => window.__videosAdded)
+        assert.strictEqual(added, 0, `${added} <video> elements were mounted in five seconds on a quiet page (${thumbs} on screen)`)
+      } finally {
+        await page.unrouteAll({ behavior: 'ignoreErrors' })
+        await context.close()
+      }
+    })
+  })
+}
+
 for (const [width, height] of SIZES) {
   for (const [state, amplified] of [
     ['con lo sembrado', false],

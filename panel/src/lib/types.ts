@@ -3,6 +3,8 @@
 // respuesta, el supuesto está anotado y el servidor doble de desarrollo lo cumple.
 
 export type Role = 'member' | 'editor'
+/** Idioma de la cuenta (UD-018): rige la interfaz, los mensajes que se redactan y los prompts. */
+export type Language = 'es-419' | 'en'
 
 export interface Member {
   id: string
@@ -12,6 +14,7 @@ export interface Member {
   responsibilities: string
   /** Supuesto: lista de dominios. */
   domains: string[]
+  language: Language
 }
 
 /** Respuesta de GET /me: el miembro y el nombre del proyecto (supuesto: `project_name`). */
@@ -26,6 +29,8 @@ export interface Area {
   position: number
   /** Supuesto: GET /areas trae el conteo de mensajes abiertos del área. */
   open_count?: number
+  /** Abiertos y respondidos: lo que sigue pendiente. Es el número que lleva la barra lateral. */
+  unresolved_count?: number
   template_count?: number
 }
 
@@ -36,6 +41,7 @@ export interface Template {
   description: string
   body_markdown: string
   updated_at: string
+  deleted_at?: string | null
 }
 
 export type AttachmentKind = 'image' | 'video' | 'audio' | 'document' | 'link'
@@ -64,7 +70,8 @@ export interface ProposalMessage {
   template_id: string | null
   title: string
   body: string
-  fields?: unknown
+  /** Valor de cada campo de la plantilla, por su nombre. */
+  fields?: Record<string, string | null> | null
   assignee_ids: string[]
   attachment_ids: string[]
   /** Unidades del input que cubre este mensaje (las numera el sistema). */
@@ -100,6 +107,8 @@ export interface InputRecord {
   proposal?: Proposal | null
   /** Motivo visible cuando status es `failed`. */
   error?: string | null
+  /** Código estable del fallo; el panel lo traduce a su catálogo. */
+  error_code?: string | null
 }
 
 export type MessageStatus = 'open' | 'answered' | 'closed'
@@ -112,7 +121,9 @@ export interface Reply {
   body: string
   kind: ReplyKind
   created_at: string
-  /** Supuesto: cada respuesta trae sus adjuntos con su tipo, igual que el mensaje; la API de MASTER-SPEC §7.1 aún no los devuelve. */
+  /** Tipos de medio adjuntos a la respuesta, para dibujar un ícono por tipo (UD-016). */
+  attachment_kinds?: AttachmentKind[]
+  /** Los adjuntos mismos, cuando la API los trae (miniaturas). */
   attachments?: Attachment[]
 }
 
@@ -127,7 +138,13 @@ export interface Message {
   created_at: string
   closed_at?: string | null
   assignee_ids: string[]
+  template_id?: string | null
+  /** Valor de cada campo de la plantilla del mensaje, por su nombre. */
+  fields?: Record<string, string | null>
   attachments: Attachment[]
+  /** Tipos de medio adjuntos, para dibujar un ícono por tipo (UD-016). */
+  attachment_kinds?: AttachmentKind[]
+  updated_at?: string
   /** Supuestos de la lista: cantidad de respuestas y la última, para «Últimas respuestas». */
   reply_count: number
   last_reply?: Reply | null
@@ -143,6 +160,29 @@ export interface ProviderSetting {
   slot: ProviderSlot
   provider: string
   model: string
+  /** Falso cuando falta la llave u otra condición; `reason` dice cuál, en el idioma de la cuenta o como código. */
+  available?: boolean
+  reason?: string | null
+}
+
+/** Cambio parcial de un mensaje publicado (PATCH /messages/:id). */
+export interface MessagePatch {
+  title?: string
+  body?: string
+  fields?: Record<string, string | null>
+  assignee_ids?: string[]
+  area_id?: string
+  template_id?: string
+}
+
+/** Lo que se envía para dar de alta a un miembro (POST /members). */
+export interface NewMember {
+  email: string
+  name: string
+  role?: Role
+  responsibilities?: string
+  domains?: string[]
+  password?: string
 }
 
 /** Eventos del flujo SSE (GET /events). */

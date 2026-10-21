@@ -8,7 +8,12 @@ import { cn } from '@/lib/utils'
  */
 const COLUMNS = { 12: 'max-w-[72rem]', 10: 'max-w-[60rem]', 8: 'max-w-[48rem]' } as const
 
-/** Content frame of a view: the page margin (20 px on a phone, 40 px from 768 px) and the vertical rhythm between its blocks. */
+/**
+ * Content frame of a view: the page margin (20 px on a phone, 40 px from 768 px) and the vertical
+ * rhythm between its blocks. From 768 px the frame is as tall as the region it is in and its blocks
+ * share that height (UD-017: a view fits one screen); the one block that grows, a list, takes
+ * what is left with `flex-1 min-h-0` and paginates inside it.
+ */
 export function Page({ cols = 10, section = false, children }: { cols?: keyof typeof COLUMNS; section?: boolean; children: ReactNode }) {
-  return <div className={cn('flex w-full flex-col px-5 py-7 md:px-10 md:py-10', COLUMNS[cols], section ? 'gap-10' : 'gap-6')}>{children}</div>
+  return <div className={cn('flex w-full flex-col px-5 py-6 md:h-full md:min-h-0 md:px-10 md:py-5', COLUMNS[cols], section ? 'gap-5' : 'gap-4')}>{children}</div>
 }

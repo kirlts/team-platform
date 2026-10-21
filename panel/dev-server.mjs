@@ -34,16 +34,16 @@ const ago = (minutes) => new Date(Date.now() - minutes * 60_000).toISOString()
 // ---------------------------------------------------------------- datos de ejemplo
 
 const members = [
-  { id: 'u-ana', email: 'ana@dev.invalid', name: 'Ana Prueba', role: 'editor', responsibilities: 'Servidor, base de datos y despliegue.', domains: ['API', 'Infraestructura'] },
-  { id: 'u-bruno', email: 'bruno@dev.invalid', name: 'Bruno Prueba', role: 'member', responsibilities: 'Interfaz del panel y accesibilidad.', domains: ['Panel', 'Diseño'] },
-  { id: 'u-carla', email: 'carla@dev.invalid', name: 'Carla Prueba', role: 'member', responsibilities: 'Pruebas manuales y reporte de errores.', domains: ['Calidad'] },
-  { id: 'u-diego', email: 'diego@dev.invalid', name: 'Diego Prueba', role: 'member', responsibilities: 'Producto y requerimientos del cliente.', domains: ['Producto', 'Soporte'] },
+  { id: 'u-ana', email: 'ana@dev.invalid', name: 'Ana Prueba', role: 'editor', language: 'es-419', responsibilities: 'Servidor, base de datos y despliegue.', domains: ['API', 'Infraestructura'] },
+  { id: 'u-bruno', email: 'bruno@dev.invalid', name: 'Bruno Prueba', role: 'member', language: 'es-419', responsibilities: 'Interfaz del panel y accesibilidad.', domains: ['Panel', 'Diseño'] },
+  { id: 'u-carla', email: 'carla@dev.invalid', name: 'Carla Prueba', role: 'member', language: 'es-419', responsibilities: 'Pruebas manuales y reporte de errores.', domains: ['Calidad'] },
+  { id: 'u-diego', email: 'diego@dev.invalid', name: 'Diego Prueba', role: 'member', language: 'es-419', responsibilities: 'Producto y requerimientos del cliente.', domains: ['Producto', 'Soporte'] },
   // Nombres y textos largos a propósito: el panel debe envolverlos, no cortarlos.
-  { id: 'u-maria', email: 'maria.de.los.angeles.fernandez.larrain@dev.invalid', name: 'María de los Ángeles Fernández-Larraín', role: 'member', responsibilities: 'Documentación del producto, manuales de usuario, capacitación del equipo del cliente y revisión de los textos de la interfaz en cada versión.', domains: ['Documentación', 'Capacitación', 'Redacción técnica', 'Localización'] },
-  { id: 'u-eduardo', email: 'eduardo@dev.invalid', name: 'Eduardo Valenzuela Ibáñez', role: 'member', responsibilities: 'Integraciones con servicios externos.', domains: ['Integraciones'] },
-  { id: 'u-sofia', email: 'sofia@dev.invalid', name: 'Sofía Prueba', role: 'member', responsibilities: 'Análisis de datos.', domains: ['Datos'] },
-  { id: 'u-tomas', email: 'tomas@dev.invalid', name: 'Tomás Prueba', role: 'member', responsibilities: 'Seguridad.', domains: ['Seguridad'] },
-  { id: 'u-valentina', email: 'valentina@dev.invalid', name: 'Valentina Prueba', role: 'member', responsibilities: 'Operación y soporte.', domains: ['Soporte'] },
+  { id: 'u-maria', email: 'maria.de.los.angeles.fernandez.larrain@dev.invalid', name: 'María de los Ángeles Fernández-Larraín', role: 'member', language: 'es-419', responsibilities: 'Documentación del producto, manuales de usuario, capacitación del equipo del cliente y revisión de los textos de la interfaz en cada versión.', domains: ['Documentación', 'Capacitación', 'Redacción técnica', 'Localización'] },
+  { id: 'u-eduardo', email: 'eduardo@dev.invalid', name: 'Eduardo Valenzuela Ibáñez', role: 'member', language: 'es-419', responsibilities: 'Integraciones con servicios externos.', domains: ['Integraciones'] },
+  { id: 'u-sofia', email: 'sofia@dev.invalid', name: 'Sofía Prueba', role: 'member', language: 'es-419', responsibilities: 'Análisis de datos.', domains: ['Datos'] },
+  { id: 'u-tomas', email: 'tomas@dev.invalid', name: 'Tomás Prueba', role: 'member', language: 'es-419', responsibilities: 'Seguridad.', domains: ['Seguridad'] },
+  { id: 'u-valentina', email: 'valentina@dev.invalid', name: 'Valentina Prueba', role: 'member', language: 'es-419', responsibilities: 'Operación y soporte.', domains: ['Soporte'] },
 ]
 
 const areas = [
@@ -59,18 +59,19 @@ const templateBody = (name, description, extra = '') =>
   `---\nname: ${name}\ndescription: ${description}\nfields:\n  - { name: summary, label: Resumen, required: true }\n${extra}---\n## Método\nLeer el input y separar un mensaje por cada punto distinto.\n\n## Formato de salida\nUn mensaje por punto. Título: verbo en infinitivo y lugar.\n`
 
 const templates = [
-  { id: 't-error', area_id: 'a-error', name: 'Reporte de error', description: 'Algo que antes funcionaba o debería funcionar y no lo hace.', body_markdown: templateBody('Reporte de error', 'Algo que antes funcionaba o debería funcionar y no lo hace.', '  - { name: steps, label: Pasos para reproducir, required: true }\n  - { name: expected, label: Qué se esperaba, required: true }\n  - { name: actual, label: Qué pasó, required: true }\n'), updated_at: ago(3000) },
+  { id: 't-error', area_id: 'a-error', name: 'Reporte de error', description: 'Algo que antes funcionaba o debería funcionar y no lo hace.', body_markdown: templateBody('Reporte de error', 'Algo que antes funcionaba o debería funcionar y no lo hace.', '  - { name: steps, label: Pasos para reproducir, required: true }\n  - { name: expected, label: Qué se esperaba, required: true }\n  - { name: actual, label: Qué pasó, required: true }\n'), updated_at: ago(3000), deleted_at: null },
   { id: 't-error-ui', area_id: 'a-error', name: 'Error visual', description: 'Elementos desalineados, cortados o ilegibles en una pantalla.', body_markdown: templateBody('Error visual', 'Elementos desalineados, cortados o ilegibles en una pantalla.'), updated_at: ago(2900) },
   { id: 't-idea', area_id: 'a-idea', name: 'Idea', description: 'Una posibilidad con su motivo.', body_markdown: templateBody('Idea', 'Una posibilidad con su motivo.'), updated_at: ago(3000) },
   { id: 't-feature', area_id: 'a-feature', name: 'Requerimiento', description: 'Qué se necesita y para quién.', body_markdown: templateBody('Requerimiento', 'Qué se necesita y para quién.'), updated_at: ago(3000) },
   { id: 't-feedback', area_id: 'a-feedback', name: 'Opinión', description: 'Qué se vio y qué se piensa de eso.', body_markdown: templateBody('Opinión', 'Qué se vio y qué se piensa de eso.'), updated_at: ago(3000) },
   { id: 't-pregunta', area_id: 'a-pregunta', name: 'Pregunta', description: 'Qué se necesita saber y para qué.', body_markdown: templateBody('Pregunta', 'Qué se necesita saber y para qué.'), updated_at: ago(3000) },
+  { id: 't-accesibilidad', area_id: 'a-accesibilidad', name: 'Observación de accesibilidad', description: 'Qué se vio, con qué dispositivo o ayuda técnica y qué impide hacer.', body_markdown: templateBody('Observación de accesibilidad', 'Qué se vio, con qué dispositivo o ayuda técnica y qué impide hacer.', '  - { name: device, label: Dispositivo o ayuda técnica, required: false }\n'), updated_at: ago(3000) },
 ]
 
 const providers = [
-  { slot: 'text', provider: 'anthropic', model: 'claude-haiku-5-5' },
-  { slot: 'vision', provider: 'anthropic', model: 'claude-haiku-5-5' },
-  { slot: 'speech', provider: 'groq-speech', model: 'whisper-large-v3-turbo' },
+  { slot: 'text', provider: 'anthropic', model: 'claude-haiku-5-5', available: true, reason: null },
+  { slot: 'vision', provider: 'anthropic', model: 'claude-haiku-5-5', available: true, reason: null },
+  { slot: 'speech', provider: 'groq-speech', model: 'whisper-large-v3-turbo', available: false, reason: 'missing_api_key' },
 ]
 
 /** @type {Map<string, {id:string, kind:string, mime:string, name:string, size:number, data:Buffer, input_id?:string}>} */
@@ -145,7 +146,7 @@ seedMessage({ area_id: 'a-error', author_id: 'u-ana', title: 'Revisar el tiempo 
 
 // Mensajes con todos los tipos de medio, títulos largos y muchos destinatarios, para ver cómo se reparte el texto.
 const everyone = members.map((x) => x.id)
-seedMessage({ area_id: 'a-accesibilidad', author_id: 'u-carla', title: 'Revisar la lectura del panel en teléfonos pequeños con el tamaño de letra del sistema al máximo y el tema oscuro activado', body: 'En un teléfono de 360 píxeles de ancho con la letra del sistema al máximo, varias filas se desbordan. Adjunto una captura, la grabación, una nota de voz, el documento con el detalle y el caso en GitHub.', status: 'open', created_at: ago(12), assignee_ids: everyone.filter((x) => x !== 'u-carla'), attachment_ids: [imgDashboard, videoDemo, audioNota, docFeedback, linkIssue] }, [
+seedMessage({ area_id: 'a-accesibilidad', author_id: 'u-carla', title: 'Revisar la lectura del panel en teléfonos pequeños con el tamaño de letra del sistema al máximo y el tema oscuro activado', body: 'En un teléfono de 360 píxeles de ancho con la letra del sistema al máximo, varias filas se desbordan. Adjunto una captura, la grabación, una nota de voz, el documento con el detalle y el caso en GitHub.', status: 'open', created_at: ago(12), fields: { summary: 'La fila de mensajes se desborda con la letra del sistema al máximo.', device: 'Teléfono de 360 píxeles de ancho con Android' }, assignee_ids: everyone.filter((x) => x !== 'u-carla'), attachment_ids: [imgDashboard, videoDemo, audioNota, docFeedback, linkIssue] }, [
   { author_id: 'u-maria', kind: 'clarification', body: 'Cuando dices tamaño máximo, ¿hablas del ajuste de accesibilidad de Android o del zoom del navegador? Cambia dónde se arregla.', created_at: ago(8), attachment_ids: [imgLogin, audioNota] },
   { author_id: 'u-ana', kind: 'answer', body: 'Del ajuste de Android. Dejo la grabación del caso.', created_at: ago(5), attachment_ids: [videoDemo, docFeedback, linkIssue] },
 ])
@@ -154,6 +155,30 @@ seedMessage({ area_id: 'a-error', author_id: 'u-diego', title: 'Grabación del c
 ])
 seedMessage({ area_id: 'a-idea', author_id: 'u-bruno', title: 'Nota de voz con la idea del resumen semanal', body: 'La dejé hablada porque es más rápido.', status: 'open', created_at: ago(40), assignee_ids: ['u-ana'], attachment_ids: [audioNota] })
 seedMessage({ area_id: 'a-pregunta', author_id: 'u-diego', title: 'Enlace al caso del cliente', body: 'El cliente lo escribió en su sistema.', status: 'open', created_at: ago(45), assignee_ids: ['u-ana'], attachment_ids: [linkIssue] })
+
+/** Campos que declara una plantilla en su frontmatter: `- { name: x, label: Y, required: true }`. */
+function templateFields(t) {
+  return [...(t?.body_markdown ?? '').matchAll(/^\s*-\s*\{\s*name:\s*(\w+),\s*label:\s*([^,}]+),\s*required:\s*(true|false)/gm)].map((m) => ({ name: m[1], label: m[2].trim(), required: m[3] === 'true' }))
+}
+const activeTemplate = (areaId, templateId) => templates.find((t) => t.id === templateId && t.area_id === areaId && !t.deleted_at) ?? templates.find((t) => t.area_id === areaId && !t.deleted_at)
+
+/** Lo que el servidor real rechazaría al publicar: campos de otra plantilla o campos obligatorios vacíos. */
+function proposalProblem(proposal, input) {
+  for (const [i, pm] of proposal.messages.entries()) {
+    const n = i + 1
+    if (!areas.some((a) => a.id === pm.area_id)) return `Mensaje ${n}: el área no existe.`
+    if (!String(pm.title ?? '').trim() || !String(pm.body ?? '').trim()) return `Mensaje ${n}: falta el título o el texto.`
+    const tpl = activeTemplate(pm.area_id, pm.template_id)
+    const fields = tpl ? templateFields(tpl) : []
+    const values = pm.fields ?? {}
+    const missing = fields.filter((f) => f.required && !String(values[f.name] ?? '').trim()).map((f) => `falta el campo «${f.name}»`)
+    const extra = Object.keys(values).filter((k) => !fields.some((f) => f.name === k)).map((k) => `el campo «${k}» no existe en la plantilla`)
+    if (missing.length || extra.length) return `Mensaje ${n}: ${[...missing, ...extra].join('; ')}.`
+    if (!(pm.assignee_ids ?? []).every((x) => members.some((mm) => mm.id === x))) return `Mensaje ${n}: un destinatario no existe.`
+    if (!(pm.attachment_ids ?? []).every((x) => input.attachment_ids.includes(x))) return `Mensaje ${n}: un adjunto no es de este input.`
+  }
+  return null
+}
 
 // ---------------------------------------------------------------- estado de sesión, eventos y trabajos
 
@@ -179,7 +204,8 @@ function writeEvent(res, ev) {
 
 function replyView(r) {
   const { attachment_ids, ...rest } = r
-  return { ...rest, attachments: (attachment_ids ?? []).map(attachmentView).filter(Boolean) }
+  const files = (attachment_ids ?? []).map(attachmentView).filter(Boolean)
+  return { ...rest, attachments: files, attachment_kinds: [...new Set(files.map((f) => f.kind))] }
 }
 
 function view(msg) {
@@ -187,7 +213,11 @@ function view(msg) {
   const { attachment_ids, ...rest } = msg
   return {
     ...rest,
+    template_id: msg.template_id ?? templates.find((t) => t.area_id === msg.area_id)?.id ?? null,
+    fields: msg.fields ?? {},
+    updated_at: msg.updated_at ?? msg.created_at,
     attachments: attachment_ids.map(attachmentView).filter(Boolean),
+    attachment_kinds: [...new Set(attachment_ids.map(attachmentView).filter(Boolean).map((f) => f.kind))],
     reply_count: rs.length,
     last_reply: rs.length ? replyView(rs[rs.length - 1]) : null,
   }
@@ -220,6 +250,13 @@ function runJob(input) {
       emit(input.author_id, 'done', { job_id: input.job_id, input_id: input.id, done: true })
       return
     }
+    if (input.text.includes('[simular falla]') && done === steps.length - 1) {
+      input.status = 'failed'
+      input.error = 'El proveedor de modelo no respondió.'
+      input.error_code = 'analysis_failed'
+      emit(input.author_id, 'done', { job_id: input.job_id, input_id: input.id, done: true })
+      return
+    }
     const step = steps[done]
     input.status = step.status
     emit(input.author_id, 'progress', { job_id: input.job_id, input_id: input.id, percent: Math.round((done / total) * 100), phrase: step.phrase, at: new Date().toISOString() })
@@ -247,10 +284,10 @@ function analyze(input) {
       const area = areas[analyzed++ % areas.length]
       return {
         area_id: area.id,
-        template_id: templates.find((t) => t.area_id === area.id)?.id ?? null,
+        template_id: activeTemplate(area.id, null)?.id ?? null,
         title: u.text.split('\n')[0].slice(0, 70),
         body: u.text,
-        fields: null,
+        fields: Object.fromEntries(templateFields(activeTemplate(area.id, null)).map((f) => [f.name, f.required ? u.text.slice(0, 90) : ''])),
         assignee_ids: [others[i % others.length].id],
         attachment_ids: i === 0 ? input.attachment_ids : images,
         unit_ids: [u.id],
@@ -268,7 +305,12 @@ function send(res, status, body, headers = {}) {
   res.end(payload)
 }
 
-const fail = (res, status, error) => send(res, status, { error })
+/** Cuerpo de error de la API: `{ code, message }`; el panel traduce el código a su catálogo. */
+const CODE_BY_STATUS = { 400: 'bad_request', 401: 'unauthenticated', 403: 'forbidden', 404: 'not_found', 409: 'conflict', 422: 'validation', 500: 'internal' }
+const fail = (res, status, message, code = CODE_BY_STATUS[status] ?? 'bad_request') => send(res, status, { code, message })
+
+/** Lista con el sobre de la API: `{ items, page, limit, total }`. */
+const envelope = (items) => ({ items, page: 1, limit: 100, total: items.length })
 
 function readBody(req) {
   return new Promise((resolve, reject) => {
@@ -377,7 +419,7 @@ const server = createServer(async (req, res) => {
       const body = await readJson(req)
       const member = members.find((m) => m.email === String(body?.email ?? '').trim().toLowerCase())
       const password = String(body?.password ?? '')
-      if (!member || password.length < 15) return fail(res, 401, 'Correo o contraseña incorrectos')
+      if (!member || password.length < 15) return fail(res, 401, 'Correo o contraseña incorrectos', 'invalid_credentials')
       const token = randomUUID()
       sessions.set(token, member.id)
       return send(res, 200, { id: member.id }, { 'Set-Cookie': `team_session=${token}; HttpOnly; SameSite=Lax; Path=/` })
@@ -427,7 +469,7 @@ const server = createServer(async (req, res) => {
       const text = parts.find((p) => p.name === 'text')?.data.toString('utf8') ?? ''
       const files = parts.filter((p) => p.name === 'files' && p.filename)
       const links = parts.filter((p) => p.name === 'links').map((p) => p.data.toString('utf8'))
-      if (!text.trim() && !files.length && !links.length) return fail(res, 400, 'El input está vacío')
+      if (!text.trim() && !files.length && !links.length) return fail(res, 400, 'El input está vacío', 'empty_input')
       const hash = createHash('sha256').update(me.id).update(text.trim()).update(files.map((f) => createHash('sha256').update(f.data).digest('hex')).join()).update(links.join()).digest('hex')
       const existing = [...inputs.values()].find((i) => i.content_hash === hash && i.status !== 'cancelled' && i.status !== 'published')
       if (existing) return send(res, 200, { input_id: existing.id, job_id: existing.job_id })
@@ -450,30 +492,60 @@ const server = createServer(async (req, res) => {
       return send(res, 201, { input_id: input.id, job_id: input.job_id })
     }
 
-    let m = /^\/inputs\/([^/]+)(?:\/(publish|cancel))?$/.exec(path)
+    let m = /^\/inputs\/([^/]+)(?:\/(publish|cancel|reprocess|proposal))?$/.exec(path)
     if (m) {
       const input = inputs.get(m[1])
       if (!input || input.author_id !== me.id) return fail(res, 404, 'No existe')
       if (!m[2] && method === 'GET') {
         return send(res, 200, inputView(input))
       }
+      // El texto enviado se corrige en el lugar; la propuesta no se rehace.
+      if (!m[2] && method === 'PATCH') {
+        const body = await readJson(req)
+        if (!body || typeof body.text !== 'string' || !body.text.trim()) return fail(res, 422, 'El texto no puede quedar vacío', 'validation')
+        input.text = body.text
+        input.units = unitsOf(body.text)
+        return send(res, 200, inputView(input))
+      }
+      if (m[2] === 'proposal' && method === 'PATCH') {
+        if (input.status !== 'proposed') return fail(res, 409, 'El input no tiene una propuesta pendiente', 'conflict')
+        const body = await readJson(req)
+        if (!body || !Array.isArray(body.messages) || !body.messages.length) return fail(res, 422, 'La propuesta necesita al menos un mensaje', 'validation')
+        for (const pm of body.messages) {
+          if (!areas.some((x) => x.id === pm.area_id)) return fail(res, 422, 'El área no existe', 'validation')
+          if (!(pm.assignee_ids ?? []).every((x) => members.some((mm) => mm.id === x))) return fail(res, 422, 'Un destinatario no existe', 'validation')
+        }
+        input.proposal = { messages: body.messages, discarded: body.discarded ?? input.proposal?.discarded ?? [] }
+        return send(res, 200, input.proposal)
+      }
       if (m[2] === 'cancel' && method === 'POST') {
         clearTimeout(jobs.get(input.job_id))
         input.status = 'cancelled'
         return send(res, 204)
       }
+      if (m[2] === 'reprocess' && method === 'POST') {
+        if (!isEditor) return fail(res, 403, 'Requiere rol Editor', 'forbidden')
+        if (input.status !== 'failed') return fail(res, 409, 'Sólo se reprocesa un input que falló', 'conflict')
+        input.error = null
+        input.error_code = null
+        input.text = input.text.replace('[simular falla]', '').trim() || input.text
+        input.units = unitsOf(input.text)
+        input.status = 'queued'
+        input.job_id = `j-${id()}`
+        runJob(input)
+        return send(res, 202, { input_id: input.id, job_id: input.job_id })
+      }
       if (m[2] === 'publish' && method === 'POST') {
-        if (input.status !== 'proposed') return fail(res, 409, 'El input no tiene una propuesta pendiente')
-        const body = await readJson(req)
-        if (!body || !Array.isArray(body.messages) || !body.messages.length) return fail(res, 422, 'Propuesta inválida')
+        if (input.status !== 'proposed') return fail(res, 409, 'El input no tiene una propuesta pendiente', 'conflict')
+        const sent = await readJson(req)
+        const proposal = sent && Array.isArray(sent.messages) ? sent : input.proposal
+        if (!proposal?.messages?.length) return fail(res, 422, 'Propuesta inválida', 'validation')
+        const problem = proposalProblem(proposal, input)
+        if (problem) return fail(res, 400, problem, 'validation')
         const created = []
-        for (const pm of body.messages) {
-          if (!areas.some((a) => a.id === pm.area_id)) return fail(res, 422, 'Área inexistente')
-          if (pm.template_id && templates.find((t) => t.id === pm.template_id)?.area_id !== pm.area_id) return fail(res, 422, 'La plantilla no corresponde al área')
-          if (!String(pm.title ?? '').trim() || !String(pm.body ?? '').trim()) return fail(res, 422, 'Hay un mensaje sin título o sin texto')
-          if (!(pm.assignee_ids ?? []).every((x) => members.some((mm) => mm.id === x))) return fail(res, 422, 'Destinatario inexistente')
-          if (!(pm.attachment_ids ?? []).every((x) => input.attachment_ids.includes(x))) return fail(res, 422, 'Adjunto ajeno al input')
-          const msg = seedMessage({ input_id: input.id, area_id: pm.area_id, template_id: pm.template_id ?? null, author_id: me.id, title: pm.title.trim(), body: pm.body.trim(), status: 'open', created_at: new Date().toISOString(), assignee_ids: pm.assignee_ids ?? [], attachment_ids: pm.attachment_ids ?? [] })
+        for (const pm of proposal.messages) {
+          const tpl = activeTemplate(pm.area_id, pm.template_id)
+          const msg = seedMessage({ input_id: input.id, area_id: pm.area_id, template_id: tpl?.id ?? null, fields: pm.fields ?? {}, author_id: me.id, title: pm.title.trim(), body: pm.body.trim(), status: 'open', created_at: new Date().toISOString(), assignee_ids: pm.assignee_ids ?? [], attachment_ids: pm.attachment_ids ?? [] })
           created.push(msg.id)
           for (const to of msg.assignee_ids) if (to !== me.id) emit(to, 'message', { message_id: msg.id, title: msg.title, author_id: me.id, at: msg.created_at })
         }
@@ -491,18 +563,72 @@ const server = createServer(async (req, res) => {
       if (q.get('replies') === '1') list = list.filter((x) => (replies.get(x.id) ?? []).length > 0)
       const stamp = (x) => (q.get('replies') === '1' ? (replies.get(x.id) ?? []).at(-1)?.created_at : x.created_at)
       list.sort((a, b) => stamp(b).localeCompare(stamp(a)))
-      return send(res, 200, list.map(view))
+      return send(res, 200, envelope(list.map(view)))
     }
     m = /^\/messages\/([^/]+)(?:\/(replies|close|reopen))?$/.exec(path)
     if (m) {
       const msg = messages.find((x) => x.id === m[1])
       if (!msg) return fail(res, 404, 'No existe')
       if (!m[2] && method === 'GET') return send(res, 200, { ...view(msg), replies: replies.get(msg.id).map(replyView) })
-      if (m[2] === 'replies' && method === 'POST') {
-        if (msg.author_id === me.id) return fail(res, 403, 'El emisor no puede responder su propio mensaje')
+      // Edición en el lugar de un mensaje publicado: el emisor o un Editor.
+      if (!m[2] && method === 'PATCH') {
+        if (msg.author_id !== me.id && !isEditor) return fail(res, 403, 'Sólo el emisor o un Editor edita el mensaje', 'forbidden')
         const body = await readJson(req)
-        if (!body || !String(body.body ?? '').trim() || !['answer', 'fix', 'clarification'].includes(body.kind)) return fail(res, 422, 'Respuesta inválida')
-        const reply = { id: `r-${id()}`, message_id: msg.id, author_id: me.id, body: body.body.trim(), kind: body.kind, created_at: new Date().toISOString(), attachment_ids: [] }
+        if (!body || !Object.keys(body).length) return fail(res, 400, 'No hay nada que cambiar', 'validation')
+        const allowed = ['title', 'body', 'fields', 'assignee_ids', 'area_id', 'template_id']
+        const unknown = Object.keys(body).filter((k) => !allowed.includes(k))
+        if (unknown.length) return fail(res, 400, `El campo «${unknown[0]}» no existe.`, 'validation')
+        if (body.title !== undefined && !String(body.title).trim()) return fail(res, 400, 'El título no puede quedar vacío.', 'validation')
+        if (body.body !== undefined && !String(body.body).trim()) return fail(res, 400, 'El texto no puede quedar vacío.', 'validation')
+        if (body.area_id !== undefined && !areas.some((a) => a.id === body.area_id)) return fail(res, 400, 'El área no existe.', 'validation')
+        if (body.assignee_ids !== undefined && !body.assignee_ids.every((x) => members.some((mm) => mm.id === x))) return fail(res, 400, 'Un destinatario no existe.', 'validation')
+        const areaId = body.area_id ?? msg.area_id
+        const tpl = activeTemplate(areaId, body.template_id ?? (body.area_id ? null : msg.template_id))
+        if (body.fields !== undefined) {
+          const names = templateFields(tpl).map((f) => f.name)
+          const bad = Object.keys(body.fields).find((k) => !names.includes(k))
+          if (bad) return fail(res, 400, `El campo «${bad}» no existe en la plantilla.`, 'validation')
+        }
+        for (const k of ['title', 'body', 'assignee_ids']) if (body[k] !== undefined) msg[k] = typeof body[k] === 'string' ? body[k].trim() : body[k]
+        if (body.area_id !== undefined) {
+          msg.area_id = body.area_id
+          msg.template_id = tpl?.id ?? null
+          msg.fields = body.fields ?? Object.fromEntries(templateFields(tpl).map((f) => [f.name, msg.fields?.[f.name] ?? '']))
+        }
+        if (body.fields !== undefined) msg.fields = body.fields
+        msg.updated_at = new Date().toISOString()
+        return send(res, 200, { ...view(msg), replies: replies.get(msg.id).map(replyView) })
+      }
+      if (m[2] === 'replies' && method === 'POST') {
+        if (msg.author_id === me.id) return fail(res, 403, 'El emisor no puede responder su propio mensaje', 'forbidden')
+        const ct = req.headers['content-type'] ?? ''
+        let text
+        let kind
+        const attIds = []
+        if (ct.startsWith('multipart/')) {
+          const boundary = /boundary=(?:"([^"]+)"|([^;]+))/.exec(ct)
+          const parts = parseMultipart(await readBody(req), boundary[1] ?? boundary[2])
+          text = parts.find((p) => p.name === 'body')?.data.toString('utf8')
+          kind = parts.find((p) => p.name === 'kind')?.data.toString('utf8')
+          for (const f of parts.filter((p) => p.name === 'files' && p.filename)) {
+            const mime = f.type ?? 'application/octet-stream'
+            const a = { id: `f-${id()}`, kind: kindOf(mime), mime, name: f.filename, size: f.data.length, data: f.data }
+            attachments.set(a.id, a)
+            attIds.push(a.id)
+          }
+          for (const l of parts.filter((p) => p.name === 'links').map((p) => p.data.toString('utf8'))) {
+            const a = { id: `f-${id()}`, kind: 'link', mime: 'text/uri-list', name: l, size: l.length, data: Buffer.from(l) }
+            attachments.set(a.id, a)
+            attIds.push(a.id)
+          }
+        } else {
+          const body = await readJson(req)
+          text = body?.body
+          kind = body?.kind
+        }
+        if (!String(text ?? '').trim() || !['answer', 'fix', 'clarification'].includes(kind ?? 'answer')) return fail(res, 422, 'Respuesta inválida', 'validation')
+        const body = { body: text, kind: kind ?? 'answer' }
+        const reply = { id: `r-${id()}`, message_id: msg.id, author_id: me.id, body: body.body.trim(), kind: body.kind, created_at: new Date().toISOString(), attachment_ids: attIds }
         replies.get(msg.id).push(reply)
         if (msg.status === 'open') msg.status = 'answered'
         return send(res, 201, replyView(reply))
@@ -521,7 +647,7 @@ const server = createServer(async (req, res) => {
 
     // --- áreas y plantillas
     if (path === '/areas' && method === 'GET') {
-      return send(res, 200, areas.map((a) => ({ ...a, open_count: messages.filter((x) => x.area_id === a.id && x.status !== 'closed').length, template_count: templates.filter((t) => t.area_id === a.id).length })))
+      return send(res, 200, envelope(areas.map((a) => ({ ...a, open_count: messages.filter((x) => x.area_id === a.id && x.status === 'open').length, unresolved_count: messages.filter((x) => x.area_id === a.id && x.status !== 'closed').length, template_count: templates.filter((t) => t.area_id === a.id && !t.deleted_at).length }))))
     }
     if (path === '/areas' && method === 'POST') {
       if (needEditor()) return
@@ -547,7 +673,7 @@ const server = createServer(async (req, res) => {
     m = /^\/areas\/([^/]+)\/templates(?:\/([^/]+))?$/.exec(path)
     if (m) {
       if (!areas.some((a) => a.id === m[1])) return fail(res, 404, 'No existe')
-      if (method === 'GET' && !m[2]) return send(res, 200, templates.filter((t) => t.area_id === m[1]))
+      if (method === 'GET' && !m[2]) return send(res, 200, envelope(templates.filter((t) => t.area_id === m[1] && !t.deleted_at)))
       if (needEditor()) return
       const body = method === 'DELETE' ? {} : await readJson(req)
       const check = (b) => {
@@ -558,7 +684,7 @@ const server = createServer(async (req, res) => {
       if (method === 'POST' && !m[2]) {
         const err = check(body ?? {}) ?? (body?.name ? null : 'El nombre es obligatorio')
         if (err) return fail(res, 422, err)
-        const t = { id: `t-${id()}`, area_id: m[1], name: body.name.trim(), description: String(body.description ?? '').trim(), body_markdown: String(body.body_markdown ?? ''), updated_at: new Date().toISOString() }
+        const t = { id: `t-${id()}`, area_id: m[1], name: body.name.trim(), description: String(body.description ?? '').trim(), body_markdown: String(body.body_markdown ?? ''), updated_at: new Date().toISOString(), deleted_at: null }
         templates.push(t)
         return send(res, 201, t)
       }
@@ -572,39 +698,84 @@ const server = createServer(async (req, res) => {
         return send(res, 200, t)
       }
       if (method === 'DELETE') {
-        templates.splice(templates.indexOf(t), 1)
+        if (url.searchParams.get('confirm') !== 'true') return fail(res, 400, 'Falta la confirmación.', 'confirmation_required')
+        t.deleted_at = new Date().toISOString() // borrado en blando: POST /templates/:id/restore lo devuelve
         return send(res, 204)
       }
     }
+    m = /^\/templates\/([^/]+)\/restore$/.exec(path)
+    if (m && method === 'POST') {
+      if (needEditor()) return
+      const t = templates.find((x) => x.id === m[1])
+      if (!t) return fail(res, 404, 'No existe')
+      t.deleted_at = null
+      return send(res, 200, t)
+    }
 
     // --- equipo y ajustes
-    if (path === '/members' && method === 'GET') return send(res, 200, members)
+    if (path === '/members' && method === 'GET') return send(res, 200, envelope(members))
+    // Alta de un miembro: sólo el Editor.
+    if (path === '/members' && method === 'POST') {
+      if (needEditor()) return
+      const body = await readJson(req)
+      const email = String(body?.email ?? '').trim().toLowerCase()
+      if (!email.includes('@') || !String(body?.name ?? '').trim()) return fail(res, 400, 'El correo y el nombre son obligatorios.', 'validation')
+      if (members.some((x) => x.email === email)) return fail(res, 409, 'Ya existe un miembro con ese correo.', 'email_taken')
+      if (body.password !== undefined && String(body.password).length < 15) return fail(res, 400, 'La contraseña es demasiado corta.', 'password_too_short')
+      const fresh = { id: `u-${id()}`, email, name: String(body.name).trim(), role: body.role === 'editor' ? 'editor' : 'member', language: 'es-419', responsibilities: String(body.responsibilities ?? ''), domains: Array.isArray(body.domains) ? body.domains.map(String) : [] }
+      members.push(fresh)
+      return send(res, 201, fresh)
+    }
     m = /^\/members\/([^/]+)$/.exec(path)
     if (m && method === 'PATCH') {
       const target = m[1] === 'me' ? me : members.find((x) => x.id === m[1])
       if (!target) return fail(res, 404, 'No existe')
       if (target.id !== me.id && needEditor()) return
       const body = await readJson(req)
-      if (!body) return fail(res, 400, 'JSON inválido')
+      if (!body) return fail(res, 400, 'JSON inválido', 'bad_request')
       if (body.responsibilities !== undefined) target.responsibilities = String(body.responsibilities)
       if (Array.isArray(body.domains)) target.domains = body.domains.map(String).filter(Boolean)
+      if (body.language !== undefined) {
+        if (target.id !== me.id) return fail(res, 403, 'El idioma es de cada cuenta', 'forbidden')
+        if (!['es-419', 'en'].includes(body.language)) return fail(res, 400, 'El idioma debe ser es-419 o en.', 'validation')
+        target.language = body.language
+      }
+      if (body.name !== undefined || body.email !== undefined) {
+        if (!isEditor) return fail(res, 403, 'Requiere rol Editor', 'forbidden')
+        if (body.name !== undefined) {
+          if (!String(body.name).trim()) return fail(res, 400, 'El nombre no puede quedar vacío.', 'validation')
+          target.name = String(body.name).trim()
+        }
+        if (body.email !== undefined) {
+          const email = String(body.email).trim().toLowerCase()
+          if (members.some((x) => x.id !== target.id && x.email === email)) return fail(res, 409, 'Ya existe un miembro con ese correo.', 'email_taken')
+          target.email = email
+        }
+      }
+      if ((body.current_password === undefined) !== (body.new_password === undefined)) return fail(res, 400, 'Para cambiar la contraseña se envían la actual y la nueva.', 'password_pair_required')
+      if (body.new_password !== undefined) {
+        if (target.id !== me.id) return fail(res, 403, 'La contraseña propia se cambia desde Configuración', 'forbidden')
+        if (String(body.current_password).length < 15) return fail(res, 401, 'La contraseña actual no es correcta.', 'invalid_credentials')
+        if (String(body.new_password).length < 15) return fail(res, 400, 'La contraseña nueva es demasiado corta.', 'password_too_short')
+      }
       if (body.role !== undefined) {
-        if (!isEditor) return fail(res, 403, 'Requiere rol Editor')
-        if (!['member', 'editor'].includes(body.role)) return fail(res, 422, 'Rol inválido')
+        if (!isEditor) return fail(res, 403, 'Requiere rol Editor', 'forbidden')
+        if (!['member', 'editor'].includes(body.role)) return fail(res, 422, 'Rol inválido', 'validation')
         target.role = body.role
       }
       return send(res, 200, target)
     }
     if (path === '/settings/providers') {
       if (needEditor()) return
-      if (method === 'GET') return send(res, 200, providers)
+      const view = () => ({ analyzer: 'api', items: providers })
+      if (method === 'GET') return send(res, 200, view())
       if (method === 'PATCH') {
         const body = await readJson(req)
         const slot = providers.find((p) => p.slot === body?.slot)
-        if (!slot || !String(body.provider ?? '').trim() || !String(body.model ?? '').trim()) return fail(res, 422, 'Ranura, proveedor y modelo son obligatorios')
+        if (!slot || !String(body.provider ?? '').trim() || !String(body.model ?? '').trim()) return fail(res, 422, 'Ranura, proveedor y modelo son obligatorios', 'validation')
         slot.provider = body.provider.trim()
         slot.model = body.model.trim()
-        return send(res, 200, slot)
+        return send(res, 200, view())
       }
     }
     m = /^\/attachments\/([^/]+)$/.exec(path)

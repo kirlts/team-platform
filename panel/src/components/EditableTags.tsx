@@ -1,15 +1,15 @@
 import { Plus, X } from '@/components/icons'
 import { useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
+import { useT } from '@/i18n'
 
-/** Lista de etiquetas editable en el lugar: cada una se quita con su ×; el «+» abre un campo y salir agrega. */
+/** Lista de etiquetas editable en el lugar: cada una se quita con su ×; el «+» abre un campo y salir agrega. Sin etiquetas, el vacío se dibuja igual para quien edita y para quien lee. */
 export function EditableTags({
   values,
   onSave,
   canEdit,
   label,
-  placeholder = 'Sin dato',
+  placeholder,
 }: {
   values: string[]
   onSave: (next: string[]) => void | Promise<unknown>
@@ -17,6 +17,7 @@ export function EditableTags({
   label: string
   placeholder?: string
 }) {
+  const t = useT()
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState('')
   const discard = useRef(false)
@@ -34,17 +35,12 @@ export function EditableTags({
 
   return (
     <span className="flex flex-wrap items-center gap-1">
-      {values.length === 0 && !canEdit && <span className="text-faint">{placeholder}</span>}
+      {values.length === 0 && <span className="text-faint">{placeholder ?? t('editable.empty')}</span>}
       {values.map((v) => (
         <Badge key={v} tone="accent" className="gap-1 pr-1">
           {v}
           {canEdit && (
-            <button
-              type="button"
-              aria-label={`Quitar ${v}`}
-              onClick={() => void onSave(values.filter((x) => x !== v))}
-              className="rounded-sm p-0.5 hover:bg-accent/15"
-            >
+            <button type="button" aria-label={t('tags.remove', { value: v })} onClick={() => void onSave(values.filter((x) => x !== v))} className="rounded-sm p-0.5 hover:bg-accent/15">
               <X size={11} aria-hidden />
             </button>
           )}
@@ -72,18 +68,14 @@ export function EditableTags({
         ) : (
           <button
             type="button"
-            aria-label={`Agregar a ${label.toLowerCase()}`}
+            aria-label={t('tags.add', { label })}
             onClick={() => {
               discard.current = false
               setAdding(true)
             }}
-            className={cn(
-              'inline-flex h-5 items-center gap-0.5 rounded-sm border border-dashed border-line-strong px-1 text-xs text-muted hover:border-accent hover:text-accent',
-              values.length === 0 && 'px-1.5',
-            )}
+            className="inline-flex h-5 w-5 items-center justify-center rounded-sm border border-dashed border-line-strong text-muted hover:border-accent hover:text-accent"
           >
             <Plus size={11} aria-hidden />
-            {values.length === 0 && <span>{placeholder}</span>}
           </button>
         ))}
     </span>

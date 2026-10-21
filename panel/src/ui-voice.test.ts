@@ -40,7 +40,7 @@ const ES_PERSON = /(?<![\p{L}])(tú|tu|tus|tuyo|tuya|tuyos|tuyas|usted|ustedes|v
 /** Second person of the preterite (enviaste, escribiste). The third person of these verbs ends the same way. */
 const ES_PRETERITE = /(?<![\p{L}])(\p{L}+(?:aste|iste))(?![\p{L}])/giu
 const ES_THIRD_PERSON = new Set(['existe', 'insiste', 'persiste', 'asiste', 'resiste', 'consiste', 'subsiste', 'desiste', 'triste'])
-/** Imperative with a clitic (revísala, publícalo): the accent sits before the pronoun. */
+/** Imperative with a clitic pronoun attached: the accent sits before the pronoun. */
 const ES_CLITIC_IMPERATIVE = /(?<![\p{L}])\p{L}*[áéíóú]\p{L}{0,2}[ae](la|lo|las|los)(?![\p{L}])/iu
 const preterite = (text: string) => [...text.matchAll(ES_PRETERITE)].some((m) => !ES_THIRD_PERSON.has(m[1].toLowerCase()))
 const EN_PERSON = /(?<![\p{L}'])(you|your|yours|yourself|we|our|ours|let's|please)(?![\p{L}])/iu

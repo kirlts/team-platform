@@ -526,3 +526,44 @@ RULES:
 - La imagen crece 0,5 MB (306,96 a 307,48 MB). No hay binario nativo por arquitectura: `ffmpeg` se compila en la etapa de la imagen para la arquitectura de la construcción.
 - H-21 se cierra. UD-039 sigue vigente en lo que decidió (no se prueba Safari ni el micrófono con un iPhone, H-56).
 **Condiciones de reversión:** Que un redistribuidor no acepte el decodificador HEVC dentro de la imagen (patentes de HEVC); entonces el HEIC vuelve a rechazarse en la subida.
+
+## [UD-060] La interfaz se mide con instrumentos antes de juzgarla
+
+**Fecha:** 2026-10-21
+**Contexto:** Cada ronda de jueces tomó entre 9 y 14 minutos por juez, un arreglo entre 29 y 87 minutos y una fusión con choques entre 10 y 20. Los jueces repitieron hallazgos que el dueño ya había refutado: en la ronda 3, 21 de 84 filas del libro reaparecen de rondas anteriores y 16 quedaron refutadas.
+**Decisión:** Martín, textual: «para esto ocupamos OpenTelemetry, para tener muchos datos sobre qué es lo que se necesita mejorar, y las rondas de jueces nos quitan demasiado tiempo; hay que encontrar una forma más eficiente, quizás darle un encargo más acotado a varios jueces en paralelo». Lo medible se mide con detectores en navegador y con telemetría de uso; el juicio queda para lo que ninguno ve.
+**Alternativas descartadas:**
+- Seguir con rondas de un juez por área: tiempo de pared de 9 a 14 minutos por juez y 25 % de repeticiones.
+- Sólo detectores: no ven rótulos, jerarquía ni flujo.
+**Consecuencias:**
+- Telemetría de interfaz (UD-061), detectores (`panel/scripts/ui-detectors.mjs`) y jueces acotados (UD-062).
+**Condiciones de reversión:** Que la medición del marco (`docs/investigaciones/mediciones/2026-10-21-jueces-acotados-contra-juez-unico.md`) muestre menos hallazgos válidos por minuto de pared que el juez único.
+
+## [UD-061] Telemetría de la interfaz: módulo propio, JSON validado, encendida por omisión
+
+**Fecha:** 2026-10-21
+**Contexto:** UD-060 pide datos de uso. El informe 09 encontró que el SDK de navegador de OpenTelemetry sigue experimental (`sdk-trace-web` fue retirado en la serie 3.0.0 y las convenciones `browser.*` están en «development»).
+**Decisión:** El panel emite eventos con un módulo propio (`panel/src/lib/telemetry.ts`, unos 0,7 KB comprimidos según el informe) a `POST /api/telemetry/ui`. El servidor valida la forma sin campos desconocidos y los guarda como spans OpenTelemetry `ui.*` en la tabla `spans`. Ningún evento lleva texto de personas, contenido, nombres de archivo ni identificadores de miembro: sólo conteos, duraciones, pantallas, tareas y rutas con sus identificadores reemplazados. Nace encendida (informe 09, recomendación 12: sin cookies, almacenamiento local, identificador persistente ni contenido, y con interruptor); el Editor la apaga en Configuración, «Telemetría de uso», y `UI_TELEMETRY=0` fija el valor inicial. El envío usa `fetch` con `keepalive` y no `navigator.sendBeacon`, porque un beacon no puede llevar la cabecera `X-Team-Request` que el servidor exige a toda petición con sesión. La decisión de encender por omisión la tomó la sesión por encargo del dueño («decide con UD: justifica»).
+**Alternativas descartadas:**
+- SDK de navegador de OpenTelemetry: 16,3 KB comprimidos y API experimental (informe 09, §2).
+- `sendBeacon`: sin cabeceras propias, choca con el CSRF (informe 09, §5).
+- Apagada por omisión: sin datos el informe queda vacío y los cinco productos comparados nacen encendidos.
+- Rage clicks y dead clicks: ninguna fuente fija umbrales comunes (informe 09, §4); quedan fuera hasta que un hallazgo los pida.
+**Consecuencias:**
+- Cifras con fuente: cuerpo de 64 KiB (cuota de `keepalive`), 145 eventos por lote (80 % de la cuota sobre el evento más largo posible, 360 bytes), 100 peticiones por 10 s por dirección y la misma cota en el cliente (10 eventos por segundo con ráfaga de 100, como PostHog).
+- Retención: la de los spans, 7 días.
+- Abandono: sólo con `pagehide` definitivo; un navegador móvil que descarta la página oculta sin `pagehide` no lo registra.
+- Mide el estado de Chrome, Firefox 128 o Safari 16.4 como el navegador lo permita: CLS y tareas largas sólo existen en Chromium y en los otros quedan sin dato, no en cero.
+**Condiciones de reversión:** Apagarla es el interruptor o `UI_TELEMETRY=0`. Si se agrega un identificador persistente o contenido, debe nacer apagada.
+
+## [UD-062] Jueces acotados en paralelo, con instrumentos y restricciones
+
+**Fecha:** 2026-10-21
+**Contexto:** UD-060.
+**Decisión:** Un encargo de unos 5 minutos por pantalla o flujo, todos los jueces a la vez (`scripts/juicios.mjs`, `docs/JUICIOS.md`). El juez recibe las salidas de los detectores y de la telemetría y reporta sólo lo que ninguna ve. Recibe como reglas del alcance las decisiones del dueño y los hallazgos refutados, nunca qué se cambió, y la nota parte en 2. Un consolidador marca cada hallazgo contra el libro y contra los otros jueces.
+**Alternativas descartadas:**
+- Decirle al juez qué se cambió: ancla el juicio (informe 10, §5).
+- Descartar automáticamente por similitud de títulos: la precisión medida es 0,67 con umbral 0,35, por eso sólo marca.
+**Consecuencias:**
+- Un hallazgo cuenta cuando se reproduce con captura o se mide.
+**Condiciones de reversión:** UD-060.

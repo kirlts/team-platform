@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Telemetría de la interfaz (UD-061): `POST /api/telemetry/ui`, `GET /api/telemetry/ui-summary`, `PATCH /api/settings/telemetry`, módulo `panel/src/lib/telemetry.ts`, interruptor en Configuración y `scripts/ui-report.mjs`.
+- `panel/scripts/ui-detectors.mjs`: detectores de interfaz en navegador sobre todas las rutas, dos ventanas y dos temas.
+- Jueces acotados en paralelo (UD-062): `scripts/juicios.mjs` y `docs/JUICIOS.md`.
+- Investigaciones 09 (telemetría de la interfaz) y 10 (evaluación con jueces acotados).
 - `scripts/vps-check.mjs`: comprobación de punta a punta de una instancia desplegada (página, salud, panel servido, inicio de sesión, un texto mixto y su propuesta), con `--last` para describir el último envío (H-89, H-56).
 - `bench/run-private.mjs run --plan`: ensayo en seco de una corrida del banco privado; no llama a ningún proveedor, rechaza un modelo sin tarifa y un tope ya gastado.
 - `GET /api/messages/summary`: lo que afecta a cada miembro por prioridad (rojo, amarillo, azul) y los mensajes abiertos por área (UD-028).

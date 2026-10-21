@@ -26,7 +26,7 @@ const PANEL = path.join(ROOT, 'panel')
 // Title similarity at which a reported finding is taken for one already in the book. Measured over the book itself
 // (`calibrar`): the threshold with the best F1 for telling the rows the book marks as repeats from every other pair of
 // the same screen. At this value 67 % of the pairs it flags are real repeats and it finds 35 % of them
-// (docs/investigaciones/mediciones/2026-10-21-umbral-de-repeticion-en-el-libro.md). It is a candidate generator, not a
+// (measurement of 2026-10-21 in docs/investigaciones/mediciones, one file named after the threshold). It is a candidate generator, not a
 // verdict: a flagged finding keeps its place in the report with the row it resembles.
 export const MATCH_THRESHOLD = 0.35
 

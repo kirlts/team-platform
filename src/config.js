@@ -176,10 +176,10 @@ export function loadConfig (env = process.env, overrides = {}) {
       descriptionMaxChars: intVar(env, 'PROJECT_DESCRIPTION_MAX_CHARS', 200000, { min: 1 }) // informe 02 §10.2: the 100,000-token price step, UD-024
     },
 
-    // ---- Telemetría de la interfaz (UD-061, MASTER-SPEC §7.10 ter). Cada cifra cita su fuente o se declara cortesía.
+    // ---- Interface telemetry (UD-061, MASTER-SPEC §7.10 ter). Every number cites its source or is declared a courtesy.
     uiTelemetry: {
-      // UD-061: encendida por omisión (informe 09 §6 y §8.12: sin cookies, almacenamiento, identificador persistente ni
-      // contenido); el dueño la apaga en Configuración y la variable fija el valor inicial.
+      // UD-061: on by default (informe 09 §6 and §8.12: no cookies, storage, persistent identifier or content); the Editor
+      // turns it off in Configuración and the variable sets the initial value.
       enabledDefault: boolVar(env, 'UI_TELEMETRY', true),
       // Informe 09 §5 (fetch.spec.whatwg.org, 2026-10-19): the body quota of requests with `keepalive` is 64 KiB. A batch
       // that fits it can be sent while the page closes.

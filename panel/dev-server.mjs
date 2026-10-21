@@ -16,7 +16,7 @@
 // panel/src/lib/types.ts; este servidor los cumple.
 
 import { createHash, randomUUID } from 'node:crypto'
-import { createReadStream, existsSync, statSync } from 'node:fs'
+import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { extname, join, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -38,6 +38,12 @@ const members = [
   { id: 'u-bruno', email: 'bruno@dev.invalid', name: 'Bruno Prueba', role: 'member', responsibilities: 'Interfaz del panel y accesibilidad.', domains: ['Panel', 'Diseño'] },
   { id: 'u-carla', email: 'carla@dev.invalid', name: 'Carla Prueba', role: 'member', responsibilities: 'Pruebas manuales y reporte de errores.', domains: ['Calidad'] },
   { id: 'u-diego', email: 'diego@dev.invalid', name: 'Diego Prueba', role: 'member', responsibilities: 'Producto y requerimientos del cliente.', domains: ['Producto', 'Soporte'] },
+  // Nombres y textos largos a propósito: el panel debe envolverlos, no cortarlos.
+  { id: 'u-maria', email: 'maria.de.los.angeles.fernandez.larrain@dev.invalid', name: 'María de los Ángeles Fernández-Larraín', role: 'member', responsibilities: 'Documentación del producto, manuales de usuario, capacitación del equipo del cliente y revisión de los textos de la interfaz en cada versión.', domains: ['Documentación', 'Capacitación', 'Redacción técnica', 'Localización'] },
+  { id: 'u-eduardo', email: 'eduardo@dev.invalid', name: 'Eduardo Valenzuela Ibáñez', role: 'member', responsibilities: 'Integraciones con servicios externos.', domains: ['Integraciones'] },
+  { id: 'u-sofia', email: 'sofia@dev.invalid', name: 'Sofía Prueba', role: 'member', responsibilities: 'Análisis de datos.', domains: ['Datos'] },
+  { id: 'u-tomas', email: 'tomas@dev.invalid', name: 'Tomás Prueba', role: 'member', responsibilities: 'Seguridad.', domains: ['Seguridad'] },
+  { id: 'u-valentina', email: 'valentina@dev.invalid', name: 'Valentina Prueba', role: 'member', responsibilities: 'Operación y soporte.', domains: ['Soporte'] },
 ]
 
 const areas = [
@@ -46,6 +52,7 @@ const areas = [
   { id: 'a-feature', title: 'Nueva funcionalidad', description: 'Una capacidad que el sistema no tiene y alguien necesita.', position: 3 },
   { id: 'a-feedback', title: 'Retroalimentación', description: 'Una opinión sobre algo que ya existe.', position: 4 },
   { id: 'a-pregunta', title: 'Pregunta', description: 'Algo que alguien necesita saber para seguir.', position: 5 },
+  { id: 'a-accesibilidad', title: 'Accesibilidad y experiencia de uso en dispositivos móviles', description: 'Observaciones sobre cómo se lee, se toca y se entiende el panel desde un teléfono, con lector de pantalla o con el teclado solamente.', position: 6 },
 ]
 
 const templateBody = (name, description, extra = '') =>
@@ -105,6 +112,8 @@ const imgDashboard = seedAttachment('image', 'image/svg+xml', 'dashboard.svg', s
 const imgLogin = seedAttachment('image', 'image/svg+xml', 'login.svg', svgCapture('Inicio de sesión', 150))
 const imgAgenda = seedAttachment('image', 'image/svg+xml', 'agenda.svg', svgCapture('Agenda', 20))
 const audioNota = seedAttachment('audio', 'audio/wav', 'nota-de-voz.wav', silentWav(6))
+const videoDemo = seedAttachment('video', 'video/webm', 'grabacion-del-error.webm', readFileSync(new URL('./dev-fixtures/sample.webm', import.meta.url)))
+const linkIssue = seedAttachment('link', 'text/uri-list', 'https://github.com/example/team-platform/issues/1234', Buffer.from('https://github.com/example/team-platform/issues/1234'))
 const docFeedback = seedAttachment('document', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'feedback-cliente.docx', Buffer.from('ejemplo de desarrollo'))
 
 /** @type {any[]} */
@@ -115,7 +124,7 @@ const replies = new Map()
 function seedMessage(m, rs = []) {
   const msg = { id: `m-${id()}`, input_id: null, closed_at: null, ...m }
   messages.push(msg)
-  replies.set(msg.id, rs.map((r) => ({ id: `r-${id()}`, message_id: msg.id, ...r })))
+  replies.set(msg.id, rs.map((r) => ({ id: `r-${id()}`, message_id: msg.id, attachment_ids: [], ...r })))
   return msg
 }
 
@@ -133,6 +142,18 @@ seedMessage({ area_id: 'a-feedback', author_id: 'u-bruno', title: 'Las fechas de
   { author_id: 'u-carla', kind: 'answer', body: 'Hecho en la última versión.', created_at: ago(61 * 60) },
 ])
 seedMessage({ area_id: 'a-error', author_id: 'u-ana', title: 'Revisar el tiempo de respuesta de la lista de mensajes', body: 'Con más de doscientos mensajes la lista tarda en abrir.', status: 'open', created_at: ago(96 * 60), assignee_ids: ['u-bruno'], attachment_ids: [] })
+
+// Mensajes con todos los tipos de medio, títulos largos y muchos destinatarios, para ver cómo se reparte el texto.
+const everyone = members.map((x) => x.id)
+seedMessage({ area_id: 'a-accesibilidad', author_id: 'u-carla', title: 'Revisar la lectura del panel en teléfonos pequeños con el tamaño de letra del sistema al máximo y el tema oscuro activado', body: 'En un teléfono de 360 píxeles de ancho con la letra del sistema al máximo, varias filas se desbordan. Adjunto una captura, la grabación, una nota de voz, el documento con el detalle y el caso en GitHub.', status: 'open', created_at: ago(12), assignee_ids: everyone.filter((x) => x !== 'u-carla'), attachment_ids: [imgDashboard, videoDemo, audioNota, docFeedback, linkIssue] }, [
+  { author_id: 'u-maria', kind: 'clarification', body: 'Cuando dices tamaño máximo, ¿hablas del ajuste de accesibilidad de Android o del zoom del navegador? Cambia dónde se arregla.', created_at: ago(8), attachment_ids: [imgLogin, audioNota] },
+  { author_id: 'u-ana', kind: 'answer', body: 'Del ajuste de Android. Dejo la grabación del caso.', created_at: ago(5), attachment_ids: [videoDemo, docFeedback, linkIssue] },
+])
+seedMessage({ area_id: 'a-error', author_id: 'u-diego', title: 'Grabación del cierre de sesión que no borra la sesión anterior', body: 'Se ve en el video: después de cerrar sesión, al volver atrás el panel muestra los mensajes.', status: 'answered', created_at: ago(20), assignee_ids: ['u-ana', 'u-maria'], attachment_ids: [videoDemo] }, [
+  { author_id: 'u-ana', kind: 'fix', body: 'Corregido: al cerrar sesión se vacía la caché de consultas.', created_at: ago(15), attachment_ids: [linkIssue] },
+])
+seedMessage({ area_id: 'a-idea', author_id: 'u-bruno', title: 'Nota de voz con la idea del resumen semanal', body: 'La dejé hablada porque es más rápido.', status: 'open', created_at: ago(40), assignee_ids: ['u-ana'], attachment_ids: [audioNota] })
+seedMessage({ area_id: 'a-pregunta', author_id: 'u-diego', title: 'Enlace al caso del cliente', body: 'El cliente lo escribió en su sistema.', status: 'open', created_at: ago(45), assignee_ids: ['u-ana'], attachment_ids: [linkIssue] })
 
 // ---------------------------------------------------------------- estado de sesión, eventos y trabajos
 
@@ -156,6 +177,11 @@ function writeEvent(res, ev) {
   res.write(`id: ${ev.seq}\nevent: ${ev.name}\ndata: ${JSON.stringify(ev.data)}\n\n`)
 }
 
+function replyView(r) {
+  const { attachment_ids, ...rest } = r
+  return { ...rest, attachments: (attachment_ids ?? []).map(attachmentView).filter(Boolean) }
+}
+
 function view(msg) {
   const rs = replies.get(msg.id) ?? []
   const { attachment_ids, ...rest } = msg
@@ -163,7 +189,7 @@ function view(msg) {
     ...rest,
     attachments: attachment_ids.map(attachmentView).filter(Boolean),
     reply_count: rs.length,
-    last_reply: rs.length ? rs[rs.length - 1] : null,
+    last_reply: rs.length ? replyView(rs[rs.length - 1]) : null,
   }
 }
 
@@ -471,15 +497,15 @@ const server = createServer(async (req, res) => {
     if (m) {
       const msg = messages.find((x) => x.id === m[1])
       if (!msg) return fail(res, 404, 'No existe')
-      if (!m[2] && method === 'GET') return send(res, 200, { ...view(msg), replies: replies.get(msg.id) })
+      if (!m[2] && method === 'GET') return send(res, 200, { ...view(msg), replies: replies.get(msg.id).map(replyView) })
       if (m[2] === 'replies' && method === 'POST') {
         if (msg.author_id === me.id) return fail(res, 403, 'El emisor no puede responder su propio mensaje')
         const body = await readJson(req)
         if (!body || !String(body.body ?? '').trim() || !['answer', 'fix', 'clarification'].includes(body.kind)) return fail(res, 422, 'Respuesta inválida')
-        const reply = { id: `r-${id()}`, message_id: msg.id, author_id: me.id, body: body.body.trim(), kind: body.kind, created_at: new Date().toISOString() }
+        const reply = { id: `r-${id()}`, message_id: msg.id, author_id: me.id, body: body.body.trim(), kind: body.kind, created_at: new Date().toISOString(), attachment_ids: [] }
         replies.get(msg.id).push(reply)
         if (msg.status === 'open') msg.status = 'answered'
-        return send(res, 201, reply)
+        return send(res, 201, replyView(reply))
       }
       if (m[2] === 'close' && method === 'POST') {
         msg.status = 'closed'

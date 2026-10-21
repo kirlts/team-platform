@@ -14,18 +14,18 @@
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
 - `main`: 89a1d39 Traspaso: la barra superior no lleva contadores por área. Empujado a origin: `89a1d39`.
-- Ramas con commits sin fusionar: `wt-barra-superior` 5 (hace 3 minutos), `wt-inicio-respira` 1 (hace 4 minutos).
+- Ramas con commits sin fusionar: `wt-barra-superior` 6 (hace 55 segundos), `wt-inicio-respira` 1 (hace 6 minutos).
 - Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `barra-superior`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `inicio-respira`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `89a1d39` Traspaso: la barra superior no lleva contadores por área (hace 2 minutos)
-- `207697a` Traspaso: instrucción de la barra superior en su sección (hace 4 minutos)
-- `43cf09c` Traspaso: la barra superior sólo con íconos de color y número (hace 4 minutos)
-- `c40b15d` Traspaso: barra superior e Inicio con espacio en vuelo (hace 7 minutos)
-- `14bd755` Traspaso: VPS actualizado, duración medida de la reconstrucción (hace 12 minutos)
-- `0d608f7` Traspaso: Inicio completo en main y VPS reconstruyéndose (hace 17 minutos)
-- `6c971d1` Merge remote-tracking branch 'origin/main' into wt-inicio-maqueta (hace 21 minutos)
-- `8233b45` Libro: H-1405 cerrado con su causa y su medición; H-1406 y H-1407 cerrados (hace 21 minutos)
-Actualizado 2026-10-21 17:28 UTC.
+- `89a1d39` Traspaso: la barra superior no lleva contadores por área (hace 4 minutos)
+- `207697a` Traspaso: instrucción de la barra superior en su sección (hace 6 minutos)
+- `43cf09c` Traspaso: la barra superior sólo con íconos de color y número (hace 6 minutos)
+- `c40b15d` Traspaso: barra superior e Inicio con espacio en vuelo (hace 9 minutos)
+- `14bd755` Traspaso: VPS actualizado, duración medida de la reconstrucción (hace 14 minutos)
+- `0d608f7` Traspaso: Inicio completo en main y VPS reconstruyéndose (hace 19 minutos)
+- `6c971d1` Merge remote-tracking branch 'origin/main' into wt-inicio-maqueta (hace 23 minutos)
+- `8233b45` Libro: H-1405 cerrado con su causa y su medición; H-1406 y H-1407 cerrados (hace 23 minutos)
+Actualizado 2026-10-21 17:30 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

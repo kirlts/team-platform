@@ -565,6 +565,10 @@ test('change a function: no key is 422 provider_no_key, unknown provider is 422 
     const unknown = await env.ed('PATCH', '/settings/providers', { slot: 'text', provider: 'does-not-exist', model: 'm' })
     assert.equal(unknown.statusCode, 422)
     assert.equal(unknown.json().code, 'provider_invalid')
+    const pasted = await env.ed('PATCH', '/settings/providers', { slot: 'text', provider: 'sk-pasted-by-mistake-1234', model: 'm' }) // a key typed in the name field
+    assert.equal(pasted.statusCode, 422)
+    assert.ok(!pasted.body.includes('sk-pasted-by-mistake'))
+    assert.match(pasted.json().message, /^Ese proveedor no existe/) // Spanish, and without the typed value
     for (const body of [{}, { slot: 'text' }, { slot: 'nope', provider: 'anthropic' }, { slot: 'text', provider: '' }, { slot: 'text', provider: 'anthropic', extra: 1 }, { analyzer: 'other' }]) {
       assert.equal((await env.ed('PATCH', '/settings/providers', body)).statusCode, 400, JSON.stringify(body))
     }

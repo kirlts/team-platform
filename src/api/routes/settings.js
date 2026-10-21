@@ -73,8 +73,9 @@ export function registerSettingsRoutes (app, ctx) {
     const merged = mergeOverrides(getProviderOverrides(db), patchObj)
     try {
       modules.buildProviders?.(merged)
-    } catch (error) {
-      throw unprocessable(error.message, 'provider_invalid')
+    } catch {
+      // The builder's own message is English and repeats what was typed; a key pasted by mistake in the name must not come back.
+      throw unprocessable('Ese proveedor no existe o su configuración no es válida.', 'provider_invalid')
     }
     if (analyzer === undefined) await probeSlotChange(ctx, slot, merged) // the previous setting stays when the test fails
     setProviderOverrides(db, patchObj)

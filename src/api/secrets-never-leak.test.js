@@ -134,6 +134,7 @@ test('the whole journey of the keys leaves the sentinels in no response, log, sp
     assert.equal(badEnvironment.statusCode, 422)
     assert.equal(badEnvironment.json().cause, 'invalid_key')
     assert.equal((await call('PATCH', '/settings/providers', { slot: 'vision', provider: 'inexistente', model: 'x' })).statusCode, 422)
+    assert.equal((await call('PATCH', '/settings/providers', { slot: 'vision', provider: KEYS.replaced, model: 'x' })).statusCode, 422) // a key pasted in the name field
     assert.equal((await call('PATCH', '/settings/providers', { slot: 'text', provider: 'gemini', model: 'missing-model' })).statusCode, 422)
     assert.equal((await call('PATCH', '/settings/providers', { slot: 'text', extra: KEYS.old })).statusCode, 400)
     assert.equal((await call('PATCH', '/settings/providers', { analyzer: 'harness' })).statusCode, 200)

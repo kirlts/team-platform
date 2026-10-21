@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { AlertTriangle, Check } from '@/components/icons'
+import { LoadState } from '@/components/LoadState'
 import { Button } from '@/components/ui/button'
 import { useErrorText, useI18n, useT } from '@/i18n'
 import { Markdown } from '@/lib/markdown'
@@ -52,7 +53,8 @@ export function ProjectEditor({ editor, describedBy }: { editor: boolean; descri
     el.style.height = 'auto'
     el.style.height = `${el.scrollHeight + (el.offsetHeight - el.clientHeight)}px`
   }
-  useLayoutEffect(fit, [draft, editor])
+  const loaded = Boolean(project.data)
+  useLayoutEffect(fit, [draft, editor, loaded])
   useEffect(() => {
     const el = field.current
     if (!el || typeof ResizeObserver === 'undefined') return
@@ -65,7 +67,7 @@ export function ProjectEditor({ editor, describedBy }: { editor: boolean; descri
     })
     observer.observe(el)
     return () => observer.disconnect()
-  }, [editor])
+  }, [editor, loaded])
 
   const length = [...draft].length
   const over = max !== undefined && length > max
@@ -110,6 +112,9 @@ export function ProjectEditor({ editor, describedBy }: { editor: boolean; descri
     link.remove()
     URL.revokeObjectURL(url)
   }
+
+  // Before the text arrives there is no field: typing over an empty draft would be lost when it loads.
+  if (!project.data) return <LoadState query={project} rows={3} />
 
   if (!editor) {
     return current ? (

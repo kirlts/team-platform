@@ -85,10 +85,77 @@ const project = {
 }
 
 const providers = [
-  { slot: 'text', provider: 'anthropic', model: 'claude-haiku-5-5', available: true, reason: null },
-  { slot: 'vision', provider: 'anthropic', model: 'claude-haiku-5-5', available: true, reason: null },
-  { slot: 'speech', provider: 'groq-speech', model: 'whisper-large-v3-turbo', available: false, reason: 'missing_api_key' },
+  { slot: 'text', provider: 'anthropic', model: 'claude-haiku-5-5' },
+  { slot: 'vision', provider: 'anthropic', model: 'claude-haiku-5-5' },
+  { slot: 'speech', provider: 'groq-speech', model: 'whisper-large-v3-turbo' },
 ]
+
+// ---- Provider connections (keys). The double never keeps a key: only its last four characters, like the real server's views.
+const CAUSES = ['invalid_key', 'no_quota', 'model_not_found', 'no_network', 'rate_limited', 'timeout', 'bad_address', 'provider_error', 'unknown']
+const PRESETS = [
+  { name: 'deepseek', label: 'DeepSeek', kind: 'openai-compatible', base_url: 'https://api.deepseek.com/v1', suggested_model: 'deepseek-chat', structured: 'json_object' },
+  { name: 'groq', label: 'Groq', kind: 'openai-compatible', base_url: 'https://api.groq.com/openai/v1', suggested_model: 'llama-3.3-70b-versatile', structured: 'json_schema' },
+  { name: 'openrouter', label: 'OpenRouter', kind: 'openai-compatible', base_url: 'https://openrouter.ai/api/v1', suggested_model: 'openai/gpt-5-mini', structured: 'json_schema' },
+  { name: 'gemini', label: 'Gemini', kind: 'openai-compatible', base_url: 'https://generativelanguage.googleapis.com/v1beta/openai', suggested_model: 'gemini-2.5-flash', structured: 'json_schema' },
+]
+const SLOT_PROVIDERS = { text: ['anthropic', 'openai-compatible'], vision: ['anthropic', 'openai-compatible'], speech: ['groq-speech'] }
+const NAME_RE = /^[a-z0-9-]{2,40}$/
+const HTTP_BY_CAUSE = { invalid_key: 401, no_quota: 402, model_not_found: 404, rate_limited: 429, provider_error: 502 }
+const iso = (offsetMs = 0) => new Date(Date.now() - offsetMs).toISOString()
+const randomMs = () => 40 + Math.floor(Math.random() * 360)
+
+/** @type {Map<string, any>} */
+const connections = new Map()
+function seedConnections() {
+  connections.clear()
+  const add = (c) => connections.set(c.name, c)
+  add({ name: 'anthropic', label: 'Anthropic', kind: 'anthropic', custom: false, base_url: null, structured: null, key: { source: 'environment', last4: '0000', updated_at: null }, last_check: { at: iso(3 * 3600_000), ok: true, cause: null, duration_ms: 212 } })
+  add({ name: 'groq-speech', label: 'Groq (transcripción)', kind: 'groq-speech', custom: false, base_url: 'https://api.groq.com/openai/v1', structured: null, key: { source: 'stored', last4: '5678', updated_at: iso(2 * 86_400_000) }, last_check: { at: iso(2 * 3600_000), ok: true, cause: null, duration_ms: 148 } })
+  for (const p of PRESETS) add({ ...p, custom: false, key: { source: null, last4: null, updated_at: null }, last_check: null })
+  add({ name: 'mi-gateway', label: 'Pasarela interna', kind: 'openai-compatible', custom: true, base_url: 'https://llm.ejemplo.invalid/v1', structured: 'json_object', key: { source: 'stored', last4: '9f2a', updated_at: iso(5 * 86_400_000) }, last_check: { at: iso(26 * 60_000), ok: false, cause: 'no_quota', duration_ms: 190 } })
+}
+seedConnections()
+
+const usedBy = (name) => providers.filter((p) => p.provider === name).map((p) => p.slot)
+function connectionView(c) {
+  const used = usedBy(c.name)
+  const status = !c.key.source ? 'no_key' : c.last_check && !c.last_check.ok ? 'failing' : 'configured'
+  return { name: c.name, label: c.label, kind: c.kind, custom: c.custom, base_url: c.base_url, structured: c.structured, status, key: { ...c.key }, used_by: used, last_check: c.last_check }
+}
+/** Listed: the two fixed ones, every custom one, and any preset with a key or in use. */
+const listed = (c) => c.name === 'anthropic' || c.name === 'groq-speech' || c.custom || c.key.source !== null || usedBy(c.name).length > 0
+
+/**
+ * The simulated test of the contract: a key containing `fail-<cause>` fails with that cause, a model containing `missing-model`
+ * fails with model_not_found, and anything else works with 40 to 400 ms and the models `modelo-a`, `modelo-b` and the one asked for.
+ */
+function simulateCheck({ apiKey, hasKey = true, model }) {
+  const base = { model: model ?? null, checked_at: iso() }
+  const fail = (cause) => ({ ok: false, cause, status: HTTP_BY_CAUSE[cause] ?? null, duration_ms: cause === 'timeout' ? 15000 : randomMs(), models: null, model_listed: null, ...base })
+  if (!hasKey) return fail('invalid_key')
+  const asked = /fail-([a-z_]+)/.exec(apiKey ?? '')
+  if (asked && CAUSES.includes(asked[1])) return fail(asked[1])
+  if (model && model.includes('missing-model')) return fail('model_not_found')
+  const models = ['modelo-a', 'modelo-b', ...(model ? [model] : [])]
+  return { ok: true, cause: null, status: 200, duration_ms: randomMs(), models, model_listed: model ? true : null, ...base }
+}
+const stamp = (c, check) => {
+  c.last_check = { at: check.checked_at, ok: check.ok, cause: check.cause, duration_ms: check.duration_ms }
+}
+const checkFailure = (res, check) => send(res, 422, { code: 'provider_check_failed', message: 'La prueba contra el proveedor falló', cause: check.cause, status_code: check.status ?? undefined, duration_ms: check.duration_ms })
+const last4Of = (key) => String(key).trim().slice(-4)
+
+function providersView() {
+  return {
+    analyzer: 'api',
+    items: providers.map((p) => {
+      const c = connections.get(p.provider)
+      const view = c ? connectionView(c) : null
+      const hasKey = !!c?.key.source
+      return { slot: p.slot, provider: p.provider, model: p.model, ...(c?.base_url ? { base_url: c.base_url } : {}), available: hasKey, reason: hasKey ? null : 'missing_api_key', key_last4: c?.key.last4 ?? null, status: view?.status ?? 'no_key' }
+    }),
+  }
+}
 
 /** @type {Map<string, {id:string, kind:string, mime:string, name:string, size:number, data:Buffer, input_id?:string}>} */
 const attachments = new Map()
@@ -618,6 +685,7 @@ function control(path, query) {
     restoreArray(areas, initial.areas)
     restoreArray(templates, initial.templates)
     restoreArray(providers, initial.providers)
+    seedConnections()
     restoreArray(messages, initial.messages)
     Object.keys(project).forEach((k) => delete project[k])
     Object.assign(project, copyOf(initial.project))
@@ -1140,17 +1208,98 @@ const server = createServer(async (req, res) => {
       }
       return send(res, 200, target)
     }
-    if (path === '/settings/providers') {
+    if (path === '/settings/providers' && method === 'GET') {
       if (needEditor()) return
-      const view = () => ({ analyzer: 'api', items: providers })
-      if (method === 'GET') return send(res, 200, view())
-      if (method === 'PATCH') {
+      return send(res, 200, providersView())
+    }
+    if (path === '/settings/providers' && method === 'PATCH') {
+      if (needEditor()) return
+      const body = await readJson(req)
+      const slot = providers.find((p) => p.slot === body?.slot)
+      if (!slot) return fail(res, 422, 'Función inexistente', 'validation')
+      const provider = body.provider === undefined ? slot.provider : String(body.provider).trim()
+      const model = body.model === undefined ? slot.model : String(body.model).trim()
+      const conn = connections.get(provider)
+      if (!provider || !model || !conn || !SLOT_PROVIDERS[slot.slot].includes(conn.kind)) return fail(res, 422, 'Proveedor o modelo inválidos para esa función', 'validation')
+      // The server tests the combination before it applies it; a failure changes nothing.
+      const check = simulateCheck({ hasKey: !!conn.key.source, model })
+      stamp(conn, check)
+      if (!check.ok) return checkFailure(res, check)
+      slot.provider = provider
+      slot.model = model
+      return send(res, 200, providersView())
+    }
+    m = /^\/settings\/providers\/(text|vision|speech)\/check$/.exec(path)
+    if (m && method === 'POST') {
+      if (needEditor()) return
+      const slot = providers.find((p) => p.slot === m[1])
+      const conn = connections.get(slot.provider)
+      const check = simulateCheck({ hasKey: !!conn?.key.source, model: slot.model })
+      if (conn) stamp(conn, check)
+      return send(res, 200, { check, slot: slot.slot, provider: slot.provider, model: slot.model })
+    }
+    if (path === '/settings/connections' && method === 'GET') {
+      if (needEditor()) return
+      return send(res, 200, { items: [...connections.values()].filter(listed).map(connectionView), presets: [...PRESETS, { name: 'other', label: 'Otro', kind: 'openai-compatible', base_url: null, suggested_model: null, structured: 'json_schema' }].map((p) => ({ ...p })) })
+    }
+    if (path === '/settings/connections' && method === 'POST') {
+      if (needEditor()) return
+      const body = await readJson(req)
+      if (!body || typeof body.api_key !== 'string' || !body.api_key.trim()) return fail(res, 422, 'Falta la clave', 'validation')
+      const preset = body.preset && body.preset !== 'other' ? PRESETS.find((p) => p.name === body.preset) : null
+      if (body.preset && body.preset !== 'other' && !preset) return fail(res, 404, 'Proveedor inexistente', 'not_found')
+      const name = preset ? preset.name : String(body.name ?? '').trim()
+      if (!NAME_RE.test(name)) return fail(res, 422, 'Nombre inválido', 'validation')
+      const existing = connections.get(name)
+      if (existing && (existing.custom || listed(existing))) return fail(res, 409, 'Ya existe una conexión con ese nombre', 'connection_exists')
+      const baseUrl = preset ? preset.base_url : String(body.base_url ?? '').trim()
+      if (!preset && !/^https?:\/\/[^\s]+$/.test(baseUrl)) return fail(res, 422, 'Dirección inválida', 'validation')
+      const check = simulateCheck({ apiKey: body.api_key, model: body.model ? String(body.model) : preset?.suggested_model })
+      if (!check.ok) return checkFailure(res, check)
+      const conn = preset
+        ? existing
+        : { name, label: String(body.label ?? '').trim() || name, kind: 'openai-compatible', custom: true, base_url: baseUrl, structured: ['json_schema', 'tool', 'json_object'].includes(body.structured) ? body.structured : 'json_schema', key: {}, last_check: null }
+      conn.key = { source: 'stored', last4: last4Of(body.api_key), updated_at: iso() }
+      stamp(conn, check)
+      connections.set(name, conn)
+      return send(res, 201, { connection: connectionView(conn), check })
+    }
+    m = /^\/settings\/connections\/([^/]+)(\/key|\/check)?$/.exec(path)
+    if (m) {
+      if (needEditor()) return
+      const conn = connections.get(decodeURIComponent(m[1]))
+      if (!conn || !listed(conn)) return fail(res, 404, 'Conexión inexistente', 'not_found')
+      if (m[2] === '/key' && method === 'PUT') {
         const body = await readJson(req)
-        const slot = providers.find((p) => p.slot === body?.slot)
-        if (!slot || !String(body.provider ?? '').trim() || !String(body.model ?? '').trim()) return fail(res, 422, 'Ranura, proveedor y modelo son obligatorios', 'validation')
-        slot.provider = body.provider.trim()
-        slot.model = body.model.trim()
-        return send(res, 200, view())
+        if (!body || typeof body.api_key !== 'string' || !body.api_key.trim()) return fail(res, 422, 'Falta la clave', 'validation')
+        const model = body.model ? String(body.model) : providers.find((p) => p.provider === conn.name)?.model
+        const check = simulateCheck({ apiKey: body.api_key, model })
+        if (!check.ok) return checkFailure(res, check) // the previous key stays
+        conn.key = { source: 'stored', last4: last4Of(body.api_key), updated_at: iso() }
+        stamp(conn, check)
+        return send(res, 200, { connection: connectionView(conn), check })
+      }
+      if (m[2] === '/key' && method === 'DELETE') {
+        const used = usedBy(conn.name)
+        if (used.length) return send(res, 409, { code: 'provider_in_use', message: 'Una función depende de esta clave', used_by: used })
+        if (conn.key.source === 'environment') return fail(res, 409, 'La clave viene del entorno del servidor', 'key_from_environment')
+        conn.key = { source: null, last4: null, updated_at: null }
+        conn.last_check = null
+        return send(res, 200, { connection: connectionView(conn) })
+      }
+      if (m[2] === '/check' && method === 'POST') {
+        const body = await readJson(req)
+        const model = body?.model ? String(body.model) : (providers.find((p) => p.provider === conn.name)?.model ?? PRESETS.find((p) => p.name === conn.name)?.suggested_model)
+        const check = simulateCheck({ hasKey: !!conn.key.source, model })
+        stamp(conn, check)
+        return send(res, 200, { check })
+      }
+      if (!m[2] && method === 'DELETE') {
+        if (!conn.custom) return fail(res, 422, 'Sólo se eliminan los personalizados', 'validation')
+        const used = usedBy(conn.name)
+        if (used.length) return send(res, 409, { code: 'provider_in_use', message: 'Una función depende de este proveedor', used_by: used })
+        connections.delete(conn.name)
+        return send(res, 200, { deleted: true })
       }
     }
     // The text the server extracted from an audio or a video (the real server answers the same, from its `extracted_text`).

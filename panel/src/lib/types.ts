@@ -187,6 +187,72 @@ export interface ProviderSetting {
   /** False when the key or another condition is missing; `reason` says which, in the account's language or as a code. */
   available?: boolean
   reason?: string | null
+  base_url?: string | null
+  /** Last four characters of the key the function's provider uses; the key itself never reaches the panel. */
+  key_last4?: string | null
+  status?: ConnectionStatus
+}
+
+/** Why a test against a provider failed, classified by the server. */
+export type Cause = 'invalid_key' | 'no_quota' | 'model_not_found' | 'no_network' | 'rate_limited' | 'timeout' | 'bad_address' | 'provider_error' | 'unknown'
+export const CAUSES: readonly Cause[] = ['invalid_key', 'no_quota', 'model_not_found', 'no_network', 'rate_limited', 'timeout', 'bad_address', 'provider_error', 'unknown']
+
+/** Result of one test call against a provider. */
+export interface Check {
+  ok: boolean
+  cause: Cause | null
+  /** HTTP status of the provider's answer, when there was one. */
+  status: number | null
+  duration_ms: number
+  model: string | null
+  /** The models the provider lists, when it lists them. */
+  models: string[] | null
+  model_listed: boolean | null
+  checked_at: string
+}
+
+export type ConnectionStatus = 'no_key' | 'configured' | 'failing'
+export type ConnectionKind = 'anthropic' | 'openai-compatible' | 'groq-speech'
+export type StructuredMode = 'json_schema' | 'tool' | 'json_object'
+
+/** A provider the server can talk to, with the state of its key. The key itself is never sent. */
+export interface Connection {
+  /** Slug; the id and the value of `provider` in the functions. */
+  name: string
+  label: string
+  kind: ConnectionKind
+  custom: boolean
+  base_url: string | null
+  structured: StructuredMode | null
+  status: ConnectionStatus
+  key: { source: 'stored' | 'environment' | null; last4: string | null; updated_at: string | null }
+  used_by: ProviderSlot[]
+  last_check: { at: string; ok: boolean; cause: Cause | null; duration_ms: number } | null
+}
+
+export interface Preset {
+  name: string
+  label: string
+  kind: ConnectionKind
+  base_url: string | null
+  suggested_model: string | null
+  structured: StructuredMode | null
+}
+
+export interface ConnectionsView {
+  items: Connection[]
+  presets: Preset[]
+}
+
+/** Body of POST /settings/connections. */
+export interface NewConnection {
+  preset?: string
+  name?: string
+  label?: string
+  base_url?: string
+  structured?: string
+  api_key: string
+  model?: string
 }
 
 /** Partial change of a published message (PATCH /messages/:id). */

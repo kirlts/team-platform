@@ -77,7 +77,6 @@ export const en: Record<MessageKey, Message> = {
   'bar.mine': 'For me',
   'bar.none': 'No messages',
   'bar.byArea': 'By area',
-  'bar.moreAreas': { one: '{n} more area', other: '{n} more areas' },
   'areas.countOf': '{title}: {count}',
   'tray.review': { one: '{n} to review', other: '{n} to review' },
   'tray.running': { one: '{n} analyzing', other: '{n} analyzing' },

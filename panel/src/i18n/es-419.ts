@@ -77,7 +77,6 @@ export const es419 = {
   'bar.mine': 'Para mí',
   'bar.none': 'Sin mensajes',
   'bar.byArea': 'Por área',
-  'bar.moreAreas': { one: '{n} área más', other: '{n} áreas más' },
   'areas.countOf': '{title}: {count}',
   'tray.review': { one: '{n} para revisar', other: '{n} para revisar' },
   'tray.running': { one: '{n} en análisis', other: '{n} en análisis' },

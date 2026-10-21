@@ -1,8 +1,12 @@
 import { ChevronDown, Home, PanelLeft, Inbox, Layers, LogOut, Plug, Plus, Settings, Users } from '@/components/icons'
 import { useState, type ReactNode } from 'react'
 import { NavLink, useMatch } from 'react-router'
+import { Link } from 'react-router'
+import { StateMark, useCountsLabel } from '@/components/NotifyBadge'
 import { useT } from '@/i18n'
-import { useAreas, useMe, useSaveArea } from '@/lib/queries'
+import { areaCounts, areaMessagesPath } from '@/lib/pending'
+import type { MessageSummary } from '@/lib/types'
+import { useAreas, useMe, useSaveArea, useSummary } from '@/lib/queries'
 import { cn } from '@/lib/utils'
 import { Avatar } from './Avatar'
 import { FormDialog } from './FormDialog'
@@ -23,11 +27,12 @@ function Item({ to, icon, children, end, onNavigate, badge }: { to: string; icon
   )
 }
 
-/** Sidebar: user, views, areas (Editor) and Configuración at the foot. */
+/** Sidebar: user, views, areas with what is pending in each (Editor) and Configuración at the foot. */
 export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => void; onLogout: () => void; onHide?: () => void }) {
   const t = useT()
   const me = useMe().data
   const areas = useAreas()
+  const summary = useSummary().data
   const saveArea = useSaveArea()
   const editor = me?.role === 'editor'
   const inAreas = !!useMatch('/areas/*')
@@ -79,11 +84,15 @@ export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => v
             <ul data-lane="areas-nav" className="scroll-thin ml-2.5 mt-0.5 flex min-h-0 flex-col gap-0.5 overflow-y-auto border-l border-line-strong pl-1">
               {(areas.data ?? []).map((a) => (
                 <li key={a.id} className="flex items-center gap-1">
-                  <NavLink to={`/areas/${a.id}`} onClick={onNavigate} className={({ isActive }) => cn(row, 'min-h-11 min-w-0 flex-1 text-sm md:min-h-7', isActive && active)}>
+                  <NavLink to={`/areas/${a.id}`} onClick={onNavigate} className={({ isActive }) => cn(row, 'min-h-11 min-w-0 text-sm md:min-h-7', isActive && active)}>
                     {/* The area's color, the same one its chip has in the messages (UD-045). */}
                     <span aria-hidden data-testid="area-swatch-dot" className="h-2.5 w-2.5 shrink-0 rounded-sm border border-line-strong" style={{ background: a.color }} />
                     <span className="min-w-0 flex-1 break-words leading-tight">{a.title}</span>
                   </NavLink>
+                  {/* The counts' column is reserved and its marks are the shape and the number (the word is in the link's name): a name that wraps does so the same before and after they arrive, and a narrow panel keeps its width. */}
+                  <span className="flex min-w-20 shrink-0 items-center justify-end">
+                    <AreaPending areaId={a.id} title={a.title} summary={summary} onNavigate={onNavigate} />
+                  </span>
                 </li>
               ))}
             </ul>
@@ -125,5 +134,22 @@ export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => v
         onSubmit={(v) => saveArea.mutateAsync({ title: v.title, description: v.description })}
       />
     </nav>
+  )
+}
+
+/** The open messages of an area, leading to Mensajes filtered by that area and by open (UD-028, UD-041). */
+function AreaPending({ areaId, title, summary, onNavigate }: { areaId: string; title: string; summary: MessageSummary | undefined; onNavigate?: () => void }) {
+  const t = useT()
+  const label = useCountsLabel()
+  const counts = areaCounts(summary, areaId)
+  return (
+    <>
+      {/* One line: the sidebar shows the open ones, so a count arriving does not change the height of its row. Áreas also shows the answered ones. */}
+      {counts.open > 0 && (
+        <Link to={areaMessagesPath(areaId, 'open')} onClick={onNavigate} aria-label={t('areas.countOf', { title, count: label({ open: counts.open }) })} className="rounded-full">
+          <StateMark status="open" n={counts.open} showWord={false} plain />
+        </Link>
+      )}
+    </>
   )
 }

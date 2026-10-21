@@ -364,8 +364,10 @@ async function withSummary(page, mine, areas = []) {
   await page.route(/\/api\/messages\/summary$/, (route) => route.fulfill({ json: { mine: { ...mine, total: mine.open + mine.answered }, items, areas } }))
 }
 
-describe('insignia y estados (UD-028, UD-029, UD-041)', () => {
-  test('the bell takes the background of the highest state present, and the Messages badge and the Home notice carry it in the color of their shape, in all four combinations and both themes (UD-029, UD-036, UD-041)', async () => {
+describe('la barra superior: estados y áreas (UD-028, UD-029, UD-041, UD-100)', () => {
+  const STATE_WORDS = /abiertos?|respondidos?|cerrados?/i
+
+  test('each state is its shape and its number with no visible word, its color is the shape and not a fill, in all four combinations and both themes (UD-036, UD-041, UD-100)', async () => {
     for (const scheme of ['light', 'dark']) {
       for (let bits = 0; bits < 4; bits++) {
         const mine = { open: bits & 1 ? 2 : 0, answered: bits & 2 ? 3 : 0 }
@@ -374,45 +376,34 @@ describe('insignia y estados (UD-028, UD-029, UD-041)', () => {
         try {
           await withSummary(page, mine)
           await login(page, origin, 'ana')
-          await page.getByTestId('attention').waitFor()
+          await page.getByTestId('status-bar').waitFor()
           const fills = await probeFills(page)
           assert.equal(new Set(Object.values(fills)).size, 3, 'los tres estados tienen fondos distintos')
-          const top = mine.open ? 'open' : mine.answered ? 'answered' : null
-          const total = mine.open + mine.answered
-          const surfaces = {
-            pestaña: page.getByRole('navigation', { name: 'Navegación' }).locator('[data-testid="messages-badge"]'),
-            aviso: page.getByTestId('attention').locator(`[data-testid="state-mark"][data-status="${top}"]`),
-          }
-          for (const [name, badge] of Object.entries(surfaces)) {
-            if (!top) {
-              assert.equal(await badge.count(), 0, `${name}: sin nada abierto ni respondido no hay insignia (${scheme})`)
-              continue
-            }
-            assert.equal(await badge.getAttribute('data-status'), top, `${name}: estado ${top} (${scheme}, ${JSON.stringify(mine)})`)
+          const bar = page.getByTestId('status-bar')
+          // The three states are always there (UD-100); closed ones are counted from the data, the other two from the mocked summary.
+          assert.equal(await bar.locator('[data-testid="state-button"]').count(), 3, 'tres marcas, una por estado')
+          for (const status of ['open', 'answered', 'closed']) {
+            const mark = bar.locator(`[data-testid="state-button"][data-status="${status}"]`)
+            await mark.waitFor()
             // Quiet (UD-036): no tinted fill; the state is the color of the shape.
-            assert.equal(await badge.evaluate((el) => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)', `${name}: una marca callada no se rellena (${scheme}, ${JSON.stringify(mine)})`)
-            const shape = await badge.locator('svg').first().evaluate((el) => getComputedStyle(el).color)
-            assert.equal(shape, await page.evaluate((t) => { const p = document.createElement('i'); p.setAttribute('data-status', t); p.setAttribute('data-weight', 'quiet'); const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); p.append(s); document.body.append(p); const c = getComputedStyle(s).color; p.remove(); return c }, top), `${name}: la forma lleva el color de ${top} (${scheme})`)
-            if (name === 'pestaña') assert.equal((await badge.textContent()).trim(), String(total), `${name}: el número es el total`)
-            // The color is never alone: the aviso names the state with its word and its number.
-            if (name === 'aviso') assert.match((await badge.textContent()).trim(), new RegExp(`^\\d+ ${STATE_WORD[top]}s?$`))
+            assert.equal(await mark.evaluate((el) => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)', `una marca callada no se rellena (${scheme})`)
+            const shape = await mark.locator('svg').first().evaluate((el) => getComputedStyle(el).color)
+            assert.equal(shape, await page.evaluate((t) => { const p = document.createElement('i'); p.setAttribute('data-status', t); p.setAttribute('data-weight', 'quiet'); const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); p.append(s); document.body.append(p); const c = getComputedStyle(s).color; p.remove(); return c }, status), `la forma lleva el color de ${status} (${scheme})`)
+            // The word is not drawn: the mark is a shape and a number, and says its state by name and by tooltip.
+            assert.match((await mark.textContent()).trim(), /^\d+$/)
+            const shown = (await mark.textContent()).trim()
+            if (status !== 'closed') assert.equal(shown, String(mine[status]))
+            const name = await mark.getAttribute('aria-label')
+            assert.match(name, new RegExp(`^${shown} ${STATE_WORD[status]}s?$`))
+            assert.equal(await mark.getAttribute('title'), name, 'el tooltip dice lo mismo que el nombre accesible')
           }
+          assert.doesNotMatch(await bar.innerText(), STATE_WORDS, `la barra no escribe el nombre de un estado (${scheme}, ${JSON.stringify(mine)})`)
+          // The bell does not repeat the count and carries no state (UD-100): there is no saturated state fill anywhere.
           const bell = page.getByTestId('bell')
-          if (top) {
-            assert.equal(await bell.getAttribute('data-status'), top, `campana: estado ${top}`)
-            assert.equal(await bell.evaluate((el) => getComputedStyle(el).backgroundColor), fills[top], `campana: el fondo pintado es el de ${top} (${scheme})`)
-            assert.match((await bell.textContent()).trim(), new RegExp(`${total}$`))
-            // One source of truth (J2-B-03): the bell is the only saturated fill on the screen; everything else is quiet.
-            const weights = await page.evaluate(() => [...document.querySelectorAll('[data-status]')].map((el) => el.getAttribute('data-weight') ?? 'solid'))
-            assert.equal(weights.filter((w) => w === 'solid').length, 1, `un solo relleno saturado (${scheme}, ${JSON.stringify(mine)})`)
-            // The bell lists exactly what it counts (J2-A-43), each with the word of its state.
-            await bell.click()
-            assert.equal(await page.locator('[data-lane="bell-list"] li').count(), total, `la campana lista ${total} (${scheme}, ${JSON.stringify(mine)})`)
-            assert.equal(await page.locator('[data-lane="bell-list"] [data-testid="state-mark"]').first().textContent(), top === 'open' ? 'Abierto' : 'Respondido')
-          } else {
-            // With nothing open or answered that affects the member, the bell shows no state at all.
-            assert.equal(await bell.getAttribute('data-status'), null, 'campana: sin avisos no lleva estado')
-          }
+          assert.equal(await bell.getAttribute('data-status'), null, 'la campana no lleva estado')
+          assert.equal((await bell.textContent()).trim(), '', 'la campana no repite el conteo')
+          const weights = await page.evaluate(() => [...document.querySelectorAll('[data-status]')].map((el) => el.getAttribute('data-weight') ?? 'solid'))
+          assert.equal(weights.filter((w) => w === 'solid').length, 0, `ningún relleno saturado de estado (${scheme}, ${JSON.stringify(mine)})`)
         } finally {
           await context.close()
         }
@@ -420,26 +411,32 @@ describe('insignia y estados (UD-028, UD-029, UD-041)', () => {
     }
   })
 
-  test('real data: the Messages badge counts what the server says and the Home notice repeats it per state', async () => {
+  test('real data: the marks count what the server says, the sidebar and the Home do not repeat it', async () => {
     const { page, context } = await session('ana')
     try {
       const summary = await (await page.request.get(`${origin}/api/messages/summary`)).json()
       assert.ok(summary.mine.open > 0 && summary.mine.answered > 0, 'los datos de desarrollo tienen abiertos y respondidos para Ana')
-      const badge = page.getByRole('navigation', { name: 'Navegación' }).locator('[data-testid="messages-badge"]')
-      await badge.waitFor()
-      assert.equal(await badge.getAttribute('data-status'), 'open')
-      assert.equal((await badge.textContent()).trim(), String(summary.mine.total))
-      const attention = page.getByTestId('attention')
-      for (const [status, word, n] of [['open', n1 => (n1 === 1 ? 'abierto' : 'abiertos'), summary.mine.open], ['answered', n1 => (n1 === 1 ? 'respondido' : 'respondidos'), summary.mine.answered]]) {
-        const mark = attention.locator(`[data-testid="state-mark"][data-status="${status}"]`).first()
-        assert.equal((await mark.textContent()).trim(), `${n} ${word(n)}`)
+      const bar = page.getByTestId('status-bar')
+      assert.equal(await bar.locator('[data-testid="state-button"][data-status="closed"]').count(), 1, 'el cerrado también tiene su marca')
+      for (const [status, n] of [['open', summary.mine.open], ['answered', summary.mine.answered]]) {
+        const mark = bar.locator(`[data-testid="state-button"][data-status="${status}"]`)
+        await mark.waitFor()
+        assert.equal((await mark.textContent()).trim(), String(n))
+      }
+      // One source (UD-100): the Mensajes link has no figure of its own and Inicio has no strip of them; the counts of each area stay in the sidebar.
+      assert.equal(await page.getByTestId('messages-badge').count(), 0)
+      assert.equal(await page.getByTestId('attention').count(), 0)
+      // The bar is in every page.
+      for (const path of ['/messages', '/areas', '/team', '/settings']) {
+        await page.goto(`${origin}${path}`)
+        await page.getByTestId('status-bar').waitFor()
       }
     } finally {
       await context.close()
     }
   })
 
-  test('a closed message loses its notice and leaves the count and the bell, and keeps its color as a state (J2-A-09, J2-A-43, UD-041)', async () => {
+  test('a closed message loses its notice and leaves the counts and the menus, and keeps its color as a state (J2-A-09, UD-041)', async () => {
     const { page, context } = await session('bruno')
     try {
       await page.getByRole('heading', { name: 'Últimos mensajes' }).waitFor()
@@ -452,37 +449,117 @@ describe('insignia y estados (UD-028, UD-029, UD-041)', () => {
       await page.locator('article', { hasText: title }).first().getByText('Cerrado', { exact: true }).waitFor()
       for (const row of await page.locator('article', { hasText: 'Cerrado' }).all()) {
         assert.equal(await row.getAttribute('data-affects-me'), null, 'un cerrado no afecta a nadie')
-        // It is shown in its own state: the mark says «Cerrado» and the edge is the closed color.
         assert.equal(await row.locator('[data-testid="state-mark"]').getAttribute('data-status'), 'closed')
         assert.notEqual(await row.evaluate((el) => getComputedStyle(el).boxShadow), 'none', 'el borde lleva el color del estado cerrado')
       }
-      await page.getByTestId('bell').click()
       await settled(page)
-      const listed = await page.locator('[data-lane="bell-list"] li').allInnerTexts()
-      assert.ok(listed.length <= before, 'la lista de la campana no crece')
-      assert.ok(!listed.some((t) => t.includes(title)), 'la campana ya no lista el mensaje cerrado')
+      const after = (await (await page.request.get(`${origin}/api/messages/summary`)).json()).mine.total
+      assert.ok(after < before, `el conteo baja (${before} → ${after})`)
+      let listed = 0
+      for (const mark of await page.locator('[data-testid="state-button"][data-status="open"], [data-testid="state-button"][data-status="answered"]').all()) {
+        await mark.click()
+        await page.getByTestId('status-menu').waitFor()
+        const texts = await page.locator('[data-testid="status-row"]').allInnerTexts()
+        listed += texts.length
+        assert.ok(!texts.some((t) => t.includes(title)), 'el desplegable ya no lista el mensaje cerrado')
+        await page.keyboard.press('Escape')
+      }
+      assert.equal(listed, after, 'los desplegables listan exactamente lo que cuenta la barra')
+      await page.locator('[data-testid="state-button"][data-status="closed"]').click()
+      await page.locator('[data-testid="status-row"]').first().waitFor()
+      assert.ok((await page.locator('[data-testid="status-row"]').allInnerTexts()).some((t) => t.includes(title)), 'el cerrado aparece en el desplegable de cerrados')
+      await page.keyboard.press('Escape')
+      assert.equal(await page.getByTestId('state-button').first().evaluate((el) => !!el.closest('[data-testid="status-bar"]')), true)
     } finally {
       await context.close()
     }
   })
 
-  test('a count per area leads to Messages filtered by that area and by that state, and shows as many messages as the number says', async () => {
+  test('the top bar has no count per area, in any page and size; the counts of each area stay in the sidebar (UD-100)', async () => {
+    for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+      const { page, context } = await session('ana', viewport)
+      try {
+        for (const path of ['/', '/messages', '/areas', '/areas/a-error', '/team']) {
+          await page.goto(`${origin}${path}`)
+          await page.getByTestId('status-bar').waitFor()
+          await settled(page)
+          const bar = page.getByTestId('status-bar')
+          assert.equal(await bar.locator('[data-testid="area-pending"], [data-testid="area-chip"], [data-area-id], [data-testid="area-more"]').count(), 0, `${path} (${viewport.width}): contador por área en la barra`)
+          assert.equal(await bar.locator('button:visible').count(), viewport.width < 768 ? 1 : 3, `${path} (${viewport.width}): la barra son tres marcas (un resumen en el teléfono) y nada más`)
+          assert.doesNotMatch(await bar.innerText(), /abiertos?|respondidos?|cerrados?/i, `${path}: texto de estado visible`)
+          assert.equal(await page.locator('header [data-testid="area-pending"], header [data-area-id]').count(), 0)
+        }
+      } finally {
+        await context.close()
+      }
+    }
     const { page, context } = await session('ana')
     try {
-      const chip = page.getByTestId('area-pending').filter({ hasText: 'Error' }).first()
-      await chip.waitFor()
-      const summary = await (await page.request.get(`${origin}/api/messages/summary`)).json()
-      const areas = await (await page.request.get(`${origin}/api/areas`)).json()
-      const error = (areas.items ?? areas).find((a) => a.title === 'Error')
-      const open = summary.areas.find((a) => a.area_id === error.id).open
-      assert.ok(open > 0)
-      await chip.getByRole('link', { name: /abierto/ }).click()
-      await page.waitForURL(/\/messages\?/)
-      const url = new URL(page.url())
-      assert.deepEqual(url.searchParams.getAll('f').sort(), [`area:eq:${error.id}`, 'status:eq:open'])
-      await page.getByText(`${open} mensajes`, { exact: true }).waitFor()
-      assert.equal(await page.getByText('Abierto', { exact: true }).count() > 0, true)
-      assert.equal(await page.getByText('Respondido', { exact: true }).count(), 0, 'el filtro deja sólo abiertos')
+      const side = page.getByRole('navigation', { name: 'Navegación' })
+      await side.getByRole('link', { name: 'Error', exact: true }).waitFor()
+      await side.locator('[aria-label^="Error:"]').first().waitFor()
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('every mark opens its menu by click and by keyboard without leaving the page, the menu lists what the number counts, the arrows walk the rows and Escape gives the focus back (UD-100)', async () => {
+    const { page, context } = await session('ana')
+    try {
+      await page.getByTestId('status-bar').waitFor()
+      await settled(page)
+      const here = page.url()
+      const marks = await page.locator('[data-testid="status-bar"] [data-testid="state-button"]').count()
+      assert.equal(marks, 3, 'las tres marcas')
+      for (let i = 0; i < marks; i++) {
+        const mark = page.locator('[data-testid="status-bar"] [data-testid="state-button"]').nth(i)
+        const expected = Number((await mark.textContent()).trim())
+        for (const how of ['click', 'keyboard']) {
+          if (how === 'click') await mark.click()
+          else {
+            await mark.focus()
+            await page.keyboard.press(how === 'keyboard' && i % 2 ? 'Space' : 'Enter')
+          }
+          await page.getByTestId('status-menu').waitFor()
+          await page.locator('[data-lane="status-list"]').or(page.getByText('Sin mensajes')).first().waitFor()
+          assert.equal(await page.locator('[data-testid="status-row"]').count(), expected, `la marca ${i} (${await mark.getAttribute('aria-label')}) lista lo que cuenta (${how})`)
+          assert.equal(page.url(), here, 'abrir no navega')
+          if (how === 'keyboard' && expected > 0) {
+            await page.keyboard.press('ArrowDown')
+            const walked = await page.evaluate(() => document.activeElement?.closest('[data-lane="status-list"]') !== null && document.activeElement?.tagName === 'A')
+            assert.equal(walked, true, 'las flechas recorren las filas')
+          }
+          await page.keyboard.press('Escape')
+          await page.getByTestId('status-menu').waitFor({ state: 'detached' })
+          await page.waitForFunction((el) => el === document.activeElement, await mark.elementHandle(), { timeout: 3000 }).catch(() => {})
+          assert.equal(await mark.evaluate((el) => el === document.activeElement), true, `Escape devuelve el foco a la marca (${how})`)
+        }
+      }
+      // A row opens its message.
+      await page.getByTestId('state-button').first().click()
+      const row = page.locator('[data-testid="status-row"] a').first()
+      await row.waitFor()
+      const href = await row.getAttribute('href')
+      await row.click()
+      await page.waitForURL(new RegExp(`${href}$`))
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('the bar never writes the name of a state, in any page, and the guard covers the accessible names (UD-100)', async () => {
+    const { page, context } = await session('ana')
+    try {
+      for (const path of ['/', '/messages', '/areas', '/team']) {
+        await page.goto(`${origin}${path}`)
+        await page.getByTestId('status-bar').waitFor()
+        await settled(page)
+        assert.doesNotMatch(await page.getByTestId('status-bar').innerText(), STATE_WORDS, `${path}: texto visible de la barra`)
+        // Every mark has a name, and the name is the word of the state (or the area with its words): color is never alone.
+        for (const mark of await page.locator('[data-testid="status-bar"] button').all()) {
+          assert.ok((await mark.getAttribute('aria-label'))?.trim(), `${path}: una marca sin nombre accesible`)
+        }
+      }
     } finally {
       await context.close()
     }

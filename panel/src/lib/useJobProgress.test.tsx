@@ -45,7 +45,7 @@ class FakeEventSource {
 describe('EventsStore', () => {
   it('stores progress per job_id and does not go backwards on a repeated event', () => {
     const store = new EventsStore()
-    store.dispatch('progress', JSON.stringify({ job_id: 'j1', percent: 40, phrase: 'leyendo el documento' }))
+    store.dispatch('progress', JSON.stringify({ job_id: 'j1', percent: 40, phrase: 'Lectura del documento' }))
     store.dispatch('progress', JSON.stringify({ job_id: 'j1', percent: 20, phrase: 'repetido' }))
     store.dispatch('progress', JSON.stringify({ job_id: 'j2', percent: 10, phrase: 'otro' }))
     const snap = store.getSnapshot()

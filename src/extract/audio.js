@@ -65,7 +65,7 @@ export async function transcribeFile(sourcePath, { durationSeconds, plan }, ctx,
       annotate({ 'team.output_chars': out?.text?.length, 'team.segments': out?.segments?.length });
       return out;
     });
-    progress.advance(`transcribiendo el audio, trozo ${chunk.index + 1} de ${plan.length}`);
+    progress.advance(`Transcripción: trozo ${chunk.index + 1} de ${plan.length}`);
     return normalizeSegments(result, chunk);
   });
 
@@ -102,14 +102,14 @@ export async function extractAudio(attachment, ctx) {
   }
   const startedAt = performance.now();
   const tmp = createProgress(onProgress, 1);
-  tmp.report('midiendo el audio');
+  tmp.report('Medición del audio');
   const info = await probe(attachment.path, { signal });
   if (!info.hasAudio || info.durationSeconds <= 0) {
     throw new ExtractError('audio_no_stream', 'El archivo no contiene una pista de audio que se pueda leer.');
   }
   const { plan, steps, billableSeconds: billable } = planAudio(info.durationSeconds, cfg);
   const progress = createProgress(onProgress, steps);
-  progress.report(`transcribiendo el audio, ${steps} ${steps === 1 ? 'trozo' : 'trozos'}`);
+  progress.report(`Transcripción: ${steps} ${steps === 1 ? 'trozo' : 'trozos'}`);
 
   const segments = await transcribeFile(attachment.path, { durationSeconds: info.durationSeconds, plan }, ctx, progress);
   if (segments.length === 0) warnings.push({ code: 'no_speech', message: 'La transcripción no devolvió texto.' });

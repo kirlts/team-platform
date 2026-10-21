@@ -299,7 +299,7 @@ function ProposalEditor({
     // When other sends wait, the review moves on by itself: the notice says so, so the change of content is not taken for an error (J1-B-27).
     const said = sent.messages.length === 1 ? t('publish.one', { title: sent.messages[0].title, who }) : t('publish.many', { n: sent.messages.length, who })
     notices.show({
-      text: waiting > 0 ? `${said} ${t('publish.next')}` : said,
+      text: waiting > 0 ? `${said}; ${t('publish.next')}` : said,
       link: first ? { to: sent.messages.length === 1 ? `/messages/${first}` : '/messages', label: sent.messages.length === 1 ? t('publish.viewOne') : t('publish.viewMany') } : undefined,
     })
     onPublished()

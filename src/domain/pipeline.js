@@ -69,7 +69,7 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
       if (!Number.isFinite(verdict.waitMs)) {
         throw permanent('El audio de este envío supera el presupuesto de transcripción por hora y nunca cabría.', 'audio_budget_exceeded')
       }
-      throw new Deferred(verdict.waitMs, 'Esperando cupo de transcripción')
+      throw new Deferred(verdict.waitMs, 'En espera: cupo de transcripción')
     }
     budget.record(secondsCount, now())
   }
@@ -154,8 +154,8 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
         for (let i = 0; i < pending.length; i++) {
           const a = pending[i]
           const ordinal = total - pending.length + i + 1
-          advance(i, 0, `Leyendo adjunto ${ordinal} de ${total}`)
-          await extractAttachment(job, ctx, a, (percent, phraseText) => advance(i, (percent ?? 0) / 100, phraseText || `Leyendo adjunto ${ordinal} de ${total}`))
+          advance(i, 0, `Lectura de adjunto ${ordinal} de ${total}`)
+          await extractAttachment(job, ctx, a, (percent, phraseText) => advance(i, (percent ?? 0) / 100, phraseText || `Lectura de adjunto ${ordinal} de ${total}`))
           ctx.signal.throwIfAborted()
         }
 
@@ -234,7 +234,7 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
         events.transaction(() => {
           if (outcome.state === 'requeued') {
             if (get(db, 'SELECT status FROM inputs WHERE id = ?', inputId)?.status !== 'cancelled') transitionInput(db, inputId, 'queued', { now })
-            events.publishForJob(job.id, { kind: 'progress', percent: 0, phrase: `Falló el intento ${job.attempts} de ${job.max_attempts}; se reintenta` })
+            events.publishForJob(job.id, { kind: 'progress', percent: 0, phrase: `Intento ${job.attempts} de ${job.max_attempts} fallido; se reintenta` })
           } else if (outcome.state === 'failed') {
             const current = get(db, 'SELECT status FROM inputs WHERE id = ?', inputId)?.status
             const errorCodeValue = error?.code && typeof error.code === 'string' ? error.code : null
@@ -251,7 +251,7 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
         const att = get(db, 'SELECT * FROM attachments WHERE id = ?', id)
         if (!att) throw permanent('El adjunto del trabajo ya no existe.', 'attachment_missing')
         const advance = meter(job, ctx, 1)
-        await extractAttachment(job, ctx, att, (percent, phraseText) => advance(0, (percent ?? 0) / 100, phraseText || 'Leyendo adjunto'))
+        await extractAttachment(job, ctx, att, (percent, phraseText) => advance(0, (percent ?? 0) / 100, phraseText || 'Lectura de adjunto'))
         return () => events.publishForJob(job.id, { kind: 'done', data: { status: 'done' } })
       },
       onFailure (job, error, outcome) {

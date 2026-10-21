@@ -259,7 +259,7 @@ let running = 0
 function runJob(input) {
   const total = input.attachment_ids.length + 2
   const steps = [
-    ...input.attachment_ids.map((aid, i) => ({ status: 'extracting', phrase: `Leyendo adjunto ${i + 1} de ${input.attachment_ids.length}` })),
+    ...input.attachment_ids.map((aid, i) => ({ status: 'extracting', phrase: `Lectura de adjunto ${i + 1} de ${input.attachment_ids.length}` })),
     { status: 'analyzing', phrase: 'Clasificando el área' },
     { status: 'analyzing', phrase: 'Descomponiendo en mensajes' },
   ]

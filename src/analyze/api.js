@@ -243,7 +243,7 @@ async function decomposeUnits(ctx, { bundle, template, system, schema, units, sc
     .filter((d) => d.unit_ids.length > 0);
   const coverageIds = [...coverageSet].sort((a, b) => a - b);
 
-  ctx.report(`corrigiendo ${coverageIds.length} unidades en conflicto`);
+  ctx.report(`Corrección: ${coverageIds.length} unidades en conflicto`);
   const rescueCtx = { ...contextFromBundle(bundle, { fields: template.fields, scope: coverageSet }), withDiscarded: false };
   const rescue = await withSpan('rescue', { 'team.step': 'rescue', 'team.units': coverageIds.length, 'team.overlaps': overlaps.length, 'team.gaps': gaps.length }, () => structuredStep(ctx, {
     ...base,
@@ -351,7 +351,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
   // An input can bring a bug, an idea and a question: each group carries its area and its template
   // (idea.md: «one or several messages that group the work into categories»). If the input does not fit
   // in one call it is classified in disjoint structural chunks and the groups are joined.
-  ctx.report('clasificando el input');
+  ctx.report('Clasificación');
   const cSystem = classifySystem({ areas, templates, project, language });
   const fixedClassify = estimateTokens([...cSystem, membersBlock([], language)].join('\n'), config.charsPerToken);
   const cSchema = buildClassificationSchema({ areas, templates });
@@ -374,7 +374,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
         thinking: config.classifyThinking ?? undefined,
         validate: (json) => validateClassification(json, { areas, templates, scope }),
       });
-      if (r.status === 'ok' && !secondPass) ctx.report('input clasificado', { advance: true });
+      if (r.status === 'ok' && !secondPass) ctx.report('Clasificado', { advance: true });
       return r;
     });
     // What the single retry did not fix (overlaps and gaps only) is closed by set arithmetic instead of failing the whole input.
@@ -403,7 +403,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
   // detail; for anything else, the input is read again section by section with the instruction that it was sent for a reason.
   if (groups.length === 0) {
     ctx.stats.second_pass = true;
-    ctx.report('leyendo el input a más profundidad');
+    ctx.report('Segunda lectura');
     const outcome = await withSpan('analyze.second_pass', { 'team.step': 'second_pass', 'team.units': units.length, 'team.image_only': isImageOnly(workBundle) }, async (span) => {
       let described = 0;
       if (isImageOnly(workBundle) && typeof redescribe === 'function') {
@@ -465,7 +465,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
   ctx.stats.partitioned = work.length > groups.length || classifyChunks.length > 1;
   ctx.stats.estimated_input_tokens = estimateTokens(renderUnits(units, language), config.charsPerToken);
   ctx.progress.total = classifyChunks.length + work.length + 1;
-  ctx.report(work.length > 1 ? `descomponiendo ${work.length} grupos` : 'descomponiendo el input');
+  ctx.report(work.length > 1 ? `Descomposición: ${work.length} grupos` : 'Descomposición');
 
   const tasks = work.map((w) => () => withSpan('decompose', {
     'team.step': 'decompose',
@@ -478,7 +478,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
     const label = `[t${w.group.template_id}]${w.parts > 1 ? `#${w.pi + 1}` : ''}`;
     const r = await decomposeUnits(ctx, { bundle: workBundle, template: w.entry.template, system: w.entry.system, schema: w.entry.schema, units: w.units, scopeNote, label });
     span.setAttributes({ 'team.status': r.status, 'team.rescued': r.rescued === true });
-    if (r.status === 'ok') ctx.report('grupo descompuesto', { advance: true });
+    if (r.status === 'ok') ctx.report('Grupo descompuesto', { advance: true });
     return r.status === 'ok' ? { ...r, group: w.group } : r;
   }));
   const results = await runPool(tasks, config.partitionConcurrency);
@@ -487,7 +487,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
 
   // -- Deterministic reduction by unit_ids ---------------------------------------------------
   // Groups are disjoint by unit: the reduction is a concatenation, with no call (report 02 §3.3).
-  ctx.report('validando la propuesta');
+  ctx.report('Validación de la propuesta');
   const merged = {
     messages: results.flatMap((r) => r.messages.map((m) => ({ ...m, area_id: r.group.area_id, template_id: r.group.template_id }))),
     discarded: [...classDiscarded, ...results.flatMap((r) => r.discarded)],
@@ -520,7 +520,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
     const imageUnits = new Set(units.filter((u) => u.source.type === 'attachment' && u.source.kind === 'image').map((u) => u.id));
     for (const m of messages) if (m.unit_ids.every((id) => imageUnits.has(id))) m.source = 'frame';
   }
-  ctx.report('propuesta lista', { advance: true });
+  ctx.report('Propuesta lista', { advance: true });
   return { status: 'ok', proposal: { messages, discarded }, units, calls: ctx.calls, stats: ctx.stats };
 }
 

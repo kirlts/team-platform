@@ -11,12 +11,12 @@ import { UndoButtons } from '@/components/UndoButtons'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { useT } from '@/i18n'
+import { useErrorText, useT } from '@/i18n'
 import { useCreateMember, useMe, useMembers, useSaveMember } from '@/lib/queries'
 import type { Member, Role } from '@/lib/types'
 import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 
-const COLUMNS = 'md:grid-cols-[minmax(14rem,1.3fr)_6.5rem_minmax(0,2fr)_minmax(0,1.4fr)]'
+const COLUMNS = 'md:grid-cols-[minmax(14rem,1.3fr)_6.5rem_minmax(0,2fr)_minmax(0,1.4fr)_6.5rem]'
 
 /** Miembros con sus responsabilidades y dominios. Cada uno edita lo suyo; el Editor da de alta, y cambia nombre, correo y rol de los demás. */
 export function Team() {
@@ -55,6 +55,7 @@ export function Team() {
               <span>{t('team.role')}</span>
               <span>{t('team.responsibilities')}</span>
               <span>{t('team.domains')}</span>
+              <span />
             </div>
           }
           renderRow={(m) => <MemberRow member={m} self={m.id === me?.id} viewerIsEditor={editor} />}
@@ -86,21 +87,26 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
   const canEditPeople = viewerIsEditor
 
   /** Cada guardado es una operación que se deshace con el valor anterior. */
-  const change = <K extends 'responsibilities' | 'domains' | 'role' | 'name' | 'email'>(key: K, next: Member[K]) => {
+  const change = <K extends 'responsibilities' | 'domains' | 'role' | 'name' | 'email' | 'active'>(key: K, next: Member[K]) => {
     const prev = member[key]
     const apply = (value: Member[K]) => save.mutateAsync({ id: member.id, self: self && (key === 'responsibilities' || key === 'domains'), patch: { [key]: value } })
     return undo.run({ label: t('team.edited'), redo: () => apply(next), undo: () => apply(prev) })
   }
+  /** Desactivar o reactivar se deshace con el gesto contrario; la API se niega si es uno mismo o el último Editor. */
+  const toggleActive = () => change('active', !member.active).then(() => setProblem(null), (err) => setProblem(errorText(err)))
   const required = (v: string) => (v ? null : t('common.required'))
+  const errorText = useErrorText()
+  const [problem, setProblem] = useState<string | null>(null)
 
   return (
-    <div className={`grid items-start gap-x-4 gap-y-2 border-b border-line px-4 py-3 last:border-b-0 ${COLUMNS}`}>
+    <div className={`grid items-start gap-x-4 gap-y-2 border-b border-line px-4 py-3 last:border-b-0 ${COLUMNS} ${member.active ? '' : 'bg-closed-bg/30'}`}>
       <div className="flex min-w-0 items-start gap-2.5">
         <Avatar name={member.name} size={30} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2">
             <EditableText value={member.name} label={t('team.fieldName')} canEdit={canEditPeople} validate={required} onSave={(v) => change('name', v)} displayClassName="text-sm font-semibold" className="w-auto" />
             {self && <Badge tone="accent">{t('team.me')}</Badge>}
+            {!member.active && <Badge tone="outline">{t('team.inactive')}</Badge>}
           </div>
           <EditableText value={member.email} label={t('team.fieldEmail')} canEdit={canEditPeople} validate={(v) => (v.includes('@') ? null : t('team.invalidEmail'))} onSave={(v) => change('email', v)} displayClassName="break-all text-xs text-muted" />
         </div>
@@ -127,6 +133,18 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
       </div>
       <div className="min-w-0 text-[13px]">
         <EditableTags values={member.domains} label={t('team.domainsOf', { name: member.name })} canEdit={canEditOwn} placeholder={t('team.noDomains')} onSave={(v) => change('domains', v)} />
+      </div>
+      <div className="flex min-w-0 flex-col items-end gap-1">
+        {canEditPeople && !self && (
+          <Button size="sm" variant="ghost" className="text-muted" onClick={() => void toggleActive()} aria-label={member.active ? t('team.deactivateOf', { name: member.name }) : t('team.reactivateOf', { name: member.name })}>
+            {member.active ? t('team.deactivate') : t('team.reactivate')}
+          </Button>
+        )}
+        {problem && (
+          <span role="alert" className="text-right text-xs text-danger">
+            {problem}
+          </span>
+        )}
       </div>
     </div>
   )

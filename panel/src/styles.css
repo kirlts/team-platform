@@ -265,6 +265,13 @@
 }
 
 @layer components {
+  /* Texto corrido de más de dos líneas (UD-022): justificado, sin guiones de corte. Es la única clase que justifica. */
+  .prose-block {
+    text-align: justify;
+    hyphens: none;
+    text-wrap: pretty;
+  }
+
   /* Vidrio: panel translúcido con borde de luz. Se usa en pocas superficies grandes. */
   .glass {
     background: var(--color-glass);

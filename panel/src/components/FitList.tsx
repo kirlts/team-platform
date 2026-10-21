@@ -7,6 +7,9 @@ import { cn } from '@/lib/utils'
 /** Rows drawn at once, only while measuring which of them fit. */
 const MEASURE_ROWS = 60
 
+/** Height of the pager strip: 28 px buttons, 8 px of padding above and below and a 1 px rule. Measured again once it is drawn. */
+const PAGER_HEIGHT = 45
+
 function useDesktop(): boolean {
   const [desktop, setDesktop] = useState(() => window.matchMedia('(min-width: 768px)').matches)
   useEffect(() => {
@@ -56,14 +59,13 @@ export function FitList<T>({
   const head = useRef<HTMLDivElement>(null)
   const [start, setStart] = useState(0)
   const [history, setHistory] = useState<number[]>([])
+  /** Grows when the frame changes size, so a measure taken at another size stops being valid. */
+  const [frameVersion, setFrameVersion] = useState(0)
+  /** What was measured, and for which list, window, page and frame. A different list, window, page or frame makes it stale. */
+  const [fit, setFit] = useState<{ rows: readonly T[]; desktop: boolean; start: number; version: number; n: number; sum: number } | null>(null)
+  const first = Math.min(start, Math.max(0, rows.length - 1))
   /** Rows on this page; `null` while it is being measured. */
-  const [count, setCount] = useState<number | null>(null)
-
-  // A new list or a new window: measure again from the page we are on.
-  useEffect(() => {
-    setCount(null)
-    setStart((s) => Math.min(s, Math.max(0, rows.length - 1)))
-  }, [rows, desktop])
+  const count = fit && fit.rows === rows && fit.desktop === desktop && fit.start === first && fit.version === frameVersion ? fit.n : null
 
   useEffect(() => {
     const el = frame.current
@@ -72,7 +74,7 @@ export function FitList<T>({
     const observer = new ResizeObserver(() => {
       if (Math.abs(el.clientHeight - last) > 0.5) {
         last = el.clientHeight
-        setCount(null)
+        setFrameVersion((v) => v + 1)
       }
     })
     observer.observe(el)
@@ -87,25 +89,38 @@ export function FitList<T>({
     const box = frame.current
     if (!el || !box) return
     const heights = [...el.children].map((c) => c.getBoundingClientRect().height)
-    const remaining = rows.length - start
-    // Everything left fits without a pager when it is the first page.
+    const remaining = rows.length - first
     const above = head.current?.getBoundingClientRect().height ?? 0
-    if (start === 0 && heights.length === remaining && total(heights) <= box.clientHeight - above + 0.5) {
-      setCount(remaining)
+    const stamp = { rows, desktop, start: first, version: frameVersion }
+    // Everything left fits without a pager when it is the first page.
+    if (first === 0 && heights.length === remaining && total(heights) <= box.clientHeight - above + 0.5) {
+      setFit({ ...stamp, n: remaining, sum: total(heights) })
       return
     }
-    const pager = pagerHeight.current || 40
-    setCount(Math.min(remaining, fitCount(heights, box.clientHeight - above - pager)))
+    const pager = pagerHeight.current || PAGER_HEIGHT
+    const n = Math.min(remaining, fitCount(heights, box.clientHeight - above - pager))
+    setFit({ ...stamp, n, sum: total(heights.slice(0, n)) })
   })
 
-  const shown = desktop ? rows.slice(start, count === null ? start + MEASURE_ROWS : start + count) : rows
-  const pages = desktop && count !== null && (start > 0 || start + count < rows.length)
-  const range = pageRange(start, count ?? shown.length, rows.length)
+  // A row that changes height after it was measured (its template arrives, a field is edited) makes the measure stale.
+  useEffect(() => {
+    const el = body.current
+    if (!el || !fit || count === null || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => {
+      const sum = total([...el.children].map((c) => c.getBoundingClientRect().height))
+      if (Math.abs(sum - fit.sum) > 1) setFrameVersion((v) => v + 1)
+    })
+    for (const child of el.children) observer.observe(child)
+    return () => observer.disconnect()
+  })
+
+  const shown = desktop ? rows.slice(first, count === null ? first + MEASURE_ROWS : first + count) : rows
+  const pages = desktop && count !== null && (first > 0 || first + count < rows.length)
+  const range = pageRange(first, count ?? shown.length, rows.length)
 
   const go = (to: number, back: boolean) => {
-    setHistory((h) => (back ? h.slice(0, -1) : [...h, start]))
+    setHistory((h) => (back ? h.slice(0, -1) : [...h, first]))
     setStart(to)
-    setCount(null)
   }
 
   return (
@@ -132,7 +147,7 @@ export function FitList<T>({
               className="flex shrink-0 items-center justify-between gap-3 border-t border-line px-4 py-2 text-xs text-muted"
             >
               <span aria-live="polite" className="tabular-nums">
-                {t('pager.range', range)}
+                {t('pager.range', { from: range.from, to: range.to, total: range.total })}
               </span>
               <span className="flex items-center gap-1">
                 <button
@@ -147,8 +162,8 @@ export function FitList<T>({
                 <button
                   type="button"
                   aria-label={t('pager.next')}
-                  disabled={start + (count ?? 0) >= rows.length}
-                  onClick={() => go(start + (count ?? 0), false)}
+                  disabled={first + (count ?? 0) >= rows.length}
+                  onClick={() => go(first + (count ?? 0), false)}
                   className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-edge bg-glass hover:border-accent disabled:opacity-40"
                 >
                   <ChevronRight size={14} aria-hidden />

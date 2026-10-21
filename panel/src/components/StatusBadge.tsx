@@ -1,14 +1,16 @@
 import { Badge } from '@/components/ui/badge'
+import { useT, type MessageKey } from '@/i18n'
 import type { MessageStatus } from '@/lib/types'
 
-export const STATUS_LABEL: Record<MessageStatus, string> = {
-  open: 'Abierto',
-  answered: 'Respondido',
-  closed: 'Cerrado',
+export const STATUS_KEY: Record<MessageStatus, MessageKey> = {
+  open: 'status.open',
+  answered: 'status.answered',
+  closed: 'status.closed',
 }
 
 export function StatusBadge({ status }: { status: MessageStatus }) {
-  return <Badge tone={status}>{STATUS_LABEL[status]}</Badge>
+  const t = useT()
+  return <Badge tone={status}>{t(STATUS_KEY[status])}</Badge>
 }
 
 /** Área como pestaña de cromo: esquinas opuestas redondeadas, como en la maqueta. Un título largo pasa a una segunda línea. */

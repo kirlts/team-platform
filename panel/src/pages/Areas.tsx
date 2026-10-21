@@ -46,7 +46,7 @@ export function Areas() {
             </div>
           }
         />
-        <div className="grid min-h-0 flex-1 gap-x-10 gap-y-4 md:grid-cols-[minmax(0,6fr)_minmax(0,6fr)]">
+        <div className="grid min-h-0 flex-1 md:grid-rows-[minmax(0,1fr)] gap-x-10 gap-y-4 md:grid-cols-[minmax(0,6fr)_minmax(0,6fr)]">
           <FitList
             rows={rows}
             rowKey={(a) => a.id}
@@ -138,7 +138,7 @@ function Templates({ area }: { area: Area }) {
         fields={[
           { name: 'name', label: t('areas.fieldName'), required: true, maxLength: 64 },
           { name: 'description', label: t('areas.fieldDescription'), multiline: true, required: true, maxLength: 1024, rows: 2 },
-          { name: 'body_markdown', label: t('areas.fieldContent'), multiline: true, rows: 6, mono: true, initial: '---\nname: \ndescription: \nfields:\n  - { name: summary, label: Resumen, required: true }\n---\n## Método\n\n## Formato de salida\n' },
+          { name: 'body_markdown', label: t('areas.fieldContent'), multiline: true, rows: 6, mono: true, initial: t('areas.newTemplateContent') },
         ]}
         onSubmit={(v) => save.mutateAsync({ name: v.name, description: v.description, body_markdown: v.body_markdown })}
       />
@@ -178,7 +178,7 @@ function TemplateRow({ template, areaId }: { template: Template; areaId: string 
       <Dialog open={showContent} onOpenChange={setShowContent}>
         <DialogContent title={template.name} className="max-w-2xl">
           <div data-lane="template-content" className="scroll-thin min-h-0 overflow-y-auto p-5">
-            <EditableText value={template.body_markdown} label={t('areas.fieldContent')} multiline mono validate={(v) => (v ? null : t('common.required'))} onSave={(v) => change('body_markdown', v)} />
+            <EditableText value={template.body_markdown} label={t('areas.fieldContent')} multiline mono prose validate={(v) => (v ? null : t('common.required'))} onSave={(v) => change('body_markdown', v)} />
           </div>
         </DialogContent>
       </Dialog>

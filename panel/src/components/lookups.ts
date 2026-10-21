@@ -12,6 +12,8 @@ export function useLookups() {
     return {
       areas: areas.data ?? [],
       members: members.data ?? [],
+      /** Quienes pueden recibir mensajes nuevos: una cuenta desactivada conserva su historial pero no se elige. */
+      activeMembers: (members.data ?? []).filter((m) => m.active !== false),
       areaTitle: (id: string) => areaById.get(id)?.title ?? '',
       memberName: (id: string) => memberById.get(id)?.name ?? '',
     }

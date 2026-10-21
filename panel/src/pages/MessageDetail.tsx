@@ -103,7 +103,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
         </p>
       )}
 
-      <div className="grid min-h-0 flex-1 gap-x-10 gap-y-4 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+      <div className="grid min-h-0 flex-1 md:grid-rows-[minmax(0,1fr)] gap-x-10 gap-y-4 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         <div className="flex min-h-0 min-w-0 flex-col gap-3">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted">
             {canEdit ? (
@@ -140,7 +140,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
 
           {/* Un texto largo no tiene tope: la columna del mensaje desplaza por dentro, y es un carril declarado. */}
           <div data-lane="message-body" className="scroll-thin flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-1.5">
-            <EditableText value={m.body} label={t('detail.body')} multiline canEdit={canEdit} validate={required} onSave={(v) => change(t('proposal.bodyEdited'), { body: v }, { body: m.body })} displayClassName="leading-relaxed" />
+            <EditableText value={m.body} label={t('detail.body')} multiline prose canEdit={canEdit} validate={required} onSave={(v) => change(t('proposal.bodyEdited'), { body: v }, { body: m.body })} displayClassName="leading-relaxed" />
             <TemplateFields
               template={template}
               values={m.fields}

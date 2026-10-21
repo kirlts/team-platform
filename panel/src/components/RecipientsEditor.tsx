@@ -21,7 +21,7 @@ export function RecipientsEditor({ ids, onChange, max = 3 }: { ids: string[]; on
         </li>
       ))}
       <li>
-        <MemberPicker members={members} selected={ids} onChange={onChange} hiddenCount={Math.max(0, ids.length - max)} />
+        <MemberPicker members={members.filter((m) => m.active !== false || ids.includes(m.id))} selected={ids} onChange={onChange} hiddenCount={Math.max(0, ids.length - max)} />
       </li>
     </ul>
   )

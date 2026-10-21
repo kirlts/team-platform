@@ -32,7 +32,7 @@ export function Settings() {
     <UndoProvider stack={undo}>
       <Page cols={12}>
         <PageHeader title={t('nav.settings')} aside={editor ? <UndoButtons stack={undo} /> : undefined} />
-        <div className="grid min-h-0 flex-1 gap-x-10 gap-y-5 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+        <div className="grid min-h-0 flex-1 md:grid-rows-[minmax(0,1fr)] gap-x-10 gap-y-5 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
           <div className="flex min-w-0 flex-col gap-5">
             <Account />
             <Theme />

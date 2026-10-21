@@ -21,6 +21,7 @@ const ORIGIN = `http://127.0.0.1:${PORT}`
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : null)
 const onlyVp = arg('--solo')
 const onlyTheme = arg('--tema')
+const LANGS = (arg('--idioma') ?? 'es-419').split(',')
 
 mkdirSync(outDir, { recursive: true })
 if (!process.argv.includes('--sin-build')) execFileSync('npx', ['vite', 'build'], { cwd: root, stdio: 'ignore' })
@@ -36,6 +37,7 @@ const password = randomBytes(12).toString('hex')
 const problems = []
 const VIEWPORTS = {
   desktop: { width: 1440, height: 900, mobile: false },
+  compact: { width: 1280, height: 720, mobile: false },
   mobile: { width: 390, height: 844, mobile: true },
 }
 const THEMES = ['light', 'dark']
@@ -72,7 +74,7 @@ function audit() {
   return out
 }
 
-async function shoot(browser, vp, theme) {
+async function shoot(browser, vp, theme, lang = 'es-419') {
   const cfg = VIEWPORTS[vp]
   const context = await browser.newContext({
     viewport: { width: cfg.width, height: cfg.height },
@@ -89,6 +91,7 @@ async function shoot(browser, vp, theme) {
       // Sin almacenamiento el tema sigue al del navegador, que ya es el pedido.
     }
   }, theme)
+  // El idioma es de la cuenta: se fija por la API antes de recorrer las vistas.
   const page = await context.newPage()
   page.on('pageerror', (e) => problems.push(`[${vp}/${theme}] excepción: ${e.message}`))
   await page.goto(ORIGIN)
@@ -97,11 +100,16 @@ async function shoot(browser, vp, theme) {
   await page.getByRole('button', { name: 'Entrar' }).click()
   await page.getByRole('navigation', { name: 'Navegación' }).or(page.getByRole('button', { name: 'Abrir navegación' })).first().waitFor()
 
+  if (lang !== 'es-419') {
+    await page.request.patch(`${ORIGIN}/api/members/me`, { data: { language: lang }, headers: { 'X-Team-Request': 'panel' } })
+    await page.reload()
+    await page.getByRole('navigation').first().waitFor()
+  }
   let n = 0
   const take = async (name, opts = {}) => {
     await page.waitForTimeout(500)
     n += 1
-    const file = `${outDir}${String(n).padStart(2, '0')}-${name}-${vp}-${theme}.png`
+    const file = `${outDir}${String(n).padStart(2, '0')}-${name}-${vp}-${theme}${lang === 'es-419' ? '' : '-' + lang}.png`
     await page.screenshot({ path: file, fullPage: !!opts.full })
     const a = await page.evaluate(audit)
     const tag = `[${vp}/${theme}/${name}]`
@@ -111,24 +119,42 @@ async function shoot(browser, vp, theme) {
     console.log(file.replace(root, ''), a.lefts.join(' '))
   }
 
-  await page.getByText('Para mí').first().waitFor()
+  await page.getByText(lang === 'en' ? 'For me' : 'Para mí').first().waitFor()
   await take('inicio')
   await page.goto(`${ORIGIN}/messages`)
-  await page.getByText('Revisar la lectura del panel').first().waitFor()
+  await page.getByRole('heading', { name: lang === 'en' ? 'Messages' : 'Mensajes', level: 1 }).waitFor()
+  await page.waitForTimeout(600)
   await take('mensajes')
-  await page.getByRole('link', { name: /Revisar la lectura del panel/ }).first().click()
-  await page.getByRole('heading', { name: /Respuestas/ }).waitFor()
+  const rich = await (await page.request.get(`${ORIGIN}/api/messages`)).json()
+  const id = (rich.items ?? rich).find((m) => m.title.startsWith('Revisar la lectura')).id
+  await page.goto(`${ORIGIN}/messages/${id}`)
+  await page.locator('main h1').waitFor()
+  await page.waitForTimeout(700)
   await take('detalle')
-  await page.goto(`${ORIGIN}/areas`)
-  await page.locator('main').getByText('Accesibilidad y experiencia de uso', { exact: false }).first().waitFor()
-  await page.getByRole('button', { name: 'Desplegar Error' }).click()
+  await page.goto(`${ORIGIN}/areas/a-error`)
+  await page.locator('main h1').waitFor()
+  await page.waitForTimeout(700)
   await take('areas')
   await page.goto(`${ORIGIN}/team`)
-  await page.locator('main').getByText('Fernández-Larraín').first().waitFor()
+  await page.locator('main h1').waitFor()
+  await page.waitForTimeout(700)
   await take('equipo')
   await page.goto(`${ORIGIN}/settings`)
-  await page.getByRole('heading', { name: 'Tema' }).waitFor()
+  await page.locator('main h1').waitFor()
+  await page.waitForTimeout(700)
   await take('configuracion')
+  // Propuesta del análisis, con adjuntos.
+  await page.goto(ORIGIN)
+  await page.locator('main h1').waitFor()
+  await page.getByLabel(lang === 'en' ? 'New message' : 'Nuevo mensaje', { exact: true }).last().fill('Corregir el desalineado del sidebar en la vista dashboard.\n\nAgregar la sincronización con WhatsApp en el sidebar.\n\nPregunta: ¿el audio máximo sigue en 25 MB?\n\nSaludos al equipo.')
+  await page.locator('input[type=file]:not([capture])').setInputFiles([
+    { name: 'nota-de-voz.wav', mimeType: 'audio/wav', buffer: Buffer.alloc(8044, 128) },
+    { name: 'feedback.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: Buffer.from('ejemplo') },
+  ])
+  await page.getByRole('button', { name: lang === 'en' ? 'Send' : 'Enviar' }).first().click()
+  await page.getByRole('button', { name: /^(Área|Area):/ }).first().waitFor({ timeout: 20000 })
+  await page.waitForTimeout(800)
+  await take('propuesta')
   if (cfg.mobile) {
     await page.goto(ORIGIN)
     await page.getByRole('button', { name: 'Abrir navegación' }).click()
@@ -143,7 +169,7 @@ try {
     if (onlyVp && onlyVp !== vp) continue
     for (const theme of THEMES) {
       if (onlyTheme && onlyTheme !== theme) continue
-      await shoot(browser, vp, theme)
+      for (const lang of LANGS) await shoot(browser, vp, theme, lang)
     }
   }
 } catch (err) {

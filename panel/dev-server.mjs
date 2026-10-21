@@ -34,16 +34,16 @@ const ago = (minutes) => new Date(Date.now() - minutes * 60_000).toISOString()
 // ---------------------------------------------------------------- datos de ejemplo
 
 const members = [
-  { id: 'u-ana', email: 'ana@dev.invalid', name: 'Ana Prueba', role: 'editor', language: 'es-419', responsibilities: 'Servidor, base de datos y despliegue.', domains: ['API', 'Infraestructura'] },
-  { id: 'u-bruno', email: 'bruno@dev.invalid', name: 'Bruno Prueba', role: 'member', language: 'es-419', responsibilities: 'Interfaz del panel y accesibilidad.', domains: ['Panel', 'Diseño'] },
-  { id: 'u-carla', email: 'carla@dev.invalid', name: 'Carla Prueba', role: 'member', language: 'es-419', responsibilities: 'Pruebas manuales y reporte de errores.', domains: ['Calidad'] },
-  { id: 'u-diego', email: 'diego@dev.invalid', name: 'Diego Prueba', role: 'member', language: 'es-419', responsibilities: 'Producto y requerimientos del cliente.', domains: ['Producto', 'Soporte'] },
+  { id: 'u-ana', email: 'ana@dev.invalid', name: 'Ana Prueba', role: 'editor', language: 'es-419', active: true, responsibilities: 'Servidor, base de datos y despliegue.', domains: ['API', 'Infraestructura'] },
+  { id: 'u-bruno', email: 'bruno@dev.invalid', name: 'Bruno Prueba', role: 'member', language: 'es-419', active: true, responsibilities: 'Interfaz del panel y accesibilidad.', domains: ['Panel', 'Diseño'] },
+  { id: 'u-carla', email: 'carla@dev.invalid', name: 'Carla Prueba', role: 'member', language: 'es-419', active: true, responsibilities: 'Pruebas manuales y reporte de errores.', domains: ['Calidad'] },
+  { id: 'u-diego', email: 'diego@dev.invalid', name: 'Diego Prueba', role: 'member', language: 'es-419', active: true, responsibilities: 'Producto y requerimientos del cliente.', domains: ['Producto', 'Soporte'] },
   // Nombres y textos largos a propósito: el panel debe envolverlos, no cortarlos.
-  { id: 'u-maria', email: 'maria.de.los.angeles.fernandez.larrain@dev.invalid', name: 'María de los Ángeles Fernández-Larraín', role: 'member', language: 'es-419', responsibilities: 'Documentación del producto, manuales de usuario, capacitación del equipo del cliente y revisión de los textos de la interfaz en cada versión.', domains: ['Documentación', 'Capacitación', 'Redacción técnica', 'Localización'] },
-  { id: 'u-eduardo', email: 'eduardo@dev.invalid', name: 'Eduardo Valenzuela Ibáñez', role: 'member', language: 'es-419', responsibilities: 'Integraciones con servicios externos.', domains: ['Integraciones'] },
-  { id: 'u-sofia', email: 'sofia@dev.invalid', name: 'Sofía Prueba', role: 'member', language: 'es-419', responsibilities: 'Análisis de datos.', domains: ['Datos'] },
-  { id: 'u-tomas', email: 'tomas@dev.invalid', name: 'Tomás Prueba', role: 'member', language: 'es-419', responsibilities: 'Seguridad.', domains: ['Seguridad'] },
-  { id: 'u-valentina', email: 'valentina@dev.invalid', name: 'Valentina Prueba', role: 'member', language: 'es-419', responsibilities: 'Operación y soporte.', domains: ['Soporte'] },
+  { id: 'u-maria', email: 'maria.de.los.angeles.fernandez.larrain@dev.invalid', name: 'María de los Ángeles Fernández-Larraín', role: 'member', language: 'es-419', active: true, responsibilities: 'Documentación del producto, manuales de usuario, capacitación del equipo del cliente y revisión de los textos de la interfaz en cada versión.', domains: ['Documentación', 'Capacitación', 'Redacción técnica', 'Localización'] },
+  { id: 'u-eduardo', email: 'eduardo@dev.invalid', name: 'Eduardo Valenzuela Ibáñez', role: 'member', language: 'es-419', active: true, responsibilities: 'Integraciones con servicios externos.', domains: ['Integraciones'] },
+  { id: 'u-sofia', email: 'sofia@dev.invalid', name: 'Sofía Prueba', role: 'member', language: 'es-419', active: true, responsibilities: 'Análisis de datos.', domains: ['Datos'] },
+  { id: 'u-tomas', email: 'tomas@dev.invalid', name: 'Tomás Prueba', role: 'member', language: 'es-419', active: true, responsibilities: 'Seguridad.', domains: ['Seguridad'] },
+  { id: 'u-valentina', email: 'valentina@dev.invalid', name: 'Valentina Prueba', role: 'member', language: 'es-419', active: true, responsibilities: 'Operación y soporte.', domains: ['Soporte'] },
 ]
 
 const areas = [
@@ -177,6 +177,15 @@ function proposalProblem(proposal, input) {
     if (!(pm.assignee_ids ?? []).every((x) => members.some((mm) => mm.id === x))) return `Mensaje ${n}: un destinatario no existe.`
     if (!(pm.attachment_ids ?? []).every((x) => input.attachment_ids.includes(x))) return `Mensaje ${n}: un adjunto no es de este input.`
   }
+  // Cobertura de unidades: cada una exactamente una vez, en un mensaje o entre los descartados (HP-014).
+  const owners = new Map()
+  for (const [i, pm] of proposal.messages.entries()) for (const u of pm.unit_ids ?? []) owners.set(u, [...(owners.get(u) ?? []), `mensaje ${i + 1}`])
+  for (const d of proposal.discarded ?? []) for (const u of d.unit_ids ?? []) owners.set(u, [...(owners.get(u) ?? []), 'descartados'])
+  const known = new Set(input.units.map((u) => u.id))
+  for (const u of owners.keys()) if (!known.has(u)) return { code: 'unit_invalid', message: `La unidad ${u} no existe en el input.` }
+  for (const [u, who] of owners) if (who.length > 1) return { code: 'units_overlap', message: `La unidad ${u} está en más de un lugar (${who.join(' y ')}).` }
+  const gaps = [...known].filter((u) => !owners.has(u))
+  if (gaps.length) return { code: 'units_uncovered', message: `Las unidades ${gaps.join(', ')} no están en ningún mensaje ni entre los descartados.` }
   return null
 }
 
@@ -269,14 +278,14 @@ function runJob(input) {
 let analyzed = 0
 /** Unidades numeradas del input: un párrafo cada una. Las numera el servidor, como lo hará el sistema real. */
 function unitsOf(text) {
-  return text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean).map((p, i) => ({ id: `u${i + 1}`, text: p }))
+  return text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean).map((p, i) => ({ id: i + 1, text: p }))
 }
 
 /** «Análisis» de desarrollo: un mensaje por unidad, cada uno con su área por turno; la última unidad larga queda sin acción. No lee el sentido del texto. */
 function analyze(input) {
   const others = members.filter((m) => m.id !== input.author_id)
   const images = input.attachment_ids.filter((aid) => attachments.get(aid)?.kind === 'image')
-  const units = input.units.length ? input.units : [{ id: 'u1', text: 'Sin texto' }]
+  const units = input.units.length ? input.units : [{ id: 1, text: 'Sin texto' }]
   const keep = units.length > 3 ? units.slice(0, 3) : units
   const rest = units.slice(keep.length)
   return {
@@ -419,7 +428,7 @@ const server = createServer(async (req, res) => {
       const body = await readJson(req)
       const member = members.find((m) => m.email === String(body?.email ?? '').trim().toLowerCase())
       const password = String(body?.password ?? '')
-      if (!member || password.length < 15) return fail(res, 401, 'Correo o contraseña incorrectos', 'invalid_credentials')
+      if (!member || !member.active || password.length < 15) return fail(res, 401, 'Correo o contraseña incorrectos', 'invalid_credentials')
       const token = randomUUID()
       sessions.set(token, member.id)
       return send(res, 200, { id: member.id }, { 'Set-Cookie': `team_session=${token}; HttpOnly; SameSite=Lax; Path=/` })
@@ -470,6 +479,11 @@ const server = createServer(async (req, res) => {
       const files = parts.filter((p) => p.name === 'files' && p.filename)
       const links = parts.filter((p) => p.name === 'links').map((p) => p.data.toString('utf8'))
       if (!text.trim() && !files.length && !links.length) return fail(res, 400, 'El input está vacío', 'empty_input')
+      // Rechazos previos a encolar, como los de la API: un archivo grande o un video largo (el nombre lo provoca).
+      const huge = files.find((f) => /demasiado-grande/.test(f.filename))
+      if (huge) return fail(res, 413, 'Un archivo supera el tamaño máximo permitido.', `${kindOf(huge.type ?? '')}_too_large`)
+      const long = files.find((f) => /video-largo/.test(f.filename))
+      if (long) return fail(res, 422, 'El video dura demasiado.', 'video_too_long')
       const hash = createHash('sha256').update(me.id).update(text.trim()).update(files.map((f) => createHash('sha256').update(f.data).digest('hex')).join()).update(links.join()).digest('hex')
       const existing = [...inputs.values()].find((i) => i.content_hash === hash && i.status !== 'cancelled' && i.status !== 'published')
       if (existing) return send(res, 200, { input_id: existing.id, job_id: existing.job_id })
@@ -541,7 +555,7 @@ const server = createServer(async (req, res) => {
         const proposal = sent && Array.isArray(sent.messages) ? sent : input.proposal
         if (!proposal?.messages?.length) return fail(res, 422, 'Propuesta inválida', 'validation')
         const problem = proposalProblem(proposal, input)
-        if (problem) return fail(res, 400, problem, 'validation')
+        if (problem) return typeof problem === 'string' ? fail(res, 422, problem, 'validation') : fail(res, 422, problem.message, problem.code)
         const created = []
         for (const pm of proposal.messages) {
           const tpl = activeTemplate(pm.area_id, pm.template_id)
@@ -722,7 +736,7 @@ const server = createServer(async (req, res) => {
       if (!email.includes('@') || !String(body?.name ?? '').trim()) return fail(res, 400, 'El correo y el nombre son obligatorios.', 'validation')
       if (members.some((x) => x.email === email)) return fail(res, 409, 'Ya existe un miembro con ese correo.', 'email_taken')
       if (body.password !== undefined && String(body.password).length < 15) return fail(res, 400, 'La contraseña es demasiado corta.', 'password_too_short')
-      const fresh = { id: `u-${id()}`, email, name: String(body.name).trim(), role: body.role === 'editor' ? 'editor' : 'member', language: 'es-419', responsibilities: String(body.responsibilities ?? ''), domains: Array.isArray(body.domains) ? body.domains.map(String) : [] }
+      const fresh = { id: `u-${id()}`, email, name: String(body.name).trim(), role: body.role === 'editor' ? 'editor' : 'member', language: 'es-419', active: true, responsibilities: String(body.responsibilities ?? ''), domains: Array.isArray(body.domains) ? body.domains.map(String) : [] }
       members.push(fresh)
       return send(res, 201, fresh)
     }
@@ -758,6 +772,12 @@ const server = createServer(async (req, res) => {
         if (String(body.current_password).length < 15) return fail(res, 401, 'La contraseña actual no es correcta.', 'invalid_credentials')
         if (String(body.new_password).length < 15) return fail(res, 400, 'La contraseña nueva es demasiado corta.', 'password_too_short')
       }
+      if (body.active !== undefined) {
+        if (!isEditor) return fail(res, 403, 'Requiere rol Editor', 'forbidden')
+        if (!body.active && target.id === me.id) return fail(res, 409, 'No se puede desactivar la propia cuenta.', 'cannot_deactivate_self')
+        if (!body.active && target.role === 'editor' && members.filter((x) => x.role === 'editor' && x.active && x.id !== target.id).length === 0) return fail(res, 409, 'El equipo conserva siempre un Editor activo.', 'last_editor')
+        target.active = !!body.active
+      }
       if (body.role !== undefined) {
         if (!isEditor) return fail(res, 403, 'Requiere rol Editor', 'forbidden')
         if (!['member', 'editor'].includes(body.role)) return fail(res, 422, 'Rol inválido', 'validation')
@@ -778,7 +798,7 @@ const server = createServer(async (req, res) => {
         return send(res, 200, view())
       }
     }
-    m = /^\/attachments\/([^/]+)$/.exec(path)
+    m = /^\/(?:replies\/)?attachments\/([^/]+)$/.exec(path)
     if (m && method === 'GET') {
       const a = attachments.get(m[1])
       if (!a) return fail(res, 404, 'No existe')

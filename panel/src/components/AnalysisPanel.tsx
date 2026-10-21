@@ -136,12 +136,21 @@ function ProposalEditor({ input, initial, onPublished, onDiscard }: { input: Inp
   const patch = (index: number, label: string, fix: Partial<ProposalMessage> | ((m: ProposalMessage) => Partial<ProposalMessage>)) =>
     change(label, (p) => ({ ...p, messages: p.messages.map((m, i) => (i === index ? { ...m, ...(typeof fix === 'function' ? fix(m) : fix) } : m)) }))
 
-  const remove = (index: number) => change(t('proposal.removed'), (p) => ({ ...p, messages: p.messages.filter((_, i) => i !== index) }))
+  /** Quitar un mensaje no pierde su texto: sus unidades pasan a «Sin acción», que es lo que la publicación exige. */
+  const remove = (index: number) =>
+    change(t('proposal.removed'), (p) => {
+      const gone = p.messages[index]
+      return {
+        ...p,
+        messages: p.messages.filter((_, i) => i !== index),
+        discarded: gone.unit_ids.length > 0 ? [...(p.discarded ?? []), { unit_ids: gone.unit_ids, reason: t('proposal.removedReason') }] : (p.discarded ?? []),
+      }
+    })
 
   const rows = useMemo<Row[]>(() => proposal.messages.map((m, i) => ({ m, i })), [proposal])
   const discarded = proposal.discarded ?? []
   const discardedCount = discarded.reduce((n, d) => n + d.unit_ids.length, 0)
-  const unitText = (id: string) => input.units?.find((u) => u.id === id)?.text
+  const unitText = (id: number) => input.units?.find((u) => u.id === id)?.text
 
   // Qué falta por mensaje: se calcula con la plantilla de cada uno.
   const [missing, setMissing] = useState<Record<number, string[]>>({})
@@ -273,7 +282,7 @@ function ProposalRow({
           <Trash2 size={13} aria-hidden /> {t('proposal.removeShort')}
         </Button>
       </div>
-      <EditableText value={m.body} label={t('proposal.body')} multiline validate={required} onSave={(v) => patch(index, t('proposal.bodyEdited'), { body: v })} displayClassName="text-[13px]" />
+      <EditableText value={m.body} label={t('proposal.body')} multiline prose validate={required} onSave={(v) => patch(index, t('proposal.bodyEdited'), { body: v })} displayClassName="text-[13px]" />
       <TemplateFields template={template} values={m.fields} onSave={(name, value) => patch(index, t('proposal.fieldEdited'), (cur) => ({ fields: { ...(cur.fields ?? {}), [name]: value } }))} />
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
         <RecipientsEditor ids={m.assignee_ids} onChange={(ids) => void patch(index, t('proposal.recipientsChanged'), { assignee_ids: ids })} />

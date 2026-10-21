@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, type ReactNode } from 'react'
 import { createFormats, DEFAULT_LANGUAGE, translate, type Formats, type Language, type Message, type Vars } from './core'
 import { en } from './en'
 import { es419 } from './es-419'
@@ -22,6 +22,9 @@ const I18nContext = createContext<I18n | null>(null)
 /** The language of the panel. It comes from the account (`me.language`); changing it re-renders every string at once. */
 export function I18nProvider({ language, children }: { language: Language; children: ReactNode }) {
   const t = useCallback((key: MessageKey, vars?: Vars) => translate(CATALOGS[language], language, key, vars), [language])
+  useEffect(() => {
+    document.documentElement.lang = language
+  }, [language])
   const has = useCallback((key: string) => key in CATALOGS[language], [language])
   const value = useMemo<I18n>(
     () => ({ language, t, has, format: createFormats(language, { today: t('time.today'), yesterday: t('time.yesterday') }) }),

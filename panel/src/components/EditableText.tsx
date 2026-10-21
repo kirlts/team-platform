@@ -22,6 +22,7 @@ export function EditableText({
   className,
   displayClassName,
   mono = false,
+  prose = false,
   onEditingChange,
 }: {
   value: string
@@ -37,6 +38,8 @@ export function EditableText({
   /** Tipografía del texto: se aplica igual en lectura y en edición. */
   displayClassName?: string
   mono?: boolean
+  /** Texto corrido: se justifica igual en lectura y en edición (UD-022). */
+  prose?: boolean
   onEditingChange?: (editing: boolean) => void
 }) {
   const t = useT()
@@ -72,7 +75,7 @@ export function EditableText({
     }
   }, [editing])
 
-  const type = cn('whitespace-pre-wrap break-words', mono && 'font-mono text-[13px]', displayClassName)
+  const type = cn('whitespace-pre-wrap break-words', mono && 'font-mono text-[13px]', prose && 'prose-block', displayClassName)
   // Misma caja en lectura y en edición: el margen negativo compensa el relleno y el borde.
   const box = '-mx-1.5 -my-px block w-[calc(100%+12px)] max-w-none rounded-md border border-transparent px-1.5 py-px text-left'
 

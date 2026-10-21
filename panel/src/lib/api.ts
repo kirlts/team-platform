@@ -74,6 +74,11 @@ export function unwrapList<T>(data: unknown): T[] {
   return []
 }
 
+/** Archivo adjunto a una respuesta: tiene sus propios ids y su propia ruta. */
+export function replyAttachmentUrl(id: string): string {
+  return `${API_BASE}/replies/attachments/${encodeURIComponent(id)}`
+}
+
 export function attachmentUrl(id: string): string {
   return `${API_BASE}/attachments/${encodeURIComponent(id)}`
 }

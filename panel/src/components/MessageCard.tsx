@@ -2,7 +2,7 @@ import { MessageSquare } from '@/components/icons'
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { useFormat, useT } from '@/i18n'
-import { attachmentUrl } from '@/lib/api'
+import { attachmentUrl, replyAttachmentUrl } from '@/lib/api'
 import { mainAttachment } from '@/lib/media'
 import { useMe, useSetClosed } from '@/lib/queries'
 import type { Message } from '@/lib/types'
@@ -69,9 +69,9 @@ export function MessageCard({ message, variant = 'message' }: { message: Message
               {message.title}
             </Link>
           </h3>
-          <p className="whitespace-pre-line break-words text-sm text-muted">{reply ? reply.body : message.body}</p>
+          <p className="prose-block whitespace-pre-line break-words text-sm text-muted">{reply ? reply.body : message.body}</p>
         </div>
-        {main && <Thumb item={{ kind: main.kind, src: main.kind === 'link' ? undefined : attachmentUrl(main.id), name: main.name, size: main.size }} px={56} />}
+        {main && <Thumb item={{ kind: main.kind, src: main.kind === 'link' ? undefined : (reply ? replyAttachmentUrl : attachmentUrl)(main.id), name: main.name, size: main.size }} px={56} />}
       </div>
 
       <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-1.5 text-xs text-muted">

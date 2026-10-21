@@ -15,6 +15,8 @@ export interface Member {
   /** Supuesto: lista de dominios. */
   domains: string[]
   language: Language
+  /** Una cuenta desactivada no inicia sesión y conserva su historial; sólo el Editor la desactiva o la reactiva. */
+  active: boolean
 }
 
 /** Respuesta de GET /me: el miembro y el nombre del proyecto (supuesto: `project_name`). */
@@ -75,12 +77,12 @@ export interface ProposalMessage {
   assignee_ids: string[]
   attachment_ids: string[]
   /** Unidades del input que cubre este mensaje (las numera el sistema). */
-  unit_ids: string[]
+  unit_ids: number[]
 }
 
 /** Unidades del input que el análisis dejó sin mensaje, con el motivo. */
 export interface DiscardedUnits {
-  unit_ids: string[]
+  unit_ids: number[]
   reason: string
 }
 
@@ -91,7 +93,7 @@ export interface Proposal {
 
 /** Supuesto: el input trae sus unidades numeradas con el texto, para mostrar lo descartado. */
 export interface InputUnit {
-  id: string
+  id: number
   text: string
 }
 
@@ -123,7 +125,7 @@ export interface Reply {
   created_at: string
   /** Tipos de medio adjuntos a la respuesta, para dibujar un ícono por tipo (UD-016). */
   attachment_kinds?: AttachmentKind[]
-  /** Los adjuntos mismos, cuando la API los trae (miniaturas). */
+  /** Los adjuntos mismos (miniaturas); se sirven en `GET /replies/attachments/:id`, otro espacio de ids que los del mensaje. */
   attachments?: Attachment[]
 }
 

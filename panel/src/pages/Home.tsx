@@ -89,14 +89,14 @@ export function Home() {
 
         {working ? (
           <>
-            <div className="glass leaf grid min-h-0 flex-1 gap-x-10 gap-y-4 p-4 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+            <div className="glass leaf grid min-h-0 flex-1 md:grid-rows-[minmax(0,1fr)] gap-x-10 gap-y-4 p-4 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
               <InputPreview input={input.data!} />
               <AnalysisPanel input={input.data!} onClose={close} />
             </div>
             <FeedLinks meId={me?.id ?? ''} />
           </>
         ) : (
-          <div className="grid min-h-0 flex-1 gap-x-10 gap-y-4 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+          <div className="grid min-h-0 flex-1 md:grid-rows-[minmax(0,1fr)] gap-x-10 gap-y-4 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
             <Feed kind="messages" meId={me?.id ?? ''} />
             <Feed kind="replies" meId={me?.id ?? ''} />
           </div>

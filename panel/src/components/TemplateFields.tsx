@@ -33,6 +33,7 @@ export function TemplateFields({
               value={values?.[f.name] ?? ''}
               label={f.label}
               multiline
+              prose
               canEdit={canEdit}
               placeholder={f.required ? t('fields.required') : t('fields.optional')}
               validate={f.required ? (v) => (v ? null : t('fields.requiredError')) : undefined}

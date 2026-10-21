@@ -190,7 +190,8 @@ for (const [width, height] of SIZES) {
           await login(page)
           if (amplified) await amplify(page)
           // The long message with every medium and a thread: the one with the most to show.
-          const list = await (await page.request.get(`${ORIGIN}/api/messages`)).json()
+          const body = await (await page.request.get(`${ORIGIN}/api/messages`)).json()
+          const list = Array.isArray(body) ? body : body.items
           const rich = list.find((m) => m.title.startsWith('Revisar la lectura')) ?? list[0]
           for (const view of VIEWS) {
             const path = view.path ?? `/messages/${rich.id}`

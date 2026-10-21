@@ -25,7 +25,7 @@ export function InputPreview({ input }: { input: InputRecord }) {
       <h2>{t('input.title')}</h2>
       {/* Un texto pegado no tiene largo máximo: es un carril con desplazamiento propio y declarado. */}
       <div data-lane="input-text" className="scroll-thin min-h-0 flex-1 overflow-y-auto px-1.5 text-sm">
-        <EditableText value={input.text} label={t('input.title')} multiline canEdit={editable} validate={(v) => (v ? null : t('common.required'))} onSave={change} />
+        <EditableText value={input.text} label={t('input.title')} multiline prose canEdit={editable} validate={(v) => (v ? null : t('common.required'))} onSave={change} />
       </div>
       <AttachmentStrip items={input.attachments} className="shrink-0" />
     </section>

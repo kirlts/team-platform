@@ -1,3 +1,4 @@
+import { Menu } from '@/components/icons'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useT } from '@/i18n'
 import { attachmentUrl } from '@/lib/api'
@@ -35,7 +36,7 @@ export function AttachmentStrip({ items, max = 4, px = 40, className }: { items:
               aria-label={hidden > 0 ? t('media.allMore', { n: hidden }) : t('media.all')}
               className="inline-flex h-7 min-w-7 items-center justify-center rounded-md border border-dashed border-line-strong px-1.5 text-xs font-semibold text-muted hover:border-accent hover:text-accent"
             >
-              {hidden > 0 ? `+${hidden}` : t('media.list')}
+              {hidden > 0 ? `+${hidden}` : <Menu size={14} aria-hidden />}
             </button>
           </PopoverTrigger>
           <PopoverContent align="start" className="w-80 p-2">

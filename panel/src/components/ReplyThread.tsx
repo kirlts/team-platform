@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { useFormat, useT } from '@/i18n'
+import { replyAttachmentUrl } from '@/lib/api'
 import { useMe } from '@/lib/queries'
 import type { MessageDetail } from '@/lib/types'
 import { Avatar } from './Avatar'
@@ -8,6 +9,7 @@ import { FitList } from './FitList'
 import { useLookups } from './lookups'
 import { MediaKinds } from './MediaKinds'
 import { KIND_KEY, ReplyForm } from './ReplyForm'
+import { Thumb } from './Thumb'
 
 /**
  * Respuestas de un mensaje: la lista cabe en su marco y pagina; el formulario queda al pie, a la
@@ -41,7 +43,16 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
                 </time>
                 <MediaKinds of={r} />
               </div>
-              <p className="whitespace-pre-wrap break-words text-sm">{r.body}</p>
+              {r.body && <p className="prose-block whitespace-pre-wrap break-words text-sm">{r.body}</p>}
+              {(r.attachments?.length ?? 0) > 0 && (
+                <ul aria-label={t('media.attachments')} className="flex flex-wrap gap-2 pt-0.5">
+                  {r.attachments?.map((a) => (
+                    <li key={a.id}>
+                      <Thumb item={{ kind: a.kind, src: a.kind === 'link' ? undefined : replyAttachmentUrl(a.id), name: a.name, size: a.size }} px={36} href={a.kind === 'link' ? a.name : replyAttachmentUrl(a.id)} />
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </article>
         )}

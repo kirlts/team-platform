@@ -32,6 +32,8 @@ const TIMES = 8
 const SIZES = [
   [1440, 900],
   [1280, 720],
+  [1920, 1080],
+  [2560, 1440],
 ]
 
 /**
@@ -244,6 +246,34 @@ const VIEWS = [
 ]
 
 const report = []
+
+// Inicio's air (UD-110): the page grows with the window up to 1680 px and the bar to write is centered in it, so no strip is left empty on one side.
+for (const [width, height] of SIZES) {
+  describe(`${width}x${height} Inicio uses the width of the window`, () => {
+    test('the frame fills the region up to 1680 px and the bar is centered with room around it', async () => {
+      const context = await panel.browser.newContext({ viewport: { width, height }, locale: 'es-CL' })
+      const page = await context.newPage()
+      try {
+        await login(page, ORIGIN)
+        await open(page, '/')
+        const m = await page.evaluate(() => {
+          const main = document.querySelector('main')
+          const frame = main.firstElementChild.getBoundingClientRect()
+          const bar = document.querySelector('[aria-label="Nuevo mensaje"]').closest('section').getBoundingClientRect()
+          const region = main.getBoundingClientRect()
+          return { frame: frame.width, left: frame.left - region.left, right: region.right - frame.right, barLeft: bar.left - frame.left, barRight: frame.right - bar.right, bar: bar.width }
+        })
+        // The frame is as wide as the region minus its margins (40 px a side), or 1680 px.
+        assert.ok(m.frame >= Math.min(1680, m.frame + m.left + m.right - 80) - 2, `frame ${m.frame} px with ${m.left} px at the left and ${m.right} px at the right`)
+        assert.ok(Math.abs(m.left - m.right) <= 2, `the frame is off center: ${m.left} px at the left, ${m.right} px at the right`)
+        assert.ok(Math.abs(m.barLeft - m.barRight) <= 2, `the bar is off center in the frame: ${m.barLeft} px, ${m.barRight} px`)
+        assert.ok(m.bar <= 841 && m.bar >= Math.min(840, m.frame) - 2, `the bar is ${m.bar} px wide`)
+      } finally {
+        await context.close()
+      }
+    })
+  })
+}
 
 // A list that has settled asks for nothing: its thumbnails are drawn once. The frame of a list measures itself against its neighbors, so a neighbor that
 // changes size at every measure (the strip of areas that wrapped and unwrapped, H-1405) made both lists draw their sixty measuring rows again and again,

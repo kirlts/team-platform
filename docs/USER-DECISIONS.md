@@ -748,3 +748,14 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 **Consecuencias:** `panel/src/lib/sidebar.ts` con su prueba; una prueba de navegador oculta, recarga y muestra, y comprueba que otra persona no se ve afectada.
 **Condiciones de reversión:** Ninguna prevista.
 
+
+## [UD-110] Inicio con espacio: la barra de texto manda, la página crece con la ventana y un envío abierto desplaza la página
+
+**Fecha:** 2026-10-21
+**Contexto:** Martín, textual, con la captura de Inicio en una pantalla de 2000 px y una captura de Gemini: «La barra de texto necesita respirar mucho más, la UI debe ocupar mejor el ancho en pantalla, tener más espacio negativo para que los elementos respiren. Mira la página de Gemini para inspiración.» El contenido ocupaba una columna de 1215 px con unos 400 px vacíos a la derecha.
+**Decisión:** Decisión de la sesión, tomada por ese encargo; Martín no la dijo con estas palabras y puede revertirla. La barra de texto es una caja de 840 px centrada, de bordes muy redondeados y con 24 px de relleno; adjuntar, cámara, micrófono y enviar son controles pequeños dentro de ella. La página deja de ser una columna fija: crece con la ventana hasta 1680 px. Entre bloques hay 24 px, 16 px en una ventana de menos de 800 px de alto y 40 px en una de 1000 px o más; los valores son tokens (`--spacing-block-compact`, `--spacing-block`, `--spacing-section`, `--spacing-bar-pad`, `--container-compose`, `--container-inicio`) y están en `panel/DISENO.md`. El control «Envíos» sólo se dibuja cuando hay envíos. UD-017 se enmienda así: en reposo Inicio cabe sin desplazarse a todos los tamaños; con un envío abierto la región principal se desplaza y las dos listas toman un alto propio (el mayor entre 28 rem y el 56 % de la ventana), nunca una caja interna con desplazamiento propio salvo el texto largo de un original. La franja «Para mí» y «Por área» ya no está en Inicio (UD-100).
+**Alternativas descartadas:**
+- Ancho fijo mayor para la barra: a 2560 px sigue dejando vacío a los lados; un máximo con evidencia de capturas a 1280, 1440, 1920 y 2560 px lo evita sin estirar una línea de escritura.
+- Plegar las listas con un envío abierto: la enmienda de UD-017 las deja visibles y la página se desplaza.
+**Consecuencias:** `test:fit` mide también 1920x1080 y 2560x1440 y sigue fallando si algo se corta, se solapa o una caja desplaza por su cuenta; mide además que el contenido de Inicio use el ancho. `FitList` no vuelve a medir cuando el espacio lo sostiene su piso de una fila (H-2100).
+**Condiciones de reversión:** Si el espacio en blanco esconde las listas en pantallas bajas, vuelve el relleno de 16 px a todas las alturas.

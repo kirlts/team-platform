@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 9014c44 Plan de cierre: primera oración. Empujado a origin: `9014c44`.
-- Ramas con commits sin fusionar: `wt-configuracion` 13 (hace 76 segundos), `wt-barra-superior` 12 (hace 7 minutos), `wt-deuda` 5 (hace 27 segundos), `wt-deuda-ingles` 3 (hace 52 segundos), `wt-inicio-respira` 3 (hace 12 minutos), `wt-telemetria-2` 2 (hace 3 minutos).
-- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `banco-abiertos`, `barra-lateral`, `barra-superior`, `cierre`, `configuracion`, `deuda`, `deuda-ingles`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `h904-old`, `heic`, `ingles`, `inicio-maqueta`, `inicio-respira`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-2`, `telemetria-ui`, `thinking`, `voz`, `vps-restauracion`.
+- `main`: 402faf6 Merge branch 'wt-vps-restauracion'. Empujado a origin: `402faf6`.
+- Ramas con commits sin fusionar: `wt-configuracion` 14 (hace 55 segundos), `wt-barra-superior` 12 (hace 11 minutos), `wt-deuda` 8 (hace 68 segundos), `wt-inicio-respira` 4 (hace 2 minutos), `wt-deuda-ingles` 3 (hace 4 minutos), `wt-telemetria-2` 3 (hace 22 segundos), `wt-h904` 1 (hace 43 segundos).
+- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `banco-abiertos`, `barra-lateral`, `barra-superior`, `cierre`, `configuracion`, `deuda`, `deuda-ingles`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `h904-old`, `heic`, `ingles`, `inicio-maqueta`, `inicio-respira`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-2`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `9014c44` Plan de cierre: primera oración (hace 17 minutos)
-- `ba40c27` Plan de cierre: títulos sin subtítulo y oraciones cortas (hace 18 minutos)
-- `3bf56d6` Plan de cierre: fases, encargos relanzables y barra lateral (hace 18 minutos)
-- `48ca4b1` Traspaso: Configuración en vuelo (hace 36 minutos)
-- `89a1d39` Traspaso: la barra superior no lleva contadores por área (hace 44 minutos)
-- `207697a` Traspaso: instrucción de la barra superior en su sección (hace 46 minutos)
-- `43cf09c` Traspaso: la barra superior sólo con íconos de color y número (hace 46 minutos)
-- `c40b15d` Traspaso: barra superior e Inicio con espacio en vuelo (hace 49 minutos)
-Actualizado 2026-10-21 18:10 UTC.
+- `402faf6` Merge branch 'wt-vps-restauracion' (hace 2 minutos)
+- `9b20211` Instalacion: restauracion de adjuntos, segunda instancia y trusted-header medidos en el VPS (H-2600 a H-2606) (hace 2 minutos)
+- `ce4a6cf` Install: IMAGE_TAG for a second instance, port prompt, password hint (H-2601, H-2603) (hace 2 minutos)
+- `e8c0a59` Backup: copies readable only by their owner (H-2602) (hace 2 minutos)
+- `9014c44` Plan de cierre: primera oración (hace 20 minutos)
+- `ba40c27` Plan de cierre: títulos sin subtítulo y oraciones cortas (hace 21 minutos)
+- `3bf56d6` Plan de cierre: fases, encargos relanzables y barra lateral (hace 22 minutos)
+- `48ca4b1` Traspaso: Configuración en vuelo (hace 39 minutos)
+Actualizado 2026-10-21 18:13 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

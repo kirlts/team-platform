@@ -14,14 +14,14 @@ export function ReplyThread({ message }: { message: MessageDetail }) {
 
   return (
     <section aria-label="Respuestas" className="flex flex-col">
-      <h2 className="mb-2 text-sm font-semibold">
-        Respuestas <span className="font-normal text-muted">{message.replies.length}</span>
+      <h2 className="mb-4">
+        Respuestas <span className="ml-1 text-muted">{message.replies.length}</span>
       </h2>
       {message.replies.length > 0 && (
-        <ol className="flex flex-col border-l-2 border-line pl-4">
+        <ol className="flex flex-col border-l-2 border-line-strong pl-5">
           {message.replies.map((r) => (
             <li key={r.id} className="relative pb-4 last:pb-2">
-              <span className="absolute -left-[22px] top-0.5 rounded-full bg-bg p-0.5">
+              <span className="absolute -left-[31px] top-0 rounded-full">
                 <Avatar name={memberName(r.author_id) || '?'} size={20} />
               </span>
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
@@ -29,7 +29,7 @@ export function ReplyThread({ message }: { message: MessageDetail }) {
                 <Badge tone={r.kind === 'fix' ? 'answered' : 'neutral'}>{KIND_LABEL[r.kind]}</Badge>
                 <time dateTime={r.created_at}>{stamp(r.created_at)}</time>
               </div>
-              <p className="mt-1 whitespace-pre-wrap text-sm">{r.body}</p>
+              <p className="mt-1.5 whitespace-pre-wrap">{r.body}</p>
             </li>
           ))}
         </ol>

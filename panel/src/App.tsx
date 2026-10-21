@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router'
+import { Atmosphere } from '@/components/Atmosphere'
 import { Header } from '@/components/Header'
 import { Sidebar } from '@/components/Sidebar'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
@@ -37,10 +38,11 @@ function Shell() {
 
   return (
     <EventsProvider>
-      <div className="flex h-dvh flex-col">
+      <Atmosphere />
+      <div className="relative z-10 flex h-dvh flex-col">
         <Header projectName={me?.project_name} onOpenNav={() => setNavOpen(true)} onLogout={() => void logout()} />
         <div className="flex min-h-0 flex-1">
-          <aside className="scroll-thin hidden w-60 shrink-0 overflow-y-auto border-r border-line bg-surface md:block">
+          <aside className="glass scroll-thin hidden w-64 shrink-0 overflow-y-auto border-0 border-r !shadow-none md:block">
             <Sidebar onLogout={() => void logout()} />
           </aside>
           <main className="scroll-thin min-w-0 flex-1 overflow-y-auto">
@@ -49,7 +51,7 @@ function Shell() {
         </div>
       </div>
       <Dialog open={navOpen} onOpenChange={setNavOpen}>
-        <DialogContent side="left" title="Navegación" className="bg-surface">
+        <DialogContent side="left" title="Navegación">
           <Sidebar onNavigate={() => setNavOpen(false)} onLogout={() => void logout()} />
         </DialogContent>
       </Dialog>

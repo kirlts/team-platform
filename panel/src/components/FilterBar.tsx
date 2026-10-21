@@ -63,14 +63,14 @@ export function FilterBar({ query, onChange }: { query: MessageQuery; onChange: 
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-0 flex-1 basis-56">
-          <Search size={15} aria-hidden className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
+          <Search size={15} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
           <input
             type="search"
             aria-label="Buscar"
             placeholder="Buscar"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            className="h-8 w-full rounded-md border border-line-strong bg-raised pl-8 pr-2 text-sm placeholder:text-faint focus-visible:border-accent focus-visible:outline-1 focus-visible:outline-accent"
+            className="well h-8 w-full rounded-full pl-9 pr-3 text-sm placeholder:text-faint focus-visible:border-accent"
           />
         </div>
         {free.length > 0 && (
@@ -94,8 +94,8 @@ export function FilterBar({ query, onChange }: { query: MessageQuery; onChange: 
       {query.filters.length > 0 && (
         <ul className="flex flex-wrap items-center gap-2" aria-label="Filtros aplicados">
           {query.filters.map((f) => (
-            <li key={f.prop} className="inline-flex h-7 items-stretch overflow-hidden rounded-md border border-line-strong bg-raised text-[13px]">
-              <span className="flex items-center bg-surface px-2 font-medium">{PROP_LABEL[f.prop]}</span>
+            <li key={f.prop} className="glass inline-flex h-7 items-stretch overflow-hidden rounded-full text-[13px] !shadow-none">
+              <span className="flex items-center bg-[linear-gradient(180deg,var(--color-chrome-1),var(--color-chrome-2))] px-3 font-semibold">{PROP_LABEL[f.prop]}</span>
               {f.prop === 'replies' ? (
                 <span className="flex items-center px-1.5 text-muted">{OP_LABEL.eq}</span>
               ) : (
@@ -115,7 +115,7 @@ export function FilterBar({ query, onChange }: { query: MessageQuery; onChange: 
                 </DropdownMenu>
               )}
               <DropdownMenu open={openValue === f.prop} onOpenChange={(o) => setOpenValue(o ? f.prop : null)}>
-                <DropdownMenuTrigger className={cn('inline-flex items-center gap-1 px-2 font-medium text-accent hover:bg-hover')} aria-label={`Valor de ${PROP_LABEL[f.prop]}`}>
+                <DropdownMenuTrigger className={cn('inline-flex items-center gap-1 px-2.5 font-semibold text-accent-deep hover:bg-accent-soft')} aria-label={`Valor de ${PROP_LABEL[f.prop]}`}>
                   {labelOf(f)}
                   <ChevronDown size={12} aria-hidden />
                 </DropdownMenuTrigger>
@@ -136,7 +136,7 @@ export function FilterBar({ query, onChange }: { query: MessageQuery; onChange: 
                 type="button"
                 aria-label={`Quitar el filtro ${PROP_LABEL[f.prop]}`}
                 onClick={() => onChange({ ...query, filters: removeFilter(query.filters, f.prop) })}
-                className="flex items-center border-l border-line px-1.5 text-muted hover:bg-hover hover:text-danger"
+                className="flex items-center border-l border-line px-2 text-muted hover:bg-danger-soft hover:text-danger"
               >
                 <X size={13} aria-hidden />
               </button>

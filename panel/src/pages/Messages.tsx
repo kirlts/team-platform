@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useSearchParams } from 'react-router'
 import { FilterBar } from '@/components/FilterBar'
 import { MessageCard } from '@/components/MessageCard'
+import { PageHeader } from '@/components/PageHeader'
 import { parseQuery, serializeQuery, type MessageQuery } from '@/lib/filters'
 import { useMe, useMessages } from '@/lib/queries'
 
@@ -14,13 +15,13 @@ export function Messages() {
   const change = (next: MessageQuery) => setParams(serializeQuery(next), { replace: true })
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 p-4 md:p-6">
-      <div className="flex items-baseline justify-between gap-2">
-        <h1 className="text-xl font-semibold">Mensajes</h1>
-        {list.data && <span className="text-xs text-muted">{list.data.length === 1 ? '1 mensaje' : `${list.data.length} mensajes`}</span>}
-      </div>
+    <div className="flex w-full max-w-[60rem] flex-col gap-5 px-5 py-7 md:px-10 md:py-10">
+      <PageHeader
+        title="Mensajes"
+        aside={list.data && <span className="text-xs tabular-nums text-muted">{list.data.length === 1 ? '1 mensaje' : `${list.data.length} mensajes`}</span>}
+      />
       <FilterBar query={query} onChange={change} />
-      <div className="overflow-hidden rounded-lg border border-line">
+      <div className="glass leaf overflow-hidden">
         {list.isPending ? (
           <p className="px-3 py-8 text-center text-sm text-muted">Cargando</p>
         ) : list.isError ? (

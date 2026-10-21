@@ -154,12 +154,12 @@ export function ComposeBar({ onCreated, disabled }: { onCreated: (created: Creat
       onDragLeave={() => setDragging(false)}
       onDrop={onDrop}
       className={cn(
-        'rounded-lg border bg-raised transition-colors',
-        dragging ? 'border-accent bg-accent-soft' : 'border-line-strong',
+        'glass leaf transition-colors duration-150 focus-within:border-accent',
+        dragging && '!border-accent !bg-accent-soft',
         busy && 'opacity-70',
       )}
     >
-      <div className="flex items-end gap-1 p-1.5">
+      <div className="flex items-end gap-1.5 p-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" aria-label="Adjuntar" disabled={busy}>
@@ -218,7 +218,7 @@ export function ComposeBar({ onCreated, disabled }: { onCreated: (created: Creat
                 void send()
               }
             }}
-            className="max-h-[200px] min-h-8 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm placeholder:text-faint focus-visible:outline-none"
+            className="max-h-[200px] min-h-8 flex-1 resize-none bg-transparent px-2 py-1.5 placeholder:text-faint focus-visible:outline-none"
           />
         )}
 
@@ -307,9 +307,9 @@ export function ComposeBar({ onCreated, disabled }: { onCreated: (created: Creat
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={Math.round(progress * 100)}
-          className="h-1 overflow-hidden rounded-b-lg bg-line"
+          className="meter mx-3 mb-3 h-2"
         >
-          <div className="h-full bg-accent transition-[width] duration-150" style={{ width: `${Math.round(progress * 100)}%` }} />
+          <div className="meter-fill" style={{ width: `${Math.round(progress * 100)}%` }} />
         </div>
       )}
 

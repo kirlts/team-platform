@@ -12,10 +12,10 @@ export function InputPreview({ input }: { input: InputRecord }) {
 
   return (
     <section aria-label="Mensaje enviado" className="flex min-w-0 flex-col gap-3">
-      <h2 className="text-sm font-semibold">Mensaje</h2>
+      <h2>Mensaje</h2>
       {input.text.trim() && (
         <div>
-          <p className={`whitespace-pre-wrap break-words text-sm ${expanded ? '' : 'line-clamp-6'}`}>{input.text}</p>
+          <p className={`whitespace-pre-wrap break-words text-sm ${expanded ? '' : 'line-clamp-8'}`}>{input.text}</p>
           {long && (
             <button type="button" className="mt-1 text-xs text-accent hover:underline" onClick={() => setExpanded((v) => !v)}>
               {expanded ? 'Ver menos' : 'Ver más'}

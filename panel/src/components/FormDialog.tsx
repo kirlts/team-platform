@@ -78,7 +78,7 @@ function FormBody({
 
   return (
     <form
-      className="flex min-h-0 flex-col gap-3 overflow-y-auto p-4"
+      className="flex min-h-0 flex-col gap-4 overflow-y-auto p-5"
       onSubmit={(e) => {
         e.preventDefault()
         void submit()

@@ -125,7 +125,7 @@ async function run(vp) {
   await shot(page, vp, 'inicio')
 
   const textarea = page.getByLabel('Nuevo mensaje', { exact: true }).last()
-  await textarea.fill('Corregir el desalineado del sidebar en la vista dashboard.\n\nAgregar la sincronización con WhatsApp en el sidebar.\n\nPregunta: ¿el audio máximo sigue en 25 MB?')
+  await textarea.fill('Corregir el desalineado del sidebar en la vista dashboard.\n\nAgregar la sincronización con WhatsApp en el sidebar.\n\nPregunta: ¿el audio máximo sigue en 25 MB?\n\nSaludos al equipo y gracias por el trabajo de la semana.')
   // Pegar una captura como lo haría el portapapeles.
   await page.evaluate(async (svgText) => {
     const file = new File([svgText], 'captura-pegada.svg', { type: 'image/svg+xml' })
@@ -151,7 +151,7 @@ async function run(vp) {
   await shot(page, vp, 'analisis-progreso')
 
   // --- Propuesta editable
-  await page.getByRole('button', { name: 'Área detectada' }).waitFor({ timeout: 20000 })
+  await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
   await shot(page, vp, 'propuesta')
   await shot(page, vp, 'propuesta-completa', { full: true })
   await page.getByRole('button', { name: /Título del mensaje:/ }).first().click()
@@ -163,13 +163,18 @@ async function run(vp) {
   await page.getByRole('button', { name: 'Agregar destinatario' }).first().click()
   await shot(page, vp, 'propuesta-destinatarios')
   await page.keyboard.press('Escape')
-  await page.getByRole('button', { name: 'Área detectada' }).click()
-  await shot(page, vp, 'propuesta-area')
-  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: /^Área:/ }).nth(1).click()
+  await shot(page, vp, 'propuesta-area-por-mensaje')
+  await page.getByRole('menuitemradio', { name: 'Error' }).click()
+  await page.waitForTimeout(300)
+  await page.getByRole('button', { name: 'Sin acción' }).click()
+  await shot(page, vp, 'propuesta-sin-accion')
 
   // --- Publicar
   await page.getByRole('button', { name: 'Enviar', exact: true }).last().click()
   await page.getByRole('progressbar').first().waitFor({ state: 'detached' }).catch(() => {})
+  await page.getByRole('region', { name: 'Análisis' }).waitFor({ state: 'detached' })
+  await page.getByRole('region', { name: 'Últimos mensajes' }).getByRole('radio', { name: 'Todos' }).click()
   await page.getByText('Corregir el desalineado del sidebar en el dashboard').first().waitFor()
   await shot(page, vp, 'inicio-publicado')
 

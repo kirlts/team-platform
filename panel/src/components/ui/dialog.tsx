@@ -16,21 +16,21 @@ export function DialogContent({
 }: Omit<ComponentProps<typeof Primitive.Content>, 'title'> & { title: ReactNode; side?: 'center' | 'left' }) {
   return (
     <Primitive.Portal>
-      <Primitive.Overlay className="fixed inset-0 z-50 bg-black/40" />
+      <Primitive.Overlay className="fixed inset-0 z-50 bg-[oklch(0.2_0.06_262/0.45)] backdrop-blur-[3px]" />
       <Primitive.Content
         aria-describedby={undefined}
         className={cn(
-          'fixed z-50 flex flex-col border border-line-strong bg-raised text-fg shadow-lg',
+          'glass-strong fixed z-50 flex flex-col text-fg',
           side === 'center'
-            ? 'left-1/2 top-1/2 max-h-[85dvh] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg'
+            ? 'leaf left-1/2 top-1/2 max-h-[85dvh] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2'
             : 'inset-y-0 left-0 w-72 max-w-[85vw] border-y-0 border-l-0',
           className,
         )}
         {...props}
       >
-        <div className={cn('flex items-center justify-between gap-2 border-b border-line px-4 py-2.5', side === 'left' && 'sr-only')}>
-          <Primitive.Title className="text-sm font-semibold">{title}</Primitive.Title>
-          <Primitive.Close className="rounded-sm p-1 text-muted hover:bg-hover" aria-label="Cerrar">
+        <div className={cn('flex items-center justify-between gap-2 border-b border-line px-5 py-3', side === 'left' && 'sr-only')}>
+          <Primitive.Title className="text-xs font-semibold">{title}</Primitive.Title>
+          <Primitive.Close className="rounded-full p-1.5 text-muted hover:bg-hover" aria-label="Cerrar">
             <X size={16} aria-hidden />
           </Primitive.Close>
         </div>

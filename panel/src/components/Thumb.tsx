@@ -31,17 +31,17 @@ export function Thumb({
   const label = item.name ?? item.kind
   const inner =
     item.kind === 'image' && item.src ? (
-      <img src={item.src} alt={label} className="h-full w-full object-cover" loading="lazy" />
+      <img src={item.src} alt={label} className="h-full w-full rounded-[4px] object-cover" loading="lazy" />
     ) : item.kind === 'video' && item.src ? (
-      <video src={`${item.src}#t=0.1`} preload="metadata" muted playsInline className="h-full w-full object-cover" aria-label={label} />
+      <video src={`${item.src}#t=0.1`} preload="metadata" muted playsInline className="h-full w-full rounded-[4px] object-cover" aria-label={label} />
     ) : (
-      <span className="flex h-full w-full flex-col items-center justify-center gap-0.5 text-muted">
+      <span className="flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-[4px] bg-accent-soft text-accent-deep">
         <Icon size={Math.round(px * 0.38)} aria-hidden />
       </span>
     )
   const body = (
     <span
-      className="block overflow-hidden rounded-md border border-line-strong bg-surface"
+      className="frame block overflow-hidden rounded-md"
       style={{ width: px, height: px }}
       title={[label, fileSize(item.size)].filter(Boolean).join(' · ')}
     >
@@ -62,7 +62,7 @@ export function Thumb({
           type="button"
           onClick={onRemove}
           aria-label={`Quitar ${label}`}
-          className="absolute -right-1.5 -top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-line-strong bg-raised text-muted hover:text-danger"
+          className="btn-glass absolute -right-1.5 -top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-muted hover:!text-danger"
         >
           <X size={11} aria-hidden />
         </button>

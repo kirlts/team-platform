@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router'
 import { EditableText } from '@/components/EditableText'
 import { FormDialog } from '@/components/FormDialog'
+import { PageHeader } from '@/components/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog'
@@ -35,9 +36,9 @@ export function Areas() {
     })
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 p-4 md:p-6">
-      <h1 className="text-xl font-semibold">Áreas</h1>
-      <div className="overflow-hidden rounded-lg border border-line">
+    <div className="flex w-full max-w-[60rem] flex-col gap-6 px-5 py-7 md:px-10 md:py-10">
+      <PageHeader title="Áreas" />
+      <div className="glass leaf overflow-hidden">
         {areas.isPending ? (
           <p className="px-3 py-8 text-center text-sm text-muted">Cargando</p>
         ) : (areas.data ?? []).length === 0 ? (
@@ -54,7 +55,7 @@ function AreaSection({ area, expanded, onToggle, highlighted }: { area: Area; ex
   const save = useSaveArea()
   return (
     <section className={cn('border-b border-line last:border-b-0', highlighted && 'bg-accent-soft/40')}>
-      <div className="flex items-start gap-2 px-3 py-2.5">
+      <div className="flex items-start gap-2.5 px-4 py-4">
         <button
           type="button"
           aria-expanded={expanded}
@@ -102,7 +103,7 @@ function Templates({ areaId }: { areaId: string }) {
   const [creating, setCreating] = useState(false)
 
   return (
-    <div className="border-t border-line bg-surface/50 py-1 pl-9 pr-3">
+    <div className="border-t border-line bg-glass py-1.5 pl-12 pr-4">
       {templates.isPending ? (
         <p className="py-3 text-sm text-muted">Cargando</p>
       ) : (
@@ -141,7 +142,7 @@ function TemplateRow({ template, areaId }: { template: Template; areaId: string 
   const [confirming, setConfirming] = useState(false)
 
   return (
-    <li className="border-b border-line py-2 last:border-b-0">
+    <li className="border-b border-line py-3 last:border-b-0">
       <div className="flex items-start gap-2">
         <button
           type="button"

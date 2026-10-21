@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { Atmosphere } from '@/components/Atmosphere'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { api } from '@/lib/api'
@@ -25,16 +26,18 @@ export function Login() {
   }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-surface px-4">
+    <main className="relative flex min-h-dvh items-center px-5 md:px-[12vw]">
+      <Atmosphere />
       <form
-        className="flex w-full max-w-xs flex-col gap-3 rounded-lg border border-line-strong bg-raised p-5"
+        className="glass leaf relative z-10 flex w-full max-w-sm flex-col gap-4 p-7"
         onSubmit={(e) => {
           e.preventDefault()
           void submit()
         }}
       >
-        <h1 className="text-lg font-bold uppercase tracking-wide">
-          <span className="text-accent">Team</span>
+        <h1 className="flex items-center gap-3 text-[1.1rem] font-bold uppercase tracking-[0.18em]">
+          <span aria-hidden className="orb h-4 w-4 rounded-full" />
+          Team
         </h1>
         <label className="flex flex-col gap-1 text-[13px] font-medium">
           Correo

@@ -4,6 +4,7 @@ import { AnalysisPanel } from '@/components/AnalysisPanel'
 import { ComposeBar } from '@/components/ComposeBar'
 import { InputPreview } from '@/components/InputPreview'
 import { MessageCard } from '@/components/MessageCard'
+import { PageHeader } from '@/components/PageHeader'
 import { Segmented } from '@/components/Segmented'
 import { ApiError } from '@/lib/api'
 import { clock, longDate } from '@/lib/format'
@@ -57,18 +58,20 @@ export function Home() {
   }, [input.error, input.data?.status])
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 md:p-6">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h1 className="text-xl font-semibold">{me?.project_name}</h1>
-        <p className="text-sm text-muted">
-          <time dateTime={now.toISOString()}>
-            {longDate(now)}, {clock(now)}
-          </time>
-        </p>
-      </div>
+    <div className="flex w-full max-w-[72rem] flex-col gap-10 px-5 py-7 md:px-10 md:py-10">
+      <PageHeader
+        title={me?.project_name ?? ''}
+        aside={
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">
+            <time dateTime={now.toISOString()}>
+              {longDate(now)} <span className="text-accent-deep">{clock(now)}</span>
+            </time>
+          </p>
+        }
+      />
 
-      <section aria-label="Nuevo mensaje" className="mx-auto flex w-full max-w-3xl flex-col gap-2">
-        <h2 className="text-sm font-semibold">Nuevo mensaje</h2>
+      <section aria-label="Nuevo mensaje" className="flex flex-col gap-2.5">
+        <h2>Nuevo mensaje</h2>
         <ComposeBar
           disabled={!!activeId && input.data?.status !== 'failed'}
           onCreated={(created) => {
@@ -79,13 +82,13 @@ export function Home() {
       </section>
 
       {input.data && (
-        <div className="grid gap-6 border-y border-line py-5 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+        <div className="glass leaf grid gap-x-10 gap-y-8 p-6 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
           <InputPreview input={input.data} />
           <AnalysisPanel input={input.data} onClose={close} />
         </div>
       )}
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-x-10 gap-y-10 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
         <Feed kind="messages" meId={me?.id ?? ''} />
         <Feed kind="replies" meId={me?.id ?? ''} />
       </div>
@@ -105,9 +108,9 @@ function Feed({ kind, meId }: { kind: 'messages' | 'replies'; meId: string }) {
   if (kind === 'replies') params.append('f', 'replies:eq:con')
 
   return (
-    <section aria-label={kind === 'messages' ? 'Últimos mensajes' : 'Últimas respuestas'} className="flex min-w-0 flex-col gap-2">
+    <section aria-label={kind === 'messages' ? 'Últimos mensajes' : 'Últimas respuestas'} className="flex min-w-0 flex-col gap-2.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold">{kind === 'messages' ? 'Últimos mensajes' : 'Últimas respuestas'}</h2>
+        <h2>{kind === 'messages' ? 'Últimos mensajes' : 'Últimas respuestas'}</h2>
         <Segmented
           label={kind === 'messages' ? 'Mensajes mostrados' : 'Respuestas mostradas'}
           size="sm"
@@ -119,7 +122,7 @@ function Feed({ kind, meId }: { kind: 'messages' | 'replies'; meId: string }) {
           ]}
         />
       </div>
-      <div className="overflow-hidden rounded-lg border border-line">
+      <div className="glass leaf overflow-hidden">
         {feed.isPending ? (
           <p className="px-3 py-6 text-center text-sm text-muted">Cargando</p>
         ) : rows.length === 0 ? (

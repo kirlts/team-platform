@@ -152,8 +152,8 @@ export function EditableText({
       }
     },
     className: cn(
-      'w-full rounded-md border bg-raised px-1.5 py-0.5 text-sm text-fg focus-visible:outline-1',
-      error ? 'border-danger outline-danger' : 'border-accent',
+      'well w-full rounded-md px-1.5 py-0.5 text-fg focus-visible:outline-1',
+      error ? '!border-danger outline-danger' : '!border-accent',
       mono && 'font-mono text-[13px]',
       className,
     ),

@@ -31,12 +31,12 @@ export function MessageCard({ message, variant = 'message' }: { message: Message
   const authorName = memberName(message.author_id)
 
   return (
-    <article className="relative border-b border-line px-3 py-2.5 last:border-b-0 hover:bg-hover/60">
+    <article className="relative border-b border-line px-4 py-3.5 last:border-b-0 hover:bg-glass-edge">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-start gap-2">
             <AreaBadge title={areaTitle(message.area_id)} />
-            <h3 className="min-w-0 flex-1 truncate text-sm font-semibold">
+            <h3 className="line-clamp-2 min-w-0 flex-1 sm:line-clamp-1">
               <Link
                 to={`/messages/${message.id}`}
                 className="outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:outline-2 focus-visible:after:outline-accent"
@@ -44,21 +44,21 @@ export function MessageCard({ message, variant = 'message' }: { message: Message
                 {message.title}
               </Link>
             </h3>
-            <time dateTime={message.created_at} className="shrink-0 text-xs text-muted">
+            <time dateTime={message.created_at} className="shrink-0 text-xs tabular-nums text-muted">
               {stamp(variant === 'reply' && reply ? reply.created_at : message.created_at)}
             </time>
           </div>
 
           {variant === 'reply' && reply ? (
-            <p className="mt-1 line-clamp-2 text-[13px] text-muted">
+            <p className="mt-1.5 line-clamp-2 text-sm text-muted">
               <span className="font-medium text-fg">{memberName(reply.author_id)}:</span> {reply.body}
             </p>
           ) : (
-            <p className="mt-1 line-clamp-2 whitespace-pre-line text-[13px] text-muted">{message.body}</p>
+            <p className="mt-1.5 line-clamp-2 break-words text-sm text-muted">{message.body}</p>
           )}
 
-          <div className="mt-2 flex items-center gap-3 text-xs text-muted">
-            <span className="inline-flex min-w-0 flex-1 items-center gap-1.5">
+          <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted">
+            <span className="inline-flex min-w-0 flex-1 basis-36 items-center gap-1.5">
               <Avatar name={authorName || '?'} size={18} />
               <span className="truncate">
                 {authorName}
@@ -77,15 +77,16 @@ export function MessageCard({ message, variant = 'message' }: { message: Message
               </span>
             )}
             <StatusBadge status={message.status} />
-            <span className="relative z-10 flex shrink-0 items-center gap-1">
+            <span className="relative z-10 ml-auto flex shrink-0 items-center gap-1">
               {!isAuthor && !closed && (
-                <Button size="sm" variant="secondary" aria-expanded={replying} onClick={() => setReplying((v) => !v)}>
+                <Button size="sm" variant="ghost" className="text-accent-deep" aria-expanded={replying} onClick={() => setReplying((v) => !v)}>
                   Responder
                 </Button>
               )}
               <Button
                 size="sm"
                 variant="ghost"
+                className="text-muted"
                 disabled={setClosed.isPending}
                 onClick={() => setClosed.mutate({ id: message.id, closed: !closed })}
               >
@@ -103,7 +104,7 @@ export function MessageCard({ message, variant = 'message' }: { message: Message
         )}
       </div>
       {replying && (
-        <div className="relative z-10 mt-3 border-t border-line pt-3">
+        <div className="relative z-10 mt-3.5 border-t border-line pt-3.5">
           <ReplyForm messageId={message.id} autoFocus onSent={() => setReplying(false)} />
         </div>
       )}

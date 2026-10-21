@@ -31,9 +31,9 @@ export function AnalysisPanel({ input, onClose }: { input: InputRecord; onClose:
   const processing = input.status === 'queued' || input.status === 'extracting' || input.status === 'analyzing'
 
   return (
-    <section aria-label="Análisis" className="flex min-w-0 flex-col gap-3">
+    <section aria-label="Análisis" className="flex min-w-0 flex-col gap-4">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold">Análisis</h2>
+        <h2>Análisis</h2>
         {input.status === 'proposed' && <Badge tone="accent">Propuesta</Badge>}
         {input.status === 'failed' && <Badge tone="danger">Falló</Badge>}
       </div>
@@ -50,9 +50,9 @@ export function AnalysisPanel({ input, onClose }: { input: InputRecord; onClose:
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={Math.round(progress?.percent ?? 0)}
-            className="h-2 overflow-hidden rounded-full bg-line"
+            className="meter h-2.5"
           >
-            <div className="h-full rounded-full bg-accent transition-[width] duration-500" style={{ width: `${progress?.percent ?? 0}%` }} />
+            <div className="meter-fill" style={{ width: `${progress?.percent ?? 0}%` }} />
           </div>
           <div>
             <Button size="sm" variant="ghost" disabled={cancel.isPending} onClick={() => cancel.mutate(input.id, { onSuccess: onClose })}>
@@ -289,7 +289,7 @@ function MessageArea({
           type="button"
           aria-label={`Área: ${areaTitle(areaId) || 'sin área'}${templateName ? `, plantilla ${templateName}` : ''}`}
           title={templateName}
-          className="mt-0.5 inline-flex h-6 shrink-0 items-center gap-1 rounded-sm border border-line-strong bg-raised pl-1.5 pr-1 text-xs font-medium text-fg hover:border-accent"
+          className="mt-0.5 inline-flex h-6 shrink-0 items-center gap-1 rounded-[3px_9px_3px_9px] border border-edge bg-[linear-gradient(180deg,var(--color-chrome-1),var(--color-chrome-2))] pl-2 pr-1.5 text-xs font-semibold text-fg hover:border-accent"
         >
           {areaTitle(areaId) || 'Sin área'}
           <ChevronDown size={12} aria-hidden />

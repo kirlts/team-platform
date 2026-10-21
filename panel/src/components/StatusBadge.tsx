@@ -11,6 +11,11 @@ export function StatusBadge({ status }: { status: MessageStatus }) {
   return <Badge tone={status}>{STATUS_LABEL[status]}</Badge>
 }
 
+/** Área como pestaña de cromo: esquinas opuestas redondeadas, como en la maqueta. */
 export function AreaBadge({ title }: { title: string }) {
-  return <Badge tone="outline">{title}</Badge>
+  return (
+    <span className="inline-flex h-5 shrink-0 items-center rounded-[3px_9px_3px_9px] border border-line-strong bg-[linear-gradient(180deg,var(--color-chrome-1),var(--color-chrome-2))] px-2 text-xs font-semibold text-fg">
+      {title}
+    </span>
+  )
 }

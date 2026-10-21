@@ -37,14 +37,14 @@ export function MessageDetail() {
   const others = m.attachments.filter((a) => a.kind !== 'audio')
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 p-4 md:p-6">
+    <div className="flex w-full max-w-[50rem] flex-col gap-7 px-5 py-7 md:px-10 md:py-10">
       <Link to="/messages" className="inline-flex items-center gap-1 self-start text-xs text-muted hover:text-fg">
         <ArrowLeft size={13} aria-hidden /> Mensajes
       </Link>
 
       <header className="flex flex-col gap-2">
         <div className="flex items-start justify-between gap-3">
-          <h1 className="min-w-0 text-xl font-semibold leading-snug">{m.title}</h1>
+          <h1 className="min-w-0 font-sans text-[1.5rem] font-semibold leading-snug">{m.title}</h1>
           <Button
             variant="secondary"
             disabled={setClosed.isPending}
@@ -70,7 +70,7 @@ export function MessageDetail() {
         </div>
       </header>
 
-      <p className="whitespace-pre-wrap text-sm leading-relaxed">{m.body}</p>
+      <p className="whitespace-pre-wrap leading-relaxed">{m.body}</p>
 
       {m.attachments.length > 0 && (
         <section aria-label="Adjuntos" className="flex flex-col gap-3">
@@ -97,7 +97,7 @@ export function MessageDetail() {
         </section>
       )}
 
-      <div className="border-t border-line pt-4">
+      <div className="border-t border-line-strong pt-6">
         <ReplyThread message={m} />
       </div>
     </div>

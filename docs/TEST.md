@@ -108,6 +108,6 @@ Se activa cuando cambia un flujo visible (§6), el empaquetado o la identidad. N
 | Métrica | Valor actual | Objetivo |
 |---|---|---|
 | Prohibiciones de alta prioridad con prueba completa | 15 de 20 cubiertas y en verde; 3 con una brecha anotada (HP-007: falta activar el gancho en cada clon; HP-008: faltan los comentarios en inglés de UD-015; HP-014: la publicación no revalida unidades); 2 pendientes de una persona (HP-019, HP-020) | 20 de 20 |
-| Pruebas | 430 en `npm test` (incluye 11 de propiedades y 1 de imagen que se omite sin `TEAM_PLATFORM_IMAGE`) + 56 (banco, `npm run test:bench`) + 21 (panel) | crece |
+| Pruebas | 446 en `npm test` (incluye 11 de propiedades y 1 de imagen que se omite sin `TEAM_PLATFORM_IMAGE`) + 56 (banco, `npm run test:bench`) + 21 (panel) | crece |
 | Casos del banco con cobertura 100 % contra el modelo real | 6 de 7 (`03-monologo-prueba` llega a 90 %; medición 2026-10-20 con `--repeat 3`) | 7 de 7 |
 | Mediana de tiempo por caso del banco | 3,0 s a 10,5 s (el docx de 40 puntos es el máximo) | bajo 10 s salvo el docx de 40 puntos |

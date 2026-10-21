@@ -60,7 +60,14 @@ test('mergeSegments: merging the chunks returns every segment once, in order, wi
     const perChunk = plan.map((chunk) => truth
       .filter((s) => s.start >= chunk.start && s.end <= chunk.start + chunk.length)
       .map((s) => ({ start: s.start - chunk.start, end: s.end - chunk.start, text: s.text })))
-    assert.deepEqual(mergeSegments(plan, perChunk), truth)
+    const merged = mergeSegments(plan, perChunk)
+    // Each merged segment also carries the index of the chunk it came from (sentence joining never crosses it):
+    // the one whose cut window holds its start.
+    for (const segment of merged) {
+      const owner = plan.find((chunk) => segment.start >= chunk.cutStart && segment.start < chunk.cutEnd)
+      assert.equal(segment.chunk, owner.index)
+    }
+    assert.deepEqual(merged.map(({ chunk, ...rest }) => rest), truth)
   }), { numRuns: 500 })
 })
 

@@ -89,7 +89,7 @@ export const DEFAULTS = Object.freeze({
     // without punctuation gave units of 109 words and 52 s (p90 of 68 words); with 40 the p90 drops to 39,
     // the median rises to 17 and the longest joined unit is a single 50-word segment. 40 keeps whole the
     // longest punctuated sentences measured (29 words) plus one typical segment (p90 of 14 words).
-    maxUnitWords: 40,
+    maxUnitWords: 40, // cortesía declarada, medición 2026-10-20 (see above)
   }),
 
   video: Object.freeze({

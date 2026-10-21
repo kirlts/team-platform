@@ -151,9 +151,9 @@
 **Checks cubiertos:** HP-003, HP-007, HP-010, HP-011
 
 - [x] HP-003, HP-005, HP-006, HP-007, HP-008 y HP-011 en `src/static.test.js` `2026-10-20 23:12:20`
-- [ ] HP-003 sobre `src/analyze/` (DT-007)
-- [ ] HP-010: un literal numérico fuera de `src/config.js` sin su fuente falla (DT-007)
-- [ ] Gancho de pre-commit que escanea credenciales (DT-004)
+- [x] HP-003 sobre `src/analyze/` (DT-007) `2026-10-20 23:47:49`
+- [x] HP-010: un literal numérico fuera de `src/config.js` sin su fuente falla (DT-007) `2026-10-20 23:47:49`
+- [x] Gancho de pre-commit que escanea credenciales (DT-004) `2026-10-20 23:47:49`
 
 ---
 

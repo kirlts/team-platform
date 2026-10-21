@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: a8db6fc Traspaso: lenguaje de instrumento fusionado. Empujado a origin: `a8db6fc`.
-- Ramas con commits sin fusionar: `wt-inicio-maqueta` 23 (hace 22 segundos), `wt-telemetria-ui` 14 (hace 11 minutos).
+- `main`: 9f22570 Guardia de marcas de conflicto con rutas no ASCII; traspaso al día. Empujado a origin: `9f22570`.
+- Ramas con commits sin fusionar: `wt-inicio-maqueta` 23 (hace 2 minutos).
 - Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `a8db6fc` Traspaso: lenguaje de instrumento fusionado (hace 2 minutos)
-- `294fb9a` Merge branch 'wt-voz' (hace 2 minutos)
-- `a588cd1` Comentario de la guardia en inglés (HP-008) (hace 7 minutos)
-- `6063afd` Fusiona main en wt-voz: estados, Áreas, publicación automática y reuniones largas (hace 8 minutos)
-- `328a6a9` Traspaso: reuniones largas fusionadas y presupuesto (hace 8 minutos)
-- `553ee44` Guion que refresca el estado vivo del traspaso (hace 10 minutos)
-- `cc3d26a` Fusiona cobertura y estabilidad en reuniones largas (UD-080, H-1003) (hace 12 minutos)
-- `048767e` UD-080: la clasificación relee lo descartado y cada ventana ve 40 unidades previas; cierra H-1003 y abre H-1900 a H-1904 (hace 13 minutos)
-Actualizado 2026-10-21 16:36 UTC.
+- `9f22570` Guardia de marcas de conflicto con rutas no ASCII; traspaso al día (hace 13 segundos)
+- `cf4511c` Fusiona la telemetría de la interfaz y los jueces acotados (UD-090 a UD-092) (hace 72 segundos)
+- `5f92f94` Fusión con main: pruebas de telemetría al estilo de H-901, publicación automática (UD-070) y smoke-panel arreglado (hace 89 segundos)
+- `a8db6fc` Traspaso: lenguaje de instrumento fusionado (hace 4 minutos)
+- `294fb9a` Merge branch 'wt-voz' (hace 5 minutos)
+- `a588cd1` Comentario de la guardia en inglés (HP-008) (hace 9 minutos)
+- `6063afd` Fusiona main en wt-voz: estados, Áreas, publicación automática y reuniones largas (hace 10 minutos)
+- `328a6a9` Traspaso: reuniones largas fusionadas y presupuesto (hace 10 minutos)
+Actualizado 2026-10-21 16:38 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

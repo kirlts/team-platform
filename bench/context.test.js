@@ -93,3 +93,35 @@ test('withQueueRetries repeats a retryable error up to the attempts and gives up
   await assert.rejects(withQueueRetries(() => { calls += 1; throw Object.assign(new Error('429'), { retryable: true, retryAfterMs: 1 }); }), /429/);
   assert.equal(calls, 3);
 });
+
+test('compare: the shared-pairs table scores only the expected messages every variant covered', () => {
+  const a = fakeResult('a', [[1], [1]], null);
+  const b = fakeResult('b', [[1], [2]], null);
+  // Variant a loses the second point: one fused message covers only the first.
+  a.cases[0].runs[0].proposal = { messages: [a.cases[0].runs[0].proposal.messages[0]] };
+  a.cases[0].runs[0].score = score({ units, expected, actual: a.cases[0].runs[0].proposal });
+  const [va, vb] = compareResults([a, b]).variants;
+  assert.equal(va.shared_assignment.pairs, 1);
+  assert.equal(vb.shared_assignment.pairs, 1);
+  assert.equal(vb.assignment.pairs, 2);
+  assert.match(formatComparison({ variants: [va, vb] }), /Pairs in common \| 1 \| 1 \|/);
+});
+
+test('poolResults concatenates the runs and the judged scores of a variant and its repetition', async () => {
+  const { poolResults } = await import('./compare.js');
+  const a = fakeResult('v', [[1], [2]], [4, 5]);
+  const b = fakeResult('v-b', [[1], [1]], [2, 3]);
+  const [pooled] = poolResults([a, b], (r) => r.variant.replace(/-b$/, ''));
+  assert.equal(pooled.variant, 'v');
+  assert.equal(pooled.cases[0].runs.length, 2);
+  assert.equal(pooled.usefulness.cases[0].scores.length, 4);
+  const v = compareResults([pooled]).variants[0];
+  assert.equal(v.runs, 2);
+  assert.equal(v.assignment.pairs, 4);
+  assert.equal(v.usefulness.median, 3.5);
+});
+
+test('compare: pairs in common counts every pair that all variants produced', () => {
+  const out = compareResults([fakeResult('a', [[1], [1]], null), fakeResult('b', [[1], [2]], null), fakeResult('c', [[2], [2]], null)]);
+  for (const v of out.variants) assert.equal(v.shared_assignment.pairs, 2);
+});

@@ -42,46 +42,62 @@ function discardedIds(discarded) {
  * @param {Array<{ assignee_ids?: number[], units: Set<UnitId> }>} G expected messages
  * @param {Array<{ assignee_ids?: number[], units: Set<UnitId> }>} P obtained messages
  */
+const sortedUnique = (ids) => [...new Set(ids)].sort((a, b) => a - b);
+
 function scoreAssignment(G, P) {
-  const members = new Map();
-  const member = (id) => {
-    if (!members.has(id)) members.set(id, { tp: 0, fp: 0, fn: 0, tn: 0, expected: 0, exact_when_expected: 0 });
-    return members.get(id);
-  };
-  let pairs = 0;
-  let exact = 0;
-  let tp = 0;
-  let fp = 0;
-  let fn = 0;
-  const pairList = [];
+  const pairs = [];
   for (const g of G) {
     if (!Array.isArray(g.assignee_ids) || g.units.size === 0) continue;
     const complete = P.filter((p) => isSubset(g.units, p.units));
     if (complete.length === 0) continue;
     const match = complete.reduce((best, p) => (p.units.size < best.units.size ? p : best));
-    const want = new Set(g.assignee_ids);
-    const got = new Set(match.assignee_ids ?? []);
+    pairs.push({ expected_id: g.id, actual_index: match.index, expected: sortedUnique(g.assignee_ids), actual: sortedUnique(match.assignee_ids ?? []) });
+  }
+  return assignmentFromPairs(pairs);
+}
+
+/**
+ * Assignment counts and rates from a list of pairs `{ expected: ids, actual: ids }`. Exported so that a comparison can
+ * score only the pairs that every variant produced (the variants cover different subsets of the reference).
+ * @param {Array<{ expected: number[], actual: number[] }>} pairList
+ */
+export function assignmentFromPairs(pairList) {
+  const members = new Map();
+  const member = (id) => {
+    if (!members.has(id)) members.set(id, { tp: 0, fp: 0, fn: 0, tn: 0, expected: 0, exact_when_expected: 0 });
+    return members.get(id);
+  };
+  let exact = 0;
+  let tp = 0;
+  let fp = 0;
+  let fn = 0;
+  for (const pair of pairList) {
+    const want = new Set(pair.expected);
+    const got = new Set(pair.actual);
     const same = want.size === got.size && [...want].every((id) => got.has(id));
-    pairs += 1;
     if (same) exact += 1;
     for (const id of new Set([...want, ...got])) {
       const m = member(id);
-      if (want.has(id) && got.has(id)) m.tp += 1;
-      else if (got.has(id)) m.fp += 1;
-      else m.fn += 1;
-      tp += want.has(id) && got.has(id) ? 1 : 0;
-      fp += !want.has(id) && got.has(id) ? 1 : 0;
-      fn += want.has(id) && !got.has(id) ? 1 : 0;
+      if (want.has(id) && got.has(id)) { m.tp += 1; tp += 1; }
+      else if (got.has(id)) { m.fp += 1; fp += 1; }
+      else { m.fn += 1; fn += 1; }
     }
     for (const id of want) {
       member(id).expected += 1;
       if (same) member(id).exact_when_expected += 1;
     }
-    pairList.push({ expected_id: g.id, actual_index: match.index, exact: same });
   }
-  // Every member that shows up anywhere counts a true negative in each pair that neither expected nor chose it.
-  for (const m of members.values()) m.tn = pairs - m.tp - m.fp - m.fn;
-  return finishAssignment({ pairs, exact, tp, fp, fn, per_member: Object.fromEntries([...members].map(([id, m]) => [String(id), m])), pair_list: pairList });
+  // A member that shows up anywhere counts a true negative in each pair that neither expected nor chose it.
+  for (const m of members.values()) m.tn = pairList.length - m.tp - m.fp - m.fn;
+  return finishAssignment({
+    pairs: pairList.length,
+    exact,
+    tp,
+    fp,
+    fn,
+    per_member: Object.fromEntries([...members].map(([id, m]) => [String(id), m])),
+    pair_list: pairList,
+  });
 }
 
 /** Adds the derived rates to raw assignment counts. */

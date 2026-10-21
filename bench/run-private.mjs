@@ -17,6 +17,7 @@
 //   --team <file>      JSON array of { id, name, role, profile }: the members the analyzer receives (default: bench/fixtures.json)
 //   --no-profile       send members with id and name only (the «name only» baseline)
 //   --project <file>   markdown sent as bundle.project.description (default: no project); --project-name sets its name
+//   --pool             compare: merge result files whose variant differs only by a «-b» suffix (a repetition) into one
 //   --variant <label>  written into the result and its file name
 //   --cases a,b,c      comma list of case ids (same as repeating --case)
 //   --private-dir <d>  where the cases live (default bench/private; env BENCH_PRIVATE_DIR)
@@ -31,7 +32,7 @@ import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadFixtures, runCase, summarize, formatReport, unitsOf } from './lib.js';
 import { createSpend, withQueueRetries } from './spend.mjs';
-import { compareResults, formatComparison } from './compare.js';
+import { compareResults, formatComparison, poolResults } from './compare.js';
 import { costOf, usageOfCall } from './pricing.js';
 import { analyze } from '../src/analyze/index.js';
 import { extract } from '../src/extract/index.js';
@@ -58,6 +59,7 @@ const { values, positionals } = parseArgs({
     cases: { type: 'string' },
     'private-dir': { type: 'string' },
     'results-dir': { type: 'string' },
+    pool: { type: 'boolean', default: false },
   },
 });
 const command = positionals[0] ?? 'list';
@@ -266,7 +268,7 @@ if (command === 'list') {
           fixtures,
           options: values.analyzer ? { analyzer: values.analyzer } : {},
         }),
-        { onRetry: (e, attempt) => console.log(`${c.id}: reintento ${attempt} (${e.message.slice(0, 90)})`) },
+        { attempts: 6, onRetry: (e, attempt) => console.log(`${c.id}: reintento ${attempt} (${e.message.slice(0, 90)})`) },
       );
       const total = addSpend(`analyze ${c.id}`, run.usage.cost_usd ?? 0, run.usage.cost_usd === null ? run.usage.calls : 0);
       console.log(`${c.id} #${i + 1}: ${run.status}, ${(run.total_ms / 1000).toFixed(1)} s, ${run.usage.calls} llamadas, ${run.usage.cost_usd?.toFixed(5) ?? 'sin tarifa'} USD (acumulado ${total.toFixed(4)})`);
@@ -289,11 +291,12 @@ if (command === 'list') {
     const usefulnessFile = file.replace(/\.json$/, '.usefulness.json');
     return { file, ...JSON.parse(readFileSync(file, 'utf8')), usefulness: existsSync(usefulnessFile) ? JSON.parse(readFileSync(usefulnessFile, 'utf8')) : null };
   });
+  const compared = values.pool ? poolResults(results, (r) => (r.variant ?? r.file).replace(/-b$/, '')) : results;
   const inputOf = (caseId) => {
     const cache = readCache(caseId);
     return cache ? [cache.input.text, ...cache.input.attachments.map((a) => a.extracted)].join('\n') : '';
   };
-  console.log(formatComparison(compareResults(results, { inputOf })));
+  console.log(formatComparison(compareResults(compared, { inputOf, expectedOf: (id) => { const c = loadPrivateCases().find((x) => x.id === id); return c ? readExpected(c) : null; } })));
 } else {
   throw new Error(`Orden desconocida «${command}»`);
 }

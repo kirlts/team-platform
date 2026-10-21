@@ -232,7 +232,7 @@ UD-029, UD-036 y UD-041. Un mensaje tiene tres estados y la interfaz no muestra 
 
 ## Vista de un área
 
-UD-041. `/areas/:areaId`: el título editable en el lugar, el filtro por los tres estados con el conteo de cada uno (`StateTabs`, el estado elegido vive en la URL), la lista de mensajes de Mensajes filtrada por el área, y debajo dos secciones plegadas (`Fold`): Descripción, con el lugar del control de color del área, y Plantillas. La lista ocupa lo que queda y pagina; abiertas las dos secciones la vista sigue cabiendo en una pantalla.
+UD-041. `/areas/:areaId`: el título editable en el lugar, el filtro por los tres estados con el conteo de cada uno (`StateTabs`, el estado elegido vive en la URL), la lista de mensajes de Mensajes filtrada por el área, y debajo dos secciones plegadas (`Fold`): Descripción, con el lugar del control de color del área, y Plantillas. La lista ocupa lo que queda y pagina; las secciones van justo bajo la lista (`footer` de `FitList`), sin vacío entre ambas, y abiertas las dos la vista sigue cabiendo en una pantalla. Las filas no llevan chip de área (UD-160). Los cuatro filtros van en un mismo contenedor: una fila en escritorio, dos filas de dos en teléfono. En la lista de áreas la fila es una grilla: nombre con el chevrón pegado a su última palabra, conteos en columna fija y descripción; en teléfono el conteo queda a la derecha en todas las filas.
 
 ## Avisos de la pantalla
 

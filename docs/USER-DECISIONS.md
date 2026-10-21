@@ -848,3 +848,14 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 - Plegar las listas con un envío abierto: la enmienda de UD-017 las deja visibles y la página se desplaza.
 **Consecuencias:** `test:fit` mide también 1920x1080 y 2560x1440 y sigue fallando si algo se corta, se solapa o una caja desplaza por su cuenta; mide además que el contenido de Inicio use el ancho. `FitList` no vuelve a medir cuando el espacio lo sostiene su piso de una fila (H-2100).
 **Condiciones de reversión:** Si el espacio en blanco esconde las listas en pantallas bajas, vuelve el relleno de 16 px a todas las alturas.
+
+## [UD-160] La vista de un área no repite el chip de su área en cada mensaje
+
+**Fecha:** 2026-10-21
+**Contexto:** Un juez de pantallas anotó que «Error» se repetía en las 4 filas de una vista que ya es el área Error (H-2905). UD-041 fija los mensajes del área con su filtro por estado; UD-045 fija que el color del área determina su chip.
+**Decisión:** La vista de un área no dibuja el chip de área en sus filas. El área es el filtro de la vista y su nombre es el título. El chip sigue en Mensajes, el detalle, el análisis, Inicio y la barra superior, con el color del área. `MessageCard` y `MessageList` reciben `hideArea` (por omisión, falso).
+**Alternativas descartadas:**
+- Dejar el chip en cada fila: repite el título de la página sin dato nuevo.
+- Quitar el chip de todas las listas: UD-045 lo fija como la marca del área en cada lugar donde el área no es evidente.
+**Consecuencias:** Una prueba de `flows-states-areas.browser.test.mjs` cuenta cero chips en la vista del área y más de cero en Mensajes.
+**Condiciones de reversión:** Si el dueño pide el color del área también en esta vista, vuelve el chip o se pinta el título con él.

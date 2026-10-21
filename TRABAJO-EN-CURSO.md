@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 0d608f7 Traspaso: Inicio completo en main y VPS reconstruyéndose. Empujado a origin: `0d608f7`.
+- `main`: 14bd755 Traspaso: VPS actualizado, duración medida de la reconstrucción. Empujado a origin: `14bd755`.
 - Ramas con commits sin fusionar: ninguna.
-- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
+- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `barra-superior`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `0d608f7` Traspaso: Inicio completo en main y VPS reconstruyéndose (hace 38 segundos)
-- `6c971d1` Merge remote-tracking branch 'origin/main' into wt-inicio-maqueta (hace 5 minutos)
-- `8233b45` Libro: H-1405 cerrado con su causa y su medición; H-1406 y H-1407 cerrados (hace 5 minutos)
-- `e3e2f61` H-1405: la franja de Para mí tiene alto propio desde 768 px y no se parte, para que medirse sus chips no mueva las listas; H-1407: perilla de publicación en Configuración; prueba de peticiones repetidas; servidor de ejemplo con Range (hace 7 minutos)
-- `dddfcca` Traspaso: Inicio fusionado y H-1405 abierto (hace 14 minutos)
-- `8c50075` Merge branch 'wt-inicio-maqueta' (hace 21 minutos)
-- `6a69c41` Libro: H-1400 a H-1407 de Inicio según la maqueta (hace 22 minutos)
-- `31684f8` Fusiona origin/main (instrumento, telemetría) en wt-inicio-maqueta (hace 22 minutos)
-Actualizado 2026-10-21 17:12 UTC.
+- `14bd755` Traspaso: VPS actualizado, duración medida de la reconstrucción (hace 5 minutos)
+- `0d608f7` Traspaso: Inicio completo en main y VPS reconstruyéndose (hace 10 minutos)
+- `6c971d1` Merge remote-tracking branch 'origin/main' into wt-inicio-maqueta (hace 14 minutos)
+- `8233b45` Libro: H-1405 cerrado con su causa y su medición; H-1406 y H-1407 cerrados (hace 14 minutos)
+- `e3e2f61` H-1405: la franja de Para mí tiene alto propio desde 768 px y no se parte, para que medirse sus chips no mueva las listas; H-1407: perilla de publicación en Configuración; prueba de peticiones repetidas; servidor de ejemplo con Range (hace 17 minutos)
+- `dddfcca` Traspaso: Inicio fusionado y H-1405 abierto (hace 23 minutos)
+- `8c50075` Merge branch 'wt-inicio-maqueta' (hace 31 minutos)
+- `6a69c41` Libro: H-1400 a H-1407 de Inicio según la maqueta (hace 31 minutos)
+Actualizado 2026-10-21 17:21 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

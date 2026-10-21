@@ -109,3 +109,13 @@ test('una foto grande de teléfono se reduce a JPEG y cabe en el tope del provee
   assert.equal(sent.mime, 'image/jpeg');
   assert.ok(sent.data.length <= 7 * 1024 * 1024, `pesa ${sent.data.length} bytes`);
 });
+
+test('a real HEIC container (libheif, HEVC payload) is rejected by its brand with the same code', async () => {
+  const path = new URL('./test/fixtures/libheif.heic', import.meta.url).pathname;
+  const vision = fakeVision();
+  await assert.rejects(
+    extract(await att(path, { mime: 'image/heic' }), { providers: { vision } }),
+    (e) => e instanceof ExtractError && e.code === 'image_heic_unsupported',
+  );
+  assert.equal(vision.calls.length, 0);
+});

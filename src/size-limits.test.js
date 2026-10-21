@@ -125,3 +125,17 @@ test('HP-018: a file that is not a readable video is not refused by the probe: t
     assert.ok(['video_unreadable', 'ffmpeg_failed'].includes(row.error_code), row.error_code)
   } finally { await env.close() }
 })
+
+test('H-21: a real HEIC photo is refused at upload with image_heic_unsupported, judged by its brand and not by its name', async () => {
+  const env = await realExtractEnv()
+  try {
+    // 1.2 KB written by libheif (brand `heic`, HEVC payload): the container is real, not a fabricated header.
+    const heic = await readFile(new URL('./extract/test/fixtures/libheif.heic', import.meta.url))
+    for (const [name, type] of [['IMG_0001.HEIC', 'image/heic'], ['foto.jpg', 'image/jpeg']]) {
+      const sent = await postInput(env, env.cookie, { text: 'x' }, [{ field: 'files', name, type, content: heic }])
+      assert.equal(sent.statusCode, 422, name)
+      assert.equal(sent.json().code, 'image_heic_unsupported', name)
+    }
+    nothingLeft(env)
+  } finally { await env.close() }
+})

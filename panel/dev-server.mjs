@@ -375,6 +375,14 @@ const server = createServer(async (req, res) => {
       return
     }
 
+    // --- sólo de desarrollo: simula un mensaje que llega de otro miembro (prueba el aviso por SSE)
+    if (path === '/_dev/incoming' && method === 'POST') {
+      const from = members.find((x) => x.id !== me.id)
+      const msg = seedMessage({ area_id: 'a-pregunta', author_id: from.id, title: 'Confirmar el límite de adjuntos por mensaje', body: 'Mensaje entrante de ejemplo, generado por el servidor de desarrollo.', status: 'open', created_at: new Date().toISOString(), assignee_ids: [me.id], attachment_ids: [] })
+      emit(me.id, 'message', { message_id: msg.id, title: msg.title, author_id: from.id, at: msg.created_at })
+      return send(res, 201, { message_id: msg.id })
+    }
+
     // --- inputs
     if (path === '/inputs' && method === 'POST') {
       const ct = req.headers['content-type'] ?? ''

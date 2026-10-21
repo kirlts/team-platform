@@ -495,3 +495,20 @@ RULES:
 **Consecuencias:**
 - La barra lateral no cambia de forma al abrir Conexiones; Configuración y Cerrar sesión quedan al pie.
 **Condiciones de reversión:** Que se construya el primer conector: su fila pasa a mostrar su estado y su acción real, y se agrega la entrada a la barra.
+
+## [UD-038] El presupuesto de API sube 50 USD
+
+**Fecha:** 2026-10-21
+**Contexto:** El tope de UD-027 (25 USD) quedó casi agotado con las mediciones del banco, el semáforo, los medios en el VPS y la iteración de descripciones de área, y dejó sin correr la comparación de modelos (H-80) y la corrida completa del pipeline con proyecto (H-602).
+**Decisión:** Martín, textual: «subo el presupuesto 50 dólares». Se lee como 50 USD más sobre los 25 de UD-027, 75 en total. Cada encargo declara su parte antes de gastar y se detiene en ella; el gasto acumulado se lleva en `bench/results/`.
+**Consecuencias:** Se pueden correr H-80, H-602 y más repeticiones para separar efectos del ruido entre corridas.
+**Condiciones de reversión:** Si Martín quiso decir un tope total de 50 USD, quedan unos 26 USD sobre lo ya gastado y los encargos en curso se detienen en esa cifra.
+
+## [UD-039] El iPhone no se prueba todavía
+
+**Fecha:** 2026-10-21
+**Contexto:** H-56 pedía probar el micrófono y la cámara en Safari e iPhone con un aparato real.
+**Decisión:** Martín, textual: «Lo del iPhone me da lo mismo, no lo vamos a usar todavía porque en realidad muchas imágenes puede que se suban directamente en Whatsapp o algo así». No se prueba con un aparato real por ahora.
+**Consecuencias:** H-56 deja de ser trabajo pendiente y queda como decisión del dueño. Un HEIC subido directamente se rechaza con un error claro (`image_heic_unsupported`); el Editor puede pedir que se acepte más adelante.
+**Condiciones de reversión:** Se prueba cuando haya usuarios con iPhone en el panel.
+

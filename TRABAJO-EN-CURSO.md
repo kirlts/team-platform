@@ -8,7 +8,7 @@
 - Pruebas ejecutadas el 2026-10-21 sobre `wt-cierre`: `npm test` 669 pruebas, 664 pasan y 5 se omiten (las que necesitan proveedor real o Docker); `node --test bench/` 70 de 70; panel `npx vitest run` 77 de 77; navegador, en `panel/`, `npm run test:fit` 10 de 10 y `npm run test:flows` 118 de 118 (H-900 cuenta las corridas anteriores que fallaron); `node scripts/check-conflict-markers.mjs` limpio.
 - Lo especificado está en `docs/MASTER-SPEC.md`. Las decisiones, con las palabras de Martín, en `docs/USER-DECISIONS.md` (UD-001 a UD-037). Las pruebas y sus prohibiciones, en `docs/TEST.md`. Los hallazgos, todos, en `docs/HALLAZGOS.md`: regla de Martín, el 100 % queda atendido, ninguno huérfano ni a medio hacer. Las investigaciones y mediciones con fuentes fechadas, en `docs/investigaciones/`.
 - Reglas del repositorio: `docs/RULES.md`. Dos se rompen fácil. La documentación pública no nombra otros proyectos del autor. El código y sus comentarios van en inglés (UD-015); la interfaz y la documentación, en español.
-- En el libro de hallazgos quedan abiertas cuatro filas. H-56 (iPhone real), H-80 (comparación de modelos) y H-602 (corrida completa) dicen qué las bloquea y traen su comando en la sección «Filas bloqueadas por causa externa». H-900 es una prueba de navegador que falló de forma intermitente y no se reprodujo sola. La sección «Decisiones del dueño» lista lo que las sesiones decidieron por él, con la cifra y cómo se revierte cada una.
+- En el libro de hallazgos quedan abiertas tres filas. H-56 (iPhone real) y H-80 (comparación de modelos) dicen qué las bloquea y traen su comando en la sección «Filas bloqueadas por causa externa». H-900 es una prueba de navegador que falló de forma intermitente y no se reprodujo sola. La sección «Decisiones del dueño» lista lo que las sesiones decidieron por él, con la cifra y cómo se revierte cada una.
 
 ## Qué se midió
 
@@ -56,7 +56,7 @@ La gravedad 5 fue 2, 4 y 3; la gravedad 4 fue 8, 12 y 10. El recuento no baja de
 - Tope: 25 USD. Gastado: cerca de 24 USD según la cuenta de la sesión.
 - Lo que se suma con archivo en mano: perfiles 2,79 y 4,96 USD, prompts y marcas de IA unos 8,5, áreas 1,34, concurrencia 1,25. Son unos 19 USD en mediciones documentadas. El resto son pruebas en el VPS, corridas del semáforo y corridas intermedias.
 - El libro de gasto local (`bench/results/private-spend.jsonl`) suma sólo 10,7 USD entre `main` y los worktrees, porque no todas las corridas escribieron en él. Los libros de los worktrees retirados están en `~/.local/share/team-platform/archivo-de-worktrees/`.
-- Quedan cerca de 1 USD. Con ese margen no cabe nada de H-80 ni de H-602: están bloqueados hasta que el dueño suba el tope.
+- Quedan cerca de 1 USD. Con ese margen no cabe H-80, bloqueado hasta que el dueño suba el tope. H-602 se cerró con el presupuesto de UD-038 (UD-060).
 
 ## Ramas y worktrees
 
@@ -71,7 +71,7 @@ La gravedad 5 fue 2, 4 y 3; la gravedad 4 fue 8, 12 y 10. El recuento no baja de
 1. Fusionar el cierre (dueño: Martín). Desde la raíz del repositorio: `git merge --no-edit wt-cierre && node scripts/check-conflict-markers.mjs && npm test && node --test bench/ && git push`.
 2. Actualizar el VPS con la interfaz de `wt-cierre`: el comando de «Actualizar» de arriba, y después `node scripts/vps-check.mjs` (debe imprimir `OK` en las siete líneas).
 3. H-56, micrófono en iPhone (dueño: Martín, necesita el aparato): los dos comandos de la sección «H-56» de `docs/HALLAZGOS.md`.
-4. Subir el tope de API (dueño: Martín) y correr H-602 y H-80 con los comandos de esa sección. H-602 va primero: costó 0,27 USD sin proyecto y con el proyecto no está medido, por eso su comando lleva `--budget 3` y corta solo al 90 %. H-80 va después y cuesta cerca de 3 USD. El resultado de H-602 decide si se mantienen las descripciones de área v2 (criterio: 82,6 % o más).
+4. Correr H-80 con el comando de esa sección (cerca de 3 USD). H-602 ya se midió: 87,5 % de área por mensaje, las descripciones v2 se mantienen (UD-060).
 5. H-900 (dueño: la sesión coordinadora): correr `cd panel && npm run test:flows` solo, sin otra prueba de navegador a la vez; si falla sola, endurecer `startPanel` como dice la fila.
 6. Revisar «Decisiones del dueño» de `docs/HALLAZGOS.md` (dueño: Martín). No bloquea nada: si no hay respuesta, todo queda como está.
 7. Una ronda 4 de jueces de pantalla (dueño: la sesión coordinadora). Mismo encargo, sin decirles qué cambió. Mide si bajan las gravedades 5 y 4 de la ronda 3, que es la línea base.

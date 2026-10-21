@@ -59,9 +59,9 @@ function bootstrapDiff(a, b, ids, iterations = 20000) {
   let seed = 12345;
   const rnd = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
   const stat = (pick) => {
-    let da = 0; let db = 0; let n = 0;
-    for (const id of pick) { da += a.get(id).h; db += b.get(id).h; n += a.get(id).n; }
-    return (100 * (db - da)) / n;
+    let ha = 0; let na = 0; let hb = 0; let nb = 0;
+    for (const id of pick) { ha += a.get(id).h; na += a.get(id).n; hb += b.get(id).h; nb += b.get(id).n; }
+    return 100 * (hb / nb - ha / na);
   };
   const point = stat(ids);
   const draws = [];

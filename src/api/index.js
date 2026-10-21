@@ -26,6 +26,7 @@ import { registerInputRoutes } from './routes/inputs.js'
 import { registerMessageRoutes } from './routes/messages.js'
 import { registerAreaRoutes } from './routes/areas.js'
 import { registerMemberRoutes } from './routes/members.js'
+import { registerConnectionRoutes } from './routes/connections.js'
 import { registerSettingsRoutes } from './routes/settings.js'
 import { registerAttachmentRoutes } from './routes/attachments.js'
 import { registerOpsRoutes } from './routes/ops.js'
@@ -242,6 +243,7 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
     registerAreaRoutes(api, ctx)
     registerMemberRoutes(api, ctx)
     registerSettingsRoutes(api, ctx)
+    registerConnectionRoutes(api, ctx)
     registerAttachmentRoutes(api, ctx)
     registerOpsRoutes(api, ctx)
     registerTelemetryRoutes(api, ctx)

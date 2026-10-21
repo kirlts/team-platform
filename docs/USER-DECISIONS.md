@@ -753,6 +753,46 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 **Condiciones de reversión:** Ninguna prevista.
 
 
+## [UD-120] Proveedores y claves de API se gestionan desde Configuración, con prueba antes de cambiar
+
+**Fecha:** 2026-10-21
+**Contexto:** Martín, textual: «Otro gran problema es que no hay una forma de reemplazar un proveedor con otro de una manera segura, o de simplemente retirar una clave de API. No es una interfaz utilizable para poder agregar un nuevo proveedor, reemplazar una clave de API, diagnosticar un proveedor, etc.» Investigación 11.
+**Decisión:** La sección «Proveedores» (sólo Editor) lista cada proveedor con estado (sin clave, configurada, fallando), últimos 4 caracteres de la clave, origen (guardada o entorno) y funciones que lo usan (Texto, Visión, Transcripción). Agregar un proveedor y reemplazar una clave prueban la clave nueva con una llamada mínima; sólo si funciona se guarda y la anterior sigue activa hasta entonces. Retirar una clave pide confirmación y se bloquea (409 `provider_in_use`) si una función depende de ella, con las funciones nombradas y el cambio de cada una ofrecido en el mismo diálogo. Cambiar proveedor o modelo de una función prueba antes de guardar; si falla queda la configuración anterior. El diagnóstico entrega duración, causa clasificada (clave inválida, sin cuota, modelo inexistente, sin red, límite de tasa, tiempo agotado, dirección inválida, error del proveedor) y los modelos que el proveedor lista. El plazo de cada prueba es `PROVIDER_PROBE_TIMEOUT_MS` (30 s). Cada cambio deja una fila de auditoría sin valores.
+**Alternativas descartadas:**
+- Guardar primero y probar después: deja una clave mala activa.
+- Mostrar la clave completa tras guardarla: ninguna ruta la devuelve.
+**Consecuencias:** Migración 0009, `src/api/routes/connections.js`, `src/providers/probe.js`, OpenAPI y MASTER-SPEC al día; el proveedor falso simula 401, 429, modelo inexistente, sin red y tiempo agotado.
+**Condiciones de reversión:** Si una prueba con costo real resulta frecuente, la prueba previa pasa a opcional por función.
+
+## [UD-121] Las claves guardadas se cifran en reposo y nunca salen del servidor
+
+**Fecha:** 2026-10-21
+**Contexto:** Mismo pedido que UD-120; la regla 6 de MASTER-SPEC §4.6 prohíbe credenciales en la base.
+**Decisión:** AES-256-GCM con nonce aleatorio por sellado y el nombre del proveedor como dato autenticado. La clave maestra es `SECRETS_KEY` o `<DATA_DIR>/secrets.key`, generada en el primer arranque con modo 600. La API sólo expone los últimos 4 caracteres. La clave no aparece en logs, spans, telemetría, errores, auditoría ni respuestas de prueba; los cuerpos de error del proveedor se redactan. Una variable de entorno sigue valiendo como valor de arranque, y una clave guardada la reemplaza. Rotación: `scripts/rotate-secrets-key.mjs`.
+**Alternativas descartadas:**
+- Mantener las claves sólo en variables de entorno: no permite reemplazo ni retiro desde la pantalla.
+**Consecuencias:** `src/api/secrets-never-leak.test.js` ejerce valores centinela en respuestas, registros, tablas y archivo SQLite. Respaldar la base sin la clave maestra deja las claves ilegibles; el panel las muestra «fallando».
+**Condiciones de reversión:** Si se adopta un gestor de secretos externo, `vault.js` se reemplaza por su cliente.
+
+## [UD-122] Configuración lleva una línea de explicación bajo cada ajuste
+
+**Fecha:** 2026-10-21
+**Contexto:** Martín, textual: «los rótulos no tienen explicación de lo que hacen. Por ejemplo "Publicación" y "Telemetría de uso" no significan nada para un usuario que configure esto.»
+**Decisión:** Sólo en Configuración, cada ajuste lleva bajo su rótulo una explicación de una línea (`hint.*`, componente `SettingHint`), impersonal y de hasta 90 caracteres. La guardia `panel/src/ui-voice.test.ts` la admite sólo con esas condiciones y falla con segunda persona, gerundio, imperativo, adjetivo valorativo o más de 90 caracteres. «Publicación» pasa a «Publicación automática».
+**Alternativas descartadas:**
+- Ícono de información con descripción emergente: oculta justo lo que faltaba.
+**Consecuencias:** Enmienda la regla «sin texto de ayuda por defecto» únicamente para esta pantalla.
+**Condiciones de reversión:** Ninguna prevista.
+
+## [UD-123] Configuración se desplaza como página y el texto largo crece con su contenido
+
+**Fecha:** 2026-10-21
+**Contexto:** Martín, textual: «La parte para escribir la descripción del proyecto tiene texto truncado que obliga a desplazarse dentro de la misma página para escribir la configuración del proyecto. Eso es un gran problema.»
+**Decisión:** La descripción del proyecto es un área de edición de al menos 16 filas que crece con el texto, a todo el ancho de su columna, sin caja con scroll propio. Tiene contador contra el tope, estado de guardado, deshacer y rehacer, «Reemplazar con .md» y «Descargar .md». Configuración se desplaza como página.
+**Alternativas descartadas:**
+- Alto máximo con scroll interno: es lo que se rechazó.
+**Consecuencias:** Enmienda UD-017 para esta vista; `test:fit` la exime sólo de las comprobaciones de alto de documento y mantiene las de carriles propios, texto bajo 12 px y repetidos.
+**Condiciones de reversión:** Ninguna prevista.
 ## [UD-130] La barra lateral va sobre una grilla, sus contadores no llevan contenedor y todo lo clicable responde al puntero
 
 **Fecha:** 2026-10-21

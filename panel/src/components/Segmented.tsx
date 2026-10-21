@@ -6,15 +6,18 @@ export function Segmented<T extends string>({
   options,
   label,
   size = 'default',
+  describedBy,
 }: {
   value: T
   onChange: (v: T) => void
   options: { value: T; label: string }[]
   label: string
   size?: 'default' | 'sm'
+  /** Id of the text that explains the setting (Configuración). */
+  describedBy?: string
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="well inline-flex self-start rounded-full p-0.5">
+    <div role="radiogroup" aria-label={label} aria-describedby={describedBy} className="well inline-flex self-start rounded-full p-0.5">
       {options.map((o) => (
         <button
           key={o.value}

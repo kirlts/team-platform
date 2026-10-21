@@ -286,6 +286,9 @@ export function loadConfig (env = process.env, overrides = {}) {
         groq: intVar(env, 'PROVIDER_MAX_INFLIGHT_GROQ', PROVIDER_LIMIT_DEFAULTS.groq), // measurement 2026-10-21, see PROVIDER_LIMIT_DEFAULTS
         openaiCompatible: intVar(env, 'PROVIDER_MAX_INFLIGHT_OPENAI_COMPATIBLE', PROVIDER_LIMIT_DEFAULTS.openaiCompatible) // measurement 2026-10-21, see PROVIDER_LIMIT_DEFAULTS
       },
+      // Deadline of each request of a probe (key replacement, function change, diagnosis; UD-120). 30 s is what the project that
+      // inspired the screen measured for its own probe and half of LiteLLM's 60 s (report 11 §6 point 8); the probe sends one token.
+      probe: { timeoutMs: intVar(env, 'PROVIDER_PROBE_TIMEOUT_MS', 30000, { min: 1 }) }, // informe 11 §6 punto 8, consultado 2026-10-21
       // Adaptive backoff after a 429 on the cap: wait one cooldown, then give back one request per restore step.
       backoff: {
         cooldownMs: intVar(env, 'PROVIDER_BACKOFF_COOLDOWN_MS', PROVIDER_LIMIT_DEFAULTS.cooldownMs, { min: 1 }), // measurement 2026-10-21, see PROVIDER_LIMIT_DEFAULTS

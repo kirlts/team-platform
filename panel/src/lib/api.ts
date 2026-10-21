@@ -15,26 +15,30 @@ const CSRF_VALUE = 'panel'
 export class ApiError extends Error {
   status: number
   code: string
-  constructor(status: number, message: string, code = '') {
+  /** The other fields of the body (`cause`, `used_by`, `duration_ms`…), for the codes that carry data. */
+  details: Record<string, unknown>
+  constructor(status: number, message: string, code = '', details: Record<string, unknown> = {}) {
     super(message)
     this.status = status
     this.code = code
+    this.details = details
   }
 }
 
 const SAFE = new Set(['GET', 'HEAD', 'OPTIONS'])
 
-async function errorBody(res: Response): Promise<{ message: string; code: string }> {
+async function errorBody(res: Response): Promise<{ message: string; code: string; details: Record<string, unknown> }> {
   try {
     const data = await res.json()
     const code = data && typeof data.code === 'string' ? data.code : ''
-    if (data && typeof data.message === 'string') return { message: data.message, code }
-    if (data && typeof data.error === 'string') return { message: data.error, code }
-    return { message: '', code }
+    const { code: _code, message: _message, ...details } = data && typeof data === 'object' ? (data as Record<string, unknown>) : {}
+    if (data && typeof data.message === 'string') return { message: data.message, code, details }
+    if (data && typeof data.error === 'string') return { message: data.error, code, details }
+    return { message: '', code, details }
   } catch {
     // Empty or non-JSON body: only the HTTP status remains.
   }
-  return { message: '', code: '' }
+  return { message: '', code: '', details: {} }
 }
 
 export async function api<T = unknown>(
@@ -62,8 +66,8 @@ export async function api<T = unknown>(
   }
   if (!res.ok) {
     settle({ status: res.status })
-    const { message, code } = await errorBody(res)
-    throw new ApiError(res.status, message, code || `http_${res.status}`)
+    const { message, code, details } = await errorBody(res)
+    throw new ApiError(res.status, message, code || `http_${res.status}`, details)
   }
   if (res.status === 204) {
     settle({ status: res.status })

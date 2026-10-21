@@ -21,6 +21,7 @@ describe('screens and routes', () => {
     // Whatever a path holds that is not lowercase letters and hyphens never survives, text included.
     expect(endpointOf('/members/Ana%20Perez')).toBe('/members/:id')
     expect(endpointOf('/messages/a@b.cl/close')).toBe('/messages/:id/close')
+    expect(endpointOf('/settings/connections/mi-gateway/key')).toBe('/settings/connections/:id/key')
   })
 })
 

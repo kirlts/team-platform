@@ -48,7 +48,18 @@ export const LANES = [
   '[role="menu"]',
 ]
 
-// FIT_BREAK=documento-alto adds a 2000 px block to the document; FIT_BREAK=carril adds a lane that
+/**
+ * Views whose page is allowed to scroll (UD-123). Dueño, 2026-10-21: «La parte para escribir la descripción del proyecto tiene texto
+ * truncado que obliga a desplazarse dentro de la misma página para escribir la configuración del proyecto. Eso es un gran problema.»
+ * Configuración holds a project description that can be as long as a master spec; the fix is not a smaller frame with a scroll inside it but an
+ * editor as tall as its text, and the page (the `<main>` of the shell) is what scrolls. These views are exempt ONLY from the checks of document
+ * height, region height and content below the window edge; own lanes, hidden overflow, text under 12 px and repeated text still apply to them.
+ */
+export const SCROLLING_PAGES = ['configuración']
+/** Characters seeded into the project description of Configuración, to measure the editor with a long text. */
+const LONG_PROJECT = 12000
+
+// FIT_BREAK=textarea-capped puts a max height and an own scroll on the project editor (it must fail); FIT_BREAK=documento-alto adds a 2000 px block to the document; FIT_BREAK=carril adds a lane that
 // scrolls without being declared; FIT_BREAK=oculto hides the overflow of the document; FIT_BREAK=repetido draws the same sentence twice.
 const BREAK = process.env.FIT_BREAK ?? ''
 
@@ -58,6 +69,7 @@ before(async () => {
 })
 
 after(async () => {
+  await panel?.control.reset().catch(() => {})
   await panel?.stop()
 })
 
@@ -154,6 +166,14 @@ function measureInPage({ lanes, withBreak }) {
   // An open dialog locks the page's scroll on purpose (it is a layer over the page, not the page); without one, hidden overflow is a failure.
   const hidden = !document.querySelector('[role="dialog"]') && (getComputedStyle(document.documentElement).overflowY === 'hidden' || getComputedStyle(document.body).overflowY === 'hidden')
   return { doc: se.scrollHeight, win: innerHeight, mainOver, mainBox: main ? main.clientHeight : 0, below, carriles, small: [...small], hidden, wide: se.scrollWidth - se.clientWidth, withBreak }
+}
+
+/** Puts a long description in the project, as the Editor would (the dev server keeps it until `control.reset`). */
+async function seedProject(page) {
+  const paragraph = 'Párrafo de una descripción larga del proyecto, con el contexto que el análisis recibe de cada mensaje del equipo. '
+  const description = paragraph.repeat(Math.ceil(LONG_PROJECT / paragraph.length)).slice(0, LONG_PROJECT)
+  const res = await page.request.patch(`${ORIGIN}/api/settings/project`, { data: { description }, headers: { 'x-team-request': 'panel' } })
+  assert.ok(res.ok(), `no se pudo sembrar el proyecto: ${res.status()}`)
 }
 
 /** Opens a path and waits for the view's heading, then for the network and the layout to settle. */
@@ -285,22 +305,40 @@ for (const [width, height] of SIZES) {
           const rich = list.find((m) => m.title.startsWith('Revisar la lectura')) ?? list[0]
           for (const view of VIEWS) {
             const path = view.path ?? `/messages/${rich.id}`
+            if (view.name === 'configuración') await seedProject(page)
             await open(page, path)
             const base = view.prepare ? await view.prepare(page) : undefined
             if (BREAK === 'documento-alto' && view.name === 'inicio') await page.evaluate(() => document.querySelector('main').insertAdjacentHTML('beforeend', '<div style="height:2000px">x</div>'))
             if (BREAK === 'carril' && view.name === 'equipo') await page.evaluate(() => document.querySelector('main').insertAdjacentHTML('beforeend', '<div style="height:80px;overflow-y:auto"><div style="height:400px">x</div></div>'))
             if (BREAK === 'repetido' && view.name === 'equipo') await page.evaluate(() => document.querySelector('main').insertAdjacentHTML('beforeend', '<p>Este texto aparece dos veces en la vista.</p><p>Este texto aparece dos veces en la vista.</p>'))
             if (BREAK === 'oculto' && view.name === 'mensajes') await page.evaluate(() => (document.documentElement.style.overflowY = 'hidden'))
+            if (BREAK === 'textarea-capped' && view.name === 'configuración') await page.evaluate(() => Object.assign(document.querySelector('textarea[aria-label="Proyecto"]').style, { maxHeight: '200px', overflowY: 'auto' }))
             const m = await page.evaluate(measureInPage, { lanes: LANES, withBreak: BREAK })
             if (!amplified) {
               const repeats = await page.evaluate(repeatsInPage)
               if (repeats.length) failures.push(`${view.name} (${path}): text repeated in the view: ${repeats.join('; ')}`)
             }
             report.push({ size: `${width}x${height}`, data: amplified ? `x${TIMES}` : 'sembrado', view: view.name, doc: m.doc, win: m.win, main: m.mainBox + m.mainOver, below: m.below })
-            if (m.doc > m.win) failures.push(`${view.name} (${path}): document of ${m.doc} px in a window of ${m.win} (${(m.doc / m.win).toFixed(2)} windows)`)
-            if (m.mainOver > 1) failures.push(`${view.name} (${path}): the main region scrolls ${m.mainOver} px on its own (${m.mainBox + m.mainOver} px in ${m.mainBox})`)
-            if (m.below > m.win) failures.push(`${view.name} (${path}): content down to ${m.below} px in a window of ${m.win}`)
-            if (m.carriles.length) failures.push(`${view.name} (${path}): own vertical lanes outside the allow-list: ${m.carriles.join(', ')}`)
+            const scrolls = SCROLLING_PAGES.includes(view.name)
+            if (scrolls) {
+              // The long description is what makes the page scroll, and the editor itself never does (it is as tall as its text).
+              const editor = await page.evaluate(() => {
+                const el = document.querySelector('textarea[aria-label="Proyecto"]')
+                return el ? { scrollHeight: el.scrollHeight, clientHeight: el.clientHeight, overflowY: getComputedStyle(el).overflowY, chars: el.value.length } : null
+              })
+              if (!editor) failures.push(`${view.name} (${path}): there is no project editor`)
+              else {
+                if (editor.chars < LONG_PROJECT) failures.push(`${view.name} (${path}): the long text was not seeded (${editor.chars} characters)`)
+                if (editor.scrollHeight > editor.clientHeight + 1 || editor.overflowY === 'auto' || editor.overflowY === 'scroll') failures.push(`${view.name} (${path}): the project editor scrolls on its own (${editor.scrollHeight} px of text in ${editor.clientHeight}, overflow-y ${editor.overflowY})`)
+              }
+              if (m.mainOver <= 1) failures.push(`${view.name} (${path}): with ${LONG_PROJECT} characters the page does not scroll, so the text is cut somewhere`)
+            }
+            if (!scrolls && m.doc > m.win) failures.push(`${view.name} (${path}): document of ${m.doc} px in a window of ${m.win} (${(m.doc / m.win).toFixed(2)} windows)`)
+            if (!scrolls && m.mainOver > 1) failures.push(`${view.name} (${path}): the main region scrolls ${m.mainOver} px on its own (${m.mainBox + m.mainOver} px in ${m.mainBox})`)
+            if (!scrolls && m.below > m.win) failures.push(`${view.name} (${path}): content down to ${m.below} px in a window of ${m.win}`)
+            // On a page that scrolls (UD-123) the <main> of the shell is the page's own scrolling region; any other lane still fails.
+            const lanes = scrolls ? m.carriles.filter((c) => !c.startsWith('main.')) : m.carriles
+            if (lanes.length) failures.push(`${view.name} (${path}): own vertical lanes outside the allow-list: ${lanes.join(', ')}`)
             if (m.small.length) failures.push(`${view.name} (${path}): text below 12 px: ${m.small.slice(0, 5).join('; ')}`)
             if (m.hidden) failures.push(`${view.name} (${path}): the document hides its overflow with overflow hidden`)
             if (view.compare && base && (m.doc !== base.doc || m.mainBox + m.mainOver !== base.main)) failures.push(`${view.name} (${path}): ten inputs changed the height (document ${base.doc} to ${m.doc}, region ${base.main} to ${m.mainBox + m.mainOver})`)

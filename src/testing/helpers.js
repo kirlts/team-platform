@@ -72,7 +72,7 @@ export const fakeExtract = async (attachment, { onProgress } = {}) => {
  * Full environment. `modules` replaces the fakes; `worker: true` starts a worker (off by default, so that
  * the test controls when it runs). Returns everything needed and a `close()`.
  */
-export async function makeEnv ({ config: overrides = {}, modules = {}, worker = false, seed = true, clock = false, telemetry = false, autoPublish = false } = {}) {
+export async function makeEnv ({ config: overrides = {}, modules = {}, worker = false, seed = true, clock = false, telemetry = false, autoPublish = false, logger = false } = {}) {
   const dir = tempDir()
   const config = testConfig(dir, overrides)
   await initializeDatabase(config, { seed: seed ? seedDefaults : null })
@@ -90,7 +90,7 @@ export async function makeEnv ({ config: overrides = {}, modules = {}, worker = 
   }
   // `clock`: a controllable clock for identity (login waits, session expiry) without really sleeping.
   const clockObj = { t: Date.now() }
-  const { app, domainEvents, identity } = await buildApp({ db, config, queue, events, modules: mods, telemetry: telemetryHandle, ...(clock ? { now: () => clockObj.t } : {}) })
+  const { app, domainEvents, identity } = await buildApp({ db, config, queue, events, modules: mods, telemetry: telemetryHandle, logger, ...(clock ? { now: () => clockObj.t } : {}) })
   const handlers = createPipeline({ db, config, queue, events, modules: mods })
   const w = createWorker({ db, queue, events, config, handlers })
   if (worker) w.start()

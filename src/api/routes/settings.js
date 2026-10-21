@@ -5,19 +5,29 @@
 
 import { audit } from '../../domain/audit.js'
 import { getAutoPublish, getProject, getProviderOverrides, getProviderSettings, MODALITIES, mergeOverrides, setAutoPublish, setProjectDescription, setProviderOverrides } from '../../domain/settings.js'
+import { getConnection } from '../../domain/connections.js'
 import { tooLarge, unprocessable } from '../../domain/errors.js'
 import { readProjectUpload } from '../upload.js'
+import { probeSlotChange } from './connections.js'
 
 const itemVista = {
   type: 'object',
   properties: {
     slot: { type: 'string', enum: MODALITIES }, provider: { type: 'string' }, model: { type: 'string' }, base_url: { type: 'string' },
-    available: { type: 'boolean' }, reason: { type: ['string', 'null'] }
+    available: { type: 'boolean' }, reason: { type: ['string', 'null'] },
+    key_last4: { type: ['string', 'null'] }, status: { type: 'string', enum: ['no_key', 'configured', 'failing'] }
   }
 }
 
 export function registerSettingsRoutes (app, ctx) {
   const { db, config, requireRole, modules } = ctx
+  const env = modules.env ?? process.env
+
+  /** State and last four characters of the key of the provider a function uses (never the key). */
+  const connectionFacts = (provider) => {
+    const connection = provider && modules.vault ? getConnection(db, config, env, provider, modules.vault) : null
+    return connection ? { key_last4: connection.key.last4, status: connection.status } : {}
+  }
 
   const view = () => {
     const stored = getProviderSettings(db, config)
@@ -33,7 +43,8 @@ export function registerSettingsRoutes (app, ctx) {
           model: real?.model ?? stored[slot].model ?? '',
           ...(stored[slot].base_url ? { base_url: stored[slot].base_url } : {}),
           available: real ? real.available : false,
-          reason: real?.reason ?? null
+          reason: real?.reason ?? null,
+          ...connectionFacts(real?.provider ?? stored[slot].provider)
         }
       })
     }
@@ -47,7 +58,7 @@ export function registerSettingsRoutes (app, ctx) {
     onRequest: [requireRole('editor')],
     schema: {
       summary: 'Change the provider of a slot, or the analyzer',
-      description: 'Body: { slot, provider, model, base_url? } or { analyzer }. Anything `createProviders` does not accept is rejected.',
+      description: 'Body: { slot, provider, model, base_url? } or { analyzer }. Anything `createProviders` does not accept is rejected. A change of function is tested with one minimal call before it is saved: if the test fails nothing changes and the answer is 422 `provider_check_failed` with the cause (UD-120).',
       body: {
         anyOf: [
           { type: 'object', required: ['slot'], additionalProperties: false, minProperties: 2, properties: { slot: { type: 'string', enum: MODALITIES }, provider: { type: 'string', minLength: 1 }, model: { type: 'string', minLength: 1 }, base_url: { type: 'string' } } },
@@ -59,23 +70,27 @@ export function registerSettingsRoutes (app, ctx) {
   }, async (request) => {
     const { slot, analyzer, ...slotBody } = request.body
     const patchObj = analyzer !== undefined ? { analyzer } : { [slot]: slotBody }
+    const merged = mergeOverrides(getProviderOverrides(db), patchObj)
     try {
-      modules.buildProviders?.(mergeOverrides(getProviderOverrides(db), patchObj))
-    } catch (error) {
-      throw unprocessable(error.message, 'provider_invalid')
+      modules.buildProviders?.(merged)
+    } catch {
+      // The builder's own message is English and repeats what was typed; a key pasted by mistake in the name must not come back.
+      throw unprocessable('Ese proveedor no existe o su configuración no es válida.', 'provider_invalid')
     }
+    if (analyzer === undefined) await probeSlotChange(ctx, slot, merged) // the previous setting stays when the test fails
     setProviderOverrides(db, patchObj)
     audit(db, { memberId: request.member.id, action: 'settings.providers', entity: 'settings', detail: analyzer !== undefined ? { analyzer } : { slot, provider: slotBody.provider, model: slotBody.model } })
     return view()
   })
 
   // Project description (UD-024): any member reads it, the editor writes it. Free Markdown, passed whole to the analyzer.
-  const projectView = { type: 'object', properties: { name: { type: 'string' }, description: { type: 'string' } }, required: ['name', 'description'] }
+  const projectView = { type: 'object', properties: { name: { type: 'string' }, description: { type: 'string' }, max_chars: { type: 'integer', description: 'Tope de caracteres de la descripción (PROJECT_DESCRIPTION_MAX_CHARS); el panel lo muestra como contador.' } }, required: ['name', 'description'] }
+  const projectWithLimit = () => ({ ...getProject(db, config), max_chars: config.project.descriptionMaxChars })
 
   app.get('/settings/project', {
     onRequest: [requireRole('member')],
     schema: { summary: 'Nombre y descripción del proyecto', response: { 200: projectView } }
-  }, async () => getProject(db, config))
+  }, async () => projectWithLimit())
 
   app.patch('/settings/project', {
     onRequest: [requireRole('editor')],
@@ -98,7 +113,7 @@ export function registerSettingsRoutes (app, ctx) {
     if ([...description].length > maxChars) throw tooLarge(`La descripción del proyecto supera el máximo de ${maxChars} caracteres.`)
     setProjectDescription(db, description)
     audit(db, { memberId: request.member.id, action: 'settings.project.update', entity: 'settings', detail: { length: [...description].length } })
-    return getProject(db, config)
+    return projectWithLimit()
   })
 
   // Publication mode (UD-070): any member reads it, the editor writes it.

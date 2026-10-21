@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Proveedores en Configuración (UD-120, UD-121): lista con estado y últimos 4 de la clave, alta, reemplazo con prueba previa, retiro con bloqueo por dependencia, cambio de función con reversión y diagnóstico con causa clasificada; claves cifradas en reposo y `scripts/rotate-secrets-key.mjs`.
+- Configuración: editor de la descripción que crece con el texto (UD-123) y una línea de explicación bajo cada ajuste (UD-122).
 - HP-015 y HP-018 por tipo de adjunto como pruebas con su ID; pruebas de `llm_calls` y de `GET /health` con el proveedor de respaldo (DT-003).
 - HP-008 revisa también los mensajes de aserción y `.githooks/`.
 - Galería de medios del panel (`MediaGallery`, UD-059) y `GET /api/attachments/:id/transcript`.

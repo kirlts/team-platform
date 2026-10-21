@@ -12,6 +12,12 @@ export const KNOBS = Object.freeze({
   // de comprobaciones en prompts largos. Informe 02 §10.2, [F4][F5].
   decomposeEffort: { value: 'medium', source: 'Informe 02 §10.2 [F4][F5]; MASTER-SPEC §3 y §7.5 (2: descomponer)' },
 
+  // Pensamiento por llamada: `null` deja el adaptativo del modelo; `'disabled'` lo apaga (sólo con esfuerzo `high` o
+  // menos, y con la línea «The JSON output format applies to your final answer only.», informe 02 §10.2 [F4]).
+  // El banco compara `low` adaptativo, `low` sin pensamiento y `medium` adaptativo (informe 02 §8).
+  classifyThinking: { value: null, source: 'Informe 02 §8 y §10.2 [F4]; medición de 2026-10-20 en docs/investigaciones/mediciones/' },
+  decomposeThinking: { value: null, source: 'Informe 02 §8 y §10.2 [F4]; medición de 2026-10-20 en docs/investigaciones/mediciones/' },
+
   // Tope de salida por llamada. Provisional: el banco fija el p95 de salida por mensaje.
   // Informe 02 §10.2 [F1][F3]; MASTER-SPEC §7.5 (provisional: 16.000 y 32.000).
   maxTokens: { value: 16_000, source: 'Informe 02 §10.2 [F1][F3]; MASTER-SPEC §7.5' },
@@ -88,6 +94,9 @@ export function resolveConfig(overrides = {}) {
   }
   for (const key of ['invalidOutputRetries', 'rescuePasses']) {
     if (!Number.isInteger(config[key]) || config[key] < 0) throw new TypeError(`${key} debe ser un entero mayor o igual a 0`);
+  }
+  for (const key of ['classifyThinking', 'decomposeThinking']) {
+    if (config[key] !== null && config[key] !== 'disabled') throw new TypeError(`${key} debe ser null o «disabled»`);
   }
   if (config.cacheTtl !== '5m' && config.cacheTtl !== '1h') throw new TypeError('cacheTtl debe ser «5m» o «1h»');
   return config;

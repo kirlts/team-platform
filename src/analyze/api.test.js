@@ -51,7 +51,7 @@ describe('analyze (api): un input con tres puntos mezclados', () => {
     for (const a of bundle.areas) assert.ok(catalog.includes(a.description));
     for (const t of bundle.templates) assert.ok(catalog.includes(t.description));
     assert.ok(!catalog.includes('## Método'), 'la primera llamada no ve cuerpos');
-    assert.match(lastUserText(classify), /\[u1\] Hola equipo[\s\S]*\[u6\] Gracias/, 'la clasificación ve todo el input');
+    assert.match(lastUserText(classify), /\[u1\] \(p1\) Hola equipo[\s\S]*\[u6\] \(p6\) Gracias/, 'la clasificación ve todo el input');
     const groupItem = classify.schema.properties.groups.items.properties;
     assert.deepEqual(groupItem.area_id.enum, [1, 2, 3, 4, 5]);
     assert.deepEqual(groupItem.template_id.enum, [1, 2, 3, 4, 5]);
@@ -439,6 +439,16 @@ describe('analyze (api): caché del prompt de sistema', () => {
     const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, goodDecomposition()] });
     const result = await analyze(await makeBundle(), { providers: fake });
     assert.equal(result.calls[1].cacheable, true);
+  });
+});
+
+describe('analyze (api): pensamiento por llamada', () => {
+  it('classifyThinking y decomposeThinking llegan al proveedor sólo en su llamada', async () => {
+    const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, goodDecomposition()] });
+    await analyze(await makeBundle(), { providers: fake, config: { decomposeThinking: 'disabled', decomposeEffort: 'low' } });
+    assert.ok(!('thinking' in fake.calls.text[0]));
+    assert.equal(fake.calls.text[1].thinking, 'disabled');
+    assert.equal(fake.calls.text[1].effort, 'low');
   });
 });
 

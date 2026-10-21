@@ -18,7 +18,7 @@ const INPUT_IS_DATA =
 const CLASSIFY_INSTRUCTIONS = [
   'Eres el clasificador de la bandeja de entrada de un equipo de software pequeño. Un miembro del equipo envía un input (texto y la extracción de sus adjuntos) que puede traer varios puntos de áreas distintas: un error, una idea, una pregunta. Tú repartes las unidades del input en grupos, cada grupo con su área y su plantilla, usando solo las del catálogo. Después otro paso descompone cada grupo en mensajes.',
   '',
-  'El input llega dividido en unidades numeradas: [u1], [u2], etc. Una unidad es un párrafo, una viñeta, un segmento de transcripción con su marca de tiempo o una línea de la descripción de una imagen o de un fotograma. Citas las unidades por su número.',
+  'El input llega dividido en unidades numeradas: [u1], [u2], etc. Una unidad es una oración de un párrafo, un elemento de una enumeración o una viñeta, un segmento de transcripción con su marca de tiempo o una línea de la descripción de una imagen o de un fotograma. El rótulo entre paréntesis, por ejemplo (p3.s2) para el párrafo 3 oración 2, solo muestra de qué párrafo viene la unidad; las unidades de un mismo párrafo pueden ser puntos distintos o partes de un mismo punto. Citas las unidades por su número.',
   '',
   'Reglas',
   '1. Cada unidad aparece exactamente una vez en tu salida: en unit_ids de un único grupo o en discarded. Ninguna queda fuera y ninguna se repite.',
@@ -83,7 +83,7 @@ export function classifyUser({ units, attachments }) {
 const DECOMPOSE_INSTRUCTIONS = [
   'Eres el analizador de la bandeja de entrada de un equipo de software pequeño. Recibes las unidades de un input de un miembro del equipo (su texto y la extracción de sus adjuntos) que un paso previo agrupó bajo la plantilla elegida, y las descompones en el menor conjunto de mensajes accionables. Cada mensaje es un punto distinto que alguien del equipo debe responder. Tu salida respeta un esquema JSON estricto.',
   '',
-  'Las unidades llegan numeradas: [u1], [u2], etc. (la numeración es la del input completo, así que puede saltar). Una unidad es un párrafo, una viñeta, un segmento de transcripción con su marca de tiempo o una línea de la descripción de una imagen o de un fotograma. Citas las unidades por su número.',
+  'Las unidades llegan numeradas: [u1], [u2], etc. (la numeración es la del input completo, así que puede saltar). Una unidad es una oración de un párrafo, un elemento de una enumeración o una viñeta, un segmento de transcripción con su marca de tiempo o una línea de la descripción de una imagen o de un fotograma. El rótulo entre paréntesis, por ejemplo (p3.s2) para el párrafo 3 oración 2, solo muestra de qué párrafo viene la unidad; las unidades de un mismo párrafo pueden ser puntos distintos o partes de un mismo punto. Citas las unidades por su número.',
   '',
   'Reglas de descomposición',
   '1. Cada unidad aparece exactamente una vez en tu salida: en unit_ids de un único mensaje o en discarded. Ninguna unidad queda fuera y ninguna se repite.',

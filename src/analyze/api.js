@@ -61,7 +61,7 @@ function createContext({ providers, config, onProgress, unitCount }) {
 }
 
 /** Una llamada al proveedor de texto, registrada para llm_calls. */
-async function callText(ctx, step, { system, messages, schema, effort, maxTokens }) {
+async function callText(ctx, step, { system, messages, schema, effort, maxTokens, thinking }) {
   const provider = ctx.providers.text;
   const systemTokens = estimateTokens([].concat(system ?? []).join('\n'), ctx.config.charsPerToken);
   const entry = {
@@ -70,6 +70,7 @@ async function callText(ctx, step, { system, messages, schema, effort, maxTokens
     provider: provider.name,
     model: provider.model,
     effort,
+    thinking: thinking ?? null,
     max_tokens: maxTokens,
     // Si el sistema no llega al mínimo cacheable no se cachea y la lectura de caché será cero (informe 02 §7).
     cacheable: systemTokens >= ctx.config.minCacheableSystemTokens,
@@ -79,7 +80,7 @@ async function callText(ctx, step, { system, messages, schema, effort, maxTokens
   };
   ctx.calls.push(entry);
   try {
-    const out = await provider.complete({ system, messages, schema, effort, maxTokens, cacheTtl: ctx.config.cacheTtl });
+    const out = await provider.complete({ system, messages, schema, effort, maxTokens, cacheTtl: ctx.config.cacheTtl, ...(thinking ? { thinking } : {}) });
     Object.assign(entry, { provider: out.provider ?? entry.provider, model: out.model ?? entry.model, usage: out.usage ?? null, duration_ms: out.duration_ms ?? null });
     return { ok: true, out };
   } catch (err) {
@@ -112,14 +113,14 @@ function withErrorContext(messages, raw, errors) {
  *  - salida inválida: un reintento con el error como contexto; después, estado `invalid`.
  * `validate(json)` devuelve `{ errors: string[], ...resto }`.
  */
-async function structuredStep(ctx, { step, system, messages, schema, effort, validate }) {
+async function structuredStep(ctx, { step, system, messages, schema, effort, thinking, validate }) {
   const { config } = ctx;
   let maxTokens = config.maxTokens;
   let cutRetried = false;
   let invalidRetries = 0;
   let current = messages;
   for (;;) {
-    const r = await callText(ctx, step, { system, messages: current, schema, effort, maxTokens });
+    const r = await callText(ctx, step, { system, messages: current, schema, effort, maxTokens, thinking });
     let errors;
     let raw;
     let rest = {};
@@ -160,6 +161,7 @@ async function decomposeUnits(ctx, { bundle, template, system, schema, units, sc
     system,
     schema,
     effort: config.decomposeEffort,
+    thinking: config.decomposeThinking ?? undefined,
   };
   const first = await structuredStep(ctx, {
     ...base,
@@ -277,6 +279,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config }) 
       messages: [{ role: 'user', content: classifyUser({ units: chunkUnits, attachments }) }],
       schema: cSchema,
       effort: config.classifyEffort,
+      thinking: config.classifyThinking ?? undefined,
       validate: (json) => validateClassification(json, { areas, templates, scope }),
     });
     if (r.status === 'ok') ctx.report('input clasificado', { advance: true });

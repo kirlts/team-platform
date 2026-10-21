@@ -305,3 +305,16 @@ RULES:
 **Consecuencias:**
 - Una clase única del kit (`prose-block`) que aplican todos los bloques largos; una prueba estática del panel falla si un bloque de párrafo usa otra alineación o activa `hyphens`.
 **Condiciones de reversión:** Ninguna prevista.
+
+## [UD-023] Cada miembro tiene un perfil en prosa; reemplaza a «responsabilidades» y «dominios»
+
+**Fecha:** 2026-10-21
+**Contexto:** `idea.md` hablaba de «descripción breve de sus responsabilidades y dominios» y el código lo volvió dos campos: `responsibilities` y `domains`. Martín, textual: «en un equipo pequeño startup muy enfocado en desarrollar con IA, las responsabilidades se difuminan mucho. En mi idea original yo hablé de las responsabilidades, pero me refería a que podríamos proveer una descripción de un par de párrafos de cada miembro del equipo y que esa descripción sirva como un contexto mucho más rico para el LLM que finalmente vaya a asignar mensajes».
+**Decisión:** Un solo campo de texto libre por miembro, `profile`, con el rótulo «Perfil»: un par de párrafos en primera persona, escritos por la propia persona, que dicen qué hace, qué sabe, qué decide, qué no toca y cómo prefiere recibir las cosas. Reemplaza a `responsibilities` y `domains`, que se eliminan. El perfil entero viaja al modelo como contexto de cada análisis (invariante: mucho contexto cuesta poco), y el modelo asigna leyendo esos párrafos; el sistema sólo valida que el miembro exista. Se eligió «perfil» y no «descripción» porque una descripción habla de alguien y un perfil sirve para decidir a quién le toca algo, que es su único uso. El nombre y el perfil son lo único que el modelo sabe de cada miembro.
+**Alternativas descartadas:**
+- Mantener responsabilidades y dominios como listas: en un equipo chico se difuminan y el modelo asigna mejor con prosa.
+- «Descripción»: no dice para qué sirve el texto.
+**Consecuencias:**
+- Migración: `members.profile TEXT`, con `responsibilities` y `domains` fundidos en el perfil existente y luego eliminados; `PATCH /members/me` acepta `profile`; `GET /members` y `/me` lo devuelven; el bundle del analizador lleva `members: [{ id, name, profile }]`.
+- Equipo muestra el perfil en el lugar, editable sólo por su dueño, justificado (UD-022).
+**Condiciones de reversión:** Que el modelo asigne peor con prosa que con listas, medido en el banco (exactitud de destinatarios).

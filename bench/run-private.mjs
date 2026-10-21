@@ -286,7 +286,14 @@ if (command === 'list') {
   const fixtures = await buildContextFixtures();
   const providers = buildProviders();
   const all = [];
+  mkdirSync(resultsDir, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const out = values.out ?? join(resultsDir, `private-${values.variant ? `${values.variant.replace(/[^\w+.-]/g, '_')}-` : ''}${stamp}.json`);
+  // The file is rewritten after every case, so a run that stops (spending cap, crash) keeps what it finished.
+  const save = (complete) => writeFileSync(out, JSON.stringify({ at: new Date().toISOString(), variant: values.variant ?? null, mode: values.oracle ? 'oracle' : 'full', complete, repeat, context: describeContext(fixtures), models: providers.describe(), speech: providers.speechMode, cases: all }, null, 2));
+  let stoppedByBudget = false;
   for (const c of loadPrivateCases()) {
+    if (stoppedByBudget) break;
     const cache = readCache(c.id);
     const expected = readExpected(c);
     if (!cache || !expected) {
@@ -295,7 +302,13 @@ if (command === 'list') {
     }
     const runs = [];
     for (let i = 0; i < repeat; i += 1) {
-      assertBudget(`${c.id} #${i + 1}`);
+      try {
+        assertBudget(`${c.id} #${i + 1}`);
+      } catch (e) {
+        console.log(e.message);
+        stoppedByBudget = true;
+        break;
+      }
       // A retryable provider error (rate limit, overload) repeats the whole case, as the job queue does in the product.
       const run = values.oracle
         ? await runOracleScored({ cache, expected, fixtures, providers, caseId: c.id })
@@ -313,15 +326,15 @@ if (command === 'list') {
       console.log(`${c.id} #${i + 1}: ${run.status}, ${(run.total_ms / 1000).toFixed(1)} s, ${run.usage.calls} llamadas, ${run.usage.cost_usd?.toFixed(5) ?? 'sin tarifa'} USD (acumulado ${total.toFixed(4)})`);
       runs.push(run);
     }
-    all.push({ case_id: c.id, kind: c.manifest.kind, source: c.manifest.source, extraction: cache.extraction, speech: cache.speech, summary: summarize(runs), runs });
+    if (runs.length > 0) {
+      all.push({ case_id: c.id, kind: c.manifest.kind, source: c.manifest.source, extraction: cache.extraction, speech: cache.speech, summary: summarize(runs), runs });
+      save(false);
+    }
   }
   if (all.length) {
     console.log(`\n${formatReport(all.map((x) => x.summary))}`);
-    mkdirSync(resultsDir, { recursive: true });
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const out = values.out ?? join(resultsDir, `private-${values.variant ? `${values.variant.replace(/[^\w+.-]/g, '_')}-` : ''}${stamp}.json`);
-    writeFileSync(out, JSON.stringify({ at: new Date().toISOString(), variant: values.variant ?? null, mode: values.oracle ? 'oracle' : 'full', second_reader: !values['first-reader-only'] && existsSync(join(privateDir, loadPrivateCases()[0]?.id ?? '', 'expected-b.json')), repeat, context: describeContext(fixtures), models: providers.describe(), speech: providers.speechMode, cases: all }, null, 2));
-    console.log(`\nResultado completo: ${out}`);
+    save(!stoppedByBudget);
+    console.log(`\nResultado completo: ${out}${stoppedByBudget ? ' (incompleto: tope de gasto)' : ''}`);
   }
 } else if (command === 'compare') {
   const files = positionals.slice(1);

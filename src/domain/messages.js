@@ -148,6 +148,33 @@ export function listMessages (db, { viewerId, forMember = null, area = null, sta
   return { items: hydrate(db, rows), total }
 }
 
+/**
+ * Lo que afecta a un miembro, con su prioridad (UD-028). Cuenta sólo mensajes no cerrados.
+ *   red: asignado al miembro y todavía abierto (nadie respondió; requiere su acción).
+ *   yellow: asignado al miembro y ya respondido, sin cerrar (pendiente de cerrar).
+ *   blue: emisor del mensaje, sin estar asignado, con respuestas sin cerrar (informativo).
+ * Un mensaje cae en una sola prioridad. `areas` lista los abiertos por área y cuántos son rojos para el miembro.
+ */
+export function messageSummary (db, memberId) {
+  const rows = all(db, `
+    SELECT m.status AS status,
+           EXISTS (SELECT 1 FROM message_assignees x WHERE x.message_id = m.id AND x.member_id = ?) AS assigned,
+           (m.author_id = ?) AS authored
+      FROM messages m WHERE m.status <> 'closed'`, memberId, memberId)
+  const mine = { red: 0, yellow: 0, blue: 0, total: 0 }
+  for (const r of rows) {
+    const tone = r.assigned ? (r.status === 'open' ? 'red' : 'yellow') : r.authored && r.status === 'answered' ? 'blue' : null
+    if (tone) { mine[tone]++; mine.total++ }
+  }
+  const areas = all(db, `
+    SELECT a.id AS area_id,
+           (SELECT COUNT(*) FROM messages m WHERE m.area_id = a.id AND m.status = 'open') AS open,
+           (SELECT COUNT(*) FROM messages m WHERE m.area_id = a.id AND m.status = 'open'
+               AND EXISTS (SELECT 1 FROM message_assignees x WHERE x.message_id = m.id AND x.member_id = ?)) AS mine_open
+      FROM areas a WHERE a.deleted_at IS NULL ORDER BY a.position, a.id`, memberId)
+  return { mine, areas }
+}
+
 export function getMessage (db, id) {
   const dbRow = get(db, `${SELECT_MESSAGE} WHERE m.id = ?`, id)
   if (!dbRow) throw notFound('El mensaje no existe.')

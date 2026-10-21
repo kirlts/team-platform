@@ -19,7 +19,9 @@
 //   --project <file>   markdown sent as bundle.project.description (default: no project); --project-name sets its name
 //   --usefulness <f>   compare: scores by variant from a pooled judgment file instead of <result>.usefulness.json
 //   --oracle           run: classification gets the reference groups (bench/oracle.mjs); every variant is scored on the same messages
-//   --first-reader-only  ignore expected-b.json (the second reader's labels)
+//   --reference a|b|union  which reader's labels score area and assignees (default union: either reader's label is right)
+//   --first-reader-only  same as --reference a
+//   --ceiling          compare: add the other reader scored against this reference, the ceiling of the readers' disagreement
 //   --pool             compare: merge result files whose variant differs only by a «-b» suffix (a repetition) into one
 //   --variant <label>  written into the result and its file name
 //   --cases a,b,c      comma list of case ids (same as repeating --case)
@@ -37,7 +39,7 @@ import { loadFixtures, runCase, summarize, formatReport, unitsOf } from './lib.j
 import { score } from './score.js';
 import { createSpend, withQueueRetries } from './spend.mjs';
 import { runOracleCase } from './oracle.mjs';
-import { mergeSecondLabeler } from './labels.js';
+import { mergeSecondLabeler, onlySecondLabeler, readerAsProposal } from './labels.js';
 import { compareResults, formatComparison, poolResults } from './compare.js';
 import { costOf, usageOfCall } from './pricing.js';
 import { analyze } from '../src/analyze/index.js';
@@ -69,6 +71,8 @@ const { values, positionals } = parseArgs({
     usefulness: { type: 'string' },
     oracle: { type: 'boolean', default: false },
     'first-reader-only': { type: 'boolean', default: false },
+    reference: { type: 'string', default: 'union' },
+    ceiling: { type: 'boolean', default: false },
   },
 });
 const command = positionals[0] ?? 'list';
@@ -94,12 +98,18 @@ function loadPrivateCases() {
     }));
 }
 
-// The second reader's labels (expected-b.json), when they exist, widen the accepted area, template and assignees.
-function readExpected(c) {
+// Reference by --reference: «a» the first reader (expected.json), «b» the second reader (expected-b.json), «union» both
+// (a label is right if either reader gave it; default). Without expected-b.json only the first reader exists.
+const readSecond = (c) => {
+  const secondPath = join(dirname(c.expectedPath), 'expected-b.json');
+  return existsSync(secondPath) ? JSON.parse(readFileSync(secondPath, 'utf8')) : null;
+};
+function readExpected(c, mode = values['first-reader-only'] ? 'a' : values.reference) {
   if (!existsSync(c.expectedPath)) return null;
   const first = JSON.parse(readFileSync(c.expectedPath, 'utf8'));
-  const secondPath = join(dirname(c.expectedPath), 'expected-b.json');
-  return existsSync(secondPath) && !values['first-reader-only'] ? mergeSecondLabeler(first, JSON.parse(readFileSync(secondPath, 'utf8'))) : first;
+  const second = mode === 'a' ? null : readSecond(c);
+  if (!second) return first;
+  return mode === 'b' ? onlySecondLabeler(first, second) : mergeSecondLabeler(first, second);
 }
 const cachePath = (id) => join(cacheDir, `${id}.json`);
 const readCache = (id) => (existsSync(cachePath(id)) ? JSON.parse(readFileSync(cachePath(id), 'utf8')) : null);
@@ -320,6 +330,7 @@ if (command === 'list') {
     const usefulnessFile = file.replace(/\.json$/, '.usefulness.json');
     return { file, ...JSON.parse(readFileSync(file, 'utf8')), usefulness: existsSync(usefulnessFile) ? JSON.parse(readFileSync(usefulnessFile, 'utf8')) : null };
   });
+  const allCases = loadPrivateCases();
   const compared = values.pool ? poolResults(results, (r) => (r.variant ?? r.file).replace(/-b$/, '')) : results;
   if (values.usefulness) {
     // A pooled judgment file (judge-usefulness.mjs --pooled) holds the scores by variant label.
@@ -330,7 +341,19 @@ if (command === 'list') {
     const cache = readCache(caseId);
     return cache ? [cache.input.text, ...cache.input.attachments.map((a) => a.extracted)].join('\n') : '';
   };
-  console.log(formatComparison(compareResults(compared, { inputOf, expectedOf: (id) => { const c = loadPrivateCases().find((x) => x.id === id); return c ? readExpected(c) : null; } })));
+  if (values.ceiling) {
+    // Reader B scored against A (or A against B with --reference b) as if it were a variant: the ceiling that the
+    // disagreement between readers puts on any analyzer.
+    const asReader = values.reference === 'b' ? 'a' : 'b';
+    const cases = loadPrivateCases().filter((c) => readSecond(c)).map((c) => {
+      const reference = readExpected(c, asReader === 'b' ? 'a' : 'b');
+      const proposal = readerAsProposal(reference, asReader === 'b' ? readSecond(c) : JSON.parse(readFileSync(c.expectedPath, 'utf8')));
+      const units = [...new Set(reference.messages.flatMap((m) => m.unit_ids).concat((reference.discarded ?? []).flatMap((d) => d.unit_ids)))];
+      return { case_id: c.id, runs: [{ status: 'ok', total_ms: 0, usage: { cost_usd: 0 }, proposal, units, score: score({ units, expected: reference, actual: proposal }) }] };
+    });
+    compared.push({ file: `reader-${asReader}`, variant: `reader ${asReader.toUpperCase()}`, context: compared[0]?.context, cases, usefulness: null });
+  }
+  console.log(formatComparison(compareResults(compared, { inputOf, expectedOf: (id) => { const c = allCases.find((x) => x.id === id); return c ? readExpected(c) : null; } })));
 } else {
   throw new Error(`Orden desconocida «${command}»`);
 }

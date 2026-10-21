@@ -8,7 +8,7 @@
 // variant so that «right project context» can be checked against it.
 //
 //   node bench/judge-usefulness.mjs <result.json> [<result.json> ...] [--project file] [--concurrency n] [--budget USD]
-//   node bench/judge-usefulness.mjs --pooled <result.json> ... [--per-run-cap n] [--judge-model id] [--out file]
+//   node bench/judge-usefulness.mjs --pooled <result.json> ... [--per-run-cap n] [--judge-model id] [--out file] [--same-points]
 //
 // Default mode writes <result>.usefulness.json next to each result: per-message scores, the median per case and overall.
 // --pooled puts the messages of every variant of a case in one call, shuffled and without labels, so the judge sees
@@ -126,6 +126,7 @@ if (isMain) {
       'per-run-cap': { type: 'string', default: '4' },
       out: { type: 'string' },
       cases: { type: 'string' },
+      'same-points': { type: 'boolean', default: false },
     },
   });
   if (positionals.length === 0) throw new Error('Usage: judge-usefulness.mjs <result.json> [...] [--project file]');
@@ -205,7 +206,22 @@ if (isMain) {
     const wanted = values.cases ? values.cases.split(',') : null;
     const jobs = [...byCase].filter(([id]) => !wanted || wanted.includes(id)).sort(([a], [b]) => a.localeCompare(b)).map(([caseId, entry]) => async () => {
       const items = [];
-      for (const [label, messages] of entry.byLabel) for (const message of spread(messages, cap)) items.push({ label, message });
+      // With --same-points, the variants whose label starts with «o-» are oracle runs: every one answered the same
+      // reference points, so the same sampled points are judged for all of them, each answer taken from a repetition that
+      // rotates with the point. The other variants contribute an even sample of their own messages.
+      const isOracle = (label) => values['same-points'] && label.startsWith('o-');
+      const keyOf = (m) => m.unit_ids.join(',');
+      const oracle = new Map([...entry.byLabel].filter(([label]) => isOracle(label)).map(([label, messages]) => [label, messages.reduce((acc, m) => acc.set(keyOf(m), [...(acc.get(keyOf(m)) ?? []), m]), new Map())]));
+      if (oracle.size > 0) {
+        const common = [...oracle.values()].map((m) => new Set(m.keys())).reduce((x, y) => new Set([...x].filter((k) => y.has(k))));
+        spread([...common], cap).forEach((key, i) => {
+          for (const [label, byKey] of oracle) {
+            const answers = byKey.get(key);
+            items.push({ label, message: answers[i % answers.length] });
+          }
+        });
+      }
+      for (const [label, messages] of entry.byLabel) if (!isOracle(label)) for (const message of spread(messages, cap)) items.push({ label, message });
       if (items.length === 0) return;
       const shuffled = shuffle(items, seeded(caseId));
       const { got, cost } = await rate(caseId, shuffled.map((x) => x.message), entry.units);

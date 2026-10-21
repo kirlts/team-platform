@@ -47,3 +47,36 @@ export function labelerAgreement(first, second) {
     assignees: both.filter((m) => same(m.assignee_ids, byId.get(m.id).assignee_ids)).length,
   };
 }
+
+/**
+ * The second reader's labels alone, on the first reader's messages and units (used to score against reader B only).
+ */
+export function onlySecondLabeler(expected, second) {
+  const byId = new Map((second.messages ?? []).map((m) => [m.id, m]));
+  return {
+    ...expected,
+    messages: expected.messages.map((m) => {
+      const b = byId.get(m.id);
+      return b ? { ...m, area_id: b.area_id, template_id: b.template_id, assignee_ids: b.assignee_ids } : m;
+    }),
+  };
+}
+
+/**
+ * A reader's labels as if they were an analyzer run: one message per reference message with the reader's area, template
+ * and assignees (the first area and template when several are accepted). Scoring reader B against reference A (and the
+ * other way round) gives the ceiling that the disagreement between readers puts on any variant.
+ * @param {{ messages: object[] }} units  the reference that fixes the messages and their units
+ * @param {{ messages: object[] }} reader  the labels to play as the analyzer
+ */
+export function readerAsProposal(units, reader) {
+  const byId = new Map((reader.messages ?? []).map((m) => [m.id, m]));
+  const first = (v) => (Array.isArray(v) ? v[0] : v);
+  return {
+    messages: units.messages.map((m) => {
+      const r = byId.get(m.id) ?? m;
+      return { unit_ids: m.unit_ids, area_id: first(r.area_id), template_id: first(r.template_id), assignee_ids: r.assignee_ids ?? [], title: m.title, body: '', fields: {} };
+    }),
+    discarded: units.discarded ?? [],
+  };
+}

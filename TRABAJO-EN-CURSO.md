@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 74a382a Merge branch 'main' into wt-barra-movil. Empujado a origin: `74a382a`.
-- Ramas con commits sin fusionar: `wt-tarjetas` 6 (hace 5 minutos), `wt-equipo-config` 5 (hace 10 minutos), `wt-areas3` 4 (hace 25 segundos), `wt-envio` 4 (hace 4 minutos), `wt-h904` 4 (hace 31 minutos).
-- Worktrees abiertos: `team-platform`, `areas2`, `areas3`, `auto-publicar`, `cierre`, `envio`, `equipo-config`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `tarjetas`, `telemetria-ui`, `thinking`, `voz`.
+- `main`: 007491c Merge branch 'wt-equipo-config'. Empujado a origin: `007491c`.
+- Ramas con commits sin fusionar: `wt-tarjetas` 7 (hace 76 segundos), `wt-areas3` 4 (hace 5 minutos), `wt-envio` 4 (hace 9 minutos), `wt-h904` 4 (hace 35 minutos).
+- Worktrees abiertos: `team-platform`, `areas2`, `areas3`, `auto-publicar`, `cierre`, `envio`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `tarjetas`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `74a382a` Merge branch 'main' into wt-barra-movil (hace 6 minutos)
-- `62f2d4d` Flows: the top bar is three marks on a phone too (hace 6 minutos)
-- `8ba010d` UD-141 and H-2700: phone bar keeps the three state marks (hace 23 minutos)
-- `44cf70c` Merge branch 'main' into wt-barra-movil (hace 23 minutos)
-- `ea0db68` Phone bar: marks narrower, name wraps clear of them, menu rows put the area chip under the title (hace 23 minutos)
-- `ec34966` Traspaso: banco fusionado (hace 24 minutos)
-- `d593179` Merge branch 'wt-banco-abiertos' (hace 25 minutos)
-- `ffd966a` Top bar keeps the three state marks on a phone (hace 25 minutos)
-Actualizado 2026-10-21 20:14 UTC.
+- `007491c` Merge branch 'wt-equipo-config' (hace 4 minutos)
+- `74a382a` Merge branch 'main' into wt-barra-movil (hace 10 minutos)
+- `62f2d4d` Flows: the top bar is three marks on a phone too (hace 10 minutos)
+- `d482a86` Merge branch 'main' into wt-equipo-config (hace 14 minutos)
+- `b217c51` Ronda 4 de Equipo, Configuración y entrada: pruebas, UD-170, hallazgos H-3000 a H-3009 y diseño (hace 14 minutos)
+- `371a979` Configuración: ayuda de idioma completa, ayudas de nombre y correo con su vía de cambio, rótulos de Proveedores como los de Cuenta (hace 14 minutos)
+- `7ee4a0f` Entrada: el aviso de error sale de la tarjeta y la nota queda a la misma distancia del borde que el logo (hace 14 minutos)
+- `6c441d5` Equipo: alta con verbo, acción de teléfono en la fila del rol y fila abierta siempre visible (hace 14 minutos)
+Actualizado 2026-10-21 20:18 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

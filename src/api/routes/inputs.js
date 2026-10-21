@@ -36,7 +36,7 @@ export function registerInputRoutes (app, ctx) {
     onRequest: [requireRole('member')],
     schema: {
       summary: 'Listar los inputs propios',
-      description: 'Siempre los del miembro de la sesión. `status` admite uno o varios estados separados por coma; sin `status` vienen todos (en cola, leyendo, analizando, propuesta, publicado, fallido y cancelado), paginados. Es el historial y el estado de los envíos propios (UD-071): un envío publicado trae sus mensajes en `messages` (id, título, área, estado y `edited_at`), uno fallido su `error` y `error_code`, y uno con la publicación automática apagada o bloqueada queda `proposed` (con `error_code: publish_blocked` si no se pudo publicar). `mine=1` pide el orden de creación ascendente con `percent`, `phrase` y `proposed_count` (la bandeja en vuelo de UD-025), por ejemplo `?mine=1&status=queued,extracting,analyzing,proposed`; sin `mine` el orden es el más reciente primero, y `order=desc|asc` lo fija a mano (el historial: `?mine=1&order=desc`).',
+      description: 'Siempre los del miembro de la sesión. `status` admite uno o varios estados separados por coma; sin `status` vienen todos (en cola, leyendo, analizando, propuesta, publicado, fallido y cancelado), paginados. Es el historial y el estado de los envíos propios (UD-070): un envío publicado trae sus mensajes en `messages` (id, título, área, estado y `edited_at`), uno fallido su `error` y `error_code`, y uno con la publicación automática apagada o bloqueada queda `proposed` (con `error_code: publish_blocked` si no se pudo publicar). `mine=1` pide el orden de creación ascendente con `percent`, `phrase` y `proposed_count` (la bandeja en vuelo de UD-025), por ejemplo `?mine=1&status=queued,extracting,analyzing,proposed`; sin `mine` el orden es el más reciente primero, y `order=desc|asc` lo fija a mano (el historial: `?mine=1&order=desc`).',
       querystring: {
         type: 'object',
         additionalProperties: false,
@@ -92,7 +92,7 @@ export function registerInputRoutes (app, ctx) {
     preValidation: async (request) => { request.body ??= {} }, // no body: publish the saved draft
     schema: {
       summary: 'Publicar a mano la propuesta como mensajes (la enviada, o el borrador guardado si no se envía cuerpo)',
-      description: 'Con la publicación automática encendida (UD-071, por omisión) el análisis ya publicó: un envío publicado es 409 `already_published` y no se duplica nada. Este camino queda para la propuesta que esperó (perilla `auto_publish` apagada) o que el análisis no pudo publicar (`error_code: publish_blocked`).',
+      description: 'Con la publicación automática encendida (UD-070, por omisión) el análisis ya publicó: un envío publicado es 409 `already_published` y no se duplica nada. Este camino queda para la propuesta que esperó (perilla `auto_publish` apagada) o que el análisis no pudo publicar (`error_code: publish_blocked`).',
       params: idParams(),
       body: publishBody,
       response: { 200: { type: 'object', properties: { message_ids: { type: 'array', items: { type: 'string' } }, messages: { type: 'array', items: messageDetail } } } }

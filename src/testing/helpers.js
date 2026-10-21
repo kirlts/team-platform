@@ -77,7 +77,7 @@ export async function makeEnv ({ config: overrides = {}, modules = {}, worker = 
   const config = testConfig(dir, overrides)
   await initializeDatabase(config, { seed: seed ? seedDefaults : null })
   const db = openInitialized(config)
-  // UD-071: the product default is automatic publication. Tests exercise the review path (`proposed` waits for its
+  // UD-070: the product default is automatic publication. Tests exercise the review path (`proposed` waits for its
   // sender) unless they ask for `autoPublish: true`; `'default'` leaves the product default untouched.
   if (autoPublish !== 'default') setAutoPublish(db, autoPublish)
   const events = createEvents({ db })

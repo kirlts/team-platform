@@ -29,8 +29,8 @@ Fuentes de este documento: `idea.md` (volcado de diseño de Martín, 2026-10-20)
 | Término | Definición | Reglas |
 |---|---|---|
 | **Input** | Lo que una persona envía desde la barra de Inicio o, más adelante, por una conexión: texto y cero o más adjuntos (fotos, videos, audio, documentos, enlaces). | Un input se analiza una vez y produce una propuesta. |
-| **Propuesta** | El resultado del análisis: N mensajes, cada uno en su área y redactado según la plantilla de esa área, con sus destinatarios y adjuntos. | Editable por el emisor; se publica al confirmar (UD-003). |
-| **Mensaje** | Una comunicación de una persona hacia el equipo o hacia un miembro. Siempre espera respuesta. | Estados: `abierto` (sin respuesta), `respondido` (con respuesta, no cerrado), `cerrado` (con o sin respuesta). Sólo un miembro distinto del emisor responde; cualquier miembro cierra o reabre. |
+| **Propuesta** | El resultado del análisis: N mensajes, cada uno en su área y redactado según la plantilla de esa área, con sus destinatarios y adjuntos. | Se publica sola al terminar el análisis, si es válida (UD-070, que enmienda UD-003); con la perilla `auto_publish` apagada espera la confirmación del emisor. |
+| **Mensaje** | Una comunicación de una persona hacia el equipo o hacia un miembro. Siempre espera respuesta. | Estados: `abierto` (sin respuesta), `respondido` (con respuesta, no cerrado), `cerrado` (con o sin respuesta). Sólo un miembro distinto del emisor responde; cualquier miembro cierra o reabre. Sólo el emisor edita su mensaje, tampoco un Editor (UD-071); cada edición deja su historial y el mensaje muestra «editado» con la hora. |
 | **Respuesta** | La contraparte del mensaje: respuesta directa, reporte de arreglo, pedido de aclaración. | Depende de un mensaje. |
 | **Hilo** | Una respuesta seguida de más respuestas sobre el mismo mensaje. | Lineal, como los comentarios de un issue de GitHub. |
 | **Área** | Categoría de un mensaje. Las áreas son mutuamente excluyentes y colectivamente exhaustivas para toda comunicación interna que busque respuesta. | Título y descripción. Las gestiona el Editor. Juego inicial: idea, error, nueva funcionalidad, retroalimentación, pregunta. |
@@ -81,7 +81,8 @@ Idempotencia en el sentido de las plantillas de trabajo. Una plantilla aplicada 
 1. La persona escribe en la barra de Inicio, adjunta lo que tenga y envía. `POST /api/inputs` guarda el input, cada adjunto en el volumen con su hash, calcula el hash del input y encola un trabajo `analyze`. Si el hash ya existe, devuelve lo que ya hay (§1.3). Respuesta inmediata con el id del input y el id del trabajo.
 2. El worker toma el trabajo con arriendo. Por cada adjunto corre el extractor de su tipo (§7.4) y escribe el texto o la descripción obtenida en la fila del adjunto. Cada paso emite un evento de progreso (porcentaje y frase breve) en `job_events`; el panel los recibe por SSE (`GET /api/events`).
 3. El analizador (§7.5) arma el paquete. Lo componen el texto del input y las extracciones de los adjuntos. Suma los títulos y descripciones de áreas y plantillas, y el equipo con el perfil completo de cada miembro. Numera las unidades del input. Primera llamada: reparte las unidades en grupos de un solo punto, cada grupo con su área y su plantilla. Segunda llamada, una por grupo y en paralelo, con el cuerpo de la plantilla del grupo. Devuelve los mensajes MECE del grupo, cada uno con título, campos de la plantilla, destinatarios propuestos y adjuntos que lo contextualizan. El sistema calcula solapes y huecos por conjuntos, valida cada campo contra la base y, si hay conflicto, hace un único pase de rescate.
-4. El input pasa a `proposed`. En Inicio aparece la propuesta editable: área, cada mensaje, sus destinatarios, sus adjuntos. La persona corrige lo que quiera y aprieta Enviar. `POST /api/inputs/:id/publish` crea los mensajes en estado `abierto`.
+4. Al terminar el análisis con una propuesta válida, el worker publica sus mensajes en la misma transacción que cierra el trabajo y deja el input en `published` (UD-070): los mensajes nacen `abiertos`, el evento `done` trae `input_status: published` y `message_ids`, y cada mensaje avisa al equipo. Nadie confirma nada. Una propuesta vacía o que no valida (un campo obligatorio sin llenar, un área borrada) no publica: el input queda `proposed` con `error_code: publish_blocked` y su motivo, visible para su emisor, que la corrige y la publica con `POST /api/inputs/:id/publish`. Un análisis fallido queda `failed`. La perilla `auto_publish` del Editor (`PATCH /api/settings/publication`, por omisión encendida) la apaga: vuelve la revisión previa, con la propuesta en `proposed` hasta que su emisor la publique. Publicar es idempotente: un input ya publicado no se publica otra vez, ni por reintento de la cola, ni por reproceso (409 `not_reprocessable`, 409 `already_published`).
+4 bis. La bandeja de Inicio es el historial y el estado de los envíos propios: `GET /api/inputs?mine=1&order=desc` los lista todos (en cola, leyendo, analizando, propuesta, publicado con sus mensajes, fallido, cancelado), paginados. El emisor edita cada mensaje publicado con `PATCH /api/messages/:id` (UD-071).
 5. Los destinatarios los ven en Inicio («últimos mensajes», filtrados para mí) y en Mensajes. Responden (`POST /api/messages/:id/replies`), con lo que el mensaje pasa a `respondido`; cualquiera lo cierra o reabre.
 
 ---
@@ -169,7 +170,7 @@ Desarrollo del panel: Vite 8, Tailwind 4.3 con `@tailwindcss/vite` (MIT), TypeSc
 1. **Ningún dato del equipo sale del contenedor** salvo hacia los proveedores de modelo configurados y, si el operador lo configura, hacia un colector OTLP. Todo lo que pasa por un modelo se mide con OpenTelemetry y se guarda (UD-014). Hay un span por trabajo, por paso, por llamada a proveedor y por uso de herramienta. Llevan las convenciones `gen_ai.*`, el contenido completo de entrada y salida, tokens, costo y duración. Un exportador propio los guarda en SQLite y `llm_calls` es una vista sobre esos spans. Vale también para el navegador: el panel no se conecta a ningún otro dominio (CSP `connect-src 'self'`, `img-src 'self' blob: data:`), lo que excluye cualquier telemetría de una librería.
 2. **Ningún `if`, expresión regular ni lista de palabras sobre texto humano decide área, destinatario ni estado** (§1.2). El modelo entrega campos; el sistema valida la forma.
 3. **Un trabajo nunca depende del navegador.** Sobrevive al cierre de la pestaña y al reinicio del proceso. Al arrancar, el worker retoma los trabajos con arriendo vencido (UD-003, UD-010).
-4. **Nada llega al equipo sin que el emisor confirme** la propuesta (UD-003). Las conexiones futuras que publiquen directo lo harán por una perilla propia, apagada por omisión.
+4. **Una propuesta válida llega al equipo sola; una inválida no llega** (UD-070, que enmienda UD-003). La confirmación manual queda detrás de la perilla `auto_publish`. Los mensajes sólo nacen de publicar una propuesta validada, por un único camino (HP-005).
 5. **Un contenedor y un volumen bastan para correr.** Ningún componente obligatorio fuera de la imagen; los proveedores de modelo son externos y configurables.
 6. **Ninguna credencial en el repositorio ni en la base.** Variables de entorno o archivo fuera del repositorio. HP-007 comprueba que ninguna columna guarde una llave; `.gitignore` excluye `.env` y `scripts/llave.mjs` guarda las llaves locales en `~/.config/team-platform/env`. El gancho de pre-commit que escanea secretos todavía no existe (DT-004).
 7. **Código y comentarios en inglés.** Interfaz, mensajes a la persona, plantillas iniciales y documentación van en español. UD-015 reemplaza a UD-005 en los comentarios. Sin esquema mezclado.
@@ -207,7 +208,7 @@ Desarrollo del panel: Vite 8, Tailwind 4.3 con `@tailwindcss/vite` (MIT), TypeSc
 
 1. Entra. Ve Inicio: nombre del proyecto, fecha y hora, la barra «Nuevo mensaje» con clip (adjuntos), cámara (foto), micrófono (audio) y enviar.
 2. Escribe, pega una captura o arrastra un docx, y envía. La barra se vacía. Debajo aparece la vista previa del input (texto y adjuntos con su miniatura). Al lado queda el bloque «Análisis», con una barra de progreso y la frase del paso en curso («leyendo el documento», «3 de 7 adjuntos»).
-3. Al terminar, el bloque muestra los mensajes propuestos. Cada uno trae su área (insignia, cambiable), título, texto según la plantilla de esa área, destinatarios (chips, editables) y adjuntos (miniaturas, quitables). Edita lo que quiera. Aprieta Enviar.
+3. Al terminar, los mensajes ya están publicados (UD-070): no hay botón Enviar. Cada uno trae su área (insignia, cambiable), título, texto según la plantilla de esa área, destinatarios (chips, editables) y adjuntos (miniaturas, quitables), y su emisor lo edita en el lugar cuando quiera (UD-071).
 4. Los mensajes aparecen en «Últimos mensajes». Quien los recibe los ve en su Inicio, filtrados para él por omisión. Cada tarjeta muestra la insignia del área, el emisor, la fecha y la miniatura del adjunto principal.
 5. Responde desde la tarjeta o desde Mensajes. El hilo crece debajo del mensaje. Cualquiera cierra; el estado se ve como insignia, nunca como prosa.
 
@@ -266,9 +267,9 @@ GET    /api/me                    la persona con sesión y project_name
 
 POST   /api/inputs                multipart: text, files[], links[] → { input_id, job_id, status, duplicate, restarted }
                                   202 si el análisis queda en cola; 200 si el mismo contenido del mismo emisor ya existía (§1.3)
-GET    /api/inputs?status=        los inputs propios
+GET    /api/inputs?status=&mine=1&order=   los inputs propios, todos los estados, paginados; un publicado trae `messages` (UD-070)
 GET    /api/inputs/:id            input propio: adjuntos, estado, unidades y propuesta si existe
-POST   /api/inputs/:id/publish    propuesta editada → mensajes creados
+POST   /api/inputs/:id/publish    publica a mano la propuesta (la perilla `auto_publish` apagada, o `publish_blocked`) → mensajes creados
 POST   /api/inputs/:id/cancel     también un análisis fallido
 POST   /api/inputs/:id/restore    deshace el descarte: vuelve a propuesta (con sus ediciones) o a fallido; no reanaliza
 POST   /api/inputs/:id/reprocess  (Editor) vuelve a encolar el análisis conservando las extracciones
@@ -280,6 +281,7 @@ GET    /api/messages/summary      lo que afecta a quien tiene la sesión por pri
 GET    /api/messages/:id          mensaje, hilo, adjuntos
 GET    /api/attachments/:id/transcript  texto extraído de un audio o video (UD-059)
 POST   /api/messages/:id/replies  { body, kind: answer|fix|clarification }   (403 si quien responde es el emisor)
+PATCH  /api/messages/:id          { version, …campos } el emisor edita su mensaje; otro miembro, también el Editor, 403 `not_message_author`; versión vencida 409 `edit_conflict` (UD-071)
 POST   /api/messages/:id/close · POST /api/messages/:id/reopen
 
 GET    /api/areas                 áreas con conteos y plantillas sin cuerpo   (?include_deleted=true: Editor)
@@ -294,6 +296,7 @@ PATCH  /api/members/me            perfil, idioma y contraseña propios (`profile
 PATCH  /api/members/:id                                                        (Editor)
 
 GET    /api/settings/providers · PATCH /api/settings/providers                (Editor; nunca devuelve una llave)
+GET    /api/settings/publication · PATCH /api/settings/publication   { auto_publish } (lee cualquier miembro, escribe el Editor; UD-070)
 GET    /api/settings/project         { name, description } (cualquier miembro)
 PATCH  /api/settings/project         descripción del proyecto en markdown: JSON { description } o multipart con `file` (.md) (Editor; tope PROJECT_DESCRIPTION_MAX_CHARS, 413 al superarlo; bitácora `settings.project.update`)
 GET    /api/attachments/:id       archivo, con control de acceso y Range
@@ -305,6 +308,17 @@ GET    /api/audit                 bitácora: quién creó, publicó, cerró, rea
 GET    /api/health · GET /health  público; el detalle de base, cola y proveedores, sólo al Editor
 GET    /api/openapi.json          contrato OpenAPI 3.1
 ```
+
+**Quién puede qué sobre un mensaje** (UD-071):
+
+| Acción | Emisor | Otro miembro | Editor que no lo emitió |
+|---|---|---|---|
+| Ver, filtrar y leer el hilo | sí | sí | sí |
+| Editar (título, texto, campos, plantilla, área, destinatarios, adjuntos) | sí | 403 `not_message_author` | 403 `not_message_author` |
+| Responder | no (403 `author_cannot_reply`) | sí | sí |
+| Cerrar y reabrir | sí | sí | sí |
+
+Un input es siempre de su emisor: lo ve, lo cancela, lo restaura y lo edita sólo él (otro miembro recibe 404). El Editor sólo vuelve a encolar el análisis de cualquiera (`reprocess`) y gobierna la perilla `auto_publish`.
 
 Un Miembro lee las áreas (con sus plantillas sin cuerpo) porque necesita nombrarlas y cambiarlas en la propuesta de su input (§6, paso 3). Escribirlas, leer el cuerpo de una plantilla y ver los proveedores son del Editor (HP-015).
 
@@ -325,7 +339,8 @@ templates            id, area_id, name (único dentro del área entre las vigent
 inputs               id, author_id, text, content_hash UNIQUE (incluye al emisor), status(queued|extracting|analyzing|proposed|published|failed|cancelled), error, error_code, created_at, updated_at
 attachments          id, input_id, kind(image|video|audio|document|link), name, path (sha256 en el volumen; la URL si es un enlace), mime, size, sha256, extracted_text, extracted_at, extract_meta_json
 proposals            input_id (PK), payload_json ({ messages:[{ area_id, template_id, … }], discarded }), units_json, created_at
-messages             id, input_id, area_id, template_id, author_id, title, body, fields_json, status(open|answered|closed), created_at, closed_at
+messages             id, input_id, area_id, template_id, author_id, title, body, fields_json, status(open|answered|closed), created_at, updated_at, version (1 al publicar; +1 por edición), edited_at (NULL sin ediciones), closed_at
+message_edits        id, message_id, member_id, at, version, fields_json (nombres de los campos que cambiaron, nunca sus valores)      (migración 0006)
 message_assignees    message_id, member_id
 message_attachments  message_id, attachment_id, position (el primero es el adjunto principal de la tarjeta)
 replies              id, message_id, author_id, body, kind(answer|fix|clarification), created_at
@@ -507,7 +522,7 @@ El frontmatter se convierte en el esquema JSON de `fields` que el analizador exi
 
 El flujo SSE va con `@fastify/sse` (versión exacta) y repone desde `job_events` lo que ya pasó. El `id` de cada evento es `job_events.seq`, así que una pestaña que se reabre manda `Last-Event-ID` y no pierde el progreso. La reposición se midió en 35 ms, sin acumulación con `@fastify/compress` ni con el proxy de Vite (informe 07).
 
-Los eventos son `progress` (`job_id`, `input_id`, `percent`, `phrase`, `at`), `done` (`job_id`, `input_id`, `status`, `error`, `error_code`) y `message` (un aviso por mensaje publicado). El progreso llega sólo al autor del input y los avisos de mensajes a todo el equipo. El flujo termina con un evento `done` y el cliente cierra. Si el trabajo ya terminó, la ruta responde 204, que es lo que fija el estándar para que el navegador deje de reconectar.
+Los eventos son `progress` (`job_id`, `input_id`, `percent`, `phrase`, `at`), `done` (`job_id`, `input_id`, `status`, `error`, `error_code`, y al terminar un análisis `input_status` `published|proposed` con `message_ids`) y `message` (un aviso por mensaje publicado al equipo, y un aviso dirigido con `reason: assigned` a quien una edición agrega como destinatario). El progreso llega sólo al autor del input y los avisos de mensajes a todo el equipo. El flujo termina con un evento `done` y el cliente cierra. Si el trabajo ya terminó, la ruta responde 204, que es lo que fija el estándar para que el navegador deje de reconectar.
 
 Hay un solo flujo SSE por miembro (`GET /api/events`), no uno por trabajo. Lleva los eventos de progreso con su `job_id` y los avisos de mensajes nuevos. HTTP/1.1 limita a seis las conexiones por dominio, compartidas entre pestañas (informes 03 y 07). El servidor suscribe antes de reponer, lo que dio cero repetidos y cero huecos al reconectar, y manda un latido cada 15 s. En el panel, un hook `useJobProgress` sobre `EventSource` guarda el progreso como estado efímero e invalida la consulta del input al `done`. Los extractores y el analizador emiten `progress(percent, phrase)` por paso real. El porcentaje sale de pasos completados sobre pasos totales, nunca de un reloj.
 

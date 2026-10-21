@@ -79,9 +79,9 @@ export function setProjectDescription (db, description, now = Date.now) {
 /** What the analyzer receives (bundle.project): the project name and its description. */
 export const getProject = (db, config) => ({ name: config.projectName, description: getProjectDescription(db) })
 
-// ---- Publication mode (UD-071). `auto_publish` is the knob that returns to the review that preceded UD-071: on (the
+// ---- Publication mode (UD-070). `auto_publish` is the knob that returns to the review that preceded UD-070: on (the
 // default), a valid proposal is published as soon as the analysis ends; off, it waits as `proposed` for its sender
-// to confirm it with POST /inputs/:id/publish. The default is the owner's decision, not a measurement (UD-071).
+// to confirm it with POST /inputs/:id/publish. The default is the owner's decision, not a measurement (UD-070).
 const AUTO_PUBLISH_KEY = 'auto_publish'
 export const AUTO_PUBLISH_DEFAULT = true
 

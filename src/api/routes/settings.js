@@ -101,12 +101,12 @@ export function registerSettingsRoutes (app, ctx) {
     return getProject(db, config)
   })
 
-  // Publication mode (UD-071): any member reads it, the editor writes it.
+  // Publication mode (UD-070): any member reads it, the editor writes it.
   const publicationView = { type: 'object', properties: { auto_publish: { type: 'boolean' } }, required: ['auto_publish'] }
 
   app.get('/settings/publication', {
     onRequest: [requireRole('member')],
-    schema: { summary: 'Modo de publicación', description: '`auto_publish`: con `true` (por omisión) los mensajes de una propuesta válida se publican solos al terminar el análisis; con `false` la propuesta espera la confirmación de su emisor (UD-071).', response: { 200: publicationView } }
+    schema: { summary: 'Modo de publicación', description: '`auto_publish`: con `true` (por omisión) los mensajes de una propuesta válida se publican solos al terminar el análisis; con `false` la propuesta espera la confirmación de su emisor (UD-070).', response: { 200: publicationView } }
   }, async () => ({ auto_publish: getAutoPublish(db) }))
 
   app.patch('/settings/publication', {

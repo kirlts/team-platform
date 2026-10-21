@@ -96,7 +96,7 @@ export function saveProposalDraft ({ db, events, now = Date.now }, { inputId, me
 
 /**
  * Writes the messages of a validated proposal and closes the input as `published`. The only place that creates
- * messages (HP-005). Inside a transaction. `via` is 'manual' (the sender confirmed) or 'auto' (UD-071).
+ * messages (HP-005). Inside a transaction. `via` is 'manual' (the sender confirmed) or 'auto' (UD-070).
  */
 function insertMessages ({ db, events, now }, { input, entries, via }) {
   const memberId = input.author_id
@@ -140,7 +140,7 @@ export function publishProposal ({ db, events, now = Date.now }, { inputId, memb
 }
 
 /**
- * Automatic publication (UD-071): called by the analysis in the transaction that closes its job, with the input
+ * Automatic publication (UD-070): called by the analysis in the transaction that closes its job, with the input
  * already `proposed`. It publishes the saved proposal with the same validation as the manual route. It never
  * throws for a proposal that does not validate (an empty one, a required field missing, a deleted area): the input
  * stays `proposed` with `error_code = 'publish_blocked'` and the reason, visible to its sender, who fixes it and

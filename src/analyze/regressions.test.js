@@ -108,13 +108,25 @@ describe('REG-003: the WhatsApp chat «[15:55, 7/10/2026] Name: …»', () => {
 });
 
 describe('REG-004: a commission explained in a chat is not discarded', () => {
-  it('the classification receives the rule: what describes something to be built is a new feature and a deadline is never discarded', async () => {
+  it('the definition that makes it a new feature lives in the area description of the catalog, which the Editor can edit, and the prompt only keeps the deadline rule', async () => {
     const { areas, templates } = await makeBundle();
-    const prompt = classifySystem({ areas, templates, language: 'en' }).join('\n');
-    assert.match(prompt, /explains how something that does not exist yet should be.*it is a new feature/);
-    assert.match(prompt, /Never discard a unit that describes something to be built or changed, nor one that sets a deadline, a date or a delivery commitment/);
     const nueva = areas.find((a) => a.title === 'Nueva funcionalidad');
-    assert.match(nueva.description, /descripción de lo que hay que construir/);
+    assert.match(nueva.description, /explicar cómo debe ser algo que aún no existe/);
+    for (const language of ['en', 'es-419']) {
+      const prompt = classifySystem({ areas, templates, language }).join('\n');
+      assert.ok(prompt.includes(nueva.description), `${language}: the catalog carries the description`);
+      assert.match(prompt, language === 'en' ? /Never discard a unit that sets a deadline, a date or a delivery commitment/ : /Nunca descartes una unidad que fija un plazo, una fecha o un compromiso de entrega/);
+      assert.doesNotMatch(prompt, language === 'en' ? /it is a new feature/ : /es una nueva funcionalidad,/, `${language}: no product definition hidden in the instructions`);
+    }
+  });
+
+  it('each initial area description carries a positive example and a near miss, so the boundary is written where the Editor sees it', async () => {
+    const { areas } = await makeBundle();
+    assert.equal(areas.length, 5);
+    for (const a of areas) {
+      assert.match(a.description, /Ejemplo: «/, `${a.title}: positive example`);
+      assert.match(a.description, /Casi igual, pero no: /, `${a.title}: near miss`);
+    }
   });
 });
 

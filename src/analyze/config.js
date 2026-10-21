@@ -74,13 +74,8 @@ export const KNOBS = Object.freeze({
   // Retries of a call that fails with a retryable HTTP error (429, 5xx, network) before the fallback or the failure.
   // The wait is the provider's own `retry-after` when it sends one; otherwise `httpRetryBaseMs` doubled at each retry.
   // Anthropic documents 429 with retry-after and a limit on concurrent requests shared by every process of the account.
-  httpRetries: { value: 2, source: 'Measurement 2026-10-21 (docs/investigaciones/mediciones/2026-10-21-prompts-en-ingles-y-marcas-de-ia.md): 429 for concurrent requests with several processes on one key' },
+  httpRetries: { value: 4, source: 'Measurement 2026-10-21 (docs/investigaciones/mediciones/2026-10-21-prompts-en-ingles-y-marcas-de-ia.md): 429 for concurrent requests with several processes on one key' },
   httpRetryBaseMs: { value: 1000, source: 'declared courtesy: the base of the doubling wait when the provider sends no retry-after' },
-
-  // Assignment experiments (H-85, H-86), decided by the private bench: members in the cached system prompt after the project
-  // block, and a grammar that requires at least one assignee per message when the team has members.
-  membersInSystem: { value: false, source: 'Measurement 2026-10-21 (docs/investigaciones/mediciones/2026-10-21-prompts-en-ingles-y-marcas-de-ia.md)' },
-  requireAssignee: { value: false, source: 'Measurement 2026-10-21 (docs/investigaciones/mediciones/2026-10-21-prompts-en-ingles-y-marcas-de-ia.md)' },
 
   // Units per window in the classification of a long input: the units are classified in contiguous windows, in parallel, so
   // that a group is a stretch of the conversation and not every unit of the same area spread over the whole input.

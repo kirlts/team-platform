@@ -37,14 +37,13 @@ export function loadCases(dir = casesDir) {
 /** Analyzer input bundle (§7.5) for a case. */
 export function buildBundle(input, fixtures, { language } = {}) {
   return {
-    ...(language ? { language } : {}),
     text: input.text,
     attachments: input.attachments.map((a) => ({ id: a.id, kind: a.kind, extracted: a.extracted })),
     areas: fixtures.areas,
     templates: fixtures.templates,
     members: fixtures.members,
     // As the pipeline builds it (src/domain/pipeline.js): the author's language and the project (UD-018, UD-024).
-    language: fixtures.language ?? 'es-419',
+    language: language ?? fixtures.language ?? 'es-419',
     ...(fixtures.project ? { project: fixtures.project } : {}),
   };
 }

@@ -1,27 +1,27 @@
 [
   {
     "title": "Idea",
-    "description": "Ocurrencia o propuesta sobre cómo mejorar el producto, el proceso o el equipo. No pide que se construya ahora ni reporta una falla: se comparte para pensarla y decidir después.",
+    "description": "Ocurrencia o propuesta para pensarla y decidir después: no pide construir ahora ni reporta una falla. Ejemplo: «Podríamos avisar por WhatsApp un día antes de cada entrega». Casi igual, pero no: «Necesito que avise por WhatsApp antes del lunes» es Nueva funcionalidad.",
     "template": "idea.md"
   },
   {
     "title": "Error",
-    "description": "Algo que antes funcionaba o que debería funcionar según lo acordado y no lo hace: fallas, resultados incorrectos, datos o textos equivocados, pantallas rotas, y también lo que tarda o consume mucho más de lo razonable.",
+    "description": "Algo que debería funcionar según lo acordado y no lo hace: falla, resultado o texto equivocado, pantalla rota, y también lo que tarda o consume mucho más de lo razonable. Ejemplo: «Exportar tarda más de un minuto con 500 filas». Casi igual, pero no: «Me gustaría exportar a PDF» es Nueva funcionalidad.",
     "template": "bug.md"
   },
   {
     "title": "Nueva funcionalidad",
-    "description": "Pedido explícito de que el producto haga algo que hoy no hace, con una necesidad concreta detrás. Incluye la descripción de lo que hay que construir, con su plazo si lo trae, aunque no use la palabra pedir.",
+    "description": "Pedido de que el producto haga algo que hoy no hace, con una necesidad concreta detrás. Incluye explicar cómo debe ser algo que aún no existe (un widget, una pantalla, un informe), con su plazo si lo trae, aunque no use la palabra pedir. Ejemplo: «Arriba a la derecha va un contador que abre la lista; el cliente lo ve el lunes». Casi igual, pero no: «El contador no abre la lista» es Error.",
     "template": "feature.md"
   },
   {
     "title": "Retroalimentación",
-    "description": "Opinión o valoración sobre algo que ya existe y funciona como fue diseñado: qué gusta, qué confunde, qué cuesta usar, qué sobra o qué se ve mal.",
+    "description": "Opinión o valoración sobre algo que ya existe y funciona como fue diseñado: qué gusta, qué confunde, qué cuesta usar, qué sobra. Ejemplo: «Los acordeones de la ficha me parecen confusos». Casi igual, pero no: «El acordeón no abre» es Error; «está genial» sin nada que decidir no es un punto.",
     "template": "feedback.md"
   },
   {
     "title": "Pregunta",
-    "description": "Petición de información o de una aclaración que alguien del equipo puede contestar: cómo funciona algo, qué se decidió, quién se encarga, cuándo estará listo.",
+    "description": "Petición de información o de una aclaración que alguien del equipo puede contestar: cómo funciona algo, qué se decidió, quién se encarga, cuándo estará listo. Ejemplo: «¿Quién revisa el contrato del cliente de Valparaíso?». Casi igual, pero no: «¿Qué pasa ahí?» como muletilla no pide respuesta.",
     "template": "question.md"
   }
 ]

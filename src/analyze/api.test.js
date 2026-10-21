@@ -520,6 +520,23 @@ describe('analyze (api): second reading (UD-021)', () => {
   });
 });
 
+describe('analyze (api): every message has an owner when the team has members (H-86)', () => {
+  const decompositionSchema = (fake) => fake.calls.text.find((c) => !c.schema.properties.groups).schema.properties.messages.items.properties.assignee_ids;
+  const run = async (members) => {
+    const fake = createFakeProviders({ text: scriptByRequest({ classification: CLASSIFY_ERRORS, decompositions: { 'Reporte de error': goodDecomposition() } }) });
+    await analyze(await makeBundle({ members }), { providers: fake });
+    return decompositionSchema(fake);
+  };
+
+  it('the grammar of the decomposition requires at least one assignee id', async () => {
+    assert.equal((await run([{ id: 1, name: 'Ana', profile: 'x' }])).minItems, 1);
+  });
+
+  it('with an empty team the grammar does not ask for an owner nobody can be', async () => {
+    assert.equal((await run([])).minItems, undefined);
+  });
+});
+
 describe('analyze (api): fallback provider (H-18)', () => {
   const goodScript = () => scriptByRequest({ classification: CLASSIFY_ERRORS, decompositions: { 'Reporte de error': goodDecomposition() } });
 

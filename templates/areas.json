@@ -6,7 +6,7 @@
   },
   {
     "title": "Error",
-    "description": "Algo que antes funcionaba o que debería funcionar según lo acordado y no lo hace: fallas, resultados incorrectos, datos o textos equivocados, pantallas rotas.",
+    "description": "Algo que antes funcionaba o que debería funcionar según lo acordado y no lo hace: fallas, resultados incorrectos, datos o textos equivocados, pantallas rotas, y también lo que tarda o consume mucho más de lo razonable.",
     "template": "bug.md"
   },
   {

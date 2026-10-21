@@ -88,7 +88,7 @@ const DECOMPOSE_INSTRUCTIONS = [
   'Reglas de descomposición',
   '1. Cada unidad aparece exactamente una vez en tu salida: en unit_ids de un único mensaje o en discarded. Ninguna unidad queda fuera y ninguna se repite.',
   '2. Un mensaje recoge un solo punto. Dos puntos distintos van en dos mensajes aunque estén seguidos o compartan una captura. El mismo punto dicho en varias unidades, o reforzado por una captura o por un fragmento del video, va en un solo mensaje que cita todas esas unidades.',
-  '3. Pon en discarded las unidades que no piden ni informan nada que alguien deba responder: saludos, agradecimientos, charla social, frases de transición. Indica el motivo en pocas palabras. Una unidad con un dato que un mensaje necesita se cita en ese mensaje, no se descarta.',
+  '3. Las unidades que recibes ya fueron elegidas como puntos de esta plantilla, así que cada una origina un mensaje. En discarded solo van los saludos, las despedidas, los agradecimientos y la charla social que se hayan colado. Un punto enunciado en pocas palabras, sin motivo ni detalle, sigue siendo un mensaje: redáctalo con lo que dice y escribe No indicado en los campos obligatorios que el input no responde. Nunca descartes un punto por ser breve, vago o incompleto. Una unidad con un dato que un mensaje necesita se cita en ese mensaje.',
   '4. Si una misma unidad trae dos puntos distintos, no se puede repartir entre mensajes: recógela en un solo mensaje y nombra ambos puntos en su cuerpo.',
   '5. Si ninguna unidad es accionable, devuelve messages vacío y todas las unidades en discarded.',
   '6. Lista de unit_ids en orden ascendente y solo con números que existen en el input.',

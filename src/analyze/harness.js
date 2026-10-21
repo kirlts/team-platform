@@ -144,7 +144,7 @@ function validateProposal(proposal, bundle, units) {
   const template = parseTemplate(templateRow.body_markdown, { source: `plantilla ${templateRow.id}` });
   const decomposition = { messages: proposal.messages, discarded: proposal.discarded };
   const v = validateDecomposition(decomposition, contextFromBundle(bundle, { fields: template.fields, scope: units.map((u) => u.id) }));
-  return { errors: [...v.errors, ...describeConflicts(v.conflicts)], decomposition, rawConflicts: v.conflicts };
+  return { errors: [...v.errors, ...describeConflicts(v.conflicts)], decomposition };
 }
 
 /**

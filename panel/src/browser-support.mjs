@@ -13,9 +13,18 @@ export async function startPanel(port, { build = !process.env.FIT_SIN_BUILD, ste
   const server = spawn('node', ['dev-server.mjs'], {
     cwd: ROOT,
     env: { ...process.env, PANEL_DEV_PORT: String(port), PANEL_DEV_STATIC: '1', PANEL_DEV_STEP_MS: String(stepMs) },
-    stdio: ['ignore', 'ignore', 'inherit'],
+    stdio: ['ignore', 'pipe', 'inherit'],
   })
-  await new Promise((r) => setTimeout(r, 900))
+  // The server says when it listens; a port already taken makes it exit. Neither is guessed with a pause: a test never talks to a server that is not its own (H-900).
+  await new Promise((resolve, reject) => {
+    let said = ''
+    server.stdout.on('data', (chunk) => {
+      said += chunk
+      if (said.includes('[dev-server] DEVELOPMENT DOUBLE SERVER')) resolve()
+    })
+    server.once('exit', (code) => reject(new Error(`el servidor de ejemplo salió con ${code} antes de escuchar en el puerto ${port}; ¿está ocupado?`)))
+    server.once('error', reject)
+  })
   const browser = await chromium.launch({ headless: true, args: ['--ozone-platform=headless'] })
   return {
     origin: `http://127.0.0.1:${port}`,

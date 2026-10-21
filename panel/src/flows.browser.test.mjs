@@ -14,7 +14,7 @@
 //   - the compose bar shows an upload rejection inline.
 
 import assert from 'node:assert'
-import { after, before, describe, test } from 'node:test'
+import { after, before, beforeEach, describe, test } from 'node:test'
 import { login, startPanel } from './browser-support.mjs'
 
 let panel
@@ -23,6 +23,11 @@ let origin = ''
 before(async () => {
   panel = await startPanel(Number(process.env.PANEL_FLOWS_PORT ?? 8796), { stepMs: 80 })
   origin = panel.origin
+})
+
+// Every test starts from the sample data as the server was born with it (H-901): none inherits what another left in the tray or the lists.
+beforeEach(async () => {
+  await panel.control.reset()
 })
 
 after(async () => {
@@ -685,19 +690,10 @@ describe('templates as a form (J1-A-32)', () => {
 // ---------------------------------------------------------------- Ronda 1, juez B: enviar, analizar, revisar y publicar
 const THREE = 'Corregir el desalineado del sidebar en la vista dashboard.\n\nAgregar la sincronización con WhatsApp en el sidebar.\n\nPregunta: ¿el audio máximo sigue en 25 MB?'
 
-/** Leaves the person with an empty tray: tests that count messages must not inherit the sends of an earlier test. */
-async function clearTray(page) {
-  const body = await (await page.request.get(`${origin}/api/inputs`)).json()
-  for (const input of body.items ?? body) {
-    if (!['published', 'cancelled'].includes(input.status)) await page.request.post(`${origin}/api/inputs/${input.id}/cancel`, { headers: { 'X-Team-Request': 'panel' } })
-  }
-}
-
 describe('publishing flow (round 1, judge B)', () => {
   test('the proposal shows all the messages at once and the button says how many it sends (J1-B-11)', async () => {
     const { page, context } = await session('bruno')
     try {
-      await clearTray(page)
       await sendInput(page, THREE)
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
       // One open and the other two on one line: the three titles are in view, without paging.
@@ -717,7 +713,6 @@ describe('publishing flow (round 1, judge B)', () => {
   test('a discard can be undone and returns with what was edited; there is no silent discard (J1-B-26)', async () => {
     const { page, context } = await session('carla')
     try {
-      await clearTray(page)
       await sendInput(page, 'Una idea que se descarta por error.\n\nOtra idea.')
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
       await page.getByRole('button', { name: /^Título del mensaje: / }).first().click()
@@ -739,7 +734,6 @@ describe('publishing flow (round 1, judge B)', () => {
   test('re-analyzing: without changes it goes straight; with changes it asks for confirmation (J1-B-18)', async () => {
     const { page, context } = await session('diego')
     try {
-      await clearTray(page)
       await sendInput(page, 'Un punto para analizar dos veces.')
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
       await page.getByRole('button', { name: 'Volver a analizar' }).click()
@@ -759,7 +753,6 @@ describe('publishing flow (round 1, judge B)', () => {
   test('editing a body says how it is saved and how to break a line (J1-B-19)', async () => {
     const { page, context } = await session('eduardo')
     try {
-      await clearTray(page)
       await sendInput(page, 'Un punto con cuerpo para editar.')
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
       await page.getByRole('button', { name: /^Texto del mensaje: / }).first().click()
@@ -796,7 +789,6 @@ describe('publishing flow (round 1, judge B)', () => {
   test('an area with several templates lets the user choose the template from the proposal (J1-B-18)', async () => {
     const { page, context } = await session('tomas')
     try {
-      await clearTray(page)
       await sendInput(page, 'Se rompe la pantalla de inicio: el botón queda cortado.')
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
       const pick = page.getByRole('button', { name: /^Plantilla: / })
@@ -813,7 +805,6 @@ describe('publishing flow (round 1, judge B)', () => {
   test('on the phone Enviar and Descartar stay in view with three messages (J1-B-29)', async () => {
     const { page, context } = await session('bruno', { width: 390, height: 844 })
     try {
-      await clearTray(page)
       await sendInput(page, THREE)
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
       const send = page.getByRole('button', { name: 'Enviar 3 mensajes', exact: true })
@@ -831,7 +822,6 @@ describe('publishing flow (round 2, judge B)', () => {
   test('Enter never publishes: after saving a field the focus stays on it, and from the container it does nothing (J2-B-13)', async () => {
     const { page, context } = await session('bruno')
     try {
-      await clearTray(page)
       await sendInput(page, THREE)
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
       const tray = page.getByTestId('tray-control')
@@ -903,7 +893,6 @@ describe('tray and proposal (round 2, judge B)', () => {
   test('the strip of sends is a button with its progress, does not move the page, and the window opens on the recent send (J2-B-07, J2-B-08, J2-B-09, J2-B-10)', async () => {
     const { page, context } = await session('diego')
     try {
-      await clearTray(page)
       await page.goto(origin)
       await page.getByRole('heading', { name: 'Últimos mensajes' }).waitFor()
       const y = async () => ({ feed: (await page.getByRole('heading', { name: 'Últimos mensajes' }).boundingBox()).y, bar: (await page.getByLabel('Nuevo mensaje', { exact: true }).last().boundingBox()).y })
@@ -933,7 +922,8 @@ describe('tray and proposal (round 2, judge B)', () => {
   test('the window of a send being analyzed keeps the height of the one with a proposal (J3-B-04), and Cancelar looks like a button (J2-B-12)', async () => {
     const { page, context } = await session('eduardo')
     try {
-      await clearTray(page)
+      // The analysis waits for the test's order: «being analyzed» is a state it holds, not a race against the server's clock (H-901).
+      await panel.control.hold()
       await page.goto(origin)
       await page.getByLabel('Nuevo mensaje', { exact: true }).last().fill('Un envío que se queda analizando un rato.')
       await page.getByRole('button', { name: 'Enviar' }).first().click()
@@ -951,7 +941,6 @@ describe('tray and proposal (round 2, judge B)', () => {
   test('history buttons: Volver a analizar does not move, «Partes sin mensaje» is a button and removing has a single Deshacer that pushes nothing (J2-B-14, J2-B-15, J2-B-21)', async () => {
     const { page, context } = await session('sofia')
     try {
-      await clearTray(page)
       await sendInput(page, THREE)
       await proposalReady(page)
       const again = page.getByRole('button', { name: 'Volver a analizar' })
@@ -990,7 +979,6 @@ describe('tray and proposal (round 2, judge B)', () => {
   test('the recipients menu fits entirely in the window and a row with no recipient says so with a mark (J2-B-17, J2-B-19)', async () => {
     const { page, context } = await session('tomas')
     try {
-      await clearTray(page)
       await sendInput(page, THREE)
       await proposalReady(page)
       await page.getByRole('button', { name: 'Agregar destinatario' }).first().click()
@@ -1014,7 +1002,6 @@ describe('tray and proposal (round 2, judge B)', () => {
   test('discarding with more sends leaves its place with its Undo and does not jump to another send (J2-B-22, J2-B-24)', async () => {
     const { page, context } = await session('valentina')
     try {
-      await clearTray(page)
       await page.goto(origin)
       const bar = page.getByLabel('Nuevo mensaje', { exact: true }).last()
       for (const text of ['Primer punto para descartar uno.', 'Segundo punto que queda en la bandeja.']) {
@@ -1038,7 +1025,6 @@ describe('tray and proposal (round 2, judge B)', () => {
   test('on the phone the list of sends folds and the proposal takes the screen; menus fit in it (J2-B-11, J2-B-23)', async () => {
     const { page, context } = await session('ana', { width: 390, height: 844 })
     try {
-      await clearTray(page)
       await page.goto(origin)
       const bar = page.getByLabel('Nuevo mensaje', { exact: true }).last()
       for (const text of ['Primero.', 'Segundo.', 'Tercero.']) {
@@ -1067,7 +1053,6 @@ describe('tray and proposal (round 2, judge B)', () => {
   test('publishing says how many messages and to how many people, without moving the window, and the messages exist in Mensajes (J2-B-25, J2-B-26)', async () => {
     const { page, context } = await session('bruno')
     try {
-      await clearTray(page)
       await sendInput(page, THREE)
       await proposalReady(page)
       const total = async () => ((await (await page.request.get(`${origin}/api/messages?limit=100`)).json()).total ?? 0)

@@ -1,7 +1,7 @@
 // Round 3, judge A (J3-A-01 to J3-A-51): each flow reads what the screen shows, in a real browser, against dev-server.mjs
 // serving panel/dist: `npm run test:flows`. Every test can fail if the defect it names comes back.
 import assert from 'node:assert'
-import { after, before, describe, test } from 'node:test'
+import { after, before, beforeEach, describe, test } from 'node:test'
 import { login, startPanel } from './browser-support.mjs'
 
 let panel
@@ -10,6 +10,11 @@ let origin = ''
 before(async () => {
   panel = await startPanel(Number(process.env.PANEL_FLOWS_3A_PORT ?? 8884), { stepMs: 80 })
   origin = panel.origin
+})
+
+// Every test starts from the sample data as the server was born with it (H-901): none inherits what another left in the tray or the lists.
+beforeEach(async () => {
+  await panel.control.reset()
 })
 
 after(async () => {

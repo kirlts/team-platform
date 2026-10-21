@@ -7,12 +7,31 @@ import { chromium } from 'playwright'
 export const ROOT = fileURLToPath(new URL('..', import.meta.url))
 export const PASSWORD = randomBytes(12).toString('hex') // the dev server accepts any password of 15 characters or more
 
+/**
+ * Orders to the example server (H-901). A test that needs «a send being analyzed» does not race the server's clock: it holds the
+ * analysis (`hold`), looks at the state it wanted, and moves it by itself (`step`) or lets it run (`release`). `reset` puts the sample
+ * data back as it was born, so one test never inherits what another one left.
+ */
+function controlOf(origin) {
+  const order = async (path) => {
+    const res = await fetch(`${origin}/api/_control/${path}`, { method: 'POST' })
+    if (!res.ok) throw new Error(`el servidor de ejemplo rechazó la orden ${path}: ${res.status}`)
+  }
+  return {
+    hold: () => order('hold'),
+    release: () => order('release'),
+    /** One step of every waiting analysis; with `inputId`, only that send, and with `finish` all the way to its proposal. */
+    step: ({ inputId, finish = false } = {}) => order(`step?${new URLSearchParams({ ...(inputId ? { input_id: inputId } : {}), ...(finish ? { finish: '1' } : {}) })}`),
+    reset: () => order('reset'),
+  }
+}
+
 /** Builds panel/dist (unless told not to) and serves it with the dev server; returns what a test needs and how to stop it. */
 export async function startPanel(port, { build = !process.env.FIT_SIN_BUILD, stepMs = 120 } = {}) {
   if (build) execFileSync('npx', ['vite', 'build'], { cwd: ROOT, stdio: 'ignore' })
   const server = spawn('node', ['dev-server.mjs'], {
     cwd: ROOT,
-    env: { ...process.env, PANEL_DEV_PORT: String(port), PANEL_DEV_STATIC: '1', PANEL_DEV_STEP_MS: String(stepMs) },
+    env: { ...process.env, PANEL_DEV_PORT: String(port), PANEL_DEV_STATIC: '1', PANEL_DEV_STEP_MS: String(stepMs), PANEL_DEV_CONTROL: '1' },
     stdio: ['ignore', 'pipe', 'inherit'],
   })
   // The server says when it listens; a port already taken makes it exit. Neither is guessed with a pause: a test never talks to a server that is not its own (H-900).
@@ -26,9 +45,11 @@ export async function startPanel(port, { build = !process.env.FIT_SIN_BUILD, ste
     server.once('error', reject)
   })
   const browser = await chromium.launch({ headless: true, args: ['--ozone-platform=headless'] })
+  const origin = `http://127.0.0.1:${port}`
   return {
-    origin: `http://127.0.0.1:${port}`,
+    origin,
     browser,
+    control: controlOf(origin),
     async stop() {
       await browser.close()
       server.kill()

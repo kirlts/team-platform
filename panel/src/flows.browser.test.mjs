@@ -236,7 +236,7 @@ describe('team and account', () => {
       await showRow(page, 'Marta Nueva')
       await page.getByRole('button', { name: 'Desactivar a Marta Nueva' }).click()
       await page.getByText('Inactivo').first().waitFor()
-      // J2-A-18: el cambio se dice bajo la barra y trae su Deshacer.
+      // J2-A-18: the change is said under the bar and brings its Deshacer.
       const notice = page.getByRole('status').filter({ hasText: 'Marta Nueva desactivado' })
       await notice.waitFor()
       await notice.getByRole('button', { name: 'Deshacer' }).click()
@@ -542,7 +542,7 @@ describe('estados, teclado y filas', () => {
       await button.click()
       await page.getByRole('button', { name: 'Reabrir', exact: true }).waitFor()
       await page.getByText('Cerrado').first().waitFor()
-      // J2-A-18: cerrar se confirma bajo la barra con su Deshacer, junto a la acción.
+      // J2-A-18: closing is confirmed under the bar with its Deshacer, next to the action.
       const notice = page.getByRole('status').filter({ hasText: 'Mensaje cerrado' })
       await notice.waitFor()
       await notice.getByRole('button', { name: 'Deshacer' }).click()

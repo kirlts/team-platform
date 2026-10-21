@@ -13,7 +13,7 @@ import { Wordmark } from './Wordmark'
 import { useLookups } from './lookups'
 
 /**
- * «[Nombre] TEAM» header with the notice bell. Configuración, the theme and Cerrar sesión live in the sidebar and in
+ * «[Nombre] TEAM» header with the notice bell. Configuración, the theme and the sign-out live in the sidebar and in
  * Configuración, which on a phone is the drawer this bar opens: a menu here would be a second way to each of them (J2-A-38, J2-A-40).
  */
 export function Header({ projectName, onOpenNav }: { projectName?: string; onOpenNav: () => void }) {

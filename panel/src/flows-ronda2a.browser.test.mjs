@@ -39,8 +39,8 @@ async function openMessage(page, titleStart) {
 
 const csrf = { 'x-team-request': 'panel' }
 
-describe('entrada y navegación', () => {
-  test('el error de la entrada no mueve la tarjeta, no entra al nombre del campo y marca el campo (J2-A-01, J2-A-03)', async () => {
+describe('sign-in and navigation', () => {
+  test('the sign-in error does not move the card, stays out of the field name and marks the field (J2-A-01, J2-A-03)', async () => {
     const context = await panel.browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'es-CL' })
     const page = await context.newPage()
     try {
@@ -67,7 +67,7 @@ describe('entrada y navegación', () => {
     }
   })
 
-  test('no hay menú superior que repita Configuración, Tema y Cerrar sesión, y una sola forma de salir (J2-A-38, J2-A-40)', async () => {
+  test('there is no top menu repeating Configuración, Tema and the sign-out, and a single way out (J2-A-38, J2-A-40)', async () => {
     const { page, context } = await session()
     try {
       assert.equal(await page.getByRole('button', { name: 'Menú' }).count(), 0, 'el menú superior duplicaba la barra lateral')
@@ -78,7 +78,7 @@ describe('entrada y navegación', () => {
     }
   })
 
-  test('las conexiones de la barra lateral navegan y marcan la elegida (J2-A-34)', async () => {
+  test('the sidebar connections navigate and mark the chosen one (J2-A-34)', async () => {
     const { page, context } = await session()
     try {
       await page.getByRole('button', { name: 'Desplegar conexiones' }).click()
@@ -92,7 +92,7 @@ describe('entrada y navegación', () => {
     }
   })
 
-  test('lo seleccionado se ve igual en la barra lateral, en Áreas y en los controles segmentados (J2-A-41)', async () => {
+  test('what is selected looks the same in the sidebar, in Áreas and in the segmented controls (J2-A-41)', async () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/areas/a-error`)
@@ -108,7 +108,7 @@ describe('entrada y navegación', () => {
     }
   })
 
-  test('la primera parada del teclado se ve (J2-A-48)', async () => {
+  test('the first keyboard stop is visible (J2-A-48)', async () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/messages`)
@@ -126,8 +126,8 @@ describe('entrada y navegación', () => {
   })
 })
 
-describe('lista de mensajes e inicio', () => {
-  test('el estado va sin píldora, los destinatarios dicen «para» y «y N más», sin esferas (J2-A-05, J2-A-12)', async () => {
+describe('message list and home', () => {
+  test('the status has no pill, the recipients say «para» and «y N más», with no spheres (J2-A-05, J2-A-12)', async () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/messages`)
@@ -144,7 +144,7 @@ describe('lista de mensajes e inicio', () => {
     }
   })
 
-  test('Últimas respuestas encabeza con la respuesta y deja el mensaje como contexto (J2-A-06)', async () => {
+  test('Últimas respuestas leads with the reply and leaves the message as context (J2-A-06)', async () => {
     const { page, context } = await session()
     try {
       await page.goto(origin)
@@ -159,7 +159,7 @@ describe('lista de mensajes e inicio', () => {
     }
   })
 
-  test('el reloj de Inicio es texto corriente y la paginación es un blanco de 32 px (J2-A-08, J2-A-10)', async () => {
+  test('the clock of Inicio is plain text and the pager is a 32 px target (J2-A-08, J2-A-10)', async () => {
     const { page, context } = await session()
     try {
       await page.goto(origin)
@@ -172,7 +172,7 @@ describe('lista de mensajes e inicio', () => {
     }
   })
 
-  test('el menú de filtro lleva su cuenta y marca lo aplicado (J2-A-13)', async () => {
+  test('the filter menu carries its count and marks what is applied (J2-A-13)', async () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/messages`)
@@ -189,7 +189,7 @@ describe('lista de mensajes e inicio', () => {
     }
   })
 
-  test('un mensaje cerrado pesa menos que uno abierto en la lista (J2-A-15)', async () => {
+  test('a closed message weighs less than an open one in the list (J2-A-15)', async () => {
     const { page, context } = await session()
     try {
       const hit = await messageByTitle(page, 'Enlace al caso')
@@ -210,7 +210,7 @@ describe('lista de mensajes e inicio', () => {
     }
   })
 
-  test('en el teléfono una tarjeta de la lista cabe en media pantalla (J2-A-16)', async () => {
+  test('on a phone a list card fits in half a screen (J2-A-16)', async () => {
     const { page, context } = await session('ana', { width: 390, height: 844 }, true)
     try {
       await page.goto(`${origin}/messages`)
@@ -223,8 +223,8 @@ describe('lista de mensajes e inicio', () => {
   })
 })
 
-describe('ficha', () => {
-  test('cerrar con un campo obligatorio vacío no deja el aviso rojo, y se confirma con Deshacer (J2-A-17, J2-A-18)', async () => {
+describe('detail', () => {
+  test('closing with an empty required field leaves no red warning, and is confirmed with Deshacer (J2-A-17, J2-A-18)', async () => {
     const { page, context } = await session()
     try {
       const hit = await messageByTitle(page, 'Revisar la lectura')
@@ -243,7 +243,7 @@ describe('ficha', () => {
     }
   })
 
-  test('reabrir dice en qué estado queda (J2-A-18)', async () => {
+  test('reopening says which state it returns to (J2-A-18)', async () => {
     const { page, context } = await session()
     try {
       await openMessage(page, 'Confirmar el formato')
@@ -255,7 +255,7 @@ describe('ficha', () => {
     }
   })
 
-  test('Deshacer y Rehacer pesan menos que la acción de la pantalla, y los campos se ven editables (J2-A-18, J2-A-20)', async () => {
+  test('Deshacer and Rehacer weigh less than the screen action, and the fields look editable (J2-A-18, J2-A-20)', async () => {
     const { page, context } = await session()
     try {
       await openMessage(page, 'Revisar la lectura')
@@ -272,7 +272,7 @@ describe('ficha', () => {
     }
   })
 
-  test('en el teléfono las acciones van arriba, sin nada entre el título y lo que describe, y al menos tres filas de chips caben (J2-A-21)', async () => {
+  test('on a phone the actions go on top, with nothing between the title and what it describes, and the chips fit in three rows (J2-A-21)', async () => {
     const { page, context } = await session('ana', { width: 390, height: 844 }, true)
     try {
       await openMessage(page, 'Revisar la lectura')
@@ -287,7 +287,7 @@ describe('ficha', () => {
     }
   })
 
-  test('los medios de la respuesta van dentro de su marco y debajo sólo quedan el tipo y Responder (J2-A-22)', async () => {
+  test('the reply media sit inside its frame and below only the type and Responder remain (J2-A-22)', async () => {
     const { page, context } = await session('bruno')
     try {
       await openMessage(page, 'Revisar la lectura')
@@ -301,8 +301,8 @@ describe('ficha', () => {
   })
 })
 
-describe('áreas, plantillas y configuración', () => {
-  test('eliminar una plantilla deja en su lugar la fila con Deshacer (J2-A-23)', async () => {
+describe('areas, templates and settings', () => {
+  test('deleting a template leaves the row with Deshacer in its place (J2-A-23)', async () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/areas/a-error`)
@@ -321,7 +321,7 @@ describe('áreas, plantillas y configuración', () => {
     }
   })
 
-  test('la ventana de campos guarda al instante, lo dice y se cierra con Listo; sin casillas del navegador (J2-A-24)', async () => {
+  test('the fields window saves at once, says so and closes with Listo; no browser check boxes (J2-A-24)', async () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/areas/a-error`)
@@ -339,7 +339,7 @@ describe('áreas, plantillas y configuración', () => {
     }
   })
 
-  test('una plantilla nueva muestra las instrucciones como la edición, sin almohadillas (J2-A-25)', async () => {
+  test('a new template shows the instructions like editing does, without hash marks (J2-A-25)', async () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/areas/a-error`)
@@ -352,7 +352,7 @@ describe('áreas, plantillas y configuración', () => {
     }
   })
 
-  test('«Sin plantillas» trae su propia acción, y el cero pesa igual que los demás pendientes (J2-A-26, J2-A-49)', async () => {
+  test('«Sin plantillas» brings its own action, and zero weighs the same as the other pending counts (J2-A-26, J2-A-49)', async () => {
     const { page, context } = await session()
     try {
       const made = await page.request.post(`${origin}/api/areas`, { data: { title: 'Área vacía de prueba', description: 'Sin plantillas.' }, headers: csrf })
@@ -370,7 +370,7 @@ describe('áreas, plantillas y configuración', () => {
     }
   })
 
-  test('un proveedor sin llave dice qué hacer con el peso del cuerpo y no con una píldora (J2-A-31, J2-A-32)', async () => {
+  test('a provider without a key says what to do at body weight, not as a pill (J2-A-31, J2-A-32)', async () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/settings`)
@@ -387,7 +387,7 @@ describe('áreas, plantillas y configuración', () => {
     }
   })
 
-  test('reemplazar la descripción del proyecto se confirma con Deshacer, y es una acción callada (J2-A-30)', async () => {
+  test('replacing the project description is confirmed with Deshacer, and is a quiet action (J2-A-30)', async () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/settings`)
@@ -404,8 +404,8 @@ describe('áreas, plantillas y configuración', () => {
   })
 })
 
-describe('equipo', () => {
-  test('el perfil se lee en el cuerpo, no hay idioma de relleno y Desactivar es una acción callada con su aviso (J2-A-35, J2-A-36, J2-A-37)', async () => {
+describe('team', () => {
+  test('the profile reads at body size, there is no filler language and Desactivar is a quiet action with its notice (J2-A-35, J2-A-36, J2-A-37)', async () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/team`)
@@ -424,8 +424,8 @@ describe('equipo', () => {
   })
 })
 
-describe('estados', () => {
-  test('una carga lenta reserva el lugar de las filas y un error trae icono, motivo y Reintentar (J2-A-46, J2-A-47)', async () => {
+describe('states', () => {
+  test('a slow load keeps the place of the rows and an error brings an icon, a reason and Reintentar (J2-A-46, J2-A-47)', async () => {
     const { page, context } = await session()
     try {
       let fail = true
@@ -450,7 +450,7 @@ describe('estados', () => {
     }
   })
 
-  test('la barra lateral no se mueve cuando llegan los contadores (J2-A-47)', async () => {
+  test('the sidebar does not move when the counters arrive (J2-A-47)', async () => {
     const { page, context } = await session()
     try {
       let release = () => {}
@@ -475,7 +475,7 @@ describe('estados', () => {
     }
   })
 
-  test('la ficha ordena el texto del mensaje sobre los campos y los datos, y la marca pesa menos (J2-A-19, J2-A-42)', async () => {
+  test('the detail ranks the message text over the fields and the data, and the mark weighs less (J2-A-19, J2-A-42)', async () => {
     const { page, context } = await session()
     try {
       await openMessage(page, 'Revisar la lectura')

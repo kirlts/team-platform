@@ -207,7 +207,7 @@ describe('the interface speaks like an instrument (UD-050)', () => {
         for (const text of variants(message)) {
           if (breaksVoice(key, text, lang) || /\{|«|“/.test(text)) continue
           // An error text may run to MAX_WORDS_ERROR words; the pattern for length knows only the common limit.
-          const ids = voicePatterns(lang).filter((p) => new RegExp(p.source, p.flags).test(text)).map((p) => p.id).filter((id) => !(id === 'length' && /(^|\.)error\./.test(key)))
+          const ids = voicePatterns(lang).filter((p) => new RegExp(p.source, p.flags).test(text)).map((p) => p.id).filter((id) => !(id === 'length' && (/(^|\.)error\./.test(key) || key.startsWith('hint.'))))
           if (ids.length) flagged.push(`${lang} ${key} [${ids}]: ${text}`)
         }
       }

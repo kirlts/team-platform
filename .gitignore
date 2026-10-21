@@ -29,5 +29,6 @@ data/
 # Casos privados del banco (feedback real, nunca se publican)
 bench/private/
 bench/results/
+.cache/
 .local-ref/
 .claude/

@@ -11,8 +11,8 @@ export const DEFAULTS = Object.freeze({
   // Tope de texto que un extractor entrega al analizador. Sobre el tope el texto se corta
   // en un salto de línea y `meta.warnings` lleva `text_truncated`.
   text: Object.freeze({
-    // informe 05 §8.3: 100 páginas (máximo por solicitud con contexto menor de 1 M tokens)
-    // por 2.700 caracteres por página (el mayor de los dos PDF medidos).
+    // 100 páginas (máximo por solicitud con contexto menor de 1 M tokens)
+    // por 2.700 caracteres por página (el mayor de los dos PDF medidos), informe 05 §8.3.
     maxChars: 270_000,
   }),
 
@@ -37,8 +37,8 @@ export const DEFAULTS = Object.freeze({
   document: Object.freeze({
     // informe 05 §8.3: 32 MB de solicitud al proveedor por 3/4 del base64.
     maxBytes: 24 * MiB,
-    // informe 05 §8.3: menos de 30 caracteres sin espacios por página es una página sin texto
-    // (escaneadas medidas: 0; página digital más pobre: 146).
+    // Menos de 30 caracteres sin espacios por página es una página sin texto
+    // (escaneadas medidas: 0; página digital más pobre: 146), informe 05 §8.3.
     scannedPageMaxChars: 30,
     // informe 05 §8.3: 100 páginas por llamada al modo nativo con contexto menor de 1 M tokens.
     nativePagesPerCall: 100,
@@ -89,7 +89,7 @@ export const DEFAULTS = Object.freeze({
     // without punctuation gave units of 109 words and 52 s (p90 of 68 words); with 40 the p90 drops to 39,
     // the median rises to 17 and the longest joined unit is a single 50-word segment. 40 keeps whole the
     // longest punctuated sentences measured (29 words) plus one typical segment (p90 of 14 words).
-    maxUnitWords: 40,
+    maxUnitWords: 40, // cortesía declarada, medición 2026-10-20 (see above)
   }),
 
   video: Object.freeze({
@@ -120,8 +120,8 @@ export const DEFAULTS = Object.freeze({
   }),
 
   link: Object.freeze({
-    // informe 05 §8.3: 5 MiB (Readability con linkedom: 388 ms y 301 MB a 5,2 MiB; a 10,5 MiB la
-    // salida cambia de forma).
+    // 5 MiB (Readability con linkedom: 388 ms y 301 MB a 5,2 MiB; a 10,5 MiB la
+    // salida cambia de forma), informe 05 §8.3.
     maxBytes: 5 * MiB,
     // informe 05 §8.3: cortesía declarada, sin medición.
     timeoutMs: 15_000,

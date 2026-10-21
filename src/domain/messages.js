@@ -141,8 +141,13 @@ export function listMessages (db, { viewerId, forMember = null, involved = false
   if (area !== null) { scope.push('m.area_id = ?'); params.push(area) }
   if (status !== null) { scope.push('m.status = ?'); params.push(status) }
   if (q) {
-    scope.push("(m.title LIKE ? ESCAPE '\\' OR m.body LIKE ? ESCAPE '\\')")
-    params.push(`%${escapeLike(q)}%`, `%${escapeLike(q)}%`)
+    // Title, body, the values of the template fields (not their names) and the text of the replies (idea.md).
+    // The replies search goes through `replies_message`; the fields through `json_each` of that row. Cost measured in H-3603.
+    scope.push(`(m.title LIKE ? ESCAPE '\\' OR m.body LIKE ? ESCAPE '\\'
+      OR EXISTS (SELECT 1 FROM replies r WHERE r.message_id = m.id AND r.body LIKE ? ESCAPE '\\')
+      OR EXISTS (SELECT 1 FROM json_each(m.fields_json) f WHERE f.value LIKE ? ESCAPE '\\'))`)
+    const like = `%${escapeLike(q)}%`
+    params.push(like, like, like, like)
   }
   if (replies) scope.push('EXISTS (SELECT 1 FROM replies r WHERE r.message_id = m.id)')
   const cond = scope.length ? `WHERE ${scope.join(' AND ')}` : ''

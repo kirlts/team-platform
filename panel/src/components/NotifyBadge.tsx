@@ -24,7 +24,7 @@ export function StateIcon({ status, size = 14 }: { status: MessageStatus; size?:
 export function StateMark({ status, n, className, showWord = true, plain = false }: { status: MessageStatus; n?: number; className?: string; showWord?: boolean; plain?: boolean }) {
   const t = useT()
   return (
-    <span data-status={status} data-weight="quiet" data-plain={plain || undefined} data-testid="state-mark" className={cn('inline-flex min-h-6 items-center gap-1 rounded-full border px-2 text-xs font-bold leading-none', className)}>
+    <span data-status={status} data-weight="quiet" data-plain={plain || undefined} data-zero={n === 0 || undefined} data-testid="state-mark" className={cn('inline-flex min-h-6 items-center gap-1 rounded-full border px-2 text-xs font-bold leading-none', className)}>
       <StateIcon status={status} size={13} />
       {n !== undefined ? <span className="tabular-nums">{showWord ? t(COUNT_KEY[status], { n }) : n}</span> : showWord && <span>{t(STATUS_KEY[status])}</span>}
     </span>

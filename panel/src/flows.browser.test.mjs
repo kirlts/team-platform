@@ -396,7 +396,7 @@ describe('the top bar: states and areas (UD-028, UD-029, UD-041, UD-100)', () =>
             const shown = (await mark.textContent()).trim()
             if (status !== 'closed') assert.equal(shown, String(mine[status]))
             const name = await mark.getAttribute('aria-label')
-            assert.match(name, new RegExp(`^${shown} ${STATE_WORD[status]}s?$`))
+            assert.match(name, new RegExp(`^${shown} ${STATE_WORD[status]}s? para mí$`))
             assert.equal(await mark.getAttribute('title'), name, 'the tooltip says the same as the accessible name')
           }
           assert.doesNotMatch(await bar.innerText(), STATE_WORDS, `la barra no escribe el nombre de un estado (${scheme}, ${JSON.stringify(mine)})`)

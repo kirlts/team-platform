@@ -405,10 +405,11 @@ describe('areas, templates and settings', () => {
       await empty.getByRole('button', { name: 'Plantilla' }).click()
       await page.getByRole('dialog').getByLabel('Nombre').waitFor()
       await page.keyboard.press('Escape')
-      // The counts of an area weigh the same in every row of the list, and an area with nothing says nothing instead of «0 abiertos» (J3-A-33).
+      // The counts of an area weigh the same in every row of the list; an area with nothing shows both counts at zero, muted, so its column is not blank (UD-211, which amends J3-A-33).
       await page.goto(`${origin}/areas`)
       await page.getByRole('link', { name: 'Abrir Área vacía de prueba' }).waitFor()
-      assert.equal(await page.getByText(/^0 (abiertos|respondidos)$/).count(), 0)
+      // Two areas have nothing here (the sample's Retroalimentación and the one this test made): each one says both counts.
+      assert.equal(await page.getByText(/^0 (abiertos|respondidos)$/).count(), 4, 'each empty area says «0 abiertos» and «0 respondidos»')
       const weights = await page.locator('main section [data-testid="state-mark"]').evaluateAll((els) => els.map((s) => getComputedStyle(s).fontWeight))
       assert.equal(new Set(weights).size, 1, `the counts do not weigh the same: ${weights.join(' | ')}`)
     } finally {

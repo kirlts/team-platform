@@ -159,11 +159,13 @@ function AreaPending({ areaId, title, summary, onNavigate }: { areaId: string; t
   const t = useT()
   const label = useCountsLabel()
   const counts = areaCounts(summary, areaId)
+  // The sidebar counts the whole team's messages of the area; the top bar counts the ones for me (UD-028, UD-100). Each one says its scope by name and by tooltip.
+  const scope = t('areas.countOf', { title, count: label({ open: counts.open }) })
   return (
     <>
       {/* One line: the sidebar shows the open ones, so a count arriving does not change the height of its row. Áreas also shows the answered ones. */}
       {counts.open > 0 && (
-        <Link to={areaMessagesPath(areaId, 'open')} onClick={onNavigate} aria-label={t('areas.countOf', { title, count: label({ open: counts.open }) })} className="nav-count">
+        <Link to={areaMessagesPath(areaId, 'open')} onClick={onNavigate} aria-label={scope} title={scope} className="nav-count">
           <StateMark status="open" n={counts.open} showWord={false} plain />
         </Link>
       )}

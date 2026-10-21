@@ -97,13 +97,13 @@ export function registerMemberRoutes (app, ctx) {
   app.patch('/members/:id', {
     onRequest: [requireRole('editor')],
     schema: {
-      summary: 'Editar un miembro, o desactivarlo y reactivarlo con `active` (editor)',
+      summary: 'Editar un miembro, o desactivarlo y reactivarlo con `active` (editor). El perfil no se edita aquí: cada miembro edita el suyo con `PATCH /members/me` (UD-023)',
       params: idParams(),
       body: {
         type: 'object', additionalProperties: false, minProperties: 1,
         properties: {
           name: { type: 'string', minLength: 1 }, email: emailAddr, role: { type: 'string', enum: ['member', 'editor'] },
-          profile: profileText, password: { type: 'string' },
+          password: { type: 'string' },
           active: { type: 'boolean', description: 'false desactiva la cuenta (no puede iniciar sesión y conserva su historial); true la reactiva.' }
         }
       },

@@ -51,15 +51,15 @@ try {
   await page.getByText(/^Humo/).first().waitFor({ timeout: 10000 }) // project_name from GET /me
   console.log('logged in; the project name arrived from GET /me')
 
-  await page.getByLabel('Nuevo mensaje', { exact: true }).last().fill('El botón de guardar no responde en la pantalla de ajustes.')
+  await page.getByTestId('compose-text').last().fill('El botón de guardar no responde en la pantalla de ajustes.')
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64')
   await page.locator('input[type=file]:not([capture])').setInputFiles([{ name: 'captura.png', mimeType: 'image/png', buffer: png }])
-  await page.getByRole('button', { name: 'Enviar', exact: true }).first().click()
+  await page.getByTestId('compose-send').first().click()
   console.log('input sent; waiting for the analysis to publish it over SSE (UD-070)')
   // The drawer under the bar shows the send, already published, with no click after the send.
   const published = page.getByTestId('published-message').first()
   await published.waitFor({ timeout: 20000 })
-  if ((await page.getByRole('button', { name: /^Enviar \d+ mensajes?$/ }).count()) !== 0) throw new Error('the panel still asks for a confirmation to publish')
+  if ((await page.getByTestId('proposal-send').count()) !== 0) throw new Error('the panel still asks for a confirmation to publish')
   console.log('published, shown in the drawer under the bar')
   // The sender edits it in place with the version that was read (UD-071) and the message says it was edited.
   await published.getByRole('button', { name: /^Título del mensaje:/ }).click()
@@ -82,13 +82,13 @@ try {
   }
   console.log('a file was added to the published message')
   await page.getByText('Sin mensajes', { exact: true }).first().waitFor({ state: 'hidden', timeout: 10000 })
-  await page.getByRole('link', { name: /^Mensajes/ }).first().click()
+  await page.locator('a[href="/messages"]').first().click()
   await page.getByText('Guardar ajustes no responde').first().waitFor({ timeout: 10000 })
   console.log('message published: visible in Últimos mensajes and in the Mensajes view')
 
   // The editor's other views load their data without error responses.
-  for (const view of ['Equipo', 'Configuración']) {
-    await page.getByRole('link', { name: new RegExp(`^${view}`) }).first().click()
+  for (const [view, href] of [['Equipo', '/team'], ['Configuración', '/settings']]) {
+    await page.locator(`a[href="${href}"]`).first().click()
     await page.waitForLoadState('networkidle')
     console.log(`view ${view}: loads without errors`)
   }

@@ -453,7 +453,6 @@ export class UiTelemetry {
     const from = this.armed[task]
     if (!from) return
     this.emitTask(task, 'completed', t0, from, {})
-    this.armed[task] = { ...this.counters } // the next one counts from here
   }
 
   private endTask(outcome: TaskOutcome) {
@@ -462,12 +461,11 @@ export class UiTelemetry {
     this.open = null
     const end = this.deps.now()
     const stages: Fields = {}
-    const feedback = open.feedbackAt ?? open.analysisAt
-    if (feedback !== undefined) stages.stage_feedback_ms = Math.max(0, Math.round(feedback - open.startedAt))
-    if (open.analysisAt !== undefined && feedback !== undefined) stages.stage_analysis_ms = Math.max(0, Math.round(open.analysisAt - feedback))
+    // Each stage is the time between two moments that were seen; one that was not seen leaves its stage out.
+    if (open.feedbackAt !== undefined) stages.stage_feedback_ms = Math.max(0, Math.round(open.feedbackAt - open.startedAt))
+    if (open.analysisAt !== undefined) stages.stage_analysis_ms = Math.max(0, Math.round(open.analysisAt - (open.feedbackAt ?? open.startedAt)))
     if (outcome === 'completed' && open.analysisAt !== undefined) stages.stage_publish_ms = Math.max(0, Math.round(end - open.analysisAt))
     this.emitTask(open.task, outcome, open.startedAt, open.from, stages, end)
-    this.armed.send_publish = { ...this.counters }
   }
 
   /** Called when the page is going away: a send that started and did not end is abandoned. */
@@ -486,6 +484,8 @@ export class UiTelemetry {
       clicks: c.clicks - from.clicks, scroll_events: c.scrollEvents - from.scrollEvents, scroll_px: Math.round(c.scrollPx - from.scrollPx),
       key_presses: c.keys - from.keys, screens: Math.max(1, c.screens - from.screens + 1), ...stages
     })
+    // Whatever the person does next is a new journey: every task of the screen counts again from here.
+    for (const name of Object.keys(this.armed) as TaskName[]) this.armed[name] = { ...c }
     this.flush()
   }
 

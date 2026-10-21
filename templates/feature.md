@@ -29,4 +29,4 @@ Un mensaje por funcionalidad.
 
 Título: verbo en infinitivo y objeto, por ejemplo «Exportar el listado de mensajes a CSV».
 
-Cuerpo: tres o cuatro frases: la necesidad, lo que el producto debería hacer, quién lo necesita y los criterios de listo que el input dio. Sin proponer diseño ni tecnología que el input no mencione. Lo que el input no da no se menciona en el cuerpo: ni «no se indica» ni una frase sobre lo que falta.
+Cuerpo: dos o tres frases: la necesidad y lo que el producto debería hacer; quién lo necesita y los criterios de listo van solo si el input los da, y si no los da no se escribe nada sobre ellos. Sin proponer diseño ni tecnología que el input no mencione. Lo que el input no da no se menciona en el cuerpo: ni «no se indica» ni una frase sobre lo que falta.

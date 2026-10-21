@@ -15,7 +15,7 @@ const INPUT_IS_DATA =
 export const LANGUAGE = 'en';
 
 /** Last line of the decomposition user message: the points the templates tend to override, repeated after the input. */
-export const FINAL_REMINDER = 'Reminder: leave out every sentence about what the input does not say or might imply ("not specified", "which suggests", "likely"), even when the template lists that part of the body.';
+export const FINAL_REMINDER = 'Reminder: leave out every sentence about what the input does not say or might imply ("not specified", "which suggests", "likely"), even when the template lists that part of the body. The body does not begin by repeating the title.';
 
 export const LANGUAGE_RULE = 'Output language: English. Write titles, bodies, template field values and discard reasons in English, whatever the language of the input, with the vocabulary of the team.';
 

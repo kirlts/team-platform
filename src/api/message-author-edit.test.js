@@ -5,7 +5,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { all, get } from '../db/index.js'
 import { parseTemplate } from '../domain/template-file.js'
-import { addMember, login, makeEnv, postInput, until } from '../testing/helpers.js'
+import { addMember, login, makeEnv, multipart, postInput, until } from '../testing/helpers.js'
 
 async function team () {
   const env = await makeEnv({ config: { identity: { login: { ipMax: 1000 } } }, autoPublish: true, worker: true })
@@ -196,5 +196,34 @@ test('UD-071 · the sender still edits a closed message; replying, closing and r
   assert.equal(closedEdit.json().status, 'closed') // an edit does not reopen it
   assert.equal((await env.api('POST', `/messages/${message.id}/reopen`, env.c.carla)).statusCode, 200)
   assert.equal((await env.api('POST', `/messages/${message.id}/replies`, env.c.ana, { body: 'yo no', kind: 'answer' })).statusCode, 403) // the sender still cannot reply to their own
+  await env.close()
+})
+
+test('UD-071 · the sender adds files and links to a published message as one edit; nobody else does, and a stale version is refused', async () => {
+  const env = await team()
+  const { message } = await published(env)
+  const upload = (cookie, version, links = []) => async () => {
+    const { payload, headers } = await multipart({ version: String(version), links }, [{ field: 'files', name: 'nueva.png', type: 'image/png', content: 'PNG!' }])
+    return env.app.inject({ method: 'POST', url: `/api/messages/${message.id}/attachments`, payload, headers: { ...headers, cookie, 'x-team-request': 'panel' } })
+  }
+  const before = snapshot(env, message.id)
+  for (const who of ['beto', 'ed']) {
+    const r = await upload(env.c[who], 1)()
+    assert.equal(r.statusCode, 403, who)
+    assert.equal(r.json().code, 'not_message_author')
+  }
+  const stale = await upload(env.c.ana, 7)()
+  assert.equal(stale.statusCode, 409)
+  assert.equal(stale.json().code, 'edit_conflict')
+  assert.equal(snapshot(env, message.id), before)
+
+  const r = await upload(env.c.ana, 1, ['https://example.org/doc'])()
+  assert.equal(r.statusCode, 201, r.body)
+  const edited = r.json()
+  assert.equal(edited.attachments.length, message.attachments.length + 2)
+  assert.deepEqual(edited.attachments.slice(-2).map((a) => a.kind), ['image', 'link'])
+  assert.equal(edited.version, 2)
+  assert.deepEqual(edited.edits[0].fields, ['attachment_ids'])
+  assert.equal(get(env.db, "SELECT COUNT(*) AS n FROM jobs WHERE kind = 'extract'").n >= 2, true)
   await env.close()
 })

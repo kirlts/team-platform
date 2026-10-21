@@ -221,8 +221,8 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
                    ON CONFLICT(input_id) DO UPDATE SET payload_json = excluded.payload_json, units_json = excluded.units_json, created_at = excluded.created_at`,
           inputId, JSON.stringify(proposalObj), JSON.stringify((result.units ?? []).map((u) => ({ id: u.id, text: u.text }))), now())
           transitionInput(db, inputId, 'proposed', { now })
-          // UD-070: a valid proposal is published right here, in this same transaction; otherwise it waits as `proposed`.
-          const outcome = getAutoPublish(db) ? autoPublishProposal({ db, events, now }, inputId) : { published: false, messageIds: [] }
+          // UD-070: a valid proposal is published right here (UD-072: unless the sender asked for a draft), in this same transaction; otherwise it waits as `proposed`.
+          const outcome = getAutoPublish(db) && !get(db, 'SELECT keep_draft FROM inputs WHERE id = ?', inputId).keep_draft ? autoPublishProposal({ db, events, now }, inputId) : { published: false, messageIds: [] }
           events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: outcome.published ? 'Publicado' : 'Propuesta lista' })
           events.publishForJob(job.id, {
             kind: 'done',

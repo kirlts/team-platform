@@ -1,13 +1,14 @@
 // Message and reply routes (MASTER-SPEC §7.1).
 
-import { addReply, assertCanReply, closeMessage, getMessage, listMessages, messageSummary, reopenMessage, REPLY_KINDS, updateMessage } from '../../domain/messages.js'
+import { releaseBlobs } from '../../domain/storage.js'
+import { addMessageAttachments, addReply, assertCanAddAttachments, assertCanReply, closeMessage, getMessage, listMessages, messageSummary, reopenMessage, REPLY_KINDS, updateMessage } from '../../domain/messages.js'
 import { withSpan } from '../../domain/tracing.js'
 import { pageEnvelope, pageParams, pageQuerySchema, pageResult } from '../pagination.js'
 import { idIn, idParams, messageCard, messageDetail, messagePatchBody, messageSummary as messageSummarySchema } from '../schemas.js'
-import { readReplyUpload } from '../upload.js'
+import { readMessageAttachmentUpload, readReplyUpload } from '../upload.js'
 
 export function registerMessageRoutes (app, ctx) {
-  const { db, config, events, requireRole } = ctx
+  const { db, config, events, queue, requireRole } = ctx
 
   app.get('/messages', {
     onRequest: [requireRole('member')],
@@ -70,6 +71,29 @@ export function registerMessageRoutes (app, ctx) {
   }, async (request) => withSpan('message.update', { 'team.message_id': String(request.params.id), 'team.member_id': String(request.member.id) },
     () => updateMessage({ db, events }, { messageId: request.params.id, actor: request.member, patch: request.body })))
 
+  app.post('/messages/:id/attachments', {
+    onRequest: [requireRole('member')],
+    schema: {
+      summary: 'Agregar archivos o enlaces a un mensaje publicado (sólo su emisor)',
+      description: 'Multipart: `version` (la leída del mensaje), `files[]` y `links[]`, con los mismos topes y el mismo almacenamiento que `POST /inputs`. Los adjuntos nuevos quedan al final y su lectura se encola como la de cualquier adjunto. Cuenta como una edición: sube `version`, fija `edited_at` y deja una fila en `edits`. 403 `not_message_author` si no es el emisor (tampoco un Editor), 409 `edit_conflict` si la versión venció, 400 `attachments_empty` si no trae nada. Quitar o reordenar adjuntos va por `PATCH /messages/:id` (`attachment_ids`).',
+      params: idParams(),
+      response: { 201: messageDetail }
+    }
+  }, async (request, reply) => {
+    assertCanAddAttachments(db, request.params.id, request.member.id) // refuse before storing a large upload
+    const input = await readMessageAttachmentUpload(request, config, db)
+    let message
+    try {
+      message = addMessageAttachments({ db, queue, events }, { messageId: request.params.id, actor: request.member, ...input })
+    } catch (error) {
+      await releaseBlobs(db, config, input.files, { discard: true }) // a stale version leaves nothing behind (UD-072)
+      throw error
+    }
+    await releaseBlobs(db, config, input.files, { discard: false })
+    reply.code(201)
+    return message
+  })
+
   app.post('/messages/:id/replies', {
     onRequest: [requireRole('member')],
     schema: {
@@ -96,11 +120,18 @@ export function registerMessageRoutes (app, ctx) {
     if (request.isMultipart()) {
       // Refuse before storing a large upload when the reply is not allowed anyway.
       assertCanReply(db, request.params.id, request.member.id)
-      input = await readReplyUpload(request, config)
+      input = await readReplyUpload(request, config, db)
     } else {
       input = { body: request.body.body, kind: request.body.kind, files: [], links: [] }
     }
-    const r = addReply({ db, events }, { messageId: request.params.id, authorId: request.member.id, ...input, kind: input.kind ?? undefined })
+    let r
+    try {
+      r = addReply({ db, events }, { messageId: request.params.id, authorId: request.member.id, ...input, kind: input.kind ?? undefined })
+    } catch (error) {
+      await releaseBlobs(db, config, input.files, { discard: true })
+      throw error
+    }
+    await releaseBlobs(db, config, input.files, { discard: false })
     reply.code(201)
     return r.message
   })

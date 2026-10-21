@@ -288,6 +288,48 @@ export function updateMessage ({ db, events, now = Date.now }, { messageId, acto
   return getMessage(db, messageId)
 }
 
+/** The rules for adding attachments, checked on their own so a route can refuse before it stores an upload. */
+export function assertCanAddAttachments (db, messageId, actorId, version) {
+  const row = get(db, 'SELECT * FROM messages WHERE id = ?', messageId)
+  if (!row) throw notFound('El mensaje no existe.')
+  if (row.author_id !== actorId) throw forbidden('Sólo quien envió el mensaje puede editarlo.', 'not_message_author')
+  if (version === undefined) return row // the route's early check, before the upload is stored
+  if (!Number.isInteger(version) || version < 1) throw badRequest('Falta la versión del mensaje.', 'version_required')
+  if (version !== row.version) throw new AppError(409, 'edit_conflict', 'El mensaje cambió desde que lo abriste; vuelve a cargarlo.', { version: row.version })
+  if (row.input_id === null) throw conflict('El envío de origen de este mensaje ya no existe.', 'input_missing')
+  return row
+}
+
+/**
+ * Adds new files and links to a published message (UD-071): the author only, with the version read. They are stored
+ * as attachments of the message's input and linked after the ones it already has; their extraction is queued like
+ * any other. It counts as one edit (version, `edited_at`, history row `attachment_ids`).
+ */
+export function addMessageAttachments ({ db, queue, events, now = Date.now }, { messageId, actor, version, files = [], links = [] }) {
+  if (files.length + links.length === 0) throw badRequest('Falta un archivo o un enlace.', 'attachments_empty')
+  events.transaction(() => {
+    const row = assertCanAddAttachments(db, messageId, actor.id, version)
+    const t = now()
+    let position = get(db, 'SELECT COALESCE(MAX(position), -1) AS p FROM message_attachments WHERE message_id = ?', messageId).p + 1
+    const link = (attachmentId) => run(db, 'INSERT INTO message_attachments (message_id, attachment_id, position) VALUES (?, ?, ?)', messageId, attachmentId, position++)
+    for (const f of files) {
+      const r = run(db, 'INSERT INTO attachments (input_id, kind, name, path, mime, size, sha256) VALUES (?, ?, ?, ?, ?, ?, ?)', row.input_id, f.kind, f.name, f.sha256, f.mime, f.size, f.sha256)
+      link(Number(r.lastInsertRowid))
+      queue.enqueue('extract', { attachment_id: Number(r.lastInsertRowid) })
+    }
+    for (const url of links) {
+      const r = run(db, "INSERT INTO attachments (input_id, kind, name, path, mime, size, sha256) VALUES (?, 'link', ?, ?, 'text/uri-list', 0, ?)", row.input_id, url, url, createHash('sha256').update(url).digest('hex'))
+      link(Number(r.lastInsertRowid))
+      queue.enqueue('extract', { attachment_id: Number(r.lastInsertRowid) })
+    }
+    const next = row.version + 1
+    run(db, 'UPDATE messages SET updated_at = ?, edited_at = ?, version = ? WHERE id = ?', t, t, next, messageId)
+    run(db, 'INSERT INTO message_edits (message_id, member_id, at, version, fields_json) VALUES (?, ?, ?, ?, ?)', messageId, actor.id, t, next, JSON.stringify(['attachment_ids']))
+    audit(db, { memberId: actor.id, action: 'message.update', entity: 'message', entityId: messageId, detail: { fields: ['attachment_ids'], version: next, added: files.length + links.length }, now })
+  })
+  return getMessage(db, messageId)
+}
+
 /** The rules for replying, checked on their own so a route can refuse before it stores an upload. */
 export function assertCanReply (db, messageId, authorId) {
   const msgRow = get(db, 'SELECT id, author_id, status FROM messages WHERE id = ?', messageId)

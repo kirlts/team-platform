@@ -513,6 +513,22 @@ RULES:
 **Consecuencias:** H-56 deja de ser trabajo pendiente y queda como decisión del dueño. Un HEIC subido directamente se rechaza con un error claro (`image_heic_unsupported`); el Editor puede pedir que se acepte más adelante. UD-040 (2026-10-21) lo reemplaza: el HEIC se decodifica y deja de rechazarse.
 **Condiciones de reversión:** Se prueba cuando haya usuarios con iPhone en el panel.
 
+## [UD-060] Las descripciones v2-orden se mantienen, y una unidad con varios puntos se recoge completa en su mensaje
+
+**Fecha:** 2026-10-21
+**Contexto:** El dueño necesita confiar en la clasificación por área. UD-033 dejó dos preguntas abiertas: la corrida completa con proyecto (H-602) y si alguna variante sube la exactitud hacia el techo de 95,5 %. El coordinador agregó un hallazgo (H-1600): una oración con elogio y dos defectos producía un solo mensaje y el segundo defecto desaparecía. Mediciones: `docs/investigaciones/mediciones/2026-10-21-areas-pipeline-completo-y-variantes.md` y `2026-10-21-oraciones-con-varios-puntos.md`. UD-038 subió el presupuesto de API; esta tarea gastó 10,1 USD de un tope de 12.
+**Decisión:** Se conservan las descripciones de `templates/areas.json` (UD-033) y el esfuerzo `low` y la ventana de 100 unidades de la clasificación. La corrida completa con proyecto da 87,5 % de área por mensaje (82-91 %), sobre el 82,6 % de UD-033; por unidad 81,5 %. Ninguna de seis variantes (reglas para tramos de reunión, para tablas de estado, un orden de preguntas, esfuerzo `medium`, ventana de 200, descripciones cortas) supera a v2-orden con significación. Además, la regla 4 de la descomposición exige que el mensaje de una unidad con varios puntos trate todos: título, cuerpo con una frase por punto y campos de la plantilla.
+**Alternativas descartadas:**
+- Adoptar v4-tramo, la mejor variante nueva: queda 1,7 puntos bajo v2-orden con 10 repeticiones (p 0,085).
+- Esfuerzo `medium` en la clasificación: empata (-0,3 puntos) sin bajar el costo ni la latencia.
+- Ventana de 200 unidades: 5,1 puntos peor (p 0,034), aunque 25 % más rápida y 20 % más barata.
+- Separar la oración compuesta con una expresión regular o una lista de conjunciones: lo prohíben las reglas 4 y MASTER-SPEC §4.2.
+**Consecuencias:**
+- H-602 se cierra con la medición y la fila de «Descripciones de área largas v2» no se revierte.
+- Lo que impide subir más: el error se concentra en el tramo de reunión o chat largo, donde el modelo traza un grupo distinto del de las referencias y le da un área entera; el ruido entre corridas (3,6 puntos de desviación) esconde efectos menores de 2 a 3 puntos con menos de unas veinte repeticiones por variante.
+- Una oración compuesta sigue siendo un solo mensaje. Dividirla en dos exige cambiar el contrato de unidades y no se hizo.
+- `bench/areas-classify.mjs` acepta `--project`, `--effort`, `--window` y `--label`; `bench/areas-stats.mjs` compara variantes por casos; `bench/probe-compound.mjs` y el caso público 09 miden las oraciones compuestas.
+**Condiciones de reversión:** Volver a la regla 4 anterior si una corrida del banco privado muestra mensajes con puntos inventados o de relleno por la obligación de cubrir cada punto.
 ## [UD-040] El HEIC de iPhone se decodifica con el `ffmpeg` de la imagen
 
 **Fecha:** 2026-10-21
@@ -555,8 +571,22 @@ RULES:
 - Guardar los valores anteriores: UD-017 descarta el historial de versiones; el historial dice qué campos cambiaron y quién, no su contenido.
 **Consecuencias:**
 - Un `PATCH` que no cambia nada deja el mensaje, su versión y su historial como estaban.
-- Agregar archivos nuevos a un mensaje ya publicado queda fuera: los adjuntos se quitan o se reordenan entre los del envío.
+- Los adjuntos se quitan o reordenan entre los del envío con `attachment_ids`, y se agregan archivos y enlaces nuevos con `POST /api/messages/:id/attachments` (multipart con `version`), que cuenta como una edición y encola la lectura del adjunto.
 **Condiciones de reversión:** Si el equipo necesita que un Editor corrija mensajes ajenos, se registra una decisión nueva que lo permita con su propia fila de historial.
+
+## [UD-072] Un envío puede pedir quedarse en borrador, y una subida rechazada no deja archivos
+
+**Fecha:** 2026-10-21
+**Contexto:** Con la publicación automática (UD-070), el guion `scripts/vps-check.mjs` habría publicado su texto de prueba al equipo real y no habría podido cancelarlo (409). Además H-1804: una subida rechazada (versión vencida, mensaje cerrado) dejaba su archivo en el volumen sin fila que lo use.
+**Decisión:** Decisión de la sesión por encargo de la coordinación; el dueño no la dijo con estas palabras. `POST /api/inputs` acepta `auto_publish=false` (campo del multipart o booleano del JSON `{ text, links, auto_publish }`) para ese envío solo: su propuesta espera como `proposed` aunque la perilla del proyecto esté encendida. `true` o sin el campo sigue la perilla; no puede forzar una publicación que el proyecto apagó. Otro valor es 400 `auto_publish_invalid`. El guion `vps-check` lo usa y cancela sin publicar nunca. Una subida que el servidor rechaza borra lo que alcanzó a escribir, en la misma ruta y al terminar la petición, salvo un archivo que una fila ya usa o que otra subida en curso del mismo archivo todavía va a usar.
+**Alternativas descartadas:**
+- Un usuario de prueba con la perilla apagada: la perilla es del proyecto, no del miembro.
+- Cancelar un `published` desde el guion: UD-070 lo define definitivo y los mensajes ya habrían llegado al equipo.
+- Barrer por reloj: el barrido por antigüedad (`sweepOrphans`) queda como red para una caída entre escribir el archivo y su fila; el caso normal no espera a un reloj.
+**Consecuencias:**
+- Columna `inputs.keep_draft` (migración 0007). Un envío repetido con el mismo contenido devuelve el que ya existe y no cambia su `keep_draft`.
+- Un envío cancelado conserva sus archivos a propósito: Deshacer lo restaura (J1-B-26), así que no son huérfanos.
+**Condiciones de reversión:** Retirar el campo si el guion de verificación deja de enviar textos reales.
 
 ## [UD-059] Los adjuntos van primero y se miran en una galería de medios que se reutiliza en todo el panel
 
@@ -580,7 +610,7 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 **Alternativas descartadas:**
 - Sonnet 5.5 por omisión: 0,31 USD por entrada con caché tibia contra 0,017, para ganar en destinatarios, que el equipo corrige en la revisión.
 - `classifyEffort` `medium`: el área baja de 94,7 % a 87,1 % (p 0,008) y 2 de 33 corridas quedan inválidas.
-**Consecuencias:** Sin cambios en el producto. H-1100 y H-1102 quedan abiertos.
+**Consecuencias:** Sin cambios en el producto. H-1100 queda cerrado (el proveedor elige `thinking` según el modelo) y H-1102 abierto.
 **Condiciones de reversión:** Se pasa a Sonnet 5.5 si la asignación de destinatarios pesa más que el costo (más de 20 entradas diarias con 0,31 USD cada una son 6 USD al día) o si el equipo mide que corrige más de la mitad de los destinatarios que propone Haiku.
 
 ## [UD-045] Cada área tiene un color que el Editor elige, y de él salen el chip y el fondo del análisis

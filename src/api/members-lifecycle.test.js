@@ -108,13 +108,14 @@ test('a deactivated member receives no new assignment but keeps the ones they ha
   const messageId = (await env.api('POST', `/inputs/${id}/publish`, env.c.ana, { messages: [{ ...view.proposal.messages[0], assignee_ids: [3] }] })).json().message_ids[0]
   await env.api('PATCH', '/members/3', env.c.ed, { active: false })
 
-  const kept = await env.api('PATCH', `/messages/${messageId}`, env.c.ana, { title: 'Sigue asignado', assignee_ids: [3] })
+  const kept = await env.api('PATCH', `/messages/${messageId}`, env.c.ana, { version: 1, title: 'Sigue asignado', assignee_ids: [3] })
   assert.equal(kept.statusCode, 200, kept.body)
   assert.deepEqual(kept.json().assignee_ids, ['3'])
-  const added = await env.api('PATCH', `/messages/${messageId}`, env.c.ana, { assignee_ids: [3, 1] })
+  const added = await env.api('PATCH', `/messages/${messageId}`, env.c.ana, { version: 2, assignee_ids: [3, 1] })
   assert.equal(added.statusCode, 200)
-  run(env.db, 'UPDATE members SET active = 0 WHERE id = 2') // a different inactive member, never assigned
-  const refused = await env.api('PATCH', `/messages/${messageId}`, env.c.ed, { assignee_ids: [3, 1, 2] })
+  const carla = await addMember(env, { email: 'carla@x.org', name: 'Carla' })
+  run(env.db, 'UPDATE members SET active = 0 WHERE id = ?', carla) // a different inactive member, never assigned
+  const refused = await env.api('PATCH', `/messages/${messageId}`, env.c.ana, { version: 3, assignee_ids: [3, 1, carla] })
   assert.equal(refused.statusCode, 400)
   assert.equal(refused.json().code, 'assignee_inactive')
   assert.match(refused.json().message, /desactivado/)

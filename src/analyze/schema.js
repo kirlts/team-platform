@@ -79,17 +79,18 @@ function discardedSchema({ validation }) {
  * Esquema de la segunda llamada (y del rescate): la lista de mensajes con sus unidades y lo descartado.
  * Puede venir sin mensajes cuando ninguna unidad es accionable: entonces todo va en `discarded`.
  * @param {{name: string, label: string, required: boolean}[]} fields campos de la plantilla elegida
- * @param {{profile?: 'anthropic'|'all-required', validation?: boolean}} [opts]
+ * @param {{profile?: 'anthropic'|'all-required', validation?: boolean, withDiscarded?: boolean}} [opts]
+ *   `withDiscarded: false` quita `discarded`: en la descomposición por grupo el único lugar donde se descarta es la
+ *   clasificación, y un modelo sin pensamiento usaba `discarded` para datos que ya había pasado al cuerpo del mensaje.
  */
-export function buildDecompositionSchema(fields, { profile = 'anthropic', validation = false } = {}) {
+export function buildDecompositionSchema(fields, { profile = 'anthropic', validation = false, withDiscarded = true } = {}) {
   const fieldsSchema = compileFieldsSchema(fields, { profile, validation });
+  const properties = { messages: { type: 'array', items: messageSchema(fieldsSchema, { validation }) } };
+  if (withDiscarded) properties.discarded = discardedSchema({ validation });
   return {
     type: 'object',
-    properties: {
-      messages: { type: 'array', items: messageSchema(fieldsSchema, { validation }) },
-      discarded: discardedSchema({ validation }),
-    },
-    required: ['messages', 'discarded'],
+    properties,
+    required: Object.keys(properties),
     additionalProperties: false,
   };
 }

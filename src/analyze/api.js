@@ -156,7 +156,7 @@ async function structuredStep(ctx, { step, system, messages, schema, effort, thi
 async function decomposeUnits(ctx, { bundle, template, system, schema, units, scopeNote, label }) {
   const { config } = ctx;
   const scope = new Set(units.map((u) => u.id));
-  const vctx = contextFromBundle(bundle, { fields: template.fields, scope });
+  const vctx = { ...contextFromBundle(bundle, { fields: template.fields, scope }), requireMessage: true, withDiscarded: false };
   const base = {
     system,
     schema,
@@ -171,7 +171,8 @@ async function decomposeUnits(ctx, { bundle, template, system, schema, units, sc
   });
   if (first.status !== 'ok') return first;
 
-  let { messages, discarded } = first.json;
+  let { messages } = first.json;
+  let discarded = [];
   let { overlaps, gaps } = first.conflicts;
   if (overlaps.length === 0 && gaps.length === 0) return { status: 'ok', messages, discarded, rescued: false };
 
@@ -192,7 +193,7 @@ async function decomposeUnits(ctx, { bundle, template, system, schema, units, sc
   const coverageIds = [...coverageSet].sort((a, b) => a - b);
 
   ctx.report(`corrigiendo ${coverageIds.length} unidades en conflicto`);
-  const rescueCtx = contextFromBundle(bundle, { fields: template.fields, scope: coverageSet });
+  const rescueCtx = { ...contextFromBundle(bundle, { fields: template.fields, scope: coverageSet }), withDiscarded: false };
   const rescue = await structuredStep(ctx, {
     ...base,
     step: `rescue${label}`,
@@ -213,7 +214,7 @@ async function decomposeUnits(ctx, { bundle, template, system, schema, units, sc
   if (rescue.status !== 'ok') return rescue;
 
   messages = [...keptMessages, ...rescue.json.messages];
-  discarded = [...keptDiscarded, ...rescue.json.discarded];
+  discarded = keptDiscarded;
   const remaining = rescue.conflicts.overlaps.length > 0 || rescue.conflicts.gaps.length > 0 ? rescue.conflicts : coverage(messages, discarded, scope);
   if (remaining.overlaps.length > 0 || remaining.gaps.length > 0) {
     return { status: 'invalid', step: `rescue${label}`, reason: 'mece_conflict', errors: describeConflicts(remaining), draft: { messages, discarded } };
@@ -305,7 +306,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config }) 
     const entry = {
       template,
       system,
-      schema: buildDecompositionSchema(template.fields, { profile }),
+      schema: buildDecompositionSchema(template.fields, { profile, withDiscarded: false }),
       fixed: estimateTokens([...system, membersBlock(members)].join('\n'), config.charsPerToken),
     };
     prepared.set(templateId, entry);
@@ -371,8 +372,8 @@ export async function warmTemplate({ providers, config, templateMarkdown }) {
   const profile = providers.text.schemaProfile ?? 'anthropic';
   const r = await callText(ctx, 'warmup', {
     system: decomposeSystem(template),
-    messages: [{ role: 'user', content: 'Calentamiento de la plantilla. Devuelve messages y discarded vacíos.' }],
-    schema: buildDecompositionSchema(template.fields, { profile }),
+    messages: [{ role: 'user', content: 'Calentamiento de la plantilla. Devuelve messages vacío.' }],
+    schema: buildDecompositionSchema(template.fields, { profile, withDiscarded: false }),
     effort: config.classifyEffort,
     maxTokens: config.maxTokens,
   });

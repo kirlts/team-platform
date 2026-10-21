@@ -9,7 +9,7 @@ import { bugMessage, CLASSIFY_ERRORS, CLASSIFY_MULTI, goodDecomposition, makeBun
 async function setup() {
   const bundle = await makeBundle();
   const template = parseTemplate(bundle.templates[1].body_markdown);
-  const ctx = { fields: template.fields, scope: new Set([2, 3, 4, 5]), memberIds: new Set([1, 2, 3]), attachmentIds: new Set([10]) };
+  const ctx = { fields: template.fields, scope: new Set([2, 3, 4, 5]), memberIds: new Set([1, 2, 3]), attachmentIds: new Set([10]), withDiscarded: false };
   return { bundle, ctx };
 }
 
@@ -83,10 +83,12 @@ describe('validateDecomposition', () => {
 
   it('acepta campos opcionales con null y la lista vacía de mensajes con todo descartado', async () => {
     const { ctx } = await setup();
-    const out = { messages: [bugMessage([2, 3, 4, 5], 'Un solo error', { fields: { steps: 'a', expected: 'b', actual: 'c', where: null } })], discarded: [] };
+    const out = { messages: [bugMessage([2, 3, 4, 5], 'Un solo error', { fields: { steps: 'a', expected: 'b', actual: 'c', where: null } })] };
     assert.deepEqual(validateDecomposition(out, ctx).errors, []);
     const vacio = { messages: [], discarded: [{ unit_ids: [2, 3, 4, 5], reason: 'charla' }] };
-    assert.deepEqual(validateDecomposition(vacio, ctx), { errors: [], conflicts: { overlaps: [], gaps: [] } });
+    assert.deepEqual(validateDecomposition(vacio, { ...ctx, withDiscarded: true }), { errors: [], conflicts: { overlaps: [], gaps: [] } });
+    assert.match(validateDecomposition({ messages: [] }, { ...ctx, requireMessage: true }).errors[0], /el grupo no produjo ningún mensaje/);
+    assert.match(validateDecomposition(vacio, ctx).errors[0], /sobra «discarded»/);
   });
 });
 

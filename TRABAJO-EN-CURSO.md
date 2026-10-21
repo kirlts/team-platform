@@ -32,6 +32,8 @@ Actualizado 2026-10-21 19:19 UTC.
 
 **Plan de cierre:** `docs/PLAN-DE-CIERRE.md` (2026-10-21 15:00). La sesión anterior murió a las 14:42 con la cuota de su cuenta agotada; sus agentes murieron con ella. Quien retome ejecuta ese plan desde la Fase 0: rescata lo sin commit de `configuracion`, `inicio-respira` y `barra-superior`, relanza los encargos A, B, C y G, y sigue el orden de fusión que dice. Encargo nuevo del dueño de hoy: la barra lateral (alineación, contadores sin contenedor, hover), encargo G.
 
+**Avance 16:15.** En `main` también Inicio con espacio (`8650d0c`). Fase 1 completa. Corren el barrido de lenguaje, el banco y el aviso con Firefox. Después: jueces, VPS y cierre.
+
 **Avance 16:00.** En `main` también Configuración (`d56b3cf`): editor del proyecto, proveedores con claves cifradas, explicación por ajuste. Inicio fusiona `main` por un choque en `fits-one-screen` y `USER-DECISIONS`. Falta el barrido de lenguaje, los jueces y el VPS.
 
 **Avance 15:50.** En `main` también la deuda técnica (`98443f7`): respaldo de texto, pruebas en inglés, guardia de idioma en aserciones. DT-010 descartado por el dueño. Falta de la deuda sólo DT-007 (HP-019, HP-020). Inicio y Configuración deben fusionar `main`.

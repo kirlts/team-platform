@@ -26,11 +26,11 @@ function writeActive(id: string | undefined) {
     if (id) localStorage.setItem(ACTIVE_KEY, id)
     else localStorage.removeItem(ACTIVE_KEY)
   } catch {
-    // Sin almacenamiento, la propuesta no sobrevive a una recarga de la pestaña.
+    // Without storage, the proposal does not survive a reload of the tab.
   }
 }
 
-/** Cantidad de filas que muestra cada columna; el resto está en Mensajes. Es de pantalla. */
+/** Number of rows each column shows; the rest is in Mensajes. It is a screen setting. */
 const FEED_ROWS = 6
 
 export function Home() {
@@ -49,7 +49,7 @@ export function Home() {
     setActiveId(undefined)
   }
 
-  // Un input que ya no existe, se publicó o se canceló deja libre la zona de análisis.
+  // An input that no longer exists, was published or was canceled frees the analysis area.
   useEffect(() => {
     const err = input.error
     if (err instanceof ApiError && err.status === 404) close()

@@ -16,8 +16,8 @@ interface Local {
 }
 
 /**
- * Barra de nuevo mensaje: texto, adjuntos (clip, arrastrar, pegar), foto de la cámara,
- * audio grabado y enlaces. Un solo envío multipart con progreso de subida.
+ * New message bar: text, attachments (clip, drag, paste), camera photo,
+ * recorded audio and links. A single multipart submission with upload progress.
  */
 export function ComposeBar({ onCreated, disabled }: { onCreated: (created: CreatedInput) => void; disabled?: boolean }) {
   const [text, setText] = useState('')
@@ -44,7 +44,7 @@ export function ComposeBar({ onCreated, disabled }: { onCreated: (created: Creat
 
   useEffect(() => () => localsRef.current.forEach((l) => URL.revokeObjectURL(l.url)), [])
 
-  // El campo crece con su texto hasta un máximo y desde ahí se desplaza por dentro.
+  // The field grows with its text up to a maximum and from there it scrolls inside.
   useEffect(() => {
     const el = textArea.current
     if (!el) return
@@ -95,7 +95,7 @@ export function ComposeBar({ onCreated, disabled }: { onCreated: (created: Creat
     }
     try {
       const url = new URL(raw)
-      if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('protocolo')
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('protocol')
       setLinks((prev) => (prev.includes(url.href) ? prev : [...prev, url.href]))
       setLinkDraft('')
       setLinkError(null)

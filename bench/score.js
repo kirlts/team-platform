@@ -1,10 +1,10 @@
-// Puntaje MECE por aritmética de conjuntos sobre unit_ids (informe 02, §5.2 y §10) y exactitud de
-// la clasificación por unidad (MASTER-SPEC §7.11). Módulo puro: sin red, sin disco, sin leer prosa (§1.2).
+// MECE score by set arithmetic over unit_ids (report 02, §5.2 and §10) and per-unit classification
+// accuracy (MASTER-SPEC §7.11). Pure module: no network, no disk, no prose reading (§1.2).
 //
-// Vocabulario:
-//   G = mensajes esperados de la referencia, cada uno un punto atómico con sus unit_ids.
-//   P = mensajes obtenidos del analizador.
-//   unidad = fragmento numerado del input (párrafo, viñeta, segmento con marca de tiempo).
+// Vocabulary:
+//   G = expected messages of the reference, each an atomic point with its unit_ids.
+//   P = messages obtained from the analyzer.
+//   unit = numbered fragment of the input (paragraph, bullet, timestamped segment).
 
 /**
  * @typedef {number | string} UnitId
@@ -23,7 +23,7 @@ const intersects = (a, b) => [...a].some((x) => b.has(x));
 const ratio = (n, d) => (d === 0 ? 0 : n / d);
 const asList = (v) => (v === undefined || v === null ? null : [].concat(v));
 
-/** Los descartados llegan como ids sueltos, `{ unit_id }` o `{ unit_ids, reason }`. */
+/** Discarded items arrive as bare ids, `{ unit_id }` or `{ unit_ids, reason }`. */
 function discardedIds(discarded) {
   return (discarded ?? []).flatMap((d) => {
     if (typeof d !== 'object' || d === null) return [d];
@@ -32,15 +32,15 @@ function discardedIds(discarded) {
 }
 
 /**
- * Calcula las medidas del informe 02 §5.2, los solapes y huecos por unidad (§3.3) y la exactitud
- * de área y plantilla por unidad. Las unidades que el analizador cita y no existen en el input se
- * ignoran y se informan.
+ * Computes the report 02 §5.2 measures, the per-unit overlaps and holes (§3.3) and the per-unit
+ * area and template accuracy. Units the analyzer cites that do not exist in the input are
+ * ignored and reported.
  * @param {ScoreInput} input
  */
 export function score({ units, expected, actual }) {
   const known = new Set(units.map(idOf));
 
-  // Unidades citadas por el analizador que no existen en el input.
+  // Units cited by the analyzer that do not exist in the input.
   const invalid = new Set();
   const clean = (ids, track) => {
     const out = new Set();
@@ -57,7 +57,7 @@ export function score({ units, expected, actual }) {
 
   const union = new Set(P.flatMap((p) => [...p.units]));
 
-  // Estado de cada punto de referencia.
+  // State of each reference point.
   const perPoint = G.map((g) => {
     const touching = P.filter((p) => intersects(g.units, p.units));
     const complete = P.filter((p) => isSubset(g.units, p.units));
@@ -83,19 +83,19 @@ export function score({ units, expected, actual }) {
   const partial = perPoint.filter((x) => x.state === 'partial').length;
   const missing = perPoint.filter((x) => x.state === 'missing').length;
 
-  // Mensaje de más: no toca ningún punto de la referencia (incluye mensajes sin unidades).
+  // Extra message: touches no reference point (includes messages without units).
   const extraMessages = P.filter((p) => !G.some((g) => intersects(g.units, p.units))).map((p) => p.index);
-  // Mensaje fusionado: toca dos o más puntos distintos de la referencia.
+  // Fused message: touches two or more distinct reference points.
   const fusedMessages = P.filter((p) => G.filter((g) => intersects(g.units, p.units)).length >= 2).map((p) => p.index);
 
-  // Por unidad, sin conocer la referencia: lo que el sistema calcula solo en producción.
+  // Per unit, without knowing the reference: what the system computes on its own in production.
   const messageCount = new Map();
   for (const p of P) for (const id of p.units) messageCount.set(id, (messageCount.get(id) ?? 0) + 1);
   const overlapUnits = [...messageCount].filter(([, n]) => n > 1).map(([id]) => id);
   const holeUnits = [...known].filter((id) => !union.has(id) && !discarded.has(id));
 
-  // Clasificación por unidad: cada unidad de un punto esperado tiene que estar sólo en mensajes
-  // cuya área (y plantilla) estén entre las aceptadas para ese punto.
+  // Per-unit classification: each unit of an expected point must be only in messages
+  // whose area (and template) are among those accepted for that point.
   const classification = { units: 0, area_correct: 0, template_correct: 0, both_correct: 0 };
   let classified = false;
   for (const g of G) {
@@ -140,8 +140,8 @@ export function score({ units, expected, actual }) {
     classification_accuracy: classified ? ratio(classification.both_correct, classification.units) : null,
   };
 
-  // MECE por definición: nada falta, nada se repite, ningún punto roto ni fusionado, ningún mensaje sin punto.
-  // La clasificación se califica aparte (MASTER-SPEC §7.11).
+  // MECE by definition: nothing missing, nothing repeated, no broken or fused point, no message without a point.
+  // The classification is graded separately (MASTER-SPEC §7.11).
   const mece =
     rates.coverage === 1 &&
     counts.repeated === 0 &&

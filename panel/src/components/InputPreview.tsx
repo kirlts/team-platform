@@ -3,7 +3,7 @@ import { attachmentUrl } from '@/lib/api'
 import type { InputRecord } from '@/lib/types'
 import { Thumb } from './Thumb'
 
-/** Texto y adjuntos del input enviado, tal como quedaron en el servidor. */
+/** Text and attachments of the submitted input, as they were left on the server. */
 export function InputPreview({ input }: { input: InputRecord }) {
   const [expanded, setExpanded] = useState(false)
   const long = input.text.length > 320 || input.text.split('\n').length > 6

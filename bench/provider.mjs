@@ -1,6 +1,6 @@
-// Proveedor de promptfoo: ejecuta el analizador real (src/analyze) sobre un caso del banco y devuelve
-// el resultado como JSON. config.providers = "fake" usa proveedores falsos con la referencia
-// (config.mode: perfect | noisy); "real" usa los proveedores de src/providers/index.js desde el entorno.
+// promptfoo provider: runs the real analyzer (src/analyze) on a bench case and returns
+// the result as JSON. config.providers = "fake" uses fake providers with the reference
+// (config.mode: perfect | noisy); "real" uses the providers of src/providers/index.js from the environment.
 import { loadCases, loadFixtures, runCase } from './lib.js';
 import { createBenchProviders } from './fake-providers.js';
 import { analyze } from '../src/analyze/index.js';
@@ -20,7 +20,7 @@ export default class TeamPlatformAnalyzer {
 
   async callApi(_prompt, context) {
     const testCase = this.cases.get(context?.vars?.case);
-    if (!testCase) return { error: `Caso desconocido: ${context?.vars?.case}` };
+    if (!testCase) return { error: `Unknown case: ${context?.vars?.case}` };
     const providers =
       (this.config.providers ?? 'fake') === 'fake'
         ? createBenchProviders({ expected: testCase.expected, mode: this.config.mode ?? 'perfect', latencyMs: this.config.latencyMs ?? 0 })

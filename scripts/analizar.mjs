@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// Analiza un texto con el analizador real y los proveedores configurados por entorno.
-// Sirve para probar la descomposición de punta a punta sin levantar la API.
+// Analyzes a text with the real analyzer and the providers configured through the environment.
+// Used to test the decomposition end to end without starting the API.
 //
 //   set -a; . ~/.config/team-platform/env; set +a
-//   node scripts/analizar.mjs "texto del input"      # o por stdin
+//   node scripts/analizar.mjs "input text"      # or through stdin
 //
-// Imprime la propuesta, las llamadas (modelo, tokens, duración) y el tiempo total.
+// Prints the proposal, the calls (model, tokens, duration) and the total time.
 
 import { analyze } from '../src/analyze/index.js';
 import { loadSeed } from '../src/analyze/seed.js';
@@ -13,7 +13,7 @@ import { createProviders } from '../src/providers/index.js';
 
 const text = process.argv[2] ?? (await readStdin());
 if (!text.trim()) {
-  console.error('Falta el texto.');
+  console.error('Missing text.');
   process.exit(2);
 }
 
@@ -32,9 +32,9 @@ const result = await analyze(bundle, {
 const total = Math.round(performance.now() - started);
 
 console.log(JSON.stringify({ status: result.status, proposal: result.proposal, stats: result.stats }, null, 2));
-console.error('\nLlamadas:');
+console.error('\nCalls:');
 for (const c of result.calls ?? []) {
-  console.error(`  ${c.step}  ${c.model}  entrada ${c.usage?.input_tokens} (caché ${c.usage?.cached_tokens ?? 0})  salida ${c.usage?.output_tokens}  ${c.duration_ms} ms`);
+  console.error(`  ${c.step}  ${c.model}  input ${c.usage?.input_tokens} (cache ${c.usage?.cached_tokens ?? 0})  output ${c.usage?.output_tokens}  ${c.duration_ms} ms`);
 }
 console.error(`Total: ${total} ms`);
 

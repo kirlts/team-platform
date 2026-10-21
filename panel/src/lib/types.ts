@@ -1,6 +1,6 @@
-// Tipos de lo que devuelve la API (MASTER-SPEC §7.1 y §7.2). Los nombres de los
-// campos son los de las tablas. Donde la especificación no fija la forma de la
-// respuesta, el supuesto está anotado y el servidor doble de desarrollo lo cumple.
+// Types of what the API returns (MASTER-SPEC §7.1 and §7.2). The field names are
+// those of the tables. Where the specification does not fix the shape of the
+// response, the assumption is annotated and the development double server fulfills it.
 
 export type Role = 'member' | 'editor'
 
@@ -10,11 +10,11 @@ export interface Member {
   name: string
   role: Role
   responsibilities: string
-  /** Supuesto: lista de dominios. */
+  /** Assumption: list of domains. */
   domains: string[]
 }
 
-/** Respuesta de GET /me: el miembro y el nombre del proyecto (supuesto: `project_name`). */
+/** Response of GET /me: the member and the project name (assumption: `project_name`). */
 export interface Me extends Member {
   project_name?: string
 }
@@ -24,7 +24,7 @@ export interface Area {
   title: string
   description: string
   position: number
-  /** Supuesto: GET /areas trae el conteo de mensajes abiertos del área. */
+  /** Assumption: GET /areas brings the count of open messages of the area. */
   open_count?: number
   template_count?: number
 }
@@ -46,7 +46,7 @@ export interface Attachment {
   kind: AttachmentKind
   mime?: string
   size?: number
-  /** Nombre de archivo original o dirección del enlace. */
+  /** Original file name or link address. */
   name?: string
 }
 
@@ -67,11 +67,11 @@ export interface ProposalMessage {
   fields?: unknown
   assignee_ids: string[]
   attachment_ids: string[]
-  /** Unidades del input que cubre este mensaje (las numera el sistema). */
+  /** Units of the input this message covers (numbered by the system). */
   unit_ids: string[]
 }
 
-/** Unidades del input que el análisis dejó sin mensaje, con el motivo. */
+/** Units of the input the analysis left without a message, with the reason. */
 export interface DiscardedUnits {
   unit_ids: string[]
   reason: string
@@ -82,7 +82,7 @@ export interface Proposal {
   discarded: DiscardedUnits[]
 }
 
-/** Supuesto: el input trae sus unidades numeradas con el texto, para mostrar lo descartado. */
+/** Assumption: the input brings its numbered units with the text, to show what was discarded. */
 export interface InputUnit {
   id: string
   text: string
@@ -98,7 +98,7 @@ export interface InputRecord {
   attachments: Attachment[]
   units?: InputUnit[]
   proposal?: Proposal | null
-  /** Motivo visible cuando status es `failed`. */
+  /** Visible reason when status is `failed`. */
   error?: string | null
 }
 
@@ -126,7 +126,7 @@ export interface Message {
   closed_at?: string | null
   assignee_ids: string[]
   attachments: Attachment[]
-  /** Supuestos de la lista: cantidad de respuestas y la última, para «Últimas respuestas». */
+  /** List assumptions: number of replies and the latest one, for «Últimas respuestas». */
   reply_count: number
   last_reply?: Reply | null
 }
@@ -143,7 +143,7 @@ export interface ProviderSetting {
   model: string
 }
 
-/** Eventos del flujo SSE (GET /events). */
+/** Events of the SSE stream (GET /events). */
 export interface ProgressEvent {
   job_id: string
   input_id?: string

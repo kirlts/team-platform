@@ -1,5 +1,5 @@
-// Cliente de la API: fetch a /api con la cookie de sesión. En métodos no seguros
-// agrega la cabecera propia de CSRF (el servidor además mira Sec-Fetch-Site y Origin).
+// API client: fetch to /api with the session cookie. On unsafe methods
+// it adds the dedicated CSRF header (the server also checks Sec-Fetch-Site and Origin).
 
 export const API_BASE = '/api'
 export const CSRF_HEADER = 'X-Team-Request'
@@ -21,7 +21,7 @@ async function errorMessage(res: Response): Promise<string> {
     if (data && typeof data.message === 'string') return data.message
     if (data && typeof data.error === 'string') return data.error
   } catch {
-    // Cuerpo vacío o no JSON: se usa el estado HTTP.
+    // Empty or non-JSON body: the HTTP status is used.
   }
   return `Error ${res.status}`
 }
@@ -51,7 +51,7 @@ export async function api<T = unknown>(
   return (text ? JSON.parse(text) : undefined) as T
 }
 
-/** Las listas pueden llegar como arreglo o como `{ items }`. */
+/** Lists can arrive as an array or as `{ items }`. */
 export function unwrapList<T>(data: unknown): T[] {
   if (Array.isArray(data)) return data as T[]
   if (data && typeof data === 'object' && Array.isArray((data as { items?: unknown }).items)) {

@@ -22,8 +22,8 @@ const STATUS_PHRASE: Partial<Record<InputStatus, string>> = {
 }
 
 /**
- * Bloque «Análisis»: progreso por SSE mientras el trabajo corre y, al terminar, la propuesta
- * editable. Nada llega al equipo hasta que el emisor aprieta Enviar (UD-003).
+ * «Análisis» block: progress over SSE while the job runs and, when it finishes, the editable
+ * proposal. Nothing reaches the team until the sender presses Enviar (UD-003).
  */
 export function AnalysisPanel({ input, onClose }: { input: InputRecord; onClose: () => void }) {
   const progress = useJobProgress(input.job_id, input.id)
@@ -252,7 +252,7 @@ function ProposalEditor({
   )
 }
 
-/** Área de un mensaje como insignia cambiable. Al cambiarla, la plantilla pasa a ser la primera de la nueva área. */
+/** Area of a message as a changeable badge. When changed, the template becomes the first one of the new area. */
 function MessageArea({
   areaId,
   templateId,
@@ -277,7 +277,7 @@ function MessageArea({
       })
       first = list[0]?.id ?? null
     } catch {
-      // Sin acceso a las plantillas del área, el servidor elige la que corresponde.
+      // Without access to the area's templates, the server picks the matching one.
     }
     onChange(next, first)
   }

@@ -1,7 +1,7 @@
-// Aserción JavaScript de promptfoo: puntúa la propuesta con bench/score.js (aritmética de conjuntos).
-// Pasa sólo si la descomposición es MECE por definición: cobertura 1 y ninguna repetición,
-// mensaje de más, punto partido ni mensaje fusionado (informe 02, §5.2). La clasificación se
-// informa aparte y no decide el resultado (MASTER-SPEC §7.11).
+// promptfoo JavaScript assertion: scores the proposal with bench/score.js (set arithmetic).
+// Passes only if the decomposition is MECE by definition: coverage 1 and no repetition,
+// extra message, split point or fused message (report 02, §5.2). The classification is
+// reported separately and does not decide the result (MASTER-SPEC §7.11).
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,7 +14,7 @@ export default function assertMece(output, context) {
   try {
     run = typeof output === 'string' ? JSON.parse(output) : output;
   } catch {
-    return { pass: false, score: 0, reason: 'La salida no es JSON.' };
+    return { pass: false, score: 0, reason: 'The output is not JSON.' };
   }
   const expected = JSON.parse(readFileSync(join(here, 'cases', context.vars.case, 'expected.json'), 'utf8'));
   const result = score({ units: run.units, expected, actual: run.proposal ?? { messages: [] } });
@@ -31,8 +31,8 @@ export default function assertMece(output, context) {
       classification: rates.classification_accuracy ?? 0,
     },
     reason:
-      `estado ${run.status}; cobertura ${counts.covered}/${counts.expected_messages}, repetidos ${counts.repeated}, ` +
-      `partidos ${counts.split}, fusionados ${counts.fused}, de más ${counts.extra}, solapes ${counts.overlap_units}, ` +
-      `huecos ${counts.hole_units}, clasificación ${counts.both_correct}/${counts.units} unidades`,
+      `status ${run.status}; coverage ${counts.covered}/${counts.expected_messages}, repeated ${counts.repeated}, ` +
+      `split ${counts.split}, fused ${counts.fused}, extra ${counts.extra}, overlaps ${counts.overlap_units}, ` +
+      `holes ${counts.hole_units}, classification ${counts.both_correct}/${counts.units} units`,
   };
 }

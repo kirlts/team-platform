@@ -11,7 +11,7 @@ export function clock(d: Date): string {
   return timeFmt.format(d)
 }
 
-/** Fecha y hora de una fila: «hoy 14:30», «ayer 09:05» o «20 oct 14:30». */
+/** Date and time of a row: «hoy 14:30», «ayer 09:05» or «20 oct 14:30». */
 export function stamp(iso: string, now = new Date()): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''

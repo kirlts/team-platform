@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
-# Etapa 1: panel. Compila panel/ si existe; si no, deja un directorio vacío.
-# Se copia todo el contexto porque COPY falla cuando panel/ no existe.
+# Stage 1: panel. Builds panel/ if it exists; otherwise leaves an empty directory.
+# The whole context is copied because COPY fails when panel/ does not exist.
 FROM node:24-alpine AS panel
 WORKDIR /ctx
 COPY . /ctx
@@ -13,7 +13,7 @@ RUN mkdir -p /out \
       && cp -r dist/. /out/; \
     fi
 
-# Etapa 2: dependencias de producción del servidor.
+# Stage 2: the server's production dependencies.
 FROM node:24-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
@@ -21,8 +21,8 @@ RUN mkdir -p node_modules \
  && if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev; fi \
  && npm cache clean --force
 
-# Etapa final. ffmpeg del repositorio de Alpine (informe 06, sección 1.2).
-# La imagen incluye el binario de ffmpeg con la licencia de su paquete.
+# Final stage. ffmpeg from Alpine's repository (report 06, section 1.2).
+# The image includes the ffmpeg binary with its package's license.
 FROM node:24-alpine
 LABEL org.opencontainers.image.title="team-platform" \
       org.opencontainers.image.licenses="MIT"
@@ -42,9 +42,9 @@ RUN mkdir -p /data && chown node:node /data
 USER node
 VOLUME /data
 EXPOSE 3000
-# Cadencia de arranque: --start-period cubre el arranque medido (2 s con el relleno;
-# el núcleo real suma sus migraciones) y --start-interval hace que `up --wait` no espere
-# la cadencia normal de 30 s. Son valores de comodidad, no gobiernan la operación.
+# Startup cadence: --start-period covers the measured startup (2 s with the filler;
+# the real core adds its migrations) and --start-interval keeps `up --wait` from waiting for
+# the normal 30 s cadence. These are convenience values; they do not govern operation.
 HEALTHCHECK --start-period=15s --start-interval=1s CMD wget -q -O /dev/null "http://127.0.0.1:${PORT}/health" || exit 1
-# Forma exec: node es PID 1 y recibe SIGTERM directo.
+# Exec form: node is PID 1 and receives SIGTERM directly.
 CMD ["node", "src/server.js"]

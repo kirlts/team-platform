@@ -1,6 +1,6 @@
 /**
- * Adorno de fondo: una órbita y tres destellos de cuatro puntas sobre el cielo. Va detrás de
- * todo, sin interacción y sin significado (aria-hidden); en teléfono sólo quedan los destellos.
+ * Background ornament: an orbit and three four-pointed sparkles over the sky. It sits behind
+ * everything, without interaction and without meaning (aria-hidden); on a phone only the sparkles remain.
  */
 const SPARKLE = 'M0 -10C1 -3 3 -1 10 0C3 1 1 3 0 10C-1 3 -3 1 -10 0C-3 -1 -1 -3 0 -10Z'
 

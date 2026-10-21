@@ -9,7 +9,7 @@ import type { Member, Role } from '@/lib/types'
 
 const ROLE_LABEL: Record<Role, string> = { member: 'Miembro', editor: 'Editor' }
 
-/** Miembros con sus responsabilidades y dominios. Cada uno edita lo suyo; el Editor puede cambiar el rol de los demás. */
+/** Members with their responsibilities and domains. Each one edits their own; the Editor can change the others' role. */
 export function Team() {
   const me = useMe().data
   const members = useMembers()

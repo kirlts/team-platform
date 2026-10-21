@@ -6,7 +6,7 @@ import { Avatar } from './Avatar'
 import { useLookups } from './lookups'
 import { KIND_LABEL, ReplyForm } from './ReplyForm'
 
-/** Hilo lineal de respuestas con el formulario al pie. El emisor no responde su propio mensaje: no ve el formulario. */
+/** Linear reply thread with the form at the bottom. The sender does not reply to their own message: they do not see the form. */
 export function ReplyThread({ message }: { message: MessageDetail }) {
   const me = useMe().data
   const { memberName } = useLookups()

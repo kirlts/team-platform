@@ -1,4 +1,4 @@
-// Consultas y mutaciones contra la API, con TanStack Query. Las claves son:
+// Queries and mutations against the API, with TanStack Query. The keys are:
 // ['me'], ['members'], ['areas'], ['templates', areaId], ['messages', ...], ['message', id],
 // ['inputs', id], ['providers'].
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -56,7 +56,7 @@ export function useTemplates(areaId: string | undefined, enabled = true) {
 export interface MessagesParams {
   query: MessageQuery
   meId: string
-  /** Sólo mensajes con respuestas, ordenados por la última (Inicio). */
+  /** Only messages with replies, ordered by the latest one (Inicio). */
   repliesFeed?: boolean
   enabled?: boolean
 }
@@ -167,7 +167,7 @@ export function useSaveTemplate(areaId: string) {
 export function useDeleteTemplate(areaId: string) {
   const invalidate = useInvalidator()
   return useMutation({
-    // Toda operación destructiva exige confirmación explícita (MASTER-SPEC, convenciones de API).
+    // Every destructive operation requires explicit confirmation (MASTER-SPEC, API conventions).
     mutationFn: (id: string) => api(`/areas/${areaId}/templates/${id}?confirm=true`, { method: 'DELETE' }),
     onSuccess: () => invalidate('templates', 'areas'),
   })

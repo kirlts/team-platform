@@ -1,20 +1,20 @@
-# Banco de referencia de team-platform (MASTER-SPEC §7.11).
-# Un proveedor, un caso por prueba, una aserción que importa bench/score.js.
-# Uso: npm run eval (desde bench/). La versión de promptfoo está fijada en bench/package.json.
-description: Descomposición MECE de los inputs del banco
+# team-platform reference bench (MASTER-SPEC §7.11).
+# One provider, one case per test, one assertion that imports bench/score.js.
+# Usage: npm run eval (from bench/). The promptfoo version is pinned in bench/package.json.
+description: MECE decomposition of the bench inputs
 
 prompts:
-  - "{{case}}"   # el proveedor ignora el texto y lee el caso por su id
+  - "{{case}}"   # the provider ignores the text and reads the case by its id
 
 providers:
   - id: file://provider.mjs
-    label: analizador-falso
+    label: fake-analyzer
     config:
       providers: fake
       mode: perfect
-  # Proveedores reales de src/providers, con las llaves en el entorno (TEXT_PROVIDER, ANTHROPIC_API_KEY, ...):
+  # Real providers from src/providers, with the keys in the environment (TEXT_PROVIDER, ANTHROPIC_API_KEY, ...):
   # - id: file://provider.mjs
-  #   label: analizador-api
+  #   label: api-analyzer
   #   config:
   #     providers: real
 

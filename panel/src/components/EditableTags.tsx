@@ -3,7 +3,7 @@ import { useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
-/** Lista de etiquetas editable en el lugar: cada una se quita con su ×; el «+» abre un campo y salir agrega. */
+/** In-place editable tag list: each one is removed with its ×; the «+» opens a field and leaving adds. */
 export function EditableTags({
   values,
   onSave,

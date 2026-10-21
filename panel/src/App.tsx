@@ -30,7 +30,7 @@ function Shell() {
       try {
         localStorage.removeItem('team-active-input')
       } catch {
-        // Sin almacenamiento no hay nada que borrar.
+        // Without storage there is nothing to clear.
       }
       await queryClient.invalidateQueries({ queryKey: ['me'] })
     }

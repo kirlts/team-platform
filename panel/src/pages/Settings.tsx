@@ -7,7 +7,7 @@ import { readThemePref, saveTheme, type ThemePref } from '@/lib/theme'
 import type { ProviderSetting, ProviderSlot } from '@/lib/types'
 
 const SLOT_LABEL: Record<ProviderSlot, string> = { text: 'Texto', vision: 'Visión', speech: 'Transcripción' }
-/** Implementaciones de proveedor de MASTER-SPEC §7.6. */
+/** Provider implementations from MASTER-SPEC §7.6. */
 const KNOWN_PROVIDERS = ['anthropic', 'openai-compatible', 'groq-speech']
 
 export function Settings() {

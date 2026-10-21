@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// Corre el analizador sobre bench/cases/* y reporta MECE, clasificación, tiempo total y por paso,
-// tokens y costo (MASTER-SPEC §7.11).
+// Runs the analyzer on bench/cases/* and reports MECE, classification, total and per-step time,
+// tokens and cost (MASTER-SPEC §7.11).
 //
-//   node bench/run.mjs --fake perfect                   proveedores falsos con la referencia, sin red
-//   node bench/run.mjs                                  proveedores reales, configurados por entorno (src/providers)
+//   node bench/run.mjs --fake perfect                   fake providers with the reference, no network
+//   node bench/run.mjs                                  real providers, configured by environment (src/providers)
 //   node bench/run.mjs --repeat 5 --case 03-monologo-prueba --analyzer harness
-//   node bench/run.mjs --config '{"decomposeEffort":"low","decomposeThinking":"disabled"}'   perillas del analizador (src/analyze/config.js)
+//   node bench/run.mjs --config '{"decomposeEffort":"low","decomposeThinking":"disabled"}'   analyzer knobs (src/analyze/config.js)
 import { parseArgs } from 'node:util';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -31,13 +31,13 @@ const { values } = parseArgs({
 });
 
 const repeat = Number(values.repeat);
-if (!Number.isInteger(repeat) || repeat < 1) throw new Error('--repeat debe ser un entero positivo');
-if (values.fake && !['perfect', 'noisy'].includes(values.fake)) throw new Error('--fake acepta perfect o noisy');
+if (!Number.isInteger(repeat) || repeat < 1) throw new Error('--repeat must be a positive integer');
+if (values.fake && !['perfect', 'noisy'].includes(values.fake)) throw new Error('--fake accepts perfect or noisy');
 
 const fixtures = await loadFixtures();
 let cases = loadCases();
 if (values.case?.length) cases = cases.filter((c) => values.case.includes(c.id));
-if (cases.length === 0) throw new Error('Ningún caso coincide con --case');
+if (cases.length === 0) throw new Error('No case matches --case');
 
 const providersFor = values.fake
   ? (testCase) => createBenchProviders({ expected: testCase.expected, mode: values.fake, latencyMs: Number(values['latency-ms']) })
@@ -68,5 +68,5 @@ if (!values['no-write']) {
   const out = values.out ?? join(here, 'results', `${stamp}.json`);
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, JSON.stringify({ at: new Date().toISOString(), repeat, mode: values.fake ?? 'real', cases: all }, null, 2));
-  console.log(`\nResultado completo: ${out}`);
+  console.log(`\nFull result: ${out}`);
 }

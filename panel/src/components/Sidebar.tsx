@@ -22,7 +22,7 @@ function Item({ to, icon, children, end, onNavigate }: { to: string; icon: React
   )
 }
 
-/** Barra lateral: usuario, vistas, áreas con su conteo de abiertos (Editor) y Configuración al pie. */
+/** Sidebar: user, views, areas with their open count (Editor) and «Configuración» at the bottom. */
 export function Sidebar({ onNavigate, onLogout }: { onNavigate?: () => void; onLogout: () => void }) {
   const me = useMe().data
   const areas = useAreas()

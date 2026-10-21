@@ -3,9 +3,9 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 
 /**
- * Edición en el lugar. El valor es el control: se abre con un clic, doble clic, Enter o espacio;
- * salir guarda; Escape descarta; un valor inválido deja el campo abierto con el motivo debajo.
- * El lápiz aparece al pasar por encima o con el foco, y queda fijo donde no hay puntero.
+ * In-place editing. The value is the control: it opens with a click, double click, Enter or space;
+ * leaving saves; Escape discards; an invalid value leaves the field open with the reason below.
+ * The pencil appears on hover or focus, and stays fixed where there is no pointer.
  */
 export function EditableText({
   value,
@@ -27,7 +27,7 @@ export function EditableText({
   canEdit?: boolean
   multiline?: boolean
   placeholder?: string
-  /** Nombre accesible del campo. */
+  /** Accessible name of the field. */
   label: string
   className?: string
   displayClassName?: string

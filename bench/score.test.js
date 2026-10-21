@@ -1,4 +1,4 @@
-// Pruebas de score.js: cada medida del informe 02 §5.2 con un caso armado a mano.
+// Tests for score.js: each report 02 §5.2 measure with a hand-built case.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { score } from './score.js';
@@ -13,7 +13,7 @@ const expected = {
 };
 const run = (actual) => score({ units, expected, actual });
 
-test('descomposición exacta: cobertura 1, todo lo demás en 0 y clasificación completa', () => {
+test('exact decomposition: coverage 1, everything else at 0 and full classification', () => {
   const r = run({
     messages: [
       { unit_ids: [1, 2], area_id: 2, template_id: 2 },
@@ -32,7 +32,7 @@ test('descomposición exacta: cobertura 1, todo lo demás en 0 y clasificación 
   assert.equal(r.rates.classification_accuracy, 1);
 });
 
-test('punto que falta: cobertura baja y hueco por unidad', () => {
+test('missing point: coverage drops and there is a hole per unit', () => {
   const r = run({ messages: [{ unit_ids: [1, 2] }, { unit_ids: [4, 5] }], discarded: [6] });
   assert.equal(r.counts.covered, 2);
   assert.equal(r.counts.missing, 1);
@@ -41,7 +41,7 @@ test('punto que falta: cobertura baja y hueco por unidad', () => {
   assert.equal(r.mece, false);
 });
 
-test('punto repetido: dos mensajes contienen el punto completo', () => {
+test('repeated point: two messages contain the whole point', () => {
   const r = run({
     messages: [{ unit_ids: [1, 2] }, { unit_ids: [1, 2] }, { unit_ids: [3] }, { unit_ids: [4, 5] }],
     discarded: [6],
@@ -52,7 +52,7 @@ test('punto repetido: dos mensajes contienen el punto completo', () => {
   assert.equal(r.rates.coverage, 1);
 });
 
-test('un solape parcial también cuenta como repetición si el punto quedó completo en otro mensaje', () => {
+test('a partial overlap also counts as repetition if the point was complete in another message', () => {
   const r = run({
     messages: [{ unit_ids: [1, 2] }, { unit_ids: [2, 3] }, { unit_ids: [4, 5] }],
     discarded: [6],
@@ -61,7 +61,7 @@ test('un solape parcial también cuenta como repetición si el punto quedó comp
   assert.equal(r.counts.fused, 1);
 });
 
-test('punto partido: sus unidades se reparten sin quedar completas en ninguno', () => {
+test('split point: its units are distributed without being complete in any', () => {
   const r = run({
     messages: [{ unit_ids: [1] }, { unit_ids: [2] }, { unit_ids: [3] }, { unit_ids: [4, 5] }],
     discarded: [6],
@@ -72,7 +72,7 @@ test('punto partido: sus unidades se reparten sin quedar completas en ninguno', 
   assert.equal(r.counts.repeated, 0);
 });
 
-test('punto incompleto: un solo mensaje con parte de sus unidades no es partido', () => {
+test('incomplete point: a single message with part of its units is not split', () => {
   const r = run({
     messages: [{ unit_ids: [1] }, { unit_ids: [3] }, { unit_ids: [4, 5] }],
     discarded: [6, 2],
@@ -82,7 +82,7 @@ test('punto incompleto: un solo mensaje con parte de sus unidades no es partido'
   assert.equal(r.rates.coverage, 2 / 3);
 });
 
-test('mensaje fusionado: un mensaje cubre dos puntos de la referencia', () => {
+test('fused message: one message covers two reference points', () => {
   const r = run({
     messages: [{ unit_ids: [1, 2, 3] }, { unit_ids: [4, 5] }],
     discarded: [6],
@@ -93,7 +93,7 @@ test('mensaje fusionado: un mensaje cubre dos puntos de la referencia', () => {
   assert.equal(r.mece, false);
 });
 
-test('mensaje de más: no toca ningún punto de la referencia, o no cita unidades', () => {
+test('extra message: touches no reference point, or cites no units', () => {
   const r = run({
     messages: [
       { unit_ids: [1, 2] },
@@ -108,7 +108,7 @@ test('mensaje de más: no toca ningún punto de la referencia, o no cita unidade
   assert.deepEqual(r.details.extra_messages, [3, 4]);
 });
 
-test('unidades inventadas por el analizador se ignoran y se cuentan', () => {
+test('units invented by the analyzer are ignored and counted', () => {
   const r = run({
     messages: [{ unit_ids: [1, 2, 99] }, { unit_ids: [3] }, { unit_ids: [4, 5] }],
     discarded: [6],
@@ -119,12 +119,12 @@ test('unidades inventadas por el analizador se ignoran y se cuentan', () => {
   assert.equal(r.mece, false);
 });
 
-test('clasificación: cuenta por unidad, con áreas y plantillas aceptadas como lista', () => {
+test('classification: counts per unit, with accepted areas and templates as a list', () => {
   const r = run({
     messages: [
-      { unit_ids: [1, 2], area_id: 2, template_id: 2 }, // correcto
-      { unit_ids: [3], area_id: 3, template_id: 1 }, // área aceptada, plantilla no
-      { unit_ids: [4, 5], area_id: 1, template_id: 5 }, // área errada, plantilla correcta
+      { unit_ids: [1, 2], area_id: 2, template_id: 2 }, // correct
+      { unit_ids: [3], area_id: 3, template_id: 1 }, // accepted area, template not
+      { unit_ids: [4, 5], area_id: 1, template_id: 5 }, // wrong area, correct template
     ],
     discarded: [6],
   });
@@ -135,10 +135,10 @@ test('clasificación: cuenta por unidad, con áreas y plantillas aceptadas como 
   assert.equal(r.rates.area_accuracy, 3 / 5);
   assert.equal(r.rates.template_accuracy, 4 / 5);
   assert.equal(r.rates.classification_accuracy, 2 / 5);
-  assert.equal(r.mece, true, 'una clasificación errada no rompe la descomposición MECE');
+  assert.equal(r.mece, true, 'a wrong classification does not break the MECE decomposition');
 });
 
-test('clasificación: una unidad sin mensaje, o en dos mensajes con áreas distintas, cuenta como errada', () => {
+test('classification: a unit without a message, or in two messages with different areas, counts as wrong', () => {
   const r = run({
     messages: [
       { unit_ids: [1, 2], area_id: 2, template_id: 2 },
@@ -147,11 +147,11 @@ test('clasificación: una unidad sin mensaje, o en dos mensajes con áreas disti
     ],
     discarded: [6],
   });
-  // u1 correcta; u2 en dos áreas; u3 en ningún mensaje; u4 y u5 correctas.
+  // u1 correct; u2 in two areas; u3 in no message; u4 and u5 correct.
   assert.equal(r.counts.area_correct, 3);
 });
 
-test('sin área ni plantilla esperadas, la exactitud de clasificación es null', () => {
+test('without expected area or template, the classification accuracy is null', () => {
   const r = score({
     units,
     expected: { messages: [{ id: 'g', unit_ids: [1] }] },
@@ -160,7 +160,7 @@ test('sin área ni plantilla esperadas, la exactitud de clasificación es null',
   assert.equal(r.rates.classification_accuracy, null);
 });
 
-test('los descartados aceptan ids sueltos, { unit_id } y { unit_ids, reason }', () => {
+test('discarded items accept bare ids, { unit_id } and { unit_ids, reason }', () => {
   const base = { messages: [{ unit_ids: [1, 2] }, { unit_ids: [3] }, { unit_ids: [4, 5] }] };
   assert.equal(run({ ...base, discarded: [6] }).counts.hole_units, 0);
   assert.equal(run({ ...base, discarded: [{ unit_id: 6 }] }).counts.hole_units, 0);
@@ -168,12 +168,12 @@ test('los descartados aceptan ids sueltos, { unit_id } y { unit_ids, reason }', 
   assert.equal(run({ ...base }).counts.hole_units, 1);
 });
 
-test('sin mensajes esperados ni obtenidos, las tasas son 0 y no hay división por cero', () => {
+test('without expected or obtained messages, the rates are 0 and there is no division by zero', () => {
   const r = score({ units: [1], expected: { messages: [] }, actual: { messages: [], discarded: [1] } });
   assert.deepEqual(r.rates, { coverage: 0, repetition: 0, extra: 0, split: 0, fused: 0, area_accuracy: null, template_accuracy: null, classification_accuracy: null });
 });
 
-test('las unidades pueden venir como objetos con id', () => {
+test('units can come as objects with an id', () => {
   const r = score({
     units: [{ id: 'a' }, { id: 'b' }],
     expected: { messages: [{ id: 'g', unit_ids: ['a', 'b'] }] },

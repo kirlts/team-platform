@@ -1,19 +1,19 @@
 #!/usr/bin/env node
-// SERVIDOR DOBLE DE DESARROLLO. No es la API de team-platform y no entra a la imagen de producción.
+// DEVELOPMENT DOUBLE SERVER. It is not the team-platform API and does not go into the production image.
 //
-// Implementa en memoria el contrato de MASTER-SPEC §7.1 (rutas bajo /api) para poder construir y
-// capturar el panel sin la API real. Todo lo que devuelve es dato de ejemplo de desarrollo:
-// miembros «Prueba», un proyecto llamado «Desarrollo», mensajes y adjuntos inventados, y un
-// «análisis» que reparte el texto por párrafos sin leerlo. Al reiniciar, todo vuelve al inicio.
+// Implements in memory the MASTER-SPEC §7.1 contract (routes under /api) so the panel can be built and
+// captured without the real API. Everything it returns is development sample data:
+// «Prueba» members, a project named «Desarrollo», invented messages and attachments, and an
+// «analysis» that splits the text into paragraphs without reading it. On restart, everything returns to the start.
 //
-// Acceso: cualquier correo de los miembros de ejemplo (ana@dev.invalid es Editor) con una contraseña
-// de 15 caracteres o más. No hay contraseñas guardadas en este archivo.
+// Access: any email of the sample members (ana@dev.invalid is Editor) with a password
+// of 15 characters or more. No passwords are stored in this file.
 //
-//   node dev-server.mjs                       escucha en 127.0.0.1:8787 (PANEL_DEV_PORT)
-//   PANEL_DEV_STATIC=1 node dev-server.mjs    además sirve panel/dist con CSP, como lo haría @fastify/static
+//   node dev-server.mjs                       listens on 127.0.0.1:8787 (PANEL_DEV_PORT)
+//   PANEL_DEV_STATIC=1 node dev-server.mjs    also serves panel/dist with CSP, as @fastify/static would
 //
-// Supuestos que el panel hace sobre las respuestas (la especificación sólo fija las rutas) están en
-// panel/src/lib/types.ts; este servidor los cumple.
+// Assumptions the panel makes about the responses (the specification only fixes the routes) are in
+// panel/src/lib/types.ts; this server fulfills them.
 
 import { createHash, randomUUID } from 'node:crypto'
 import { createReadStream, existsSync, statSync } from 'node:fs'
@@ -24,14 +24,14 @@ import { fileURLToPath } from 'node:url'
 const PORT = Number(process.env.PANEL_DEV_PORT ?? 8787)
 const STATIC = process.env.PANEL_DEV_STATIC === '1'
 const DIST = fileURLToPath(new URL('./dist/', import.meta.url))
-/** Cada paso del análisis simulado dura esto. Sólo existe para que la barra se vea avanzar. */
+/** Each step of the simulated analysis lasts this long. It exists only so the bar is seen advancing. */
 const STEP_MS = Number(process.env.PANEL_DEV_STEP_MS ?? 700)
 const MAX_BODY = 40 * 1024 * 1024
 
 const id = () => randomUUID().slice(0, 8)
 const ago = (minutes) => new Date(Date.now() - minutes * 60_000).toISOString()
 
-// ---------------------------------------------------------------- datos de ejemplo
+// ---------------------------------------------------------------- sample data
 
 const members = [
   { id: 'u-ana', email: 'ana@dev.invalid', name: 'Ana Prueba', role: 'editor', responsibilities: 'Servidor, base de datos y despliegue.', domains: ['API', 'Infraestructura'] },
@@ -134,7 +134,7 @@ seedMessage({ area_id: 'a-feedback', author_id: 'u-bruno', title: 'Las fechas de
 ])
 seedMessage({ area_id: 'a-error', author_id: 'u-ana', title: 'Revisar el tiempo de respuesta de la lista de mensajes', body: 'Con más de doscientos mensajes la lista tarda en abrir.', status: 'open', created_at: ago(96 * 60), assignee_ids: ['u-bruno'], attachment_ids: [] })
 
-// ---------------------------------------------------------------- estado de sesión, eventos y trabajos
+// ---------------------------------------------------------------- session state, events and jobs
 
 const sessions = new Map()
 const inputs = new Map()
@@ -204,12 +204,12 @@ function runJob(input) {
 }
 
 let analyzed = 0
-/** Unidades numeradas del input: un párrafo cada una. Las numera el servidor, como lo hará el sistema real. */
+/** Numbered units of the input: one paragraph each. The server numbers them, as the real system will. */
 function unitsOf(text) {
   return text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean).map((p, i) => ({ id: `u${i + 1}`, text: p }))
 }
 
-/** «Análisis» de desarrollo: un mensaje por unidad, cada uno con su área por turno; la última unidad larga queda sin acción. No lee el sentido del texto. */
+/** Development «analysis»: one message per unit, each with its area in rotation; the last long unit is left without action. It does not read the meaning of the text. */
 function analyze(input) {
   const others = members.filter((m) => m.id !== input.author_id)
   const images = input.attachment_ids.filter((aid) => attachments.get(aid)?.kind === 'image')
@@ -234,7 +234,7 @@ function analyze(input) {
   }
 }
 
-// ---------------------------------------------------------------- utilidades HTTP
+// ---------------------------------------------------------------- HTTP utilities
 
 function send(res, status, body, headers = {}) {
   const payload = body === undefined ? '' : JSON.stringify(body)
@@ -251,7 +251,7 @@ function readBody(req) {
     req.on('data', (c) => {
       size += c.length
       if (size > MAX_BODY) {
-        reject(new Error('Cuerpo demasiado grande'))
+        reject(new Error('Body too large'))
         req.destroy()
         return
       }
@@ -328,7 +328,7 @@ function serveStatic(req, res, pathname) {
   createReadStream(file).pipe(res)
 }
 
-// ---------------------------------------------------------------- rutas
+// ---------------------------------------------------------------- routes
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://localhost')
@@ -368,7 +368,7 @@ const server = createServer(async (req, res) => {
     }
     if (path === '/me' && method === 'GET') return send(res, 200, { ...me, project_name: 'Desarrollo' })
 
-    // --- eventos
+    // --- events
     if (path === '/events' && method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' })
       res.write('retry: 3000\n\n')
@@ -376,7 +376,7 @@ const server = createServer(async (req, res) => {
       streams.add(stream)
       const last = Number(req.headers['last-event-id'] ?? 0)
       for (const ev of eventLog) if (ev.seq > last && (ev.member_id === null || ev.member_id === me.id)) writeEvent(res, ev)
-      const beat = setInterval(() => res.write(': latido\n\n'), 15_000)
+      const beat = setInterval(() => res.write(': heartbeat\n\n'), 15_000)
       req.on('close', () => {
         clearInterval(beat)
         streams.delete(stream)
@@ -384,7 +384,7 @@ const server = createServer(async (req, res) => {
       return
     }
 
-    // --- sólo de desarrollo: simula un mensaje que llega de otro miembro (prueba el aviso por SSE)
+    // --- development only: simulates a message arriving from another member (tests the SSE notice)
     if (path === '/_dev/incoming' && method === 'POST') {
       const from = members.find((x) => x.id !== me.id)
       const msg = seedMessage({ area_id: 'a-pregunta', author_id: from.id, title: 'Confirmar el límite de adjuntos por mensaje', body: 'Mensaje entrante de ejemplo, generado por el servidor de desarrollo.', status: 'open', created_at: new Date().toISOString(), assignee_ids: [me.id], attachment_ids: [] })
@@ -456,7 +456,7 @@ const server = createServer(async (req, res) => {
       }
     }
 
-    // --- mensajes
+    // --- messages
     if (path === '/messages' && method === 'GET') {
       const q = url.searchParams
       const forId = q.get('for') === 'me' ? me.id : q.get('for')
@@ -493,7 +493,7 @@ const server = createServer(async (req, res) => {
       }
     }
 
-    // --- áreas y plantillas
+    // --- areas and templates
     if (path === '/areas' && method === 'GET') {
       return send(res, 200, areas.map((a) => ({ ...a, open_count: messages.filter((x) => x.area_id === a.id && x.status !== 'closed').length, template_count: templates.filter((t) => t.area_id === a.id).length })))
     }
@@ -551,7 +551,7 @@ const server = createServer(async (req, res) => {
       }
     }
 
-    // --- equipo y ajustes
+    // --- team and settings
     if (path === '/members' && method === 'GET') return send(res, 200, members)
     m = /^\/members\/([^/]+)$/.exec(path)
     if (m && method === 'PATCH') {
@@ -598,5 +598,5 @@ const server = createServer(async (req, res) => {
 })
 
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`[dev-server] SERVIDOR DOBLE DE DESARROLLO con datos de ejemplo en http://127.0.0.1:${PORT}/api${STATIC ? ' (sirve también panel/dist)' : ''}`)
+  console.log(`[dev-server] DEVELOPMENT DOUBLE SERVER with sample data at http://127.0.0.1:${PORT}/api${STATIC ? ' (also serves panel/dist)' : ''}`)
 })

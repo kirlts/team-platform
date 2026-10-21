@@ -16,16 +16,16 @@ const PROP_LABEL: Record<FilterProp, string> = {
 
 const OP_LABEL: Record<FilterOp, string> = { eq: 'es', neq: 'no es' }
 
-/** Tiempo que espera la búsqueda tras la última tecla antes de consultar. Es de comodidad, no de operación. */
+/** Time the search waits after the last key before querying. It is a convenience, not an operation setting. */
 const SEARCH_PAUSE_MS = 250
 
-/** Búsqueda y filtros como chips de propiedad, operador y valor. El estado vive en la URL. */
+/** Search and filters as chips of property, operator and value. The state lives in the URL. */
 export function FilterBar({ query, onChange }: { query: MessageQuery; onChange: (next: MessageQuery) => void }) {
   const { areas, members } = useLookups()
   const [openValue, setOpenValue] = useState<FilterProp | null>(null)
   const [text, setText] = useState(query.q)
 
-  // La URL manda: un cambio externo (atrás, enlace) se refleja en el campo.
+  // The URL rules: an external change (back, link) is reflected in the field.
   useEffect(() => setText(query.q), [query.q])
 
   useEffect(() => {

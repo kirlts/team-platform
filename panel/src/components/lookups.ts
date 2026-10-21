@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useAreas, useMembers } from '@/lib/queries'
 import type { Area, Member } from '@/lib/types'
 
-/** Nombres de áreas y miembros por id, para rotular tarjetas y destinatarios. */
+/** Names of areas and members by id, to label cards and recipients. */
 export function useLookups() {
   const areas = useAreas()
   const members = useMembers()

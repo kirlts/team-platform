@@ -13,9 +13,9 @@ import { AreaBadge, StatusBadge } from './StatusBadge'
 import { Thumb } from './Thumb'
 
 /**
- * Fila de mensaje. La fila entera lleva al detalle; Responder abre el formulario en la misma
- * fila y Cerrar o Reabrir se aplican al instante. En la variante `reply` muestra la última
- * respuesta en lugar del texto del mensaje.
+ * Message row. The whole row leads to the detail; Reply opens the form in the same
+ * row and Close or Reopen apply instantly. In the `reply` variant it shows the latest
+ * reply instead of the message text.
  */
 export function MessageCard({ message, variant = 'message' }: { message: Message; variant?: 'message' | 'reply' }) {
   const me = useMe().data
@@ -103,7 +103,7 @@ export function MessageCard({ message, variant = 'message' }: { message: Message
               className="hidden sm:inline-block"
             />
           ) : (
-            // Reserva el lugar de la miniatura para que la fecha y las acciones alineen en todas las filas.
+            // Reserves the thumbnail's place so the date and actions line up in all rows.
             <span aria-hidden className="hidden w-14 shrink-0 sm:block" />
           ))}
       </div>

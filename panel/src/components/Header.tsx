@@ -10,7 +10,7 @@ import { saveTheme } from '@/lib/theme'
 import { useNavigateTo } from './navigation'
 import { useLookups } from './lookups'
 
-/** Cabecera «[Nombre] TEAM» con la campana de avisos y el menú de la cuenta. */
+/** Header «[Name] TEAM» with the notification bell and the account menu. */
 export function Header({ projectName, onOpenNav, onLogout }: { projectName?: string; onOpenNav: () => void; onLogout: () => void }) {
   const go = useNavigateTo()
   const [theme, setTheme] = useState(() => document.documentElement.dataset.theme ?? 'light')

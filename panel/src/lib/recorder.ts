@@ -1,6 +1,6 @@
-// Grabación de audio con MediaRecorder. Se prueban los tipos en orden y se lee el tipo
-// real que eligió el navegador (Safari anterior a 18.4 sólo graba MP4); ese tipo es el
-// que viaja con el archivo. getUserMedia sólo existe en contextos seguros (HTTPS o localhost).
+// Audio recording with MediaRecorder. The types are tried in order and the actual type
+// the browser chose is read (Safari before 18.4 only records MP4); that type is the
+// one that travels with the file. getUserMedia only exists in secure contexts (HTTPS or localhost).
 
 export const AUDIO_CANDIDATES = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'] as const
 

@@ -3,7 +3,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import type { Member } from '@/lib/types'
 import { Avatar } from './Avatar'
 
-/** Lista de miembros con marca de selección, en una ventana emergente. */
+/** List of members with a selection mark, in a popup. */
 export function MemberPicker({
   members,
   selected,

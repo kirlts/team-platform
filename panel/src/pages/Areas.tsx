@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils'
 const nameRule = (v: string) => (!v ? 'Obligatorio' : v.length > 64 ? 'Máximo 64 caracteres' : null)
 const descriptionRule = (v: string) => (v.length > 1024 ? 'Máximo 1.024 caracteres' : null)
 
-/** Áreas y plantillas con edición en el lugar. Sólo el Editor entra. */
+/** Areas and templates with in-place editing. Only the Editor gets in. */
 export function Areas() {
   const me = useMe().data
   const areas = useAreas()

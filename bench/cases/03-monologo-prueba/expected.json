@@ -7,7 +7,6 @@
       "area_id": 2,
       "template_id": 2,
       "unit_ids": [
-        2,
         3,
         4,
         5,
@@ -106,13 +105,12 @@
     },
     {
       "id": "m9",
-      "title": "El calendario no marca el lunes feriado y deja reprogramar sin avisar",
+      "title": "El calendario no marca el lunes feriado",
       "area_id": 2,
       "template_id": 2,
       "unit_ids": [
         32,
-        33,
-        35
+        33
       ]
     },
     {
@@ -123,6 +121,15 @@
       "unit_ids": [
         34
       ]
+    },
+    {
+      "id": "m11",
+      "title": "Reprogramar para un lunes feriado no avisa nada",
+      "area_id": 2,
+      "template_id": 2,
+      "unit_ids": [
+        35
+      ]
     }
   ],
   "discarded": [
@@ -131,6 +138,12 @@
         1
       ],
       "reason": "presentación"
+    },
+    {
+      "unit_ids": [
+        2
+      ],
+      "reason": "navegación"
     },
     {
       "unit_ids": [

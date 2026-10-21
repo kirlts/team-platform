@@ -13,24 +13,28 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 50a189a Merge branch 'wt-voz2'. Empujado a origin: `50a189a`.
-- Ramas con commits sin fusionar: `wt-banco-abiertos` 6 (hace 54 minutos), `wt-h904` 4 (hace 2 minutos).
-- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `banco-abiertos`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
+- `main`: ec34966 Traspaso: banco fusionado. Empujado a origin: `ec34966`.
+- Ramas con commits sin fusionar: `wt-barra-movil` 4 (hace 9 minutos), `wt-h904` 4 (hace 17 minutos), `wt-envio` 3 (hace 63 segundos), `wt-areas3` 2 (hace 8 minutos).
+- Worktrees abiertos: `team-platform`, `areas2`, `areas3`, `auto-publicar`, `barra-movil`, `cierre`, `envio`, `equipo-config`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `tarjetas`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `50a189a` Merge branch 'wt-voz2' (hace 4 minutos)
-- `def9572` Voice detector: setting hints measured in characters (hace 23 minutos)
-- `6664a58` Traspaso: Inicio fusionado, Fase 1 completa (hace 26 minutos)
-- `8650d0c` Merge branch 'wt-inicio-respira' (hace 37 minutos)
-- `5fb0eaf` Fusiona main (Configuración, UD-140) en wt-inicio-respira (hace 47 minutos)
-- `a4d075d` Traspaso: Configuración fusionada (hace 47 minutos)
-- `d56b3cf` Merge branch 'wt-configuracion' (hace 55 minutos)
-- `ea89282` UD-140: el presupuesto de API sube a 100 USD en total (hace 59 minutos)
-Actualizado 2026-10-21 19:45 UTC.
+- `ec34966` Traspaso: banco fusionado (hace 10 minutos)
+- `d593179` Merge branch 'wt-banco-abiertos' (hace 11 minutos)
+- `a88806c` Traspaso: ronda 4 de jueces y cinco arreglos (hace 12 minutos)
+- `b38bcf8` Traspaso: barrido fusionado, jueces en curso (hace 15 minutos)
+- `50a189a` Merge branch 'wt-voz2' (hace 18 minutos)
+- `def9572` Voice detector: setting hints measured in characters (hace 38 minutos)
+- `6664a58` Traspaso: Inicio fusionado, Fase 1 completa (hace 41 minutos)
+- `8650d0c` Merge branch 'wt-inicio-respira' (hace 51 minutos)
+Actualizado 2026-10-21 20:00 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo
 
 **Plan de cierre:** `docs/PLAN-DE-CIERRE.md` (2026-10-21 15:00). La sesión anterior murió a las 14:42 con la cuota de su cuenta agotada; sus agentes murieron con ella. Quien retome ejecuta ese plan desde la Fase 0: rescata lo sin commit de `configuracion`, `inicio-respira` y `barra-superior`, relanza los encargos A, B, C y G, y sigue el orden de fusión que dice. Encargo nuevo del dueño de hoy: la barra lateral (alineación, contadores sin contenedor, hover), encargo G.
+
+**Avance 17:05.** En `main` también el banco (`d593179`): H-1901 a H-1904, TASK-013, TASK-015 y TASK-024 cerradas con medición, 5 casos privados nuevos. Gasto del banco: 4,2 USD. `classifyDraws` no se adopta. La regla 2 de clasificación baja el área 2 puntos, dentro del ruido (p 0,37); quitarla de los dos `prompts-*.js` la revierte. Siguen los cinco arreglos de pantalla y Firefox.
+
+**Avance 16:50.** Ronda 4 de jueces consolidada: 10 jueces, nota 2 en todos, 40 hallazgos, 35 nuevos, máxima severidad 3 (la ronda 3 tuvo 3 de severidad 5 y 10 de 4). Cinco agentes arreglan por pantalla: barra superior en teléfono, tarjetas y ficha, Áreas, Equipo y Configuración, desplegable de envío. Informes en `~/.cache/claude-tmp/juicios/ronda4`.
 
 **Avance 16:35.** En `main` también el barrido de lenguaje (`50a189a`): los catálogos ya cumplían UD-050 y se corrigió un falso positivo del detector. Corre la ronda 4 de 10 jueces en paralelo (`~/.cache/claude-tmp/juicios/ronda4`). El cambio de Firefox (H-904, H-2500) vuelve a su agente: rompe `test:fit` en Chromium al fusionar con `main`. Banco en curso.
 

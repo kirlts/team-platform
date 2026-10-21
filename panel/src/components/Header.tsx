@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useFormat, useT } from '@/i18n'
-import { ToneIcon } from '@/components/NotifyBadge'
+import { ToneIcon, ToneMark } from '@/components/NotifyBadge'
 import { useEventsSnapshot, useEventsStore } from '@/lib/events'
 import { mineCounts } from '@/lib/pending'
 import { topTone, toneTotal } from '@/lib/priority'
@@ -81,6 +81,7 @@ function NotificationBell() {
   const counts = toneTotal(mine) > 0 ? mine : snap.unread > 0 ? { blue: snap.unread } : {}
   const tone = topTone(counts)
   const total = toneTotal(counts)
+  const listed = toneTotal(mine) > 0 && (summary?.items.length ?? 0) > 0
   return (
     <Popover onOpenChange={(open) => open && store.markRead()}>
       <PopoverTrigger asChild>
@@ -88,6 +89,7 @@ function NotificationBell() {
           type="button"
           data-testid="bell"
           data-tone={tone ?? undefined}
+          data-weight="solid"
           data-count={total}
           aria-label={total > 0 ? t('bell.unread', { n: total }) : t('bell.label')}
           className={cn(
@@ -105,7 +107,20 @@ function NotificationBell() {
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-0">
-        {snap.notices.length === 0 ? (
+        {listed ? (
+          // What the number counts, message by message: the bell lists exactly its own count (J2-A-43).
+          <ul data-lane="bell-list" className="scroll-thin max-h-80 overflow-y-auto" aria-label={t('bell.label')}>
+            {(summary?.items ?? []).map((n) => (
+              <li key={n.message_id} className="border-b border-line last:border-b-0">
+                <Link to={`/messages/${n.message_id}`} className="flex flex-col items-start gap-1 px-3 py-2 hover:bg-hover">
+                  <ToneMark tone={n.tone} />
+                  <span className="break-words text-sm font-medium">{n.title}</span>
+                  <span className="text-xs text-muted">{format.stamp(n.at)}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : snap.notices.length === 0 ? (
           <p className="px-3 py-4 text-center text-muted">{t('bell.none')}</p>
         ) : (
           <ul className="max-h-80 overflow-y-auto">

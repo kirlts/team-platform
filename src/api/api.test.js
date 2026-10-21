@@ -632,9 +632,18 @@ test('UD-028 · GET /messages/summary: cada mensaje cae en una sola prioridad, e
   assert.equal(areaRow(await summary(env.c.ana), idea).open, 0) // lo respondido ya no es «abierto»
   assert.equal(areaRow(await summary(env.c.ana), questionArea).open, 1)
 
+  // La lista de la campana es la cuenta, mensaje por mensaje (J2-A-43): mismas prioridades y mismo total.
+  for (const cookie of [env.c.beto, env.c.ana, env.c.ed]) {
+    const s = await summary(cookie)
+    assert.equal(s.items.length, s.mine.total)
+    for (const tone of ['red', 'yellow', 'blue']) assert.equal(s.items.filter((i) => i.tone === tone).length, s.mine[tone])
+    assert.ok(s.items.every((i) => i.title && i.message_id))
+  }
+
   // Cerrar saca el mensaje de la cuenta de todos.
   await env.api('POST', `/messages/${m2}/close`, env.c.ed)
   assert.deepEqual((await summary(env.c.beto)).mine, { red: 0, yellow: 1, blue: 1, total: 2 })
+  assert.equal((await summary(env.c.beto)).items.some((i) => i.message_id === String(m2)), false, 'un mensaje cerrado no figura en la lista')
   assert.equal(areaRow(await summary(env.c.beto), questionArea).open, 0)
   assert.equal((await env.app.inject({ method: 'GET', url: '/api/messages/summary' })).statusCode, 401) // exige sesión
   await env.close()

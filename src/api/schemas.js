@@ -63,6 +63,7 @@ export const messageSummary = {
   type: 'object',
   properties: {
     mine: { type: 'object', properties: { red: intVar, yellow: intVar, blue: intVar, total: intVar } },
+    items: { type: 'array', items: { type: 'object', properties: { message_id: id, title: { type: 'string' }, tone: { type: 'string' }, at: { type: 'string' } } } },
     areas: { type: 'array', items: { type: 'object', properties: { area_id: id, open: intVar, mine_open: intVar } } }
   }
 }

@@ -52,6 +52,21 @@ describe('prioridad de los avisos (UD-029)', () => {
     }
   })
 
+  it('every badge and mark is soft: the solid fill belongs to the bell alone (J2-B-03)', () => {
+    for (const counts of COMBINATIONS) {
+      const { container, unmount } = render(
+        <I18nProvider language="es-419">
+          <NotifyBadge counts={counts} />
+          {TONES.map((tone) => (
+            <ToneMark key={tone} tone={tone} n={1} />
+          ))}
+        </I18nProvider>,
+      )
+      for (const el of container.querySelectorAll('[data-tone]')) expect(el.getAttribute('data-weight')).toBe('soft')
+      unmount()
+    }
+  })
+
   it('the three priorities have three different words and three different shapes', () => {
     const words = new Set<string>()
     const shapes = new Set<string>()
@@ -89,6 +104,7 @@ describe('qué prioridad tiene un mensaje para mí', () => {
 describe('pendientes por área (UD-028)', () => {
   const summary = {
     mine: { red: 1, yellow: 2, blue: 0, total: 3 },
+    items: [],
     areas: [
       { area_id: '7', open: 3, mine_open: 1 },
       { area_id: '8', open: 2, mine_open: 0 },

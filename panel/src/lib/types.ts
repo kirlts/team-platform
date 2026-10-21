@@ -214,5 +214,7 @@ export interface NewMessageEvent {
 /** GET /messages/summary: what affects me by priority, and the open messages of each area (UD-028). */
 export interface MessageSummary {
   mine: { red: number; yellow: number; blue: number; total: number }
+  /** The messages that make up `mine`, one by one: what the bell lists (J2-A-43). */
+  items: { message_id: string; title: string; tone: 'red' | 'yellow' | 'blue'; at: string }[]
   areas: { area_id: string; open: number; mine_open: number }[]
 }

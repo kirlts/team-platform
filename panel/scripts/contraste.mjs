@@ -100,6 +100,8 @@ for (const [theme, t] of [['claro', light], ['oscuro', dark]]) {
   // Notification priorities (UD-029): text on its fill (4.5), and the fill against the glass and the header (3, non-text).
   for (const tone of ['red', 'yellow', 'blue']) {
     row(theme, `prioridad ${tone}: texto sobre su fondo`, fg(`tone-${tone}-fg`), [fg(`tone-${tone}-bg`)], 4.5)
+    row(theme, `prioridad ${tone} suave: texto sobre su fondo`, fg(`tone-${tone}-soft-fg`), [fg(`tone-${tone}-soft-bg`)], 4.5)
+    row(theme, `prioridad ${tone} suave: borde sobre su fondo`, fg(`tone-${tone}-edge`), [fg(`tone-${tone}-soft-bg`)], 3)
     row(theme, `prioridad ${tone}: borde sobre vidrio`, fg(`tone-${tone}-edge`), onGlass('glass'), 3)
     row(theme, `prioridad ${tone}: borde sobre cromo`, fg(`tone-${tone}-edge`), ['chrome-1', 'chrome-2', 'chrome-3', 'chrome-4'].map(fg), 3)
   }

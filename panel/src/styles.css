@@ -122,6 +122,12 @@
   --color-tone-blue-bg: oklch(0.5 0.2 250);
   --color-tone-blue-fg: oklch(0.99 0 0);
   --color-tone-blue-edge: oklch(0.38 0.17 255);
+  --color-tone-red-soft-bg: oklch(0.95 0.035 25);
+  --color-tone-red-soft-fg: oklch(0.38 0.17 25);
+  --color-tone-yellow-soft-bg: oklch(0.96 0.06 92);
+  --color-tone-yellow-soft-fg: oklch(0.36 0.08 70);
+  --color-tone-blue-soft-bg: oklch(0.95 0.03 250);
+  --color-tone-blue-soft-fg: oklch(0.38 0.17 255);
 
   /* Shape: short radii; the large rounding is left for controls. */
   --radius-sm: 3px;
@@ -204,6 +210,12 @@
   --color-tone-blue-bg: oklch(0.74 0.14 245);
   --color-tone-blue-fg: oklch(0.16 0.04 260);
   --color-tone-blue-edge: oklch(0.92 0.06 245);
+  --color-tone-red-soft-bg: oklch(0.3 0.07 25);
+  --color-tone-red-soft-fg: oklch(0.9 0.07 25);
+  --color-tone-yellow-soft-bg: oklch(0.3 0.06 88);
+  --color-tone-yellow-soft-fg: oklch(0.92 0.09 88);
+  --color-tone-blue-soft-bg: oklch(0.3 0.07 250);
+  --color-tone-blue-soft-fg: oklch(0.9 0.06 245);
 
   --shadow-glass: inset 0 1px 0 oklch(1 0 0 / 0.14), 0 1px 2px oklch(0.1 0.05 260 / 0.5), 0 12px 30px -12px oklch(0.05 0.05 260 / 0.7);
   --shadow-pop: inset 0 1px 0 oklch(1 0 0 / 0.16), 0 2px 4px oklch(0.1 0.05 260 / 0.5), 0 20px 44px -14px oklch(0.05 0.05 260 / 0.85);
@@ -332,6 +344,32 @@
     background-color: var(--color-tone-blue-bg);
     border-color: var(--color-tone-blue-edge);
     color: var(--color-tone-blue-fg);
+  }
+
+  /* One protagonist, the rest quiet (J2-B-03, J2-A-04): the bell is the only solid fill. Every other count (Mensajes, Para mí,
+     areas, rows) is soft: the same priority in a tint with its edge, its shape, its word and its number. */
+  [data-tone='red'][data-weight='soft'] {
+    background-color: var(--color-tone-red-soft-bg);
+    color: var(--color-tone-red-soft-fg);
+    box-shadow: none;
+  }
+  [data-tone='yellow'][data-weight='soft'] {
+    background-color: var(--color-tone-yellow-soft-bg);
+    color: var(--color-tone-yellow-soft-fg);
+    box-shadow: none;
+  }
+  [data-tone='blue'][data-weight='soft'] {
+    background-color: var(--color-tone-blue-soft-bg);
+    color: var(--color-tone-blue-soft-fg);
+    box-shadow: none;
+  }
+  /* A count that just changed pulses once (J2-B-27); no motion when the person asks for less. */
+  @keyframes count-pulse {
+    0% { box-shadow: 0 0 0 0 var(--color-accent); }
+    100% { box-shadow: 0 0 0 7px transparent; }
+  }
+  [data-pulse='true'] {
+    animation: count-pulse 700ms ease-out 1;
   }
 
   /* Glass: translucent panel with a light border. Used on a few large surfaces. */

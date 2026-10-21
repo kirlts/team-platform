@@ -326,22 +326,24 @@ describe('envíos seguidos (UD-025)', () => {
 
 // ---------------------------------------------------------------- UD-028, UD-029, UD-030: Inicio, la insignia y la prioridad
 /** The fill each priority has, read from a probe element in the page: the reference every badge is compared with. */
-const probeFills = (page) =>
-  page.evaluate(() => {
+const probeFills = (page, weight) =>
+  page.evaluate((w) => {
     const out = {}
     for (const tone of ['red', 'yellow', 'blue']) {
       const probe = document.createElement('span')
       probe.setAttribute('data-tone', tone)
+      if (w) probe.setAttribute('data-weight', w)
       document.body.append(probe)
       out[tone] = getComputedStyle(probe).backgroundColor
       probe.remove()
     }
     return out
-  })
+  }, weight)
 
 /** Replaces GET /api/messages/summary with the given counts, to draw every combination without touching the data. */
 async function withSummary(page, mine, areas = []) {
-  await page.route(/\/api\/messages\/summary$/, (route) => route.fulfill({ json: { mine: { ...mine, total: mine.red + mine.yellow + mine.blue }, areas } }))
+  const items = ['red', 'yellow', 'blue'].flatMap((tone) => Array.from({ length: mine[tone] }, (_, i) => ({ message_id: `${tone}-${i}`, title: `Mensaje ${tone} ${i}`, tone, at: '2026-10-21T10:00:00.000Z' })))
+  await page.route(/\/api\/messages\/summary$/, (route) => route.fulfill({ json: { mine: { ...mine, total: mine.red + mine.yellow + mine.blue }, items, areas } }))
 }
 
 describe('insignia y prioridad (UD-028, UD-029)', () => {
@@ -356,12 +358,14 @@ describe('insignia y prioridad (UD-028, UD-029)', () => {
           await login(page, origin, 'ana')
           await page.getByTestId('attention').waitFor()
           const fills = await probeFills(page)
+          const soft = await probeFills(page, 'soft')
           assert.equal(new Set(Object.values(fills)).size, 3, 'las tres prioridades tienen fondos distintos')
+          assert.equal(new Set(Object.values(soft)).size, 3, 'las tres prioridades suaves tienen fondos distintos')
           const top = mine.red ? 'red' : mine.yellow ? 'yellow' : mine.blue ? 'blue' : null
           const total = mine.red + mine.yellow + mine.blue
           const surfaces = {
             pestaña: page.getByRole('navigation', { name: 'Navegación' }).locator('[data-testid="messages-badge"]'),
-            aviso: page.getByTestId('attention-badge'),
+            aviso: page.getByTestId('attention').locator(`[data-testid="tone-mark"][data-tone="${mine.red ? 'red' : mine.yellow ? 'yellow' : 'blue'}"]`),
           }
           for (const [name, badge] of Object.entries(surfaces)) {
             if (!top) {
@@ -369,14 +373,20 @@ describe('insignia y prioridad (UD-028, UD-029)', () => {
               continue
             }
             assert.equal(await badge.getAttribute('data-tone'), top, `${name}: prioridad ${top} (${scheme}, ${JSON.stringify(mine)})`)
-            assert.equal(await badge.evaluate((el) => getComputedStyle(el).backgroundColor), fills[top], `${name}: el fondo pintado es el de ${top} (${scheme}, ${JSON.stringify(mine)})`)
-            assert.equal((await badge.textContent()).trim(), String(total), `${name}: el número es el total`)
+            assert.equal(await badge.evaluate((el) => getComputedStyle(el).backgroundColor), soft[top], `${name}: el fondo pintado es el suave de ${top} (${scheme}, ${JSON.stringify(mine)})`)
+            if (name === 'pestaña') assert.equal((await badge.textContent()).trim(), String(total), `${name}: el número es el total`)
           }
           const bell = page.getByTestId('bell')
           if (top) {
             assert.equal(await bell.getAttribute('data-tone'), top, `campana: prioridad ${top}`)
             assert.equal(await bell.evaluate((el) => getComputedStyle(el).backgroundColor), fills[top], `campana: el fondo pintado es el de ${top} (${scheme})`)
             assert.match((await bell.textContent()).trim(), new RegExp(`${total}$`))
+            // Una sola fuente de verdad (J2-B-03): la campana es el único relleno saturado de la pantalla; todo lo demás es suave.
+            const weights = await page.evaluate(() => [...document.querySelectorAll('[data-tone]')].map((el) => el.getAttribute('data-weight') ?? 'solid'))
+            assert.equal(weights.filter((w) => w === 'solid').length, 1, `un solo relleno saturado (${scheme}, ${JSON.stringify(mine)})`)
+            // La campana lista exactamente lo que cuenta (J2-A-43).
+            await bell.click()
+            assert.equal(await page.locator('[data-lane="bell-list"] li').count(), total, `la campana lista ${total} (${scheme}, ${JSON.stringify(mine)})`)
           } else {
             // Sin nada que afecte al miembro, la campana sólo puede mostrar las novedades del flujo de eventos (azul), nunca otra prioridad.
             assert.ok([null, 'blue'].includes(await bell.getAttribute('data-tone')), 'campana: sin pendientes sólo puede ser azul')
@@ -402,6 +412,32 @@ describe('insignia y prioridad (UD-028, UD-029)', () => {
         const mark = attention.locator(`[data-testid="tone-mark"][data-tone="${tone}"]`)
         assert.equal((await mark.textContent()).replace(/\s+/g, ''), `${word}${n}`.replace(/\s+/g, ''))
       }
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('un mensaje cerrado pierde el borde y la marca de urgencia y sale de la cuenta y de la campana (J2-A-09, J2-A-43)', async () => {
+    const { page, context } = await session('bruno')
+    try {
+      await page.getByRole('heading', { name: 'Últimos mensajes' }).waitFor()
+      const before = (await (await page.request.get(`${origin}/api/messages/summary`)).json()).mine.total
+      const first = page.locator('article[data-affects-me]').first()
+      await first.waitFor()
+      const title = await first.getByRole('heading').innerText()
+      await first.hover()
+      await first.getByRole('button', { name: 'Cerrar' }).click()
+      await page.locator('article', { hasText: title }).first().getByText('Cerrado', { exact: true }).waitFor()
+      for (const row of await page.locator('article', { hasText: 'Cerrado' }).all()) {
+        assert.equal(await row.getAttribute('data-affects-me'), null, 'un cerrado no afecta a nadie')
+        assert.equal(await row.locator('[data-testid="tone-mark"]').count(), 0, 'sin marca de prioridad')
+        assert.match(await row.evaluate((el) => getComputedStyle(el).boxShadow), /^none$/, 'sin borde de urgencia')
+      }
+      await page.getByTestId('bell').click()
+      await page.waitForTimeout(400)
+      const listed = await page.locator('[data-lane="bell-list"] li').allInnerTexts()
+      assert.ok(listed.length <= before, 'la lista de la campana no crece')
+      assert.ok(!listed.some((t) => t.includes(title)), 'la campana ya no lista el mensaje cerrado')
     } finally {
       await context.close()
     }

@@ -234,7 +234,7 @@ function Attention() {
     <section aria-label={t('home.mine')} data-testid="attention" data-tone-top={tone ?? 'none'} className="glass leaf flex flex-wrap items-center gap-x-5 gap-y-2 px-4 py-2.5">
       <div className="flex items-center gap-2.5">
         <h2>{t('home.mine')}</h2>
-        {tone ? <NotifyBadge counts={counts} data-testid="attention-badge" /> : <span className="text-sm text-muted">{t('home.mineNone')}</span>}
+        {!tone && <span className="text-sm text-muted">{t('home.mineNone')}</span>}
       </div>
       {tone && (
         <ul className="flex flex-wrap items-center gap-1.5">

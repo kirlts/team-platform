@@ -14,18 +14,18 @@
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
 - `main`: c40b15d Traspaso: barra superior e Inicio con espacio en vuelo. Empujado a origin: `c40b15d`.
-- Ramas con commits sin fusionar: ninguna.
+- Ramas con commits sin fusionar: `wt-barra-superior` 1 (hace 7 segundos).
 - Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `barra-superior`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `inicio-respira`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `c40b15d` Traspaso: barra superior e Inicio con espacio en vuelo (hace 13 segundos)
-- `14bd755` Traspaso: VPS actualizado, duración medida de la reconstrucción (hace 5 minutos)
-- `0d608f7` Traspaso: Inicio completo en main y VPS reconstruyéndose (hace 10 minutos)
+- `c40b15d` Traspaso: barra superior e Inicio con espacio en vuelo (hace 37 segundos)
+- `14bd755` Traspaso: VPS actualizado, duración medida de la reconstrucción (hace 6 minutos)
+- `0d608f7` Traspaso: Inicio completo en main y VPS reconstruyéndose (hace 11 minutos)
 - `6c971d1` Merge remote-tracking branch 'origin/main' into wt-inicio-maqueta (hace 15 minutos)
 - `8233b45` Libro: H-1405 cerrado con su causa y su medición; H-1406 y H-1407 cerrados (hace 15 minutos)
 - `e3e2f61` H-1405: la franja de Para mí tiene alto propio desde 768 px y no se parte, para que medirse sus chips no mueva las listas; H-1407: perilla de publicación en Configuración; prueba de peticiones repetidas; servidor de ejemplo con Range (hace 17 minutos)
 - `dddfcca` Traspaso: Inicio fusionado y H-1405 abierto (hace 24 minutos)
 - `8c50075` Merge branch 'wt-inicio-maqueta' (hace 31 minutos)
-Actualizado 2026-10-21 17:21 UTC.
+Actualizado 2026-10-21 17:22 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

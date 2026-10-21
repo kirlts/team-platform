@@ -24,8 +24,6 @@ export const en: Record<MessageKey, Message> = {
 
   'language.es-419': 'Español (Latinoamérica)',
   'language.en': 'English',
-  'language.short.es-419': 'ES',
-  'language.short.en': 'EN',
 
   'nav.label': 'Navigation',
   'nav.open': 'Open navigation',
@@ -204,6 +202,7 @@ export const en: Record<MessageKey, Message> = {
   'area.pick': 'Area: {area}. {template}',
 
   'recipients.label': 'Recipients',
+  'recipients.andMore': 'and {n} more',
   'recipients.to': 'to',
   'recipients.more': 'View the {n} remaining recipients',
   'recipients.addShort': 'Recipient',
@@ -284,7 +283,6 @@ export const en: Record<MessageKey, Message> = {
   'team.profile': 'Profile',
   'team.profileOf': 'Profile of {name}',
   'team.noProfile': 'No profile',
-  'team.languageOf': 'Language: {code}',
   'team.roleMember': 'Member',
   'team.roleEditor': 'Editor',
   'team.roleOf': 'Role of {name}',

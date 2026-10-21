@@ -6,26 +6,26 @@ import { AttachmentStrip } from '@/components/AttachmentStrip'
 import { Avatar } from '@/components/Avatar'
 import { EmptyState } from '@/components/EmptyState'
 import { EditableText } from '@/components/EditableText'
+import { LoadState } from '@/components/LoadState'
 import { useLookups } from '@/components/lookups'
 import { Page } from '@/components/Page'
 import { PageHeader } from '@/components/PageHeader'
 import { Recipients } from '@/components/Recipients'
 import { RecipientsEditor } from '@/components/RecipientsEditor'
 import { ReplyThread } from '@/components/ReplyThread'
-import { StatusBadge } from '@/components/StatusBadge'
+import { STATUS_KEY, StatusBadge } from '@/components/StatusBadge'
 import { TemplateFields } from '@/components/TemplateFields'
 import { UndoButtons } from '@/components/UndoButtons'
 import { Button } from '@/components/ui/button'
-import { useErrorText, useFormat, useT } from '@/i18n'
+import { useFormat, useT } from '@/i18n'
 import { ApiError } from '@/lib/api'
 import { useMe, useMessage, usePatchMessage, useSetClosed, useTemplates } from '@/lib/queries'
 import { parseTemplateFields, remapFields } from '@/lib/template'
-import type { MessageDetail as Detail, MessagePatch, Template } from '@/lib/types'
+import type { MessageDetail as Detail, MessagePatch, MessageStatus, Template } from '@/lib/types'
 import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 
 export function MessageDetail() {
   const t = useT()
-  const errorText = useErrorText()
   const { id } = useParams()
   const [params] = useSearchParams()
   const message = useMessage(id)
@@ -34,7 +34,9 @@ export function MessageDetail() {
   if (message.isPending) {
     return (
       <Page cols={12}>
-        <p className="text-sm text-muted">{t('common.loading')}</p>
+        <div className="glass leaf">
+          <LoadState query={message} rows={2} />
+        </div>
       </Page>
     )
   }
@@ -43,17 +45,23 @@ export function MessageDetail() {
     return (
       <Page cols={12}>
         <PageHeader title={t('nav.messages')} />
-        <EmptyState
-          alert
-          className="glass leaf"
-          action={
-            <Button asChild>
-              <Link to="/messages">{t('detail.backToMessages')}</Link>
-            </Button>
-          }
-        >
-          {missing ? t('detail.missing') : t('common.loadFailed', { reason: errorText(message.error) })}
-        </EmptyState>
+        {missing ? (
+          <EmptyState
+            alert
+            className="glass leaf"
+            action={
+              <Button asChild>
+                <Link to="/messages">{t('detail.backToMessages')}</Link>
+              </Button>
+            }
+          >
+            {t('detail.missing')}
+          </EmptyState>
+        ) : (
+          <div className="glass leaf">
+            <LoadState query={message} />
+          </div>
+        )}
       </Page>
     )
   }
@@ -86,33 +94,41 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
 
   return (
     <Page cols={12}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* The actions of the screen share the top row, on the right, so on a phone nothing sits between the title and what it is about (J2-A-21). */}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <Link to="/messages" className="inline-flex items-center gap-1 text-xs text-muted hover:text-fg">
           <ArrowLeft size={13} aria-hidden /> {t('nav.messages')}
         </Link>
-        {canEdit && <UndoButtons stack={undo} />}
+        <div className="flex items-center gap-2">
+          {canEdit && <UndoButtons stack={undo} compact />}
+          <Button
+            variant="secondary"
+            disabled={setClosed.isPending}
+            onClick={() =>
+              // Closing is an operation of the screen like any edit: it shows in Deshacer, which takes it back (J1-A-28), and it is said under the header (J2-A-18).
+              void undo.run(
+                {
+                  label: closed ? t('detail.reopened') : t('detail.closed'),
+                  redo: () => setClosed.mutateAsync({ id: m.id, closed: !closed }),
+                  undo: () => setClosed.mutateAsync({ id: m.id, closed }),
+                },
+                {
+                  announce: (result) => {
+                    const status = (result as { status?: MessageStatus } | undefined)?.status
+                    return closed ? (status ? t('detail.reopenedAs', { status: t(STATUS_KEY[status]) }) : t('detail.reopened')) : t('detail.closed')
+                  },
+                },
+              )
+            }
+          >
+            {closed ? t('card.reopen') : t('card.close')}
+          </Button>
+        </div>
       </div>
 
-      <header className="grid grid-cols-1 items-start gap-x-4 gap-y-2 md:grid-cols-[minmax(0,1fr)_auto]">
-        <h1 className="min-w-0">
-          <EditableText value={m.title} label={t('detail.title')} canEdit={canEdit} validate={required} onSave={(v) => change(t('proposal.titleEdited'), { title: v }, { title: m.title })} displayClassName="font-sans text-lg font-semibold leading-snug md:text-[1.375rem]" />
-        </h1>
-        <Button
-          variant="secondary"
-          className="max-md:justify-self-start"
-          disabled={setClosed.isPending}
-          onClick={() =>
-            // Closing is an operation of the screen like any edit: it shows in Deshacer, which takes it back (J1-A-28).
-            void undo.run({
-              label: closed ? t('detail.reopened') : t('detail.closed'),
-              redo: () => setClosed.mutateAsync({ id: m.id, closed: !closed }),
-              undo: () => setClosed.mutateAsync({ id: m.id, closed }),
-            })
-          }
-        >
-          {closed ? t('card.reopen') : t('card.close')}
-        </Button>
-      </header>
+      <h1 className="min-w-0">
+        <EditableText value={m.title} label={t('detail.title')} canEdit={canEdit} validate={required} onSave={(v) => change(t('proposal.titleEdited'), { title: v }, { title: m.title })} displayClassName="font-sans text-lg font-semibold leading-snug md:text-[1.375rem]" />
+      </h1>
       {setClosed.isError && (
         <p role="alert" className="text-xs text-danger">
           {setClosed.error.message}
@@ -156,11 +172,12 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
 
           {/* A long text has no cap: the message column scrolls inside, and it is a declared lane. */}
           <div data-lane="message-body" className="scroll-thin flex min-h-0 flex-initial flex-col gap-3 overflow-y-auto px-1.5">
-            <EditableText value={m.body} label={t('detail.body')} multiline prose canEdit={canEdit} validate={required} onSave={(v) => change(t('proposal.bodyEdited'), { body: v }, { body: m.body })} displayClassName="leading-relaxed" />
+            <EditableText value={m.body} label={t('detail.body')} multiline prose canEdit={canEdit} validate={required} onSave={(v) => change(t('proposal.bodyEdited'), { body: v }, { body: m.body })} displayClassName="text-read" />
             <TemplateFields
               template={template}
               values={m.fields}
               canEdit={canEdit}
+              closed={closed}
               onSave={(name, value) => change(t('proposal.fieldEdited'), { fields: { ...(m.fields ?? {}), [name]: value } }, { fields: m.fields ?? {} })}
             />
           </div>

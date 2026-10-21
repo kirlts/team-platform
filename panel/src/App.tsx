@@ -2,6 +2,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { BrowserRouter, Outlet, Route, Routes } from 'react-router'
 import { Atmosphere } from '@/components/Atmosphere'
+import { AlertTriangle, RotateCw } from '@/components/icons'
+import { Button } from '@/components/ui/button'
 import { Header } from '@/components/Header'
 import { I18nProvider, detectLanguage, isLanguage, useT } from '@/i18n'
 import { Sidebar } from '@/components/Sidebar'
@@ -90,8 +92,12 @@ function Routed({ me }: { me: ReturnType<typeof useMe> }) {
   if (me.isError) {
     if (me.error instanceof ApiError && me.error.status === 401) return <Login />
     return (
-      <div role="alert" className="flex min-h-dvh items-center justify-center px-4 text-center text-sm text-danger">
-        {t('app.noServer')}
+      <div role="alert" className="flex min-h-dvh flex-col items-center justify-center gap-3 px-4 text-center text-sm">
+        <AlertTriangle size={22} aria-hidden className="text-danger" />
+        <p className="text-danger">{t('app.noServer')}</p>
+        <Button onClick={() => void me.refetch()}>
+          <RotateCw size={14} aria-hidden /> {t('common.retry')}
+        </Button>
       </div>
     )
   }

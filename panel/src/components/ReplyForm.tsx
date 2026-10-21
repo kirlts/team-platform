@@ -72,12 +72,13 @@ export function ReplyForm({ messageId, onSent, autoFocus }: { messageId: string;
           />
         )}
         <MediaDraftList draft={draft} busy={reply.isPending} />
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="flex items-center gap-0.5">
+        {/* The media buttons belong to the text they attach to: inside its frame, so the line below carries only the type and Responder (J2-A-22). */}
+        <div className="flex items-center gap-0.5 px-1.5 pb-1">
           <ClipMenu draft={draft} disabled={reply.isPending} size="icon-sm" />
           <CaptureButtons draft={draft} disabled={reply.isPending} size="icon-sm" />
-        </span>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Segmented label={t('reply.kind.label')} size="sm" value={kind} onChange={setKind} options={KINDS.map((value) => ({ value, label: t(KIND_KEY[value]) }))} />
         <Button type="submit" variant="primary" disabled={!body.trim() || reply.isPending || !!draft.recording}>
           {t('reply.send')}

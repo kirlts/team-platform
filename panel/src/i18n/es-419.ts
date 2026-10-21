@@ -24,8 +24,6 @@ export const es419 = {
 
   'language.es-419': 'Español (Latinoamérica)',
   'language.en': 'English',
-  'language.short.es-419': 'ES',
-  'language.short.en': 'EN',
 
   'nav.label': 'Navegación',
   'nav.open': 'Abrir navegación',
@@ -204,6 +202,7 @@ export const es419 = {
   'area.pick': 'Área: {area}. {template}',
 
   'recipients.label': 'Destinatarios',
+  'recipients.andMore': 'y {n} más',
   'recipients.to': 'para',
   'recipients.more': 'Ver los {n} destinatarios restantes',
   'recipients.addShort': 'Destinatario',
@@ -284,7 +283,6 @@ export const es419 = {
   'team.profile': 'Perfil',
   'team.profileOf': 'Perfil de {name}',
   'team.noProfile': 'Sin perfil',
-  'team.languageOf': 'Idioma: {code}',
   'team.roleMember': 'Miembro',
   'team.roleEditor': 'Editor',
   'team.roleOf': 'Rol de {name}',

@@ -4,21 +4,20 @@ import { Avatar } from '@/components/Avatar'
 import { EditableText } from '@/components/EditableText'
 import { FitList } from '@/components/FitList'
 import { FormDialog } from '@/components/FormDialog'
+import { LoadState } from '@/components/LoadState'
 import { Page } from '@/components/Page'
 import { PageHeader } from '@/components/PageHeader'
 import { UndoButtons } from '@/components/UndoButtons'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { useErrorText, useT, type MessageKey } from '@/i18n'
+import { useErrorText, useT } from '@/i18n'
 import { useCreateMember, useMe, useMembers, useSaveMember } from '@/lib/queries'
-import type { Language, Member, Role } from '@/lib/types'
+import type { Member, Role } from '@/lib/types'
 import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 
 /** Maximum length of the profile the API accepts (UD-023). */
 const PROFILE_MAX = 4000
-const LANGUAGE_KEY: Record<Language, MessageKey> = { 'es-419': 'language.es-419', en: 'language.en' }
-const SHORT_LANGUAGE_KEY: Record<Language, MessageKey> = { 'es-419': 'language.short.es-419', en: 'language.short.en' }
 const COLUMNS = 'md:grid-cols-[17rem_7rem_minmax(0,1fr)_7rem]'
 
 /** An address that may only break after a separator, never in the middle of a word (J1-A-39). */
@@ -66,7 +65,7 @@ export function Team() {
             </div>
           }
           renderRow={(m) => <MemberRow member={m} self={m.id === me?.id} viewerIsEditor={editor} />}
-          empty={<p className="px-3 py-8 text-center text-sm text-muted">{t('common.loading')}</p>}
+          empty={<LoadState query={members} />}
         />
         <FormDialog
           open={adding}
@@ -95,15 +94,15 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
   const canEditPeople = viewerIsEditor
 
   /** Each save is an operation undone with the previous value. */
-  const change = <K extends 'profile' | 'role' | 'name' | 'email' | 'active'>(key: K, next: Member[K]) => {
+  const change = <K extends 'profile' | 'role' | 'name' | 'email' | 'active'>(key: K, next: Member[K], announce?: string) => {
     const prev = member[key]
     const apply = (value: Member[K]) => save.mutateAsync({ id: member.id, self: self && key === 'profile', patch: { [key]: value } })
-    return undo.run({ label: t('team.edited'), redo: () => apply(next), undo: () => apply(prev) })
+    return undo.run({ label: t('team.edited'), redo: () => apply(next), undo: () => apply(prev) }, announce ? { announce } : undefined)
   }
   const required = (v: string) => (v ? null : t('common.required'))
   /** Deactivating or reactivating is undone with the opposite gesture; the API refuses if it is oneself or the last Editor. */
   const toggleActive = () =>
-    change('active', !member.active).then(
+    change('active', !member.active, member.active ? t('team.deactivatedDone', { name: member.name }) : t('team.reactivatedDone', { name: member.name })).then(
       () => setProblem(null),
       (err) => setProblem(errorText(err)),
     )
@@ -138,16 +137,13 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
         )}
         {/* Active is the normal state and has no tag: only the exception is marked (J1-A-41). */}
         {!member.active && <Badge tone="outline">{t('team.inactive')}</Badge>}
-        <span className="text-xs text-muted" title={t(LANGUAGE_KEY[member.language])}>
-          {t('team.languageOf', { code: t(SHORT_LANGUAGE_KEY[member.language]) })}
-        </span>
       </div>
-      <div className="min-w-0 text-xs">
+      <div className="min-w-0 text-sm">
         <EditableText value={member.profile ?? ''} label={t('team.profileOf', { name: member.name })} multiline prose canEdit={self} placeholder={t('team.noProfile')} validate={(v) => (v.length > PROFILE_MAX ? t('form.maxLength', { n: PROFILE_MAX }) : null)} onSave={(v) => change('profile', v)} />
       </div>
       <div className="flex min-w-0 flex-col items-end gap-1">
         {canEditPeople && !self && (
-          <Button size="sm" onClick={() => void toggleActive()} aria-label={member.active ? t('team.deactivateOf', { name: member.name }) : t('team.reactivateOf', { name: member.name })}>
+          <Button size="sm" variant="ghost" onClick={() => void toggleActive()} aria-label={member.active ? t('team.deactivateOf', { name: member.name }) : t('team.reactivateOf', { name: member.name })}>
             {member.active ? t('team.deactivate') : t('team.reactivate')}
           </Button>
         )}

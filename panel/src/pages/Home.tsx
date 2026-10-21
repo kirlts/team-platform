@@ -8,6 +8,7 @@ import { NotifyBadge, ToneMark } from '@/components/NotifyBadge'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog'
 import { FitList } from '@/components/FitList'
+import { LoadState } from '@/components/LoadState'
 import { MessageCard } from '@/components/MessageCard'
 import { Page } from '@/components/Page'
 import { NoticeHost } from '@/components/NoticeHost'
@@ -167,9 +168,9 @@ export function Home() {
       <section aria-label={t('home.new')} className="flex flex-col gap-2">
         <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
           <h2>{t('home.new')}</h2>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">
+          <p className="text-sm tabular-nums text-muted">
             <time dateTime={now.toISOString()}>
-              {format.longDate(now)} <span className="text-accent-deep">{format.clock(now)}</span>
+              {format.longDate(now)} {format.clock(now)}
             </time>
           </p>
         </div>
@@ -323,7 +324,7 @@ function Feed({ kind, meId }: { kind: 'messages' | 'replies'; meId: string }) {
         rows={rows}
         rowKey={(m) => m.id}
         renderRow={(m) => <MessageCard message={m} variant={messagesFeed ? 'message' : 'reply'} />}
-        empty={<p className="px-3 py-6 text-center text-sm text-muted">{feed.isPending ? t('common.loading') : messagesFeed ? t('home.noMessages') : t('home.noReplies')}</p>}
+        empty={feed.isPending || feed.isError ? <LoadState query={feed} rows={2} /> : <p className="px-3 py-6 text-center text-sm text-muted">{messagesFeed ? t('home.noMessages') : t('home.noReplies')}</p>}
       />
     </section>
   )

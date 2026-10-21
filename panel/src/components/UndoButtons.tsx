@@ -4,7 +4,7 @@ import { useT } from '@/i18n'
 import type { UndoStack } from '@/lib/undo'
 
 /**
- * «Deshacer» and «Rehacer» of the screen: absent until there is something to undo or redo, and then each one off when it has nothing left; the count goes in the
+ * «Deshacer» and «Rehacer» of the screen, quieter than the actions of the screen (J2-A-18): absent until there is something to undo or redo, and then each one off when it has nothing left; the count goes in the
  * tooltip. `compact` shows only the icons, each with its accessible name, for headers that are short of room.
  */
 export function UndoButtons({ stack, compact = false }: { stack: UndoStack; compact?: boolean }) {
@@ -15,10 +15,10 @@ export function UndoButtons({ stack, compact = false }: { stack: UndoStack; comp
   if (stack.undoCount === 0 && stack.redoCount === 0 && !stack.busy) return null
   return (
     <div role="group" aria-label={t('undo.group')} className="flex items-center gap-1.5">
-      <Button size={compact ? 'icon-sm' : 'sm'} variant="secondary" disabled={stack.undoCount === 0 || stack.busy} title={stack.undoLabel ? `${undoTitle}: ${stack.undoLabel}` : undoTitle} aria-label={t('undo.undo')} onClick={() => void stack.undo()}>
+      <Button size={compact ? 'icon-sm' : 'sm'} variant="ghost" disabled={stack.undoCount === 0 || stack.busy} title={stack.undoLabel ? `${undoTitle}: ${stack.undoLabel}` : undoTitle} aria-label={t('undo.undo')} onClick={() => void stack.undo()}>
         <Undo size={14} aria-hidden /> {!compact && t('undo.undo')}
       </Button>
-      <Button size={compact ? 'icon-sm' : 'sm'} variant="secondary" disabled={stack.redoCount === 0 || stack.busy} title={stack.redoLabel ? `${redoTitle}: ${stack.redoLabel}` : redoTitle} aria-label={t('undo.redo')} onClick={() => void stack.redo()}>
+      <Button size={compact ? 'icon-sm' : 'sm'} variant="ghost" disabled={stack.redoCount === 0 || stack.busy} title={stack.redoLabel ? `${redoTitle}: ${stack.redoLabel}` : redoTitle} aria-label={t('undo.redo')} onClick={() => void stack.redo()}>
         <Redo size={14} aria-hidden /> {!compact && t('undo.redo')}
       </Button>
     </div>

@@ -236,7 +236,10 @@ describe('equipo y cuenta', () => {
       await showRow(page, 'Marta Nueva')
       await page.getByRole('button', { name: 'Desactivar a Marta Nueva' }).click()
       await page.getByText('Inactivo').first().waitFor()
-      await page.getByRole('button', { name: 'Deshacer' }).click()
+      // J2-A-18: el cambio se dice bajo la barra y trae su Deshacer.
+      const notice = page.getByRole('status').filter({ hasText: 'Marta Nueva desactivado' })
+      await notice.waitFor()
+      await notice.getByRole('button', { name: 'Deshacer' }).click()
       await page.getByText('Inactivo').first().waitFor({ state: 'detached' })
     } finally {
       await context.close()
@@ -492,7 +495,7 @@ describe('estados, teclado y filas', () => {
     }
   })
 
-  test('el estado de cada fila cae en la misma columna y las acciones aparecen al pasar el cursor (J1-A-15, J1-A-16)', async () => {
+  test('el estado de cada fila cae en la misma columna y las acciones están siempre a la vista (J1-A-15, J1-A-16, J2-A-11)', async () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/messages`)
@@ -505,15 +508,12 @@ describe('estados, teclado y filas', () => {
       const row = page.locator('main article').first()
       const reply = row.getByRole('link', { name: 'Responder' })
       const opacity = () => reply.evaluate((el) => getComputedStyle(el.parentElement).opacity)
-      assert.equal(await opacity(), '0', 'las acciones de la fila no se leen once veces: aparecen al pasar el cursor')
-      await row.hover()
-      await page.waitForTimeout(300)
-      assert.equal(await opacity(), '1')
-      // Con el teclado también: el foco dentro de la fila las muestra.
+      // J2-A-11: una sola regla para toda fila y toda pantalla: las acciones se dibujan siempre, sin cursor ni foco, y en reposo no pesan.
       await page.mouse.move(0, 0)
-      await reply.focus()
-      await page.waitForTimeout(300)
-      assert.equal(await opacity(), '1')
+      assert.equal(await opacity(), '1', 'las acciones de la fila sólo existían al pasar el cursor')
+      assert.ok(await reply.isVisible())
+      assert.ok(await row.getByRole('button', { name: 'Cerrar', exact: true }).isVisible())
+      assert.equal(await page.locator('main article').first().evaluate((el) => getComputedStyle(el.querySelector('.btn-ghost')).backgroundColor), 'rgba(0, 0, 0, 0)', 'en reposo la acción no es un botón pesado')
     } finally {
       await context.close()
     }
@@ -542,7 +542,10 @@ describe('estados, teclado y filas', () => {
       await button.click()
       await page.getByRole('button', { name: 'Reabrir', exact: true }).waitFor()
       await page.getByText('Cerrado').first().waitFor()
-      await page.getByRole('button', { name: 'Deshacer' }).click()
+      // J2-A-18: cerrar se confirma bajo la barra con su Deshacer, junto a la acción.
+      const notice = page.getByRole('status').filter({ hasText: 'Mensaje cerrado' })
+      await notice.waitFor()
+      await notice.getByRole('button', { name: 'Deshacer' }).click()
       await page.getByRole('button', { name: 'Cerrar', exact: true }).waitFor()
       assert.ok(Math.abs((await page.getByRole('button', { name: 'Cerrar', exact: true }).boundingBox()).x - before.x) <= 1)
     } finally {

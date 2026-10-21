@@ -11,8 +11,12 @@ export interface UndoOp {
 }
 
 export interface UndoStack {
-  /** Runs `redo` (the change) and, if it succeeds, records the operation; a new operation clears what could be redone. */
-  run: (op: UndoOp) => Promise<void>
+  /**
+   * Runs `redo` (the change) and, if it succeeds, records the operation; a new operation clears what could be redone.
+   * With `announce` the strip under the header says what happened and carries Deshacer, so a change that is not
+   * written anywhere else on the screen (closing, deactivating, replacing) is confirmed where the person looks (J2-A-18).
+   */
+  run: (op: UndoOp, options?: { announce?: string | ((result: unknown) => string) }) => Promise<void>
   undo: () => Promise<void>
   redo: () => Promise<void>
   undoCount: number
@@ -35,9 +39,10 @@ export function createUndoCore() {
     past,
     future,
     async run(op: UndoOp) {
-      await op.redo()
+      const result = await op.redo()
       past.push(op)
       future.length = 0
+      return result
     },
     async undo() {
       const op = past[past.length - 1]
@@ -78,9 +83,16 @@ export function useUndoStack(): UndoStack {
     [bump],
   )
 
+  const latest = useRef<UndoStack | null>(null)
+
   const stack = useMemo<UndoStack>(
     () => ({
-      run: (op) => guarded(() => core.run(op)),
+      run: (op, options) =>
+        guarded(async () => {
+          const result = await core.run(op)
+          const text = typeof options?.announce === 'function' ? options.announce(result) : options?.announce
+          if (text) notices.show({ text, action: { label: t('undo.undo'), run: () => latest.current?.undo() } })
+        }),
       // Said after the fact, in words, so a person who undoes knows what came back (J1-B-16).
       undo: () =>
         guarded(async () => {
@@ -105,7 +117,6 @@ export function useUndoStack(): UndoStack {
     [core, guarded, busy, core.past.length, core.future.length, notices, t],
   )
 
-  const latest = useRef(stack)
   latest.current = stack
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -117,8 +128,9 @@ export function useUndoStack(): UndoStack {
       const t = e.target as HTMLElement | null
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
       e.preventDefault()
-      if (latest.current.busy) return
-      void (wantsRedo ? latest.current.redo() : latest.current.undo())
+      const current = latest.current
+      if (!current || current.busy) return
+      void (wantsRedo ? current.redo() : current.undo())
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)

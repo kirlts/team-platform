@@ -9,6 +9,8 @@ import { PageHeader } from '@/components/PageHeader'
 import { NewTemplateDialog, TemplateContentDialog } from '@/components/TemplateEditor'
 import { UndoButtons } from '@/components/UndoButtons'
 import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/EmptyState'
+import { LoadState } from '@/components/LoadState'
 import { useT } from '@/i18n'
 import { useAreas, useDeleteTemplate, useMe, useRestoreTemplate, useSaveArea, useSaveTemplate, useTemplates } from '@/lib/queries'
 import { parseTemplateFields } from '@/lib/template'
@@ -60,7 +62,7 @@ export function Areas() {
             rowKey={(a) => a.id}
             label={t('nav.areas')}
             renderRow={(a) => <AreaRow area={a} selected={a.id === selected?.id} onSelect={() => navigate(`/areas/${a.id}`)} />}
-            empty={<p className="px-3 py-8 text-center text-sm text-muted">{areas.isPending ? t('common.loading') : t('areas.none')}</p>}
+            empty={areas.isPending || areas.isError ? <LoadState query={areas} /> : <EmptyState>{t('areas.none')}</EmptyState>}
           />
           {selected ? <Templates area={selected} /> : <div />}
         </div>
@@ -107,7 +109,7 @@ function AreaRow({ area, selected, onSelect }: { area: Area; selected: boolean; 
         onClick={onSelect}
         className="mt-0.5 rounded-sm p-0.5 text-muted hover:bg-hover"
       >
-        <ChevronRight size={16} aria-hidden className={cn('transition-transform', selected && 'text-accent')} />
+        <ChevronRight size={16} aria-hidden className={cn('transition-transform', selected && 'rotate-90 text-accent')} />
       </button>
       <div className="flex min-w-0 flex-1 basis-40 flex-col gap-0.5">
         <EditableText value={area.title} label={t('areas.fieldTitle')} validate={nameRule(t)} onSave={(v) => change('title', v)} displayClassName="font-semibold" />
@@ -117,17 +119,40 @@ function AreaRow({ area, selected, onSelect }: { area: Area; selected: boolean; 
         </div>
       </div>
       {/* Fixed-width column: what is pending lines up row by row. A count is text; the colors are for what changes state (J1-A-34). */}
-      <span className={cn('flex shrink-0 justify-end text-xs tabular-nums max-sm:ml-9 sm:w-24', pending > 0 ? 'font-semibold text-fg' : 'text-muted')}>{t('areas.pending', { n: pending })}</span>
+      <span className="flex shrink-0 justify-end text-xs tabular-nums text-muted max-sm:ml-9 sm:w-24">{t('areas.pending', { n: pending })}</span>
     </section>
   )
 }
 
+/** A row of the templates list: a template, or the place where one was just deleted, with Deshacer in it (J2-A-23). */
+type TemplateItem = { kind: 'template'; template: Template } | { kind: 'removed'; template: Template }
+
 function Templates({ area }: { area: Area }) {
   const t = useT()
+  const undo = useUndo()
   const templates = useTemplates(area.id)
   const save = useSaveTemplate(area.id)
+  const del = useDeleteTemplate(area.id)
+  const restore = useRestoreTemplate()
   const [creating, setCreating] = useState(false)
-  const rows = useMemo(() => (templates.data ?? []).filter((x) => !x.deleted_at), [templates.data])
+  /** The template just deleted, where it was, and the size of the history after deleting it: it stays while nothing else was done. */
+  const [removed, setRemoved] = useState<{ template: Template; index: number; mark: number } | null>(null)
+  const live = useMemo(() => (templates.data ?? []).filter((x) => !x.deleted_at), [templates.data])
+  const showRemoved = removed && removed.template.area_id === area.id && undo.undoCount === removed.mark
+  const rows = useMemo<TemplateItem[]>(() => {
+    const items: TemplateItem[] = live.map((template) => ({ kind: 'template', template }))
+    if (showRemoved) items.splice(Math.min(removed.index, items.length), 0, { kind: 'removed', template: removed.template })
+    return items
+  }, [live, removed, showRemoved])
+
+  // Deleting is reversible: it is done and Deshacer restores it (POST /templates/:id/restore). The row says so where it was.
+  const remove = (template: Template) => {
+    const index = live.findIndex((x) => x.id === template.id)
+    const mark = undo.undoCount + 1
+    return undo
+      .run({ label: t('areas.deleted'), redo: () => del.mutateAsync(template.id), undo: () => restore.mutateAsync(template.id) })
+      .then(() => setRemoved({ template, index, mark }))
+  }
 
   return (
     <section aria-label={t('areas.templates')} className="flex min-h-0 min-w-0 flex-col gap-2">
@@ -142,21 +167,45 @@ function Templates({ area }: { area: Area }) {
       </div>
       <FitList
         rows={rows}
-        rowKey={(x) => x.id}
-        renderRow={(x) => <TemplateRow template={x} areaId={area.id} />}
-        empty={<p className="px-3 py-6 text-center text-sm text-muted">{templates.isPending ? t('common.loading') : t('areas.noTemplates')}</p>}
+        rowKey={(x) => `${x.kind}-${x.template.id}`}
+        renderRow={(x) => (x.kind === 'removed' ? <RemovedRow template={x.template} onUndo={() => void undo.undo()} /> : <TemplateRow template={x.template} areaId={area.id} onRemove={() => void remove(x.template)} />)}
+        empty={
+          templates.isPending || templates.isError ? (
+            <LoadState query={templates} />
+          ) : (
+            <EmptyState
+              action={
+                <Button size="sm" onClick={() => setCreating(true)}>
+                  <Plus size={14} aria-hidden /> {t('areas.addTemplate')}
+                </Button>
+              }
+            >
+              {t('areas.noTemplates')}
+            </EmptyState>
+          )
+        }
       />
       <NewTemplateDialog open={creating} onOpenChange={setCreating} onCreate={(v) => save.mutateAsync(v)} />
     </section>
   )
 }
 
-function TemplateRow({ template, areaId }: { template: Template; areaId: string }) {
+function RemovedRow({ template, onUndo }: { template: Template; onUndo: () => void }) {
+  const t = useT()
+  return (
+    <article role="status" className="flex items-center justify-between gap-3 border-b border-line bg-hover px-4 py-3 last:border-b-0">
+      <span className="min-w-0 break-words text-muted">{t('areas.deletedRow', { name: template.name })}</span>
+      <Button size="sm" variant="secondary" onClick={onUndo}>
+        {t('undo.undo')}
+      </Button>
+    </article>
+  )
+}
+
+function TemplateRow({ template, areaId, onRemove }: { template: Template; areaId: string; onRemove: () => void }) {
   const t = useT()
   const undo = useUndo()
   const save = useSaveTemplate(areaId)
-  const del = useDeleteTemplate(areaId)
-  const restore = useRestoreTemplate()
   const [showContent, setShowContent] = useState(false)
   const fields = useMemo(() => parseTemplateFields(template.body_markdown), [template.body_markdown])
 
@@ -164,9 +213,6 @@ function TemplateRow({ template, areaId }: { template: Template; areaId: string 
     const prev = template[field]
     return undo.run({ label: t('areas.edited'), redo: () => save.mutateAsync({ id: template.id, [field]: next }), undo: () => save.mutateAsync({ id: template.id, [field]: prev }) })
   }
-
-  // Deleting is reversible: it is done and Deshacer restores it (POST /templates/:id/restore).
-  const remove = () => undo.run({ label: t('areas.deleted'), redo: () => del.mutateAsync(template.id), undo: () => restore.mutateAsync(template.id) })
 
   return (
     <article className="flex items-start gap-2 border-b border-line px-4 py-3 last:border-b-0">
@@ -177,7 +223,7 @@ function TemplateRow({ template, areaId }: { template: Template; areaId: string 
           {t('areas.content', { n: fields.length })}
         </button>
       </div>
-      <Button size="sm" variant="ghost" className="-mr-2 text-muted" aria-label={t('areas.delete', { name: template.name })} onClick={() => void remove()}>
+      <Button size="sm" variant="ghost" className="-mr-2 text-muted" aria-label={t('areas.delete', { name: template.name })} onClick={onRemove}>
         <Trash2 size={14} aria-hidden /> {t('areas.deleteShort')}
       </Button>
       <TemplateContentDialog

@@ -7,8 +7,8 @@ import { cn } from '@/lib/utils'
 /** Rows drawn at once, only while measuring which of them fit. */
 const MEASURE_ROWS = 60
 
-/** Height of the pager strip: 28 px buttons, 8 px of padding above and below and a 1 px rule. Measured again once it is drawn. */
-const PAGER_HEIGHT = 45
+/** Height of the pager strip: 32 px buttons, 8 px of padding above and below and a 1 px rule. Measured again once it is drawn. */
+const PAGER_HEIGHT = 49
 
 function useDesktop(): boolean {
   const [desktop, setDesktop] = useState(() => window.matchMedia('(min-width: 768px)').matches)
@@ -150,7 +150,7 @@ export function FitList<T>({
               ref={(el) => {
                 if (el) pagerHeight.current = el.getBoundingClientRect().height
               }}
-              className="flex shrink-0 items-center justify-between gap-3 border-t border-line px-4 py-2 text-xs text-muted"
+              className="flex shrink-0 items-center justify-between gap-3 border-t border-line px-4 py-2 text-sm text-muted"
             >
               <span aria-live="polite" className="tabular-nums">
                 {t('pager.range', { from: range.from, to: range.to, total: range.total })}
@@ -161,18 +161,18 @@ export function FitList<T>({
                   aria-label={t('pager.previous')}
                   disabled={history.length === 0}
                   onClick={() => go(history[history.length - 1] ?? 0, true)}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-edge bg-glass hover:border-accent disabled:opacity-40"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-edge bg-glass hover:border-accent disabled:opacity-40"
                 >
-                  <ChevronLeft size={14} aria-hidden />
+                  <ChevronLeft size={16} aria-hidden />
                 </button>
                 <button
                   type="button"
                   aria-label={t('pager.next')}
                   disabled={first + (count ?? 0) >= rows.length}
                   onClick={() => go(first + (count ?? 0), false)}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-edge bg-glass hover:border-accent disabled:opacity-40"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-edge bg-glass hover:border-accent disabled:opacity-40"
                 >
-                  <ChevronRight size={14} aria-hidden />
+                  <ChevronRight size={16} aria-hidden />
                 </button>
               </span>
             </div>

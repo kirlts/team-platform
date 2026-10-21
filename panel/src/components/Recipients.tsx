@@ -1,4 +1,3 @@
-import { ArrowRight } from '@/components/icons'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useT } from '@/i18n'
 import { cn } from '@/lib/utils'
@@ -11,9 +10,10 @@ const chip = 'inline-flex min-h-5 max-w-full items-center gap-1 rounded-full py-
  * Recipients of a message as chips. With `max`, the first ones show and the rest fold into a «+N»
  * chip that opens the full list on top of the page, without growing the row (UD-017: what is not
  * needed now folds, with its count). Without `max` every chip shows and they wrap onto as many
- * rows as they need (UD-016: no ellipsis). `children` are extra items in the same row.
+ * rows as they need (UD-016: no ellipsis). `children` are extra items in the same row. `plain` leaves out the
+ * avatars: a row of a list already has the sender's, and a sphere for each recipient doubles the marks (J2-A-12).
  */
-export function Recipients({ ids, max, className, children }: { ids: string[]; max?: number; className?: string; children?: React.ReactNode }) {
+export function Recipients({ ids, max, className, children, plain = false }: { ids: string[]; max?: number; className?: string; children?: React.ReactNode; plain?: boolean }) {
   const t = useT()
   const { memberName } = useLookups()
   const named = ids.filter((id) => memberName(id))
@@ -22,13 +22,11 @@ export function Recipients({ ids, max, className, children }: { ids: string[]; m
   return (
     <ul aria-label={t('recipients.label')} className={cn('flex flex-wrap items-center gap-1.5', className)}>
       {named.length > 0 && (
-        <li className="inline-flex h-5 items-center text-faint">
-          <ArrowRight size={12} aria-label={t('recipients.to')} />
-        </li>
+        <li className="inline-flex h-5 items-center">{t('recipients.to')}</li>
       )}
       {shown.map((id) => (
-        <li key={id} data-repeat-ok="person" className={chip}>
-          <Avatar name={memberName(id)} size={16} />
+        <li key={id} data-repeat-ok="person" className={cn(chip, plain && 'pl-0')}>
+          {!plain && <Avatar name={memberName(id)} size={16} />}
           {memberName(id)}
         </li>
       ))}
@@ -37,7 +35,7 @@ export function Recipients({ ids, max, className, children }: { ids: string[]; m
           <Popover>
             <PopoverTrigger asChild>
               <button type="button" aria-label={t('recipients.more', { n: hidden.length })} className={cn(chip, 'relative z-10 pl-2 font-semibold hover:bg-accent-soft/70')}>
-                +{hidden.length}
+                {t('recipients.andMore', { n: hidden.length })}
               </button>
             </PopoverTrigger>
             <PopoverContent align="start" className="w-64 p-2">

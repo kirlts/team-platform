@@ -66,7 +66,7 @@ const attachmentSummary = {
 
 export const reply = {
   type: 'object',
-  properties: { id, message_id: id, author_id: id, body: { type: 'string' }, kind: { type: 'string', enum: ['answer', 'fix', 'clarification'] }, created_at: { type: 'string' } }
+  properties: { id, message_id: id, author_id: id, body: { type: 'string' }, kind: { type: 'string', enum: ['answer', 'fix', 'clarification'] }, attachment_kinds: { type: 'array', items: { type: 'string' } }, created_at: { type: 'string' } }
 }
 
 export const messageCard = {
@@ -78,9 +78,10 @@ export const messageCard = {
     status: { type: 'string', enum: ['open', 'answered', 'closed'] },
     assignee_ids: { type: 'array', items: id },
     attachments: { type: 'array', items: attachmentSummary },
+    attachment_kinds: { type: 'array', items: { type: 'string' } },
     reply_count: intVar,
     last_reply: { ...reply, nullable: true },
-    created_at: { type: 'string' }, closed_at: nullableText
+    created_at: { type: 'string' }, updated_at: { type: 'string' }, closed_at: nullableText
   }
 }
 
@@ -99,6 +100,15 @@ const proposalMessage = {
   }
 }
 
+/** The proposal as the API returns it (§7.5): ids as text. Null while the input has none. */
+export const proposalView = {
+  type: ['object', 'null'],
+  properties: {
+    messages: { type: 'array', items: proposalMessage },
+    discarded: { type: 'array', items: { type: 'object', properties: { unit_ids: { type: 'array', items: id }, reason: { type: 'string' } } } }
+  }
+}
+
 export const inputView = {
   type: 'object',
   properties: {
@@ -113,23 +123,17 @@ export const inputView = {
       properties: { id, status: { type: 'string' }, attempts: intVar, percent: { type: ['integer', 'null'] }, phrase: nullableText, last_error: nullableText }
     },
     units: { type: 'array', items: { type: 'object', properties: { id, text: { type: 'string' } } } },
-    proposal: {
-      type: ['object', 'null'],
-      properties: {
-        messages: { type: 'array', items: proposalMessage },
-        discarded: { type: 'array', items: { type: 'object', properties: { unit_ids: { type: 'array', items: id }, reason: { type: 'string' } } } }
-      }
-    },
+    proposal: proposalView,
     message_ids: { type: 'array', items: id }
   }
 }
 
 /**
- * Propuesta editada que el emisor publica: cada mensaje con su área y plantilla (la plantilla puede ir null y
+ * Propuesta (§7.5) que el emisor guarda como borrador (PATCH /inputs/:id/proposal) o publica: cada mensaje con su área y plantilla (la plantilla puede ir null y
  * entonces rige la primera vigente del área). `discarded` y `unit_ids` los trae la propuesta tal cual y se
  * aceptan sin usarse: la cobertura ya la verificó el analizador.
  */
-export const publishBody = {
+export const proposalBody = {
   type: 'object',
   additionalProperties: false,
   required: ['messages'],
@@ -157,6 +161,24 @@ export const publishBody = {
       type: 'array',
       items: { type: 'object', additionalProperties: false, properties: { unit_ids: { type: 'array', items: { type: 'integer' } }, reason: { type: 'string' } } }
     }
+  }
+}
+
+/** Publishing without a body publishes the saved draft (UD-017), so `messages` is not required here. */
+export const publishBody = (() => { const { required: _required, ...rest } = proposalBody; return rest })()
+
+/** In-place edit of a published message (UD-017): a partial update; unknown fields are 400. */
+export const messagePatchBody = {
+  type: 'object',
+  additionalProperties: false,
+  minProperties: 1,
+  properties: {
+    title: { type: 'string' },
+    body: { type: 'string' },
+    fields: { type: 'object', additionalProperties: { type: ['string', 'null'] } },
+    assignee_ids: { type: 'array', items: idIn },
+    area_id: idIn,
+    template_id: idIn
   }
 }
 

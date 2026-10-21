@@ -1,12 +1,12 @@
 // Rutas de inputs (MASTER-SPEC §7.1): crear (multipart, idempotente por hash), listar los propios, consultar,
 // publicar, cancelar y, para el editor, reprocesar.
 
-import { cancelInput, getInputView, listInputs, reprocessInput, submitInput } from '../../domain/inputs.js'
+import { cancelInput, getInputView, listInputs, proposalView as presentProposal, reprocessInput, submitInput } from '../../domain/inputs.js'
 import { getMessage } from '../../domain/messages.js'
-import { publishProposal } from '../../domain/proposals.js'
+import { publishProposal, saveProposalDraft } from '../../domain/proposals.js'
 import { withSpan } from '../../domain/tracing.js'
 import { pageEnvelope, pageParams, pageQuerySchema, pageResult } from '../pagination.js'
-import { idParams, inputView, messageDetail, publishBody } from '../schemas.js'
+import { idParams, inputView, messageDetail, proposalBody, proposalView, publishBody } from '../schemas.js'
 import { readInputUpload } from '../upload.js'
 
 const createdSchema = {
@@ -54,10 +54,26 @@ export function registerInputRoutes (app, ctx) {
     schema: { summary: 'Un input propio, con su avance y su propuesta', params: idParams(), response: { 200: inputView } }
   }, async (request) => getInputView({ db, queue, events }, request.params.id, request.member.id))
 
-  app.post('/inputs/:id/publish', {
+  app.patch('/inputs/:id/proposal', {
     onRequest: [requireRole('member')],
     schema: {
-      summary: 'Publicar la propuesta (editada o no) como mensajes',
+      summary: 'Guardar la propuesta editada como borrador (sólo su emisor, mientras esté propuesta)',
+      description: 'La propuesta completa (§7.5) reemplaza al borrador vigente y sobrevive al cierre de la pestaña (UD-017). Se valida igual que al publicar, pero un valor inválido es 400. Guardar dos veces lo mismo deja el mismo estado. 403 si no es el emisor; 409 si el input ya se publicó o no tiene propuesta lista.',
+      params: idParams(),
+      body: proposalBody,
+      response: { 200: proposalView }
+    }
+  }, async (request) => {
+    const draft = await withSpan('input.proposal.update', { 'team.input_id': String(request.params.id), 'team.member_id': String(request.member.id) }, () =>
+      saveProposalDraft({ db, events }, { inputId: request.params.id, memberId: request.member.id, proposal: request.body }))
+    return presentProposal(draft)
+  })
+
+  app.post('/inputs/:id/publish', {
+    onRequest: [requireRole('member')],
+    preValidation: async (request) => { request.body ??= {} }, // no body: publish the saved draft
+    schema: {
+      summary: 'Publicar la propuesta como mensajes (la enviada, o el borrador guardado si no se envía cuerpo)',
       params: idParams(),
       body: publishBody,
       response: { 200: { type: 'object', properties: { message_ids: { type: 'array', items: { type: 'string' } }, messages: { type: 'array', items: messageDetail } } } }

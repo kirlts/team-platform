@@ -120,6 +120,14 @@ export const INPUT_HEADING = 'Input';
 /** Added to the classification of the second reading (UD-021), after the first one found nothing. */
 export const SECOND_PASS_NOTE = 'Second reading. A person sent this input to the team for a reason, so it holds at least one point: a request, a failure, an idea, a question or something shown that they want the team to see. The first reading found nothing. Read it again, section by section and more carefully, and name what the person is most likely pointing at, even when it is implicit or only visible in the description of an image. If there is no explicit request (a link or a text shared without comment), the point is what was shared: group it in the area the catalog describes for what is shared with no request or failure, so the team sees it and decides. Put a unit in discarded only when it holds nothing beyond a greeting or social chatter.';
 
+/** Added to the classification of the coverage pass (H-1900): units the first reading left out of every group. */
+export const COVERAGE_NOTE = 'Review of what was set aside. These units were left out of every group in the first reading, which took them for greetings, social talk or filler. In a long conversation or meeting that reading sometimes sets aside, together with the filler, units that carried a request, a failure, an idea, an opinion about the product, a question someone has to answer, a commitment or a decision. Read them again, one by one. Group each point you find with the usual rules, and leave in discarded only what adds to no point. The units arrive without the ones around them.';
+
+/** Read-only units placed before a window of a long input (H-1003). */
+export function contextBlock(units) {
+  return [`Context: units u${units[0].id} to u${units.at(-1).id} come right before this stretch and are already classified. Do not cite or classify them; they help you see where the stretch starts and which point it continues.`, '', renderUnits(units, LANGUAGE)].join('\n');
+}
+
 // ---------------------------------------------------------------------------------------------
 // Second call: decompose
 // ---------------------------------------------------------------------------------------------

@@ -82,6 +82,15 @@ export const KNOBS = Object.freeze({
   // Provisional until the private bench fixes it (see `docs/investigaciones/mediciones/2026-10-21-prompts-en-ingles-y-marcas-de-ia.md`).
   classifyWindowUnits: { value: 100, source: 'Measurement 2026-10-21 (docs/investigaciones/mediciones/2026-10-21-prompts-en-ingles-y-marcas-de-ia.md)' },
 
+  // Coverage passes (H-1900): after the classification, the units it discarded are read again, apart from the surrounding talk,
+  // and the model decides whether any of them is a point. 0 turns it off. The value is fixed by the measurement in
+  // docs/investigaciones/mediciones/2026-10-21-reuniones-cobertura-y-estabilidad.md.
+  coveragePasses: { value: 0, source: 'H-1900 (provisional until the measurement of 2026-10-21 fixes it)' },
+
+  // Units shown read-only before each classification window of a long input, so a point that crosses a window boundary keeps
+  // its area (H-1003). 0 turns it off. Same measurement.
+  classifyContextUnits: { value: 0, source: 'H-1003 (provisional until the measurement of 2026-10-21 fixes it)' },
+
   // Units per section in the second reading (UD-021), which runs only when the first one found nothing: the input is
   // read again section by section (a heading or a change of source also cuts). Provisional: the bench calibrates it.
   secondPassSectionUnits: { value: 20, source: 'UD-021 (provisional; calibrated by the bench §7.11)' },
@@ -111,7 +120,7 @@ export function resolveConfig(overrides = {}) {
   for (const key of ['maxTokens', 'maxTokensRetry', 'partitionThresholdTokens', 'charsPerToken', 'partitionConcurrency', 'minCacheableSystemTokens', 'harnessTimeoutMs', 'secondPassSectionUnits', 'classifyWindowUnits', 'httpRetryBaseMs']) {
     if (!Number.isFinite(config[key]) || config[key] <= 0) throw new TypeError(`${key} must be a positive number`);
   }
-  for (const key of ['invalidOutputRetries', 'rescuePasses', 'httpRetries']) {
+  for (const key of ['invalidOutputRetries', 'rescuePasses', 'httpRetries', 'coveragePasses', 'classifyContextUnits']) {
     if (!Number.isInteger(config[key]) || config[key] < 0) throw new TypeError(`${key} must be an integer greater than or equal to 0`);
   }
   for (const key of ['classifyThinking', 'decomposeThinking']) {

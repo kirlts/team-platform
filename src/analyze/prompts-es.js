@@ -115,6 +115,14 @@ export const INPUT_HEADING = 'Input';
 /** Added to the classification of the second reading (UD-021), after the first one found nothing. */
 export const SECOND_PASS_NOTE = 'Segunda lectura. Una persona envió este input al equipo por algún motivo, así que contiene al menos un punto: un pedido, una falla, una idea, una pregunta o algo que muestra y quiere que el equipo vea. La primera lectura no encontró nada. Léelo de nuevo, sección por sección y con más cuidado, y nombra a qué apunta con más probabilidad la persona, aunque sea implícito o solo se vea en la descripción de una imagen. Si no hay ningún pedido explícito (un enlace o un texto compartido sin comentario), el punto es lo compartido: agrúpalo en el área que el catálogo describe para lo que se comparte sin pedido ni falla, para que el equipo lo vea y decida. Pon una unidad en discarded solo cuando no contenga nada más que un saludo o charla social.';
 
+/** Added to the classification of the coverage pass (H-1900): units the first reading left out of every group. */
+export const COVERAGE_NOTE = 'Revisión de lo apartado. Estas unidades quedaron fuera de todo grupo en la primera lectura, que las tomó por saludos, charla social o relleno. En una conversación o una reunión larga esa lectura aparta a veces, junto con el relleno, unidades que traían un pedido, una falla, una idea, una opinión sobre el producto, una pregunta que alguien tiene que responder, un compromiso o una decisión. Léelas de nuevo, una por una. Agrupa cada punto que encuentres con las mismas reglas de siempre, y deja en discarded solo lo que no aporta a ningún punto. Las unidades llegan sin las que las rodean.';
+
+/** Read-only units placed before a window of a long input (H-1003). */
+export function contextBlock(units) {
+  return [`Contexto: las unidades u${units[0].id} a u${units.at(-1).id} van justo antes de este tramo y ya se clasificaron. No las cites ni las clasifiques; sirven para entender dónde empieza el tramo y de qué punto viene.`, '', renderUnits(units, LANGUAGE)].join('\n');
+}
+
 // ---------------------------------------------------------------------------------------------
 // Second call: decompose
 // ---------------------------------------------------------------------------------------------

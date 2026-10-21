@@ -9,7 +9,7 @@ Quien envía revisa la propuesta y la confirma. Quien recibe responde, y cualqui
 Requiere Docker 25 o superior con el plugin `compose`. Tres comandos:
 
 ```sh
-git clone <URL-DEL-REPOSITORIO> /opt/team-platform
+git clone https://github.com/kirlts/team-platform /opt/team-platform
 cd /opt/team-platform
 scripts/install.sh
 ```

@@ -377,7 +377,7 @@ function Attention() {
                   (status) =>
                     areaCounts(summary, a.area_id)[status] > 0 && (
                       <Link key={status} to={areaMessagesPath(a.area_id, status)} aria-label={t('areas.countOf', { title: areaTitle(a.area_id), count: label({ [status]: areaCounts(summary, a.area_id)[status] }) })} className="rounded-full hover:bg-glass-edge">
-                        <StateMark status={status} n={areaCounts(summary, a.area_id)[status]} plain />
+                        <StateMark status={status} n={areaCounts(summary, a.area_id)[status]} plain className="min-h-0" />
                       </Link>
                     ),
                 )}

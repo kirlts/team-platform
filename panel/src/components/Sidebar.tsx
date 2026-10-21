@@ -83,7 +83,7 @@ export function Sidebar({ onNavigate, onLogout }: { onNavigate?: () => void; onL
                     <span className="min-w-0 flex-1 break-words leading-tight">{a.title}</span>
                   </NavLink>
                   {/* The counts' column is reserved: a name that wraps does so the same before and after the counts arrive. */}
-                  <span className="flex min-w-24 shrink-0 flex-col items-end">
+                  <span className="flex min-w-24 shrink-0 justify-end">
                     <AreaPending areaId={a.id} title={a.title} summary={summary} onNavigate={onNavigate} />
                   </span>
                 </li>
@@ -130,20 +130,18 @@ export function Sidebar({ onNavigate, onLogout }: { onNavigate?: () => void; onL
   )
 }
 
-/** The open and answered messages of an area, each count leading to Mensajes filtered by that area and that state (UD-028, UD-041). */
+/** The open messages of an area, leading to Mensajes filtered by that area and by open (UD-028, UD-041). */
 function AreaPending({ areaId, title, summary, onNavigate }: { areaId: string; title: string; summary: MessageSummary | undefined; onNavigate?: () => void }) {
   const t = useT()
   const label = useCountsLabel()
   const counts = areaCounts(summary, areaId)
   return (
     <>
-      {(['open', 'answered'] as const).map(
-        (status) =>
-          counts[status] > 0 && (
-            <Link key={status} to={areaMessagesPath(areaId, status)} onClick={onNavigate} aria-label={t('areas.countOf', { title, count: label({ [status]: counts[status] }) })} className="rounded-full">
-              <StateMark status={status} n={counts[status]} plain />
-            </Link>
-          ),
+      {/* One line: the sidebar shows the open ones, so a count arriving does not change the height of its row. Áreas also shows the answered ones. */}
+      {counts.open > 0 && (
+        <Link to={areaMessagesPath(areaId, 'open')} onClick={onNavigate} aria-label={t('areas.countOf', { title, count: label({ open: counts.open }) })} className="rounded-full">
+          <StateMark status="open" n={counts.open} plain />
+        </Link>
       )}
     </>
   )

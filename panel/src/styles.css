@@ -34,7 +34,7 @@
   /* Cielo: fondo de toda la aplicación. */
   --color-sky-a: oklch(0.955 0.045 205);
   --color-sky-b: oklch(0.945 0.03 250);
-  --color-sky-c: oklch(0.95 0.03 300);
+  --color-sky-c: oklch(0.95 0.03 232);
   --color-glow-1: oklch(0.9 0.1 205 / 0.55);
   --color-glow-2: oklch(0.9 0.08 305 / 0.38);
   --color-glow-3: oklch(0.94 0.13 125 / 0.28);
@@ -110,7 +110,7 @@
 
   --color-sky-a: oklch(0.2 0.05 255);
   --color-sky-b: oklch(0.17 0.045 270);
-  --color-sky-c: oklch(0.2 0.065 300);
+  --color-sky-c: oklch(0.2 0.065 240);
   --color-glow-1: oklch(0.45 0.18 250 / 0.38);
   --color-glow-2: oklch(0.4 0.16 305 / 0.28);
   --color-glow-3: oklch(0.5 0.15 125 / 0.14);

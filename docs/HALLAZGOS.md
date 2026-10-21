@@ -79,7 +79,7 @@ Estados: `main` (resuelto y fusionado), `en curso` (asignado a un agente vivo), 
 | H-54 | Notas del juez de 1,0 a 2,0 por vista; informe con 8 a 14 hallazgos por vista | juez de pantallas | en curso (agente panel: 59 hallazgos del juez hechos, 39 por hacer o refutar con razón escrita) |
 | H-55 | Destello de fondo bajo el contador en Mensajes en móvil | agente panel | `main` (destellos retirados) |
 | H-56 | Micrófono sólo probado con el dispositivo falso de Chromium; Safari e iPhone sin probar | agente panel | abierto: necesita un iPhone real (Martín) |
-| H-57 | SSE tras `tailscale serve` o un proxy con búfer sin probar | agente panel | abierto: se prueba al instalar en el VPS |
+| H-57 | SSE tras `tailscale serve` o un proxy con búfer sin probar | agente panel | rama `wt-vps-media` (probado en el VPS el 2026-10-21 por la tailnet, puerto 8444: conexión abierta 660 s, 43 latidos exactos cada 15 s, y los eventos `progress` y `message` de un envío llegaron al instante, sin búfer ni corte) |
 | H-58 | Chromium headless no decodifica H.264: miniatura de video en blanco en la captura | juez | `main` (`bench/fixtures/make-webm.sh` genera el WebM VP9; el extractor lo lee: 24 fotogramas muestreados, 6 conservados; Chromium de Playwright lo decodifica; `docs/TEST.md` HP-020 lo indica; límite: el H.264 sí decodificó en este equipo, así que el defecto del juez no se reprodujo aquí) |
 | H-59 | `claude-session on-end` no registra desde un subagente | juez | descartado: limitación del entorno; el contenedor se bajó a mano |
 

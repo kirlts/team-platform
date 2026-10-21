@@ -139,6 +139,7 @@ test('GET /me brings project_name; GET /areas brings open_count and template_cou
   const env = await team({ config: { projectName: 'Atlas' } })
   const me = (await env.api('GET', '/me', env.c.ana)).json()
   assert.equal(me.project_name, 'Atlas')
+  assert.equal(me.password_min_length, 15) // PASSWORD_MIN_LENGTH, so the panel can say it before the person types (J3-A-44)
   assert.equal(me.profile, '')
   assert.equal('domains' in me || 'responsibilities' in me, false) // UD-023
   assert.equal(typeof me.id, 'string')

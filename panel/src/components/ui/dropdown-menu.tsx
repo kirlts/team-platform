@@ -1,4 +1,4 @@
-import { Check } from '@/components/icons'
+import { Check, ChevronRight } from '@/components/icons'
 import { DropdownMenu as Primitive } from 'radix-ui'
 import type { ComponentProps } from 'react'
 import { cn } from '@/lib/utils'
@@ -7,6 +7,7 @@ export const DropdownMenu = Primitive.Root
 export const DropdownMenuTrigger = Primitive.Trigger
 export const DropdownMenuRadioGroup = Primitive.RadioGroup
 export const DropdownMenuGroup = Primitive.Group
+export const DropdownMenuSub = Primitive.Sub
 
 export function DropdownMenuContent({ className, sideOffset = 4, ...props }: ComponentProps<typeof Primitive.Content>) {
   return (
@@ -60,4 +61,27 @@ export function DropdownMenuSeparator({ className, ...props }: ComponentProps<ty
 
 export function DropdownMenuLabel({ className, ...props }: ComponentProps<typeof Primitive.Label>) {
   return <Primitive.Label className={cn('px-2 py-1 text-xs font-medium text-muted', className)} {...props} />
+}
+
+/** A row that opens a menu of its own beside it: the options of a filter, each with the value that is on (J3-A-16). */
+export function DropdownMenuSubTrigger({ className, children, ...props }: ComponentProps<typeof Primitive.SubTrigger>) {
+  return (
+    <Primitive.SubTrigger className={cn(item, 'data-[state=open]:bg-accent-soft', className)} {...props}>
+      {children}
+      <ChevronRight size={14} aria-hidden className="ml-auto shrink-0 text-muted" />
+    </Primitive.SubTrigger>
+  )
+}
+
+export function DropdownMenuSubContent({ className, ...props }: ComponentProps<typeof Primitive.SubContent>) {
+  return (
+    <Primitive.Portal>
+      <Primitive.SubContent
+        sideOffset={4}
+        collisionPadding={8}
+        className={cn('pop z-50 min-w-44 max-w-[calc(100vw-1rem)] overflow-hidden rounded-lg p-1 text-sm text-fg', className)}
+        {...props}
+      />
+    </Primitive.Portal>
+  )
 }

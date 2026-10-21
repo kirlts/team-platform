@@ -13,7 +13,8 @@ import { EmptyState } from '@/components/EmptyState'
 import { LoadState } from '@/components/LoadState'
 import { useT } from '@/i18n'
 import { useAreas, useDeleteTemplate, useMe, useRestoreTemplate, useSaveArea, useSaveTemplate, useTemplates } from '@/lib/queries'
-import { parseTemplateFields } from '@/lib/template'
+import { Markdown } from '@/lib/markdown'
+import { parseTemplateFields, templateInstructions } from '@/lib/template'
 import type { Area, Template } from '@/lib/types'
 import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 import { cn } from '@/lib/utils'
@@ -118,8 +119,8 @@ function AreaRow({ area, selected, onSelect }: { area: Area; selected: boolean; 
           <EditableText value={area.description} label={t('areas.fieldDescription')} multiline validate={descriptionRule(t)} onSave={(v) => change('description', v)} displayClassName="text-xs text-muted" />
         </div>
       </div>
-      {/* Fixed-width column: what is pending lines up row by row. A count is text; the colors are for what changes state (J1-A-34). */}
-      <span className="flex shrink-0 justify-end text-xs tabular-nums text-muted max-sm:ml-9 sm:w-24">{t('areas.pending', { n: pending })}</span>
+      {/* Fixed-width column, centered on the row: what is pending lines up row by row, and an area with nothing pending says nothing instead of «0 pendientes» (J3-A-33). A count is text; the colors are for what changes state (J1-A-34). */}
+      <span className="flex shrink-0 items-center justify-end self-center text-xs font-medium tabular-nums text-fg max-sm:ml-9 sm:w-24">{pending > 0 ? t('areas.pending', { n: pending }) : null}</span>
     </section>
   )
 }
@@ -202,12 +203,18 @@ function RemovedRow({ template, onUndo }: { template: Template; onUndo: () => vo
   )
 }
 
+/**
+ * A template as the person will meet it: its name and description edited in place, the fields it asks for and the
+ * instructions it gives the model, folded. The one button names what it opens, «Campos e instrucciones»; deleting is
+ * a small icon at the corner, away from the title, and it is undone where it was (J3-A-30, J3-A-31, J3-A-32).
+ */
 function TemplateRow({ template, areaId, onRemove }: { template: Template; areaId: string; onRemove: () => void }) {
   const t = useT()
   const undo = useUndo()
   const save = useSaveTemplate(areaId)
   const [showContent, setShowContent] = useState(false)
   const fields = useMemo(() => parseTemplateFields(template.body_markdown), [template.body_markdown])
+  const instructions = useMemo(() => templateInstructions(template.body_markdown), [template.body_markdown])
 
   const change = (field: 'name' | 'description' | 'body_markdown', next: string) => {
     const prev = template[field]
@@ -215,17 +222,48 @@ function TemplateRow({ template, areaId, onRemove }: { template: Template; areaI
   }
 
   return (
-    <article className="flex items-start gap-2 border-b border-line px-4 py-3 last:border-b-0">
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <EditableText value={template.name} label={t('areas.fieldName')} validate={nameRule(t)} onSave={(v) => change('name', v)} displayClassName="font-medium" />
-        <EditableText value={template.description} label={t('areas.fieldDescription')} multiline validate={descriptionRule(t)} onSave={(v) => change('description', v)} displayClassName="text-xs text-muted" />
-        <button type="button" onClick={() => setShowContent(true)} className="mt-1 self-start text-xs font-medium text-accent hover:underline">
-          {t('areas.content', { n: fields.length })}
-        </button>
+    <article className="flex flex-col gap-3 border-b border-line px-4 py-3 last:border-b-0">
+      <div className="flex items-start gap-2">
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <EditableText value={template.name} label={t('areas.fieldName')} validate={nameRule(t)} onSave={(v) => change('name', v)} displayClassName="font-medium" />
+          <EditableText value={template.description} label={t('areas.fieldDescription')} multiline validate={descriptionRule(t)} onSave={(v) => change('description', v)} displayClassName="text-xs text-muted" />
+        </div>
+        <Button size="icon-sm" variant="ghost" className="-mr-1.5 shrink-0 text-muted hover:text-danger" aria-label={t('areas.delete', { name: template.name })} title={t('areas.deleteShort')} onClick={onRemove}>
+          <Trash2 size={14} aria-hidden />
+        </Button>
       </div>
-      <Button size="sm" variant="ghost" className="-mr-2 text-muted" aria-label={t('areas.delete', { name: template.name })} onClick={onRemove}>
-        <Trash2 size={14} aria-hidden /> {t('areas.deleteShort')}
-      </Button>
+      <dl className="flex flex-col gap-1.5 text-sm">
+        <dt className="text-xs font-semibold text-muted">{t('templates.fields')}</dt>
+        <dd>
+          {fields.length === 0 ? (
+            <span className="text-muted">{t('templates.noFields')}</span>
+          ) : (
+            <ul className="flex flex-wrap gap-1.5">
+              {fields.map((f) => (
+                <li key={f.name} className="inline-flex min-h-6 items-center gap-1.5 rounded-full border border-line-strong px-2.5 text-xs">
+                  {f.label}
+                  {f.required && <span className="text-muted">{t('templates.required')}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </dd>
+      </dl>
+      {/* The instructions can be as long as a method section: they fold, and the window below is where they are edited. */}
+      <details className="group text-sm">
+        <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-xs font-semibold text-muted hover:text-fg [&::-webkit-details-marker]:hidden">
+          <ChevronRight size={13} aria-hidden className="transition-transform group-open:rotate-90" />
+          {t('templates.instructions')}
+        </summary>
+        <div data-lane="template-instructions" className="scroll-thin mt-2 max-h-48 overflow-y-auto pr-1">
+          <Markdown source={instructions} />
+        </div>
+      </details>
+      <div>
+        <Button size="sm" onClick={() => setShowContent(true)}>
+          {t('areas.content')}
+        </Button>
+      </div>
       <TemplateContentDialog
         open={showContent}
         onOpenChange={setShowContent}

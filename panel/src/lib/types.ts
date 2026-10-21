@@ -21,6 +21,8 @@ export interface Member {
 /** Response of GET /me: the member and the project name (assumption: `project_name`). */
 export interface Me extends Member {
   project_name?: string
+  /** Shortest password the server accepts (PASSWORD_MIN_LENGTH). */
+  password_min_length?: number
 }
 
 export interface Area {

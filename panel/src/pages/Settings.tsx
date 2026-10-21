@@ -1,5 +1,5 @@
 import { AlertTriangle, ChevronDown, Lock } from '@/components/icons'
-import { useMemo, useRef, useState, type ReactNode } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { EditableText } from '@/components/EditableText'
 import { FitList } from '@/components/FitList'
 import { FormDialog } from '@/components/FormDialog'
@@ -17,6 +17,7 @@ import { useMe, useProject, useProviders, useSaveLanguage, useSaveMember, useSav
 import { readThemePref, saveTheme, type ThemePref } from '@/lib/theme'
 import type { Language, ProviderSetting, ProviderSlot } from '@/lib/types'
 import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
+import { cn } from '@/lib/utils'
 
 const SLOT_KEY: Record<ProviderSlot, MessageKey> = { text: 'settings.slot.text', vision: 'settings.slot.vision', speech: 'settings.slot.speech' }
 const LANGUAGE_KEY: Record<Language, MessageKey> = { 'es-419': 'language.es-419', en: 'language.en' }
@@ -121,7 +122,7 @@ function Account() {
         submitLabel={t('common.save')}
         fields={[
           { name: 'current_password', label: t('settings.currentPassword'), required: true, type: 'password', autoComplete: 'current-password' },
-          { name: 'new_password', label: t('settings.newPassword'), required: true, type: 'password', autoComplete: 'new-password' },
+          { name: 'new_password', label: t('settings.newPassword'), required: true, type: 'password', autoComplete: 'new-password', hint: me?.password_min_length ? t('password.min', { n: me.password_min_length }) : undefined },
         ]}
         onSubmit={(v) => saveMember.mutateAsync({ id: me?.id ?? '', self: true, patch: { current_password: v.current_password, new_password: v.new_password } })}
       />
@@ -161,6 +162,15 @@ function Project({ editor }: { editor: boolean }) {
   const upload = useRef<HTMLInputElement>(null)
   const [problem, setProblem] = useState<string | null>(null)
   const current = project.data?.description ?? ''
+  const [expanded, setExpanded] = useState(false)
+  /** The text is taller than its folded frame. */
+  const [tall, setTall] = useState(false)
+  const lane = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const el = lane.current
+    if (el && !expanded) setTall(el.scrollHeight > el.clientHeight + 1)
+  }, [current, expanded])
+  const folded = tall && !expanded
 
   const change = (next: string) => undo.run({ label: t('project.edited'), redo: () => save.mutateAsync({ description: next }), undo: () => save.mutateAsync({ description: current }) })
 
@@ -198,8 +208,14 @@ function Project({ editor }: { editor: boolean }) {
           </>
         )}
       </div>
-      {/* The description can be as long as a master spec: it is a lane with its own declared scrolling. */}
-      <div data-lane="project-description" className="glass leaf scroll-thin min-h-0 overflow-y-auto px-4 py-3 text-sm">
+      {/* The description can be as long as a master spec: it is folded to its first lines and opens whole on request or when it is edited, and then it is a lane with its own declared scrolling (J3-A-39). */}
+      <div
+        ref={lane}
+        data-lane={expanded ? 'project-description' : undefined}
+        data-folded={folded || undefined}
+        onFocusCapture={() => setExpanded(true)}
+        className={cn('glass leaf scroll-thin min-h-0 px-4 py-3 text-sm', expanded ? 'overflow-y-auto' : 'max-h-[9rem] overflow-hidden', folded && '[mask-image:linear-gradient(to_bottom,#000_70%,transparent)]')}
+      >
         <EditableText
           value={current}
           label={t('project.title')}
@@ -211,6 +227,11 @@ function Project({ editor }: { editor: boolean }) {
           onSave={change}
         />
       </div>
+      {(tall || expanded) && (
+        <button type="button" aria-expanded={expanded} onClick={() => setExpanded((v) => !v)} className="self-start text-xs font-semibold text-accent-deep hover:underline">
+          {expanded ? t('project.fold') : t('project.unfold')}
+        </button>
+      )}
       {problem && (
         <p role="alert" className="text-xs text-danger">
           {problem}

@@ -308,6 +308,13 @@
     }
   }
 
+  /* Headings break into lines of similar length, so a title never ends on a lone word (J3-A-28). */
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
   .scroll-thin {
     scrollbar-width: thin;
     scrollbar-color: var(--color-line-strong) transparent;
@@ -322,11 +329,15 @@
 }
 
 @layer components {
-  /* Running text of more than two lines (UD-022): justified, without hyphenation. It is the only class that justifies. */
+  /* Running text of more than two lines (UD-022): justified, without hyphenation, and only while it is wide enough: `watchProse`
+     (lib/prose-width.ts) marks the wide ones with data-wide, and below that width it aligns to the left (UD-034). It is the only class that justifies. */
   .prose-block {
-    text-align: justify;
+    text-align: left;
     hyphens: none;
     text-wrap: pretty;
+  }
+  .prose-block[data-wide] {
+    text-align: justify;
   }
 
   /* Notification fills (UD-029): one class per priority; the component sets data-tone to the highest present. */

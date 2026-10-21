@@ -12,7 +12,7 @@ export function NotFound() {
     <Page cols={12}>
       <PageHeader title={t('notFound.title')} />
       <EmptyState
-        className="glass leaf"
+        className="glass leaf !py-6"
         action={
           <Button asChild>
             <Link to="/">{t('notFound.home')}</Link>

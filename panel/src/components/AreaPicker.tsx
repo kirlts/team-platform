@@ -46,7 +46,7 @@ export function AreaPicker({
           disabled={disabled}
           aria-label={t('area.pick', { area: areaTitle(areaId) || t('area.none'), template: templateName ?? '' })}
           title={templateName}
-          className="hit inline-flex max-w-full items-center gap-1 rounded-[3px_9px_3px_9px] border border-edge bg-[linear-gradient(180deg,var(--color-chrome-1),var(--color-chrome-2))] py-0.5 pl-2 pr-1.5 text-left text-xs font-semibold leading-tight text-fg hover:border-accent disabled:opacity-60"
+          className="hit inline-flex max-w-full items-center gap-1 rounded-md border border-transparent py-0.5 pl-0 pr-1.5 text-left text-xs font-semibold leading-tight text-fg hover:border-line-strong hover:bg-glass disabled:opacity-60"
         >
           {areaTitle(areaId) || t('area.none')}
           <ChevronDown size={12} aria-hidden className="shrink-0" />

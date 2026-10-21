@@ -443,3 +443,41 @@ RULES:
 - `bench/areas-classify.mjs` mide la clasificación sola, a unos 0,05 USD por corrida.
 **Condiciones de reversión:** Una corrida completa del pipeline con proyecto bajo el 82,6 % de las cortas, o que Martín prefiera el orden anterior.
 
+## [UD-034] El justificado de los párrafos depende del ancho del contenedor
+
+**Fecha:** 2026-10-21
+**Contexto:** El juez A de la ronda 3 midió en teléfono huecos de unos 20 px entre palabras en las respuestas, en el proyecto y en las instrucciones (J3-A-21). UD-022 pide justificar todo bloque de más de dos líneas. Martín delegó la decisión: «decide por ti mismo, reversible y barato».
+**Decisión:** Las palabras de UD-022 siguen siendo la regla: «cuando hayan párrafos largos en la interfaz, el texto debería quedar justificado y sin guionizado». Un bloque `prose-block` se justifica sólo mientras su ancho mide 29,2 rem (438 px con la raíz de 15 px) o más, y debajo se alinea a la izquierda. El valor sale de `docs/investigaciones/mediciones/2026-10-21-justificado-por-ancho.md`: a 1440 px, donde Martín vio el texto justificado, el hueco mayor entre palabras fue de 14,2 px, y 438 px es el ancho más angosto desde el cual ningún ancho mayor, en un barrido de 2 px, pasa de ese hueco. A 290 o 330 px los huecos llegan a 20 o 28 px.
+**Alternativas descartadas:**
+- Alinear a la izquierda todo texto corrido: contradice UD-022 en los anchos donde el justificado no abre huecos.
+- Un umbral más bajo: entre 402 y 436 px un renglón abre hasta 21,4 px y a 350 px 16,0 px, sobre el hueco de referencia.
+- Guionizar: Martín lo descartó en UD-022.
+**Consecuencias:**
+- `panel/src/lib/prose-width.ts` (`JUSTIFY_MIN_REM = 29.2`) marca con `data-wide` cada `.prose-block` que mide eso o más; la hoja de estilos justifica sólo `.prose-block[data-wide]` y alinea a la izquierda el resto.
+- La columna del mensaje en la ficha pasa de 5 a 6 de 12 para que su cuerpo siga justificado a 1440 px.
+- Prueba del navegador: a 390 px ningún bloque se justifica y a 1440 px los anchos desde 438 px sí, con el hueco medido en los párrafos reales.
+**Condiciones de reversión:** Si Martín prefiere justificar a cualquier ancho, se quita la condición `data-wide` de la hoja de estilos y `watchProse`; si cambia la tipografía o el tamaño de la raíz, se repite la medición.
+
+## [UD-035] Un solo relleno de color en la interfaz: la campana
+
+**Fecha:** 2026-10-21
+**Contexto:** UD-029 pidió que el aviso lleve el color de la prioridad más alta y que cada prioridad tenga forma, palabra y número. Martín pidió que el ícono de notificación fuera más prominente y que su fondo se tiñera del color de mayor prioridad. La ronda 3 del juez A contó en Inicio más de 18 elementos rojos con el mismo peso (J3-A-04, severidad 5): campana, pestaña Mensajes, chips, áreas, marcas y borde de cada fila. La ronda 2 los había bajado a un tono suave y no alcanzó.
+**Decisión:** El fondo de color de la prioridad es de la campana, y sólo de la campana. Toda otra cuenta o marca de prioridad (pestaña Mensajes, chips de Inicio, pendientes por área, avisos de la lista de la campana, marca de una fila) va en peso callado: fondo neutro, borde neutro, texto en tinta, y la prioridad sólo en el color de su forma (triángulo, reloj, punto) junto a su palabra y su número. En una fila de mensaje la prioridad se dice una sola vez, en la columna de estado, y el borde izquierdo de 3 px es lo único de la fila que lleva color. UD-029 conserva el significado de los tres colores y que el color nunca es el único indicador. Es una decisión de la sesión por encargo de Martín de atender el 100 % de los hallazgos de la ronda; la palabra «fondo de toda insignia» de UD-029 es del coordinador y no una cita de Martín.
+**Alternativas descartadas:**
+- Mantener el tono suave de la ronda 2: el juez lo siguió contando como rojo.
+- Quitar el número de la pestaña Mensajes o el de la campana: UD-028 pide ambos.
+**Consecuencias:**
+- `[data-weight='quiet']` en `panel/src/styles.css` reemplaza al peso suave. Una prueba del navegador cuenta los elementos con fondo rojo de Inicio con 9 pendientes y con 4 y falla si hay más de uno.
+**Condiciones de reversión:** Que Martín pida de nuevo la insignia teñida: se restituye el peso suave de la ronda 2 cambiando `quiet` por `soft` en un solo lugar de la hoja de estilos.
+
+## [UD-036] Conexiones se lista una vez, apagada y con su razón
+
+**Fecha:** 2026-10-21
+**Contexto:** UD-012 y MASTER-SPEC §4.1 dejan la vista Conexiones visible y apagada, con la razón, hasta que se pruebe que la descomposición funciona. La ronda 3 del juez A vio cinco filas idénticas «No disponible todavía» sin acción (J3-A-45) y un submenú en la barra lateral que desplazaba lo de abajo al abrirse (J3-A-46).
+**Decisión:** Se mantiene la vista, porque la especificación la pide visible, y se dice una vez: el título lleva la razón («Apagadas hasta que la descomposición esté probada») y cada conexión es un nombre, sin repetir un estado idéntico por fila. La barra lateral tiene una sola entrada, Conexiones, sin submenú. No se ocultan hasta que existan: eso contradice la especificación, y mostrar «lo que falta para conectarlas» sería inventar acciones de conectores que todavía no tienen diseño. Es una decisión de la sesión por encargo de Martín; la dirección `/connections/:kind` sigue abriendo la vista con esa conexión marcada.
+**Alternativas descartadas:**
+- Ocultar la vista: contradice MASTER-SPEC §4.1.
+- Una acción por conector: no hay conector.
+**Consecuencias:**
+- La barra lateral no cambia de forma al abrir Conexiones; Configuración y Cerrar sesión quedan al pie.
+**Condiciones de reversión:** Que se construya el primer conector: su fila pasa a mostrar su estado y su acción real, y se agrega la entrada a la barra.

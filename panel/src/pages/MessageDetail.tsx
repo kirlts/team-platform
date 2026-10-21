@@ -103,7 +103,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
           <ArrowLeft size={13} aria-hidden /> {t('nav.messages')}
         </Link>
         <div className="flex items-center gap-2">
-          {canEdit && <UndoButtons stack={undo} compact />}
+          {canEdit && <UndoButtons stack={undo} compact={!desktop} />}
           <Button
             variant="secondary"
             disabled={setClosed.isPending}
@@ -138,7 +138,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
         </p>
       )}
 
-      <div className="grid min-h-0 flex-1 md:grid-rows-[minmax(0,1fr)] gap-x-10 gap-y-4 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+      <div className="grid min-h-0 flex-1 md:grid-rows-[minmax(0,1fr)] gap-x-10 gap-y-4 md:grid-cols-[minmax(0,6fr)_minmax(0,6fr)]">
         <div className="flex min-h-0 min-w-0 flex-col gap-3">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted">
             {canEdit ? (
@@ -154,9 +154,9 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
                 }
               />
             ) : (
-              <span className="inline-flex min-h-6 items-center rounded-[3px_9px_3px_9px] border border-edge px-2 font-semibold text-fg">{areaTitle(m.area_id)}</span>
+              <span className="inline-flex min-h-6 items-center font-semibold text-fg">{areaTitle(m.area_id)}</span>
             )}
-            <StatusBadge status={m.status} />
+            <StatusBadge status={m.status} quiet />
             <span data-repeat-ok="person" className="inline-flex items-center gap-1.5">
               <Avatar name={memberName(m.author_id) || '?'} size={20} />
               {memberName(m.author_id)}

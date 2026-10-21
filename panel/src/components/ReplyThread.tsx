@@ -7,7 +7,6 @@ import type { MessageDetail } from '@/lib/types'
 import { Avatar } from './Avatar'
 import { FitList } from './FitList'
 import { useLookups } from './lookups'
-import { MediaKinds } from './MediaKinds'
 import { KIND_KEY, ReplyForm } from './ReplyForm'
 import { Thumb } from './Thumb'
 
@@ -46,7 +45,6 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
                 <time dateTime={r.created_at} className="tabular-nums">
                   {format.stamp(r.created_at)}
                 </time>
-                <MediaKinds of={r} />
               </div>
               {r.body && <p className="prose-block whitespace-pre-wrap break-words text-sm">{r.body}</p>}
               {(r.attachments?.length ?? 0) > 0 && (
@@ -63,7 +61,14 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
         )}
         empty={<p className="px-3 py-6 text-center text-sm text-muted">{t('replies.none')}</p>}
       />
-      {canReply && <ReplyForm messageId={message.id} autoFocus={focusForm} />}
+      {canReply ? (
+        <ReplyForm messageId={message.id} autoFocus={focusForm} />
+      ) : (
+        // Without the form, the reason: a missing control that says nothing looks like a fault (J3-A-17).
+        <p role="status" className="text-sm text-muted">
+          {message.status === 'closed' ? t('replies.closed') : t('replies.yours')}
+        </p>
+      )}
     </section>
   )
 }

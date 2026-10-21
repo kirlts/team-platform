@@ -1,4 +1,4 @@
-import { Check, Plus, X } from '@/components/icons'
+import { Check, Plus, Trash2 } from '@/components/icons'
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -53,7 +53,7 @@ export function TemplateContentEditor({ name, description, markdown, onSave }: {
                   {t('templates.required')}
                 </label>
                 <Button size="icon-sm" variant="ghost" aria-label={t('templates.removeField', { label: f.label })} title={t('templates.removeField', { label: f.label })} onClick={() => void save({ fields: fields.filter((_, j) => j !== i) })}>
-                  <X size={14} aria-hidden />
+                  <Trash2 size={14} aria-hidden />
                 </Button>
               </li>
             ))}
@@ -95,11 +95,14 @@ export function TemplateContentDialog({ open, onOpenChange, title, onSave, ...ed
           />
         </div>
         <div className="flex shrink-0 items-center justify-between gap-3 border-t border-line px-5 py-3">
+          {/* The state of what is edited, always said: «Sin cambios» until something is saved, then «Guardado». Each change is saved as it is made (J3-A-35). */}
           <span role="status" className="inline-flex items-center gap-1.5 text-sm text-muted">
-            {saved && (
+            {saved ? (
               <>
                 <Check size={15} aria-hidden className="text-accent" /> {t('templates.saved')}
               </>
+            ) : (
+              t('templates.unchanged')
             )}
           </span>
           <Button variant="primary" onClick={() => onOpenChange(false)}>
@@ -129,7 +132,7 @@ function NewTemplateForm({ onCreate, onClose }: { onCreate: (v: { name: string; 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [fields, setFields] = useState<TemplateField[]>([])
-  const [instructions, setInstructions] = useState(t('templates.newInstructions'))
+  const [instructions, setInstructions] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -183,12 +186,13 @@ function NewTemplateForm({ onCreate, onClose }: { onCreate: (v: { name: string; 
         {error('description')}
       </label>
       <fieldset className="flex flex-col gap-2">
-        <legend className="mb-1 flex w-full items-center justify-between gap-2 text-sm font-medium">
-          {t('templates.fields')}
+        <legend className="mb-1 flex w-full items-center justify-between gap-2">
+          <h2>{t('templates.fields')}</h2>
           <Button size="sm" onClick={() => setFields((f) => [...f, { name: fieldKey(t('templates.newField'), f.map((x) => x.name)), label: '', required: false }])}>
             <Plus size={14} aria-hidden /> {t('templates.addField')}
           </Button>
         </legend>
+        {fields.length === 0 && <p className="text-sm text-muted">{t('templates.noFields')}</p>}
         {fields.map((f, i) => (
           <div key={i} className="flex items-center gap-3">
             <Input
@@ -205,14 +209,14 @@ function NewTemplateForm({ onCreate, onClose }: { onCreate: (v: { name: string; 
               {t('templates.required')}
             </label>
             <Button size="icon-sm" variant="ghost" aria-label={t('templates.removeField', { label: f.label || t('templates.newField') })} onClick={() => setFields((all) => all.filter((_, j) => j !== i))}>
-              <X size={14} aria-hidden />
+              <Trash2 size={14} aria-hidden />
             </Button>
           </div>
         ))}
         {error('fields')}
       </fieldset>
       <section aria-label={t('templates.instructions')} className="flex flex-col gap-1">
-        <h2 className="text-sm font-medium normal-case tracking-normal">{t('templates.instructions')}</h2>
+        <h2>{t('templates.instructions')}</h2>
         {/* The same box and the same rendering as when a template is edited (J2-A-25). */}
         <div className="rounded-md border border-line px-3 py-2">
           <EditableText value={instructions} label={t('templates.instructions')} multiline prose validate={(v) => (v ? null : t('common.required'))} render={(v) => <Markdown source={v} />} onSave={(v) => setInstructions(v)} />

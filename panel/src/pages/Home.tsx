@@ -325,7 +325,7 @@ function Attention() {
   const areas = (summary?.areas ?? []).filter((a) => a.open > 0)
   const mineParams = (status: string) => serializeQuery({ filters: [{ prop: 'for', op: 'eq', value: ME }, { prop: 'status', op: 'eq', value: status }], q: '' }).toString()
   return (
-    <section aria-label={t('home.mine')} data-testid="attention" data-tone-top={tone ?? 'none'} className="glass leaf grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-2 px-4 py-2.5">
+    <section aria-label={t('home.mine')} data-testid="attention" data-tone-top={tone ?? 'none'} className="glass leaf grid grid-cols-1 items-center gap-x-4 gap-y-1 px-4 py-2.5 md:grid-cols-[auto_minmax(0,1fr)] md:gap-y-2">
       <h2 className="min-w-16">{t('home.mine')}</h2>
       <div className="flex min-h-6 items-center">
         {!tone ? (
@@ -356,7 +356,7 @@ function Attention() {
       </div>
       {areas.length > 0 && (
         <>
-          <h2 className="min-w-16">{t('home.byArea')}</h2>
+          <h2 className="min-w-16 max-md:mt-1.5">{t('home.byArea')}</h2>
           <AreaChips
             chips={areas.map((a) => (
               <Link
@@ -387,20 +387,24 @@ function AreaChips({ chips }: { chips: ReactNode[] }) {
   const [fitting, setFitting] = useState<number | null>(null)
   const [open, setOpen] = useState(false)
 
-  // A different list or a different width makes the measure stale: draw them all again and measure.
+  // A different list, a different width, a chip that changes size (the font arrives) or a chip that wraps makes the measure stale: draw them all again and measure.
   const width = useRef(0)
   useEffect(() => {
     const el = box.current
     if (!el || typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(() => {
-      if (Math.abs(el.clientWidth - width.current) > 0.5) {
+    const stale = () => {
+      const items = [...el.children] as HTMLElement[]
+      const wrapped = items.length > 1 && items.some((li) => li.offsetTop > items[0].offsetTop + 1)
+      if (Math.abs(el.clientWidth - width.current) > 0.5 || wrapped) {
         width.current = el.clientWidth
         setFitting(null)
       }
-    })
+    }
+    const observer = new ResizeObserver(stale)
     observer.observe(el)
+    for (const child of el.children) observer.observe(child)
     return () => observer.disconnect()
-  }, [])
+  })
   useEffect(() => setFitting(null), [chips.length])
 
   useLayoutEffect(() => {
@@ -421,7 +425,7 @@ function AreaChips({ chips }: { chips: ReactNode[] }) {
         ))}
       </ul>
       {(hidden > 0 || (open && fitting !== null && fitting < chips.length)) && (
-        <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="inline-flex min-h-6 shrink-0 items-center rounded-full border border-line-strong px-2 text-xs font-semibold hover:bg-glass-edge">
+        <button type="button" aria-expanded={open} aria-label={open ? t('home.fewerAreas') : t('home.moreAreasAria', { n: hidden })} onClick={() => setOpen((v) => !v)} className="inline-flex min-h-6 shrink-0 items-center rounded-full border border-line-strong px-2 text-xs font-semibold hover:bg-glass-edge">
           {open ? t('home.fewerAreas') : t('home.moreAreas', { n: hidden })}
         </button>
       )}

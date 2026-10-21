@@ -224,11 +224,12 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
       onRequest: [requireRole('member')],
       schema: {
         summary: 'The signed-in person and the project name',
-        response: { 200: { type: 'object', properties: { ...memberSchema.properties, project_name: { type: 'string' }, provider: { type: 'string' } } } }
+        response: { 200: { type: 'object', properties: { ...memberSchema.properties, project_name: { type: 'string' }, provider: { type: 'string' }, password_min_length: { type: 'integer' } } } }
       }
     }, async (request) => {
       const dbRow = get(db, `SELECT ${MEMBER_COLUMNS} FROM members WHERE id = ?`, request.member.id)
-      return { ...toMember(dbRow), project_name: config.projectName, provider: identity.provider.name }
+      // The minimum length is the server's (PASSWORD_MIN_LENGTH): the panel says it before the person types, it does not repeat a number of its own.
+      return { ...toMember(dbRow), project_name: config.projectName, provider: identity.provider.name, password_min_length: config.identity.password.minLength }
     })
     api.get('/health', { config: { public: true }, schema: healthSchema }, healthHandler)
     api.get('/openapi.json', {

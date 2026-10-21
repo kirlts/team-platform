@@ -52,7 +52,7 @@ describe('notice priority (UD-029)', () => {
     }
   })
 
-  it('every badge and mark is soft: the solid fill belongs to the bell alone (J2-B-03)', () => {
+  it('every badge and mark is quiet: the solid fill belongs to the bell alone (J2-B-03, J3-A-04, UD-035)', () => {
     for (const counts of COMBINATIONS) {
       const { container, unmount } = render(
         <I18nProvider language="es-419">
@@ -62,7 +62,7 @@ describe('notice priority (UD-029)', () => {
           ))}
         </I18nProvider>,
       )
-      for (const el of container.querySelectorAll('[data-tone]')) expect(el.getAttribute('data-weight')).toBe('soft')
+      for (const el of container.querySelectorAll('[data-tone]')) expect(el.getAttribute('data-weight')).toBe('quiet')
       unmount()
     }
   })

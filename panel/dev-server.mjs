@@ -486,7 +486,7 @@ const server = createServer(async (req, res) => {
       sessions.delete(cookieOf(req))
       return send(res, 204, undefined, { 'Set-Cookie': 'team_session=; Max-Age=0; Path=/' })
     }
-    if (path === '/me' && method === 'GET') return send(res, 200, { ...me, project_name: project.name })
+    if (path === '/me' && method === 'GET') return send(res, 200, { ...me, project_name: project.name, password_min_length: 15 })
 
     // --- project description: the whole team sees it and only the Editor changes it (UD-024)
     if (path === '/settings/project' && method === 'GET') return send(res, 200, project)

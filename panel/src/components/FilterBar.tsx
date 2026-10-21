@@ -1,7 +1,7 @@
-import { ChevronDown, Plus, Search, X } from '@/components/icons'
+import { ChevronDown, Search, X } from '@/components/icons'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useT, type MessageKey } from '@/i18n'
 import { FILTER_PROPS, ME, REPLIES_VALUES, STATUS_VALUES, removeFilter, upsertFilter, type Filter, type FilterOp, type FilterProp, type MessageQuery } from '@/lib/filters'
 import { cn } from '@/lib/utils'
@@ -53,13 +53,6 @@ export function FilterBar({ query, onChange }: { query: MessageQuery; onChange: 
 
   const used = new Set(query.filters.map((f) => f.prop))
 
-  const add = (prop: FilterProp) => {
-    const first = valueOptions(prop)[0]
-    if (!first) return
-    onChange({ ...query, filters: upsertFilter(query.filters, { prop, op: 'eq', value: first.value }) })
-    setOpenValue(prop)
-  }
-
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
@@ -74,22 +67,40 @@ export function FilterBar({ query, onChange }: { query: MessageQuery; onChange: 
             className="well h-8 w-full rounded-full pl-9 pr-3 text-sm placeholder:text-faint focus-visible:border-accent"
           />
         </div>
-        {/* The button wears what is applied: its edge, its count and, in the open menu, a check and the value of each filter that is on (J2-A-13). */}
+        {/* The button wears what is applied: its edge and its count. Each filter of the menu opens its values, with a check on the one that is on and the way to take it off (J2-A-13, J3-A-16). */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="secondary" aria-label={used.size > 0 ? t('filter.addActive', { n: used.size }) : undefined} className={cn(used.size > 0 && '!border-accent bg-selected text-fg')}>
-              <Plus size={14} aria-hidden /> {t('filter.add')}
+              {t('filter.add')}
               {used.size > 0 && <span className="tabular-nums text-accent-deep">{used.size}</span>}
+              <ChevronDown size={13} aria-hidden />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {FILTER_PROPS.map((p) => {
               const on = query.filters.find((f) => f.prop === p)
               return (
-                <DropdownMenuCheckboxItem key={p} checked={!!on} onCheckedChange={(next) => (next ? add(p) : onChange({ ...query, filters: removeFilter(query.filters, p) }))}>
-                  {t(PROP_KEY[p])}
-                  {on && <span className="ml-auto pl-4 text-muted">{labelOf(on)}</span>}
-                </DropdownMenuCheckboxItem>
+                <DropdownMenuSub key={p}>
+                  <DropdownMenuSubTrigger aria-label={on ? `${t(PROP_KEY[p])}: ${labelOf(on)}` : t(PROP_KEY[p])}>
+                    {t(PROP_KEY[p])}
+                    {on && <span className="ml-auto pl-4 text-muted">{labelOf(on)}</span>}
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="max-h-72 overflow-y-auto">
+                    <DropdownMenuRadioGroup value={on?.value ?? ''} onValueChange={(v) => onChange({ ...query, filters: upsertFilter(query.filters, { prop: p, op: on?.op ?? 'eq', value: v }) })}>
+                      {valueOptions(p).map((o) => (
+                        <DropdownMenuRadioItem key={o.value} value={o.value}>
+                          {o.label}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                    {on && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onSelect={() => onChange({ ...query, filters: removeFilter(query.filters, p) })}>{t('filter.take')}</DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
               )
             })}
           </DropdownMenuContent>

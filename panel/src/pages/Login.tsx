@@ -50,7 +50,7 @@ export function Login() {
         }}
       >
         <h1>
-          <Wordmark name={t('brand.name')} />
+          <Wordmark name={t('brand.name')} large />
         </h1>
         <label className="flex flex-col gap-1 text-sm font-medium">
           {t('login.email')}
@@ -60,14 +60,16 @@ export function Login() {
           {t('login.password')}
           <Input type="password" autoComplete="current-password" aria-invalid={bad.password ? true : undefined} aria-describedby="login-error" className={bad.password ? '!border-danger' : undefined} value={password} onChange={(e) => setPassword(e.target.value)} />
         </label>
-        {/* The row is always there: an error fills it, it does not push the card (J2-A-01). Outside the labels, so it is not part of a field's name. */}
-        <p id="login-error" role="alert" className="-mt-2 min-h-[1.45rem] text-sm text-danger">
-          {error}
-        </p>
         <Button type="submit" variant="primary" disabled={pending}>
           {t('login.enter')}
         </Button>
-        <p className="text-sm text-muted">{t('login.noAccount')}</p>
+        {/* The foot of the card: the note about who creates the accounts, and an error takes its place without moving the card, which reserves two lines (J2-A-01, J3-A-03). */}
+        <div className="min-h-[2.9rem] text-sm">
+          <p id="login-error" role="alert" className="text-danger">
+            {error}
+          </p>
+          {!error && <p className="text-muted">{t('login.noAccount')}</p>}
+        </div>
       </form>
     </main>
   )

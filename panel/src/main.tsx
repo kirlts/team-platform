@@ -2,11 +2,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ApiError } from '@/lib/api'
+import { watchProse } from '@/lib/prose-width'
 import { initTheme } from '@/lib/theme'
 import { App } from './App'
 import './styles.css'
 
 initTheme()
+watchProse()
 
 const queryClient = new QueryClient({
   defaultOptions: {

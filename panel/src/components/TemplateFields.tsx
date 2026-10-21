@@ -32,7 +32,7 @@ export function TemplateFields({
         <div key={f.name} className="flex min-w-0 flex-col gap-0.5">
           <dt className="flex items-baseline justify-between gap-2 text-xs font-semibold text-muted">
             {f.label}
-            {f.required && !closed && !(values?.[f.name] ?? '').trim() && <span className="font-normal text-danger">{t('fields.required')}</span>}
+            {f.required && !closed && !(values?.[f.name] ?? '').trim() && <span className="font-normal text-muted">{t('fields.required')}</span>}
           </dt>
           <dd>
             <EditableText

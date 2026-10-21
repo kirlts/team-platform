@@ -445,7 +445,7 @@ const label = (key) => {
 }
 
 describe('the default of the two lists of Inicio (idea.md)', () => {
-  test('both start on «Para mí» and «Que me involucran», and the first leaves out a message that is for someone else', async () => {
+  test('both lists start on «Para mí» (UD-210), and the first leaves out a message that is for someone else', async () => {
     const { page, context } = await session('bruno')
     try {
       await settled(page)
@@ -455,8 +455,8 @@ describe('the default of the two lists of Inicio (idea.md)', () => {
       await replies.waitFor()
       assert.equal(await messages.getByRole('radio', { name: label('home.forMe') }).getAttribute('aria-checked'), 'true')
       assert.equal(await messages.getByRole('radio', { name: label('home.everyone') }).getAttribute('aria-checked'), 'false')
-      assert.equal(await replies.getByRole('radio', { name: label('home.involveMe') }).getAttribute('aria-checked'), 'true')
-      assert.equal(await replies.getByRole('radio', { name: label('home.all') }).getAttribute('aria-checked'), 'false')
+      assert.equal(await replies.getByRole('radio', { name: label('home.forMe') }).getAttribute('aria-checked'), 'true')
+      assert.equal(await replies.getByRole('radio', { name: label('home.everyone') }).getAttribute('aria-checked'), 'false')
 
       // The newest message of each kind, read from the API: one assigned to this member and one that is not.
       const me = (await api(page, '/me')).body

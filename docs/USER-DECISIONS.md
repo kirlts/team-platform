@@ -993,3 +993,12 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 - Quitar el espaciado por completo: 140 px, no alcanza en 360 px.
 **Consecuencias:** `Wordmark.tsx` y `StatusBar.tsx`. Prueba «on a phone the name in the top bar is one line at 390 px» exige una línea a 390 px y que a 360 px no pase bajo las marcas.
 **Condiciones de reversión:** Si el dueño quiere una línea a 360 px, se oculta la esfera bajo 380 px (`max-[380px]:hidden` en `Wordmark.tsx`), que libera 24 px y deja 146 px para el texto.
+
+## [UD-230] Inicio muestra la fecha y la hora
+
+**Fecha:** 2026-10-21
+**Contexto:** `idea.md` pide en Inicio «fecha y hora actuales». La ronda 3 de jueces (J3-A-09, H-808) quitó el reloj por restar jerarquía, y UD-046 lo dejó escrito como «sin reloj». Esa exclusión salió de un juez, no del dueño. La regla 9 de `docs/RULES.md` hace mandar a `idea.md` donde difiere. La auditoría de `idea.md` del 2026-10-21 lo marcó como parcial.
+**Decisión:** Inicio muestra una línea de texto corriente con la fecha y la hora («21 de octubre de 2026, 19:05»), al lado del nombre del proyecto, de 14 px o más, sin mayúsculas ni tinta de acento (H-509). La hora se renueva en cada cambio de minuto.
+**Consecuencias:** `panel/src/pages/Home.tsx` dibuja el elemento `time` con `format.longDate` y `format.clock`; la prueba «Inicio shows the date and the time of the day» reemplaza a «Inicio has no clock». La hora cambia una vez por minuto, sin mover el diseño (cifras tabulares).
+**Condiciones de reversión:** Si el dueño no quiere hora, se quita `format.clock(now)` y `useMinuteClock` de `Home.tsx` y se restituye la aserción de H-808. UD-046 queda enmendada en este punto.
+

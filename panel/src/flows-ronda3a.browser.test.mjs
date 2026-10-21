@@ -273,11 +273,15 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
     }
   })
 
-  test('Inicio has no clock (J3-A-09) and the first stop of the keyboard is the skip link (J3-A-12)', async () => {
+  test('Inicio shows the date and the time of the day (idea.md, UD-230) and the first stop of the keyboard is the skip link (J3-A-12)', async () => {
     const { page, context } = await session('ana')
     try {
-      // The date of the day is in the page (mockup, UD-046); a clock is not: no time of day anywhere in the titles of the page.
-      assert.equal(await page.locator('main time[datetime]').filter({ hasText: /\d{1,2}:\d{2}/ }).filter({ hasText: /de 20\d\d/ }).count(), 0, 'there is no running date and time')
+      // idea.md asks for «fecha y hora actuales»: one line of plain text, the date and the hour, as a <time> element.
+      const stamp = page.locator('main time[datetime]').filter({ hasText: /de 20\d\d, \d{2}:\d{2}/ })
+      await stamp.first().waitFor()
+      assert.equal(await stamp.count(), 1, 'the date and the hour are one element')
+      const style = await stamp.first().evaluate((el) => ({ size: parseFloat(getComputedStyle(el).fontSize), upper: getComputedStyle(el).textTransform }))
+      assert.ok(style.size >= 14 && style.upper === 'none', 'plain text, not a decoration (H-509)')
       await page.goto(origin)
       await page.locator('main#main').waitFor()
       await page.keyboard.press('Tab')

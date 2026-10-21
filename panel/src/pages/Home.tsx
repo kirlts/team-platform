@@ -42,9 +42,26 @@ const isTyping = (target: EventTarget | null) => {
   return el.isContentEditable || inOtherDialog || !!el.closest('input, textarea, select, button, a, [role="menu"], [role="menuitemradio"]')
 }
 
+/** The date and the time of the day, renewed at each change of minute (idea.md: «fecha y hora actuales»; UD-230). */
+function useMinuteClock(): Date {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    let timer = 0
+    const arm = () => {
+      const current = new Date()
+      setNow(current)
+      timer = window.setTimeout(arm, 60_000 - (current.getTime() % 60_000))
+    }
+    timer = window.setTimeout(arm, 60_000 - (Date.now() % 60_000))
+    return () => window.clearTimeout(timer)
+  }, [])
+  return now
+}
+
 export function Home() {
   const t = useT()
   const format = useFormat()
+  const now = useMinuteClock()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const me = useMe().data
@@ -214,8 +231,8 @@ export function Home() {
         <h1 data-repeat-ok="page-title" className="min-w-0 break-words">
           {project?.name ?? me?.project_name ?? t('nav.home')}
         </h1>
-        <time dateTime={new Date().toISOString()} className="text-sm tabular-nums text-muted">
-          {format.longDate(new Date())}
+        <time dateTime={now.toISOString()} className="text-sm tabular-nums text-muted">
+          {format.longDate(now)}, {format.clock(now)}
         </time>
       </div>
 

@@ -175,6 +175,16 @@ export function loadConfig (env = process.env, overrides = {}) {
       descriptionMaxChars: intVar(env, 'PROJECT_DESCRIPTION_MAX_CHARS', 200000, { min: 1 }) // informe 02 §10.2: the 100,000-token price step, UD-024
     },
 
+    // ---- Telemetría de la interfaz (UD-061, MASTER-SPEC §7.10 ter). Cada cifra cita su fuente o se declara cortesía.
+    uiTelemetry: {
+      // UD-061: encendida por omisión; el dueño la apaga en Configuración y la variable fija el valor inicial.
+      enabledDefault: boolVar(env, 'UI_TELEMETRY', true),
+      maxEvents: intVar(env, 'UI_TELEMETRY_MAX_EVENTS', 50, { min: 1 }), // declared courtesy: see UD-061
+      maxBodyBytes: intVar(env, 'UI_TELEMETRY_MAX_BODY_BYTES', 16384, { min: 1 }), // declared courtesy: see UD-061
+      rateMax: intVar(env, 'UI_TELEMETRY_RATE_MAX', 30, { min: 1 }), // declared courtesy: see UD-061
+      rateWindowMs: intVar(env, 'UI_TELEMETRY_RATE_WINDOW_MS', 60000, { min: 1 }) // declared courtesy: see UD-061
+    },
+
     // ---- Miembros
     members: {
       // Not a model limit: the whole profile travels to the analyzer (UD-023).

@@ -40,6 +40,7 @@ export function FitList<T>({
   rowsRole,
   reveal,
   pagedOnPhone = false,
+  footer,
 }: {
   rows: readonly T[]
   rowKey: (row: T) => string
@@ -58,6 +59,8 @@ export function FitList<T>({
   reveal?: string
   /** On a phone the list also pages, inside the height its parent gives it. */
   pagedOnPhone?: boolean
+  /** Drawn right under the frame, inside the slot: the rows share the height with it, and it does not drift to the foot of the page when the list is short. */
+  footer?: ReactNode
 }) {
   const t = useT()
   // «desktop» below means «pages»: the window is wide, or the caller gave the list a frame of its own on a phone.
@@ -68,6 +71,7 @@ export function FitList<T>({
   const frame = useRef<HTMLDivElement>(null)
   const body = useRef<HTMLDivElement>(null)
   const head = useRef<HTMLDivElement>(null)
+  const foot = useRef<HTMLDivElement>(null)
   const [start, setStart] = useState(0)
   const [history, setHistory] = useState<number[]>([])
   /** Grows when the frame changes size, so a measure taken at another size stops being valid. */
@@ -98,6 +102,22 @@ export function FitList<T>({
     return () => observer.disconnect()
   }, [])
 
+  // The footer changes height when one of its sections opens: the room the rows have changes with it, and the measure taken before is stale.
+  useEffect(() => {
+    const el = foot.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    let last = el.getBoundingClientRect().height
+    const observer = new ResizeObserver(() => {
+      const now = el.getBoundingClientRect().height
+      if (Math.abs(now - last) > 0.5) {
+        last = now
+        setFrameVersion((v) => v + 1)
+      }
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [footer !== undefined])
+
   const pagerHeight = useRef(0)
 
   // The row to reveal is looked for once per change of `reveal`, as soon as the page size is known.
@@ -120,6 +140,8 @@ export function FitList<T>({
     const heights = [...el.children].map((c) => c.getBoundingClientRect().height)
     const remaining = rows.length - first
     const above = head.current?.getBoundingClientRect().height ?? 0
+    const below = foot.current?.getBoundingClientRect().height ?? 0
+    const room = box.clientHeight - below
     const stamp = { rows, desktop, start: first, version: frameVersion }
     measuredBox.current = box.clientHeight
     // A slot can dip while its neighbors settle (chips measuring themselves) and be back where it was before the frame ends: the observer reports
@@ -129,16 +151,16 @@ export function FitList<T>({
       if (slot.current && Math.abs(slot.current.clientHeight - Math.max(taken, measuredFloor.current)) > 0.5) setFrameVersion((v) => v + 1)
     })
     // Everything left fits without a pager when it is the first page.
-    if (first === 0 && heights.length === remaining && total(heights) <= box.clientHeight - above + 0.5) {
+    if (first === 0 && heights.length === remaining && total(heights) <= room - above + 0.5) {
       measuredFloor.current = 0
       setFit({ ...stamp, n: remaining, sum: total(heights), floor: 0 })
       return
     }
     const pager = pagerHeight.current || PAGER_HEIGHT
-    const n = Math.min(remaining, fitCount(heights, box.clientHeight - above - pager))
+    const n = Math.min(remaining, fitCount(heights, room - above - pager))
     // A page always holds one row (`fitCount`), so the slot is never lower than that row, the header and the pager: in a window
     // lower than that the page scrolls, and the row is not drawn over the pager (H-96). In a taller window this changes nothing.
-    const floor = Math.ceil((heights[0] ?? 0) + above + pager + chrome(frame.current))
+    const floor = Math.ceil((heights[0] ?? 0) + above + pager + below + chrome(frame.current))
     measuredFloor.current = floor
     setFit({ ...stamp, n, sum: total(heights.slice(0, n)), floor })
   })
@@ -222,6 +244,11 @@ export function FitList<T>({
         </>
       )}
       </div>
+      {footer && (
+        <div ref={foot} className="shrink-0">
+          {footer}
+        </div>
+      )}
     </div>
   )
 }

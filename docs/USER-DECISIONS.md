@@ -876,3 +876,14 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 - Enlace `mailto:` a un Editor elegido por el servidor: expone el correo de un miembro a cualquiera que abra la página.
 **Consecuencias:** Ninguna en código. La fila H-3008 queda cerrada con esta decisión.
 **Condiciones de reversión:** Si el dueño quiere la vía de contacto, se agrega el ajuste `contact` con valor opcional y la nota lo muestra cuando existe.
+
+## [UD-160] La vista de un área no repite el chip de su área en cada mensaje
+
+**Fecha:** 2026-10-21
+**Contexto:** Un juez de pantallas anotó que «Error» se repetía en las 4 filas de una vista que ya es el área Error (H-2905). UD-041 fija los mensajes del área con su filtro por estado; UD-045 fija que el color del área determina su chip.
+**Decisión:** La vista de un área no dibuja el chip de área en sus filas. El área es el filtro de la vista y su nombre es el título. El chip sigue en Mensajes, el detalle, el análisis, Inicio y la barra superior, con el color del área. `MessageCard` y `MessageList` reciben `hideArea` (por omisión, falso).
+**Alternativas descartadas:**
+- Dejar el chip en cada fila: repite el título de la página sin dato nuevo.
+- Quitar el chip de todas las listas: UD-045 lo fija como la marca del área en cada lugar donde el área no es evidente.
+**Consecuencias:** Una prueba de `flows-states-areas.browser.test.mjs` cuenta cero chips en la vista del área y más de cero en Mensajes.
+**Condiciones de reversión:** Si el dueño pide el color del área también en esta vista, vuelve el chip o se pinta el título con él.

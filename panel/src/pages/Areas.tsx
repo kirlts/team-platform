@@ -100,6 +100,8 @@ function AreaRow({ area }: { area: Area }) {
   const summary = useSummary().data
   const label = useCountsLabel()
   const counts = areaCounts(summary, area.id)
+  const cut = area.title.lastIndexOf(' ') + 1
+  const [head, tail] = [area.title.slice(0, cut), area.title.slice(cut)]
 
   const change = (next: string) => {
     const prev = area.description
@@ -112,17 +114,18 @@ function AreaRow({ area }: { area: Area }) {
   }
 
   return (
-    <section className="flex flex-wrap items-start gap-x-3 gap-y-1.5 border-b border-line px-4 py-3 last:border-b-0">
+    <section className="grid grid-cols-[auto_minmax(0,1fr)_7.5rem] items-start gap-x-3 gap-y-1 border-b border-line px-4 py-3 last:border-b-0 sm:grid-cols-[auto_minmax(10rem,14rem)_8rem_minmax(0,1fr)]">
       <AreaColorPicker title={area.title} color={area.color} onChange={changeColor} />
-      <div className="flex min-w-0 flex-1 basis-40 flex-col gap-0.5">
-        <Link to={`/areas/${area.id}`} aria-label={t('areas.open', { title: area.title })} className="inline-flex items-center gap-1 self-start font-semibold hover:text-accent-deep hover:underline">
-          {area.title}
-          <ChevronRight size={15} aria-hidden className="text-muted" />
-        </Link>
-        <FoldedText value={area.description} label={t('areas.fieldDescription')} validate={descriptionRule(t)} onSave={change} displayClassName="text-xs text-muted" />
-      </div>
-      {/* Fixed-width column: the counts line up row by row, and an area with none says nothing (J3-A-33). Each count leads to Mensajes filtered by the area and that state. */}
-      <span className="flex shrink-0 flex-col items-start self-center max-sm:ml-0 sm:w-32">
+      {/* The name leads to the area; the chevron is glued to its last word, so a name on several lines keeps it at full size next to it. */}
+      <Link to={`/areas/${area.id}`} aria-label={t('areas.open', { title: area.title })} className="self-start font-semibold hover:text-accent-deep hover:underline">
+        {head}
+        <span className="whitespace-nowrap">
+          {tail}
+          <ChevronRight size={15} aria-hidden className="ml-1 inline-block shrink-0 align-[-0.2em] text-muted" />
+        </span>
+      </Link>
+      {/* Fixed-width column right after the name: the counts line up row by row, and an area with none says nothing (J3-A-33). Each count leads to Mensajes filtered by the area and that state. */}
+      <span className="col-start-3 row-span-2 row-start-1 flex flex-col items-start self-center sm:row-span-1">
         {(['open', 'answered'] as const).map(
           (status) =>
             counts[status] > 0 && (
@@ -132,6 +135,9 @@ function AreaRow({ area }: { area: Area }) {
             ),
         )}
       </span>
+      <div className="col-start-2 min-w-0 sm:col-start-4 sm:row-start-1">
+        <FoldedText value={area.description} label={t('areas.fieldDescription')} validate={descriptionRule(t)} onSave={change} displayClassName="text-xs text-muted" />
+      </div>
     </section>
   )
 }

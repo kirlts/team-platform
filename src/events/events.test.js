@@ -27,6 +27,7 @@ test('events travel with a text id and the names progress, done and message', as
   const s = await openSse(env, '/api/events', { cookie: env.c.ana })
   assert.equal(s.status, 200)
   assert.equal(s.headers.get('content-type'), 'text/event-stream')
+  assert.equal(s.headers.get('x-accel-buffering'), 'no') // H-57: nginx and similar proxies stream the flow instead of buffering it
   assert.match(s.headers.get('content-security-policy'), /connect-src 'self'/) // the security headers reach the stream too
   env.events.publishForJob(jobId, { kind: 'progress', percent: 40, phrase: 'leyendo' })
   env.events.publishForJob(jobId, { kind: 'done', data: { status: 'done' } })

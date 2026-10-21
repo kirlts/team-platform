@@ -17,6 +17,7 @@ import { errorType, initTelemetry, withSpan } from './domain/tracing.js'
 import { createPipeline } from './domain/pipeline.js'
 import { loadModules } from './domain/modules.js'
 import { sweepOrphans } from './domain/storage.js'
+import { runInJobScope, setLimiterLogger } from './providers/limiter.js'
 
 const MAX_TIMEOUT = 2 ** 31 - 1 // declared courtesy: the maximum Node's own setTimeout accepts; it does not govern operation
 
@@ -27,7 +28,8 @@ const MAX_TIMEOUT = 2 ** 31 - 1 // declared courtesy: the maximum Node's own set
  */
 export function createWorker ({ db, queue, events, config, handlers, workerId = `worker-${randomUUID()}`, logger = createLogger({ logLevel: 'silent' }), now = Date.now, pollDataVersionMs = null, onSweep = null }) {
   const w = config.worker
-  const runningJobs = new Map() // job.id → { controller, running }
+  setLimiterLogger(logger) // the cap reductions of the provider limiters go to the worker's log (H-83)
+  const runningJobs = new Map() // job.id → { controller, promise }
   let stopped = true
   let tickTimer = null
   let nextTimer = null
@@ -73,7 +75,8 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     const inputId = parseJson(job.payload_json, {}).input_id ?? null
     // Every queue job is a span (UD-014): the extractors and providers hang from it.
     // Each attempt is the root of its own tree: without ROOT_CONTEXT the span would inherit that of the job that woke it.
-    const running = context.with(ROOT_CONTEXT, () => withSpan('job', { 'team.job_id': String(job.id), 'team.input_id': inputId === null ? '' : String(inputId), 'team.step': 'job', 'team.job_kind': job.kind, 'team.attempt': job.attempts }, async (span) => {
+    // The provider calls of this job wait for their slot as this job (round-robin across jobs) and stop waiting if the job is aborted.
+    const running = runInJobScope({ jobId: job.id, signal: controller.signal }, () => context.with(ROOT_CONTEXT, () => withSpan('job', { 'team.job_id': String(job.id), 'team.input_id': inputId === null ? '' : String(inputId), 'team.step': 'job', 'team.job_kind': job.kind, 'team.attempt': job.attempts }, async (span) => {
       const handlerObj = handlers[job.kind]
       try {
         if (!handlerObj) {
@@ -97,7 +100,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
         runningJobs.delete(job.id)
         kick()
       }
-    }))
+    })))
     runningJobs.set(job.id, { controller, running })
   }
 

@@ -6,6 +6,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { PROVIDER_LIMIT_DEFAULTS } from './providers/limiter.js'
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -118,7 +119,7 @@ export function loadConfig (env = process.env, overrides = {}) {
       // Full jitter (the fraction of the delay that is subtracted at random). I03 §3.4 cites walq for the mechanism and
       // the AWS guide [F41] for the principle, without fixing the fraction: 1 is that guide's «full jitter».
       retryJitter: decimal(env, 'QUEUE_RETRY_JITTER', 1, { min: 0, max: 1 }),
-      concurrency: intVar(env, 'QUEUE_CONCURRENCY', 3, { min: 1 }), // `docs/investigaciones/mediciones/2026-10-21-concurrencia-de-la-cola.md` (measurement 2026-10-21, UD-025): the largest C with no 429 in 15 bursts of 8
+      concurrency: intVar(env, 'QUEUE_CONCURRENCY', 8, { min: 1 }), // `docs/investigaciones/mediciones/2026-10-21-concurrencia-de-la-cola.md` (measurement 2026-10-21, UD-025, H-83): lowest p95 at N=16 with no input failed by a provider, behind the provider cap of PROVIDER_MAX_INFLIGHT_*
       maxRuntimeMs: intVar(env, 'QUEUE_MAX_RUNTIME_MS', 900000, { min: 1 }), // pg-boss expireInSeconds: 900 s
       retentionDays: intVar(env, 'RETENTION_DAYS', 7, { min: 1 }), // I03 §12: pg-boss deleteAfterSeconds, 7 days
       // Courtesy: retention is measured in days, one sweep per hour meets it with room to spare. It does not govern the
@@ -258,7 +259,20 @@ export function loadConfig (env = process.env, overrides = {}) {
       analyzer: choiceVar(env, 'ANALYZER', ['api', 'harness'], 'api'),
       text: { provider: textValue(env, 'TEXT_PROVIDER', 'anthropic'), model: textValue(env, 'TEXT_MODEL', '') },
       vision: { provider: textValue(env, 'VISION_PROVIDER', ''), model: textValue(env, 'VISION_MODEL', '') }, // empty = inherits from text
-      speech: { provider: textValue(env, 'SPEECH_PROVIDER', 'groq-speech'), model: textValue(env, 'SPEECH_MODEL', '') }
+      speech: { provider: textValue(env, 'SPEECH_PROVIDER', 'groq-speech'), model: textValue(env, 'SPEECH_MODEL', '') },
+      // Simultaneous requests of the whole process to each provider (src/providers/limiter.js, H-83); 0 = no cap. The
+      // defaults are the ones of PROVIDER_LIMIT_DEFAULTS, which cites the measurement
+      // `docs/investigaciones/mediciones/2026-10-21-concurrencia-de-la-cola.md` (measurement 2026-10-21).
+      maxInflight: {
+        anthropic: intVar(env, 'PROVIDER_MAX_INFLIGHT_ANTHROPIC', PROVIDER_LIMIT_DEFAULTS.anthropic), // measurement 2026-10-21, see PROVIDER_LIMIT_DEFAULTS
+        groq: intVar(env, 'PROVIDER_MAX_INFLIGHT_GROQ', PROVIDER_LIMIT_DEFAULTS.groq), // measurement 2026-10-21, see PROVIDER_LIMIT_DEFAULTS
+        openaiCompatible: intVar(env, 'PROVIDER_MAX_INFLIGHT_OPENAI_COMPATIBLE', PROVIDER_LIMIT_DEFAULTS.openaiCompatible) // measurement 2026-10-21, see PROVIDER_LIMIT_DEFAULTS
+      },
+      // Adaptive backoff after a 429 on the cap: wait one cooldown, then give back one request per restore step.
+      backoff: {
+        cooldownMs: intVar(env, 'PROVIDER_BACKOFF_COOLDOWN_MS', PROVIDER_LIMIT_DEFAULTS.cooldownMs, { min: 1 }), // measurement 2026-10-21, see PROVIDER_LIMIT_DEFAULTS
+        restoreStepMs: intVar(env, 'PROVIDER_BACKOFF_RESTORE_STEP_MS', PROVIDER_LIMIT_DEFAULTS.restoreStepMs, { min: 1 }) // measurement 2026-10-21, see PROVIDER_LIMIT_DEFAULTS
+      }
     }
   }
 

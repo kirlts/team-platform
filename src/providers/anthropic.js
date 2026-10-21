@@ -18,6 +18,7 @@ import {
   ProviderRefusalError,
 } from './errors.js';
 import { DEFAULT_TIMEOUT_MS, partToBase64, postRequest, systemBlocks, toParts } from './http.js';
+import { limiterFor } from './limiter.js';
 import { withGenAiCall } from '../telemetry/api.js';
 
 export const ANTHROPIC_DEFAULTS = Object.freeze({
@@ -73,6 +74,7 @@ async function toAnthropicContent(content, provider) {
  * @param {number} [cfg.timeoutMs]
  * @param {number} [cfg.maxTokens] default for `complete`
  * @param {typeof fetch} [cfg.fetchImpl]
+ * @param {ReturnType<typeof import('./limiter.js').createLimiter>} [cfg.limiter] default: the process-wide one of Anthropic
  */
 export function createAnthropicClient(cfg) {
   if (!cfg?.apiKey) throw new ProviderConfigError('anthropic: falta la llave (ANTHROPIC_API_KEY)', { provider: 'anthropic' });
@@ -82,6 +84,8 @@ export function createAnthropicClient(cfg) {
   const timeoutMs = cfg.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const defaultMaxTokens = cfg.maxTokens ?? ANTHROPIC_DEFAULTS.maxTokens;
   const provider = 'anthropic';
+  // The simultaneous requests of the whole process to this provider (limiter.js, H-83).
+  const limiter = cfg.limiter ?? limiterFor(provider);
 
   // One span per call with the full input and output (UD-014, MASTER-SPEC §7.10 bis).
   const call = (req, modality = 'text') =>
@@ -110,7 +114,8 @@ export function createAnthropicClient(cfg) {
     if (effort) outputConfig.effort = effort;
     if (Object.keys(outputConfig).length > 0) body.output_config = outputConfig;
 
-    const res = await postRequest(`${baseUrl}/v1/messages`, {
+    // The slot is held only around the request: the body above is already built.
+    const res = await limiter.run(() => postRequest(`${baseUrl}/v1/messages`, {
       headers: {
         'content-type': 'application/json',
         'x-api-key': cfg.apiKey,
@@ -121,7 +126,7 @@ export function createAnthropicClient(cfg) {
       fetchImpl: cfg.fetchImpl,
       provider,
       model,
-    });
+    }));
 
     const msg = res.json ?? {};
     const u = msg.usage ?? {};

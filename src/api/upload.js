@@ -5,6 +5,7 @@ import { rm } from 'node:fs/promises'
 import { classify, maxBytesFor } from '../domain/attachments.js'
 import { AppError, badRequest, tooLarge, unsupported } from '../domain/errors.js'
 import { DEFAULTS as EXTRACT_DEFAULTS } from '../extract/config.js'
+import { HEIC_MESSAGE, isHeicFile } from '../extract/image.js'
 import { probe } from '../extract/lib/ffmpeg.js'
 import { commit, ingest } from '../domain/storage.js'
 
@@ -32,6 +33,14 @@ async function rejectLongVideo (tmp, filename) {
   if (info.durationSeconds > max) {
     throw new AppError(422, 'video_too_long', `El video «${filename || 'archivo'}» dura ${Math.ceil(info.durationSeconds / 60)} minutos y el máximo es ${max / 60}.`)
   }
+}
+
+/**
+ * H-21: the image decoder has no HEVC, so a HEIC photo can never be read. It is refused at upload with the
+ * extractor's code (judged by the file's brand, not by its name or declared type), not after queueing.
+ */
+async function rejectHeic (tmp) {
+  if (await isHeicFile(tmp)) throw new AppError(422, 'image_heic_unsupported', HEIC_MESSAGE)
 }
 
 /** Reads the multipart body of a new input: text, files[] and links[]. */
@@ -88,6 +97,7 @@ async function readUpload (request, config, { textField, extraFields, emptyMessa
       ingested.push({ ...r, kind: kindInfo.kind, mime: kindInfo.mime, name: part.filename || '' })
       if (r.size === 0) throw badRequest(`«${part.filename || 'archivo'}» está vacío.`, 'file_empty')
       if (kindInfo.kind === 'video') await rejectLongVideo(r.tmp, part.filename)
+      if (kindInfo.kind === 'image') await rejectHeic(r.tmp)
     }
     if (Buffer.byteLength(text) > u.maxTextBytes) throw tooLarge('El texto supera el tamaño máximo permitido.')
     if (text.trim() === '' && ingested.length === 0 && links.length === 0) {

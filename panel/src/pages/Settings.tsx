@@ -236,6 +236,7 @@ function ProviderRow({ provider: p }: { provider: ProviderSetting }) {
   const { has } = useI18n()
   const undo = useUndo()
   const save = useSaveProvider()
+  const errorText = useErrorText()
   const required = (v: string) => (v ? null : t('common.required'))
 
   /** Each provider change is an operation undone with the previous values. */
@@ -255,7 +256,7 @@ function ProviderRow({ provider: p }: { provider: ProviderSetting }) {
           <ChevronDown size={12} aria-hidden className="shrink-0 text-muted" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
-          <DropdownMenuRadioGroup value={p.provider} onValueChange={(v) => void change({ provider: v })}>
+          <DropdownMenuRadioGroup value={p.provider} onValueChange={(v) => change({ provider: v }).catch(() => {})}>
             {KNOWN_PROVIDERS.map((name) => (
               <DropdownMenuRadioItem key={name} value={name}>
                 {name}
@@ -268,6 +269,7 @@ function ProviderRow({ provider: p }: { provider: ProviderSetting }) {
       <span title={p.available === false ? reason : undefined} className="flex flex-col items-start gap-0.5">
         <Badge tone={p.available === false ? 'danger' : 'answered'}>{p.available === false ? t('provider.unavailable') : t('provider.available')}</Badge>
         {p.available === false && <span className="text-xs leading-tight text-muted">{reason}</span>}
+        {save.isError && <span role="alert" className="text-xs leading-tight text-danger">{errorText(save.error)}</span>}
       </span>
     </div>
   )

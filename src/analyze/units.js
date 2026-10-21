@@ -37,6 +37,23 @@ const HEADING = /^\s{0,3}#{1,6}\s+\S/;
 // An indented line after a bullet continues that bullet.
 const INDENTED = /^(?: {2,}|\t)\S/;
 
+// A unit with no content of its own (H-1902): the speaker line of a meeting transcript («00:12:41 Name», «Name:»), the bare
+// number of a list item, or a line with no letter or digit. It reads the shape of the text, never its meaning (§4.2).
+const SPEAKER_MARK = new RegExp(`^[[(]?${CLOCK}[\\])]?\\s+\\p{L}[\\p{L}\\p{N}_'-]*(?:\\s+\\p{L}[\\p{L}\\p{N}_'-]*){0,2}$`, 'u');
+const SPEAKER_LABEL = /^\p{L}[\p{L}\p{N}_'-]*(?:\s+\p{L}[\p{L}\p{N}_'-]*){0,2}:$/u;
+const BARE_NUMBER = /^\d{1,3}[.)]$/;
+
+/**
+ * True when the text of a unit says nothing by itself: a speaker mark with its time, a speaker label, a bare list number or
+ * only symbols. Such a unit belongs with the unit that follows it (the intervention it introduces), never in a message alone.
+ * @param {string} text
+ */
+export function isEmptyUnit(text) {
+  const t = String(text ?? '').trim();
+  if (t === '') return true;
+  return !/[\p{L}\p{N}]/u.test(t) || BARE_NUMBER.test(t) || SPEAKER_MARK.test(t) || SPEAKER_LABEL.test(t);
+}
+
 /** Attachment kinds whose text is a monologue or a timeline: it is not split (report 02 §2.2). */
 const ATOMIC_KINDS = new Set(['audio', 'video']);
 

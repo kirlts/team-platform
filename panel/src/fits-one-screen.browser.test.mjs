@@ -141,7 +141,7 @@ function measureInPage({ lanes, withBreak, scrolls }) {
       const hides = ['hidden', 'clip'].includes(st.overflowY) || ['hidden', 'clip'].includes(st.overflowX)
       const r = rect(el)
       const fades = (st.maskImage ?? 'none') !== 'none' || (st.webkitMaskImage ?? 'none') !== 'none'
-      return hides && !fades && el.innerText?.trim() && r.width > 0 && r.height > 0 && st.textOverflow !== 'ellipsis' && (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1)
+      return hides && !fades && el.innerText?.trim() && r.width > 0 && r.height > 0 && st.textOverflow !== 'ellipsis' && ((['hidden', 'clip'].includes(st.overflowY) && el.scrollHeight > el.clientHeight + 1) || (['hidden', 'clip'].includes(st.overflowX) && el.scrollWidth > el.clientWidth + 1))
     })
     .map(label)
   const frame = main?.firstElementChild

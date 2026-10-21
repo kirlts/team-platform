@@ -345,3 +345,15 @@ RULES:
 - `bundle.recent_inputs` con los envíos sin publicar de la misma persona (texto ya extraído y títulos propuestos), con un tope de cantidad y de antigüedad declarados.
 - Bandeja de envíos en Inicio con prueba de alto: diez envíos seguidos no cambian `scrollHeight` del documento.
 **Condiciones de reversión:** Ninguna prevista.
+
+## [UD-026] Lo que genera la IA se distingue a simple vista; nada se muestra dos veces; el móvil aprovecha el espacio
+
+**Fecha:** 2026-10-21
+**Contexto:** Martín revisó una captura móvil de Inicio con una propuesta abierta.
+**Decisión:** Martín, textual: «la parte de análisis no está muy visualmente separada de la parte del mensaje … a simple vista cuesta entender que una parte de la pantalla corresponde a algo que generó una inteligencia artificial. Una forma de combatir esto es dándole un fondo de color distinto a la parte de análisis, pero también puedes ver cómo lo hacen otras interfaces de usuario 2026», y «en Envíos aparece el mismo texto que después se muestra en el mensaje, es ridículo, hay que fusionar ese componente … en móvil tenemos que aprovechar mucho mejor el espacio». Tres reglas de clase: (1) todo contenido generado por el modelo vive en una superficie propia y reconocible (fondo distinto del kit, marca de origen e ícono consistentes, siguiendo el patrón investigado de las interfaces de 2026) en todas las pantallas donde aparece, no sólo en Análisis; (2) ningún dato se muestra dos veces en la misma vista: la fila del envío seleccionado se convierte en la cabecera de su revisión, el texto original no se repite, y los conteos y estados aparecen una sola vez; (3) en móvil, lo que no se necesita para decidir nace plegado (el texto original se abre a pedido cuando la propuesta está lista), y los controles secundarios son íconos con nombre accesible.
+**Alternativas descartadas:**
+- Separar por una línea o un título: la captura muestra que no alcanza.
+**Consecuencias:**
+- Prueba del panel que falla si un mismo texto de más de 20 caracteres aparece dos veces en una vista; captura móvil revisada a 390×844 de Inicio con propuesta abierta.
+- El banco cuenta como marca de baja calidad un cuerpo de mensaje que repite su título.
+**Condiciones de reversión:** Ninguna prevista.

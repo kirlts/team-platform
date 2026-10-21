@@ -191,21 +191,32 @@ describe('REG-007: one point said once is one message, whatever the units in bet
   }
 });
 
-describe('REG-008: praise with nothing to decide and rhetorical questions are not messages', () => {
-  for (const [language, praise, rhetorical] of [
-    ['es-419', /elogios o aprobaciones sin nada que decidir ni responder/, /preguntas retóricas y muletillas de cierre/],
-    ['en', /praise or approval with nothing to decide or answer/, /rhetorical questions and closing fillers/],
+describe('REG-008: praise with nothing to decide is not a message', () => {
+  for (const [language, praise] of [
+    ['es-419', /elogios o aprobaciones sin nada que decidir ni responder/],
+    ['en', /praise or approval with nothing to decide or answer/],
   ]) {
-    it(`the classification of ${language} discards both`, async () => {
+    it(`the classification of ${language} discards it`, async () => {
       const { areas, templates } = await makeBundle();
-      const prompt = classifySystem({ areas, templates, language }).join('\n');
-      assert.match(prompt, praise);
-      assert.match(prompt, rhetorical);
+      assert.match(classifySystem({ areas, templates, language }).join('\n'), praise);
     });
   }
 });
 
-describe('REG-009: a point seen only in a frame carries source «frame» into the proposal', () => {
+describe('REG-009: a rhetorical question or a closing filler is not a Question message', () => {
+  for (const [language, rhetorical, decomposition] of [
+    ['es-419', /preguntas retóricas y muletillas de cierre/, /Una pregunta retórica o una muletilla de cierre no es un mensaje de pregunta/],
+    ['en', /rhetorical questions and closing fillers/, /A rhetorical question or a closing filler is not a question message/],
+  ]) {
+    it(`the classification and the decomposition of ${language} leave it out`, async () => {
+      const { areas, templates } = await makeBundle();
+      assert.match(classifySystem({ areas, templates, language }).join('\n'), rhetorical);
+      assert.match(decomposeSystem(parseTemplate(templates[1].body_markdown), language).join('\n'), decomposition);
+    });
+  }
+});
+
+describe('H-11: a point seen only in a frame carries source «frame» into the proposal', () => {
   const script = (source) => scriptByRequest({
     classification: { groups: [{ unit_ids: [1, 2], area_id: 2, template_id: 2 }], discarded: [] },
     decompositions: { 'Reporte de error': { messages: [{ ...bugMessage([1, 2], 'Corregir el icono desalineado'), ...(source ? { source } : {}) }] } },

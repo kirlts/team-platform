@@ -72,6 +72,9 @@ export function membersBlock(members) {
 
 export const INPUT_HEADING = 'Input';
 
+/** Added to the classification of the second reading (UD-021), after the first one found nothing. */
+export const SECOND_PASS_NOTE = 'Segunda lectura. Una persona envió este input al equipo por algún motivo, así que contiene al menos un punto: un pedido, una falla, una idea, una pregunta o algo que muestra y quiere que el equipo vea. La primera lectura no encontró nada. Léelo de nuevo, sección por sección y con más cuidado, y nombra a qué apunta con más probabilidad la persona, aunque sea implícito o solo se vea en la descripción de una imagen. Pon una unidad en discarded solo cuando no contenga nada más que un saludo o charla social.';
+
 // ---------------------------------------------------------------------------------------------
 // Second call: decompose
 // ---------------------------------------------------------------------------------------------

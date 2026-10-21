@@ -87,7 +87,7 @@ export async function extractImage(attachment, ctx) {
   const { json, usage } = await withSpan('extract.vision', { 'team.step': 'extract.vision', 'team.images': 1, 'team.input_bytes': image.data.length }, async () => {
     const out = await providers.vision.describe({
       images: [{ data: image.data, mime: image.mime, label: 'Imagen' }],
-      prompt: cfg.prompt,
+      prompt: ctx.deep ? cfg.deepPrompt : cfg.prompt,
       schema: DESCRIPTION_SCHEMA,
     });
     annotate({ 'team.output_chars': typeof out.json?.description === 'string' ? out.json.description.length : 0 });

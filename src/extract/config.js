@@ -33,6 +33,15 @@ export const DEFAULTS = Object.freeze({
       'actionable: which screen or component is shown, what state it is in, what seems to fail or ' +
       'be missing, what is pointed at or marked. Do not add intentions that the image does not ' +
       'show. Write the description in Spanish.',
+    // Second reading of an image that produced no message at first sight (UD-021). It asks for more detail and for the
+    // likely reason the person sent it; the description feeds the analyzer, which decides what it means.
+    deepPrompt:
+      'A person sent this image to a software team and gave no text with it, so they sent it for a reason. Describe ' +
+      'it in detail for the team. Say what kind of screen, document or mockup it is and what it shows, region by region. ' +
+      'Transcribe verbatim all visible text: titles, labels, buttons, field names, values, error messages, codes and ' +
+      'numbers. Say what looks wrong, unfinished, empty, misaligned, inconsistent or missing, what is marked or ' +
+      'highlighted, and what the person is most likely pointing at or asking the team to do about it. Do not invent ' +
+      'what the image does not show. Write the description in Spanish.',
   }),
 
   document: Object.freeze({

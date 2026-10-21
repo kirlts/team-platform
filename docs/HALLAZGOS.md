@@ -14,20 +14,20 @@ Estados: `main` (resuelto y fusionado), `en curso` (asignado a un agente vivo), 
 | H-04 | Chat de WhatsApp «[hh:mm, d/m/aaaa] Nombre:» no se reconoce | banco privado | `main` (REG-003) |
 | H-05 | Un chat que describe algo a construir se descartó entero; un plazo nunca se descarta | banco privado | `main` (REG-004) |
 | H-06 | Fragmentos de voz de 1 a 5 s como unidades | banco privado, audios | `main` (REG-005) |
-| H-07 | Voz de video `[mm:ss-mm:ss]` pegada al fotograma anterior | banco privado, videos | en curso (agente prompts, REG-006) |
-| H-08 | Un punto partido en 4 a 6 mensajes | banco privado, videos | en curso (agente prompts, REG-007) |
-| H-09 | Elogios convertidos en mensajes de Retroalimentación | banco privado | en curso (agente prompts, REG-008) |
-| H-10 | Pregunta retórica o muletilla final como mensaje «Pregunta» | banco privado | en curso (agente prompts, REG-009) |
-| H-11 | Defectos vistos sólo en un fotograma: se conservan con `source: "frame"` | banco privado | en curso (agente prompts) |
+| H-07 | Voz de video `[mm:ss-mm:ss]` pegada al fotograma anterior | banco privado, videos | `main` (REG-006) |
+| H-08 | Un punto partido en 4 a 6 mensajes | banco privado, videos | `main` (REG-007) |
+| H-09 | Elogios convertidos en mensajes de Retroalimentación | banco privado | `main` (REG-008) |
+| H-10 | Pregunta retórica o muletilla final como mensaje «Pregunta» | banco privado | `main` (REG-009) |
+| H-11 | Defectos vistos sólo en un fotograma: se conservan con `source: "frame"` | banco privado | `main` (campo `source` del mensaje, REG-009) |
 | H-12 | Reunión de 57 KB: 208 s, 7 llamadas, 72k tokens de salida; Word de 3 a 8 MB: 60 a 90 s | banco privado | en curso (agente prompts; objetivo menos de 30 s) |
 | H-13 | Documentos largos y reuniones: cobertura 6 a 50 %, bloques de proceso descartados como «no producto», agrupación por tema en vez de por bloque | banco privado | en curso (agente prompts) |
 | H-14 | Caso 03 del banco público en 80 % por la unidad 27 (juicio dudoso) | agente analizador | abierto: se cierra con la medición del agente prompts |
 | H-15 | Clasificación varía entre corridas (d02: 41 % a 66 %) | banco privado, repetición ×3 | abierto: se mide de nuevo tras H-12 y H-13; si persiste, esfuerzo `medium` en clasificación |
-| H-16 | Prompts en dos idiomas (`es-419`, `en`) por `bundle.language` | UD-018 | en curso (agente prompts) |
+| H-16 | Prompts en dos idiomas (`es-419`, `en`) por `bundle.language` | UD-018 | `main` (`prompts-es.js`, `prompts-en.js`) |
 | H-17 | Contrato de escritura sin marcas de IA y métrica `bench/ai-tells.js` | UD-019 | en curso (agente prompts) |
-| H-18 | Proveedor de respaldo `textFallback` se construye y nada lo invoca | documentación (DT-003) | abierto |
-| H-19 | Comentario de `src/analyze/api.js` describe el diseño anterior | documentación (DT-006) | abierto: lo resuelve la pasada a inglés |
-| H-20 | Capturas sin texto (c01, d01, u03) dan 0 mensajes; la referencia pide uno | banco privado | en curso (agente prompts, UD-021: segunda pasada más profunda antes de concluir cero) |
+| H-18 | Proveedor de respaldo `textFallback` se construye y nada lo invoca | documentación (DT-003) | `main` (`callText` repite una vez en `textFallback`) |
+| H-19 | Comentario de `src/analyze/api.js` describe el diseño anterior | documentación (DT-006) | `main` (cabecera de `api.js` reescrita) |
+| H-20 | Capturas sin texto (c01, d01, u03) dan 0 mensajes; la referencia pide uno | banco privado | `main` (segunda pasada, UD-021; falta la medición con el banco privado) |
 
 ## Extracción
 

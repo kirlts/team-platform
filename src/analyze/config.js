@@ -71,6 +71,10 @@ export const KNOBS = Object.freeze({
   // null = the system temporary directory.
   harnessWorkRoot: { value: null, source: 'UD-008 (empty working directory owned by the adapter)' },
 
+  // Units per section in the second reading (UD-021), which runs only when the first one found nothing: the input is
+  // read again section by section (a heading or a change of source also cuts). Provisional: the bench calibrates it.
+  secondPassSectionUnits: { value: 20, source: 'UD-021 (provisional; calibrated by the bench §7.11)' },
+
   // Extra environment variables for the harness process.
   harnessEnv: { value: Object.freeze({}), source: 'UD-008' },
 });
@@ -93,7 +97,7 @@ export function resolveConfig(overrides = {}) {
   for (const key of ['classifyEffort', 'decomposeEffort']) {
     if (!EFFORTS.has(config[key])) throw new TypeError(`${key} must be one of ${[...EFFORTS].join(', ')}`);
   }
-  for (const key of ['maxTokens', 'maxTokensRetry', 'partitionThresholdTokens', 'charsPerToken', 'partitionConcurrency', 'minCacheableSystemTokens', 'harnessTimeoutMs']) {
+  for (const key of ['maxTokens', 'maxTokensRetry', 'partitionThresholdTokens', 'charsPerToken', 'partitionConcurrency', 'minCacheableSystemTokens', 'harnessTimeoutMs', 'secondPassSectionUnits']) {
     if (!Number.isFinite(config[key]) || config[key] <= 0) throw new TypeError(`${key} must be a positive number`);
   }
   for (const key of ['invalidOutputRetries', 'rescuePasses']) {

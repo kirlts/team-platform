@@ -5,6 +5,7 @@ import { describe, it } from 'node:test';
 import {
   createFakeProviders, ProviderHttpError, ProviderMaxTokensError, ProviderOutputError, ProviderRefusalError,
 } from '../providers/index.js';
+import { ProviderTimeoutError } from '../providers/errors.js';
 import { analyze, AnalyzeInputError, warmCatalog, warmTemplate } from './index.js';
 import { decomposeSystem } from './prompts.js';
 import { parseTemplate } from './templates.js';
@@ -400,13 +401,145 @@ describe('analyze (api): an input with a bug, an idea and a question', () => {
     assert.equal(result.proposal.messages.length, 3);
   });
 
-  it('an input with nothing actionable ends with no messages and everything discarded', async () => {
+  it('an input with nothing actionable ends with no messages only after a second, deeper reading', async () => {
     const bundle = await makeBundle({ text: 'Hola.\n\nGracias.', attachments: [] });
-    const fake = createFakeProviders({ text: [{ groups: [], discarded: [{ unit_ids: [1, 2], reason: 'charla' }] }] });
+    const empty = { groups: [], discarded: [{ unit_ids: [1, 2], reason: 'charla' }] };
+    const fake = createFakeProviders({ text: [empty, empty] });
     const result = await analyze(bundle, { providers: fake });
     assert.equal(result.status, 'ok');
     assert.deepEqual(result.proposal, { messages: [], discarded: [{ unit_ids: [1, 2], reason: 'charla' }] });
-    assert.equal(fake.calls.text.length, 1);
+    assert.equal(result.stats.second_pass, true);
+    assert.equal(fake.calls.text.length, 2, 'the first reading and the second one');
+    assert.match(fake.calls.text[1].messages[0].content, /Second reading/);
+    assert.match(fake.calls.text[0].messages[0].content, /^(?!Second reading)/);
+  });
+});
+
+describe('analyze (api): second reading (UD-021)', () => {
+  const found = { groups: [{ unit_ids: [1], area_id: 2, template_id: 2 }], discarded: [] };
+  const emptyFor = (ids) => ({ groups: [], discarded: [{ unit_ids: ids, reason: 'sin pedido' }] });
+  /** First classification empty, the following ones as given; any decomposition answers with `message`. */
+  const script = (afterFirst, message) => {
+    let classifications = 0;
+    return (req) => {
+      if (req.schema.properties.groups) {
+        classifications += 1;
+        return classifications === 1 ? emptyFor([1]) : afterFirst;
+      }
+      return { messages: [message] };
+    };
+  };
+
+  it('a first reading with no groups is read again and the second one yields a message', async () => {
+    const bundle = await makeBundle({ text: 'El botón de exportar no hace nada.', attachments: [] });
+    const fake = createFakeProviders({ text: script(found, bugMessage([1], 'Corregir el botón de exportar')) });
+    const result = await analyze(bundle, { providers: fake });
+    assert.equal(result.status, 'ok');
+    assert.equal(result.stats.second_pass, true);
+    assert.deepEqual(result.proposal.messages.map((m) => m.title), ['Corregir el botón de exportar']);
+    assert.ok(!('source' in result.proposal.messages[0]), 'a message born from text is not marked as inferred from an image');
+    const steps = fake.calls.text.map((c) => (c.schema.properties.groups ? 'classify' : 'decompose'));
+    assert.deepEqual(steps, ['classify', 'classify', 'decompose']);
+    assert.match(lastUserText(fake.calls.text[1]), /Second reading/);
+    assert.doesNotMatch(lastUserText(fake.calls.text[0]), /Second reading/);
+  });
+
+  it('a first reading that finds something does not run a second one', async () => {
+    const bundle = await makeBundle({ text: 'El botón de exportar no hace nada.', attachments: [] });
+    const fake = createFakeProviders({
+      text: scriptByRequest({ classification: found, decompositions: { 'Reporte de error': { messages: [bugMessage([1], 'Corregir el botón de exportar')] } } }),
+    });
+    const result = await analyze(bundle, { providers: fake });
+    assert.equal(result.status, 'ok');
+    assert.ok(!result.stats.second_pass);
+  });
+
+  it('an image sent alone is described again in more detail, and what comes out of it is marked as inferred from the image', async () => {
+    const bundle = await makeBundle({ text: '', attachments: [{ id: 7, kind: 'image', extracted: 'Una pantalla.' }] });
+    const asked = [];
+    const redescribe = async (attachment) => {
+      asked.push(attachment.id);
+      return 'Formulario de ingreso con el campo Correo vacío y el botón Enviar desalineado.';
+    };
+    const fake = createFakeProviders({ text: script(found, bugMessage([1], 'Corregir el botón Enviar desalineado')) });
+    const result = await analyze(bundle, { providers: fake, redescribe });
+    assert.equal(result.status, 'ok');
+    assert.deepEqual(asked, [7]);
+    assert.equal(result.stats.second_pass, true);
+    assert.match(lastUserText(fake.calls.text[1]), /Formulario de ingreso con el campo Correo vacío/);
+    assert.equal(result.proposal.messages[0].source, 'frame');
+    assert.match(result.units[0].text, /Formulario de ingreso/);
+  });
+
+  it('an image alone with no way to describe it again still gets a second classification', async () => {
+    const bundle = await makeBundle({ text: '', attachments: [{ id: 7, kind: 'image', extracted: 'Una pantalla con un panel de indicadores.' }] });
+    const fake = createFakeProviders({ text: script(found, bugMessage([1], 'Revisar el panel de indicadores')) });
+    const result = await analyze(bundle, { providers: fake });
+    assert.equal(result.stats.second_pass, true);
+    assert.equal(result.proposal.messages[0].source, 'frame');
+  });
+
+  it('long text is read again by sections, one classification each', async () => {
+    const text = Array.from({ length: 5 }, (_, i) => `Párrafo ${i + 1} sin pedido claro.`).join('\n\n');
+    const bundle = await makeBundle({ text, attachments: [] });
+    let calls = 0;
+    const fake = createFakeProviders({ text: (req) => { calls += 1; return { groups: [], discarded: [{ unit_ids: unitIdsIn(req), reason: 'charla' }] }; } });
+    const result = await analyze(bundle, { providers: fake, config: { secondPassSectionUnits: 2 } });
+    assert.equal(result.proposal.messages.length, 0);
+    assert.equal(calls, 1 + 3, 'the first reading and three sections of 2, 2 and 1 units');
+    assert.ok(fake.calls.text.slice(1).every((c) => /Second reading/.test(lastUserText(c))));
+  });
+});
+
+describe('analyze (api): fallback provider (H-18)', () => {
+  const goodScript = () => scriptByRequest({ classification: CLASSIFY_ERRORS, decompositions: { 'Reporte de error': goodDecomposition() } });
+
+  it('a refusal in the classification is repeated once on the fallback, which is recorded in calls', async () => {
+    const bundle = await makeBundle();
+    const good = goodScript();
+    const fake = createFakeProviders({ text: (req, n) => (n === 0 ? new ProviderRefusalError('no', { category: 'x' }) : good(req)), textFallback: [CLASSIFY_ERRORS] });
+    const result = await analyze(bundle, { providers: fake });
+    assert.equal(result.status, 'ok');
+    assert.equal(fake.calls.text.length, 2, 'the primary provider is tried once for the classification and then decomposes');
+    assert.equal(fake.calls.textFallback.length, 1);
+    const [primary, fallback] = result.calls;
+    assert.equal(primary.fallback, undefined);
+    assert.equal(primary.outcome, 'refusal');
+    assert.equal(fallback.fallback, true);
+    assert.equal(fallback.provider, 'fake-fallback');
+    assert.equal(result.stats.fallbacks, 1);
+  });
+
+  it('a retryable HTTP failure goes to the fallback as well', async () => {
+    const bundle = await makeBundle();
+    const good = goodScript();
+    const fake = createFakeProviders({ text: (req, n) => (n === 0 ? new ProviderHttpError('overloaded', { status: 529, retryable: true }) : good(req)), textFallback: [CLASSIFY_ERRORS] });
+    const result = await analyze(bundle, { providers: fake });
+    assert.equal(result.status, 'ok');
+    assert.equal(result.calls.filter((c) => c.fallback).length, 1);
+  });
+
+  it('without a fallback the behavior is the current one: a refusal is a state and an HTTP failure is thrown', async () => {
+    const refused = createFakeProviders({ text: [new ProviderRefusalError('no', { category: 'x' })] });
+    assert.equal(refused.textFallback, null);
+    assert.equal((await analyze(await makeBundle(), { providers: refused })).status, 'refusal');
+    const down = createFakeProviders({ text: [new ProviderHttpError('down', { status: 503, retryable: true })] });
+    await assert.rejects(analyze(await makeBundle(), { providers: down }), ProviderHttpError);
+  });
+
+  it('what the fallback does not cover is not repeated: a non-retryable HTTP failure and a timeout', async () => {
+    for (const error of [new ProviderHttpError('bad key', { status: 401, retryable: false }), new ProviderTimeoutError('slow', { timeoutMs: 5 })]) {
+      const fake = createFakeProviders({ text: [error], textFallback: goodScript() });
+      await assert.rejects(analyze(await makeBundle(), { providers: fake }), error.constructor);
+      assert.equal(fake.calls.textFallback.length, 0);
+    }
+  });
+
+  it('a refusal of the fallback itself comes back as the refusal state, with both calls recorded', async () => {
+    const fake = createFakeProviders({ text: [new ProviderRefusalError('no')], textFallback: [new ProviderRefusalError('tampoco')] });
+    const result = await analyze(await makeBundle(), { providers: fake });
+    assert.equal(result.status, 'refusal');
+    assert.deepEqual(result.calls.map((c) => Boolean(c.fallback)), [false, true]);
   });
 });
 

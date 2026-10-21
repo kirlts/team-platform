@@ -183,7 +183,14 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
               const [percent, phraseText] = normalizeProgress(a, b)
               advance(pending.length, (percent ?? 0) / 100, phraseText || 'Analizando')
             },
-            signal: ctx.signal
+            signal: ctx.signal,
+            // UD-021: the second reading describes an image again in more detail when the first one found nothing.
+            redescribe: async (a) => {
+              const row = get(db, 'SELECT * FROM attachments WHERE id = ?', a.id)
+              if (!row || row.kind !== 'image') return null
+              const deep = await modules.extract(attachmentForExtractor(row), { providers: modules.getProviders(), signal: ctx.signal, deep: true })
+              return deep.text
+            }
           })
         } catch (error) {
           // The calls already made stay in `spans` (and in the llm_calls view) even if the job fails: each

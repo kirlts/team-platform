@@ -4,6 +4,7 @@
 //   await analyze(bundle, { providers: fake });
 //   fake.calls.text  // what each call received
 //
+// `textFallback` (optional) is the script of the fallback text provider; without it `textFallback` is null.
 // Each script (text, vision, speech) can be a function `(req, n) => response` or a list
 // consumed in order. A response is: an Error (thrown), a function, `{json}`, `{text}`
 // or any other object (taken as `json`). The fields `usage`, `duration_ms`, `provider`
@@ -41,9 +42,10 @@ async function materialize(response, req, n, identity) {
  * @param {{text?: any, vision?: any, speech?: any, textProfile?: string, name?: string, model?: string}} [scripts]
  */
 export function createFakeProviders(scripts = {}) {
-  const calls = { text: [], vision: [], speech: [] };
+  const calls = { text: [], textFallback: [], vision: [], speech: [] };
   const identity = { name: scripts.name ?? 'fake', model: scripts.model ?? 'fake-model' };
   const nextText = resolver('text', scripts.text);
+  const nextFallback = resolver('textFallback', scripts.textFallback);
   const nextVision = resolver('vision', scripts.vision);
   const nextSpeech = resolver('speech', scripts.speech);
 
@@ -57,6 +59,19 @@ export function createFakeProviders(scripts = {}) {
         const n = calls.text.length;
         calls.text.push(structuredClone(req));
         return materialize(nextText(req, n), req, n, identity);
+      });
+    },
+  };
+  // The fallback slot exists only when the test gives it a script, as in the real providers (null when not configured).
+  const fallbackIdentity = { name: `${identity.name}-fallback`, model: `${identity.model}-fallback` };
+  const textFallback = scripts.textFallback === undefined ? null : {
+    ...fallbackIdentity,
+    schemaProfile: scripts.textProfile ?? 'anthropic',
+    complete(req) {
+      return withGenAiCall({ provider: fallbackIdentity.name, model: fallbackIdentity.model, modality: 'text', request: req }, async () => {
+        const n = calls.textFallback.length;
+        calls.textFallback.push(structuredClone(req));
+        return materialize(nextFallback(req, n), req, n, fallbackIdentity);
       });
     },
   };
@@ -82,5 +97,5 @@ export function createFakeProviders(scripts = {}) {
       });
     },
   };
-  return { text, vision, speech, calls };
+  return { text, textFallback, vision, speech, calls };
 }

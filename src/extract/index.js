@@ -10,6 +10,7 @@
 //   config:     knobs over the values of config.js
 //   signal:     AbortSignal to cancel when the worker shuts down (MASTER-SPEC §7.3)
 //   deps:       { lookup } only for link tests
+//   deep:       true for the second reading of the analyzer (UD-021): an image is described in more detail
 //
 // `meta` always carries `kind`, `warnings` and `elapsedMs`; `meta.calls` lists the calls to
 // providers for the `llm_calls` table. A failure is an `ExtractError` with a code and a reason.
@@ -55,7 +56,7 @@ function truncate(text, maxChars) {
   return text.slice(0, cut > 0 ? cut : maxChars);
 }
 
-export async function extract(attachment, { providers, onProgress, config, signal, deps } = {}) {
+export async function extract(attachment, { providers, onProgress, config, signal, deps, deep = false } = {}) {
   const extractor = EXTRACTORS[attachment?.kind];
   if (!extractor) {
     throw new ExtractError('kind_unsupported', 'Este tipo de adjunto no se puede leer.', { kind: attachment?.kind });
@@ -85,7 +86,7 @@ export async function extract(attachment, { providers, onProgress, config, signa
         'team.input_bytes': attachment.size,
       },
       async () => {
-        const out = await extractor(attachment, { providers, config: cfg, onProgress: tracked, signal, deps, workDir });
+        const out = await extractor(attachment, { providers, config: cfg, onProgress: tracked, signal, deps, workDir, deep });
         annotate({
           'team.output_chars': out.text.length,
           'team.warnings': out.meta.warnings?.length ?? 0,

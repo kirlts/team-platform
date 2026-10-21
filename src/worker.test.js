@@ -51,7 +51,7 @@ test('extractors and analysis receive the contract: attachment with an absolute 
   assert.ok(seen.extract.a.path.startsWith('/'))
   assert.deepEqual(seen.extract.lookupKeys, ['onProgress', 'providers', 'signal'])
   assert.deepEqual(Object.keys(seen.extract.a).sort(), ['id', 'input_id', 'kind', 'mime', 'name', 'path', 'sha256', 'size'])
-  assert.deepEqual(seen.analyze.lookupKeys, ['analyzer', 'onProgress', 'providers', 'signal'])
+  assert.deepEqual(seen.analyze.lookupKeys, ['analyzer', 'onProgress', 'providers', 'redescribe', 'signal'])
   assert.equal(seen.analyze.bundle.templates[0].body_markdown.startsWith('---'), true)
   assert.ok(seen.analyze.bundle.areas.every((a) => a.position !== undefined))
   assert.equal(typeof seen.analyze.bundle.members[0].domains, 'string')

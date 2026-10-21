@@ -47,8 +47,9 @@ export const ANALYZERS = Object.freeze(['api', 'harness']);
  * @param {object} bundle
  * @param {{providers?: object, onProgress?: (p: {percent: number, phrase: string}) => void, config?: object, analyzer?: 'api'|'harness', env?: Record<string, string|undefined>}} [opts]
  *   `analyzer` wins over `env.ANALYZER`; with neither, `api`.
+ *   `redescribe(attachment)` (optional) returns a more detailed text for an image attachment; the second pass uses it (UD-021).
  */
-export async function analyze(bundle, { providers, onProgress, config, analyzer, env = process.env } = {}) {
+export async function analyze(bundle, { providers, onProgress, config, analyzer, redescribe, env = process.env } = {}) {
   const kind = analyzer ?? (env.ANALYZER || 'api');
   if (!ANALYZERS.includes(kind)) throw new AnalyzeInputError(`ANALYZER debe ser «api» o «harness», no «${kind}»`);
   const resolved = resolveConfig(config);
@@ -60,13 +61,14 @@ export async function analyze(bundle, { providers, onProgress, config, analyzer,
     async (span) => {
       const result = kind === 'harness'
         ? await analyzeWithHarness(bundle, { onProgress, config: resolved })
-        : await analyzeWithApi(bundle, { providers, onProgress, config: resolved });
+        : await analyzeWithApi(bundle, { providers, onProgress, config: resolved, redescribe });
       span.setAttributes({
         'team.status': result.status,
         'team.units': result.units?.length,
         'team.messages': result.proposal?.messages.length,
         'team.invalid_retries': result.stats?.invalid_retries,
         'team.rescues': result.stats?.rescues,
+        'team.second_pass': result.stats?.second_pass === true,
       });
       return result;
     },

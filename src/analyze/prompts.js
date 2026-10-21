@@ -47,9 +47,10 @@ export function membersBlock(members, language) {
   return promptSet(language).membersBlock(members);
 }
 
-export function classifyUser({ units, attachments, language }) {
+export function classifyUser({ units, attachments, language, secondPass = false }) {
   const set = promptSet(language);
-  return [set.attachmentsBlock(attachments, units), '', set.INPUT_HEADING, renderUnits(units, set.LANGUAGE)].join('\n');
+  const note = secondPass ? [set.SECOND_PASS_NOTE, ''] : [];
+  return [...note, set.attachmentsBlock(attachments, units), '', set.INPUT_HEADING, renderUnits(units, set.LANGUAGE)].join('\n');
 }
 
 // ---------------------------------------------------------------------------------------------

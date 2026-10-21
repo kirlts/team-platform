@@ -19,6 +19,7 @@
     "capturas:vistas": "node scripts/capturas-vistas.mjs",
     "test:fit": "node --test --test-concurrency=1 src/fits-one-screen.browser.test.mjs src/fit-list-low-window.browser.test.mjs",
     "test:flows": "node --test --test-concurrency=1 src/flows.browser.test.mjs src/flows-ronda2a.browser.test.mjs src/flows-ronda3a.browser.test.mjs src/flows-ronda3b.browser.test.mjs src/startpanel-port.browser.test.mjs",
+    "test:telemetry": "node --test --test-concurrency=1 src/telemetry.browser.test.mjs",
     "capturas:bandeja": "node scripts/capturas-bandeja.mjs",
     "capturas:ia": "node scripts/capturas-ia.mjs",
     "contraste": "node scripts/contraste.mjs",

@@ -31,6 +31,9 @@ export const SCORE_MAX = 1000;
 // the longest route of the API with its `:id` segments, rounded up (src/api/routes).
 export const ENDPOINT_PATTERN = '^(/[a-z][a-z0-9-]{0,31}|/:id){1,6}$';
 export const ENDPOINT_MAX = 64;
+// The longest event that can pass validation, in bytes of JSON: a task with every field at its largest value (measured
+// from this schema by `ui-telemetry.test.js`, which fails if the schema grows past it). The batch limit derives from it.
+export const MAX_EVENT_BYTES = 360;
 export const SESSION_PATTERN = '^[0-9a-f]{16}$';
 
 const int = (maximum = COUNTER_MAX) => ({ type: 'integer', minimum: 0, maximum });

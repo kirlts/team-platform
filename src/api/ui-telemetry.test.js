@@ -5,7 +5,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { all } from '../db/index.js'
 import { percentile } from '../telemetry/ui.js'
-import { ERROR_KINDS, SCREENS, TASKS, TASK_OUTCOMES } from '../telemetry/ui-spec.js'
+import { ERROR_KINDS, MAX_EVENT_BYTES, SCREENS, TASKS, TASK_OUTCOMES } from '../telemetry/ui-spec.js'
 import { addMember, login, makeEnv, postInput } from '../testing/helpers.js'
 
 const SESSION = '0123456789abcdef'
@@ -188,5 +188,28 @@ test('the OpenAPI contract documents the three routes and the event kinds', asyn
     const body = doc.paths['/api/telemetry/ui'].post.requestBody.content['application/json'].schema
     assert.equal(body.additionalProperties, false)
     assert.equal(body.properties.events.items.oneOf.length, 5)
+  } finally { await env.close() }
+})
+
+test('the batch limit derives from the longest possible event, and a full batch of them is accepted', async () => {
+  const env = await team()
+  try {
+    const big = 2147483647
+    const sessionMs = env.config.identity.session.absoluteHours * 3600000
+    const longest = {
+      navigation: { type: 'navigation', age_ms: big, screen: 'message-detail', from: 'message-detail', render_ms: sessionMs },
+      screen_usage: { ...EVENTS.screen_usage, age_ms: big, screen: 'message-detail', dwell_ms: sessionMs, clicks: big, scroll_events: big, scroll_px: big, key_presses: big, pointer_presses: big, viewport_w: big, viewport_h: big },
+      task: { type: 'task', age_ms: big, task: 'send_publish', outcome: 'abandoned', duration_ms: sessionMs, clicks: big, scroll_events: big, scroll_px: big, key_presses: big, screens: big, stage_feedback_ms: sessionMs, stage_analysis_ms: sessionMs, stage_publish_ms: sessionMs, component: 'a'.repeat(40) },
+      error: { type: 'error', age_ms: big, kind: 'promise', screen: 'message-detail', status: 599, endpoint: '/' + Array.from({ length: 6 }, () => 'a'.repeat(9)).join('/'), component: 'a'.repeat(40) },
+      vitals: { type: 'vitals', age_ms: big, screen: 'message-detail', cls: 999.9999, long_tasks: big, long_task_ms: sessionMs, inp_ms: sessionMs, lcp_ms: sessionMs, interactive_ms: sessionMs }
+    }
+    const sizes = Object.fromEntries(Object.entries(longest).map(([k, e]) => [k, JSON.stringify(e).length]))
+    const max = Math.max(...Object.values(sizes))
+    assert.ok(max <= MAX_EVENT_BYTES, `an event can weigh ${max} bytes and MAX_EVENT_BYTES says ${MAX_EVENT_BYTES}: ${JSON.stringify(sizes)}`)
+    assert.ok(MAX_EVENT_BYTES - max < 16, 'MAX_EVENT_BYTES must stay close to the measured longest event')
+    const { maxEvents, maxBodyBytes } = env.config.uiTelemetry
+    const body = { session: SESSION, events: Array.from({ length: maxEvents }, () => longest.task) }
+    assert.ok(JSON.stringify(body).length <= maxBodyBytes * 0.8, 'a full batch of the longest events uses at most 80 % of the body')
+    assert.equal((await env.api('POST', '/telemetry/ui', env.c.ana, body)).statusCode, 204)
   } finally { await env.close() }
 })

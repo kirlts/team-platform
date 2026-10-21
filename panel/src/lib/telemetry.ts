@@ -79,6 +79,34 @@ export function interactionToNextPaint(durations: number[]): number | undefined 
 
 type Listen = (target: EventTarget, type: string, fn: (e: never) => void, capture?: boolean) => void
 
+// Width classes: the lower edge of the Tailwind breakpoint the window is in (tailwindcss.com/docs/responsive-design,
+// consulted 2026-10-21; the panel has no custom ones). An exact window size is a fingerprint and the summary only needs
+// the class (informe 09 §8.11, Matomo's exempt mode drops the screen resolution).
+const WIDTH_EDGES = [0, 640, 768, 1024, 1280, 1536]
+// Height classes: steps of 100 px, a declared courtesy (the fit tests of the panel use 844 and 900 px windows).
+const HEIGHT_STEP = 100
+
+export function viewportClass(width: number, height: number): { w: number; h: number } {
+  const w = [...WIDTH_EDGES].reverse().find((edge) => width >= edge) ?? 0
+  return { w, h: Math.floor(Math.max(0, height) / HEIGHT_STEP) * HEIGHT_STEP }
+}
+
+/**
+ * Token bucket of the events the panel records: the rate and the burst of PostHog's client, 10 events a second with a
+ * burst of 100 (informe 09 §9, posthog.com/docs, consulted 2026-10-21). A runaway loop of errors is the case it is for.
+ */
+export class EventBudget {
+  private tokens = 100
+  private last = 0
+  take(now: number): boolean {
+    this.tokens = Math.min(100, this.tokens + ((now - this.last) / 1000) * 10)
+    this.last = now
+    if (this.tokens < 1) return false
+    this.tokens -= 1
+    return true
+  }
+}
+
 interface Counters {
   clicks: number
   scrollEvents: number
@@ -133,6 +161,7 @@ export class UiTelemetry {
   private firstScreenName: Screen | null = null
   private interactiveMs: number | undefined
   private renderStartedAt = 0
+  private budget = new EventBudget()
   private teardown: Array<() => void> = []
 
   constructor(private deps: Deps) {}
@@ -463,7 +492,7 @@ export class UiTelemetry {
   // ---- Queue and sending
 
   private push(fields: Fields) {
-    if (!this.enabled) return
+    if (!this.enabled || !this.budget.take(this.deps.now())) return
     this.queue.push({ at: this.deps.now(), fields })
     if (this.queue.length >= this.maxEvents) this.flush()
   }
@@ -528,5 +557,5 @@ export const telemetry = new UiTelemetry({
   now: () => (typeof performance !== 'undefined' ? performance.now() : Date.now()),
   send: sendWithFetch,
   afterPaint,
-  viewport: () => ({ w: Math.round(window.innerWidth), h: Math.round(window.innerHeight) }),
+  viewport: () => viewportClass(window.innerWidth, window.innerHeight),
 })

@@ -346,6 +346,7 @@ export const es419 = {
   'error.not_input_author': 'Sólo quien envió el mensaje edita su propuesta',
   'error.assignee_inactive': 'Un destinatario está desactivado',
   'error.confirmation_required': 'Falta la confirmación',
+  'error.validation': 'Datos inválidos',
   'error.description_required': 'Falta la descripción',
   'error.file_encoding': 'El archivo no está en texto UTF-8',
 } as const satisfies Record<string, Message>

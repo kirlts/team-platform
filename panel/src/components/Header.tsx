@@ -28,7 +28,7 @@ export function Header({ projectName, onOpenNav, onLogout }: { projectName?: str
         <Button variant="ghost" size="icon" aria-label={t('nav.open')} className="md:hidden" onClick={onOpenNav}>
           <PanelLeft size={18} aria-hidden />
         </Button>
-        <Link to="/" className="flex min-w-0 items-center gap-2.5 font-[family-name:var(--font-display)] text-[1.3rem] font-extrabold uppercase tracking-[0.14em]">
+        <Link to="/" className="flex min-w-0 items-center gap-2.5 font-[family-name:var(--font-display)] text-[1rem] font-extrabold uppercase tracking-[0.14em] md:text-[1.3rem]">
           <span aria-hidden className="orb h-4 w-4 shrink-0 rounded-full" />
           <span className="min-w-0 break-words leading-tight">
             {projectName}{' '}

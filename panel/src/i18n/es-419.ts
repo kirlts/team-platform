@@ -410,6 +410,7 @@ export const es419 = {
   'areas.deleteShort': 'Eliminar',
   'error.account_inactive': 'La cuenta está desactivada',
   'error.already_cancelled': 'El envío ya está cancelado',
+  'error.not_cancelled': 'El envío no está descartado',
   'error.already_closed': 'El mensaje ya está cerrado',
   'error.area_title_taken': 'Ya existe un área con ese título',
   'error.author_cannot_reply': 'Quien envió el mensaje no puede responderlo',

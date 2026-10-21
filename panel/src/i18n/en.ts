@@ -413,6 +413,7 @@ export const en: Record<MessageKey, Message> = {
   'analysis.error.invalid_output': 'The model response was not valid',
   'error.account_inactive': 'The account is deactivated',
   'error.already_cancelled': 'The submission is already cancelled',
+  'error.not_cancelled': 'The submission is not discarded',
   'error.already_closed': 'The message is already closed',
   'error.area_title_taken': 'An area with that title already exists',
   'error.author_cannot_reply': 'The sender cannot reply to their own message',

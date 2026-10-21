@@ -8,7 +8,8 @@ import { rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { test } from 'node:test'
 import fc from 'fast-check'
-import { all, openInitialized } from '../db/index.js'
+import { all, openInitialized, run } from '../db/index.js'
+import { createMember } from '../domain/members.js'
 import { createEvents } from '../events/index.js'
 import { makeEnv } from '../testing/helpers.js'
 import { createQueue } from './index.js'
@@ -89,4 +90,103 @@ test('queue claim: separate processes claiming at the same time never claim a jo
       await env.close()
     }
   }), { numRuns: 3 })
+})
+
+// ---- UD-025 fairness: the jobs of one author keep their arrival order, different authors interleave.
+
+const AUTHORS = 4 // the model draws jobs from up to four people: enough for ties, small enough to shrink well
+
+/** Creates the authors once per environment and returns a function that enqueues a job of author `a` (0-based). */
+function authorsOf (env) {
+  const memberIds = Array.from({ length: AUTHORS }, (_, a) => createMember(env.db, { email: `autor${a}@x.org`, name: `Autor ${a}` }))
+  let counter = 0
+  return {
+    memberIds,
+    enqueueFor (a, priority = 0) {
+      const t = Date.now()
+      const r = run(env.db, "INSERT INTO inputs (author_id, content_hash, created_at, updated_at) VALUES (?, ?, ?, ?)", memberIds[a], `h${counter++}`, t, t)
+      const inputId = Number(r.lastInsertRowid)
+      return env.queue.enqueue('analyze', { input_id: inputId }, { inputId, priority })
+    }
+  }
+}
+
+const arrivalsArb = fc.array(fc.record({ author: fc.integer({ min: 0, max: AUTHORS - 1 }), priority: fc.integer({ min: 0, max: 3 }) }), { minLength: 1, maxLength: 40 })
+
+test('fairness: draining the queue claims each author in arrival order and rotates between authors', async () => {
+  await fc.assert(fc.asyncProperty(arrivalsArb, async (arrivals) => {
+    const env = await makeEnv({ seed: false })
+    try {
+      const people = authorsOf(env)
+      const authorOfJob = new Map()
+      for (const x of arrivals) authorOfJob.set(people.enqueueFor(x.author, x.priority), x.author)
+      const remaining = Array.from({ length: AUTHORS }, (_, a) => arrivals.filter((x) => x.author === a).length)
+      const claimedCount = Array(AUTHORS).fill(0)
+      const lastId = Array(AUTHORS).fill(0)
+      for (;;) {
+        const job = env.queue.claim('w')
+        if (!job) break
+        const a = authorOfJob.get(job.id)
+        assert.ok(job.id > lastId[a], 'a later job of the same author was claimed before an earlier one')
+        lastId[a] = job.id
+        // Rotation: while two authors both have jobs waiting, their claimed counts never differ by more than one turn.
+        const waiting = remaining.map((n, i) => (i === a ? n - 1 : n))
+        claimedCount[a]++
+        remaining[a]--
+        for (let b = 0; b < AUTHORS; b++) {
+          if (b !== a && waiting[b] > 0) assert.ok(claimedCount[a] - claimedCount[b] <= 1, `author ${a} took turn ${claimedCount[a]} while author ${b} (turn ${claimedCount[b]}) still waited`)
+        }
+      }
+      assert.deepEqual(remaining, Array(AUTHORS).fill(0))
+    } finally {
+      await env.close()
+    }
+  }), { numRuns: 40 })
+})
+
+test('fairness: with arrivals and claims interleaved, a claim is always the oldest pending job of its author', async () => {
+  const opsArb = fc.array(fc.oneof(
+    fc.record({ op: fc.constant('enqueue'), author: fc.integer({ min: 0, max: AUTHORS - 1 }), priority: fc.integer({ min: 0, max: 3 }) }),
+    fc.record({ op: fc.constant('claim') })
+  ), { minLength: 1, maxLength: 60 })
+  await fc.assert(fc.asyncProperty(opsArb, async (ops) => {
+    const env = await makeEnv({ seed: false })
+    try {
+      const people = authorsOf(env)
+      const pending = Array.from({ length: AUTHORS }, () => []) // ids of the queued jobs of each author, in arrival order
+      const authorOfJob = new Map()
+      for (const step of ops) {
+        if (step.op === 'enqueue') {
+          const id = people.enqueueFor(step.author, step.priority)
+          authorOfJob.set(id, step.author)
+          pending[step.author].push(id)
+          continue
+        }
+        const job = env.queue.claim('w')
+        const waiting = pending.filter((list) => list.length > 0)
+        if (waiting.length === 0) { assert.equal(job, null); continue }
+        assert.ok(job, 'a due job was left unclaimed')
+        const a = authorOfJob.get(job.id)
+        assert.equal(job.id, pending[a][0], 'the claim skipped an earlier job of the same author')
+        pending[a].shift()
+        env.queue.complete(job)
+      }
+    } finally {
+      await env.close()
+    }
+  }), { numRuns: 40 })
+})
+
+test('fairness: one person sending a burst does not make another person wait behind all of it', async () => {
+  const env = await makeEnv({ seed: false })
+  try {
+    const people = authorsOf(env)
+    const burst = [0, 1, 2, 3, 4].map(() => people.enqueueFor(0))
+    const single = people.enqueueFor(1)
+    const order = []
+    for (let job = env.queue.claim('w'); job; job = env.queue.claim('w')) order.push(job.id)
+    assert.deepEqual(order, [burst[0], single, ...burst.slice(1)])
+  } finally {
+    await env.close()
+  }
 })

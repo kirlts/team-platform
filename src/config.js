@@ -118,7 +118,7 @@ export function loadConfig (env = process.env, overrides = {}) {
       // Jitter completo (fracción del retraso que se resta al azar). I03 §3.4 cita a walq para el mecanismo y
       // la guía de AWS [F41] para el principio, sin fijar la fracción: 1 es el «full jitter» de esa guía.
       retryJitter: decimal(env, 'QUEUE_RETRY_JITTER', 1, { min: 0, max: 1 }),
-      concurrency: intVar(env, 'QUEUE_CONCURRENCY', 1, { min: 1 }), // única perilla de convención (I03 §12)
+      concurrency: intVar(env, 'QUEUE_CONCURRENCY', 3, { min: 1 }), // docs/investigaciones/mediciones/2026-10-21-concurrencia-de-la-cola.md (medición 2026-10-21, UD-025): the largest C with no 429 in 15 bursts of 8
       maxRuntimeMs: intVar(env, 'QUEUE_MAX_RUNTIME_MS', 900000, { min: 1 }), // expireInSeconds de pg-boss: 900 s
       retentionDays: intVar(env, 'RETENTION_DAYS', 7, { min: 1 }), // I03 §12: pg-boss deleteAfterSeconds, 7 days
       // Cortesía: la retención se mide en días, un barrido por hora la cumple con holgura. No gobierna la
@@ -152,6 +152,19 @@ export function loadConfig (env = process.env, overrides = {}) {
     list: {
       pageSize: intVar(env, 'LIST_PAGE_SIZE', 50, { min: 1 }), // MS §7.8: not measured, no virtualization until there are hundreds of rows
       pageMax: 100 // decisión de Martín 2026-10-20: page cap of the API
+    },
+
+    // ---- Context of the analysis: the author's other inputs that are not published yet (UD-025)
+    recentInputs: {
+      // The largest burst measured in the concurrency bench is 8 inputs at once (docs/investigaciones/mediciones/2026-10-21-concurrencia-de-la-cola.md):
+      // 8 covers the 7 others of that burst with one to spare; a burst bigger than the one measured gets the newest 8.
+      max: intVar(env, 'RECENT_INPUTS_MAX', 8, { min: 0 }), // medición 2026-10-21, UD-025: the largest burst measured
+      // Courtesy value, not measured: twice the idle time of a session (SESSION_IDLE_MINUTES, 30 min, I04 §11), so the
+      // inputs of one working stretch with a break in the middle are context and the ones of yesterday are not.
+      maxAgeMinutes: intVar(env, 'RECENT_INPUTS_MAX_AGE_MINUTES', 60, { min: 1 }),
+      // Courtesy value, not measured: about one paragraph of text (≈ 200 tokens at 3 chars/token); with the 8 inputs
+      // above the context grows by at most 4,800 characters, far below the 100,000-token price step (informe 02 §10.2).
+      excerptChars: intVar(env, 'RECENT_INPUTS_EXCERPT_CHARS', 600, { min: 1 })
     },
 
     // ---- Proyecto (UD-024)

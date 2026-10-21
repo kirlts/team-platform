@@ -119,6 +119,7 @@ export const inputView = {
   properties: {
     id, author_id: id, text: { type: 'string' }, status: { type: 'string' }, error: nullableText, error_code: nullableText,
     created_at: { type: 'string' }, job_id: nullableId,
+    percent: { type: ['integer', 'null'] }, phrase: nullableText, proposed_count: { type: 'integer' }, // UD-025: the tray of in-flight inputs
     attachments: {
       type: 'array',
       items: { type: 'object', properties: { ...attachmentSummary.properties, sha256: { type: 'string' }, extracted: { type: 'boolean' } } }

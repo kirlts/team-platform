@@ -58,19 +58,32 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
     })
   }
 
-  /** Reclama el siguiente trabajo vencido de `run_at`. Devuelve la fila (con `attempts` = el intento en curso) o null. */
+  /**
+   * Claims the next due job, or null. UD-025 fairness: inside the queue, the jobs of one author keep their arrival
+   * order (job id) and different authors interleave. Each due job gets a `turn` = the author's jobs already running
+   * plus its position among the author's due jobs (the author of its input; a job without input is its own author).
+   * Counting the running ones is what makes the rotation hold while a burst is being claimed: without it, claiming
+   * an author's first job would turn its second into turn 1 again. Every author's next job therefore goes before
+   * anybody's following one, and the ties of a turn keep the old order: priority, run_at, id. The attempt count of
+   * the returned row is the attempt in progress.
+   */
   function claim (workerId, leaseMs = w.leaseMs) {
     const t = now()
     return tx(db, () => {
-      // Recuperar primero mantiene la consulta de reclamo exactamente como la fija §7.3 (sólo `queued`).
+      // Recovering first keeps the claim a pure `queued` query (MS §7.3).
       const expired = get(db, "SELECT 1 AS hay FROM jobs WHERE status = 'running' AND lease_until < ? LIMIT 1", t)
       if (expired) recoverExpiredLeases()
       const dbRow = get(db, `
         UPDATE jobs
            SET status = 'running', worker_id = ?, lease_until = ?, attempts = attempts + 1
-         WHERE id = (SELECT id FROM jobs
-                      WHERE status = 'queued' AND run_at <= ?
-                      ORDER BY priority DESC, run_at, id
+         WHERE id = (SELECT id FROM (
+                       SELECT j.id, j.priority, j.run_at,
+                              ROW_NUMBER() OVER (PARTITION BY COALESCE(i.author_id, -j.id) ORDER BY j.id)
+                              + (SELECT COUNT(*) FROM jobs r JOIN inputs ri ON ri.id = r.input_id
+                                  WHERE r.status = 'running' AND ri.author_id = i.author_id) AS turn
+                         FROM jobs j LEFT JOIN inputs i ON i.id = j.input_id
+                        WHERE j.status = 'queued' AND j.run_at <= ?)
+                      ORDER BY turn, priority DESC, run_at, id
                       LIMIT 1)
         RETURNING *`, workerId, t + leaseMs, t)
       return dbRow ?? null

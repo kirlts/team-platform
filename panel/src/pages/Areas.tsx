@@ -1,6 +1,6 @@
 import { ChevronRight, Plus, Trash2 } from '@/components/icons'
 import { useMemo, useState } from 'react'
-import { Navigate, useNavigate, useParams } from 'react-router'
+import { useNavigate, useParams } from 'react-router'
 import { EditableText } from '@/components/EditableText'
 import { FitList } from '@/components/FitList'
 import { FormDialog } from '@/components/FormDialog'
@@ -30,7 +30,16 @@ export function Areas() {
   const rows = useMemo(() => areas.data ?? [], [areas.data])
   const selected = rows.find((a) => a.id === areaId) ?? rows[0]
 
-  if (me && me.role !== 'editor') return <Navigate to="/" replace />
+  if (me && me.role !== 'editor') {
+    return (
+      <Page cols={12}>
+        <PageHeader title={t('nav.areas')} />
+        <p role="status" className="text-sm text-muted">
+          {t('areas.editorOnly')}
+        </p>
+      </Page>
+    )
+  }
 
   return (
     <UndoProvider stack={undo}>
@@ -87,7 +96,7 @@ function AreaRow({ area, selected, onSelect }: { area: Area; selected: boolean; 
   }
 
   return (
-    <section className={cn('flex items-start gap-3 border-b border-line px-4 py-3 last:border-b-0', selected && 'bg-accent-soft/40')}>
+    <section className={cn('flex flex-wrap items-start gap-x-3 gap-y-1.5 border-b border-line px-4 py-3 last:border-b-0', selected && 'bg-accent-soft/40')}>
       <button
         type="button"
         aria-pressed={selected}
@@ -97,12 +106,12 @@ function AreaRow({ area, selected, onSelect }: { area: Area; selected: boolean; 
       >
         <ChevronRight size={16} aria-hidden className={cn('transition-transform', selected && 'text-accent')} />
       </button>
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <div className="flex min-w-0 flex-1 basis-40 flex-col gap-0.5">
         <EditableText value={area.title} label={t('areas.fieldTitle')} validate={nameRule(t)} onSave={(v) => change('title', v)} displayClassName="font-semibold" />
         <EditableText value={area.description} label={t('areas.fieldDescription')} multiline validate={descriptionRule(t)} onSave={(v) => change('description', v)} displayClassName="text-[13px] text-muted" />
       </div>
       {/* Fixed-width column: what is pending lines up row by row. */}
-      <span className="flex w-24 shrink-0 justify-end">
+      <span className="flex shrink-0 justify-end max-sm:ml-9 sm:w-24">
         <Badge tone={pending > 0 ? 'open' : 'neutral'}>{t('areas.pending', { n: pending })}</Badge>
       </span>
     </section>

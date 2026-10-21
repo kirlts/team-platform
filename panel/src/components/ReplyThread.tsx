@@ -36,7 +36,7 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
             <Avatar name={memberName(r.author_id) || '?'} size={28} />
             <div className="flex min-w-0 flex-1 flex-col gap-1">
               <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted">
-                <span className="break-words text-[13px] font-semibold text-fg">{memberName(r.author_id)}</span>
+                <span data-repeat-ok="person" className="break-words text-[13px] font-semibold text-fg">{memberName(r.author_id)}</span>
                 {r.kind !== 'answer' && <Badge tone={r.kind === 'fix' ? 'answered' : 'neutral'}>{t(KIND_KEY[r.kind])}</Badge>}
                 <time dateTime={r.created_at} className="tabular-nums">
                   {format.stamp(r.created_at)}

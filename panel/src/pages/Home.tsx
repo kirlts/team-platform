@@ -5,14 +5,13 @@ import { ComposeBar, type SendDraft } from '@/components/ComposeBar'
 import { FitList } from '@/components/FitList'
 import { MessageCard } from '@/components/MessageCard'
 import { Page } from '@/components/Page'
-import { PageHeader } from '@/components/PageHeader'
 import { ReviewPane } from '@/components/ReviewPane'
 import { Segmented } from '@/components/Segmented'
 import { Tray, type PendingUpload, type TrayItem } from '@/components/Tray'
 import { useErrorText, useFormat, useT } from '@/i18n'
 import { ME, type MessageQuery } from '@/lib/filters'
 import { useEventsSnapshot } from '@/lib/events'
-import { useMe, useMessages, useProject, useTray } from '@/lib/queries'
+import { useMe, useMessages, useTray } from '@/lib/queries'
 import { uploadInput } from '@/lib/upload'
 
 /** One send that is going up to the server: what was sent, how far it is and why it failed, if it did. */
@@ -36,12 +35,13 @@ export function Home() {
   const errorText = useErrorText()
   const queryClient = useQueryClient()
   const me = useMe().data
-  const project = useProject().data
   const tray = useTray()
   const [now, setNow] = useState(() => new Date())
   const [uploads, setUploads] = useState<Upload[]>([])
   const [problem, setProblem] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | undefined>()
+  /** The original of a send, open or folded, when the person chose; else open while it is analyzed and folded once ready. */
+  const [originalChoice, setOriginalChoice] = useState<Readonly<Record<string, boolean>>>({})
   /** Sends already published or discarded here, hidden until the server's list catches up. */
   const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set())
   const events = useEventsSnapshot()
@@ -141,32 +141,32 @@ export function Home() {
     publishRef.current = fn
   }, [])
 
+  const selected = inputs.find((i) => i.id === selectedId)
+  const originalOpen = !!selected && (originalChoice[selected.id] ?? selected.status !== 'proposed')
   const working = items.length > 0
 
   return (
     <Page cols={12}>
-      <PageHeader
-        title={project?.name ?? me?.project_name ?? ''}
-        aside={
+      {/* The header already says the project's name: the page does not repeat it (UD-026). */}
+      <h1 className="sr-only">{t('nav.home')}</h1>
+      <section aria-label={t('home.new')} className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+          <h2>{t('home.new')}</h2>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">
             <time dateTime={now.toISOString()}>
               {format.longDate(now)} <span className="text-accent-deep">{format.clock(now)}</span>
             </time>
           </p>
-        }
-      />
-
-      <section aria-label={t('home.new')} className="flex flex-col gap-2">
-        <h2>{t('home.new')}</h2>
+        </div>
         <ComposeBar onSubmit={submit} problem={problem} />
       </section>
 
       {working ? (
         <>
           <div className="glass leaf grid min-h-0 flex-1 gap-x-6 gap-y-4 p-4 md:grid-cols-[minmax(0,3fr)_minmax(0,9fr)] md:grid-rows-[minmax(0,1fr)]">
-            <Tray items={items} selectedId={selectedId} onSelect={setSelectedId} />
+            <Tray items={items} selectedId={selectedId} hideTextId={originalOpen ? selectedId : undefined} onSelect={setSelectedId} />
             <div className="flex min-h-0 min-w-0 flex-col border-line md:border-l md:pl-6">
-              <ReviewPane inputId={selectedId} onClose={finished} registerPublish={registerPublish} />
+              <ReviewPane inputId={selectedId} originalOpen={originalOpen} onToggleOriginal={() => selected && setOriginalChoice((c) => ({ ...c, [selected.id]: !originalOpen }))} onClose={finished} registerPublish={registerPublish} />
             </div>
           </div>
           <FeedLinks meId={me?.id ?? ''} />

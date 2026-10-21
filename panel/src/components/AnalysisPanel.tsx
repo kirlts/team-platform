@@ -10,6 +10,7 @@ import { useCancelInput, usePublish, useReprocess, useSaveProposal, useTemplates
 import { missingRequired, parseTemplateFields, remapFields } from '@/lib/template'
 import type { Attachment, InputRecord, InputStatus, Proposal, ProposalMessage, Template } from '@/lib/types'
 import { useUndo } from '@/lib/undo'
+import { AiMark } from './AiMark'
 import { AreaPicker } from './AreaPicker'
 import { AttachmentPicker } from './AttachmentPicker'
 import { EditableText } from './EditableText'
@@ -41,14 +42,13 @@ export function AnalysisPanel({ input, onClose, registerPublish }: { input: Inpu
   const failureText = failureCode && has(failureCode) ? t(failureCode as MessageKey) : input.error || t('analysis.failed')
 
   return (
-    <section aria-label={t('analysis.title')} className="@container flex min-h-0 min-w-0 flex-col gap-3">
+    <section aria-label={t('analysis.title')} className="@container ai-surface flex min-h-0 min-w-0 flex-col gap-3 p-3 pl-4">
       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <div className="flex items-center gap-2">
           <h2>{t('analysis.title')}</h2>
-          {input.status === 'proposed' && <Badge tone="accent">{t('analysis.proposal')}</Badge>}
-          {input.status === 'failed' && <Badge tone="danger">{t('analysis.failedBadge')}</Badge>}
+          <AiMark />
         </div>
-        {(input.status === 'proposed' || input.status === 'failed') && <UndoButtons stack={undo} />}
+        {(input.status === 'proposed' || input.status === 'failed') && <UndoButtons stack={undo} compact />}
       </div>
 
       {processing && (
@@ -183,9 +183,9 @@ function ProposalEditor({ input, initial, onPublished, onDiscard, registerPublis
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className="flex items-center justify-between gap-3 text-xs text-muted">
-        <p>{t('proposal.count', { n: proposal.messages.length })}</p>
-        {discardedCount > 0 && (
+      {discardedCount > 0 && (
+      <div className="flex items-center justify-end gap-3 text-xs text-muted">
+        {(
           <Popover>
             <PopoverTrigger asChild>
               <button type="button" className="inline-flex items-center gap-1.5 text-[13px] text-muted hover:text-fg">
@@ -209,6 +209,7 @@ function ProposalEditor({ input, initial, onPublished, onDiscard, registerPublis
           </Popover>
         )}
       </div>
+      )}
 
       <FitList
         bare

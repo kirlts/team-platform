@@ -26,9 +26,14 @@ export function MemberPicker({
         <button
           type="button"
           aria-label={hiddenCount > 0 ? t('recipients.manageMore', { n: hiddenCount }) : t('recipients.add')}
-          className="inline-flex h-6 min-w-6 items-center justify-center gap-0.5 rounded-md border border-dashed border-line-strong px-1 text-xs font-semibold text-muted hover:border-accent hover:text-accent"
+          title={hiddenCount > 0 ? t('recipients.manageMore', { n: hiddenCount }) : t('recipients.add')}
+          className="inline-flex h-6 min-w-6 items-center justify-center gap-1 rounded-md border border-dashed border-line-strong px-1.5 text-xs font-semibold text-muted hover:border-accent hover:text-accent"
         >
-          {hiddenCount > 0 ? `+${hiddenCount}` : <Plus size={13} aria-hidden />}
+          {hiddenCount > 0 ? `+${hiddenCount}` : (
+            <>
+              <Plus size={13} aria-hidden /> {t('recipients.addShort')}
+            </>
+          )}
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-72 p-1">

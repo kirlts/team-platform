@@ -37,20 +37,20 @@ export const itemKey = (item: TrayItem) => (item.kind === 'upload' ? `upload-${i
  * inside a frame that keeps its height whatever the number of rows (they paginate). A row shows the
  * time, the first words, the state, the live progress and, once ready, the count of proposed messages.
  */
-export function Tray({ items, selectedId, onSelect }: { items: readonly TrayItem[]; selectedId: string | undefined; onSelect: (id: string) => void }) {
+export function Tray({ items, selectedId, hideTextId, onSelect }: { items: readonly TrayItem[]; selectedId: string | undefined; hideTextId?: string; onSelect: (id: string) => void }) {
   const t = useT()
   return (
     <section aria-label={t('tray.title')} className="flex min-h-0 min-w-0 flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
         <h2>{t('tray.title')}</h2>
-        <span className="text-xs tabular-nums text-muted">{t('tray.pending', { n: items.length })}</span>
+        {items.length > 1 && <span className="text-xs tabular-nums text-muted">{t('tray.pending', { n: items.length })}</span>}
       </div>
       <FitList
         rows={items}
         rowKey={itemKey}
         label={t('tray.list')}
         rowsRole="listbox"
-        renderRow={(item) => (item.kind === 'upload' ? <UploadRow upload={item.upload} /> : <InputRow input={item.input} selected={item.input.id === selectedId} onSelect={() => onSelect(item.input.id)} />)}
+        renderRow={(item) => (item.kind === 'upload' ? <UploadRow upload={item.upload} /> : <InputRow input={item.input} selected={item.input.id === selectedId} hideText={item.input.id === hideTextId} onSelect={() => onSelect(item.input.id)} />)}
       />
     </section>
   )
@@ -62,7 +62,7 @@ function Label({ text, onlyMedia }: { text: string; onlyMedia: boolean }) {
   return <p className="break-words text-[13px] leading-snug">{words || (onlyMedia ? t('tray.onlyMedia') : '')}</p>
 }
 
-function InputRow({ input, selected, onSelect }: { input: InputRecord; selected: boolean; onSelect: () => void }) {
+function InputRow({ input, selected, hideText, onSelect }: { input: InputRecord; selected: boolean; hideText: boolean; onSelect: () => void }) {
   const t = useT()
   const format = useFormat()
   const progress = useJobProgress(input.job_id, input.id)
@@ -91,7 +91,7 @@ function InputRow({ input, selected, onSelect }: { input: InputRecord; selected:
           {input.status === 'proposed' && <span className="ml-1">· {t('tray.messages', { n: count })}</span>}
         </Badge>
       </div>
-      <Label text={input.text} onlyMedia={input.attachments.length > 0} />
+      {!hideText && <Label text={input.text} onlyMedia={input.attachments.length > 0} />}
       {running && (
         <div role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} aria-label={t('analysis.progress')} className="meter h-1.5">
           <div className="meter-fill" style={{ width: `${percent}%` }} />

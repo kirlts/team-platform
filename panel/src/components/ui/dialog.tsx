@@ -30,13 +30,12 @@ export function DialogContent({
         )}
         {...props}
       >
-        <div className={cn('flex items-center justify-between gap-2 border-b border-line px-5 py-3', side === 'left' && 'sr-only')}>
+        <div className="flex items-center justify-between gap-2 border-b border-line px-5 py-3">
           <Primitive.Title className="text-xs font-semibold">{title}</Primitive.Title>
           <Primitive.Close className="rounded-full p-1.5 text-muted hover:bg-hover" aria-label={t('common.close')}>
             <X size={16} aria-hidden />
           </Primitive.Close>
         </div>
-        {side === 'left' && <Primitive.Title className="sr-only">{title}</Primitive.Title>}
         {children}
       </Primitive.Content>
     </Primitive.Portal>

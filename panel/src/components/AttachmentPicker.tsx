@@ -30,9 +30,14 @@ export function AttachmentPicker({ all, selected, onChange, max = 3 }: { all: At
             <button
               type="button"
               aria-label={t('media.pick')}
-              className="inline-flex h-7 min-w-7 items-center justify-center gap-0.5 rounded-md border border-dashed border-line-strong px-1.5 text-xs font-semibold text-muted hover:border-accent hover:text-accent"
+              title={t('media.pick')}
+              className="inline-flex h-7 min-w-7 items-center justify-center gap-1 rounded-md border border-dashed border-line-strong px-1.5 text-xs font-semibold text-muted hover:border-accent hover:text-accent"
             >
-              {hidden > 0 ? `+${hidden}` : <Plus size={13} aria-hidden />}
+              {hidden > 0 ? `+${hidden}` : (
+                <>
+                  <Plus size={13} aria-hidden /> {t('media.addShort')}
+                </>
+              )}
             </button>
           </PopoverTrigger>
           <PopoverContent align="start" className="w-72 p-1">

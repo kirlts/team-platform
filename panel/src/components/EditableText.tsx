@@ -79,7 +79,7 @@ export function EditableText({
     }
   }, [editing])
 
-  const type = cn('whitespace-pre-wrap break-words', mono && 'font-mono text-[13px]', prose && 'prose-block', displayClassName)
+  const type = cn('whitespace-pre-wrap break-words', mono && value && 'font-mono text-[13px]', prose && 'prose-block', displayClassName)
   // Same box when reading and editing: the negative margin offsets the padding and the border.
   const box = '-mx-1.5 -my-px block w-[calc(100%+12px)] max-w-none rounded-md border border-transparent px-1.5 py-px text-left'
 

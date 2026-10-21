@@ -8,6 +8,9 @@ import { cn } from '@/lib/utils'
 import { Avatar } from './Avatar'
 import { FormDialog } from './FormDialog'
 
+/** The connections UD-012 names; none can be used yet. */
+const CONNECTIONS = ['connections.api', 'connections.mcp', 'connections.email', 'connections.whatsapp', 'connections.github'] as const
+
 const row =
   'flex min-h-9 items-center gap-2.5 rounded-[1.125rem] border border-transparent px-3 py-1.5 text-[0.95rem] font-medium text-fg transition-colors duration-150 hover:bg-glass'
 const active = 'border-glass-line bg-[linear-gradient(180deg,var(--color-glass-edge),var(--color-glass))] text-accent-deep shadow-glass hover:bg-glass-edge'
@@ -31,14 +34,15 @@ export function Sidebar({ onNavigate, onLogout }: { onNavigate?: () => void; onL
   const inAreas = !!useMatch('/areas/*')
   const [areasOpen, setAreasOpen] = useState(true)
   const [creating, setCreating] = useState(false)
+  const [connectionsOpen, setConnectionsOpen] = useState(false)
 
   return (
     <nav aria-label={t('nav.label')} className="flex h-full min-h-0 flex-col gap-1 p-3">
       <div className="mb-3 flex shrink-0 items-center gap-2.5 border-b border-line px-2 pb-3 pt-1">
         <Avatar name={me?.name ?? '?'} size={30} />
         <span className="min-w-0 flex-1 break-words text-sm font-medium leading-tight">{me?.name}</span>
-        <button type="button" onClick={onLogout} aria-label={t('nav.logout')} title={t('nav.logout')} className="rounded-full p-1.5 text-muted hover:bg-glass hover:text-fg">
-          <LogOut size={16} aria-hidden />
+        <button type="button" onClick={onLogout} aria-label={t('nav.logout')} title={t('nav.logout')} className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs text-muted hover:bg-glass hover:text-fg">
+          <LogOut size={14} aria-hidden /> {t('nav.logoutShort')}
         </button>
       </div>
 
@@ -94,13 +98,25 @@ export function Sidebar({ onNavigate, onLogout }: { onNavigate?: () => void; onL
       </Item>
 
       {editor && (
-        // Entry with no destination yet: it gets no focus, and the reason is written in the row.
-        <div aria-disabled="true" className={cn(row, 'cursor-not-allowed items-start text-faint hover:bg-transparent')}>
-          <Plug size={16} aria-hidden className="mt-0.5 shrink-0" />
-          <span className="min-w-0 flex-1 leading-tight">
-            {t('nav.connections')}
-            <span className="block text-xs font-normal">{t('nav.connectionsReason')}</span>
-          </span>
+        // The group of the mockup (API, MCP, Correo...), all without a destination yet: no focus, and the reason is written in the row.
+        <div>
+          <button type="button" aria-expanded={connectionsOpen} onClick={() => setConnectionsOpen((v) => !v)} className={cn(row, 'w-full items-start text-left text-muted')}>
+            <Plug size={16} aria-hidden className="mt-0.5 shrink-0" />
+            <span className="min-w-0 flex-1 leading-tight">
+              {t('nav.connections')}
+              <span className="block text-xs font-normal">{t('nav.connectionsReason')}</span>
+            </span>
+            <ChevronDown size={15} aria-hidden className={cn('mt-0.5 shrink-0 transition-transform', !connectionsOpen && '-rotate-90')} />
+          </button>
+          {connectionsOpen && (
+            <ul className="ml-[1.35rem] mt-0.5 flex flex-col gap-0.5 border-l border-line-strong pl-2">
+              {CONNECTIONS.map((c) => (
+                <li key={c} aria-disabled="true" className={cn(row, 'min-h-8 cursor-not-allowed text-[0.9rem] text-muted hover:bg-transparent')}>
+                  {t(c)}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 

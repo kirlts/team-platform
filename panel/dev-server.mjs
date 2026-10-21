@@ -59,7 +59,7 @@ const templateBody = (name, description, extra = '') =>
   `---\nname: ${name}\ndescription: ${description}\nfields:\n  - { name: summary, label: Resumen, required: true }\n${extra}---\n## Método\nLeer el input y separar un mensaje por cada punto distinto.\n\n## Formato de salida\nUn mensaje por punto. Título: verbo en infinitivo y lugar.\n`
 
 const templates = [
-  { id: 't-error', area_id: 'a-error', name: 'Reporte de error', description: 'Algo que antes funcionaba o debería funcionar y no lo hace.', body_markdown: templateBody('Reporte de error', 'Algo que antes funcionaba o debería funcionar y no lo hace.', '  - { name: steps, label: Pasos para reproducir, required: true }\n  - { name: expected, label: Qué se esperaba, required: true }\n  - { name: actual, label: Qué pasó, required: true }\n'), updated_at: ago(3000), deleted_at: null },
+  { id: 't-error', area_id: 'a-error', name: 'Reporte de error', description: 'Qué falló, cómo reproducirlo y qué se esperaba ver.', body_markdown: templateBody('Reporte de error', 'Qué falló, cómo reproducirlo y qué se esperaba ver.', '  - { name: steps, label: Pasos para reproducir, required: true }\n  - { name: expected, label: Qué se esperaba, required: true }\n  - { name: actual, label: Qué pasó, required: true }\n'), updated_at: ago(3000), deleted_at: null },
   { id: 't-error-ui', area_id: 'a-error', name: 'Error visual', description: 'Elementos desalineados, cortados o ilegibles en una pantalla.', body_markdown: templateBody('Error visual', 'Elementos desalineados, cortados o ilegibles en una pantalla.'), updated_at: ago(2900) },
   { id: 't-idea', area_id: 'a-idea', name: 'Idea', description: 'Una posibilidad con su motivo.', body_markdown: templateBody('Idea', 'Una posibilidad con su motivo.'), updated_at: ago(3000) },
   { id: 't-feature', area_id: 'a-feature', name: 'Requerimiento', description: 'Qué se necesita y para quién.', body_markdown: templateBody('Requerimiento', 'Qué se necesita y para quién.'), updated_at: ago(3000) },
@@ -286,28 +286,55 @@ function runJob(input) {
   jobs.set(input.job_id, setTimeout(tick, STEP_MS + lag))
 }
 
-let analyzed = 0
 /** Numbered units of the input: one paragraph each. The server numbers them, as the real system will. */
 function unitsOf(text) {
   return text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean).map((p, i) => ({ id: i + 1, text: p }))
 }
 
-/** Development «analysis»: one message per unit, each with its area per turn; the last long unit is left without an action. It does not read the meaning of the text. */
+// The development «analysis» is a double: it picks the area by keywords and writes a title and a body that look like what a
+// model would return (the title summarizes, the body adds what is missing). It does not read the meaning of the text.
+const AREA_HINTS = [
+  [/error|falla|no funciona|desalinead|roto|rota|bug|se cae|lento|cortad/i, 'a-error'],
+  [/¿|\?\s*$|^pregunta/i, 'a-pregunta'],
+  [/agregar|nueva|sincroniz|pedido|exportar|soporte para/i, 'a-feature'],
+  [/idea|podr[ií]amos|ser[ií]a bueno|probar/i, 'a-idea'],
+]
+const AREA_NOTES = {
+  'a-error': 'Se observó al abrir la vista; falta confirmar en qué navegador ocurre y si se repite.',
+  'a-feature': 'Pedido de una capacidad que hoy no existe; falta definir quién la usa primero.',
+  'a-pregunta': 'Queda a la espera de una respuesta de quien conoce el tema.',
+  'a-idea': 'Sin compromiso de construirla; se decide en la próxima revisión del equipo.',
+  'a-feedback': 'Opinión sobre algo que ya existe; no pide un cambio inmediato.',
+}
+const FIELD_SAMPLES = {
+  summary: 'Punto detectado en el texto enviado; el detalle está en el cuerpo del mensaje.',
+  steps: 'Abrir la pantalla indicada y repetir la acción descrita.',
+  expected: 'La pantalla se muestra completa y alineada.',
+  actual: 'La pantalla se ve desalineada o cortada.',
+}
+function titleOf(text) {
+  const sentence = text.split(/(?<=[.?!])\s/)[0].replace(/[.?!]+$/, '').trim()
+  if (sentence.length <= 64) return sentence
+  return sentence.slice(0, 64).replace(/\s+\S*$/, '')
+}
+
+/** Development «analysis»: one message per unit, its area by keywords; the units past the third are left without action. */
 function analyze(input) {
-  const others = members.filter((m) => m.id !== input.author_id)
+  const others = members.filter((m) => m.id !== input.author_id && m.active)
   const images = input.attachment_ids.filter((aid) => attachments.get(aid)?.kind === 'image')
   const units = input.units.length ? input.units : [{ id: 1, text: 'Sin texto' }]
   const keep = units.length > 3 ? units.slice(0, 3) : units
   const rest = units.slice(keep.length)
   return {
     messages: keep.map((u, i) => {
-      const area = areas[analyzed++ % areas.length]
+      const areaId = AREA_HINTS.find(([pattern]) => pattern.test(u.text))?.[1] ?? 'a-feedback'
+      const template = activeTemplate(areaId, null)
       return {
-        area_id: area.id,
-        template_id: activeTemplate(area.id, null)?.id ?? null,
-        title: u.text.split('\n')[0].slice(0, 70),
-        body: u.text,
-        fields: Object.fromEntries(templateFields(activeTemplate(area.id, null)).map((f) => [f.name, f.required ? u.text.slice(0, 90) : ''])),
+        area_id: areaId,
+        template_id: template?.id ?? null,
+        title: titleOf(u.text),
+        body: `${u.text}\n\n${AREA_NOTES[areaId]}`,
+        fields: Object.fromEntries(templateFields(template).map((f) => [f.name, f.required ? (FIELD_SAMPLES[f.name] ?? '') : ''])),
         assignee_ids: [others[i % others.length].id],
         attachment_ids: i === 0 ? input.attachment_ids : images,
         unit_ids: [u.id],

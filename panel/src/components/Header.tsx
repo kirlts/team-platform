@@ -23,12 +23,12 @@ export function Header({ projectName, onOpenNav, onLogout }: { projectName?: str
   }, [])
 
   return (
-    <header className="chrome-bar flex min-h-[3.25rem] shrink-0 items-center justify-between gap-2 py-1 pl-2 pr-3 md:pl-5">
+    <header className="chrome-bar flex min-h-[3.5rem] shrink-0 items-center justify-between gap-2 py-1 pl-2 pr-3 md:pl-5">
       <div className="flex min-w-0 items-center gap-1">
         <Button variant="ghost" size="icon" aria-label={t('nav.open')} className="md:hidden" onClick={onOpenNav}>
           <PanelLeft size={18} aria-hidden />
         </Button>
-        <Link to="/" className="flex min-w-0 items-center gap-2.5 font-[family-name:var(--font-display)] text-[1.05rem] font-extrabold uppercase tracking-[0.14em]">
+        <Link to="/" className="flex min-w-0 items-center gap-2.5 font-[family-name:var(--font-display)] text-[1.3rem] font-extrabold uppercase tracking-[0.14em]">
           <span aria-hidden className="orb h-4 w-4 shrink-0 rounded-full" />
           <span className="min-w-0 break-words leading-tight">
             {projectName}{' '}

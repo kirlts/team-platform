@@ -1,5 +1,6 @@
 import { ArrowLeft } from '@/components/icons'
 import { Link, useParams, useSearchParams } from 'react-router'
+import { AiMark } from '@/components/AiMark'
 import { AreaPicker } from '@/components/AreaPicker'
 import { AttachmentStrip } from '@/components/AttachmentStrip'
 import { Avatar } from '@/components/Avatar'
@@ -122,7 +123,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
               <span className="inline-flex min-h-6 items-center rounded-[3px_9px_3px_9px] border border-edge px-2 font-semibold text-fg">{areaTitle(m.area_id)}</span>
             )}
             <StatusBadge status={m.status} />
-            <span className="inline-flex items-center gap-1.5">
+            <span data-repeat-ok="person" className="inline-flex items-center gap-1.5">
               <Avatar name={memberName(m.author_id) || '?'} size={20} />
               {memberName(m.author_id)}
             </span>
@@ -130,6 +131,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
               {format.stamp(m.created_at)}
             </time>
             <MediaKinds of={m} />
+            {m.input_id && <AiMark />}
           </div>
 
           {canEdit ? (

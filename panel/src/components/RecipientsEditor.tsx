@@ -12,7 +12,7 @@ export function RecipientsEditor({ ids, onChange, max = 3 }: { ids: string[]; on
   return (
     <ul aria-label={t('recipients.label')} className="flex flex-wrap items-center gap-1.5 text-xs">
       {shown.map((id) => (
-        <li key={id} className="inline-flex min-h-6 max-w-full items-center gap-1 rounded-full bg-accent-soft py-0.5 pl-0.5 pr-1 leading-tight text-accent-deep">
+        <li key={id} data-repeat-ok="person" className="inline-flex min-h-6 max-w-full items-center gap-1 rounded-full bg-accent-soft py-0.5 pl-0.5 pr-1 leading-tight text-accent-deep">
           <Avatar name={memberName(id) || '?'} size={18} />
           {memberName(id)}
           <button type="button" aria-label={t('recipients.remove', { name: memberName(id) })} className="rounded-sm p-0.5 hover:bg-accent/15" onClick={() => onChange(ids.filter((x) => x !== id))}>

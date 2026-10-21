@@ -364,11 +364,11 @@ RULES:
 **Decisión:** Martín, textual: «podemos gastar hasta 25 usd en api de anthropic». Es un tope total para lo que falta de desarrollo, mediciones y pruebas con el proveedor real, repartido entre los agentes (cada encargo declara su parte) y llevado en `bench/results/` por los guiones de gasto. Una corrida que lo supere se detiene y lo dice.
 **Consecuencias:** Las comparaciones de modelos (Haiku 5.5, Sonnet 5.5, DeepSeek), las repeticiones del banco y las pruebas de punta a punta en el VPS cuentan contra este tope.
 
-## [UD-028] Lo que afecta a cada miembro se cuenta en el servidor, con un criterio mínimo, y los pendientes por área llevan a Mensajes filtrado
+## [UD-028] Lo que afecta a cada miembro se cuenta en el servidor, con un criterio mínimo, y los abiertos por área llevan a Mensajes filtrado
 
 **Fecha:** 2026-10-21
 **Contexto:** Martín vio Inicio en su teléfono y en el PC y dijo, textual: «si me llegó un mensaje a mí, la interfaz no me avisa como debería. Además la pestaña Mensajes debería tener una notificación que indique cuántos mensajes abiertos me afectan específicamente, y el área Error en general debería mostrar pendientes; si uno hace clic en esos pendientes debe llevar a la vista de Mensajes filtrando por los pendientes de esa área». La API no guarda quién leyó qué: no existe «respuesta sin leer» como dato.
-**Decisión:** Un mensaje no cerrado afecta a un miembro cuando está asignado a él, o cuando él lo emitió y ya tiene respuestas. El criterio usa sólo datos que la API ya tiene (asignados, emisor, estado). `GET /api/messages/summary` devuelve, para quien tiene la sesión, el conteo por prioridad (`mine`: `red`, `yellow`, `blue`, `total`) y, por área, los mensajes abiertos (`open`) y cuántos de ellos están asignados a él (`mine_open`). Cada mensaje cae en una sola prioridad: asignado y abierto es rojo; asignado y respondido es amarillo; emitido por él, sin estar asignado y respondido es azul. Un pendiente por área es un conteo clicable que lleva a `/messages` con los filtros `area` y `status=open`.
+**Decisión:** Un mensaje no cerrado afecta a un miembro cuando está asignado a él, o cuando él lo emitió y ya tiene respuestas. El criterio usa sólo datos que la API ya tiene (asignados, emisor, estado). `GET /api/messages/summary` devuelve, para quien tiene la sesión, el conteo por prioridad (`mine`: `red`, `yellow`, `blue`, `total`) y, por área, los mensajes abiertos (`open`) y cuántos de ellos están asignados a él (`mine_open`). Cada mensaje cae en un solo estado. Un conteo por área es clicable y lleva a `/messages` con los filtros `area` y `status`. UD-041 reemplaza los colores por los estados: asignado y abierto cuenta como abierto; asignado y respondido, o emitido por él con respuestas, cuenta como respondido; `mine` devuelve `open`, `answered` y `total`, y cada área `open`, `answered`, `closed` y `mine_open`.
 **Alternativas descartadas:**
 - Estado de lectura por miembro (tabla de «visto hasta»): contestaría «sin leer» de verdad, pero agrega esquema, escritura en cada apertura y una decisión de cuándo un mensaje cuenta como leído. Se evalúa si el uso demuestra que el criterio mínimo no alcanza (H-93).
 - Contar en el panel recorriendo `GET /messages`: la lista pagina con tope de 100 y el conteo quedaría incompleto con más mensajes.
@@ -378,18 +378,19 @@ RULES:
 - Prueba de la API: cada mensaje cae en una sola prioridad, uno cerrado no cuenta, los abiertos se cuentan por área y la ruta exige sesión.
 **Condiciones de reversión:** Si el criterio sin estado de lectura deja avisos que la persona ya vio y siguen contando, se agrega el estado de lectura por miembro (H-93).
 
-## [UD-029] El aviso lleva el color de la prioridad más alta presente (rojo, amarillo, azul)
+## [UD-029] El aviso lleva el color del estado más alto presente (enmendada por UD-041)
 
-**Fecha:** 2026-10-21
-**Contexto:** Martín pidió, por el coordinador, que el ícono de notificación sea mucho más prominente, que su fondo se tiña del color de la notificación de mayor prioridad, «porque hay notificaciones azules, amarillas y rojas», y que el significado de cada color se defina con los datos que ya existen.
-**Decisión:** Tres prioridades, en este orden: rojo, amarillo, azul. Rojo: afecta al miembro directamente y requiere su acción (asignado a él y todavía abierto). Amarillo: pendiente (asignado a él y respondido sin cerrar; los abiertos de un área que no son suyos). Azul: informativo o nuevo (respuestas a un mensaje que él emitió; novedades del flujo de eventos mientras nada más lo afecte). El fondo de toda insignia (pestaña Mensajes, campana, aviso de Inicio, pendientes por área) es el color de la prioridad más alta presente en lo que cuenta. El color nunca es el único indicador: cada prioridad lleva su forma (triángulo, reloj, punto con marca), su palabra («Por atender», «Pendiente», «Novedad») y el número. Los fondos y bordes cumplen contraste en claro y oscuro (`npm run contraste`: 4,5 el texto sobre su fondo y 3 el borde sobre vidrio y cromo). La definición de cada color la propuso la sesión con los datos existentes; Martín la confirma o la cambia.
+**Fecha:** 2026-10-21 (enmendada el mismo día)
+**Contexto:** Martín pidió, por el coordinador, que el ícono de notificación sea mucho más prominente y que su fondo se tiña del color de la notificación de mayor prioridad, «porque hay notificaciones azules, amarillas y rojas». La sesión definió entonces tres prioridades propias («Por atender», «Pendiente», «Novedad»). Martín corrigió, textual: «quien dijo esto de que por atender es distinto a abierto, no lo entiendo, yo creo que fui super explícito respecto a las categorías de cosas. Yo dije mensajes abiertos, mensajes respondidos y mensajes cerrados o atendidos. Esos son los tres estados que quiero ver en esta interfaz». Esas tres palabras contradecían MASTER-SPEC §1.1, que ya definía los estados.
+**Decisión:** El aviso no tiene categorías propias: sus colores son los de los tres estados de un mensaje. Abierto es rojo, respondido es amarillo y cerrado es azul. El fondo de la campana es el color del estado más alto presente, abierto antes que respondido; los cerrados no generan aviso. El color nunca es el único indicador: cada estado lleva su forma (triángulo, reloj, punto), su palabra y el número. Los fondos y bordes cumplen contraste en claro y oscuro (`npm run contraste`: 4,5 el texto sobre su fondo y 3 el borde sobre vidrio y cromo). Qué mensajes afectan a un miembro lo fija UD-028.
 **Alternativas descartadas:**
-- Rojo para el área «Error»: un `if` sobre el nombre de un área editable por el Editor; la prioridad sale del estado y de los asignados, no de un título.
+- Las palabras «Por atender», «Pendiente» y «Novedad», y la prioridad como categoría aparte: Martín las rechazó con la cita de arriba.
+- Rojo para el área «Error»: un `if` sobre el nombre de un área editable por el Editor; el color sale del estado, no de un título.
 - Color como único indicador: falla para quien no distingue colores.
 **Consecuencias:**
-- `panel/src/lib/priority.ts` es el único lugar donde se decide la prioridad más alta; `NotifyBadge` y la campana la leen de ahí.
-- Pruebas: la prioridad más alta gana en las ocho combinaciones; en el navegador, el fondo pintado de cada insignia coincide con el de su prioridad en las ocho combinaciones y en los dos temas.
-**Condiciones de reversión:** Si Martín cambia el significado de un color, se cambia `priority.ts` y `messageSummary` en el mismo commit.
+- `panel/src/lib/states.ts` es el único lugar donde se decide el estado más alto; `NotifyBadge` y la campana lo leen de ahí.
+- Una prueba falla si aparece en los catálogos o en la interfaz una de las palabras retiradas («Por atender», «Pendiente(s)», «Novedad», «To do», «Pending»).
+**Condiciones de reversión:** Si Martín cambia el color de un estado, se cambia `panel/src/styles.css` (tokens `--color-state-*` y `--color-open-*`) en el mismo commit.
 
 ## [UD-030] Inicio muestra lo último y lo nuevo para mí, y pliega los envíos tras un solo control
 
@@ -475,13 +476,13 @@ RULES:
 ## [UD-036] Un solo relleno de color en la interfaz: la campana
 
 **Fecha:** 2026-10-21
-**Contexto:** UD-029 pidió que el aviso lleve el color de la prioridad más alta y que cada prioridad tenga forma, palabra y número. Martín pidió que el ícono de notificación fuera más prominente y que su fondo se tiñera del color de mayor prioridad. La ronda 3 del juez A contó en Inicio más de 18 elementos rojos con el mismo peso (J3-A-04, severidad 5): campana, pestaña Mensajes, chips, áreas, marcas y borde de cada fila. La ronda 2 los había bajado a un tono suave y no alcanzó.
-**Decisión:** El fondo de color de la prioridad es de la campana, y sólo de la campana. Toda otra cuenta o marca de prioridad (pestaña Mensajes, chips de Inicio, pendientes por área, avisos de la lista de la campana, marca de una fila) va en peso callado: fondo neutro, borde neutro, texto en tinta, y la prioridad sólo en el color de su forma (triángulo, reloj, punto) junto a su palabra y su número. En una fila de mensaje la prioridad se dice una sola vez, en la columna de estado, y el borde izquierdo de 3 px es lo único de la fila que lleva color. UD-029 conserva el significado de los tres colores y que el color nunca es el único indicador. Es una decisión de la sesión por encargo de Martín de atender el 100 % de los hallazgos de la ronda; la palabra «fondo de toda insignia» de UD-029 es del coordinador y no una cita de Martín.
+**Contexto:** UD-029 pidió que el aviso lleve el color del estado más alto y que cada estado tenga forma, palabra y número. Martín pidió que el ícono de notificación fuera más prominente y que su fondo se tiñera del color de mayor prioridad. La ronda 3 del juez A contó en Inicio más de 18 elementos rojos con el mismo peso (J3-A-04, severidad 5): campana, pestaña Mensajes, chips, áreas, marcas y borde de cada fila. La ronda 2 los había bajado a un tono suave y no alcanzó.
+**Decisión:** El fondo de color del estado es de la campana, y sólo de la campana. Toda otra cuenta o marca de estado (pestaña Mensajes, chips de Inicio, conteos por área, avisos de la lista de la campana, marca de una fila) va en peso callado: fondo neutro, borde neutro, texto en tinta, y el estado sólo en el color de su forma (triángulo, reloj, punto) junto a su palabra y su número. En una fila de mensaje el estado se dice una sola vez, en la columna de estado, y el borde izquierdo de 3 px lleva el color de ese estado (UD-041: también en los cerrados, en azul). UD-029 conserva el significado de los tres colores y que el color nunca es el único indicador. Enmendada por UD-041: donde decía «prioridad» se lee «estado». Es una decisión de la sesión por encargo de Martín de atender el 100 % de los hallazgos de la ronda; la palabra «fondo de toda insignia» de UD-029 es del coordinador y no una cita de Martín.
 **Alternativas descartadas:**
 - Mantener el tono suave de la ronda 2: el juez lo siguió contando como rojo.
 - Quitar el número de la pestaña Mensajes o el de la campana: UD-028 pide ambos.
 **Consecuencias:**
-- `[data-weight='quiet']` en `panel/src/styles.css` reemplaza al peso suave. Una prueba del navegador cuenta los elementos con fondo rojo de Inicio con 9 pendientes y con 4 y falla si hay más de uno.
+- `[data-weight='quiet']` en `panel/src/styles.css` reemplaza al peso suave. Una prueba del navegador cuenta los elementos con fondo rojo de Inicio con nueve mensajes abiertos o respondidos y con cuatro y falla si hay más de uno.
 **Condiciones de reversión:** Que Martín pida de nuevo la insignia teñida: se restituye el peso suave de la ronda 2 cambiando `quiet` por `soft` en un solo lugar de la hoja de estilos.
 
 ## [UD-037] Conexiones se lista una vez, apagada y con su razón
@@ -512,6 +513,37 @@ RULES:
 **Consecuencias:** H-56 deja de ser trabajo pendiente y queda como decisión del dueño. Un HEIC subido directamente se rechaza con un error claro (`image_heic_unsupported`); el Editor puede pedir que se acepte más adelante. UD-040 (2026-10-21) lo reemplaza: el HEIC se decodifica y deja de rechazarse.
 **Condiciones de reversión:** Se prueba cuando haya usuarios con iPhone en el panel.
 
+## [UD-041] Los tres estados son la única categoría de un mensaje en la interfaz, y el área se abre en sus mensajes
+
+**Fecha:** 2026-10-21
+**Contexto:** Dos correcciones del dueño, textuales. Sobre los estados: «quien dijo esto de que por atender es distinto a abierto, no lo entiendo, yo creo que fui super explícito respecto a las categorías de cosas. Yo dije mensajes abiertos, mensajes respondidos y mensajes cerrados o atendidos. Esos son los tres estados que quiero ver en esta interfaz». UD-029 había inventado «Por atender», «Pendiente» y «Novedad», contra MASTER-SPEC §1.1. Sobre Áreas: «la pestaña de áreas me parece que no funciona como uno esperaría. Si yo hago clic en idea por ejemplo, yo no espero que ese sea el lugar donde solamente puedo editar las plantillas de idea. Yo creo que puedo editar las plantillas y la descripción del área, sí por supuesto, pero también quiero ver al tiro los mensajes asociados a esa área porque eso es lo que uno pensaría cuando está ocupando el sitio».
+**Decisión:** En toda la interfaz la única categoría visible de un mensaje es su estado: abierto, respondido o cerrado (en inglés open, answered, closed). Ninguna otra palabra de estado o de prioridad. Los colores se atan a los estados: abierto rojo, respondido amarillo, cerrado azul, siempre con la palabra y el número. La campana y la insignia de Mensajes cuentan los mensajes abiertos y respondidos que afectan al miembro (criterio de UD-028) y toman el color del estado más alto presente; los cerrados no generan aviso, pero se muestran con su color en listas y filtros. Los contadores por área dicen «N abiertos» y «N respondidos» y llevan a Mensajes filtrado por esa área y ese estado. `GET /messages/summary` devuelve `mine: { open, answered, total }`, `items[].status` y, por área, `open`, `answered`, `closed` y `mine_open`. Al elegir un área, en la página Áreas o en la barra lateral, se abre su vista en `/areas/:areaId`: sus mensajes primero, con la misma lista y la misma fila de Mensajes, filtrada por el área, con un filtro por cada estado y el conteo de cada uno (el estado elegido va en la URL); debajo, plegadas, su descripción editable en el lugar y sus plantillas. `/areas` sigue siendo la lista de todas las áreas, para crearlas y abrirlas. Enmienda UD-029 y UD-036.
+**Alternativas descartadas:**
+- Mantener «Por atender» como urgencia distinta de «abierto»: el dueño lo rechazó con la cita de arriba.
+- Dejar las plantillas como contenido principal del área y los mensajes en otra pestaña: el dueño pidió ver los mensajes al tiro.
+- Un panel lateral para las plantillas del área: UD de 2026-10-20 (sin paneles que salen por la derecha).
+**Consecuencias:**
+- `panel/src/lib/states.ts` reemplaza a `priority.ts`; los tokens `--color-tone-*` pasan a `--color-state-*` y los de estado (`--color-open-*`, `--color-answered-*`, `--color-closed-*`) toman rojo, amarillo y azul.
+- La vista de área reutiliza `MessageList` y `MessageCard`; las plantillas viven en `components/AreaTemplates.tsx`. Junto a la descripción queda el lugar (`data-slot="area-color"`) del control de color del área.
+- Pruebas: la prioridad más alta gana en las combinaciones de estados; ninguna palabra retirada aparece en los catálogos ni en la interfaz renderizada; un flujo en navegador elige Idea, ve sus mensajes con su estado, filtra por respondido y edita la descripción.
+**Condiciones de reversión:** Si el dueño pide de nuevo una categoría de aviso distinta de los estados, se registra con su cita y se enmienda esta decisión.
+
+## [UD-060] Las descripciones v2-orden se mantienen, y una unidad con varios puntos se recoge completa en su mensaje
+
+**Fecha:** 2026-10-21
+**Contexto:** El dueño necesita confiar en la clasificación por área. UD-033 dejó dos preguntas abiertas: la corrida completa con proyecto (H-602) y si alguna variante sube la exactitud hacia el techo de 95,5 %. El coordinador agregó un hallazgo (H-1600): una oración con elogio y dos defectos producía un solo mensaje y el segundo defecto desaparecía. Mediciones: `docs/investigaciones/mediciones/2026-10-21-areas-pipeline-completo-y-variantes.md` y `2026-10-21-oraciones-con-varios-puntos.md`. UD-038 subió el presupuesto de API; esta tarea gastó 10,1 USD de un tope de 12.
+**Decisión:** Se conservan las descripciones de `templates/areas.json` (UD-033) y el esfuerzo `low` y la ventana de 100 unidades de la clasificación. La corrida completa con proyecto da 87,5 % de área por mensaje (82-91 %), sobre el 82,6 % de UD-033; por unidad 81,5 %. Ninguna de seis variantes (reglas para tramos de reunión, para tablas de estado, un orden de preguntas, esfuerzo `medium`, ventana de 200, descripciones cortas) supera a v2-orden con significación. Además, la regla 4 de la descomposición exige que el mensaje de una unidad con varios puntos trate todos: título, cuerpo con una frase por punto y campos de la plantilla.
+**Alternativas descartadas:**
+- Adoptar v4-tramo, la mejor variante nueva: queda 1,7 puntos bajo v2-orden con 10 repeticiones (p 0,085).
+- Esfuerzo `medium` en la clasificación: empata (-0,3 puntos) sin bajar el costo ni la latencia.
+- Ventana de 200 unidades: 5,1 puntos peor (p 0,034), aunque 25 % más rápida y 20 % más barata.
+- Separar la oración compuesta con una expresión regular o una lista de conjunciones: lo prohíben las reglas 4 y MASTER-SPEC §4.2.
+**Consecuencias:**
+- H-602 se cierra con la medición y la fila de «Descripciones de área largas v2» no se revierte.
+- Lo que impide subir más: el error se concentra en el tramo de reunión o chat largo, donde el modelo traza un grupo distinto del de las referencias y le da un área entera; el ruido entre corridas (3,6 puntos de desviación) esconde efectos menores de 2 a 3 puntos con menos de unas veinte repeticiones por variante.
+- Una oración compuesta sigue siendo un solo mensaje. Dividirla en dos exige cambiar el contrato de unidades y no se hizo.
+- `bench/areas-classify.mjs` acepta `--project`, `--effort`, `--window` y `--label`; `bench/areas-stats.mjs` compara variantes por casos; `bench/probe-compound.mjs` y el caso público 09 miden las oraciones compuestas.
+**Condiciones de reversión:** Volver a la regla 4 anterior si una corrida del banco privado muestra mensajes con puntos inventados o de relleno por la obligación de cubrir cada punto.
 ## [UD-040] El HEIC de iPhone se decodifica con el `ffmpeg` de la imagen
 
 **Fecha:** 2026-10-21
@@ -527,7 +559,88 @@ RULES:
 - H-21 se cierra. UD-039 sigue vigente en lo que decidió (no se prueba Safari ni el micrófono con un iPhone, H-56).
 **Condiciones de reversión:** Que un redistribuidor no acepte el decodificador HEVC dentro de la imagen (patentes de HEVC); entonces el HEIC vuelve a rechazarse en la subida.
 
-## [UD-060] La interfaz se mide con instrumentos antes de juzgarla
+
+## [UD-070] Los mensajes se publican solos al terminar el análisis; la bandeja pasa a ser historial
+
+**Fecha:** 2026-10-21
+**Contexto:** UD-003 dejó el acto de confirmar en el botón Enviar de la propuesta, para que una mala categorización no llegara al equipo sin filtro. Tras usar el programa, el dueño lo vio categorizar bien.
+**Decisión:** Martín, textual: «estoy viendo que el programa ya está funcionando bastante bien para categorizar. Quiero que cambiemos la lógica y dejemos a nivel de experiencia de usuario la bandeja como algo que sirve para que alguien pueda revisar todo lo que ha enviado desde la vista principal y también para que pueda revisar el estado de todos sus envíos que pueda haber mandado en ráfagas, pero en lugar de tener que presionar enviar mensaje, los mensajes ya queden enviados al equipo, ya quede listo todo: no sea necesario confirmar un mensaje porque estoy viendo que se hace bien.» Cuando el análisis termina con una propuesta válida, sus mensajes se publican en la misma transacción que cierra el trabajo (mismo camino y misma validación que la publicación manual, un solo lugar que inserta mensajes) y el input queda `published`. Una propuesta vacía o que no valida no publica nada: queda `proposed` con `error_code: publish_blocked` y su motivo, y su emisor la corrige y publica con `POST /api/inputs/:id/publish`. Un análisis fallido queda `failed`. La bandeja es el historial de los envíos propios (`GET /api/inputs?mine=1&order=desc`, todos los estados, paginado), con los mensajes de cada envío publicado.
+**Alternativas descartadas:**
+- Publicar fuera de la transacción del trabajo, en un paso aparte: una caída entre ambos deja un input `proposed` que nadie confirma, justo lo que el dueño quiere evitar.
+- Publicar aunque la propuesta no valide (completar campos vacíos): el sistema no inventa datos; un campo obligatorio vacío o un área borrada se arreglan a mano.
+**Consecuencias:**
+- Idempotencia: sólo un input `proposed` se publica. La cola repite el cierre de un trabajo sin duplicar (si el input ya está `published`, no escribe), `POST /publish` sobre un publicado es 409 `already_published` y reprocesar un publicado es 409 `not_reprocessable`: el contenido de un mensaje ya publicado se cambia editándolo (UD-071), no reanalizando su input.
+- El evento `done` trae `input_status` (`published` o `proposed`) y `message_ids`; los avisos `message` al equipo salen como hasta ahora.
+- Perilla del Editor `auto_publish` (`GET/PATCH /api/settings/publication`), encendida por omisión por decisión del dueño, no por medición. Apagada vuelve la revisión previa de UD-003.
+- UD-003 queda enmendada en el paso de confirmar; sigue vigente la cola de trabajos que desacopla el procesamiento del navegador. UD-017 sigue vigente para la edición en el lugar.
+**Condiciones de reversión:** Apagar `auto_publish` desde la configuración. La cuenta de ediciones por mensaje (`message_edits`) es la evidencia para decidir si se apaga por omisión.
+
+## [UD-071] Sólo el emisor edita su mensaje publicado, con historial y control de versión
+
+**Fecha:** 2026-10-21
+**Contexto:** Sin confirmación previa, la corrección ocurre después de publicar. UD-017 dejaba editar al emisor y a cualquier Editor.
+**Decisión:** Martín, textual: «Lo que sí me importa es que un mensaje ya enviado sea muy fácil de editar por la persona que envió dicho mensaje. Otra persona que no envió el mensaje no debe poder editar un mensaje ajeno.» `PATCH /api/messages/:id` lo hace sólo el emisor (título, texto, campos, plantilla, área, destinatarios y adjuntos del envío de origen); cualquier otro, también el Editor, recibe 403 `not_message_author`. Responder, cerrar y reabrir siguen abiertos a todos. El cuerpo lleva la `version` leída; si otra edición se coló, 409 `edit_conflict` con la versión vigente y nada se escribe. Cada edición real sube la versión, fija `edited_at` («editado» con la hora), deja una fila en `message_edits` (quién, cuándo y qué campos, sin valores) y avisa con un aviso dirigido a los destinatarios nuevos. Cambiar el área mueve el mensaje de área y exige una plantilla de ella.
+**Alternativas descartadas:**
+- Dejar editar al Editor como árbitro: el dueño lo excluye; el Editor corrige por la vía de siempre, pidiéndoselo al emisor o respondiendo.
+- Control de concurrencia por `updated_at`: dos ediciones en el mismo milisegundo comparten marca; un contador no se repite.
+- Guardar los valores anteriores: UD-017 descarta el historial de versiones; el historial dice qué campos cambiaron y quién, no su contenido.
+**Consecuencias:**
+- Un `PATCH` que no cambia nada deja el mensaje, su versión y su historial como estaban.
+- Los adjuntos se quitan o reordenan entre los del envío con `attachment_ids`, y se agregan archivos y enlaces nuevos con `POST /api/messages/:id/attachments` (multipart con `version`), que cuenta como una edición y encola la lectura del adjunto.
+**Condiciones de reversión:** Si el equipo necesita que un Editor corrija mensajes ajenos, se registra una decisión nueva que lo permita con su propia fila de historial.
+
+## [UD-072] Un envío puede pedir quedarse en borrador, y una subida rechazada no deja archivos
+
+**Fecha:** 2026-10-21
+**Contexto:** Con la publicación automática (UD-070), el guion `scripts/vps-check.mjs` habría publicado su texto de prueba al equipo real y no habría podido cancelarlo (409). Además H-1804: una subida rechazada (versión vencida, mensaje cerrado) dejaba su archivo en el volumen sin fila que lo use.
+**Decisión:** Decisión de la sesión por encargo de la coordinación; el dueño no la dijo con estas palabras. `POST /api/inputs` acepta `auto_publish=false` (campo del multipart o booleano del JSON `{ text, links, auto_publish }`) para ese envío solo: su propuesta espera como `proposed` aunque la perilla del proyecto esté encendida. `true` o sin el campo sigue la perilla; no puede forzar una publicación que el proyecto apagó. Otro valor es 400 `auto_publish_invalid`. El guion `vps-check` lo usa y cancela sin publicar nunca. Una subida que el servidor rechaza borra lo que alcanzó a escribir, en la misma ruta y al terminar la petición, salvo un archivo que una fila ya usa o que otra subida en curso del mismo archivo todavía va a usar.
+**Alternativas descartadas:**
+- Un usuario de prueba con la perilla apagada: la perilla es del proyecto, no del miembro.
+- Cancelar un `published` desde el guion: UD-070 lo define definitivo y los mensajes ya habrían llegado al equipo.
+- Barrer por reloj: el barrido por antigüedad (`sweepOrphans`) queda como red para una caída entre escribir el archivo y su fila; el caso normal no espera a un reloj.
+**Consecuencias:**
+- Columna `inputs.keep_draft` (migración 0007). Un envío repetido con el mismo contenido devuelve el que ya existe y no cambia su `keep_draft`.
+- Un envío cancelado conserva sus archivos a propósito: Deshacer lo restaura (J1-B-26), así que no son huérfanos.
+**Condiciones de reversión:** Retirar el campo si el guion de verificación deja de enviar textos reales.
+
+## [UD-059] Los adjuntos van primero y se miran en una galería de medios que se reutiliza en todo el panel
+
+**Fecha:** 2026-10-21
+**Contexto:** Martín revisó la lista de envíos y vio los adjuntos en un segundo plano.
+**Decisión:** Martín, textual: «Me parece que el archivo adjunto no tiene la prioridad en la interfaz que yo claramente puse en la maqueta inicial de este programa. Cuando veo la lista de envíos, en ese modal me gustaría ver al tiro la foto que haya, o la galería de fotos si son varias, o galería de medios si hay fotos mezcladas con videos, y poder ir moviéndome entre una y otra manteniendo un carrusel abajo de cuál es el que estoy viendo dentro de los otros. Yo creo que sería súper útil implementarlo en todo el sitio y que este componente de galería de medios sea reutilizado donde corresponda.»
+Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la revisión de un mensaje nuevo es un par de bloques lado a lado. A la izquierda, «Mensaje o transcripción» con «editar» y la «Lista de adjuntos» con su «+»; a su derecha, «Previsualización de: imagen o galería, video o carrusel, audio(s), docx o PDF». El análisis de la IA repite el mismo par: «Área detectada», «Descripción», su propia «Previsualización de…» y la «Descripción de adjuntos» con su «+», y «Enviar». En las tarjetas de «Últimos mensajes» y «Últimas respuestas» el adjunto es un círculo grande a la derecha del texto (una imagen, un audio con su forma de onda, un video con su triángulo), y junto a la fecha van los íconos de micrófono y cámara. Es decir, el adjunto tiene un bloque propio del mismo peso que el texto y no una fila de íconos.
+**Consecuencias:**
+- `MediaGallery` (`panel/src/components/MediaGallery.tsx`) es el único lugar donde se mira un adjunto: visor grande con el medio elegido, carrusel de miniaturas debajo con el actual marcado (borde grueso, barra inferior y `aria-current`, no sólo color), flechas, «2 de 5», teclas Izquierda, Derecha, Inicio y Fin, deslizar en el teléfono (el visor es una fila con ajuste de desplazamiento, así que el gesto es el del navegador y no lleva una distancia propia), y sin carrusel cuando hay un solo medio. Foto: ajustada al marco, «Ampliar» la muestra a su tamaño y Escape la devuelve sin cerrar la ventana que la contiene. Video: sus controles y su primer fotograma como portada. Audio: el reproductor y, si el servidor extrajo texto, la transcripción. Documento y enlace: nombre, tipo, dominio y la forma de abrirlo. Sólo las diapositivas vecinas a la actual cargan su contenido; un archivo que falla lo dice y se reintenta. Sin dependencias nuevas.
+- Se usa en: la ficha de un mensaje (los adjuntos van antes del texto), las respuestas de la ficha y la lista de Mensajes y las tarjetas de Inicio (la miniatura principal lleva la cuenta y abre la galería sobre la página), y el selector de adjuntos de cada mensaje propuesto (la miniatura abre la galería de lo que ese mensaje lleva). `AttachmentStrip` y `MediaOpener` son los dos disparadores: ambos abren `MediaGalleryDialog`, una ventana centrada, nunca un panel lateral.
+- Servidor: `GET /api/attachments/:id/transcript` entrega `{ text }` de un audio o video con el mismo acceso que el archivo; los adjuntos de un mensaje llevan `extracted` para que el panel sólo la pida cuando existe. Las respuestas no se analizan y no tienen transcripción.
+- Los datos de ejemplo de la galería (seis fotos, fotos con video, audio con transcripción, PDF con foto dañada y enlace, una sola foto) sólo se siembran con `PANEL_DEV_MEDIA=1`, para no alterar lo que cuentan las demás pruebas. `npm run test:gallery` las recorre en un navegador.
+- Se dejó fuera, con su razón: (1) la ventana de Envíos, porque el dueño cambió su diseño a un desplegable en línea y lo construye otra rama sobre `MediaGallery`; (2) los chips de la barra de nuevo mensaje (`MediaDraft`), que son archivos locales aún sin enviar y cuyo uso es quitarlos, no mirarlos; (3) las filas del menú del selector, que es una lista de casillas; (4) la vista de la primera página de un PDF, porque el servidor entrega cada archivo con una política que prohíbe incrustarlo y dibujarlo exigiría una dependencia de renderizado de PDF de más de un megabyte; (5) el título de un enlace, que el sistema no guarda; (6) un endpoint de miniaturas y portadas: exigiría convertir imágenes en el servidor, que toca el extractor de imágenes en otra rama; el panel pide el archivo con carga diferida y el navegador dibuja el primer fotograma del video sin una portada aparte.
+**Condiciones de reversión:** Si Martín prefiere una vista de documentos con primera página, se agrega el renderizado con una dependencia justificada en MASTER-SPEC §3.
+
+## [UD-042] El estado de un mensaje se deriva de sus respuestas y de su cierre, y nunca se escribe a mano
+
+**Fecha:** 2026-10-21
+**Contexto:** Inicio mostraba una tarjeta «Abierto» con dos respuestas. El servidor real ya pasa de abierto a respondido al responder; el servidor de ejemplo del panel sembraba el estado a mano y lo contradecía. Martín, textual: «El estado respondido debería aplicarse siempre automáticamente cuando exista una respuesta a un problema abierto, independiente de si esa respuesta agrega más información, porque eso ya no es algo que el sistema evalúe. Lo único que no importa es si un problema no tiene respuesta: eso es abierto. Si hay una o más respuestas, está respondido. Y si alguien lo marcó como cerrado, está cerrado.»
+**Decisión:** El estado es una función de dos datos: la marca de cierre y la cantidad de respuestas. Con la marca de cierre, cerrado; sin ella, respondido con una respuesta o más, y abierto sin ninguna. Ninguna lectura del texto de la respuesta interviene. Reabrir un mensaje cerrado lo devuelve al estado que esa función da. Enmienda UD-029 y MASTER-SPEC §1.1 (la definición de «Mensaje» ya decía esto; ahora es una invariante con prohibición).
+**Alternativas descartadas:**
+- Que el panel corrija un mensaje con respuestas y estado `open` al mostrarlo: tapa un defecto del servidor. El panel muestra lo que la API entrega y una prueba falla si la API entrega un estado que contradice sus respuestas.
+- Estados escritos a mano en los datos de ejemplo: pueden contradecir las respuestas y lo hicieron.
+**Consecuencias:**
+- `src/api/message-state-derivation.test.js` ejerce la invariante tras responder, cerrar, reabrir, editar y reprocesar, y recorre todos los mensajes de la base después de cada paso.
+- `panel/dev-server.mjs` deriva el estado al sembrar y al responder, cerrar y reabrir (`syncStatus`); una prueba de flujo revisa todo lo que el servidor de ejemplo sirve.
+**Condiciones de reversión:** Si el dueño quiere que cierta clase de respuesta no cuente como respuesta, se registra con su cita y se cambia la función en un solo lugar.
+## [UD-058] El modelo por omisión sigue siendo Haiku 5.5
+
+**Fecha:** 2026-10-21
+**Contexto:** H-80 comparó Haiku 5.5 con Sonnet 5.5 sobre los mismos prompts (medición `docs/investigaciones/mediciones/2026-10-21-modelos-y-esfuerzo-de-clasificacion.md`). Sonnet asigna mejor (conjunto exacto 80,0 % contra 53,0 %, p 0,002) y cuesta 17 veces más por entrada; cobertura y área no se separan.
+**Decisión:** Propuesta del coordinador, no cita de Martín. Se mantiene Haiku 5.5 como modelo por omisión y `classifyEffort` en `low`. Sonnet 5.5 queda como opción por configuración (`TEXT_MODEL`) una vez resuelto H-1100.
+**Alternativas descartadas:**
+- Sonnet 5.5 por omisión: 0,31 USD por entrada con caché tibia contra 0,017, para ganar en destinatarios, que el equipo corrige en la revisión.
+- `classifyEffort` `medium`: el área baja de 94,7 % a 87,1 % (p 0,008) y 2 de 33 corridas quedan inválidas.
+**Consecuencias:** Sin cambios en el producto. H-1100 queda cerrado (el proveedor elige `thinking` según el modelo) y H-1102 abierto.
+**Condiciones de reversión:** Se pasa a Sonnet 5.5 si la asignación de destinatarios pesa más que el costo (más de 20 entradas diarias con 0,31 USD cada una son 6 USD al día) o si el equipo mide que corrige más de la mitad de los destinatarios que propone Haiku.
+
+## [UD-090] La interfaz se mide con instrumentos antes de juzgarla
 
 **Fecha:** 2026-10-21
 **Contexto:** Cada ronda de jueces tomó entre 9 y 14 minutos por juez, un arreglo entre 29 y 87 minutos y una fusión con choques entre 10 y 20. Los jueces repitieron hallazgos que el dueño ya había refutado: en la ronda 3, 21 de 84 filas del libro reaparecen de rondas anteriores y 16 quedaron refutadas.
@@ -536,13 +649,13 @@ RULES:
 - Seguir con rondas de un juez por área: tiempo de pared de 9 a 14 minutos por juez y 25 % de repeticiones.
 - Sólo detectores: no ven rótulos, jerarquía ni flujo.
 **Consecuencias:**
-- Telemetría de interfaz (UD-061), detectores (`panel/scripts/ui-detectors.mjs`) y jueces acotados (UD-062).
+- Telemetría de interfaz (UD-091), detectores (`panel/scripts/ui-detectors.mjs`) y jueces acotados (UD-092).
 **Condiciones de reversión:** Que la medición del marco (`docs/investigaciones/mediciones/2026-10-21-jueces-acotados-contra-juez-unico.md`) muestre menos hallazgos válidos por minuto de pared que el juez único.
 
-## [UD-061] Telemetría de la interfaz: módulo propio, JSON validado, encendida por omisión
+## [UD-091] Telemetría de la interfaz: módulo propio, JSON validado, encendida por omisión
 
 **Fecha:** 2026-10-21
-**Contexto:** UD-060 pide datos de uso. El informe 09 encontró que el SDK de navegador de OpenTelemetry sigue experimental (`sdk-trace-web` fue retirado en la serie 3.0.0 y las convenciones `browser.*` están en «development»).
+**Contexto:** UD-090 pide datos de uso. El informe 09 encontró que el SDK de navegador de OpenTelemetry sigue experimental (`sdk-trace-web` fue retirado en la serie 3.0.0 y las convenciones `browser.*` están en «development»).
 **Decisión:** El panel emite eventos con un módulo propio (`panel/src/lib/telemetry.ts`, unos 0,7 KB comprimidos según el informe) a `POST /api/telemetry/ui`. El servidor valida la forma sin campos desconocidos y los guarda como spans OpenTelemetry `ui.*` en la tabla `spans`. Ningún evento lleva texto de personas, contenido, nombres de archivo ni identificadores de miembro: sólo conteos, duraciones, pantallas, tareas y rutas con sus identificadores reemplazados. Nace encendida (informe 09, recomendación 12: sin cookies, almacenamiento local, identificador persistente ni contenido, y con interruptor); el Editor la apaga en Configuración, «Telemetría de uso», y `UI_TELEMETRY=0` fija el valor inicial. El envío usa `fetch` con `keepalive` y no `navigator.sendBeacon`, porque un beacon no puede llevar la cabecera `X-Team-Request` que el servidor exige a toda petición con sesión. La decisión de encender por omisión la tomó la sesión por encargo del dueño («decide con UD: justifica»).
 **Alternativas descartadas:**
 - SDK de navegador de OpenTelemetry: 16,3 KB comprimidos y API experimental (informe 09, §2).
@@ -556,14 +669,14 @@ RULES:
 - Mide el estado de Chrome, Firefox 128 o Safari 16.4 como el navegador lo permita: CLS y tareas largas sólo existen en Chromium y en los otros quedan sin dato, no en cero.
 **Condiciones de reversión:** Apagarla es el interruptor o `UI_TELEMETRY=0`. Si se agrega un identificador persistente o contenido, debe nacer apagada.
 
-## [UD-062] Jueces acotados en paralelo, con instrumentos y restricciones
+## [UD-092] Jueces acotados en paralelo, con instrumentos y restricciones
 
 **Fecha:** 2026-10-21
-**Contexto:** UD-060.
+**Contexto:** UD-090.
 **Decisión:** Un encargo de unos 5 minutos por pantalla o flujo, todos los jueces a la vez (`scripts/juicios.mjs`, `docs/JUICIOS.md`). El juez recibe las salidas de los detectores y de la telemetría y reporta sólo lo que ninguna ve. Recibe como reglas del alcance las decisiones del dueño y los hallazgos refutados, nunca qué se cambió, y la nota parte en 2. Un consolidador marca cada hallazgo contra el libro y contra los otros jueces.
 **Alternativas descartadas:**
 - Decirle al juez qué se cambió: ancla el juicio (informe 10, §5).
 - Descartar automáticamente por similitud de títulos: la precisión medida es 0,67 con umbral 0,35, por eso sólo marca.
 **Consecuencias:**
 - Un hallazgo cuenta cuando se reproduce con captura o se mide.
-**Condiciones de reversión:** UD-060.
+**Condiciones de reversión:** UD-090.

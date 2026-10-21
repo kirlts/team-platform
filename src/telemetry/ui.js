@@ -1,4 +1,4 @@
-// Interface telemetry, the server side (UD-061, MASTER-SPEC §7.10 ter): turns the batches the panel sends into
+// Interface telemetry, the server side (UD-091, MASTER-SPEC §7.10 ter): turns the batches the panel sends into
 // OpenTelemetry spans (they land in the `spans` table through the exporter that already exists) and reads them back
 // as a summary. The contract of the events is `ui-spec.js`; here there is no schema, only what is done with it.
 import { SpanKind, SpanStatusCode, TRACER_NAME } from './api.js';

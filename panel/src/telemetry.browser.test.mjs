@@ -1,4 +1,4 @@
-// Interface telemetry in a real browser (UD-061): `npm run test:telemetry`. The same scenario runs twice, against the
+// Interface telemetry in a real browser (UD-091): `npm run test:telemetry`. The same scenario runs twice, against the
 // development double server (dev-server.mjs) and against the real server (src/server.js with the demo modules), and each
 // time the Editor's summary has to show what the person did, with no text of anything they wrote.
 //

@@ -1,14 +1,13 @@
 import { useMemo } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { useFormat, useT } from '@/i18n'
-import { replyAttachmentUrl } from '@/lib/api'
 import { useMe } from '@/lib/queries'
 import type { MessageDetail } from '@/lib/types'
 import { Avatar } from './Avatar'
+import { AttachmentStrip } from './AttachmentStrip'
 import { FitList } from './FitList'
 import { useLookups } from './lookups'
 import { KIND_KEY, ReplyForm } from './ReplyForm'
-import { Thumb } from './Thumb'
 
 /**
  * Replies of a message: the list fits its frame and paginates; the form stays at the foot, in
@@ -41,21 +40,13 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
             <div className="flex min-w-0 flex-1 flex-col gap-1">
               <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted">
                 <span data-repeat-ok="person" className="break-words text-sm font-semibold text-fg">{memberName(r.author_id)}</span>
-                {r.kind !== 'answer' && <Badge tone={r.kind === 'fix' ? 'answered' : 'neutral'}>{t(KIND_KEY[r.kind])}</Badge>}
+                {r.kind !== 'answer' && <Badge tone={'neutral'}>{t(KIND_KEY[r.kind])}</Badge>}
                 <time dateTime={r.created_at} className="tabular-nums">
                   {format.stamp(r.created_at)}
                 </time>
               </div>
               {r.body && <p className="prose-block whitespace-pre-wrap break-words text-sm">{r.body}</p>}
-              {(r.attachments?.length ?? 0) > 0 && (
-                <ul aria-label={t('media.attachments')} className="flex flex-wrap gap-2 pt-0.5">
-                  {r.attachments?.map((a) => (
-                    <li key={a.id}>
-                      <Thumb item={{ kind: a.kind, src: a.kind === 'link' ? undefined : replyAttachmentUrl(a.id), name: a.name, size: a.size }} px={36} href={a.kind === 'link' ? a.name : replyAttachmentUrl(a.id)} />
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <AttachmentStrip items={r.attachments ?? []} scope="reply" px={36} className="pt-0.5" />
             </div>
           </article>
         )}

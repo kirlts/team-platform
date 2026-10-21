@@ -45,7 +45,7 @@ export function uploadInput(
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && e.total > 0) onProgress(e.loaded / e.total)
     }
-    const settle = telemetry.request('POST', '/inputs') // interface telemetry (UD-061): the send begins here
+    const settle = telemetry.request('POST', '/inputs') // interface telemetry (UD-091): the send begins here
     xhr.onload = () => {
       settle({ status: xhr.status })
       if (xhr.status >= 200 && xhr.status < 300) {

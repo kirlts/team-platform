@@ -1,4 +1,4 @@
-// Narrow judges in parallel (UD-062, docs/JUICIOS.md). This script prepares the work and reads it back; the judges
+// Narrow judges in parallel (UD-092, docs/JUICIOS.md). This script prepares the work and reads it back; the judges
 // themselves are subagents that the coordinating session launches, one per brief, all at once.
 //
 //   node scripts/juicios.mjs preparar --out DIR [--items home,settings] [--detectors FILE] [--telemetry FILE]

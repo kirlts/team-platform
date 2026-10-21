@@ -324,7 +324,7 @@ function ProviderRow({ provider: p }: { provider: ProviderSetting }) {
             <span className="text-sm leading-tight">{detail}</span>
           </>
         ) : (
-          <Badge tone="answered">{t('provider.available')}</Badge>
+          <Badge tone="accent">{t('provider.available')}</Badge>
         )}
         {save.isError && <span role="alert" className="text-xs leading-tight text-danger">{errorText(save.error)}</span>}
       </span>

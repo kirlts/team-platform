@@ -449,7 +449,8 @@ test('HP-004 · a job survives the abrupt death of the process: on restart the l
 
   // Second process, with the test analyzer that does finish: it recovers the expired lease and completes the job.
   const second = await boot({ ANALYZE_MODULE: path.join(rootDir, 'src/testing/demo-modules.js'), EXTRACT_MODULE: path.join(rootDir, 'src/testing/demo-modules.js') })
-  await until(() => get(db, 'SELECT status FROM inputs WHERE id = 1').status === 'proposed', { timeoutMs: 15000 })
+  // UD-070: with the product default the resumed analysis publishes by itself.
+  await until(() => get(db, 'SELECT status FROM inputs WHERE id = 1').status === 'published', { timeoutMs: 15000 })
   assert.equal(get(db, 'SELECT status FROM jobs WHERE id = 1').status, 'done')
   assert.equal(get(db, 'SELECT attempts FROM jobs WHERE id = 1').attempts, 2) // the lost attempt counts
   second.proc.kill('SIGTERM')

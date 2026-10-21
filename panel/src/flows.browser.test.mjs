@@ -14,8 +14,8 @@
 //   - the compose bar shows an upload rejection inline.
 
 import assert from 'node:assert'
-import { after, before, describe, test } from 'node:test'
-import { login, startPanel } from './browser-support.mjs'
+import { after, before, beforeEach, describe, test } from 'node:test'
+import { login, startPanel, settled, openTemplates } from './browser-support.mjs'
 
 let panel
 let origin = ''
@@ -23,6 +23,11 @@ let origin = ''
 before(async () => {
   panel = await startPanel(Number(process.env.PANEL_FLOWS_PORT ?? 8796), { stepMs: 80 })
   origin = panel.origin
+})
+
+// Every test starts from the sample data as the server was born with it (H-901): none inherits what another left in the tray or the lists.
+beforeEach(async () => {
+  await panel.control.reset()
 })
 
 after(async () => {
@@ -66,7 +71,7 @@ async function showRow(page, text) {
     const next = page.getByRole('button', { name: 'Página siguiente' }).first()
     if (!(await next.isEnabled())) break
     await next.click()
-    await page.waitForTimeout(300)
+    await settled(page)
   }
   await page.getByText(text).first().waitFor({ timeout: 2000 })
 }
@@ -217,7 +222,7 @@ describe('replies with media', () => {
       await page.getByRole('button', { name: 'Responder', exact: true }).click()
       const row = page.getByRole('article').filter({ hasText: 'Adjunto el borrador' })
       // The tile of the file is the reply's media: one row of attachments, with the kind drawn in it (J3-A-25).
-      await row.getByRole('list', { name: 'Adjuntos' }).getByRole('link', { name: /borrador\.pdf/ }).waitFor()
+      await row.getByRole('list', { name: 'Adjuntos' }).getByRole('button', { name: /borrador\.pdf/ }).waitFor()
     } finally {
       await context.close()
     }
@@ -295,13 +300,13 @@ describe('consecutive inputs (UD-025)', () => {
       const tray = page.getByTestId('tray-control')
       await send(1)
       await tray.waitFor()
-      await page.waitForTimeout(500)
+      await settled(page)
       const base = await heights()
       const baseFrame = (await tray.boundingBox()).height
       for (let i = 2; i <= 10; i++) await send(i)
       // They finish staggered: the folded header counts all ten once they are ready for review.
       await tray.getByText('10 para revisar').waitFor({ timeout: 40000 })
-      await page.waitForTimeout(800)
+      await settled(page)
       assert.deepEqual(await heights(), base, 'diez envíos no deben cambiar el alto de la página')
       assert.ok(Math.abs((await tray.boundingBox()).height - baseFrame) <= 1, 'el control de envíos conserva su alto')
       assert.ok(base.main <= base.win, 'la región principal no desplaza')
@@ -317,7 +322,7 @@ describe('consecutive inputs (UD-025)', () => {
       await page.keyboard.press('j')
       await page.waitForFunction((prev) => document.querySelector('[role="option"][aria-selected="true"]')?.getAttribute('aria-label') === prev, first)
       await page.keyboard.press('Enter')
-      await page.waitForTimeout(600)
+      await settled(page)
       await tray.getByText('10 para revisar').waitFor()
       await page.getByRole('button', { name: /^Enviar \d+ mensajes?$/ }).focus()
       await page.keyboard.press('Enter')
@@ -329,17 +334,19 @@ describe('consecutive inputs (UD-025)', () => {
   })
 })
 
-// ---------------------------------------------------------------- UD-028, UD-029, UD-030: Home, the badge and the priority
-/** The fill each priority has, read from a probe element in the page: the reference every badge is compared with. */
+// ---------------------------------------------------------------- UD-028, UD-029, UD-030, UD-041: Home, the badge and the states
+const STATE_WORD = { open: 'abierto', answered: 'respondido', closed: 'cerrado' }
+
+/** The fill each state has, read from a probe element in the page: the reference every badge is compared with. */
 const probeFills = (page, weight) =>
   page.evaluate((w) => {
     const out = {}
-    for (const tone of ['red', 'yellow', 'blue']) {
+    for (const status of ['open', 'answered', 'closed']) {
       const probe = document.createElement('span')
-      probe.setAttribute('data-tone', tone)
+      probe.setAttribute('data-status', status)
       if (w) probe.setAttribute('data-weight', w)
       document.body.append(probe)
-      out[tone] = getComputedStyle(probe).backgroundColor
+      out[status] = getComputedStyle(probe).backgroundColor
       probe.remove()
     }
     return out
@@ -347,15 +354,15 @@ const probeFills = (page, weight) =>
 
 /** Replaces GET /api/messages/summary with the given counts, to draw every combination without touching the data. */
 async function withSummary(page, mine, areas = []) {
-  const items = ['red', 'yellow', 'blue'].flatMap((tone) => Array.from({ length: mine[tone] }, (_, i) => ({ message_id: `${tone}-${i}`, title: `Mensaje ${tone} ${i}`, tone, at: '2026-10-21T10:00:00.000Z' })))
-  await page.route(/\/api\/messages\/summary$/, (route) => route.fulfill({ json: { mine: { ...mine, total: mine.red + mine.yellow + mine.blue }, items, areas } }))
+  const items = ['open', 'answered'].flatMap((status) => Array.from({ length: mine[status] }, (_, i) => ({ message_id: `${status}-${i}`, title: `Mensaje ${status} ${i}`, status, at: '2026-10-21T10:00:00.000Z' })))
+  await page.route(/\/api\/messages\/summary$/, (route) => route.fulfill({ json: { mine: { ...mine, total: mine.open + mine.answered }, items, areas } }))
 }
 
-describe('insignia y prioridad (UD-028, UD-029)', () => {
-  test('the bell takes the background of the highest priority present, and the Messages badge and the Home notice carry it in the color of their shape, in all eight combinations and both themes (UD-029, UD-036)', async () => {
+describe('insignia y estados (UD-028, UD-029, UD-041)', () => {
+  test('the bell takes the background of the highest state present, and the Messages badge and the Home notice carry it in the color of their shape, in all four combinations and both themes (UD-029, UD-036, UD-041)', async () => {
     for (const scheme of ['light', 'dark']) {
-      for (let bits = 0; bits < 8; bits++) {
-        const mine = { red: bits & 1 ? 2 : 0, yellow: bits & 2 ? 3 : 0, blue: bits & 4 ? 4 : 0 }
+      for (let bits = 0; bits < 4; bits++) {
+        const mine = { open: bits & 1 ? 2 : 0, answered: bits & 2 ? 3 : 0 }
         const context = await panel.browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'es-CL', colorScheme: scheme })
         const page = await context.newPage()
         try {
@@ -363,39 +370,42 @@ describe('insignia y prioridad (UD-028, UD-029)', () => {
           await login(page, origin, 'ana')
           await page.getByTestId('attention').waitFor()
           const fills = await probeFills(page)
-                    assert.equal(new Set(Object.values(fills)).size, 3, 'las tres prioridades tienen fondos distintos')
-                    const top = mine.red ? 'red' : mine.yellow ? 'yellow' : mine.blue ? 'blue' : null
-          const total = mine.red + mine.yellow + mine.blue
+          assert.equal(new Set(Object.values(fills)).size, 3, 'los tres estados tienen fondos distintos')
+          const top = mine.open ? 'open' : mine.answered ? 'answered' : null
+          const total = mine.open + mine.answered
           const surfaces = {
             pestaña: page.getByRole('navigation', { name: 'Navegación' }).locator('[data-testid="messages-badge"]'),
-            aviso: page.getByTestId('attention').locator(`[data-testid="tone-mark"][data-tone="${mine.red ? 'red' : mine.yellow ? 'yellow' : 'blue'}"]`),
+            aviso: page.getByTestId('attention').locator(`[data-testid="state-mark"][data-status="${top}"]`),
           }
           for (const [name, badge] of Object.entries(surfaces)) {
             if (!top) {
-              assert.equal(await badge.count(), 0, `${name}: sin nada pendiente no hay insignia (${scheme})`)
+              assert.equal(await badge.count(), 0, `${name}: sin nada abierto ni respondido no hay insignia (${scheme})`)
               continue
             }
-            assert.equal(await badge.getAttribute('data-tone'), top, `${name}: prioridad ${top} (${scheme}, ${JSON.stringify(mine)})`)
-            // Quiet (UD-036): no tinted fill; the priority is the color of the shape.
+            assert.equal(await badge.getAttribute('data-status'), top, `${name}: estado ${top} (${scheme}, ${JSON.stringify(mine)})`)
+            // Quiet (UD-036): no tinted fill; the state is the color of the shape.
             assert.equal(await badge.evaluate((el) => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)', `${name}: una marca callada no se rellena (${scheme}, ${JSON.stringify(mine)})`)
             const shape = await badge.locator('svg').first().evaluate((el) => getComputedStyle(el).color)
-            assert.equal(shape, await page.evaluate((t) => { const p = document.createElement('i'); p.setAttribute('data-tone', t); p.setAttribute('data-weight', 'quiet'); const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); p.append(s); document.body.append(p); const c = getComputedStyle(s).color; p.remove(); return c }, top), `${name}: la forma lleva el color de ${top} (${scheme})`)
+            assert.equal(shape, await page.evaluate((t) => { const p = document.createElement('i'); p.setAttribute('data-status', t); p.setAttribute('data-weight', 'quiet'); const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); p.append(s); document.body.append(p); const c = getComputedStyle(s).color; p.remove(); return c }, top), `${name}: la forma lleva el color de ${top} (${scheme})`)
             if (name === 'pestaña') assert.equal((await badge.textContent()).trim(), String(total), `${name}: el número es el total`)
+            // The color is never alone: the aviso names the state with its word and its number.
+            if (name === 'aviso') assert.match((await badge.textContent()).trim(), new RegExp(`^\\d+ ${STATE_WORD[top]}s?$`))
           }
           const bell = page.getByTestId('bell')
           if (top) {
-            assert.equal(await bell.getAttribute('data-tone'), top, `campana: prioridad ${top}`)
+            assert.equal(await bell.getAttribute('data-status'), top, `campana: estado ${top}`)
             assert.equal(await bell.evaluate((el) => getComputedStyle(el).backgroundColor), fills[top], `campana: el fondo pintado es el de ${top} (${scheme})`)
             assert.match((await bell.textContent()).trim(), new RegExp(`${total}$`))
             // One source of truth (J2-B-03): the bell is the only saturated fill on the screen; everything else is quiet.
-            const weights = await page.evaluate(() => [...document.querySelectorAll('[data-tone]')].map((el) => el.getAttribute('data-weight') ?? 'solid'))
+            const weights = await page.evaluate(() => [...document.querySelectorAll('[data-status]')].map((el) => el.getAttribute('data-weight') ?? 'solid'))
             assert.equal(weights.filter((w) => w === 'solid').length, 1, `un solo relleno saturado (${scheme}, ${JSON.stringify(mine)})`)
-            // The bell lists exactly what it counts (J2-A-43).
+            // The bell lists exactly what it counts (J2-A-43), each with the word of its state.
             await bell.click()
             assert.equal(await page.locator('[data-lane="bell-list"] li').count(), total, `la campana lista ${total} (${scheme}, ${JSON.stringify(mine)})`)
+            assert.equal(await page.locator('[data-lane="bell-list"] [data-testid="state-mark"]').first().textContent(), top === 'open' ? 'Abierto' : 'Respondido')
           } else {
-            // With nothing affecting the member, the bell can only show the event-stream news (blue), never another priority.
-            assert.ok([null, 'blue'].includes(await bell.getAttribute('data-tone')), 'bell: with nothing pending it can only be blue')
+            // With nothing open or answered that affects the member, the bell shows no state at all.
+            assert.equal(await bell.getAttribute('data-status'), null, 'campana: sin avisos no lleva estado')
           }
         } finally {
           await context.close()
@@ -404,26 +414,26 @@ describe('insignia y prioridad (UD-028, UD-029)', () => {
     }
   })
 
-  test('real data: the Messages badge counts what the server says and the Home notice repeats it per priority', async () => {
+  test('real data: the Messages badge counts what the server says and the Home notice repeats it per state', async () => {
     const { page, context } = await session('ana')
     try {
       const summary = await (await page.request.get(`${origin}/api/messages/summary`)).json()
-      assert.ok(summary.mine.red > 0 && summary.mine.yellow > 0 && summary.mine.blue > 0, 'los datos de desarrollo tienen las tres prioridades para Ana')
+      assert.ok(summary.mine.open > 0 && summary.mine.answered > 0, 'los datos de desarrollo tienen abiertos y respondidos para Ana')
       const badge = page.getByRole('navigation', { name: 'Navegación' }).locator('[data-testid="messages-badge"]')
       await badge.waitFor()
-      assert.equal(await badge.getAttribute('data-tone'), 'red')
+      assert.equal(await badge.getAttribute('data-status'), 'open')
       assert.equal((await badge.textContent()).trim(), String(summary.mine.total))
       const attention = page.getByTestId('attention')
-      for (const [tone, word, n] of [['red', 'Por atender', summary.mine.red], ['yellow', 'Pendiente', summary.mine.yellow], ['blue', 'Novedad', summary.mine.blue]]) {
-        const mark = attention.locator(`[data-testid="tone-mark"][data-tone="${tone}"]`)
-        assert.equal((await mark.textContent()).replace(/\s+/g, ''), `${word}${n}`.replace(/\s+/g, ''))
+      for (const [status, word, n] of [['open', n1 => (n1 === 1 ? 'abierto' : 'abiertos'), summary.mine.open], ['answered', n1 => (n1 === 1 ? 'respondido' : 'respondidos'), summary.mine.answered]]) {
+        const mark = attention.locator(`[data-testid="state-mark"][data-status="${status}"]`).first()
+        assert.equal((await mark.textContent()).trim(), `${n} ${word(n)}`)
       }
     } finally {
       await context.close()
     }
   })
 
-  test('a closed message loses its urgency edge and mark and leaves the count and the bell (J2-A-09, J2-A-43)', async () => {
+  test('a closed message loses its notice and leaves the count and the bell, and keeps its color as a state (J2-A-09, J2-A-43, UD-041)', async () => {
     const { page, context } = await session('bruno')
     try {
       await page.getByRole('heading', { name: 'Últimos mensajes' }).waitFor()
@@ -436,11 +446,12 @@ describe('insignia y prioridad (UD-028, UD-029)', () => {
       await page.locator('article', { hasText: title }).first().getByText('Cerrado', { exact: true }).waitFor()
       for (const row of await page.locator('article', { hasText: 'Cerrado' }).all()) {
         assert.equal(await row.getAttribute('data-affects-me'), null, 'un cerrado no afecta a nadie')
-        assert.equal(await row.locator('[data-testid="tone-mark"]').count(), 0, 'sin marca de prioridad')
-        assert.match(await row.evaluate((el) => getComputedStyle(el).boxShadow), /^none$/, 'sin borde de urgencia')
+        // It is shown in its own state: the mark says «Cerrado» and the edge is the closed color.
+        assert.equal(await row.locator('[data-testid="state-mark"]').getAttribute('data-status'), 'closed')
+        assert.notEqual(await row.evaluate((el) => getComputedStyle(el).boxShadow), 'none', 'el borde lleva el color del estado cerrado')
       }
       await page.getByTestId('bell').click()
-      await page.waitForTimeout(400)
+      await settled(page)
       const listed = await page.locator('[data-lane="bell-list"] li').allInnerTexts()
       assert.ok(listed.length <= before, 'la lista de la campana no crece')
       assert.ok(!listed.some((t) => t.includes(title)), 'la campana ya no lista el mensaje cerrado')
@@ -449,7 +460,7 @@ describe('insignia y prioridad (UD-028, UD-029)', () => {
     }
   })
 
-  test('a pending item per area leads to Messages filtered by that area and by open ones, and shows as many messages as the number says', async () => {
+  test('a count per area leads to Messages filtered by that area and by that state, and shows as many messages as the number says', async () => {
     const { page, context } = await session('ana')
     try {
       const chip = page.getByTestId('area-pending').filter({ hasText: 'Error' }).first()
@@ -459,7 +470,7 @@ describe('insignia y prioridad (UD-028, UD-029)', () => {
       const error = (areas.items ?? areas).find((a) => a.title === 'Error')
       const open = summary.areas.find((a) => a.area_id === error.id).open
       assert.ok(open > 0)
-      await chip.click()
+      await chip.getByRole('link', { name: /abierto/ }).click()
       await page.waitForURL(/\/messages\?/)
       const url = new URL(page.url())
       assert.deepEqual(url.searchParams.getAll('f').sort(), [`area:eq:${error.id}`, 'status:eq:open'])
@@ -543,7 +554,7 @@ describe('estados, teclado y filas', () => {
     try {
       await page.goto(`${origin}/messages`)
       await page.locator('main article').first().waitFor()
-      const xs = await page.evaluate(() => [...document.querySelectorAll('main article')].map((a) => Math.round((a.querySelector('.led') ?? a.querySelector('[data-testid="tone-mark"]')).getBoundingClientRect().left)))
+      const xs = await page.evaluate(() => [...document.querySelectorAll('main article')].map((a) => Math.round((a.querySelector('.led') ?? a.querySelector('[data-testid="state-mark"]')).getBoundingClientRect().left)))
       assert.ok(xs.length >= 3, 'hacen falta varias filas')
       // J1-A-56: the background orbit fades under the top bar and does not cross titles or buttons.
       assert.match(await page.evaluate(() => getComputedStyle(document.querySelector('svg[aria-hidden]')).maskImage), /gradient/)
@@ -599,12 +610,16 @@ describe('estados, teclado y filas', () => {
   test('an API error and a slow load show as states, not as an empty screen (J1-A-57)', async () => {
     const { page, context } = await session()
     try {
+      // The answer is held until the test has seen the loading state, so the state is observed and not caught on its way.
+      let answer = () => {}
+      const gate = new Promise((resolve) => (answer = resolve))
       await page.route(/\/api\/messages(\?|$)/, async (route) => {
-        await new Promise((r) => setTimeout(r, 1200))
+        await gate
         await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: { message: 'Fallo de prueba' } }) })
       })
       await page.goto(`${origin}/messages`)
       await page.getByText('Cargando').first().waitFor()
+      answer()
       await page.getByRole('alert').first().waitFor()
       await page.unrouteAll({ behavior: 'ignoreErrors' })
     } finally {
@@ -633,6 +648,7 @@ describe('templates as a form (J1-A-32)', () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/areas/a-error`)
+      await openTemplates(page)
       await page.getByRole('button', { name: /^Campos e instrucciones/ }).first().click()
       const dialog = page.getByRole('dialog')
       await dialog.getByRole('heading', { name: 'Campos' }).waitFor()
@@ -642,7 +658,7 @@ describe('templates as a form (J1-A-32)', () => {
       await dialog.getByRole('button', { name: /^Rótulo del campo: Campo nuevo/ }).waitFor()
       const required = dialog.getByLabel('Obligatorio').last()
       await required.click()
-      await page.waitForTimeout(400)
+      await settled(page)
       assert.equal(await required.isChecked(), true, 'la casilla Obligatorio guarda el cambio')
       await dialog.getByRole('button', { name: 'Quitar el campo Campo nuevo' }).click()
       await dialog.getByRole('button', { name: /^Rótulo del campo: Campo nuevo/ }).waitFor({ state: 'detached' })
@@ -685,19 +701,10 @@ describe('templates as a form (J1-A-32)', () => {
 // ---------------------------------------------------------------- Ronda 1, juez B: enviar, analizar, revisar y publicar
 const THREE = 'Corregir el desalineado del sidebar en la vista dashboard.\n\nAgregar la sincronización con WhatsApp en el sidebar.\n\nPregunta: ¿el audio máximo sigue en 25 MB?'
 
-/** Leaves the person with an empty tray: tests that count messages must not inherit the sends of an earlier test. */
-async function clearTray(page) {
-  const body = await (await page.request.get(`${origin}/api/inputs`)).json()
-  for (const input of body.items ?? body) {
-    if (!['published', 'cancelled'].includes(input.status)) await page.request.post(`${origin}/api/inputs/${input.id}/cancel`, { headers: { 'X-Team-Request': 'panel' } })
-  }
-}
-
 describe('publishing flow (round 1, judge B)', () => {
   test('the proposal shows all the messages at once and the button says how many it sends (J1-B-11)', async () => {
     const { page, context } = await session('bruno')
     try {
-      await clearTray(page)
       await sendInput(page, THREE)
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
       // One open and the other two on one line: the three titles are in view, without paging.
@@ -717,7 +724,6 @@ describe('publishing flow (round 1, judge B)', () => {
   test('a discard can be undone and returns with what was edited; there is no silent discard (J1-B-26)', async () => {
     const { page, context } = await session('carla')
     try {
-      await clearTray(page)
       await sendInput(page, 'Una idea que se descarta por error.\n\nOtra idea.')
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
       await page.getByRole('button', { name: /^Título del mensaje: / }).first().click()
@@ -739,7 +745,6 @@ describe('publishing flow (round 1, judge B)', () => {
   test('re-analyzing: without changes it goes straight; with changes it asks for confirmation (J1-B-18)', async () => {
     const { page, context } = await session('diego')
     try {
-      await clearTray(page)
       await sendInput(page, 'Un punto para analizar dos veces.')
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
       await page.getByRole('button', { name: 'Volver a analizar' }).click()
@@ -759,7 +764,6 @@ describe('publishing flow (round 1, judge B)', () => {
   test('editing a body says how it is saved and how to break a line (J1-B-19)', async () => {
     const { page, context } = await session('eduardo')
     try {
-      await clearTray(page)
       await sendInput(page, 'Un punto con cuerpo para editar.')
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
       await page.getByRole('button', { name: /^Texto del mensaje: / }).first().click()
@@ -796,7 +800,6 @@ describe('publishing flow (round 1, judge B)', () => {
   test('an area with several templates lets the user choose the template from the proposal (J1-B-18)', async () => {
     const { page, context } = await session('tomas')
     try {
-      await clearTray(page)
       await sendInput(page, 'Se rompe la pantalla de inicio: el botón queda cortado.')
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
       const pick = page.getByRole('button', { name: /^Plantilla: / })
@@ -813,7 +816,6 @@ describe('publishing flow (round 1, judge B)', () => {
   test('on the phone Enviar and Descartar stay in view with three messages (J1-B-29)', async () => {
     const { page, context } = await session('bruno', { width: 390, height: 844 })
     try {
-      await clearTray(page)
       await sendInput(page, THREE)
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
       const send = page.getByRole('button', { name: 'Enviar 3 mensajes', exact: true })
@@ -831,7 +833,6 @@ describe('publishing flow (round 2, judge B)', () => {
   test('Enter never publishes: after saving a field the focus stays on it, and from the container it does nothing (J2-B-13)', async () => {
     const { page, context } = await session('bruno')
     try {
-      await clearTray(page)
       await sendInput(page, THREE)
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
       const tray = page.getByTestId('tray-control')
@@ -855,7 +856,7 @@ describe('publishing flow (round 2, judge B)', () => {
       await page.getByRole('dialog').evaluate((el) => el.focus())
       await page.keyboard.press('Enter')
       await page.keyboard.press('Enter')
-      await page.waitForTimeout(800)
+      await settled(page)
       assert.equal(publishes.length, 0, 'ningún Intro publicó')
       await page.getByRole('button', { name: 'Enviar 3 mensajes', exact: true }).waitFor()
       assert.ok(await tray.count(), 'el envío sigue en la bandeja')
@@ -883,7 +884,7 @@ describe('compositor (ronda 2, juez B)', () => {
       const y0 = (await feed.boundingBox()).y
       const bar = page.getByLabel('Nuevo mensaje', { exact: true }).last()
       await bar.fill(Array.from({ length: 12 }, (_, i) => `Párrafo ${i + 1} del texto largo que se escribe.`).join('\n\n'))
-      await page.waitForTimeout(300)
+      await settled(page)
       assert.equal((await feed.boundingBox()).y, y0, 'escribir un texto largo no mueve la página')
       const box = await bar.boundingBox()
       assert.ok(box.height <= 124, `el cuadro de texto se detiene en su máximo: ${box.height}`)
@@ -903,12 +904,13 @@ describe('tray and proposal (round 2, judge B)', () => {
   test('the strip of sends is a button with its progress, does not move the page, and the window opens on the recent send (J2-B-07, J2-B-08, J2-B-09, J2-B-10)', async () => {
     const { page, context } = await session('diego')
     try {
-      await clearTray(page)
       await page.goto(origin)
       await page.getByRole('heading', { name: 'Últimos mensajes' }).waitFor()
       const y = async () => ({ feed: (await page.getByRole('heading', { name: 'Últimos mensajes' }).boundingBox()).y, bar: (await page.getByLabel('Nuevo mensaje', { exact: true }).last().boundingBox()).y })
       const before = await y()
       const bar = page.getByLabel('Nuevo mensaje', { exact: true }).last()
+      // The first send waits in the queue while the strip is looked at; the test lets the analysis run when it has seen it (H-901).
+      await panel.control.hold()
       await bar.fill('Primer envío: revisar el contraste del botón.')
       await page.getByRole('button', { name: 'Enviar' }).first().click()
       const control = page.getByTestId('tray-control')
@@ -918,6 +920,7 @@ describe('tray and proposal (round 2, judge B)', () => {
       assert.deepEqual(await y(), before, 'la franja aparece sin mover la barra ni las listas')
       // The progress shows with the strip folded.
       await control.getByRole('progressbar').waitFor()
+      await panel.control.release()
       // A second send: on opening, the window lands on the most recent one that needs the person, not the old one.
       await bar.fill('Segundo envío: agregar la sincronización con WhatsApp.')
       await page.getByRole('button', { name: 'Enviar' }).first().click()
@@ -933,7 +936,8 @@ describe('tray and proposal (round 2, judge B)', () => {
   test('the window of a send being analyzed keeps the height of the one with a proposal (J3-B-04), and Cancelar looks like a button (J2-B-12)', async () => {
     const { page, context } = await session('eduardo')
     try {
-      await clearTray(page)
+      // The analysis waits for the test's order: «being analyzed» is a state it holds, not a race against the server's clock (H-901).
+      await panel.control.hold()
       await page.goto(origin)
       await page.getByLabel('Nuevo mensaje', { exact: true }).last().fill('Un envío que se queda analizando un rato.')
       await page.getByRole('button', { name: 'Enviar' }).first().click()
@@ -951,7 +955,6 @@ describe('tray and proposal (round 2, judge B)', () => {
   test('history buttons: Volver a analizar does not move, «Partes sin mensaje» is a button and removing has a single Deshacer that pushes nothing (J2-B-14, J2-B-15, J2-B-21)', async () => {
     const { page, context } = await session('sofia')
     try {
-      await clearTray(page)
       await sendInput(page, THREE)
       await proposalReady(page)
       const again = page.getByRole('button', { name: 'Volver a analizar' })
@@ -990,7 +993,6 @@ describe('tray and proposal (round 2, judge B)', () => {
   test('the recipients menu fits entirely in the window and a row with no recipient says so with a mark (J2-B-17, J2-B-19)', async () => {
     const { page, context } = await session('tomas')
     try {
-      await clearTray(page)
       await sendInput(page, THREE)
       await proposalReady(page)
       await page.getByRole('button', { name: 'Agregar destinatario' }).first().click()
@@ -1014,7 +1016,6 @@ describe('tray and proposal (round 2, judge B)', () => {
   test('discarding with more sends leaves its place with its Undo and does not jump to another send (J2-B-22, J2-B-24)', async () => {
     const { page, context } = await session('valentina')
     try {
-      await clearTray(page)
       await page.goto(origin)
       const bar = page.getByLabel('Nuevo mensaje', { exact: true }).last()
       for (const text of ['Primer punto para descartar uno.', 'Segundo punto que queda en la bandeja.']) {
@@ -1038,7 +1039,6 @@ describe('tray and proposal (round 2, judge B)', () => {
   test('on the phone the list of sends folds and the proposal takes the screen; menus fit in it (J2-B-11, J2-B-23)', async () => {
     const { page, context } = await session('ana', { width: 390, height: 844 })
     try {
-      await clearTray(page)
       await page.goto(origin)
       const bar = page.getByLabel('Nuevo mensaje', { exact: true }).last()
       for (const text of ['Primero.', 'Segundo.', 'Tercero.']) {
@@ -1067,7 +1067,6 @@ describe('tray and proposal (round 2, judge B)', () => {
   test('publishing says how many messages and to how many people, without moving the window, and the messages exist in Mensajes (J2-B-25, J2-B-26)', async () => {
     const { page, context } = await session('bruno')
     try {
-      await clearTray(page)
       await sendInput(page, THREE)
       await proposalReady(page)
       const total = async () => ((await (await page.request.get(`${origin}/api/messages?limit=100`)).json()).total ?? 0)
@@ -1077,7 +1076,7 @@ describe('tray and proposal (round 2, judge B)', () => {
       await notice.getByText(/^Se publicaron 3 mensajes para \d+ personas?\./).waitFor()
       const heading = page.getByRole('heading', { name: 'Últimos mensajes' })
       const y = (await heading.boundingBox()).y
-      await page.waitForTimeout(300)
+      await settled(page)
       assert.equal((await heading.boundingBox()).y, y, 'el aviso flota: no empuja la página')
       assert.equal(await notice.evaluate((el) => getComputedStyle(el.parentElement).position), 'fixed', 'el aviso de la página flota sobre ella')
       // The trace of the send: its three messages exist in Mensajes, where the link of the notice leads.

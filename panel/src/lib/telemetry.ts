@@ -1,4 +1,4 @@
-// Interface telemetry of the panel (UD-061, MASTER-SPEC §7.10 ter). It measures how the panel is used, with counts and
+// Interface telemetry of the panel (UD-091, MASTER-SPEC §7.10 ter). It measures how the panel is used, with counts and
 // durations, and sends it to POST /api/telemetry/ui. Three rules hold everywhere in this file:
 //
 //  1. Nothing a person wrote leaves the browser. Events carry numbers, screen names from a closed list, task names, and

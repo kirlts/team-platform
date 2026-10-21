@@ -1,4 +1,4 @@
-// The text of the interface report (UD-061): `scripts/ui-report.mjs` prints it. A pure function of the summary that
+// The text of the interface report (UD-091): `scripts/ui-report.mjs` prints it. A pure function of the summary that
 // `GET /api/telemetry/ui-summary` returns, so a test can read it without a server.
 
 const pct = (x) => (x === null || x === undefined ? '-' : `${(x * 100).toFixed(1)} %`)

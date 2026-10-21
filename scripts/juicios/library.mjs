@@ -1,4 +1,4 @@
-// The book of findings and decisions, read as data (UD-062). `docs/HALLAZGOS.md` is where every finding of every round
+// The book of findings and decisions, read as data (UD-092). `docs/HALLAZGOS.md` is where every finding of every round
 // ended up with its state; `docs/USER-DECISIONS.md` is where the owner's decisions are written. The judges of a screen
 // receive from here what has been decided and what has been refuted, and the consolidator compares what they report
 // against all of it. Nothing here calls a model: it is parsing and arithmetic.

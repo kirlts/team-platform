@@ -42,7 +42,7 @@ La medición 1 mostró dos fallas del método, corregidas antes de la 2:
 - Las decisiones sobre la campana y la barra lateral no llegaban a los encargos de las pantallas que no las nombran, aunque la campana está en todas. Ahora rigen en todos los encargos.
 - Algunos jueces abrieron la mitad de las capturas. El encargo pide ahora abrirlas todas; en la medición 2 cinco de los seis declararon haber abierto todas.
 
-Esos cambios no bajaron la proporción de repetidos: los que quedan son la misma idea con otras palabras, y sólo se evitan diciéndole al juez qué se resolvió, que es lo que el dueño no quiere (UD-062). El consolidador los marca, no los evita.
+Esos cambios no bajaron la proporción de repetidos: los que quedan son la misma idea con otras palabras, y sólo se evitan diciéndole al juez qué se resolvió, que es lo que el dueño no quiere (UD-092). El consolidador los marca, no los evita.
 
 ## Límites
 

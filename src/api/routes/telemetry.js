@@ -1,4 +1,4 @@
-// Interface telemetry (UD-061, MASTER-SPEC §7.10 ter). The panel sends counts and durations of how it is used;
+// Interface telemetry (UD-091, MASTER-SPEC §7.10 ter). The panel sends counts and durations of how it is used;
 // the Editor reads them back as a summary. No event carries text of a person (src/telemetry/ui-spec.js).
 
 import Ajv from 'ajv'

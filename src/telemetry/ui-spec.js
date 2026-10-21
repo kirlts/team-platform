@@ -1,4 +1,4 @@
-// Interface telemetry, the contract (UD-061, MASTER-SPEC §7.10 ter). Pure data: no I/O and no dependencies, so the
+// Interface telemetry, the contract (UD-091, MASTER-SPEC §7.10 ter). Pure data: no I/O and no dependencies, so the
 // route, the summary, the panel's tests and the privacy test read one and the same definition.
 //
 // What travels: counts, durations, screen identifiers and component identifiers. What never travels: the text of a

@@ -1,4 +1,4 @@
-// Interface report (UD-061): how the panel is used, from the spans the panel itself sends.
+// Interface report (UD-091): how the panel is used, from the spans the panel itself sends.
 //
 //   TEAM_EMAIL=… TEAM_PASSWORD=… node scripts/ui-report.mjs https://host:port [--days 7] [--json]
 //   node scripts/ui-report.mjs --db /data/team.db [--days 7] [--json]

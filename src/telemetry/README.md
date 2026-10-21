@@ -66,6 +66,6 @@ The cost comes from `pricing.js` for the models with a price documented in the r
 
 Per-call overhead and duration of each write slice: header of `overhead.bench.mjs` (measure again with `node src/telemetry/overhead.bench.mjs`).
 
-## Interface events (UD-061)
+## Interface events (UD-091)
 
 `ui-spec.js` is the contract of the events the panel sends; `ui.js` turns a validated batch into `ui.*` spans (`recordUiBatch`) and reads them back (`uiSummary`); `ui-report.js` prints the summary. The route is `src/api/routes/telemetry.js`. Spans of the interface are roots with `ui.session` (16 random hexadecimal characters, one page load) and no member. Retention is the same 7 days. See MASTER-SPEC §7.10 ter.

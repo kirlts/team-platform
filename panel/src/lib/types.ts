@@ -23,7 +23,7 @@ export interface Me extends Member {
   project_name?: string
   /** Shortest password the server accepts (PASSWORD_MIN_LENGTH). */
   password_min_length?: number
-  /** Interface telemetry (UD-061): the owner's switch and the largest batch the server accepts. */
+  /** Interface telemetry (UD-091): the owner's switch and the largest batch the server accepts. */
   ui_telemetry?: { enabled: boolean; max_events: number }
 }
 
@@ -59,6 +59,8 @@ export interface Attachment {
   size?: number
   /** Original file name or address of the link. */
   name?: string
+  /** The server extracted text from it (audio and video: the transcript, served at `GET /attachments/:id/transcript`). */
+  extracted?: boolean
 }
 
 export type InputStatus =
@@ -92,6 +94,8 @@ export interface DiscardedUnits {
 export interface Proposal {
   messages: ProposalMessage[]
   discarded: DiscardedUnits[]
+  /** Only the example server (`dev-server.mjs`) sets it: its proposal is a double, not an analysis. The real API never sends it. */
+  simulated?: boolean
 }
 
 /** Assumption: the input brings its units numbered with the text, to show what was discarded. */
@@ -215,10 +219,10 @@ export interface NewMessageEvent {
   at?: string
 }
 
-/** GET /messages/summary: what affects me by priority, and the open messages of each area (UD-028). */
+/** GET /messages/summary: what affects me by state, and the messages of each area by state (UD-028, UD-041). */
 export interface MessageSummary {
-  mine: { red: number; yellow: number; blue: number; total: number }
+  mine: { open: number; answered: number; total: number }
   /** The messages that make up `mine`, one by one: what the bell lists (J2-A-43). */
-  items: { message_id: string; title: string; tone: 'red' | 'yellow' | 'blue'; at: string }[]
-  areas: { area_id: string; open: number; mine_open: number }[]
+  items: { message_id: string; title: string; status: 'open' | 'answered'; at: string }[]
+  areas: { area_id: string; open: number; answered: number; closed: number; mine_open: number }[]
 }

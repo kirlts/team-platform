@@ -19,6 +19,7 @@ import {
 } from './errors.js';
 import { DEFAULT_TIMEOUT_MS, partToBase64, postRequest, systemBlocks, toParts } from './http.js';
 import { limiterFor } from './limiter.js';
+import { resolveThinkingAndEffort } from './anthropic-models.js';
 import { withGenAiCall } from '../telemetry/api.js';
 
 export const ANTHROPIC_DEFAULTS = Object.freeze({
@@ -38,9 +39,9 @@ const EFFORTS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 // it raised the share of complete and correct JSON at `low` and `medium` (report 02 §10.2, F4).
 const JSON_FINAL_ANSWER_LINE = 'The JSON output format applies to your final answer only.';
 
-function buildSystem(blocks, { cacheTtl, thinking }) {
+function buildSystem(blocks, { cacheTtl, thinkingOff }) {
   const list = [...blocks];
-  if (thinking === 'disabled') list.push(JSON_FINAL_ANSWER_LINE);
+  if (thinkingOff) list.push(JSON_FINAL_ANSWER_LINE);
   if (list.length === 0) return undefined;
   // The cache point goes in the last block: the whole stable prefix is cached (exact prefix, [F2]).
   const cacheControl = cacheTtl === '1h' ? { type: 'ephemeral', ttl: '1h' } : { type: 'ephemeral' };
@@ -70,7 +71,7 @@ async function toAnthropicContent(content, provider) {
  * @param {string} [cfg.model]
  * @param {string} [cfg.baseUrl]
  * @param {'5m'|'1h'} [cfg.cacheTtl]
- * @param {'disabled'|undefined} [cfg.thinking] omitted = the model's adaptive thinking
+ * @param {'disabled'|undefined} [cfg.thinking] intent: 'disabled' turns thinking off in the form the model accepts; omitted = the model's default
  * @param {number} [cfg.timeoutMs]
  * @param {number} [cfg.maxTokens] default for `complete`
  * @param {typeof fetch} [cfg.fetchImpl]
@@ -97,6 +98,8 @@ export function createAnthropicClient(cfg) {
     if (effort !== undefined && !EFFORTS.has(effort)) {
       throw new ProviderConfigError(`anthropic: esfuerzo inválido «${effort}»`, { provider, model });
     }
+    // The shape of `thinking` and `effort` comes from the model's declared capabilities (anthropic-models.js, H-1100).
+    const resolved = resolveThinkingAndEffort(model, { wantOff: thinking === 'disabled', effort });
     if (!Array.isArray(messages) || messages.length === 0) {
       throw new ProviderConfigError('anthropic: «messages» no puede estar vacío', { provider, model });
     }
@@ -106,12 +109,12 @@ export function createAnthropicClient(cfg) {
       max_tokens,
       messages: await Promise.all(messages.map(async (m) => ({ role: m.role, content: await toAnthropicContent(m.content, provider) }))),
     };
-    const sys = buildSystem(systemBlocks(system), { cacheTtl: callCacheTtl ?? cacheTtl, thinking });
+    const sys = buildSystem(systemBlocks(system), { cacheTtl: callCacheTtl ?? cacheTtl, thinkingOff: resolved.thinkingOff });
     if (sys) body.system = sys;
-    if (thinking === 'disabled') body.thinking = { type: 'disabled' };
+    if (resolved.thinking) body.thinking = resolved.thinking;
     const outputConfig = {};
     if (schema) outputConfig.format = { type: 'json_schema', schema };
-    if (effort) outputConfig.effort = effort;
+    if (resolved.effort) outputConfig.effort = resolved.effort;
     if (Object.keys(outputConfig).length > 0) body.output_config = outputConfig;
 
     // The slot is held only around the request: the body above is already built.

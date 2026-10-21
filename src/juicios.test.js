@@ -1,4 +1,4 @@
-// UD-062: the pieces of the narrow-judges method that are not a model: reading the book, building a brief that holds
+// UD-092: the pieces of the narrow-judges method that are not a model: reading the book, building a brief that holds
 // the restrictions and not the changes, and marking what a judge reports against what is already known.
 
 import assert from 'node:assert/strict'

@@ -32,6 +32,8 @@ const DIST = fileURLToPath(new URL('./dist/', import.meta.url))
 /** Each step of the simulated analysis lasts this long. It only exists so the bar visibly advances. */
 const STEP_MS = Number(process.env.PANEL_DEV_STEP_MS ?? 700)
 const MAX_BODY = 40 * 1024 * 1024
+/** PANEL_DEV_CONTROL=1 opens /api/_control/*: a test freezes and advances the simulated analysis and resets the sample state by an explicit order (H-901). */
+const CONTROL = process.env.PANEL_DEV_CONTROL === '1'
 
 const id = () => randomUUID().slice(0, 8)
 const ago = (minutes) => new Date(Date.now() - minutes * 60_000).toISOString()
@@ -132,44 +134,66 @@ const messages = []
 /** @type {Map<string, any[]>} */
 const replies = new Map()
 
+/** The state of a message, derived as the real API does (UD-042): closed when it was closed; otherwise answered with one reply or more, and open without any. Never written by hand. */
+function syncStatus(msg) {
+  msg.status = msg.closed_at ? 'closed' : (replies.get(msg.id) ?? []).length > 0 ? 'answered' : 'open'
+  return msg.status
+}
+
 function seedMessage(m, rs = []) {
   const msg = { id: `m-${id()}`, input_id: null, closed_at: null, ...m }
   messages.push(msg)
   replies.set(msg.id, rs.map((r) => ({ id: `r-${id()}`, message_id: msg.id, attachment_ids: [], ...r })))
+  syncStatus(msg)
   return msg
 }
 
-seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Corregir el contraste del botón Enviar en el inicio', body: 'El botón Enviar de la barra de nuevo mensaje casi no se distingue del fondo en el tema oscuro.\n\nPasos: abrir Inicio con el tema oscuro y mirar la barra.', status: 'open', created_at: ago(35), assignee_ids: ['u-bruno', 'u-ana'], attachment_ids: [imgDashboard] })
-seedMessage({ area_id: 'a-feature', author_id: 'u-diego', title: 'Agregar exportación de mensajes cerrados', body: 'El cliente pidió bajar los mensajes cerrados del mes en un archivo para su revisión.', status: 'answered', created_at: ago(190), assignee_ids: ['u-ana'], attachment_ids: [docFeedback] }, [
+seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Corregir el contraste del botón Enviar en el inicio', body: 'El botón Enviar de la barra de nuevo mensaje casi no se distingue del fondo en el tema oscuro.\n\nPasos: abrir Inicio con el tema oscuro y mirar la barra.', created_at: ago(35), assignee_ids: ['u-bruno', 'u-ana'], attachment_ids: [imgDashboard] })
+seedMessage({ area_id: 'a-feature', author_id: 'u-diego', title: 'Agregar exportación de mensajes cerrados', body: 'El cliente pidió bajar los mensajes cerrados del mes en un archivo para su revisión.', created_at: ago(190), assignee_ids: ['u-ana'], attachment_ids: [docFeedback] }, [
   { author_id: 'u-ana', kind: 'clarification', body: '¿El formato es CSV o una hoja de cálculo? Cambia el esfuerzo.', created_at: ago(120) },
   { author_id: 'u-diego', kind: 'answer', body: 'CSV alcanza.', created_at: ago(90) },
 ])
-seedMessage({ area_id: 'a-pregunta', author_id: 'u-bruno', title: 'Definir el tamaño máximo de un video', body: '¿Cuál es el límite de video que vamos a aceptar en la primera versión?', status: 'open', created_at: ago(26 * 60), assignee_ids: ['u-ana', 'u-diego'], attachment_ids: [] })
-seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Arreglar el error al iniciar sesión con correo en mayúsculas', body: 'Con el correo escrito en mayúsculas el inicio de sesión responde que la cuenta no existe.', status: 'answered', created_at: ago(28 * 60), assignee_ids: ['u-ana', 'u-carla'], attachment_ids: [imgLogin] }, [
+seedMessage({ area_id: 'a-pregunta', author_id: 'u-bruno', title: 'Definir el tamaño máximo de un video', body: '¿Cuál es el límite de video que vamos a aceptar en la primera versión?', created_at: ago(26 * 60), assignee_ids: ['u-ana', 'u-diego'], attachment_ids: [] })
+seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Arreglar el error al iniciar sesión con correo en mayúsculas', body: 'Con el correo escrito en mayúsculas el inicio de sesión responde que la cuenta no existe.', created_at: ago(28 * 60), assignee_ids: ['u-ana', 'u-carla'], attachment_ids: [imgLogin] }, [
   { author_id: 'u-bruno', kind: 'fix', body: 'Corregido en la rama de acceso: el correo se normaliza antes de buscar.', created_at: ago(26 * 60) },
 ])
-seedMessage({ area_id: 'a-idea', author_id: 'u-diego', title: 'Probar un resumen semanal por área', body: 'Un resumen de lo cerrado y lo abierto por área cada lunes ayudaría a la reunión de equipo.', status: 'open', created_at: ago(50 * 60), assignee_ids: [], attachment_ids: [] })
-seedMessage({ area_id: 'a-feedback', author_id: 'u-bruno', title: 'Las fechas de la agenda se leen mejor con el día de la semana', body: 'En la captura de la agenda las fechas sin día de la semana obligan a contar. Sugiero agregarlo.', status: 'closed', created_at: ago(72 * 60), closed_at: ago(60 * 60), assignee_ids: ['u-carla'], attachment_ids: [imgAgenda, audioNota] }, [
+seedMessage({ area_id: 'a-idea', author_id: 'u-diego', title: 'Probar un resumen semanal por área', body: 'Un resumen de lo cerrado y lo abierto por área cada lunes ayudaría a la reunión de equipo.', created_at: ago(50 * 60), assignee_ids: [], attachment_ids: [] })
+seedMessage({ area_id: 'a-feedback', author_id: 'u-bruno', title: 'Las fechas de la agenda se leen mejor con el día de la semana', body: 'En la captura de la agenda las fechas sin día de la semana obligan a contar. Sugiero agregarlo.', created_at: ago(72 * 60), closed_at: ago(60 * 60), assignee_ids: ['u-carla'], attachment_ids: [imgAgenda, audioNota] }, [
   { author_id: 'u-carla', kind: 'answer', body: 'Hecho en la última versión.', created_at: ago(61 * 60) },
 ])
-seedMessage({ area_id: 'a-error', author_id: 'u-ana', title: 'Revisar el tiempo de respuesta de la lista de mensajes', body: 'Con más de doscientos mensajes la lista tarda en abrir.', status: 'open', created_at: ago(96 * 60), assignee_ids: ['u-bruno'], attachment_ids: [] })
+seedMessage({ area_id: 'a-error', author_id: 'u-ana', title: 'Revisar el tiempo de respuesta de la lista de mensajes', body: 'Con más de doscientos mensajes la lista tarda en abrir.', created_at: ago(96 * 60), assignee_ids: ['u-bruno'], attachment_ids: [] })
 
 // A message Ana sent that someone answered: blue for her (informative), since it is not assigned to her.
-seedMessage({ area_id: 'a-pregunta', author_id: 'u-ana', title: 'Confirmar el formato de las capturas del informe', body: 'Para el informe mensual necesito saber si las capturas van en PNG o en JPG.', status: 'answered', created_at: ago(40), fields: { question: 'PNG o JPG para las capturas del informe.' }, assignee_ids: ['u-bruno'], attachment_ids: [] }, [
+seedMessage({ area_id: 'a-pregunta', author_id: 'u-ana', title: 'Confirmar el formato de las capturas del informe', body: 'Para el informe mensual necesito saber si las capturas van en PNG o en JPG.', created_at: ago(40), fields: { question: 'PNG o JPG para las capturas del informe.' }, assignee_ids: ['u-bruno'], attachment_ids: [] }, [
   { author_id: 'u-bruno', kind: 'answer', body: 'PNG: las capturas con texto se ven nítidas.', created_at: ago(18) },
 ])
 
 // Messages with every media type, long titles and many recipients, to see how the text is distributed.
 const everyone = members.map((x) => x.id)
-seedMessage({ area_id: 'a-accesibilidad', author_id: 'u-carla', title: 'Revisar la lectura del panel en teléfonos pequeños con el tamaño de letra del sistema al máximo y el tema oscuro activado', body: 'En un teléfono de 360 píxeles de ancho con la letra del sistema al máximo, varias filas se desbordan. Adjunto una captura, la grabación, una nota de voz, el documento con el detalle y el caso en GitHub.', status: 'open', created_at: ago(12), fields: { summary: 'La fila de mensajes se desborda con la letra del sistema al máximo.', device: 'Teléfono de 360 píxeles de ancho con Android' }, assignee_ids: everyone.filter((x) => x !== 'u-carla'), attachment_ids: [imgDashboard, videoDemo, audioNota, docFeedback, linkIssue] }, [
+seedMessage({ area_id: 'a-accesibilidad', author_id: 'u-carla', title: 'Revisar la lectura del panel en teléfonos pequeños con el tamaño de letra del sistema al máximo y el tema oscuro activado', body: 'En un teléfono de 360 píxeles de ancho con la letra del sistema al máximo, varias filas se desbordan. Adjunto una captura, la grabación, una nota de voz, el documento con el detalle y el caso en GitHub.', created_at: ago(12), fields: { summary: 'La fila de mensajes se desborda con la letra del sistema al máximo.', device: 'Teléfono de 360 píxeles de ancho con Android' }, assignee_ids: everyone.filter((x) => x !== 'u-carla'), attachment_ids: [imgDashboard, videoDemo, audioNota, docFeedback, linkIssue] }, [
   { author_id: 'u-maria', kind: 'clarification', body: 'Cuando dices tamaño máximo, ¿hablas del ajuste de accesibilidad de Android o del zoom del navegador? Cambia dónde se arregla.', created_at: ago(8), attachment_ids: [imgLogin, audioNota] },
   { author_id: 'u-ana', kind: 'answer', body: 'Del ajuste de Android. Dejo la grabación del caso.', created_at: ago(5), attachment_ids: [videoDemo, docFeedback, linkIssue] },
 ])
-seedMessage({ area_id: 'a-error', author_id: 'u-diego', title: 'Grabación del cierre de sesión que no borra la sesión anterior', body: 'Se ve en el video: después de cerrar sesión, al volver atrás el panel muestra los mensajes.', status: 'answered', created_at: ago(20), assignee_ids: ['u-ana', 'u-maria'], attachment_ids: [videoDemo] }, [
+seedMessage({ area_id: 'a-error', author_id: 'u-diego', title: 'Grabación del cierre de sesión que no borra la sesión anterior', body: 'Se ve en el video: después de cerrar sesión, al volver atrás el panel muestra los mensajes.', created_at: ago(20), assignee_ids: ['u-ana', 'u-maria'], attachment_ids: [videoDemo] }, [
   { author_id: 'u-ana', kind: 'fix', body: 'Corregido: al cerrar sesión se vacía la caché de consultas.', created_at: ago(15), attachment_ids: [linkIssue] },
 ])
-seedMessage({ area_id: 'a-idea', author_id: 'u-bruno', title: 'Nota de voz con la idea del resumen semanal', body: 'La dejé hablada porque es más rápido.', status: 'open', created_at: ago(40), assignee_ids: ['u-ana'], attachment_ids: [audioNota] })
-seedMessage({ area_id: 'a-pregunta', author_id: 'u-diego', title: 'Enlace al caso del cliente', body: 'El cliente lo escribió en su sistema.', status: 'open', created_at: ago(45), assignee_ids: ['u-ana'], attachment_ids: [linkIssue] })
+seedMessage({ area_id: 'a-idea', author_id: 'u-bruno', title: 'Nota de voz con la idea del resumen semanal', body: 'La dejé hablada porque es más rápido.', created_at: ago(40), assignee_ids: ['u-ana'], attachment_ids: [audioNota] })
+seedMessage({ area_id: 'a-pregunta', author_id: 'u-diego', title: 'Enlace al caso del cliente', body: 'El cliente lo escribió en su sistema.', created_at: ago(45), assignee_ids: ['u-ana'], attachment_ids: [linkIssue] })
+
+// Messages that show every kind of gallery, only with PANEL_DEV_MEDIA=1 so the other tests keep the data they count on.
+// Everything here is development sample data, like the rest of the file.
+if (process.env.PANEL_DEV_MEDIA === '1') {
+  const photos = ['Pantalla de inicio', 'Lista de mensajes', 'Detalle', 'Bandeja de envíos', 'Equipo', 'Áreas'].map((title, i) => seedAttachment('image', 'image/svg+xml', `foto-${i + 1}.svg`, svgCapture(title, 30 + i * 50)))
+  const pdf = seedAttachment('document', 'application/pdf', 'informe-del-cliente.pdf', Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF'))
+  const voice = seedAttachment('audio', 'audio/wav', 'nota-con-texto.wav', silentWav(8))
+  attachments.get(voice).transcript = 'Primero, el botón Enviar no se distingue en el tema oscuro. Segundo, la lista tarda en abrir cuando hay muchos mensajes.'
+  const broken = seedAttachment('image', 'image/png', 'foto-dañada.png', Buffer.from('no es una imagen'))
+  seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Galería de seis fotos', body: 'Seis capturas de la misma pantalla.', created_at: ago(2), assignee_ids: ['u-ana'], attachment_ids: photos })
+  seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Fotos mezcladas con un video', body: 'Tres capturas y la grabación.', created_at: ago(3), assignee_ids: ['u-ana'], attachment_ids: [photos[0], videoDemo, photos[1], photos[2]] })
+  seedMessage({ area_id: 'a-idea', author_id: 'u-bruno', title: 'Nota de voz con su transcripción', body: 'La nota dicha en voz alta.', created_at: ago(4), assignee_ids: ['u-ana'], attachment_ids: [voice] })
+  seedMessage({ area_id: 'a-pregunta', author_id: 'u-diego', title: 'Informe en PDF y una foto dañada', body: 'El informe del cliente y una foto que no abre.', created_at: ago(5), assignee_ids: ['u-ana'], attachment_ids: [pdf, broken, linkIssue] })
+  seedMessage({ area_id: 'a-error', author_id: 'u-diego', title: 'Una sola foto', body: 'Un solo medio no lleva carrusel.', created_at: ago(6), assignee_ids: ['u-ana'], attachment_ids: [photos[3]] })
+}
 
 /** Fields a template declares in its frontmatter: `- { name: x, label: Y, required: true }`. */
 function templateFields(t) {
@@ -249,7 +273,7 @@ function view(msg) {
 
 function attachmentView(attId) {
   const a = attachments.get(attId)
-  return a ? { id: a.id, input_id: a.input_id, kind: a.kind, mime: a.mime, size: a.size, name: a.name } : null
+  return a ? { id: a.id, input_id: a.input_id, kind: a.kind, mime: a.mime, size: a.size, name: a.name, extracted: a.transcript !== undefined } : null
 }
 
 function inputView(input) {
@@ -261,6 +285,22 @@ function inputView(input) {
 /** How many jobs were started, to stagger the ones that follow. */
 let running = 0
 
+/**
+ * Who advances the analysis. «auto»: a timer, as a real queue would. «held»: nobody, until a test gives the order
+ * (`/_control/step`, `/_control/release`), so «being analyzed» is a state the test holds and not a race against a clock (H-901).
+ */
+let held = false
+/** Next step of every job that waits for an order, by job id. */
+const waiting = new Map()
+
+function schedule(input, tick, delay) {
+  if (held) {
+    waiting.set(input.job_id, tick)
+    return
+  }
+  jobs.set(input.job_id, setTimeout(tick, delay))
+}
+
 function runJob(input) {
   const total = input.attachment_ids.length + 2
   const steps = [
@@ -270,6 +310,7 @@ function runJob(input) {
   ]
   let done = 0
   const tick = () => {
+    waiting.delete(input.job_id)
     if (input.status === 'cancelled') return
     if (done === total) {
       input.proposal = analyze(input)
@@ -288,12 +329,12 @@ function runJob(input) {
     input.status = step.status
     emit(input.author_id, 'progress', { job_id: input.job_id, input_id: input.id, percent: Math.round((done / total) * 100), phrase: step.phrase, at: new Date().toISOString() })
     done += 1
-    jobs.set(input.job_id, setTimeout(tick, STEP_MS))
+    schedule(input, tick, STEP_MS)
   }
   // Inputs sent one after another finish at staggered times, as with a queue that runs several at once.
   const lag = (running % 10) * Math.round(STEP_MS / 2)
   running += 1
-  jobs.set(input.job_id, setTimeout(tick, STEP_MS + lag))
+  schedule(input, tick, STEP_MS + lag)
 }
 
 /** Numbered units of the input: one paragraph each. The server numbers them, as the real system will. */
@@ -309,13 +350,8 @@ const AREA_HINTS = [
   [/agregar|nueva|sincroniz|pedido|exportar|soporte para/i, 'a-feature'],
   [/idea|podr[ií]amos|ser[ií]a bueno|probar/i, 'a-idea'],
 ]
-const AREA_NOTES = {
-  'a-error': 'Se observó al abrir la vista; falta confirmar en qué navegador ocurre y si se repite.',
-  'a-feature': 'Pedido de una capacidad que hoy no existe; falta definir quién la usa primero.',
-  'a-pregunta': 'Queda a la espera de una respuesta de quien conoce el tema.',
-  'a-idea': 'Sin compromiso de construirla; se decide en la próxima revisión del equipo.',
-  'a-feedback': 'Opinión sobre algo que ya existe; no pide un cambio inmediato.',
-}
+/** What the double writes under every message it proposes: it does not read the text, and it says so. */
+const SIMULATED_NOTE = 'Propuesta simulada por el servidor de ejemplo: no es el análisis real y su área es la primera del catálogo, no una clasificación.'
 const FIELD_SAMPLES = {
   summary: 'Punto detectado en el texto enviado; el detalle está en el cuerpo del mensaje.',
   steps: 'Abrir la pantalla indicada y repetir la acción descrita.',
@@ -337,13 +373,14 @@ function analyze(input) {
   const rest = units.slice(keep.length)
   return {
     messages: keep.map((u, i) => {
-      const areaId = AREA_HINTS.find(([pattern]) => pattern.test(u.text))?.[1] ?? 'a-feedback'
+      // Without a keyword the area is the first of the catalog, and the proposal says it is simulated: no pretended classification.
+      const areaId = AREA_HINTS.find(([pattern]) => pattern.test(u.text))?.[1] ?? areas[0].id
       const template = activeTemplate(areaId, null)
       return {
         area_id: areaId,
         template_id: template?.id ?? null,
         title: titleOf(u.text),
-        body: `${u.text}\n\n${AREA_NOTES[areaId]}`,
+        body: `${u.text}\n\n${SIMULATED_NOTE}`,
         fields: Object.fromEntries(templateFields(template).map((f) => [f.name, f.required ? (FIELD_SAMPLES[f.name] ?? '') : ''])),
         assignee_ids: [others[i % others.length].id],
         attachment_ids: i === 0 ? input.attachment_ids : images,
@@ -351,6 +388,7 @@ function analyze(input) {
       }
     }),
     discarded: rest.length ? [{ unit_ids: rest.map((u) => u.id), reason: 'Sin acción para el equipo' }] : [],
+    simulated: true,
   }
 }
 
@@ -453,7 +491,7 @@ function serveStatic(req, res, pathname) {
   createReadStream(file).pipe(res)
 }
 
-// ---------------------------------------------------------------- interface telemetry (UD-061)
+// ---------------------------------------------------------------- interface telemetry (UD-091)
 // The same contract as the real server: the shape comes from src/telemetry/ui-spec.js, the events become spans through
 // `recordUiBatch` (here into an in-memory `spans` table made by the real migration) and the summary is `uiSummary`.
 // The body cap and the rate limit of the real route are not copied: this server has no one to protect.
@@ -481,6 +519,70 @@ const uiTracer = {
 
 // ---------------------------------------------------------------- routes
 
+// ---------------------------------------------------------------- control for tests (H-901)
+
+const copyOf = (v) => structuredClone(v)
+/** The sample state as it was born: the order «reset» goes back to. */
+const initial = CONTROL
+  ? { members: copyOf(members), areas: copyOf(areas), templates: copyOf(templates), project: copyOf(project), providers: copyOf(providers), attachments: copyOf(attachments), messages: copyOf(messages), replies: copyOf(replies) }
+  : null
+
+const restoreArray = (target, source) => target.splice(0, target.length, ...copyOf(source))
+const restoreMap = (target, source) => {
+  target.clear()
+  for (const [k, v] of copyOf(source)) target.set(k, v)
+}
+
+/** Every job that waits for an order moves one step, or the ones of one input all the way to the end when `finish` is given. */
+function stepJobs(inputId, finish) {
+  for (let guard = 0; guard < 64; guard++) {
+    const due = [...waiting].filter(([jobId]) => !inputId || inputs.get(inputId)?.job_id === jobId)
+    if (!due.length) return
+    for (const [, tick] of due) tick()
+    if (!finish) return
+  }
+}
+
+function control(path, query) {
+  if (path === '/_control/hold') {
+    held = true
+    return {}
+  }
+  if (path === '/_control/release') {
+    held = false
+    for (const [jobId, tick] of [...waiting]) {
+      waiting.delete(jobId)
+      jobs.set(jobId, setTimeout(tick, 0))
+    }
+    return {}
+  }
+  if (path === '/_control/step') {
+    stepJobs(query.get('input_id'), query.get('finish') === '1')
+    return {}
+  }
+  if (path === '/_control/reset') {
+    for (const t of jobs.values()) clearTimeout(t)
+    jobs.clear()
+    waiting.clear()
+    held = false
+    running = 0
+    inputs.clear()
+    eventLog.length = 0
+    restoreArray(members, initial.members)
+    restoreArray(areas, initial.areas)
+    restoreArray(templates, initial.templates)
+    restoreArray(providers, initial.providers)
+    restoreArray(messages, initial.messages)
+    Object.keys(project).forEach((k) => delete project[k])
+    Object.assign(project, copyOf(initial.project))
+    restoreMap(attachments, initial.attachments)
+    for (const a of attachments.values()) a.data = Buffer.from(a.data)
+    restoreMap(replies, initial.replies)
+    return {}
+  }
+  return null
+}
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://localhost')
   const { pathname } = url
@@ -495,6 +597,11 @@ const server = createServer(async (req, res) => {
 
   try {
     if (path === '/health') return send(res, 200, { ok: true, dev: true })
+
+    if (CONTROL && path.startsWith('/_control/') && method === 'POST') {
+      const done = control(path, url.searchParams)
+      return done ? send(res, 200, done) : fail(res, 404, 'Orden de control inexistente')
+    }
 
     if (unsafe && !req.headers['x-team-request']) return fail(res, 403, 'Falta la cabecera CSRF')
 
@@ -519,7 +626,7 @@ const server = createServer(async (req, res) => {
     }
     if (path === '/me' && method === 'GET') return send(res, 200, { ...me, project_name: project.name, password_min_length: 15, ui_telemetry: { enabled: uiState.enabled, max_events: uiConfig.uiTelemetry.maxEvents } })
 
-    // --- interface telemetry (UD-061)
+    // --- interface telemetry (UD-091)
     if (path === '/telemetry/ui' && method === 'POST') {
       const body = await readJson(req)
       if (!uiValidate(body)) return fail(res, 400, 'Datos inválidos.', 'validation')
@@ -577,7 +684,7 @@ const server = createServer(async (req, res) => {
     // --- development only: simulates a message arriving from another member (tests the SSE notice)
     if (path === '/_dev/incoming' && method === 'POST') {
       const from = members.find((x) => x.id !== me.id)
-      const msg = seedMessage({ area_id: 'a-pregunta', author_id: from.id, title: 'Confirmar el límite de adjuntos por mensaje', body: 'Mensaje entrante de ejemplo, generado por el servidor de desarrollo.', status: 'open', created_at: new Date().toISOString(), assignee_ids: [me.id], attachment_ids: [] })
+      const msg = seedMessage({ area_id: 'a-pregunta', author_id: from.id, title: 'Confirmar el límite de adjuntos por mensaje', body: 'Mensaje entrante de ejemplo, generado por el servidor de desarrollo.', created_at: new Date().toISOString(), assignee_ids: [me.id], attachment_ids: [] })
       emit(me.id, 'message', { message_id: msg.id, title: msg.title, author_id: from.id, at: msg.created_at })
       return send(res, 201, { message_id: msg.id })
     }
@@ -649,12 +756,13 @@ const server = createServer(async (req, res) => {
           if (!areas.some((x) => x.id === pm.area_id)) return fail(res, 422, 'El área no existe', 'validation')
           if (!(pm.assignee_ids ?? []).every((x) => members.some((mm) => mm.id === x))) return fail(res, 422, 'Un destinatario no existe', 'validation')
         }
-        input.proposal = { messages: body.messages, discarded: body.discarded ?? input.proposal?.discarded ?? [] }
+        input.proposal = { messages: body.messages, discarded: body.discarded ?? input.proposal?.discarded ?? [], simulated: input.proposal?.simulated }
         return send(res, 200, input.proposal)
       }
       if (m[2] === 'cancel' && method === 'POST') {
         if (input.status === 'published' || input.status === 'cancelled') return fail(res, 409, 'El input no se puede cancelar', 'conflict')
         clearTimeout(jobs.get(input.job_id))
+        waiting.delete(input.job_id)
         input.status = 'cancelled'
         return send(res, 204)
       }
@@ -686,7 +794,7 @@ const server = createServer(async (req, res) => {
         const created = []
         for (const pm of proposal.messages) {
           const tpl = activeTemplate(pm.area_id, pm.template_id)
-          const msg = seedMessage({ input_id: input.id, area_id: pm.area_id, template_id: tpl?.id ?? null, fields: pm.fields ?? {}, author_id: me.id, title: pm.title.trim(), body: pm.body.trim(), status: 'open', created_at: new Date().toISOString(), assignee_ids: pm.assignee_ids ?? [], attachment_ids: pm.attachment_ids ?? [] })
+          const msg = seedMessage({ input_id: input.id, area_id: pm.area_id, template_id: tpl?.id ?? null, fields: pm.fields ?? {}, author_id: me.id, title: pm.title.trim(), body: pm.body.trim(), created_at: new Date().toISOString(), assignee_ids: pm.assignee_ids ?? [], attachment_ids: pm.attachment_ids ?? [] })
           created.push(msg.id)
           for (const to of msg.assignee_ids) if (to !== me.id) emit(to, 'message', { message_id: msg.id, title: msg.title, author_id: me.id, at: msg.created_at })
         }
@@ -707,22 +815,22 @@ const server = createServer(async (req, res) => {
       return send(res, 200, envelope(list.map(view)))
     }
     if (path === '/messages/summary' && method === 'GET') {
-      // Same rule as the API (UD-028): red = assigned to me and open; yellow = assigned to me and answered; blue = mine, not assigned, answered.
-      const mine = { red: 0, yellow: 0, blue: 0, total: 0 }
+      // Same rule as the API (UD-028, UD-041): assigned to me, open or answered; or mine, not assigned and answered.
+      const mine = { open: 0, answered: 0, total: 0 }
       const items = []
       for (const x of messages) {
         if (x.status === 'closed') continue
-        const tone = x.assignee_ids.includes(me.id) ? (x.status === 'open' ? 'red' : 'yellow') : x.author_id === me.id && x.status === 'answered' ? 'blue' : null
-        if (tone) {
-          mine[tone]++
+        const status = x.assignee_ids.includes(me.id) || (x.author_id === me.id && x.status === 'answered') ? x.status : null
+        if (status) {
+          mine[status]++
           mine.total++
-          items.push({ message_id: x.id, title: x.title, tone, at: x.created_at })
+          items.push({ message_id: x.id, title: x.title, status, at: x.created_at })
         }
       }
-      const rank = { red: 0, yellow: 1, blue: 2 }
-      items.sort((a, b) => rank[a.tone] - rank[b.tone] || b.at.localeCompare(a.at))
-      const open = (a) => messages.filter((x) => x.area_id === a.id && x.status === 'open')
-      return send(res, 200, { mine, items, areas: areas.map((a) => ({ area_id: a.id, open: open(a).length, mine_open: open(a).filter((x) => x.assignee_ids.includes(me.id)).length })) })
+      const rank = { open: 0, answered: 1 }
+      items.sort((a, b) => rank[a.status] - rank[b.status] || b.at.localeCompare(a.at))
+      const inArea = (a, status) => messages.filter((x) => x.area_id === a.id && x.status === status)
+      return send(res, 200, { mine, items, areas: areas.map((a) => ({ area_id: a.id, open: inArea(a, 'open').length, answered: inArea(a, 'answered').length, closed: inArea(a, 'closed').length, mine_open: inArea(a, 'open').filter((x) => x.assignee_ids.includes(me.id)).length })) })
     }
     m = /^\/messages\/([^/]+)(?:\/(replies|close|reopen))?$/.exec(path)
     if (m) {
@@ -789,17 +897,17 @@ const server = createServer(async (req, res) => {
         const body = { body: text, kind: kind ?? 'answer' }
         const reply = { id: `r-${id()}`, message_id: msg.id, author_id: me.id, body: body.body.trim(), kind: body.kind, created_at: new Date().toISOString(), attachment_ids: attIds }
         replies.get(msg.id).push(reply)
-        if (msg.status === 'open') msg.status = 'answered'
+        syncStatus(msg)
         return send(res, 201, replyView(reply))
       }
       if (m[2] === 'close' && method === 'POST') {
-        msg.status = 'closed'
         msg.closed_at = new Date().toISOString()
+        syncStatus(msg)
         return send(res, 200, { id: msg.id, status: msg.status, closed_at: msg.closed_at })
       }
       if (m[2] === 'reopen' && method === 'POST') {
-        msg.status = (replies.get(msg.id) ?? []).length ? 'answered' : 'open'
         msg.closed_at = null
+        syncStatus(msg)
         // As the real API: the reopened message says which state it went back to (answered when it has replies).
         return send(res, 200, { id: msg.id, status: msg.status, closed_at: null })
       }
@@ -947,6 +1055,13 @@ const server = createServer(async (req, res) => {
         return send(res, 200, view())
       }
     }
+    // The text the server extracted from an audio or a video (the real server answers the same, from its `extracted_text`).
+    m = /^\/attachments\/([^/]+)\/transcript$/.exec(path)
+    if (m && method === 'GET') {
+      const a = attachments.get(m[1])
+      if (!a || a.transcript === undefined) return fail(res, 404, 'No hay transcripción', 'not_found')
+      return send(res, 200, { text: a.transcript })
+    }
     m = /^\/(?:replies\/)?attachments\/([^/]+)$/.exec(path)
     if (m && method === 'GET') {
       const a = attachments.get(m[1])
@@ -962,6 +1077,12 @@ const server = createServer(async (req, res) => {
     else res.end()
   }
 })
+
+// A test that starts this server holds its stdin: when the test process ends, however it ends, the pipe closes and the server leaves with it, so a killed run never leaves a server holding the port (H-901).
+if (process.env.PANEL_DEV_EXIT_WITH_PARENT === '1') {
+  process.stdin.resume()
+  process.stdin.on('close', () => process.exit(0))
+}
 
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`[dev-server] DEVELOPMENT DOUBLE SERVER with sample data at http://127.0.0.1:${PORT}/api${STATIC ? ' (also serves panel/dist)' : ''}`)

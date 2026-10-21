@@ -1,6 +1,6 @@
 # Juicios de interfaz
 
-Método para evaluar la interfaz con jueces acotados en paralelo (UD-062). Fuentes: `docs/investigaciones/10 - Evaluación de interfaz con jueces acotados.md` y `09 - Telemetría de la interfaz.md`.
+Método para evaluar la interfaz con jueces acotados en paralelo (UD-092). Fuentes: `docs/investigaciones/10 - Evaluación de interfaz con jueces acotados.md` y `09 - Telemetría de la interfaz.md`.
 
 ## Orden de los instrumentos
 

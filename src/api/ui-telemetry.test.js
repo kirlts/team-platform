@@ -1,4 +1,4 @@
-// UD-061: the panel reports how it is used (counts and durations), the Editor reads a summary, and no text of a
+// UD-091: the panel reports how it is used (counts and durations), the Editor reads a summary, and no text of a
 // person ever reaches the database. Telemetry is process-global, so one environment with the SDK serves the file.
 
 import assert from 'node:assert/strict'

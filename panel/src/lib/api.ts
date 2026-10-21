@@ -51,7 +51,7 @@ export async function api<T = unknown>(
     headers['Content-Type'] = 'application/json'
     body = JSON.stringify(options.body)
   }
-  const settle = telemetry.request(method, path) // interface telemetry (UD-061): counts and durations, never content
+  const settle = telemetry.request(method, path) // interface telemetry (UD-091): counts and durations, never content
   let res: Response
   try {
     res = await fetch(`${API_BASE}${path}`, { method, headers, body, credentials: 'include', signal: options.signal })

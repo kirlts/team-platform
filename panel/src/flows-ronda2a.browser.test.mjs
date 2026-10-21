@@ -1,8 +1,8 @@
 // Round 2, judge A (J2-A-01 to J2-A-49): each flow reads what the screen shows, in a real browser, against dev-server.mjs
 // serving panel/dist: `npm run test:flows`. Every test can fail if the defect it names comes back.
 import assert from 'node:assert'
-import { after, before, describe, test } from 'node:test'
-import { login, startPanel } from './browser-support.mjs'
+import { after, before, beforeEach, describe, test } from 'node:test'
+import { login, startPanel, settled, openTemplates } from './browser-support.mjs'
 
 let panel
 let origin = ''
@@ -10,6 +10,11 @@ let origin = ''
 before(async () => {
   panel = await startPanel(Number(process.env.PANEL_FLOWS_2A_PORT ?? 8797), { stepMs: 80 })
   origin = panel.origin
+})
+
+// Every test starts from the sample data as the server was born with it (H-901): none inherits what another left in the tray or the lists.
+beforeEach(async () => {
+  await panel.control.reset()
 })
 
 after(async () => {
@@ -94,14 +99,14 @@ describe('sign-in and navigation', () => {
     }
   })
 
-  test('what is selected looks the same in the sidebar, in Áreas and in the segmented controls (J2-A-41)', async () => {
+  test('what is selected looks the same in the sidebar and in the segmented controls (J2-A-41)', async () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/areas/a-error`)
       const bg = (loc) => loc.evaluate((el) => getComputedStyle(el).backgroundColor)
-      const row = await bg(page.locator('section[aria-current="true"]'))
-      const side = await bg(page.locator('nav a[aria-current="page"]').last())
-      assert.equal(side, row, 'la barra lateral y la fila elegida de Áreas usan rellenos distintos')
+      const side = await bg(page.locator('nav a[aria-current="page"]', { hasText: 'Error' }))
+      assert.notEqual(side, 'rgba(0, 0, 0, 0)', 'el área elegida en la barra lateral lleva relleno')
+      const row = side
       await page.goto(`${origin}/settings`)
       const seg = await bg(page.getByRole('radio', { checked: true }).first())
       assert.equal(seg, row, 'el control segmentado usa otro relleno para lo elegido')
@@ -132,13 +137,13 @@ describe('message list and home', () => {
   test('the status has no pill, the recipients say «para» and «y N más», with no spheres (J2-A-05, J2-A-12)', async () => {
     const { page, context } = await session()
     try {
-      // A row that does not affect me tells its state with the light; one that does tells its priority instead (J3-A-18).
+      // Every row tells its state with its shape and its word (UD-041).
       // The data is shared with the tests before this one: close a message here so there is a closed row to read.
       await page.request.post(`${origin}/api/messages/${(await messageByTitle(page, 'Probar un resumen')).id}/close`, { headers: csrf })
       await page.goto(`${origin}/messages?f=status:eq:closed`)
       const row = page.locator('main article').first()
       await row.waitFor()
-      const bg = await row.locator('.led').first().evaluate((el) => getComputedStyle(el).backgroundColor)
+      const bg = await row.locator('[data-testid="state-mark"]').first().evaluate((el) => getComputedStyle(el).backgroundColor)
       assert.equal(bg, 'rgba(0, 0, 0, 0)', 'el estado de la fila sigue siendo una píldora de color')
       await page.goto(`${origin}/messages`)
       const many = page.locator('main article').filter({ hasText: /y \d+ más/ }).first()
@@ -175,6 +180,7 @@ describe('message list and home', () => {
       await page.goto(origin)
       const clock = page.locator('time').first()
       assert.equal(await clock.evaluate((el) => getComputedStyle(el.parentElement).textTransform), 'none')
+      await page.getByRole('button', { name: 'Página siguiente' }).first().waitFor()
       const next = await page.getByRole('button', { name: 'Página siguiente' }).first().boundingBox()
       assert.ok(next.width >= 32 && next.height >= 32, `la flecha mide ${next.width}x${next.height}`)
     } finally {
@@ -318,6 +324,7 @@ describe('areas, templates and settings', () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/areas/a-error`)
+      await openTemplates(page)
       const templates = page.getByRole('region', { name: 'Plantillas' })
       await templates.getByRole('button', { name: /^Eliminar / }).first().click()
       const row = templates.getByRole('status').filter({ hasText: 'eliminada' })
@@ -337,6 +344,7 @@ describe('areas, templates and settings', () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/areas/a-error`)
+      await openTemplates(page)
       await page.getByRole('button', { name: /^Campos e instrucciones/ }).first().click()
       const dialog = page.getByRole('dialog')
       assert.equal(await dialog.locator('input[type=checkbox]').count(), 0, 'quedan casillas nativas del navegador')
@@ -355,6 +363,7 @@ describe('areas, templates and settings', () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/areas/a-error`)
+      await openTemplates(page)
       await page.getByRole('region', { name: 'Plantillas' }).getByRole('button', { name: 'Plantilla', exact: true }).click()
       const dialog = page.getByRole('dialog')
       // It starts empty, with no orphan headings (J3-A-36), and what is written shows rendered, not as hash marks.
@@ -370,21 +379,24 @@ describe('areas, templates and settings', () => {
     }
   })
 
-  test('«Sin plantillas» brings its own action, and zero weighs the same as the other pending counts (J2-A-26, J2-A-49)', async () => {
+  test('«Sin plantillas» brings its own action, and the counts weigh the same (J2-A-26, J2-A-49)', async () => {
     const { page, context } = await session()
     try {
       const made = await page.request.post(`${origin}/api/areas`, { data: { title: 'Área vacía de prueba', description: 'Sin plantillas.' }, headers: csrf })
       const area = await made.json()
       await page.goto(`${origin}/areas/${area.id}`)
+      await openTemplates(page)
       const empty = page.getByRole('region', { name: 'Plantillas' }).getByRole('status').filter({ hasText: 'Sin plantillas' })
       await empty.waitFor()
       await empty.getByRole('button', { name: 'Plantilla' }).click()
       await page.getByRole('dialog').getByLabel('Nombre').waitFor()
       await page.keyboard.press('Escape')
-      const weights = await page.locator('section[aria-current], section').filter({ hasText: /pendiente/ }).evaluateAll((els) => els.map((el) => [...el.querySelectorAll('span')].filter((s) => /pendiente/.test(s.textContent)).map((s) => getComputedStyle(s).fontWeight + getComputedStyle(s).color).join()))
-      assert.equal(new Set(weights.filter(Boolean)).size, 1, `los pendientes no pesan igual: ${weights.join(' | ')}`)
-      // An area with nothing pending says nothing instead of «0 pendientes» (J3-A-33).
-      assert.equal(await page.getByText(/^0 pendientes$/).count(), 0)
+      // The counts of an area weigh the same in every row of the list, and an area with nothing says nothing instead of «0 abiertos» (J3-A-33).
+      await page.goto(`${origin}/areas`)
+      await page.getByRole('link', { name: 'Abrir Área vacía de prueba' }).waitFor()
+      assert.equal(await page.getByText(/^0 (abiertos|respondidos)$/).count(), 0)
+      const weights = await page.locator('main section [data-testid="state-mark"]').evaluateAll((els) => els.map((s) => getComputedStyle(s).fontWeight))
+      assert.equal(new Set(weights).size, 1, `los conteos no pesan igual: ${weights.join(' | ')}`)
     } finally {
       await context.close()
     }
@@ -449,8 +461,11 @@ describe('states', () => {
     const { page, context } = await session()
     try {
       let fail = true
+      // The first answer waits for the test: it measures the loading state, then lets the error through.
+      let answer = () => {}
+      let gate = new Promise((resolve) => (answer = resolve))
       await page.route(/\/api\/messages(\?|$)/, async (route) => {
-        await new Promise((r) => setTimeout(r, 400))
+        await gate
         if (fail) await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: { message: 'Fallo de prueba' } }) })
         else await route.continue()
       })
@@ -458,10 +473,12 @@ describe('states', () => {
       const waiting = page.getByRole('status', { name: 'Cargando' })
       await waiting.waitFor()
       assert.ok((await waiting.boundingBox()).height >= 120, 'la espera no reserva el lugar de las filas')
+      answer()
       const alert = page.getByRole('alert').filter({ hasText: 'No se pudo cargar' })
       await alert.waitFor({ timeout: 15000 })
       assert.equal(await alert.locator(':scope > svg').count(), 1, 'el error no lleva icono')
       fail = false
+      gate = Promise.resolve()
       await alert.getByRole('button', { name: 'Reintentar' }).click()
       await page.locator('main article').first().waitFor()
       await page.unrouteAll({ behavior: 'ignoreErrors' })
@@ -481,12 +498,12 @@ describe('states', () => {
       })
       await page.goto(origin)
       await page.getByRole('link', { name: 'Idea', exact: true }).first().waitFor()
-      await page.waitForTimeout(400)
+      await settled(page)
       const tops = () => page.evaluate(() => [...document.querySelectorAll('nav > a, nav > div > div > a, nav li > a')].map((a) => Math.round(a.getBoundingClientRect().top)))
       const before = await tops()
       release()
       await page.getByTestId('messages-badge').waitFor()
-      await page.waitForTimeout(300)
+      await settled(page)
       const after = (await tops()).slice(0, before.length)
       assert.deepEqual(after, before, 'algo de la barra lateral se corrió al llegar los números')
       await page.unrouteAll({ behavior: 'ignoreErrors' })

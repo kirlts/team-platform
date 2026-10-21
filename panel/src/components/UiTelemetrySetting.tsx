@@ -4,7 +4,7 @@ import { useT } from '@/i18n'
 import { api } from '@/lib/api'
 import { useMe } from '@/lib/queries'
 
-/** Owner's switch of interface telemetry (UD-061). It sits in Configuración and only the Editor sees it. */
+/** Owner's switch of interface telemetry (UD-091). It sits in Configuración and only the Editor sees it. */
 export function UiTelemetrySetting() {
   const t = useT()
   const queryClient = useQueryClient()

@@ -19,7 +19,7 @@
 
 import { after, before, describe, test } from 'node:test'
 import assert from 'node:assert'
-import { login, startPanel } from './browser-support.mjs'
+import { login, startPanel, settled } from './browser-support.mjs'
 
 const PORT = Number(process.env.PANEL_FIT_PORT ?? 8795)
 let panel
@@ -157,7 +157,7 @@ async function open(page, path) {
   await page.goto(`${ORIGIN}${path}`)
   await page.locator('main h1').first().waitFor()
   await page.waitForLoadState('networkidle')
-  await page.waitForTimeout(600)
+  await settled(page)
 }
 
 async function sendInput(page) {
@@ -171,7 +171,7 @@ async function sendInput(page) {
   // The sends are folded behind one control (UD-030); the review opens in a dialog over the page and stays open while it is measured.
   await page.getByTestId('tray-control').click()
   await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
-  await page.waitForTimeout(600)
+  await settled(page)
 }
 
 /**
@@ -187,14 +187,14 @@ async function sendTen(page) {
     await page.getByRole('button', { name: 'Enviar' }).first().click()
     if (i === 1) {
       await page.getByTestId('tray-control').waitFor()
-      await page.waitForTimeout(500)
+      await settled(page)
       base = await measure()
     }
   }
   // They finish at staggered times: wait until the tray holds the ten and the last ones are ready.
   // Lists come back multiplied in the amplified run, so the count is not compared: the sends are done when none is still being analyzed.
   await page.waitForFunction(() => /para revisar/.test(document.querySelector('[data-testid="tray-control"]')?.textContent ?? '') && !/en análisis/.test(document.querySelector('[data-testid="tray-control"]')?.textContent ?? ''), null, { timeout: 40000 })
-  await page.waitForTimeout(800)
+  await settled(page)
   return base
 }
 

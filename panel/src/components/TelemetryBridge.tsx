@@ -5,7 +5,7 @@ import { useMe } from '@/lib/queries'
 import { screenOf, telemetry } from '@/lib/telemetry'
 
 /**
- * Connects the panel's own events to interface telemetry (UD-061): the owner's switch, the change of screen and the
+ * Connects the panel's own events to interface telemetry (UD-091): the owner's switch, the change of screen and the
  * moment the analysis of a send reaches the screen. It draws nothing.
  */
 export function TelemetryBridge() {

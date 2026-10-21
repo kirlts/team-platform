@@ -115,7 +115,7 @@ function SlotRow({ slot, saved }: { slot: ProviderSlot; saved: ProviderSetting }
         <SettingHint id={hintId}>{t(`hint.slot.${slot}` as MessageKey)}</SettingHint>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="flex min-w-0 flex-col gap-1 text-xs font-medium">
+        <label className="flex min-w-0 flex-col gap-1 text-sm text-muted">
           {t('settings.provider')}
           <NativeSelect value={provider} onChange={(e) => choose(e.target.value)} aria-label={t('settings.providerOf', { slot: slotName })} aria-describedby={hintId}>
             {options.map((c) => (
@@ -125,7 +125,7 @@ function SlotRow({ slot, saved }: { slot: ProviderSlot; saved: ProviderSetting }
             ))}
           </NativeSelect>
         </label>
-        <label className="flex min-w-0 flex-col gap-1 text-xs font-medium">
+        <label className="flex min-w-0 flex-col gap-1 text-sm text-muted">
           {t('settings.model')}
           <Input
             value={model}

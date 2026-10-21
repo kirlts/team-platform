@@ -389,9 +389,13 @@ describe('failure, publication and notices (J3-B-14, J3-B-15, J3-B-29)', () => {
       await page.getByRole('button', { name: /^Enviar \d+ mensajes$/ }).click()
       const notice = page.locator('[data-notice]')
       await notice.waitFor()
-      // The box is read once the page is quiet, not while the notice is still coming in with its entrance animation (H-904).
+      // The box is read the moment the notice exists and again once the page is quiet: the notice has no entrance animation that moves its box
+      // (measured, H-904), so both must be in the bar. The 116.5 px of that finding was a second copy drawn inside the window of sends while it closed.
+      const atOnce = await rect(notice)
+      assert.equal(await notice.evaluate((el) => el.closest('[role=dialog], [data-testid=send-drawer]') === null), true, 'el aviso no se dibuja dentro de la ventana ni del desplegable de envíos')
       await settled(page)
       const n = await rect(notice)
+      assert.ok(atOnce.y + atOnce.height <= 56, `el aviso queda en la barra superior al aparecer: ${atOnce.y + atOnce.height}`)
       assert.ok(n.y + n.height <= 56, `el aviso queda en la barra superior: ${n.y + n.height}`)
       assert.equal(await card(), before, 'the status bar keeps its height on publishing')
       for (const label of ['Página siguiente', 'Página anterior']) {

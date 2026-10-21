@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: ec34966 Traspaso: banco fusionado. Empujado a origin: `ec34966`.
-- Ramas con commits sin fusionar: `wt-equipo-config` 5 (hace 2 minutos), `wt-barra-movil` 4 (hace 15 minutos), `wt-h904` 4 (hace 23 minutos), `wt-envio` 3 (hace 7 minutos), `wt-areas3` 2 (hace 13 minutos).
-- Worktrees abiertos: `team-platform`, `areas2`, `areas3`, `auto-publicar`, `barra-movil`, `cierre`, `envio`, `equipo-config`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `tarjetas`, `telemetria-ui`, `thinking`, `voz`.
+- `main`: 007491c Merge branch 'wt-equipo-config'. Empujado a origin: `007491c`.
+- Ramas con commits sin fusionar: `wt-tarjetas` 7 (hace 76 segundos), `wt-areas3` 4 (hace 5 minutos), `wt-envio` 4 (hace 9 minutos), `wt-h904` 4 (hace 35 minutos).
+- Worktrees abiertos: `team-platform`, `areas2`, `areas3`, `auto-publicar`, `cierre`, `envio`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `tarjetas`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `ec34966` Traspaso: banco fusionado (hace 16 minutos)
-- `d593179` Merge branch 'wt-banco-abiertos' (hace 17 minutos)
-- `a88806c` Traspaso: ronda 4 de jueces y cinco arreglos (hace 18 minutos)
-- `b38bcf8` Traspaso: barrido fusionado, jueces en curso (hace 20 minutos)
-- `50a189a` Merge branch 'wt-voz2' (hace 24 minutos)
-- `def9572` Voice detector: setting hints measured in characters (hace 44 minutos)
-- `6664a58` Traspaso: Inicio fusionado, Fase 1 completa (hace 47 minutos)
-- `8650d0c` Merge branch 'wt-inicio-respira' (hace 57 minutos)
-Actualizado 2026-10-21 20:06 UTC.
+- `007491c` Merge branch 'wt-equipo-config' (hace 4 minutos)
+- `74a382a` Merge branch 'main' into wt-barra-movil (hace 10 minutos)
+- `62f2d4d` Flows: the top bar is three marks on a phone too (hace 10 minutos)
+- `d482a86` Merge branch 'main' into wt-equipo-config (hace 14 minutos)
+- `b217c51` Ronda 4 de Equipo, Configuración y entrada: pruebas, UD-170, hallazgos H-3000 a H-3009 y diseño (hace 14 minutos)
+- `371a979` Configuración: ayuda de idioma completa, ayudas de nombre y correo con su vía de cambio, rótulos de Proveedores como los de Cuenta (hace 14 minutos)
+- `7ee4a0f` Entrada: el aviso de error sale de la tarjeta y la nota queda a la misma distancia del borde que el logo (hace 14 minutos)
+- `6c441d5` Equipo: alta con verbo, acción de teléfono en la fila del rol y fila abierta siempre visible (hace 14 minutos)
+Actualizado 2026-10-21 20:18 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

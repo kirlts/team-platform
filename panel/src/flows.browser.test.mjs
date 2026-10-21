@@ -700,11 +700,14 @@ describe('templates as a form (J1-A-32)', () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/settings`)
-      await page.getByRole('button', { name: 'Proveedor de Texto' }).click()
-      const options = await page.getByRole('menuitemradio').allInnerTexts()
-      assert.ok(options.includes('anthropic') && !options.includes('groq-speech'), `Texto ofrece: ${options.join(', ')}`)
-      await page.keyboard.press('Escape')
-      assert.equal(await page.getByRole('button', { name: 'Proveedor de Transcripción' }).count(), 0, 'una función con un solo proveedor no ofrece un control vacío')
+      const options = async (slot) => {
+        const select = page.locator(`li[data-slot="${slot}"] select`)
+        await select.waitFor()
+        return select.locator('option').allInnerTexts()
+      }
+      const text = await options('text')
+      assert.ok(text.includes('Anthropic') && !text.some((o) => o.includes('transcripción')), `Texto ofrece: ${text.join(', ')}`)
+      assert.deepEqual(await options('speech'), ['Groq (transcripción)'])
     } finally {
       await context.close()
     }

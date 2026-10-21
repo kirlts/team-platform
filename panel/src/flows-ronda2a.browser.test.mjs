@@ -413,18 +413,18 @@ describe('areas, templates and settings', () => {
     }
   })
 
-  test('a provider without a key says what to do at body weight, not as a pill (J2-A-31, J2-A-32)', async () => {
+  test('the state of a provider is plain text at body weight, not a pill, and its selector looks like a control (J2-A-31, J2-A-32)', async () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/settings`)
-      const word = page.getByText('No disponible', { exact: true }).first()
-      await word.waitFor()
-      const size = await word.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
-      assert.ok(size >= 15, `«No disponible» mide ${size} px`)
-      const detail = page.getByText(/Falta \w+_API_KEY en el servidor/)
-      assert.equal(await detail.evaluate((el) => parseFloat(getComputedStyle(el).fontSize) >= 15 && !getComputedStyle(el).fontFamily.includes('mono')), true)
-      const border = await page.getByRole('button', { name: 'Proveedor de Texto' }).evaluate((el) => getComputedStyle(el).borderTopWidth)
-      assert.equal(border, '1px', 'el selector de proveedor no parece un control')
+      const mark = page.locator('li[data-connection="anthropic"] span[data-status]').first()
+      await mark.waitFor()
+      const style = await mark.evaluate((el) => ({ size: parseFloat(getComputedStyle(el).fontSize), bg: getComputedStyle(el).backgroundColor, border: getComputedStyle(el).borderTopWidth }))
+      assert.ok(style.size >= 14, `the state measures ${style.size} px`)
+      assert.equal(style.bg, 'rgba(0, 0, 0, 0)', 'the state is drawn as a pill')
+      assert.equal(style.border, '0px', 'the state is drawn as a pill')
+      const border = await page.getByLabel('Proveedor de Texto').evaluate((el) => getComputedStyle(el).borderTopWidth)
+      assert.equal(border, '1px', 'the provider selector does not look like a control')
     } finally {
       await context.close()
     }

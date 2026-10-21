@@ -122,7 +122,7 @@ export class EventsStore {
     if (!data || typeof data !== 'object') return
     const d = data as Record<string, unknown>
     if (kind === 'done' || d.done === true) {
-      if (typeof d.job_id === 'string') this.done({ job_id: d.job_id, input_id: str(d.input_id), done: true })
+      if (typeof d.job_id === 'string') this.done({ job_id: d.job_id, input_id: str(d.input_id), input_status: str(d.input_status), done: true })
     } else if (kind === 'progress' || typeof d.percent === 'number') {
       if (typeof d.job_id === 'string' && typeof d.percent === 'number') {
         this.progress({

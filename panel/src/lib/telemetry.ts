@@ -499,7 +499,8 @@ export class UiTelemetry {
 
   /**
    * One of the person's own messages was published without them confirming it (auto-publication, UD-070): the open send
-   * is done. The panel tells it from the notice of the event stream, whose author is the person.
+   * is done. The panel tells it from the notice of the event stream, whose author is the person, or from the end of the
+   * job, whose `input_status` is `published`.
    */
   ownMessagePublished() {
     try {

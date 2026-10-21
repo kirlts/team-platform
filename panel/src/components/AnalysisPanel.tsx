@@ -405,7 +405,7 @@ function ProposalEditor({
               {t('proposal.missing', { n: missingTotal })}
             </span>
           )}
-          <Button variant="primary" onClick={() => void send()} disabled={publish.isPending || count === 0 || missingTotal > 0}>
+          <Button variant="primary" data-testid="proposal-send" onClick={() => void send()} disabled={publish.isPending || count === 0 || missingTotal > 0}>
             {t('proposal.sendN', { n: count })}
           </Button>
         </div>

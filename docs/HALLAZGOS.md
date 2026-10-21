@@ -103,7 +103,7 @@ Estados: `main` (resuelto y fusionado), `en curso` (asignado a un agente vivo), 
 |---|---|---|---|
 | H-69 | Referencias del banco público sin auditar contra salidas de modelo | agente empaquetado | `main` (el agente analizador las corrigió con la corrida real) |
 | H-70 | Referencias del banco privado con criterio de un solo agente | banco privado | abierto: una segunda lectura por otro agente sobre los 10 casos con peor cobertura |
-| H-71 | Costo de Groq no entra en los dólares de la tabla | banco privado | abierto: `pricing.js` suma 0,04 USD por hora de audio |
+| H-71 | Costo de Groq no entra en los dólares de la tabla | banco privado | listo en la rama `wt-menores`, pasa a `main` al fusionar (`bench/pricing.js`: Groq `whisper-large-v3-turbo` a 0,04 USD por hora de audio, informe 01 y 06; `usageOfCall` lleva los segundos facturables de una llamada de voz a `costOf` en `run-private.mjs`; `runCase`, que usa `run.mjs`, ya la suma; dos pruebas en `bench/run.test.js`) |
 | H-72 | Rerun completo del banco privado tras los arreglos del analizador | banco privado | abierto: lo corre la sesión cuando entre la rama de prompts |
 | H-73 | HP-019 y HP-020 necesitan llave real y una persona | batería | abierto: HP-019 lo corre la sesión; HP-020 es el juez |
 | H-74 | Un docx con RUT y correos de pacientes reales quedó fuera del banco | banco privado | `main` (correcto, no entra) |

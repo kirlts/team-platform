@@ -84,6 +84,26 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
           }
         }
       }
+      if (route?.method === 'POST' && /\/messages\/\{id\}\/replies$|\/messages\/:id\/replies$/.test(url)) {
+        // Besides JSON, a reply accepts multipart with media; the handler reads it, the schema only documents it.
+        copyOf.body = {
+          ...copyOf.body,
+          content: {
+            ...copyOf.body?.content,
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                properties: {
+                  body: { type: 'string', description: 'Texto de la respuesta; puede faltar si hay archivos o enlaces.' },
+                  kind: { type: 'string', enum: ['answer', 'fix', 'clarification'] },
+                  files: { type: 'array', items: { type: 'string', format: 'binary' }, description: 'Archivos adjuntos.' },
+                  links: { type: 'array', items: { type: 'string', format: 'uri' }, description: 'Enlaces.' }
+                }
+              }
+            }
+          }
+        }
+      }
       return { schema: copyOf, url }
     }
   })
@@ -134,8 +154,8 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
       fileSize: Math.max(config.uploads.maxVideoBytes, config.uploads.maxImageBytes, config.uploads.maxAudioBytes, config.uploads.maxDocumentBytes),
       files: config.uploads.maxFiles,
       fieldSize: config.uploads.maxTextBytes,
-      fields: 1 + config.uploads.maxLinks + 1, // text, cada enlace y un margen de un campo
-      parts: config.uploads.maxFiles + config.uploads.maxLinks + 2
+      fields: 2 + config.uploads.maxLinks + 1, // I03 §7.2: text or body, kind (replies, UD-017), each link and a one-field margin
+      parts: config.uploads.maxFiles + config.uploads.maxLinks + 3 // I03 §7.2: files, links, the text field, kind and a one-field margin
     }
   })
 

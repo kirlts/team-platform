@@ -59,3 +59,23 @@ Si el estado no es `ok`, se puntúa el borrador (`draft`) para ver qué falló, 
 ## promptfoo
 
 `bench/package.json` fija promptfoo en la versión exacta 0.124.1 (MIT, consultada en npm el 2026-10-20). `provider.mjs` ejecuta el analizador y `assert.mjs` es la aserción JavaScript que importa `score.js`. `npm run eval` desactiva la telemetría para no enviar datos fuera. El árbol de dependencias de promptfoo incluye paquetes con otras licencias; ninguno entra a la imagen.
+
+## Casos privados
+
+Para medir con material real que no puede publicarse, `run-private.mjs` lee casos de `bench/private/` y escribe en `bench/results/`. Ambas carpetas están en `.gitignore`: nada de lo que contienen entra a git.
+
+```sh
+node bench/run-private.mjs list
+node bench/run-private.mjs extract [--case id ...]     adjuntos por src/extract con proveedores reales; guarda el texto extraído
+node bench/run-private.mjs units --case id             unidades numeradas, para escribir expected.json
+node bench/run-private.mjs check                       cada unidad en un mensaje esperado o descartada, una sola vez
+node bench/run-private.mjs run [--case id ...] [--repeat n] [--budget 5]
+```
+
+Cada caso es una carpeta con `manifest.json` y `expected.json`. El manifiesto apunta a los archivos originales por ruta absoluta y no los copia: `{ id, title, kind, source, text?, text_path?, attachments?: [{ id, kind, path, mime }] }`. `expected.json` tiene la forma de los casos públicos (`messages`, `discarded`) y admite un `secondary` informativo para los puntos que una unidad compuesta no deja medir.
+
+La numeración de unidades depende del texto extraído, y la descripción de una imagen o un fotograma cambia entre corridas. Por eso `extract` guarda el resultado en `bench/private/.cache/<id>.json` y `run` mide siempre contra esa extracción. El resultado de cada corrida (`private-<fecha>.json`) lleva, por caso, los tiempos y llamadas de la extracción, los pasos y llamadas del análisis y el puntaje.
+
+El gasto se suma en `bench/results/private-spend.jsonl` (una línea por llamada) y `--budget` corta antes de que el acumulado pase del 90 % del tope.
+
+Voz: `--speech auto` usa Groq si hay `GROQ_API_KEY`; sin llave usa `local-speech.mjs`, que lanza `local-whisper.py` (faster-whisper) con el Python de `LOCAL_WHISPER_PYTHON`. `--speech local` lo fuerza y `--speech none` omite la transcripción. El resultado declara qué proveedor de voz se usó.

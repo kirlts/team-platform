@@ -283,3 +283,14 @@ RULES:
 - MASTER-SPEC §4.10 reescrita; DT-002 cerrada; una prueba de la batería lee `package.json` y el `NOTICE` y falla ante una licencia fuera de regla.
 - Sobre DT-001 (idempotencia por emisor): no es una deuda. Martín ya había dicho que la idempotencia se estaba tomando demasiado literal; la detección de duplicados por emisor es un detalle de implementación, y §1.3 describe lo que hace el código. Se cierra sin UD.
 **Condiciones de reversión:** Que un redistribuidor exija una imagen sin LGPL; entonces `ffmpeg` y `libvips` pasan a ser opcionales en tiempo de instalación.
+
+## [UD-021] Todo insumo que una persona entrega se interpreta; si a primera vista no se entiende, se analiza más a fondo
+
+**Fecha:** 2026-10-20
+**Contexto:** Una captura de pantalla enviada sola, sin texto, producía cero mensajes (H-20): el analizador la trataba como «sin pedido».
+**Decisión:** Martín, textual: «una captura de pantalla enviada sola sin texto debe producir mensajes aunque lo que sea esté viéndose desde la imagen. La inteligencia artificial que recibe todo esto debe entender que su deber es tratar de entender lo que le están pasando, entendiendo que una persona le entregó una serie de insumos; por lo tanto, cuando a primera vista no es fácil determinar las cosas, puede analizar más profundo». Es un principio del analizador, no una regla para capturas: una persona no manda algo por nada. Si un insumo no da un mensaje a la primera lectura, el analizador hace una segunda pasada más profunda (para una imagen, una descripción de visión más detallada con lo que se ve, lo que parece fallar o lo que se está mostrando; para un texto, una lectura por secciones) antes de concluir que no hay nada, y «cero mensajes» es un resultado que sólo se acepta después de esa segunda pasada. Lo que sale de una imagen sin texto lleva `source: "frame"`, para que quien envió lo vea y lo pueda descartar.
+**Alternativas descartadas:**
+- Cero mensajes como resultado normal de una captura sola: descartado por Martín.
+**Consecuencias:**
+- Segunda pasada en `src/analyze/` cuando la primera da cero mensajes, con su span y su prueba; las referencias c01, d01 y u03 del banco privado esperan un mensaje.
+**Condiciones de reversión:** Ninguna prevista.

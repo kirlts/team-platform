@@ -74,7 +74,7 @@ export function loadConfig (env = process.env, overrides = {}) {
 
     // ---- Red y servidor
     host: textValue(env, 'HOST', '0.0.0.0'), // dentro de un contenedor; el compose publica el puerto en loopback
-    port: intVar(env, 'PORT', 3000),
+    port: intVar(env, 'PORT', 3000), // I04 §5: the service listens on 127.0.0.1:3000 and the compose file publishes that port on loopback
     nodeEnv: textValue(env, 'NODE_ENV', 'production'), // `development` habilita POST /auth/dev-login
     // Primer Editor (instalación): si no hay miembros, se crea con este correo. La contraseña viene de ADMIN_PASSWORD
     // o, si falta, se genera una y se muestra una sola vez en el registro de arranque. Nada se siembra con contraseña fija.
@@ -110,9 +110,9 @@ export function loadConfig (env = process.env, overrides = {}) {
     // ---- Cola (MS §7.3, I03 §12)
     worker: {
       mode: choiceVar(env, 'WORKER_MODE', ['inline', 'external', 'off'], 'inline'), // MS §7.3: mismo proceso por omisión
-      leaseMs: intVar(env, 'QUEUE_LEASE_MS', 30000, { min: 1 }),
-      heartbeatMs: intVar(env, 'QUEUE_HEARTBEAT_MS', 10000, { min: 1 }), // mínimo de latido de pg-boss: 10 s
-      maxAttempts: intVar(env, 'QUEUE_MAX_ATTEMPTS', 3, { min: 1 }), // retryLimit de pg-boss más el primer intento
+      leaseMs: intVar(env, 'QUEUE_LEASE_MS', 30000, { min: 1 }), // I03 §12: 30 s, as walq
+      heartbeatMs: intVar(env, 'QUEUE_HEARTBEAT_MS', 10000, { min: 1 }), // I03 §12: pg-boss minimum heartbeat, 10 s
+      maxAttempts: intVar(env, 'QUEUE_MAX_ATTEMPTS', 3, { min: 1 }), // I03 §12 and MS §7.3: pg-boss retryLimit plus the first attempt
       retryBaseMs: intVar(env, 'QUEUE_RETRY_BASE_MS', 1000, { min: 1 }),
       retryMaxMs: intVar(env, 'QUEUE_RETRY_MAX_MS', 60000, { min: 1 }), // I03 §12: derivado del límite por minuto de Groq
       // Jitter completo (fracción del retraso que se resta al azar). I03 §3.4 cita a walq para el mecanismo y
@@ -120,10 +120,10 @@ export function loadConfig (env = process.env, overrides = {}) {
       retryJitter: decimal(env, 'QUEUE_RETRY_JITTER', 1, { min: 0, max: 1 }),
       concurrency: intVar(env, 'QUEUE_CONCURRENCY', 1, { min: 1 }), // única perilla de convención (I03 §12)
       maxRuntimeMs: intVar(env, 'QUEUE_MAX_RUNTIME_MS', 900000, { min: 1 }), // expireInSeconds de pg-boss: 900 s
-      retentionDays: intVar(env, 'RETENTION_DAYS', 7, { min: 1 }), // deleteAfterSeconds de pg-boss: 7 días
+      retentionDays: intVar(env, 'RETENTION_DAYS', 7, { min: 1 }), // I03 §12: pg-boss deleteAfterSeconds, 7 days
       // Cortesía: la retención se mide en días, un barrido por hora la cumple con holgura. No gobierna la
       // operación de ningún trabajo.
-      retentionSweepMs: intVar(env, 'RETENTION_SWEEP_MS', 3600000, { min: 1 }),
+      retentionSweepMs: intVar(env, 'RETENTION_SWEEP_MS', 3600000, { min: 1 }), // cortesía declarada, see above
       dataVersionPollMs: intVar(env, 'DATA_VERSION_POLL_MS', 100, { min: 1 }) // I03 §12: sólo con worker aparte
     },
 
@@ -137,11 +137,11 @@ export function loadConfig (env = process.env, overrides = {}) {
     uploads: {
       maxImageBytes: intVar(env, 'UPLOAD_MAX_IMAGE_BYTES', 7 * MIB, { min: 1 }), // MS §7.8: imagen 7 MB
       maxAudioBytes: intVar(env, 'UPLOAD_MAX_AUDIO_BYTES', 25 * MIB, { min: 1 }), // MS §7.8: audio 25 MB
-      maxDocumentBytes: intVar(env, 'UPLOAD_MAX_DOCUMENT_BYTES', 25 * MIB, { min: 1 }), // MS §7.8: documento 25 MB
+      maxDocumentBytes: intVar(env, 'UPLOAD_MAX_DOCUMENT_BYTES', 24 * MIB, { min: 1 }), // MS §7.4, informe 05 §8.3: 24 MB, the extractor's own cap (DT-005)
       maxVideoBytes: intVar(env, 'UPLOAD_MAX_VIDEO_BYTES', 2 * GIB, { min: 1 }), // MS §7.4: video, tope 2 GB
       // I07 §6.1: Slack acepta hasta 10 archivos arrastrados a la vez. Es el referente, no una medición.
       maxFiles: intVar(env, 'UPLOAD_MAX_FILES', 10, { min: 1 }),
-      maxLinks: intVar(env, 'UPLOAD_MAX_LINKS', 10, { min: 0 }), // mismo referente que los archivos
+      maxLinks: intVar(env, 'UPLOAD_MAX_LINKS', 10, { min: 0 }), // I07 §6.1: same reference as files
       // I03 §7.2: la omisión de @fastify/multipart es el bodyLimit de Fastify, 1 MiB; cabe un texto largo.
       maxTextBytes: intVar(env, 'UPLOAD_MAX_TEXT_BYTES', MIB, { min: 1 }),
       maxLinkLength: intVar(env, 'UPLOAD_MAX_LINK_LENGTH', 8000, { min: 1 }) // RFC 9110 §4.1: se recomienda soportar URI de al menos 8000 octetos
@@ -150,8 +150,8 @@ export function loadConfig (env = process.env, overrides = {}) {
     // ---- Listas. Sin medición: MS §7.8 dice que no se virtualiza hasta que haya cientos de filas.
     // Paginación uniforme ?page=&limit= (convención de la API). El tope de 100 lo fija Martín (2026-10-20).
     list: {
-      pageSize: intVar(env, 'LIST_PAGE_SIZE', 50, { min: 1 }),
-      pageMax: 100
+      pageSize: intVar(env, 'LIST_PAGE_SIZE', 50, { min: 1 }), // MS §7.8: not measured, no virtualization until there are hundreds of rows
+      pageMax: 100 // decisión de Martín 2026-10-20: page cap of the API
     },
 
     // ---- Identidad (MS §7.7, I04 §11)
@@ -163,33 +163,33 @@ export function loadConfig (env = process.env, overrides = {}) {
       cookieInsecureDev: boolVar(env, 'COOKIE_INSECURE_DEV', false),
       argon2: {
         memoryKib: intVar(env, 'ARGON2_MEMORY_KIB', 19456, { min: 8 }), // mínimo OWASP, I04 §1.1
-        passes: intVar(env, 'ARGON2_PASSES', 2, { min: 1 }),
+        passes: intVar(env, 'ARGON2_PASSES', 2, { min: 1 }), // I04 §11: same OWASP row as memory
         parallelism: intVar(env, 'ARGON2_PARALLELISM', 1, { min: 1 }),
-        saltBytes: intVar(env, 'ARGON2_SALT_BYTES', 16, { min: 8 }), // RFC 9106: sal de 128 bits
-        tagBytes: intVar(env, 'ARGON2_TAG_BYTES', 32, { min: 4 }), // RFC 9106: etiqueta de 256 bits
+        saltBytes: intVar(env, 'ARGON2_SALT_BYTES', 16, { min: 8 }), // I04 §11, RFC 9106: 128-bit salt
+        tagBytes: intVar(env, 'ARGON2_TAG_BYTES', 32, { min: 4 }), // I04 §11, RFC 9106: 256-bit tag
         pepper: textValue(env, 'ARGON2_PEPPER', '') // opcional; el secreto vive fuera de la base
       },
       password: {
-        minLength: intVar(env, 'PASSWORD_MIN_LENGTH', 15, { min: 1 }), // NIST SP 800-63B-4 3.1.1.2, un solo factor
-        maxLength: intVar(env, 'PASSWORD_MAX_LENGTH', 128, { min: 1 }), // NIST exige ≥ 64; 128 es el de Better Auth
+        minLength: intVar(env, 'PASSWORD_MIN_LENGTH', 15, { min: 1 }), // I04 §11: NIST SP 800-63B-4 3.1.1.2, single factor
+        maxLength: intVar(env, 'PASSWORD_MAX_LENGTH', 128, { min: 1 }), // I04 §11: NIST requires at least 64; 128 is Better Auth's
         blocklistFile: textValue(env, 'PASSWORD_BLOCKLIST_FILE', '') // lista local, una contraseña por línea (I04 §1.5)
       },
       session: {
         tokenBytes: intVar(env, 'SESSION_TOKEN_BYTES', 32, { min: 16 }), // MS §7.7
-        idleMinutes: intVar(env, 'SESSION_IDLE_MINUTES', 30, { min: 1 }), // OWASP: extremo superior, riesgo bajo
-        absoluteHours: intVar(env, 'SESSION_ABSOLUTE_HOURS', 8, { min: 1 }), // OWASP: aplicación de oficina
+        idleMinutes: intVar(env, 'SESSION_IDLE_MINUTES', 30, { min: 1 }), // I04 §11: OWASP, upper end, low risk
+        absoluteHours: intVar(env, 'SESSION_ABSOLUTE_HOURS', 8, { min: 1 }), // I04 §11: OWASP, office application
         // Cortesía: evita un commit con fsync por petición. El error de la inactividad queda en un minuto
         // sobre 30 (el 3 %). No gobierna la seguridad: el vencimiento absoluto no depende de él.
         touchSeconds: intVar(env, 'SESSION_TOUCH_SECONDS', 60, { min: 1 })
       },
       login: {
         ipMax: intVar(env, 'LOGIN_IP_LIMIT', 3, { min: 1 }), // I04 §11: /sign-in/email de Better Auth, 3 por 10 s
-        ipWindowMs: intVar(env, 'LOGIN_IP_WINDOW_MS', 10000, { min: 1 }),
+        ipWindowMs: intVar(env, 'LOGIN_IP_WINDOW_MS', 10000, { min: 1 }), // I04 §11: the 10 s of the Better Auth rule
         backoffBaseSeconds: intVar(env, 'LOGIN_BACKOFF_BASE_SECONDS', 1, { min: 1 }), // OWASP Authentication
         // Sin fuente en I04 para el techo de la espera. Se deriva de la inactividad de sesión (30 min): la
-        // espera nunca supera lo que dura una sesión ociosa.
+        // espera nunca supera lo que dura una sesión ociosa (I04 §11).
         backoffMaxSeconds: intVar(env, 'LOGIN_BACKOFF_MAX_SECONDS', 30 * 60, { min: 1 }),
-        hardCap: intVar(env, 'LOGIN_HARD_CAP', 100, { min: 1 }) // NIST SP 800-63B-4 3.2.2
+        hardCap: intVar(env, 'LOGIN_HARD_CAP', 100, { min: 1 }) // I04 §11: NIST SP 800-63B-4 3.2.2
       },
       delegated: {
         mode: choiceVar(env, 'DELEGATED_MODE', ['signed-header', 'jwt', 'sso-redirect', 'trusted-header'], 'signed-header'),
@@ -199,7 +199,7 @@ export function loadConfig (env = process.env, overrides = {}) {
         jwt: {
           header: textValue(env, 'JWT_HEADER', 'authorization'),
           jwksUrl: textValue(env, 'JWT_JWKS_URL', ''),
-          // Mínimo entre dos descargas del JWKS ante un `kid` desconocido. La omisión de `jose` es 30 s (`cooldownDuration`).
+          // I04 §3.3: minimum between two JWKS downloads on an unknown `kid`. The `jose` default is 30 s (`cooldownDuration`).
           jwksCooldownMs: intVar(env, 'JWT_JWKS_COOLDOWN_MS', 30000),
           secret: textValue(env, 'JWT_SECRET', ''),
           algorithms: listValue(env, 'JWT_ALGORITHMS', []),
@@ -210,7 +210,7 @@ export function loadConfig (env = process.env, overrides = {}) {
         sso: {
           loginUrl: textValue(env, 'SSO_LOGIN_URL', ''),
           secret: textValue(env, 'SSO_SECRET', ''),
-          nonceMinutes: intVar(env, 'SSO_NONCE_MINUTES', 30, { min: 1 }) // DiscourseConnect
+          nonceMinutes: intVar(env, 'SSO_NONCE_MINUTES', 30, { min: 1 }) // I04 §11: DiscourseConnect nonce expiry
         },
         trustedHeaderName: textValue(env, 'TRUSTED_HEADER_NAME', 'tailscale-user-login').toLowerCase()
       }

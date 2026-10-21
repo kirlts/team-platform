@@ -41,7 +41,7 @@ const measure = (page) =>
     return [...nav.querySelectorAll('[data-nav-row]')].map((wrap) => {
       const link = wrap.querySelector('a, button')
       const label = [...link.querySelectorAll('span')].pop()
-      const row = link.getBoundingClientRect()
+      const row = wrap.getBoundingClientRect()
       const lh = parseFloat(getComputedStyle(label).lineHeight)
       const marks = [...wrap.querySelectorAll('[data-nav-count] > *')].map((el) => el.getBoundingClientRect())
       const count = marks.length ? { right: Math.max(...marks.map((m) => m.right)), centerY: marks.reduce((a, m) => a + m.top + m.height / 2, 0) / marks.length } : null
@@ -93,12 +93,12 @@ for (const [name, viewport] of [['desktop', DESKTOP], ['phone', PHONE]]) {
 describe('hover and focus of the sidebar (UD-130)', () => {
   const style = (loc) =>
     loc.evaluate((el) => {
-      const cs = getComputedStyle(el)
+      const cs = getComputedStyle(el.matches('.nav-ctl') ? el : (el.closest('[data-nav-row]') ?? el))
       const icon = el.querySelector('svg')
       return { bg: cs.backgroundColor, outline: cs.outlineStyle, icon: icon ? getComputedStyle(icon).color : '', color: cs.color }
     })
   const changed = (page, loc, key, from) => loc.evaluate((el, [k, f]) => {
-    const get = () => { const cs = getComputedStyle(el); const icon = el.querySelector('svg'); return { bg: cs.backgroundColor, icon: icon ? getComputedStyle(icon).color : '', color: cs.color }[k] }
+    const get = () => { const cs = getComputedStyle(el.matches('.nav-ctl') ? el : (el.closest('[data-nav-row]') ?? el)); const icon = el.querySelector('svg'); return { bg: cs.backgroundColor, icon: icon ? getComputedStyle(icon).color : '', color: cs.color }[k] }
     return new Promise((res) => { const t0 = performance.now(); const tick = () => (get() !== f || performance.now() - t0 > 1500 ? res(get()) : requestAnimationFrame(tick)); tick() })
   }, [key, from])
 
@@ -134,7 +134,7 @@ describe('hover and focus of the sidebar (UD-130)', () => {
         const before = await style(loc)
         await loc.focus()
         await page.waitForTimeout(0)
-        const after = await loc.evaluate(async (el) => { await new Promise((r) => setTimeout(r, 200)); const cs = getComputedStyle(el); return { outline: cs.outlineStyle, bg: cs.backgroundColor } })
+        const after = await loc.evaluate(async (el) => { await new Promise((r) => setTimeout(r, 200)); const cs = getComputedStyle(el.matches('.nav-ctl') ? el : (el.closest('[data-nav-row]') ?? el)); return { outline: cs.outlineStyle, bg: cs.backgroundColor } })
         assert.equal(after.outline, 'solid', 'no focus ring')
         assert.notEqual(before.outline, after.outline)
       }

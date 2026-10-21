@@ -11,21 +11,26 @@ import { cn } from '@/lib/utils'
 import { Avatar } from './Avatar'
 import { FormDialog } from './FormDialog'
 
-/** One row, one grid (UD-130): icon, label and, on the right, the reserved column of the count. The look of hover and focus is `.nav-row` in styles.css. */
-const row = 'nav-row grid min-h-11 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2.5 rounded-md border border-transparent py-1 pl-2.5 pr-[var(--sidebar-count-col)] text-sm font-medium text-fg md:min-h-9'
-/** What is selected looks the same everywhere (J2-A-41): the `selected` fill and the accent bar on the edge, as the rows of Áreas. */
-const active = 'bg-selected font-semibold shadow-[inset_4px_0_0_var(--color-accent)]'
-/** The count column: the same right inset in every row, centered on the row's height. It sits over the row, so a count arriving never changes the row's height (J2-A-47). */
-const countCol = 'absolute inset-y-0 right-0 z-10 flex items-center justify-end pr-2.5'
+/**
+ * One row, one grid (UD-130): the row is the box that lights and is selected; inside it the link (icon and label) and, on the right, the count
+ * column. The column has a minimum width and ends at the same right inset in every row, centered on the row's height; the link never covers it.
+ * The look of hover, focus and selection is `.nav-item` in styles.css.
+ */
+const rowBox = 'nav-item grid min-h-11 grid-cols-[minmax(0,1fr)_minmax(var(--sidebar-count-col),auto)] items-center rounded-md border border-transparent md:min-h-9'
+const link = 'nav-row grid min-h-[inherit] grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2.5 self-stretch py-1 pl-2.5 pr-1 text-sm font-medium text-fg'
+const countCol = 'flex items-center justify-end pr-2.5'
 
 function Item({ to, icon, children, end, onNavigate, badge }: { to: string; icon: ReactNode; children: ReactNode; end?: boolean; onNavigate?: () => void; badge?: ReactNode }) {
   return (
-    <div data-nav-row className="relative">
-      <NavLink to={to} end={end} onClick={onNavigate} className={({ isActive }) => cn(row, isActive && active)}>
+    <div data-nav-row className={rowBox}>
+      <NavLink to={to} end={end} onClick={onNavigate} className={link}>
         {icon}
         <span className="min-w-0 break-words leading-tight">{children}</span>
       </NavLink>
-      {badge && <span data-nav-count className={countCol}>{badge}</span>}
+      {/* A count here does not change the row's height (J2-A-47): the column is always reserved. */}
+      <span data-nav-count className={countCol}>
+        {badge}
+      </span>
     </div>
   )
 }
@@ -65,8 +70,8 @@ export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => v
 
       {editor && (
         <div className="flex min-h-0 shrink flex-col">
-          <div data-nav-row className="relative shrink-0">
-            <NavLink to="/areas" onClick={onNavigate} className={() => cn(row, inAreas && 'text-accent-deep')}>
+          <div data-nav-row className={cn(rowBox, 'shrink-0')}>
+            <NavLink to="/areas" onClick={onNavigate} className={cn(link, inAreas && 'text-accent-deep')}>
               <Layers size={16} aria-hidden />
               <span className="min-w-0 break-words leading-tight">{t('nav.areas')}</span>
             </NavLink>
@@ -91,8 +96,8 @@ export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => v
             // With many areas the list scrolls inside: it is a declared lane, not the page.
             <ul data-lane="areas-nav" className="scroll-thin ml-2.5 mt-0.5 flex min-h-0 flex-col gap-0.5 overflow-y-auto border-l border-line-strong pl-1">
               {(areas.data ?? []).map((a) => (
-                <li key={a.id} data-nav-row className="relative">
-                  <NavLink to={`/areas/${a.id}`} onClick={onNavigate} className={({ isActive }) => cn(row, 'min-h-11 md:min-h-8', isActive && active)}>
+                <li key={a.id} data-nav-row className={cn(rowBox, 'min-h-11 md:min-h-8')}>
+                  <NavLink to={`/areas/${a.id}`} onClick={onNavigate} className={link}>
                     {/* The area's color, the same one its chip has in the messages (UD-045). */}
                     <span aria-hidden data-testid="area-swatch-dot" className="h-2.5 w-2.5 shrink-0 rounded-sm border border-line-strong" style={{ background: a.color }} />
                     <span className="min-w-0 break-words leading-tight">{a.title}</span>
@@ -124,10 +129,12 @@ export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => v
         <Item to="/settings" icon={<Settings size={16} aria-hidden />} onNavigate={onNavigate}>
           {t('nav.settings')}
         </Item>
-        <button type="button" onClick={onLogout} className={cn(row, 'w-full text-left text-muted')}>
-          <LogOut size={16} aria-hidden />
-          <span className="min-w-0 leading-tight">{t('nav.logout')}</span>
-        </button>
+        <div data-nav-row className={rowBox}>
+          <button type="button" onClick={onLogout} className={cn(link, 'w-full text-left text-muted')}>
+            <LogOut size={16} aria-hidden />
+            <span className="min-w-0 leading-tight">{t('nav.logout')}</span>
+          </button>
+        </div>
       </div>
 
       <FormDialog

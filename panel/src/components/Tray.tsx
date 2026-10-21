@@ -35,8 +35,7 @@ export const itemKey = (item: TrayItem) => (item.kind === 'upload' ? `upload-${i
 /**
  * The sends in play (UD-025), as a compact selector inside the drawer of Inicio (UD-046): one small option per send, in order
  * of arrival, in a single row that scrolls sideways when there are many; with one send it is not drawn. An option shows the time, the state with
- * its live progress and, once ready, how many messages were proposed. The one in view does not repeat its text (it is the original beside
- * the analysis); the others carry their first words so they can be told apart.
+ * its live progress and, once ready, how many messages were proposed. Each one carries its first words so they can be told apart.
  */
 export function SendSwitcher({ items, selectedId, onSelect }: { items: readonly TrayItem[]; selectedId: string | undefined; onSelect: (id: string) => void }) {
   const t = useT()
@@ -55,7 +54,12 @@ export function SendSwitcher({ items, selectedId, onSelect }: { items: readonly 
 function Label({ text, onlyMedia }: { text: string; onlyMedia: boolean }) {
   const t = useT()
   const words = firstWords(text)
-  return <p className="break-words text-sm leading-snug">{words || (onlyMedia ? t('tray.onlyMedia') : '')}</p>
+  // The first words repeat the start of the original beside the analysis, on purpose: it is how a send is told from the others.
+  return (
+    <p data-repeat-ok="send-label" className="break-words text-sm leading-snug">
+      {words || (onlyMedia ? t('tray.onlyMedia') : '')}
+    </p>
+  )
 }
 
 const OPTION = 'flex h-full w-44 cursor-pointer flex-col gap-1 rounded-md border border-line px-2.5 py-1.5 text-left hover:bg-glass-edge'
@@ -82,7 +86,7 @@ function InputOption({ input, selected, onSelect }: { input: InputRecord; select
           {(input.status === 'proposed' || input.status === 'published') && <span className="ml-1">· {input.status === 'published' ? (input.messages?.length ?? count) : count}</span>}
         </Badge>
       </span>
-      {!selected && <Label text={input.text} onlyMedia={input.attachments.length > 0} />}
+      <Label text={input.text} onlyMedia={input.attachments.length > 0} />
     </button>
   )
 }
@@ -102,7 +106,7 @@ function UploadOption({ upload, selected, onSelect }: { upload: PendingUpload; s
           {!upload.error && percent > 0 && <span className="ml-1 tabular-nums">{percent}%</span>}
         </Badge>
       </span>
-      {!selected && <Label text={upload.text} onlyMedia />}
+      <Label text={upload.text} onlyMedia />
     </button>
   )
 }

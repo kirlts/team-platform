@@ -24,6 +24,7 @@
 - `8233b45` Libro: H-1405 cerrado con su causa y su medición; H-1406 y H-1407 cerrados (hace 17 minutos)
 - `e3e2f61` H-1405: la franja de Para mí tiene alto propio desde 768 px y no se parte, para que medirse sus chips no mueva las listas; H-1407: perilla de publicación en Configuración; prueba de peticiones repetidas; servidor de ejemplo con Range (hace 19 minutos)
 - `dddfcca` Traspaso: Inicio fusionado y H-1405 abierto (hace 26 minutos)
+- Dueño, textual: «Los rótulos Abierto, Respondido o Cerrado no deben aparecer en la barra superior; bastan los íconos de color con un número, que al clic desplieguen un pequeño desplegable para ver rápidamente los elementos sin salir de la página donde se está».
 - `8c50075` Merge branch 'wt-inicio-maqueta' (hace 33 minutos)
 Actualizado 2026-10-21 17:24 UTC.
 <!-- vivo:fin -->

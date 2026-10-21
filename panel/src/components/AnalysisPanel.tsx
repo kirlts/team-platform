@@ -273,7 +273,7 @@ function ProposalRow({
 
   return (
     <li className="flex list-none flex-col gap-2 border-b border-line px-1 py-3 last:border-b-0">
-      <div className="flex items-start gap-2">
+      <div className="flex flex-wrap items-start gap-x-2 gap-y-1.5">
         <AreaPicker
           areaId={m.area_id}
           templateName={template?.name}
@@ -286,7 +286,7 @@ function ProposalRow({
             }))
           }
         />
-        <EditableText value={m.title} label={t('proposal.title')} validate={required} onSave={(v) => patch(index, t('proposal.titleEdited'), { title: v })} displayClassName="font-semibold" className="min-w-0 flex-1" />
+        <EditableText value={m.title} label={t('proposal.title')} validate={required} onSave={(v) => patch(index, t('proposal.titleEdited'), { title: v })} displayClassName="font-semibold" className="min-w-0 flex-1 basis-40" />
         <Button size="sm" variant="ghost" className="shrink-0 text-muted" onClick={() => void remove(index)} disabled={onlyOne} aria-label={t('proposal.remove', { title: m.title })}>
           <Trash2 size={13} aria-hidden /> {t('proposal.removeShort')}
         </Button>

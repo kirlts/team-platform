@@ -11,6 +11,7 @@ import { Segmented } from '@/components/Segmented'
 import { Tray, type PendingUpload, type TrayItem } from '@/components/Tray'
 import { useErrorText, useFormat, useT } from '@/i18n'
 import { ME, type MessageQuery } from '@/lib/filters'
+import { useEventsSnapshot } from '@/lib/events'
 import { useMe, useMessages, useProject, useTray } from '@/lib/queries'
 import { uploadInput } from '@/lib/upload'
 
@@ -43,6 +44,7 @@ export function Home() {
   const [selectedId, setSelectedId] = useState<string | undefined>()
   /** Sends already published or discarded here, hidden until the server's list catches up. */
   const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set())
+  const events = useEventsSnapshot()
   const publishRef = useRef<(() => void) | null>(null)
   const lastIndex = useRef(0)
 
@@ -50,6 +52,13 @@ export function Home() {
     const tick = setInterval(() => setNow(new Date()), 15_000)
     return () => clearInterval(tick)
   }, [])
+
+  // The tray follows the stream: a job that starts and a job that ends both bring the list up to date, so the state of a row is never older than its progress bar.
+  const started = Object.keys(events.progress).length
+  const ended = Object.values(events.progress).filter((p) => p.done).length
+  useEffect(() => {
+    void queryClient.invalidateQueries({ queryKey: ['inputs'] })
+  }, [started, ended, queryClient])
 
   const inputs = useMemo(() => (tray.data ?? []).filter((i) => !gone.has(i.id)), [tray.data, gone])
 

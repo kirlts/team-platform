@@ -23,9 +23,12 @@ function Review({ inputId, onClose, registerPublish }: { inputId: string; onClos
   if (!input.data) return null
   return (
     <UndoProvider stack={undo}>
-      <div className="@container grid min-h-0 min-w-0 flex-1 gap-x-8 gap-y-3 @2xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] @2xl:grid-rows-[minmax(0,1fr)]">
-        <InputPreview input={input.data} />
-        <AnalysisPanel input={input.data} onClose={onClose} registerPublish={registerPublish} />
+      {/* The container query looks at this wrapper: a grid cannot be the container of its own columns. */}
+      <div className="@container flex min-h-0 min-w-0 flex-1 flex-col">
+        <div className="grid min-h-0 min-w-0 flex-1 gap-x-8 gap-y-3 @2xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] @2xl:grid-rows-[minmax(0,1fr)]">
+          <InputPreview input={input.data} />
+          <AnalysisPanel input={input.data} onClose={onClose} registerPublish={registerPublish} />
+        </div>
       </div>
     </UndoProvider>
   )

@@ -1,0 +1,191 @@
+// Proveedor compatible con OpenAI (DeepSeek, Groq, OpenRouter, Gemini por su endpoint compatible).
+// MASTER-SPEC §3 y §7.6; formas de esquema por proveedor en el informe 02 §1.2 a §1.4.
+//
+// Tres modos de salida estructurada (`structured`):
+//  - `json_schema`: `response_format` con esquema estricto (guía de OpenAI, informe 02 [F9]).
+//  - `tool`: una herramienta estricta que el modelo debe llamar; es la única vía con esquema
+//    en DeepSeek, y sólo en su endpoint beta (informe 02 [F12]).
+//  - `json_object`: modo JSON sin esquema en la gramática; el esquema va escrito en el prompt
+//    y la salida se valida acá con Ajv (informe 02 [F11]: DeepSeek no tiene `json_schema`).
+import Ajv from 'ajv';
+import {
+  ProviderConfigError,
+  ProviderMaxTokensError,
+  ProviderOutputError,
+  ProviderRefusalError,
+  ProviderUnsupportedError,
+} from './errors.js';
+import { DEFAULT_TIMEOUT_MS, partToBase64, postRequest, systemBlocks, toParts } from './http.js';
+
+// Direcciones y modos de cada proveedor, de la documentación de cada uno consultada para el
+// informe 02 (2026-10-20). El modo por omisión de cada preajuste no se pudo probar con llave
+// real: se confirma al agregar el proveedor (informe 02 §8, «Semilla y temperatura de DeepSeek
+// y de OpenAI vigentes: probar al agregar el proveedor»).
+export const OPENAI_COMPATIBLE_PRESETS = Object.freeze({
+  deepseek: { baseUrl: 'https://api.deepseek.com/beta', keyVar: 'DEEPSEEK_API_KEY', model: 'deepseek-flash', structured: 'tool' },
+  groq: { baseUrl: 'https://api.groq.com/openai/v1', keyVar: 'GROQ_API_KEY', model: null, structured: 'json_schema' },
+  openrouter: { baseUrl: 'https://openrouter.ai/api/v1', keyVar: 'OPENROUTER_API_KEY', model: null, structured: 'json_schema' },
+  gemini: { baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', keyVar: 'GEMINI_API_KEY', model: null, structured: 'json_schema' },
+  'openai-compatible': { baseUrl: null, keyVar: 'OPENAI_COMPATIBLE_API_KEY', model: null, structured: 'json_schema' },
+});
+
+const STRUCTURED_MODES = new Set(['json_schema', 'tool', 'json_object']);
+const TOOL_NAME = 'respond';
+
+const ajv = new Ajv({ allErrors: true, strict: false });
+
+function jsonObjectInstruction(schema) {
+  // DeepSeek exige la palabra «json» y un ejemplo del formato en el prompt (informe 02 [F11]).
+  return [
+    'Respondé únicamente con un objeto JSON válido, sin texto antes ni después.',
+    'El objeto JSON tiene que cumplir este esquema JSON:',
+    JSON.stringify(schema),
+  ].join('\n');
+}
+
+async function toOpenAIContent(content, provider, model) {
+  const parts = toParts(content);
+  if (parts.length === 1 && parts[0].type === 'text') return parts[0].text;
+  const out = [];
+  for (const part of parts) {
+    if (part.type === 'text') {
+      out.push({ type: 'text', text: part.text });
+    } else if (part.type === 'image') {
+      out.push({ type: 'image_url', image_url: { url: `data:${part.mime};base64,${await partToBase64(part)}` } });
+    } else if (part.type === 'document') {
+      // DeepSeek Flash no acepta PDF (informe 01 §2): se extrae a texto antes (UD-009).
+      throw new ProviderUnsupportedError(`${provider}: este proveedor no lee documentos nativos; extraerlos a texto antes`, { provider, model });
+    } else {
+      throw new ProviderConfigError(`${provider}: tipo de parte desconocido «${part.type}»`, { provider, model });
+    }
+  }
+  return out;
+}
+
+function mapUsage(u = {}) {
+  // OpenAI cuenta los tokens en caché dentro de prompt_tokens; DeepSeek los separa.
+  // Se normaliza a la convención de Anthropic: input_tokens excluye lo leído de la caché.
+  const cached = u.prompt_tokens_details?.cached_tokens ?? u.prompt_cache_hit_tokens ?? 0;
+  const prompt = u.prompt_tokens ?? 0;
+  return {
+    input_tokens: Math.max(0, prompt - cached),
+    output_tokens: u.completion_tokens ?? 0,
+    cached_tokens: cached,
+  };
+}
+
+/**
+ * @param {object} cfg
+ * @param {string} cfg.name nombre del preajuste (deepseek, groq, openrouter, gemini, openai-compatible)
+ * @param {string} cfg.apiKey
+ * @param {string} cfg.model
+ * @param {string} cfg.baseUrl
+ * @param {'json_schema'|'tool'|'json_object'} [cfg.structured]
+ * @param {string} [cfg.effortParam] nombre del parámetro del proveedor para el esfuerzo (por ejemplo `reasoning_effort`); omitido = no se envía
+ * @param {object} [cfg.extraBody] campos fijos que se mezclan en el cuerpo
+ * @param {number} [cfg.maxTokens]
+ * @param {number} [cfg.timeoutMs]
+ * @param {typeof fetch} [cfg.fetchImpl]
+ */
+export function createOpenAICompatibleClient(cfg) {
+  const provider = cfg?.name ?? 'openai-compatible';
+  if (!cfg?.apiKey) throw new ProviderConfigError(`${provider}: falta la llave`, { provider });
+  if (!cfg.baseUrl) throw new ProviderConfigError(`${provider}: falta la dirección base`, { provider });
+  if (!cfg.model) throw new ProviderConfigError(`${provider}: falta el modelo`, { provider });
+  const structured = cfg.structured ?? 'json_schema';
+  if (!STRUCTURED_MODES.has(structured)) {
+    throw new ProviderConfigError(`${provider}: modo de salida estructurada desconocido «${structured}»`, { provider });
+  }
+  const model = cfg.model;
+  const baseUrl = cfg.baseUrl.replace(/\/+$/, '');
+  const timeoutMs = cfg.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const defaultMaxTokens = cfg.maxTokens ?? 16_000; // mismo valor provisional que el proveedor por omisión (informe 02 §10.2)
+
+  async function call({ system, messages, schema, effort, maxTokens }) {
+    if (!Array.isArray(messages) || messages.length === 0) {
+      throw new ProviderConfigError(`${provider}: «messages» no puede estar vacío`, { provider, model });
+    }
+    const max_tokens = maxTokens ?? defaultMaxTokens;
+    const sys = systemBlocks(system);
+    if (schema && structured === 'json_object') sys.push(jsonObjectInstruction(schema));
+    const wire = [];
+    if (sys.length > 0) wire.push({ role: 'system', content: sys.join('\n\n') });
+    for (const m of messages) wire.push({ role: m.role, content: await toOpenAIContent(m.content, provider, model) });
+
+    const body = { ...(cfg.extraBody ?? {}), model, messages: wire, max_tokens };
+    if (effort && cfg.effortParam) body[cfg.effortParam] = effort;
+    if (schema && structured === 'json_schema') {
+      body.response_format = { type: 'json_schema', json_schema: { name: 'response', strict: true, schema } };
+    } else if (schema && structured === 'tool') {
+      body.tools = [{ type: 'function', function: { name: TOOL_NAME, description: 'Entrega la respuesta final con el formato pedido.', strict: true, parameters: schema } }];
+      body.tool_choice = { type: 'function', function: { name: TOOL_NAME } };
+    } else if (schema && structured === 'json_object') {
+      body.response_format = { type: 'json_object' };
+    }
+
+    const res = await postRequest(`${baseUrl}/chat/completions`, {
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${cfg.apiKey}`, ...(cfg.headers ?? {}) },
+      body: JSON.stringify(body),
+      timeoutMs,
+      fetchImpl: cfg.fetchImpl,
+      provider,
+      model,
+    });
+
+    const data = res.json ?? {};
+    const choice = data.choices?.[0] ?? {};
+    const message = choice.message ?? {};
+    const usage = mapUsage(data.usage);
+    const meta = { provider, model: data.model ?? model, usage, duration_ms: res.duration_ms };
+
+    if (message.refusal || choice.finish_reason === 'content_filter') {
+      throw new ProviderRefusalError(`${provider}: el modelo rechazó la solicitud`, {
+        ...meta,
+        category: choice.finish_reason === 'content_filter' ? 'content_filter' : null,
+        explanation: typeof message.refusal === 'string' ? message.refusal : null,
+      });
+    }
+    if (choice.finish_reason === 'length') {
+      throw new ProviderMaxTokensError(`${provider}: la salida se cortó en ${max_tokens} tokens`, { ...meta, maxTokens: max_tokens });
+    }
+
+    const toolArgs = message.tool_calls?.[0]?.function?.arguments;
+    const text = typeof toolArgs === 'string' ? toolArgs : (message.content ?? '');
+    const result = { text, usage, duration_ms: res.duration_ms, provider, model: meta.model, stop_reason: choice.finish_reason ?? null };
+    if (schema) {
+      // DeepSeek «puede devolver contenido vacío ocasionalmente» en modo JSON (informe 02 [F11]).
+      if (!text.trim()) throw new ProviderOutputError(`${provider}: respuesta vacía`, { ...meta, raw: '' });
+      let parsed;
+      try {
+        parsed = JSON.parse(text);
+      } catch (cause) {
+        throw new ProviderOutputError(`${provider}: la salida no es JSON`, { ...meta, raw: text.slice(0, 2000), cause });
+      }
+      if (structured === 'json_object') {
+        const validate = ajv.compile(schema);
+        if (!validate(parsed)) {
+          const errors = (validate.errors ?? []).map((e) => `${e.instancePath || '/'} ${e.message}`);
+          throw new ProviderOutputError(`${provider}: la salida no cumple el esquema`, { ...meta, raw: text.slice(0, 2000), errors });
+        }
+      }
+      result.json = parsed;
+    }
+    return result;
+  }
+
+  return {
+    name: provider,
+    model,
+    // Estos servidores exigen todas las propiedades requeridas; lo opcional se emula con `null` (informe 02 §1.4).
+    schemaProfile: 'all-required',
+    structured,
+    complete: (req) => call(req),
+    describe({ images, prompt, schema, system, effort, maxTokens }) {
+      if (!Array.isArray(images) || images.length === 0) {
+        throw new ProviderConfigError(`${provider}: describe necesita al menos una imagen`, { provider, model });
+      }
+      const parts = images.map((img) => ({ type: img.mime === 'application/pdf' ? 'document' : 'image', ...img }));
+      return call({ system, messages: [{ role: 'user', content: [...parts, { type: 'text', text: prompt }] }], schema, effort, maxTokens });
+    },
+  };
+}

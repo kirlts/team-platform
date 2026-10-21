@@ -99,8 +99,8 @@ export function AnalysisPanel({ input, onClose, onDiscarded }: { input: InputRec
       className={cn('@container flex min-h-0 min-w-0 flex-col gap-3 p-3 pl-4', tinted ? 'area-tint area-box' : 'ai-surface', input.status === 'proposed' ? 'flex-1' : 'w-full self-start')}
     >
       {/* «Volver a analizar» keeps the right edge of the first row whatever the history has: the left group wraps inside its own space and never pushes it down (J2-B-14). */}
-      <div className="flex min-h-7 items-start justify-between gap-x-2 gap-y-1">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
+      <div className="flex min-h-8 items-start justify-between gap-x-2 gap-y-1">
+        <div className="flex min-h-8 min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
           <div className="flex items-center gap-2">
             <h2>{t('analysis.title')}</h2>
             <AiMark />

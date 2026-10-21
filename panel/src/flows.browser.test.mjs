@@ -315,14 +315,16 @@ describe('consecutive inputs (UD-025)', () => {
       assert.ok(Math.abs((await tray.boundingBox()).height - baseFrame) <= 1, 'el control de envíos conserva su alto')
       assert.ok(base.main <= base.win, 'la región principal no desplaza')
 
-      // Keyboard inside the review: J moves to the next one and K to the previous one. Enter publishes from nowhere (J2-B-13): a click on Enviar or Enter with the focus on that button does; the next one opens by itself.
+      // Keyboard inside the drawer: J moves to the next send of the list (an older one: the list is newest first) and K to the previous one. Enter publishes from nowhere (J2-B-13): a click on Enviar or Enter with the focus on that button does, and the send stays in view, published.
       await page.getByTestId('send-drawer').waitFor()
+      // The focus is in the bar after a send, ready for the next one: the keys of the list work once it is out of a field.
+      await page.getByTestId('send-drawer').click({ position: { x: 2, y: 2 } })
       const selected = () => page.locator('[role="option"][aria-selected="true"]').first().getAttribute('aria-label')
       const first = await selected()
-      // The window opens on the most recent send (J2-B-10): K goes to the previous one and J comes back.
-      await page.keyboard.press('k')
-      await page.waitForFunction((prev) => document.querySelector('[role="option"][aria-selected="true"]')?.getAttribute('aria-label') !== prev, first)
+      // The drawer opens on the most recent send: J goes to an older one and K comes back.
       await page.keyboard.press('j')
+      await page.waitForFunction((prev) => document.querySelector('[role="option"][aria-selected="true"]')?.getAttribute('aria-label') !== prev, first)
+      await page.keyboard.press('k')
       await page.waitForFunction((prev) => document.querySelector('[role="option"][aria-selected="true"]')?.getAttribute('aria-label') === prev, first)
       await page.keyboard.press('Enter')
       await settled(page)
@@ -330,7 +332,8 @@ describe('consecutive inputs (UD-025)', () => {
       await page.getByRole('button', { name: /^Enviar \d+ mensajes?$/ }).focus()
       await page.keyboard.press('Enter')
       await tray.getByText('9 para revisar').waitFor()
-      assert.notEqual(await selected(), first, 'al publicar se abre el siguiente')
+      await page.getByTestId('published-pane').waitFor()
+      assert.equal(await selected(), first, 'al publicar el envío sigue a la vista, publicado')
     } finally {
       await context.close()
     }

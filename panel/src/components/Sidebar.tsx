@@ -84,14 +84,14 @@ export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => v
             // With many areas the list scrolls inside: it is a declared lane, not the page.
             <ul data-lane="areas-nav" className="scroll-thin ml-2.5 mt-0.5 flex min-h-0 flex-col gap-0.5 overflow-y-auto border-l border-line-strong pl-1">
               {(areas.data ?? []).map((a) => (
-                <li key={a.id} className="flex flex-col">
+                <li key={a.id} className="flex items-center gap-1">
                   <NavLink to={`/areas/${a.id}`} onClick={onNavigate} className={({ isActive }) => cn(row, 'min-h-11 min-w-0 text-sm md:min-h-7', isActive && active)}>
                     {/* The area's color, the same one its chip has in the messages (UD-045). */}
                     <span aria-hidden data-testid="area-swatch-dot" className="h-2.5 w-2.5 shrink-0 rounded-sm border border-line-strong" style={{ background: a.color }} />
                     <span className="min-w-0 flex-1 break-words leading-tight">{a.title}</span>
                   </NavLink>
-                  {/* The counts go under the name, so a long name keeps the width of the panel and the panel stays narrow. */}
-                  <span className="flex flex-wrap items-center gap-x-2 pb-0.5 pl-8">
+                  {/* The counts' column is reserved and its marks are the shape and the number (the word is in the link's name): a name that wraps does so the same before and after they arrive, and a narrow panel keeps its width. */}
+                  <span className="flex min-w-20 shrink-0 items-center justify-end">
                     <AreaPending areaId={a.id} title={a.title} summary={summary} onNavigate={onNavigate} />
                   </span>
                 </li>
@@ -148,7 +148,7 @@ function AreaPending({ areaId, title, summary, onNavigate }: { areaId: string; t
       {/* One line: the sidebar shows the open ones, so a count arriving does not change the height of its row. Áreas also shows the answered ones. */}
       {counts.open > 0 && (
         <Link to={areaMessagesPath(areaId, 'open')} onClick={onNavigate} aria-label={t('areas.countOf', { title, count: label({ open: counts.open }) })} className="rounded-full">
-          <StateMark status="open" n={counts.open} plain />
+          <StateMark status="open" n={counts.open} showWord={false} plain />
         </Link>
       )}
     </>

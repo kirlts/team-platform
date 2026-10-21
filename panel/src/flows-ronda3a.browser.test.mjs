@@ -172,7 +172,8 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
       assert.ok(Math.max(...single.map((c) => c.height)) - Math.min(...single.map((c) => c.height)) <= 1, `alturas distintas: ${single.map((c) => c.height)}`)
       const labels = await attention.locator('h2').evaluateAll((els) => els.map((el) => ({ size: getComputedStyle(el).fontSize, x: Math.round(el.getBoundingClientRect().left), transform: getComputedStyle(el).textTransform })))
       assert.equal(labels.length, 2)
-      assert.equal(new Set(labels.map((l) => `${l.size}|${l.x}|${l.transform}`)).size, 1, JSON.stringify(labels))
+      // Both labels sit in one row now (UD-046): they share their size and their capitals, not their left edge.
+      assert.equal(new Set(labels.map((l) => `${l.size}|${l.transform}`)).size, 1, JSON.stringify(labels))
     } finally {
       await context.close()
     }

@@ -18,14 +18,28 @@ function normalizeLink (rawValue, uploads) {
   return url.toString()
 }
 
+/** Reads the multipart body of a new input: text, files[] and links[]. */
+export const readInputUpload = (request, config) => readUpload(request, config, {
+  textField: 'text', extraFields: [], emptyMessage: 'El envío está vacío: falta texto, archivo o enlace.', emptyCode: 'input_empty'
+})
+
+/** Reads the multipart body of a reply: body, kind, files[] and links[]. Same limits and storage as an input. */
+export async function readReplyUpload (request, config) {
+  const { text, links, files, extra } = await readUpload(request, config, {
+    textField: 'body', extraFields: ['kind'], emptyMessage: 'La respuesta está vacía: falta texto, archivo o enlace.', emptyCode: 'reply_empty'
+  })
+  return { body: text, kind: extra.kind, links, files }
+}
+
 /**
- * Devuelve { text, links, files } con los archivos ya movidos a su nombre definitivo en el volumen.
- * Ante cualquier error borra los temporales que alcanzó a escribir.
+ * Devuelve { text, links, files, extra } con los archivos ya movidos a su nombre definitivo en el volumen.
+ * `extra` trae los campos de texto adicionales pedidos. Ante cualquier error borra los temporales que alcanzó a escribir.
  */
-export async function readInputUpload (request, config) {
+async function readUpload (request, config, { textField, extraFields, emptyMessage, emptyCode }) {
   if (!request.isMultipart()) throw unsupported('Se esperaba un envío multipart/form-data.')
   const u = config.uploads
   let text = ''
+  const extra = {}
   const links = []
   const ingested = []
 
@@ -33,7 +47,8 @@ export async function readInputUpload (request, config) {
     for await (const part of request.parts()) {
       if (part.type === 'field') {
         if (part.valueTruncated) throw tooLarge('El texto supera el tamaño máximo permitido.')
-        if (part.fieldname === 'text') text = String(part.value)
+        if (part.fieldname === textField) text = String(part.value)
+        else if (extraFields.includes(part.fieldname)) extra[part.fieldname] = String(part.value)
         else if (part.fieldname === 'links' || part.fieldname === 'links[]') {
           if (String(part.value).trim() === '') continue
           links.push(normalizeLink(part.value, u))
@@ -54,11 +69,11 @@ export async function readInputUpload (request, config) {
     }
     if (Buffer.byteLength(text) > u.maxTextBytes) throw tooLarge('El texto supera el tamaño máximo permitido.')
     if (text.trim() === '' && ingested.length === 0 && links.length === 0) {
-      throw badRequest('El envío está vacío: falta texto, archivo o enlace.', 'input_empty')
+      throw badRequest(emptyMessage, emptyCode)
     }
     // Todo validado: los temporales pasan a su nombre definitivo (el hash).
     for (const f of ingested) await commit(config, f.tmp, f.sha256)
-    return { text, links: [...new Set(links)], files: ingested.map(({ tmp, ...rest }) => rest) }
+    return { text, links: [...new Set(links)], files: ingested.map(({ tmp, ...rest }) => rest), extra }
   } catch (error) {
     await Promise.all(ingested.map((f) => rm(f.tmp, { force: true })))
     throw error

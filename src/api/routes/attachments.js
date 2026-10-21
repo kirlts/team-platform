@@ -5,7 +5,7 @@ import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { get } from '../../db/index.js'
 import { INLINE_MIMES } from '../../domain/attachments.js'
-import { canReadAttachment } from '../../domain/messages.js'
+import { canReadAttachment, canReadReplyAttachment } from '../../domain/messages.js'
 import { badRequest, notFound } from '../../domain/errors.js'
 import { blobPath } from '../../domain/storage.js'
 import { idParams } from '../schemas.js'
@@ -30,13 +30,8 @@ function parseRange (headerValue, sizeBytes) {
 export function registerAttachmentRoutes (app, ctx) {
   const { db, config, requireRole } = ctx
 
-  app.get('/attachments/:id', { onRequest: [requireRole('member')], schema: { params: idParams(), response: {
-    200: { type: 'string', format: 'binary', description: 'The file.' },
-    206: { type: 'string', format: 'binary', description: 'A range of the file (Range header).' }
-  } } }, async (request, reply) => {
-    const att = get(db, 'SELECT * FROM attachments WHERE id = ?', request.params.id)
-    // An attachment the caller has no access to is indistinguishable from a nonexistent one.
-    if (!att || att.kind === 'link' || !canReadAttachment(db, request.member.id, att.id)) throw notFound('El adjunto no existe.')
+  /** Streams a stored file with range support. `att` is a row of `attachments` or `reply_attachments`. */
+  async function sendFile (att, request, reply) {
     const routePath = blobPath(config, att.sha256)
     let info
     try { info = await stat(routePath) } catch { throw notFound('El archivo del adjunto ya no está en el servidor.') }
@@ -66,5 +61,27 @@ export function registerAttachmentRoutes (app, ctx) {
     reply.header('content-range', `bytes ${rangeSpec.start}-${rangeSpec.end}/${info.size}`)
     reply.header('content-length', rangeSpec.end - rangeSpec.start + 1)
     return reply.send(createReadStream(routePath, { start: rangeSpec.start, end: rangeSpec.end }))
+  }
+
+  const responses = {
+    200: { type: 'string', format: 'binary', description: 'El archivo.' },
+    206: { type: 'string', format: 'binary', description: 'Un rango del archivo (cabecera Range).' }
+  }
+
+  app.get('/attachments/:id', { onRequest: [requireRole('member')], schema: { params: idParams(), response: responses } }, async (request, reply) => {
+    const att = get(db, 'SELECT * FROM attachments WHERE id = ?', request.params.id)
+    // An attachment the member cannot access is indistinguishable from a nonexistent one.
+    if (!att || att.kind === 'link' || !canReadAttachment(db, request.member.id, att.id)) throw notFound('El adjunto no existe.')
+    return sendFile(att, request, reply)
+  })
+
+  // Reply files (own id, separate table): the whole team sees them, like the thread.
+  app.get('/replies/attachments/:id', {
+    onRequest: [requireRole('member')],
+    schema: { summary: 'El archivo adjunto a una respuesta, con soporte de rangos', params: idParams(), response: responses }
+  }, async (request, reply) => {
+    const att = get(db, 'SELECT * FROM reply_attachments WHERE id = ?', request.params.id)
+    if (!att || att.kind === 'link' || !canReadReplyAttachment(db, att.id)) throw notFound('El adjunto no existe.')
+    return sendFile(att, request, reply)
   })
 }

@@ -37,7 +37,8 @@ import { resourceFromAttributes } from '@opentelemetry/resources';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { BatchSpanProcessor } from '@opentelemetry/sdk-trace';
 import { configureCapture } from './api.js';
-import { DEFAULTS } from './config.js';
+import { BudgetedExporter, BudgetedProcessor, ByteBudget } from './budget.js';
+import { DEFAULTS, queueBudgetFromEnv } from './config.js';
 import { SqliteSpanExporter } from './sqlite-exporter.js';
 
 export * from './api.js';
@@ -96,7 +97,7 @@ let current = null;
  * @param {Record<string, string|undefined>} [options.env]
  * @param {string} [options.serviceName]
  * @param {string} [options.serviceVersion]
- * @returns {{flush: () => Promise<void>, shutdown: () => Promise<void>, otlp: boolean, sqlite: SqliteSpanExporter}}
+ * @returns {{flush: () => Promise<void>, shutdown: () => Promise<void>, otlp: boolean, sqlite: SqliteSpanExporter, budget: () => object}}
  */
 export function initTelemetry({ db, env = process.env, serviceName = 'team-platform', serviceVersion } = {}) {
   if (!db) throw new Error('initTelemetry needs the SQLite connection («db»)');
@@ -111,15 +112,30 @@ export function initTelemetry({ db, env = process.env, serviceName = 'team-platf
     exportTimeoutMillis: DEFAULTS.exportTimeoutMs,
   };
 
+  // Byte budget of each queue (H-40): the SQLite one and, when there is a collector, the OTLP one. The same
+  // span waits in both, so each queue has its own account.
+  const { softBytes, hardBytes } = queueBudgetFromEnv(env);
+  const budgets = [];
+  const budgeted = (exporter) => {
+    const budget = new ByteBudget({ softBytes, hardBytes, maxQueueSize: batchOptions.maxQueueSize });
+    budgets.push(budget);
+    return new BudgetedProcessor(new BatchSpanProcessor({ exporter: new BudgetedExporter(exporter, budget), ...batchOptions }), budget);
+  };
+  let blobsDropped = 0;
+  configureCapture({
+    blobsOverBudget: (extraBytes) => budgets.some((budget) => budget.wouldExceedHard(extraBytes)),
+    onBlobsDropped: (count) => { blobsDropped += count; },
+  });
+
   const sqlite = new SqliteSpanExporter(db, { rowsPerSlice: Number(env.TELEMETRY_SLICE_ROWS) || DEFAULTS.rowsPerSlice });
-  const sqliteProcessor = new BatchSpanProcessor({ exporter: sqlite, ...batchOptions });
+  const sqliteProcessor = budgeted(sqlite);
   const processors = [new InheritTeamAttributes(), sqliteProcessor];
 
   let otlpProcessor = null;
   const otlpUrl = otlpTracesUrl(env);
   if (otlpUrl) {
     const headers = parseHeaders(env.OTEL_EXPORTER_OTLP_TRACES_HEADERS ?? env.OTEL_EXPORTER_OTLP_HEADERS);
-    otlpProcessor = new BatchSpanProcessor({ exporter: new OTLPTraceExporter({ url: otlpUrl, headers }), ...batchOptions });
+    otlpProcessor = budgeted(new OTLPTraceExporter({ url: otlpUrl, headers }));
     processors.push(otlpProcessor);
   }
 
@@ -141,7 +157,16 @@ export function initTelemetry({ db, env = process.env, serviceName = 'team-platf
   const handle = {
     otlp: otlpProcessor !== null,
     sqlite,
-    /** Writes out right now whatever is queued: to read the tree of a job that just finished. */
+    /** Accounts of the byte budget: queued bytes, peak, early flushes and blobs that lost their content. */
+    budget: () => ({
+      softBytes,
+      hardBytes,
+      queuedBytes: Math.max(...budgets.map((b) => b.queuedBytes)),
+      peakBytes: Math.max(...budgets.map((b) => b.peakBytes)),
+      forcedFlushes: budgets.reduce((sum, b) => sum + b.forcedFlushes, 0),
+      blobsDropped,
+    }),
+    /** Writes whatever is queued right now: to read the tree of a job that just finished. */
     async flush() {
       // A downed destination (the table, the collector) cannot break whoever asks for the flush: the
       // error already went out through the OpenTelemetry diagnostic channel.
@@ -154,6 +179,7 @@ export function initTelemetry({ db, env = process.env, serviceName = 'team-platf
       if (current !== handle) return;
       await handle.flush();
       await sdk.shutdown();
+      configureCapture({ blobsOverBudget: null, onBlobsDropped: null });
       trace.disable();
       metrics.disable();
       context.disable();

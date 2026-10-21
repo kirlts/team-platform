@@ -137,9 +137,9 @@ export function loadConfig (env = process.env, overrides = {}) {
     uploads: {
       maxImageBytes: intVar(env, 'UPLOAD_MAX_IMAGE_BYTES', 7 * MIB, { min: 1 }), // MS §7.8: image 7 MB
       maxAudioBytes: intVar(env, 'UPLOAD_MAX_AUDIO_BYTES', 25 * MIB, { min: 1 }), // MS §7.8: audio 25 MB
-      maxDocumentBytes: intVar(env, 'UPLOAD_MAX_DOCUMENT_BYTES', 25 * MIB, { min: 1 }), // MS §7.8: document 25 MB
-      maxVideoBytes: intVar(env, 'UPLOAD_MAX_VIDEO_BYTES', 2 * GIB, { min: 1 }), // MS §7.4: video, cap 2 GB
-      // I07 §6.1: Slack accepts up to 10 files dragged at once. It is the reference, not a measurement.
+      maxDocumentBytes: intVar(env, 'UPLOAD_MAX_DOCUMENT_BYTES', 24 * MIB, { min: 1 }), // MS §7.4, informe 05 §8.3: 24 MB, the extractor's own cap (DT-005)
+      maxVideoBytes: intVar(env, 'UPLOAD_MAX_VIDEO_BYTES', 2 * GIB, { min: 1 }), // MS §7.4: video, tope 2 GB
+      // I07 §6.1: Slack accepts up to 10 files dragged at once. It is the referent, not a measurement.
       maxFiles: intVar(env, 'UPLOAD_MAX_FILES', 10, { min: 1 }),
       maxLinks: intVar(env, 'UPLOAD_MAX_LINKS', 10, { min: 0 }), // I07 §6.1: same reference as files
       // I03 §7.2: the @fastify/multipart default is Fastify's bodyLimit, 1 MiB; a long text fits.
@@ -172,7 +172,9 @@ export function loadConfig (env = process.env, overrides = {}) {
       password: {
         minLength: intVar(env, 'PASSWORD_MIN_LENGTH', 15, { min: 1 }), // I04 §11: NIST SP 800-63B-4 3.1.1.2, single factor
         maxLength: intVar(env, 'PASSWORD_MAX_LENGTH', 128, { min: 1 }), // I04 §11: NIST requires at least 64; 128 is Better Auth's
-        blocklistFile: textValue(env, 'PASSWORD_BLOCKLIST_FILE', '') // local list, one password per line (I04 §1.5)
+        // One password per line (I04 §1.5). Without the variable, the file that scripts/install.sh downloads into the data
+        // directory (H-43) is used when it exists; with neither, there is no list.
+        blocklistFile: textValue(env, 'PASSWORD_BLOCKLIST_FILE', existsSync(path.join(dataDir, 'password-blocklist.txt')) ? path.join(dataDir, 'password-blocklist.txt') : '')
       },
       session: {
         tokenBytes: intVar(env, 'SESSION_TOKEN_BYTES', 32, { min: 16 }), // MS §7.7

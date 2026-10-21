@@ -2,10 +2,10 @@
 // a pathological file does not freeze the API process: PDFium and officeparser occupy the event
 // loop while they work (report 05 §4, unpdf README).
 import { readFile } from 'node:fs/promises';
-import { PDFiumLibrary } from '@hyzyla/pdfium';
 import { OfficeParser } from 'officeparser';
 import { ExtractError } from './errors.js';
 import { batchPages } from './lib/pdf-pages.js';
+import { initCappedPdfium } from './lib/pdfium-capped.js';
 
 const PDF_SIGNATURE = '%PDF-';
 
@@ -31,8 +31,17 @@ function isUtf8Text(buffer) {
 
 const countVisibleChars = (text) => [...text].filter((ch) => ch.trim() !== '').length;
 
+const MiB = 1024 * 1024;
+
+const tooHeavy = (cfg, guard) =>
+  new ExtractError('document_too_heavy', 'El documento es demasiado grande para leerse.', {
+    wasmMemoryMb: cfg.wasmMemoryMb,
+    wantedMb: Math.round(guard.refusedBytes / MiB),
+  });
+
 async function readPdf(buffer, cfg) {
-  const library = await PDFiumLibrary.init();
+  // PDFium's WASM heap is outside `resourceLimits` of the thread: it has its own cap (H-23).
+  const { library, guard } = await initCappedPdfium(cfg.wasmMemoryMb * MiB);
   let doc;
   try {
     doc = await library.loadDocument(buffer);
@@ -43,6 +52,8 @@ async function readPdf(buffer, cfg) {
       const page = doc.getPage(i);
       const text = page.getText().replaceAll('\r\n', '\n').trim();
       page.close();
+      // A refused allocation can leave PDFium returning a truncated page instead of failing.
+      if (guard.exceeded) throw tooHeavy(cfg, guard);
       const number = i + 1;
       if (countVisibleChars(text) < cfg.scannedPageMaxChars) scannedPages.push(number);
       const body = text === '' ? '_(página sin texto extraíble)_' : text;
@@ -60,9 +71,13 @@ async function readPdf(buffer, cfg) {
         nativePageBatches: batchPages(scannedPages, cfg.nativePagesPerCall),
       },
     };
+  } catch (cause) {
+    // Whatever PDFium raised after a refused growth, the cause is the memory cap.
+    if (guard.exceeded) throw tooHeavy(cfg, guard);
+    throw cause;
   } finally {
-    doc?.destroy();
-    library.destroy();
+    try { doc?.destroy(); } catch { /* the document may be half-loaded after a refused allocation */ }
+    try { library.destroy(); } catch { /* same */ }
   }
 }
 

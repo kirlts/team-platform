@@ -27,7 +27,7 @@ export function createSessions ({ db, config, now = Date.now }) {
     const id = hashToken(token)
     const dbRow = get(db, `
       SELECT s.last_seen_at, s.expires_at, m.id, m.email, m.name, m.role
-        FROM sessions s JOIN members m ON m.id = s.member_id WHERE s.id = ?`, id)
+        FROM sessions s JOIN members m ON m.id = s.member_id WHERE s.id = ? AND m.active = 1`, id) // a deactivated member's session is dead even if it was not destroyed
     if (!dbRow) return null
     const t = now()
     if (dbRow.expires_at <= t || dbRow.last_seen_at + idleMs <= t) {

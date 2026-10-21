@@ -1,9 +1,10 @@
 // Message and reply routes (MASTER-SPEC §7.1).
 
-import { addReply, closeMessage, getMessage, listMessages, reopenMessage, REPLY_KINDS, updateMessage } from '../../domain/messages.js'
+import { addReply, assertCanReply, closeMessage, getMessage, listMessages, reopenMessage, REPLY_KINDS, updateMessage } from '../../domain/messages.js'
 import { withSpan } from '../../domain/tracing.js'
 import { pageEnvelope, pageParams, pageQuerySchema, pageResult } from '../pagination.js'
 import { idIn, idParams, messageCard, messageDetail, messagePatchBody } from '../schemas.js'
+import { readReplyUpload } from '../upload.js'
 
 export function registerMessageRoutes (app, ctx) {
   const { db, config, events, requireRole } = ctx
@@ -63,18 +64,34 @@ export function registerMessageRoutes (app, ctx) {
   app.post('/messages/:id/replies', {
     onRequest: [requireRole('member')],
     schema: {
-      summary: 'Reply to a message (403 if the replier is its sender)',
+      summary: 'Responder un mensaje, con archivos y enlaces opcionales (403 si quien responde es su emisor)',
+      description: 'JSON `{ body, kind }` o multipart (`body`, `kind`, `files[]`, `links[]`) con los mismos topes y el mismo almacenamiento que `POST /inputs`. Una respuesta con archivos o enlaces puede ir sin texto. Los adjuntos se guardan y se sirven, no se analizan: `GET /replies/attachments/:id` entrega el archivo. Devuelve el mensaje con su hilo; cada respuesta lleva `attachments` y `attachment_kinds`.',
       params: idParams(),
+      // Per content type: the multipart body is read by the handler, only the JSON body is validated by schema.
       body: {
-        type: 'object',
-        required: ['body'],
-        additionalProperties: false,
-        properties: { body: { type: 'string' }, kind: { type: 'string', enum: REPLY_KINDS } }
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['body'],
+              additionalProperties: false,
+              properties: { body: { type: 'string' }, kind: { type: 'string', enum: REPLY_KINDS } }
+            }
+          }
+        }
       },
       response: { 201: messageDetail }
     }
   }, async (request, reply) => {
-    const r = addReply({ db, events }, { messageId: request.params.id, authorId: request.member.id, body: request.body.body, kind: request.body.kind })
+    let input
+    if (request.isMultipart()) {
+      // Refuse before storing a large upload when the reply is not allowed anyway.
+      assertCanReply(db, request.params.id, request.member.id)
+      input = await readReplyUpload(request, config)
+    } else {
+      input = { body: request.body.body, kind: request.body.kind, files: [], links: [] }
+    }
+    const r = addReply({ db, events }, { messageId: request.params.id, authorId: request.member.id, ...input, kind: input.kind ?? undefined })
     reply.code(201)
     return r.message
   })

@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 import { stat, writeFile } from 'node:fs/promises';
 import { PDFDocument } from 'pdf-lib';
 import { extract, ExtractError, selectPdfPages } from './index.js';
-import { makeDocx, makePdf, makeTmp } from './test/helpers.js';
+import { makeDocx, makeHeavyPdf, makePdf, makeTmp } from './test/helpers.js';
 import { makePptx, makeXlsx } from './test/office-fixtures.js';
+import { initCappedPdfium, predictedHeapSize } from './lib/pdfium-capped.js';
+import { readFile } from 'node:fs/promises';
 
 const tmp = await makeTmp('document');
 after(() => tmp.cleanup());
@@ -138,7 +140,52 @@ test('the memory limit of the worker thread cuts a read that exceeds it', async 
   );
 });
 
-test('cancelling with the signal cuts the read', async () => {
+// H-23: PDFium's WASM heap is external memory; `resourceLimits` of the thread does not count it.
+const MiB = 1024 * 1024;
+
+test('H-23: a PDF whose pages inflate past the WASM cap is refused with document_too_heavy', async () => {
+  const path = tmp.join('wasm-chico.pdf');
+  const { inflatedBytes, fileBytes } = await makeHeavyPdf(path, { pages: 3, reps: 600_000 });
+  assert.ok(inflatedBytes > 100 * (fileBytes), 'small on disk, large once parsed');
+  // The same file reads whole under the default cap (peak about 201 MiB measured).
+  const ok = await extract(await att(path, 'application/pdf'));
+  assert.equal(ok.meta.pageCount, 3);
+  await assert.rejects(
+    extract(await att(path, 'application/pdf'), { config: { document: { wasmMemoryMb: 64 } } }),
+    (e) => e.code === 'document_too_heavy' && e.details.wasmMemoryMb === 64,
+  );
+});
+
+test('H-23: with the default cap, a PDF bomb of 112 MB inflated is refused (about 1 GiB of heap uncapped)', async () => {
+  const path = tmp.join('wasm-bomba.pdf');
+  const { inflatedBytes, fileBytes } = await makeHeavyPdf(path, { pages: 300, reps: 3_500_000 });
+  assert.ok(inflatedBytes >= 100 * MiB);
+  assert.ok(fileBytes < 24 * MiB, 'it passes the upload cap of documents');
+  const started = performance.now();
+  await assert.rejects(extract(await att(path, 'application/pdf')), (e) => e.code === 'document_too_heavy' && e.details.wasmMemoryMb === 700);
+  assert.ok(performance.now() - started < 30_000);
+});
+
+test('H-23: the WASM heap never goes over the cap, and the growth the cap predicts is the one the library does', async () => {
+  const path = tmp.join('wasm-tope.pdf');
+  await makeHeavyPdf(path, { pages: 1, reps: 1_500_000 });
+  const cap = 128 * MiB;
+  const { library, guard } = await initCappedPdfium(cap);
+  try {
+    const doc = await library.loadDocument(await readFile(path));
+    const page = doc.getPage(0);
+    page.getText();
+    page.close();
+  } catch {
+    // PDFium aborts on the refused allocation; the guard is what is asserted.
+  }
+  assert.ok(guard.exceeded, 'the heap would have gone past the cap');
+  assert.ok(guard.heapBytes() <= cap, `heap ${guard.heapBytes()} over cap ${cap}`);
+  assert.ok(guard.refusedBytes > cap);
+  assert.equal(predictedHeapSize(16 * MiB, 17 * MiB), Math.ceil(16 * MiB * 1.2 / 65_536) * 65_536);
+});
+
+test('cancelling with the signal cuts the read short', async () => {
   const path = tmp.join('cancelar.pdf');
   await makePdf(path, 20);
   const controller = new AbortController();

@@ -42,12 +42,14 @@ Instrumented modules import from `telemetry/api.js`, which loads only `@opentele
 
 | Variable | Effect |
 |---|---|
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | If present, spans also go out over OTLP/HTTP to `<endpoint>/v1/traces`. Without it no connection goes out (HP-001) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | If set, spans are also sent over OTLP/HTTP to `<endpoint>/v1/traces`. Without it no connection is made (HP-001) |
 | `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | Full traces address; takes precedence over the previous one |
 | `OTEL_EXPORTER_OTLP_HEADERS` | Collector headers, `key=value,key=value` |
-| `OTEL_SDK_DISABLED=true` | Turns the SDK off; instrumented code keeps working with the no-op tracer |
-| `TELEMETRY_INLINE_BLOBS=0` | Images and frames keep their size and lose their base64 bytes (stored by default) |
+| `OTEL_SDK_DISABLED=true` | Turns the SDK off; the instrumented code keeps working with the null tracer |
+| `TELEMETRY_INLINE_BLOBS=0` | Images and frames keep their size and lose the base64 bytes (by default they are stored) |
 | `TELEMETRY_FLUSH_MS` | Batch flush interval; 5000 ms by default |
+| `TELEMETRY_QUEUE_MAX_BYTES` | Queued bytes (per destination) that force an early flush; 4 MiB by default: the span of a 48-frame call fits (3.48 MiB measured, `span-size.bench.mjs`) and two do not |
+| `TELEMETRY_QUEUE_HARD_BYTES` | Above this cap new calls store the size of their images and frames and not the bytes, and the span carries `team.telemetry.blobs_dropped`; by default the previous cap plus 32 MiB (the largest request to a provider, report 05 §8.3) |
 | `TELEMETRY_SLICE_ROWS` | Rows per transaction of the SQLite exporter; 16 by default |
 
 Audio is never copied into the span: it stays by reference (`file://` and size) and the full transcription goes in the output event.

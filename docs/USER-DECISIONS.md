@@ -294,3 +294,40 @@ RULES:
 **Consecuencias:**
 - Segunda pasada en `src/analyze/` cuando la primera da cero mensajes, con su span y su prueba; las referencias c01, d01 y u03 del banco privado esperan un mensaje.
 **Condiciones de reversión:** Ninguna prevista.
+
+## [UD-022] Los párrafos largos van justificados y sin guionizado
+
+**Fecha:** 2026-10-21
+**Contexto:** Cuerpos de mensaje, respuestas, vista previa del input y cuerpos de plantilla pueden tener varias líneas.
+**Decisión:** Martín, textual: «cuando hayan párrafos largos en la interfaz, el texto debería quedar justificado y sin guionizado». Todo bloque de texto corrido de más de dos líneas se compone con `text-align: justify` y `hyphens: none`; con `text-wrap: pretty` donde el navegador lo soporte, para que la justificación no deje ríos. Títulos, rótulos, chips, celdas y textos de una o dos líneas siguen alineados a la izquierda.
+**Alternativas descartadas:**
+- Justificado con guionizado automático: Martín lo descartó.
+**Consecuencias:**
+- Una clase única del kit (`prose-block`) que aplican todos los bloques largos; una prueba estática del panel falla si un bloque de párrafo usa otra alineación o activa `hyphens`.
+**Condiciones de reversión:** Ninguna prevista.
+
+## [UD-023] Cada miembro tiene un perfil en prosa; reemplaza a «responsabilidades» y «dominios»
+
+**Fecha:** 2026-10-21
+**Contexto:** `idea.md` hablaba de «descripción breve de sus responsabilidades y dominios» y el código lo volvió dos campos: `responsibilities` y `domains`. Martín, textual: «en un equipo pequeño startup muy enfocado en desarrollar con IA, las responsabilidades se difuminan mucho. En mi idea original yo hablé de las responsabilidades, pero me refería a que podríamos proveer una descripción de un par de párrafos de cada miembro del equipo y que esa descripción sirva como un contexto mucho más rico para el LLM que finalmente vaya a asignar mensajes».
+**Decisión:** Un solo campo de texto libre por miembro, `profile`, con el rótulo «Perfil»: un par de párrafos en primera persona, escritos por la propia persona, que dicen qué hace, qué sabe, qué decide, qué no toca y cómo prefiere recibir las cosas. Reemplaza a `responsibilities` y `domains`, que se eliminan. El perfil entero viaja al modelo como contexto de cada análisis (invariante: mucho contexto cuesta poco), y el modelo asigna leyendo esos párrafos; el sistema sólo valida que el miembro exista. Se eligió «perfil» y no «descripción» porque una descripción habla de alguien y un perfil sirve para decidir a quién le toca algo, que es su único uso. El nombre y el perfil son lo único que el modelo sabe de cada miembro.
+**Alternativas descartadas:**
+- Mantener responsabilidades y dominios como listas: en un equipo chico se difuminan y el modelo asigna mejor con prosa.
+- «Descripción»: no dice para qué sirve el texto.
+**Consecuencias:**
+- Migración: `members.profile TEXT`, con `responsibilities` y `domains` fundidos en el perfil existente y luego eliminados; `PATCH /members/me` acepta `profile`; `GET /members` y `/me` lo devuelven; el bundle del analizador lleva `members: [{ id, name, profile }]`.
+- Equipo muestra el perfil en el lugar, editable sólo por su dueño, justificado (UD-022).
+**Condiciones de reversión:** Que el modelo asigne peor con prosa que con listas, medido en el banco (exactitud de destinatarios).
+
+## [UD-024] El Editor mantiene una descripción del proyecto en markdown que el analizador recibe como contexto
+
+**Fecha:** 2026-10-21
+**Contexto:** El analizador conocía las áreas, las plantillas y el equipo, pero nada del proyecto sobre el que el equipo trabaja.
+**Decisión:** Martín, textual: «el usuario con el rol administrador debe poder cambiar la descripción del proyecto en ajustes y esa descripción debe ser un texto libre o un archivo markdown que se le entregará a la inteligencia artificial en la parte donde analiza un mensaje original y lo pasa por una plantilla. Si este contexto es lo suficientemente rico va a permitir que la IA describa muy bien el mensaje, le provea contexto si es necesario o explique mejor cuál es el valor para el producto. Si una plantilla de un área pide enriquecer el mensaje con información relacionada al proyecto, tener esa descripción es muy valioso: puede contener el índice de las carpetas del repositorio, información del stack, decisiones de diseño como lo haría el master spec». En Configuración, el Editor (el rol administrador de UD-007) edita la descripción del proyecto en el lugar como markdown, o sube un archivo `.md` que la reemplaza. El texto entero viaja al modelo en la llamada de descomposición (la que aplica la plantilla), dentro del prompt de sistema cacheado, para que una plantilla pueda pedir enriquecer un mensaje con contexto del proyecto; también va a la clasificación, porque saber qué es el producto ayuda a distinguir un error de una idea.
+**Alternativas descartadas:**
+- Descripción corta de una línea: no sirve para enriquecer.
+- Leer el repositorio del proyecto en vivo: es una Conexión futura; hoy la descripción es lo que el Editor pega.
+**Consecuencias:**
+- Tabla `settings` (clave y valor) con `project_description` (markdown); `GET /settings/project` para todos y `PATCH /settings/project` para el Editor; `bundle.project = { name, description }`; tope de tamaño como perilla con su cita (el escalón de precio de 100.000 tokens de entrada del modelo por omisión).
+- Las plantillas iniciales mencionan que pueden apoyarse en el contexto del proyecto cuando exista.
+**Condiciones de reversión:** Ninguna prevista.

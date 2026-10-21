@@ -6,6 +6,7 @@
 //   - Reopening returns to `answered` if the message already has replies, and to `open` if not.
 // Table of `status` transitions; any other is a 409.
 
+import { createHash } from 'node:crypto'
 import { all, get, run } from '../db/index.js'
 import { iso, parseJson } from '../db/util.js'
 import { audit } from './audit.js'
@@ -51,9 +52,24 @@ function assigneesOf (db, ids) {
   return table
 }
 
-// Replies carry no attachments yet (the schema has no table for them), so every reply reports an empty list of media
-// kinds; the panel draws one icon per kind (UD-016) and the field is already where it will read them.
-const toReply = (r) => ({ id: r.id, message_id: r.message_id, author_id: r.author_id, body: r.body, kind: r.kind, attachment_kinds: [], created_at: iso(r.created_at) })
+/** Files and links attached to replies, by reply id. A reply is stored and served only; it is never analyzed. */
+function replyAttachmentsOf (db, replyIds) {
+  const table = new Map()
+  if (replyIds.length === 0) return table
+  const rows = all(db, `SELECT id, reply_id, kind, name, mime, size FROM reply_attachments
+                         WHERE reply_id IN (${replyIds.map(() => '?').join(',')}) ORDER BY reply_id, position, id`, ...replyIds)
+  for (const f of rows) {
+    if (!table.has(f.reply_id)) table.set(f.reply_id, [])
+    table.get(f.reply_id).push({ id: f.id, reply_id: f.reply_id, kind: f.kind, name: f.name, mime: f.mime, size: f.size })
+  }
+  return table
+}
+
+const toReply = (r, atts = []) => ({
+  id: r.id, message_id: r.message_id, author_id: r.author_id, body: r.body, kind: r.kind,
+  attachments: atts, attachment_kinds: [...new Set(atts.map((a) => a.kind))], // one icon per media kind (UD-016)
+  created_at: iso(r.created_at)
+})
 
 function lastRepliesOf (db, ids) {
   if (ids.length === 0) return new Map()
@@ -61,7 +77,8 @@ function lastRepliesOf (db, ids) {
   const rows = all(db, `
     SELECT r.* FROM replies r
      WHERE r.message_id IN (${placeholders}) AND r.id = (SELECT MAX(x.id) FROM replies x WHERE x.message_id = r.message_id)`, ...ids)
-  return new Map(rows.map((r) => [r.message_id, toReply(r)]))
+  const atts = replyAttachmentsOf(db, rows.map((r) => r.id))
+  return new Map(rows.map((r) => [r.message_id, toReply(r, atts.get(r.id))]))
 }
 
 /** Flat shape the panel consumes: references by id; names come from the member and area lists. */
@@ -136,7 +153,8 @@ export function getMessage (db, id) {
   if (!dbRow) throw notFound('El mensaje no existe.')
   const [msgRow] = hydrate(db, [dbRow])
   const replyRows = all(db, 'SELECT * FROM replies WHERE message_id = ? ORDER BY id', id)
-  return { ...msgRow, replies: replyRows.map(toReply) }
+  const atts = replyAttachmentsOf(db, replyRows.map((r) => r.id))
+  return { ...msgRow, replies: replyRows.map((r) => toReply(r, atts.get(r.id))) }
 }
 
 const EDIT_KEYS = ['title', 'body', 'fields', 'assignee_ids', 'area_id', 'template_id']
@@ -185,8 +203,8 @@ export function updateMessage ({ db, events, now = Date.now }, { messageId, acto
       next.fields_json = JSON.stringify(fields)
     }
 
-    const assigneeIds = patch.assignee_ids === undefined ? null : checkAssignees(db, patch.assignee_ids, { fail })
     const currentAssignees = all(db, 'SELECT member_id FROM message_assignees WHERE message_id = ? ORDER BY member_id', messageId).map((a) => a.member_id)
+    const assigneeIds = patch.assignee_ids === undefined ? null : checkAssignees(db, patch.assignee_ids, { fail, keep: new Set(currentAssignees) })
     const sameAssignees = assigneeIds === null || (assigneeIds.length === currentAssignees.length && [...assigneeIds].sort((a, b) => a - b).every((id, i) => id === currentAssignees[i]))
 
     const changed = Object.entries(next).filter(([k, v]) => row[k] !== v).map(([k]) => k)
@@ -207,20 +225,39 @@ export function updateMessage ({ db, events, now = Date.now }, { messageId, acto
   return getMessage(db, messageId)
 }
 
-export function addReply ({ db, events, now = Date.now }, { messageId, authorId, body, kind = 'answer' }) {
-  if (typeof body !== 'string' || body.trim() === '') throw badRequest('La respuesta no puede estar vacía.', 'reply_empty')
+/** The rules for replying, checked on their own so a route can refuse before it stores an upload. */
+export function assertCanReply (db, messageId, authorId) {
+  const msgRow = get(db, 'SELECT id, author_id, status FROM messages WHERE id = ?', messageId)
+  if (!msgRow) throw notFound('El mensaje no existe.')
+  // §4.8: only a member other than the sender replies.
+  if (msgRow.author_id === authorId) throw forbidden('El emisor de un mensaje no puede responderlo.', 'author_cannot_reply')
+  const target = TRANSITIONS.reply[msgRow.status]
+  if (!target) throw conflict('El mensaje está cerrado. Hay que reabrirlo para responder.', 'message_closed')
+  return target
+}
+
+/**
+ * Adds a reply. `files` ([{ kind, name, mime, size, sha256 }], already in the volume) and `links` (validated URLs)
+ * are attached to the reply; a reply with media may have no text.
+ */
+export function addReply ({ db, events, now = Date.now }, { messageId, authorId, body = '', kind = 'answer', files = [], links = [] }) {
+  if (typeof body !== 'string' || (body.trim() === '' && files.length + links.length === 0)) throw badRequest('La respuesta no puede estar vacía.', 'reply_empty')
   if (!REPLY_KINDS.includes(kind)) throw badRequest('Tipo de respuesta desconocido.', 'reply_kind_invalid')
   const replyId = events.transaction(() => {
-    const msgRow = get(db, 'SELECT id, author_id, status FROM messages WHERE id = ?', messageId)
-    if (!msgRow) throw notFound('El mensaje no existe.')
-    // §4.8: only a member other than the sender replies.
-    if (msgRow.author_id === authorId) throw forbidden('El emisor de un mensaje no puede responderlo.', 'author_cannot_reply')
-    const target = TRANSITIONS.reply[msgRow.status]
-    if (!target) throw conflict('El mensaje está cerrado. Hay que reabrirlo para responder.', 'message_closed')
+    const target = assertCanReply(db, messageId, authorId)
     const r = run(db, 'INSERT INTO replies (message_id, author_id, body, kind, created_at) VALUES (?, ?, ?, ?, ?)', messageId, authorId, body, kind, now())
+    const id = Number(r.lastInsertRowid)
+    let position = 0
+    for (const f of files) {
+      run(db, 'INSERT INTO reply_attachments (reply_id, kind, name, path, mime, size, sha256, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', id, f.kind, f.name, f.sha256, f.mime, f.size, f.sha256, position++)
+    }
+    for (const url of links) {
+      // For kind = link, `path` holds the URL and the hash identifies it, as in `attachments`.
+      run(db, "INSERT INTO reply_attachments (reply_id, kind, name, path, mime, size, sha256, position) VALUES (?, 'link', ?, ?, 'text/uri-list', 0, ?, ?)", id, url, url, createHash('sha256').update(url).digest('hex'), position++)
+    }
     run(db, 'UPDATE messages SET status = ? WHERE id = ?', target, messageId)
-    audit(db, { memberId: authorId, action: 'message.reply', entity: 'message', entityId: messageId, detail: { kind }, now })
-    return Number(r.lastInsertRowid)
+    audit(db, { memberId: authorId, action: 'message.reply', entity: 'message', entityId: messageId, detail: { kind, attachments: files.length + links.length }, now })
+    return id
   })
   return { replyId, message: getMessage(db, messageId) }
 }
@@ -260,3 +297,6 @@ export function canReadAttachment (db, memberId, attachmentId) {
   return Boolean(dbRow)
 }
 
+
+/** A reply attachment is readable by every member with a session: messages and their threads are visible to the whole team (§6). */
+export const canReadReplyAttachment = (db, attachmentId) => Boolean(get(db, 'SELECT 1 AS ok FROM reply_attachments WHERE id = ?', attachmentId))

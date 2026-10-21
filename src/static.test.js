@@ -8,6 +8,7 @@ import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { lex } from './testing/lex.js'
 import { englishIn, englishInPanel, spanishComments, spanishIn, spanishNamesAndLogs } from './testing/language.js'
+import { buildNotice, configureFlags, dockerfileArgs } from '../scripts/notice.mjs'
 
 const src = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(src, '..')
@@ -94,6 +95,53 @@ test('HP-011 · every production dependency has a license compatible with MIT (�
   }
   assert.ok(reviewed > 50)
   assert.deepEqual(incompatible, [])
+})
+
+// Second license layer (UD-020): whatever the image runs or loads that is not an npm package is listed in NOTICE.
+test('HP-011 · the @img/sharp-libvips-* exception is justified in NOTICE, with the lockfile version', () => {
+  const lock = JSON.parse(readFileSync(path.join(root, 'package-lock.json'), 'utf8'))
+  const notice = readFileSync(path.join(root, 'NOTICE'), 'utf8')
+  const libvips = Object.entries(lock.packages).filter(([location]) => /^node_modules\/@img\/sharp-libvips-/.test(location))
+  assert.ok(libvips.length > 0)
+  for (const [location, p] of libvips) {
+    assert.equal(p.license, 'LGPL-3.0-or-later', `${location}: the exception only covers LGPL-3.0-or-later`)
+    assert.ok(notice.includes(`@img/sharp-libvips-* ${p.version}`), `NOTICE does not mention @img/sharp-libvips-* ${p.version}`)
+  }
+  assert.match(notice, /LGPL-3\.0-or-later/)
+  // The rest of the exception (the native bindings of sharp) can only add permissive licenses to the LGPL.
+  const permissive = /^(MIT|Apache-2\.0|LGPL-3\.0-or-later)$/
+  for (const [location, p] of Object.entries(lock.packages)) {
+    if (!/^node_modules\/@img\/sharp-(?!libvips)/.test(location)) continue
+    const ok = String(p.license).replace(/[()]/g, '').split(/\s+(?:AND|OR)\s+/).every((l) => permissive.test(l.trim()))
+    assert.ok(ok, `${location}: ${p.license}`)
+  }
+})
+
+test('HP-011 · NOTICE names ffmpeg with the version and the checksum the Dockerfile pins, and is up to date', () => {
+  const dockerfile = readFileSync(path.join(root, 'Dockerfile'), 'utf8')
+  const notice = readFileSync(path.join(root, 'NOTICE'), 'utf8')
+  const a = dockerfileArgs(dockerfile)
+  assert.match(a.FFMPEG_VERSION, /^\d+\.\d+(\.\d+)?$/)
+  assert.ok(notice.includes(`FFmpeg ${a.FFMPEG_VERSION}`), 'NOTICE does not name the ffmpeg version of the Dockerfile')
+  assert.ok(notice.includes(a.FFMPEG_SHA256), 'NOTICE does not carry the SHA-256 checksum of the Dockerfile')
+  assert.ok(notice.includes(`https://ffmpeg.org/releases/ffmpeg-${a.FFMPEG_VERSION}.tar.xz`))
+  assert.match(notice, /LGPL-2\.1-or-later/)
+  assert.ok(notice.includes(`dav1d ${a.DAV1D_VERSION}`))
+  assert.ok(notice.includes('libstdc++'))
+  // Generated: `node scripts/notice.mjs` rewrites it.
+  assert.equal(notice, buildNotice(root), 'NOTICE is out of date: node scripts/notice.mjs')
+})
+
+test('HP-011 · ffmpeg is built without GPL: no --enable-gpl, --enable-nonfree, --enable-version3 or x264/x265', () => {
+  const dockerfile = readFileSync(path.join(root, 'Dockerfile'), 'utf8')
+  const flags = configureFlags(dockerfile)
+  assert.ok(flags.includes('--disable-everything') && flags.includes('--enable-small'))
+  for (const flag of flags) {
+    assert.ok(!/^--enable-(gpl|nonfree|version3|libx264|libx265|libxvid|postproc)$/.test(flag), `the ffmpeg configuration carries ${flag}`)
+  }
+  // The published image installs NOTICE where the LGPL requires it to travel.
+  assert.ok(dockerfile.includes('COPY NOTICE /usr/share/licenses/NOTICE'))
+  assert.ok(dockerfile.includes('/usr/share/licenses/ffmpeg/'))
 })
 
 test('HP-006 · one container and one volume are enough: compose.yml declares a single service (§4.5)', () => {

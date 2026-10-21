@@ -39,7 +39,7 @@ Desglose del video: audio 1.426 ms, extracción de fotogramas 3.757 ms, dHash 3.
 
 - El hilo trabajador agrega entre 190 y 270 ms por documento pequeño: es la carga de PDFium y officeparser en cada hilo nuevo. Se acepta porque da plazo de 60 s y límite de memoria (informe 05 §8.3). La llamada al modelo que sigue dura segundos.
 - En el PDF de 300 páginas el hilo cuesta 180 ms más que la referencia. El texto extraído, 246.286 caracteres, queda bajo el tope de 270.000.
-- Límite de memoria: con `memoryMb` en 16 la lectura de un DOCX de 300 puntos se corta con `document_too_heavy`; con 32 termina. El tope por omisión es 700 (informe 05 §8.3). El límite cubre el montón de JavaScript; la memoria de WebAssembly de PDFium queda fuera de esa cuenta.
+- Límite de memoria: con `memoryMb` en 16 la lectura de un DOCX de 300 puntos se corta con `document_too_heavy`; con 32 termina. El tope por omisión es 700 (informe 05 §8.3). El límite cubre el montón de JavaScript; la memoria de WebAssembly de PDFium tiene su propio tope, `wasmMemoryMb` (H-23, `2026-10-20-memoria-wasm-pdfium.md`).
 - Un video cuya duración es 1200,54 s se rechaza con el tope de 20 minutos (1.200 s). El tope se aplica sin tolerancia, como lo fija el MASTER-SPEC §7.4.
 
 ## Sin medir

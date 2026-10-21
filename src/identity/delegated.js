@@ -20,7 +20,13 @@ import { badRequest, forbidden } from '../domain/errors.js'
 import { clearSessionCookie, cookieSpec, readSessionCookie, setSessionCookie } from './cookies.js'
 
 function findMember (db, email) {
-  return get(db, 'SELECT id, email, name, role FROM members WHERE email = ?', email)
+  return get(db, 'SELECT id, email, name, role, active FROM members WHERE email = ?', email)
+}
+
+/** A deactivated member cannot enter through any provider; the history stays. */
+function assertActive (memberRow) {
+  if (memberRow && !memberRow.active) throw forbidden('La cuenta está desactivada. Un editor puede reactivarla.', 'account_inactive')
+  return memberRow
 }
 
 function asIdentity (memberRow) {
@@ -31,7 +37,7 @@ function asIdentity (memberRow) {
 function demandMember (db, email) {
   const memberRow = findMember(db, email)
   if (!memberRow) throw forbidden('La cuenta no está registrada en el equipo. Un editor debe agregarla.', 'member_not_registered')
-  return memberRow
+  return assertActive(memberRow)
 }
 
 const safeEqual = (a, b) => {
@@ -174,7 +180,7 @@ function ssoMode ({ db, config, sessions, now }) {
         if (payloadData.external_id !== undefined && payloadData.external_id !== null && String(payloadData.external_id) !== '') {
           const externalValue = String(payloadData.external_id)
           const linkRow = get(db, "SELECT member_id FROM identity_links WHERE provider = 'sso' AND external_id = ?", externalValue)
-          if (linkRow) memberRow = get(db, 'SELECT id, email, name, role FROM members WHERE id = ?', linkRow.member_id)
+          if (linkRow) memberRow = assertActive(get(db, 'SELECT id, email, name, role, active FROM members WHERE id = ?', linkRow.member_id))
           else {
             memberRow = demandMember(db, payloadData.email)
             run(db, "INSERT INTO identity_links (provider, external_id, member_id, created_at) VALUES ('sso', ?, ?, ?)", externalValue, memberRow.id, now())

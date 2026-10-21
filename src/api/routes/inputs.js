@@ -58,7 +58,7 @@ export function registerInputRoutes (app, ctx) {
     onRequest: [requireRole('member')],
     schema: {
       summary: 'Guardar la propuesta editada como borrador (sólo su emisor, mientras esté propuesta)',
-      description: 'La propuesta completa (§7.5) reemplaza al borrador vigente y sobrevive al cierre de la pestaña (UD-017). Se valida igual que al publicar, pero un valor inválido es 400. Guardar dos veces lo mismo deja el mismo estado. 403 si no es el emisor; 409 si el input ya se publicó o no tiene propuesta lista.',
+      description: 'La propuesta completa (§7.5) reemplaza al borrador vigente y sobrevive al cierre de la pestaña (UD-017). Sólo se valida la forma y los ids (área, plantilla, miembros, adjuntos, unidades; un valor inválido o un campo desconocido es 400): un título, un texto o un campo obligatorio de la plantilla todavía vacío se acepta y se guarda, y publicar exige que estén completos (422). Guardar dos veces lo mismo deja el mismo estado. 403 si no es el emisor; 409 si el input ya se publicó o no tiene propuesta lista.',
       params: idParams(),
       body: proposalBody,
       response: { 200: proposalView }

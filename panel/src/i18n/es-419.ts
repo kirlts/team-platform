@@ -274,8 +274,6 @@ export const es419 = {
   'areas.colorEdited': 'Color del área',
   'sidebar.hide': 'Ocultar el panel',
   'sidebar.show': 'Mostrar el panel',
-  'areas.show': 'Ver las plantillas de {title}',
-  'areas.pending': { one: '{n} pendiente', other: '{n} pendientes' },
   'areas.open': 'Abrir {title}',
   'areas.back': 'Áreas',
   'areas.states': 'Estado de los mensajes',

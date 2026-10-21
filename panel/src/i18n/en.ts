@@ -274,8 +274,6 @@ export const en: Record<MessageKey, Message> = {
   'areas.colorEdited': 'Area color',
   'sidebar.hide': 'Hide the panel',
   'sidebar.show': 'Show the panel',
-  'areas.show': 'View the templates of {title}',
-  'areas.pending': { one: '{n} pending', other: '{n} pending' },
   'areas.open': 'Open {title}',
   'areas.back': 'Areas',
   'areas.states': 'Message state',

@@ -980,6 +980,8 @@ describe('composer (round 2, judge B)', () => {
       const y0 = (await feed.boundingBox()).y
       const bar = page.getByLabel('Nuevo mensaje', { exact: true }).last()
       await bar.fill(Array.from({ length: 12 }, (_, i) => `Párrafo ${i + 1} del texto largo que se escribe.`).join('\n\n'))
+      // `fill` sets the value without moving the caret into view in Firefox (Chromium scrolls on its own); the person's caret goes to the end of what they wrote.
+      await page.keyboard.press('Control+End')
       await settled(page)
       assert.equal((await feed.boundingBox()).y, y0, 'typing a long text does not move the page')
       const box = await bar.boundingBox()

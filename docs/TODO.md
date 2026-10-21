@@ -267,7 +267,8 @@
 - [x] Tokens, vidrio y cromo, fuentes OFL empaquetadas y `panel/DISENO.md` con referencias fechadas `2026-10-20 22:38:40`
 - [x] Medición de contraste de cada par de texto y de peso del paquete `2026-10-20 22:43:30`
 - [ ] Martín mira las capturas de cada vista y confirma o corrige la jerarquía visual (HP-020)
-- [ ] Probar en Safari 16.4 y en Firefox 128, la base de navegadores de §3
+- [x] Firefox sobre `npm run test:fit` y `npm run test:flows` con `BROWSER=firefox` (H-2500, Playwright trae Firefox 157, no 128) `2026-10-21`
+- [ ] Safari 16.4: decisión del dueño, no se prueba
 - [ ] Probar la grabación de audio en un iPhone (Safari anterior a 18.4 sólo graba MP4)
 
 ---

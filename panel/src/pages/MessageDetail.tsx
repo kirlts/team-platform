@@ -74,7 +74,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
   const closed = m.status === 'closed'
   const canEdit = !!me && (me.id === m.author_id || me.role === 'editor')
 
-  /** Un cambio del mensaje: lo que se pide y lo que lo deshace. */
+  /** A change to the message: what is requested and what undoes it. */
   const change = (label: string, forward: MessagePatch, back: MessagePatch) =>
     undo.run({ label, redo: () => patchMessage.mutateAsync({ id: m.id, patch: forward }), undo: () => patchMessage.mutateAsync({ id: m.id, patch: back }) })
 
@@ -138,7 +138,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
             <Recipients ids={m.assignee_ids} max={4} />
           )}
 
-          {/* Un texto largo no tiene tope: la columna del mensaje desplaza por dentro, y es un carril declarado. */}
+          {/* A long text has no cap: the message column scrolls inside, and it is a declared lane. */}
           <div data-lane="message-body" className="scroll-thin flex min-h-0 flex-initial flex-col gap-3 overflow-y-auto px-1.5">
             <EditableText value={m.body} label={t('detail.body')} multiline prose canEdit={canEdit} validate={required} onSave={(v) => change(t('proposal.bodyEdited'), { body: v }, { body: m.body })} displayClassName="leading-relaxed" />
             <TemplateFields

@@ -25,8 +25,8 @@ const STATUS_PHRASE: Partial<Record<InputStatus, MessageKey>> = {
 }
 
 /**
- * Bloque «Análisis»: progreso por SSE mientras el trabajo corre y, al terminar, la propuesta
- * editable. Nada llega al equipo hasta que el emisor aprieta Enviar (UD-003).
+ * «Análisis» block: progress over SSE while the job runs and, when it finishes, the editable
+ * proposal. Nothing reaches the team until the sender presses Enviar (UD-003).
  */
 export function AnalysisPanel({ input, onClose }: { input: InputRecord; onClose: () => void }) {
   const t = useT()
@@ -111,7 +111,7 @@ function ProposalEditor({ input, initial, onPublished, onDiscard }: { input: Inp
   const chain = useRef<Promise<unknown>>(Promise.resolve())
   const [saveError, setSaveError] = useState<unknown>(null)
 
-  /** Pone la propuesta en pantalla y la guarda como borrador; los guardados salen de a uno y en orden. */
+  /** Puts the proposal on screen and saves it as a draft; saves go out one at a time and in order. */
   const apply = (next: Proposal) => {
     latest.current = next
     setProposal(next)
@@ -126,7 +126,7 @@ function ProposalEditor({ input, initial, onPublished, onDiscard }: { input: Inp
     )
   }
 
-  /** Cada cambio es una operación que se puede deshacer y rehacer. */
+  /** Each change is an operation that can be undone and redone. */
   const change = (label: string, make: (p: Proposal) => Proposal) => {
     const before = latest.current
     const after = make(before)
@@ -136,7 +136,7 @@ function ProposalEditor({ input, initial, onPublished, onDiscard }: { input: Inp
   const patch = (index: number, label: string, fix: Partial<ProposalMessage> | ((m: ProposalMessage) => Partial<ProposalMessage>)) =>
     change(label, (p) => ({ ...p, messages: p.messages.map((m, i) => (i === index ? { ...m, ...(typeof fix === 'function' ? fix(m) : fix) } : m)) }))
 
-  /** Quitar un mensaje no pierde su texto: sus unidades pasan a «Sin acción», que es lo que la publicación exige. */
+  /** Removing a message does not lose its text: its units move to «Sin acción», which is what publishing requires. */
   const remove = (index: number) =>
     change(t('proposal.removed'), (p) => {
       const gone = p.messages[index]
@@ -152,7 +152,7 @@ function ProposalEditor({ input, initial, onPublished, onDiscard }: { input: Inp
   const discardedCount = discarded.reduce((n, d) => n + d.unit_ids.length, 0)
   const unitText = (id: number) => input.units?.find((u) => u.id === id)?.text
 
-  // Qué falta por mensaje: se calcula con la plantilla de cada uno.
+  // What is missing per message: computed with each one's template.
   const [missing, setMissing] = useState<Record<number, string[]>>({})
   const missingTotal = Object.values(missing).reduce((n, list) => n + list.length, 0)
 
@@ -160,7 +160,7 @@ function ProposalEditor({ input, initial, onPublished, onDiscard }: { input: Inp
     try {
       await chain.current
     } catch {
-      // El error del guardado ya está a la vista; se intenta publicar igual con lo que hay en pantalla.
+      // The save error is already on screen; publishing is attempted anyway with what is on screen.
     }
     publish.mutate({ inputId: input.id, proposal: latest.current }, { onSuccess: onPublished })
   }
@@ -272,7 +272,7 @@ function ProposalRow({
             patch(index, t('proposal.areaChanged'), (cur) => ({
               area_id,
               template_id: next?.id ?? null,
-              // Los campos de la plantilla anterior no valen en la nueva: se conservan los que se llaman igual.
+              // The previous template's fields do not apply to the new one: those with the same name are kept.
               fields: remapFields(cur.fields, parseTemplateFields(next?.body_markdown ?? '')),
             }))
           }

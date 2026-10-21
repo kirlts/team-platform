@@ -16,7 +16,7 @@ export function TemplateFields({
 }: {
   template: Template | undefined
   values: Record<string, string | null> | null | undefined
-  /** Guarda un campo; recibe el nombre y el valor nuevo. */
+  /** Saves a field; receives the name and the new value. */
   onSave: (name: string, value: string) => void | Promise<unknown>
   canEdit?: boolean
 }) {

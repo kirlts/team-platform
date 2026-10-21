@@ -12,8 +12,8 @@ import { KIND_KEY, ReplyForm } from './ReplyForm'
 import { Thumb } from './Thumb'
 
 /**
- * Respuestas de un mensaje: la lista cabe en su marco y pagina; el formulario queda al pie, a la
- * vista. El emisor no responde su propio mensaje: no ve el formulario.
+ * Replies of a message: the list fits its frame and paginates; the form stays at the foot, in
+ * view. The sender does not reply to their own message: they do not see the form.
  */
 export function ReplyThread({ message, focusForm }: { message: MessageDetail; focusForm?: boolean }) {
   const t = useT()

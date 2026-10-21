@@ -1,7 +1,7 @@
 /**
- * Adorno de fondo: una órbita anclada a la esquina superior derecha. Va detrás de todo, sin
- * interacción y sin significado (aria-hidden), y no se dibuja en teléfono. Ningún destello suelto:
- * un adorno que no se ancla a nada flota (UD-016).
+ * Background ornament: an orbit anchored to the top-right corner. It sits behind everything, with no
+ * interaction and no meaning (aria-hidden), and is not drawn on a phone. No loose sparkle:
+ * an ornament that is not anchored to anything floats (UD-016).
  */
 export function Atmosphere() {
   return (

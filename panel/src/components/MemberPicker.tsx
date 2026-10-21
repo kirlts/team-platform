@@ -4,10 +4,10 @@ import { useT } from '@/i18n'
 import type { Member } from '@/lib/types'
 import { Avatar } from './Avatar'
 
-/** Primera línea del perfil: lo que ayuda a elegir a quién le toca algo. */
+/** First line of the profile: what helps choose who gets something. */
 const firstLine = (profile: string | undefined) => (profile ?? '').split('\n').find((l) => l.trim())?.trim() ?? ''
 
-/** Lista de miembros con marca de selección, en una ventana emergente. El botón muestra «+» o «+N» si hay destinatarios fuera de la fila. */
+/** List of members with a selection mark, in a popover. The button shows «+» or «+N» if there are recipients outside the row. */
 export function MemberPicker({
   members,
   selected,

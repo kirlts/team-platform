@@ -1,4 +1,4 @@
-// Consultas y mutaciones contra la API, con TanStack Query. Las claves son:
+// Queries and mutations against the API, with TanStack Query. The keys are:
 // ['me'], ['members'], ['areas'], ['templates', areaId], ['messages', ...], ['message', id],
 // ['inputs', id], ['providers'].
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -59,7 +59,7 @@ export function useTemplates(areaId: string | undefined, enabled = true) {
 export interface MessagesParams {
   query: MessageQuery
   meId: string
-  /** Sólo mensajes con respuestas, ordenados por la última (Inicio). */
+  /** Only messages with replies, ordered by the latest (Inicio). */
   repliesFeed?: boolean
   enabled?: boolean
 }
@@ -117,14 +117,14 @@ export function usePublish() {
   })
 }
 
-/** Guarda el borrador de la propuesta (PATCH /inputs/:id/proposal): lo editado sobrevive a cerrar la pestaña. */
+/** Saves the proposal draft (PATCH /inputs/:id/proposal): what was edited survives closing the tab. */
 export function useSaveProposal(inputId: string) {
   return useMutation({
     mutationFn: (proposal: Proposal) => api<Proposal>(`/inputs/${inputId}/proposal`, { method: 'PATCH', body: proposal }),
   })
 }
 
-/** Cambia el texto del input enviado (PATCH /inputs/:id). */
+/** Changes the text of the submitted input (PATCH /inputs/:id). */
 export function useSaveInputText(inputId: string) {
   const qc = useQueryClient()
   return useMutation({
@@ -133,7 +133,7 @@ export function useSaveInputText(inputId: string) {
   })
 }
 
-/** Vuelve a encolar el análisis de un input que falló; conserva el texto y las extracciones (POST /inputs/:id/reprocess). */
+/** Requeues the analysis of an input that failed; keeps the text and the extractions (POST /inputs/:id/reprocess). */
 export function useReprocess() {
   const invalidate = useInvalidator()
   return useMutation({
@@ -150,7 +150,7 @@ export function useCancelInput() {
   })
 }
 
-/** Responde; con archivos, el envío es multipart (POST /messages/:id/replies con `files` y `links`). */
+/** Replies; with files, the submit is multipart (POST /messages/:id/replies with `files` and `links`). */
 export function useReply(messageId: string) {
   const invalidate = useInvalidator()
   return useMutation({
@@ -167,7 +167,7 @@ export function useReply(messageId: string) {
   })
 }
 
-/** Edición en el lugar de un mensaje publicado (PATCH /messages/:id). Devuelve el mensaje guardado. */
+/** In-place edit of a published message (PATCH /messages/:id). Returns the saved message. */
 export function usePatchMessage() {
   const qc = useQueryClient()
   return useMutation({
@@ -216,13 +216,13 @@ export function useSaveTemplate(areaId: string) {
 export function useDeleteTemplate(areaId: string) {
   const invalidate = useInvalidator()
   return useMutation({
-    // Toda operación destructiva exige confirmación explícita (MASTER-SPEC, convenciones de API).
+    // Every destructive operation requires explicit confirmation (MASTER-SPEC, API conventions).
     mutationFn: (id: string) => api(`/areas/${areaId}/templates/${id}?confirm=true`, { method: 'DELETE' }),
     onSuccess: () => invalidate('templates', 'areas'),
   })
 }
 
-/** Restaura una plantilla borrada (POST /templates/:id/restore): es lo que deshace un borrado. */
+/** Restores a deleted template (POST /templates/:id/restore): it is what undoes a deletion. */
 export function useRestoreTemplate() {
   const invalidate = useInvalidator()
   return useMutation({
@@ -243,7 +243,7 @@ export function useSaveMember() {
   })
 }
 
-/** Alta de un miembro (POST /members, sólo el Editor). */
+/** Adding a member (POST /members, Editor only). */
 export function useCreateMember() {
   const invalidate = useInvalidator()
   return useMutation({
@@ -252,7 +252,7 @@ export function useCreateMember() {
   })
 }
 
-/** El idioma de la cuenta cambia la interfaz al instante: se escribe en `me` antes de que el servidor conteste. */
+/** The account language changes the interface instantly: it is written into `me` before the server answers. */
 export function useSaveLanguage() {
   const qc = useQueryClient()
   return useMutation({
@@ -281,7 +281,7 @@ export function useSaveProvider() {
   })
 }
 
-/** Descripción del proyecto (UD-024): la ve todo el equipo y sólo el Editor la cambia. */
+/** Project description (UD-024): the whole team sees it and only the Editor changes it. */
 export interface Project {
   name: string
   description: string
@@ -295,7 +295,7 @@ export function useProject() {
   })
 }
 
-/** Cambia la descripción con texto (edición en el lugar) o con un archivo `.md` (multipart `file`). */
+/** Changes the description with text (in-place edit) or with a `.md` file (multipart `file`). */
 export function useSaveProject() {
   const qc = useQueryClient()
   return useMutation({

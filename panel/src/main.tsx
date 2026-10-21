@@ -11,7 +11,7 @@ initTheme()
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Una sesión vencida o un recurso ausente no se arreglan reintentando.
+      // An expired session or a missing resource is not fixed by retrying.
       retry: (count, error) => !(error instanceof ApiError && error.status < 500) && count < 2,
       refetchOnWindowFocus: false,
     },

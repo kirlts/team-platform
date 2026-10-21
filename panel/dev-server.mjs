@@ -1,19 +1,19 @@
 #!/usr/bin/env node
-// SERVIDOR DOBLE DE DESARROLLO. No es la API de team-platform y no entra a la imagen de producción.
+// DEVELOPMENT DOUBLE SERVER. It is not the team-platform API and does not go into the production image.
 //
-// Implementa en memoria el contrato de MASTER-SPEC §7.1 (rutas bajo /api) para poder construir y
-// capturar el panel sin la API real. Todo lo que devuelve es dato de ejemplo de desarrollo:
-// miembros «Prueba», un proyecto llamado «Desarrollo», mensajes y adjuntos inventados, y un
-// «análisis» que reparte el texto por párrafos sin leerlo. Al reiniciar, todo vuelve al inicio.
+// Implements the MASTER-SPEC §7.1 contract in memory (routes under /api) so the panel can be built and
+// captured without the real API. Everything it returns is development sample data:
+// «Prueba» members, a project called «Desarrollo», invented messages and attachments, and an
+// «analysis» that splits the text by paragraphs without reading it. On restart, everything goes back to the start.
 //
-// Acceso: cualquier correo de los miembros de ejemplo (ana@dev.invalid es Editor) con una contraseña
-// de 15 caracteres o más. No hay contraseñas guardadas en este archivo.
+// Access: any email of the sample members (ana@dev.invalid is Editor) with a password
+// of 15 characters or more. No passwords are stored in this file.
 //
-//   node dev-server.mjs                       escucha en 127.0.0.1:8787 (PANEL_DEV_PORT)
-//   PANEL_DEV_STATIC=1 node dev-server.mjs    además sirve panel/dist con CSP, como lo haría @fastify/static
+//   node dev-server.mjs                       listens on 127.0.0.1:8787 (PANEL_DEV_PORT)
+//   PANEL_DEV_STATIC=1 node dev-server.mjs    also serves panel/dist with CSP, as @fastify/static would
 //
-// Supuestos que el panel hace sobre las respuestas (la especificación sólo fija las rutas) están en
-// panel/src/lib/types.ts; este servidor los cumple.
+// Assumptions the panel makes about the responses (the specification only fixes the routes) are in
+// panel/src/lib/types.ts; this server meets them.
 
 import { createHash, randomUUID } from 'node:crypto'
 import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs'
@@ -24,21 +24,21 @@ import { fileURLToPath } from 'node:url'
 const PORT = Number(process.env.PANEL_DEV_PORT ?? 8787)
 const STATIC = process.env.PANEL_DEV_STATIC === '1'
 const DIST = fileURLToPath(new URL('./dist/', import.meta.url))
-/** Cada paso del análisis simulado dura esto. Sólo existe para que la barra se vea avanzar. */
+/** Each step of the simulated analysis lasts this long. It only exists so the bar visibly advances. */
 const STEP_MS = Number(process.env.PANEL_DEV_STEP_MS ?? 700)
 const MAX_BODY = 40 * 1024 * 1024
 
 const id = () => randomUUID().slice(0, 8)
 const ago = (minutes) => new Date(Date.now() - minutes * 60_000).toISOString()
 
-// ---------------------------------------------------------------- datos de ejemplo
+// ---------------------------------------------------------------- sample data
 
 const members = [
   { id: 'u-ana', email: 'ana@dev.invalid', name: 'Ana Prueba', role: 'editor', language: 'es-419', active: true, profile: 'Soy la Editora del equipo y llevo el servidor, la base de datos y el despliegue. Decido cómo se publica y qué entra a producción.\n\nNo toco la interfaz del panel ni las pruebas manuales. Prefiero que los avisos lleguen con el error literal y el paso donde ocurrió.' },
   { id: 'u-bruno', email: 'bruno@dev.invalid', name: 'Bruno Prueba', role: 'member', language: 'es-419', active: true, profile: 'Me encargo de la interfaz del panel y de la accesibilidad. Sé de React, de teclado y de lectores de pantalla.\n\nNo decido nada de la API. Prefiero recibir los reportes con una captura y el tamaño de la ventana.' },
   { id: 'u-carla', email: 'carla@dev.invalid', name: 'Carla Prueba', role: 'member', language: 'es-419', active: true, profile: 'Hago pruebas manuales y reporto errores con sus pasos para reproducirlos. Conozco el comportamiento esperado de cada pantalla.\n\nNo arreglo código. Prefiero que me devuelvan el caso cerrado con la versión donde quedó corregido.' },
   { id: 'u-diego', email: 'diego@dev.invalid', name: 'Diego Prueba', role: 'member', language: 'es-419', active: true, profile: 'Llevo producto y los requerimientos del cliente. Decido el orden de lo que se construye.\n\nNo toco infraestructura. Prefiero las preguntas por escrito y con el contexto del cliente.' },
-  // Nombres y textos largos a propósito: el panel debe envolverlos, no cortarlos.
+  // Names and texts deliberately long: the panel must wrap them, not cut them.
   { id: 'u-maria', email: 'maria.de.los.angeles.fernandez.larrain@dev.invalid', name: 'María de los Ángeles Fernández-Larraín', role: 'member', language: 'es-419', active: true, profile: 'Escribo la documentación del producto, los manuales de usuario y la capacitación del equipo del cliente, y reviso los textos de la interfaz en cada versión. Sé de redacción técnica, de localización y de accesibilidad del lenguaje.\n\nDecido el tono de todo texto que lee una persona usuaria. No toco el código ni la base de datos; si un texto está en el código, pido el cambio a quien lo mantiene.\n\nPrefiero que me lleguen los cambios con el texto antes y el texto después, y que me avisen con tiempo cuando una pantalla cambia de lugar. Los audios largos me cuestan; prefiero un resumen escrito.' },
   { id: 'u-eduardo', email: 'eduardo@dev.invalid', name: 'Eduardo Valenzuela Ibáñez', role: 'member', language: 'es-419', active: true, profile: 'Hago integraciones con servicios externos: correo, GitHub y mensajería. Conozco las cuotas y los límites de cada proveedor.\n\nNo decido el diseño de las pantallas.' },
   { id: 'u-sofia', email: 'sofia@dev.invalid', name: 'Sofía Prueba', role: 'member', language: 'es-419', active: true, profile: 'Analizo datos: mido cuánto tarda cada paso y qué cuesta cada llamada al modelo.\n\nNo toco el panel.' },
@@ -149,7 +149,7 @@ seedMessage({ area_id: 'a-feedback', author_id: 'u-bruno', title: 'Las fechas de
 ])
 seedMessage({ area_id: 'a-error', author_id: 'u-ana', title: 'Revisar el tiempo de respuesta de la lista de mensajes', body: 'Con más de doscientos mensajes la lista tarda en abrir.', status: 'open', created_at: ago(96 * 60), assignee_ids: ['u-bruno'], attachment_ids: [] })
 
-// Mensajes con todos los tipos de medio, títulos largos y muchos destinatarios, para ver cómo se reparte el texto.
+// Messages with every media type, long titles and many recipients, to see how the text is distributed.
 const everyone = members.map((x) => x.id)
 seedMessage({ area_id: 'a-accesibilidad', author_id: 'u-carla', title: 'Revisar la lectura del panel en teléfonos pequeños con el tamaño de letra del sistema al máximo y el tema oscuro activado', body: 'En un teléfono de 360 píxeles de ancho con la letra del sistema al máximo, varias filas se desbordan. Adjunto una captura, la grabación, una nota de voz, el documento con el detalle y el caso en GitHub.', status: 'open', created_at: ago(12), fields: { summary: 'La fila de mensajes se desborda con la letra del sistema al máximo.', device: 'Teléfono de 360 píxeles de ancho con Android' }, assignee_ids: everyone.filter((x) => x !== 'u-carla'), attachment_ids: [imgDashboard, videoDemo, audioNota, docFeedback, linkIssue] }, [
   { author_id: 'u-maria', kind: 'clarification', body: 'Cuando dices tamaño máximo, ¿hablas del ajuste de accesibilidad de Android o del zoom del navegador? Cambia dónde se arregla.', created_at: ago(8), attachment_ids: [imgLogin, audioNota] },
@@ -161,13 +161,13 @@ seedMessage({ area_id: 'a-error', author_id: 'u-diego', title: 'Grabación del c
 seedMessage({ area_id: 'a-idea', author_id: 'u-bruno', title: 'Nota de voz con la idea del resumen semanal', body: 'La dejé hablada porque es más rápido.', status: 'open', created_at: ago(40), assignee_ids: ['u-ana'], attachment_ids: [audioNota] })
 seedMessage({ area_id: 'a-pregunta', author_id: 'u-diego', title: 'Enlace al caso del cliente', body: 'El cliente lo escribió en su sistema.', status: 'open', created_at: ago(45), assignee_ids: ['u-ana'], attachment_ids: [linkIssue] })
 
-/** Campos que declara una plantilla en su frontmatter: `- { name: x, label: Y, required: true }`. */
+/** Fields a template declares in its frontmatter: `- { name: x, label: Y, required: true }`. */
 function templateFields(t) {
   return [...(t?.body_markdown ?? '').matchAll(/^\s*-\s*\{\s*name:\s*(\w+),\s*label:\s*([^,}]+),\s*required:\s*(true|false)/gm)].map((m) => ({ name: m[1], label: m[2].trim(), required: m[3] === 'true' }))
 }
 const activeTemplate = (areaId, templateId) => templates.find((t) => t.id === templateId && t.area_id === areaId && !t.deleted_at) ?? templates.find((t) => t.area_id === areaId && !t.deleted_at)
 
-/** Lo que el servidor real rechazaría al publicar: campos de otra plantilla o campos obligatorios vacíos. */
+/** What the real server would reject on publish: fields from another template or empty required fields. */
 function proposalProblem(proposal, input) {
   for (const [i, pm] of proposal.messages.entries()) {
     const n = i + 1
@@ -182,7 +182,7 @@ function proposalProblem(proposal, input) {
     if (!(pm.assignee_ids ?? []).every((x) => members.some((mm) => mm.id === x))) return `Mensaje ${n}: un destinatario no existe.`
     if (!(pm.attachment_ids ?? []).every((x) => input.attachment_ids.includes(x))) return `Mensaje ${n}: un adjunto no es de este input.`
   }
-  // Cobertura de unidades: cada una exactamente una vez, en un mensaje o entre los descartados (HP-014).
+  // Unit coverage: each one exactly once, in one message or among the discarded ones (HP-014).
   const owners = new Map()
   for (const [i, pm] of proposal.messages.entries()) for (const u of pm.unit_ids ?? []) owners.set(u, [...(owners.get(u) ?? []), `mensaje ${i + 1}`])
   for (const d of proposal.discarded ?? []) for (const u of d.unit_ids ?? []) owners.set(u, [...(owners.get(u) ?? []), 'descartados'])
@@ -194,7 +194,7 @@ function proposalProblem(proposal, input) {
   return null
 }
 
-// ---------------------------------------------------------------- estado de sesión, eventos y trabajos
+// ---------------------------------------------------------------- session state, events and jobs
 
 const sessions = new Map()
 const inputs = new Map()
@@ -281,12 +281,12 @@ function runJob(input) {
 }
 
 let analyzed = 0
-/** Unidades numeradas del input: un párrafo cada una. Las numera el servidor, como lo hará el sistema real. */
+/** Numbered units of the input: one paragraph each. The server numbers them, as the real system will. */
 function unitsOf(text) {
   return text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean).map((p, i) => ({ id: i + 1, text: p }))
 }
 
-/** «Análisis» de desarrollo: un mensaje por unidad, cada uno con su área por turno; la última unidad larga queda sin acción. No lee el sentido del texto. */
+/** Development «analysis»: one message per unit, each with its area per turn; the last long unit is left without an action. It does not read the meaning of the text. */
 function analyze(input) {
   const others = members.filter((m) => m.id !== input.author_id)
   const images = input.attachment_ids.filter((aid) => attachments.get(aid)?.kind === 'image')
@@ -311,7 +311,7 @@ function analyze(input) {
   }
 }
 
-// ---------------------------------------------------------------- utilidades HTTP
+// ---------------------------------------------------------------- HTTP utilities
 
 function send(res, status, body, headers = {}) {
   const payload = body === undefined ? '' : JSON.stringify(body)
@@ -319,11 +319,11 @@ function send(res, status, body, headers = {}) {
   res.end(payload)
 }
 
-/** Cuerpo de error de la API: `{ code, message }`; el panel traduce el código a su catálogo. */
+/** API error body: `{ code, message }`; the panel translates the code to its catalog. */
 const CODE_BY_STATUS = { 400: 'bad_request', 401: 'unauthenticated', 403: 'forbidden', 404: 'not_found', 409: 'conflict', 422: 'validation', 500: 'internal' }
 const fail = (res, status, message, code = CODE_BY_STATUS[status] ?? 'bad_request') => send(res, status, { code, message })
 
-/** Lista con el sobre de la API: `{ items, page, limit, total }`. */
+/** List with the API envelope: `{ items, page, limit, total }`. */
 const envelope = (items) => ({ items, page: 1, limit: 100, total: items.length })
 
 function readBody(req) {
@@ -410,7 +410,7 @@ function serveStatic(req, res, pathname) {
   createReadStream(file).pipe(res)
 }
 
-// ---------------------------------------------------------------- rutas
+// ---------------------------------------------------------------- routes
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://localhost')
@@ -450,7 +450,7 @@ const server = createServer(async (req, res) => {
     }
     if (path === '/me' && method === 'GET') return send(res, 200, { ...me, project_name: project.name })
 
-    // --- descripción del proyecto: la ve todo el equipo y sólo el Editor la cambia (UD-024)
+    // --- project description: the whole team sees it and only the Editor changes it (UD-024)
     if (path === '/settings/project' && method === 'GET') return send(res, 200, project)
     if (path === '/settings/project' && method === 'PATCH') {
       if (needEditor()) return
@@ -462,13 +462,13 @@ const server = createServer(async (req, res) => {
         project.description = file.data.toString('utf8')
       } else {
         const body = await readJson(req)
-        if (typeof body?.description !== 'string') return fail(res, 400, 'Falta la descripción.', 'validation')
+        if (typeof body?.description !== 'string') return fail(res, 400, 'Falta la descripción.', 'description_required')
         project.description = body.description
       }
       return send(res, 200, project)
     }
 
-    // --- eventos
+    // --- events
     if (path === '/events' && method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' })
       res.write('retry: 3000\n\n')
@@ -484,7 +484,7 @@ const server = createServer(async (req, res) => {
       return
     }
 
-    // --- sólo de desarrollo: simula un mensaje que llega de otro miembro (prueba el aviso por SSE)
+    // --- development only: simulates a message arriving from another member (tests the SSE notice)
     if (path === '/_dev/incoming' && method === 'POST') {
       const from = members.find((x) => x.id !== me.id)
       const msg = seedMessage({ area_id: 'a-pregunta', author_id: from.id, title: 'Confirmar el límite de adjuntos por mensaje', body: 'Mensaje entrante de ejemplo, generado por el servidor de desarrollo.', status: 'open', created_at: new Date().toISOString(), assignee_ids: [me.id], attachment_ids: [] })
@@ -502,7 +502,7 @@ const server = createServer(async (req, res) => {
       const files = parts.filter((p) => p.name === 'files' && p.filename)
       const links = parts.filter((p) => p.name === 'links').map((p) => p.data.toString('utf8'))
       if (!text.trim() && !files.length && !links.length) return fail(res, 400, 'El input está vacío', 'empty_input')
-      // Rechazos previos a encolar, como los de la API: un archivo grande o un video largo (el nombre lo provoca).
+      // Rejections before queueing, like the API's: a large file or a long video (the name triggers it).
       const huge = files.find((f) => /demasiado-grande/.test(f.filename))
       if (huge) return fail(res, 413, 'Un archivo supera el tamaño máximo permitido.', `${kindOf(huge.type ?? '')}_too_large`)
       const long = files.find((f) => /video-largo/.test(f.filename))
@@ -536,7 +536,7 @@ const server = createServer(async (req, res) => {
       if (!m[2] && method === 'GET') {
         return send(res, 200, inputView(input))
       }
-      // El texto enviado se corrige en el lugar; la propuesta no se rehace.
+      // The submitted text is corrected in place; the proposal is not redone.
       if (!m[2] && method === 'PATCH') {
         const body = await readJson(req)
         if (!body || typeof body.text !== 'string' || !body.text.trim()) return fail(res, 422, 'El texto no puede quedar vacío', 'validation')
@@ -591,7 +591,7 @@ const server = createServer(async (req, res) => {
       }
     }
 
-    // --- mensajes
+    // --- messages
     if (path === '/messages' && method === 'GET') {
       const q = url.searchParams
       const forId = q.get('for') === 'me' ? me.id : q.get('for')
@@ -607,7 +607,7 @@ const server = createServer(async (req, res) => {
       const msg = messages.find((x) => x.id === m[1])
       if (!msg) return fail(res, 404, 'No existe')
       if (!m[2] && method === 'GET') return send(res, 200, { ...view(msg), replies: replies.get(msg.id).map(replyView) })
-      // Edición en el lugar de un mensaje publicado: el emisor o un Editor.
+      // In-place edit of a published message: the sender or an Editor.
       if (!m[2] && method === 'PATCH') {
         if (msg.author_id !== me.id && !isEditor) return fail(res, 403, 'Sólo el emisor o un Editor edita el mensaje', 'forbidden')
         const body = await readJson(req)
@@ -682,7 +682,7 @@ const server = createServer(async (req, res) => {
       }
     }
 
-    // --- áreas y plantillas
+    // --- areas and templates
     if (path === '/areas' && method === 'GET') {
       return send(res, 200, envelope(areas.map((a) => ({ ...a, open_count: messages.filter((x) => x.area_id === a.id && x.status === 'open').length, unresolved_count: messages.filter((x) => x.area_id === a.id && x.status !== 'closed').length, template_count: templates.filter((t) => t.area_id === a.id && !t.deleted_at).length }))))
     }
@@ -736,7 +736,7 @@ const server = createServer(async (req, res) => {
       }
       if (method === 'DELETE') {
         if (url.searchParams.get('confirm') !== 'true') return fail(res, 400, 'Falta la confirmación.', 'confirmation_required')
-        t.deleted_at = new Date().toISOString() // borrado en blando: POST /templates/:id/restore lo devuelve
+        t.deleted_at = new Date().toISOString() // soft delete: POST /templates/:id/restore brings it back
         return send(res, 204)
       }
     }
@@ -749,9 +749,9 @@ const server = createServer(async (req, res) => {
       return send(res, 200, t)
     }
 
-    // --- equipo y ajustes
+    // --- team and settings
     if (path === '/members' && method === 'GET') return send(res, 200, envelope(members))
-    // Alta de un miembro: sólo el Editor.
+    // Adding a member: Editor only.
     if (path === '/members' && method === 'POST') {
       if (needEditor()) return
       const body = await readJson(req)

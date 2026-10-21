@@ -1,7 +1,7 @@
 import type { SVGProps } from 'react'
 
-// Juego de íconos propio: cuadrícula de 20, trazo de 1,7 con extremos redondos. Sólo los que
-// usa el panel; cada uno hereda el color del texto (currentColor).
+// Own icon set: 20 grid, 1.7 stroke with round caps. Only the ones
+// the panel uses; each one inherits the text color (currentColor).
 export type IconProps = Omit<SVGProps<SVGSVGElement>, 'children'> & { size?: number }
 
 function make(paths: string[], extra?: (p: IconProps) => React.ReactNode) {

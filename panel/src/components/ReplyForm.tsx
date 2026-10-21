@@ -16,7 +16,7 @@ export const KIND_KEY: Record<ReplyKind, MessageKey> = {
 
 const KINDS = Object.keys(KIND_KEY) as ReplyKind[]
 
-/** Respuesta a un mensaje: texto, tipo y, como en la barra de envío, clip, cámara y micrófono. */
+/** Reply to a message: text, type and, as in the send bar, clip, camera and microphone. */
 export function ReplyForm({ messageId, onSent, autoFocus }: { messageId: string; onSent?: () => void; autoFocus?: boolean }) {
   const t = useT()
   const errorText = useErrorText()

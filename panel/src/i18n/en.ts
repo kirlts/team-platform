@@ -314,4 +314,6 @@ export const en: Record<MessageKey, Message> = {
   'error.not_input_author': 'Only the sender edits the proposal',
   'error.assignee_inactive': 'A recipient is deactivated',
   'error.confirmation_required': 'Confirmation is missing',
+  'error.description_required': 'The description is missing',
+  'error.file_encoding': 'The file is not UTF-8 text',
 }

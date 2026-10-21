@@ -1,6 +1,6 @@
-// Filtros de Mensajes: propiedad, operador y valor, guardados en la URL.
-// El servidor sólo entiende igualdad (GET /messages?for=&area=&status=&q=&replies=);
-// la negación («no es») y «sin respuestas» se aplican acá sobre la lista recibida.
+// Mensajes filters: property, operator and value, kept in the URL.
+// The server only understands equality (GET /messages?for=&area=&status=&q=&replies=);
+// negation («no es») and «sin respuestas» are applied here on the received list.
 import type { Message } from './types'
 
 export type FilterProp = 'for' | 'area' | 'status' | 'replies'
@@ -20,7 +20,7 @@ export interface MessageQuery {
 export const FILTER_PROPS: FilterProp[] = ['for', 'area', 'status', 'replies']
 export const REPLIES_VALUES = ['con', 'sin'] as const
 export const STATUS_VALUES = ['open', 'answered', 'closed'] as const
-/** Valor del filtro «Para» que significa la persona que tiene la sesión. */
+/** Value of the «Para» filter meaning the person holding the session. */
 export const ME = 'me'
 
 const PROP_SET = new Set<string>(FILTER_PROPS)
@@ -38,7 +38,7 @@ function validFilter(prop: string, op: string, value: string): Filter | null {
   return { prop: p, op, value }
 }
 
-/** `?f=for:eq:me&f=status:neq:closed&q=texto` → consulta. Un filtro por propiedad; lo inválido se ignora. */
+/** `?f=for:eq:me&f=status:neq:closed&q=texto` → query. One filter per property; invalid ones are ignored. */
 export function parseQuery(params: URLSearchParams): MessageQuery {
   const filters: Filter[] = []
   for (const raw of params.getAll('f')) {
@@ -58,7 +58,7 @@ export function serializeQuery(query: MessageQuery): URLSearchParams {
   return out
 }
 
-/** Reemplaza el filtro de la misma propiedad o lo agrega. */
+/** Replaces the filter of the same property or adds it. */
 export function upsertFilter(filters: Filter[], next: Filter): Filter[] {
   const rest = filters.filter((f) => f.prop !== next.prop)
   const index = filters.findIndex((f) => f.prop === next.prop)
@@ -72,7 +72,7 @@ export function removeFilter(filters: Filter[], prop: FilterProp): Filter[] {
   return filters.filter((f) => f.prop !== prop)
 }
 
-/** Parámetros que entiende el servidor: sólo igualdades. */
+/** Parameters the server understands: equalities only. */
 export function toApiParams(query: MessageQuery): URLSearchParams {
   const out = new URLSearchParams()
   for (const f of query.filters) {
@@ -87,7 +87,7 @@ export function toApiParams(query: MessageQuery): URLSearchParams {
   return out
 }
 
-/** Lo que el servidor no filtra: negaciones y «sin respuestas». */
+/** What the server does not filter: negations and «sin respuestas». */
 export function applyClientFilters(messages: Message[], query: MessageQuery, meId: string): Message[] {
   return messages.filter((m) =>
     query.filters.every((f) => {
@@ -108,7 +108,7 @@ export function applyClientFilters(messages: Message[], query: MessageQuery, meI
   )
 }
 
-/** Clave estable de consulta para TanStack Query. */
+/** Stable query key for TanStack Query. */
 export function queryKeyOf(query: MessageQuery): string {
   return serializeQuery(query).toString()
 }

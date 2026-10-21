@@ -33,7 +33,7 @@ function Shell() {
       try {
         localStorage.removeItem('team-active-input')
       } catch {
-        // Sin almacenamiento no hay nada que borrar.
+        // Without storage there is nothing to delete.
       }
       await queryClient.invalidateQueries({ queryKey: ['me'] })
     }
@@ -64,7 +64,7 @@ function Shell() {
 
 export function App() {
   const me = useMe()
-  // El idioma es de la cuenta (UD-018); antes de entrar sigue al del navegador.
+  // The language belongs to the account (UD-018); before sign-in it follows the browser's.
   const language = isLanguage(me.data?.language) ? me.data.language : detectLanguage(navigator.language)
   return (
     <I18nProvider language={language}>

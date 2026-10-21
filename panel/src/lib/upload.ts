@@ -1,6 +1,6 @@
-// Subida de un input con progreso. `fetch` no da progreso de subida de forma portable
-// (informe 07, §6.3), así que se usa XMLHttpRequest. El reintento reenvía todo: es seguro
-// porque POST /inputs es idempotente por hash (MASTER-SPEC §1.3).
+// Upload of an input with progress. `fetch` does not give upload progress portably
+// (report 07, §6.3), so XMLHttpRequest is used. The retry resends everything: it is safe
+// because POST /inputs is idempotent by hash (MASTER-SPEC §1.3).
 import { API_BASE, CSRF_HEADER } from './api'
 
 export interface NewInput {
@@ -16,7 +16,7 @@ export interface CreatedInput {
 
 export class UploadError extends Error {
   status: number
-  /** Código estable de la API (`{ code, message }`); el panel lo traduce. */
+  /** Stable API code (`{ code, message }`); the panel translates it. */
   code: string
   constructor(status: number, message: string, code = '') {
     super(message)
@@ -60,7 +60,7 @@ export function uploadInput(
         if (typeof body?.message === 'string') message = body.message
         if (typeof body?.code === 'string') code = body.code
       } catch {
-        // Sin cuerpo JSON: queda el estado HTTP.
+        // No JSON body: the HTTP status remains.
       }
       reject(new UploadError(xhr.status, message, code))
     }

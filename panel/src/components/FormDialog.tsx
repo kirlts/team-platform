@@ -17,7 +17,7 @@ export interface FieldSpec {
   autoComplete?: string
 }
 
-/** Formulario corto en una ventana: crea un área o una plantilla. El error vive bajo el campo que lo causó. */
+/** Short form in a window: creates an area or a template. The error lives under the field that caused it. */
 export function FormDialog({
   open,
   onOpenChange,

@@ -4,7 +4,7 @@ import { useT } from '@/i18n'
 import { mmss } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
-/** Reproductor de audio con la piel del producto: reproducir o pausar, avance y tiempo. Reemplaza al control nativo del navegador. */
+/** Audio player with the product's skin: play or pause, progress and time. Replaces the browser's native control. */
 export function AudioPlayer({ src, name, className }: { src: string; name: string; className?: string }) {
   const t = useT()
   const audio = useRef<HTMLAudioElement>(null)

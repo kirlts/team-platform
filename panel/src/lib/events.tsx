@@ -5,16 +5,16 @@ import { connectEvents, EventsStore, type JobProgress } from './events-store'
 
 const EventsContext = createContext<EventsStore | null>(null)
 
-/** Abre el único flujo SSE de la sesión y reparte sus eventos. Va dentro de la sesión iniciada. */
+/** Opens the session's single SSE stream and dispatches its events. It goes inside the signed-in session. */
 export function EventsProvider({
   children,
   store: given,
   connect = true,
 }: {
   children: ReactNode
-  /** Tienda propia (pruebas). Por omisión nace una. */
+  /** Own store (tests). By default one is created. */
   store?: EventsStore
-  /** Falso en pruebas: no abre el flujo real. */
+  /** False in tests: it does not open the real stream. */
   connect?: boolean
 }) {
   const queryClient = useQueryClient()
@@ -51,8 +51,8 @@ export function useEventsSnapshot() {
 }
 
 /**
- * Progreso efímero de un trabajo, leído del flujo único. Al llegar `done` invalida la
- * consulta del input para traer la propuesta.
+ *  Ephemeral progress of a job, read from the single stream. When `done` arrives it invalidates the
+ *  input's query to bring the proposal.
  */
 export function useJobProgress(jobId: string | undefined, inputId: string | undefined): JobProgress | undefined {
   const store = useEventsStore()

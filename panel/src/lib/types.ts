@@ -1,9 +1,9 @@
-// Tipos de lo que devuelve la API (MASTER-SPEC §7.1 y §7.2). Los nombres de los
-// campos son los de las tablas. Donde la especificación no fija la forma de la
-// respuesta, el supuesto está anotado y el servidor doble de desarrollo lo cumple.
+// Types of what the API returns (MASTER-SPEC §7.1 and §7.2). Field names
+// are the tables' own. Where the specification does not fix the shape of the
+// response, the assumption is noted and the development double server meets it.
 
 export type Role = 'member' | 'editor'
-/** Idioma de la cuenta (UD-018): rige la interfaz, los mensajes que se redactan y los prompts. */
+/** Account language (UD-018): governs the interface, the messages that are drafted and the prompts. */
 export type Language = 'es-419' | 'en'
 
 export interface Member {
@@ -11,14 +11,14 @@ export interface Member {
   email: string
   name: string
   role: Role
-  /** Perfil en prosa (UD-023): un par de párrafos en primera persona que escribe la propia persona; hasta 4.000 caracteres. */
+  /** Profile in prose (UD-023): a couple of paragraphs in the first person written by the person themselves; up to 4,000 characters. */
   profile: string
   language: Language
-  /** Una cuenta desactivada no inicia sesión y conserva su historial; sólo el Editor la desactiva o la reactiva. */
+  /** A deactivated account does not sign in and keeps its history; only the Editor deactivates or reactivates it. */
   active: boolean
 }
 
-/** Respuesta de GET /me: el miembro y el nombre del proyecto (supuesto: `project_name`). */
+/** Response of GET /me: the member and the project name (assumption: `project_name`). */
 export interface Me extends Member {
   project_name?: string
 }
@@ -28,9 +28,9 @@ export interface Area {
   title: string
   description: string
   position: number
-  /** Supuesto: GET /areas trae el conteo de mensajes abiertos del área. */
+  /** Assumption: GET /areas brings the area's count of open messages. */
   open_count?: number
-  /** Abiertos y respondidos: lo que sigue pendiente. Es el número que lleva la barra lateral. */
+  /** Open and answered: what is still pending. It is the number the sidebar carries. */
   unresolved_count?: number
   template_count?: number
 }
@@ -53,7 +53,7 @@ export interface Attachment {
   kind: AttachmentKind
   mime?: string
   size?: number
-  /** Nombre de archivo original o dirección del enlace. */
+  /** Original file name or address of the link. */
   name?: string
 }
 
@@ -71,15 +71,15 @@ export interface ProposalMessage {
   template_id: string | null
   title: string
   body: string
-  /** Valor de cada campo de la plantilla, por su nombre. */
+  /** Value of each template field, by its name. */
   fields?: Record<string, string | null> | null
   assignee_ids: string[]
   attachment_ids: string[]
-  /** Unidades del input que cubre este mensaje (las numera el sistema). */
+  /** Units of the input this message covers (the system numbers them). */
   unit_ids: number[]
 }
 
-/** Unidades del input que el análisis dejó sin mensaje, con el motivo. */
+/** Units of the input the analysis left without a message, with the reason. */
 export interface DiscardedUnits {
   unit_ids: number[]
   reason: string
@@ -90,7 +90,7 @@ export interface Proposal {
   discarded: DiscardedUnits[]
 }
 
-/** Supuesto: el input trae sus unidades numeradas con el texto, para mostrar lo descartado. */
+/** Assumption: the input brings its units numbered with the text, to show what was discarded. */
 export interface InputUnit {
   id: number
   text: string
@@ -106,9 +106,9 @@ export interface InputRecord {
   attachments: Attachment[]
   units?: InputUnit[]
   proposal?: Proposal | null
-  /** Motivo visible cuando status es `failed`. */
+  /** Visible reason when status is `failed`. */
   error?: string | null
-  /** Código estable del fallo; el panel lo traduce a su catálogo. */
+  /** Stable code of the failure; the panel translates it to its catalog. */
   error_code?: string | null
 }
 
@@ -122,9 +122,9 @@ export interface Reply {
   body: string
   kind: ReplyKind
   created_at: string
-  /** Tipos de medio adjuntos a la respuesta, para dibujar un ícono por tipo (UD-016). */
+  /** Media types attached to the reply, to draw one icon per type (UD-016). */
   attachment_kinds?: AttachmentKind[]
-  /** Los adjuntos mismos (miniaturas); se sirven en `GET /replies/attachments/:id`, otro espacio de ids que los del mensaje. */
+  /** The attachments themselves (thumbnails); served at `GET /replies/attachments/:id`, a different id space from the message's. */
   attachments?: Attachment[]
 }
 
@@ -140,13 +140,13 @@ export interface Message {
   closed_at?: string | null
   assignee_ids: string[]
   template_id?: string | null
-  /** Valor de cada campo de la plantilla del mensaje, por su nombre. */
+  /** Value of each field of the message's template, by its name. */
   fields?: Record<string, string | null>
   attachments: Attachment[]
-  /** Tipos de medio adjuntos, para dibujar un ícono por tipo (UD-016). */
+  /** Media types attached, to draw one icon per type (UD-016). */
   attachment_kinds?: AttachmentKind[]
   updated_at?: string
-  /** Supuestos de la lista: cantidad de respuestas y la última, para «Últimas respuestas». */
+  /** List assumptions: number of replies and the latest, for «Últimas respuestas». */
   reply_count: number
   last_reply?: Reply | null
 }
@@ -161,12 +161,12 @@ export interface ProviderSetting {
   slot: ProviderSlot
   provider: string
   model: string
-  /** Falso cuando falta la llave u otra condición; `reason` dice cuál, en el idioma de la cuenta o como código. */
+  /** False when the key or another condition is missing; `reason` says which, in the account's language or as a code. */
   available?: boolean
   reason?: string | null
 }
 
-/** Cambio parcial de un mensaje publicado (PATCH /messages/:id). */
+/** Partial change of a published message (PATCH /messages/:id). */
 export interface MessagePatch {
   title?: string
   body?: string
@@ -176,7 +176,7 @@ export interface MessagePatch {
   template_id?: string
 }
 
-/** Lo que se envía para dar de alta a un miembro (POST /members). */
+/** What is sent to add a member (POST /members). */
 export interface NewMember {
   email: string
   name: string
@@ -185,7 +185,7 @@ export interface NewMember {
   password?: string
 }
 
-/** Eventos del flujo SSE (GET /events). */
+/** Events of the SSE stream (GET /events). */
 export interface ProgressEvent {
   job_id: string
   input_id?: string

@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 
 export interface ThumbSource {
   kind: AttachmentKind
-  /** Dirección del archivo (API o vista local). */
+  /** Address of the file (API or local view). */
   src?: string
   name?: string
   size?: number
@@ -14,7 +14,7 @@ export interface ThumbSource {
 
 const ICON = { video: Film, audio: FileAudio, document: FileText, link: Link2, image: FileText } as const
 
-/** Miniatura cuadrada de un adjunto. Un video lleva su marca de reproducción. Con `onRemove` se puede quitar. */
+/** Square thumbnail of an attachment. A video carries its play mark. With `onRemove` it can be removed. */
 export function Thumb({
   item,
   px = 48,

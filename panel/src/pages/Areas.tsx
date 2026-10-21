@@ -17,7 +17,7 @@ import type { Area, Template } from '@/lib/types'
 import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 import { cn } from '@/lib/utils'
 
-/** Áreas y plantillas con edición en el lugar y deshacer. Sólo el Editor entra. Las áreas a la izquierda; las plantillas de la elegida, a la derecha. */
+/** Areas and templates with in-place editing and undo. Only the Editor enters. Areas on the left; the chosen one's templates on the right. */
 export function Areas() {
   const t = useT()
   const me = useMe().data
@@ -101,7 +101,7 @@ function AreaRow({ area, selected, onSelect }: { area: Area; selected: boolean; 
         <EditableText value={area.title} label={t('areas.fieldTitle')} validate={nameRule(t)} onSave={(v) => change('title', v)} displayClassName="font-semibold" />
         <EditableText value={area.description} label={t('areas.fieldDescription')} multiline validate={descriptionRule(t)} onSave={(v) => change('description', v)} displayClassName="text-[13px] text-muted" />
       </div>
-      {/* Columna de ancho fijo: lo pendiente queda alineado fila a fila. */}
+      {/* Fixed-width column: what is pending lines up row by row. */}
       <span className="flex w-24 shrink-0 justify-end">
         <Badge tone={pending > 0 ? 'open' : 'neutral'}>{t('areas.pending', { n: pending })}</Badge>
       </span>
@@ -160,7 +160,7 @@ function TemplateRow({ template, areaId }: { template: Template; areaId: string 
     return undo.run({ label: t('areas.edited'), redo: () => save.mutateAsync({ id: template.id, [field]: next }), undo: () => save.mutateAsync({ id: template.id, [field]: prev }) })
   }
 
-  // Borrar es reversible: se hace y Deshacer lo restaura (POST /templates/:id/restore).
+  // Deleting is reversible: it is done and Deshacer restores it (POST /templates/:id/restore).
   const remove = () => undo.run({ label: t('areas.deleted'), redo: () => del.mutateAsync(template.id), undo: () => restore.mutateAsync(template.id) })
 
   return (

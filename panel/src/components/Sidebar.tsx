@@ -21,7 +21,7 @@ function Item({ to, icon, children, end, onNavigate }: { to: string; icon: React
   )
 }
 
-/** Barra lateral: usuario, vistas, áreas con lo pendiente de cada una (Editor) y Configuración al pie. */
+/** Sidebar: user, views, areas with what is pending in each (Editor) and Configuración at the foot. */
 export function Sidebar({ onNavigate, onLogout }: { onNavigate?: () => void; onLogout: () => void }) {
   const t = useT()
   const me = useMe().data
@@ -70,7 +70,7 @@ export function Sidebar({ onNavigate, onLogout }: { onNavigate?: () => void; onL
             </button>
           </div>
           {areasOpen && (
-            // Con muchas áreas la lista desplaza por dentro: es un carril declarado, no la página.
+            // With many areas the list scrolls inside: it is a declared lane, not the page.
             <ul data-lane="areas-nav" className="scroll-thin ml-[1.35rem] mt-0.5 flex min-h-0 flex-col gap-0.5 overflow-y-auto border-l border-line-strong pl-2">
               {(areas.data ?? []).map((a) => (
                 <li key={a.id}>
@@ -94,7 +94,7 @@ export function Sidebar({ onNavigate, onLogout }: { onNavigate?: () => void; onL
       </Item>
 
       {editor && (
-        // Entrada sin destino todavía: no recibe foco, y la razón está escrita en la fila.
+        // Entry with no destination yet: it gets no focus, and the reason is written in the row.
         <div aria-disabled="true" className={cn(row, 'cursor-not-allowed items-start text-faint hover:bg-transparent')}>
           <Plug size={16} aria-hidden className="mt-0.5 shrink-0" />
           <span className="min-w-0 flex-1 leading-tight">

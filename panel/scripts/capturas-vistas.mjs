@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// Capturas de cada vista a 1440x900 y 390x844, en tema claro y oscuro, con Chromium sin ventana
-// (Playwright), contra panel/dist servido por el servidor doble. Además de los PNG, mide en el
-// propio navegador lo que una captura no cuenta: texto recortado o con puntos suspensivos,
-// desbordes horizontales y bordes izquierdos de los bloques de cada vista (UD-016).
+// Screenshots of each view at 1440x900 and 390x844, in light and dark theme, with headless Chromium
+// (Playwright), against panel/dist served by the double server. Besides the PNGs, it measures
+// in the browser itself what a screenshot does not show: clipped or ellipsized text,
+// horizontal overflow and left edges of each view's blocks (UD-016).
 //
 //   npm run build && node scripts/capturas-vistas.mjs [--solo desktop|mobile] [--tema light|dark]
 //
-// Sale con código 1 si encuentra recortes, puntos suspensivos o desborde horizontal.
+// Exits with code 1 if it finds clipping, ellipses or horizontal overflow.
 
 import { spawn, execFileSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
@@ -42,7 +42,7 @@ const VIEWPORTS = {
 }
 const THEMES = ['light', 'dark']
 
-/** Corre en la página: devuelve lo que el ojo no ve en una captura. */
+/** Runs in the page: returns what the eye does not see in a screenshot. */
 function audit() {
   const out = { clipped: [], ellipsis: [], hscroll: null, lefts: [] }
   const label = (el) => `${el.tagName.toLowerCase()}${el.className && typeof el.className === 'string' ? '.' + el.className.split(/\s+/).slice(0, 3).join('.') : ''} «${(el.textContent ?? '').trim().slice(0, 40)}»`
@@ -88,10 +88,10 @@ async function shoot(browser, vp, theme, lang = 'es-419') {
     try {
       localStorage.setItem('team-theme', t)
     } catch {
-      // Sin almacenamiento el tema sigue al del navegador, que ya es el pedido.
+      // Without storage the theme follows the browser's, which is already the requested one.
     }
   }, theme)
-  // El idioma es de la cuenta: se fija por la API antes de recorrer las vistas.
+  // The language belongs to the account: it is set through the API before walking the views.
   const page = await context.newPage()
   page.on('pageerror', (e) => problems.push(`[${vp}/${theme}] excepción: ${e.message}`))
   await page.goto(ORIGIN)
@@ -143,7 +143,7 @@ async function shoot(browser, vp, theme, lang = 'es-419') {
   await page.locator('main h1').waitFor()
   await page.waitForTimeout(700)
   await take('configuracion')
-  // Propuesta del análisis, con adjuntos.
+  // Analysis proposal, with attachments.
   await page.goto(ORIGIN)
   await page.locator('main h1').waitFor()
   await page.getByLabel(lang === 'en' ? 'New message' : 'Nuevo mensaje', { exact: true }).last().fill('Corregir el desalineado del sidebar en la vista dashboard.\n\nAgregar la sincronización con WhatsApp en el sidebar.\n\nPregunta: ¿el audio máximo sigue en 25 MB?\n\nSaludos al equipo.')

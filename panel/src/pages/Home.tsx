@@ -29,7 +29,7 @@ function writeActive(id: string | undefined) {
     if (id) localStorage.setItem(ACTIVE_KEY, id)
     else localStorage.removeItem(ACTIVE_KEY)
   } catch {
-    // Sin almacenamiento, la propuesta no sobrevive a una recarga de la pestaña.
+    // Without storage, the proposal does not survive a reload of the tab.
   }
 }
 
@@ -53,7 +53,7 @@ export function Home() {
     setActiveId(undefined)
   }
 
-  // Un input que ya no existe, se publicó o se canceló deja libre la zona de análisis.
+  // An input that no longer exists, was published or was canceled frees the analysis zone.
   useEffect(() => {
     const err = input.error
     if (err instanceof ApiError && err.status === 404) close()
@@ -107,7 +107,7 @@ export function Home() {
   )
 }
 
-/** Con una propuesta abierta, las dos listas se pliegan en una línea con su cuenta; cada una lleva a Mensajes. */
+/** With a proposal open, the two lists fold into one line with their count; each one leads to Mensajes. */
 function FeedLinks({ meId }: { meId: string }) {
   const t = useT()
   const mine: MessageQuery = { filters: [{ prop: 'for', op: 'eq', value: ME }], q: '' }

@@ -7,9 +7,9 @@ import type { Template } from '@/lib/types'
 import { useLookups } from './lookups'
 
 /**
- * Área de un mensaje como pestaña de cromo cambiable. Al elegir otra área trae su primera plantilla
- * vigente y la entrega con el área, porque los campos del mensaje dependen de ella: quien llama
- * los reasigna con `remapFields`.
+ * Area of a message as a swappable chrome tab. Choosing another area brings its first current
+ * template and hands it over with the area, because the message's fields depend on it: the caller
+ * reassigns them with `remapFields`.
  */
 export function AreaPicker({
   areaId,
@@ -33,7 +33,7 @@ export function AreaPicker({
       const list = await queryClient.fetchQuery({ queryKey: ['templates', next], queryFn: async () => unwrapList<Template>(await api(`/areas/${next}/templates`)) })
       first = list.find((x) => !x.deleted_at) ?? null
     } catch {
-      // Sin acceso a las plantillas del área, el servidor elige la que corresponde.
+      // Without access to the area's templates, the server picks the matching one.
     }
     await onChange(next, first)
   }

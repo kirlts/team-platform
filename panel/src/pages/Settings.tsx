@@ -19,7 +19,7 @@ import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 
 const SLOT_KEY: Record<ProviderSlot, MessageKey> = { text: 'settings.slot.text', vision: 'settings.slot.vision', speech: 'settings.slot.speech' }
 const LANGUAGE_KEY: Record<Language, MessageKey> = { 'es-419': 'language.es-419', en: 'language.en' }
-/** Implementaciones de proveedor de MASTER-SPEC §7.6. */
+/** Provider implementations from MASTER-SPEC §7.6. */
 const KNOWN_PROVIDERS = ['anthropic', 'openai-compatible', 'groq-speech']
 const COLUMNS = 'sm:grid-cols-[6rem_minmax(0,1fr)_minmax(0,1.3fr)_7.5rem]'
 
@@ -136,7 +136,7 @@ function Theme() {
   )
 }
 
-/** Descripción del proyecto en markdown: la ve todo el equipo, la cambia el Editor en el lugar o subiendo un archivo `.md`. */
+/** Project description in markdown: the whole team sees it, the Editor changes it in place or by uploading a `.md` file. */
 function Project({ editor }: { editor: boolean }) {
   const t = useT()
   const errorText = useErrorText()
@@ -149,7 +149,7 @@ function Project({ editor }: { editor: boolean }) {
 
   const change = (next: string) => undo.run({ label: t('project.edited'), redo: () => save.mutateAsync({ description: next }), undo: () => save.mutateAsync({ description: current }) })
 
-  /** Un archivo reemplaza la descripción; deshacer vuelve al texto anterior. */
+  /** A file replaces the description; undo goes back to the previous text. */
   const replaceWith = async (file: File) => {
     setProblem(null)
     const before = current
@@ -183,7 +183,7 @@ function Project({ editor }: { editor: boolean }) {
           </>
         )}
       </div>
-      {/* La descripción puede ser tan larga como un master spec: es un carril con desplazamiento propio y declarado. */}
+      {/* The description can be as long as a master spec: it is a lane with its own declared scrolling. */}
       <div data-lane="project-description" className="glass leaf scroll-thin min-h-0 flex-1 overflow-y-auto px-4 py-3 text-[13px]">
         <EditableText
           value={current}
@@ -238,7 +238,7 @@ function ProviderRow({ provider: p }: { provider: ProviderSetting }) {
   const save = useSaveProvider()
   const required = (v: string) => (v ? null : t('common.required'))
 
-  /** Cada cambio del proveedor es una operación que se deshace con los valores anteriores. */
+  /** Each provider change is an operation undone with the previous values. */
   const change = (next: { provider?: string; model?: string }) => {
     const before = { slot: p.slot, provider: p.provider, model: p.model }
     return undo.run({ label: t('settings.providerEdited'), redo: () => save.mutateAsync({ ...before, ...next }), undo: () => save.mutateAsync(before) })

@@ -8,8 +8,8 @@ import { cn } from '@/lib/utils'
 import { Thumb } from './Thumb'
 
 /**
- * Adjuntos de un mensaje propuesto: los primeros como miniaturas quitables y, tras ellos, el botón
- * que abre la lista de todos los del input con su marca. Pasado `max` el botón dice «+N».
+ * Attachments of a proposed message: the first ones as removable thumbnails and, after them, the button
+ * that opens the list of all the input's attachments with their mark. Past `max` the button says «+N».
  */
 export function AttachmentPicker({ all, selected, onChange, max = 3 }: { all: Attachment[]; selected: string[]; onChange: (ids: string[]) => void; max?: number }) {
   const t = useT()

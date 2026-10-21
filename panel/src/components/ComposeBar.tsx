@@ -8,8 +8,8 @@ import { cn } from '@/lib/utils'
 import { CaptureButtons, ClipMenu, MediaDraftList, RecordingStatus } from './MediaDraft'
 
 /**
- * Barra de nuevo mensaje: texto, adjuntos (clip, arrastrar, pegar), foto de la cámara,
- * audio grabado y enlaces. Un solo envío multipart con progreso de subida.
+ * New message bar: text, attachments (clip, drag, paste), camera photo,
+ * recorded audio and links. A single multipart submit with upload progress.
  */
 export function ComposeBar({ onCreated, disabled }: { onCreated: (created: CreatedInput) => void; disabled?: boolean }) {
   const t = useT()
@@ -25,7 +25,7 @@ export function ComposeBar({ onCreated, disabled }: { onCreated: (created: Creat
   const busy = uploading || !!disabled
   const empty = !text.trim() && draft.empty
 
-  // El campo crece con su texto hasta un máximo y desde ahí se desplaza por dentro.
+  // The field grows with its text up to a maximum and from there scrolls inside.
   useEffect(() => {
     const el = textArea.current
     if (!el) return

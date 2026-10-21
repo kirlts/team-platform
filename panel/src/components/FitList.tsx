@@ -45,11 +45,11 @@ export function FitList<T>({
   renderRow: (row: T) => ReactNode
   empty?: ReactNode
   className?: string
-  /** Nombre accesible de la lista. */
+  /** Accessible name of the list. */
   label?: string
-  /** Fila de títulos fija sobre las filas; su alto se descuenta del que cabe. */
+  /** Fixed row of titles above the rows; its height is subtracted from what fits. */
   header?: ReactNode
-  /** Sin vidrio propio: la lista va dentro de otro panel. */
+  /** No glass of its own: the list goes inside another panel. */
   bare?: boolean
 }) {
   const t = useT()

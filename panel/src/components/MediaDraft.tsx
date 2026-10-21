@@ -12,7 +12,7 @@ import { Thumb } from './Thumb'
 
 const PROBLEM: Record<MediaProblem, MessageKey> = { record: 'media.recordFailed', microphone: 'media.noMicrophone', link: 'media.invalidLink' }
 
-/** Clip: archivo o enlace. */
+/** Clip: file or link. */
 export function ClipMenu({ draft, disabled, size = 'icon' }: { draft: MediaDraft; disabled?: boolean; size?: 'icon' | 'icon-sm' }) {
   const t = useT()
   const fileInput = useRef<HTMLInputElement>(null)
@@ -47,7 +47,7 @@ export function ClipMenu({ draft, disabled, size = 'icon' }: { draft: MediaDraft
   )
 }
 
-/** Cámara y micrófono. */
+/** Camera and microphone. */
 export function CaptureButtons({ draft, disabled, size = 'icon' }: { draft: MediaDraft; disabled?: boolean; size?: 'icon' | 'icon-sm' }) {
   const t = useT()
   const cameraInput = useRef<HTMLInputElement>(null)
@@ -83,7 +83,7 @@ export function CaptureButtons({ draft, disabled, size = 'icon' }: { draft: Medi
   )
 }
 
-/** Campo para pegar una dirección; vive como fila propia bajo la barra, no flota. */
+/** Field to paste an address; it lives as its own row under the bar, it does not float. */
 function LinkRow({ draft }: { draft: MediaDraft }) {
   const t = useT()
   const [value, setValue] = useState('')
@@ -110,7 +110,7 @@ function LinkRow({ draft }: { draft: MediaDraft }) {
   )
 }
 
-/** Miniaturas y enlaces ya sumados, cada uno con su nombre y su peso a la vista, y el motivo si algo falló. */
+/** Thumbnails and links already added, each with its name and weight in view, and the reason if something failed. */
 export function MediaDraftList({ draft, busy }: { draft: MediaDraft; busy?: boolean }) {
   const t = useT()
   return (
@@ -150,7 +150,7 @@ export function MediaDraftList({ draft, busy }: { draft: MediaDraft; busy?: bool
   )
 }
 
-/** Cronómetro de una grabación en curso. */
+/** Timer of a recording in progress. */
 export function RecordingStatus({ seconds }: { seconds: number }) {
   const t = useT()
   return (

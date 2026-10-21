@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { useT } from '@/i18n'
 import type { UndoStack } from '@/lib/undo'
 
-/** «Deshacer» y «Rehacer» de la pantalla: apagados si no hay nada que deshacer o rehacer; la cuenta va en el aviso del botón. */
+/** «Deshacer» and «Rehacer» of the screen: disabled if there is nothing to undo or redo; the count goes in the button's notice. */
 export function UndoButtons({ stack }: { stack: UndoStack }) {
   const t = useT()
   return (

@@ -1,14 +1,14 @@
-// Cliente de la API: fetch a /api con la cookie de sesión. En métodos no seguros
-// agrega la cabecera propia de CSRF (el servidor además mira Sec-Fetch-Site y Origin).
+// API client: fetch to /api with the session cookie. On unsafe methods
+// it adds its own CSRF header (the server also checks Sec-Fetch-Site and Origin).
 
 export const API_BASE = '/api'
 export const CSRF_HEADER = 'X-Team-Request'
 const CSRF_VALUE = 'panel'
 
 /**
- * Error de la API: `{ code, message }` con el código estable que el panel traduce a su catálogo
- * (`error.<code>`); `message` es el texto del servidor y sólo se muestra si el código no tiene
- * traducción. `status` 0 es un fallo de red.
+ * API error: `{ code, message }` with the stable code the panel translates to its catalog
+ * (`error.<code>`); `message` is the server's text and is shown only if the code has no
+ * translation. `status` 0 is a network failure.
  */
 export class ApiError extends Error {
   status: number
@@ -30,7 +30,7 @@ async function errorBody(res: Response): Promise<{ message: string; code: string
     if (data && typeof data.error === 'string') return { message: data.error, code }
     return { message: '', code }
   } catch {
-    // Cuerpo vacío o no JSON: sólo queda el estado HTTP.
+    // Empty or non-JSON body: only the HTTP status remains.
   }
   return { message: '', code: '' }
 }
@@ -44,7 +44,7 @@ export async function api<T = unknown>(
   if (!SAFE.has(method)) headers[CSRF_HEADER] = CSRF_VALUE
   let body: string | FormData | undefined
   if (options.form) {
-    body = options.form // el navegador pone el límite del multipart
+    body = options.form // the browser sets the multipart boundary
   } else if (options.body !== undefined) {
     headers['Content-Type'] = 'application/json'
     body = JSON.stringify(options.body)
@@ -65,7 +65,7 @@ export async function api<T = unknown>(
   return (text ? JSON.parse(text) : undefined) as T
 }
 
-/** Las listas pueden llegar como arreglo o como `{ items }`. */
+/** Lists may arrive as an array or as `{ items }`. */
 export function unwrapList<T>(data: unknown): T[] {
   if (Array.isArray(data)) return data as T[]
   if (data && typeof data === 'object' && Array.isArray((data as { items?: unknown }).items)) {
@@ -74,7 +74,7 @@ export function unwrapList<T>(data: unknown): T[] {
   return []
 }
 
-/** Archivo adjunto a una respuesta: tiene sus propios ids y su propia ruta. */
+/** File attached to a reply: it has its own ids and its own route. */
 export function replyAttachmentUrl(id: string): string {
   return `${API_BASE}/replies/attachments/${encodeURIComponent(id)}`
 }

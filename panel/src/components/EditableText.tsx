@@ -3,13 +3,13 @@ import { useErrorText, useT } from '@/i18n'
 import { cn } from '@/lib/utils'
 
 /**
- * Edición en el lugar (UD-017). El texto mismo es el control: un clic lo abre en el mismo sitio, con
- * la misma tipografía, el mismo ancho y el mismo alto, así que nada se mueve. Un clic afuera o Enter
- * guardan, Escape cancela; no hay botón «Editar» ni «Guardar». Un valor inválido deja el campo abierto
- * con el motivo debajo. En la variante de varias líneas, Shift+Enter abre una línea nueva.
+ * In-place editing (UD-017). The text itself is the control: a click opens it in the same place, with
+ * the same typography, width and height, so nothing moves. A click outside or Enter
+ * saves, Escape cancels; there is no «Editar» or «Guardar» button. An invalid value leaves the field open
+ * with the reason below. In the multi-line variant, Shift+Enter opens a new line.
  *
- * El campo de edición es un `textarea` que crece con su texto en las dos variantes: así una línea
- * larga que en lectura ocupa dos renglones los ocupa también al editarla.
+ * The edit field is a `textarea` that grows with its text in both variants: so a long line
+ * that takes two rows when reading takes them when editing too.
  */
 export function EditableText({
   value,
@@ -32,16 +32,16 @@ export function EditableText({
   canEdit?: boolean
   multiline?: boolean
   placeholder?: string
-  /** Nombre accesible del campo. */
+  /** Accessible name of the field. */
   label: string
-  /** Clases del contenedor (ancho, posición). */
+  /** Container classes (width, position). */
   className?: string
-  /** Tipografía del texto: se aplica igual en lectura y en edición. */
+  /** Typography of the text: applied the same when reading and editing. */
   displayClassName?: string
   mono?: boolean
-  /** Texto corrido: se justifica igual en lectura y en edición (UD-022). */
+  /** Running text: justified the same when reading and editing (UD-022). */
   prose?: boolean
-  /** Cómo se muestra el valor en lectura (por ejemplo, markdown ya interpretado); al editar se ve el texto tal cual. */
+  /** How the value is shown when reading (for example, already-interpreted markdown); when editing the text is shown as is. */
   render?: (value: string) => ReactNode
   onEditingChange?: (editing: boolean) => void
 }) {
@@ -61,7 +61,7 @@ export function EditableText({
 
   useEffect(() => onEditingChange?.(editing), [editing, onEditingChange])
 
-  // Alto igual al del texto: se mide tras cada cambio del borrador.
+  // Height equal to the text's: measured after each change of the draft.
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
@@ -80,7 +80,7 @@ export function EditableText({
   }, [editing])
 
   const type = cn('whitespace-pre-wrap break-words', mono && 'font-mono text-[13px]', prose && 'prose-block', displayClassName)
-  // Misma caja en lectura y en edición: el margen negativo compensa el relleno y el borde.
+  // Same box when reading and editing: the negative margin offsets the padding and the border.
   const box = '-mx-1.5 -my-px block w-[calc(100%+12px)] max-w-none rounded-md border border-transparent px-1.5 py-px text-left'
 
   if (!canEdit) {

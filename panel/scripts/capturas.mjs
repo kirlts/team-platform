@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// Capturas programáticas del panel con Chromium sin ventana (Playwright). Recorre cada vista a
-// 1440x900 y a 390x844 contra el panel compilado servido por el servidor doble de desarrollo
-// (con la misma CSP que pondría la API) y deja los PNG en panel/capturas/.
+// Programmatic panel screenshots with headless Chromium (Playwright). Walks every view at
+// 1440x900 and 390x844 against the built panel served by the development double server
+// (with the same CSP the API would set) and leaves the PNGs in panel/capturas/.
 //
 //   npm run build && node scripts/capturas.mjs [--solo desktop|mobile]
 //
-// Además falla si el panel intenta conectarse a otro origen, si el navegador reporta una
-// violación de la CSP o si la consola registra un error.
+// It also fails if the panel tries to connect to another origin, if the browser reports a
+// CSP violation or if the console logs an error.
 
 import { spawn, execFileSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
@@ -32,7 +32,7 @@ const server = spawn('node', ['dev-server.mjs'], {
 })
 await new Promise((r) => setTimeout(r, 800))
 
-const password = randomBytes(12).toString('hex') // el servidor doble acepta cualquiera de 15 o más caracteres
+const password = randomBytes(12).toString('hex') // the double server accepts any password of 15 or more characters
 const problems = []
 
 function wav(seconds) {
@@ -125,14 +125,14 @@ async function run(vp) {
   await shot(page, vp, 'ingreso')
   await login(page, 'ana')
 
-  // --- Inicio vacío y barra con adjuntos
+  // --- Empty home and bar with attachments
   await page.getByText('Desarrollo', { exact: true }).first().waitFor()
   await page.getByText('Para mí').first().waitFor()
   await shot(page, vp, 'inicio')
 
   const textarea = page.getByLabel('Nuevo mensaje', { exact: true }).last()
   await textarea.fill('Corregir el desalineado del sidebar en la vista dashboard.\n\nAgregar la sincronización con WhatsApp en el sidebar.\n\nPregunta: ¿el audio máximo sigue en 25 MB?\n\nSaludos al equipo y gracias por el trabajo de la semana.')
-  // Pegar una captura como lo haría el portapapeles.
+  // Paste a screenshot the way the clipboard would.
   const pastedPng = (await screenshotPng('Dashboard con sidebar (ejemplo de prueba)', 215)).toString('base64')
   await page.evaluate(async (pngBase64) => {
     const bytes = Uint8Array.from(atob(pngBase64), (c) => c.charCodeAt(0))
@@ -152,13 +152,13 @@ async function run(vp) {
   await page.getByRole('button', { name: 'Agregar', exact: true }).click()
   await shot(page, vp, 'barra-con-adjuntos')
 
-  // --- Envío y análisis en curso
+  // --- Submit and analysis in progress
   await page.getByRole('button', { name: 'Enviar' }).first().click()
   await page.getByRole('progressbar', { name: 'Progreso del análisis' }).waitFor()
   await page.waitForFunction(() => Number(document.querySelector('[aria-label="Progreso del análisis"]')?.getAttribute('aria-valuenow')) >= 40)
   await shot(page, vp, 'analisis-progreso')
 
-  // --- Propuesta editable
+  // --- Editable proposal
   await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
   await shot(page, vp, 'propuesta')
   await shot(page, vp, 'propuesta-completa', { full: true })
@@ -178,7 +178,7 @@ async function run(vp) {
   await page.getByRole('button', { name: 'Sin acción' }).click()
   await shot(page, vp, 'propuesta-sin-accion')
 
-  // --- Publicar
+  // --- Publish
   await page.getByRole('button', { name: 'Enviar', exact: true }).last().click()
   await page.getByRole('progressbar').first().waitFor({ state: 'detached' }).catch(() => {})
   await page.getByRole('region', { name: 'Análisis' }).waitFor({ state: 'detached' })
@@ -186,7 +186,7 @@ async function run(vp) {
   await page.getByText('Corregir el desalineado del sidebar en el dashboard').first().waitFor()
   await shot(page, vp, 'inicio-publicado')
 
-  // --- Grabación de audio (dispositivo falso de Chromium)
+  // --- Audio recording (Chromium fake device)
   const mic = page.getByRole('button', { name: 'Grabar audio' })
   if (await mic.isEnabled()) {
     await mic.click()
@@ -202,7 +202,7 @@ async function run(vp) {
     problems.push(`[${vp}] el botón de micrófono quedó deshabilitado en un contexto seguro`)
   }
 
-  // --- Mensajes
+  // --- Messages
   await page.goto(`${ORIGIN}/messages`)
   await page.getByText('Revisar el tiempo de respuesta').waitFor()
   await shot(page, vp, 'mensajes')
@@ -219,7 +219,7 @@ async function run(vp) {
   await page.getByRole('list', { name: 'Filtros aplicados' }).waitFor()
   await shot(page, vp, 'mensajes-con-respuestas')
 
-  // --- Detalle de un mensaje ajeno, con formulario; y de uno propio, sin formulario
+  // --- Detail of another member's message, with form; and of one's own, without form
   await page.goto(`${ORIGIN}/messages`)
   await page.getByRole('link', { name: 'Agregar exportación de mensajes cerrados' }).click()
   await page.getByRole('heading', { name: 'Respuestas' }).waitFor()
@@ -241,12 +241,12 @@ async function run(vp) {
   await shot(page, vp, 'detalle-cerrado')
   await page.getByRole('button', { name: 'Reabrir', exact: true }).click()
 
-  // --- Respuesta desde la tarjeta
+  // --- Reply from the card
   await page.goto(`${ORIGIN}/messages?f=status:eq:open`)
   await page.getByRole('button', { name: 'Responder' }).first().click()
   await shot(page, vp, 'tarjeta-respondiendo')
 
-  // --- Áreas (Editor)
+  // --- Areas (Editor)
   await page.goto(`${ORIGIN}/areas`)
   await page.getByRole('heading', { name: 'Áreas', level: 1 }).waitFor()
   await page.getByRole('button', { name: 'Desplegar Error' }).click()
@@ -265,7 +265,7 @@ async function run(vp) {
   await shot(page, vp, 'areas-eliminar-plantilla')
   await page.keyboard.press('Escape')
 
-  // --- Equipo y configuración
+  // --- Team and settings
   await page.goto(`${ORIGIN}/team`)
   await page.getByText('Bruno Prueba').waitFor()
   await shot(page, vp, 'equipo')
@@ -278,7 +278,7 @@ async function run(vp) {
   await page.getByRole('heading', { name: 'Proveedores' }).waitFor()
   await shot(page, vp, 'configuracion')
 
-  // --- Avisos por SSE (la campana)
+  // --- SSE notices (the bell)
   await page.goto(ORIGIN)
   await page.getByText('Para mí').first().waitFor()
   await page.waitForTimeout(1500)
@@ -289,7 +289,7 @@ async function run(vp) {
   await shot(page, vp, 'avisos')
   await page.keyboard.press('Escape')
 
-  // --- Menú de cuenta y tema oscuro
+  // --- Account menu and dark theme
   await page.getByRole('button', { name: 'Menú' }).click()
   await shot(page, vp, 'menu-cuenta')
   await page.getByRole('menuitemradio', { name: 'Oscuro' }).click()
@@ -313,7 +313,7 @@ async function run(vp) {
   }
   await context.close()
 
-  // --- Un Miembro: sin Áreas ni conteos ni proveedores
+  // --- A Member: no Areas, counts or providers
   const member = await newPage(vp, 'bruno')
   await login(member.page, 'bruno')
   await member.page.getByText('Para mí').first().waitFor()

@@ -1,5 +1,5 @@
-// Estado efímero del flujo SSE (GET /events): progreso por job_id y avisos de mensajes nuevos.
-// Un solo flujo por miembro (MASTER-SPEC §7.10). Nada de esto se guarda en la caché de consultas.
+// Ephemeral state of the SSE stream (GET /events): progress per job_id and notices of new messages.
+// One stream per member (MASTER-SPEC §7.10). None of this is kept in the query cache.
 import type { DoneEvent, NewMessageEvent, ProgressEvent } from './types'
 
 export interface JobProgress {
@@ -24,7 +24,7 @@ export interface EventsSnapshot {
   connected: boolean
 }
 
-/** Cantidad máxima de avisos que conserva la campana. Es de pantalla, no de operación. */
+/** Maximum number of notices the bell keeps. It is a screen matter, not an operation matter. */
 const MAX_NOTICES = 20
 
 export class EventsStore {
@@ -67,7 +67,7 @@ export class EventsStore {
 
   progress(e: ProgressEvent) {
     const prev = this.snap.progress[e.job_id]
-    // Un evento repetido por la reposición no hace retroceder la barra.
+    // An event repeated by the replay does not move the bar backwards.
     const percent = prev && !prev.done ? Math.max(prev.percent, e.percent) : e.percent
     this.set({
       progress: {
@@ -111,7 +111,7 @@ export class EventsStore {
     this.set({ progress: rest })
   }
 
-  /** Reparte un evento del servidor. Acepta los nombres `progress`, `done` y `message`, o infiere por la forma. */
+  /** Dispatches a server event. Accepts the names `progress`, `done` and `message`, or infers from the shape. */
   dispatch(kind: string | undefined, raw: string) {
     let data: unknown
     try {
@@ -160,15 +160,15 @@ export type EventSourceFactory = (url: string) => EventSourceLike
 
 const CLOSED = 2
 /**
- * Espera antes de reabrir un flujo que el servidor cerró con un estado distinto de 200 (el
- * navegador no reintenta ése). Es cortesía hacia el servidor, no un plazo de la operación:
- * las caídas de red las reconecta el propio navegador con Last-Event-ID.
+ * Wait before reopening a stream the server closed with a status other than 200 (the
+ * browser does not retry that one). It is a courtesy to the server, not an operation deadline:
+ * network drops are reconnected by the browser itself with Last-Event-ID.
  */
 export const REOPEN_DELAYS_MS = [1_000, 2_000, 5_000, 15_000, 30_000]
 
 export const EVENT_NAMES = ['progress', 'done', 'message'] as const
 
-/** Abre el flujo y lo mantiene. Devuelve la función que lo cierra. */
+/** Opens the stream and keeps it. Returns the function that closes it. */
 export function connectEvents(
   store: EventsStore,
   url: string,
@@ -188,7 +188,7 @@ export function connectEvents(
     es.onopen = () => {
       attempt = 0
       store.setConnected(true)
-      // Tras una caída, lo que pasó mientras tanto llega por reposición; se refrescan las consultas por si acaso.
+      // After a drop, what happened meanwhile arrives by replay; queries are refreshed just in case.
       if (hadError) onReconnect?.()
       hadError = false
     }

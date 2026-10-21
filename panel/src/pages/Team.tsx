@@ -15,13 +15,13 @@ import { useCreateMember, useMe, useMembers, useSaveMember } from '@/lib/queries
 import type { Language, Member, Role } from '@/lib/types'
 import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 
-/** Largo máximo del perfil que acepta la API (UD-023). */
+/** Maximum length of the profile the API accepts (UD-023). */
 const PROFILE_MAX = 4000
 const LANGUAGE_KEY: Record<Language, MessageKey> = { 'es-419': 'language.es-419', en: 'language.en' }
 const SHORT_LANGUAGE_KEY: Record<Language, MessageKey> = { 'es-419': 'language.short.es-419', en: 'language.short.en' }
 const COLUMNS = 'md:grid-cols-[15rem_8rem_minmax(0,1fr)_6.5rem]'
 
-/** Miembros con sus responsabilidades y dominios. Cada uno edita lo suyo; el Editor da de alta, y cambia nombre, correo y rol de los demás. */
+/** Members with their responsibilities and domains. Each one edits their own; the Editor adds, and changes name, email and role of the others. */
 export function Team() {
   const t = useT()
   const me = useMe().data
@@ -89,14 +89,14 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
   const roleLabel: Record<Role, string> = { member: t('team.roleMember'), editor: t('team.roleEditor') }
   const canEditPeople = viewerIsEditor
 
-  /** Cada guardado es una operación que se deshace con el valor anterior. */
+  /** Each save is an operation undone with the previous value. */
   const change = <K extends 'profile' | 'role' | 'name' | 'email' | 'active'>(key: K, next: Member[K]) => {
     const prev = member[key]
     const apply = (value: Member[K]) => save.mutateAsync({ id: member.id, self: self && key === 'profile', patch: { [key]: value } })
     return undo.run({ label: t('team.edited'), redo: () => apply(next), undo: () => apply(prev) })
   }
   const required = (v: string) => (v ? null : t('common.required'))
-  /** Desactivar o reactivar se deshace con el gesto contrario; la API se niega si es uno mismo o el último Editor. */
+  /** Deactivating or reactivating is undone with the opposite gesture; the API refuses if it is oneself or the last Editor. */
   const toggleActive = () =>
     change('active', !member.active).then(
       () => setProblem(null),

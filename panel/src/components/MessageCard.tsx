@@ -17,12 +17,12 @@ import { Thumb } from './Thumb'
 const RECIPIENTS_SHOWN = 2
 
 /**
- * Fila de mensaje, con la disposición de la maqueta: pestaña de área y emisor arriba; debajo,
- * fecha, íconos de medio y estado en tres columnas fijas (así quedan alineados fila a fila), el
- * título y el texto, y a la derecha la miniatura principal; al pie, los destinatarios y las acciones.
- * La fila entera lleva al detalle; Responder abre el detalle con el formulario a mano (una fila no
- * crece: la lista cabe en su marco) y Cerrar o Reabrir se aplican al instante. En la variante `reply` muestra la última respuesta: su autor, su fecha,
- * sus medios y su texto.
+ * Message row, with the mockup's layout: area tab and sender on top; below,
+ * date, media icons and status in three fixed columns (so they line up row by row), the
+ * title and the text, and on the right the main thumbnail; at the foot, the recipients and the actions.
+ * The whole row leads to the detail; Responder opens the detail with the form at hand (a row does not
+ * grow: the list fits its frame) and Cerrar or Reabrir apply instantly. In the `reply` variant it shows the latest reply: its author, its date,
+ * its media and its text.
  */
 export function MessageCard({ message, variant = 'message' }: { message: Message; variant?: 'message' | 'reply' }) {
   const t = useT()
@@ -34,7 +34,7 @@ export function MessageCard({ message, variant = 'message' }: { message: Message
   const closed = message.status === 'closed'
   const isAuthor = me?.id === message.author_id
   const reply = variant === 'reply' ? message.last_reply : null
-  // Fila de respuesta: el autor, la fecha, los medios y la miniatura son los de la respuesta.
+  // Reply row: the author, the date, the media and the thumbnail are the reply's.
   const from = reply ?? message
   const main = mainAttachment(from.attachments)
 

@@ -283,8 +283,9 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
       const box = page.locator('[data-compose-box]')
       await box.waitFor()
       const rest = await box.boundingBox()
-      assert.ok(rest.height <= 64, `la barra mide ${rest.height} px en reposo`)
-      await page.locator('[data-compose-box] textarea').fill('Una línea larga que tiene que ocupar más de un renglón en una pantalla de teléfono para que la barra crezca con lo escrito.')
+      // UD-110: the bar has 24 px of padding and its controls under the field (131 px on a phone); it is still one line of text.
+      assert.ok(rest.height <= 140, `la barra mide ${rest.height} px en reposo`)
+      await page.locator('[data-compose-box] textarea').fill(Array.from({ length: 4 }, () => 'Una línea larga que tiene que ocupar más de un renglón en una pantalla de teléfono para que la barra crezca con lo escrito.').join(' '))
       const grown = await box.boundingBox()
       assert.ok(grown.height > rest.height + 20, 'crece al escribir')
     } finally {

@@ -120,7 +120,7 @@ describe('compose bar (J3-B-01, J3-B-17, J3-B-19, J3-B-20)', () => {
 })
 
 describe('drawer of sends (J3-B-04, J3-B-06, J3-B-07, J3-B-31, UD-046)', () => {
-  test('the drawer keeps its place and its height from the queue to the proposal, and the actions stay at its foot (J3-B-04, J3-B-31)', async () => {
+  test('the drawer keeps its place and its height from the queue to the proposal, never shrinks, and the actions stay at its foot (J3-B-04, J3-B-31)', async () => {
     const { page, context } = await session('diego')
     try {
       // Held in the queue until the test lets it run: the queued state is measured, not caught on its way (H-901).
@@ -138,7 +138,9 @@ describe('drawer of sends (J3-B-04, J3-B-06, J3-B-07, J3-B-31, UD-046)', () => {
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 40000 })
       await settled(page)
       const ready = await rect(dialog)
-      assert.deepEqual({ y: ready.y, height: ready.height }, { y: queued.y, height: queued.height }, 'el desplegable no cambia de alto ni de lugar')
+      // UD-110: the drawer is as tall as what it shows (at least 20 rem), so the proposal may make it taller than the queue; it never moves or gets shorter.
+      assert.equal(ready.y, queued.y, 'el desplegable no cambia de lugar')
+      assert.ok(ready.height >= queued.height, 'el desplegable no se encoge')
       assert.equal(Math.round((await rect(page.getByRole('heading', { name: 'Análisis' }))).y), Math.round(titleQueued), 'el título del análisis no salta')
       const send = await rect(page.getByRole('button', { name: /^Enviar \d+ mensajes?$/ }))
       assert.ok(ready.y + ready.height - (send.y + send.height) < 40, `el botón Enviar queda al pie del desplegable: ${ready.y + ready.height - (send.y + send.height)} px`)

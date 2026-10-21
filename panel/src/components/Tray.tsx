@@ -37,14 +37,16 @@ export const itemKey = (item: TrayItem) => (item.kind === 'upload' ? `upload-${i
  * inside a frame that keeps its height whatever the number of rows (they paginate). A row shows the
  * time, the first words, the state, the live progress and, once ready, the count of proposed messages.
  */
-export function Tray({ items, selectedId, hideTextId, onSelect }: { items: readonly TrayItem[]; selectedId: string | undefined; hideTextId?: string; onSelect: (id: string) => void }) {
+export function Tray({ items, selectedId, hideTextId, onSelect, bare = false }: { items: readonly TrayItem[]; selectedId: string | undefined; hideTextId?: string; onSelect: (id: string) => void; bare?: boolean }) {
   const t = useT()
   return (
     <section aria-label={t('tray.title')} className="flex min-h-0 min-w-0 flex-col gap-2">
-      <div className="flex items-center justify-between gap-2">
-        <h2>{t('tray.title')}</h2>
-        {items.length > 1 && <span className="text-xs tabular-nums text-muted">{t('tray.pending', { n: items.length })}</span>}
-      </div>
+      {!bare && (
+        <div className="flex items-center justify-between gap-2">
+          <h2>{t('tray.title')}</h2>
+          {items.length > 1 && <span className="text-xs tabular-nums text-muted">{t('tray.pending', { n: items.length })}</span>}
+        </div>
+      )}
       <FitList
         rows={items}
         rowKey={itemKey}

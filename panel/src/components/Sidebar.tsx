@@ -1,9 +1,12 @@
 import { ChevronDown, Home, Inbox, Layers, LogOut, Plug, Plus, Settings, Users } from '@/components/icons'
 import { useState, type ReactNode } from 'react'
 import { NavLink, useMatch } from 'react-router'
-import { Badge } from '@/components/ui/badge'
+import { Link } from 'react-router'
+import { NotifyBadge } from '@/components/NotifyBadge'
 import { useT } from '@/i18n'
-import { useAreas, useMe, useSaveArea } from '@/lib/queries'
+import { areaMessagesPath, areaPendingCounts, mineCounts } from '@/lib/pending'
+import type { MessageSummary } from '@/lib/types'
+import { useAreas, useMe, useSaveArea, useSummary } from '@/lib/queries'
 import { cn } from '@/lib/utils'
 import { Avatar } from './Avatar'
 import { FormDialog } from './FormDialog'
@@ -15,11 +18,12 @@ const row =
   'flex min-h-9 items-center gap-2.5 rounded-[1.125rem] border border-transparent px-3 py-1.5 text-sm font-medium text-fg transition-colors duration-150 hover:bg-glass'
 const active = 'border-glass-line bg-[linear-gradient(180deg,var(--color-glass-edge),var(--color-glass))] text-accent-deep shadow-glass hover:bg-glass-edge'
 
-function Item({ to, icon, children, end, onNavigate }: { to: string; icon: ReactNode; children: ReactNode; end?: boolean; onNavigate?: () => void }) {
+function Item({ to, icon, children, end, onNavigate, badge }: { to: string; icon: ReactNode; children: ReactNode; end?: boolean; onNavigate?: () => void; badge?: ReactNode }) {
   return (
     <NavLink to={to} end={end} onClick={onNavigate} className={({ isActive }) => cn(row, isActive && active)}>
       {icon}
-      <span className="min-w-0 break-words leading-tight">{children}</span>
+      <span className="min-w-0 flex-1 break-words leading-tight">{children}</span>
+      {badge}
     </NavLink>
   )
 }
@@ -29,6 +33,8 @@ export function Sidebar({ onNavigate, onLogout }: { onNavigate?: () => void; onL
   const t = useT()
   const me = useMe().data
   const areas = useAreas()
+  const summary = useSummary().data
+  const mine = mineCounts(summary)
   const saveArea = useSaveArea()
   const editor = me?.role === 'editor'
   const inAreas = !!useMatch('/areas/*')
@@ -49,7 +55,7 @@ export function Sidebar({ onNavigate, onLogout }: { onNavigate?: () => void; onL
       <Item to="/" end icon={<Home size={16} aria-hidden />} onNavigate={onNavigate}>
         {t('nav.home')}
       </Item>
-      <Item to="/messages" icon={<Inbox size={16} aria-hidden />} onNavigate={onNavigate}>
+      <Item to="/messages" icon={<Inbox size={16} aria-hidden />} onNavigate={onNavigate} badge={<NotifyBadge counts={mine} data-testid="messages-badge" />}>
         {t('nav.messages')}
       </Item>
 
@@ -77,15 +83,11 @@ export function Sidebar({ onNavigate, onLogout }: { onNavigate?: () => void; onL
             // With many areas the list scrolls inside: it is a declared lane, not the page.
             <ul data-lane="areas-nav" className="scroll-thin ml-3 mt-0.5 flex min-h-0 flex-col gap-0.5 overflow-y-auto border-l border-line-strong pl-1">
               {(areas.data ?? []).map((a) => (
-                <li key={a.id}>
-                  <NavLink to={`/areas/${a.id}`} onClick={onNavigate} className={({ isActive }) => cn(row, 'min-h-8 text-sm', isActive && active)}>
+                <li key={a.id} className="flex items-center gap-1">
+                  <NavLink to={`/areas/${a.id}`} onClick={onNavigate} className={({ isActive }) => cn(row, 'min-h-8 min-w-0 flex-1 text-sm', isActive && active)}>
                     <span className="min-w-0 flex-1 break-words leading-tight">{a.title}</span>
-                    {(a.unresolved_count ?? a.open_count ?? 0) > 0 && (
-                      <Badge tone="accent" aria-label={t('nav.pending', { n: a.unresolved_count ?? a.open_count ?? 0 })}>
-                        {a.unresolved_count ?? a.open_count}
-                      </Badge>
-                    )}
                   </NavLink>
+                  <AreaPending areaId={a.id} title={a.title} summary={summary} onNavigate={onNavigate} />
                 </li>
               ))}
             </ul>
@@ -135,5 +137,18 @@ export function Sidebar({ onNavigate, onLogout }: { onNavigate?: () => void; onL
         onSubmit={(v) => saveArea.mutateAsync({ title: v.title, description: v.description })}
       />
     </nav>
+  )
+}
+
+/** The pending (open) messages of an area; it leads to Mensajes filtered by that area and by open (UD-028). */
+function AreaPending({ areaId, title, summary, onNavigate }: { areaId: string; title: string; summary: MessageSummary | undefined; onNavigate?: () => void }) {
+  const t = useT()
+  const counts = areaPendingCounts(summary, areaId)
+  const open = counts.red ?? counts.yellow ?? 0
+  if (open === 0) return null
+  return (
+    <Link to={areaMessagesPath(areaId)} onClick={onNavigate} aria-label={t('home.areaOpen', { title, n: open })} className="rounded-full">
+      <NotifyBadge counts={counts} size="md" />
+    </Link>
   )
 }

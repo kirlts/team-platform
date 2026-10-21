@@ -1,5 +1,7 @@
 # Perfiles en prosa y descripción del proyecto, 2026-10-21
 
+Reemplazada por [2026-10-21-perfiles-y-proyecto-corregida.md](2026-10-21-perfiles-y-proyecto-corregida.md) (H-90). Las cifras de abajo mezclan puntos sin mensaje, errores de área y un solo lector, y comparan variantes sobre subconjuntos distintos de la referencia.
+
 Resultado: con perfiles, el analizador asigna bien más a menudo. Sobre los 207 pares que las tres variantes produjeron, el conjunto de destinatarios es exacto en 47,8 % con perfiles. Con solo nombres es 24,2 % y con perfiles y proyecto 26,1 %. La descripción del proyecto no mejora la asignación. Baja el recall (87,7 % a 62,3 %) porque el modelo deja sin destinatario el 20 % de los mensajes. Sí sube la cobertura de los puntos (42,8 %, 50,4 % y 63,3 % en el orden de las variantes). Baja también las marcas de IA por mensaje (0,174 a 0,091). La utilidad del cuerpo, juzgada por el mismo modelo, no distingue las variantes: promedio 3,37, 3,45 y 3,49 sobre 5.
 
 Medición de H-77. La condición de reversión de UD-023 compara la prosa con listas, y la variante de listas ya no existe en main. Contra la línea base de solo nombres, la prosa asigna mejor.

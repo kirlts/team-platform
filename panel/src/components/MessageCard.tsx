@@ -4,14 +4,20 @@ import { Button } from '@/components/ui/button'
 import { useFormat, useT } from '@/i18n'
 import { attachmentUrl, replyAttachmentUrl } from '@/lib/api'
 import { mainAttachment } from '@/lib/media'
+import { messageTone } from '@/lib/priority'
 import { useMe, useSetClosed } from '@/lib/queries'
+import { cn } from '@/lib/utils'
 import type { Message } from '@/lib/types'
 import { Avatar } from './Avatar'
 import { useLookups } from './lookups'
 import { MediaKinds } from './MediaKinds'
+import { ToneMark } from './NotifyBadge'
 import { Recipients } from './Recipients'
 import { AreaBadge, StatusBadge } from './StatusBadge'
 import { Thumb } from './Thumb'
+
+/** The edge of a row that affects me, in the color of its priority (UD-029); the mark beside the area says it with a shape and a word. */
+const EDGE = { red: 'shadow-[inset_4px_0_0_var(--color-tone-red-bg)]', yellow: 'shadow-[inset_4px_0_0_var(--color-tone-yellow-bg)]', blue: 'shadow-[inset_4px_0_0_var(--color-tone-blue-bg)]' } as const
 
 /** Recipients drawn before the rest fold into «+N». */
 const RECIPIENTS_SHOWN = 2
@@ -33,6 +39,7 @@ export function MessageCard({ message, variant = 'message' }: { message: Message
   const setClosed = useSetClosed()
 
   const closed = message.status === 'closed'
+  const tone = messageTone(message, me?.id ?? '')
   const isAuthor = me?.id === message.author_id
   const reply = variant === 'reply' ? message.last_reply : null
   // Reply row: the author, the date, the media and the thumbnail are the reply's.
@@ -40,7 +47,7 @@ export function MessageCard({ message, variant = 'message' }: { message: Message
   const main = mainAttachment(from.attachments)
 
   return (
-    <article className="group relative grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-1 border-b border-line px-4 py-3 last:border-b-0 hover:bg-glass-edge md:grid-cols-[minmax(0,1fr)_9.5rem_3.5rem] md:grid-rows-[auto_auto_1fr]">
+    <article data-affects-me={tone ?? undefined} className={cn('group relative grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-1 border-b border-line px-4 py-3 last:border-b-0 hover:bg-glass-edge md:grid-cols-[minmax(0,1fr)_9.5rem_3.5rem] md:grid-rows-[auto_auto_1fr]', tone && EDGE[tone])}>
       {/* data-repeat-ok: the reply row names the message it answers; that message is listed on its own too. */}
       <h3 data-repeat-ok={reply ? 'reply-names-its-message' : undefined} className="col-start-1 row-start-1 break-words text-sm font-semibold leading-snug">
         <Link
@@ -53,6 +60,7 @@ export function MessageCard({ message, variant = 'message' }: { message: Message
       <p className="col-start-1 row-start-2 whitespace-normal break-words text-xs text-muted">{reply ? reply.body : message.body}</p>
       <div className="col-span-2 row-start-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted md:col-span-1">
         <AreaBadge title={areaTitle(message.area_id)} />
+        {tone && <ToneMark tone={tone} />}
         <span data-repeat-ok="person" className="inline-flex items-center gap-1.5 leading-tight">
           <Avatar name={memberName(from.author_id) || '?'} size={18} />
           {memberName(from.author_id)}

@@ -44,55 +44,95 @@ function discardedIds(discarded) {
  */
 const sortedUnique = (ids) => [...new Set(ids)].sort((a, b) => a - b);
 
-function scoreAssignment(G, P) {
+/**
+ * Pairs each expected message with the obtained message that holds all of its units (the tightest one). A second
+ * labeler's assignees travel as `assignee_ids_alt`; area and template lists already hold both labelers' choices.
+ */
+function matchPairs(G, P) {
   const pairs = [];
   for (const g of G) {
-    if (!Array.isArray(g.assignee_ids) || g.units.size === 0) continue;
+    if (g.units.size === 0) continue;
     const complete = P.filter((p) => isSubset(g.units, p.units));
     if (complete.length === 0) continue;
     const match = complete.reduce((best, p) => (p.units.size < best.units.size ? p : best));
-    pairs.push({ expected_id: g.id, actual_index: match.index, expected: sortedUnique(g.assignee_ids), actual: sortedUnique(match.assignee_ids ?? []) });
+    const areas = asList(g.area_id);
+    const templates = asList(g.template_id);
+    pairs.push({
+      expected_id: g.id,
+      actual_index: match.index,
+      expected: Array.isArray(g.assignee_ids) ? sortedUnique(g.assignee_ids) : null,
+      alt: Array.isArray(g.assignee_ids_alt) ? sortedUnique(g.assignee_ids_alt) : null,
+      actual: sortedUnique(match.assignee_ids ?? []),
+      area_ok: areas ? areas.includes(match.area_id) : null,
+      template_ok: templates ? templates.includes(match.template_id) : null,
+    });
   }
-  return assignmentFromPairs(pairs);
+  return pairs;
+}
+
+/** Counts of area and template correctness over the expected messages that have a covering message. */
+function classificationByMessage(pairs, G) {
+  const withRef = G.filter((g) => asList(g.area_id) || asList(g.template_id)).length;
+  const judged = pairs.filter((p) => p.area_ok !== null || p.template_ok !== null);
+  return {
+    expected: withRef,
+    with_message: judged.length,
+    area_correct: judged.filter((p) => p.area_ok !== false).length,
+    template_correct: judged.filter((p) => p.template_ok !== false).length,
+    both_correct: judged.filter((p) => p.area_ok !== false && p.template_ok !== false).length,
+  };
 }
 
 /**
- * Assignment counts and rates from a list of pairs `{ expected: ids, actual: ids }`. Exported so that a comparison can
- * score only the pairs that every variant produced (the variants cover different subsets of the reference).
- * @param {Array<{ expected: number[], actual: number[] }>} pairList
+ * Assignment counts and rates from a list of pairs `{ expected, alt?, actual }`. Exported so that a comparison can
+ * score only the pairs that every variant produced.
+ *
+ * With one labeler, `expected` is the truth. With a second one (`alt`), a member both labelers chose is firm and a
+ * member only one chose is accepted: recall counts firm members, precision counts accepted ones, and a set is exact when
+ * it equals either labeler's set.
+ * @param {Array<{ expected: number[], alt?: number[]|null, actual: number[] }>} pairList
  */
 export function assignmentFromPairs(pairList) {
   const members = new Map();
   const member = (id) => {
-    if (!members.has(id)) members.set(id, { tp: 0, fp: 0, fn: 0, tn: 0, expected: 0, exact_when_expected: 0 });
+    if (!members.has(id)) members.set(id, { tp: 0, tp_p: 0, fp: 0, fn: 0, tn: 0, expected: 0, exact_when_expected: 0 });
     return members.get(id);
   };
   let exact = 0;
   let tp = 0;
+  let tpP = 0;
   let fp = 0;
   let fn = 0;
+  const sameSet = (x, y) => x.size === y.size && [...x].every((id) => y.has(id));
   for (const pair of pairList) {
-    const want = new Set(pair.expected);
+    const a = new Set(pair.expected);
+    const b = pair.alt ? new Set(pair.alt) : null;
     const got = new Set(pair.actual);
-    const same = want.size === got.size && [...want].every((id) => got.has(id));
+    const firm = b ? new Set([...a].filter((id) => b.has(id))) : a;
+    const accepted = b ? new Set([...a, ...b]) : a;
+    const same = sameSet(a, got) || (b !== null && sameSet(b, got));
     if (same) exact += 1;
-    for (const id of new Set([...want, ...got])) {
+    for (const id of new Set([...accepted, ...got])) {
       const m = member(id);
-      if (want.has(id) && got.has(id)) { m.tp += 1; tp += 1; }
-      else if (got.has(id)) { m.fp += 1; fp += 1; }
-      else { m.fn += 1; fn += 1; }
+      if (got.has(id)) {
+        if (accepted.has(id)) { m.tp_p += 1; tpP += 1; } else { m.fp += 1; fp += 1; }
+        if (firm.has(id)) { m.tp += 1; tp += 1; }
+      } else if (firm.has(id)) {
+        m.fn += 1;
+        fn += 1;
+      }
     }
-    for (const id of want) {
+    for (const id of firm) {
       member(id).expected += 1;
       if (same) member(id).exact_when_expected += 1;
     }
   }
-  // A member that shows up anywhere counts a true negative in each pair that neither expected nor chose it.
   for (const m of members.values()) m.tn = pairList.length - m.tp - m.fp - m.fn;
   return finishAssignment({
     pairs: pairList.length,
     exact,
     tp,
+    tp_p: tpP,
     fp,
     fn,
     per_member: Object.fromEntries([...members].map(([id, m]) => [String(id), m])),
@@ -101,12 +141,12 @@ export function assignmentFromPairs(pairList) {
 }
 
 /** Adds the derived rates to raw assignment counts. */
-function finishAssignment({ pairs, exact, tp, fp, fn, per_member, pair_list }) {
+function finishAssignment({ pairs, exact, tp, tp_p: tpP = tp, fp, fn, per_member, pair_list }) {
   const perMember = {};
   for (const [id, m] of Object.entries(per_member)) {
     perMember[id] = {
       ...m,
-      precision: m.tp + m.fp === 0 ? null : m.tp / (m.tp + m.fp),
+      precision: (m.tp_p ?? m.tp) + m.fp === 0 ? null : (m.tp_p ?? m.tp) / ((m.tp_p ?? m.tp) + m.fp),
       recall: m.tp + m.fn === 0 ? null : m.tp / (m.tp + m.fn),
       accuracy: pairs === 0 ? null : (m.tp + m.tn) / pairs,
       exact_when_expected_rate: m.expected === 0 ? null : m.exact_when_expected / m.expected,
@@ -116,10 +156,11 @@ function finishAssignment({ pairs, exact, tp, fp, fn, per_member, pair_list }) {
     pairs,
     exact,
     tp,
+    tp_p: tpP,
     fp,
     fn,
     accuracy: pairs === 0 ? null : exact / pairs,
-    precision: tp + fp === 0 ? null : tp / (tp + fp),
+    precision: tpP + fp === 0 ? null : tpP / (tpP + fp),
     recall: tp + fn === 0 ? null : tp / (tp + fn),
     per_member: perMember,
     ...(pair_list ? { pair_list } : {}),
@@ -131,13 +172,14 @@ function finishAssignment({ pairs, exact, tp, fp, fn, per_member, pair_list }) {
  * @param {Array<ReturnType<typeof scoreAssignment>>} list
  */
 export function mergeAssignment(list) {
-  const total = { pairs: 0, exact: 0, tp: 0, fp: 0, fn: 0, per_member: {} };
+  const total = { pairs: 0, exact: 0, tp: 0, tp_p: 0, fp: 0, fn: 0, per_member: {} };
   for (const a of list) {
     if (!a) continue;
     for (const k of ['pairs', 'exact', 'tp', 'fp', 'fn']) total[k] += a[k];
+    total.tp_p += a.tp_p ?? a.tp;
     for (const [id, m] of Object.entries(a.per_member)) {
-      const t = (total.per_member[id] ??= { tp: 0, fp: 0, fn: 0, tn: 0, expected: 0, exact_when_expected: 0 });
-      for (const k of Object.keys(t)) t[k] += m[k];
+      const t = (total.per_member[id] ??= { tp: 0, tp_p: 0, fp: 0, fn: 0, tn: 0, expected: 0, exact_when_expected: 0 });
+      for (const k of Object.keys(t)) t[k] += m[k] ?? (k === 'tp_p' ? m.tp : 0);
     }
   }
   // A member absent from a case's pairs is a true negative in all of them, so tn is recomputed from the merged counts.
@@ -211,6 +253,9 @@ export function score({ units, expected, actual }) {
   // Clasificación por unidad: cada unidad de un punto esperado tiene que estar sólo en mensajes
   // cuya área (y plantilla) estén entre las aceptadas para ese punto.
   const classification = { units: 0, area_correct: 0, template_correct: 0, both_correct: 0 };
+  // The same count over the units that received a message: an unit nobody covered says nothing about the area.
+  const givenMessage = { units: 0, area_correct: 0, template_correct: 0, both_correct: 0 };
+  const pairs = matchPairs(G, P);
   let classified = false;
   for (const g of G) {
     const areas = asList(g.area_id);
@@ -222,6 +267,12 @@ export function score({ units, expected, actual }) {
       const areaOk = holders.length > 0 && (!areas || holders.every((p) => areas.includes(p.area_id)));
       const templateOk = holders.length > 0 && (!templates || holders.every((p) => templates.includes(p.template_id)));
       classification.units += 1;
+      if (holders.length > 0) {
+        givenMessage.units += 1;
+        if (areaOk) givenMessage.area_correct += 1;
+        if (templateOk) givenMessage.template_correct += 1;
+        if (areaOk && templateOk) givenMessage.both_correct += 1;
+      }
       if (areaOk) classification.area_correct += 1;
       if (templateOk) classification.template_correct += 1;
       if (areaOk && templateOk) classification.both_correct += 1;
@@ -270,7 +321,9 @@ export function score({ units, expected, actual }) {
     counts,
     rates,
     mece,
-    assignment: scoreAssignment(G, P),
+    assignment: assignmentFromPairs(pairs.filter((p) => p.expected !== null)),
+    classification_by_message: classificationByMessage(pairs, G),
+    classification_given_message: givenMessage,
     details: {
       points: perPoint,
       extra_messages: extraMessages,

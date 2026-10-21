@@ -287,12 +287,12 @@ function ProposalRow({
             }))
           }
         />
-        <EditableText value={m.title} label={t('proposal.title')} validate={required} onSave={(v) => patch(index, t('proposal.titleEdited'), { title: v })} displayClassName="font-semibold" className="min-w-0 flex-1 basis-40" />
+        <EditableText value={m.title} label={t('proposal.title')} validate={required} onSave={(v) => patch(index, t('proposal.titleEdited'), { title: v })} displayClassName="text-sm font-semibold" className="min-w-0 flex-1 basis-40" />
         <Button size="sm" variant="ghost" className="shrink-0 text-muted" onClick={() => void remove(index)} disabled={onlyOne} aria-label={t('proposal.remove', { title: m.title })}>
           <Trash2 size={13} aria-hidden /> {t('proposal.removeShort')}
         </Button>
       </div>
-      <EditableText value={m.body} label={t('proposal.body')} multiline prose validate={required} onSave={(v) => patch(index, t('proposal.bodyEdited'), { body: v })} displayClassName="text-sm" />
+      <EditableText value={m.body} label={t('proposal.body')} multiline prose validate={required} onSave={(v) => patch(index, t('proposal.bodyEdited'), { body: v })} displayClassName="text-base leading-[1.65] text-fg" className="py-1" />
       <TemplateFields template={template} values={m.fields} onSave={(name, value) => patch(index, t('proposal.fieldEdited'), (cur) => ({ fields: { ...(cur.fields ?? {}), [name]: value } }))} />
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
         <RecipientsEditor ids={m.assignee_ids} onChange={(ids) => void patch(index, t('proposal.recipientsChanged'), { assignee_ids: ids })} />

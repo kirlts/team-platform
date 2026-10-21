@@ -95,6 +95,12 @@ for (const [theme, t] of [['claro', light], ['oscuro', dark]]) {
   row(theme, 'barra de fila elegida (accent) sobre su relleno', fg('accent'), [fg('selected')], 3)
   row(theme, 'fg sobre fila elegida', fg('fg'), [fg('selected')], 4.5)
   row(theme, 'muted sobre fila elegida', fg('muted'), [fg('selected')], 4.5)
+  // Notification priorities (UD-029): text on its fill (4.5), and the fill against the glass and the header (3, non-text).
+  for (const tone of ['red', 'yellow', 'blue']) {
+    row(theme, `prioridad ${tone}: texto sobre su fondo`, fg(`tone-${tone}-fg`), [fg(`tone-${tone}-bg`)], 4.5)
+    row(theme, `prioridad ${tone}: borde sobre vidrio`, fg(`tone-${tone}-edge`), onGlass('glass'), 3)
+    row(theme, `prioridad ${tone}: borde sobre cromo`, fg(`tone-${tone}-edge`), ['chrome-1', 'chrome-2', 'chrome-3', 'chrome-4'].map(fg), 3)
+  }
   // Gel button: text over the gradient at the text point (30 % of the height), with the highlight.
   const mix = (a, b, k) => a.map((v, i) => v * (1 - k) + b[i] * k)
   const top = fg('gel-top')

@@ -31,4 +31,4 @@ Un mensaje por error.
 
 Título: verbo en infinitivo y lugar, por ejemplo «Corregir pantalla en blanco al ingresar con correo». Describe el problema, no la causa supuesta ni la solución.
 
-Cuerpo: tres o cuatro frases en este orden: qué falla y dónde, cómo se llega a la falla, qué se esperaba, y el impacto si se conoce. Sin saludos ni relleno.
+Cuerpo: tres o cuatro frases en este orden: qué falla y dónde, cómo se llega a la falla, qué se esperaba, y el impacto si se conoce. Sin saludos ni relleno. Lo que el input no da no se menciona en el cuerpo: ni «no se indica» ni una frase sobre lo que falta.

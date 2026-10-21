@@ -27,4 +27,4 @@ Un mensaje por idea.
 
 Título: sustantivo o verbo en infinitivo que nombre la idea, por ejemplo «Agrupar los mensajes por día».
 
-Cuerpo: dos o tres frases: qué se propone, para qué serviría y, si existe, el ejemplo que la persona dio. Sin evaluar la idea ni agregar opiniones propias.
+Cuerpo: dos o tres frases: qué se propone, para qué serviría y, si existe, el ejemplo que la persona dio. Sin evaluar la idea ni agregar opiniones propias. Lo que el input no da no se menciona en el cuerpo: ni «no se indica» ni una frase sobre lo que falta.

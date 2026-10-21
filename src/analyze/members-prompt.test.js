@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { classifySystem, decomposeSystem, decomposeUser, membersBlock } from './prompts.js'
+import { classifySystem, classifyUser, decomposeSystem, decomposeUser, membersBlock } from './prompts.js'
 
 // Both prompt sets (UD-018) carry the same blocks: the language only changes the words around them.
 const SETS = [
@@ -49,4 +49,37 @@ for (const { language, member, noOldWords, assign, oldAssign, enrich } of SETS) 
     assert.equal(classifySystem({ areas: [], templates: [], project: { name: 'Atlas', description: '  ' }, language }).length, 2)
     assert.equal(decomposeSystem({ name: 't', description: '', fields: [], body: '' }, undefined, language).length, 2)
   })
+}
+
+// UD-025: the author's unpublished recent inputs ride in the user message of both calls, never in the cached system prompt.
+const RECENT = [
+  { id: 41, created_at: Date.UTC(2026, 9, 21, 14, 5), text_excerpt: 'El botón Exportar no hace nada en Safari.', proposed_titles: ['Corregir el botón Exportar', 'Revisar el menú de acciones'] },
+  { id: 40, created_at: '2026-10-21T13:40:00Z', text_excerpt: 'Idea: avisar por WhatsApp.', proposed_titles: [] },
+]
+const UNITS = [{ id: 1, text: 'hola', source: { type: 'text' } }]
+
+for (const { language, member } of SETS) {
+  test(`${language}: the recent inputs block lists each input by its time, with its proposed titles and the instruction not to drop a repeated point`, () => {
+    const user = decomposeUser({ members: [{ id: 7, name: 'Ana', profile: 'x' }], attachments: [], units: UNITS, language, recent: RECENT })
+    assert.match(user, language === 'en' ? /Recent inputs from the same person, not yet published/ : /Envíos recientes de la misma persona, todavía sin publicar/)
+    assert.ok(user.includes('2026-10-21 14:05') && user.includes('2026-10-21 13:40'))
+    assert.ok(user.includes('Corregir el botón Exportar; Revisar el menú de acciones'))
+    assert.match(user, language === 'en' ? /Never drop it silently/ : /Nunca lo omitas en silencio/)
+    assert.ok(user.indexOf(`- ${member} 7`) < user.indexOf('2026-10-21 14:05'), 'after the members block')
+    assert.ok(classifyUserText(language).includes('2026-10-21 14:05'))
+    const system = [...classifySystem({ areas: [], templates: [], language }), ...decomposeSystem({ name: 't', description: '', fields: [], body: '' }, undefined, language)].join('\n')
+    assert.equal(system.includes('2026-10-21 14:05'), false, 'not in the cached prefix')
+  })
+
+  test(`${language}: without recent inputs (absent or empty) there is no block`, () => {
+    for (const recent of [undefined, []]) {
+      const user = decomposeUser({ members: [], attachments: [], units: UNITS, language, recent })
+      assert.equal(/Envíos recientes|Recent inputs/.test(user), false)
+      assert.equal(/Envíos recientes|Recent inputs/.test(classifyUser({ units: UNITS, attachments: [], language, recent })), false)
+    }
+  })
+}
+
+function classifyUserText(language) {
+  return classifyUser({ units: UNITS, attachments: [], language, recent: RECENT })
 }

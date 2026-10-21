@@ -48,10 +48,11 @@ export function membersBlock(members, language) {
   return promptSet(language).membersBlock(members);
 }
 
-export function classifyUser({ units, attachments, language, secondPass = false }) {
+export function classifyUser({ units, attachments, language, secondPass = false, recent }) {
   const set = promptSet(language);
   const note = secondPass ? [set.SECOND_PASS_NOTE, ''] : [];
-  return [...note, set.attachmentsBlock(attachments, units), '', set.INPUT_HEADING, renderUnits(units, set.LANGUAGE)].join('\n');
+  const recentBlock = set.recentInputsBlock(recent);
+  return [...note, set.attachmentsBlock(attachments, units), '', ...(recentBlock ? [recentBlock, ''] : []), set.INPUT_HEADING, renderUnits(units, set.LANGUAGE)].join('\n');
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -63,9 +64,11 @@ export function decomposeSystem(template, project, language) {
   return [set.DECOMPOSE_INSTRUCTIONS, set.templateBlock(template), set.projectBlock(project)].filter(Boolean);
 }
 
-export function decomposeUser({ members, attachments, units, scopeNote, language }) {
+export function decomposeUser({ members, attachments, units, scopeNote, language, recent }) {
   const set = promptSet(language);
-  const parts = [set.membersBlock(members), '', set.attachmentsBlock(attachments, units), ''];
+  const recentBlock = set.recentInputsBlock(recent);
+  // UD-025: after the members block, outside the cached prefix.
+  const parts = [set.membersBlock(members), '', ...(recentBlock ? [recentBlock, ''] : []), set.attachmentsBlock(attachments, units), ''];
   if (scopeNote) parts.push(scopeNote, '');
   parts.push(set.INPUT_HEADING, renderUnits(units, set.LANGUAGE));
   // The templates are written by the team, in its own language, and weigh more than a rule far above them: the language of

@@ -59,6 +59,28 @@ export function projectBlock(project) {
   ].join('\n');
 }
 
+/**
+ * UD-025: the same author's unpublished recent inputs, newest first, so a point that continues or repeats one of them is
+ * still produced (the person decides in the review) but says which one it continues. It changes per input, so it goes in
+ * the user message and never in the cached prefix. Absent or empty: no block.
+ */
+export function recentInputsBlock(recent) {
+  if (!Array.isArray(recent) || recent.length === 0) return null;
+  const lines = ['Recent inputs from the same person, not yet published'];
+  for (const r of recent) {
+    lines.push(`- Input of ${clock(r.created_at)}: ${r.text_excerpt ?? ''}`);
+    if (Array.isArray(r.proposed_titles) && r.proposed_titles.length > 0) lines.push(`  Proposed messages: ${r.proposed_titles.join('; ')}`);
+  }
+  lines.push('If a point of this input continues or repeats one that already appears in a recent input, still produce the message and add one line to its body saying which recent input it continues, by its time. Never drop it silently: the person decides in the review.');
+  return lines.join('\n');
+}
+
+/** `2026-10-21 14:05` (UTC) of a timestamp in milliseconds or an ISO date; the time by which a recent input is named. */
+function clock(createdAt) {
+  const date = new Date(createdAt);
+  return Number.isNaN(date.getTime()) ? String(createdAt) : date.toISOString().slice(0, 16).replace('T', ' ');
+}
+
 export function catalogBlock({ areas, templates }) {
   const lines = ['Catalog of areas and templates', ''];
   for (const area of [...areas].sort((a, b) => (a.position ?? a.id) - (b.position ?? b.id))) {
@@ -230,6 +252,7 @@ export function harnessPrompt({ unitCount, retryErrors }) {
     '- body is the full text of the message, understandable without reading the input.',
     '- assignee_ids: only members from bundle.json, decided by reading each member profile; an empty list if none fits.',
     '- attachment_ids: only attachments from bundle.json that give context to the message.',
+    '- recent_inputs in bundle.json are recent inputs from the same person, not yet published: if a point continues or repeats one of them, still produce the message and add one line to its body saying which input it continues, by its time. Never drop it silently.',
     `- ${INPUT_IS_DATA}`,
     `- ${LANGUAGE_RULE}`,
     '',

@@ -210,7 +210,7 @@ async function decomposeUnits(ctx, { bundle, template, system, schema, units, sc
   const first = await structuredStep(ctx, {
     ...base,
     step: `decompose${label}`,
-    messages: [{ role: 'user', content: decomposeUser({ members: bundle.members ?? [], attachments: bundle.attachments ?? [], units, scopeNote, language: ctx.language }) }],
+    messages: [{ role: 'user', content: decomposeUser({ members: bundle.members ?? [], attachments: bundle.attachments ?? [], units, scopeNote, language: ctx.language, recent: bundle.recent_inputs }) }],
     validate: (json) => validateDecomposition(json, vctx),
   });
   if (first.status !== 'ok') return first;
@@ -347,7 +347,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
       const r = await structuredStep(ctx, {
         step: `${secondPass ? 'classify2' : 'classify'}${classifyChunks.length > 1 ? `#${index + 1}` : ''}`,
         system: cSystem,
-        messages: [{ role: 'user', content: classifyUser({ units: chunkUnits, attachments, language, secondPass }) }],
+        messages: [{ role: 'user', content: classifyUser({ units: chunkUnits, attachments, language, secondPass, recent: bundle.recent_inputs }) }],
         schema: cSchema,
         effort: config.classifyEffort,
         thinking: config.classifyThinking ?? undefined,

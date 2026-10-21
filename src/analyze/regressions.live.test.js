@@ -66,3 +66,25 @@ describe('UD-018 (proveedor real): the output follows bundle.language, not the l
     });
   }
 });
+
+// UD-025 with the real provider: a second input that repeats a point of the first is not dropped; its message says which recent input it continues.
+describe('UD-025 (proveedor real): a point that repeats a recent input is kept and says which one it continues', { skip: process.env.ANTHROPIC_API_KEY ? false : 'missing ANTHROPIC_API_KEY' }, () => {
+  it('the second input keeps the repeated point and names the recent input by its time', async () => {
+    const providers = createProviders(process.env);
+    const first = await analyze(await makeBundle({ text: 'El botón Exportar del tablero no hace nada cuando lo aprieto en Safari.', attachments: [], language: 'es-419' }), { providers });
+    assert.equal(first.status, 'ok', JSON.stringify(first.errors));
+    const recent = [{ id: 1, created_at: Date.UTC(2026, 9, 21, 9, 30), text_excerpt: 'El botón Exportar del tablero no hace nada cuando lo aprieto en Safari.', proposed_titles: first.proposal.messages.map((m) => m.title) }];
+    const second = await analyze(await makeBundle({
+      text: 'Otra vez lo del botón Exportar: sigue sin hacer nada en Safari.\nAdemás, el filtro de fechas deja elegir días pasados.',
+      attachments: [],
+      language: 'es-419',
+      recent_inputs: recent,
+    }), { providers });
+    assert.equal(second.status, 'ok', JSON.stringify(second.errors));
+    const messages = second.proposal.messages;
+    const exportMessage = messages.find((m) => /export/i.test(`${m.title} ${m.body}`));
+    assert.ok(exportMessage, 'the repeated point is still produced');
+    assert.match(exportMessage.body, /09:30/, 'its body names the recent input by its time');
+    assert.ok(messages.some((m) => /fecha/i.test(`${m.title} ${m.body}`)), 'the new point is produced too');
+  });
+});

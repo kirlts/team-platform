@@ -54,6 +54,28 @@ export function projectBlock(project) {
   ].join('\n');
 }
 
+/**
+ * UD-025: the same author's unpublished recent inputs, newest first, so a point that continues or repeats one of them is
+ * still produced (the person decides in the review) but says which one it continues. It changes per input, so it goes in
+ * the user message and never in the cached prefix. Absent or empty: no block.
+ */
+export function recentInputsBlock(recent) {
+  if (!Array.isArray(recent) || recent.length === 0) return null;
+  const lines = ['Envíos recientes de la misma persona, todavía sin publicar'];
+  for (const r of recent) {
+    lines.push(`- Envío de las ${clock(r.created_at)}: ${r.text_excerpt ?? ''}`);
+    if (Array.isArray(r.proposed_titles) && r.proposed_titles.length > 0) lines.push(`  Mensajes propuestos: ${r.proposed_titles.join('; ')}`);
+  }
+  lines.push('Si un punto de este input continúa o repite uno que ya aparece en un envío reciente, produce el mensaje igual y agrega en su cuerpo una línea que diga a qué envío reciente continúa, por su hora. Nunca lo omitas en silencio: la persona decide en la revisión.');
+  return lines.join('\n');
+}
+
+/** `2026-10-21 14:05` (UTC) of a timestamp in milliseconds or an ISO date; the time by which a recent input is named. */
+function clock(createdAt) {
+  const date = new Date(createdAt);
+  return Number.isNaN(date.getTime()) ? String(createdAt) : date.toISOString().slice(0, 16).replace('T', ' ');
+}
+
 export function catalogBlock({ areas, templates }) {
   const lines = ['Catálogo de áreas y plantillas', ''];
   for (const area of [...areas].sort((a, b) => (a.position ?? a.id) - (b.position ?? b.id))) {
@@ -224,6 +246,7 @@ export function harnessPrompt({ unitCount, retryErrors }) {
     '- body es el texto completo del mensaje, entendible sin leer el input.',
     '- assignee_ids: solo miembros de bundle.json decididos leyendo el perfil de cada miembro; lista vacía si ninguno corresponde.',
     '- attachment_ids: solo adjuntos de bundle.json que dan contexto al mensaje.',
+    '- recent_inputs de bundle.json son envíos recientes de la misma persona, todavía sin publicar: si un punto continúa o repite uno de ellos, produce el mensaje igual y agrega en su cuerpo una línea que diga a qué envío continúa, por su hora. Nunca lo omitas en silencio.',
     `- ${INPUT_IS_DATA}`,
     `- ${LANGUAGE_RULE}`,
     '',

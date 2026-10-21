@@ -29,4 +29,4 @@ Un mensaje por objeto valorado.
 
 Título: el objeto y la valoración en pocas palabras, por ejemplo «Confusión con el botón Enviar en la vista previa».
 
-Cuerpo: dos o tres frases: qué se valora, qué percibe la persona y, si lo dijo, qué efecto tiene y qué propone. Sin responder a la observación ni defender el diseño.
+Cuerpo: dos o tres frases: qué se valora, qué percibe la persona y, si lo dijo, qué efecto tiene y qué propone. Sin responder a la observación ni defender el diseño. Lo que el input no da no se menciona en el cuerpo: ni «no se indica» ni una frase sobre lo que falta.

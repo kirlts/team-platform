@@ -85,4 +85,20 @@ describe('prompt sets', () => {
       assert.match(JSON.stringify(first.messages), userHead);
     });
   }
+
+  it('analyze() hands the recent inputs to the classification and the decomposition, in the user message only (UD-025)', async () => {
+    const recent = [{ id: 9, created_at: Date.UTC(2026, 9, 21, 9, 30), text_excerpt: 'Algo que ya mandé.', proposed_titles: ['Corregir cuatro errores'] }];
+    const bundle = await makeBundle({ language: 'es-419', recent_inputs: recent });
+    const fake = createFakeProviders({
+      text: scriptByRequest({ classification: CLASSIFY_ERRORS, decompositions: { 'Reporte de error': { messages: [bugMessage([2, 3, 4, 5], 'Corregir cuatro errores')] } } }),
+    });
+    const result = await analyze(bundle, { providers: fake });
+    assert.equal(result.status, 'ok');
+    assert.equal(fake.calls.text.length, 2);
+    for (const call of fake.calls.text) {
+      assert.match(JSON.stringify(call.messages), /Envíos recientes de la misma persona, todavía sin publicar/);
+      assert.match(JSON.stringify(call.messages), /2026-10-21 09:30/);
+      assert.equal(call.system.join('\n').includes('2026-10-21 09:30'), false);
+    }
+  });
 });

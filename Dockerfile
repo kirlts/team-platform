@@ -5,6 +5,7 @@
 FROM node:24-alpine AS panel
 WORKDIR /ctx
 COPY . /ctx
+ARG BUILD_JOBS=
 RUN mkdir -p /out \
  && if [ -f panel/package.json ]; then \
       cd panel \
@@ -75,7 +76,7 @@ tar -xf dav1d.tar.xz
 cd "dav1d-${DAV1D_VERSION}"
 meson setup build --prefix=/opt/dav1d --libdir=lib --buildtype=release --default-library=static \
   -Denable_tools=false -Denable_tests=false -Denable_examples=false
-ninja -C build install
+ninja -C build -j "${BUILD_JOBS:-$(nproc)}" install
 mkdir -p /out/licenses
 cp COPYING /out/licenses/dav1d-COPYING
 DAV1D
@@ -104,7 +105,7 @@ export PKG_CONFIG_PATH=/opt/dav1d/lib/pkgconfig
   --enable-protocol=file,pipe \
   $ASM
 # configure-end
-make -j"$(nproc)"
+make -j"${BUILD_JOBS:-$(nproc)}"
 make install
 strip /opt/ffmpeg/bin/ffmpeg /opt/ffmpeg/bin/ffprobe
 mkdir -p /out/bin /out/licenses

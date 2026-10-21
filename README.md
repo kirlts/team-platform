@@ -45,7 +45,7 @@ node bench/run.mjs --fake perfect    # reporte del banco sin red
 node bench/run.mjs --repeat 3        # siete casos con el proveedor real, tres repeticiones
 ```
 
-Cifras del 2026-10-21: 864 pruebas del servidor (7 omitidas), 74 del banco y 164 del panel. Los comandos de `panel` se corren desde `panel/`.
+Cifras del 2026-10-21: 865 pruebas del servidor (6 omitidas), 74 del banco y 164 del panel. Los comandos de `panel` se corren desde `panel/`.
 
 El banco mide si un input se descompone en los mensajes correctos y cuánto tarda. Reporta cobertura, repetición, mensajes de más, partidos y fusionados, exactitud de la clasificación, tiempo por paso, tokens y costo. Los casos y el puntaje están en [bench/README.md](bench/README.md). Para analizar un texto suelto: `node scripts/analizar.mjs "texto del input"`.
 

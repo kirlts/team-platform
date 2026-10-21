@@ -57,7 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Empaquetado: `Dockerfile` multi-etapa, `compose.yml` de un servicio, `compose.override.example.yml`, `scripts/install.sh`, `scripts/backup.sh` y `docs/INSTALACION.md`.
 - Banco de referencia en `bench/`: siete casos, puntaje por conjuntos sobre `unit_ids`, corredor `run.mjs` y promptfoo.
 - `scripts/llave.mjs` para guardar una llave de proveedor fuera del repositorio y `scripts/analizar.mjs` para analizar un texto desde la terminal.
-- Pruebas al 2026-10-21: 864 del servidor (7 omitidas por falta de llave, imagen o red), 74 del banco y 164 del panel en 29 archivos; prohibiciones HP-001 a HP-029 en `docs/TEST.md`.
+- Pruebas al 2026-10-21: 865 del servidor (6 omitidas por falta de llave, imagen o red), 74 del banco y 164 del panel en 29 archivos; prohibiciones HP-001 a HP-029 en `docs/TEST.md`.
 - `README.md` para quien llega al repositorio público.
 
 ### Changed

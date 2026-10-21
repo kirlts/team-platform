@@ -2,7 +2,7 @@
 
 > Trazabilidad directa: cada tarea referencia las prohibiciones HP-001 a HP-029 de `docs/TEST.md`: `VERIFICATION.md` no se deriva (H-45).
 >
-> Las marcas de tiempo de las tareas cerradas son la hora del commit que entregó cada ítem. Se verificaron contra el código y las pruebas el 2026-10-21: 864 del servidor en verde (`npm test`, 7 omitidas por falta de llave, imagen o red), 74 del banco (`node --test bench/`) y 164 del panel (`vitest run`, 29 archivos).
+> Las marcas de tiempo de las tareas cerradas son la hora del commit que entregó cada ítem. Se verificaron contra el código y las pruebas el 2026-10-21: 865 del servidor en verde (`npm test`, 6 omitidas por falta de llave, imagen o red), 74 del banco (`node --test bench/`) y 164 del panel (`vitest run`, 29 archivos).
 
 ## Leyenda de símbolos Kairós
 

@@ -95,13 +95,17 @@ export function MessageCard({ message, variant = 'message' }: { message: Message
             </span>
           </div>
         </div>
-        {main && (
-          <Thumb
-            item={{ kind: main.kind, src: attachmentUrl(main.id), name: main.name, size: main.size }}
-            px={56}
-            className="hidden sm:inline-block"
-          />
-        )}
+        {variant === 'message' &&
+          (main ? (
+            <Thumb
+              item={{ kind: main.kind, src: attachmentUrl(main.id), name: main.name, size: main.size }}
+              px={56}
+              className="hidden sm:inline-block"
+            />
+          ) : (
+            // Reserva el lugar de la miniatura para que la fecha y las acciones alineen en todas las filas.
+            <span aria-hidden className="hidden w-14 shrink-0 sm:block" />
+          ))}
       </div>
       {replying && (
         <div className="relative z-10 mt-3.5 border-t border-line pt-3.5">

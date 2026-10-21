@@ -21,8 +21,8 @@ export function Atmosphere() {
               </g>
       <g fill="var(--color-glass-edge)" stroke="var(--color-orbit)" strokeWidth="1">
         <path d={SPARKLE} transform="translate(1404 96) scale(1.4)" />
-        <path d={SPARKLE} transform="translate(1362 520) scale(0.8)" />
-        <path d={SPARKLE} transform="translate(330 804) scale(1.05)" />
+        <path className="hidden md:inline" d={SPARKLE} transform="translate(1362 520) scale(0.8)" />
+        <path className="hidden md:inline" d={SPARKLE} transform="translate(330 804) scale(1.05)" />
       </g>
     </svg>
   )

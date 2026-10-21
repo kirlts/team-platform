@@ -20,7 +20,7 @@ export default defineConfig({
     outDir: 'dist',
     // Ningún activo en línea como data: URI: la CSP sólo admite font-src 'self'.
     assetsInlineLimit: 0,
-    // El paquete único mide 510 kB (158 kB comprimidos, medido el 2026-10-20): React, Router, Query y Radix.
+    // El paquete único mide 506 kB (156 kB comprimidos, medido el 2026-10-20): React, Router, Query y Radix.
     chunkSizeWarningLimit: 600,
     // Base de navegadores de MASTER-SPEC §3: Chrome 111, Safari 16.4, Firefox 128.
     target: ['chrome111', 'safari16.4', 'firefox128'],

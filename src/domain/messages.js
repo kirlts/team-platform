@@ -10,6 +10,8 @@ import { all, get, run } from '../db/index.js'
 import { iso, parseJson } from '../db/util.js'
 import { audit } from './audit.js'
 import { badRequest, conflict, forbidden, notFound } from './errors.js'
+import { checkAssignees, checkFields, newValidatorCache, resolveAreaAndTemplate, withoutNulls } from './validation.js'
+import { loadTemplate } from './areas.js'
 
 export const MESSAGE_STATUSES = ['open', 'answered', 'closed']
 export const REPLY_KINDS = ['answer', 'fix', 'clarification']
@@ -49,7 +51,9 @@ function assigneesOf (db, ids) {
   return table
 }
 
-const toReply = (r) => ({ id: r.id, message_id: r.message_id, author_id: r.author_id, body: r.body, kind: r.kind, created_at: iso(r.created_at) })
+// Replies carry no attachments yet (the schema has no table for them), so every reply reports an empty list of media
+// kinds; the panel draws one icon per kind (UD-016) and the field is already where it will read them.
+const toReply = (r) => ({ id: r.id, message_id: r.message_id, author_id: r.author_id, body: r.body, kind: r.kind, attachment_kinds: [], created_at: iso(r.created_at) })
 
 function lastRepliesOf (db, ids) {
   if (ids.length === 0) return new Map()
@@ -78,9 +82,11 @@ function hydrate (db, rows) {
     status: f.status,
     assignee_ids: assigned.get(f.id) ?? [],
     attachments: atts.get(f.id) ?? [],
+    attachment_kinds: [...new Set((atts.get(f.id) ?? []).map((a) => a.kind))], // distinct, in attachment order (UD-016)
     reply_count: f.reply_count,
     last_reply: lastReplies.get(f.id) ?? null,
     created_at: iso(f.created_at),
+    updated_at: iso(f.updated_at ?? f.created_at),
     closed_at: iso(f.closed_at)
   }))
 }
@@ -131,6 +137,74 @@ export function getMessage (db, id) {
   const [msgRow] = hydrate(db, [dbRow])
   const replyRows = all(db, 'SELECT * FROM replies WHERE message_id = ? ORDER BY id', id)
   return { ...msgRow, replies: replyRows.map(toReply) }
+}
+
+const EDIT_KEYS = ['title', 'body', 'fields', 'assignee_ids', 'area_id', 'template_id']
+
+/**
+ * In-place edit of a published message (UD-017): title, body, fields, assignees, area (a change of area needs a
+ * `template_id` of the new area). The author and any editor may edit, in any status (answered and closed included).
+ * Idempotent: a patch that changes nothing leaves the message, `updated_at` and the audit log as they were.
+ * There is no version history (UD-017 rejects it); the audit row records which fields changed, not their values.
+ */
+export function updateMessage ({ db, events, now = Date.now }, { messageId, actor, patch }) {
+  events.transaction(() => {
+    const row = get(db, 'SELECT * FROM messages WHERE id = ?', messageId)
+    if (!row) throw notFound('El mensaje no existe.')
+    if (row.author_id !== actor.id && actor.role !== 'editor') throw forbidden('Sólo el emisor o un editor puede editar este mensaje.', 'not_message_editor')
+
+    const fail = badRequest
+    const next = {}
+    if (patch.title !== undefined) {
+      if (patch.title.trim() === '') throw fail('El título es obligatorio.', 'message_invalid')
+      next.title = patch.title.trim()
+    }
+    if (patch.body !== undefined) {
+      if (patch.body.trim() === '') throw fail('El texto es obligatorio.', 'message_invalid')
+      next.body = patch.body
+    }
+
+    const areaChanges = patch.area_id !== undefined && patch.area_id !== row.area_id
+    if (areaChanges && (patch.template_id === undefined || patch.template_id === null)) {
+      throw fail('Para cambiar el área hay que elegir también una plantilla de esa área.', 'template_required')
+    }
+    const areaId = patch.area_id ?? row.area_id
+    const templateChanges = areaChanges || (patch.template_id !== undefined && patch.template_id !== row.template_id)
+    let tpl
+    if (templateChanges) {
+      tpl = resolveAreaAndTemplate(db, { areaId, templateId: patch.template_id }, { fail })
+      next.area_id = areaId
+      next.template_id = tpl?.id ?? null
+    } else {
+      tpl = row.template_id === null ? null : loadTemplate(db, row.template_id)
+    }
+    // Fields are checked whenever they or their template change, because the template defines which are required.
+    if (patch.fields !== undefined || templateChanges) {
+      const fields = withoutNulls(patch.fields ?? parseJson(row.fields_json, {}))
+      checkFields(tpl, fields, { fail, cache: newValidatorCache() })
+      next.fields_json = JSON.stringify(fields)
+    }
+
+    const assigneeIds = patch.assignee_ids === undefined ? null : checkAssignees(db, patch.assignee_ids, { fail })
+    const currentAssignees = all(db, 'SELECT member_id FROM message_assignees WHERE message_id = ? ORDER BY member_id', messageId).map((a) => a.member_id)
+    const sameAssignees = assigneeIds === null || (assigneeIds.length === currentAssignees.length && [...assigneeIds].sort((a, b) => a - b).every((id, i) => id === currentAssignees[i]))
+
+    const changed = Object.entries(next).filter(([k, v]) => row[k] !== v).map(([k]) => k)
+    if (changed.length === 0 && sameAssignees) return
+    const t = now()
+    if (changed.length > 0) {
+      run(db, `UPDATE messages SET ${changed.map((k) => `${k} = ?`).join(', ')}, updated_at = ? WHERE id = ?`, ...changed.map((k) => next[k]), t, messageId)
+    } else {
+      run(db, 'UPDATE messages SET updated_at = ? WHERE id = ?', t, messageId)
+    }
+    if (!sameAssignees) {
+      run(db, 'DELETE FROM message_assignees WHERE message_id = ?', messageId)
+      for (const id of assigneeIds) run(db, 'INSERT INTO message_assignees (message_id, member_id) VALUES (?, ?)', messageId, id)
+    }
+    const names = [...changed.map((k) => (k === 'fields_json' ? 'fields' : k)), ...(sameAssignees ? [] : ['assignee_ids'])]
+    audit(db, { memberId: actor.id, action: 'message.update', entity: 'message', entityId: messageId, detail: { fields: names }, now })
+  })
+  return getMessage(db, messageId)
 }
 
 export function addReply ({ db, events, now = Date.now }, { messageId, authorId, body, kind = 'answer' }) {

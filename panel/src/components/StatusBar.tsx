@@ -1,9 +1,9 @@
 import type { KeyboardEvent } from 'react'
 import { Link } from 'react-router'
 import { AreaChip } from '@/components/AreaChip'
-import { StateIcon, StateMark, usePulse } from '@/components/NotifyBadge'
+import { StateIcon, usePulse } from '@/components/NotifyBadge'
 import { useLookups } from '@/components/lookups'
-import { ArrowRight, ChevronDown } from '@/components/icons'
+import { ArrowRight } from '@/components/icons'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useFormat, useT, type MessageKey } from '@/i18n'
 import { ME, serializeQuery, type Filter } from '@/lib/filters'
@@ -36,7 +36,7 @@ function useMine(status: MessageStatus, enabled = true) {
  * The three states of the messages that concern me, in the top bar of every page (UD-100): each one is its shape, its color and its number, with
  * no visible word (the word is the accessible name and the tooltip). A click opens a small menu anchored to the mark with those messages, so the
  * page you are on stays where it is; it ends in the link to Mensajes already filtered by that state. There is no count per area in the bar: those live
- * in the sidebar and in the view of each area. On a phone one button carries the pending total and its menu has the three states.
+ * in the sidebar and in the view of each area. On a phone the three marks stay, narrower, and the menu is the same (UD-141).
  */
 export function StatusBar() {
   const t = useT()
@@ -49,14 +49,13 @@ export function StatusBar() {
   if (!summary) return null
   return (
     <section aria-label={t('bar.label')} data-testid="status-bar" data-state-top={top ?? 'none'} data-pulse={pulse} className="flex min-w-0 items-center justify-end gap-2">
-      <ul aria-label={t('bar.mine')} className="hidden shrink-0 items-center gap-1 md:flex">
+      <ul aria-label={t('bar.mine')} className="flex shrink-0 items-center gap-1">
         {STATES_SHOWN.map((status) => (
           <li key={status}>
             <StateButton status={status} n={counts[status] ?? 0} />
           </li>
         ))}
       </ul>
-      <PhoneSummary top={top} total={total} counts={counts} />
     </section>
   )
 }
@@ -69,7 +68,7 @@ function StateButton({ status, n }: { status: MessageStatus; n: number }) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button type="button" data-testid="state-button" data-status={status} data-weight="quiet" data-count={n} aria-label={word} title={word} className="inline-flex h-9 min-w-11 items-center justify-center gap-1 rounded-full border px-2.5 text-sm font-bold leading-none hover:bg-glass">
+        <button type="button" data-testid="state-button" data-status={status} data-weight="quiet" data-count={n} aria-label={word} title={word} className="inline-flex h-9 min-w-10 items-center justify-center gap-1 rounded-full border px-1.5 text-sm md:min-w-11 md:px-2.5 font-bold leading-none hover:bg-glass">
           <StateIcon status={status} size={16} />
           <span className="tabular-nums">{n}</span>
         </button>
@@ -122,40 +121,5 @@ function MessageMenu({ name, status, seeAll }: { name: string; status: MessageSt
         <ArrowRight size={14} aria-hidden />
       </Link>
     </PopoverContent>
-  )
-}
-
-/** On a phone: one button with the highest pending state and its total; its menu has the three states, each line a link to Mensajes already filtered. */
-function PhoneSummary({ top, total, counts }: { top: MessageStatus | null; total: number; counts: StateCounts }) {
-  const t = useT()
-  const name = STATES_SHOWN.map((s) => t(WORD[s], { n: counts[s] ?? 0 })).join(', ')
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button type="button" data-testid="summary-menu" aria-label={`${t('bar.mine')}: ${name}`} title={t('bar.mine')} className="inline-flex h-11 min-w-11 items-center justify-center gap-1 rounded-full border border-line-strong px-2.5 text-sm font-bold md:hidden">
-          {top ? (
-            <span data-status={top} data-weight="quiet" data-plain className="inline-flex items-center gap-1">
-              <StateIcon status={top} size={16} />
-              <span className="tabular-nums">{total}</span>
-            </span>
-          ) : (
-            <span className="tabular-nums text-muted">0</span>
-          )}
-          <ChevronDown size={14} aria-hidden />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="end" sideOffset={14} collisionPadding={8} data-testid="status-menu" aria-label={t('bar.label')} className="flex max-h-[var(--radix-popover-content-available-height)] w-72 flex-col overflow-y-auto p-0">
-        <ul>
-          {STATES_SHOWN.map((s) => (
-            <li key={s}>
-              <Link to={messagesPath(mineFilters(s))} aria-label={t(WORD[s], { n: counts[s] ?? 0 })} className="flex min-h-11 items-center justify-between gap-3 border-b border-line px-3 py-2 text-sm font-medium last:border-b-0 hover:bg-hover">
-                <StateMark status={s} plain />
-                <span className="tabular-nums font-bold">{counts[s] ?? 0}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </PopoverContent>
-    </Popover>
   )
 }

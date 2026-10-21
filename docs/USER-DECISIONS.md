@@ -512,3 +512,14 @@ RULES:
 **Consecuencias:** H-56 deja de ser trabajo pendiente y queda como decisión del dueño. Un HEIC subido directamente se rechaza con un error claro (`image_heic_unsupported`); el Editor puede pedir que se acepte más adelante.
 **Condiciones de reversión:** Se prueba cuando haya usuarios con iPhone en el panel.
 
+## [UD-040] El modelo por omisión sigue siendo Haiku 5.5
+
+**Fecha:** 2026-10-21
+**Contexto:** H-80 comparó Haiku 5.5 con Sonnet 5.5 sobre los mismos prompts (medición `docs/investigaciones/mediciones/2026-10-21-modelos-y-esfuerzo-de-clasificacion.md`). Sonnet asigna mejor (conjunto exacto 80,0 % contra 53,0 %, p 0,002) y cuesta 17 veces más por entrada; cobertura y área no se separan.
+**Decisión:** Propuesta del coordinador, no cita de Martín. Se mantiene Haiku 5.5 como modelo por omisión y `classifyEffort` en `low`. Sonnet 5.5 queda como opción por configuración (`TEXT_MODEL`) una vez resuelto H-1100.
+**Alternativas descartadas:**
+- Sonnet 5.5 por omisión: 0,31 USD por entrada con caché tibia contra 0,017, para ganar en destinatarios, que el equipo corrige en la revisión.
+- `classifyEffort` `medium`: el área baja de 94,7 % a 87,1 % (p 0,008) y 2 de 33 corridas quedan inválidas.
+**Consecuencias:** Sin cambios en el producto. H-1100 y H-1102 quedan abiertos.
+**Condiciones de reversión:** Se pasa a Sonnet 5.5 si la asignación de destinatarios pesa más que el costo (más de 20 entradas diarias con 0,31 USD cada una son 6 USD al día) o si el equipo mide que corrige más de la mitad de los destinatarios que propone Haiku.
+

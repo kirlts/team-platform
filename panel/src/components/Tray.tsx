@@ -26,6 +26,7 @@ const STATE_KEY: Record<string, MessageKey> = {
   extracting: 'tray.state.extracting',
   analyzing: 'tray.state.analyzing',
   proposed: 'tray.state.proposed',
+  published: 'tray.state.published',
   failed: 'tray.state.failed',
 }
 
@@ -75,10 +76,10 @@ function InputOption({ input, selected, onSelect }: { input: InputRecord; select
         <time dateTime={input.created_at} className="tabular-nums">
           {format.stamp(input.created_at)}
         </time>
-        <Badge tone={input.status === 'proposed' ? 'solid' : input.status === 'failed' ? 'danger' : 'outline'}>
+        <Badge tone={input.status === 'proposed' ? 'solid' : input.status === 'failed' ? 'danger' : input.status === 'published' ? 'neutral' : 'outline'}>
           {state}
           {running && input.status !== 'queued' && percent > 0 && <span className="ml-1 tabular-nums">{percent}%</span>}
-          {input.status === 'proposed' && <span className="ml-1">· {count}</span>}
+          {(input.status === 'proposed' || input.status === 'published') && <span className="ml-1">· {input.status === 'published' ? (input.messages?.length ?? count) : count}</span>}
         </Badge>
       </span>
       {!selected && <Label text={input.text} onlyMedia={input.attachments.length > 0} />}

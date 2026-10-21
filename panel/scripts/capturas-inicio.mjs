@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Captures of Inicio after the mockup (UD-046): without sends, just sent, analyzed, with the area changed, and with the side panel hidden;
+// Captures of Inicio after the mockup (UD-046): without sends, just sent, published, with the area changed, and with the side panel hidden;
 // at 1440x900 and 390x844, in both themes. They are what is compared with `Plataforma Team.png`.
 //
 //   node scripts/capturas-inicio.mjs
@@ -22,12 +22,12 @@ try {
       await page.getByRole('button', { name: 'Enviar' }).first().click()
       await page.getByTestId('send-drawer').waitFor()
       await shot('enviado')
-      await page.getByRole('button', { name: /^Enviar \d+ mensajes?$/ }).waitFor({ timeout: 30000 })
+      await page.getByTestId('published-message').first().waitFor({ timeout: 30000 })
       await shot('analizado')
-      // Another area for the open message: the box takes its color.
+      // Another area for the published message: the box takes its color, and the message says it was edited.
       await page.getByTestId('area-picker').first().click()
       await page.getByRole('menuitemradio', { name: 'Pregunta' }).click()
-      await page.waitForTimeout(400)
+      await page.getByTestId('edited-mark').waitFor()
       await shot('area-cambiada')
       if (name !== 'phone') {
         await page.getByTestId('sidebar-hide').click()

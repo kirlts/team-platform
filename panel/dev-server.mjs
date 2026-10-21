@@ -252,6 +252,9 @@ function view(msg) {
     template_id: msg.template_id ?? templates.find((t) => t.area_id === msg.area_id)?.id ?? null,
     fields: msg.fields ?? {},
     updated_at: msg.updated_at ?? msg.created_at,
+    version: msg.version ?? 1,
+    edited_at: msg.edited_at ?? null,
+    edits: msg.edits ?? [],
     attachments: attachment_ids.map(attachmentView).filter(Boolean),
     attachment_kinds: [...new Set(attachment_ids.map(attachmentView).filter(Boolean).map((f) => f.kind))],
     reply_count: rs.length,
@@ -267,7 +270,32 @@ function attachmentView(attId) {
 function inputView(input) {
   const { content_hash, attachment_ids, ...rest } = input
   void content_hash
-  return { ...rest, proposed_count: input.proposal?.messages.length ?? 0, attachments: attachment_ids.map(attachmentView).filter(Boolean) }
+  const published = input.status === 'published' ? (input.message_ids ?? []).map((mid) => messages.find((x) => x.id === mid)).filter(Boolean) : []
+  return {
+    ...rest,
+    updated_at: input.updated_at ?? input.created_at,
+    proposed_count: input.proposal?.messages.length ?? 0,
+    attachments: attachment_ids.map(attachmentView).filter(Boolean),
+    ...(input.status === 'published' ? { message_ids: published.map((x) => x.id), messages: published.map((x) => ({ id: x.id, title: x.title, area_id: x.area_id, status: x.status, edited_at: x.edited_at ?? null })) } : {}),
+  }
+}
+
+/** Auto-publication (UD-070): on by default; `PANEL_DEV_AUTO_PUBLISH=0` starts with it off, as the Editor can turn it off in Configuración. */
+let autoPublish = process.env.PANEL_DEV_AUTO_PUBLISH !== '0'
+
+/** Creates the messages of a proposal and marks the input published. The one place that inserts messages, as in the real server. */
+function publishProposal(input, proposal) {
+  const created = []
+  for (const pm of proposal.messages) {
+    const tpl = activeTemplate(pm.area_id, pm.template_id)
+    const msg = seedMessage({ input_id: input.id, area_id: pm.area_id, template_id: tpl?.id ?? null, fields: pm.fields ?? {}, author_id: input.author_id, title: pm.title.trim(), body: pm.body.trim(), status: 'open', created_at: new Date().toISOString(), assignee_ids: pm.assignee_ids ?? [], attachment_ids: pm.attachment_ids ?? [] })
+    created.push(msg.id)
+    for (const to of msg.assignee_ids) if (to !== input.author_id) emit(to, 'message', { message_id: msg.id, title: msg.title, author_id: input.author_id, at: msg.created_at })
+  }
+  input.status = 'published'
+  input.updated_at = new Date().toISOString()
+  input.message_ids = created
+  return created
 }
 
 /** How many jobs were started, to stagger the ones that follow. */
@@ -286,11 +314,24 @@ function runJob(input) {
     if (done === total) {
       input.proposal = analyze(input)
       input.status = 'proposed'
-      emit(input.author_id, 'done', { job_id: input.job_id, input_id: input.id, done: true })
+      input.updated_at = new Date().toISOString()
+      const problem = autoPublish ? proposalProblem(input.proposal, input) : 'auto_publish_off'
+      if (autoPublish && !problem) {
+        const message_ids = publishProposal(input, input.proposal)
+        emit(input.author_id, 'progress', { job_id: input.job_id, input_id: input.id, percent: 100, phrase: 'Publicado', at: new Date().toISOString() })
+        emit(input.author_id, 'done', { job_id: input.job_id, input_id: input.id, done: true, status: 'done', input_status: 'published', message_ids })
+        return
+      }
+      if (autoPublish) {
+        input.error = typeof problem === 'string' ? problem : problem.message
+        input.error_code = 'publish_blocked'
+      }
+      emit(input.author_id, 'done', { job_id: input.job_id, input_id: input.id, done: true, status: 'done', input_status: 'proposed', message_ids: [] })
       return
     }
     if (input.text.includes('[simular falla]') && done === steps.length - 1) {
       input.status = 'failed'
+      input.updated_at = new Date().toISOString()
       input.error = 'El proveedor de modelo no respondió.'
       input.error_code = 'analysis_failed'
       emit(input.author_id, 'done', { job_id: input.job_id, input_id: input.id, done: true })
@@ -506,6 +547,15 @@ const server = createServer(async (req, res) => {
     if (path === '/me' && method === 'GET') return send(res, 200, { ...me, project_name: project.name, password_min_length: 15 })
 
     // --- project description: the whole team sees it and only the Editor changes it (UD-024)
+    // Publication (UD-070): everyone reads it, the Editor changes it.
+    if (path === '/settings/publication' && method === 'GET') return send(res, 200, { auto_publish: autoPublish })
+    if (path === '/settings/publication' && method === 'PATCH') {
+      if (needEditor()) return
+      const body = await readJson(req)
+      if (!body || typeof body.auto_publish !== 'boolean') return fail(res, 400, 'auto_publish es verdadero o falso', 'validation')
+      autoPublish = body.auto_publish
+      return send(res, 200, { auto_publish: autoPublish })
+    }
     if (path === '/settings/project' && method === 'GET') return send(res, 200, project)
     if (path === '/settings/project' && method === 'PATCH') {
       if (needEditor()) return
@@ -588,6 +638,8 @@ const server = createServer(async (req, res) => {
     if (path === '/inputs' && method === 'GET') {
       const wanted = (url.searchParams.get('status') ?? '').split(',').filter(Boolean)
       const mine = [...inputs.values()].filter((i) => i.author_id === me.id && (!wanted.length || wanted.includes(i.status)))
+      // `order=desc` is the history of sends (every state, newest first); `mine=1` alone keeps the tray order.
+      if (url.searchParams.get('order') === 'desc') mine.sort((a, b) => b.created_at.localeCompare(a.created_at))
       return send(res, 200, envelope(mine.map(inputView)))
     }
 
@@ -642,21 +694,16 @@ const server = createServer(async (req, res) => {
         return send(res, 202, { input_id: input.id, job_id: input.job_id })
       }
       if (m[2] === 'publish' && method === 'POST') {
+        if (input.status === 'published') return fail(res, 409, 'El input ya está publicado', 'already_published')
         if (input.status !== 'proposed') return fail(res, 409, 'El input no tiene una propuesta pendiente', 'conflict')
         const sent = await readJson(req)
         const proposal = sent && Array.isArray(sent.messages) ? sent : input.proposal
         if (!proposal?.messages?.length) return fail(res, 422, 'Propuesta inválida', 'validation')
         const problem = proposalProblem(proposal, input)
         if (problem) return typeof problem === 'string' ? fail(res, 422, problem, 'validation') : fail(res, 422, problem.message, problem.code)
-        const created = []
-        for (const pm of proposal.messages) {
-          const tpl = activeTemplate(pm.area_id, pm.template_id)
-          const msg = seedMessage({ input_id: input.id, area_id: pm.area_id, template_id: tpl?.id ?? null, fields: pm.fields ?? {}, author_id: me.id, title: pm.title.trim(), body: pm.body.trim(), status: 'open', created_at: new Date().toISOString(), assignee_ids: pm.assignee_ids ?? [], attachment_ids: pm.attachment_ids ?? [] })
-          created.push(msg.id)
-          for (const to of msg.assignee_ids) if (to !== me.id) emit(to, 'message', { message_id: msg.id, title: msg.title, author_id: me.id, at: msg.created_at })
-        }
-        input.status = 'published'
-        return send(res, 201, { message_ids: created })
+        input.error = null
+        input.error_code = null
+        return send(res, 201, { message_ids: publishProposal(input, proposal) })
       }
     }
 
@@ -694,18 +741,22 @@ const server = createServer(async (req, res) => {
       const msg = messages.find((x) => x.id === m[1])
       if (!msg) return fail(res, 404, 'No existe')
       if (!m[2] && method === 'GET') return send(res, 200, { ...view(msg), replies: replies.get(msg.id).map(replyView) })
-      // In-place edit of a published message: the sender or an Editor.
+      // In-place edit of a published message (UD-071): only the sender, with the `version` that was read; every real change raises it.
       if (!m[2] && method === 'PATCH') {
-        if (msg.author_id !== me.id && !isEditor) return fail(res, 403, 'Sólo el emisor o un Editor edita el mensaje', 'forbidden')
+        if (msg.author_id !== me.id) return fail(res, 403, 'Sólo quien envió el mensaje lo edita', 'not_message_author')
         const body = await readJson(req)
         if (!body || !Object.keys(body).length) return fail(res, 400, 'No hay nada que cambiar', 'validation')
-        const allowed = ['title', 'body', 'fields', 'assignee_ids', 'area_id', 'template_id']
+        const allowed = ['version', 'title', 'body', 'fields', 'assignee_ids', 'area_id', 'template_id', 'attachment_ids']
         const unknown = Object.keys(body).filter((k) => !allowed.includes(k))
         if (unknown.length) return fail(res, 400, `El campo «${unknown[0]}» no existe.`, 'validation')
+        if (!Number.isInteger(body.version)) return fail(res, 400, 'Falta la versión del mensaje.', 'validation')
+        if (body.version !== (msg.version ?? 1)) return send(res, 409, { code: 'edit_conflict', message: 'El mensaje cambió desde que se leyó.', version: msg.version ?? 1 })
         if (body.title !== undefined && !String(body.title).trim()) return fail(res, 400, 'El título no puede quedar vacío.', 'validation')
         if (body.body !== undefined && !String(body.body).trim()) return fail(res, 400, 'El texto no puede quedar vacío.', 'validation')
         if (body.area_id !== undefined && !areas.some((a) => a.id === body.area_id)) return fail(res, 400, 'El área no existe.', 'validation')
         if (body.assignee_ids !== undefined && !body.assignee_ids.every((x) => members.some((mm) => mm.id === x))) return fail(res, 400, 'Un destinatario no existe.', 'validation')
+        const origin = inputs.get(msg.input_id)
+        if (body.attachment_ids !== undefined && !body.attachment_ids.every((x) => origin?.attachment_ids.includes(x))) return fail(res, 400, 'Un adjunto no es del envío de origen.', 'attachment_invalid')
         const areaId = body.area_id ?? msg.area_id
         const tpl = activeTemplate(areaId, body.template_id ?? (body.area_id ? null : msg.template_id))
         if (body.fields !== undefined) {
@@ -713,14 +764,22 @@ const server = createServer(async (req, res) => {
           const bad = Object.keys(body.fields).find((k) => !names.includes(k))
           if (bad) return fail(res, 400, `El campo «${bad}» no existe en la plantilla.`, 'validation')
         }
-        for (const k of ['title', 'body', 'assignee_ids']) if (body[k] !== undefined) msg[k] = typeof body[k] === 'string' ? body[k].trim() : body[k]
+        const before = JSON.stringify([msg.title, msg.body, msg.assignee_ids, msg.area_id, msg.template_id, msg.fields, msg.attachment_ids])
+        const changed = []
+        for (const k of ['title', 'body', 'assignee_ids', 'attachment_ids']) if (body[k] !== undefined) msg[k] = typeof body[k] === 'string' ? body[k].trim() : body[k]
         if (body.area_id !== undefined) {
           msg.area_id = body.area_id
           msg.template_id = tpl?.id ?? null
           msg.fields = body.fields ?? Object.fromEntries(templateFields(tpl).map((f) => [f.name, msg.fields?.[f.name] ?? '']))
         }
         if (body.fields !== undefined) msg.fields = body.fields
-        msg.updated_at = new Date().toISOString()
+        if (JSON.stringify([msg.title, msg.body, msg.assignee_ids, msg.area_id, msg.template_id, msg.fields, msg.attachment_ids]) !== before) {
+          for (const k of ['title', 'body', 'fields', 'assignee_ids', 'area_id', 'template_id', 'attachment_ids']) if (body[k] !== undefined) changed.push(k)
+          msg.version = (msg.version ?? 1) + 1
+          msg.updated_at = new Date().toISOString()
+          msg.edited_at = msg.updated_at
+          msg.edits = [...(msg.edits ?? []), { id: `e-${id()}`, member_id: me.id, at: msg.edited_at, version: msg.version, fields: changed }]
+        }
         return send(res, 200, { ...view(msg), replies: replies.get(msg.id).map(replyView) })
       }
       if (m[2] === 'replies' && method === 'POST') {

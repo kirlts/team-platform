@@ -5,6 +5,7 @@ import { useInput } from '@/lib/queries'
 import { UndoProvider, useUndoStack } from '@/lib/undo'
 import { AnalysisPanel } from './AnalysisPanel'
 import { InputPreview } from './InputPreview'
+import { PublishedPane } from './PublishedPane'
 
 interface Props {
   inputId: string | undefined
@@ -46,7 +47,7 @@ function Review({ inputId, onClose, onDiscarded }: Props & { inputId: string }) 
       <div className="@container min-h-0 min-w-0 flex-1">
         <div className="grid h-full min-h-0 gap-3 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:grid-rows-[minmax(0,1fr)]">
           <InputPreview input={input.data} />
-          <AnalysisPanel input={input.data} onClose={onClose} onDiscarded={onDiscarded ? (restore) => onDiscarded(inputId, restore) : undefined} />
+          {input.data.status === 'published' ? <PublishedPane input={input.data} /> : <AnalysisPanel input={input.data} onClose={onClose} onDiscarded={onDiscarded ? (restore) => onDiscarded(inputId, restore) : undefined} />}
         </div>
       </div>
     </UndoProvider>

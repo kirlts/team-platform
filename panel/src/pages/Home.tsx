@@ -23,7 +23,7 @@ import { ME, serializeQuery, type MessageQuery } from '@/lib/filters'
 import { areaCounts, areaMessagesPath, mineCounts } from '@/lib/pending'
 import { topState } from '@/lib/states'
 import { useEventsSnapshot } from '@/lib/events'
-import { useMe, useMessages, useProject, useSummary, useTray } from '@/lib/queries'
+import { useMe, useMessages, useProject, useSends, useSummary } from '@/lib/queries'
 import { uploadInput } from '@/lib/upload'
 import { useDesktop } from '@/lib/useDesktop'
 
@@ -55,7 +55,7 @@ export function Home() {
   const project = useProject().data
   const desktop = useDesktop()
   const [feedTab, setFeedTab] = useState<'messages' | 'replies'>('messages')
-  const tray = useTray()
+  const tray = useSends()
   const [uploads, setUploads] = useState<Upload[]>([])
   const [problem, setProblem] = useState<string | null>(null)
   /** The send in view: the key of an upload that is still going up, or the id of an input the server already has. */
@@ -65,10 +65,7 @@ export function Home() {
   /** Sends already published or discarded here, hidden until the server's list catches up. */
   const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set())
   const events = useEventsSnapshot()
-  const lastIndex = useRef(0)
   const notices = useNotices()
-  /** A send was published or discarded here: the next selection continues the order instead of starting over. */
-  const advance = useRef(false)
   /** The person just sent something: the drawer moves to that send as soon as the server has it, whatever else is waiting for review. */
   const followNew = useRef(false)
   /** The inputs the server had when the last send went out: the first one that is not in it is that send. */
@@ -99,13 +96,13 @@ export function Home() {
       }
       return { kind: 'upload', upload: pending }
     })
-    return [...inputs.map((input): TrayItem => ({ kind: 'input', input })), ...sending]
+    // Newest first, as the history is: what is still going up is the newest of all.
+    return [...sending.reverse(), ...inputs.map((input): TrayItem => ({ kind: 'input', input }))]
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inputs, uploads])
   const ids = useMemo(() => items.map((i) => (i.kind === 'upload' ? i.upload.key : i.input.id)), [items])
 
-  // The drawer opens on the send the person just made; otherwise on the one that needs the person and is the most recent (ready or failed), never on an old one (J2-B-10);
-  // when the one in view goes out it continues with the next ready one, in order of arrival.
+  // The drawer opens on the send the person just made, and otherwise on the newest one (UD-070): the history is the list, newest first.
   useEffect(() => {
     if (followNew.current) {
       const fresh = inputs.filter((i) => !knownIds.current.has(i.id)).at(-1)
@@ -118,18 +115,10 @@ export function Home() {
       // While the upload is going up it is the send in view.
       if (selectedId && ids.includes(selectedId)) return
     }
-    const at = ids.indexOf(selectedId ?? '')
-    if (at >= 0) {
-      lastIndex.current = at
-      return
-    }
+    if (ids.includes(selectedId ?? '')) return
     if (discarded) return
-    const waiting = inputs.filter((i) => i.status === 'proposed' || i.status === 'failed')
-    const next = advance.current
-      ? (inputs.slice(lastIndex.current).find((i) => i.status === 'proposed') ?? inputs.find((i) => i.status === 'proposed') ?? inputs[0])
-      : (waiting.at(-1) ?? inputs.at(-1))
-    if (next) advance.current = false
-    setSelectedId(next?.id)
+    // The drawer opens on the newest send; the control already says if an older one failed or waits.
+    setSelectedId(inputs[0]?.id)
   }, [inputs, ids, selectedId, discarded])
 
   // A send that becomes ready while the drawer is folded says so where the person is looking (J2-B-07).
@@ -141,6 +130,16 @@ export function Home() {
     readyBefore.current = readyCount
     if (before !== null && readyCount > before && !drawerOpen) notices.show({ text: t('tray.readyNotice', { n: readyCount }), action: { label: t('tray.readyOpen'), run: () => setDrawerOpen(true) } })
   }, [readyCount, tray.data]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A send that is published while the drawer is folded says so where the person is looking, with the way to it.
+  const publishedCount = inputs.filter((i) => i.status === 'published').length
+  const publishedBefore = useRef<number | null>(null)
+  useEffect(() => {
+    if (!tray.data) return
+    const before = publishedBefore.current
+    publishedBefore.current = publishedCount
+    if (before !== null && publishedCount > before && !drawerOpen) notices.show({ text: t('tray.publishedNotice', { n: publishedCount - before }), action: { label: t('tray.readyOpen'), run: () => setDrawerOpen(true) } })
+  }, [publishedCount, tray.data]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // A send that fails says so as an error, with the way to it: a pale chip in the folded control is not enough for something that needs the person (J3-B-14).
   const failedCount = inputs.filter((i) => i.status === 'failed').length
@@ -183,10 +182,8 @@ export function Home() {
     void upload(key, draft)
   }
 
+  /** A proposal the system could not publish by itself was published by hand: the send stays in view, now as published. */
   const finished = () => {
-    advance.current = true
-    if (selectedId) setGone((set) => new Set(set).add(selectedId))
-    setSelectedId(undefined)
     void queryClient.invalidateQueries({ queryKey: ['inputs'] })
   }
 
@@ -364,9 +361,10 @@ function TrayState({ items, progress }: { items: readonly TrayItem[]; progress: 
   const t = useT()
   const review = items.filter((i) => i.kind === 'input' && i.input.status === 'proposed').length
   const failed = items.filter((i) => (i.kind === 'input' && i.input.status === 'failed') || (i.kind === 'upload' && i.upload.error)).length
-  const running = items.length - review - failed
+  const published = items.filter((i) => i.kind === 'input' && i.input.status === 'published').length
+  const running = items.length - review - failed - published
   // The bar of the sends in progress: the mean of each one's own figure; with none started it travels (indeterminate).
-  const figures = items.flatMap((i) => (i.kind === 'upload' ? (i.upload.error ? [] : [Math.round(i.upload.progress * 100)]) : ['proposed', 'failed'].includes(i.input.status) ? [] : [sendPercent(i.input, progress[i.input.job_id ?? ''])]))
+  const figures = items.flatMap((i) => (i.kind === 'upload' ? (i.upload.error ? [] : [Math.round(i.upload.progress * 100)]) : ['proposed', 'failed', 'published'].includes(i.input.status) ? [] : [sendPercent(i.input, progress[i.input.job_id ?? ''])]))
   const mean = figures.length ? Math.round(figures.reduce((n, v) => n + v, 0) / figures.length) : 0
   const pulse = usePulse(review)
   return (
@@ -382,6 +380,7 @@ function TrayState({ items, progress }: { items: readonly TrayItem[]; progress: 
           <Meter percent={mean} label={t('analysis.progress')} className="absolute inset-x-3.5 bottom-1 h-1" />
         </>
       )}
+      {published > 0 && review + running + failed === 0 && <Badge tone="neutral">{t('tray.published', { n: published })}</Badge>}
       {failed > 0 && (
         <Badge tone="danger" className="gap-1 border border-danger">
           <AlertTriangle size={12} aria-hidden strokeWidth={2.4} />

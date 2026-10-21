@@ -329,6 +329,12 @@ function ProposalEditor({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
+      {/* The system did not publish this proposal by itself (UD-070): the reason is said, and publishing by hand is the way on. */}
+      {input.error_code === 'publish_blocked' && (
+        <p role="alert" className="rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">
+          <span className="font-semibold">{t('analysis.error.publish_blocked')}</span> {input.error}
+        </p>
+      )}
       {/* The messages of the proposal are read whole: a text has no maximum length, so the list is a lane with its own scroll, declared, and never a frame that cuts the open message. */}
       <ul data-lane="proposal-messages" aria-label={t('proposal.list')} className="scroll-thin flex min-h-0 flex-1 flex-col overflow-y-auto">
         {rows.map(({ m, i }) => (

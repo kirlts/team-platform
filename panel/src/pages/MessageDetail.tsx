@@ -89,7 +89,8 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
   // On a phone two chips fit before the rest fold behind «+N»: a name takes a whole row (J2-A-21).
   const desktop = useDesktop()
   const closed = m.status === 'closed'
-  const canEdit = !!me && (me.id === m.author_id || me.role === 'editor')
+  // Only the sender edits a published message, the Editor included (UD-071).
+  const canEdit = !!me && me.id === m.author_id
 
   /** A change to the message: what is requested and what undoes it. */
   const change = (label: string, forward: MessagePatch, back: MessagePatch) =>
@@ -166,6 +167,11 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
             <time dateTime={m.created_at} className="tabular-nums">
               {format.stamp(m.created_at)}
             </time>
+            {m.edited_at && (
+              <time dateTime={m.edited_at} data-testid="edited-mark" className="tabular-nums">
+                {t('published.edited', { when: format.stamp(m.edited_at) })}
+              </time>
+            )}
             {m.input_id && <AiMark />}
           </div>
 

@@ -2,7 +2,7 @@
 
 > Trazabilidad directa: cada tarea referencia las prohibiciones HP-001 a HP-029 de `docs/TEST.md`: `VERIFICATION.md` no se deriva (H-45).
 >
-> Las marcas de tiempo de las tareas cerradas son la hora del commit que entregó cada ítem. Se verificaron contra el código y las pruebas el 2026-10-21 15:24: 771 del servidor (764 en verde, 7 omitidas por falta de llave, imagen o red), 74 del banco y 129 del panel.
+> Las marcas de tiempo de las tareas cerradas son la hora del commit que entregó cada ítem. Se verificaron contra el código y las pruebas el 2026-10-21: 864 del servidor en verde (`npm test`, 7 omitidas por falta de llave, imagen o red), 74 del banco (`node --test bench/`) y 164 del panel (`vitest run`, 29 archivos).
 
 ## Leyenda de símbolos Kairós
 
@@ -40,7 +40,7 @@
 
 **Checks cubiertos:** Gobernanza transversal `[Requiere validación humana]`
 
-- [ ] Martín confirma o corrige §1 (vector, vocabulario, lo que NO es)
+- [ ] Martín confirma o corrige §1 (vector, vocabulario, lo que NO es). Espera a Martín: contestar en una línea tras leer el documento
 - [ ] Martín confirma o corrige §3 (valores por omisión por modalidad) y §5
 - [ ] Martín confirma o corrige las desviaciones anotadas en MASTER-SPEC §1.3, §3.1, §4.6, §7.1 y §7.5 (DT-001 a 005)
 
@@ -183,9 +183,11 @@
 
 - [x] Una foto HEIC real de iPhone: se decodifica con el `ffmpeg` de la imagen (UD-040, H-21)
 - [x] Latencia de Groq y Anthropic con archivos reales (`mediciones/2026-10-21-latencia-de-proveedores-por-tipo-de-archivo.md`); DeepSeek sin medir `2026-10-21`
-- [ ] Un Word con estilos propios, un PDF real de cliente y una grabación real de teléfono
-- [ ] Descarga de enlaces contra internet real y contra servidores que entregan bytes lentamente
-- [ ] Opus contra FLAC en español y legibilidad de texto en fotogramas de 540, 720 y 1080 px
+- [ ] Un Word con estilos propios, un PDF real de cliente y una grabación real de teléfono. Faltan los archivos: `node bench/run-private.mjs extract --case <id>` los mide en cuanto estén en `bench/private/`
+- [x] Descarga de enlaces contra internet real: tres páginas y dos PDF (`mediciones/2026-10-21-pdf-enlaces-heic-y-flujo-sse-reales.md`; se repite con `TEAM_LIVE_NETWORK=1 node --test src/extract/real-world.live.test.js`) `2026-10-21`
+- [ ] Descarga contra un servidor que entrega bytes lentamente: sin prueba ni medición; falta un servidor de prueba lento
+- [x] Opus contra FLAC: se mantiene FLAC (`mediciones/2026-10-20-ffmpeg-minimo.md`) `2026-10-20`
+- [ ] Legibilidad de texto en fotogramas de 540, 720 y 1080 px: sin medir; necesita presupuesto de API para la lectura de imágenes
 
 ---
 
@@ -217,7 +219,7 @@
 - [x] Descomposición sin descartes y reintento de un grupo vacío `2026-10-20 23:01:23`
 - [x] Esfuerzo `low` sin pensamiento y concurrencia 16 por omisión, con la medición citada `2026-10-20 23:10:55`
 - [x] Medir las variantes B (una sola llamada) y C (descomposición especulativa) en el banco: se mantiene A (`mediciones/2026-10-21-variantes-b-y-c-del-analizador.md`) `2026-10-21`
-- [ ] Calibrar con el banco `partitionThresholdTokens`, `charsPerToken` y el p95 de `maxTokens` (hoy provisionales)
+- [ ] Calibrar con el banco `partitionThresholdTokens`, `charsPerToken` y el p95 de `maxTokens` (hoy provisionales en `src/config.js`): necesita corridas con documentos largos y presupuesto de API
 
 ### [TASK-016] Analizador `harness`
 
@@ -226,7 +228,7 @@
 **Checks cubiertos:** HP-014
 
 - [x] `claude -p` sin `--bare` desde un directorio propio, con el mismo validador y pruebas con un ejecutable de mentira `2026-10-20 22:27:44`
-- [ ] Medir en el banco el costo y el tiempo del harness frente a `api` con una suscripción real
+- [ ] Medir en el banco el costo y el tiempo del harness frente a `api` con una suscripción real. Espera al dueño: necesita su sesión; «no por ahora» la cierra
 
 ### [TASK-017] Plantillas iniciales
 
@@ -266,10 +268,10 @@
 
 - [x] Tokens, vidrio y cromo, fuentes OFL empaquetadas y `panel/DISENO.md` con referencias fechadas `2026-10-20 22:38:40`
 - [x] Medición de contraste de cada par de texto y de peso del paquete `2026-10-20 22:43:30`
-- [ ] Martín mira las capturas de cada vista y confirma o corrige la jerarquía visual (HP-020)
+- [ ] Martín mira las capturas de cada vista y confirma o corrige la jerarquía visual (HP-020). Comando: `cd panel && npm run build && npm run capturas`, y abrir `panel/capturas/`
 - [x] Firefox sobre `npm run test:fit` y `npm run test:flows` con `BROWSER=firefox` (H-2500, Playwright trae Firefox 157, no 128) `2026-10-21`
-- [ ] Safari 16.4: decisión del dueño, no se prueba
-- [ ] Probar la grabación de audio en un iPhone (Safari anterior a 18.4 sólo graba MP4)
+- [ ] Safari 16.4: decisión del dueño (UD-039), no se prueba
+- [ ] Probar la grabación de audio en un iPhone (Safari anterior a 18.4 sólo graba MP4). Bloqueado por el aparato (H-56, UD-039); los comandos están en `docs/HALLAZGOS.md`
 
 ---
 
@@ -296,8 +298,8 @@
 **Checks cubiertos:** HP-016
 
 - [x] `trusted-header` detrás de `tailscale serve` con una tailnet real `2026-10-21 18:10:00`
-- [ ] Inicio de sesión con TLS real detrás de Caddy (la cookie `__Host-` exige HTTPS)
-- [ ] `sso-redirect` con un sitio anfitrión real
+- [ ] Inicio de sesión con TLS real detrás de Caddy (la cookie `__Host-` exige HTTPS). Con TLS interno de Caddy pasaron `/health` y el flujo SSE (H-66); falta un dominio propio para el certificado de Let's Encrypt
+- [ ] `sso-redirect` con un sitio anfitrión real: necesita un sitio que firme la redirección
 
 ---
 
@@ -323,9 +325,10 @@
 
 **Checks cubiertos:** HP-006, HP-011 `[Requiere validación humana]`
 
-- [ ] Instalar con `scripts/install.sh` en un VPS limpio y recorrer las tres formas de `docs/INSTALACION.md`
+- [x] Las tres formas de `docs/INSTALACION.md`: forma 1 con Caddy y TLS interno, forma 2 con `compose.override.example.yml` y forma 3 con `tailscale serve` en el VPS (H-66, H-2600 a H-2606) `2026-10-21`
+- [ ] Instalar con `scripts/install.sh` en un VPS limpio con dominio propio: necesita un dominio
 - [x] Restaurar un respaldo siguiendo `docs/INSTALACION.md` `2026-10-21 18:03:00`
-- [ ] Decidir sobre `libvips` (LGPL) y `ffmpeg` en la imagen (DT-002)
+- [x] `libvips` (LGPL) y `ffmpeg` en la imagen: UD-020, dos capas de licencia (DT-002 cerrada) `2026-10-20`
 
 ---
 
@@ -343,8 +346,8 @@
 - [x] Siete casos con su referencia, corredor `run.mjs`, proveedores falsos y aserción de promptfoo `2026-10-20 22:34:16`
 - [x] Primera corrida real: 6 de 7 casos con cobertura 100 % y referencias corregidas `2026-10-20 23:17:52`
 - [x] Llevar `03-monologo-prueba` de 90 % a 100 % de cobertura (HP-019): 98,8 % medio, 28 de 30 repeticiones al 100 % (`mediciones/2026-10-21-monologo-de-prueba.md`) `2026-10-21`
-- [ ] Reemplazar los textos inventados por casos reales anonimizados en `bench/private/`
-- [ ] Repetir el banco con DeepSeek como proveedor de respaldo y al cambiar de modelo
+- [x] Casos reales en `bench/private/` (51 carpetas, ignoradas por git; `node bench/run-private.mjs list`) `2026-10-21`
+- [ ] Repetir el banco con DeepSeek como proveedor de respaldo y al cambiar de modelo. Bloqueado por la llave (H-1101): `node scripts/llave.mjs DEEPSEEK_API_KEY`
 
 ---
 

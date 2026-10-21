@@ -6,7 +6,7 @@ import { classify, maxBytesFor } from '../domain/attachments.js'
 import { AppError, badRequest, tooLarge, unsupported } from '../domain/errors.js'
 import { DEFAULTS as EXTRACT_DEFAULTS } from '../extract/config.js'
 import { probe } from '../extract/lib/ffmpeg.js'
-import { commit, ingest } from '../domain/storage.js'
+import { commit, holdBlob, ingest, releaseBlobs } from '../domain/storage.js'
 
 const MB = (bytes) => `${Math.round(bytes / (1024 * 1024))} MB`
 
@@ -35,21 +35,45 @@ async function rejectLongVideo (tmp, filename) {
 }
 
 /** Reads the multipart body of a new input: text, files[] and links[]. */
-export const readInputUpload = (request, config) => readUpload(request, config, {
-  textField: 'text', extraFields: [], emptyMessage: 'El envío está vacío: falta texto, archivo o enlace.', emptyCode: 'input_empty'
-})
+export async function readInputUpload (request, config, db) {
+  if (!request.isMultipart()) return readInputJson(request, config)
+  const { text, links, files, extra } = await readUpload(request, config, db, {
+    textField: 'text', extraFields: ['auto_publish'], emptyMessage: 'El envío está vacío: falta texto, archivo o enlace.', emptyCode: 'input_empty'
+  })
+  return { text, links, files, keepDraft: extra.auto_publish === 'false' }
+}
+
+/** A send with no files as JSON: { text, links?, auto_publish? }. Same limits and the same errors as the multipart one. */
+function readInputJson (request, config) {
+  const body = request.body
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) throw unsupported('Se esperaba un envío multipart/form-data o un JSON.')
+  const allowed = new Set(['text', 'links', 'auto_publish'])
+  const unknown = Object.keys(body).find((k) => !allowed.has(k))
+  if (unknown) throw badRequest(`El campo «${unknown}» no existe.`, 'validation')
+  const u = config.uploads
+  const text = body.text === undefined ? '' : body.text
+  if (typeof text !== 'string') throw badRequest('El campo «text» debe ser texto.', 'validation')
+  if (body.auto_publish !== undefined && typeof body.auto_publish !== 'boolean') throw badRequest('`auto_publish` es «true» o «false».', 'auto_publish_invalid')
+  const rawLinks = body.links === undefined ? [] : body.links
+  if (!Array.isArray(rawLinks)) throw badRequest('El campo «links» debe ser una lista.', 'validation')
+  const links = [...new Set(rawLinks.filter((l) => String(l).trim() !== '').map((l) => normalizeLink(l, u)))]
+  if (links.length > u.maxLinks) throw tooLarge(`Se admiten hasta ${u.maxLinks} enlaces por envío.`)
+  if (Buffer.byteLength(text) > u.maxTextBytes) throw tooLarge('El texto supera el tamaño máximo permitido.')
+  if (text.trim() === '' && links.length === 0) throw badRequest('El envío está vacío: falta texto, archivo o enlace.', 'input_empty')
+  return { text, links, files: [], keepDraft: body.auto_publish === false }
+}
 
 /** Reads the multipart body of a reply: body, kind, files[] and links[]. Same limits and storage as an input. */
-export async function readReplyUpload (request, config) {
-  const { text, links, files, extra } = await readUpload(request, config, {
+export async function readReplyUpload (request, config, db) {
+  const { text, links, files, extra } = await readUpload(request, config, db, {
     textField: 'body', extraFields: ['kind'], emptyMessage: 'La respuesta está vacía: falta texto, archivo o enlace.', emptyCode: 'reply_empty'
   })
   return { body: text, kind: extra.kind, links, files }
 }
 
 /** Reads the multipart body that adds attachments to a published message: `version`, files[] and links[] (UD-071). */
-export async function readMessageAttachmentUpload (request, config) {
-  const { text, links, files } = await readUpload(request, config, {
+export async function readMessageAttachmentUpload (request, config, db) {
+  const { text, links, files } = await readUpload(request, config, db, {
     textField: 'version', extraFields: [], emptyMessage: 'Falta un archivo o un enlace.', emptyCode: 'attachments_empty', textOptional: true
   })
   return { version: Number(text), links, files }
@@ -59,20 +83,24 @@ export async function readMessageAttachmentUpload (request, config) {
  * Returns { text, links, files, extra } with the files already moved to their final name on the volume.
  * `extra` carries the additional text fields requested. On any error it deletes the temporary files it managed to write.
  */
-async function readUpload (request, config, { textField, extraFields, emptyMessage, emptyCode, textOptional = false }) {
+async function readUpload (request, config, db, { textField, extraFields, emptyMessage, emptyCode, textOptional = false }) {
   if (!request.isMultipart()) throw unsupported('Se esperaba un envío multipart/form-data.')
   const u = config.uploads
   let text = ''
   const extra = {}
   const links = []
   const ingested = []
+  const held = []
 
   try {
     for await (const part of request.parts()) {
       if (part.type === 'field') {
         if (part.valueTruncated) throw tooLarge('El texto supera el tamaño máximo permitido.')
         if (part.fieldname === textField) text = String(part.value)
-        else if (extraFields.includes(part.fieldname)) extra[part.fieldname] = String(part.value)
+        else if (extraFields.includes(part.fieldname)) {
+          if (part.fieldname === 'auto_publish' && !['true', 'false'].includes(String(part.value))) throw badRequest('`auto_publish` es «true» o «false».', 'auto_publish_invalid')
+          extra[part.fieldname] = String(part.value)
+        }
         else if (part.fieldname === 'links' || part.fieldname === 'links[]') {
           if (String(part.value).trim() === '') continue
           links.push(normalizeLink(part.value, u))
@@ -102,10 +130,11 @@ async function readUpload (request, config, { textField, extraFields, emptyMessa
       throw badRequest(emptyMessage, emptyCode)
     }
     // Everything validated: the temporary files move to their final name (the hash).
-    for (const f of ingested) await commit(config, f.tmp, f.sha256)
+    for (const f of ingested) { holdBlob(f.sha256); held.push(f); await commit(config, f.tmp, f.sha256) }
     return { text, links: [...new Set(links)], files: ingested.map(({ tmp, ...rest }) => rest), extra }
   } catch (error) {
     await Promise.all(ingested.map((f) => rm(f.tmp, { force: true })))
+    await releaseBlobs(db, config, held, { discard: true }) // what this refused upload wrote leaves with it (UD-072)
     throw error
   }
 }

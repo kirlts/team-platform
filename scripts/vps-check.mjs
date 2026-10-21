@@ -86,6 +86,7 @@ async function main () {
   const text = `Prueba de punta a punta ${stamp}. El botón Enviar no se ve bien en el teléfono, ¿se puede subir el contraste? Además sería útil poder filtrar los mensajes por persona.`
   const form = new FormData()
   form.append('text', text)
+  form.append('auto_publish', 'false') // UD-072: the test input waits as a proposal and is cancelled; it is never published to the real team
   const sent = await fetch(`${url}/api/inputs`, { method: 'POST', headers: auth, body: form })
   const created = await sent.json().catch(() => ({}))
   step('Envío de un texto mixto', [200, 202].includes(sent.status) && Boolean(created.input_id), `HTTP ${sent.status}, input ${created.input_id ?? '?'}`)

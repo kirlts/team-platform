@@ -465,6 +465,7 @@ export const en: Record<MessageKey, Message> = {
   'error.not_deleted': 'The item is not deleted',
   'error.not_editable': 'The submission can no longer be edited',
   'error.not_message_author': 'Only the sender edits this message',
+  'error.auto_publish_invalid': 'The auto_publish value is not valid',
   'error.attachments_empty': 'A file or a link is missing',
   'error.input_missing': 'The input this message came from no longer exists',
   'error.version_required': 'The message version is missing',

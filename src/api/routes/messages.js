@@ -1,5 +1,6 @@
 // Message and reply routes (MASTER-SPEC §7.1).
 
+import { releaseBlobs } from '../../domain/storage.js'
 import { addMessageAttachments, addReply, assertCanAddAttachments, assertCanReply, closeMessage, getMessage, listMessages, messageSummary, reopenMessage, REPLY_KINDS, updateMessage } from '../../domain/messages.js'
 import { withSpan } from '../../domain/tracing.js'
 import { pageEnvelope, pageParams, pageQuerySchema, pageResult } from '../pagination.js'
@@ -80,8 +81,15 @@ export function registerMessageRoutes (app, ctx) {
     }
   }, async (request, reply) => {
     assertCanAddAttachments(db, request.params.id, request.member.id) // refuse before storing a large upload
-    const input = await readMessageAttachmentUpload(request, config)
-    const message = addMessageAttachments({ db, queue, events }, { messageId: request.params.id, actor: request.member, ...input })
+    const input = await readMessageAttachmentUpload(request, config, db)
+    let message
+    try {
+      message = addMessageAttachments({ db, queue, events }, { messageId: request.params.id, actor: request.member, ...input })
+    } catch (error) {
+      await releaseBlobs(db, config, input.files, { discard: true }) // a stale version leaves nothing behind (UD-072)
+      throw error
+    }
+    await releaseBlobs(db, config, input.files, { discard: false })
     reply.code(201)
     return message
   })
@@ -112,11 +120,18 @@ export function registerMessageRoutes (app, ctx) {
     if (request.isMultipart()) {
       // Refuse before storing a large upload when the reply is not allowed anyway.
       assertCanReply(db, request.params.id, request.member.id)
-      input = await readReplyUpload(request, config)
+      input = await readReplyUpload(request, config, db)
     } else {
       input = { body: request.body.body, kind: request.body.kind, files: [], links: [] }
     }
-    const r = addReply({ db, events }, { messageId: request.params.id, authorId: request.member.id, ...input, kind: input.kind ?? undefined })
+    let r
+    try {
+      r = addReply({ db, events }, { messageId: request.params.id, authorId: request.member.id, ...input, kind: input.kind ?? undefined })
+    } catch (error) {
+      await releaseBlobs(db, config, input.files, { discard: true })
+      throw error
+    }
+    await releaseBlobs(db, config, input.files, { discard: false })
     reply.code(201)
     return r.message
   })

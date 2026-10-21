@@ -164,8 +164,8 @@ test('upload: empty submission, unsupported format, invalid link and non-multipa
   assert.equal(exe.statusCode, 415)
   assert.equal((await postInput(env, env.c.ana, { text: 'x', links: 'no es una url' })).statusCode, 400)
   assert.equal((await postInput(env, env.c.ana, { text: 'x', links: 'ftp://host/archivo' })).statusCode, 400)
-  const json = await env.app.inject({ method: 'POST', url: '/api/inputs', headers: { cookie: env.c.ana, 'x-team-request': 'panel' }, payload: { text: 'x' } })
-  assert.equal(json.statusCode, 415)
+  const json = await env.app.inject({ method: 'POST', url: '/api/inputs', headers: { cookie: env.c.ana, 'x-team-request': 'panel', 'content-type': 'text/plain' }, payload: 'x' })
+  assert.equal(json.statusCode, 415) // JSON is accepted since UD-072; any other body type is not
   const emptyFile = await postInput(env, env.c.ana, { text: 'x' }, [TEXT_FILE('v.txt', '')])
   assert.equal(emptyFile.statusCode, 400)
   assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM inputs').n, 0) // nothing was left half done

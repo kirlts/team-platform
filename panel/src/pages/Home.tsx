@@ -351,6 +351,7 @@ function Feed({ kind, meId, phone = false }: { kind: 'messages' | 'replies'; meI
         <Segmented
           label={messagesFeed ? t('home.shownMessages') : t('home.shownReplies')}
           size="sm"
+          quiet
           value={mine ? 'mine' : 'all'}
           onChange={(v) => setMine(v === 'mine')}
           options={[

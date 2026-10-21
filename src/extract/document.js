@@ -57,7 +57,7 @@ export async function extractDocument(attachment, ctx) {
   }
   const startedAt = performance.now();
   const progress = createProgress(onProgress, 2);
-  progress.report('leyendo el documento');
+  progress.report('Lectura del documento');
   // The tool is only known once the thread returns the format: the span is renamed then.
   const { text, meta } = await withSpan('extract.document', { 'team.step': 'extract.document', 'team.input_bytes': size }, async (span) => {
     const out = await runInWorker({ path: attachment.path, mime: attachment.mime, config }, cfg, signal);
@@ -73,7 +73,7 @@ export async function extractDocument(attachment, ctx) {
     });
     return out;
   });
-  progress.advance('documento leído');
+  progress.advance('Documento leído');
   const warnings = [];
   if (meta.scanned) {
     warnings.push({
@@ -81,6 +81,6 @@ export async function extractDocument(attachment, ctx) {
       message: `${meta.scannedPages.length} de ${meta.pageCount} páginas no tienen texto extraíble.`,
     });
   }
-  progress.advance('documento convertido');
+  progress.advance('Documento convertido');
   return { text, meta: { ...meta, warnings, elapsedMs: Math.round(performance.now() - startedAt) } };
 }

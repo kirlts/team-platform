@@ -63,7 +63,7 @@ export async function extractVideo(attachment, ctx) {
     throw new ExtractError('video_too_large', 'El video supera el tamaño máximo permitido.', { size, max: cfg.maxBytes });
   }
   const first = createProgress(onProgress, 1);
-  first.report('midiendo el video');
+  first.report('Medición del video');
   const info = await probe(attachment.path, { signal });
   if (!info.hasVideo || info.durationSeconds <= 0) {
     throw new ExtractError('video_unreadable', 'El archivo no contiene un video que se pueda leer.');
@@ -97,7 +97,7 @@ export async function extractVideo(attachment, ctx) {
     : Promise.resolve([]);
 
   const framesJob = (async () => {
-    progress.report('extrayendo fotogramas del video');
+    progress.report('Extracción de fotogramas');
     let t = performance.now();
     const sampled = await withSpan('extract.ffmpeg', { 'team.step': 'extract.ffmpeg', 'team.tool': 'ffmpeg', 'team.input_bytes': size }, async () => {
       const out = await sampleFrames(attachment.path, join(ctx.workDir, 'frames'), cfg, signal);
@@ -105,7 +105,7 @@ export async function extractVideo(attachment, ctx) {
       return out;
     });
     timings.framesMs = Math.round(performance.now() - t);
-    progress.advance('fotogramas extraídos');
+    progress.advance('Fotogramas extraídos');
     t = performance.now();
     const { frames, dedupedCount } = await withSpan('extract.dhash', { 'team.step': 'extract.dhash', 'team.frames': sampled.length }, async () => {
       const hashed = await mapLimit(sampled, availableParallelism(), async (f) => ({ ...f, hash: await dhash(f.path) }));
@@ -114,7 +114,7 @@ export async function extractVideo(attachment, ctx) {
       return picked;
     });
     timings.hashMs = Math.round(performance.now() - t);
-    progress.advance('fotogramas comparados');
+    progress.advance('Fotogramas comparados');
     return { frames, dedupedCount, sampledCount: sampled.length };
   })();
 
@@ -126,7 +126,7 @@ export async function extractVideo(attachment, ctx) {
 
   const { frames } = frameSet;
   const t0 = performance.now();
-  progress.report('describiendo los fotogramas');
+  progress.report('Descripción de fotogramas');
   const images = await Promise.all(
     frames.map(async (f, i) => ({
       data: await readFile(f.path),
@@ -144,7 +144,7 @@ export async function extractVideo(attachment, ctx) {
     },
   );
   timings.visionMs = Math.round(performance.now() - t0);
-  progress.advance('fotogramas descritos');
+  progress.advance('Fotogramas descritos');
   calls.push({ modality: 'vision', images: images.length, usage });
   if (audioPlan) calls.push({ modality: 'speech', audioSeconds: audioPlan.billableSeconds, requests: audioPlan.plan.length });
 

@@ -355,7 +355,7 @@ describe('failure, publication and notices (J3-B-14, J3-B-15, J3-B-29)', () => {
       await alert.waitFor({ timeout: 40000 })
       assert.match(await alert.innerText(), /falló/)
       await alert.getByRole('button', { name: 'Revisar' }).click()
-      const kept = page.getByText('El texto y los adjuntos del envío se conservaron.')
+      const kept = page.getByText('Texto y adjuntos del envío conservados')
       await kept.waitFor()
       assert.notEqual(await style(kept, 'color'), await style(page.getByText('El análisis no terminó'), 'color'), 'lo que tranquiliza no va en el rojo del error')
       await page.getByRole('dialog').getByRole('button', { name: 'Cerrar', exact: true }).click()

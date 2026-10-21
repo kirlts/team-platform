@@ -188,6 +188,10 @@ UD-022. Todo bloque de texto de más de dos líneas (cuerpo de mensaje y de resp
 
 UD-018. La interfaz sale de dos catálogos, `src/i18n/es-419.ts` (por omisión) y `src/i18n/en.ts`, con las mismas claves; cada texto, nombre accesible, marcador, plural y fecha (`Intl` con el idioma de la cuenta) viene de ahí. Un solo control en Configuración, «Idioma» o «Language», cambia todo al instante. Los errores de la API llegan con `code` y se traducen con `error.<code>`; sin traducción se muestra el mensaje del servidor. `src/i18n.test.ts` falla si un catálogo tiene una clave que el otro no, si el código nombra una clave que no existe o si hay un texto visible escrito fuera de los catálogos.
 
+## Voz de instrumento
+
+UD-050. El texto de la interfaz es el de un programa de gestión: sustantivo corto para un rótulo, verbo en infinitivo más objeto para una acción, una o dos palabras para un estado, causa más salida para un error. Sin segunda persona, preguntas, exclamaciones, saludos, «Aquí», «Ya», «Todavía», imperativos coloquiales, gerundios que acompañan una frase, punto final ni dos oraciones en un texto. Ayuda ninguna por omisión; un aviso de una acción que no se deshace es una oración corta, impersonal y precisa. «Nota de voz», no «Nota de voz con su transcripción»; «Correo en uso», no «Ya existe un miembro con ese correo». Las reglas R1 a R14 y sus fuentes están en `docs/investigaciones/08-lenguaje-de-instrumento-en-interfaces.md`. `src/ui-voice.test.ts` las hace cumplir sobre los dos catálogos y sobre las frases de progreso del servidor; una excepción se declara por clave, con su razón. Un texto nuevo se escribe en el catálogo en español y en el inglés con el mismo registro.
+
 ## Jerarquía y distribución
 
 - Inicio usa una banda de dos columnas 5/7 (mensaje y análisis) y debajo otra 7/5 (mensajes y respuestas). La alternancia sostiene la asimetría sin romper la grilla de 12 columnas.

@@ -10,6 +10,7 @@ import { useErrorText, useI18n, useT, type MessageKey } from '@/i18n'
 import { useJobProgress } from '@/lib/events'
 import { useNotices } from '@/lib/notices'
 import { sendPercent } from '@/lib/progress'
+import { progressText } from '@/lib/progress-text'
 import { useCancelInput, usePublish, useReprocess, useRestoreInput, useSaveProposal, useTemplates, useTray } from '@/lib/queries'
 import { firstWords } from '@/lib/first-words'
 import { missingRequired, parseTemplateFields, remapFields } from '@/lib/template'
@@ -110,7 +111,7 @@ export function AnalysisPanel({ input, onClose, onDiscarded }: { input: InputRec
       {processing && (
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-2 text-sm">
-            <span>{progress?.phrase || (STATUS_PHRASE[input.status] ? t(STATUS_PHRASE[input.status]!) : '')}</span>
+            <span>{progress?.phrase ? progressText(progress.phrase, t) : STATUS_PHRASE[input.status] ? t(STATUS_PHRASE[input.status]!) : ''}</span>
             {percent > 0 && <span className="tabular-nums text-muted">{percent} %</span>}
           </div>
           <Meter percent={percent} label={t('analysis.progress')} className="h-2.5" />
@@ -301,7 +302,7 @@ function ProposalEditor({
     // When other sends wait, the review moves on by itself: the notice says so, so the change of content is not taken for an error (J1-B-27).
     const said = sent.messages.length === 1 ? t('publish.one', { title: sent.messages[0].title, who }) : t('publish.many', { n: sent.messages.length, who })
     notices.show({
-      text: waiting > 0 ? `${said} ${t('publish.next')}` : said,
+      text: waiting > 0 ? `${said}; ${t('publish.next')}` : said,
       link: first ? { to: sent.messages.length === 1 ? `/messages/${first}` : '/messages', label: sent.messages.length === 1 ? t('publish.viewOne') : t('publish.viewMany') } : undefined,
     })
     onPublished()

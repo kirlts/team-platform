@@ -27,7 +27,7 @@ test('success: progress comes from completed steps and ends at 100 with done', a
   assert.deepEqual([...percents].sort((a, b) => a - b), percents) // never goes backwards
   assert.equal(percents.at(-1), 100)
   assert.ok(percents.every((p) => Number.isInteger(p) && p >= 0 && p <= 100))
-  assert.ok(progressRows.some((p) => /Leyendo adjunto 2 de 2/.test(p.phrase)))
+  assert.ok(progressRows.some((p) => /Lectura de adjunto 2 de 2/.test(p.phrase)))
   assert.ok(progressRows.some((p) => p.phrase === 'Analizando' || p.phrase === 'Propuesta lista'))
   const doneRow = get(env.db, "SELECT * FROM job_events WHERE job_id = ? AND kind = 'done'", jobId)
   assert.equal(JSON.parse(doneRow.data_json).status, 'done')
@@ -94,7 +94,7 @@ test('a transient failure is retried with backoff and ends well; the input goes 
   assert.equal(callRows, 3)
   assert.equal(get(env.db, 'SELECT attempts FROM jobs WHERE id = ?', jobId).attempts, 3)
   const phraseList = all(env.db, "SELECT phrase FROM job_events WHERE job_id = ? AND kind = 'progress'", jobId).map((f) => f.phrase)
-  assert.ok(phraseList.some((f) => /Falló el intento 1 de 3; se reintenta/.test(f)))
+  assert.ok(phraseList.some((f) => /Intento 1 de 3 fallido; se reintenta/.test(f)))
   await env.close()
 })
 
@@ -179,7 +179,7 @@ test('the audio budget defers the job without spending the attempt and resumes i
     }
   })
   const { input_id: id, job_id: jobId } = await env.submit('x', [{ field: 'files', name: 'a.mp3', type: 'audio/mpeg', content: 'sonido' }])
-  await until(() => get(env.db, "SELECT COUNT(*) AS n FROM job_events WHERE phrase = 'Esperando cupo de transcripción'").n > 0)
+  await until(() => get(env.db, "SELECT COUNT(*) AS n FROM job_events WHERE phrase = 'En espera: cupo de transcripción'").n > 0)
   assert.equal(env.statusOf(id), 'queued')
   assert.equal(get(env.db, 'SELECT attempts FROM jobs WHERE id = ?', jobId).attempts, 0) // attempt refunded
   budgetOk = true

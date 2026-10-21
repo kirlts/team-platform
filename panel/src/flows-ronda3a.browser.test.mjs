@@ -133,7 +133,7 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
       const own = await messageByTitle(page, 'Confirmar el formato')
       await page.goto(`${origin}/messages/${own.id}`)
       await page.locator('main h1').waitFor()
-      await page.getByText('Lo enviaste tú').waitFor()
+      await page.getByText('Enviado por mí').waitFor()
       assert.equal(await page.getByRole('button', { name: 'Responder', exact: true }).count(), 0)
     } finally {
       await context.close()
@@ -756,7 +756,7 @@ describe('entrance and not found (J3-A-01, J3-A-02, J3-A-03, J3-A-51)', () => {
       assert.ok(orb.width >= 24, `la esfera mide ${orb.width} px`)
       const mark = await card.locator('h1 span').last().evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
       assert.ok(mark >= 18, `la marca mide ${mark} px`)
-      const note = card.getByText('Las cuentas las crea el Editor del equipo')
+      const note = card.getByText('Cuentas creadas por el Editor del equipo')
       const style = await note.evaluate((el) => ({ size: parseFloat(getComputedStyle(el).fontSize), color: getComputedStyle(el).color }))
       assert.ok(style.size >= 15, `la nota mide ${style.size} px`)
       // Contrast of the note on the card, measured.

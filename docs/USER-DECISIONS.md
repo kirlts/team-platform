@@ -512,3 +512,18 @@ RULES:
 **Consecuencias:** H-56 deja de ser trabajo pendiente y queda como decisión del dueño. Un HEIC subido directamente se rechaza con un error claro (`image_heic_unsupported`); el Editor puede pedir que se acepte más adelante.
 **Condiciones de reversión:** Se prueba cuando haya usuarios con iPhone en el panel.
 
+
+## [UD-050] La interfaz habla como un instrumento, no como una conversación
+
+**Fecha:** 2026-10-21
+**Contexto:** Martín, textual: «cuando haces interfaces tiendes a escribir rótulos y textos que parecen hablarle directamente al lector, como si fuese una conversación, y eso es porque eres un modelo conversacional, pero es un vicio que tenemos que evitar». Pidió investigar qué se dice del patrón en 2026 y purgarlo de la interfaz, con «lenguaje estándar de software, como un instrumento que se ocupa, no como algo que te está hablando a ti». Su ejemplo del patrón: «Nota de voz con su transcripción». Los catálogos ya cumplían UD-013 en casi todo (rótulos cortos, sin segunda persona); la medición del 2026-10-21 encontró el patrón en 18 claves en español, 21 en inglés y 37 frases de progreso que entrega el servidor (H-1500).
+**Decisión:** Todo texto visible es una etiqueta de instrumento: sustantivo o grupo nominal corto para un rótulo, verbo en infinitivo (inglés: imperativo estándar) más objeto para una acción, etiqueta de una o dos palabras para un estado, causa más salida para un error. Quedan fuera la segunda persona, las preguntas, las exclamaciones, los saludos, las aperturas «Aquí», «Ya», «Todavía», «Parece que» y «Oops», los imperativos coloquiales, los gerundios que acompañan una frase, el punto final en un texto de una oración y las dos oraciones en un mismo texto. El texto de ayuda no existe por omisión. Un aviso de una acción que no se deshace puede ser una oración corta, impersonal y precisa. Las reglas (R1 a R14) y sus fuentes fechadas están en `docs/investigaciones/08-lenguaje-de-instrumento-en-interfaces.md`; las que se pueden medir las hace cumplir `panel/src/ui-voice.test.ts` sobre los dos catálogos y sobre las frases de progreso del servidor, con una lista de excepciones por clave que exige su razón.
+**Alternativas descartadas:**
+- Hablarle a la persona de «tú» en oraciones completas, como piden Adobe Spectrum, Grafana y Microsoft: sirve en productos de consumo; en un panel de uso diario los rótulos estables se escanean mejor y NN/g (2026-01-09) mide un costo en la calidez de un modelo.
+- Una lista de textos a mano sin guardia: el vicio vuelve con cada texto nuevo que escribe un modelo.
+- Leer el texto de las personas para detectar el patrón: la guardia sólo lee el código de la interfaz, nunca lo que escribe una persona (MASTER-SPEC §4.2).
+**Consecuencias:**
+- 18 claves del catálogo en español y 21 del inglés, y 37 frases de progreso del servidor, pasan a etiquetas de instrumento; los textos de prueba de los flujos siguen a los nuevos.
+- Un texto nuevo que caiga en el patrón rompe `npm test` del panel; la excepción se declara por clave, con su razón.
+- Las frases de progreso siguen siendo texto en español que el servidor entrega sin traducir (H-1502).
+**Condiciones de reversión:** Que el producto cambie de público o de registro; Martín lo dice y se revisan R3 y R7.

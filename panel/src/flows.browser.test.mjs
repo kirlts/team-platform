@@ -48,10 +48,13 @@ async function openMessage(page, titleStart) {
 
 const TEXT = 'Corregir el desalineado del sidebar en la vista dashboard.\n\nAgregar la sincronización con WhatsApp en el sidebar.\n\nPregunta: ¿el audio máximo sigue en 25 MB?\n\nSaludos al equipo.'
 
+/** Sends a text from the bar and checks that the bar is empty and ready right away (UD-025). */
 async function sendInput(page, text = TEXT) {
   await page.goto(origin)
-  await page.getByLabel('Nuevo mensaje', { exact: true }).last().fill(text)
+  const bar = page.getByLabel('Nuevo mensaje', { exact: true }).last()
+  await bar.fill(text)
   await page.getByRole('button', { name: 'Enviar' }).first().click()
+  assert.equal(await bar.inputValue(), '', 'la barra se vacía al enviar, sin esperar el análisis')
 }
 
 /** Pages forward until the text shows (lists paginate inside their frame). */
@@ -143,7 +146,7 @@ describe('propuesta del análisis', () => {
   })
 
   test('quitar un mensaje manda sus unidades a «Sin acción» y Deshacer las devuelve', async () => {
-    const { page, context } = await session()
+    const { page, context } = await session('bruno')
     try {
       await sendInput(page, 'Primera idea para el equipo.\n\nSegunda idea para el equipo.')
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
@@ -178,12 +181,15 @@ describe('propuesta del análisis', () => {
   })
 
   test('un archivo rechazado antes de encolar se explica bajo la barra', async () => {
-    const { page, context } = await session()
+    const { page, context } = await session('diego')
     try {
       await page.goto(origin)
       await page.locator('input[type=file]:not([capture])').setInputFiles([{ name: 'foto-demasiado-grande.png', mimeType: 'image/png', buffer: Buffer.alloc(32) }])
       await page.getByRole('button', { name: 'Enviar' }).first().click()
-      await page.getByRole('alert').filter({ hasText: 'La foto supera el tamaño máximo' }).waitFor()
+      await page.getByRole('alert').filter({ hasText: 'La foto supera el tamaño máximo' }).first().waitFor()
+      // La fila de la bandeja conserva el envío para reintentarlo y la barra queda libre.
+      await page.getByRole('button', { name: 'Reintentar' }).first().waitFor()
+      assert.equal(await page.getByLabel('Nuevo mensaje', { exact: true }).last().inputValue(), '')
     } finally {
       await context.close()
     }
@@ -253,6 +259,55 @@ describe('equipo y cuenta', () => {
       await page.getByRole('button', { name: /^Language:/ }).click()
       await page.getByRole('menuitemradio', { name: 'Español (Latinoamérica)' }).click()
       await page.getByRole('heading', { name: 'Configuración', level: 1 }).waitFor()
+    } finally {
+      await context.close()
+    }
+  })
+})
+
+describe('envíos seguidos (UD-025)', () => {
+  test('diez envíos seguidos no cambian el alto, llegan de a uno y se revisan con el teclado', async () => {
+    const { page, context } = await session('tomas')
+    try {
+      await page.goto(origin)
+      const bar = page.getByLabel('Nuevo mensaje', { exact: true }).last()
+      const send = async (i) => {
+        await bar.fill(`Envío ${i}: revisar el punto ${i} del panel y avisar al equipo.`)
+        await page.getByRole('button', { name: 'Enviar' }).first().click()
+        assert.equal(await bar.inputValue(), '', `la barra debe quedar vacía al enviar el ${i}`)
+      }
+      const heights = () => page.evaluate(() => ({ doc: document.scrollingElement.scrollHeight, main: document.querySelector('main').scrollHeight, win: innerHeight }))
+      const tray = page.getByRole('region', { name: 'Envíos', exact: true })
+      await send(1)
+      await tray.waitFor()
+      await page.waitForTimeout(500)
+      const base = await heights()
+      const baseFrame = (await tray.boundingBox()).height
+      for (let i = 2; i <= 10; i++) await send(i)
+      await tray.getByText('10 envíos').waitFor()
+      // Terminan escalonados: se espera a que los diez estén listos para revisar.
+      for (let i = 0; i < 100; i++) {
+        const body = await (await page.request.get(`${origin}/api/inputs?mine=1&status=proposed`)).json()
+        if ((body.items ?? body).length === 10) break
+        await page.waitForTimeout(200)
+      }
+      await page.waitForTimeout(800)
+      assert.deepEqual(await heights(), base, 'diez envíos no deben cambiar el alto de la página')
+      assert.ok(Math.abs((await tray.boundingBox()).height - baseFrame) <= 1, 'el marco de la bandeja conserva su alto')
+      assert.ok(base.main <= base.win, 'la región principal no desplaza')
+
+      // Teclado: J mueve al siguiente, K al anterior y Enter publica el que se ve; el siguiente se abre solo.
+      await page.locator('body').click({ position: { x: 5, y: 5 } })
+      const selected = () => page.locator('[role="option"][aria-selected="true"]').first().getAttribute('aria-label')
+      const first = await selected()
+      await page.keyboard.press('j')
+      await page.waitForFunction((prev) => document.querySelector('[role="option"][aria-selected="true"]')?.getAttribute('aria-label') !== prev, first)
+      await page.keyboard.press('k')
+      assert.equal(await selected(), first)
+      await page.keyboard.press('Enter')
+      await tray.getByText('9 envíos').waitFor()
+      assert.notEqual(await selected(), first, 'al publicar se abre el siguiente')
+      assert.deepEqual(await heights(), base)
     } finally {
       await context.close()
     }

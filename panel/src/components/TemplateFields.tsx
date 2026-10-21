@@ -24,7 +24,7 @@ export function TemplateFields({
   const fields = useMemo(() => parseTemplateFields(template?.body_markdown ?? ''), [template?.body_markdown])
   if (fields.length === 0) return null
   return (
-    <dl className="grid gap-x-4 gap-y-2 text-[13px] sm:grid-cols-2">
+    <dl className="grid gap-x-4 gap-y-2 text-[13px] @md:grid-cols-2">
       {fields.map((f) => (
         <div key={f.name} className="flex min-w-0 flex-col gap-0.5">
           <dt className="text-xs font-semibold text-muted">{f.label}</dt>

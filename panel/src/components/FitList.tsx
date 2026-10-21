@@ -39,6 +39,7 @@ export function FitList<T>({
   label,
   header,
   bare = false,
+  rowsRole,
 }: {
   rows: readonly T[]
   rowKey: (row: T) => string
@@ -51,6 +52,8 @@ export function FitList<T>({
   header?: ReactNode
   /** No glass of its own: the list goes inside another panel. */
   bare?: boolean
+  /** ARIA role of the group of rows (`listbox` when each row is an option). */
+  rowsRole?: string
 }) {
   const t = useT()
   const desktop = useDesktop()
@@ -137,7 +140,7 @@ export function FitList<T>({
         (empty ?? null)
       ) : (
         <>
-          <div ref={body} className="flex min-h-0 flex-1 flex-col">
+          <div ref={body} role={rowsRole} aria-label={rowsRole ? label : undefined} className="flex min-h-0 flex-1 flex-col">
             {shown.map((row) => (
               <Fragment key={rowKey(row)}>{renderRow(row)}</Fragment>
             ))}

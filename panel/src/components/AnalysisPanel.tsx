@@ -28,7 +28,7 @@ const STATUS_PHRASE: Partial<Record<InputStatus, MessageKey>> = {
  * «Análisis» block: progress over SSE while the job runs and, when it finishes, the editable
  * proposal. Nothing reaches the team until the sender presses Enviar (UD-003).
  */
-export function AnalysisPanel({ input, onClose }: { input: InputRecord; onClose: () => void }) {
+export function AnalysisPanel({ input, onClose, registerPublish }: { input: InputRecord; onClose: () => void; registerPublish?: (publish: (() => void) | null) => void }) {
   const t = useT()
   const { has } = useI18n()
   const undo = useUndo()
@@ -41,7 +41,7 @@ export function AnalysisPanel({ input, onClose }: { input: InputRecord; onClose:
   const failureText = failureCode && has(failureCode) ? t(failureCode as MessageKey) : input.error || t('analysis.failed')
 
   return (
-    <section aria-label={t('analysis.title')} className="flex min-h-0 min-w-0 flex-col gap-3">
+    <section aria-label={t('analysis.title')} className="@container flex min-h-0 min-w-0 flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <div className="flex items-center gap-2">
           <h2>{t('analysis.title')}</h2>
@@ -89,7 +89,7 @@ export function AnalysisPanel({ input, onClose }: { input: InputRecord; onClose:
         </div>
       )}
 
-      {input.status === 'proposed' && input.proposal && <ProposalEditor key={input.id} input={input} initial={input.proposal} onPublished={onClose} onDiscard={() => cancel.mutate(input.id, { onSuccess: onClose })} />}
+      {input.status === 'proposed' && input.proposal && <ProposalEditor key={input.id} input={input} initial={input.proposal} registerPublish={registerPublish} onPublished={onClose} onDiscard={() => cancel.mutate(input.id, { onSuccess: onClose })} />}
     </section>
   )
 }
@@ -99,7 +99,7 @@ interface Row {
   i: number
 }
 
-function ProposalEditor({ input, initial, onPublished, onDiscard }: { input: InputRecord; initial: Proposal; onPublished: () => void; onDiscard: () => void }) {
+function ProposalEditor({ input, initial, onPublished, onDiscard, registerPublish }: { input: InputRecord; initial: Proposal; onPublished: () => void; onDiscard: () => void; registerPublish?: (publish: (() => void) | null) => void }) {
   const t = useT()
   const errorText = useErrorText()
   const undo = useUndo()
@@ -164,6 +164,15 @@ function ProposalEditor({ input, initial, onPublished, onDiscard }: { input: Inp
     }
     publish.mutate({ inputId: input.id, proposal: latest.current }, { onSuccess: onPublished })
   }
+
+  // The page can publish this proposal from the keyboard (Enter) while it is complete and not already going out.
+  const canSend = !publish.isPending && proposal.messages.length > 0 && missingTotal === 0
+  const sendRef = useRef(send)
+  sendRef.current = send
+  useEffect(() => {
+    registerPublish?.(canSend ? () => void sendRef.current() : null)
+    return () => registerPublish?.(null)
+  }, [canSend]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(
     () => () => {

@@ -139,10 +139,34 @@ async function sendInput(page) {
   await page.waitForTimeout(600)
 }
 
+/**
+ * Ten sends one after another (UD-025). The bar empties at each send and the tray keeps its frame: after the tenth
+ * the page is exactly as tall as after the first. Returns that first measure to compare with.
+ */
+async function sendTen(page) {
+  const bar = page.getByLabel('Nuevo mensaje', { exact: true }).last()
+  const measure = () => page.evaluate(() => ({ doc: document.scrollingElement.scrollHeight, main: document.querySelector('main').scrollHeight }))
+  let base
+  for (let i = 1; i <= 10; i++) {
+    await bar.fill(`Envío ${i} de la serie: revisar el punto ${i} y avisar al equipo.`)
+    await page.getByRole('button', { name: 'Enviar' }).first().click()
+    if (i === 1) {
+      await page.getByRole('region', { name: 'Envíos', exact: true }).waitFor()
+      await page.waitForTimeout(500)
+      base = await measure()
+    }
+  }
+  // They finish at staggered times: wait until the tray holds the ten and the last ones are ready.
+  await page.getByRole('region', { name: 'Envíos', exact: true }).getByText(/\d+ envíos/).waitFor()
+  await page.waitForTimeout(2500)
+  return base
+}
+
 /** The views: path, and an optional step that prepares the state (sending an input, for instance). */
 const VIEWS = [
   { name: 'inicio', path: '/' },
   { name: 'inicio con propuesta', path: '/', prepare: sendInput },
+  { name: 'inicio con diez envíos', path: '/', prepare: sendTen, compare: true },
   { name: 'mensajes', path: '/messages' },
   { name: 'detalle', path: null },
   { name: 'áreas', path: '/areas' },
@@ -173,7 +197,7 @@ for (const [width, height] of SIZES) {
           for (const view of VIEWS) {
             const path = view.path ?? `/messages/${rich.id}`
             await open(page, path)
-            if (view.prepare) await view.prepare(page)
+            const base = view.prepare ? await view.prepare(page) : undefined
             if (BREAK === 'documento-alto' && view.name === 'inicio') await page.evaluate(() => document.querySelector('main').insertAdjacentHTML('beforeend', '<div style="height:2000px">x</div>'))
             if (BREAK === 'carril' && view.name === 'equipo') await page.evaluate(() => document.querySelector('main').insertAdjacentHTML('beforeend', '<div style="height:80px;overflow-y:auto"><div style="height:400px">x</div></div>'))
             if (BREAK === 'oculto' && view.name === 'mensajes') await page.evaluate(() => (document.documentElement.style.overflowY = 'hidden'))
@@ -184,6 +208,7 @@ for (const [width, height] of SIZES) {
             if (m.below > m.win) failures.push(`${view.name} (${path}): contenido hasta ${m.below} px en una ventana de ${m.win}`)
             if (m.carriles.length) failures.push(`${view.name} (${path}): carriles verticales propios fuera de la lista blanca: ${m.carriles.join(', ')}`)
             if (m.hidden) failures.push(`${view.name} (${path}): el documento esconde su desborde con overflow hidden`)
+            if (view.compare && base && (m.doc !== base.doc || m.mainBox + m.mainOver !== base.main)) failures.push(`${view.name} (${path}): diez envíos cambiaron el alto (documento ${base.doc} a ${m.doc}, región ${base.main} a ${m.mainBox + m.mainOver})`)
             if (m.wide > 0) failures.push(`${view.name} (${path}): el documento se ensancha ${m.wide} px más que la ventana`)
           }
         } finally {

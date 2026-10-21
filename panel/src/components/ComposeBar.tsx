@@ -1,31 +1,33 @@
 import { Send } from '@/components/icons'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { useErrorText, useT } from '@/i18n'
-import { uploadInput, type CreatedInput } from '@/lib/upload'
+import { useT } from '@/i18n'
 import { useMediaDraft } from '@/lib/useMediaDraft'
 import { cn } from '@/lib/utils'
 import { CaptureButtons, ClipMenu, MediaDraftList, RecordingStatus } from './MediaDraft'
 
+export interface SendDraft {
+  text: string
+  files: File[]
+  links: string[]
+}
+
 /**
- * New message bar: text, attachments (clip, drag, paste), camera photo,
- * recorded audio and links. A single multipart submit with upload progress.
+ * New message bar: text, attachments (clip, drag, paste), a photo from the camera, a recorded audio
+ * and links. On send the bar empties at once and is ready for the next one (UD-025): the upload and
+ * the analysis go on in the tray, never here. `problem` is the reason the last upload was rejected,
+ * shown under the bar until the next send.
  */
-export function ComposeBar({ onCreated, disabled }: { onCreated: (created: CreatedInput) => void; disabled?: boolean }) {
+export function ComposeBar({ onSubmit, problem }: { onSubmit: (draft: SendDraft) => void; problem?: string | null }) {
   const t = useT()
-  const errorText = useErrorText()
   const draft = useMediaDraft()
   const [text, setText] = useState('')
   const [dragging, setDragging] = useState(false)
-  const [progress, setProgress] = useState<number | null>(null)
-  const [error, setError] = useState<string | null>(null)
   const textArea = useRef<HTMLTextAreaElement>(null)
 
-  const uploading = progress !== null
-  const busy = uploading || !!disabled
   const empty = !text.trim() && draft.empty
 
-  // The field grows with its text up to a maximum and from there scrolls inside.
+  // The field grows with its text up to a maximum and from there it scrolls inside.
   useEffect(() => {
     const el = textArea.current
     if (!el) return
@@ -33,20 +35,15 @@ export function ComposeBar({ onCreated, disabled }: { onCreated: (created: Creat
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`
   }, [text])
 
-  const send = async () => {
-    if (empty || busy || draft.recording) return
-    setError(null)
-    setProgress(0)
-    try {
-      const created = await uploadInput({ text, files: draft.locals.map((l) => l.file), links: draft.links }, setProgress)
-      draft.clear()
-      setText('')
-      onCreated(created)
-    } catch (err) {
-      setError(errorText(err))
-    } finally {
-      setProgress(null)
-    }
+  const send = () => {
+    if (empty || draft.recording) return
+    const files = draft.locals.map((l) => l.file)
+    const links = draft.links
+    onSubmit({ text, files, links })
+    // The files are handed over: only the previews are released, the Files themselves live on in the upload.
+    draft.clear()
+    setText('')
+    textArea.current?.focus()
   }
 
   return (
@@ -60,10 +57,10 @@ export function ComposeBar({ onCreated, disabled }: { onCreated: (created: Creat
         setDragging(false)
         draft.onDrop(e)
       }}
-      className={cn('glass leaf transition-colors duration-150 focus-within:border-accent', dragging && '!border-accent !bg-accent-soft', busy && 'opacity-70')}
+      className={cn('glass leaf transition-colors duration-150 focus-within:border-accent', dragging && '!border-accent !bg-accent-soft')}
     >
       <div className="flex flex-wrap items-end gap-1.5 p-2">
-        <ClipMenu draft={draft} disabled={busy} />
+        <ClipMenu draft={draft} />
         {draft.recording ? (
           <RecordingStatus seconds={draft.recording.seconds} />
         ) : (
@@ -71,7 +68,6 @@ export function ComposeBar({ onCreated, disabled }: { onCreated: (created: Creat
             ref={textArea}
             rows={1}
             value={text}
-            disabled={busy}
             aria-label={t('compose.label')}
             placeholder={t('compose.placeholder')}
             onChange={(e) => setText(e.target.value)}
@@ -79,34 +75,23 @@ export function ComposeBar({ onCreated, disabled }: { onCreated: (created: Creat
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                 e.preventDefault()
-                void send()
+                send()
               }
             }}
             className="max-h-[120px] min-h-8 min-w-0 flex-1 basis-40 resize-none bg-transparent px-2 py-1.5 placeholder:text-faint focus-visible:outline-none"
           />
         )}
-        <CaptureButtons draft={draft} disabled={busy} />
-        <Button variant="primary" size="icon" aria-label={t('compose.send')} title={t('compose.sendHint')} disabled={empty || busy || !!draft.recording} onClick={() => void send()}>
+        <CaptureButtons draft={draft} />
+        <Button variant="primary" size="icon" aria-label={t('compose.send')} title={t('compose.sendHint')} disabled={empty || !!draft.recording} onClick={send}>
           <Send size={16} aria-hidden />
         </Button>
       </div>
 
-      <MediaDraftList draft={draft} busy={busy} />
+      <MediaDraftList draft={draft} />
 
-      {uploading && (
-        <div role="progressbar" aria-label={t('compose.upload')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((progress ?? 0) * 100)} className="meter mx-3 mb-3 h-2">
-          <div className="meter-fill" style={{ width: `${Math.round((progress ?? 0) * 100)}%` }} />
-        </div>
-      )}
-
-      {error && (
-        <div role="alert" className="flex items-center justify-between gap-2 border-t border-line px-3 py-1.5 text-xs text-danger">
-          <span>{t('compose.sendFailed', { reason: error })}</span>
-          {!uploading && !empty && (
-            <Button size="sm" variant="secondary" onClick={() => void send()}>
-              {t('common.retry')}
-            </Button>
-          )}
+      {problem && (
+        <div role="alert" className="border-t border-line px-3 py-1.5 text-xs text-danger">
+          {t('compose.sendFailed', { reason: problem })}
         </div>
       )}
     </div>

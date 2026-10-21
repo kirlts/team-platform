@@ -1,113 +1,178 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
-import { AnalysisPanel } from '@/components/AnalysisPanel'
-import { ComposeBar } from '@/components/ComposeBar'
+import { ComposeBar, type SendDraft } from '@/components/ComposeBar'
 import { FitList } from '@/components/FitList'
-import { InputPreview } from '@/components/InputPreview'
 import { MessageCard } from '@/components/MessageCard'
 import { Page } from '@/components/Page'
 import { PageHeader } from '@/components/PageHeader'
+import { ReviewPane } from '@/components/ReviewPane'
 import { Segmented } from '@/components/Segmented'
-import { useFormat, useT } from '@/i18n'
-import { ApiError } from '@/lib/api'
+import { Tray, type PendingUpload, type TrayItem } from '@/components/Tray'
+import { useErrorText, useFormat, useT } from '@/i18n'
 import { ME, type MessageQuery } from '@/lib/filters'
-import { useInput, useMe, useMessages, useProject } from '@/lib/queries'
-import { UndoProvider, useUndoStack } from '@/lib/undo'
+import { useMe, useMessages, useProject, useTray } from '@/lib/queries'
+import { uploadInput } from '@/lib/upload'
 
-const ACTIVE_KEY = 'team-active-input'
-
-function readActive(): string | undefined {
-  try {
-    return localStorage.getItem(ACTIVE_KEY) ?? undefined
-  } catch {
-    return undefined
-  }
+/** One send that is going up to the server: what was sent, how far it is and why it failed, if it did. */
+interface Upload {
+  key: string
+  draft: SendDraft
+  at: string
+  progress: number
+  error?: string
 }
 
-function writeActive(id: string | undefined) {
-  try {
-    if (id) localStorage.setItem(ACTIVE_KEY, id)
-    else localStorage.removeItem(ACTIVE_KEY)
-  } catch {
-    // Without storage, the proposal does not survive a reload of the tab.
-  }
+/** Elements where a key press is for typing or for the control itself, never for moving through the tray. */
+const isTyping = (target: EventTarget | null) => {
+  const el = target as HTMLElement | null
+  return !!el && (el.isContentEditable || !!el.closest('input, textarea, select, button, a, [role="dialog"], [role="menu"], [role="menuitemradio"]'))
 }
 
 export function Home() {
   const t = useT()
   const format = useFormat()
+  const errorText = useErrorText()
+  const queryClient = useQueryClient()
   const me = useMe().data
   const project = useProject().data
+  const tray = useTray()
   const [now, setNow] = useState(() => new Date())
-  const [activeId, setActiveId] = useState<string | undefined>(readActive)
-  const input = useInput(activeId)
-  const undo = useUndoStack()
+  const [uploads, setUploads] = useState<Upload[]>([])
+  const [problem, setProblem] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | undefined>()
+  /** Sends already published or discarded here, hidden until the server's list catches up. */
+  const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set())
+  const publishRef = useRef<(() => void) | null>(null)
+  const lastIndex = useRef(0)
 
   useEffect(() => {
     const tick = setInterval(() => setNow(new Date()), 15_000)
     return () => clearInterval(tick)
   }, [])
 
-  const close = () => {
-    writeActive(undefined)
-    setActiveId(undefined)
+  const inputs = useMemo(() => (tray.data ?? []).filter((i) => !gone.has(i.id)), [tray.data, gone])
+
+  // The review opens on the first send that is ready and, when the one in view goes out, on the next one.
+  useEffect(() => {
+    const at = inputs.findIndex((i) => i.id === selectedId)
+    if (at >= 0) {
+      lastIndex.current = at
+      return
+    }
+    const next = inputs.slice(lastIndex.current).find((i) => i.status === 'proposed') ?? inputs.find((i) => i.status === 'proposed') ?? inputs[0]
+    setSelectedId(next?.id)
+  }, [inputs, selectedId])
+
+  /** Uploads one send; the bar is already empty. A failure keeps the draft in its row so the text is never lost. */
+  const upload = useCallback(
+    async (key: string, draft: SendDraft) => {
+      setUploads((list) => list.map((u) => (u.key === key ? { ...u, error: undefined, progress: 0 } : u)))
+      try {
+        await uploadInput({ text: draft.text, files: draft.files, links: draft.links }, (progress) => setUploads((list) => list.map((u) => (u.key === key ? { ...u, progress } : u))))
+        setUploads((list) => list.filter((u) => u.key !== key))
+        await queryClient.invalidateQueries({ queryKey: ['inputs'] })
+      } catch (err) {
+        const reason = errorText(err)
+        setUploads((list) => list.map((u) => (u.key === key ? { ...u, error: reason } : u)))
+        setProblem(reason)
+      }
+    },
+    [errorText, queryClient],
+  )
+
+  const submit = (draft: SendDraft) => {
+    const key = crypto.randomUUID()
+    setProblem(null)
+    setUploads((list) => [...list, { key, draft, at: new Date().toISOString(), progress: 0 }])
+    void upload(key, draft)
   }
 
-  // An input that no longer exists, was published or was canceled frees the analysis zone.
-  useEffect(() => {
-    const err = input.error
-    if (err instanceof ApiError && err.status === 404) close()
-    const status = input.data?.status
-    if (status === 'published' || status === 'cancelled') close()
-  }, [input.error, input.data?.status])
+  const items = useMemo<TrayItem[]>(() => {
+    const sending: TrayItem[] = uploads.map((u): TrayItem => {
+      const pending: PendingUpload = {
+        key: u.key,
+        text: u.draft.text,
+        at: u.at,
+        progress: u.progress,
+        error: u.error,
+        onRetry: () => void upload(u.key, u.draft),
+        onDiscard: () => setUploads((list) => list.filter((x) => x.key !== u.key)),
+      }
+      return { kind: 'upload', upload: pending }
+    })
+    return [...inputs.map((input): TrayItem => ({ kind: 'input', input })), ...sending]
+  }, [inputs, uploads, upload])
 
-  const working = !!input.data
+  const finished = () => {
+    if (selectedId) setGone((set) => new Set(set).add(selectedId))
+    setSelectedId(undefined)
+    void queryClient.invalidateQueries({ queryKey: ['inputs'] })
+  }
+
+  // Keyboard through the tray: J or ArrowDown to the next send, K or ArrowUp to the previous, Enter publishes the one in view.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey || isTyping(e.target)) return
+      const move = e.key === 'j' || e.key === 'ArrowDown' ? 1 : e.key === 'k' || e.key === 'ArrowUp' ? -1 : 0
+      if (move !== 0 && inputs.length > 0) {
+        e.preventDefault()
+        const at = Math.max(0, inputs.findIndex((i) => i.id === selectedId))
+        setSelectedId(inputs[Math.min(inputs.length - 1, Math.max(0, at + move))].id)
+      } else if (e.key === 'Enter' && publishRef.current) {
+        e.preventDefault()
+        publishRef.current()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [inputs, selectedId])
+
+  const registerPublish = useCallback((fn: (() => void) | null) => {
+    publishRef.current = fn
+  }, [])
+
+  const working = items.length > 0
 
   return (
-    <UndoProvider stack={undo}>
-      <Page cols={12}>
-        <PageHeader
-          title={project?.name ?? me?.project_name ?? ''}
-          aside={
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">
-              <time dateTime={now.toISOString()}>
-                {format.longDate(now)} <span className="text-accent-deep">{format.clock(now)}</span>
-              </time>
-            </p>
-          }
-        />
+    <Page cols={12}>
+      <PageHeader
+        title={project?.name ?? me?.project_name ?? ''}
+        aside={
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">
+            <time dateTime={now.toISOString()}>
+              {format.longDate(now)} <span className="text-accent-deep">{format.clock(now)}</span>
+            </time>
+          </p>
+        }
+      />
 
-        <section aria-label={t('home.new')} className="flex flex-col gap-2">
-          <h2>{t('home.new')}</h2>
-          <ComposeBar
-            disabled={!!activeId && input.data?.status !== 'failed'}
-            onCreated={(created) => {
-              writeActive(created.input_id)
-              setActiveId(created.input_id)
-            }}
-          />
-        </section>
+      <section aria-label={t('home.new')} className="flex flex-col gap-2">
+        <h2>{t('home.new')}</h2>
+        <ComposeBar onSubmit={submit} problem={problem} />
+      </section>
 
-        {working ? (
-          <>
-            <div className="glass leaf grid min-h-0 flex-1 md:grid-rows-[minmax(0,1fr)] gap-x-10 gap-y-4 p-4 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-              <InputPreview input={input.data!} />
-              <AnalysisPanel input={input.data!} onClose={close} />
+      {working ? (
+        <>
+          <div className="glass leaf grid min-h-0 flex-1 gap-x-6 gap-y-4 p-4 md:grid-cols-[minmax(0,3fr)_minmax(0,9fr)] md:grid-rows-[minmax(0,1fr)]">
+            <Tray items={items} selectedId={selectedId} onSelect={setSelectedId} />
+            <div className="flex min-h-0 min-w-0 flex-col border-line md:border-l md:pl-6">
+              <ReviewPane inputId={selectedId} onClose={finished} registerPublish={registerPublish} />
             </div>
-            <FeedLinks meId={me?.id ?? ''} />
-          </>
-        ) : (
-          <div className="grid min-h-0 flex-1 md:grid-rows-[minmax(0,1fr)] gap-x-10 gap-y-4 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
-            <Feed kind="messages" meId={me?.id ?? ''} />
-            <Feed kind="replies" meId={me?.id ?? ''} />
           </div>
-        )}
-      </Page>
-    </UndoProvider>
+          <FeedLinks meId={me?.id ?? ''} />
+        </>
+      ) : (
+        <div className="grid min-h-0 flex-1 gap-x-10 gap-y-4 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] md:grid-rows-[minmax(0,1fr)]">
+          <Feed kind="messages" meId={me?.id ?? ''} />
+          <Feed kind="replies" meId={me?.id ?? ''} />
+        </div>
+      )}
+    </Page>
   )
 }
 
-/** With a proposal open, the two lists fold into one line with their count; each one leads to Mensajes. */
+/** With sends in the tray, the two lists fold into one line with their count; each one leads to Mensajes. */
 function FeedLinks({ meId }: { meId: string }) {
   const t = useT()
   const mine: MessageQuery = { filters: [{ prop: 'for', op: 'eq', value: ME }], q: '' }

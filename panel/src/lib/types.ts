@@ -110,6 +110,10 @@ export interface InputRecord {
   error?: string | null
   /** Stable code of the failure; the panel translates it to its catalog. */
   error_code?: string | null
+  /** State of the job, when the API sends it with the input. */
+  job?: { id: string; status: string; percent: number | null; phrase: string | null } | null
+  /** Count of proposed messages for the tray row; without it, the length of `proposal.messages`. */
+  proposed_count?: number
 }
 
 export type MessageStatus = 'open' | 'answered' | 'closed'

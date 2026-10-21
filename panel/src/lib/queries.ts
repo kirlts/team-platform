@@ -95,6 +95,21 @@ export function useInput(id: string | undefined) {
   })
 }
 
+/** Statuses of an input that still needs the person: running, ready to review or failed (UD-025). */
+export const TRAY_STATUSES = ['queued', 'extracting', 'analyzing', 'proposed', 'failed'] as const
+
+/** My inputs in the tray: oldest first, so the ones that arrived first are reviewed first. */
+export function useTray(enabled = true) {
+  return useQuery({
+    queryKey: ['inputs', 'tray'],
+    queryFn: async () => {
+      const list = unwrapList<InputRecord>(await api(`/inputs?mine=1&status=${TRAY_STATUSES.join(',')}`))
+      return [...list].sort((a, b) => a.created_at.localeCompare(b.created_at))
+    },
+    enabled,
+  })
+}
+
 export function useProviders(enabled: boolean) {
   return useQuery({
     queryKey: ['providers'],

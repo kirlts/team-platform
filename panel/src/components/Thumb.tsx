@@ -68,9 +68,9 @@ export function Thumb({
           type="button"
           onClick={onRemove}
           aria-label={t('media.remove', { name: label })}
-          className="btn-glass absolute right-0.5 top-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-muted hover:!text-danger"
+          className={cn('btn-glass absolute right-0.5 top-0.5 inline-flex items-center justify-center rounded-full text-muted hover:!text-danger', px <= 36 ? 'h-4 w-4' : 'h-5 w-5')}
         >
-          <X size={11} aria-hidden />
+          <X size={px <= 36 ? 9 : 11} aria-hidden />
         </button>
       )}
     </span>

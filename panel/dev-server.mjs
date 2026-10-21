@@ -245,8 +245,11 @@ function attachmentView(attId) {
 function inputView(input) {
   const { content_hash, attachment_ids, ...rest } = input
   void content_hash
-  return { ...rest, attachments: attachment_ids.map(attachmentView).filter(Boolean) }
+  return { ...rest, proposed_count: input.proposal?.messages.length ?? 0, attachments: attachment_ids.map(attachmentView).filter(Boolean) }
 }
+
+/** How many jobs were started, to stagger the ones that follow. */
+let running = 0
 
 function runJob(input) {
   const total = input.attachment_ids.length + 2
@@ -277,7 +280,10 @@ function runJob(input) {
     done += 1
     jobs.set(input.job_id, setTimeout(tick, STEP_MS))
   }
-  jobs.set(input.job_id, setTimeout(tick, STEP_MS))
+  // Inputs sent one after another finish at staggered times, as with a queue that runs several at once.
+  const lag = (running % 10) * Math.round(STEP_MS / 2)
+  running += 1
+  jobs.set(input.job_id, setTimeout(tick, STEP_MS + lag))
 }
 
 let analyzed = 0
@@ -527,6 +533,13 @@ const server = createServer(async (req, res) => {
       inputs.set(input.id, input)
       runJob(input)
       return send(res, 201, { input_id: input.id, job_id: input.job_id })
+    }
+
+    // My inputs still in play: GET /inputs?mine=1&status=queued,extracting,analyzing,proposed,failed
+    if (path === '/inputs' && method === 'GET') {
+      const wanted = (url.searchParams.get('status') ?? '').split(',').filter(Boolean)
+      const mine = [...inputs.values()].filter((i) => i.author_id === me.id && (!wanted.length || wanted.includes(i.status)))
+      return send(res, 200, envelope(mine.map(inputView)))
     }
 
     let m = /^\/inputs\/([^/]+)(?:\/(publish|cancel|reprocess|proposal))?$/.exec(path)

@@ -98,12 +98,12 @@ async function shoot(browser, vp, theme, lang = 'es-419') {
   await page.getByLabel('Correo').fill('ana@dev.invalid')
   await page.getByLabel('Contraseña').fill(password)
   await page.getByRole('button', { name: 'Entrar' }).click()
-  await page.getByRole('navigation', { name: 'Navegación' }).or(page.getByRole('button', { name: 'Abrir navegación' })).first().waitFor()
+  await page.locator('main h1').first().waitFor()
 
   if (lang !== 'es-419') {
     await page.request.patch(`${ORIGIN}/api/members/me`, { data: { language: lang }, headers: { 'X-Team-Request': 'panel' } })
     await page.reload()
-    await page.getByRole('navigation').first().waitFor()
+    await page.locator('main h1').first().waitFor()
   }
   let n = 0
   const take = async (name, opts = {}) => {
@@ -157,9 +157,10 @@ async function shoot(browser, vp, theme, lang = 'es-419') {
   await take('propuesta')
   if (cfg.mobile) {
     await page.goto(ORIGIN)
-    await page.getByRole('button', { name: 'Abrir navegación' }).click()
+    await page.getByRole('button', { name: lang === 'en' ? 'Open navigation' : 'Abrir navegación' }).click()
     await take('navegacion')
   }
+  if (lang !== 'es-419') await page.request.patch(`${ORIGIN}/api/members/me`, { data: { language: 'es-419' }, headers: { 'X-Team-Request': 'panel' } })
   await context.close()
 }
 

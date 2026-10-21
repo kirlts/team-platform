@@ -6,6 +6,7 @@
 
 import { all, get, run } from '../db/index.js'
 import { parseJson } from '../db/util.js'
+import { coverage } from '../analyze/validate.js'
 import { audit } from './audit.js'
 import { badRequest, conflict, forbidden, notFound, unprocessable } from './errors.js'
 import { transitionInput } from './inputs.js'
@@ -38,6 +39,28 @@ export function validateProposal (db, inputId, proposal, fail, { draft = false }
 }
 
 /**
+ * Units (MASTER-SPEC §7.5, HP-014): every cited unit must be one the analysis numbered for this input. With
+ * `complete: true` (publishing) the proposal must also cover each unit exactly once, in a message or in `discarded`,
+ * with the same set arithmetic the analyzer applies to the model's output (`coverage`). A drafted proposal may be
+ * incomplete: the panel moves the units of a deleted message to `discarded`, and publishing demands the result.
+ */
+function checkUnits (db, inputId, proposal, fail, { complete }) {
+  const known = new Set(parseJson(get(db, 'SELECT units_json FROM proposals WHERE input_id = ?', inputId)?.units_json, []).map((u) => Number(u.id)))
+  const messages = proposal.messages.map((m) => ({ unit_ids: (m.unit_ids ?? []).map(Number) }))
+  const discarded = (proposal.discarded ?? []).map((d) => ({ unit_ids: (d.unit_ids ?? []).map(Number) }))
+  messages.forEach((m, i) => m.unit_ids.forEach((u) => { if (!known.has(u)) throw fail(`Mensaje ${i + 1}: la unidad ${u} no existe en el input.`, 'unit_invalid') }))
+  discarded.forEach((d) => d.unit_ids.forEach((u) => { if (!known.has(u)) throw fail(`Descartado: la unidad ${u} no existe en el input.`, 'unit_invalid') }))
+  if (!complete) return
+  const { overlaps, gaps } = coverage(messages, discarded, known)
+  if (overlaps.length > 0) {
+    throw fail(`${overlaps.map((o) => `La unidad ${o.unit_id} está en más de un lugar (${o.owners.join(' y ')})`).join('; ')}.`, 'units_overlap')
+  }
+  if (gaps.length > 0) {
+    throw fail(`Las unidades ${gaps.join(', ')} no están en ningún mensaje ni entre los descartados.`, 'units_uncovered')
+  }
+}
+
+/**
  * Saves the proposal as the input's current draft (UD-017: an edit must survive closing the tab). Only the author,
  * only while the input is `proposed`. Shape and ids only: an incomplete draft is stored, and publishing demands completeness. The draft replaces the analyzer's proposal: there is no version history.
  * Returns the stored proposal, or null when nothing changed (same draft saved twice).
@@ -51,13 +74,7 @@ export function saveProposalDraft ({ db, events, now = Date.now }, { inputId, me
     if (input.status !== 'proposed') throw conflict(`El input está «${input.status}»; sólo se edita una propuesta lista.`, 'not_proposed')
 
     const entries = validateProposal(db, inputId, proposal, badRequest, { draft: true })
-    // Units: every cited unit must be one the analysis numbered for this input.
-    const known = new Set(parseJson(get(db, 'SELECT units_json FROM proposals WHERE input_id = ?', inputId)?.units_json, []).map((u) => String(u.id)))
-    const cited = [
-      ...proposal.messages.flatMap((m, i) => (m.unit_ids ?? []).map((u) => [u, `Mensaje ${i + 1}: `])),
-      ...(proposal.discarded ?? []).flatMap((d) => (d.unit_ids ?? []).map((u) => [u, 'Descartado: ']))
-    ]
-    for (const [unit, scope] of cited) if (!known.has(String(unit))) throw badRequest(`${scope}la unidad ${unit} no existe en el input.`, 'unit_invalid')
+    checkUnits(db, inputId, proposal, badRequest, { complete: false })
     const draft = {
       messages: entries.map((e, i) => ({
         area_id: e.areaId, template_id: e.templateId, title: e.title, body: e.body, fields: e.fields,
@@ -89,6 +106,7 @@ export function publishProposal ({ db, events, now = Date.now }, { inputId, memb
       ? parseJson(get(db, 'SELECT payload_json FROM proposals WHERE input_id = ?', inputId)?.payload_json, {})
       : proposal
     const entries = validateProposal(db, inputId, toPublish, unprocessable)
+    checkUnits(db, inputId, toPublish, unprocessable, { complete: true })
     const t = now()
     const createdIds = []
 

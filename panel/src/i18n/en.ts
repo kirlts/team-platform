@@ -82,7 +82,9 @@ export const en: Record<MessageKey, Message> = {
   'tray.running': { one: '{n} analyzing', other: '{n} analyzing' },
   'tray.failed': { one: '{n} failed', other: '{n} failed' },
   'tray.fold': 'Fold sends',
-  'tray.unfold': 'Unfold sends',
+  'tray.readyNotice': { one: '{n} send ready to review', other: '{n} sends ready to review' },
+  'tray.readyOpen': 'Review',
+  'tray.pickedDiscarded': 'Send discarded',
 
   'compose.label': 'New message',
   'compose.placeholder': 'Write or attach',
@@ -165,7 +167,7 @@ export const en: Record<MessageKey, Message> = {
 
   'proposal.count': { one: '{n} message', other: '{n} messages' },
   'proposal.list': 'Proposed messages',
-  'proposal.noAction': 'No message',
+  'proposal.noAction': 'Parts without a message',
   'proposal.removedReason': 'Removed by the sender',
   'proposal.removed': 'Message removed',
   'proposal.remove': 'Remove the message {title}',
@@ -181,6 +183,7 @@ export const en: Record<MessageKey, Message> = {
   'proposal.noRecipients': 'no recipients',
   'proposal.missingShort': 'Incomplete',
   'publish.to': 'to {names}',
+  'publish.people': { one: '{n} person', other: '{n} people' },
   'publish.nobody': 'with no recipients',
   'publish.andMore': '{n} more',
   'publish.one': 'Published “{title}” {who}.',

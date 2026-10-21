@@ -2,9 +2,12 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { ChevronRight } from '@/components/icons'
+import { Meter } from '@/components/Meter'
+import { useNotices } from '@/lib/notices'
+import { sendPercent } from '@/lib/progress'
 import { ComposeBar, type SendDraft } from '@/components/ComposeBar'
 import { useLookups } from '@/components/lookups'
-import { NotifyBadge, ToneMark } from '@/components/NotifyBadge'
+import { NotifyBadge, ToneMark, usePulse } from '@/components/NotifyBadge'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog'
 import { FitList } from '@/components/FitList'
@@ -54,12 +57,19 @@ export function Home() {
   const [selectedId, setSelectedId] = useState<string | undefined>()
   /** The sends (tray, original and analysis) are folded until the person opens them; the header carries their state. */
   const [trayOpen, setTrayOpen] = useState(false)
+  /** On a phone, whether the list of sends is open above the review. */
+  const [listOpen, setListOpen] = useState(false)
   /** The original of a send, open or folded, when the person chose; else open while it is analyzed and folded once ready. */
   const [originalChoice, setOriginalChoice] = useState<Readonly<Record<string, boolean>>>({})
   /** Sends already published or discarded here, hidden until the server's list catches up. */
   const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set())
   const events = useEventsSnapshot()
   const lastIndex = useRef(0)
+  const notices = useNotices()
+  /** A send was published or discarded here: the next selection continues the order instead of starting over. */
+  const advance = useRef(false)
+  /** The send just discarded keeps its place in the window with its own Deshacer; nothing else is opened in its stead (J2-B-22). */
+  const [discarded, setDiscarded] = useState<{ id: string; restore: () => Promise<unknown> } | null>(null)
 
   useEffect(() => {
     const tick = setInterval(() => setNow(new Date()), 15_000)
@@ -75,16 +85,32 @@ export function Home() {
 
   const inputs = useMemo(() => (tray.data ?? []).filter((i) => !gone.has(i.id)), [tray.data, gone])
 
-  // The review opens on the first send that is ready and, when the one in view goes out, on the next one.
+  // The review opens on the send that needs the person and is the most recent (ready or failed), never on an old one (J2-B-10);
+  // when the one in view goes out it continues with the next ready one, in order of arrival.
   useEffect(() => {
     const at = inputs.findIndex((i) => i.id === selectedId)
     if (at >= 0) {
       lastIndex.current = at
       return
     }
-    const next = inputs.slice(lastIndex.current).find((i) => i.status === 'proposed') ?? inputs.find((i) => i.status === 'proposed') ?? inputs[0]
+    if (discarded) return
+    const waiting = inputs.filter((i) => i.status === 'proposed' || i.status === 'failed')
+    const next = advance.current
+      ? (inputs.slice(lastIndex.current).find((i) => i.status === 'proposed') ?? inputs.find((i) => i.status === 'proposed') ?? inputs[0])
+      : (waiting.at(-1) ?? inputs.at(-1))
+    if (next) advance.current = false
     setSelectedId(next?.id)
-  }, [inputs, selectedId])
+  }, [inputs, selectedId, discarded])
+
+  // A send that becomes ready while the window is folded says so where the person is looking (J2-B-07).
+  const readyCount = inputs.filter((i) => i.status === 'proposed').length
+  const readyBefore = useRef<number | null>(null)
+  useEffect(() => {
+    if (!tray.data) return
+    const before = readyBefore.current
+    readyBefore.current = readyCount
+    if (before !== null && readyCount > before && !trayOpen) notices.show({ text: t('tray.readyNotice', { n: readyCount }), action: { label: t('tray.readyOpen'), run: () => setTrayOpen(true) } })
+  }, [readyCount, tray.data]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Uploads one send; the bar is already empty. A failure keeps the draft in its row so the text is never lost. */
   const upload = useCallback(
@@ -127,6 +153,7 @@ export function Home() {
   }, [inputs, uploads, upload])
 
   const finished = () => {
+    advance.current = true
     if (selectedId) setGone((set) => new Set(set).add(selectedId))
     setSelectedId(undefined)
     void queryClient.invalidateQueries({ queryKey: ['inputs'] })
@@ -151,45 +178,91 @@ export function Home() {
   // The original of a send is folded unless the person opens it (UD-030).
   const originalOpen = !!selected && (originalChoice[selected.id] ?? false)
   const working = items.length > 0
+  // A send that is only being analyzed has nothing to fill the window with: it is as tall as what it shows (J2-B-09).
+  const compactWindow = !!selected && selected.status !== 'proposed' && items.length <= 3
+  useEffect(() => {
+    if (!working) setTrayOpen(false)
+  }, [working])
 
   return (
     <Page cols={12}>
       {/* The header already says the project's name: the page does not repeat it (UD-026). */}
       <h1 className="sr-only">{t('nav.home')}</h1>
-      <section aria-label={t('home.new')} className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-          <h2>{t('home.new')}</h2>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">
-            <time dateTime={now.toISOString()}>
-              {format.longDate(now)} <span className="text-accent-deep">{format.clock(now)}</span>
-            </time>
-          </p>
-        </div>
-        <ComposeBar onSubmit={submit} problem={problem} />
-      </section>
-
-      {working && (
-        <Dialog open={trayOpen} onOpenChange={setTrayOpen}>
-          {/* One control, folded: the state of the sends is in its face, and the review opens over the page without moving it. */}
-          <DialogTrigger asChild>
-            <button type="button" data-testid="tray-control" className="glass leaf flex w-full shrink-0 flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-left hover:bg-glass-edge">
-              <ChevronRight size={16} aria-hidden className="shrink-0" />
-              <span className="text-sm font-bold">{t('tray.title')}</span>
-              <TrayState items={items} />
-              <span className="ml-auto text-xs text-muted">{t('tray.unfold')}</span>
-            </button>
-          </DialogTrigger>
-          <DialogContent title={t('tray.title')} data-keys-ok="" onOpenAutoFocus={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).focus() }} className="h-[min(88dvh,54rem)] max-w-[72rem]">
+      <Dialog
+        open={trayOpen && working}
+        onOpenChange={(open) => {
+          setTrayOpen(open)
+          // Opening the window lands on the most recent send that needs the person, whatever was selected before (J2-B-10).
+          if (open) {
+            setDiscarded(null)
+            const waiting = inputs.filter((i) => i.status === 'proposed' || i.status === 'failed')
+            const next = waiting.at(-1) ?? inputs.at(-1)
+            if (next) setSelectedId(next.id)
+          }
+        }}
+      >
+        <section aria-label={t('home.new')} className="flex flex-col gap-2">
+          {/* The row keeps its height with or without sends, so the control appearing moves nothing (J2-B-08). */}
+          <div className="flex min-h-9 items-center justify-between gap-x-6">
+            <h2>{t('home.new')}</h2>
+            <div className="flex min-w-0 items-center gap-4">
+              {working && (
+                <DialogTrigger asChild>
+                  {/* One control, folded and shaped as a button: the state and the progress of the sends are in its face (J2-B-07). */}
+                  <button type="button" data-testid="tray-control" className="btn btn-glass relative h-9 min-w-0 gap-x-2.5 overflow-hidden px-3.5 pb-1.5 text-left">
+                    <span className="text-sm font-bold">{t('tray.title')}</span>
+                    <TrayState items={items} progress={events.progress} />
+                    <ChevronRight size={16} aria-hidden className="shrink-0" />
+                  </button>
+                </DialogTrigger>
+              )}
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted max-md:hidden">
+                <time dateTime={now.toISOString()}>
+                  {format.longDate(now)} <span className="text-accent-deep">{format.clock(now)}</span>
+                </time>
+              </p>
+            </div>
+          </div>
+          <ComposeBar onSubmit={submit} problem={problem} />
+        </section>
+        {working && (
+          <DialogContent title={t('tray.title')} data-keys-ok="" onOpenAutoFocus={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).focus() }} className={`${compactWindow ? 'h-auto min-h-[18rem]' : 'h-[min(88dvh,54rem)]'} max-w-[72rem] max-md:left-0 max-md:top-0 max-md:h-dvh max-md:max-h-none max-md:w-screen max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-none`}>
             <NoticeHost inDialog />
-            <div className="grid min-h-0 flex-1 content-start gap-x-6 gap-y-4 overflow-y-auto p-4 md:grid-cols-[minmax(0,3fr)_minmax(0,9fr)] md:grid-rows-[minmax(0,1fr)] md:overflow-visible" data-lane="tray-dialog">
-              <Tray items={items} selectedId={selectedId} hideTextId={originalOpen ? selectedId : undefined} onSelect={setSelectedId} bare />
+            <div className="grid min-h-0 flex-1 content-start gap-x-6 gap-y-3 overflow-y-auto p-4 md:grid-cols-[minmax(0,3fr)_minmax(0,9fr)] md:grid-rows-[minmax(0,1fr)] md:overflow-visible" data-lane="tray-dialog">
+              {/* On a phone the list folds behind the send in view, so the proposal gets the screen (J2-B-11). */}
+              <div className="flex min-h-0 min-w-0 flex-col gap-2">
+                <button type="button" aria-expanded={listOpen} onClick={() => setListOpen((v) => !v)} className="btn btn-glass h-9 w-full justify-between px-3 md:hidden">
+                  <span className="min-w-0 text-sm font-semibold">{t('tray.pending', { n: items.length })}</span>
+                  <ChevronRight size={16} aria-hidden className={listOpen ? 'rotate-90' : ''} />
+                </button>
+                <div className={listOpen ? 'flex min-h-0 flex-1 flex-col' : 'flex min-h-0 flex-1 flex-col max-md:hidden'}>
+                  <Tray items={items} selectedId={selectedId} hideTextId={originalOpen ? selectedId : undefined} onSelect={(id) => { setDiscarded(null); setSelectedId(id); setListOpen(false) }} bare />
+                </div>
+              </div>
               <div className="flex min-h-0 min-w-0 flex-col border-line md:border-l md:pl-6">
-                <ReviewPane inputId={selectedId} originalOpen={originalOpen} onToggleOriginal={() => selected && setOriginalChoice((c) => ({ ...c, [selected.id]: !originalOpen }))} onClose={finished} />
+                <ReviewPane
+                  inputId={selectedId}
+                  originalOpen={originalOpen}
+                  onToggleOriginal={() => selected && setOriginalChoice((c) => ({ ...c, [selected.id]: !originalOpen }))}
+                  onClose={finished}
+                  onDiscarded={(id, restore) => {
+                    // With other sends in the window, the discarded one stays as a placeholder with Deshacer; alone, the notice says it and brings the window back with the send.
+                    if (inputs.filter((i) => i.id !== id).length === 0) {
+                      notices.show({ text: t('discard.done'), action: { label: t('undo.undo'), run: async () => { await restore(); setTrayOpen(true) } } })
+                      return true
+                    }
+                    setGone((set) => new Set(set).add(id))
+                    setSelectedId(undefined)
+                    setDiscarded({ id, restore })
+                    return true
+                  }}
+                  discarded={discarded ? { onUndo: async () => { await discarded.restore(); setGone((set) => { const next = new Set(set); next.delete(discarded.id); return next }); setSelectedId(discarded.id); setDiscarded(null) } } : undefined}
+                />
               </div>
             </div>
           </DialogContent>
-        </Dialog>
-      )}
+        )}
+      </Dialog>
 
       <Attention />
 
@@ -203,16 +276,29 @@ export function Home() {
   )
 }
 
-/** The state of the sends in the folded header: how many wait for review, how many are running, how many failed. */
-function TrayState({ items }: { items: readonly TrayItem[] }) {
+/** The state of the sends in the folded control: how many wait for review, how many run (with their progress), how many failed. */
+function TrayState({ items, progress }: { items: readonly TrayItem[]; progress: Readonly<Record<string, { percent: number }>> }) {
   const t = useT()
   const review = items.filter((i) => i.kind === 'input' && i.input.status === 'proposed').length
   const failed = items.filter((i) => (i.kind === 'input' && i.input.status === 'failed') || (i.kind === 'upload' && i.upload.error)).length
   const running = items.length - review - failed
+  // The bar of the sends in progress: the mean of each one's own figure; with none started it travels (indeterminate).
+  const figures = items.flatMap((i) => (i.kind === 'upload' ? (i.upload.error ? [] : [Math.round(i.upload.progress * 100)]) : ['proposed', 'failed'].includes(i.input.status) ? [] : [sendPercent(i.input, progress[i.input.job_id ?? ''])]))
+  const mean = figures.length ? Math.round(figures.reduce((n, v) => n + v, 0) / figures.length) : 0
+  const pulse = usePulse(review)
   return (
     <span className="flex flex-wrap items-center gap-1.5">
-      {review > 0 && <Badge tone="accent">{t('tray.review', { n: review })}</Badge>}
-      {running > 0 && <Badge tone="answered">{t('tray.running', { n: running })}</Badge>}
+      {review > 0 && (
+        <span data-pulse={pulse} className="rounded-full">
+          <Badge tone="accent">{t('tray.review', { n: review })}</Badge>
+        </span>
+      )}
+      {running > 0 && (
+        <>
+          <Badge tone="answered">{t('tray.running', { n: running })}</Badge>
+          <Meter percent={mean} label={t('analysis.progress')} className="absolute inset-x-3.5 bottom-1 h-1" />
+        </>
+      )}
       {failed > 0 && <Badge tone="danger">{t('tray.failed', { n: failed })}</Badge>}
     </span>
   )

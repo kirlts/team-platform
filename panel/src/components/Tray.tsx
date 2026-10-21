@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { useFormat, useT, type MessageKey } from '@/i18n'
 import { useJobProgress } from '@/lib/events'
 import { firstWords } from '@/lib/first-words'
+import { sendPercent } from '@/lib/progress'
 import type { InputRecord } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { FitList } from './FitList'
@@ -52,6 +53,7 @@ export function Tray({ items, selectedId, hideTextId, onSelect, bare = false }: 
         rowKey={itemKey}
         label={t('tray.list')}
         rowsRole="listbox"
+        reveal={selectedId}
         renderRow={(item) => (item.kind === 'upload' ? <UploadRow upload={item.upload} /> : <InputRow input={item.input} selected={item.input.id === selectedId} hideText={item.input.id === hideTextId} onSelect={() => onSelect(item.input.id)} />)}
       />
     </section>
@@ -69,7 +71,7 @@ function InputRow({ input, selected, hideText, onSelect }: { input: InputRecord;
   const format = useFormat()
   const progress = useJobProgress(input.job_id, input.id)
   const running = input.status === 'queued' || input.status === 'extracting' || input.status === 'analyzing'
-  const percent = Math.round(progress?.percent ?? input.job?.percent ?? 0)
+  const percent = sendPercent(input, progress)
   const count = input.proposed_count ?? input.proposal?.messages.length ?? 0
   const label = firstWords(input.text)
   // The row in view hands its progress to the review beside it: the same state is not drawn twice (J1-B-08).

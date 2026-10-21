@@ -18,7 +18,7 @@ export function ToneMark({ tone, n, className, showWord = true }: { tone: Tone; 
   const t = useT()
   const Icon = ICON[tone]
   return (
-    <span data-tone={tone} data-weight="soft" data-testid="tone-mark" className={cn('inline-flex min-h-6 items-center gap-1 rounded-full border-2 px-2 text-xs font-bold leading-none', className)}>
+    <span data-tone={tone} data-weight="soft" data-testid="tone-mark" className={cn('inline-flex min-h-6 items-center gap-1 rounded-full border px-2 text-xs font-bold leading-none', className)}>
       <Icon size={13} aria-hidden strokeWidth={2.2} />
       {showWord && <span>{t(TONE_WORD[tone])}</span>}
       {n !== undefined && <span className="tabular-nums">{n}</span>}
@@ -31,8 +31,10 @@ export function usePulse(value: number) {
   const previous = useRef(value)
   const [pulse, setPulse] = useState(false)
   useEffect(() => {
-    if (previous.current === value) return
+    const before = previous.current
     previous.current = value
+    // A count that arrives (0 to n, the data loading) is not a change; one that moves from a figure to another is.
+    if (before === value || before === 0) return
     setPulse(true)
     const id = window.setTimeout(() => setPulse(false), 700)
     return () => window.clearTimeout(id)
@@ -61,7 +63,7 @@ export function NotifyBadge({ counts, size = 'lg', className, ...rest }: { count
       data-count={total}
       role="img"
       aria-label={t('notify.label', { n: total, tone: t(TONE_WORD[tone]) })}
-      className={cn('inline-flex shrink-0 items-center justify-center gap-1 rounded-full border-2 font-bold leading-none', size === 'lg' ? 'h-8 min-w-12 px-2.5 text-sm' : 'h-6 min-w-9 px-2 text-xs', className)}
+      className={cn('inline-flex shrink-0 items-center justify-center gap-1 rounded-full border font-bold leading-none', size === 'lg' ? 'h-8 min-w-12 px-2.5 text-sm' : 'h-6 min-w-9 px-2 text-xs', className)}
     >
       <Icon size={size === 'lg' ? 16 : 13} aria-hidden strokeWidth={2.2} />
       <span className="tabular-nums">{total}</span>

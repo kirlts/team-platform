@@ -43,7 +43,7 @@ export function MemberPicker({
           <Search size={14} aria-hidden className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted" />
           <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} aria-label={t('recipients.search', { n: members.length })} placeholder={t('recipients.search', { n: members.length })} className="well h-8 w-full rounded-md pl-7 pr-2 text-sm outline-none focus-visible:border-accent" />
         </label>
-        <ul className="scroll-thin flex max-h-56 flex-col overflow-y-auto" data-lane="member-picker">
+        <ul className="scroll-thin flex max-h-80 flex-col overflow-y-auto" data-lane="member-picker">
           {shown.map((m) => {
             const on = selected.includes(m.id)
             return (

@@ -67,6 +67,21 @@ describe('prioridad de los avisos (UD-029)', () => {
     }
   })
 
+  it('a count that changes pulses once; one that arrives, or stays, does not (J2-B-27)', () => {
+    const draw = (counts: ToneCounts) => (
+      <I18nProvider language="es-419">
+        <NotifyBadge counts={counts} />
+      </I18nProvider>
+    )
+    const { container, rerender } = render(draw({ red: 2 }))
+    const pulse = () => container.querySelector('[data-tone]')?.getAttribute('data-pulse')
+    expect(pulse()).toBe('false')
+    rerender(draw({ red: 2 }))
+    expect(pulse()).toBe('false')
+    rerender(draw({ red: 3 }))
+    expect(pulse()).toBe('true')
+  })
+
   it('the three priorities have three different words and three different shapes', () => {
     const words = new Set<string>()
     const shapes = new Set<string>()

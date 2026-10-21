@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, RotateCw, Trash2 } from '@/components/icons'
+import { AlertTriangle, ChevronDown, ChevronRight, RotateCw, Trash2 } from '@/components/icons'
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
@@ -9,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useErrorText, useI18n, useT, type MessageKey } from '@/i18n'
 import { useJobProgress } from '@/lib/events'
 import { useNotices } from '@/lib/notices'
+import { sendPercent } from '@/lib/progress'
 import { useCancelInput, usePublish, useReprocess, useRestoreInput, useSaveProposal, useTemplates, useTray } from '@/lib/queries'
 import { missingRequired, parseTemplateFields, remapFields } from '@/lib/template'
 import type { Attachment, InputRecord, InputStatus, Proposal, ProposalMessage, Template } from '@/lib/types'
@@ -32,7 +33,7 @@ const STATUS_PHRASE: Partial<Record<InputStatus, MessageKey>> = {
 }
 
 /** Discards a send and says so where the person is looking, with the way back (J1-B-26): nothing is lost by one wrong click. */
-function useDiscard(input: InputRecord) {
+function useDiscard(input: InputRecord, onDiscarded?: (restore: () => Promise<unknown>) => boolean) {
   const t = useT()
   const cancel = useCancelInput()
   const restore = useRestoreInput()
@@ -46,6 +47,8 @@ function useDiscard(input: InputRecord) {
       } catch {
         return
       }
+      // The window keeps the place of the discarded send with its own Deshacer, so the detail does not jump to another send (J2-B-22).
+      if (onDiscarded?.(() => restore.mutateAsync(input.id))) return
       // The page is not told the send is gone for good (it would hide it for the session): the list simply stops holding it, and Deshacer brings it back.
       notices.show({ text: t('discard.done'), action: { label: t('undo.undo'), run: () => restore.mutateAsync(input.id) } })
     },
@@ -56,19 +59,19 @@ function useDiscard(input: InputRecord) {
  * «Análisis» block: progress over SSE while the job runs and, when it finishes, the editable
  * proposal. Nothing reaches the team until the sender presses Enviar (UD-003).
  */
-export function AnalysisPanel({ input, onClose }: { input: InputRecord; onClose: () => void }) {
+export function AnalysisPanel({ input, onClose, onDiscarded }: { input: InputRecord; onClose: () => void; onDiscarded?: (restore: () => Promise<unknown>) => boolean }) {
   const t = useT()
   const { has } = useI18n()
   const undo = useUndo()
   const progress = useJobProgress(input.job_id, input.id)
   const reprocess = useReprocess()
-  const discard = useDiscard(input)
+  const discard = useDiscard(input, onDiscarded)
   const errorText = useErrorText()
   const [confirmAgain, setConfirmAgain] = useState(false)
   const processing = input.status === 'queued' || input.status === 'extracting' || input.status === 'analyzing'
   const failureCode = input.error_code ? `analysis.error.${input.error_code}` : ''
   const failureText = failureCode && has(failureCode) ? t(failureCode as MessageKey) : input.error || t('analysis.failed')
-  const percent = Math.round(progress?.percent ?? input.job?.percent ?? 0)
+  const percent = sendPercent(input, progress)
   const edited = undo.undoCount > 0
 
   /** Analyzing again drops the proposal, with what was edited in it: that is the one step here that cannot be taken back. */
@@ -85,13 +88,14 @@ export function AnalysisPanel({ input, onClose }: { input: InputRecord; onClose:
           <h2>{t('analysis.title')}</h2>
           <AiMark />
         </div>
-        <div className="flex items-center gap-1.5">
+        {/* «Volver a analizar» keeps the right edge; the history appears to its left, so nothing that was there moves (J2-B-15). */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <UndoButtons stack={undo} />
           {input.status === 'proposed' && (
             <Button size="sm" variant="ghost" className="hit" disabled={reprocess.isPending} onClick={() => (edited ? setConfirmAgain(true) : again())}>
               <RotateCw size={13} aria-hidden /> {t('analysis.again')}
             </Button>
           )}
-          <UndoButtons stack={undo} compact />
         </div>
       </div>
 
@@ -103,7 +107,7 @@ export function AnalysisPanel({ input, onClose }: { input: InputRecord; onClose:
           </div>
           <Meter percent={percent} label={t('analysis.progress')} className="h-2.5" />
           <div>
-            <Button size="sm" variant="ghost" className="hit" disabled={discard.pending} onClick={() => void discard.run()}>
+            <Button size="sm" variant="secondary" className="hit" disabled={discard.pending} onClick={() => void discard.run()}>
               {t('analysis.cancel')}
             </Button>
           </div>
@@ -126,7 +130,7 @@ export function AnalysisPanel({ input, onClose }: { input: InputRecord; onClose:
             <Button variant="primary" disabled={reprocess.isPending} onClick={() => reprocess.mutate(input.id)}>
               <RotateCw size={14} aria-hidden /> {t('common.retry')}
             </Button>
-            <Button variant="ghost" className="hit" onClick={() => void discard.run()} disabled={discard.pending}>
+            <Button variant="secondary" className="hit" onClick={() => void discard.run()} disabled={discard.pending}>
               {t('analysis.discard')}
             </Button>
           </div>
@@ -173,7 +177,6 @@ function ProposalEditor({
   discarding: boolean
 }) {
   const t = useT()
-  const { language } = useI18n()
   const errorText = useErrorText()
   const undo = useUndo()
   const notices = useNotices()
@@ -226,7 +229,8 @@ function ProposalEditor({
       }
     })
     setOpenIndex((open) => Math.max(0, Math.min(open > index ? open - 1 : open, latest.current.messages.length - 1)))
-    notices.show({ text: t('proposal.removedNotice', { title }), action: { label: t('undo.undo'), run: () => undo.undo() } })
+    // The way back is the history above (one mechanism, J2-B-21): the notice only says what happened.
+    notices.show({ text: t('proposal.removedNotice', { title }) })
   }
 
   const rows = useMemo<Row[]>(() => proposal.messages.map((m, i) => ({ m, i })), [proposal])
@@ -243,9 +247,8 @@ function ProposalEditor({
   const recipientsText = (messages: ProposalMessage[]) => {
     const names = [...new Set(messages.flatMap((m) => m.assignee_ids))].map(memberName).filter(Boolean)
     if (names.length === 0) return t('publish.nobody')
-    const shown = names.slice(0, 3)
-    const rest = names.length - shown.length
-    return t('publish.to', { names: new Intl.ListFormat(language, { style: 'long', type: 'conjunction' }).format(rest > 0 ? [...shown, t('publish.andMore', { n: rest })] : shown) })
+    // One person by name, several by count: the notice stays one line however many people the messages go to (J2-B-25).
+    return t('publish.to', { names: names.length === 1 ? names[0] : t('publish.people', { n: names.length }) })
   }
 
   const send = async () => {
@@ -287,15 +290,15 @@ function ProposalEditor({
         <div className="flex items-center justify-end gap-3 text-xs text-muted">
           <Popover>
             <PopoverTrigger asChild>
-              <button type="button" className="hit inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg">
+              <Button size="sm" variant="secondary" className="hit">
                 {t('proposal.noAction')} <Badge tone="neutral">{discardedCount}</Badge>
-              </button>
+              </Button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-96 p-3">
               <p className="mb-2 text-xs font-semibold">{t('proposal.noActionTitle', { n: discardedCount })}</p>
-              <ul data-lane="discarded-units" className="scroll-thin flex max-h-72 flex-col gap-2 overflow-y-auto">
+              <ul data-lane="discarded-units" className="scroll-thin flex max-h-72 flex-col overflow-y-auto">
                 {discarded.map((d, i) => (
-                  <li key={i} className="text-sm">
+                  <li key={i} className="border-b border-line py-2 text-sm first:pt-0 last:border-b-0 last:pb-0">
                     <p className="text-xs text-muted">{d.reason}</p>
                     {d.unit_ids.map((id) => (
                       <p key={id} className="whitespace-pre-wrap">
@@ -399,7 +402,17 @@ function ProposalRow({
           <span className="mt-px w-4 shrink-0 text-xs font-semibold tabular-nums text-muted">{index + 1}</span>
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="break-words text-sm font-semibold">{m.title}</span>
-            <span className="break-words text-xs text-muted">{[areaTitle(m.area_id), to ? t('proposal.to', { names: to }) : t('proposal.noRecipients')].join(' · ')}</span>
+            {/* Only the row that asks something of the person stands out: one without recipients says so with its mark, the rest stay plain (J2-B-17). */}
+            <span className="break-words text-xs text-muted">
+              {areaTitle(m.area_id)} ·{' '}
+              {to ? (
+                t('proposal.to', { names: to })
+              ) : (
+                <span data-needs-attention className="inline-flex items-center gap-1 font-semibold text-danger">
+                  <AlertTriangle size={12} aria-hidden strokeWidth={2.2} /> {t('proposal.noRecipients')}
+                </span>
+              )}
+            </span>
           </span>
           {missingCount > 0 && <Badge tone="danger">{t('proposal.missingShort')}</Badge>}
         </button>
@@ -408,7 +421,7 @@ function ProposalRow({
   }
 
   return (
-    <li className="flex list-none flex-col gap-2 border-b border-line px-1 py-3 last:border-b-0">
+    <li className="flex list-none flex-col gap-2 border-b border-line px-1.5 py-3 last:border-b-0">
       <div className="flex flex-wrap items-start gap-x-2 gap-y-1.5">
         {!only && (
           <span className="flex shrink-0 items-center gap-1 self-center text-xs font-semibold tabular-nums text-muted">

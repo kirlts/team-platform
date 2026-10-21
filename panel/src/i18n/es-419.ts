@@ -82,7 +82,9 @@ export const es419 = {
   'tray.running': { one: '{n} en análisis', other: '{n} en análisis' },
   'tray.failed': { one: '{n} falló', other: '{n} fallaron' },
   'tray.fold': 'Plegar envíos',
-  'tray.unfold': 'Desplegar envíos',
+  'tray.readyNotice': { one: '{n} envío listo para revisar', other: '{n} envíos listos para revisar' },
+  'tray.readyOpen': 'Revisar',
+  'tray.pickedDiscarded': 'Envío descartado',
 
   'compose.label': 'Nuevo mensaje',
   'compose.placeholder': 'Escribe o adjunta',
@@ -165,7 +167,7 @@ export const es419 = {
 
   'proposal.count': { one: '{n} mensaje', other: '{n} mensajes' },
   'proposal.list': 'Mensajes propuestos',
-  'proposal.noAction': 'Sin mensaje',
+  'proposal.noAction': 'Partes sin mensaje',
   'proposal.removedReason': 'Quitado por el emisor',
   'proposal.removed': 'Mensaje quitado',
   'proposal.remove': 'Quitar el mensaje {title}',
@@ -181,6 +183,7 @@ export const es419 = {
   'proposal.noRecipients': 'sin destinatarios',
   'proposal.missingShort': 'Incompleto',
   'publish.to': 'para {names}',
+  'publish.people': { one: '{n} persona', other: '{n} personas' },
   'publish.nobody': 'sin destinatarios',
   'publish.andMore': '{n} más',
   'publish.one': 'Se publicó «{title}» {who}.',

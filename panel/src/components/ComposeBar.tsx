@@ -33,8 +33,10 @@ export function ComposeBar({ onSubmit, problem }: { onSubmit: (draft: SendDraft)
   const empty = !text.trim() && draft.empty
   // Growing (more lines, attachments, a link, a problem) happens over the page, never pushing it down.
   const expanded = grown || !draft.empty || draft.linkOpen || !!problem || !!draft.recording
-  const expandedNow = useRef(false)
-  expandedNow.current = expanded
+  // The slot is measured only while the bar is empty, which is the one state that is always one row: measuring while it grows
+  // would take the grown height for the resting one.
+  const emptyNow = useRef(true)
+  emptyNow.current = !text && draft.empty && !draft.linkOpen && !problem && !draft.recording
 
   // The field grows with its text up to a maximum and from there it scrolls inside.
   useEffect(() => {
@@ -50,7 +52,7 @@ export function ComposeBar({ onSubmit, problem }: { onSubmit: (draft: SendDraft)
     const el = box.current
     if (!el) return
     const measure = () => {
-      if (!expandedNow.current) setRest(el.offsetHeight)
+      if (emptyNow.current) setRest(el.offsetHeight)
     }
     measure()
     const observer = new ResizeObserver(measure)

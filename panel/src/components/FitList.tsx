@@ -40,6 +40,7 @@ export function FitList<T>({
   header,
   bare = false,
   rowsRole,
+  reveal,
 }: {
   rows: readonly T[]
   rowKey: (row: T) => string
@@ -54,6 +55,8 @@ export function FitList<T>({
   bare?: boolean
   /** ARIA role of the group of rows (`listbox` when each row is an option). */
   rowsRole?: string
+  /** Key of a row that has to be on the visible page when it changes (the selected one): the list pages to it (J2-B-10). */
+  reveal?: string
 }) {
   const t = useT()
   const desktop = useDesktop()
@@ -87,6 +90,16 @@ export function FitList<T>({
   }, [])
 
   const pagerHeight = useRef(0)
+
+  // The row to reveal is looked for once per change of `reveal`, as soon as the page size is known.
+  const revealed = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    if (!desktop || count === null || reveal === undefined || revealed.current === reveal) return
+    const at = rows.findIndex((r) => rowKey(r) === reveal)
+    if (at < 0) return
+    revealed.current = reveal
+    if (at < first || at >= first + count) setStart(at)
+  })
 
   useLayoutEffect(() => {
     if (!desktop || count !== null) return

@@ -156,12 +156,12 @@ describe('propuesta del análisis', () => {
     try {
       await sendInput(page, 'Primera idea para el equipo.\n\nSegunda idea para el equipo.')
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
-      assert.equal(await page.getByRole('button', { name: /^Sin mensaje/ }).count(), 0)
+      assert.equal(await page.getByRole('button', { name: /^Partes sin mensaje/ }).count(), 0)
       await page.getByRole('button', { name: /^Quitar el mensaje/ }).first().click()
-      await page.getByRole('button', { name: /^Sin mensaje/ }).waitFor()
+      await page.getByRole('button', { name: /^Partes sin mensaje/ }).waitFor()
       await page.locator('[data-notice]').getByText(/^Mensaje quitado/).waitFor()
       await page.getByRole('group', { name: 'Historial de cambios' }).getByRole('button', { name: 'Deshacer' }).click()
-      await page.getByRole('button', { name: /^Sin mensaje/ }).waitFor({ state: 'detached' })
+      await page.getByRole('button', { name: /^Partes sin mensaje/ }).waitFor({ state: 'detached' })
       // Lo editado sobrevive a recargar: el borrador está en el servidor.
       await page.getByRole('button', { name: /^Título del mensaje: Primera idea/ }).click()
       await page.getByRole('textbox', { name: 'Título del mensaje' }).fill('Primera idea, ya corregida')
@@ -307,10 +307,11 @@ describe('envíos seguidos (UD-025)', () => {
       await page.getByRole('dialog').waitFor()
       const selected = () => page.locator('[role="option"][aria-selected="true"]').first().getAttribute('aria-label')
       const first = await selected()
-      await page.keyboard.press('j')
-      await page.waitForFunction((prev) => document.querySelector('[role="option"][aria-selected="true"]')?.getAttribute('aria-label') !== prev, first)
+      // La ventana abre en el envío más reciente (J2-B-10): K va al anterior y J vuelve.
       await page.keyboard.press('k')
-      assert.equal(await selected(), first)
+      await page.waitForFunction((prev) => document.querySelector('[role="option"][aria-selected="true"]')?.getAttribute('aria-label') !== prev, first)
+      await page.keyboard.press('j')
+      await page.waitForFunction((prev) => document.querySelector('[role="option"][aria-selected="true"]')?.getAttribute('aria-label') === prev, first)
       await page.keyboard.press('Enter')
       await page.waitForTimeout(600)
       await tray.getByText('10 para revisar').waitFor()
@@ -886,3 +887,187 @@ describe('compositor (ronda 2, juez B)', () => {
     }
   })
 })
+
+/** Waits until the review of the open send shows its proposal. */
+const proposalReady = (page) => page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 30000 })
+
+describe('bandeja y propuesta (ronda 2, juez B)', () => {
+  test('la franja de envíos es un botón con su progreso, no mueve la página y la ventana nace en el envío reciente (J2-B-07, J2-B-08, J2-B-09, J2-B-10)', async () => {
+    const { page, context } = await session('diego')
+    try {
+      await clearTray(page)
+      await page.goto(origin)
+      await page.getByRole('heading', { name: 'Últimos mensajes' }).waitFor()
+      const y = async () => ({ feed: (await page.getByRole('heading', { name: 'Últimos mensajes' }).boundingBox()).y, bar: (await page.getByLabel('Nuevo mensaje', { exact: true }).last().boundingBox()).y })
+      const before = await y()
+      const bar = page.getByLabel('Nuevo mensaje', { exact: true }).last()
+      await bar.fill('Primer envío: revisar el contraste del botón.')
+      await page.getByRole('button', { name: 'Enviar' }).first().click()
+      const control = page.getByTestId('tray-control')
+      await control.waitFor()
+      assert.equal(await control.evaluate((el) => el.tagName), 'BUTTON', 'la franja es un botón')
+      assert.ok((await control.evaluate((el) => getComputedStyle(el).borderTopWidth)) !== '0px', 'con forma de botón: tiene contorno')
+      assert.deepEqual(await y(), before, 'la franja aparece sin mover la barra ni las listas')
+      // El progreso se ve con la franja plegada.
+      await control.getByRole('progressbar').waitFor()
+      // Un segundo envío: al abrir, la ventana nace en el más reciente que pide a la persona, no en el viejo.
+      await bar.fill('Segundo envío: agregar la sincronización con WhatsApp.')
+      await page.getByRole('button', { name: 'Enviar' }).first().click()
+      await control.getByText('2 para revisar').waitFor({ timeout: 40000 })
+      await control.click()
+      const selected = await page.locator('[role="option"][aria-selected="true"]').first().getAttribute('aria-label')
+      assert.match(selected, /Segundo envío/, `la ventana abre en el reciente: ${selected}`)
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('la ventana de un envío en análisis mide lo que muestra, y Cancelar tiene forma de botón (J2-B-09, J2-B-12)', async () => {
+    const { page, context } = await session('eduardo')
+    try {
+      await clearTray(page)
+      await page.goto(origin)
+      await page.getByLabel('Nuevo mensaje', { exact: true }).last().fill('Un envío que se queda analizando un rato.')
+      await page.getByRole('button', { name: 'Enviar' }).first().click()
+      await page.getByTestId('tray-control').click()
+      const cancel = page.getByRole('button', { name: 'Cancelar', exact: true })
+      await cancel.waitFor()
+      assert.ok((await cancel.evaluate((el) => parseFloat(getComputedStyle(el).borderTopWidth))) >= 1, 'Cancelar tiene contorno')
+      const box = await page.getByRole('dialog').boundingBox()
+      assert.ok(box.height < 520, `la ventana se ajusta a su contenido: ${box.height} px`)
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('el cuerpo y los botones del historial: Volver a analizar no se mueve, «Partes sin mensaje» es un botón y quitar tiene un solo Deshacer sin empujar nada (J2-B-14, J2-B-15, J2-B-21)', async () => {
+    const { page, context } = await session('sofia')
+    try {
+      await clearTray(page)
+      await sendInput(page, THREE)
+      await proposalReady(page)
+      const again = page.getByRole('button', { name: 'Volver a analizar' })
+      const x0 = (await again.boundingBox()).x
+      const send = page.getByRole('button', { name: 'Enviar 3 mensajes', exact: true })
+      const sendY = (await send.boundingBox()).y
+      await page.getByRole('button', { name: /^Quitar el mensaje/ }).first().click()
+      await page.getByRole('button', { name: 'Enviar 2 mensajes', exact: true }).waitFor()
+      assert.equal((await again.boundingBox()).x, x0, 'Volver a analizar conserva su lugar cuando aparece el historial')
+      assert.equal(await page.getByRole('button', { name: 'Deshacer' }).count(), 1, 'un solo Deshacer a la vista')
+      await page.locator('[data-notice]').getByText(/^Mensaje quitado/).waitFor()
+      assert.equal(await page.locator('[data-notice]').getByRole('button', { name: 'Deshacer' }).count(), 0, 'el aviso no repite el Deshacer')
+      assert.ok((await page.getByRole('button', { name: 'Enviar 2 mensajes', exact: true }).boundingBox()).y <= sendY, 'quitar un mensaje no empuja Enviar hacia abajo por culpa del aviso')
+      const unitsButton = page.getByRole('button', { name: /^Partes sin mensaje/ })
+      assert.ok((await unitsButton.evaluate((el) => parseFloat(getComputedStyle(el).borderTopWidth))) >= 1, '«Partes sin mensaje» tiene forma de botón')
+      await unitsButton.click()
+      const items = page.locator('[data-lane="discarded-units"] li')
+      assert.ok((await items.count()) >= 1)
+      assert.ok((await items.first().evaluate((el) => getComputedStyle(el).borderBottomWidth)) !== undefined)
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('el menú de destinatarios cabe entero en la ventana y el que no tiene destinatario lo dice con marca (J2-B-17, J2-B-19)', async () => {
+    const { page, context } = await session('tomas')
+    try {
+      await clearTray(page)
+      await sendInput(page, THREE)
+      await proposalReady(page)
+      await page.getByRole('button', { name: 'Agregar destinatario' }).first().click()
+      const list = page.locator('[data-lane="member-picker"]')
+      await list.waitFor()
+      const b = await page.getByRole('menu').or(list.locator('..')).first().boundingBox()
+      assert.ok(b.y >= 0 && b.y + b.height <= 900, `el menú está dentro de la ventana: ${JSON.stringify(b)}`)
+      // Con hasta nueve personas (el equipo de los datos de desarrollo) no hace falta desplazar; con más, el cuadro sigue dentro de la ventana.
+      if ((await list.locator('li').count()) <= 9) assert.equal(await list.evaluate((el) => el.scrollHeight <= el.clientHeight + 1), true, 'con nueve personas no hace falta desplazar')
+      await page.keyboard.press('Escape')
+      // Quitar a todos los destinatarios del mensaje abierto deja su fila marcada al plegarla; las demás quedan lisas.
+      const chips = page.getByRole('button', { name: /^Quitar a / })
+      while (await chips.count()) await chips.first().click({ force: true })
+      await page.getByRole('button', { name: /^Abrir el mensaje 2/ }).click()
+      assert.equal(await page.locator('[data-needs-attention]').count(), 1, 'sólo la fila sin destinatario se señala')
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('descartar con más envíos deja el lugar con su Deshacer y no salta a otro envío (J2-B-22, J2-B-24)', async () => {
+    const { page, context } = await session('valentina')
+    try {
+      await clearTray(page)
+      await page.goto(origin)
+      const bar = page.getByLabel('Nuevo mensaje', { exact: true }).last()
+      for (const text of ['Primer punto para descartar uno.', 'Segundo punto que queda en la bandeja.']) {
+        await bar.fill(text)
+        await page.getByRole('button', { name: 'Enviar' }).first().click()
+      }
+      const control = page.getByTestId('tray-control')
+      await control.getByText('2 para revisar').waitFor({ timeout: 40000 })
+      await control.click()
+      await proposalReady(page)
+      await page.getByRole('button', { name: 'Descartar' }).last().click()
+      await page.getByRole('status').getByText('Envío descartado').waitFor()
+      assert.equal(await page.getByRole('button', { name: /^Área:/ }).count(), 0, 'el detalle no salta a otro envío')
+      await page.getByRole('status').getByRole('button', { name: 'Deshacer' }).click()
+      await proposalReady(page)
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('en el teléfono la lista de envíos se pliega y la propuesta ocupa la pantalla; los menús caben en ella (J2-B-11, J2-B-23)', async () => {
+    const { page, context } = await session('ana', { width: 390, height: 844 })
+    try {
+      await clearTray(page)
+      await page.goto(origin)
+      const bar = page.getByLabel('Nuevo mensaje', { exact: true }).last()
+      for (const text of ['Primero.', 'Segundo.', 'Tercero.']) {
+        await bar.fill(`${text} Un punto para revisar con el equipo.`)
+        await page.getByRole('button', { name: 'Enviar' }).first().click()
+      }
+      const control = page.getByTestId('tray-control')
+      await control.getByText('3 para revisar').waitFor({ timeout: 40000 })
+      await control.click()
+      await proposalReady(page)
+      const proposal = await page.getByRole('region', { name: 'Análisis' }).boundingBox()
+      assert.ok(proposal.y < 844 * 0.35, `la propuesta empieza arriba, sin la lista encima: y=${proposal.y}`)
+      assert.equal(await page.getByRole('option').count(), 0, 'la lista de envíos está plegada')
+      await page.getByRole('button', { name: '3 envíos' }).click()
+      assert.equal(await page.getByRole('option').count(), 3, 'se abre con un toque')
+      await page.getByRole('option').first().click()
+      await proposalReady(page)
+      await page.getByRole('button', { name: /^Área:/ }).first().click()
+      const menu = await page.getByRole('menu').boundingBox()
+      assert.ok(menu.x >= 0 && menu.x + menu.width <= 390, `el menú de área cabe en el ancho: ${JSON.stringify(menu)}`)
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('publicar dice cuántos mensajes y a cuántas personas, sin mover la ventana, y los mensajes quedan en Últimos mensajes (J2-B-25, J2-B-26)', async () => {
+    const { page, context } = await session('bruno')
+    try {
+      await clearTray(page)
+      await sendInput(page, THREE)
+      await proposalReady(page)
+      const total = async () => ((await (await page.request.get(`${origin}/api/messages?limit=100`)).json()).total ?? 0)
+      const had = await total()
+      await page.getByRole('button', { name: 'Enviar 3 mensajes', exact: true }).click()
+      const notice = page.locator('[data-notice]')
+      await notice.getByText(/^Se publicaron 3 mensajes para \d+ personas?\./).waitFor()
+      const heading = page.getByRole('heading', { name: 'Últimos mensajes' })
+      const y = (await heading.boundingBox()).y
+      await page.waitForTimeout(300)
+      assert.equal((await heading.boundingBox()).y, y, 'el aviso flota: no empuja la página')
+      assert.equal(await notice.evaluate((el) => getComputedStyle(el.parentElement).position), 'fixed', 'el aviso de la página flota sobre ella')
+      // El rastro del envío: sus tres mensajes existen en Mensajes, adonde lleva el enlace del aviso.
+      assert.equal(await total(), had + 3, 'los tres mensajes quedaron publicados')
+      await notice.getByRole('link', { name: 'Ver mensajes' }).click()
+      await page.waitForURL(/\/messages/)
+    } finally {
+      await context.close()
+    }
+  })
+})
+

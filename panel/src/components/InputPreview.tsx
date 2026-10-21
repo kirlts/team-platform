@@ -26,7 +26,7 @@ export function InputPreview({ input, open, onToggle }: { input: InputRecord; op
   }
 
   return (
-    <section aria-label={t('input.sent')} className={cn('flex min-w-0 flex-col gap-2', open && 'min-h-0')}>
+    <section aria-label={t('input.sent')} className={cn('flex min-w-0 flex-col gap-2', open && 'min-h-0 max-h-48 shrink-0')}>
       <button type="button" aria-expanded={open} onClick={onToggle} className="flex items-center gap-2 self-start rounded-md py-0.5 text-left hover:text-accent">
         <ChevronRight size={14} aria-hidden className={cn('transition-transform', open && 'rotate-90')} />
         <h2>{t('original.title')}</h2>

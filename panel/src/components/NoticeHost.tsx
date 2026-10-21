@@ -6,9 +6,10 @@ import { useNoticeInDialog, useNotices } from '@/lib/notices'
 import { cn } from '@/lib/utils'
 
 /**
- * Where the current notice is drawn: a strip under the header, in the flow of the page. It never covers a
- * control (the undo buttons, Enviar and the pager sit where an overlay would land), and the lists under it
- * fit the room that is left (UD-017). Its text says what happened and to whom, the link goes to it, the action undoes it.
+ * Where the current notice is drawn. It never moves what is being read (J2-B-21, J2-B-25): on the page it floats at the
+ * bottom, over the page and clear of the header, the side bar and the compose bar; inside the window of sends it takes
+ * the title bar, whose only other content is the title and the close button. Its text says what happened and to whom,
+ * the link goes to it, the action undoes it.
  */
 export function NoticeHost({ inDialog = false }: { inDialog?: boolean }) {
   const t = useT()
@@ -17,12 +18,12 @@ export function NoticeHost({ inDialog = false }: { inDialog?: boolean }) {
   if (!current || (!inDialog && dialogs > 0)) return null
   const danger = current.tone === 'danger'
   return (
-    <div className={inDialog ? 'shrink-0 px-4 pt-2' : 'shrink-0 px-4 pt-2 md:px-10'}>
+    <div className={inDialog ? 'absolute inset-x-2 top-1 z-20 md:left-28 md:right-14 md:top-1.5' : 'pointer-events-none fixed inset-x-4 bottom-4 z-40 flex justify-center'}>
       <div
         key={current.id}
         role={danger ? 'alert' : 'status'}
         data-notice
-        className={cn('glass-strong flex w-full items-start gap-2 rounded-lg py-1.5 pl-3 pr-1.5 text-sm', danger ? 'text-danger' : 'text-fg')}
+        className={cn('pop pointer-events-auto flex w-full items-start gap-2 rounded-lg py-1.5 pl-3 pr-1.5 text-sm shadow-pop', !inDialog && 'max-w-xl', danger ? 'text-danger' : 'text-fg')}
       >
         {!danger && <Check size={16} aria-hidden className="mt-1 shrink-0 text-accent" />}
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-0.5 self-center">

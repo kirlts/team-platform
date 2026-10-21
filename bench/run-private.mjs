@@ -1,20 +1,20 @@
 #!/usr/bin/env node
-// Banco con casos privados (MASTER-SPEC §7.11): inputs reales que nunca entran a git.
-// Extiende run.mjs: los adjuntos pasan primero por src/extract/ con proveedores reales y después
-// por analyze(). Los casos viven en bench/private/<id>/ (manifest.json y expected.json), apuntan a
-// los archivos originales por ruta absoluta y no los copian. Lo extraído se guarda en
-// bench/private/.cache/<id>.json, porque la numeración de unidades de expected.json depende del
-// texto extraído (una descripción de imagen cambia entre corridas): el análisis mide siempre contra
-// la extracción guardada. Todo lo que este guion escribe queda en bench/private/ y bench/results/,
-// ambos en .gitignore.
+// Benchmark with private cases (MASTER-SPEC §7.11): real inputs that never enter git.
+// Extends run.mjs: attachments go through src/extract/ with real providers first, then through
+// analyze(). Cases live in bench/private/<id>/ (manifest.json and expected.json), point to the
+// original files by absolute path and never copy them. The extracted text is stored in
+// bench/private/.cache/<id>.json because the unit numbering that expected.json cites depends on
+// the extracted text (an image description changes between runs): the analysis is always
+// scored against the stored extraction. Everything this script writes lands in bench/private/
+// and bench/results/, both in .gitignore.
 //
 //   node bench/run-private.mjs list
-//   node bench/run-private.mjs extract [--case id ...] [--force]      extrae y guarda; mide tiempo y costo
-//   node bench/run-private.mjs units --case id                         imprime las unidades numeradas
-//   node bench/run-private.mjs check                                   verifica que cada expected.json cubra cada unidad una vez
+//   node bench/run-private.mjs extract [--case id ...] [--force]      extract and store; measures time and cost
+//   node bench/run-private.mjs units --case id                         print the numbered units
+//   node bench/run-private.mjs check                                   every unit in exactly one expected message or discard
 //   node bench/run-private.mjs run [--case id ...] [--repeat n] [--analyzer api|harness]
-//   --budget <USD>   tope de gasto acumulado entre extracción y análisis (omisión 5)
-//   --speech auto|groq|local|none   proveedor de voz: auto usa Groq si hay llave y si no el local
+//   --budget <USD>   spending cap accumulated over extraction and analysis (default 5)
+//   --speech auto|groq|local|none   speech provider: auto uses Groq when there is a key, else the local one
 //
 // Manifest: { id, title, kind, source, text?, text_path?, attachments?: [{ id, kind, path, mime }] }
 import { parseArgs } from 'node:util';
@@ -49,7 +49,7 @@ const { values, positionals } = parseArgs({
 const command = positionals[0] ?? 'list';
 const budgetUsd = Number(values.budget);
 
-// ---------- casos ----------
+// ---------- cases ----------
 
 function loadPrivateCases() {
   if (!existsSync(privateDir)) throw new Error('No existe bench/private/');
@@ -69,9 +69,9 @@ const readExpected = (c) => (existsSync(c.expectedPath) ? JSON.parse(readFileSyn
 const cachePath = (id) => join(cacheDir, `${id}.json`);
 const readCache = (id) => (existsSync(cachePath(id)) ? JSON.parse(readFileSync(cachePath(id), 'utf8')) : null);
 
-// ---------- gasto ----------
+// ---------- spending ----------
 
-// El gasto se anota como líneas JSON añadidas al final (append), así varias corridas a la vez no se pisan.
+// Spending is appended as JSON lines so concurrent runs do not overwrite each other.
 function readSpend() {
   if (!existsSync(spendFile)) return { total_usd: 0, unpriced_calls: 0 };
   const rows = readFileSync(spendFile, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
@@ -82,13 +82,13 @@ function addSpend(label, usd, unpriced = 0) {
   appendFileSync(spendFile, `${JSON.stringify({ at: new Date().toISOString(), label, usd, unpriced })}\n`);
   return readSpend().total_usd;
 }
-// Corta antes de gastar si lo ya gastado llega al 90 % del tope.
+// Cuts before spending once the accumulated total reaches 90 % of the cap.
 function assertBudget(label) {
   const { total_usd: spent } = readSpend();
   if (spent >= budgetUsd * 0.9) throw new Error(`Presupuesto: gastado ${spent.toFixed(4)} USD de ${budgetUsd}; se corta antes de «${label}»`);
 }
 
-// ---------- proveedores ----------
+// ---------- providers ----------
 
 function buildProviders() {
   const providers = createProviders(process.env);
@@ -106,7 +106,7 @@ function buildProviders() {
   return providers;
 }
 
-// ---------- extracción ----------
+// ---------- extraction ----------
 
 async function extractCase(c, providers) {
   const m = c.manifest;
@@ -147,7 +147,7 @@ async function extractCase(c, providers) {
   };
 }
 
-// ---------- órdenes ----------
+// ---------- commands ----------
 
 if (command === 'list') {
   for (const c of loadPrivateCases()) {

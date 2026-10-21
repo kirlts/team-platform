@@ -1,7 +1,7 @@
-// Proveedor de transcripción local para el banco (forma de MASTER-SPEC §7.6, providers.speech).
-// Sólo se usa cuando no hay GROQ_API_KEY: lanza bench/local-whisper.py con el Python indicado en
-// LOCAL_WHISPER_PYTHON (un entorno con faster-whisper instalado). No es un proveedor de producción;
-// sus tiempos no representan a Groq y el banco lo declara en el resultado.
+// Local speech-to-text provider for the benchmark (shape of MASTER-SPEC §7.6, providers.speech).
+// Only used when there is no GROQ_API_KEY: it spawns bench/local-whisper.py with the Python set in
+// LOCAL_WHISPER_PYTHON (an environment with faster-whisper installed). It is not a production
+// provider; its timings do not represent Groq and the benchmark states it in the result.
 import { spawn } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';

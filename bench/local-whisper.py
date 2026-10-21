@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-# Transcripción local con faster-whisper para el banco cuando no hay GROQ_API_KEY (bench/local-speech.mjs).
-# Uso: local-whisper.py <audio> [modelo]  →  JSON { text, segments:[{start,end,text}] } en la salida estándar.
-# El audio se decodifica con ffmpeg a PCM float32 de 16 kHz y se pasa como arreglo, así no depende de PyAV.
+# Local transcription with faster-whisper for the benchmark when there is no GROQ_API_KEY (bench/local-speech.mjs).
+# Usage: local-whisper.py <audio> [model]  ->  JSON { text, segments:[{start,end,text}] } on stdout.
+# Audio is decoded with ffmpeg to 16 kHz float32 PCM and passed as an array, so it does not depend on PyAV.
 import json
 import subprocess
 import sys

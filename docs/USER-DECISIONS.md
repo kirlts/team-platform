@@ -205,3 +205,14 @@ RULES:
 - Los spans se guardan en SQLite por un exportador propio (sin componente externo) y, si se configura `OTEL_EXPORTER_OTLP_ENDPOINT`, también salen por OTLP a un colector. `llm_calls` pasa a ser una vista sobre los spans de llamada.
 - El banco (§7.11) lee los spans para sus tiempos por paso en vez de medir aparte.
 **Condiciones de reversión:** Ninguna prevista.
+
+## [UD-015] Código y comentarios en inglés; interfaz y textos al cliente en español
+
+**Fecha:** 2026-10-20
+**Contexto:** UD-005 fijaba comentarios en español. El repositorio es público y abierto.
+**Decisión:** Martín, textual: «cambié de opinión; quiero que el código y los comentarios de código (mas no la interfaz ni lo que se muestra al cliente) esté en inglés». Reemplaza a UD-005 en ese punto: identificadores, comentarios, nombres y descripciones de pruebas, mensajes de registro y prompts del analizador van en inglés (el prompt pide responder en el idioma del input). Siguen en español: los textos de la interfaz, los mensajes de error que una persona ve, las plantillas iniciales de `templates/` (las edita el Editor), el eje documental, los informes y los commits.
+**Alternativas descartadas:**
+- Todo en inglés, documentación incluida: no la pidió.
+**Consecuencias:**
+- Una pasada de traducción sobre todo el código existente; HP-008 pasa a exigir comentarios en inglés y textos de interfaz en español.
+**Condiciones de reversión:** Ninguna prevista.

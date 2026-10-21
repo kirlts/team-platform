@@ -13,7 +13,7 @@ Todas las operaciones del agente sobre el repositorio: código, documentación, 
 
 ## Reglas
 
-1. **Idioma** (UD-005). Identificadores, esquema, rutas y nombres de archivos de código en inglés. Comentarios, documentación, commits y textos de interfaz en español. No se traducen identificadores ni se escriben comentarios nuevos en inglés.
+1. **Idioma** (UD-015). Código entero en inglés: identificadores, esquema, rutas, nombres de archivo, comentarios, pruebas, registros y prompts. En español: textos de interfaz y todo mensaje que vea una persona, las plantillas iniciales de `templates/`, la documentación y los commits.
 2. **Ninguna credencial entra al repositorio** (MASTER-SPEC §4.6). Llaves de proveedores y secretos van en variables de entorno o en un archivo fuera del árbol; `.env.example` documenta los nombres sin valores.
 3. **Un número que gobierna la operación nace declarado** (MASTER-SPEC §4.9). Antes de escribir un umbral, un límite o un tiempo de espera, se cita la corrida del banco de referencia (`bench/`) o la documentación fechada del tercero, o se declara como perilla de configuración con su valor por omisión justificado. «Parece razonable» no es una fuente.
 4. **Ningún `if` sobre texto humano** (MASTER-SPEC §4.2). Lo que escribe una persona lo interpreta el modelo y llega por campos del esquema; el sistema valida la forma.

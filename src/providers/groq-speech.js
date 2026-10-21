@@ -6,6 +6,7 @@ import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 import { ProviderConfigError, ProviderHttpError, ProviderTimeoutError } from './errors.js';
 import { DEFAULT_TIMEOUT_MS, isRetryableStatus } from './http.js';
+import { limiterFor } from './limiter.js';
 import { annotate, withGenAiCall } from '../telemetry/api.js';
 
 export const GROQ_SPEECH_DEFAULTS = Object.freeze({
@@ -31,6 +32,7 @@ export function createGroqSpeechClient(cfg) {
   const baseUrl = (cfg.baseUrl ?? GROQ_SPEECH_DEFAULTS.baseUrl).replace(/\/+$/, '');
   const timeoutMs = cfg.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const fetchImpl = cfg.fetchImpl ?? fetch;
+  const limiter = cfg.limiter ?? limiterFor(provider); // the Groq organization's simultaneous requests (limiter.js, H-83)
 
   async function rawTranscribe({ audioPath, language, prompt }) {
     if (!audioPath) throw new ProviderConfigError('groq-speech: falta «audioPath»', { provider, model });
@@ -45,6 +47,11 @@ export function createGroqSpeechClient(cfg) {
     if (language) form.append('language', language);
     if (prompt) form.append('prompt', prompt);
 
+    // The slot is held around the request and the read of its answer; the audio is already in memory.
+    return limiter.run(() => send(form, language));
+  }
+
+  async function send(form, language) {
     const started = performance.now();
     let response;
     try {

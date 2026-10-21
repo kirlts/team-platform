@@ -16,6 +16,7 @@ import {
   ProviderUnsupportedError,
 } from './errors.js';
 import { DEFAULT_TIMEOUT_MS, partToBase64, postRequest, systemBlocks, toParts } from './http.js';
+import { limiterFor } from './limiter.js';
 import { withGenAiCall } from '../telemetry/api.js';
 
 // Direcciones y modos de cada proveedor, de la documentación de cada uno consultada para el
@@ -87,6 +88,7 @@ function mapUsage(u = {}) {
  * @param {number} [cfg.maxTokens]
  * @param {number} [cfg.timeoutMs]
  * @param {typeof fetch} [cfg.fetchImpl]
+ * @param {ReturnType<typeof import('./limiter.js').createLimiter>} [cfg.limiter] default: the process-wide one of this provider
  */
 export function createOpenAICompatibleClient(cfg) {
   const provider = cfg?.name ?? 'openai-compatible';
@@ -100,6 +102,7 @@ export function createOpenAICompatibleClient(cfg) {
   const model = cfg.model;
   const baseUrl = cfg.baseUrl.replace(/\/+$/, '');
   const timeoutMs = cfg.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const limiter = cfg.limiter ?? limiterFor(provider); // simultaneous requests of the process to this provider (limiter.js, H-83)
   const defaultMaxTokens = cfg.maxTokens ?? 16_000; // mismo valor provisional que el proveedor por omisión (informe 02 §10.2)
 
   // Un span por llamada con la entrada y la salida completas (UD-014, MASTER-SPEC §7.10 bis).
@@ -127,14 +130,15 @@ export function createOpenAICompatibleClient(cfg) {
       body.response_format = { type: 'json_object' };
     }
 
-    const res = await postRequest(`${baseUrl}/chat/completions`, {
+    // The slot is held only around the request: the body above is already built.
+    const res = await limiter.run(() => postRequest(`${baseUrl}/chat/completions`, {
       headers: { 'content-type': 'application/json', authorization: `Bearer ${cfg.apiKey}`, ...(cfg.headers ?? {}) },
       body: JSON.stringify(body),
       timeoutMs,
       fetchImpl: cfg.fetchImpl,
       provider,
       model,
-    });
+    }));
 
     const data = res.json ?? {};
     const choice = data.choices?.[0] ?? {};

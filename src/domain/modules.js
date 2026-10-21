@@ -4,7 +4,9 @@
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { connectionsVersion, loadConnections } from './connections.js'
 import { getProviderOverrides, providerEnv } from './settings.js'
+import { createVault, loadMasterKey } from './vault.js'
 
 const srcDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -21,6 +23,10 @@ async function importFile (routePath) {
  *                    process reads the database every time, so it sees the change even if another process made it).
  *   getAnalyzer()    current 'api' | 'harness'
  *   buildProviders(overrides)  builds providers with test overrides (validates a patch without saving it)
+ *   vault            seals and opens the API keys stored from Configuración (vault.js); null without a database
+ *   env              the environment the providers are built over (the source of a key is told from it, never its value)
+ *   slotPlan(slot, overrides)  provider, key, address and model a function would use under those overrides: what a probe needs
+ *   probe(spec)      minimal call to a provider (providers/probe.js); null if the providers module is absent
  */
 export async function loadModules (config, { db = null, env = process.env, log = () => {} } = {}) {
   const [analyzerModule, extractor, providerSet] = await Promise.all([
@@ -34,15 +40,19 @@ export async function loadModules (config, { db = null, env = process.env, log =
   if (!providerSet?.createProviders) absent.push(`providers (${config.modules.providers})`)
   for (const f of absent) log(`Module not available: ${f}. Jobs that need it will fail with that reason.`)
 
+  const vault = db ? createVault(loadMasterKey({ env, dataDir: config.dataDir })) : null
   const overridesNow = () => (db ? getProviderOverrides(db) : {})
+  const connectionsNow = () => (db && vault ? loadConnections(db, vault) : {})
   const build = (overrides) => {
     if (!providerSet?.createProviders) return null
-    return providerSet.createProviders({ ...env, ...providerEnv(overrides) })
+    return providerSet.createProviders({ ...env, ...providerEnv(overrides) }, { connections: connectionsNow() })
   }
+  const slotPlan = (slot, overrides = overridesNow()) => providerSet?.slotPlan?.({ ...env, ...providerEnv(overrides) }, slot, connectionsNow()) ?? null
   let cache = { lookupKey: null, providers: null }
   const getProviders = () => {
     const overrides = overridesNow()
-    const lookupKey = JSON.stringify(overrides)
+    // A stored key or connection changes `updated_at`: the providers are rebuilt in the process that did not make the change.
+    const lookupKey = JSON.stringify(overrides) + (db ? `|${connectionsVersion(db)}` : '')
     if (cache.lookupKey !== lookupKey || !cache.providers) cache = { lookupKey, providers: build(overrides) }
     return cache.providers
   }
@@ -58,6 +68,10 @@ export async function loadModules (config, { db = null, env = process.env, log =
     getProviders,
     getAnalyzer: () => overridesNow().analyzer ?? config.providers.analyzer,
     buildProviders: build,
+    vault,
+    env,
+    slotPlan,
+    probe: providerSet?.probeConnection ?? null,
     providersModule: providerSet,
     missing: absent
   }

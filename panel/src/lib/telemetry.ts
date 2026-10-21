@@ -40,7 +40,8 @@ export function screenOf(pathname: string): Screen {
 export function endpointOf(path: string): string {
   const bare = path.split('?')[0].replace(/^\/api(?=\/|$)/, '')
   const segments = bare.split('/').filter(Boolean).slice(0, 6) // ENDPOINT_PATTERN: at most six segments
-  return `/${segments.map((s) => (/^[a-z][a-z-]{0,31}$/.test(s) ? s : ':id')).join('/')}`
+  // The name of a provider is chosen by a person (`/settings/connections/mi-gateway/key`): the segment after `connections` is an identifier even when it looks like a word.
+  return `/${segments.map((s, i) => (/^[a-z][a-z-]{0,31}$/.test(s) && segments[i - 1] !== 'connections' ? s : ':id')).join('/')}`
 }
 
 // Core Web Vitals definition of a layout-shift session window: a window closes after a gap of 1 s without shifts or

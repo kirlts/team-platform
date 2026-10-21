@@ -17,6 +17,16 @@ type Lang = 'es' | 'en'
 type RuleId = 'length' | 'opening' | 'person' | 'imperative' | 'punctuation' | 'gerund' | 'vague'
 // The rules and their patterns live in ./ui-voice-patterns.mjs (H-1703), shared with the in-browser detector.
 
+/** The only files that may name a `hint.*` key or draw a SettingHint: Configuración and the components it is made of (UD-122). */
+const HINT_FILES = new Set([
+  'pages/Settings.tsx',
+  'components/SettingHint.tsx',
+  'components/ProjectEditor.tsx',
+  'components/ProviderSettings.tsx',
+  'components/PublicationSetting.tsx',
+  'components/UiTelemetrySetting.tsx',
+])
+
 /**
  * Exceptions, by key (catalogue) or by quoted phrase (server). Each one names the rule it lifts and why.
  * A new entry needs a reason a reviewer accepts: "the text is long" is not one.
@@ -144,6 +154,39 @@ describe('the interface speaks like an instrument (UD-050)', () => {
     expect(stale).toEqual([])
   })
 
+  it('the hint keys only appear in Configuración (UD-122)', () => {
+    const used: string[] = []
+    const walk = (dir: string) => {
+      for (const name of readdirSync(dir)) {
+        const path = join(dir, name)
+        if (statSync(path).isDirectory()) walk(path)
+        else if (/\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name) && !path.includes(join('src', 'i18n'))) {
+          if (/['"`]hint\.|SettingHint/.test(readFileSync(path, 'utf8'))) used.push(relative(SRC, path).split('\\').join('/'))
+        }
+      }
+    }
+    walk(SRC)
+    expect(used.filter((f) => !HINT_FILES.has(f))).toEqual([])
+    expect(used).toContain('pages/Settings.tsx')
+  })
+
+  it('the hint rules fail what they name: 91 characters, second person, an opening, an imperative, a gerund, an adjective (UD-122)', () => {
+    const exact = 'Contexto en markdown que recibe el análisis con cada mensaje y que todo el equipo lee ya'.padEnd(90, 'x')
+    expect(exact).toHaveLength(90)
+    expect(breaksVoice('hint.probe', exact, 'es')).toBeNull()
+    expect(breaksVoice('hint.probe', `${exact}x`, 'es')).toBe('length')
+    expect(breaksVoice('hint.probe', 'Nombre que aparece en los mensajes, la lista de respuestas y las menciones del resto del equipo', 'es')).toBe('length')
+    expect(breaksVoice('hint.probe', 'Aquí se elige el idioma de la cuenta', 'es')).toBe('opening')
+    expect(breaksVoice('hint.probe', 'Si cambias el idioma, tu cuenta lo recuerda', 'es')).toBe('person')
+    expect(breaksVoice('hint.probe', 'Elige el idioma de la cuenta', 'es')).toBe('imperative')
+    expect(breaksVoice('hint.probe', 'Mostrando el idioma de esta cuenta en toda la interfaz', 'es')).toBe('gerund')
+    expect(breaksVoice('hint.probe', 'Un ajuste robusto del idioma', 'es')).toBe('vague')
+    expect(breaksVoice('hint.probe', 'Idioma de la interfaz.', 'es')).toBe('punctuation')
+    expect(breaksVoice('hint.probe', 'Language you can choose for your account', 'en')).toBe('person')
+    // Outside Configuración the limit stays at ten words.
+    expect(breaksVoice('areas.probe', 'Contexto en markdown que recibe el análisis con cada mensaje del equipo', 'es')).toBe('length')
+  })
+
   it('the rules themselves catch the pattern they name', () => {
     for (const [text, lang, rule] of BAD) expect(breaksVoice('probe', text, lang), text).toBe(rule)
     for (const [text, lang] of GOOD) expect(breaksVoice('probe', text, lang), text).toBeNull()
@@ -164,7 +207,7 @@ describe('the interface speaks like an instrument (UD-050)', () => {
         for (const text of variants(message)) {
           if (breaksVoice(key, text, lang) || /\{|«|“/.test(text)) continue
           // An error text may run to MAX_WORDS_ERROR words; the pattern for length knows only the common limit.
-          const ids = voicePatterns(lang).filter((p) => new RegExp(p.source, p.flags).test(text)).map((p) => p.id).filter((id) => !(id === 'length' && /(^|\.)error\./.test(key)))
+          const ids = voicePatterns(lang).filter((p) => new RegExp(p.source, p.flags).test(text)).map((p) => p.id).filter((id) => !(id === 'length' && (/(^|\.)error\./.test(key) || key.startsWith('hint.'))))
           if (ids.length) flagged.push(`${lang} ${key} [${ids}]: ${text}`)
         }
       }

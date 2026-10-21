@@ -23,7 +23,7 @@ test('GET /settings/project is readable by any member: project name and an empty
   const env = await team({ projectName: 'Atlas' })
   const r = await env.api('GET', '/settings/project', env.c.ana)
   assert.equal(r.statusCode, 200)
-  assert.deepEqual(r.json(), { name: 'Atlas', description: '' })
+  assert.deepEqual(r.json(), { name: 'Atlas', description: '', max_chars: env.config.project.descriptionMaxChars })
   assert.equal((await env.app.inject({ method: 'GET', url: '/api/settings/project' })).statusCode, 401)
   await env.close()
 })
@@ -34,7 +34,7 @@ test('PATCH /settings/project: editor only; the text is saved and recorded in th
   assert.equal((await env.api('PATCH', '/settings/project', env.c.ana, { description: markdown })).statusCode, 403)
   const ok = await env.api('PATCH', '/settings/project', env.c.ed, { description: markdown })
   assert.equal(ok.statusCode, 200)
-  assert.deepEqual(ok.json(), { name: 'Atlas', description: markdown })
+  assert.deepEqual(ok.json(), { name: 'Atlas', description: markdown, max_chars: env.config.project.descriptionMaxChars })
   assert.equal((await env.api('GET', '/settings/project', env.c.ana)).json().description, markdown)
   const rows = all(env.db, "SELECT member_id, entity, detail_json FROM audit_log WHERE action = 'settings.project.update'")
   assert.equal(rows.length, 1)
@@ -50,6 +50,7 @@ test('PATCH /settings/project: editor only; the text is saved and recorded in th
 
 test('the description cap is the PROJECT_DESCRIPTION_MAX_CHARS knob and applies to both the JSON and the file', async () => {
   const env = await team({ project: { descriptionMaxChars: 50 } })
+  assert.equal((await env.api('GET', '/settings/project', env.c.ed)).json().max_chars, 50) // the panel's counter reads the cap from here
   assert.equal((await env.api('PATCH', '/settings/project', env.c.ed, { description: 'a'.repeat(50) })).statusCode, 200)
   const over = await env.api('PATCH', '/settings/project', env.c.ed, { description: 'a'.repeat(51) })
   assert.equal(over.statusCode, 413)

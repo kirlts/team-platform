@@ -753,6 +753,46 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 **Condiciones de reversión:** Ninguna prevista.
 
 
+## [UD-120] Proveedores y claves de API se gestionan desde Configuración, con prueba antes de cambiar
+
+**Fecha:** 2026-10-21
+**Contexto:** Martín, textual: «Otro gran problema es que no hay una forma de reemplazar un proveedor con otro de una manera segura, o de simplemente retirar una clave de API. No es una interfaz utilizable para poder agregar un nuevo proveedor, reemplazar una clave de API, diagnosticar un proveedor, etc.» Investigación 11.
+**Decisión:** La sección «Proveedores» (sólo Editor) lista cada proveedor con estado (sin clave, configurada, fallando), últimos 4 caracteres de la clave, origen (guardada o entorno) y funciones que lo usan (Texto, Visión, Transcripción). Agregar un proveedor y reemplazar una clave prueban la clave nueva con una llamada mínima; sólo si funciona se guarda y la anterior sigue activa hasta entonces. Retirar una clave pide confirmación y se bloquea (409 `provider_in_use`) si una función depende de ella, con las funciones nombradas y el cambio de cada una ofrecido en el mismo diálogo. Cambiar proveedor o modelo de una función prueba antes de guardar; si falla queda la configuración anterior. El diagnóstico entrega duración, causa clasificada (clave inválida, sin cuota, modelo inexistente, sin red, límite de tasa, tiempo agotado, dirección inválida, error del proveedor) y los modelos que el proveedor lista. El plazo de cada prueba es `PROVIDER_PROBE_TIMEOUT_MS` (30 s). Cada cambio deja una fila de auditoría sin valores.
+**Alternativas descartadas:**
+- Guardar primero y probar después: deja una clave mala activa.
+- Mostrar la clave completa tras guardarla: ninguna ruta la devuelve.
+**Consecuencias:** Migración 0009, `src/api/routes/connections.js`, `src/providers/probe.js`, OpenAPI y MASTER-SPEC al día; el proveedor falso simula 401, 429, modelo inexistente, sin red y tiempo agotado.
+**Condiciones de reversión:** Si una prueba con costo real resulta frecuente, la prueba previa pasa a opcional por función.
+
+## [UD-121] Las claves guardadas se cifran en reposo y nunca salen del servidor
+
+**Fecha:** 2026-10-21
+**Contexto:** Mismo pedido que UD-120; la regla 6 de MASTER-SPEC §4.6 prohíbe credenciales en la base.
+**Decisión:** AES-256-GCM con nonce aleatorio por sellado y el nombre del proveedor como dato autenticado. La clave maestra es `SECRETS_KEY` o `<DATA_DIR>/secrets.key`, generada en el primer arranque con modo 600. La API sólo expone los últimos 4 caracteres. La clave no aparece en logs, spans, telemetría, errores, auditoría ni respuestas de prueba; los cuerpos de error del proveedor se redactan. Una variable de entorno sigue valiendo como valor de arranque, y una clave guardada la reemplaza. Rotación: `scripts/rotate-secrets-key.mjs`.
+**Alternativas descartadas:**
+- Mantener las claves sólo en variables de entorno: no permite reemplazo ni retiro desde la pantalla.
+**Consecuencias:** `src/api/secrets-never-leak.test.js` ejerce valores centinela en respuestas, registros, tablas y archivo SQLite. Respaldar la base sin la clave maestra deja las claves ilegibles; el panel las muestra «fallando».
+**Condiciones de reversión:** Si se adopta un gestor de secretos externo, `vault.js` se reemplaza por su cliente.
+
+## [UD-122] Configuración lleva una línea de explicación bajo cada ajuste
+
+**Fecha:** 2026-10-21
+**Contexto:** Martín, textual: «los rótulos no tienen explicación de lo que hacen. Por ejemplo "Publicación" y "Telemetría de uso" no significan nada para un usuario que configure esto.»
+**Decisión:** Sólo en Configuración, cada ajuste lleva bajo su rótulo una explicación de una línea (`hint.*`, componente `SettingHint`), impersonal y de hasta 90 caracteres. La guardia `panel/src/ui-voice.test.ts` la admite sólo con esas condiciones y falla con segunda persona, gerundio, imperativo, adjetivo valorativo o más de 90 caracteres. «Publicación» pasa a «Publicación automática».
+**Alternativas descartadas:**
+- Ícono de información con descripción emergente: oculta justo lo que faltaba.
+**Consecuencias:** Enmienda la regla «sin texto de ayuda por defecto» únicamente para esta pantalla.
+**Condiciones de reversión:** Ninguna prevista.
+
+## [UD-123] Configuración se desplaza como página y el texto largo crece con su contenido
+
+**Fecha:** 2026-10-21
+**Contexto:** Martín, textual: «La parte para escribir la descripción del proyecto tiene texto truncado que obliga a desplazarse dentro de la misma página para escribir la configuración del proyecto. Eso es un gran problema.»
+**Decisión:** La descripción del proyecto es un área de edición de al menos 16 filas que crece con el texto, a todo el ancho de su columna, sin caja con scroll propio. Tiene contador contra el tope, estado de guardado, deshacer y rehacer, «Reemplazar con .md» y «Descargar .md». Configuración se desplaza como página.
+**Alternativas descartadas:**
+- Alto máximo con scroll interno: es lo que se rechazó.
+**Consecuencias:** Enmienda UD-017 para esta vista; `test:fit` la exime sólo de las comprobaciones de alto de documento y mantiene las de carriles propios, texto bajo 12 px y repetidos.
+**Condiciones de reversión:** Ninguna prevista.
 ## [UD-130] La barra lateral va sobre una grilla, sus contadores no llevan contenedor y todo lo clicable responde al puntero
 
 **Fecha:** 2026-10-21
@@ -789,6 +829,14 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 - Pruebas de flujos nuevas fallan si aparece un contador o chip de área en la barra o un texto visible de estado, abren cada desplegable por clic y por teclado, y comparan su lista con la cifra.
 - La lista que un mensaje del desplegable usa es la de `noticeState`, no el filtro «para» del servidor, que sólo conoce los asignados (H-2000).
 **Condiciones de reversión:** Si el dueño quiere ver los cerrados fuera de la barra, se quita la tercera marca sin tocar el resto.
+
+## [UD-140] El presupuesto de API sube a 100 USD en total
+
+**Fecha:** 2026-10-21
+**Contexto:** El tope de UD-038 (75 USD en total) tenía unos 25 USD por gastar. Quedan por hacer las mediciones de la Fase 4 del plan de cierre y la ampliación de casos del banco privado con insumos reales.
+**Decisión:** Martín, textual: «aumentemos el gasto por api hasta 100 dólares, es decir que de los 200 dólares que me da Anthropic por este plan de Devalis van a quedar 100 dólares». Se lee como un tope total de 100 USD para team-platform, 25 más que UD-038, y 100 USD que quedan para el otro proyecto del autor. Cada encargo declara su parte antes de gastar y se detiene en ella.
+**Consecuencias:** Quedan unos 50 USD por gastar sobre lo ya gastado, unos 50 USD. Cabe la ampliación de casos del banco (hasta 3 USD), la medición de Sonnet de H-1103 (unos 5 USD) y repeticiones para separar efectos del ruido.
+**Condiciones de reversión:** Si Martín quiso decir 100 USD más sobre los 75 de UD-038, el tope total es 175 y la parte del otro proyecto cae a 25 USD de los 200; se confirma con él antes de pasar de 100 de gasto acumulado.
 
 ## [UD-110] Inicio con espacio: la barra de texto manda, la página crece con la ventana y un envío abierto desplaza la página
 

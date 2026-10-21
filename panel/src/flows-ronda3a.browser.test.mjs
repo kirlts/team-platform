@@ -675,18 +675,15 @@ describe('Áreas and templates (J3-A-30 to J3-A-38)', () => {
 })
 
 describe('Configuración and Equipo (J3-A-39 to J3-A-44)', () => {
-  test('the project description folds to a few lines and opens whole on request (J3-A-39)', async () => {
+  test('the project description is an editor as tall as its text, with no fold and no scroll of its own (J3-A-39, UD-123)', async () => {
     const { page, context } = await session('ana')
     try {
       await page.goto(`${origin}/settings`)
-      const unfold = page.getByRole('button', { name: 'Ver todo' })
-      await unfold.waitFor()
-      const lane = page.locator('section', { has: page.getByRole('heading', { name: 'Proyecto' }) }).locator('div.glass').first()
-      const folded = await lane.boundingBox()
-      assert.ok(folded.height <= 9 * 15 + 30, `the folded project measures ${folded.height} px`)
-      await unfold.click()
-      await page.getByRole('button', { name: 'Ver menos' }).waitFor()
-      assert.ok((await lane.boundingBox()).height > folded.height, 'open is taller')
+      const editor = page.getByLabel('Proyecto', { exact: true })
+      await editor.waitFor()
+      assert.equal(await page.getByRole('button', { name: 'Ver todo' }).count(), 0)
+      const box = await editor.evaluate((el) => ({ scroll: el.scrollHeight, client: el.clientHeight, overflow: getComputedStyle(el).overflowY }))
+      assert.ok(box.scroll <= box.client + 1 && box.overflow !== 'auto' && box.overflow !== 'scroll', `the editor scrolls on its own: ${JSON.stringify(box)}`)
     } finally {
       await context.close()
     }
@@ -697,7 +694,7 @@ describe('Configuración and Equipo (J3-A-39 to J3-A-44)', () => {
     const member = await session('bruno')
     try {
       await editor.page.goto(`${origin}/settings`)
-      await editor.page.getByText('Falta GROQ_API_KEY en el servidor').waitFor()
+      await editor.page.locator('[data-providers]').waitFor()
       await member.page.goto(`${origin}/settings`)
       await member.page.getByRole('heading', { name: 'Cuenta' }).waitFor()
       assert.equal(await member.page.getByText('GROQ_API_KEY').count(), 0)

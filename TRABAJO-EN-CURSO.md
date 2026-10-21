@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 5ea20d8 Traspaso: deuda técnica fusionada. Empujado a origin: `5ea20d8`.
-- Ramas con commits sin fusionar: `wt-configuracion` 24 (hace 31 segundos), `wt-inicio-respira` 8 (hace 2 minutos), `wt-banco-abiertos` 3 (hace 17 minutos), `wt-h904` 1 (hace 29 minutos).
+- `main`: ea89282 UD-140: el presupuesto de API sube a 100 USD en total. Empujado a origin: `ea89282`.
+- Ramas con commits sin fusionar: `wt-configuracion` 25 (hace 7 minutos), `wt-inicio-respira` 9 (hace 6 minutos), `wt-banco-abiertos` 4 (hace 82 segundos), `wt-h904` 1 (hace 37 minutos).
 - Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `banco-abiertos`, `cierre`, `configuracion`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `h904-old`, `heic`, `ingles`, `inicio-maqueta`, `inicio-respira`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `5ea20d8` Traspaso: deuda técnica fusionada (hace 51 segundos)
-- `98443f7` Merge branch 'wt-deuda' (hace 2 minutos)
-- `2860e44` Traspaso: barra lateral fusionada (hace 6 minutos)
-- `8cb1eae` Merge branch 'wt-barra-lateral' (hace 8 minutos)
-- `925e438` Fusiona main en wt-deuda: conserva la lógica de main y los mensajes en inglés (hace 8 minutos)
-- `9fbad62` Retira la derivación de VERIFICATION (H-45); DT-010 queda descartada (hace 9 minutos)
-- `b5553d0` Flows: J2-A-41 and J2-A-47 read the row box of the sidebar (UD-130) (hace 10 minutos)
-- `e890d6c` Merge main into wt-barra-lateral (hace 17 minutos)
-Actualizado 2026-10-21 18:42 UTC.
+- `ea89282` UD-140: el presupuesto de API sube a 100 USD en total (hace 4 minutos)
+- `5ea20d8` Traspaso: deuda técnica fusionada (hace 9 minutos)
+- `98443f7` Merge branch 'wt-deuda' (hace 10 minutos)
+- `2860e44` Traspaso: barra lateral fusionada (hace 14 minutos)
+- `8cb1eae` Merge branch 'wt-barra-lateral' (hace 16 minutos)
+- `925e438` Fusiona main en wt-deuda: conserva la lógica de main y los mensajes en inglés (hace 16 minutos)
+- `9fbad62` Retira la derivación de VERIFICATION (H-45); DT-010 queda descartada (hace 17 minutos)
+- `b5553d0` Flows: J2-A-41 and J2-A-47 read the row box of the sidebar (UD-130) (hace 18 minutos)
+Actualizado 2026-10-21 18:50 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo
@@ -96,6 +96,7 @@ La gravedad 5 fue 2, 4 y 3; la gravedad 4 fue 8, 12 y 10. El recuento no baja de
 
 - Tope: 25 USD (UD-027) más 50 USD que el dueño sumó el 2026-10-21 (UD-038, «subo el presupuesto 50 dólares»), 75 en total. Si el dueño quiso decir un tope total de 50, quedan unos 4 USD.
 - Gastado según las cuentas de los agentes: unos 24 USD antes de UD-038, 9,1 en la comparación de modelos, 10,1 en exactitud de área, menos de 0,2 en el arreglo de capacidades y pruebas en vivo: unos 50 USD (con 6,0 de reuniones largas). Quedan unos 25 USD sobre los 75.
+- **Actualización 2026-10-21 (UD-140):** el dueño subió el tope total a 100 USD, «de los 200 dólares que me da Anthropic por este plan, van a quedar 100» para el otro proyecto. Quedan unos 50 USD por gastar. No pasar de 100 de gasto acumulado sin confirmar la lectura (UD-140, condiciones de reversión).
 - Ningún encargo con gasto de API sigue corriendo. Cada encargo declara su gasto acumulado y se detiene en su parte. Libros de gasto: `bench/results/private-spend.jsonl` y los de cada worktree; los de worktrees retirados están en `~/.local/share/team-platform/archivo-de-worktrees/`.
 
 ## Ramas y worktrees

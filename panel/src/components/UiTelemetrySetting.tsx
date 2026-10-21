@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Segmented } from '@/components/Segmented'
+import { SettingHint } from '@/components/SettingHint'
 import { useT } from '@/i18n'
 import { api } from '@/lib/api'
 import { useMe } from '@/lib/queries'
@@ -15,11 +16,15 @@ export function UiTelemetrySetting() {
   })
   return (
     <section className="flex flex-col gap-3 border-t border-line-strong pt-3">
-      <h2>{t('settings.telemetry')}</h2>
+      <div className="flex flex-col gap-0.5">
+        <h2>{t('settings.telemetry')}</h2>
+        <SettingHint id="hint-telemetry">{t('hint.telemetry')}</SettingHint>
+      </div>
       <Segmented
         value={enabled ? 'on' : 'off'}
         onChange={(v) => save.mutate(v === 'on')}
         label={t('settings.telemetry')}
+        describedBy="hint-telemetry"
         options={[
           { value: 'on', label: t('settings.telemetryOn') },
           { value: 'off', label: t('settings.telemetryOff') },

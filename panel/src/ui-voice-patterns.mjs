@@ -5,6 +5,8 @@
 /** R1. The longest text a catalogue held on 2026-10-21 (measured: docs/investigaciones/08, section 6). */
 export const MAX_WORDS = 10
 export const MAX_WORDS_ERROR = 14
+/** UD-122: a `hint.*` text of Configuración answers the rules of voice but measures its length in characters, not in words. */
+export const MAX_HINT_CHARS = 90
 
 export const strip = (text) => text.replace(/\{[A-Za-z]+\}/g, 'X').replace(/«[^»]*»|“[^”]*”/g, 'X')
 export const wordsOf = (text) => strip(text).split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w))
@@ -32,7 +34,9 @@ export function breaksVoice(key, text, lang) {
   const plain = strip(text)
   const words = wordsOf(text)
   const isError = /(^|\.)error\./.test(key)
-  if (words.length > (isError ? MAX_WORDS_ERROR : MAX_WORDS)) return 'length'
+  if (key.startsWith('hint.')) {
+    if (plain.length > MAX_HINT_CHARS) return 'length'
+  } else if (words.length > (isError ? MAX_WORDS_ERROR : MAX_WORDS)) return 'length'
   if ((lang === 'es' ? ES_OPENING : EN_OPENING).test(plain.trim()) || (lang === 'es' ? ES_ANYWHERE : EN_ANYWHERE).test(plain)) return 'opening'
   if ((lang === 'es' ? ES_PERSON : EN_PERSON).test(plain) || (lang === 'es' && (preterite(plain) || ES_CLITIC_IMPERATIVE.test(plain)))) return 'person'
   if (lang === 'es' && ES_COLLOQUIAL_IMPERATIVES.has(first(text))) return 'imperative'

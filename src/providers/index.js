@@ -13,6 +13,7 @@
 //   SPEECH_MODEL       (default: whisper-large-v3-turbo)   SPEECH_BASE_URL   SPEECH_API_KEY
 //   ANTHROPIC_API_KEY · DEEPSEEK_API_KEY · GROQ_API_KEY · OPENROUTER_API_KEY · GEMINI_API_KEY · OPENAI_COMPATIBLE_API_KEY
 //   ANTHROPIC_CACHE_TTL   5m | 1h      ANTHROPIC_THINKING   disabled | (empty)
+//   Keys stored from Configuración (UD-121) arrive as `createProviders(env, { connections })` and win over these variables.
 //   PROVIDER_TIMEOUT_MS   deadline per call (default: 900,000 ms, §7.3)
 //   PROVIDER_MAX_INFLIGHT_ANTHROPIC · _GROQ · _OPENAI_COMPATIBLE   simultaneous requests of the process per provider (0 = no cap)
 //   PROVIDER_BACKOFF_COOLDOWN_MS · PROVIDER_BACKOFF_RESTORE_STEP_MS   adaptive backoff after a cap 429 (limiter.js)
@@ -27,6 +28,8 @@ export * from './errors.js';
 export { createLimiter, limiterFor, limiterStats, PROVIDER_LIMIT_DEFAULTS, runInJobScope } from './limiter.js';
 export { createFakeProviders } from './fake.js';
 export { createAnthropicClient, createOpenAICompatibleClient, createGroqSpeechClient };
+export { CHECK_CAUSES, probeConnection } from './probe.js';
+export { OPENAI_COMPATIBLE_PRESETS, ANTHROPIC_DEFAULTS, GROQ_SPEECH_DEFAULTS };
 
 const TEXT_PROVIDER_DEFAULT = 'anthropic';
 const SPEECH_PROVIDER_DEFAULT = 'groq-speech';
@@ -68,21 +71,73 @@ function pick(env, prefix, field, inheritPrefix) {
   return undefined;
 }
 
-/** Builds the text or vision client of a slot. Returns null if the provider is not declared. */
-function buildModelClient(env, prefix, { inheritPrefix: wantedInherit, timeoutMs, limits }) {
+/**
+ * What a text or vision slot needs to be built or probed: provider, kind, key, address, model and structured mode.
+ * `connections` are the keys and addresses stored from Configuración (UD-121): they take precedence over the environment,
+ * which stays the value an installation starts with. Returns null if the provider is not declared; `unavailable` names
+ * what is missing.
+ */
+function modelPlan(env, prefix, { inheritPrefix: wantedInherit, connections = {} }) {
   // If the slot declares its own provider it inherits nothing from TEXT_*: a model from another provider is useless.
   const inheritPrefix = env[`${prefix}_PROVIDER`] ? undefined : wantedInherit;
   const provider = pick(env, prefix, 'PROVIDER', inheritPrefix) ?? (prefix === 'TEXT_FALLBACK' ? undefined : TEXT_PROVIDER_DEFAULT);
   if (!provider) return null;
+  const stored = connections[provider];
 
   if (provider === 'anthropic') {
-    const apiKey = pick(env, prefix, 'API_KEY', inheritPrefix) ?? env.ANTHROPIC_API_KEY;
-    if (!apiKey) return { unavailable: 'Falta ANTHROPIC_API_KEY' };
+    const apiKey = stored?.apiKey ?? pick(env, prefix, 'API_KEY', inheritPrefix) ?? env.ANTHROPIC_API_KEY;
+    return {
+      provider, kind: 'anthropic', apiKey, keyVar: 'ANTHROPIC_API_KEY',
+      model: pick(env, prefix, 'MODEL', inheritPrefix) ?? ANTHROPIC_DEFAULTS.model,
+      baseUrl: pick(env, prefix, 'BASE_URL', inheritPrefix) ?? ANTHROPIC_DEFAULTS.baseUrl,
+      structured: null,
+    };
+  }
+
+  const preset = OPENAI_COMPATIBLE_PRESETS[provider];
+  if (!preset && !stored?.custom) throw new ProviderConfigError(`Unknown text provider «${provider}» in ${prefix}_PROVIDER`);
+  return {
+    provider, kind: 'openai-compatible', keyVar: preset?.keyVar ?? null,
+    apiKey: stored?.apiKey ?? pick(env, prefix, 'API_KEY', inheritPrefix) ?? (preset ? env[preset.keyVar] : undefined),
+    model: pick(env, prefix, 'MODEL', inheritPrefix) ?? preset?.model ?? null,
+    baseUrl: pick(env, prefix, 'BASE_URL', inheritPrefix) ?? stored?.baseUrl ?? preset?.baseUrl ?? null,
+    structured: pick(env, prefix, 'STRUCTURED', inheritPrefix) ?? stored?.structured ?? preset?.structured ?? 'json_schema',
+  };
+}
+
+function speechPlan(env, connections = {}) {
+  const provider = env.SPEECH_PROVIDER || SPEECH_PROVIDER_DEFAULT;
+  if (provider !== 'groq-speech') throw new ProviderConfigError(`Unknown transcription provider «${provider}» in SPEECH_PROVIDER`);
+  return {
+    provider, kind: 'groq-speech', keyVar: 'GROQ_API_KEY',
+    apiKey: connections[provider]?.apiKey ?? env.SPEECH_API_KEY ?? env.GROQ_API_KEY,
+    model: env.SPEECH_MODEL || GROQ_SPEECH_DEFAULTS.model,
+    baseUrl: env.SPEECH_BASE_URL || GROQ_SPEECH_DEFAULTS.baseUrl,
+    structured: null,
+  };
+}
+
+/**
+ * The plan of one function ('text', 'vision' or 'speech') over an environment and the stored connections: what a probe
+ * needs to exercise it. `apiKey` is undefined if no key exists anywhere.
+ */
+export function slotPlan(env, slot, connections = {}) {
+  if (slot === 'speech') return speechPlan(env, connections);
+  return modelPlan(env, slot === 'text' ? 'TEXT' : 'VISION', { inheritPrefix: slot === 'vision' ? 'TEXT' : undefined, connections });
+}
+
+/** Builds the text or vision client of a slot. Returns null if the provider is not declared. */
+function buildModelClient(env, prefix, { inheritPrefix, timeoutMs, limits, connections }) {
+  const plan = modelPlan(env, prefix, { inheritPrefix, connections });
+  if (!plan) return null;
+  if (!plan.apiKey) return { unavailable: `Falta ${plan.keyVar ?? `la clave de ${plan.provider}`}` };
+
+  if (plan.kind === 'anthropic') {
     return {
       client: createAnthropicClient({
-        apiKey,
-        model: pick(env, prefix, 'MODEL', inheritPrefix) ?? ANTHROPIC_DEFAULTS.model,
-        baseUrl: pick(env, prefix, 'BASE_URL', inheritPrefix),
+        apiKey: plan.apiKey,
+        model: plan.model,
+        baseUrl: pick(env, prefix, 'BASE_URL', env[`${prefix}_PROVIDER`] ? undefined : inheritPrefix),
         cacheTtl: env.ANTHROPIC_CACHE_TTL || undefined,
         thinking: env.ANTHROPIC_THINKING === 'disabled' ? 'disabled' : undefined,
         timeoutMs,
@@ -91,23 +146,17 @@ function buildModelClient(env, prefix, { inheritPrefix: wantedInherit, timeoutMs
     };
   }
 
-  const preset = OPENAI_COMPATIBLE_PRESETS[provider];
-  if (!preset) throw new ProviderConfigError(`Unknown text provider «${provider}» in ${prefix}_PROVIDER`);
-  const apiKey = pick(env, prefix, 'API_KEY', inheritPrefix) ?? env[preset.keyVar];
-  if (!apiKey) return { unavailable: `Falta ${preset.keyVar}` };
-  const model = pick(env, prefix, 'MODEL', inheritPrefix) ?? preset.model;
-  if (!model) return { unavailable: `Falta ${prefix}_MODEL para ${provider}` };
-  const baseUrl = pick(env, prefix, 'BASE_URL', inheritPrefix) ?? preset.baseUrl;
-  if (!baseUrl) return { unavailable: `Falta ${prefix}_BASE_URL para ${provider}` };
+  if (!plan.model) return { unavailable: `Falta ${prefix}_MODEL para ${plan.provider}` };
+  if (!plan.baseUrl) return { unavailable: `Falta ${prefix}_BASE_URL para ${plan.provider}` };
   return {
     client: createOpenAICompatibleClient({
-      name: provider,
-      apiKey,
-      model,
-      baseUrl,
-      structured: pick(env, prefix, 'STRUCTURED', inheritPrefix) ?? preset.structured,
+      name: plan.provider,
+      apiKey: plan.apiKey,
+      model: plan.model,
+      baseUrl: plan.baseUrl,
+      structured: plan.structured,
       timeoutMs,
-      limiter: limiterFor(provider, limits),
+      limiter: limiterFor(plan.provider, limits),
     }),
   };
 }
@@ -129,27 +178,23 @@ function visionSlot(built, slot) {
  * @param {Record<string, string | undefined>} [env]
  * @returns {{text: object, vision: object, speech: object, textFallback: object | null, describe: () => object[]}}
  */
-export function createProviders(env = process.env) {
+export function createProviders(env = process.env, { connections = {} } = {}) {
   const timeoutMs = env.PROVIDER_TIMEOUT_MS ? Number(env.PROVIDER_TIMEOUT_MS) : DEFAULT_TIMEOUT_MS;
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new ProviderConfigError('PROVIDER_TIMEOUT_MS must be a positive number');
 
   const limits = limitsFromEnv(env);
-  const text = textSlot(buildModelClient(env, 'TEXT', { timeoutMs, limits }), 'text');
-  const textFallback = textSlot(buildModelClient(env, 'TEXT_FALLBACK', { timeoutMs, limits }), 'text_fallback');
-  const vision = visionSlot(buildModelClient(env, 'VISION', { inheritPrefix: 'TEXT', timeoutMs, limits }), 'vision');
+  const text = textSlot(buildModelClient(env, 'TEXT', { timeoutMs, limits, connections }), 'text');
+  const textFallback = textSlot(buildModelClient(env, 'TEXT_FALLBACK', { timeoutMs, limits, connections }), 'text_fallback');
+  const vision = visionSlot(buildModelClient(env, 'VISION', { inheritPrefix: 'TEXT', timeoutMs, limits, connections }), 'vision');
 
-  const speechProvider = env.SPEECH_PROVIDER || SPEECH_PROVIDER_DEFAULT;
+  const plan = speechPlan(env, connections);
   let speech;
-  if (speechProvider !== 'groq-speech') {
-    throw new ProviderConfigError(`Unknown transcription provider «${speechProvider}» in SPEECH_PROVIDER`);
-  }
-  const speechKey = env.SPEECH_API_KEY || env.GROQ_API_KEY;
-  if (!speechKey) {
+  if (!plan.apiKey) {
     speech = slotUnavailable('speech', 'Falta GROQ_API_KEY');
   } else {
     const client = createGroqSpeechClient({
-      apiKey: speechKey,
-      model: env.SPEECH_MODEL || GROQ_SPEECH_DEFAULTS.model,
+      apiKey: plan.apiKey,
+      model: plan.model,
       baseUrl: env.SPEECH_BASE_URL || undefined,
       timeoutMs,
       limiter: limiterFor('groq-speech', limits),

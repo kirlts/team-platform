@@ -68,7 +68,10 @@ Se agrega una fila cada vez que un defecto encontrado en uso real o en el banco 
 
 | ID | Defecto original | Prueba de regresión | Fecha |
 |---|---|---|---|
-| REG-001 | Un mensaje de chat de un párrafo con cuatro puntos («1) … 2) … 3) … 4) …») se contó como una sola unidad y salió como un solo mensaje de error (primera corrida real, 16,3 s) | Las unidades bajan a oración y a ítem de enumeración en línea; ese input produce cuatro unidades y cuatro mensajes en tres áreas con el proveedor falso | 2026-10-20 |
+| REG-001 | Un mensaje de chat de un párrafo con cuatro puntos («1) … 2) … 3) … 4) …») se contó como una sola unidad y salió como un solo mensaje de error (primera corrida real, 16,3 s) | Las unidades bajan a oración y a ítem de enumeración en línea; ese input produce cuatro unidades y cuatro mensajes en tres áreas con el proveedor falso (`src/analyze/regressions.test.js`) | 2026-10-20 |
+| REG-002 | Una matriz de retroalimentación con cuatro tablas markdown de 20 a 40 filas quedó en 4 unidades de 2 a 10 KB (banco privado) | Cada fila de tabla es una unidad (`p3.r12`) y la cabecera viaja una vez como contexto, no como unidad; una tabla grande se parte por filas y cada trozo lleva su cabecera (`src/analyze/regressions.test.js`) | 2026-10-20 |
+| REG-003 | El chat de WhatsApp «[15:55, 7/10/2026] Nombre: …» no se reconocía (la marca de tiempo exigía un espacio tras mm:ss y acá sigue una coma) y varias líneas de chat se fundían en una unidad (banco privado) | Cada línea de chat es una unidad, el emisor queda en `unit.sender`, una línea sin prefijo sigue al mensaje de su emisor y la coma tras la hora cuenta como marca de tiempo (`src/analyze/regressions.test.js`) | 2026-10-20 |
+| REG-004 | En un chat que explicaba cómo debía ser un widget, el analizador descartó todas las unidades como «sin pedido ni falla» y perdió un encargo de implementación con plazo (banco privado) | La clasificación recibe que describir lo que hay que construir es nueva funcionalidad y que un plazo o una fecha comprometida no se descarta (prueba del texto del prompt); con el proveedor real, un chat que describe un widget sale como nueva funcionalidad con su plazo, y la prueba falla 3 de 3 sin la corrección (`src/analyze/regressions.live.test.js`, solo con `ANTHROPIC_API_KEY`) | 2026-10-20 |
 
 ## Política de recorrido (capa 5)
 

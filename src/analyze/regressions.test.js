@@ -58,7 +58,7 @@ describe('REG-002: una tabla markdown se segmenta por filas', () => {
   it('la cabecera se muestra una vez por tabla en el prompt', () => {
     const out = renderUnits(numberUnits({ text: tabla('Tabla 1', 3) }));
     assert.equal((out.match(/Cabecera de la tabla p1: \| Tema \| Observación \| Prioridad \|/g) ?? []).length, 1);
-    assert.match(out, /\[u1\] \(p1\.r1\) \| Tema 1 \|/);
+    assert.match(out, /\[u1\] \(p1\.r1\) ## Tabla 1\n\s+\| Tema 1 \|/, 'el encabezado de sección se pega a la primera fila');
   });
 
   it('una tabla grande se parte en trozos por filas y cada trozo lleva su cabecera', () => {

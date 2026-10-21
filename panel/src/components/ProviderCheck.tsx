@@ -1,8 +1,8 @@
 import { useId, useState } from 'react'
 import { AlertTriangle, Check as CheckIcon, ChevronRight, X } from '@/components/icons'
 import { Input } from '@/components/ui/input'
-import { useT, type MessageKey } from '@/i18n'
-import { MODELS_SHOWN, type Shown } from '@/lib/provider-ui'
+import { useErrorText, useT, type MessageKey } from '@/i18n'
+import { failureOf, MODELS_SHOWN, type Shown } from '@/lib/provider-ui'
 import type { Cause } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
@@ -21,7 +21,6 @@ export function CheckFacts({ status, durationMs, className }: { status: number |
  * mark and cause, status and duration, and the models the provider lists, folded with their count.
  */
 export function ProviderCheck({ id, shown, onClose }: { id: string; shown: Shown | null; onClose: () => void }) {
-  const t = useT()
   return (
     <div id={id} role="status" aria-live="polite" data-check-result={shown ? (shown.check.ok ? 'ok' : 'failed') : undefined}>
       {shown && <Result shown={shown} onClose={onClose} />}
@@ -44,7 +43,7 @@ function Result({ shown, onClose }: { shown: Shown; onClose: () => void }) {
           <CheckFacts status={check.status} durationMs={check.duration_ms} className="text-muted" />
           {check.model && <span className="ml-2 break-all font-mono text-xs text-muted">{check.model}</span>}
         </p>
-        <button type="button" onClick={onClose} aria-label={t('providers.closeResult')} className="rounded-full p-1 text-muted hover:bg-hover">
+        <button type="button" onClick={onClose} aria-label={t('providers.closeResult')} className="inline-flex min-h-6 min-w-6 items-center justify-center rounded-full text-muted hover:bg-hover">
           <X size={14} aria-hidden />
         </button>
       </div>
@@ -88,5 +87,22 @@ function Models({ models }: { models: string[] }) {
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * A failed request in one line: the classified cause of a provider test, with what the provider answered, followed by what stays
+ * as it was (`kept` is the catalogue key of the sentence, which takes `{cause}`). Any other error reads as its own text.
+ */
+export function FailureLine({ error, kept, className }: { error: unknown; kept: MessageKey; className?: string }) {
+  const t = useT()
+  const errorText = useErrorText()
+  const failure = failureOf(error)
+  return (
+    <p className={cn('flex min-w-0 flex-wrap items-start gap-x-2 gap-y-0.5 break-words text-sm text-danger', className)}>
+      <AlertTriangle size={16} aria-hidden className="mt-0.5 shrink-0" />
+      <span className="min-w-0">{failure ? t(kept, { cause: t(causeKey(failure.cause)) }) : errorText(error)}</span>
+      {failure && <CheckFacts status={failure.status} durationMs={failure.durationMs} className="text-xs text-muted" />}
+    </p>
   )
 }

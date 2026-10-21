@@ -422,6 +422,8 @@ export function useAddConnection() {
   const invalidate = useInvalidator()
   const remember = useRememberCheck()
   return useMutation({
+    // The body carries the key: the mutation leaves the cache as soon as nothing watches it.
+    gcTime: 0,
     mutationFn: (v: NewConnection) => api<ConnectionResult>('/settings/connections', { method: 'POST', body: v }),
     onSuccess: (r) => {
       remember(r.connection.name, r.check)
@@ -435,6 +437,7 @@ export function useReplaceKey() {
   const invalidate = useInvalidator()
   const remember = useRememberCheck()
   return useMutation({
+    gcTime: 0,
     mutationFn: (v: { name: string; api_key: string; model?: string }) => api<ConnectionResult>(`${connectionPath(v.name)}/key`, { method: 'PUT', body: { api_key: v.api_key, ...(v.model ? { model: v.model } : {}) } }),
     onSuccess: (r) => {
       remember(r.connection.name, r.check)

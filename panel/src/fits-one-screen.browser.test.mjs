@@ -80,6 +80,8 @@ async function amplify(page) {
     const request = route.request()
     if (request.method() !== 'GET') return route.continue()
     const url = new URL(request.url())
+    // The event stream never ends: fetching it through the route hangs the page's teardown.
+    if (url.pathname === '/api/events') return route.continue()
     const original = url.pathname.replace(/~\d+/g, '')
     const response = await route.fetch({ url: `${url.origin}${original}${url.search}` })
     const type = response.headers()['content-type'] ?? ''

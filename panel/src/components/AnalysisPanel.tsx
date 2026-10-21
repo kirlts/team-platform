@@ -292,7 +292,7 @@ function ProposalRow({
           <Trash2 size={13} aria-hidden /> {t('proposal.removeShort')}
         </Button>
       </div>
-      <EditableText value={m.body} label={t('proposal.body')} multiline prose validate={required} onSave={(v) => patch(index, t('proposal.bodyEdited'), { body: v })} displayClassName="text-base leading-[1.65] text-fg" className="py-1" />
+      <EditableText value={m.body} label={t('proposal.body')} multiline prose validate={required} onSave={(v) => patch(index, t('proposal.bodyEdited'), { body: v })} displayClassName="text-read text-fg" className="py-1" />
       <TemplateFields template={template} values={m.fields} onSave={(name, value) => patch(index, t('proposal.fieldEdited'), (cur) => ({ fields: { ...(cur.fields ?? {}), [name]: value } }))} />
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
         <RecipientsEditor ids={m.assignee_ids} onChange={(ids) => void patch(index, t('proposal.recipientsChanged'), { assignee_ids: ids })} />

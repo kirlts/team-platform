@@ -36,6 +36,9 @@
   --text-sm--line-height: 1.45;
   --text-base: 1rem;
   --text-base--line-height: 1.5;
+  /* Reading text of a proposal (UD-030): 17 px, between body and heading. */
+  --text-read: 1.1333rem;
+  --text-read--line-height: 1.65;
   --text-lg: 1.25rem;
   --text-lg--line-height: 1.35;
 

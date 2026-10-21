@@ -111,7 +111,10 @@ function AreaRow({ area, selected, onSelect }: { area: Area; selected: boolean; 
       </button>
       <div className="flex min-w-0 flex-1 basis-40 flex-col gap-0.5">
         <EditableText value={area.title} label={t('areas.fieldTitle')} validate={nameRule(t)} onSave={(v) => change('title', v)} displayClassName="font-semibold" />
-        <EditableText value={area.description} label={t('areas.fieldDescription')} multiline validate={descriptionRule(t)} onSave={(v) => change('description', v)} displayClassName="text-xs text-muted" />
+        {/* On a phone only the chosen area shows its description, so the templates under the list stay on the first screen (J1-A-38). */}
+        <div className={cn(!selected && 'max-md:hidden')}>
+          <EditableText value={area.description} label={t('areas.fieldDescription')} multiline validate={descriptionRule(t)} onSave={(v) => change('description', v)} displayClassName="text-xs text-muted" />
+        </div>
       </div>
       {/* Fixed-width column: what is pending lines up row by row. A count is text; the colors are for what changes state (J1-A-34). */}
       <span className={cn('flex shrink-0 justify-end text-xs tabular-nums max-sm:ml-9 sm:w-24', pending > 0 ? 'font-semibold text-fg' : 'text-muted')}>{t('areas.pending', { n: pending })}</span>

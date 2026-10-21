@@ -113,7 +113,7 @@ describe('edición en el lugar', () => {
       // Lo guardado sobrevive a una recarga; la pila no.
       await page.reload()
       await page.getByRole('button', { name: /^Título: Agregar la exportación de mensajes cerrados a CSV/ }).waitFor()
-      assert.equal(await page.getByRole('button', { name: 'Deshacer' }).isDisabled(), true, 'la pila vive en memoria: se pierde al recargar')
+      assert.equal(await page.getByRole('button', { name: 'Deshacer' }).count(), 0, 'la pila vive en memoria: se pierde al recargar y Deshacer no se dibuja sin nada que deshacer')
     } finally {
       await context.close()
     }
@@ -445,6 +445,179 @@ describe('Inicio (UD-030)', () => {
       assert.ok(sizes.text > sizes.other, 'el texto del análisis es más grande que los controles del análisis')
       // El original va plegado hasta que se abre.
       assert.equal(await page.getByRole('button', { name: /^Original/ }).getAttribute('aria-expanded'), 'false')
+    } finally {
+      await context.close()
+    }
+  })
+})
+
+// Ronda 1, juez A (J1-A-03, 10, 11, 15, 16, 21, 28, 32, 45, 57): lo que el juez encontró, como flujos.
+describe('estados, teclado y filas', () => {
+  test('una dirección desconocida lo dice y la ficha inexistente ofrece volver (J1-A-10)', async () => {
+    const { page, context } = await session()
+    try {
+      await page.goto(`${origin}/xyz`)
+      await page.getByRole('heading', { name: 'Página no encontrada', level: 1 }).waitFor()
+      await page.getByText('La dirección no existe').waitFor()
+      await page.getByRole('link', { name: 'Ir a Inicio' }).waitFor()
+      await page.goto(`${origin}/messages/zzz`)
+      await page.getByText('El mensaje no existe').waitFor()
+      assert.equal(await page.getByRole('alert').getByText('El mensaje no existe').isVisible(), true)
+      await page.getByRole('link', { name: 'Volver a mensajes' }).click()
+      await page.getByRole('heading', { name: 'Mensajes', level: 1 }).waitFor()
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('la primera parada del teclado es «Ir al contenido» y lleva al contenido (J1-A-11)', async () => {
+    const { page, context } = await session()
+    try {
+      await page.goto(`${origin}/messages`)
+      await page.locator('main h1').waitFor()
+      await page.keyboard.press('Tab')
+      const first = await page.evaluate(() => document.activeElement?.textContent?.trim())
+      assert.equal(first, 'Ir al contenido')
+      await page.keyboard.press('Enter')
+      assert.equal(await page.evaluate(() => document.activeElement?.id), 'main')
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('el estado de cada fila cae en la misma columna y las acciones aparecen al pasar el cursor (J1-A-15, J1-A-16)', async () => {
+    const { page, context } = await session()
+    try {
+      await page.goto(`${origin}/messages`)
+      await page.locator('main article').first().waitFor()
+      const xs = await page.evaluate(() => [...document.querySelectorAll('main article')].map((a) => Math.round(a.querySelector('.led').getBoundingClientRect().left)))
+      assert.ok(xs.length >= 3, 'hacen falta varias filas')
+      assert.equal(new Set(xs).size, 1, `el estado salta de columna: ${xs.join(', ')}`)
+      const row = page.locator('main article').first()
+      const reply = row.getByRole('link', { name: 'Responder' })
+      const opacity = () => reply.evaluate((el) => getComputedStyle(el.parentElement).opacity)
+      assert.equal(await opacity(), '0', 'las acciones de la fila no se leen once veces: aparecen al pasar el cursor')
+      await row.hover()
+      await page.waitForTimeout(300)
+      assert.equal(await opacity(), '1')
+      // Con el teclado también: el foco dentro de la fila las muestra.
+      await page.mouse.move(0, 0)
+      await reply.focus()
+      await page.waitForTimeout(300)
+      assert.equal(await opacity(), '1')
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('una búsqueda sin resultados dice qué se buscó y ofrece mostrar todos (J1-A-21)', async () => {
+    const { page, context } = await session()
+    try {
+      await page.goto(`${origin}/messages`)
+      await page.getByRole('searchbox', { name: 'Buscar' }).fill('zzqx')
+      await page.getByText('Sin resultados para «zzqx»').waitFor()
+      await page.getByRole('button', { name: 'Mostrar todos' }).click()
+      await page.locator('main article').first().waitFor()
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('cerrar un mensaje entra en Deshacer y el botón no cambia de forma (J1-A-28)', async () => {
+    const { page, context } = await session()
+    try {
+      await openMessage(page, 'Revisar la lectura')
+      const button = page.getByRole('button', { name: 'Cerrar', exact: true })
+      const before = await button.boundingBox()
+      assert.equal(await page.getByRole('button', { name: 'Deshacer' }).count(), 0, 'sin cambios no hay Deshacer')
+      await button.click()
+      await page.getByRole('button', { name: 'Reabrir', exact: true }).waitFor()
+      await page.getByText('Cerrado').first().waitFor()
+      await page.getByRole('button', { name: 'Deshacer' }).click()
+      await page.getByRole('button', { name: 'Cerrar', exact: true }).waitFor()
+      assert.ok(Math.abs((await page.getByRole('button', { name: 'Cerrar', exact: true }).boundingBox()).x - before.x) <= 1)
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('un error de la API y una carga lenta se ven como estados, no como pantalla vacía (J1-A-57)', async () => {
+    const { page, context } = await session()
+    try {
+      await page.route(/\/api\/messages(\?|$)/, async (route) => {
+        await new Promise((r) => setTimeout(r, 1200))
+        await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: { message: 'Fallo de prueba' } }) })
+      })
+      await page.goto(`${origin}/messages`)
+      await page.getByText('Cargando').first().waitFor()
+      await page.getByRole('alert').first().waitFor()
+      await page.unrouteAll({ behavior: 'ignoreErrors' })
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('el inicio de sesión rechazado muestra el motivo bajo el campo (J1-A-03)', async () => {
+    const context = await panel.browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'es-CL' })
+    const page = await context.newPage()
+    try {
+      await page.goto(origin)
+      await page.getByLabel('Correo').fill('ana@dev.invalid')
+      await page.getByLabel('Contraseña').fill('corta')
+      await page.getByRole('button', { name: 'Entrar' }).click()
+      await page.getByRole('alert').first().waitFor()
+      await page.getByText('Las cuentas las crea el Editor del equipo').waitFor()
+    } finally {
+      await context.close()
+    }
+  })
+})
+
+describe('plantillas como formulario (J1-A-32)', () => {
+  test('los campos se editan sin ver el archivo y una plantilla nueva se arma con campos', async () => {
+    const { page, context } = await session()
+    try {
+      await page.goto(`${origin}/areas/a-error`)
+      await page.getByRole('button', { name: /^Campos e instrucciones/ }).first().click()
+      const dialog = page.getByRole('dialog')
+      await dialog.getByRole('heading', { name: 'Campos' }).waitFor()
+      const text = await dialog.innerText()
+      for (const raw of ['---', 'fields:', 'required:', 'name:', '{ name']) assert.ok(!text.includes(raw), `el formulario muestra sintaxis cruda: «${raw}»`)
+      await dialog.getByRole('button', { name: 'Campo', exact: true }).click()
+      await dialog.getByRole('button', { name: /^Rótulo del campo: Campo nuevo/ }).waitFor()
+      const required = dialog.getByLabel('Obligatorio').last()
+      await required.click()
+      await page.waitForTimeout(400)
+      assert.equal(await required.isChecked(), true, 'la casilla Obligatorio guarda el cambio')
+      await dialog.getByRole('button', { name: 'Quitar el campo Campo nuevo' }).click()
+      await dialog.getByRole('button', { name: /^Rótulo del campo: Campo nuevo/ }).waitFor({ state: 'detached' })
+      await page.keyboard.press('Escape')
+
+      await page.getByRole('button', { name: 'Plantilla', exact: true }).click()
+      const form = page.getByRole('dialog')
+      await form.getByLabel('Nombre').fill('Observación de prueba')
+      await form.getByLabel('Descripción').fill('Una plantilla creada desde el formulario.')
+      await form.getByRole('button', { name: 'Campo', exact: true }).click()
+      await form.getByLabel('Rótulo del campo').fill('Qué se observó')
+      await form.getByRole('button', { name: 'Crear' }).click()
+      await page.getByRole('button', { name: /^Nombre: Observación de prueba/ }).waitFor()
+      const created = await (await page.request.get(`${origin}/api/areas/a-error/templates`)).json()
+      const file = (created.items ?? created).find((t) => t.name === 'Observación de prueba').body_markdown
+      assert.match(file, /label: "Qué se observó", required: false/)
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('cada función ofrece sólo los proveedores que acepta (J1-A-45)', async () => {
+    const { page, context } = await session()
+    try {
+      await page.goto(`${origin}/settings`)
+      await page.getByRole('button', { name: 'Proveedor de Texto' }).click()
+      const options = await page.getByRole('menuitemradio').allInnerTexts()
+      assert.ok(options.includes('anthropic') && !options.includes('groq-speech'), `Texto ofrece: ${options.join(', ')}`)
+      await page.keyboard.press('Escape')
+      assert.equal(await page.getByRole('button', { name: 'Proveedor de Transcripción' }).count(), 0, 'una función con un solo proveedor no ofrece un control vacío')
     } finally {
       await context.close()
     }

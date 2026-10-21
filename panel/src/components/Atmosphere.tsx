@@ -8,7 +8,7 @@ export function Atmosphere() {
     <svg
       aria-hidden
       focusable="false"
-      className="pointer-events-none fixed inset-0 z-0 h-full w-full"
+      className="pointer-events-none fixed inset-0 z-0 h-full w-full [mask-image:linear-gradient(to_bottom,black_3.5rem,transparent_9rem)]"
       viewBox="0 0 1440 900"
       preserveAspectRatio="xMaxYMin slice"
     >

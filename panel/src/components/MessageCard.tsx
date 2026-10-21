@@ -47,7 +47,9 @@ export function MessageCard({ message, variant = 'message' }: { message: Message
   const main = mainAttachment(from.attachments)
 
   return (
-    <article data-affects-me={tone ?? undefined} className={cn('group relative grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-1 border-b border-line px-4 py-3 last:border-b-0 hover:bg-glass-edge md:grid-cols-[minmax(0,1fr)_9.5rem_3.5rem] md:grid-rows-[auto_auto_1fr]', tone && EDGE[tone])}>
+    <article data-affects-me={tone ?? undefined} className={cn('group @container relative border-b border-line last:border-b-0 hover:bg-glass-edge', tone && EDGE[tone])}>
+      {/* The layout follows the width of the row, not the window: the same row sits in the full list and in the half columns of Inicio. */}
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-1 px-4 py-3 @2xl:grid-cols-[minmax(0,1fr)_9.5rem_3.5rem] @2xl:grid-rows-[auto_auto_1fr]">
       {/* data-repeat-ok: the reply row names the message it answers; that message is listed on its own too. */}
       <h3 data-repeat-ok={reply ? 'reply-names-its-message' : undefined} className="col-start-1 row-start-1 break-words text-sm font-semibold leading-snug">
         <Link
@@ -58,7 +60,7 @@ export function MessageCard({ message, variant = 'message' }: { message: Message
         </Link>
       </h3>
       <p className="col-start-1 row-start-2 whitespace-normal break-words text-xs text-muted">{reply ? reply.body : message.body}</p>
-      <div className="col-span-2 row-start-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted md:col-span-1">
+      <div className="col-span-2 row-start-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted @2xl:col-span-1">
         <AreaBadge title={areaTitle(message.area_id)} />
         {tone && <ToneMark tone={tone} />}
         <span data-repeat-ok="person" className="inline-flex items-center gap-1.5 leading-tight">
@@ -79,9 +81,9 @@ export function MessageCard({ message, variant = 'message' }: { message: Message
         </Recipients>
       </div>
 
-      <div className="col-span-2 row-start-4 flex items-center justify-between gap-2 md:col-span-1 md:col-start-2 md:row-span-3 md:row-start-1 md:flex-col md:items-start md:justify-start md:gap-1.5">
+      <div className="col-span-2 row-start-4 flex items-center justify-between gap-2 @2xl:col-span-1 @2xl:col-start-2 @2xl:row-span-3 @2xl:row-start-1 @2xl:flex-col @2xl:items-start @2xl:justify-start @2xl:gap-1.5">
         <StatusBadge status={message.status} />
-        <span className="relative z-10 flex items-center gap-1 transition-opacity duration-150 md:-ml-2 md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100 [@media(hover:none)]:opacity-100">
+        <span className="relative z-10 flex items-center gap-1 transition-opacity duration-150 @2xl:-ml-2 @2xl:opacity-0 @2xl:group-focus-within:opacity-100 @2xl:group-hover:opacity-100 [@media(hover:none)]:opacity-100">
           {!isAuthor && !closed && (
             <Button asChild size="sm" variant="ghost" className="px-2 text-xs text-accent-deep">
               <Link to={`/messages/${message.id}?reply=1`}>{t('card.reply')}</Link>
@@ -94,10 +96,11 @@ export function MessageCard({ message, variant = 'message' }: { message: Message
       </div>
 
       {main && (
-        <div className="col-start-2 row-span-2 row-start-1 md:col-start-3 md:row-span-3">
+        <div className="col-start-2 row-span-2 row-start-1 @2xl:col-start-3 @2xl:row-span-3">
           <Thumb item={{ kind: main.kind, src: main.kind === 'link' ? undefined : (reply ? replyAttachmentUrl : attachmentUrl)(main.id), name: main.name, size: main.size }} px={48} />
         </div>
       )}
+      </div>
     </article>
   )
 }

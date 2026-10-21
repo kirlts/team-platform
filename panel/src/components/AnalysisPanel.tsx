@@ -91,13 +91,13 @@ export function AnalysisPanel({ input, onClose, registerPublish }: { input: Inpu
               <RotateCw size={13} aria-hidden /> {t('analysis.again')}
             </Button>
           )}
-          <UndoButtons stack={undo} compact hideWhenEmpty />
+          <UndoButtons stack={undo} compact />
         </div>
       </div>
 
       {processing && (
         <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between gap-2 text-[13px]">
+          <div className="flex items-center justify-between gap-2 text-sm">
             <span>{progress?.phrase || (STATUS_PHRASE[input.status] ? t(STATUS_PHRASE[input.status]!) : '')}</span>
             {percent > 0 && <span className="tabular-nums text-muted">{percent} %</span>}
           </div>
@@ -298,7 +298,7 @@ function ProposalEditor({
         <div className="flex items-center justify-end gap-3 text-xs text-muted">
           <Popover>
             <PopoverTrigger asChild>
-              <button type="button" className="hit inline-flex items-center gap-1.5 text-[13px] text-muted hover:text-fg">
+              <button type="button" className="hit inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg">
                 {t('proposal.noAction')} <Badge tone="neutral">{discardedCount}</Badge>
               </button>
             </PopoverTrigger>
@@ -306,7 +306,7 @@ function ProposalEditor({
               <p className="mb-2 text-xs font-semibold">{t('proposal.noActionTitle', { n: discardedCount })}</p>
               <ul data-lane="discarded-units" className="scroll-thin flex max-h-72 flex-col gap-2 overflow-y-auto">
                 {discarded.map((d, i) => (
-                  <li key={i} className="text-[13px]">
+                  <li key={i} className="text-sm">
                     <p className="text-xs text-muted">{d.reason}</p>
                     {d.unit_ids.map((id) => (
                       <p key={id} className="whitespace-pre-wrap">
@@ -409,7 +409,7 @@ function ProposalRow({
           <ChevronRight size={14} aria-hidden className="mt-0.5 shrink-0 text-muted" />
           <span className="mt-px w-4 shrink-0 text-xs font-semibold tabular-nums text-muted">{index + 1}</span>
           <span className="flex min-w-0 flex-1 flex-col">
-            <span className="break-words text-[13px] font-semibold">{m.title}</span>
+            <span className="break-words text-sm font-semibold">{m.title}</span>
             <span className="break-words text-xs text-muted">{[areaTitle(m.area_id), to ? t('proposal.to', { names: to }) : t('proposal.noRecipients')].join(' · ')}</span>
           </span>
           {missingCount > 0 && <Badge tone="danger">{t('proposal.missingShort')}</Badge>}
@@ -464,7 +464,7 @@ function ProposalRow({
             </DropdownMenuContent>
           </DropdownMenu>
         )}
-        <EditableText value={m.title} label={t('proposal.title')} validate={required} onSave={(v) => patch(index, t('proposal.titleEdited'), { title: v })} displayClassName="text-[0.95rem] font-semibold" className="min-w-0 flex-1 basis-40" />
+        <EditableText value={m.title} label={t('proposal.title')} validate={required} onSave={(v) => patch(index, t('proposal.titleEdited'), { title: v })} displayClassName="text-sm font-semibold" className="min-w-0 flex-1 basis-40" />
         {/* The only message cannot be removed: Descartar is the way out, so the button is not drawn instead of drawn off. */}
         {!only && (
           <Button size="sm" variant="ghost" className="hit shrink-0 text-muted" onClick={() => void remove(index)} aria-label={t('proposal.remove', { title: m.title })}>
@@ -472,7 +472,7 @@ function ProposalRow({
           </Button>
         )}
       </div>
-      <EditableText value={m.body} label={t('proposal.body')} multiline prose validate={required} onSave={(v) => patch(index, t('proposal.bodyEdited'), { body: v })} displayClassName="text-[17px] leading-[1.65] text-fg" className="py-1" />
+      <EditableText value={m.body} label={t('proposal.body')} multiline prose validate={required} onSave={(v) => patch(index, t('proposal.bodyEdited'), { body: v })} displayClassName="text-read text-fg" className="py-1" />
       <TemplateFields template={template} values={m.fields} onSave={(name, value) => patch(index, t('proposal.fieldEdited'), (cur) => ({ fields: { ...(cur.fields ?? {}), [name]: value } }))} />
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
         <RecipientsEditor ids={m.assignee_ids} onChange={(ids) => void patch(index, t('proposal.recipientsChanged'), { assignee_ids: ids })} />

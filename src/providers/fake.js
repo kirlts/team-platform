@@ -8,6 +8,7 @@
 // consumida en orden. Una respuesta es: un Error (se lanza), una función, `{json}`, `{text}`
 // u otro objeto cualquiera (se toma como `json`). Los campos `usage`, `duration_ms`, `provider`
 // y `model` se completan si faltan, con la forma del contrato de §7.6.
+import { createLimiter } from './limiter.js';
 import { withGenAiCall } from '../telemetry/api.js';
 
 function defaultUsage() {
@@ -38,11 +39,14 @@ async function materialize(response, req, n, identity) {
 }
 
 /**
- * @param {{text?: any, vision?: any, speech?: any, textProfile?: string, name?: string, model?: string}} [scripts]
+ * @param {{text?: any, vision?: any, speech?: any, textProfile?: string, name?: string, model?: string, limiter?: object, maxInflight?: number}} [scripts]
+ *   `limiter` or `maxInflight` give the fake the semaphore of a real provider (default: its own, with no cap).
  */
 export function createFakeProviders(scripts = {}) {
   const calls = { text: [], vision: [], speech: [] };
   const identity = { name: scripts.name ?? 'fake', model: scripts.model ?? 'fake-model' };
+  // Like a real client, every call takes a slot of the provider's limiter before it "goes out".
+  const limiter = scripts.limiter ?? createLimiter({ name: identity.name, max: scripts.maxInflight ?? 0 });
   const nextText = resolver('text', scripts.text);
   const nextVision = resolver('vision', scripts.vision);
   const nextSpeech = resolver('speech', scripts.speech);
@@ -56,7 +60,7 @@ export function createFakeProviders(scripts = {}) {
       return withGenAiCall({ provider: identity.name, model: identity.model, modality: 'text', request: req }, async () => {
         const n = calls.text.length;
         calls.text.push(structuredClone(req));
-        return materialize(nextText(req, n), req, n, identity);
+        return limiter.run(() => materialize(nextText(req, n), req, n, identity));
       });
     },
   };
@@ -66,7 +70,7 @@ export function createFakeProviders(scripts = {}) {
       return withGenAiCall({ provider: identity.name, model: identity.model, modality: 'vision', request: req }, async () => {
         const n = calls.vision.length;
         calls.vision.push(structuredClone(req));
-        return materialize(nextVision(req, n), req, n, identity);
+        return limiter.run(() => materialize(nextVision(req, n), req, n, identity));
       });
     },
   };
@@ -77,10 +81,10 @@ export function createFakeProviders(scripts = {}) {
       return withGenAiCall({ provider: identity.name, model: identity.model, modality: 'speech', operation: 'transcription', request }, async () => {
         const n = calls.speech.length;
         calls.speech.push(structuredClone(req));
-        const out = await materialize(nextSpeech(req, n), req, n, identity);
+        const out = await limiter.run(() => materialize(nextSpeech(req, n), req, n, identity));
         return { text: '', segments: [], ...out };
       });
     },
   };
-  return { text, vision, speech, calls };
+  return { text, vision, speech, calls, limiter };
 }

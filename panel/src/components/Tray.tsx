@@ -61,7 +61,7 @@ export function Tray({ items, selectedId, hideTextId, onSelect, bare = false }: 
 function Label({ text, onlyMedia }: { text: string; onlyMedia: boolean }) {
   const t = useT()
   const words = firstWords(text)
-  return <p className="break-words text-[13px] leading-snug">{words || (onlyMedia ? t('tray.onlyMedia') : '')}</p>
+  return <p className="break-words text-sm leading-snug">{words || (onlyMedia ? t('tray.onlyMedia') : '')}</p>
 }
 
 function InputRow({ input, selected, hideText, onSelect }: { input: InputRecord; selected: boolean; hideText: boolean; onSelect: () => void }) {

@@ -25,6 +25,7 @@ export function EditableText({
   prose = false,
   render,
   onEditingChange,
+  emptyLabel,
 }: {
   value: string
   onSave: (next: string) => void | Promise<unknown>
@@ -44,6 +45,8 @@ export function EditableText({
   /** How the value is shown when reading (for example, already-interpreted markdown); when editing the text is shown as is. */
   render?: (value: string) => ReactNode
   onEditingChange?: (editing: boolean) => void
+  /** Accessible text of the empty state when it differs from the visible placeholder (for example «Obligatorio»). */
+  emptyLabel?: string
 }) {
   const t = useT()
   const errorText = useErrorText()
@@ -80,7 +83,7 @@ export function EditableText({
     }
   }, [editing])
 
-  const type = cn('whitespace-pre-wrap break-words', mono && value && 'font-mono text-[13px]', prose && 'prose-block', displayClassName)
+  const type = cn('whitespace-pre-wrap break-words', mono && value && 'font-mono text-xs', prose && 'prose-block', displayClassName)
   // Same box when reading and editing: the negative margin offsets the padding and the border.
   const box = '-mx-1.5 -my-px block w-[calc(100%+12px)] max-w-none rounded-md border border-transparent px-1.5 py-px text-left'
 
@@ -134,7 +137,7 @@ export function EditableText({
         <span
           role="button"
           tabIndex={0}
-          aria-label={`${label}: ${value || shown}`}
+          aria-label={`${label}: ${value || (emptyLabel ?? shown)}`}
           onClick={open}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -146,7 +149,8 @@ export function EditableText({
             box,
             'cursor-text hover:border-line-strong hover:bg-raised focus-visible:border-accent',
             type,
-            !value && 'text-faint',
+            // An empty field that can be filled looks like a place to fill: dashed edge (J1-A-23).
+            !value && 'border-dashed !border-line-strong text-faint',
           )}
         >
           {value ? (render ? render(value) : value) : shown}
@@ -189,7 +193,7 @@ export function EditableText({
       ) : (
         multiline && (
           // Over the next line, not between: the field keeps its height while it is edited (J1-B-19).
-          <span id={hintId} data-edit-hint className="pointer-events-none absolute left-0 top-full z-10 mt-0.5 rounded bg-surface px-1.5 py-0.5 text-[11px] leading-tight text-muted shadow-sm">
+          <span id={hintId} data-edit-hint className="pointer-events-none absolute left-0 top-full z-10 mt-0.5 rounded bg-surface px-1.5 py-0.5 text-xs leading-tight text-muted shadow-sm">
             {t('editable.hint')}
           </span>
         )

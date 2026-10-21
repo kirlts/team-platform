@@ -19,7 +19,12 @@ import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 const PROFILE_MAX = 4000
 const LANGUAGE_KEY: Record<Language, MessageKey> = { 'es-419': 'language.es-419', en: 'language.en' }
 const SHORT_LANGUAGE_KEY: Record<Language, MessageKey> = { 'es-419': 'language.short.es-419', en: 'language.short.en' }
-const COLUMNS = 'md:grid-cols-[15rem_8rem_minmax(0,1fr)_6.5rem]'
+const COLUMNS = 'md:grid-cols-[17rem_7rem_minmax(0,1fr)_7rem]'
+
+/** An address that may only break after a separator, never in the middle of a word (J1-A-39). */
+function withBreaks(email: string) {
+  return email.split(/(?<=[.@_-])/).flatMap((part, i) => (i === 0 ? [part] : [<wbr key={i} />, part]))
+}
 
 /** Members with their responsibilities and domains. Each one edits their own; the Editor adds, and changes name, email and role of the others. */
 export function Team() {
@@ -41,7 +46,7 @@ export function Team() {
             <div className="flex items-center gap-2">
               <UndoButtons stack={undo} />
               {editor && (
-                <Button variant="primary" size="sm" onClick={() => setAdding(true)}>
+                <Button size="sm" onClick={() => setAdding(true)}>
                   <UserPlus size={14} aria-hidden /> {t('team.add')}
                 </Button>
               )}
@@ -53,7 +58,7 @@ export function Team() {
           rowKey={(m) => m.id}
           label={t('nav.team')}
           header={
-            <div className={`hidden gap-4 border-b border-line bg-[linear-gradient(180deg,var(--color-chrome-1),var(--color-chrome-2))] px-4 py-2 text-[13px] font-semibold text-muted md:grid ${COLUMNS}`}>
+            <div className={`hidden gap-4 border-b border-line bg-[linear-gradient(180deg,var(--color-chrome-1),var(--color-chrome-2))] px-4 py-2 text-sm font-semibold text-muted md:grid ${COLUMNS}`}>
               <span>{t('team.member')}</span>
               <span>{t('team.role')}</span>
               <span>{t('team.profile')}</span>
@@ -112,10 +117,10 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
             <EditableText value={member.name} label={t('team.fieldName')} canEdit={canEditPeople} validate={required} onSave={(v) => change('name', v)} displayClassName="text-sm font-semibold" className="w-auto" />
             {self && <Badge tone="accent">{t('team.me')}</Badge>}
           </div>
-          <EditableText value={member.email} label={t('team.fieldEmail')} canEdit={canEditPeople} validate={(v) => (v.includes('@') ? null : t('team.invalidEmail'))} onSave={(v) => change('email', v)} displayClassName="break-all text-xs text-muted" />
+          <EditableText value={member.email} label={t('team.fieldEmail')} canEdit={canEditPeople} validate={(v) => (v.includes('@') ? null : t('team.invalidEmail'))} onSave={(v) => change('email', v)} displayClassName="break-words text-xs text-muted" render={withBreaks} />
         </div>
       </div>
-      <div className="flex min-w-0 flex-col items-start gap-1">
+      <div className="flex min-w-0 flex-col items-start gap-1 max-md:flex-row max-md:flex-wrap max-md:items-center max-md:gap-x-3">
         {canEditPeople && !self ? (
           <DropdownMenu>
             <DropdownMenuTrigger aria-label={t('team.roleOf', { name: member.name })} className="inline-flex rounded-full hover:bg-hover">
@@ -131,17 +136,18 @@ function MemberRow({ member, self, viewerIsEditor }: { member: Member; self: boo
         ) : (
           <Badge tone={member.role === 'editor' ? 'accent' : 'neutral'}>{roleLabel[member.role]}</Badge>
         )}
-        <Badge tone={member.active ? 'answered' : 'outline'}>{member.active ? t('team.active') : t('team.inactive')}</Badge>
+        {/* Active is the normal state and has no tag: only the exception is marked (J1-A-41). */}
+        {!member.active && <Badge tone="outline">{t('team.inactive')}</Badge>}
         <span className="text-xs text-muted" title={t(LANGUAGE_KEY[member.language])}>
           {t('team.languageOf', { code: t(SHORT_LANGUAGE_KEY[member.language]) })}
         </span>
       </div>
-      <div className="min-w-0 text-[13px]">
+      <div className="min-w-0 text-xs">
         <EditableText value={member.profile ?? ''} label={t('team.profileOf', { name: member.name })} multiline prose canEdit={self} placeholder={t('team.noProfile')} validate={(v) => (v.length > PROFILE_MAX ? t('form.maxLength', { n: PROFILE_MAX }) : null)} onSave={(v) => change('profile', v)} />
       </div>
       <div className="flex min-w-0 flex-col items-end gap-1">
         {canEditPeople && !self && (
-          <Button size="sm" variant="ghost" className="text-muted" onClick={() => void toggleActive()} aria-label={member.active ? t('team.deactivateOf', { name: member.name }) : t('team.reactivateOf', { name: member.name })}>
+          <Button size="sm" onClick={() => void toggleActive()} aria-label={member.active ? t('team.deactivateOf', { name: member.name }) : t('team.reactivateOf', { name: member.name })}>
             {member.active ? t('team.deactivate') : t('team.reactivate')}
           </Button>
         )}

@@ -28,7 +28,7 @@ export function NoticeHost({ inDialog = false }: { inDialog?: boolean }) {
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-0.5 self-center">
           <p className="break-words">{current.text}</p>
           {(current.link || current.action) && (
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] font-semibold">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-semibold">
               {current.link && (
                 <Link to={current.link.to} onClick={dismiss} className="inline-flex min-h-6 items-center text-accent hover:underline">
                   {current.link.label}

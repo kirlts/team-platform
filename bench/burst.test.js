@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { aggregateRuns, burstPlan, chooseConcurrency, createFetchTally, formatMarkdown, percentile, planRuns } from './burst.mjs';
+import { aggregateRuns, burstPlan, chooseConcurrency, chooseInflightCap, createFetchTally, formatMarkdown, percentile, planRuns } from './burst.mjs';
 
 test('percentile: nearest rank on a small sample', () => {
   assert.equal(percentile([], 50), null);
@@ -39,7 +39,7 @@ test('chooseConcurrency: lowest p95 among the runs of the largest N with no 429 
 
 test('formatMarkdown: a row per run with the 429s over the requests of each provider', () => {
   const r = { n: 3, concurrency: 2, wall_ms: 12345, p50_ms: 5000, p95_ms: 9000, done: 3, queue_retries: 1, cost_usd: 0.01234, providers: { anthropic: { s429: 1, requests: 20, peak_in_flight: 9 }, groq: { s429: 0, requests: 1 } } };
-  assert.match(formatMarkdown([r]), /\| 3 \| 2 \| 1 \| 12\.3 \| 5\.0 \| 9\.0 \| 3\/3 \| 1 \/ 20 \| 0 \/ 1 \| 1 \| 9 \| 0\.0123 \|/);
+  assert.match(formatMarkdown([r]), /\| 3 \| 2 \| default \| 1 \| 12\.3 \| 5\.0 \| 9\.0 \| 3\/3 \| 0 \| 1 \/ 20 \| 0 \/ 1 \| 1 \| 9 \| 0 \| 0\.0 \| n\/a \| 0\.0123 \|/);
 });
 
 test('aggregateRuns: median of the times, sum of the counts, peak of the simultaneous requests', () => {
@@ -97,4 +97,18 @@ test('runBurst with fake modules: every input of the burst reaches its proposal 
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('chooseConcurrency: with allow429 a 429 the cap absorbed does not disqualify, a failed input still does', () => {
+  const rows = [row(16, 3, 30), row(16, 6, 20, { a429: 2 }), row(16, 8, 10, { failed: 1 })];
+  assert.equal(chooseConcurrency(rows).concurrency, 3);
+  assert.equal(chooseConcurrency(rows, { allow429: true }).concurrency, 6);
+});
+
+test('chooseInflightCap: highest clean level below the first 429 of any repetition, minus one', () => {
+  const rep = (...pairs) => pairs.map(([level, s429]) => ({ level, s429 }));
+  const reps = [rep([4, 0], [8, 0], [12, 0], [16, 3]), rep([4, 0], [8, 0], [12, 2]), rep([4, 0], [8, 0], [12, 0], [16, 0], [24, 5])];
+  assert.deepEqual(chooseInflightCap(reps), { highest_clean: 8, first_429_level: 12, cap: 7 });
+  assert.deepEqual(chooseInflightCap([rep([4, 0], [8, 0])]), { highest_clean: 8, first_429_level: null, cap: 7 });
+  assert.equal(chooseInflightCap([rep([4, 1])]), null);
 });

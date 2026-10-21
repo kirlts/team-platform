@@ -24,10 +24,13 @@ export function TemplateFields({
   const fields = useMemo(() => parseTemplateFields(template?.body_markdown ?? ''), [template?.body_markdown])
   if (fields.length === 0) return null
   return (
-    <dl className="grid gap-x-4 gap-y-2 text-[13px] @md:grid-cols-2">
+    <dl className="grid gap-x-4 gap-y-2 text-sm @md:grid-cols-2">
       {fields.map((f) => (
         <div key={f.name} className="flex min-w-0 flex-col gap-0.5">
-          <dt className="text-xs font-semibold text-muted">{f.label}</dt>
+          <dt className="flex items-baseline justify-between gap-2 text-xs font-semibold text-muted">
+            {f.label}
+            {f.required && !(values?.[f.name] ?? '').trim() && <span className="font-normal text-danger">{t('fields.required')}</span>}
+          </dt>
           <dd>
             <EditableText
               value={values?.[f.name] ?? ''}
@@ -35,7 +38,8 @@ export function TemplateFields({
               multiline
               prose
               canEdit={canEdit}
-              placeholder={f.required ? t('fields.required') : t('fields.optional')}
+              placeholder={t('fields.fill')}
+              emptyLabel={f.required ? t('fields.required') : t('fields.optional')}
               validate={f.required ? (v) => (v ? null : t('fields.requiredError')) : undefined}
               onSave={(v) => onSave(f.name, v)}
             />

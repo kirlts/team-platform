@@ -13,6 +13,15 @@ const HEIC_BRANDS = new Set(['heic', 'heix', 'hevc', 'hevx', 'heim', 'heis', 'he
 
 const MIME_BY_FORMAT = { jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp' };
 
+/** True when the file is a HEIC/HEIF container (by its `ftyp` brand, never by name or declared type). */
+export async function isHeicFile(path) {
+  const brand = await readBrand(path);
+  return Boolean(brand && HEIC_BRANDS.has(brand));
+}
+
+/** Message of the rejection, shared by the upload and the extractor so both say the same thing. */
+export const HEIC_MESSAGE = 'La foto está en formato HEIC (iPhone) y no se puede leer. Exportarla como JPEG o enviarla desde la cámara de la aplicación.';
+
 async function readBrand(path) {
   const handle = await open(path, 'r');
   try {
@@ -34,7 +43,7 @@ export async function normalizeImage(path, cfg) {
   if (brand && HEIC_BRANDS.has(brand)) {
     throw new ExtractError(
       'image_heic_unsupported',
-      'La foto está en formato HEIC (iPhone) y no se puede leer. Exportarla como JPEG o enviarla desde la cámara de la aplicación.',
+      HEIC_MESSAGE,
       { brand },
     );
   }

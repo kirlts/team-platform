@@ -182,7 +182,7 @@ export function Home() {
           <DialogTrigger asChild>
             <button type="button" data-testid="tray-control" className="glass leaf flex w-full shrink-0 flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-left hover:bg-glass-edge">
               <ChevronRight size={16} aria-hidden className="shrink-0" />
-              <span className="text-[0.95rem] font-bold">{t('tray.title')}</span>
+              <span className="text-sm font-bold">{t('tray.title')}</span>
               <TrayState items={items} />
               <span className="ml-auto text-xs text-muted">{t('tray.unfold')}</span>
             </button>
@@ -302,7 +302,7 @@ function Feed({ kind, meId }: { kind: 'messages' | 'replies'; meId: string }) {
   return (
     <section aria-label={messagesFeed ? t('home.latestMessages') : t('home.latestReplies')} className="glass leaf flex min-h-0 min-w-0 flex-col gap-2 px-1 pb-1 pt-3">
       <div className="flex flex-wrap items-center justify-between gap-2 px-3">
-        <h2 className="text-[1.05rem]">
+        <h2 className="text-base">
           <Link to={`/messages?${params.toString()}`} className="hover:underline">
             {messagesFeed ? t('home.latestMessages') : t('home.latestReplies')}
           </Link>

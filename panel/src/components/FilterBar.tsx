@@ -64,7 +64,7 @@ export function FilterBar({ query, onChange }: { query: MessageQuery; onChange: 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-0 flex-1 basis-56">
+        <div className="relative min-w-0 max-w-lg flex-1 basis-56">
           <Search size={15} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
           <input
             type="search"
@@ -96,7 +96,7 @@ export function FilterBar({ query, onChange }: { query: MessageQuery; onChange: 
       {query.filters.length > 0 && (
         <ul className="flex flex-wrap items-center gap-2" aria-label={t('filter.applied')}>
           {query.filters.map((f) => (
-            <li key={f.prop} className="glass inline-flex min-h-7 items-stretch overflow-hidden rounded-[14px] text-[13px] leading-tight !shadow-none">
+            <li key={f.prop} className="glass inline-flex min-h-7 items-stretch overflow-hidden rounded-[14px] text-sm leading-tight !shadow-none">
               <span className="flex items-center bg-[linear-gradient(180deg,var(--color-chrome-1),var(--color-chrome-2))] px-3 py-1 font-semibold">{t(PROP_KEY[f.prop])}</span>
               {f.prop === 'replies' ? null : (
                 <DropdownMenu>

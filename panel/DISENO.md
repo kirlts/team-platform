@@ -76,10 +76,15 @@ El desenfoque se usa en pocas superficies grandes. Las filas no lo llevan, por c
 
 | Rol | Familia | Tamaño | Notas |
 |---|---|---|---|
-| Marca de la cabecera | Orbitron | 20,8 px | Peso 800, tracking 0,14 em |
+| Marca de la cabecera y del inicio de sesión | Orbitron | 15 px | Peso 700, tracking 0,14 em, una sola tinta; el mismo componente (`Wordmark`) en la barra y en la tarjeta de entrada (J1-A-02, J1-A-04) |
 | Título de pantalla | Source Sans 3 | 20,8 a 26,4 px según el ancho (`clamp`) | Peso 700; las tildes de las mayúsculas de Orbitron tocan la letra (Á, Ó) |
-| Rótulo de sección | Orbitron | 13 px | Mayúsculas, tracking 0,08 em |
-| Texto | Source Sans 3 | 15 px base | Escala de razón 1,25: 12, 15, 18,75, 23,4 |
+| Rótulo de sección | Source Sans 3 | 12 px | Peso 700, mayúsculas, tracking 0,08 em; Orbitron queda para la marca porque sus mayúsculas anchas se leen mal a 12 px (J1-A-55) |
+| Apoyo (`text-xs`) | Source Sans 3 | 12 px | Metadatos, extractos, rótulos de campo; ningún texto visible baja de 12 px (J1-A-53) |
+| Cuerpo (`text-sm`, `text-base`) | Source Sans 3 | 15 px | Títulos de fila, valores, controles |
+| Lectura (`text-read`) | Source Sans 3 | 17 px | El texto de una propuesta (UD-030) |
+| Encabezado (`text-lg`) | Source Sans 3 | 18,75 px | Escala de razón 1,25: 12, 15, 18,75, 23,4 |
+
+Los tamaños son tokens de `@theme` (`--text-xs`, `--text-sm`, `--text-read`, `--text-lg`). Ningún componente escribe un tamaño propio por debajo del encabezado: `src/type-scale.test.ts` lo exige en el código y `test:fit` mide cada texto visible en el navegador (las iniciales de un avatar son decoración y quedan exentas).
 
 Las fuentes están empaquetadas en `src/assets/fonts/` (WOFF2 variable, subconjunto latino) con su licencia OFL al lado. Ninguna se pide a un servidor externo; `font-src 'self'` basta, y `assetsInlineLimit: 0` impide que Vite las convierta en `data:`. Las cifras con cero tachado de Orbitron no se usan en datos: la fecha y la hora van en Source Sans 3.
 
@@ -89,7 +94,7 @@ Una animación continua: el destello del medidor de progreso, mientras un trabaj
 
 ### Atmósfera
 
-`src/components/Atmosphere.tsx` dibuja una órbita anclada a la esquina superior derecha, fija y con `aria-hidden`; en teléfono no se dibuja. El cielo con brillos radiales cita el Frutiger Aero y la órbita el Y2K futurista. No hay destellos sueltos: un adorno sin ancla flota (UD-016).
+`src/components/Atmosphere.tsx` dibuja una órbita anclada a la esquina superior derecha, fija y con `aria-hidden`; en teléfono no se dibuja. Una máscara la desvanece bajo la barra superior para que sus trazos no crucen títulos ni botones de la vista (J1-A-56). El cielo con brillos radiales cita el Frutiger Aero y la órbita el Y2K futurista. No hay destellos sueltos: un adorno sin ancla flota (UD-016).
 
 ## Contraste medido
 
@@ -109,6 +114,9 @@ Una animación continua: el destello del medidor de progreso, mientras un trabaj
 | Estado abierto, respondido, cerrado (texto sobre su fondo) | 7,89 · 7,31 · 6,78 | 8,24 · 8,42 · 6,36 | 4,5 |
 | Texto del botón gel (a 30 % del alto, con brillo) | 4,59 | 7,38 | 4,5 |
 | Borde de controles sobre vidrio | 4,04 | 4,54 | 3 |
+| Relleno de fila elegida contra el vidrio | 1,32 | 1,51 | 1,25 |
+| Barra de fila elegida sobre su relleno | 4,20 | 4,73 | 3 |
+| Texto sobre fila elegida (tinta · secundario) | 11,56 · 5,36 | 8,71 · 4,87 | 4,5 |
 
 ## Grilla
 
@@ -122,7 +130,7 @@ Todo bloque se ancla a esta grilla; nada queda flotando sin un ancla.
 | Canal entre columnas | 40 px entre bloques grandes, 16 px dentro de una fila, 12 px entre ícono y texto, 8 px entre chips |
 | Ritmo vertical | 16 px entre bloques de una vista y 20 px entre secciones (`Page section`) |
 | Relleno de fila | 16 px a cada lado y 12 px arriba y abajo en listas y tablas |
-| Columnas de una tarjeta de mensaje | fecha 5,5 rem, íconos de medio 7,5 rem, estado el resto: el estado y los íconos caen en la misma x en todas las filas |
+| Columnas de una tarjeta de mensaje | desde 42 rem de ancho de la propia fila: texto (el resto), estado y acciones 9,5 rem, miniatura 3,5 rem; el estado cae en la misma x en todas las filas. Bajo ese ancho la fila se apila y el estado y las acciones van al pie |
 
 Reglas de anclaje:
 
@@ -184,7 +192,13 @@ UD-018. La interfaz sale de dos catálogos, `src/i18n/es-419.ts` (por omisión) 
 
 - Inicio usa una banda de dos columnas 5/7 (mensaje y análisis) y debajo otra 7/5 (mensajes y respuestas). La alternancia sostiene la asimetría sin romper la grilla de 12 columnas.
 - La esfera de vidrio firma sólo la marca de la cabecera y el inicio de sesión; no se repite en cada título (UD-016: ningún adorno sin función).
-- La acción primaria de cada vista es un botón gel; las demás son vidrio o texto. En las filas de mensaje, Responder y Cerrar bajan a texto para que el título y el estado se lean primero.
+- El botón gel es sólo para la acción que la pantalla pide hacer: Entrar, Enviar y Responder. Crear un área o un miembro es vidrio, porque Áreas y Equipo se leen antes de editarse (J1-A-54). En las filas de mensaje, Responder y Cerrar son botones pequeños que aparecen al pasar el cursor o con el foco, y siempre visibles en pantallas táctiles (J1-A-16).
+- Una fila de mensaje tiene tres niveles: título y estado (15 px), extracto y metadatos (12 px, el extracto completo, sin recortes), acciones al foco. El estado ocupa una columna fija. La fila se compone según su propio ancho (container query), no el de la ventana.
+- Menús y popovers son opacos (`.pop`): nada se transparenta bajo ellos (J1-A-09).
+- La fila elegida (Áreas) lleva relleno y barra de acento de 4 px, medidos en `npm run contraste` (J1-A-33).
+- Un campo editable vacío se dibuja con borde punteado y la palabra «Completar» (J1-A-23). El contador de lo que lista la vista va junto al título (J1-A-22). Un estado vacío o de error es un bloque en el cuerpo con su salida (`EmptyState`), y una dirección desconocida muestra «Página no encontrada» (J1-A-10).
+- Deshacer y Rehacer no se dibujan mientras no haya nada que deshacer ni rehacer (J1-A-25).
+- Una plantilla se edita como formulario (campos con casilla «Obligatorio» e instrucciones al modelo en su propia sección); el archivo con su cabecera YAML se construye al guardar y no se muestra (J1-A-32).
 - El área de un mensaje es una pestaña de cromo con esquinas opuestas redondeadas; el estado es una insignia con luz.
 - Los anchos de columna siguen el contenido: la lista de mensajes ocupa 60 rem y deja el resto al fondo.
 

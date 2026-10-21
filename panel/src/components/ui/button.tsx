@@ -11,7 +11,7 @@ const variants = {
 
 const sizes = {
   default: 'h-8 px-4 gap-1.5 text-sm',
-  sm: 'h-7 px-3 gap-1 text-[13px]',
+  sm: 'h-7 px-3 gap-1 text-sm',
   icon: 'h-8 w-8 justify-center',
   'icon-sm': 'h-7 w-7 justify-center',
 } as const

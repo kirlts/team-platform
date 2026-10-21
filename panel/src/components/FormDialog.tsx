@@ -91,7 +91,7 @@ function FormBody({
     >
       {fields.map((f, i) => {
         return (
-          <label key={f.name} className="flex flex-col gap-1 text-[13px] font-medium">
+          <label key={f.name} className="flex flex-col gap-1 text-sm font-medium">
             {f.label}
             {f.multiline ? (
               <Textarea
@@ -99,7 +99,7 @@ function FormBody({
                 value={values[f.name]}
                 rows={f.rows ?? 3}
                 aria-invalid={errors[f.name] ? true : undefined}
-                className={f.mono ? 'font-mono text-[13px]' : undefined}
+                className={f.mono ? 'font-mono text-xs' : undefined}
                 onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
               />
             ) : (
@@ -109,7 +109,7 @@ function FormBody({
                 autoComplete={f.autoComplete}
                 value={values[f.name]}
                 aria-invalid={errors[f.name] ? true : undefined}
-                className={f.mono ? 'font-mono text-[13px]' : undefined}
+                className={f.mono ? 'font-mono text-xs' : undefined}
                 onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
               />
             )}

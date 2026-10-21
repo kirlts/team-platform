@@ -14,7 +14,7 @@ export function DropdownMenuContent({ className, sideOffset = 4, ...props }: Com
       <Primitive.Content
         sideOffset={sideOffset}
         className={cn(
-          'glass-strong z-50 min-w-44 max-w-[calc(100vw-1rem)] overflow-hidden rounded-lg p-1 text-sm text-fg',
+          'pop z-50 min-w-44 max-w-[calc(100vw-1rem)] overflow-hidden rounded-lg p-1 text-sm text-fg',
           className,
         )}
         {...props}

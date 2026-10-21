@@ -55,7 +55,7 @@ export function AttachmentPicker({ all, selected, onChange, max = 3 }: { all: At
                     >
                       <Thumb item={{ kind: a.kind, src: a.kind === 'link' ? undefined : attachmentUrl(a.id), name: a.name, size: a.size }} px={28} />
                       <span className="min-w-0 flex-1 text-xs leading-tight [overflow-wrap:anywhere]">
-                        <span className="block text-[13px]">{t(MEDIA_KEY[a.kind])}</span>
+                        <span className="block text-sm">{t(MEDIA_KEY[a.kind])}</span>
                         <span className="text-muted">{a.name}</span>
                       </span>
                       <span aria-hidden className="inline-flex w-4 text-accent">

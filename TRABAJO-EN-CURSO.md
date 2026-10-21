@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 61f61d6 Merge branch 'wt-cierre-docs'. Empujado a origin: `61f61d6`.
-- Ramas con commits sin fusionar: `wt-remanentes` 5 (hace 4 minutos), `wt-miniaturas` 3 (hace 23 segundos).
-- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `miniaturas`, `modelos`, `remanentes`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
+- `main`: 0718496 Merge branch 'main' into wt-remanentes. Empujado a origin: `0718496`.
+- Ramas con commits sin fusionar: ninguna.
+- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `61f61d6` Merge branch 'wt-cierre-docs' (hace 18 minutos)
-- `13504f0` Cifras de pruebas del servidor: 865 en verde y 6 omitidas, 2026-10-21 (hace 18 minutos)
-- `6ffba9b` Merge branch 'main' into wt-cierre-docs (hace 19 minutos)
-- `ef2f47f` TODO y deuda técnica al día; HP-019 con la medición del monólogo (hace 19 minutos)
-- `47db1fd` README: llaves desde Configuración, pruebas del panel y cifras del 2026-10-21 (hace 21 minutos)
-- `f69d165` CHANGELOG: barras, Inicio, publicación automática, tarjetas, Firefox y cifras medidas (hace 21 minutos)
-- `07130fe` REPOMAP: bóveda, conexiones, herramientas de interfaz y scripts nuevos (hace 22 minutos)
-- `c6a522e` MASTER-SPEC: vistas, componentes y flujos reflejan el panel construido (hace 22 minutos)
-Actualizado 2026-10-21 21:20 UTC.
+- `0718496` Merge branch 'main' into wt-remanentes (hace 14 minutos)
+- `ffda0ff` Changelog for the remaining findings (H-2000, H-2302, H-2605) (hace 14 minutos)
+- `c4b1f4b` Merge branch 'wt-miniaturas' (hace 17 minutos)
+- `785af07` Fusión de main en wt-miniaturas (hace 24 minutos)
+- `febe443` Merge branch 'main' into wt-remanentes (hace 28 minutos)
+- `f3c1357` Fix the ui-detectors findings of Equipo, Configuración and the message page (H-2302, UD-191) (hace 29 minutos)
+- `aaa0265` Hide the sign-out row when the identity provider has no sign-out route (H-2605, UD-190) (hace 33 minutos)
+- `564d055` Add involved=me to GET /api/messages and use it in the bar links (H-2000) (hace 35 minutos)
+Actualizado 2026-10-21 21:44 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

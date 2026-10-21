@@ -14,18 +14,18 @@
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
 - `main`: 48ca4b1 Traspaso: Configuración en vuelo. Empujado a origin: `48ca4b1`.
-- Ramas con commits sin fusionar: `wt-barra-superior` 8 (hace 6 minutos), `wt-configuracion` 2 (hace 67 segundos), `wt-inicio-respira` 2 (hace 7 minutos).
+- Ramas con commits sin fusionar: `wt-barra-superior` 9 (hace 73 segundos), `wt-configuracion` 4 (hace 8 segundos), `wt-inicio-respira` 2 (hace 9 minutos).
 - Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `barra-superior`, `cierre`, `configuracion`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `inicio-respira`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `48ca4b1` Traspaso: Configuración en vuelo (hace 4 minutos)
-- `89a1d39` Traspaso: la barra superior no lleva contadores por área (hace 12 minutos)
-- `207697a` Traspaso: instrucción de la barra superior en su sección (hace 14 minutos)
-- `43cf09c` Traspaso: la barra superior sólo con íconos de color y número (hace 14 minutos)
-- `c40b15d` Traspaso: barra superior e Inicio con espacio en vuelo (hace 17 minutos)
-- `14bd755` Traspaso: VPS actualizado, duración medida de la reconstrucción (hace 22 minutos)
-- `0d608f7` Traspaso: Inicio completo en main y VPS reconstruyéndose (hace 27 minutos)
-- `6c971d1` Merge remote-tracking branch 'origin/main' into wt-inicio-maqueta (hace 31 minutos)
-Actualizado 2026-10-21 17:38 UTC.
+- `48ca4b1` Traspaso: Configuración en vuelo (hace 6 minutos)
+- `89a1d39` Traspaso: la barra superior no lleva contadores por área (hace 14 minutos)
+- `207697a` Traspaso: instrucción de la barra superior en su sección (hace 16 minutos)
+- `43cf09c` Traspaso: la barra superior sólo con íconos de color y número (hace 16 minutos)
+- `c40b15d` Traspaso: barra superior e Inicio con espacio en vuelo (hace 19 minutos)
+- `14bd755` Traspaso: VPS actualizado, duración medida de la reconstrucción (hace 24 minutos)
+- `0d608f7` Traspaso: Inicio completo en main y VPS reconstruyéndose (hace 29 minutos)
+- `6c971d1` Merge remote-tracking branch 'origin/main' into wt-inicio-maqueta (hace 33 minutos)
+Actualizado 2026-10-21 17:40 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

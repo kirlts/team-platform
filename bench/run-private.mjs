@@ -30,6 +30,9 @@
 //   --results-dir <d>  where results and the spending ledger go (default bench/results)
 //   --budget <USD>   spending cap accumulated over extraction and analysis (default 5)
 //   --speech auto|groq|local|none   speech provider: auto uses Groq when there is a key, else the local one
+//   --plan             run: dry run. Prints the cases, the context files, the model with its price and the budget left, calls no
+//                      provider and needs no key; exits 1 when the real run would stop (no ready case, a missing file, a model
+//                      without a price, which would leave the spending cap blind)
 //
 // Manifest: { id, title, kind, source, text?, text_path?, attachments?: [{ id, kind, path, mime }] }
 import { parseArgs } from 'node:util';
@@ -42,7 +45,7 @@ import { createSpend, withQueueRetries } from './spend.mjs';
 import { runOracleCase } from './oracle.mjs';
 import { mergeSecondLabeler, onlySecondLabeler, readerAsProposal } from './labels.js';
 import { compareResults, formatComparison, poolResults } from './compare.js';
-import { costOf, usageOfCall } from './pricing.js';
+import { costOf, PRICES, usageOfCall } from './pricing.js';
 import { analyze } from '../src/analyze/index.js';
 import { extract } from '../src/extract/index.js';
 import { createProviders } from '../src/providers/index.js';
@@ -76,6 +79,7 @@ const { values, positionals } = parseArgs({
     reference: { type: 'string', default: 'union' },
     'common-cases': { type: 'boolean', default: false },
     ceiling: { type: 'boolean', default: false },
+    plan: { type: 'boolean', default: false },
   },
 });
 const command = positionals[0] ?? 'list';
@@ -284,6 +288,39 @@ if (command === 'list') {
     if (errors.length) bad += 1;
   }
   process.exit(bad ? 1 : 0);
+} else if (command === 'run' && values.plan) {
+  // Dry run: everything `run` checks before its first paid call, without building a provider.
+  const repeat = Number(values.repeat);
+  const problems = [];
+  const model = process.env.TEXT_MODEL || ((process.env.TEXT_PROVIDER ?? 'anthropic') === 'anthropic' ? 'claude-haiku-5-5' : '');
+  if (!model || !PRICES[model]) problems.push(`el modelo «${model || process.env.TEXT_PROVIDER}» no tiene tarifa en bench/pricing.js: el gasto se registraría como «sin tarifa» y el tope no cortaría`);
+  console.log(`Modelo de texto: ${process.env.TEXT_PROVIDER ?? 'anthropic'} ${model || '(el de la omisión del proveedor)'}${PRICES[model] ? '' : '  SIN TARIFA'}`);
+  let fixtures;
+  try {
+    fixtures = await buildContextFixtures();
+    const ctx = describeContext(fixtures);
+    console.log(`Equipo: ${ctx.members.length} miembros (${ctx.team_file ?? 'el de fixtures.json'}${ctx.no_profile ? ', sin perfil' : ''})`);
+    console.log(`Proyecto: ${ctx.project ? `${ctx.project.description_chars} caracteres (${ctx.project.file})` : 'ninguno'}`);
+  } catch (e) {
+    problems.push(`contexto: ${e.message}`);
+  }
+  let ready = 0;
+  for (const c of loadPrivateCases()) {
+    const cache = readCache(c.id);
+    const expected = readExpected(c);
+    const state = !cache ? 'sin extraer' : !expected ? 'sin referencia' : 'listo';
+    if (state === 'listo') ready += 1;
+    console.log(`  ${c.id.padEnd(34)} ${state}`);
+  }
+  if (ready === 0) problems.push('ningún caso está listo (extraído y con referencia)');
+  const spent = ledger.read().total_usd;
+  console.log(`Corridas: ${ready} casos x ${repeat} repetición(es) = ${ready * repeat}`);
+  console.log(`Gasto registrado ${spent.toFixed(4)} USD de ${budgetUsd}; la corrida se corta al llegar a ${(budgetUsd * 0.9).toFixed(4)} (quedan ${Math.max(0, budgetUsd * 0.9 - spent).toFixed(4)})`);
+  if (spent >= budgetUsd * 0.9) problems.push('el registro de gasto ya está en el tope: la corrida se cortaría antes del primer caso');
+  console.log(`Resultado: ${values.out ?? `${resultsDir}/private-${values.variant ?? ''}-<fecha>.json`}`);
+  for (const p of problems) console.log(`PROBLEMA: ${p}`);
+  console.log(problems.length ? 'Plan: NO ejecutable' : 'Plan: ejecutable (no se llamó a ningún proveedor)');
+  process.exit(problems.length ? 1 : 0);
 } else if (command === 'run') {
   const repeat = Number(values.repeat);
   const fixtures = await buildContextFixtures();

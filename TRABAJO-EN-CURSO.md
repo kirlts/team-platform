@@ -14,18 +14,18 @@
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
 - `main`: 9f22570 Guardia de marcas de conflicto con rutas no ASCII; traspaso al día. Empujado a origin: `9f22570`.
-- Ramas con commits sin fusionar: `wt-inicio-maqueta` 23 (hace 10 minutos).
-- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `tmp-main`, `voz`.
+- Ramas con commits sin fusionar: `wt-inicio-maqueta` 25 (hace 29 segundos).
+- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `9f22570` Guardia de marcas de conflicto con rutas no ASCII; traspaso al día (hace 8 minutos)
-- `cf4511c` Fusiona la telemetría de la interfaz y los jueces acotados (UD-090 a UD-092) (hace 9 minutos)
-- `5f92f94` Fusión con main: pruebas de telemetría al estilo de H-901, publicación automática (UD-070) y smoke-panel arreglado (hace 9 minutos)
-- `a8db6fc` Traspaso: lenguaje de instrumento fusionado (hace 12 minutos)
-- `294fb9a` Merge branch 'wt-voz' (hace 12 minutos)
-- `a588cd1` Comentario de la guardia en inglés (HP-008) (hace 17 minutos)
-- `6063afd` Fusiona main en wt-voz: estados, Áreas, publicación automática y reuniones largas (hace 18 minutos)
-- `328a6a9` Traspaso: reuniones largas fusionadas y presupuesto (hace 18 minutos)
-Actualizado 2026-10-21 16:46 UTC.
+- `9f22570` Guardia de marcas de conflicto con rutas no ASCII; traspaso al día (hace 12 minutos)
+- `cf4511c` Fusiona la telemetría de la interfaz y los jueces acotados (UD-090 a UD-092) (hace 13 minutos)
+- `5f92f94` Fusión con main: pruebas de telemetría al estilo de H-901, publicación automática (UD-070) y smoke-panel arreglado (hace 13 minutos)
+- `a8db6fc` Traspaso: lenguaje de instrumento fusionado (hace 16 minutos)
+- `294fb9a` Merge branch 'wt-voz' (hace 16 minutos)
+- `a588cd1` Comentario de la guardia en inglés (HP-008) (hace 21 minutos)
+- `6063afd` Fusiona main en wt-voz: estados, Áreas, publicación automática y reuniones largas (hace 22 minutos)
+- `328a6a9` Traspaso: reuniones largas fusionadas y presupuesto (hace 22 minutos)
+Actualizado 2026-10-21 16:50 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

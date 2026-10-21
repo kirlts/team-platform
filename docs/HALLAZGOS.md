@@ -27,7 +27,7 @@ Estados: `main` (resuelto y fusionado), `en curso` (asignado a un agente vivo), 
 | H-17 | Contrato de escritura sin marcas de IA y métrica `bench/ai-tells.js` | UD-019 | en curso (agente prompts) |
 | H-18 | Proveedor de respaldo `textFallback` se construye y nada lo invoca | documentación (DT-003) | abierto |
 | H-19 | Comentario de `src/analyze/api.js` describe el diseño anterior | documentación (DT-006) | abierto: lo resuelve la pasada a inglés |
-| H-20 | Capturas sin texto (c01, d01, u03) dan 0 mensajes; la referencia pide uno | banco privado | decisión: ¿una captura sola sin texto debe producir un mensaje con lo que muestra, o nada? |
+| H-20 | Capturas sin texto (c01, d01, u03) dan 0 mensajes; la referencia pide uno | banco privado | en curso (agente prompts, UD-021: segunda pasada más profunda antes de concluir cero) |
 
 ## Extracción
 

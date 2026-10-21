@@ -789,3 +789,12 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 - Pruebas de flujos nuevas fallan si aparece un contador o chip de área en la barra o un texto visible de estado, abren cada desplegable por clic y por teclado, y comparan su lista con la cifra.
 - La lista que un mensaje del desplegable usa es la de `noticeState`, no el filtro «para» del servidor, que sólo conoce los asignados (H-2000).
 **Condiciones de reversión:** Si el dueño quiere ver los cerrados fuera de la barra, se quita la tercera marca sin tocar el resto.
+
+## [UD-140] El presupuesto de API sube a 100 USD en total
+
+**Fecha:** 2026-10-21
+**Contexto:** El tope de UD-038 (75 USD en total) tenía unos 25 USD por gastar. Quedan por hacer las mediciones de la Fase 4 del plan de cierre y la ampliación de casos del banco privado con insumos reales.
+**Decisión:** Martín, textual: «aumentemos el gasto por api hasta 100 dólares, es decir que de los 200 dólares que me da Anthropic por este plan de Devalis van a quedar 100 dólares». Se lee como un tope total de 100 USD para team-platform, 25 más que UD-038, y 100 USD que quedan para el otro proyecto del autor. Cada encargo declara su parte antes de gastar y se detiene en ella.
+**Consecuencias:** Quedan unos 50 USD por gastar sobre lo ya gastado, unos 50 USD. Cabe la ampliación de casos del banco (hasta 3 USD), la medición de Sonnet de H-1103 (unos 5 USD) y repeticiones para separar efectos del ruido.
+**Condiciones de reversión:** Si Martín quiso decir 100 USD más sobre los 75 de UD-038, el tope total es 175 y la parte del otro proyecto cae a 25 USD de los 200; se confirma con él antes de pasar de 100 de gasto acumulado.
+

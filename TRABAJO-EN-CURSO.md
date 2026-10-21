@@ -96,6 +96,7 @@ La gravedad 5 fue 2, 4 y 3; la gravedad 4 fue 8, 12 y 10. El recuento no baja de
 
 - Tope: 25 USD (UD-027) más 50 USD que el dueño sumó el 2026-10-21 (UD-038, «subo el presupuesto 50 dólares»), 75 en total. Si el dueño quiso decir un tope total de 50, quedan unos 4 USD.
 - Gastado según las cuentas de los agentes: unos 24 USD antes de UD-038, 9,1 en la comparación de modelos, 10,1 en exactitud de área, menos de 0,2 en el arreglo de capacidades y pruebas en vivo: unos 50 USD (con 6,0 de reuniones largas). Quedan unos 25 USD sobre los 75.
+- **Actualización 2026-10-21 (UD-140):** el dueño subió el tope total a 100 USD, «de los 200 dólares que me da Anthropic por este plan, van a quedar 100» para el otro proyecto. Quedan unos 50 USD por gastar. No pasar de 100 de gasto acumulado sin confirmar la lectura (UD-140, condiciones de reversión).
 - Ningún encargo con gasto de API sigue corriendo. Cada encargo declara su gasto acumulado y se detiene en su parte. Libros de gasto: `bench/results/private-spend.jsonl` y los de cada worktree; los de worktrees retirados están en `~/.local/share/team-platform/archivo-de-worktrees/`.
 
 ## Ramas y worktrees

@@ -67,7 +67,7 @@ function modoJwt ({ db, config }) {
   const j = config.identity.delegated.jwt
   const algoritmos = j.algorithms.length > 0 ? j.algorithms : [j.jwksUrl ? 'RS256' : 'HS256']
   // createRemoteJWKSet vuelve a pedir las llaves cuando llega un `kid` desconocido (rotación de llaves).
-  const clave = j.jwksUrl ? createRemoteJWKSet(new URL(j.jwksUrl)) : new TextEncoder().encode(j.secret)
+  const clave = j.jwksUrl ? createRemoteJWKSet(new URL(j.jwksUrl), { cooldownDuration: j.jwksCooldownMs }) : new TextEncoder().encode(j.secret)
   return {
     async identify (request) {
       let ficha = request.headers[j.header]

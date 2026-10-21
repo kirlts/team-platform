@@ -28,7 +28,7 @@ const version = JSON.parse(readFileSync(path.resolve(path.dirname(fileURLToPath(
  * Arma la aplicación. `deps`: { db, config, queue, events, modules, logger }. No escucha ni arranca el worker.
  * Devuelve { app, domainEvents, eventStreams }.
  */
-export async function buildApp ({ db, config, queue, events, modules = {}, logger = false }) {
+export async function buildApp ({ db, config, queue, events, modules = {}, logger = false, now = Date.now }) {
   const app = Fastify({
     logger: logger === false ? false : { level: config.logLevel, redact: ['req.headers.authorization', 'req.headers.cookie'] },
     trustProxy: config.trustedProxies, // lista exacta de IP o CIDR, nunca `true` (informe 04 §2.4)
@@ -81,7 +81,7 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
   })
 
   // ---- Identidad. A partir de acá cada ruta debe declarar su política.
-  const identity = await registerIdentity(app, { db, config })
+  const identity = await registerIdentity(app, { db, config, now })
   const { requireRole } = identity
   const blocklist = loadBlocklist(config.identity.password.blocklistFile)
   let eventStreams = { closeAll () {} }

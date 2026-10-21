@@ -191,6 +191,8 @@ export function loadConfig (env = process.env, overrides = {}) {
         jwt: {
           header: texto(env, 'JWT_HEADER', 'authorization'),
           jwksUrl: texto(env, 'JWT_JWKS_URL', ''),
+          // Mínimo entre dos descargas del JWKS ante un `kid` desconocido. La omisión de `jose` es 30 s (`cooldownDuration`).
+          jwksCooldownMs: entero(env, 'JWT_JWKS_COOLDOWN_MS', 30000),
           secret: texto(env, 'JWT_SECRET', ''),
           algorithms: lista(env, 'JWT_ALGORITHMS', []),
           issuer: texto(env, 'JWT_ISSUER', ''),

@@ -68,7 +68,7 @@ export const fakeExtract = async (attachment, { onProgress } = {}) => {
  * Entorno completo. `modules` reemplaza los dobles; `worker: true` arranca un worker (por omisión no, para que
  * la prueba controle cuándo corre). Devuelve todo lo necesario y un `close()`.
  */
-export async function makeEnv ({ config: overrides = {}, modules = {}, worker = false, seed = true } = {}) {
+export async function makeEnv ({ config: overrides = {}, modules = {}, worker = false, seed = true, clock = false } = {}) {
   const dir = tempDir()
   const config = testConfig(dir, overrides)
   await initializeDatabase(config, { seed: seed ? seedDefaults : null })
@@ -79,12 +79,14 @@ export async function makeEnv ({ config: overrides = {}, modules = {}, worker = 
     analyze: fakeAnalyze, extract: fakeExtract, getProviders: () => ({ describe: () => [] }), getAnalyzer: () => 'api',
     buildProviders: () => ({}), audioBudget: null, estimateAudioSeconds: null, warmTemplate: null, ...modules
   }
-  const { app, domainEvents, identity } = await buildApp({ db, config, queue, events, modules: mods })
+  // `clock`: reloj controlable para la identidad (esperas de login, vencimiento de sesión) sin dormir de verdad.
+  const reloj = { t: Date.now() }
+  const { app, domainEvents, identity } = await buildApp({ db, config, queue, events, modules: mods, ...(clock ? { now: () => reloj.t } : {}) })
   const handlers = createPipeline({ db, config, queue, events, modules: mods })
   const w = createWorker({ db, queue, events, config, handlers })
   if (worker) w.start()
   return {
-    dir, config, db, events, queue, app, domainEvents, identity, worker: w, modules: mods,
+    dir, config, db, events, queue, app, clock: reloj, domainEvents, identity, worker: w, modules: mods,
     async close () {
       await w.stop()
       events.stopPolling()

@@ -95,7 +95,7 @@ function MessageMenu({ name, status, seeAll }: { name: string; status: MessageSt
     e.preventDefault()
   }
   return (
-    <PopoverContent align="end" sideOffset={10} collisionPadding={8} aria-label={name} data-testid="status-menu" onKeyDown={walk} className="flex max-h-[var(--radix-popover-content-available-height)] w-[24rem] flex-col p-0">
+    <PopoverContent align="end" sideOffset={14} collisionPadding={8} aria-label={name} data-testid="status-menu" onKeyDown={walk} className="flex max-h-[var(--radix-popover-content-available-height)] w-[24rem] flex-col p-0">
       {list.isPending ? (
         <p className="px-3 py-4 text-center text-sm text-muted">{t('common.loading')}</p>
       ) : rows.length === 0 ? (
@@ -144,7 +144,7 @@ function PhoneSummary({ top, total, counts }: { top: MessageStatus | null; total
           <ChevronDown size={14} aria-hidden />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" sideOffset={10} collisionPadding={8} data-testid="status-menu" aria-label={t('bar.label')} className="flex max-h-[var(--radix-popover-content-available-height)] w-72 flex-col overflow-y-auto p-0">
+      <PopoverContent align="end" sideOffset={14} collisionPadding={8} data-testid="status-menu" aria-label={t('bar.label')} className="flex max-h-[var(--radix-popover-content-available-height)] w-72 flex-col overflow-y-auto p-0">
         <ul>
           {STATES_SHOWN.map((s) => (
             <li key={s}>

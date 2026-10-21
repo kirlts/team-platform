@@ -75,7 +75,7 @@ export const es419 = {
   'home.fewerAreas': 'Menos',
   'bar.label': 'Resumen de mensajes',
   'bar.mine': 'Para mí',
-  'bar.none': 'Sin pendientes',
+  'bar.none': 'Sin mensajes',
   'bar.byArea': 'Por área',
   'bar.moreAreas': { one: '{n} área más', other: '{n} áreas más' },
   'areas.countOf': '{title}: {count}',

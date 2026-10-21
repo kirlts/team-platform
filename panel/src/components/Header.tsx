@@ -58,7 +58,7 @@ function NotificationBell() {
         >
           <Bell size={22} aria-hidden strokeWidth={2} />
           {snap.unread > 0 && (
-            <span aria-hidden data-testid="bell-unread" className="absolute -right-0.5 -top-0.5 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-fg px-1 text-[0.7rem] font-bold leading-none tabular-nums text-bg">
+            <span aria-hidden data-testid="bell-unread" className="absolute -right-0.5 -top-0.5 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-fg px-1 text-xs font-bold leading-none tabular-nums text-bg">
               {snap.unread}
             </span>
           )}

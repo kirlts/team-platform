@@ -75,7 +75,7 @@ export const en: Record<MessageKey, Message> = {
   'home.fewerAreas': 'Fewer',
   'bar.label': 'Message summary',
   'bar.mine': 'For me',
-  'bar.none': 'Nothing pending',
+  'bar.none': 'No messages',
   'bar.byArea': 'By area',
   'bar.moreAreas': { one: '{n} more area', other: '{n} more areas' },
   'areas.countOf': '{title}: {count}',

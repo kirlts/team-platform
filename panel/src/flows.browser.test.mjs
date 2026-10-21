@@ -799,7 +799,8 @@ describe('publishing flow (round 1, judge B)', () => {
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
       // One open and the other two on one line: the three titles are in view, without paging.
       assert.equal(await page.getByRole('button', { name: /^Abrir el mensaje \d/ }).count(), 2, 'dos mensajes plegados en una línea')
-      assert.equal(await page.getByRole('button', { name: 'Página siguiente' }).count(), 0, 'sin paginación para tres mensajes')
+      // The pager of the two lists of Home is outside the proposal: with the strip gone from Home they have room and page, which says nothing about the proposal.
+      assert.equal(await page.getByTestId('send-drawer').getByRole('button', { name: 'Página siguiente' }).count(), 0, 'sin paginación para tres mensajes')
       await page.getByRole('button', { name: 'Enviar 3 mensajes', exact: true }).waitFor()
       // Opening another folds the previous one: there are still three, one open.
       await page.getByRole('button', { name: /^Abrir el mensaje 2/ }).click()

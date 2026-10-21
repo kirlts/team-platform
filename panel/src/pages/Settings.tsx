@@ -250,6 +250,7 @@ function ProviderRow({ provider: p }: { provider: ProviderSetting }) {
   const { has } = useI18n()
   const undo = useUndo()
   const save = useSaveProvider()
+  const errorText = useErrorText()
   const required = (v: string) => (v ? null : t('common.required'))
 
   /** Each provider change is an operation undone with the previous values. */
@@ -272,7 +273,7 @@ function ProviderRow({ provider: p }: { provider: ProviderSetting }) {
           <DropdownMenuContent align="start">
             {/* The open menu names its function: it may cover the row it belongs to (J1-A-51). */}
             <DropdownMenuLabel>{t('settings.providerOf', { slot: t(SLOT_KEY[p.slot]) })}</DropdownMenuLabel>
-            <DropdownMenuRadioGroup value={p.provider} onValueChange={(v) => void change({ provider: v })}>
+            <DropdownMenuRadioGroup value={p.provider} onValueChange={(v) => change({ provider: v }).catch(() => {})}>
               {PROVIDERS_BY_SLOT[p.slot].map((name) => (
                 <DropdownMenuRadioItem key={name} value={name}>
                   {name}
@@ -294,6 +295,7 @@ function ProviderRow({ provider: p }: { provider: ProviderSetting }) {
             {p.reason === 'missing_api_key' && KEY_VARIABLE[p.provider] && <span className="block font-mono text-xs text-muted">{KEY_VARIABLE[p.provider]}</span>}
           </span>
         )}
+        {save.isError && <span role="alert" className="text-xs leading-tight text-danger">{errorText(save.error)}</span>}
       </span>
     </div>
   )

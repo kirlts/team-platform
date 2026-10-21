@@ -58,7 +58,10 @@ Comprobación:
 
 ```sh
 curl -fsS https://team.ejemplo.com/health
+TEAM_EMAIL=… TEAM_PASSWORD=… node scripts/check-sse.mjs https://team.ejemplo.com
 ```
+
+La segunda línea abre el flujo de eventos y falla si el proxy retiene el primer byte o el latido de 15 s. Con nginx basta el encabezado `X-Accel-Buffering: no`, que el servidor ya envía.
 
 ## 2. Dentro del compose de otro proyecto
 

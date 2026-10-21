@@ -150,6 +150,8 @@ Criterio: tecnologías que el autor ya probó en producción (Node, Fastify, Rea
 
 **Atmósfera de referencia:** Y2K futurista (UD-013): vidrio translúcido con reflejos, cromo y metal líquido, degradados iridiscentes, formas redondeadas, azul eléctrico sobre plata con acentos lima y lila, tipografía de la época con licencia libre y empaquetada; un producto de 2026 que cita el 2000, con referencias fechadas y tokens en `panel/DISENO.md`. Nada muy loco: manda la jerarquía visual (escala de tamaños, alineación a grilla, formas con intención, espacio negativo activo, distribución asimétrica donde corresponde) y una identidad reconocible; los valores que delatan diseño generado por IA están prohibidos. En lo funcional, un programa de gestión estándar, no una web que conversa. Rótulos de una a tres palabras como sustantivos («Mensajes», «Equipo»), sin texto de ayuda por omisión, sin segunda persona. Densidad de una bandeja de entrada de correo de escritorio: todo lo que se necesita ahora cabe sin desplazarse; lo demás nace plegado. La maqueta manda en la disposición: barra lateral a la izquierda, cabecera «[Nombre] TEAM» con campana y menú, contenido a la derecha.
 
+**Edición y alto (UD-017):** todo texto editable se edita en el lugar (clic entra, clic afuera o Enter guarda, Escape cancela), con deshacer y rehacer visibles y por teclado, sin historial de versiones; cada vista cabe en una pantalla a 1440×900 y a 1280×720, con revelación progresiva (lo que se necesita ahora a la vista, lo demás plegado con su cuenta) y listas que paginan dentro del marco con un tamaño medido.
+
 **Flujo principal de la persona:**
 
 1. Entra. Ve Inicio: nombre del proyecto, fecha y hora, la barra «Nuevo mensaje» con clip (adjuntos), cámara (foto), micrófono (audio) y enviar.

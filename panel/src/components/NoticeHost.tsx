@@ -2,7 +2,7 @@ import { Check, X } from '@/components/icons'
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { useT } from '@/i18n'
-import { useNotices } from '@/lib/notices'
+import { useNoticeInDialog, useNotices } from '@/lib/notices'
 import { cn } from '@/lib/utils'
 
 /**
@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils'
 export function NoticeHost({ inDialog = false }: { inDialog?: boolean }) {
   const t = useT()
   const { current, dismiss, dialogs } = useNotices()
+  useNoticeInDialog(inDialog)
   if (!current || (!inDialog && dialogs > 0)) return null
   const danger = current.tone === 'danger'
   return (

@@ -44,7 +44,7 @@ export function useNotices(): NoticeApi {
   return useContext(NoticeContext) ?? SILENT
 }
 
-/** A dialog that is open calls this and draws `<NoticeHost inDialog />` at its top, so a notice is never left behind its overlay. */
+/** A strip drawn inside a dialog registers while it is mounted, so the page's own copy is not left behind the overlay. */
 export function useNoticeInDialog(active: boolean) {
   const { setDialogs } = useNotices()
   useEffect(() => {

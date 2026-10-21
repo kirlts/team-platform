@@ -123,8 +123,13 @@ export function MediaDraftList({ draft, busy }: { draft: MediaDraft; busy?: bool
         <ul aria-label={t('media.attachments')} className="flex flex-wrap items-center gap-1.5">
           {draft.locals.map((l) => (
             <li key={l.key} className="flex min-h-9 min-w-0 max-w-full items-center gap-2 rounded-md border border-line-strong bg-surface py-0.5 pl-1 pr-0.5">
-              <Thumb item={{ kind: kindFromMime(l.file.type), src: l.url, name: l.file.name, size: l.file.size }} px={28} onRemove={busy ? undefined : () => draft.removeLocal(l.key)} />
+              <Thumb item={{ kind: kindFromMime(l.file.type), src: l.url, name: l.file.name, size: l.file.size }} px={28} />
               <span className="min-w-0 max-w-[12rem] text-xs leading-tight text-muted [overflow-wrap:anywhere]">{l.file.name}</span>
+              {!busy && (
+                <button type="button" aria-label={t('media.remove', { name: l.file.name })} className="hit inline-flex shrink-0 items-center justify-center rounded-full text-muted hover:bg-hover hover:text-danger" onClick={() => draft.removeLocal(l.key)}>
+                  <X size={13} aria-hidden />
+                </button>
+              )}
             </li>
           ))}
           {draft.links.map((href) => (

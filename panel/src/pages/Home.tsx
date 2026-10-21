@@ -12,7 +12,6 @@ import { MessageCard } from '@/components/MessageCard'
 import { Page } from '@/components/Page'
 import { NoticeHost } from '@/components/NoticeHost'
 import { ReviewPane } from '@/components/ReviewPane'
-import { useNoticeInDialog } from '@/lib/notices'
 import { Segmented } from '@/components/Segmented'
 import { Tray, type PendingUpload, type TrayItem } from '@/components/Tray'
 import { useErrorText, useFormat, useT } from '@/i18n'
@@ -55,7 +54,6 @@ export function Home() {
   const [selectedId, setSelectedId] = useState<string | undefined>()
   /** The sends (tray, original and analysis) are folded until the person opens them; the header carries their state. */
   const [trayOpen, setTrayOpen] = useState(false)
-  useNoticeInDialog(trayOpen)
   /** The original of a send, open or folded, when the person chose; else open while it is analyzed and folded once ready. */
   const [originalChoice, setOriginalChoice] = useState<Readonly<Record<string, boolean>>>({})
   /** Sends already published or discarded here, hidden until the server's list catches up. */
@@ -191,7 +189,7 @@ export function Home() {
           </DialogTrigger>
           <DialogContent title={t('tray.title')} data-keys-ok="" onOpenAutoFocus={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).focus() }} className="h-[min(88dvh,54rem)] max-w-[72rem]">
             <NoticeHost inDialog />
-            <div className="grid min-h-0 flex-1 gap-x-6 gap-y-4 overflow-y-auto p-4 md:grid-cols-[minmax(0,3fr)_minmax(0,9fr)] md:grid-rows-[minmax(0,1fr)] md:overflow-visible" data-lane="tray-dialog">
+            <div className="grid min-h-0 flex-1 content-start gap-x-6 gap-y-4 overflow-y-auto p-4 md:grid-cols-[minmax(0,3fr)_minmax(0,9fr)] md:grid-rows-[minmax(0,1fr)] md:overflow-visible" data-lane="tray-dialog">
               <Tray items={items} selectedId={selectedId} hideTextId={originalOpen ? selectedId : undefined} onSelect={setSelectedId} bare />
               <div className="flex min-h-0 min-w-0 flex-col border-line md:border-l md:pl-6">
                 <ReviewPane inputId={selectedId} originalOpen={originalOpen} onToggleOriginal={() => selected && setOriginalChoice((c) => ({ ...c, [selected.id]: !originalOpen }))} onClose={finished} registerPublish={registerPublish} />

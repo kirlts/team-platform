@@ -31,20 +31,23 @@ const STATUS_PHRASE: Partial<Record<InputStatus, MessageKey>> = {
 }
 
 /** Discards a send and says so where the person is looking, with the way back (J1-B-26): nothing is lost by one wrong click. */
-function useDiscard(input: InputRecord, onClosed: () => void) {
+function useDiscard(input: InputRecord) {
   const t = useT()
   const cancel = useCancelInput()
   const restore = useRestoreInput()
   const notices = useNotices()
   return {
     pending: cancel.isPending,
-    run: () =>
-      cancel.mutate(input.id, {
-        onSuccess: () => {
-          onClosed()
-          notices.show({ text: t('discard.done'), action: { label: t('undo.undo'), run: () => restore.mutateAsync(input.id) } })
-        },
-      }),
+    // `mutateAsync`, not callbacks of `mutate`: the list refreshes and takes this panel off the screen before they would run.
+    run: async () => {
+      try {
+        await cancel.mutateAsync(input.id)
+      } catch {
+        return
+      }
+      // The page is not told the send is gone for good (it would hide it for the session): the list simply stops holding it, and Deshacer brings it back.
+      notices.show({ text: t('discard.done'), action: { label: t('undo.undo'), run: () => restore.mutateAsync(input.id) } })
+    },
   }
 }
 
@@ -58,7 +61,7 @@ export function AnalysisPanel({ input, onClose, registerPublish }: { input: Inpu
   const undo = useUndo()
   const progress = useJobProgress(input.job_id, input.id)
   const reprocess = useReprocess()
-  const discard = useDiscard(input, onClose)
+  const discard = useDiscard(input)
   const errorText = useErrorText()
   const [confirmAgain, setConfirmAgain] = useState(false)
   const processing = input.status === 'queued' || input.status === 'extracting' || input.status === 'analyzing'
@@ -75,7 +78,7 @@ export function AnalysisPanel({ input, onClose, registerPublish }: { input: Inpu
 
   return (
     // Only a proposal fills the frame; waiting or failing, the surface is as tall as what it says (J1-B-07).
-    <section aria-label={t('analysis.title')} className={cn('@container ai-surface flex min-h-0 min-w-0 flex-col gap-3 p-3 pl-4', input.status !== 'proposed' && 'self-start')}>
+    <section aria-label={t('analysis.title')} className={cn('@container ai-surface flex min-h-0 min-w-0 flex-col gap-3 p-3 pl-4', input.status !== 'proposed' && 'w-full self-start')}>
       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <div className="flex items-center gap-2">
           <h2>{t('analysis.title')}</h2>
@@ -99,7 +102,7 @@ export function AnalysisPanel({ input, onClose, registerPublish }: { input: Inpu
           </div>
           <Meter percent={percent} label={t('analysis.progress')} className="h-2.5" />
           <div>
-            <Button size="sm" variant="ghost" className="hit" disabled={discard.pending} onClick={discard.run}>
+            <Button size="sm" variant="ghost" className="hit" disabled={discard.pending} onClick={() => void discard.run()}>
               {t('analysis.cancel')}
             </Button>
           </div>
@@ -122,14 +125,14 @@ export function AnalysisPanel({ input, onClose, registerPublish }: { input: Inpu
             <Button variant="primary" disabled={reprocess.isPending} onClick={() => reprocess.mutate(input.id)}>
               <RotateCw size={14} aria-hidden /> {t('common.retry')}
             </Button>
-            <Button variant="ghost" className="hit" onClick={discard.run} disabled={discard.pending}>
+            <Button variant="ghost" className="hit" onClick={() => void discard.run()} disabled={discard.pending}>
               {t('analysis.discard')}
             </Button>
           </div>
         </div>
       )}
 
-      {input.status === 'proposed' && input.proposal && <ProposalEditor key={input.id} input={input} initial={input.proposal} registerPublish={registerPublish} onPublished={onClose} onDiscard={discard.run} discarding={discard.pending} />}
+      {input.status === 'proposed' && input.proposal && <ProposalEditor key={input.id} input={input} initial={input.proposal} registerPublish={registerPublish} onPublished={onClose} onDiscard={() => void discard.run()} discarding={discard.pending} />}
 
       <Dialog open={confirmAgain} onOpenChange={setConfirmAgain}>
         <DialogContent title={t('analysis.again')}>
@@ -252,21 +255,21 @@ function ProposalEditor({
       // The save error is already on screen; publishing is attempted anyway with what is on screen.
     }
     const sent = latest.current
-    publish.mutate(
-      { inputId: input.id, proposal: sent },
-      {
-        onSuccess: (res) => {
-          const first = res?.message_ids?.[0]
-          const who = recipientsText(sent.messages)
-          // The most silent moment of the flow, said out loud: what went out, to whom and where to see it (J1-B-25).
-          notices.show({
-            text: sent.messages.length === 1 ? t('publish.one', { title: sent.messages[0].title, who }) : t('publish.many', { n: sent.messages.length, who }),
-            link: first ? { to: sent.messages.length === 1 ? `/messages/${first}` : '/messages', label: sent.messages.length === 1 ? t('publish.viewOne') : t('publish.viewMany') } : undefined,
-          })
-          onPublished()
-        },
-      },
-    )
+    let res
+    try {
+      // `mutateAsync`: the list refreshes and takes this editor off the screen before callbacks of `mutate` would run.
+      res = await publish.mutateAsync({ inputId: input.id, proposal: sent })
+    } catch {
+      return // the error is on screen through `publish.isError`
+    }
+    const first = res?.message_ids?.[0]
+    const who = recipientsText(sent.messages)
+    // The most silent moment of the flow, said out loud: what went out, to whom and where to see it (J1-B-25).
+    notices.show({
+      text: sent.messages.length === 1 ? t('publish.one', { title: sent.messages[0].title, who }) : t('publish.many', { n: sent.messages.length, who }),
+      link: first ? { to: sent.messages.length === 1 ? `/messages/${first}` : '/messages', label: sent.messages.length === 1 ? t('publish.viewOne') : t('publish.viewMany') } : undefined,
+    })
+    onPublished()
   }
 
   // The page can publish this proposal from the keyboard (Enter) while it is complete and not already going out.

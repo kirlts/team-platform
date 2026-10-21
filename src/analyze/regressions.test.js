@@ -111,7 +111,7 @@ describe('REG-004: a commission explained in a chat is not discarded', () => {
   it('the definition that makes it a new feature lives in the area description of the catalog, which the Editor can edit, and the prompt only keeps the deadline rule', async () => {
     const { areas, templates } = await makeBundle();
     const nueva = areas.find((a) => a.title === 'Nueva funcionalidad');
-    assert.match(nueva.description, /explicar cómo debe ser algo que aún no existe/);
+    assert.match(nueva.description, /explicar cómo debe ser algo que todavía no existe/);
     for (const language of ['en', 'es-419']) {
       const prompt = classifySystem({ areas, templates, language }).join('\n');
       assert.ok(prompt.includes(nueva.description), `${language}: the catalog carries the description`);
@@ -120,12 +120,24 @@ describe('REG-004: a commission explained in a chat is not discarded', () => {
     }
   });
 
-  it('each initial area description carries a positive example and a near miss, so the boundary is written where the Editor sees it', async () => {
+  it('each initial area description is long and detailed: what it is, typical cases, edge cases with the tie-break toward its neighbors, and what it is not (UD-028)', async () => {
     const { areas } = await makeBundle();
     assert.equal(areas.length, 5);
     for (const a of areas) {
-      assert.match(a.description, /Ejemplo: «/, `${a.title}: positive example`);
-      assert.match(a.description, /Casi igual, pero no: /, `${a.title}: near miss`);
+      const paragraphs = a.description.split('\n\n');
+      assert.ok(paragraphs.length >= 2 && paragraphs.length <= 4, `${a.title}: ${paragraphs.length} paragraphs`);
+      assert.ok(a.description.split(/\s+/).length >= 150, `${a.title}: long enough to be exhaustive`);
+      assert.match(a.description, /Casos típicos/, `${a.title}: typical cases`);
+      assert.match(a.description, /Casos borde/, `${a.title}: edge cases`);
+      assert.match(a.description, /\bNo es\b|\bno es\b/, `${a.title}: what it is not`);
+    }
+  });
+
+  it('the set is mutually exclusive in its edge cases: every area is named as the destination of a tie-break in some neighbor', async () => {
+    const { areas } = await makeBundle();
+    for (const a of areas) {
+      const named = areas.filter((o) => o.title !== a.title).some((o) => o.description.includes(a.title));
+      assert.ok(named, `${a.title} is not the destination of any tie-break rule`);
     }
   });
 });

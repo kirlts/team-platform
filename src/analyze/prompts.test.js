@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { createFakeProviders } from '../providers/index.js';
 import { analyze } from './index.js';
-import { classifySystem, DEFAULT_LANGUAGE, decomposeSystem, harnessPrompt, LANGUAGES, promptSet, resolveLanguage } from './prompts.js';
+import { chunkNote, classifySystem, DEFAULT_LANGUAGE, decomposeSystem, harnessPrompt, LANGUAGES, promptSet, resolveLanguage } from './prompts.js';
 import * as en from './prompts-en.js';
 import * as es from './prompts-es.js';
 import { parseTemplate } from './templates.js';
@@ -100,5 +100,10 @@ describe('prompt sets', () => {
       assert.match(JSON.stringify(call.messages), /2026-10-21 09:30/);
       assert.equal(call.system.join('\n').includes('2026-10-21 09:30'), false);
     }
+  });
+
+  it('a chunk of a group that does not fit carries a note saying which units it must decompose, in each language', () => {
+    assert.match(chunkNote({ index: 0, total: 3, first: 5, last: 9, language: 'en' }), /This is chunk 1 of 3.*u5 to u9/);
+    assert.match(chunkNote({ index: 1, total: 3, first: 10, last: 14 }), /Este es el trozo 2 de 3.*u10 a u14/);
   });
 });

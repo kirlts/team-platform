@@ -363,3 +363,17 @@ RULES:
 **Fecha:** 2026-10-21
 **Decisión:** Martín, textual: «podemos gastar hasta 25 usd en api de anthropic». Es un tope total para lo que falta de desarrollo, mediciones y pruebas con el proveedor real, repartido entre los agentes (cada encargo declara su parte) y llevado en `bench/results/` por los guiones de gasto. Una corrida que lo supere se detiene y lo dice.
 **Consecuencias:** Las comparaciones de modelos (Haiku 5.5, Sonnet 5.5, DeepSeek), las repeticiones del banco y las pruebas de punta a punta en el VPS cuentan contra este tope.
+
+## [UD-028] Las descripciones de área son largas y detalladas, y juntas son mutuamente excluyentes y colectivamente exhaustivas
+
+**Fecha:** 2026-10-21
+**Contexto:** El modelo clasificaba con una frontera entre áreas escondida en el prompt (H-91) que no coincidía con la de las referencias, y las descripciones cortas de `templates/areas.json` dejaban los casos borde sin regla de desempate.
+**Decisión:** Martín, textual: «La gracia es que este programa sea algo que uno puede demorarse un día entero en configurar, pensando muy bien las cosas y llegando a descripciones muy detalladas y buenas, de modo que sean orgánicamente exhaustivas y colectivamente inclusivas. Está bien que las descripciones sean largas y verbosas, porque eso aporta exactitud al contexto. Está bien enfocarse en que cubran los casos borde y hacer un diseño robusto. Ten en mente mutuamente excluyente y colectivamente exhaustivo.» Cada descripción tiene de dos a cuatro párrafos: qué es y qué la distingue, casos típicos, casos borde con la regla de desempate hacia las áreas vecinas, y qué no es. El prompt conserva solo la mecánica (unidades, grupos, esquema) y ninguna definición de producto.
+**Alternativas descartadas:**
+- Descripciones de una o dos oraciones con un ejemplo: dejan sin regla los casos que las dos lecturas de las referencias resuelven distinto.
+- Definiciones en el prompt: el Editor no las ve ni las edita.
+**Consecuencias:**
+- Una prueba exige de dos a cuatro párrafos, los títulos «Casos típicos» y «Casos borde» y que cada área sea el destino de un desempate en alguna vecina.
+- La vista de Áreas del panel debe mostrar textos de este largo plegados con vista previa (`test:fit`).
+- Las descripciones se miden contra las dos lecturas de las referencias con `bench/area-vs-references.mjs`.
+**Condiciones de reversión:** Que el costo de tokens del catálogo (cacheado) o la edición en el panel lo vuelvan inmanejable.

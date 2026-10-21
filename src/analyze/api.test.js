@@ -7,7 +7,7 @@ import {
 } from '../providers/index.js';
 import { ProviderTimeoutError } from '../providers/errors.js';
 import { analyze, AnalyzeInputError, warmCatalog, warmTemplate } from './index.js';
-import { decomposeSystem } from './prompts.js';
+import { classifySystem, decomposeSystem } from './prompts.js';
 import { parseTemplate } from './templates.js';
 import {
   bugMessage, CLASSIFY_ERRORS, CLASSIFY_MULTI, goodDecomposition, lastUserText, makeBundle, MULTI_TEXT, scriptByRequest, seed, unitIdsIn,
@@ -307,8 +307,10 @@ describe('analyze (api): partitioning', () => {
     return { messages: unitIdsIn(req).map((u) => bugMessage([u], `Corregir pantalla ${u}`)) };
   };
   const smallThreshold = (bundle) => {
-    const probe = decomposeSystem(parseTemplate(bundle.templates[1].body_markdown), undefined, 'en').join('\n').length;
-    return Math.ceil(probe / 3) + 150;
+    const decomposition = decomposeSystem(parseTemplate(bundle.templates[1].body_markdown), undefined, 'en').join('\n').length;
+    // The classification also carries the catalog, whose area descriptions are long: the threshold must leave room for both prefixes.
+    const classification = classifySystem({ areas: bundle.areas, templates: bundle.templates, language: 'en' }).join('\n').length;
+    return Math.ceil(Math.max(decomposition, classification) / 3) + 150;
   };
 
   it('above the threshold it splits into disjoint chunks, classifies and decomposes in parallel and reduces with no extra call', async () => {
@@ -319,7 +321,6 @@ describe('analyze (api): partitioning', () => {
     assert.ok(result.stats.partitioned && result.stats.chunks > 1, `chunks: ${result.stats.chunks}`);
     assert.equal(fake.calls.text.length, result.stats.classification_chunks + result.stats.chunks, 'one classification per chunk and one map per chunk; the reduction is deterministic');
     assert.deepEqual(result.proposal.messages.flatMap((m) => m.unit_ids), result.units.map((u) => u.id));
-    assert.ok(fake.calls.text.some((c) => /This is chunk \d of \d/.test(lastUserText(c))));
   });
 
   it('a chunk that cites units of another chunk is a reference error', async () => {

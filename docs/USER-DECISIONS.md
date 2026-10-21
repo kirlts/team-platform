@@ -294,3 +294,14 @@ RULES:
 **Consecuencias:**
 - Segunda pasada en `src/analyze/` cuando la primera da cero mensajes, con su span y su prueba; las referencias c01, d01 y u03 del banco privado esperan un mensaje.
 **Condiciones de reversión:** Ninguna prevista.
+
+## [UD-022] Los párrafos largos van justificados y sin guionizado
+
+**Fecha:** 2026-10-21
+**Contexto:** Cuerpos de mensaje, respuestas, vista previa del input y cuerpos de plantilla pueden tener varias líneas.
+**Decisión:** Martín, textual: «cuando hayan párrafos largos en la interfaz, el texto debería quedar justificado y sin guionizado». Todo bloque de texto corrido de más de dos líneas se compone con `text-align: justify` y `hyphens: none`; con `text-wrap: pretty` donde el navegador lo soporte, para que la justificación no deje ríos. Títulos, rótulos, chips, celdas y textos de una o dos líneas siguen alineados a la izquierda.
+**Alternativas descartadas:**
+- Justificado con guionizado automático: Martín lo descartó.
+**Consecuencias:**
+- Una clase única del kit (`prose-block`) que aplican todos los bloques largos; una prueba estática del panel falla si un bloque de párrafo usa otra alineación o activa `hyphens`.
+**Condiciones de reversión:** Ninguna prevista.

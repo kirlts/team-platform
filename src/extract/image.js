@@ -134,13 +134,13 @@ export async function extractImage(attachment, ctx) {
   }
   const startedAt = performance.now();
   const progress = createProgress(onProgress, 2);
-  progress.report('preparando la imagen');
+  progress.report('Preparación de la imagen');
   const image = await withSpan('extract.sharp', { 'team.step': 'extract.sharp', 'team.tool': 'sharp', 'team.input_bytes': size }, async () => {
     const out = await normalizeImage(attachment.path, cfg, { workDir: ctx.workDir, signal: ctx.signal });
     annotate({ 'team.output_bytes': out.data.length, 'team.width': out.width, 'team.height': out.height, 'team.converted': out.converted });
     return out;
   });
-  progress.advance('describiendo la imagen');
+  progress.advance('Descripción de la imagen');
   const { json, usage } = await withSpan('extract.vision', { 'team.step': 'extract.vision', 'team.images': 1, 'team.input_bytes': image.data.length }, async () => {
     const out = await providers.vision.describe({
       images: [{ data: image.data, mime: image.mime, label: 'Imagen' }],
@@ -152,7 +152,7 @@ export async function extractImage(attachment, ctx) {
   });
   const description = typeof json?.description === 'string' ? json.description.trim() : '';
   const warnings = description === '' ? [{ code: 'empty_description', message: 'El proveedor no devolvió una descripción.' }] : [];
-  progress.advance('imagen descrita');
+  progress.advance('Imagen descrita');
   return {
     text: description,
     meta: {

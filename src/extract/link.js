@@ -146,7 +146,7 @@ export async function extractLink(attachment, ctx) {
   const progress = createProgress(ctx.onProgress, 3);
   const startedAt = performance.now();
   const url = parseUrl(attachment.url ?? attachment.path);
-  progress.report('descargando el enlace');
+  progress.report('Descarga del enlace');
   const got = await withSpan('extract.link_download', { 'team.step': 'extract.link_download', 'team.tool': 'undici', 'url.full': url.href }, async () => {
     const out = await download(url, ctx);
     annotate({
@@ -159,7 +159,7 @@ export async function extractLink(attachment, ctx) {
     });
     return out;
   });
-  progress.advance('enlace descargado');
+  progress.advance('Enlace descargado');
 
   const type = got.contentType.split(';')[0].trim().toLowerCase();
   const warnings = [];
@@ -184,9 +184,9 @@ export async function extractLink(attachment, ctx) {
   } else {
     throw new ExtractError('link_unsupported_type', 'El enlace no apunta a una página que se pueda leer.', { contentType: type });
   }
-  progress.advance('contenido principal leído');
+  progress.advance('Contenido principal leído');
   const text = [title ? `# ${title}` : '', markdown, `Fuente: ${got.url.href}`].filter(Boolean).join('\n\n');
-  progress.advance('enlace convertido');
+  progress.advance('Enlace convertido');
   return {
     text,
     meta: {

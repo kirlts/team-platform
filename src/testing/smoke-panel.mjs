@@ -48,7 +48,7 @@ try {
   await page.getByLabel('Correo').fill('ana@humo.test')
   await page.getByLabel('Contraseña').fill(TEST_PASSWORD)
   await page.getByRole('button', { name: 'Entrar' }).click()
-  await page.getByText('Humo', { exact: true }).first().waitFor({ timeout: 10000 }) // project_name from GET /me
+  await page.getByText(/^Humo/).first().waitFor({ timeout: 10000 }) // project_name from GET /me
   console.log('logged in; the project name arrived from GET /me')
 
   await page.getByLabel('Nuevo mensaje', { exact: true }).last().fill('El botón de guardar no responde en la pantalla de ajustes.')
@@ -88,7 +88,7 @@ try {
 
   // The editor's other views load their data without error responses.
   for (const view of ['Equipo', 'Configuración']) {
-    await page.getByRole('link', { name: view, exact: true }).first().click()
+    await page.getByRole('link', { name: new RegExp(`^${view}`) }).first().click()
     await page.waitForLoadState('networkidle')
     console.log(`view ${view}: loads without errors`)
   }

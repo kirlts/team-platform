@@ -22,6 +22,7 @@ import {
   ProviderHttpError, ProviderMaxTokensError, ProviderOutputError, ProviderRefusalError,
 } from '../providers/errors.js';
 import { withSpan } from '../telemetry/api.js';
+import { consensus } from './consensus.js';
 import { AnalyzeInputError } from './errors.js';
 import {
   chunkNote, classifySystem, classifyUser, decomposeSystem, decomposeUser, membersBlock, rescueUser, resolveLanguage, retryUser,
@@ -243,7 +244,7 @@ async function decomposeUnits(ctx, { bundle, template, system, schema, units, sc
     .filter((d) => d.unit_ids.length > 0);
   const coverageIds = [...coverageSet].sort((a, b) => a - b);
 
-  ctx.report(`corrigiendo ${coverageIds.length} unidades en conflicto`);
+  ctx.report(`Corrección: ${coverageIds.length} unidades en conflicto`);
   const rescueCtx = { ...contextFromBundle(bundle, { fields: template.fields, scope: coverageSet }), withDiscarded: false };
   const rescue = await withSpan('rescue', { 'team.step': 'rescue', 'team.units': coverageIds.length, 'team.overlaps': overlaps.length, 'team.gaps': gaps.length }, () => structuredStep(ctx, {
     ...base,
@@ -330,51 +331,53 @@ function isImageOnly(bundle) {
 }
 
 /**
- * @param {object} bundle  see MASTER-SPEC §7.5; the templates also carry `body_markdown`
+ * Stage 1 of the analysis, reusable on its own by the bench (H-1900): numbers the units and classifies them into groups and
+ * discards, with the second reading (UD-021), the closing of stretches and the coverage pass over what was discarded.
+ * @param {object} bundle  see MASTER-SPEC §7.5
  * @param {{providers: object, onProgress?: Function, config: object, redescribe?: Function}} opts  `config` already resolved.
- *   `redescribe(attachment)` returns a more detailed text for an image; the second pass uses it (UD-021).
+ * @returns {Promise<{ctx: object, language: string, units: object[], workBundle: object, attachments: object[], classifyChunks: object[][], groups: object[], discarded: object[]} | {ctx: object, units: object[], failed: object}>}
  */
-export async function analyzeWithApi(bundle, { providers, onProgress, config, redescribe }) {
+export async function classifyInput(bundle, { providers, onProgress, config, redescribe }) {
   checkBundle(bundle);
   let workBundle = bundle; // the second pass may replace the text of the images
   let units = numberUnits(workBundle);
   if (units.length === 0) throw new AnalyzeInputError('El input no tiene texto ni adjuntos con texto extraído');
   const language = resolveLanguage(bundle.language);
   const ctx = createContext({ providers, config, onProgress, unitCount: units.length, language });
-  const profile = providers.text.schemaProfile ?? 'anthropic';
   let attachments = workBundle.attachments ?? [];
-  const members = bundle.members ?? [];
   const { areas, templates, project } = bundle;
-  const fail = (r) => ({ status: r.status, step: r.step, category: r.category, explanation: r.explanation, reason: r.reason, errors: r.errors ?? [], max_tokens: r.max_tokens, draft: r.draft, units, calls: ctx.calls, stats: ctx.stats });
 
   // -- Call 1: classify into groups by area and template -------------------------------------
   // An input can bring a bug, an idea and a question: each group carries its area and its template
   // (idea.md: «one or several messages that group the work into categories»). If the input does not fit
   // in one call it is classified in disjoint structural chunks and the groups are joined.
-  ctx.report('clasificando el input');
+  ctx.report('Clasificación');
   const cSystem = classifySystem({ areas, templates, project, language });
   const fixedClassify = estimateTokens([...cSystem, membersBlock([], language)].join('\n'), config.charsPerToken);
   const cSchema = buildClassificationSchema({ areas, templates });
 
   /** Classifies `list` in structural chunks (or, in the second reading, the given sections) and joins the groups. */
-  const classifyUnits = async (list, { secondPass = false, chunks } = {}) => {
+  const classifyUnits = async (list, { secondPass = false, coverage = false, chunks } = {}) => {
     const classifyChunks = chunks ?? windowsOf(partitionUnits(list, { budgetTokens: config.partitionThresholdTokens - fixedClassify, charsPerToken: config.charsPerToken }), config.classifyWindowUnits);
-    if (!secondPass) {
+    if (!secondPass && !coverage) {
       ctx.stats.classification_chunks = classifyChunks.length;
       ctx.progress.total = classifyChunks.length + 2;
     }
     const tasks = classifyChunks.map((chunkUnits, index) => async () => {
       const scope = new Set(chunkUnits.map((u) => u.id));
+      const windowed = classifyChunks.length > 1 && !secondPass && !coverage;
+      // H-1900: the units that come right before a window, read-only, so a point that crosses the boundary keeps its area.
+      const before = windowed && config.classifyContextUnits > 0 ? units.filter((u) => u.id < chunkUnits[0].id).slice(-config.classifyContextUnits) : [];
       const r = await structuredStep(ctx, {
-        step: `${secondPass ? 'classify2' : 'classify'}${classifyChunks.length > 1 ? `#${index + 1}` : ''}`,
+        step: `${coverage ? 'coverage' : secondPass ? 'classify2' : 'classify'}${classifyChunks.length > 1 ? `#${index + 1}` : ''}`,
         system: cSystem,
-        messages: [{ role: 'user', content: classifyUser({ units: chunkUnits, attachments, language, secondPass, recent: bundle.recent_inputs, window: classifyChunks.length > 1 && !secondPass ? { index, total: classifyChunks.length, first: chunkUnits[0].id, last: chunkUnits.at(-1).id } : undefined }) }],
+        messages: [{ role: 'user', content: classifyUser({ units: chunkUnits, attachments, language, secondPass, coverage, context: before, recent: bundle.recent_inputs, window: windowed ? { index, total: classifyChunks.length, first: chunkUnits[0].id, last: chunkUnits.at(-1).id } : undefined }) }],
         schema: cSchema,
         effort: config.classifyEffort,
         thinking: config.classifyThinking ?? undefined,
         validate: (json) => validateClassification(json, { areas, templates, scope }),
       });
-      if (r.status === 'ok' && !secondPass) ctx.report('input clasificado', { advance: true });
+      if (r.status === 'ok' && !secondPass && !coverage) ctx.report('Clasificado', { advance: true });
       return r;
     });
     // What the single retry did not fix (overlaps and gaps only) is closed by set arithmetic instead of failing the whole input.
@@ -383,7 +386,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
       ctx.stats.classification_repaired = (ctx.stats.classification_repaired ?? 0) + 1;
       return { status: 'ok', json: repairClassification(r.repairable, scope), errors: [], repaired: true };
     };
-    const results = await withSpan(secondPass ? 'classify.second_pass' : 'classify', { 'team.step': secondPass ? 'classify2' : 'classify', 'team.units': list.length, 'team.chunks': classifyChunks.length }, async (span) => {
+    const results = await withSpan(coverage ? 'classify.coverage' : secondPass ? 'classify.second_pass' : 'classify', { 'team.step': coverage ? 'coverage' : secondPass ? 'classify2' : 'classify', 'team.units': list.length, 'team.chunks': classifyChunks.length }, async (span) => {
       const out = (await runPool(tasks, config.partitionConcurrency)).map((r, i) => (r ? repairable(r, classifyChunks[i].map((u) => u.id)) : r));
       span.setAttribute('team.groups', out.reduce((n, r) => n + (r?.json?.groups?.length ?? 0), 0));
       return out;
@@ -391,19 +394,23 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
     return { classifyChunks, results };
   };
 
-  const first = await classifyUnits(units);
-  const badClass = first.results.find((r) => r && r.status !== 'ok');
-  if (badClass) return fail(badClass);
-  const classifyChunks = first.classifyChunks;
-  let groups = first.results.flatMap((r) => r.json.groups);
-  let classDiscarded = first.results.flatMap((r) => r.json.discarded);
+  // H-1003: with `classifyDraws` above 1 the first reading is drawn several times, in parallel, and the system keeps the draw
+  // that agrees most with the others, with each group's area decided by the majority of the draws (set arithmetic only).
+  const draws = await Promise.all(Array.from({ length: config.classifyDraws }, () => classifyUnits(units)));
+  const badClass = draws.flatMap((d) => d.results).find((r) => r && r.status !== 'ok');
+  if (badClass) return { ctx, units, failed: badClass };
+  const classifyChunks = draws[0].classifyChunks;
+  const agreed = consensus(draws.map((d) => ({ groups: d.results.flatMap((r) => r.json.groups), discarded: d.results.flatMap((r) => r.json.discarded) })), templates);
+  let groups = agreed.groups;
+  let classDiscarded = agreed.discarded;
+  if (config.classifyDraws > 1) ctx.stats.classification_draws = config.classifyDraws;
 
   // -- Second reading (UD-021): a person does not send something for nothing --------------------
   // «Zero messages» is accepted only after a deeper pass: for images with no text, the images are described again in more
   // detail; for anything else, the input is read again section by section with the instruction that it was sent for a reason.
   if (groups.length === 0) {
     ctx.stats.second_pass = true;
-    ctx.report('leyendo el input a más profundidad');
+    ctx.report('Segunda lectura');
     const outcome = await withSpan('analyze.second_pass', { 'team.step': 'second_pass', 'team.units': units.length, 'team.image_only': isImageOnly(workBundle) }, async (span) => {
       let described = 0;
       if (isImageOnly(workBundle) && typeof redescribe === 'function') {
@@ -424,12 +431,48 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
       return second;
     });
     const badSecond = outcome.results.find((r) => r && r.status !== 'ok');
-    if (badSecond) return fail(badSecond);
+    if (badSecond) return { ctx, units, failed: badSecond };
     groups = outcome.results.flatMap((r) => r.json.groups);
     classDiscarded = outcome.results.flatMap((r) => r.json.discarded);
   }
   // A point is a continuous stretch: what the model discarded between the first and the last unit of a group belongs to it.
   ({ groups, discarded: classDiscarded } = closeStretches(groups, classDiscarded));
+
+  // -- Coverage pass (H-1900): what was discarded is read again, apart from the surrounding talk ---------------------------
+  // In a long meeting the first reading discards whole stretches as chatter and takes real points with them. The model decides
+  // whether any of those units is a point; the system only validates the form (scope, overlaps, gaps) and closes stretches again.
+  for (let pass = 0; pass < config.coveragePasses && classDiscarded.length > 0; pass += 1) {
+    const discardedIds = new Set(classDiscarded.flatMap((d) => d.unit_ids));
+    const apart = units.filter((u) => discardedIds.has(u.id));
+    ctx.report('Revisión de lo apartado');
+    const sections = windowsOf([apart], config.classifyWindowUnits);
+    const reread = await classifyUnits(apart, { coverage: true, chunks: sections });
+    // The pass is an extra look, never a reason to fail the input: a section that did not come back valid keeps its first-reading discards.
+    const failedIds = new Set(reread.results.flatMap((r, i) => (r && r.status === 'ok' ? [] : sections[i].map((u) => u.id))));
+    const rereadDiscarded = reread.results.flatMap((r) => (r && r.status === 'ok' ? r.json.discarded : []));
+    const rereadGroups = reread.results.flatMap((r) => (r && r.status === 'ok' ? r.json.groups : []));
+    ctx.stats.coverage_pass = { units: apart.length, regrouped: rereadGroups.reduce((n, g) => n + g.unit_ids.length, 0), failed_sections: reread.results.filter((r) => !r || r.status !== 'ok').length };
+    const kept = classDiscarded.map((d) => ({ ...d, unit_ids: d.unit_ids.filter((id) => failedIds.has(id)) })).filter((d) => d.unit_ids.length > 0);
+    ({ groups, discarded: classDiscarded } = closeStretches([...groups, ...rereadGroups], [...rereadDiscarded, ...kept]));
+  }
+  return { ctx, language, units, workBundle, attachments, classifyChunks, groups, discarded: classDiscarded };
+}
+
+/**
+ * @param {object} bundle  see MASTER-SPEC §7.5; the templates also carry `body_markdown`
+ * @param {{providers: object, onProgress?: Function, config: object, redescribe?: Function}} opts  `config` already resolved.
+ *   `redescribe(attachment)` returns a more detailed text for an image; the second pass uses it (UD-021).
+ */
+export async function analyzeWithApi(bundle, { providers, onProgress, config, redescribe }) {
+  const stage = await classifyInput(bundle, { providers, onProgress, config, redescribe });
+  const { ctx, units } = stage;
+  const fail = (r) => ({ status: r.status, step: r.step, category: r.category, explanation: r.explanation, reason: r.reason, errors: r.errors ?? [], max_tokens: r.max_tokens, draft: r.draft, units, calls: ctx.calls, stats: ctx.stats });
+  if (stage.failed) return fail(stage.failed);
+  const { language, workBundle, attachments, classifyChunks, groups } = stage;
+  const classDiscarded = stage.discarded;
+  const profile = providers.text.schemaProfile ?? 'anthropic';
+  const members = bundle.members ?? [];
+  const { areas, templates, project } = bundle;
   const allIds = units.map((u) => u.id);
   ctx.stats.groups = groups.length;
 
@@ -465,7 +508,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
   ctx.stats.partitioned = work.length > groups.length || classifyChunks.length > 1;
   ctx.stats.estimated_input_tokens = estimateTokens(renderUnits(units, language), config.charsPerToken);
   ctx.progress.total = classifyChunks.length + work.length + 1;
-  ctx.report(work.length > 1 ? `descomponiendo ${work.length} grupos` : 'descomponiendo el input');
+  ctx.report(work.length > 1 ? `Descomposición: ${work.length} grupos` : 'Descomposición');
 
   const tasks = work.map((w) => () => withSpan('decompose', {
     'team.step': 'decompose',
@@ -478,7 +521,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
     const label = `[t${w.group.template_id}]${w.parts > 1 ? `#${w.pi + 1}` : ''}`;
     const r = await decomposeUnits(ctx, { bundle: workBundle, template: w.entry.template, system: w.entry.system, schema: w.entry.schema, units: w.units, scopeNote, label });
     span.setAttributes({ 'team.status': r.status, 'team.rescued': r.rescued === true });
-    if (r.status === 'ok') ctx.report('grupo descompuesto', { advance: true });
+    if (r.status === 'ok') ctx.report('Grupo descompuesto', { advance: true });
     return r.status === 'ok' ? { ...r, group: w.group } : r;
   }));
   const results = await runPool(tasks, config.partitionConcurrency);
@@ -487,7 +530,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
 
   // -- Deterministic reduction by unit_ids ---------------------------------------------------
   // Groups are disjoint by unit: the reduction is a concatenation, with no call (report 02 §3.3).
-  ctx.report('validando la propuesta');
+  ctx.report('Validación de la propuesta');
   const merged = {
     messages: results.flatMap((r) => r.messages.map((m) => ({ ...m, area_id: r.group.area_id, template_id: r.group.template_id }))),
     discarded: [...classDiscarded, ...results.flatMap((r) => r.discarded)],
@@ -520,7 +563,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
     const imageUnits = new Set(units.filter((u) => u.source.type === 'attachment' && u.source.kind === 'image').map((u) => u.id));
     for (const m of messages) if (m.unit_ids.every((id) => imageUnits.has(id))) m.source = 'frame';
   }
-  ctx.report('propuesta lista', { advance: true });
+  ctx.report('Propuesta lista', { advance: true });
   return { status: 'ok', proposal: { messages, discarded }, units, calls: ctx.calls, stats: ctx.stats };
 }
 

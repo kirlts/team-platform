@@ -307,6 +307,9 @@ GET    /api/attachments/:id       archivo, con control de acceso y Range
 GET    /api/jobs?state=           la cola de trabajos                         (Editor)
 DELETE /api/jobs?state=&confirm=true   purga los terminados                   (Editor)
 GET    /api/jobs/:id/trace        árbol de spans de un trabajo                (Editor)
+POST   /api/telemetry/ui          lote de eventos de interfaz (cualquier miembro, cabecera X-Team-Request; 204)
+GET    /api/telemetry/ui-summary?days=   percentiles por tarea y pantalla, tasas de error y abandono, peores recorridos   (Editor)
+PATCH  /api/settings/telemetry    { ui_enabled }: interruptor de la telemetría de interfaz (Editor)
 GET    /api/audit                 bitácora: quién creó, publicó, cerró, reabrió o editó, y cuándo   (Editor)
 GET    /api/health · GET /health  público; el detalle de base, cola y proveedores, sólo al Editor
 GET    /api/openapi.json          contrato OpenAPI 3.1
@@ -543,6 +546,22 @@ Los atributos de GenAI siguen la convención vigente al 2026-10-20 (repositorio 
 El contenido de entrada y salida va siempre en un evento del span, `gen_ai.client.inference.operation.details`, con `gen_ai.input.messages`, `gen_ai.output.messages` y `gen_ai.system_instructions`, porque el volumen es del equipo. Los nombres anteriores (`gen_ai.system`, `gen_ai.content.prompt`, `gen_ai.content.completion`, `gen_ai.usage.cache_read_input_tokens`) ya no figuran en la convención y no se usan.
 
 Cada intento de un trabajo es la raíz de su propio árbol (`job`, con `team.attempt` y `team.outcome`). Publicar, cerrar y reabrir abren `input.publish`, `message.close` y `message.reopen`. `GET /api/jobs/:id/trace` (Editor) devuelve el árbol de un trabajo, y de ahí el banco lee sus tiempos por paso. La retención es la de `job_events` (`RETENTION_DAYS`, 7). Las imágenes y fotogramas se guardan en base64 salvo con `TELEMETRY_INLINE_BLOBS=0`; el audio nunca se copia al span. `start_ns` y `end_ns` son enteros de 64 bits, así que leer `spans` con `SELECT *` falla: se piden con `CAST(… AS TEXT)` o se lee la vista `llm_calls`.
+
+### 7.10 ter Telemetría de la interfaz (`src/telemetry/ui*.js`, `panel/src/lib/telemetry.ts`)
+
+**Propósito:** Datos de cómo se usa el panel para decidir qué mejorar (UD-090, UD-091). El panel mide con un módulo propio y envía JSON a `POST /api/telemetry/ui`; el servidor valida, convierte cada evento en un span `ui.<tipo>` y lo guarda en la tabla `spans` por el mismo exportador de §7.10 bis. Fuentes: informe 09.
+
+**Eventos** (esquema en `src/telemetry/ui-spec.js`, publicado en OpenAPI): `navigation` (pantalla, origen, ms de pintado), `screen_usage` (permanencia, clics, desplazamientos y píxeles, teclas, punteros, clase de ventana), `task` (`send_publish`, `reply`, `close`; resultado `completed`, `abandoned` o `failed`; duración, clics, desplazamientos, teclas, pantallas y, en el envío, las etapas `stage_feedback_ms`, `stage_analysis_ms` y `stage_publish_ms`), `error` (clase, pantalla, estado HTTP y ruta como plantilla) y `vitals` (CLS, tareas largas, INP, LCP, tiempo hasta interactivo).
+
+**Privacidad por construcción:** ningún campo admite texto libre. Cada cadena sale de una lista cerrada o de un patrón que no cabe prosa (sesión de 16 hexadecimales en memoria, nombre de componente en minúsculas y guiones, ruta con `:id`). No se guarda miembro, correo, contenido ni nombre de archivo. Sin cookies, almacenamiento local ni identificador entre visitas. La ventana viaja como clase (arista del punto de corte de Tailwind y alto en pasos de 100 px).
+
+**Límites** (cada uno con fuente en `src/config.js`): cuerpo 64 KiB, 145 eventos por lote, 100 peticiones cada 10 s por dirección; el cliente descarta por encima de 10 eventos por segundo con ráfaga de 100.
+
+**Tareas:** se infieren del tráfico de la API, sin leer contenido. El envío empieza en la interacción que lo pidió, el primer cambio visible es la primera mutación del documento pintada tras ella, el análisis visible es el `done` del flujo SSE y termina con `POST /inputs/:id/publish`; responder y cerrar cuentan desde que se entra a la ficha. Un envío iniciado y no publicado cuando la página se descarta es un abandono. Ver H-1705 para los puntos finos pendientes.
+
+**Envío al cliente:** al llenarse el lote, al terminar una tarea y al ocultarse la página, con `fetch` y `keepalive`. Un fallo se descarta sin reintento. El interruptor está en Configuración (Editor); `GET /api/me` lleva `ui_telemetry: { enabled, max_events }`.
+
+**Lectura:** `GET /api/telemetry/ui-summary` y `scripts/ui-report.mjs` (tablas legibles, con `--db` sin servidor). Percentiles por rango más cercano; CLS, INP y LCP al percentil 75 con los umbrales de Core Web Vitals.
 
 ### 7.11 Banco de referencia y mediciones (`bench/`)
 

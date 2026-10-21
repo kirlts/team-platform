@@ -5,7 +5,7 @@
 // paired comparison of two labels. The comparison resamples whole cases (units of a case move together), so its interval
 // is wider than the Wilson interval by unit and honest about the 4-point noise between runs.
 //
-//   node bench/areas-stats.mjs table <label>=<file>[,<file>...] ...
+//   node bench/areas-stats.mjs table <label>=<file>[,<file>...] ... [--all]
 //   node bench/areas-stats.mjs pair <labelA>=<files> <labelB>=<files>
 //   node bench/areas-stats.mjs confusion <label>=<files>
 import { readFileSync } from 'node:fs';
@@ -22,7 +22,7 @@ export function loadRuns(files) {
         const run = c.runs[r];
         if (!run) continue;
         const lab = new Map(run.groups.flatMap((g) => (g.a && g.b ? g.unit_ids.map((u) => [u, g]) : [])));
-        const t = { hits: 0, hitsA: 0, hitsB: 0, units: 0, ms: run.ms ?? null, cost: run.cost_usd ?? 0, conf: new Map() };
+        const t = { hits: 0, hitsA: 0, hitsB: 0, units: 0, refUnits: lab.size, ms: run.ms ?? null, cost: run.cost_usd ?? 0, conf: new Map() };
         for (const [u, area] of run.unit_pred ?? []) {
           const g = lab.get(u);
           if (!g) continue;
@@ -40,19 +40,25 @@ export function loadRuns(files) {
 }
 
 const sum = (rep, key) => [...rep.values()].reduce((a, t) => a + t[key], 0);
-const acc = (rep, key = 'hits') => (100 * sum(rep, key)) / sum(rep, 'units');
+// `--all` (H-1900): the denominator is every unit the references put in a message, so a unit the model left out of every group counts as a miss.
+const ALL = process.argv.includes('--all');
+const denominator = ALL ? 'refUnits' : 'units';
+const acc = (rep, key = 'hits') => (100 * sum(rep, key)) / sum(rep, denominator);
 const mean = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
 const sd = (xs) => (xs.length < 2 ? 0 : Math.sqrt(xs.reduce((a, b) => a + (b - mean(xs)) ** 2, 0) / (xs.length - 1)));
 
-/** Cases present in every repetition of every set; the unit total is that of the first repetition (same references). */
+/** Cases that at least one repetition of every set has: a run that failed (an invalid output after its retry) leaves a case with one repetition fewer. */
 function common(sets) {
-  const ids = [...sets[0][0].rep.keys()].filter((id) => sets.every((reps) => reps.every((r) => r.rep.has(id))));
-  return ids;
+  const ids = [...new Set(sets.flatMap((reps) => reps.flatMap((r) => [...r.rep.keys()])))];
+  return ids.filter((id) => sets.every((reps) => reps.some((r) => r.rep.has(id))));
 }
 
-/** Mean per case over repetitions: {hits, units}. */
+/** Mean per case over the repetitions that have it: {hits, units}. */
 function perCase(reps, ids, key = 'hits') {
-  return new Map(ids.map((id) => [id, { h: mean(reps.map((r) => r.rep.get(id)[key])), n: mean(reps.map((r) => r.rep.get(id).units)) }]));
+  return new Map(ids.map((id) => {
+    const have = reps.filter((r) => r.rep.has(id));
+    return [id, { h: mean(have.map((r) => r.rep.get(id)[key])), n: mean(have.map((r) => r.rep.get(id)[denominator])) }];
+  }));
 }
 
 function bootstrapDiff(a, b, ids, iterations = 20000) {
@@ -75,7 +81,7 @@ function bootstrapDiff(a, b, ids, iterations = 20000) {
 const parse = (arg) => { const i = arg.indexOf('='); return [arg.slice(0, i), arg.slice(i + 1).split(',').filter(Boolean)]; };
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const [cmd, ...args] = process.argv.slice(2);
+  const [cmd, ...args] = process.argv.slice(2).filter((a) => a !== '--all');
   if (cmd === 'table') {
     for (const arg of args) {
       const [label, files] = parse(arg);

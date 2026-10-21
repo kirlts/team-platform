@@ -15,7 +15,7 @@ import { get, latestVersion, userVersion } from '../db/index.js'
 import { AppError } from '../domain/errors.js'
 import { MEMBER_COLUMNS, toMember } from '../domain/members.js'
 import { createLogger } from '../log.js'
-import { getProviderSettings } from '../domain/settings.js'
+import { getProviderSettings, getUiTelemetryEnabled } from '../domain/settings.js'
 import { installErrorHandler, schemaErrorFormatter } from './errors.js'
 import { installSecurityHeaders } from './security.js'
 import { cookieSpec } from '../identity/cookies.js'
@@ -29,10 +29,11 @@ import { registerMemberRoutes } from './routes/members.js'
 import { registerSettingsRoutes } from './routes/settings.js'
 import { registerAttachmentRoutes } from './routes/attachments.js'
 import { registerOpsRoutes } from './routes/ops.js'
+import { registerTelemetryRoutes } from './routes/telemetry.js'
 import { errorSchema, member as memberSchema } from './schemas.js'
 
 
-const LABELS = { auth: 'Session', me: 'Session', inputs: 'Inputs', messages: 'Messages', areas: 'Areas and templates', templates: 'Areas and templates', members: 'Team', settings: 'Settings', attachments: 'Attachments', events: 'Events', jobs: 'Operations', audit: 'Operations', health: 'Operations', openapi: 'Operations' }
+const LABELS = { telemetry: 'Telemetry', auth: 'Session', me: 'Session', inputs: 'Inputs', messages: 'Messages', areas: 'Areas and templates', templates: 'Areas and templates', members: 'Team', settings: 'Settings', attachments: 'Attachments', events: 'Events', jobs: 'Operations', audit: 'Operations', health: 'Operations', openapi: 'Operations' }
 
 /**
  * Builds the application. `deps`: { db, config, queue, events, modules, logger }. It neither listens nor starts the worker.
@@ -224,12 +225,12 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
       onRequest: [requireRole('member')],
       schema: {
         summary: 'The signed-in person and the project name',
-        response: { 200: { type: 'object', properties: { ...memberSchema.properties, project_name: { type: 'string' }, provider: { type: 'string' }, password_min_length: { type: 'integer' } } } }
+        response: { 200: { type: 'object', properties: { ...memberSchema.properties, project_name: { type: 'string' }, provider: { type: 'string' }, password_min_length: { type: 'integer' }, ui_telemetry: { type: 'object', properties: { enabled: { type: 'boolean' }, max_events: { type: 'integer' } } } } } }
       }
     }, async (request) => {
       const dbRow = get(db, `SELECT ${MEMBER_COLUMNS} FROM members WHERE id = ?`, request.member.id)
       // The minimum length is the server's (PASSWORD_MIN_LENGTH): the panel says it before the person types, it does not repeat a number of its own.
-      return { ...toMember(dbRow), project_name: config.projectName, provider: identity.provider.name, password_min_length: config.identity.password.minLength }
+      return { ...toMember(dbRow), project_name: config.projectName, provider: identity.provider.name, password_min_length: config.identity.password.minLength, ui_telemetry: { enabled: getUiTelemetryEnabled(db, config), max_events: config.uiTelemetry.maxEvents } }
     })
     api.get('/health', { config: { public: true }, schema: healthSchema }, healthHandler)
     api.get('/openapi.json', {
@@ -243,6 +244,7 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
     registerSettingsRoutes(api, ctx)
     registerAttachmentRoutes(api, ctx)
     registerOpsRoutes(api, ctx)
+    registerTelemetryRoutes(api, ctx)
     eventStreams = await registerEventRoutes(api, { db, config, events, requireRole })
   }, { prefix: apiPrefixPath })
   app.get('/health', { config: { public: true }, schema: { hide: true, ...healthSchema } }, healthHandler)

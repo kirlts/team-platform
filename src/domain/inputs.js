@@ -249,7 +249,7 @@ export function editInputText ({ db, config, queue, events, now = Date.now }, in
       links: atts.filter((a) => a.kind === 'link').map((a) => a.path)
     })
     if (get(db, 'SELECT 1 AS e FROM inputs WHERE content_hash = ? AND id != ?', hash, inputId)) {
-      throw conflict('Ya existe un envío tuyo con ese contenido.', 'duplicate_input')
+      throw conflict('Envío duplicado: la misma persona ya envió ese contenido.', 'duplicate_input')
     }
     const t = now()
     run(db, 'UPDATE inputs SET text = ?, content_hash = ?, updated_at = ? WHERE id = ?', text, hash, t, inputId)

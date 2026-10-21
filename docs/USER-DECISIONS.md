@@ -516,6 +516,8 @@ RULES:
 
 ## [UD-041] Los tres estados son la única categoría de un mensaje en la interfaz, y el área se abre en sus mensajes
 
+## [UD-040] El HEIC de iPhone se decodifica con el `ffmpeg` de la imagen
+
 **Fecha:** 2026-10-21
 **Contexto:** Dos correcciones del dueño, textuales. Sobre los estados: «quien dijo esto de que por atender es distinto a abierto, no lo entiendo, yo creo que fui super explícito respecto a las categorías de cosas. Yo dije mensajes abiertos, mensajes respondidos y mensajes cerrados o atendidos. Esos son los tres estados que quiero ver en esta interfaz». UD-029 había inventado «Por atender», «Pendiente» y «Novedad», contra MASTER-SPEC §1.1. Sobre Áreas: «la pestaña de áreas me parece que no funciona como uno esperaría. Si yo hago clic en idea por ejemplo, yo no espero que ese sea el lugar donde solamente puedo editar las plantillas de idea. Yo creo que puedo editar las plantillas y la descripción del área, sí por supuesto, pero también quiero ver al tiro los mensajes asociados a esa área porque eso es lo que uno pensaría cuando está ocupando el sitio».
 **Decisión:** En toda la interfaz la única categoría visible de un mensaje es su estado: abierto, respondido o cerrado (en inglés open, answered, closed). Ninguna otra palabra de estado o de prioridad. Los colores se atan a los estados: abierto rojo, respondido amarillo, cerrado azul, siempre con la palabra y el número. La campana y la insignia de Mensajes cuentan los mensajes abiertos y respondidos que afectan al miembro (criterio de UD-028) y toman el color del estado más alto presente; los cerrados no generan aviso, pero se muestran con su color en listas y filtros. Los contadores por área dicen «N abiertos» y «N respondidos» y llevan a Mensajes filtrado por esa área y ese estado. `GET /messages/summary` devuelve `mine: { open, answered, total }`, `items[].status` y, por área, `open`, `answered`, `closed` y `mine_open`. Al elegir un área, en la página Áreas o en la barra lateral, se abre su vista en `/areas/:areaId`: sus mensajes primero, con la misma lista y la misma fila de Mensajes, filtrada por el área, con un filtro por cada estado y el conteo de cada uno (el estado elegido va en la URL); debajo, plegadas, su descripción editable en el lugar y sus plantillas. `/areas` sigue siendo la lista de todas las áreas, para crearlas y abrirlas. Enmienda UD-029 y UD-036.
@@ -528,6 +530,11 @@ RULES:
 - La vista de área reutiliza `MessageList` y `MessageCard`; las plantillas viven en `components/AreaTemplates.tsx`. Junto a la descripción queda el lugar (`data-slot="area-color"`) del control de color del área.
 - Pruebas: la prioridad más alta gana en las combinaciones de estados; ninguna palabra retirada aparece en los catálogos ni en la interfaz renderizada; un flujo en navegador elige Idea, ve sus mensajes con su estado, filtra por respondido y edita la descripción.
 **Condiciones de reversión:** Si el dueño pide de nuevo una categoría de aviso distinta de los estados, se registra con su cita y se enmienda esta decisión.
+
+- Sonnet 5.5 por omisión: 0,31 USD por entrada con caché tibia contra 0,017, para ganar en destinatarios, que el equipo corrige en la revisión.
+- `classifyEffort` `medium`: el área baja de 94,7 % a 87,1 % (p 0,008) y 2 de 33 corridas quedan inválidas.
+**Consecuencias:** Sin cambios en el producto. H-1100 queda cerrado (el proveedor elige `thinking` según el modelo) y H-1102 abierto.
+**Condiciones de reversión:** Se pasa a Sonnet 5.5 si la asignación de destinatarios pesa más que el costo (más de 20 entradas diarias con 0,31 USD cada una son 6 USD al día) o si el equipo mide que corrige más de la mitad de los destinatarios que propone Haiku.
 
 ## [UD-060] Las descripciones v2-orden se mantienen, y una unidad con varios puntos se recoge completa en su mensaje
 
@@ -545,22 +552,6 @@ RULES:
 - Una oración compuesta sigue siendo un solo mensaje. Dividirla en dos exige cambiar el contrato de unidades y no se hizo.
 - `bench/areas-classify.mjs` acepta `--project`, `--effort`, `--window` y `--label`; `bench/areas-stats.mjs` compara variantes por casos; `bench/probe-compound.mjs` y el caso público 09 miden las oraciones compuestas.
 **Condiciones de reversión:** Volver a la regla 4 anterior si una corrida del banco privado muestra mensajes con puntos inventados o de relleno por la obligación de cubrir cada punto.
-## [UD-040] El HEIC de iPhone se decodifica con el `ffmpeg` de la imagen
-
-**Fecha:** 2026-10-21
-**Contexto:** Martín, textual: «asumo que el código que hiciste ya es compatible con el formato de iPhone». No lo era: `sharp` trae `libvips` sin decodificador HEVC y la subida rechazaba un HEIC con 422 `image_heic_unsupported` (H-21, UD-039). UD-039 decidió no probar el aparato; no decidió que el formato no se aceptara cuando alguien lo suba. Safari suele convertir a JPEG en el selector de archivos y WhatsApp entrega JPEG, pero el sistema no depende de eso.
-**Decisión:** Decisión de la sesión por encargo de Martín (decidir la opción con una UD, sin llamar a ningún modelo). Un HEIC o HEIF se decodifica a JPEG con el `ffmpeg` que la imagen ya lleva y sigue el flujo normal de imágenes (rotación, reducción al lado máximo, tope de 7 MiB). El `ffmpeg` mínimo ya tenía el demultiplexor `mov` y el decodificador HEVC; se le añaden los filtros `xstack` (compone las teselas de la foto), `transpose`, `hflip` y `vflip` (aplican la rotación `irot` del contenedor). Se descarta la entrada por marca `image_heic_unsupported`: un HEIC dañado falla en la extracción con `image_heic_unreadable`, y uno de más de 50 millones de píxeles con `image_too_many_pixels`, leído de las cabeceras antes de decodificar (`image.heicMaxPixels`, medido en `docs/investigaciones/mediciones/2026-10-21-heic-via-ffmpeg.md`). Del archivo se toma la imagen principal.
-**Alternativas descartadas** (fuentes consultadas el 2026-10-21):
-- `heic-decode` o `libheif-js` (WASM): `libheif-js` 1.23.5 es LGPL-3.0 (npm, 2026-10-04) y entraría como dependencia de npm, lo que UD-020 reserva a licencias permisivas; el WASM incorpora la biblioteca y no puede sustituirse como una biblioteca compartida. Añade 9,0 MB desempaquetados y un segundo decodificador de HEVC. `heic-decode` es ISC pero depende de `libheif-js`.
-- `sharp` con `libvips` y `libheif` del sistema con HEVC: obliga a compilar `sharp` contra bibliotecas de Alpine en x86-64 y arm64 (libde265 LGPL, x265 GPL en la codificación) y rompe el binario precompilado que hoy se instala sin compilar.
-- Decodificar en el panel antes de subir: no cubre la API ni los adjuntos que no pasan por el panel, y repartiría un WASM LGPL dentro del paquete del panel.
-**Consecuencias:**
-- Sin dependencias nuevas de npm. La capa de binarios de UD-020 no cambia: `ffmpeg` sigue en configuración LGPL, sin `--enable-gpl`; el `NOTICE` actualiza la línea de configuración con los cuatro filtros.
-- La imagen crece 0,5 MB (306,96 a 307,48 MB). No hay binario nativo por arquitectura: `ffmpeg` se compila en la etapa de la imagen para la arquitectura de la construcción.
-- H-21 se cierra. UD-039 sigue vigente en lo que decidió (no se prueba Safari ni el micrófono con un iPhone, H-56).
-**Condiciones de reversión:** Que un redistribuidor no acepte el decodificador HEVC dentro de la imagen (patentes de HEVC); entonces el HEIC vuelve a rechazarse en la subida.
-
-
 ## [UD-070] Los mensajes se publican solos al terminar el análisis; la bandeja pasa a ser historial
 
 **Fecha:** 2026-10-21
@@ -640,6 +631,80 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 - `classifyEffort` `medium`: el área baja de 94,7 % a 87,1 % (p 0,008) y 2 de 33 corridas quedan inválidas.
 **Consecuencias:** Sin cambios en el producto. H-1100 queda cerrado (el proveedor elige `thinking` según el modelo) y H-1102 abierto.
 **Condiciones de reversión:** Se pasa a Sonnet 5.5 si la asignación de destinatarios pesa más que el costo (más de 20 entradas diarias con 0,31 USD cada una son 6 USD al día) o si el equipo mide que corrige más de la mitad de los destinatarios que propone Haiku.
+
+
+## [UD-080] La clasificación relee lo descartado y cada ventana ve las 40 unidades que la preceden
+
+**Fecha:** 2026-10-21
+**Contexto:** El dueño: «es difícil confiar en la herramienta si no sabe clasificar bien por área». H-1600 midió 8,2 % de unidades de referencia sin mensaje y H-1003 una desviación de 3,6 puntos entre repeticiones. Medición: `docs/investigaciones/mediciones/2026-10-21-reuniones-cobertura-y-estabilidad.md`. Gasto: 6,01 USD de un tope de 7.
+**Decisión:** Decisión de la sesión por encargo del dueño, sin cita suya. Dos perillas del analizador con valor por omisión medido: `coveragePasses` 1 (tras la clasificación, las unidades descartadas se leen de nuevo aparte y el modelo decide si alguna es un punto; el sistema sólo valida la forma) y `classifyContextUnits` 40 (cada ventana de clasificación recibe, de sólo lectura, las 40 unidades que la preceden). `classifyDraws` queda en 1.
+**Alternativas descartadas:**
+- Bajar la temperatura: Haiku 5.5 responde 400 a todo valor distinto de 1.
+- Ventana de 60 unidades: más grupos (174), más costo y sin mejora de acuerdo.
+- Una nota de cobertura que dice dejar las unidades sueltas en descartadas: +1,5 puntos de área, no significativo.
+- Contexto de 20 unidades: acuerdo 0,74 contra 0,78 con 40.
+- Tres lecturas con mayoría (`classifyDraws` 3): triplica el costo de la clasificación y no se midió con el modelo real.
+**Consecuencias:**
+- En 39 casos, 3 repeticiones: unidades sin grupo 8,1 a 2,1 %; área sobre todas las unidades esperadas 74,9 a 79,9 % (p 0,011); área por unidad agrupada sin cambio (81,7 y 81,6). Cinco transcripciones: acuerdo entre repeticiones 0,62 a 0,78.
+- Costo de clasificación +19 %, tiempo +11 %; sin llamadas nuevas más que una por entrada con descartes.
+- H-1003 se cierra. H-1900 a H-1904 quedan en el libro.
+- `classifyInput` se exporta para medir la etapa sola (`bench/classify-stage.mjs`).
+**Condiciones de reversión:** Poner `coveragePasses` en 0 y `classifyContextUnits` en 0 si una corrida del banco muestra que los grupos más gruesos funden puntos que el equipo necesita asignar por separado (H-1904).
+## [UD-050] La interfaz habla como un instrumento, no como una conversación
+
+**Fecha:** 2026-10-21
+**Contexto:** Martín, textual: «cuando haces interfaces tiendes a escribir rótulos y textos que parecen hablarle directamente al lector, como si fuese una conversación, y eso es porque eres un modelo conversacional, pero es un vicio que tenemos que evitar». Pidió investigar qué se dice del patrón en 2026 y purgarlo de la interfaz, con «lenguaje estándar de software, como un instrumento que se ocupa, no como algo que te está hablando a ti». Su ejemplo del patrón: «Nota de voz con su transcripción». Los catálogos ya cumplían UD-013 en casi todo (rótulos cortos, sin segunda persona); la medición del 2026-10-21 encontró el patrón en 18 claves en español, 21 en inglés y 37 frases de progreso que entrega el servidor (H-1500).
+**Decisión:** Todo texto visible es una etiqueta de instrumento: sustantivo o grupo nominal corto para un rótulo, verbo en infinitivo (inglés: imperativo estándar) más objeto para una acción, etiqueta de una o dos palabras para un estado, causa más salida para un error. Quedan fuera la segunda persona, las preguntas, las exclamaciones, los saludos, las aperturas «Aquí», «Ya», «Todavía», «Parece que» y «Oops», los imperativos coloquiales, los gerundios que acompañan una frase, el punto final en un texto de una oración y las dos oraciones en un mismo texto. El texto de ayuda no existe por omisión. Un aviso de una acción que no se deshace puede ser una oración corta, impersonal y precisa. Las reglas (R1 a R14) y sus fuentes fechadas están en `docs/investigaciones/08-lenguaje-de-instrumento-en-interfaces.md`; las que se pueden medir las hace cumplir `panel/src/ui-voice.test.ts` sobre los dos catálogos y sobre las frases de progreso del servidor, con una lista de excepciones por clave que exige su razón.
+**Alternativas descartadas:**
+- Hablarle a la persona de «tú» en oraciones completas, como piden Adobe Spectrum, Grafana y Microsoft: sirve en productos de consumo; en un panel de uso diario los rótulos estables se escanean mejor y NN/g (2026-01-09) mide un costo en la calidez de un modelo.
+- Una lista de textos a mano sin guardia: el vicio vuelve con cada texto nuevo que escribe un modelo.
+- Leer el texto de las personas para detectar el patrón: la guardia sólo lee el código de la interfaz, nunca lo que escribe una persona (MASTER-SPEC §4.2).
+**Consecuencias:**
+- 18 claves del catálogo en español y 21 del inglés, y 37 frases de progreso del servidor, pasan a etiquetas de instrumento; los textos de prueba de los flujos siguen a los nuevos.
+- Un texto nuevo que caiga en el patrón rompe `npm test` del panel; la excepción se declara por clave, con su razón.
+- Las frases de progreso del servidor se muestran en el idioma de la cuenta: el panel las asigna a claves `progress.*` (H-1502) y una prueba exige una entrada por cada frase nueva.
+**Condiciones de reversión:** Que el producto cambie de público o de registro; Martín lo dice y se revisan R3 y R7.
+
+## [UD-090] La interfaz se mide con instrumentos antes de juzgarla
+
+**Fecha:** 2026-10-21
+**Contexto:** Cada ronda de jueces tomó entre 9 y 14 minutos por juez, un arreglo entre 29 y 87 minutos y una fusión con choques entre 10 y 20. Los jueces repitieron hallazgos que el dueño ya había refutado: en la ronda 3, 21 de 84 filas del libro reaparecen de rondas anteriores y 16 quedaron refutadas.
+**Decisión:** Martín, textual: «para esto ocupamos OpenTelemetry, para tener muchos datos sobre qué es lo que se necesita mejorar, y las rondas de jueces nos quitan demasiado tiempo; hay que encontrar una forma más eficiente, quizás darle un encargo más acotado a varios jueces en paralelo». Lo medible se mide con detectores en navegador y con telemetría de uso; el juicio queda para lo que ninguno ve.
+**Alternativas descartadas:**
+- Seguir con rondas de un juez por área: tiempo de pared de 9 a 14 minutos por juez y 25 % de repeticiones.
+- Sólo detectores: no ven rótulos, jerarquía ni flujo.
+**Consecuencias:**
+- Telemetría de interfaz (UD-091), detectores (`panel/scripts/ui-detectors.mjs`) y jueces acotados (UD-092).
+**Condiciones de reversión:** Que la medición del marco (`docs/investigaciones/mediciones/2026-10-21-jueces-acotados-contra-juez-unico.md`) muestre menos hallazgos válidos por minuto de pared que el juez único.
+
+## [UD-091] Telemetría de la interfaz: módulo propio, JSON validado, encendida por omisión
+
+**Fecha:** 2026-10-21
+**Contexto:** UD-090 pide datos de uso. El informe 09 encontró que el SDK de navegador de OpenTelemetry sigue experimental (`sdk-trace-web` fue retirado en la serie 3.0.0 y las convenciones `browser.*` están en «development»).
+**Decisión:** El panel emite eventos con un módulo propio (`panel/src/lib/telemetry.ts`, unos 0,7 KB comprimidos según el informe) a `POST /api/telemetry/ui`. El servidor valida la forma sin campos desconocidos y los guarda como spans OpenTelemetry `ui.*` en la tabla `spans`. Ningún evento lleva texto de personas, contenido, nombres de archivo ni identificadores de miembro: sólo conteos, duraciones, pantallas, tareas y rutas con sus identificadores reemplazados. Nace encendida (informe 09, recomendación 12: sin cookies, almacenamiento local, identificador persistente ni contenido, y con interruptor); el Editor la apaga en Configuración, «Telemetría de uso», y `UI_TELEMETRY=0` fija el valor inicial. El envío usa `fetch` con `keepalive` y no `navigator.sendBeacon`, porque un beacon no puede llevar la cabecera `X-Team-Request` que el servidor exige a toda petición con sesión. La decisión de encender por omisión la tomó la sesión por encargo del dueño («decide con UD: justifica»).
+**Alternativas descartadas:**
+- SDK de navegador de OpenTelemetry: 16,3 KB comprimidos y API experimental (informe 09, §2).
+- `sendBeacon`: sin cabeceras propias, choca con el CSRF (informe 09, §5).
+- Apagada por omisión: sin datos el informe queda vacío y los cinco productos comparados nacen encendidos.
+- Rage clicks y dead clicks: ninguna fuente fija umbrales comunes (informe 09, §4); quedan fuera hasta que un hallazgo los pida.
+**Consecuencias:**
+- Cifras con fuente: cuerpo de 64 KiB (cuota de `keepalive`), 145 eventos por lote (80 % de la cuota sobre el evento más largo posible, 360 bytes), 100 peticiones por 10 s por dirección y la misma cota en el cliente (10 eventos por segundo con ráfaga de 100, como PostHog).
+- Retención: la de los spans, 7 días.
+- Abandono: sólo con `pagehide` definitivo; un navegador móvil que descarta la página oculta sin `pagehide` no lo registra.
+- Mide el estado de Chrome, Firefox 128 o Safari 16.4 como el navegador lo permita: CLS y tareas largas sólo existen en Chromium y en los otros quedan sin dato, no en cero.
+**Condiciones de reversión:** Apagarla es el interruptor o `UI_TELEMETRY=0`. Si se agrega un identificador persistente o contenido, debe nacer apagada.
+
+## [UD-092] Jueces acotados en paralelo, con instrumentos y restricciones
+
+**Fecha:** 2026-10-21
+**Contexto:** UD-090.
+**Decisión:** Un encargo de unos 5 minutos por pantalla o flujo, todos los jueces a la vez (`scripts/juicios.mjs`, `docs/JUICIOS.md`). El juez recibe las salidas de los detectores y de la telemetría y reporta sólo lo que ninguna ve. Recibe como reglas del alcance las decisiones del dueño y los hallazgos refutados, nunca qué se cambió, y la nota parte en 2. Un consolidador marca cada hallazgo contra el libro y contra los otros jueces.
+**Alternativas descartadas:**
+- Decirle al juez qué se cambió: ancla el juicio (informe 10, §5).
+- Descartar automáticamente por similitud de títulos: la precisión medida es 0,67 con umbral 0,35, por eso sólo marca.
+**Consecuencias:**
+- Un hallazgo cuenta cuando se reproduce con captura o se mide.
+**Condiciones de reversión:** UD-090.
 
 ## [UD-045] Cada área tiene un color que el Editor elige, y de él salen el chip y el fondo del análisis
 

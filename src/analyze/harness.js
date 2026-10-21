@@ -165,7 +165,7 @@ export async function analyzeWithHarness(bundle, { onProgress, config }) {
   const workRoot = config.harnessWorkRoot ?? tmpdir();
   const dir = await mkdtemp(join(workRoot, 'team-analyze-'));
   try {
-    report('preparando el análisis');
+    report('Preparación');
     await writeWorkdir(dir, bundle, units, language);
     done = 1;
 
@@ -182,7 +182,7 @@ export async function analyzeWithHarness(bundle, { onProgress, config }) {
 
     let retryErrors = [];
     for (let attempt = 0; ; attempt += 1) {
-      report(attempt === 0 ? 'analizando con Claude Code' : 'corrigiendo la propuesta');
+      report(attempt === 0 ? 'Análisis con Claude Code' : 'Corrección de la propuesta');
       let result;
       const prompt = harnessPrompt({ unitCount: units.length, retryErrors, language });
       try {
@@ -242,10 +242,10 @@ export async function analyzeWithHarness(bundle, { onProgress, config }) {
           errors = checked.errors;
           if (errors.length === 0) {
             done = 2;
-            report('validando la propuesta');
+            report('Validación de la propuesta');
             const { messages, discarded } = normalizeDecomposition(proposal);
             done = 3;
-            report('propuesta lista');
+            report('Propuesta lista');
             return { status: 'ok', proposal: { messages, discarded }, units, calls, stats };
           }
         }

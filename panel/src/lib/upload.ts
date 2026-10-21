@@ -2,6 +2,7 @@
 // (report 07, §6.3), so XMLHttpRequest is used. The retry resends everything: it is safe
 // because POST /inputs is idempotent by hash (MASTER-SPEC §1.3).
 import { API_BASE, CSRF_HEADER } from './api'
+import { telemetry } from './telemetry'
 
 export interface NewInput {
   text: string
@@ -44,7 +45,9 @@ export function uploadInput(
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && e.total > 0) onProgress(e.loaded / e.total)
     }
+    const settle = telemetry.request('POST', '/inputs') // interface telemetry (UD-091): the send begins here
     xhr.onload = () => {
+      settle({ status: xhr.status })
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
           resolve(JSON.parse(xhr.responseText) as CreatedInput)
@@ -64,7 +67,10 @@ export function uploadInput(
       }
       reject(new UploadError(xhr.status, message, code))
     }
-    xhr.onerror = () => reject(new UploadError(0, '', 'network'))
+    xhr.onerror = () => {
+      settle({ status: 0 })
+      reject(new UploadError(0, '', 'network'))
+    }
     xhr.onabort = () => reject(new UploadError(0, '', 'cancelled'))
     signal?.addEventListener('abort', () => xhr.abort())
     xhr.send(form)

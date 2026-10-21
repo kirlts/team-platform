@@ -151,7 +151,7 @@ describe('analysis proposal', () => {
       await send.click()
       // Publishing says what happened: what went out, how many and where to see it (J1-B-25).
       const notice = page.locator('[data-notice]')
-      await notice.getByText(/^Se publicaron 2 mensajes/).waitFor({ timeout: 10000 })
+      await notice.getByText(/^2 mensajes publicados/).waitFor({ timeout: 10000 })
       await notice.getByRole('link', { name: 'Ver mensajes' }).waitFor()
       // The send stays in the drawer, now as published (UD-070): the proposal's review is gone and its messages are the published ones.
       await page.getByTestId('published-pane').waitFor({ timeout: 10000 })
@@ -191,7 +191,7 @@ describe('analysis proposal', () => {
       await sendInput(page, 'Texto que no se debe perder [simular falla]')
       await page.getByRole('alert').filter({ hasText: 'servicio de análisis' }).waitFor({ timeout: 20000 })
       await page.getByText('Texto que no se debe perder', { exact: false }).first().waitFor()
-      await page.getByText('El texto y los adjuntos del envío se conservaron.').waitFor()
+      await page.getByText('Texto y adjuntos del envío conservados').waitFor()
       assert.equal(await page.getByRole('button', { name: 'Reintentar' }).count(), 1)
       await page.getByRole('button', { name: 'Reintentar' }).first().click()
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
@@ -649,7 +649,7 @@ describe('estados, teclado y filas', () => {
       await page.getByLabel('Contraseña').fill('corta')
       await page.getByRole('button', { name: 'Entrar' }).click()
       await page.getByRole('alert').first().waitFor()
-      await page.getByText('Las cuentas las crea el Editor del equipo').waitFor()
+      await page.getByText('Cuentas creadas por el Editor del equipo').waitFor()
     } finally {
       await context.close()
     }
@@ -1081,7 +1081,7 @@ describe('tray and proposal (round 2, judge B)', () => {
       const had = await total()
       await page.getByRole('button', { name: 'Enviar 3 mensajes', exact: true }).click()
       const notice = page.locator('[data-notice]')
-      await notice.getByText(/^Se publicaron 3 mensajes para \d+ personas?\./).waitFor()
+      await notice.getByText(/^3 mensajes publicados para \d+ personas?/).waitFor()
       const heading = page.getByRole('heading', { name: 'Últimos mensajes' })
       const y = (await heading.boundingBox()).y
       await settled(page)

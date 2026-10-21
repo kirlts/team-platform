@@ -7,6 +7,7 @@ import { LoadState } from '@/components/LoadState'
 import { Page } from '@/components/Page'
 import { PageHeader } from '@/components/PageHeader'
 import { Segmented } from '@/components/Segmented'
+import { UiTelemetrySetting } from '@/components/UiTelemetrySetting'
 import { UndoButtons } from '@/components/UndoButtons'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -53,6 +54,7 @@ export function Settings() {
           <div className="flex min-w-0 flex-col gap-5">
             <Account />
             <Theme />
+            {editor && <UiTelemetrySetting />}
           </div>
           <div className="flex min-h-0 min-w-0 flex-col gap-5">
             <Project editor={editor} />

@@ -34,7 +34,7 @@ export function createProgress(onProgress, total) {
       total = n;
     },
     /** Closes at 100 %. */
-    finish(phrase = 'listo') {
+    finish(phrase = 'Listo') {
       done = total;
       emit(phrase);
     },

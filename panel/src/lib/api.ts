@@ -1,6 +1,8 @@
 // API client: fetch to /api with the session cookie. On unsafe methods
 // it adds its own CSRF header (the server also checks Sec-Fetch-Site and Origin).
 
+import { telemetry } from '@/lib/telemetry'
+
 export const API_BASE = '/api'
 export const CSRF_HEADER = 'X-Team-Request'
 const CSRF_VALUE = 'panel'
@@ -49,20 +51,28 @@ export async function api<T = unknown>(
     headers['Content-Type'] = 'application/json'
     body = JSON.stringify(options.body)
   }
+  const settle = telemetry.request(method, path) // interface telemetry (UD-091): counts and durations, never content
   let res: Response
   try {
     res = await fetch(`${API_BASE}${path}`, { method, headers, body, credentials: 'include', signal: options.signal })
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') throw err
+    settle({ status: 0 })
     throw new ApiError(0, '', 'network')
   }
   if (!res.ok) {
+    settle({ status: res.status })
     const { message, code } = await errorBody(res)
     throw new ApiError(res.status, message, code || `http_${res.status}`)
   }
-  if (res.status === 204) return undefined as T
+  if (res.status === 204) {
+    settle({ status: res.status })
+    return undefined as T
+  }
   const text = await res.text()
-  return (text ? JSON.parse(text) : undefined) as T
+  const data = (text ? JSON.parse(text) : undefined) as T
+  settle({ status: res.status, body: data })
+  return data
 }
 
 /** Lists may arrive as an array or as `{ items }`. */

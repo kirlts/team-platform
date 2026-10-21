@@ -51,7 +51,7 @@ function PublishedMessage({ id, input }: { id: string; input: InputRecord }) {
   if (!query.data) {
     return (
       <li role="status" className="rounded-md border border-line px-3 py-4 text-sm text-muted">
-        {t('published.loading')}
+        {t('common.loading')}
       </li>
     )
   }

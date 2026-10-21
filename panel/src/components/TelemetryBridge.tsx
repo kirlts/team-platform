@@ -27,7 +27,14 @@ export function TelemetryBridge() {
     telemetry.enterScreen(screenOf(location.pathname))
   }, [location.pathname, ui?.enabled])
 
-  useEffect(() => events.onDone(() => telemetry.analysisVisible()), [events])
+  useEffect(
+    () => events.onDone((e) => {
+      telemetry.analysisVisible()
+      // The job ended by publishing (UD-070): the send is done, whether or not the own-message notice reaches this page.
+      if (e.input_status === 'published') telemetry.ownMessagePublished()
+    }),
+    [events],
+  )
   useEffect(
     () => events.onNewMessage((e) => {
       if (me?.id && e.author_id === me.id) telemetry.ownMessagePublished()

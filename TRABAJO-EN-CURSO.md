@@ -13,24 +13,26 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 402faf6 Merge branch 'wt-vps-restauracion'. Empujado a origin: `402faf6`.
-- Ramas con commits sin fusionar: `wt-configuracion` 14 (hace 55 segundos), `wt-barra-superior` 12 (hace 11 minutos), `wt-deuda` 8 (hace 68 segundos), `wt-inicio-respira` 4 (hace 2 minutos), `wt-deuda-ingles` 3 (hace 4 minutos), `wt-telemetria-2` 3 (hace 22 segundos), `wt-h904` 1 (hace 43 segundos).
-- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `banco-abiertos`, `barra-lateral`, `barra-superior`, `cierre`, `configuracion`, `deuda`, `deuda-ingles`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `h904-old`, `heic`, `ingles`, `inicio-maqueta`, `inicio-respira`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-2`, `telemetria-ui`, `thinking`, `voz`.
+- `main`: dfe5ead Traspaso: barra superior y telemetría fusionadas. Empujado a origin: `dfe5ead`.
+- Ramas con commits sin fusionar: `wt-configuracion` 21 (hace 6 minutos), `wt-deuda` 11 (hace 29 segundos), `wt-barra-lateral` 6 (hace 3 minutos), `wt-inicio-respira` 5 (hace 4 minutos), `wt-deuda-ingles` 3 (hace 15 minutos), `wt-h904` 1 (hace 12 minutos).
+- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `banco-abiertos`, `barra-lateral`, `cierre`, `configuracion`, `deuda`, `deuda-ingles`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `h904-old`, `heic`, `ingles`, `inicio-maqueta`, `inicio-respira`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `402faf6` Merge branch 'wt-vps-restauracion' (hace 2 minutos)
-- `9b20211` Instalacion: restauracion de adjuntos, segunda instancia y trusted-header medidos en el VPS (H-2600 a H-2606) (hace 2 minutos)
-- `ce4a6cf` Install: IMAGE_TAG for a second instance, port prompt, password hint (H-2601, H-2603) (hace 2 minutos)
-- `e8c0a59` Backup: copies readable only by their owner (H-2602) (hace 2 minutos)
-- `9014c44` Plan de cierre: primera oración (hace 20 minutos)
-- `ba40c27` Plan de cierre: títulos sin subtítulo y oraciones cortas (hace 21 minutos)
-- `3bf56d6` Plan de cierre: fases, encargos relanzables y barra lateral (hace 22 minutos)
-- `48ca4b1` Traspaso: Configuración en vuelo (hace 39 minutos)
-Actualizado 2026-10-21 18:13 UTC.
+- `dfe5ead` Traspaso: barra superior y telemetría fusionadas (hace 21 segundos)
+- `63dc519` Merge branch 'wt-telemetria-2' (hace 5 minutos)
+- `786b37f` Smoke test, judges' flow and docs follow the current send flow; close H-1703, H-1705, H-1706 (hace 7 minutos)
+- `f0f5a2c` Merge branch 'wt-barra-superior' (hace 7 minutos)
+- `c879c8c` Traspaso: VPS fusionado y avance de fases (hace 11 minutos)
+- `6eb101f` Telemetry ends an automatic send on the job's own published end; test ids for the send flow of the browser test (H-1705, H-1706) (hace 12 minutos)
+- `402faf6` Merge branch 'wt-vps-restauracion' (hace 13 minutos)
+- `9b20211` Instalacion: restauracion de adjuntos, segunda instancia y trusted-header medidos en el VPS (H-2600 a H-2606) (hace 14 minutos)
+Actualizado 2026-10-21 18:25 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo
 
 **Plan de cierre:** `docs/PLAN-DE-CIERRE.md` (2026-10-21 15:00). La sesión anterior murió a las 14:42 con la cuota de su cuenta agotada; sus agentes murieron con ella. Quien retome ejecuta ese plan desde la Fase 0: rescata lo sin commit de `configuracion`, `inicio-respira` y `barra-superior`, relanza los encargos A, B, C y G, y sigue el orden de fusión que dice. Encargo nuevo del dueño de hoy: la barra lateral (alineación, contadores sin contenedor, hover), encargo G.
+
+**Avance 15:25.** En `main` también la barra superior (`f0f5a2c`) y la telemetría pendiente (`63dc519`). Abierto: H-2000 y H-2001. Las ramas de Inicio y barra lateral deben fusionar `main`.
 
 **Avance 15:15.** Fusionado en `main` el encargo del VPS (`402faf6`): restauración con adjuntos, `IMAGE_TAG` para una segunda instancia, respaldos en modo 600, `trusted-header` documentado. Abiertos: H-2605 (cualquier proceso local suplanta a un miembro en ese modo; el botón «Cerrar sesión» da 404, decisión del dueño). En vuelo: barra superior, barra lateral, Inicio, Configuración, telemetría, H-904 y Firefox, banco, deuda técnica.
 

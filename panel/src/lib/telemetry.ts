@@ -44,7 +44,7 @@ export function endpointOf(path: string): string {
 }
 
 // Core Web Vitals definition of a layout-shift session window: a window closes after a gap of 1 s without shifts or
-// when it lasts 5 s (web.dev/articles/cls, consulted 2026-10-21, informe 09). Unit conversion of the spec's numbers.
+// when it lasts 5 s (web.dev/articles/cls, consulted 2026-10-21, report 09). Unit conversion of the spec's numbers.
 const CLS_GAP_MS = 1000
 const CLS_WINDOW_MS = 5000
 
@@ -69,7 +69,7 @@ export class LayoutShift {
 
 /**
  * Interaction to Next Paint of one screen: the longest interaction, ignoring one more of the longest for every 50
- * interactions (web.dev/articles/inp, consulted 2026-10-21, informe 09). With fewer than 50 it is the longest.
+ * interactions (web.dev/articles/inp, consulted 2026-10-21, report 09). With fewer than 50 it is the longest.
  */
 export function interactionToNextPaint(durations: number[]): number | undefined {
   if (durations.length === 0) return undefined
@@ -81,7 +81,7 @@ type Listen = (target: EventTarget, type: string, fn: (e: never) => void, captur
 
 // Width classes: the lower edge of the Tailwind breakpoint the window is in (tailwindcss.com/docs/responsive-design,
 // consulted 2026-10-21; the panel has no custom ones). An exact window size is a fingerprint and the summary only needs
-// the class (informe 09 §8.11, Matomo's exempt mode drops the screen resolution).
+// the class (report 09 §8.11, Matomo's exempt mode drops the screen resolution).
 const WIDTH_EDGES = [0, 640, 768, 1024, 1280, 1536]
 // Height classes: steps of 100 px, a declared courtesy (the fit tests of the panel use 844 and 900 px windows).
 const HEIGHT_STEP = 100
@@ -93,7 +93,7 @@ export function viewportClass(width: number, height: number): { w: number; h: nu
 
 /**
  * Token bucket of the events the panel records: the rate and the burst of PostHog's client, 10 events a second with a
- * burst of 100 (informe 09 §9, posthog.com/docs, consulted 2026-10-21). A runaway loop of errors is the case it is for.
+ * burst of 100 (report 09 §9, posthog.com/docs, consulted 2026-10-21). A runaway loop of errors is the case it is for.
  */
 export class EventBudget {
   private tokens = 100
@@ -565,7 +565,7 @@ function randomSession(): string {
 /**
  * `fetch` with `keepalive`, not `navigator.sendBeacon`: a beacon cannot carry the `X-Team-Request` header that the
  * server demands of every request with a session (src/identity/csrf.js), and a request with `keepalive` does survive the
- * page closing, which is what the beacon is for (fetch.spec.whatwg.org, informe 09 §4).
+ * page closing, which is what the beacon is for (fetch.spec.whatwg.org, report 09 §4).
  */
 function sendWithFetch(body: string) {
   try {

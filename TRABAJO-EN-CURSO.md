@@ -14,18 +14,18 @@
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
 - `main`: ec34966 Traspaso: banco fusionado. Empujado a origin: `ec34966`.
-- Ramas con commits sin fusionar: `wt-barra-movil` 4 (hace 8 minutos), `wt-h904` 4 (hace 16 minutos), `wt-areas3` 2 (hace 6 minutos), `wt-envio` 2 (hace 30 segundos).
+- Ramas con commits sin fusionar: `wt-barra-movil` 4 (hace 9 minutos), `wt-h904` 4 (hace 17 minutos), `wt-envio` 3 (hace 63 segundos), `wt-areas3` 2 (hace 8 minutos).
 - Worktrees abiertos: `team-platform`, `areas2`, `areas3`, `auto-publicar`, `barra-movil`, `cierre`, `envio`, `equipo-config`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `tarjetas`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `ec34966` Traspaso: banco fusionado (hace 9 minutos)
-- `d593179` Merge branch 'wt-banco-abiertos' (hace 10 minutos)
-- `a88806c` Traspaso: ronda 4 de jueces y cinco arreglos (hace 11 minutos)
-- `b38bcf8` Traspaso: barrido fusionado, jueces en curso (hace 13 minutos)
-- `50a189a` Merge branch 'wt-voz2' (hace 17 minutos)
-- `def9572` Voice detector: setting hints measured in characters (hace 37 minutos)
-- `6664a58` Traspaso: Inicio fusionado, Fase 1 completa (hace 40 minutos)
-- `8650d0c` Merge branch 'wt-inicio-respira' (hace 50 minutos)
-Actualizado 2026-10-21 19:59 UTC.
+- `ec34966` Traspaso: banco fusionado (hace 10 minutos)
+- `d593179` Merge branch 'wt-banco-abiertos' (hace 11 minutos)
+- `a88806c` Traspaso: ronda 4 de jueces y cinco arreglos (hace 12 minutos)
+- `b38bcf8` Traspaso: barrido fusionado, jueces en curso (hace 15 minutos)
+- `50a189a` Merge branch 'wt-voz2' (hace 18 minutos)
+- `def9572` Voice detector: setting hints measured in characters (hace 38 minutos)
+- `6664a58` Traspaso: Inicio fusionado, Fase 1 completa (hace 41 minutos)
+- `8650d0c` Merge branch 'wt-inicio-respira' (hace 51 minutos)
+Actualizado 2026-10-21 20:00 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

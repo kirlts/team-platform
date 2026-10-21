@@ -105,6 +105,11 @@ async function shoot(browser, vp, theme, lang = 'es-419') {
     await page.reload()
     await page.locator('main h1').first().waitFor()
   }
+  // Each run starts with an empty tray: the previous one left its proposal open.
+  const mine = await (await page.request.get(`${ORIGIN}/api/inputs?mine=1&status=queued,extracting,analyzing,proposed,failed`)).json()
+  for (const i of mine.items ?? mine) await page.request.post(`${ORIGIN}/api/inputs/${i.id}/cancel`, { headers: { 'X-Team-Request': 'panel' } })
+  await page.reload()
+  await page.locator('main h1').first().waitFor()
   let n = 0
   const take = async (name, opts = {}) => {
     await page.waitForTimeout(500)

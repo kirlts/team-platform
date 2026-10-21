@@ -1,19 +1,19 @@
-// Esquemas JSON del analizador (informe 02 §6.2 y MASTER-SPEC §7.5).
+// JSON schemas of the analyzer (report 02 §6.2 and MASTER-SPEC §7.5).
 //
-// Todos los esquemas que van a la gramática de un proveedor son estáticos por plantilla: los ids de
-// miembros y de adjuntos son enteros que Ajv valida contra el bundle, no un `enum` por input, que
-// cambiaría la estructura y obligaría a recompilar la gramática en cada llamada (informe 02 §6.2).
-// Sin `maxItems`, `minLength` ni `minItems` mayor que 1 en la gramática: Anthropic no los admite [F1].
+// All the schemas that go to a provider's grammar are static per template: member and attachment ids are
+// integers that Ajv validates against the bundle, not a per-input `enum`, which would change the structure
+// and force the grammar to be recompiled on every call (report 02 §6.2).
+// No `maxItems`, `minLength` or `minItems` greater than 1 in the grammar: Anthropic does not support them [F1].
 import { compileFieldsSchema } from './templates.js';
 
 const intArray = (extra = {}) => ({ type: 'array', items: { type: 'integer' }, ...extra });
 
 /**
- * Esquema de la primera llamada: agrupa las unidades del input por área y plantilla (idea.md: «uno o varios
- * mensajes que agrupen el trabajo en categorías»). Cada grupo es `{unit_ids, area_id, template_id}`; lo que
- * no pide ni informa nada va en `discarded`. Área y plantilla son `enum` de ids existentes (informe 02 §4.3:
- * reducir el espacio de valores colapsa el desacuerdo entre corridas [F25]); `unit_ids` va primero para que el
- * modelo ancle el grupo a su evidencia antes de decidir la categoría (informe 02 §1.1).
+ * Schema of the first call: groups the units of the input by area and template (idea.md: «one or several
+ * messages that group the work into categories»). Each group is `{unit_ids, area_id, template_id}`; what
+ * neither requests nor reports anything goes in `discarded`. Area and template are `enum`s of existing ids
+ * (report 02 §4.3: reducing the value space collapses the disagreement between runs [F25]); `unit_ids` goes
+ * first so that the model anchors the group to its evidence before deciding the category (report 02 §1.1).
  */
 export function buildClassificationSchema({ areas, templates }, { validation = false } = {}) {
   return {
@@ -40,8 +40,8 @@ export function buildClassificationSchema({ areas, templates }, { validation = f
 }
 
 function messageSchema(fieldsSchema, { validation }) {
-  // `unit_ids` va primero: el modelo ancla el mensaje a su evidencia antes de redactarlo (informe 02 §6.2).
-  // Todas las propiedades son requeridas, así el orden de salida es el del esquema [F1].
+  // `unit_ids` goes first: the model anchors the message to its evidence before writing it (report 02 §6.2).
+  // All the properties are required, so the output order is that of the schema [F1].
   const unitIds = validation ? intArray({ minItems: 1, uniqueItems: true }) : intArray({ minItems: 1 });
   const ids = validation ? intArray({ uniqueItems: true }) : intArray();
   const text = validation ? { type: 'string', minLength: 1 } : { type: 'string' };
@@ -76,12 +76,13 @@ function discardedSchema({ validation }) {
 }
 
 /**
- * Esquema de la segunda llamada (y del rescate): la lista de mensajes con sus unidades y lo descartado.
- * Puede venir sin mensajes cuando ninguna unidad es accionable: entonces todo va en `discarded`.
- * @param {{name: string, label: string, required: boolean}[]} fields campos de la plantilla elegida
+ * Schema of the second call (and of the rescue): the list of messages with their units and what was discarded.
+ * It can come with no messages when no unit is actionable: then everything goes in `discarded`.
+ * @param {{name: string, label: string, required: boolean}[]} fields fields of the chosen template
  * @param {{profile?: 'anthropic'|'all-required', validation?: boolean, withDiscarded?: boolean}} [opts]
- *   `withDiscarded: false` quita `discarded`: en la descomposición por grupo el único lugar donde se descarta es la
- *   clasificación, y un modelo sin pensamiento usaba `discarded` para datos que ya había pasado al cuerpo del mensaje.
+ *   `withDiscarded: false` removes `discarded`: in the per-group decomposition the only place where anything is
+ *   discarded is the classification, and a model without thinking used `discarded` for data it had already put
+ *   in the body of the message.
  */
 export function buildDecompositionSchema(fields, { profile = 'anthropic', validation = false, withDiscarded = true } = {}) {
   const fieldsSchema = compileFieldsSchema(fields, { profile, validation });
@@ -96,10 +97,10 @@ export function buildDecompositionSchema(fields, { profile = 'anthropic', valida
 }
 
 /**
- * Esquema del Proposal completo (UD-008, MASTER-SPEC §7.5): cada mensaje lleva su propio área y plantilla.
- * Se usa como `--json-schema` del harness y, con `validation: true`, como primera capa de validación de la
- * propuesta armada por `api`. `fields` es genérico acá: cada mensaje se comprueba después contra los campos
- * de su plantilla.
+ * Schema of the complete Proposal (UD-008, MASTER-SPEC §7.5): each message carries its own area and template.
+ * It is used as the harness `--json-schema` and, with `validation: true`, as the first validation layer of the
+ * proposal assembled by `api`. `fields` is generic here: each message is checked afterwards against the fields
+ * of its template.
  */
 export function buildProposalSchema({ validation = false } = {}) {
   const base = buildDecompositionSchema([], { validation });

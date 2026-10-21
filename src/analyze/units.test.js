@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { numberUnits, partitionUnits, renderUnits } from './units.js';
 
 describe('numberUnits', () => {
-  it('separa párrafos, viñetas y marcas de tiempo, y numera de corrido el input y los adjuntos', () => {
+  it('splits paragraphs, bullets and timestamps, and numbers the input and the attachments continuously', () => {
     const units = numberUnits({
       text: 'Hola equipo\n\nEl ingreso falla.\n\n- Agregar filtro\n- Cambiar color',
       attachments: [
@@ -19,7 +19,7 @@ describe('numberUnits', () => {
     assert.deepEqual(units.map((u) => u.label), ['p1', 'p2', 'p3', 'p4', 'a7.p1', 'a7.p2', 'a9.p1', 'a9.p2']);
   });
 
-  it('un párrafo con varias oraciones baja a oración, y el rótulo conserva el párrafo', () => {
+  it('a paragraph with several sentences drops to sentence level, and the label keeps the paragraph', () => {
     const units = numberUnits({ text: 'El ingreso falla. No entra a la agenda. ¿Alguien lo vio?\n\nOtro párrafo de una oración.' });
     assert.deepEqual(units.map((u) => [u.label, u.text]), [
       ['p1.s1', 'El ingreso falla.'],
@@ -29,11 +29,11 @@ describe('numberUnits', () => {
     ]);
   });
 
-  it('en un chat cada línea es un párrafo', () => {
+  it('in a chat each line is a paragraph', () => {
     assert.deepEqual(numberUnits({ text: 'Ana: hola\nBruno: ok' }).map((u) => [u.label, u.text]), [['p1', 'Ana: hola'], ['p2', 'Bruno: ok']]);
   });
 
-  it('una enumeración en línea corta una unidad por elemento: «1) … 2) …» y «a) … b) …»', () => {
+  it('an inline enumeration cuts one unit per element: «1) … 2) …» and «a) … b) …»', () => {
     const chat = '1) popup vacío en agenda 2) idea de recordatorio por WhatsApp 3) pregunta a Pablo sobre la reunión 4) exportar a Excel tarda un minuto';
     assert.deepEqual(numberUnits({ text: chat }).map((u) => u.text), [
       '1) popup vacío en agenda',
@@ -45,66 +45,66 @@ describe('numberUnits', () => {
     assert.deepEqual(numberUnits({ text: 'Hola. Te cuento: 1) falla el login 2) falta un filtro' }).map((u) => u.text), ['Hola.', 'Te cuento:', '1) falla el login', '2) falta un filtro']);
   });
 
-  it('una numeración que no empieza en 1 o no sube de a uno no corta', () => {
+  it('a numbering that does not start at 1 or does not go up by one does not cut', () => {
     assert.equal(numberUnits({ text: 'Falló el paso 3) y el paso 5) también' }).length, 1);
     assert.equal(numberUnits({ text: 'Es el punto 1) de la lista' }).length, 1);
   });
 
-  it('un punto y coma separa pedidos', () => {
+  it('a semicolon separates requests', () => {
     assert.deepEqual(numberUnits({ text: 'Arreglar el login; agregar un filtro por fecha; exportar a CSV' }).map((u) => u.text), [
       'Arreglar el login;', 'agregar un filtro por fecha;', 'exportar a CSV',
     ]);
   });
 
-  it('una lista de guiones en una sola línea corta una unidad por guion', () => {
+  it('a dash list on a single line cuts one unit per dash', () => {
     assert.deepEqual(numberUnits({ text: '- popup vacío - idea de recordatorio - pregunta a Pablo' }).map((u) => u.text), [
       '- popup vacío', '- idea de recordatorio', '- pregunta a Pablo',
     ]);
-    assert.equal(numberUnits({ text: 'El login - que ya falló - no entra' }).length, 1, 'un guion de paréntesis en prosa no corta');
+    assert.equal(numberUnits({ text: 'El login - que ya falló - no entra' }).length, 1, 'a parenthetical dash in prose does not cut');
   });
 
-  it('las abreviaturas no cortan la oración y un marcador de lista no cuenta como oración', () => {
+  it('abbreviations do not cut the sentence and a list marker does not count as a sentence', () => {
     assert.deepEqual(numberUnits({ text: 'El Sr. García lo vio ayer. Dra. Pérez también.' }).map((u) => u.text), ['El Sr. García lo vio ayer.', 'Dra. Pérez también.']);
     assert.deepEqual(numberUnits({ text: '1. Primer punto' }).map((u) => u.text), ['1. Primer punto']);
   });
 
-  it('un monólogo transcrito no baja a oración: cada segmento con su marca de tiempo es una unidad', () => {
+  it('a transcribed monologue does not drop to sentence level: each segment with its timestamp is one unit', () => {
     const units = numberUnits({ attachments: [{ id: 1, kind: 'audio', extracted: '[00:01] Hola. Esto es largo; sigue.\n[00:05] el menú no abre' }] });
     assert.deepEqual(units.map((u) => u.text), ['[00:01] Hola. Esto es largo; sigue.', '[00:05] el menú no abre']);
   });
 
-  it('un encabezado se pega a la unidad que sigue y abre una sección', () => {
+  it('a heading sticks to the unit that follows and opens a section', () => {
     const units = numberUnits({ text: '# Errores\nLa pantalla falla.\n\n# Ideas\nUn filtro.' });
     assert.deepEqual(units.map((u) => u.text), ['# Errores\nLa pantalla falla.', '# Ideas\nUn filtro.']);
     assert.deepEqual(units.map((u) => u.section), [1, 2]);
   });
 
-  it('un encabezado final sin contenido igual queda como unidad', () => {
+  it('a final heading with no content still stays as a unit', () => {
     assert.deepEqual(numberUnits({ text: 'Algo.\n\n# Fin' }).map((u) => u.text), ['Algo.', '# Fin']);
   });
 
-  it('una viñeta con líneas con sangría es una sola viñeta', () => {
+  it('a bullet with indented lines is a single bullet', () => {
     assert.deepEqual(numberUnits({ text: '- Agregar filtro\n  por fecha\n- Cambiar color' }).map((u) => u.text), ['- Agregar filtro por fecha', '- Cambiar color']);
   });
 
-  it('texto vacío o sin extracción no produce unidades', () => {
+  it('empty text or no extraction produces no units', () => {
     assert.deepEqual(numberUnits({ text: '  \n', attachments: [{ id: 1, kind: 'image', extracted: null }] }), []);
   });
 
-  it('renderUnits agrupa por origen y marca cada unidad con su número y su rótulo', () => {
-    const out = renderUnits(numberUnits({ text: 'Uno. Dos.\n\nTres', attachments: [{ id: 4, kind: 'image', extracted: 'Captura de chat' }] }));
-    assert.match(out, /### Texto del input\n\[u1\] \(p1\.s1\) Uno\.\n\[u2\] \(p1\.s2\) Dos\.\n\[u3\] \(p2\) Tres\n\n### Adjunto 4 \(image\)\n\[u4\] \(a4\.p1\) Captura de chat/);
+  it('renderUnits groups by source and marks each unit with its number and its label', () => {
+    const out = renderUnits(numberUnits({ text: 'Uno. Dos.\n\nTres', attachments: [{ id: 4, kind: 'image', extracted: 'Captura de chat' }] }), 'en');
+    assert.match(out, /### Input text\n\[u1\] \(p1\.s1\) Uno\.\n\[u2\] \(p1\.s2\) Dos\.\n\[u3\] \(p2\) Tres\n\n### Attachment 4 \(image\)\n\[u4\] \(a4\.p1\) Captura de chat/);
   });
 });
 
 describe('partitionUnits', () => {
   const chars = 3;
-  it('si todo cabe, un solo trozo', () => {
+  it('if everything fits, a single chunk', () => {
     const units = numberUnits({ text: 'A\n\nB\n\nC' });
     assert.equal(partitionUnits(units, { budgetTokens: 1000, charsPerToken: chars }).length, 1);
   });
 
-  it('parte por sección y los trozos son disjuntos y cubren todas las unidades', () => {
+  it('splits by section and the chunks are disjoint and cover all units', () => {
     const text = Array.from({ length: 6 }, (_, i) => `# Sección ${i}\nPárrafo de la sección ${i} con algo de texto.`).join('\n\n');
     const units = numberUnits({ text });
     const chunks = partitionUnits(units, { budgetTokens: 40, charsPerToken: chars });
@@ -113,7 +113,7 @@ describe('partitionUnits', () => {
     for (const c of chunks) assert.deepEqual(new Set(c.map((u) => u.section)).size <= c.length, true);
   });
 
-  it('un docx de viñetas sin encabezados se parte por ítems', () => {
+  it('a docx of bullets without headings is split by items', () => {
     const text = Array.from({ length: 12 }, (_, i) => `- Punto número ${i} con su explicación`).join('\n');
     const units = numberUnits({ text });
     const chunks = partitionUnits(units, { budgetTokens: 60, charsPerToken: chars });
@@ -121,14 +121,14 @@ describe('partitionUnits', () => {
     assert.deepEqual(chunks.flat().map((u) => u.id), units.map((u) => u.id));
   });
 
-  it('un monólogo transcrito no se parte aunque supere el presupuesto', () => {
+  it('a transcribed monologue is not split even if it exceeds the budget', () => {
     const extracted = Array.from({ length: 50 }, (_, i) => `[${String(i).padStart(2, '0')}:00] frase número ${i} del monólogo`).join('\n');
     const units = numberUnits({ attachments: [{ id: 1, kind: 'audio', extracted }] });
     assert.equal(units.length, 50);
     assert.equal(partitionUnits(units, { budgetTokens: 20, charsPerToken: chars }).length, 1);
   });
 
-  it('un adjunto de audio no se mezcla en un trozo con el texto si el presupuesto no alcanza', () => {
+  it('an audio attachment is not mixed into a chunk with the text if the budget is not enough', () => {
     const audio = Array.from({ length: 30 }, (_, i) => `[00:${String(i).padStart(2, '0')}] frase del audio número ${i}`).join('\n');
     const units = numberUnits({ text: '- uno\n- dos', attachments: [{ id: 1, kind: 'audio', extracted: audio }] });
     const chunks = partitionUnits(units, { budgetTokens: 40, charsPerToken: chars });

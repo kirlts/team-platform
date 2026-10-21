@@ -1,5 +1,5 @@
-// Material común de las pruebas del analizador: bundle sobre el juego inicial de plantillas y
-// guiones del proveedor falso. No se importa desde código de producción.
+// Common material for the analyzer tests: bundle over the initial set of templates and
+// scripts for the fake provider. It is not imported from production code.
 import { loadSeed } from '../seed.js';
 
 export const MEMBERS = [
@@ -8,7 +8,7 @@ export const MEMBERS = [
   { id: 3, name: 'Carla Díaz', responsibilities: 'Producto y comunicación con clientes', domains: 'requerimientos' },
 ];
 
-// Tres errores mezclados: el A se cuenta en dos momentos separados (u2 y u4).
+// Three mixed bugs: A is told in two separate moments (u2 and u4).
 export const MIXED_TEXT = [
   'Hola equipo, buenos días.',
   '',
@@ -31,7 +31,7 @@ export async function seed() {
   return structuredClone(seedCache.value);
 }
 
-/** Bundle del juego inicial; `overrides` pisa texto, adjuntos o miembros. */
+/** Bundle of the initial set; `overrides` replaces text, attachments or members. */
 export async function makeBundle(overrides = {}) {
   const { areas, templates } = await seed();
   return {
@@ -40,17 +40,19 @@ export async function makeBundle(overrides = {}) {
     areas,
     templates,
     members: MEMBERS.map((m) => ({ ...m })),
+    // The English set, so the assertions on prompt text read in English; the Spanish set has its own tests (prompts.test.js).
+    language: 'en',
     ...overrides,
   };
 }
 
-// Primera llamada para MIXED_TEXT: los cuatro puntos de error forman un grupo; el saludo y la despedida se descartan.
+// First call for MIXED_TEXT: the four bug points form one group; the greeting and the farewell are discarded.
 export const CLASSIFY_ERRORS = {
   groups: [{ unit_ids: [2, 3, 4, 5], area_id: 2, template_id: 2 }],
   discarded: [{ unit_ids: [1], reason: 'saludo' }, { unit_ids: [6], reason: 'despedida' }],
 };
 
-// Un input con un error, una idea y una pregunta (cada una en su área) más saludo y despedida.
+// An input with a bug, an idea and a question (each in its own area) plus greeting and farewell.
 export const MULTI_TEXT = [
   'Hola equipo.',
   '',
@@ -84,7 +86,7 @@ export function bugMessage(unit_ids, title, extra = {}) {
   };
 }
 
-/** Descomposición correcta del grupo de errores de MIXED_TEXT: A = u2+u4, B = u3, C = u5. */
+/** Correct decomposition of the bug group of MIXED_TEXT: A = u2+u4, B = u3, C = u5. */
 export function goodDecomposition() {
   return {
     messages: [
@@ -95,19 +97,19 @@ export function goodDecomposition() {
   };
 }
 
-/** Guion del falso para un analizador con más de una plantilla: responde según lo que le pidan. */
+/** Script for the fake for an analyzer with more than one template: answers according to what it is asked. */
 export function scriptByRequest({ classification, decompositions }) {
   return (req) => {
     if (req.schema.properties.groups) return classification;
     const system = req.system.join('\n');
     for (const [templateName, out] of Object.entries(decompositions)) {
-      if (system.includes(`Plantilla elegida: ${templateName}`)) return typeof out === 'function' ? out(req) : out;
+      if (system.includes(`Chosen template: ${templateName}`) || system.includes(`Plantilla elegida: ${templateName}`)) return typeof out === 'function' ? out(req) : out;
     }
-    throw new Error(`guion sin respuesta para: ${system.slice(0, 80)}`);
+    throw new Error(`script has no response for: ${system.slice(0, 80)}`);
   };
 }
 
-/** Los números de unidad [uN] que aparecen en el texto del último mensaje de usuario de una solicitud. */
+/** The unit numbers [uN] that appear in the text of the last user message of a request. */
 export function unitIdsIn(req) {
   const last = req.messages.at(-1);
   const text = typeof last.content === 'string' ? last.content : JSON.stringify(last.content);

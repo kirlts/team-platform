@@ -1,25 +1,32 @@
-// Numeración de unidades del input extraído y partición (MASTER-SPEC §7.5; informe 02 §3.3 y §2.2).
+// Numbering of the units of the extracted input and partitioning (MASTER-SPEC §7.5; report 02 §3.3 and §2.2).
 //
-// Una unidad es una oración de un párrafo (Intl.Segmenter, locale `es`), un elemento de una enumeración en
-// línea («1) … 2) …»), una viñeta, un segmento de transcripción con marca de tiempo, una línea de la
-// descripción de una imagen o un fotograma. En un chat cada línea es un párrafo. El sistema numera las unidades antes de la segunda
-// llamada y exige que cada mensaje cite las suyas: con eso calcula solapes y huecos por aritmética
-// de conjuntos, sin leer prosa.
+// A unit is a sentence of a paragraph (Intl.Segmenter, locale `es`), an item of an inline enumeration
+// («1) … 2) …»), a bullet, a transcript segment with a timestamp, a line of the description of an
+// image or a frame. In a chat each line is a paragraph. The system numbers the units before the second
+// call and requires each message to cite its own: with that it computes overlaps and gaps by set
+// arithmetic, without reading prose.
 //
-// Esta segmentación mira la ESTRUCTURA del texto extraído (saltos de línea, puntuación de oración, marcadores
-// de enumeración, viñeta, encabezado y marca de tiempo que los extractores de §7.4 escriben), nunca su significado:
-// no decide área, destinatario ni estado (MASTER-SPEC §4.2).
+// This segmentation looks at the STRUCTURE of the extracted text (line breaks, sentence punctuation, enumeration
+// markers, bullets, headings and timestamps that the §7.4 extractors write), never at its meaning:
+// it decides no area, recipient or state (MASTER-SPEC §4.2).
 
-// Marcadores estructurales de una línea. Los produce el extractor (§7.4): `mm:ss` de la
-// transcripción y de los fotogramas, viñetas y encabezados del markdown del documento.
+// Structural markers of a line. The extractor produces them (§7.4): `mm:ss` of the
+// transcript and of the frames, bullets and headings of the document markdown.
 const BULLET = /^\s*(?:[-*•]|\d{1,3}[.)]|[a-z][.)])\s+\S/;
 const BULLET_PREFIX = /^\s*(?:[-*•]|\d{1,3}[.)]|[a-z][.)])\s+/;
-// Marca de tiempo al inicio de la línea: «[00:12] …», «00:12 …» y «[15:55, 7/10/2026] …» (la coma sigue a la hora).
-const TIMESTAMP = /^\s*[[(]?\d{1,2}:\d{2}(?::\d{2})?[\])]?(?:[\s,]|$)/;
-// Línea de chat con emisor: «[15:55, 7/10/2026] Nombre: …», «[09:12] Nombre: …» y «7/10/2026 15:55 - Nombre: …».
+// Timestamp at the start of the line: «[00:12] …», «00:12 …», «[1:02:05] …», the range «[00:05-00:10] …» and «[15:55, 7/10/2026] …» (the comma follows the time).
+const CLOCK = '\\d{1,2}:\\d{2}(?::\\d{2})?';
+const TIMESTAMP = new RegExp(`^\\s*[[(]?${CLOCK}(?:\\s*[-–]\\s*${CLOCK})?[\\])]?(?:[\\s,]|$)`);
+// Time of a unit: `mm:ss`, `h:mm:ss` or the range `mm:ss-mm:ss` at the start of its text (an optional heading aside).
+// Lines the video extractor writes (§7.4): «[mm:ss-mm:ss] Voz: …» and «[mm:ss] Fotograma N: …». Each one is a single
+// unit even when it holds several sentences; so is any line that starts with a time range.
+const EXTRACTOR_SENDER = /^(?:Voz|Fotograma \d+)$/;
+const RANGE_START = new RegExp(`^\\s*[[(]?${CLOCK}\\s*[-–]\\s*${CLOCK}`);
+const UNIT_TIME = new RegExp(`^(?:#.*\\n)*\\s*[[(]?(${CLOCK}(?:\\s*[-–]\\s*${CLOCK})?)[\\])]?(?:[\\s,]|$)`);
+// Chat line with a sender: «[15:55, 7/10/2026] Name: …», «[09:12] Name: …» and «7/10/2026 15:55 - Name: …».
 const CHAT_BRACKET = /^\s*(\[[^\]\n]*\d{1,2}:\d{2}[^\]\n]*\])\s*([^:\n]{1,60}?):\s+(\S.*)$/;
 const CHAT_DASH = /^\s*(\d{1,2}[/.]\d{1,2}[/.]\d{2,4},?\s+\d{1,2}:\d{2}(?::\d{2})?(?:\s*[ap]\.?\s?m\.?)?\s*-)\s*([^:\n]{1,60}?):\s+(\S.*)$/i;
-// Fila de una tabla markdown y su línea separadora («|---|:--:|»).
+// Row of a markdown table and its separator line («|---|:--:|»).
 const TABLE_ROW = /^\s*\|.*\|\s*$/;
 const TABLE_SEPARATOR = /^\s*\|?\s*:?-{2,}:?\s*(?:\|\s*:?-{2,}:?\s*)*\|?\s*$/;
 
@@ -28,19 +35,19 @@ function parseChatLine(line) {
   return m ? { prefix: `${m[1]} ${m[2].trim()}:`, sender: m[2].trim(), body: m[3] } : null;
 }
 const HEADING = /^\s{0,3}#{1,6}\s+\S/;
-// Una línea con sangría después de una viñeta continúa esa viñeta.
+// An indented line after a bullet continues that bullet.
 const INDENTED = /^(?: {2,}|\t)\S/;
 
-/** Tipos de adjunto cuyo texto es un monólogo o una línea de tiempo: no se parte (informe 02 §2.2). */
+/** Attachment kinds whose text is a monologue or a timeline: it is not split (report 02 §2.2). */
 const ATOMIC_KINDS = new Set(['audio', 'video']);
 
-// Abreviaturas que el segmentador de oraciones de ICU corta por error en español («Sr. García»).
-// Es una lista de fronteras de oración, no una lectura del significado del texto.
+// Abbreviations that the ICU sentence segmenter wrongly cuts in Spanish («Sr. García»).
+// It is a list of sentence boundaries, not a reading of the meaning of the text.
 const ABBREVIATIONS = new Set(['sr', 'sra', 'srta', 'dr', 'dra', 'ing', 'lic', 'prof', 'arq', 'pág', 'págs', 'núm', 'aprox', 'vs', 'etc', 'ej', 'cap', 'art', 'tel', 'av']);
 
 const sentenceSegmenter = new Intl.Segmenter('es', { granularity: 'sentence' });
 
-/** Oraciones de un texto de una línea (ICU, locale `es`), con las abreviaturas pegadas a lo que sigue. */
+/** Sentences of a single-line text (ICU, locale `es`), with abbreviations glued to what follows. */
 function splitSentences(text) {
   const raw = [...sentenceSegmenter.segment(text)].map((s) => s.segment.trim()).filter(Boolean);
   const out = [];
@@ -59,9 +66,9 @@ function splitSentences(text) {
 }
 
 /**
- * Enumeración en línea: «1) uno 2) dos 3) tres» o «a) uno b) dos». Sólo cuenta una secuencia que empieza
- * en 1 (o en «a») y sube de a uno, con al menos dos elementos: así «versión 2. Luego» no corta.
- * Devuelve los índices donde empieza cada elemento.
+ * Inline enumeration: «1) one 2) two 3) three» or «a) one b) two». Only a sequence that starts
+ * at 1 (or at «a») and goes up one at a time counts, with at least two items: so «versión 2. Luego» does not cut.
+ * Returns the indexes where each item starts.
  */
 const INLINE_MARKER = /(?:^|\s)(\d{1,2}|[a-z])[.)](?=\s+\S)/g;
 function enumerationStarts(text) {
@@ -95,21 +102,21 @@ function cutAt(text, indexes) {
   return out.map((t) => t.trim()).filter(Boolean);
 }
 
-/** Un párrafo de una línea que lista varios pedidos con guiones: «- uno - dos - tres». */
+/** A single-line paragraph that lists several requests with dashes: «- one - two - three». */
 function dashListStarts(text) {
   if (!/^\s*[-–—•]\s/.test(text)) return [];
   return [...text.matchAll(/\s([-–—•])\s+(?=\S)/g)].map((m) => m.index + 1);
 }
 
-/** Oraciones de un bloque tras cortar enumeraciones en línea, listas con guiones y puntos y coma. */
+/** Sentences of a block after cutting inline enumerations, dash lists and semicolons. */
 function splitBlock(text) {
   let pieces = cutAt(text, enumerationStarts(text));
   pieces = pieces.flatMap((p) => cutAt(p, dashListStarts(p)));
-  // Un punto y coma separa cláusulas: cada una es candidata a pedido propio.
+  // A semicolon separates clauses: each one is a candidate for its own request.
   pieces = pieces.flatMap((p) => p.split(/(?<=;)\s+/));
   const out = [];
   for (const piece of pieces) {
-    // El marcador de lista («1)», «-») se aparta antes de segmentar para que no cuente como oración.
+    // The list marker («1)», «-») is set aside before segmenting so it does not count as a sentence.
     const marker = piece.match(BULLET_PREFIX)?.[0] ?? '';
     const sentences = splitSentences(piece.slice(marker.length));
     if (sentences.length === 0) {
@@ -123,11 +130,11 @@ function splitBlock(text) {
 }
 
 /**
- * Bloques de un texto. Cada línea no vacía es un bloque (un párrafo), salvo:
- *  - una viñeta absorbe las líneas con sangría que la siguen;
- *  - una línea de chat con emisor absorbe las líneas siguientes que no empiezan otra línea de chat;
- *  - una tabla markdown es un solo párrafo y cada fila es un bloque; la cabecera queda como contexto de la tabla.
- * En una fuente atómica (audio, video) no hay chat ni tablas: cada línea con su marca de tiempo es un bloque.
+ * Blocks of a text. Each non-empty line is a block (a paragraph), except:
+ *  - a bullet absorbs the indented lines that follow it;
+ *  - a chat line with a sender absorbs the following lines that do not start another chat line;
+ *  - a markdown table is a single paragraph and each row is a block; the header stays as context of the table.
+ * In an atomic source (audio, video) there is no chat or tables: each line with its timestamp is a block.
  */
 function splitBlocks(text, { atomic }) {
   const blocks = [];
@@ -154,7 +161,7 @@ function splitBlocks(text, { atomic }) {
     if (line.trim() === '') {
       flush();
     } else if (HEADING.test(line)) {
-      // Un encabezado no es una unidad: abre una sección y se pega a la unidad que sigue.
+      // A heading is not a unit: it opens a section and sticks to the unit that follows.
       flush();
       section += 1;
       pendingHeading.push(line.trim());
@@ -180,14 +187,14 @@ function splitBlocks(text, { atomic }) {
     } else if (current?.item && INDENTED.test(line)) {
       current.lines.push(line.trim());
     } else {
-      // En un chat un salto de línea es un corte deliberado: cada línea es un párrafo.
+      // In a chat a line break is a deliberate cut: each line is a paragraph.
       const chat = atomic ? null : parseChatLine(line.trim());
       const block = begin(line.trim(), BULLET.test(line));
       if (chat) block.chat = { prefix: chat.prefix, sender: chat.sender, body: [chat.body] };
     }
   }
   flush();
-  // Un encabezado final sin contenido es un bloque propio: no puede quedar sin contar.
+  // A trailing heading with no content is a block of its own: it cannot go uncounted.
   if (pendingHeading.length > 0) {
     paragraph += 1;
     blocks.push({ section, item: false, paragraph, heading: [], lines: pendingHeading });
@@ -196,10 +203,10 @@ function splitBlocks(text, { atomic }) {
 }
 
 /**
- * Divide un texto en unidades. En fuentes atómicas (audio, video) el bloque es la unidad: una línea de la
- * transcripción lleva su marca de tiempo y no se parte. En el resto, el bloque baja a oración cuando tiene
- * más de una (Intl.Segmenter, locale `es`), y una enumeración en línea, un guion o un punto y coma también cortan.
- * Una fila de tabla es una unidad (`p3.r12`) y su cabecera viaja como contexto. Una línea de chat guarda su emisor.
+ * Splits a text into units. In atomic sources (audio, video) the block is the unit: a transcript
+ * line carries its timestamp and is not split. Otherwise, the block drops down to sentences when it has
+ * more than one (Intl.Segmenter, locale `es`), and an inline enumeration, a dash or a semicolon also cut.
+ * A table row is a unit (`p3.r12`) and its header travels as context. A chat line keeps its sender.
  */
 function splitText(text, { atomic }) {
   const units = [];
@@ -214,9 +221,10 @@ function splitText(text, { atomic }) {
       continue;
     }
     const body = block.chat ? block.chat.body.join(' ') : block.lines.join(' ');
-    const pieces = atomic ? [block.lines.join('\n')] : splitBlock(body);
+    const wholeLine = EXTRACTOR_SENDER.test(block.chat?.sender ?? '') || RANGE_START.test(block.lines[0]);
+    const pieces = atomic ? [block.lines.join('\n')] : wholeLine ? [body] : splitBlock(body);
     pieces.forEach((piece, i) => {
-      // La primera oración de una línea de chat conserva su marca de tiempo y su emisor; las demás llevan el emisor.
+      // The first sentence of a chat line keeps its timestamp and its sender; the others carry the sender.
       const withSender = block.chat ? `${i === 0 ? block.chat.prefix : `${block.chat.sender}:`} ${piece}` : piece;
       units.push({
         section: block.section,
@@ -237,10 +245,10 @@ function splitText(text, { atomic }) {
 }
 
 /**
- * Numera las unidades del bundle: primero el texto del input y luego cada adjunto con texto extraído.
- * El `id` es un entero consecutivo (el contrato de `unit_ids` del esquema); el `label` (`p3.s2`: párrafo 3,
- * oración 2; `p3.r12`: fila 12 de la tabla del párrafo 3; `a7.p3` en un adjunto) deja ver al modelo la estructura.
- * `sender` es el emisor de una línea de chat, o `null`.
+ * Numbers the units of the bundle: first the text of the input and then each attachment with extracted text.
+ * The `id` is a consecutive integer (the `unit_ids` contract of the schema); the `label` (`p3.s2`: paragraph 3,
+ * sentence 2; `p3.r12`: row 12 of the table of paragraph 3; `a7.p3` in an attachment) shows the model the structure.
+ * `sender` is the sender of a chat line, or `null`.
  * @param {{text?: string, attachments?: {id: number, kind: string, extracted?: string|null}[]}} bundle
  */
 export function numberUnits(bundle) {
@@ -252,7 +260,7 @@ export function numberUnits(bundle) {
       const suffix = u.row ? `.r${u.row}` : (u.sentence ? `.s${u.sentence}` : '');
       const label = `${labelPrefix}p${u.paragraph}${suffix}`;
       out.push({
-        id, label, source, section: u.section, atomic, item: u.item, sourceIndex, text: u.text, sender: u.sender,
+        id, label, source, section: u.section, atomic, item: u.item, sourceIndex, text: u.text, sender: u.sender, time: u.text.match(UNIT_TIME)?.[1] ?? null,
         ...(u.table ? { table: { label: `${labelPrefix}p${u.table.paragraph}`, header: u.table.header } } : {}),
       });
     }
@@ -268,12 +276,19 @@ export function numberUnits(bundle) {
   return out;
 }
 
-function sourceLabel(source) {
-  return source.type === 'input' ? 'Texto del input' : `Adjunto ${source.attachment_id} (${source.kind})`;
+// Labels the prompts show around the units, one set per account language (UD-018).
+const LABELS = {
+  'es-419': { input: 'Texto del input', attachment: 'Adjunto', tableHeader: 'Cabecera de la tabla' },
+  en: { input: 'Input text', attachment: 'Attachment', tableHeader: 'Header of table' },
+};
+
+function sourceLabel(source, labels) {
+  return source.type === 'input' ? labels.input : `${labels.attachment} ${source.attachment_id} (${source.kind})`;
 }
 
-/** Texto de las unidades para el prompt: `[u12] …`, agrupadas por origen. */
-export function renderUnits(units) {
+/** Text of the units for the prompt: `[u12] …`, grouped by source. */
+export function renderUnits(units, language = 'es-419') {
+  const labels = LABELS[language] ?? LABELS['es-419'];
   const lines = [];
   let lastKey = null;
   let lastTable = null;
@@ -281,11 +296,11 @@ export function renderUnits(units) {
     const key = u.source.type === 'input' ? 'input' : `a${u.source.attachment_id}`;
     if (key !== lastKey) {
       if (lastKey !== null) lines.push('');
-      lines.push(`### ${sourceLabel(u.source)}`);
+      lines.push(`### ${sourceLabel(u.source, labels)}`);
       lastKey = key;
     }
-    // La cabecera de una tabla es contexto, no una unidad: va una vez antes de sus filas.
-    if (u.table?.header && u.table.label !== lastTable) lines.push(`Cabecera de la tabla ${u.table.label}: ${u.table.header}`);
+    // A table header is context, not a unit: it goes once before its rows.
+    if (u.table?.header && u.table.label !== lastTable) lines.push(`${labels.tableHeader} ${u.table.label}: ${u.table.header}`);
     lastTable = u.table?.label ?? null;
     lines.push(`[u${u.id}] (${u.label}) ${u.text.replace(/\n/g, '\n      ')}`);
   }
@@ -297,9 +312,9 @@ export function estimateTokens(text, charsPerToken) {
 }
 
 /**
- * Parte las unidades en trozos disjuntos por unidad sólo por fronteras estructurales (informe 02 §2.2 y §3.3):
- * cambio de origen o de sección. Un adjunto de audio o video no se parte (un monólogo retoma temas lejanos,
- * partirlo suma ruido de tarea y de agregación [F19]). Si todo cabe en el presupuesto, un solo trozo.
+ * Splits the units into chunks disjoint by unit only at structural boundaries (report 02 §2.2 and §3.3):
+ * change of source or of section. An audio or video attachment is not split (a monologue returns to distant topics,
+ * splitting it adds task and aggregation noise [F19]). If everything fits in the budget, a single chunk.
  *
  * @param {ReturnType<typeof numberUnits>} units
  * @param {{budgetTokens: number, charsPerToken: number}} opts
@@ -309,7 +324,7 @@ export function partitionUnits(units, { budgetTokens, charsPerToken }) {
   const cost = (list) => estimateTokens(renderUnits(list), charsPerToken);
   if (units.length === 0 || cost(units) <= budgetTokens) return [units];
 
-  // Grupos contiguos indivisibles: mismo origen y misma sección, o el adjunto atómico entero.
+  // Indivisible contiguous groups: same source and same section, or the whole atomic attachment.
   const groups = [];
   for (const u of units) {
     const last = groups.at(-1);
@@ -318,8 +333,8 @@ export function partitionUnits(units, { budgetTokens, charsPerToken }) {
     else groups.push({ sourceIndex: u.sourceIndex, section: u.section, units: [u] });
   }
 
-  // Un grupo que por sí solo no cabe se abre en cada viñeta o ítem (un docx de N puntos se parte por ítems,
-  // informe 02 §2.2). Sin ítems queda entero: no hay otra frontera estructural.
+  // A group that does not fit on its own is opened at each bullet or item (a docx of N points is split by items,
+  // report 02 §2.2). Without items it stays whole: there is no other structural boundary.
   const pieces = groups.flatMap((g) => {
     if (g.units.length < 2 || g.units[0].atomic || cost(g.units) <= budgetTokens) return [g];
     const split = [];

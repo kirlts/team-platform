@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Sustituto de `claude` para las pruebas del harness: registra con qué lo llamaron y contesta
-// con el formato de `claude -p --output-format json`. Se elige el comportamiento con FAKE_CLAUDE_MODE.
+// Stand-in for `claude` for the harness tests: records how it was called and answers
+// in the format of `claude -p --output-format json`. The behavior is chosen with FAKE_CLAUDE_MODE.
 import { appendFileSync, readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 
 const state = process.env.FAKE_CLAUDE_STATE;
@@ -15,7 +15,7 @@ process.stdin.on('end', () => {
   appendFileSync(`${state}/calls.jsonl`, `${JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd(), files: readdirSync('.').sort(), templates: readdirSync('templates').sort(), stdin })}\n`);
 
   if (mode === 'exit') {
-    process.stderr.write('sesión no iniciada');
+    process.stderr.write('session not started');
     process.exit(3);
   }
   const reply = (extra) => {
@@ -31,7 +31,7 @@ process.stdin.on('end', () => {
       ...extra,
     }));
   };
-  if (mode === 'error') return reply({ subtype: 'error_max_turns', is_error: true, result: 'demasiados turnos' });
+  if (mode === 'error') return reply({ subtype: 'error_max_turns', is_error: true, result: 'too many turns' });
   if (mode === 'refusal') return reply({ stop_reason: 'refusal', stop_details: { category: 'cyber' } });
 
   const unitIds = [...readFileSync('input.md', 'utf8').matchAll(/\[u(\d+)\]/g)].map((m) => Number(m[1]));
@@ -47,7 +47,7 @@ process.stdin.on('end', () => {
   });
   const good = { messages: [message(unitIds)], discarded: [] };
   if (mode === 'multi') {
-    // Un error, una idea y una pregunta, cada uno con su área y su plantilla.
+    // A bug, an idea and a question, each with its own area and template.
     const base = { assignee_ids: [], attachment_ids: [], body: 'Texto.' };
     return reply({
       structured_output: {
@@ -61,7 +61,7 @@ process.stdin.on('end', () => {
     });
   }
   if (mode === 'always-bad' || (mode === 'bad-then-ok' && n === 0)) {
-    return reply({ structured_output: { ...good, messages: [message([unitIds[0]])] } }); // deja huecos
+    return reply({ structured_output: { ...good, messages: [message([unitIds[0]])] } }); // leaves gaps
   }
   return reply({ structured_output: good });
 });

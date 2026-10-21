@@ -1,21 +1,21 @@
-// Analizador `harness` (UD-008, MASTER-SPEC §7.5): `claude -p` por input.
+// `harness` analyzer (UD-008, MASTER-SPEC §7.5): `claude -p` per input.
 //
-// Reutiliza la suscripción de Claude Code que el equipo ya paga. Va SIN `--bare`: `--bare` no lee el
-// login de suscripción ni credenciales OAuth y exige ANTHROPIC_API_KEY (documentación oficial,
-// code.claude.com/docs/en/headless, consultada el 2026-10-20). Lo más cerca de bare que permite la
-// suscripción es un directorio de trabajo vacío y propio de cada análisis, sin sesión guardada y con
-// sólo herramientas de lectura. La sobrecarga se mide con `usage` y `total_cost_usd` de la salida JSON.
+// Reuses the Claude Code subscription the team already pays for. It runs WITHOUT `--bare`: `--bare` does not
+// read the subscription login or OAuth credentials and requires ANTHROPIC_API_KEY (official documentation,
+// code.claude.com/docs/en/headless, consulted on 2026-10-20). The closest to bare that the subscription
+// allows is an empty working directory of its own for each analysis, with no saved session and with only
+// read tools. The overhead is measured with `usage` and `total_cost_usd` from the JSON output.
 //
-// El bundle se escribe en archivos de ese directorio (input.md, bundle.json, templates/<id>.md); el
-// harness lee las plantillas por archivo, como las dos llamadas de `api` las revelan de a una.
-// La salida pasa por el mismo validador que `api`.
+// The bundle is written to files in that directory (input.md, bundle.json, templates/<id>.md); the
+// harness reads the templates by file, as the two `api` calls reveal them one at a time.
+// The output goes through the same validator as `api`.
 import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { recordGenAiCall, withSpan } from '../telemetry/api.js';
 import { AnalyzeInputError, HarnessError, HarnessUnavailableError } from './errors.js';
-import { harnessPrompt } from './prompts.js';
+import { harnessPrompt, resolveLanguage } from './prompts.js';
 import { buildProposalSchema } from './schema.js';
 import { parseTemplate } from './templates.js';
 import { numberUnits, renderUnits } from './units.js';
@@ -23,9 +23,9 @@ import { describeConflicts, normalizeDecomposition, validateProposal } from './v
 
 const PROVIDER = 'claude-code';
 
-async function writeWorkdir(dir, bundle, units) {
+async function writeWorkdir(dir, bundle, units, language) {
   await mkdir(join(dir, 'templates'));
-  await writeFile(join(dir, 'input.md'), `${renderUnits(units)}\n`);
+  await writeFile(join(dir, 'input.md'), `${renderUnits(units, language)}\n`);
   await writeFile(
     join(dir, 'bundle.json'),
     JSON.stringify(
@@ -45,7 +45,7 @@ async function writeWorkdir(dir, bundle, units) {
   }
 }
 
-/** Ejecuta `claude -p` y devuelve el objeto de resultado. */
+/** Runs `claude -p` and returns the result object. */
 function runClaude({ bin, args, prompt, cwd, env, timeoutMs }) {
   return new Promise((resolve, reject) => {
     let child;
@@ -58,7 +58,7 @@ function runClaude({ bin, args, prompt, cwd, env, timeoutMs }) {
     const out = [];
     const err = [];
     let timedOut = false;
-    // La señal va solo al proceso que este módulo lanzó, nunca al padre.
+    // The signal goes only to the process this module launched, never to the parent.
     const timer = setTimeout(() => {
       timedOut = true;
       child.kill('SIGKILL');
@@ -87,7 +87,7 @@ function runClaude({ bin, args, prompt, cwd, env, timeoutMs }) {
       } catch {
         parsed = null;
       }
-      // Algunas versiones entregan la lista de eventos: el resultado es el elemento de tipo `result`.
+      // Some versions deliver the list of events: the result is the element of type `result`.
       if (Array.isArray(parsed)) parsed = parsed.findLast((e) => e?.type === 'result') ?? null;
       if (code !== 0 && !parsed) {
         reject(new HarnessError(`claude -p terminó con código ${code}: ${stderr.trim().slice(0, 500) || 'sin mensaje'}`, { exitCode: code, stderr }));
@@ -99,7 +99,7 @@ function runClaude({ bin, args, prompt, cwd, env, timeoutMs }) {
       }
       resolve(parsed);
     });
-    child.stdin.on('error', () => {}); // si el proceso muere antes de leer, el error llega por `close`
+    child.stdin.on('error', () => {}); // if the process dies before reading, the error arrives through `close`
     child.stdin.end(prompt);
   });
 }
@@ -125,16 +125,16 @@ function toCallEntry(result, step) {
   };
 }
 
-/** Valida el Proposal completo del harness con el mismo validador que `api`. */
+/** Validates the complete Proposal of the harness with the same validator as `api`. */
 function validateHarnessProposal(proposal, bundle, units) {
-  if (!proposal || typeof proposal !== 'object') return { errors: ['la salida no es un objeto'] };
+  if (!proposal || typeof proposal !== 'object') return { errors: ['the output is not an object'] };
   const { templates } = bundle;
   const fieldsByTemplate = new Map();
   for (const m of Array.isArray(proposal.messages) ? proposal.messages : []) {
     const row = templates.find((t) => t.id === m?.template_id);
     if (!row || fieldsByTemplate.has(row.id)) continue;
-    if (typeof row.body_markdown !== 'string') return { errors: [`la plantilla ${row.id} no trae su cuerpo`] };
-    fieldsByTemplate.set(row.id, parseTemplate(row.body_markdown, { source: `plantilla ${row.id}` }).fields);
+    if (typeof row.body_markdown !== 'string') return { errors: [`template ${row.id} has no body`] };
+    fieldsByTemplate.set(row.id, parseTemplate(row.body_markdown, { source: `template ${row.id}` }).fields);
   }
   const v = validateProposal(proposal, {
     templates,
@@ -148,12 +148,13 @@ function validateHarnessProposal(proposal, bundle, units) {
 
 /**
  * @param {object} bundle
- * @param {{onProgress?: Function, config: object}} opts  `config` ya resuelta
+ * @param {{onProgress?: Function, config: object}} opts  `config` already resolved
  */
 export async function analyzeWithHarness(bundle, { onProgress, config }) {
   if (!bundle?.areas?.length || !bundle?.templates?.length) throw new AnalyzeInputError('El bundle no trae áreas o plantillas');
   const units = numberUnits(bundle);
   if (units.length === 0) throw new AnalyzeInputError('El input no tiene texto ni adjuntos con texto extraído');
+  const language = resolveLanguage(bundle.language);
   const calls = [];
   const stats = { chunks: 1, groups: 0, classification_chunks: 1, rescues: 0, invalid_retries: 0, max_tokens_retries: 0, partitioned: false, units: units.length };
   let done = 0;
@@ -163,7 +164,7 @@ export async function analyzeWithHarness(bundle, { onProgress, config }) {
   const dir = await mkdtemp(join(workRoot, 'team-analyze-'));
   try {
     report('preparando el análisis');
-    await writeWorkdir(dir, bundle, units);
+    await writeWorkdir(dir, bundle, units, language);
     done = 1;
 
     const tools = config.harnessTools.join(',');
@@ -181,9 +182,9 @@ export async function analyzeWithHarness(bundle, { onProgress, config }) {
     for (let attempt = 0; ; attempt += 1) {
       report(attempt === 0 ? 'analizando con Claude Code' : 'corrigiendo la propuesta');
       let result;
-      const prompt = harnessPrompt({ unitCount: units.length, retryErrors });
+      const prompt = harnessPrompt({ unitCount: units.length, retryErrors, language });
       try {
-        // Un span por invocación de `claude -p`, con el costo real que informa (`total_cost_usd`), sin estimarlo.
+        // One span per `claude -p` invocation, with the real cost it reports (`total_cost_usd`), not estimated.
         result = await withSpan('harness', { 'team.step': 'harness', 'team.attempt': attempt + 1 }, async (span) => {
           const r = await runClaude({
             bin: config.harnessBin,
@@ -217,7 +218,7 @@ export async function analyzeWithHarness(bundle, { onProgress, config }) {
       let errors;
       let checked = null;
       if (result.is_error) {
-        errors = [`claude -p informó un error (${result.subtype ?? 'sin subtipo'}): ${String(result.result ?? '').slice(0, 300)}`];
+        errors = [`claude -p reported an error (${result.subtype ?? 'no subtype'}): ${String(result.result ?? '').slice(0, 300)}`];
       } else {
         let proposal = result.structured_output;
         if (proposal === undefined && typeof result.result === 'string') {
@@ -228,7 +229,7 @@ export async function analyzeWithHarness(bundle, { onProgress, config }) {
           }
         }
         if (proposal === undefined) {
-          errors = ['claude -p no devolvió structured_output'];
+          errors = ['claude -p did not return structured_output'];
         } else {
           checked = withSpan('validate', { 'team.step': 'validate', 'team.validated_step': 'harness' }, (span) => {
             const v = validateHarnessProposal(proposal, bundle, units);
@@ -247,7 +248,7 @@ export async function analyzeWithHarness(bundle, { onProgress, config }) {
           }
         }
       }
-      // Una salida inválida reintenta una vez con el error como contexto; después, el trabajo falla con el motivo (§7.5).
+      // An invalid output retries once with the error as context; after that, the job fails with the reason (§7.5).
       if (attempt >= config.invalidOutputRetries) {
         return { status: 'invalid', step: entry.step, errors, units, calls, stats };
       }

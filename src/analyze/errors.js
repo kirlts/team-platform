@@ -1,17 +1,17 @@
-// Errores tipados del analizador. Los resultados de dominio (rechazo, corte, salida inválida) no
-// se lanzan: `analyze` los devuelve con `status` (ver index.js). Estos errores son de operación.
+// Typed analyzer errors. Domain results (refusal, cut-off, invalid output) are not
+// thrown: `analyze` returns them with `status` (see index.js). These errors are operational.
 
 export class AnalyzeError extends Error {
   constructor(message, meta = {}) {
     super(message, meta.cause ? { cause: meta.cause } : undefined);
     this.name = this.constructor.name;
     this.code = 'analyze_error';
-    // Llamadas al modelo hechas antes del fallo: el núcleo las guarda en llm_calls aunque el trabajo falle.
+    // Model calls made before the failure: the core stores them in llm_calls even if the job fails.
     this.calls = meta.calls ?? [];
   }
 }
 
-/** El bundle no sirve para analizar (sin texto, sin áreas, plantilla ausente). */
+/** The bundle cannot be analyzed (no text, no areas, missing template). */
 export class AnalyzeInputError extends AnalyzeError {
   constructor(message, meta) {
     super(message, meta);
@@ -19,7 +19,7 @@ export class AnalyzeInputError extends AnalyzeError {
   }
 }
 
-/** Plantilla mal formada: frontmatter ilegible, campos inválidos, límites excedidos. */
+/** Malformed template: unreadable frontmatter, invalid fields, limits exceeded. */
 export class TemplateError extends AnalyzeError {
   constructor(message, meta = {}) {
     super(message, meta);
@@ -28,7 +28,7 @@ export class TemplateError extends AnalyzeError {
   }
 }
 
-/** `claude` no está instalado o no se puede ejecutar (ANALYZER=harness). */
+/** `claude` is not installed or cannot be run (ANALYZER=harness). */
 export class HarnessUnavailableError extends AnalyzeError {
   constructor(message, meta = {}) {
     super(message, meta);
@@ -37,7 +37,7 @@ export class HarnessUnavailableError extends AnalyzeError {
   }
 }
 
-/** `claude -p` terminó con error, se pasó del plazo o devolvió algo que no es JSON. */
+/** `claude -p` ended with an error, ran past its deadline or returned something that is not JSON. */
 export class HarnessError extends AnalyzeError {
   constructor(message, meta = {}) {
     super(message, meta);

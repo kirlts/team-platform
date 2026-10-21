@@ -1,5 +1,5 @@
-// UD-014: el análisis deja su árbol de spans (analyze, classify, decompose, validate, rescue, harness) con
-// job_id e input_id tomados del bundle. La telemetría es global del proceso: este archivo la inicia una vez.
+// UD-014: the analysis leaves its tree of spans (analyze, classify, decompose, validate, rescue, harness) with
+// job_id and input_id taken from the bundle. Telemetry is global to the process: this file starts it once.
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { after, before, describe, it } from 'node:test';
@@ -13,7 +13,7 @@ const FAKE_CLAUDE = fileURLToPath(new URL('./testing/fake-claude.mjs', import.me
 
 const walk = (nodes) => nodes.flatMap((n) => [n, ...walk(n.children)]);
 
-describe('telemetría del analizador', () => {
+describe('analyzer telemetry', () => {
   let env;
   before(async () => { env = await makeEnv({ telemetry: true }); });
   after(() => env.close?.());
@@ -23,7 +23,7 @@ describe('telemetría del analizador', () => {
     return walk(traceOfJob(env.db, jobId).roots);
   }
 
-  it('api: analyze contiene classify, decompose por grupo y validate, con job_id e input_id del bundle', async () => {
+  it('api: analyze contains classify, decompose per group and validate, with job_id and input_id from the bundle', async () => {
     const bundle = await makeBundle({ job_id: 501, input_id: 31 });
     const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, goodDecomposition()] });
     await analyze(bundle, { providers: fake });
@@ -35,19 +35,19 @@ describe('telemetría del analizador', () => {
     assert.equal(root.attributes['team.status'], 'ok');
     assert.equal(root.attributes['team.messages'], 3);
     const names = spans.map((s) => s.name);
-    for (const expected of ['classify', 'decompose', 'validate']) assert.ok(names.includes(expected), `falta el span «${expected}»`);
+    for (const expected of ['classify', 'decompose', 'validate']) assert.ok(names.includes(expected), `missing span «${expected}»`);
     const decompose = spans.find((s) => s.name === 'decompose');
     assert.deepEqual(
       [decompose.attributes['team.group_index'], decompose.attributes['team.area_id'], decompose.attributes['team.template_id'], decompose.attributes['team.units']],
       [0, 2, 2, 4],
     );
-    // classify y decompose cuelgan de analyze; validate, de la llamada estructurada que valida.
+    // classify and decompose hang from analyze; validate, from the structured call it validates.
     assert.ok(root.children.some((c) => c.name === 'classify'));
     assert.ok(root.children.some((c) => c.name === 'decompose'));
     assert.ok(spans.filter((s) => s.name === 'validate').every((s) => s.attributes['team.valid'] === true));
   });
 
-  it('validate lleva los errores cuando la salida es inválida, y rescue aparece cuando hay conflicto', async () => {
+  it('validate carries the errors when the output is invalid, and rescue appears when there is a conflict', async () => {
     const mala = goodDecomposition();
     mala.messages[1].unit_ids = [3, 4];
     const bundle = await makeBundle({ job_id: 502 });
@@ -66,10 +66,10 @@ describe('telemetría del analizador', () => {
     await analyze(await makeBundle({ job_id: 503 }), { providers: fake2 });
     const spans2 = await spansOf(503);
     const withErrors = spans2.find((s) => s.name === 'validate' && s.attributes['team.valid'] === false);
-    assert.match(withErrors.attributes['team.errors'].join(' '), /el miembro 99 no existe/);
+    assert.match(withErrors.attributes['team.errors'].join(' '), /member 99 does not exist/);
   });
 
-  it('harness: un span por invocación con el costo real de total_cost_usd', async () => {
+  it('harness: one span per invocation with the real cost from total_cost_usd', async () => {
     const stateDir = env.dir;
     const bundle = await makeBundle({ job_id: 504, input_id: 9 });
     await analyze(bundle, {

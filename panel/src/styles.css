@@ -28,6 +28,17 @@
   --font-display: 'Orbitron', 'Eurostile', 'Bank Gothic', 'Arial Narrow', sans-serif;
   --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
 
+  /* Type scale (J1-A-53): support 12 px, body 15 px, headings 18.75 px and up. The base is 15 px, so these are
+     0.8, 1 and 1.25 rem. No text drops below 12 px; src/type-scale.test.ts and the fit test enforce it. */
+  --text-xs: 0.8rem;
+  --text-xs--line-height: 1.4;
+  --text-sm: 1rem;
+  --text-sm--line-height: 1.45;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5;
+  --text-lg: 1.25rem;
+  --text-lg--line-height: 1.35;
+
   /* Space unit: exactly 4 px. With the 15 px base font, Tailwind's default (0.25 rem) would give 3.75 px. */
   --spacing: 4px;
 
@@ -75,6 +86,8 @@
   --color-ai-edge: oklch(0.5 0.19 300);
   --color-ai-fg: oklch(0.4 0.17 300);
   --color-accent-soft: oklch(0.925 0.05 245);
+  /* Selected row (J1-A-33): the fill is 1.3:1 or more against the glass and the bar is the accent (3:1 or more); both are measured in `npm run contraste`. */
+  --color-selected: oklch(0.89 0.07 245);
   --color-aqua: oklch(0.78 0.13 205);
   --color-lime: oklch(0.88 0.19 125);
   --color-lilac: oklch(0.72 0.14 305);
@@ -146,6 +159,7 @@
   --color-accent-deep: oklch(0.84 0.12 235);
   --color-accent-fg: oklch(0.18 0.04 260);
   --color-accent-soft: oklch(0.32 0.08 255);
+  --color-selected: oklch(0.38 0.1 255);
   --color-aqua: oklch(0.8 0.12 205);
   --color-lime: oklch(0.88 0.19 125);
   --color-lilac: oklch(0.75 0.13 305);
@@ -221,11 +235,12 @@
     line-height: 1.3;
   }
 
-  /* Section label: instrument screen, uppercase and letter spacing. */
+  /* Section label: text face, uppercase and letter spacing. Orbitron stays on the brand mark: its wide capitals
+     (the A without a bar) cost legibility at 12 px (J1-A-55). */
   h2 {
-    font-family: var(--font-display);
-    font-size: 0.8125rem;
-    font-weight: 600;
+    font-family: var(--font-sans);
+    font-size: 0.8rem;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     line-height: 1.3;
@@ -287,6 +302,13 @@
     backdrop-filter: blur(14px) saturate(1.5);
     border: 1px solid var(--color-glass-line);
     box-shadow: var(--shadow-glass);
+  }
+
+  /* Opaque pop-up surface (menus and popovers): nothing shows through it (J1-A-09, J1-A-51). */
+  .pop {
+    background: var(--color-raised);
+    border: 1px solid var(--color-edge);
+    box-shadow: var(--shadow-pop);
   }
 
   .glass-strong {

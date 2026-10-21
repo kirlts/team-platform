@@ -53,7 +53,7 @@ export function AnalysisPanel({ input, onClose, registerPublish }: { input: Inpu
 
       {processing && (
         <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between gap-2 text-[13px]">
+          <div className="flex items-center justify-between gap-2 text-sm">
             <span>{progress?.phrase || (STATUS_PHRASE[input.status] ? t(STATUS_PHRASE[input.status]!) : '')}</span>
             <span className="tabular-nums text-muted">{Math.round(progress?.percent ?? 0)} %</span>
           </div>
@@ -188,14 +188,14 @@ function ProposalEditor({ input, initial, onPublished, onDiscard, registerPublis
         {(
           <Popover>
             <PopoverTrigger asChild>
-              <button type="button" className="inline-flex items-center gap-1.5 text-[13px] text-muted hover:text-fg">
+              <button type="button" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg">
                 {t('proposal.noAction')} <Badge tone="neutral">{discardedCount}</Badge>
               </button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-96 p-3">
               <ul data-lane="discarded-units" className="scroll-thin flex max-h-72 flex-col gap-2 overflow-y-auto">
                 {discarded.map((d, i) => (
-                  <li key={i} className="text-[13px]">
+                  <li key={i} className="text-sm">
                     <p className="text-xs text-muted">{d.reason}</p>
                     {d.unit_ids.map((id) => (
                       <p key={id} className="whitespace-pre-wrap">
@@ -292,7 +292,7 @@ function ProposalRow({
           <Trash2 size={13} aria-hidden /> {t('proposal.removeShort')}
         </Button>
       </div>
-      <EditableText value={m.body} label={t('proposal.body')} multiline prose validate={required} onSave={(v) => patch(index, t('proposal.bodyEdited'), { body: v })} displayClassName="text-[13px]" />
+      <EditableText value={m.body} label={t('proposal.body')} multiline prose validate={required} onSave={(v) => patch(index, t('proposal.bodyEdited'), { body: v })} displayClassName="text-sm" />
       <TemplateFields template={template} values={m.fields} onSave={(name, value) => patch(index, t('proposal.fieldEdited'), (cur) => ({ fields: { ...(cur.fields ?? {}), [name]: value } }))} />
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
         <RecipientsEditor ids={m.assignee_ids} onChange={(ids) => void patch(index, t('proposal.recipientsChanged'), { assignee_ids: ids })} />

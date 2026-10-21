@@ -13,7 +13,7 @@ export function PopoverContent({ className, sideOffset = 4, align = 'start', ...
         sideOffset={sideOffset}
         align={align}
         className={cn(
-          'glass-strong z-50 w-64 max-w-[calc(100vw-1rem)] rounded-lg p-1 text-sm text-fg',
+          'pop z-50 w-64 max-w-[calc(100vw-1rem)] rounded-lg p-1 text-sm text-fg',
           className,
         )}
         {...props}

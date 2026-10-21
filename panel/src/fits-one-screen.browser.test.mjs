@@ -133,8 +133,20 @@ function measureInPage({ lanes, withBreak }) {
       })
       .map((el) => Math.round(rect(el).bottom + window.scrollY)),
   )
+  // J1-A-53: no visible text under 12 px (the support step of the type scale). The initials of an avatar are
+  // decoration (aria-hidden, the name always sits next to them) and are the one exemption.
+  const small = new Set()
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    const el = n.parentElement
+    if (!el || !n.textContent.trim() || el.closest('.sr-only') || el.closest('script,style') || el.closest('[aria-hidden=true]')) continue
+    const r = rect(el)
+    if (r.width === 0 || r.height === 0 || getComputedStyle(el).visibility === 'hidden') continue
+    const size = parseFloat(getComputedStyle(el).fontSize)
+    if (size < 11.99) small.add(`${size.toFixed(1)} px «${n.textContent.trim().slice(0, 30)}»`)
+  }
   const hidden = getComputedStyle(document.documentElement).overflowY === 'hidden' || getComputedStyle(document.body).overflowY === 'hidden'
-  return { doc: se.scrollHeight, win: innerHeight, mainOver, mainBox: main ? main.clientHeight : 0, below, carriles, hidden, wide: se.scrollWidth - se.clientWidth, withBreak }
+  return { doc: se.scrollHeight, win: innerHeight, mainOver, mainBox: main ? main.clientHeight : 0, below, carriles, small: [...small], hidden, wide: se.scrollWidth - se.clientWidth, withBreak }
 }
 
 /** Opens a path and waits for the view's heading, then for the network and the layout to settle. */
@@ -230,6 +242,7 @@ for (const [width, height] of SIZES) {
             if (m.mainOver > 1) failures.push(`${view.name} (${path}): la región principal desplaza ${m.mainOver} px por su cuenta (${m.mainBox + m.mainOver} px en ${m.mainBox})`)
             if (m.below > m.win) failures.push(`${view.name} (${path}): contenido hasta ${m.below} px en una ventana de ${m.win}`)
             if (m.carriles.length) failures.push(`${view.name} (${path}): carriles verticales propios fuera de la lista blanca: ${m.carriles.join(', ')}`)
+            if (m.small.length) failures.push(`${view.name} (${path}): texto por debajo de 12 px: ${m.small.slice(0, 5).join('; ')}`)
             if (m.hidden) failures.push(`${view.name} (${path}): el documento esconde su desborde con overflow hidden`)
             if (view.compare && base && (m.doc !== base.doc || m.mainBox + m.mainOver !== base.main)) failures.push(`${view.name} (${path}): diez envíos cambiaron el alto (documento ${base.doc} a ${m.doc}, región ${base.main} a ${m.mainBox + m.mainOver})`)
             if (m.wide > 0) failures.push(`${view.name} (${path}): el documento se ensancha ${m.wide} px más que la ventana`)

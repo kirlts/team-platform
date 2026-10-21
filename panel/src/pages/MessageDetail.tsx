@@ -4,9 +4,9 @@ import { AiMark } from '@/components/AiMark'
 import { AreaPicker } from '@/components/AreaPicker'
 import { AttachmentStrip } from '@/components/AttachmentStrip'
 import { Avatar } from '@/components/Avatar'
+import { EmptyState } from '@/components/EmptyState'
 import { EditableText } from '@/components/EditableText'
 import { useLookups } from '@/components/lookups'
-import { MediaKinds } from '@/components/MediaKinds'
 import { Page } from '@/components/Page'
 import { PageHeader } from '@/components/PageHeader'
 import { Recipients } from '@/components/Recipients'
@@ -43,14 +43,17 @@ export function MessageDetail() {
     return (
       <Page cols={12}>
         <PageHeader title={t('nav.messages')} />
-        <p role="alert" className="text-sm text-danger">
+        <EmptyState
+          alert
+          className="glass leaf"
+          action={
+            <Button asChild>
+              <Link to="/messages">{t('detail.backToMessages')}</Link>
+            </Button>
+          }
+        >
           {missing ? t('detail.missing') : t('common.loadFailed', { reason: errorText(message.error) })}
-        </p>
-        <div>
-          <Button asChild>
-            <Link to="/messages">{t('nav.messages')}</Link>
-          </Button>
-        </div>
+        </EmptyState>
       </Page>
     )
   }
@@ -90,11 +93,23 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
         {canEdit && <UndoButtons stack={undo} />}
       </div>
 
-      <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4">
+      <header className="grid grid-cols-1 items-start gap-x-4 gap-y-2 md:grid-cols-[minmax(0,1fr)_auto]">
         <h1 className="min-w-0">
-          <EditableText value={m.title} label={t('detail.title')} canEdit={canEdit} validate={required} onSave={(v) => change(t('proposal.titleEdited'), { title: v }, { title: m.title })} displayClassName="font-sans text-[1.375rem] font-semibold leading-snug" />
+          <EditableText value={m.title} label={t('detail.title')} canEdit={canEdit} validate={required} onSave={(v) => change(t('proposal.titleEdited'), { title: v }, { title: m.title })} displayClassName="font-sans text-lg font-semibold leading-snug md:text-[1.375rem]" />
         </h1>
-        <Button variant="secondary" disabled={setClosed.isPending} onClick={() => setClosed.mutate({ id: m.id, closed: !closed })}>
+        <Button
+          variant="secondary"
+          className="max-md:self-start"
+          disabled={setClosed.isPending}
+          onClick={() =>
+            // Closing is an operation of the screen like any edit: it shows in Deshacer, which takes it back (J1-A-28).
+            void undo.run({
+              label: closed ? t('detail.reopened') : t('detail.closed'),
+              redo: () => setClosed.mutateAsync({ id: m.id, closed: !closed }),
+              undo: () => setClosed.mutateAsync({ id: m.id, closed }),
+            })
+          }
+        >
           {closed ? t('card.reopen') : t('card.close')}
         </Button>
       </header>
@@ -130,7 +145,6 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
             <time dateTime={m.created_at} className="tabular-nums">
               {format.stamp(m.created_at)}
             </time>
-            <MediaKinds of={m} />
             {m.input_id && <AiMark />}
           </div>
 

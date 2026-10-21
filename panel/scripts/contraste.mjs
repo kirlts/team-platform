@@ -89,6 +89,12 @@ for (const [theme, t] of [['claro', light], ['oscuro', dark]]) {
   row(theme, 'muted sobre superficie IA', fg('muted'), [fg('ai-bg')], 4.5)
   row(theme, 'marca de origen IA sobre su superficie', fg('ai-fg'), [fg('ai-bg')], 4.5)
   row(theme, 'borde de acento IA sobre su superficie', fg('ai-edge'), [fg('ai-bg')], 3)
+  // Selected row (J1-A-33): the juez measured 1.1:1 between the old fill and the glass and the selection was not seen. Now the
+  // fill is at least 1.25:1 from the glass, the accent bar 3:1 from the fill (WCAG 1.4.11), and the text keeps 4.5:1 on it.
+  row(theme, 'relleno de fila elegida contra el vidrio', fg('selected'), onGlass('glass'), 1.25)
+  row(theme, 'barra de fila elegida (accent) sobre su relleno', fg('accent'), [fg('selected')], 3)
+  row(theme, 'fg sobre fila elegida', fg('fg'), [fg('selected')], 4.5)
+  row(theme, 'muted sobre fila elegida', fg('muted'), [fg('selected')], 4.5)
   // Gel button: text over the gradient at the text point (30 % of the height), with the highlight.
   const mix = (a, b, k) => a.map((v, i) => v * (1 - k) + b[i] * k)
   const top = fg('gel-top')

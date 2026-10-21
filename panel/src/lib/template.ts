@@ -12,9 +12,13 @@ function splitTopLevel(text: string): string[] {
   const parts: string[] = []
   let current = ''
   let quote = ''
+  let escaped = false
   for (const ch of text) {
     if (quote) {
-      if (ch === quote) quote = ''
+      // Inside double quotes a backslash escapes the next character (JSON strings written by buildTemplate).
+      if (escaped) escaped = false
+      else if (ch === '\\' && quote === '"') escaped = true
+      else if (ch === quote) quote = ''
       current += ch
     } else if (ch === '"' || ch === "'") {
       quote = ch
@@ -32,7 +36,14 @@ function splitTopLevel(text: string): string[] {
 
 const unquote = (v: string) => {
   const t = v.trim()
-  return t.length >= 2 && (t[0] === '"' || t[0] === "'") && t[t.length - 1] === t[0] ? t.slice(1, -1) : t
+  if (t.length >= 2 && t[0] === '"' && t[t.length - 1] === '"') {
+    try {
+      return JSON.parse(t) as string
+    } catch {
+      return t.slice(1, -1)
+    }
+  }
+  return t.length >= 2 && t[0] === "'" && t[t.length - 1] === "'" ? t.slice(1, -1) : t
 }
 
 /**
@@ -60,6 +71,41 @@ export function parseTemplateFields(markdown: string): TemplateField[] {
     if (entry.name) fields.push({ name: entry.name, label: entry.label || entry.name, required: entry.required === 'true' })
   }
   return fields
+}
+
+/** The instructions to the model: what follows the frontmatter, without the delimiters. */
+export function templateInstructions(markdown: string): string {
+  const lines = markdown.replace(/\r\n?/g, '\n').split('\n')
+  if (lines[0]?.trim() !== '---') return markdown.trim()
+  const end = lines.indexOf('---', 1)
+  return (end === -1 ? '' : lines.slice(end + 1).join('\n')).trim()
+}
+
+/** A schema key for a new field, from its label: lowercase ASCII with underscores, unique among `taken`. A key is a name, not a reading of the text. */
+export function fieldKey(label: string, taken: Iterable<string>): string {
+  const used = new Set(taken)
+  const base =
+    label
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^[^a-z]+/, '')
+      .replace(/_+$/, '')
+      .slice(0, 40) || 'field'
+  let key = base
+  for (let n = 2; used.has(key); n++) key = `${base}_${n}`
+  return key
+}
+
+/**
+ * The file a template is stored as (MASTER-SPEC §7.9), built from the parts the panel edits: a form, never
+ * the file itself. Strings go in double quotes with JSON escapes, which is valid YAML.
+ */
+export function buildTemplate({ name, description, fields, instructions }: { name: string; description: string; fields: readonly TemplateField[]; instructions: string }): string {
+  const q = (v: string) => JSON.stringify(v)
+  const list = fields.length === 0 ? ['fields: []'] : ['fields:', ...fields.map((f) => `  - { name: ${f.name}, label: ${q(f.label)}, required: ${f.required} }`)]
+  return ['---', `name: ${q(name)}`, `description: ${q(description)}`, ...list, '---', instructions.trim(), ''].join('\n')
 }
 
 /**

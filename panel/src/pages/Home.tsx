@@ -189,7 +189,7 @@ function FeedLinks({ meId }: { meId: string }) {
   const replies = useMessages({ query: mine, meId, repliesFeed: true, enabled: !!meId })
   const params = (extra: string[]) => new URLSearchParams([['f', `for:eq:${ME}`], ...extra.map((f) => ['f', f] as [string, string])]).toString()
   return (
-    <nav aria-label={t('home.folded')} className="flex flex-wrap items-center gap-x-6 gap-y-1 text-[13px]">
+    <nav aria-label={t('home.folded')} className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
       <Link to={`/messages?${params([])}`} className="text-accent hover:underline">
         {t('home.latestMessages')} <span className="tabular-nums text-muted">{messages.data?.length ?? 0}</span>
       </Link>

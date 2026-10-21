@@ -1,5 +1,7 @@
 import { useMemo } from 'react'
 import { useSearchParams } from 'react-router'
+import { EmptyState } from '@/components/EmptyState'
+import { Button } from '@/components/ui/button'
 import { FilterBar } from '@/components/FilterBar'
 import { FitList } from '@/components/FitList'
 import { MessageCard } from '@/components/MessageCard'
@@ -22,7 +24,7 @@ export function Messages() {
 
   return (
     <Page cols={12}>
-      <PageHeader title={t('nav.messages')} aside={list.data && <span className="text-xs tabular-nums text-muted">{t('messages.count', { n: list.data.length })}</span>} />
+      <PageHeader title={t('nav.messages')} count={list.data ? t('messages.count', { n: list.data.length }) : undefined} />
       <FilterBar query={query} onChange={change} />
       <FitList
         rows={rows}
@@ -35,8 +37,18 @@ export function Messages() {
             <p role="alert" className="px-3 py-8 text-center text-sm text-danger">
               {t('common.loadFailed', { reason: errorText(list.error) })}
             </p>
+          ) : query.q || query.filters.length > 0 ? (
+            <EmptyState
+              action={
+                <Button size="sm" onClick={() => change({ ...query, q: '', filters: [] })}>
+                  {t('messages.clearSearch')}
+                </Button>
+              }
+            >
+              {query.q ? t('messages.noMatch', { q: query.q }) : t('messages.noMatchFilters')}
+            </EmptyState>
           ) : (
-            <p className="px-3 py-8 text-center text-sm text-muted">{t('home.noMessages')}</p>
+            <EmptyState>{t('home.noMessages')}</EmptyState>
           )
         }
       />

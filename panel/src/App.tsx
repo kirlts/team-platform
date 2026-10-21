@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router'
+import { BrowserRouter, Outlet, Route, Routes } from 'react-router'
 import { Atmosphere } from '@/components/Atmosphere'
 import { Header } from '@/components/Header'
 import { I18nProvider, detectLanguage, isLanguage, useT } from '@/i18n'
@@ -15,6 +15,7 @@ import { Home } from '@/pages/Home'
 import { Login } from '@/pages/Login'
 import { MessageDetail } from '@/pages/MessageDetail'
 import { Messages } from '@/pages/Messages'
+import { NotFound } from '@/pages/NotFound'
 import { Settings } from '@/pages/Settings'
 import { Team } from '@/pages/Team'
 
@@ -42,13 +43,17 @@ function Shell() {
   return (
     <EventsProvider>
       <Atmosphere />
+      {/* First stop of the keyboard: past the navigation, to the content (J1-A-11). */}
+      <a href="#main" className="sr-only z-50 rounded-md bg-raised px-3 py-2 text-sm font-semibold text-accent-deep focus:not-sr-only focus:fixed focus:left-3 focus:top-3">
+        {t('nav.skip')}
+      </a>
       <div className="relative z-10 flex h-dvh flex-col">
         <Header projectName={project?.name ?? me?.project_name} onOpenNav={() => setNavOpen(true)} onLogout={() => void logout()} />
         <div className="flex min-h-0 flex-1">
-          <aside data-lane="sidebar" className="glass scroll-thin hidden w-64 shrink-0 overflow-y-auto border-0 border-r !shadow-none md:block">
+          <aside data-lane="sidebar" className="glass scroll-thin hidden w-72 shrink-0 overflow-y-auto border-0 border-r !shadow-none md:block">
             <Sidebar onLogout={() => void logout()} />
           </aside>
-          <main className="scroll-thin min-w-0 flex-1 overflow-y-auto">
+          <main id="main" tabIndex={-1} className="scroll-thin min-w-0 flex-1 overflow-y-auto outline-none">
             <Outlet />
           </main>
         </div>
@@ -96,7 +101,7 @@ function Routed({ me }: { me: ReturnType<typeof useMe> }) {
             <Route path="areas/:areaId?" element={<Areas />} />
             <Route path="team" element={<Team />} />
             <Route path="settings" element={<Settings />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>
       </BrowserRouter>

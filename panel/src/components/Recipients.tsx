@@ -43,7 +43,7 @@ export function Recipients({ ids, max, className, children }: { ids: string[]; m
             <PopoverContent align="start" className="w-64 p-2">
               <ul className="flex flex-col gap-1.5">
                 {named.map((id) => (
-                  <li key={id} className="flex items-center gap-2 text-[13px]">
+                  <li key={id} className="flex items-center gap-2 text-sm">
                     <Avatar name={memberName(id)} size={20} />
                     <span className="min-w-0 break-words">{memberName(id)}</span>
                   </li>

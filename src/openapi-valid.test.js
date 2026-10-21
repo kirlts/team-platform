@@ -1,8 +1,8 @@
-// HP-012 (docs/TEST.md): el OpenAPI generado es válido contra el esquema oficial de OpenAPI 3.1 y ninguna
-// operación queda sin esquema de respuesta, ni para el caso feliz (2xx) ni para el error (4xx). Protege MASTER-SPEC
-// §4.11: la API es la única puerta y otro frontend la reimplementa sólo desde este contrato.
-// El validador es @readme/openapi-parser (MIT; versión 9.1.0, publicada el 2026-10-06, la más reciente de las dos
-// opciones vivas en npm: @apidevtools/swagger-parser 13.1.0 es del 2026-09-20).
+// HP-012 (docs/TEST.md): the generated OpenAPI is valid against the official OpenAPI 3.1 schema and no operation is
+// left without a response schema, neither for the happy path (2xx) nor for errors (4xx). It protects MASTER-SPEC
+// section 4.11: the API is the only door and another frontend reimplements only the views from this contract.
+// Validator: @readme/openapi-parser (MIT; version 9.1.0, published 2026-10-06, the most recent of the two live
+// options on npm: @apidevtools/swagger-parser 13.1.0 is from 2026-09-20).
 
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
@@ -12,7 +12,7 @@ import { makeEnv } from './testing/helpers.js'
 
 const METHODS = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace']
 
-/** Recorre las operaciones de un documento OpenAPI: { method, path, operation }. */
+/** Walks the operations of an OpenAPI document: { method, path, operation }. */
 function operationsOf (doc) {
   const found = []
   for (const [routePath, item] of Object.entries(doc.paths)) {
@@ -21,22 +21,22 @@ function operationsOf (doc) {
   return found
 }
 
-/** Problemas de esquema de respuesta de una operación; vacío si cumple. */
+/** Response-schema problems of one operation; empty when it complies. */
 function responseProblems ({ method, path, operation }) {
   const problems = []
   const label = `${method.toUpperCase()} ${path}`
   const entries = Object.entries(operation.responses ?? {})
   const successes = entries.filter(([code]) => /^2(\d\d|XX)$/i.test(code))
   const failures = entries.filter(([code]) => /^4(\d\d|XX)$/i.test(code))
-  if (successes.length === 0) problems.push(`${label}: sin respuesta 2xx`)
-  if (failures.length === 0) problems.push(`${label}: sin respuesta 4xx`)
+  if (successes.length === 0) problems.push(`${label}: no 2xx response`)
+  if (failures.length === 0) problems.push(`${label}: no 4xx response`)
   const hasSchema = (response) => Object.values(response.content ?? {}).some((media) => media.schema && Object.keys(media.schema).length > 0)
   for (const [code, response] of successes) {
-    // Un 204 no lleva cuerpo: se exige la respuesta declarada, no un esquema.
-    if (code !== '204' && !hasSchema(response)) problems.push(`${label}: la respuesta ${code} no declara esquema`)
+    // A 204 has no body: the declared response is required, not a schema.
+    if (code !== '204' && !hasSchema(response)) problems.push(`${label}: response ${code} declares no schema`)
   }
   for (const [code, response] of failures) {
-    if (!hasSchema(response)) problems.push(`${label}: la respuesta ${code} no declara esquema`)
+    if (!hasSchema(response)) problems.push(`${label}: response ${code} declares no schema`)
   }
   return problems
 }
@@ -52,18 +52,18 @@ async function generatedDocument ({ withRoutes = false } = {}) {
   }
 }
 
-test('HP-012 · el documento de GET /api/openapi.json es OpenAPI 3.1 válido (§4.11)', async () => {
+test('HP-012: the document at GET /api/openapi.json is valid OpenAPI 3.1 (section 4.11)', async () => {
   const doc = await generatedDocument()
   assert.equal(doc.openapi, '3.1.0')
-  const result = await validate(structuredClone(doc)) // el validador resuelve referencias in situ: se le pasa una copia
+  const result = await validate(structuredClone(doc)) // the validator resolves references in place: give it a copy
   assert.equal(result.valid, true, JSON.stringify(result.errors ?? result))
   assert.deepEqual(result.warnings ?? [], [])
 })
 
-test('HP-012 · cada ruta registrada en la API aparece en el contrato', async () => {
+test('HP-012: every route registered in the API appears in the contract', async () => {
   const { doc, routes } = await generatedDocument({ withRoutes: true })
   const documented = new Set(operationsOf(doc).map((o) => `${o.method.toUpperCase()} ${o.path.replace(/\{(\w+)\}/g, ':$1')}`))
-  // El contrato no se describe a sí mismo y /health de la raíz es el mismo sondeo que /api/health.
+  // The contract does not describe itself, and the root /health is the same probe as /api/health.
   const checked = routes
     .filter((r) => !['HEAD', 'OPTIONS'].includes(r.method) && r.url.startsWith('/api/') && r.url !== '/api/openapi.json')
     .map((r) => `${r.method} ${r.url}`)
@@ -71,19 +71,19 @@ test('HP-012 · cada ruta registrada en la API aparece en el contrato', async ()
   assert.deepEqual(checked.filter((route) => !documented.has(route)), [])
 })
 
-test('HP-012 · toda operación tiene esquema de respuesta para 2xx y para 4xx (§4.11)', async () => {
+test('HP-012: every operation has a response schema for 2xx and for 4xx (section 4.11)', async () => {
   const doc = await generatedDocument()
   const problems = operationsOf(doc).flatMap(responseProblems)
   assert.deepEqual(problems, [])
 })
 
-test('HP-012 · el validador rechaza un documento roto y la regla de respuestas ve una operación sin esquema', async () => {
+test('HP-012: the validator rejects a broken document and the response rule sees an operation without schema', async () => {
   const doc = await generatedDocument()
-  // Prohibición de la prohibición: si el validador aceptara cualquier cosa, la prueba de arriba no probaría nada.
+  // Prohibition of the prohibition: if the validator accepted anything, the tests above would prove nothing.
   const broken = structuredClone(doc)
-  delete broken.info // `info` es obligatorio en todo documento OpenAPI
+  delete broken.info // `info` is mandatory in every OpenAPI document
   const verdict = await validate(broken).then((r) => r.valid, () => false)
   assert.equal(verdict, false)
-  const bare = { method: 'get', path: '/x', operation: { responses: { 200: { description: 'sin esquema' } } } }
-  assert.equal(responseProblems(bare).length, 2) // el 200 sin esquema y la ausencia de un 4xx
+  const bare = { method: 'get', path: '/x', operation: { responses: { 200: { description: 'no schema' } } } }
+  assert.equal(responseProblems(bare).length, 2) // the 200 without schema and the missing 4xx
 })

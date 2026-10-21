@@ -30,7 +30,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statS
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadFixtures, runCase, summarize, formatReport, unitsOf } from './lib.js';
-import { createSpend } from './spend.mjs';
+import { createSpend, withQueueRetries } from './spend.mjs';
 import { compareResults, formatComparison } from './compare.js';
 import { costOf, usageOfCall } from './pricing.js';
 import { analyze } from '../src/analyze/index.js';
@@ -257,13 +257,17 @@ if (command === 'list') {
     const runs = [];
     for (let i = 0; i < repeat; i += 1) {
       assertBudget(`${c.id} #${i + 1}`);
-      const run = await runCase({
-        analyze,
-        providers,
-        testCase: { id: c.id, input: cache.input, expected },
-        fixtures,
-        options: values.analyzer ? { analyzer: values.analyzer } : {},
-      });
+      // A retryable provider error (rate limit, overload) repeats the whole case, as the job queue does in the product.
+      const run = await withQueueRetries(
+        () => runCase({
+          analyze,
+          providers,
+          testCase: { id: c.id, input: cache.input, expected },
+          fixtures,
+          options: values.analyzer ? { analyzer: values.analyzer } : {},
+        }),
+        { onRetry: (e, attempt) => console.log(`${c.id}: reintento ${attempt} (${e.message.slice(0, 90)})`) },
+      );
       const total = addSpend(`analyze ${c.id}`, run.usage.cost_usd ?? 0, run.usage.cost_usd === null ? run.usage.calls : 0);
       console.log(`${c.id} #${i + 1}: ${run.status}, ${(run.total_ms / 1000).toFixed(1)} s, ${run.usage.calls} llamadas, ${run.usage.cost_usd?.toFixed(5) ?? 'sin tarifa'} USD (acumulado ${total.toFixed(4)})`);
       runs.push(run);

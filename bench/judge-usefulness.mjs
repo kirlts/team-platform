@@ -16,7 +16,7 @@ import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createProviders } from '../src/providers/index.js';
 import { costOf } from './pricing.js';
-import { createSpend } from './spend.mjs';
+import { createSpend, withQueueRetries } from './spend.mjs';
 import { median } from './compare.js';
 
 export const RUBRIC = `You judge the messages that a tool wrote for a small software team from raw input (a meeting transcript, a chat, a feedback document, a screen recording). The messages are in Spanish. Rate each one from 1 to 5 on a single question: can a person on the team read the message body and understand what to do and why, with the right project context, without the message inventing facts?
@@ -121,13 +121,13 @@ if (isMain) {
       const label = `judge ${entry.case_id}`;
       ledger.assertBudget(label);
       const subset = missing.map((i) => messages[i - 1]);
-      const response = await providers.text.complete({
+      const response = await withQueueRetries(() => providers.text.complete({
         system,
         messages: [{ role: 'user', content: judgeUser({ messages: subset, units }) }],
         schema: RATINGS_SCHEMA,
         effort: 'medium',
         thinking: 'disabled',
-      });
+      }), { onRetry: (e, n) => console.log(`${entry.case_id}: retry ${n} (${e.message.slice(0, 90)})`) });
       const cost = costOf({ model: response.model, usage: response.usage });
       out.cost_usd += cost ?? 0;
       const total = ledger.add(label, cost ?? 0, cost === null ? 1 : 0);

@@ -28,3 +28,22 @@ export function createSpend({ resultsDir, budgetUsd }) {
     },
   };
 }
+
+/**
+ * Retries a call that failed with a provider error marked retryable (429, 5xx, network), as the job queue does in the
+ * product (MASTER-SPEC §7.3: max_attempts 3). It waits for the provider's `retry-after` or, without it, for a growing pause.
+ * @template T
+ * @param {() => Promise<T>} fn
+ * @param {{ attempts?: number, pauseMs?: number, onRetry?: (error: Error, attempt: number) => void }} [opts]
+ */
+export async function withQueueRetries(fn, { attempts = 3, pauseMs = 5000, onRetry = () => {} } = {}) {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (!error.retryable || attempt >= attempts) throw error;
+      onRetry(error, attempt);
+      await new Promise((resolve) => setTimeout(resolve, error.retryAfterMs ?? pauseMs * attempt));
+    }
+  }
+}

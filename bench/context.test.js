@@ -79,3 +79,17 @@ test('judge: ratings are validated against the messages asked for; repeated, out
   assert.deepEqual(missing, [2, 3]);
   assert.deepEqual(RATINGS_SCHEMA.properties.ratings.items.required, ['index', 'reason', 'score']);
 });
+
+test('withQueueRetries repeats a retryable error up to the attempts and gives up on others', async () => {
+  const { withQueueRetries } = await import('./spend.mjs');
+  let calls = 0;
+  const flaky = () => { calls += 1; if (calls < 3) throw Object.assign(new Error('429'), { retryable: true, retryAfterMs: 1 }); return 'ok'; };
+  assert.equal(await withQueueRetries(flaky), 'ok');
+  assert.equal(calls, 3);
+  calls = 0;
+  await assert.rejects(withQueueRetries(() => { calls += 1; throw Object.assign(new Error('bad'), { retryable: false }); }), /bad/);
+  assert.equal(calls, 1);
+  calls = 0;
+  await assert.rejects(withQueueRetries(() => { calls += 1; throw Object.assign(new Error('429'), { retryable: true, retryAfterMs: 1 }); }), /429/);
+  assert.equal(calls, 3);
+});

@@ -4,6 +4,7 @@ import { AnalysisPanel } from '@/components/AnalysisPanel'
 import { ComposeBar } from '@/components/ComposeBar'
 import { InputPreview } from '@/components/InputPreview'
 import { MessageCard } from '@/components/MessageCard'
+import { Page } from '@/components/Page'
 import { PageHeader } from '@/components/PageHeader'
 import { Segmented } from '@/components/Segmented'
 import { ApiError } from '@/lib/api'
@@ -58,7 +59,7 @@ export function Home() {
   }, [input.error, input.data?.status])
 
   return (
-    <div className="flex w-full max-w-[72rem] flex-col gap-10 px-5 py-7 md:px-10 md:py-10">
+    <Page cols={12} section>
       <PageHeader
         title={me?.project_name ?? ''}
         aside={
@@ -92,7 +93,7 @@ export function Home() {
         <Feed kind="messages" meId={me?.id ?? ''} />
         <Feed kind="replies" meId={me?.id ?? ''} />
       </div>
-    </div>
+    </Page>
   )
 }
 

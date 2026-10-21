@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "vitest run src/lib",
+    "test": "vitest run",
     "capturas": "node scripts/capturas.mjs",
     "capturas:vistas": "node scripts/capturas-vistas.mjs",
     "contraste": "node scripts/contraste.mjs"

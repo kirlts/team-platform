@@ -1,5 +1,6 @@
 import { type ReactNode, useState } from 'react'
 import { EditableText } from '@/components/EditableText'
+import { Page } from '@/components/Page'
 import { PageHeader } from '@/components/PageHeader'
 import { Segmented } from '@/components/Segmented'
 import { useMe, useProviders, useSaveProvider } from '@/lib/queries'
@@ -15,7 +16,7 @@ export function Settings() {
   const [theme, setTheme] = useState<ThemePref>(readThemePref)
 
   return (
-    <div className="flex w-full max-w-[52rem] flex-col gap-10 px-5 py-7 md:px-10 md:py-10">
+    <Page cols={8} section>
       <PageHeader title="Configuración" />
 
       <Section title="Cuenta">
@@ -46,7 +47,7 @@ export function Settings() {
       </Section>
 
       {me?.role === 'editor' && <Providers />}
-    </div>
+    </Page>
   )
 }
 

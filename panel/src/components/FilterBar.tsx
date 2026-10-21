@@ -94,8 +94,8 @@ export function FilterBar({ query, onChange }: { query: MessageQuery; onChange: 
       {query.filters.length > 0 && (
         <ul className="flex flex-wrap items-center gap-2" aria-label="Filtros aplicados">
           {query.filters.map((f) => (
-            <li key={f.prop} className="glass inline-flex h-7 items-stretch overflow-hidden rounded-full text-[13px] !shadow-none">
-              <span className="flex items-center bg-[linear-gradient(180deg,var(--color-chrome-1),var(--color-chrome-2))] px-3 font-semibold">{PROP_LABEL[f.prop]}</span>
+            <li key={f.prop} className="glass inline-flex min-h-7 items-stretch overflow-hidden rounded-[14px] text-[13px] leading-tight !shadow-none">
+              <span className="flex items-center bg-[linear-gradient(180deg,var(--color-chrome-1),var(--color-chrome-2))] px-3 py-1 font-semibold">{PROP_LABEL[f.prop]}</span>
               {f.prop === 'replies' ? (
                 <span className="flex items-center px-1.5 text-muted">{OP_LABEL.eq}</span>
               ) : (
@@ -115,7 +115,7 @@ export function FilterBar({ query, onChange }: { query: MessageQuery; onChange: 
                 </DropdownMenu>
               )}
               <DropdownMenu open={openValue === f.prop} onOpenChange={(o) => setOpenValue(o ? f.prop : null)}>
-                <DropdownMenuTrigger className={cn('inline-flex items-center gap-1 px-2.5 font-semibold text-accent-deep hover:bg-accent-soft')} aria-label={`Valor de ${PROP_LABEL[f.prop]}`}>
+                <DropdownMenuTrigger className={cn('inline-flex items-center gap-1 px-2.5 py-1 text-left font-semibold text-accent-deep hover:bg-accent-soft')} aria-label={`Valor de ${PROP_LABEL[f.prop]}`}>
                   {labelOf(f)}
                   <ChevronDown size={12} aria-hidden />
                 </DropdownMenuTrigger>

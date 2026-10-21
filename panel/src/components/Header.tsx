@@ -22,14 +22,14 @@ export function Header({ projectName, onOpenNav, onLogout }: { projectName?: str
   }, [])
 
   return (
-    <header className="chrome-bar flex h-[3.25rem] shrink-0 items-center justify-between gap-2 pl-2 pr-3 md:pl-5">
+    <header className="chrome-bar flex min-h-[3.25rem] shrink-0 items-center justify-between gap-2 py-1 pl-2 pr-3 md:pl-5">
       <div className="flex min-w-0 items-center gap-1">
         <Button variant="ghost" size="icon" aria-label="Abrir navegación" className="md:hidden" onClick={onOpenNav}>
           <PanelLeft size={18} aria-hidden />
         </Button>
         <Link to="/" className="flex min-w-0 items-center gap-2.5 font-[family-name:var(--font-display)] text-[1.05rem] font-extrabold uppercase tracking-[0.14em]">
           <span aria-hidden className="orb h-4 w-4 shrink-0 rounded-full" />
-          <span className="min-w-0 truncate">
+          <span className="min-w-0 break-words leading-tight">
             {projectName}{' '}
             <span className="text-accent-deep [text-shadow:0_1px_0_var(--color-glass-edge)]">Team</span>
           </span>
@@ -88,7 +88,7 @@ function NotificationBell() {
             {snap.notices.map((n) => (
               <li key={n.key} className="border-b border-line last:border-b-0">
                 <Link to={`/messages/${n.message_id}`} className="flex flex-col gap-0.5 px-3 py-2 hover:bg-hover">
-                  <span className="truncate text-[13px] font-medium">{n.title}</span>
+                  <span className="break-words text-[13px] font-medium">{n.title}</span>
                   <span className="text-xs text-muted">
                     {memberName(n.author_id)} · {stamp(n.at)}
                   </span>

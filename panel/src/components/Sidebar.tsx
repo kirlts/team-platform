@@ -9,7 +9,7 @@ import { Avatar } from './Avatar'
 import { FormDialog } from './FormDialog'
 
 const row =
-  'flex min-h-9 items-center gap-2.5 rounded-full border border-transparent px-3 py-1 text-[0.95rem] font-medium text-fg transition-colors duration-150 hover:bg-glass'
+  'flex min-h-9 items-center gap-2.5 rounded-[1.125rem] border border-transparent px-3 py-1.5 text-[0.95rem] font-medium text-fg transition-colors duration-150 hover:bg-glass'
 const active =
   'border-glass-line bg-[linear-gradient(180deg,var(--color-glass-edge),var(--color-glass))] text-accent-deep shadow-glass hover:bg-glass-edge'
 
@@ -17,7 +17,7 @@ function Item({ to, icon, children, end, onNavigate }: { to: string; icon: React
   return (
     <NavLink to={to} end={end} onClick={onNavigate} className={({ isActive }) => cn(row, isActive && active)}>
       {icon}
-      <span className="truncate">{children}</span>
+      <span className="min-w-0 break-words leading-tight">{children}</span>
     </NavLink>
   )
 }
@@ -36,7 +36,7 @@ export function Sidebar({ onNavigate, onLogout }: { onNavigate?: () => void; onL
     <nav aria-label="Navegación" className="flex h-full flex-col gap-1 p-3">
       <div className="mb-4 flex items-center gap-2.5 border-b border-line px-2 pb-4 pt-1">
         <Avatar name={me?.name ?? '?'} size={30} />
-        <span className="min-w-0 flex-1 truncate text-sm font-medium">{me?.name}</span>
+        <span className="min-w-0 flex-1 break-words text-sm font-medium leading-tight">{me?.name}</span>
         <button
           type="button"
           onClick={onLogout}
@@ -64,7 +64,7 @@ export function Sidebar({ onNavigate, onLogout }: { onNavigate?: () => void; onL
               className={() => cn(row, 'flex-1', inAreas && 'text-accent-deep')}
             >
               <Layers size={16} aria-hidden />
-              <span className="truncate">Áreas</span>
+              <span className="min-w-0 break-words leading-tight">Áreas</span>
             </NavLink>
             <button
               type="button"
@@ -93,7 +93,7 @@ export function Sidebar({ onNavigate, onLogout }: { onNavigate?: () => void; onL
                     onClick={onNavigate}
                     className={({ isActive }) => cn(row, 'min-h-8 text-[0.9rem]', isActive && active)}
                   >
-                    <span className="min-w-0 flex-1 truncate">{a.title}</span>
+                    <span className="min-w-0 flex-1 break-words leading-tight">{a.title}</span>
                     {(a.open_count ?? 0) > 0 && (
                       <Badge tone="accent" aria-label={`${a.open_count} abiertos`}>
                         {a.open_count}
@@ -120,7 +120,7 @@ export function Sidebar({ onNavigate, onLogout }: { onNavigate?: () => void; onL
             className={cn(row, 'cursor-not-allowed text-faint hover:bg-transparent')}
           >
             <Plug size={16} aria-hidden />
-            <span className="min-w-0 flex-1 truncate">Conexiones</span>
+            <span className="min-w-0 flex-1 break-words leading-tight">Conexiones</span>
             <Badge tone="outline">Apagada</Badge>
           </span>
         </TooltipTrigger>

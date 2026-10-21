@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router'
 import { EditableText } from '@/components/EditableText'
 import { FormDialog } from '@/components/FormDialog'
+import { Page } from '@/components/Page'
 import { PageHeader } from '@/components/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -36,7 +37,7 @@ export function Areas() {
     })
 
   return (
-    <div className="flex w-full max-w-[60rem] flex-col gap-6 px-5 py-7 md:px-10 md:py-10">
+    <Page cols={10}>
       <PageHeader title="Áreas" />
       <div className="glass leaf overflow-hidden">
         {areas.isPending ? (
@@ -47,7 +48,7 @@ export function Areas() {
           (areas.data ?? []).map((a) => <AreaSection key={a.id} area={a} expanded={open.has(a.id)} onToggle={() => toggle(a.id)} highlighted={a.id === areaId} />)
         )}
       </div>
-    </div>
+    </Page>
   )
 }
 
@@ -83,12 +84,13 @@ function AreaSection({ area, expanded, onToggle, highlighted }: { area: Area; ex
             displayClassName="text-[13px] text-muted"
           />
         </div>
-        <div className="flex shrink-0 items-center gap-2 pt-0.5">
-          {(area.template_count ?? 0) > 0 && (
-            <span className="hidden text-xs text-muted sm:inline">{area.template_count === 1 ? '1 plantilla' : `${area.template_count} plantillas`}</span>
-          )}
-          <Link to={`/messages?f=area:eq:${area.id}&f=status:neq:closed`} aria-label={`Mensajes abiertos de ${area.title}`}>
-            <Badge tone={(area.open_count ?? 0) > 0 ? 'open' : 'neutral'}>{area.open_count ?? 0} abiertos</Badge>
+        {/* Dos columnas de ancho fijo: la cuenta de plantillas y los abiertos quedan alineados fila a fila. */}
+        <div className="flex shrink-0 items-start gap-3 pt-1">
+          <span className="hidden h-5 w-24 items-center justify-end text-xs text-muted sm:inline-flex">
+            {(area.template_count ?? 0) > 0 && (area.template_count === 1 ? '1 plantilla' : `${area.template_count} plantillas`)}
+          </span>
+          <Link to={`/messages?f=area:eq:${area.id}&f=status:neq:closed`} aria-label={`Mensajes abiertos de ${area.title}`} className="flex w-24 justify-end">
+            <Badge tone={(area.open_count ?? 0) > 0 ? 'open' : 'neutral'}>{area.open_count === 1 ? '1 abierto' : `${area.open_count ?? 0} abiertos`}</Badge>
           </Link>
         </div>
       </div>
@@ -184,7 +186,7 @@ function TemplateRow({ template, areaId }: { template: Template; areaId: string 
             </div>
           )}
         </div>
-        <Button size="icon-sm" variant="ghost" aria-label={`Eliminar ${template.name}`} onClick={() => setConfirming(true)}>
+        <Button size="icon-sm" variant="ghost" className="-mr-[7px]" aria-label={`Eliminar ${template.name}`} onClick={() => setConfirming(true)}>
           <Trash2 size={14} aria-hidden />
         </Button>
       </div>

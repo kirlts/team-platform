@@ -287,9 +287,9 @@ export function ComposeBar({ onCreated, disabled }: { onCreated: (created: Creat
             />
           ))}
           {links.map((href) => (
-            <span key={href} className="inline-flex max-w-56 items-center gap-1.5 rounded-md border border-line-strong bg-surface px-2 py-1 text-xs">
+            <span key={href} className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-line-strong bg-surface px-2 py-1 text-xs">
               <Link2 size={13} aria-hidden className="shrink-0 text-muted" />
-              <span className="truncate">{href}</span>
+              <span className="min-w-0 break-all">{href}</span>
               {!busy && (
                 <button type="button" aria-label={`Quitar ${href}`} className="text-muted hover:text-danger" onClick={() => setLinks((p) => p.filter((x) => x !== href))}>
                   ×

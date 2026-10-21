@@ -28,6 +28,9 @@
   --font-display: 'Orbitron', 'Eurostile', 'Bank Gothic', 'Arial Narrow', sans-serif;
   --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
 
+  /* Unidad de espacio: 4 px exactos. Con la letra base de 15 px, el valor por omisión de Tailwind (0,25 rem) daría 3,75 px. */
+  --spacing: 4px;
+
   /* Cielo: fondo de toda la aplicación. */
   --color-sky-a: oklch(0.955 0.045 205);
   --color-sky-b: oklch(0.945 0.03 250);

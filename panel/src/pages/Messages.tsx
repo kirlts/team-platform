@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useSearchParams } from 'react-router'
 import { FilterBar } from '@/components/FilterBar'
 import { MessageCard } from '@/components/MessageCard'
+import { Page } from '@/components/Page'
 import { PageHeader } from '@/components/PageHeader'
 import { parseQuery, serializeQuery, type MessageQuery } from '@/lib/filters'
 import { useMe, useMessages } from '@/lib/queries'
@@ -15,7 +16,7 @@ export function Messages() {
   const change = (next: MessageQuery) => setParams(serializeQuery(next), { replace: true })
 
   return (
-    <div className="flex w-full max-w-[60rem] flex-col gap-5 px-5 py-7 md:px-10 md:py-10">
+    <Page cols={10}>
       <PageHeader
         title="Mensajes"
         aside={list.data && <span className="text-xs tabular-nums text-muted">{list.data.length === 1 ? '1 mensaje' : `${list.data.length} mensajes`}</span>}
@@ -34,6 +35,6 @@ export function Messages() {
           list.data.map((m) => <MessageCard key={m.id} message={m} />)
         )}
       </div>
-    </div>
+    </Page>
   )
 }

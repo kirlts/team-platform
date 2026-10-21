@@ -112,6 +112,8 @@ export interface Reply {
   body: string
   kind: ReplyKind
   created_at: string
+  /** Supuesto: cada respuesta trae sus adjuntos con su tipo, igual que el mensaje; la API de MASTER-SPEC §7.1 aún no los devuelve. */
+  attachments?: Attachment[]
 }
 
 export interface Message {

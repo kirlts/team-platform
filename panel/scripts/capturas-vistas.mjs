@@ -49,7 +49,7 @@ function audit() {
     return r.width > 0 && r.height > 0
   }
   for (const el of document.querySelectorAll('main *, nav *, header *')) {
-    if (!visible(el)) continue
+    if (!visible(el) || el.classList.contains('sr-only')) continue
     const cs = getComputedStyle(el)
     if (cs.textOverflow === 'ellipsis') out.ellipsis.push(label(el))
     const clamp = cs.getPropertyValue('-webkit-line-clamp')
@@ -120,11 +120,11 @@ async function shoot(browser, vp, theme) {
   await page.getByRole('heading', { name: /Respuestas/ }).waitFor()
   await take('detalle')
   await page.goto(`${ORIGIN}/areas`)
-  await page.getByText('Accesibilidad y experiencia de uso', { exact: false }).first().waitFor()
+  await page.locator('main').getByText('Accesibilidad y experiencia de uso', { exact: false }).first().waitFor()
   await page.getByRole('button', { name: 'Desplegar Error' }).click()
   await take('areas')
   await page.goto(`${ORIGIN}/team`)
-  await page.getByText('Fernández-Larraín').first().waitFor()
+  await page.locator('main').getByText('Fernández-Larraín').first().waitFor()
   await take('equipo')
   await page.goto(`${ORIGIN}/settings`)
   await page.getByRole('heading', { name: 'Tema' }).waitFor()

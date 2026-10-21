@@ -30,8 +30,8 @@ El coordinador entregó una lista de valores que delatan diseño generado (versi
 | Fondos `#09090B` y `#18181B` | Oscuro con tinte azul (OKLCH, luminosidad 0,17 a 0,30) |
 | Texto con `bg-clip-text` y degradado | Ninguno. El cromo vive en la barra superior, no en el texto |
 | Inter y `system-ui` como única familia; peso 800 con tracking negativo | Orbitron (rótulos y títulos) y Source Sans 3 (texto); tracking positivo en mayúsculas |
-| `max-w-7xl mx-auto`, simetría centrada, `grid-cols-3` | Contenido alineado a la izquierda con anchos propios (50, 52, 60, 64, 66 y 72 rem), columnas 5/7 y 7/5 alternadas, sin centrado |
-| `p-6`, `gap-4` y `gap-6` en todo | Ritmo de 4 px con valores de grupo (8, 10, 14, 16, 20) y de sección (32, 40); relación macro a micro de 5 a 1 |
+| `max-w-7xl mx-auto`, simetría centrada, `grid-cols-3` | Contenido alineado a la izquierda en una grilla de 12 columnas (vistas de 8, 10 y 12 columnas), columnas 5/7 y 7/5 alternadas, sin centrado |
+| `p-6`, `gap-4` y `gap-6` en todo | Ritmo de 4 px exactos con valores de grupo (8, 12, 16, 20) y de sección (24, 40); relación macro a micro de 5 a 1 |
 | `rounded-xl`, `rounded-2xl`, `border-gray-200`, `shadow-md` | Radios de 3 a 8 px en contenedores, forma de hoja (3 y 10 px en esquinas opuestas) y píldora sólo en controles; sombras de varias capas teñidas de azul |
 | Emojis, Lucide, blobs SVG | Juego propio de 30 íconos (`src/components/icons.tsx`); la órbita y los destellos son geometría, no manchas |
 | `transition-all duration-300 ease-in-out` | Transiciones por propiedad de 90 a 140 ms con `ease-out`; ninguna animación de entrada |
@@ -109,6 +109,30 @@ Una animación continua: el destello del medidor de progreso, mientras un trabaj
 | Texto del botón gel (a 30 % del alto, con brillo) | 4,59 | 7,38 | 4,5 |
 | Borde de controles sobre vidrio | 4,04 | 4,54 | 3 |
 
+## Grilla
+
+Todo bloque se ancla a esta grilla; nada queda flotando sin un ancla.
+
+| Elemento | Valor |
+|---|---|
+| Unidad de espacio | 4 px (`--spacing` en `styles.css`); todo `p-`, `m-`, `gap-` y `size-` de Tailwind es múltiplo de 4 |
+| Columnas | 12 columnas de 6 rem (72 rem). Una vista ocupa 12 columnas (Inicio, Equipo), 10 (Mensajes, Áreas) u 8 (detalle de mensaje, Configuración), con el componente `Page` |
+| Margen de página | 20 px en teléfono y 40 px desde 768 px, el mismo borde izquierdo en todas las vistas |
+| Canal entre columnas | 40 px entre bloques grandes, 16 px dentro de una fila, 12 px entre ícono y texto, 8 px entre chips |
+| Ritmo vertical | 24 px entre bloques de una vista y 40 px entre secciones (`Page section`) |
+| Relleno de fila | 16 px a cada lado y 16 px arriba y abajo en listas y tablas |
+
+Reglas de anclaje:
+
+1. Los elementos de una fila se alinean por su primera línea de texto o por el borde del contenedor; nunca por el centro de un bloque de alto variable.
+2. Un dato del mismo tipo ocupa la misma columna en todas las filas (la cuenta de plantillas y los abiertos de Áreas tienen ancho fijo y alineación a la derecha).
+3. Lo que se coloca a la derecha de una fila (emisor, acciones) se ancla al borde derecho del contenedor, haya o no miniatura; la miniatura vive en su propio bloque.
+4. Un elemento sin vecino en su línea (un chip suelto, un botón solo) toma el borde izquierdo o derecho de la columna, no queda a medias.
+5. Un texto largo se envuelve en su celda: ningún rótulo, nombre, título, correo ni destinatario se corta con puntos suspensivos (UD-016). Los destinatarios pasan a chips en una fila nueva. Un recuadro de texto pegado por la persona se desplaza dentro de su marco; no se recorta.
+6. Los íconos de medio (foto, video, audio, documento, enlace) van al lado de la fecha de cada mensaje y respuesta, uno por tipo, con la cuenta cuando hay más de uno.
+
+La prohibición la hace cumplir `src/no-truncation.test.ts` y la medición del navegador, `scripts/capturas-vistas.mjs`.
+
 ## Jerarquía y distribución
 
 - Inicio usa una banda de dos columnas 5/7 (mensaje y análisis) y debajo otra 7/5 (mensajes y respuestas). La alternancia sostiene la asimetría sin romper la grilla de 12 columnas.
@@ -127,3 +151,5 @@ Una animación continua: el destello del medidor de progreso, mientras un trabaj
 | `src/assets/fonts/` | Orbitron y Source Sans 3 con su licencia OFL |
 | `scripts/contraste.mjs` | Medición de contraste |
 | `scripts/capturas.mjs` | Capturas a 1440 por 900 y 390 por 844 |
+| `scripts/capturas-vistas.mjs` | Cada vista a ambos tamaños y en ambos temas, con la medición de recortes y desbordes |
+| `src/no-truncation.test.ts` | Prohíbe `truncate`, `line-clamp` y `text-overflow` sin justificación en la misma línea |

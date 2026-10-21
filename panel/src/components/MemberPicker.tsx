@@ -35,10 +35,10 @@ export function MemberPicker({
                   role="menuitemcheckbox"
                   aria-checked={on}
                   onClick={() => onChange(on ? selected.filter((x) => x !== m.id) : [...selected, m.id])}
-                  className="flex min-h-8 w-full items-center gap-2 rounded-sm px-2 py-1 text-left hover:bg-hover"
+                  className="flex min-h-8 w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left hover:bg-hover"
                 >
                   <Avatar name={m.name} size={20} />
-                  <span className="min-w-0 flex-1 truncate">{m.name}</span>
+                  <span className="min-w-0 flex-1 break-words leading-tight">{m.name}</span>
                   {on && <Check size={14} className="text-accent" aria-hidden />}
                 </button>
               </li>

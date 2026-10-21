@@ -1,36 +1,36 @@
-// Telemetría de team-platform (MASTER-SPEC §7.10 bis, UD-014): inicializa el SDK de OpenTelemetry
-// para Node y reexporta la parte liviana (`api.js`) que usan los demás módulos.
+// team-platform telemetry (MASTER-SPEC §7.10 bis, UD-014): initializes the OpenTelemetry SDK
+// for Node and re-exports the lightweight part (`api.js`) that the other modules use.
 //
-// Versiones y fuentes, consultadas el 2026-10-20:
-//   @opentelemetry/sdk-node                  0.300.0  (publicada 2026-10-20)  registry de npm, Apache-2.0
-//   @opentelemetry/api                       1.10.0   (publicada 2026-10-20)  Apache-2.0
-//   @opentelemetry/exporter-trace-otlp-http  0.300.0  (publicada 2026-10-20)  Apache-2.0
-//   @opentelemetry/sdk-trace                 3.0.0    (sustituye a sdk-trace-base desde la serie 0.300)
+// Versions and sources, consulted on 2026-10-20:
+//   @opentelemetry/sdk-node                  0.300.0  (published 2026-10-20)  npm registry, Apache-2.0
+//   @opentelemetry/api                       1.10.0   (published 2026-10-20)  Apache-2.0
+//   @opentelemetry/exporter-trace-otlp-http  0.300.0  (published 2026-10-20)  Apache-2.0
+//   @opentelemetry/sdk-trace                 3.0.0    (replaces sdk-trace-base since the 0.300 series)
 //   @opentelemetry/core 3.0.0 · @opentelemetry/resources 3.0.0
-//   Peer de sdk-node 0.300.0: @opentelemetry/api >=1.10.0 <1.11.0; Node >=22.15.0.
-//   Anterior estable de sdk-node: 0.223.0 (2026-10-06).
-//   Convenciones semánticas de GenAI: ya no están en opentelemetry.io/docs/specs/semconv/gen-ai/
-//   (la página avisa que se mudó); viven en github.com/open-telemetry/semantic-conventions-genai,
-//   estado «Development», sin versión publicada (la sección «Releases» está vacía). Vigentes hoy:
+//   Peer of sdk-node 0.300.0: @opentelemetry/api >=1.10.0 <1.11.0; Node >=22.15.0.
+//   Previous stable of sdk-node: 0.223.0 (2026-10-06).
+//   GenAI semantic conventions: no longer at opentelemetry.io/docs/specs/semconv/gen-ai/
+//   (the page warns that it moved); they live at github.com/open-telemetry/semantic-conventions-genai,
+//   status «Development», no published version (the «Releases» section is empty). Current today:
 //     gen_ai.operation.name, gen_ai.provider.name, gen_ai.request.model, gen_ai.response.model,
-//     gen_ai.response.finish_reasons, gen_ai.usage.input_tokens (incluye la caché),
+//     gen_ai.response.finish_reasons, gen_ai.usage.input_tokens (includes the cache),
 //     gen_ai.usage.output_tokens, gen_ai.usage.cache_read.input_tokens,
 //     gen_ai.usage.cache_write.input_tokens, error.type;
-//     contenido (opt-in): gen_ai.input.messages, gen_ai.output.messages, gen_ai.system_instructions,
-//     en el evento gen_ai.client.inference.operation.details. Nombre del span: «{operación} {modelo}»,
-//     tipo CLIENT; las herramientas, «execute_tool {nombre}», INTERNAL.
-//   Los nombres que MASTER-SPEC §7.10 bis escribió antes de esta consulta (gen_ai.system,
-//   gen_ai.content.prompt, gen_ai.content.completion, gen_ai.usage.cache_read_input_tokens) no
-//   aparecen en la convención vigente; acá rigen los nuevos y esa sección queda corregida.
+//     content (opt-in): gen_ai.input.messages, gen_ai.output.messages, gen_ai.system_instructions,
+//     in the gen_ai.client.inference.operation.details event. Span name: «{operation} {model}»,
+//     kind CLIENT; tools, «execute_tool {name}», INTERNAL.
+//   The names that MASTER-SPEC §7.10 bis wrote before this consultation (gen_ai.system,
+//   gen_ai.content.prompt, gen_ai.content.completion, gen_ai.usage.cache_read_input_tokens) do not
+//   appear in the current convention; the new ones govern here and that section is corrected.
 //
-// Dos destinos de spans, ambos por lotes:
-//   1. SQLite, siempre: `SqliteSpanExporter` sobre la conexión que inyecta el núcleo.
-//   2. OTLP por HTTP, sólo si existe OTEL_EXPORTER_OTLP_ENDPOINT (o OTEL_EXPORTER_OTLP_TRACES_ENDPOINT).
+// Two span destinations, both batched:
+//   1. SQLite, always: `SqliteSpanExporter` over the connection the core injects.
+//   2. OTLP over HTTP, only if OTEL_EXPORTER_OTLP_ENDPOINT (or OTEL_EXPORTER_OTLP_TRACES_ENDPOINT) exists.
 //
-// HP-001 (TEST.md): sin ese endpoint no sale ninguna conexión. `NodeSDK` por sí solo, sin opciones,
-// arma exportadores OTLP de trazas, métricas y registros desde las variables de entorno; por eso acá
-// se le pasan procesadores de spans explícitos y listas vacías de lectores de métricas y de
-// procesadores de registros, y se desactiva la detección de recursos.
+// HP-001 (TEST.md): without that endpoint no connection goes out. `NodeSDK` alone, with no options,
+// builds OTLP exporters for traces, metrics and logs from the environment variables; that is why here
+// it is given explicit span processors and empty lists of metric readers and of
+// log record processors, and resource detection is turned off.
 import { context, diag, metrics, propagation, trace } from '@opentelemetry/api';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { resourceFromAttributes } from '@opentelemetry/resources';
@@ -45,8 +45,8 @@ export { estimateCostUsd, PRICES } from './pricing.js';
 export { SqliteSpanExporter, pruneSpans, spanToRow } from './sqlite-exporter.js';
 export { traceOfJob } from './trace.js';
 
-// Atributos que un span hereda de su padre, para que `llm_calls.job_id` y la búsqueda por trabajo
-// funcionen sin que cada llamador repita el identificador en cada span hijo.
+// Attributes a span inherits from its parent, so that `llm_calls.job_id` and the search by job
+// work without each caller repeating the identifier on every child span.
 const INHERITED = Object.freeze(['team.job_id', 'team.input_id']);
 
 class InheritTeamAttributes {
@@ -79,7 +79,7 @@ function parseHeaders(raw) {
   return headers;
 }
 
-/** Dirección de trazas OTLP desde el entorno, o null si no hay colector configurado. */
+/** OTLP traces address from the environment, or null if no collector is configured. */
 export function otlpTracesUrl(env) {
   const specific = env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT;
   if (specific) return specific;
@@ -92,15 +92,15 @@ let current = null;
 
 /**
  * @param {object} options
- * @param {import('node:sqlite').DatabaseSync} options.db conexión abierta por el núcleo con `migration.sql` aplicada
+ * @param {import('node:sqlite').DatabaseSync} options.db connection opened by the core with `migration.sql` applied
  * @param {Record<string, string|undefined>} [options.env]
  * @param {string} [options.serviceName]
  * @param {string} [options.serviceVersion]
  * @returns {{flush: () => Promise<void>, shutdown: () => Promise<void>, otlp: boolean, sqlite: SqliteSpanExporter}}
  */
 export function initTelemetry({ db, env = process.env, serviceName = 'team-platform', serviceVersion } = {}) {
-  if (!db) throw new Error('initTelemetry necesita la conexión a SQLite («db»)');
-  if (current) throw new Error('La telemetría ya está inicializada; llamar a shutdown() antes de volver a iniciarla');
+  if (!db) throw new Error('initTelemetry needs the SQLite connection («db»)');
+  if (current) throw new Error('Telemetry is already initialized; call shutdown() before starting it again');
 
   configureCapture({ inlineBlobs: env.TELEMETRY_INLINE_BLOBS !== '0' });
 
@@ -141,15 +141,15 @@ export function initTelemetry({ db, env = process.env, serviceName = 'team-platf
   const handle = {
     otlp: otlpProcessor !== null,
     sqlite,
-    /** Escribe ya lo que esté en cola: para leer el árbol de un trabajo recién terminado. */
+    /** Writes out right now whatever is queued: to read the tree of a job that just finished. */
     async flush() {
-      // Un destino caído (la tabla, el colector) no puede romper a quien pide el vaciado: el
-      // error ya salió por el canal de diagnóstico de OpenTelemetry.
+      // A downed destination (the table, the collector) cannot break whoever asks for the flush: the
+      // error already went out through the OpenTelemetry diagnostic channel.
       const settled = await Promise.allSettled([sqliteProcessor.forceFlush(), otlpProcessor?.forceFlush()]);
       await sqlite.forceFlush();
-      for (const outcome of settled) if (outcome.status === 'rejected') diag.warn(`telemetría: vaciado incompleto (${outcome.reason?.message ?? outcome.reason})`);
+      for (const outcome of settled) if (outcome.status === 'rejected') diag.warn(`telemetry: incomplete flush (${outcome.reason?.message ?? outcome.reason})`);
     },
-    /** Vacía las colas, cierra el SDK y deja la API lista para otra inicialización. */
+    /** Empties the queues, closes the SDK and leaves the API ready for another initialization. */
     async shutdown() {
       if (current !== handle) return;
       await handle.flush();

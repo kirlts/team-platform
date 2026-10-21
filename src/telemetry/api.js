@@ -1,17 +1,17 @@
-// Telemetría, parte liviana (MASTER-SPEC §7.10 bis, UD-014): sólo depende de `@opentelemetry/api`.
+// Telemetry, lightweight part (MASTER-SPEC §7.10 bis, UD-014): depends only on `@opentelemetry/api`.
 //
-// Los proveedores, los extractores y el analizador importan de acá y no de `index.js`, que trae
-// el SDK completo. Sin SDK registrado la API de OpenTelemetry entrega un tracer nulo: `withSpan`
-// ejecuta la función y `recordGenAiCall` no serializa nada (`isRecording()` es falso), así que
-// el código instrumentado funciona igual en las pruebas que no inicializan la telemetría.
+// Providers, extractors and the analyzer import from here and not from `index.js`, which brings
+// in the full SDK. With no SDK registered, the OpenTelemetry API hands out a no-op tracer: `withSpan`
+// runs the function and `recordGenAiCall` serializes nothing (`isRecording()` is false), so
+// instrumented code works the same in tests that do not initialize telemetry.
 //
-// Convenciones: GenAI de OpenTelemetry, repositorio `semantic-conventions-genai`, estado
-// «Development», consultadas el 2026-10-20 (ver la cabecera de `index.js`). Donde la especificación
-// del proyecto (§7.10 bis) usa un nombre anterior, acá rige el vigente:
+// Conventions: OpenTelemetry GenAI, repository `semantic-conventions-genai`, status
+// «Development», consulted on 2026-10-20 (see the header of `index.js`). Where the project
+// specification (§7.10 bis) uses an earlier name, the current one governs here:
 //   gen_ai.system                  → gen_ai.provider.name
 //   gen_ai.usage.cache_read_input_tokens → gen_ai.usage.cache_read.input_tokens
-//   gen_ai.content.prompt/completion → un solo evento gen_ai.client.inference.operation.details
-//                                      con gen_ai.input.messages y gen_ai.output.messages
+//   gen_ai.content.prompt/completion → a single gen_ai.client.inference.operation.details event
+//                                      with gen_ai.input.messages and gen_ai.output.messages
 import { SpanKind, SpanStatusCode, diag, trace } from '@opentelemetry/api';
 import { estimateCostUsd } from './pricing.js';
 
@@ -19,10 +19,10 @@ export { SpanKind, SpanStatusCode };
 
 export const TRACER_NAME = 'team-platform';
 
-/** Nombre del evento que lleva el contenido completo de una llamada (convención vigente). */
+/** Name of the event that carries the full content of a call (current convention). */
 export const CONTENT_EVENT = 'gen_ai.client.inference.operation.details';
 
-/** Nombres de atributo propios del proyecto (los `gen_ai.*` los fija OpenTelemetry). */
+/** Project-specific attribute names (the `gen_ai.*` ones are set by OpenTelemetry). */
 export const TEAM = Object.freeze({
   jobId: 'team.job_id',
   inputId: 'team.input_id',
@@ -32,8 +32,8 @@ export const TEAM = Object.freeze({
   modality: 'team.modality',
 });
 
-// Nombre del proveedor del proyecto → valor conocido de `gen_ai.provider.name`.
-// Lo que no figura se manda tal cual, que la convención permite para valores propios.
+// Project provider name → known value of `gen_ai.provider.name`.
+// Anything not listed is sent as is, which the convention allows for custom values.
 const PROVIDER_NAMES = Object.freeze({
   anthropic: 'anthropic',
   deepseek: 'deepseek',
@@ -43,9 +43,9 @@ const PROVIDER_NAMES = Object.freeze({
   gemini: 'gcp.gemini',
 });
 
-// Ajustes de captura. `inlineBlobs` decide si los bytes en memoria (imágenes, fotogramas) viajan
-// dentro del evento; `index.js` lo fija desde TELEMETRY_INLINE_BLOBS. Los archivos en disco
-// (audio) siempre van por referencia: viven en el volumen o en un directorio temporal.
+// Capture settings. `inlineBlobs` decides whether in-memory bytes (images, frames) travel
+// inside the event; `index.js` sets it from TELEMETRY_INLINE_BLOBS. Files on disk
+// (audio) always go by reference: they live in the volume or in a temporary directory.
 const capture = { inlineBlobs: true };
 
 export function configureCapture(options) {
@@ -62,7 +62,7 @@ function cleanAttributes(attributes) {
   return out;
 }
 
-/** Valor bajo de cardinalidad para `error.type`: el código tipado del error, si no su clase. */
+/** Low-cardinality value for `error.type`: the error's typed code, otherwise its class. */
 export function errorType(error) {
   if (typeof error?.code === 'string' && error.code !== '') return error.code;
   return error?.name ?? 'Error';
@@ -74,16 +74,16 @@ function markError(span, error) {
   span.setStatus({ code: SpanStatusCode.ERROR, message: String(error?.message ?? error).slice(0, 500) });
 }
 
-// El SDK 0.300.0 pone el fin con resolución de milisegundo si no se le da la hora; con
-// `performance` la duración de un span corto conserva sus microsegundos.
+// SDK 0.300.0 ends with millisecond resolution if it is not given the time; with
+// `performance` the duration of a short span keeps its microseconds.
 const now = () => performance.timeOrigin + performance.now();
 const finish = (span) => span.end(now());
 
 const isThenable = (value) => value !== null && typeof value === 'object' && typeof value.then === 'function';
 
 /**
- * Corre `fn(span)` dentro de un span activo: los spans que `fn` abra quedan como hijos.
- * Un error lanzado, o una promesa rechazada, marca el span como error y se vuelve a lanzar.
+ * Runs `fn(span)` inside an active span: the spans that `fn` opens become children.
+ * A thrown error, or a rejected promise, marks the span as an error and is rethrown.
  * @template T
  * @param {string} name
  * @param {Record<string, string|number|boolean|string[]|null|undefined>} attributes
@@ -92,8 +92,8 @@ const isThenable = (value) => value !== null && typeof value === 'object' && typ
  * @returns {T}
  */
 export function withSpan(name, attributes, fn, options = {}) {
-  // Hora de inicio explícita por la misma razón que `finish`: medido el 2026-10-20, sin ella una
-  // duración sale inflada hasta 1 ms.
+  // Explicit start time for the same reason as `finish`: measured on 2026-10-20, without it a
+  // duration comes out inflated by up to 1 ms.
   const startTime = now();
   return tracer().startActiveSpan(name, { kind: options.kind ?? SpanKind.INTERNAL, attributes: cleanAttributes(attributes), startTime }, (span) => {
     let result;
@@ -122,13 +122,13 @@ export function withSpan(name, attributes, fn, options = {}) {
   });
 }
 
-/** Agrega atributos al span activo, si hay uno que registre (por ejemplo el tamaño de una salida que recién se conoce). */
+/** Adds attributes to the active span, if there is one that records (for example the size of an output only known afterwards). */
 export function annotate(attributes) {
   const span = trace.getActiveSpan();
   if (span?.isRecording()) span.setAttributes(cleanAttributes(attributes));
 }
 
-/** Un uso de herramienta (`execute_tool`): el harness, un binario, una búsqueda. No cuenta en `llm_calls`. */
+/** A tool use (`execute_tool`): the harness, a binary, a search. Does not count in `llm_calls`. */
 export function withToolSpan(toolName, attributes, fn) {
   return withSpan(
     `execute_tool ${toolName}`,
@@ -138,7 +138,7 @@ export function withToolSpan(toolName, attributes, fn) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Contenido de una llamada a un modelo
+// Content of a model call
 
 function partToSemconv(part) {
   if (part.type === 'text') return { type: 'text', content: String(part.text ?? '') };
@@ -154,7 +154,7 @@ function partToSemconv(part) {
   return { type: 'blob', ...base, content: null };
 }
 
-/** `[{role, parts}]` en la forma de `gen_ai.input.messages`. */
+/** `[{role, parts}]` in the shape of `gen_ai.input.messages`. */
 function messagesToSemconv(messages) {
   return (messages ?? []).map((m) => {
     const content = m.content;
@@ -182,22 +182,22 @@ function outputToSemconv(response, finishReason) {
 const finite = (value) => (typeof value === 'number' && Number.isFinite(value) ? value : undefined);
 
 /**
- * Pone en `span` los atributos `gen_ai.*` y el evento de contenido de una llamada a un modelo.
- * Nunca lanza: la telemetría no puede cambiar el resultado de la llamada que mide.
+ * Sets on `span` the `gen_ai.*` attributes and the content event of a model call.
+ * Never throws: telemetry cannot change the result of the call it measures.
  *
  * @param {import('@opentelemetry/api').Span} span
  * @param {object} call
- * @param {string} call.provider  nombre del proveedor del proyecto (anthropic, groq-speech, deepseek…)
- * @param {string} call.model     modelo configurado
+ * @param {string} call.provider  project provider name (anthropic, groq-speech, deepseek…)
+ * @param {string} call.model     configured model
  * @param {'text'|'vision'|'speech'} [call.modality]
- * @param {string} [call.operation]  'chat' por omisión; 'transcription' para audio
- * @param {object} [call.request]    pedido neutro del contrato de §7.6 ({system, messages, schema, effort, maxTokens, audioPath…})
- * @param {object} [call.response]   respuesta del contrato ({text, json, segments, model, stop_reason, request_id})
- * @param {object} [call.usage]      {input_tokens (sin caché), output_tokens, cached_tokens, cache_creation_tokens, audio_seconds}
- * @param {number|null} [call.cost]  USD; indefinido = se calcula con `pricing.js`; null = desconocido
- * @param {unknown} [call.error]     el error de la llamada, si falló
+ * @param {string} [call.operation]  'chat' by default; 'transcription' for audio
+ * @param {object} [call.request]    neutral request of the §7.6 contract ({system, messages, schema, effort, maxTokens, audioPath…})
+ * @param {object} [call.response]   contract response ({text, json, segments, model, stop_reason, request_id})
+ * @param {object} [call.usage]      {input_tokens (uncached), output_tokens, cached_tokens, cache_creation_tokens, audio_seconds}
+ * @param {number|null} [call.cost]  USD; undefined = computed with `pricing.js`; null = unknown
+ * @param {unknown} [call.error]     the error of the call, if it failed
  * @param {'5m'|'1h'} [call.cacheTtl]
- * @param {Record<string, unknown>} [call.extra] atributos del evento (por ejemplo el tamaño de la entrada)
+ * @param {Record<string, unknown>} [call.extra] event attributes (for example the input size)
  */
 export function recordGenAiCall(span, call) {
   if (!span?.isRecording?.()) return;
@@ -224,8 +224,8 @@ export function recordGenAiCall(span, call) {
       const uncached = usage.input_tokens ?? 0;
       const cacheRead = usage.cached_tokens ?? 0;
       const cacheWrite = usage.cache_creation_tokens ?? 0;
-      // La convención cuenta en `input_tokens` lo leído y lo escrito en la caché; los proveedores
-      // del proyecto lo informan aparte (convención de Anthropic), así que se suman acá.
+      // The convention counts cache reads and writes within `input_tokens`; the project's
+      // providers report them separately (Anthropic convention), so they are added up here.
       attrs['gen_ai.usage.input_tokens'] = uncached + cacheRead + cacheWrite;
       attrs['gen_ai.usage.output_tokens'] = usage.output_tokens ?? 0;
       if (cacheRead > 0) attrs['gen_ai.usage.cache_read.input_tokens'] = cacheRead;
@@ -238,8 +238,8 @@ export function recordGenAiCall(span, call) {
 
     span.setAttributes(cleanAttributes(attrs));
 
-    // Evento de contenido: entrada y salida completas, siempre (UD-014). Los valores van como JSON
-    // porque los atributos de un evento en JavaScript no admiten estructuras.
+    // Content event: full input and output, always (UD-014). Values go as JSON
+    // because the attributes of an event in JavaScript do not admit structures.
     const eventAttrs = {
       'gen_ai.operation.name': operation,
       'gen_ai.provider.name': attrs['gen_ai.provider.name'],
@@ -248,7 +248,7 @@ export function recordGenAiCall(span, call) {
     if (request) {
       const system = systemToSemconv(request.system);
       if (system) eventAttrs['gen_ai.system_instructions'] = JSON.stringify(system);
-      // `describe` del contrato (§7.6) trae imágenes y un prompt en vez de mensajes.
+      // `describe` of the contract (§7.6) carries images and a prompt instead of messages.
       const messages =
         request.messages ?? (request.images ? [{ role: 'user', content: [...request.images.map((img) => ({ type: 'image', ...img })), { type: 'text', text: request.prompt ?? '' }] }] : null);
       if (messages) eventAttrs['gen_ai.input.messages'] = JSON.stringify(messagesToSemconv(messages));
@@ -272,14 +272,14 @@ export function recordGenAiCall(span, call) {
     Object.assign(eventAttrs, cleanAttributes(call.extra));
     span.addEvent(CONTENT_EVENT, cleanAttributes(eventAttrs));
   } catch (cause) {
-    diag.warn(`telemetría: no se pudo registrar la llamada al modelo (${cause?.message ?? cause})`);
+    diag.warn(`telemetry: could not record the model call (${cause?.message ?? cause})`);
   }
 }
 
 /**
- * Un span CLIENT por llamada a un proveedor: corre `fn`, registra la llamada con `recordGenAiCall`
- * y, si `fn` lanza un error tipado (rechazo, corte, HTTP…), lo deja como estado del span con los
- * tokens que ese error ya traiga.
+ * One CLIENT span per call to a provider: runs `fn`, records the call with `recordGenAiCall`
+ * and, if `fn` throws a typed error (rejection, cutoff, HTTP…), leaves it as the span's status with the
+ * tokens that error already carries.
  * @template T
  * @param {Parameters<typeof recordGenAiCall>[1] & {attributes?: Record<string, unknown>}} call
  * @param {(span: import('@opentelemetry/api').Span) => Promise<T>} fn
@@ -306,7 +306,7 @@ export function withGenAiCall(call, fn) {
   );
 }
 
-/** Identificadores del contexto actual, para quien quiera mostrarlos o guardarlos. */
+/** Identifiers of the current context, for whoever wants to show or store them. */
 export function currentTraceIds() {
   const ctx = trace.getActiveSpan()?.spanContext();
   return ctx ? { trace_id: ctx.traceId, span_id: ctx.spanId } : null;

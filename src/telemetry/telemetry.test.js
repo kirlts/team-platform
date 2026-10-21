@@ -1,5 +1,5 @@
-// Pruebas de la telemetría (MASTER-SPEC §7.10 bis, UD-014, TEST.md HP-001 y HP-002).
-// Cada prueba usa una base SQLite en archivo efímero y arranca y cierra su propio SDK.
+// Telemetry tests (MASTER-SPEC §7.10 bis, UD-014, TEST.md HP-001 and HP-002).
+// Each test uses a SQLite database in an ephemeral file and starts and closes its own SDK.
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -17,7 +17,7 @@ import { makeDb, readSpans } from './test/helpers.js';
 const tmp = await makeTmp('telemetria');
 after(() => tmp.cleanup());
 
-/** Arranca la telemetría sobre una base nueva; `end()` vacía, cierra el SDK y borra la base. */
+/** Starts telemetry on a fresh database; `end()` flushes, closes the SDK and deletes the database. */
 function start(env = {}) {
   const store = makeDb();
   const telemetry = initTelemetry({ db: store.db, env });
@@ -33,7 +33,7 @@ function start(env = {}) {
 
 const eventsOf = (span, name) => span.events.filter((e) => e.name === name);
 
-test('una llamada al proveedor falso deja un span con gen_ai.usage.* y el contenido completo de entrada y salida', async () => {
+test('a call to the fake provider leaves a span with gen_ai.usage.* and the full input and output content', async () => {
   const t = start();
   try {
     const providers = createFakeProviders({
@@ -54,15 +54,15 @@ test('una llamada al proveedor falso deja un span con gen_ai.usage.* y el conten
     assert.equal(call.attributes['gen_ai.operation.name'], 'chat');
     assert.equal(call.attributes['gen_ai.provider.name'], 'fake');
     assert.equal(call.attributes['gen_ai.request.model'], 'fake-model');
-    // La convención cuenta la caché dentro de input_tokens: 120 sin caché + 50 leídos.
+    // The convention counts the cache within input_tokens: 120 uncached + 50 read.
     assert.equal(call.attributes['gen_ai.usage.input_tokens'], 170);
     assert.equal(call.attributes['gen_ai.usage.output_tokens'], 30);
     assert.equal(call.attributes['gen_ai.usage.cache_read.input_tokens'], 50);
     assert.deepEqual(call.attributes['gen_ai.response.finish_reasons'], ['end_turn']);
-    assert.equal(call.attributes['team.job_id'], '9', 'el span hijo hereda el trabajo de su padre');
+    assert.equal(call.attributes['team.job_id'], '9', 'the child span inherits the job of its parent');
 
     const [content] = eventsOf(call, CONTENT_EVENT);
-    assert.ok(content, 'el evento de contenido existe');
+    assert.ok(content, 'the content event exists');
     const input = JSON.parse(content.attributes['gen_ai.input.messages']);
     assert.deepEqual(input, [{ role: 'user', parts: [{ type: 'text', content: 'Se cae el login en Safari' }] }]);
     assert.deepEqual(JSON.parse(content.attributes['gen_ai.system_instructions']), [{ type: 'text', content: 'Eres un clasificador.' }]);
@@ -75,7 +75,7 @@ test('una llamada al proveedor falso deja un span con gen_ai.usage.* y el conten
   }
 });
 
-test('HP-002: la vista llm_calls devuelve las columnas de MASTER-SPEC §7.2', async () => {
+test('HP-002: the llm_calls view returns the MASTER-SPEC §7.2 columns', async () => {
   const t = start();
   try {
     const providers = createFakeProviders({
@@ -92,10 +92,10 @@ test('HP-002: la vista llm_calls devuelve las columnas de MASTER-SPEC §7.2', as
 
     const columns = Object.keys(t.db.prepare('SELECT * FROM llm_calls').get());
     for (const column of ['id', 'job_id', 'provider', 'model', 'modality', 'input_tokens', 'output_tokens', 'cached_tokens', 'cost_usd', 'duration_ms', 'at']) {
-      assert.ok(columns.includes(column), `falta la columna ${column}`);
+      assert.ok(columns.includes(column), `missing column ${column}`);
     }
     const rows = t.db.prepare('SELECT * FROM llm_calls ORDER BY at, id').all();
-    assert.equal(rows.length, 2, 'el span del trabajo no es una llamada');
+    assert.equal(rows.length, 2, 'the job span is not a call');
     const text = rows.find((r) => r.modality === 'text');
     assert.equal(text.job_id, '3');
     assert.equal(text.provider, 'anthropic');
@@ -103,8 +103,8 @@ test('HP-002: la vista llm_calls devuelve las columnas de MASTER-SPEC §7.2', as
     assert.equal(text.input_tokens, 5000);
     assert.equal(text.cached_tokens, 4000);
     assert.equal(text.output_tokens, 200);
-    // (1000 × 0,10 + 4000 × 0,01 + 200 × 0,50) / 1.000.000 USD, precios de MASTER-SPEC §3.
-    assert.ok(Math.abs(text.cost_usd - 0.00024) < 1e-12, `costo ${text.cost_usd}`);
+    // (1000 × 0.10 + 4000 × 0.01 + 200 × 0.50) / 1,000,000 USD, prices from MASTER-SPEC §3.
+    assert.ok(Math.abs(text.cost_usd - 0.00024) < 1e-12, `cost ${text.cost_usd}`);
     assert.ok(text.duration_ms >= 0 && Number.isInteger(text.duration_ms));
     assert.ok(Math.abs(text.at - Date.now()) < 60_000);
     assert.equal(rows.find((r) => r.modality === 'vision').output_tokens, 40);
@@ -113,7 +113,7 @@ test('HP-002: la vista llm_calls devuelve las columnas de MASTER-SPEC §7.2', as
   }
 });
 
-test('un error tipado del proveedor queda como estado del span, con los tokens que ya había gastado', async () => {
+test('a typed provider error is left as the span status, with the tokens it had already spent', async () => {
   const t = start();
   try {
     const refusal = new ProviderRefusalError('rechazado', {
@@ -134,14 +134,14 @@ test('un error tipado del proveedor queda como estado del span, con los tokens q
     const [content] = eventsOf(call, CONTENT_EVENT);
     assert.equal(content.attributes['team.error.category'], 'policy');
     assert.equal(content.attributes['team.error.explanation'], 'no corresponde');
-    assert.ok(eventsOf(call, 'exception').length === 1, 'el error queda como evento exception');
+    assert.ok(eventsOf(call, 'exception').length === 1, 'the error is left as an exception event');
     assert.equal(t.db.prepare("SELECT status FROM llm_calls").get().status, 'error');
   } finally {
     await t.end();
   }
 });
 
-test('la transcripción deja un span con la transcripción completa y los segundos de audio', async () => {
+test('transcription leaves a span with the full transcription and the seconds of audio', async () => {
   const t = start();
   try {
     const audio = tmp.join('voz.flac');
@@ -160,7 +160,7 @@ test('la transcripción deja un span con la transcripción completa y los segund
     assert.equal(call.attributes['team.modality'], 'speech');
     assert.equal(call.attributes['team.audio_seconds'], 7.5);
     assert.equal(call.attributes['team.input_bytes'], 2048);
-    // 7,5 s a 0,04 USD por hora (MASTER-SPEC §3).
+    // 7.5 s at 0.04 USD per hour (MASTER-SPEC §3).
     assert.ok(Math.abs(call.attributes['team.cost_usd'] - (7.5 / 3600) * 0.04) < 1e-12);
     const [content] = eventsOf(call, CONTENT_EVENT);
     assert.equal(JSON.parse(content.attributes['gen_ai.output.messages'])[0].parts[0].content, 'hola equipo');
@@ -171,7 +171,7 @@ test('la transcripción deja un span con la transcripción completa y los segund
   }
 });
 
-test('un extractor deja su árbol: adjunto, paso de sharp, paso de visión y la llamada al proveedor', async () => {
+test('an extractor leaves its tree: attachment, sharp step, vision step and the provider call', async () => {
   const t = start();
   try {
     const path = await makeImage(tmp.join('captura.png'));
@@ -197,7 +197,7 @@ test('un extractor deja su árbol: adjunto, paso de sharp, paso de visión y la 
     assert.equal(vision.attributes['team.images'], 1);
     assert.equal(vision.children[0].attributes['gen_ai.operation.name'], 'chat');
     assert.equal(vision.children[0].attributes['team.modality'], 'vision');
-    // La imagen viaja en el evento de contenido, en base64 (TELEMETRY_INLINE_BLOBS por omisión).
+    // The image travels in the content event, in base64 (TELEMETRY_INLINE_BLOBS by default).
     const input = JSON.parse(vision.children[0].events[0].attributes['gen_ai.input.messages']);
     assert.equal(input[0].parts[0].type, 'blob');
     assert.ok(input[0].parts[0].content.length > 0);
@@ -208,7 +208,7 @@ test('un extractor deja su árbol: adjunto, paso de sharp, paso de visión y la 
   }
 });
 
-test('con TELEMETRY_INLINE_BLOBS=0 la imagen queda con su tamaño y sin los bytes', async () => {
+test('with TELEMETRY_INLINE_BLOBS=0 the image keeps its size and loses its bytes', async () => {
   const t = start({ TELEMETRY_INLINE_BLOBS: '0' });
   try {
     const providers = createFakeProviders({ vision: [{ json: {} }] });
@@ -222,7 +222,7 @@ test('con TELEMETRY_INLINE_BLOBS=0 la imagen queda con su tamaño y sin los byte
   }
 });
 
-test('un documento de texto deja el paso con su herramienta y los tamaños de entrada y salida', async () => {
+test('a text document leaves the step with its tool and the input and output sizes', async () => {
   const t = start();
   try {
     const path = tmp.join('notas.txt');
@@ -240,7 +240,7 @@ test('un documento de texto deja el paso con su herramienta y los tamaños de en
   }
 });
 
-test('un extractor que falla deja el error tipado en el span del adjunto', async () => {
+test('an extractor that fails leaves the typed error on the attachment span', async () => {
   const t = start();
   try {
     const path = tmp.join('roto.png');
@@ -258,7 +258,7 @@ test('un extractor que falla deja el error tipado en el span del adjunto', async
   }
 });
 
-test('traceOfJob arma el árbol por padre, ordena por inicio y devuelve null si el trabajo no existe', async () => {
+test('traceOfJob builds the tree by parent, sorts by start and returns null if the job does not exist', async () => {
   const t = start();
   try {
     await withSpan('job', { 'team.job_id': '21' }, async () => {
@@ -273,14 +273,14 @@ test('traceOfJob arma el árbol por padre, ordena por inicio y devuelve null si 
     assert.deepEqual(trace.roots[0].children.map((c) => c.name), ['a', 'b']);
     assert.equal(trace.roots[0].children[0].children[0].name, 'a1');
     assert.equal(trace.roots[0].children[0].children[0].attributes['team.job_id'], '21');
-    assert.match(trace.roots[0].start_ns, /^\d{19}$/, 'los nanosegundos viajan como texto exacto');
+    assert.match(trace.roots[0].start_ns, /^\d{19}$/, 'nanoseconds travel as exact text');
     assert.equal(traceOfJob(t.db, 999), null);
   } finally {
     await t.end();
   }
 });
 
-test('withSpan admite funciones síncronas y asíncronas y propaga el error con su tipo', async () => {
+test('withSpan supports synchronous and asynchronous functions and propagates the error with its type', async () => {
   const t = start();
   try {
     assert.equal(withSpan('sync', {}, () => 7), 7);
@@ -295,13 +295,13 @@ test('withSpan admite funciones síncronas y asíncronas y propaga el error con 
     assert.equal(byName.falla.attributes['error.type'], 'mi_codigo');
     assert.equal(byName.rechaza.attributes['error.type'], 'TypeError');
     assert.equal(byName['execute_tool claude'].attributes['gen_ai.tool.name'], 'claude');
-    assert.equal(t.db.prepare('SELECT COUNT(*) AS n FROM llm_calls').get().n, 0, 'una herramienta no es una llamada a un modelo');
+    assert.equal(t.db.prepare('SELECT COUNT(*) AS n FROM llm_calls').get().n, 0, 'a tool is not a model call');
   } finally {
     await t.end();
   }
 });
 
-test('los nanosegundos se guardan sin perder precisión', async () => {
+test('nanoseconds are stored without losing precision', async () => {
   const t = start();
   try {
     await withSpan('p', {}, () => 1);
@@ -314,7 +314,7 @@ test('los nanosegundos se guardan sin perder precisión', async () => {
   }
 });
 
-test('pruneSpans borra lo anterior a la retención y conserva lo reciente', async () => {
+test('pruneSpans deletes what is older than the retention and keeps what is recent', async () => {
   const t = start();
   try {
     await withSpan('reciente', {}, () => 1);
@@ -329,14 +329,14 @@ test('pruneSpans borra lo anterior a la retención y conserva lo reciente', asyn
 });
 
 // ---------------------------------------------------------------------------------------------
-// HP-001: ninguna conexión sale sin colector configurado
+// HP-001: no connection goes out without a configured collector
 
-/** Registra cada `Socket.connect` mientras corre `fn`. */
+/** Records each `Socket.connect` while `fn` runs. */
 async function recordingConnections(fn) {
   const attempts = [];
   const original = net.Socket.prototype.connect;
   net.Socket.prototype.connect = function patched(...args) {
-    // Node llama a `connect` con las opciones sueltas o con la lista normalizada `[opciones, callback]`.
+    // Node calls `connect` with loose options or with the normalized list `[options, callback]`.
     const options = Array.isArray(args[0]) ? args[0][0] : args[0];
     attempts.push(typeof options === 'object' && options !== null ? `${options.host ?? ''}:${options.port ?? options.path ?? ''}` : String(options));
     return original.apply(this, args);
@@ -349,7 +349,7 @@ async function recordingConnections(fn) {
   return attempts;
 }
 
-test('HP-001: sin OTEL_EXPORTER_OTLP_ENDPOINT ninguna conexión sale, ni al iniciar, ni al medir, ni al cerrar', async () => {
+test('HP-001: without OTEL_EXPORTER_OTLP_ENDPOINT no connection goes out, neither on start, nor on measuring, nor on close', async () => {
   const saved = {};
   for (const key of Object.keys(process.env)) {
     if (key.startsWith('OTEL_')) {
@@ -357,18 +357,18 @@ test('HP-001: sin OTEL_EXPORTER_OTLP_ENDPOINT ninguna conexión sale, ni al inic
       delete process.env[key];
     }
   }
-  // Intervalo corto para que un lector de métricas por omisión, de existir, abra su conexión dentro de la prueba.
+  // Short interval so that a default metrics reader, if there were one, opens its connection within the test.
   process.env.OTEL_METRIC_EXPORT_INTERVAL = '20';
   const attempts = await recordingConnections(async () => {
-    const t = start(); // env vacío
+    const t = start(); // empty env
     try {
       assert.equal(t.telemetry.otlp, false);
       metrics.getMeter('prueba').createCounter('llamadas').add(1);
       const providers = createFakeProviders({ text: [{ json: {} }] });
       await withSpan('job', { 'team.job_id': '1' }, () => providers.text.complete({ messages: [{ role: 'user', content: 'x' }] }));
       await t.telemetry.flush();
-      // Un lector de métricas periódico o un exportador de registros por omisión abrirían su
-      // conexión en el primer ciclo; se deja pasar un ciclo del bucle para atraparlos.
+      // A periodic metrics reader or a default log exporter would open their
+      // connection in the first cycle; one loop cycle is allowed to pass to catch them.
       await new Promise((resolve) => setTimeout(resolve, 50));
     } finally {
       await t.end();
@@ -379,7 +379,7 @@ test('HP-001: sin OTEL_EXPORTER_OTLP_ENDPOINT ninguna conexión sale, ni al inic
   assert.deepEqual(attempts, []);
 });
 
-test('con OTEL_EXPORTER_OTLP_ENDPOINT los spans salen por OTLP/HTTP además de guardarse en SQLite', async () => {
+test('with OTEL_EXPORTER_OTLP_ENDPOINT the spans go out over OTLP/HTTP in addition to being stored in SQLite', async () => {
   const received = [];
   const server = http.createServer((req, res) => {
     const chunks = [];
@@ -398,12 +398,12 @@ test('con OTEL_EXPORTER_OTLP_ENDPOINT los spans salen por OTLP/HTTP además de g
         assert.equal(t.telemetry.otlp, true);
         await withSpan('hacia-el-colector', { 'team.job_id': '2' }, () => 1);
         await t.telemetry.flush();
-        assert.equal(readSpans(t.db, "name = 'hacia-el-colector'").length, 1, 'también quedó en SQLite');
+        assert.equal(readSpans(t.db, "name = 'hacia-el-colector'").length, 1, 'it also ended up in SQLite');
       } finally {
         await t.end();
       }
     });
-    assert.ok(attempts.some((a) => a.includes(`${port}`)), `conexiones: ${attempts.join(' | ')}`);
+    assert.ok(attempts.some((a) => a.includes(`${port}`)), `connections: ${attempts.join(' | ')}`);
     assert.equal(received.length, 1);
     assert.equal(received[0].url, '/v1/traces');
     assert.equal(received[0].headers['x-prueba'], '1');
@@ -414,15 +414,15 @@ test('con OTEL_EXPORTER_OTLP_ENDPOINT los spans salen por OTLP/HTTP además de g
 });
 
 // ---------------------------------------------------------------------------------------------
-// El exportador no bloquea el bucle de eventos
+// The exporter does not block the event loop
 
-test('el exportador a SQLite escribe por tajadas y cede el bucle entre una y otra', async () => {
+test('the SQLite exporter writes in slices and yields the loop between them', async () => {
   const t = start();
   try {
     const exporter = t.telemetry.sqlite;
     const slicesBefore = exporter.slices;
     const spans = [];
-    // 200 spans con 20 KB de contenido cada uno, como una llamada a un modelo con un documento.
+    // 200 spans with 20 KB of content each, like a model call with a document.
     for (let i = 0; i < 200; i++) {
       await withSpan(`carga-${i}`, { 'team.job_id': '77', 'team.blob': 'x'.repeat(20_000) }, () => 1);
     }
@@ -430,7 +430,7 @@ test('el exportador a SQLite escribe por tajadas y cede el bucle entre una y otr
     spans.push(...readSpans(t.db, "name LIKE 'carga-%'"));
     assert.equal(spans.length, 200);
 
-    // Un lote de 160 spans con tajadas de 16: diez tajadas y nueve cesiones del bucle.
+    // A batch of 160 spans with slices of 16: ten slices and nine loop yields.
     let ticks = 0;
     let running = true;
     const ticker = (async () => {
@@ -447,14 +447,14 @@ test('el exportador a SQLite escribe por tajadas y cede el bucle entre una y otr
     running = false;
     await ticker;
     assert.equal(exporter.slices - slicesStart, 10);
-    assert.ok(ticks >= 9, `el bucle corrió ${ticks} veces durante la escritura`);
+    assert.ok(ticks >= 9, `the loop ran ${ticks} times during the write`);
     assert.ok(slicesBefore >= 0);
   } finally {
     await t.end();
   }
 });
 
-test('el exportador restaura synchronous=FULL de la conexión y se suma a una transacción abierta del núcleo', async () => {
+test('the exporter restores synchronous=FULL on the connection and joins an open core transaction', async () => {
   const t = start();
   try {
     const synchronous = () => t.db.prepare('PRAGMA synchronous').get().synchronous;
@@ -462,9 +462,9 @@ test('el exportador restaura synchronous=FULL de la conexión y se suma a una tr
     assert.equal(synchronous(), FULL);
     await withSpan('uno', {}, () => 1);
     await t.telemetry.flush();
-    assert.equal(synchronous(), FULL, 'el ajuste de la conexión del núcleo queda como estaba');
+    assert.equal(synchronous(), FULL, 'the setting of the core connection is left as it was');
 
-    // Con una transacción del núcleo abierta, las filas entran en ella y se deshacen con ella.
+    // With a core transaction open, the rows go into it and are undone with it.
     t.db.exec('BEGIN IMMEDIATE');
     await withSpan('dentro', {}, () => 1);
     await t.telemetry.flush();
@@ -476,7 +476,7 @@ test('el exportador restaura synchronous=FULL de la conexión y se suma a una tr
   }
 });
 
-/** Un span terminado con la forma que el SDK entrega al exportador, con otro identificador. */
+/** A finished span in the shape the SDK hands to the exporter, with a different identifier. */
 function fakeReadable(row, suffix) {
   const hr = (ns) => [Number(BigInt(ns) / 1_000_000_000n), Number(BigInt(ns) % 1_000_000_000n)];
   return {
@@ -492,12 +492,12 @@ function fakeReadable(row, suffix) {
   };
 }
 
-test('un fallo de escritura no llega a la aplicación: el lote se pierde y el exportador sigue', async () => {
+test('a write failure does not reach the application: the batch is lost and the exporter carries on', async () => {
   const t = start();
   try {
     t.db.exec('DROP VIEW llm_calls');
     t.db.exec('DROP TABLE spans');
-    await withSpan('sin-tabla', {}, () => 1); // no lanza
+    await withSpan('sin-tabla', {}, () => 1); // does not throw
     await t.telemetry.flush();
     t.db.exec(
       'CREATE TABLE spans (trace_id TEXT, span_id TEXT, parent_id TEXT, name TEXT, kind TEXT, start_ns INTEGER, end_ns INTEGER, status TEXT, status_message TEXT, attributes_json TEXT, events_json TEXT)',

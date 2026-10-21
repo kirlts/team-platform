@@ -6,7 +6,7 @@ import { test } from 'node:test'
 import { all, get, run } from '../db/index.js'
 import { makeEnv } from '../testing/helpers.js'
 
-/** Entorno con reloj y azar controlados. */
+/** Environment with controlled clock and randomness. */
 async function envVars (initialClock = 1_000_000) {
   const clockObj = { t: initialClock }
   const env = await makeEnv({ seed: false })
@@ -16,7 +16,7 @@ async function envVars (initialClock = 1_000_000) {
   return env
 }
 
-test('el reclamo respeta prioridad, luego run_at, luego id', async () => {
+test('the claim respects priority, then run_at, then id', async () => {
   const env = await envVars()
   const { q, clockObj } = env
   const a = q.enqueue('analyze', {}, { priority: 0 })
@@ -28,7 +28,7 @@ test('el reclamo respeta prioridad, luego run_at, luego id', async () => {
   await env.close()
 })
 
-test('un trabajo con run_at futuro no se reclama hasta su hora', async () => {
+test('a job with a future run_at is not claimed until its time', async () => {
   const env = await envVars()
   const { q, clockObj } = env
   const id = q.enqueue('analyze', {}, { runAt: clockObj.t + 5000 })
@@ -39,7 +39,7 @@ test('un trabajo con run_at futuro no se reclama hasta su hora', async () => {
   await env.close()
 })
 
-test('reclamar suma un intento, fija arriendo y worker', async () => {
+test('claiming adds an attempt, sets the lease and the worker', async () => {
   const env = await envVars()
   const { q, clockObj, config } = env
   q.enqueue('analyze', { x: 1 })
@@ -51,16 +51,16 @@ test('reclamar suma un intento, fija arriendo y worker', async () => {
   await env.close()
 })
 
-test('barrera de intento: un worker con el intento viejo no cierra el trabajo de otro', async () => {
+test('attempt fence: a worker with the old attempt does not close another one\'s job', async () => {
   const env = await envVars()
   const { q, clockObj, config } = env
   q.enqueue('analyze', {})
   const old = q.claim('w1')
-  clockObj.t += config.worker.leaseMs + 1 // vence el arriendo
-  const fresh = q.claim('w2') // recupera y reclama: intento 2
+  clockObj.t += config.worker.leaseMs + 1 // the lease expires
+  const fresh = q.claim('w2') // recovers and claims: attempt 2
   assert.equal(fresh.id, old.id)
   assert.equal(fresh.attempts, 2)
-  assert.equal(q.complete(old), false) // intento 1: rechazado
+  assert.equal(q.complete(old), false) // attempt 1: rejected
   assert.equal(q.heartbeat(old), false)
   assert.equal(q.fail(old, new Error('x')).state, 'lost')
   assert.equal(q.complete(fresh), true)
@@ -68,7 +68,7 @@ test('barrera de intento: un worker con el intento viejo no cierra el trabajo de
   await env.close()
 })
 
-test('el latido renueva el arriendo y evita la recuperación', async () => {
+test('the heartbeat renews the lease and prevents recovery', async () => {
   const env = await envVars()
   const { q, clockObj, config } = env
   q.enqueue('analyze', {})
@@ -81,7 +81,7 @@ test('el latido renueva el arriendo y evita la recuperación', async () => {
   await env.close()
 })
 
-test('fail reencola con retroceso exponencial hasta max_attempts y luego falla con el motivo', async () => {
+test('fail requeues with exponential backoff up to max_attempts and then fails with the reason', async () => {
   const env = await envVars()
   const { q, clockObj, config } = env
   const id = q.enqueue('analyze', {})
@@ -93,13 +93,13 @@ test('fail reencola con retroceso exponencial hasta max_attempts y luego falla c
     if (attemptNo < config.worker.maxAttempts) {
       assert.equal(r.state, 'requeued')
       waits.push(r.delayMs)
-      assert.equal(q.claim('w'), null) // todavía en espera
+      assert.equal(q.claim('w'), null) // still waiting
       clockObj.t += r.delayMs
     } else {
       assert.equal(r.state, 'failed')
     }
   }
-  // random = 0 → sin jitter: base × 2^(n−1) con tope.
+  // random = 0 → no jitter: base × 2^(n−1) with cap.
   assert.deepEqual(waits, [1000, 2000])
   const final = q.getJob(id)
   assert.equal(final.status, 'failed')
@@ -107,17 +107,17 @@ test('fail reencola con retroceso exponencial hasta max_attempts y luego falla c
   await env.close()
 })
 
-test('el retroceso respeta el tope y el jitter lo reduce', async () => {
+test('the backoff respects the cap and the jitter reduces it', async () => {
   const env = await envVars()
   assert.equal(env.q.backoffMs(1), 1000)
   assert.equal(env.q.backoffMs(20), env.config.worker.retryMaxMs)
   const { createQueue } = await import('./index.js')
   const withJitter = createQueue({ db: env.db, config: env.config, events: env.events, random: () => 0.5 })
-  assert.equal(withJitter.backoffMs(1), 500) // jitter completo: 1000 × (1 − 0,5)
+  assert.equal(withJitter.backoffMs(1), 500) // full jitter: 1000 × (1 − 0.5)
   await env.close()
 })
 
-test('un error con retryable=false falla de inmediato sin gastar los demás intentos', async () => {
+test('an error with retryable=false fails immediately without spending the remaining attempts', async () => {
   const env = await envVars()
   const { q } = env
   q.enqueue('analyze', {})
@@ -127,7 +127,7 @@ test('un error con retryable=false falla de inmediato sin gastar los demás inte
   await env.close()
 })
 
-test('recuperar arriendos vencidos: reencola, o falla si agotó los intentos', async () => {
+test('recovering expired leases: requeues, or fails if the attempts ran out', async () => {
   const env = await envVars()
   const { q, clockObj, config } = env
   const id = q.enqueue('analyze', {}, { maxAttempts: 2 })
@@ -135,7 +135,7 @@ test('recuperar arriendos vencidos: reencola, o falla si agotó los intentos', a
   clockObj.t += config.worker.leaseMs + 1
   assert.deepEqual(q.recoverExpiredLeases(), { recovered: 1, failedIds: [] })
   assert.equal(q.getJob(id).status, 'queued')
-  q.claim('w2') // intento 2 de 2
+  q.claim('w2') // attempt 2 of 2
   clockObj.t += config.worker.leaseMs + 1
   const r = q.recoverExpiredLeases()
   assert.deepEqual(r.failedIds, [id])
@@ -144,7 +144,7 @@ test('recuperar arriendos vencidos: reencola, o falla si agotó los intentos', a
   await env.close()
 })
 
-test('release devuelve el trabajo a la cola y reembolsa el intento', async () => {
+test('release returns the job to the queue and refunds the attempt', async () => {
   const env = await envVars()
   const { q } = env
   const id = q.enqueue('analyze', {})
@@ -156,7 +156,7 @@ test('release devuelve el trabajo a la cola y reembolsa el intento', async () =>
   await env.close()
 })
 
-test('defer aplaza sin gastar el intento', async () => {
+test('defer postpones without spending the attempt', async () => {
   const env = await envVars()
   const { q, clockObj } = env
   const id = q.enqueue('analyze', {})
@@ -169,7 +169,7 @@ test('defer aplaza sin gastar el intento', async () => {
   await env.close()
 })
 
-test('cancelar un trabajo en curso lo saca de la cola y su dueño lo nota por la barrera', async () => {
+test('cancelling a running job takes it off the queue and its owner notices through the fence', async () => {
   const env = await envVars()
   const { q } = env
   const id = q.enqueue('analyze', {})
@@ -180,11 +180,11 @@ test('cancelar un trabajo en curso lo saca de la cola y su dueño lo nota por la
   assert.equal(notified, id)
   assert.equal(q.heartbeat(job), false)
   assert.equal(q.progress(job, 10, 'x'), false)
-  assert.equal(q.cancel(id), false) // ya no está en cola ni en curso
+  assert.equal(q.cancel(id), false) // no longer queued or running
   await env.close()
 })
 
-test('retención: borra trabajos terminados y eventos con más de siete días, no los recientes', async () => {
+test('retention: deletes finished jobs and events older than seven days, not recent ones', async () => {
   const env = await envVars()
   const { q, clockObj, db, config, events } = env
   const old = q.enqueue('analyze', {})
@@ -199,7 +199,7 @@ test('retención: borra trabajos terminados y eventos con más de siete días, n
   await env.close()
 })
 
-test('el progreso queda en job_events con el miembro dueño del input y exige el intento vigente', async () => {
+test('progress is left in job_events with the member who owns the input and requires the current attempt', async () => {
   const env = await envVars()
   const { q, db } = env
   run(db, "INSERT INTO members (email, name, created_at) VALUES ('a@x.y', 'A', 1)")
@@ -214,7 +214,7 @@ test('el progreso queda en job_events con el miembro dueño del input y exige el
   await env.close()
 })
 
-test('dos procesos reclaman en paralelo sin un solo duplicado (M2 del informe 03)', async () => {
+test('two processes claim in parallel without a single duplicate (M2 of report 03)', async () => {
   const env = await makeEnv({ seed: false })
   const N = 100
   for (let i = 0; i < N; i++) env.queue.enqueue('analyze', { i })
@@ -228,8 +228,8 @@ test('dos procesos reclaman en paralelo sin un solo duplicado (M2 del informe 03
     const db = openInitialized(config)
     const q = createQueue({ db, config, events: createEvents({ db }) })
     const ids = []
-    // Una pausa de trabajo entre reclamos, como en un worker real: sin ella un proceso en bucle cerrado acapara el candado
-    // de escritura (SQLite no es justo) y el otro agota su busy_timeout con synchronous=FULL.
+    // A work pause between claims, as in a real worker: without it a process in a tight loop hogs the write lock
+    // (SQLite is not fair) and the other exhausts its busy_timeout with synchronous=FULL.
     for (;;) { const j = q.claim('hijo-' + process.pid); if (!j) break; ids.push(j.id); await new Promise((r) => setTimeout(r, 15)); q.complete(j) }
     console.log(JSON.stringify(ids))
   `)
@@ -237,13 +237,13 @@ test('dos procesos reclaman en paralelo sin un solo duplicado (M2 del informe 03
     const h = spawn(process.execPath, [scriptPath], { stdio: ['ignore', 'pipe', 'inherit'] })
     let outText = ''
     h.stdout.on('data', (d) => { outText += d })
-    h.on('close', (c) => (c === 0 ? resolve(JSON.parse(outText)) : reject(new Error(`salió con ${c}`))))
+    h.on('close', (c) => (c === 0 ? resolve(JSON.parse(outText)) : reject(new Error(`exited with ${c}`))))
   })
   const [a, b] = await Promise.all([runIt(), runIt()])
   const everyone = [...a, ...b]
   assert.equal(everyone.length, N)
-  assert.equal(new Set(everyone).size, N) // ningún trabajo reclamado dos veces
-  assert.ok(a.length > 0 && b.length > 0, 'los dos procesos deberían haber reclamado algo')
+  assert.equal(new Set(everyone).size, N) // no job claimed twice
+  assert.ok(a.length > 0 && b.length > 0, 'both processes should have claimed something')
   assert.equal(get(env.db, "SELECT COUNT(*) AS n FROM jobs WHERE status = 'done'").n, N)
   rmSync(scriptPath)
   await env.close()

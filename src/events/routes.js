@@ -1,10 +1,10 @@
-// GET /events (MASTER-SPEC §7.10): un flujo SSE por miembro con progreso, fin de trabajo y avisos de mensajes.
-//  - `id` de cada evento = job_events.seq; el navegador reenvía `Last-Event-ID` al reconectar.
-//  - Se suscribe ANTES de reponer y se descarta lo ya enviado: cero repetidos y cero huecos (I03 §5.1, M4).
-//  - Latido de comentario cada `sse.heartbeatMs` (15 s, sugerencia del estándar HTML).
-//  - `?job_id=N` acota el flujo a un trabajo, lo cierra tras su `done`, y responde 204 si ese trabajo ya
-//    terminó y no hay nada que reponer: el estándar fija el 204 para que el navegador deje de reconectar.
-//  - Sin `Last-Event-ID`, una conexión nueva recibe el último progreso de cada trabajo en curso del miembro.
+// GET /events (MASTER-SPEC §7.10): one SSE stream per member with progress, job completion and message notices.
+//  - `id` of each event = job_events.seq; the browser resends `Last-Event-ID` on reconnect.
+//  - It subscribes BEFORE replaying and discards what was already sent: zero repeats and zero gaps (I03 §5.1, M4).
+//  - Comment heartbeat every `sse.heartbeatMs` (15 s, suggestion of the HTML standard).
+//  - `?job_id=N` narrows the stream to one job, closes it after its `done`, and answers 204 if that job has already
+//    finished and there is nothing to replay: the standard sets 204 so the browser stops reconnecting.
+//  - Without `Last-Event-ID`, a new connection receives the latest progress of each of the member's running jobs.
 
 import fastifySse from '@fastify/sse'
 import { get } from '../db/index.js'
@@ -14,7 +14,7 @@ import { notFound } from '../domain/errors.js'
 const TERMINAL_STATES = new Set(['done', 'failed', 'cancelled'])
 
 export async function registerEventRoutes (app, { db, config, events, requireRole }) {
-  // Versión exacta fijada en package.json: es una 0.x (I07 §5.2).
+  // Exact version pinned in package.json: it is a 0.x (I07 §5.2).
   await app.register(fastifySse, { heartbeatInterval: config.sse.heartbeatMs })
   const openStreams = new Set()
 
@@ -24,8 +24,8 @@ export async function registerEventRoutes (app, { db, config, events, requireRol
     schema: {
       querystring: { type: 'object', properties: { job_id: { type: 'integer', minimum: 1 } }, additionalProperties: false },
       response: {
-        200: { type: 'string', description: 'Flujo text/event-stream. Eventos: progress, done, message. El id es job_events.seq (Last-Event-ID).' },
-        204: { type: 'null', description: 'Con job_id: el trabajo ya terminó y no hay nada que reponer; el navegador deja de reconectar.' }
+        200: { type: 'string', description: 'text/event-stream flow. Events: progress, done, message. The id is job_events.seq (Last-Event-ID).' },
+        204: { type: 'null', description: 'With job_id: the job has already finished and there is nothing to replay; the browser stops reconnecting.' }
       }
     }
   }, async (request, reply) => {
@@ -40,7 +40,7 @@ export async function registerEventRoutes (app, { db, config, events, requireRol
       if (!jobRow) throw notFound('El trabajo no existe.')
     }
 
-    // Reposición inicial (después de suscribir).
+    // Initial replay (after subscribing).
     const pending = []
     let replaying = true
     const sentSeqs = new Set()
@@ -50,7 +50,7 @@ export async function registerEventRoutes (app, { db, config, events, requireRol
       outbox.chain = outbox.chain.then(async () => {
         if (!reply.sse.isConnected) return
         await reply.sse.send(toWire(dbRow))
-        if (jobId !== null && dbRow.kind === 'done') reply.sse.close() // el cliente cierra su EventSource al recibirlo
+        if (jobId !== null && dbRow.kind === 'done') reply.sse.close() // the client closes its EventSource on receiving it
       }).catch(() => {})
     }
     const dispatch = (dbRow) => {
@@ -64,14 +64,14 @@ export async function registerEventRoutes (app, { db, config, events, requireRol
       ? events.replay(memberRow, lastSeqValue, { jobId })
       : jobId !== null ? events.replay(memberRow, 0, { jobId }) : events.snapshot(memberRow)
 
-    // 204: el trabajo ya terminó y el cliente no se perdió nada. Sin estas condiciones la conexión sigue abierta.
+    // 204: the job has already finished and the client missed nothing. Without these conditions the connection stays open.
     if (jobRow && TERMINAL_STATES.has(jobRow.status) && history.length === 0) {
       unsubscribe()
       return reply.code(204).send()
     }
 
     reply.sse.sendHeaders()
-    reply.raw.write(': conectado\n\n') // fuerza el primer byte a través de proxies con búfer
+    reply.raw.write(': connected\n\n') // forces the first byte through buffering proxies
     for (const dbRow of history) { sentSeqs.add(dbRow.seq); submit(dbRow) }
     replaying = false
     for (const dbRow of pending) if (!sentSeqs.has(dbRow.seq)) submit(dbRow)
@@ -85,6 +85,6 @@ export async function registerEventRoutes (app, { db, config, events, requireRol
     openStreams.delete(loginResponse)
   })
 
-  // Apagado (I03 §4, paso 2): cerrar los flujos antes de `app.close()`.
+  // Shutdown (I03 §4, step 2): close the streams before `app.close()`.
   return { closeAll () { for (const e of [...openStreams]) e.close() } }
 }

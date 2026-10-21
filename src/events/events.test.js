@@ -15,19 +15,19 @@ async function team (opts = {}) {
   return env
 }
 
-/** Un input de Ana con un trabajo, para que sus eventos le pertenezcan. */
+/** An input of Ana's with a job, so that its events belong to her. */
 function anasInput (env) {
   run(env.db, "INSERT INTO inputs (author_id, content_hash, status, created_at, updated_at) VALUES (1, 'h', 'analyzing', 1, 1)")
   return env.queue.enqueue('analyze', {}, { inputId: 1 })
 }
 
-test('los eventos viajan con id de texto y los nombres progress, done y message', async () => {
+test('events travel with a text id and the names progress, done and message', async () => {
   const env = await team()
   const jobId = anasInput(env)
   const s = await openSse(env, '/api/events', { cookie: env.c.ana })
   assert.equal(s.status, 200)
   assert.equal(s.headers.get('content-type'), 'text/event-stream')
-  assert.match(s.headers.get('content-security-policy'), /connect-src 'self'/) // las cabeceras de seguridad llegan también al flujo
+  assert.match(s.headers.get('content-security-policy'), /connect-src 'self'/) // the security headers reach the stream too
   env.events.publishForJob(jobId, { kind: 'progress', percent: 40, phrase: 'leyendo' })
   env.events.publishForJob(jobId, { kind: 'done', data: { status: 'done' } })
   env.events.publish({ kind: 'message', data: { message_id: 7, title: 'Hola', author_id: 2 } })
@@ -43,12 +43,12 @@ test('los eventos viajan con id de texto y los nombres progress, done y message'
   assert.equal(m.data.message_id, '7')
   assert.equal(m.data.author_id, '2')
   assert.equal(m.data.title, 'Hola')
-  assert.ok(Number(m.id) > Number(p.id)) // ids crecientes
+  assert.ok(Number(m.id) > Number(p.id)) // increasing ids
   s.close()
   await env.close()
 })
 
-test('el progreso llega sólo a su autor; los avisos de mensajes, a todo el equipo', async () => {
+test('progress reaches only its author; message notices reach the whole team', async () => {
   const env = await team()
   const jobId = anasInput(env)
   const ana = await openSse(env, '/api/events', { cookie: env.c.ana })
@@ -61,14 +61,14 @@ test('el progreso llega sólo a su autor; los avisos de mensajes, a todo el equi
   await env.close()
 })
 
-test('sin sesión el flujo responde 401 (no un 200 vacío)', async () => {
+test('without a session the stream answers 401 (not an empty 200)', async () => {
   const env = await team()
   const s = await openSse(env, '/api/events', {})
   assert.equal(s.status, 401)
   await env.close()
 })
 
-test('Last-Event-ID repone lo posterior sin repetir ni dejar huecos', async () => {
+test('Last-Event-ID replays what came after without repeating or leaving gaps', async () => {
   const env = await team()
   const jobId = anasInput(env)
   const seqs = []
@@ -76,14 +76,14 @@ test('Last-Event-ID repone lo posterior sin repetir ni dejar huecos', async () =
   const s = await openSse(env, '/api/events', { cookie: env.c.ana, headers: { 'last-event-id': String(seqs[1]) } })
   const received = await s.next(3)
   assert.deepEqual(received.map((e) => Number(e.id)), seqs.slice(2))
-  // Un evento nuevo sigue llegando después de la reposición.
+  // A new event keeps arriving after the replay.
   const fresh = env.events.publishForJob(jobId, { kind: 'progress', percent: 99, phrase: 'último' })
   assert.equal(Number((await s.next(4))[3].id), fresh)
   s.close()
   await env.close()
 })
 
-test('suscribir antes de reponer: con eventos publicándose durante la conexión, cada flujo es contiguo y sin repetidos', async () => {
+test('subscribing before replaying: with events being published during the connection, each stream is contiguous and has no repeats', async () => {
   const env = await team()
   const jobId = anasInput(env)
   const total = 120
@@ -97,7 +97,7 @@ test('suscribir antes de reponer: con eventos publicándose durante la conexión
     stepFn()
   })
   const producer = publishIt()
-  // Varias conexiones abiertas con Last-Event-ID 0 mientras se publica.
+  // Several connections opened with Last-Event-ID 0 while publishing.
   const streams = await Promise.all(Array.from({ length: 6 }, () => openSse(env, '/api/events', { cookie: env.c.ana, headers: { 'last-event-id': '0' } })))
   await producer
   const lastSeqValue = get(env.db, 'SELECT MAX(seq) AS m FROM job_events').m
@@ -105,8 +105,8 @@ test('suscribir antes de reponer: con eventos publicándose durante la conexión
     const cap = Date.now() + 5000
     while (Date.now() < cap && !(f.eventList.length && Number(f.eventList.at(-1).id) === lastSeqValue)) await new Promise((r) => setTimeout(r, 25))
     const ids = f.eventList.map((e) => Number(e.id))
-    assert.equal(new Set(ids).size, ids.length, 'sin repetidos')
-    for (let i = 1; i < ids.length; i++) assert.equal(ids[i], ids[i - 1] + 1, `hueco entre ${ids[i - 1]} y ${ids[i]}`)
+    assert.equal(new Set(ids).size, ids.length, 'no repeats')
+    for (let i = 1; i < ids.length; i++) assert.equal(ids[i], ids[i - 1] + 1, `gap between ${ids[i - 1]} and ${ids[i]}`)
     assert.equal(ids[0], 1)
     assert.equal(ids.at(-1), lastSeqValue)
     f.close()
@@ -114,7 +114,7 @@ test('suscribir antes de reponer: con eventos publicándose durante la conexión
   await env.close()
 })
 
-test('una conexión nueva recibe el último progreso de cada trabajo en curso (la barra donde va)', async () => {
+test('a new connection receives the latest progress of each running job (the bar where it stands)', async () => {
   const env = await team()
   const jobId = anasInput(env)
   env.events.publishForJob(jobId, { kind: 'progress', percent: 10, phrase: 'a' })
@@ -122,34 +122,34 @@ test('una conexión nueva recibe el último progreso de cada trabajo en curso (l
   const s = await openSse(env, '/api/events', { cookie: env.c.ana })
   const [e] = await s.next(1)
   assert.equal(e.data.percent, 55)
-  assert.equal((await s.next(2, 300)).length, 1) // sólo ése
+  assert.equal((await s.next(2, 300)).length, 1) // only that one
   s.close()
   await env.close()
 })
 
-test('?job_id: un trabajo terminado sin nada que reponer responde 204; con lo perdido repone y cierra tras done', async () => {
+test('?job_id: a finished job with nothing to replay answers 204; with what was missed it replays and closes after done', async () => {
   const env = await team()
   const jobId = anasInput(env)
   const firstEditor = env.events.publishForJob(jobId, { kind: 'progress', percent: 50, phrase: 'x' })
   const endSeq = env.events.publishForJob(jobId, { kind: 'done', data: { status: 'done' } })
-  env.queue.claim('w'); env.queue.complete(env.queue.getJob(jobId)) // el trabajo ya terminó
+  env.queue.claim('w'); env.queue.complete(env.queue.getJob(jobId)) // the job has already finished
   run(env.db, "UPDATE jobs SET status = 'done' WHERE id = ?", jobId)
 
   const upToDate = await openSse(env, `/api/events?job_id=${jobId}`, { cookie: env.c.ana, headers: { 'last-event-id': String(endSeq) } })
-  assert.equal(upToDate.status, 204) // el navegador deja de reconectar
+  assert.equal(upToDate.status, 204) // the browser stops reconnecting
 
   const missed = await openSse(env, `/api/events?job_id=${jobId}`, { cookie: env.c.ana, headers: { 'last-event-id': String(firstEditor) } })
   assert.equal(missed.status, 200)
   const [d] = await missed.next(1)
   assert.equal(d.event, 'done')
-  assert.equal(await missed.untilClosed(), true) // el servidor cierra después del done
+  assert.equal(await missed.untilClosed(), true) // the server closes after done
 
-  assert.equal((await openSse(env, `/api/events?job_id=${jobId}`, { cookie: env.c.beto })).status, 404) // no es su trabajo
+  assert.equal((await openSse(env, `/api/events?job_id=${jobId}`, { cookie: env.c.beto })).status, 404) // not his job
   assert.equal((await openSse(env, '/api/events?job_id=abc', { cookie: env.c.ana })).status, 400)
   await env.close()
 })
 
-test('el latido llega como comentario a la cadencia configurada', async () => {
+test('the heartbeat arrives as a comment at the configured cadence', async () => {
   const env = await team({ config: { ...noIpLimit, sse: { heartbeatMs: 40 } } })
   const s = await openSse(env, '/api/events', { cookie: env.c.ana })
   const cap = Date.now() + 2000
@@ -159,22 +159,22 @@ test('el latido llega como comentario a la cadencia configurada', async () => {
   await env.close()
 })
 
-test('app.close() con un flujo abierto termina enseguida (forceCloseConnections y cierre en preClose)', async () => {
+test('app.close() with an open stream finishes right away (forceCloseConnections and close in preClose)', async () => {
   const env = await team()
   const s = await openSse(env, '/api/events', { cookie: env.c.ana })
   assert.equal(s.status, 200)
   const t0 = Date.now()
   await env.close()
-  assert.ok(Date.now() - t0 < 2000, `tardó ${Date.now() - t0} ms`)
+  assert.ok(Date.now() - t0 < 2000, `took ${Date.now() - t0} ms`)
   assert.equal(await s.untilClosed(), true)
 })
 
-test('con el worker en otro proceso, PRAGMA data_version despierta al despachador', async () => {
+test('with the worker in another process, PRAGMA data_version wakes the dispatcher', async () => {
   const env = await team()
   const received = []
   env.events.subscribe(1, (dbRow) => received.push(dbRow))
   env.events.startPolling(10)
-  // Otra conexión (como lo haría el proceso del worker) escribe sin pasar por el bus de la API.
+  // Another connection (as the worker process would) writes without going through the API bus.
   const other = openDatabase(env.config.dbFile)
   const foreign = createEvents({ db: other })
   foreign.publish({ kind: 'message', data: { message_id: 3, title: 't', author_id: 2 } })
@@ -186,7 +186,7 @@ test('con el worker en otro proceso, PRAGMA data_version despierta al despachado
   await env.close()
 })
 
-test('la retención borra los eventos viejos y deja los recientes', async () => {
+test('retention deletes old events and keeps recent ones', async () => {
   const env = await team()
   env.events.publish({ kind: 'message', data: {} })
   const cutPoint = Date.now() + 1000

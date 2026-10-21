@@ -510,7 +510,7 @@ RULES:
 **Fecha:** 2026-10-21
 **Contexto:** H-56 pedía probar el micrófono y la cámara en Safari e iPhone con un aparato real.
 **Decisión:** Martín, textual: «Lo del iPhone me da lo mismo, no lo vamos a usar todavía porque en realidad muchas imágenes puede que se suban directamente en Whatsapp o algo así». No se prueba con un aparato real por ahora.
-**Consecuencias:** H-56 deja de ser trabajo pendiente y queda como decisión del dueño. Un HEIC subido directamente se rechaza con un error claro (`image_heic_unsupported`); el Editor puede pedir que se acepte más adelante.
+**Consecuencias:** H-56 deja de ser trabajo pendiente y queda como decisión del dueño. Un HEIC subido directamente se rechaza con un error claro (`image_heic_unsupported`); el Editor puede pedir que se acepte más adelante. UD-040 (2026-10-21) lo reemplaza: el HEIC se decodifica y deja de rechazarse.
 **Condiciones de reversión:** Se prueba cuando haya usuarios con iPhone en el panel.
 
 ## [UD-041] Los tres estados son la única categoría de un mensaje en la interfaz, y el área se abre en sus mensajes
@@ -528,8 +528,82 @@ RULES:
 - Pruebas: la prioridad más alta gana en las combinaciones de estados; ninguna palabra retirada aparece en los catálogos ni en la interfaz renderizada; un flujo en navegador elige Idea, ve sus mensajes con su estado, filtra por respondido y edita la descripción.
 **Condiciones de reversión:** Si el dueño pide de nuevo una categoría de aviso distinta de los estados, se registra con su cita y se enmienda esta decisión.
 
+## [UD-060] Las descripciones v2-orden se mantienen, y una unidad con varios puntos se recoge completa en su mensaje
 
-## [UD-040] Los adjuntos van primero y se miran en una galería de medios que se reutiliza en todo el panel
+**Fecha:** 2026-10-21
+**Contexto:** El dueño necesita confiar en la clasificación por área. UD-033 dejó dos preguntas abiertas: la corrida completa con proyecto (H-602) y si alguna variante sube la exactitud hacia el techo de 95,5 %. El coordinador agregó un hallazgo (H-1600): una oración con elogio y dos defectos producía un solo mensaje y el segundo defecto desaparecía. Mediciones: `docs/investigaciones/mediciones/2026-10-21-areas-pipeline-completo-y-variantes.md` y `2026-10-21-oraciones-con-varios-puntos.md`. UD-038 subió el presupuesto de API; esta tarea gastó 10,1 USD de un tope de 12.
+**Decisión:** Se conservan las descripciones de `templates/areas.json` (UD-033) y el esfuerzo `low` y la ventana de 100 unidades de la clasificación. La corrida completa con proyecto da 87,5 % de área por mensaje (82-91 %), sobre el 82,6 % de UD-033; por unidad 81,5 %. Ninguna de seis variantes (reglas para tramos de reunión, para tablas de estado, un orden de preguntas, esfuerzo `medium`, ventana de 200, descripciones cortas) supera a v2-orden con significación. Además, la regla 4 de la descomposición exige que el mensaje de una unidad con varios puntos trate todos: título, cuerpo con una frase por punto y campos de la plantilla.
+**Alternativas descartadas:**
+- Adoptar v4-tramo, la mejor variante nueva: queda 1,7 puntos bajo v2-orden con 10 repeticiones (p 0,085).
+- Esfuerzo `medium` en la clasificación: empata (-0,3 puntos) sin bajar el costo ni la latencia.
+- Ventana de 200 unidades: 5,1 puntos peor (p 0,034), aunque 25 % más rápida y 20 % más barata.
+- Separar la oración compuesta con una expresión regular o una lista de conjunciones: lo prohíben las reglas 4 y MASTER-SPEC §4.2.
+**Consecuencias:**
+- H-602 se cierra con la medición y la fila de «Descripciones de área largas v2» no se revierte.
+- Lo que impide subir más: el error se concentra en el tramo de reunión o chat largo, donde el modelo traza un grupo distinto del de las referencias y le da un área entera; el ruido entre corridas (3,6 puntos de desviación) esconde efectos menores de 2 a 3 puntos con menos de unas veinte repeticiones por variante.
+- Una oración compuesta sigue siendo un solo mensaje. Dividirla en dos exige cambiar el contrato de unidades y no se hizo.
+- `bench/areas-classify.mjs` acepta `--project`, `--effort`, `--window` y `--label`; `bench/areas-stats.mjs` compara variantes por casos; `bench/probe-compound.mjs` y el caso público 09 miden las oraciones compuestas.
+**Condiciones de reversión:** Volver a la regla 4 anterior si una corrida del banco privado muestra mensajes con puntos inventados o de relleno por la obligación de cubrir cada punto.
+## [UD-040] El HEIC de iPhone se decodifica con el `ffmpeg` de la imagen
+
+**Fecha:** 2026-10-21
+**Contexto:** Martín, textual: «asumo que el código que hiciste ya es compatible con el formato de iPhone». No lo era: `sharp` trae `libvips` sin decodificador HEVC y la subida rechazaba un HEIC con 422 `image_heic_unsupported` (H-21, UD-039). UD-039 decidió no probar el aparato; no decidió que el formato no se aceptara cuando alguien lo suba. Safari suele convertir a JPEG en el selector de archivos y WhatsApp entrega JPEG, pero el sistema no depende de eso.
+**Decisión:** Decisión de la sesión por encargo de Martín (decidir la opción con una UD, sin llamar a ningún modelo). Un HEIC o HEIF se decodifica a JPEG con el `ffmpeg` que la imagen ya lleva y sigue el flujo normal de imágenes (rotación, reducción al lado máximo, tope de 7 MiB). El `ffmpeg` mínimo ya tenía el demultiplexor `mov` y el decodificador HEVC; se le añaden los filtros `xstack` (compone las teselas de la foto), `transpose`, `hflip` y `vflip` (aplican la rotación `irot` del contenedor). Se descarta la entrada por marca `image_heic_unsupported`: un HEIC dañado falla en la extracción con `image_heic_unreadable`, y uno de más de 50 millones de píxeles con `image_too_many_pixels`, leído de las cabeceras antes de decodificar (`image.heicMaxPixels`, medido en `docs/investigaciones/mediciones/2026-10-21-heic-via-ffmpeg.md`). Del archivo se toma la imagen principal.
+**Alternativas descartadas** (fuentes consultadas el 2026-10-21):
+- `heic-decode` o `libheif-js` (WASM): `libheif-js` 1.23.5 es LGPL-3.0 (npm, 2026-10-04) y entraría como dependencia de npm, lo que UD-020 reserva a licencias permisivas; el WASM incorpora la biblioteca y no puede sustituirse como una biblioteca compartida. Añade 9,0 MB desempaquetados y un segundo decodificador de HEVC. `heic-decode` es ISC pero depende de `libheif-js`.
+- `sharp` con `libvips` y `libheif` del sistema con HEVC: obliga a compilar `sharp` contra bibliotecas de Alpine en x86-64 y arm64 (libde265 LGPL, x265 GPL en la codificación) y rompe el binario precompilado que hoy se instala sin compilar.
+- Decodificar en el panel antes de subir: no cubre la API ni los adjuntos que no pasan por el panel, y repartiría un WASM LGPL dentro del paquete del panel.
+**Consecuencias:**
+- Sin dependencias nuevas de npm. La capa de binarios de UD-020 no cambia: `ffmpeg` sigue en configuración LGPL, sin `--enable-gpl`; el `NOTICE` actualiza la línea de configuración con los cuatro filtros.
+- La imagen crece 0,5 MB (306,96 a 307,48 MB). No hay binario nativo por arquitectura: `ffmpeg` se compila en la etapa de la imagen para la arquitectura de la construcción.
+- H-21 se cierra. UD-039 sigue vigente en lo que decidió (no se prueba Safari ni el micrófono con un iPhone, H-56).
+**Condiciones de reversión:** Que un redistribuidor no acepte el decodificador HEVC dentro de la imagen (patentes de HEVC); entonces el HEIC vuelve a rechazarse en la subida.
+
+
+## [UD-070] Los mensajes se publican solos al terminar el análisis; la bandeja pasa a ser historial
+
+**Fecha:** 2026-10-21
+**Contexto:** UD-003 dejó el acto de confirmar en el botón Enviar de la propuesta, para que una mala categorización no llegara al equipo sin filtro. Tras usar el programa, el dueño lo vio categorizar bien.
+**Decisión:** Martín, textual: «estoy viendo que el programa ya está funcionando bastante bien para categorizar. Quiero que cambiemos la lógica y dejemos a nivel de experiencia de usuario la bandeja como algo que sirve para que alguien pueda revisar todo lo que ha enviado desde la vista principal y también para que pueda revisar el estado de todos sus envíos que pueda haber mandado en ráfagas, pero en lugar de tener que presionar enviar mensaje, los mensajes ya queden enviados al equipo, ya quede listo todo: no sea necesario confirmar un mensaje porque estoy viendo que se hace bien.» Cuando el análisis termina con una propuesta válida, sus mensajes se publican en la misma transacción que cierra el trabajo (mismo camino y misma validación que la publicación manual, un solo lugar que inserta mensajes) y el input queda `published`. Una propuesta vacía o que no valida no publica nada: queda `proposed` con `error_code: publish_blocked` y su motivo, y su emisor la corrige y publica con `POST /api/inputs/:id/publish`. Un análisis fallido queda `failed`. La bandeja es el historial de los envíos propios (`GET /api/inputs?mine=1&order=desc`, todos los estados, paginado), con los mensajes de cada envío publicado.
+**Alternativas descartadas:**
+- Publicar fuera de la transacción del trabajo, en un paso aparte: una caída entre ambos deja un input `proposed` que nadie confirma, justo lo que el dueño quiere evitar.
+- Publicar aunque la propuesta no valide (completar campos vacíos): el sistema no inventa datos; un campo obligatorio vacío o un área borrada se arreglan a mano.
+**Consecuencias:**
+- Idempotencia: sólo un input `proposed` se publica. La cola repite el cierre de un trabajo sin duplicar (si el input ya está `published`, no escribe), `POST /publish` sobre un publicado es 409 `already_published` y reprocesar un publicado es 409 `not_reprocessable`: el contenido de un mensaje ya publicado se cambia editándolo (UD-071), no reanalizando su input.
+- El evento `done` trae `input_status` (`published` o `proposed`) y `message_ids`; los avisos `message` al equipo salen como hasta ahora.
+- Perilla del Editor `auto_publish` (`GET/PATCH /api/settings/publication`), encendida por omisión por decisión del dueño, no por medición. Apagada vuelve la revisión previa de UD-003.
+- UD-003 queda enmendada en el paso de confirmar; sigue vigente la cola de trabajos que desacopla el procesamiento del navegador. UD-017 sigue vigente para la edición en el lugar.
+**Condiciones de reversión:** Apagar `auto_publish` desde la configuración. La cuenta de ediciones por mensaje (`message_edits`) es la evidencia para decidir si se apaga por omisión.
+
+## [UD-071] Sólo el emisor edita su mensaje publicado, con historial y control de versión
+
+**Fecha:** 2026-10-21
+**Contexto:** Sin confirmación previa, la corrección ocurre después de publicar. UD-017 dejaba editar al emisor y a cualquier Editor.
+**Decisión:** Martín, textual: «Lo que sí me importa es que un mensaje ya enviado sea muy fácil de editar por la persona que envió dicho mensaje. Otra persona que no envió el mensaje no debe poder editar un mensaje ajeno.» `PATCH /api/messages/:id` lo hace sólo el emisor (título, texto, campos, plantilla, área, destinatarios y adjuntos del envío de origen); cualquier otro, también el Editor, recibe 403 `not_message_author`. Responder, cerrar y reabrir siguen abiertos a todos. El cuerpo lleva la `version` leída; si otra edición se coló, 409 `edit_conflict` con la versión vigente y nada se escribe. Cada edición real sube la versión, fija `edited_at` («editado» con la hora), deja una fila en `message_edits` (quién, cuándo y qué campos, sin valores) y avisa con un aviso dirigido a los destinatarios nuevos. Cambiar el área mueve el mensaje de área y exige una plantilla de ella.
+**Alternativas descartadas:**
+- Dejar editar al Editor como árbitro: el dueño lo excluye; el Editor corrige por la vía de siempre, pidiéndoselo al emisor o respondiendo.
+- Control de concurrencia por `updated_at`: dos ediciones en el mismo milisegundo comparten marca; un contador no se repite.
+- Guardar los valores anteriores: UD-017 descarta el historial de versiones; el historial dice qué campos cambiaron y quién, no su contenido.
+**Consecuencias:**
+- Un `PATCH` que no cambia nada deja el mensaje, su versión y su historial como estaban.
+- Los adjuntos se quitan o reordenan entre los del envío con `attachment_ids`, y se agregan archivos y enlaces nuevos con `POST /api/messages/:id/attachments` (multipart con `version`), que cuenta como una edición y encola la lectura del adjunto.
+**Condiciones de reversión:** Si el equipo necesita que un Editor corrija mensajes ajenos, se registra una decisión nueva que lo permita con su propia fila de historial.
+
+## [UD-072] Un envío puede pedir quedarse en borrador, y una subida rechazada no deja archivos
+
+**Fecha:** 2026-10-21
+**Contexto:** Con la publicación automática (UD-070), el guion `scripts/vps-check.mjs` habría publicado su texto de prueba al equipo real y no habría podido cancelarlo (409). Además H-1804: una subida rechazada (versión vencida, mensaje cerrado) dejaba su archivo en el volumen sin fila que lo use.
+**Decisión:** Decisión de la sesión por encargo de la coordinación; el dueño no la dijo con estas palabras. `POST /api/inputs` acepta `auto_publish=false` (campo del multipart o booleano del JSON `{ text, links, auto_publish }`) para ese envío solo: su propuesta espera como `proposed` aunque la perilla del proyecto esté encendida. `true` o sin el campo sigue la perilla; no puede forzar una publicación que el proyecto apagó. Otro valor es 400 `auto_publish_invalid`. El guion `vps-check` lo usa y cancela sin publicar nunca. Una subida que el servidor rechaza borra lo que alcanzó a escribir, en la misma ruta y al terminar la petición, salvo un archivo que una fila ya usa o que otra subida en curso del mismo archivo todavía va a usar.
+**Alternativas descartadas:**
+- Un usuario de prueba con la perilla apagada: la perilla es del proyecto, no del miembro.
+- Cancelar un `published` desde el guion: UD-070 lo define definitivo y los mensajes ya habrían llegado al equipo.
+- Barrer por reloj: el barrido por antigüedad (`sweepOrphans`) queda como red para una caída entre escribir el archivo y su fila; el caso normal no espera a un reloj.
+**Consecuencias:**
+- Columna `inputs.keep_draft` (migración 0007). Un envío repetido con el mismo contenido devuelve el que ya existe y no cambia su `keep_draft`.
+- Un envío cancelado conserva sus archivos a propósito: Deshacer lo restaura (J1-B-26), así que no son huérfanos.
+**Condiciones de reversión:** Retirar el campo si el guion de verificación deja de enviar textos reales.
+
+## [UD-059] Los adjuntos van primero y se miran en una galería de medios que se reutiliza en todo el panel
 
 **Fecha:** 2026-10-21
 **Contexto:** Martín revisó la lista de envíos y vio los adjuntos en un segundo plano.
@@ -555,3 +629,14 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 - `src/api/message-state-derivation.test.js` ejerce la invariante tras responder, cerrar, reabrir, editar y reprocesar, y recorre todos los mensajes de la base después de cada paso.
 - `panel/dev-server.mjs` deriva el estado al sembrar y al responder, cerrar y reabrir (`syncStatus`); una prueba de flujo revisa todo lo que el servidor de ejemplo sirve.
 **Condiciones de reversión:** Si el dueño quiere que cierta clase de respuesta no cuente como respuesta, se registra con su cita y se cambia la función en un solo lugar.
+## [UD-058] El modelo por omisión sigue siendo Haiku 5.5
+
+**Fecha:** 2026-10-21
+**Contexto:** H-80 comparó Haiku 5.5 con Sonnet 5.5 sobre los mismos prompts (medición `docs/investigaciones/mediciones/2026-10-21-modelos-y-esfuerzo-de-clasificacion.md`). Sonnet asigna mejor (conjunto exacto 80,0 % contra 53,0 %, p 0,002) y cuesta 17 veces más por entrada; cobertura y área no se separan.
+**Decisión:** Propuesta del coordinador, no cita de Martín. Se mantiene Haiku 5.5 como modelo por omisión y `classifyEffort` en `low`. Sonnet 5.5 queda como opción por configuración (`TEXT_MODEL`) una vez resuelto H-1100.
+**Alternativas descartadas:**
+- Sonnet 5.5 por omisión: 0,31 USD por entrada con caché tibia contra 0,017, para ganar en destinatarios, que el equipo corrige en la revisión.
+- `classifyEffort` `medium`: el área baja de 94,7 % a 87,1 % (p 0,008) y 2 de 33 corridas quedan inválidas.
+**Consecuencias:** Sin cambios en el producto. H-1100 queda cerrado (el proveedor elige `thinking` según el modelo) y H-1102 abierto.
+**Condiciones de reversión:** Se pasa a Sonnet 5.5 si la asignación de destinatarios pesa más que el costo (más de 20 entradas diarias con 0,31 USD cada una son 6 USD al día) o si el equipo mide que corrige más de la mitad de los destinatarios que propone Haiku.
+

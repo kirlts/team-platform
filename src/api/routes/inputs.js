@@ -1,6 +1,7 @@
 // Input routes (MASTER-SPEC §7.1): create (multipart, idempotent by hash), list one's own, query,
 // publish, cancel and, for the editor, reprocess.
 
+import { releaseBlobs } from '../../domain/storage.js'
 import { cancelInput, editInputText, getInputView, listInputs, proposalView as presentProposal, reprocessInput, restoreInput, submitInput } from '../../domain/inputs.js'
 import { getMessage } from '../../domain/messages.js'
 import { publishProposal, saveProposalDraft } from '../../domain/proposals.js'
@@ -20,13 +21,20 @@ export function registerInputRoutes (app, ctx) {
   app.post('/inputs', {
     onRequest: [requireRole('member')],
     schema: {
-      summary: 'Submit an input (multipart: text, files[], links[])',
-      description: 'Idempotent by content: the same normalized text, the same attachments by hash and the same sender return the input that already exists (200). A new input, or a failed or cancelled one that is resubmitted, is queued (202).',
+      summary: 'Submit an input (multipart: text, files[], links[], auto_publish; or JSON { text, links, auto_publish })',
+      description: '`auto_publish=false` (UD-072) pide que ESTE envío no se publique solo: su propuesta espera como `proposed` aunque la perilla del proyecto esté encendida, y se publica a mano con `POST /inputs/:id/publish` o se cancela. `true` o sin el campo sigue la perilla. Cualquier otro valor es 400 `auto_publish_invalid`; en un envío repetido (ya existente) el campo no cambia lo que ya hay. El envío sólo con JSON no lleva archivos. Idempotent by content: the same normalized text, the same attachments by hash and the same sender return the input that already exists (200). A new input, or a failed or cancelled one that is resubmitted, is queued (202).',
       response: { 200: createdSchema, 202: createdSchema }
     }
   }, async (request, reply) => {
-    const { text, links, files } = await readInputUpload(request, config)
-    const r = submitInput({ db, queue, events }, { authorId: request.member.id, text, files, links })
+    const { text, links, files, keepDraft } = await readInputUpload(request, config, db)
+    let r
+    try {
+      r = submitInput({ db, queue, events }, { authorId: request.member.id, text, files, links, keepDraft })
+    } catch (error) {
+      await releaseBlobs(db, config, files, { discard: true })
+      throw error
+    }
+    await releaseBlobs(db, config, files, { discard: false })
     // 202: the analysis is queued. 200: the same content already existed and what is there is returned (§1.3).
     reply.code(r.created || r.restarted ? 202 : 200)
     return { input_id: r.input.id, job_id: r.jobId, status: r.input.status, duplicate: !r.created && !r.restarted, restarted: r.restarted }
@@ -36,7 +44,7 @@ export function registerInputRoutes (app, ctx) {
     onRequest: [requireRole('member')],
     schema: {
       summary: 'Listar los inputs propios',
-      description: 'Siempre los del miembro de la sesión. `status` admite uno o varios estados separados por coma. `mine=1` pide la bandeja de envíos (UD-025), por ejemplo `?mine=1&status=queued,extracting,analyzing,proposed`: orden de creación ascendente, con `percent`, `phrase` y `proposed_count` en cada elemento. Sin `mine`, el orden es el más reciente primero; `order` lo fija a mano.',
+      description: 'Siempre los del miembro de la sesión. `status` admite uno o varios estados separados por coma; sin `status` vienen todos (en cola, leyendo, analizando, propuesta, publicado, fallido y cancelado), paginados. Es el historial y el estado de los envíos propios (UD-070): un envío publicado trae sus mensajes en `messages` (id, título, área, estado y `edited_at`), uno fallido su `error` y `error_code`, y uno con la publicación automática apagada o bloqueada queda `proposed` (con `error_code: publish_blocked` si no se pudo publicar). `mine=1` pide el orden de creación ascendente con `percent`, `phrase` y `proposed_count` (la bandeja en vuelo de UD-025), por ejemplo `?mine=1&status=queued,extracting,analyzing,proposed`; sin `mine` el orden es el más reciente primero, y `order=desc|asc` lo fija a mano (el historial: `?mine=1&order=desc`).',
       querystring: {
         type: 'object',
         additionalProperties: false,
@@ -91,7 +99,8 @@ export function registerInputRoutes (app, ctx) {
     onRequest: [requireRole('member')],
     preValidation: async (request) => { request.body ??= {} }, // no body: publish the saved draft
     schema: {
-      summary: 'Publicar la propuesta como mensajes (la enviada, o el borrador guardado si no se envía cuerpo)',
+      summary: 'Publicar a mano la propuesta como mensajes (la enviada, o el borrador guardado si no se envía cuerpo)',
+      description: 'Con la publicación automática encendida (UD-070, por omisión) el análisis ya publicó: un envío publicado es 409 `already_published` y no se duplica nada. Este camino queda para la propuesta que esperó (perilla `auto_publish` apagada) o que el análisis no pudo publicar (`error_code: publish_blocked`).',
       params: idParams(),
       body: publishBody,
       response: { 200: { type: 'object', properties: { message_ids: { type: 'array', items: { type: 'string' } }, messages: { type: 'array', items: messageDetail } } } }

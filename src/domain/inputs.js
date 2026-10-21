@@ -57,7 +57,7 @@ export function contentHash ({ authorId, text, fileHashes, links }) {
  * [{ kind, name, mime, size, sha256 }]; `links`, already-validated URLs.
  * Returns { input, jobId, created, restarted }.
  */
-export function submitInput ({ db, queue, events, now = Date.now }, { authorId, text, files, links }) {
+export function submitInput ({ db, queue, events, now = Date.now }, { authorId, text, files, links, keepDraft = false }) {
   const hash = contentHash({ authorId, text, fileHashes: files.map((f) => f.sha256), links })
   return events.transaction(() => {
     const existing = get(db, 'SELECT * FROM inputs WHERE content_hash = ?', hash)
@@ -74,7 +74,7 @@ export function submitInput ({ db, queue, events, now = Date.now }, { authorId, 
       return { input: existing, jobId: jobRow?.id ?? null, created: false, restarted: false }
     }
     const t = now()
-    const r = run(db, 'INSERT INTO inputs (author_id, text, content_hash, status, created_at, updated_at) VALUES (?, ?, ?, \'queued\', ?, ?)', authorId, text, hash, t, t)
+    const r = run(db, 'INSERT INTO inputs (author_id, text, content_hash, status, keep_draft, created_at, updated_at) VALUES (?, ?, ?, \'queued\', ?, ?, ?)', authorId, text, hash, keepDraft ? 1 : 0, t, t)
     const inputId = Number(r.lastInsertRowid)
     for (const f of files) {
       run(db, 'INSERT INTO attachments (input_id, kind, name, path, mime, size, sha256) VALUES (?, ?, ?, ?, ?, ?, ?)', inputId, f.kind, f.name, f.sha256, f.mime, f.size, f.sha256)
@@ -123,7 +123,7 @@ export function buildInputView ({ db, queue, events }, input) {
   const jobRow = queue.latestJobForInput(input.id)
   const progressRow = jobRow ? events.lastProgress(jobRow.id) : null
   const proposalObj = get(db, 'SELECT * FROM proposals WHERE input_id = ?', input.id)
-  const msgRows = input.status === 'published' ? all(db, 'SELECT id FROM messages WHERE input_id = ? ORDER BY id', input.id).map((m) => m.id) : []
+  const msgRows = input.status === 'published' ? all(db, 'SELECT id, title, area_id, status, edited_at FROM messages WHERE input_id = ? ORDER BY id', input.id) : []
   return {
     id: input.id,
     author_id: input.author_id,
@@ -132,6 +132,7 @@ export function buildInputView ({ db, queue, events }, input) {
     error: input.error,
     error_code: input.error_code,
     created_at: iso(input.created_at),
+    updated_at: iso(input.updated_at),
     job_id: jobRow?.id ?? null,
     // Flat copy of the job's progress and of the proposal's size, for the tray of in-flight inputs (UD-025).
     percent: progressRow?.percent ?? null,
@@ -143,7 +144,9 @@ export function buildInputView ({ db, queue, events }, input) {
       : null,
     units: proposalObj ? parseJson(proposalObj.units_json, []).map((u) => ({ id: String(u.id), text: u.text })) : [],
     proposal: proposalObj ? proposalView(parseJson(proposalObj.payload_json, {})) : null,
-    message_ids: msgRows
+    message_ids: msgRows.map((m) => m.id),
+    // UD-071: what the sender sees in the history without one request per message.
+    messages: msgRows.map((m) => ({ id: m.id, title: m.title, area_id: m.area_id, status: m.status, edited_at: iso(m.edited_at) }))
   }
 }
 

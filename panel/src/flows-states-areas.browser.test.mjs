@@ -2,8 +2,8 @@
 // color, and the view of an area opens on its messages. Read in a real browser against dev-server.mjs serving panel/dist:
 // `npm run test:flows`.
 import assert from 'node:assert'
-import { after, before, describe, test } from 'node:test'
-import { login, startPanel } from './browser-support.mjs'
+import { after, before, beforeEach, describe, test } from 'node:test'
+import { login, settled, startPanel } from './browser-support.mjs'
 
 let panel
 let origin = ''
@@ -11,6 +11,11 @@ let origin = ''
 before(async () => {
   panel = await startPanel(Number(process.env.PANEL_FLOWS_AREAS_PORT ?? 8799), { stepMs: 80 })
   origin = panel.origin
+})
+
+// Every test starts from the sample data as the server was born with it (H-901).
+beforeEach(async () => {
+  await panel.control.reset()
 })
 
 after(async () => {
@@ -207,7 +212,7 @@ describe('colors and words of the states (UD-041)', () => {
         for (const path of ['/', '/messages', '/areas', '/areas/a-error', '/team']) {
           await page.goto(`${origin}${path}`)
           await page.locator('main').first().waitFor()
-          await page.waitForTimeout(300)
+          await settled(page)
           // The chrome of every screen: navigation, header, counts and states. The texts people wrote are data.
           const words = await page.evaluate(() => [...document.querySelectorAll('nav, header, h1, h2, [data-testid="attention"], [data-testid="state-mark"], [data-testid="area-pending"], [aria-label]')].flatMap((el) => [el.textContent ?? '', el.getAttribute('aria-label') ?? '']).join(' | '))
           assert.doesNotMatch(words, RETIRED, `${path} (${viewport.width}): ${words.match(RETIRED)?.[0]}`)

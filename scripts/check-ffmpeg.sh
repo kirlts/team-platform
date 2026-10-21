@@ -12,7 +12,7 @@ DEMUXERS="mov matroska ogg mp3 wav aac flac"
 DECODERS="h264 hevc vp8 vp9 libdav1d aac alac opus vorbis flac mp3 mp3float pcm_s16le pcm_s24le pcm_s32le pcm_u8 pcm_f32le pcm_alaw pcm_mulaw"
 ENCODERS="flac mjpeg"
 MUXERS="flac image2 null"
-FILTERS="scale fps aresample aformat format null anull"
+FILTERS="scale fps aresample aformat format null anull xstack transpose hflip vflip"
 PROTOCOLS="file pipe"
 
 fail=0

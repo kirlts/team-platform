@@ -38,6 +38,11 @@ const { values, positionals } = parseArgs({
     'private-dir': { type: 'string' },
     'results-dir': { type: 'string' },
     concurrency: { type: 'string', default: '6' },
+    project: { type: 'string' },
+    'project-name': { type: 'string', default: 'Proyecto' },
+    effort: { type: 'string' },
+    window: { type: 'string' },
+    label: { type: 'string' },
   },
 });
 const privateDir = values['private-dir'] ?? process.env.BENCH_PRIVATE_DIR ?? join(here, 'private');
@@ -156,13 +161,14 @@ let areas = seed.areas.map((a, i) => ({ ...a, description: areasJson ? areasJson
 if (variant.areas) areas = variant.areas(areas);
 const templates = seed.templates;
 const instructions = variant.instructions ? variant.instructions(es.CLASSIFY_INSTRUCTIONS) : es.CLASSIFY_INSTRUCTIONS;
-const system = [instructions, (variant.catalogBlock ?? es.catalogBlock)({ areas, templates })].filter(Boolean);
+const project = values.project ? { name: values['project-name'], description: readFileSync(values.project, 'utf8') } : null;
+const system = [instructions, (variant.catalogBlock ?? es.catalogBlock)({ areas, templates }), project ? es.projectBlock(project) : null].filter(Boolean);
 const areaTitles = Object.fromEntries(areas.map((a) => [a.id, a.title]));
 
 const budgetUsd = Number(values.budget);
 const ledger = createSpend({ resultsDir, budgetUsd });
 const providers = createProviders({ ...Object.fromEntries(readFileSync(`${process.env.HOME}/.config/team-platform/env`, 'utf8').split('\n').filter((l) => l.includes('=')).map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)])), ...process.env });
-const config = resolveConfig({});
+const config = resolveConfig({ ...(values.effort ? { classifyEffort: values.effort } : {}), ...(values.window ? { classifyWindowUnits: Number(values.window) } : {}) });
 const schema = buildClassificationSchema({ areas, templates });
 const cases = readdirSync(privateDir, { withFileTypes: true })
   .filter((d) => d.isDirectory() && existsSync(join(privateDir, d.name, 'manifest.json')) && existsSync(join(privateDir, '.cache', `${d.name}.json`)))
@@ -190,6 +196,7 @@ async function runCase(id) {
   const mapped = new Map();
   const unitPred = [];
   let cost = 0;
+  const started = Date.now();
   const call = async (messages) => {
     ledger.assertBudget(id);
     const out = await withQueueRetries(() => providers.text.complete({
@@ -235,7 +242,7 @@ async function runCase(id) {
     }
   }
   return {
-    case_id: id, cost_usd: cost, unit_pred: unitPred,
+    case_id: id, cost_usd: cost, ms: Date.now() - started, unit_pred: unitPred,
     groups: all.map((g) => ({ id: g.id, unit_ids: g.unit_ids, pred: mapped.get(g.id)?.area_id ?? null, a: a?.get(g.id) ?? null, b: b?.get(g.id) ?? null })),
   };
 }
@@ -251,8 +258,8 @@ await Promise.all(Array.from({ length: Number(values.concurrency) }, async () =>
   }
 }));
 mkdirSync(resultsDir, { recursive: true });
-const out = join(resultsDir, `areas-${values.variant}-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
-const data = { at: new Date().toISOString(), variant: values.variant, no_grouping: values['no-grouping'], repeat, area_titles: areaTitles, cases: results };
+const out = join(resultsDir, `areas-${values.label ?? values.variant}-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
+const data = { at: new Date().toISOString(), variant: values.label ?? values.variant, effort: config.classifyEffort, window: config.classifyWindowUnits, project: Boolean(project), no_grouping: values['no-grouping'], repeat, area_titles: areaTitles, cases: results };
 writeFileSync(out, JSON.stringify(data));
 console.log(format(`${values.variant}${values['no-grouping'] ? ' (sin agrupación)' : ''} -> ${out}`, scoreFile(data), areaTitles));
 if (values['no-grouping']) console.log(formatUnits(scoreUnits(data), areaTitles));

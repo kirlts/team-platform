@@ -1,8 +1,8 @@
 // Round 3, judge A (J3-A-01 to J3-A-51): each flow reads what the screen shows, in a real browser, against dev-server.mjs
 // serving panel/dist: `npm run test:flows`. Every test can fail if the defect it names comes back.
 import assert from 'node:assert'
-import { after, before, describe, test } from 'node:test'
-import { login, startPanel, openTemplates } from './browser-support.mjs'
+import { after, before, beforeEach, describe, test } from 'node:test'
+import { login, startPanel, settled, openTemplates } from './browser-support.mjs'
 
 let panel
 let origin = ''
@@ -10,6 +10,11 @@ let origin = ''
 before(async () => {
   panel = await startPanel(Number(process.env.PANEL_FLOWS_3A_PORT ?? 8884), { stepMs: 80 })
   origin = panel.origin
+})
+
+// Every test starts from the sample data as the server was born with it (H-901): none inherits what another left in the tray or the lists.
+beforeEach(async () => {
+  await panel.control.reset()
 })
 
 after(async () => {
@@ -24,7 +29,7 @@ async function session(who = 'ana', viewport = DESKTOP, { scheme = 'light' } = {
   const context = await panel.browser.newContext({ viewport, locale: 'es-CL', colorScheme: scheme, isMobile: mobile, hasTouch: mobile, deviceScaleFactor: mobile ? 2 : 1 })
   const page = await context.newPage()
   await login(page, origin, who)
-  await page.locator('main').first().waitFor()
+  await page.locator('main#main').waitFor()
   return { page, context }
 }
 
@@ -110,6 +115,12 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
     try {
       await page.goto(`${origin}/messages`)
       await page.locator('main article').first().waitFor()
+      // The rows are measured once they are laid out: every Close/Reopen button has a box. A button without one (right edge 0) is a row that was not drawn yet, not a column (H-901).
+      await page.waitForFunction(() => {
+        const rows = [...document.querySelectorAll('main article')]
+        return rows.length > 0 && rows.every((r) => [...r.querySelectorAll('button')].filter((b) => /Cerrar|Reabrir/.test(b.textContent ?? '')).every((b) => b.getBoundingClientRect().width > 0))
+      })
+      await settled(page)
       const rights = await page.locator('main article').evaluateAll((rows) =>
         rows.map((r) => {
           const close = [...r.querySelectorAll('button')].find((b) => /Cerrar|Reabrir/.test(b.textContent ?? ''))
@@ -181,7 +192,7 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
     const { page, context } = await session('ana', PHONE)
     try {
       await page.locator('article').first().waitFor()
-      await page.waitForTimeout(400)
+      await settled(page)
       const height = await page.locator('main').evaluate((el) => el.scrollHeight)
       assert.ok(height < PHONE.height * 2.5, `Inicio mide ${height} px en el teléfono`)
       // The pager is there, so the eight messages are not eight cards of 330 px.
@@ -227,7 +238,7 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
     try {
       const region = page.getByRole('region', { name: 'Últimos mensajes' })
       await region.locator('article').first().waitFor()
-      await page.waitForTimeout(300)
+      await settled(page)
       const rows = region.locator('article')
       const n = await rows.count()
       assert.ok(n >= 3, `caben ${n} filas`)
@@ -248,7 +259,7 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
     try {
       assert.equal(await page.locator('main time[datetime]').filter({ hasText: /de 20\d\d/ }).count(), 0, 'no hay fecha y hora corriendo')
       await page.goto(origin)
-      await page.locator('main').first().waitFor()
+      await page.locator('main#main').waitFor()
       await page.keyboard.press('Tab')
       assert.equal(await page.evaluate(() => document.activeElement?.textContent?.trim()), 'Ir al contenido')
       const ring = await page.evaluate(() => parseFloat(getComputedStyle(document.activeElement).outlineWidth))
@@ -411,7 +422,7 @@ describe('justification by width (J3-A-21, J3-A-47)', () => {
     const hit = await messageByTitle(page, 'Revisar la lectura del panel')
     await page.goto(`${origin}/messages/${hit.id}`)
     await page.locator('main h1').waitFor()
-    await page.waitForTimeout(400)
+    await settled(page)
   }
 
   test('on a phone no paragraph is justified and no gap opens beyond the natural space (J3-A-21)', async () => {
@@ -425,7 +436,7 @@ describe('justification by width (J3-A-21, J3-A-47)', () => {
       assert.ok(worst <= 5, `hueco de ${worst} px entre palabras en el teléfono`)
       await page.goto(`${origin}/settings`)
       await page.locator('main h1').waitFor()
-      await page.waitForTimeout(300)
+      await settled(page)
       const settings = await page.locator('.prose-block').evaluateAll((els) => els.map((el) => getComputedStyle(el).textAlign))
       assert.ok(settings.every((a) => a === 'left' || a === 'start'), 'ni en Configuración')
     } finally {

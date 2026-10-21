@@ -48,6 +48,8 @@ Los módulos instrumentados importan de `telemetry/api.js`, que sólo carga `@op
 | `OTEL_SDK_DISABLED=true` | Apaga el SDK; el código instrumentado sigue andando con el tracer nulo |
 | `TELEMETRY_INLINE_BLOBS=0` | Las imágenes y fotogramas quedan con su tamaño y sin los bytes en base64 (por omisión se guardan) |
 | `TELEMETRY_FLUSH_MS` | Intervalo de vaciado de los lotes; 5000 ms por omisión |
+| `TELEMETRY_QUEUE_MAX_BYTES` | Bytes en cola (por destino) que fuerzan un vaciado anticipado; 4 MiB por omisión: cabe el span de una llamada de 48 fotogramas (3,48 MiB medidos, `span-size.bench.mjs`) y no caben dos |
+| `TELEMETRY_QUEUE_HARD_BYTES` | Sobre este tope las llamadas nuevas guardan el tamaño de sus imágenes y fotogramas y no los bytes, y el span lleva `team.telemetry.blobs_dropped`; por omisión el tope anterior más 32 MiB (la mayor solicitud a un proveedor, informe 05 §8.3) |
 | `TELEMETRY_SLICE_ROWS` | Filas por transacción del exportador a SQLite; 16 por omisión |
 
 El audio nunca se copia al span: queda por referencia (`file://` y tamaño) y la transcripción completa en el evento de salida.

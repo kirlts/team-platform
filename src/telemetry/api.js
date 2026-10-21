@@ -30,6 +30,8 @@ export const TEAM = Object.freeze({
   costUsd: 'team.cost_usd',
   provider: 'team.provider',
   modality: 'team.modality',
+  // Blobs of the call that kept their size and lost their content because the span queue was over its hard cap (H-40).
+  blobsDropped: 'team.telemetry.blobs_dropped',
 });
 
 // Nombre del proveedor del proyecto → valor conocido de `gen_ai.provider.name`.
@@ -46,10 +48,14 @@ const PROVIDER_NAMES = Object.freeze({
 // Ajustes de captura. `inlineBlobs` decide si los bytes en memoria (imágenes, fotogramas) viajan
 // dentro del evento; `index.js` lo fija desde TELEMETRY_INLINE_BLOBS. Los archivos en disco
 // (audio) siempre van por referencia: viven en el volumen o en un directorio temporal.
-const capture = { inlineBlobs: true };
+// `blobsOverBudget(extraBytes)` is the byte budget of the queues (budget.js): true when the queue is over its hard
+// cap with `extraBytes` more, and then the blob keeps its size and loses its content (H-40).
+const capture = { inlineBlobs: true, blobsOverBudget: null, onBlobsDropped: null };
 
 export function configureCapture(options) {
   if (typeof options.inlineBlobs === 'boolean') capture.inlineBlobs = options.inlineBlobs;
+  if ('blobsOverBudget' in options) capture.blobsOverBudget = options.blobsOverBudget ?? null;
+  if ('onBlobsDropped' in options) capture.onBlobsDropped = options.onBlobsDropped ?? null;
 }
 
 const tracer = () => trace.getTracer(TRACER_NAME);
@@ -140,13 +146,20 @@ export function withToolSpan(toolName, attributes, fn) {
 // ---------------------------------------------------------------------------------------------
 // Contenido de una llamada a un modelo
 
-function partToSemconv(part) {
+// `pressure` accumulates, over the blobs of one call, the bytes already kept and the count of the ones dropped for
+// the byte budget (not for TELEMETRY_INLINE_BLOBS=0, which is a choice and not a loss).
+function partToSemconv(part, pressure = { keptBytes: 0, dropped: 0 }) {
   if (part.type === 'text') return { type: 'text', content: String(part.text ?? '') };
   const modality = part.type === 'document' ? 'document' : 'image';
   const base = { modality, mime_type: part.mime ?? null, ...(part.label ? { label: part.label } : {}) };
   if (part.data !== undefined && part.data !== null) {
     const size = Buffer.isBuffer(part.data) ? part.data.length : String(part.data).length;
     if (!capture.inlineBlobs) return { type: 'blob', ...base, size_bytes: size, content: null };
+    if (capture.blobsOverBudget?.(pressure.keptBytes + size)) {
+      pressure.dropped += 1;
+      return { type: 'blob', ...base, size_bytes: size, content: null };
+    }
+    pressure.keptBytes += size;
     const content = Buffer.isBuffer(part.data) ? part.data.toString('base64') : String(part.data);
     return { type: 'blob', ...base, size_bytes: size, content };
   }
@@ -155,10 +168,10 @@ function partToSemconv(part) {
 }
 
 /** `[{role, parts}]` en la forma de `gen_ai.input.messages`. */
-function messagesToSemconv(messages) {
+function messagesToSemconv(messages, pressure) {
   return (messages ?? []).map((m) => {
     const content = m.content;
-    const parts = typeof content === 'string' ? [{ type: 'text', content }] : (Array.isArray(content) ? content : []).map(partToSemconv);
+    const parts = typeof content === 'string' ? [{ type: 'text', content }] : (Array.isArray(content) ? content : []).map((part) => partToSemconv(part, pressure));
     return { role: m.role, parts };
   });
 }
@@ -245,13 +258,14 @@ export function recordGenAiCall(span, call) {
       'gen_ai.provider.name': attrs['gen_ai.provider.name'],
       'gen_ai.request.model': model,
     };
+    const pressure = { keptBytes: 0, dropped: 0 };
     if (request) {
       const system = systemToSemconv(request.system);
       if (system) eventAttrs['gen_ai.system_instructions'] = JSON.stringify(system);
       // `describe` del contrato (§7.6) trae imágenes y un prompt en vez de mensajes.
       const messages =
         request.messages ?? (request.images ? [{ role: 'user', content: [...request.images.map((img) => ({ type: 'image', ...img })), { type: 'text', text: request.prompt ?? '' }] }] : null);
-      if (messages) eventAttrs['gen_ai.input.messages'] = JSON.stringify(messagesToSemconv(messages));
+      if (messages) eventAttrs['gen_ai.input.messages'] = JSON.stringify(messagesToSemconv(messages, pressure));
       if (request.schema) eventAttrs['team.request.schema'] = JSON.stringify(request.schema);
       if (request.audioPath) {
         eventAttrs['gen_ai.input.messages'] = JSON.stringify([
@@ -271,6 +285,10 @@ export function recordGenAiCall(span, call) {
     if (error?.status !== undefined && error?.status !== null) eventAttrs['http.response.status_code'] = error.status;
     Object.assign(eventAttrs, cleanAttributes(call.extra));
     span.addEvent(CONTENT_EVENT, cleanAttributes(eventAttrs));
+    if (pressure.dropped > 0) {
+      span.setAttribute(TEAM.blobsDropped, pressure.dropped);
+      capture.onBlobsDropped?.(pressure.dropped);
+    }
   } catch (cause) {
     diag.warn(`telemetría: no se pudo registrar la llamada al modelo (${cause?.message ?? cause})`);
   }

@@ -57,7 +57,7 @@ Estados: `main` (resuelto y fusionado), `en curso` (asignado a un agente vivo), 
 | H-37 | Contexto de OpenTelemetry heredado entre trabajos sin `ROOT_CONTEXT` | agente núcleo | `main` |
 | H-38 | Checkpoint de WAL pausa 30 ms; `wal_autocheckpoint=0` sin adoptar | agente telemetría y núcleo | descartado (agente núcleo, razón en `src/contracts.md` §2) |
 | H-39 | `SELECT *` sobre `spans` falla por enteros de 64 bits | agente telemetría | `main` (documentado; `traceOfJob` y la vista) |
-| H-40 | Cola de lotes de telemetría admite 2048 spans con contenido de MB sin acotar | agente telemetría | abierto |
+| H-40 | Cola de lotes de telemetría admite 2048 spans con contenido de MB sin acotar | agente telemetría | listo en la rama `wt-menores`, pasa a `main` al fusionar (`TELEMETRY_QUEUE_MAX_BYTES` en 4 MiB, medido con el span de 48 fotogramas: 3.653.672 B en `span-size.bench.mjs`; `budget.js` y `budget.test.js`: vaciado anticipado y, sobre el tope duro, imágenes con tamaño y sin bytes, con `team.telemetry.blobs_dropped`) |
 | H-41 | `sdk-trace-node` ahorraría 10 MiB, bloqueado por versiones | agente imagen | descartado hasta que `sdk-trace-node` llegue a 3.x |
 | H-42 | Gancho de pre-commit contra credenciales no estaba activado | batería (DT-004) | `main` (`git config core.hooksPath .githooks` en este clon; `scripts/install.sh` debe activarlo) |
 | H-43 | Lista de contraseñas bloqueadas sin fuente; la aporta quien instala | agente núcleo | abierto: `scripts/install.sh` descarga una lista pública con licencia libre y la cita |

@@ -193,7 +193,7 @@ test('retención: borra trabajos terminados y eventos con más de siete días, n
   clockObj.t += config.worker.retentionDays * 24 * 3600 * 1000 + 1
   const recent = q.enqueue('analyze', {})
   const r = q.sweepRetention()
-  assert.equal(r.jobList, 1)
+  assert.equal(r.jobs, 1)
   assert.equal(get(db, 'SELECT COUNT(*) AS n FROM jobs WHERE id = ?', old).n, 0)
   assert.equal(get(db, 'SELECT COUNT(*) AS n FROM jobs WHERE id = ?', recent).n, 1)
   await env.close()

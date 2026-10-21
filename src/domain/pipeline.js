@@ -11,7 +11,6 @@
 
 import { all, get, run } from '../db/index.js'
 import { parseJson } from '../db/util.js'
-import { llmCostUsd, speechCostUsd } from './costs.js'
 import { parseDomains } from './members.js'
 import { permanent } from './errors.js'
 import { transitionInput } from './inputs.js'
@@ -39,59 +38,6 @@ export class Deferred extends Error {
 const normalizeProgress = (a, b) => (a !== null && typeof a === 'object' ? [a.percent, a.phrase] : [a, b])
 
 export function createPipeline ({ db, config, queue, events, modules, now = Date.now }) {
-  function recordLlmCall (job) {
-    return (callInfo) => {
-      const r = run(db, `INSERT INTO llm_calls (job_id, provider, model, modality, input_tokens, output_tokens, cached_tokens, cost_usd, duration_ms, at)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      job.id, callInfo.provider, callInfo.model, callInfo.modality,
-      callInfo.input_tokens ?? 0, callInfo.output_tokens ?? 0, callInfo.cached_tokens ?? 0, callInfo.cost_usd ?? 0, callInfo.duration_ms ?? 0, now())
-      return Number(r.lastInsertRowid)
-    }
-  }
-
-  /** Llamadas del extractor (`meta.calls`): { modality, usage | audioSeconds, … } (src/contracts.md). */
-  function recordExtractorCalls (job, calls) {
-    const settingsView = modules.getProviders?.()?.describe?.() ?? []
-    const logCall = recordLlmCall(job)
-    for (const c of calls ?? []) {
-      if (!['text', 'vision', 'speech'].includes(c.modality)) continue
-      const usageInfo = c.usage ?? {}
-      const secondsCount = c.audioSeconds ?? 0
-      const slotBody = settingsView.find((s) => s.slot === c.modality)
-      const modelName = c.model ?? slotBody?.model ?? 'desconocido'
-      logCall({
-        provider: c.provider ?? slotBody?.provider ?? 'desconocido',
-        model: modelName,
-        modality: c.modality,
-        input_tokens: usageInfo.input_tokens ?? 0,
-        output_tokens: usageInfo.output_tokens ?? 0,
-        cached_tokens: usageInfo.cached_tokens ?? 0,
-        // El audio se factura por tiempo, no por tokens (MS §3, UD-008).
-        cost_usd: c.cost_usd ?? (secondsCount > 0 ? speechCostUsd(config, secondsCount) : llmCostUsd(config, modelName, usageInfo)),
-        duration_ms: c.duration_ms ?? 0
-      })
-    }
-  }
-
-  /** Llamadas del analizador (`calls`): { step, provider, model, usage, duration_ms, outcome } → llm_calls. Devuelve el último id. */
-  function recordAnalyzerCalls (job, calls) {
-    const logCall = recordLlmCall(job)
-    let lastSeqValue = null
-    for (const c of calls ?? []) {
-      lastSeqValue = logCall({
-        provider: c.provider ?? 'desconocido',
-        model: c.model ?? 'desconocido',
-        modality: c.modality ?? 'text',
-        input_tokens: c.usage?.input_tokens ?? 0,
-        output_tokens: c.usage?.output_tokens ?? 0,
-        cached_tokens: c.usage?.cached_tokens ?? 0,
-        cost_usd: c.cost_usd ?? llmCostUsd(config, c.model, c.usage ?? {}),
-        duration_ms: c.duration_ms ?? 0
-      })
-    }
-    return lastSeqValue
-  }
-
   const attachmentForExtractor = (a) => ({
     id: a.id,
     input_id: a.input_id,
@@ -150,7 +96,6 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
       throw error
     }
     if (!outText || typeof outText.text !== 'string') throw new Error(`El extractor de «${att.name || att.kind}» no devolvió texto.`)
-    recordExtractorCalls(job, outText.meta?.calls)
     // Escribir es una sola sentencia: no hace falta transacción ni se retiene el candado durante la llamada.
     run(db, 'UPDATE attachments SET extracted_text = ?, extracted_at = ?, extract_meta_json = ? WHERE id = ?',
       outText.text, now(), JSON.stringify(outText.meta ?? {}), att.id)
@@ -237,12 +182,11 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
             signal: ctx.signal
           })
         } catch (error) {
-          // Las llamadas ya hechas cuestan aunque el trabajo falle (contrato del analizador).
-          recordAnalyzerCalls(job, error.calls)
+          // Las llamadas ya hechas quedan en `spans` (y en la vista llm_calls) aunque el trabajo falle: cada
+          // proveedor abre su propio span (UD-014).
           if (ANALYSIS_FINAL_CODES.has(error.code)) error.retryable = false
           throw error
         }
-        const lastCallId = recordAnalyzerCalls(job, result?.calls)
         ctx.signal.throwIfAborted()
         if (result?.status !== 'ok') {
           // Rechazo, corte o salida inválida: no mejoran reintentando igual. Falla con el motivo visible.
@@ -253,10 +197,9 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
 
         return () => {
           // Dentro de la transacción que cierra el trabajo. Cada mensaje lleva su área y plantilla.
-          run(db, `INSERT INTO proposals (input_id, area_id, template_id, payload_json, units_json, model_call_id, created_at) VALUES (?, NULL, NULL, ?, ?, ?, ?)
-                   ON CONFLICT(input_id) DO UPDATE SET payload_json = excluded.payload_json, units_json = excluded.units_json,
-                     model_call_id = excluded.model_call_id, created_at = excluded.created_at`,
-          inputId, JSON.stringify(proposalObj), JSON.stringify((result.units ?? []).map((u) => ({ id: u.id, text: u.text }))), lastCallId, now())
+          run(db, `INSERT INTO proposals (input_id, payload_json, units_json, created_at) VALUES (?, ?, ?, ?)
+                   ON CONFLICT(input_id) DO UPDATE SET payload_json = excluded.payload_json, units_json = excluded.units_json, created_at = excluded.created_at`,
+          inputId, JSON.stringify(proposalObj), JSON.stringify((result.units ?? []).map((u) => ({ id: u.id, text: u.text }))), now())
           transitionInput(db, inputId, 'proposed', { now })
           events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: 'Propuesta lista' })
           events.publishForJob(job.id, { kind: 'done', data: { status: 'done', input_status: 'proposed' } })

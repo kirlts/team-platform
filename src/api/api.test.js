@@ -59,14 +59,6 @@ test('flujo completo: enviar, analizar, editar, publicar, responder, cerrar y re
   assert.match(proposalObj.body, /texto de document/)
   assert.equal(view.job.status, 'done')
 
-  // Registros de costo: la llamada del analizador y las dos del extractor (visión) con su costo calculado.
-  const callRows = all(env.db, 'SELECT * FROM llm_calls ORDER BY id')
-  assert.equal(callRows.length, 3)
-  const analysisStep = callRows.find((l) => l.provider === 'doble')
-  assert.equal(analysisStep.modality, 'text')
-  assert.ok(Math.abs(analysisStep.cost_usd - (1000 * 0.10 + 200 * 0.50) / 1e6) < 1e-12)
-  assert.equal(get(env.db, 'SELECT model_call_id FROM proposals').model_call_id, analysisStep.id)
-
   // El emisor edita la propuesta (título, destinatario Beto) y la publica.
   const edited = { messages: [{ ...proposalObj, title: 'Guardar no responde', assignee_ids: [3], attachment_ids: [view.attachments[0].id] }] }
   const pubRes = await env.api('POST', `/inputs/${inputId}/publish`, env.c.ana, edited)

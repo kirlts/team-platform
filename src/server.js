@@ -15,7 +15,7 @@ import { createEvents } from './events/index.js'
 import { createQueue } from './queue/index.js'
 import { createLogger } from './log.js'
 import { installTemplateWarmup } from './domain/modules.js'
-import { initTelemetry, shutdownTelemetry } from './domain/tracing.js'
+import { initTelemetry } from './domain/tracing.js'
 import { buildWorker } from './worker.js'
 
 export async function start (config, { env = process.env } = {}) {
@@ -32,13 +32,13 @@ export async function start (config, { env = process.env } = {}) {
       ? `Primer editor creado con la contraseña ${firstEditor.password} (se muestra una sola vez; cámbiela desde Equipo).`
       : 'Primer editor creado con la contraseña de ADMIN_PASSWORD.')
   }
-  await initTelemetry({ db })
+  const telemetry = initTelemetry({ db, serviceVersion: config.version }) // tras migrar y antes de la API y del worker
   const events = createEvents({ db })
   const queue = createQueue({ db, config, events })
 
   const { worker, modules } = await buildWorker({ db, config, events, queue, env, logger, pollDataVersionMs: null })
-  const { app, domainEvents } = await buildApp({ db, config, queue, events, modules, logger })
-  installTemplateWarmup({ domainEvents, modules, db, config, log: (m) => logger.warn(m) })
+  const { app, domainEvents } = await buildApp({ db, config, queue, events, modules, logger, telemetry })
+  installTemplateWarmup({ domainEvents, modules, log: (m) => logger.warn(m) })
 
   if (config.worker.mode === 'external') events.startPolling(config.worker.dataVersionPollMs)
   if (config.worker.mode === 'inline') worker.start()
@@ -54,7 +54,7 @@ export async function start (config, { env = process.env } = {}) {
       await worker.stop() // pasos 1, 3 y 4; los flujos SSE se cierran en el gancho preClose de la API (paso 2)
       events.stopPolling()
       await app.close() // paso 5
-      await shutdownTelemetry()
+      await telemetry.shutdown() // vacía los lotes de spans pendientes
       db.close()
       logger.info('apagado completo')
     })()

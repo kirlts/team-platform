@@ -1,6 +1,7 @@
 // Rutas de operación del editor: la cola de trabajos, su purga y la bitácora.
 
 import { audit, listAudit } from '../../domain/audit.js'
+import { notFound } from '../../domain/errors.js'
 import { traceOfJob } from '../../domain/tracing.js'
 import { idParams } from '../schemas.js'
 import { requireConfirm } from '../confirm.js'
@@ -25,7 +26,7 @@ const registryList = {
 }
 
 export function registerOpsRoutes (app, ctx) {
-  const { db, config, queue, requireRole } = ctx
+  const { db, config, queue, requireRole, telemetry } = ctx
 
   app.get('/jobs', {
     onRequest: [requireRole('editor')],
@@ -47,11 +48,16 @@ export function registerOpsRoutes (app, ctx) {
     onRequest: [requireRole('editor')],
     schema: {
       summary: 'El árbol de spans de un trabajo (editor)',
-      description: 'Tiempos por paso, llamadas a proveedores con sus tokens y costo. Vacío si la telemetría no está instalada.',
+      description: 'Un árbol por intento de la cola: tiempos por paso, llamadas a proveedores con sus tokens y costo. Los nanosegundos viajan como texto. 404 si el trabajo no dejó spans.',
       params: idParams(),
       response: { 200: { type: 'object', additionalProperties: true } }
     }
-  }, async (request) => traceOfJob(db, request.params.id))
+  }, async (request) => {
+    await telemetry?.flush() // escribe ya lo que esté en cola: el trabajo recién terminado también se ve
+    const trace = traceOfJob(db, request.params.id)
+    if (!trace) throw notFound('El trabajo no dejó spans.')
+    return trace
+  })
 
   app.delete('/jobs', {
     onRequest: [requireRole('editor')],

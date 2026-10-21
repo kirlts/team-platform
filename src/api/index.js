@@ -31,7 +31,6 @@ import { registerAttachmentRoutes } from './routes/attachments.js'
 import { registerOpsRoutes } from './routes/ops.js'
 import { errorSchema, member as memberSchema } from './schemas.js'
 
-const version = JSON.parse(readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../package.json'), 'utf8')).version
 
 const LABELS = { auth: 'Sesión', me: 'Sesión', inputs: 'Inputs', messages: 'Mensajes', areas: 'Áreas y plantillas', templates: 'Áreas y plantillas', members: 'Equipo', settings: 'Configuración', attachments: 'Adjuntos', events: 'Eventos', jobs: 'Operación', audit: 'Operación', health: 'Operación', openapi: 'Operación' }
 
@@ -40,7 +39,8 @@ const LABELS = { auth: 'Sesión', me: 'Sesión', inputs: 'Inputs', messages: 'Me
  * `logger`: instancia pino, `true` para crear una desde la configuración, o `false` para silencio (pruebas).
  * Devuelve { app, domainEvents, identity, openapi }.
  */
-export async function buildApp ({ db, config, queue, events, modules = {}, logger = false, now = Date.now }) {
+export async function buildApp ({ db, config, queue, events, modules = {}, logger = false, now = Date.now, telemetry = null }) {
+  const { version } = config
   const app = Fastify({
     ...(logger === false ? { logger: false } : { loggerInstance: logger === true ? createLogger(config) : logger }),
     trustProxy: config.trustedProxies, // lista exacta de IP o CIDR, nunca `true` (informe 04 §2.4)
@@ -144,7 +144,7 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
   const { requireRole } = identity
   const blocklist = loadBlocklist(config.identity.password.blocklistFile)
   let eventStreams = { closeAll () {} }
-  const ctx = { db, config, queue, events, requireRole, identity, modules, blocklist, domainEvents }
+  const ctx = { db, config, queue, events, requireRole, identity, modules, blocklist, domainEvents, telemetry }
 
   const healthHandler = async (request) => {
     const migrated = userVersion(db) === latestVersion()

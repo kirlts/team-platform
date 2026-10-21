@@ -16,6 +16,7 @@ import { createEvents } from '../events/index.js'
 import { hashPassword } from '../identity/password.js'
 import { createQueue } from '../queue/index.js'
 import { createWorker } from '../worker.js'
+import { initTelemetry } from '../domain/tracing.js'
 import { run } from '../db/index.js'
 
 export const TEST_PASSWORD = 'una clave larga de prueba 1' // 27 caracteres: cumple el mínimo de 15
@@ -70,28 +71,31 @@ export const fakeExtract = async (attachment, { onProgress } = {}) => {
  * Entorno completo. `modules` reemplaza los dobles; `worker: true` arranca un worker (por omisión no, para que
  * la prueba controle cuándo corre). Devuelve todo lo necesario y un `close()`.
  */
-export async function makeEnv ({ config: overrides = {}, modules = {}, worker = false, seed = true, clock = false } = {}) {
+export async function makeEnv ({ config: overrides = {}, modules = {}, worker = false, seed = true, clock = false, telemetry = false } = {}) {
   const dir = tempDir()
   const config = testConfig(dir, overrides)
   await initializeDatabase(config, { seed: seed ? seedDefaults : null })
   const db = openInitialized(config)
   const events = createEvents({ db })
   const queue = createQueue({ db, config, events })
+  // La telemetría es global del proceso: sólo una prueba por archivo puede iniciarla (`telemetry: true`).
+  const telemetryHandle = telemetry ? initTelemetry({ db, serviceVersion: config.version }) : null
   const mods = {
     analyze: fakeAnalyze, extract: fakeExtract, getProviders: () => ({ describe: () => [] }), getAnalyzer: () => 'api',
     buildProviders: () => ({}), audioBudget: null, estimateAudioSeconds: null, warmTemplate: null, ...modules
   }
   // `clock`: reloj controlable para la identidad (esperas de login, vencimiento de sesión) sin dormir de verdad.
   const clockObj = { t: Date.now() }
-  const { app, domainEvents, identity } = await buildApp({ db, config, queue, events, modules: mods, ...(clock ? { now: () => clockObj.t } : {}) })
+  const { app, domainEvents, identity } = await buildApp({ db, config, queue, events, modules: mods, telemetry: telemetryHandle, ...(clock ? { now: () => clockObj.t } : {}) })
   const handlers = createPipeline({ db, config, queue, events, modules: mods })
   const w = createWorker({ db, queue, events, config, handlers })
   if (worker) w.start()
   return {
-    dir, config, db, events, queue, app, clock: clockObj, domainEvents, identity, worker: w, modules: mods,
+    dir, config, db, events, queue, app, clock: clockObj, telemetry: telemetryHandle, domainEvents, identity, worker: w, modules: mods,
     async close () {
       await w.stop()
       events.stopPolling()
+      await telemetryHandle?.shutdown()
       await app.close()
       db.close()
       rmSync(dir, { recursive: true, force: true })

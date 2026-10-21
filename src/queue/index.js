@@ -11,6 +11,7 @@
 import { EventEmitter } from 'node:events'
 import { all, get, run, tx } from '../db/index.js'
 import { iso } from '../db/util.js'
+import { pruneSpans } from '../telemetry/index.js'
 
 export function createQueue ({ db, config, events, now = Date.now, random = Math.random }) {
   const signals = new EventEmitter() // 'enqueued', 'cancelled'
@@ -192,11 +193,12 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
   function sweepRetention () {
     const cap = now() - w.retentionDays * 24 * 3600 * 1000
     return tx(db, () => {
-      const jobList = run(db, "DELETE FROM jobs WHERE status IN ('done', 'failed', 'cancelled') AND finished_at < ?", cap).changes
-      const eventList = events.purge(cap)
-      const sessionCount = run(db, 'DELETE FROM sessions WHERE expires_at < ?', now()).changes
+      const jobs = run(db, "DELETE FROM jobs WHERE status IN ('done', 'failed', 'cancelled') AND finished_at < ?", cap).changes
+      const eventsDeleted = events.purge(cap)
+      const sessions = run(db, 'DELETE FROM sessions WHERE expires_at < ?', now()).changes
       const nonces = run(db, 'DELETE FROM sso_nonces WHERE created_at < ?', cap).changes
-      return { jobList, eventList, sessionCount, nonces }
+      const spans = pruneSpans(db, { now: now(), retentionDays: w.retentionDays }) // misma retención que los eventos (§7.10 bis)
+      return { jobs, events: eventsDeleted, sessions, nonces, spans }
     })
   }
 

@@ -3,7 +3,7 @@
 // nace declarado). «MS» = docs/MASTER-SPEC.md; «I03», «I04», «I07» = docs/investigaciones/.
 // Ninguna credencial tiene valor por omisión: las llaves se leen del entorno y nunca se guardan.
 
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -43,12 +43,6 @@ function boolVar (env, nameValue, fallback) {
   throw new Error(`La variable ${nameValue} debe ser true o false (valor: «${rawValue}»).`)
 }
 
-function json (env, nameValue, fallback) {
-  const rawValue = env[nameValue]
-  if (rawValue === undefined || rawValue === '') return fallback
-  try { return JSON.parse(rawValue) } catch { throw new Error(`La variable ${nameValue} debe ser JSON válido.`) }
-}
-
 function listValue (env, nameValue, fallback = []) {
   const rawValue = env[nameValue]
   if (rawValue === undefined || rawValue === '') return fallback
@@ -76,6 +70,7 @@ export function loadConfig (env = process.env, overrides = {}) {
 
   const config = {
     rootDir,
+    version: JSON.parse(readFileSync(path.join(rootDir, 'package.json'), 'utf8')).version,
 
     // ---- Red y servidor
     host: textValue(env, 'HOST', '0.0.0.0'), // dentro de un contenedor; el compose publica el puerto en loopback
@@ -219,18 +214,6 @@ export function loadConfig (env = process.env, overrides = {}) {
         },
         trustedHeaderName: textValue(env, 'TRUSTED_HEADER_NAME', 'tailscale-user-login').toLowerCase()
       }
-    },
-
-    // Precio del audio (MS §3, UD-008: 0,04 USD por hora de audio con Groq). Sirve para llenar `llm_calls.cost_usd`
-    // de las llamadas de transcripción, que el extractor declara en segundos y no en tokens.
-    pricing: {
-      speechUsdPerHour: decimal(env, 'SPEECH_USD_PER_HOUR', 0.04, { min: 0 }),
-      // USD por millón de tokens (MS §3: Haiku 5.5, 0,10 entrada, 0,50 salida, 0,01 lectura de caché). La escritura
-      // de caché se cobra a 1,25 veces la entrada (informe 02 [F2], citado en src/providers/anthropic.js).
-      // Otros modelos se declaran en LLM_PRICES_JSON: {"modelo":{"input":x,"output":y,"cached":z}}. Sin precio
-      // conocido el costo queda en 0 y no se inventa uno.
-      llmPerMTok: json(env, 'LLM_PRICES_JSON', { 'claude-haiku-5-5': { input: 0.10, output: 0.50, cached: 0.01 } }),
-      cacheWriteFactor: decimal(env, 'LLM_CACHE_WRITE_FACTOR', 1.25, { min: 0 })
     },
 
     // ---- Módulos que escriben otros agentes (src/contracts.md)

@@ -6,7 +6,7 @@ import { rmSync } from 'node:fs'
 import path from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
-import { all, get, openInitialized, run } from '../db/index.js'
+import { all, get, latestVersion, openInitialized, run } from '../db/index.js'
 import { bootstrapFirstEditor } from '../db/seed.js'
 import { routePolicies } from '../identity/index.js'
 import { addMember, TEST_PASSWORD, login, makeEnv, postInput, tempDir, until } from '../testing/helpers.js'
@@ -235,13 +235,12 @@ test('bitácora: quién creó, publicó, cerró, reabrió o editó áreas y plan
   await env.close()
 })
 
-test('GET /jobs/:id/trace (editor) responde aunque la telemetría no esté instalada', async () => {
+test('GET /jobs/:id/trace es del editor y responde 404 si el trabajo no dejó spans', async () => {
   const env = await team()
   assert.equal((await env.api('GET', '/jobs/1/trace', env.c.ana)).statusCode, 403)
   const r = await env.api('GET', '/jobs/1/trace', env.c.ed)
-  assert.equal(r.statusCode, 200)
-  assert.equal(r.json().job_id, '1')
-  assert.ok(Array.isArray(r.json().spans))
+  assert.equal(r.statusCode, 404)
+  assert.equal(r.json().code, 'not_found')
   await env.close()
 })
 
@@ -254,7 +253,7 @@ test('/health: lo básico es público; el detalle de base, cola y proveedores es
   const editor = (await env.api('GET', '/health', env.c.ed)).json()
   assert.equal(editor.db.status, 'ok')
   assert.equal(editor.db.journal_mode, 'wal')
-  assert.equal(editor.db.schema_version, 1)
+  assert.equal(editor.db.schema_version, latestVersion())
   assert.equal(typeof editor.queue, 'object')
   assert.equal(editor.worker, 'inline')
   assert.deepEqual(editor.providers[0], { slot: 'text', provider: 'anthropic', model: 'm', available: false, reason: 'Falta ANTHROPIC_API_KEY' })
@@ -264,7 +263,7 @@ test('/health: lo básico es público; el detalle de base, cola y proveedores es
   const down = await env.app.inject({ url: '/health' })
   assert.equal(down.statusCode, 503)
   assert.equal(down.json().code, 'unavailable')
-  run(env.db, 'PRAGMA user_version = 1')
+  run(env.db, `PRAGMA user_version = ${latestVersion()}`)
   await env.close()
 })
 

@@ -8,6 +8,7 @@ import { planChunks, billableSeconds, mergeSegments } from './lib/chunks.js';
 import { mapLimit } from './lib/pool.js';
 import { createProgress } from './lib/progress.js';
 import { formatTimestamp } from './lib/time.js';
+import { annotate, withSpan } from '../telemetry/api.js';
 
 /** Pasos de progreso de una transcripción: uno por trozo. */
 export function planAudio(durationSeconds, cfg) {
@@ -30,16 +31,24 @@ export async function transcribeFile(sourcePath, { durationSeconds, plan }, ctx,
 
   const perChunk = await mapLimit(plan, cfg.chunkConcurrency, async (chunk) => {
     const file = join(dir, `chunk-${String(chunk.index).padStart(4, '0')}.flac`);
-    await run(
-      'ffmpeg',
-      [
-        '-nostdin', '-v', 'error', '-y',
-        '-ss', String(chunk.start), '-t', String(chunk.length), '-i', sourcePath,
-        '-map', '0:a:0', '-vn', '-ar', String(cfg.sampleRate), '-ac', '1', '-c:a', 'flac', file,
-      ],
-      { signal },
+    const { size } = await withSpan(
+      'extract.ffmpeg',
+      { 'team.step': 'extract.ffmpeg', 'team.tool': 'ffmpeg', 'team.chunk': chunk.index, 'team.chunk_seconds': chunk.length },
+      async () => {
+        await run(
+          'ffmpeg',
+          [
+            '-nostdin', '-v', 'error', '-y',
+            '-ss', String(chunk.start), '-t', String(chunk.length), '-i', sourcePath,
+            '-map', '0:a:0', '-vn', '-ar', String(cfg.sampleRate), '-ac', '1', '-c:a', 'flac', file,
+          ],
+          { signal },
+        );
+        const info = await stat(file);
+        annotate({ 'team.output_bytes': info.size });
+        return info;
+      },
     );
-    const { size } = await stat(file);
     if (size > cfg.maxChunkBytes) {
       throw new ExtractError('audio_chunk_too_large', 'Un trozo de audio supera el tope del proveedor de transcripción.', {
         size,
@@ -48,7 +57,11 @@ export async function transcribeFile(sourcePath, { durationSeconds, plan }, ctx,
     }
     const request = { audioPath: file, language: cfg.language };
     if (cfg.vocabulary) request.prompt = cfg.vocabulary;
-    const result = await providers.speech.transcribe(request);
+    const result = await withSpan('extract.transcription', { 'team.step': 'extract.transcription', 'team.chunk': chunk.index, 'team.input_bytes': size }, async () => {
+      const out = await providers.speech.transcribe(request);
+      annotate({ 'team.output_chars': out?.text?.length, 'team.segments': out?.segments?.length });
+      return out;
+    });
     progress.advance(`transcribiendo el audio, trozo ${chunk.index + 1} de ${plan.length}`);
     return normalizeSegments(result, chunk);
   });

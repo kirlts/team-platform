@@ -102,7 +102,7 @@ test('agotados los intentos el input falla con el último motivo', async () => {
   await env.close()
 })
 
-test('los errores de configuración del proveedor y del analizador no se reintentan; las llamadas hechas quedan en llm_calls', async () => {
+test('los errores de configuración del proveedor y del analizador no se reintentan', async () => {
   const env = await envVars({
     worker: true,
     modules: {
@@ -115,7 +115,6 @@ test('los errores de configuración del proveedor y del analizador no se reinten
   await until(() => env.statusOf(id) === 'failed')
   assert.equal(get(env.db, 'SELECT attempts FROM jobs WHERE id = ?', jobId).attempts, 1)
   assert.equal(env.input(id).error_code, 'config')
-  assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM llm_calls WHERE job_id = ?', jobId).n, 1) // cuesta aunque el trabajo falle
   await env.close()
 })
 
@@ -133,7 +132,6 @@ test('resultados de dominio del analizador que no son ok (refusal, max_tokens, i
     assert.match(env.input(id).error, reasonText)
     assert.equal(env.input(id).error_code, errorCodeValue)
     assert.equal(get(env.db, 'SELECT attempts FROM jobs WHERE id = ?', jobId).attempts, 1)
-    assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM llm_calls').n, 1)
     await env.close()
   }
 })
@@ -162,29 +160,6 @@ test('una propuesta con forma inválida falla con motivo propio', async () => {
   const { input_id: id } = await env.submit('x')
   await until(() => env.statusOf(id) === 'failed')
   assert.equal(env.input(id).error_code, 'proposal_invalid')
-  await env.close()
-})
-
-test('las llamadas de los extractores (meta.calls) quedan en llm_calls con su costo; el audio se cobra por tiempo', async () => {
-  const env = await envVars({
-    worker: true,
-    modules: {
-      extract: async () => ({
-        text: 'transcripción',
-        meta: { calls: [{ modality: 'vision', usage: { input_tokens: 2000, output_tokens: 100 } }, { modality: 'speech', audioSeconds: 1800, requests: 3 }] }
-      }),
-      getProviders: () => ({ describe: () => [{ slot: 'vision', provider: 'anthropic', model: 'claude-haiku-5-5' }, { slot: 'speech', provider: 'groq-speech', model: 'whisper-large-v3-turbo' }] })
-    }
-  })
-  const { input_id: id } = await env.submit('x', [textFile()])
-  await until(() => env.statusOf(id) === 'proposed')
-  const callRows = all(env.db, "SELECT * FROM llm_calls WHERE provider <> 'doble' ORDER BY id")
-  assert.equal(callRows.length, 2)
-  assert.equal(callRows[0].modality, 'vision')
-  assert.ok(Math.abs(callRows[0].cost_usd - (2000 * 0.10 + 100 * 0.50) / 1e6) < 1e-12)
-  assert.equal(callRows[1].modality, 'speech')
-  assert.equal(callRows[1].provider, 'groq-speech')
-  assert.ok(Math.abs(callRows[1].cost_usd - 0.02) < 1e-12) // 0,5 h a 0,04 USD por hora
   await env.close()
 })
 

@@ -12,7 +12,8 @@ import { parseJson } from './db/util.js'
 import { createEvents } from './events/index.js'
 import { createQueue } from './queue/index.js'
 import { createLogger } from './log.js'
-import { initTelemetry, withSpan } from './domain/tracing.js'
+import { context, ROOT_CONTEXT } from '@opentelemetry/api'
+import { errorType, initTelemetry, withSpan } from './domain/tracing.js'
 import { createPipeline } from './domain/pipeline.js'
 import { loadModules } from './domain/modules.js'
 import { sweepOrphans } from './domain/storage.js'
@@ -71,7 +72,8 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
 
     const inputId = parseJson(job.payload_json, {}).input_id ?? null
     // Cada trabajo de la cola es un span (UD-014): los extractores y proveedores cuelgan de él.
-    const running = withSpan('job', { 'team.job_id': String(job.id), 'team.input_id': inputId === null ? '' : String(inputId), kind: job.kind }, async () => {
+    // Cada intento es la raíz de su propio árbol: sin ROOT_CONTEXT el span heredaría el del trabajo que lo despertó.
+    const running = context.with(ROOT_CONTEXT, () => withSpan('job', { 'team.job_id': String(job.id), 'team.input_id': inputId === null ? '' : String(inputId), 'team.step': 'job', 'team.job_kind': job.kind, 'team.attempt': job.attempts }, async (span) => {
       const handlerObj = handlers[job.kind]
       try {
         if (!handlerObj) {
@@ -85,26 +87,28 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
           if (!queue.complete(job)) throw Object.assign(new Error('Se perdió el arriendo antes de terminar.'), { lost: true })
           finalize?.()
         })
+        span.setAttribute('team.outcome', 'done')
         jobLog.info('trabajo terminado')
       } catch (error) {
-        await handleError(job, handlerObj, controller, error, jobLog)
+        await handleError(job, handlerObj, controller, error, jobLog, span)
       } finally {
         clearInterval(heartbeatTimer)
         clearTimeout(cap)
         runningJobs.delete(job.id)
         kick()
       }
-    })
+    }))
     runningJobs.set(job.id, { controller, running })
   }
 
-  async function handleError (job, handlerObj, controller, error, jobLog) {
+  async function handleError (job, handlerObj, controller, error, jobLog, span) {
     const abortReason = controller.signal.aborted ? controller.signal.reason : null
-    if (error?.lost || abortReason === 'lost') { jobLog.warn('trabajo cancelado o arriendo perdido; no se aplica nada'); return } // el estado ya no es nuestro
-    if (abortReason === 'shutdown') { queue.release(job); jobLog.info('apagado: el trabajo vuelve a la cola y el intento se reembolsa'); return }
+    if (error?.lost || abortReason === 'lost') { span.setAttribute('team.outcome', 'lost'); jobLog.warn('trabajo cancelado o arriendo perdido; no se aplica nada'); return } // el estado ya no es nuestro
+    if (abortReason === 'shutdown') { queue.release(job); span.setAttribute('team.outcome', 'released'); jobLog.info('apagado: el trabajo vuelve a la cola y el intento se reembolsa'); return }
     if (error?.deferMs !== undefined) {
       // Sin cupo (presupuesto de audio): vuelve a la cola para más tarde y el intento no se gasta.
       if (queue.defer(job, error.deferMs)) {
+        span.setAttribute('team.outcome', 'deferred')
         try { handlerObj?.onDeferred?.(job, error) } catch (e) { jobLog.error({ err: e }, 'error al registrar el aplazamiento') }
         jobLog.info({ delay_ms: error.deferMs }, `trabajo aplazado: ${error.phrase}`)
       }
@@ -112,6 +116,8 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     }
     const failureCause = abortReason === 'timeout' ? new Error(`El trabajo superó el tiempo máximo de ${Math.round(w.maxRuntimeMs / 1000)} s.`) : error
     const result = queue.fail(job, failureCause)
+    span.setAttribute('team.outcome', result.state === 'lost' ? 'lost' : result.state)
+    span.setAttribute('error.type', errorType(failureCause))
     if (result.state === 'lost') return
     try { handlerObj?.onFailure?.(job, failureCause, result) } catch (e) { jobLog.error({ err: e }, 'error al registrar el fallo') }
     jobLog.warn({ outcome: result.state, delay_ms: result.delayMs, error_code: failureCause.code ?? null }, `trabajo fallido: ${failureCause.message}`)
@@ -128,7 +134,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     try {
       const r = queue.sweepRetention()
       const orphans = onSweep ? await onSweep() : 0
-      if (r.jobList || r.eventList || r.sessionCount || orphans) logger.info({ ...r, orphans }, 'retención')
+      if (r.jobs || r.events || r.sessions || r.spans || orphans) logger.info({ ...r, orphans }, 'retención')
     } catch (error) { logger.error({ err: error }, 'error en la retención') }
   }
 
@@ -194,13 +200,14 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
     process.exit(1)
   }
   const events = createEvents({ db })
-  await initTelemetry({ db })
+  const telemetry = initTelemetry({ db, serviceVersion: config.version })
   const { worker } = await buildWorker({ db, config, events, logger, pollDataVersionMs: config.worker.dataVersionPollMs })
   worker.start()
   logger.info({ worker_id: worker.workerId, concurrency: config.worker.concurrency }, 'worker en marcha')
   const shutDown = async (signalName) => {
     logger.info(`${signalName}: devolviendo los trabajos en curso a la cola`)
     await worker.stop()
+    await telemetry.shutdown()
     db.close()
     process.exit(0)
   }

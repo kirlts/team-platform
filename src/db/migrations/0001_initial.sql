@@ -16,6 +16,7 @@
 --   sessions.created_at/last_seen_at
 --                           vencimiento por inactividad (informe 04 §2.2).
 --   audit_log               bitácora consultable por el editor (GET /audit).
+--   (llm_calls ya no es tabla: es una vista sobre `spans`, ver 0002_telemetry.sql, UD-014)
 --   settings, identity_links, sso_nonces
 --                           proveedores configurables (§7.6), mapeo de identidad externa y nonce de uso
 --                           único del modo sso-redirect (§7.7).
@@ -147,28 +148,10 @@ CREATE TABLE job_events (
 CREATE INDEX job_events_job ON job_events (job_id, seq);
 CREATE INDEX job_events_at ON job_events (at);
 
-CREATE TABLE llm_calls (
-  id            INTEGER PRIMARY KEY AUTOINCREMENT,
-  job_id        INTEGER REFERENCES jobs (id) ON DELETE SET NULL, -- el costo sobrevive a la retención del trabajo
-  provider      TEXT    NOT NULL,
-  model         TEXT    NOT NULL,
-  modality      TEXT    NOT NULL CHECK (modality IN ('text', 'vision', 'speech')),
-  input_tokens  INTEGER NOT NULL DEFAULT 0,
-  output_tokens INTEGER NOT NULL DEFAULT 0,
-  cached_tokens INTEGER NOT NULL DEFAULT 0,
-  cost_usd      REAL    NOT NULL DEFAULT 0,
-  duration_ms   INTEGER NOT NULL DEFAULT 0,
-  at            INTEGER NOT NULL
-);
-CREATE INDEX llm_calls_job ON llm_calls (job_id);
-
 CREATE TABLE proposals (
   input_id      INTEGER PRIMARY KEY REFERENCES inputs (id) ON DELETE CASCADE, -- una propuesta por input
-  area_id       INTEGER REFERENCES areas (id) ON DELETE SET NULL,
-  template_id   INTEGER REFERENCES templates (id) ON DELETE SET NULL,
-  payload_json  TEXT    NOT NULL,
+  payload_json  TEXT    NOT NULL, -- { messages: [{ area_id, template_id, … }], discarded }: el área y la plantilla son de cada mensaje
   units_json    TEXT, -- las unidades numeradas del input ({ id, text }): lo que cada mensaje cubre y lo descartado
-  model_call_id INTEGER REFERENCES llm_calls (id) ON DELETE SET NULL,
   created_at    INTEGER NOT NULL
 );
 

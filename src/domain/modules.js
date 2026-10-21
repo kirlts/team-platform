@@ -4,8 +4,6 @@
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { run } from '../db/index.js'
-import { llmCostUsd } from './costs.js'
 import { getProviderOverrides, providerEnv } from './settings.js'
 
 const srcDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -67,21 +65,16 @@ export async function loadModules (config, { db = null, env = process.env, log =
 
 /**
  * Calentamiento por evento al guardar una plantilla (MS §7.5): el analizador compila el esquema y calienta la
- * caché del prompt. No es una espera por reloj. Un fallo se registra y no afecta al guardado.
+ * caché del prompt. No es una espera por reloj. La llamada queda en `spans` como cualquier otra (UD-014). Un fallo
+ * se registra y no afecta al guardado.
  */
-export function installTemplateWarmup ({ domainEvents, modules, db, config, log = () => {} }) {
+export function installTemplateWarmup ({ domainEvents, modules, log = () => {} }) {
   domainEvents.on('template.saved', async (tpl) => {
     if (!modules.warmTemplate) return
     try {
       const providers = modules.getProviders()
       if (!providers?.text || providers.text.unavailable) return // sin proveedor de texto no hay nada que calentar
-      const callInfo = await modules.warmTemplate({ providers, config: modules.resolveAnalyzeConfig?.(), templateMarkdown: tpl.body_markdown })
-      if (callInfo?.provider) {
-        run(db, `INSERT INTO llm_calls (job_id, provider, model, modality, input_tokens, output_tokens, cached_tokens, cost_usd, duration_ms, at)
-                 VALUES (NULL, ?, ?, 'text', ?, ?, ?, ?, ?, ?)`,
-        callInfo.provider, callInfo.model ?? 'desconocido', callInfo.usage?.input_tokens ?? 0, callInfo.usage?.output_tokens ?? 0, callInfo.usage?.cached_tokens ?? 0,
-        llmCostUsd(config, callInfo.model, callInfo.usage), callInfo.duration_ms ?? 0, Date.now())
-      }
+      await modules.warmTemplate({ providers, config: modules.resolveAnalyzeConfig?.(), templateMarkdown: tpl.body_markdown })
     } catch (error) {
       log(`No se pudo calentar la plantilla «${tpl.name}»: ${error.message}`)
     }

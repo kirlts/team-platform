@@ -213,3 +213,28 @@ test('the batch limit derives from the longest possible event, and a full batch 
     assert.equal((await env.api('POST', '/telemetry/ui', env.c.ana, body)).statusCode, 204)
   } finally { await env.close() }
 })
+
+test('the report script prints the summary as tables, from the database and from the server', async () => {
+  const { execFileSync } = await import('node:child_process')
+  const { renderReport } = await import('../telemetry/ui-report.js')
+  const env = await team({ telemetry: true })
+  try {
+    await send(env, env.c.ana, Object.values(EVENTS))
+    await env.telemetry.flush()
+    const summary = (await env.api('GET', '/telemetry/ui-summary', env.c.ed)).json()
+    const text = renderReport(summary)
+    for (const part of ['Tareas', 'Etapas del envío', 'Pantallas', 'Errores', 'Ventanas', 'Peores recorridos', 'Enviar y publicar']) assert.ok(text.includes(part), part)
+    assert.ok(/Inicio\s+1\s/.test(text), text)
+    // The script reads the file without the server.
+    env.db.exec('PRAGMA wal_checkpoint(TRUNCATE)')
+    const out = execFileSync(process.execPath, ['scripts/ui-report.mjs', '--db', env.config.dbFile, '--json'], { cwd: new URL('../..', import.meta.url).pathname }).toString()
+    assert.equal(JSON.parse(out).tasks.send_publish.completed, 1)
+  } finally { await env.close() }
+})
+
+test('the panel and the server share one list of screens', async () => {
+  const { readFileSync } = await import('node:fs')
+  const source = readFileSync(new URL('../../panel/src/lib/telemetry.ts', import.meta.url), 'utf8')
+  const list = /export const SCREENS = \[([^\]]*)\]/.exec(source)[1].split(',').map((x) => x.trim().replace(/'/g, '')).filter(Boolean)
+  assert.deepEqual(list, [...SCREENS])
+})

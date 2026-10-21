@@ -5,6 +5,7 @@
 //   node bench/run.mjs --fake perfect                   proveedores falsos con la referencia, sin red
 //   node bench/run.mjs                                  proveedores reales, configurados por entorno (src/providers)
 //   node bench/run.mjs --repeat 5 --case 03-monologo-prueba --analyzer harness
+//   node bench/run.mjs --config '{"decomposeEffort":"low","decomposeThinking":"disabled"}'   perillas del analizador (src/analyze/config.js)
 import { parseArgs } from 'node:util';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -21,6 +22,7 @@ const { values } = parseArgs({
     fake: { type: 'string' },
     'latency-ms': { type: 'string', default: '0' },
     analyzer: { type: 'string' },
+    config: { type: 'string' },
     repeat: { type: 'string', default: '1' },
     case: { type: 'string', multiple: true },
     out: { type: 'string' },
@@ -53,7 +55,7 @@ for (const testCase of cases) {
       providers: providersFor(testCase),
       testCase,
       fixtures,
-      options: values.analyzer ? { analyzer: values.analyzer } : {},
+      options: { ...(values.analyzer ? { analyzer: values.analyzer } : {}), ...(values.config ? { config: JSON.parse(values.config) } : {}) },
     }));
   }
   all.push({ summary: summarize(runs), runs });

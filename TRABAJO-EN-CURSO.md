@@ -13,18 +13,18 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 8650d0c Merge branch 'wt-inicio-respira'. Empujado a origin: `8650d0c`.
-- Ramas con commits sin fusionar: `wt-banco-abiertos` 6 (hace 27 minutos), `wt-h904` 3 (hace 7 minutos).
+- `main`: 6664a58 Traspaso: Inicio fusionado, Fase 1 completa. Empujado a origin: `6664a58`.
+- Ramas con commits sin fusionar: `wt-banco-abiertos` 6 (hace 28 minutos), `wt-h904` 3 (hace 7 minutos).
 - Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `banco-abiertos`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `h904`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`, `voz2`.
 - Últimos commits en `main`:
-- `8650d0c` Merge branch 'wt-inicio-respira' (hace 10 minutos)
+- `6664a58` Traspaso: Inicio fusionado, Fase 1 completa (hace 15 segundos)
+- `8650d0c` Merge branch 'wt-inicio-respira' (hace 11 minutos)
 - `5fb0eaf` Fusiona main (Configuración, UD-140) en wt-inicio-respira (hace 20 minutos)
-- `a4d075d` Traspaso: Configuración fusionada (hace 20 minutos)
+- `a4d075d` Traspaso: Configuración fusionada (hace 21 minutos)
 - `d56b3cf` Merge branch 'wt-configuracion' (hace 29 minutos)
 - `ea89282` UD-140: el presupuesto de API sube a 100 USD en total (hace 33 minutos)
-- `f909ec7` Fusiona main (barra lateral y deuda técnica) en wt-inicio-respira (hace 35 minutos)
+- `f909ec7` Fusiona main (barra lateral y deuda técnica) en wt-inicio-respira (hace 36 minutos)
 - `00ef3a6` Guardia de voz: los hint de Configuración quedan fuera del patrón de largo en palabras (hace 36 minutos)
-- `45f1fb5` Fusiona main en wt-configuracion (hace 38 minutos)
 Actualizado 2026-10-21 19:19 UTC.
 <!-- vivo:fin -->
 

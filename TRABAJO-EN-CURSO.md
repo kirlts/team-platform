@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 0718496 Merge branch 'main' into wt-remanentes. Empujado a origin: `0718496`.
+- `main`: 9b01530 Traspaso: miniaturas y remanentes fusionados, ronda 5 en curso. Empujado a origin: `9b01530`.
 - Ramas con commits sin fusionar: ninguna.
 - Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `0718496` Merge branch 'main' into wt-remanentes (hace 14 minutos)
-- `ffda0ff` Changelog for the remaining findings (H-2000, H-2302, H-2605) (hace 14 minutos)
-- `c4b1f4b` Merge branch 'wt-miniaturas' (hace 17 minutos)
-- `785af07` Fusión de main en wt-miniaturas (hace 24 minutos)
-- `febe443` Merge branch 'main' into wt-remanentes (hace 28 minutos)
+- `9b01530` Traspaso: miniaturas y remanentes fusionados, ronda 5 en curso (hace 43 segundos)
+- `0718496` Merge branch 'main' into wt-remanentes (hace 15 minutos)
+- `ffda0ff` Changelog for the remaining findings (H-2000, H-2302, H-2605) (hace 15 minutos)
+- `c4b1f4b` Merge branch 'wt-miniaturas' (hace 18 minutos)
+- `785af07` Fusión de main en wt-miniaturas (hace 25 minutos)
+- `febe443` Merge branch 'main' into wt-remanentes (hace 29 minutos)
 - `f3c1357` Fix the ui-detectors findings of Equipo, Configuración and the message page (H-2302, UD-191) (hace 29 minutos)
-- `aaa0265` Hide the sign-out row when the identity provider has no sign-out route (H-2605, UD-190) (hace 33 minutos)
-- `564d055` Add involved=me to GET /api/messages and use it in the bar links (H-2000) (hace 35 minutos)
-Actualizado 2026-10-21 21:44 UTC.
+- `aaa0265` Hide the sign-out row when the identity provider has no sign-out route (H-2605, UD-190) (hace 34 minutos)
+Actualizado 2026-10-21 21:45 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

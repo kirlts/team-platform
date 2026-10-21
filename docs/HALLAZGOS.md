@@ -38,7 +38,7 @@ Estados: `main` (resuelto y fusionado), `en curso` (asignado a un agente vivo), 
 | H-23 | `resourceLimits` del hilo trabajador no cubre la memoria WASM de PDFium | agente extractores | listo en la rama `wt-menores`, pasa a `main` al fusionar (`document.wasmMemoryMb` en 700, `lib/pdfium-capped.js`; tres pruebas en `document.test.js`; medición `2026-10-20-memoria-wasm-pdfium.md`) |
 | H-24 | Tope de documentos 25 MiB al subir contra 24 MiB al extraer (DT-005) | documentación | en curso (agente API, HP-018) |
 | H-25 | Documento de más de 24 MiB y video de más de 20 minutos se rechazan después de encolar | batería | en curso (agente API, HP-018) |
-| H-26 | Imagen SVG rechazada con 415; el guion de capturas pega un SVG | agente núcleo | abierto: el guion de capturas pasa a PNG |
+| H-26 | Imagen SVG rechazada con 415; el guion de capturas pega un SVG | agente núcleo | listo en la rama `wt-menores`, pasa a `main` al fusionar (`panel/scripts/capturas.mjs` pega un PNG generado con sharp; el guion corrió completo y la captura 03 muestra la miniatura pegada; la API sigue rechazando SVG, `src/api/api.test.js`) |
 | H-27 | Opus 32 kbps contra FLAC en español sin medir | informe 06 | en curso (agente ffmpeg, parte 3) |
 | H-28 | Video de 20 minutos pesa hasta 190 MB; el tope de 24 MB es para documentos | banco privado | `main`: el video tiene tope propio de 2 GB y 20 minutos |
 

@@ -158,6 +158,14 @@ describe('voice', () => {
     assert.deepEqual([...new Set(ids)], ['imperative', 'opening', 'person'])
     assert.ok(!r.findings.some((f) => /Mensajes|Existe/.test(f.detail)))
   })
+  test('a setting hint measures its length in characters, 90 at most (UD-122)', async () => {
+    const loaded = await loadVoicePatterns(undefined, 'es')
+    const ok = 'Contexto en markdown que recibe el análisis con cada mensaje y que todo el equipo lee ya'.padEnd(90, 'x')
+    const hints = (text, attr) => detect('voice', `<p ${attr}>${text}</p>`, { patterns: loaded.patterns, maxHintChars: loaded.maxHintChars })
+    assert.deepEqual((await hints(ok, 'data-setting-hint')).findings, [])
+    assert.deepEqual((await hints(`${ok}x`, 'data-setting-hint')).findings.map((f) => f.measure.pattern), ['length'])
+    assert.deepEqual((await hints(ok, '')).findings.map((f) => f.measure.pattern), ['length'])
+  })
   test('the English patterns are chosen with the language', async () => {
     const loaded = await loadVoicePatterns(undefined, 'en')
     const r = await detect('voice', '<p>Please enter an email</p><p>Messages</p>', { patterns: loaded.patterns })

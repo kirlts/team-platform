@@ -32,6 +32,104 @@ function discardedIds(discarded) {
 }
 
 /**
+ * Assignment scoring (H-77). An expected message may carry `assignee_ids`. It is paired with the obtained message that
+ * holds all of its units (the tightest one when several do); an expected point that no message covers has no pair, so
+ * assignment is judged only where decomposition succeeded. Per pair the two sets are compared as sets (order and
+ * repeated ids do not matter); an empty set on both sides is an exact match.
+ *
+ * Returns `null` rates when there is nothing to divide by, and the raw counts so that several cases can be summed
+ * before dividing (`mergeAssignment`).
+ * @param {Array<{ assignee_ids?: number[], units: Set<UnitId> }>} G expected messages
+ * @param {Array<{ assignee_ids?: number[], units: Set<UnitId> }>} P obtained messages
+ */
+function scoreAssignment(G, P) {
+  const members = new Map();
+  const member = (id) => {
+    if (!members.has(id)) members.set(id, { tp: 0, fp: 0, fn: 0, tn: 0, expected: 0, exact_when_expected: 0 });
+    return members.get(id);
+  };
+  let pairs = 0;
+  let exact = 0;
+  let tp = 0;
+  let fp = 0;
+  let fn = 0;
+  const pairList = [];
+  for (const g of G) {
+    if (!Array.isArray(g.assignee_ids) || g.units.size === 0) continue;
+    const complete = P.filter((p) => isSubset(g.units, p.units));
+    if (complete.length === 0) continue;
+    const match = complete.reduce((best, p) => (p.units.size < best.units.size ? p : best));
+    const want = new Set(g.assignee_ids);
+    const got = new Set(match.assignee_ids ?? []);
+    const same = want.size === got.size && [...want].every((id) => got.has(id));
+    pairs += 1;
+    if (same) exact += 1;
+    for (const id of new Set([...want, ...got])) {
+      const m = member(id);
+      if (want.has(id) && got.has(id)) m.tp += 1;
+      else if (got.has(id)) m.fp += 1;
+      else m.fn += 1;
+      tp += want.has(id) && got.has(id) ? 1 : 0;
+      fp += !want.has(id) && got.has(id) ? 1 : 0;
+      fn += want.has(id) && !got.has(id) ? 1 : 0;
+    }
+    for (const id of want) {
+      member(id).expected += 1;
+      if (same) member(id).exact_when_expected += 1;
+    }
+    pairList.push({ expected_id: g.id, actual_index: match.index, exact: same });
+  }
+  // Every member that shows up anywhere counts a true negative in each pair that neither expected nor chose it.
+  for (const m of members.values()) m.tn = pairs - m.tp - m.fp - m.fn;
+  return finishAssignment({ pairs, exact, tp, fp, fn, per_member: Object.fromEntries([...members].map(([id, m]) => [String(id), m])), pair_list: pairList });
+}
+
+/** Adds the derived rates to raw assignment counts. */
+function finishAssignment({ pairs, exact, tp, fp, fn, per_member, pair_list }) {
+  const perMember = {};
+  for (const [id, m] of Object.entries(per_member)) {
+    perMember[id] = {
+      ...m,
+      precision: m.tp + m.fp === 0 ? null : m.tp / (m.tp + m.fp),
+      recall: m.tp + m.fn === 0 ? null : m.tp / (m.tp + m.fn),
+      accuracy: pairs === 0 ? null : (m.tp + m.tn) / pairs,
+      exact_when_expected_rate: m.expected === 0 ? null : m.exact_when_expected / m.expected,
+    };
+  }
+  return {
+    pairs,
+    exact,
+    tp,
+    fp,
+    fn,
+    accuracy: pairs === 0 ? null : exact / pairs,
+    precision: tp + fp === 0 ? null : tp / (tp + fp),
+    recall: tp + fn === 0 ? null : tp / (tp + fn),
+    per_member: perMember,
+    ...(pair_list ? { pair_list } : {}),
+  };
+}
+
+/**
+ * Sums the assignment counts of several cases and recomputes the rates (micro average over pairs).
+ * @param {Array<ReturnType<typeof scoreAssignment>>} list
+ */
+export function mergeAssignment(list) {
+  const total = { pairs: 0, exact: 0, tp: 0, fp: 0, fn: 0, per_member: {} };
+  for (const a of list) {
+    if (!a) continue;
+    for (const k of ['pairs', 'exact', 'tp', 'fp', 'fn']) total[k] += a[k];
+    for (const [id, m] of Object.entries(a.per_member)) {
+      const t = (total.per_member[id] ??= { tp: 0, fp: 0, fn: 0, tn: 0, expected: 0, exact_when_expected: 0 });
+      for (const k of Object.keys(t)) t[k] += m[k];
+    }
+  }
+  // A member absent from a case's pairs is a true negative in all of them, so tn is recomputed from the merged counts.
+  for (const m of Object.values(total.per_member)) m.tn = total.pairs - m.tp - m.fp - m.fn;
+  return finishAssignment(total);
+}
+
+/**
  * Calcula las medidas del informe 02 §5.2, los solapes y huecos por unidad (§3.3) y la exactitud
  * de área y plantilla por unidad. Las unidades que el analizador cita y no existen en el input se
  * ignoran y se informan.
@@ -156,6 +254,7 @@ export function score({ units, expected, actual }) {
     counts,
     rates,
     mece,
+    assignment: scoreAssignment(G, P),
     details: {
       points: perPoint,
       extra_messages: extraMessages,

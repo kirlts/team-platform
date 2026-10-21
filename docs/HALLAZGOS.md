@@ -611,3 +611,14 @@ Debe decir `OK Último envío: estado proposed, adjuntos: audio` con al menos un
 |---|---|---|---|
 | H-2100 | `FitList` entraba en un ciclo de medida cuando el espacio de la lista lo sostenía su piso de una fila (ventana baja con la franja de Inicio): 40 peticiones por segundo al archivo de cada miniatura de video, medidas con un contador de peticiones y trazas de `ResizeObserver` | UD-110 | `wt-inicio-respira`: el observador compara con el mayor entre la medida y el piso; `test:fit` «1280x720 las listas no piden de nuevo» |
 | H-2101 | Con un envío abierto las dos listas de Inicio tomaban el alto de su contenido (9.501 px a 1440x900 ×8) | UD-110 | `wt-inicio-respira`: las listas tienen alto propio mientras la página se desplaza; `test:fit` «inicio con propuesta» |
+
+## Desplegable de envío, ronda 4 (2026-10-21)
+
+| # | Hallazgo | Origen | Estado |
+|---|---|---|---|
+| H-3100 | Teléfono: las opciones de envío con las mismas palabras no se distinguían y la segunda quedaba cortada en el borde | juez `flow-send`, ronda 4 | `wt-envio`: cada opción lleva «Envío N» y dos opciones llenan la fila exacta del teléfono; `flows-inicio` «two sends with the same words» |
+| H-3101 | «Publicado» iba en texto plano junto al chip de la marca de ejemplo, y «Simulado» no decía qué era | juez `flow-send`, ronda 4; H-906 | `wt-envio`: «Publicado» es un chip y la marca pasa a «Servidor de ejemplo» con borde discontinuo (UD-180); `flows-inicio` «Publicado is a chip» |
+| H-3102 | La fila de destinatarios tenía dos controles de agregar: «+ Destinatario» y un círculo punteado sin rótulo, que en realidad subía archivos | juez `flow-send`, ronda 4 | `wt-envio`: el círculo desaparece; «+ Adjunto» sube los archivos directo si no hay adjuntos y, si los hay, abre el selector con «Subir archivos»; `flows-inicio` «one control to add a recipient» |
+| H-3103 | Escritorio: el panel Original se estiraba hasta la altura del análisis y dejaba unos 400 px vacíos bajo el texto | juez `flow-send`, ronda 4 | `wt-envio`: el marco del original mide lo que contiene y empieza arriba; `flows-inicio` «the original does not stretch» |
+| H-3104 | Con movimiento reducido la barra de progreso sin cifra se dibujaba como una pista vacía (la regla global no alcanza al `::after`), y la línea bajo «Envíos» era esa misma barra | juez `flow-send`, ronda 4 | `wt-envio`: sin movimiento la barra lleva un rayado fijo a todo su largo; `flows-inicio` «with reduced motion the bar» |
+| H-3105 | Las capturas 2, 3 y 4 de `flow-send` en escritorio eran idénticas | juez `flow-send`, ronda 4 | `wt-envio`: `scripts/juicios.mjs` sostiene la subida (`route`) y el análisis (`control.hold`, `step`, `release`) y captura «enviando», «analizando» y «publicado», cada una con su estado, sin esperas por tiempo |

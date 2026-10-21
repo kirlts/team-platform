@@ -848,3 +848,13 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 - Plegar las listas con un envío abierto: la enmienda de UD-017 las deja visibles y la página se desplaza.
 **Consecuencias:** `test:fit` mide también 1920x1080 y 2560x1440 y sigue fallando si algo se corta, se solapa o una caja desplaza por su cuenta; mide además que el contenido de Inicio use el ancho. `FitList` no vuelve a medir cuando el espacio lo sostiene su piso de una fila (H-2100).
 **Condiciones de reversión:** Si el espacio en blanco esconde las listas en pantallas bajas, vuelve el relleno de 16 px a todas las alturas.
+
+## [UD-180] La marca del servidor de ejemplo dice «Servidor de ejemplo» y lleva borde discontinuo
+
+**Fecha:** 2026-10-21
+**Contexto:** H-906 pidió que el análisis del servidor de ejemplo se marcara para que nadie lo juzgara como real. El juez de la ronda 4 leyó «Simulado» sin saber de qué.
+**Decisión:** Decisión de la sesión, tomada por ese encargo; Martín no la dijo con estas palabras y puede revertirla. La marca sigue en la cabecera del análisis, sólo cuando la propuesta trae `simulated`, y se llama «Servidor de ejemplo» con borde discontinuo; el texto emergente dice «Propuesta inventada por el servidor de ejemplo». El estado «Publicado» pasa a chip y va antes de la marca. Contra la API real no se dibuja nada.
+**Alternativas descartadas:**
+- Quitar la marca: H-906 la pide.
+- Un color de estado para la marca: los colores de estado son de los mensajes (UD-045).
+**Condiciones de reversión:** Si el nombre se lee como un dato del proyecto y no de la propuesta, vuelve «Simulado» con el texto emergente nuevo.

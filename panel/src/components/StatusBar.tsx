@@ -14,7 +14,8 @@ import type { Message, MessageStatus } from '@/lib/types'
 
 /** The three states, each one a mark of the bar (UD-100). Closed ones raise no notice (UD-041), but the owner asked for the three. */
 const STATES_SHOWN = ['open', 'answered', 'closed'] as const
-const WORD: Record<MessageStatus, MessageKey> = { open: 'state.open', answered: 'state.answered', closed: 'state.closed' }
+/** The name of each mark says its scope («para mí»): the sidebar counts the whole team's messages of an area, the bar counts the ones that concern me (UD-028, UD-100). */
+const WORD: Record<MessageStatus, MessageKey> = { open: 'bar.open', answered: 'bar.answered', closed: 'bar.closed' }
 
 const messagesPath = (filters: Filter[]) => `/messages?${serializeQuery({ filters, q: '' }).toString()}`
 /** Where a mark leads: Mensajes filtered by the state and by what concerns me (`involved=me`: the assigned ones and the ones I sent that have a reply), the rule the bar counts with. */
@@ -68,7 +69,7 @@ function StateButton({ status, n }: { status: MessageStatus; n: number }) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button type="button" data-testid="state-button" data-status={status} data-weight="quiet" data-count={n} aria-label={word} title={word} className="inline-flex h-9 min-w-9 items-center justify-center gap-1 rounded-full border px-0.5 text-sm md:min-w-11 md:px-2.5 font-bold leading-none hover:bg-glass">
+        <button type="button" data-testid="state-button" data-status={status} data-weight="quiet" data-count={n} aria-label={word} title={word} className="inline-flex h-9 min-w-8 items-center justify-center gap-1 rounded-full border px-0.5 text-sm md:min-w-11 md:px-2.5 font-bold leading-none hover:bg-glass">
           <StateIcon status={status} size={16} />
           <span className="tabular-nums">{n}</span>
         </button>

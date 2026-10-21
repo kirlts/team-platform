@@ -27,6 +27,8 @@ const DIST = fileURLToPath(new URL('./dist/', import.meta.url))
 /** Each step of the simulated analysis lasts this long. It only exists so the bar visibly advances. */
 const STEP_MS = Number(process.env.PANEL_DEV_STEP_MS ?? 700)
 const MAX_BODY = 40 * 1024 * 1024
+/** PANEL_DEV_CONTROL=1 opens /api/_control/*: a test freezes and advances the simulated analysis and resets the sample state by an explicit order (H-901). */
+const CONTROL = process.env.PANEL_DEV_CONTROL === '1'
 
 const id = () => randomUUID().slice(0, 8)
 const ago = (minutes) => new Date(Date.now() - minutes * 60_000).toISOString()
@@ -271,6 +273,22 @@ function inputView(input) {
 /** How many jobs were started, to stagger the ones that follow. */
 let running = 0
 
+/**
+ * Who advances the analysis. «auto»: a timer, as a real queue would. «held»: nobody, until a test gives the order
+ * (`/_control/step`, `/_control/release`), so «being analyzed» is a state the test holds and not a race against a clock (H-901).
+ */
+let held = false
+/** Next step of every job that waits for an order, by job id. */
+const waiting = new Map()
+
+function schedule(input, tick, delay) {
+  if (held) {
+    waiting.set(input.job_id, tick)
+    return
+  }
+  jobs.set(input.job_id, setTimeout(tick, delay))
+}
+
 function runJob(input) {
   const total = input.attachment_ids.length + 2
   const steps = [
@@ -280,6 +298,7 @@ function runJob(input) {
   ]
   let done = 0
   const tick = () => {
+    waiting.delete(input.job_id)
     if (input.status === 'cancelled') return
     if (done === total) {
       input.proposal = analyze(input)
@@ -298,12 +317,12 @@ function runJob(input) {
     input.status = step.status
     emit(input.author_id, 'progress', { job_id: input.job_id, input_id: input.id, percent: Math.round((done / total) * 100), phrase: step.phrase, at: new Date().toISOString() })
     done += 1
-    jobs.set(input.job_id, setTimeout(tick, STEP_MS))
+    schedule(input, tick, STEP_MS)
   }
   // Inputs sent one after another finish at staggered times, as with a queue that runs several at once.
   const lag = (running % 10) * Math.round(STEP_MS / 2)
   running += 1
-  jobs.set(input.job_id, setTimeout(tick, STEP_MS + lag))
+  schedule(input, tick, STEP_MS + lag)
 }
 
 /** Numbered units of the input: one paragraph each. The server numbers them, as the real system will. */
@@ -319,13 +338,8 @@ const AREA_HINTS = [
   [/agregar|nueva|sincroniz|pedido|exportar|soporte para/i, 'a-feature'],
   [/idea|podr[ií]amos|ser[ií]a bueno|probar/i, 'a-idea'],
 ]
-const AREA_NOTES = {
-  'a-error': 'Se observó al abrir la vista; falta confirmar en qué navegador ocurre y si se repite.',
-  'a-feature': 'Pedido de una capacidad que hoy no existe; falta definir quién la usa primero.',
-  'a-pregunta': 'Queda a la espera de una respuesta de quien conoce el tema.',
-  'a-idea': 'Sin compromiso de construirla; se decide en la próxima revisión del equipo.',
-  'a-feedback': 'Opinión sobre algo que ya existe; no pide un cambio inmediato.',
-}
+/** What the double writes under every message it proposes: it does not read the text, and it says so. */
+const SIMULATED_NOTE = 'Propuesta simulada por el servidor de ejemplo: no es el análisis real y su área es la primera del catálogo, no una clasificación.'
 const FIELD_SAMPLES = {
   summary: 'Punto detectado en el texto enviado; el detalle está en el cuerpo del mensaje.',
   steps: 'Abrir la pantalla indicada y repetir la acción descrita.',
@@ -347,13 +361,14 @@ function analyze(input) {
   const rest = units.slice(keep.length)
   return {
     messages: keep.map((u, i) => {
-      const areaId = AREA_HINTS.find(([pattern]) => pattern.test(u.text))?.[1] ?? 'a-feedback'
+      // Without a keyword the area is the first of the catalog, and the proposal says it is simulated: no pretended classification.
+      const areaId = AREA_HINTS.find(([pattern]) => pattern.test(u.text))?.[1] ?? areas[0].id
       const template = activeTemplate(areaId, null)
       return {
         area_id: areaId,
         template_id: template?.id ?? null,
         title: titleOf(u.text),
-        body: `${u.text}\n\n${AREA_NOTES[areaId]}`,
+        body: `${u.text}\n\n${SIMULATED_NOTE}`,
         fields: Object.fromEntries(templateFields(template).map((f) => [f.name, f.required ? (FIELD_SAMPLES[f.name] ?? '') : ''])),
         assignee_ids: [others[i % others.length].id],
         attachment_ids: i === 0 ? input.attachment_ids : images,
@@ -361,6 +376,7 @@ function analyze(input) {
       }
     }),
     discarded: rest.length ? [{ unit_ids: rest.map((u) => u.id), reason: 'Sin acción para el equipo' }] : [],
+    simulated: true,
   }
 }
 
@@ -465,6 +481,70 @@ function serveStatic(req, res, pathname) {
 
 // ---------------------------------------------------------------- routes
 
+// ---------------------------------------------------------------- control for tests (H-901)
+
+const copyOf = (v) => structuredClone(v)
+/** The sample state as it was born: the order «reset» goes back to. */
+const initial = CONTROL
+  ? { members: copyOf(members), areas: copyOf(areas), templates: copyOf(templates), project: copyOf(project), providers: copyOf(providers), attachments: copyOf(attachments), messages: copyOf(messages), replies: copyOf(replies) }
+  : null
+
+const restoreArray = (target, source) => target.splice(0, target.length, ...copyOf(source))
+const restoreMap = (target, source) => {
+  target.clear()
+  for (const [k, v] of copyOf(source)) target.set(k, v)
+}
+
+/** Every job that waits for an order moves one step, or the ones of one input all the way to the end when `finish` is given. */
+function stepJobs(inputId, finish) {
+  for (let guard = 0; guard < 64; guard++) {
+    const due = [...waiting].filter(([jobId]) => !inputId || inputs.get(inputId)?.job_id === jobId)
+    if (!due.length) return
+    for (const [, tick] of due) tick()
+    if (!finish) return
+  }
+}
+
+function control(path, query) {
+  if (path === '/_control/hold') {
+    held = true
+    return {}
+  }
+  if (path === '/_control/release') {
+    held = false
+    for (const [jobId, tick] of [...waiting]) {
+      waiting.delete(jobId)
+      jobs.set(jobId, setTimeout(tick, 0))
+    }
+    return {}
+  }
+  if (path === '/_control/step') {
+    stepJobs(query.get('input_id'), query.get('finish') === '1')
+    return {}
+  }
+  if (path === '/_control/reset') {
+    for (const t of jobs.values()) clearTimeout(t)
+    jobs.clear()
+    waiting.clear()
+    held = false
+    running = 0
+    inputs.clear()
+    eventLog.length = 0
+    restoreArray(members, initial.members)
+    restoreArray(areas, initial.areas)
+    restoreArray(templates, initial.templates)
+    restoreArray(providers, initial.providers)
+    restoreArray(messages, initial.messages)
+    Object.keys(project).forEach((k) => delete project[k])
+    Object.assign(project, copyOf(initial.project))
+    restoreMap(attachments, initial.attachments)
+    for (const a of attachments.values()) a.data = Buffer.from(a.data)
+    restoreMap(replies, initial.replies)
+    return {}
+  }
+  return null
+}
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://localhost')
   const { pathname } = url
@@ -479,6 +559,11 @@ const server = createServer(async (req, res) => {
 
   try {
     if (path === '/health') return send(res, 200, { ok: true, dev: true })
+
+    if (CONTROL && path.startsWith('/_control/') && method === 'POST') {
+      const done = control(path, url.searchParams)
+      return done ? send(res, 200, done) : fail(res, 404, 'Orden de control inexistente')
+    }
 
     if (unsafe && !req.headers['x-team-request']) return fail(res, 403, 'Falta la cabecera CSRF')
 
@@ -612,12 +697,13 @@ const server = createServer(async (req, res) => {
           if (!areas.some((x) => x.id === pm.area_id)) return fail(res, 422, 'El área no existe', 'validation')
           if (!(pm.assignee_ids ?? []).every((x) => members.some((mm) => mm.id === x))) return fail(res, 422, 'Un destinatario no existe', 'validation')
         }
-        input.proposal = { messages: body.messages, discarded: body.discarded ?? input.proposal?.discarded ?? [] }
+        input.proposal = { messages: body.messages, discarded: body.discarded ?? input.proposal?.discarded ?? [], simulated: input.proposal?.simulated }
         return send(res, 200, input.proposal)
       }
       if (m[2] === 'cancel' && method === 'POST') {
         if (input.status === 'published' || input.status === 'cancelled') return fail(res, 409, 'El input no se puede cancelar', 'conflict')
         clearTimeout(jobs.get(input.job_id))
+        waiting.delete(input.job_id)
         input.status = 'cancelled'
         return send(res, 204)
       }
@@ -932,6 +1018,12 @@ const server = createServer(async (req, res) => {
     else res.end()
   }
 })
+
+// A test that starts this server holds its stdin: when the test process ends, however it ends, the pipe closes and the server leaves with it, so a killed run never leaves a server holding the port (H-901).
+if (process.env.PANEL_DEV_EXIT_WITH_PARENT === '1') {
+  process.stdin.resume()
+  process.stdin.on('close', () => process.exit(0))
+}
 
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`[dev-server] DEVELOPMENT DOUBLE SERVER with sample data at http://127.0.0.1:${PORT}/api${STATIC ? ' (also serves panel/dist)' : ''}`)

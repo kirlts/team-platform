@@ -1,0 +1,41 @@
+// H-901: the test sign-in returns when the person is inside, not when the sign-in page (which is also a <main>) is on screen.
+// The server's answer to the sign-in is held, so «still signing in» is a state the test controls and not a race.
+import assert from 'node:assert'
+import { after, before, test } from 'node:test'
+import { login, settled, startPanel } from './browser-support.mjs'
+
+let panel
+
+before(async () => {
+  panel = await startPanel(Number(process.env.PANEL_LOGIN_PORT ?? 8928), { build: false })
+})
+
+after(async () => {
+  await panel?.stop()
+})
+
+test('login does not return while the sign-in is still waiting for the server', async () => {
+  const context = await panel.browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'es-CL' })
+  try {
+    const page = await context.newPage()
+    let reached = () => {}
+    const intercepted = new Promise((resolve) => (reached = resolve))
+    let answer = () => {}
+    const gate = new Promise((resolve) => (answer = resolve))
+    await page.route(/\/api\/auth\/login$/, async (route) => {
+      reached()
+      await gate
+      await route.continue()
+    })
+    let returned = false
+    const signing = login(page, panel.origin, 'ana').then(() => (returned = true))
+    await intercepted
+    await settled(page)
+    assert.equal(returned, false, 'login volvió con la página de entrada a la vista, antes de que el servidor abriera la sesión')
+    answer()
+    await signing
+    assert.equal(await page.locator('main#main').count(), 1, 'la sesión abierta muestra su carcasa')
+  } finally {
+    await context.close()
+  }
+})

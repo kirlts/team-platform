@@ -5,8 +5,8 @@ import assert from 'node:assert'
 import { writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { after, before, describe, test } from 'node:test'
-import { login, startPanel } from './browser-support.mjs'
+import { after, before, beforeEach, describe, test } from 'node:test'
+import { login, startPanel, settled } from './browser-support.mjs'
 
 let panel
 let origin = ''
@@ -14,6 +14,11 @@ let origin = ''
 before(async () => {
   panel = await startPanel(Number(process.env.PANEL_FLOWS_3B_PORT ?? 8798), { stepMs: 450 })
   origin = panel.origin
+})
+
+// Every test starts from the sample data as the server was born with it (H-901): none inherits what another left in the tray or the lists.
+beforeEach(async () => {
+  await panel.control.reset()
 })
 
 after(async () => {
@@ -24,11 +29,6 @@ async function session(who, viewport = { width: 1440, height: 900 }, { mobile = 
   const context = await panel.browser.newContext({ viewport, locale: 'es-CL', colorScheme: scheme, isMobile: mobile, hasTouch: mobile })
   const page = await context.newPage()
   await login(page, origin, who)
-  // A person's tray survives the tests: each one starts with nothing in play.
-  const sends = await (await page.request.get(`${origin}/api/inputs`)).json()
-  for (const input of sends.items ?? sends) {
-    if (!['published', 'cancelled'].includes(input.status)) await page.request.post(`${origin}/api/inputs/${input.id}/cancel`, { headers: { 'X-Team-Request': 'panel' } })
-  }
   return { page, context }
 }
 
@@ -120,6 +120,8 @@ describe('window of sends (J3-B-04, J3-B-06, J3-B-07, J3-B-31)', () => {
   test('the window keeps its place and its height from the queue to the proposal, and the actions stay at its foot (J3-B-04, J3-B-31)', async () => {
     const { page, context } = await session('diego')
     try {
+      // Held in the queue until the test lets it run: the queued state is measured, not caught on its way (H-901).
+      await panel.control.hold()
       await page.goto(origin)
       await bar(page).fill(FIVE)
       await page.getByRole('button', { name: 'Enviar' }).first().click()
@@ -129,6 +131,7 @@ describe('window of sends (J3-B-04, J3-B-06, J3-B-07, J3-B-31)', () => {
       const queued = await rect(dialog)
       const title = page.getByRole('heading', { name: 'Análisis' })
       const titleQueued = (await rect(title)).y
+      await panel.control.release()
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 40000 })
       const ready = await rect(dialog)
       assert.deepEqual({ y: ready.y, height: ready.height }, { y: queued.y, height: queued.height }, 'la ventana no cambia de alto ni de lugar')
@@ -140,35 +143,40 @@ describe('window of sends (J3-B-04, J3-B-06, J3-B-07, J3-B-31)', () => {
     }
   })
 
+  test('a proposal of the example server says it is simulated, in the header of the analysis', async () => {
+    const { page, context } = await session('lucia')
+    try {
+      await sendAndOpen(page)
+      await page.locator('section[aria-label=Análisis]').getByTestId('simulated-mark').waitFor()
+      assert.equal(await page.getByTestId('simulated-mark').innerText(), 'Simulado')
+    } finally {
+      await context.close()
+    }
+  })
+
   test('«En cola» never carries a percentage, in the window, in its row or in the strip (J3-B-06)', async () => {
     const { page, context } = await session('eduardo')
     try {
       const files = [join(tmpdir(), 'r3b-a.txt'), join(tmpdir(), 'r3b-b.txt')]
       writeFileSync(files[0], 'nota a')
       writeFileSync(files[1], 'nota b')
+      // Held in the queue: «En cola» is on screen until the test moves the analysis, so it is measured once it is there (H-901).
+      await panel.control.hold()
       await page.goto(origin)
       await bar(page).fill('Un envío con adjuntos, para ver el progreso mientras espera.\n\nOtro punto distinto.')
       await page.locator('input[type=file]').first().setInputFiles(files)
       await page.getByRole('button', { name: 'Enviar' }).first().click()
       await page.getByTestId('tray-control').click()
-      let queuedSamples = 0
-      for (let i = 0; i < 40; i++) {
-        const sample = await page.evaluate(() => {
-          const d = document.querySelector('[role=dialog]')
-          if (!d) return null
-          const panelEl = d.querySelector('section[aria-label=Análisis]')
-          const text = panelEl?.textContent ?? ''
-          const meters = [...d.querySelectorAll('[role=progressbar]')].map((m) => m.getAttribute('aria-valuenow'))
-          return { queued: /En cola/.test(text) && !/Leyendo|Clasificando|Descomponiendo/.test(text), meters, percent: /\d+ ?%/.test(text) }
-        })
-        if (sample?.queued) {
-          queuedSamples++
-          assert.deepEqual(sample.meters.filter((v) => v !== null), [], 'una barra sin cifra mientras está en cola')
-          assert.equal(sample.percent, false, 'sin porcentaje escrito mientras está en cola')
-        }
-        await page.waitForTimeout(100)
-      }
-      assert.ok(queuedSamples > 0, 'se midió al menos una vez el estado en cola')
+      await page.locator('[role=dialog] section[aria-label=Análisis]').getByText('En cola').first().waitFor()
+      const sample = await page.evaluate(() => {
+        const d = document.querySelector('[role=dialog]')
+        const text = d.querySelector('section[aria-label=Análisis]')?.textContent ?? ''
+        const meters = [...d.querySelectorAll('[role=progressbar]')].map((m) => m.getAttribute('aria-valuenow'))
+        return { queued: /En cola/.test(text) && !/Leyendo|Clasificando|Descomponiendo/.test(text), meters, percent: /\d+ ?%/.test(text) }
+      })
+      assert.equal(sample.queued, true, 'el envío está en cola')
+      assert.deepEqual(sample.meters.filter((v) => v !== null), [], 'una barra sin cifra mientras está en cola')
+      assert.equal(sample.percent, false, 'sin porcentaje escrito mientras está en cola')
     } finally {
       await context.close()
     }
@@ -223,10 +231,13 @@ describe('proposal (J3-B-02, J3-B-05, J3-B-08, J3-B-09, J3-B-10, J3-B-11, J3-B-1
       // Only Rehacer is left: the edit is still recoverable, so dropping the proposal must ask.
       await page.getByRole('button', { name: 'Volver a analizar' }).click()
       await page.getByText('Se descarta esta propuesta con sus cambios').waitFor()
+      // The new analysis waits in the queue until the test has looked at it (H-901).
+      await panel.control.hold()
       await page.getByRole('dialog').last().getByRole('button', { name: 'Volver a analizar' }).click()
       await page.getByText('En cola').first().waitFor()
       assert.equal(await page.getByRole('button', { name: 'Deshacer', exact: true }).count(), 0, 'sin Deshacer mientras analiza')
       assert.equal(await page.getByRole('button', { name: 'Rehacer', exact: true }).count(), 0, 'sin Rehacer mientras analiza')
+      await panel.control.release()
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 40000 })
       assert.equal(await page.getByRole('button', { name: 'Deshacer', exact: true }).count(), 0, 'la propuesta nueva empieza con el historial vacío')
     } finally {
@@ -366,7 +377,7 @@ describe('failure, publication and notices (J3-B-14, J3-B-15, J3-B-29)', () => {
       await notice.waitFor()
       const n = await rect(notice)
       assert.ok(n.y + n.height <= 56, `el aviso queda en la barra superior: ${n.y + n.height}`)
-      await page.waitForTimeout(600)
+      await settled(page)
       assert.equal(await card(), before, 'la tarjeta de Para mí no cambia de alto al publicar')
       for (const label of ['Página siguiente', 'Página anterior']) {
         for (const b of await page.getByRole('button', { name: label }).all()) assert.equal(overlap(n, await rect(b)), false, `el aviso no tapa «${label}»`)

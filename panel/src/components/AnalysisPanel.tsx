@@ -17,6 +17,7 @@ import type { Attachment, InputRecord, InputStatus, Proposal, ProposalMessage, T
 import { useUndo } from '@/lib/undo'
 import { cn } from '@/lib/utils'
 import { AiMark } from './AiMark'
+import { SimulatedMark } from './SimulatedMark'
 import { AreaPicker } from './AreaPicker'
 import { AttachmentPicker } from './AttachmentPicker'
 import { EditableText } from './EditableText'
@@ -92,6 +93,7 @@ export function AnalysisPanel({ input, onClose, onDiscarded }: { input: InputRec
           <div className="flex items-center gap-2">
             <h2>{t('analysis.title')}</h2>
             <AiMark />
+            <SimulatedMark proposal={input.proposal} />
           </div>
           {/* The history beside the title and «Volver a analizar» alone at the right edge: the step that drops the proposal is not one of the pair that takes a step back (J3-B-27); neither moves the other (J2-B-15). */}
           {input.status === 'proposed' && <UndoButtons stack={undo} />}

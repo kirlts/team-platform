@@ -142,6 +142,7 @@ describe('message list and home', () => {
       assert.equal(bg, 'rgba(0, 0, 0, 0)', 'el estado de la fila sigue siendo una píldora de color')
       await page.goto(`${origin}/messages`)
       const many = page.locator('main article').filter({ hasText: /y \d+ más/ }).first()
+      await many.waitFor()
       assert.ok((await many.getByText('para', { exact: true }).count()) === 1, 'falta la palabra «para» ante los destinatarios')
       assert.ok((await many.getByText(/^y \d+ más$/).count()) === 1, 'el pliegue de destinatarios no dice qué es')
       const spheres = await many.evaluate((el) => el.querySelectorAll('ul[aria-label="Destinatarios"] .orb').length)

@@ -146,6 +146,7 @@ export function EditableText({
       <span className={cn('block min-w-0', className)}>
         <span
           ref={reading}
+          data-editable
           role="button"
           tabIndex={0}
           aria-label={`${label}: ${value || (emptyLabel ?? shown)}`}

@@ -10,6 +10,16 @@ import type { MediaDraft, MediaProblem } from '@/lib/useMediaDraft'
 import { cn } from '@/lib/utils'
 import { Thumb } from './Thumb'
 
+/** A web address that wraps after its separators, so a long one breaks between path segments and not in the middle of a word (J3-B-20). */
+function breakable(href: string) {
+  return href.split(/(?<=[/?&=#])/).map((part, i) => (
+    <span key={i}>
+      {i > 0 && <wbr />}
+      {part}
+    </span>
+  ))
+}
+
 const PROBLEM: Record<MediaProblem, MessageKey> = { record: 'media.recordFailed', microphone: 'media.noMicrophone', link: 'media.invalidLink' }
 
 /** Clip: file or link. */
@@ -25,7 +35,7 @@ export function ClipMenu({ draft, disabled, size = 'icon' }: { draft: MediaDraft
           </Button>
         </DropdownMenuTrigger>
         {/* Choosing «Enlace» hands the focus to its field: the menu must not give it back to the clip (J2-B-01). */}
-        <DropdownMenuContent align="start" onCloseAutoFocus={(e) => draft.linkOpen && e.preventDefault()}>
+        <DropdownMenuContent align="start" sideOffset={8} onCloseAutoFocus={(e) => draft.linkOpen && e.preventDefault()}>
           <DropdownMenuItem onSelect={() => fileInput.current?.click()}>
             <Paperclip size={15} aria-hidden /> {t('media.file')}
           </DropdownMenuItem>
@@ -112,7 +122,8 @@ function LinkRow({ draft }: { draft: MediaDraft }) {
           {t('media.link')}
         </label>
         <Input id="compose-link" ref={field} type="url" inputMode="url" placeholder="https://" value={value} onChange={(e) => setValue(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && close()} className="h-8 flex-1" />
-        <Button type="submit">
+        {/* The one control with the weight of an action in the row: the field has its own border only when it has the focus (J3-B-19). */}
+        <Button type="submit" variant="primary" className="h-8">
           {t('media.add')}
         </Button>
       </div>
@@ -145,7 +156,7 @@ export function MediaDraftList({ draft, busy }: { draft: MediaDraft; busy?: bool
           {draft.links.map((href) => (
             <li key={href} className="flex min-h-9 min-w-0 max-w-full items-center gap-1.5 rounded-md border border-line-strong bg-surface py-0.5 pl-2 pr-0.5 text-xs">
               <Link2 size={14} aria-hidden className="shrink-0 text-muted" />
-              <span className="min-w-0 max-w-[12rem] [overflow-wrap:anywhere]">{href}</span>
+              <span className="min-w-0 max-w-[20rem] [overflow-wrap:anywhere]">{breakable(href)}</span>
               {!busy && (
                 <button type="button" aria-label={t('media.remove', { name: href })} className="hit inline-flex shrink-0 items-center justify-center rounded-full text-muted hover:bg-hover hover:text-danger" onClick={() => draft.removeLink(href)}>
                   <X size={13} aria-hidden />

@@ -72,11 +72,14 @@ export function AnalysisPanel({ input, onClose, onDiscarded }: { input: InputRec
   const failureCode = input.error_code ? `analysis.error.${input.error_code}` : ''
   const failureText = failureCode && has(failureCode) ? t(failureCode as MessageKey) : input.error || t('analysis.failed')
   const percent = sendPercent(input, progress)
-  const edited = undo.undoCount > 0
+  // What can be redone is also work the new analysis would take: asking is skipped only when the history is empty on both sides (J3-B-05).
+  const edited = undo.undoCount > 0 || undo.redoCount > 0
 
   /** Analyzing again drops the proposal, with what was edited in it: that is the one step here that cannot be taken back. */
   const again = () => {
     setConfirmAgain(false)
+    // The old proposal is gone: its history would restore edits of a proposal that no longer exists (J3-B-05).
+    undo.clear()
     reprocess.mutate(input.id)
   }
 
@@ -90,7 +93,7 @@ export function AnalysisPanel({ input, onClose, onDiscarded }: { input: InputRec
         </div>
         {/* «Volver a analizar» keeps the right edge; the history appears to its left, so nothing that was there moves (J2-B-15). */}
         <div className="flex flex-wrap items-center gap-1.5">
-          <UndoButtons stack={undo} />
+          {input.status === 'proposed' && <UndoButtons stack={undo} />}
           {input.status === 'proposed' && (
             <Button size="sm" variant="ghost" className="hit" disabled={reprocess.isPending} onClick={() => (edited ? setConfirmAgain(true) : again())}>
               <RotateCw size={13} aria-hidden /> {t('analysis.again')}
@@ -466,7 +469,7 @@ function ProposalRow({
             </DropdownMenuContent>
           </DropdownMenu>
         )}
-        <EditableText value={m.title} label={t('proposal.title')} validate={required} onSave={(v) => patch(index, t('proposal.titleEdited'), { title: v })} displayClassName="text-sm font-semibold" className="min-w-0 flex-1 basis-40" />
+        <EditableText value={m.title} label={t('proposal.title')} validate={required} onSave={(v) => patch(index, t('proposal.titleEdited'), { title: v })} displayClassName="text-read font-bold" className="min-w-0 flex-1 basis-40" />
         {/* The only message cannot be removed: Descartar is the way out, so the button is not drawn instead of drawn off. */}
         {!only && (
           <Button size="sm" variant="ghost" className="hit shrink-0 text-muted" onClick={() => void remove(index)} aria-label={t('proposal.remove', { title: m.title })}>

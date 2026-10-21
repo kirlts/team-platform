@@ -73,6 +73,8 @@ export function ComposeBar({ onSubmit, problem }: { onSubmit: (draft: SendDraft)
 
   return (
     <div className="relative z-20" style={{ height: rest ?? undefined }}>
+    {/* While the bar grows over the page, what is below is dimmed: the bar reads as a layer over it, and no sliver of the card under it shows (J3-B-01). It lets the pointer through. */}
+    {expanded && <div aria-hidden data-compose-scrim className="pointer-events-none fixed inset-0 bg-[oklch(0.2_0.06_262/0.28)]" />}
     <div
       ref={box}
       data-compose-box
@@ -86,7 +88,7 @@ export function ComposeBar({ onSubmit, problem }: { onSubmit: (draft: SendDraft)
         setDragging(false)
         draft.onDrop(e)
       }}
-      className={cn('leaf transition-colors duration-150 focus-within:border-accent', expanded ? 'pop absolute inset-x-0 top-0' : 'glass', dragging && '!border-accent !bg-accent-soft')}
+      className={cn('leaf transition-[border-color] duration-150 focus-within:border-accent', expanded ? 'pop absolute inset-x-0 top-0' : 'glass', dragging && '!border-accent !bg-accent-soft')}
     >
       <div className="flex flex-wrap items-end gap-1.5 p-2">
         <ClipMenu draft={draft} />

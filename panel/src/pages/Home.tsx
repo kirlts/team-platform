@@ -179,8 +179,6 @@ export function Home() {
   // The original of a send is folded unless the person opens it (UD-030).
   const originalOpen = !!selected && (originalChoice[selected.id] ?? false)
   const working = items.length > 0
-  // A send that is only being analyzed has nothing to fill the window with: it is as tall as what it shows (J2-B-09).
-  const compactWindow = !!selected && selected.status !== 'proposed' && items.length <= 3
   useEffect(() => {
     if (!working) setTrayOpen(false)
   }, [working])
@@ -227,7 +225,7 @@ export function Home() {
           <ComposeBar onSubmit={submit} problem={problem} />
         </section>
         {working && (
-          <DialogContent title={t('tray.title')} data-keys-ok="" onOpenAutoFocus={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).focus() }} className={`${compactWindow ? 'h-auto min-h-[18rem]' : 'h-[min(88dvh,54rem)]'} max-w-[72rem] max-md:left-0 max-md:top-0 max-md:h-dvh max-md:max-h-none max-md:w-screen max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-none`}>
+          <DialogContent title={t('tray.title')} data-keys-ok="" onOpenAutoFocus={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).focus() }} className={`h-[min(88dvh,54rem)] max-w-[72rem] max-md:left-0 max-md:top-0 max-md:h-dvh max-md:max-h-none max-md:w-screen max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-none`}>
             <NoticeHost inDialog />
             <div className="grid min-h-0 flex-1 content-start gap-x-6 gap-y-3 overflow-y-auto p-4 md:grid-cols-[minmax(0,3fr)_minmax(0,9fr)] md:grid-rows-[minmax(0,1fr)] md:overflow-visible" data-lane="tray-dialog">
               {/* On a phone the list folds behind the send in view, so the proposal gets the screen (J2-B-11). */}

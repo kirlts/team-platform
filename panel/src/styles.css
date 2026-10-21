@@ -618,3 +618,12 @@
     box-shadow: 0 1px 2px oklch(0.4 0.1 255 / 0.25);
   }
 }
+
+/* Text that is edited in place says so at rest where there is no pointer to hover it: a dotted rule under it (J3-B-10). With a mouse the box on hover is the signal and the text stays quiet. */
+@media (hover: none) {
+  [data-editable] {
+    border-bottom-style: dotted;
+    border-bottom-color: var(--color-line-strong);
+    border-radius: 0;
+  }
+}

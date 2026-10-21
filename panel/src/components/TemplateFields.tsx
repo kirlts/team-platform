@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { cn } from '@/lib/utils'
 import { useT } from '@/i18n'
 import { parseTemplateFields } from '@/lib/template'
 import type { Template } from '@/lib/types'
@@ -27,7 +28,7 @@ export function TemplateFields({
   const fields = useMemo(() => parseTemplateFields(template?.body_markdown ?? ''), [template?.body_markdown])
   if (fields.length === 0) return null
   return (
-    <dl className="grid gap-x-4 gap-y-2 pr-1.5 text-sm @md:grid-cols-2">
+    <dl className={cn('grid gap-x-4 gap-y-2 pr-1.5 text-sm', fields.length > 1 && '@md:grid-cols-2')}>
       {fields.map((f) => (
         <div key={f.name} className="flex min-w-0 flex-col gap-0.5">
           <dt className="flex items-baseline justify-between gap-2 text-xs font-semibold text-muted">
@@ -42,8 +43,7 @@ export function TemplateFields({
               prose
               canEdit={canEdit}
               placeholder={closed ? t('fields.optional') : t('fields.fill')}
-              displayClassName="border-line"
-              emptyLabel={f.required && !closed ? t('fields.required') : t('fields.optional')}
+                            emptyLabel={f.required && !closed ? t('fields.required') : t('fields.optional')}
               validate={f.required && !closed ? (v) => (v ? null : t('fields.requiredError')) : undefined}
               onSave={(v) => onSave(f.name, v)}
             />

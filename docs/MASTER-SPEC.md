@@ -79,7 +79,7 @@ Idempotencia en el sentido de las plantillas de trabajo: una plantilla aplicada 
 **Flujo principal de datos:**
 
 1. La persona escribe en la barra de Inicio, adjunta lo que tenga y envía. `POST /inputs` guarda el input, cada adjunto en el volumen con su hash, calcula el hash del input y encola un trabajo `analyze`. Si el hash ya existe, devuelve lo que ya hay (§1.3). Respuesta inmediata con el id del input y el id del trabajo.
-2. El worker toma el trabajo con arriendo. Por cada adjunto corre el extractor de su tipo (§7.4) y escribe el texto o la descripción obtenida en la fila del adjunto. Cada paso emite un evento de progreso (porcentaje y frase breve) en `job_events`; el panel los recibe por SSE (`GET /jobs/:id/events`).
+2. El worker toma el trabajo con arriendo. Por cada adjunto corre el extractor de su tipo (§7.4) y escribe el texto o la descripción obtenida en la fila del adjunto. Cada paso emite un evento de progreso (porcentaje y frase breve) en `job_events`; el panel los recibe por SSE (`GET /events`).
 3. El analizador (§7.5) arma el paquete: texto del input, extracciones de los adjuntos, títulos y descripciones de todas las áreas y de todas las plantillas, equipo con responsabilidades y dominios. Primera llamada: área y plantilla. Segunda llamada, con el cuerpo de la plantilla elegida: la lista MECE de mensajes, cada uno con título, campos de la plantilla, destinatarios propuestos y adjuntos que lo contextualizan. El sistema valida cada campo contra la base.
 4. El input pasa a `proposed`. En Inicio aparece la propuesta editable: área, cada mensaje, sus destinatarios, sus adjuntos. La persona corrige lo que quiera y aprieta Enviar. `POST /inputs/:id/publish` crea los mensajes en estado `abierto`.
 5. Los destinatarios los ven en Inicio («últimos mensajes», filtrados para mí) y en Mensajes. Responden (`POST /messages/:id/replies`), con lo que el mensaje pasa a `respondido`; cualquiera lo cierra o reabre.
@@ -94,8 +94,8 @@ Criterio: tecnologías que el autor ya probó en producción (Node, Fastify, Rea
 | --- | --- | --- |
 | Frontend | React 19.3 + Vite 8 + Tailwind 4.3 + TanStack Query 5 + React Router 8; componentes de shadcn/ui sobre Radix copiados al repositorio | Refine 5 quedó fuera (UD-011): sin paquete publicado desde el 2026-04-02, adaptador atado a React Router 7 y telemetría a un tercero por omisión. Lo que daba hecho (listas, filtros, formularios contra REST) cabe en un módulo propio de filtros a parámetros. Base de navegadores: Chrome 111, Safari 16.4, Firefox 128 (informe 07). |
 | API | Node 24 + Fastify 5, validación de esquemas con Ajv | Fastify valida entrada y salida por esquema JSON, que es el mismo mecanismo con que se valida lo que devuelve el modelo. |
-| Datos | SQLite por `node:sqlite` (Node 24, sin dependencia nativa), modo WAL | `idea.md` pide SQLite; `node:sqlite` evita compilar `better-sqlite3` en cada arquitectura. Un archivo en el volumen es todo el respaldo. |
-| Cola de trabajos | Tabla `jobs` propia con arriendo, reintentos y prioridad, patrón de pg-boss | Las librerías de cola sobre SQLite tienen 8 estrellas o 3 años sin versión (investigación §4); la lógica cabe en un módulo. |
+| Datos | SQLite por `node:sqlite` (release candidate desde Node 24.15; se exige Node ≥ 24.15 y SQLite ≥ 3.51.3 al arrancar), WAL, `busy_timeout` 5.000 ms, `synchronous=FULL`, `BEGIN IMMEDIATE` en toda transacción que lee y luego escribe | `idea.md` pide SQLite; `node:sqlite` evita compilar `better-sqlite3` en cada arquitectura. Sin `busy_timeout` un 16 % de las transacciones concurrentes fallaron en la medición del informe 03; con ambos, cero. Respaldo con `VACUUM INTO` y `rename` (123 ms con escritor activo), nunca `cp`. Un paso de inicialización único antes de la API y el worker fija WAL y aplica migraciones, porque dos arranques simultáneos chocan al fijar WAL. |
+| Cola de trabajos | Tabla `jobs` propia con arriendo, latido, reintentos con retroceso y prioridad, patrón de pg-boss | Ninguna librería MIT activa usa `node:sqlite` (informe 03); la lógica cabe en un módulo. Medido: dos procesos escritores, 13.768 reclamos, cero duplicados. |
 | Progreso | SSE desde la API; cancelación por `POST` | Un solo sentido, reconexión automática del navegador; WebSocket sólo si hiciera falta control bidireccional. |
 | Adjuntos | Archivos en el volumen, nombrados por hash | Sin S3 ni MinIO: un equipo de 10 no los necesita; el adaptador de almacenamiento permite agregarlos. |
 | Modelo: texto, visión y PDF | Contrato de proveedor por modalidad. Omisión: Anthropic `claude-haiku-5-5` con salida estructurada, prompt de sistema cacheado, esfuerzo `low` para clasificar y `medium` para descomponer hasta que el banco muestre que `low` conserva la cobertura; sin `temperature`, `top_p` ni `top_k` (el modelo los rechaza) | 0,10 USD entrada / 0,50 salida por MTok, lectura de caché 0,01; visión y PDF nativo de 600 páginas en el mismo proveedor. Alternativa y respaldo configurable: DeepSeek `deepseek-flash` (texto e imagen, sin PDF; esquema sólo por herramienta estricta en beta, o modo JSON validado con Ajv). Perillas y fuentes en el informe 02. |
@@ -203,7 +203,7 @@ GET    /inputs/:id                 input, adjuntos, estado, propuesta si existe
 POST   /inputs/:id/publish         propuesta editada → mensajes creados
 POST   /inputs/:id/cancel
 
-GET    /jobs/:id/events            SSE: { percent, phrase, at } … { done }
+GET    /events                    SSE por miembro: progreso { job_id, percent, phrase, at } … { job_id, done } y mensajes nuevos
 
 GET    /messages?for=me|member_id&area=&status=&q=&replies=1
 GET    /messages/:id               mensaje, hilo, adjuntos
@@ -238,12 +238,13 @@ messages         id, input_id, area_id, template_id, author_id, title, body, fie
 message_assignees  message_id, member_id
 message_attachments message_id, attachment_id
 replies          id, message_id, author_id, body, kind, created_at
-jobs             id, kind(extract|analyze), payload_json, status(queued|running|done|failed), priority, attempts, run_at, lease_until, error, created_at
-job_events       job_id, seq, percent, phrase, at
+jobs             id, kind(extract|analyze), payload_json, status(queued|running|done|failed|cancelled), priority, attempts, max_attempts, run_at, lease_until, worker_id, last_error, created_at
+                 índice (status, priority DESC, run_at, id): reclamo en 23 µs (informe 03)
+job_events       job_id, seq, percent, phrase, at                      retención 7 días, igual que los trabajos terminados
 llm_calls        id, job_id, provider, model, modality, input_tokens, output_tokens, cached_tokens, cost_usd, duration_ms, at
 ```
 
-**Dependencias:** `node:sqlite`. Migraciones como archivos SQL numerados aplicados al arrancar.
+**Dependencias:** `node:sqlite`. Migraciones como archivos SQL numerados, sólo hacia adelante, aplicadas por un ejecutor propio que lleva la cuenta en `PRAGMA user_version` dentro de una transacción, en el paso de inicialización único (§3).
 
 ### 7.3 Cola de trabajos (`src/queue/`)
 
@@ -253,12 +254,16 @@ llm_calls        id, job_id, provider, model, modality, input_tokens, output_tok
 
 ```
 enqueue(kind, payload, { priority, runAt })      → job_id
-claim(workerId, leaseMs)                          → job | null   (UPDATE … WHERE status='queued' AND run_at<=now LIMIT 1, atómico)
-heartbeat(jobId) · progress(jobId, percent, phrase) · complete(jobId) · fail(jobId, error)
+claim(workerId, leaseMs)                          → job | null
+   BEGIN IMMEDIATE; UPDATE jobs SET status='running', worker_id=?, lease_until=?, attempts=attempts+1
+   WHERE id = (SELECT id FROM jobs WHERE status='queued' AND run_at<=? ORDER BY priority DESC, run_at, id LIMIT 1)
+   RETURNING *; COMMIT        (UPDATE … LIMIT 1 directo es error de sintaxis en SQLite)
+heartbeat(jobId)                                  renueva el arriendo; progress(jobId, percent, phrase)
+complete(jobId) · fail(jobId, error)              fail reencola con retroceso exponencial y jitter hasta max_attempts
 recoverExpiredLeases()                            al arrancar y por ciclo
 ```
 
-El worker corre en el mismo proceso que la API por omisión (un contenedor) y puede correr como segundo proceso de la misma imagen (`node src/worker.js`). Los reintentos, el arriendo y la concurrencia son perillas con su valor por omisión justificado (§4.9).
+El worker corre en el mismo proceso que la API por omisión (un contenedor) y puede correr como segundo proceso de la misma imagen (`node src/worker.js`); con proceso aparte, la API se entera de cambios por `PRAGMA data_version` (1,15 µs por consulta). Al apagar no se esperan los trabajos: se abortan, vuelven a la cola y el intento se reembolsa; la API cierra con `forceCloseConnections: true` porque un flujo SSE abierto cuelga `app.close()`. Perillas y fuentes en el informe 03: arriendo 30 s con latido cada 10 s; `max_attempts` 3 (y el reintento del SDK del proveedor en 0 si el banco muestra 429 en cadena, para que haya un solo punto de reintento); retroceso desde 1 s hasta 60 s; concurrencia 1 hasta que el banco §7.11 la suba (es la única perilla cuyo valor es convención y no medición); duración máxima por trabajo 900 s.
 
 ### 7.4 Extractores (`src/extract/`)
 
@@ -293,7 +298,7 @@ MECE por construcción, no por confianza: antes de la segunda llamada el sistema
 
 **`harness`:** el mismo bundle se escribe en un directorio de trabajo vacío y propio; `claude -p --output-format json --json-schema <Proposal>` con el prompt y las herramientas de lectura permitidas; se lee `structured_output`, `usage` y `total_cost_usd`. Sin `--bare` para que use la suscripción [V]. Mismo validador de salida que `api`.
 
-**Validación (sistema, no modelo):** área y plantilla existen y se corresponden; cada `assignee_id` es un miembro; cada `attachment_id` pertenece al input; cada `unit_id` existe y cada unidad está en un mensaje o en `discarded`; cada campo obligatorio de la plantilla está presente; ningún mensaje vacío. Una salida inválida reintenta una vez con el error como contexto; después, el trabajo falla con el motivo visible. Un `refusal` del proveedor y un corte por `max_tokens` son estados propios del trabajo: el rechazo no se reintenta igual (se ofrece el proveedor de respaldo); el corte reintenta una vez con el doble de `max_tokens` (provisional: 16.000 y 32.000; el banco fija el p95 real).
+**Validación (sistema, no modelo), con una instancia propia de Ajv** (los esquemas de respuesta de Fastify convierten tipos y descartan propiedades, informe 03): área y plantilla existen y se corresponden; cada `assignee_id` es un miembro; cada `attachment_id` pertenece al input; cada `unit_id` existe y cada unidad está en un mensaje o en `discarded`; cada campo obligatorio de la plantilla está presente; ningún mensaje vacío. Una salida inválida reintenta una vez con el error como contexto; después, el trabajo falla con el motivo visible. Un `refusal` del proveedor y un corte por `max_tokens` son estados propios del trabajo: el rechazo no se reintenta igual (se ofrece el proveedor de respaldo); el corte reintenta una vez con el doble de `max_tokens` (provisional: 16.000 y 32.000; el banco fija el p95 real).
 
 ### 7.6 Proveedores de modelo (`src/providers/`)
 
@@ -349,7 +354,7 @@ El frontmatter se convierte en el esquema JSON de `fields` que el analizador exi
 
 **Propósito:** Que la persona vea el trabajo avanzar sin sondeo.
 
-`GET /jobs/:id/events` abre un flujo SSE con `@fastify/sse` (versión exacta) y repone desde `job_events` lo que ya pasó: el `id` de cada evento es `job_events.seq`, así una pestaña que se reabre manda `Last-Event-ID` y no pierde el progreso (reposición medida en 35 ms; sin acumulación con `@fastify/compress` ni con el proxy de Vite; informe 07). El flujo termina con un evento `done` y el cliente cierra; si el trabajo ya terminó, la ruta responde 204, que es lo que el estándar fija para que el navegador deje de reconectar. En el panel, un hook `useJobProgress` sobre `EventSource` guarda el progreso como estado efímero e invalida la consulta del input al `done`. El progreso va por su propio flujo; «Últimos mensajes» usa un canal SSE por sesión aparte, porque HTTP/1.1 limita a seis conexiones por dominio. Los extractores y el analizador emiten `progress(percent, phrase)` por paso real; el porcentaje sale de pasos completados sobre pasos totales, nunca de un reloj.
+El flujo SSE va con `@fastify/sse` (versión exacta) y repone desde `job_events` lo que ya pasó: el `id` de cada evento es `job_events.seq`, así una pestaña que se reabre manda `Last-Event-ID` y no pierde el progreso (reposición medida en 35 ms; sin acumulación con `@fastify/compress` ni con el proxy de Vite; informe 07). El flujo termina con un evento `done` y el cliente cierra; si el trabajo ya terminó, la ruta responde 204, que es lo que el estándar fija para que el navegador deje de reconectar. En el panel, un hook `useJobProgress` sobre `EventSource` guarda el progreso como estado efímero e invalida la consulta del input al `done`. Un solo flujo SSE por miembro (`GET /events`), no uno por trabajo: lleva los eventos de progreso con su `job_id` y los avisos de mensajes nuevos, porque HTTP/1.1 limita a seis conexiones por dominio compartidas entre pestañas (informes 03 y 07). El servidor suscribe antes de reponer (cero repetidos y cero huecos medidos al reconectar) y manda un latido cada 15 s. Los extractores y el analizador emiten `progress(percent, phrase)` por paso real; el porcentaje sale de pasos completados sobre pasos totales, nunca de un reloj.
 
 ### 7.11 Banco de referencia y mediciones (`bench/`)
 

@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: d1b004e Merge branch 'wt-resto'. Empujado a origin: `d1b004e`.
+- `main`: c7489cd Traspaso final: plan ejecutado, queda sólo lo que necesita al dueño. Empujado a origin: `c7489cd`.
 - Ramas con commits sin fusionar: ninguna.
-- Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `cierre`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
+- Worktrees abiertos: `team-platform`.
 - Últimos commits en `main`:
-- `d1b004e` Merge branch 'wt-resto' (hace 9 minutos)
-- `6038b8c` Retira capturas sueltas de panel/undefined (hace 9 minutos)
+- `c7489cd` Traspaso final: plan ejecutado, queda sólo lo que necesita al dueño (hace 49 segundos)
+- `d1b004e` Merge branch 'wt-resto' (hace 10 minutos)
+- `6038b8c` Retira capturas sueltas de panel/undefined (hace 10 minutos)
 - `bc2e07d` Merge branch 'wt-respuestas' (hace 10 minutos)
 - `f7e8cbc` Inicio: fecha y hora (UD-230) y prueba de Para mí al rótulo vigente (hace 10 minutos)
-- `a155083` Merge main into wt-respuestas (hace 17 minutos)
-- `01990ba` Named attachments in two columns from 1024 px so the detail fits at 1280x720 (hace 17 minutos)
-- `3f2dd8c` Fusión de main en wt-resto (hace 19 minutos)
-- `72edbbd` Merge branch 'wt-idea-brechas' (hace 21 minutos)
-Actualizado 2026-10-21 22:27 UTC.
+- `a155083` Merge main into wt-respuestas (hace 18 minutos)
+- `01990ba` Named attachments in two columns from 1024 px so the detail fits at 1280x720 (hace 18 minutos)
+- `3f2dd8c` Fusión de main en wt-resto (hace 20 minutos)
+Actualizado 2026-10-21 22:28 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

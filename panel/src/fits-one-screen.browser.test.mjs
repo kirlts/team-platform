@@ -160,7 +160,11 @@ function measureInPage({ lanes, withBreak }) {
 async function open(page, path) {
   await page.goto(`${ORIGIN}${path}`)
   await page.locator('main h1').first().waitFor()
-  await page.waitForLoadState('networkidle')
+  // A view that never goes quiet says which one it is (the amplified lists once left a request loop open).
+  await page.waitForLoadState('networkidle').catch(async (error) => {
+    const recent = await page.evaluate(() => performance.getEntriesByType('resource').slice(-12).map((e) => e.name.replace(location.origin, '')))
+    throw new Error(`${path} never went quiet: ${error.message}; last requests: ${recent.join(', ')}`)
+  })
   await settled(page)
 }
 

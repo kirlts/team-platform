@@ -264,7 +264,7 @@ describe('where the gallery is used', () => {
       await page.goto(origin)
       await page.getByTestId('tray-control').click()
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 40000 })
-      const list = page.getByRole('dialog').getByRole('list', { name: 'Adjuntos' }).last()
+      const list = page.getByTestId('send-drawer').locator('section[aria-label="Análisis"]').getByRole('list', { name: 'Adjuntos' }).last()
       await list.getByRole('button', { name: /^Ver 1 de/ }).first().click()
       const inner = page.getByRole('dialog').last()
       await inner.locator('[data-gallery]').waitFor()

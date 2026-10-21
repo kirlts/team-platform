@@ -139,7 +139,16 @@ interface OpenTask {
   from: Counters
   feedbackAt?: number
   analysisAt?: number
+  /** Marked elements already on the page when the send began: they belong to an earlier send and do not count (H-1705). */
+  baseline?: WeakSet<Element>
+  /** When an element marked `data-ui-stage="progress"` / `"analysis"` was first painted (H-1705): the exact moments, when seen. */
+  stageFeedbackAt?: number
+  stageAnalysisAt?: number
 }
+
+/** The attribute the panel puts on the progress of a send and on its analysis, so the telemetry measures what is on screen. */
+export const UI_STAGE_ATTRIBUTE = 'data-ui-stage'
+export type UiStage = 'progress' | 'analysis'
 
 export class UiTelemetry {
   private enabled = false
@@ -252,10 +261,24 @@ export class UiTelemetry {
         const t = this.deps.now()
         if (this.interactionAt !== undefined && this.changeAt === undefined) this.changeAt = t
         if (this.open && this.open.feedbackAt === undefined && t >= this.open.startedAt) this.open.feedbackAt = t
+        this.scanStages(t)
       })
     })
     observer.observe(document.body, { childList: true, subtree: true, attributes: true, characterData: true })
     this.teardown.push(() => observer.disconnect())
+  }
+
+  /**
+   * The marked elements of the open send, once painted (H-1705). `data-ui-stage="progress"` is the first thing the person
+   * sees of the send and `"analysis"` is what the model made of it; their first paint is the stage, not the arrival of
+   * the data. Only the elements that were not on the page when the send began count. Nothing of their content is read.
+   */
+  private scanStages(t: number) {
+    const open = this.open
+    if (!open || open.task !== 'send_publish' || typeof document === 'undefined') return
+    const fresh = (stage: UiStage) => [...document.querySelectorAll(`[${UI_STAGE_ATTRIBUTE}="${stage}"]`)].some((el) => !open.baseline?.has(el))
+    if (open.stageFeedbackAt === undefined && fresh('progress')) open.stageFeedbackAt = t
+    if (open.stageAnalysisAt === undefined && fresh('analysis')) open.stageAnalysisAt = t
   }
 
   /** A scroll gesture is a run of scroll events ending in a frame with none: no timer, the frame cadence decides. */
@@ -459,7 +482,8 @@ export class UiTelemetry {
     // The send began with the interaction that asked for it, a moment before the request left.
     const startedAt = this.interactionAt !== undefined && this.interactionAt <= requested ? this.interactionAt : requested
     const seen = this.changeAt !== undefined && this.changeAt >= startedAt ? this.changeAt : undefined
-    this.open = { task: 'send_publish', startedAt, from: this.armed.send_publish ?? { ...this.counters }, feedbackAt: seen }
+    const baseline = typeof document === 'undefined' ? undefined : new WeakSet<Element>(document.querySelectorAll(`[${UI_STAGE_ATTRIBUTE}]`))
+    this.open = { task: 'send_publish', startedAt, from: this.armed.send_publish ?? { ...this.counters }, feedbackAt: seen, baseline }
   }
 
   /** The analysis of the open send is on screen (the job's `done` arrived or the input came back as proposed). */
@@ -497,10 +521,15 @@ export class UiTelemetry {
     this.open = null
     const end = this.deps.now()
     const stages: Fields = {}
-    // Each stage is the time between two moments that were seen; one that was not seen leaves its stage out.
-    if (open.feedbackAt !== undefined) stages.stage_feedback_ms = Math.max(0, Math.round(open.feedbackAt - open.startedAt))
-    if (open.analysisAt !== undefined) stages.stage_analysis_ms = Math.max(0, Math.round(open.analysisAt - (open.feedbackAt ?? open.startedAt)))
-    if (outcome === 'completed' && open.analysisAt !== undefined) stages.stage_publish_ms = Math.max(0, Math.round(end - open.analysisAt))
+    // Each stage is the time between two moments that were seen; one that was not seen leaves its stage out. The marked
+    // element wins: «first feedback» is the progress painted and «analysis visible» the analysis painted (H-1705). Without
+    // them (an analysis that ends before the first paint, a page without the marks) the first change after the
+    // interaction and the arrival of the analysis stand in.
+    const feedbackAt = open.stageFeedbackAt ?? open.feedbackAt
+    const analysisAt = open.stageAnalysisAt ?? open.analysisAt
+    if (feedbackAt !== undefined) stages.stage_feedback_ms = Math.max(0, Math.round(feedbackAt - open.startedAt))
+    if (analysisAt !== undefined) stages.stage_analysis_ms = Math.max(0, Math.round(analysisAt - (feedbackAt ?? open.startedAt)))
+    if (outcome === 'completed' && analysisAt !== undefined) stages.stage_publish_ms = Math.max(0, Math.round(end - analysisAt))
     this.emitTask(open.task, outcome, open.startedAt, open.from, stages, end)
   }
 

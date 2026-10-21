@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { AreaChip, useAreaStyle } from '@/components/AreaChip'
-import { StateIcon, usePulse } from '@/components/NotifyBadge'
+import { StateIcon, StateMark, usePulse } from '@/components/NotifyBadge'
 import { useLookups } from '@/components/lookups'
 import { ChevronDown } from '@/components/icons'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -37,7 +37,7 @@ export function StatusBar() {
   if (!summary) return null
   return (
     <section aria-label={t('bar.label')} data-testid="status-bar" data-state-top={top ?? 'none'} data-pulse={pulse} className="flex min-w-0 flex-1 items-center justify-end gap-2">
-      <div className="hidden min-w-0 items-center gap-2 md:flex md:flex-1 md:justify-end">
+      <div className="hidden min-w-0 items-center gap-2 md:flex">
         <ul aria-label={t('bar.mine')} className="flex shrink-0 items-center gap-1">
           {COUNTED.filter((status) => (counts[status] ?? 0) > 0).map((status) => (
             <li key={status}>
@@ -147,8 +147,8 @@ function AreaRow({ areaIds }: { areaIds: string[] }) {
   const shown = fitting === null ? areaIds : areaIds.slice(0, fitting)
   const rest = fitting === null ? [] : areaIds.slice(fitting)
   return (
-    <div ref={wrap} data-lane="area-pending" className="relative flex min-w-0 flex-1 items-center justify-end gap-1">
-      <ul ref={box} aria-label={t('bar.byArea')} className="flex h-9 min-w-0 flex-1 flex-wrap items-start justify-end gap-1 overflow-hidden">
+    <div ref={wrap} data-lane="area-pending" className="relative flex min-w-0 items-center gap-1">
+      <ul ref={box} aria-label={t('bar.byArea')} className="flex h-9 min-w-0 flex-wrap items-start gap-1 overflow-hidden">
         {shown.map((id) => (
           <li key={id}>
             <AreaButton areaId={id} />
@@ -259,7 +259,7 @@ function PhoneSummary({ top, total }: { top: MessageStatus | null; total: number
       <PopoverContent align="end" sideOffset={10} collisionPadding={8} data-testid="status-menu" aria-label={t('bar.label')} className="flex max-h-[var(--radix-popover-content-available-height)] w-72 flex-col overflow-y-auto p-0">
         <ul>
           {COUNTED.filter((s) => (counts[s] ?? 0) > 0).map((s) =>
-            line(s, messagesPath(mineFilters(s)), t(WORD[s], { n: counts[s] ?? 0 }), <span data-status={s} data-weight="quiet" data-plain className="inline-flex"><StateIcon status={s} size={16} /></span>, counts[s] ?? 0, 'border-b border-line'),
+            line(s, messagesPath(mineFilters(s)), t(WORD[s], { n: counts[s] ?? 0 }), <StateMark status={s} plain />, counts[s] ?? 0, 'border-b border-line'),
           )}
           {areas.map((a) => {
             const c = areaCounts(summary, a.area_id)

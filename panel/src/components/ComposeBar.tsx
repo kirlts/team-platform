@@ -1,5 +1,5 @@
 import { Send } from '@/components/icons'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { useT } from '@/i18n'
 import { useMediaDraft } from '@/lib/useMediaDraft'
@@ -24,8 +24,17 @@ export function ComposeBar({ onSubmit, problem }: { onSubmit: (draft: SendDraft)
   const [text, setText] = useState('')
   const [dragging, setDragging] = useState(false)
   const textArea = useRef<HTMLTextAreaElement>(null)
+  const box = useRef<HTMLDivElement>(null)
+  const [grown, setGrown] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
+  /** Height of the bar at rest: the slot the page keeps for it while the bar grows over what is below (J2-B-02). */
+  const [rest, setRest] = useState<number | null>(null)
 
   const empty = !text.trim() && draft.empty
+  // Growing (more lines, attachments, a link, a problem) happens over the page, never pushing it down.
+  const expanded = grown || !draft.empty || draft.linkOpen || !!problem || !!draft.recording
+  const expandedNow = useRef(false)
+  expandedNow.current = expanded
 
   // The field grows with its text up to a maximum and from there it scrolls inside.
   useEffect(() => {
@@ -33,7 +42,21 @@ export function ComposeBar({ onSubmit, problem }: { onSubmit: (draft: SendDraft)
     if (!el) return
     el.style.height = 'auto'
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`
+    setGrown(el.scrollHeight > 40)
+    setScrolled(el.scrollTop > 0)
   }, [text])
+
+  useLayoutEffect(() => {
+    const el = box.current
+    if (!el) return
+    const measure = () => {
+      if (!expandedNow.current) setRest(el.offsetHeight)
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   const send = () => {
     if (empty || draft.recording) return
@@ -47,7 +70,11 @@ export function ComposeBar({ onSubmit, problem }: { onSubmit: (draft: SendDraft)
   }
 
   return (
+    <div className="relative z-20" style={{ height: rest ?? undefined }}>
     <div
+      ref={box}
+      data-compose-box
+      data-expanded={expanded}
       onDragOver={(e) => {
         e.preventDefault()
         setDragging(true)
@@ -57,7 +84,7 @@ export function ComposeBar({ onSubmit, problem }: { onSubmit: (draft: SendDraft)
         setDragging(false)
         draft.onDrop(e)
       }}
-      className={cn('glass leaf transition-colors duration-150 focus-within:border-accent', dragging && '!border-accent !bg-accent-soft')}
+      className={cn('glass leaf transition-colors duration-150 focus-within:border-accent', expanded && 'glass-strong absolute inset-x-0 top-0 shadow-pop', dragging && '!border-accent !bg-accent-soft')}
     >
       <div className="flex flex-wrap items-end gap-1.5 p-2">
         <ClipMenu draft={draft} />
@@ -72,6 +99,8 @@ export function ComposeBar({ onSubmit, problem }: { onSubmit: (draft: SendDraft)
             placeholder={t('compose.placeholder')}
             onChange={(e) => setText(e.target.value)}
             onPaste={draft.onPaste}
+            onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 0)}
+            data-scrolled={scrolled}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                 e.preventDefault()
@@ -94,6 +123,7 @@ export function ComposeBar({ onSubmit, problem }: { onSubmit: (draft: SendDraft)
           {t('compose.sendFailed', { reason: problem })}
         </div>
       )}
+    </div>
     </div>
   )
 }

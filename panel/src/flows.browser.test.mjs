@@ -855,3 +855,34 @@ describe('flujo de publicación (ronda 2, juez B)', () => {
     }
   })
 })
+
+describe('compositor (ronda 2, juez B)', () => {
+  test('«Enlace» deja el foco en su campo; el texto largo crece sobre la página sin moverla y con la línea de escritura a la vista (J2-B-01, J2-B-02, J2-B-04)', async () => {
+    const { page, context } = await session('sofia')
+    try {
+      await page.goto(origin)
+      await page.getByRole('heading', { name: 'Últimos mensajes' }).waitFor()
+      await page.getByRole('button', { name: 'Adjuntar' }).click()
+      await page.getByRole('menuitem', { name: 'Enlace' }).click()
+      const field = page.getByLabel('Enlace', { exact: true })
+      await field.waitFor()
+      assert.equal(await field.evaluate((el) => el === document.activeElement), true, 'el campo del enlace nace con el foco')
+      assert.ok((await page.locator('label[for="compose-link"]').count()) === 1, 'el campo lleva su rótulo visible')
+      await page.keyboard.press('Escape')
+      // Texto largo: la página no se mueve y el cuadro no pasa de su máximo.
+      const feed = page.getByRole('heading', { name: 'Últimos mensajes' })
+      const y0 = (await feed.boundingBox()).y
+      const bar = page.getByLabel('Nuevo mensaje', { exact: true }).last()
+      await bar.fill(Array.from({ length: 12 }, (_, i) => `Párrafo ${i + 1} del texto largo que se escribe.`).join('\n\n'))
+      await page.waitForTimeout(300)
+      assert.equal((await feed.boundingBox()).y, y0, 'escribir un texto largo no mueve la página')
+      const box = await bar.boundingBox()
+      assert.ok(box.height <= 124, `el cuadro de texto se detiene en su máximo: ${box.height}`)
+      // La línea de escritura queda a la vista: el cursor está al final y el cuadro desplazó hasta él.
+      assert.equal(await bar.evaluate((el) => el.scrollTop + el.clientHeight >= el.scrollHeight - 2), true, 'se ve el final del texto')
+      assert.ok((await bar.boundingBox()).y + (await bar.boundingBox()).height <= 900, 'el cuadro está dentro de la ventana')
+    } finally {
+      await context.close()
+    }
+  })
+})

@@ -1,5 +1,5 @@
 import { Camera, Link2, Mic, Paperclip, Square, X } from '@/components/icons'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
@@ -24,7 +24,8 @@ export function ClipMenu({ draft, disabled, size = 'icon' }: { draft: MediaDraft
             <Paperclip size={size === 'icon' ? 18 : 16} aria-hidden />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
+        {/* Choosing «Enlace» hands the focus to its field: the menu must not give it back to the clip (J2-B-01). */}
+        <DropdownMenuContent align="start" onCloseAutoFocus={(e) => draft.linkOpen && e.preventDefault()}>
           <DropdownMenuItem onSelect={() => fileInput.current?.click()}>
             <Paperclip size={15} aria-hidden /> {t('media.file')}
           </DropdownMenuItem>
@@ -87,6 +88,12 @@ export function CaptureButtons({ draft, disabled, size = 'icon' }: { draft: Medi
 function LinkRow({ draft }: { draft: MediaDraft }) {
   const t = useT()
   const [value, setValue] = useState('')
+  const field = useRef<HTMLInputElement>(null)
+  // The field is born focused, after the menu that opened it has closed (J2-B-01).
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => field.current?.focus())
+    return () => cancelAnimationFrame(frame)
+  }, [])
   const close = () => {
     draft.setLinkOpen(false)
     setValue('')
@@ -101,8 +108,11 @@ function LinkRow({ draft }: { draft: MediaDraft }) {
       }}
     >
       <div className="flex items-center gap-2">
-        <Input autoFocus type="url" inputMode="url" aria-label={t('media.link')} placeholder="https://" value={value} onChange={(e) => setValue(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && close()} className="h-7 flex-1" />
-        <Button type="submit" size="sm">
+        <label htmlFor="compose-link" className="shrink-0 text-xs font-semibold text-muted">
+          {t('media.link')}
+        </label>
+        <Input id="compose-link" ref={field} type="url" inputMode="url" placeholder="https://" value={value} onChange={(e) => setValue(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && close()} className="h-8 flex-1" />
+        <Button type="submit">
           {t('media.add')}
         </Button>
       </div>

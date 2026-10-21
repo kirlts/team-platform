@@ -470,14 +470,18 @@
     border-color: oklch(0.85 0.1 240 / 0.6);
   }
 
-  /* A gel button that cannot be pressed yet reads as a button at rest: contour and ink at 3:1, not a faded blue (J1-B-03). */
+  /* A gel button that cannot be pressed yet is still the primary one at rest: the gel, dimmed, so it is told apart from the quiet icons beside it (J1-B-03, J2-B-05). */
   .btn-gel:disabled {
-    opacity: 1;
-    color: var(--color-muted);
-    text-shadow: none;
-    border-color: var(--color-edge);
-    background: linear-gradient(180deg, var(--color-glass-edge), var(--color-glass));
+    opacity: 0.7;
+    filter: saturate(0.6);
+    cursor: not-allowed;
     box-shadow: none;
+  }
+
+  /* A field that scrolls inside says there is more above: its first line fades instead of being cut (J2-B-02). */
+  textarea[data-scrolled='true'] {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 14px);
+    mask-image: linear-gradient(to bottom, transparent 0, black 14px);
   }
 
   .btn-gel:hover:not(:disabled) {

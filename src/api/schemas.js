@@ -35,9 +35,9 @@ export const member = {
   type: 'object',
   properties: {
     id, email: { type: 'string' }, name: { type: 'string' }, role: { type: 'string', enum: ['member', 'editor'] },
-    responsibilities: { type: 'string' }, domains: { type: 'array', items: { type: 'string' } }, created_at: { type: 'string' }
+    responsibilities: { type: 'string' }, domains: { type: 'array', items: { type: 'string' } }, language: { type: 'string', enum: ['es-419', 'en'] }, created_at: { type: 'string' }
   },
-  required: ['id', 'email', 'name', 'role']
+  required: ['id', 'email', 'name', 'role', 'language']
 }
 
 export const templateSummary = {

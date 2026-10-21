@@ -5,6 +5,7 @@
 import { get, run, tx } from '../../db/index.js'
 import { badRequest, conflict, unauthenticated } from '../../domain/errors.js'
 import { audit } from '../../domain/audit.js'
+import { LANGUAGES } from '../../domain/language.js'
 import { createMember, getMember, listMembers, updateMember } from '../../domain/members.js'
 import { hashPassword, validatePassword, verifyPassword } from '../../identity/password.js'
 import { pageEnvelope, pageParams, pageQuerySchema, pageResult } from '../pagination.js'
@@ -12,6 +13,7 @@ import { idParams, member } from '../schemas.js'
 
 const emailAddr = { type: 'string', minLength: 3, maxLength: 254, pattern: '^[^@\\s]+@[^@\\s]+$' } // 254: largo máximo de una dirección (RFC 5321)
 const domainList = { type: 'array', items: { type: 'string' } }
+const languageTag = { type: 'string', enum: LANGUAGES } // UD-018: exactly two values; anything else is 400 'validation'
 
 export function registerMemberRoutes (app, ctx) {
   const { db, config, requireRole, identity, blocklist } = ctx
@@ -70,10 +72,10 @@ export function registerMemberRoutes (app, ctx) {
   app.patch('/members/me', {
     onRequest: [requireRole('member')],
     schema: {
-      summary: 'Editar lo propio: descripción, dominios y contraseña',
+      summary: 'Editar lo propio: descripción, dominios, idioma de salida y contraseña',
       body: {
         type: 'object', additionalProperties: false, minProperties: 1,
-        properties: { responsibilities: { type: 'string' }, domains: domainList, current_password: { type: 'string' }, new_password: { type: 'string' } }
+        properties: { responsibilities: { type: 'string' }, domains: domainList, language: languageTag, current_password: { type: 'string' }, new_password: { type: 'string' } }
       },
       response: { 200: member }
     }

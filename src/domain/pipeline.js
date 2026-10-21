@@ -13,6 +13,7 @@ import { all, get, run } from '../db/index.js'
 import { parseJson } from '../db/util.js'
 import { parseDomains } from './members.js'
 import { permanent } from './errors.js'
+import { DEFAULT_LANGUAGE } from './language.js'
 import { transitionInput } from './inputs.js'
 import { blobPath } from './storage.js'
 
@@ -162,8 +163,11 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
         advance(pending.length, 0, 'Analizando')
         const atts = all(db, 'SELECT id, kind, name, extracted_text FROM attachments WHERE input_id = ? ORDER BY id', inputId)
           .map((a) => ({ id: a.id, kind: a.kind, name: a.name, extracted: a.extracted_text ?? '' }))
+        // UD-018: the author's language selects the prompts and the language of the output; it travels as context data.
+        const author = get(db, 'SELECT language FROM members WHERE id = ?', input.author_id)
         const bundle = {
           text: input.text,
+          language: author?.language ?? DEFAULT_LANGUAGE,
           attachments: atts,
           areas: all(db, 'SELECT id, title, description, position FROM areas WHERE deleted_at IS NULL ORDER BY position, id'),
           templates: all(db, 'SELECT t.id, t.area_id, t.name, t.description, t.body_markdown FROM templates t JOIN areas a ON a.id = t.area_id WHERE t.deleted_at IS NULL AND a.deleted_at IS NULL ORDER BY t.id'),

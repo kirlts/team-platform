@@ -28,6 +28,8 @@ export function Templates({ area }: { area: Area }) {
   const del = useDeleteTemplate(area.id)
   const restore = useRestoreTemplate()
   const [creating, setCreating] = useState(false)
+  /** The template just created: the list pages to it, since in a small frame it lands on a later page. */
+  const [created, setCreated] = useState<string | undefined>()
   /** The template just deleted, where it was, and the size of the history after deleting it: it stays while nothing else was done. */
   const [removed, setRemoved] = useState<{ template: Template; index: number; mark: number } | null>(null)
   const live = useMemo(() => (templates.data ?? []).filter((x) => !x.deleted_at), [templates.data])
@@ -61,6 +63,7 @@ export function Templates({ area }: { area: Area }) {
       <FitList
         rows={rows}
         rowKey={(x) => `${x.kind}-${x.template.id}`}
+        reveal={created}
         renderRow={(x) => (x.kind === 'removed' ? <RemovedRow template={x.template} onUndo={() => void undo.undo()} /> : <TemplateRow template={x.template} areaId={area.id} onRemove={() => void remove(x.template)} />)}
         empty={
           templates.isPending || templates.isError ? (
@@ -78,7 +81,10 @@ export function Templates({ area }: { area: Area }) {
           )
         }
       />
-      <NewTemplateDialog open={creating} onOpenChange={setCreating} onCreate={(v) => save.mutateAsync(v)} />
+      <NewTemplateDialog open={creating} onOpenChange={setCreating} onCreate={async (v) => {
+          const made = (await save.mutateAsync(v)) as Template | undefined
+          if (made?.id) setCreated(`template-${made.id}`)
+        }} />
     </section>
   )
 }

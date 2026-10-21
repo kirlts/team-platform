@@ -7,6 +7,7 @@ import path from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { lex } from './testing/lex.js'
+import { buildNotice, configureFlags, dockerfileArgs } from '../scripts/notice.mjs'
 
 const src = path.dirname(fileURLToPath(import.meta.url))
 const raiz = path.resolve(src, '..')
@@ -93,6 +94,53 @@ test('HP-011 · toda dependencia de producción tiene licencia compatible con MI
   }
   assert.ok(revisadas > 50)
   assert.deepEqual(incompatibles, [])
+})
+
+// Segunda capa de licencias (UD-020): lo que la imagen ejecuta o carga y no es un paquete de npm figura en NOTICE.
+test('HP-011 · la excepción de @img/sharp-libvips-* está justificada en NOTICE, con la versión del lockfile', () => {
+  const lock = JSON.parse(readFileSync(path.join(raiz, 'package-lock.json'), 'utf8'))
+  const notice = readFileSync(path.join(raiz, 'NOTICE'), 'utf8')
+  const libvips = Object.entries(lock.packages).filter(([location]) => /^node_modules\/@img\/sharp-libvips-/.test(location))
+  assert.ok(libvips.length > 0)
+  for (const [location, p] of libvips) {
+    assert.equal(p.license, 'LGPL-3.0-or-later', `${location}: la excepción sólo cubre LGPL-3.0-or-later`)
+    assert.ok(notice.includes(`@img/sharp-libvips-* ${p.version}`), `NOTICE no menciona @img/sharp-libvips-* ${p.version}`)
+  }
+  assert.match(notice, /LGPL-3\.0-or-later/)
+  // El resto de la excepción (los enlaces nativos de sharp) sólo puede sumar licencias permisivas a la LGPL.
+  const permisivas = /^(MIT|Apache-2\.0|LGPL-3\.0-or-later)$/
+  for (const [location, p] of Object.entries(lock.packages)) {
+    if (!/^node_modules\/@img\/sharp-(?!libvips)/.test(location)) continue
+    const ok = String(p.license).replace(/[()]/g, '').split(/\s+(?:AND|OR)\s+/).every((l) => permisivas.test(l.trim()))
+    assert.ok(ok, `${location}: ${p.license}`)
+  }
+})
+
+test('HP-011 · NOTICE nombra ffmpeg con la versión y la suma que fija el Dockerfile, y está al día', () => {
+  const dockerfile = readFileSync(path.join(raiz, 'Dockerfile'), 'utf8')
+  const notice = readFileSync(path.join(raiz, 'NOTICE'), 'utf8')
+  const a = dockerfileArgs(dockerfile)
+  assert.match(a.FFMPEG_VERSION, /^\d+\.\d+(\.\d+)?$/)
+  assert.ok(notice.includes(`FFmpeg ${a.FFMPEG_VERSION}`), 'NOTICE no nombra la versión de ffmpeg del Dockerfile')
+  assert.ok(notice.includes(a.FFMPEG_SHA256), 'NOTICE no lleva la suma SHA-256 del Dockerfile')
+  assert.ok(notice.includes(`https://ffmpeg.org/releases/ffmpeg-${a.FFMPEG_VERSION}.tar.xz`))
+  assert.match(notice, /LGPL-2\.1-or-later/)
+  assert.ok(notice.includes(`dav1d ${a.DAV1D_VERSION}`))
+  assert.ok(notice.includes('libstdc++'))
+  // Generado: `node scripts/notice.mjs` lo reescribe.
+  assert.equal(notice, buildNotice(raiz), 'NOTICE está desactualizado: node scripts/notice.mjs')
+})
+
+test('HP-011 · ffmpeg se compila sin GPL: ni --enable-gpl, ni --enable-nonfree, ni --enable-version3, ni x264/x265', () => {
+  const dockerfile = readFileSync(path.join(raiz, 'Dockerfile'), 'utf8')
+  const flags = configureFlags(dockerfile)
+  assert.ok(flags.includes('--disable-everything') && flags.includes('--enable-small'))
+  for (const flag of flags) {
+    assert.ok(!/^--enable-(gpl|nonfree|version3|libx264|libx265|libxvid|postproc)$/.test(flag), `la configuración de ffmpeg lleva ${flag}`)
+  }
+  // La imagen que se publica instala NOTICE donde la LGPL exige que viaje.
+  assert.ok(dockerfile.includes('COPY NOTICE /usr/share/licenses/NOTICE'))
+  assert.ok(dockerfile.includes('/usr/share/licenses/ffmpeg/'))
 })
 
 test('HP-006 · un contenedor y un volumen bastan: compose.yml declara un solo servicio (§4.5)', () => {

@@ -293,19 +293,27 @@ test('toda ruta protegida responde 401 sin sesión, y las de editor 403 a un mie
   assert.ok(checked >= 25)
   // Las que el spec marca como del editor.
   const editorRoutes = new Set(routeList.filter((r) => r.policy === 'editor').map((r) => `${r.method} ${r.url.replace(/^\/api/, '')}`))
-  for (const expectedRoute of ['PATCH /members/:id', 'POST /areas', 'PATCH /areas/:id', 'GET /settings/providers', 'PATCH /settings/providers', 'POST /areas/:id/templates', 'POST /members']) {
+  for (const expectedRoute of ['PATCH /members/:id', 'POST /areas', 'PATCH /areas/:id', 'GET /settings/providers', 'PATCH /settings/providers', 'PATCH /settings/project', 'POST /areas/:id/templates', 'POST /members']) {
     assert.ok(editorRoutes.has(expectedRoute), `${expectedRoute} debería ser de editor`)
   }
   await env.close()
 })
 
-test('un miembro edita sólo su descripción y dominios', async () => {
+test('un miembro edita sólo su perfil, idioma y contraseña', async () => {
   const env = await makeEnv({ config: noIpLimit })
   await addMember(env, { email: 'ana@x.org' })
   const cookie = await login(env, 'ana@x.org')
-  const ok = await env.app.inject({ method: 'PATCH', url: '/api/members/me', headers: { 'x-team-request': 'panel', cookie }, payload: { responsibilities: 'API', domains: ['backend'] } })
+  const ok = await env.app.inject({ method: 'PATCH', url: '/api/members/me', headers: { 'x-team-request': 'panel', cookie }, payload: { profile: 'Hago la API.\n\nPrefiero capturas.' } })
   assert.equal(ok.statusCode, 200)
-  assert.equal(ok.json().responsibilities, 'API')
+  assert.equal(ok.json().profile, 'Hago la API.\n\nPrefiero capturas.')
+  const tooLong = await env.app.inject({ method: 'PATCH', url: '/api/members/me', headers: { 'x-team-request': 'panel', cookie }, payload: { profile: 'x'.repeat(env.config.members.profileMaxLength + 1) } })
+  assert.equal(tooLong.statusCode, 400)
+  const atCap = await env.app.inject({ method: 'PATCH', url: '/api/members/me', headers: { 'x-team-request': 'panel', cookie }, payload: { profile: 'x'.repeat(env.config.members.profileMaxLength) } })
+  assert.equal(atCap.statusCode, 200)
+  for (const oldField of ['responsibilities', 'domains']) {
+    const old = await env.app.inject({ method: 'PATCH', url: '/api/members/me', headers: { 'x-team-request': 'panel', cookie }, payload: { [oldField]: 'x' } })
+    assert.equal(old.statusCode, 400, oldField)
+  }
   for (const fieldName of ['role', 'name', 'email']) {
     const r = await env.app.inject({ method: 'PATCH', url: '/api/members/me', headers: { 'x-team-request': 'panel', cookie }, payload: { [fieldName]: 'editor' } })
     assert.equal(r.statusCode, 400, fieldName)

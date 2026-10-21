@@ -14,18 +14,18 @@
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
 - `main`: 35b0bee Traspaso: VPS al día en 046c978. Empujado a origin: `35b0bee`.
-- Ramas con commits sin fusionar: `wt-cierre-docs` 2 (hace 8 segundos).
+- Ramas con commits sin fusionar: `wt-cierre-docs` 3 (hace 5 segundos).
 - Worktrees abiertos: `team-platform`, `areas2`, `auto-publicar`, `cierre`, `cierre-docs`, `estados-areas`, `galeria`, `h900`, `h901`, `heic`, `ingles`, `inicio-maqueta`, `miniaturas`, `modelos`, `reuniones`, `ronda3-b`, `telemetria-ui`, `thinking`, `voz`.
 - Últimos commits en `main`:
-- `35b0bee` Traspaso: VPS al día en 046c978 (hace 8 minutos)
-- `046c978` Merge branch 'wt-envio' (hace 18 minutos)
-- `371442f` Merge branch 'wt-tarjetas' (hace 25 minutos)
-- `c66b5c9` Merge branch 'wt-areas3' (hace 25 minutos)
-- `3b2a5af` Pruebas: mensaje de aserción en inglés y orden de llm_calls sin depender del milisegundo (hace 25 minutos)
-- `05b0914` Mensaje de aserción en inglés (HP-008) en flows-ronda3b (hace 27 minutos)
-- `1769121` Fusiona main en wt-envio (hace 29 minutos)
-- `cd1dd06` Prueba de números de envío: el texto incluye la hora para lectores de pantalla (hace 30 minutos)
-Actualizado 2026-10-21 20:56 UTC.
+- `35b0bee` Traspaso: VPS al día en 046c978 (hace 10 minutos)
+- `046c978` Merge branch 'wt-envio' (hace 20 minutos)
+- `371442f` Merge branch 'wt-tarjetas' (hace 27 minutos)
+- `c66b5c9` Merge branch 'wt-areas3' (hace 27 minutos)
+- `3b2a5af` Pruebas: mensaje de aserción en inglés y orden de llm_calls sin depender del milisegundo (hace 27 minutos)
+- `05b0914` Mensaje de aserción en inglés (HP-008) en flows-ronda3b (hace 29 minutos)
+- `1769121` Fusiona main en wt-envio (hace 31 minutos)
+- `cd1dd06` Prueba de números de envío: el texto incluye la hora para lectores de pantalla (hace 32 minutos)
+Actualizado 2026-10-21 20:58 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

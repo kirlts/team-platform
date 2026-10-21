@@ -57,7 +57,7 @@ function Label({ text, onlyMedia }: { text: string; onlyMedia: boolean }) {
   const words = firstWords(text)
   // The first words repeat the start of the original beside the analysis, on purpose: it is how a send is told from the others.
   return (
-    <p data-repeat-ok="send-label" className="break-words text-sm leading-snug">
+    <p data-repeat-ok="send-label" className="break-words text-xs leading-snug md:text-sm">
       {words || (onlyMedia ? t('tray.onlyMedia') : '')}
     </p>
   )
@@ -66,15 +66,15 @@ function Label({ text, onlyMedia }: { text: string; onlyMedia: boolean }) {
 const OPTION = 'flex h-full w-full cursor-pointer flex-col gap-1 rounded-md border border-line px-2.5 py-1.5 text-left hover:bg-glass-edge'
 const OPTION_SELECTED = 'border-accent bg-accent-soft/60 shadow-[inset_0_-3px_0_var(--color-accent)]'
 
-/** The order of arrival and the time: what tells two sends with the same words apart. */
-function Heading({ n, at }: { n: number; at: string }) {
+/** The order of arrival: what tells two sends with the same words apart. The time stays in the title and for a screen reader, so the row keeps its height. */
+function Ordinal({ n, at }: { n: number; at: string }) {
   const t = useT()
   const format = useFormat()
   return (
-    <span className="flex flex-wrap items-baseline justify-between gap-x-2 text-xs text-muted">
-      <span className="font-semibold text-fg">{t('tray.ordinal', { n })}</span>
-      <time dateTime={at} className="tabular-nums">
-        {format.stamp(at)}
+    <span className="min-w-0 text-xs font-semibold text-fg" title={format.stamp(at)}>
+      {t('tray.ordinal', { n })}
+      <time dateTime={at} className="sr-only">
+        {` ${format.stamp(at)}`}
       </time>
     </span>
   )
@@ -90,8 +90,8 @@ function InputOption({ n, input, selected, onSelect }: { n: number; input: Input
   const state = t(STATE_KEY[input.status] ?? 'tray.state.queued')
   return (
     <button type="button" role="option" aria-selected={selected} aria-label={t('tray.open', { text: label || t('tray.onlyMedia') })} onClick={onSelect} className={cn(OPTION, selected && OPTION_SELECTED)}>
-      <Heading n={n} at={input.created_at} />
-      <span className="flex">
+      <span className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
+        <Ordinal n={n} at={input.created_at} />
         <Badge tone={input.status === 'proposed' ? 'solid' : input.status === 'failed' ? 'danger' : input.status === 'published' ? 'neutral' : 'outline'}>
           {state}
           {running && input.status !== 'queued' && percent > 0 && <span className="ml-1 tabular-nums">{percent}%</span>}
@@ -108,8 +108,8 @@ function UploadOption({ n, upload, selected, onSelect }: { n: number; upload: Pe
   const percent = Math.round(upload.progress * 100)
   return (
     <button type="button" role="option" aria-selected={selected} aria-label={t('tray.open', { text: firstWords(upload.text, 6) || t('tray.onlyMedia') })} onClick={onSelect} className={cn(OPTION, selected && OPTION_SELECTED)}>
-      <Heading n={n} at={upload.at} />
-      <span className="flex">
+      <span className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
+        <Ordinal n={n} at={upload.at} />
         <Badge tone={upload.error ? 'danger' : 'neutral'}>
           {upload.error ? t('tray.state.notSent') : t('tray.state.uploading')}
           {!upload.error && percent > 0 && <span className="ml-1 tabular-nums">{percent}%</span>}

@@ -14,7 +14,7 @@ import path from 'node:path'
 import { after, test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { Agent, fetch as undiciFetch } from 'undici'
-import { all, get } from './db/index.js'
+import { all, get, openDatabase } from './db/index.js'
 import { makeAudio, makeDocx, makeImage, makePdf, makeVideo } from './extract/test/helpers.js'
 import { allowedHostsFor, installEgressGuard } from './testing/egress.js'
 import { fakeState } from './testing/fake-providers-module.js'
@@ -96,10 +96,11 @@ test('HP-001: a complete flow with an attachment of every kind reaches only allo
     PROVIDERS_MODULE: './testing/fake-providers-module.js',
     TEXT_BASE_URL: 'https://llm.example.test/v1',
     SPEECH_BASE_URL: 'https://stt.example.test',
-    OTEL_EXPORTER_OTLP_ENDPOINT: `http://127.0.0.1:${collector.port}`,
-    OTEL_BSP_SCHEDULE_DELAY: '50'
+    OTEL_EXPORTER_OTLP_ENDPOINT: `http://127.0.0.1:${collector.port}`
   }
-  Object.assign(process.env, { OTEL_EXPORTER_OTLP_ENDPOINT: env.OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_BSP_SCHEDULE_DELAY: '50' })
+  // Telemetry reads the process environment. The batch delay is not set here: it is TELEMETRY_FLUSH_MS (default
+  // 5 s), and the test does not wait for it; the spans are written when the system shuts down (see below).
+  Object.assign(process.env, { OTEL_EXPORTER_OTLP_ENDPOINT: env.OTEL_EXPORTER_OTLP_ENDPOINT })
   const guard = installEgressGuard({ allowedHosts: allowedHostsFor(env) })
   let system
   try {
@@ -157,15 +158,23 @@ test('HP-001: a complete flow with an attachment of every kind reaches only allo
     assert.equal(blockedView.status, 'failed')
     assert.equal(blockedView.error_code, 'link_blocked')
 
-    // The spans reached the collector (the only extra destination, and only because it is defined).
-    await until(() => collector.received.length > 0)
-    assert.ok(collector.received.every((u) => u === '/v1/traces'))
-    assert.ok(all(system.db, "SELECT 1 FROM spans WHERE name = 'analyze' LIMIT 1").length > 0, 'the analysis ran through the real analyzer')
     assert.deepEqual(['vision', 'speech', 'text'].filter((slot) => !fakeState.calls.includes(slot)), [], 'every provider slot was exercised')
   } finally {
     await system?.shutDown('test')
     guard.uninstall()
     await collector.close()
+  }
+  // The spans are checked after the shutdown, which stops the worker and flushes both span queues: the event
+  // «the spans were written» is the end of the shutdown, not the 5 s timer of the batch processor (HALLAZGOS H-75:
+  // waiting on the first batch that reached the collector failed under load when the analyze span was in a later one).
+  // The collector is the only extra destination, and only because it is defined.
+  assert.ok(collector.received.length > 0, 'the spans reached the collector')
+  assert.ok(collector.received.every((u) => u === '/v1/traces'))
+  const db = openDatabase(path.join(env.DATA_DIR, 'team.db'))
+  try {
+    assert.ok(all(db, "SELECT 1 FROM spans WHERE name = 'analyze' LIMIT 1").length > 0, 'the analysis ran through the real analyzer')
+  } finally {
+    db.close()
   }
   assert.deepEqual(guard.violations, [])
   assert.ok(guard.attempts.length > 0, 'the client itself connected to the API on loopback')

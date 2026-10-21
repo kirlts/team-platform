@@ -107,4 +107,4 @@ Estados: `main` (resuelto y fusionado), `en curso` (asignado a un agente vivo), 
 | H-72 | Rerun completo del banco privado tras los arreglos del analizador | banco privado | abierto: lo corre la sesión cuando entre la rama de prompts |
 | H-73 | HP-019 y HP-020 necesitan llave real y una persona | batería | abierto: HP-019 lo corre la sesión; HP-020 es el juez |
 | H-74 | Un docx con RUT y correos de pacientes reales quedó fuera del banco | banco privado | `main` (correcto, no entra) |
-| H-75 | `HP-001: a complete flow with an attachment of every kind` agotó su tiempo en dos corridas (9,5 s y 17 s) y pasa sola: carrera o carga, sin aislar | agente API | abierto (agente menores) |
+| H-75 | `HP-001: a complete flow with an attachment of every kind` agotó su tiempo en dos corridas (9,5 s y 17 s) y pasa sola: carrera o carga, sin aislar | agente API | listo en la rama `wt-menores`, pasa a `main` al fusionar (causa: la prueba esperaba el primer lote que llegó al colector y leía `spans` antes del vaciado de 5 s; reproducido 1 de 6 bajo carga; ahora lee tras `shutDown`, que vacía las colas: 12 de 12 bajo la misma carga y 3,2 s en vez de 6,4 s) |

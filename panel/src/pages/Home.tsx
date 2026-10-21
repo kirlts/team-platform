@@ -202,10 +202,9 @@ export function Home() {
     return () => window.removeEventListener('keydown', onKey)
   }, [ids, selectedId])
 
+  // The drawer is drawn only while there is something in it. Its open state is not reset when the list is empty for a moment: a send passes from the
+  // browser's upload to the server's list in two steps (the cache notifies after the upload leaves), and that gap must not fold it.
   const working = items.length > 0
-  useEffect(() => {
-    if (!working) setDrawerOpen(false)
-  }, [working])
 
   // With the drawer open and a window too low for it and the two lists (UD-017), the lists yield: they fold into one strip that says where they are. Measured, not guessed:
   // the page folds them only when it does overflow with them drawn, and tries again whenever the window changes size.

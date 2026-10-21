@@ -245,6 +245,36 @@ export function usePatchMessage() {
   })
 }
 
+/** New files and links on a published message (UD-071): they go at the end and count as an edit, with the version that was read. */
+export function useAddAttachments() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (v: { id: string; files: File[]; links?: string[] }) => {
+      const send = (version: number | undefined) => {
+        const form = new FormData()
+        form.append('version', String(version))
+        for (const f of v.files) form.append('files', f)
+        for (const l of v.links ?? []) form.append('links', l)
+        return api<MessageDetail>(`/messages/${v.id}/attachments`, { method: 'POST', form })
+      }
+      const read = () => (qc.getQueryData(['message', v.id]) as MessageDetail | undefined)?.version
+      try {
+        return await send(read() ?? (await api<MessageDetail>(`/messages/${v.id}`)).version)
+      } catch (err) {
+        if (!(err instanceof ApiError) || err.code !== 'edit_conflict') throw err
+        const fresh = await api<MessageDetail>(`/messages/${v.id}`)
+        qc.setQueryData(['message', v.id], fresh)
+        return send(fresh.version)
+      }
+    },
+    onSuccess: (saved, v) => {
+      qc.setQueryData(['message', v.id], (old: MessageDetail | undefined) => (old ? { ...old, ...saved, replies: saved.replies ?? old.replies } : saved))
+      void qc.invalidateQueries({ queryKey: ['messages'] })
+      void qc.invalidateQueries({ queryKey: ['inputs'] })
+    },
+  })
+}
+
 export function useSetClosed() {
   const invalidate = useInvalidator()
   return useMutation({

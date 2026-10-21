@@ -1,7 +1,8 @@
-import { ChevronRight } from '@/components/icons'
+import { ChevronRight, Plus } from '@/components/icons'
+import { useRef } from 'react'
 import { Link } from 'react-router'
 import { useErrorText, useFormat, useT } from '@/i18n'
-import { useMe, useMessage, usePatchMessage, useTemplates } from '@/lib/queries'
+import { useAddAttachments, useMe, useMessage, usePatchMessage, useTemplates } from '@/lib/queries'
 import { parseTemplateFields, remapFields } from '@/lib/template'
 import type { InputRecord, MessageDetail, MessagePatch, Template } from '@/lib/types'
 import { useUndo } from '@/lib/undo'
@@ -62,6 +63,8 @@ function Box({ m, input }: { m: MessageDetail; input: InputRecord }) {
   const me = useMe().data
   const undo = useUndo()
   const patchMessage = usePatchMessage()
+  const addFiles = useAddAttachments()
+  const picker = useRef<HTMLInputElement>(null)
   const style = useAreaStyle(m.area_id)
   const templates = useTemplates(m.area_id)
   const template: Template | undefined = templates.data?.find((x) => x.id === m.template_id) ?? templates.data?.[0]
@@ -122,15 +125,35 @@ function Box({ m, input }: { m: MessageDetail; input: InputRecord }) {
         ) : null}
         {canEdit && (
           <AttachmentPicker
-            all={input.attachments}
+            all={[...input.attachments, ...m.attachments.filter((a) => !input.attachments.some((x) => x.id === a.id))]}
             selected={m.attachments.map((a) => a.id)}
             onChange={(ids) => void change(t('proposal.attachmentsChanged'), { attachment_ids: ids }, { attachment_ids: m.attachments.map((a) => a.id) })}
           />
         )}
+        {/* The mockup's «Lista de adjuntos ⊕»: more files for a message that is already published. */}
+        {canEdit && (
+          <>
+            <input
+              ref={picker}
+              type="file"
+              multiple
+              hidden
+              data-testid="published-files"
+              onChange={(e) => {
+                const files = [...(e.target.files ?? [])]
+                e.target.value = ''
+                if (files.length) addFiles.mutate({ id: m.id, files })
+              }}
+            />
+            <button type="button" aria-label={t('published.addFiles')} title={t('published.addFiles')} disabled={addFiles.isPending} onClick={() => picker.current?.click()} className="hit inline-flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-line-strong hover:border-accent hover:text-accent disabled:opacity-50">
+              <Plus size={14} aria-hidden />
+            </button>
+          </>
+        )}
       </div>
-      {patchMessage.isError && (
+      {(patchMessage.isError || addFiles.isError) && (
         <p role="alert" className="rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">
-          {errorText(patchMessage.error)}
+          {errorText(patchMessage.isError ? patchMessage.error : addFiles.error)}
         </p>
       )}
     </li>

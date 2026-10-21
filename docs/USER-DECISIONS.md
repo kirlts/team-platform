@@ -637,7 +637,7 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 **Enmienda:** UD-030 queda enmendada: el diálogo de envíos y su botón dejan de ser el camino principal (la maqueta manda), y «Últimos mensajes» y «Últimas respuestas» dejan de ser lo más prominente cuando hay un envío abierto. La fecha del día vuelve a Inicio, porque la maqueta la lleva; sigue sin haber reloj.
 **Alternativas descartadas:**
 - Una pestaña por envío arriba de la barra: contradice el orden de la maqueta.
-- «Lista de adjuntos» con un botón «+» que agregue archivos a un envío ya hecho: la API no tiene esa ruta y UD-071 deja fuera agregar archivos nuevos a un mensaje publicado. La tira de la galería hace de lista y los adjuntos se quitan o reordenan.
+- Dejar fuera el «+» de «Lista de adjuntos»: la API ahora lo permite (`POST /api/messages/:id/attachments`), así que cada mensaje publicado lo lleva y la tira de la galería hace de lista.
 - Paginar los mensajes de la propuesta en el desplegable: un texto no tiene largo máximo; la lista es un carril con su desplazamiento declarado, y ningún mensaje se corta.
 **Consecuencias:**
 - `SendDrawer`, `PublishedPane` y `SendSwitcher` reemplazan al diálogo y a la lista paginada de la bandeja; `ReviewPane` pasa a dos columnas.

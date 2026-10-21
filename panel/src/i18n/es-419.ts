@@ -138,6 +138,7 @@ export const es419 = {
   'published.openShort': 'Abrir',
   'published.edited': 'Editado {when}',
   'published.loading': 'Cargando el mensaje',
+  'published.addFiles': 'Agregar adjuntos',
   'tray.state.failed': 'Falló',
   'tray.messages': { one: '{n} mensaje', other: '{n} mensajes' },
   'tray.pending': { one: '{n} envío', other: '{n} envíos' },

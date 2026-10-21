@@ -736,7 +736,7 @@ const server = createServer(async (req, res) => {
       const inArea = (a, status) => messages.filter((x) => x.area_id === a.id && x.status === status)
       return send(res, 200, { mine, items, areas: areas.map((a) => ({ area_id: a.id, open: inArea(a, 'open').length, answered: inArea(a, 'answered').length, closed: inArea(a, 'closed').length, mine_open: inArea(a, 'open').filter((x) => x.assignee_ids.includes(me.id)).length })) })
     }
-    m = /^\/messages\/([^/]+)(?:\/(replies|close|reopen))?$/.exec(path)
+    m = /^\/messages\/([^/]+)(?:\/(replies|close|reopen|attachments))?$/.exec(path)
     if (m) {
       const msg = messages.find((x) => x.id === m[1])
       if (!msg) return fail(res, 404, 'No existe')
@@ -780,6 +780,36 @@ const server = createServer(async (req, res) => {
           msg.edited_at = msg.updated_at
           msg.edits = [...(msg.edits ?? []), { id: `e-${id()}`, member_id: me.id, at: msg.edited_at, version: msg.version, fields: changed }]
         }
+        return send(res, 200, { ...view(msg), replies: replies.get(msg.id).map(replyView) })
+      }
+      // New files or links on a published message (UD-071): they go at the end, count as an edit, and only the sender does it.
+      if (m[2] === 'attachments' && method === 'POST') {
+        if (msg.author_id !== me.id) return fail(res, 403, 'Sólo quien envió el mensaje lo edita', 'not_message_author')
+        const ct = req.headers['content-type'] ?? ''
+        const boundary = /boundary=(?:"([^"]+)"|([^;]+))/.exec(ct)
+        if (!boundary) return fail(res, 400, 'Se esperaba multipart')
+        const parts = parseMultipart(await readBody(req), boundary[1] ?? boundary[2])
+        const version = Number(parts.find((p) => p.name === 'version')?.data.toString('utf8'))
+        const files = parts.filter((p) => p.name === 'files' && p.filename)
+        const links = parts.filter((p) => p.name === 'links').map((p) => p.data.toString('utf8'))
+        if (!Number.isInteger(version)) return fail(res, 400, 'Falta la versión del mensaje.', 'validation')
+        if (version !== (msg.version ?? 1)) return send(res, 409, { code: 'edit_conflict', message: 'El mensaje cambió desde que se leyó.', version: msg.version ?? 1 })
+        if (!files.length && !links.length) return fail(res, 400, 'No hay nada que agregar.', 'attachments_empty')
+        for (const f of files) {
+          const mime = f.type ?? 'application/octet-stream'
+          const a = { id: `f-${id()}`, kind: kindOf(mime), mime, name: f.filename, size: f.data.length, data: f.data, input_id: msg.input_id }
+          attachments.set(a.id, a)
+          msg.attachment_ids = [...msg.attachment_ids, a.id]
+        }
+        for (const link of links) {
+          const a = { id: `f-${id()}`, kind: 'link', mime: 'text/uri-list', name: link, size: link.length, data: Buffer.from(link), input_id: msg.input_id }
+          attachments.set(a.id, a)
+          msg.attachment_ids = [...msg.attachment_ids, a.id]
+        }
+        msg.version = (msg.version ?? 1) + 1
+        msg.updated_at = new Date().toISOString()
+        msg.edited_at = msg.updated_at
+        msg.edits = [...(msg.edits ?? []), { id: `e-${id()}`, member_id: me.id, at: msg.edited_at, version: msg.version, fields: ['attachment_ids'] }]
         return send(res, 200, { ...view(msg), replies: replies.get(msg.id).map(replyView) })
       }
       if (m[2] === 'replies' && method === 'POST') {

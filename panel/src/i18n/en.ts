@@ -138,6 +138,7 @@ export const en: Record<MessageKey, Message> = {
   'published.openShort': 'Open',
   'published.edited': 'Edited {when}',
   'published.loading': 'Loading the message',
+  'published.addFiles': 'Add attachments',
   'tray.state.failed': 'Failed',
   'tray.messages': { one: '{n} message', other: '{n} messages' },
   'tray.pending': { one: '{n} send', other: '{n} sends' },

@@ -51,7 +51,7 @@ for (const [name, size, mobile] of SIZES) {
       await page.locator('main h1').first().waitFor()
       await page.waitForTimeout(500)
       await shot(page, '05-ficha', mobile)
-      await page.getByRole('button', { name: 'Cerrar', exact: true }).click()
+      await page.getByRole('button', { name: 'Cerrar mensaje', exact: true }).click()
       await page.waitForTimeout(500)
       await shot(page, '06-ficha-cerrada', mobile)
       await go('/areas', '07-areas', mobile)

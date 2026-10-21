@@ -604,7 +604,7 @@ describe('Mensajes and the detail (J3-A-16, J3-A-22 to J3-A-29)', () => {
       // The state is the light and the word, no pill.
       assert.equal(await page.locator('main .led').first().evaluate((el) => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)')
       // Deshacer appears once there is something to undo, with its name on a desktop.
-      await page.getByRole('button', { name: 'Cerrar', exact: true }).click()
+      await page.getByRole('button', { name: 'Cerrar mensaje', exact: true }).click()
       const undo = page.getByRole('button', { name: 'Deshacer' }).first()
       await undo.waitFor()
       assert.match((await undo.innerText()).trim(), /Deshacer/, '«Deshacer» shows its name')

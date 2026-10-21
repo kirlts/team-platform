@@ -1,4 +1,4 @@
-import { ArrowLeft } from '@/components/icons'
+import { ArrowLeft, MessageSquare } from '@/components/icons'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { AiMark } from '@/components/AiMark'
 import { AreaChip } from '@/components/AreaChip'
@@ -90,6 +90,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
   const closed = m.status === 'closed'
   // Only the sender edits a published message, the Editor included (UD-071).
   const canEdit = !!me && me.id === m.author_id
+  const canReply = !!me && me.id !== m.author_id && !closed
 
   /** A change to the message: what is requested and what undoes it. */
   const change = (label: string, forward: MessagePatch, back: MessagePatch) =>
@@ -104,7 +105,20 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
         <Link to="/messages" className="inline-flex items-center gap-1 text-xs text-muted hover:text-fg">
           <ArrowLeft size={13} aria-hidden /> {t('nav.messages')}
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {/* The thread and the message come before the field (the page is about 1.9 windows long on a phone): a way to it from the first screen. */}
+          {!desktop && canReply && (
+            <a
+              href="#reply-field"
+              onClick={(e) => {
+                e.preventDefault()
+                document.getElementById('reply-field')?.focus()
+              }}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:underline"
+            >
+              <MessageSquare size={13} aria-hidden /> {t('reply.jump')}
+            </a>
+          )}
           {canEdit && <UndoButtons stack={undo} compact={!desktop} />}
         </div>
       </div>

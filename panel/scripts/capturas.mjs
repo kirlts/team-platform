@@ -236,10 +236,10 @@ async function run(vp) {
   await page.goto(`${ORIGIN}/messages`)
   await page.getByRole('link', { name: 'Corregir el contraste del botón Enviar en el inicio' }).click()
   await page.getByRole('heading', { name: 'Respuestas' }).waitFor()
-  await page.getByRole('button', { name: 'Cerrar', exact: true }).click()
-  await page.getByRole('button', { name: 'Reabrir', exact: true }).waitFor()
+  await page.getByRole('button', { name: 'Cerrar mensaje', exact: true }).click()
+  await page.getByRole('button', { name: 'Reabrir mensaje', exact: true }).waitFor()
   await shot(page, vp, 'detalle-cerrado')
-  await page.getByRole('button', { name: 'Reabrir', exact: true }).click()
+  await page.getByRole('button', { name: 'Reabrir mensaje', exact: true }).click()
 
   // --- Reply from the card
   await page.goto(`${ORIGIN}/messages?f=status:eq:open`)

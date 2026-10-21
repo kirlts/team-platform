@@ -54,13 +54,14 @@ export function ReplyForm({ messageId, onSent, autoFocus, children }: { messageI
       onDragOver={(e) => e.preventDefault()}
       className="flex flex-col gap-2"
     >
-      <div className="glass leaf overflow-hidden">
+      <div className="glass leaf relative overflow-hidden">
         {draft.recording ? (
           <RecordingStatus seconds={draft.recording.seconds} />
         ) : (
           <Textarea
             aria-label={t('reply.label')}
-            placeholder={t('reply.label')}
+            id="reply-field"
+            placeholder={t('reply.placeholder')}
             autoFocus={autoFocus}
             rows={2}
             value={body}
@@ -80,26 +81,27 @@ export function ReplyForm({ messageId, onSent, autoFocus, children }: { messageI
         )}
         <MediaDraftList draft={draft} busy={reply.isPending} />
         {/* The media buttons belong to the text they attach to: inside its frame, so the line below carries only the type and Responder (J2-A-22). */}
-        <div className="flex items-center gap-0.5 px-1.5 pb-1">
-          <ClipMenu draft={draft} disabled={reply.isPending} size="icon-sm" />
-          <CaptureButtons draft={draft} disabled={reply.isPending} size="icon-sm" />
+        <div className="flex flex-wrap items-center gap-0.5 px-1.5 pb-1">
+          <ClipMenu draft={draft} disabled={reply.isPending} size="icon-sm" labeled />
+          <CaptureButtons draft={draft} disabled={reply.isPending} size="icon-sm" labeled />
         </div>
+        {/* The confirmation is drawn over the empty corner of the field, inside its frame: it takes no row, so nothing below it moves (J5-flow-reply-close). */}
+        {sent && (
+          <p role="status" className="pointer-events-none absolute right-3 top-2.5 flex items-center gap-1.5 text-xs text-muted">
+            <Check size={14} aria-hidden className="text-accent" />
+            {t('reply.sent')}
+          </p>
+        )}
       </div>
-      {sent && (
-        <p role="status" className="flex items-center gap-1.5 text-xs text-muted">
-          <Check size={14} aria-hidden className="text-accent" />
-          {t('reply.sent')}
-        </p>
-      )}
       <div className="flex flex-wrap items-center justify-between gap-2">
         {/* The group says what it chooses; the type is a property of this reply and does not close the message (J4-detail-01, J4-flow-02). */}
         <div className="flex flex-wrap items-center gap-2">
           <span aria-hidden className="text-xs text-muted">
-            {t('reply.kind.label')}
+            {t('reply.kind.short')}
           </span>
           <Segmented label={t('reply.kind.label')} size="sm" value={kind} onChange={setKind} options={KINDS.map((value) => ({ value, label: t(KIND_KEY[value]) }))} />
         </div>
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-4">
           {children}
           <Button type="submit" variant="primary" disabled={!body.trim() || reply.isPending || !!draft.recording}>
             {t('reply.send')}

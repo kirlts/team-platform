@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useErrorText, useT } from '@/i18n'
 import { api } from '@/lib/api'
+import { cn } from '@/lib/utils'
 
 export function Login() {
   const t = useT()
@@ -64,8 +65,8 @@ export function Login() {
           {t('login.enter')}
         </Button>
         <p className="text-sm text-muted">{t('login.noAccount')}</p>
-        {/* The error has its row at the foot of the card, always reserved, so it fills the row and does not move the card, and no gap opens between the fields and Entrar (J2-A-01, J3-A-03). Outside the labels, so it is not part of a field's name. */}
-        <p id="login-error" role="alert" className="-mt-2 min-h-[1.45rem] text-sm text-danger">
+        {/* The error sits under the card, out of its box: the card keeps its shape and no reserved row opens a gap below the note, so the note has the same margin as the logo above it (J2-A-01, J3-A-03, ronda 4). Outside the labels, so it is not part of a field's name. */}
+        <p id="login-error" role="alert" className={cn('absolute inset-x-0 top-full mt-2 text-sm text-danger', error && 'rounded-md border border-danger bg-glass-strong px-3 py-1.5')}>
           {error}
         </p>
       </form>

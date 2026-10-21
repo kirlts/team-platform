@@ -288,6 +288,14 @@ J y K recorren los envíos. Intro no publica desde ningún lado: publicar es un 
 | `src/fits-one-screen.browser.test.mjs` | Cada vista cabe en una pantalla a dos tamaños, con lo sembrado y con las listas ×8 (`npm run test:fit`) |
 | `scripts/capturas-ronda2b.mjs` | El flujo de enviar a publicar a 1440×900 y 390×844, en claro y oscuro |
 | `src/flows.browser.test.mjs` | Edición en el lugar, deshacer, propuesta, reintento, respuestas con medios, equipo, contraseña e idioma (`npm run test:flows`) |
+| `src/flows-equipo-config.browser.test.mjs` | Equipo, Configuración y entrada de la ronda 4: botón de alta, pliegue del perfil, acción en teléfono, rótulos, márgenes de la tarjeta (`npm run test:flows`) |
 | `src/flows-ronda2a.browser.test.mjs` | Los hallazgos de la ronda 2, juez A, cada uno con una comprobación que falla si vuelve (`npm run test:flows`) |
 | `src/i18n.test.ts` · `src/prose-block.test.ts` | Catálogos completos y sin texto visible fuera de ellos; una sola clase de justificado |
 | `src/no-truncation.test.ts` | Prohíbe `truncate`, `line-clamp` y `text-overflow` sin justificación en la misma línea |
+
+## Equipo, Configuración y entrada (ronda 4, 2026-10-21)
+
+- Los rótulos de campo de Configuración, tanto de Cuenta como de Proveedores, usan `text-sm text-muted`; el valor o el control va en tinta normal debajo. Una prueba compara tamaño, peso y color de seis rótulos.
+- Los valores de Nombre, Correo y Rol de Configuración son texto plano porque no se editan ahí; su ayuda dice quién los cambia y dónde (UD-122).
+- En Equipo, la acción «Desactivar» comparte la fila del rol en teléfono. La lista mantiene en la página la fila cuyo perfil se abre (`reveal`).
+- En la entrada, el aviso de error va bajo la tarjeta y no reserva una fila dentro de ella: el margen bajo la nota es el del logo sobre la tarjeta (UD-170 para la nota).

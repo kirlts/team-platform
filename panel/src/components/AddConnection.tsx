@@ -86,7 +86,7 @@ function AddForm({ presets, items, onCancel, onDone }: { presets: Preset[]; item
   return (
     <form onSubmit={submit} aria-label={t('providers.addProvider')} data-add-form className="flex flex-col gap-3 rounded-md border border-line bg-hover/50 px-3 py-3">
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="flex min-w-0 flex-col gap-1 text-xs font-medium">
+        <label className="flex min-w-0 flex-col gap-1 text-sm text-muted">
           {t('providers.preset')}
           <NativeSelect value={choice} onChange={(e) => setChoice(e.target.value)}>
             {offered.map((p) => (
@@ -98,19 +98,19 @@ function AddForm({ presets, items, onCancel, onDone }: { presets: Preset[]; item
           </NativeSelect>
         </label>
         {custom && (
-          <label className="flex min-w-0 flex-col gap-1 text-xs font-medium">
+          <label className="flex min-w-0 flex-col gap-1 text-sm text-muted">
             {t('providers.name')}
             <Input value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" spellCheck={false} className="font-mono text-xs" />
           </label>
         )}
         {custom && (
-          <label className="flex min-w-0 flex-col gap-1 text-xs font-medium sm:col-span-2">
+          <label className="flex min-w-0 flex-col gap-1 text-sm text-muted sm:col-span-2">
             {t('providers.baseUrl')}
             <Input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} type="url" inputMode="url" autoComplete="off" spellCheck={false} placeholder="https://" className="font-mono text-xs" />
           </label>
         )}
         {custom && (
-          <div className="flex min-w-0 flex-col gap-1 text-xs font-medium sm:col-span-2">
+          <div className="flex min-w-0 flex-col gap-1 text-sm text-muted sm:col-span-2">
             <Segmented
               size="sm"
               value={structured}
@@ -120,11 +120,11 @@ function AddForm({ presets, items, onCancel, onDone }: { presets: Preset[]; item
             />
           </div>
         )}
-        <label className="flex min-w-0 flex-col gap-1 text-xs font-medium">
+        <label className="flex min-w-0 flex-col gap-1 text-sm text-muted">
           {t('providers.apiKey')}
           <Input type="password" autoComplete="off" spellCheck={false} value={key} onChange={(e) => setKey(e.target.value)} className="font-mono text-xs" />
         </label>
-        <label className="flex min-w-0 flex-col gap-1 text-xs font-medium">
+        <label className="flex min-w-0 flex-col gap-1 text-sm text-muted">
           {t('providers.modelOptional')}
           <Input value={model} onChange={(e) => setModel(e.target.value)} autoComplete="off" spellCheck={false} placeholder={suggested} className="font-mono text-xs" />
         </label>

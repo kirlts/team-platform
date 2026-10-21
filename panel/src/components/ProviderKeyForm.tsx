@@ -51,11 +51,11 @@ export function ProviderKeyForm({
   return (
     <form onSubmit={submit} data-key-form={name} aria-label={replacing ? t('providers.replaceKey') : t('providers.addKey')} className="flex flex-col gap-3 rounded-md border border-line bg-hover/50 px-3 py-3">
       <div className="grid gap-3 sm:grid-cols-2">
-        <label htmlFor={idKey} className="flex min-w-0 flex-col gap-1 text-xs font-medium">
+        <label htmlFor={idKey} className="flex min-w-0 flex-col gap-1 text-sm text-muted">
           {t('providers.apiKey')}
           <Input id={idKey} type="password" autoComplete="off" spellCheck={false} autoFocus value={key} onChange={(e) => setKey(e.target.value)} className="font-mono text-xs" />
         </label>
-        <label htmlFor={idModel} className="flex min-w-0 flex-col gap-1 text-xs font-medium">
+        <label htmlFor={idModel} className="flex min-w-0 flex-col gap-1 text-sm text-muted">
           {t('providers.modelOptional')}
           <Input id={idModel} autoComplete="off" spellCheck={false} value={model} onChange={(e) => setModel(e.target.value)} className="font-mono text-xs" />
         </label>

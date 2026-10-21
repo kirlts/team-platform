@@ -270,3 +270,16 @@ RULES:
 **Consecuencias:**
 - El banco cuenta las marcas por mensaje en cada caso (`bench/ai-tells.js`, con la sección de la guía citada por patrón), y el objetivo es cero en todos los casos.
 **Condiciones de reversión:** Ninguna prevista.
+
+## [UD-020] Licencias en dos capas: MIT en el código y las dependencias, LGPL admitida en los binarios de la imagen
+
+**Fecha:** 2026-10-20
+**Contexto:** La imagen Docker lleva `ffmpeg` (Alpine lo compila con partes GPL) y `libvips` (LGPL-3.0, el binario que trae `sharp`). UD-004 pedía que toda dependencia fuera compatible con MIT y dejaba estas dos sin decisión (DT-002). Martín: «respecto a lo de la imagen Docker que lleva algo que no es de la licencia que yo quiero, resuélvelo elegantemente».
+**Decisión:** Dos capas con una regla cada una. Lo que se enlaza con el código del proyecto (el repositorio y toda dependencia de npm) es permisivo y compatible con MIT. Lo que la imagen ejecuta como programa aparte o carga como biblioteca compartida sin modificarla puede ser LGPL, que admite ese uso sin contagiar la licencia del proyecto, y nunca GPL. `ffmpeg` se compila dentro del propio `Dockerfile` en configuración LGPL (sin `--enable-gpl`, sin x264 ni x265) y sólo con los códecs que el producto usa, lo que además baja la imagen; `libvips` queda como viene en `sharp`. Cada binario de esa capa figura en un archivo `NOTICE` dentro de la imagen con versión, licencia y dirección del código fuente, que es lo que la LGPL exige.
+**Alternativas descartadas:**
+- Cambiar `sharp` y `ffmpeg` por alternativas MIT: no existe un equivalente MIT de `ffmpeg` con esa cobertura de formatos, y `sharp` es la biblioteca de imágenes de Node con mejor medición (informes 05 y 06).
+- Dejar el `ffmpeg` de Alpine: trae componentes GPL que sí contagiarían la imagen distribuida.
+**Consecuencias:**
+- MASTER-SPEC §4.10 reescrita; DT-002 cerrada; una prueba de la batería lee `package.json` y el `NOTICE` y falla ante una licencia fuera de regla.
+- Sobre DT-001 (idempotencia por emisor): no es una deuda. Martín ya había dicho que la idempotencia se estaba tomando demasiado literal; la detección de duplicados por emisor es un detalle de implementación, y §1.3 describe lo que hace el código. Se cierra sin UD.
+**Condiciones de reversión:** Que un redistribuidor exija una imagen sin LGPL; entonces `ffmpeg` y `libvips` pasan a ser opcionales en tiempo de instalación.

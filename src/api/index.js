@@ -135,7 +135,7 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
       files: config.uploads.maxFiles,
       fieldSize: config.uploads.maxTextBytes,
       fields: 1 + config.uploads.maxLinks + 1, // text, cada enlace y un margen de un campo
-      parts: config.uploads.maxFiles + config.uploads.maxLinks + 2
+      parts: config.uploads.maxFiles + config.uploads.maxLinks + 2 // I03 §7.2: files, links, the text field and a one-field margin
     }
   })
 

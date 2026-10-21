@@ -18,7 +18,7 @@ import { createPipeline } from './domain/pipeline.js'
 import { loadModules } from './domain/modules.js'
 import { sweepOrphans } from './domain/storage.js'
 
-const MAX_TIMEOUT = 2 ** 31 - 1 // límite de setTimeout
+const MAX_TIMEOUT = 2 ** 31 - 1 // cortesía declarada: the maximum Node's own setTimeout accepts; it does not govern operation
 
 /**
  * Worker de la cola. `handlers[kind] = { run(job, ctx) → finalize?, onFailure(job, error, outcome) }`.

@@ -8,22 +8,6 @@
 
 ---
 
-## [DT-001] La idempotencia del input es por emisor y ninguna decisión lo respalda
-
-**Severity:** Low
-**Origin:** manual (`/document`, 2026-10-20)
-**Description:** MASTER-SPEC §1.3 pedía que un mismo input no cree un segundo trabajo «sin importar quién lo mande». El código hace lo contrario: `contentHash` en `src/domain/inputs.js` incluye `authorId`, y la prueba `el mismo contenido del mismo emisor devuelve lo que ya hay; otro emisor tiene su propio input` (`src/api/api.test.js`) lo fija. La razón probable es que la propuesta es privada del emisor hasta que la publica (`GET /inputs/:id` devuelve 404 a otro miembro). Esa razón no está escrita en `src/contracts.md` ni en una UD. MASTER-SPEC §1.3 ya describe el comportamiento del código.
-**Remediation plan:** Que Martín confirme la idempotencia por emisor. Si lo confirma, se registra como UD y se borra esta entrada.
-**Status:** ☐ Pending
-
-## [DT-002] Dos componentes de la imagen no son MIT
-
-**Severity:** Medium
-**Origin:** manual (`/document`, 2026-10-20)
-**Description:** `sharp` trae `libvips` como binarios opcionales por plataforma (`@img/sharp-libvips-*`, LGPL-3.0-or-later) y HP-011 los exceptúa por nombre en `src/static.test.js`. La imagen Docker incluye el binario `ffmpeg` del repositorio de Alpine, con la licencia de ese paquete, invocado como proceso externo. UD-004 pide que toda dependencia sea compatible con MIT; ninguna decisión acepta estas dos excepciones.
-**Remediation plan:** Martín decide entre dos caminos. Puede aceptarlas con aviso en la imagen, porque ambas se enlazan o ejecutan de forma separada y se sustituyen. O puede cambiar de biblioteca de imágenes y de herramienta de video. Se registra como UD y se actualiza MASTER-SPEC §3.1.
-**Status:** ☐ Pending
-
 ## [DT-003] El proveedor de texto de respaldo no se usa
 
 **Severity:** Medium

@@ -10,7 +10,7 @@ import { existsSync, mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { chromium } from 'playwright'
-import { DETECTORS, installHelpers, readTypeScale, runDetector, SCREEN_IDS } from '../scripts/ui-detectors.mjs'
+import { DETECTORS, installHelpers, loadVoicePatterns, readTypeScale, runDetector, SCREEN_IDS } from '../scripts/ui-detectors.mjs'
 
 let browser
 let page
@@ -135,6 +135,20 @@ describe('voice', () => {
   })
   test('accepts an instrument label', async () => {
     assert.deepEqual((await detect('voice', '<p>Mensajes</p>', { patterns })).findings, [])
+  })
+  test('reads the patterns of the language guard, not a file (H-1703)', async () => {
+    const loaded = await loadVoicePatterns(undefined, 'es')
+    assert.equal(loaded.reason, undefined)
+    assert.ok(loaded.patterns.length >= 10)
+    const r = await detect('voice', '<p>Aquí puedes ver tus mensajes</p><p>Elige un envío</p><p>Mensajes</p><p>Existe una copia</p>', { patterns: loaded.patterns })
+    const ids = r.findings.map((f) => f.measure.pattern).sort()
+    assert.deepEqual([...new Set(ids)], ['imperative', 'opening', 'person'])
+    assert.ok(!r.findings.some((f) => /Mensajes|Existe/.test(f.detail)))
+  })
+  test('the English patterns are chosen with the language', async () => {
+    const loaded = await loadVoicePatterns(undefined, 'en')
+    const r = await detect('voice', '<p>Please enter an email</p><p>Messages</p>', { patterns: loaded.patterns })
+    assert.equal(r.findings.length, 1)
   })
 })
 

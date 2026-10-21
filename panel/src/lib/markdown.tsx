@@ -93,9 +93,10 @@ export function parseBlocks(source: string): Block[] {
 const HEADING = ['', 'text-lg', 'text-base', 'text-sm', 'text-sm'] as const
 
 /** The source as React nodes. Paragraphs and lists use the shared `prose-block` class (UD-022). */
+/** A document a person wrote: the root carries `data-user-text`, which the interface detectors do not judge as interface text. */
 export function Markdown({ source, className }: { source: string; className?: string }) {
   return (
-    <div className={className}>
+    <div className={className} data-user-text>
       {parseBlocks(source).map((b, i) => {
         switch (b.type) {
           case 'heading':

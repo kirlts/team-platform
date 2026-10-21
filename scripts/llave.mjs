@@ -64,11 +64,15 @@ function askHidden(prompt) {
     const write = rl._writeToOutput;
     process.stdout.write(prompt);
     rl._writeToOutput = () => {};
+    let answered = false;
     rl.question('', (answer) => {
+      answered = true;
       rl._writeToOutput = write;
       process.stdout.write('\n');
       rl.close();
       resolve(answer.trim());
     });
+    // Entrada cerrada sin respuesta (sin terminal): se trata como vacía.
+    rl.on('close', () => { if (!answered) resolve(''); });
   });
 }

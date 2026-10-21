@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
  * Edición en el lugar (UD-017). El texto mismo es el control: un clic lo abre en el mismo sitio, con
  * la misma tipografía, el mismo ancho y el mismo alto, así que nada se mueve. Un clic afuera o Enter
  * guardan, Escape cancela; no hay botón «Editar» ni «Guardar». Un valor inválido deja el campo abierto
- * con el motivo debajo. En la variante de varias líneas, Enter abre una línea nueva y Ctrl+Enter guarda.
+ * con el motivo debajo. En la variante de varias líneas, Shift+Enter abre una línea nueva.
  *
  * El campo de edición es un `textarea` que crece con su texto en las dos variantes: así una línea
  * larga que en lectura ocupa dos renglones los ocupa también al editarla.
@@ -63,7 +63,8 @@ export function EditableText({
     const el = ref.current
     if (!el) return
     el.style.height = 'auto'
-    el.style.height = `${el.scrollHeight}px`
+    // scrollHeight leaves out the border, which the box includes.
+    el.style.height = `${el.scrollHeight + (el.offsetHeight - el.clientHeight)}px`
   }, [draft, editing])
 
   useEffect(() => {
@@ -139,7 +140,7 @@ export function EditableText({
           }}
           className={cn(
             box,
-            'cursor-text hover:border-line-strong hover:bg-raised focus-visible:border-accent [@media(hover:none)]:border-line',
+            'cursor-text hover:border-line-strong hover:bg-raised focus-visible:border-accent',
             type,
             !value && 'text-faint',
           )}
@@ -169,7 +170,7 @@ export function EditableText({
             e.preventDefault()
             discard.current = true
             ;(e.target as HTMLElement).blur()
-          } else if (e.key === 'Enter' && (!multiline || e.ctrlKey || e.metaKey)) {
+          } else if (e.key === 'Enter' && (!multiline || !e.shiftKey)) {
             e.preventDefault()
             ;(e.target as HTMLElement).blur()
           }

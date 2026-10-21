@@ -17,16 +17,13 @@
 // Falsified on 2026-10-20: breaking FIT_BREAK=documento-alto (a 2000 px block in Inicio) made this
 // test fail with the route and the height; see FIT_BREAK below.
 
-import { spawn, execFileSync } from 'node:child_process'
-import { randomBytes } from 'node:crypto'
-import { fileURLToPath } from 'node:url'
 import { after, before, describe, test } from 'node:test'
 import assert from 'node:assert'
-import { chromium } from 'playwright'
+import { login, startPanel } from './browser-support.mjs'
 
-const root = fileURLToPath(new URL('..', import.meta.url))
 const PORT = Number(process.env.PANEL_FIT_PORT ?? 8795)
-const ORIGIN = `http://127.0.0.1:${PORT}`
+let panel
+let ORIGIN = ''
 const TIMES = 8
 const SIZES = [
   [1440, 900],
@@ -51,24 +48,13 @@ export const LANES = [
 // scrolls without being declared; FIT_BREAK=oculto hides the overflow of the document.
 const BREAK = process.env.FIT_BREAK ?? ''
 
-let server
-let browser
-const password = randomBytes(12).toString('hex')
-
 before(async () => {
-  if (!process.env.FIT_SIN_BUILD) execFileSync('npx', ['vite', 'build'], { cwd: root, stdio: 'ignore' })
-  server = spawn('node', ['dev-server.mjs'], {
-    cwd: root,
-    env: { ...process.env, PANEL_DEV_PORT: String(PORT), PANEL_DEV_STATIC: '1', PANEL_DEV_STEP_MS: '120' },
-    stdio: ['ignore', 'ignore', 'inherit'],
-  })
-  await new Promise((r) => setTimeout(r, 900))
-  browser = await chromium.launch({ headless: true, args: ['--ozone-platform=headless'] })
+  panel = await startPanel(PORT)
+  ORIGIN = panel.origin
 })
 
 after(async () => {
-  await browser?.close()
-  server?.kill()
+  await panel?.stop()
 })
 
 /** Every array in `value` eight times; objects with an `id` get `~k` appended (k = 0 keeps the original). */
@@ -134,14 +120,6 @@ function measureInPage({ lanes, withBreak }) {
   return { doc: se.scrollHeight, win: innerHeight, mainOver, mainBox: main ? main.clientHeight : 0, below, carriles, hidden, wide: se.scrollWidth - se.clientWidth, withBreak }
 }
 
-async function login(page) {
-  await page.goto(ORIGIN)
-  await page.getByLabel('Correo').fill('ana@dev.invalid')
-  await page.getByLabel('Contraseña').fill(password)
-  await page.getByRole('button', { name: 'Entrar' }).click()
-  await page.getByRole('navigation', { name: 'Navegación' }).waitFor()
-}
-
 /** Opens a path and waits for the view's heading, then for the network and the layout to settle. */
 async function open(page, path) {
   await page.goto(`${ORIGIN}${path}`)
@@ -183,11 +161,11 @@ for (const [width, height] of SIZES) {
   ]) {
     describe(`${width}x${height} ${state}`, () => {
       test('cada vista cabe en la ventana', async () => {
-        const context = await browser.newContext({ viewport: { width, height }, locale: 'es-CL', colorScheme: 'light' })
+        const context = await panel.browser.newContext({ viewport: { width, height }, locale: 'es-CL', colorScheme: 'light' })
         const page = await context.newPage()
         const failures = []
         try {
-          await login(page)
+          await login(page, ORIGIN)
           if (amplified) await amplify(page)
           // The long message with every medium and a thread: the one with the most to show.
           const body = await (await page.request.get(`${ORIGIN}/api/messages`)).json()

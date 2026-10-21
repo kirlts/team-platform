@@ -52,7 +52,7 @@ export function MessageCard({ message, variant = 'message' }: { message: Message
 
       <div className="flex items-start gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <div className="grid grid-cols-[5.5rem_7.5rem_minmax(0,1fr)] items-center gap-x-2 text-xs text-muted">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted sm:grid sm:grid-cols-[5.5rem_7.5rem_minmax(0,1fr)] sm:gap-x-2">
             <time dateTime={from.created_at} className="tabular-nums">
               {format.stamp(from.created_at)}
             </time>

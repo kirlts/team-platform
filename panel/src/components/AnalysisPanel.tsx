@@ -42,7 +42,7 @@ export function AnalysisPanel({ input, onClose }: { input: InputRecord; onClose:
 
   return (
     <section aria-label={t('analysis.title')} className="flex min-h-0 min-w-0 flex-col gap-3">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <div className="flex items-center gap-2">
           <h2>{t('analysis.title')}</h2>
           {input.status === 'proposed' && <Badge tone="accent">{t('analysis.proposal')}</Badge>}

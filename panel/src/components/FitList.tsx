@@ -54,6 +54,8 @@ export function FitList<T>({
 }) {
   const t = useT()
   const desktop = useDesktop()
+  /** The space the list may take: stable, whatever the list holds. The visible frame hugs its rows inside it. */
+  const slot = useRef<HTMLDivElement>(null)
   const frame = useRef<HTMLDivElement>(null)
   const body = useRef<HTMLDivElement>(null)
   const head = useRef<HTMLDivElement>(null)
@@ -68,7 +70,7 @@ export function FitList<T>({
   const count = fit && fit.rows === rows && fit.desktop === desktop && fit.start === first && fit.version === frameVersion ? fit.n : null
 
   useEffect(() => {
-    const el = frame.current
+    const el = slot.current
     if (!el || typeof ResizeObserver === 'undefined') return
     let last = el.clientHeight
     const observer = new ResizeObserver(() => {
@@ -86,7 +88,7 @@ export function FitList<T>({
   useLayoutEffect(() => {
     if (!desktop || count !== null) return
     const el = body.current
-    const box = frame.current
+    const box = slot.current
     if (!el || !box) return
     const heights = [...el.children].map((c) => c.getBoundingClientRect().height)
     const remaining = rows.length - first
@@ -124,7 +126,8 @@ export function FitList<T>({
   }
 
   return (
-    <div ref={frame} aria-label={label} className={cn('flex min-h-0 flex-1 flex-col overflow-hidden', bare ? 'border-y border-line' : 'glass leaf', className)}>
+    <div ref={slot} className={cn('flex min-h-0 flex-1 flex-col', className)}>
+      <div ref={frame} aria-label={label} className={cn('flex max-h-full min-h-0 flex-col overflow-hidden', pages && 'h-full', bare ? 'border-y border-line' : 'glass leaf')}>
       {header && (
         <div ref={head} className="shrink-0">
           {header}
@@ -173,6 +176,7 @@ export function FitList<T>({
           )}
         </>
       )}
+      </div>
     </div>
   )
 }

@@ -18,6 +18,7 @@
     "capturas": "node scripts/capturas.mjs",
     "capturas:vistas": "node scripts/capturas-vistas.mjs",
     "test:fit": "node --test src/fits-one-screen.browser.test.mjs",
+    "test:flows": "node --test src/flows.browser.test.mjs",
     "contraste": "node scripts/contraste.mjs"
   },
   "dependencies": {

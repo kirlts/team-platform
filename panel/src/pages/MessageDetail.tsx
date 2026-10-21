@@ -139,7 +139,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
           )}
 
           {/* Un texto largo no tiene tope: la columna del mensaje desplaza por dentro, y es un carril declarado. */}
-          <div data-lane="message-body" className="scroll-thin flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-1.5">
+          <div data-lane="message-body" className="scroll-thin flex min-h-0 flex-initial flex-col gap-3 overflow-y-auto px-1.5">
             <EditableText value={m.body} label={t('detail.body')} multiline prose canEdit={canEdit} validate={required} onSave={(v) => change(t('proposal.bodyEdited'), { body: v }, { body: m.body })} displayClassName="leading-relaxed" />
             <TemplateFields
               template={template}

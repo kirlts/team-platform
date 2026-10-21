@@ -1,4 +1,4 @@
-import { AlertTriangle, ChevronDown, ChevronRight, RotateCw, Trash2 } from '@/components/icons'
+import { AlertTriangle, ChevronDown, ChevronRight, RotateCw, Trash2, X } from '@/components/icons'
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
@@ -85,15 +85,17 @@ export function AnalysisPanel({ input, onClose, onDiscarded }: { input: InputRec
 
   return (
     // Only a proposal fills the frame; waiting or failing, the surface is as tall as what it says (J1-B-07).
-    <section aria-label={t('analysis.title')} className={cn('@container ai-surface flex min-h-0 min-w-0 flex-col gap-3 p-3 pl-4', input.status !== 'proposed' && 'w-full self-start')}>
+    <section aria-label={t('analysis.title')} className={cn('@container ai-surface flex min-h-0 min-w-0 flex-col gap-3 p-3 pl-4', input.status === 'proposed' ? 'flex-1' : 'w-full self-start')}>
       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-        <div className="flex items-center gap-2">
-          <h2>{t('analysis.title')}</h2>
-          <AiMark />
-        </div>
-        {/* «Volver a analizar» keeps the right edge; the history appears to its left, so nothing that was there moves (J2-B-15). */}
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <div className="flex items-center gap-2">
+            <h2>{t('analysis.title')}</h2>
+            <AiMark />
+          </div>
+          {/* The history beside the title and «Volver a analizar» alone at the right edge: the step that drops the proposal is not one of the pair that takes a step back (J3-B-27); neither moves the other (J2-B-15). */}
           {input.status === 'proposed' && <UndoButtons stack={undo} />}
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
           {input.status === 'proposed' && (
             <Button size="sm" variant="ghost" className="hit" disabled={reprocess.isPending} onClick={() => (edited ? setConfirmAgain(true) : again())}>
               <RotateCw size={13} aria-hidden /> {t('analysis.again')}
@@ -122,7 +124,8 @@ export function AnalysisPanel({ input, onClose, onDiscarded }: { input: InputRec
           <div role="alert" className="flex flex-col gap-0.5 rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">
             <p className="font-semibold">{t('analysis.failed')}</p>
             <p>{failureText}.</p>
-            <p>{t('analysis.kept')}</p>
+            {/* What reassures is not an error: it goes in the ink of the text (J3-B-29). */}
+            <p className="text-fg">{t('analysis.kept')}</p>
           </div>
           {reprocess.isError && (
             <p role="alert" className="text-sm text-danger">
@@ -345,7 +348,7 @@ function ProposalEditor({
 
       {/* On a phone the actions stay on screen whatever the length of the list (J1-B-29). */}
       <div data-actions className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 max-md:sticky max-md:bottom-0 max-md:z-10 max-md:-mx-3 max-md:-mb-3 max-md:rounded-b-[10px] max-md:border-t max-md:border-line max-md:bg-surface max-md:px-3 max-md:py-2">
-        <Button variant="ghost" className="hit text-muted" onClick={onDiscard} disabled={publish.isPending || discarding}>
+        <Button variant="ghost" className="hit text-danger" onClick={onDiscard} disabled={publish.isPending || discarding}>
           <Trash2 size={14} aria-hidden /> {t('analysis.discard')}
         </Button>
         <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
@@ -473,7 +476,7 @@ function ProposalRow({
         {/* The only message cannot be removed: Descartar is the way out, so the button is not drawn instead of drawn off. */}
         {!only && (
           <Button size="sm" variant="ghost" className="hit shrink-0 text-muted" onClick={() => void remove(index)} aria-label={t('proposal.remove', { title: m.title })}>
-            <Trash2 size={13} aria-hidden /> {t('proposal.removeShort')}
+            <X size={13} aria-hidden /> {t('proposal.removeShort')}
           </Button>
         )}
       </div>

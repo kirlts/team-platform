@@ -7,8 +7,9 @@ import { cn } from '@/lib/utils'
 
 /**
  * Where the current notice is drawn. It never moves what is being read (J2-B-21, J2-B-25): on the page it floats at the
- * bottom, over the page and clear of the header, the side bar and the compose bar; inside the window of sends it takes
- * the title bar, whose only other content is the title and the close button. Its text says what happened and to whom,
+ * bottom of a phone and, from the width of a tablet, in the empty middle of the top bar, between the name and the bell, where it
+ * covers no content and nothing under it needs a click (J3-B-15: at the bottom it hid the pager of the lists); inside the window of sends it takes
+ * the title bar, whose only other content is the title and the close button (it hides neither of them: J3-B-07). Its text says what happened and to whom,
  * the link goes to it, the action undoes it.
  */
 export function NoticeHost({ inDialog = false }: { inDialog?: boolean }) {
@@ -18,7 +19,7 @@ export function NoticeHost({ inDialog = false }: { inDialog?: boolean }) {
   if (!current || (!inDialog && dialogs > 0)) return null
   const danger = current.tone === 'danger'
   return (
-    <div className={inDialog ? 'absolute inset-x-2 top-1 z-20 md:left-28 md:right-14 md:top-1.5' : 'pointer-events-none fixed inset-x-4 bottom-4 z-40 flex justify-center'}>
+    <div className={inDialog ? 'absolute inset-x-2 top-1 z-20 md:left-28 md:right-14 md:top-1.5' : 'pointer-events-none fixed inset-x-4 bottom-4 z-40 flex justify-center md:inset-x-auto md:bottom-auto md:left-72 md:right-28 md:top-1.5 md:justify-start'}>
       <div
         key={current.id}
         role={danger ? 'alert' : 'status'}

@@ -127,6 +127,14 @@ export function watchRequests(page, { quietMs = 500 } = {}) {
   const end = (r) => {
     if (inFlight.delete(r)) lastChange = Date.now()
   }
+  // The document being left cancels what it had in flight without any event (measured: an image or a video of the previous page stayed «in flight» for good
+  // in 5 of 8 loads), so the count starts again at each navigation, as Playwright's own `networkidle` does.
+  const navigated = (frame) => {
+    if (frame !== page.mainFrame()) return
+    inFlight.clear()
+    lastChange = Date.now()
+  }
+  page.on('framenavigated', navigated)
   page.on('request', start)
   page.on('requestfinished', end)
   page.on('requestfailed', end)
@@ -140,6 +148,7 @@ export function watchRequests(page, { quietMs = 500 } = {}) {
       }
     },
     stop() {
+      page.off('framenavigated', navigated)
       page.off('request', start)
       page.off('requestfinished', end)
       page.off('requestfailed', end)

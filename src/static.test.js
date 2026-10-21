@@ -97,13 +97,13 @@ test('HP-011 · toda dependencia de producción tiene licencia compatible con MI
 
 test('HP-006 · un contenedor y un volumen bastan: compose.yml declara un solo servicio (§4.5)', () => {
   const compose = readFileSync(path.join(raiz, 'compose.yml'), 'utf8').split('\n')
-  const desde = compose.findIndex((l) => /^services:\s*$/.test(l))
-  assert.ok(desde >= 0)
-  const servicios = []
-  for (const linea of compose.slice(desde + 1)) {
-    if (/^\S/.test(linea) && !/^\s*#/.test(linea)) break // otra clave de primer nivel (volumes:)
-    const m = /^ {2}([A-Za-z0-9_-]+):\s*$/.exec(linea)
-    if (m) servicios.push(m[1])
+  const startAt = compose.findIndex((l) => /^services:\s*$/.test(l))
+  assert.ok(startAt >= 0)
+  const services = []
+  for (const line of compose.slice(startAt + 1)) {
+    if (/^\S/.test(line) && !/^\s*#/.test(line)) break // otra clave de primer nivel (volumes:)
+    const m = /^ {2}([A-Za-z0-9_-]+):\s*$/.exec(line)
+    if (m) services.push(m[1])
   }
-  assert.deepEqual(servicios, ['team-platform'])
+  assert.deepEqual(services, ['team-platform'])
 })

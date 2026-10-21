@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { FileAudio, FileText, Film, Link2, Play, X } from '@/components/icons'
 import { useFormat, useT } from '@/i18n'
 import { MEDIA_KEY } from '@/lib/media'
@@ -31,6 +33,7 @@ export function Thumb({
   const t = useT()
   const format = useFormat()
   const Icon = ICON[item.kind]
+  const [zoomed, setZoomed] = useState(false)
   const label = item.name ?? t(MEDIA_KEY[item.kind])
   const inner =
     item.kind === 'image' && item.src ? (
@@ -56,7 +59,24 @@ export function Thumb({
   )
   return (
     <span className={cn('relative inline-block shrink-0', className)}>
-      {href ? (
+      {href && item.kind === 'image' && item.src ? (
+        // A photo opens large in the page, where a capture can be read; a link in the corner still opens it in a new tab.
+        <>
+          <button type="button" aria-label={t('media.zoom', { name: label })} onClick={() => setZoomed(true)} className="block cursor-zoom-in rounded-md">
+            {body}
+          </button>
+          <Dialog open={zoomed} onOpenChange={setZoomed}>
+            <DialogContent title={label} className="max-w-[min(64rem,calc(100vw-2rem))]">
+              <div data-lane="photo" className="scroll-thin flex min-h-0 flex-col gap-2 overflow-auto p-3">
+                <img src={item.src} alt={label} className="max-h-[75dvh] w-full object-contain" />
+                <a href={href} target="_blank" rel="noreferrer" className="self-end text-xs text-accent hover:underline">
+                  {t('media.openNewTab')}
+                </a>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </>
+      ) : href ? (
         <a href={href} target="_blank" rel="noreferrer" aria-label={t('media.open', { name: label })} className="block rounded-md">
           {body}
         </a>

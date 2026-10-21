@@ -33,5 +33,5 @@ export async function login(page, origin, who = 'ana') {
   await page.getByLabel('Correo').fill(`${who}@dev.invalid`)
   await page.getByLabel('Contraseña').fill(PASSWORD)
   await page.getByRole('button', { name: 'Entrar' }).click()
-  await page.getByRole('navigation', { name: 'Navegación' }).waitFor()
+  await page.locator('main').first().waitFor()
 }

@@ -122,7 +122,7 @@ describe('propuesta del análisis', () => {
   test('cambiar el área conserva los campos que coinciden y la propuesta se publica', async () => {
     const { page, context } = await session()
     try {
-      await sendInput(page)
+      await sendInput(page, 'Podríamos probar un resumen semanal por área.\n\nAgregar la sincronización con WhatsApp en el sidebar.')
       await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
       const first = page.getByRole('button', { name: /^Área:/ }).first()
       // Una de las áreas con plantilla de más campos obligatorios.

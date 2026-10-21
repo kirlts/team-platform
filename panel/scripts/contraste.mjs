@@ -84,6 +84,11 @@ for (const [theme, t] of [['claro', light], ['oscuro', dark]]) {
   row(theme, 'danger sobre vidrio', fg('danger'), onGlass('glass'), 4.5)
   for (const s of ['open', 'answered', 'closed']) row(theme, `estado ${s}: texto sobre su fondo`, fg(`${s}-fg`), [fg(`${s}-bg`)], 4.5)
   row(theme, 'accent-deep sobre accent-soft', fg('accent-deep'), [fg('accent-soft')], 4.5)
+  // Surface of AI-generated content (UD-026): text, origin mark and the left edge on its own background.
+  row(theme, 'fg sobre superficie IA', fg('fg'), [fg('ai-bg')], 4.5)
+  row(theme, 'muted sobre superficie IA', fg('muted'), [fg('ai-bg')], 4.5)
+  row(theme, 'marca de origen IA sobre su superficie', fg('ai-fg'), [fg('ai-bg')], 4.5)
+  row(theme, 'borde de acento IA sobre su superficie', fg('ai-edge'), [fg('ai-bg')], 3)
   // Gel button: text over the gradient at the text point (30 % of the height), with the highlight.
   const mix = (a, b, k) => a.map((v, i) => v * (1 - k) + b[i] * k)
   const top = fg('gel-top')

@@ -98,9 +98,7 @@ export function FilterBar({ query, onChange }: { query: MessageQuery; onChange: 
           {query.filters.map((f) => (
             <li key={f.prop} className="glass inline-flex min-h-7 items-stretch overflow-hidden rounded-[14px] text-[13px] leading-tight !shadow-none">
               <span className="flex items-center bg-[linear-gradient(180deg,var(--color-chrome-1),var(--color-chrome-2))] px-3 py-1 font-semibold">{t(PROP_KEY[f.prop])}</span>
-              {f.prop === 'replies' ? (
-                <span className="flex items-center px-1.5 text-muted">{t(OP_KEY.eq)}</span>
-              ) : (
+              {f.prop === 'replies' ? null : (
                 <DropdownMenu>
                   <DropdownMenuTrigger className="px-1.5 text-muted hover:bg-hover" aria-label={t('filter.operatorOf', { prop: t(PROP_KEY[f.prop]) })}>
                     {t(OP_KEY[f.op])}

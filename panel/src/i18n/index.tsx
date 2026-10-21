@@ -53,14 +53,17 @@ export { DEFAULT_LANGUAGE }
 
 /** The text of any error for a person: the translation of its API code, else the server's message, else a generic line. */
 export function useErrorText(): (err: unknown) => string {
-  const { t, has } = useI18n()
+  const { t, has, language } = useI18n()
   return useCallback(
     (err: unknown) => {
       const code = typeof err === 'object' && err !== null && 'code' in err ? String((err as { code: unknown }).code) : ''
-      if (code && has(`error.${code}`)) return t(`error.${code}` as MessageKey)
       const message = err instanceof Error ? err.message : ''
+      // `validation` carries the server's own sentence about the field (in Spanish): it is shown as it comes in Spanish
+      // and replaced by the catalog's line in another language.
+      if (code === 'validation' && message && language === 'es-419') return message
+      if (code && has(`error.${code}`)) return t(`error.${code}` as MessageKey)
       return message || t('error.generic')
     },
-    [t, has],
+    [t, has, language],
   )
 }

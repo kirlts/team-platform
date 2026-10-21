@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 import { Avatar } from './Avatar'
 import { useLookups } from './lookups'
 
-const chip = 'inline-flex min-h-5 max-w-full items-center gap-1 rounded-full bg-accent-soft py-0.5 pl-0.5 pr-2 text-xs leading-tight text-accent-deep'
+const chip = 'inline-flex min-h-5 max-w-full items-center gap-1 rounded-full py-0.5 pl-0.5 pr-2 text-xs leading-tight text-muted'
 
 /**
  * Recipients of a message as chips. With `max`, the first ones show and the rest fold into a «+N»
@@ -27,7 +27,7 @@ export function Recipients({ ids, max, className, children }: { ids: string[]; m
         </li>
       )}
       {shown.map((id) => (
-        <li key={id} className={chip}>
+        <li key={id} data-repeat-ok="person" className={chip}>
           <Avatar name={memberName(id)} size={16} />
           {memberName(id)}
         </li>

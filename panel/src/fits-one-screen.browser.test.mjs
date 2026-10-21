@@ -45,7 +45,7 @@ export const LANES = [
 ]
 
 // FIT_BREAK=documento-alto adds a 2000 px block to the document; FIT_BREAK=carril adds a lane that
-// scrolls without being declared; FIT_BREAK=oculto hides the overflow of the document.
+// scrolls without being declared; FIT_BREAK=oculto hides the overflow of the document; FIT_BREAK=repetido draws the same sentence twice.
 const BREAK = process.env.FIT_BREAK ?? ''
 
 before(async () => {
@@ -89,6 +89,24 @@ async function amplify(page) {
     if (body === null) return route.fulfill({ response })
     return route.fulfill({ response, json: multiply(body) })
   })
+}
+
+/**
+ * Texts of 20 or more characters that the view shows twice (UD-026): the same data is never drawn two times in a view.
+ * `<main>` only: the navigation lists areas on purpose. An element can declare `data-repeat-ok` when the repetition is
+ * the point (the reply to a message names the message it answers); the declaration sits next to a comment saying why.
+ */
+function repeatsInPage() {
+  const seen = new Map()
+  for (const el of document.querySelectorAll('main *')) {
+    if (el.closest('[data-repeat-ok], .sr-only, textarea') || el.classList.contains('sr-only')) continue
+    const r = el.getBoundingClientRect()
+    if (r.width === 0 || r.height === 0 || getComputedStyle(el).visibility === 'hidden') continue
+    const own = [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join(' ').replace(/\s+/g, ' ').trim()
+    if (own.length < 20) continue
+    seen.set(own, (seen.get(own) ?? 0) + 1)
+  }
+  return [...seen].filter(([, n]) => n > 1).map(([text, n]) => `«${text.slice(0, 60)}» ×${n}`)
 }
 
 /** Runs in the page. */
@@ -200,8 +218,13 @@ for (const [width, height] of SIZES) {
             const base = view.prepare ? await view.prepare(page) : undefined
             if (BREAK === 'documento-alto' && view.name === 'inicio') await page.evaluate(() => document.querySelector('main').insertAdjacentHTML('beforeend', '<div style="height:2000px">x</div>'))
             if (BREAK === 'carril' && view.name === 'equipo') await page.evaluate(() => document.querySelector('main').insertAdjacentHTML('beforeend', '<div style="height:80px;overflow-y:auto"><div style="height:400px">x</div></div>'))
+            if (BREAK === 'repetido' && view.name === 'equipo') await page.evaluate(() => document.querySelector('main').insertAdjacentHTML('beforeend', '<p>Este texto aparece dos veces en la vista.</p><p>Este texto aparece dos veces en la vista.</p>'))
             if (BREAK === 'oculto' && view.name === 'mensajes') await page.evaluate(() => (document.documentElement.style.overflowY = 'hidden'))
             const m = await page.evaluate(measureInPage, { lanes: LANES, withBreak: BREAK })
+            if (!amplified) {
+              const repeats = await page.evaluate(repeatsInPage)
+              if (repeats.length) failures.push(`${view.name} (${path}): texto repetido en la vista: ${repeats.join('; ')}`)
+            }
             report.push({ size: `${width}x${height}`, data: amplified ? `x${TIMES}` : 'sembrado', view: view.name, doc: m.doc, win: m.win, main: m.mainBox + m.mainOver, below: m.below })
             if (m.doc > m.win) failures.push(`${view.name} (${path}): documento de ${m.doc} px en una ventana de ${m.win} (${(m.doc / m.win).toFixed(2)} ventanas)`)
             if (m.mainOver > 1) failures.push(`${view.name} (${path}): la región principal desplaza ${m.mainOver} px por su cuenta (${m.mainBox + m.mainOver} px en ${m.mainBox})`)

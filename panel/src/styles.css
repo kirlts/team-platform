@@ -70,6 +70,10 @@
   --color-accent-hover: oklch(0.44 0.2 252);
   --color-accent-deep: oklch(0.38 0.17 255);
   --color-accent-fg: oklch(0.99 0 0);
+  /* Superficie de lo que genera el modelo (UD-026): tinte lila plano, borde izquierdo y marca de origen. */
+  --color-ai-bg: oklch(0.955 0.04 300);
+  --color-ai-edge: oklch(0.5 0.19 300);
+  --color-ai-fg: oklch(0.4 0.17 300);
   --color-accent-soft: oklch(0.925 0.05 245);
   --color-aqua: oklch(0.78 0.13 205);
   --color-lime: oklch(0.88 0.19 125);
@@ -159,6 +163,9 @@
   --color-closed-fg: oklch(0.76 0.02 250);
   --color-closed-bg: oklch(0.3 0.015 255);
   --color-closed-led: oklch(0.6 0.02 255);
+  --color-ai-bg: oklch(0.27 0.07 300);
+  --color-ai-edge: oklch(0.74 0.15 305);
+  --color-ai-fg: oklch(0.86 0.1 305);
   --color-danger: oklch(0.74 0.16 25);
   --color-danger-soft: oklch(0.32 0.07 25);
 
@@ -205,18 +212,19 @@
   }
 
   /* Modular scale with ratio 1.25 over 15 px: 12 · 15 · 18.75 · 23.4 · 29.3. */
+  /* The title of a screen is set in the text face: the capital accents of Orbitron touch the letter (Á, Ó). */
   h1 {
-    font-family: var(--font-display);
-    font-size: clamp(1.25rem, 1.05rem + 0.9vw, 1.56rem);
-    font-weight: 600;
-    letter-spacing: 0.01em;
+    font-family: var(--font-sans);
+    font-size: clamp(1.3rem, 1.1rem + 0.9vw, 1.65rem);
+    font-weight: 700;
+    letter-spacing: 0.005em;
     line-height: 1.3;
   }
 
   /* Section label: instrument screen, uppercase and letter spacing. */
   h2 {
     font-family: var(--font-display);
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -299,6 +307,15 @@
     background: var(--color-raised);
     box-shadow: var(--shadow-well);
     border: 1px solid var(--color-edge);
+  }
+
+  /* What an AI generated: its own background, a left accent edge and, in its header, the origin mark (UD-026). */
+  .ai-surface {
+    background: var(--color-ai-bg);
+    border: 1px solid color-mix(in oklch, var(--color-ai-edge) 30%, transparent);
+    border-left: 3px solid var(--color-ai-edge);
+    border-radius: 3px 10px 3px 10px;
+    color: var(--color-fg);
   }
 
   /* Chrome bar: silver tube with a horizon line. */

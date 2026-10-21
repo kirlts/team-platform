@@ -20,7 +20,7 @@ export function ClipMenu({ draft, disabled, size = 'icon' }: { draft: MediaDraft
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size={size} aria-label={t('media.attach')} disabled={disabled}>
+          <Button variant="ghost" size={size} aria-label={t('media.attach')} title={t('media.attach')} disabled={disabled}>
             <Paperclip size={size === 'icon' ? 18 : 16} aria-hidden />
           </Button>
         </DropdownMenuTrigger>
@@ -65,14 +65,14 @@ export function CaptureButtons({ draft, disabled, size = 'icon' }: { draft: Medi
           e.target.value = ''
         }}
       />
-      <Button variant="ghost" size={size} aria-label={t('media.takePhoto')} disabled={disabled || !!draft.recording} onClick={() => cameraInput.current?.click()}>
+      <Button variant="ghost" size={size} aria-label={t('media.takePhoto')} title={t('media.takePhoto')} disabled={disabled || !!draft.recording} onClick={() => cameraInput.current?.click()}>
         <Camera size={iconSize} aria-hidden />
       </Button>
       <Button
         variant="ghost"
         size={size}
         aria-label={draft.recording ? t('media.stopRecording') : t('media.record')}
-        title={draft.micAvailable ? undefined : t('media.needsHttps')}
+        title={draft.micAvailable ? (draft.recording ? t('media.stopRecording') : t('media.record')) : t('media.needsHttps')}
         disabled={disabled || !draft.micAvailable}
         onClick={() => void draft.toggleRecording()}
         className={cn(draft.recording && 'text-danger')}

@@ -16,6 +16,10 @@ export function Login() {
   const [pending, setPending] = useState(false)
 
   const submit = async () => {
+    if (!email.trim() || !password) {
+      setError(t('login.missing'))
+      return
+    }
     setPending(true)
     setError(null)
     try {
@@ -38,24 +42,24 @@ export function Login() {
           void submit()
         }}
       >
-        <h1 className="flex items-center gap-3 text-[1.1rem] font-bold uppercase tracking-[0.18em]">
+        <h1 className="flex items-center gap-3 font-[family-name:var(--font-display)] text-[1.5rem] font-extrabold uppercase tracking-[0.16em]">
           <span aria-hidden className="orb h-4 w-4 rounded-full" />
           {t('brand.name')}
         </h1>
         <label className="flex flex-col gap-1 text-[13px] font-medium">
           {t('login.email')}
-          <Input type="email" autoComplete="username" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Input type="email" autoComplete="username" autoFocus value={email} onChange={(e) => setEmail(e.target.value)} />
         </label>
         <label className="flex flex-col gap-1 text-[13px] font-medium">
           {t('login.password')}
-          <Input type="password" autoComplete="current-password" required aria-invalid={error ? true : undefined} value={password} onChange={(e) => setPassword(e.target.value)} />
+          <Input type="password" autoComplete="current-password" aria-invalid={error ? true : undefined} value={password} onChange={(e) => setPassword(e.target.value)} />
           {error && (
             <span role="alert" className="text-[13px] font-normal text-danger">
               {error}
             </span>
           )}
         </label>
-        <Button type="submit" variant="primary" disabled={pending || !email || !password}>
+        <Button type="submit" variant="primary" disabled={pending}>
           {t('login.enter')}
         </Button>
       </form>

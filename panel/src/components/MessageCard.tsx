@@ -44,7 +44,7 @@ export function MessageCard({ message, variant = 'message' }: { message: Message
         <span className="flex">
           <AreaBadge title={areaTitle(message.area_id)} />
         </span>
-        <span className="inline-flex max-w-[11rem] items-center gap-1.5 text-xs leading-tight text-muted">
+        <span data-repeat-ok="person" className="inline-flex max-w-[11rem] items-center gap-1.5 text-xs leading-tight text-muted">
           <Avatar name={memberName(from.author_id) || '?'} size={22} />
           {memberName(from.author_id)}
         </span>
@@ -53,7 +53,7 @@ export function MessageCard({ message, variant = 'message' }: { message: Message
       <div className="flex items-start gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted sm:grid sm:grid-cols-[5.5rem_7.5rem_minmax(0,1fr)] sm:gap-x-2">
-            <time dateTime={from.created_at} className="tabular-nums">
+            <time dateTime={from.created_at} title={format.fullStamp(from.created_at)} className="tabular-nums">
               {format.stamp(from.created_at)}
             </time>
             <MediaKinds of={from} />
@@ -61,7 +61,8 @@ export function MessageCard({ message, variant = 'message' }: { message: Message
               <StatusBadge status={message.status} />
             </span>
           </div>
-          <h3 className="break-words">
+          {/* data-repeat-ok: the reply row names the message it answers; that message is listed on its own too. */}
+          <h3 data-repeat-ok={reply ? 'reply-names-its-message' : undefined} className="break-words">
             <Link
               to={`/messages/${message.id}`}
               className="outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:outline-2 focus-visible:after:outline-accent"
@@ -84,10 +85,13 @@ export function MessageCard({ message, variant = 'message' }: { message: Message
           )}
         </Recipients>
         <span className="relative z-10 ml-auto flex items-center gap-1">
-          {!isAuthor && !closed && (
+          {!isAuthor && !closed ? (
             <Button asChild size="sm" variant="ghost" className="text-accent-deep">
               <Link to={`/messages/${message.id}?reply=1`}>{t('card.reply')}</Link>
             </Button>
+          ) : (
+            // The sender cannot reply to the message: its slot stays empty so «Cerrar» is in the same place in every row.
+            <span aria-hidden className="inline-block w-[5.5rem]" />
           )}
           <Button size="sm" variant="ghost" className="text-muted" disabled={setClosed.isPending} onClick={() => setClosed.mutate({ id: message.id, closed: !closed })}>
             {closed ? t('card.reopen') : t('card.close')}

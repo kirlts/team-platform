@@ -41,6 +41,8 @@ export interface Formats {
   clock: (d: Date) => string
   /** «hoy 14:30», «ayer 09:05» or «20 oct 14:30»; the words come from the catalog through `words`. */
   stamp: (iso: string, now?: Date) => string
+  /** Full date and time for a tooltip: «20 de octubre de 2026, 14:30». */
+  fullStamp: (iso: string) => string
   /** «12 KB». */
   fileSize: (bytes?: number) => string
 }
@@ -51,8 +53,10 @@ export function createFormats(language: Language, words: { today: string; yester
   const short = new Intl.DateTimeFormat(language, { day: 'numeric', month: 'short' })
   const number = new Intl.NumberFormat(language, { maximumFractionDigits: 1 })
   const clock = (d: Date) => time.format(d)
+  const full = new Intl.DateTimeFormat(language, { dateStyle: 'full', timeStyle: 'short', hour12: false })
   return {
     longDate: (d) => date.format(d),
+    fullStamp: (iso) => (Number.isNaN(new Date(iso).getTime()) ? '' : full.format(new Date(iso))),
     clock,
     stamp: (iso, now = new Date()) => {
       const d = new Date(iso)

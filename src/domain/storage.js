@@ -20,7 +20,7 @@ export async function ingest (config, stream, { maxBytes, tooLargeMessage }) {
   const tmp = path.join(config.tmpDir, `${randomUUID()}.parcial`)
   const hash = createHash('sha256')
   let size = 0
-  const contador = new Transform({
+  const counter = new Transform({
     transform (chunk, _enc, cb) {
       size += chunk.length
       if (size > maxBytes) return cb(tooLarge(tooLargeMessage))
@@ -29,7 +29,7 @@ export async function ingest (config, stream, { maxBytes, tooLargeMessage }) {
     }
   })
   try {
-    await pipeline(stream, contador, createWriteStream(tmp))
+    await pipeline(stream, counter, createWriteStream(tmp))
   } catch (error) {
     await rm(tmp, { force: true })
     if (error?.code === 'FST_REQ_FILE_TOO_LARGE') throw tooLarge(tooLargeMessage)
@@ -41,12 +41,12 @@ export async function ingest (config, stream, { maxBytes, tooLargeMessage }) {
 /** Mueve el temporal a su nombre definitivo. Si el archivo ya existe se descarta el temporal. */
 export async function commit (config, tmp, sha256) {
   await mkdir(config.attachmentsDir, { recursive: true })
-  const destino = blobPath(config, sha256)
-  if (existsSync(destino)) {
+  const target = blobPath(config, sha256)
+  if (existsSync(target)) {
     await rm(tmp, { force: true })
     return { existed: true }
   }
-  await rename(tmp, destino)
+  await rename(tmp, target)
   return { existed: false }
 }
 
@@ -57,17 +57,17 @@ export async function commit (config, tmp, sha256) {
  * retención de la cola (7 días, informe 03 §12).
  */
 export async function sweepOrphans (db, config, olderThanMs, now = Date.now()) {
-  let borrados = 0
+  let removedRows = 0
   for (const dir of [config.attachmentsDir, config.tmpDir]) {
     if (!existsSync(dir)) continue
-    for (const nombre of await readdir(dir)) {
-      const ruta = path.join(dir, nombre)
-      const info = await stat(ruta)
+    for (const nameValue of await readdir(dir)) {
+      const routePath = path.join(dir, nameValue)
+      const info = await stat(routePath)
       if (!info.isFile() || now - info.mtimeMs < olderThanMs) continue
-      if (dir === config.attachmentsDir && get(db, "SELECT 1 AS u FROM attachments WHERE sha256 = ? AND kind <> 'link' LIMIT 1", nombre)) continue
-      await rm(ruta, { force: true })
-      borrados++
+      if (dir === config.attachmentsDir && get(db, "SELECT 1 AS u FROM attachments WHERE sha256 = ? AND kind <> 'link' LIMIT 1", nameValue)) continue
+      await rm(routePath, { force: true })
+      removedRows++
     }
   }
-  return borrados
+  return removedRows
 }

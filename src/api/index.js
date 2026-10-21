@@ -33,7 +33,7 @@ import { errorSchema, member as memberSchema } from './schemas.js'
 
 const version = JSON.parse(readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../package.json'), 'utf8')).version
 
-const ETIQUETAS = { auth: 'Sesión', me: 'Sesión', inputs: 'Inputs', messages: 'Mensajes', areas: 'Áreas y plantillas', templates: 'Áreas y plantillas', members: 'Equipo', settings: 'Configuración', attachments: 'Adjuntos', events: 'Eventos', jobs: 'Operación', audit: 'Operación', health: 'Operación', openapi: 'Operación' }
+const LABELS = { auth: 'Sesión', me: 'Sesión', inputs: 'Inputs', messages: 'Mensajes', areas: 'Áreas y plantillas', templates: 'Áreas y plantillas', members: 'Equipo', settings: 'Configuración', attachments: 'Adjuntos', events: 'Eventos', jobs: 'Operación', audit: 'Operación', health: 'Operación', openapi: 'Operación' }
 
 /**
  * Arma la aplicación. `deps`: { db, config, queue, events, modules, logger }. No escucha ni arranca el worker.
@@ -66,16 +66,16 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
       security: [{ session: [] }]
     },
     transform ({ schema, url, route }) {
-      const copia = { ...schema }
-      const clave = url.replace(config.apiPrefix, '').split('/').filter(Boolean)[0] ?? 'health'
-      copia.tags = [ETIQUETAS[clave] ?? 'Otros']
-      if (route?.config?.public) copia.security = []
+      const copyOf = { ...schema }
+      const lookupKey = url.replace(config.apiPrefix, '').split('/').filter(Boolean)[0] ?? 'health'
+      copyOf.tags = [LABELS[lookupKey] ?? 'Otros']
+      if (route?.config?.public) copyOf.security = []
       // Los errores comparten una forma; se declaran una vez en cada ruta documentada.
-      copia.response = { '4XX': { description: 'Error: { code, message }.', ...errorSchema }, ...(schema.response ?? {}) }
+      copyOf.response = { '4XX': { description: 'Error: { code, message }.', ...errorSchema }, ...(schema.response ?? {}) }
       if (route?.method === 'POST' && url === `${config.apiPrefix}/inputs`) {
         // La subida es multipart y la lee el manejador; el esquema sólo sirve a la documentación.
-        copia.consumes = ['multipart/form-data']
-        copia.body = {
+        copyOf.consumes = ['multipart/form-data']
+        copyOf.body = {
           type: 'object',
           properties: {
             text: { type: 'string', description: 'Texto del input.' },
@@ -84,7 +84,7 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
           }
         }
       }
-      return { schema: copia, url }
+      return { schema: copyOf, url }
     }
   })
 
@@ -100,15 +100,15 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
   }
 
   // ---- Panel estático. Se registra antes de las políticas de ruta: sus archivos son públicos.
-  const hayPanel = existsSync(path.join(config.panelDist, 'index.html'))
-  if (hayPanel) {
+  const hasPanel = existsSync(path.join(config.panelDist, 'index.html'))
+  if (hasPanel) {
     await app.register(fastifyStatic, {
       root: config.panelDist,
       wildcard: false, // sólo los archivos que existen; lo demás cae al manejador de 404
       index: false,
       // Activos con hash: caché larga e inmutable. index.html: sin caché (informe 03 §7.3, I07 §8).
-      setHeaders (reply, ruta) {
-        reply.header('cache-control', path.relative(config.panelDist, ruta).startsWith(`assets${path.sep}`)
+      setHeaders (reply, routePath) {
+        reply.header('cache-control', path.relative(config.panelDist, routePath).startsWith(`assets${path.sep}`)
           ? `public, max-age=${config.assetsMaxAgeSeconds}, immutable`
           : 'no-cache')
       }
@@ -116,16 +116,16 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
   } else {
     app.log.warn(`No hay panel compilado en ${config.panelDist}; sólo se sirve la API.`)
   }
-  const prefijoApi = config.apiPrefix
+  const apiPrefixPath = config.apiPrefix
   app.setNotFoundHandler((request, reply) => {
-    const ruta = request.raw.url.split('?')[0]
-    const esApi = ruta === prefijoApi || ruta.startsWith(`${prefijoApi}/`)
-    const esActivo = ruta.startsWith('/assets/')
+    const routePath = request.raw.url.split('?')[0]
+    const isApi = routePath === apiPrefixPath || routePath.startsWith(`${apiPrefixPath}/`)
+    const isAsset = routePath.startsWith('/assets/')
     // Rutas de la SPA: index.html sólo a GET fuera de /api y de /assets (un activo ausente es un 404 de verdad).
-    if (hayPanel && !esApi && !esActivo && (request.method === 'GET' || request.method === 'HEAD')) {
+    if (hasPanel && !isApi && !isAsset && (request.method === 'GET' || request.method === 'HEAD')) {
       return reply.header('cache-control', 'no-cache').type('text/html; charset=utf-8').send(readFileSync(path.join(config.panelDist, 'index.html')))
     }
-    return reply.code(404).send({ code: 'not_found', message: esApi ? 'La ruta de la API no existe.' : 'No se encontró el recurso.' })
+    return reply.code(404).send({ code: 'not_found', message: isApi ? 'La ruta de la API no existe.' : 'No se encontró el recurso.' })
   })
 
   await app.register(fastifyMultipart, {
@@ -146,17 +146,17 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
   let eventStreams = { closeAll () {} }
   const ctx = { db, config, queue, events, requireRole, identity, modules, blocklist, domainEvents }
 
-  const salud = async (request) => {
-    const migrada = userVersion(db) === latestVersion()
+  const healthHandler = async (request) => {
+    const migrated = userVersion(db) === latestVersion()
     get(db, 'SELECT 1 AS ok') // si la base no responde, esto lanza y /health devuelve 500: es lo que debe poder ponerse rojo
-    if (!migrada) throw new AppError(503, 'unavailable', 'La base no está migrada.')
-    const basico = { status: 'ok', version }
+    if (!migrated) throw new AppError(503, 'unavailable', 'La base no está migrada.')
+    const basic = { status: 'ok', version }
     // El detalle (base, cola, proveedores) es del editor: un sondeo anónimo sólo ve si el servicio vive.
-    let quien = null
-    try { quien = await identity.provider.identify(request) } catch { /* sin identidad: respuesta básica */ }
-    if (quien?.role !== 'editor') return basico
+    let caller = null
+    try { caller = await identity.provider.identify(request) } catch { /* sin identidad: respuesta básica */ }
+    if (caller?.role !== 'editor') return basic
     return {
-      ...basico,
+      ...basic,
       db: { status: 'ok', schema_version: userVersion(db), journal_mode: db.prepare('PRAGMA journal_mode').get().journal_mode },
       queue: queue.stats(),
       worker: config.worker.mode,
@@ -164,7 +164,7 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
       analyzer: getProviderSettings(db, config).analyzer
     }
   }
-  const saludSchema = {
+  const healthSchema = {
     summary: 'Estado del servicio (el detalle de base, cola y proveedores, sólo para el editor)',
     response: {
       200: {
@@ -179,7 +179,7 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
     }
   }
 
-  let documento = null
+  let openapiDoc = null
   await app.register(async (api) => {
     identity.registerRoutes(api)
     api.get('/me', {
@@ -189,14 +189,14 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
         response: { 200: { type: 'object', properties: { ...memberSchema.properties, project_name: { type: 'string' }, provider: { type: 'string' } } } }
       }
     }, async (request) => {
-      const fila = get(db, 'SELECT id, email, name, role, responsibilities, domains, created_at FROM members WHERE id = ?', request.member.id)
-      return { ...toMember(fila), project_name: config.projectName, provider: identity.provider.name }
+      const dbRow = get(db, 'SELECT id, email, name, role, responsibilities, domains, created_at FROM members WHERE id = ?', request.member.id)
+      return { ...toMember(dbRow), project_name: config.projectName, provider: identity.provider.name }
     })
-    api.get('/health', { config: { public: true }, schema: saludSchema }, salud)
+    api.get('/health', { config: { public: true }, schema: healthSchema }, healthHandler)
     api.get('/openapi.json', {
       config: { public: true },
       schema: { hide: true, summary: 'Contrato OpenAPI 3.1 de esta API', response: { 200: { type: 'object', additionalProperties: true } } }
-    }, async () => { documento ??= app.swagger(); return documento })
+    }, async () => { openapiDoc ??= app.swagger(); return openapiDoc })
     registerInputRoutes(api, ctx)
     registerMessageRoutes(api, ctx)
     registerAreaRoutes(api, ctx)
@@ -205,8 +205,8 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
     registerAttachmentRoutes(api, ctx)
     registerOpsRoutes(api, ctx)
     eventStreams = await registerEventRoutes(api, { db, config, events, requireRole })
-  }, { prefix: prefijoApi })
-  app.get('/health', { config: { public: true }, schema: { hide: true, ...saludSchema } }, salud)
+  }, { prefix: apiPrefixPath })
+  app.get('/health', { config: { public: true }, schema: { hide: true, ...healthSchema } }, healthHandler)
 
   app.addHook('preClose', async () => eventStreams.closeAll())
   return { app, domainEvents, identity }

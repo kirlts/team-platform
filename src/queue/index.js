@@ -13,7 +13,7 @@ import { all, get, run, tx } from '../db/index.js'
 import { iso } from '../db/util.js'
 
 export function createQueue ({ db, config, events, now = Date.now, random = Math.random }) {
-  const señales = new EventEmitter() // 'enqueued', 'cancelled'
+  const signals = new EventEmitter() // 'enqueued', 'cancelled'
   const w = config.worker
 
   /** Retraso del reintento n (n ≥ 1): min(tope, base × 2^(n−1)) menos una fracción al azar de hasta `jitter`. */
@@ -30,7 +30,7 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
       kind, inputId, JSON.stringify(payload), priority, maxAttempts, runAt ?? t, t)
     const id = Number(r.lastInsertRowid)
     // Avisa al worker del mismo proceso; con worker aparte lo despierta `PRAGMA data_version`.
-    queueMicrotask(() => señales.emit('enqueued', id))
+    queueMicrotask(() => signals.emit('enqueued', id))
     return id
   }
 
@@ -41,19 +41,19 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
   function recoverExpiredLeases () {
     const t = now()
     return tx(db, () => {
-      const vencidos = all(db, "SELECT id, attempts, max_attempts FROM jobs WHERE status = 'running' AND lease_until < ?", t)
-      const terminados = []
-      for (const j of vencidos) {
+      const expired = all(db, "SELECT id, attempts, max_attempts FROM jobs WHERE status = 'running' AND lease_until < ?", t)
+      const finished = []
+      for (const j of expired) {
         if (j.attempts >= j.max_attempts) {
           run(db, "UPDATE jobs SET status = 'failed', lease_until = NULL, worker_id = NULL, finished_at = ?, last_error = ? WHERE id = ?",
             t, 'El arriendo venció sin que el trabajo terminara (el proceso se detuvo o tardó más que el límite).', j.id)
-          terminados.push(j.id)
+          finished.push(j.id)
         } else {
           run(db, "UPDATE jobs SET status = 'queued', lease_until = NULL, worker_id = NULL, run_at = ?, last_error = ? WHERE id = ?",
             t, 'El arriendo venció; el trabajo vuelve a la cola.', j.id)
         }
       }
-      return { recuperados: vencidos.length - terminados.length, fallidos: terminados }
+      return { recovered: expired.length - finished.length, failedIds: finished }
     })
   }
 
@@ -62,9 +62,9 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
     const t = now()
     return tx(db, () => {
       // Recuperar primero mantiene la consulta de reclamo exactamente como la fija §7.3 (sólo `queued`).
-      const vencidos = get(db, "SELECT 1 AS hay FROM jobs WHERE status = 'running' AND lease_until < ? LIMIT 1", t)
-      if (vencidos) recoverExpiredLeases()
-      const fila = get(db, `
+      const expired = get(db, "SELECT 1 AS hay FROM jobs WHERE status = 'running' AND lease_until < ? LIMIT 1", t)
+      if (expired) recoverExpiredLeases()
+      const dbRow = get(db, `
         UPDATE jobs
            SET status = 'running', worker_id = ?, lease_until = ?, attempts = attempts + 1
          WHERE id = (SELECT id FROM jobs
@@ -72,11 +72,11 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
                       ORDER BY priority DESC, run_at, id
                       LIMIT 1)
         RETURNING *`, workerId, t + leaseMs, t)
-      return fila ?? null
+      return dbRow ?? null
     })
   }
 
-  const vigente = (job) => get(db, "SELECT 1 AS ok FROM jobs WHERE id = ? AND status = 'running' AND attempts = ?", job.id, job.attempts)
+  const isCurrent = (job) => get(db, "SELECT 1 AS ok FROM jobs WHERE id = ? AND status = 'running' AND attempts = ?", job.id, job.attempts)
 
   /** Renueva el arriendo. Devuelve false si el trabajo ya no es de este intento (cancelado, vencido, reasignado). */
   function heartbeat (job, leaseMs = w.leaseMs) {
@@ -87,7 +87,7 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
   /** Registra el avance del trabajo (porcentaje y frase breve). Devuelve false si se perdió el intento. */
   function progress (job, percent, phrase) {
     return events.transaction(() => {
-      if (!vigente(job)) return false
+      if (!isCurrent(job)) return false
       events.publishForJob(job.id, { kind: 'progress', percent: Math.max(0, Math.min(100, Math.round(percent))), phrase })
       return true
     })
@@ -106,20 +106,20 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
    * Devuelve { state: 'requeued' | 'failed' | 'lost', delayMs } ('lost': se perdió la barrera de intento).
    */
   function fail (job, error, { permanent = false } = {}) {
-    const mensaje = String(error?.message ?? error ?? 'Error desconocido').slice(0, 2000)
-    const definitivo = permanent || error?.retryable === false || job.attempts >= job.max_attempts
+    const msgRow = String(error?.message ?? error ?? 'Error desconocido').slice(0, 2000)
+    const isFinal = permanent || error?.retryable === false || job.attempts >= job.max_attempts
     const t = now()
-    if (definitivo) {
+    if (isFinal) {
       const r = run(db, "UPDATE jobs SET status = 'failed', lease_until = NULL, worker_id = NULL, finished_at = ?, last_error = ? WHERE id = ? AND status = 'running' AND attempts = ?",
-        t, mensaje, job.id, job.attempts)
+        t, msgRow, job.id, job.attempts)
       return { state: r.changes === 1 ? 'failed' : 'lost', delayMs: 0 }
     }
-    const espera = backoffMs(job.attempts)
+    const waitUntil = backoffMs(job.attempts)
     const r = run(db, "UPDATE jobs SET status = 'queued', lease_until = NULL, worker_id = NULL, run_at = ?, last_error = ? WHERE id = ? AND status = 'running' AND attempts = ?",
-      t + espera, mensaje, job.id, job.attempts)
+      t + waitUntil, msgRow, job.id, job.attempts)
     if (r.changes === 1) {
-      queueMicrotask(() => señales.emit('enqueued', job.id))
-      return { state: 'requeued', delayMs: espera }
+      queueMicrotask(() => signals.emit('enqueued', job.id))
+      return { state: 'requeued', delayMs: waitUntil }
     }
     return { state: 'lost', delayMs: 0 }
   }
@@ -144,7 +144,7 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
   /** Cancela un trabajo en cola o en curso. El worker se entera por la barrera (latido o progreso) o por la señal. */
   function cancel (jobId) {
     const r = run(db, "UPDATE jobs SET status = 'cancelled', lease_until = NULL, worker_id = NULL, finished_at = ? WHERE id = ? AND status IN ('queued', 'running')", now(), jobId)
-    if (r.changes === 1) señales.emit('cancelled', jobId)
+    if (r.changes === 1) signals.emit('cancelled', jobId)
     return r.changes === 1
   }
 
@@ -159,11 +159,11 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
 
   /** Instante del próximo trabajo en cola con `run_at` futuro (para dormir exactamente hasta entonces), o null. */
   function nextRunAt () {
-    const fila = get(db, "SELECT MIN(run_at) AS t FROM jobs WHERE status = 'queued'")
-    return fila?.t ?? null
+    const dbRow = get(db, "SELECT MIN(run_at) AS t FROM jobs WHERE status = 'queued'")
+    return dbRow?.t ?? null
   }
 
-  const vistaTrabajo = (j) => ({
+  const jobView = (j) => ({
     id: j.id, kind: j.kind, input_id: j.input_id, status: j.status, priority: j.priority, attempts: j.attempts, max_attempts: j.max_attempts,
     run_at: iso(j.run_at), lease_until: iso(j.lease_until), worker_id: j.worker_id, last_error: j.last_error, created_at: iso(j.created_at), finished_at: iso(j.finished_at)
   })
@@ -173,8 +173,8 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
     const cond = state ? 'WHERE status = ?' : ''
     const params = state ? [state] : []
     const total = get(db, `SELECT COUNT(*) AS n FROM jobs ${cond}`, ...params).n
-    const filas = all(db, `SELECT * FROM jobs ${cond} ORDER BY id DESC LIMIT ? OFFSET ?`, ...params, limit, offset)
-    return { total, items: filas.map(vistaTrabajo) }
+    const rows = all(db, `SELECT * FROM jobs ${cond} ORDER BY id DESC LIMIT ? OFFSET ?`, ...params, limit, offset)
+    return { total, items: rows.map(jobView) }
   }
 
   /** Purga de trabajos terminados (done, failed o cancelled); sus eventos caen con ellos (ON DELETE CASCADE). */
@@ -184,24 +184,24 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
   }
 
   function stats () {
-    const filas = all(db, 'SELECT status, COUNT(*) AS n FROM jobs GROUP BY status')
-    return Object.fromEntries(filas.map((f) => [f.status, f.n]))
+    const rows = all(db, 'SELECT status, COUNT(*) AS n FROM jobs GROUP BY status')
+    return Object.fromEntries(rows.map((f) => [f.status, f.n]))
   }
 
   /** Retención (I03 §12): trabajos terminados y eventos con más de `retentionDays` días. */
   function sweepRetention () {
-    const limite = now() - w.retentionDays * 24 * 3600 * 1000
+    const cap = now() - w.retentionDays * 24 * 3600 * 1000
     return tx(db, () => {
-      const trabajos = run(db, "DELETE FROM jobs WHERE status IN ('done', 'failed', 'cancelled') AND finished_at < ?", limite).changes
-      const eventos = events.purge(limite)
-      const sesiones = run(db, 'DELETE FROM sessions WHERE expires_at < ?', now()).changes
-      const nonces = run(db, 'DELETE FROM sso_nonces WHERE created_at < ?', limite).changes
-      return { trabajos, eventos, sesiones, nonces }
+      const jobList = run(db, "DELETE FROM jobs WHERE status IN ('done', 'failed', 'cancelled') AND finished_at < ?", cap).changes
+      const eventList = events.purge(cap)
+      const sessionCount = run(db, 'DELETE FROM sessions WHERE expires_at < ?', now()).changes
+      const nonces = run(db, 'DELETE FROM sso_nonces WHERE created_at < ?', cap).changes
+      return { jobList, eventList, sessionCount, nonces }
     })
   }
 
   return {
     enqueue, claim, heartbeat, progress, complete, fail, release, defer, cancel, cancelForInput, recoverExpiredLeases,
-    sweepRetention, nextRunAt, stats, listJobs, purgeJobs, backoffMs, getJob, latestJobForInput, señales
+    sweepRetention, nextRunAt, stats, listJobs, purgeJobs, backoffMs, getJob, latestJobForInput, signals
   }
 }

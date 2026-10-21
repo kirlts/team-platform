@@ -11,18 +11,18 @@ export function audit (db, { memberId = null, action, entity, entityId = null, d
 }
 
 export function listAudit (db, { limit, offset, entity = null, action = null }) {
-  const donde = []
+  const scope = []
   const params = []
-  if (entity) { donde.push('a.entity = ?'); params.push(entity) }
-  if (action) { donde.push('a.action = ?'); params.push(action) }
-  const cond = donde.length ? `WHERE ${donde.join(' AND ')}` : ''
+  if (entity) { scope.push('a.entity = ?'); params.push(entity) }
+  if (action) { scope.push('a.action = ?'); params.push(action) }
+  const cond = scope.length ? `WHERE ${scope.join(' AND ')}` : ''
   const total = get(db, `SELECT COUNT(*) AS n FROM audit_log a ${cond}`, ...params).n
-  const filas = all(db, `
+  const rows = all(db, `
     SELECT a.*, m.name AS member_name FROM audit_log a LEFT JOIN members m ON m.id = a.member_id
      ${cond} ORDER BY a.at DESC, a.id DESC LIMIT ? OFFSET ?`, ...params, limit, offset)
   return {
     total,
-    items: filas.map((f) => ({
+    items: rows.map((f) => ({
       id: f.id, at: iso(f.at), member_id: f.member_id, member_name: f.member_name,
       action: f.action, entity: f.entity, entity_id: f.entity_id, detail: parseJson(f.detail_json, null)
     }))

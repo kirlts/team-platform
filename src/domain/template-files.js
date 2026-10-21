@@ -5,16 +5,16 @@
 import { mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
-const ruta = (config, areaId, templateId) => path.join(config.editedTemplatesDir, `area-${areaId}`, `template-${templateId}.md`)
+const routePath = (config, areaId, templateId) => path.join(config.editedTemplatesDir, `area-${areaId}`, `template-${templateId}.md`)
 
 export function mirrorTemplate (config, t) {
-  const destino = ruta(config, t.area_id, t.id)
-  mkdirSync(path.dirname(destino), { recursive: true })
-  const temporal = `${destino}.parcial`
-  writeFileSync(temporal, t.body_markdown)
-  renameSync(temporal, destino) // atómico: un respaldo nunca ve un archivo a medio escribir
+  const target = routePath(config, t.area_id, t.id)
+  mkdirSync(path.dirname(target), { recursive: true })
+  const tmpFile = `${target}.parcial`
+  writeFileSync(tmpFile, t.body_markdown)
+  renameSync(tmpFile, target) // atómico: un respaldo nunca ve un archivo a medio escribir
 }
 
 export function removeTemplateMirror (config, areaId, templateId) {
-  rmSync(ruta(config, areaId, templateId), { force: true })
+  rmSync(routePath(config, areaId, templateId), { force: true })
 }

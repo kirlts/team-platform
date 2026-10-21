@@ -5,11 +5,11 @@
 export function llmCostUsd (config, model, usage = {}) {
   const p = config.pricing.llmPerMTok[model]
   if (!p) return 0
-  const entrada = usage.input_tokens ?? 0
-  const salida = usage.output_tokens ?? 0
+  const loginResponse = usage.input_tokens ?? 0
+  const outText = usage.output_tokens ?? 0
   const cache = usage.cached_tokens ?? 0
-  const escritura = usage.cache_creation_tokens ?? 0
-  return (entrada * p.input + salida * p.output + cache * p.cached + escritura * p.input * config.pricing.cacheWriteFactor) / 1e6
+  const cacheWriteTokens = usage.cache_creation_tokens ?? 0
+  return (loginResponse * p.input + outText * p.output + cache * p.cached + cacheWriteTokens * p.input * config.pricing.cacheWriteFactor) / 1e6
 }
 
 export function speechCostUsd (config, seconds) {

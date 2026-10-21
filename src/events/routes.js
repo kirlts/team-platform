@@ -11,12 +11,12 @@ import { get } from '../db/index.js'
 import { toWire } from './index.js'
 import { notFound } from '../domain/errors.js'
 
-const TERMINALES = new Set(['done', 'failed', 'cancelled'])
+const TERMINAL_STATES = new Set(['done', 'failed', 'cancelled'])
 
 export async function registerEventRoutes (app, { db, config, events, requireRole }) {
   // Versión exacta fijada en package.json: es una 0.x (I07 §5.2).
   await app.register(fastifySse, { heartbeatInterval: config.sse.heartbeatMs })
-  const abiertos = new Set()
+  const openStreams = new Set()
 
   app.get('/events', {
     onRequest: [requireRole('member')],
@@ -29,62 +29,62 @@ export async function registerEventRoutes (app, { db, config, events, requireRol
       }
     }
   }, async (request, reply) => {
-    const miembro = request.member.id
+    const memberRow = request.member.id
     const jobId = request.query.job_id ?? null
-    const crudo = request.headers['last-event-id']
-    const ultimo = crudo !== undefined && /^\d+$/.test(crudo) ? Number(crudo) : null
+    const rawValue = request.headers['last-event-id']
+    const lastSeqValue = rawValue !== undefined && /^\d+$/.test(rawValue) ? Number(rawValue) : null
 
-    let trabajo = null
+    let jobRow = null
     if (jobId !== null) {
-      trabajo = get(db, 'SELECT j.id, j.status FROM jobs j JOIN inputs i ON i.id = j.input_id WHERE j.id = ? AND i.author_id = ?', jobId, miembro)
-      if (!trabajo) throw notFound('El trabajo no existe.')
+      jobRow = get(db, 'SELECT j.id, j.status FROM jobs j JOIN inputs i ON i.id = j.input_id WHERE j.id = ? AND i.author_id = ?', jobId, memberRow)
+      if (!jobRow) throw notFound('El trabajo no existe.')
     }
 
     // Reposición inicial (después de suscribir).
-    const pendientes = []
-    let reponiendo = true
-    const enviados = new Set()
-    const cola = { cadena: Promise.resolve() }
+    const pending = []
+    let replaying = true
+    const sentSeqs = new Set()
+    const outbox = { chain: Promise.resolve() }
 
-    const enviar = (fila) => {
-      cola.cadena = cola.cadena.then(async () => {
+    const submit = (dbRow) => {
+      outbox.chain = outbox.chain.then(async () => {
         if (!reply.sse.isConnected) return
-        await reply.sse.send(toWire(fila))
-        if (jobId !== null && fila.kind === 'done') reply.sse.close() // el cliente cierra su EventSource al recibirlo
+        await reply.sse.send(toWire(dbRow))
+        if (jobId !== null && dbRow.kind === 'done') reply.sse.close() // el cliente cierra su EventSource al recibirlo
       }).catch(() => {})
     }
-    const despachar = (fila) => {
-      if (jobId !== null && fila.job_id !== jobId) return
-      if (reponiendo) pendientes.push(fila)
-      else enviar(fila)
+    const dispatch = (dbRow) => {
+      if (jobId !== null && dbRow.job_id !== jobId) return
+      if (replaying) pending.push(dbRow)
+      else submit(dbRow)
     }
-    const desuscribir = events.subscribe(miembro, despachar)
+    const unsubscribe = events.subscribe(memberRow, dispatch)
 
-    const historia = ultimo !== null
-      ? events.replay(miembro, ultimo, { jobId })
-      : jobId !== null ? events.replay(miembro, 0, { jobId }) : events.snapshot(miembro)
+    const history = lastSeqValue !== null
+      ? events.replay(memberRow, lastSeqValue, { jobId })
+      : jobId !== null ? events.replay(memberRow, 0, { jobId }) : events.snapshot(memberRow)
 
     // 204: el trabajo ya terminó y el cliente no se perdió nada. Sin estas condiciones la conexión sigue abierta.
-    if (trabajo && TERMINALES.has(trabajo.status) && historia.length === 0) {
-      desuscribir()
+    if (jobRow && TERMINAL_STATES.has(jobRow.status) && history.length === 0) {
+      unsubscribe()
       return reply.code(204).send()
     }
 
     reply.sse.sendHeaders()
     reply.raw.write(': conectado\n\n') // fuerza el primer byte a través de proxies con búfer
-    for (const fila of historia) { enviados.add(fila.seq); enviar(fila) }
-    reponiendo = false
-    for (const fila of pendientes) if (!enviados.has(fila.seq)) enviar(fila)
+    for (const dbRow of history) { sentSeqs.add(dbRow.seq); submit(dbRow) }
+    replaying = false
+    for (const dbRow of pending) if (!sentSeqs.has(dbRow.seq)) submit(dbRow)
 
-    const entrada = { close: () => reply.sse.close() }
-    abiertos.add(entrada)
+    const loginResponse = { close: () => reply.sse.close() }
+    openStreams.add(loginResponse)
     await new Promise((resolver) => {
       reply.sse.onClose(resolver)
     })
-    desuscribir()
-    abiertos.delete(entrada)
+    unsubscribe()
+    openStreams.delete(loginResponse)
   })
 
   // Apagado (I03 §4, paso 2): cerrar los flujos antes de `app.close()`.
-  return { closeAll () { for (const e of [...abiertos]) e.close() } }
+  return { closeAll () { for (const e of [...openStreams]) e.close() } }
 }

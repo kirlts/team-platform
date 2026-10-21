@@ -19,8 +19,8 @@ export function setSessionCookie (reply, config, token) {
 
 export function clearSessionCookie (reply, config) {
   const { name, options } = cookieSpec(config)
-  const { maxAge, ...sinVencimiento } = options
-  reply.clearCookie(name, sinVencimiento)
+  const { maxAge, ...noExpiry } = options
+  reply.clearCookie(name, noExpiry)
 }
 
 export function readSessionCookie (request, config) {

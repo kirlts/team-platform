@@ -18,19 +18,19 @@ const itemVista = {
 export function registerSettingsRoutes (app, ctx) {
   const { db, config, requireRole, modules } = ctx
 
-  const vista = () => {
-    const guardado = getProviderSettings(db, config)
+  const view = () => {
+    const stored = getProviderSettings(db, config)
     // `describe()` dice lo que `createProviders` efectivamente armó (proveedor, modelo y si falta una llave).
-    const armado = modules.getProviders?.()?.describe?.() ?? []
+    const built = modules.getProviders?.()?.describe?.() ?? []
     return {
-      analyzer: guardado.analyzer,
+      analyzer: stored.analyzer,
       items: MODALITIES.map((slot) => {
-        const real = armado.find((s) => s.slot === slot)
+        const real = built.find((s) => s.slot === slot)
         return {
           slot,
-          provider: real?.provider ?? guardado[slot].provider ?? '',
-          model: real?.model ?? guardado[slot].model ?? '',
-          ...(guardado[slot].base_url ? { base_url: guardado[slot].base_url } : {}),
+          provider: real?.provider ?? stored[slot].provider ?? '',
+          model: real?.model ?? stored[slot].model ?? '',
+          ...(stored[slot].base_url ? { base_url: stored[slot].base_url } : {}),
           available: real ? real.available : false,
           reason: real?.reason ?? null
         }
@@ -38,9 +38,9 @@ export function registerSettingsRoutes (app, ctx) {
     }
   }
 
-  const respuesta = { 200: { type: 'object', properties: { analyzer: { type: 'string', enum: ['api', 'harness'] }, items: { type: 'array', items: itemVista } } } }
+  const responseSchema = { 200: { type: 'object', properties: { analyzer: { type: 'string', enum: ['api', 'harness'] }, items: { type: 'array', items: itemVista } } } }
 
-  app.get('/settings/providers', { onRequest: [requireRole('editor')], schema: { summary: 'Proveedores de modelo configurados (nunca las llaves)', response: respuesta } }, async () => vista())
+  app.get('/settings/providers', { onRequest: [requireRole('editor')], schema: { summary: 'Proveedores de modelo configurados (nunca las llaves)', response: responseSchema } }, async () => view())
 
   app.patch('/settings/providers', {
     onRequest: [requireRole('editor')],
@@ -53,18 +53,18 @@ export function registerSettingsRoutes (app, ctx) {
           { type: 'object', required: ['analyzer'], additionalProperties: false, properties: { analyzer: { type: 'string', enum: ['api', 'harness'] } } }
         ]
       },
-      response: respuesta
+      response: responseSchema
     }
   }, async (request) => {
-    const { slot, analyzer, ...ranura } = request.body
-    const parche = analyzer !== undefined ? { analyzer } : { [slot]: ranura }
+    const { slot, analyzer, ...slotBody } = request.body
+    const patchObj = analyzer !== undefined ? { analyzer } : { [slot]: slotBody }
     try {
-      modules.buildProviders?.(mergeOverrides(getProviderOverrides(db), parche))
+      modules.buildProviders?.(mergeOverrides(getProviderOverrides(db), patchObj))
     } catch (error) {
       throw unprocessable(error.message, 'provider_invalid')
     }
-    setProviderOverrides(db, parche)
-    audit(db, { memberId: request.member.id, action: 'settings.providers', entity: 'settings', detail: analyzer !== undefined ? { analyzer } : { slot, provider: ranura.provider, model: ranura.model } })
-    return vista()
+    setProviderOverrides(db, patchObj)
+    audit(db, { memberId: request.member.id, action: 'settings.providers', entity: 'settings', detail: analyzer !== undefined ? { analyzer } : { slot, provider: slotBody.provider, model: slotBody.model } })
+    return view()
   })
 }

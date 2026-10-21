@@ -14,59 +14,59 @@ import { badRequest, conflict, forbidden, notFound } from './errors.js'
 export const MESSAGE_STATUSES = ['open', 'answered', 'closed']
 export const REPLY_KINDS = ['answer', 'fix', 'clarification']
 
-const TRANSICIONES = {
+const TRANSITIONS = {
   reply: { open: 'answered', answered: 'answered' }, // un mensaje cerrado no recibe respuestas hasta reabrirse
   close: { open: 'closed', answered: 'closed' },
   reopen: { closed: null } // el destino depende de si tiene respuestas
 }
 
-const escaparLike = (q) => q.replace(/[\\%_]/g, (c) => `\\${c}`)
+const escapeLike = (q) => q.replace(/[\\%_]/g, (c) => `\\${c}`)
 
-function adjuntosDe (db, ids) {
+function attachmentsOf (db, ids) {
   if (ids.length === 0) return new Map()
-  const marcas = ids.map(() => '?').join(',')
-  const filas = all(db, `
+  const placeholders = ids.map(() => '?').join(',')
+  const rows = all(db, `
     SELECT ma.message_id, a.id, a.input_id, a.kind, a.name, a.mime, a.size
       FROM message_attachments ma JOIN attachments a ON a.id = ma.attachment_id
-     WHERE ma.message_id IN (${marcas}) ORDER BY ma.message_id, ma.position, a.id`, ...ids)
-  const mapa = new Map()
-  for (const f of filas) {
-    if (!mapa.has(f.message_id)) mapa.set(f.message_id, [])
-    mapa.get(f.message_id).push({ id: f.id, input_id: f.input_id, kind: f.kind, name: f.name, mime: f.mime, size: f.size })
+     WHERE ma.message_id IN (${placeholders}) ORDER BY ma.message_id, ma.position, a.id`, ...ids)
+  const table = new Map()
+  for (const f of rows) {
+    if (!table.has(f.message_id)) table.set(f.message_id, [])
+    table.get(f.message_id).push({ id: f.id, input_id: f.input_id, kind: f.kind, name: f.name, mime: f.mime, size: f.size })
   }
-  return mapa
+  return table
 }
 
-function asignadosDe (db, ids) {
+function assigneesOf (db, ids) {
   if (ids.length === 0) return new Map()
-  const marcas = ids.map(() => '?').join(',')
-  const filas = all(db, `SELECT message_id, member_id FROM message_assignees WHERE message_id IN (${marcas}) ORDER BY message_id, member_id`, ...ids)
-  const mapa = new Map()
-  for (const f of filas) {
-    if (!mapa.has(f.message_id)) mapa.set(f.message_id, [])
-    mapa.get(f.message_id).push(f.member_id)
+  const placeholders = ids.map(() => '?').join(',')
+  const rows = all(db, `SELECT message_id, member_id FROM message_assignees WHERE message_id IN (${placeholders}) ORDER BY message_id, member_id`, ...ids)
+  const table = new Map()
+  for (const f of rows) {
+    if (!table.has(f.message_id)) table.set(f.message_id, [])
+    table.get(f.message_id).push(f.member_id)
   }
-  return mapa
+  return table
 }
 
 const toReply = (r) => ({ id: r.id, message_id: r.message_id, author_id: r.author_id, body: r.body, kind: r.kind, created_at: iso(r.created_at) })
 
-function ultimasRespuestas (db, ids) {
+function lastRepliesOf (db, ids) {
   if (ids.length === 0) return new Map()
-  const marcas = ids.map(() => '?').join(',')
-  const filas = all(db, `
+  const placeholders = ids.map(() => '?').join(',')
+  const rows = all(db, `
     SELECT r.* FROM replies r
-     WHERE r.message_id IN (${marcas}) AND r.id = (SELECT MAX(x.id) FROM replies x WHERE x.message_id = r.message_id)`, ...ids)
-  return new Map(filas.map((r) => [r.message_id, toReply(r)]))
+     WHERE r.message_id IN (${placeholders}) AND r.id = (SELECT MAX(x.id) FROM replies x WHERE x.message_id = r.message_id)`, ...ids)
+  return new Map(rows.map((r) => [r.message_id, toReply(r)]))
 }
 
 /** Forma plana que consume el panel: referencias por id; los nombres salen de las listas de miembros y áreas. */
-function hidratar (db, filas) {
-  const ids = filas.map((f) => f.id)
-  const adjuntos = adjuntosDe(db, ids)
-  const asignados = asignadosDe(db, ids)
-  const ultimas = ultimasRespuestas(db, ids)
-  return filas.map((f) => ({
+function hydrate (db, rows) {
+  const ids = rows.map((f) => f.id)
+  const atts = attachmentsOf(db, ids)
+  const assigned = assigneesOf(db, ids)
+  const lastReplies = lastRepliesOf(db, ids)
+  return rows.map((f) => ({
     id: f.id,
     input_id: f.input_id,
     area_id: f.area_id,
@@ -76,16 +76,16 @@ function hidratar (db, filas) {
     body: f.body,
     fields: parseJson(f.fields_json, {}),
     status: f.status,
-    assignee_ids: asignados.get(f.id) ?? [],
-    attachments: adjuntos.get(f.id) ?? [],
+    assignee_ids: assigned.get(f.id) ?? [],
+    attachments: atts.get(f.id) ?? [],
     reply_count: f.reply_count,
-    last_reply: ultimas.get(f.id) ?? null,
+    last_reply: lastReplies.get(f.id) ?? null,
     created_at: iso(f.created_at),
     closed_at: iso(f.closed_at)
   }))
 }
 
-const SELECT_MENSAJE = `
+const SELECT_MESSAGE = `
   SELECT m.*, (SELECT COUNT(*) FROM replies r WHERE r.message_id = m.id) AS reply_count
     FROM messages m`
 
@@ -95,56 +95,56 @@ const SELECT_MENSAJE = `
  * involucran a esa persona como emisor, asignada o autora de una respuesta). Devuelve { items, total }.
  */
 export function listMessages (db, { viewerId, forMember = null, area = null, status = null, q = null, replies = false, limit, offset = 0 }) {
-  const donde = []
+  const scope = []
   const params = []
-  const miembro = forMember === 'me' ? viewerId : forMember
-  if (miembro !== null && miembro !== undefined) {
+  const memberRow = forMember === 'me' ? viewerId : forMember
+  if (memberRow !== null && memberRow !== undefined) {
     if (replies) {
-      donde.push(`(m.author_id = ? OR EXISTS (SELECT 1 FROM message_assignees x WHERE x.message_id = m.id AND x.member_id = ?)
+      scope.push(`(m.author_id = ? OR EXISTS (SELECT 1 FROM message_assignees x WHERE x.message_id = m.id AND x.member_id = ?)
                    OR EXISTS (SELECT 1 FROM replies r WHERE r.message_id = m.id AND r.author_id = ?))`)
-      params.push(miembro, miembro, miembro)
+      params.push(memberRow, memberRow, memberRow)
     } else {
-      donde.push('EXISTS (SELECT 1 FROM message_assignees x WHERE x.message_id = m.id AND x.member_id = ?)')
-      params.push(miembro)
+      scope.push('EXISTS (SELECT 1 FROM message_assignees x WHERE x.message_id = m.id AND x.member_id = ?)')
+      params.push(memberRow)
     }
   }
-  if (area !== null) { donde.push('m.area_id = ?'); params.push(area) }
-  if (status !== null) { donde.push('m.status = ?'); params.push(status) }
+  if (area !== null) { scope.push('m.area_id = ?'); params.push(area) }
+  if (status !== null) { scope.push('m.status = ?'); params.push(status) }
   if (q) {
-    donde.push("(m.title LIKE ? ESCAPE '\\' OR m.body LIKE ? ESCAPE '\\')")
-    params.push(`%${escaparLike(q)}%`, `%${escaparLike(q)}%`)
+    scope.push("(m.title LIKE ? ESCAPE '\\' OR m.body LIKE ? ESCAPE '\\')")
+    params.push(`%${escapeLike(q)}%`, `%${escapeLike(q)}%`)
   }
-  if (replies) donde.push('EXISTS (SELECT 1 FROM replies r WHERE r.message_id = m.id)')
-  const cond = donde.length ? `WHERE ${donde.join(' AND ')}` : ''
+  if (replies) scope.push('EXISTS (SELECT 1 FROM replies r WHERE r.message_id = m.id)')
+  const cond = scope.length ? `WHERE ${scope.join(' AND ')}` : ''
 
-  const orden = replies
+  const orderBy = replies
     ? '(SELECT MAX(r.created_at) FROM replies r WHERE r.message_id = m.id) DESC, m.id DESC'
     : 'm.created_at DESC, m.id DESC'
   const total = get(db, `SELECT COUNT(*) AS n FROM messages m ${cond}`, ...params).n
-  const filas = all(db, `${SELECT_MENSAJE} ${cond} ORDER BY ${orden} LIMIT ? OFFSET ?`, ...params, limit, offset)
-  return { items: hidratar(db, filas), total }
+  const rows = all(db, `${SELECT_MESSAGE} ${cond} ORDER BY ${orderBy} LIMIT ? OFFSET ?`, ...params, limit, offset)
+  return { items: hydrate(db, rows), total }
 }
 
 export function getMessage (db, id) {
-  const fila = get(db, `${SELECT_MENSAJE} WHERE m.id = ?`, id)
-  if (!fila) throw notFound('El mensaje no existe.')
-  const [mensaje] = hidratar(db, [fila])
-  const respuestas = all(db, 'SELECT * FROM replies WHERE message_id = ? ORDER BY id', id)
-  return { ...mensaje, replies: respuestas.map(toReply) }
+  const dbRow = get(db, `${SELECT_MESSAGE} WHERE m.id = ?`, id)
+  if (!dbRow) throw notFound('El mensaje no existe.')
+  const [msgRow] = hydrate(db, [dbRow])
+  const replyRows = all(db, 'SELECT * FROM replies WHERE message_id = ? ORDER BY id', id)
+  return { ...msgRow, replies: replyRows.map(toReply) }
 }
 
 export function addReply ({ db, events, now = Date.now }, { messageId, authorId, body, kind = 'answer' }) {
   if (typeof body !== 'string' || body.trim() === '') throw badRequest('La respuesta no puede estar vacía.', 'reply_empty')
   if (!REPLY_KINDS.includes(kind)) throw badRequest('Tipo de respuesta desconocido.', 'reply_kind_invalid')
   const replyId = events.transaction(() => {
-    const mensaje = get(db, 'SELECT id, author_id, status FROM messages WHERE id = ?', messageId)
-    if (!mensaje) throw notFound('El mensaje no existe.')
+    const msgRow = get(db, 'SELECT id, author_id, status FROM messages WHERE id = ?', messageId)
+    if (!msgRow) throw notFound('El mensaje no existe.')
     // §4.8: sólo un miembro distinto del emisor responde.
-    if (mensaje.author_id === authorId) throw forbidden('El emisor de un mensaje no puede responderlo.', 'author_cannot_reply')
-    const destino = TRANSICIONES.reply[mensaje.status]
-    if (!destino) throw conflict('El mensaje está cerrado. Hay que reabrirlo para responder.', 'message_closed')
+    if (msgRow.author_id === authorId) throw forbidden('El emisor de un mensaje no puede responderlo.', 'author_cannot_reply')
+    const target = TRANSITIONS.reply[msgRow.status]
+    if (!target) throw conflict('El mensaje está cerrado. Hay que reabrirlo para responder.', 'message_closed')
     const r = run(db, 'INSERT INTO replies (message_id, author_id, body, kind, created_at) VALUES (?, ?, ?, ?, ?)', messageId, authorId, body, kind, now())
-    run(db, 'UPDATE messages SET status = ? WHERE id = ?', destino, messageId)
+    run(db, 'UPDATE messages SET status = ? WHERE id = ?', target, messageId)
     audit(db, { memberId: authorId, action: 'message.reply', entity: 'message', entityId: messageId, detail: { kind }, now })
     return Number(r.lastInsertRowid)
   })
@@ -153,11 +153,11 @@ export function addReply ({ db, events, now = Date.now }, { messageId, authorId,
 
 export function closeMessage ({ db, events, now = Date.now }, messageId, actorId = null) {
   events.transaction(() => {
-    const mensaje = get(db, 'SELECT status FROM messages WHERE id = ?', messageId)
-    if (!mensaje) throw notFound('El mensaje no existe.')
-    const destino = TRANSICIONES.close[mensaje.status]
-    if (!destino) throw conflict('El mensaje ya está cerrado.', 'already_closed')
-    run(db, 'UPDATE messages SET status = ?, closed_at = ? WHERE id = ?', destino, now(), messageId)
+    const msgRow = get(db, 'SELECT status FROM messages WHERE id = ?', messageId)
+    if (!msgRow) throw notFound('El mensaje no existe.')
+    const target = TRANSITIONS.close[msgRow.status]
+    if (!target) throw conflict('El mensaje ya está cerrado.', 'already_closed')
+    run(db, 'UPDATE messages SET status = ?, closed_at = ? WHERE id = ?', target, now(), messageId)
     audit(db, { memberId: actorId, action: 'message.close', entity: 'message', entityId: messageId, now })
   })
   return getMessage(db, messageId)
@@ -165,9 +165,9 @@ export function closeMessage ({ db, events, now = Date.now }, messageId, actorId
 
 export function reopenMessage ({ db, events, now = Date.now }, messageId, actorId = null) {
   events.transaction(() => {
-    const mensaje = get(db, 'SELECT status FROM messages WHERE id = ?', messageId)
-    if (!mensaje) throw notFound('El mensaje no existe.')
-    if (!(mensaje.status in TRANSICIONES.reopen)) throw conflict('El mensaje no está cerrado.', 'not_closed')
+    const msgRow = get(db, 'SELECT status FROM messages WHERE id = ?', messageId)
+    if (!msgRow) throw notFound('El mensaje no existe.')
+    if (!(msgRow.status in TRANSITIONS.reopen)) throw conflict('El mensaje no está cerrado.', 'not_closed')
     const { n } = get(db, 'SELECT COUNT(*) AS n FROM replies WHERE message_id = ?', messageId)
     run(db, 'UPDATE messages SET status = ?, closed_at = NULL WHERE id = ?', n > 0 ? 'answered' : 'open', messageId)
     audit(db, { memberId: actorId, action: 'message.reopen', entity: 'message', entityId: messageId, now })
@@ -180,9 +180,9 @@ export function reopenMessage ({ db, events, now = Date.now }, messageId, actorI
  * vez publicado en algún mensaje, todo el equipo (los mensajes son visibles para todos, §6).
  */
 export function canReadAttachment (db, memberId, attachmentId) {
-  const fila = get(db, `
+  const dbRow = get(db, `
     SELECT 1 AS ok FROM attachments a JOIN inputs i ON i.id = a.input_id
      WHERE a.id = ? AND (i.author_id = ? OR EXISTS (SELECT 1 FROM message_attachments ma WHERE ma.attachment_id = a.id))`, attachmentId, memberId)
-  return Boolean(fila)
+  return Boolean(dbRow)
 }
 

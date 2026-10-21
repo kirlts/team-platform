@@ -11,41 +11,41 @@
 import { forbidden } from '../domain/errors.js'
 import { cookieSpec } from './cookies.js'
 
-const SEGUROS = new Set(['GET', 'HEAD', 'OPTIONS'])
-const RECHAZO = 'Petición de otro sitio rechazada.'
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
+const REJECTION = 'Petición de otro sitio rechazada.'
 
 export function csrfGuard (config) {
-  const permitidos = new Set(config.corsOrigins)
-  const cruzado = config.identity.cookieMode === 'cross-origin'
-  const nombreCookie = cookieSpec(config).name
+  const allowedSet = new Set(config.corsOrigins)
+  const crossOrigin = config.identity.cookieMode === 'cross-origin'
+  const cookieName = cookieSpec(config).name
   return async function csrf (request) {
-    if (SEGUROS.has(request.method)) return
-    if (request.cookies?.[nombreCookie] && !request.headers['x-team-request']) {
+    if (SAFE_METHODS.has(request.method)) return
+    if (request.cookies?.[cookieName] && !request.headers['x-team-request']) {
       throw forbidden('Falta la cabecera X-Team-Request en una petición con sesión.', 'csrf')
     }
-    const sitio = request.headers['sec-fetch-site']
-    const origen = request.headers.origin
+    const site = request.headers['sec-fetch-site']
+    const originValue = request.headers.origin
 
-    if (cruzado) {
+    if (crossOrigin) {
       // El navegador siempre manda Origin en una petición no segura entre orígenes.
-      if (origen) {
-        if (permitidos.has(origen)) return
-        throw forbidden(RECHAZO, 'csrf')
+      if (originValue) {
+        if (allowedSet.has(originValue)) return
+        throw forbidden(REJECTION, 'csrf')
       }
-      if (sitio === undefined || sitio === 'none') return // cliente que no es un navegador
-      throw forbidden(RECHAZO, 'csrf')
+      if (site === undefined || site === 'none') return // cliente que no es un navegador
+      throw forbidden(REJECTION, 'csrf')
     }
 
-    if (sitio === 'same-origin' || sitio === 'none') return
-    if (origen && permitidos.has(origen)) return
-    if (sitio) throw forbidden(RECHAZO, 'csrf')
+    if (site === 'same-origin' || site === 'none') return
+    if (originValue && allowedSet.has(originValue)) return
+    if (site) throw forbidden(REJECTION, 'csrf')
 
     // Navegadores sin Sec-Fetch-Site: se compara el origen con el anfitrión.
-    if (origen) {
-      let anfitrion = null
-      try { anfitrion = new URL(origen).host } catch { /* origen «null» u opaco */ }
-      if (anfitrion && anfitrion === request.headers.host) return
-      throw forbidden(RECHAZO, 'csrf')
+    if (originValue) {
+      let hostName = null
+      try { hostName = new URL(originValue).host } catch { /* origen «null» u opaco */ }
+      if (hostName && hostName === request.headers.host) return
+      throw forbidden(REJECTION, 'csrf')
     }
     // Sin ninguno de los dos encabezados no hay navegador de por medio (curl, un sistema externo): no hay
     // credencial ambiente que un tercero pueda aprovechar.

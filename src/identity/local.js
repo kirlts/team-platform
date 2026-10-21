@@ -6,7 +6,7 @@ import { tooMany, unauthenticated } from '../domain/errors.js'
 import { dummyVerify, hashPassword, verifyPassword } from './password.js'
 import { clearSessionCookie, readSessionCookie, setSessionCookie } from './cookies.js'
 
-const MENSAJE_CREDENCIALES = 'Correo o contraseña incorrectos.' // idéntico para correo inexistente, clave errónea y cuenta bloqueada (OWASP)
+const BAD_CREDENTIALS_MESSAGE = 'Correo o contraseña incorrectos.' // idéntico para correo inexistente, clave errónea y cuenta bloqueada (OWASP)
 
 export const loginSchema = {
   body: {
@@ -21,77 +21,77 @@ export const loginSchema = {
 }
 
 export function createLocalProvider ({ db, config, sessions, now = Date.now }) {
-  const { login: limites, argon2: params } = config.identity
+  const { login: caps, argon2: params } = config.identity
   // Espera exponencial para correos sin cuenta: sin esto, el 429 delataría qué correos existen.
-  const desconocidos = new Map()
+  const unknownEmails = new Map()
 
-  function podarDesconocidos (t) {
-    for (const [clave, v] of desconocidos) if (v.hasta + limites.backoffMaxSeconds * 1000 <= t) desconocidos.delete(clave)
+  function pruneUnknown (t) {
+    for (const [lookupKey, v] of unknownEmails) if (v.toVersion + caps.backoffMaxSeconds * 1000 <= t) unknownEmails.delete(lookupKey)
   }
 
-  const esperaMs = (fallos) => Math.min(limites.backoffMaxSeconds, limites.backoffBaseSeconds * 2 ** (fallos - 1)) * 1000
+  const backoffWaitMs = (failures) => Math.min(caps.backoffMaxSeconds, caps.backoffBaseSeconds * 2 ** (failures - 1)) * 1000
 
   function identify (request) {
     const token = readSessionCookie(request, config)
-    const miembro = sessions.lookup(token)
-    return miembro ? { member_id: miembro.id, role: miembro.role, email: miembro.email, name: miembro.name, token } : null
+    const memberRow = sessions.lookup(token)
+    return memberRow ? { member_id: memberRow.id, role: memberRow.role, email: memberRow.email, name: memberRow.name, token } : null
   }
 
   async function login (email, password) {
     const t = now()
-    const miembro = get(db, `SELECT m.id, m.email, m.name, m.role, c.password_hash, c.failed_count, c.next_attempt_at
+    const memberRow = get(db, `SELECT m.id, m.email, m.name, m.role, c.password_hash, c.failed_count, c.next_attempt_at
                               FROM members m JOIN credentials c ON c.member_id = m.id WHERE m.email = ?`, email)
-    const clave = email.toLowerCase()
+    const lookupKey = email.toLowerCase()
 
     // 1. Espera vigente por cuenta (existente o no).
-    const espera = miembro ? miembro.next_attempt_at : (desconocidos.get(clave)?.hasta ?? 0)
-    if (espera > t) {
-      const segundos = Math.ceil((espera - t) / 1000)
-      throw tooMany(`Demasiados intentos. Se puede reintentar en ${segundos} s.`, segundos)
+    const waitUntil = memberRow ? memberRow.next_attempt_at : (unknownEmails.get(lookupKey)?.toVersion ?? 0)
+    if (waitUntil > t) {
+      const secondsCount = Math.ceil((waitUntil - t) / 1000)
+      throw tooMany(`Demasiados intentos. Se puede reintentar en ${secondsCount} s.`, secondsCount)
     }
 
     // 2. Verificación. Sin cuenta se calcula igual un hash de relleno para igualar el tiempo.
-    if (!miembro) {
+    if (!memberRow) {
       await dummyVerify(password, params)
-      podarDesconocidos(t)
-      const n = (desconocidos.get(clave)?.fallos ?? 0) + 1
-      desconocidos.set(clave, { fallos: n, hasta: t + esperaMs(n) })
-      throw unauthenticated(MENSAJE_CREDENCIALES)
+      pruneUnknown(t)
+      const n = (unknownEmails.get(lookupKey)?.failures ?? 0) + 1
+      unknownEmails.set(lookupKey, { failures: n, toVersion: t + backoffWaitMs(n) })
+      throw unauthenticated(BAD_CREDENTIALS_MESSAGE)
     }
-    if (miembro.failed_count >= limites.hardCap) {
+    if (memberRow.failed_count >= caps.hardCap) {
       // NIST SP 800-63B-4 3.2.2: tope duro; sigue pidiendo el hash para no distinguirse por tiempo.
       await dummyVerify(password, params)
-      throw unauthenticated(MENSAJE_CREDENCIALES)
+      throw unauthenticated(BAD_CREDENTIALS_MESSAGE)
     }
-    const { ok, rehash } = await verifyPassword(password, miembro.password_hash, params)
+    const { ok, rehash } = await verifyPassword(password, memberRow.password_hash, params)
     if (!ok) {
-      const fallos = miembro.failed_count + 1
-      run(db, 'UPDATE credentials SET failed_count = ?, next_attempt_at = ? WHERE member_id = ?', fallos, t + esperaMs(fallos), miembro.id)
-      throw unauthenticated(MENSAJE_CREDENCIALES)
+      const failures = memberRow.failed_count + 1
+      run(db, 'UPDATE credentials SET failed_count = ?, next_attempt_at = ? WHERE member_id = ?', failures, t + backoffWaitMs(failures), memberRow.id)
+      throw unauthenticated(BAD_CREDENTIALS_MESSAGE)
     }
-    desconocidos.delete(clave)
+    unknownEmails.delete(lookupKey)
     if (rehash) {
       // Los parámetros cambiaron desde que se guardó el hash (informe 04 §10): se vuelve a hashear al entrar.
-      run(db, 'UPDATE credentials SET password_hash = ?, updated_at = ? WHERE member_id = ?', await hashPassword(password, params), now(), miembro.id)
+      run(db, 'UPDATE credentials SET password_hash = ?, updated_at = ? WHERE member_id = ?', await hashPassword(password, params), now(), memberRow.id)
     }
-    run(db, 'UPDATE credentials SET failed_count = 0, next_attempt_at = 0 WHERE member_id = ?', miembro.id)
-    return miembro
+    run(db, 'UPDATE credentials SET failed_count = 0, next_attempt_at = 0 WHERE member_id = ?', memberRow.id)
+    return memberRow
   }
 
   function routes (app) {
     app.post('/auth/login', {
-      config: { public: true, rateLimit: { max: limites.ipMax, timeWindow: limites.ipWindowMs } },
+      config: { public: true, rateLimit: { max: caps.ipMax, timeWindow: caps.ipWindowMs } },
       schema: {
         ...loginSchema,
         response: { 200: { type: 'object', properties: { member: { type: 'object', properties: { id: { type: 'string' }, email: { type: 'string' }, name: { type: 'string' }, role: { type: 'string' } } } } } }
       }
     }, async (request, reply) => {
-      const previo = readSessionCookie(request, config)
-      const miembro = await login(request.body.email.trim(), request.body.password)
-      if (previo) sessions.destroy(previo)
-      const { token } = sessions.create(miembro.id) // regenerada en cada inicio de sesión
+      const previous = readSessionCookie(request, config)
+      const memberRow = await login(request.body.email.trim(), request.body.password)
+      if (previous) sessions.destroy(previous)
+      const { token } = sessions.create(memberRow.id) // regenerada en cada inicio de sesión
       setSessionCookie(reply, config, token)
-      return { member: { id: miembro.id, email: miembro.email, name: miembro.name, role: miembro.role } }
+      return { member: { id: memberRow.id, email: memberRow.email, name: memberRow.name, role: memberRow.role } }
     })
 
     // Sólo desarrollo (NODE_ENV=development): entra como cualquier correo sin contraseña, creando el miembro si
@@ -109,15 +109,15 @@ export function createLocalProvider ({ db, config, sessions, now = Date.now }) {
         }
       }, async (request, reply) => {
         const { email, name, role } = request.body
-        let miembro = get(db, 'SELECT id, email, name, role FROM members WHERE email = ?', email)
-        if (!miembro) {
+        let memberRow = get(db, 'SELECT id, email, name, role FROM members WHERE email = ?', email)
+        if (!memberRow) {
           const id = createMember(db, { email, name: name ?? email.split('@')[0], role: role ?? 'editor' })
-          miembro = get(db, 'SELECT id, email, name, role FROM members WHERE id = ?', id)
+          memberRow = get(db, 'SELECT id, email, name, role FROM members WHERE id = ?', id)
         }
-        const previo = readSessionCookie(request, config)
-        if (previo) sessions.destroy(previo)
-        setSessionCookie(reply, config, sessions.create(miembro.id).token)
-        return { member: miembro }
+        const previous = readSessionCookie(request, config)
+        if (previous) sessions.destroy(previous)
+        setSessionCookie(reply, config, sessions.create(memberRow.id).token)
+        return { member: memberRow }
       })
     }
 

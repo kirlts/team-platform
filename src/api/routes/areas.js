@@ -10,7 +10,7 @@ import { mirrorTemplate, removeTemplateMirror } from '../../domain/template-file
 import { requireConfirm } from '../confirm.js'
 import { area, confirmQuery, idParams, template } from '../schemas.js'
 
-const plantillaCuerpo = {
+const templateBody = {
   type: 'object',
   additionalProperties: false,
   properties: { body_markdown: { type: 'string', minLength: 1 }, name: { type: 'string', minLength: 1 }, description: { type: 'string', minLength: 1 } }
@@ -18,11 +18,11 @@ const plantillaCuerpo = {
 
 export function registerAreaRoutes (app, ctx) {
   const { db, config, requireRole, domainEvents } = ctx
-  const plantillaParams = { type: 'object', required: ['id', 'templateId'], properties: { id: { type: 'integer', minimum: 1 }, templateId: { type: 'integer', minimum: 1 } } }
+  const templateParams = { type: 'object', required: ['id', 'templateId'], properties: { id: { type: 'integer', minimum: 1 }, templateId: { type: 'integer', minimum: 1 } } }
   const actor = (request) => ({ actorId: request.member.id })
 
   // Copia en archivos en el volumen (DATA_DIR/templates): la base manda, el archivo sirve a los respaldos.
-  const copiar = (t) => { try { mirrorTemplate(config, t) } catch (e) { app.log.warn({ err: e }, 'no se pudo copiar la plantilla al volumen') } }
+  const mirror = (t) => { try { mirrorTemplate(config, t) } catch (e) { app.log.warn({ err: e }, 'no se pudo copiar la plantilla al volumen') } }
 
   app.get('/areas', {
     onRequest: [requireRole('member')],
@@ -84,28 +84,28 @@ export function registerAreaRoutes (app, ctx) {
 
   app.post('/areas/:id/templates', {
     onRequest: [requireRole('editor')],
-    schema: { summary: 'Crear una plantilla (body_markdown es el archivo completo con su encabezado)', params: idParams(), body: { ...plantillaCuerpo, required: ['body_markdown'] }, response: { 201: template } }
+    schema: { summary: 'Crear una plantilla (body_markdown es el archivo completo con su encabezado)', params: idParams(), body: { ...templateBody, required: ['body_markdown'] }, response: { 201: template } }
   }, async (request, reply) => {
-    const creada = createTemplate(db, request.params.id, request.body, actor(request))
-    copiar(creada)
-    domainEvents.emit('template.saved', creada) // el analizador calienta el esquema de salida por evento (MS §7.5)
+    const createdTemplate = createTemplate(db, request.params.id, request.body, actor(request))
+    mirror(createdTemplate)
+    domainEvents.emit('template.saved', createdTemplate) // el analizador calienta el esquema de salida por evento (MS §7.5)
     reply.code(201)
-    return creada
+    return createdTemplate
   })
 
   app.patch('/areas/:id/templates/:templateId', {
     onRequest: [requireRole('editor')],
-    schema: { summary: 'Editar una plantilla', params: plantillaParams, body: { ...plantillaCuerpo, minProperties: 1 }, response: { 200: template } }
+    schema: { summary: 'Editar una plantilla', params: templateParams, body: { ...templateBody, minProperties: 1 }, response: { 200: template } }
   }, async (request) => {
-    const actualizada = updateTemplate(db, request.params.id, request.params.templateId, request.body, actor(request))
-    copiar(actualizada)
-    domainEvents.emit('template.saved', actualizada)
-    return actualizada
+    const updatedTemplate = updateTemplate(db, request.params.id, request.params.templateId, request.body, actor(request))
+    mirror(updatedTemplate)
+    domainEvents.emit('template.saved', updatedTemplate)
+    return updatedTemplate
   })
 
   app.delete('/areas/:id/templates/:templateId', {
     onRequest: [requireRole('editor')],
-    schema: { summary: 'Borrar una plantilla en blando (exige ?confirm=true)', params: plantillaParams, querystring: confirmQuery, response: { 204: { type: 'null', description: 'Plantilla borrada; se restaura con POST /templates/:id/restore.' } } }
+    schema: { summary: 'Borrar una plantilla en blando (exige ?confirm=true)', params: templateParams, querystring: confirmQuery, response: { 204: { type: 'null', description: 'Plantilla borrada; se restaura con POST /templates/:id/restore.' } } }
   }, async (request, reply) => {
     requireConfirm(request)
     deleteTemplate(db, request.params.id, request.params.templateId, actor(request))
@@ -117,8 +117,8 @@ export function registerAreaRoutes (app, ctx) {
     onRequest: [requireRole('editor')],
     schema: { summary: 'Restaurar una plantilla borrada', params: idParams(), response: { 200: template } }
   }, async (request) => {
-    const restaurada = restoreTemplate(db, request.params.id, actor(request))
-    copiar(restaurada)
-    return restaurada
+    const restored = restoreTemplate(db, request.params.id, actor(request))
+    mirror(restored)
+    return restored
   })
 }

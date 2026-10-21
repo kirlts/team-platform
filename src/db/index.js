@@ -9,10 +9,10 @@ import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync } from 'node:f
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const directorioMigraciones = path.join(path.dirname(fileURLToPath(import.meta.url)), 'migrations')
+const migrationsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'migrations')
 
 /** Compara versiones «a.b.c». Devuelve negativo, cero o positivo. */
-function compararVersiones (a, b) {
+function compareVersions (a, b) {
   const pa = a.split('.').map(Number)
   const pb = b.split('.').map(Number)
   for (let i = 0; i < 3; i++) {
@@ -29,13 +29,13 @@ function compararVersiones (a, b) {
 export function assertRuntime () {
   const minNode = '24.15.0'
   const minSqlite = '3.51.3'
-  if (compararVersiones(process.versions.node, minNode) < 0) {
+  if (compareVersions(process.versions.node, minNode) < 0) {
     throw new Error(`Se requiere Node ${minNode} o posterior; esta es la ${process.versions.node}.`)
   }
   const probe = new DatabaseSync(':memory:')
   const { v } = probe.prepare('SELECT sqlite_version() AS v').get()
   probe.close()
-  if (compararVersiones(v, minSqlite) < 0) {
+  if (compareVersions(v, minSqlite) < 0) {
     throw new Error(`Se requiere SQLite ${minSqlite} o posterior (error de WAL corregido); esta es la ${v}.`)
   }
   return { node: process.versions.node, sqlite: v }
@@ -61,9 +61,9 @@ export function tx (db, fn) {
   if (db.isTransaction) return fn()
   db.exec('BEGIN IMMEDIATE')
   try {
-    const resultado = fn()
+    const result = fn()
     db.exec('COMMIT')
-    return resultado
+    return result
   } catch (error) {
     try { db.exec('ROLLBACK') } catch { /* la transacción ya terminó */ }
     throw error
@@ -74,15 +74,15 @@ const cacheSentencias = new WeakMap()
 
 /** Sentencia preparada con caché por conexión. */
 export function stmt (db, sql) {
-  let porSql = cacheSentencias.get(db)
-  if (!porSql) {
-    porSql = new Map()
-    cacheSentencias.set(db, porSql)
+  let bySql = cacheSentencias.get(db)
+  if (!bySql) {
+    bySql = new Map()
+    cacheSentencias.set(db, bySql)
   }
-  let s = porSql.get(sql)
+  let s = bySql.get(sql)
   if (!s) {
     s = db.prepare(sql)
-    porSql.set(sql, s)
+    bySql.set(sql, s)
   }
   return s
 }
@@ -92,14 +92,14 @@ export const all = (db, sql, ...params) => stmt(db, sql).all(...params)
 export const run = (db, sql, ...params) => stmt(db, sql).run(...params)
 
 /** Lista las migraciones: archivos `NNNN_nombre.sql` ordenados, con numeración contigua desde 1. */
-export function listMigrations (dir = directorioMigraciones) {
-  const archivos = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort()
-  return archivos.map((archivo, i) => {
-    const m = /^(\d+)_.+\.sql$/.exec(archivo)
-    if (!m) throw new Error(`Nombre de migración inválido: ${archivo}`)
+export function listMigrations (dir = migrationsDir) {
+  const filePaths = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort()
+  return filePaths.map((filePath, i) => {
+    const m = /^(\d+)_.+\.sql$/.exec(filePath)
+    if (!m) throw new Error(`Nombre de migración inválido: ${filePath}`)
     const version = Number(m[1])
-    if (version !== i + 1) throw new Error(`La numeración de migraciones debe ser contigua; ${archivo} ocupa el lugar ${i + 1}.`)
-    return { version, archivo, sql: readFileSync(path.join(dir, archivo), 'utf8') }
+    if (version !== i + 1) throw new Error(`La numeración de migraciones debe ser contigua; ${filePath} ocupa el lugar ${i + 1}.`)
+    return { version, filePath, sql: readFileSync(path.join(dir, filePath), 'utf8') }
   })
 }
 
@@ -107,9 +107,9 @@ export function userVersion (db) {
   return db.prepare('PRAGMA user_version').get().user_version
 }
 
-function fijarWal (db) {
-  const actual = db.prepare('PRAGMA journal_mode').get().journal_mode
-  if (actual === 'wal') return
+function enableWal (db) {
+  const current = db.prepare('PRAGMA journal_mode').get().journal_mode
+  if (current === 'wal') return
   try {
     db.exec('PRAGMA journal_mode = WAL')
   } catch (error) {
@@ -120,13 +120,13 @@ function fijarWal (db) {
 }
 
 /** Copia consistente con `VACUUM INTO` a un temporal y `rename` (I03 §2.4: 123 ms con escritor activo). */
-export function backupDatabase (db, destino) {
-  mkdirSync(path.dirname(destino), { recursive: true })
-  const temporal = `${destino}.parcial`
-  rmSync(temporal, { force: true })
-  db.prepare('VACUUM INTO ?').run(temporal)
-  renameSync(temporal, destino)
-  return destino
+export function backupDatabase (db, target) {
+  mkdirSync(path.dirname(target), { recursive: true })
+  const tmpFile = `${target}.parcial`
+  rmSync(tmpFile, { force: true })
+  db.prepare('VACUUM INTO ?').run(tmpFile)
+  renameSync(tmpFile, target)
+  return target
 }
 
 /**
@@ -135,30 +135,30 @@ export function backupDatabase (db, destino) {
  * Se niega a arrancar si la base es más nueva que el último archivo. Antes de migrar una base existente
  * deja un respaldo (la vía de vuelta de un ejecutor que sólo avanza).
  */
-export function migrate (db, { dir = directorioMigraciones, backupsDir = null, log = () => {} } = {}) {
-  const migraciones = listMigrations(dir)
-  const ultima = migraciones.length
-  const inicial = userVersion(db)
-  if (inicial > ultima) {
-    throw new Error(`La base está en la versión ${inicial} y esta compilación sólo conoce hasta la ${ultima}. Actualiza el programa.`)
+export function migrate (db, { dir = migrationsDir, backupsDir = null, log = () => {} } = {}) {
+  const migrations = listMigrations(dir)
+  const lastVersion = migrations.length
+  const initialVersion = userVersion(db)
+  if (initialVersion > lastVersion) {
+    throw new Error(`La base está en la versión ${initialVersion} y esta compilación sólo conoce hasta la ${lastVersion}. Actualiza el programa.`)
   }
-  if (inicial > 0 && inicial < ultima && backupsDir) {
-    const destino = path.join(backupsDir, `antes-de-migrar-v${inicial}-${Date.now()}.db`)
-    backupDatabase(db, destino)
-    log(`Respaldo previo a la migración: ${destino}`)
+  if (initialVersion > 0 && initialVersion < lastVersion && backupsDir) {
+    const target = path.join(backupsDir, `antes-de-migrar-v${initialVersion}-${Date.now()}.db`)
+    backupDatabase(db, target)
+    log(`Respaldo previo a la migración: ${target}`)
   }
-  let aplicadas = 0
-  for (const m of migraciones) {
+  let applied = 0
+  for (const m of migrations) {
     tx(db, () => {
       if (userVersion(db) >= m.version) return
       db.exec(m.sql)
       // PRAGMA no admite parámetros; `version` es un entero validado arriba.
       db.exec(`PRAGMA user_version = ${m.version}`)
-      aplicadas++
-      log(`Migración aplicada: ${m.archivo}`)
+      applied++
+      log(`Migración aplicada: ${m.filePath}`)
     })
   }
-  return { desde: inicial, hasta: ultima, aplicadas }
+  return { fromVersion: initialVersion, toVersion: lastVersion, applied }
 }
 
 export const latestVersion = () => listMigrations().length
@@ -174,10 +174,10 @@ export async function initializeDatabase (config, { seed = null, log = () => {} 
   mkdirSync(config.tmpDir, { recursive: true })
   const db = openDatabase(config.dbFile, config.sqlite)
   try {
-    fijarWal(db)
-    const resultado = migrate(db, { backupsDir: config.backupsDir, log })
+    enableWal(db)
+    const result = migrate(db, { backupsDir: config.backupsDir, log })
     if (seed) await seed(db, config, log)
-    return resultado
+    return result
   } finally {
     db.close()
   }
@@ -191,10 +191,10 @@ export function openInitialized (config) {
   assertRuntime()
   const db = openDatabase(config.dbFile, config.sqlite)
   const version = userVersion(db)
-  const esperada = latestVersion()
-  if (version !== esperada) {
+  const expectedRoute = latestVersion()
+  if (version !== expectedRoute) {
     db.close()
-    throw new Error(`La base está en la versión ${version} y se esperaba la ${esperada}. Ejecuta primero «npm run db:init».`)
+    throw new Error(`La base está en la versión ${version} y se esperaba la ${expectedRoute}. Ejecuta primero «npm run db:init».`)
   }
   return db
 }

@@ -6,7 +6,7 @@ import { idParams } from '../schemas.js'
 import { requireConfirm } from '../confirm.js'
 import { pageEnvelope, pageParams, pageQuerySchema, pageResult } from '../pagination.js'
 
-const trabajo = {
+const jobRow = {
   type: 'object',
   properties: {
     id: { type: 'string' }, kind: { type: 'string' }, input_id: { type: 'string', nullable: true }, status: { type: 'string' },
@@ -16,7 +16,7 @@ const trabajo = {
   }
 }
 
-const registro = {
+const registryList = {
   type: 'object',
   properties: {
     id: { type: 'string' }, at: { type: 'string' }, member_id: { type: 'string', nullable: true }, member_name: { type: 'string', nullable: true },
@@ -35,7 +35,7 @@ export function registerOpsRoutes (app, ctx) {
         type: 'object', additionalProperties: false,
         properties: { ...pageQuerySchema(config), state: { type: 'string', enum: ['queued', 'running', 'done', 'failed', 'cancelled'] } }
       },
-      response: { 200: pageEnvelope(trabajo) }
+      response: { 200: pageEnvelope(jobRow) }
     }
   }, async (request) => {
     const p = pageParams(request.query, config)
@@ -78,7 +78,7 @@ export function registerOpsRoutes (app, ctx) {
         type: 'object', additionalProperties: false,
         properties: { ...pageQuerySchema(config), entity: { type: 'string' }, action: { type: 'string' } }
       },
-      response: { 200: pageEnvelope(registro) }
+      response: { 200: pageEnvelope(registryList) }
     }
   }, async (request) => {
     const p = pageParams(request.query, config)

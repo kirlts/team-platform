@@ -14,25 +14,25 @@ const MULTIPART = {
   FST_ERR_CTP_INVALID_JSON_BODY: [400, 'bad_request', 'El cuerpo no es JSON válido.']
 }
 
-const ETIQUETAS = {
+const LABELS = {
   required: (e) => `Falta el campo «${e.params.missingProperty}».`,
-  type: (e, campo) => `El campo «${campo}» tiene un tipo inválido (se esperaba ${e.params.type}).`,
-  enum: (e, campo) => `El campo «${campo}» debe ser uno de: ${e.params.allowedValues.join(', ')}.`,
-  minLength: (e, campo) => `El campo «${campo}» no puede estar vacío.`,
-  maxLength: (e, campo) => `El campo «${campo}» supera el largo máximo (${e.params.limit}).`,
-  minimum: (e, campo) => `El campo «${campo}» debe ser mayor o igual a ${e.params.limit}.`,
-  maximum: (e, campo) => `El campo «${campo}» debe ser menor o igual a ${e.params.limit}.`,
+  type: (e, fieldName) => `El campo «${fieldName}» tiene un tipo inválido (se esperaba ${e.params.type}).`,
+  enum: (e, fieldName) => `El campo «${fieldName}» debe ser uno de: ${e.params.allowedValues.join(', ')}.`,
+  minLength: (e, fieldName) => `El campo «${fieldName}» no puede estar vacío.`,
+  maxLength: (e, fieldName) => `El campo «${fieldName}» supera el largo máximo (${e.params.limit}).`,
+  minimum: (e, fieldName) => `El campo «${fieldName}» debe ser mayor o igual a ${e.params.limit}.`,
+  maximum: (e, fieldName) => `El campo «${fieldName}» debe ser menor o igual a ${e.params.limit}.`,
   additionalProperties: (e) => `El campo «${e.params.additionalProperty}» no existe.`,
-  pattern: (e, campo) => `El campo «${campo}» no tiene el formato esperado.`,
-  minItems: (e, campo) => `El campo «${campo}» necesita al menos ${e.params.limit} elemento(s).`
+  pattern: (e, fieldName) => `El campo «${fieldName}» no tiene el formato esperado.`,
+  minItems: (e, fieldName) => `El campo «${fieldName}» necesita al menos ${e.params.limit} elemento(s).`
 }
 
 /** `schemaErrorFormatter` de Fastify: de los errores de Ajv a un 400 con mensaje en español. */
 export function schemaErrorFormatter (errors, dataVar) {
-  const primero = errors[0]
-  const campo = (primero.instancePath || '').replace(/^\//, '').replaceAll('/', '.') || dataVar
-  const mensaje = (ETIQUETAS[primero.keyword] ?? (() => `El campo «${campo}» no es válido.`))(primero, campo)
-  return new AppError(400, 'validation', mensaje)
+  const firstEditor = errors[0]
+  const fieldName = (firstEditor.instancePath || '').replace(/^\//, '').replaceAll('/', '.') || dataVar
+  const msgRow = (LABELS[firstEditor.keyword] ?? (() => `El campo «${fieldName}» no es válido.`))(firstEditor, fieldName)
+  return new AppError(400, 'validation', msgRow)
 }
 
 export function installErrorHandler (app) {
@@ -41,10 +41,10 @@ export function installErrorHandler (app) {
       if (error.extra?.retryAfterSeconds) reply.header('retry-after', String(error.extra.retryAfterSeconds))
       return reply.code(error.status).send({ code: error.code, message: error.message, ...error.extra })
     }
-    const conocido = MULTIPART[error.code]
-    if (conocido) {
+    const knownCode = MULTIPART[error.code]
+    if (knownCode) {
       reply.header('connection', 'close') // el cuerpo restante no se va a leer
-      return reply.code(conocido[0]).send({ code: conocido[1], message: conocido[2] })
+      return reply.code(knownCode[0]).send({ code: knownCode[1], message: knownCode[2] })
     }
     if (error.validation) {
       return reply.code(400).send({ code: 'validation', message: 'Datos inválidos.' })

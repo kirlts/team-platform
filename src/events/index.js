@@ -30,54 +30,54 @@ export function toWire (row) {
 }
 
 export function createEvents ({ db, now = Date.now }) {
-  const suscriptores = new Set()
-  let ultimoDespachado = get(db, 'SELECT COALESCE(MAX(seq), 0) AS m FROM job_events').m
-  let versionDatos = null
-  let temporizador = null
+  const subscribers = new Set()
+  let lastDispatched = get(db, 'SELECT COALESCE(MAX(seq), 0) AS m FROM job_events').m
+  let dataVersion = null
+  let timerHandle = null
 
   /** Despacha a los suscriptores todo lo que la base tenga después de lo ya despachado. */
   function drain () {
-    const filas = all(db, 'SELECT * FROM job_events WHERE seq > ? ORDER BY seq', ultimoDespachado)
-    for (const fila of filas) {
-      ultimoDespachado = fila.seq
-      for (const s of [...suscriptores]) {
-        if (fila.member_id === null || fila.member_id === s.memberId) {
-          try { s.callback(fila) } catch { /* un suscriptor roto no frena a los demás */ }
+    const rows = all(db, 'SELECT * FROM job_events WHERE seq > ? ORDER BY seq', lastDispatched)
+    for (const dbRow of rows) {
+      lastDispatched = dbRow.seq
+      for (const s of [...subscribers]) {
+        if (dbRow.member_id === null || dbRow.member_id === s.memberId) {
+          try { s.callback(dbRow) } catch { /* un suscriptor roto no frena a los demás */ }
         }
       }
     }
-    return filas.length
+    return rows.length
   }
 
   /** Escribe un evento. `memberId` null lo dirige a todo el equipo. Devuelve el `seq`. */
   function publish ({ kind, jobId = null, memberId = null, percent = null, phrase = null, data = null }) {
     if (!EVENT_KINDS.includes(kind)) throw new Error(`Tipo de evento desconocido: ${kind}`)
-    const resultado = run(db,
+    const result = run(db,
       'INSERT INTO job_events (job_id, kind, member_id, percent, phrase, data_json, at) VALUES (?, ?, ?, ?, ?, ?, ?)',
       jobId, kind, memberId, percent, phrase, data === null ? null : JSON.stringify(data), now())
     if (!db.isTransaction) drain()
-    return Number(resultado.lastInsertRowid)
+    return Number(result.lastInsertRowid)
   }
 
   /** Igual que `publish`, pero el destinatario es el autor del input al que pertenece el trabajo. */
   function publishForJob (jobId, { kind, percent = null, phrase = null, data = {} }) {
-    const trabajo = get(db, 'SELECT j.input_id, i.author_id FROM jobs j LEFT JOIN inputs i ON i.id = j.input_id WHERE j.id = ?', jobId)
-    if (!trabajo) return null
-    return publish({ kind, jobId, memberId: trabajo.author_id, percent, phrase, data: { input_id: trabajo.input_id, ...data } })
+    const jobRow = get(db, 'SELECT j.input_id, i.author_id FROM jobs j LEFT JOIN inputs i ON i.id = j.input_id WHERE j.id = ?', jobId)
+    if (!jobRow) return null
+    return publish({ kind, jobId, memberId: jobRow.author_id, percent, phrase, data: { input_id: jobRow.input_id, ...data } })
   }
 
   /** Transacción que despacha lo publicado adentro una vez confirmada (nunca antes: un evento no confirmado no existe). */
   function transaction (fn) {
-    const externa = !db.isTransaction
-    const resultado = tx(db, fn)
-    if (externa) drain()
-    return resultado
+    const outer = !db.isTransaction
+    const result = tx(db, fn)
+    if (outer) drain()
+    return result
   }
 
   function subscribe (memberId, callback) {
     const s = { memberId, callback }
-    suscriptores.add(s)
-    return () => suscriptores.delete(s)
+    subscribers.add(s)
+    return () => subscribers.delete(s)
   }
 
   /** Eventos con `seq` mayor que `afterSeq` que ve el miembro, en orden. `jobId` acota a un trabajo. */
@@ -111,20 +111,20 @@ export function createEvents ({ db, now = Date.now }) {
    */
   function startPolling (intervalMs) {
     stopPolling()
-    versionDatos = db.prepare('PRAGMA data_version').get().data_version
-    temporizador = setInterval(() => {
-      const actual = db.prepare('PRAGMA data_version').get().data_version
-      if (actual !== versionDatos) {
-        versionDatos = actual
+    dataVersion = db.prepare('PRAGMA data_version').get().data_version
+    timerHandle = setInterval(() => {
+      const current = db.prepare('PRAGMA data_version').get().data_version
+      if (current !== dataVersion) {
+        dataVersion = current
         drain()
       }
     }, intervalMs)
-    temporizador.unref()
+    timerHandle.unref()
   }
 
   function stopPolling () {
-    if (temporizador) clearInterval(temporizador)
-    temporizador = null
+    if (timerHandle) clearInterval(timerHandle)
+    timerHandle = null
   }
 
   /** Retención: I03 §12, `job_events_retention_days` igual que los trabajos terminados. */

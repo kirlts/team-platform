@@ -17,37 +17,37 @@ import { parseTemplate } from '../domain/template-file.js'
 const srcDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 /** Lee el juego inicial del analizador. Devuelve null si ese módulo no está instalado. */
-async function leerJuegoInicial (config) {
-  const archivo = path.join(srcDir, 'analyze', 'seed.js') // el juego inicial lo define el analizador, aunque ANALYZE_MODULE apunte a otro
-  if (!existsSync(archivo)) return null
-  const { loadSeed } = await import(pathToFileURL(archivo).href)
+async function readSeedSet (config) {
+  const filePath = path.join(srcDir, 'analyze', 'seed.js') // el juego inicial lo define el analizador, aunque ANALYZE_MODULE apunte a otro
+  if (!existsSync(filePath)) return null
+  const { loadSeed } = await import(pathToFileURL(filePath).href)
   return loadSeed(config.templatesDir)
 }
 
 /** Siembra áreas y plantillas sólo si la tabla `areas` está vacía (instalación nueva). */
 export async function seedDefaults (db, config, log = () => {}) {
   if (get(db, 'SELECT COUNT(*) AS n FROM areas').n > 0) return { areas: 0, templates: 0 }
-  const juego = await leerJuegoInicial(config)
-  if (!juego) {
+  const seedSet = await readSeedSet(config)
+  if (!seedSet) {
     log('No se sembraron áreas: falta el módulo del analizador que define el juego inicial.')
     return { areas: 0, templates: 0 }
   }
-  const ahora = Date.now()
+  const nowMs = Date.now()
   tx(db, () => {
     if (get(db, 'SELECT COUNT(*) AS n FROM areas').n > 0) return // otro proceso ganó la carrera
-    const idDelArea = new Map()
-    for (const area of juego.areas) {
+    const areaIdMap = new Map()
+    for (const area of seedSet.areas) {
       const { lastInsertRowid } = run(db, 'INSERT INTO areas (title, description, position) VALUES (?, ?, ?)', area.title, area.description, area.position)
-      idDelArea.set(area.id, Number(lastInsertRowid))
+      areaIdMap.set(area.id, Number(lastInsertRowid))
     }
-    for (const t of juego.templates) {
+    for (const t of seedSet.templates) {
       const parsed = parseTemplate(t.body_markdown) // una plantilla inválida detiene la instalación con su motivo
       run(db, 'INSERT INTO templates (area_id, name, description, body_markdown, updated_at) VALUES (?, ?, ?, ?, ?)',
-        idDelArea.get(t.area_id), parsed.name, parsed.description, t.body_markdown, ahora)
+        areaIdMap.get(t.area_id), parsed.name, parsed.description, t.body_markdown, nowMs)
     }
   })
-  log(`Sembradas ${juego.areas.length} áreas y ${juego.templates.length} plantillas.`)
-  return { areas: juego.areas.length, templates: juego.templates.length }
+  log(`Sembradas ${seedSet.areas.length} áreas y ${seedSet.templates.length} plantillas.`)
+  return { areas: seedSet.areas.length, templates: seedSet.templates.length }
 }
 
 /** Crea (o eleva y reinicia) un editor. Es la única vía de alta del primer miembro (UD-007). */
@@ -55,21 +55,21 @@ export async function ensureEditor (db, config, { email, password, name }) {
   const { hashPassword, validatePassword } = await import('../identity/password.js')
   validatePassword(password, config.identity.password)
   const hash = await hashPassword(password, config.identity.argon2)
-  const ahora = Date.now()
+  const nowMs = Date.now()
   return tx(db, () => {
-    const existente = get(db, 'SELECT id FROM members WHERE email = ?', email)
+    const existing = get(db, 'SELECT id FROM members WHERE email = ?', email)
     let id
-    if (existente) {
-      id = existente.id
+    if (existing) {
+      id = existing.id
       run(db, "UPDATE members SET role = 'editor' WHERE id = ?", id)
     } else {
-      id = Number(run(db, "INSERT INTO members (email, name, role, created_at) VALUES (?, ?, 'editor', ?)", email, name, ahora).lastInsertRowid)
+      id = Number(run(db, "INSERT INTO members (email, name, role, created_at) VALUES (?, ?, 'editor', ?)", email, name, nowMs).lastInsertRowid)
     }
     run(db, `INSERT INTO credentials (member_id, password_hash, updated_at) VALUES (?, ?, ?)
              ON CONFLICT(member_id) DO UPDATE SET password_hash = excluded.password_hash, updated_at = excluded.updated_at, failed_count = 0, next_attempt_at = 0`,
-    id, hash, ahora)
+    id, hash, nowMs)
     run(db, 'DELETE FROM sessions WHERE member_id = ?', id)
-    return { id, email, name: name ?? email, created: !existente }
+    return { id, email, name: name ?? email, created: !existing }
   })
 }
 
@@ -94,11 +94,11 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   try {
     await initializeDatabase(config, { seed: seedDefaults, log: (m) => console.log(m) })
     if (i >= 0) {
-      const [email, password, nombre] = args.slice(i + 1)
+      const [email, password, nameValue] = args.slice(i + 1)
       if (!email || !password) throw new Error('Uso: node src/db/seed.js --editor correo contraseña [nombre]')
       const db = openInitialized(config)
       try {
-        const r = await ensureEditor(db, config, { email, password, name: nombre ?? email.split('@')[0] })
+        const r = await ensureEditor(db, config, { email, password, name: nameValue ?? email.split('@')[0] })
         console.log(`${r.created ? 'Editor creado' : 'Editor actualizado'}: ${r.email} (id ${r.id}).`)
       } finally {
         db.close()

@@ -9,7 +9,7 @@ import { pageEnvelope, pageParams, pageQuerySchema, pageResult } from '../pagina
 import { idParams, inputView, messageDetail, publishBody } from '../schemas.js'
 import { readInputUpload } from '../upload.js'
 
-const creado = {
+const createdSchema = {
   type: 'object',
   properties: { input_id: { type: 'string' }, job_id: { type: 'string', nullable: true }, status: { type: 'string' }, duplicate: { type: 'boolean' }, restarted: { type: 'boolean' } }
 }
@@ -22,7 +22,7 @@ export function registerInputRoutes (app, ctx) {
     schema: {
       summary: 'Enviar un input (multipart: text, files[], links[])',
       description: 'Idempotente por contenido: el mismo texto normalizado, los mismos adjuntos por hash y el mismo emisor devuelven el input que ya existe (200). Un input nuevo, o uno fallido o cancelado que se reenvía, queda en cola (202).',
-      response: { 200: creado, 202: creado }
+      response: { 200: createdSchema, 202: createdSchema }
     }
   }, async (request, reply) => {
     const { text, links, files } = await readInputUpload(request, config)

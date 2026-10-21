@@ -9,11 +9,11 @@ import { commit, ingest } from '../domain/storage.js'
 const MB = (bytes) => `${Math.round(bytes / (1024 * 1024))} MB`
 
 /** Valida una URL de enlace: sólo http(s), con el largo máximo configurado. */
-function normalizarEnlace (crudo, uploads) {
-  const texto = String(crudo).trim()
-  if (texto.length > uploads.maxLinkLength) throw badRequest('Un enlace supera el largo máximo permitido.', 'link_too_long')
+function normalizeLink (rawValue, uploads) {
+  const textValue = String(rawValue).trim()
+  if (textValue.length > uploads.maxLinkLength) throw badRequest('Un enlace supera el largo máximo permitido.', 'link_too_long')
   let url
-  try { url = new URL(texto) } catch { throw badRequest(`El enlace «${texto.slice(0, 80)}» no es una dirección válida.`, 'link_invalid') }
+  try { url = new URL(textValue) } catch { throw badRequest(`El enlace «${textValue.slice(0, 80)}» no es una dirección válida.`, 'link_invalid') }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') throw badRequest('Sólo se admiten enlaces http y https.', 'link_invalid')
   return url.toString()
 }
@@ -27,7 +27,7 @@ export async function readInputUpload (request, config) {
   const u = config.uploads
   let text = ''
   const links = []
-  const ingeridos = []
+  const ingested = []
 
   try {
     for await (const part of request.parts()) {
@@ -36,31 +36,31 @@ export async function readInputUpload (request, config) {
         if (part.fieldname === 'text') text = String(part.value)
         else if (part.fieldname === 'links' || part.fieldname === 'links[]') {
           if (String(part.value).trim() === '') continue
-          links.push(normalizarEnlace(part.value, u))
+          links.push(normalizeLink(part.value, u))
           if (links.length > u.maxLinks) throw tooLarge(`Se admiten hasta ${u.maxLinks} enlaces por envío.`)
         }
         continue
       }
       // Archivo
-      const clase = classify(part.mimetype, part.filename)
-      if (!clase) {
+      const kindInfo = classify(part.mimetype, part.filename)
+      if (!kindInfo) {
         part.file.resume()
         throw unsupported(`El formato de «${part.filename || 'archivo'}» no se admite.`)
       }
-      const limite = maxBytesFor(clase.kind, u)
-      const r = await ingest(config, part.file, { maxBytes: limite, tooLargeMessage: `«${part.filename || 'archivo'}» supera el máximo de ${MB(limite)} para ese tipo de archivo.` })
-      ingeridos.push({ ...r, kind: clase.kind, mime: clase.mime, name: part.filename || '' })
+      const cap = maxBytesFor(kindInfo.kind, u)
+      const r = await ingest(config, part.file, { maxBytes: cap, tooLargeMessage: `«${part.filename || 'archivo'}» supera el máximo de ${MB(cap)} para ese tipo de archivo.` })
+      ingested.push({ ...r, kind: kindInfo.kind, mime: kindInfo.mime, name: part.filename || '' })
       if (r.size === 0) throw badRequest(`«${part.filename || 'archivo'}» está vacío.`, 'file_empty')
     }
     if (Buffer.byteLength(text) > u.maxTextBytes) throw tooLarge('El texto supera el tamaño máximo permitido.')
-    if (text.trim() === '' && ingeridos.length === 0 && links.length === 0) {
+    if (text.trim() === '' && ingested.length === 0 && links.length === 0) {
       throw badRequest('El envío está vacío: falta texto, archivo o enlace.', 'input_empty')
     }
     // Todo validado: los temporales pasan a su nombre definitivo (el hash).
-    for (const f of ingeridos) await commit(config, f.tmp, f.sha256)
-    return { text, links: [...new Set(links)], files: ingeridos.map(({ tmp, ...resto }) => resto) }
+    for (const f of ingested) await commit(config, f.tmp, f.sha256)
+    return { text, links: [...new Set(links)], files: ingested.map(({ tmp, ...rest }) => rest) }
   } catch (error) {
-    await Promise.all(ingeridos.map((f) => rm(f.tmp, { force: true })))
+    await Promise.all(ingested.map((f) => rm(f.tmp, { force: true })))
     throw error
   }
 }

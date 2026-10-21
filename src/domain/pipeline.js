@@ -20,11 +20,11 @@ import { blobPath } from './storage.js'
 // Códigos de ExtractError que pueden pasar solos al reintentar (red del sitio del enlace). Todo otro
 // ExtractError es una propiedad del adjunto (formato, tamaño, duración, archivo ilegible) y no mejora
 // reintentando: falla de inmediato con su motivo (src/contracts.md).
-const EXTRACT_TRANSITORIOS = new Set(['link_timeout', 'link_fetch_failed'])
+const EXTRACT_TRANSIENT = new Set(['link_timeout', 'link_fetch_failed'])
 
 // Errores del analizador y de los proveedores que se repetirían igual: configuración, rechazo, corte, salida
 // inválida, entrada o plantilla mal formadas, ejecutable ausente. Los de red y plazo sí se reintentan.
-const ANALISIS_DEFINITIVOS = new Set(['input', 'template', 'harness_unavailable', 'config', 'refusal', 'max_tokens', 'invalid_output', 'unsupported'])
+const ANALYSIS_FINAL_CODES = new Set(['input', 'template', 'harness_unavailable', 'config', 'refusal', 'max_tokens', 'invalid_output', 'unsupported'])
 
 /** Señal interna: el presupuesto de audio por hora no alcanza; el worker aplaza el trabajo sin gastar el intento. */
 export class Deferred extends Error {
@@ -36,49 +36,49 @@ export class Deferred extends Error {
 }
 
 /** `onProgress` de extractores es (percent, frase); el del analizador, ({ percent, phrase }). Se aceptan las dos. */
-const normalizarAvance = (a, b) => (a !== null && typeof a === 'object' ? [a.percent, a.phrase] : [a, b])
+const normalizeProgress = (a, b) => (a !== null && typeof a === 'object' ? [a.percent, a.phrase] : [a, b])
 
 export function createPipeline ({ db, config, queue, events, modules, now = Date.now }) {
-  function registrarLlamada (job) {
-    return (llamada) => {
+  function recordLlmCall (job) {
+    return (callInfo) => {
       const r = run(db, `INSERT INTO llm_calls (job_id, provider, model, modality, input_tokens, output_tokens, cached_tokens, cost_usd, duration_ms, at)
                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      job.id, llamada.provider, llamada.model, llamada.modality,
-      llamada.input_tokens ?? 0, llamada.output_tokens ?? 0, llamada.cached_tokens ?? 0, llamada.cost_usd ?? 0, llamada.duration_ms ?? 0, now())
+      job.id, callInfo.provider, callInfo.model, callInfo.modality,
+      callInfo.input_tokens ?? 0, callInfo.output_tokens ?? 0, callInfo.cached_tokens ?? 0, callInfo.cost_usd ?? 0, callInfo.duration_ms ?? 0, now())
       return Number(r.lastInsertRowid)
     }
   }
 
   /** Llamadas del extractor (`meta.calls`): { modality, usage | audioSeconds, … } (src/contracts.md). */
-  function registrarLlamadasDeExtractor (job, calls) {
-    const ajustes = modules.getProviders?.()?.describe?.() ?? []
-    const registrar = registrarLlamada(job)
+  function recordExtractorCalls (job, calls) {
+    const settingsView = modules.getProviders?.()?.describe?.() ?? []
+    const logCall = recordLlmCall(job)
     for (const c of calls ?? []) {
       if (!['text', 'vision', 'speech'].includes(c.modality)) continue
-      const uso = c.usage ?? {}
-      const segundos = c.audioSeconds ?? 0
-      const ranura = ajustes.find((s) => s.slot === c.modality)
-      const modelo = c.model ?? ranura?.model ?? 'desconocido'
-      registrar({
-        provider: c.provider ?? ranura?.provider ?? 'desconocido',
-        model: modelo,
+      const usageInfo = c.usage ?? {}
+      const secondsCount = c.audioSeconds ?? 0
+      const slotBody = settingsView.find((s) => s.slot === c.modality)
+      const modelName = c.model ?? slotBody?.model ?? 'desconocido'
+      logCall({
+        provider: c.provider ?? slotBody?.provider ?? 'desconocido',
+        model: modelName,
         modality: c.modality,
-        input_tokens: uso.input_tokens ?? 0,
-        output_tokens: uso.output_tokens ?? 0,
-        cached_tokens: uso.cached_tokens ?? 0,
+        input_tokens: usageInfo.input_tokens ?? 0,
+        output_tokens: usageInfo.output_tokens ?? 0,
+        cached_tokens: usageInfo.cached_tokens ?? 0,
         // El audio se factura por tiempo, no por tokens (MS §3, UD-008).
-        cost_usd: c.cost_usd ?? (segundos > 0 ? speechCostUsd(config, segundos) : llmCostUsd(config, modelo, uso)),
+        cost_usd: c.cost_usd ?? (secondsCount > 0 ? speechCostUsd(config, secondsCount) : llmCostUsd(config, modelName, usageInfo)),
         duration_ms: c.duration_ms ?? 0
       })
     }
   }
 
   /** Llamadas del analizador (`calls`): { step, provider, model, usage, duration_ms, outcome } → llm_calls. Devuelve el último id. */
-  function registrarLlamadasDelAnalizador (job, calls) {
-    const registrar = registrarLlamada(job)
-    let ultimo = null
+  function recordAnalyzerCalls (job, calls) {
+    const logCall = recordLlmCall(job)
+    let lastSeqValue = null
     for (const c of calls ?? []) {
-      ultimo = registrar({
+      lastSeqValue = logCall({
         provider: c.provider ?? 'desconocido',
         model: c.model ?? 'desconocido',
         modality: c.modality ?? 'text',
@@ -89,10 +89,10 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
         duration_ms: c.duration_ms ?? 0
       })
     }
-    return ultimo
+    return lastSeqValue
   }
 
-  const adjuntoParaExtractor = (a) => ({
+  const attachmentForExtractor = (a) => ({
     id: a.id,
     input_id: a.input_id,
     kind: a.kind,
@@ -108,69 +108,69 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
    * Presupuesto de audio por hora (MS §7.4): antes de gastar transcripción se consulta; si no cabe, el trabajo
    * se aplaza hasta que la ventana libere lugar. Se anota el consumo al empezar a extraer.
    */
-  async function reservarAudio (pendientes, ctx) {
-    const presupuesto = modules.audioBudget
-    const estimar = modules.estimateAudioSeconds
-    if (!presupuesto || !estimar) return
-    let segundos = 0
-    for (const a of pendientes) {
-      if (a.kind === 'audio' || a.kind === 'video') segundos += await estimar(adjuntoParaExtractor(a), { signal: ctx.signal })
+  async function reserveAudio (pending, ctx) {
+    const budget = modules.audioBudget
+    const estimate = modules.estimateAudioSeconds
+    if (!budget || !estimate) return
+    let secondsCount = 0
+    for (const a of pending) {
+      if (a.kind === 'audio' || a.kind === 'video') secondsCount += await estimate(attachmentForExtractor(a), { signal: ctx.signal })
     }
-    if (segundos === 0) return
-    const veredicto = presupuesto.check(segundos, now())
-    if (!veredicto.allowed) {
-      if (!Number.isFinite(veredicto.waitMs)) {
+    if (secondsCount === 0) return
+    const verdict = budget.check(secondsCount, now())
+    if (!verdict.allowed) {
+      if (!Number.isFinite(verdict.waitMs)) {
         throw permanent('El audio de este envío supera el presupuesto de transcripción por hora y nunca cabría.', 'audio_budget_exceeded')
       }
-      throw new Deferred(veredicto.waitMs, 'Esperando cupo de transcripción')
+      throw new Deferred(verdict.waitMs, 'Esperando cupo de transcripción')
     }
-    presupuesto.record(segundos, now())
+    budget.record(secondsCount, now())
   }
 
-  function exigir (modulo, nombre) {
-    if (!modulo) throw permanent(`El módulo de ${nombre} no está disponible en esta instalación.`, 'module_unavailable')
-    return modulo
+  function demand (moduleRef, nameValue) {
+    if (!moduleRef) throw permanent(`El módulo de ${nameValue} no está disponible en esta instalación.`, 'module_unavailable')
+    return moduleRef
   }
 
-  async function extraerAdjunto (job, ctx, adjunto, onProgress) {
-    const extract = exigir(modules.extract, 'extractores')
-    let salida
+  async function extractAttachment (job, ctx, att, onProgress) {
+    const extract = demand(modules.extract, 'extractores')
+    let outText
     try {
       // `config` del extractor son sobrescrituras de sus perillas, no la configuración de la aplicación.
-      salida = await extract(adjuntoParaExtractor(adjunto), { providers: modules.getProviders(), onProgress, signal: ctx.signal })
+      outText = await extract(attachmentForExtractor(att), { providers: modules.getProviders(), onProgress, signal: ctx.signal })
     } catch (error) {
       if (error?.name === 'ExtractError') {
-        const nombre = adjunto.kind === 'link' ? adjunto.path : (adjunto.name || adjunto.kind)
-        const envuelto = new Error(`«${nombre}»: ${error.message}`, { cause: error })
-        envuelto.code = error.code
-        envuelto.attachmentId = adjunto.id
-        envuelto.retryable = EXTRACT_TRANSITORIOS.has(error.code)
-        throw envuelto
+        const nameValue = att.kind === 'link' ? att.path : (att.name || att.kind)
+        const wrapped = new Error(`«${nameValue}»: ${error.message}`, { cause: error })
+        wrapped.code = error.code
+        wrapped.attachmentId = att.id
+        wrapped.retryable = EXTRACT_TRANSIENT.has(error.code)
+        throw wrapped
       }
       throw error
     }
-    if (!salida || typeof salida.text !== 'string') throw new Error(`El extractor de «${adjunto.name || adjunto.kind}» no devolvió texto.`)
-    registrarLlamadasDeExtractor(job, salida.meta?.calls)
+    if (!outText || typeof outText.text !== 'string') throw new Error(`El extractor de «${att.name || att.kind}» no devolvió texto.`)
+    recordExtractorCalls(job, outText.meta?.calls)
     // Escribir es una sola sentencia: no hace falta transacción ni se retiene el candado durante la llamada.
     run(db, 'UPDATE attachments SET extracted_text = ?, extracted_at = ?, extract_meta_json = ? WHERE id = ?',
-      salida.text, now(), JSON.stringify(salida.meta ?? {}), adjunto.id)
+      outText.text, now(), JSON.stringify(outText.meta ?? {}), att.id)
   }
 
   /** Avance global = (pasos terminados + fracción del paso actual) / pasos totales. */
-  function medidor (job, ctx, totalPasos) {
-    let ultimo = { percent: -1, phrase: null }
-    return (pasosHechos, fraccion, frase) => {
-      const crudo = ((pasosHechos + Math.max(0, Math.min(1, fraccion))) / totalPasos) * 100
-      const percent = Math.min(99, Math.floor(crudo)) // el 100 lo marca el evento `done`
+  function meter (job, ctx, totalSteps) {
+    let lastSeqValue = { percent: -1, phrase: null }
+    return (stepsDone, fraction, phraseText) => {
+      const rawValue = ((stepsDone + Math.max(0, Math.min(1, fraction))) / totalSteps) * 100
+      const percent = Math.min(99, Math.floor(rawValue)) // el 100 lo marca el evento `done`
       // Sólo se escribe lo que cambia: cada evento es un commit con fsync (131 por segundo con FULL, I03 §2.3).
-      if (percent === ultimo.percent && frase === ultimo.phrase) return
-      ultimo = { percent, phrase: frase }
-      if (!queue.progress(job, percent, frase)) ctx.abort('lost')
+      if (percent === lastSeqValue.percent && phraseText === lastSeqValue.phrase) return
+      lastSeqValue = { percent, phrase: phraseText }
+      if (!queue.progress(job, percent, phraseText)) ctx.abort('lost')
     }
   }
 
   /** Mensaje visible de un resultado de dominio del analizador que no es `ok`. */
-  function motivoDeResultado (r) {
+  function reasonOfResult (r) {
     if (r.status === 'refusal') return `El proveedor rechazó analizar el contenido${r.explanation ? `: ${r.explanation}` : '.'}`
     if (r.status === 'max_tokens') return 'La respuesta del modelo se cortó por tamaño, incluso con el doble de límite.'
     if (r.reason === 'mece_conflict') return 'El análisis no logró repartir el contenido sin solapes ni huecos.'
@@ -178,16 +178,16 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
   }
 
   /** Normaliza la propuesta: cada mensaje lleva su área y plantilla (si la raíz las trae, se heredan). */
-  function normalizarPropuesta (propuesta) {
-    if (!propuesta || !Array.isArray(propuesta.messages)) return null
-    const messages = propuesta.messages.map((m) => ({
+  function normalizeProposal (proposalObj) {
+    if (!proposalObj || !Array.isArray(proposalObj.messages)) return null
+    const messages = proposalObj.messages.map((m) => ({
       ...m,
-      area_id: m.area_id ?? propuesta.area_id,
-      template_id: m.template_id ?? propuesta.template_id
+      area_id: m.area_id ?? proposalObj.area_id,
+      template_id: m.template_id ?? proposalObj.template_id
     }))
     if (messages.some((m) => !Number.isInteger(m.area_id) || !Number.isInteger(m.template_id))) return null
-    const { area_id: _a, template_id: _t, ...resto } = propuesta
-    return { ...resto, messages }
+    const { area_id: _a, template_id: _t, ...rest } = proposalObj
+    return { ...rest, messages }
   }
 
   const handlers = {
@@ -196,67 +196,67 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
         const { input_id: inputId } = parseJson(job.payload_json, {})
         const input = get(db, 'SELECT * FROM inputs WHERE id = ?', inputId)
         if (!input) throw permanent('El input del trabajo ya no existe.', 'input_missing')
-        const analyze = exigir(modules.analyze, 'análisis')
+        const analyze = demand(modules.analyze, 'análisis')
 
-        const pendientes = all(db, 'SELECT * FROM attachments WHERE input_id = ? AND extracted_at IS NULL ORDER BY id', inputId)
+        const pending = all(db, 'SELECT * FROM attachments WHERE input_id = ? AND extracted_at IS NULL ORDER BY id', inputId)
         const total = all(db, 'SELECT id FROM attachments WHERE input_id = ?', inputId).length
-        const totalPasos = pendientes.length + 1 // cada extracción pendiente y el análisis
-        const avanzar = medidor(job, ctx, totalPasos)
+        const totalSteps = pending.length + 1 // cada extracción pendiente y el análisis
+        const advance = meter(job, ctx, totalSteps)
 
-        await reservarAudio(pendientes, ctx)
-        if (pendientes.length > 0) transitionInput(db, inputId, 'extracting', { now })
-        for (let i = 0; i < pendientes.length; i++) {
-          const a = pendientes[i]
-          const posicion = total - pendientes.length + i + 1
-          avanzar(i, 0, `Leyendo adjunto ${posicion} de ${total}`)
-          await extraerAdjunto(job, ctx, a, (percent, frase) => avanzar(i, (percent ?? 0) / 100, frase || `Leyendo adjunto ${posicion} de ${total}`))
+        await reserveAudio(pending, ctx)
+        if (pending.length > 0) transitionInput(db, inputId, 'extracting', { now })
+        for (let i = 0; i < pending.length; i++) {
+          const a = pending[i]
+          const ordinal = total - pending.length + i + 1
+          advance(i, 0, `Leyendo adjunto ${ordinal} de ${total}`)
+          await extractAttachment(job, ctx, a, (percent, phraseText) => advance(i, (percent ?? 0) / 100, phraseText || `Leyendo adjunto ${ordinal} de ${total}`))
           ctx.signal.throwIfAborted()
         }
 
         transitionInput(db, inputId, 'analyzing', { now })
-        avanzar(pendientes.length, 0, 'Analizando')
-        const adjuntos = all(db, 'SELECT id, kind, name, extracted_text FROM attachments WHERE input_id = ? ORDER BY id', inputId)
+        advance(pending.length, 0, 'Analizando')
+        const atts = all(db, 'SELECT id, kind, name, extracted_text FROM attachments WHERE input_id = ? ORDER BY id', inputId)
           .map((a) => ({ id: a.id, kind: a.kind, name: a.name, extracted: a.extracted_text ?? '' }))
         const bundle = {
           text: input.text,
-          attachments: adjuntos,
+          attachments: atts,
           areas: all(db, 'SELECT id, title, description, position FROM areas WHERE deleted_at IS NULL ORDER BY position, id'),
           templates: all(db, 'SELECT t.id, t.area_id, t.name, t.description, t.body_markdown FROM templates t JOIN areas a ON a.id = t.area_id WHERE t.deleted_at IS NULL AND a.deleted_at IS NULL ORDER BY t.id'),
           members: all(db, 'SELECT id, name, responsibilities, domains FROM members ORDER BY id').map((m) => ({ ...m, domains: parseDomains(m.domains).join(', ') }))
         }
 
-        let resultado
+        let result
         try {
-          resultado = await analyze(bundle, {
+          result = await analyze(bundle, {
             providers: modules.getProviders(),
             analyzer: modules.getAnalyzer(),
             onProgress: (a, b) => {
-              const [percent, frase] = normalizarAvance(a, b)
-              avanzar(pendientes.length, (percent ?? 0) / 100, frase || 'Analizando')
+              const [percent, phraseText] = normalizeProgress(a, b)
+              advance(pending.length, (percent ?? 0) / 100, phraseText || 'Analizando')
             },
             signal: ctx.signal
           })
         } catch (error) {
           // Las llamadas ya hechas cuestan aunque el trabajo falle (contrato del analizador).
-          registrarLlamadasDelAnalizador(job, error.calls)
-          if (ANALISIS_DEFINITIVOS.has(error.code)) error.retryable = false
+          recordAnalyzerCalls(job, error.calls)
+          if (ANALYSIS_FINAL_CODES.has(error.code)) error.retryable = false
           throw error
         }
-        const ultimaLlamada = registrarLlamadasDelAnalizador(job, resultado?.calls)
+        const lastCallId = recordAnalyzerCalls(job, result?.calls)
         ctx.signal.throwIfAborted()
-        if (resultado?.status !== 'ok') {
+        if (result?.status !== 'ok') {
           // Rechazo, corte o salida inválida: no mejoran reintentando igual. Falla con el motivo visible.
-          throw permanent(motivoDeResultado(resultado ?? {}), resultado?.status ?? 'invalid')
+          throw permanent(reasonOfResult(result ?? {}), result?.status ?? 'invalid')
         }
-        const propuesta = normalizarPropuesta(resultado.proposal)
-        if (!propuesta) throw permanent('El analizador devolvió una propuesta con forma inválida.', 'proposal_invalid')
+        const proposalObj = normalizeProposal(result.proposal)
+        if (!proposalObj) throw permanent('El analizador devolvió una propuesta con forma inválida.', 'proposal_invalid')
 
         return () => {
           // Dentro de la transacción que cierra el trabajo. Cada mensaje lleva su área y plantilla.
           run(db, `INSERT INTO proposals (input_id, area_id, template_id, payload_json, units_json, model_call_id, created_at) VALUES (?, NULL, NULL, ?, ?, ?, ?)
                    ON CONFLICT(input_id) DO UPDATE SET payload_json = excluded.payload_json, units_json = excluded.units_json,
                      model_call_id = excluded.model_call_id, created_at = excluded.created_at`,
-          inputId, JSON.stringify(propuesta), JSON.stringify((resultado.units ?? []).map((u) => ({ id: u.id, text: u.text }))), ultimaLlamada, now())
+          inputId, JSON.stringify(proposalObj), JSON.stringify((result.units ?? []).map((u) => ({ id: u.id, text: u.text }))), lastCallId, now())
           transitionInput(db, inputId, 'proposed', { now })
           events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: 'Propuesta lista' })
           events.publishForJob(job.id, { kind: 'done', data: { status: 'done', input_status: 'proposed' } })
@@ -279,10 +279,10 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
             if (get(db, 'SELECT status FROM inputs WHERE id = ?', inputId)?.status !== 'cancelled') transitionInput(db, inputId, 'queued', { now })
             events.publishForJob(job.id, { kind: 'progress', percent: 0, phrase: `Falló el intento ${job.attempts} de ${job.max_attempts}; se reintenta` })
           } else if (outcome.state === 'failed') {
-            const actual = get(db, 'SELECT status FROM inputs WHERE id = ?', inputId)?.status
-            const codigo = error?.code && typeof error.code === 'string' ? error.code : null
-            if (actual && actual !== 'cancelled' && actual !== 'published') transitionInput(db, inputId, 'failed', { error: String(error?.message ?? error), errorCode: codigo, now })
-            events.publishForJob(job.id, { kind: 'done', data: { status: 'failed', error: String(error?.message ?? error), error_code: codigo, attachment_id: error?.attachmentId ?? null } })
+            const current = get(db, 'SELECT status FROM inputs WHERE id = ?', inputId)?.status
+            const errorCodeValue = error?.code && typeof error.code === 'string' ? error.code : null
+            if (current && current !== 'cancelled' && current !== 'published') transitionInput(db, inputId, 'failed', { error: String(error?.message ?? error), errorCode: errorCodeValue, now })
+            events.publishForJob(job.id, { kind: 'done', data: { status: 'failed', error: String(error?.message ?? error), error_code: errorCodeValue, attachment_id: error?.attachmentId ?? null } })
           }
         })
       }
@@ -291,10 +291,10 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
     extract: {
       async run (job, ctx) {
         const { attachment_id: id } = parseJson(job.payload_json, {})
-        const adjunto = get(db, 'SELECT * FROM attachments WHERE id = ?', id)
-        if (!adjunto) throw permanent('El adjunto del trabajo ya no existe.', 'attachment_missing')
-        const avanzar = medidor(job, ctx, 1)
-        await extraerAdjunto(job, ctx, adjunto, (percent, frase) => avanzar(0, (percent ?? 0) / 100, frase || 'Leyendo adjunto'))
+        const att = get(db, 'SELECT * FROM attachments WHERE id = ?', id)
+        if (!att) throw permanent('El adjunto del trabajo ya no existe.', 'attachment_missing')
+        const advance = meter(job, ctx, 1)
+        await extractAttachment(job, ctx, att, (percent, phraseText) => advance(0, (percent ?? 0) / 100, phraseText || 'Leyendo adjunto'))
         return () => events.publishForJob(job.id, { kind: 'done', data: { status: 'done' } })
       },
       onFailure (job, error, outcome) {

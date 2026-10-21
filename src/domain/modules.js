@@ -10,10 +10,10 @@ import { getProviderOverrides, providerEnv } from './settings.js'
 
 const srcDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
-async function importar (ruta) {
-  const absoluta = path.resolve(srcDir, ruta)
-  if (!existsSync(absoluta)) return null
-  return import(pathToFileURL(absoluta).href) // si existe pero falla, el error sube: no se oculta un módulo roto
+async function importFile (routePath) {
+  const absolutePath = path.resolve(srcDir, routePath)
+  if (!existsSync(absolutePath)) return null
+  return import(pathToFileURL(absolutePath).href) // si existe pero falla, el error sube: no se oculta un módulo roto
 }
 
 /**
@@ -25,43 +25,43 @@ async function importar (ruta) {
  *   buildProviders(overrides)  construye proveedores con sobrescrituras de prueba (valida un parche sin guardarlo)
  */
 export async function loadModules (config, { db = null, env = process.env, log = () => {} } = {}) {
-  const [analizador, extractor, proveedores] = await Promise.all([
-    importar(config.modules.analyze),
-    importar(config.modules.extract),
-    importar(config.modules.providers)
+  const [analyzerModule, extractor, providerSet] = await Promise.all([
+    importFile(config.modules.analyze),
+    importFile(config.modules.extract),
+    importFile(config.modules.providers)
   ])
-  const faltan = []
-  if (!analizador?.analyze) faltan.push(`analizador (${config.modules.analyze})`)
-  if (!extractor?.extract) faltan.push(`extractores (${config.modules.extract})`)
-  if (!proveedores?.createProviders) faltan.push(`proveedores (${config.modules.providers})`)
-  for (const f of faltan) log(`Módulo no disponible: ${f}. Los trabajos que lo necesiten fallarán con ese motivo.`)
+  const absent = []
+  if (!analyzerModule?.analyze) absent.push(`analizador (${config.modules.analyze})`)
+  if (!extractor?.extract) absent.push(`extractores (${config.modules.extract})`)
+  if (!providerSet?.createProviders) absent.push(`proveedores (${config.modules.providers})`)
+  for (const f of absent) log(`Módulo no disponible: ${f}. Los trabajos que lo necesiten fallarán con ese motivo.`)
 
-  const sobrescrituras = () => (db ? getProviderOverrides(db) : {})
-  const construir = (overrides) => {
-    if (!proveedores?.createProviders) return null
-    return proveedores.createProviders({ ...env, ...providerEnv(overrides) })
+  const overridesNow = () => (db ? getProviderOverrides(db) : {})
+  const build = (overrides) => {
+    if (!providerSet?.createProviders) return null
+    return providerSet.createProviders({ ...env, ...providerEnv(overrides) })
   }
-  let cache = { clave: null, providers: null }
+  let cache = { lookupKey: null, providers: null }
   const getProviders = () => {
-    const overrides = sobrescrituras()
-    const clave = JSON.stringify(overrides)
-    if (cache.clave !== clave || !cache.providers) cache = { clave, providers: construir(overrides) }
+    const overrides = overridesNow()
+    const lookupKey = JSON.stringify(overrides)
+    if (cache.lookupKey !== lookupKey || !cache.providers) cache = { lookupKey, providers: build(overrides) }
     return cache.providers
   }
 
   return {
-    analyze: analizador?.analyze ?? null,
-    warmTemplate: analizador?.warmTemplate ?? null,
-    resolveAnalyzeConfig: analizador?.resolveConfig ?? null,
+    analyze: analyzerModule?.analyze ?? null,
+    warmTemplate: analyzerModule?.warmTemplate ?? null,
+    resolveAnalyzeConfig: analyzerModule?.resolveConfig ?? null,
     extract: extractor?.extract ?? null,
     estimateAudioSeconds: extractor?.estimateAudioSeconds ?? null,
     // El presupuesto de audio por hora vive en el módulo de extractores; este proceso lo consulta antes de transcribir.
     audioBudget: extractor?.createAudioBudget ? extractor.createAudioBudget() : null,
     getProviders,
-    getAnalyzer: () => sobrescrituras().analyzer ?? config.providers.analyzer,
-    buildProviders: construir,
-    providersModule: proveedores,
-    missing: faltan
+    getAnalyzer: () => overridesNow().analyzer ?? config.providers.analyzer,
+    buildProviders: build,
+    providersModule: providerSet,
+    missing: absent
   }
 }
 
@@ -70,20 +70,20 @@ export async function loadModules (config, { db = null, env = process.env, log =
  * caché del prompt. No es una espera por reloj. Un fallo se registra y no afecta al guardado.
  */
 export function installTemplateWarmup ({ domainEvents, modules, db, config, log = () => {} }) {
-  domainEvents.on('template.saved', async (plantilla) => {
+  domainEvents.on('template.saved', async (tpl) => {
     if (!modules.warmTemplate) return
     try {
       const providers = modules.getProviders()
       if (!providers?.text || providers.text.unavailable) return // sin proveedor de texto no hay nada que calentar
-      const llamada = await modules.warmTemplate({ providers, config: modules.resolveAnalyzeConfig?.(), templateMarkdown: plantilla.body_markdown })
-      if (llamada?.provider) {
+      const callInfo = await modules.warmTemplate({ providers, config: modules.resolveAnalyzeConfig?.(), templateMarkdown: tpl.body_markdown })
+      if (callInfo?.provider) {
         run(db, `INSERT INTO llm_calls (job_id, provider, model, modality, input_tokens, output_tokens, cached_tokens, cost_usd, duration_ms, at)
                  VALUES (NULL, ?, ?, 'text', ?, ?, ?, ?, ?, ?)`,
-        llamada.provider, llamada.model ?? 'desconocido', llamada.usage?.input_tokens ?? 0, llamada.usage?.output_tokens ?? 0, llamada.usage?.cached_tokens ?? 0,
-        llmCostUsd(config, llamada.model, llamada.usage), llamada.duration_ms ?? 0, Date.now())
+        callInfo.provider, callInfo.model ?? 'desconocido', callInfo.usage?.input_tokens ?? 0, callInfo.usage?.output_tokens ?? 0, callInfo.usage?.cached_tokens ?? 0,
+        llmCostUsd(config, callInfo.model, callInfo.usage), callInfo.duration_ms ?? 0, Date.now())
       }
     } catch (error) {
-      log(`No se pudo calentar la plantilla «${plantilla.name}»: ${error.message}`)
+      log(`No se pudo calentar la plantilla «${tpl.name}»: ${error.message}`)
     }
   })
 }

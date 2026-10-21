@@ -25,11 +25,11 @@ export async function start (config, { env = process.env } = {}) {
   // (`npm run db:init`); acá se omite con SKIP_DB_INIT=1.
   if (env.SKIP_DB_INIT !== '1') await initializeDatabase(config, { seed: seedDefaults, log })
   const db = openInitialized(config)
-  const primero = await bootstrapFirstEditor(db, config)
-  if (primero) {
+  const firstEditor = await bootstrapFirstEditor(db, config)
+  if (firstEditor) {
     // La única vez que se ve una contraseña generada: no se guarda en claro en ninguna parte.
-    logger.warn({ email: primero.email }, primero.generated
-      ? `Primer editor creado con la contraseña ${primero.password} (se muestra una sola vez; cámbiela desde Equipo).`
+    logger.warn({ email: firstEditor.email }, firstEditor.generated
+      ? `Primer editor creado con la contraseña ${firstEditor.password} (se muestra una sola vez; cámbiela desde Equipo).`
       : 'Primer editor creado con la contraseña de ADMIN_PASSWORD.')
   }
   await initTelemetry({ db })
@@ -47,10 +47,10 @@ export async function start (config, { env = process.env } = {}) {
   const { port } = app.server.address() // con PORT=0 el sistema elige uno libre
   logger.info({ worker: config.worker.mode, prefix: config.apiPrefix, port }, `API escuchando en http://${config.host}:${port}`)
 
-  let apagando = null
-  function apagar (senal) {
-    apagando ??= (async () => {
-      logger.info(`${senal}: apagando`)
+  let shuttingDown = null
+  function shutDown (signalName) {
+    shuttingDown ??= (async () => {
+      logger.info(`${signalName}: apagando`)
       await worker.stop() // pasos 1, 3 y 4; los flujos SSE se cierran en el gancho preClose de la API (paso 2)
       events.stopPolling()
       await app.close() // paso 5
@@ -58,21 +58,21 @@ export async function start (config, { env = process.env } = {}) {
       db.close()
       logger.info('apagado completo')
     })()
-    return apagando
+    return shuttingDown
   }
-  return { app, db, worker, apagar, logger }
+  return { app, db, worker, shutDown, logger }
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   loadEnvFile()
-  let sistema
+  let system
   try {
-    sistema = await start(loadConfig())
+    system = await start(loadConfig())
   } catch (error) {
     console.error(error.message)
     process.exit(1)
   }
-  const salir = (senal) => sistema.apagar(senal).then(() => process.exit(0), (e) => { console.error(e); process.exit(1) })
-  process.on('SIGTERM', () => salir('SIGTERM'))
-  process.on('SIGINT', () => salir('SIGINT'))
+  const exitNow = (signalName) => system.shutDown(signalName).then(() => process.exit(0), (e) => { console.error(e); process.exit(1) })
+  process.on('SIGTERM', () => exitNow('SIGTERM'))
+  process.on('SIGINT', () => exitNow('SIGINT'))
 }

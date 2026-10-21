@@ -8,34 +8,34 @@ export const hashToken = (token) => createHash('sha256').update(token).digest('h
 
 export function createSessions ({ db, config, now = Date.now }) {
   const s = config.identity.session
-  const absolutoMs = s.absoluteHours * 3600 * 1000
-  const ociosoMs = s.idleMinutes * 60 * 1000
-  const toqueMs = s.touchSeconds * 1000
+  const absoluteMs = s.absoluteHours * 3600 * 1000
+  const idleMs = s.idleMinutes * 60 * 1000
+  const touchMs = s.touchSeconds * 1000
 
   /** Sesión nueva (siempre regenerada: nunca se reutiliza una ficha previa, OWASP Session Management). */
   function create (memberId) {
     const token = randomBytes(s.tokenBytes).toString('base64url')
     const t = now()
     run(db, 'INSERT INTO sessions (id, member_id, created_at, last_seen_at, expires_at) VALUES (?, ?, ?, ?, ?)',
-      hashToken(token), memberId, t, t, t + absolutoMs)
-    return { token, maxAgeSeconds: Math.floor(absolutoMs / 1000) }
+      hashToken(token), memberId, t, t, t + absoluteMs)
+    return { token, maxAgeSeconds: Math.floor(absoluteMs / 1000) }
   }
 
   /** Devuelve el miembro dueño de la ficha, o null si no existe, venció o estuvo ociosa demasiado. */
   function lookup (token) {
     if (!token || typeof token !== 'string') return null
     const id = hashToken(token)
-    const fila = get(db, `
+    const dbRow = get(db, `
       SELECT s.last_seen_at, s.expires_at, m.id, m.email, m.name, m.role
         FROM sessions s JOIN members m ON m.id = s.member_id WHERE s.id = ?`, id)
-    if (!fila) return null
+    if (!dbRow) return null
     const t = now()
-    if (fila.expires_at <= t || fila.last_seen_at + ociosoMs <= t) {
+    if (dbRow.expires_at <= t || dbRow.last_seen_at + idleMs <= t) {
       run(db, 'DELETE FROM sessions WHERE id = ?', id)
       return null
     }
-    if (t - fila.last_seen_at >= toqueMs) run(db, 'UPDATE sessions SET last_seen_at = ? WHERE id = ?', t, id)
-    return { id: fila.id, email: fila.email, name: fila.name, role: fila.role }
+    if (t - dbRow.last_seen_at >= touchMs) run(db, 'UPDATE sessions SET last_seen_at = ? WHERE id = ?', t, id)
+    return { id: dbRow.id, email: dbRow.email, name: dbRow.name, role: dbRow.role }
   }
 
   const destroy = (token) => { if (token) run(db, 'DELETE FROM sessions WHERE id = ?', hashToken(token)) }

@@ -11,15 +11,15 @@ import { createLocalProvider } from './local.js'
 import { createDelegatedProvider } from './delegated.js'
 
 export const ROLES = ['member', 'editor']
-const RANGO = { member: 1, editor: 2 }
+const RANK = { member: 1, editor: 2 }
 
 /** Rutas registradas con su política, para que una prueba recorra la tabla (informe 04 §6). */
 export const routePolicies = new WeakMap()
 
 export async function registerIdentity (app, { db, config, now = Date.now }) {
   const sessions = createSessions({ db, config, now })
-  const delegado = config.identity.provider === 'delegated'
-  const provider = delegado
+  const isDelegated = config.identity.provider === 'delegated'
+  const provider = isDelegated
     ? createDelegatedProvider({ db, config, sessions, now })
     : createLocalProvider({ db, config, sessions, now })
 
@@ -27,9 +27,9 @@ export async function registerIdentity (app, { db, config, now = Date.now }) {
   await app.register(fastifyRateLimit, {
     global: false,
     // La IP sale de `trustProxy` (lista exacta): tras un proxy, sin ella todos compartirían un contador (informe 04 §2.4).
-    errorResponseBuilder: (_request, contexto) => new AppError(429, 'too_many_requests',
-      `Demasiados intentos desde esta dirección. Se puede reintentar en ${Math.ceil(contexto.ttl / 1000)} s.`,
-      { retryAfterSeconds: Math.ceil(contexto.ttl / 1000) })
+    errorResponseBuilder: (_request, context) => new AppError(429, 'too_many_requests',
+      `Demasiados intentos desde esta dirección. Se puede reintentar en ${Math.ceil(context.ttl / 1000)} s.`,
+      { retryAfterSeconds: Math.ceil(context.ttl / 1000) })
   })
 
   app.decorateRequest('member', null)
@@ -39,35 +39,35 @@ export async function registerIdentity (app, { db, config, now = Date.now }) {
    * Gancho de ruta que autentica y exige un rol mínimo. El editor puede todo lo del miembro.
    * Corre en `onRequest`: una carga multiparte de una persona sin sesión se rechaza antes de leerla.
    */
-  function requireRole (rol) {
-    if (!(rol in RANGO)) throw new Error(`Rol desconocido: ${rol}`)
-    const gancho = async function requireRoleHook (request) {
-      const identidad = request.member ? { member_id: request.member.id, role: request.member.role } : await provider.identify(request)
-      if (!identidad) {
-        throw unauthenticated('Se requiere iniciar sesión.', delegado && config.identity.delegated.mode === 'sso-redirect'
+  function requireRole (roleName) {
+    if (!(roleName in RANK)) throw new Error(`Rol desconocido: ${roleName}`)
+    const hookFn = async function requireRoleHook (request) {
+      const identityInfo = request.member ? { member_id: request.member.id, role: request.member.role } : await provider.identify(request)
+      if (!identityInfo) {
+        throw unauthenticated('Se requiere iniciar sesión.', isDelegated && config.identity.delegated.mode === 'sso-redirect'
           ? { login_url: `${config.apiPrefix}/auth/sso/start` }
           : {})
       }
-      request.member = { id: identidad.member_id, role: identidad.role, email: identidad.email, name: identidad.name, token: identidad.token }
-      if (RANGO[identidad.role] < RANGO[rol]) throw forbidden('Esta acción corresponde a un editor.')
+      request.member = { id: identityInfo.member_id, role: identityInfo.role, email: identityInfo.email, name: identityInfo.name, token: identityInfo.token }
+      if (RANK[identityInfo.role] < RANK[roleName]) throw forbidden('Esta acción corresponde a un editor.')
     }
-    gancho.requiredRole = rol
-    return gancho
+    hookFn.requiredRole = roleName
+    return hookFn
   }
 
   // Denegar por omisión: toda ruta nueva declara `config.public: true` o un `requireRole(...)`.
-  app.addHook('onRoute', (opciones) => {
-    if (opciones.method === 'HEAD' || opciones.method === 'OPTIONS') return
-    const ganchos = [].concat(opciones.onRequest ?? [])
-    const conRol = ganchos.find((g) => g.requiredRole)
-    const publica = opciones.config?.public === true
-    if (!conRol && !publica) {
-      throw new Error(`La ruta ${opciones.method} ${opciones.url} no declara su política: use requireRole('member'|'editor') o config.public.`)
+  app.addHook('onRoute', (routeOptions) => {
+    if (routeOptions.method === 'HEAD' || routeOptions.method === 'OPTIONS') return
+    const hookFns = [].concat(routeOptions.onRequest ?? [])
+    const withRole = hookFns.find((g) => g.requiredRole)
+    const isPublic = routeOptions.config?.public === true
+    if (!withRole && !isPublic) {
+      throw new Error(`La ruta ${routeOptions.method} ${routeOptions.url} no declara su política: use requireRole('member'|'editor') o config.public.`)
     }
-    const registro = routePolicies.get(app) ?? []
-    registro.push({ method: opciones.method, url: opciones.url, policy: publica ? 'public' : conRol.requiredRole, schema: opciones.schema ?? null })
-    routePolicies.set(app, registro)
+    const registryList = routePolicies.get(app) ?? []
+    registryList.push({ method: routeOptions.method, url: routeOptions.url, policy: isPublic ? 'public' : withRole.requiredRole, schema: routeOptions.schema ?? null })
+    routePolicies.set(app, registryList)
   })
 
-  return { provider, sessions, requireRole, registerRoutes: (instancia) => provider.routes(instancia) }
+  return { provider, sessions, requireRole, registerRoutes: (instanceRef) => provider.routes(instanceRef) }
 }

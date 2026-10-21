@@ -12,7 +12,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   const config = loadConfig()
   try {
     const r = await initializeDatabase(config, { seed: seedDefaults, log: (m) => console.log(m) })
-    console.log(`Base lista en ${config.dbFile} (versión ${r.hasta}).`)
+    console.log(`Base lista en ${config.dbFile} (versión ${r.toVersion}).`)
   } catch (error) {
     console.error(error.message)
     process.exitCode = 1

@@ -67,11 +67,11 @@ export function registerMessageRoutes (app, ctx) {
     return r.message
   })
 
-  for (const [accion, funcion, resumen] of [['close', closeMessage, 'Cerrar un mensaje'], ['reopen', reopenMessage, 'Reabrir un mensaje cerrado']]) {
-    app.post(`/messages/:id/${accion}`, {
+  for (const [verb, handlerFn, summaryText] of [['close', closeMessage, 'Cerrar un mensaje'], ['reopen', reopenMessage, 'Reabrir un mensaje cerrado']]) {
+    app.post(`/messages/:id/${verb}`, {
       onRequest: [requireRole('member')],
-      schema: { summary: resumen, params: idParams(), response: { 200: messageDetail } }
-    }, async (request) => withSpan(`message.${accion}`, { 'team.message_id': String(request.params.id), 'team.member_id': String(request.member.id) },
-      () => funcion({ db, events }, request.params.id, request.member.id)))
+      schema: { summary: summaryText, params: idParams(), response: { 200: messageDetail } }
+    }, async (request) => withSpan(`message.${verb}`, { 'team.message_id': String(request.params.id), 'team.member_id': String(request.member.id) },
+      () => handlerFn({ db, events }, request.params.id, request.member.id)))
   }
 }

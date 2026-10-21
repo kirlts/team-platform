@@ -18,7 +18,7 @@ import { createQueue } from '../queue/index.js'
 import { createWorker } from '../worker.js'
 import { run } from '../db/index.js'
 
-export const CLAVE = 'una clave larga de prueba 1' // 27 caracteres: cumple el mínimo de 15
+export const TEST_PASSWORD = 'una clave larga de prueba 1' // 27 caracteres: cumple el mínimo de 15
 
 /** Directorio temporal propio de la prueba, dentro de TMPDIR (el de la sesión, no /tmp). */
 export function tempDir () {
@@ -36,17 +36,17 @@ export function testConfig (dir, overrides = {}) {
 export const fakeAnalyze = async (bundle, { onProgress } = {}) => {
   onProgress?.({ percent: 50, phrase: 'Analizando' })
   const area = bundle.areas[0]
-  const plantilla = bundle.templates.find((t) => t.area_id === area.id)
+  const tpl = bundle.templates.find((t) => t.area_id === area.id)
   return {
     status: 'ok',
     proposal: {
       messages: [{
         area_id: area.id,
-        template_id: plantilla.id,
+        template_id: tpl.id,
         title: 'Mensaje de prueba',
         body: `${bundle.text}${bundle.attachments.map((a) => `\n[${a.kind}] ${a.extracted}`).join('')}`,
         // Los campos obligatorios de la plantilla elegida, llenados como lo haría el analizador real.
-        fields: Object.fromEntries(parseTemplate(plantilla.body_markdown).fields.filter((f) => f.required).map((f) => [f.name, 'dato'])),
+        fields: Object.fromEntries(parseTemplate(tpl.body_markdown).fields.filter((f) => f.required).map((f) => [f.name, 'dato'])),
         assignee_ids: bundle.members.slice(0, 1).map((m) => m.id),
         attachment_ids: bundle.attachments.map((a) => a.id),
         unit_ids: []
@@ -82,13 +82,13 @@ export async function makeEnv ({ config: overrides = {}, modules = {}, worker = 
     buildProviders: () => ({}), audioBudget: null, estimateAudioSeconds: null, warmTemplate: null, ...modules
   }
   // `clock`: reloj controlable para la identidad (esperas de login, vencimiento de sesión) sin dormir de verdad.
-  const reloj = { t: Date.now() }
-  const { app, domainEvents, identity } = await buildApp({ db, config, queue, events, modules: mods, ...(clock ? { now: () => reloj.t } : {}) })
+  const clockObj = { t: Date.now() }
+  const { app, domainEvents, identity } = await buildApp({ db, config, queue, events, modules: mods, ...(clock ? { now: () => clockObj.t } : {}) })
   const handlers = createPipeline({ db, config, queue, events, modules: mods })
   const w = createWorker({ db, queue, events, config, handlers })
   if (worker) w.start()
   return {
-    dir, config, db, events, queue, app, clock: reloj, domainEvents, identity, worker: w, modules: mods,
+    dir, config, db, events, queue, app, clock: clockObj, domainEvents, identity, worker: w, modules: mods,
     async close () {
       await w.stop()
       events.stopPolling()
@@ -100,7 +100,7 @@ export async function makeEnv ({ config: overrides = {}, modules = {}, worker = 
 }
 
 /** Alta directa de un miembro con contraseña (saltando la API). */
-export async function addMember (env, { email, name = email.split('@')[0], role = 'member', password = CLAVE } = {}) {
+export async function addMember (env, { email, name = email.split('@')[0], role = 'member', password = TEST_PASSWORD } = {}) {
   const id = createMember(env.db, { email, name, role })
   const hash = await hashPassword(password, env.config.identity.argon2)
   run(env.db, 'INSERT INTO credentials (member_id, password_hash, updated_at) VALUES (?, ?, ?)', id, hash, Date.now())
@@ -108,7 +108,7 @@ export async function addMember (env, { email, name = email.split('@')[0], role 
 }
 
 /** Inicia sesión por la API y devuelve la cabecera Cookie lista para usar. */
-export async function login (env, email, password = CLAVE) {
+export async function login (env, email, password = TEST_PASSWORD) {
   const res = await env.app.inject({ method: 'POST', url: '/api/auth/login', payload: { email, password } })
   if (res.statusCode !== 200) throw new Error(`login ${res.statusCode}: ${res.body}`)
   const c = res.cookies[0]
@@ -116,26 +116,26 @@ export async function login (env, email, password = CLAVE) {
 }
 
 /** Cuerpo multipart para `inject`, armado con FormData de Node. */
-export async function multipart (campos = {}, archivos = []) {
+export async function multipart (fieldValues = {}, filePaths = []) {
   const fd = new FormData()
-  for (const [k, v] of Object.entries(campos)) for (const valor of [].concat(v)) fd.append(k, valor)
-  for (const a of archivos) fd.append(a.field ?? 'files', new Blob([a.content], { type: a.type }), a.name)
+  for (const [k, v] of Object.entries(fieldValues)) for (const val of [].concat(v)) fd.append(k, val)
+  for (const a of filePaths) fd.append(a.field ?? 'files', new Blob([a.content], { type: a.type }), a.name)
   const res = new Response(fd)
   return { payload: Buffer.from(await res.arrayBuffer()), headers: { 'content-type': res.headers.get('content-type') } }
 }
 
-export async function postInput (env, cookie, campos, archivos = []) {
-  const { payload, headers } = await multipart(campos, archivos)
+export async function postInput (env, cookie, fieldValues, filePaths = []) {
+  const { payload, headers } = await multipart(fieldValues, filePaths)
   return env.app.inject({ method: 'POST', url: '/api/inputs', payload, headers: { ...headers, cookie, 'x-team-request': 'panel' } })
 }
 
 /** Espera a que `fn` devuelva un valor verdadero, reintentando sobre un evento de la cola (sin reloj fijo). */
 export async function until (fn, { timeoutMs = 5000, everyMs = 10 } = {}) {
-  const limite = Date.now() + timeoutMs
+  const cap = Date.now() + timeoutMs
   for (;;) {
     const v = await fn()
     if (v) return v
-    if (Date.now() > limite) throw new Error('until: se agotó el tiempo esperando la condición')
+    if (Date.now() > cap) throw new Error('until: se agotó el tiempo esperando la condición')
     await new Promise((r) => setTimeout(r, everyMs))
   }
 }
@@ -151,57 +151,57 @@ export async function openSse (env, url, { cookie, headers = {} } = {}) {
   }
   const controller = new AbortController()
   const res = await fetch(`${env.baseUrl}${url}`, { headers: { accept: 'text/event-stream', cookie, ...headers }, signal: controller.signal })
-  const eventos = []
+  const eventList = []
   const comments = []
-  let cerrado = false
-  const espera = []
-  const avisar = () => { for (const f of espera.splice(0)) f() }
+  let isClosed = false
+  const waitUntil = []
+  const notify = () => { for (const f of waitUntil.splice(0)) f() }
   if (res.status === 200) {
     ;(async () => {
       const decoder = new TextDecoder()
       let buffer = ''
       try {
-        for await (const trozo of res.body) {
-          buffer += decoder.decode(trozo, { stream: true })
-          let corte
-          while ((corte = buffer.indexOf('\n\n')) >= 0) {
-            const bloque = buffer.slice(0, corte)
-            buffer = buffer.slice(corte + 2)
-            const ev = { id: null, event: 'message', data: null }
-            for (const linea of bloque.split('\n')) {
-              if (linea.startsWith(':')) comments.push(linea.slice(1).trim())
-              else if (linea.startsWith('id: ')) ev.id = linea.slice(4)
-              else if (linea.startsWith('event: ')) ev.event = linea.slice(7)
-              else if (linea.startsWith('data: ')) ev.data = JSON.parse(linea.slice(6))
+        for await (const piece of res.body) {
+          buffer += decoder.decode(piece, { stream: true })
+          let cutPoint
+          while ((cutPoint = buffer.indexOf('\n\n')) >= 0) {
+            const block = buffer.slice(0, cutPoint)
+            buffer = buffer.slice(cutPoint + 2)
+            const evt = { id: null, event: 'message', data: null }
+            for (const line of block.split('\n')) {
+              if (line.startsWith(':')) comments.push(line.slice(1).trim())
+              else if (line.startsWith('id: ')) evt.id = line.slice(4)
+              else if (line.startsWith('event: ')) evt.event = line.slice(7)
+              else if (line.startsWith('data: ')) evt.data = JSON.parse(line.slice(6))
             }
-            if (ev.data !== null) eventos.push(ev)
+            if (evt.data !== null) eventList.push(evt)
           }
-          avisar()
+          notify()
         }
       } catch { /* conexión cortada */ }
-      cerrado = true
-      avisar()
+      isClosed = true
+      notify()
     })()
   } else {
-    cerrado = true
+    isClosed = true
   }
   return {
     status: res.status,
     headers: res.headers,
-    eventos,
+    eventList,
     comments,
-    get cerrado () { return cerrado },
+    get isClosed () { return isClosed },
     async next (n, timeoutMs = 3000) {
-      const limite = Date.now() + timeoutMs
-      while (eventos.length < n && !cerrado && Date.now() < limite) {
-        await new Promise((r) => { espera.push(r); setTimeout(r, 25) })
+      const cap = Date.now() + timeoutMs
+      while (eventList.length < n && !isClosed && Date.now() < cap) {
+        await new Promise((r) => { waitUntil.push(r); setTimeout(r, 25) })
       }
-      return eventos.slice(0, n)
+      return eventList.slice(0, n)
     },
     async untilClosed (timeoutMs = 3000) {
-      const limite = Date.now() + timeoutMs
-      while (!cerrado && Date.now() < limite) await new Promise((r) => { espera.push(r); setTimeout(r, 25) })
-      return cerrado
+      const cap = Date.now() + timeoutMs
+      while (!isClosed && Date.now() < cap) await new Promise((r) => { waitUntil.push(r); setTimeout(r, 25) })
+      return isClosed
     },
     close () { controller.abort() }
   }

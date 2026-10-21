@@ -16,15 +16,15 @@ import { fieldsSchema } from './template-file.js'
 // propiedades, así que no sirven para validar lo que viene de una persona o de un modelo (informe 03 §7.1).
 const ajv = new Ajv({ strict: true, allErrors: true, allowUnionTypes: true })
 
-const nombreCampo = (error) => error.instancePath.replace(/^\//, '') || error.params?.missingProperty || error.params?.additionalProperty || 'campo'
+const fieldNameOf = (error) => error.instancePath.replace(/^\//, '') || error.params?.missingProperty || error.params?.additionalProperty || 'campo'
 
-function textoDeError (error) {
-  const campo = nombreCampo(error)
+function errorText (error) {
+  const fieldName = fieldNameOf(error)
   if (error.keyword === 'required') return `falta el campo «${error.params.missingProperty}»`
-  if (error.keyword === 'minLength') return `el campo «${campo}» es obligatorio`
+  if (error.keyword === 'minLength') return `el campo «${fieldName}» es obligatorio`
   if (error.keyword === 'additionalProperties') return `el campo «${error.params.additionalProperty}» no existe en la plantilla`
-  if (error.keyword === 'type') return `el campo «${campo}» debe ser texto`
-  return `el campo «${campo}» no es válido`
+  if (error.keyword === 'type') return `el campo «${fieldName}» debe ser texto`
+  return `el campo «${fieldName}» no es válido`
 }
 
 /** Valida y publica. Devuelve los ids de los mensajes creados. */
@@ -37,52 +37,52 @@ export function publishProposal ({ db, events, now = Date.now }, { inputId, memb
 
     if (!Array.isArray(proposal.messages) || proposal.messages.length === 0) throw unprocessable('La propuesta necesita al menos un mensaje.', 'messages_empty')
 
-    const validadores = new Map() // plantilla → validador de sus campos, compilado una vez por publicación
-    const adjuntosDelInput = new Set(all(db, 'SELECT id FROM attachments WHERE input_id = ?', inputId).map((a) => a.id))
-    const miembros = new Set(all(db, 'SELECT id FROM members').map((m) => m.id))
+    const validators = new Map() // plantilla → validador de sus campos, compilado una vez por publicación
+    const inputAttachmentIds = new Set(all(db, 'SELECT id FROM attachments WHERE input_id = ?', inputId).map((a) => a.id))
+    const memberRows = new Set(all(db, 'SELECT id FROM members').map((m) => m.id))
     const t = now()
-    const creados = []
+    const createdIds = []
 
     proposal.messages.forEach((m, i) => {
-      const donde = `Mensaje ${i + 1}`
-      if (typeof m.title !== 'string' || m.title.trim() === '') throw unprocessable(`${donde}: el título es obligatorio.`, 'message_invalid')
-      if (typeof m.body !== 'string' || m.body.trim() === '') throw unprocessable(`${donde}: el texto es obligatorio.`, 'message_invalid')
+      const scope = `Mensaje ${i + 1}`
+      if (typeof m.title !== 'string' || m.title.trim() === '') throw unprocessable(`${scope}: el título es obligatorio.`, 'message_invalid')
+      if (typeof m.body !== 'string' || m.body.trim() === '') throw unprocessable(`${scope}: el texto es obligatorio.`, 'message_invalid')
       const area = get(db, 'SELECT id FROM areas WHERE id = ? AND deleted_at IS NULL', m.area_id)
-      if (!area) throw unprocessable(`${donde}: el área elegida no existe.`, 'area_invalid')
+      if (!area) throw unprocessable(`${scope}: el área elegida no existe.`, 'area_invalid')
       // Sin plantilla elegida (el emisor cambió el área en la propuesta) se usa la primera vigente del área.
-      const plantilla = m.template_id === null || m.template_id === undefined ? defaultTemplateOf(db, m.area_id) : loadTemplate(db, m.template_id)
-      if ((m.template_id !== null && m.template_id !== undefined && !plantilla) || (plantilla && plantilla.area_id !== m.area_id)) {
-        throw unprocessable(`${donde}: la plantilla elegida no existe en esa área.`, 'template_invalid')
+      const tpl = m.template_id === null || m.template_id === undefined ? defaultTemplateOf(db, m.area_id) : loadTemplate(db, m.template_id)
+      if ((m.template_id !== null && m.template_id !== undefined && !tpl) || (tpl && tpl.area_id !== m.area_id)) {
+        throw unprocessable(`${scope}: la plantilla elegida no existe en esa área.`, 'template_invalid')
       }
       // Los campos opcionales sin dato pueden venir como null (así los entrega el analizador): equivalen a ausentes.
-      const campos = Object.fromEntries(Object.entries(m.fields ?? {}).filter(([, v]) => v !== null))
-      if (plantilla) {
-        if (!validadores.has(plantilla.id)) validadores.set(plantilla.id, ajv.compile(fieldsSchema(plantilla.parsed.fields)))
-        const validarCampos = validadores.get(plantilla.id)
-        if (!validarCampos(campos)) {
-          throw unprocessable(`${donde}: ${validarCampos.errors.map(textoDeError).join('; ')}.`, 'fields_invalid')
+      const fieldValues = Object.fromEntries(Object.entries(m.fields ?? {}).filter(([, v]) => v !== null))
+      if (tpl) {
+        if (!validators.has(tpl.id)) validators.set(tpl.id, ajv.compile(fieldsSchema(tpl.parsed.fields)))
+        const validateFields = validators.get(tpl.id)
+        if (!validateFields(fieldValues)) {
+          throw unprocessable(`${scope}: ${validateFields.errors.map(errorText).join('; ')}.`, 'fields_invalid')
         }
       }
-      const asignados = [...new Set(m.assignee_ids ?? [])]
-      for (const id of asignados) if (!miembros.has(id)) throw unprocessable(`${donde}: el miembro ${id} no existe.`, 'assignee_invalid')
-      const adjuntos = [...new Set(m.attachment_ids ?? [])]
-      for (const id of adjuntos) if (!adjuntosDelInput.has(id)) throw unprocessable(`${donde}: el adjunto ${id} no pertenece al input.`, 'attachment_invalid')
+      const assigned = [...new Set(m.assignee_ids ?? [])]
+      for (const id of assigned) if (!memberRows.has(id)) throw unprocessable(`${scope}: el miembro ${id} no existe.`, 'assignee_invalid')
+      const atts = [...new Set(m.attachment_ids ?? [])]
+      for (const id of atts) if (!inputAttachmentIds.has(id)) throw unprocessable(`${scope}: el adjunto ${id} no pertenece al input.`, 'attachment_invalid')
 
       const r = run(db, `INSERT INTO messages (input_id, area_id, template_id, author_id, title, body, fields_json, status, created_at)
                          VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?)`,
-      inputId, m.area_id, plantilla?.id ?? null, memberId, m.title.trim(), m.body, JSON.stringify(campos), t)
+      inputId, m.area_id, tpl?.id ?? null, memberId, m.title.trim(), m.body, JSON.stringify(fieldValues), t)
       const messageId = Number(r.lastInsertRowid)
-      for (const id of asignados) run(db, 'INSERT INTO message_assignees (message_id, member_id) VALUES (?, ?)', messageId, id)
-      adjuntos.forEach((id, posicion) => run(db, 'INSERT INTO message_attachments (message_id, attachment_id, position) VALUES (?, ?, ?)', messageId, id, posicion))
-      creados.push(messageId)
+      for (const id of assigned) run(db, 'INSERT INTO message_assignees (message_id, member_id) VALUES (?, ?)', messageId, id)
+      atts.forEach((id, ordinal) => run(db, 'INSERT INTO message_attachments (message_id, attachment_id, position) VALUES (?, ?, ?)', messageId, id, ordinal))
+      createdIds.push(messageId)
     })
 
     transitionInput(db, inputId, 'published', { now })
-    audit(db, { memberId, action: 'input.publish', entity: 'input', entityId: inputId, detail: { mensajes: creados }, now })
+    audit(db, { memberId, action: 'input.publish', entity: 'input', entityId: inputId, detail: { msgRows: createdIds }, now })
     // Un aviso por mensaje nuevo, con la forma que consume la campana del panel.
-    for (const [i, id] of creados.entries()) {
+    for (const [i, id] of createdIds.entries()) {
       events.publish({ kind: 'message', data: { message_id: id, title: proposal.messages[i].title.trim(), author_id: memberId, input_id: inputId } })
     }
-    return creados
+    return createdIds
   })
 }

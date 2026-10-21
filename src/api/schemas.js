@@ -11,17 +11,17 @@
 
 const id = { type: 'string' }
 // fast-json-stringify no convierte número a texto en una unión de tipos: un id que puede faltar es texto anulable.
-const idNulo = { type: 'string', nullable: true }
-const textoNulo = { type: 'string', nullable: true }
-const entero = { type: 'integer' }
+const nullableId = { type: 'string', nullable: true }
+const nullableText = { type: 'string', nullable: true }
+const intVar = { type: 'integer' }
 
 /** Id en una entrada: acepta "12" o 12; Ajv lo convierte a entero y rechaza lo que no lo es. */
 export const idIn = { type: 'integer', minimum: 1 }
 
-export const idParams = (nombre = 'id') => ({
+export const idParams = (nameValue = 'id') => ({
   type: 'object',
-  required: [nombre],
-  properties: { [nombre]: idIn }
+  required: [nameValue],
+  properties: { [nameValue]: idIn }
 })
 
 export const errorSchema = {
@@ -42,7 +42,7 @@ export const member = {
 
 export const templateSummary = {
   type: 'object',
-  properties: { id, area_id: id, name: { type: 'string' }, description: { type: 'string' }, updated_at: { type: 'string' }, deleted_at: textoNulo }
+  properties: { id, area_id: id, name: { type: 'string' }, description: { type: 'string' }, updated_at: { type: 'string' }, deleted_at: nullableText }
 }
 
 export const template = {
@@ -53,15 +53,15 @@ export const template = {
 export const area = {
   type: 'object',
   properties: {
-    id, title: { type: 'string' }, description: { type: 'string' }, position: entero, deleted_at: textoNulo,
-    open_count: entero, unresolved_count: entero, template_count: entero,
+    id, title: { type: 'string' }, description: { type: 'string' }, position: intVar, deleted_at: nullableText,
+    open_count: intVar, unresolved_count: intVar, template_count: intVar,
     templates: { type: 'array', items: templateSummary }
   }
 }
 
 const attachmentSummary = {
   type: 'object',
-  properties: { id, input_id: id, kind: { type: 'string' }, name: { type: 'string' }, mime: { type: 'string' }, size: entero }
+  properties: { id, input_id: id, kind: { type: 'string' }, name: { type: 'string' }, mime: { type: 'string' }, size: intVar }
 }
 
 export const reply = {
@@ -72,15 +72,15 @@ export const reply = {
 export const messageCard = {
   type: 'object',
   properties: {
-    id, input_id: idNulo, area_id: id, template_id: idNulo, author_id: id,
+    id, input_id: nullableId, area_id: id, template_id: nullableId, author_id: id,
     title: { type: 'string' }, body: { type: 'string' },
     fields: { type: 'object', additionalProperties: true },
     status: { type: 'string', enum: ['open', 'answered', 'closed'] },
     assignee_ids: { type: 'array', items: id },
     attachments: { type: 'array', items: attachmentSummary },
-    reply_count: entero,
+    reply_count: intVar,
     last_reply: { ...reply, nullable: true },
-    created_at: { type: 'string' }, closed_at: textoNulo
+    created_at: { type: 'string' }, closed_at: nullableText
   }
 }
 
@@ -93,7 +93,7 @@ const proposalMessage = {
   type: 'object',
   additionalProperties: true,
   properties: {
-    area_id: id, template_id: idNulo, title: { type: 'string' }, body: { type: 'string' },
+    area_id: id, template_id: nullableId, title: { type: 'string' }, body: { type: 'string' },
     fields: { type: 'object', additionalProperties: true },
     assignee_ids: { type: 'array', items: id }, attachment_ids: { type: 'array', items: id }, unit_ids: { type: 'array', items: id }
   }
@@ -102,15 +102,15 @@ const proposalMessage = {
 export const inputView = {
   type: 'object',
   properties: {
-    id, author_id: id, text: { type: 'string' }, status: { type: 'string' }, error: textoNulo, error_code: textoNulo,
-    created_at: { type: 'string' }, job_id: idNulo,
+    id, author_id: id, text: { type: 'string' }, status: { type: 'string' }, error: nullableText, error_code: nullableText,
+    created_at: { type: 'string' }, job_id: nullableId,
     attachments: {
       type: 'array',
       items: { type: 'object', properties: { ...attachmentSummary.properties, sha256: { type: 'string' }, extracted: { type: 'boolean' } } }
     },
     job: {
       type: ['object', 'null'],
-      properties: { id, status: { type: 'string' }, attempts: entero, percent: { type: ['integer', 'null'] }, phrase: textoNulo, last_error: textoNulo }
+      properties: { id, status: { type: 'string' }, attempts: intVar, percent: { type: ['integer', 'null'] }, phrase: nullableText, last_error: nullableText }
     },
     units: { type: 'array', items: { type: 'object', properties: { id, text: { type: 'string' } } } },
     proposal: {

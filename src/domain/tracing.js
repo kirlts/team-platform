@@ -11,10 +11,10 @@
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-const ruta = new URL('../telemetry/index.js', import.meta.url)
-const impl = existsSync(fileURLToPath(ruta)) ? await import(ruta.href) : null
+const routePath = new URL('../telemetry/index.js', import.meta.url)
+const impl = existsSync(fileURLToPath(routePath)) ? await import(routePath.href) : null
 
-const SPAN_VACIO = Object.freeze({ setAttribute () {}, setAttributes () {}, addEvent () {}, setStatus () {}, recordException () {} })
+const EMPTY_SPAN = Object.freeze({ setAttribute () {}, setAttributes () {}, addEvent () {}, setStatus () {}, recordException () {} })
 
 export const telemetryAvailable = Boolean(impl)
 
@@ -23,7 +23,7 @@ export async function initTelemetry (deps) {
 }
 
 export function withSpan (name, attrs, fn) {
-  return impl?.withSpan ? impl.withSpan(name, attrs, fn) : fn(SPAN_VACIO)
+  return impl?.withSpan ? impl.withSpan(name, attrs, fn) : fn(EMPTY_SPAN)
 }
 
 export function traceOfJob (db, jobId) {

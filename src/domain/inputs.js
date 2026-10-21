@@ -16,7 +16,7 @@ import { conflict, notFound } from './errors.js'
 
 export const INPUT_STATUSES = ['queued', 'extracting', 'analyzing', 'proposed', 'published', 'failed', 'cancelled']
 
-const TRANSICIONES = {
+const TRANSITIONS = {
   queued: ['extracting', 'analyzing', 'failed', 'cancelled'],
   extracting: ['analyzing', 'queued', 'failed', 'cancelled'],
   analyzing: ['proposed', 'queued', 'failed', 'cancelled'],
@@ -30,11 +30,11 @@ export const isTerminalInput = (status) => ['proposed', 'published', 'failed', '
 
 /** Cambia el estado verificando la tabla de transiciones. Dentro de una transacción. */
 export function transitionInput (db, id, to, { error = null, errorCode = null, now = Date.now } = {}) {
-  const actual = get(db, 'SELECT status FROM inputs WHERE id = ?', id)
-  if (!actual) throw notFound('El input no existe.')
-  if (actual.status === to) return false
-  if (!TRANSICIONES[actual.status].includes(to)) {
-    throw conflict(`El input está «${actual.status}» y no puede pasar a «${to}».`, 'invalid_transition')
+  const current = get(db, 'SELECT status FROM inputs WHERE id = ?', id)
+  if (!current) throw notFound('El input no existe.')
+  if (current.status === to) return false
+  if (!TRANSITIONS[current.status].includes(to)) {
+    throw conflict(`El input está «${current.status}» y no puede pasar a «${to}».`, 'invalid_transition')
   }
   run(db, 'UPDATE inputs SET status = ?, error = ?, error_code = ?, updated_at = ? WHERE id = ?', to, error, errorCode, now(), id)
   return true
@@ -60,18 +60,18 @@ export function contentHash ({ authorId, text, fileHashes, links }) {
 export function submitInput ({ db, queue, events, now = Date.now }, { authorId, text, files, links }) {
   const hash = contentHash({ authorId, text, fileHashes: files.map((f) => f.sha256), links })
   return events.transaction(() => {
-    const existente = get(db, 'SELECT * FROM inputs WHERE content_hash = ?', hash)
-    if (existente) {
-      const trabajo = queue.latestJobForInput(existente.id)
-      if (existente.status === 'failed' || existente.status === 'cancelled') {
+    const existing = get(db, 'SELECT * FROM inputs WHERE content_hash = ?', hash)
+    if (existing) {
+      const jobRow = queue.latestJobForInput(existing.id)
+      if (existing.status === 'failed' || existing.status === 'cancelled') {
         // El mismo contenido enviado otra vez tras un fallo o una cancelación: se reintenta sobre la misma fila.
-        transitionInput(db, existente.id, 'queued', { now })
-        audit(db, { memberId: authorId, action: 'input.resubmit', entity: 'input', entityId: existente.id, now })
-        const jobId = queue.enqueue('analyze', { input_id: existente.id }, { inputId: existente.id })
+        transitionInput(db, existing.id, 'queued', { now })
+        audit(db, { memberId: authorId, action: 'input.resubmit', entity: 'input', entityId: existing.id, now })
+        const jobId = queue.enqueue('analyze', { input_id: existing.id }, { inputId: existing.id })
         events.publishForJob(jobId, { kind: 'progress', percent: 0, phrase: 'En cola' })
-        return { input: get(db, 'SELECT * FROM inputs WHERE id = ?', existente.id), jobId, created: false, restarted: true }
+        return { input: get(db, 'SELECT * FROM inputs WHERE id = ?', existing.id), jobId, created: false, restarted: true }
       }
-      return { input: existente, jobId: trabajo?.id ?? null, created: false, restarted: false }
+      return { input: existing, jobId: jobRow?.id ?? null, created: false, restarted: false }
     }
     const t = now()
     const r = run(db, 'INSERT INTO inputs (author_id, text, content_hash, status, created_at, updated_at) VALUES (?, ?, ?, \'queued\', ?, ?)', authorId, text, hash, t, t)
@@ -84,29 +84,29 @@ export function submitInput ({ db, queue, events, now = Date.now }, { authorId, 
       run(db, 'INSERT INTO attachments (input_id, kind, name, path, mime, size, sha256) VALUES (?, \'link\', ?, ?, \'text/uri-list\', 0, ?)',
         inputId, url, url, createHash('sha256').update(url).digest('hex'))
     }
-    audit(db, { memberId: authorId, action: 'input.create', entity: 'input', entityId: inputId, detail: { adjuntos: files.length + links.length }, now })
+    audit(db, { memberId: authorId, action: 'input.create', entity: 'input', entityId: inputId, detail: { atts: files.length + links.length }, now })
     const jobId = queue.enqueue('analyze', { input_id: inputId }, { inputId })
     events.publishForJob(jobId, { kind: 'progress', percent: 0, phrase: 'En cola' })
     return { input: get(db, 'SELECT * FROM inputs WHERE id = ?', inputId), jobId, created: true, restarted: false }
   })
 }
 
-const adjuntoVista = (a) => ({ id: a.id, input_id: a.input_id, kind: a.kind, name: a.name, mime: a.mime, size: a.size, sha256: a.sha256, extracted: a.extracted_at !== null && a.extracted_at !== undefined })
+const attachmentView = (a) => ({ id: a.id, input_id: a.input_id, kind: a.kind, name: a.name, mime: a.mime, size: a.size, sha256: a.sha256, extracted: a.extracted_at !== null && a.extracted_at !== undefined })
 
 /** Ids de la propuesta como texto: el contrato de la API expone todo id como cadena. */
-function propuestaVista (payload) {
+function proposalView (payload) {
   const id = (v) => (v === null || v === undefined ? null : String(v))
-  const lista = (v) => (Array.isArray(v) ? v.map(String) : [])
+  const listValue = (v) => (Array.isArray(v) ? v.map(String) : [])
   return {
     messages: (payload.messages ?? []).map((m) => ({
       ...m,
       area_id: id(m.area_id),
       template_id: id(m.template_id),
-      assignee_ids: lista(m.assignee_ids),
-      attachment_ids: lista(m.attachment_ids),
-      unit_ids: lista(m.unit_ids)
+      assignee_ids: listValue(m.assignee_ids),
+      attachment_ids: listValue(m.attachment_ids),
+      unit_ids: listValue(m.unit_ids)
     })),
-    discarded: (payload.discarded ?? []).map((d) => ({ unit_ids: lista(d.unit_ids), reason: d.reason ?? '' }))
+    discarded: (payload.discarded ?? []).map((d) => ({ unit_ids: listValue(d.unit_ids), reason: d.reason ?? '' }))
   }
 }
 
@@ -119,11 +119,11 @@ export function getInputView ({ db, queue, events }, inputId, memberId) {
 }
 
 export function buildInputView ({ db, queue, events }, input) {
-  const adjuntos = all(db, 'SELECT * FROM attachments WHERE input_id = ? ORDER BY id', input.id)
-  const trabajo = queue.latestJobForInput(input.id)
-  const avance = trabajo ? events.lastProgress(trabajo.id) : null
-  const propuesta = get(db, 'SELECT * FROM proposals WHERE input_id = ?', input.id)
-  const mensajes = input.status === 'published' ? all(db, 'SELECT id FROM messages WHERE input_id = ? ORDER BY id', input.id).map((m) => m.id) : []
+  const atts = all(db, 'SELECT * FROM attachments WHERE input_id = ? ORDER BY id', input.id)
+  const jobRow = queue.latestJobForInput(input.id)
+  const progressRow = jobRow ? events.lastProgress(jobRow.id) : null
+  const proposalObj = get(db, 'SELECT * FROM proposals WHERE input_id = ?', input.id)
+  const msgRows = input.status === 'published' ? all(db, 'SELECT id FROM messages WHERE input_id = ? ORDER BY id', input.id).map((m) => m.id) : []
   return {
     id: input.id,
     author_id: input.author_id,
@@ -132,14 +132,14 @@ export function buildInputView ({ db, queue, events }, input) {
     error: input.error,
     error_code: input.error_code,
     created_at: iso(input.created_at),
-    job_id: trabajo?.id ?? null,
-    attachments: adjuntos.map(adjuntoVista),
-    job: trabajo
-      ? { id: trabajo.id, status: trabajo.status, attempts: trabajo.attempts, percent: avance?.percent ?? null, phrase: avance?.phrase ?? null, last_error: trabajo.last_error }
+    job_id: jobRow?.id ?? null,
+    attachments: atts.map(attachmentView),
+    job: jobRow
+      ? { id: jobRow.id, status: jobRow.status, attempts: jobRow.attempts, percent: progressRow?.percent ?? null, phrase: progressRow?.phrase ?? null, last_error: jobRow.last_error }
       : null,
-    units: propuesta ? parseJson(propuesta.units_json, []).map((u) => ({ id: String(u.id), text: u.text })) : [],
-    proposal: propuesta ? propuestaVista(parseJson(propuesta.payload_json, {})) : null,
-    message_ids: mensajes
+    units: proposalObj ? parseJson(proposalObj.units_json, []).map((u) => ({ id: String(u.id), text: u.text })) : [],
+    proposal: proposalObj ? proposalView(parseJson(proposalObj.payload_json, {})) : null,
+    message_ids: msgRows
   }
 }
 
@@ -149,8 +149,8 @@ export function listInputs (ctx, memberId, { status = null, limit, offset }) {
   const cond = status ? 'WHERE author_id = ? AND status = ?' : 'WHERE author_id = ?'
   const params = status ? [memberId, status] : [memberId]
   const total = get(db, `SELECT COUNT(*) AS n FROM inputs ${cond}`, ...params).n
-  const filas = all(db, `SELECT * FROM inputs ${cond} ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`, ...params, limit, offset)
-  return { total, items: filas.map((i) => buildInputView(ctx, i)) }
+  const rows = all(db, `SELECT * FROM inputs ${cond} ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`, ...params, limit, offset)
+  return { total, items: rows.map((i) => buildInputView(ctx, i)) }
 }
 
 /**
@@ -180,12 +180,12 @@ export function cancelInput ({ db, queue, events, now = Date.now }, inputId, mem
     if (!input || input.author_id !== memberId) throw notFound('El input no existe.')
     if (input.status === 'published') throw conflict('El input ya se publicó; sus mensajes se cierran, no se cancelan.', 'already_published')
     if (input.status === 'cancelled') throw conflict('El input ya está cancelado.', 'already_cancelled')
-    const trabajos = queue.cancelForInput(inputId)
+    const jobList = queue.cancelForInput(inputId)
     transitionInput(db, inputId, 'cancelled', { now })
     audit(db, { memberId, action: 'input.cancel', entity: 'input', entityId: inputId, now })
-    for (const jobId of trabajos) {
+    for (const jobId of jobList) {
       events.publishForJob(jobId, { kind: 'done', data: { status: 'cancelled' } })
     }
-    return { input_id: inputId, cancelled_jobs: trabajos }
+    return { input_id: inputId, cancelled_jobs: jobList }
   })
 }

@@ -572,6 +572,13 @@ Debe decir `OK Último envío: estado proposed, adjuntos: audio` con al menos un
 | H-1406 | `analysis.error.publish_blocked` estaba en segunda persona («revísala y publícala») | UD-050 | `main`: el texto quedó en infinitivo; la guardia `ui-voice.test.ts` ya cubre el caso (`Revísala y publícala` falla por persona) |
 | H-1407 | La perilla `auto_publish` no tenía control: `GET/PATCH /api/settings/publication` existía y el panel no lo usaba | UD-070 | `wt-inicio-maqueta`: sección «Publicación» en Configuración, sólo para el Editor, con «Automática» y «Manual»; prueba de navegador del cambio y de que un miembro no la ve y el servidor lo rechaza (403) |
 
+## Barra superior (2026-10-21)
+
+| # | Hallazgo | Origen | Estado |
+|---|---|---|---|
+| H-2000 | El filtro «para mí» de Mensajes y los enlaces que lo usaban sólo conocen los asignados; el conteo de «respondidos» de `GET /api/messages/summary` incluye también los emitidos por mí con respuestas (5 contra 4 en los datos de ejemplo para Ana) | UD-028 | `wt-barra-superior`: el desplegable de la barra usa `noticeState` sobre la lista y coincide con la cifra; el enlace del pie sigue filtrando por asignados. Abierto: un filtro de servidor «me concierne» |
+| H-2001 | `AreaChips` (plegado a «+N») quedó sin uso al retirar la franja de Inicio | UD-100 | abierto: su prueba sigue y la pieza puede borrarse cuando Inicio termine de rehacerse |
+
 ## Restauración y identidad por cabecera en el VPS (2026-10-21)
 
 | # | Hallazgo | Origen | Estado |

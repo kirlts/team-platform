@@ -133,7 +133,8 @@ function measureInPage({ lanes, withBreak }) {
       })
       .map((el) => Math.round(rect(el).bottom + window.scrollY)),
   )
-  const hidden = getComputedStyle(document.documentElement).overflowY === 'hidden' || getComputedStyle(document.body).overflowY === 'hidden'
+  // An open dialog locks the page's scroll on purpose (it is a layer over the page, not the page); without one, hidden overflow is a failure.
+  const hidden = !document.querySelector('[role="dialog"]') && (getComputedStyle(document.documentElement).overflowY === 'hidden' || getComputedStyle(document.body).overflowY === 'hidden')
   return { doc: se.scrollHeight, win: innerHeight, mainOver, mainBox: main ? main.clientHeight : 0, below, carriles, hidden, wide: se.scrollWidth - se.clientWidth, withBreak }
 }
 
@@ -153,6 +154,8 @@ async function sendInput(page) {
     { name: 'feedback.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: Buffer.from('ejemplo') },
   ])
   await page.getByRole('button', { name: 'Enviar' }).first().click()
+  // The sends are folded behind one control (UD-030); the review opens in a dialog over the page and stays open while it is measured.
+  await page.getByTestId('tray-control').click()
   await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
   await page.waitForTimeout(600)
 }
@@ -169,14 +172,15 @@ async function sendTen(page) {
     await bar.fill(`Envío ${i} de la serie: revisar el punto ${i} y avisar al equipo.`)
     await page.getByRole('button', { name: 'Enviar' }).first().click()
     if (i === 1) {
-      await page.getByRole('region', { name: 'Envíos', exact: true }).waitFor()
+      await page.getByTestId('tray-control').waitFor()
       await page.waitForTimeout(500)
       base = await measure()
     }
   }
   // They finish at staggered times: wait until the tray holds the ten and the last ones are ready.
-  await page.getByRole('region', { name: 'Envíos', exact: true }).getByText(/\d+ envíos/).waitFor()
-  await page.waitForTimeout(2500)
+  // Lists come back multiplied in the amplified run, so the count is not compared: the sends are done when none is still being analyzed.
+  await page.waitForFunction(() => /para revisar/.test(document.querySelector('[data-testid="tray-control"]')?.textContent ?? '') && !/en análisis/.test(document.querySelector('[data-testid="tray-control"]')?.textContent ?? ''), null, { timeout: 40000 })
+  await page.waitForTimeout(800)
   return base
 }
 

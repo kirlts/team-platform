@@ -79,3 +79,8 @@ export const Pause = make(['M7 4.5v11', 'M13 4.5v11'])
 export const UserPlus = make(['M2.8 16c0-2.8 2.3-4.6 5.2-4.6s5.2 1.8 5.2 4.6', 'M15 6.5v5', 'M12.5 9h5'], () => <circle cx="8" cy="7" r="3" />)
 export const Lock = make(['M5 9h10v7.5H5V9Z', 'M7 9V6.5a3 3 0 0 1 6 0V9'])
 export const Sparkles = make(['M9 3.2c.5 3.4 2.2 5.1 5.6 5.6-3.4.5-5.1 2.2-5.6 5.6-.5-3.4-2.2-5.1-5.6-5.6C6.8 8.3 8.5 6.6 9 3.2Z', 'M15.4 12.6c.2 1.3.8 1.9 2.1 2.1-1.3.2-1.9.8-2.1 2.1-.2-1.3-.8-1.9-2.1-2.1 1.3-.2 1.9-.8 2.1-2.1Z'])
+
+// Priority marks (UD-029): the shape also says the priority, so the color is never the only signal.
+export const AlertTriangle = make(['M10 3.4 17.2 16H2.8L10 3.4Z', 'M10 8.2v3.6', 'M10 13.9v.1'])
+export const Clock = make(['M10 3.2a6.8 6.8 0 1 0 0 13.6 6.8 6.8 0 0 0 0-13.6Z', 'M10 6.4V10l2.4 1.6'])
+export const InfoDot = make(['M10 3.2a6.8 6.8 0 1 0 0 13.6 6.8 6.8 0 0 0 0-13.6Z', 'M10 9v4.4', 'M10 6.7v.1'])

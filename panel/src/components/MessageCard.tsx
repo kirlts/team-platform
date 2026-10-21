@@ -4,14 +4,20 @@ import { Button } from '@/components/ui/button'
 import { useFormat, useT } from '@/i18n'
 import { attachmentUrl, replyAttachmentUrl } from '@/lib/api'
 import { mainAttachment } from '@/lib/media'
+import { messageTone } from '@/lib/priority'
 import { useMe, useSetClosed } from '@/lib/queries'
+import { cn } from '@/lib/utils'
 import type { Message } from '@/lib/types'
 import { Avatar } from './Avatar'
 import { useLookups } from './lookups'
 import { MediaKinds } from './MediaKinds'
+import { ToneMark } from './NotifyBadge'
 import { Recipients } from './Recipients'
 import { AreaBadge, StatusBadge } from './StatusBadge'
 import { Thumb } from './Thumb'
+
+/** The edge of a row that affects me, in the color of its priority (UD-029); the mark beside the area says it with a shape and a word. */
+const EDGE = { red: 'shadow-[inset_4px_0_0_var(--color-tone-red-bg)]', yellow: 'shadow-[inset_4px_0_0_var(--color-tone-yellow-bg)]', blue: 'shadow-[inset_4px_0_0_var(--color-tone-blue-bg)]' } as const
 
 /** Recipients drawn before the rest fold into «+N». */
 const RECIPIENTS_SHOWN = 2
@@ -32,6 +38,7 @@ export function MessageCard({ message, variant = 'message' }: { message: Message
   const setClosed = useSetClosed()
 
   const closed = message.status === 'closed'
+  const tone = messageTone(message, me?.id ?? '')
   const isAuthor = me?.id === message.author_id
   const reply = variant === 'reply' ? message.last_reply : null
   // Reply row: the author, the date, the media and the thumbnail are the reply's.
@@ -39,10 +46,11 @@ export function MessageCard({ message, variant = 'message' }: { message: Message
   const main = mainAttachment(from.attachments)
 
   return (
-    <article className="relative flex flex-col gap-2 border-b border-line px-4 py-3 last:border-b-0 hover:bg-glass-edge">
+    <article data-affects-me={tone ?? undefined} className={cn('relative flex flex-col gap-2 border-b border-line px-4 py-3 last:border-b-0 hover:bg-glass-edge', tone && EDGE[tone])}>
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3">
-        <span className="flex">
+        <span className="flex flex-wrap items-center gap-1.5">
           <AreaBadge title={areaTitle(message.area_id)} />
+          {tone && <ToneMark tone={tone} />}
         </span>
         <span data-repeat-ok="person" className="inline-flex max-w-[11rem] items-center gap-1.5 text-xs leading-tight text-muted">
           <Avatar name={memberName(from.author_id) || '?'} size={22} />

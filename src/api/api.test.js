@@ -606,3 +606,36 @@ test('loadModules arma los proveedores con lo guardado en Configuración sobre e
   assert.throws(() => moduleSet.buildProviders({ text: { provider: 'inexistente' } }), /desconocido/)
   await env.close()
 })
+
+// ---------------------------------------------------------------- resumen de lo que afecta (UD-028)
+test('UD-028 · GET /messages/summary: cada mensaje cae en una sola prioridad, el cerrado no cuenta y los abiertos se cuentan por área', async () => {
+  const env = await team({ worker: true })
+  const { idea, questionArea, m2 } = await withMessages(env) // Ana (2) emitió m1 y m2; Beto (3) emitió m3. m1 → Beto; m2 → Beto y Ana; m3 → Ed (1)
+  const summary = async (cookie) => (await env.api('GET', '/messages/summary', cookie)).json()
+  const areaRow = (s, area) => s.areas.find((a) => a.area_id === String(area.id))
+
+  // Todo abierto: lo asignado es rojo; emitir sin respuestas no cuenta.
+  assert.deepEqual((await summary(env.c.beto)).mine, { red: 2, yellow: 0, blue: 0, total: 2 })
+  assert.deepEqual((await summary(env.c.ana)).mine, { red: 1, yellow: 0, blue: 0, total: 1 })
+  assert.deepEqual((await summary(env.c.ed)).mine, { red: 1, yellow: 0, blue: 0, total: 1 })
+  assert.deepEqual(areaRow(await summary(env.c.ana), questionArea), { area_id: String(questionArea.id), open: 2, mine_open: 1 })
+  assert.deepEqual(areaRow(await summary(env.c.ed), idea), { area_id: String(idea.id), open: 1, mine_open: 0 })
+
+  // Respuestas: lo asignado y respondido baja a amarillo; lo emitido por mí y respondido es azul.
+  const m1 = (await env.api('GET', `/messages?area=${idea.id}`, env.c.ana)).json().items[0].id
+  const m3 = (await env.api('GET', `/messages?for=1`, env.c.ana)).json().items[0].id
+  await env.api('POST', `/messages/${m1}/replies`, env.c.beto, { body: 'listo' })
+  await env.api('POST', `/messages/${m3}/replies`, env.c.ana, { body: 'visto' })
+  assert.deepEqual((await summary(env.c.beto)).mine, { red: 1, yellow: 1, blue: 1, total: 3 })
+  assert.deepEqual((await summary(env.c.ana)).mine, { red: 1, yellow: 0, blue: 1, total: 2 })
+  assert.deepEqual((await summary(env.c.ed)).mine, { red: 0, yellow: 1, blue: 0, total: 1 })
+  assert.equal(areaRow(await summary(env.c.ana), idea).open, 0) // lo respondido ya no es «abierto»
+  assert.equal(areaRow(await summary(env.c.ana), questionArea).open, 1)
+
+  // Cerrar saca el mensaje de la cuenta de todos.
+  await env.api('POST', `/messages/${m2}/close`, env.c.ed)
+  assert.deepEqual((await summary(env.c.beto)).mine, { red: 0, yellow: 1, blue: 1, total: 2 })
+  assert.equal(areaRow(await summary(env.c.beto), questionArea).open, 0)
+  assert.equal((await env.app.inject({ method: 'GET', url: '/api/messages/summary' })).statusCode, 401) // exige sesión
+  await env.close()
+})

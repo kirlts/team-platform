@@ -59,6 +59,14 @@ export const area = {
   }
 }
 
+export const messageSummary = {
+  type: 'object',
+  properties: {
+    mine: { type: 'object', properties: { red: intVar, yellow: intVar, blue: intVar, total: intVar } },
+    areas: { type: 'array', items: { type: 'object', properties: { area_id: id, open: intVar, mine_open: intVar } } }
+  }
+}
+
 const attachmentSummary = {
   type: 'object',
   properties: { id, input_id: id, kind: { type: 'string' }, name: { type: 'string' }, mime: { type: 'string' }, size: intVar }

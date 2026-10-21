@@ -2,6 +2,7 @@
 // dev-server.mjs serving panel/dist with auto-publication on, as the real server has it by default: `npm run test:flows`.
 // Every test can fail if the defect it names comes back.
 import assert from 'node:assert'
+import { readFileSync } from 'node:fs'
 import { after, before, beforeEach, describe, test } from 'node:test'
 import { login, settled, startPanel } from './browser-support.mjs'
 
@@ -431,6 +432,46 @@ describe('the publication setting (UD-070)', () => {
       assert.equal((await api(member.page, '/settings/publication', { method: 'PATCH', data: { auto_publish: false } })).status, 403)
     } finally {
       await member.context.close()
+    }
+  })
+})
+
+// idea.md: Inicio opens on what concerns the person. The labels come from the catalog, not from literals.
+const catalog = readFileSync(new URL('./i18n/es-419.ts', import.meta.url), 'utf8')
+const label = (key) => {
+  const found = catalog.match(new RegExp(`'${key.replace('.', '\\.')}': '([^']+)'`))
+  assert.ok(found, `${key} is in the catalog`)
+  return found[1]
+}
+
+describe('the default of the two lists of Inicio (idea.md)', () => {
+  test('both start on «Para mí» and «Que me involucran», and the first leaves out a message that is for someone else', async () => {
+    const { page, context } = await session('bruno')
+    try {
+      await settled(page)
+      const messages = page.getByRole('radiogroup', { name: label('home.shownMessages') })
+      const replies = page.getByRole('radiogroup', { name: label('home.shownReplies') })
+      await messages.waitFor()
+      await replies.waitFor()
+      assert.equal(await messages.getByRole('radio', { name: label('home.forMe') }).getAttribute('aria-checked'), 'true')
+      assert.equal(await messages.getByRole('radio', { name: label('home.everyone') }).getAttribute('aria-checked'), 'false')
+      assert.equal(await replies.getByRole('radio', { name: label('home.involveMe') }).getAttribute('aria-checked'), 'true')
+      assert.equal(await replies.getByRole('radio', { name: label('home.all') }).getAttribute('aria-checked'), 'false')
+
+      // The newest message of each kind, read from the API: one assigned to this member and one that is not.
+      const me = (await api(page, '/me')).body
+      const all = (await api(page, '/messages?limit=100')).body.items
+      const mineFirst = all.find((m) => m.assignee_ids.includes(String(me.id)))
+      const otherFirst = all.find((m) => !m.assignee_ids.includes(String(me.id)))
+      assert.ok(mineFirst && otherFirst, `the sample has both kinds (${all.length} messages)`)
+      await page.getByRole('region', { name: label('home.latestMessages') }).getByText(mineFirst.title, { exact: true }).first().waitFor()
+      assert.equal(await page.getByRole('region', { name: label('home.latestMessages') }).getByText(otherFirst.title, { exact: true }).count(), 0, 'a message for someone else is not in the default list')
+      await messages.getByRole('radio', { name: label('home.everyone') }).click()
+      await messages.getByRole('radio', { name: label('home.everyone'), checked: true }).waitFor()
+      await settled(page)
+      await page.getByRole('region', { name: label('home.latestMessages') }).getByText(otherFirst.title, { exact: true }).first().waitFor()
+    } finally {
+      await context.close()
     }
   })
 })

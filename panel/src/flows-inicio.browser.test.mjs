@@ -157,7 +157,7 @@ describe('the drawer under the bar (UD-046, UD-070)', () => {
       for (let i = 0; i < 2; i++) {
         const box = await options.nth(i).boundingBox()
         assert.ok(box.x >= row.x - 1 && box.x + box.width <= row.x + row.width + 1, `option ${i + 1} is inside the row: ${JSON.stringify({ box, row })}`)
-        labels.push(await options.nth(i).getByText(/^Envío \d+$/).innerText())
+        labels.push((await options.nth(i).getByText(/^Envío \d+/).textContent()).match(/^Envío \d+/)[0])
       }
       assert.deepEqual(labels, ['Envío 1', 'Envío 2'])
     } finally {

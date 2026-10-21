@@ -12,6 +12,7 @@ import { AreaPicker } from './AreaPicker'
 import { AttachmentPicker } from './AttachmentPicker'
 import { EditableText } from './EditableText'
 import { RecipientsEditor } from './RecipientsEditor'
+import { SimulatedMark } from './SimulatedMark'
 import { StatusBadge } from './StatusBadge'
 import { TemplateFields } from './TemplateFields'
 import { UndoButtons } from './UndoButtons'
@@ -30,6 +31,7 @@ export function PublishedPane({ input }: { input: InputRecord }) {
       <div className="flex min-h-7 flex-wrap items-center gap-x-3 gap-y-1">
         <h2>{t('analysis.title')}</h2>
         <AiMark />
+        <SimulatedMark proposal={input.proposal} />
         <span className="text-xs font-semibold text-muted">{t('tray.state.published')}</span>
         <UndoButtons stack={stack} />
       </div>

@@ -94,6 +94,8 @@ export interface DiscardedUnits {
 export interface Proposal {
   messages: ProposalMessage[]
   discarded: DiscardedUnits[]
+  /** Only the example server (`dev-server.mjs`) sets it: its proposal is a double, not an analysis. The real API never sends it. */
+  simulated?: boolean
 }
 
 /** Assumption: the input brings its units numbered with the text, to show what was discarded. */

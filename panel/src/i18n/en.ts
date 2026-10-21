@@ -153,6 +153,8 @@ export const en: Record<MessageKey, Message> = {
   'input.edited': 'Message text',
 
   'analysis.title': 'Analysis',
+  'analysis.simulated': 'Simulated',
+  'analysis.simulatedHint': 'Proposal from the example server, not from the real analysis',
   'analysis.proposal': 'Proposal',
   'analysis.failedBadge': 'Failed',
   'analysis.failed': 'The analysis did not finish',

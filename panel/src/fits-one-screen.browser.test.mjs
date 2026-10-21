@@ -19,7 +19,7 @@
 
 import { after, before, describe, test } from 'node:test'
 import assert from 'node:assert'
-import { login, startPanel } from './browser-support.mjs'
+import { login, startPanel, settled } from './browser-support.mjs'
 
 // These tests go through the review of a proposal, which is what the server does with publication by hand (UD-070): they start it with auto-publication off.
 // The automatic path has its own file, `flows-inicio.browser.test.mjs`.
@@ -161,7 +161,7 @@ async function open(page, path) {
   await page.goto(`${ORIGIN}${path}`)
   await page.locator('main h1').first().waitFor()
   await page.waitForLoadState('networkidle')
-  await page.waitForTimeout(600)
+  await settled(page)
 }
 
 async function sendInput(page) {
@@ -174,7 +174,7 @@ async function sendInput(page) {
   await page.getByRole('button', { name: 'Enviar' }).first().click()
   // The drawer under the bar opens by itself (UD-046) and stays open while it is measured.
   await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
-  await page.waitForTimeout(600)
+  await settled(page)
 }
 
 /**
@@ -190,14 +190,14 @@ async function sendTen(page) {
     await page.getByRole('button', { name: 'Enviar' }).first().click()
     if (i === 1) {
       await page.getByTestId('tray-control').waitFor()
-      await page.waitForTimeout(500)
+      await settled(page)
       base = await measure()
     }
   }
   // They finish at staggered times: wait until the tray holds the ten and the last ones are ready.
   // Lists come back multiplied in the amplified run, so the count is not compared: the sends are done when none is still being analyzed.
   await page.waitForFunction(() => /para revisar/.test(document.querySelector('[data-testid="tray-control"]')?.textContent ?? '') && !/en análisis/.test(document.querySelector('[data-testid="tray-control"]')?.textContent ?? ''), null, { timeout: 40000 })
-  await page.waitForTimeout(800)
+  await settled(page)
   return base
 }
 

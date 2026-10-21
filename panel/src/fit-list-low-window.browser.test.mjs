@@ -3,7 +3,7 @@
 // instead. Measured in the browser against dev-server.mjs serving panel/dist: `npm run test:fit`.
 import assert from 'node:assert'
 import { after, before, describe, test } from 'node:test'
-import { login, startPanel } from './browser-support.mjs'
+import { login, startPanel, settled } from './browser-support.mjs'
 
 let panel
 before(async () => {
@@ -40,7 +40,7 @@ describe('a list in a window lower than one of its rows (H-96)', () => {
           await login(page, panel.origin, 'ana')
           await page.goto(panel.origin + route)
           await page.locator('article').first().waitFor()
-          await page.waitForTimeout(600)
+          await settled(page)
           const lists = await pagerOverlaps(page)
           assert.ok(lists.length > 0, `${name}: expected a paged list`)
           for (const l of lists) {

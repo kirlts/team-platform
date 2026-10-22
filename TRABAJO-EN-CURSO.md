@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 3ce07b6 Traspaso: cuatro agentes corrigen la auditoría de paridad. Empujado a origin: `3ce07b6`.
-- Ramas con commits sin fusionar: `wt-cola-auditoria` 2 (hace 34 segundos), `wt-restaurar-borrados` 2 (hace 28 segundos), `wt-ajustes-equipo` 1 (hace 2 minutos).
+- `main`: f912afd Traspaso: adjuntos en la ficha fusionado. Empujado a origin: `f912afd`.
+- Ramas con commits sin fusionar: `wt-restaurar-borrados` 4 (hace 53 segundos), `wt-cola-auditoria` 3 (hace 2 minutos), `wt-ajustes-equipo` 2 (hace 15 segundos).
 - Worktrees abiertos: `team-platform`, `adjuntos-ficha`, `ajustes-equipo`, `cola-auditoria`, `restaurar-borrados`.
 - Últimos commits en `main`:
-- `3ce07b6` Traspaso: cuatro agentes corrigen la auditoría de paridad (hace 3 minutos)
-- `6b0f665` Borrar desde la pantalla: ícono en cada tarjeta, fila de Áreas y vista de un área; título de tarjeta en una línea (UD-240, UD-241) (hace 4 minutos)
-- `e10d713` Traspaso: corrección de borrado visible y auditoría de paridad en curso (hace 4 minutos)
-- `97dd42f` Traspaso: batería completa en verde sobre 300c83b (hace 31 minutos)
-- `676f043` Traspaso: VPS en 300c83b (hace 34 minutos)
-- `7fd91d7` Traspaso: regresiones de la batería arregladas en 300c83b (hace 36 minutos)
-- `300c83b` Panel: tres ajustes tras fusionar UD-240 y UD-241 (hace 36 minutos)
-- `272aeab` Traspaso: VPS en 6d87672 con UD-240 y UD-241 (hace 51 minutos)
-Actualizado 2026-10-22 01:40 UTC.
+- `f912afd` Traspaso: adjuntos en la ficha fusionado (hace 10 segundos)
+- `04d827a` Merge branch 'wt-adjuntos-ficha' (hace 2 minutos)
+- `09b5a48` Visible Quitar over the medium; H-3707 row and spec (hace 2 minutos)
+- `4b05dd7` Add and remove attachments from the message detail (H-3707) (hace 3 minutos)
+- `7f5f303` Prueba de tarjetas: el título mide una línea de alto (la medición por rectángulos de texto contaba el texto oculto del lector de pantalla) (hace 3 minutos)
+- `3ce07b6` Traspaso: cuatro agentes corrigen la auditoría de paridad (hace 6 minutos)
+- `6b0f665` Borrar desde la pantalla: ícono en cada tarjeta, fila de Áreas y vista de un área; título de tarjeta en una línea (UD-240, UD-241) (hace 8 minutos)
+- `e10d713` Traspaso: corrección de borrado visible y auditoría de paridad en curso (hace 8 minutos)
+Actualizado 2026-10-22 01:44 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

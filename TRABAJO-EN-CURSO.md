@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 5923825 Traspaso: cuatro ramas de UD-240 en main. Empujado a origin: `5923825`.
-- Ramas con commits sin fusionar: `wt-tarjetas-vistazo` 4 (hace 30 segundos).
+- `main`: 3ee284d Traspaso: las cinco ramas de UD-240 y UD-241 en main. Empujado a origin: `3ee284d`.
+- Ramas con commits sin fusionar: ninguna.
 - Worktrees abiertos: `team-platform`, `borrar-envios`, `borrar-mensajes`, `eliminar-miembros`, `tarjetas-vistazo`, `vaciar-sembrar`.
 - Últimos commits en `main`:
-- `5923825` Traspaso: cuatro ramas de UD-240 en main (hace 33 segundos)
-- `9c15614` Merge wt-vaciar-sembrar: textos de los códigos invalid_scope y keep_member_required (hace 51 segundos)
-- `ddeae54` Merge branch 'wt-vaciar-sembrar' (hace 3 minutos)
-- `c4b2bf8` Fusión de las tres ramas de borrado: archivos del miembro eliminado se liberan; nombres de prueba en inglés (hace 3 minutos)
-- `3ea96e4` Documentar vaciar y sembrar: MASTER-SPEC §7.1, INSTALACION, README y H-3704 (hace 5 minutos)
-- `328f46e` Configuración, sección Datos: vaciar contenido o todo con confirmación en el lugar (hace 5 minutos)
-- `3bf143d` Sembrar un juego de prueba por la API: scripts/sembrar.mjs y ejemplos/ (hace 5 minutos)
-- `1f75799` Vaciar datos de prueba: POST /ops/reset y scripts/vaciar.mjs (hace 5 minutos)
-Actualizado 2026-10-22 00:40 UTC.
+- `3ee284d` Traspaso: las cinco ramas de UD-240 y UD-241 en main (hace 35 segundos)
+- `8e06914` Merge wt-tarjetas-vistazo (hace 2 minutos)
+- `1a34faf` DISENO.md: dos oraciones en la tarjeta de lista (hace 3 minutos)
+- `5923825` Traspaso: cuatro ramas de UD-240 en main (hace 3 minutos)
+- `c3ec45d` DISENO.md: oración corta en la tarjeta de lista (hace 4 minutos)
+- `9c15614` Merge wt-vaciar-sembrar: textos de los códigos invalid_scope y keep_member_required (hace 4 minutos)
+- `e7efaf5` UD-241: tarjetas de una altura, extracto en una línea y grilla de primer vistazo (hace 4 minutos)
+- `ddeae54` Merge branch 'wt-vaciar-sembrar' (hace 6 minutos)
+Actualizado 2026-10-22 00:43 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

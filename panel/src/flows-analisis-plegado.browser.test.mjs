@@ -81,7 +81,7 @@ describe('the messages of a send are listed folded with their count (UD-257)', (
       const long = rows(page).first().getByTestId('fold-title')
       assert.equal(await long.evaluate((el) => getComputedStyle(el).textOverflow), 'ellipsis')
       assert.equal(await long.evaluate((el) => getComputedStyle(el).whiteSpace), 'nowrap')
-      assert.match(await long.getAttribute('title'), /cuando el nombre lleva tildes/)
+      assert.equal(await long.getAttribute('title'), await long.textContent())
 
       await rows(page).nth(1).getByRole('button', { name: /^Abrir el mensaje 2:/ }).click()
       await settled(page)

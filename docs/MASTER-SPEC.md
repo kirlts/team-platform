@@ -522,7 +522,7 @@ Las órdenes de `machine` llevan marcadores que el trabajador reemplaza por su v
 La invocación:
 
 ```
-claude -p --model <EXECUTE_MODEL> --effort <EXECUTE_EFFORT> --max-budget-usd <EXECUTE_MAX_BUDGET_USD> --max-turns <EXECUTE_MAX_TURNS>
+claude -p --model <EXECUTE_MODEL> --effort <EXECUTE_EFFORT> --max-budget-usd <mín(EXECUTE_MAX_BUDGET_USD, saldo del día)> --max-turns <EXECUTE_MAX_TURNS>
   --permission-mode bypassPermissions --output-format stream-json --verbose --include-partial-messages
   --json-schema <esquema>
 ```
@@ -532,9 +532,13 @@ claude -p --model <EXECUTE_MODEL> --effort <EXECUTE_EFFORT> --max-budget-usd <EX
 | `EXECUTE_MODEL` | `claude-sonnet-5-5` |
 | `EXECUTE_EFFORT` | `medium` |
 | `EXECUTE_MAX_BUDGET_USD` | 10 |
+| `EXECUTE_DAILY_BUDGET_USD` | 10 |
+| `EXECUTE_MACHINE_COST_USD` | 0 |
 | `EXECUTE_MAX_TURNS` | 60 |
 | `EXECUTE_MAX_SUBAGENTS` | 3 |
 | `EXECUTE_TIMEOUT_MS` | 3.600.000 |
+
+Tope diario de gasto (UD-256). Antes de correr, el trabajo suma el día: `jobs.cost_usd` de los trabajos `execute` que corrieron (el `total_cost_usd` de su línea `result`) más `EXECUTE_MACHINE_COST_USD` por cada uno con runner `machine`. El día es el día local del servidor, según `TZ` (UTC si no está fijada), y un trabajo cuenta en el día en que empezó. Saldo = `EXECUTE_DAILY_BUDGET_USD` − suma. Con saldo ≤ 0 el trabajo vuelve a la cola hasta la medianoche siguiente sin gastar su intento, con el paso `budgetWait` («En espera: tope diario de gasto»), y `claude` no se llama. Con saldo, `--max-budget-usd` es el menor entre `EXECUTE_MAX_BUDGET_USD` y el saldo, redondeado a centavos. Devalis fija `EXECUTE_MACHINE_COST_USD=0.07`.
 
 El esquema es `compileOutputSchema` de la plantilla del mensaje (§7.9, H-3723), con `outcome` y `summary` obligatorios. Sin bloque `output`, el esquema exige sólo `summary`. La salida se valida después con el esquema de validación de A4 (`validation: true`). Una plantilla cuya salida no compila falla el trabajo con `template`.
 

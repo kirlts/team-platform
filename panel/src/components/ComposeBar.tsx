@@ -30,7 +30,7 @@ function SendAs({ value, onChange }: { value: string; onChange: (id: string) => 
     <label className="flex min-w-0 items-center gap-2 text-sm text-muted max-md:order-first max-md:w-full max-md:pb-1 md:ml-auto md:mr-1">
       <span className="shrink-0">{t('compose.sendAs')}</span>
       <span className="min-w-0 flex-1 md:w-44 md:flex-none">
-        <NativeSelect data-testid="compose-send-as" value={value} onChange={(e) => onChange(e.target.value)} className="truncate">
+        <NativeSelect data-testid="compose-send-as" value={value} onChange={(e) => onChange(e.target.value)}>
           {people.map((m) => (
             <option key={m.id} value={m.id}>
               {m.name}

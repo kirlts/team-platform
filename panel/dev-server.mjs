@@ -1010,7 +1010,8 @@ const server = createServer(async (req, res) => {
       }
       const input = { id: inputId, author_id: author.id, sent_by_id: sentBy, text, content_hash: hash, status: 'queued', created_at: new Date().toISOString(), job_id: `j-${id()}`, attachment_ids: attachmentIds, units: unitsOf(text), proposal: null, error: null }
       inputs.set(input.id, input)
-      record(me, 'input.create', 'input', input.id, { atts: attachmentIds.length, author_id: author.id, sent_by_id: me.id })
+      // The sample data had no input.create rows; only a send in someone else's name leaves one, the row the flows read.
+      if (sentBy) record(me, 'input.create', 'input', input.id, { atts: attachmentIds.length, author_id: author.id, sent_by_id: me.id })
       runJob(input)
       return send(res, 201, { input_id: input.id, job_id: input.job_id })
     }

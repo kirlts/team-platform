@@ -14,18 +14,18 @@
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
 - `main`: 4543d45 Video: reintentar los fotogramas sin descripción y no dejar líneas vacías al análisis (H-3713). Empujado a origin: `4543d45`.
-- Ramas con commits sin fusionar: `wt-cola-auditoria` 3 (hace 9 minutos), `wt-ajustes-equipo` 2 (hace 7 minutos).
+- Ramas con commits sin fusionar: `wt-cola-auditoria` 4 (hace 7 segundos), `wt-ajustes-equipo` 2 (hace 9 minutos).
 - Worktrees abiertos: `team-platform`, `adjuntos-ficha`, `ajustes-equipo`, `cola-auditoria`, `restaurar-borrados`.
 - Últimos commits en `main`:
-- `4543d45` Video: reintentar los fotogramas sin descripción y no dejar líneas vacías al análisis (H-3713) (hace 18 segundos)
-- `49216d1` Traspaso: restaurar tras recargar fusionado (hace 4 minutos)
-- `527f5fb` Merge wt-restaurar-borrados (hace 5 minutos)
-- `fa13343` Traspaso: VPS en 7f5f303 (hace 7 minutos)
-- `f912afd` Traspaso: adjuntos en la ficha fusionado (hace 7 minutos)
-- `b000eb2` Docs: UD-250, H-3706 and the deleted parameter of GET /messages (hace 8 minutos)
-- `1e82ce7` Flow for restoring deleted areas, templates, messages and discarded sends (UD-250) (hace 8 minutos)
-- `04d827a` Merge branch 'wt-adjuntos-ficha' (hace 9 minutos)
-Actualizado 2026-10-22 01:51 UTC.
+- `4543d45` Video: reintentar los fotogramas sin descripción y no dejar líneas vacías al análisis (H-3713) (hace 2 minutos)
+- `49216d1` Traspaso: restaurar tras recargar fusionado (hace 5 minutos)
+- `527f5fb` Merge wt-restaurar-borrados (hace 6 minutos)
+- `fa13343` Traspaso: VPS en 7f5f303 (hace 8 minutos)
+- `f912afd` Traspaso: adjuntos en la ficha fusionado (hace 9 minutos)
+- `b000eb2` Docs: UD-250, H-3706 and the deleted parameter of GET /messages (hace 9 minutos)
+- `1e82ce7` Flow for restoring deleted areas, templates, messages and discarded sends (UD-250) (hace 10 minutos)
+- `04d827a` Merge branch 'wt-adjuntos-ficha' (hace 10 minutos)
+Actualizado 2026-10-22 01:52 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

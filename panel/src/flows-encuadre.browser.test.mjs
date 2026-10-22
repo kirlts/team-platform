@@ -10,7 +10,7 @@ let panel
 let origin = ''
 
 before(async () => {
-  panel = await startPanel(Number(process.env.PANEL_FLOWS_ENCUADRE_PORT ?? 8621), { stepMs: 80 })
+  panel = await startPanel(Number(process.env.PANEL_FLOWS_ENCUADRE_PORT ?? process.env.PANEL_FLOWS_PORT ?? 8621), { stepMs: 80 })
   origin = panel.origin
 })
 
@@ -31,7 +31,7 @@ async function settings(who, viewport = DESKTOP) {
   const page = await context.newPage()
   await login(page, origin, who)
   await page.locator('main#main').waitFor()
-  await page.goto(`${origin}/configuracion`)
+  await page.goto(`${origin}/settings`)
   await page.getByRole('heading', { name: 'Proyecto', exact: true }).waitFor()
   await settled(page)
   return { page, context }
@@ -48,7 +48,7 @@ describe('Configuración: project name and analysis framing', () => {
     const { page, context } = await settings('ana')
     try {
       const header = page.locator('header').first()
-      assert.match(await header.innerText(), /Desarrollo/)
+      assert.match(await header.textContent(), /Desarrollo/)
       const field = page.getByRole('textbox', { name: 'Nombre del proyecto' })
       assert.equal(await field.inputValue(), 'Desarrollo')
       assert.equal(await page.locator('#hint-project-name').count(), 1, 'the setting has its one-line explanation')

@@ -14,7 +14,7 @@ cd /opt/team-platform
 scripts/install.sh
 ```
 
-El instalador pide el correo del primer Editor y las llaves de proveedor, crea `.env` y levanta el servicio en `127.0.0.1:3000`. El inicio de sesión necesita HTTPS salvo en `localhost`. [docs/INSTALACION.md](docs/INSTALACION.md) describe tres formas de exponerlo: en un VPS con Caddy, dentro del compose de otro proyecto y detrás de `tailscale serve`. Ahí también están el respaldo y la actualización. Vaciar los datos de prueba: `scripts/vaciar.mjs` o Configuración, sección Datos. Sembrar un juego de prueba por la API: `scripts/sembrar.mjs --ejemplo`, con los archivos de `ejemplos/`.
+El instalador pide el correo del primer Editor y las llaves de proveedor, crea `.env` y levanta el servicio en `127.0.0.1:3000`. El inicio de sesión necesita HTTPS salvo en `localhost`. [docs/INSTALACION.md](docs/INSTALACION.md) describe tres formas de exponerlo: en un VPS con Caddy, dentro del compose de otro proyecto y detrás de `tailscale serve`. Ahí también están el respaldo y la actualización. Vaciar los datos de prueba: `scripts/vaciar.mjs` o Configuración, sección Datos. Sembrar el juego de `ejemplos/`: «Sembrar ejemplos» en Configuración, sección Datos, o `scripts/sembrar.mjs --ejemplo` por la API; con `--carpeta` siembra otra carpeta.
 
 ## Llaves de proveedor
 

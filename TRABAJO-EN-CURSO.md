@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 4543d45 Video: reintentar los fotogramas sin descripción y no dejar líneas vacías al análisis (H-3713). Empujado a origin: `4543d45`.
-- Ramas con commits sin fusionar: `wt-cola-auditoria` 4 (hace 7 segundos), `wt-ajustes-equipo` 2 (hace 9 minutos).
+- `main`: 1eec0fd Traspaso: cola y auditoría fusionadas. Empujado a origin: `1eec0fd`.
+- Ramas con commits sin fusionar: `wt-ajustes-equipo` 3 (hace 23 segundos).
 - Worktrees abiertos: `team-platform`, `adjuntos-ficha`, `ajustes-equipo`, `cola-auditoria`, `restaurar-borrados`.
 - Últimos commits en `main`:
-- `4543d45` Video: reintentar los fotogramas sin descripción y no dejar líneas vacías al análisis (H-3713) (hace 2 minutos)
-- `49216d1` Traspaso: restaurar tras recargar fusionado (hace 5 minutos)
-- `527f5fb` Merge wt-restaurar-borrados (hace 6 minutos)
-- `fa13343` Traspaso: VPS en 7f5f303 (hace 8 minutos)
-- `f912afd` Traspaso: adjuntos en la ficha fusionado (hace 9 minutos)
-- `b000eb2` Docs: UD-250, H-3706 and the deleted parameter of GET /messages (hace 9 minutos)
-- `1e82ce7` Flow for restoring deleted areas, templates, messages and discarded sends (UD-250) (hace 10 minutos)
-- `04d827a` Merge branch 'wt-adjuntos-ficha' (hace 10 minutos)
-Actualizado 2026-10-22 01:52 UTC.
+- `1eec0fd` Traspaso: cola y auditoría fusionadas (hace 11 segundos)
+- `0e02de1` Cola fusionada: comentario en inglés y prueba de respaldo que no depende del orden por milisegundo (hace 13 segundos)
+- `354041c` Merge wt-cola-auditoria (hace 2 minutos)
+- `e8dbbe6` Docs: UD-251, H-3708, H-3709 y §7.1 (all de GET /inputs) (hace 3 minutos)
+- `2e5466e` Traspaso: VPS en 4543d45 (hace 3 minutos)
+- `8c6f348` Flujo de la cola y refresco mientras hay envíos en análisis (UD-251) (hace 3 minutos)
+- `4543d45` Video: reintentar los fotogramas sin descripción y no dejar líneas vacías al análisis (H-3713) (hace 5 minutos)
+- `49216d1` Traspaso: restaurar tras recargar fusionado (hace 9 minutos)
+Actualizado 2026-10-22 01:55 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

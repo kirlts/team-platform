@@ -70,7 +70,7 @@ export const messageSummary = {
 
 const attachmentSummary = {
   type: 'object',
-  properties: { id, input_id: id, kind: { type: 'string' }, name: { type: 'string' }, mime: { type: 'string' }, size: intVar, extracted: { type: 'boolean' } }
+  properties: { id, input_id: nullableId, kind: { type: 'string' }, name: { type: 'string' }, mime: { type: 'string' }, size: intVar, extracted: { type: 'boolean' } }
 }
 
 const replyAttachmentSummary = {

@@ -407,7 +407,7 @@ export function reopenMessage ({ db, events, now = Date.now }, messageId, actorI
  */
 export function canReadAttachment (db, memberId, attachmentId) {
   const dbRow = get(db, `
-    SELECT 1 AS ok FROM attachments a JOIN inputs i ON i.id = a.input_id
+    SELECT 1 AS ok FROM attachments a LEFT JOIN inputs i ON i.id = a.input_id
      WHERE a.id = ? AND (i.author_id = ? OR EXISTS (SELECT 1 FROM message_attachments ma WHERE ma.attachment_id = a.id))`, attachmentId, memberId)
   return Boolean(dbRow)
 }

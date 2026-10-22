@@ -78,6 +78,27 @@ export async function releaseBlobs (db, config, files, { discard }) {
 }
 
 /**
+ * Frees the files of `hashes` that nothing references any more (UD-240): neither an attachment row, nor a reply
+ * attachment, nor an upload in flight that holds the blob. Same discipline as `releaseBlobs`: the count decides. Call
+ * after the rows are gone and the transaction committed. Returns the bytes removed from the volume.
+ */
+export async function freeBlobs (db, config, hashes) {
+  let freed = 0
+  for (const sha256 of new Set(hashes)) {
+    if ((inFlight.get(sha256) ?? 0) > 0 || referenced(db, sha256)) continue
+    const file = blobPath(config, sha256)
+    try {
+      const info = await stat(file)
+      await rm(file, { force: true })
+      freed += info.size
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error
+    }
+  }
+  return freed
+}
+
+/**
  * Orphan collection: files in the volume that no attachment references and that are older than `olderThanMs`.
  * It is the safety net for a crash between writing a file and its row; an upload that is refused or fails cleans up
  * after itself through `releaseBlobs`. The minimum age is the queue retention (7 days, report 03 §12).

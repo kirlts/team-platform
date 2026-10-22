@@ -1,11 +1,12 @@
 // Input routes (MASTER-SPEC §7.1): create (multipart, idempotent by hash), list one's own, query,
-// publish, cancel and, for the editor, reprocess.
+// publish, cancel, delete (UD-240) and, for the editor, reprocess.
 
-import { releaseBlobs } from '../../domain/storage.js'
-import { cancelInput, editInputText, getInputView, listInputs, proposalView as presentProposal, reprocessInput, restoreInput, submitInput } from '../../domain/inputs.js'
+import { freeBlobs, releaseBlobs } from '../../domain/storage.js'
+import { cancelInput, deleteInput, editInputText, getInputView, listInputs, proposalView as presentProposal, reprocessInput, restoreInput, submitInput } from '../../domain/inputs.js'
 import { getMessage } from '../../domain/messages.js'
 import { publishProposal, saveProposalDraft } from '../../domain/proposals.js'
 import { withSpan } from '../../domain/tracing.js'
+import { requireConfirm } from '../confirm.js'
 import { pageEnvelope, pageParams, pageQuerySchema, pageResult } from '../pagination.js'
 import { idParams, inputView, messageDetail, proposalBody, proposalView, publishBody } from '../schemas.js'
 import { readInputUpload } from '../upload.js'
@@ -132,6 +133,31 @@ export function registerInputRoutes (app, ctx) {
       response: { 200: { type: 'object', properties: { input_id: { type: 'string' }, status: { type: 'string' } } } }
     }
   }, async (request) => restoreInput({ db, events }, request.params.id, request.member.id))
+
+  app.delete('/inputs/:id', {
+    onRequest: [requireRole('member')],
+    schema: {
+      summary: 'Borrar un envío con sus adjuntos, trabajos y propuesta (su emisor o el Editor; exige ?confirm=true)',
+      description: 'Borrado real, sin restauración (UD-240). Cancela los trabajos en cola o corriendo y borra el input, sus adjuntos, sus trabajos con sus eventos y su propuesta. Los mensajes publicados desde ese envío quedan, con sus archivos (`input_id` pasa a nulo); con `with_messages=true` se borran también, con sus respuestas. Libera del volumen los archivos que ya nadie referencia. 404 si el input no es suyo y no es Editor; 400 `confirm_required` sin la confirmación. Bitácora `input.delete`.',
+      params: idParams(),
+      querystring: { type: 'object', additionalProperties: false, properties: { confirm: { type: 'boolean' }, with_messages: { type: 'boolean' } } },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            input_id: { type: 'string' },
+            deleted: { type: 'object', properties: { attachments: { type: 'integer' }, jobs: { type: 'integer' }, messages: { type: 'integer' } } },
+            freed_bytes: { type: 'integer' }
+          }
+        }
+      }
+    }
+  }, async (request) => {
+    requireConfirm(request)
+    const r = deleteInput({ db, queue, events }, request.params.id, request.member, { withMessages: request.query.with_messages === true })
+    const freed = await freeBlobs(db, config, r.hashes)
+    return { input_id: r.input_id, deleted: r.deleted, freed_bytes: freed }
+  })
 
   app.post('/inputs/:id/reprocess', {
     onRequest: [requireRole('member')],

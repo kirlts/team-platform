@@ -15,7 +15,7 @@ export function registerMessageRoutes (app, ctx) {
     onRequest: [requireRole('member')],
     schema: {
       summary: 'Team messages, with filters',
-      description: '`for`: «me» or a member id (messages assigned to). `involved=me`: los mensajes que afectan a quien tiene la sesión, con la misma regla que `/messages/summary`: asignados a esa persona, o emitidos por ella cuando ya tienen respuesta o están cerrados (UD-028). `replies=1`: only with replies, latest first; with `for`, those that involve that person.',
+      description: '`for`: «me» or a member id (messages assigned to). `involved=me`: los mensajes que afectan a quien tiene la sesión, con la misma regla que `/messages/summary`: asignados a esa persona, o emitidos por ella cuando ya tienen respuesta o están cerrados (UD-028). `replies=1`: only with replies, latest first; with `for`, those that involve that person. `deleted=1`: sólo los mensajes borrados (UD-250), los más recién borrados primero: quien los escribió ve los suyos y un Editor todos; se restauran con `POST /messages/:id/restore`.',
       querystring: {
         type: 'object',
         additionalProperties: false,
@@ -26,7 +26,8 @@ export function registerMessageRoutes (app, ctx) {
           area: idIn,
           status: { type: 'string', enum: ['open', 'answered', 'closed'] },
           q: { type: 'string' },
-          replies: { type: 'integer', enum: [0, 1] }
+          replies: { type: 'integer', enum: [0, 1] },
+          deleted: { type: 'integer', enum: [0, 1] }
         }
       },
       response: { 200: pageEnvelope(messageCard) }
@@ -36,12 +37,14 @@ export function registerMessageRoutes (app, ctx) {
     const p = pageParams(q, config)
     const r = listMessages(db, {
       viewerId: request.member.id,
+      viewerRole: request.member.role,
       forMember: q.for === undefined ? null : q.for === 'me' ? 'me' : Number(q.for),
       involved: q.involved === 'me',
       area: q.area ?? null,
       status: q.status ?? null,
       q: q.q ?? null,
       replies: q.replies === 1,
+      deleted: q.deleted === 1,
       limit: p.limit,
       offset: p.offset
     })

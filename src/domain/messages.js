@@ -126,11 +126,14 @@ const LIVE_REPLY = 'r.deleted_at IS NULL'
 /**
  * List of the team's messages (everyone sees everything, §6). Filters: `for` (me or a member id: assigned to),
  * `area`, `status`, `q` (substring in title or text) and `replies` (only with replies; with `for`, those
- * that involve that person as sender, assignee or author of a reply). Returns { items, total }.
+ * that involve that person as sender, assignee or author of a reply) and `deleted` (only the deleted ones: the viewer's own, all for an Editor).
+ * Returns { items, total }.
  */
-export function listMessages (db, { viewerId, forMember = null, involved = false, area = null, status = null, q = null, replies = false, limit, offset = 0 }) {
-  const scope = ['m.deleted_at IS NULL']
+export function listMessages (db, { viewerId, viewerRole = 'member', forMember = null, involved = false, area = null, status = null, q = null, replies = false, deleted = false, limit, offset = 0 }) {
+  // `deleted`: only the deleted ones, to restore them (UD-250): the viewer's own, or every one for an Editor.
+  const scope = [deleted ? 'm.deleted_at IS NOT NULL' : 'm.deleted_at IS NULL']
   const params = []
+  if (deleted && viewerRole !== 'editor') { scope.push('m.author_id = ?'); params.push(viewerId) }
   const memberRow = forMember === 'me' ? viewerId : forMember
   if (memberRow !== null && memberRow !== undefined) {
     if (replies) {
@@ -163,7 +166,7 @@ export function listMessages (db, { viewerId, forMember = null, involved = false
 
   const orderBy = replies
     ? `(SELECT MAX(r.created_at) FROM replies r WHERE r.message_id = m.id AND ${LIVE_REPLY}) DESC, m.id DESC`
-    : 'm.created_at DESC, m.id DESC'
+    : deleted ? 'm.deleted_at DESC, m.id DESC' : 'm.created_at DESC, m.id DESC'
   const total = get(db, `SELECT COUNT(*) AS n FROM messages m ${cond}`, ...params).n
   const rows = all(db, `${SELECT_MESSAGE} ${cond} ORDER BY ${orderBy} LIMIT ? OFFSET ?`, ...params, limit, offset)
   return { items: hydrate(db, rows), total }

@@ -67,7 +67,6 @@ export const en: Record<MessageKey, Message> = {
   'state.answered': { one: '{n} answered', other: '{n} answered' },
   'state.closed': { one: '{n} closed', other: '{n} closed' },
   'notify.messagesTab': 'Messages, {counts}',
-  'home.shownFeed': 'List shown',
   'home.moreAreas': '+{n}',
   'home.moreAreasAria': { one: 'Show {n} more area', other: 'Show {n} more areas' },
   'home.fewerAreas': 'Fewer',

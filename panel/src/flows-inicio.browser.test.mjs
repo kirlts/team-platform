@@ -5,6 +5,7 @@ import assert from 'node:assert'
 import { readFileSync } from 'node:fs'
 import { after, before, beforeEach, describe, test } from 'node:test'
 import { login, settled, startPanel } from './browser-support.mjs'
+import { cutMessages, feedsInPage } from './home-feeds-support.mjs'
 
 process.env.PANEL_DEV_AUTO_PUBLISH = '1'
 
@@ -470,6 +471,52 @@ describe('the default of the two lists of Inicio (idea.md)', () => {
       await messages.getByRole('radio', { name: label('home.everyone'), checked: true }).waitFor()
       await settled(page)
       await page.getByRole('region', { name: label('home.latestMessages') }).getByText(otherFirst.title, { exact: true }).first().waitFor()
+    } finally {
+      await context.close()
+    }
+  })
+})
+
+// UD-253 (H-3718): the two lists measure the same and follow their content. The four desktop sizes are in fits-one-screen; here, the phone, where
+// they stack and each is as tall as its own rows, and a send open, where the room is `max(28rem, 56dvh)` and the lists still do not fill it empty.
+describe('the two lists of Inicio follow their content (UD-253)', () => {
+  const ready = (page) => page.waitForFunction(() => document.querySelectorAll('main section[aria-label^="Últim"]').length === 2 && !document.querySelector('[data-fit-measuring], main [aria-busy="true"]'))
+
+  for (const [state, rows] of [['without messages', 0], ['with the sample', Infinity]]) {
+    test(`on a phone ${state} they stack, each as tall as its rows and no taller than the screen`, async () => {
+      const { page, context } = await session('ana', PHONE)
+      try {
+        if (rows !== Infinity) await cutMessages(page, rows)
+        await page.goto(`${origin}/`)
+        await ready(page)
+        await settled(page)
+        const { failures, boxes } = await page.evaluate(feedsInPage)
+        assert.deepStrictEqual(failures, [], `${failures.join('\n')}\n${JSON.stringify(boxes)}`)
+        const [a, b] = boxes
+        assert.ok(Math.abs(a.x - b.x) <= 1 && b.y >= a.y + a.height, `the replies sit under the messages: ${JSON.stringify(boxes)}`)
+        for (const box of boxes) assert.ok(box.height <= PHONE.height, `${box.name} measures ${Math.round(box.height)} px on a ${PHONE.height} px screen`)
+        if (rows === 0) assert.deepStrictEqual(boxes.map((x) => x.rows), [0, 0], 'the lists were not emptied')
+        else assert.ok(boxes.every((x) => x.rows > 0), 'the sample shows rows in both lists')
+      } finally {
+        await context.close()
+      }
+    })
+  }
+
+  test('with a send open and no messages the two boxes stay at their header and their empty line', async () => {
+    const { page, context } = await session('bruno', DESKTOP)
+    try {
+      await cutMessages(page, 0)
+      await page.goto(`${origin}/`)
+      await ready(page)
+      await send(page, 'Revisar el alto de las listas de Inicio sin mensajes.')
+      await page.getByTestId('send-drawer').waitFor()
+      await settled(page)
+      const room = await page.getByTestId('home-feeds-room').boundingBox()
+      const { failures, boxes } = await page.evaluate(feedsInPage)
+      assert.deepStrictEqual(failures, [], `${failures.join('\n')}\n${JSON.stringify(boxes)}`)
+      assert.deepStrictEqual(boxes.map((x) => x.rows), [0, 0], 'the lists were not emptied')
+      for (const box of boxes) assert.ok(box.height < room.height / 2, `${box.name} measures ${Math.round(box.height)} px in a room of ${Math.round(room.height)} px`)
     } finally {
       await context.close()
     }

@@ -207,7 +207,7 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
     }
   })
 
-  test('on a phone Inicio is one list at a time, paged inside a frame as tall as the screen (J3-A-10)', async () => {
+  test('on a phone Inicio stacks the two lists, each paged inside a frame no taller than the screen (J3-A-10, UD-253)', async () => {
     const { page, context } = await session('ana', PHONE)
     try {
       await page.locator('article').first().waitFor()
@@ -215,13 +215,16 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
       const height = await page.locator('main').evaluate((el) => el.scrollHeight)
       assert.ok(height < PHONE.height * 2.5, `«Inicio» measures ${height} px on the phone`)
       // The pager is there, so the eight messages are not eight cards of 330 px.
-      await page.getByText(/^1–\d+ de \d+$/).first().waitFor()
-      const rows = await page.locator('main article').count()
+      const messages = page.getByRole('region', { name: 'Últimos mensajes' })
+      await messages.getByText(/^1–\d+ de \d+$/).first().waitFor()
+      const rows = await messages.locator('article').count()
       assert.ok(rows <= 3, `${rows} rows at once`)
-      // The other list is one tap away.
-      await page.getByRole('radio', { name: 'Últimas respuestas' }).click()
-      await page.locator('main article').first().waitFor()
-      assert.equal(await page.getByRole('heading', { name: 'Últimas respuestas' }).count(), 1)
+      // The other list is under the first, with no switch between them.
+      const replies = page.getByRole('region', { name: 'Últimas respuestas' })
+      await replies.locator('article').first().waitFor()
+      const [m, r] = [await messages.boundingBox(), await replies.boundingBox()]
+      assert.ok(r.y >= m.y + m.height, `the replies start at ${r.y} px, under the messages that end at ${m.y + m.height} px`)
+      for (const box of [m, r]) assert.ok(box.height <= PHONE.height, `a list measures ${box.height} px on the phone`)
     } finally {
       await context.close()
     }

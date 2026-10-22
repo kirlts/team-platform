@@ -67,7 +67,6 @@ export const es419 = {
   'state.answered': { one: '{n} respondido', other: '{n} respondidos' },
   'state.closed': { one: '{n} cerrado', other: '{n} cerrados' },
   'notify.messagesTab': 'Mensajes, {counts}',
-  'home.shownFeed': 'Lista mostrada',
   'home.moreAreas': '+{n}',
   'home.moreAreasAria': { one: 'Ver {n} área más', other: 'Ver {n} áreas más' },
   'home.fewerAreas': 'Menos',

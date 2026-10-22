@@ -1076,7 +1076,7 @@ const server = createServer(async (req, res) => {
         if (body.area_id !== undefined && !areas.some((a) => a.id === body.area_id)) return fail(res, 400, 'El área no existe.', 'validation')
         if (body.assignee_ids !== undefined && !body.assignee_ids.every((x) => members.some((mm) => mm.id === x))) return fail(res, 400, 'Un destinatario no existe.', 'validation')
         const origin = inputs.get(msg.input_id)
-        if (body.attachment_ids !== undefined && !body.attachment_ids.every((x) => origin?.attachment_ids.includes(x))) return fail(res, 400, 'Un adjunto no es del envío de origen.', 'attachment_invalid')
+        if (body.attachment_ids !== undefined && !body.attachment_ids.every((x) => origin?.attachment_ids.includes(x) || (attachments.has(x) && (attachments.get(x).input_id ?? null) === (msg.input_id ?? null)))) return fail(res, 400, 'Un adjunto no es del envío de origen.', 'attachment_invalid')
         const areaId = body.area_id ?? msg.area_id
         const tpl = activeTemplate(areaId, body.template_id ?? (body.area_id ? null : msg.template_id))
         if (body.fields !== undefined) {

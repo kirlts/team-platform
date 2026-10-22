@@ -1,4 +1,6 @@
-import { ArrowLeft, MessageSquare, Trash2 } from '@/components/icons'
+import { ArrowLeft, MessageSquare, Trash2, X } from '@/components/icons'
+import { useRef, type ClipboardEvent, type DragEvent } from 'react'
+import { AttachmentPicker } from '@/components/AttachmentPicker'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { AiMark } from '@/components/AiMark'
 import { AreaChip } from '@/components/AreaChip'
@@ -19,10 +21,11 @@ import { StatusBadge } from '@/components/StatusBadge'
 import { TemplateFields } from '@/components/TemplateFields'
 import { UndoButtons } from '@/components/UndoButtons'
 import { Button } from '@/components/ui/button'
-import { useFormat, useT } from '@/i18n'
+import { useErrorText, useFormat, useT } from '@/i18n'
+import { useQueryClient } from '@tanstack/react-query'
 import { ApiError } from '@/lib/api'
 import { useNotices } from '@/lib/notices'
-import { useDeleteMessage, useMe, useMessage, usePatchMessage, useRestoreMessage, useTemplates } from '@/lib/queries'
+import { useAddAttachments, useDeleteMessage, useMe, useMessage, usePatchMessage, useRestoreMessage, useTemplates } from '@/lib/queries'
 import { parseTemplateFields, remapFields } from '@/lib/template'
 import type { MessageDetail as Detail, MessagePatch, Template } from '@/lib/types'
 import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
@@ -86,6 +89,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
   const del = useDeleteMessage()
   const restore = useRestoreMessage()
   const notices = useNotices()
+  const qc = useQueryClient()
   const navigate = useNavigate()
   const { memberName } = useLookups()
   const templates = useTemplates(m.area_id)
@@ -120,6 +124,41 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
     undo.run({ label, redo: () => patchMessage.mutateAsync({ id: m.id, patch: forward }), undo: () => patchMessage.mutateAsync({ id: m.id, patch: back }) })
 
   const required = (v: string) => (v.trim() ? null : t('common.required'))
+
+  // Files and links join the end of the message and count as an edit (UD-071). They are not on the Deshacer stack
+  // (the server has no call that deletes a file), but each one can be removed afterwards with «Quitar».
+  const addFiles = useAddAttachments()
+  const errorText = useErrorText()
+  const picker = useRef<HTMLInputElement>(null)
+  const add = (files: File[], links: string[] = []) => {
+    if (!files.length && !links.length) return
+    addFiles.mutate({ id: m.id, files, links }, { onError: (err) => notices.show({ text: errorText(err) }) })
+  }
+  const onDrop = (e: DragEvent) => {
+    const files = [...e.dataTransfer.files]
+    if (!canEdit || !files.length) return
+    e.preventDefault()
+    add(files)
+  }
+  const onPaste = (e: ClipboardEvent) => {
+    if (!canEdit || (e.target as HTMLElement).closest('input, textarea, [contenteditable]')) return
+    const files = [...e.clipboardData.files]
+    const text = e.clipboardData.getData('text').trim()
+    const link = /^https?:\/\/\S+$/.test(text) ? [text] : []
+    if (!files.length && !link.length) return
+    e.preventDefault()
+    add(files, link)
+  }
+  /** Takes one file out of the message. The ids come from the cache at that moment, so what others added in between is kept. */
+  const idsNow = () => (qc.getQueryData(['message', m.id]) as Detail | undefined)?.attachments.map((a) => a.id) ?? m.attachments.map((a) => a.id)
+  const removeAttachment = (attId: string) =>
+    undo
+      .run({
+        label: t('proposal.attachmentsChanged'),
+        redo: () => patchMessage.mutateAsync({ id: m.id, patch: { attachment_ids: idsNow().filter((x) => x !== attId) } }),
+        undo: () => patchMessage.mutateAsync({ id: m.id, patch: { attachment_ids: idsNow().includes(attId) ? idsNow() : [...idsNow(), attId] } }),
+      })
+      .catch((err) => notices.show({ text: errorText(err) }))
 
   return (
     <Page cols={12}>
@@ -197,7 +236,47 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
           )}
 
           {/* What was attached comes before the words (mockup: «Previsualización de»): the gallery shows the medium and its siblings. */}
-          <MediaGallery items={toGalleryItems(m.attachments)} className="shrink-0" />
+          <div className="flex shrink-0 flex-col gap-2" onDragOver={canEdit ? (e) => e.preventDefault() : undefined} onDrop={onDrop} onPaste={onPaste}>
+            {m.attachments.length > 0 && (
+              <MediaGallery
+                items={toGalleryItems(m.attachments)}
+                renderAction={
+                  canEdit
+                    ? (item) => (
+                        <button
+                          type="button"
+                          data-testid="detach-attachment"
+                          aria-label={t('media.remove', { name: item.name ?? t('media.attachments') })}
+                          title={t('media.removeShort')}
+                          disabled={patchMessage.isPending}
+                          onClick={() => void removeAttachment(item.id)}
+                          className="hit inline-flex items-center justify-center gap-1 rounded-md px-1.5 font-semibold text-muted hover:bg-hover hover:text-danger disabled:opacity-50"
+                        >
+                          <X size={13} aria-hidden /> {t('media.removeShort')}
+                        </button>
+                      )
+                    : undefined
+                }
+              />
+            )}
+            {canEdit && (
+              <>
+                <AttachmentPicker all={[]} selected={[]} onChange={() => {}} onUpload={() => picker.current?.click()} uploading={addFiles.isPending} />
+                <input
+                  ref={picker}
+                  type="file"
+                  multiple
+                  hidden
+                  data-testid="detail-files"
+                  onChange={(e) => {
+                    const files = [...(e.target.files ?? [])]
+                    e.target.value = ''
+                    add(files)
+                  }}
+                />
+              </>
+            )}
+          </div>
 
           {/* A long text has no cap: the message column scrolls inside, and it is a declared lane. */}
           <div data-lane="message-body" className="scroll-thin flex min-h-0 flex-initial flex-col gap-3 overflow-y-auto px-1.5 py-1">

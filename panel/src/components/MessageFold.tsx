@@ -6,6 +6,9 @@ import { AreaChip } from './AreaChip'
 import { HEADING } from './MessageCard'
 import { useLookups } from './lookups'
 
+/** Who a folded row is for, in one line: the whole list is the tooltip and the open row. */
+const TO = 'hidden min-w-0 max-w-[40%] shrink truncate text-xs text-muted @md:inline' // justified: UD-257, a folded row takes one line
+
 /**
  * The count that opens the messages of a send (UD-257): «4 mensajes» and, when they fall in more than one area, the count of each area by
  * its chip. It is read before any message, so the person knows how many came out of the source before reading one.
@@ -94,7 +97,7 @@ export function MessageFoldRow({
             </span>
           )}
           {to && (
-            <span title={to} data-ellipsis-ok="UD-241" className="hidden min-w-0 max-w-[40%] shrink truncate text-xs text-muted @md:inline">
+            <span title={to} data-ellipsis-ok="UD-241" className={TO}>
               {t('proposal.to', { names: to })}
             </span>
           )}

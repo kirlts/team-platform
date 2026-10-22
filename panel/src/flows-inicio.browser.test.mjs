@@ -49,6 +49,12 @@ const api = async (page, path, init = {}) => {
   return { status: res.status(), body: await res.json().catch(() => null) }
 }
 
+/** The messages of a send start folded (UD-257): this opens each one, as a person does before reading or editing it. */
+async function unfold(scope) {
+  const heads = scope.getByRole('button', { name: /^Abrir el mensaje \d+:/ })
+  while ((await heads.count()) > 0) await heads.first().click()
+}
+
 describe('the drawer under the bar (UD-046, UD-070)', () => {
   test('a send shows up under the bar, analyzed and published, with no click after the send', async () => {
     const { page, context } = await session()
@@ -81,10 +87,12 @@ describe('the drawer under the bar (UD-046, UD-070)', () => {
     const { page, context } = await session()
     try {
       await send(page, 'Se me ocurre mostrar un resumen semanal en la portada.')
-      const box = page.getByTestId('published-message').first()
-      await box.waitFor({ timeout: 20000 })
+      const item = page.getByTestId('published-message').first()
+      await item.waitFor({ timeout: 20000 })
+      await unfold(item)
+      const box = item.getByTestId('published-body')
       const original = page.getByTestId('original-box')
-      const before = { analysis: await bg(box), original: await bg(original), area: await box.getAttribute('data-area-id') }
+      const before = { analysis: await bg(box), original: await bg(original), area: await item.getAttribute('data-area-id') }
       assert.notEqual(before.analysis, before.original, 'what was sent and the analysis look different')
       // The chip of the area carries the main color: not the same as the box's tint.
       const chip = box.getByTestId('area-picker')
@@ -192,6 +200,7 @@ describe('the drawer under the bar (UD-046, UD-070)', () => {
       await send(page, 'Un punto para revisar con el equipo.')
       const box = page.getByTestId('published-message').first()
       await box.waitFor({ timeout: 20000 })
+      await unfold(box)
       assert.equal(await box.getByRole('button', { name: /^Agregar destinatario$/ }).count(), 1)
       const add = box.getByRole('button', { name: 'Agregar adjuntos' })
       assert.equal(await add.count(), 1)
@@ -212,7 +221,10 @@ describe('the drawer under the bar (UD-046, UD-070)', () => {
     const { page, context } = await session('bruno')
     try {
       await send(page, 'Un punto corto.\n\nOtro punto corto.\n\nPregunta: ¿sigue en 25 MB?')
-      await page.getByTestId('published-message').first().waitFor({ timeout: 20000 })
+      await page.getByTestId('published-message').nth(2).waitFor({ timeout: 20000 })
+      // Open, the three messages are much taller than the three lines of the original: the original keeps its own height.
+      await unfold(page.getByTestId('published-pane'))
+      await settled(page)
       const original = await page.getByTestId('original-box').boundingBox()
       const analysis = await page.getByTestId('published-pane').boundingBox()
       assert.ok(original.height < analysis.height - 100, `original ${original.height} px against analysis ${analysis.height} px`)
@@ -246,6 +258,7 @@ describe('the drawer under the bar (UD-046, UD-070)', () => {
       await send(page, 'Error: el filtro de fechas deja elegir días pasados.')
       const box = page.getByTestId('published-message').first()
       await box.waitFor({ timeout: 20000 })
+      await unfold(box)
       await box.getByRole('button', { name: /^Título del mensaje:/ }).click()
       const field = box.getByRole('textbox', { name: 'Título del mensaje' })
       await field.fill('Título corregido por quien lo envió')
@@ -286,6 +299,7 @@ describe('the drawer under the bar (UD-046, UD-070)', () => {
       await send(page, 'Pregunta: ¿quién revisa el contrato del cliente?')
       const box = page.getByTestId('published-message').first()
       await box.waitFor({ timeout: 20000 })
+      await unfold(box)
       const id = (await box.getByRole('link', { name: /^Abrir el mensaje/ }).getAttribute('href')).split('/').pop()
       // The same person edits from another tab: the version the drawer holds is now old.
       const current = (await api(page, `/messages/${id}`)).body

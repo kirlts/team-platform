@@ -225,7 +225,8 @@ describe('the drawer of Inicio', () => {
       const card = drawer.getByTestId('published-message').first()
       await card.waitFor({ timeout: 20000 })
       await settled(page)
-      const top = (await card.boundingBox()).y
+      // The result starts with its count (UD-257).
+      const top = (await drawer.getByTestId('message-tally').boundingBox()).y
       const original = await drawer.getByTestId('original-box').boundingBox()
       assert.ok(original.height < 150, `the original takes ${original.height} px`)
       assert.ok(top < 844 * 0.62, `the result starts at ${top} px of an 844 px screen`)

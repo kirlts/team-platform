@@ -263,7 +263,9 @@ describe('where the gallery is used', () => {
       assert.ok(sent, 'the submission with two photos is created')
       await page.goto(origin)
       await page.getByTestId('tray-control').click()
-      await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 40000 })
+      // The proposed messages start folded (UD-257): the first one is opened to reach its picker.
+      await page.getByRole('button', { name: /^Abrir el mensaje 1:/ }).click({ timeout: 40000 })
+      await page.getByRole('button', { name: /^Área:/ }).first().waitFor()
       const list = page.getByTestId('send-drawer').locator('section[aria-label="Análisis"]').getByRole('list', { name: 'Adjuntos' }).last()
       await list.getByRole('button', { name: /^Ver 1 de/ }).first().click()
       const inner = page.getByRole('dialog').last()

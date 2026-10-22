@@ -168,9 +168,18 @@ export function registerInputRoutes (app, ctx) {
     onRequest: [requireRole('member')],
     schema: {
       summary: 'Volver a encolar el análisis de un input ya extraído (su emisor o el editor)',
-      description: 'Útil cuando cambió una plantilla o el análisis falló. Conserva las extracciones; sólo extrae lo que falte. Un miembro lo hace sobre sus propios inputs (en otro caso, 404); el editor, sobre cualquiera.',
+      description: 'Útil cuando cambió una plantilla, el modelo o las áreas, o cuando el análisis falló. Conserva las extracciones; sólo extrae lo que falte. Un miembro lo hace sobre sus propios inputs con propuesta, fallidos o cancelados (en otro caso, 404); el editor, sobre cualquiera. Un envío publicado sólo lo reprocesa un Editor (403 para su emisor): sus mensajes vivos pasan a la papelera con sus respuestas, restaurables (UD-240), la propuesta se descarta y el envío vuelve a la cola sin confirmación; `set_aside` trae la cuenta de mensajes y de respuestas apartados. En vuelo, 409 `not_reprocessable`.',
       params: idParams(),
-      response: { 202: { type: 'object', properties: { input_id: { type: 'string' }, job_id: { type: 'string' } } } }
+      response: {
+        202: {
+          type: 'object',
+          properties: {
+            input_id: { type: 'string' },
+            job_id: { type: 'string' },
+            set_aside: { type: 'object', properties: { messages: { type: 'integer' }, replies: { type: 'integer' } } }
+          }
+        }
+      }
     }
   }, async (request, reply) => {
     const r = reprocessInput({ db, queue, events }, request.params.id, request.member)

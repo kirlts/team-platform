@@ -637,12 +637,25 @@ export interface UiSummary {
   errors?: { total: number }
 }
 
+const IN_FLIGHT = new Set(['queued', 'extracting', 'analyzing'])
+/**
+ * The event stream reaches the sender of a send, not the Editor who watches the queue: while a listed send is still in the
+ * analysis the list asks again every two seconds, and it stops when none is.
+ */
+const IN_FLIGHT_REFETCH_MS = 2000
+
 /** Sends of everybody (GET /inputs?all=1), newest first, one server page. */
 export function useQueueInputs(page: number, limit: number) {
+  const qc = useQueryClient()
   return useQuery({
     queryKey: ['inputs', 'queue', page, limit],
     queryFn: () => api<Paged<QueueInput>>(`/inputs?all=1&page=${page}&limit=${limit}`),
     placeholderData: keepPreviousData,
+    refetchInterval: (query) => {
+      const running = query.state.data?.items.some((i) => IN_FLIGHT.has(i.status)) ?? false
+      if (running) void qc.invalidateQueries({ queryKey: ['jobs'] })
+      return running ? IN_FLIGHT_REFETCH_MS : false
+    },
   })
 }
 

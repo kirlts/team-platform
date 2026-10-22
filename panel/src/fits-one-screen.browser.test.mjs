@@ -222,7 +222,7 @@ async function sendInput(page) {
   ])
   await page.getByRole('button', { name: 'Enviar' }).first().click()
   // The drawer under the bar opens by itself (UD-046) and stays open while it is measured.
-  await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
+  await openFirst(page, 20000)
   await settled(page)
 }
 
@@ -334,6 +334,12 @@ for (const [width, height] of SIZES) {
 // A frame that hugs its rows does not grow with the window by itself: the lists measure again when the room around them grows (FitList `bound`).
 // Only the height changes (a width change redraws the rows, which measures again by itself): the rows after growing from 1440x720 to 1440x1080 are the
 // rows of a page opened at 1440x1080.
+/** The proposed messages start folded (UD-257): the first one is opened, as a person does before reading or editing it. */
+async function openFirst(page, timeout = 20000) {
+  await page.getByRole('button', { name: /^Abrir el mensaje 1:/ }).click({ timeout })
+  await page.getByRole('button', { name: /^Área:/ }).first().waitFor()
+}
+
 describe('the two lists of Inicio fill a window that grows', () => {
   test('after growing, each list shows as many rows as when opened at the larger size', async () => {
     const context = await panel.browser.newContext({ viewport: { width: 1440, height: 1080 }, locale: 'es-CL' })

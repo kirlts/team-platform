@@ -79,6 +79,12 @@ async function showRow(page, text) {
   await page.getByText(text).first().waitFor({ timeout: 2000 })
 }
 
+/** The proposed messages start folded (UD-257): the first one is opened, as a person does before reading or editing it. */
+async function openFirst(page, timeout = 20000) {
+  await page.getByRole('button', { name: /^Abrir el mensaje 1:/ }).click({ timeout })
+  await page.getByRole('button', { name: /^Área:/ }).first().waitFor()
+}
+
 describe('in-place editing', () => {
   test('click opens, Enter saves, Escape cancels, and «Deshacer» and «Rehacer» step through it', async () => {
     const { page, context } = await session('diego')
@@ -133,7 +139,7 @@ describe('analysis proposal', () => {
     const { page, context } = await session()
     try {
       await sendInput(page, 'Podríamos probar un resumen semanal por área.\n\nAgregar la sincronización con WhatsApp en el sidebar.')
-      await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
+      await openFirst(page, 20000)
       const first = page.getByRole('button', { name: /^Área:/ }).first()
       // One of the areas whose template has the most required fields.
       await first.click()
@@ -165,7 +171,7 @@ describe('analysis proposal', () => {
     const { page, context } = await session('bruno')
     try {
       await sendInput(page, 'Primera idea para el equipo.\n\nSegunda idea para el equipo.')
-      await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
+      await openFirst(page, 20000)
       assert.equal(await page.getByRole('button', { name: /^Partes sin mensaje/ }).count(), 0)
       await page.getByRole('button', { name: /^Quitar el mensaje/ }).first().click()
       await page.getByRole('button', { name: /^Partes sin mensaje/ }).waitFor()
@@ -194,7 +200,7 @@ describe('analysis proposal', () => {
       await page.getByText('Texto y adjuntos del envío conservados').waitFor()
       assert.equal(await page.getByRole('button', { name: 'Reintentar' }).count(), 1)
       await page.getByRole('button', { name: 'Reintentar' }).first().click()
-      await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
+      await openFirst(page, 20000)
     } finally {
       await context.close()
     }
@@ -801,7 +807,7 @@ describe('publishing flow (round 1, judge B)', () => {
     const { page, context } = await session('bruno')
     try {
       await sendInput(page, THREE)
-      await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
+      await openFirst(page, 20000)
       // One open and the other two on one line: the three titles are in view, without paging.
       assert.equal(await page.getByRole('button', { name: /^Abrir el mensaje \d/ }).count(), 2, 'two folded messages on one line')
       // The pager of the two lists of Home is outside the proposal: with the strip gone from Home they have room and page, which says nothing about the proposal.
@@ -821,7 +827,7 @@ describe('publishing flow (round 1, judge B)', () => {
     const { page, context } = await session('carla')
     try {
       await sendInput(page, 'Una idea que se descarta por error.\n\nOtra idea.')
-      await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
+      await openFirst(page, 20000)
       await page.getByRole('button', { name: /^Título del mensaje: / }).first().click()
       await page.getByRole('textbox', { name: 'Título del mensaje' }).fill('Título corregido antes de descartar')
       await page.getByRole('textbox', { name: 'Título del mensaje' }).press('Enter')
@@ -842,10 +848,10 @@ describe('publishing flow (round 1, judge B)', () => {
     const { page, context } = await session('diego')
     try {
       await sendInput(page, 'Un punto para analizar dos veces.')
-      await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
+      await openFirst(page, 20000)
       await page.getByRole('button', { name: 'Volver a analizar' }).click()
       assert.equal(await page.getByRole('dialog', { name: 'Volver a analizar' }).count(), 0, 'with no changes there is no need to confirm')
-      await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
+      await openFirst(page, 20000)
       await page.getByRole('button', { name: /^Título del mensaje: / }).first().click()
       await page.getByRole('textbox', { name: 'Título del mensaje' }).fill('Cambio que se perdería')
       await page.getByRole('textbox', { name: 'Título del mensaje' }).press('Enter')
@@ -861,7 +867,7 @@ describe('publishing flow (round 1, judge B)', () => {
     const { page, context } = await session('eduardo')
     try {
       await sendInput(page, 'Un punto con cuerpo para editar.')
-      await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
+      await openFirst(page, 20000)
       await page.getByRole('button', { name: /^Texto del mensaje: / }).first().click()
       await page.locator('[data-edit-hint]').getByText(/Intro guarda/).waitFor()
     } finally {
@@ -897,7 +903,7 @@ describe('publishing flow (round 1, judge B)', () => {
     const { page, context } = await session('tomas')
     try {
       await sendInput(page, 'Se rompe la pantalla de inicio: el botón queda cortado.')
-      await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
+      await openFirst(page, 20000)
       const pick = page.getByRole('button', { name: /^Plantilla: / })
       await pick.waitFor()
       await pick.click()
@@ -913,7 +919,7 @@ describe('publishing flow (round 1, judge B)', () => {
     const { page, context } = await session('bruno', { width: 390, height: 844 })
     try {
       await sendInput(page, THREE)
-      await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
+      await openFirst(page, 20000)
       const send = page.getByRole('button', { name: 'Enviar 3 mensajes', exact: true })
       const b = await send.boundingBox()
       assert.ok(b.y + b.height <= 844 && b.y >= 0, `«Enviar» is off screen: ${JSON.stringify(b)}`)
@@ -930,7 +936,7 @@ describe('publishing flow (round 2, judge B)', () => {
     const { page, context } = await session('bruno')
     try {
       await sendInput(page, THREE)
-      await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 20000 })
+      await openFirst(page, 20000)
       const tray = page.getByTestId('tray-control')
       const publishes = []
       page.on('request', (r) => r.method() === 'POST' && /\/inputs\/[^/]+\/publish$/.test(r.url()) && publishes.push(r.url()))
@@ -996,7 +1002,7 @@ describe('composer (round 2, judge B)', () => {
 })
 
 /** Waits until the review of the open send shows its proposal. */
-const proposalReady = (page) => page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 30000 })
+const proposalReady = (page) => openFirst(page, 30000)
 
 describe('tray and proposal (round 2, judge B)', () => {
   test('the strip of sends is a button with its progress, does not move the page, and the window opens on the recent send (J2-B-07, J2-B-08, J2-B-09, J2-B-10)', async () => {

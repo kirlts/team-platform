@@ -51,12 +51,18 @@ async function sendAndOpen(page, text = FIVE) {
   await page.goto(origin)
   await bar(page).fill(text)
   await page.getByRole('button', { name: 'Enviar' }).first().click()
-  await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 40000 })
+  await openFirst(page, 40000)
 }
 
 const rect = (locator) => locator.boundingBox()
 const style = (locator, prop) => locator.evaluate((el, p) => getComputedStyle(el)[p], prop)
 const overlap = (a, b) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
+
+/** The proposed messages start folded (UD-257): the first one is opened, as a person does before reading or editing it. */
+async function openFirst(page, timeout = 20000) {
+  await page.getByRole('button', { name: /^Abrir el mensaje 1:/ }).click({ timeout })
+  await page.getByRole('button', { name: /^Área:/ }).first().waitFor()
+}
 
 describe('compose bar (J3-B-01, J3-B-17, J3-B-19, J3-B-20)', () => {
   test('a long text grows over a dimmed page, opaque from the first frame, with no transition of its background (J3-B-01)', async () => {
@@ -135,7 +141,7 @@ describe('drawer of sends (J3-B-04, J3-B-06, J3-B-07, J3-B-31, UD-046)', () => {
       const title = page.getByRole('heading', { name: 'Análisis' })
       const titleQueued = (await rect(title)).y
       await panel.control.release()
-      await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 40000 })
+      await openFirst(page, 40000)
       await settled(page)
       const ready = await rect(dialog)
       // UD-110: the drawer is as tall as what it shows (at least 20 rem), so the proposal may make it taller than the queue; it never moves or gets shorter.
@@ -245,7 +251,7 @@ describe('proposal (J3-B-02, J3-B-05, J3-B-08, J3-B-09, J3-B-10, J3-B-11, J3-B-1
       assert.equal(await page.getByRole('button', { name: 'Deshacer', exact: true }).count(), 0, 'no «Deshacer» while analyzing')
       assert.equal(await page.getByRole('button', { name: 'Rehacer', exact: true }).count(), 0, 'no «Rehacer» while analyzing')
       await panel.control.release()
-      await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 40000 })
+      await openFirst(page, 40000)
       assert.equal(await page.getByRole('button', { name: 'Deshacer', exact: true }).count(), 0, 'the new proposal starts with an empty history')
     } finally {
       await context.close()
@@ -421,7 +427,7 @@ describe('attachments of a message (J3-B-11)', () => {
       await bar(page).fill(FIVE)
       await page.locator('input[type=file]').first().setInputFiles([file])
       await page.getByRole('button', { name: 'Enviar' }).first().click()
-      await page.getByRole('button', { name: /^Área:/ }).first().waitFor({ timeout: 40000 })
+      await openFirst(page, 40000)
       // The files may go with any of the messages: open each until one carries the chip.
       const list = page.getByTestId('send-drawer').locator('section[aria-label="Análisis"] ul[aria-label="Adjuntos"]')
       let chip

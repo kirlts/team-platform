@@ -149,7 +149,7 @@ describe('the classification names the request of each group and the decompositi
     const fake = createFakeProviders({ text: (req) => (isClassify(req) ? { groups: [{ ...group([1, 2, 3]), request: 'Quitar el rechazo sin comprobante' }, { ...group([4, 5]), request: 'Abrir el historial anterior' }], discarded: [{ unit_ids: [6], reason: 'x' }] } : decompose(req)) });
     const result = await analyze(await videoBundle(), { providers: fake });
     assert.equal(result.status, 'ok');
-    const notes = fake.calls.text.filter((r) => !isClassify(r)).map((r) => lastUserText(r).match(/pedido de este grupo: «([^»]+)»/)?.[1]).sort();
+    const notes = fake.calls.text.filter((r) => !isClassify(r)).map((r) => lastUserText(r).match(/(?:pedido de este grupo|request of this group as): «([^»]+)»/)?.[1]).sort();
     assert.deepEqual(notes, ['Abrir el historial anterior', 'Quitar el rechazo sin comprobante']);
   });
 });

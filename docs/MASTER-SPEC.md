@@ -288,6 +288,7 @@ GET    /api/messages?for=me|id&involved=me&area=&status=&q=&replies=1&deleted=1 
 GET    /api/messages/summary      lo que afecta a quien tiene la sesión por estado (`mine`: open, answered, total) y los mensajes de cada área por estado (`areas`: open, answered, closed, mine_open) (UD-028, UD-041)
 GET    /api/messages/:id          mensaje, hilo, adjuntos; un borrado responde 404 (?include_deleted=true: Editor)
 DELETE /api/messages/:id?confirm=true   borra en blando un mensaje publicado (su emisor o un Editor; otro, 403 `not_message_author`) · POST /api/messages/:id/restore lo devuelve (UD-240)
+POST   /api/messages/delete?confirm=true  { ids }   borra en blando varios mensajes en una transacción, todos o ninguno (UD-253): 403 `not_message_author` con `ids` si alguno no es de quien pide y no es Editor; 404 con `ids` si alguno no existe o ya está borrado; hasta `list.pageMax` ids (100); una fila `message.delete` por mensaje · POST /api/messages/restore { ids } los devuelve igual (409 `not_deleted` con `ids` si alguno no está borrado)
 DELETE /api/messages/:id/replies/:replyId?confirm=true   borra en blando una respuesta (su autor o un Editor; otro, 403 `not_reply_author`) y recalcula el estado del mensaje · POST /api/replies/:id/restore la devuelve (UD-240)
 GET    /api/attachments/:id/transcript  texto extraído de un audio o video (UD-059)
 POST   /api/messages/:id/replies  { body, kind: answer|fix|clarification }   (403 si quien responde es el emisor)

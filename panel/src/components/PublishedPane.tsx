@@ -24,7 +24,7 @@ import { UndoButtons } from './UndoButtons'
  * What a send became once the analysis ended (UD-070): its messages, already published to the team, each in its own box in the color of
  * its area. The sender edits them right here (UD-071): the same controls the proposal had, saving on the published message with the version that
  * was read. Nobody else sees the controls. There is no confirmation step; a message that is wrong is corrected, and the history above takes a change back.
- * The list opens with the count of messages and each message is a folded row (UD-254): a click opens it with everything above, another folds it.
+ * The list opens with the count of messages and each message is a folded row (UD-257): a click opens it with everything above, another folds it.
  */
 export function PublishedPane({ input, onDeleted }: { input: InputRecord; onDeleted?: (id: string) => void }) {
   const t = useT()

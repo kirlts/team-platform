@@ -7,7 +7,7 @@ import { HEADING } from './MessageCard'
 import { useLookups } from './lookups'
 
 /**
- * The count that opens the messages of a send (UD-254): «4 mensajes» and, when they fall in more than one area, the count of each area by
+ * The count that opens the messages of a send (UD-257): «4 mensajes» and, when they fall in more than one area, the count of each area by
  * its chip. It is read before any message, so the person knows how many came out of the source before reading one.
  */
 export function MessageTally({ areaIds }: { areaIds: string[] }) {
@@ -28,7 +28,7 @@ export function MessageTally({ areaIds }: { areaIds: string[] }) {
 }
 
 /**
- * One message of a send as a folded row (UD-254), the row of «Últimos mensajes» reduced to its first line: the area chip, the heading in one line
+ * One message of a send as a folded row (UD-257), the row of «Últimos mensajes» reduced to its first line: the area chip, the heading in one line
  * ended with an ellipsis (UD-241) and who it is for while it fits. A click opens it in place and shows what the message has (text, fields,
  * recipients, attachments and its actions, `children`); the arrow at the start of the open message folds it again.
  */

@@ -214,7 +214,7 @@ function ProposalEditor({
   const saveProposal = useSaveProposal(input.id)
   const queryClient = useQueryClient()
   const [proposal, setProposal] = useState<Proposal>(initial)
-  /** The message that is open, or none (-1, the start): every other is one line, so the list reads at a glance (J1-B-11, UD-254). */
+  /** The message that is open, or none (-1, the start): every other is one line, so the list reads at a glance (J1-B-11, UD-257). */
   const [openIndex, setOpenIndex] = useState(-1)
   const latest = useRef<Proposal>(initial)
   const chain = useRef<Promise<unknown>>(Promise.resolve())
@@ -451,7 +451,7 @@ function ProposalRow({
   useEffect(() => onMissing(missingNames ? missingNames.split(',') : []), [missingNames]) // eslint-disable-line react-hooks/exhaustive-deps
   const only = total === 1
 
-  // Folded by default (UD-254): the row says the area, the title in one line and who it is for; opened, everything that is edited here.
+  // Folded by default (UD-257): the row says the area, the title in one line and who it is for; opened, everything that is edited here.
   return (
     <MessageFoldRow index={index} areaId={m.area_id} title={m.title} assigneeIds={m.assignee_ids} open={open} onToggle={onToggle} aside={missingCount > 0 ? <Badge tone="danger">{t('proposal.missingShort')}</Badge> : undefined}>
       <div className="flex flex-wrap items-start gap-x-2 gap-y-1.5 px-0.5">

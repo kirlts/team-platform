@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 3ee284d Traspaso: las cinco ramas de UD-240 y UD-241 en main. Empujado a origin: `3ee284d`.
+- `main`: 272aeab Traspaso: VPS en 6d87672 con UD-240 y UD-241. Empujado a origin: `272aeab`.
 - Ramas con commits sin fusionar: ninguna.
 - Worktrees abiertos: `team-platform`, `borrar-envios`, `borrar-mensajes`, `eliminar-miembros`, `tarjetas-vistazo`, `vaciar-sembrar`.
 - Últimos commits en `main`:
-- `3ee284d` Traspaso: las cinco ramas de UD-240 y UD-241 en main (hace 35 segundos)
-- `8e06914` Merge wt-tarjetas-vistazo (hace 2 minutos)
-- `1a34faf` DISENO.md: dos oraciones en la tarjeta de lista (hace 3 minutos)
-- `5923825` Traspaso: cuatro ramas de UD-240 en main (hace 3 minutos)
-- `c3ec45d` DISENO.md: oración corta en la tarjeta de lista (hace 4 minutos)
-- `9c15614` Merge wt-vaciar-sembrar: textos de los códigos invalid_scope y keep_member_required (hace 4 minutos)
-- `e7efaf5` UD-241: tarjetas de una altura, extracto en una línea y grilla de primer vistazo (hace 4 minutos)
-- `ddeae54` Merge branch 'wt-vaciar-sembrar' (hace 6 minutos)
-Actualizado 2026-10-22 00:43 UTC.
+- `272aeab` Traspaso: VPS en 6d87672 con UD-240 y UD-241 (hace 6 minutos)
+- `3ee284d` Traspaso: las cinco ramas de UD-240 y UD-241 en main (hace 12 minutos)
+- `8e06914` Merge wt-tarjetas-vistazo (hace 14 minutos)
+- `1a34faf` DISENO.md: dos oraciones en la tarjeta de lista (hace 15 minutos)
+- `5923825` Traspaso: cuatro ramas de UD-240 en main (hace 15 minutos)
+- `c3ec45d` DISENO.md: oración corta en la tarjeta de lista (hace 15 minutos)
+- `9c15614` Merge wt-vaciar-sembrar: textos de los códigos invalid_scope y keep_member_required (hace 15 minutos)
+- `e7efaf5` UD-241: tarjetas de una altura, extracto en una línea y grilla de primer vistazo (hace 15 minutos)
+Actualizado 2026-10-22 00:55 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

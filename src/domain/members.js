@@ -120,7 +120,7 @@ export function deleteMember (db, id, { actorId = null, purge = false, queue = n
       const touched = all(db, 'SELECT DISTINCT r.message_id AS id FROM replies r JOIN messages m ON m.id = r.message_id WHERE r.author_id = ? AND m.author_id <> ?', id, id).map((r) => r.id)
       run(db, 'DELETE FROM replies WHERE author_id = ?', id)
       for (const messageId of touched) {
-        const left = get(db, 'SELECT COUNT(*) AS n FROM replies WHERE message_id = ?', messageId).n
+        const left = get(db, 'SELECT COUNT(*) AS n FROM replies WHERE message_id = ? AND deleted_at IS NULL', messageId).n
         if (left === 0) run(db, "UPDATE messages SET status = 'open' WHERE id = ? AND status = 'answered'", messageId)
       }
       run(db, 'DELETE FROM message_edits WHERE member_id = ?', id)

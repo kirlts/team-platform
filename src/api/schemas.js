@@ -80,7 +80,7 @@ const replyAttachmentSummary = {
 
 export const reply = {
   type: 'object',
-  properties: { id, message_id: id, author_id: id, body: { type: 'string' }, kind: { type: 'string', enum: ['answer', 'fix', 'clarification'] }, attachments: { type: 'array', items: replyAttachmentSummary }, attachment_kinds: { type: 'array', items: { type: 'string' } }, created_at: { type: 'string' } }
+  properties: { id, message_id: id, author_id: id, body: { type: 'string' }, kind: { type: 'string', enum: ['answer', 'fix', 'clarification'] }, attachments: { type: 'array', items: replyAttachmentSummary }, attachment_kinds: { type: 'array', items: { type: 'string' } }, created_at: { type: 'string' }, version: intVar, edited_at: nullableText }
 }
 
 export const messageCard = {
@@ -206,6 +206,14 @@ export const messagePatchBody = {
     area_id: idIn,
     template_id: idIn
   }
+}
+
+/** Edit of the text of a reply by its author (UD-253): the new text plus the `version` read. */
+export const replyPatchBody = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['body', 'version'],
+  properties: { body: { type: 'string' }, version: { type: 'integer', minimum: 1 } }
 }
 
 export const providerSlot = {

@@ -44,7 +44,7 @@ const api = async (page, path) => {
 const feed = (page) => page.getByRole('region', { name: 'Últimos mensajes' })
 
 describe('deleting a send from the drawer (UD-240)', () => {
-  test('a published send: Borrar becomes Borrar envío, Borrar con mensajes and Cancelar; Cancelar goes back; Borrar envío keeps the message', async () => {
+  test('a published send: the delete button turns into delete-send, delete-with-messages and cancel; cancel goes back; delete-send keeps the message', async () => {
     const { page, context } = await session()
     try {
       const title = 'El botón de guardar no responde en el móvil'
@@ -82,7 +82,7 @@ describe('deleting a send from the drawer (UD-240)', () => {
     }
   })
 
-  test('Borrar con mensajes takes the message out of the feed too', async () => {
+  test('delete-with-messages takes the message out of the feed too', async () => {
     const { page, context } = await session()
     try {
       const title = 'La exportación a PDF pierde las tildes'
@@ -104,7 +104,7 @@ describe('deleting a send from the drawer (UD-240)', () => {
     }
   })
 
-  test('a send still being analyzed offers only Borrar envío and Cancelar, and goes with its job', async () => {
+  test('a send still being analyzed offers only delete-send and cancel, and goes with its job', async () => {
     const { page, context } = await session()
     try {
       await panel.control.hold()

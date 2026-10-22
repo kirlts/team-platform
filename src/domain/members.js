@@ -128,6 +128,9 @@ export function deleteMember (db, id, { actorId = null, purge = false, queue = n
       run(db, 'DELETE FROM messages WHERE author_id = ?', id) // cascades: assignees, attachment links, replies of others, edits
       if (queue) for (const input of all(db, 'SELECT id FROM inputs WHERE author_id = ?', id)) queue.cancelForInput(input.id)
       run(db, 'DELETE FROM inputs WHERE author_id = ?', id) // cascades: attachments, jobs, proposal
+      // Since migration 0011 an attachment row survives its input (input_id NULL) so a message keeps its files; the rows
+      // no message references any more go here, so their files can be freed.
+      run(db, 'DELETE FROM attachments WHERE input_id IS NULL AND id NOT IN (SELECT attachment_id FROM message_attachments)')
     }
     run(db, 'DELETE FROM members WHERE id = ?', id) // cascades: credentials, sessions, identity_links, job_events
     audit(db, { memberId: actorId, action: 'member.delete', entity: 'member', entityId: id, detail: { email: current.email, role: current.role, purge: hasHistory(history), ...deleted }, now })

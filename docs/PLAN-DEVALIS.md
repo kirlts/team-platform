@@ -1,13 +1,13 @@
 # Team Platform en Devalis
 
-Escrito el 2026-10-22 a partir de la nota «Devalis Team Platform» de Martín (Saber, 2026-10-22) y de lo conversado esa madrugada. Reemplaza la Mesa de `team.devalis.cl` por una instancia de Team Platform dentro de la consola de superadministrador. Claude es un miembro del equipo y un harness ejecuta lo que la clasificación le asigna. Las decisiones del dueño están en [UD-254](USER-DECISIONS.md). Lo que falta decidir está en la última sección.
+Escrito el 2026-10-22 a partir de la nota «Devalis Team Platform» de Martín (Saber, 2026-10-22) y de lo conversado esa madrugada. Reemplaza la Mesa de `team.devalis.cl` por una instancia de Team Platform dentro de la consola de superadministrador. Pablo, Alejandro y Martín entran con las credenciales de superadministrador. Claude es un miembro del equipo y un harness ejecuta lo que la clasificación le asigna. Las decisiones del dueño están en [UD-254](USER-DECISIONS.md). Lo que falta decidir está en la última sección.
 
 ## Lo que queda al terminar
 
 | Quién | Qué hace | Dónde |
 |---|---|---|
 | Pablo | Escribe, graba o adjunta lo que hoy manda por WhatsApp. Ve su envío descompuesto en mensajes por área, con progreso, y las respuestas de cada uno | `team.devalis.cl`, con su usuario de superadministrador |
-| Alejandro | Sigue en su grupo de WhatsApp hasta que exista la Conexión | WhatsApp |
+| Alejandro | Igual que Pablo, con las credenciales de superadministrador que ya conoce | `team.devalis.cl` |
 | Martín | Escribe mensajes, lee las respuestas de Claude, marca respondido o cerrado, y empuja a producción bajo UD-150 | `team.devalis.cl` y su sesión de Claude Code |
 | Claude | Miembro con perfil propio. Recibe los mensajes que el analizador le asigna leyendo ese perfil, los ejecuta en un harness desatendido y responde en el formato que la plantilla declara | Un trabajador de Team Platform fuera del notebook |
 
@@ -17,7 +17,7 @@ Escrito el 2026-10-22 a partir de la nota «Devalis Team Platform» de Martín (
 |---|---|
 | `team.devalis.cl` | Sirve la Mesa: HTML generado desde `tools/mesa/data/items.json` (4 ítems), publicado a un bucket, login con el mismo usuario de superadministrador y cookie `devalis_mesa_sesion` (JWT RS256 de una hora, sin SSO entre hosts). Caddy lo reescribe a `/mesa` (`borde/Caddyfile:713`) |
 | Consola de superadministrador | React 19 con Refine 5, servida en `app.devalis.cl/consola/`; `@devalis/design-system` con 105 componentes, entre ellos `Composer`, `FilaDeHilo`, `ColumnasDeBandeja`, `DataTable`, `Toast`, `Avisos` |
-| Identidad de Devalis | `platform_users` con un solo rol, `super_admin`. Pablo y Martín lo tienen; Alejandro no (usa el panel de la clínica) |
+| Identidad de Devalis | `platform_users` con un solo rol, `super_admin`. Pablo, Martín y Alejandro entran con esas credenciales (Martín, 22-10: «el doctor ya tiene acceso superadmin porque conoce las credenciales») |
 | Feedback real | 416 archivos en cinco carpetas Sprint fuera de git: videos y audios de WhatsApp, capturas y .docx como «Errores funcionales 6 COMPLETO.docx». Siete pedidos sin atender en `PEDIDOS-DE-LA-CLINICA-SIN-ATENDER.md`, mantenidos a mano |
 | Motor de Team Platform | API de 72 rutas con OpenAPI vivo y SSE; identidad delegada en cuatro modos; harness de clasificación con `claude -p`; cola con trabajos `extract` y `analyze` y trabajador separable (`WORKER_MODE=external`) |
 | Huecos del motor para un anfitrión | Ningún modo delegado da de alta miembros ni fija el rol (UD-007); con `jwt` o `signed-header` el SSE queda sin sesión; el panel fija `/api` y `/` y una sola cookie `__Host-session`; el prompt dice «equipo de software» y las frases de progreso están en el código; no hay cliente del contrato fuera de `queries.ts` (821 líneas) |
@@ -64,7 +64,7 @@ Ruta crítica: A5 depende de A4. El resto corre en paralelo. Estimado: 1 h de re
 | B2 Identidad | La consola firma el JWT RS256 de superadministrador; Team Platform lo valida con la llave pública en el modo de A1 y da de alta al miembro con el rol decidido |
 | B3 Interfaz | Las vistas de Team Platform (Inicio, Mensajes, ficha, Áreas, Equipo, Configuración) dentro de la aplicación de la consola, con `@devalis/design-system` y el cliente de A6, servidas en `team.devalis.cl` |
 | B4 Áreas y plantillas de Devalis | Las de la decisión pendiente, con bloque de salida cada una |
-| B5 Miembros | Pablo, Martín y Claude con sus perfiles; Claude con la credencial de A5 |
+| B5 Miembros | Pablo, Alejandro, Martín y Claude con sus perfiles; Claude con la credencial de A5. Team Platform identifica al miembro por el `sub` del JWT: cada persona necesita su propia fila en `platform_users`, aunque compartan rol |
 | B6 Retiro de la Mesa | `tools/mesa/` deja de publicarse; la regla 19 de `CLAUDE.md` y la memoria `team-devalis-es-donde-martin-lee` se reescriben; la sección «Claude» según la decisión pendiente |
 
 Depende de A1, A4, A5 y A6. Estimado: 1,5 h de reloj, con el despliegue de Devalis medido en su propio flujo.
@@ -80,10 +80,6 @@ Depende de A1, A4, A5 y A6. Estimado: 1,5 h de reloj, con el despliegue de Deval
 
 Depende de B. Estimado: 1 h de reloj, más una corrida real con un mensaje de prueba de Pablo, medida desde el envío hasta la rama entregada.
 
-### Fase D. Conexión de WhatsApp
-
-Para Alejandro y para lo que Pablo siga mandando por el grupo. Depende de la decisión pendiente sobre el número y la vía. Sin estimar hasta decidirla.
-
 ## Lo que falta decidir
 
 Cada fila trae una propuesta para contestar con una palabra.
@@ -93,8 +89,7 @@ Cada fila trae una propuesta para contestar con una palabra.
 | Áreas y plantillas de Devalis | La Mesa usa Agenda, Infraestructura y Deva con tipos Pedido y Hallazgo; Team Platform trae Idea, Error, Nueva funcionalidad, Retroalimentación y Pregunta. La nota habla de «errores directos, cambios bien descritos, ideas que pueden investigarse» | Las cinco de Team Platform, con un campo «módulo» (Agenda, Deva, Pagos, Consola, Infraestructura) en cada plantilla |
 | Sesión en `team.devalis.cl` | Hoy la Mesa pide login aparte en ese host, porque la cookie de la consola no cruza hosts | Login aparte, como la Mesa; sesión compartida cuando exista SSO en Devalis |
 | Rol de cada uno en Team Platform | Team Platform tiene `member` y `editor`; nadie dijo quién edita áreas y plantillas | Martín editor; Pablo y Claude miembros |
-| Alejandro | No tiene usuario de superadministrador. Darle uno le muestra todas las clínicas | Sólo por WhatsApp hasta la Fase D |
-| Vía de WhatsApp para la Fase D | Devalis ya opera canales de WhatsApp (`baileys-worker`, proveedor oficial); un número para el equipo es otra cosa | Un número de equipo por el canal no oficial de Devalis, con lista de remitentes permitidos |
+| Una fila de `platform_users` por persona | Si Pablo y Alejandro entran con la misma cuenta, Team Platform los ve como un solo miembro: un perfil, un «para mí» y una autoría compartidos | Una fila por persona, con la misma contraseña si así lo prefieren; es un alta en la tabla, sin cambiar el rol |
 | Contenido de pacientes dentro de Team Platform | Los videos de Pablo nombran pacientes reales. La regla de la Mesa prohíbe que lleguen a `team.devalis.cl`; Team Platform guardaría ese contenido en su base, detrás del login de superadministrador | Se acepta dentro del mismo perímetro que protege a las clínicas; `redactar.py` se aplica sólo a lo que salga del perímetro (ramas, commits, respuestas que viajen a GitHub) |
 | Sección «Claude» de la Mesa | Regla 19 y la memoria dicen que Martín lee ahí las respuestas, copiadas del registro de la conversación | Desaparece: la respuesta de Claude a cada mensaje la reemplaza. Las transcripciones completas siguen en el depósito privado |
 | Modelo y tope por mensaje del harness | 27k a 150k tokens medidos por invocación; el costo depende del modelo y del tope | Sonnet 5.5 con `--max-budget-usd 2` y `--max-turns 60` por mensaje; Opus sólo si el perfil de Claude lo pide para un mensaje |

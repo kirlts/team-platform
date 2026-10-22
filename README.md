@@ -14,7 +14,7 @@ cd /opt/team-platform
 scripts/install.sh
 ```
 
-El instalador pide el correo del primer Editor y las llaves de proveedor, crea `.env` y levanta el servicio en `127.0.0.1:3000`. El inicio de sesión necesita HTTPS salvo en `localhost`. [docs/INSTALACION.md](docs/INSTALACION.md) describe tres formas de exponerlo: en un VPS con Caddy, dentro del compose de otro proyecto y detrás de `tailscale serve`. Ahí también están el respaldo y la actualización. Vaciar los datos de prueba: `scripts/vaciar.mjs` o Configuración, sección Datos. Sembrar un juego de prueba por la API: `scripts/sembrar.mjs --ejemplo`, con los archivos de `ejemplos/`.
+El instalador pide el correo del primer Editor y las llaves de proveedor, crea `.env` y levanta el servicio en `127.0.0.1:3000`. El inicio de sesión necesita HTTPS salvo en `localhost`. [docs/INSTALACION.md](docs/INSTALACION.md) describe tres formas de exponerlo: en un VPS con Caddy, dentro del compose de otro proyecto y detrás de `tailscale serve`. Ahí también están el respaldo y la actualización. Vaciar los datos de prueba: `scripts/vaciar.mjs` o Configuración, sección Datos. Sembrar el juego de `ejemplos/`: «Sembrar ejemplos» en Configuración, sección Datos, o `scripts/sembrar.mjs --ejemplo` por la API; con `--carpeta` siembra otra carpeta.
 
 ## Llaves de proveedor
 
@@ -45,7 +45,7 @@ node bench/run.mjs --fake perfect    # reporte del banco sin red
 node bench/run.mjs --repeat 3        # siete casos con el proveedor real, tres repeticiones
 ```
 
-Cifras del 2026-10-21: 872 pruebas del servidor (6 omitidas), 74 del banco y 164 del panel. Los comandos de `panel` se corren desde `panel/`.
+Cifras del 2026-10-21: 920 pruebas del servidor (7 omitidas), 74 del banco y 188 del panel. Los comandos de `panel` se corren desde `panel/`.
 
 El banco mide si un input se descompone en los mensajes correctos y cuánto tarda. Reporta cobertura, repetición, mensajes de más, partidos y fusionados, exactitud de la clasificación, tiempo por paso, tokens y costo. Los casos y el puntaje están en [bench/README.md](bench/README.md). Para analizar un texto suelto: `node scripts/analizar.mjs "texto del input"`.
 

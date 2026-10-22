@@ -86,6 +86,8 @@
 - [x] Migración `0001_initial.sql` y ejecutor con `PRAGMA user_version`, respaldo previo y numeración contigua `2026-10-20 22:19:19`
 - [x] Siembra de las cinco áreas y primer Editor desde `ADMIN_EMAIL` `2026-10-20 22:19:19`
 - [x] Pruebas de la base (`src/db/db.test.js`) `2026-10-20 22:30:04`
+- [x] Migración 0010: `deleted_at` en `messages` y `replies` (UD-240) `2026-10-21 21:25:09`
+- [x] Migración 0011: `attachments.input_id` admite nulo para borrar un envío sin perder los adjuntos de sus mensajes (UD-240, H-3702) `2026-10-21 21:26:29`
 - [x] [TASK-005]; 2026-10-20 22:30:04 [🤖 Verified by tool]
 
 ### [TASK-006] Cola de trabajos y worker
@@ -111,6 +113,10 @@
 - [x] OpenAPI 3.1 generado de los esquemas, CORS y cookie de origen cruzado `2026-10-20 22:45:35`
 - [x] Forma plana de mensajes, ids como texto, paginación uniforme y borrado en blando `2026-10-20 22:56:09`
 - [x] Pruebas del contrato y del flujo completo de la API `2026-10-20 23:03:03`
+- [x] Borrar y restaurar mensajes y respuestas en blando (UD-240, H-3700, H-3701; `src/api/message-deletion.test.js`) `2026-10-21 21:25:09`
+- [x] `DELETE /inputs/:id` con adjuntos, trabajos y propuesta (UD-240, H-3702; `src/api/input-deletion.test.js`) `2026-10-21 21:26:29`
+- [x] `DELETE /members/:id` con `purge` (UD-240, H-3703; `src/api/member-deletion.test.js`) `2026-10-21 21:24:31`
+- [x] `GET /messages?deleted=1` para listar lo borrado (UD-250, H-3706; `src/api/restore-deleted.test.js`) `2026-10-21 22:38:20`
 - [x] [TASK-007]; 2026-10-20 23:03:03 [🤖 Verified by tool]
 
 ### [TASK-008] Flujo de eventos SSE
@@ -132,6 +138,10 @@
 - [x] `GET /api/jobs`, `DELETE /api/jobs`, `GET /api/jobs/:id/trace`, `GET /api/audit`, `POST /api/inputs/:id/reprocess` y detalle de `/health` `2026-10-20 22:52:04`
 - [x] Pruebas de la operación del Editor `2026-10-20 23:03:03`
 - [x] HP-015 como prueba con su ID (DT-007) `2026-10-21 15:24:00`
+- [x] `POST /ops/reset` y `scripts/vaciar.mjs` (UD-240, H-3704; `src/api/data-reset.test.js`, `scripts/vaciar.test.mjs`) `2026-10-21 21:24:55`
+- [x] `scripts/sembrar.mjs` con el juego de `ejemplos/` (UD-240, H-3704; `scripts/sembrar.test.mjs`) `2026-10-21 21:31:19`
+- [x] `GET /inputs?all=1` para el Editor (UD-251, H-3709; `src/api/queue-admin.test.js`) `2026-10-21 22:38:29`
+- [x] `POST /ops/seed` y `src/domain/seed-examples.js` compartido con `scripts/sembrar.mjs` (UD-252, H-3711; `src/api/admin-controls.test.js`) `2026-10-21 22:38:49`
 - [x] [TASK-009]; 2026-10-21 15:24:00 [🤖 Verified by tool]
 
 ### [TASK-010] Telemetría con OpenTelemetry (UD-014)
@@ -174,6 +184,7 @@
 - [x] Medición de tiempos por tipo en `docs/investigaciones/mediciones/2026-10-20-extractores.md` `2026-10-20 22:24:12`
 - [x] Presupuesto de audio de 7.200 s por hora y troceado FLAC de 600 s con 5 s de solapamiento `2026-10-20 22:18:22`
 - [x] Alinear el tope de documentos entre la subida y la extracción (DT-005) `2026-10-20 23:59:28`
+- [x] Video: segunda llamada de visión para los fotogramas sin descripción y sin líneas vacías en la línea de tiempo (H-3713) `2026-10-21 22:50:52`
 
 ### [TASK-013] Mediciones pendientes de los extractores
 
@@ -259,6 +270,18 @@
 - [x] Humo del panel compilado contra la API real `2026-10-20 23:06:03`
 - [x] Borrar una plantilla manda `confirm=true` `2026-10-20 23:18:19`
 - [x] 21 pruebas de `panel/src/lib` `2026-10-20 23:33:05`
+- [x] Borrar en la ficha del mensaje y en cada respuesta, con Deshacer (UD-240) `2026-10-21 21:27:25`
+- [x] Equipo: «Eliminar» con las cifras del historial (UD-240, H-3703) `2026-10-21 21:29:02`
+- [x] «Borrar» en el desplegable de envíos de Inicio (UD-240, H-3702) `2026-10-21 21:31:21`
+- [x] Configuración, «Datos»: «Vaciar contenido» y «Vaciar todo» (UD-240, H-3704) `2026-10-21 21:33:51`
+- [x] Tarjetas de alto fijo con extracto de una línea (UD-241, H-3705) `2026-10-21 21:40:03`
+- [x] Ícono de borrar en cada tarjeta, fila de Áreas y vista de un área; título de una línea (UD-240, UD-241) `2026-10-21 22:36:24`
+- [x] «Borradas» y «Borrados» con «Restaurar» en Áreas, plantillas y Mensajes (UD-250, H-3706) `2026-10-21 22:39:54`
+- [x] «Adjunto» y «Quitar» en la ficha del mensaje (H-3707) `2026-10-21 22:41:02`
+- [x] «Cola» y «Auditoría» en Configuración (UD-251, H-3708) `2026-10-21 22:41:59`
+- [x] «Contraseña» de otro miembro en Equipo, «Sembrar ejemplos» en Datos y plantillas abiertas con enlace desde Áreas (UD-252, H-3710 a H-3712) `2026-10-21 22:43:47`
+- [x] Retirar «Descartados» de Inicio (UD-253) `2026-10-21 23:11:06`
+- [x] Conexiones sin la razón bajo el título (UD-037 enmendada) `2026-10-21 23:12:59`
 
 ### [TASK-019] Piel Y2K futurista
 

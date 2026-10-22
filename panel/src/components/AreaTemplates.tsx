@@ -1,5 +1,5 @@
 import { ChevronRight, Plus, Trash2 } from '@/components/icons'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { EditableText } from '@/components/EditableText'
 import { FitList } from '@/components/FitList'
 import { NewTemplateDialog, TemplateContentDialog } from '@/components/TemplateEditor'
@@ -8,7 +8,10 @@ import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/EmptyState'
 import { LoadState } from '@/components/LoadState'
 import { useT } from '@/i18n'
-import { useDeletedTemplates, useDeleteTemplate, useRestoreTemplate, useSaveTemplate, useTemplates } from '@/lib/queries'
+import { useDeletedTemplates, useDeleteTemplate, useDeleteTemplates, useRestoreTemplate, useRestoreTemplates, useSaveTemplate, useTemplates } from '@/lib/queries'
+import { useNotices } from '@/lib/notices'
+import { useSelection, type Selection } from '@/lib/selection'
+import { RowCheck, SelectionBar } from '@/components/SelectionBar'
 import { Markdown } from '@/lib/markdown'
 import { parseTemplateFields, templateInstructions } from '@/lib/template'
 import type { Area, Template } from '@/lib/types'
@@ -45,6 +48,22 @@ export function Templates({ area }: { area: Area }) {
     return items
   }, [live, removed, showRemoved, showDeleted, deleted.data])
 
+  // Several at once (UD-253): the marked templates are deleted without asking; the history and the notice carry Deshacer.
+  const selection = useSelection()
+  const notices = useNotices()
+  const delMany = useDeleteTemplates(area.id)
+  const restoreMany = useRestoreTemplates()
+  const page = useRef<readonly string[]>([])
+  const liveIds = useMemo(() => new Set(live.map((x) => x.id)), [live])
+  const marked = [...selection.marked].filter((id) => liveIds.has(id))
+  const removeMarked = async () => {
+    const ids = marked
+    const text = t('bulk.templatesDeleted', { n: ids.length })
+    await undo.run({ label: text, redo: () => delMany.mutateAsync(ids), undo: () => restoreMany.mutateAsync(ids) })
+    selection.clear()
+    notices.show({ text, action: { label: t('undo.undo'), run: () => undo.undo() } })
+  }
+
   // Deleting is reversible: it is done and Deshacer restores it (POST /templates/:id/restore). The row says so where it was.
   const remove = (template: Template) => {
     const index = live.findIndex((x) => x.id === template.id)
@@ -72,7 +91,9 @@ export function Templates({ area }: { area: Area }) {
         rows={rows}
         rowKey={(x) => `${x.kind}-${x.template.id}`}
         reveal={created}
-        renderRow={(x) => (x.kind === 'deleted' ? <DeletedTemplateRow template={x.template} /> : x.kind === 'removed' ? <RemovedRow template={x.template} onUndo={() => void undo.undo()} /> : <TemplateRow template={x.template} areaId={area.id} onRemove={() => void remove(x.template)} />)}
+        renderRow={(x) => (x.kind === 'deleted' ? <DeletedTemplateRow template={x.template} /> : x.kind === 'removed' ? <RemovedRow template={x.template} onUndo={() => void undo.undo()} /> : <TemplateRow template={x.template} areaId={area.id} selection={selection} onRemove={() => void remove(x.template)} />)}
+        onShown={(keys) => (page.current = keys.filter((k) => k.startsWith('template-')).map((k) => k.slice(9)))}
+        header={marked.length > 0 ? <SelectionBar selection={selection} busy={delMany.isPending} onAll={() => selection.add(page.current)} onDelete={() => void removeMarked()} /> : undefined}
         empty={
           templates.isPending || templates.isError ? (
             <LoadState query={templates} />
@@ -102,7 +123,7 @@ function DeletedTemplateRow({ template }: { template: Template }) {
   const t = useT()
   const restore = useRestoreTemplate()
   return (
-    <article data-deleted="true" className="flex items-center justify-between gap-3 border-b border-line px-4 py-3 text-muted last:border-b-0">
+    <article data-deleted="true" className="flex items-center justify-between gap-3 border-b border-line py-3 pl-12 pr-4 text-muted last:border-b-0">
       <span className="min-w-0 break-words">{template.name}</span>
       <Button size="sm" variant="secondary" disabled={restore.isPending} aria-label={t('restore.of', { title: template.name })} data-testid="template-restore" onClick={() => restore.mutate(template.id)}>
         {t('restore.action')}
@@ -114,7 +135,7 @@ function DeletedTemplateRow({ template }: { template: Template }) {
 function RemovedRow({ template, onUndo }: { template: Template; onUndo: () => void }) {
   const t = useT()
   return (
-    <article role="status" className="flex items-center justify-between gap-3 border-b border-line bg-hover px-4 py-3 last:border-b-0">
+    <article role="status" className="flex items-center justify-between gap-3 border-b border-line bg-hover py-3 pl-12 pr-4 last:border-b-0">
       <span className="min-w-0 break-words text-muted">{t('areas.deletedRow', { name: template.name })}</span>
       <Button size="sm" variant="secondary" onClick={onUndo}>
         {t('undo.undo')}
@@ -128,7 +149,7 @@ function RemovedRow({ template, onUndo }: { template: Template; onUndo: () => vo
  * instructions it gives the model, folded. The one button names what it opens, «Campos e instrucciones»; deleting is
  * a small icon at the corner, away from the title, and it is undone where it was (J3-A-30, J3-A-31, J3-A-32).
  */
-function TemplateRow({ template, areaId, onRemove }: { template: Template; areaId: string; onRemove: () => void }) {
+function TemplateRow({ template, areaId, selection, onRemove }: { template: Template; areaId: string; selection: Selection; onRemove: () => void }) {
   const t = useT()
   const undo = useUndo()
   const save = useSaveTemplate(areaId)
@@ -142,7 +163,8 @@ function TemplateRow({ template, areaId, onRemove }: { template: Template; areaI
   }
 
   return (
-    <article className="flex flex-col gap-3 border-b border-line px-4 py-3 last:border-b-0">
+    <article data-marked={selection.isMarked(template.id) || undefined} className="relative flex flex-col gap-3 border-b border-line py-3 pl-12 pr-4 last:border-b-0 data-[marked]:bg-selected">
+      <RowCheck id={template.id} title={template.name} selection={selection} />
       <div className="flex items-start gap-2">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <EditableText value={template.name} label={t('areas.fieldName')} validate={nameRule(t)} onSave={(v) => change('name', v)} displayClassName="font-medium" />

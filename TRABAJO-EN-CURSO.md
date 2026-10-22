@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 97dd42f Traspaso: batería completa en verde sobre 300c83b. Empujado a origin: `97dd42f`.
+- `main`: e10d713 Traspaso: corrección de borrado visible y auditoría de paridad en curso. Empujado a origin: `e10d713`.
 - Ramas con commits sin fusionar: ninguna.
 - Worktrees abiertos: `team-platform`.
 - Últimos commits en `main`:
-- `97dd42f` Traspaso: batería completa en verde sobre 300c83b (hace 53 segundos)
-- `676f043` Traspaso: VPS en 300c83b (hace 4 minutos)
-- `7fd91d7` Traspaso: regresiones de la batería arregladas en 300c83b (hace 6 minutos)
-- `300c83b` Panel: tres ajustes tras fusionar UD-240 y UD-241 (hace 6 minutos)
-- `272aeab` Traspaso: VPS en 6d87672 con UD-240 y UD-241 (hace 21 minutos)
-- `3ee284d` Traspaso: las cinco ramas de UD-240 y UD-241 en main (hace 27 minutos)
-- `8e06914` Merge wt-tarjetas-vistazo (hace 29 minutos)
-- `1a34faf` DISENO.md: dos oraciones en la tarjeta de lista (hace 30 minutos)
-Actualizado 2026-10-22 01:10 UTC.
+- `e10d713` Traspaso: corrección de borrado visible y auditoría de paridad en curso (hace 16 segundos)
+- `97dd42f` Traspaso: batería completa en verde sobre 300c83b (hace 27 minutos)
+- `676f043` Traspaso: VPS en 300c83b (hace 30 minutos)
+- `7fd91d7` Traspaso: regresiones de la batería arregladas en 300c83b (hace 31 minutos)
+- `300c83b` Panel: tres ajustes tras fusionar UD-240 y UD-241 (hace 32 minutos)
+- `272aeab` Traspaso: VPS en 6d87672 con UD-240 y UD-241 (hace 47 minutos)
+- `3ee284d` Traspaso: las cinco ramas de UD-240 y UD-241 en main (hace 53 minutos)
+- `8e06914` Merge wt-tarjetas-vistazo (hace 55 minutos)
+Actualizado 2026-10-22 01:36 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

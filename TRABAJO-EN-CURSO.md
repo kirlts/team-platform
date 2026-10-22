@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: b1cea16 Merge wt-borrar-envios. Empujado a origin: `d2bdbd6`.
-- Ramas con commits sin fusionar: `wt-borrar-mensajes` 4 (hace 32 segundos), `wt-vaciar-sembrar` 2 (hace 2 minutos), `wt-tarjetas-vistazo` 1 (hace 7 minutos).
+- `main`: 5923825 Traspaso: cuatro ramas de UD-240 en main. Empujado a origin: `5923825`.
+- Ramas con commits sin fusionar: `wt-tarjetas-vistazo` 4 (hace 30 segundos).
 - Worktrees abiertos: `team-platform`, `borrar-envios`, `borrar-mensajes`, `eliminar-miembros`, `tarjetas-vistazo`, `vaciar-sembrar`.
 - Últimos commits en `main`:
-- `b1cea16` Merge wt-borrar-envios (hace 11 segundos)
-- `41dad4a` Docs: DELETE /inputs/:id en MASTER-SPEC §7.1 y fila H-3702 hecha (hace 2 minutos)
-- `c7d2b27` Panel: «Borrar» en la bandeja de envíos con confirmación en el lugar (UD-240, H-3702) (hace 2 minutos)
-- `d2bdbd6` Merge branch 'wt-eliminar-miembros' (hace 4 minutos)
-- `f539493` Docs: DELETE /members/:id en MASTER-SPEC §6 y §7.1; H-3703 hecha (hace 5 minutos)
-- `7d0d99b` Equipo: «Eliminar» con confirmación en el lugar y cifras del historial (UD-240, H-3703) (hace 5 minutos)
-- `6c14020` API: DELETE /inputs/:id borra un envío con adjuntos, trabajos y propuesta (UD-240, H-3702) (hace 7 minutos)
-- `f7def09` Eliminar un miembro: DELETE /members/:id con purge (UD-240, H-3703) (hace 9 minutos)
-Actualizado 2026-10-22 00:33 UTC.
+- `5923825` Traspaso: cuatro ramas de UD-240 en main (hace 33 segundos)
+- `9c15614` Merge wt-vaciar-sembrar: textos de los códigos invalid_scope y keep_member_required (hace 51 segundos)
+- `ddeae54` Merge branch 'wt-vaciar-sembrar' (hace 3 minutos)
+- `c4b2bf8` Fusión de las tres ramas de borrado: archivos del miembro eliminado se liberan; nombres de prueba en inglés (hace 3 minutos)
+- `3ea96e4` Documentar vaciar y sembrar: MASTER-SPEC §7.1, INSTALACION, README y H-3704 (hace 5 minutos)
+- `328f46e` Configuración, sección Datos: vaciar contenido o todo con confirmación en el lugar (hace 5 minutos)
+- `3bf143d` Sembrar un juego de prueba por la API: scripts/sembrar.mjs y ejemplos/ (hace 5 minutos)
+- `1f75799` Vaciar datos de prueba: POST /ops/reset y scripts/vaciar.mjs (hace 5 minutos)
+Actualizado 2026-10-22 00:40 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

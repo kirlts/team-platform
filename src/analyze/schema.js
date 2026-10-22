@@ -25,7 +25,7 @@ export function buildClassificationSchema({ areas, templates }, { validation = f
           type: 'object',
           properties: {
             unit_ids: validation ? intArray({ minItems: 1, uniqueItems: true }) : intArray({ minItems: 1 }),
-            // H-3728: each request the group carries, one line each, named before the area. The validation asks for exactly one
+            // H-3730: each request the group carries, one line each, named before the area. The validation asks for exactly one
             // (a count, never a reading of the text); the decomposition receives it.
             // No `minLength` in the validation: an empty line is not a reason to fail a classification the system never reads.
             requests: { type: 'array', items: { type: 'string' } },
@@ -59,9 +59,9 @@ function messageSchema(fieldsSchema, { validation, requireAssignee = false }) {
       // With a team, every message has an owner (H-86): the grammar of the model requires at least one id.
       assignee_ids: requireAssignee ? { ...ids, minItems: 1 } : ids,
       attachment_ids: ids,
-      // H-3728: what a frame shows and nobody says aloud, kept out of the body («Observado, no dicho»). Empty when there is none.
+      // H-3730: what a frame shows and nobody says aloud, kept out of the body («Observado, no dicho»). Empty when there is none.
       observed: { type: 'array', items: text },
-      // H-3728: the units where the person comes back to this request after talking about another one. A message whose spoken
+      // H-3730: the units where the person comes back to this request after talking about another one. A message whose spoken
       // units are not one run must declare where each later run starts; the system checks the shape, never the text.
       resumes_at: ids,
     },
@@ -118,7 +118,7 @@ export function buildProposalSchema({ validation = false } = {}) {
   const message = structuredClone(base.properties.messages.items);
   message.properties.fields = { type: 'object', additionalProperties: { type: ['string', 'null'] } };
   const { unit_ids, ...rest } = message.properties;
-  // `source` is set by the system from the kind of the units (UD-021, H-3728), never by the model of the decomposition.
+  // `source` is set by the system from the kind of the units (UD-021, H-3730), never by the model of the decomposition.
   message.properties = { unit_ids, area_id: { type: 'integer' }, template_id: { type: 'integer' }, ...rest, source: { type: 'string', enum: ['frame'] } };
   message.required = ['unit_ids', 'area_id', 'template_id', 'title', 'fields', 'body', 'assignee_ids', 'attachment_ids'];
   return {

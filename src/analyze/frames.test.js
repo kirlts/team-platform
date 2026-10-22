@@ -1,4 +1,4 @@
-// H-3728: a request is born from what the author says or writes; a frame is evidence. The model is a fake: what is tested is the
+// H-3730: a request is born from what the author says or writes; a frame is evidence. The model is a fake: what is tested is the
 // structural kind of the units, the validation of the shape and the deterministic placement of frames, never a reading of the text.
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
@@ -26,14 +26,14 @@ const isCoverage = (req) => /Revisión de lo apartado|Review of what was set asi
 const group = (ids) => ({ unit_ids: ids, area_id: 2, template_id: 2 });
 const decompose = (req) => ({ messages: [bugMessage(unitIdsIn(req), `Corregir ${unitIdsIn(req).join('-')}`)] });
 
-describe('units carry a structural kind (H-3728)', () => {
+describe('units carry a structural kind (H-3730)', () => {
   it('voice and frame come from the extractor label of a video; author text and images are text and frame', () => {
     const units = numberUnits({ text: 'Mira el video', attachments: [{ id: 1, kind: 'video', extracted: VIDEO }, { id: 2, kind: 'image', extracted: 'Una captura.' }, { id: 3, kind: 'audio', extracted: '[00:00-00:04] Voz: hola' }] });
     assert.deepEqual(units.map((u) => u.kind), ['text', 'frame', 'voice', 'frame', 'voice', 'frame', 'frame', 'frame', 'voice']);
   });
 });
 
-describe('a frame alone does not become a request (H-3728)', () => {
+describe('a frame alone does not become a request (H-3730)', () => {
   const units = numberUnits({ attachments: [{ id: 1, kind: 'video', extracted: VIDEO }] });
   const frameIds = new Set(units.filter((u) => u.kind === 'frame').map((u) => u.id));
   const ctx = { areas: [{ id: 2 }], templates: [{ id: 2, area_id: 2 }], scope: new Set(units.map((u) => u.id)), frameIds };
@@ -72,7 +72,7 @@ describe('a frame alone does not become a request (H-3728)', () => {
   });
 });
 
-describe('each frame goes with the voice segment on air (H-3728)', () => {
+describe('each frame goes with the voice segment on air (H-3730)', () => {
   const units = numberUnits({ attachments: [{ id: 1, kind: 'video', extracted: VIDEO }] });
 
   it('a frame inside a segment joins the group of that segment; one in a silence stays', () => {
@@ -89,7 +89,7 @@ describe('each frame goes with the voice segment on air (H-3728)', () => {
   });
 });
 
-describe('the decomposition keeps one request per message and frames out of the body (H-3728)', () => {
+describe('the decomposition keeps one request per message and frames out of the body (H-3730)', () => {
   it('a message written from frames alone folds into the next message and its title goes to observed', () => {
     const frames = new Set([1, 3, 6]);
     const out = foldFrameMessages([{ unit_ids: [1, 2], title: 'A', observed: [] }, { unit_ids: [3], title: 'Fila con otro estado' }, { unit_ids: [4, 5, 6], title: 'B' }], frames);
@@ -122,7 +122,7 @@ describe('the decomposition keeps one request per message and frames out of the 
   });
 });
 
-describe('one request per message: spoken runs and declared resumes (H-3728)', () => {
+describe('one request per message: spoken runs and declared resumes (H-3730)', () => {
   const spoken = new Set([2, 4, 6, 8]);
   it('two messages whose spoken units interleave are an error unless the return is declared', () => {
     const msgs = [{ unit_ids: [1, 2, 6] }, { unit_ids: [3, 4, 8] }];
@@ -150,7 +150,7 @@ describe('one request per message: spoken runs and declared resumes (H-3728)', (
   });
 });
 
-describe('the classification names the request of each group and the decomposition receives it (H-3728)', () => {
+describe('the classification names the request of each group and the decomposition receives it (H-3730)', () => {
   it('the request goes to the user message of the decomposition of its group', async () => {
     const fake = createFakeProviders({ text: (req) => (isClassify(req) ? { groups: [{ ...group([1, 2, 3]), requests: ['Quitar el rechazo sin comprobante'] }, { ...group([4, 5]), requests: ['Abrir el historial anterior'] }], discarded: [{ unit_ids: [6], reason: 'x' }] } : decompose(req)) });
     const result = await analyze(await videoBundle(), { providers: fake });
@@ -160,7 +160,7 @@ describe('the classification names the request of each group and the decompositi
   });
 });
 
-describe('the prompts carry the rules of the review of a client video (H-3728)', async () => {
+describe('the prompts carry the rules of the review of a client video (H-3730)', async () => {
   const bundle = await makeBundle();
   const template = parseTemplate(bundle.templates.find((t) => t.id === 2).body_markdown);
   for (const language of ['es-419', 'en']) {

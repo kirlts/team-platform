@@ -217,7 +217,7 @@ async function structuredStep(ctx, { step, system, messages, schema, effort, thi
 async function decomposeUnits(ctx, { bundle, template, system, schema, units, scopeNote, label, request }) {
   const { config } = ctx;
   const scope = new Set(units.map((u) => u.id));
-  // H-3728: the voice and text units with content of this group, for the check of one request per message.
+  // H-3730: the voice and text units with content of this group, for the check of one request per message.
   const spoken = new Set(units.filter((u) => u.kind !== 'frame' && !isEmptyUnit(u.text)).map((u) => u.id));
   const vctx = { ...contextFromBundle(bundle, { fields: template.fields, scope }), requireMessage: true, withDiscarded: false, spokenIds: spoken.size > 1 ? spoken : null };
   const base = {
@@ -368,7 +368,7 @@ export async function classifyInput(bundle, { providers, onProgress, config, red
   const ctx = createContext({ providers, config, onProgress, unitCount: units.length, language });
   let attachments = workBundle.attachments ?? [];
   const { areas, templates, project, framing } = bundle;
-  // H-3728: the units that only describe what is on screen. When the author also speaks or writes, a group of frames alone is
+  // H-3730: the units that only describe what is on screen. When the author also speaks or writes, a group of frames alone is
   // not a request; in an input made only of images (UD-021) the frames are the content and the rule does not apply.
   const frameIdsOf = (list) => {
     const frames = new Set(list.filter((u) => u.kind === 'frame').map((u) => u.id));
@@ -473,7 +473,7 @@ export async function classifyInput(bundle, { providers, onProgress, config, red
   // -- Coverage pass (H-1900): what was discarded is read again, apart from the surrounding talk ---------------------------
   // In a long meeting the first reading discards whole stretches as chatter and takes real points with them. The model decides
   // whether any of those units is a point; the system only validates the form (scope, overlaps, gaps) and closes stretches again.
-  // H-3728: only what the person said or wrote is reread; a discarded frame stays discarded, since what is only seen is not a point.
+  // H-3730: only what the person said or wrote is reread; a discarded frame stays discarded, since what is only seen is not a point.
   for (let pass = 0; pass < config.coveragePasses && classDiscarded.some((d) => d.unit_ids.some((id) => !frameIds?.has(id))); pass += 1) {
     const discardedIds = new Set(classDiscarded.flatMap((d) => d.unit_ids));
     const apart = units.filter((u) => discardedIds.has(u.id) && !frameIds?.has(u.id));
@@ -488,7 +488,7 @@ export async function classifyInput(bundle, { providers, onProgress, config, red
     const kept = classDiscarded.map((d) => ({ ...d, unit_ids: d.unit_ids.filter((id) => failedIds.has(id) || frameIds?.has(id)) })).filter((d) => d.unit_ids.length > 0);
     ({ groups, discarded: classDiscarded } = closeStretches([...groups, ...rereadGroups], [...rereadDiscarded, ...kept]));
   }
-  // H-3728: each frame goes with the voice segment on air when it was taken.
+  // H-3730: each frame goes with the voice segment on air when it was taken.
   const anchoring = anchorFrames(groups, classDiscarded, units);
   ({ groups, discarded: classDiscarded } = anchoring);
   if (anchoring.anchored > 0) ctx.stats.frames_anchored = anchoring.anchored;
@@ -581,7 +581,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
     merged.messages = folded.messages;
     ctx.stats.empty_messages_folded = folded.folded;
   }
-  // H-3728: a message written from frames alone, where the person speaks or writes, becomes an observation of another message.
+  // H-3730: a message written from frames alone, where the person speaks or writes, becomes an observation of another message.
   const spokenFrames = units.filter((u) => u.kind === 'frame').length > 0 && units.some((u) => u.kind !== 'frame' && !isEmptyUnit(u.text));
   if (spokenFrames) {
     const seen = foldFrameMessages(merged.messages, new Set(units.filter((u) => u.kind === 'frame').map((u) => u.id)));
@@ -613,7 +613,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
   }
   const { messages, discarded } = normalizeDecomposition(merged);
   // A message born only from images or frames is marked as inferred from the image (UD-021): the sender sees it and can discard
-  // it. It is decided by the kind of the units (H-3728), never by the prose nor by the model.
+  // it. It is decided by the kind of the units (H-3730), never by the prose nor by the model.
   const seenOnly = new Set(units.filter((u) => u.kind === 'frame').map((u) => u.id));
   for (const m of messages) if (m.unit_ids.every((id) => seenOnly.has(id))) m.source = 'frame';
   ctx.report(step('proposalReady'), { advance: true });

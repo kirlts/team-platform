@@ -1,4 +1,4 @@
-# Análisis de dos videos de un cliente (H-3728)
+# Análisis de dos videos de un cliente (H-3730)
 
 Con Sonnet 5.5, el arreglo deja en 0 los mensajes nacidos de fotogramas y en 7 de 7 las áreas en las tres corridas. Recoge 7 de 7 pedidos en 1 corrida y 5 de 7 en 2. En esas dos, dos pedidos seguidos de la misma conversación (el historial que no se abre y la persona duplicada) quedan en un solo mensaje. El costo por envío no cambia: 0,13 USD con Sonnet. Commit medido: `1e39e2a`.
 

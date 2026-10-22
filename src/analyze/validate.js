@@ -94,12 +94,12 @@ export function validateClassification(output, { areas, templates, scope, frameI
     for (const id of d.unit_ids) if (!scope.has(id)) errors.push(`discard ${i + 1}: unit ${id} does not exist in this input`);
   });
   if (errors.length > 0) return { errors };
-  // H-3728: a request is born from what the author says or writes. A group made only of frame units, in an input where the author
+  // H-3730: a request is born from what the author says or writes. A group made only of frame units, in an input where the author
   // speaks or writes, is a point nobody asked for: the frames go to the group of the request they show, or to discarded.
   const shapeErrors = frameIds ? output.groups.flatMap((g, i) => (g.unit_ids.every((id) => frameIds.has(id))
     ? [`group ${i + 1}: cites only frame descriptions (${g.unit_ids.map((id) => `u${id}`).join(', ')}); a group is born from what the person says or writes, so put these frames in the group of the point they show, or in discarded when nobody talks about them`]
     : [])) : [];
-  // H-3728: one request per group. The model lists the requests it sees in each group; more than one asks for a split.
+  // H-3730: one request per group. The model lists the requests it sees in each group; more than one asks for a split.
   const requestErrors = output.groups.flatMap((g, i) => (Array.isArray(g.requests) && g.requests.length > 1
     ? [`group ${i + 1}: lists ${g.requests.length} requests; a group carries one request, so split it into one group per request, each with its own units`]
     : []));
@@ -140,7 +140,7 @@ export function coverage(messages, discarded, scope, noun = 'message') {
  */
 export function repairClassification(output, scope, { frameIds = null, frameReason = 'Observed, not said' } = {}) {
   if (frameIds) {
-    // H-3728: a group of frames alone that the retry did not fix is discarded: what nobody says does not become a message.
+    // H-3730: a group of frames alone that the retry did not fix is discarded: what nobody says does not become a message.
     const frameOnly = output.groups.filter((g) => g.unit_ids.every((id) => frameIds.has(id)));
     if (frameOnly.length > 0) {
       output = {
@@ -196,7 +196,7 @@ export function closeStretches(groups, discarded) {
 }
 
 /**
- * H-3728: a frame is evidence of what the person says while it is on screen. Each frame whose time falls inside a voice segment of
+ * H-3730: a frame is evidence of what the person says while it is on screen. Each frame whose time falls inside a voice segment of
  * the same attachment goes to the group of that segment, so the same symptom does not end up in two messages (once said, once
  * seen). A frame whose segment was discarded, or that falls in a silence, stays where the model put it. Times and sets only.
  * @param {{unit_ids: number[]}[]} groups
@@ -225,7 +225,7 @@ export function anchorFrames(groups, discarded, units) {
 }
 
 /**
- * H-3728: a message the decomposition wrote from frames alone, in a group where the person speaks or writes, is not a request. It
+ * H-3730: a message the decomposition wrote from frames alone, in a group where the person speaks or writes, is not a request. It
  * joins the message that holds the closest unit after it (or before it), and its title travels in that message's `observed`,
  * outside the body. Sets over `unit_ids`; the title is moved as written, never read.
  * @param {{unit_ids: number[], title: string, observed?: string[]}[]} messages
@@ -401,7 +401,7 @@ export function validateDecomposition(output, { fields, scope, memberIds, attach
   });
   if (errors.length > 0) return { errors, conflicts: { overlaps: [], gaps: [] } };
   const conflicts = coverage(output.messages, discarded, scope);
-  // H-3728: one request per message. The spoken units of a message form one run among the spoken units of the group, or each
+  // H-3730: one request per message. The spoken units of a message form one run among the spoken units of the group, or each
   // later run starts at a unit the model declared in `resumes_at`. It is the only check that can be accepted after the retry:
   // the draft travels in `acceptable`, so a model that does not declare it does not fail the input.
   const runErrors = spokenIds ? interleavedRuns(output.messages, spokenIds) : [];

@@ -61,7 +61,7 @@ const VOICE_LINE = new RegExp(`^[[(]?${CLOCK}(?:\\s*[-–]\\s*${CLOCK})?[\\])]?\
 const FRAME_LINE = new RegExp(`^[[(]?${CLOCK}[\\])]?\\s*Fotograma \\d+:`);
 
 /**
- * Structural kind of a unit (H-3728): `voice` (a transcript segment of an audio or a video), `frame` (the description of a video
+ * Structural kind of a unit (H-3730): `voice` (a transcript segment of an audio or a video), `frame` (the description of a video
  * frame or of an image) or `text` (what the author wrote, or a document). It comes from the source of the unit and from the label
  * the extractor writes, never from what the person said. A request is born from `voice` or `text`; a `frame` is evidence.
  */

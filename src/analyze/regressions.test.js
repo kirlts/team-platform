@@ -242,7 +242,7 @@ describe('REG-009: a rhetorical question or a closing filler is not a Question m
   }
 });
 
-describe('H-11: a point seen only in an image carries source «frame» into the proposal, set from the kind of its units (H-3728)', () => {
+describe('H-11: a point seen only in an image carries source «frame» into the proposal, set from the kind of its units (H-3730)', () => {
   const script = (source) => scriptByRequest({
     classification: { groups: [{ unit_ids: [1, 2], area_id: 2, template_id: 2 }], discarded: [] },
     decompositions: { 'Reporte de error': { messages: [{ ...bugMessage([1, 2], 'Corregir el icono desalineado'), ...(source ? { source } : {}) }] } },

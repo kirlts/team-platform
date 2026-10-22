@@ -212,7 +212,7 @@ export function windowNote({ index, total, first, last }) {
 }
 
 /** Note for a chunk when the input is split (the model must know it does not see everything). */
-/** H-3728: the request the classification named for the group, handed to the decomposition. */
+/** H-3730: the request the classification named for the group, handed to the decomposition. */
 export const requestNote = (request) => `El paso previo nombró así el pedido de este grupo: «${request}». Si las unidades traen otro pedido además de ese, va en otro mensaje.`;
 
 export function chunkNote({ index, total, first, last }) {

@@ -74,24 +74,30 @@ export function MessageFoldRow({
           {children}
         </div>
       ) : (
-        <button type="button" aria-expanded={false} aria-label={t('proposal.open', { n, title })} onClick={onToggle} className="hit flex w-full min-w-0 items-center gap-2 px-1 py-2 text-left hover:bg-hover">
+        <button type="button" aria-expanded={false} aria-label={t('proposal.open', { n, title })} onClick={onToggle} className="hit flex w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-1 px-1 py-2 text-left hover:bg-hover">
           <ChevronRight size={14} aria-hidden className="shrink-0 text-muted" />
           <span className="w-4 shrink-0 text-xs font-semibold tabular-nums text-muted">{n}</span>
           <AreaChip areaId={areaId} className="shrink-0 text-xs" />
-          <span data-testid="fold-title" title={title} data-ellipsis-ok="UD-241" className={cn(HEADING, 'flex-1')}>
+          <span data-testid="fold-title" title={title} data-ellipsis-ok="UD-241" className={cn(HEADING, 'min-w-32 flex-1')}>
             {title}
           </span>
-          {/* Who it is for, in one line while it fits; a message without recipients says so with its mark, the one thing a row asks of the person (J2-B-17). */}
-          {to ? (
+          {/* Who it is for, in one line while it fits; a message without recipients says so with its mark, the one thing a row asks of the person (J2-B-17).
+              On a narrow column the marks go under the title, at the right edge, so the title keeps its line. */}
+          {(!to || aside) && (
+            <span className="ml-auto inline-flex shrink-0 items-center gap-2">
+              {!to && (
+                <span data-needs-attention className="inline-flex items-center gap-1 text-xs font-semibold text-danger">
+                  <AlertTriangle size={12} aria-hidden strokeWidth={2.2} /> {t('proposal.noRecipients')}
+                </span>
+              )}
+              {aside}
+            </span>
+          )}
+          {to && (
             <span title={to} data-ellipsis-ok="UD-241" className="hidden min-w-0 max-w-[40%] shrink truncate text-xs text-muted @md:inline">
               {t('proposal.to', { names: to })}
             </span>
-          ) : (
-            <span data-needs-attention className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-danger">
-              <AlertTriangle size={12} aria-hidden strokeWidth={2.2} /> {t('proposal.noRecipients')}
-            </span>
           )}
-          {aside}
         </button>
       )}
     </li>

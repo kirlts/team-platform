@@ -50,6 +50,8 @@
   --spacing-block: 24px;
   --spacing-section: 40px;
   --spacing-bar-pad: 24px;
+  /* The text block of a row of a list (UD-241): two lines of heading (15 px × 1.375 × 2) and one of extract (12 px × 1.4) with 4 px between, rounded up to the 4 px unit. See «Tarjeta de lista» in DISENO.md. */
+  --spacing-card-text: 64px;
   --container-compose: 56rem;
   --container-inicio: 112rem;
 

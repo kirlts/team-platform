@@ -389,7 +389,8 @@ export const DETECTORS = {
       if (ud.hidden(el)) continue
       const cs = getComputedStyle(el)
       const own = ud.ownText(el)
-      if (own) {
+      // The extract of a row of a list is one line ended with an ellipsis on purpose (UD-241) and declares it.
+      if (own && !el.hasAttribute('data-ellipsis-ok')) {
         const clipsX = cs.overflowX !== 'visible' && cs.overflowX !== 'auto' && cs.overflowX !== 'scroll'
         const clipsY = cs.overflowY !== 'visible' && cs.overflowY !== 'auto' && cs.overflowY !== 'scroll'
         const clamp = cs.webkitLineClamp && cs.webkitLineClamp !== 'none'

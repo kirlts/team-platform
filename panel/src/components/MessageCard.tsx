@@ -2,7 +2,7 @@ import { MessageSquare } from '@/components/icons'
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { useFormat, useT } from '@/i18n'
-import { mainAttachment } from '@/lib/media'
+import { kindsOf, mainAttachment } from '@/lib/media'
 import { noticeState } from '@/lib/states'
 import { useMe, useSetClosed } from '@/lib/queries'
 import { cn } from '@/lib/utils'
@@ -20,18 +20,22 @@ const EDGE = { open: 'shadow-[inset_3px_0_0_var(--color-state-open-bg)]', answer
 /** Recipients drawn before the rest fold into «y N más». */
 const RECIPIENTS_SHOWN = 2
 
+/** The extract: one line ended with an ellipsis, the one text the interface cuts, so every row measures the same. The whole text is the tooltip and the detail. */
+const EXTRACT = 'min-w-0 truncate text-xs text-muted' // justified: UD-241 amends UD-016 for the extract of a row of a list
+
 /**
- * Message row, in three levels (J1-A-13, J3-A-05): the heading comes first; the extract is support text (12 px,
- * muted, whole, never cut: UD-016); one line of metadata closes it, in plain text and not in chips: area, sender,
- * date, media, recipients and replies. What the row says about me is said once, first in that line: the
- * state with its shape and its word (open, answered or closed; UD-041). The column on the right holds only the two
- * actions, so the state never sits beside «Responder». The edge on the left and the shape of the state are the only color of a row. The thumbnail keeps its place at the end (UD-016).
- * Responder and Cerrar are real buttons, always drawn, on every screen and in every list (J2-A-11): a control that
- * shows only under the pointer does not exist for the keyboard or for a touch screen. They sit at the right edge, so
- * a row without Responder (the sender's own) leaves no hole (J3-A-17). The whole row leads to the detail; Responder
- * opens it with the form at hand and Cerrar or Reabrir apply instantly.
- * In the `reply` variant the heading is the latest reply and the support line names the message it answers, so both
- * lists read in the same order: what happened, then where (J3-A-08).
+ * Message row, one grid for every row of every list (UD-241): every row measures the same and each datum falls at the same y and x in
+ * all of them, so a list reads at a glance. From top to bottom, in four lines of fixed height («Tarjeta de lista» in DISENO.md):
+ *   1. the text block, 64 px: the heading, dominant (15 px, semibold), up to two lines, and under it the extract, muted (12 px), one line
+ *      ended with an ellipsis: the one text the interface cuts (UD-241 amends UD-016); the whole text is the tooltip and is read in the detail.
+ *      A heading of three lines or more grows the row, never cut (UD-016);
+ *   2. the state (its shape, its color and its word: UD-041) and the area chip (its color only in the chip: UD-045);
+ *   3. who, when, and at the right edge the media icons and the count of replies (UD-016), under the thumbnail;
+ *   4. who it is for; in the stacked layout this line also holds the two actions.
+ * The thumbnail column is always there, with or without media, so the text column has one width in every row. Responder and Cerrar are
+ * real buttons, always drawn (J2-A-11); they sit at the right edge, so a row without Responder leaves no hole (J3-A-17). The whole
+ * row leads to the detail. In the `reply` variant the heading is the latest reply and the extract names the message it answers (J3-A-08).
+ * The layout follows the width of the row (container query), not the window: the same row sits in the full list and in the half columns of Inicio.
  */
 export function MessageCard({ message, variant = 'message', hideArea = false }: { message: Message; variant?: 'message' | 'reply'; hideArea?: boolean }) {
   const t = useT()
@@ -47,15 +51,13 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
   // Reply row: the author, the date, the media and the thumbnail are the reply's.
   const from = reply ?? message
   const main = mainAttachment(from.attachments)
+  const extract = reply ? t('card.inMessage', { title: message.title }) : message.body
 
   return (
     <article data-affects-me={affects ?? undefined} data-closed={closed || undefined} className={cn('group @container relative border-b border-line last:border-b-0 hover:bg-glass-edge', EDGE[message.status])}>
-      {/* The layout follows the width of the row, not the window: the same row sits in the full list and in the half columns of Inicio. */}
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-1 px-4 py-3 @2xl:grid-cols-[minmax(0,1fr)_9.5rem_3rem] @2xl:grid-rows-[auto_auto_auto_1fr]">
-      {/* The area is the tab of the card (mockup «Área» above each message): a chip in its own color, always on its own line above the title,
-          so every row has the same shape and the title takes the whole width of the column (J4-A-home-03, J4-A-home-04). */}
-      <div className="col-start-1 row-start-1 flex min-w-0 flex-col items-start gap-y-1">
-        {!hideArea && <AreaChip areaId={message.area_id} className="shrink-0" />}
+      <div className="grid grid-cols-[minmax(0,1fr)_2.5rem] grid-rows-[auto_auto_auto_auto] items-start gap-x-4 gap-y-1 px-4 py-3 @2xl:grid-cols-[minmax(0,1fr)_9.5rem_2.5rem]">
+      {/* The text block has one height in every row (`--spacing-card-text`): two lines of heading and the extract. A one-line heading leaves its air under the extract, between the groups and not inside the paragraph. */}
+      <div data-testid="card-text" className="col-start-1 row-start-1 flex min-h-card-text min-w-0 flex-col gap-y-1">
         <h3 className={cn('min-w-0 break-words text-sm font-semibold leading-snug [text-wrap:pretty]', closed && 'font-medium text-muted')}>
           <Link
             to={`/messages/${message.id}`}
@@ -65,30 +67,38 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
             {reply ? reply.body : message.title}
           </Link>
         </h3>
+        {/* data-repeat-ok: the reply row names the message it answers; that message is listed on its own too. data-ellipsis-ok: the detectors of cut text skip this line (UD-241). */}
+        <p data-testid="card-extract" data-repeat-ok={reply ? 'reply-names-its-message' : undefined} data-ellipsis-ok="UD-241" title={extract} aria-hidden={reply ? true : undefined} className={EXTRACT}>
+          {extract}
+        </p>
       </div>
-      {/* data-repeat-ok: the reply row names the message it answers; that message is listed on its own too. */}
-      <p data-repeat-ok={reply ? 'reply-names-its-message' : undefined} className="col-start-1 row-start-2 whitespace-normal break-words text-xs text-muted" aria-hidden={reply ? true : undefined}>
-        {reply ? t('card.inMessage', { title: message.title }) : message.body}
-      </p>
-      <div className="col-span-2 row-start-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted @2xl:col-span-1">
-        {/* The state opens the line of metadata and not the column of actions: «Respondido» next to «Responder» read as one thing said twice (J4-A-home-02). */}
-        <StateMark status={message.status} plain className="px-0" />
+      {/* The state opens its line and not the column of actions: «Respondido» next to «Responder» read as one thing said twice (J4-A-home-02). */}
+      <div data-testid="card-state" className="col-start-1 row-start-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+        <StateMark status={message.status} plain className="min-h-0 px-0" />
+        {!hideArea && <AreaChip areaId={message.area_id} className="min-w-0" />}
+      </div>
+      <div data-testid="card-who" className="col-start-1 row-start-3 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
         <span data-repeat-ok="person">{memberName(from.author_id)}</span>
         <time dateTime={from.created_at} title={format.fullStamp(from.created_at)} className="tabular-nums">
           {format.stamp(from.created_at)}
         </time>
-        <MediaKinds of={from} />
-        {message.reply_count > 0 && (
-          <span className="inline-flex items-center gap-1" title={t('card.replies', { n: message.reply_count })}>
-            <MessageSquare size={13} aria-hidden />
-            {message.reply_count}
+        {/* The media and the replies, as one unit, take the right edge of the text column, under the thumbnail: the same x in every row. */}
+        {(message.reply_count > 0 || kindsOf(from).length > 0) && (
+          <span className="ml-auto inline-flex items-center gap-3">
+            <MediaKinds of={from} />
+            {message.reply_count > 0 && (
+              <span className="inline-flex items-center gap-1" title={t('card.replies', { n: message.reply_count })}>
+                <MessageSquare size={13} aria-hidden />
+                {message.reply_count}
+              </span>
+            )}
           </span>
         )}
       </div>
 
-      {/* The last line: who it is for on the left, the two actions on the right; in the wide layout the actions leave for their own column. */}
-      <div className="col-span-2 row-start-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 @2xl:contents">
-        <Recipients ids={variant === 'message' ? message.assignee_ids : []} max={RECIPIENTS_SHOWN} plain className="min-w-0 text-xs text-muted empty:hidden @2xl:col-start-1 @2xl:row-start-4" />
+      {/* The last line: who it is for on the left (kept, even empty, so every row has the line), the two actions on the right; in the wide layout the actions leave for their own column. */}
+      <div data-testid="card-foot" className="col-span-2 row-start-4 flex min-h-7 flex-wrap items-center justify-between gap-x-3 gap-y-1 @2xl:contents">
+        <Recipients ids={variant === 'message' ? message.assignee_ids : []} max={RECIPIENTS_SHOWN} plain className="min-h-[1lh] min-w-0 text-xs text-muted @2xl:col-start-1 @2xl:row-start-4" />
         <span className="relative z-10 ml-auto flex items-center justify-end gap-1 @2xl:col-start-2 @2xl:row-span-4 @2xl:row-start-1 @2xl:self-start">
           {!isAuthor && !closed && (
             <Button asChild size="sm" variant="secondary" className="px-3 text-xs">
@@ -101,11 +111,10 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
         </span>
       </div>
 
-      {main && (
-        <div className={cn('relative z-10 col-start-2 row-span-2 row-start-1 @2xl:col-start-3 @2xl:row-span-3', closed && 'opacity-60')}>
-          <MediaOpener attachments={from.attachments ?? []} scope={reply ? 'reply' : 'message'} px={40} />
-        </div>
-      )}
+      {/* The thumbnail column exists in every row (UD-241): a row without media keeps the same text width as one with it. */}
+      <div data-testid="card-thumb" className={cn('relative z-10 col-start-2 row-start-1 size-10 @2xl:col-start-3', closed && 'opacity-60')}>
+        {main && <MediaOpener attachments={from.attachments ?? []} scope={reply ? 'reply' : 'message'} px={40} />}
+      </div>
       </div>
     </article>
   )

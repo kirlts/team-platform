@@ -71,7 +71,7 @@ const rows = (page) =>
   )
 
 describe('Inicio (J4 home)', () => {
-  test('the state is not in the row of «Responder», the area chip is always above the title and the title uses the width (J4-home-02, -03, -04)', async () => {
+  test('the state is not in the row of «Responder», the area chip sits under the title on the line of the state and the title uses the width (J4-home-02, -04; UD-241 amends J4-home-03)', async () => {
     const { page, context } = await session('ana')
     try {
       await page.goto(origin)
@@ -80,7 +80,11 @@ describe('Inicio (J4 home)', () => {
       const list = await rows(page)
       assert.ok(list.length >= 2, `${list.length} rows drawn`)
       for (const r of list) {
-        assert.ok(r.chip.bottom <= r.heading.top + 1, `the chip (bottom ${r.chip.bottom}) is not above the title (top ${r.heading.top})`)
+        // UD-241: the heading comes first; the chip is on the line of the state, under the extract, at the same x as the heading.
+        assert.ok(r.chip.top >= r.heading.bottom - 1, `the chip (top ${r.chip.top}) is not under the title (bottom ${r.heading.bottom})`)
+        assert.ok(Math.abs(r.state.left - r.heading.left) <= 1, `the state (left ${r.state.left}) is not aligned with the title (left ${r.heading.left})`)
+        // After the state on its line; an area name too long for a half column of Inicio wraps under it, never cut (UD-016).
+        assert.ok(r.chip.left > r.state.right || r.chip.top >= r.state.bottom - 1, `the chip (left ${r.chip.left}, top ${r.chip.top}) is not after the state (right ${r.state.right}, bottom ${r.state.bottom})`)
         assert.equal(r.textWrap, 'pretty', 'a title fills its lines, it does not balance them')
         if (r.reply) assert.ok(r.state.top < r.reply.top - 8, `the state (${r.state.top}) is not above the row of «Responder» (${r.reply.top})`)
         if (r.lineCount > 1) assert.ok(r.widest >= r.heading.left + r.heading.width * 0.72, `a two-line title stops at ${Math.round(r.widest - r.heading.left)} of ${Math.round(r.heading.width)} px`)
@@ -134,10 +138,12 @@ describe('Mensajes (J4 messages)', () => {
     try {
       await page.goto(`${origin}/messages`)
       await page.locator('[data-testid="area-chip"]').first().waitFor()
+      // UD-241: the count sits in the line of who and when (`card-who`), with the media icons as one unit; any other datum of that line at the same height is company.
       const alone = await page.locator('article span[title$="respuestas"], article span[title$="respuesta"]').evaluateAll((counts) =>
         counts.filter((c) => {
           const top = c.getBoundingClientRect().top
-          return ![...c.parentElement.children].some((o) => o !== c && o.getBoundingClientRect().height > 0 && Math.abs(o.getBoundingClientRect().top - top) < 8)
+          const line = c.closest('[data-testid="card-who"]')
+          return ![...line.querySelectorAll('*')].some((o) => o !== c && !o.contains(c) && !c.contains(o) && o.getBoundingClientRect().height > 0 && Math.abs(o.getBoundingClientRect().top - top) < 8)
         }).length,
       )
       assert.equal(alone, 0, `${alone} counts of replies are alone on their line`)

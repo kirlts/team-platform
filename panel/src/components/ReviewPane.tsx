@@ -14,6 +14,8 @@ interface Props {
   onDiscarded?: (inputId: string, restore: () => Promise<unknown>) => boolean
   /** The send just discarded, while the drawer has no other one open: its place with the way back. */
   discarded?: { onUndo: () => void }
+  /** The send was deleted for real (UD-240): the page stops showing it at once. */
+  onDeleted?: (inputId: string) => void
 }
 
 /**
@@ -37,7 +39,7 @@ export function ReviewPane(props: Props) {
   return <Review key={props.inputId} {...props} inputId={props.inputId} />
 }
 
-function Review({ inputId, onClose, onDiscarded }: Props & { inputId: string }) {
+function Review({ inputId, onClose, onDiscarded, onDeleted }: Props & { inputId: string }) {
   const input = useInput(inputId)
   const undo = useUndoStack()
   if (!input.data) return null
@@ -47,7 +49,7 @@ function Review({ inputId, onClose, onDiscarded }: Props & { inputId: string }) 
       <div className="@container min-h-0 min-w-0 flex-1">
         <div className="grid h-full min-h-0 gap-3 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:grid-rows-[minmax(0,1fr)]">
           <InputPreview input={input.data} />
-          {input.data.status === 'published' ? <PublishedPane input={input.data} /> : <AnalysisPanel input={input.data} onClose={onClose} onDiscarded={onDiscarded ? (restore) => onDiscarded(inputId, restore) : undefined} />}
+          {input.data.status === 'published' ? <PublishedPane input={input.data} onDeleted={onDeleted} /> : <AnalysisPanel input={input.data} onClose={onClose} onDiscarded={onDiscarded ? (restore) => onDiscarded(inputId, restore) : undefined} onDeleted={onDeleted} />}
         </div>
       </div>
     </UndoProvider>

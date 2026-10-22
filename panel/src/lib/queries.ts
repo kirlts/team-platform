@@ -194,6 +194,16 @@ export function useRestoreInput() {
   })
 }
 
+/** Deletes a send for real (DELETE /inputs/:id?confirm=true, UD-240): its attachments, jobs and proposal; with `withMessages`, the messages it published too. */
+export function useDeleteInput() {
+  const invalidate = useInvalidator()
+  return useMutation({
+    mutationFn: (v: { id: string; withMessages: boolean }) =>
+      api<{ input_id: string; deleted: { attachments: number; jobs: number; messages: number }; freed_bytes: number }>(`/inputs/${v.id}?confirm=true${v.withMessages ? '&with_messages=true' : ''}`, { method: 'DELETE' }),
+    onSuccess: () => invalidate('inputs', 'messages', 'areas'),
+  })
+}
+
 export function useCancelInput() {
   const invalidate = useInvalidator()
   return useMutation({

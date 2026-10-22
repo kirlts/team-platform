@@ -279,6 +279,12 @@ export function Home() {
               setDiscarded({ id, restore })
               return true
             },
+            // Deleted for real: it leaves the drawer now, and the list confirms it when it catches up (UD-240).
+            onDeleted: (id) => {
+              setGone((set) => new Set(set).add(id))
+              setDiscarded(null)
+              setSelectedId(undefined)
+            },
             discarded: discarded ? { onUndo: async () => { await discarded.restore(); setGone((set) => { const next = new Set(set); next.delete(discarded.id); return next }); setSelectedId(discarded.id); setDiscarded(null) } } : undefined,
           }}
         />

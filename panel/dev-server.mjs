@@ -859,6 +859,37 @@ const server = createServer(async (req, res) => {
     }
 
     let m = /^\/inputs\/([^/]+)(?:\/(publish|cancel|restore|reprocess|proposal))?$/.exec(path)
+    // Deletion for real (UD-240): the sender or the Editor; with `with_messages=true` the published messages go too.
+    if (m && !m[2] && method === 'DELETE') {
+      const input = inputs.get(m[1])
+      if (!input || (input.author_id !== me.id && !isEditor)) return fail(res, 404, 'No existe')
+      if (url.searchParams.get('confirm') !== 'true') return fail(res, 400, 'La operación es destructiva y exige confirm=true en la dirección.', 'confirm_required')
+      const withMessages = url.searchParams.get('with_messages') === 'true'
+      clearTimeout(jobs.get(input.job_id))
+      waiting.delete(input.job_id)
+      const born = messages.filter((x) => x.input_id === input.id)
+      let deletedMessages = 0
+      if (withMessages) {
+        for (const msg of born) {
+          messages.splice(messages.indexOf(msg), 1)
+          replies.delete(msg.id)
+          deletedMessages++
+        }
+      } else {
+        for (const msg of born) msg.input_id = null
+      }
+      const stillUsed = new Set(messages.flatMap((x) => x.attachment_ids))
+      let deletedAttachments = 0
+      let freed = 0
+      for (const aid of input.attachment_ids) {
+        if (stillUsed.has(aid)) { const a = attachments.get(aid); if (a) a.input_id = null; continue }
+        freed += attachments.get(aid)?.size ?? 0
+        attachments.delete(aid)
+        deletedAttachments++
+      }
+      inputs.delete(input.id)
+      return send(res, 200, { input_id: input.id, deleted: { attachments: deletedAttachments, jobs: 1, messages: deletedMessages }, freed_bytes: freed })
+    }
     if (m) {
       const input = inputs.get(m[1])
       if (!input || input.author_id !== me.id) return fail(res, 404, 'No existe')

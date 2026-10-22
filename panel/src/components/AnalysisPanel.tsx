@@ -27,6 +27,7 @@ import { useLookups } from './lookups'
 import { Meter } from './Meter'
 import { RecipientsEditor } from './RecipientsEditor'
 import { TemplateFields } from './TemplateFields'
+import { DeleteSend } from './DeleteSend'
 import { UndoButtons } from './UndoButtons'
 
 const STATUS_PHRASE: Partial<Record<InputStatus, MessageKey>> = {
@@ -62,7 +63,7 @@ function useDiscard(input: InputRecord, onDiscarded?: (restore: () => Promise<un
  * «Análisis» block: progress over SSE while the job runs and, when it finishes, the editable
  * proposal. Nothing reaches the team until the sender presses Enviar (UD-003).
  */
-export function AnalysisPanel({ input, onClose, onDiscarded }: { input: InputRecord; onClose: () => void; onDiscarded?: (restore: () => Promise<unknown>) => boolean }) {
+export function AnalysisPanel({ input, onClose, onDiscarded, onDeleted }: { input: InputRecord; onClose: () => void; onDiscarded?: (restore: () => Promise<unknown>) => boolean; onDeleted?: (id: string) => void }) {
   const t = useT()
   const { has } = useI18n()
   const undo = useUndo()
@@ -117,6 +118,8 @@ export function AnalysisPanel({ input, onClose, onDiscarded }: { input: InputRec
               <RotateCw size={13} aria-hidden /> {t('analysis.again')}
             </Button>
           )}
+          {/* Deleting is not discarding: nothing comes back, so the step that confirms it is here and not a window (UD-240). */}
+          <DeleteSend input={input} onDeleted={onDeleted} />
         </div>
       </div>
 

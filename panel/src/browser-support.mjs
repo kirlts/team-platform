@@ -156,7 +156,9 @@ export function watchRequests(page, { quietMs = 500 } = {}) {
   }
 }
 
-/** Opens the folded «Plantillas» section of the view of an area (UD-041). */
+/** Opens the «Plantillas» section of the view of an area (UD-041); since UD-252 it is born open, and then nothing is clicked. */
 export async function openTemplates(page) {
-  await page.getByRole('button', { name: /^Plantillas/, expanded: false }).click()
+  const fold = page.getByRole('button', { name: /^Plantillas/ })
+  await fold.waitFor()
+  if ((await fold.getAttribute('aria-expanded')) === 'false') await fold.click()
 }

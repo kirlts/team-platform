@@ -103,6 +103,7 @@ export function loadConfig (env = process.env, overrides = {}) {
     tmpDir: path.join(dataDir, 'tmp'),
     backupsDir: path.join(dataDir, 'backups'),
     templatesDir: path.resolve(textValue(env, 'TEMPLATES_DIR', path.join(rootDir, 'templates'))), // the initial set that gets installed
+    examplesDir: path.resolve(textValue(env, 'EXAMPLES_DIR', path.join(rootDir, 'ejemplos'))), // the sample set of POST /ops/seed
     editedTemplatesDir: path.join(dataDir, 'templates'), // a copy as files of the edited templates, on the volume (the database is authoritative)
     sqlite: {
       busyTimeoutMs: intVar(env, 'SQLITE_BUSY_TIMEOUT_MS', 5000), // MS §3, I03 §12: 0 errors against 19,040 with 0

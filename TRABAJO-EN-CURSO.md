@@ -30,7 +30,7 @@ Actualizado 2026-10-22 01:36 UTC.
 
 ## Trabajo en vuelo
 
-Corrección de las 22:40 por reclamo del dueño («no veo un botón para borrar mensajes», «tampoco veo cómo borrar areas», «los elementos no tienen la misma altura»): ícono de borrar en cada tarjeta de mensaje, en cada fila de Áreas y en la vista de un área; título de tarjeta en una línea (UD-241 enmendada); dev-server con borrado de áreas. Auditoría de funciones sin pantalla en curso: `~/.cache/claude-tmp/auditoria-paridad.md`.
+Corrección de las 22:40 por reclamo del dueño («no veo un botón para borrar mensajes», «tampoco veo cómo borrar areas», «los elementos no tienen la misma altura»): ícono de borrar en cada tarjeta de mensaje, en cada fila de Áreas y en la vista de un área; título de tarjeta en una línea (UD-241 enmendada); dev-server con borrado de áreas. Auditoría de paridad terminada (`~/.cache/claude-tmp/auditoria-paridad.md`); cuatro agentes la corrigen desde las 22:37: `wt-restaurar-borrados` (restaurar tras recargar, H-3706), `wt-adjuntos-ficha` (adjuntos en la ficha, H-3707), `wt-cola-auditoria` (cola, traza, auditoría y envíos de todos, H-3708 y H-3709), `wt-ajustes-equipo` (contraseña ajena, sembrar desde pantalla, plantillas a la vista, H-3710 a H-3712). Sin hacer: editar respuestas (sin decisión del dueño) y borrado en lote.
 
 Encargo UD-240 (borrar y vaciar), lanzado el 2026-10-21 21:17, cuatro agentes a la vez:
 

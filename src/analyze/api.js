@@ -214,7 +214,7 @@ async function structuredStep(ctx, { step, system, messages, schema, effort, thi
 }
 
 /** Decomposes a set of units (the whole input or a chunk) with recovery and a single rescue. */
-async function decomposeUnits(ctx, { bundle, template, system, schema, units, scopeNote, label }) {
+async function decomposeUnits(ctx, { bundle, template, system, schema, units, scopeNote, label, request }) {
   const { config } = ctx;
   const scope = new Set(units.map((u) => u.id));
   // H-3728: the voice and text units with content of this group, for the check of one request per message.
@@ -229,7 +229,7 @@ async function decomposeUnits(ctx, { bundle, template, system, schema, units, sc
   let first = await structuredStep(ctx, {
     ...base,
     step: `decompose${label}`,
-    messages: [{ role: 'user', content: decomposeUser({ members: bundle.members ?? [], attachments: bundle.attachments ?? [], units, scopeNote, language: ctx.language, recent: bundle.recent_inputs }) }],
+    messages: [{ role: 'user', content: decomposeUser({ members: bundle.members ?? [], attachments: bundle.attachments ?? [], units, scopeNote, language: ctx.language, recent: bundle.recent_inputs, request }) }],
     validate: (json) => validateDecomposition(json, vctx),
   });
   if (first.status === 'invalid' && first.acceptable) {
@@ -559,7 +559,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
   }, async (span) => {
     const scopeNote = w.parts > 1 ? chunkNote({ index: w.pi, total: w.parts, first: w.units[0].id, last: w.units.at(-1).id, language }) : undefined;
     const label = `[t${w.group.template_id}]${w.parts > 1 ? `#${w.pi + 1}` : ''}`;
-    const r = await decomposeUnits(ctx, { bundle: workBundle, template: w.entry.template, system: w.entry.system, schema: w.entry.schema, units: w.units, scopeNote, label });
+    const r = await decomposeUnits(ctx, { bundle: workBundle, template: w.entry.template, system: w.entry.system, schema: w.entry.schema, units: w.units, scopeNote, label, request: w.group.request });
     span.setAttributes({ 'team.status': r.status, 'team.rescued': r.rescued === true });
     if (r.status === 'ok') ctx.report(step('groupDone'), { advance: true });
     return r.status === 'ok' ? { ...r, group: w.group } : r;

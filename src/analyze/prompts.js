@@ -75,12 +75,13 @@ export function decomposeSystem(template, project, language, framing) {
   return [set.decomposeInstructions(framing), set.templateBlock(template), set.projectBlock(project)].filter(Boolean);
 }
 
-export function decomposeUser({ members, attachments, units, scopeNote, language, recent }) {
+export function decomposeUser({ members, attachments, units, scopeNote, language, recent, request }) {
   const set = promptSet(language);
   const recentBlock = set.recentInputsBlock(recent);
   // UD-025: after the members block, outside the cached prefix.
   const parts = [set.membersBlock(members), '', ...(recentBlock ? [recentBlock, ''] : []), set.attachmentsBlock(attachments, units), ''];
   if (scopeNote) parts.push(scopeNote, '');
+  if (typeof request === 'string' && request.trim()) parts.push(set.requestNote(request.trim()), '');
   parts.push(set.INPUT_HEADING, renderUnits(units, set.LANGUAGE));
   // The templates are written by the team, in its own language, and weigh more than a rule far above them: the language of
   // the output is repeated after the input (UD-018).

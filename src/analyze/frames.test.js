@@ -144,6 +144,16 @@ describe('one request per message: spoken runs and declared resumes (H-3728)', (
   });
 });
 
+describe('the classification names the request of each group and the decomposition receives it (H-3728)', () => {
+  it('the request goes to the user message of the decomposition of its group', async () => {
+    const fake = createFakeProviders({ text: (req) => (isClassify(req) ? { groups: [{ ...group([1, 2, 3]), request: 'Quitar el rechazo sin comprobante' }, { ...group([4, 5]), request: 'Abrir el historial anterior' }], discarded: [{ unit_ids: [6], reason: 'x' }] } : decompose(req)) });
+    const result = await analyze(await videoBundle(), { providers: fake });
+    assert.equal(result.status, 'ok');
+    const notes = fake.calls.text.filter((r) => !isClassify(r)).map((r) => lastUserText(r).match(/pedido de este grupo: «([^»]+)»/)?.[1]).sort();
+    assert.deepEqual(notes, ['Abrir el historial anterior', 'Quitar el rechazo sin comprobante']);
+  });
+});
+
 describe('the prompts carry the rules of the review of a client video (H-3728)', async () => {
   const bundle = await makeBundle();
   const template = parseTemplate(bundle.templates.find((t) => t.id === 2).body_markdown);

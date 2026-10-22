@@ -165,15 +165,20 @@ export function parseStatusFilter (raw) {
  * Own inputs, paginated, filtered by one or several statuses. `order` is 'desc' (newest first, the history) or
  * 'asc' (creation order, the tray of in-flight inputs where each new send lands after the previous one).
  */
-export function listInputs (ctx, memberId, { status = null, limit, offset, order = 'desc' }) {
+export function listInputs (ctx, memberId, { status = null, limit, offset, order = 'desc', everyone = false }) {
   const { db } = ctx
   const statuses = Array.isArray(status) ? status : parseStatusFilter(status)
-  const cond = statuses.length > 0 ? `WHERE author_id = ? AND status IN (${statuses.map(() => '?').join(', ')})` : 'WHERE author_id = ?'
-  const params = [memberId, ...statuses]
+  // `everyone` (the editor's queue): no author condition, and every item carries the name of its sender.
+  const clauses = []
+  const params = []
+  if (!everyone) { clauses.push('author_id = ?'); params.push(memberId) }
+  if (statuses.length > 0) { clauses.push(`status IN (${statuses.map(() => '?').join(', ')})`); params.push(...statuses) }
+  const cond = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : ''
   const direction = order === 'asc' ? 'ASC' : 'DESC'
   const total = get(db, `SELECT COUNT(*) AS n FROM inputs ${cond}`, ...params).n
   const rows = all(db, `SELECT * FROM inputs ${cond} ORDER BY created_at ${direction}, id ${direction} LIMIT ? OFFSET ?`, ...params, limit, offset)
-  return { total, items: rows.map((i) => buildInputView(ctx, i)) }
+  const names = everyone ? new Map(all(db, 'SELECT id, name FROM members').map((m) => [m.id, m.name])) : null
+  return { total, items: rows.map((i) => ({ ...buildInputView(ctx, i), ...(names ? { author_name: names.get(i.author_id) ?? null } : {}) })) }
 }
 
 /** First `maxChars` characters of `text` without cutting a surrogate pair in half. */

@@ -3,7 +3,7 @@
 
 import { createHash, randomUUID } from 'node:crypto'
 import { createWriteStream, existsSync } from 'node:fs'
-import { mkdir, readdir, rename, rm, stat } from 'node:fs/promises'
+import { copyFile, mkdir, readdir, rename, rm, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
@@ -47,7 +47,22 @@ export async function commit (config, tmp, sha256) {
     await rm(tmp, { force: true })
     return { existed: true }
   }
-  await rename(tmp, target)
+  try {
+    await rename(tmp, target)
+  } catch (error) {
+    if (error?.code !== 'EXDEV') throw error
+    // The attachments directory lives on another filesystem than tmpDir (a host mount such as a
+    // Cloud Storage bucket under /data/attachments): copy next to the target and rename there, so a
+    // reader never sees a half-written blob under its final name.
+    const near = `${target}.${randomUUID()}.parcial`
+    try {
+      await copyFile(tmp, near)
+      await rename(near, target)
+    } finally {
+      await rm(near, { force: true })
+      await rm(tmp, { force: true })
+    }
+  }
   return { existed: false }
 }
 

@@ -79,8 +79,21 @@ const templates = [
 
 /** Same default as the server (config.project.descriptionMaxChars). */
 const PROJECT_MAX_CHARS = 200000
+const PROJECT_NAME = 'Desarrollo'
+/** Same cap and defaults as the server (H-3722: config.project.nameMaxChars, config.analysis.framingMaxChars, prompts-*.js). */
+const PROJECT_NAME_MAX_CHARS = 80
+const FRAMING_MAX_CHARS = 2000
+const FRAMING_DEFAULTS = {
+  'es-419': 'Esta es la bandeja de entrada de un equipo de software pequeño. Un mismo input puede traer varios puntos de áreas distintas: un error, una idea, una pregunta.',
+  en: 'This is the inbox of a small software team. One input may carry several points from different areas: a bug, an idea, a question.',
+}
+let framing = {}
+const framingView = () => ({
+  framing: Object.fromEntries(Object.entries(FRAMING_DEFAULTS).map(([lang, def]) => [lang, { value: framing[lang] ?? def, default: def, custom: lang in framing }])),
+  max_chars: FRAMING_MAX_CHARS,
+})
 const project = {
-  name: 'Desarrollo',
+  name: PROJECT_NAME,
   description: '# Desarrollo\n\nPanel y API de un equipo chico que reparte mensajes con un modelo de lenguaje.\n\n## Stack\n\n- **Servidor**: Node con SQLite en un solo volumen.\n- **Panel**: React, TanStack Query y React Router.\n- Los adjuntos viven en `attachments/` y se sirven por la API.\n\n## Decisiones\n\n1. Todo lo que pasa por un modelo se mide.\n2. El código va en inglés y la interfaz en el idioma de la cuenta.\n\nMás detalle en [el repositorio](https://example.com/repo).',
 }
 
@@ -749,6 +762,8 @@ function control(path, query) {
     held = false
     running = 0
     autoPublish = process.env.PANEL_DEV_AUTO_PUBLISH !== '0'
+    project.name = PROJECT_NAME
+    framing = {}
     inputs.clear()
     seedOps()
     seedAudit()
@@ -896,7 +911,23 @@ const server = createServer(async (req, res) => {
       autoPublish = body.auto_publish
       return send(res, 200, { auto_publish: autoPublish })
     }
-    if (path === '/settings/project' && method === 'GET') return send(res, 200, { ...project, max_chars: PROJECT_MAX_CHARS })
+    if (path === '/settings/analysis' && method === 'GET') {
+      if (needEditor()) return
+      return send(res, 200, framingView())
+    }
+    if (path === '/settings/analysis' && method === 'PATCH') {
+      if (needEditor()) return
+      const body = await readJson(req)
+      if (!body?.framing || typeof body.framing !== 'object') return fail(res, 400, 'Falta el encuadre.', 'validation')
+      for (const [lang, text] of Object.entries(body.framing)) {
+        if (!(lang in FRAMING_DEFAULTS) || typeof text !== 'string') return fail(res, 400, 'Idioma o texto inválido.', 'validation')
+        if ([...text.trim()].length > FRAMING_MAX_CHARS) return fail(res, 413, `El encuadre del análisis supera el máximo de ${FRAMING_MAX_CHARS} caracteres.`, 'too_large')
+        if (!text.trim() || text.trim() === FRAMING_DEFAULTS[lang]) delete framing[lang]
+        else framing[lang] = text.trim()
+      }
+      return send(res, 200, framingView())
+    }
+    if (path === '/settings/project' && method === 'GET') return send(res, 200, { ...project, max_chars: PROJECT_MAX_CHARS, name_max_chars: PROJECT_NAME_MAX_CHARS })
     if (path === '/settings/project' && method === 'PATCH') {
       if (needEditor()) return
       const ct = req.headers['content-type'] ?? ''
@@ -907,10 +938,14 @@ const server = createServer(async (req, res) => {
         project.description = file.data.toString('utf8')
       } else {
         const body = await readJson(req)
-        if (typeof body?.description !== 'string') return fail(res, 400, 'Falta la descripción.', 'description_required')
-        project.description = body.description
+        if (typeof body?.description !== 'string' && typeof body?.name !== 'string') return fail(res, 400, 'Falta la descripción.', 'description_required')
+        if (typeof body.name === 'string') {
+          if ([...body.name.trim()].length > PROJECT_NAME_MAX_CHARS) return fail(res, 413, `El nombre del proyecto supera el máximo de ${PROJECT_NAME_MAX_CHARS} caracteres.`, 'too_large')
+          project.name = body.name.trim() || PROJECT_NAME
+        }
+        if (typeof body.description === 'string') project.description = body.description
       }
-      return send(res, 200, { ...project, max_chars: PROJECT_MAX_CHARS })
+      return send(res, 200, { ...project, max_chars: PROJECT_MAX_CHARS, name_max_chars: PROJECT_NAME_MAX_CHARS })
     }
 
     // --- events

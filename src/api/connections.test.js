@@ -684,3 +684,24 @@ test('loadModules wires the vault and the stored keys: a key stored from the API
     assert.equal(typeof modules.probe, 'function')
   } finally { await env.close() }
 })
+
+// H-3722: an OpenAI-compatible provider is data of the installation. A name that appears nowhere in the code is added from
+// Configuración, serves a function, and its calls go to its own address, without touching src/domain/connections.js.
+test('a provider with a new name is added, serves the text function and is called at its own address, with no code change', async () => {
+  const env = await connectionsEnv()
+  try {
+    const { readFileSync } = await import('node:fs')
+    const name = 'proveedor-h3722'
+    const base = 'https://otro-proveedor.example.test/v1'
+    for (const file of ['src/domain/connections.js', 'src/providers/index.js']) assert.equal(readFileSync(file, 'utf8').includes(name), false, file)
+    const added = await env.ed('POST', '/settings/connections', { name, base_url: base, api_key: OK_CUSTOM, model: 'fake-model-a' })
+    assert.equal(added.statusCode, 201, added.body)
+    const use = await env.ed('PATCH', '/settings/providers', { slot: 'text', provider: name, model: 'fake-model-a' })
+    assert.equal(use.statusCode, 200, use.body)
+    const text = use.json().items.find((i) => i.slot === 'text')
+    assert.deepEqual({ provider: text.provider, available: text.available, status: text.status }, { provider: name, available: true, status: 'configured' })
+    assert.ok(env.upstream.seen.some((r) => r.url.startsWith(base)), 'the probe went to the address of the new provider')
+    assert.ok(env.upstream.seen.filter((r) => r.url.startsWith(base)).every((r) => r.key === OK_CUSTOM))
+    assert.equal(connectionOf(await env.ed('GET', '/settings/connections'), name).custom, true)
+  } finally { await env.close() }
+})

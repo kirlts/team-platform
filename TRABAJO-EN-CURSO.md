@@ -30,7 +30,7 @@ Actualizado 2026-10-22 02:56 UTC.
 
 ## Trabajo en vuelo
 
-UD-253 completo en `main` `bfc4555` (23:45): respuestas editables, borrado de varios, sin confirmaciones, avisos efímeros centrados, listas de Inicio parejas; eje documental al día. VPS subiendo en cadena. Batería de navegador corriendo sobre main.
+UD-253 completo y en el VPS: `8e73dd7` desde las 00:00 del 2026-10-22, `vps-check` OK. Batería de navegador corrida: tres fallas arregladas en `8e73dd7`. Nada en vuelo.
 
 Tu VPS corre `4543d45` desde las 22:51 (`vps-check` OK): papeleras, adjuntos en la ficha, restaurar tras recargar y el arreglo del fotograma vacío (H-3713). Corrección de las 22:40 por reclamo del dueño («no veo un botón para borrar mensajes», «tampoco veo cómo borrar areas», «los elementos no tienen la misma altura»): ícono de borrar en cada tarjeta de mensaje, en cada fila de Áreas y en la vista de un área; título de tarjeta en una línea (UD-241 enmendada); dev-server con borrado de áreas. Auditoría de paridad terminada (`~/.cache/claude-tmp/auditoria-paridad.md`) y sus cuatro arreglos en `main` `8f15e1d` (23:02): restaurar tras recargar, adjuntos en la ficha, cola y auditoría, contraseña ajena, sembrar y plantillas a la vista (H-3706 a H-3712). VPS corre ese hash desde las 23:03 (`vps-check` OK). Sin hacer: editar respuestas y borrado en lote (esperan al dueño).
 

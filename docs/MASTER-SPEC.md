@@ -512,7 +512,17 @@ El CSRF se defiende por `Sec-Fetch-Site` y `Origin` en un gancho `onRequest`. El
 
 `delegated` tiene cuatro modos bajo el mismo contrato. `signed-header` es un HMAC con marca de tiempo y tolerancia de 5 minutos, patrón de Stripe, con dos secretos durante la rotación. `jwt` usa `jose` contra JWKS o un secreto compartido. `sso-redirect` usa un nonce de uso único, patrón DiscourseConnect. `trusted-header` sólo vale si la conexión viene de una dirección de confianza; es lo que entrega `tailscale serve` en `Tailscale-User-Login`.
 
-Ningún modo da de alta miembros: el correo tiene que existir en `members` (UD-007) y el rol sale de la base, no del proveedor. El primer Editor nace de `ADMIN_EMAIL` sólo si la base no tiene miembros. Con `NODE_ENV=development` existe `POST /api/auth/dev-login`, sin contraseña. Si la aplicación vive dentro de otro sitio, se monta bajo el mismo origen por proxy inverso. Un frontend en otro origen usa `CORS_ORIGINS` y `COOKIE_MODE=cross-origin` (§4.11). Los roles `member` y `editor` son un enumerado con `CHECK`. Un gancho `requireRole` por ruta deniega por omisión, y el servidor no arranca si una ruta no declara su política. Perillas y fuentes en el informe 04.
+`IDENTITY_PROVIDER` acepta una fuente o una lista en orden: `local`, `delegated` (el modo de `DELEGATED_MODE`), `signed-header`, `jwt`, `sso-redirect` y `trusted-header`. Con `jwt,signed-header` las personas entran con el JWT del anfitrión y un miembro agente con la firma. Las fuentes por cabecera se prueban en el orden de la lista y gana la primera que identifica la petición. Después se lee la cookie propia. Sin credencial válida, 401.
+
+Alta de miembros (H-3720). Con `IDENTITY_PROVISION=closed`, la omisión, el correo tiene que existir en `members` o la respuesta es 403 `member_not_registered`, y el rol sale de la base (UD-007). Con `IDENTITY_PROVISION=host` un correo desconocido se da de alta al primer ingreso (UD-254 enmienda UD-007). Lleva el nombre y el rol que declara el anfitrión, o `member`. El rol viaja en el claim `JWT_ROLE_CLAIM` (`role`), en la cabecera firmada `X-Team-Role` o en `role` del payload del SSO. El nombre viaja en `JWT_NAME_CLAIM` (`name`), en `X-Team-Name` (UTF-8 con codificación porcentual), en `name` del SSO o en `TRUSTED_NAME_HEADER`. Con `X-Team-Role` o `X-Team-Name` la firma cubre además `\n<rol>\n<nombre>`. Un rol declarado se aplica en cada ingreso y queda gobernado por el anfitrión (fila `host-role` en `identity_links`). Si el Editor local lo cambia, recibe 409 `role_managed_externally`, como con la contraseña. Un rol distinto de `member` y `editor` cuenta como no declarado.
+
+Sesión propia tras el anfitrión. Cuando una fuente por cabecera identifica una petición de navegador (trae `Sec-Fetch-Site`), el servidor emite su propia cookie de sesión en la tabla `sessions`. Vence con el `exp` del JWT si lo trae, o a las 8 horas, y se renueva con cada token válido. `EventSource` no manda cabeceras: `GET /api/events` funciona con esa cookie. Un cliente que no es navegador no recibe cookie, para no dejar una sesión por petición. `GET /me` informa `provider` (las fuentes), `source` (`session` o la fuente que identificó esta petición), `role_managed_externally` y `logout_url`.
+
+Cookie compartida con el anfitrión. Con `COOKIE_DOMAIN` (por ejemplo `.ejemplo.cl`) la cookie de sesión lleva `Domain` y por eso pierde el prefijo `__Host-`. Se llama `COOKIE_NAME` (`team_session`) y es `Secure`, `HttpOnly` y `SameSite=Lax`. Un anfitrión que ya tiene sesión comparte la identidad sin SSO nuevo. Firma un JWT RS256 con su llave, publica el JWKS y elige una de dos vías. Una es poner el JWT en una cookie de su dominio, que Team Platform lee por su nombre (`JWT_COOKIE_NAME`). La otra es mandar `Authorization: Bearer <jwt>`. Esa cookie es una credencial ambiental: una petición no segura con ella exige `X-Team-Request`, como la de sesión.
+
+Cierre de sesión (UD-190). `POST /api/auth/logout` existe con toda fuente: borra la sesión propia en el servidor y la cookie. Con `LOGOUT_URL` responde 200 `{ logout_url }` y el panel navega a la salida del anfitrión; sin ella, 204. El panel dibuja «Cerrar sesión» con `local`, con `sso-redirect` o con `LOGOUT_URL`. Con sólo fuentes por cabecera, el anfitrión vuelve a identificar a la persona en la petición siguiente.
+
+El primer Editor nace de `ADMIN_EMAIL` sólo si la base no tiene miembros. Con `NODE_ENV=development` existe `POST /api/auth/dev-login`, sin contraseña. Si la aplicación vive dentro de otro sitio, se monta bajo el mismo origen por proxy inverso. Un frontend en otro origen usa `CORS_ORIGINS` y `COOKIE_MODE=cross-origin` (§4.11). Los roles `member` y `editor` son un enumerado con `CHECK`. Un gancho `requireRole` por ruta deniega por omisión, y el servidor no arranca si una ruta no declara su política. Perillas y fuentes en el informe 04.
 
 ### 7.8 Panel (`panel/`)
 
@@ -556,6 +566,10 @@ fields:
   - { name: expected, label: Qué se esperaba,        required: true }
   - { name: actual,   label: Qué pasó,               required: true }
   - { name: where,    label: Dónde (pantalla, URL),  required: false }
+output:
+  - { name: cause,  label: Causa, type: text, required: true }
+  - { name: branch, label: Rama,  type: text, required: false }
+  - { name: files,  label: Archivos tocados, type: list, required: false }
 ---
 ## Método
 Cómo leer el input para esta área: qué cuenta como un error distinto, cómo separar dos errores
@@ -563,9 +577,14 @@ que comparten una captura, qué va en cada campo.
 
 ## Formato de salida
 Un mensaje por error. Título: verbo en infinitivo y lugar.
+
+## Salida
+Causa: la que se midió, con el archivo o el dato que la muestra.
 ```
 
 El frontmatter se convierte en el esquema JSON de `fields` que el analizador exige. `compileFieldsSchema` es la misma definición que valida una plantilla al guardarla (422 si no cumple) y los `fields` de cada mensaje al publicar. El cuerpo entra al prompt de la descomposición. `name` y `description` respetan los límites de la especificación Agent Skills (64 y 1.024 caracteres), porque la clasificación sólo ve esos dos campos de cada plantilla. El cuerpo se revela recién en la descomposición: la misma divulgación progresiva. El juego inicial vive en `templates/`: `areas.json` (cinco áreas: Idea, Error, Nueva funcionalidad, Retroalimentación, Pregunta, cada una con su archivo `idea.md`, `bug.md`, `feature.md`, `feedback.md`, `question.md`). Se siembra al instalar y se puede editar o borrar; cada plantilla editada se copia además a `$DATA_DIR/templates` para los respaldos, y la base manda.
+
+**Salida declarada (UD-254, UD-255, H-3723).** El bloque `output` del frontmatter declara lo que el harness entrega cuando trabaja un mensaje de la plantilla. Cada entrada lleva `name` (identificador en minúsculas), `label` (rótulo, hasta 120 caracteres), `type` (`text`, `list` de textos, `number` o `boolean`; `text` por omisión), `required` y, sólo con `text`, `enum` (de 1 a 32 valores). Toda salida lleva además dos campos fijos, que la plantilla no declara ni redefine. `summary` es el par de párrafos para quien envió el mensaje, sin jerga y dirigidos a esa persona. `outcome` es uno de `done`, `investigated`, `blocked` o `needs_decision`. `compileOutputSchema` (`src/analyze/templates.js`) compila el bloque a un esquema JSON con `additionalProperties: false`, que es el `--json-schema` exigido al harness; devuelve `null` si la plantilla no tiene bloque `output`. `validateOutput` (`src/analyze/validate.js`) valida una salida contra ese esquema. Un bloque que no compila, o con más de 24 entradas opcionales, se rechaza al guardar la plantilla con 422 y el motivo. Sólo el frontmatter define la salida. La sección «## Salida» del cuerpo trae instrucciones en prosa al harness y viaja con el cuerpo; `compileOutputSchema` no la lee. En el panel, «Salida» va bajo «Campos» en la fila de la plantilla y en «Campos e instrucciones». Se edita como los campos, con el tipo de cada entrada; «Resultado» y «Resumen» aparecen como fijos. Las cinco plantillas iniciales declaran su salida: Error `cause`, `fix`, `verification`, `branch`, `files`; Nueva funcionalidad `built`, `verification`, `branch`, `pending`; Retroalimentación `assessment`, `change`, `branch`; Idea `findings`, `recommendation`, `effort`; Pregunta `answer`, `sources`.
 
 ### 7.10 Eventos y progreso (`src/events/`)
 

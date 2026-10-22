@@ -120,6 +120,7 @@ Archivos nuevos del 2026-10-21 por UD-240 a UD-252. Los del servidor corren con 
 | `panel/src/flows-restaurar.browser.test.mjs` | Tras recargar, «Borradas» en Áreas y en Plantillas y «Borrados» en Mensajes listan lo borrado y «Restaurar» lo devuelve (H-3706) |
 | `panel/src/flows-cola.browser.test.mjs` | «Cola» y «Auditoría» sólo para el Editor: envíos de todos, «Reprocesar», «Traza», «Borrar», «Purgar» con confirmación en el lugar, filtro de la bitácora y resumen de uso junto al interruptor (H-3708, H-3709) |
 | `panel/src/flows-ajustes-equipo.browser.test.mjs` | «Contraseña» de otro miembro con el texto del servidor ante un error; «Sembrar ejemplos» muestra «N envíos»; plantillas abiertas en la vista de un área y «N plantillas» como enlace (H-3710 a H-3712) |
+| `panel/src/flows-plantilla-salida.browser.test.mjs` | «Salida» bajo «Campos» en la fila de la plantilla, con «Resultado» y «Resumen» fijos; agregar y cambiar el tipo de una entrada guarda el archivo; una salida que no compila es 422 y la ventana muestra el motivo (H-3723) |
 
 ## Pruebas de regresión
 

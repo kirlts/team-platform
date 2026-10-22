@@ -20,8 +20,14 @@ export interface Member {
 
 /** Response of GET /me: the member and the project name (assumption: `project_name`). */
 export interface Me extends Member {
-  /** Identity provider of the server: `local` or `delegated:<mode>` (H-2605). */
+  /** Identity sources of the server, comma-separated: `local` or `delegated:<mode>` (H-2605, H-3720). */
   provider?: string
+  /** Where the identity of this request came from: `session` or the host source (H-3720). */
+  source?: string
+  /** The host declares this member's role; the Editor cannot change it (H-3720). */
+  role_managed_externally?: boolean
+  /** The host's own sign-out (LOGOUT_URL), or null. */
+  logout_url?: string | null
   project_name?: string
   /** Shortest password the server accepts (PASSWORD_MIN_LENGTH). */
   password_min_length?: number

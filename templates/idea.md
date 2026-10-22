@@ -5,6 +5,10 @@ fields:
   - { name: idea,       label: La idea,                     required: true }
   - { name: motivation, label: Qué problema o ganancia hay detrás, required: true }
   - { name: reference,  label: Ejemplo o referencia,        required: false }
+output:
+  - { name: findings,       label: Hallazgos,               type: list, required: true }
+  - { name: recommendation, label: Recomendación,           type: text, required: true }
+  - { name: effort,         label: Esfuerzo,                type: text, required: true, enum: [bajo, medio, alto] }
 ---
 ## Método
 Una idea es una propuesta abierta: nadie dice que haya que hacerla ya. Cada idea distinta es un mensaje. Dos ideas son la misma cuando resuelven el mismo problema por el mismo camino; son distintas cuando resuelven problemas distintos o toman caminos incompatibles, aunque se mencionen juntas.
@@ -28,3 +32,6 @@ Un mensaje por idea.
 Título: sustantivo o verbo en infinitivo que nombre la idea, por ejemplo «Agrupar los mensajes por día».
 
 Cuerpo: dos o tres frases: qué se propone, para qué serviría y, si existe, el ejemplo que la persona dio. Sin evaluar la idea ni agregar opiniones propias. Lo que el input no da no se menciona en el cuerpo: ni «no se indica» ni una frase sobre lo que falta.
+
+## Salida
+Hallazgos: lo que se encontró al investigar, una línea por hallazgo, con su fuente. Recomendación: hacerla, no hacerla o probarla, en una frase. Esfuerzo: bajo, medio o alto.

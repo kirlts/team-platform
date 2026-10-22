@@ -4,7 +4,7 @@ import { get, run } from '../db/index.js'
 import { createMember } from '../domain/members.js'
 import { forbidden, tooMany, unauthenticated } from '../domain/errors.js'
 import { dummyVerify, hashPassword, verifyPassword } from './password.js'
-import { clearSessionCookie, readSessionCookie, setSessionCookie } from './cookies.js'
+import { readSessionCookie, setSessionCookie } from './cookies.js'
 
 const BAD_CREDENTIALS_MESSAGE = 'Correo o contraseña incorrectos.' // identical for a nonexistent email, a wrong password and a locked account (OWASP)
 
@@ -123,12 +123,6 @@ export function createLocalProvider ({ db, config, sessions, now = Date.now }) {
         return { member: memberRow }
       })
     }
-
-    app.post('/auth/logout', { config: { public: true }, schema: { response: { 204: { type: 'null', description: 'Sesión cerrada en el servidor.' } } } }, async (request, reply) => {
-      sessions.destroy(readSessionCookie(request, config)) // OWASP: invalidated on the server, not only on the client
-      clearSessionCookie(reply, config)
-      return reply.code(204).send()
-    })
   }
 
   return { name: 'local', identify, routes, login }

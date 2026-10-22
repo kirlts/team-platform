@@ -3,7 +3,7 @@
 
 import { forbidden } from '../../domain/errors.js'
 import { freeBlobs, releaseBlobs } from '../../domain/storage.js'
-import { cancelInput, deleteInput, editInputText, getInputView, listInputs, proposalView as presentProposal, reprocessInput, restoreInput, submitInput } from '../../domain/inputs.js'
+import { cancelInput, deleteInput, editInputText, getInputView, listInputs, proposalView as presentProposal, reprocessInput, resolveSendAs, restoreInput, submitInput } from '../../domain/inputs.js'
 import { getMessage } from '../../domain/messages.js'
 import { publishProposal, saveProposalDraft } from '../../domain/proposals.js'
 import { withSpan } from '../../domain/tracing.js'
@@ -23,15 +23,16 @@ export function registerInputRoutes (app, ctx) {
   app.post('/inputs', {
     onRequest: [requireRole('member')],
     schema: {
-      summary: 'Submit an input (multipart: text, files[], links[], auto_publish; or JSON { text, links, auto_publish })',
-      description: '`auto_publish=false` (UD-072) pide que ESTE envío no se publique solo: su propuesta espera como `proposed` aunque la perilla del proyecto esté encendida, y se publica a mano con `POST /inputs/:id/publish` o se cancela. `true` o sin el campo sigue la perilla. Cualquier otro valor es 400 `auto_publish_invalid`; en un envío repetido (ya existente) el campo no cambia lo que ya hay. El envío sólo con JSON no lleva archivos. Idempotent by content: the same normalized text, the same attachments by hash and the same sender return the input that already exists (200). A new input, or a failed or cancelled one that is resubmitted, is queued (202).',
+      summary: 'Submit an input (multipart: text, files[], links[], auto_publish, as_member_id; or JSON { text, links, auto_publish, as_member_id })',
+      description: '`as_member_id` (UD-255, «Enviar como») envía en nombre de otro miembro: el input y los mensajes que nazcan de él tienen ese `author_id`, y las reglas de «mío» (lista, editar, cancelar, borrar) siguen a ese autor. `sent_by_id` guarda al miembro de la sesión cuando es distinto del autor, y la auditoría `input.create` lo registra como quien actuó, con `detail.author_id` y `detail.sent_by_id`. Cualquier miembro envía como cualquier miembro activo de tipo persona; sin el campo, o con el propio id, el autor es el miembro de la sesión. Un miembro agente es 400 `cannot_send_as_agent`; uno inexistente o desactivado, 400 `send_as_invalid`. `auto_publish=false` (UD-072) pide que ESTE envío no se publique solo: su propuesta espera como `proposed` aunque la perilla del proyecto esté encendida, y se publica a mano con `POST /inputs/:id/publish` o se cancela. `true` o sin el campo sigue la perilla. Cualquier otro valor es 400 `auto_publish_invalid`; en un envío repetido (ya existente) el campo no cambia lo que ya hay. El envío sólo con JSON no lleva archivos. Idempotent by content: the same normalized text, the same attachments by hash and the same sender return the input that already exists (200). A new input, or a failed or cancelled one that is resubmitted, is queued (202).',
       response: { 200: createdSchema, 202: createdSchema }
     }
   }, async (request, reply) => {
-    const { text, links, files, keepDraft } = await readInputUpload(request, config, db)
+    const { text, links, files, keepDraft, asMemberId } = await readInputUpload(request, config, db)
     let r
     try {
-      r = submitInput({ db, queue, events }, { authorId: request.member.id, text, files, links, keepDraft })
+      const authorId = resolveSendAs(db, request.member.id, asMemberId)
+      r = submitInput({ db, queue, events }, { authorId, sentById: request.member.id, text, files, links, keepDraft })
     } catch (error) {
       await releaseBlobs(db, config, files, { discard: true })
       throw error

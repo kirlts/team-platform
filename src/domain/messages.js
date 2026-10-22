@@ -98,6 +98,7 @@ function hydrate (db, rows) {
     area_id: f.area_id,
     template_id: f.template_id,
     author_id: f.author_id,
+    sent_by_id: f.sent_by_id ?? null, // UD-255: who sent it in the name of the author
     title: f.title,
     body: f.body,
     fields: parseJson(f.fields_json, {}),
@@ -117,7 +118,8 @@ function hydrate (db, rows) {
 }
 
 const SELECT_MESSAGE = `
-  SELECT m.*, (SELECT COUNT(*) FROM replies r WHERE r.message_id = m.id AND r.deleted_at IS NULL) AS reply_count
+  SELECT m.*, (SELECT COUNT(*) FROM replies r WHERE r.message_id = m.id AND r.deleted_at IS NULL) AS reply_count,
+         (SELECT i.sent_by_member_id FROM inputs i WHERE i.id = m.input_id) AS sent_by_id
     FROM messages m`
 
 /** A reply still in the thread: the only kind the reads count. Used as a subquery condition on alias `r`. */

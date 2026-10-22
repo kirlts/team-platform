@@ -53,11 +53,31 @@ export function contentHash ({ authorId, text, fileHashes, links }) {
 }
 
 /**
+ * «Enviar como» (UD-255): the member an input is sent in the name of. Any member sends as any active person; a member
+ * of kind agent is never impersonated (400 `cannot_send_as_agent`), and an unknown or inactive one is 400
+ * `send_as_invalid`. Without `asMemberId`, or with one's own id, the author is the member of the session.
+ */
+export function resolveSendAs (db, sessionMemberId, asMemberId) {
+  if (asMemberId === undefined || asMemberId === null || asMemberId === '') return sessionMemberId
+  const raw = String(asMemberId).trim()
+  const id = Number(raw)
+  if (!/^[1-9]\d*$/.test(raw) || !Number.isSafeInteger(id)) throw badRequest('«Enviar como» no es un miembro.', 'send_as_invalid')
+  if (id === sessionMemberId) return id
+  const row = get(db, 'SELECT * FROM members WHERE id = ?', id)
+  if (!row || row.active === 0 || row.deleted_at) throw badRequest('«Enviar como» no es un miembro activo.', 'send_as_invalid')
+  // The kind of member arrives with the agent members; until then every member is a person.
+  if (row.kind === 'agent') throw badRequest('No se envía en nombre de un miembro agente.', 'cannot_send_as_agent')
+  return id
+}
+
+/**
  * Registers an input and enqueues its analysis. Idempotent by hash. `files` are already in the volume:
  * [{ kind, name, mime, size, sha256 }]; `links`, already-validated URLs.
  * Returns { input, jobId, created, restarted }.
  */
-export function submitInput ({ db, queue, events, now = Date.now }, { authorId, text, files, links, keepDraft = false }) {
+export function submitInput ({ db, queue, events, now = Date.now }, { authorId, sentById = authorId, text, files, links, keepDraft = false }) {
+  // «Enviar como» (UD-255): the author is the member chosen; `sent_by_member_id` keeps who had the session, only when different.
+  const sentBy = sentById === authorId ? null : sentById
   const hash = contentHash({ authorId, text, fileHashes: files.map((f) => f.sha256), links })
   return events.transaction(() => {
     const existing = get(db, 'SELECT * FROM inputs WHERE content_hash = ?', hash)
@@ -66,7 +86,7 @@ export function submitInput ({ db, queue, events, now = Date.now }, { authorId, 
       if (existing.status === 'failed' || existing.status === 'cancelled') {
         // The same content sent again after a failure or a cancellation: it is retried on the same row.
         transitionInput(db, existing.id, 'queued', { now })
-        audit(db, { memberId: authorId, action: 'input.resubmit', entity: 'input', entityId: existing.id, now })
+        audit(db, { memberId: sentById, action: 'input.resubmit', entity: 'input', entityId: existing.id, ...(sentBy ? { detail: { author_id: authorId, sent_by_id: sentById } } : {}), now })
         const jobId = queue.enqueue('analyze', { input_id: existing.id }, { inputId: existing.id })
         events.publishForJob(jobId, { kind: 'progress', percent: 0, phrase: 'En cola' })
         return { input: get(db, 'SELECT * FROM inputs WHERE id = ?', existing.id), jobId, created: false, restarted: true }
@@ -74,7 +94,7 @@ export function submitInput ({ db, queue, events, now = Date.now }, { authorId, 
       return { input: existing, jobId: jobRow?.id ?? null, created: false, restarted: false }
     }
     const t = now()
-    const r = run(db, 'INSERT INTO inputs (author_id, text, content_hash, status, keep_draft, created_at, updated_at) VALUES (?, ?, ?, \'queued\', ?, ?, ?)', authorId, text, hash, keepDraft ? 1 : 0, t, t)
+    const r = run(db, 'INSERT INTO inputs (author_id, sent_by_member_id, text, content_hash, status, keep_draft, created_at, updated_at) VALUES (?, ?, ?, ?, \'queued\', ?, ?, ?)', authorId, sentBy, text, hash, keepDraft ? 1 : 0, t, t)
     const inputId = Number(r.lastInsertRowid)
     for (const f of files) {
       run(db, 'INSERT INTO attachments (input_id, kind, name, path, mime, size, sha256) VALUES (?, ?, ?, ?, ?, ?, ?)', inputId, f.kind, f.name, f.sha256, f.mime, f.size, f.sha256)
@@ -84,7 +104,7 @@ export function submitInput ({ db, queue, events, now = Date.now }, { authorId, 
       run(db, 'INSERT INTO attachments (input_id, kind, name, path, mime, size, sha256) VALUES (?, \'link\', ?, ?, \'text/uri-list\', 0, ?)',
         inputId, url, url, createHash('sha256').update(url).digest('hex'))
     }
-    audit(db, { memberId: authorId, action: 'input.create', entity: 'input', entityId: inputId, detail: { atts: files.length + links.length }, now })
+    audit(db, { memberId: sentById, action: 'input.create', entity: 'input', entityId: inputId, detail: { atts: files.length + links.length, author_id: authorId, sent_by_id: sentById }, now })
     const jobId = queue.enqueue('analyze', { input_id: inputId }, { inputId })
     events.publishForJob(jobId, { kind: 'progress', percent: 0, phrase: 'En cola' })
     return { input: get(db, 'SELECT * FROM inputs WHERE id = ?', inputId), jobId, created: true, restarted: false }
@@ -127,6 +147,7 @@ export function buildInputView ({ db, queue, events }, input) {
   return {
     id: input.id,
     author_id: input.author_id,
+    sent_by_id: input.sent_by_member_id ?? null,
     text: input.text,
     status: input.status,
     error: input.error,

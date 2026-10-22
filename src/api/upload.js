@@ -34,20 +34,20 @@ async function rejectLongVideo (tmp, filename) {
   }
 }
 
-/** Reads the multipart body of a new input: text, files[] and links[]. */
+/** Reads the multipart body of a new input: text, files[], links[], auto_publish and as_member_id (UD-255). */
 export async function readInputUpload (request, config, db) {
   if (!request.isMultipart()) return readInputJson(request, config)
   const { text, links, files, extra } = await readUpload(request, config, db, {
-    textField: 'text', extraFields: ['auto_publish'], emptyMessage: 'El envío está vacío: falta texto, archivo o enlace.', emptyCode: 'input_empty'
+    textField: 'text', extraFields: ['auto_publish', 'as_member_id'], emptyMessage: 'El envío está vacío: falta texto, archivo o enlace.', emptyCode: 'input_empty'
   })
-  return { text, links, files, keepDraft: extra.auto_publish === 'false' }
+  return { text, links, files, keepDraft: extra.auto_publish === 'false', asMemberId: extra.as_member_id }
 }
 
-/** A send with no files as JSON: { text, links?, auto_publish? }. Same limits and the same errors as the multipart one. */
+/** A send with no files as JSON: { text, links?, auto_publish?, as_member_id? }. Same limits and the same errors as the multipart one. */
 function readInputJson (request, config) {
   const body = request.body
   if (body === null || typeof body !== 'object' || Array.isArray(body)) throw unsupported('Se esperaba un envío multipart/form-data o un JSON.')
-  const allowed = new Set(['text', 'links', 'auto_publish'])
+  const allowed = new Set(['text', 'links', 'auto_publish', 'as_member_id'])
   const unknown = Object.keys(body).find((k) => !allowed.has(k))
   if (unknown) throw badRequest(`El campo «${unknown}» no existe.`, 'validation')
   const u = config.uploads
@@ -60,7 +60,9 @@ function readInputJson (request, config) {
   if (links.length > u.maxLinks) throw tooLarge(`Se admiten hasta ${u.maxLinks} enlaces por envío.`)
   if (Buffer.byteLength(text) > u.maxTextBytes) throw tooLarge('El texto supera el tamaño máximo permitido.')
   if (text.trim() === '' && links.length === 0) throw badRequest('El envío está vacío: falta texto, archivo o enlace.', 'input_empty')
-  return { text, links, files: [], keepDraft: body.auto_publish === false }
+  const as = body.as_member_id
+  if (as !== undefined && as !== null && typeof as !== 'string' && typeof as !== 'number') throw badRequest('`as_member_id` es el id de un miembro.', 'send_as_invalid')
+  return { text, links, files: [], keepDraft: body.auto_publish === false, asMemberId: as === undefined || as === null ? undefined : String(as) }
 }
 
 /** Reads the multipart body of a reply: body, kind, files[] and links[]. Same limits and storage as an input. */

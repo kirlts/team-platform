@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 2026-10-21, noche. Borrar lo que existe (UD-240): mensajes y respuestas en blando con `restore` (migración `0010_message_and_reply_deletion`), `DELETE /api/inputs/:id` con adjuntos, trabajos y propuesta (migración `0011_attachments_without_input`) y `DELETE /api/members/:id` con `purge`. En el panel, el ícono de borrar en cada tarjeta, fila de Áreas y vista de un área, «Borrar» en la ficha y en cada respuesta con Deshacer, «Borrar» en el envío abierto de Inicio y «Eliminar» en Equipo.
+- Vaciar y sembrar datos de prueba (UD-240, UD-252): `POST /api/ops/reset` con `scope` `content` o `everything`, `POST /api/ops/seed`, `scripts/vaciar.mjs`, `scripts/sembrar.mjs` y el juego `ejemplos/` (`EXAMPLES_DIR`). Configuración, sección «Datos»: «Vaciar contenido», «Vaciar todo» y «Sembrar ejemplos».
+- Lo borrado se lista y se restaura tras recargar (UD-250): `GET /api/messages?deleted=1`, «Borrados» en el filtro de Mensajes y «Borradas» en Áreas y en Plantillas, con «Restaurar».
+- «Cola» y «Auditoría» en Configuración para el Editor, con traza por envío y la línea de resumen de la telemetría de interfaz; `GET /api/inputs?all=1` (UD-251).
+- Equipo: «Contraseña» de otro miembro para el Editor (UD-252). La ficha del mensaje: «Adjunto» y «Quitar» para el emisor (H-3707).
 - `GET /api/messages?involved=me`: los mensajes asignados a la persona o emitidos por ella una vez respondidos o cerrados, la regla de `/api/messages/summary`. Los enlaces de las marcas de la barra superior lo usan y llevan a una lista del tamaño de su cifra (H-2000).
 - Barra superior de toda página con tres marcas de estado, abierto rojo, respondido amarillo y cerrado azul, cada una con su forma y su número. Al hacer clic abre un desplegable con esos mensajes y un enlace a Mensajes filtrado. En teléfono conserva las tres marcas (UD-100, UD-141).
 - Barra lateral de 256 px, ocultable, sobre una grilla con la columna de contador de ancho fijo. Los contadores no llevan contenedor y toda fila responde al puntero y al foco (UD-047, UD-130). Prueba `panel/src/sidebar-alignment.browser.test.mjs` y regla de alineación en `ui-detectors.mjs`.
@@ -62,6 +67,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `README.md` para quien llega al repositorio público.
 
 ### Changed
+- 2026-10-21, noche. Tarjetas de lista de alto fijo: título y extracto de una línea con puntos suspensivos y el texto entero de tooltip (UD-241, enmienda a UD-016).
+- El plegable de plantillas de la vista de un área abre por omisión y Áreas enlaza a él con «N plantillas» (UD-252).
+- `scripts/vps-check.mjs` borra su envío de prueba en lugar de cancelarlo (UD-253).
 - `docs/TECHNICAL-DEBT.md` conserva solo DT-007 (HP-019 y HP-020). Quedaron cerradas DT-003 (proveedor de respaldo invocado), DT-004 (gancho de pre-commit), DT-005 (tope de documentos), DT-006 (cabecera de `src/analyze/api.js`), DT-008 (capas 3 y 5), DT-009 (inglés en comentarios, nombres, aserciones y registros). DT-010 queda descartada por el dueño (H-45).
 - `docs/TEST.md` numera HP-029 la prohibición de privacidad de la telemetría de la interfaz, que repetía HP-022.
 - Panel: el texto del análisis se dibuja a 17 px (UD-030). La franja «Para mí» y «Por área» de Inicio sale y pasa a la barra superior (UD-100).
@@ -71,10 +79,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MASTER-SPEC §2, §3, §6 y §7 describen el código real; §3.1 lista las dependencias con su licencia.
 
 ### Fixed
+- 2026-10-21, noche. Video: los fotogramas que visión deja sin descripción se piden otra vez y el que siga vacío no llega al análisis como mensaje (H-3713, REG-010).
 - Panel, ronda 5: el texto de «Entrar» se centra en su botón; «Desactivar» es un botón con contorno y la columna de acciones de Equipo tiene encabezado; los roles dicen lo que permiten en un texto emergente; el selector de Proveedor usa el chevron del panel como el de Idioma; «Funciones» y cada función se distinguen; la publicación automática dice qué publica; Conexiones explica cada fila en un texto emergente; el desplegable de envío dice «Enviando» para un texto sin adjuntos y en teléfono pliega el original cuando hay resultado (UD-220, H-3500 a H-3514).
 - «Cerrar sesión» no se dibuja con un proveedor de identidad sin ruta de cierre (UD-190). Equipo, Configuración y la ficha del mensaje sin hallazgos de `ui-detectors`: objetivos de 24 px, campo a 17 px en teléfono, miniaturas sin relleno saturado (UD-191).
 - Panel: en una ventana más baja que una fila de la lista, la fila ya no se dibuja sobre el paginador (H-96).
 - Audio y video: los segmentos de Groq se unen en líneas del tamaño de una oración (`audio.pauseSeconds`, `audio.maxUnitWords`); una nota de 107 s pasa de 46 unidades a 9 (REG-005).
+
+### Removed
+- 2026-10-21, noche. La lista «Descartados» de Inicio (UD-253); `POST /api/inputs/:id/restore` se conserva. La razón bajo el título de Conexiones.
 
 <!--
 INPUT FORMAT:

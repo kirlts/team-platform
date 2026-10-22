@@ -210,7 +210,11 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   const { worker } = await buildWorker({ db, config, events, logger, pollDataVersionMs: config.worker.dataVersionPollMs })
   worker.start()
   logger.info({ worker_id: worker.workerId, concurrency: config.worker.concurrency }, 'worker running')
+  // Every timer of the worker is unref'd, so nothing holds this process open (inside the API the HTTP server does) and it
+  // exited with code 0 right after starting. This timer, at the longest delay Node accepts, is the one that keeps it alive until a signal.
+  const keepAlive = setInterval(() => {}, MAX_TIMEOUT)
   const shutDown = async (signalName) => {
+    clearInterval(keepAlive)
     logger.info(`${signalName}: returning the jobs in progress to the queue`)
     await worker.stop()
     await telemetry.shutdown()

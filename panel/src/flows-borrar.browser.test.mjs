@@ -50,6 +50,8 @@ describe('deleting a message (H-3700)', () => {
       const title = 'Definir el tamaño máximo de un video'
       await openFromList(page, 'Definir el tamaño')
       const del = page.getByRole('button', { name: 'Borrar', exact: true })
+      // «Borrar» depends on /api/me, which can arrive after the page settled under load.
+      await del.waitFor({ timeout: 5000 }).catch(() => {})
       assert.equal(await del.count(), 1, 'the sender sees «Borrar»')
       assert.equal(await page.getByRole('dialog').count(), 0)
       await del.click()
@@ -87,6 +89,7 @@ describe('deleting a message (H-3700)', () => {
     const editor = await session('ana')
     try {
       await openFromList(editor.page, 'Definir el tamaño')
+      await editor.page.getByRole('button', { name: 'Borrar', exact: true }).waitFor({ timeout: 5000 }).catch(() => {})
       assert.equal(await editor.page.getByRole('button', { name: 'Borrar', exact: true }).count(), 1, 'the Editor deletes any message')
     } finally {
       await editor.context.close()

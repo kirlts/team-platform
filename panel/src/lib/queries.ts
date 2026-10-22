@@ -620,7 +620,7 @@ export function useSaveProject() {
   })
 }
 
-// ---------------------------------------------------------------- Cola, Traza y Auditoría de Configuración (UD-251), Editor
+// ---------------------------------------------------------------- Queue, trace and audit screens of Configuración (UD-251), Editor
 export interface QueueInput extends InputRecord {
   author_name?: string | null
 }

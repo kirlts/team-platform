@@ -82,8 +82,10 @@ describe('analyzer telemetry', () => {
       assert.equal(result.status, 'ok');
       await env.telemetry.flush();
       const rows = env.db.prepare("SELECT provider, status, step FROM llm_calls WHERE modality = 'text' ORDER BY at, id").all();
-      // Both calls can start in the same millisecond, so the order is not the contract: compare by provider name.
-      assert.deepEqual(rows.slice(0, 2).map((r) => [r.provider, r.status]).sort((x, y) => x[0].localeCompare(y[0])), [['fake', expectedStatus], ['fake-fallback', 'unset']]);
+      // Calls can start in the same millisecond, so neither the order nor the position is the contract: the failed call of the
+      // primary and the answer of the fallback are looked up by provider and status.
+      assert.ok(rows.some((r) => r.provider === 'fake' && r.status === expectedStatus), `no failed call of the primary in ${JSON.stringify(rows)}`)
+      assert.ok(rows.some((r) => r.provider === 'fake-fallback' && r.status === 'unset'), `no answer of the fallback in ${JSON.stringify(rows)}`)
       assert.equal(rows.filter((r) => r.provider === 'fake-fallback').length, 1, 'only the repeated call goes to the fallback');
       const spans = walk(traceOfJob(env.db, 505).roots);
       assert.equal(spans.filter((s) => s.name === 'analyze.fallback').length, 1);

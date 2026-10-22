@@ -161,6 +161,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./
 COPY src ./src
 COPY templates ./templates
+COPY ejemplos ./ejemplos
 COPY --from=panel /out ./panel/dist
 RUN mkdir -p /data && chown node:node /data
 USER node

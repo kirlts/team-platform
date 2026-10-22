@@ -59,7 +59,8 @@ describe('Equipo', () => {
         assert.equal(more, m.paragraphs > 1, `${m.email}: «Ver más» ${more} with ${m.paragraphs} paragraphs`)
         report.push({ email: m.email, more })
       }
-      assert.ok(report.length >= 7, `${report.length} rows on screen`)
+      // UD-252: the actions column holds three buttons, so fewer rows fit the frame than before; five still cover both cases of the profile.
+      assert.ok(report.length >= 5, `${report.length} rows on screen`)
       assert.ok(report.some((x) => x.more), 'no row has a folded profile')
       // Each link, once opened, makes its row taller: it was hiding something.
       for (const { email } of report.filter((x) => x.more)) {

@@ -4,6 +4,7 @@ import { audit, listAudit } from '../../domain/audit.js'
 import { AppError, notFound } from '../../domain/errors.js'
 import { traceOfJob } from '../../domain/tracing.js'
 import { resetData, SCOPES } from '../../domain/reset.js'
+import { submitExamples } from '../../domain/seed-examples.js'
 import { readSeedSet } from '../../db/seed.js'
 import { idParams } from '../schemas.js'
 import { requireConfirm } from '../confirm.js'
@@ -28,7 +29,7 @@ const registryList = {
 }
 
 export function registerOpsRoutes (app, ctx) {
-  const { db, config, queue, requireRole, telemetry } = ctx
+  const { db, config, queue, events, requireRole, telemetry } = ctx
 
   app.get('/jobs', {
     onRequest: [requireRole('editor')],
@@ -102,6 +103,22 @@ export function registerOpsRoutes (app, ctx) {
     const seedSet = scope === 'everything' ? await readSeedSet(config) : null
     if (scope === 'everything' && !seedSet) throw new AppError(500, 'seed_missing', 'No está el juego inicial de áreas y plantillas.')
     return resetData(db, config, { scope, actorId: request.member.id, keepMemberId: request.member.id, seedSet })
+  })
+
+  app.post('/ops/seed', {
+    onRequest: [requireRole('editor')],
+    schema: {
+      summary: 'Load the sample set of ejemplos/ (editor; requires ?confirm=true)',
+      description: 'Sends each file and subfolder of `ejemplos/` as one input in the name of who asks, through the real analysis; the progress shows in the sender\'s tray like any send. Answers 202 with `created` (new sends) and `existing` (already there, by content). Real cost of the full set: about 0.01 USD with Claude Haiku 5.5 (UD-252).',
+      querystring: { type: 'object', additionalProperties: false, properties: { confirm: { type: 'boolean' } } },
+      response: { 202: { type: 'object', properties: { created: { type: 'integer' }, existing: { type: 'integer' } } } }
+    }
+  }, async (request, reply) => {
+    requireConfirm(request)
+    const r = await submitExamples({ db, config, queue, events }, { authorId: request.member.id })
+    audit(db, { memberId: request.member.id, action: 'data.seed', entity: 'input', detail: r })
+    reply.code(202)
+    return r
   })
 
   app.get('/audit', {

@@ -9,9 +9,9 @@
 // --limite N, --borrador (leave the proposals in review instead of publishing them). TEAM_EMAIL and TEAM_PASSWORD
 // work as the credentials too. Prints one row per send: name, state, published messages, seconds.
 
-import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { basename, extname, join } from 'node:path'
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { readExamples } from '../src/domain/seed-examples.js'
 
 const args = process.argv.slice(2)
 const option = (name, fallback) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : fallback }
@@ -31,32 +31,7 @@ if (!base || !folder || !(token || (email && password))) {
   process.exit(2)
 }
 
-const MIME = {
-  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp',
-  '.wav': 'audio/wav', '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4', '.ogg': 'audio/ogg', '.webm': 'video/webm', '.mp4': 'video/mp4', '.mov': 'video/quicktime',
-  '.pdf': 'application/pdf', '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
-}
-const TEXT = new Set(['.md', '.txt'])
-
-/** One send: { name, text, files: [{ name, path, mime }] }. */
-function sendOf (name, paths) {
-  const texts = []
-  const files = []
-  for (const p of paths.sort()) {
-    const ext = extname(p).toLowerCase()
-    if (TEXT.has(ext)) texts.push(readFileSync(p, 'utf8').trim())
-    else if (MIME[ext]) files.push({ name: basename(p), path: p, mime: MIME[ext] })
-    else console.error(`Se omite ${basename(p)}: extensión sin tipo conocido`)
-  }
-  return { name, text: texts.join('\n\n'), files }
-}
-
-const sends = readdirSync(folder).sort().filter((n) => !n.startsWith('.')).map((n) => {
-  const p = join(folder, n)
-  if (statSync(p).isDirectory()) return sendOf(n, readdirSync(p).filter((f) => !f.startsWith('.')).map((f) => join(p, f)))
-  return sendOf(n, [p])
-}).filter((s) => s.text || s.files.length).slice(0, limit)
+const sends = readExamples(folder, { limit, warn: (m) => console.error(m) })
 
 // ---- session
 let cookie

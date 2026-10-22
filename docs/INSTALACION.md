@@ -190,6 +190,10 @@ Sin `--si` imprime las cifras y no borra. El guion trabaja directo sobre la base
 
 ## Sembrar un juego de prueba
 
+Desde la pantalla: Configuración, Datos, «Sembrar ejemplos» (sólo el Editor). Envía los siete envíos de `ejemplos/` a nombre de quien pide, por `POST /api/ops/seed?confirm=true`, y muestra «N envíos»; el avance sale por la bandeja de Inicio. Costo real del juego completo: 0,01 USD con Claude Haiku 5.5. La imagen de Docker lleva `ejemplos/`.
+
+Por línea de comandos:
+
 `scripts/sembrar.mjs` envía archivos por la API de un servidor en marcha, de modo que cada envío pasa por el análisis real. Cada archivo suelto es un envío: `.md` y `.txt` como texto, imágenes, audio, video, `.pdf` y `.docx` como adjuntos. Una subcarpeta es un solo envío con todos sus archivos. Al final imprime una tabla: envío, estado, mensajes publicados, segundos.
 
 ```sh

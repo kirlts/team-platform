@@ -57,8 +57,9 @@ describe('the view of an area (UD-041)', () => {
       for (const text of await rows.locator('[data-testid="state-mark"]').allTextContents()) assert.match(text.trim(), /^(Abierto|Respondido|Cerrado)$/)
       const listTop = (await rows.first().boundingBox()).y
       for (const name of ['Descripción', 'Plantillas']) {
-        const fold = page.getByRole('button', { name: new RegExp(`^${name}`) })
-        assert.equal(await fold.getAttribute('aria-expanded'), 'false', `${name} starts folded`)
+        const fold = page.getByRole('button', name === 'Plantillas' ? { name: /^Plantillas/ } : { name, exact: true })
+        // UD-252: the templates start open, so deleting one takes a single click; the description stays folded.
+        assert.equal(await fold.getAttribute('aria-expanded'), name === 'Plantillas' ? 'true' : 'false', `${name} starts ${name === 'Plantillas' ? 'open' : 'folded'}`)
         assert.ok((await fold.boundingBox()).y > listTop, `${name} goes below the messages`)
       }
       // The counts of the three states are the ones of the server.
@@ -125,7 +126,7 @@ describe('the view of an area (UD-041)', () => {
     try {
       await page.goto(`${origin}/areas/a-error`)
       await page.locator('main article').first().waitFor()
-      await page.getByRole('button', { name: /^Plantillas/ }).click()
+      // UD-252: the templates are already open on arrival.
       await page.getByRole('region', { name: 'Plantillas' }).waitFor()
       await page.getByRole('button', { name: 'Descripción', exact: true }).click()
       const { doc, win } = await page.evaluate(() => ({ doc: document.scrollingElement.scrollHeight, win: innerHeight }))

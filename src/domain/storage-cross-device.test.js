@@ -1,6 +1,6 @@
-// The attachments directory can live on another filesystem than tmpDir: in Devalis it is a Cloud
+// The attachments directory can live on another filesystem than tmpDir: on a host site it is a Cloud
 // Storage bucket mounted under /data/attachments while /data/tmp stays on the local volume. A plain
-// rename() there fails with EXDEV and the upload answered 500 (measured on team.devalis.cl,
+// rename() there fails with EXDEV and the upload answered 500 (measured on a host site,
 // 2026-10-22). /dev/shm is a tmpfs on Linux, so it and the home directory are two filesystems.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'

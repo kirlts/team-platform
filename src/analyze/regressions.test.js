@@ -14,13 +14,13 @@ import { numberUnits, partitionUnits, renderUnits } from './units.js';
 
 const analyze = firstReadingOnly(analyzeAll);
 
-const CHAT_4 = '1) popup vacío en agenda 2) idea de recordatorio por WhatsApp 3) pregunta a Pablo sobre la reunión 4) exportar a Excel tarda un minuto';
+const CHAT_4 = '1) popup vacío en agenda 2) idea de recordatorio por WhatsApp 3) pregunta a Ana sobre la reunión 4) exportar a Excel tarda un minuto';
 
 describe('REG-001: a one-paragraph chat message with four points', () => {
   it('there are four units and four messages come out in three areas', async () => {
     const bundle = await makeBundle({ text: CHAT_4, attachments: [] });
     assert.equal(numberUnits(bundle).length, 4);
-    const pregunta = (u) => ({ unit_ids: [u], title: 'Pregunta a Pablo', fields: { question: '¿La reunión?' }, body: 'Pregunta sobre la reunión.', assignee_ids: [2], attachment_ids: [] });
+    const pregunta = (u) => ({ unit_ids: [u], title: 'Pregunta a Ana', fields: { question: '¿La reunión?' }, body: 'Pregunta sobre la reunión.', assignee_ids: [2], attachment_ids: [] });
     const idea = (u) => ({ unit_ids: [u], title: 'Recordatorio por WhatsApp', fields: { idea: 'Recordatorio', motivation: 'No indicado' }, body: 'Idea de recordatorio.', assignee_ids: [], attachment_ids: [] });
     const fake = createFakeProviders({
       text: scriptByRequest({

@@ -34,14 +34,14 @@ describe('numberUnits', () => {
   });
 
   it('an inline enumeration cuts one unit per element: «1) … 2) …» and «a) … b) …»', () => {
-    const chat = '1) popup vacío en agenda 2) idea de recordatorio por WhatsApp 3) pregunta a Pablo sobre la reunión 4) exportar a Excel tarda un minuto';
+    const chat = '1) popup vacío en agenda 2) idea de recordatorio por WhatsApp 3) pregunta a Ana sobre la reunión 4) exportar a Excel tarda un minuto';
     assert.deepEqual(numberUnits({ text: chat }).map((u) => u.text), [
       '1) popup vacío en agenda',
       '2) idea de recordatorio por WhatsApp',
-      '3) pregunta a Pablo sobre la reunión',
+      '3) pregunta a Ana sobre la reunión',
       '4) exportar a Excel tarda un minuto',
     ]);
-    assert.deepEqual(numberUnits({ text: 'Pablo pidió que a) abra el menú b) cierre sesión' }).map((u) => u.text), ['Pablo pidió que', 'a) abra el menú', 'b) cierre sesión']);
+    assert.deepEqual(numberUnits({ text: 'Ana pidió que a) abra el menú b) cierre sesión' }).map((u) => u.text), ['Ana pidió que', 'a) abra el menú', 'b) cierre sesión']);
     assert.deepEqual(numberUnits({ text: 'Hola. Te cuento: 1) falla el login 2) falta un filtro' }).map((u) => u.text), ['Hola.', 'Te cuento:', '1) falla el login', '2) falta un filtro']);
   });
 
@@ -57,8 +57,8 @@ describe('numberUnits', () => {
   });
 
   it('a dash list on a single line cuts one unit per dash', () => {
-    assert.deepEqual(numberUnits({ text: '- popup vacío - idea de recordatorio - pregunta a Pablo' }).map((u) => u.text), [
-      '- popup vacío', '- idea de recordatorio', '- pregunta a Pablo',
+    assert.deepEqual(numberUnits({ text: '- popup vacío - idea de recordatorio - pregunta a Ana' }).map((u) => u.text), [
+      '- popup vacío', '- idea de recordatorio', '- pregunta a Ana',
     ]);
     assert.equal(numberUnits({ text: 'El login - que ya falló - no entra' }).length, 1, 'a parenthetical dash in prose does not cut');
   });

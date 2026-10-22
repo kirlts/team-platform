@@ -20,7 +20,7 @@ if (!text.trim()) {
 const { areas, templates } = await loadSeed();
 const members = [
   { id: 1, name: 'Martín', profile: 'Desarrollo el sistema entero: servidor, interfaz e infraestructura. Decido la arquitectura.\n\nPrefiero recibir los errores con pasos para reproducirlos.' },
-  { id: 2, name: 'Pablo', profile: 'Dirijo el negocio y pruebo el producto con clientes. Decido el producto y las ventas.\n\nNo programo.' },
+  { id: 2, name: 'Ana', profile: 'Dirijo el negocio y pruebo el producto con clientes. Decido el producto y las ventas.\n\nNo programo.' },
 ];
 const bundle = { text, attachments: [], areas, templates, members };
 

@@ -47,10 +47,10 @@ const cookieOf = (res, name = '__Host-session') => {
 
 test('provision=host: an unknown email is created on its first entry with the host name and role; member if it declares none', async () => {
   const env = await makeEnv(jwtConfig())
-  const r = await env.app.inject({ url: '/api/me', headers: await bearer({ email: 'pablo@x.org', name: 'Pablo Pérez', role: 'editor' }) })
+  const r = await env.app.inject({ url: '/api/me', headers: await bearer({ email: 'ana@x.org', name: 'Ana Pérez', role: 'editor' }) })
   assert.equal(r.statusCode, 200)
   assert.equal(r.json().role, 'editor')
-  assert.equal(r.json().name, 'Pablo Pérez')
+  assert.equal(r.json().name, 'Ana Pérez')
   assert.equal(r.json().provider, 'delegated:jwt')
   assert.equal(r.json().source, 'jwt')
   assert.equal(r.json().role_managed_externally, true)
@@ -82,20 +82,20 @@ test('the host governs the role: applied on every entry, and the local Editor ge
   const env = await makeEnv(jwtConfig())
   const editor = await bearer({ email: 'martin@x.org', role: 'editor' })
   await env.app.inject({ url: '/api/me', headers: editor })
-  const first = await env.app.inject({ url: '/api/me', headers: await bearer({ email: 'pablo@x.org', role: 'editor' }) })
-  const pabloId = first.json().id
-  // The host demotes Pablo: his next entry applies it.
-  const demoted = await env.app.inject({ url: '/api/me', headers: await bearer({ email: 'pablo@x.org', role: 'member' }) })
+  const first = await env.app.inject({ url: '/api/me', headers: await bearer({ email: 'ana@x.org', role: 'editor' }) })
+  const anaId = first.json().id
+  // The host demotes Ana: his next entry applies it.
+  const demoted = await env.app.inject({ url: '/api/me', headers: await bearer({ email: 'ana@x.org', role: 'member' }) })
   assert.equal(demoted.json().role, 'member')
-  assert.equal(memberRow(env, 'pablo@x.org').role, 'member')
+  assert.equal(memberRow(env, 'ana@x.org').role, 'member')
   // The local Editor cannot raise nor lower him.
   const patch = async (id, payload) => env.app.inject({ method: 'PATCH', url: `/api/members/${id}`, headers: { ...(await bearer({ email: 'martin@x.org', role: 'editor' })), 'content-type': 'application/json' }, payload })
-  const raise = await patch(pabloId, { role: 'editor' })
+  const raise = await patch(anaId, { role: 'editor' })
   assert.equal(raise.statusCode, 409)
   assert.equal(raise.json().code, 'role_managed_externally')
-  assert.equal(memberRow(env, 'pablo@x.org').role, 'member')
+  assert.equal(memberRow(env, 'ana@x.org').role, 'member')
   // The name still is the Editor's; and a member whose role the host never declared is edited as before.
-  assert.equal((await patch(pabloId, { name: 'Pablo P.' })).statusCode, 200)
+  assert.equal((await patch(anaId, { name: 'Ana P.' })).statusCode, 200)
   await env.app.inject({ url: '/api/me', headers: await bearer({ email: 'libre@x.org' }) })
   const free = memberRow(env, 'libre@x.org')
   assert.equal((await patch(String(free.id), { role: 'editor' })).statusCode, 200)
@@ -105,7 +105,7 @@ test('the host governs the role: applied on every entry, and the local Editor ge
 test('a browser identified by the JWT gets a session of our own as long as the token, renewed with it, and the SSE lives on it', async () => {
   const env = await makeEnv(jwtConfig())
   const exp = Math.floor(Date.now() / 1000) + 600
-  const r = await env.app.inject({ url: '/api/me', headers: { ...(await bearer({ email: 'pablo@x.org' }, { exp })), ...browser } })
+  const r = await env.app.inject({ url: '/api/me', headers: { ...(await bearer({ email: 'ana@x.org' }, { exp })), ...browser } })
   assert.equal(r.statusCode, 200)
   const c = r.cookies.find((x) => x.name === '__Host-session')
   assert.ok(c)
@@ -121,12 +121,12 @@ test('a browser identified by the JWT gets a session of our own as long as the t
   assert.equal(viaCookie.json().source, 'session')
   // A renewed host token moves the end of the same session; no new row.
   const later = exp + 900
-  const renewed = await env.app.inject({ url: '/api/me', headers: { ...(await bearer({ email: 'pablo@x.org' }, { exp: later })), ...browser, cookie } })
+  const renewed = await env.app.inject({ url: '/api/me', headers: { ...(await bearer({ email: 'ana@x.org' }, { exp: later })), ...browser, cookie } })
   assert.equal(renewed.cookies.find((x) => x.name === '__Host-session').value, c.value)
   assert.equal(get(env.db, 'SELECT COUNT(*) AS n, MAX(expires_at) AS e FROM sessions').n, 1)
   assert.equal(get(env.db, 'SELECT expires_at FROM sessions').expires_at, later * 1000)
   // A non-browser client (no Sec-Fetch-Site) does not leave a session per request.
-  const agent = await env.app.inject({ url: '/api/me', headers: await bearer({ email: 'pablo@x.org' }) })
+  const agent = await env.app.inject({ url: '/api/me', headers: await bearer({ email: 'ana@x.org' }) })
   assert.equal(agent.cookies.length, 0)
   // SSE on the cookie of our own, over a real socket.
   await env.app.listen({ host: '127.0.0.1', port: SSE_PORT })
@@ -144,7 +144,7 @@ test('a browser identified by the JWT gets a session of our own as long as the t
 test('two sources at once: people with the host JWT and the agent member with signed-header; local can sit with jwt', async () => {
   const env = await makeEnv(jwtConfig({ provider: 'jwt,signed-header' }))
   await addMember(env, { email: 'claude@x.org', role: 'member' })
-  const person = await env.app.inject({ url: '/api/me', headers: await bearer({ email: 'pablo@x.org' }) })
+  const person = await env.app.inject({ url: '/api/me', headers: await bearer({ email: 'ana@x.org' }) })
   assert.equal(person.json().source, 'jwt')
   assert.equal(person.json().provider, 'delegated:jwt,delegated:signed-header')
   const ts = Math.floor(Date.now() / 1000)
@@ -164,7 +164,7 @@ test('two sources at once: people with the host JWT and the agent member with si
   const viaLocal = await mixed.app.inject({ url: '/api/me', headers: { cookie } })
   assert.equal(viaLocal.json().source, 'session')
   assert.equal(viaLocal.json().provider, 'local,delegated:jwt')
-  assert.equal((await mixed.app.inject({ url: '/api/me', headers: await bearer({ email: 'pablo@x.org' }) })).json().source, 'jwt')
+  assert.equal((await mixed.app.inject({ url: '/api/me', headers: await bearer({ email: 'ana@x.org' }) })).json().source, 'jwt')
   await mixed.close()
 })
 
@@ -184,7 +184,7 @@ test('signed-header: the host declares role and name in signed headers; a tamper
 
 test('COOKIE_DOMAIN: the session cookie is shared with the host under its own name; the host JWT can come in a cookie of its domain', async () => {
   const env = await makeEnv(jwtConfig({ cookieDomain: '.ejemplo.cl', cookieName: 'tp_sid', jwtCookieName: 'host_jwt' }))
-  const token = await signJwt({ email: 'pablo@x.org' })
+  const token = await signJwt({ email: 'ana@x.org' })
   const r = await env.app.inject({ url: '/api/me', headers: { cookie: `host_jwt=${token}`, ...browser } })
   assert.equal(r.statusCode, 200)
   assert.equal(r.json().source, 'jwt')
@@ -201,14 +201,14 @@ test('COOKIE_DOMAIN: the session cookie is shared with the host under its own na
   assert.equal(csrf.json().code, 'csrf')
   await env.close()
   const defaults = await makeEnv(jwtConfig({ cookieDomain: '.ejemplo.cl' }))
-  const d = await defaults.app.inject({ url: '/api/me', headers: { ...(await bearer({ email: 'pablo@x.org' })), ...browser } })
+  const d = await defaults.app.inject({ url: '/api/me', headers: { ...(await bearer({ email: 'ana@x.org' })), ...browser } })
   assert.ok(d.cookies.find((x) => x.name === 'team_session'))
   await defaults.close()
 })
 
 test('sign-out: closes the session of our own in a host mode; with LOGOUT_URL it names the host sign-out', async () => {
   const env = await makeEnv(jwtConfig({ logoutUrl: 'https://anfitrion.example/salir' }))
-  const r = await env.app.inject({ url: '/api/me', headers: { ...(await bearer({ email: 'pablo@x.org' })), ...browser } })
+  const r = await env.app.inject({ url: '/api/me', headers: { ...(await bearer({ email: 'ana@x.org' })), ...browser } })
   const cookie = cookieOf(r)
   const out = await env.app.inject({ method: 'POST', url: '/api/auth/logout', headers: { cookie, 'x-team-request': 'panel' } })
   assert.equal(out.statusCode, 200)

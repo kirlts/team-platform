@@ -70,7 +70,7 @@ async function runCase(id) {
   const stage = await classifyInput(bundle, { providers, config });
   const cost = stage.ctx.calls.reduce((s, c) => s + (costOf({ model: c.model, usage: c.usage }) ?? 0), 0);
   ledger.add(`stage ${values.label} ${id}`, cost);
-  if (stage.failed) throw new Error(`${id}: ${stage.failed.status} ${stage.failed.step ?? ''}`);
+  if (stage.failed) throw new Error(`${id}: ${stage.failed.status} ${stage.failed.step ?? ''} ${JSON.stringify((stage.failed.errors ?? []).slice(0, 5))}`);
   const unitPred = stage.groups.flatMap((g) => g.unit_ids.map((u) => [u, g.area_id]));
   return {
     case_id: id, cost_usd: cost, ms: Date.now() - started, calls: stage.ctx.calls.length, stats: stage.ctx.stats,

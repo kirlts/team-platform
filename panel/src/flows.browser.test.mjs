@@ -178,13 +178,15 @@ describe('analysis proposal', () => {
       await page.locator('[data-notice]').getByText(/^Mensaje quitado/).waitFor()
       await page.getByRole('group', { name: 'Historial de cambios' }).getByRole('button', { name: 'Deshacer' }).click()
       await page.getByRole('button', { name: /^Partes sin mensaje/ }).waitFor({ state: 'detached' })
-      // What was edited survives a reload: the draft is on the server.
+      // What was edited survives a reload: the draft is on the server. The message came back folded, like every other (UD-257).
+      await openFirst(page)
       await page.getByRole('button', { name: /^Título del mensaje: Primera idea/ }).click()
       await page.getByRole('textbox', { name: 'Título del mensaje' }).fill('Primera idea, ya corregida')
       await page.getByRole('textbox', { name: 'Título del mensaje' }).press('Enter')
       await page.getByRole('button', { name: /^Título del mensaje: Primera idea, ya corregida/ }).waitFor()
       await page.reload()
       await page.getByTestId('tray-control').click() // after a reload the drawer is folded
+      await page.getByRole('button', { name: 'Abrir el mensaje 1: Primera idea, ya corregida' }).click()
       await page.getByRole('button', { name: /^Título del mensaje: Primera idea, ya corregida/ }).waitFor()
     } finally {
       await context.close()

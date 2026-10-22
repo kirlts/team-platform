@@ -32,6 +32,6 @@ export function installAgentAuth (app, { db, config, vault, now = Date.now }) {
     const pathname = request.raw.url.split('?')[0]
     const expected = signHeader(secret, { ts: String(ts), method: request.method, pathname, email: String(email), bind: true })
     if (!equal(expected, signature)) return
-    request.member = { id: row.id, role: row.role, email: row.email, name: row.name, token: null, agent: true }
+    request.member = { id: row.id, role: row.role, email: row.email, name: row.name, token: null, source: 'agent' }
   })
 }

@@ -1,6 +1,6 @@
 // UD-251: «Cola» and «Auditoría» in Configuración, and the summary under «Telemetría de uso». The Editor sees the sends of
-// everybody, reprocesses one, opens a trace, deletes a send of someone else and purges the finished jobs with a confirmation in
-// place; the log shows that purge. A member sees none of it. Against dev-server.mjs serving panel/dist: `npm run test:flows`.
+// everybody, reprocesses one, opens a trace, deletes a send of someone else and purges the finished jobs with one click and no
+// step that confirms it (UD-253); the log shows that purge. A member sees none of it. Against dev-server.mjs serving panel/dist: `npm run test:flows`.
 import assert from 'node:assert'
 import { after, before, beforeEach, describe, test } from 'node:test'
 import { login, settled, startPanel } from './browser-support.mjs'
@@ -88,7 +88,7 @@ describe('Configuración, Cola y Auditoría (UD-251)', () => {
       assert.match(await row(queue, 'Diego Prueba').locator('[data-queue-state]').innerText(), /Fallido/)
       assert.equal(await queue.locator('[data-job-count="failed"]').innerText(), '2', 'the failed send and the older failed job')
       assert.equal(await queue.locator('[data-job-count="running"]').innerText(), '0')
-      for (const name of ['Reprocesar', 'Borrar', 'Traza']) assert.ok((await row(queue, 'Carla Prueba').getByRole('button', { name }).count()) === 1, name)
+      for (const name of ['Reprocesar', 'Borrar', 'Traza']) assert.ok((await row(queue, 'Carla Prueba').getByRole('button', { name, exact: true }).count()) === 1, name)
     } finally {
       await context.close()
     }
@@ -145,7 +145,7 @@ describe('Configuración, Cola y Auditoría (UD-251)', () => {
     }
   })
 
-  test('the Editor deletes a send of someone else with the confirmation in place', async () => {
+  test('the Editor deletes a send of someone else with one click, no step that confirms it', async () => {
     await sendAs('carla', ['Para borrar'])
     const { page, context } = await session('ana')
     try {
@@ -153,10 +153,9 @@ describe('Configuración, Cola y Auditoría (UD-251)', () => {
       await page.reload()
       const queue = page.locator('[data-queue]')
       const carla = row(queue, 'Carla Prueba')
-      await carla.getByRole('button', { name: 'Borrar' }).click()
-      await carla.getByRole('button', { name: 'Cancelar' }).waitFor()
+      await carla.getByRole('button', { name: 'Borrar', exact: true }).click()
+      await page.locator('[data-notice]').getByText('Envío borrado', { exact: true }).waitFor()
       assert.equal(await page.getByRole('dialog').count(), 0, 'no window over the page')
-      await carla.getByRole('button', { name: 'Borrar envío' }).click()
       await carla.waitFor({ state: 'detached' })
       assert.equal(await page.evaluate(async () => (await (await fetch('/api/inputs?all=1')).json()).total), 0)
     } finally {
@@ -164,7 +163,7 @@ describe('Configuración, Cola y Auditoría (UD-251)', () => {
     }
   })
 
-  test('purging asks for the state, confirms in place, empties it and leaves a row in the log', async () => {
+  test('purging asks for the state, empties it with one click and leaves a row in the log', async () => {
     await sendAs('carla', ['Uno', 'Dos'])
     const { page, context } = await session('ana')
     try {
@@ -175,13 +174,9 @@ describe('Configuración, Cola y Auditoría (UD-251)', () => {
       await page.waitForFunction(() => Number(document.querySelector('[data-job-count="done"]')?.textContent) >= 4)
       await queue.getByLabel('Estado a purgar').selectOption('done')
       await queue.getByRole('button', { name: 'Purgar' }).click()
-      await queue.getByRole('button', { name: 'Cancelar' }).waitFor()
-      assert.equal(await page.getByRole('dialog').count(), 0)
-      await queue.getByRole('button', { name: 'Cancelar' }).click()
-      assert.notEqual(await done.innerText(), '0', 'cancelling purges nothing')
-      await queue.getByRole('button', { name: 'Purgar' }).click()
-      await queue.getByRole('button', { name: 'Purgar' }).click()
       await queue.locator('[data-purged]').waitFor()
+      assert.equal(await page.getByRole('dialog').count(), 0)
+      assert.equal(await queue.getByRole('button', { name: 'Cancelar' }).count(), 0, 'no step that confirms it')
       await settled(page)
       assert.equal(await done.innerText(), '0')
       assert.match(await queue.locator('[data-purged]').innerText(), /\d+ purgados/)

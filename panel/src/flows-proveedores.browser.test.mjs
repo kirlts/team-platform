@@ -83,14 +83,14 @@ describe('Providers section of Configuración (UD-120)', () => {
     }
   })
 
-  test('retiring the key of a provider a function uses is blocked and names the function', async () => {
+  test('one click on «Retirar clave» of a provider a function uses is refused in the row and names the function', async () => {
     const { page, context } = await session()
     try {
       await row(page, 'groq-speech').getByRole('button', { name: 'Retirar clave' }).click()
-      const dialog = page.getByRole('dialog')
-      await dialog.getByRole('button', { name: /^Retirar$/ }).click()
-      await dialog.getByRole('group', { name: 'Funciones que usan este proveedor' }).waitFor()
-      assert.match(await dialog.innerText(), /Transcripción/)
+      const blocked = row(page, 'groq-speech').getByRole('group', { name: 'Funciones que usan este proveedor' })
+      await blocked.waitFor()
+      assert.equal(await page.getByRole('dialog').count(), 0, 'no window over the page')
+      assert.match(await blocked.innerText(), /Transcripción/)
       assert.equal(await row(page, 'groq-speech').getAttribute('data-status'), 'configured', 'nothing was retired')
     } finally {
       await context.close()

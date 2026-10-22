@@ -244,27 +244,25 @@ describe('replace key', () => {
 })
 
 describe('retire key and delete', () => {
-  it('asks for confirmation and retires an unused key', async () => {
+  it('one click retires an unused key, with no window and no step that confirms it (UD-253)', async () => {
     await ready()
-    fireEvent.click(row('gateway').getByRole('button', { name: L('providers.retireKey') }))
-    const dialog = within(await screen.findByRole('dialog'))
-    expect(dialog.getByText(L('providers.retireBody'))).toBeTruthy()
     expect(server.conns.find((c) => c.name === 'gateway')!.source).toBe('stored')
-    fireEvent.click(dialog.getByRole('button', { name: L('providers.retire') }))
+    fireEvent.click(row('gateway').getByRole('button', { name: L('providers.retireKey') }))
     await screen.findByText(L('providers.retired'))
+    expect(screen.queryByRole('dialog')).toBeNull()
     await waitFor(() => expect(row('gateway').getByText(L('providers.status.no_key'), { selector: '[data-status]' })).toBeTruthy())
   })
 
-  it('a key in use names the functions, switches each one and retries', async () => {
+  it('a key in use is refused: the row names the functions, switches each one and retries', async () => {
     await ready()
     fireEvent.click(row('anthropic').getByRole('button', { name: L('providers.retireKey') }))
-    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: L('providers.retire') }))
-    const dialog = within(await screen.findByRole('dialog'))
-    const list = await dialog.findByRole('group', { name: L('providers.inUse') })
+    const list = await row('anthropic').findByRole('group', { name: L('providers.inUse') })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(server.conns.find((c) => c.name === 'anthropic')!.source).not.toBeNull()
     expect(within(list).getByText(L('settings.slot.text'))).toBeTruthy()
     expect(within(list).getByText(L('settings.slot.vision'))).toBeTruthy()
     expect(within(list).queryByText(L('settings.slot.speech'))).toBeNull()
-    expect((dialog.getByRole('button', { name: L('providers.retry') }) as HTMLButtonElement).disabled).toBe(true)
+    expect((within(list).getByRole('button', { name: L('providers.retry') }) as HTMLButtonElement).disabled).toBe(true)
     for (const slot of ['text', 'vision'] as const) {
       const group = within(document.querySelector(`[data-switch="${slot}"]`) as HTMLElement)
       fireEvent.change(group.getByLabelText(`${L('providers.switchTo')}: ${L(`settings.slot.${slot}`)}`), { target: { value: 'gateway' } })
@@ -272,8 +270,8 @@ describe('retire key and delete', () => {
       fireEvent.click(group.getByRole('button', { name: `${L('providers.apply')}: ${L(`settings.slot.${slot}`)}` }))
       await waitFor(() => expect(document.querySelector(`[data-switch="${slot}"]`)).toBeNull())
     }
-    await waitFor(() => expect((dialog.getByRole('button', { name: L('providers.retry') }) as HTMLButtonElement).disabled).toBe(false))
-    fireEvent.click(dialog.getByRole('button', { name: L('providers.retry') }))
+    await waitFor(() => expect((within(list).getByRole('button', { name: L('providers.retry') }) as HTMLButtonElement).disabled).toBe(false))
+    fireEvent.click(within(list).getByRole('button', { name: L('providers.retry') }))
     await screen.findByText(L('providers.retired'))
     expect(server.slots.filter((s) => s.provider === 'gateway').map((s) => s.slot)).toEqual(['text', 'vision'])
   })
@@ -281,15 +279,14 @@ describe('retire key and delete', () => {
   it('a key from the environment is explained', async () => {
     await ready()
     fireEvent.click(row('envonly').getByRole('button', { name: L('providers.retireKey') }))
-    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: L('providers.retire') }))
     expect((await screen.findByRole('alert')).textContent).toBe(L('error.key_from_environment'))
   })
 
-  it('deleting a provider of the Editor asks first', async () => {
+  it('one click deletes a provider of the Editor', async () => {
     await ready()
     fireEvent.click(row('blank').getByRole('button', { name: L('providers.delete') }))
-    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: L('providers.delete') }))
     await waitFor(() => expect(document.querySelector('[data-connection="blank"]')).toBeNull())
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 })
 

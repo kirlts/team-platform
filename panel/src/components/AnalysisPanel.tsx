@@ -118,7 +118,7 @@ export function AnalysisPanel({ input, onClose, onDiscarded, onDeleted }: { inpu
               <RotateCw size={13} aria-hidden /> {t('analysis.again')}
             </Button>
           )}
-          {/* Deleting is not discarding: nothing comes back, so the step that confirms it is here and not a window (UD-240). */}
+          {/* Deleting is not discarding: nothing comes back, and one click does it (UD-240, UD-253). */}
           <DeleteSend input={input} onDeleted={onDeleted} />
         </div>
       </div>

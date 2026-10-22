@@ -1,5 +1,5 @@
-// UD-240 (H-3702) seen from the panel: a send is deleted for real from the drawer of Inicio. The button becomes the step that
-// confirms it, in its place; a published send offers to keep its messages or to take them too. Against dev-server.mjs serving
+// UD-240 (H-3702) seen from the panel: a send is deleted for real from the drawer of Inicio with one click and no step that
+// confirms it (UD-253); a published send has «Borrar», which keeps its messages, and «Borrar todo», which takes them too. Against dev-server.mjs serving
 // panel/dist with auto-publication on: `npm run test:flows`. Every test can fail if the defect it names comes back.
 import assert from 'node:assert'
 import { after, before, beforeEach, describe, test } from 'node:test'
@@ -43,8 +43,8 @@ const api = async (page, path) => {
 }
 const feed = (page) => page.getByRole('region', { name: 'Últimos mensajes' })
 
-describe('deleting a send from the drawer (UD-240)', () => {
-  test('a published send: the delete button turns into delete-send, delete-with-messages and cancel; cancel goes back; delete-send keeps the message', async () => {
+describe('deleting a send from the drawer (UD-240, UD-253)', () => {
+  test('a published send offers «Borrar» and «Borrar todo» side by side; one click on «Borrar» deletes it and keeps the message', async () => {
     const { page, context } = await session()
     try {
       const title = 'El botón de guardar no responde en el móvil'
@@ -56,19 +56,12 @@ describe('deleting a send from the drawer (UD-240)', () => {
       await feed(page).getByRole('radio', { name: 'Todos' }).click()
       await feed(page).getByText(title, { exact: true }).waitFor()
 
-      await drawer.getByTestId('delete-send').click()
-      const group = drawer.getByTestId('delete-send-confirm')
-      await group.waitFor()
-      assert.deepEqual(await group.getByRole('button').allTextContents(), ['Borrar envío', 'Borrar con mensajes', 'Cancelar'])
-      assert.equal(await page.getByRole('dialog').count(), 0, 'no window opens over the page')
-      await group.getByRole('button', { name: 'Cancelar' }).click()
-      await drawer.getByTestId('delete-send').waitFor()
-      assert.equal(await group.count(), 0)
-
+      assert.equal(await drawer.getByTestId('delete-send').innerText(), 'Borrar')
+      assert.equal(await drawer.getByTestId('delete-send-all').innerText(), 'Borrar todo')
       const before = (await api(page, '/inputs?mine=1&order=desc')).items.length
       await drawer.getByTestId('delete-send').click()
-      await group.getByRole('button', { name: 'Borrar envío', exact: true }).click()
-      await page.getByText('Envío borrado').waitFor()
+      await page.locator('[data-notice]').getByText('Envío borrado', { exact: true }).waitFor()
+      assert.equal(await page.getByRole('dialog').count(), 0, 'no window opens over the page')
       await page.getByTestId('send-drawer').waitFor({ state: 'detached' })
       await settled(page)
       assert.equal((await api(page, '/inputs?mine=1&order=desc')).items.length, before - 1)
@@ -82,7 +75,7 @@ describe('deleting a send from the drawer (UD-240)', () => {
     }
   })
 
-  test('delete-with-messages takes the message out of the feed too', async () => {
+  test('one click on «Borrar todo» takes the message out of the feed too, and the notice counts it', async () => {
     const { page, context } = await session()
     try {
       const title = 'La exportación a PDF pierde las tildes'
@@ -92,9 +85,8 @@ describe('deleting a send from the drawer (UD-240)', () => {
       await feed(page).getByRole('radio', { name: 'Todos' }).click()
       await feed(page).getByText(title, { exact: true }).waitFor()
 
-      await drawer.getByTestId('delete-send').click()
-      await drawer.getByTestId('delete-send-confirm').getByRole('button', { name: 'Borrar con mensajes' }).click()
-      await page.getByText('Envío borrado').waitFor()
+      await drawer.getByTestId('delete-send-all').click()
+      await page.locator('[data-notice]').getByText('Envío y 1 mensaje borrados', { exact: true }).waitFor()
       await page.getByTestId('send-drawer').waitFor({ state: 'detached' })
       await feed(page).getByText(title, { exact: true }).waitFor({ state: 'detached' })
       await settled(page)
@@ -104,7 +96,7 @@ describe('deleting a send from the drawer (UD-240)', () => {
     }
   })
 
-  test('a send still being analyzed offers only delete-send and cancel, and goes with its job', async () => {
+  test('a send still being analyzed offers only «Borrar», and one click takes it with its job', async () => {
     const { page, context } = await session()
     try {
       await panel.control.hold()
@@ -112,12 +104,9 @@ describe('deleting a send from the drawer (UD-240)', () => {
       const drawer = page.getByTestId('send-drawer')
       await drawer.locator('[data-ui-stage="progress"]').waitFor()
       await settled(page)
+      assert.equal(await drawer.getByTestId('delete-send-all').count(), 0, 'nothing published, so there is nothing more to take')
       await drawer.getByTestId('delete-send').click()
-      const group = drawer.getByTestId('delete-send-confirm')
-      await group.waitFor()
-      assert.deepEqual(await group.getByRole('button').allTextContents(), ['Borrar envío', 'Cancelar'])
-      await group.getByRole('button', { name: 'Borrar envío', exact: true }).click()
-      await page.getByText('Envío borrado').waitFor()
+      await page.locator('[data-notice]').getByText('Envío borrado', { exact: true }).waitFor()
       await page.getByTestId('send-drawer').waitFor({ state: 'detached' })
       await panel.control.release()
       await settled(page)

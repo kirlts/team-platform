@@ -763,6 +763,7 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 - Guardar primero y probar después: deja una clave mala activa.
 - Mostrar la clave completa tras guardarla: ninguna ruta la devuelve.
 **Consecuencias:** Migración 0009, `src/api/routes/connections.js`, `src/providers/probe.js`, OpenAPI y MASTER-SPEC al día; el proveedor falso simula 401, 429, modelo inexistente, sin red y tiempo agotado.
+**Enmienda 2026-10-21:** retirar una clave o eliminar un proveedor actúa con un clic, sin diálogo; el bloqueo por `provider_in_use` y el cambio de cada función se muestran en la fila (UD-253).
 **Condiciones de reversión:** Si una prueba con costo real resulta frecuente, la prueba previa pasa a opcional por función.
 
 ## [UD-121] Las claves guardadas se cifran en reposo y nunca salen del servidor
@@ -1067,6 +1068,7 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 **Contexto:** UD-240, textual del dueño: «Necesito poder probar esto de distintas formas», y su enmienda: «Una función sin control visible donde se usa no cuenta como entregada». La auditoría de paridad del 2026-10-21 encontró que la cola de trabajos, la traza de un trabajo, la bitácora y el resumen de telemetría de interfaz existían sólo como API, y que el Editor podía borrar y reprocesar envíos ajenos sin poder listarlos.
 **Decisión:** Configuración lleva, para el Editor y al final, las secciones «Cola» y «Auditoría». «Cola» lista los envíos de todos (`GET /inputs?all=1`, sólo Editor) con emisor, estado, cuándo y segundos de análisis; cada fila tiene «Reprocesar», «Borrar» y «Traza». Arriba muestra los trabajos por estado y «Purgar» los terminados con la confirmación en el lugar, sin diálogo. «Auditoría» muestra la bitácora, la más reciente primero, con filtro por acción. Junto al interruptor de «Telemetría de uso», encendido, una línea con el resumen de la interfaz. Un miembro no ve nada de esto y recibe 403 en `all=1`.
 **Consecuencias:** `GET /inputs` acepta `all`; el servidor doble del panel sirve `/jobs`, `/audit`, `/telemetry/ui-summary` y las trazas; la lista de la cola consulta cada 2 segundos mientras haya envíos en análisis, porque el flujo de eventos llega a quien envía y no al Editor. Filas H-3708 y H-3709.
+**Enmienda 2026-10-21:** «Purgar» actúa con un clic, sin confirmación en el lugar (UD-253).
 **Condiciones de reversión:** Si el dueño no quiere esas pantallas, se quitan los dos montajes de `Settings.tsx` y la API sigue como estaba; `all=1` puede quedar o retirarse sin otro efecto, porque ninguna otra pantalla lo usa.
 
 ## [UD-252] Los controles del Editor que sólo existían en la API o en la línea de comandos pasan a la pantalla

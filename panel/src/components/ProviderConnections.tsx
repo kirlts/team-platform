@@ -5,12 +5,13 @@ import { LoadState } from '@/components/LoadState'
 import { EmptyState } from '@/components/EmptyState'
 import { causeKey, FailureLine, ProviderCheck } from '@/components/ProviderCheck'
 import { ProviderKeyForm } from '@/components/ProviderKeyForm'
-import { ProviderRemoval } from '@/components/ProviderRemoval'
+import { ProviderRemoval, useProviderRemoval, type RemovalMode } from '@/components/ProviderRemoval'
 import { Button } from '@/components/ui/button'
 import { useFormat, useT, type MessageKey } from '@/i18n'
+import { useNotices } from '@/lib/notices'
 import type { Shown } from '@/lib/provider-ui'
 import { useCheckConnection, useConnections } from '@/lib/queries'
-import type { Connection } from '@/lib/types'
+import type { Connection, ProviderSlot } from '@/lib/types'
 
 /** What a row says about its last action, in a live region: the outcome in a line, or a test with its detail. */
 type Outcome = { kind: 'line'; ok: boolean; node: ReactNode } | { kind: 'check'; shown: Shown }
@@ -42,7 +43,10 @@ function ConnectionRow({ connection: c }: { connection: Connection }) {
   const { stamp } = useFormat()
   const check = useCheckConnection()
   const [form, setForm] = useState<'add' | 'replace' | null>(null)
-  const [removal, setRemoval] = useState<'retire' | 'delete' | null>(null)
+  const removal = useProviderRemoval()
+  const notices = useNotices()
+  /** A removal the server refused because functions use the provider (UD-253: refused, not confirmed). */
+  const [blocked, setBlocked] = useState<{ mode: RemovalMode; slots: ProviderSlot[] } | null>(null)
   const [outcome, setOutcome] = useState<Outcome | null>(null)
   const resultId = useId()
   const hasKey = c.key.source !== null
@@ -56,6 +60,16 @@ function ConnectionRow({ connection: c }: { connection: Connection }) {
     } catch (err) {
       setOutcome({ kind: 'line', ok: false, node: <FailureLine error={err} kept="providers.failedKept" /> })
     }
+  }
+
+  const remove = async (mode: RemovalMode) => {
+    setOutcome(null)
+    setBlocked(null)
+    const r = await removal.run(c, mode)
+    // A deleted provider takes its row with it, so what happened is said in the notice of the screen.
+    if (r.ok) (mode === 'delete' ? notices.show({ text: r.text }) : setOutcome({ kind: 'line', ok: true, node: r.text }))
+    else if ('blocked' in r) setBlocked({ mode, slots: r.blocked })
+    else setOutcome({ kind: 'line', ok: false, node: <p role="alert" className="break-words text-sm text-danger">{r.error}</p> })
   }
 
   return (
@@ -112,12 +126,12 @@ function ConnectionRow({ connection: c }: { connection: Connection }) {
           </Button>
         )}
         {hasKey && (
-          <Button size="sm" variant="ghost" onClick={() => setRemoval('retire')}>
+          <Button size="sm" variant="ghost" disabled={removal.pending} onClick={() => void remove('retire')}>
             {t('providers.retireKey')}
           </Button>
         )}
         {c.custom && (
-          <Button size="sm" variant="ghost" onClick={() => setRemoval('delete')}>
+          <Button size="sm" variant="ghost" disabled={removal.pending} onClick={() => void remove('delete')}>
             {t('providers.delete')}
           </Button>
         )}
@@ -138,7 +152,7 @@ function ConnectionRow({ connection: c }: { connection: Connection }) {
         {outcome?.kind === 'line' && (outcome.ok ? <p className="text-sm font-semibold text-accent-deep">{outcome.node}</p> : outcome.node)}
       </div>
       <ProviderCheck id={resultId} shown={outcome?.kind === 'check' ? outcome.shown : null} onClose={() => setOutcome(null)} />
-      {removal && <ProviderRemoval connection={c} mode={removal} onClose={() => setRemoval(null)} onDone={(text) => { setRemoval(null); setOutcome({ kind: 'line', ok: true, node: text }) }} />}
+      {blocked && <ProviderRemoval connection={c} mode={blocked.mode} blocked={blocked.slots} onClose={() => setBlocked(null)} onDone={(text) => { const mode = blocked.mode; setBlocked(null); if (mode === 'delete') notices.show({ text }); else setOutcome({ kind: 'line', ok: true, node: text }) }} />}
     </li>
   )
 }

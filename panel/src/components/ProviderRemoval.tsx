@@ -2,71 +2,74 @@ import { useState } from 'react'
 import { FailureLine } from '@/components/ProviderCheck'
 import { NativeSelect } from '@/components/NativeSelect'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { useErrorText, useT, type MessageKey } from '@/i18n'
 import { compatible, usedByOf } from '@/lib/provider-ui'
 import { useConnections, useDeleteConnection, useRetireKey, useSaveProvider } from '@/lib/queries'
 import type { Connection, ProviderSlot } from '@/lib/types'
 
+export type RemovalMode = 'retire' | 'delete'
+export type RemovalResult = { ok: true; text: string } | { ok: false; blocked: ProviderSlot[] } | { ok: false; error: string }
+
 /**
- * Confirmation to retire the key of a provider, or to delete a custom one. When the server answers `provider_in_use` the window lists
- * the functions that depend on it, each with the switch to another provider, and the removal is tried again.
+ * Retiring the key of a provider, or deleting a custom one, happens with one click (UD-253): no window and no step that confirms it.
+ * What the server refuses is not a confirmation: with `provider_in_use` the answer carries the functions that depend on it.
  */
-export function ProviderRemoval({ connection, mode, onClose, onDone }: { connection: Connection; mode: 'retire' | 'delete'; onClose: () => void; onDone: (text: string) => void }) {
+export function useProviderRemoval() {
   const t = useT()
   const errorText = useErrorText()
   const retire = useRetireKey()
   const remove = useDeleteConnection()
-  const [blocked, setBlocked] = useState<ProviderSlot[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [pending, setPending] = useState(false)
-  const title = mode === 'retire' ? t('providers.retireTitle', { name: connection.label }) : t('providers.deleteTitle', { name: connection.label })
-
-  const run = async () => {
-    setPending(true)
-    setError(null)
+  const run = async (connection: Connection, mode: RemovalMode): Promise<RemovalResult> => {
     try {
       await (mode === 'retire' ? retire.mutateAsync(connection.name) : remove.mutateAsync(connection.name))
-      onDone(mode === 'retire' ? t('providers.retired') : t('providers.deleted'))
+      return { ok: true, text: mode === 'retire' ? t('providers.retired') : t('providers.deleted') }
     } catch (err) {
       const used = usedByOf(err)
-      if (used) setBlocked(used)
-      else setError(errorText(err))
-    } finally {
-      setPending(false)
+      return used ? { ok: false, blocked: used } : { ok: false, error: errorText(err) }
     }
+  }
+  return { run, pending: retire.isPending || remove.isPending }
+}
+
+/**
+ * The removal the server refused because functions use the provider: in the row, each function with the switch to another
+ * provider, and «Reintentar» once none is left.
+ */
+export function ProviderRemoval({ connection, mode, blocked: initial, onClose, onDone }: { connection: Connection; mode: RemovalMode; blocked: ProviderSlot[]; onClose: () => void; onDone: (text: string) => void }) {
+  const t = useT()
+  const removal = useProviderRemoval()
+  const [blocked, setBlocked] = useState<ProviderSlot[]>(initial)
+  const [error, setError] = useState<string | null>(null)
+
+  const retry = async () => {
+    setError(null)
+    const r = await removal.run(connection, mode)
+    if (r.ok) onDone(r.text)
+    else if ('blocked' in r) setBlocked(r.blocked)
+    else setError(r.error)
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent title={title} data-removal={mode}>
-        <div className="flex min-h-0 flex-col gap-4 p-5 text-sm">
-          <p>{mode === 'retire' ? t('providers.retireBody') : t('providers.deleteBody')}</p>
-          {blocked && blocked.length > 0 && (
-            <div role="group" aria-label={t('providers.inUse')} className="flex flex-col gap-3">
-              <p className="font-semibold">{t('providers.inUse')}</p>
-              <ul className="flex flex-col gap-3">
-                {blocked.map((slot) => (
-                  <SwitchRow key={slot} slot={slot} leaving={connection.name} onSwitched={() => setBlocked((list) => (list ?? []).filter((s) => s !== slot))} />
-                ))}
-              </ul>
-            </div>
-          )}
-          <div role="alert" aria-live="assertive">
-            {error && <p className="break-words text-danger">{error}</p>}
-          </div>
-          <div className="flex flex-wrap justify-end gap-2">
-            <Button variant="ghost" onClick={onClose}>
-              {t('common.cancel')}
-            </Button>
-            <Button variant="danger" onClick={() => void run()} disabled={pending || (blocked !== null && blocked.length > 0)}>
-              {blocked ? t('providers.retry') : mode === 'retire' ? t('providers.retire') : t('providers.delete')}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+    <div role="group" aria-label={t('providers.inUse')} data-removal={mode} className="flex flex-col gap-3 text-sm">
+      <p className="font-semibold">{t('providers.inUse')}</p>
+      <ul className="flex flex-col gap-3">
+        {blocked.map((slot) => (
+          <SwitchRow key={slot} slot={slot} leaving={connection.name} onSwitched={() => setBlocked((list) => list.filter((s) => s !== slot))} />
+        ))}
+      </ul>
+      <div role="alert" aria-live="assertive">
+        {error && <p className="break-words text-danger">{error}</p>}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="danger" onClick={() => void retry()} disabled={removal.pending || blocked.length > 0}>
+          {t('providers.retry')}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onClose}>
+          {t('common.cancel')}
+        </Button>
+      </div>
+    </div>
   )
 }
 

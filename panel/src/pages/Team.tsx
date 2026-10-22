@@ -21,7 +21,7 @@ import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 
 /** Maximum length of the profile the API accepts (UD-023). */
 const PROFILE_MAX = 4000
-const COLUMNS = 'md:grid-cols-[15rem_6rem_minmax(0,1fr)_13rem]'
+const COLUMNS = 'lg:grid-cols-[15rem_6rem_minmax(0,1fr)_13rem]'
 
 /** An address that may only break after a separator, never in the middle of a word (J1-A-39). */
 function withBreaks(email: string) {
@@ -63,7 +63,7 @@ export function Team() {
           label={t('nav.team')}
           reveal={opened}
           header={
-            <div className={`hidden gap-4 border-b border-line bg-[linear-gradient(180deg,var(--color-chrome-1),var(--color-chrome-2))] px-4 py-2 text-sm font-semibold text-muted md:grid ${COLUMNS}`}>
+            <div className={`hidden gap-4 border-b border-line bg-[linear-gradient(180deg,var(--color-chrome-1),var(--color-chrome-2))] px-4 py-2 text-sm font-semibold text-muted lg:grid ${COLUMNS}`}>
               <span>{t('team.member')}</span>
               <span>{t('team.role')}</span>
               <span>{t('team.profile')}</span>
@@ -102,8 +102,6 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
   const [password, setPasswordValue] = useState<string | null>(null)
   const local = !useMe().data?.provider?.startsWith('delegated')
   const [problem, setProblem] = useState<string | null>(null)
-  /** Deleting asks in place (UD-240): «Eliminar» turns into «Eliminar miembro» and «Cancelar»; with history the server answers the counts and the choice is deactivate or delete with everything. */
-  const [removal, setRemoval] = useState<'idle' | 'confirm' | { inputs: number; messages: number; replies: number }>('idle')
   const roleLabel: Record<Role, string> = { member: t('team.roleMember'), editor: t('team.roleEditor') }
   /** What each role allows (UD-007), said on hover and to a screen reader and not as visible text: Equipo has no help text by default. */
   const roleHint: Record<Role, string> = { member: t('team.roleMemberHint'), editor: t('team.roleEditorHint') }
@@ -122,19 +120,15 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
       () => setProblem(null),
       (err) => setProblem(errorText(err)),
     )
-  const deleteMember = async (purge: boolean) => {
+  /** «Eliminar» deletes at once with everything of theirs (UD-253): no step that confirms it; the notice says how much went with them. */
+  const deleteMember = async () => {
+    setProblem(null)
     try {
-      await remove.mutateAsync({ id: member.id, purge })
-      notices.show({ text: t('team.deletedDone', { name: member.name }) })
+      const r = await remove.mutateAsync({ id: member.id, purge: true })
+      const d = r.deleted ?? { inputs: 0, messages: 0, replies: 0 }
+      notices.show({ text: d.inputs || d.messages || d.replies ? t('team.deletedWithHistory', { name: member.name, ...d }) : t('team.deletedDone', { name: member.name }) })
     } catch (err) {
-      const e = err as { code?: string; details?: Record<string, unknown> }
-      if (e.code === 'member_has_history' && !purge) {
-        const n = (k: string) => Number(e.details?.[k] ?? 0)
-        setRemoval({ inputs: n('inputs'), messages: n('messages'), replies: n('replies') })
-      } else {
-        setRemoval('idle')
-        setProblem(errorText(err))
-      }
+      setProblem(errorText(err))
     }
   }
   const busy = remove.isPending
@@ -150,8 +144,8 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
   }
 
   return (
-    <div className={`grid items-start gap-x-4 max-md:gap-x-2 gap-y-2 max-md:grid-cols-[minmax(0,1fr)_auto] border-b border-line px-4 py-3 last:border-b-0 ${COLUMNS} ${member.active ? '' : 'bg-closed-bg/30'}`}>
-      <div className="flex min-w-0 items-start gap-2.5 max-md:col-span-2">
+    <div className={`grid items-start gap-x-4 max-lg:gap-x-2 gap-y-2 max-lg:grid-cols-[minmax(0,1fr)_auto] border-b border-line px-4 py-3 last:border-b-0 ${COLUMNS} ${member.active ? '' : 'bg-closed-bg/30'}`}>
+      <div className="flex min-w-0 items-start gap-2.5 max-lg:col-span-2">
         <Avatar name={member.name} size={30} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2">
@@ -161,7 +155,7 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
           <EditableText value={member.email} label={t('team.fieldEmail')} canEdit={canEditPeople} validate={(v) => (v.includes('@') ? null : t('team.invalidEmail'))} onSave={(v) => change('email', v)} displayClassName="-mb-[5px] break-words pb-[5px] text-xs text-muted" render={withBreaks} />
         </div>
       </div>
-      <div className="flex min-w-0 flex-col items-start gap-1 max-md:flex-row max-md:flex-wrap max-md:items-center max-md:gap-x-3 max-md:self-center">
+      <div className="flex min-w-0 flex-col items-start gap-1 max-lg:flex-row max-lg:flex-wrap max-lg:items-center max-lg:gap-x-3 max-lg:self-center">
         {canEditPeople && !self ? (
           <DropdownMenu>
             <DropdownMenuTrigger aria-label={`${t('team.roleOf', { name: member.name })}: ${roleLabel[member.role]}. ${roleHint[member.role]}`} title={roleHint[member.role]} className="inline-flex rounded-full hover:bg-hover">
@@ -186,53 +180,29 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
         {/* Active is the normal state and has no tag: only the exception is marked (J1-A-41). */}
         {!member.active && <Badge tone="outline">{t('team.inactive')}</Badge>}
       </div>
-      <div className="min-w-0 text-sm max-md:col-span-2">
+      <div className="min-w-0 text-sm max-lg:col-span-2">
         {/* The profile is read in its first paragraph and the rest is one click away, whole and not cut (J3-A-42, UD-016). */}
         <FoldedText value={member.profile ?? ''} label={t('team.profileOf', { name: member.name })} canEdit={self} open={profileOpen} onOpenChange={onProfileOpen} placeholder={t('team.noProfile')} validate={(v) => (v.length > PROFILE_MAX ? t('form.maxLength', { n: PROFILE_MAX }) : null)} onSave={(v) => change('profile', v)} />
       </div>
-      {/* On a phone the cell dissolves: the action shares the row of the role, on the right edge, and the failure takes its own row below the profile. */}
-      <div className="flex min-w-0 flex-col items-end gap-1 max-md:contents">
+      {/* Below 1024 px the cell dissolves (the four columns need 39 rem and a tablet beside the side panel has 27): the action shares the row of the role, on the right edge, and the failure takes its own row below the profile. */}
+      <div className="flex min-w-0 flex-col items-end gap-1 max-lg:contents">
         {canEditPeople && !self && (
-          <div className="flex flex-col items-end gap-1 max-md:col-start-2 max-md:row-start-2 max-md:self-center" data-removal={removal === 'idle' ? undefined : removal === 'confirm' ? 'confirm' : 'history'}>
-            {removal !== 'idle' && removal !== 'confirm' && (
-              <span className="text-right text-xs text-muted max-md:text-left">{t('team.history', removal)}</span>
+          <div className="flex flex-wrap justify-end gap-1 max-lg:col-start-2 max-lg:row-start-2 max-lg:self-center max-lg:[&>button]:px-1.5">
+            <Button size="sm" variant="secondary" className="font-normal hover:border-danger hover:text-danger" disabled={busy} onClick={() => void deleteMember()} aria-label={t('team.deleteOf', { name: member.name })} title={t('team.deleteHint')}>
+              {t('team.delete')}
+            </Button>
+            {local && password === null && (
+              <Button size="sm" variant="secondary" className="font-normal" onClick={() => { setProblem(null); setPasswordValue('') }} aria-label={t('team.passwordOf', { name: member.name })}>
+                {t('team.password')}
+              </Button>
             )}
-            <div className="flex flex-wrap justify-end gap-1 max-md:[&>button]:px-1.5">
-              {removal === 'idle' && (
-                <Button size="sm" variant="secondary" className="font-normal hover:border-danger hover:text-danger" onClick={() => { setProblem(null); setRemoval('confirm') }} aria-label={t('team.deleteOf', { name: member.name })}>
-                  {t('team.delete')}
-                </Button>
-              )}
-              {removal === 'idle' && local && password === null && (
-                <Button size="sm" variant="secondary" className="font-normal" onClick={() => { setProblem(null); setPasswordValue('') }} aria-label={t('team.passwordOf', { name: member.name })}>
-                  {t('team.password')}
-                </Button>
-              )}
-              {removal !== 'confirm' && (
-                <Button size="sm" variant="secondary" className="font-normal hover:border-danger hover:text-danger" disabled={busy} onClick={() => void toggleActive().then(() => setRemoval('idle'))} aria-label={member.active ? t('team.deactivateOf', { name: member.name }) : t('team.reactivateOf', { name: member.name })}>
-                  {member.active ? t('team.deactivate') : t('team.reactivate')}
-                </Button>
-              )}
-              {removal === 'confirm' && (
-                <Button size="sm" variant="danger" disabled={busy} onClick={() => void deleteMember(false)}>
-                  {t('team.deleteConfirm')}
-                </Button>
-              )}
-              {removal !== 'idle' && removal !== 'confirm' && (
-                <Button size="sm" variant="danger" disabled={busy} onClick={() => void deleteMember(true)}>
-                  {t('team.deleteAll')}
-                </Button>
-              )}
-              {removal !== 'idle' && (
-                <Button size="sm" variant="ghost" disabled={busy} onClick={() => setRemoval('idle')}>
-                  {t('common.cancel')}
-                </Button>
-              )}
-            </div>
+            <Button size="sm" variant="secondary" className="font-normal hover:border-danger hover:text-danger" disabled={busy} onClick={() => void toggleActive()} aria-label={member.active ? t('team.deactivateOf', { name: member.name }) : t('team.reactivateOf', { name: member.name })}>
+              {member.active ? t('team.deactivate') : t('team.reactivate')}
+            </Button>
           </div>
         )}
         {problem && (
-          <span role="alert" className="text-right text-xs text-danger max-md:col-span-2 max-md:text-left">
+          <span role="alert" className="text-right text-xs text-danger max-lg:col-span-2 max-lg:text-left">
             {problem}
           </span>
         )}

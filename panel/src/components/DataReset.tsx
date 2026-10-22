@@ -2,9 +2,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { SettingHint } from '@/components/SettingHint'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { useErrorText, useFormat, useT } from '@/i18n'
 import { api } from '@/lib/api'
+import { useNotices } from '@/lib/notices'
 import { useSeedExamples } from '@/lib/queries'
 
 type Scope = 'content' | 'everything'
@@ -16,39 +16,26 @@ interface ResetResult {
 }
 
 /**
- * «Datos» of Configuración (UD-240): the Editor empties the test data. Each action confirms in place: the button turns into the
- * same verb plus «Cancelar»; «Vaciar todo» also asks for the confirmation word before its button works. The figures of the
- * last reset stay in the section and every query of the panel is invalidated, so the lists reload empty.
+ * «Datos» of Configuración (UD-240): the Editor empties the test data with one click and no step that confirms it (UD-253).
+ * Nothing comes back, so the notice says how much went and the figures of the last reset stay in the section. Every query of
+ * the panel is invalidated, so the lists reload empty.
  */
 export function DataReset() {
   const t = useT()
   const format = useFormat()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
-  const [arming, setArming] = useState<Scope | null>(null)
-  const [word, setWord] = useState('')
+  const notices = useNotices()
   const [result, setResult] = useState<ResetResult | null>(null)
   const seed = useSeedExamples()
   const reset = useMutation({
     mutationFn: (scope: Scope) => api<ResetResult>('/ops/reset?confirm=true', { method: 'POST', body: { scope } }),
     onSuccess: async (r) => {
       setResult(r)
-      setArming(null)
-      setWord('')
+      notices.show({ text: t('data.done', { inputs: r.deleted.inputs ?? 0, messages: r.deleted.messages ?? 0, replies: r.deleted.replies ?? 0 }) })
       await queryClient.invalidateQueries()
     },
   })
-  const arm = (scope: Scope) => {
-    setArming(scope)
-    setWord('')
-    reset.reset()
-  }
-  const cancel = () => {
-    setArming(null)
-    setWord('')
-  }
-  const confirmWord = t('data.confirmWord')
-  const everythingReady = word.trim().toUpperCase() === confirmWord
 
   const figures: [string, string][] = result
     ? [
@@ -69,20 +56,9 @@ export function DataReset() {
           <dt className="text-sm text-muted">{t('data.content')}</dt>
           <dd aria-describedby="hint-data-content" className="flex flex-col items-start gap-1">
             <div className="flex flex-wrap items-center gap-2">
-              {arming === 'content' ? (
-                <>
-                  <Button size="sm" variant="danger" onClick={() => reset.mutate('content')} disabled={reset.isPending}>
-                    {t('data.clearContent')}
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={cancel} disabled={reset.isPending}>
-                    {t('common.cancel')}
-                  </Button>
-                </>
-              ) : (
-                <Button size="sm" onClick={() => arm('content')} disabled={reset.isPending} aria-describedby="hint-data-content">
-                  {t('data.clearContent')}
-                </Button>
-              )}
+              <Button size="sm" className="hover:border-danger hover:text-danger" onClick={() => reset.mutate('content')} disabled={reset.isPending} aria-describedby="hint-data-content">
+                {t('data.clearContent')}
+              </Button>
             </div>
             <SettingHint id="hint-data-content">{t('hint.data.content')}</SettingHint>
           </dd>
@@ -91,32 +67,11 @@ export function DataReset() {
           <dt className="text-sm text-muted">{t('data.everything')}</dt>
           <dd aria-describedby="hint-data-everything" className="flex flex-col items-start gap-1">
             <div className="flex flex-wrap items-center gap-2">
-              {arming === 'everything' ? (
-                <>
-                  <Input
-                    value={word}
-                    onChange={(e) => setWord(e.target.value)}
-                    aria-label={t('data.confirmLabel', { word: confirmWord })}
-                    placeholder={confirmWord}
-                    autoComplete="off"
-                    spellCheck={false}
-                    className="w-36 font-mono text-xs uppercase"
-                    autoFocus
-                  />
-                  <Button size="sm" variant="danger" onClick={() => reset.mutate('everything')} disabled={!everythingReady || reset.isPending}>
-                    {t('data.clearAll')}
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={cancel} disabled={reset.isPending}>
-                    {t('common.cancel')}
-                  </Button>
-                </>
-              ) : (
-                <Button size="sm" onClick={() => arm('everything')} disabled={reset.isPending} aria-describedby="hint-data-everything">
-                  {t('data.clearAll')}
-                </Button>
-              )}
+              <Button size="sm" className="hover:border-danger hover:text-danger" onClick={() => reset.mutate('everything')} disabled={reset.isPending} aria-describedby="hint-data-everything">
+                {t('data.clearAll')}
+              </Button>
             </div>
-            <SettingHint id="hint-data-everything">{t('hint.data.everything', { word: confirmWord })}</SettingHint>
+            <SettingHint id="hint-data-everything">{t('hint.data.everything')}</SettingHint>
           </dd>
         </div>
         <div className="flex flex-col gap-0.5">

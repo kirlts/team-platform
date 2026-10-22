@@ -150,7 +150,7 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
   }
 
   return (
-    <div className={`grid items-start gap-x-4 gap-y-2 max-md:grid-cols-[minmax(0,1fr)_auto] border-b border-line px-4 py-3 last:border-b-0 ${COLUMNS} ${member.active ? '' : 'bg-closed-bg/30'}`}>
+    <div className={`grid items-start gap-x-4 max-md:gap-x-2 gap-y-2 max-md:grid-cols-[minmax(0,1fr)_auto] border-b border-line px-4 py-3 last:border-b-0 ${COLUMNS} ${member.active ? '' : 'bg-closed-bg/30'}`}>
       <div className="flex min-w-0 items-start gap-2.5 max-md:col-span-2">
         <Avatar name={member.name} size={30} />
         <div className="min-w-0 flex-1">
@@ -197,7 +197,7 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
             {removal !== 'idle' && removal !== 'confirm' && (
               <span className="text-right text-xs text-muted max-md:text-left">{t('team.history', removal)}</span>
             )}
-            <div className="flex flex-wrap justify-end gap-1 max-md:[&>button]:px-2">
+            <div className="flex flex-wrap justify-end gap-1 max-md:[&>button]:px-1.5">
               {removal === 'idle' && (
                 <Button size="sm" variant="secondary" className="font-normal hover:border-danger hover:text-danger" onClick={() => { setProblem(null); setRemoval('confirm') }} aria-label={t('team.deleteOf', { name: member.name })}>
                   {t('team.delete')}

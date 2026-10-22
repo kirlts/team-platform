@@ -116,7 +116,7 @@ export function DataReset() {
                 </Button>
               )}
             </div>
-            <SettingHint id="hint-data-everything">{t('hint.data.everything')}</SettingHint>
+            <SettingHint id="hint-data-everything">{t('hint.data.everything', { word: confirmWord })}</SettingHint>
           </dd>
         </div>
         <div className="flex flex-col gap-0.5">

@@ -27,7 +27,8 @@ export function buildClassificationSchema({ areas, templates }, { validation = f
             unit_ids: validation ? intArray({ minItems: 1, uniqueItems: true }) : intArray({ minItems: 1 }),
             // H-3728: each request the group carries, one line each, named before the area. The validation asks for exactly one
             // (a count, never a reading of the text); the decomposition receives it.
-            requests: validation ? { type: 'array', items: { type: 'string', minLength: 1 } } : { type: 'array', items: { type: 'string' } },
+            // No `minLength` in the validation: an empty line is not a reason to fail a classification the system never reads.
+            requests: { type: 'array', items: { type: 'string' } },
             area_id: { type: 'integer', enum: areas.map((a) => a.id) },
             template_id: { type: 'integer', enum: templates.map((t) => t.id) },
           },

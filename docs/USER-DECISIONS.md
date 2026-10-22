@@ -655,6 +655,7 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 - H-1003 se cierra. H-1900 a H-1904 quedan en el libro.
 - `classifyInput` se exporta para medir la etapa sola (`bench/classify-stage.mjs`).
 **Condiciones de reversión:** Poner `coveragePasses` en 0 y `classifyContextUnits` en 0 si una corrida del banco muestra que los grupos más gruesos funden puntos que el equipo necesita asignar por separado (H-1904).
+**Enmienda 2026-10-22 (H-3728):** La pasada de cobertura relee sólo las unidades de voz y de texto descartadas. Un fotograma descartado queda descartado: en la revisión de dos videos de un cliente, lo que sólo se veía en pantalla se convirtió en pedidos que nadie hizo. Medición: `docs/investigaciones/mediciones/2026-10-22-analisis-de-videos.md`.
 ## [UD-050] La interfaz habla como un instrumento, no como una conversación
 
 **Fecha:** 2026-10-21

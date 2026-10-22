@@ -152,6 +152,14 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
         // UD-070: an input that is already published is done; a repeated job (queue retry, stray job) neither reads nor writes.
         if (input.status === 'published') return () => events.publishForJob(job.id, { kind: 'done', data: { status: 'done', input_status: 'published' } })
 
+        // Without an active area that has an active template the analysis can never place a message: fail before spending the
+        // extraction (a video takes minutes), with a code of its own instead of the analyzer's generic `input`.
+        const areas = all(db, 'SELECT id, title, description, position FROM areas WHERE deleted_at IS NULL ORDER BY position, id')
+        const templates = all(db, 'SELECT t.id, t.area_id, t.name, t.description, t.body_markdown FROM templates t JOIN areas a ON a.id = t.area_id WHERE t.deleted_at IS NULL AND a.deleted_at IS NULL ORDER BY t.id')
+        if (areas.length === 0 || templates.length === 0) {
+          throw permanent('No hay áreas con plantilla activa: crea un área con su plantilla y vuelve a procesar el envío.', 'no_areas')
+        }
+
         const pending = all(db, 'SELECT * FROM attachments WHERE input_id = ? AND extracted_at IS NULL ORDER BY id', inputId)
         const total = all(db, 'SELECT id FROM attachments WHERE input_id = ?', inputId).length
         const totalSteps = pending.length + 1 // each pending extraction and the analysis
@@ -181,8 +189,8 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
           framing: getFraming(db, language), // H-3722: the Editor's framing for the author's language
           attachments: atts,
           project: getProject(db, config), // UD-024
-          areas: all(db, 'SELECT id, title, description, position FROM areas WHERE deleted_at IS NULL ORDER BY position, id'),
-          templates: all(db, 'SELECT t.id, t.area_id, t.name, t.description, t.body_markdown FROM templates t JOIN areas a ON a.id = t.area_id WHERE t.deleted_at IS NULL AND a.deleted_at IS NULL ORDER BY t.id'),
+          areas,
+          templates,
           members: all(db, 'SELECT id, name, profile FROM members WHERE active = 1 ORDER BY id').map((m) => ({ id: m.id, name: m.name, profile: m.profile })), // UD-023: the whole profile, no truncation
           // UD-025: the author's other unpublished inputs, as context for the model; nothing is compared or deduplicated here.
           recent_inputs: recentInputsFor({ db, config, now }, input)

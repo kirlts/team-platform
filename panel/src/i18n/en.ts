@@ -734,6 +734,7 @@ export const en: Record<MessageKey, Message> = {
   'analysis.error.link_too_many_redirects': 'The link redirects too many times',
   'analysis.error.link_unresolved': 'The linked site was not found',
   'analysis.error.link_unsupported_type': 'The link does not point to a readable page',
+  'analysis.error.no_areas': 'There is no active area with a template',
   'analysis.error.module_unavailable': 'A module of this installation is missing',
   'analysis.error.proposal_invalid': 'The analyzer returned an invalid proposal',
   'analysis.error.provider_error': 'The model provider failed',

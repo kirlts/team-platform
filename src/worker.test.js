@@ -331,3 +331,36 @@ test('reprocess: the editor enqueues the analysis again, keeping the extractions
   assert.equal((await req(editor, '/reprocess')).statusCode, 409)
   await env.close()
 })
+
+test('with every area deleted the job fails at once with no_areas, before extracting, and reprocess works once an area is back', async () => {
+  // Production 2026-10-22: all areas were deleted, a two-video input spent 156 s extracting and then failed with the generic `input`.
+  let extractions = 0
+  const env = await envVars({ worker: true, modules: { extract: async () => { extractions++; return { text: 'x', meta: {} } } } })
+  await addMember(env, { email: 'ed@x.org', role: 'editor' })
+  const editor = await login(env, 'ed@x.org')
+  run(env.db, 'UPDATE areas SET deleted_at = ?', Date.now())
+  const { input_id: id, job_id: jobId } = await env.submit('x', [textFile('video.txt')])
+  await until(() => env.statusOf(id) === 'failed')
+  assert.equal(env.input(id).error_code, 'no_areas')
+  assert.match(env.input(id).error, /No hay áreas con plantilla activa/)
+  assert.equal(extractions, 0) // nothing was extracted for an analysis that could not run
+  assert.equal(get(env.db, 'SELECT attempts FROM jobs WHERE id = ?', jobId).attempts, 1)
+  const view = (await env.app.inject({ url: `/api/inputs/${id}`, headers: { cookie: env.ana } })).json()
+  assert.equal(view.error_code, 'no_areas')
+
+  run(env.db, 'UPDATE areas SET deleted_at = NULL')
+  const r = await env.app.inject({ method: 'POST', url: `/api/inputs/${id}/reprocess`, headers: { cookie: editor, 'x-team-request': 'panel' } })
+  assert.equal(r.statusCode, 202)
+  await until(() => env.statusOf(id) === 'proposed')
+  assert.equal(extractions, 1)
+  await env.close()
+})
+
+test('areas without an active template also fail with no_areas', async () => {
+  const env = await envVars({ worker: true })
+  run(env.db, 'UPDATE templates SET deleted_at = ?', Date.now())
+  const { input_id: id } = await env.submit('hola')
+  await until(() => env.statusOf(id) === 'failed')
+  assert.equal(env.input(id).error_code, 'no_areas')
+  await env.close()
+})

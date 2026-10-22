@@ -729,6 +729,7 @@ export const es419 = {
   'analysis.error.link_too_many_redirects': 'El enlace redirige demasiadas veces',
   'analysis.error.link_unresolved': 'No se encontró el sitio del enlace',
   'analysis.error.link_unsupported_type': 'El enlace no apunta a una página legible',
+  'analysis.error.no_areas': 'No hay áreas con plantilla activa',
   'analysis.error.module_unavailable': 'Falta un módulo de esta instalación',
   'analysis.error.proposal_invalid': 'El analizador devolvió una propuesta inválida',
   'analysis.error.provider_error': 'El proveedor de modelo falló',

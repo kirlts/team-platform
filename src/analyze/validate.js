@@ -7,7 +7,7 @@
 // unit is in a message or in `discarded`. It never interprets the text a person wrote (§4.2).
 import Ajv from 'ajv';
 import { buildClassificationSchema, buildDecompositionSchema, buildProposalSchema } from './schema.js';
-import { compileFieldsSchema } from './templates.js';
+import { compileFieldsSchema, compileOutputSchema } from './templates.js';
 
 export const ajv = new Ajv({
   allErrors: true,
@@ -399,4 +399,20 @@ export function normalizeDecomposition(output) {
     .map((d) => ({ unit_ids: sortedUnique(d.unit_ids), reason: d.reason.trim() }))
     .sort((a, b) => a.unit_ids[0] - b.unit_ids[0]);
   return { messages, discarded };
+}
+
+/**
+ * Validates the output of a worked message against what its template declares (UD-254 (5)). Shape only: the text the
+ * harness wrote is not read. A template with no `output` block has nothing to check against: `errors` says so.
+ * @param {any} output  the harness `structured_output`
+ * @param {string | {output?: object[]|null} | object[]} markdownOrTemplate  as `compileOutputSchema` takes it
+ * @returns {{errors: string[]}}
+ */
+export function validateOutput(output, markdownOrTemplate) {
+  const schema = compileOutputSchema(markdownOrTemplate, { validation: true });
+  if (!schema) return { errors: ['the template declares no output'] };
+  const validate = compile(schema);
+  if (!validate(output)) return { errors: formatAjvErrors(validate.errors) };
+  if (output.summary.trim() === '') return { errors: ['the output: «summary» is empty'] };
+  return { errors: [] };
 }

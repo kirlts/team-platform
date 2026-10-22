@@ -1,10 +1,11 @@
-import { MessageSquare } from '@/components/icons'
+import { MessageSquare, Trash2 } from '@/components/icons'
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { useFormat, useT } from '@/i18n'
 import { kindsOf, mainAttachment } from '@/lib/media'
 import { noticeState } from '@/lib/states'
-import { useMe, useSetClosed } from '@/lib/queries'
+import { useNotices } from '@/lib/notices'
+import { useDeleteMessage, useMe, useRestoreMessage, useSetClosed } from '@/lib/queries'
 import { cn } from '@/lib/utils'
 import type { Message } from '@/lib/types'
 import { AreaChip } from './AreaChip'
@@ -19,6 +20,9 @@ const EDGE = { open: 'shadow-[inset_3px_0_0_var(--color-state-open-bg)]', answer
 
 /** Recipients drawn before the rest fold into «y N más». */
 const RECIPIENTS_SHOWN = 2
+
+/** The heading: one line ended with an ellipsis as well (UD-241, amended 2026-10-21), so the extract, the state and every datum below fall at the same y in every row. The whole text is the tooltip and the detail. */
+const HEADING = 'min-w-0 truncate text-sm font-semibold leading-snug' // justified: UD-241 amends UD-016 for the heading of a row of a list
 
 /** The extract: one line ended with an ellipsis, the one text the interface cuts, so every row measures the same. The whole text is the tooltip and the detail. */
 const EXTRACT = 'min-w-0 truncate text-xs text-muted' // justified: UD-241 amends UD-016 for the extract of a row of a list
@@ -43,6 +47,9 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
   const me = useMe().data
   const { memberName } = useLookups()
   const setClosed = useSetClosed()
+  const del = useDeleteMessage()
+  const restore = useRestoreMessage()
+  const notices = useNotices()
 
   const closed = message.status === 'closed'
   const affects = noticeState(message, me?.id ?? '')
@@ -51,14 +58,29 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
   // Reply row: the author, the date, the media and the thumbnail are the reply's.
   const from = reply ?? message
   const main = mainAttachment(from.attachments)
+  // The sender or the Editor deletes from the row itself (UD-240): it is done and the strip carries Deshacer. Never on the row of a reply.
+  const canDelete = variant === 'message' && !!me && (isAuthor || me.role === 'editor')
+  const remove = async () => {
+    await del.mutateAsync(message.id)
+    notices.show({
+      text: t('detail.deleted'),
+      action: {
+        label: t('undo.undo'),
+        run: async () => {
+          await restore.mutateAsync(message.id)
+          notices.show({ text: t('detail.restored'), link: { to: `/messages/${message.id}`, label: message.title } })
+        },
+      },
+    })
+  }
   const extract = reply ? t('card.inMessage', { title: message.title }) : message.body
 
   return (
     <article data-affects-me={affects ?? undefined} data-closed={closed || undefined} className={cn('group @container relative border-b border-line last:border-b-0 hover:bg-glass-edge', EDGE[message.status])}>
-      <div className="grid grid-cols-[minmax(0,1fr)_2.5rem] grid-rows-[auto_auto_auto_auto] items-start gap-x-4 gap-y-1 px-4 py-3 @2xl:grid-cols-[minmax(0,1fr)_9.5rem_2.5rem]">
+      <div className="grid grid-cols-[minmax(0,1fr)_2.5rem] grid-rows-[auto_auto_auto_auto] items-start gap-x-4 gap-y-1 px-4 py-3 @2xl:grid-cols-[minmax(0,1fr)_12rem_2.5rem]">
       {/* The text block has one height in every row (`--spacing-card-text`): two lines of heading and the extract. A one-line heading leaves its air under the extract, between the groups and not inside the paragraph. */}
       <div data-testid="card-text" className="col-start-1 row-start-1 flex min-h-card-text min-w-0 flex-col gap-y-1">
-        <h3 className={cn('min-w-0 break-words text-sm font-semibold leading-snug [text-wrap:pretty]', closed && 'font-medium text-muted')}>
+        <h3 title={reply ? reply.body : message.title} data-ellipsis-ok="UD-241" className={cn(HEADING, closed && 'font-medium text-muted')}>
           <Link
             to={`/messages/${message.id}`}
             className="outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:outline-2 focus-visible:after:outline-accent"
@@ -100,6 +122,11 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
       <div data-testid="card-foot" className="col-span-2 row-start-4 flex min-h-7 flex-wrap items-center justify-between gap-x-3 gap-y-1 @2xl:contents">
         <Recipients ids={variant === 'message' ? message.assignee_ids : []} max={RECIPIENTS_SHOWN} plain className="min-h-[1lh] min-w-0 text-xs text-muted @2xl:col-start-1 @2xl:row-start-4" />
         <span className="relative z-10 ml-auto flex items-center justify-end gap-1 @2xl:col-start-2 @2xl:row-span-4 @2xl:row-start-1 @2xl:self-start">
+          {canDelete && (
+            <Button size="icon-sm" variant="ghost" className="text-muted hover:text-danger" disabled={del.isPending} title={t('card.delete')} aria-label={t('card.deleteOf', { title: message.title })} data-testid="card-delete" onClick={() => void remove()}>
+              <Trash2 size={14} aria-hidden />
+            </Button>
+          )}
           {!isAuthor && !closed && (
             <Button asChild size="sm" variant="secondary" className="px-3 text-xs">
               <Link to={`/messages/${message.id}?reply=1`}>{t('card.reply')}</Link>

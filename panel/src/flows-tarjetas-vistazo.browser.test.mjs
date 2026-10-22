@@ -66,7 +66,7 @@ const rows = (page) =>
         const foot = a.querySelector('[data-testid="card-foot"]')
         const box = (el) => (el ? el.getBoundingClientRect().toJSON() : null)
         const wrapped = []
-        if (lines(heading) > 2) wrapped.push(`heading of ${lines(heading)} lines`)
+        if (lines(heading) > 1) wrapped.push(`heading of ${lines(heading)} lines`)
         if (chip && lines(chip) > 1) wrapped.push(`area chip of ${lines(chip)} lines`)
         if (state && state.getBoundingClientRect().height > lineHeight(state) * 1.5) wrapped.push('state line wrapped')
         if (who && who.getBoundingClientRect().height > lineHeight(who) * 1.5) wrapped.push('who line wrapped')

@@ -85,9 +85,8 @@ describe('Inicio (J4 home)', () => {
         assert.ok(Math.abs(r.state.left - r.heading.left) <= 1, `the state (left ${r.state.left}) is not aligned with the title (left ${r.heading.left})`)
         // After the state on its line; an area name too long for a half column of Inicio wraps under it, never cut (UD-016).
         assert.ok(r.chip.left > r.state.right || r.chip.top >= r.state.bottom - 1, `the chip (left ${r.chip.left}, top ${r.chip.top}) is not after the state (right ${r.state.right}, bottom ${r.state.bottom})`)
-        assert.equal(r.textWrap, 'pretty', 'a title fills its lines, it does not balance them')
+        assert.equal(r.lineCount, 1, `the title takes ${r.lineCount} lines: UD-241 gives it one, ended with an ellipsis`)
         if (r.reply) assert.ok(r.state.top < r.reply.top - 8, `the state (${r.state.top}) is not above the row of «Responder» (${r.reply.top})`)
-        if (r.lineCount > 1) assert.ok(r.widest >= r.heading.left + r.heading.width * 0.72, `a two-line title stops at ${Math.round(r.widest - r.heading.left)} of ${Math.round(r.heading.width)} px`)
       }
     } finally {
       await context.close()

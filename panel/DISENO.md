@@ -135,7 +135,7 @@ Todo bloque se ancla a esta grilla; nada queda flotando sin un ancla.
 | Canal entre columnas | 40 px entre bloques grandes, 16 px dentro de una fila, 12 px entre ícono y texto, 8 px entre chips |
 | Ritmo vertical | 16 px entre bloques de una vista y 20 px entre secciones (`Page section`) |
 | Relleno de fila | 16 px a cada lado y 12 px arriba y abajo en listas y tablas |
-| Columnas de una tarjeta de mensaje | desde 42 rem de ancho de la propia fila: texto (el resto), acciones 9,5 rem, miniatura 2,5 rem; el estado cae en la misma x en todas las filas. Bajo ese ancho la fila se apila y las acciones van al pie. El detalle está en «Tarjeta de lista» |
+| Columnas de una tarjeta de mensaje | desde 42 rem de ancho de la propia fila: texto (el resto), acciones 12 rem, miniatura 2,5 rem; el estado cae en la misma x en todas las filas. Bajo ese ancho la fila se apila y las acciones van al pie. El detalle está en «Tarjeta de lista» |
 
 Reglas de anclaje:
 
@@ -151,16 +151,16 @@ La prohibición la hace cumplir `src/no-truncation.test.ts`, la medición del na
 
 ### Tarjeta de lista
 
-UD-241. Una sola grilla para toda fila de Inicio, Mensajes y la vista de un área. Cada dato cae a la misma x y al mismo desplazamiento en todas las filas, y todas miden lo mismo. Lo único que la interfaz corta es el extracto; el texto entero es su tooltip y se lee en la ficha. Lo que no cabe en su línea alarga la fila y no se corta (UD-016). Son tres casos: un título de tres líneas o más, un nombre de área, un destinatario.
+UD-241. Una sola grilla para toda fila de Inicio, Mensajes y la vista de un área. Cada dato cae a la misma x y al mismo desplazamiento en todas las filas, y todas miden lo mismo. Lo único que la interfaz corta son el título y el extracto, cada uno en su línea; el texto entero es su tooltip y se lee en la ficha. Lo que no cabe en su línea alarga la fila y no se corta (UD-016). Son dos casos: un nombre de área y un destinatario.
 
 | Elemento | Valor |
 |---|---|
-| Bloque de texto (`--spacing-card-text`) | 64 px: título hasta dos líneas (15 px, seminegrita, interlineado 1,375) y debajo el extracto en una línea (12 px, apagado, puntos suspensivos). El aire de un título de una línea queda bajo el extracto |
+| Bloque de texto (`--spacing-card-text`) | 44 px: título en una línea (15 px, seminegrita, puntos suspensivos) y debajo el extracto en una línea (12 px, apagado, puntos suspensivos). Título y extracto cortan igual, así que el estado y todo lo que sigue cae a la misma altura en cada tarjeta |
 | Línea de estado y área | forma, color y palabra del estado (UD-041) y el chip del área (UD-045), 12 px |
 | Línea de quién y cuándo | emisor y fecha a la izquierda; íconos de medio y cuenta de respuestas pegados al borde derecho de la columna de texto, bajo la miniatura |
-| Línea de destinatarios | «para A, B y N más», reservada aunque esté vacía; en la disposición apilada lleva también Responder y Cerrar (28 px) |
+| Línea de destinatarios | «para A, B y N más», reservada aunque esté vacía; en la disposición apilada lleva también el ícono de borrar, Responder y Cerrar (28 px) |
 | Columna de miniatura | 2,5 rem (40 px) en toda fila, con o sin medios; canal de 16 px |
-| Columna de acciones | 9,5 rem desde 42 rem de ancho de la fila; bajo ese ancho las acciones van al pie |
+| Columna de acciones | 12 rem desde 42 rem de ancho de la fila (borrar, Responder y Cerrar caben en una línea); bajo ese ancho las acciones van al pie |
 | Separación entre líneas | 4 px; relleno de fila 16 px a los lados y 12 px arriba y abajo |
 | Alto resultante | 157 px en Mensajes, 152 px en la vista de un área (sin chip) y 166 px en la disposición apilada de Inicio, medidos en 1440×900 con los datos de ejemplo |
 

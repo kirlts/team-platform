@@ -1181,7 +1181,7 @@ const server = createServer(async (req, res) => {
 
     // --- areas and templates
     if (path === '/areas' && method === 'GET') {
-      return send(res, 200, envelope(areas.map((a) => ({ ...a, open_count: liveMessages().filter((x) => x.area_id === a.id && x.status === 'open').length, unresolved_count: liveMessages().filter((x) => x.area_id === a.id && x.status !== 'closed').length, template_count: templates.filter((t) => t.area_id === a.id && !t.deleted_at).length }))))
+      return send(res, 200, envelope(areas.filter((a) => !a.deleted_at).map((a) => ({ ...a, open_count: liveMessages().filter((x) => x.area_id === a.id && x.status === 'open').length, unresolved_count: liveMessages().filter((x) => x.area_id === a.id && x.status !== 'closed').length, template_count: templates.filter((t) => t.area_id === a.id && !t.deleted_at).length }))))
     }
     if (path === '/areas' && method === 'POST') {
       if (needEditor()) return
@@ -1190,6 +1190,25 @@ const server = createServer(async (req, res) => {
       const area = { id: `a-${id()}`, title: body.title.trim(), description: String(body.description ?? '').trim(), position: areas.length + 1, color: /^#[0-9a-fA-F]{6}$/.test(body.color ?? '') ? body.color.toLowerCase() : AREA_PALETTE[areas.length % AREA_PALETTE.length] }
       areas.push(area)
       return send(res, 201, area)
+    }
+    m = /^\/areas\/([^/]+)$/.exec(path)
+    // Soft delete (UD-240): the area leaves the lists, its messages stay, POST /areas/:id/restore brings it back.
+    if (m && method === 'DELETE') {
+      if (needEditor()) return
+      const area = areas.find((a) => a.id === m[1] && !a.deleted_at)
+      if (!area) return fail(res, 404, 'No existe')
+      if (url.searchParams.get('confirm') !== 'true') return fail(res, 400, 'Falta la confirmación.', 'confirmation_required')
+      area.deleted_at = new Date().toISOString()
+      return send(res, 204)
+    }
+    m = /^\/areas\/([^/]+)\/restore$/.exec(path)
+    if (m && method === 'POST') {
+      if (needEditor()) return
+      const area = areas.find((a) => a.id === m[1])
+      if (!area) return fail(res, 404, 'No existe')
+      if (!area.deleted_at) return fail(res, 409, 'El área no está borrada.', 'not_deleted')
+      area.deleted_at = null
+      return send(res, 200, area)
     }
     m = /^\/areas\/([^/]+)$/.exec(path)
     if (m && method === 'PATCH') {

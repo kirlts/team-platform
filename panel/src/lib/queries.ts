@@ -346,6 +346,24 @@ export function useSaveArea() {
   })
 }
 
+/** Soft-deletes an area (DELETE /areas/:id?confirm=true, UD-240): Editor only; its messages stay and Deshacer restores it. */
+export function useDeleteArea() {
+  const invalidate = useInvalidator()
+  return useMutation({
+    mutationFn: (id: string) => api(`/areas/${id}?confirm=true`, { method: 'DELETE' }),
+    onSuccess: () => invalidate('areas', 'templates', 'messages', 'message'),
+  })
+}
+
+/** Restores a deleted area (POST /areas/:id/restore): it is what undoes a deletion. */
+export function useRestoreArea() {
+  const invalidate = useInvalidator()
+  return useMutation({
+    mutationFn: (id: string) => api<Area>(`/areas/${id}/restore`, { method: 'POST' }),
+    onSuccess: () => invalidate('areas', 'templates', 'messages', 'message'),
+  })
+}
+
 export function useSaveTemplate(areaId: string) {
   const invalidate = useInvalidator()
   return useMutation({

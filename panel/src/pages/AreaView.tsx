@@ -1,6 +1,6 @@
-import { ChevronLeft } from '@/components/icons'
+import { ChevronLeft, Trash2 } from '@/components/icons'
 import { useMemo } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { Link, useNavigate, useSearchParams } from 'react-router'
 import { Templates, descriptionRule, nameRule } from '@/components/AreaTemplates'
 import { AreaColorPicker } from '@/components/AreaColorPicker'
 import { EditableText } from '@/components/EditableText'
@@ -12,10 +12,12 @@ import { MessageList } from '@/components/MessageList'
 import { Page } from '@/components/Page'
 import { StateTabs } from '@/components/StateTabs'
 import { UndoButtons } from '@/components/UndoButtons'
+import { Button } from '@/components/ui/button'
 import { useT } from '@/i18n'
 import { parseQuery, serializeQuery, upsertFilter, removeFilter, type MessageQuery } from '@/lib/filters'
 import { areaCounts } from '@/lib/pending'
-import { useMe, useMessages, useSaveArea, useSummary, useTemplates } from '@/lib/queries'
+import { useNotices } from '@/lib/notices'
+import { useDeleteArea, useMe, useMessages, useRestoreArea, useSaveArea, useSummary, useTemplates } from '@/lib/queries'
 import type { Area, MessageStatus } from '@/lib/types'
 import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 
@@ -38,6 +40,10 @@ function AreaViewBody({ area }: { area: Area }) {
   const undoStack = useUndo()
   const me = useMe().data
   const save = useSaveArea()
+  const del = useDeleteArea()
+  const restore = useRestoreArea()
+  const notices = useNotices()
+  const navigate = useNavigate()
   const summary = useSummary().data
   const templates = useTemplates(area.id)
   const [params, setParams] = useSearchParams()
@@ -55,6 +61,22 @@ function AreaViewBody({ area }: { area: Area }) {
   const change = (field: 'title' | 'description', next: string) => {
     const prev = area[field]
     return undoStack.run({ label: t('areas.edited'), redo: () => save.mutateAsync({ id: area.id, [field]: next }), undo: () => save.mutateAsync({ id: area.id, [field]: prev }) })
+  }
+
+  // The Editor deletes the area (UD-240): it is done, the list of areas is shown and the strip carries Deshacer, which brings it back.
+  const remove = async () => {
+    await del.mutateAsync(area.id)
+    navigate('/areas')
+    notices.show({
+      text: t('areas.areaDeleted'),
+      action: {
+        label: t('undo.undo'),
+        run: async () => {
+          await restore.mutateAsync(area.id)
+          notices.show({ text: t('areas.areaRestored'), link: { to: `/areas/${area.id}`, label: area.title } })
+        },
+      },
+    })
   }
 
   const changeColor = (next: string) => {
@@ -78,7 +100,14 @@ function AreaViewBody({ area }: { area: Area }) {
             <EditableText value={area.title} label={t('areas.fieldTitle')} validate={nameRule(t)} onSave={(v) => change('title', v)} />
           </h1>
         </div>
-        <UndoButtons stack={undoStack} />
+        <div className="flex items-center gap-2">
+          <UndoButtons stack={undoStack} />
+          {me?.role === 'editor' && (
+            <Button size="sm" variant="ghost" className="text-danger" disabled={del.isPending} data-testid="area-delete" onClick={() => void remove()}>
+              <Trash2 size={13} aria-hidden /> {t('areas.deleteArea')}
+            </Button>
+          )}
+        </div>
       </header>
       <StateTabs value={status} counts={counts} onChange={choose} label={t('areas.states')} />
       <MessageList

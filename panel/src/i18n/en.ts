@@ -246,6 +246,12 @@ export const en: Record<MessageKey, Message> = {
   'status.closed': 'Closed',
 
   'card.reply': 'Reply',
+  'card.delete': 'Delete',
+  'card.deleteOf': 'Delete {title}',
+  'areas.deleteArea': 'Delete area',
+  'areas.deleteAreaOf': 'Delete {title}',
+  'areas.areaDeleted': 'Area deleted',
+  'areas.areaRestored': 'Area restored',
   'card.close': 'Close',
   'card.reopen': 'Reopen',
   'card.replies': { one: '{n} reply', other: '{n} replies' },

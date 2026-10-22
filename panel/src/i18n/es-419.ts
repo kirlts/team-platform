@@ -246,6 +246,12 @@ export const es419 = {
   'status.closed': 'Cerrado',
 
   'card.reply': 'Responder',
+  'card.delete': 'Borrar',
+  'card.deleteOf': 'Borrar {title}',
+  'areas.deleteArea': 'Borrar área',
+  'areas.deleteAreaOf': 'Borrar {title}',
+  'areas.areaDeleted': 'Área borrada',
+  'areas.areaRestored': 'Área restaurada',
   'card.close': 'Cerrar',
   'card.reopen': 'Reabrir',
   'card.replies': { one: '{n} respuesta', other: '{n} respuestas' },

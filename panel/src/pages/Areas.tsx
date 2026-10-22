@@ -1,4 +1,4 @@
-import { ChevronRight, Plus } from '@/components/icons'
+import { ChevronRight, Plus, Trash2 } from '@/components/icons'
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { AreaColorPicker } from '@/components/AreaColorPicker'
@@ -16,7 +16,8 @@ import { LoadState } from '@/components/LoadState'
 import { useT } from '@/i18n'
 import { AreaNotFound, AreaView } from '@/pages/AreaView'
 import { areaCounts, areaMessagesPath } from '@/lib/pending'
-import { useAreas, useMe, useSaveArea, useSummary } from '@/lib/queries'
+import { useNotices } from '@/lib/notices'
+import { useAreas, useDeleteArea, useMe, useRestoreArea, useSaveArea, useSummary } from '@/lib/queries'
 import type { Area } from '@/lib/types'
 import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 
@@ -97,6 +98,9 @@ function AreaRow({ area }: { area: Area }) {
   const t = useT()
   const undo = useUndo()
   const save = useSaveArea()
+  const del = useDeleteArea()
+  const restore = useRestoreArea()
+  const notices = useNotices()
   const summary = useSummary().data
   const label = useCountsLabel()
   const counts = areaCounts(summary, area.id)
@@ -109,13 +113,19 @@ function AreaRow({ area }: { area: Area }) {
     return undo.run({ label: t('areas.edited'), redo: () => save.mutateAsync({ id: area.id, description: next }), undo: () => save.mutateAsync({ id: area.id, description: prev }) })
   }
 
+  // Deleting is reversible (UD-240): it is done, the screen's history and the strip both carry Deshacer.
+  const remove = async () => {
+    await undo.run({ label: t('areas.areaDeleted'), redo: () => del.mutateAsync(area.id), undo: () => restore.mutateAsync(area.id) })
+    notices.show({ text: t('areas.areaDeleted'), action: { label: t('undo.undo'), run: () => undo.undo() } })
+  }
+
   const changeColor = (next: string) => {
     const prev = area.color
     return undo.run({ label: t('areas.colorEdited'), redo: () => save.mutateAsync({ id: area.id, color: next }), undo: () => save.mutateAsync({ id: area.id, color: prev }) })
   }
 
   return (
-    <section className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-1 border-b border-line px-4 py-3 last:border-b-0 sm:grid-cols-[auto_minmax(10rem,14rem)_8rem_minmax(0,1fr)]">
+    <section className="relative grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-1 border-b border-line py-3 pl-4 pr-12 last:border-b-0 sm:grid-cols-[auto_minmax(10rem,14rem)_8rem_minmax(0,1fr)]">
       <AreaColorPicker title={area.title} color={area.color} onChange={changeColor} />
       {/* The name leads to the area; the chevron is glued to its last word, so a name on several lines keeps it at full size next to it. */}
       <Link to={`/areas/${area.id}`} aria-label={t('areas.open', { title: area.title })} className="self-start font-semibold hover:text-accent-deep hover:underline">
@@ -146,6 +156,9 @@ function AreaRow({ area }: { area: Area }) {
       <div className="col-start-2 row-start-2 min-w-0 sm:col-start-4 sm:row-start-1">
         <FoldedText value={area.description} label={t('areas.fieldDescription')} validate={descriptionRule(t)} onSave={change} displayClassName="text-xs text-muted" />
       </div>
+      <Button size="icon-sm" variant="ghost" className="absolute right-3 top-2.5 text-muted hover:text-danger" disabled={del.isPending} title={t('areas.deleteArea')} aria-label={t('areas.deleteAreaOf', { title: area.title })} data-testid="area-delete" onClick={() => void remove()}>
+        <Trash2 size={14} aria-hidden />
+      </Button>
     </section>
   )
 }

@@ -738,3 +738,4 @@ Debe decir `OK Último envío: estado proposed, adjuntos: audio` con al menos un
 | H-3702 | Un envío sólo se cancela; no se puede borrar con sus adjuntos y trabajos | UD-240 | en curso: `wt-borrar-envios` |
 | H-3703 | Un miembro sólo se desactiva; no se puede eliminar | UD-240 | en curso: `wt-eliminar-miembros` |
 | H-3704 | No hay forma de vaciar los datos de prueba ni de sembrar un juego de prueba | UD-240 | en curso: `wt-vaciar-sembrar` |
+| H-3705 | La descripción de las tarjetas envuelve varias líneas y las tarjetas miden distinto; falta pulido de primer vistazo | UD-241 | en curso: `wt-tarjetas-vistazo` |

@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 3aa80af Traspaso: VPS en 8f15e1d. Empujado a origin: `3aa80af`.
-- Ramas con commits sin fusionar: ninguna.
-- Worktrees abiertos: `team-platform`.
+- `main`: cf04e5a Traspaso: UD-253 en cuatro agentes. Empujado a origin: `cf04e5a`.
+- Ramas con commits sin fusionar: `wt-editar-respuestas` 1 (hace 4 segundos).
+- Worktrees abiertos: `team-platform`, `borrado-multiple`, `editar-respuestas`, `inicio-listas`, `sin-confirmaciones`.
 - Últimos commits en `main`:
-- `3aa80af` Traspaso: VPS en 8f15e1d (hace 2 minutos)
-- `65f2c15` Traspaso: auditoría de paridad en main (hace 4 minutos)
-- `8f15e1d` Declarar EXAMPLES_DIR en .env.example (hace 4 minutos)
-- `7036292` Merge wt-ajustes-equipo (hace 6 minutos)
-- `b8e0843` Equipo en teléfono sin solape y rótulo de Vaciar todo con su palabra (UD-252) (hace 7 minutos)
-- `1eec0fd` Traspaso: cola y auditoría fusionadas (hace 11 minutos)
-- `0e02de1` Cola fusionada: comentario en inglés y prueba de respaldo que no depende del orden por milisegundo (hace 11 minutos)
-- `c85f0b4` Equipo, Datos y plantillas: ajustes de pruebas, documentos y UD-252 (hace 11 minutos)
-Actualizado 2026-10-22 02:06 UTC.
+- `cf04e5a` Traspaso: UD-253 en cuatro agentes (hace 16 segundos)
+- `1866265` Conexiones: quitar «Apagadas hasta que la descomposición esté probada» (pedido del dueño) (hace 39 segundos)
+- `8f5b88b` Retirar «Descartados» de Inicio; vps-check borra su envío de prueba; UD-253 (hace 3 minutos)
+- `3aa80af` Traspaso: VPS en 8f15e1d (hace 9 minutos)
+- `65f2c15` Traspaso: auditoría de paridad en main (hace 11 minutos)
+- `8f15e1d` Declarar EXAMPLES_DIR en .env.example (hace 11 minutos)
+- `7036292` Merge wt-ajustes-equipo (hace 13 minutos)
+- `b8e0843` Equipo en teléfono sin solape y rótulo de Vaciar todo con su palabra (UD-252) (hace 14 minutos)
+Actualizado 2026-10-22 02:13 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

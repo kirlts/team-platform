@@ -1,0 +1,253 @@
+// The `execute` job (UD-254, UD-255, H-3724) end to end against a listening server and a fake `claude` that speaks
+// stream-json: enqueued when a published message is assigned to an agent, the prompt with every piece, the NDJSON
+// turned into progress, the `result` line with and without `structured_output`, the two replies in the thread, the
+// trace with session and cost, and the machine runner that destroys its machine also on failure and on timeout.
+import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { after, before, beforeEach, describe, it } from 'node:test'
+import { loadConfig } from '../config.js'
+import { updateMember } from '../domain/members.js'
+import { createPipeline } from '../domain/pipeline.js'
+import { setProjectDescription } from '../domain/settings.js'
+import { createVault, loadMasterKey } from '../domain/vault.js'
+import { addMember, fakeAnalyze, login, makeEnv, postInput, until } from '../testing/helpers.js'
+import { createWorker } from '../worker.js'
+import { createExecuteHandler } from './handler.js'
+import { phraseForTool } from './stream.js'
+
+const FAKE = fileURLToPath(new URL('./testing/fake-claude-stream.mjs', import.meta.url))
+const PORT = 8641 // the range given to this work (8640 to 8649)
+
+describe('execute job', () => {
+  let env, state, worker, editor, author, agentId, agent, vault
+  const cookieHeaders = (cookie) => ({ cookie, 'x-team-request': 'panel' })
+
+  function startWorker (execute = {}) {
+    const config = loadConfig({ DATA_DIR: env.dir, LOG_LEVEL: 'silent', PORT: String(PORT) }, {
+      execute: { bin: FAKE, machineBin: FAKE, teamUrl: `http://127.0.0.1:${PORT}`, killGraceMs: 200, ...execute }
+    })
+    const handlers = { ...createPipeline({ db: env.db, config, queue: env.queue, events: env.events, modules: env.modules }), execute: createExecuteHandler({ db: env.db, config, queue: env.queue, events: env.events, vault }) }
+    worker = createWorker({ db: env.db, queue: env.queue, events: env.events, config, handlers })
+    worker.start()
+  }
+  const calls = () => { try { return readFileSync(join(state, 'calls.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l)) } catch { return [] } }
+  const waitJob = (id) => until(() => { const j = env.queue.getJob(id); return ['done', 'failed', 'cancelled'].includes(j.status) && j }, { timeoutMs: 20000 })
+  const eventsOf = (jobId) => env.db.prepare('SELECT kind, percent, phrase, data_json, member_id FROM job_events WHERE job_id = ? ORDER BY seq').all(jobId)
+
+  async function publishedMessage (text) {
+    const res = await postInput(env, author, { text })
+    const inputId = res.json().input_id
+    await until(() => env.db.prepare('SELECT status FROM inputs WHERE id = ?').get(inputId).status === 'proposed', { timeoutMs: 10000 })
+    const pub = await env.app.inject({ method: 'POST', url: `/api/inputs/${inputId}/publish`, headers: { ...cookieHeaders(author), 'content-type': 'application/json' }, payload: '{}' })
+    assert.equal(pub.statusCode, 200, pub.body)
+    return env.db.prepare('SELECT id FROM messages WHERE input_id = ?').get(inputId).id
+  }
+
+  before(async () => {
+    // The analyzer assigns the member named Claude, reading the team as the real one does (pipeline.js bundle.members).
+    const analyze = async (bundle, opts) => {
+      const r = await fakeAnalyze(bundle, opts)
+      r.proposal.messages[0].assignee_ids = bundle.members.filter((m) => m.name === 'Claude').map((m) => m.id)
+      return r
+    }
+    env = await makeEnv({ telemetry: true, modules: { analyze } })
+    state = join(env.dir, 'fake-state')
+    mkdirSync(state)
+    process.env.FAKE_EXECUTE_STATE = state
+    vault = createVault(loadMasterKey({ dataDir: env.dir }))
+    await addMember(env, { email: 'ed@x.org', role: 'editor' })
+    editor = await login(env, 'ed@x.org')
+    const created = await env.app.inject({ method: 'POST', url: '/api/members', headers: cookieHeaders(editor), payload: { email: 'claude@x.org', name: 'Claude', kind: 'agent', profile: 'Perfil del agente: arreglo pantallas.' } })
+    agent = created.json()
+    agentId = Number(agent.id)
+    const authorId = await addMember(env, { email: 'ana@x.org', name: 'Ana' })
+    updateMember(env.db, authorId, { profile: 'Perfil de Ana: llevo la agenda de la clínica.' })
+    author = await login(env, 'ana@x.org')
+    setProjectDescription(env.db, 'Descripción del proyecto: agenda de clínicas.')
+    await env.app.listen({ host: '127.0.0.1', port: PORT })
+  })
+  beforeEach(async () => {
+    await worker?.stop()
+    rmSync(join(state, 'calls.jsonl'), { force: true })
+    process.env.FAKE_EXECUTE_MODE = 'ok'
+    process.env.FAKE_EXECUTE_REPLY = '1'
+    delete process.env.FAKE_EXECUTE_EXTRA
+  })
+  after(async () => { await worker?.stop(); await env.close() })
+
+  it('a message published to an agent enqueues execute; the session replies twice and the job closes with the summary', async () => {
+    startWorker()
+    const messageId = await publishedMessage('La pantalla de agenda queda en blanco al abrirla.')
+    const job = env.db.prepare("SELECT * FROM jobs WHERE kind = 'execute' AND message_id = ?").get(messageId)
+    assert.ok(job, 'execute job enqueued on publication')
+    assert.deepEqual(JSON.parse(job.payload_json).member_id, agentId)
+    assert.equal(job.max_attempts, 1)
+    const done = await waitJob(job.id)
+    assert.equal(done.status, 'done', done.last_error)
+
+    const thread = (await env.app.inject({ method: 'GET', url: `/api/messages/${messageId}`, headers: { cookie: author } })).json()
+    const mine = thread.replies.filter((r) => String(r.author_id) === String(agentId))
+    assert.equal(mine.length, 2, 'two replies: on starting and on finishing')
+    assert.match(mine[0].body, /^Recibido\. Empiezo por/)
+    assert.match(mine[1].body, /^Arreglé la pantalla que quedaba en blanco\.\n\nYa carga con tus datos\.$/)
+    assert.equal(thread.status, 'answered', 'the session does not close the message')
+
+    const evs = eventsOf(job.id)
+    const phrases = evs.filter((e) => e.kind === 'progress').map((e) => e.phrase)
+    for (const p of ['Sesión iniciada', 'Lectura: screen.tsx', 'Orden: Pruebas de la pantalla', 'Revisión de la pantalla', 'Respondido']) assert.ok(phrases.includes(p), `${p} in ${phrases}`)
+    assert.ok(evs.every((e) => e.member_id === null), 'progress of a message goes to the whole team')
+    const percents = evs.filter((e) => e.kind === 'progress').map((e) => e.percent)
+    assert.ok(percents.includes(3), 'two main turns of 60 → 3 %; the subagent turn does not count')
+    const last = evs.at(-1)
+    assert.equal(last.kind, 'done')
+    assert.deepEqual({ ...JSON.parse(last.data_json), input_id: undefined }, { input_id: undefined, message_id: String(messageId), status: 'done', reply_id: String(mine[1].id), session_id: 'sess-0001', cost_usd: 1.2345 })
+
+    const trace = (await env.app.inject({ method: 'GET', url: `/api/jobs/${job.id}/trace`, headers: { cookie: editor } })).json()
+    const find = (nodes) => nodes.flatMap((n) => [n, ...find(n.children)])
+    const span = find(trace.roots).find((n) => n.name === 'execute')
+    assert.ok(span, 'execute span in the trace')
+    assert.equal(span.attributes['team.session_id'], 'sess-0001')
+    assert.equal(span.attributes['team.cost_usd'], 1.2345)
+    assert.equal(span.attributes['gen_ai.usage.output_tokens'], 3100)
+    assert.ok(trace.totals.cost_usd >= 1.2345, JSON.stringify(trace.totals))
+
+    const queueRes = (await env.app.inject({ method: 'GET', url: '/api/jobs', headers: { cookie: editor } })).json()
+    const row = queueRes.items.find((j) => j.id === String(job.id))
+    assert.deepEqual([row.kind, row.message_id, row.member_id], ['execute', String(messageId), String(agentId)])
+  })
+
+  it('the invocation and the prompt carry every piece', async () => {
+    const [call] = calls().length ? calls() : [null]
+    const c = call ?? (startWorker(), await (async () => { const id = await publishedMessage('Otro mensaje.'); await waitJob(env.db.prepare("SELECT id FROM jobs WHERE message_id = ?").get(id).id); return calls()[0] })())
+    const { args, stdin, team } = c
+    const val = (flag) => args[args.indexOf(flag) + 1]
+    assert.equal(args[0], '-p')
+    assert.equal(val('--model'), 'claude-sonnet-5-5')
+    assert.equal(val('--effort'), 'medium')
+    assert.equal(val('--max-budget-usd'), '10')
+    assert.equal(val('--max-turns'), '60')
+    assert.equal(val('--permission-mode'), 'bypassPermissions')
+    assert.equal(val('--output-format'), 'stream-json')
+    assert.ok(args.includes('--verbose') && args.includes('--include-partial-messages'))
+    const schema = JSON.parse(val('--json-schema'))
+    assert.deepEqual(schema.required, ['summary'])
+    for (const piece of ['Perfil del agente: arreglo pantallas.', 'Perfil de Ana: llevo la agenda de la clínica.', 'Descripción del proyecto: agenda de clínicas.', '## Método', 'up to 3 subagents', 'Parallelize', 'team reply', 'team progress [<job_id>]', 'tp/', 'Never push to `main`', 'Spanish (Latin America)']) {
+      assert.ok(stdin.includes(piece), `prompt carries «${piece}»`)
+    }
+    assert.equal(team.TEAM_AGENT_EMAIL, 'claude@x.org')
+    assert.equal(team.TEAM_AGENT_SECRET, agent.agent_secret)
+    assert.equal(team.TEAM_URL, `http://127.0.0.1:${PORT}`)
+  })
+
+  it('an editor enqueues it by hand; a second while one is queued is refused', async () => {
+    const messageId = env.db.prepare('SELECT id FROM messages ORDER BY id LIMIT 1').get().id
+    const first = await env.app.inject({ method: 'POST', url: `/api/messages/${messageId}/execute`, headers: cookieHeaders(editor) })
+    assert.equal(first.statusCode, 202, first.body)
+    const again = await env.app.inject({ method: 'POST', url: `/api/messages/${messageId}/execute`, headers: cookieHeaders(editor) })
+    assert.equal(again.json().code, 'execute_busy')
+    const byMember = await env.app.inject({ method: 'POST', url: `/api/messages/${messageId}/execute`, headers: cookieHeaders(author) })
+    assert.equal(byMember.statusCode, 403)
+    process.env.FAKE_EXECUTE_REPLY = '0'
+    startWorker()
+    assert.equal((await waitJob(Number(first.json().job_ids[0]))).status, 'done')
+  })
+
+  for (const [mode, code, reason] of [['no-structured', 'invalid_output', /sin salida estructurada/], ['error', 'execute_error', /error_max_budget_usd/], ['exit', 'execute_no_result', /código 3/]]) {
+    it(`a result ${mode === 'no-structured' ? 'without structured_output' : `in mode ${mode}`} fails the job with the reason`, async () => {
+      process.env.FAKE_EXECUTE_MODE = mode
+      process.env.FAKE_EXECUTE_REPLY = '0'
+      startWorker()
+      const messageId = env.db.prepare('SELECT id FROM messages ORDER BY id LIMIT 1').get().id
+      const id = Number((await env.app.inject({ method: 'POST', url: `/api/messages/${messageId}/execute`, headers: cookieHeaders(editor) })).json().job_ids[0])
+      const job = await waitJob(id)
+      assert.equal(job.status, 'failed')
+      assert.match(job.last_error, reason)
+      const done = eventsOf(id).at(-1)
+      assert.equal(JSON.parse(done.data_json).error_code, code)
+    })
+  }
+
+  it('the progress endpoint belongs to the agent of the job', async () => {
+    const id = env.db.prepare("SELECT id FROM jobs WHERE kind = 'execute' ORDER BY id LIMIT 1").get().id
+    const res = await env.app.inject({ method: 'POST', url: `/api/jobs/${id}/progress`, headers: cookieHeaders(author), payload: { percent: 10, phrase: 'x' } })
+    assert.equal(res.json().code, 'not_job_agent')
+  })
+
+  describe('machine runner', () => {
+    let log
+    const machine = (extra = {}) => ({
+      runner: 'machine',
+      machineCreate: `echo create {job_id} >> ${log}; echo vm-{job_id}`,
+      machineRun: `echo run {machine} >> ${log}; bash {workdir}/run.sh`,
+      machineDestroy: `echo destroy {machine} >> ${log}`,
+      ...extra
+    })
+    const lines = () => readFileSync(log, 'utf8').trim().split('\n')
+    const enqueue = async () => {
+      const messageId = env.db.prepare('SELECT id FROM messages ORDER BY id LIMIT 1').get().id
+      return Number((await env.app.inject({ method: 'POST', url: `/api/messages/${messageId}/execute`, headers: cookieHeaders(editor) })).json().job_ids[0])
+    }
+    beforeEach(() => { log = join(env.dir, `machine-${Date.now()}.log`); writeFileSync(log, '') })
+
+    it('creates the machine, runs the session inside and destroys it', async () => {
+      startWorker(machine())
+      const id = await enqueue()
+      const job = await waitJob(id)
+      assert.equal(job.status, 'done', job.last_error)
+      assert.deepEqual(lines(), [`create ${id}`, `run vm-${id}`, `destroy vm-${id}`])
+      assert.equal(calls().at(-1).team.TEAM_AGENT_EMAIL, 'claude@x.org', 'env.sh carries the agent credential into the machine')
+    })
+
+    it('destroys it when the session fails', async () => {
+      process.env.FAKE_EXECUTE_MODE = 'exit'
+      startWorker(machine())
+      const id = await enqueue()
+      assert.equal((await waitJob(id)).status, 'failed')
+      assert.deepEqual(lines(), [`create ${id}`, `run vm-${id}`, `destroy vm-${id}`])
+    })
+
+    it('destroys it when creating it fails half way', async () => {
+      startWorker(machine({ machineCreate: `echo create {job_id} >> ${log}; echo vm-{job_id}; exit 1` }))
+      const id = await enqueue()
+      const job = await waitJob(id)
+      assert.equal(job.status, 'failed')
+      assert.match(job.last_error, /crea la máquina/)
+      assert.deepEqual(lines(), [`create ${id}`, `destroy vm-${id}`])
+    })
+
+    it('destroys it when the session runs out of time', async () => {
+      process.env.FAKE_EXECUTE_MODE = 'hang'
+      startWorker(machine({ timeoutMs: 1500 }))
+      const id = await enqueue()
+      const job = await waitJob(id)
+      assert.equal(job.status, 'failed')
+      assert.match(job.last_error, /tiempo máximo/)
+      assert.deepEqual(lines(), [`create ${id}`, `run vm-${id}`, `destroy vm-${id}`])
+    })
+  })
+
+  it('the local runner works on a worktree of EXECUTE_REPO_DIR on the branch tp/<message_id> and leaves the branch', async () => {
+    const repo = join(env.dir, 'host-repo')
+    mkdirSync(repo)
+    const git = (...a) => execFileSync('git', ['-C', repo, ...a], { encoding: 'utf8' })
+    git('init', '-q', '-b', 'main')
+    git('-c', 'user.email=t@x.org', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'init')
+    process.env.FAKE_EXECUTE_REPLY = '0'
+    startWorker({ repoDir: repo })
+    const messageId = env.db.prepare('SELECT id FROM messages ORDER BY id LIMIT 1').get().id
+    const id = Number((await env.app.inject({ method: 'POST', url: `/api/messages/${messageId}/execute`, headers: cookieHeaders(editor) })).json().job_ids[0])
+    assert.equal((await waitJob(id)).status, 'done')
+    assert.match(calls().at(-1).cwd, /\/repo$/)
+    assert.match(git('branch', '--list', `tp/${messageId}`), new RegExp(`tp/${messageId}`))
+    assert.equal(git('worktree', 'list').trim().split('\n').length, 1, 'the worktree is removed')
+  })
+
+  it('tool calls become short phrases', () => {
+    assert.equal(phraseForTool('Edit', { file_path: '/a/b/c.ts' }), 'Edición: c.ts')
+    assert.equal(phraseForTool('Agent', { description: 'Revisar estilos' }), 'Subagente: Revisar estilos')
+    assert.equal(phraseForTool('Grep', { pattern: 'foo' }), 'Búsqueda: foo')
+  })
+})

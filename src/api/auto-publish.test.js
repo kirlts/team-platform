@@ -131,7 +131,7 @@ test('UD-070 · the Editor knob auto_publish returns to the review: the proposal
   await env.close()
 })
 
-test('UD-070 · publishing never duplicates: a published input is a 409 to publish, a 409 to reprocess (sender and Editor) and a duplicate when sent again', async () => {
+test('UD-070 · publishing never duplicates: a published input is a 409 to publish, a 403 to reprocess for its sender (UD-258: only an Editor does, tested in reprocess-published.test.js) and a duplicate when sent again', async () => {
   const env = await team()
   const id = await env.send(env.c.ana, 'una sola vez')
   const view = await env.settled(id)
@@ -140,11 +140,9 @@ test('UD-070 · publishing never duplicates: a published input is a 409 to publi
   const again = await env.api('POST', `/inputs/${id}/publish`, env.c.ana)
   assert.equal(again.statusCode, 409)
   assert.equal(again.json().code, 'already_published')
-  for (const who of ['ana', 'ed']) {
-    const r = await env.api('POST', `/inputs/${id}/reprocess`, env.c[who])
-    assert.equal(r.statusCode, 409, `${who}: ${r.body}`)
-    assert.equal(r.json().code, 'not_reprocessable')
-  }
+  const refused = await env.api('POST', `/inputs/${id}/reprocess`, env.c.ana)
+  assert.equal(refused.statusCode, 403, refused.body)
+  assert.equal(countMessages(env), 1)
   const resent = await postInput(env, env.c.ana, { text: 'una sola vez' })
   assert.equal(resent.statusCode, 200)
   assert.equal(resent.json().duplicate, true)

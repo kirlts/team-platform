@@ -13,7 +13,7 @@ import { JOB_STATES, useJobCounts, usePurgeJobs, useQueueInputs, useReprocess, t
 
 const PAGE_SIZE = 8
 const PURGE_STATES: PurgeState[] = ['done', 'failed', 'cancelled']
-const REPROCESSABLE = new Set(['proposed', 'failed', 'cancelled'])
+const REPROCESSABLE = new Set(['published', 'proposed', 'failed', 'cancelled'])
 const SETTLED = new Set(['proposed', 'published', 'failed'])
 
 /**
@@ -118,7 +118,8 @@ function QueueRow({ input }: { input: QueueInput }) {
   const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ['jobs'] }), qc.invalidateQueries({ queryKey: ['audit'] })])
   const run = async () => {
     try {
-      await reprocess.mutateAsync(input.id)
+      const done = await reprocess.mutateAsync(input.id)
+      if (done.set_aside) notices.show({ text: t('send.reprocessed', { n: done.set_aside.messages }), link: { to: '/messages?f=deleted:eq:si', label: t('restore.messages') } })
       await refresh()
     } catch (err) {
       notices.show({ tone: 'danger', text: errorText(err) })

@@ -1152,7 +1152,19 @@ const server = createServer(async (req, res) => {
         return send(res, 200, { input_id: input.id, status: input.status })
       }
       if (m[2] === 'reprocess' && method === 'POST') {
-        if (!['proposed', 'failed', 'cancelled'].includes(input.status)) return fail(res, 409, 'Sólo se reprocesa un input con propuesta, fallido o cancelado', 'not_reprocessable')
+        const wasPublished = input.status === 'published'
+        if (wasPublished && !isEditor) return fail(res, 403, 'Sólo un Editor reprocesa un envío publicado.', 'forbidden')
+        if (!wasPublished && !['proposed', 'failed', 'cancelled'].includes(input.status)) return fail(res, 409, 'Sólo se reprocesa un input publicado, con propuesta, fallido o cancelado', 'not_reprocessable')
+        // UD-258: a published send sets its live messages aside (the trash, with their replies) and is analyzed again.
+        let setAside = null
+        if (wasPublished) {
+          const live = (input.message_ids ?? []).map((mid) => messages.find((x) => x.id === mid && !x.deleted_at)).filter(Boolean)
+          const at = new Date().toISOString()
+          let replyCount = 0
+          for (const msg of live) { replyCount += liveReplies(msg).length; msg.deleted_at = at }
+          setAside = { messages: live.length, replies: replyCount }
+          input.message_ids = []
+        }
         input.proposal = null
         input.error = null
         input.error_code = null
@@ -1160,9 +1172,9 @@ const server = createServer(async (req, res) => {
         input.units = unitsOf(input.text)
         input.status = 'queued'
         input.job_id = `j-${id()}`
-        record(me, 'input.reprocess', 'input', input.id, null)
+        record(me, 'input.reprocess', 'input', input.id, setAside)
         runJob(input)
-        return send(res, 202, { input_id: input.id, job_id: input.job_id })
+        return send(res, 202, { input_id: input.id, job_id: input.job_id, ...(setAside ? { set_aside: setAside } : {}) })
       }
       if (m[2] === 'publish' && method === 'POST') {
         if (input.status === 'published') return fail(res, 409, 'El input ya está publicado', 'already_published')

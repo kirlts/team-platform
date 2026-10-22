@@ -63,9 +63,9 @@ Ruta crítica: A5 depende de A4. El resto corre en paralelo. Estimado: 1 h de re
 |---|---|
 | B1 Instancia | Servicio `team-platform` en el compose de Devalis (patrón de `compose.override.example.yml`), con su volumen, `PROJECT_NAME=Devalis`, encuadre de Devalis y la llave de API en el secreto de la máquina. Caddy sirve `team.devalis.cl` apuntando a él en lugar de `/mesa` |
 | B2 Identidad | Login propio en `team.devalis.cl` que comparte la cookie de sesión con la consola: una cookie con `Domain=.devalis.cl` que la consola también lee (hoy guarda el JWT en `sessionStorage`). Team Platform valida el JWT RS256 con la llave pública en el modo de A1 y da de alta al miembro; Martín editor, el resto miembros (UD-255) |
-| B3 Interfaz | Las vistas de Team Platform (Inicio, Mensajes, ficha, Áreas, Equipo, Configuración) dentro de la aplicación de la consola, con `@devalis/design-system` y el cliente de A6, servidas en `team.devalis.cl` |
+| B3 Interfaz | Las vistas de Team Platform (Inicio, Mensajes, ficha, Áreas, Equipo, Configuración) con `@devalis/design-system` y el cliente de A6, servidas en `team.devalis.cl` con la estética del panel de la clínica (catálogo Tapple, UD-113 de Devalis), no la de la consola (UD-255) |
 | B4 Áreas y plantillas de Devalis | Las de la decisión pendiente, con bloque de salida cada una |
-| B5 Miembros | Pablo, Alejandro, Martín y Claude con sus perfiles; Claude con la credencial de A5. Team Platform identifica al miembro por el `sub` del JWT: cada persona necesita su propia fila en `platform_users`, aunque compartan rol |
+| B5 Miembros | Pablo, Alejandro, Martín y Claude con sus perfiles; Claude con la credencial de A5. Alejandro recibe su propia cuenta de superadministrador: Team Platform identifica al miembro por el `sub` del JWT |
 | B6 Retiro de la Mesa | `tools/mesa/` deja de publicarse; la regla 19 de `CLAUDE.md` y la memoria `team-devalis-es-donde-martin-lee` se reescriben; la sección «Claude» según la decisión pendiente |
 
 Depende de A1, A4, A5 y A6. Estimado: 1,5 h de reloj, con el despliegue de Devalis medido en su propio flujo.
@@ -83,10 +83,9 @@ Depende de B. Estimado: 1 h de reloj, más una corrida real con un mensaje de pr
 
 ## Lo que falta decidir
 
-Decidido el 2026-10-22 en UD-255: sesión compartida por cookie de dominio, roles, datos reales, modelo y topes del harness, alcance en producción, dos respuestas de Claude y «Enviar como». Quedan para la mañana del 2026-10-22, hora de Chile:
+UD-255 decidió sesión, roles, datos reales, harness, las dos respuestas de Claude y «Enviar como». Quedan dos, para la mañana del 2026-10-22, hora de Chile:
 
 | Decisión | Por qué no se infiere | Propuesta |
 |---|---|---|
 | Áreas y plantillas de Devalis | La Mesa usa Agenda, Infraestructura y Deva con tipos Pedido y Hallazgo; Team Platform trae Idea, Error, Nueva funcionalidad, Retroalimentación y Pregunta | Las cinco de Team Platform, con un campo «módulo» (Agenda, Deva, Pagos, Consola, Infraestructura) en cada plantilla |
 | Miembros y perfiles | Los perfiles deciden qué recibe cada uno, incluido Claude; los escribe cada persona | Martín escribe el de Claude; Pablo y Alejandro el suyo en su primer ingreso |
-| Una fila de `platform_users` por persona | Si Pablo y Alejandro entran con la misma cuenta, Team Platform los ve como un solo miembro | Una fila por persona, con la misma contraseña si así lo prefieren |

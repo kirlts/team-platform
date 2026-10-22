@@ -1,9 +1,9 @@
 import { ChevronDown, Search, X } from '@/components/icons'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useT, type MessageKey } from '@/i18n'
-import { FILTER_PROPS, ME, REPLIES_VALUES, STATUS_VALUES, removeFilter, upsertFilter, type Filter, type FilterOp, type FilterProp, type MessageQuery } from '@/lib/filters'
+import { DELETED_VALUE, FILTER_PROPS, ME, REPLIES_VALUES, STATUS_VALUES, removeFilter, upsertFilter, type Filter, type FilterOp, type FilterProp, type MessageQuery } from '@/lib/filters'
 import { cn } from '@/lib/utils'
 import { useLookups } from './lookups'
 import { STATUS_KEY } from './StatusBadge'
@@ -14,6 +14,7 @@ const PROP_KEY: Record<FilterProp, MessageKey> = {
   area: 'filter.area',
   status: 'filter.status',
   replies: 'filter.replies',
+  deleted: 'filter.deleted',
 }
 
 const OP_KEY: Record<FilterOp, MessageKey> = { eq: 'filter.is', neq: 'filter.isNot' }
@@ -47,6 +48,8 @@ export function FilterBar({ query, onChange }: { query: MessageQuery; onChange: 
         return areas.map((a) => ({ value: a.id, label: a.title }))
       case 'status':
         return STATUS_VALUES.map((s) => ({ value: s, label: t(STATUS_KEY[s]) }))
+      case 'deleted':
+        return [{ value: DELETED_VALUE, label: t('filter.deleted') }]
       case 'replies':
         return REPLIES_VALUES.map((v) => ({ value: v, label: v === 'con' ? t('filter.with') : t('filter.without') }))
     }
@@ -82,6 +85,13 @@ export function FilterBar({ query, onChange }: { query: MessageQuery; onChange: 
           <DropdownMenuContent align="end">
             {FILTER_PROPS.map((p) => {
               const on = query.filters.find((f) => f.prop === p)
+              if (p === 'deleted') {
+                return (
+                  <DropdownMenuCheckboxItem key={p} checked={!!on} onCheckedChange={(v) => onChange({ ...query, filters: v ? upsertFilter(query.filters, { prop: p, op: 'eq', value: DELETED_VALUE }) : removeFilter(query.filters, p) })}>
+                    {t(PROP_KEY[p])}
+                  </DropdownMenuCheckboxItem>
+                )
+              }
               return (
                 <DropdownMenuSub key={p}>
                   <DropdownMenuSubTrigger aria-label={on ? `${t(PROP_KEY[p])}: ${labelOf(on)}` : t(PROP_KEY[p])}>
@@ -115,7 +125,7 @@ export function FilterBar({ query, onChange }: { query: MessageQuery; onChange: 
           {query.filters.map((f) => (
             <li key={f.prop} className="glass inline-flex min-h-7 items-stretch overflow-hidden rounded-[14px] text-sm leading-tight !shadow-none">
               <span className="flex items-center bg-[linear-gradient(180deg,var(--color-chrome-1),var(--color-chrome-2))] px-3 py-1 font-semibold">{t(PROP_KEY[f.prop])}</span>
-              {f.prop === 'replies' || f.prop === 'involved' ? null : (
+              {f.prop === 'replies' || f.prop === 'involved' || f.prop === 'deleted' ? null : (
                 <DropdownMenu>
                   <DropdownMenuTrigger className="px-1.5 text-muted hover:bg-hover" aria-label={t('filter.operatorOf', { prop: t(PROP_KEY[f.prop]) })}>
                     {t(OP_KEY[f.op])}
@@ -131,7 +141,7 @@ export function FilterBar({ query, onChange }: { query: MessageQuery; onChange: 
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
-              <DropdownMenu open={openValue === f.prop} onOpenChange={(o) => setOpenValue(o ? f.prop : null)}>
+              {f.prop === 'deleted' ? null : <DropdownMenu open={openValue === f.prop} onOpenChange={(o) => setOpenValue(o ? f.prop : null)}>
                 <DropdownMenuTrigger className={cn('inline-flex items-center gap-1 px-2.5 py-1 text-left font-semibold text-accent-deep hover:bg-accent-soft')} aria-label={t('filter.valueOf', { prop: t(PROP_KEY[f.prop]) })}>
                   {labelOf(f)}
                   <ChevronDown size={12} aria-hidden />
@@ -148,7 +158,7 @@ export function FilterBar({ query, onChange }: { query: MessageQuery; onChange: 
                     ))}
                   </DropdownMenuRadioGroup>
                 </DropdownMenuContent>
-              </DropdownMenu>
+              </DropdownMenu>}
               <button
                 type="button"
                 aria-label={t('filter.remove', { prop: t(PROP_KEY[f.prop]) })}

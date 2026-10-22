@@ -73,21 +73,31 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
       },
     })
   }
+  // A deleted message (the «Borrados» filter) has no detail to lead to, so it has no link: the one action is Restaurar (UD-250).
+  const gone = !!message.deleted_at
+  const bringBack = async () => {
+    await restore.mutateAsync(message.id)
+    notices.show({ text: t('detail.restored'), link: { to: `/messages/${message.id}`, label: message.title } })
+  }
   const extract = reply ? t('card.inMessage', { title: message.title }) : message.body
 
   return (
-    <article data-affects-me={affects ?? undefined} data-closed={closed || undefined} className={cn('group @container relative border-b border-line last:border-b-0 hover:bg-glass-edge', EDGE[message.status])}>
+    <article data-affects-me={affects ?? undefined} data-closed={closed || undefined} data-deleted={gone || undefined} className={cn('group @container relative border-b border-line last:border-b-0 hover:bg-glass-edge', EDGE[message.status])}>
       <div className="grid grid-cols-[minmax(0,1fr)_2.5rem] grid-rows-[auto_auto_auto_auto] items-start gap-x-4 gap-y-1 px-4 py-3 @2xl:grid-cols-[minmax(0,1fr)_12rem_2.5rem]">
       {/* The text block has one height in every row (`--spacing-card-text`): two lines of heading and the extract. A one-line heading leaves its air under the extract, between the groups and not inside the paragraph. */}
       <div data-testid="card-text" className="col-start-1 row-start-1 flex min-h-card-text min-w-0 flex-col gap-y-1">
-        <h3 title={reply ? reply.body : message.title} data-ellipsis-ok="UD-241" className={cn(HEADING, closed && 'font-medium text-muted')}>
-          <Link
-            to={`/messages/${message.id}`}
-            className="outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:outline-2 focus-visible:after:outline-accent"
-          >
-            {reply && <span className="sr-only">{t('card.replyTo')} «{message.title}»: </span>}
-            {reply ? reply.body : message.title}
-          </Link>
+        <h3 title={reply ? reply.body : message.title} data-ellipsis-ok="UD-241" className={cn(HEADING, (closed || gone) && 'font-medium text-muted')}>
+          {gone ? (
+            message.title
+          ) : (
+            <Link
+              to={`/messages/${message.id}`}
+              className="outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:outline-2 focus-visible:after:outline-accent"
+            >
+              {reply && <span className="sr-only">{t('card.replyTo')} «{message.title}»: </span>}
+              {reply ? reply.body : message.title}
+            </Link>
+          )}
         </h3>
         {/* data-repeat-ok: the reply row names the message it answers; that message is listed on its own too. data-ellipsis-ok: the detectors of cut text skip this line (UD-241). */}
         <p data-testid="card-extract" data-repeat-ok={reply ? 'reply-names-its-message' : undefined} data-ellipsis-ok="UD-241" title={extract} aria-hidden={reply ? true : undefined} className={EXTRACT}>
@@ -122,19 +132,24 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
       <div data-testid="card-foot" className="col-span-2 row-start-4 flex min-h-7 flex-wrap items-center justify-between gap-x-3 gap-y-1 @2xl:contents">
         <Recipients ids={variant === 'message' ? message.assignee_ids : []} max={RECIPIENTS_SHOWN} plain className="min-h-[1lh] min-w-0 text-xs text-muted @2xl:col-start-1 @2xl:row-start-4" />
         <span className="relative z-10 ml-auto flex items-center justify-end gap-1 @2xl:col-start-2 @2xl:row-span-4 @2xl:row-start-1 @2xl:self-start">
-          {canDelete && (
+          {gone && (
+            <Button size="sm" variant="secondary" className="px-3 text-xs" disabled={restore.isPending} aria-label={t('restore.of', { title: message.title })} data-testid="card-restore" onClick={() => void bringBack()}>
+              {t('restore.action')}
+            </Button>
+          )}
+          {!gone && canDelete && (
             <Button size="icon-sm" variant="ghost" className="text-muted hover:text-danger" disabled={del.isPending} title={t('card.delete')} aria-label={t('card.deleteOf', { title: message.title })} data-testid="card-delete" onClick={() => void remove()}>
               <Trash2 size={14} aria-hidden />
             </Button>
           )}
-          {!isAuthor && !closed && (
+          {!gone && !isAuthor && !closed && (
             <Button asChild size="sm" variant="secondary" className="px-3 text-xs">
               <Link to={`/messages/${message.id}?reply=1`}>{t('card.reply')}</Link>
             </Button>
           )}
-          <Button size="sm" variant="ghost" className="px-2 text-xs text-muted" disabled={setClosed.isPending} onClick={() => setClosed.mutate({ id: message.id, closed: !closed })}>
+          {!gone && <Button size="sm" variant="ghost" className="px-2 text-xs text-muted" disabled={setClosed.isPending} onClick={() => setClosed.mutate({ id: message.id, closed: !closed })}>
             {closed ? t('card.reopen') : t('card.close')}
-          </Button>
+          </Button>}
         </span>
       </div>
 

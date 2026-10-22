@@ -1,9 +1,9 @@
 // Mensajes filters: property, operator and value, kept in the URL.
-// The server only understands equality (GET /messages?for=&involved=&area=&status=&q=&replies=);
+// The server only understands equality (GET /messages?for=&involved=&area=&status=&q=&replies=&deleted=);
 // negation («no es») and «sin respuestas» are applied here on the received list.
 import type { Message } from './types'
 
-export type FilterProp = 'for' | 'involved' | 'area' | 'status' | 'replies'
+export type FilterProp = 'for' | 'involved' | 'area' | 'status' | 'replies' | 'deleted'
 export type FilterOp = 'eq' | 'neq'
 
 export interface Filter {
@@ -17,11 +17,13 @@ export interface MessageQuery {
   q: string
 }
 
-export const FILTER_PROPS: FilterProp[] = ['for', 'area', 'status', 'replies']
+export const FILTER_PROPS: FilterProp[] = ['for', 'area', 'status', 'replies', 'deleted']
 /** `involved` is not in the menu: it is only reached from the state marks of the bar, which count what concerns me (H-2000). */
 const PROP_SET_EXTRA: FilterProp[] = ['involved']
 export const REPLIES_VALUES = ['con', 'sin'] as const
 export const STATUS_VALUES = ['open', 'answered', 'closed'] as const
+/** The only value of the «Borrados» filter: the deleted messages the person can restore (UD-250). */
+export const DELETED_VALUE = 'si'
 /** Value of the «Para» filter meaning the person holding the session. */
 export const ME = 'me'
 
@@ -33,6 +35,7 @@ function validFilter(prop: string, op: string, value: string): Filter | null {
   if (!value) return null
   const p = prop as FilterProp
   if (p === 'involved') return value === ME ? { prop: p, op: 'eq', value } : null
+  if (p === 'deleted') return value === DELETED_VALUE ? { prop: p, op: 'eq', value } : null
   if (p === 'replies') {
     if (!(REPLIES_VALUES as readonly string[]).includes(value)) return null
     return { prop: p, op: 'eq', value }
@@ -84,6 +87,10 @@ export function toApiParams(query: MessageQuery): URLSearchParams {
       if (f.value === 'con') out.set('replies', '1')
       continue
     }
+    if (f.prop === 'deleted') {
+      out.set('deleted', '1')
+      continue
+    }
     out.set(f.prop, f.value)
   }
   if (query.q.trim()) out.set('q', query.q.trim())
@@ -101,6 +108,7 @@ export function applyClientFilters(messages: Message[], query: MessageQuery, meI
           return !m.assignee_ids.includes(target)
         }
         case 'involved':
+        case 'deleted':
           return true
         case 'area':
           return f.op === 'eq' ? true : m.area_id !== f.value

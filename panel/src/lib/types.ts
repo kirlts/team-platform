@@ -41,6 +41,7 @@ export interface Area {
   /** Open and answered: what is still pending. It is the number the sidebar carries. */
   unresolved_count?: number
   template_count?: number
+  deleted_at?: string | null
 }
 
 export interface Template {
@@ -158,6 +159,8 @@ export interface Message {
   status: MessageStatus
   created_at: string
   closed_at?: string | null
+  /** Set while the message is deleted (UD-240): only the «Borrados» list carries such a message. */
+  deleted_at?: string | null
   assignee_ids: string[]
   template_id?: string | null
   /** Value of each field of the message's template, by its name. */

@@ -54,6 +54,33 @@ export function useAreas() {
   })
 }
 
+/** The deleted areas (GET /areas?include_deleted=true, Editor): under ['areas'], so restoring one refreshes it with the live list. */
+export function useDeletedAreas(enabled = true) {
+  return useQuery({
+    queryKey: ['areas', 'deleted'],
+    queryFn: async () => unwrapList<Area>(await api('/areas?include_deleted=true')).filter((a) => a.deleted_at),
+    enabled,
+  })
+}
+
+/** The deleted templates of an area; under ['templates', areaId], so restoring one refreshes it with the live list. */
+export function useDeletedTemplates(areaId: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: ['templates', areaId, 'deleted'],
+    queryFn: async () => unwrapList<Template>(await api(`/areas/${areaId}/templates?include_deleted=true`)).filter((x) => x.deleted_at),
+    enabled: !!areaId && enabled,
+  })
+}
+
+/** The sends I discarded, newest first (GET /inputs?status=cancelled): the ones the history leaves out, to restore them. */
+export function useDiscardedSends(enabled = true) {
+  return useQuery({
+    queryKey: ['inputs', 'discarded'],
+    queryFn: async () => unwrapList<InputRecord>(await api('/inputs?mine=1&order=desc&status=cancelled')),
+    enabled,
+  })
+}
+
 export function useTemplates(areaId: string | undefined, enabled = true) {
   return useQuery({
     queryKey: ['templates', areaId],

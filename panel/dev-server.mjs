@@ -993,11 +993,13 @@ const server = createServer(async (req, res) => {
       const needle = (q.get('q') ?? '').toLowerCase()
       // `involved=me`: the rule of the summary (UD-028), assigned to me or sent by me once answered or closed.
       const involved = (x) => q.get('involved') !== 'me' || x.assignee_ids.includes(me.id) || (x.author_id === me.id && x.status !== 'open')
-      let list = liveMessages().filter((x) => involved(x) && (!forId || x.assignee_ids.includes(forId)) && (!q.get('area') || x.area_id === q.get('area')) && (!q.get('status') || x.status === q.get('status')) && (!needle || `${x.title} ${x.body}`.toLowerCase().includes(needle)))
+      // `deleted=1` (UD-250): only the deleted ones, the viewer's own, or every one for an Editor.
+      const source = q.get('deleted') === '1' ? messages.filter((x) => x.deleted_at && (me.role === 'editor' || x.author_id === me.id)) : liveMessages()
+      let list = source.filter((x) => involved(x) && (!forId || x.assignee_ids.includes(forId)) && (!q.get('area') || x.area_id === q.get('area')) && (!q.get('status') || x.status === q.get('status')) && (!needle || `${x.title} ${x.body}`.toLowerCase().includes(needle)))
       if (q.get('replies') === '1') list = list.filter((x) => liveReplies(x).length > 0)
       const stamp = (x) => (q.get('replies') === '1' ? liveReplies(x).at(-1)?.created_at : x.created_at)
       list.sort((a, b) => stamp(b).localeCompare(stamp(a)))
-      return send(res, 200, envelope(list.map(view)))
+      return send(res, 200, envelope(list.map((x) => ({ ...view(x), deleted_at: x.deleted_at ?? null }))))
     }
     if (path === '/messages/summary' && method === 'GET') {
       // Same rule as the API (UD-028, UD-041): assigned to me, open or answered; or mine, not assigned and answered.
@@ -1181,7 +1183,9 @@ const server = createServer(async (req, res) => {
 
     // --- areas and templates
     if (path === '/areas' && method === 'GET') {
-      return send(res, 200, envelope(areas.filter((a) => !a.deleted_at).map((a) => ({ ...a, open_count: liveMessages().filter((x) => x.area_id === a.id && x.status === 'open').length, unresolved_count: liveMessages().filter((x) => x.area_id === a.id && x.status !== 'closed').length, template_count: templates.filter((t) => t.area_id === a.id && !t.deleted_at).length }))))
+      const withDeleted = url.searchParams.get('include_deleted') === 'true'
+      if (withDeleted && me.role !== 'editor') return fail(res, 403, 'Ver lo borrado corresponde a un editor.', 'forbidden')
+      return send(res, 200, envelope(areas.filter((a) => withDeleted || !a.deleted_at).map((a) => ({ ...a, open_count: liveMessages().filter((x) => x.area_id === a.id && x.status === 'open').length, unresolved_count: liveMessages().filter((x) => x.area_id === a.id && x.status !== 'closed').length, template_count: templates.filter((t) => t.area_id === a.id && !t.deleted_at).length }))))
     }
     if (path === '/areas' && method === 'POST') {
       if (needEditor()) return
@@ -1230,7 +1234,7 @@ const server = createServer(async (req, res) => {
     m = /^\/areas\/([^/]+)\/templates(?:\/([^/]+))?$/.exec(path)
     if (m) {
       if (!areas.some((a) => a.id === m[1])) return fail(res, 404, 'No existe')
-      if (method === 'GET' && !m[2]) return send(res, 200, envelope(templates.filter((t) => t.area_id === m[1] && !t.deleted_at)))
+      if (method === 'GET' && !m[2]) return send(res, 200, envelope(templates.filter((t) => t.area_id === m[1] && (url.searchParams.get('include_deleted') === 'true' || !t.deleted_at))))
       if (needEditor()) return
       const body = method === 'DELETE' ? {} : await readJson(req)
       const check = (b) => {

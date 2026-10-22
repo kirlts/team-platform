@@ -164,6 +164,8 @@ export interface Message {
   input_id?: string
   area_id: string
   author_id: string
+  /** Who had the session when the input was sent in the name of the author (UD-255); null when it is the author. */
+  sent_by_id?: string | null
   title: string
   body: string
   status: MessageStatus

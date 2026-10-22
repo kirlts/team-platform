@@ -88,6 +88,7 @@ export const messageCard = {
   type: 'object',
   properties: {
     id, input_id: nullableId, area_id: id, template_id: nullableId, author_id: id,
+    sent_by_id: { ...nullableId, description: 'Who had the session when the input of the message was sent in the name of its author (UD-255); null when it is the author.' },
     title: { type: 'string' }, body: { type: 'string' },
     fields: { type: 'object', additionalProperties: true },
     status: { type: 'string', enum: ['open', 'answered', 'closed'] },
@@ -133,7 +134,7 @@ export const proposalView = {
 export const inputView = {
   type: 'object',
   properties: {
-    id, author_id: id, text: { type: 'string' }, status: { type: 'string' }, error: nullableText, error_code: nullableText,
+    id, author_id: id, sent_by_id: { ...nullableId, description: 'Who had the session when it was sent in the name of the author (UD-255); null when it is the author.' }, text: { type: 'string' }, status: { type: 'string' }, error: nullableText, error_code: nullableText,
     created_at: { type: 'string' }, updated_at: { type: 'string' }, job_id: nullableId,
     percent: { type: ['integer', 'null'] }, phrase: nullableText, proposed_count: { type: 'integer' }, // UD-025: the tray of in-flight inputs
     attachments: {

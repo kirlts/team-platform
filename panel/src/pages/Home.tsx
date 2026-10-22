@@ -169,7 +169,7 @@ export function Home() {
     async (key: string, draft: SendDraft) => {
       setUploads((list) => list.map((u) => (u.key === key ? { ...u, error: undefined, progress: 0 } : u)))
       try {
-        await uploadInput({ text: draft.text, files: draft.files, links: draft.links }, (progress) => setUploads((list) => list.map((u) => (u.key === key ? { ...u, progress } : u))))
+        await uploadInput({ text: draft.text, files: draft.files, links: draft.links, asMemberId: draft.asMemberId }, (progress) => setUploads((list) => list.map((u) => (u.key === key ? { ...u, progress } : u))))
         // The server's list first, then the upload leaves: the send passes from one to the other without a moment in which it is neither.
         await queryClient.invalidateQueries({ queryKey: ['inputs'] })
         setUploads((list) => list.filter((u) => u.key !== key))

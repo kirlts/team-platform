@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 8e73dd7 Áreas: «N plantillas» bajo el nombre y contadores centrados; pruebas al día con Inicio apilado y plantillas abiertas. Empujado a origin: `8e73dd7`.
+- `main`: 0d5b622 Traspaso: VPS en 8e73dd7, nada en vuelo. Empujado a origin: `0d5b622`.
 - Ramas con commits sin fusionar: ninguna.
 - Worktrees abiertos: `team-platform`.
 - Últimos commits en `main`:
-- `8e73dd7` Áreas: «N plantillas» bajo el nombre y contadores centrados; pruebas al día con Inicio apilado y plantillas abiertas (hace 16 segundos)
-- `426764e` MASTER-SPEC al día con UD-253: sin confirmaciones, casillas, respuestas editables, avisos y listas de Inicio (hace 10 minutos)
-- `fb8b49b` Traspaso: UD-253 completo en main (hace 15 minutos)
-- `bfc4555` Merge wt-inicio-listas (hace 19 minutos)
-- `f376d5c` HALLAZGOS: H-3718 done in wt-inicio-listas (hace 19 minutos)
-- `84042d0` Merge wt-sin-confirmaciones (hace 21 minutos)
-- `e46343b` Merge wt-borrado-multiple (hace 22 minutos)
-- `fee305c` Pruebas: openTemplates no pulsa una sección de plantillas ya abierta (hace 23 minutos)
-Actualizado 2026-10-22 02:56 UTC.
+- `0d5b622` Traspaso: VPS en 8e73dd7, nada en vuelo (hace 44 segundos)
+- `8e73dd7` Áreas: «N plantillas» bajo el nombre y contadores centrados; pruebas al día con Inicio apilado y plantillas abiertas (hace 6 minutos)
+- `426764e` MASTER-SPEC al día con UD-253: sin confirmaciones, casillas, respuestas editables, avisos y listas de Inicio (hace 15 minutos)
+- `fb8b49b` Traspaso: UD-253 completo en main (hace 20 minutos)
+- `bfc4555` Merge wt-inicio-listas (hace 24 minutos)
+- `f376d5c` HALLAZGOS: H-3718 done in wt-inicio-listas (hace 25 minutos)
+- `84042d0` Merge wt-sin-confirmaciones (hace 26 minutos)
+- `e46343b` Merge wt-borrado-multiple (hace 27 minutos)
+Actualizado 2026-10-22 03:02 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

@@ -13,12 +13,20 @@ export function createSessions ({ db, config, now = Date.now }) {
   const touchMs = s.touchSeconds * 1000
 
   /** New session (always regenerated: a previous token is never reused, OWASP Session Management). */
-  function create (memberId) {
+  // `expiresAt`: a session issued after validating the host's token lives as long as that token (H-3720).
+  function create (memberId, { expiresAt = null } = {}) {
     const token = randomBytes(s.tokenBytes).toString('base64url')
     const t = now()
+    const end = expiresAt ?? t + absoluteMs
     run(db, 'INSERT INTO sessions (id, member_id, created_at, last_seen_at, expires_at) VALUES (?, ?, ?, ?, ?)',
-      hashToken(token), memberId, t, t, t + absoluteMs)
-    return { token, maxAgeSeconds: Math.floor(absoluteMs / 1000) }
+      hashToken(token), memberId, t, t, end)
+    return { token, maxAgeSeconds: Math.floor((end - t) / 1000) }
+  }
+
+  /** Moves the end of a live session (the host's token was renewed). Returns false if the token is not a live session. */
+  function renew (token, expiresAt) {
+    if (!token) return false
+    return run(db, 'UPDATE sessions SET expires_at = ?, last_seen_at = ? WHERE id = ? AND expires_at > ?', expiresAt, now(), hashToken(token), now()).changes > 0
   }
 
   /** Returns the member who owns the token, or null if it does not exist, expired or was idle too long. */
@@ -46,5 +54,5 @@ export function createSessions ({ db, config, now = Date.now }) {
     else run(db, 'DELETE FROM sessions WHERE member_id = ?', memberId)
   }
 
-  return { create, lookup, destroy, destroyForMember }
+  return { create, renew, lookup, destroy, destroyForMember, absoluteMs }
 }

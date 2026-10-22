@@ -17,10 +17,11 @@ const REJECTION = 'Petición de otro sitio rechazada.'
 export function csrfGuard (config) {
   const allowedSet = new Set(config.corsOrigins)
   const crossOrigin = config.identity.cookieMode === 'cross-origin'
-  const cookieName = cookieSpec(config).name
+  // Ambient credentials: the session of our own and, if the host shares its JWT in a cookie, that cookie (H-3720).
+  const cookieNames = [cookieSpec(config).name, config.identity.jwtCookieName].filter(Boolean)
   return async function csrf (request) {
     if (SAFE_METHODS.has(request.method)) return
-    if (request.cookies?.[cookieName] && !request.headers['x-team-request']) {
+    if (cookieNames.some((n) => request.cookies?.[n]) && !request.headers['x-team-request']) {
       throw forbidden('Falta la cabecera X-Team-Request en una petición con sesión.', 'csrf')
     }
     const site = request.headers['sec-fetch-site']

@@ -10,6 +10,8 @@ import { createMember, deleteMember, getMember, listMembers, updateMember } from
 import { removeUnreferencedBlobs } from '../../domain/storage.js'
 import { requireConfirm } from '../confirm.js'
 import { hashPassword, validatePassword, verifyPassword } from '../../identity/password.js'
+import { isRoleGoverned } from '../../identity/delegated.js'
+import { identitySources } from '../../config.js'
 import { pageEnvelope, pageParams, pageQuerySchema, pageResult } from '../pagination.js'
 import { idParams, member } from '../schemas.js'
 
@@ -19,7 +21,7 @@ const languageTag = { type: 'string', enum: LANGUAGES } // UD-018: exactly two v
 export function registerMemberRoutes (app, ctx) {
   const { db, config, requireRole, identity, blocklist, queue } = ctx
   const profileText = { type: 'string', maxLength: config.members.profileMaxLength, description: 'Perfil: un par de párrafos en primera persona (UD-023).' }
-  const local = config.identity.provider === 'local'
+  const local = identitySources(config.identity).includes('local')
 
   async function savePassword (memberId, password, actorId) {
     if (!local) throw conflict('La contraseña la administra el sitio anfitrión.', 'password_managed_externally')
@@ -114,6 +116,10 @@ export function registerMemberRoutes (app, ctx) {
   }, async (request) => {
     const { password, ...edits } = request.body
     const id = request.params.id
+    // H-3720: the host declares this member's role on every entry; a local change would be undone on the next one.
+    if (edits.role !== undefined && isRoleGoverned(db, id) && edits.role !== getMember(db, id).role) {
+      throw conflict('El rol lo administra el sitio anfitrión.', 'role_managed_externally')
+    }
     if (password !== undefined) {
       await savePassword(id, password, request.member.id) // also resets the failed-attempts counter
       identity.sessions.destroyForMember(id)

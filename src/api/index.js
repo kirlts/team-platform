@@ -20,6 +20,7 @@ import { installErrorHandler, schemaErrorFormatter } from './errors.js'
 import { installSecurityHeaders } from './security.js'
 import { cookieSpec } from '../identity/cookies.js'
 import { registerIdentity } from '../identity/index.js'
+import { isRoleGoverned } from '../identity/delegated.js'
 import { loadBlocklist } from '../identity/password.js'
 import { registerEventRoutes } from '../events/routes.js'
 import { registerInputRoutes } from './routes/inputs.js'
@@ -226,12 +227,12 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
       onRequest: [requireRole('member')],
       schema: {
         summary: 'The signed-in person and the project name',
-        response: { 200: { type: 'object', properties: { ...memberSchema.properties, project_name: { type: 'string' }, provider: { type: 'string' }, password_min_length: { type: 'integer' }, ui_telemetry: { type: 'object', properties: { enabled: { type: 'boolean' }, max_events: { type: 'integer' } } } } } }
+        response: { 200: { type: 'object', properties: { ...memberSchema.properties, project_name: { type: 'string' }, provider: { type: 'string' }, source: { type: 'string', description: 'De dónde salió la identidad en esta petición: session (la cookie propia) o la fuente del anfitrión (jwt, signed-header, trusted-header).' }, role_managed_externally: { type: 'boolean' }, password_min_length: { type: 'integer' }, ui_telemetry: { type: 'object', properties: { enabled: { type: 'boolean' }, max_events: { type: 'integer' } } } } } }
       }
     }, async (request) => {
       const dbRow = get(db, `SELECT ${MEMBER_COLUMNS} FROM members WHERE id = ?`, request.member.id)
       // The minimum length is the server's (PASSWORD_MIN_LENGTH): the panel says it before the person types, it does not repeat a number of its own.
-      return { ...toMember(dbRow), project_name: config.projectName, provider: identity.provider.name, password_min_length: config.identity.password.minLength, ui_telemetry: { enabled: getUiTelemetryEnabled(db, config), max_events: config.uiTelemetry.maxEvents } }
+      return { ...toMember(dbRow), project_name: config.projectName, provider: identity.provider.name, source: request.member.source, role_managed_externally: isRoleGoverned(db, request.member.id), password_min_length: config.identity.password.minLength, ui_telemetry: { enabled: getUiTelemetryEnabled(db, config), max_events: config.uiTelemetry.maxEvents } }
     })
     api.get('/health', { config: { public: true }, schema: healthSchema }, healthHandler)
     api.get('/openapi.json', {

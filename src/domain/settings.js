@@ -6,6 +6,8 @@
 // require restarting or touching the environment.
 
 import { all, get, run } from '../db/index.js'
+import { defaultFraming } from '../analyze/prompts.js'
+import { LANGUAGES } from './language.js'
 
 export const MODALITIES = ['text', 'vision', 'speech']
 const SLOT_PREFIX = { text: 'TEXT', vision: 'VISION', speech: 'SPEECH' }
@@ -76,8 +78,68 @@ export function setProjectDescription (db, description, now = Date.now) {
            ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`, PROJECT_DESCRIPTION_KEY, JSON.stringify(description), now())
 }
 
+const readSetting = (db, key) => {
+  const row = get(db, 'SELECT value_json FROM settings WHERE key = ?', key)
+  if (!row) return undefined
+  try { return JSON.parse(row.value_json) } catch { return undefined }
+}
+const writeSetting = (db, key, value, now = Date.now) => run(db, `INSERT INTO settings (key, value_json, updated_at) VALUES (?, ?, ?)
+           ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`, key, JSON.stringify(value), now())
+
+// ---- Project name (H-3722). Written by the Editor in Configuración; without a stored one, PROJECT_NAME is the name.
+const PROJECT_NAME_KEY = 'project_name'
+
+export function getProjectName (db, config) {
+  const v = readSetting(db, PROJECT_NAME_KEY)
+  return typeof v === 'string' && v.trim() ? v : config.projectName
+}
+
+/** An empty name goes back to the environment's. */
+export function setProjectName (db, name, now = Date.now) {
+  const v = String(name ?? '').trim()
+  if (!v) run(db, 'DELETE FROM settings WHERE key = ?', PROJECT_NAME_KEY)
+  else writeSetting(db, PROJECT_NAME_KEY, v, now)
+}
+
 /** What the analyzer receives (bundle.project): the project name and its description. */
-export const getProject = (db, config) => ({ name: config.projectName, description: getProjectDescription(db) })
+export const getProject = (db, config) => ({ name: getProjectName(db, config), description: getProjectDescription(db) })
+
+// ---- Analysis framing (H-3722). The paragraph that opens every system prompt of the analyzer: who the inbox belongs to
+// and what an input tends to carry. One text per language, because each prompt set is written natively in its language
+// and the account language changes the whole prompt (UD-018); a framing in another language would be the only foreign
+// paragraph of the prompt. A language without a stored text uses the default of its set.
+const FRAMING_KEY = 'analysis.framing'
+
+function storedFraming (db) {
+  const v = readSetting(db, FRAMING_KEY)
+  return v && typeof v === 'object' ? v : {}
+}
+
+/** The framing the analyzer receives for a language: the stored text, or the default of the set. */
+export function getFraming (db, language) {
+  const v = storedFraming(db)[language]
+  return typeof v === 'string' && v.trim() ? v : defaultFraming(language)
+}
+
+/** Per language: the text in force, the default and whether the Editor changed it. */
+export function getFramingView (db) {
+  const stored = storedFraming(db)
+  return Object.fromEntries(LANGUAGES.map((lang) => {
+    const own = typeof stored[lang] === 'string' && stored[lang].trim() ? stored[lang] : null
+    return [lang, { value: own ?? defaultFraming(lang), default: defaultFraming(lang), custom: own !== null }]
+  }))
+}
+
+/** Patch `{ language: text }`. An empty text, or the default itself, goes back to the default. */
+export function setFraming (db, patch, now = Date.now) {
+  const next = { ...storedFraming(db) }
+  for (const [lang, text] of Object.entries(patch)) {
+    const v = String(text ?? '').trim()
+    if (!v || v === defaultFraming(lang)) delete next[lang]
+    else next[lang] = v
+  }
+  writeSetting(db, FRAMING_KEY, next, now)
+}
 
 // ---- Publication mode (UD-070). `auto_publish` is the knob that returns to the review that preceded UD-070: on (the
 // default), a valid proposal is published as soon as the analysis ends; off, it waits as `proposed` for its sender

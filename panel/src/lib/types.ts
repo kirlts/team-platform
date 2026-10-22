@@ -130,7 +130,7 @@ export interface InputRecord {
   /** Stable code of the failure; the panel translates it to its catalog. */
   error_code?: string | null
   /** State of the job, when the API sends it with the input. */
-  job?: { id: string; status: string; percent: number | null; phrase: string | null } | null
+  job?: { id: string; status: string; percent: number | null; phrase: string | null; code?: string | null; vars?: Record<string, number> } | null
   /** Count of proposed messages for the tray row; without it, the length of `proposal.messages`. */
   proposed_count?: number
   updated_at?: string
@@ -300,6 +300,9 @@ export interface ProgressEvent {
   input_id?: string
   percent: number
   phrase: string
+  /** Stable code of the step (H-3722); absent from a server older than the codes. */
+  code?: string | null
+  vars?: Record<string, number>
   at?: string
 }
 

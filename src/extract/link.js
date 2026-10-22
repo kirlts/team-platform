@@ -9,6 +9,7 @@ import { ExtractError } from './errors.js';
 import { resolveSafeHost } from './lib/ssrf.js';
 import { createProgress } from './lib/progress.js';
 import { annotate, withSpan } from '../telemetry/api.js';
+import { step } from '../domain/progress-phrases.js';
 
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const HTML_TYPES = new Set(['text/html', 'application/xhtml+xml']);
@@ -146,7 +147,7 @@ export async function extractLink(attachment, ctx) {
   const progress = createProgress(ctx.onProgress, 3);
   const startedAt = performance.now();
   const url = parseUrl(attachment.url ?? attachment.path);
-  progress.report('Descarga del enlace');
+  progress.report(step('linkDownload'));
   const got = await withSpan('extract.link_download', { 'team.step': 'extract.link_download', 'team.tool': 'undici', 'url.full': url.href }, async () => {
     const out = await download(url, ctx);
     annotate({
@@ -159,7 +160,7 @@ export async function extractLink(attachment, ctx) {
     });
     return out;
   });
-  progress.advance('Enlace descargado');
+  progress.advance(step('linkDownloaded'));
 
   const type = got.contentType.split(';')[0].trim().toLowerCase();
   const warnings = [];
@@ -184,9 +185,9 @@ export async function extractLink(attachment, ctx) {
   } else {
     throw new ExtractError('link_unsupported_type', 'El enlace no apunta a una página que se pueda leer.', { contentType: type });
   }
-  progress.advance('Contenido principal leído');
+  progress.advance(step('linkMain'));
   const text = [title ? `# ${title}` : '', markdown, `Fuente: ${got.url.href}`].filter(Boolean).join('\n\n');
-  progress.advance('Enlace convertido');
+  progress.advance(step('linkConverted'));
   return {
     text,
     meta: {

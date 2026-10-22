@@ -10,6 +10,7 @@ import { mapLimit } from './lib/pool.js';
 import { createProgress } from './lib/progress.js';
 import { formatTimestamp } from './lib/time.js';
 import { annotate, withSpan } from '../telemetry/api.js';
+import { step } from '../domain/progress-phrases.js';
 
 /** Progress steps of a transcription: one per chunk. */
 export function planAudio(durationSeconds, cfg) {
@@ -65,7 +66,7 @@ export async function transcribeFile(sourcePath, { durationSeconds, plan }, ctx,
       annotate({ 'team.output_chars': out?.text?.length, 'team.segments': out?.segments?.length });
       return out;
     });
-    progress.advance(`Transcripción: trozo ${chunk.index + 1} de ${plan.length}`);
+    progress.advance(step('transcribeChunk', { n: chunk.index + 1, total: plan.length }));
     return normalizeSegments(result, chunk);
   });
 
@@ -102,14 +103,14 @@ export async function extractAudio(attachment, ctx) {
   }
   const startedAt = performance.now();
   const tmp = createProgress(onProgress, 1);
-  tmp.report('Medición del audio');
+  tmp.report(step('audioMeasure'));
   const info = await probe(attachment.path, { signal });
   if (!info.hasAudio || info.durationSeconds <= 0) {
     throw new ExtractError('audio_no_stream', 'El archivo no contiene una pista de audio que se pueda leer.');
   }
   const { plan, steps, billableSeconds: billable } = planAudio(info.durationSeconds, cfg);
   const progress = createProgress(onProgress, steps);
-  progress.report(`Transcripción: ${steps} ${steps === 1 ? 'trozo' : 'trozos'}`);
+  progress.report(step('transcribeN', { n: steps }));
 
   const segments = await transcribeFile(attachment.path, { durationSeconds: info.durationSeconds, plan }, ctx, progress);
   if (segments.length === 0) warnings.push({ code: 'no_speech', message: 'La transcripción no devolvió texto.' });

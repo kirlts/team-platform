@@ -326,8 +326,9 @@ GET    /api/settings/connections · POST /api/settings/connections             p
 PUT    /api/settings/connections/:name/key · DELETE …/key                     reemplazo con prueba previa; retiro (409 `provider_in_use` con `used_by`, 409 `key_from_environment`)
 DELETE /api/settings/connections/:name · POST …/check                         eliminar un proveedor propio; diagnóstico con duración, causa y lista de modelos
 GET    /api/settings/publication · PATCH /api/settings/publication   { auto_publish } (lee cualquier miembro, escribe el Editor; UD-070)
-GET    /api/settings/project         { name, description } (cualquier miembro)
-PATCH  /api/settings/project         descripción del proyecto en markdown: JSON { description } o multipart con `file` (.md) (Editor; tope PROJECT_DESCRIPTION_MAX_CHARS, 413 al superarlo; bitácora `settings.project.update`)
+GET    /api/settings/project         { name, description, max_chars, name_max_chars } (cualquier miembro)
+PATCH  /api/settings/project         JSON { name?, description? } o multipart con `file` (.md) para la descripción (Editor; topes PROJECT_NAME_MAX_CHARS y PROJECT_DESCRIPTION_MAX_CHARS, 413 al superarlos; un nombre vacío vuelve a PROJECT_NAME; bitácora `settings.project.update`; H-3722)
+GET    /api/settings/analysis · PATCH /api/settings/analysis   { framing: { "es-419"?, en? } } encuadre del analizador por idioma: texto vigente, omisión y `custom` (Editor; tope ANALYSIS_FRAMING_MAX_CHARS por idioma, 413; vacío vuelve a la omisión; bitácora `settings.analysis.framing`; H-3722)
 GET    /api/attachments/:id       archivo, con control de acceso y Range
 
 GET    /api/jobs?state=           la cola de trabajos                         (Editor)
@@ -342,6 +343,18 @@ GET    /api/audit                 bitácora: quién creó, publicó, cerró, rea
 GET    /api/health · GET /health  público; el detalle de base, cola y proveedores, sólo al Editor
 GET    /api/openapi.json          contrato OpenAPI 3.1
 ```
+
+**Ajustes de la instalación** (tabla `settings`, clave y JSON; los escribe el Editor desde Configuración, no hay que tocar código ni reiniciar):
+
+| Clave | Ruta | Omisión | Lo lee |
+|---|---|---|---|
+| `project_name` | `PATCH /api/settings/project` `{ name }` | `PROJECT_NAME` del entorno | `GET /api/me` (barra superior) y el analizador (`bundle.project.name`) |
+| `project_description` | `PATCH /api/settings/project` `{ description }` | vacía | el analizador, en el sistema cacheado (UD-024) |
+| `analysis.framing` | `PATCH /api/settings/analysis` | el párrafo de `src/analyze/prompts-es.js` y `prompts-en.js` | las instrucciones de sistema de clasificar, descomponer y el harness, en el idioma de la cuenta (§7.5) |
+| `auto_publish` | `PATCH /api/settings/publication` | encendida | el worker al terminar el análisis (UD-070) |
+| `telemetry.ui_enabled` | Configuración, Telemetría | encendida | `GET /api/me` (§7.10 ter) |
+| proveedores y conexiones | `/api/settings/providers`, `/api/settings/connections` | el entorno | `src/providers/` (UD-120). Un proveedor compatible con OpenAI se da de alta con nombre, dirección base, clave y modelo, sin cambiar `src/domain/connections.js` |
+
 
 **Quién puede qué sobre un mensaje** (UD-071):
 
@@ -452,6 +465,8 @@ AnalyzeResult = { status:'ok', proposal, units, calls, stats }
               | { status:'refusal' | 'max_tokens' | 'invalid', step, errors, …, units, calls, stats }
 Proposal = { messages:[{ area_id, template_id, title, body, fields, assignee_ids, attachment_ids, unit_ids }], discarded:[{ unit_ids, reason }] }
 ```
+
+**Encuadre** (H-3722): las instrucciones de sistema de clasificar, descomponer y el harness abren con un párrafo que dice de quién es la bandeja y qué suele traer un input. Es el ajuste `analysis.framing`, un texto por idioma, porque cada juego de instrucciones está escrito en su idioma (UD-018). Sin texto guardado vale el de omisión de `prompts-es.js` o `prompts-en.js` («Esta es la bandeja de entrada de un equipo de software pequeño…»). Lo cambia el Editor en Configuración, «Encuadre del análisis», y rige desde el análisis siguiente. Prueba: `src/analyze/framing.test.js`.
 
 Un rechazo del proveedor, un corte por `max_tokens` y una salida inválida o con conflicto MECE tras el único reintento son estados del resultado, no excepciones. El trabajo del input falla sin reintento con ese `error_code` (`src/contracts.md` §1). `calls` trae una entrada por llamada al modelo (paso, proveedor, modelo, tokens, duración, resultado).
 
@@ -681,9 +696,11 @@ El frontmatter se convierte en el esquema JSON de `fields` que el analizador exi
 
 El flujo SSE va con `@fastify/sse` (versión exacta) y repone desde `job_events` lo que ya pasó. El `id` de cada evento es `job_events.seq`, así que una pestaña que se reabre manda `Last-Event-ID` y no pierde el progreso. La reposición se midió en 35 ms, sin acumulación con `@fastify/compress` ni con el proxy de Vite (informe 07).
 
-Los eventos son `progress` (`job_id`, `input_id`, `percent`, `phrase`, `at`), `done` (`job_id`, `input_id`, `status`, `error`, `error_code`, y al terminar un análisis `input_status` `published|proposed` con `message_ids`) y `message` (un aviso por mensaje publicado al equipo, y un aviso dirigido con `reason: assigned` a quien una edición agrega como destinatario). El progreso llega sólo al autor del input y los avisos de mensajes a todo el equipo. El flujo termina con un evento `done` y el cliente cierra. Si el trabajo ya terminó, la ruta responde 204, que es lo que fija el estándar para que el navegador deje de reconectar.
+Los eventos son `progress` (`job_id`, `input_id`, `percent`, `code`, `vars`, `phrase`, `at`), `done` (`job_id`, `input_id`, `status`, `error`, `error_code`, y al terminar un análisis `input_status` `published|proposed` con `message_ids`) y `message` (un aviso por mensaje publicado al equipo, y un aviso dirigido con `reason: assigned` a quien una edición agrega como destinatario). El progreso llega sólo al autor del input y los avisos de mensajes a todo el equipo. El flujo termina con un evento `done` y el cliente cierra. Si el trabajo ya terminó, la ruta responde 204, que es lo que fija el estándar para que el navegador deje de reconectar.
 
-Hay un solo flujo SSE por miembro (`GET /api/events`), no uno por trabajo. Lleva los eventos de progreso con su `job_id` y los avisos de mensajes nuevos. HTTP/1.1 limita a seis las conexiones por dominio, compartidas entre pestañas (informes 03 y 07). El servidor suscribe antes de reponer, lo que dio cero repetidos y cero huecos al reconectar, y manda un latido cada 15 s. En el panel, un hook `useJobProgress` sobre `EventSource` guarda el progreso como estado efímero e invalida la consulta del input al `done`. Los extractores y el analizador emiten `progress(percent, phrase)` por paso real. El porcentaje sale de pasos completados sobre pasos totales, nunca de un reloj.
+Hay un solo flujo SSE por miembro (`GET /api/events`), no uno por trabajo. Lleva los eventos de progreso con su `job_id` y los avisos de mensajes nuevos. HTTP/1.1 limita a seis las conexiones por dominio, compartidas entre pestañas (informes 03 y 07). El servidor suscribe antes de reponer, lo que dio cero repetidos y cero huecos al reconectar, y manda un latido cada 15 s. En el panel, un hook `useJobProgress` sobre `EventSource` guarda el progreso como estado efímero e invalida la consulta del input al `done`. Los extractores y el analizador emiten `progress(percent, step(code, vars))` por paso real. El porcentaje sale de pasos completados sobre pasos totales, nunca de un reloj.
+
+**Frases de progreso** (H-3722): el catálogo es `src/domain/progress-phrases.js`, una frase por `code` y por idioma (`es-419`, `en`), con variables numéricas como `{n}` y `{total}`. El servidor guarda en `job_events` el `code` y `vars` y escribe `phrase` en el idioma del autor del input. El panel traduce por `code` al idioma de quien mira (`panel/src/lib/progress-text.ts`) y muestra `phrase` tal cual si el `code` falta o no lo conoce. Una fila anterior a los códigos recupera el suyo con `codeOfPhrase`, que sólo reconoce textos del propio catálogo. Un idioma nuevo es una columna más del catálogo y del panel, sin tocar los emisores. Pruebas: `src/domain/progress-phrases.test.js` y `panel/src/lib/progress-text.test.ts`.
 
 Un trabajo `execute` emite progreso desde el NDJSON de la sesión: la frase describe la herramienta en uso («Lectura: archivo», «Edición: archivo», «Orden: …», «Subagente: …») y el porcentaje es turnos usados sobre `EXECUTE_MAX_TURNS`. La sesión también informa sus hitos con `team progress <job_id> --percent N --phrase …` (`POST /jobs/:id/progress`, sólo el agente del trabajo; 99 como máximo, porque el 100 lo marca `done`). Un `execute` no tiene input: su `progress` lleva `message_id` y llega a todo el equipo, como el mensaje. El `done` de un `execute` lleva `message_id`, `reply_id`, `session_id` y `cost_usd`, o `error` y `error_code` si falló.
 

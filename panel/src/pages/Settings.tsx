@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react'
 import { AuditLog } from '@/components/AuditLog'
 import { DataReset } from '@/components/DataReset'
 import { FormDialog } from '@/components/FormDialog'
+import { FramingSetting, ProjectNameSetting } from '@/components/InstallationSettings'
 import { PageHeader } from '@/components/PageHeader'
 import { QueuePanel } from '@/components/QueuePanel'
 import { ProjectEditor } from '@/components/ProjectEditor'
@@ -42,9 +43,11 @@ export function Settings() {
             <Theme />
             {editor && <PublicationSetting />}
             {editor && <UiTelemetrySetting />}
+            {editor && <ProjectNameSetting />}
           </div>
           <div className="flex min-w-0 flex-col gap-5">
             <Project editor={editor} />
+            {editor && <FramingSetting />}
             {editor && <ProviderSettings />}
           </div>
         </div>

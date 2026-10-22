@@ -12,6 +12,7 @@ import { createHash } from 'node:crypto'
 import { all, get, run } from '../db/index.js'
 import { iso, parseJson } from '../db/util.js'
 import { audit } from './audit.js'
+import { step } from './progress-phrases.js'
 import { badRequest, conflict, notFound, tooLarge } from './errors.js'
 
 export const INPUT_STATUSES = ['queued', 'extracting', 'analyzing', 'proposed', 'published', 'failed', 'cancelled']
@@ -88,7 +89,7 @@ export function submitInput ({ db, queue, events, now = Date.now }, { authorId, 
         transitionInput(db, existing.id, 'queued', { now })
         audit(db, { memberId: sentById, action: 'input.resubmit', entity: 'input', entityId: existing.id, ...(sentBy ? { detail: { author_id: authorId, sent_by_id: sentById } } : {}), now })
         const jobId = queue.enqueue('analyze', { input_id: existing.id }, { inputId: existing.id })
-        events.publishForJob(jobId, { kind: 'progress', percent: 0, phrase: 'En cola' })
+        events.publishForJob(jobId, { kind: 'progress', percent: 0, phrase: step('queued') })
         return { input: get(db, 'SELECT * FROM inputs WHERE id = ?', existing.id), jobId, created: false, restarted: true }
       }
       return { input: existing, jobId: jobRow?.id ?? null, created: false, restarted: false }
@@ -106,7 +107,7 @@ export function submitInput ({ db, queue, events, now = Date.now }, { authorId, 
     }
     audit(db, { memberId: sentById, action: 'input.create', entity: 'input', entityId: inputId, detail: { atts: files.length + links.length, author_id: authorId, sent_by_id: sentById }, now })
     const jobId = queue.enqueue('analyze', { input_id: inputId }, { inputId })
-    events.publishForJob(jobId, { kind: 'progress', percent: 0, phrase: 'En cola' })
+    events.publishForJob(jobId, { kind: 'progress', percent: 0, phrase: step('queued') })
     return { input: get(db, 'SELECT * FROM inputs WHERE id = ?', inputId), jobId, created: true, restarted: false }
   })
 }
@@ -158,10 +159,12 @@ export function buildInputView ({ db, queue, events }, input) {
     // Flat copy of the job's progress and of the proposal's size, for the tray of in-flight inputs (UD-025).
     percent: progressRow?.percent ?? null,
     phrase: progressRow?.phrase ?? null,
+    code: progressRow?.code ?? null, // H-3722: the stable code the panel translates
+    vars: progressRow?.vars ?? {},
     proposed_count: proposalObj ? (parseJson(proposalObj.payload_json, {}).messages ?? []).length : 0,
     attachments: atts.map(attachmentView),
     job: jobRow
-      ? { id: jobRow.id, status: jobRow.status, attempts: jobRow.attempts, percent: progressRow?.percent ?? null, phrase: progressRow?.phrase ?? null, last_error: jobRow.last_error }
+      ? { id: jobRow.id, status: jobRow.status, attempts: jobRow.attempts, percent: progressRow?.percent ?? null, phrase: progressRow?.phrase ?? null, code: progressRow?.code ?? null, vars: progressRow?.vars ?? {}, last_error: jobRow.last_error }
       : null,
     units: proposalObj ? parseJson(proposalObj.units_json, []).map((u) => ({ id: String(u.id), text: u.text })) : [],
     proposal: proposalObj ? proposalView(parseJson(proposalObj.payload_json, {})) : null,
@@ -248,7 +251,7 @@ export function reprocessInput ({ db, queue, events, now = Date.now }, inputId, 
     transitionInput(db, inputId, 'queued', { now })
     run(db, 'DELETE FROM proposals WHERE input_id = ?', inputId)
     const jobId = queue.enqueue('analyze', { input_id: inputId }, { inputId })
-    events.publishForJob(jobId, { kind: 'progress', percent: 0, phrase: 'En cola' })
+    events.publishForJob(jobId, { kind: 'progress', percent: 0, phrase: step('queued') })
     audit(db, { memberId: actor.id, action: 'input.reprocess', entity: 'input', entityId: inputId, now })
     return { input_id: inputId, job_id: jobId }
   })
@@ -282,7 +285,7 @@ export function editInputText ({ db, config, queue, events, now = Date.now }, in
     transitionInput(db, inputId, 'queued', { now })
     run(db, 'DELETE FROM proposals WHERE input_id = ?', inputId)
     const jobId = queue.enqueue('analyze', { input_id: inputId }, { inputId })
-    events.publishForJob(jobId, { kind: 'progress', percent: 0, phrase: 'En cola' })
+    events.publishForJob(jobId, { kind: 'progress', percent: 0, phrase: step('queued') })
     audit(db, { memberId, action: 'input.edit', entity: 'input', entityId: inputId, detail: { chars: text.length }, now })
     return buildInputView({ db, queue, events }, get(db, 'SELECT * FROM inputs WHERE id = ?', inputId))
   })

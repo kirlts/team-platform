@@ -126,7 +126,7 @@ export function AnalysisPanel({ input, onClose, onDiscarded, onDeleted }: { inpu
       {processing && (
         <div data-ui-stage="progress" className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-2 text-sm">
-            <span>{progress?.phrase ? progressText(progress.phrase, t) : STATUS_PHRASE[input.status] ? t(STATUS_PHRASE[input.status]!) : ''}</span>
+            <span>{progress?.phrase || progress?.code ? progressText(progress, t) : STATUS_PHRASE[input.status] ? t(STATUS_PHRASE[input.status]!) : ''}</span>
             {percent > 0 && <span className="tabular-nums text-muted">{percent} %</span>}
           </div>
           <Meter percent={percent} label={t('analysis.progress')} className="h-2.5" />

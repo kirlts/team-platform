@@ -34,7 +34,7 @@ test('events travel with a text id and the names progress, done and message', as
   env.events.publish({ kind: 'message', data: { message_id: 7, title: 'Hola', author_id: 2 } })
   const [p, d, m] = await s.next(3)
   assert.equal(p.event, 'progress')
-  assert.deepEqual({ ...p.data, at: undefined }, { job_id: String(jobId), input_id: '1', percent: 40, phrase: 'leyendo', at: undefined })
+  assert.deepEqual({ ...p.data, at: undefined }, { job_id: String(jobId), input_id: '1', percent: 40, phrase: 'leyendo', code: null, vars: {}, at: undefined }) // H-3722: a phrase outside the catalogue has no code
   assert.match(p.id, /^\d+$/)
   assert.equal(d.event, 'done')
   assert.equal(d.data.done, true)

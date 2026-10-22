@@ -2,7 +2,7 @@
 // serving panel/dist: `npm run test:flows`.
 import assert from 'node:assert'
 import { after, before, beforeEach, describe, test } from 'node:test'
-import { login, startPanel } from './browser-support.mjs'
+import { login, startPanel, settled } from './browser-support.mjs'
 
 let panel
 let origin = ''
@@ -33,7 +33,8 @@ const json = async (page, path) => (await page.request.get(`${origin}${path}`)).
 
 /** The geometry of the actions of every row drawn inside `scope`, relative to the row and to its line of metadata. */
 const actionRows = (scope) =>
-  scope.locator('article').evaluateAll((articles, actions) =>
+  // Message rows only: the view of an area also lists its templates as articles, open by default (UD-252).
+  scope.locator('article:has(h3 a[href^="/messages/"])').evaluateAll((articles, actions) =>
     articles.map((a) => {
       const box = a.getBoundingClientRect()
       const buttons = [...a.querySelectorAll('a, button')].filter((x) => new RegExp(actions).test(x.textContent.trim()))
@@ -131,6 +132,7 @@ describe('Inicio, Mensajes and Áreas lists (round 5)', () => {
       const list = Array.isArray(body) ? body : body.items
       await page.goto(`${origin}/messages`)
       await page.locator('article').first().waitFor()
+      await settled(page) // the rows are measured once the list settled, not while the first page is being fitted
       const drawn = await actionRows(page.locator('main'))
       assert.ok(drawn.some((r) => !r.reply), 'the sample has a message sent by the session')
       for (const row of drawn) {

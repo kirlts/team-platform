@@ -93,16 +93,16 @@ describe('Inicio (J4 home)', () => {
     }
   })
 
-  test('on a phone the filter of each list is a quiet text switch next to the tab switch, which keeps the pill (J4-home-05)', async () => {
+  test('on a phone both lists are drawn one under the other, with no switch between them, and each filter is a quiet text switch (UD-253, J4-home-05)', async () => {
     const { page, context } = await session('ana', PHONE, { mobile: true })
     try {
       await page.goto(origin)
-      await page.getByRole('radiogroup', { name: 'Lista mostrada' }).waitFor()
-      const main = page.getByRole('radiogroup', { name: 'Lista mostrada' })
       const filter = page.getByRole('radiogroup', { name: /^Mensajes mostrados/ })
+      await filter.waitFor()
+      assert.equal(await page.getByRole('radiogroup', { name: 'Lista mostrada' }).count(), 0, 'no switch between the two lists: they are stacked (H-3718)')
+      await page.getByRole('heading', { name: 'Últimas respuestas' }).waitFor()
       const bg = (l) => l.evaluate((el) => getComputedStyle(el).backgroundColor)
       const radius = (l) => l.evaluate((el) => getComputedStyle(el).borderTopLeftRadius)
-      assert.notEqual(await bg(main), 'rgba(0, 0, 0, 0)', 'the main switch keeps its well')
       assert.equal(await bg(filter), 'rgba(0, 0, 0, 0)', 'the filter has no well')
       assert.equal(await radius(filter), '0px', 'the filter has no pill')
       const chosen = filter.getByRole('radio', { checked: true })

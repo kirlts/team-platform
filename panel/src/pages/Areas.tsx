@@ -179,7 +179,7 @@ function AreaRow({ area, selection }: { area: Area; selection: Selection }) {
         </span>
       </Link>
       {/* Fixed-width column right after the name: the counts line up row by row, and an area with none shows both at zero (UD-211, which amends J3-A-33). Each count leads to Mensajes filtered by the area and that state. */}
-      <span className="col-start-2 row-start-3 mt-1 flex empty:hidden flex-row flex-wrap items-start gap-x-4 gap-y-0.5 sm:col-start-3 sm:row-start-1 sm:mt-0 sm:flex-col sm:flex-nowrap sm:gap-x-0 sm:self-center">
+      <span className="col-start-2 row-start-3 mt-1 flex empty:hidden flex-row flex-wrap items-start gap-x-4 gap-y-0.5 sm:col-start-3 sm:row-start-1 sm:row-span-2 sm:mt-0 sm:flex-col sm:flex-nowrap sm:gap-x-0 sm:self-center">
         {/* An area with neither open nor answered messages says so with the same two counts at zero, in muted ink, so the column is never blank (UD-211). */}
         {empty &&
           (['open', 'answered'] as const).map((status) => (
@@ -196,10 +196,10 @@ function AreaRow({ area, selection }: { area: Area; selection: Selection }) {
             ),
         )}
       </span>
-      <div className="col-start-2 row-start-2 min-w-0 sm:col-start-4 sm:row-start-1">
+      <div className="col-start-2 row-start-2 min-w-0 sm:col-start-4 sm:row-start-1 sm:row-span-2">
         <FoldedText value={area.description} label={t('areas.fieldDescription')} validate={descriptionRule(t)} onSave={change} displayClassName="text-xs text-muted" />
       </div>
-      <Link to={`/areas/${area.id}#plantillas`} aria-label={t('areas.templatesOf', { title: area.title })} className="col-start-2 row-start-4 text-xs font-semibold text-accent-deep hover:underline sm:col-start-4 sm:row-start-2">
+      <Link to={`/areas/${area.id}#plantillas`} aria-label={t('areas.templatesOf', { title: area.title })} className="col-start-2 row-start-4 self-start text-xs font-semibold text-accent-deep hover:underline sm:col-start-2 sm:row-start-2">
         {t('areas.templateCount', { n: templateCount })}
       </Link>
       <Button size="icon-sm" variant="ghost" className="absolute right-3 top-2.5 text-muted hover:text-danger" disabled={del.isPending} title={t('areas.deleteArea')} aria-label={t('areas.deleteAreaOf', { title: area.title })} data-testid="area-delete" onClick={() => void remove()}>

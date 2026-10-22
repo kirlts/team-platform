@@ -21,6 +21,7 @@ import { SCROLLING_PAGES } from './scrolling-pages.mjs'
 import { after, before, describe, test } from 'node:test'
 import assert from 'node:assert'
 import { login, startPanel, settled, watchRequests } from './browser-support.mjs'
+import { cutMessages, feedsInPage } from './home-feeds-support.mjs'
 
 // These tests go through the review of a proposal, which is what the server does with publication by hand (UD-070): they start it with auto-publication off.
 // The automatic path has its own file, `flows-inicio.browser.test.mjs`.
@@ -294,6 +295,69 @@ for (const [width, height] of SIZES) {
     })
   })
 }
+
+// The two lists of Inicio (UD-253, H-3718): the same width and the same height, as tall as the taller content and no taller. Without messages each
+// box is its header and the line that says so (it once was 850 px of empty glass); with two, the two rows; with every list ×8, as tall as the room
+// and paged. Falsified on 2026-10-21 against the 7/5 grid of fixed height: the empty boxes measured the room and their widths differed.
+for (const [width, height] of SIZES) {
+  for (const [state, rows] of [
+    ['sin mensajes', 0],
+    ['con dos mensajes', 2],
+    [`con cada lista ×${TIMES}`, Infinity],
+  ]) {
+    describe(`${width}x${height} the two lists of Inicio ${state}`, () => {
+      test('share width and height and are as tall as the taller content', async () => {
+        const context = await panel.browser.newContext({ viewport: { width, height }, locale: 'es-CL' })
+        const page = await context.newPage()
+        try {
+          await login(page, ORIGIN)
+          if (rows === Infinity) await amplify(page)
+          else await cutMessages(page, rows)
+          await open(page, '/')
+          await page.waitForFunction(() => document.querySelectorAll('main section[aria-label^="Últim"]').length === 2 && !document.querySelector('[data-fit-measuring], main [aria-busy="true"]'))
+          await settled(page)
+          const { failures, boxes } = await page.evaluate(feedsInPage)
+          assert.deepStrictEqual(failures, [], `${failures.join('\n')}\n${JSON.stringify(boxes)}`)
+          const shown = boxes.map((b) => b.rows)
+          if (rows === 0) assert.deepStrictEqual(shown, [0, 0], 'the lists were not emptied: the test would prove nothing')
+          else if (rows === 2) assert.ok(shown.every((n) => n > 0 && n <= 2), `rows on screen ${shown.join(', ')}`)
+          else assert.ok(boxes.some((b) => b.pager), 'with every list ×8 no list pages: the room was not filled')
+        } finally {
+          await page.unrouteAll({ behavior: 'ignoreErrors' })
+          await context.close()
+        }
+      })
+    })
+  }
+}
+
+// A frame that hugs its rows does not grow with the window by itself: the lists measure again when the room around them grows (FitList `bound`).
+// Only the height changes (a width change redraws the rows, which measures again by itself): the rows after growing from 1440x720 to 1440x1080 are the
+// rows of a page opened at 1440x1080.
+describe('the two lists of Inicio fill a window that grows', () => {
+  test('after growing, each list shows as many rows as when opened at the larger size', async () => {
+    const context = await panel.browser.newContext({ viewport: { width: 1440, height: 1080 }, locale: 'es-CL' })
+    const page = await context.newPage()
+    const rows = () => page.evaluate(() => [...document.querySelectorAll('main section[aria-label^="Últim"]')].map((s) => s.querySelectorAll('article').length))
+    try {
+      await login(page, ORIGIN)
+      await open(page, '/')
+      await page.waitForFunction(() => document.querySelectorAll('main section[aria-label^="Últim"] article').length > 0 && !document.querySelector('[data-fit-measuring]'))
+      await settled(page)
+      const large = await rows()
+      await page.setViewportSize({ width: 1440, height: 720 })
+      await page.waitForFunction((n) => [...document.querySelectorAll('main section[aria-label^="Últim"]')].some((s, i) => s.querySelectorAll('article').length < n[i]) && !document.querySelector('[data-fit-measuring]'), large)
+      const small = await rows()
+      await page.setViewportSize({ width: 1440, height: 1080 })
+      await page
+        .waitForFunction((n) => [...document.querySelectorAll('main section[aria-label^="Últim"]')].every((s, i) => s.querySelectorAll('article').length === n[i]) && !document.querySelector('[data-fit-measuring]'), large, { timeout: 5000 })
+        .catch(() => {})
+      assert.deepStrictEqual(await rows(), large, `rows at 1440x1080 ${large.join(', ')}; at 1440x720 ${small.join(', ')}; after growing back ${(await rows()).join(', ')}`)
+    } finally {
+      await context.close()
+    }
+  })
+})
 
 // A list that has settled asks for nothing: its thumbnails are drawn once. The frame of a list measures itself against its neighbors, so a neighbor that
 // changes size at every measure (the strip of areas that wrapped and unwrapped, H-1405) made both lists draw their sixty measuring rows again and again,

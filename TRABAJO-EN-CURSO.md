@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 6911ecb vps-check: la prueba espera el borrado del envío de prueba. Empujado a origin: `6911ecb`.
-- Ramas con commits sin fusionar: `wt-eje-documental` 8 (hace 3 minutos), `wt-sin-confirmaciones` 4 (hace 22 segundos), `wt-borrado-multiple` 3 (hace 3 minutos), `wt-inicio-listas` 3 (hace 3 minutos).
-- Worktrees abiertos: `team-platform`, `borrado-multiple`, `eje-documental`, `inicio-listas`, `sin-confirmaciones`.
+- `main`: 5f9bba8 Eje documental al día con UD-240 a UD-253; libro apunta a main. Empujado a origin: `5f9bba8`.
+- Ramas con commits sin fusionar: `wt-sin-confirmaciones` 5 (hace 2 minutos), `wt-borrado-multiple` 4 (hace 7 segundos), `wt-inicio-listas` 4 (hace 2 minutos).
+- Worktrees abiertos: `team-platform`, `borrado-multiple`, `inicio-listas`, `sin-confirmaciones`.
 - Últimos commits en `main`:
-- `6911ecb` vps-check: la prueba espera el borrado del envío de prueba (hace 5 minutos)
-- `5fc1f6a` Merge branch 'wt-editar-respuestas' (hace 7 minutos)
-- `826af58` Docs: reply edit in MASTER-SPEC §7.1 and §7.2; H-3714 done (hace 8 minutos)
-- `b36b648` Flow: editing a reply in the browser, registered in test:flows (H-3714) (hace 8 minutos)
-- `d6fb0f7` Panel: the author of a reply edits its text in place, with Deshacer and «Editada» (H-3714) (hace 9 minutos)
-- `5d82500` Reply edit by its author: PATCH /messages/:id/replies/:replyId (H-3714) (hace 11 minutos)
-- `cf04e5a` Traspaso: UD-253 en cuatro agentes (hace 11 minutos)
-- `1866265` Conexiones: quitar «Apagadas hasta que la descomposición esté probada» (pedido del dueño) (hace 11 minutos)
-Actualizado 2026-10-22 02:24 UTC.
+- `5f9bba8` Eje documental al día con UD-240 a UD-253; libro apunta a main (hace 67 segundos)
+- `29d8930` Merge branch 'wt-eje-documental' (hace 77 segundos)
+- `4c8323c` REPOMAP: vps-check sin «end-to-end» (hace 2 minutos)
+- `2fe045d` TEST y README: cifras tras fusionar la edición de respuestas (hace 2 minutos)
+- `a1915b3` Fusión de main: migraciones hasta 0012 en MASTER-SPEC y REPOMAP (hace 5 minutos)
+- `17f3591` CHANGELOG y TEST: oraciones partidas bajo 25 palabras (hace 5 minutos)
+- `48831e7` CHANGELOG: entrada del 2026-10-21 noche (hace 6 minutos)
+- `2199f8b` README: Sembrar ejemplos también desde Configuración (hace 6 minutos)
+Actualizado 2026-10-22 02:26 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

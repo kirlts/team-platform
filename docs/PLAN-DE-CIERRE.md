@@ -176,4 +176,4 @@ Se lanza un subagente por archivo de `~/.cache/claude-tmp/juicios/ronda4/encargo
 | 4 Abiertos sin pantalla | hecho: VPS, banco, deuda, Firefox, miniaturas y remanentes en main | 18:45 |
 | 5 Cierre y VPS | hecho: VPS en d1b004e, documentos y libro al día | 19:30 |
 | 6 Borrar y vaciar (UD-240) | en main `9c15614`; VPS en curso | 21:40 |
-| 7 Tarjetas de primer vistazo (UD-241) | en curso: una rama lanzada 21:21 | hora estimada 22:45 |
+| 7 Tarjetas de primer vistazo (UD-241) | en main `8e06914`; VPS en curso | 21:42 |

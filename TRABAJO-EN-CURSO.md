@@ -35,7 +35,7 @@ Encargo UD-240 (borrar y vaciar), lanzado el 2026-10-21 21:17, cuatro agentes a 
 | Rama | Qué | Migración |
 |---|---|---|
 | (fusionadas 21:30 a 21:40) | borrar mensajes y respuestas, borrar envíos, eliminar miembros, vaciar y sembrar: en `main` `9c15614` | 0010, 0011 |
-| `wt-tarjetas-vistazo` | descripción en una línea, tarjetas de altura uniforme, pulido de primer vistazo (UD-241, H-3705), lanzado 21:21 | ninguna |
+| (fusionada 21:42) | tarjetas de altura uniforme y primer vistazo (UD-241, H-3705): en `main` `8e06914` | ninguna |
 
 Al terminar cada uno: fusión a `main` con la receta de siempre y VPS con `~/.cache/claude-tmp/tp/actualizar-vps.sh`. Estado de `main` antes del encargo (19:30): servidor 874 de 880 (6 omitidas), banco 74 de 74, panel 185 de 185, ajuste de pantalla 26 de 26, flujos 221 de 222. El VPS corre `d1b004e`.
 

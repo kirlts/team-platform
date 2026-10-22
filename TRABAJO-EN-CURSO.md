@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: e10d713 Traspaso: corrección de borrado visible y auditoría de paridad en curso. Empujado a origin: `e10d713`.
-- Ramas con commits sin fusionar: ninguna.
-- Worktrees abiertos: `team-platform`.
+- `main`: 3ce07b6 Traspaso: cuatro agentes corrigen la auditoría de paridad. Empujado a origin: `e10d713`.
+- Ramas con commits sin fusionar: `wt-restaurar-borrados` 1 (hace 3 segundos).
+- Worktrees abiertos: `team-platform`, `adjuntos-ficha`, `ajustes-equipo`, `cola-auditoria`, `restaurar-borrados`.
 - Últimos commits en `main`:
-- `e10d713` Traspaso: corrección de borrado visible y auditoría de paridad en curso (hace 16 segundos)
-- `97dd42f` Traspaso: batería completa en verde sobre 300c83b (hace 27 minutos)
-- `676f043` Traspaso: VPS en 300c83b (hace 30 minutos)
-- `7fd91d7` Traspaso: regresiones de la batería arregladas en 300c83b (hace 31 minutos)
-- `300c83b` Panel: tres ajustes tras fusionar UD-240 y UD-241 (hace 32 minutos)
-- `272aeab` Traspaso: VPS en 6d87672 con UD-240 y UD-241 (hace 47 minutos)
-- `3ee284d` Traspaso: las cinco ramas de UD-240 y UD-241 en main (hace 53 minutos)
-- `8e06914` Merge wt-tarjetas-vistazo (hace 55 minutos)
-Actualizado 2026-10-22 01:36 UTC.
+- `3ce07b6` Traspaso: cuatro agentes corrigen la auditoría de paridad (hace 40 segundos)
+- `6b0f665` Borrar desde la pantalla: ícono en cada tarjeta, fila de Áreas y vista de un área; título de tarjeta en una línea (UD-240, UD-241) (hace 2 minutos)
+- `e10d713` Traspaso: corrección de borrado visible y auditoría de paridad en curso (hace 2 minutos)
+- `97dd42f` Traspaso: batería completa en verde sobre 300c83b (hace 29 minutos)
+- `676f043` Traspaso: VPS en 300c83b (hace 32 minutos)
+- `7fd91d7` Traspaso: regresiones de la batería arregladas en 300c83b (hace 34 minutos)
+- `300c83b` Panel: tres ajustes tras fusionar UD-240 y UD-241 (hace 34 minutos)
+- `272aeab` Traspaso: VPS en 6d87672 con UD-240 y UD-241 (hace 49 minutos)
+Actualizado 2026-10-22 01:38 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

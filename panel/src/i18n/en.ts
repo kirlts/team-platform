@@ -571,6 +571,8 @@ export const en: Record<MessageKey, Message> = {
   'error.last_editor': 'At least one active Editor required',
   'error.cannot_delete_self': 'Own account cannot be deleted',
   'error.member_has_history': 'The member has history',
+  'error.invalid_scope': 'Unknown scope',
+  'error.keep_member_required': 'The member to keep is missing',
   'error.units_uncovered': 'Parts of the text are in no message and not in No action',
   'error.units_overlap': 'A part of the text is in more than one place',
   'error.unit_invalid': 'A part of the text does not exist',

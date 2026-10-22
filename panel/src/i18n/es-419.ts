@@ -571,6 +571,8 @@ export const es419 = {
   'error.last_editor': 'Debe quedar un Editor activo',
   'error.cannot_delete_self': 'No se puede eliminar la propia cuenta',
   'error.member_has_history': 'El miembro tiene historial',
+  'error.invalid_scope': 'Alcance desconocido',
+  'error.keep_member_required': 'Falta el miembro que se conserva',
   'error.units_uncovered': 'Hay partes del texto que no están en ningún mensaje ni en Sin acción',
   'error.units_overlap': 'Una parte del texto está en más de un lugar',
   'error.unit_invalid': 'Una parte del texto no existe',

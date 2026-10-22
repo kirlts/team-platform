@@ -78,6 +78,23 @@ export async function releaseBlobs (db, config, files, { discard }) {
 }
 
 /**
+ * Deletes the files of `sha256s` that no row references any more and no upload in flight holds. Called after a deletion
+ * (a member with their history, UD-240) with the hashes its rows carried: a file shared with another input or reply stays.
+ * Returns the number of files removed.
+ */
+export async function removeUnreferencedBlobs (db, config, sha256s) {
+  let removed = 0
+  for (const sha256 of new Set(sha256s)) {
+    if (inFlight.has(sha256) || referenced(db, sha256)) continue
+    const target = blobPath(config, sha256)
+    if (!existsSync(target)) continue
+    await rm(target, { force: true })
+    removed++
+  }
+  return removed
+}
+
+/**
  * Orphan collection: files in the volume that no attachment references and that are older than `olderThanMs`.
  * It is the safety net for a crash between writing a file and its row; an upload that is refused or fails cleans up
  * after itself through `releaseBlobs`. The minimum age is the queue retention (7 days, report 03 §12).

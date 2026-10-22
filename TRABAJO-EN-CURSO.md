@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 1eec0fd Traspaso: cola y auditoría fusionadas. Empujado a origin: `1eec0fd`.
-- Ramas con commits sin fusionar: `wt-ajustes-equipo` 3 (hace 23 segundos).
-- Worktrees abiertos: `team-platform`, `adjuntos-ficha`, `ajustes-equipo`, `cola-auditoria`, `restaurar-borrados`.
+- `main`: 65f2c15 Traspaso: auditoría de paridad en main. Empujado a origin: `65f2c15`.
+- Ramas con commits sin fusionar: ninguna.
+- Worktrees abiertos: `team-platform`.
 - Últimos commits en `main`:
-- `1eec0fd` Traspaso: cola y auditoría fusionadas (hace 11 segundos)
-- `0e02de1` Cola fusionada: comentario en inglés y prueba de respaldo que no depende del orden por milisegundo (hace 13 segundos)
-- `354041c` Merge wt-cola-auditoria (hace 2 minutos)
-- `e8dbbe6` Docs: UD-251, H-3708, H-3709 y §7.1 (all de GET /inputs) (hace 3 minutos)
-- `2e5466e` Traspaso: VPS en 4543d45 (hace 3 minutos)
-- `8c6f348` Flujo de la cola y refresco mientras hay envíos en análisis (UD-251) (hace 3 minutos)
-- `4543d45` Video: reintentar los fotogramas sin descripción y no dejar líneas vacías al análisis (H-3713) (hace 5 minutos)
-- `49216d1` Traspaso: restaurar tras recargar fusionado (hace 9 minutos)
-Actualizado 2026-10-22 01:55 UTC.
+- `65f2c15` Traspaso: auditoría de paridad en main (hace 16 segundos)
+- `8f15e1d` Declarar EXAMPLES_DIR en .env.example (hace 24 segundos)
+- `7036292` Merge wt-ajustes-equipo (hace 3 minutos)
+- `b8e0843` Equipo en teléfono sin solape y rótulo de Vaciar todo con su palabra (UD-252) (hace 3 minutos)
+- `1eec0fd` Traspaso: cola y auditoría fusionadas (hace 8 minutos)
+- `0e02de1` Cola fusionada: comentario en inglés y prueba de respaldo que no depende del orden por milisegundo (hace 8 minutos)
+- `c85f0b4` Equipo, Datos y plantillas: ajustes de pruebas, documentos y UD-252 (hace 8 minutos)
+- `354041c` Merge wt-cola-auditoria (hace 9 minutos)
+Actualizado 2026-10-22 02:02 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

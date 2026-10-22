@@ -17,8 +17,8 @@ const toTemplate = (f, withBody) => ({
 export function listAreas (db, { includeDeleted = false } = {}) {
   const areas = all(db, `
     SELECT a.id, a.title, a.description, a.position, a.color, a.deleted_at,
-           (SELECT COUNT(*) FROM messages m WHERE m.area_id = a.id AND m.status = 'open') AS open_count,
-           (SELECT COUNT(*) FROM messages m WHERE m.area_id = a.id AND m.status <> 'closed') AS unresolved_count,
+           (SELECT COUNT(*) FROM messages m WHERE m.area_id = a.id AND m.status = 'open' AND m.deleted_at IS NULL) AS open_count,
+           (SELECT COUNT(*) FROM messages m WHERE m.area_id = a.id AND m.status <> 'closed' AND m.deleted_at IS NULL) AS unresolved_count,
            (SELECT COUNT(*) FROM templates t WHERE t.area_id = a.id AND t.deleted_at IS NULL) AS template_count
       FROM areas a ${includeDeleted ? '' : 'WHERE a.deleted_at IS NULL'} ORDER BY a.position, a.id`)
   const tpls = all(db, `SELECT id, area_id, name, description, updated_at, deleted_at FROM templates ${includeDeleted ? '' : 'WHERE deleted_at IS NULL'} ORDER BY id`)

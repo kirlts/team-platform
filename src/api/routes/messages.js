@@ -1,10 +1,11 @@
 // Message and reply routes (MASTER-SPEC §7.1).
 
 import { releaseBlobs } from '../../domain/storage.js'
-import { addMessageAttachments, addReply, assertCanAddAttachments, assertCanReply, closeMessage, getMessage, listMessages, messageSummary, reopenMessage, REPLY_KINDS, updateMessage } from '../../domain/messages.js'
+import { addMessageAttachments, addReply, assertCanAddAttachments, assertCanReply, closeMessage, deleteMessage, deleteReply, getMessage, listMessages, messageSummary, reopenMessage, REPLY_KINDS, restoreMessage, restoreReply, updateMessage } from '../../domain/messages.js'
 import { withSpan } from '../../domain/tracing.js'
+import { requireConfirm } from '../confirm.js'
 import { pageEnvelope, pageParams, pageQuerySchema, pageResult } from '../pagination.js'
-import { idIn, idParams, messageCard, messageDetail, messagePatchBody, messageSummary as messageSummarySchema } from '../schemas.js'
+import { confirmQuery, idIn, idParams, messageCard, messageDetail, messagePatchBody, messageSummary as messageSummarySchema } from '../schemas.js'
 import { readMessageAttachmentUpload, readReplyUpload } from '../upload.js'
 
 export function registerMessageRoutes (app, ctx) {
@@ -58,8 +59,72 @@ export function registerMessageRoutes (app, ctx) {
 
   app.get('/messages/:id', {
     onRequest: [requireRole('member')],
-    schema: { summary: 'A message with its thread', params: idParams(), response: { 200: messageDetail } }
-  }, async (request) => getMessage(db, request.params.id))
+    schema: {
+      summary: 'A message with its thread',
+      description: 'Un mensaje borrado responde 404. `include_deleted=true` lo devuelve igual, con `deleted_at`, sólo a un Editor (UD-240); un Miembro recibe 403.',
+      params: idParams(),
+      querystring: { type: 'object', additionalProperties: false, properties: { include_deleted: { type: 'boolean' } } },
+      response: { 200: messageDetail }
+    }
+  }, async (request, reply) => {
+    if (request.query.include_deleted === true && request.member.role !== 'editor') {
+      return reply.code(403).send({ code: 'forbidden', message: 'Ver lo borrado corresponde a un editor.' })
+    }
+    return getMessage(db, request.params.id, { includeDeleted: request.query.include_deleted === true })
+  })
+
+  const replyParams = { type: 'object', required: ['id', 'replyId'], properties: { id: idIn, replyId: idIn } }
+  const spanOf = (request, name, extra = {}) => (fn) => withSpan(name, { 'team.message_id': String(request.params.id), 'team.member_id': String(request.member.id), ...extra }, fn)
+
+  app.delete('/messages/:id', {
+    onRequest: [requireRole('member')],
+    schema: {
+      summary: 'Borrar un mensaje publicado (su emisor o un Editor; exige ?confirm=true)',
+      description: 'Borrado en blando (UD-240): el mensaje deja de aparecer en las listas, los conteos, la búsqueda, los avisos y el hilo de sus respuestas, y `GET /messages/:id` responde 404. Lo deshace `POST /messages/:id/restore`. 403 `not_message_author` si quien pide no es el emisor ni un Editor; 404 si no existe o ya está borrado; 400 `confirm_required` sin la confirmación. Deja la fila `message.delete` en la bitácora.',
+      params: idParams(),
+      querystring: confirmQuery,
+      response: { 204: { type: 'null', description: 'Message deleted; restored with POST /messages/:id/restore.' } }
+    }
+  }, async (request, reply) => {
+    requireConfirm(request)
+    spanOf(request, 'message.delete')(() => deleteMessage({ db, events }, { messageId: request.params.id, actor: request.member }))
+    return reply.code(204).send()
+  })
+
+  app.post('/messages/:id/restore', {
+    onRequest: [requireRole('member')],
+    schema: {
+      summary: 'Restaurar un mensaje borrado (su emisor o un Editor)',
+      description: 'Quita `deleted_at` y devuelve el mensaje con su hilo tal como estaba (UD-240). 409 `not_deleted` si no está borrado; 403 `not_message_author` si quien pide no es el emisor ni un Editor. Deja la fila `message.restore` en la bitácora.',
+      params: idParams(),
+      response: { 200: messageDetail }
+    }
+  }, async (request) => spanOf(request, 'message.restore')(() => restoreMessage({ db, events }, { messageId: request.params.id, actor: request.member })))
+
+  app.delete('/messages/:id/replies/:replyId', {
+    onRequest: [requireRole('member')],
+    schema: {
+      summary: 'Borrar una respuesta (su autor o un Editor; exige ?confirm=true)',
+      description: 'Borrado en blando (UD-240): la respuesta sale del hilo, del conteo y de la búsqueda, y el estado del mensaje se recalcula: `answered` vuelve a `open` si no queda ninguna respuesta vigente y el mensaje no está cerrado. Devuelve el mensaje con su hilo. Lo deshace `POST /replies/:id/restore`. 403 `not_reply_author` si quien pide no es el autor ni un Editor; 404 si la respuesta no existe, ya está borrada o no es de ese mensaje; 400 `confirm_required` sin la confirmación. Deja la fila `reply.delete` en la bitácora.',
+      params: replyParams,
+      querystring: confirmQuery,
+      response: { 200: messageDetail }
+    }
+  }, async (request) => {
+    requireConfirm(request)
+    return spanOf(request, 'reply.delete', { 'team.reply_id': String(request.params.replyId) })(() => deleteReply({ db, events }, { messageId: request.params.id, replyId: request.params.replyId, actor: request.member }))
+  })
+
+  app.post('/replies/:id/restore', {
+    onRequest: [requireRole('member')],
+    schema: {
+      summary: 'Restaurar una respuesta borrada (su autor o un Editor)',
+      description: 'Quita `deleted_at` de la respuesta, recalcula el estado de su mensaje (`open` pasa a `answered` si no está cerrado) y devuelve el mensaje con su hilo (UD-240). 409 `not_deleted` si no está borrada; 403 `not_reply_author` si quien pide no es el autor ni un Editor; 404 si no existe o su mensaje está borrado. Deja la fila `reply.restore` en la bitácora.',
+      params: idParams(),
+      response: { 200: messageDetail }
+    }
+  }, async (request) => withSpan('reply.restore', { 'team.reply_id': String(request.params.id), 'team.member_id': String(request.member.id) },
+    () => restoreReply({ db, events }, { replyId: request.params.id, actor: request.member })))
 
   app.patch('/messages/:id', {
     onRequest: [requireRole('member')],

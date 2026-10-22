@@ -56,7 +56,7 @@ async function shot(page, name) {
   await page.screenshot({ path: `${SHOTS}/${name}.png` })
 }
 
-describe('Equipo: contraseña de otro miembro', () => {
+describe('Team: password of another member', () => {
   test('a member sees no «Contraseña» button and the Editor sees it on the others and not on their own row', async () => {
     const other = await session('bruno', '/team', teamReady)
     try {
@@ -109,7 +109,7 @@ describe('Equipo: contraseña de otro miembro', () => {
   })
 })
 
-describe('Configuración: sembrar ejemplos', () => {
+describe('Settings: seed examples', () => {
   const settingsReady = (page) => page.locator('[data-data-reset]')
 
   test('a member does not see the button', async () => {
@@ -146,7 +146,7 @@ describe('Configuración: sembrar ejemplos', () => {
   })
 })
 
-describe('Plantillas a la vista', () => {
+describe('Templates in view', () => {
   test('the area view opens with the templates unfolded and deleting one takes a single click', async () => {
     for (const [viewport, colorScheme] of [[DESKTOP, 'light'], [DESKTOP, 'dark'], [PHONE, 'light'], [PHONE, 'dark']]) {
       await panel.control.reset()

@@ -21,7 +21,7 @@ import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 
 /** Maximum length of the profile the API accepts (UD-023). */
 const PROFILE_MAX = 4000
-const COLUMNS = 'md:grid-cols-[17rem_7rem_minmax(0,1fr)_7rem]'
+const COLUMNS = 'md:grid-cols-[15rem_6rem_minmax(0,1fr)_13rem]'
 
 /** An address that may only break after a separator, never in the middle of a word (J1-A-39). */
 function withBreaks(email: string) {
@@ -193,11 +193,11 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
       {/* On a phone the cell dissolves: the action shares the row of the role, on the right edge, and the failure takes its own row below the profile. */}
       <div className="flex min-w-0 flex-col items-end gap-1 max-md:contents">
         {canEditPeople && !self && (
-          <div className="flex flex-col items-end gap-1 max-md:col-start-2 max-md:row-start-2 max-md:max-w-60 max-md:self-center" data-removal={removal === 'idle' ? undefined : removal === 'confirm' ? 'confirm' : 'history'}>
+          <div className="flex flex-col items-end gap-1 max-md:col-start-2 max-md:row-start-2 max-md:self-center" data-removal={removal === 'idle' ? undefined : removal === 'confirm' ? 'confirm' : 'history'}>
             {removal !== 'idle' && removal !== 'confirm' && (
               <span className="text-right text-xs text-muted max-md:text-left">{t('team.history', removal)}</span>
             )}
-            <div className="flex flex-wrap justify-end gap-1">
+            <div className="flex flex-wrap justify-end gap-1 max-md:[&>button]:px-2">
               {removal === 'idle' && (
                 <Button size="sm" variant="secondary" className="font-normal hover:border-danger hover:text-danger" onClick={() => { setProblem(null); setRemoval('confirm') }} aria-label={t('team.deleteOf', { name: member.name })}>
                   {t('team.delete')}

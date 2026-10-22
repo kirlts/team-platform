@@ -259,7 +259,8 @@ const VIEWS = [
   { name: 'mensajes', path: '/messages' },
   { name: 'detalle', path: null },
   { name: 'áreas', path: '/areas' },
-  { name: 'área abierta', path: '/areas/a-error' },
+  // The templates start open (UD-252, which UD-017 allows): at 1280x720 the page scrolls, and only its height checks are lifted.
+  { name: 'área abierta', path: '/areas/a-error', scrolls: true },
   { name: 'equipo', path: '/team' },
   { name: 'configuración', path: '/settings' },
 ]

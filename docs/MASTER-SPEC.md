@@ -318,6 +318,7 @@ GET    /api/attachments/:id       archivo, con control de acceso y Range
 
 GET    /api/jobs?state=           la cola de trabajos                         (Editor)
 DELETE /api/jobs?state=&confirm=true   purga los terminados                   (Editor)
+POST   /api/ops/seed?confirm=true  envía en proceso el juego de `ejemplos/` (Editor; UD-252): un envío por archivo o subcarpeta, a nombre de quien pide, por el análisis real; responde 202 `{ created, existing }`; costo real del juego completo, unos 0,01 USD con Claude Haiku 5.5; bitácora `data.seed`; Configuración, Datos, «Sembrar ejemplos»
 POST   /api/ops/reset?confirm=true  { scope: content|everything } vacía los datos de prueba (Editor; UD-240). `content`: envíos, adjuntos, trabajos, propuestas, mensajes, respuestas y telemetría, y los archivos del volumen sin referencia; `everything`: además los otros miembros, y áreas y plantillas vuelven al juego inicial de `templates/`. Una transacción; bitácora `data.reset` con las cifras; responde las cifras por tabla y los bytes liberados. Por línea de comandos: `scripts/vaciar.mjs`; siembra de prueba por la API: `scripts/sembrar.mjs`
 GET    /api/jobs/:id/trace        árbol de spans de un trabajo                (Editor)
 POST   /api/telemetry/ui          lote de eventos de interfaz (cualquier miembro, cabecera X-Team-Request; 204)

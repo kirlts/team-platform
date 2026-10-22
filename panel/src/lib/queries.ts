@@ -593,7 +593,7 @@ export function useSaveProject() {
   })
 }
 
-// ---- Ajustes de Equipo y Datos (UD-252)
+// ---- Team and Data controls (UD-252)
 
 /** Another member's password (PATCH /members/:id, Editor): it closes that person's sessions. */
 export function useSetMemberPassword() {

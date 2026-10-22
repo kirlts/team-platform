@@ -148,6 +148,26 @@ test('THEME_CSS: served under the base as theme.css and linked after the panel s
     await without.close()
   }
   assert.equal(loadConfig({ DATA_DIR: dir, THEME_CSS: theme }).themeCss, theme)
+})
+
+test('THEME_CSS: fonts next to the theme file are served under theme/, and nothing else is', async () => {
+  const dir = tempDir()
+  const theme = path.join(dir, 'anfitrion.css')
+  writeFileSync(theme, '@font-face { src: url(theme/letra.woff2) }')
+  writeFileSync(path.join(dir, 'letra.woff2'), 'wOF2')
+  writeFileSync(path.join(dir, 'secreto.env'), 'KEY=1')
+  const withTheme = await mounted('team', { themeCss: theme })
+  try {
+    const font = await withTheme.app.inject({ url: '/team/theme/letra.woff2' })
+    assert.equal(font.statusCode, 200)
+    assert.equal(font.headers['content-type'], 'font/woff2')
+    assert.equal(font.body, 'wOF2')
+    assert.equal((await withTheme.app.inject({ url: '/team/theme/secreto.env' })).statusCode, 404)
+    assert.equal((await withTheme.app.inject({ url: '/team/theme/..%2Fsecreto.env' })).statusCode, 404)
+    assert.equal((await withTheme.app.inject({ url: '/team/theme/falta.woff2' })).statusCode, 404)
+  } finally {
+    await withTheme.close()
+  }
   assert.throws(() => loadConfig({ DATA_DIR: dir, THEME_CSS: path.join(dir, 'no-existe.css') }), /THEME_CSS/)
 })
 

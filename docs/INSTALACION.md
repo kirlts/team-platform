@@ -283,7 +283,7 @@ CSP_CONNECT_SRC=https://api.ejemplo.com
 
 Sin esas variables, la CSP es la de siempre: `connect-src 'self'` y `frame-ancestors 'none'`.
 
-El color, la tipografía y el radio se cambian sin recompilar con un archivo `.css` del anfitrión. `THEME_CSS=/ruta/tema.css` lo nombra; en Docker, la ruta es de un volumen montado. El servidor lo entrega como `/team/theme.css`, después de la hoja del panel, y lo relee en cada petición. Las variables que acepta están en MASTER-SPEC §7.8, «Contrato del tema».
+El color, la tipografía y el radio se cambian sin recompilar con un archivo `.css` del anfitrión. `THEME_CSS=/ruta/tema.css` lo nombra; en Docker, la ruta es de un volumen montado. El servidor lo entrega como `/team/theme.css`, después de la hoja del panel, y lo relee en cada petición. Las fuentes e imágenes que estén en la misma carpeta (`.woff2`, `.woff`, `.ttf`, `.png`, `.svg`, `.webp`) se sirven bajo `/team/theme/<archivo>`; la hoja las nombra con `url(theme/<archivo>)`, porque la CSP sólo admite fuentes del mismo origen. Las variables que acepta están en MASTER-SPEC §7.8, «Contrato del tema».
 
 ```css
 :root[data-theme='light'], :root[data-theme='dark'] { --color-accent: #0a7d55; }

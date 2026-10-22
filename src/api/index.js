@@ -43,6 +43,15 @@ const LABELS = { telemetry: 'Telemetry', auth: 'Session', me: 'Session', inputs:
  * `logger`: a pino instance, `true` to create one from the configuration, or `false` for silence (tests).
  * Returns { app, domainEvents, identity, openapi }.
  */
+const THEME_ASSET_TYPES = {
+  '.woff2': 'font/woff2',
+  '.woff': 'font/woff',
+  '.ttf': 'font/ttf',
+  '.png': 'image/png',
+  '.svg': 'image/svg+xml',
+  '.webp': 'image/webp'
+}
+
 export async function buildApp ({ db, config, queue, events, modules = {}, logger = false, now = Date.now, telemetry = null }) {
   const { version } = config
   const app = Fastify({
@@ -167,6 +176,15 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
     // The host's tokens (THEME_CSS), read on each request so that editing the file needs no restart.
     app.get(`${basePath}theme.css`, { config: { public: true }, schema: { hide: true } }, async (_request, reply) =>
       reply.header('cache-control', 'no-cache').type('text/css; charset=utf-8').send(readFileSync(config.themeCss)))
+    // Fonts and images next to the theme file, so the sheet can say url(theme/<file>) under font-src 'self'.
+    const themeDir = path.dirname(config.themeCss)
+    app.get(`${basePath}theme/:file`, { config: { public: true }, schema: { hide: true } }, async (request, reply) => {
+      const file = request.params.file
+      const type = THEME_ASSET_TYPES[path.extname(file).toLowerCase()]
+      const full = path.join(themeDir, file)
+      if (!type || file !== path.basename(file) || !existsSync(full)) return reply.code(404).send({ error: 'not_found' })
+      return reply.header('cache-control', 'public, max-age=86400').type(type).send(readFileSync(full))
+    })
   }
   const apiPrefixPath = config.apiPrefix
   app.setNotFoundHandler((request, reply) => {

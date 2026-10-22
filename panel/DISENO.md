@@ -151,7 +151,7 @@ La prohibición la hace cumplir `src/no-truncation.test.ts`, la medición del na
 
 ### Tarjeta de lista
 
-UD-241. Una sola grilla para toda fila de Inicio, Mensajes y la vista de un área. Cada dato cae a la misma x y al mismo desplazamiento en todas las filas, y todas miden lo mismo. Lo único que la interfaz corta es el extracto; el texto entero es su tooltip y se lee en la ficha. Lo que no cabe en su línea alarga la fila y no se corta (UD-016): un título de tres líneas o más, un nombre de área, un destinatario.
+UD-241. Una sola grilla para toda fila de Inicio, Mensajes y la vista de un área. Cada dato cae a la misma x y al mismo desplazamiento en todas las filas, y todas miden lo mismo. Lo único que la interfaz corta es el extracto; el texto entero es su tooltip y se lee en la ficha. Lo que no cabe en su línea alarga la fila y no se corta (UD-016). Son tres casos: un título de tres líneas o más, un nombre de área, un destinatario.
 
 | Elemento | Valor |
 |---|---|

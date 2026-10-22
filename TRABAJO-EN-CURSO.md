@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 7a4105f UD-241: descripción de tarjeta en una línea y pulido de primer vistazo. Empujado a origin: `7a4105f`.
-- Ramas con commits sin fusionar: `wt-borrar-mensajes` 2 (hace 82 segundos), `wt-borrar-envios` 1 (hace 2 minutos), `wt-eliminar-miembros` 1 (hace 4 minutos), `wt-tarjetas-vistazo` 1 (hace 2 minutos), `wt-vaciar-sembrar` 1 (hace 4 minutos).
+- `main`: b1cea16 Merge wt-borrar-envios. Empujado a origin: `d2bdbd6`.
+- Ramas con commits sin fusionar: `wt-borrar-mensajes` 4 (hace 32 segundos), `wt-vaciar-sembrar` 2 (hace 2 minutos), `wt-tarjetas-vistazo` 1 (hace 7 minutos).
 - Worktrees abiertos: `team-platform`, `borrar-envios`, `borrar-mensajes`, `eliminar-miembros`, `tarjetas-vistazo`, `vaciar-sembrar`.
 - Últimos commits en `main`:
-- `7a4105f` UD-241: descripción de tarjeta en una línea y pulido de primer vistazo (hace 8 minutos)
-- `e796cd5` Traspaso: encargo UD-240 en vuelo en cuatro ramas (hace 11 minutos)
-- `b9fd82b` UD-240: borrar mensajes, respuestas, envíos y miembros; vaciar y sembrar (hace 14 minutos)
-- `c7489cd` Traspaso final: plan ejecutado, queda sólo lo que necesita al dueño (hace 2 horas)
-- `d1b004e` Merge branch 'wt-resto' (hace 2 horas)
-- `6038b8c` Retira capturas sueltas de panel/undefined (hace 2 horas)
-- `bc2e07d` Merge branch 'wt-respuestas' (hace 2 horas)
-- `f7e8cbc` Inicio: fecha y hora (UD-230) y prueba de Para mí al rótulo vigente (hace 2 horas)
-Actualizado 2026-10-22 00:28 UTC.
+- `b1cea16` Merge wt-borrar-envios (hace 11 segundos)
+- `41dad4a` Docs: DELETE /inputs/:id en MASTER-SPEC §7.1 y fila H-3702 hecha (hace 2 minutos)
+- `c7d2b27` Panel: «Borrar» en la bandeja de envíos con confirmación en el lugar (UD-240, H-3702) (hace 2 minutos)
+- `d2bdbd6` Merge branch 'wt-eliminar-miembros' (hace 4 minutos)
+- `f539493` Docs: DELETE /members/:id en MASTER-SPEC §6 y §7.1; H-3703 hecha (hace 5 minutos)
+- `7d0d99b` Equipo: «Eliminar» con confirmación en el lugar y cifras del historial (UD-240, H-3703) (hace 5 minutos)
+- `6c14020` API: DELETE /inputs/:id borra un envío con adjuntos, trabajos y propuesta (UD-240, H-3702) (hace 7 minutos)
+- `f7def09` Eliminar un miembro: DELETE /members/:id con purge (UD-240, H-3703) (hace 9 minutos)
+Actualizado 2026-10-22 00:33 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

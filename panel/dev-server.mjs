@@ -329,7 +329,7 @@ function writeEvent(res, ev) {
 function replyView(r) {
   const { attachment_ids, ...rest } = r
   const files = (attachment_ids ?? []).map(attachmentView).filter(Boolean)
-  return { ...rest, attachments: files, attachment_kinds: [...new Set(files.map((f) => f.kind))] }
+  return { version: 1, edited_at: null, ...rest, attachments: files, attachment_kinds: [...new Set(files.map((f) => f.kind))] }
 }
 
 function view(msg) {
@@ -1164,6 +1164,23 @@ const server = createServer(async (req, res) => {
       if (url.searchParams.get('confirm') !== 'true') return fail(res, 400, 'Falta la confirmación.', 'confirm_required')
       reply.deleted_at = new Date().toISOString()
       syncStatus(msg)
+      return send(res, 200, { ...view(msg), replies: liveReplies(msg).map(replyView) })
+    }
+    // Edit of the text of a reply by its author only (UD-253), with the version read, as the real API does.
+    if (m && method === 'PATCH') {
+      const msg = messages.find((x) => x.id === m[1] && !x.deleted_at)
+      const reply = msg && (replies.get(msg.id) ?? []).find((r) => r.id === m[2] && !r.deleted_at)
+      if (!reply) return fail(res, 404, 'No existe')
+      if (reply.author_id !== me.id) return fail(res, 403, 'Sólo quien escribió la respuesta la edita', 'not_reply_author')
+      const body = await readJson(req)
+      if (!body || typeof body.body !== 'string' || !Number.isInteger(body.version) || Object.keys(body).some((k) => k !== 'body' && k !== 'version')) return fail(res, 400, 'Faltan el texto o la versión.', 'validation')
+      if (body.version !== (reply.version ?? 1)) return send(res, 409, { code: 'edit_conflict', message: 'La respuesta cambió desde que se leyó.', version: reply.version ?? 1 })
+      if (body.body !== reply.body) {
+        if (!body.body.trim() && !(reply.attachment_ids ?? []).length) return fail(res, 400, 'La respuesta no puede estar vacía.', 'reply_empty')
+        reply.body = body.body
+        reply.version = (reply.version ?? 1) + 1
+        reply.edited_at = new Date().toISOString()
+      }
       return send(res, 200, { ...view(msg), replies: liveReplies(msg).map(replyView) })
     }
     m = /^\/replies\/([^/]+)\/restore$/.exec(path)

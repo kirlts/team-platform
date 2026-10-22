@@ -147,6 +147,10 @@ export interface Reply {
   attachment_kinds?: AttachmentKind[]
   /** The attachments themselves (thumbnails); served at `GET /replies/attachments/:id`, a different id space from the message's. */
   attachments?: Attachment[]
+  /** Grows with every edit by its author (UD-253); PATCH sends the one read. */
+  version?: number
+  /** Time of the last edit by its author; null while never edited (the thread shows «Editada»). */
+  edited_at?: string | null
 }
 
 export interface Message {

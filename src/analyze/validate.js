@@ -96,12 +96,17 @@ export function validateClassification(output, { areas, templates, scope, frameI
   if (errors.length > 0) return { errors };
   // H-3728: a request is born from what the author says or writes. A group made only of frame units, in an input where the author
   // speaks or writes, is a point nobody asked for: the frames go to the group of the request they show, or to discarded.
-  const frameErrors = frameIds ? output.groups.flatMap((g, i) => (g.unit_ids.every((id) => frameIds.has(id))
+  const shapeErrors = frameIds ? output.groups.flatMap((g, i) => (g.unit_ids.every((id) => frameIds.has(id))
     ? [`group ${i + 1}: cites only frame descriptions (${g.unit_ids.map((id) => `u${id}`).join(', ')}); a group is born from what the person says or writes, so put these frames in the group of the point they show, or in discarded when nobody talks about them`]
     : [])) : [];
+  // H-3728: one request per group. The model lists the requests it sees in each group; more than one asks for a split.
+  const requestErrors = output.groups.flatMap((g, i) => (Array.isArray(g.requests) && g.requests.length > 1
+    ? [`group ${i + 1}: lists ${g.requests.length} requests; a group carries one request, so split it into one group per request, each with its own units`]
+    : []));
+  shapeErrors.push(...requestErrors);
   const conflicts = coverage(output.groups.map((g) => ({ unit_ids: g.unit_ids })), output.discarded, scope, 'group');
   // Only overlaps and gaps are left: if the retry does not fix them, `repairClassification` closes them (the output travels in `repairable`).
-  const conflictErrors = [...frameErrors, ...describeConflicts(conflicts)];
+  const conflictErrors = [...shapeErrors, ...describeConflicts(conflicts)];
   return conflictErrors.length > 0 ? { errors: conflictErrors, repairable: output } : { errors: [] };
 }
 

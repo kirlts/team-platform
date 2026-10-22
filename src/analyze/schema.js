@@ -25,13 +25,13 @@ export function buildClassificationSchema({ areas, templates }, { validation = f
           type: 'object',
           properties: {
             unit_ids: validation ? intArray({ minItems: 1, uniqueItems: true }) : intArray({ minItems: 1 }),
-            // H-3728: the single request of the group, named before its area. Writing it in one line is what makes a second
-            // request visible to the model; the system never reads it, it only hands it to the decomposition.
-            request: { type: 'string' },
+            // H-3728: each request the group carries, one line each, named before the area. The validation asks for exactly one
+            // (a count, never a reading of the text); the decomposition receives it.
+            requests: validation ? { type: 'array', items: { type: 'string', minLength: 1 } } : { type: 'array', items: { type: 'string' } },
             area_id: { type: 'integer', enum: areas.map((a) => a.id) },
             template_id: { type: 'integer', enum: templates.map((t) => t.id) },
           },
-          required: ['unit_ids', ...(validation ? [] : ['request']), 'area_id', 'template_id'],
+          required: ['unit_ids', ...(validation ? [] : ['requests']), 'area_id', 'template_id'],
           additionalProperties: false,
         },
       },

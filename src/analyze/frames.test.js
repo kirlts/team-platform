@@ -45,6 +45,12 @@ describe('a frame alone does not become a request (H-3728)', () => {
     assert.ok(out.repairable);
   });
 
+  it('a group that lists two requests is asked to split, and kept as is if the retry does not', () => {
+    const out = validateClassification({ groups: [{ ...group([1, 2, 3, 4, 5]), requests: ['Quitar el rechazo', 'Abrir el historial'] }], discarded: [{ unit_ids: [6], reason: 'x' }] }, ctx);
+    assert.match(out.errors[0], /group 1: lists 2 requests/);
+    assert.deepEqual(repairClassification(out.repairable, ctx.scope, { frameIds }).groups.map((g) => g.unit_ids), [[1, 2, 3, 4, 5]]);
+  });
+
   it('the repair discards a group of frames the retry did not fix', () => {
     const fixed = repairClassification({ groups: [group([1, 2, 3, 4, 5]), group([6])], discarded: [] }, ctx.scope, { frameIds, frameReason: 'Observado, no dicho' });
     assert.deepEqual(fixed.groups.map((g) => g.unit_ids), [[1, 2, 3, 4, 5]]);
@@ -146,7 +152,7 @@ describe('one request per message: spoken runs and declared resumes (H-3728)', (
 
 describe('the classification names the request of each group and the decomposition receives it (H-3728)', () => {
   it('the request goes to the user message of the decomposition of its group', async () => {
-    const fake = createFakeProviders({ text: (req) => (isClassify(req) ? { groups: [{ ...group([1, 2, 3]), request: 'Quitar el rechazo sin comprobante' }, { ...group([4, 5]), request: 'Abrir el historial anterior' }], discarded: [{ unit_ids: [6], reason: 'x' }] } : decompose(req)) });
+    const fake = createFakeProviders({ text: (req) => (isClassify(req) ? { groups: [{ ...group([1, 2, 3]), requests: ['Quitar el rechazo sin comprobante'] }, { ...group([4, 5]), requests: ['Abrir el historial anterior'] }], discarded: [{ unit_ids: [6], reason: 'x' }] } : decompose(req)) });
     const result = await analyze(await videoBundle(), { providers: fake });
     assert.equal(result.status, 'ok');
     const notes = fake.calls.text.filter((r) => !isClassify(r)).map((r) => lastUserText(r).match(/(?:pedido de este grupo|request of this group as): «([^»]+)»/)?.[1]).sort();

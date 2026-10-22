@@ -559,7 +559,7 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
   }, async (span) => {
     const scopeNote = w.parts > 1 ? chunkNote({ index: w.pi, total: w.parts, first: w.units[0].id, last: w.units.at(-1).id, language }) : undefined;
     const label = `[t${w.group.template_id}]${w.parts > 1 ? `#${w.pi + 1}` : ''}`;
-    const r = await decomposeUnits(ctx, { bundle: workBundle, template: w.entry.template, system: w.entry.system, schema: w.entry.schema, units: w.units, scopeNote, label, request: w.group.request });
+    const r = await decomposeUnits(ctx, { bundle: workBundle, template: w.entry.template, system: w.entry.system, schema: w.entry.schema, units: w.units, scopeNote, label, request: Array.isArray(w.group.requests) ? w.group.requests.join('; ') : undefined });
     span.setAttributes({ 'team.status': r.status, 'team.rescued': r.rescued === true });
     if (r.status === 'ok') ctx.report(step('groupDone'), { advance: true });
     return r.status === 'ok' ? { ...r, group: w.group } : r;

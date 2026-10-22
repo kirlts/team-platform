@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useErrorText, useFormat, useT } from '@/i18n'
 import { api } from '@/lib/api'
+import { useSeedExamples } from '@/lib/queries'
 
 type Scope = 'content' | 'everything'
 interface ResetResult {
@@ -27,6 +28,7 @@ export function DataReset() {
   const [arming, setArming] = useState<Scope | null>(null)
   const [word, setWord] = useState('')
   const [result, setResult] = useState<ResetResult | null>(null)
+  const seed = useSeedExamples()
   const reset = useMutation({
     mutationFn: (scope: Scope) => api<ResetResult>('/ops/reset?confirm=true', { method: 'POST', body: { scope } }),
     onSuccess: async (r) => {
@@ -117,8 +119,25 @@ export function DataReset() {
             <SettingHint id="hint-data-everything">{t('hint.data.everything')}</SettingHint>
           </dd>
         </div>
+        <div className="flex flex-col gap-0.5">
+          <dt className="text-sm text-muted">{t('data.examples')}</dt>
+          <dd aria-describedby="hint-data-examples" className="flex flex-col items-start gap-1">
+            <div className="flex flex-wrap items-center gap-3">
+              <Button size="sm" onClick={() => seed.mutate()} disabled={seed.isPending || reset.isPending} aria-describedby="hint-data-examples">
+                {t('data.seed')}
+              </Button>
+              {seed.data && (
+                <span data-seed-figure role="status" className="tabular-nums">
+                  {t('data.sent', { n: seed.data.created + seed.data.existing })}
+                </span>
+              )}
+            </div>
+            <SettingHint id="hint-data-examples">{t('hint.data.examples')}</SettingHint>
+          </dd>
+        </div>
       </dl>
       <div role="alert" aria-live="assertive">
+        {seed.isError && <p className="break-words text-sm text-danger">{errorText(seed.error)}</p>}
         {reset.isError && <p className="break-words text-sm text-danger">{errorText(reset.error)}</p>}
       </div>
       {result && (

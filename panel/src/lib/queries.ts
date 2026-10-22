@@ -592,3 +592,19 @@ export function useSaveProject() {
     onSuccess: (saved) => qc.setQueryData(['project'], saved),
   })
 }
+
+// ---- Ajustes de Equipo y Datos (UD-252)
+
+/** Another member's password (PATCH /members/:id, Editor): it closes that person's sessions. */
+export function useSetMemberPassword() {
+  return useMutation({ mutationFn: (v: { id: string; password: string }) => api<Member>(`/members/${v.id}`, { method: 'PATCH', body: { password: v.password } }) })
+}
+
+/** Loads the sample set of ejemplos/ (POST /ops/seed, Editor): the inputs enter the tray and go through the real analysis. */
+export function useSeedExamples() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api<{ created: number; existing: number }>('/ops/seed?confirm=true', { method: 'POST' }),
+    onSuccess: () => qc.invalidateQueries(),
+  })
+}

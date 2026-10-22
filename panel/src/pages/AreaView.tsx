@@ -1,6 +1,6 @@
 import { ChevronLeft, Trash2 } from '@/components/icons'
-import { useMemo } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router'
+import { useEffect, useMemo } from 'react'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { Templates, descriptionRule, nameRule } from '@/components/AreaTemplates'
 import { AreaColorPicker } from '@/components/AreaColorPicker'
 import { EditableText } from '@/components/EditableText'
@@ -53,6 +53,11 @@ function AreaViewBody({ area }: { area: Area }) {
   const query = useMemo<MessageQuery>(() => ({ filters: [{ prop: 'area', op: 'eq', value: area.id }, ...(status ? [{ prop: 'status' as const, op: 'eq' as const, value: status }] : [])], q: '' }), [area.id, status])
   const list = useMessages({ query, meId: me?.id ?? '', enabled: !!me })
   const counts = areaCounts(summary, area.id)
+  // «N plantillas» of the list of areas links to #plantillas: the section is open and the page brings it into view.
+  const { hash } = useLocation()
+  useEffect(() => {
+    if (hash === '#plantillas') document.getElementById('plantillas')?.scrollIntoView({ block: 'start' })
+  }, [hash, templates.isSuccess])
   const templateCount = (templates.data ?? []).filter((x) => !x.deleted_at).length
 
   const choose = (next: MessageStatus | null) =>
@@ -127,7 +132,7 @@ function AreaViewBody({ area }: { area: Area }) {
                 <div data-slot="area-color" className="shrink-0 empty:hidden" />
               </div>
             </Fold>
-            <Fold title={t('areas.templates')} note={templateCount}>
+            <Fold title={t('areas.templates')} note={templateCount} defaultOpen anchor="plantillas">
               <div className="flex h-[min(22rem,38dvh)] min-h-0 flex-col max-md:h-auto">
                 <Templates area={area} />
               </div>

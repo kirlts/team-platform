@@ -11,10 +11,11 @@ import { PageHeader } from '@/components/PageHeader'
 import { UndoButtons } from '@/components/UndoButtons'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useErrorText, useT } from '@/i18n'
 import { useNotices } from '@/lib/notices'
-import { useCreateMember, useDeleteMember, useMe, useMembers, useSaveMember } from '@/lib/queries'
+import { useCreateMember, useDeleteMember, useMe, useMembers, useSaveMember, useSetMemberPassword } from '@/lib/queries'
 import type { Member, Role } from '@/lib/types'
 import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 
@@ -96,6 +97,10 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
   const remove = useDeleteMember()
   const notices = useNotices()
   const errorText = useErrorText()
+  const setPassword = useSetMemberPassword()
+  /** The password typed in the row (null while the field is closed). With external identity the host administers it and the control does not exist. */
+  const [password, setPasswordValue] = useState<string | null>(null)
+  const local = !useMe().data?.provider?.startsWith('delegated')
   const [problem, setProblem] = useState<string | null>(null)
   /** Deleting asks in place (UD-240): «Eliminar» turns into «Eliminar miembro» and «Cancelar»; with history the server answers the counts and the choice is deactivate or delete with everything. */
   const [removal, setRemoval] = useState<'idle' | 'confirm' | { inputs: number; messages: number; replies: number }>('idle')
@@ -133,6 +138,16 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
     }
   }
   const busy = remove.isPending
+  const savePassword = async () => {
+    try {
+      await setPassword.mutateAsync({ id: member.id, password: password ?? '' })
+      setPasswordValue(null)
+      setProblem(null)
+      notices.show({ text: t('team.passwordDone', { name: member.name }) })
+    } catch (err) {
+      setProblem(errorText(err))
+    }
+  }
 
   return (
     <div className={`grid items-start gap-x-4 gap-y-2 max-md:grid-cols-[minmax(0,1fr)_auto] border-b border-line px-4 py-3 last:border-b-0 ${COLUMNS} ${member.active ? '' : 'bg-closed-bg/30'}`}>
@@ -178,7 +193,7 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
       {/* On a phone the cell dissolves: the action shares the row of the role, on the right edge, and the failure takes its own row below the profile. */}
       <div className="flex min-w-0 flex-col items-end gap-1 max-md:contents">
         {canEditPeople && !self && (
-          <div className="flex flex-col items-end gap-1 max-md:col-start-2 max-md:row-start-2 max-md:self-center" data-removal={removal === 'idle' ? undefined : removal === 'confirm' ? 'confirm' : 'history'}>
+          <div className="flex flex-col items-end gap-1 max-md:col-start-2 max-md:row-start-2 max-md:max-w-60 max-md:self-center" data-removal={removal === 'idle' ? undefined : removal === 'confirm' ? 'confirm' : 'history'}>
             {removal !== 'idle' && removal !== 'confirm' && (
               <span className="text-right text-xs text-muted max-md:text-left">{t('team.history', removal)}</span>
             )}
@@ -186,6 +201,11 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
               {removal === 'idle' && (
                 <Button size="sm" variant="secondary" className="font-normal hover:border-danger hover:text-danger" onClick={() => { setProblem(null); setRemoval('confirm') }} aria-label={t('team.deleteOf', { name: member.name })}>
                   {t('team.delete')}
+                </Button>
+              )}
+              {removal === 'idle' && local && password === null && (
+                <Button size="sm" variant="secondary" className="font-normal" onClick={() => { setProblem(null); setPasswordValue('') }} aria-label={t('team.passwordOf', { name: member.name })}>
+                  {t('team.password')}
                 </Button>
               )}
               {removal !== 'confirm' && (
@@ -217,6 +237,21 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
           </span>
         )}
       </div>
+      {password !== null && (
+        <form
+          data-password-form
+          className="flex flex-wrap items-center justify-end gap-2 col-span-full"
+          onSubmit={(e) => { e.preventDefault(); void savePassword() }}
+        >
+          <Input type="password" autoComplete="new-password" spellCheck={false} autoFocus value={password} onChange={(e) => setPasswordValue(e.target.value)} aria-label={t('team.passwordNew')} placeholder={t('team.passwordNew')} className="w-56" />
+          <Button size="sm" type="submit" disabled={!password || setPassword.isPending}>
+            {t('common.save')}
+          </Button>
+          <Button size="sm" type="button" variant="ghost" disabled={setPassword.isPending} onClick={() => { setPasswordValue(null); setProblem(null) }}>
+            {t('common.cancel')}
+          </Button>
+        </form>
+      )}
     </div>
   )
 }

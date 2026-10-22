@@ -795,6 +795,30 @@ const server = createServer(async (req, res) => {
       }
       return send(res, 200, { scope: body.scope, deleted, files: blobs.length, bytes_freed: bytesFreed })
     }
+    // --- sample set (UD-252): one input per example of ejemplos/, like POST /api/ops/seed
+    if (path === '/ops/seed' && method === 'POST') {
+      if (needEditor()) return
+      if (url.searchParams.get('confirm') !== 'true') return fail(res, 400, 'La operación exige confirm=true en la dirección.', 'confirm_required')
+      const { readExamples } = await import('../src/domain/seed-examples.js')
+      let created = 0
+      let existing = 0
+      for (const send of readExamples(new URL('../ejemplos/', import.meta.url).pathname)) {
+        const datas = send.files.map((f) => ({ ...f, data: readFileSync(f.path) }))
+        const hash = createHash('sha256').update(me.id).update(send.text).update(datas.map((f) => createHash('sha256').update(f.data).digest('hex')).join()).digest('hex')
+        if ([...inputs.values()].some((i) => i.content_hash === hash && i.status !== 'cancelled' && i.status !== 'published')) { existing++; continue }
+        const inputId = `i-${id()}`
+        const attachmentIds = datas.map((f) => {
+          const a = { id: `f-${id()}`, kind: kindOf(f.mime), mime: f.mime, name: f.name, size: f.data.length, data: f.data, input_id: inputId }
+          attachments.set(a.id, a)
+          return a.id
+        })
+        const input = { id: inputId, author_id: me.id, text: send.text, content_hash: hash, status: 'queued', created_at: new Date().toISOString(), job_id: `j-${id()}`, attachment_ids: attachmentIds, units: unitsOf(send.text), proposal: null, error: null }
+        inputs.set(input.id, input)
+        runJob(input)
+        created++
+      }
+      return send(res, 202, { created, existing })
+    }
     if (path === '/settings/publication' && method === 'GET') return send(res, 200, { auto_publish: autoPublish })
     if (path === '/settings/publication' && method === 'PATCH') {
       if (needEditor()) return
@@ -1311,6 +1335,10 @@ const server = createServer(async (req, res) => {
           if (members.some((x) => x.id !== target.id && x.email === email)) return fail(res, 409, 'Ya existe un miembro con ese correo.', 'email_taken')
           target.email = email
         }
+      }
+      if (body.password !== undefined) {
+        if (!isEditor) return fail(res, 403, 'Requiere rol Editor', 'forbidden')
+        if (String(body.password).length < 15) return fail(res, 400, 'La contraseña es demasiado corta.', 'password_too_short')
       }
       if ((body.current_password === undefined) !== (body.new_password === undefined)) return fail(res, 400, 'Para cambiar la contraseña se envían la actual y la nueva.', 'password_pair_required')
       if (body.new_password !== undefined) {

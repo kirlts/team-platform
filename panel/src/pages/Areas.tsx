@@ -17,7 +17,7 @@ import { useT } from '@/i18n'
 import { AreaNotFound, AreaView } from '@/pages/AreaView'
 import { areaCounts, areaMessagesPath } from '@/lib/pending'
 import { useNotices } from '@/lib/notices'
-import { useAreas, useDeleteArea, useMe, useRestoreArea, useSaveArea, useSummary } from '@/lib/queries'
+import { useAreas, useDeleteArea, useMe, useRestoreArea, useSaveArea, useSummary, useTemplates } from '@/lib/queries'
 import type { Area } from '@/lib/types'
 import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 
@@ -104,6 +104,7 @@ function AreaRow({ area }: { area: Area }) {
   const summary = useSummary().data
   const label = useCountsLabel()
   const counts = areaCounts(summary, area.id)
+  const templateCount = (useTemplates(area.id).data ?? []).filter((x) => !x.deleted_at).length
   const empty = !!summary && counts.open === 0 && counts.answered === 0
   const cut = area.title.lastIndexOf(' ') + 1
   const [head, tail] = [area.title.slice(0, cut), area.title.slice(cut)]
@@ -156,6 +157,9 @@ function AreaRow({ area }: { area: Area }) {
       <div className="col-start-2 row-start-2 min-w-0 sm:col-start-4 sm:row-start-1">
         <FoldedText value={area.description} label={t('areas.fieldDescription')} validate={descriptionRule(t)} onSave={change} displayClassName="text-xs text-muted" />
       </div>
+      <Link to={`/areas/${area.id}#plantillas`} aria-label={t('areas.templatesOf', { title: area.title })} className="col-start-2 row-start-4 text-xs font-semibold text-accent-deep hover:underline sm:col-start-4 sm:row-start-2">
+        {t('areas.templateCount', { n: templateCount })}
+      </Link>
       <Button size="icon-sm" variant="ghost" className="absolute right-3 top-2.5 text-muted hover:text-danger" disabled={del.isPending} title={t('areas.deleteArea')} aria-label={t('areas.deleteAreaOf', { title: area.title })} data-testid="area-delete" onClick={() => void remove()}>
         <Trash2 size={14} aria-hidden />
       </Button>

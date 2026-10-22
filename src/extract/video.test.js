@@ -100,11 +100,32 @@ test('a file that is not a video is rejected', async () => {
   await assert.rejects(extract(await att(bad), { providers: { vision: fakeVision(), speech: fakeSpeech() } }), (e) => e.code === 'ffmpeg_failed');
 });
 
-test('a frame without a description from the provider ends up with a warning', async () => {
-  const vision = { async describe({ images }) { return { json: { frames: [{ index: 1, description: 'sólo la primera' }] }, usage: {} }; } };
+test('a frame the provider leaves without a description is asked again on its own, and described', async () => {
+  const asked = [];
+  const vision = {
+    async describe({ images }) {
+      asked.push(images.map((img) => img.label));
+      // First call: only the first frame comes back. Second call: every frame it receives is described.
+      if (asked.length === 1) return { json: { frames: [{ index: 1, description: 'sólo la primera' }] }, usage: {} };
+      return { json: { frames: images.map((_, i) => ({ index: i + 1, description: `segunda pasada ${i + 1}` })) }, usage: {} };
+    },
+  };
+  const { meta, text } = await extract(await att(video), { providers: { vision, speech: fakeSpeech() } });
+  assert.equal(asked.length, 2, 'one retry call');
+  assert.equal(asked[1].length, asked[0].length - 1, 'the retry carries only the missing frames');
+  assert.ok(!asked[1].some((label) => label.startsWith('Fotograma 1 ')), 'the described frame is not asked again');
+  assert.equal(meta.warnings.some((w) => w.code === 'frames_without_description'), false);
+  assert.ok(text.includes('Fotograma 1: sólo la primera'));
+  assert.ok(text.includes('Fotograma 2: segunda pasada 1'), 'the retry maps back to the original frame number');
+  assert.equal(meta.calls.filter((c) => c.modality === 'vision').length, 2);
+});
+
+test('a frame still without a description after the retry is left out of the timeline, with a warning', async () => {
+  const vision = { async describe() { return { json: { frames: [{ index: 1, description: 'sólo la primera' }] }, usage: {} }; } };
   const { meta, text } = await extract(await att(video), { providers: { vision, speech: fakeSpeech() } });
   assert.equal(meta.warnings.some((w) => w.code === 'frames_without_description'), true);
   assert.ok(text.includes('Fotograma 1: sólo la primera'));
+  assert.equal(/Fotograma \d+:\s*$/m.test(text), false, 'no frame line without a description reaches the analysis');
 });
 
 test('no working files remain after extracting', async () => {

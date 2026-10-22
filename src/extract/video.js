@@ -134,24 +134,39 @@ export async function extractVideo(attachment, ctx) {
       label: `Fotograma ${i + 1} [${formatTimestamp(f.second)}]`,
     })),
   );
-  const { json, usage } = await withSpan(
-    'extract.vision',
-    { 'team.step': 'extract.vision', 'team.images': images.length, 'team.input_bytes': images.reduce((sum, img) => sum + img.data.length, 0) },
-    async () => {
-      const out = await providers.vision.describe({ images, prompt: cfg.prompt, schema: FRAMES_SCHEMA });
-      annotate({ 'team.output_chars': JSON.stringify(out.json ?? '').length });
-      return out;
-    },
-  );
+  // One call describes every frame; a frame the provider left without a description gets a second call of its own, with only the
+  // missing frames, so a lapse of the model (it returned 25 of 26 on 2026-10-21) does not leave a hole in the timeline.
+  const describe = (subset) =>
+    withSpan(
+      'extract.vision',
+      { 'team.step': 'extract.vision', 'team.images': subset.length, 'team.input_bytes': subset.reduce((sum, img) => sum + img.data.length, 0) },
+      async () => {
+        const out = await providers.vision.describe({ images: subset, prompt: cfg.prompt, schema: FRAMES_SCHEMA });
+        annotate({ 'team.output_chars': JSON.stringify(out.json ?? '').length });
+        return out;
+      },
+    );
+  /** Descriptions by position in `subset` (1-based, as the prompt numbers them). */
+  const read = (json) => {
+    const out = new Map();
+    for (const item of Array.isArray(json?.frames) ? json.frames : []) {
+      if (Number.isInteger(item?.index) && typeof item?.description === 'string' && item.description.trim() !== '') out.set(item.index, item.description.trim());
+    }
+    return out;
+  };
+  const pass1 = await describe(images);
+  calls.push({ modality: 'vision', images: images.length, usage: pass1.usage });
+  const byIndex = read(pass1.json);
+  const gaps = images.map((_, i) => i + 1).filter((n) => !byIndex.has(n));
+  if (gaps.length > 0) {
+    const retry = await describe(gaps.map((n) => images[n - 1]));
+    calls.push({ modality: 'vision', images: gaps.length, usage: retry.usage, retry: true });
+    for (const [pos, description] of read(retry.json)) byIndex.set(gaps[pos - 1], description);
+  }
   timings.visionMs = Math.round(performance.now() - t0);
   progress.advance('Fotogramas descritos');
-  calls.push({ modality: 'vision', images: images.length, usage });
   if (audioPlan) calls.push({ modality: 'speech', audioSeconds: audioPlan.billableSeconds, requests: audioPlan.plan.length });
 
-  const byIndex = new Map();
-  for (const item of Array.isArray(json?.frames) ? json.frames : []) {
-    if (Number.isInteger(item?.index) && typeof item?.description === 'string') byIndex.set(item.index, item.description.trim());
-  }
   const described = frames.map((f, i) => ({ ...f, number: i + 1, description: byIndex.get(i + 1) ?? '' }));
   const missing = described.filter((f) => f.description === '').length;
   if (missing > 0) {
@@ -182,7 +197,8 @@ export async function extractVideo(attachment, ctx) {
  */
 export function buildTimeline(frames, segments) {
   const events = [
-    ...frames.map((f) => ({ at: f.second, order: 0, line: `[${formatTimestamp(f.second)}] Fotograma ${f.number}: ${f.description}` })),
+    // A frame still without a description is left out: an empty «Fotograma N:» line reached the analysis as a unit and became a message (2026-10-21).
+    ...frames.filter((f) => f.description).map((f) => ({ at: f.second, order: 0, line: `[${formatTimestamp(f.second)}] Fotograma ${f.number}: ${f.description}` })),
     ...segments.map((s) => ({
       at: s.start,
       order: 1,

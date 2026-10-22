@@ -158,6 +158,11 @@ describe('isEmptyUnit (H-1902)', () => {
     }
   });
 
+  it('a line of the video extractor with its label and nothing after it is empty: it never becomes a message (2026-10-21)', () => {
+    for (const text of ['[01:20] Fotograma 26:', '[00:00-00:16] Voz:', '[1:02:05] Fotograma 3:']) assert.equal(isEmptyUnit(text), true, text);
+    for (const text of ['[01:20] Fotograma 26: lista de conversaciones', '[00:00-00:16] Voz: hola']) assert.equal(isEmptyUnit(text), false, text);
+  });
+
   it('a sentence, a timed line with punctuation and a line with a sender and a body carry content', () => {
     for (const text of ['Exacto.', '00:12:41 Sí.', '[00:03 - 00:14] Speaker 1: hola', 'Revisar el login', '00:00:09 Ana María Gil Pérez']) {
       assert.equal(isEmptyUnit(text), false, text);

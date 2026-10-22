@@ -289,6 +289,7 @@ GET    /api/messages/summary      lo que afecta a quien tiene la sesión por est
 GET    /api/messages/:id          mensaje, hilo, adjuntos; un borrado responde 404 (?include_deleted=true: Editor)
 DELETE /api/messages/:id?confirm=true   borra en blando un mensaje publicado (su emisor o un Editor; otro, 403 `not_message_author`) · POST /api/messages/:id/restore lo devuelve (UD-240)
 DELETE /api/messages/:id/replies/:replyId?confirm=true   borra en blando una respuesta (su autor o un Editor; otro, 403 `not_reply_author`) y recalcula el estado del mensaje · POST /api/replies/:id/restore la devuelve (UD-240)
+PATCH  /api/messages/:id/replies/:replyId  { body, version } el autor edita el texto de su respuesta; otro miembro, también el Editor, 403 `not_reply_author`; versión vencida 409 `edit_conflict`; borrada 404; vacía sin adjuntos 400 `reply_empty`; los adjuntos no cambian; bitácora `reply.edit` (UD-253)
 GET    /api/attachments/:id/transcript  texto extraído de un audio o video (UD-059)
 POST   /api/messages/:id/replies  { body, kind: answer|fix|clarification }   (403 si quien responde es el emisor)
 PATCH  /api/messages/:id          { version, …campos } el emisor edita su mensaje; otro miembro, también el Editor, 403 `not_message_author`; versión vencida 409 `edit_conflict` (UD-071)
@@ -366,7 +367,7 @@ messages             id, input_id, area_id, template_id, author_id, title, body,
 message_edits        id, message_id, member_id, at, version, fields_json (nombres de los campos que cambiaron, nunca sus valores)      (migración 0006)
 message_assignees    message_id, member_id
 message_attachments  message_id, attachment_id, position (el primero es el adjunto principal de la tarjeta)
-replies              id, message_id, author_id, body, kind(answer|fix|clarification), created_at, deleted_at (migración 0010, UD-240)
+replies              id, message_id, author_id, body, kind(answer|fix|clarification), created_at, deleted_at (migración 0010, UD-240), version (1 al responder; +1 por edición del autor), edited_at (NULL sin ediciones) (migración 0012, UD-253)
 jobs                 id, kind(extract|analyze), input_id, payload_json, status(queued|running|done|failed|cancelled), priority, attempts, max_attempts, run_at, lease_until, worker_id, last_error, created_at, finished_at
                      índice (status, priority DESC, run_at, id): reclamo en 23 µs (informe 03)
 job_events           seq, job_id, kind(progress|done|message), member_id (destinatario; NULL = todo el equipo), percent, phrase, data_json, at     retención 7 días
@@ -379,7 +380,7 @@ llm_calls            VISTA sobre los spans de llamada a un modelo: id, job_id, p
 
 Áreas y plantillas se borran en blando (`deleted_at`) y se restauran: los mensajes que las referencian no se pierden. Mensajes y respuestas también (UD-240): toda lectura ignora una fila con `deleted_at` (listas, conteos, búsqueda, hilo, resumen, acceso a adjuntos) y el estado del mensaje se recalcula con sus respuestas vigentes al borrar o restaurar una. Los estados de un mensaje se muestran en la interfaz como «abierto», «respondido» y «cerrado» (§1.1). Cada propuesta lleva el área y la plantilla en cada mensaje, no en la raíz (§7.5). No guarda un id de llamada a modelo: las llamadas son spans, enlazados al trabajo por `team.job_id` (§7.10 bis).
 
-**Dependencias:** `node:sqlite`. Las migraciones son archivos SQL numerados en `src/db/migrations/` (`0001_initial.sql` a `0010_message_and_reply_deletion.sql`; `0002_telemetry.sql` es copia de `src/telemetry/migration.sql`). Sólo avanzan. Un ejecutor propio las aplica dentro de una transacción, lleva la cuenta en `PRAGMA user_version` y corre en el paso de inicialización único (§3). El ejecutor exige numeración contigua y se niega a arrancar si la base es más nueva que el último archivo. Antes de migrar una base existente deja un respaldo consistente.
+**Dependencias:** `node:sqlite`. Las migraciones son archivos SQL numerados en `src/db/migrations/` (`0001_initial.sql` a `0012_reply_edits.sql`; `0002_telemetry.sql` es copia de `src/telemetry/migration.sql`). Sólo avanzan. Un ejecutor propio las aplica dentro de una transacción, lleva la cuenta en `PRAGMA user_version` y corre en el paso de inicialización único (§3). El ejecutor exige numeración contigua y se niega a arrancar si la base es más nueva que el último archivo. Antes de migrar una base existente deja un respaldo consistente.
 
 ### 7.3 Cola de trabajos (`src/queue/`)
 

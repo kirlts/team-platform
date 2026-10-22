@@ -14,18 +14,18 @@
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
 - `main`: cf04e5a Traspaso: UD-253 en cuatro agentes. Empujado a origin: `cf04e5a`.
-- Ramas con commits sin fusionar: `wt-borrado-multiple` 1 (hace 12 segundos), `wt-editar-respuestas` 1 (hace 48 segundos).
-- Worktrees abiertos: `team-platform`, `borrado-multiple`, `editar-respuestas`, `inicio-listas`, `sin-confirmaciones`.
+- Ramas con commits sin fusionar: `wt-editar-respuestas` 3 (hace 6 segundos), `wt-borrado-multiple` 1 (hace 2 minutos).
+- Worktrees abiertos: `team-platform`, `borrado-multiple`, `editar-respuestas`, `eje-documental`, `inicio-listas`, `sin-confirmaciones`.
 - Últimos commits en `main`:
-- `cf04e5a` Traspaso: UD-253 en cuatro agentes (hace 60 segundos)
-- `1866265` Conexiones: quitar «Apagadas hasta que la descomposición esté probada» (pedido del dueño) (hace 83 segundos)
-- `8f5b88b` Retirar «Descartados» de Inicio; vps-check borra su envío de prueba; UD-253 (hace 3 minutos)
-- `3aa80af` Traspaso: VPS en 8f15e1d (hace 10 minutos)
-- `65f2c15` Traspaso: auditoría de paridad en main (hace 12 minutos)
-- `8f15e1d` Declarar EXAMPLES_DIR en .env.example (hace 12 minutos)
-- `7036292` Merge wt-ajustes-equipo (hace 14 minutos)
-- `b8e0843` Equipo en teléfono sin solape y rótulo de Vaciar todo con su palabra (UD-252) (hace 15 minutos)
-Actualizado 2026-10-22 02:14 UTC.
+- `cf04e5a` Traspaso: UD-253 en cuatro agentes (hace 3 minutos)
+- `1866265` Conexiones: quitar «Apagadas hasta que la descomposición esté probada» (pedido del dueño) (hace 3 minutos)
+- `8f5b88b` Retirar «Descartados» de Inicio; vps-check borra su envío de prueba; UD-253 (hace 5 minutos)
+- `3aa80af` Traspaso: VPS en 8f15e1d (hace 12 minutos)
+- `65f2c15` Traspaso: auditoría de paridad en main (hace 14 minutos)
+- `8f15e1d` Declarar EXAMPLES_DIR en .env.example (hace 14 minutos)
+- `7036292` Merge wt-ajustes-equipo (hace 16 minutos)
+- `b8e0843` Equipo en teléfono sin solape y rótulo de Vaciar todo con su palabra (UD-252) (hace 17 minutos)
+Actualizado 2026-10-22 02:16 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

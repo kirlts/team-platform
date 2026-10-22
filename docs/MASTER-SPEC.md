@@ -566,6 +566,10 @@ fields:
   - { name: expected, label: Qué se esperaba,        required: true }
   - { name: actual,   label: Qué pasó,               required: true }
   - { name: where,    label: Dónde (pantalla, URL),  required: false }
+output:
+  - { name: cause,  label: Causa, type: text, required: true }
+  - { name: branch, label: Rama,  type: text, required: false }
+  - { name: files,  label: Archivos tocados, type: list, required: false }
 ---
 ## Método
 Cómo leer el input para esta área: qué cuenta como un error distinto, cómo separar dos errores
@@ -573,9 +577,14 @@ que comparten una captura, qué va en cada campo.
 
 ## Formato de salida
 Un mensaje por error. Título: verbo en infinitivo y lugar.
+
+## Salida
+Causa: la que se midió, con el archivo o el dato que la muestra.
 ```
 
 El frontmatter se convierte en el esquema JSON de `fields` que el analizador exige. `compileFieldsSchema` es la misma definición que valida una plantilla al guardarla (422 si no cumple) y los `fields` de cada mensaje al publicar. El cuerpo entra al prompt de la descomposición. `name` y `description` respetan los límites de la especificación Agent Skills (64 y 1.024 caracteres), porque la clasificación sólo ve esos dos campos de cada plantilla. El cuerpo se revela recién en la descomposición: la misma divulgación progresiva. El juego inicial vive en `templates/`: `areas.json` (cinco áreas: Idea, Error, Nueva funcionalidad, Retroalimentación, Pregunta, cada una con su archivo `idea.md`, `bug.md`, `feature.md`, `feedback.md`, `question.md`). Se siembra al instalar y se puede editar o borrar; cada plantilla editada se copia además a `$DATA_DIR/templates` para los respaldos, y la base manda.
+
+**Salida declarada (UD-254, UD-255, H-3723).** El bloque `output` del frontmatter declara lo que el harness entrega cuando trabaja un mensaje de la plantilla. Cada entrada lleva `name` (identificador en minúsculas), `label` (rótulo, hasta 120 caracteres), `type` (`text`, `list` de textos, `number` o `boolean`; `text` por omisión), `required` y, sólo con `text`, `enum` (de 1 a 32 valores). Toda salida lleva además dos campos fijos, que la plantilla no declara ni redefine. `summary` es el par de párrafos para quien envió el mensaje, sin jerga y dirigidos a esa persona. `outcome` es uno de `done`, `investigated`, `blocked` o `needs_decision`. `compileOutputSchema` (`src/analyze/templates.js`) compila el bloque a un esquema JSON con `additionalProperties: false`, que es el `--json-schema` exigido al harness; devuelve `null` si la plantilla no tiene bloque `output`. `validateOutput` (`src/analyze/validate.js`) valida una salida contra ese esquema. Un bloque que no compila, o con más de 24 entradas opcionales, se rechaza al guardar la plantilla con 422 y el motivo. Sólo el frontmatter define la salida. La sección «## Salida» del cuerpo trae instrucciones en prosa al harness y viaja con el cuerpo; `compileOutputSchema` no la lee. En el panel, «Salida» va bajo «Campos» en la fila de la plantilla y en «Campos e instrucciones». Se edita como los campos, con el tipo de cada entrada; «Resultado» y «Resumen» aparecen como fijos. Las cinco plantillas iniciales declaran su salida: Error `cause`, `fix`, `verification`, `branch`, `files`; Nueva funcionalidad `built`, `verification`, `branch`, `pending`; Retroalimentación `assessment`, `change`, `branch`; Idea `findings`, `recommendation`, `effort`; Pregunta `answer`, `sources`.
 
 ### 7.10 Eventos y progreso (`src/events/`)
 

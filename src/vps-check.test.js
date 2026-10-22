@@ -21,7 +21,7 @@ test('assetsOf lists the compiled files a page references, sorted and without re
   assert.deepEqual(assetsOf(html), ['/assets/index-AB12.js', '/assets/index-CD34.css'])
 })
 
-test('the check passes against a local server, prints no password and cancels its test input; with a wrong password it fails', async (t) => {
+test('the check passes against a local server, prints no password and deletes its test input; with a wrong password it fails', async (t) => {
   if (!existsSync(path.join(rootDir, 'panel/dist/index.html'))) return t.skip('panel/dist is not built')
   const dir = mkdtempSync(path.join(tmpdir(), 'vps-check-'))
   const env = { ...process.env, DATA_DIR: dir, PORT: '0', HOST: '127.0.0.1', LOG_LEVEL: 'info', PROJECT_NAME: 'Prueba', ADMIN_EMAIL: 'ana@prueba.test', ADMIN_PASSWORD: PASSWORD,
@@ -39,7 +39,7 @@ test('the check passes against a local server, prints no password and cancels it
     const ok = spawnSync(process.execPath, ['scripts/vps-check.mjs', '--credentials', access, '--timeout', '30'], { cwd: rootDir, encoding: 'utf8' })
     assert.equal(ok.status, 0, ok.stdout + ok.stderr)
     assert.match(ok.stdout, /OK\s+La propuesta llega/)
-    assert.match(ok.stdout, /OK\s+El envío de prueba se descarta/)
+    assert.match(ok.stdout, /OK\s+El envío de prueba se borra/)
     assert.match(ok.stdout, /OK\s+El panel servido es el de este árbol/)
     assert.ok(!ok.stdout.includes(PASSWORD) && !ok.stderr.includes(PASSWORD), 'the password must not be printed')
 

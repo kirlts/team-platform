@@ -1,7 +1,7 @@
 // Message and reply routes (MASTER-SPEC §7.1).
 
 import { releaseBlobs } from '../../domain/storage.js'
-import { addMessageAttachments, addReply, assertCanAddAttachments, assertCanReply, closeMessage, deleteMessage, deleteReply, getMessage, listMessages, messageSummary, reopenMessage, REPLY_KINDS, restoreMessage, restoreReply, updateMessage } from '../../domain/messages.js'
+import { addMessageAttachments, addReply, assertCanAddAttachments, assertCanReply, closeMessage, deleteMessage, deleteMessages, deleteReply, getMessage, listMessages, messageSummary, reopenMessage, REPLY_KINDS, restoreMessage, restoreMessages, restoreReply, updateMessage } from '../../domain/messages.js'
 import { withSpan } from '../../domain/tracing.js'
 import { requireConfirm } from '../confirm.js'
 import { pageEnvelope, pageParams, pageQuerySchema, pageResult } from '../pagination.js'
@@ -103,6 +103,45 @@ export function registerMessageRoutes (app, ctx) {
       response: { 200: messageDetail }
     }
   }, async (request) => spanOf(request, 'message.restore')(() => restoreMessage({ db, events }, { messageId: request.params.id, actor: request.member })))
+
+  // Several at once (UD-253): one request and one transaction, so the permission check is all or nothing. `maxItems` is the page cap
+  // of the API (config.list.pageMax): the panel marks at most the rows of one page.
+  const bulkBody = {
+    type: 'object',
+    required: ['ids'],
+    additionalProperties: false,
+    properties: { ids: { type: 'array', minItems: 1, maxItems: config.list.pageMax, items: idIn } }
+  }
+  const bulkResult = { type: 'object', properties: { ids: { type: 'array', items: { type: 'string' } } } }
+
+  app.post('/messages/delete', {
+    onRequest: [requireRole('member')],
+    schema: {
+      summary: 'Borrar varios mensajes de una vez (su emisor o un Editor; exige ?confirm=true)',
+      description: `Borrado en blando de cada mensaje de \`ids\` (UD-253), en una sola transacción: todos o ninguno. 403 \`not_message_author\` con \`ids\` (los que quien pide no puede borrar) si alguno no es suyo y no es Editor; 404 \`not_found\` con \`ids\` si alguno no existe o ya está borrado; 400 \`confirm_required\` sin la confirmación. Hasta ${config.list.pageMax} ids, el tope de página de la API. Deja una fila \`message.delete\` por mensaje en la bitácora. Lo deshace \`POST /messages/restore\` con los mismos \`ids\`.`,
+      querystring: confirmQuery,
+      body: bulkBody,
+      response: { 200: bulkResult }
+    }
+  }, async (request) => {
+    requireConfirm(request)
+    const ids = withSpan('message.delete_many', { 'team.member_id': String(request.member.id), 'team.count': request.body.ids.length },
+      () => deleteMessages({ db, events }, { ids: request.body.ids, actor: request.member }))
+    return { ids }
+  })
+
+  app.post('/messages/restore', {
+    onRequest: [requireRole('member')],
+    schema: {
+      summary: 'Restaurar varios mensajes borrados de una vez (su emisor o un Editor)',
+      description: `Quita \`deleted_at\` de cada mensaje de \`ids\` (UD-253), en una sola transacción: todos o ninguno. 403 \`not_message_author\` con \`ids\` si alguno no es de quien pide y no es Editor; 404 \`not_found\` con \`ids\` si alguno no existe; 409 \`not_deleted\` con \`ids\` si alguno no está borrado. Hasta ${config.list.pageMax} ids. Deja una fila \`message.restore\` por mensaje en la bitácora.`,
+      body: bulkBody,
+      response: { 200: bulkResult }
+    }
+  }, async (request) => ({
+    ids: withSpan('message.restore_many', { 'team.member_id': String(request.member.id), 'team.count': request.body.ids.length },
+      () => restoreMessages({ db, events }, { ids: request.body.ids, actor: request.member }))
+  }))
 
   app.delete('/messages/:id/replies/:replyId', {
     onRequest: [requireRole('member')],

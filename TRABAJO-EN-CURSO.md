@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 95f1a0f Traspaso: VPS en 6911ecb; eje documental fusionado. Empujado a origin: `95f1a0f`.
-- Ramas con commits sin fusionar: `wt-borrado-multiple` 7 (hace 78 segundos), `wt-sin-confirmaciones` 7 (hace 6 segundos), `wt-inicio-listas` 4 (hace 10 minutos).
-- Worktrees abiertos: `team-platform`, `borrado-multiple`, `inicio-listas`, `sin-confirmaciones`.
+- `main`: fb8b49b Traspaso: UD-253 completo en main. Empujado a origin: `fb8b49b`.
+- Ramas con commits sin fusionar: ninguna.
+- Worktrees abiertos: `team-platform`.
 - Últimos commits en `main`:
-- `95f1a0f` Traspaso: VPS en 6911ecb; eje documental fusionado (hace 8 minutos)
-- `5f9bba8` Eje documental al día con UD-240 a UD-253; libro apunta a main (hace 9 minutos)
-- `29d8930` Merge branch 'wt-eje-documental' (hace 9 minutos)
-- `4c8323c` REPOMAP: vps-check sin «end-to-end» (hace 10 minutos)
-- `2fe045d` TEST y README: cifras tras fusionar la edición de respuestas (hace 10 minutos)
-- `a1915b3` Fusión de main: migraciones hasta 0012 en MASTER-SPEC y REPOMAP (hace 13 minutos)
-- `17f3591` CHANGELOG y TEST: oraciones partidas bajo 25 palabras (hace 13 minutos)
-- `48831e7` CHANGELOG: entrada del 2026-10-21 noche (hace 14 minutos)
-Actualizado 2026-10-22 02:34 UTC.
+- `fb8b49b` Traspaso: UD-253 completo en main (hace 2 segundos)
+- `bfc4555` Merge wt-inicio-listas (hace 4 minutos)
+- `f376d5c` HALLAZGOS: H-3718 done in wt-inicio-listas (hace 5 minutos)
+- `84042d0` Merge wt-sin-confirmaciones (hace 6 minutos)
+- `e46343b` Merge wt-borrado-multiple (hace 7 minutos)
+- `fee305c` Pruebas: openTemplates no pulsa una sección de plantillas ya abierta (hace 8 minutos)
+- `52ca1a7` Docs: H-3715 hecho, MASTER-SPEC §7.1 con las rutas de varios mensajes, DISENO con la casilla de la tarjeta (hace 9 minutos)
+- `5c1fb3c` Comentarios en inglés (HP-008); flows-tarjetas-vistazo pliega «Plantillas» para medir la lista del área (hace 9 minutos)
+Actualizado 2026-10-22 02:42 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

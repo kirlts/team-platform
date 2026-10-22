@@ -7,6 +7,8 @@
 //     dropped, never retried, and nothing here awaits anything the rest of the panel needs.
 //  3. Nothing runs on a clock. The queue is sent when it is full, when a task ends and when the page is hidden.
 
+import { API_BASE } from './base'
+
 /** Screens of the panel. Equal to `SCREENS` in src/telemetry/ui-spec.js: a server test compares the two lists. */
 export const SCREENS = ['home', 'messages', 'message-detail', 'areas', 'connections', 'team', 'settings', 'login', 'not-found'] as const
 export type Screen = (typeof SCREENS)[number]
@@ -600,7 +602,7 @@ function randomSession(): string {
  */
 function sendWithFetch(body: string) {
   try {
-    void fetch('/api/telemetry/ui', {
+    void fetch(`${API_BASE}/telemetry/ui`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Team-Request': 'panel' },
       credentials: 'include',

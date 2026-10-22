@@ -233,6 +233,70 @@ La segunda orden sólo hace falta si el respaldo se hizo con `WITH_FILES=1`. Los
 
 Medido el 2026-10-21 en el VPS de 2 núcleos, con una base de 19 MB y adjuntos de 82 MB. Respaldo con `WITH_FILES=1`: 1,8 s. Detener, restaurar la base y volver a estar sano: 5,1 s. Restaurar los adjuntos: 5,6 s.
 
+## Bajo una ruta de otro sitio
+
+El panel y la API se sirven bajo una ruta, por ejemplo `/team/`, de un sitio que ya existe. El proxy reenvía la ruta sin quitarle el prefijo, y la instancia sabe dónde vive:
+
+```sh
+BASE_PATH=/team/
+API_PREFIX=/team/api
+SSO_RETURN_PATH=/team/        # sólo con DELEGATED_MODE=sso-redirect
+```
+
+El servidor escribe la base y el prefijo en el `index.html` que entrega. La misma imagen sirve cualquier ruta sin recompilar. `/health` sigue en la raíz del servicio, y el contrato queda en `/team/api/openapi.json`.
+
+Caddy:
+
+```
+sitio.ejemplo.com {
+	handle /team/* {
+		reverse_proxy 127.0.0.1:3000 {
+			flush_interval -1
+		}
+	}
+}
+```
+
+nginx:
+
+```nginx
+location /team/ {
+    proxy_pass http://127.0.0.1:3000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_buffering off;
+    proxy_read_timeout 1h;
+}
+```
+
+`proxy_pass` va sin ruta al final: con una ruta, nginx reemplaza el prefijo y la instancia recibe `/api` en vez de `/team/api`. `proxy_buffering off` y `flush_interval -1` dejan pasar el flujo de eventos sin retenerlo.
+
+Dos instancias en un mismo host, `/team-a/` y `/team-b/`, llevan cada una su `BASE_PATH`, su `API_PREFIX`, su puerto (`PUBLISH_PORT`) y su carpeta, como en «Segunda instancia en el mismo servidor». Cada una necesita además una cookie de sesión con nombre propio, para que el inicio de sesión de una no reemplace al de la otra.
+
+Si el anfitrión lleva el panel en un iframe o lo llama desde otro origen:
+
+```sh
+FRAME_ANCESTORS=https://consola.ejemplo.com
+CSP_CONNECT_SRC=https://api.ejemplo.com
+```
+
+Sin esas variables, la CSP es la de siempre: `connect-src 'self'` y `frame-ancestors 'none'`.
+
+El color, la tipografía y el radio se cambian sin recompilar con un archivo `.css` del anfitrión. `THEME_CSS=/ruta/tema.css` lo nombra; en Docker, la ruta es de un volumen montado. El servidor lo entrega como `/team/theme.css`, después de la hoja del panel, y lo relee en cada petición. Las variables que acepta están en MASTER-SPEC §7.8, «Contrato del tema».
+
+```css
+:root[data-theme='light'], :root[data-theme='dark'] { --color-accent: #0a7d55; }
+:root { --radius-md: 4px; }
+```
+
+Comprobación:
+
+```sh
+curl -fsS https://sitio.ejemplo.com/team/api/health
+curl -fsS https://sitio.ejemplo.com/team/ | grep team-base-path
+```
+
 ## Segunda instancia en el mismo servidor
 
 Sirve para ensayar una restauración o una configuración sin tocar el servicio real. Cada instancia necesita su carpeta, su puerto y su etiqueta de imagen. El nombre de la carpeta fija el proyecto de compose y, con él, el volumen y la red. Sin `IMAGE_TAG`, la construcción de la segunda mueve la etiqueta `team-platform:local` y el siguiente `docker compose up -d` de la primera la recrea con otro código.

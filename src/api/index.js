@@ -18,6 +18,7 @@ import { createLogger } from '../log.js'
 import { getProviderSettings, getUiTelemetryEnabled } from '../domain/settings.js'
 import { installErrorHandler, schemaErrorFormatter } from './errors.js'
 import { installSecurityHeaders } from './security.js'
+import { mountedIndex } from './mount.js'
 import { cookieSpec } from '../identity/cookies.js'
 import { registerIdentity } from '../identity/index.js'
 import { isRoleGoverned } from '../identity/delegated.js'
@@ -140,13 +141,18 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
     })
   }
 
-  // ---- Static panel. It is registered before the route policies: its files are public.
-  const hasPanel = existsSync(path.join(config.panelDist, 'index.html'))
+  // ---- Static panel under BASE_PATH (H-3721). It is registered before the route policies: its files are public.
+  const basePath = config.basePath
+  const indexFile = path.join(config.panelDist, 'index.html')
+  const hasPanel = existsSync(indexFile)
   if (hasPanel) {
     await app.register(fastifyStatic, {
       root: config.panelDist,
+      prefix: basePath,
       wildcard: false, // only files that exist; everything else falls to the 404 handler
       index: false,
+      // index.html always goes through the 404 handler, which writes the mount point into it.
+      allowedPath: (pathName) => pathName !== '/index.html',
       // Hashed assets: long, immutable cache. index.html: no cache (report 03 §7.3, I07 §8).
       setHeaders (reply, routePath) {
         reply.header('cache-control', path.relative(config.panelDist, routePath).startsWith(`assets${path.sep}`)
@@ -157,14 +163,20 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
   } else {
     app.log.warn(`No compiled panel at ${config.panelDist}; only the API is served.`)
   }
+  if (config.themeCss) {
+    // The host's tokens (THEME_CSS), read on each request so that editing the file needs no restart.
+    app.get(`${basePath}theme.css`, { config: { public: true }, schema: { hide: true } }, async (_request, reply) =>
+      reply.header('cache-control', 'no-cache').type('text/css; charset=utf-8').send(readFileSync(config.themeCss)))
+  }
   const apiPrefixPath = config.apiPrefix
   app.setNotFoundHandler((request, reply) => {
     const routePath = request.raw.url.split('?')[0]
     const isApi = routePath === apiPrefixPath || routePath.startsWith(`${apiPrefixPath}/`)
-    const isAsset = routePath.startsWith('/assets/')
-    // SPA routes: index.html only for GET outside /api and /assets (a missing asset is a real 404).
-    if (hasPanel && !isApi && !isAsset && (request.method === 'GET' || request.method === 'HEAD')) {
-      return reply.header('cache-control', 'no-cache').type('text/html; charset=utf-8').send(readFileSync(path.join(config.panelDist, 'index.html')))
+    const isAsset = routePath.startsWith(`${basePath}assets/`)
+    const inPanel = routePath.startsWith(basePath) || `${routePath}/` === basePath
+    // SPA routes: index.html only for GET under BASE_PATH, outside the API and the assets (a missing asset is a real 404).
+    if (hasPanel && inPanel && !isApi && !isAsset && (request.method === 'GET' || request.method === 'HEAD')) {
+      return reply.header('cache-control', 'no-cache').type('text/html; charset=utf-8').send(mountedIndex(readFileSync(indexFile, 'utf8'), config))
     }
     return reply.code(404).send({ code: 'not_found', message: isApi ? 'La ruta de la API no existe.' : 'No se encontró el recurso.' })
   })

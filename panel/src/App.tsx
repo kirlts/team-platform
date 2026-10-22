@@ -11,6 +11,7 @@ import { TelemetryBridge } from '@/components/TelemetryBridge'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { api, ApiError } from '@/lib/api'
+import { ROUTER_BASENAME } from '@/lib/base'
 import { EventsProvider } from '@/lib/events'
 import { NoticeProvider } from '@/lib/notices'
 import { NoticeHost } from '@/components/NoticeHost'
@@ -116,7 +117,7 @@ function Routed({ me }: { me: ReturnType<typeof useMe> }) {
 
   return (
     <TooltipProvider delayDuration={150}>
-      <BrowserRouter>
+      <BrowserRouter basename={ROUTER_BASENAME}>
         <Routes>
           <Route element={<Shell />}>
             <Route index element={<Home />} />

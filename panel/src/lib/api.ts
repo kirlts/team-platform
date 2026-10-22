@@ -1,9 +1,10 @@
-// API client: fetch to /api with the session cookie. On unsafe methods
+// API client: fetch to the API (API_BASE, /api by default) with the session cookie. On unsafe methods
 // it adds its own CSRF header (the server also checks Sec-Fetch-Site and Origin).
 
+import { API_BASE } from '@/lib/base'
 import { telemetry } from '@/lib/telemetry'
 
-export const API_BASE = '/api'
+export { API_BASE }
 export const CSRF_HEADER = 'X-Team-Request'
 const CSRF_VALUE = 'panel'
 

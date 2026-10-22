@@ -5,7 +5,9 @@
 export const KNOBS = Object.freeze({
   // Classification effort: the cheapest and fastest level, for simple high-volume tasks.
   // Report 02 §10.2, [F4][F5].
-  classifyEffort: { value: 'low', source: 'Report 02 §10.2 [F4][F5]; MASTER-SPEC §7.5 (1: classify, effort low)' },
+  // 2026-10-22: `high` with adaptive thinking, by decision of the owner (UD-260). On the two videos of a real send it is the only
+  // setting that separates the requests of one conversation in three runs out of three (docs/investigaciones/mediciones/2026-10-22-analisis-de-videos-2.md).
+  classifyEffort: { value: 'high', source: 'UD-260; measurement 2026-10-22-analisis-de-videos-2' },
 
   // Decomposition effort (and of the rescue pass, which is the same task over fewer units).
   // Report 02 §10.2 [F4][F5] set `medium` until the bench showed that `low` keeps the coverage.
@@ -17,7 +19,7 @@ export const KNOBS = Object.freeze({
   // Thinking per call: `null` leaves the model's adaptive thinking; `'disabled'` turns it off (only with effort `high` or
   // lower, and with the line «The JSON output format applies to your final answer only.», report 02 §10.2 [F4]).
   // The bench compares adaptive `low`, `low` without thinking and adaptive `medium` (report 02 §8).
-  classifyThinking: { value: 'disabled', source: 'Measurement 2026-10-20 (docs/investigaciones/mediciones/2026-10-20-primera-corrida-real.md); report 02 §8 and §10.2 [F4]' },
+  classifyThinking: { value: null, source: 'UD-260; measurement 2026-10-22-analisis-de-videos-2' },
   decomposeThinking: { value: 'disabled', source: 'Measurement 2026-10-20 (docs/investigaciones/mediciones/2026-10-20-primera-corrida-real.md); report 02 §8 and §10.2 [F4]' },
 
   // Output cap per call. Provisional: the bench fixes the p95 of output per message.

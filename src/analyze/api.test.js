@@ -34,11 +34,12 @@ describe('analyze (api): an input with three mixed points', () => {
     assert.equal(new Set(all).size, all.length, 'disjoint');
     assert.equal(result.units.length, 6);
 
-    // Two calls, both with low effort and no thinking (measurement of 2026-10-20 cited in config.js).
+    // Two calls: the classification with high effort and adaptive thinking (UD-260), the decomposition with low effort and no thinking
+    // (measurement of 2026-10-20 cited in config.js).
     assert.equal(fake.calls.text.length, 2);
-    assert.equal(fake.calls.text[0].effort, 'low');
+    assert.equal(fake.calls.text[0].effort, 'high');
     assert.equal(fake.calls.text[1].effort, 'low');
-    assert.equal(fake.calls.text[0].thinking, 'disabled');
+    assert.equal(fake.calls.text[0].thinking, undefined);
     assert.equal(fake.calls.text[1].thinking, 'disabled');
     assert.equal(fake.calls.text[0].maxTokens, 16_000);
     assert.equal(fake.calls.text[1].cacheTtl, '5m');

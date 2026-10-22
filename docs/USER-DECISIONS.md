@@ -1139,3 +1139,11 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 Martín, el mismo día: «la idea es que yo no quiera abrir una sesion como esta, de claude code en vsc, para resolver weas directamente solucionables».
 **Consecuencias:** Enmienda UD-254 y el encargo C4 de `docs/PLAN-DEVALIS.md`: el harness ya no deja una rama para que Martín entregue; entrega él. La prueba de aceptación es una corrida real con los videos del envío 33 en `team.devalis.cl`.
 **Condiciones de reversión:** Las fija Martín.
+
+## [UD-260] La clasificación del análisis corre con esfuerzo alto y razonamiento adaptativo
+
+**Fecha:** 2026-10-22
+**Contexto:** En los dos videos reales del envío 33, con Sonnet 5.5 y tres corridas, la clasificación sin razonamiento da 7, 7 y 5 pedidos recogidos de 7, con un mensaje sobrante en una corrida. Con esfuerzo alto y razonamiento da 7, 7 y 7, sin sobrantes, al mismo costo (0,17 USD por envío) y con 51 a 65 s en vez de 18 a 25 s (`docs/investigaciones/mediciones/2026-10-22-analisis-de-videos-2.md`). Se le preguntó a Martín si encendía el razonamiento a cambio de esos 40 s. Respuesta textual: «Encender».
+**Decisión:** `classifyEffort` es `high` y `classifyThinking` es `null` (razonamiento adaptativo del modelo). La descomposición sigue en esfuerzo bajo y sin razonamiento. Enmienda la medición del 2026-10-20 de `src/analyze/config.js` para la clasificación.
+**Consecuencias:** Un envío con video tarda unos 40 s más en clasificarse. En el banco con Haiku el tiempo por caso sube de 21 a 322 s: los bancos de clasificación se corren con `classifyEffort: 'low'` explícito cuando se mide velocidad. MASTER-SPEC §7.5.
+**Condiciones de reversión:** Las fija Martín.

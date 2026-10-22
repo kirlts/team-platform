@@ -232,6 +232,7 @@ export const en: Record<MessageKey, Message> = {
   'recipients.to': 'to',
   'recipients.more': 'View the {n} remaining recipients',
   'recipients.addShort': 'Recipient',
+  'media.removeShort': 'Remove',
   'media.addShort': 'Attachment',
   'media.upload': 'Upload files',
   'tray.ordinal': 'Send {n}',

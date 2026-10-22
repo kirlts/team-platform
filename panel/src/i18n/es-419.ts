@@ -232,6 +232,7 @@ export const es419 = {
   'recipients.to': 'para',
   'recipients.more': 'Ver los {n} destinatarios restantes',
   'recipients.addShort': 'Destinatario',
+  'media.removeShort': 'Quitar',
   'media.addShort': 'Adjunto',
   'media.upload': 'Subir archivos',
   'tray.ordinal': 'Envío {n}',

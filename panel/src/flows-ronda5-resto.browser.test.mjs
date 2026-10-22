@@ -229,7 +229,8 @@ describe('the drawer of Inicio', () => {
       const top = (await drawer.getByTestId('message-tally').boundingBox()).y
       const original = await drawer.getByTestId('original-box').boundingBox()
       assert.ok(original.height < 150, `the original takes ${original.height} px`)
-      assert.ok(top < 844 * 0.62, `the result starts at ${top} px of an 844 px screen`)
+      // UD-255: «Enviar como» stacks over the compose bar on a phone and pushes the result down by its row (36 px measured).
+      assert.ok(top < 844 * 0.68, `the result starts at ${top} px of an 844 px screen`)
       await drawer.getByRole('button', { name: 'Ver más' }).click()
       await drawer.getByText('Pregunta: ¿el audio máximo sigue en 25 MB?').first().waitFor()
     } finally {

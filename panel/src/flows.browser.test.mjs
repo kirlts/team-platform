@@ -1155,10 +1155,10 @@ describe('tray and proposal (round 2, judge B)', () => {
       // One row that scrolls sideways, not a list that takes the screen: three sends do not push the proposal down.
       const switcher = await page.getByTestId('send-switcher').boundingBox()
       assert.ok(switcher.height < 100, `the submissions selector is ${switcher.height} px tall`)
-      assert.equal(await page.getByRole('option').count(), 3, 'each submission has its own option')
+      assert.equal(await page.getByTestId('send-switcher').getByRole('option').count(), 3, 'each submission has its own option')
       const proposal = await page.getByRole('region', { name: 'Análisis' }).boundingBox()
       assert.ok(proposal.y < 844 * 1.2, `the proposal starts within the first two screens: y=${proposal.y}`)
-      await page.getByRole('option').first().click()
+      await page.getByTestId('send-switcher').getByRole('option').first().click()
       await proposalReady(page)
       await page.getByRole('button', { name: /^Área:/ }).first().click()
       const menu = await page.getByRole('menu').boundingBox()

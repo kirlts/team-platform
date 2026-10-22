@@ -142,7 +142,7 @@ export function FramingSetting() {
           const item = settings.framing[lang]
           return (
             <div key={lang} data-framing={lang} className="flex flex-col gap-1">
-              <dt className="flex items-center justify-between gap-2 text-muted">
+              <dt data-repeat-ok="language" className="flex items-center justify-between gap-2 text-muted">
                 {t(LANGUAGE_KEY[lang])}
                 {item.custom && (
                   <Button size="sm" variant="ghost" className="text-accent-deep" onClick={() => void save.mutateAsync({ [lang]: '' })}>

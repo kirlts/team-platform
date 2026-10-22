@@ -98,12 +98,19 @@ describe('restore what was deleted, after a reload (UD-250)', () => {
       await region.waitFor()
       await region.getByTestId('show-deleted').click()
       const deleted = region.locator('[data-deleted="true"]')
+      // The deleted rows come after the live ones; since «Salida» (H-3723) made each row taller, the list shows one row per page at this window.
+      const next = region.getByRole('button', { name: 'Página siguiente' })
+      await region.getByText('1–1 de 2').waitFor()
+      await next.click()
       await deleted.waitFor()
       assert.ok((await deleted.first().textContent()).length > 0)
       const restoredName = (await deleted.first().locator('span').first().textContent()).trim()
       await deleted.first().getByRole('button', { name: 'Restaurar' }).click()
       await region.locator('[data-deleted="true"]').waitFor({ state: 'detached' })
-      await region.getByRole('button', { name: `Eliminar ${restoredName}`, exact: true }).waitFor()
+      // It is a live row again, on whichever page the list puts it.
+      const back = region.getByRole('button', { name: `Eliminar ${restoredName}`, exact: true })
+      if (!(await back.isVisible())) await region.getByRole('button', { name: 'Página anterior' }).click()
+      await back.waitFor()
       await settled(page)
     } finally {
       await context.close()

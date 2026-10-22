@@ -1159,7 +1159,8 @@ describe('tray and proposal (round 2, judge B)', () => {
       const proposal = await page.getByRole('region', { name: 'Análisis' }).boundingBox()
       assert.ok(proposal.y < 844 * 1.2, `the proposal starts within the first two screens: y=${proposal.y}`)
       await page.getByTestId('send-switcher').getByRole('option').first().click()
-      await proposalReady(page)
+      // It is the send already open: its first message stays unfolded (UD-257), with its «Área» button.
+      await page.getByRole('button', { name: /^Área:/ }).first().waitFor()
       await page.getByRole('button', { name: /^Área:/ }).first().click()
       const menu = await page.getByRole('menu').boundingBox()
       assert.ok(menu.x >= 0 && menu.x + menu.width <= 390, `the area menu fits the width: ${JSON.stringify(menu)}`)

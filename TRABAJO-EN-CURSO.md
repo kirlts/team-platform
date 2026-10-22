@@ -30,6 +30,8 @@ Actualizado 2026-10-22 01:10 UTC.
 
 ## Trabajo en vuelo
 
+Corrección de las 22:40 por reclamo del dueño («no veo un botón para borrar mensajes», «tampoco veo cómo borrar areas», «los elementos no tienen la misma altura»): ícono de borrar en cada tarjeta de mensaje, en cada fila de Áreas y en la vista de un área; título de tarjeta en una línea (UD-241 enmendada); dev-server con borrado de áreas. Auditoría de funciones sin pantalla en curso: `~/.cache/claude-tmp/auditoria-paridad.md`.
+
 Encargo UD-240 (borrar y vaciar), lanzado el 2026-10-21 21:17, cuatro agentes a la vez:
 
 | Rama | Qué | Migración |

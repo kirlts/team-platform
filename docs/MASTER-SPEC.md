@@ -318,6 +318,7 @@ GET    /api/attachments/:id       archivo, con control de acceso y Range
 
 GET    /api/jobs?state=           la cola de trabajos                         (Editor)
 DELETE /api/jobs?state=&confirm=true   purga los terminados                   (Editor)
+POST   /api/ops/reset?confirm=true  { scope: content|everything } vacía los datos de prueba (Editor; UD-240). `content`: envíos, adjuntos, trabajos, propuestas, mensajes, respuestas y telemetría, y los archivos del volumen sin referencia; `everything`: además los otros miembros, y áreas y plantillas vuelven al juego inicial de `templates/`. Una transacción; bitácora `data.reset` con las cifras; responde las cifras por tabla y los bytes liberados. Por línea de comandos: `scripts/vaciar.mjs`; siembra de prueba por la API: `scripts/sembrar.mjs`
 GET    /api/jobs/:id/trace        árbol de spans de un trabajo                (Editor)
 POST   /api/telemetry/ui          lote de eventos de interfaz (cualquier miembro, cabecera X-Team-Request; 204)
 GET    /api/telemetry/ui-summary?days=   percentiles por tarea y pantalla, tasas de error y abandono, peores recorridos   (Editor)

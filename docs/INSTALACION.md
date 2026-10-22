@@ -174,6 +174,31 @@ docker compose up -d --build
 
 Apagar y volver a encender conserva los datos. `docker compose down -v` borra el volumen.
 
+## Vaciar los datos de prueba
+
+Dos alcances. `content` borra envíos, adjuntos, trabajos, propuestas, mensajes, respuestas y telemetría. También borra los archivos del volumen que quedan sin referencia. Conserva miembros, áreas, plantillas, ajustes y claves de proveedor. `everything` además elimina a todos los miembros salvo el Editor que se conserva y devuelve áreas y plantillas al juego inicial de `templates/`. La bitácora (`GET /api/audit`) se conserva y suma una fila `data.reset` con las cifras.
+
+Desde el panel: Configuración, sección Datos, sólo para el Editor. Desde la línea de comandos, en el contenedor del VPS:
+
+```sh
+docker compose exec team-platform node scripts/vaciar.mjs --scope content
+docker compose exec team-platform node scripts/vaciar.mjs --scope content --si
+docker compose exec team-platform node scripts/vaciar.mjs --scope everything --conservar <correo del Editor> --si
+```
+
+Sin `--si` imprime las cifras y no borra. El guion trabaja directo sobre la base (`DATA_DIR` o `.env`), con el servicio en marcha o detenido. Por la API: `POST /api/ops/reset?confirm=true` con cuerpo `{ "scope": "content" }`.
+
+## Sembrar un juego de prueba
+
+`scripts/sembrar.mjs` envía archivos por la API de un servidor en marcha, de modo que cada envío pasa por el análisis real. Cada archivo suelto es un envío: `.md` y `.txt` como texto, imágenes, audio, video, `.pdf` y `.docx` como adjuntos. Una subcarpeta es un solo envío con todos sus archivos. Al final imprime una tabla: envío, estado, mensajes publicados, segundos.
+
+```sh
+node scripts/sembrar.mjs --url https://team.ejemplo.com --email <correo> --password <clave> --ejemplo
+node scripts/sembrar.mjs --url https://team.ejemplo.com --email <correo> --password <clave> --carpeta ./mis-archivos --paralelo 3 --limite 10
+```
+
+`--ejemplo` siembra los siete envíos de `ejemplos/` del repositorio. `--paralelo N` fija cuántos envíos corren a la vez (3 por omisión; con 1 corren uno por uno, para distinguir una falla de una competencia). `--token <cookie>` reemplaza al correo y la clave. `--borrador` deja las propuestas en revisión en vez de publicarlas. Medido el 2026-10-21 contra un servidor local con Claude Haiku 5.5 y `--paralelo 3`: los siete envíos de `ejemplos/` tardan de 4 a 8 s cada uno. Producen 14 mensajes y cuestan 0,0106 USD.
+
 ## Respaldo
 
 `scripts/backup.sh` copia la base en caliente con `VACUUM INTO` y `rename`, la comprueba con `integrity_check` y la deja en `./backups/team-<fecha UTC>.db`. Con un escritor activo tarda 123 ms (informe 03, 2026-10-20). `cp` sobre la base en uso puede dejar una copia inconsistente.

@@ -95,6 +95,8 @@ Una animación continua: el destello del medidor de progreso, mientras un trabaj
 | Token | Valor | Uso |
 |---|---|---|
 | `--duration-hover` | 100 ms, `ease-out` | Cambio de fondo y color de las filas y controles de la barra lateral al pasar el puntero o enfocar (UD-130). Sólo color y fondo, sin desplazamiento |
+| `--notice-ms` | 5000 ms | Vida de un aviso sin nada que pulsar (UD-253). El aviso más largo del catálogo tiene 13 palabras: 4,1 s a 190 palabras por minuto, una desviación bajo la lectura en español de IReST (218, Trauzettel-Klosinski y Dietz, IOVS 2012), más 1 s para verlo aparecer. Constante `NOTICE_MS` de `src/lib/notices.tsx` |
+| `--notice-action-ms` | 8000 ms | Vida de un aviso con Deshacer o enlace: la misma lectura más 3 s para alcanzar el control. Constante `NOTICE_ACTION_MS`. Las dos cuentas se detienen mientras el puntero o el foco están sobre el aviso |
 | `--sidebar-count-col` | 2,75 rem | Ancho mínimo de la columna del contador de la barra lateral; termina a 10 px del borde derecho en cada fila |
 
 ### Atmósfera
@@ -253,7 +255,7 @@ UD-041. `/areas/:areaId`: el título editable en el lugar, el filtro por los tre
 
 ## Avisos de la pantalla
 
-Un aviso no mueve lo que se lee. En el teléfono flota al pie. Desde el ancho de una tableta ocupa el centro vacío de la barra superior, entre el nombre y la campana, donde no tapa contenido ni la paginación de las listas (J3-B-15). Dentro de la ventana de envíos ocupa la barra del título, que sólo tiene el título y el botón de cerrar. Lleva un enlace o una acción, nunca los dos Deshacer: lo que está en el historial se deshace con los botones del historial.
+UD-253. Un aviso no mueve lo que se lee y va centrado en la ventana, con el ancho de su texto y 36 rem como máximo. Hasta 1023 px flota al pie. Desde 1024 px ocupa la barra superior, donde no tapa contenido ni la paginación de las listas (J3-B-15); ahí su ancho máximo es el de la ventana menos 32 rem, para no alcanzar el nombre del proyecto. A 768 px ese margen dejaba 256 px y el texto se partía en tres líneas: por eso la tableta lo lleva al pie. Se va solo según `--notice-ms` y `--notice-action-ms`, se detiene con el puntero o el foco encima y Escape lo cierra. No lleva botón de cerrar: un estado que se va solo y se detiene para quien lo alcanza cumple WCAG 2.2.1. Un aviso nuevo reemplaza al anterior. Lleva un enlace o una acción, nunca los dos Deshacer: lo que está en el historial se deshace con los botones del historial. Ningún borrado pide confirmación: lo reversible deja Deshacer en el aviso y lo irreversible se hace y el aviso da la cifra.
 
 ## Color de área
 

@@ -36,12 +36,16 @@ export function launchBrowser() {
   return playwright[ENGINE].launch({ headless: true, ...(ENGINE === 'chromium' ? { args: ['--ozone-platform=headless'] } : {}) })
 }
 
-/** Builds panel/dist (unless told not to) and serves it with the dev server; returns what a test needs and how to stop it. */
-export async function startPanel(port, { build = !process.env.FIT_SIN_BUILD, stepMs = 120 } = {}) {
+/**
+ * Builds panel/dist (unless told not to) and serves it with the dev server; returns what a test needs and how to stop it.
+ * `base` mounts the panel and its API under a path (H-3721): `origin` then ends with that path (no trailing slash), so
+ * `${origin}/api/…` and `page.goto(origin)` keep working; `host` is the bare origin.
+ */
+export async function startPanel(port, { build = !process.env.FIT_SIN_BUILD, stepMs = 120, base = '/' } = {}) {
   if (build) execFileSync('npx', ['vite', 'build'], { cwd: ROOT, stdio: 'ignore' })
   const server = spawn('node', ['dev-server.mjs'], {
     cwd: ROOT,
-    env: { ...process.env, PANEL_DEV_PORT: String(port), PANEL_DEV_STATIC: '1', PANEL_DEV_STEP_MS: String(stepMs), PANEL_DEV_CONTROL: '1', PANEL_DEV_EXIT_WITH_PARENT: '1' },
+    env: { ...process.env, PANEL_DEV_PORT: String(port), PANEL_DEV_STATIC: '1', PANEL_DEV_STEP_MS: String(stepMs), PANEL_DEV_CONTROL: '1', PANEL_DEV_EXIT_WITH_PARENT: '1', PANEL_DEV_BASE: base },
     // The pipe on stdin is what ties the server to this process: it closes when this process ends, and the server leaves with it.
     stdio: ['pipe', 'pipe', 'inherit'],
   })
@@ -56,9 +60,11 @@ export async function startPanel(port, { build = !process.env.FIT_SIN_BUILD, ste
     server.once('error', reject)
   })
   const browser = await launchBrowser()
-  const origin = `http://127.0.0.1:${port}`
+  const host = `http://127.0.0.1:${port}`
+  const origin = `${host}${base.replace(/\/+$/, '')}`
   return {
     origin,
+    host,
     browser,
     control: controlOf(origin),
     async stop() {
@@ -118,7 +124,7 @@ export async function settled(page) {
 export function watchRequests(page, { quietMs = 500 } = {}) {
   const inFlight = new Set()
   let lastChange = Date.now()
-  const isStream = (r) => r.resourceType() === 'eventsource' || new URL(r.url()).pathname === '/api/events'
+  const isStream = (r) => r.resourceType() === 'eventsource' || new URL(r.url()).pathname.endsWith('/api/events')
   const start = (r) => {
     if (isStream(r)) return
     inFlight.add(r)

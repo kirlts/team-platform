@@ -22,12 +22,15 @@ import { extname, join, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { DatabaseSync } from 'node:sqlite'
 import Ajv from 'ajv'
+import { mountedIndex } from '../src/api/mount.js'
 import { loadConfig } from '../src/config.js'
 import { batchSchema } from '../src/telemetry/ui-spec.js'
 import { recordUiBatch, uiSummary } from '../src/telemetry/ui.js'
 
 const PORT = Number(process.env.PANEL_DEV_PORT ?? 8787)
 const STATIC = process.env.PANEL_DEV_STATIC === '1'
+/** PANEL_DEV_BASE=/team/ serves the panel and the API under that path, as the real server does with BASE_PATH (H-3721). */
+const BASE = `/${(process.env.PANEL_DEV_BASE ?? '/').replace(/^\/+|\/+$/g, '')}/`.replace('//', '/')
 const DIST = fileURLToPath(new URL('./dist/', import.meta.url))
 /** Each step of the simulated analysis lasts this long. It only exists so the bar visibly advances. */
 const STEP_MS = Number(process.env.PANEL_DEV_STEP_MS ?? 700)
@@ -599,6 +602,10 @@ function serveStatic(req, res, pathname) {
     if (isAsset) return fail(res, 404, 'No existe')
     file = join(DIST, 'index.html')
   }
+  if (file === join(DIST, 'index.html')) {
+    res.writeHead(200, { 'Content-Type': MIME['.html'], 'Content-Security-Policy': CSP, 'Cache-Control': 'no-cache' })
+    return res.end(mountedIndex(readFileSync(file, 'utf8'), { basePath: BASE, apiPrefix: `${BASE}api` }))
+  }
   const headers = {
     'Content-Type': MIME[extname(file)] ?? 'application/octet-stream',
     'Content-Security-Policy': CSP,
@@ -771,7 +778,13 @@ function control(path, query) {
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://localhost')
-  const { pathname } = url
+  let { pathname } = url
+  if (BASE !== '/') {
+    // Under a base, everything lives below it and the rest of the host is someone else's.
+    if (`${pathname}/` === BASE) pathname = '/'
+    else if (pathname.startsWith(BASE)) pathname = pathname.slice(BASE.length - 1)
+    else return fail(res, 404, 'Fuera de la base del panel')
+  }
   const method = req.method ?? 'GET'
 
   if (!pathname.startsWith('/api/')) {
@@ -1678,5 +1691,5 @@ if (process.env.PANEL_DEV_EXIT_WITH_PARENT === '1') {
 }
 
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`[dev-server] DEVELOPMENT DOUBLE SERVER with sample data at http://127.0.0.1:${PORT}/api${STATIC ? ' (also serves panel/dist)' : ''}`)
+  console.log(`[dev-server] DEVELOPMENT DOUBLE SERVER with sample data at http://127.0.0.1:${PORT}${BASE}api${STATIC ? ' (also serves panel/dist)' : ''}`)
 })

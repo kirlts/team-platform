@@ -3,18 +3,23 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
 
-// Target of the /api proxy: the real API if PANEL_API is defined; otherwise
-// the development double server (dev-server.mjs). Routes live under /api
-// in both, so the route is not rewritten.
+// Target of the API proxy: the real API if PANEL_API is defined; otherwise
+// the development double server (dev-server.mjs). The route is not rewritten.
 const apiTarget = process.env.PANEL_API ?? `http://127.0.0.1:${process.env.PANEL_DEV_PORT ?? '8787'}`
+// H-3721: in development the mount point comes from VITE_BASE_PATH and VITE_API_BASE (src/lib/base.ts).
+const devBase = process.env.VITE_BASE_PATH ?? '/'
+const devApi = (process.env.VITE_API_BASE ?? '/api').replace(/\/+$/, '')
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  // The build is relative: the server that serves index.html writes the real base into it (src/api/index.js,
+  // `mountedIndex`), so one build serves any path. CSS urls stay relative to the stylesheet.
+  base: command === 'build' ? './' : devBase,
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
   server: {
-    proxy: { '/api': { target: apiTarget, changeOrigin: false } },
+    proxy: { [devApi]: { target: apiTarget, changeOrigin: false } },
   },
   build: {
     outDir: 'dist',
@@ -30,4 +35,4 @@ export default defineConfig({
     include: ['src/**/*.test.{ts,tsx}'],
     maxWorkers: 2,
   },
-})
+}))

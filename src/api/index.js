@@ -18,6 +18,7 @@ import { createLogger } from '../log.js'
 import { getProviderSettings, getUiTelemetryEnabled } from '../domain/settings.js'
 import { installErrorHandler, schemaErrorFormatter } from './errors.js'
 import { installSecurityHeaders } from './security.js'
+import { mountedIndex } from './mount.js'
 import { cookieSpec } from '../identity/cookies.js'
 import { registerIdentity } from '../identity/index.js'
 import { loadBlocklist } from '../identity/password.js'
@@ -33,21 +34,6 @@ import { registerOpsRoutes } from './routes/ops.js'
 import { registerTelemetryRoutes } from './routes/telemetry.js'
 import { errorSchema, member as memberSchema } from './schemas.js'
 
-
-const attr = (value) => String(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
-
-/**
- * The panel's index.html with its mount point (H-3721): the base path and the API prefix as two meta tags the panel
- * reads, the asset references under the base, and the host's theme after the panel's own stylesheet.
- */
-export function mountedIndex (html, config) {
-  const metas = `<meta name="team-base-path" content="${attr(config.basePath)}" /><meta name="team-api-base" content="${attr(config.apiPrefix)}" />`
-  const theme = config.themeCss ? `<link rel="stylesheet" href="${attr(config.basePath)}theme.css" />` : ''
-  return html
-    .replace(/(\s(?:src|href))="\.?\/assets\//g, `$1="${config.basePath}assets/`)
-    .replace(/<head>/i, (head) => `${head}${metas}`)
-    .replace(/<\/head>/i, (end) => `${theme}${end}`)
-}
 
 const LABELS = { telemetry: 'Telemetry', auth: 'Session', me: 'Session', inputs: 'Inputs', messages: 'Messages', areas: 'Areas and templates', templates: 'Areas and templates', members: 'Team', settings: 'Settings', attachments: 'Attachments', events: 'Events', jobs: 'Operations', ops: 'Operations', audit: 'Operations', health: 'Operations', openapi: 'Operations' }
 

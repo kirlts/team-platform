@@ -768,6 +768,33 @@ const server = createServer(async (req, res) => {
 
     // --- project description: the whole team sees it and only the Editor changes it (UD-024)
     // Publication (UD-070): everyone reads it, the Editor changes it.
+    // --- data reset (UD-240): the double empties its sample state the way POST /api/ops/reset does
+    if (path === '/ops/reset' && method === 'POST') {
+      if (needEditor()) return
+      if (url.searchParams.get('confirm') !== 'true') return fail(res, 400, 'La operación es destructiva y exige confirm=true en la dirección.', 'confirm_required')
+      const body = await readJson(req)
+      if (!['content', 'everything'].includes(body?.scope)) return fail(res, 400, 'Alcance inválido', 'validation')
+      const blobs = [...attachments.values()].filter((a) => a.kind !== 'link')
+      const deleted = { inputs: inputs.size, attachments: attachments.size, messages: messages.length, replies: [...replies.values()].reduce((n, list) => n + list.length, 0), jobs: jobs.size, spans: 0 }
+      const bytesFreed = blobs.reduce((n, a) => n + (a.data?.length ?? 0), 0)
+      for (const t of jobs.values()) clearTimeout(t)
+      jobs.clear()
+      waiting.clear()
+      inputs.clear()
+      eventLog.length = 0
+      messages.length = 0
+      replies.clear()
+      attachments.clear()
+      if (body.scope === 'everything') {
+        deleted.members = members.filter((m) => m.id !== me.id).length
+        deleted.areas = areas.length
+        deleted.templates = templates.length
+        members.splice(0, members.length, ...members.filter((m) => m.id === me.id))
+        restoreArray(areas, initial?.areas ?? areas)
+        restoreArray(templates, initial?.templates ?? templates)
+      }
+      return send(res, 200, { scope: body.scope, deleted, files: blobs.length, bytes_freed: bytesFreed })
+    }
     if (path === '/settings/publication' && method === 'GET') return send(res, 200, { auto_publish: autoPublish })
     if (path === '/settings/publication' && method === 'PATCH') {
       if (needEditor()) return

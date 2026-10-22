@@ -1,0 +1,5 @@
+Prueba del formulario de alta de clientes, versión 2.3.
+
+Al guardar un cliente con RUT repetido el formulario queda en blanco y no dice nada. Antes mostraba el aviso «RUT en uso». Pasos: abrir Clientes, Nuevo, escribir un RUT existente, Guardar.
+
+Además, el campo de teléfono acepta letras. Debería aceptar sólo dígitos y el signo más.

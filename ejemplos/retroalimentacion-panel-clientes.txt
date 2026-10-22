@@ -1,0 +1,5 @@
+Probé el panel con el equipo del cliente durante una hora.
+
+Los acordeones de la ficha confunden: dos personas no encontraron el historial porque estaba plegado. El texto del botón «Exportar» se corta en la pantalla del notebook chico. Los colores de los estados abierto y respondido se parecen demasiado cuando el tema es oscuro.
+
+Lo que sí funcionó: la búsqueda por texto y el filtro de fechas.

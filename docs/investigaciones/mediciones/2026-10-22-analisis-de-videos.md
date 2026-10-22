@@ -1,6 +1,6 @@
 # Análisis de dos videos de un cliente (H-3730)
 
-Con Sonnet 5.5, el arreglo deja en 0 los mensajes nacidos de fotogramas y en 7 de 7 las áreas en las tres corridas. Recoge 7 de 7 pedidos en 1 corrida y 5 de 7 en 2. En esas dos, dos pedidos seguidos de la misma conversación (el historial que no se abre y la persona duplicada) quedan en un solo mensaje. El costo por envío no cambia: 0,13 USD con Sonnet. Commit medido: `1e39e2a`.
+Con Sonnet 5.5, el arreglo deja en 0 los mensajes nacidos de fotogramas y en 7 de 7 las áreas en las tres corridas. En las 6 últimas corridas recoge 7 de 7 pedidos en 1 y 5 de 7 en 5. En esas cinco, dos pedidos seguidos de la misma conversación (el historial que no se abre y la persona duplicada) quedan en un solo mensaje. Con Sonnet el envío cuesta 0,13 a 0,16 USD; `main` cuesta 0,13. Commits medidos: `1e39e2a` y `415c217`.
 
 Fecha: 2026-10-22. Caso: un envío de dos videos de un cliente, 86 unidades (33 de voz, 53 de fotogramas), siete pedidos dichos en voz. Revisión manual del caso y verdad: `bench/private/envio-33/` (fuera de git). Medidor: `bench/envio-33.mjs --runs 3`.
 
@@ -15,6 +15,7 @@ Fecha: 2026-10-22. Caso: un envío de dos videos de un cliente, 86 unidades (33 
 | Rama, `189c9d2` | Sonnet 5.5 | 5, 5, 5 | 1, 1, 1 | 0 | 0 | 7, 7, 7 | 0,14 |
 | Rama, `8b50cc3` | Sonnet 5.5 | 7, 5, 5 | 0, 1, 1 | 0 | 0 | 6, 6, 6 | 0,15 |
 | Rama, `1e39e2a` | Sonnet 5.5 | 7, 5, 5 | 0, 1, 1 | 0 | 0 | 7, 7, 7 | 0,13 |
+| Rama, `415c217` (con `main` fusionado) | Sonnet 5.5 | 5, 5, 5 | 1, 1, 1 | 0 | 0 | 7, 7, 7 | 0,16 |
 
 En todas las corridas de la rama: 0 pedidos sin nombrar, 0 unidades de voz sin asignar, 0 unidades en dos mensajes. Con Sonnet, las seis corridas de `main` y de la rama usan la palabra que se lee en pantalla. La propuesta publicada con Haiku usaba la de la voz.
 
@@ -58,11 +59,11 @@ Oraciones con dos puntos (`bench/probe-compound.mjs --repeat 5`, H-1600): ambos 
 
 ## Gasto
 
-3,67 USD de un tope de 6, declarado en `bench/results/private-spend.jsonl`.
+4,15 USD de un tope de 6, declarado en `bench/results/private-spend.jsonl`.
 
 | Parte | USD |
 |---|---|
-| Medidor del envío, 18 corridas | 2,61 |
+| Medidor del envío, 21 corridas | 3,09 |
 | Sondas de la clasificación, 6 | 0,24 |
 | Clasificación del banco | 0,78 |
 | Oraciones con dos puntos | 0,05 |

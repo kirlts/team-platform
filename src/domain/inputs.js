@@ -280,6 +280,15 @@ export function restoreInput ({ db, events, now = Date.now }, inputId, memberId)
   })
 }
 
+/** Cancels the queued or running jobs of an input and tells their listeners. Inside a transaction. */
+function cancelJobsOf ({ queue, events }, inputId) {
+  const jobList = queue.cancelForInput(inputId)
+  for (const jobId of jobList) {
+    events.publishForJob(jobId, { kind: 'done', data: { status: 'cancelled' } })
+  }
+  return jobList
+}
+
 /** Cancels an input of one's own: cancels its jobs and marks it. A published input is not cancelled. */
 export function cancelInput ({ db, queue, events, now = Date.now }, inputId, memberId) {
   return events.transaction(() => {
@@ -287,12 +296,48 @@ export function cancelInput ({ db, queue, events, now = Date.now }, inputId, mem
     if (!input || input.author_id !== memberId) throw notFound('El input no existe.')
     if (input.status === 'published') throw conflict('El input ya se publicó; sus mensajes se cierran, no se cancelan.', 'already_published')
     if (input.status === 'cancelled') throw conflict('El input ya está cancelado.', 'already_cancelled')
-    const jobList = queue.cancelForInput(inputId)
     transitionInput(db, inputId, 'cancelled', { now })
     audit(db, { memberId, action: 'input.cancel', entity: 'input', entityId: inputId, now })
-    for (const jobId of jobList) {
-      events.publishForJob(jobId, { kind: 'done', data: { status: 'cancelled' } })
-    }
+    const jobList = cancelJobsOf({ queue, events }, inputId)
     return { input_id: inputId, cancelled_jobs: jobList }
+  })
+}
+
+/**
+ * Deletes an input for real (UD-240): its attachments, jobs (the queued or running ones are cancelled first), events
+ * and proposal. Its sender or an Editor; for anybody else it does not exist (404). The messages published from it stay
+ * (`messages.input_id` becomes NULL) and keep their attachments: an attachment row some message references is not
+ * deleted, it only loses its input (migration 0011). With `withMessages` those messages go too, with their replies.
+ * Returns the counts and the sha256 of every file that may now be unreferenced; the caller frees the volume
+ * (`freeBlobs`) once the transaction is committed, never inside it.
+ */
+export function deleteInput ({ db, queue, events, now = Date.now }, inputId, actor, { withMessages = false } = {}) {
+  return events.transaction(() => {
+    const input = get(db, 'SELECT * FROM inputs WHERE id = ?', inputId)
+    if (!input || (actor.role !== 'editor' && input.author_id !== actor.id)) throw notFound('El input no existe.')
+    const attachments = all(db, 'SELECT id, kind, sha256 FROM attachments WHERE input_id = ?', inputId)
+    const messageIds = all(db, 'SELECT id FROM messages WHERE input_id = ? ORDER BY id', inputId).map((m) => m.id)
+    const jobs = get(db, 'SELECT COUNT(*) AS n FROM jobs WHERE input_id = ?', inputId).n
+    const cancelled = cancelJobsOf({ queue, events }, inputId)
+    const hashes = attachments.filter((a) => a.kind !== 'link').map((a) => a.sha256)
+    let deletedMessages = 0
+    if (withMessages && messageIds.length > 0) {
+      const marks = messageIds.map(() => '?').join(', ')
+      for (const r of all(db, `SELECT ra.sha256 FROM reply_attachments ra JOIN replies r ON r.id = ra.reply_id WHERE r.message_id IN (${marks}) AND ra.kind <> 'link'`, ...messageIds)) hashes.push(r.sha256)
+      deletedMessages = run(db, `DELETE FROM messages WHERE id IN (${marks})`, ...messageIds).changes
+    }
+    // Rows no message references go; the rest survive with input_id NULL (ON DELETE SET NULL) so the messages keep their files.
+    const removedAttachments = run(db, 'DELETE FROM attachments WHERE input_id = ? AND id NOT IN (SELECT attachment_id FROM message_attachments)', inputId).changes
+    const kept = attachments.length - removedAttachments
+    // Rows an earlier deletion left to a message that no longer exists: nobody references them, so they go with their files.
+    const orphans = all(db, "SELECT id, sha256 FROM attachments WHERE input_id IS NULL AND kind <> 'link' AND id NOT IN (SELECT attachment_id FROM message_attachments)")
+    for (const o of orphans) hashes.push(o.sha256)
+    run(db, 'DELETE FROM attachments WHERE input_id IS NULL AND id NOT IN (SELECT attachment_id FROM message_attachments)')
+    // Written before the row goes, in the same transaction as the change (audit.js).
+    audit(db, { memberId: actor.id, action: 'input.delete', entity: 'input', entityId: inputId, detail: { attachments: removedAttachments, kept_attachments: kept, jobs, cancelled_jobs: cancelled.length, messages: deletedMessages, with_messages: withMessages, author_id: input.author_id }, now })
+    run(db, 'DELETE FROM inputs WHERE id = ?', inputId) // cascades jobs (with their events) and the proposal
+    // The author learns it without a job: the job rows are gone with the input.
+    events.publish({ kind: 'done', memberId: input.author_id, data: { input_id: inputId, status: 'deleted' } })
+    return { input_id: inputId, deleted: { attachments: removedAttachments, jobs, messages: deletedMessages }, hashes: [...new Set(hashes)] }
   })
 }

@@ -1,6 +1,6 @@
 // UD-240, H-3703: an Editor deletes a member from Equipo, in a real browser against dev-server.mjs serving panel/dist
-// (`npm run test:flows`). The confirmation happens in place, never in a dialog; a member with history shows the counts
-// and the choice between deactivating and deleting with everything.
+// (`npm run test:flows`). UD-253: «Eliminar» deletes with one click, with everything of theirs, and no step that confirms it;
+// the notice says how much went. «Desactivar» stays as the other way out.
 import assert from 'node:assert'
 import { after, before, beforeEach, describe, test } from 'node:test'
 import { login, settled, startPanel } from './browser-support.mjs'
@@ -66,7 +66,7 @@ describe('Eliminar un miembro', () => {
     }
   })
 
-  test('without history: «Eliminar» turns into «Eliminar miembro» and «Cancelar» in place, no dialog; cancel restores; confirm removes the row', async () => {
+  test('without history: one click on «Eliminar» removes the row, with no dialog and no step that confirms it', async () => {
     const { page, context } = await session('ana')
     try {
       // Every sample member is assigned to some message, which is history: a fresh member is the one without any.
@@ -79,19 +79,8 @@ describe('Eliminar un miembro', () => {
       await settled(page)
       const row = await findRow(page, 'nuevo@dev.invalid')
       await row.getByRole('button', { name: 'Eliminar a Nuevo Sin Historial' }).click()
-      await row.getByRole('button', { name: 'Eliminar miembro' }).waitFor()
-      await settled(page)
+      await page.locator('[data-notice]').getByText('Nuevo Sin Historial eliminado', { exact: true }).waitFor()
       assert.equal(await page.getByRole('dialog').count(), 0, 'a dialog opened')
-      assert.equal(await row.getByRole('button', { name: 'Cancelar' }).count(), 1)
-      assert.equal(await row.getByRole('button', { name: 'Desactivar' }).count(), 0, 'Desactivar stays while confirming')
-      await row.getByRole('button', { name: 'Cancelar' }).click()
-      await row.getByRole('button', { name: 'Eliminar a Nuevo Sin Historial' }).waitFor()
-      assert.equal(await row.getByRole('button', { name: 'Eliminar miembro' }).count(), 0)
-      assert.ok((await members(page)).some((m) => m.email === 'nuevo@dev.invalid'), 'cancel deleted')
-
-      await row.getByRole('button', { name: 'Eliminar a Nuevo Sin Historial' }).click()
-      await row.getByRole('button', { name: 'Eliminar miembro' }).click()
-      await page.getByText('Nuevo Sin Historial eliminado').waitFor()
       await settled(page)
       assert.equal(await rowOf(page, 'nuevo@dev.invalid').count(), 0, 'the row is still there')
       assert.ok(!(await members(page)).some((m) => m.email === 'nuevo@dev.invalid'), 'the server still lists him')
@@ -100,7 +89,7 @@ describe('Eliminar un miembro', () => {
     }
   })
 
-  test('with history: the counts appear as data with «Desactivar» and «Eliminar con todo»; deleting with everything removes his messages', async () => {
+  test('with history: one click deletes him with his messages and replies, and the notice gives the figures', async () => {
     const { page, context } = await session('ana')
     try {
       const expected = await page.evaluate(async () => {
@@ -116,19 +105,11 @@ describe('Eliminar un miembro', () => {
       assert.ok(expected.messages > 0 && expected.replies > 0, 'Bruno has no history in the sample data')
       const row = rowOf(page, 'bruno@dev.invalid')
       await row.getByRole('button', { name: 'Eliminar a Bruno Prueba' }).click()
-      await row.getByRole('button', { name: 'Eliminar miembro' }).click()
-      await row.getByRole('button', { name: 'Eliminar con todo' }).waitFor()
-      await settled(page)
+      await page.locator('[data-notice]').getByText(`Bruno Prueba eliminado · Envíos 0 · Mensajes ${expected.messages} · Respuestas ${expected.replies}`, { exact: true }).waitFor()
       assert.equal(await page.getByRole('dialog').count(), 0, 'a dialog opened')
-      assert.equal(await row.getByText(`0 envíos · ${expected.messages} mensajes · ${expected.replies} respuestas`).count(), 1, 'the counts are not shown as data')
-      assert.equal(await row.getByRole('button', { name: 'Desactivar a Bruno Prueba' }).count(), 1)
-      assert.equal(await row.getByRole('button', { name: 'Cancelar' }).count(), 1)
-      assert.ok((await members(page)).some((m) => m.email === 'bruno@dev.invalid'), 'the refused attempt deleted him')
-
-      await row.getByRole('button', { name: 'Eliminar con todo' }).click()
-      await page.getByText('Bruno Prueba eliminado').waitFor()
       await settled(page)
       assert.equal(await rowOf(page, 'bruno@dev.invalid').count(), 0)
+      assert.ok(!(await members(page)).some((m) => m.email === 'bruno@dev.invalid'), 'the server still lists him')
       const left = await page.evaluate(async () => ((b) => b.items ?? b)(await (await fetch('/api/messages?limit=100')).json()).map((m) => m.id))
       for (const id of expected.ids) assert.ok(!left.includes(id), `message ${id} of Bruno survived`)
     } finally {
@@ -136,17 +117,14 @@ describe('Eliminar un miembro', () => {
     }
   })
 
-  test('with history, «Desactivar» from the confirmation deactivates and leaves the row', async () => {
+  test('«Desactivar» sits beside «Eliminar» and deactivates without deleting', async () => {
     const { page, context } = await session('ana')
     try {
       const row = rowOf(page, 'carla@dev.invalid')
-      await row.getByRole('button', { name: 'Eliminar a Carla Prueba' }).click()
-      await row.getByRole('button', { name: 'Eliminar miembro' }).click()
-      await row.getByRole('button', { name: 'Eliminar con todo' }).waitFor()
+      assert.equal(await row.getByRole('button', { name: 'Eliminar a Carla Prueba' }).count(), 1)
       await row.getByRole('button', { name: 'Desactivar a Carla Prueba' }).click()
       await row.getByText('Inactivo').waitFor()
       await settled(page)
-      assert.equal(await row.getByRole('button', { name: 'Eliminar con todo' }).count(), 0, 'the confirmation did not close')
       assert.equal((await members(page)).find((m) => m.email === 'carla@dev.invalid')?.active, false)
     } finally {
       await context.close()

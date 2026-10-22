@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: fa13343 Traspaso: VPS en 7f5f303. Empujado a origin: `fa13343`.
-- Ramas con commits sin fusionar: `wt-restaurar-borrados` 4 (hace 72 segundos), `wt-cola-auditoria` 3 (hace 2 minutos), `wt-ajustes-equipo` 2 (hace 34 segundos).
+- `main`: 49216d1 Traspaso: restaurar tras recargar fusionado. Empujado a origin: `49216d1`.
+- Ramas con commits sin fusionar: `wt-cola-auditoria` 3 (hace 5 minutos), `wt-ajustes-equipo` 2 (hace 3 minutos).
 - Worktrees abiertos: `team-platform`, `adjuntos-ficha`, `ajustes-equipo`, `cola-auditoria`, `restaurar-borrados`.
 - Últimos commits en `main`:
-- `fa13343` Traspaso: VPS en 7f5f303 (hace 14 segundos)
-- `f912afd` Traspaso: adjuntos en la ficha fusionado (hace 30 segundos)
-- `04d827a` Merge branch 'wt-adjuntos-ficha' (hace 2 minutos)
-- `09b5a48` Visible Quitar over the medium; H-3707 row and spec (hace 3 minutos)
-- `4b05dd7` Add and remove attachments from the message detail (H-3707) (hace 3 minutos)
-- `7f5f303` Prueba de tarjetas: el título mide una línea de alto (la medición por rectángulos de texto contaba el texto oculto del lector de pantalla) (hace 4 minutos)
-- `3ce07b6` Traspaso: cuatro agentes corrigen la auditoría de paridad (hace 7 minutos)
-- `6b0f665` Borrar desde la pantalla: ícono en cada tarjeta, fila de Áreas y vista de un área; título de tarjeta en una línea (UD-240, UD-241) (hace 8 minutos)
-Actualizado 2026-10-22 01:44 UTC.
+- `49216d1` Traspaso: restaurar tras recargar fusionado (hace 11 segundos)
+- `527f5fb` Merge wt-restaurar-borrados (hace 62 segundos)
+- `fa13343` Traspaso: VPS en 7f5f303 (hace 3 minutos)
+- `f912afd` Traspaso: adjuntos en la ficha fusionado (hace 3 minutos)
+- `b000eb2` Docs: UD-250, H-3706 and the deleted parameter of GET /messages (hace 4 minutos)
+- `1e82ce7` Flow for restoring deleted areas, templates, messages and discarded sends (UD-250) (hace 4 minutos)
+- `04d827a` Merge branch 'wt-adjuntos-ficha' (hace 5 minutos)
+- `09b5a48` Visible Quitar over the medium; H-3707 row and spec (hace 5 minutos)
+Actualizado 2026-10-22 01:47 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

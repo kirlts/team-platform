@@ -178,6 +178,8 @@ export interface Message {
 
 export interface MessageDetail extends Message {
   replies: Reply[]
+  /** Set while the message is deleted (UD-240); only an Editor asking for it sees such a message. */
+  deleted_at?: string | null
 }
 
 export type ProviderSlot = 'text' | 'vision' | 'speech'

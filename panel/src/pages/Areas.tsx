@@ -58,7 +58,7 @@ function DeletedAreaRow({ area }: { area: Area }) {
   const t = useT()
   const restore = useRestoreArea()
   return (
-    <section data-deleted="true" className="flex items-center gap-3 border-b border-line py-3 pl-12 pr-4 text-muted last:border-b-0">
+    <section data-deleted="true" className="flex items-center gap-3 border-b border-line py-3 pl-10 pr-4 text-muted last:border-b-0">
       <span aria-hidden className="size-3 shrink-0 rounded-full opacity-50" style={{ backgroundColor: area.color }} />
       <span className="min-w-0 flex-1 break-words font-semibold">{area.title}</span>
       <Button size="sm" variant="secondary" disabled={restore.isPending} aria-label={t('restore.of', { title: area.title })} data-testid="area-restore" onClick={() => restore.mutate(area.id)}>
@@ -167,7 +167,7 @@ function AreaRow({ area, selection }: { area: Area; selection: Selection }) {
   }
 
   return (
-    <section data-marked={selection.isMarked(area.id) || undefined} className="relative grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-1 border-b border-line py-3 pl-12 pr-12 last:border-b-0 data-[marked]:bg-selected sm:grid-cols-[auto_minmax(10rem,14rem)_8rem_minmax(0,1fr)]">
+    <section data-marked={selection.isMarked(area.id) || undefined} className="relative grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-1 border-b border-line py-3 pl-10 pr-12 last:border-b-0 data-[marked]:bg-selected sm:grid-cols-[auto_minmax(10rem,14rem)_8rem_minmax(0,1fr)]">
       <RowCheck id={area.id} title={area.title} selection={selection} />
       <AreaColorPicker title={area.title} color={area.color} onChange={changeColor} />
       {/* The name leads to the area; the chevron is glued to its last word, so a name on several lines keeps it at full size next to it. */}

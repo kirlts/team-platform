@@ -11,7 +11,7 @@ import type { Selection } from '@/lib/selection'
 export function SelectionBar({ selection, onAll, onDelete, busy }: { selection: Selection; onAll: () => void; onDelete: () => void; busy?: boolean }) {
   const t = useT()
   return (
-    <div role="toolbar" aria-label={t('bulk.toolbar')} data-testid="selection-bar" className="flex min-h-12 flex-wrap items-center gap-x-3 gap-y-1 border-b border-line bg-selected py-2 pl-4 pr-4">
+    <div role="toolbar" aria-label={t('bulk.toolbar')} data-testid="selection-bar" className="flex min-h-12 flex-wrap items-center gap-x-3 gap-y-1 border-b border-line bg-selected py-2 pl-3 pr-4">
       <Checkbox checked aria-label={t('bulk.cancel')} onCheckedChange={() => selection.clear()} />
       <span className="text-sm font-semibold tabular-nums" aria-live="polite">
         {t('bulk.marked', { n: selection.marked.size })}
@@ -40,7 +40,7 @@ export function RowCheck({ id, title, selection }: { id: string; title: string; 
       checked={selection.isMarked(id)}
       aria-label={t('bulk.markOf', { title })}
       onCheckedChange={(on) => selection.toggle(id, on === true)}
-      className="absolute left-4 top-3 z-10"
+      className="absolute left-3 top-3 z-10"
     />
   )
 }

@@ -123,7 +123,7 @@ function DeletedTemplateRow({ template }: { template: Template }) {
   const t = useT()
   const restore = useRestoreTemplate()
   return (
-    <article data-deleted="true" className="flex items-center justify-between gap-3 border-b border-line py-3 pl-12 pr-4 text-muted last:border-b-0">
+    <article data-deleted="true" className="flex items-center justify-between gap-3 border-b border-line py-3 pl-10 pr-4 text-muted last:border-b-0">
       <span className="min-w-0 break-words">{template.name}</span>
       <Button size="sm" variant="secondary" disabled={restore.isPending} aria-label={t('restore.of', { title: template.name })} data-testid="template-restore" onClick={() => restore.mutate(template.id)}>
         {t('restore.action')}
@@ -135,7 +135,7 @@ function DeletedTemplateRow({ template }: { template: Template }) {
 function RemovedRow({ template, onUndo }: { template: Template; onUndo: () => void }) {
   const t = useT()
   return (
-    <article role="status" className="flex items-center justify-between gap-3 border-b border-line bg-hover py-3 pl-12 pr-4 last:border-b-0">
+    <article role="status" className="flex items-center justify-between gap-3 border-b border-line bg-hover py-3 pl-10 pr-4 last:border-b-0">
       <span className="min-w-0 break-words text-muted">{t('areas.deletedRow', { name: template.name })}</span>
       <Button size="sm" variant="secondary" onClick={onUndo}>
         {t('undo.undo')}
@@ -163,7 +163,7 @@ function TemplateRow({ template, areaId, selection, onRemove }: { template: Temp
   }
 
   return (
-    <article data-marked={selection.isMarked(template.id) || undefined} className="relative flex flex-col gap-3 border-b border-line py-3 pl-12 pr-4 last:border-b-0 data-[marked]:bg-selected">
+    <article data-marked={selection.isMarked(template.id) || undefined} className="relative flex flex-col gap-3 border-b border-line py-3 pl-10 pr-4 last:border-b-0 data-[marked]:bg-selected">
       <RowCheck id={template.id} title={template.name} selection={selection} />
       <div className="flex items-start gap-2">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">

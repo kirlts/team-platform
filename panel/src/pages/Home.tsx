@@ -1,3 +1,4 @@
+import { DiscardedSends } from '@/components/DiscardedSends'
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
@@ -240,6 +241,8 @@ export function Home() {
         {/* The row keeps its height with or without sends, so the control appearing moves nothing (J2-B-08). */}
         <div className="flex min-h-7 items-center justify-between gap-x-6">
           <h2>{t('home.new')}</h2>
+          <div className="flex items-center gap-2">
+          <DiscardedSends onRestored={(id) => { setGone((set) => { const next = new Set(set); next.delete(id); return next }); setDiscarded(null); setSelectedId(id); setDrawerOpen(true) }} />
           {working && (
             // One control, shaped as a button: the state and the progress of the sends are in its face, and it folds and unfolds the drawer (J2-B-07).
             <button
@@ -254,6 +257,7 @@ export function Home() {
               <ChevronDown size={16} aria-hidden className={drawerOpen ? 'shrink-0' : 'shrink-0 -rotate-90'} />
             </button>
           )}
+          </div>
         </div>
         <ComposeBar onSubmit={submit} problem={problem} />
       </section>

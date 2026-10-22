@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { AreaColorPicker } from '@/components/AreaColorPicker'
 import { descriptionRule } from '@/components/AreaTemplates'
+import { ShowDeleted } from '@/components/ShowDeleted'
 import { FitList } from '@/components/FitList'
 import { FoldedText } from '@/components/FoldedText'
 import { StateMark, useCountsLabel } from '@/components/NotifyBadge'
@@ -17,7 +18,7 @@ import { useT } from '@/i18n'
 import { AreaNotFound, AreaView } from '@/pages/AreaView'
 import { areaCounts, areaMessagesPath } from '@/lib/pending'
 import { useNotices } from '@/lib/notices'
-import { useAreas, useDeleteArea, useMe, useRestoreArea, useSaveArea, useSummary } from '@/lib/queries'
+import { useAreas, useDeletedAreas, useDeleteArea, useMe, useRestoreArea, useSaveArea, useSummary } from '@/lib/queries'
 import type { Area } from '@/lib/types'
 import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 
@@ -48,13 +49,33 @@ export function Areas() {
   return <AreaList />
 }
 
+type AreaItem = { kind: 'live' | 'deleted'; area: Area }
+
+/** A deleted area: muted, with no counts and no edits, and the one action that brings it back (UD-250). */
+function DeletedAreaRow({ area }: { area: Area }) {
+  const t = useT()
+  const restore = useRestoreArea()
+  return (
+    <section data-deleted="true" className="flex items-center gap-3 border-b border-line py-3 pl-4 pr-4 text-muted last:border-b-0">
+      <span aria-hidden className="size-3 shrink-0 rounded-full opacity-50" style={{ backgroundColor: area.color }} />
+      <span className="min-w-0 flex-1 break-words font-semibold">{area.title}</span>
+      <Button size="sm" variant="secondary" disabled={restore.isPending} aria-label={t('restore.of', { title: area.title })} data-testid="area-restore" onClick={() => restore.mutate(area.id)}>
+        {t('restore.action')}
+      </Button>
+    </section>
+  )
+}
+
 function AreaList() {
   const t = useT()
   const areas = useAreas()
   const save = useSaveArea()
   const undo = useUndoStack()
   const [creating, setCreating] = useState(false)
-  const rows = useMemo(() => areas.data ?? [], [areas.data])
+  // «Borradas» adds the deleted areas under the live ones, muted and with Restaurar (UD-250); restoring moves the row up.
+  const [showDeleted, setShowDeleted] = useState(false)
+  const deleted = useDeletedAreas(showDeleted)
+  const rows = useMemo<AreaItem[]>(() => [...(areas.data ?? []).map((area): AreaItem => ({ kind: 'live', area })), ...(showDeleted ? (deleted.data ?? []).map((area): AreaItem => ({ kind: 'deleted', area })) : [])], [areas.data, deleted.data, showDeleted])
 
   return (
     <UndoProvider stack={undo}>
@@ -64,6 +85,7 @@ function AreaList() {
           aside={
             <div className="flex items-center gap-2">
               <UndoButtons stack={undo} />
+              <ShowDeleted label={t('restore.areas')} on={showDeleted} onChange={setShowDeleted} />
               <Button size="sm" onClick={() => setCreating(true)}>
                 <Plus size={14} aria-hidden /> {t('areas.add')}
               </Button>
@@ -72,9 +94,9 @@ function AreaList() {
         />
         <FitList
           rows={rows}
-          rowKey={(a) => a.id}
+          rowKey={(x) => `${x.kind}-${x.area.id}`}
           label={t('nav.areas')}
-          renderRow={(a) => <AreaRow area={a} />}
+          renderRow={(x) => (x.kind === 'live' ? <AreaRow area={x.area} /> : <DeletedAreaRow area={x.area} />)}
           empty={areas.isPending || areas.isError ? <LoadState query={areas} /> : <EmptyState>{t('areas.none')}</EmptyState>}
         />
         <FormDialog

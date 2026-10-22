@@ -3,11 +3,12 @@ import { useMemo, useState } from 'react'
 import { EditableText } from '@/components/EditableText'
 import { FitList } from '@/components/FitList'
 import { NewTemplateDialog, TemplateContentDialog } from '@/components/TemplateEditor'
+import { ShowDeleted } from '@/components/ShowDeleted'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/EmptyState'
 import { LoadState } from '@/components/LoadState'
 import { useT } from '@/i18n'
-import { useDeleteTemplate, useRestoreTemplate, useSaveTemplate, useTemplates } from '@/lib/queries'
+import { useDeletedTemplates, useDeleteTemplate, useRestoreTemplate, useSaveTemplate, useTemplates } from '@/lib/queries'
 import { Markdown } from '@/lib/markdown'
 import { parseTemplateFields, templateInstructions } from '@/lib/template'
 import type { Area, Template } from '@/lib/types'
@@ -17,7 +18,7 @@ export const nameRule = (t: ReturnType<typeof useT>) => (v: string) => (!v ? t('
 export const descriptionRule = (t: ReturnType<typeof useT>) => (v: string) => (!v ? t('common.required') : v.length > 1024 ? t('form.maxLength', { n: 1024 }) : null)
 
 /** A row of the templates list: a template, or the place where one was just deleted, with Deshacer in it (J2-A-23). */
-type TemplateItem = { kind: 'template'; template: Template } | { kind: 'removed'; template: Template }
+type TemplateItem = { kind: 'template'; template: Template } | { kind: 'removed'; template: Template } | { kind: 'deleted'; template: Template }
 
 /** The templates of one area, edited in place (UD-017). */
 export function Templates({ area }: { area: Area }) {
@@ -32,13 +33,17 @@ export function Templates({ area }: { area: Area }) {
   const [created, setCreated] = useState<string | undefined>()
   /** The template just deleted, where it was, and the size of the history after deleting it: it stays while nothing else was done. */
   const [removed, setRemoved] = useState<{ template: Template; index: number; mark: number } | null>(null)
+  // «Borradas» adds the deleted templates under the live ones, muted and with Restaurar (UD-250).
+  const [showDeleted, setShowDeleted] = useState(false)
+  const deleted = useDeletedTemplates(area.id, showDeleted)
   const live = useMemo(() => (templates.data ?? []).filter((x) => !x.deleted_at), [templates.data])
   const showRemoved = removed && removed.template.area_id === area.id && undo.undoCount === removed.mark
   const rows = useMemo<TemplateItem[]>(() => {
     const items: TemplateItem[] = live.map((template) => ({ kind: 'template', template }))
     if (showRemoved) items.splice(Math.min(removed.index, items.length), 0, { kind: 'removed', template: removed.template })
+    if (showDeleted) for (const template of deleted.data ?? []) if (!(showRemoved && removed.template.id === template.id)) items.push({ kind: 'deleted', template })
     return items
-  }, [live, removed, showRemoved])
+  }, [live, removed, showRemoved, showDeleted, deleted.data])
 
   // Deleting is reversible: it is done and Deshacer restores it (POST /templates/:id/restore). The row says so where it was.
   const remove = (template: Template) => {
@@ -56,15 +61,18 @@ export function Templates({ area }: { area: Area }) {
           {t('areas.templates')}
           <span className="break-words text-sm font-semibold normal-case tracking-normal text-accent-deep">{area.title}</span>
         </h2>
-        <Button size="sm" onClick={() => setCreating(true)}>
-          <Plus size={14} aria-hidden /> {t('areas.addTemplate')}
-        </Button>
+        <div className="flex items-center gap-2">
+          <ShowDeleted label={t('restore.templates')} on={showDeleted} onChange={setShowDeleted} />
+          <Button size="sm" onClick={() => setCreating(true)}>
+            <Plus size={14} aria-hidden /> {t('areas.addTemplate')}
+          </Button>
+        </div>
       </div>
       <FitList
         rows={rows}
         rowKey={(x) => `${x.kind}-${x.template.id}`}
         reveal={created}
-        renderRow={(x) => (x.kind === 'removed' ? <RemovedRow template={x.template} onUndo={() => void undo.undo()} /> : <TemplateRow template={x.template} areaId={area.id} onRemove={() => void remove(x.template)} />)}
+        renderRow={(x) => (x.kind === 'deleted' ? <DeletedTemplateRow template={x.template} /> : x.kind === 'removed' ? <RemovedRow template={x.template} onUndo={() => void undo.undo()} /> : <TemplateRow template={x.template} areaId={area.id} onRemove={() => void remove(x.template)} />)}
         empty={
           templates.isPending || templates.isError ? (
             <LoadState query={templates} />
@@ -86,6 +94,20 @@ export function Templates({ area }: { area: Area }) {
           if (made?.id) setCreated(`template-${made.id}`)
         }} />
     </section>
+  )
+}
+
+/** A deleted template: its name muted and the one action that brings it back (UD-250). */
+function DeletedTemplateRow({ template }: { template: Template }) {
+  const t = useT()
+  const restore = useRestoreTemplate()
+  return (
+    <article data-deleted="true" className="flex items-center justify-between gap-3 border-b border-line px-4 py-3 text-muted last:border-b-0">
+      <span className="min-w-0 break-words">{template.name}</span>
+      <Button size="sm" variant="secondary" disabled={restore.isPending} aria-label={t('restore.of', { title: template.name })} data-testid="template-restore" onClick={() => restore.mutate(template.id)}>
+        {t('restore.action')}
+      </Button>
+    </article>
   )
 }
 

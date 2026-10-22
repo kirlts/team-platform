@@ -283,7 +283,7 @@ POST   /api/inputs/:id/reprocess  (Editor) vuelve a encolar el análisis conserv
 
 GET    /api/events                SSE por miembro (§7.10); ?job_id= lo acota a un trabajo
 
-GET    /api/messages?for=me|id&involved=me&area=&status=&q=&replies=1
+GET    /api/messages?for=me|id&involved=me&area=&status=&q=&replies=1&deleted=1   `deleted=1` lista sólo los borrados, los más recientes primero (UD-250): quien los escribió ve los suyos y un Editor todos; cada uno trae `deleted_at` y se restaura con `POST /api/messages/:id/restore`
 GET    /api/messages/summary      lo que afecta a quien tiene la sesión por estado (`mine`: open, answered, total) y los mensajes de cada área por estado (`areas`: open, answered, closed, mine_open) (UD-028, UD-041)
 GET    /api/messages/:id          mensaje, hilo, adjuntos; un borrado responde 404 (?include_deleted=true: Editor)
 DELETE /api/messages/:id?confirm=true   borra en blando un mensaje publicado (su emisor o un Editor; otro, 403 `not_message_author`) · POST /api/messages/:id/restore lo devuelve (UD-240)

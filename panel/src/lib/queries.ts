@@ -592,3 +592,101 @@ export function useSaveProject() {
     onSuccess: (saved) => qc.setQueryData(['project'], saved),
   })
 }
+
+// ---------------------------------------------------------------- Cola, Traza y Auditoría de Configuración (UD-251), Editor
+export interface QueueInput extends InputRecord {
+  author_name?: string | null
+}
+export interface Paged<T> {
+  items: T[]
+  page: number
+  limit: number
+  total: number
+}
+export const JOB_STATES = ['queued', 'running', 'done', 'failed', 'cancelled'] as const
+export type JobState = (typeof JOB_STATES)[number]
+export type PurgeState = 'done' | 'failed' | 'cancelled'
+export interface SpanNode {
+  span_id: string
+  name: string
+  status: string
+  duration_ms: number
+  attributes: Record<string, unknown>
+  children: SpanNode[]
+}
+export interface JobTrace {
+  job_id: string
+  span_count: number
+  totals: { llm_calls: number; input_tokens: number; output_tokens: number; cost_usd: number }
+  roots: SpanNode[]
+}
+export interface AuditEntry {
+  id: string
+  at: string
+  member_id: string | null
+  member_name: string | null
+  action: string
+  entity: string
+  entity_id: string | null
+  detail: Record<string, unknown> | null
+}
+export interface UiSummary {
+  days: number
+  screens?: Record<string, { visits: number }>
+  tasks?: Record<string, { started: number; abandoned?: number }>
+  errors?: { total: number }
+}
+
+/** Sends of everybody (GET /inputs?all=1), newest first, one server page. */
+export function useQueueInputs(page: number, limit: number) {
+  return useQuery({
+    queryKey: ['inputs', 'queue', page, limit],
+    queryFn: () => api<Paged<QueueInput>>(`/inputs?all=1&page=${page}&limit=${limit}`),
+    placeholderData: keepPreviousData,
+  })
+}
+
+/** Jobs by state: one request per state, the total of each. */
+export function useJobCounts() {
+  return useQuery({
+    queryKey: ['jobs', 'counts'],
+    queryFn: async () => {
+      const totals = await Promise.all(JOB_STATES.map(async (state) => (await api<Paged<unknown>>(`/jobs?state=${state}&limit=1`)).total))
+      return Object.fromEntries(JOB_STATES.map((state, i) => [state, totals[i]])) as Record<JobState, number>
+    },
+  })
+}
+
+export function useJobTrace(jobId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['jobs', 'trace', jobId],
+    queryFn: () => api<JobTrace>(`/jobs/${encodeURIComponent(jobId)}/trace`),
+    enabled,
+    retry: false,
+  })
+}
+
+export function usePurgeJobs() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (state: PurgeState) => api<{ purged: number }>(`/jobs?state=${state}&confirm=true`, { method: 'DELETE' }),
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ['jobs'] }), qc.invalidateQueries({ queryKey: ['audit'] })]),
+  })
+}
+
+export function useAuditLog(page: number, limit: number, action: string) {
+  return useQuery({
+    queryKey: ['audit', page, limit, action],
+    queryFn: () => api<Paged<AuditEntry>>(`/audit?page=${page}&limit=${limit}${action ? `&action=${encodeURIComponent(action)}` : ''}`),
+    placeholderData: keepPreviousData,
+  })
+}
+
+/** Summary of interface use (GET /telemetry/ui-summary); only asked for while the switch is on. */
+export function useUiSummary(enabled: boolean) {
+  return useQuery({
+    queryKey: ['telemetry', 'ui-summary'],
+    queryFn: () => api<UiSummary>('/telemetry/ui-summary'),
+    enabled,
+  })
+}

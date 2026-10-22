@@ -1,9 +1,11 @@
 import { ChevronDown, Lock } from '@/components/icons'
 import { SELECT_FACE } from '@/components/NativeSelect'
 import { useState, type ReactNode } from 'react'
+import { AuditLog } from '@/components/AuditLog'
 import { DataReset } from '@/components/DataReset'
 import { FormDialog } from '@/components/FormDialog'
 import { PageHeader } from '@/components/PageHeader'
+import { QueuePanel } from '@/components/QueuePanel'
 import { ProjectEditor } from '@/components/ProjectEditor'
 import { ProviderSettings } from '@/components/ProviderSettings'
 import { Segmented } from '@/components/Segmented'
@@ -47,6 +49,8 @@ export function Settings() {
           </div>
         </div>
         {editor && <DataReset />}
+        {editor && <QueuePanel />}
+        {editor && <AuditLog />}
       </div>
     </UndoProvider>
   )

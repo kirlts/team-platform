@@ -11,6 +11,7 @@ import { audit } from './audit.js'
 import { AppError, badRequest, conflict, forbidden, notFound, unprocessable } from './errors.js'
 import { transitionInput } from './inputs.js'
 import { checkAssignees, checkFields, newValidatorCache, resolveAreaAndTemplate, withoutNulls } from './validation.js'
+import { enqueueExecuteForAgents } from '../execute/enqueue.js'
 
 /**
  * Validates every message of a proposal against the database. Returns the normalised entries, in order:
@@ -110,6 +111,7 @@ function insertMessages ({ db, events, now }, { input, entries, via }) {
     const messageId = Number(r.lastInsertRowid)
     for (const id of e.assigneeIds) run(db, 'INSERT INTO message_assignees (message_id, member_id) VALUES (?, ?)', messageId, id)
     e.attachmentIds.forEach((id, ordinal) => run(db, 'INSERT INTO message_attachments (message_id, attachment_id, position) VALUES (?, ?, ?)', messageId, id, ordinal))
+    enqueueExecuteForAgents(db, messageId, { memberIds: e.assigneeIds, now }) // an agent assignee gets its `execute` job (UD-254)
     createdIds.push(messageId)
   }
   transitionInput(db, inputId, 'published', { now })

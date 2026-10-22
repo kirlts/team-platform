@@ -33,6 +33,9 @@ import { registerAttachmentRoutes } from './routes/attachments.js'
 import { registerOpsRoutes } from './routes/ops.js'
 import { registerTelemetryRoutes } from './routes/telemetry.js'
 import { errorSchema, member as memberSchema } from './schemas.js'
+import { createVault, loadMasterKey } from '../domain/vault.js'
+import { installAgentAuth } from '../execute/agent-auth.js'
+import { registerExecuteRoutes } from '../execute/routes.js'
 
 
 const LABELS = { telemetry: 'Telemetry', auth: 'Session', me: 'Session', inputs: 'Inputs', messages: 'Messages', areas: 'Areas and templates', templates: 'Areas and templates', members: 'Team', settings: 'Settings', attachments: 'Attachments', events: 'Events', jobs: 'Operations', ops: 'Operations', audit: 'Operations', health: 'Operations', openapi: 'Operations' }
@@ -183,9 +186,12 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
   // ---- Identity. From here on each route must declare its policy.
   const identity = await registerIdentity(app, { db, config, now })
   const { requireRole } = identity
+  // Agent members enter by a signed header with their own secret (UD-255); the hook runs before every `requireRole`.
+  const vault = modules.vault ?? createVault(loadMasterKey({ dataDir: config.dataDir }))
+  installAgentAuth(app, { db, config, vault, now })
   const blocklist = loadBlocklist(config.identity.password.blocklistFile)
   let eventStreams = { closeAll () {} }
-  const ctx = { db, config, queue, events, requireRole, identity, modules, blocklist, domainEvents, telemetry }
+  const ctx = { db, config, queue, events, requireRole, identity, modules, blocklist, domainEvents, telemetry, vault }
 
   const healthHandler = async (request) => {
     const migrated = userVersion(db) === latestVersion()
@@ -247,6 +253,7 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
     registerConnectionRoutes(api, ctx)
     registerAttachmentRoutes(api, ctx)
     registerOpsRoutes(api, ctx)
+    registerExecuteRoutes(api, ctx)
     registerTelemetryRoutes(api, ctx)
     eventStreams = await registerEventRoutes(api, { db, config, events, requireRole })
   }, { prefix: apiPrefixPath })

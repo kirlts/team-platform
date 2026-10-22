@@ -7,11 +7,12 @@ import { conflict, notFound } from './errors.js'
 import { audit } from './audit.js'
 import { DEFAULT_LANGUAGE, requireLanguage } from './language.js'
 
-export const MEMBER_COLUMNS = 'id, email, name, role, profile, language, active, created_at'
+export const MEMBER_COLUMNS = 'id, email, name, role, kind, profile, language, active, created_at'
+export const MEMBER_KINDS = ['person', 'agent'] // UD-254: an agent is a member worked by an unattended Claude Code session
 const COLUMNS = MEMBER_COLUMNS
 
 export const toMember = (dbRow) => ({
-  id: dbRow.id, email: dbRow.email, name: dbRow.name, role: dbRow.role,
+  id: dbRow.id, email: dbRow.email, name: dbRow.name, role: dbRow.role, kind: dbRow.kind ?? 'person',
   profile: dbRow.profile, language: dbRow.language, active: dbRow.active === 1, created_at: iso(dbRow.created_at)
 })
 
@@ -23,12 +24,13 @@ export function getMember (db, id) {
   return toMember(dbRow)
 }
 
-export function createMember (db, { email, name, role = 'member', profile = '', language = DEFAULT_LANGUAGE }, { now = Date.now, actorId = null } = {}) {
+export function createMember (db, { email, name, role = 'member', kind = 'person', profile = '', language = DEFAULT_LANGUAGE }, { now = Date.now, actorId = null } = {}) {
   if (get(db, 'SELECT 1 AS e FROM members WHERE email = ?', email)) throw conflict('Ya existe un miembro con ese correo.', 'email_taken')
-  const r = run(db, 'INSERT INTO members (email, name, role, profile, language, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-    email, name, role, profile, requireLanguage(language), now())
+  if (!MEMBER_KINDS.includes(kind)) throw conflict('Tipo de miembro desconocido.', 'member_kind_invalid')
+  const r = run(db, 'INSERT INTO members (email, name, role, kind, profile, language, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    email, name, role, kind, profile, requireLanguage(language), now())
   const id = Number(r.lastInsertRowid)
-  audit(db, { memberId: actorId, action: 'member.create', entity: 'member', entityId: id, detail: { email, role }, now })
+  audit(db, { memberId: actorId, action: 'member.create', entity: 'member', entityId: id, detail: { email, role, kind }, now })
   return id
 }
 

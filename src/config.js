@@ -280,6 +280,31 @@ export function loadConfig (env = process.env, overrides = {}) {
       logoutUrl: textValue(env, 'LOGOUT_URL', '')
     },
 
+    // ---- Unattended Claude Code session for agent members (UD-254, UD-255, MS §7.5 «Ejecución»)
+    execute: {
+      runner: choiceVar(env, 'EXECUTE_RUNNER', ['local', 'machine'], 'local'), // local: this machine; machine: one the host creates per job
+      bin: textValue(env, 'EXECUTE_CLAUDE_BIN', 'claude'), // the `claude` executable of the local runner
+      machineBin: textValue(env, 'EXECUTE_MACHINE_CLAUDE_BIN', 'claude'), // the `claude` executable inside the machine
+      repoDir: textValue(env, 'EXECUTE_REPO_DIR', ''), // the host repository; the session works on a worktree of it, branch tp/<message_id>
+      workRoot: textValue(env, 'EXECUTE_WORK_ROOT', ''), // where each job's directory is created; empty = $DATA_DIR/tmp
+      teamUrl: textValue(env, 'EXECUTE_TEAM_URL', ''), // the API address the session calls with `team`; empty = http://127.0.0.1:$PORT
+      model: textValue(env, 'EXECUTE_MODEL', 'claude-sonnet-5-5'), // UD-255: Sonnet 5.5
+      effort: choiceVar(env, 'EXECUTE_EFFORT', ['low', 'medium', 'high', 'xhigh', 'max'], 'medium'), // UD-255: medium reasoning; `claude --help` 2.1.284 lists these levels for --effort
+      maxBudgetUsd: decimal(env, 'EXECUTE_MAX_BUDGET_USD', 10, { min: 0.01 }), // UD-255: 10 USD per message to start
+      maxTurns: intVar(env, 'EXECUTE_MAX_TURNS', 60, { min: 1 }), // H-3724 brief: 60 turns; the budget cap is what governs spend
+      maxSubagents: intVar(env, 'EXECUTE_MAX_SUBAGENTS', 3, { min: 0 }), // UD-255: up to three subagents per message
+      // UD-255: one run can cost up to the budget; a queue retry would spend it again, so one attempt by default.
+      maxAttempts: intVar(env, 'EXECUTE_MAX_ATTEMPTS', 1, { min: 1 }),
+      // Declared courtesy: it bounds a machine or a session that hangs; the spend is bounded by EXECUTE_MAX_BUDGET_USD.
+      // It is the job's own cap and replaces QUEUE_MAX_RUNTIME_MS for `execute` jobs.
+      timeoutMs: intVar(env, 'EXECUTE_TIMEOUT_MS', 3600000, { min: 1 }), // declared courtesy, see above
+      // Declared courtesy: after SIGTERM the run gets this long to exit (code 143) before SIGKILL.
+      killGraceMs: intVar(env, 'EXECUTE_KILL_GRACE_MS', 10000, { min: 1 }), // declared courtesy, see above
+      machineCreate: textValue(env, 'EXECUTE_MACHINE_CREATE', ''), // shell command; {job_id}, {workdir}; last stdout line = {machine}
+      machineRun: textValue(env, 'EXECUTE_MACHINE_RUN', ''), // shell command; {job_id}, {workdir}, {machine}; its stdout is the NDJSON stream
+      machineDestroy: textValue(env, 'EXECUTE_MACHINE_DESTROY', '') // shell command; {job_id}, {workdir}, {machine}; runs always
+    },
+
     // ---- Modules written by other agents (src/contracts.md)
     modules: {
       analyze: textValue(env, 'ANALYZE_MODULE', './analyze/index.js'),
@@ -363,6 +388,10 @@ function validateConfig (config) {
       if (!d.sso.loginUrl || !d.sso.secret) throw new Error('The sso-redirect mode requires SSO_LOGIN_URL and SSO_SECRET.')
       if (!config.publicUrl) throw new Error('The sso-redirect mode requires PUBLIC_URL to build the return address.')
     }
+  }
+  const x = config.execute
+  if (x.runner === 'machine' && (!x.machineCreate || !x.machineRun || !x.machineDestroy)) {
+    throw new Error('EXECUTE_RUNNER=machine requires EXECUTE_MACHINE_CREATE, EXECUTE_MACHINE_RUN and EXECUTE_MACHINE_DESTROY.')
   }
   if (config.worker.heartbeatMs >= config.worker.leaseMs) {
     throw new Error('QUEUE_HEARTBEAT_MS must be less than QUEUE_LEASE_MS.')

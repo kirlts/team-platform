@@ -10,11 +10,16 @@
 
 import { EventEmitter } from 'node:events'
 import { all, get, run, tx } from '../db/index.js'
-import { iso } from '../db/util.js'
+import { iso, parseJson } from '../db/util.js'
 import { pruneSpans } from '../telemetry/index.js'
+import { jobDefaults, queueWake } from './wake.js'
+
+export { queueWake } from './wake.js'
 
 export function createQueue ({ db, config, events, now = Date.now, random = Math.random }) {
   const signals = new EventEmitter() // 'enqueued', 'cancelled'
+  queueWake.on('enqueued', (id) => signals.emit('enqueued', id))
+  if (config.execute) jobDefaults.executeMaxAttempts = config.execute.maxAttempts
   const w = config.worker
 
   /** Delay of retry n (n ≥ 1): min(cap, base × 2^(n−1)) minus a random fraction of up to `jitter`. */
@@ -23,12 +28,12 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
     return Math.max(0, Math.round(base * (1 - random() * w.retryJitter)))
   }
 
-  function enqueue (kind, payload = {}, { priority = 0, runAt = null, inputId = null, maxAttempts = w.maxAttempts } = {}) {
+  function enqueue (kind, payload = {}, { priority = 0, runAt = null, inputId = null, messageId = null, maxAttempts = w.maxAttempts } = {}) {
     const t = now()
     const r = run(db,
-      `INSERT INTO jobs (kind, input_id, payload_json, status, priority, attempts, max_attempts, run_at, created_at)
-       VALUES (?, ?, ?, 'queued', ?, 0, ?, ?, ?)`,
-      kind, inputId, JSON.stringify(payload), priority, maxAttempts, runAt ?? t, t)
+      `INSERT INTO jobs (kind, input_id, message_id, payload_json, status, priority, attempts, max_attempts, run_at, created_at)
+       VALUES (?, ?, ?, ?, 'queued', ?, 0, ?, ?, ?)`,
+      kind, inputId, messageId, JSON.stringify(payload), priority, maxAttempts, runAt ?? t, t)
     const id = Number(r.lastInsertRowid)
     // Notifies the worker in the same process; with a separate worker `PRAGMA data_version` wakes it.
     queueMicrotask(() => signals.emit('enqueued', id))
@@ -182,7 +187,7 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
   }
 
   const jobView = (j) => ({
-    id: j.id, kind: j.kind, input_id: j.input_id, status: j.status, priority: j.priority, attempts: j.attempts, max_attempts: j.max_attempts,
+    id: j.id, kind: j.kind, input_id: j.input_id, message_id: j.message_id ?? null, member_id: parseJson(j.payload_json, {}).member_id ?? null, status: j.status, priority: j.priority, attempts: j.attempts, max_attempts: j.max_attempts,
     run_at: iso(j.run_at), lease_until: iso(j.lease_until), worker_id: j.worker_id, last_error: j.last_error, created_at: iso(j.created_at), finished_at: iso(j.finished_at)
   })
 

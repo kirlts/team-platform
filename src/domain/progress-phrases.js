@@ -83,9 +83,9 @@ export const keyOf = (value) => (isStep(value) ? `${value.code}:${JSON.stringify
 const LEGACY = []
 for (const [code, entry] of Object.entries(PROGRESS_PHRASES)) {
   for (const message of Object.values(entry)) {
-    for (const text of typeof message === 'string' ? [message] : [message.one, message.other]) {
-      const names = [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1])
-      const source = text.split(/\{\w+\}/).map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('(\\d+)')
+    for (const template of typeof message === 'string' ? [message] : [message.one, message.other]) {
+      const names = [...template.matchAll(/\{(\w+)\}/g)].map((m) => m[1])
+      const source = template.split(/\{\w+\}/).map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('(\\d+)')
       LEGACY.push({ code, names, pattern: new RegExp(`^${source}$`) })
     }
   }

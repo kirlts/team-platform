@@ -25,10 +25,14 @@ export function buildClassificationSchema({ areas, templates }, { validation = f
           type: 'object',
           properties: {
             unit_ids: validation ? intArray({ minItems: 1, uniqueItems: true }) : intArray({ minItems: 1 }),
+            // H-3730: each request the group carries, one line each, named before the area. The validation asks for exactly one
+            // (a count, never a reading of the text); the decomposition receives it.
+            // No `minLength` in the validation: an empty line is not a reason to fail a classification the system never reads.
+            requests: { type: 'array', items: { type: 'string' } },
             area_id: { type: 'integer', enum: areas.map((a) => a.id) },
             template_id: { type: 'integer', enum: templates.map((t) => t.id) },
           },
-          required: ['unit_ids', 'area_id', 'template_id'],
+          required: ['unit_ids', ...(validation ? [] : ['requests']), 'area_id', 'template_id'],
           additionalProperties: false,
         },
       },
@@ -55,10 +59,14 @@ function messageSchema(fieldsSchema, { validation, requireAssignee = false }) {
       // With a team, every message has an owner (H-86): the grammar of the model requires at least one id.
       assignee_ids: requireAssignee ? { ...ids, minItems: 1 } : ids,
       attachment_ids: ids,
-      // Optional: `frame` marks a point seen only in the image and never said aloud, so the sender can discard it in the preview.
-      source: { type: 'string', enum: ['frame'] },
+      // H-3730: what a frame shows and nobody says aloud, kept out of the body («Observado, no dicho»). Empty when there is none.
+      observed: { type: 'array', items: text },
+      // H-3730: the units where the person comes back to this request after talking about another one. A message whose spoken
+      // units are not one run must declare where each later run starts; the system checks the shape, never the text.
+      resumes_at: ids,
     },
-    required: ['unit_ids', 'title', 'fields', 'body', 'assignee_ids', 'attachment_ids'],
+    // The grammar requires `observed` so the model always considers it; the validation accepts an output without it (an empty list).
+    required: ['unit_ids', 'title', 'fields', 'body', 'assignee_ids', 'attachment_ids', ...(validation ? [] : ['observed', 'resumes_at'])],
     additionalProperties: false,
   };
 }
@@ -110,7 +118,8 @@ export function buildProposalSchema({ validation = false } = {}) {
   const message = structuredClone(base.properties.messages.items);
   message.properties.fields = { type: 'object', additionalProperties: { type: ['string', 'null'] } };
   const { unit_ids, ...rest } = message.properties;
-  message.properties = { unit_ids, area_id: { type: 'integer' }, template_id: { type: 'integer' }, ...rest };
+  // `source` is set by the system from the kind of the units (UD-021, H-3730), never by the model of the decomposition.
+  message.properties = { unit_ids, area_id: { type: 'integer' }, template_id: { type: 'integer' }, ...rest, source: { type: 'string', enum: ['frame'] } };
   message.required = ['unit_ids', 'area_id', 'template_id', 'title', 'fields', 'body', 'assignee_ids', 'attachment_ids'];
   return {
     type: 'object',

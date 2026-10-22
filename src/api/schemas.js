@@ -106,6 +106,7 @@ export const messageDetail = {
   type: 'object',
   properties: {
     ...messageCard.properties,
+    observed: { type: 'array', items: { type: 'string' }, description: 'What a video frame shows and nobody says, outside the body; empty when there is none.' },
     replies: { type: 'array', items: reply },
     edits: { type: 'array', items: { type: 'object', properties: { id, member_id: id, at: { type: 'string' }, version: intVar, fields: { type: 'array', items: { type: 'string' } } } } }
   }
@@ -118,7 +119,8 @@ const proposalMessage = {
     area_id: id, template_id: nullableId, title: { type: 'string' }, body: { type: 'string' },
     fields: { type: 'object', additionalProperties: true },
     assignee_ids: { type: 'array', items: id }, attachment_ids: { type: 'array', items: id }, unit_ids: { type: 'array', items: id },
-    source: { type: 'string', enum: ['frame'] }
+    source: { type: 'string', enum: ['frame'] },
+    observed: { type: 'array', items: { type: 'string', minLength: 1 } }
   }
 }
 
@@ -181,7 +183,8 @@ export const proposalBody = {
           assignee_ids: { type: 'array', items: idIn },
           attachment_ids: { type: 'array', items: idIn },
           unit_ids: { type: 'array', items: { type: 'integer' } },
-          source: { type: 'string', enum: ['frame'] }
+          source: { type: 'string', enum: ['frame'] },
+          observed: { type: 'array', items: { type: 'string', minLength: 1 } }
         }
       }
     },

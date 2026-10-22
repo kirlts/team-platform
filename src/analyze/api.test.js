@@ -60,7 +60,7 @@ describe('analyze (api): an input with three mixed points', () => {
     const groupItem = classify.schema.properties.groups.items.properties;
     assert.deepEqual(groupItem.area_id.enum, [1, 2, 3, 4, 5]);
     assert.deepEqual(groupItem.template_id.enum, [1, 2, 3, 4, 5]);
-    assert.deepEqual(Object.keys(groupItem), ['unit_ids', 'area_id', 'template_id']);
+    assert.deepEqual(Object.keys(groupItem), ['unit_ids', 'requests', 'area_id', 'template_id'], 'the request is named before the area (H-3730)');
 
     assert.ok(decompose.system.join('\n').includes('Un mensaje por error.'), 'body of the group template');
     assert.ok(!decompose.system.join('\n').includes('Un mensaje por idea.'));

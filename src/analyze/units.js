@@ -56,6 +56,31 @@ export function isEmptyUnit(text) {
   return !/[\p{L}\p{N}]/u.test(t) || BARE_NUMBER.test(t) || SPEAKER_MARK.test(t) || SPEAKER_LABEL.test(t) || EMPTY_EXTRACTOR_LINE.test(t);
 }
 
+// Labels the video extractor writes at the start of each line (§7.4): «[mm:ss-mm:ss] Voz: …» and «[mm:ss] Fotograma N: …».
+const VOICE_LINE = new RegExp(`^[[(]?${CLOCK}(?:\\s*[-–]\\s*${CLOCK})?[\\])]?\\s*Voz:`);
+const FRAME_LINE = new RegExp(`^[[(]?${CLOCK}[\\])]?\\s*Fotograma \\d+:`);
+
+/**
+ * Structural kind of a unit (H-3730): `voice` (a transcript segment of an audio or a video), `frame` (the description of a video
+ * frame or of an image) or `text` (what the author wrote, or a document). It comes from the source of the unit and from the label
+ * the extractor writes, never from what the person said. A request is born from `voice` or `text`; a `frame` is evidence.
+ */
+function unitKind(source, text) {
+  if (source.type !== 'attachment') return 'text';
+  if (source.kind === 'image') return 'frame';
+  if (source.kind === 'audio') return 'voice';
+  if (source.kind === 'video') return FRAME_LINE.test(text.trim()) ? 'frame' : VOICE_LINE.test(text.trim()) ? 'voice' : 'text';
+  return 'text';
+}
+
+/** Start and end of a unit time (`mm:ss`, `h:mm:ss` or a range) in seconds, or null. */
+export function timeRange(time) {
+  if (typeof time !== 'string') return null;
+  const seconds = (clock) => clock.split(':').reduce((acc, part) => acc * 60 + Number(part), 0);
+  const [start, end] = time.split(/\s*[-–]\s*/);
+  return { start: seconds(start), end: seconds(end ?? start) };
+}
+
 /** Attachment kinds whose text is a monologue or a timeline: it is not split (report 02 §2.2). */
 const ATOMIC_KINDS = new Set(['audio', 'video']);
 
@@ -278,7 +303,7 @@ export function numberUnits(bundle) {
       const suffix = u.row ? `.r${u.row}` : (u.sentence ? `.s${u.sentence}` : '');
       const label = `${labelPrefix}p${u.paragraph}${suffix}`;
       out.push({
-        id, label, source, section: u.section, atomic, item: u.item, sourceIndex, text: u.text, sender: u.sender, time: u.text.match(UNIT_TIME)?.[1] ?? null,
+        id, label, source, kind: unitKind(source, u.text), section: u.section, atomic, item: u.item, sourceIndex, text: u.text, sender: u.sender, time: u.text.match(UNIT_TIME)?.[1] ?? null,
         ...(u.table ? { table: { label: `${labelPrefix}p${u.table.paragraph}`, header: u.table.header } } : {}),
       });
     }

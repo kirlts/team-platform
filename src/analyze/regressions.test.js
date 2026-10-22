@@ -242,24 +242,24 @@ describe('REG-009: a rhetorical question or a closing filler is not a Question m
   }
 });
 
-describe('H-11: a point seen only in a frame carries source «frame» into the proposal', () => {
+describe('H-11: a point seen only in an image carries source «frame» into the proposal, set from the kind of its units (H-3730)', () => {
   const script = (source) => scriptByRequest({
     classification: { groups: [{ unit_ids: [1, 2], area_id: 2, template_id: 2 }], discarded: [] },
     decompositions: { 'Reporte de error': { messages: [{ ...bugMessage([1, 2], 'Corregir el icono desalineado'), ...(source ? { source } : {}) }] } },
   });
-  const run = async (source) => analyze(await makeBundle({ text: '[00:03] Fotograma 1: El icono sale desalineado.\n[00:04] Fotograma 2: El icono sigue desalineado.', attachments: [] }), { providers: createFakeProviders({ text: script(source) }) });
+  const run = async (source, attachments) => analyze(await makeBundle({ text: attachments ? '' : '[00:03] Fotograma 1: El icono sale desalineado.\n[00:04] Fotograma 2: El icono sigue desalineado.', attachments: attachments ?? [] }), { providers: createFakeProviders({ text: script(source) }) });
 
-  it('the field survives the validation and the normalization', async () => {
-    const result = await run('frame');
+  it('a message whose units are images carries the field without the model writing it', async () => {
+    const result = await run(undefined, [{ id: 3, kind: 'image', extracted: 'El icono sale desalineado.\nEl icono sigue desalineado.' }]);
     assert.equal(result.status, 'ok');
     assert.equal(result.proposal.messages[0].source, 'frame');
   });
 
-  it('a message without the field stays without it, and any other value is invalid', async () => {
+  it('text written by the author stays without the field, and the model cannot set it', async () => {
     const without = await run(undefined);
     assert.equal(without.status, 'ok');
     assert.ok(!('source' in without.proposal.messages[0]));
-    const other = await run('audio');
+    const other = await run('frame');
     assert.equal(other.status, 'invalid');
   });
 });

@@ -199,8 +199,11 @@ describe('areas: list and view layout (H-2900 to H-2906)', () => {
       await rows.first().waitFor()
       await settled(page)
       const last = (await rows.last().boundingBox())
+      // With more messages than fit, the pager strip ends the list (UD-241 cards are 152 px tall: four no longer fit in 900 px); the section sits right under it.
+      const pager = page.locator('main').getByText(/^\d+–\d+ de \d+$/).first()
+      const end = (await pager.count()) > 0 ? await pager.evaluate((el) => el.parentElement.getBoundingClientRect().bottom) : last.y + last.height
       const fold = await page.getByRole('button', { name: 'Descripción', exact: true }).boundingBox()
-      assert.ok(fold.y - (last.y + last.height) <= 28, `${Math.round(fold.y - (last.y + last.height))} px between the last message and the first section`)
+      assert.ok(fold.y - end <= 28, `${Math.round(fold.y - end)} px between the last message and the first section`)
     } finally {
       await context.close()
     }

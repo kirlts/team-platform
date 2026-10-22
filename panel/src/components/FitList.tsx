@@ -201,7 +201,7 @@ export function FitList<T>({
 
   return (
     <div ref={slot} data-fit-measuring={desktop && rows.length > 0 && count === null ? '' : undefined} className={cn('flex min-h-0 flex-1 flex-col', className)} style={pages && fit ? { minHeight: fit.floor } : undefined}>
-      <div ref={frame} aria-label={label} className={cn('flex max-h-full min-h-0 flex-col overflow-hidden', pages && 'h-full', bare ? 'border-y border-line' : 'glass leaf')}>
+      <div ref={frame} aria-label={label} className={cn('flex max-h-full min-h-0 flex-col overflow-hidden', bare ? 'border-y border-line' : 'glass leaf')}>
       {header && (
         <div ref={head} className="shrink-0">
           {header}

@@ -36,8 +36,6 @@ export function PublishedPane({ input, onDeleted }: { input: InputRecord; onDele
         <Badge tone="neutral" data-testid="published-state">{t('tray.state.published')}</Badge>
         <SimulatedMark proposal={input.proposal} />
         <UndoButtons stack={stack} />
-        {/* The send can go while its messages stay, or with them (UD-240). */}
-        <DeleteSend input={input} onDeleted={onDeleted} className="ml-auto" />
       </div>
       {/* The messages of a send have no maximum length: the list is as tall as it is and the page scrolls (UD-110); no box is ever cut. */}
       <ul className="flex flex-1 flex-col gap-2">
@@ -45,6 +43,11 @@ export function PublishedPane({ input, onDeleted }: { input: InputRecord; onDele
           <PublishedMessage key={id} id={id} input={input} />
         ))}
       </ul>
+      {/* The send can go while its messages stay, or with them (UD-240). Last, under the result: a destructive step does not
+          share the title row, and on a phone the result keeps starting in the first screen. */}
+      <div className="flex justify-end">
+        <DeleteSend input={input} onDeleted={onDeleted} />
+      </div>
     </section>
   )
 }

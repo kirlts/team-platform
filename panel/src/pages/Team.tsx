@@ -183,14 +183,14 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
               <span className="text-right text-xs text-muted max-md:text-left">{t('team.history', removal)}</span>
             )}
             <div className="flex flex-wrap justify-end gap-1">
-              {removal !== 'confirm' && (
-                <Button size="sm" variant="secondary" className="font-normal hover:border-danger hover:text-danger" disabled={busy} onClick={() => void toggleActive().then(() => setRemoval('idle'))} aria-label={member.active ? t('team.deactivateOf', { name: member.name }) : t('team.reactivateOf', { name: member.name })}>
-                  {member.active ? t('team.deactivate') : t('team.reactivate')}
-                </Button>
-              )}
               {removal === 'idle' && (
                 <Button size="sm" variant="secondary" className="font-normal hover:border-danger hover:text-danger" onClick={() => { setProblem(null); setRemoval('confirm') }} aria-label={t('team.deleteOf', { name: member.name })}>
                   {t('team.delete')}
+                </Button>
+              )}
+              {removal !== 'confirm' && (
+                <Button size="sm" variant="secondary" className="font-normal hover:border-danger hover:text-danger" disabled={busy} onClick={() => void toggleActive().then(() => setRemoval('idle'))} aria-label={member.active ? t('team.deactivateOf', { name: member.name }) : t('team.reactivateOf', { name: member.name })}>
+                  {member.active ? t('team.deactivate') : t('team.reactivate')}
                 </Button>
               )}
               {removal === 'confirm' && (

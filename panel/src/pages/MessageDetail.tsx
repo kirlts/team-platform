@@ -181,7 +181,8 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
               <MessageSquare size={13} aria-hidden /> {t('reply.jump')}
             </a>
           )}
-          {canEdit && <UndoButtons stack={undo} compact={!desktop} />}
+          {/* The author of a reply edits it here too (UD-253): the history is theirs as well. */}
+          {(canEdit || (!!me && m.replies.some((r) => r.author_id === me.id))) && <UndoButtons stack={undo} compact={!desktop} />}
           {canDelete && (
             <Button size="sm" variant="ghost" className="text-muted hover:text-danger" disabled={del.isPending} onClick={() => void remove()}>
               <Trash2 size={14} aria-hidden /> {t('detail.delete')}

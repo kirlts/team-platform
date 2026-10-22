@@ -13,22 +13,24 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 3aa80af Traspaso: VPS en 8f15e1d. Empujado a origin: `3aa80af`.
-- Ramas con commits sin fusionar: ninguna.
-- Worktrees abiertos: `team-platform`.
+- `main`: 5f9bba8 Eje documental al día con UD-240 a UD-253; libro apunta a main. Empujado a origin: `5f9bba8`.
+- Ramas con commits sin fusionar: `wt-sin-confirmaciones` 5 (hace 2 minutos), `wt-borrado-multiple` 4 (hace 7 segundos), `wt-inicio-listas` 4 (hace 2 minutos).
+- Worktrees abiertos: `team-platform`, `borrado-multiple`, `inicio-listas`, `sin-confirmaciones`.
 - Últimos commits en `main`:
-- `3aa80af` Traspaso: VPS en 8f15e1d (hace 2 minutos)
-- `65f2c15` Traspaso: auditoría de paridad en main (hace 4 minutos)
-- `8f15e1d` Declarar EXAMPLES_DIR en .env.example (hace 4 minutos)
-- `7036292` Merge wt-ajustes-equipo (hace 6 minutos)
-- `b8e0843` Equipo en teléfono sin solape y rótulo de Vaciar todo con su palabra (UD-252) (hace 7 minutos)
-- `1eec0fd` Traspaso: cola y auditoría fusionadas (hace 11 minutos)
-- `0e02de1` Cola fusionada: comentario en inglés y prueba de respaldo que no depende del orden por milisegundo (hace 11 minutos)
-- `c85f0b4` Equipo, Datos y plantillas: ajustes de pruebas, documentos y UD-252 (hace 11 minutos)
-Actualizado 2026-10-22 02:06 UTC.
+- `5f9bba8` Eje documental al día con UD-240 a UD-253; libro apunta a main (hace 67 segundos)
+- `29d8930` Merge branch 'wt-eje-documental' (hace 77 segundos)
+- `4c8323c` REPOMAP: vps-check sin «end-to-end» (hace 2 minutos)
+- `2fe045d` TEST y README: cifras tras fusionar la edición de respuestas (hace 2 minutos)
+- `a1915b3` Fusión de main: migraciones hasta 0012 en MASTER-SPEC y REPOMAP (hace 5 minutos)
+- `17f3591` CHANGELOG y TEST: oraciones partidas bajo 25 palabras (hace 5 minutos)
+- `48831e7` CHANGELOG: entrada del 2026-10-21 noche (hace 6 minutos)
+- `2199f8b` README: Sembrar ejemplos también desde Configuración (hace 6 minutos)
+Actualizado 2026-10-22 02:26 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo
+
+UD-253, lanzado 23:15. Respuestas editables en `main` y VPS `6911ecb` (23:24, `vps-check` OK, ya borra su envío de prueba). Eje documental fusionado (`5f9bba8`). Siguen tres agentes: `wt-borrado-multiple` (H-3715), `wt-sin-confirmaciones` (borrar sin confirmar y avisos efímeros centrados, H-3716 y H-3717), `wt-inicio-listas` (listas de Inicio parejas y según contenido, H-3718). Al fusionarlos: pasada del eje documental (MASTER-SPEC, TODO, TEST, REPOMAP, README) y VPS. Hecho fuera de agentes: «Descartados» retirado, vps-check borra su envío de prueba, 12 envíos de prueba borrados del VPS, «Apagadas hasta…» quitado de Conexiones.
 
 Tu VPS corre `4543d45` desde las 22:51 (`vps-check` OK): papeleras, adjuntos en la ficha, restaurar tras recargar y el arreglo del fotograma vacío (H-3713). Corrección de las 22:40 por reclamo del dueño («no veo un botón para borrar mensajes», «tampoco veo cómo borrar areas», «los elementos no tienen la misma altura»): ícono de borrar en cada tarjeta de mensaje, en cada fila de Áreas y en la vista de un área; título de tarjeta en una línea (UD-241 enmendada); dev-server con borrado de áreas. Auditoría de paridad terminada (`~/.cache/claude-tmp/auditoria-paridad.md`) y sus cuatro arreglos en `main` `8f15e1d` (23:02): restaurar tras recargar, adjuntos en la ficha, cola y auditoría, contraseña ajena, sembrar y plantillas a la vista (H-3706 a H-3712). VPS corre ese hash desde las 23:03 (`vps-check` OK). Sin hacer: editar respuestas y borrado en lote (esperan al dueño).
 

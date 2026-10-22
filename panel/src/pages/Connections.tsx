@@ -32,7 +32,7 @@ export function Connections() {
 
   return (
     <Page cols={12}>
-      <PageHeader title={t('nav.connections')} count={t('connections.off')} />
+      <PageHeader title={t('nav.connections')} />
       <FitList
         rows={CONNECTIONS}
         rowKey={(c) => c}

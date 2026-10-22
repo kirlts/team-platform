@@ -526,7 +526,6 @@ export const en: Record<MessageKey, Message> = {
   'project.uploaded': 'Description file',
 
   'areas.editorOnly': 'Only the Editor manages the areas',
-  'connections.off': 'Off until the decomposition is proven',
   'connections.api': 'API',
   'connections.mcp': 'MCP',
   'connections.email': 'Email',
@@ -617,6 +616,9 @@ export const en: Record<MessageKey, Message> = {
   'replies.delete': 'Delete reply',
   'replies.deleted': 'Reply deleted',
   'replies.deletedRow': 'Reply by {name} deleted',
+  'replies.body': 'Reply text',
+  'replies.textEdited': 'Reply edit',
+  'replies.edited': 'Edited {when}',
   'error.not_reply_author': 'Only the author deletes this reply',
   'fields.fill': 'Fill in',
   'notFound.title': 'Page not found',

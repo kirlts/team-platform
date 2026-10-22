@@ -3,11 +3,12 @@ import { Trash2 } from '@/components/icons'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useFormat, useT } from '@/i18n'
-import { useDeleteReply, useMe, useRestoreReply } from '@/lib/queries'
+import { useDeleteReply, useEditReply, useMe, useRestoreReply } from '@/lib/queries'
 import type { MessageDetail, Reply } from '@/lib/types'
 import { useUndo } from '@/lib/undo'
 import { Avatar } from './Avatar'
 import { CloseMessage } from './CloseMessage'
+import { EditableText } from './EditableText'
 import { AttachmentStrip } from './AttachmentStrip'
 import { FitList } from './FitList'
 import { useLookups } from './lookups'
@@ -20,6 +21,8 @@ type ReplyItem = { kind: 'reply'; reply: Reply } | { kind: 'removed'; reply: Rep
  * Replies of a message: the list fits its frame and paginates; the form stays at the foot, in
  * view. The sender does not reply to their own message: they do not see the form.
  * The author of a reply or the Editor deletes it (UD-240): no dialog, the row says it was deleted and Deshacer brings it back.
+ * Only the author edits its text in place (UD-253), as the sender edits a message (UD-071): the text is the control, and each
+ * save is an operation of the screen's undo stack. Nobody else, the Editor included, sees it editable.
  */
 export function ReplyThread({ message, focusForm }: { message: MessageDetail; focusForm?: boolean }) {
   const t = useT()
@@ -29,8 +32,14 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
   const undo = useUndo()
   const del = useDeleteReply(message.id)
   const restore = useRestoreReply()
+  const edit = useEditReply(message.id)
   const canReply = !!me && me.id !== message.author_id && message.status !== 'closed'
   const canDelete = (r: Reply) => !!me && (me.id === r.author_id || me.role === 'editor')
+  const canEdit = (r: Reply) => !!me && me.id === r.author_id
+  /** A reply with attachments may be left without text; one without them may not (the API answers 400 `reply_empty`). */
+  const bodyRule = (r: Reply) => (v: string) => (v || (r.attachments ?? []).length > 0 ? null : t('common.required'))
+  const changeText = (reply: Reply, next: string) =>
+    undo.run({ label: t('replies.textEdited'), redo: () => edit.mutateAsync({ replyId: reply.id, body: next }), undo: () => edit.mutateAsync({ replyId: reply.id, body: reply.body }) })
   /** The reply just deleted, where it was, and the size of the history after deleting it: it stays while nothing else was done. */
   const [removed, setRemoved] = useState<{ reply: Reply; index: number; mark: number } | null>(null)
   const showRemoved = removed && removed.reply.message_id === message.id && undo.undoCount === removed.mark
@@ -94,13 +103,22 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
                   <time dateTime={x.reply.created_at} className="tabular-nums">
                     {format.stamp(x.reply.created_at)}
                   </time>
+                  {x.reply.edited_at && (
+                    <time dateTime={x.reply.edited_at} data-testid="reply-edited" className="tabular-nums">
+                      {t('replies.edited', { when: format.stamp(x.reply.edited_at) })}
+                    </time>
+                  )}
                   {canDelete(x.reply) && (
                     <Button size="icon-sm" variant="ghost" className="-my-1.5 ml-auto shrink-0 text-muted hover:text-danger" aria-label={t('replies.delete')} title={t('replies.delete')} disabled={del.isPending} onClick={() => void remove(x.reply)}>
                       <Trash2 size={14} aria-hidden />
                     </Button>
                   )}
                 </div>
-                {x.reply.body && <p className="prose-block whitespace-pre-wrap break-words text-sm">{x.reply.body}</p>}
+                {canEdit(x.reply) ? (
+                  <EditableText value={x.reply.body} label={t('replies.body')} multiline prose validate={bodyRule(x.reply)} onSave={(v) => changeText(x.reply, v)} displayClassName="text-sm" />
+                ) : (
+                  x.reply.body && <p className="prose-block whitespace-pre-wrap break-words text-sm">{x.reply.body}</p>
+                )}
                 <AttachmentStrip items={x.reply.attachments ?? []} scope="reply" px={36} named className="pt-0.5" />
               </div>
             </article>

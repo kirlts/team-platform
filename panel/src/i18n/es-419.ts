@@ -526,7 +526,6 @@ export const es419 = {
   'project.uploaded': 'Archivo de la descripción',
 
   'areas.editorOnly': 'Sólo el Editor administra las áreas',
-  'connections.off': 'Apagadas hasta que la descomposición esté probada',
   'connections.api': 'API',
   'connections.mcp': 'MCP',
   'connections.email': 'Correo',
@@ -617,6 +616,9 @@ export const es419 = {
   'replies.delete': 'Borrar respuesta',
   'replies.deleted': 'Respuesta borrada',
   'replies.deletedRow': 'Respuesta de {name} borrada',
+  'replies.body': 'Texto de la respuesta',
+  'replies.textEdited': 'Edición de respuesta',
+  'replies.edited': 'Editada {when}',
   'error.not_reply_author': 'Sólo quien escribió la respuesta la borra',
   'fields.fill': 'Completar',
   'notFound.title': 'Página no encontrada',

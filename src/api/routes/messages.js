@@ -1,11 +1,11 @@
 // Message and reply routes (MASTER-SPEC §7.1).
 
 import { releaseBlobs } from '../../domain/storage.js'
-import { addMessageAttachments, addReply, assertCanAddAttachments, assertCanReply, closeMessage, deleteMessage, deleteReply, getMessage, listMessages, messageSummary, reopenMessage, REPLY_KINDS, restoreMessage, restoreReply, updateMessage } from '../../domain/messages.js'
+import { addMessageAttachments, addReply, assertCanAddAttachments, assertCanReply, closeMessage, deleteMessage, deleteReply, getMessage, listMessages, messageSummary, reopenMessage, REPLY_KINDS, restoreMessage, restoreReply, updateMessage, updateReply } from '../../domain/messages.js'
 import { withSpan } from '../../domain/tracing.js'
 import { requireConfirm } from '../confirm.js'
 import { pageEnvelope, pageParams, pageQuerySchema, pageResult } from '../pagination.js'
-import { confirmQuery, idIn, idParams, messageCard, messageDetail, messagePatchBody, messageSummary as messageSummarySchema } from '../schemas.js'
+import { confirmQuery, idIn, idParams, messageCard, messageDetail, messagePatchBody, messageSummary as messageSummarySchema, replyPatchBody } from '../schemas.js'
 import { readMessageAttachmentUpload, readReplyUpload } from '../upload.js'
 
 export function registerMessageRoutes (app, ctx) {
@@ -117,6 +117,17 @@ export function registerMessageRoutes (app, ctx) {
     requireConfirm(request)
     return spanOf(request, 'reply.delete', { 'team.reply_id': String(request.params.replyId) })(() => deleteReply({ db, events }, { messageId: request.params.id, replyId: request.params.replyId, actor: request.member }))
   })
+
+  app.patch('/messages/:id/replies/:replyId', {
+    onRequest: [requireRole('member')],
+    schema: {
+      summary: 'Editar el texto de una respuesta (sólo su autor)',
+      description: 'Edición en el lugar (UD-253). `version` es obligatoria: la que se leyó en la respuesta; si otra edición se coló en medio, 409 `edit_conflict` con la `version` vigente y no se escribe nada. Los adjuntos quedan como están. Una respuesta con adjuntos puede quedar sin texto; una sin adjuntos no (400 `reply_empty`). Repetir la misma edición deja el mismo estado y la misma `version`. Cada edición real sube `version`, fija `edited_at` y deja la fila `reply.edit` en la bitácora. Devuelve el mensaje con su hilo. 403 `not_reply_author` si quien pide no es el autor, tampoco un Editor; 404 si la respuesta no existe, está borrada o no es de ese mensaje.',
+      params: replyParams,
+      body: replyPatchBody,
+      response: { 200: messageDetail }
+    }
+  }, async (request) => spanOf(request, 'reply.edit', { 'team.reply_id': String(request.params.replyId) })(() => updateReply({ db, events }, { messageId: request.params.id, replyId: request.params.replyId, actor: request.member, body: request.body.body, version: request.body.version })))
 
   app.post('/replies/:id/restore', {
     onRequest: [requireRole('member')],

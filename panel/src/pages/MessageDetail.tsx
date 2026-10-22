@@ -250,9 +250,9 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
                           title={t('media.removeShort')}
                           disabled={patchMessage.isPending}
                           onClick={() => void removeAttachment(item.id)}
-                          className="hit inline-flex items-center justify-center rounded-full text-muted hover:bg-hover hover:text-danger disabled:opacity-50"
+                          className="hit inline-flex items-center justify-center gap-1 rounded-md px-1.5 font-semibold text-muted hover:bg-hover hover:text-danger disabled:opacity-50"
                         >
-                          <X size={14} aria-hidden />
+                          <X size={13} aria-hidden /> {t('media.removeShort')}
                         </button>
                       )
                     : undefined

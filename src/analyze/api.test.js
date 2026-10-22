@@ -60,7 +60,7 @@ describe('analyze (api): an input with three mixed points', () => {
     const groupItem = classify.schema.properties.groups.items.properties;
     assert.deepEqual(groupItem.area_id.enum, [1, 2, 3, 4, 5]);
     assert.deepEqual(groupItem.template_id.enum, [1, 2, 3, 4, 5]);
-    assert.deepEqual(Object.keys(groupItem), ['unit_ids', 'requests', 'area_id', 'template_id'], 'the request is named before the area (H-3730)');
+    assert.deepEqual(Object.keys(groupItem), ['unit_ids', 'requests', 'recap_unit_ids', 'area_id', 'template_id'], 'the request is named before the area (H-3730)');
 
     assert.ok(decompose.system.join('\n').includes('Un mensaje por error.'), 'body of the group template');
     assert.ok(!decompose.system.join('\n').includes('Un mensaje por idea.'));
@@ -683,7 +683,7 @@ describe('analyze (api): the decomposition of a group does not discard', () => {
     const fake = createFakeProviders({ text: [CLASSIFY_ERRORS, goodDecomposition()] });
     const result = await analyze(await makeBundle(), { providers: fake });
     assert.deepEqual(Object.keys(fake.calls.text[1].schema.properties), ['messages']);
-    assert.deepEqual(Object.keys(fake.calls.text[0].schema.properties), ['groups', 'discarded']);
+    assert.deepEqual(Object.keys(fake.calls.text[0].schema.properties), ['split_at', 'groups', 'discarded'], 'split_at (H-3731) comes before the groups');
     assert.equal(result.status, 'ok');
   });
 

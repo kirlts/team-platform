@@ -19,6 +19,17 @@ export function buildClassificationSchema({ areas, templates }, { validation = f
   return {
     type: 'object',
     properties: {
+      // H-3731: voice units whose first words finish the previous voice unit (the transcription cuts by time, not by sentence).
+      // `at` copies the words where the unit really starts; the system checks that they are in the unit and moves the rest.
+      split_at: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: { unit_id: { type: 'integer' }, at: { type: 'string' } },
+          required: ['unit_id', 'at'],
+          additionalProperties: false,
+        },
+      },
       groups: {
         type: 'array',
         items: {
@@ -29,16 +40,18 @@ export function buildClassificationSchema({ areas, templates }, { validation = f
             // (a count, never a reading of the text); the decomposition receives it.
             // No `minLength` in the validation: an empty line is not a reason to fail a classification the system never reads.
             requests: { type: 'array', items: { type: 'string' } },
+            // H-3731: units of the group that only close or sum up requests already said; they never make a group of their own.
+            recap_unit_ids: intArray(),
             area_id: { type: 'integer', enum: areas.map((a) => a.id) },
             template_id: { type: 'integer', enum: templates.map((t) => t.id) },
           },
-          required: ['unit_ids', ...(validation ? [] : ['requests']), 'area_id', 'template_id'],
+          required: ['unit_ids', ...(validation ? [] : ['requests', 'recap_unit_ids']), 'area_id', 'template_id'],
           additionalProperties: false,
         },
       },
       discarded: discardedSchema({ validation }),
     },
-    required: ['groups', 'discarded'],
+    required: [...(validation ? [] : ['split_at']), 'groups', 'discarded'],
     additionalProperties: false,
   };
 }

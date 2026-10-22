@@ -81,7 +81,7 @@ export function describeConflicts({ overlaps, gaps }) {
  * @param {{areas: object[], templates: object[], scope: Set<number>}} ctx
  * @returns {{errors: string[]}}
  */
-export function validateClassification(output, { areas, templates, scope, frameIds = null }) {
+export function validateClassification(output, { areas, templates, scope, frameIds = null, units = null }) {
   const validate = compile(buildClassificationSchema({ areas, templates }, { validation: true }));
   if (!validate(output)) return { errors: formatAjvErrors(validate.errors) };
   const errors = [];
@@ -104,6 +104,18 @@ export function validateClassification(output, { areas, templates, scope, frameI
     ? [`group ${i + 1}: lists ${g.requests.length} requests; a group carries one request, so split it into one group per request, each with its own units`]
     : []));
   shapeErrors.push(...requestErrors);
+  // H-3731: a recap unit belongs to its group; a group made only of recap units is not a request.
+  output.groups.forEach((g, i) => {
+    const recap = g.recap_unit_ids ?? [];
+    const outside = recap.filter((id) => !g.unit_ids.includes(id));
+    if (outside.length > 0) shapeErrors.push(`group ${i + 1}: recap_unit_ids ${outside.map((id) => `u${id}`).join(', ')} are not in its unit_ids`);
+    const spoken = g.unit_ids.filter((id) => !frameIds?.has(id));
+    if (recap.length > 0 && spoken.length > 0 && spoken.every((id) => recap.includes(id))) shapeErrors.push(`group ${i + 1}: only closes requests already said; put its units in the group of the request it closes, as recap_unit_ids there`);
+  });
+  if (units) for (const [i, s] of (output.split_at ?? []).entries()) {
+    const why = splitProblem(s, units, scope);
+    if (why) shapeErrors.push(`split_at ${i + 1}: ${why}`);
+  }
   const conflicts = coverage(output.groups.map((g) => ({ unit_ids: g.unit_ids })), output.discarded, scope, 'group');
   // Only overlaps and gaps are left: if the retry does not fix them, `repairClassification` closes them (the output travels in `repairable`).
   const conflictErrors = [...shapeErrors, ...describeConflicts(conflicts)];
@@ -139,6 +151,7 @@ export function coverage(messages, discarded, scope, noun = 'message') {
  * @param {Iterable<number>} scope
  */
 export function repairClassification(output, scope, { frameIds = null, frameReason = 'Observed, not said' } = {}) {
+  output = foldRecapGroups(output, frameIds);
   if (frameIds) {
     // H-3730: a group of frames alone that the retry did not fix is discarded: what nobody says does not become a message.
     const frameOnly = output.groups.filter((g) => g.unit_ids.every((id) => frameIds.has(id)));
@@ -193,6 +206,85 @@ export function closeStretches(groups, discarded) {
     groups: groups.map((g, i) => ({ ...g, unit_ids: [...g.unit_ids, ...added[i]].sort((a, b) => a - b) })),
     discarded: kept,
   };
+}
+
+/** Body of a voice line, after its «[mm:ss-mm:ss] Voz:» label. */
+const VOICE_LABEL = /^\s*[[(]?[\d:]+(?:\s*[-–]\s*[\d:]+)?[\])]?\s*Voz:\s*/;
+
+/** The voice unit right before `unit` in the same attachment, or undefined. */
+function previousVoice(unit, units) {
+  return units.filter((u) => u.kind === 'voice' && u.id < unit.id && u.source.attachment_id === unit.source.attachment_id).at(-1);
+}
+
+/**
+ * Why a declared split cannot be applied, or null. Shape only: the unit is a voice unit of this scope with a voice unit before it
+ * in the same attachment, and `at` appears exactly once in its body, after at least one word.
+ */
+export function splitProblem(split, units, scope) {
+  const unit = units.find((u) => u.id === split.unit_id);
+  if (!unit || (scope && !scope.has(unit.id))) return `unit ${split.unit_id} does not exist in this input`;
+  if (unit.kind !== 'voice') return `u${unit.id} is not a voice unit`;
+  if (!previousVoice(unit, units)) return `u${unit.id} has no voice unit before it to receive its first words`;
+  const at = String(split.at ?? '').trim();
+  const body = unit.text.replace(VOICE_LABEL, '');
+  const index = at === '' ? -1 : body.indexOf(at);
+  if (index <= 0) return `«${at}» is not inside the text of u${unit.id} after its first word; copy the words exactly`;
+  if (body.indexOf(at, index + 1) !== -1) return `«${at}» appears more than once in u${unit.id}; copy more words`;
+  return null;
+}
+
+/**
+ * H-3731: moves the first words of each declared voice unit to the end of the voice unit before it, so a sentence the
+ * transcription cut by time is whole again. Unit ids, labels and times stay; invalid splits are skipped. Returns new units.
+ * @param {{id: number, kind: string, text: string, source: object}[]} units
+ * @param {{unit_id: number, at: string}[]} splits
+ */
+export function applySplits(units, splits) {
+  const out = units.map((u) => ({ ...u }));
+  let applied = 0;
+  for (const s of [...splits].sort((a, b) => a.unit_id - b.unit_id)) {
+    if (splitProblem(s, out, null)) continue;
+    const unit = out.find((u) => u.id === s.unit_id);
+    const prev = previousVoice(unit, out);
+    const label = unit.text.match(VOICE_LABEL)[0];
+    const body = unit.text.slice(label.length);
+    const index = body.indexOf(String(s.at).trim());
+    prev.text = `${prev.text.trimEnd()} ${body.slice(0, index).trim()}`;
+    unit.text = `${label}${body.slice(index)}`;
+    applied += 1;
+  }
+  return { units: out, applied };
+}
+
+/**
+ * H-3731: a group made only of recap units (and frames) that the retry did not fix joins the group of the closest spoken unit
+ * before it, with its units as recap there; with nothing before, the group after it. Sets over `unit_ids`.
+ */
+export function foldRecapGroups(output, frameIds = null) {
+  const recapOnly = (g) => {
+    const spoken = g.unit_ids.filter((id) => !frameIds?.has(id));
+    const recap = g.recap_unit_ids ?? [];
+    return recap.length > 0 && spoken.length > 0 && spoken.every((id) => recap.includes(id));
+  };
+  if (output.groups.length < 2 || !output.groups.some(recapOnly)) return output;
+  let groups = output.groups.map((g) => ({ ...g, unit_ids: [...g.unit_ids], recap_unit_ids: [...(g.recap_unit_ids ?? [])] }));
+  for (;;) {
+    const isRecapOnly = (g) => {
+      const spoken = g.unit_ids.filter((id) => !frameIds?.has(id));
+      return g.recap_unit_ids.length > 0 && spoken.length > 0 && spoken.every((id) => g.recap_unit_ids.includes(id));
+    };
+    const index = groups.findIndex(isRecapOnly);
+    if (index === -1 || groups.length === 1) break;
+    const recap = groups[index];
+    const rest = groups.filter((_, i) => i !== index);
+    const first = Math.min(...recap.unit_ids);
+    const before = rest.filter((g) => Math.min(...g.unit_ids) < first).sort((a, b) => Math.max(...b.unit_ids.filter((id) => id < first)) - Math.max(...a.unit_ids.filter((id) => id < first)))[0];
+    const target = before ?? rest[0];
+    target.unit_ids = [...target.unit_ids, ...recap.unit_ids].sort((a, b) => a - b);
+    target.recap_unit_ids = [...target.recap_unit_ids, ...recap.unit_ids];
+    groups = rest;
+  }
+  return { ...output, groups };
 }
 
 /**

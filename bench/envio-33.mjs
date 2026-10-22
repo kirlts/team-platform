@@ -7,11 +7,13 @@
 //   node bench/envio-33.mjs [--runs 3] [--budget 1]          runs the real analyzer (analyze(), providers from the environment)
 //   node bench/envio-33.mjs --from-messages <proposal.json>  scores a proposal already made ({ messages: [{ unit_ids, area_id, title }] })
 //   --private-dir <d>  where envio-33/ lives (default bench/private; env BENCH_PRIVATE_DIR)
+//   --config '<json>'  analyzer knobs for every run (src/analyze/config.js), e.g. '{"classifyEffort":"high"}'
 //   --results-dir <d>  where the spending ledger private-spend.jsonl goes (default bench/results)
 //
 // Per run it measures: requests collected (all their core voice units in one message that holds no other request; «buried»
 // when that message mixes requests), requests no message names (the probe of verdad.json on title and fields), requests lost (a required voice unit
-// in no message), mixed messages (core units of more than one request), messages born only from frames, units repeated in
+// in no message), mixed messages (core units of more than one request), messages born only from frames, surplus messages (they
+// speak but hold no core unit of any request: a closing or a recap made into a message), units repeated in
 // two messages, and the area of each request (the area of the message that holds most of its core units). A boundary unit,
 // one whose time range straddles two requests, may go with either of them and never makes a message mixed.
 import { parseArgs } from 'node:util';
@@ -29,6 +31,7 @@ const { values } = parseArgs({
     'from-messages': { type: 'string' },
     'private-dir': { type: 'string' },
     'results-dir': { type: 'string' },
+    config: { type: 'string' },
   },
 });
 
@@ -73,6 +76,9 @@ export function scoreProposal(proposal, t) {
   const lostUnits = t.voice_units.filter((v) => v.required && !where.has(v.unit_id)).map((v) => v.unit_id);
   const mixed = messages.filter((m) => new Set(m.ids.map((id) => voice.get(id)).filter((v) => v && v.pedidos.length === 1).map((v) => v.pedidos[0])).size > 1).map((m) => m.index);
   const frameOnly = messages.filter((m) => !m.ids.some((id) => voice.has(id))).map((m) => m.index);
+  // A surplus message speaks but holds no core unit of any scored request: a closing, a recap or a point nobody asked for.
+  const scoredIds = new Set(scored.map((p) => p.id));
+  const surplus = messages.filter((m) => m.ids.some((id) => voice.has(id)) && !m.ids.some((id) => { const v = voice.get(id); return v && v.pedidos.length === 1 && scoredIds.has(v.pedidos[0]); })).map((m) => m.index);
   const repeated = [...where.entries()].filter(([, ms]) => ms.length > 1).map(([id]) => id).sort((a, b) => a - b);
   const claims = t.visual_claims.map((c) => {
     const re = new RegExp(c.probe, 'i');
@@ -88,6 +94,7 @@ export function scoreProposal(proposal, t) {
     lost_units: lostUnits,
     mixed_messages: mixed,
     frame_only_messages: frameOnly,
+    surplus_messages: surplus,
     repeated_units: repeated,
     area_ok: requests.filter((r) => r.area_ok).length,
     requests,
@@ -102,11 +109,11 @@ function printScore(label, s) {
   console.log(s.titles.map((t) => `  ${t}`).join('\n'));
   console.log('  pedido recogido  nombrado   perdidas   mensajes   área  esperada  área ok');
   console.log(s.requests.map(row).join('\n'));
-  console.log(`  Recogidos solos ${s.collected}/${s.requests_total} · mezclados con otro pedido ${s.buried.length} (${s.buried.join(',') || '-'}) · sin nombrar en ningún mensaje ${s.unmentioned.length} (${s.unmentioned.join(',') || '-'}) · perdidos ${s.lost_requests.length} (${s.lost_requests.join(',') || '-'}) · unidades de voz sin asignar ${s.lost_units.length} · mensajes mezclados ${s.mixed_messages.length}/${s.messages} · sólo fotogramas ${s.frame_only_messages.length} · unidades repetidas ${s.repeated_units.length} · área correcta ${s.area_ok}/${s.requests_total}`);
+  console.log(`  Recogidos solos ${s.collected}/${s.requests_total} · mezclados con otro pedido ${s.buried.length} (${s.buried.join(',') || '-'}) · sin nombrar en ningún mensaje ${s.unmentioned.length} (${s.unmentioned.join(',') || '-'}) · perdidos ${s.lost_requests.length} (${s.lost_requests.join(',') || '-'}) · unidades de voz sin asignar ${s.lost_units.length} · mensajes mezclados ${s.mixed_messages.length}/${s.messages} · sólo fotogramas ${s.frame_only_messages.length} · sobrantes ${s.surplus_messages.length} · unidades repetidas ${s.repeated_units.length} · área correcta ${s.area_ok}/${s.requests_total}`);
   for (const c of s.claims) console.log(`  Afirmación visual «${c.claim}»: mensaje sólo de fotogramas ${c.frame_only_message ? 'sí' : 'no'}; mencionada en ${c.mentioned_in.join(',') || 'ninguno'}`);
 }
 
-const SUMMARY_KEYS = ['collected', 'buried', 'unmentioned', 'lost_requests', 'lost_units', 'mixed_messages', 'frame_only_messages', 'repeated_units', 'area_ok', 'messages'];
+const SUMMARY_KEYS = ['collected', 'buried', 'unmentioned', 'lost_requests', 'lost_units', 'mixed_messages', 'frame_only_messages', 'surplus_messages', 'repeated_units', 'area_ok', 'messages'];
 const count = (v) => (Array.isArray(v) ? v.length : v);
 
 async function main() {
@@ -134,6 +141,7 @@ async function main() {
     const before = ledger.read().total_usd;
     const budget = Number(values.budget);
     out.model = { provider: providers.text.name, model: providers.text.model };
+    out.config = values.config ? JSON.parse(values.config) : {};
     const runs = Number(values.runs);
     for (let i = 1; i <= runs; i += 1) {
       const label = `envio-33/run-${i}`;
@@ -143,7 +151,7 @@ async function main() {
         break;
       }
       const t0 = performance.now();
-      const result = await withQueueRetries(() => analyze(bundle, { providers, analyzer: 'api' }), { onRetry: (e, n) => console.error(`  reintento ${n}: ${e.message}`) });
+      const result = await withQueueRetries(() => analyze(bundle, { providers, analyzer: 'api', config: values.config ? JSON.parse(values.config) : undefined }), { onRetry: (e, n) => console.error(`  reintento ${n}: ${e.message}`) });
       const calls = (result.calls ?? []).map((c) => ({ ...c, cost_usd: costOf(c) }));
       const usd = calls.reduce((a, c) => a + (c.cost_usd ?? 0), 0);
       const unpriced = calls.filter((c) => c.cost_usd === null).length;

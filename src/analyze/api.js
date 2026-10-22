@@ -38,7 +38,7 @@ import { buildClassificationSchema, buildDecompositionSchema } from './schema.js
 import { parseTemplate } from './templates.js';
 import { estimateTokens, isEmptyUnit, numberUnits, partitionUnits, renderUnits } from './units.js';
 import {
-  anchorFrames, closeEmptyGaps, closeStretches, foldFrameMessages, contextFromBundle, foldEmptyGroups, foldEmptyMessages, coverage, describeConflicts, normalizeDecomposition, repairClassification, repairCoverage, validateClassification, validateDecomposition, validateProposal,
+  anchorFrames, applySplits, closeEmptyGaps, foldRecapGroups, closeStretches, foldFrameMessages, contextFromBundle, foldEmptyGroups, foldEmptyMessages, coverage, describeConflicts, normalizeDecomposition, repairClassification, repairCoverage, validateClassification, validateDecomposition, validateProposal,
 } from './validate.js';
 import { phraseOf, step } from '../domain/progress-phrases.js';
 
@@ -406,7 +406,7 @@ export async function classifyInput(bundle, { providers, onProgress, config, red
         schema: cSchema,
         effort: config.classifyEffort,
         thinking: config.classifyThinking ?? undefined,
-        validate: (json) => validateClassification(json, { areas, templates, scope, frameIds }),
+        validate: (json) => validateClassification(json, { areas, templates, scope, frameIds, units }),
       });
       if (r.status === 'ok' && !secondPass && !coverage) ctx.report(step('classified'), { advance: true });
       return r;
@@ -433,6 +433,16 @@ export async function classifyInput(bundle, { providers, onProgress, config, red
   const classifyChunks = draws[0].classifyChunks;
   const agreed = consensus(draws.map((d) => ({ groups: d.results.flatMap((r) => r.json.groups), discarded: d.results.flatMap((r) => r.json.discarded) })), templates);
   let groups = agreed.groups;
+  // H-3731: the transcription cuts voice by time. Where the model declared that a voice unit starts with the end of the previous
+  // one, the words move back before anything else reads the units; ids, labels and times stay.
+  const splits = draws[0].results.flatMap((r) => r.json.split_at ?? []);
+  if (splits.length > 0) {
+    const moved = applySplits(units, splits);
+    units = moved.units;
+    if (moved.applied > 0) ctx.stats.voice_splits = moved.applied;
+  }
+  // H-3731: a group that only closes requests already said joins the group of the request it closes.
+  ({ groups } = foldRecapGroups({ groups, discarded: [] }, frameIds));
   let classDiscarded = agreed.discarded;
   if (config.classifyDraws > 1) ctx.stats.classification_draws = config.classifyDraws;
 

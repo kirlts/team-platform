@@ -13,7 +13,7 @@ import { all, get, run } from '../db/index.js'
 import { iso, parseJson } from '../db/util.js'
 import { audit } from './audit.js'
 import { step } from './progress-phrases.js'
-import { badRequest, conflict, notFound, tooLarge } from './errors.js'
+import { badRequest, conflict, forbidden, notFound, tooLarge } from './errors.js'
 
 export const INPUT_STATUSES = ['queued', 'extracting', 'analyzing', 'proposed', 'published', 'failed', 'cancelled']
 
@@ -24,7 +24,7 @@ const TRANSITIONS = {
   proposed: ['published', 'cancelled', 'queued'], // queued: the editor reprocesses the analysis
   failed: ['queued', 'cancelled'], // cancelled: the sender discards a failed analysis
   cancelled: ['queued', 'proposed', 'failed'], // proposed / failed: the sender undoes a discard (restoreInput)
-  published: []
+  published: ['queued'] // queued: the editor reprocesses a published input (UD-258); its messages go to the trash
 }
 
 export const isTerminalInput = (status) => ['proposed', 'published', 'failed', 'cancelled'].includes(status)
@@ -239,21 +239,42 @@ export function recentInputsFor ({ db, config, now = Date.now }, input) {
 /**
  * Queues the analysis of an input again (useful when a template changed, or to retry a failed analysis). The
  * extractions are kept: the job only extracts what is missing. The editor can do it on any input; a member only on
- * their own (for anybody else an input of another person does not exist). Not on a published or in-flight input.
+ * their own (for anybody else an input of another person does not exist). Not on an in-flight input.
+ *
+ * A `published` input is reprocessed by the editor only (403 for its sender; UD-258): its live messages go to the trash
+ * (soft delete, UD-240; their replies stay on them and come back with them), the proposal is dropped and the input is
+ * `queued` again for the current model and areas. No confirmation (UD-253). A message somebody already closed or
+ * answered goes to the trash too; the audit row `input.reprocess` counts the messages and the live replies set aside.
+ * Returns { input_id, job_id, set_aside?: { messages, replies } } (the last only for a published input).
  */
 export function reprocessInput ({ db, queue, events, now = Date.now }, inputId, actor) {
   return events.transaction(() => {
     const input = get(db, 'SELECT * FROM inputs WHERE id = ?', inputId)
     if (!input || (actor.role !== 'editor' && input.author_id !== actor.id)) throw notFound('El input no existe.')
-    if (!['proposed', 'failed', 'cancelled'].includes(input.status)) {
-      throw conflict(`El input está «${input.status}»; sólo se reprocesa uno con propuesta, fallido o cancelado.`, 'not_reprocessable')
+    const published = input.status === 'published'
+    if (published && actor.role !== 'editor') throw forbidden('Sólo un Editor reprocesa un envío publicado.', 'forbidden')
+    if (!published && !['proposed', 'failed', 'cancelled'].includes(input.status)) {
+      throw conflict(`El input está «${input.status}»; sólo se reprocesa uno publicado, con propuesta, fallido o cancelado.`, 'not_reprocessable')
+    }
+    let setAside = null
+    if (published) {
+      const ids = all(db, 'SELECT id FROM messages WHERE input_id = ? AND deleted_at IS NULL ORDER BY id', inputId).map((m) => m.id)
+      let replies = 0
+      let answeredOrClosed = 0
+      if (ids.length > 0) {
+        const marks = ids.map(() => '?').join(', ')
+        replies = get(db, `SELECT COUNT(*) AS n FROM replies WHERE message_id IN (${marks}) AND deleted_at IS NULL`, ...ids).n
+        answeredOrClosed = get(db, `SELECT COUNT(*) AS n FROM messages WHERE id IN (${marks}) AND status <> 'open'`, ...ids).n
+        run(db, `UPDATE messages SET deleted_at = ? WHERE id IN (${marks})`, now(), ...ids)
+      }
+      setAside = { messages: ids.length, replies, answered_or_closed: answeredOrClosed, message_ids: ids }
     }
     transitionInput(db, inputId, 'queued', { now })
     run(db, 'DELETE FROM proposals WHERE input_id = ?', inputId)
     const jobId = queue.enqueue('analyze', { input_id: inputId }, { inputId })
     events.publishForJob(jobId, { kind: 'progress', percent: 0, phrase: step('queued') })
-    audit(db, { memberId: actor.id, action: 'input.reprocess', entity: 'input', entityId: inputId, now })
-    return { input_id: inputId, job_id: jobId }
+    audit(db, { memberId: actor.id, action: 'input.reprocess', entity: 'input', entityId: inputId, ...(setAside ? { detail: setAside } : {}), now })
+    return { input_id: inputId, job_id: jobId, ...(setAside ? { set_aside: { messages: setAside.messages, replies: setAside.replies } } : {}) }
   })
 }
 

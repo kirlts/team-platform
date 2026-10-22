@@ -201,12 +201,13 @@ export function useSaveInputText(inputId: string) {
   })
 }
 
-/** Requeues the analysis of an input that failed; keeps the text and the extractions (POST /inputs/:id/reprocess). */
+/** Requeues the analysis of an input; keeps the text and the extractions (POST /inputs/:id/reprocess). Published: the Editor only, its messages go to the trash. */
 export function useReprocess() {
   const invalidate = useInvalidator()
   return useMutation({
-    mutationFn: (inputId: string) => api<{ input_id: string; job_id: string }>(`/inputs/${inputId}/reprocess`, { method: 'POST' }),
-    onSuccess: () => invalidate('inputs'),
+    mutationFn: (inputId: string) => api<{ input_id: string; job_id: string; set_aside?: { messages: number; replies: number } }>(`/inputs/${inputId}/reprocess`, { method: 'POST' }),
+    // A published send sets its messages aside (UD-258): the lists of messages and the counts of areas change with it.
+    onSuccess: () => invalidate('inputs', 'messages', 'areas'),
   })
 }
 

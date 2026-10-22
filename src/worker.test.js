@@ -325,10 +325,15 @@ test('reprocess: the editor enqueues the analysis again, keeping the extractions
   await until(() => env.statusOf(id) === 'proposed' && get(env.db, 'SELECT COUNT(*) AS n FROM proposals').n === 1)
   assert.equal(extractions, 1) // nothing was extracted again
   assert.equal(get(env.db, "SELECT COUNT(*) AS n FROM audit_log WHERE action = 'input.reprocess'").n, 1)
-  // A published input is not reprocessed.
+  // A published input is reprocessed by the editor only (UD-258): its messages go to the trash and it is analyzed again.
   const v = (await env.app.inject({ url: `/api/inputs/${id}`, headers: { cookie: env.ana } })).json()
   await env.app.inject({ method: 'POST', url: `/api/inputs/${id}/publish`, headers: { cookie: env.ana, 'x-team-request': 'panel' }, payload: { messages: v.proposal.messages } })
-  assert.equal((await req(editor, '/reprocess')).statusCode, 409)
+  assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM messages WHERE input_id = ? AND deleted_at IS NULL', id).n > 0, true)
+  const published = await req(editor, '/reprocess')
+  assert.equal(published.statusCode, 202, published.body)
+  assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM messages WHERE input_id = ? AND deleted_at IS NULL', id).n, 0, 'the old messages are in the trash')
+  assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM messages WHERE input_id = ? AND deleted_at IS NOT NULL', id).n > 0, true)
+  assert.equal(JSON.parse(get(env.db, "SELECT detail_json FROM audit_log WHERE action = 'input.reprocess' ORDER BY id DESC LIMIT 1").detail_json).messages > 0, true)
   await env.close()
 })
 

@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { AiMark } from './AiMark'
 import { AreaChip, useAreaStyle } from './AreaChip'
 import { DeleteSend } from './DeleteSend'
+import { ReprocessSend } from './ReprocessSend'
 import { AreaPicker } from './AreaPicker'
 import { AttachmentPicker } from './AttachmentPicker'
 import { EditableText } from './EditableText'
@@ -43,6 +44,8 @@ export function PublishedPane({ input, onDeleted }: { input: InputRecord; onDele
         <Badge tone="neutral" data-testid="published-state">{t('tray.state.published')}</Badge>
         <SimulatedMark proposal={input.proposal} />
         <UndoButtons stack={stack} />
+        {/* Visible where the send is seen (UD-240); only the Editor has it, and it takes no confirmation (UD-258). */}
+        <ReprocessSend input={input} className="ml-auto" />
       </div>
       {/* The messages of a send have no maximum length: the list is as tall as it is and the page scrolls (UD-110); no box is ever cut. */}
       <MessageTally areaIds={areaIds} />

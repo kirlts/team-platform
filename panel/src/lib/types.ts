@@ -94,6 +94,8 @@ export interface ProposalMessage {
   attachment_ids: string[]
   /** Units of the input this message covers (the system numbers them). */
   unit_ids: number[]
+  /** What a video frame shows and nobody says; outside the body. Absent in older proposals. */
+  observed?: string[]
 }
 
 /** Units of the input the analysis left without a message, with the reason. */
@@ -193,6 +195,8 @@ export interface Message {
 
 export interface MessageDetail extends Message {
   replies: Reply[]
+  /** What a video frame shows and nobody says; outside the body, empty when there is none. */
+  observed?: string[]
   /** Set while the message is deleted (UD-240); only an Editor asking for it sees such a message. */
   deleted_at?: string | null
 }

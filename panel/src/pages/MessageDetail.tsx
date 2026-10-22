@@ -6,6 +6,7 @@ import { AiMark } from '@/components/AiMark'
 import { AreaChip } from '@/components/AreaChip'
 import { AreaPicker } from '@/components/AreaPicker'
 import { MediaGallery } from '@/components/MediaGallery'
+import { Observed } from '@/components/Observed'
 import { toGalleryItems } from '@/lib/gallery'
 import { Avatar } from '@/components/Avatar'
 import { EmptyState } from '@/components/EmptyState'
@@ -292,6 +293,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
             />
           </div>
 
+          <Observed items={m.observed} />
         </div>
 
         <ReplyThread message={m} focusForm={focusReply} />

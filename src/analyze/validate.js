@@ -8,6 +8,7 @@
 import Ajv from 'ajv';
 import { buildClassificationSchema, buildDecompositionSchema, buildProposalSchema } from './schema.js';
 import { compileFieldsSchema, compileOutputSchema } from './templates.js';
+import { timeRange } from './units.js';
 
 export const ajv = new Ajv({
   allErrors: true,
@@ -80,7 +81,7 @@ export function describeConflicts({ overlaps, gaps }) {
  * @param {{areas: object[], templates: object[], scope: Set<number>}} ctx
  * @returns {{errors: string[]}}
  */
-export function validateClassification(output, { areas, templates, scope }) {
+export function validateClassification(output, { areas, templates, scope, frameIds = null }) {
   const validate = compile(buildClassificationSchema({ areas, templates }, { validation: true }));
   if (!validate(output)) return { errors: formatAjvErrors(validate.errors) };
   const errors = [];
@@ -93,9 +94,14 @@ export function validateClassification(output, { areas, templates, scope }) {
     for (const id of d.unit_ids) if (!scope.has(id)) errors.push(`discard ${i + 1}: unit ${id} does not exist in this input`);
   });
   if (errors.length > 0) return { errors };
+  // H-3728: a request is born from what the author says or writes. A group made only of frame units, in an input where the author
+  // speaks or writes, is a point nobody asked for: the frames go to the group of the request they show, or to discarded.
+  const frameErrors = frameIds ? output.groups.flatMap((g, i) => (g.unit_ids.every((id) => frameIds.has(id))
+    ? [`group ${i + 1}: cites only frame descriptions (${g.unit_ids.map((id) => `u${id}`).join(', ')}); a group is born from what the person says or writes, so put these frames in the group of the point they show, or in discarded when nobody talks about them`]
+    : [])) : [];
   const conflicts = coverage(output.groups.map((g) => ({ unit_ids: g.unit_ids })), output.discarded, scope, 'group');
   // Only overlaps and gaps are left: if the retry does not fix them, `repairClassification` closes them (the output travels in `repairable`).
-  const conflictErrors = describeConflicts(conflicts);
+  const conflictErrors = [...frameErrors, ...describeConflicts(conflicts)];
   return conflictErrors.length > 0 ? { errors: conflictErrors, repairable: output } : { errors: [] };
 }
 
@@ -127,7 +133,17 @@ export function coverage(messages, discarded, scope, noun = 'message') {
  * @param {{groups: object[], discarded: object[]}} output
  * @param {Iterable<number>} scope
  */
-export function repairClassification(output, scope) {
+export function repairClassification(output, scope, { frameIds = null, frameReason = 'Observed, not said' } = {}) {
+  if (frameIds) {
+    // H-3728: a group of frames alone that the retry did not fix is discarded: what nobody says does not become a message.
+    const frameOnly = output.groups.filter((g) => g.unit_ids.every((id) => frameIds.has(id)));
+    if (frameOnly.length > 0) {
+      output = {
+        groups: output.groups.filter((g) => !frameOnly.includes(g)),
+        discarded: [...output.discarded, { unit_ids: frameOnly.flatMap((g) => g.unit_ids), reason: frameReason }],
+      };
+    }
+  }
   const order = [...scope].sort((a, b) => a - b);
   const owner = new Map(); // unit -> 'g<i>' | 'd<i>'
   output.groups.forEach((g, i) => g.unit_ids.forEach((id) => { if (!owner.has(id)) owner.set(id, `g${i}`); }));
@@ -172,6 +188,60 @@ export function closeStretches(groups, discarded) {
     groups: groups.map((g, i) => ({ ...g, unit_ids: [...g.unit_ids, ...added[i]].sort((a, b) => a - b) })),
     discarded: kept,
   };
+}
+
+/**
+ * H-3728: a frame is evidence of what the person says while it is on screen. Each frame whose time falls inside a voice segment of
+ * the same attachment goes to the group of that segment, so the same symptom does not end up in two messages (once said, once
+ * seen). A frame whose segment was discarded, or that falls in a silence, stays where the model put it. Times and sets only.
+ * @param {{unit_ids: number[]}[]} groups
+ * @param {{unit_ids: number[], reason: string}[]} discarded
+ * @param {{id: number, kind: string, time: string|null, source: object}[]} units
+ */
+export function anchorFrames(groups, discarded, units) {
+  const owner = new Map();
+  groups.forEach((g, i) => g.unit_ids.forEach((id) => owner.set(id, i)));
+  const voices = units.filter((u) => u.kind === 'voice' && owner.has(u.id)).map((u) => ({ u, range: timeRange(u.time) })).filter((v) => v.range);
+  const moves = new Map(); // frame id -> group index
+  for (const f of units) {
+    if (f.kind !== 'frame' || f.source.type !== 'attachment') continue;
+    const at = timeRange(f.time)?.start;
+    if (at === undefined) continue;
+    // The latest segment that has started at the frame time and has not ended (a frame on a boundary goes with the one that starts).
+    const holder = voices.filter((v) => v.u.source.attachment_id === f.source.attachment_id && v.range.start <= at && at <= v.range.end).at(-1);
+    if (holder && owner.get(f.id) !== owner.get(holder.u.id)) moves.set(f.id, owner.get(holder.u.id));
+  }
+  if (moves.size === 0) return { groups, discarded, anchored: 0 };
+  return {
+    groups: groups.map((g, i) => ({ ...g, unit_ids: [...g.unit_ids.filter((id) => !moves.has(id)), ...[...moves].filter(([, gi]) => gi === i).map(([id]) => id)].sort((a, b) => a - b) })).filter((g) => g.unit_ids.length > 0),
+    discarded: discarded.map((d) => ({ ...d, unit_ids: d.unit_ids.filter((id) => !moves.has(id)) })).filter((d) => d.unit_ids.length > 0),
+    anchored: moves.size,
+  };
+}
+
+/**
+ * H-3728: a message the decomposition wrote from frames alone, in a group where the person speaks or writes, is not a request. It
+ * joins the message that holds the closest unit after it (or before it), and its title travels in that message's `observed`,
+ * outside the body. Sets over `unit_ids`; the title is moved as written, never read.
+ * @param {{unit_ids: number[], title: string, observed?: string[]}[]} messages
+ * @param {Set<number>} frameIds
+ */
+export function foldFrameMessages(messages, frameIds) {
+  let current = messages.map((m) => ({ ...m, unit_ids: [...m.unit_ids], observed: [...(m.observed ?? [])] }));
+  let folded = 0;
+  for (;;) {
+    const index = current.findIndex((m) => m.unit_ids.every((id) => frameIds.has(id)));
+    if (index === -1 || current.every((m) => m.unit_ids.every((id) => frameIds.has(id)))) break;
+    const seen = current[index];
+    const rest = current.filter((_, i) => i !== index && !current[i].unit_ids.every((id) => frameIds.has(id)));
+    const last = Math.max(...seen.unit_ids);
+    const target = rest.find((m) => m.unit_ids.some((id) => id > last)) ?? rest.at(-1);
+    target.unit_ids = [...target.unit_ids, ...seen.unit_ids].sort((a, b) => a - b);
+    target.observed = [...target.observed, seen.title, ...seen.observed];
+    current = current.filter((m) => m !== seen);
+    folded += 1;
+  }
+  return { messages: current, folded };
 }
 
 /**
@@ -381,6 +451,9 @@ export function contextFromBundle(bundle, { fields, scope }) {
   };
 }
 
+/** The «observed, not said» notes of a message, trimmed and without empty ones. */
+const observedOf = (m) => (Array.isArray(m.observed) ? m.observed.filter((o) => typeof o === 'string' && o.trim() !== '').map((o) => o.trim()) : []);
+
 /** Cleans a valid decomposition: no nulls, unique sorted ids, trimmed texts. */
 export function normalizeDecomposition(output) {
   const sortedUnique = (ids) => [...new Set(ids)].sort((a, b) => a - b);
@@ -393,6 +466,7 @@ export function normalizeDecomposition(output) {
     assignee_ids: sortedUnique(m.assignee_ids),
     attachment_ids: sortedUnique(m.attachment_ids),
     ...(m.source === 'frame' ? { source: 'frame' } : {}),
+    ...(observedOf(m).length > 0 ? { observed: observedOf(m) } : {}),
   }));
   messages.sort((a, b) => a.unit_ids[0] - b.unit_ids[0] || a.title.localeCompare(b.title));
   const discarded = output.discarded

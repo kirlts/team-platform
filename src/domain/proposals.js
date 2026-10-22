@@ -15,7 +15,7 @@ import { enqueueExecuteForAgents } from '../execute/enqueue.js'
 
 /**
  * Validates every message of a proposal against the database. Returns the normalised entries, in order:
- * { title, body, areaId, templateId, fields, assigneeIds, attachmentIds, unitIds }. `fail(message, code)` builds the
+ * { title, body, areaId, templateId, fields, assigneeIds, attachmentIds, unitIds, observed }. `fail(message, code)` builds the
  * error to throw (422 when publishing, 400 when saving a draft). With `draft: true` only shape and ids are checked
  * (area, template, members, attachments): a title, a text or a required template field still empty is accepted,
  * because the panel saves after every in-place edit; completeness is enforced when publishing.
@@ -35,7 +35,7 @@ export function validateProposal (db, inputId, proposal, fail, { draft = false }
     const assigneeIds = checkAssignees(db, m.assignee_ids, { scope, fail })
     const attachmentIds = [...new Set(m.attachment_ids ?? [])]
     for (const id of attachmentIds) if (!inputAttachmentIds.has(id)) throw fail(`${scope}: el adjunto ${id} no pertenece al input.`, 'attachment_invalid')
-    return { title: m.title.trim(), body: m.body, areaId: m.area_id, templateId: tpl?.id ?? null, fields, assigneeIds, attachmentIds, unitIds: (m.unit_ids ?? []).map(Number) }
+    return { title: m.title.trim(), body: m.body, areaId: m.area_id, templateId: tpl?.id ?? null, fields, assigneeIds, attachmentIds, unitIds: (m.unit_ids ?? []).map(Number), observed: Array.isArray(m.observed) ? m.observed.filter((o) => typeof o === 'string' && o !== '') : [] }
   })
 }
 
@@ -80,7 +80,8 @@ export function saveProposalDraft ({ db, events, now = Date.now }, { inputId, me
       messages: entries.map((e, i) => ({
         area_id: e.areaId, template_id: e.templateId, title: e.title, body: e.body, fields: e.fields,
         assignee_ids: e.assigneeIds, attachment_ids: e.attachmentIds, unit_ids: proposal.messages[i].unit_ids?.map(Number) ?? [],
-        ...(proposal.messages[i].source === 'frame' ? { source: 'frame' } : {})
+        ...(proposal.messages[i].source === 'frame' ? { source: 'frame' } : {}),
+        ...(e.observed.length ? { observed: e.observed } : {})
       })),
       discarded: (proposal.discarded ?? []).map((d) => ({ unit_ids: (d.unit_ids ?? []).map(Number), reason: d.reason ?? '' }))
     }
@@ -105,9 +106,9 @@ function insertMessages ({ db, events, now }, { input, entries, via }) {
   const t = now()
   const createdIds = []
   for (const e of entries) {
-    const r = run(db, `INSERT INTO messages (input_id, area_id, template_id, author_id, title, body, fields_json, status, created_at, updated_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)`,
-    inputId, e.areaId, e.templateId, memberId, e.title, e.body, JSON.stringify(e.fields), t, t)
+    const r = run(db, `INSERT INTO messages (input_id, area_id, template_id, author_id, title, body, fields_json, observed_json, status, created_at, updated_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)`,
+    inputId, e.areaId, e.templateId, memberId, e.title, e.body, JSON.stringify(e.fields), e.observed.length ? JSON.stringify(e.observed) : null, t, t)
     const messageId = Number(r.lastInsertRowid)
     for (const id of e.assigneeIds) run(db, 'INSERT INTO message_assignees (message_id, member_id) VALUES (?, ?)', messageId, id)
     e.attachmentIds.forEach((id, ordinal) => run(db, 'INSERT INTO message_attachments (message_id, attachment_id, position) VALUES (?, ?, ?)', messageId, id, ordinal))

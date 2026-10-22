@@ -24,8 +24,8 @@ Una captura, un video o un audio puede mostrar dos fallas. En ese caso el adjunt
 Cómo llenar cada campo:
 - Pasos para reproducir: lo que la persona hizo antes de la falla, en orden. En una transcripción o en la descripción de un video, las acciones narradas o mostradas, con su marca de tiempo si existe. Si la persona no cuenta los pasos, escribe los que se deducen del contexto y nada más.
 - Qué se esperaba: lo que la persona dice que debería ocurrir. Si solo se queja, el comportamiento que su queja implica, dicho en una frase.
-- Qué pasó: el resultado observado. Los mensajes de error y los textos de pantalla se copian literalmente, entre comillas.
-- Dónde: pantalla, URL, versión, navegador, dispositivo o sistema operativo, solo los que el input menciona o que se ven en una captura.
+- Qué pasó: el resultado observado en algo que existe. Los mensajes de error y los textos de pantalla se copian literalmente, entre comillas, como se leen en la pantalla. Si lo que la persona echa de menos nunca existió (no hay opción, permiso ni pantalla para hacerlo), no es un error: es un pedido de funcionalidad.
+- Dónde: una sola pantalla, la que cambia, con la URL, la versión, el navegador o el dispositivo que el input menciona o que se ven en una captura. Si la persona nombra dos pantallas, la que cambia, y se dice cuál queda igual.
 - A quién afecta o qué bloquea: solo si el input lo dice (un cliente, todo el equipo, un flujo que no se puede completar).
 
 Destinatarios: los miembros cuyos dominios incluyen la pantalla, el componente o el servicio donde ocurre la falla. Si el input nombra a alguien, esa persona.

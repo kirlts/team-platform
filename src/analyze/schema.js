@@ -55,10 +55,11 @@ function messageSchema(fieldsSchema, { validation, requireAssignee = false }) {
       // With a team, every message has an owner (H-86): the grammar of the model requires at least one id.
       assignee_ids: requireAssignee ? { ...ids, minItems: 1 } : ids,
       attachment_ids: ids,
-      // Optional: `frame` marks a point seen only in the image and never said aloud, so the sender can discard it in the preview.
-      source: { type: 'string', enum: ['frame'] },
+      // H-3728: what a frame shows and nobody says aloud, kept out of the body («Observado, no dicho»). Empty when there is none.
+      observed: { type: 'array', items: text },
     },
-    required: ['unit_ids', 'title', 'fields', 'body', 'assignee_ids', 'attachment_ids'],
+    // The grammar requires `observed` so the model always considers it; the validation accepts an output without it (an empty list).
+    required: ['unit_ids', 'title', 'fields', 'body', 'assignee_ids', 'attachment_ids', ...(validation ? [] : ['observed'])],
     additionalProperties: false,
   };
 }
@@ -110,7 +111,8 @@ export function buildProposalSchema({ validation = false } = {}) {
   const message = structuredClone(base.properties.messages.items);
   message.properties.fields = { type: 'object', additionalProperties: { type: ['string', 'null'] } };
   const { unit_ids, ...rest } = message.properties;
-  message.properties = { unit_ids, area_id: { type: 'integer' }, template_id: { type: 'integer' }, ...rest };
+  // `source` is set by the system from the kind of the units (UD-021, H-3728), never by the model of the decomposition.
+  message.properties = { unit_ids, area_id: { type: 'integer' }, template_id: { type: 'integer' }, ...rest, source: { type: 'string', enum: ['frame'] } };
   message.required = ['unit_ids', 'area_id', 'template_id', 'title', 'fields', 'body', 'assignee_ids', 'attachment_ids'];
   return {
     type: 'object',

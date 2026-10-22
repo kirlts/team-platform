@@ -38,7 +38,7 @@ import { buildClassificationSchema, buildDecompositionSchema } from './schema.js
 import { parseTemplate } from './templates.js';
 import { estimateTokens, isEmptyUnit, numberUnits, partitionUnits, renderUnits } from './units.js';
 import {
-  closeEmptyGaps, closeStretches, contextFromBundle, foldEmptyGroups, foldEmptyMessages, coverage, describeConflicts, normalizeDecomposition, repairClassification, repairCoverage, validateClassification, validateDecomposition, validateProposal,
+  anchorFrames, closeEmptyGaps, closeStretches, foldFrameMessages, contextFromBundle, foldEmptyGroups, foldEmptyMessages, coverage, describeConflicts, normalizeDecomposition, repairClassification, repairCoverage, validateClassification, validateDecomposition, validateProposal,
 } from './validate.js';
 import { phraseOf, step } from '../domain/progress-phrases.js';
 
@@ -361,6 +361,15 @@ export async function classifyInput(bundle, { providers, onProgress, config, red
   const ctx = createContext({ providers, config, onProgress, unitCount: units.length, language });
   let attachments = workBundle.attachments ?? [];
   const { areas, templates, project, framing } = bundle;
+  // H-3728: the units that only describe what is on screen. When the author also speaks or writes, a group of frames alone is
+  // not a request; in an input made only of images (UD-021) the frames are the content and the rule does not apply.
+  const frameIdsOf = (list) => {
+    const frames = new Set(list.filter((u) => u.kind === 'frame').map((u) => u.id));
+    const spoken = list.some((u) => u.kind !== 'frame' && !isEmptyUnit(u.text));
+    return spoken && frames.size > 0 ? frames : null;
+  };
+  let frameIds = frameIdsOf(units);
+  const frameReason = language === 'en' ? 'Observed, not said' : 'Observado, no dicho';
 
   // -- Call 1: classify into groups by area and template -------------------------------------
   // An input can bring a bug, an idea and a question: each group carries its area and its template
@@ -390,7 +399,7 @@ export async function classifyInput(bundle, { providers, onProgress, config, red
         schema: cSchema,
         effort: config.classifyEffort,
         thinking: config.classifyThinking ?? undefined,
-        validate: (json) => validateClassification(json, { areas, templates, scope }),
+        validate: (json) => validateClassification(json, { areas, templates, scope, frameIds }),
       });
       if (r.status === 'ok' && !secondPass && !coverage) ctx.report(step('classified'), { advance: true });
       return r;
@@ -399,7 +408,7 @@ export async function classifyInput(bundle, { providers, onProgress, config, red
     const repairable = (r, scope) => {
       if (r.status !== 'invalid' || !r.repairable) return r;
       ctx.stats.classification_repaired = (ctx.stats.classification_repaired ?? 0) + 1;
-      return { status: 'ok', json: repairClassification(r.repairable, scope), errors: [], repaired: true };
+      return { status: 'ok', json: repairClassification(r.repairable, scope, { frameIds, frameReason }), errors: [], repaired: true };
     };
     const results = await withSpan(coverage ? 'classify.coverage' : secondPass ? 'classify.second_pass' : 'classify', { 'team.step': coverage ? 'coverage' : secondPass ? 'classify2' : 'classify', 'team.units': list.length, 'team.chunks': classifyChunks.length }, async (span) => {
       const out = (await runPool(tasks, config.partitionConcurrency)).map((r, i) => (r ? repairable(r, classifyChunks[i].map((u) => u.id)) : r));
@@ -439,6 +448,7 @@ export async function classifyInput(bundle, { providers, onProgress, config, red
         workBundle = { ...workBundle, attachments: redone };
         attachments = redone;
         units = numberUnits(workBundle);
+        frameIds = frameIdsOf(units);
       }
       const sections = sectionsOf(units, config.secondPassSectionUnits);
       const second = await classifyUnits(units, { secondPass: true, chunks: sections });
@@ -456,9 +466,10 @@ export async function classifyInput(bundle, { providers, onProgress, config, red
   // -- Coverage pass (H-1900): what was discarded is read again, apart from the surrounding talk ---------------------------
   // In a long meeting the first reading discards whole stretches as chatter and takes real points with them. The model decides
   // whether any of those units is a point; the system only validates the form (scope, overlaps, gaps) and closes stretches again.
-  for (let pass = 0; pass < config.coveragePasses && classDiscarded.length > 0; pass += 1) {
+  // H-3728: only what the person said or wrote is reread; a discarded frame stays discarded, since what is only seen is not a point.
+  for (let pass = 0; pass < config.coveragePasses && classDiscarded.some((d) => d.unit_ids.some((id) => !frameIds?.has(id))); pass += 1) {
     const discardedIds = new Set(classDiscarded.flatMap((d) => d.unit_ids));
-    const apart = units.filter((u) => discardedIds.has(u.id));
+    const apart = units.filter((u) => discardedIds.has(u.id) && !frameIds?.has(u.id));
     ctx.report(step('review'));
     const sections = windowsOf([apart], config.classifyWindowUnits);
     const reread = await classifyUnits(apart, { coverage: true, chunks: sections });
@@ -467,9 +478,13 @@ export async function classifyInput(bundle, { providers, onProgress, config, red
     const rereadDiscarded = reread.results.flatMap((r) => (r && r.status === 'ok' ? r.json.discarded : []));
     const rereadGroups = reread.results.flatMap((r) => (r && r.status === 'ok' ? r.json.groups : []));
     ctx.stats.coverage_pass = { units: apart.length, regrouped: rereadGroups.reduce((n, g) => n + g.unit_ids.length, 0), failed_sections: reread.results.filter((r) => !r || r.status !== 'ok').length };
-    const kept = classDiscarded.map((d) => ({ ...d, unit_ids: d.unit_ids.filter((id) => failedIds.has(id)) })).filter((d) => d.unit_ids.length > 0);
+    const kept = classDiscarded.map((d) => ({ ...d, unit_ids: d.unit_ids.filter((id) => failedIds.has(id) || frameIds?.has(id)) })).filter((d) => d.unit_ids.length > 0);
     ({ groups, discarded: classDiscarded } = closeStretches([...groups, ...rereadGroups], [...rereadDiscarded, ...kept]));
   }
+  // H-3728: each frame goes with the voice segment on air when it was taken.
+  const anchoring = anchorFrames(groups, classDiscarded, units);
+  ({ groups, discarded: classDiscarded } = anchoring);
+  if (anchoring.anchored > 0) ctx.stats.frames_anchored = anchoring.anchored;
   // H-1902: a group of speaker marks alone joins the intervention it introduces; the decomposition never receives it.
   const folding = foldEmptyGroups(groups, classDiscarded, new Set(units.filter((u) => isEmptyUnit(u.text)).map((u) => u.id)), language === 'en' ? 'Mark with no content' : 'Marca sin contenido');
   if (folding.folded > 0) ctx.stats.empty_groups_folded = folding.folded;
@@ -559,6 +574,15 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
     merged.messages = folded.messages;
     ctx.stats.empty_messages_folded = folded.folded;
   }
+  // H-3728: a message written from frames alone, where the person speaks or writes, becomes an observation of another message.
+  const spokenFrames = units.filter((u) => u.kind === 'frame').length > 0 && units.some((u) => u.kind !== 'frame' && !isEmptyUnit(u.text));
+  if (spokenFrames) {
+    const seen = foldFrameMessages(merged.messages, new Set(units.filter((u) => u.kind === 'frame').map((u) => u.id)));
+    if (seen.folded > 0) {
+      merged.messages = seen.messages;
+      ctx.stats.frame_messages_folded = seen.folded;
+    }
+  }
   const fieldsByTemplate = new Map([...prepared].map(([id, e]) => [id, e.template.fields]));
   const finalCheck = validateSpan('reduce', () => validateProposal(merged, {
     templates,
@@ -581,12 +605,10 @@ export async function analyzeWithApi(bundle, { providers, onProgress, config, re
     return fail({ status: 'invalid', step: 'reduce', reason: 'mece_conflict', errors: [...finalCheck.errors, ...describeConflicts(finalCheck.conflicts)], draft: merged });
   }
   const { messages, discarded } = normalizeDecomposition(merged);
-  // A message born only from images, with no text from the person, is marked as inferred from the image (UD-021): the
-  // sender sees it in the preview and can discard it. It is decided by the source of the units, never by the prose.
-  if (isImageOnly(workBundle)) {
-    const imageUnits = new Set(units.filter((u) => u.source.type === 'attachment' && u.source.kind === 'image').map((u) => u.id));
-    for (const m of messages) if (m.unit_ids.every((id) => imageUnits.has(id))) m.source = 'frame';
-  }
+  // A message born only from images or frames is marked as inferred from the image (UD-021): the sender sees it and can discard
+  // it. It is decided by the kind of the units (H-3728), never by the prose nor by the model.
+  const seenOnly = new Set(units.filter((u) => u.kind === 'frame').map((u) => u.id));
+  for (const m of messages) if (m.unit_ids.every((id) => seenOnly.has(id))) m.source = 'frame';
   ctx.report(step('proposalReady'), { advance: true });
   return { status: 'ok', proposal: { messages, discarded }, units, calls: ctx.calls, stats: ctx.stats };
 }

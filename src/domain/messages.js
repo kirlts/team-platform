@@ -211,11 +211,12 @@ export function getMessage (db, id, { includeDeleted = false } = {}) {
   const dbRow = get(db, `${SELECT_MESSAGE} WHERE m.id = ?${includeDeleted ? '' : ' AND m.deleted_at IS NULL'}`, id)
   if (!dbRow) throw notFound('El mensaje no existe.')
   const [msgRow] = hydrate(db, [dbRow])
+  const observed = parseJson(dbRow.observed_json, []) // what a video frame shows and nobody says; outside the body
   const replyRows = all(db, 'SELECT * FROM replies WHERE message_id = ? AND deleted_at IS NULL ORDER BY id', id)
   const atts = replyAttachmentsOf(db, replyRows.map((r) => r.id))
   const edits = all(db, 'SELECT * FROM message_edits WHERE message_id = ? ORDER BY id', id)
     .map((e) => ({ id: e.id, member_id: e.member_id, at: iso(e.at), version: e.version, fields: parseJson(e.fields_json, []) }))
-  return { ...msgRow, replies: replyRows.map((r) => toReply(r, atts.get(r.id))), edits }
+  return { ...msgRow, observed: Array.isArray(observed) ? observed : [], replies: replyRows.map((r) => toReply(r, atts.get(r.id))), edits }
 }
 
 /**

@@ -373,7 +373,7 @@ EOF2
 docker compose up -d --wait
 ```
 
-`DELEGATED_SECRETS` lleva el secreto del miembro agente que entra con `signed-header` (`openssl rand -hex 32`). Sin agente, `IDENTITY_PROVIDER=jwt` y la línea se borra. Con `local,jwt` el agente entra con correo y contraseña.
+`DELEGATED_SECRETS` lleva el secreto de un servicio del anfitrión que entra con `signed-header` (`openssl rand -hex 32`). Sin ese servicio, `IDENTITY_PROVIDER=jwt` y la línea se borra. El miembro agente del trabajador que ejecuta no usa `DELEGATED_SECRETS`: firma con su secreto propio (sección «El trabajador que ejecuta»).
 
 4. Comprobación con un token del anfitrión:
 
@@ -393,6 +393,61 @@ Lo que hace el servidor:
 | CSRF | Una petición no segura con la cookie del token o la de sesión exige `X-Team-Request`, que el panel manda |
 
 `COOKIE_NAME` cambia el nombre de la cookie cuando dos instancias comparten dominio. No puede empezar con `__Host-`, porque ese prefijo prohíbe `Domain`.
+
+## El trabajador que ejecuta
+
+Un mensaje asignado a un miembro agente lo trabaja una sesión desatendida de `claude -p` (MASTER-SPEC §7.5 «Ejecución»). El trabajo `execute` se encola al publicar el mensaje y a mano con `POST /api/messages/:id/execute`, y aparece en la Cola.
+
+1. Crear el agente. Sólo un Editor:
+
+```sh
+curl -s -X POST https://team.ejemplo.cl/api/members \
+  -H "Authorization: Bearer $JWT" -H 'Content-Type: application/json' -H 'X-Team-Request: panel' \
+  -d '{"email":"agente@ejemplo.cl","name":"Agente","kind":"agent","profile":"Trabajo errores y funcionalidades del repositorio."}'
+```
+
+La respuesta trae `agent_secret` una sola vez. El trabajador lo lee de la bóveda en cada trabajo, así que no hace falta copiarlo a `.env`. El agente no tiene contraseña.
+
+2. Variables:
+
+| Variable | Uso |
+|---|---|
+| `EXECUTE_RUNNER` | `local` (omisión) o `machine` |
+| `EXECUTE_CLAUDE_BIN` | Ejecutable de `claude` con `local` (omisión `claude`) |
+| `EXECUTE_MACHINE_CLAUDE_BIN` | Ejecutable de `claude` dentro de la máquina (omisión `claude`) |
+| `EXECUTE_REPO_DIR` | Repositorio del anfitrión con `local`; cada trabajo usa un worktree con la rama `tp/<message_id>` |
+| `EXECUTE_WORK_ROOT` | Dónde se crea el directorio de cada trabajo (omisión `$DATA_DIR/tmp`) |
+| `EXECUTE_TEAM_URL` | Dirección de la API que usa `team` desde la sesión (omisión `http://127.0.0.1:$PORT`). Con `machine`, una dirección que la máquina alcance |
+| `EXECUTE_MODEL` | Omisión `claude-sonnet-5-5` |
+| `EXECUTE_EFFORT` | Omisión `medium` |
+| `EXECUTE_MAX_BUDGET_USD` | Tope de gasto por mensaje (omisión 10) |
+| `EXECUTE_MAX_TURNS` | Omisión 60 |
+| `EXECUTE_MAX_SUBAGENTS` | Omisión 3 |
+| `EXECUTE_MAX_ATTEMPTS` | Omisión 1 |
+| `EXECUTE_TIMEOUT_MS` | Plazo de la sesión, máquina incluida (omisión 3600000) |
+| `EXECUTE_KILL_GRACE_MS` | Espera entre SIGTERM y SIGKILL (omisión 10000) |
+| `EXECUTE_HOST_INSTRUCTIONS` | Ruta a un `.md` del anfitrión con sus reglas; se agrega al prompt en cada trabajo. Si falta el archivo, el trabajo falla con `host_instructions_missing` |
+| `EXECUTE_MACHINE_CREATE`, `EXECUTE_MACHINE_RUN`, `EXECUTE_MACHINE_DESTROY` | Las tres órdenes de `machine` |
+
+Con `local`, la máquina de Team Platform necesita `claude` instalado y autenticado. En la imagen de Docker eso es lo mismo que el analizador `harness` (sección «Analizador `harness` en el contenedor»).
+
+3. Una máquina por trabajo, ejemplo con Google Compute Engine:
+
+```sh
+cat >> .env <<'EOF2'
+EXECUTE_RUNNER=machine
+EXECUTE_TEAM_URL=https://team.ejemplo.cl
+EXECUTE_HOST_INSTRUCTIONS=/data/reglas-del-agente.md
+EXECUTE_MACHINE_CREATE=gcloud compute instances create team-job-{job_id} --zone=us-central1-a --machine-type=e2-standard-4 --image-family=agente-claude --image-project=mi-proyecto --quiet >&2 && echo team-job-{job_id}
+EXECUTE_MACHINE_RUN=gcloud compute scp --zone=us-central1-a --recurse {workdir} {machine}:job --quiet >&2 && gcloud compute ssh {machine} --zone=us-central1-a --command 'bash job/run.sh'
+EXECUTE_MACHINE_DESTROY=gcloud compute instances delete {machine} --zone=us-central1-a --quiet
+EOF2
+docker compose up -d --wait
+```
+
+El trabajador pone cada marcador entre comillas simples de shell antes de correr la orden. La última línea de stdout de CREATE es `{machine}`; por eso el ejemplo manda la salida de `gcloud` a stderr. El stdout de RUN debe ser sólo el NDJSON de `run.sh`. DESTROY corre siempre, también si la sesión falla, vence `EXECUTE_TIMEOUT_MS` o CREATE falló a medias. La imagen `agente-claude` es del anfitrión: trae `node`, `git`, `claude` autenticado y el repositorio; `run.sh` entra a `$TEAM_REPO_DIR` si existe. `{workdir}` lleva `env.sh` con el secreto del agente, en modo 600.
+
+4. Comprobación: asignar un mensaje al agente y mirar la Cola. La primera respuesta del agente llega al hilo al empezar y la final al terminar. La traza del trabajo (`GET /api/jobs/:id/trace`) trae `team.session_id` y `team.cost_usd`.
 
 ## Licencias
 

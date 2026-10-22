@@ -7,6 +7,7 @@ import { badRequest, conflict, unauthenticated } from '../../domain/errors.js'
 import { audit } from '../../domain/audit.js'
 import { LANGUAGES } from '../../domain/language.js'
 import { createMember, deleteMember, getMember, listMembers, updateMember } from '../../domain/members.js'
+import { issueAgentSecret } from '../../execute/agent-credentials.js'
 import { removeUnreferencedBlobs } from '../../domain/storage.js'
 import { requireConfirm } from '../confirm.js'
 import { hashPassword, validatePassword, verifyPassword } from '../../identity/password.js'
@@ -19,11 +20,13 @@ const emailAddr = { type: 'string', minLength: 3, maxLength: 254, pattern: '^[^@
 const languageTag = { type: 'string', enum: LANGUAGES } // UD-018: exactly two values; anything else is 400 'validation'
 
 export function registerMemberRoutes (app, ctx) {
-  const { db, config, requireRole, identity, blocklist, queue } = ctx
+  const { db, config, requireRole, identity, blocklist, queue, vault } = ctx
   const profileText = { type: 'string', maxLength: config.members.profileMaxLength, description: 'Perfil: un par de párrafos en primera persona (UD-023).' }
   const local = identitySources(config.identity).includes('local')
 
   async function savePassword (memberId, password, actorId) {
+    // An agent never enters by password (UD-255): its only credential is the signed header with its own secret.
+    if (get(db, 'SELECT kind FROM members WHERE id = ?', memberId)?.kind === 'agent') throw conflict('Un miembro agente no tiene contraseña: entra por cabecera firmada.', 'agent_has_no_password')
     if (!local) throw conflict('La contraseña la administra el sitio anfitrión.', 'password_managed_externally')
     validatePassword(password, config.identity.password, blocklist)
     const hash = await hashPassword(password, config.identity.argon2)
@@ -47,29 +50,35 @@ export function registerMemberRoutes (app, ctx) {
     onRequest: [requireRole('editor')],
     schema: {
       summary: 'Add a member (editor)',
+      description: '`kind: agent` crea un miembro que trabaja una sesión desatendida de Claude Code (UD-254): tiene perfil como cualquiera, nunca contraseña (400 `agent_has_no_password` si se envía), y la respuesta trae `agent_secret` una sola vez: con ese secreto firma `X-Team-User`, `X-Team-Ts` y `X-Team-Sig` (HMAC-SHA256 de `ts.MÉTODO.ruta.correo`).',
       body: {
         type: 'object', required: ['email', 'name'], additionalProperties: false,
         properties: {
           email: emailAddr, name: { type: 'string', minLength: 1 }, role: { type: 'string', enum: ['member', 'editor'] },
+          kind: { type: 'string', enum: ['person', 'agent'] },
           profile: profileText, password: { type: 'string' }
         }
       },
-      response: { 201: member }
+      response: { 201: { ...member, properties: { ...member.properties, agent_secret: { type: 'string', description: 'Sólo al crear un agente; no se vuelve a mostrar.' } } } }
     }
   }, async (request, reply) => {
     const { password, ...memberData } = request.body
+    const agent = memberData.kind === 'agent'
+    if (agent && password !== undefined) throw badRequest('Un miembro agente no tiene contraseña: entra por cabecera firmada.', 'agent_has_no_password')
     if (password !== undefined) {
       validatePassword(password, config.identity.password, blocklist) // validated before creating
       if (!local) throw conflict('La contraseña la administra el sitio anfitrión.', 'password_managed_externally')
     }
     const hash = password !== undefined ? await hashPassword(password, config.identity.argon2) : null
+    let agentSecret = null
     const id = tx(db, () => {
       const fresh = createMember(db, memberData, { actorId: request.member.id })
       if (hash) run(db, 'INSERT INTO credentials (member_id, password_hash, updated_at) VALUES (?, ?, ?)', fresh, hash, Date.now())
+      if (agent) agentSecret = issueAgentSecret(db, vault, fresh)
       return fresh
     })
     reply.code(201)
-    return getMember(db, id)
+    return agentSecret ? { ...getMember(db, id), agent_secret: agentSecret } : getMember(db, id)
   })
 
   // The member themselves: profile, language and, with the current password, the password.

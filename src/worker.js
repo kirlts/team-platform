@@ -15,6 +15,7 @@ import { createLogger } from './log.js'
 import { context, ROOT_CONTEXT } from '@opentelemetry/api'
 import { errorType, initTelemetry, withSpan } from './domain/tracing.js'
 import { createPipeline } from './domain/pipeline.js'
+import { createExecuteHandler } from './execute/handler.js'
 import { loadModules } from './domain/modules.js'
 import { sweepOrphans } from './domain/storage.js'
 import { runInJobScope, setLimiterLogger } from './providers/limiter.js'
@@ -70,7 +71,9 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     const abortJob = (abortReason) => { if (!controller.signal.aborted) controller.abort(abortReason) }
     const ctx = { signal: controller.signal, abort: abortJob, workerId }
     const heartbeatTimer = setInterval(() => { if (!queue.heartbeat(job)) abortJob('lost') }, w.heartbeatMs)
-    const cap = setTimeout(() => abortJob('timeout'), w.maxRuntimeMs)
+    // A handler may declare its own cap (`execute`: EXECUTE_TIMEOUT_MS); the others use QUEUE_MAX_RUNTIME_MS.
+    const capMs = handlers[job.kind]?.maxRuntimeMs ?? w.maxRuntimeMs
+    const cap = setTimeout(() => abortJob('timeout'), capMs)
 
     const inputId = parseJson(job.payload_json, {}).input_id ?? null
     // Every queue job is a span (UD-014): the extractors and providers hang from it.
@@ -93,7 +96,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
         span.setAttribute('team.outcome', 'done')
         jobLog.info('job finished')
       } catch (error) {
-        await handleError(job, handlerObj, controller, error, jobLog, span)
+        await handleError(job, handlerObj, controller, error, jobLog, span, capMs)
       } finally {
         clearInterval(heartbeatTimer)
         clearTimeout(cap)
@@ -104,7 +107,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     runningJobs.set(job.id, { controller, running })
   }
 
-  async function handleError (job, handlerObj, controller, error, jobLog, span) {
+  async function handleError (job, handlerObj, controller, error, jobLog, span, capMs = w.maxRuntimeMs) {
     const abortReason = controller.signal.aborted ? controller.signal.reason : null
     if (error?.lost || abortReason === 'lost') { span.setAttribute('team.outcome', 'lost'); jobLog.warn('job cancelled or lease lost; nothing is applied'); return } // the state is no longer ours
     if (abortReason === 'shutdown') { queue.release(job); span.setAttribute('team.outcome', 'released'); jobLog.info('shutdown: the job goes back to the queue and the attempt is refunded'); return }
@@ -117,7 +120,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
       }
       return
     }
-    const failureCause = abortReason === 'timeout' ? new Error(`El trabajo superó el tiempo máximo de ${Math.round(w.maxRuntimeMs / 1000)} s.`) : error
+    const failureCause = abortReason === 'timeout' ? new Error(`El trabajo superó el tiempo máximo de ${Math.round(capMs / 1000)} s.`) : error
     const result = queue.fail(job, failureCause)
     span.setAttribute('team.outcome', result.state === 'lost' ? 'lost' : result.state)
     span.setAttribute('error.type', errorType(failureCause))
@@ -182,7 +185,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
 export async function buildWorker ({ db, config, events, queue = null, env = process.env, logger = createLogger(config), pollDataVersionMs = null }) {
   const outbox = queue ?? createQueue({ db, config, events })
   const modules = await loadModules(config, { db, env, log: (m) => logger.warn(m) })
-  const handlers = createPipeline({ db, config, queue: outbox, events, modules })
+  const handlers = { ...createPipeline({ db, config, queue: outbox, events, modules }), execute: createExecuteHandler({ db, config, queue: outbox, events, vault: modules.vault, logger }) }
   const worker = createWorker({
     db, queue: outbox, events, config, handlers, logger, pollDataVersionMs,
     onSweep: () => sweepOrphans(db, config, config.worker.retentionDays * 24 * 3600 * 1000)

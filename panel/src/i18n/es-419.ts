@@ -806,6 +806,7 @@ export const es419 = {
   'progress.waiting': 'En espera: cupo de transcripción',
   'progress.retry': 'Intento {n} de {total} fallido; se reintenta',
   'progress.done': 'Listo',
+  'progress.answered': 'Respondido',
   'progress.review': 'Revisión de lo apartado',
   'queue.title': 'Cola',
   'hint.queue': 'Envíos de todos, estado de los trabajos y traza del análisis',
@@ -858,6 +859,25 @@ export const es419 = {
   'summary.abandon': 'Abandono',
   'summary.days': '{n} días',
   'summary.empty': 'Sin datos',
+  // ---- Trabajo `execute` y miembro agente (H-3724)
+  'error.agent_has_no_password': 'Un miembro agente no tiene contraseña',
+  'error.execute_busy': 'El agente ya tiene un trabajo en curso para este mensaje',
+  'error.job_not_running': 'El trabajo no está corriendo',
+  'error.member_kind_invalid': 'Tipo de miembro desconocido',
+  'error.no_agent_assignee': 'El mensaje no tiene un agente asignado',
+  'error.not_an_agent': 'El miembro no es un agente activo',
+  'error.not_job_agent': 'Sólo el agente del trabajo informa su avance',
+  'error.vault_unavailable': 'Bóveda de secretos no disponible',
+  'analysis.error.message_missing': 'El mensaje ya no existe',
+  'analysis.error.not_an_agent': 'El miembro no es un agente',
+  'analysis.error.account_inactive': 'La cuenta está desactivada',
+  'analysis.error.message_closed': 'El mensaje está cerrado',
+  'analysis.error.agent_secret_missing': 'El agente no tiene secreto propio',
+  'analysis.error.execute_timeout': 'La sesión superó el tiempo máximo',
+  'analysis.error.host_instructions_missing': 'No se pudo leer el archivo de reglas del anfitrión',
+  'analysis.error.machine_create_failed': 'No se pudo crear la máquina',
+  'analysis.error.execute_no_result': 'La sesión terminó sin resultado',
+  'analysis.error.execute_error': 'La sesión terminó con error',
 } as const satisfies Record<string, Message>
 
 export type MessageKey = keyof typeof es419

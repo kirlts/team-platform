@@ -13,7 +13,7 @@ import { pageEnvelope, pageParams, pageQuerySchema, pageResult } from '../pagina
 const jobRow = {
   type: 'object',
   properties: {
-    id: { type: 'string' }, kind: { type: 'string' }, input_id: { type: 'string', nullable: true }, status: { type: 'string' },
+    id: { type: 'string' }, kind: { type: 'string' }, input_id: { type: 'string', nullable: true }, message_id: { type: 'string', nullable: true }, member_id: { type: 'string', nullable: true }, status: { type: 'string' },
     priority: { type: 'integer' }, attempts: { type: 'integer' }, max_attempts: { type: 'integer' },
     run_at: { type: 'string' }, lease_until: { type: 'string', nullable: true }, worker_id: { type: 'string', nullable: true },
     last_error: { type: 'string', nullable: true }, created_at: { type: 'string' }, finished_at: { type: 'string', nullable: true }

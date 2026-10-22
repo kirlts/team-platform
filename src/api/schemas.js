@@ -35,6 +35,7 @@ export const member = {
   type: 'object',
   properties: {
     id, email: { type: 'string' }, name: { type: 'string' }, role: { type: 'string', enum: ['member', 'editor'] },
+    kind: { type: 'string', enum: ['person', 'agent'], description: '«agent»: lo trabaja una sesión desatendida de Claude Code (UD-254); entra por cabecera firmada, nunca por contraseña.' },
     profile: { type: 'string' }, language: { type: 'string', enum: ['es-419', 'en'] }, active: { type: 'boolean' }, created_at: { type: 'string' }
   },
   required: ['id', 'email', 'name', 'role', 'language', 'active']

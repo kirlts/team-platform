@@ -177,7 +177,7 @@ Desarrollo del panel: Vite 8, Tailwind 4.3 con `@tailwindcss/vite` (MIT), TypeSc
 8. **Sólo un miembro distinto del emisor responde un mensaje; cualquier miembro lo cierra o reabre.** Lo hace cumplir la API, no el panel.
 9. **Todo número que gobierna la operación nace declarado**: tamaño máximo de adjunto, fotogramas por video, páginas por llamada, reintentos, arriendo de un trabajo. Sale de una medición citada o de una perilla de configuración con su valor por omisión justificado, nunca de «parece razonable».
 10. **Licencias en dos capas** (UD-004, UD-020). Lo que se enlaza con el código (el repositorio y toda dependencia de npm) lleva licencia permisiva compatible con MIT. Lo que la imagen ejecuta como programa aparte o carga como biblioteca sin modificar (`ffmpeg`, `libvips` de `sharp`) puede ser LGPL, nunca GPL, y cada uno figura en `NOTICE` dentro de la imagen con su versión, su licencia y la dirección de su código fuente. Una prueba de la batería lo hace cumplir leyendo `package.json` y el `NOTICE`.
-11. **La API es la única puerta.** El panel no lee la base ni el volumen. Lo que el panel puede hacer, un sistema externo lo puede hacer con el mismo contrato (UD-010). El contrato se publica generado desde los esquemas de las rutas (`GET /api/openapi.json`, OpenAPI 3.1) y ninguna ruta queda sin esquema de respuesta. Un frontend distinto (otro dominio, otro framework, otros componentes y tipografías) reimplementa sólo las vistas. `CORS_ORIGINS` y `COOKIE_MODE=cross-origin` son las dos perillas que lo permiten desde otro origen.
+11. **La API es la única puerta.** El panel no lee la base ni el volumen. Lo que el panel puede hacer, un sistema externo lo puede hacer con el mismo contrato (UD-010). El contrato se publica generado desde los esquemas de las rutas (`GET /api/openapi.json`, OpenAPI 3.1) y ninguna ruta queda sin esquema de respuesta. Un frontend distinto (otro dominio, otro framework, otros componentes y tipografías) reimplementa sólo las vistas. `CORS_ORIGINS` y `COOKIE_MODE=cross-origin` son las dos perillas que lo permiten desde otro origen. El panel propio también se monta bajo una ruta de otro sitio (H-3721): `BASE_PATH` fija dónde se sirven el panel y sus activos, `API_PREFIX` dónde vive la API, y el servidor escribe los dos valores en el `index.html` que entrega (`<meta name="team-base-path">` y `<meta name="team-api-base">`), así que una misma compilación sirve cualquier ruta. `/health` responde además en la raíz y el contrato queda en `${API_PREFIX}/openapi.json`. `CSP_CONNECT_SRC` y `FRAME_ANCESTORS` abren la CSP a un anfitrión en otro origen o en un iframe; `SSO_RETURN_PATH` fija adónde vuelve el inicio de sesión delegado; `THEME_CSS` agrega la hoja de tokens del anfitrión.
 
 ---
 
@@ -195,6 +195,8 @@ Desarrollo del panel: Vite 8, Tailwind 4.3 con `@tailwindcss/vite` (MIT), TypeSc
 | Harness sin `--bare` para la suscripción | Reutilizar la cuenta de Claude Code ya pagada | 27k a 31k tokens de sistema por trabajo y arranque de proceso | UD-008. Se mide con `--output-format json`; el bucle propio sigue siendo la omisión. |
 | Fotogramas propios + transcripción en vez de video nativo | Sin tercer proveedor | Menor fidelidad temporal que Gemini nativo | UD-008 («lo que salga más fácil»). Gemini queda configurable. |
 | Panel estático servido por la API, sin Caddy | Un proceso | Sin TLS propio | `tailscale serve` o el proxy del anfitrión lo dan. |
+| Compilación del panel con base relativa y base escrita por el servidor | Una imagen sirve `/`, `/team-a/` o `/team-b/` sin recompilar | El `index.html` se reescribe en cada petición (dos reemplazos sobre 646 bytes) | H-3721. La otra vía era una compilación por ruta, que obliga a construir la imagen por instalación. |
+| Tema del anfitrión por hoja aparte (`THEME_CSS`) | Otro sitio cambia color, tipografía y radio sin recompilar | Sólo tokens; la estructura de las vistas no cambia | H-3721. Cambiar las vistas es reimplementarlas contra la API (§4.11). |
 
 ---
 
@@ -530,6 +532,23 @@ Entrada multimodal:
 Los límites iniciales son imagen 7 MB, audio 25 MB, documento 25 MB y video 2 GB, declarados en `src/config.js` (informe 07).
 
 Mensajes es una lista de `MessageCard`. Los filtros viven en la URL como chips de propiedad, operador y valor (`panel/src/lib/filters.ts`; patrón de Linear, Plane y Front). No hay tabla virtualizada hasta que haya cientos de filas. Los componentes de shadcn/ui están copiados a `panel/src/components/ui/`, sobre Radix (38 KB comprimidos menos que Base UI, medido en el informe 07). Las tipografías van empaquetadas (Orbitron y Source Sans 3, OFL-1.1), con tema claro y oscuro. La base de navegadores es Chrome 111, Safari 16.4 y Firefox 128. El paquete único mide 720 kB (213 kB comprimidos, medido el 2026-10-21 con `vite build`).
+
+Contrato del tema (`THEME_CSS`, H-3721). La hoja del anfitrión se carga después de `panel/src/styles.css` y redefine estas variables. Las de color se declaran en `:root[data-theme='light']` y `:root[data-theme='dark']`, porque el panel las fija con esos selectores. Las demás, en `:root`.
+
+| Familia | Variables |
+|---|---|
+| Fondo y superficies | `--color-bg`, `--color-surface`, `--color-raised`, `--color-hover`, `--color-line`, `--color-line-strong`, `--color-edge`, `--color-selected` |
+| Texto | `--color-fg`, `--color-muted`, `--color-faint` |
+| Acento | `--color-accent`, `--color-accent-hover`, `--color-accent-deep`, `--color-accent-fg`, `--color-accent-soft` |
+| Peligro | `--color-danger`, `--color-danger-soft` |
+| Estados | `--color-state-{open,answered,closed}-{bg,fg,edge}`, `--color-{open,answered,closed}-led`, `--color-{open,answered,closed}-{bg,fg}` |
+| Vidrio y fondo animado | `--color-glass`, `--color-glass-strong`, `--color-glass-edge`, `--color-glass-line`, `--color-sky-{a,b,c}`, `--color-glow-{1,2,3}`, `--color-orbit`, `--color-chrome-{1,2,3,4}` |
+| Botón gel e IA | `--color-gel-top`, `--color-gel-bottom`, `--color-gel-fg`, `--color-ai-bg`, `--color-ai-edge`, `--color-ai-fg`, `--color-aqua`, `--color-lime`, `--color-lilac` |
+| Sombras | `--shadow-glass`, `--shadow-pop`, `--shadow-gel`, `--shadow-well` |
+| Tipografía | `--font-sans`, `--font-display`, `--font-mono` |
+| Radio | `--radius-sm`, `--radius-md`, `--radius-lg` |
+
+Una tipografía del anfitrión entra con su `@font-face` en la misma hoja y con un origen que admita `font-src 'self'`, es decir, servida bajo el mismo sitio.
 
 `panel/DISENO.md` guarda las referencias y los tokens de la piel Y2K (UD-013), entre ellos `--duration-hover` y `--sidebar-count-col` (UD-130). Las rutas son `/`, `/messages`, `/messages/:id`, `/areas`, `/areas/:id`, `/team`, `/connections` y `/settings`; las del Editor se ocultan a los miembros. La barra superior pide `GET /api/messages/summary` y la lista de cada estado a `GET /api/messages`; la barra lateral reutiliza el resumen para los contadores por área. Configuración llama a `/api/settings/connections` (§7.1) y nunca recibe una clave, sólo sus últimos 4 caracteres.
 

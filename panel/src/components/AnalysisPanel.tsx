@@ -1,4 +1,4 @@
-import { AlertTriangle, ChevronDown, ChevronRight, Plus, RotateCw, Trash2, X } from '@/components/icons'
+import { ChevronDown, Plus, RotateCw, Trash2, X } from '@/components/icons'
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
@@ -18,10 +18,11 @@ import type { Attachment, InputRecord, InputStatus, Proposal, ProposalMessage, T
 import { useUndo } from '@/lib/undo'
 import { cn } from '@/lib/utils'
 import { AiMark } from './AiMark'
-import { AreaChip, useAreaStyle } from './AreaChip'
+import { useAreaStyle } from './AreaChip'
 import { SimulatedMark } from './SimulatedMark'
 import { AreaPicker } from './AreaPicker'
 import { AttachmentPicker } from './AttachmentPicker'
+import { MessageFoldRow, MessageTally } from './MessageFold'
 import { EditableText } from './EditableText'
 import { useLookups } from './lookups'
 import { Meter } from './Meter'
@@ -213,8 +214,8 @@ function ProposalEditor({
   const saveProposal = useSaveProposal(input.id)
   const queryClient = useQueryClient()
   const [proposal, setProposal] = useState<Proposal>(initial)
-  /** The message that is open: the others are one line each, so all of them are in view at once (J1-B-11). */
-  const [openIndex, setOpenIndex] = useState(0)
+  /** The message that is open, or none (-1, the start): every other is one line, so the list reads at a glance (J1-B-11, UD-257). */
+  const [openIndex, setOpenIndex] = useState(-1)
   const latest = useRef<Proposal>(initial)
   const chain = useRef<Promise<unknown>>(Promise.resolve())
   const [saveError, setSaveError] = useState<unknown>(null)
@@ -255,7 +256,7 @@ function ProposalEditor({
         discarded: gone.unit_ids.length > 0 ? [...(p.discarded ?? []), { unit_ids: gone.unit_ids, reason: t('proposal.removedReason') }] : (p.discarded ?? []),
       }
     })
-    setOpenIndex((open) => Math.max(0, Math.min(open > index ? open - 1 : open, latest.current.messages.length - 1)))
+    setOpenIndex((open) => (open === index ? -1 : open > index ? open - 1 : open))
     // The way back is the history above (one mechanism, J2-B-21): the notice only says what happened.
     notices.show({ text: t('proposal.removedNotice', { title }) })
   }
@@ -284,7 +285,7 @@ function ProposalEditor({
 
   const rows = useMemo<Row[]>(() => proposal.messages.map((m, i) => ({ m, i })), [proposal])
   // The box of the analysis takes the area of the message that is open, and changing that message's area changes the box.
-  const activeId = proposal.messages[Math.min(openIndex, proposal.messages.length - 1)]?.area_id
+  const activeId = proposal.messages[openIndex]?.area_id ?? proposal.messages[0]?.area_id
   useEffect(() => onActiveArea(activeId), [activeId]) // eslint-disable-line react-hooks/exhaustive-deps
   const discarded = proposal.discarded ?? []
   const discardedCount = discarded.reduce((n, d) => n + d.unit_ids.length, 0)
@@ -344,6 +345,7 @@ function ProposalEditor({
         </p>
       )}
       {/* The messages of the proposal are read whole: a text has no maximum length, so the list is as tall as it is and the page scrolls (UD-110); no frame cuts the open message. */}
+      <MessageTally areaIds={proposal.messages.map((m) => m.area_id)} />
       <ul aria-label={t('proposal.list')} className="flex flex-1 flex-col">
         {rows.map(({ m, i }) => (
           <ProposalRow
@@ -351,8 +353,8 @@ function ProposalEditor({
             message={m}
             index={i}
             total={count}
-            open={count === 1 || i === openIndex}
-            onOpen={() => setOpenIndex(i)}
+            open={i === openIndex}
+            onToggle={() => setOpenIndex((open) => (open === i ? -1 : i))}
             attachments={input.attachments}
             patch={patch}
             remove={remove}
@@ -422,7 +424,7 @@ function ProposalRow({
   index,
   total,
   open,
-  onOpen,
+  onToggle,
   attachments,
   patch,
   remove,
@@ -433,7 +435,7 @@ function ProposalRow({
   index: number
   total: number
   open: boolean
-  onOpen: () => void
+  onToggle: () => void
   attachments: Attachment[]
   patch: (index: number, label: string, fix: Partial<ProposalMessage> | ((m: ProposalMessage) => Partial<ProposalMessage>)) => Promise<void>
   remove: (index: number) => Promise<void>
@@ -441,7 +443,6 @@ function ProposalRow({
   missingCount: number
 }) {
   const t = useT()
-  const { memberName } = useLookups()
   const templates = useTemplates(m.area_id)
   const template: Template | undefined = templates.data?.find((x) => x.id === m.template_id) ?? templates.data?.[0]
   const required = (v: string) => (v.trim() ? null : t('common.required'))
@@ -450,44 +451,10 @@ function ProposalRow({
   useEffect(() => onMissing(missingNames ? missingNames.split(',') : []), [missingNames]) // eslint-disable-line react-hooks/exhaustive-deps
   const only = total === 1
 
-  if (!open) {
-    const to = m.assignee_ids.map(memberName).filter(Boolean).join(', ')
-    return (
-      <li className="list-none border-b border-line last:border-b-0">
-        <button type="button" aria-expanded={false} aria-label={t('proposal.open', { n: index + 1, title: m.title })} onClick={onOpen} className="hit flex w-full items-start gap-2 px-1 py-2 text-left hover:bg-hover">
-          <ChevronRight size={14} aria-hidden className="mt-0.5 shrink-0 text-muted" />
-          <span className="mt-px w-4 shrink-0 text-xs font-semibold tabular-nums text-muted">{index + 1}</span>
-          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-              <AreaChip areaId={m.area_id} className="text-xs" />
-              <span className="min-w-0 break-words text-sm font-semibold">{m.title}</span>
-            </span>
-            {/* Only the row that asks something of the person stands out: one without recipients says so with its mark, the rest stay plain (J2-B-17). */}
-            <span className="break-words text-xs text-muted">
-              {to ? (
-                t('proposal.to', { names: to })
-              ) : (
-                <span data-needs-attention className="inline-flex items-center gap-1 font-semibold text-danger">
-                  <AlertTriangle size={12} aria-hidden strokeWidth={2.2} /> {t('proposal.noRecipients')}
-                </span>
-              )}
-            </span>
-          </span>
-          {missingCount > 0 && <Badge tone="danger">{t('proposal.missingShort')}</Badge>}
-        </button>
-      </li>
-    )
-  }
-
+  // Folded by default (UD-257): the row says the area, the title in one line and who it is for; opened, everything that is edited here.
   return (
-    <li className="flex list-none flex-col gap-2 border-b border-line px-1.5 py-3 last:border-b-0">
-      <div className="flex flex-wrap items-start gap-x-2 gap-y-1.5">
-        {!only && (
-          <span className="flex shrink-0 items-center gap-1 self-start pt-2 text-xs font-semibold tabular-nums text-muted">
-            <ChevronDown size={14} aria-hidden />
-            {index + 1}
-          </span>
-        )}
+    <MessageFoldRow index={index} areaId={m.area_id} title={m.title} assigneeIds={m.assignee_ids} open={open} onToggle={onToggle} aside={missingCount > 0 ? <Badge tone="danger">{t('proposal.missingShort')}</Badge> : undefined}>
+      <div className="flex flex-wrap items-start gap-x-2 gap-y-1.5 px-0.5">
         <AreaPicker
           areaId={m.area_id}
           templateName={template?.name}
@@ -539,6 +506,6 @@ function ProposalRow({
         <RecipientsEditor ids={m.assignee_ids} onChange={(ids) => void patch(index, t('proposal.recipientsChanged'), { assignee_ids: ids })} />
         <AttachmentPicker all={attachments} selected={m.attachment_ids} onChange={(ids) => void patch(index, t('proposal.attachmentsChanged'), { attachment_ids: ids })} />
       </div>
-    </li>
+    </MessageFoldRow>
   )
 }

@@ -199,6 +199,7 @@ export const en: Record<MessageKey, Message> = {
   'proposal.sendN': { one: 'Send {n} message', other: 'Send {n} messages' },
   'proposal.noActionTitle': { one: '{n} part of the text without a message', other: '{n} parts of the text without a message' },
   'proposal.removedNotice': 'Message removed: {title}',
+  'proposal.fold': 'Fold message {n}: {title}',
   'proposal.open': 'Open message {n}: {title}',
   'proposal.to': 'to {names}',
   'proposal.noRecipients': 'no recipients',

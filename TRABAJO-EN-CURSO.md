@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 426764e MASTER-SPEC al día con UD-253: sin confirmaciones, casillas, respuestas editables, avisos y listas de Inicio. Empujado a origin: `426764e`.
+- `main`: 8e73dd7 Áreas: «N plantillas» bajo el nombre y contadores centrados; pruebas al día con Inicio apilado y plantillas abiertas. Empujado a origin: `8e73dd7`.
 - Ramas con commits sin fusionar: ninguna.
 - Worktrees abiertos: `team-platform`.
 - Últimos commits en `main`:
-- `426764e` MASTER-SPEC al día con UD-253: sin confirmaciones, casillas, respuestas editables, avisos y listas de Inicio (hace 16 segundos)
-- `fb8b49b` Traspaso: UD-253 completo en main (hace 5 minutos)
-- `bfc4555` Merge wt-inicio-listas (hace 9 minutos)
-- `f376d5c` HALLAZGOS: H-3718 done in wt-inicio-listas (hace 10 minutos)
-- `84042d0` Merge wt-sin-confirmaciones (hace 11 minutos)
-- `e46343b` Merge wt-borrado-multiple (hace 12 minutos)
-- `fee305c` Pruebas: openTemplates no pulsa una sección de plantillas ya abierta (hace 13 minutos)
-- `52ca1a7` Docs: H-3715 hecho, MASTER-SPEC §7.1 con las rutas de varios mensajes, DISENO con la casilla de la tarjeta (hace 14 minutos)
-Actualizado 2026-10-22 02:47 UTC.
+- `8e73dd7` Áreas: «N plantillas» bajo el nombre y contadores centrados; pruebas al día con Inicio apilado y plantillas abiertas (hace 16 segundos)
+- `426764e` MASTER-SPEC al día con UD-253: sin confirmaciones, casillas, respuestas editables, avisos y listas de Inicio (hace 10 minutos)
+- `fb8b49b` Traspaso: UD-253 completo en main (hace 15 minutos)
+- `bfc4555` Merge wt-inicio-listas (hace 19 minutos)
+- `f376d5c` HALLAZGOS: H-3718 done in wt-inicio-listas (hace 19 minutos)
+- `84042d0` Merge wt-sin-confirmaciones (hace 21 minutos)
+- `e46343b` Merge wt-borrado-multiple (hace 22 minutos)
+- `fee305c` Pruebas: openTemplates no pulsa una sección de plantillas ya abierta (hace 23 minutos)
+Actualizado 2026-10-22 02:56 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

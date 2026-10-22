@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // End-to-end check of a deployed instance (H-89): the page answers, the health endpoint answers, the page served is the
-// panel compiled from this checkout, a short mixed text goes in, the proposal comes out, and the input is cancelled so the
+// panel compiled from this checkout, a short mixed text goes in, the proposal comes out, and the input is deleted so the
 // team's data is not left with a test message. It prints no credential.
 //
 //   node scripts/vps-check.mjs                                   reads URL, ADMIN_EMAIL and ADMIN_PASSWORD from ~/.config/team-platform/vps-admin
@@ -86,7 +86,7 @@ async function main () {
   const text = `Prueba de punta a punta ${stamp}. El botón Enviar no se ve bien en el teléfono, ¿se puede subir el contraste? Además sería útil poder filtrar los mensajes por persona.`
   const form = new FormData()
   form.append('text', text)
-  form.append('auto_publish', 'false') // UD-072: the test input waits as a proposal and is cancelled; it is never published to the real team
+  form.append('auto_publish', 'false') // UD-072: the test input waits as a proposal and is deleted; it is never published to the real team
   const sent = await fetch(`${url}/api/inputs`, { method: 'POST', headers: auth, body: form })
   const created = await sent.json().catch(() => ({}))
   step('Envío de un texto mixto', [200, 202].includes(sent.status) && Boolean(created.input_id), `HTTP ${sent.status}, input ${created.input_id ?? '?'}`)
@@ -106,8 +106,9 @@ async function main () {
   if (messages.length) console.log(`       áreas: ${messages.map((m) => m.area_id ?? m.area ?? '?').join(', ')}`)
 
   if (!values.keep) {
-    const cancelled = await fetch(`${url}/api/inputs/${created.input_id}/cancel`, { method: 'POST', headers: auth })
-    step('El envío de prueba se descarta', cancelled.status === 200 || cancelled.status === 204, `HTTP ${cancelled.status}`)
+    // Deleted, not cancelled: a cancelled send stays in the owner's data, and nineteen checks left nineteen of them (2026-10-21).
+    const removed = await fetch(`${url}/api/inputs/${created.input_id}?confirm=true`, { method: 'DELETE', headers: auth })
+    step('El envío de prueba se borra', removed.status === 200, `HTTP ${removed.status}`)
   }
   return steps.every(Boolean)
 }

@@ -88,14 +88,13 @@ describe('restore what was deleted, after a reload (UD-250)', () => {
   test('a template: delete, reload, Borradas inside Plantillas lists it and Restaurar brings it back', async () => {
     const { page, context } = await session('ana')
     try {
+      // «Plantillas» is open by default (UD-252): no click to open it.
       await page.goto(`${origin}/areas/a-error`)
-      await page.getByRole('button', { name: /^Plantillas/ }).click()
       const region = page.getByRole('region', { name: 'Plantillas' })
       await region.waitFor()
       await region.getByRole('button', { name: /^Eliminar/ }).first().click()
       await region.getByText('eliminada').first().waitFor()
       await page.reload()
-      await page.getByRole('button', { name: /^Plantillas/ }).click()
       await region.waitFor()
       await region.getByTestId('show-deleted').click()
       const deleted = region.locator('[data-deleted="true"]')
@@ -105,29 +104,6 @@ describe('restore what was deleted, after a reload (UD-250)', () => {
       await deleted.first().getByRole('button', { name: 'Restaurar' }).click()
       await region.locator('[data-deleted="true"]').waitFor({ state: 'detached' })
       await region.getByRole('button', { name: `Eliminar ${restoredName}`, exact: true }).waitFor()
-      await settled(page)
-    } finally {
-      await context.close()
-    }
-  })
-
-  test('a discarded send: reload, Descartados lists it and Restaurar puts it back in the drawer', async () => {
-    const { page, context } = await session('bruno')
-    try {
-      await page.getByLabel('Nuevo mensaje', { exact: true }).last().fill('El botón de guardar no responde en el móvil.')
-      await page.getByRole('button', { name: 'Enviar' }).first().click()
-      const drawer = page.getByTestId('send-drawer')
-      await drawer.getByRole('button', { name: 'Descartar envío' }).waitFor({ timeout: 20000 })
-      await drawer.getByRole('button', { name: 'Descartar envío' }).click()
-      await page.getByText('Envío descartado').first().waitFor()
-      await page.reload()
-      await page.getByTestId('discarded-control').waitFor()
-      assert.equal(await page.getByTestId('send-drawer').count(), 0, 'a discarded send is out of the history')
-      await page.getByTestId('discarded-control').click()
-      const row = page.getByTestId('discarded-row')
-      await row.first().waitFor()
-      await row.first().getByRole('button', { name: /^Restaurar/ }).click()
-      await page.getByTestId('send-drawer').waitFor()
       await settled(page)
     } finally {
       await context.close()

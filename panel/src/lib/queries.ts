@@ -72,15 +72,6 @@ export function useDeletedTemplates(areaId: string | undefined, enabled = true) 
   })
 }
 
-/** The sends I discarded, newest first (GET /inputs?status=cancelled): the ones the history leaves out, to restore them. */
-export function useDiscardedSends(enabled = true) {
-  return useQuery({
-    queryKey: ['inputs', 'discarded'],
-    queryFn: async () => unwrapList<InputRecord>(await api('/inputs?mine=1&order=desc&status=cancelled')),
-    enabled,
-  })
-}
-
 export function useTemplates(areaId: string | undefined, enabled = true) {
   return useQuery({
     queryKey: ['templates', areaId],

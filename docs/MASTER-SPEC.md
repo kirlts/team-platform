@@ -649,6 +649,34 @@ Contrato del tema (`THEME_CSS`, H-3721). La hoja del anfitrión se carga despué
 | Sombras | `--shadow-glass`, `--shadow-pop`, `--shadow-gel`, `--shadow-well` |
 | Tipografía | `--font-sans`, `--font-display`, `--font-mono` |
 | Radio | `--radius-sm`, `--radius-md`, `--radius-lg` |
+| Acabado del botón primario | `--btn-gloss`, `--btn-border`, `--btn-text-shadow` |
+| Acabado del avatar y la marca | `--orb-gloss`, `--orb-glow`, `--orb-ink`, `--orb-text-shadow`, `--orb-shadow` |
+| Acabado de la barra superior | `--chrome-border`, `--chrome-shadow` |
+| Opción elegida de un selector | `--selected-bg`, `--selected-border`, `--selected-ink`, `--selected-shadow`, `--segmented-track` |
+| Borde de estado de la tarjeta | `--card-edge-width` |
+
+Acabado de los controles (H-3732). Las variables de las cinco filas nuevas se declaran en `:root`, fuera de los selectores de tema, y valen para los dos temas. `panel/src/styles.css` las declara con `:where(:root)`, de especificidad cero, de modo que cualquier regla del anfitrión las vence. Con los valores por omisión el panel queda como antes del cambio (comparado por captura a 1440x900 y 390x844, en claro y oscuro).
+
+| Variable | Qué gobierna | Valor por omisión |
+|---|---|---|
+| `--btn-gloss` | Capa de brillo sobre la mitad superior de `.btn-gel`; `none` la quita | `linear-gradient(180deg, oklch(1 0 0 / 0.22), oklch(1 0 0 / 0) 50%)` |
+| `--btn-border` | Color del borde de `.btn-gel` | `oklch(0.3 0.1 255 / 0.55)`; en oscuro `oklch(0.85 0.1 240 / 0.6)` |
+| `--btn-text-shadow` | Sombra de la letra de `.btn-gel` | `0 1px 0 oklch(0.2 0.1 260 / 0.35)`; en oscuro `none` |
+| `--orb-gloss` | Brillo radial blanco de `.orb` (avatares y marca); `none` lo quita | `radial-gradient(circle at 32% 26%, oklch(1 0 0 / 0.95) 0 11%, oklch(1 0 0 / 0) 34%)` |
+| `--orb-glow` | Resplandor aqua de la base de `.orb`; `none` lo quita | `radial-gradient(circle at 50% 120%, var(--color-aqua), transparent 62%)` |
+| `--orb-ink` | Color de las iniciales del avatar | `oklch(0.99 0 0)` |
+| `--orb-text-shadow` | Sombra de las iniciales | `0 1px 1px oklch(0.2 0.1 260 / 0.55)` |
+| `--orb-shadow` | Sombra del avatar | `inset 0 -2px 3px oklch(0.2 0.1 260 / 0.35), 0 1px 2px oklch(0.3 0.12 255 / 0.45)` |
+| `--chrome-border` | Color de la línea inferior de `.chrome-bar` | `var(--color-line-strong)` |
+| `--chrome-shadow` | Sombra bajo `.chrome-bar` | `0 8px 20px -12px oklch(0.35 0.14 255 / 0.5)` |
+| `--selected-bg` | Fondo de la opción elegida de `Segmented` y `StateTabs` (clase `opt-on`) | `var(--color-selected)` |
+| `--selected-border` | Borde de esa opción | `var(--color-accent)` |
+| `--selected-ink` | Color de la letra de esa opción | `var(--color-fg)` |
+| `--selected-shadow` | Sombra de esa opción | `none` |
+| `--segmented-track` | Fondo de la pista que contiene las opciones (clase `opt-track`) | `var(--color-raised)` |
+| `--card-edge-width` | Ancho del borde izquierdo de color por estado de `MessageCard`; `0px` lo quita | `3px` |
+
+La prueba `panel/src/theme.browser.test.mjs` (registrada en `test:flows`) comprueba, en los dos temas, que cada variable existe con su valor por omisión y que una hoja del anfitrión que las redefine cambia el botón, el avatar, la barra, el selector, su pista y el borde de la tarjeta.
 
 Una tipografía del anfitrión entra con su `@font-face` en la misma hoja y con un origen que admita `font-src 'self'`, es decir, servida bajo el mismo sitio.
 

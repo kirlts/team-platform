@@ -57,9 +57,12 @@ function messageSchema(fieldsSchema, { validation, requireAssignee = false }) {
       attachment_ids: ids,
       // H-3728: what a frame shows and nobody says aloud, kept out of the body («Observado, no dicho»). Empty when there is none.
       observed: { type: 'array', items: text },
+      // H-3728: the units where the person comes back to this request after talking about another one. A message whose spoken
+      // units are not one run must declare where each later run starts; the system checks the shape, never the text.
+      resumes_at: ids,
     },
     // The grammar requires `observed` so the model always considers it; the validation accepts an output without it (an empty list).
-    required: ['unit_ids', 'title', 'fields', 'body', 'assignee_ids', 'attachment_ids', ...(validation ? [] : ['observed'])],
+    required: ['unit_ids', 'title', 'fields', 'body', 'assignee_ids', 'attachment_ids', ...(validation ? [] : ['observed', 'resumes_at'])],
     additionalProperties: false,
   };
 }

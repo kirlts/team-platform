@@ -9,7 +9,7 @@ import { buildDecompositionSchema } from './schema.js';
 import { parseTemplate } from './templates.js';
 import { bugMessage, lastUserText, makeBundle, unitIdsIn } from './testing/fixtures.js';
 import { numberUnits } from './units.js';
-import { anchorFrames, foldFrameMessages, normalizeDecomposition, repairClassification, validateClassification } from './validate.js';
+import { anchorFrames, foldFrameMessages, interleavedRuns, normalizeDecomposition, repairClassification, validateClassification } from './validate.js';
 
 // u1 frame, u2 voice 00:00-00:10, u3 frame 00:05, u4 voice 00:10-00:20, u5 frame 00:12, u6 frame 00:25 (silence)
 const VIDEO = [
@@ -113,6 +113,34 @@ describe('the decomposition keeps one request per message and frames out of the 
     const fake = createFakeProviders({ text: (req) => (isClassify(req) ? { groups: [group([1])], discarded: [] } : decompose(req)) });
     const result = await analyze(await makeBundle({ text: '', attachments: [{ id: 7, kind: 'image', extracted: 'Un panel vacío.' }] }), { providers: fake });
     assert.equal(result.proposal.messages[0].source, 'frame');
+  });
+});
+
+describe('one request per message: spoken runs and declared resumes (H-3728)', () => {
+  const spoken = new Set([2, 4, 6, 8]);
+  it('two messages whose spoken units interleave are an error unless the return is declared', () => {
+    const msgs = [{ unit_ids: [1, 2, 6] }, { unit_ids: [3, 4, 8] }];
+    const errors = interleavedRuns(msgs, spoken);
+    assert.equal(errors.length, 2);
+    assert.match(errors[0], /message 1: .* at u6/);
+    assert.deepEqual(interleavedRuns([{ unit_ids: [1, 2, 6], resumes_at: [6] }, { unit_ids: [3, 4, 8], resumes_at: [8] }], spoken), []);
+  });
+  it('contiguous spoken runs need no declaration, and frames between them do not break a run', () => {
+    assert.deepEqual(interleavedRuns([{ unit_ids: [1, 2, 3, 4] }, { unit_ids: [5, 6, 7, 8] }], spoken), []);
+  });
+  it('a model that never declares the return keeps its draft after the retry and the input does not fail', async () => {
+    const two = { messages: [bugMessage([1, 2, 5], 'Quitar el rechazo sin comprobante'), bugMessage([3, 4], 'Abrir el historial anterior')] };
+    const voice = ['[00:00-00:05] Voz: uno', '[00:05] Fotograma 1: a', '[00:06-00:09] Voz: dos', '[00:10-00:12] Voz: tres', '[00:13-00:15] Voz: cuatro'].join('\n');
+    const bundle = await makeBundle({ text: '', attachments: [{ id: 1, kind: 'video', extracted: voice }] });
+    two.messages = [bugMessage([1, 2, 5], 'A'), bugMessage([3, 4], 'B')];
+    const fake = createFakeProviders({ text: (req) => (isClassify(req) ? { groups: [group([1, 2, 3, 4, 5])], discarded: [] } : two) });
+    const result = await analyze(bundle, { providers: fake });
+    assert.equal(result.status, 'ok');
+    assert.equal(result.stats.undeclared_runs, 1);
+    assert.deepEqual(result.proposal.messages.map((m) => m.unit_ids), [[1, 2, 5], [3, 4]]);
+    const decompositions = fake.calls.text.filter((r) => !isClassify(r));
+    assert.equal(decompositions.length, 2, 'one retry with the error as context');
+    assert.match(JSON.stringify(decompositions[1].messages), /resumes_at/);
   });
 });
 

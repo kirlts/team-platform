@@ -381,7 +381,7 @@ function checkMessage(m, label, { fields, scope, memberIds, attachmentIds, error
  * @param {boolean} [ctx.requireMessage]  the group cannot end up without messages
  * @param {boolean} [ctx.withDiscarded]  false: the output carries no `discarded`
  */
-export function validateDecomposition(output, { fields, scope, memberIds, attachmentIds, requireMessage = false, withDiscarded = true }) {
+export function validateDecomposition(output, { fields, scope, memberIds, attachmentIds, requireMessage = false, withDiscarded = true, spokenIds = null }) {
   const validate = compile(buildDecompositionSchema(fields, { validation: true, withDiscarded }));
   if (!validate(output)) {
     return { errors: formatAjvErrors(validate.errors), conflicts: { overlaps: [], gaps: [] } };
@@ -395,7 +395,41 @@ export function validateDecomposition(output, { fields, scope, memberIds, attach
     for (const id of d.unit_ids) if (!scope.has(id)) errors.push(`discard ${i + 1}: unit ${id} does not exist in this input`);
   });
   if (errors.length > 0) return { errors, conflicts: { overlaps: [], gaps: [] } };
-  return { errors: [], conflicts: coverage(output.messages, discarded, scope) };
+  const conflicts = coverage(output.messages, discarded, scope);
+  // H-3728: one request per message. The spoken units of a message form one run among the spoken units of the group, or each
+  // later run starts at a unit the model declared in `resumes_at`. It is the only check that can be accepted after the retry:
+  // the draft travels in `acceptable`, so a model that does not declare it does not fail the input.
+  const runErrors = spokenIds ? interleavedRuns(output.messages, spokenIds) : [];
+  if (runErrors.length > 0) return { errors: runErrors, conflicts, acceptable: output };
+  return { errors: [], conflicts };
+}
+
+/**
+ * Errors for the messages whose spoken units are split in runs by the spoken units of another message, at a run start the model
+ * did not declare in `resumes_at`. Order of ids only.
+ * @param {{unit_ids: number[], resumes_at?: number[]}[]} messages
+ * @param {Set<number>} spokenIds  voice and text units with content of this group
+ */
+export function interleavedRuns(messages, spokenIds) {
+  const order = [...spokenIds].sort((a, b) => a - b);
+  const owner = new Map();
+  messages.forEach((m, i) => m.unit_ids.forEach((id) => { if (spokenIds.has(id)) owner.set(id, i); }));
+  const errors = [];
+  messages.forEach((m, i) => {
+    const declared = new Set(m.resumes_at ?? []);
+    let inRun = false;
+    let seen = false;
+    const undeclared = [];
+    for (const id of order) {
+      if (owner.get(id) === i) {
+        if (!inRun && seen && !declared.has(id)) undeclared.push(id);
+        inRun = true;
+        seen = true;
+      } else if (owner.has(id)) inRun = false;
+    }
+    if (undeclared.length > 0) errors.push(`message ${i + 1}: its units resume after units of another message at ${undeclared.map((id) => `u${id}`).join(', ')}; a message is one request: if the person comes back to the same request there, list those units in resumes_at, otherwise they belong to another message`);
+  });
+  return errors;
 }
 
 /**

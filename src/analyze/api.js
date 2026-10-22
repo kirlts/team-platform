@@ -217,19 +217,26 @@ async function structuredStep(ctx, { step, system, messages, schema, effort, thi
 async function decomposeUnits(ctx, { bundle, template, system, schema, units, scopeNote, label }) {
   const { config } = ctx;
   const scope = new Set(units.map((u) => u.id));
-  const vctx = { ...contextFromBundle(bundle, { fields: template.fields, scope }), requireMessage: true, withDiscarded: false };
+  // H-3728: the voice and text units with content of this group, for the check of one request per message.
+  const spoken = new Set(units.filter((u) => u.kind !== 'frame' && !isEmptyUnit(u.text)).map((u) => u.id));
+  const vctx = { ...contextFromBundle(bundle, { fields: template.fields, scope }), requireMessage: true, withDiscarded: false, spokenIds: spoken.size > 1 ? spoken : null };
   const base = {
     system,
     schema,
     effort: config.decomposeEffort,
     thinking: config.decomposeThinking ?? undefined,
   };
-  const first = await structuredStep(ctx, {
+  let first = await structuredStep(ctx, {
     ...base,
     step: `decompose${label}`,
     messages: [{ role: 'user', content: decomposeUser({ members: bundle.members ?? [], attachments: bundle.attachments ?? [], units, scopeNote, language: ctx.language, recent: bundle.recent_inputs }) }],
     validate: (json) => validateDecomposition(json, vctx),
   });
+  if (first.status === 'invalid' && first.acceptable) {
+    // Only the declaration of resumed runs was still missing after the retry: the draft is kept, the input does not fail.
+    ctx.stats.undeclared_runs = (ctx.stats.undeclared_runs ?? 0) + 1;
+    first = { status: 'ok', json: first.acceptable, conflicts: first.conflicts };
+  }
   if (first.status !== 'ok') return first;
 
   let { messages } = first.json;

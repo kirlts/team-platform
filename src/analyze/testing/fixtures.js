@@ -90,7 +90,7 @@ export function bugMessage(unit_ids, title, extra = {}) {
 export function goodDecomposition() {
   return {
     messages: [
-      bugMessage([2, 4], 'Corregir pantalla de ingreso en blanco en Safari'),
+      bugMessage([2, 4], 'Corregir pantalla de ingreso en blanco en Safari', { resumes_at: [4] }),
       bugMessage([3], 'Corregir formato de fechas en el CSV', { assignee_ids: [2] }),
       bugMessage([5], 'Corregir notificaciones duplicadas', { assignee_ids: [] }),
     ],

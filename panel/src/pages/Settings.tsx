@@ -1,6 +1,7 @@
 import { ChevronDown, Lock } from '@/components/icons'
 import { SELECT_FACE } from '@/components/NativeSelect'
 import { useState, type ReactNode } from 'react'
+import { DataReset } from '@/components/DataReset'
 import { FormDialog } from '@/components/FormDialog'
 import { PageHeader } from '@/components/PageHeader'
 import { ProjectEditor } from '@/components/ProjectEditor'
@@ -45,6 +46,7 @@ export function Settings() {
             {editor && <ProviderSettings />}
           </div>
         </div>
+        {editor && <DataReset />}
       </div>
     </UndoProvider>
   )

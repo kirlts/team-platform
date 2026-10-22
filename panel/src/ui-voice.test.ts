@@ -25,6 +25,7 @@ const HINT_FILES = new Set([
   'components/ProviderSettings.tsx',
   'components/PublicationSetting.tsx',
   'components/UiTelemetrySetting.tsx',
+  'components/DataReset.tsx',
 ])
 
 /**

@@ -30,5 +30,5 @@ process.stdin.on('end', () => {
   const base = { type: 'result', subtype: 'success', is_error: false, session_id: sessionId, duration_ms: 61000, num_turns: 3, total_cost_usd: 1.2345, usage: { input_tokens: 52000, output_tokens: 3100, cache_read_input_tokens: 40000, cache_creation_input_tokens: 2000 }, modelUsage: { 'claude-sonnet-5-5': {} } }
   if (mode === 'error') return out({ ...base, subtype: 'error_max_budget_usd', is_error: true, result: 'budget reached' })
   if (mode === 'no-structured') return out({ ...base, result: 'done, but no structured output' })
-  out({ ...base, result: '', structured_output: { summary: 'Arreglé la pantalla que quedaba en blanco.\n\nYa carga con tus datos.', ...(process.env.FAKE_EXECUTE_EXTRA ? JSON.parse(process.env.FAKE_EXECUTE_EXTRA) : {}) } })
+  out({ ...base, result: '', structured_output: { outcome: 'done', summary: 'Arreglé la pantalla que quedaba en blanco.\n\nYa carga con tus datos.', ...(process.env.FAKE_EXECUTE_EXTRA ? JSON.parse(process.env.FAKE_EXECUTE_EXTRA) : {}) } })
 })

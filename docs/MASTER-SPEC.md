@@ -363,7 +363,8 @@ Un Miembro lee las áreas (con sus plantillas sin cuerpo) porque necesita nombra
 **Propósito:** Las tablas son la especificación. Identificadores en inglés (UD-005, UD-015). Las marcas de tiempo son enteros en milisegundos Unix (UTC) y la API las expone en ISO 8601; los spans van en nanosegundos.
 
 ```
-members              id, email (único sin distinguir mayúsculas), name, role(member|editor), profile (texto libre, UD-023; reemplaza a responsibilities y domains), created_at
+members              id, email (único sin distinguir mayúsculas), name, role(member|editor), kind(person|agent; migración 0013, UD-254), profile (texto libre, UD-023; reemplaza a responsibilities y domains), created_at
+members_agent_credentials  member_id (PK), sealed_value (AES-256-GCM con la bóveda), last4, created_at, rotated_at      (migración 0013; el secreto propio del agente)
 credentials          member_id, password_hash, updated_at, failed_count, next_attempt_at        (proveedor local; espera exponencial por cuenta)
 sessions             id (SHA-256 de la ficha), member_id, created_at, last_seen_at, expires_at
 identity_links       provider, external_id, member_id, created_at                               (identidad delegada)
@@ -378,8 +379,8 @@ message_edits        id, message_id, member_id, at, version, fields_json (nombre
 message_assignees    message_id, member_id
 message_attachments  message_id, attachment_id, position (el primero es el adjunto principal de la tarjeta)
 replies              id, message_id, author_id, body, kind(answer|fix|clarification), created_at, deleted_at (migración 0010, UD-240), version (1 al responder; +1 por edición del autor), edited_at (NULL sin ediciones) (migración 0012, UD-253)
-jobs                 id, kind(extract|analyze), input_id, payload_json, status(queued|running|done|failed|cancelled), priority, attempts, max_attempts, run_at, lease_until, worker_id, last_error, created_at, finished_at
-                     índice (status, priority DESC, run_at, id): reclamo en 23 µs (informe 03)
+jobs                 id, kind(extract|analyze|execute), input_id, message_id (sólo `execute`; migración 0013), payload_json, status(queued|running|done|failed|cancelled), priority, attempts, max_attempts, run_at, lease_until, worker_id, last_error, created_at, finished_at
+                     índice (status, priority DESC, run_at, id): reclamo en 23 µs (informe 03); índice (message_id)
 job_events           seq, job_id, kind(progress|done|message), member_id (destinatario; NULL = todo el equipo), percent, phrase, data_json, at     retención 7 días
 settings             key, value_json, updated_at                                                (proveedor y modelo por ranura; nunca una llave)
 provider_connections name, label, kind(anthropic|openai-compatible|groq-speech), custom, base_url, structured, sealed_value (AES-256-GCM), last4, key_updated_at, check_at, check_ok, check_cause, check_ms, created_at, updated_at      (migración 0009; la clave sólo sale sellada de la base y nunca por la API)
@@ -390,7 +391,9 @@ llm_calls            VISTA sobre los spans de llamada a un modelo: id, job_id, p
 
 Áreas y plantillas se borran en blando (`deleted_at`) y se restauran: los mensajes que las referencian no se pierden. Mensajes y respuestas también (UD-240): toda lectura ignora una fila con `deleted_at` (listas, conteos, búsqueda, hilo, resumen, acceso a adjuntos) y el estado del mensaje se recalcula con sus respuestas vigentes al borrar o restaurar una. Los estados de un mensaje se muestran en la interfaz como «abierto», «respondido» y «cerrado» (§1.1). Cada propuesta lleva el área y la plantilla en cada mensaje, no en la raíz (§7.5). No guarda un id de llamada a modelo: las llamadas son spans, enlazados al trabajo por `team.job_id` (§7.10 bis).
 
-**Dependencias:** `node:sqlite`. Las migraciones son archivos SQL numerados en `src/db/migrations/` (`0001_initial.sql` a `0012_reply_edits.sql`; `0002_telemetry.sql` es copia de `src/telemetry/migration.sql`). Sólo avanzan. Un ejecutor propio las aplica dentro de una transacción, lleva la cuenta en `PRAGMA user_version` y corre en el paso de inicialización único (§3). El ejecutor exige numeración contigua y se niega a arrancar si la base es más nueva que el último archivo. Antes de migrar una base existente deja un respaldo consistente.
+Un miembro `kind: agent` (UD-254, UD-255) es un integrante que trabaja mensajes con una sesión desatendida de Claude Code. Tiene perfil como cualquiera, nunca contraseña: `POST /members` con `kind: agent` y `password` responde 400 `agent_has_no_password`, y fijarle una contraseña después da 409 con el mismo código. Al crearlo, la respuesta trae `agent_secret` una sola vez. El secreto queda sellado en `members_agent_credentials`, no se guarda su hash porque la firma HMAC lo necesita en claro, y la API no lo vuelve a mostrar. El agente entra con la cabecera firmada `signed-header` (`X-Team-User`, `X-Team-Ts`, `X-Team-Sig`, HMAC-SHA256 de `ts.MÉTODO.ruta.correo`) con su secreto propio, sea cual sea `IDENTITY_PROVIDER`, y con la tolerancia de `DELEGATED_TS_TOLERANCE_SECONDS`.
+
+**Dependencias:** `node:sqlite`. Las migraciones son archivos SQL numerados en `src/db/migrations/` (`0001_initial.sql` a `0013_execute_jobs_and_agent_members.sql`; `0002_telemetry.sql` es copia de `src/telemetry/migration.sql`). Sólo avanzan. Un ejecutor propio las aplica dentro de una transacción, lleva la cuenta en `PRAGMA user_version` y corre en el paso de inicialización único (§3). El ejecutor exige numeración contigua y se niega a arrancar si la base es más nueva que el último archivo. Antes de migrar una base existente deja un respaldo consistente.
 
 ### 7.3 Cola de trabajos (`src/queue/`)
 
@@ -414,6 +417,8 @@ listJobs · purgeJobs · stats · sweepRetention     operación del editor y ret
 ```
 
 Todo cambio de estado de un trabajo vale sólo si el trabajo sigue `running` con el mismo número de intento (barrera de intento). Un worker cuyo arriendo venció no cierra el intento de otro. `WORKER_MODE` elige `inline` (omisión: el worker corre en el mismo proceso que la API, un contenedor), `external` (segundo proceso de la misma imagen, `node src/worker.js`, tras `npm run db:init`) u `off`. Con proceso aparte, la API se entera de cambios por `PRAGMA data_version` (1,15 µs por consulta). Al apagar no se esperan los trabajos: se abortan, vuelven a la cola y el intento se reembolsa. La API cierra con `forceCloseConnections: true` porque un flujo SSE abierto cuelga `app.close()`. Perillas y fuentes en el informe 03: arriendo de 30 s con latido cada 10 s. `max_attempts` 3, y el reintento del SDK del proveedor en 0 si el banco muestra 429 en cadena, para que haya un solo punto de reintento. Retroceso desde 1 s hasta 60 s. Concurrencia 3, medida con ráfagas de 8 envíos contra Anthropic y Groq (`bench/burst.mjs`, `docs/investigaciones/mediciones/2026-10-21-concurrencia-de-la-cola.md`, UD-025). El reclamo reparte turnos por persona: los envíos de una persona se reclaman en el orden en que llegaron y las personas se turnan (los trabajos que ya corren de una persona cuentan como sus turnos usados). Duración máxima por trabajo de 900 s.
+
+El trabajo `execute` (UD-254) lleva `message_id` en su columna y `{ message_id, member_id, requested_by }` en `payload_json`. Se encola dentro de la transacción que publica o edita un mensaje, uno por cada agente activo entre sus destinatarios, y a mano con `POST /messages/:id/execute` (Editor; `member_id` opcional). Un mensaje no recibe un segundo trabajo para el mismo agente mientras haya uno en cola o corriendo (409 `execute_busy` por la vía manual). Aparece en la Cola junto a los demás. Su `max_attempts` es `EXECUTE_MAX_ATTEMPTS` (omisión 1, porque un segundo intento repite el gasto) y su duración máxima es `EXECUTE_TIMEOUT_MS` más tres veces `EXECUTE_KILL_GRACE_MS`, para que el ejecutor venza primero y alcance a destruir la máquina.
 
 ### 7.4 Extractores (`src/extract/`)
 
@@ -477,6 +482,71 @@ Si el input supera el umbral de partición, se parte sólo por fronteras estruct
 **Spans.** Un span `analyze` por análisis (`team.analyzer`, `team.status`, `team.units`, `team.messages`) con hijos `classify` (`team.groups`), `decompose` por grupo (`team.group_index`, `team.area_id`, `team.template_id`, `team.units`), `rescue` (`team.overlaps`, `team.gaps`), `validate` (`team.valid`, `team.error_count`, `team.errors`) y, en el harness, `harness`. Las llamadas a proveedores cuelgan de esos spans (§7.10 bis).
 
 **Medición vigente** (2026-10-20, Haiku 5.5, una cuenta y una máquina). El mensaje de chat de cuatro puntos sale en cuatro mensajes con su área en 3,3 a 3,6 s. En el banco de siete casos, seis tienen mediana de 3,0 a 7,4 s y el docx de 40 puntos 10,5 s. La cobertura es 100 % en seis casos y 90 % en el monólogo (`03-monologo-prueba`), que no alcanza MECE en ninguna repetición. Detalle y lo no resuelto en la medición citada.
+
+#### Ejecución (`src/execute/`)
+
+El trabajo `execute` (UD-254, UD-255, H-3724) corre una sesión desatendida de Claude Code que trabaja un mensaje asignado a un miembro agente. `EXECUTE_RUNNER` elige dónde corre:
+
+| Valor | Dónde corre |
+|---|---|
+| `local` (omisión) | `claude -p` en esta máquina (`EXECUTE_CLAUDE_BIN`), en un worktree de `EXECUTE_REPO_DIR` con la rama `tp/<message_id>`, o en el directorio del trabajo si no hay repositorio |
+| `machine` | Una máquina que el anfitrión crea por trabajo con tres órdenes de shell. Team Platform no conoce ningún proveedor de nube |
+
+Las órdenes de `machine` llevan marcadores que el trabajador reemplaza por su valor entre comillas simples de shell:
+
+| Variable | Marcadores | Qué hace |
+|---|---|---|
+| `EXECUTE_MACHINE_CREATE` | `{job_id}`, `{workdir}` | Crea la máquina y sale con 0. Su última línea de stdout es el nombre de la máquina, `{machine}`; vacía, `team-job-<job_id>` |
+| `EXECUTE_MACHINE_RUN` | `{job_id}`, `{workdir}`, `{machine}` | Copia `{workdir}` a la máquina, corre ahí `bash run.sh` y devuelve su stdout, que es el NDJSON de la sesión |
+| `EXECUTE_MACHINE_DESTROY` | `{job_id}`, `{workdir}`, `{machine}` | Destruye la máquina. Corre siempre: al terminar bien, al fallar, al vencer `EXECUTE_TIMEOUT_MS`, al abortarse el trabajo y cuando CREATE falló a medias |
+
+`{workdir}` contiene `run.sh` (la invocación), `env.sh` (modo 600; lleva el secreto del agente), `prompt.md` y `bin/team`. El plazo `EXECUTE_TIMEOUT_MS` cubre CREATE y RUN juntos. Al vencer, el trabajador manda SIGTERM al grupo de procesos que lanzó y SIGKILL tras `EXECUTE_KILL_GRACE_MS`; nunca señala a otro proceso. Con `EXECUTE_RUNNER=machine` la instancia no arranca si falta una de las tres órdenes.
+
+La invocación:
+
+```
+claude -p --model <EXECUTE_MODEL> --effort <EXECUTE_EFFORT> --max-budget-usd <EXECUTE_MAX_BUDGET_USD> --max-turns <EXECUTE_MAX_TURNS>
+  --permission-mode bypassPermissions --output-format stream-json --verbose --include-partial-messages
+  --json-schema <esquema>
+```
+
+| Variable | Omisión |
+|---|---|
+| `EXECUTE_MODEL` | `claude-sonnet-5-5` |
+| `EXECUTE_EFFORT` | `medium` |
+| `EXECUTE_MAX_BUDGET_USD` | 10 |
+| `EXECUTE_MAX_TURNS` | 60 |
+| `EXECUTE_MAX_SUBAGENTS` | 3 |
+| `EXECUTE_TIMEOUT_MS` | 3.600.000 |
+
+El esquema es `compileOutputSchema` de la plantilla del mensaje (§7.9, H-3723), con `outcome` y `summary` obligatorios. Sin bloque `output`, el esquema exige sólo `summary`. La salida se valida después con el esquema de validación de A4 (`validation: true`). Una plantilla cuya salida no compila falla el trabajo con `template`.
+
+El prompt va por stdin. Sus bloques con nombre:
+
+| Bloque | Contenido |
+|---|---|
+| `project_description` | Descripción del proyecto |
+| `your_profile` | Perfil del agente |
+| `sender` | Nombre y perfil de quien envió |
+| `message` | Id, área, título, cuerpo y campos del mensaje |
+| `template` | La plantilla completa |
+| `host_instructions` | El archivo de `EXECUTE_HOST_INSTRUCTIONS`, si está declarado |
+
+Siguen las reglas de trabajo. La sesión paraleliza lo independiente con hasta `EXECUTE_MAX_SUBAGENTS` subagentes a la vez. Trabaja en la rama `tp/<message_id>` y nunca empuja a `main`. Corre las verificaciones del repositorio. Envía dos respuestas: la primera al empezar, con `team reply`. La final es `summary` de la salida estructurada: un par de párrafos sin jerga, dirigidos a quien envió y en su idioma. Después va la salida de `team --help` y, al final, el bloque `host_instructions`, que prima sobre las reglas anteriores. `EXECUTE_HOST_INSTRUCTIONS` es la ruta a un archivo `.md` del anfitrión con sus reglas. Se lee en cada trabajo. Un archivo ausente o ilegible falla el trabajo con `host_instructions_missing`.
+
+La sesión tiene `team` (`scripts/team.mjs`) en su PATH, autenticado como el agente con `TEAM_URL`, `TEAM_AGENT_EMAIL` y `TEAM_AGENT_SECRET`. Sus órdenes son `show`, `reply`, `progress` y `close`.
+
+Cada línea NDJSON se traduce en progreso (§7.10). La línea `result` cierra el trabajo:
+
+| `result` | Efecto |
+|---|---|
+| `structured_output` válido contra el esquema | La respuesta final del agente en el hilo: `summary` y debajo el resto de la salida, cada campo con el rótulo de la plantilla y `outcome` como «Resultado». El trabajo queda `done` |
+| Sin `structured_output`, o inválido | `failed` con `invalid_output` y el motivo |
+| `is_error` | `failed` con `execute_error` |
+| Sin línea `result` | `failed` con `execute_no_result` |
+| Plazo vencido | `failed` con `execute_timeout` |
+
+El span `execute` de la traza del trabajo lleva `team.session_id`, `team.cost_usd` (el `total_cost_usd` de la sesión), `team.turns`, `team.runner`, `team.model`, `team.machine` y `team.machine_destroyed`, más la llamada `gen_ai.*` con el uso de tokens.
 
 ### 7.6 Proveedores de modelo (`src/providers/`)
 
@@ -595,6 +665,8 @@ El flujo SSE va con `@fastify/sse` (versión exacta) y repone desde `job_events`
 Los eventos son `progress` (`job_id`, `input_id`, `percent`, `phrase`, `at`), `done` (`job_id`, `input_id`, `status`, `error`, `error_code`, y al terminar un análisis `input_status` `published|proposed` con `message_ids`) y `message` (un aviso por mensaje publicado al equipo, y un aviso dirigido con `reason: assigned` a quien una edición agrega como destinatario). El progreso llega sólo al autor del input y los avisos de mensajes a todo el equipo. El flujo termina con un evento `done` y el cliente cierra. Si el trabajo ya terminó, la ruta responde 204, que es lo que fija el estándar para que el navegador deje de reconectar.
 
 Hay un solo flujo SSE por miembro (`GET /api/events`), no uno por trabajo. Lleva los eventos de progreso con su `job_id` y los avisos de mensajes nuevos. HTTP/1.1 limita a seis las conexiones por dominio, compartidas entre pestañas (informes 03 y 07). El servidor suscribe antes de reponer, lo que dio cero repetidos y cero huecos al reconectar, y manda un latido cada 15 s. En el panel, un hook `useJobProgress` sobre `EventSource` guarda el progreso como estado efímero e invalida la consulta del input al `done`. Los extractores y el analizador emiten `progress(percent, phrase)` por paso real. El porcentaje sale de pasos completados sobre pasos totales, nunca de un reloj.
+
+Un trabajo `execute` emite progreso desde el NDJSON de la sesión: la frase describe la herramienta en uso («Lectura: archivo», «Edición: archivo», «Orden: …», «Subagente: …») y el porcentaje es turnos usados sobre `EXECUTE_MAX_TURNS`. La sesión también informa sus hitos con `team progress <job_id> --percent N --phrase …` (`POST /jobs/:id/progress`, sólo el agente del trabajo; 99 como máximo, porque el 100 lo marca `done`). Un `execute` no tiene input: su `progress` lleva `message_id` y llega a todo el equipo, como el mensaje. El `done` de un `execute` lleva `message_id`, `reply_id`, `session_id` y `cost_usd`, o `error` y `error_code` si falló.
 
 ### 7.10 bis Telemetría (`src/telemetry/`)
 

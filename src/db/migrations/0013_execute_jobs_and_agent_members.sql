@@ -13,7 +13,7 @@ ALTER TABLE members ADD COLUMN kind TEXT NOT NULL DEFAULT 'person' CHECK (kind I
 
 CREATE TABLE members_agent_credentials (
   member_id     INTEGER PRIMARY KEY REFERENCES members (id) ON DELETE CASCADE,
-  sealed_secret TEXT    NOT NULL,
+  sealed_value TEXT    NOT NULL,
   last4         TEXT    NOT NULL,
   created_at    INTEGER NOT NULL,
   rotated_at    INTEGER

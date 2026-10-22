@@ -44,6 +44,7 @@ const entries: Entry[] = [
   { key: 'progress.retry', pattern: /^Intento (\d+) de (\d+) fallido; se reintenta$/, vars: ['n', 'total'] },
   { key: 'progress.review', pattern: /^Revisión de lo apartado$/, vars: [] },
   { key: 'progress.done', pattern: /^Listo$/, vars: [] },
+  { key: 'progress.answered', pattern: /^Respondido$/, vars: [] },
   { key: 'analysis.queued', pattern: /^En cola$/, vars: [] },
   { key: 'analysis.analyzing', pattern: /^Analizando$/, vars: [] },
 ]

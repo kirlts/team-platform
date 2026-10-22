@@ -92,7 +92,7 @@ describe('execute job', () => {
     const mine = thread.replies.filter((r) => String(r.author_id) === String(agentId))
     assert.equal(mine.length, 2, 'two replies: on starting and on finishing')
     assert.match(mine[0].body, /^Recibido\. Empiezo por/)
-    assert.match(mine[1].body, /^Arreglé la pantalla que quedaba en blanco\.\n\nYa carga con tus datos\.$/)
+    assert.match(mine[1].body, /^Arreglé la pantalla que quedaba en blanco\.\n\nYa carga con tus datos\.\n\n\*\*Resultado\*\*: done$/)
     assert.equal(thread.status, 'answered', 'the session does not close the message')
 
     const evs = eventsOf(job.id)
@@ -132,14 +132,34 @@ describe('execute job', () => {
     assert.equal(val('--permission-mode'), 'bypassPermissions')
     assert.equal(val('--output-format'), 'stream-json')
     assert.ok(args.includes('--verbose') && args.includes('--include-partial-messages'))
+    // The template's declared output (A4 compileOutputSchema) plus `summary`, as the grammar of --json-schema.
     const schema = JSON.parse(val('--json-schema'))
-    assert.deepEqual(schema.required, ['summary'])
+    assert.ok(schema.required.includes('outcome') && schema.required.includes('summary'), JSON.stringify(schema.required))
+    assert.deepEqual(schema.properties.outcome.enum, ['done', 'investigated', 'blocked', 'needs_decision'])
+    assert.equal(schema.additionalProperties, false)
     for (const piece of ['Perfil del agente: arreglo pantallas.', 'Perfil de Ana: llevo la agenda de la clínica.', 'Descripción del proyecto: agenda de clínicas.', '## Método', 'up to 3 subagents', 'Parallelize', 'team reply', 'team progress [<job_id>]', 'tp/', 'Never push to `main`', 'Spanish (Latin America)']) {
       assert.ok(stdin.includes(piece), `prompt carries «${piece}»`)
     }
     assert.equal(team.TEAM_AGENT_EMAIL, 'claude@x.org')
     assert.equal(team.TEAM_AGENT_SECRET, agent.agent_secret)
     assert.equal(team.TEAM_URL, `http://127.0.0.1:${PORT}`)
+  })
+
+  it('EXECUTE_HOST_INSTRUCTIONS appends the host rules to the prompt; a missing file fails the job', async () => {
+    const rules = join(env.dir, 'host-rules.md')
+    writeFileSync(rules, 'Host rule: run npm test before you finish.\n')
+    process.env.FAKE_EXECUTE_REPLY = '0'
+    startWorker({ hostInstructions: rules })
+    const messageId = env.db.prepare('SELECT id FROM messages ORDER BY id LIMIT 1').get().id
+    const ok = await waitJob(Number((await env.app.inject({ method: 'POST', url: `/api/messages/${messageId}/execute`, headers: cookieHeaders(editor) })).json().job_ids[0]))
+    assert.equal(ok.status, 'done', ok.last_error)
+    assert.match(calls().at(-1).stdin, /<host_instructions>\nHost rule: run npm test before you finish\.\n<\/host_instructions>/)
+    await worker.stop()
+    startWorker({ hostInstructions: join(env.dir, 'missing.md') })
+    const id = Number((await env.app.inject({ method: 'POST', url: `/api/messages/${messageId}/execute`, headers: cookieHeaders(editor) })).json().job_ids[0])
+    const failed = await waitJob(id)
+    assert.equal(failed.status, 'failed')
+    assert.equal(JSON.parse(eventsOf(id).at(-1).data_json).error_code, 'host_instructions_missing')
   })
 
   it('an editor enqueues it by hand; a second while one is queued is refused', async () => {

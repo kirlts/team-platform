@@ -16,15 +16,15 @@ export function issueAgentSecret (db, vault, memberId, { now = Date.now } = {}) 
   const member = get(db, 'SELECT kind FROM members WHERE id = ?', memberId)
   if (member?.kind !== 'agent') throw conflict('Sólo un miembro de tipo agente tiene secreto propio.', 'not_an_agent')
   const secret = randomBytes(SECRET_BYTES).toString('base64url')
-  run(db, `INSERT INTO members_agent_credentials (member_id, sealed_secret, last4, created_at) VALUES (?, ?, ?, ?)
-           ON CONFLICT(member_id) DO UPDATE SET sealed_secret = excluded.sealed_secret, last4 = excluded.last4, rotated_at = excluded.created_at`,
+  run(db, `INSERT INTO members_agent_credentials (member_id, sealed_value, last4, created_at) VALUES (?, ?, ?, ?)
+           ON CONFLICT(member_id) DO UPDATE SET sealed_value = excluded.sealed_value, last4 = excluded.last4, rotated_at = excluded.created_at`,
   memberId, vault.seal(secret, sealName(memberId)), secret.slice(-4), now())
   return secret
 }
 
 /** The secret of an agent in clear, for the worker that hands it to the unattended session, or null. */
 export function readAgentSecret (db, vault, memberId) {
-  const row = get(db, 'SELECT sealed_secret FROM members_agent_credentials WHERE member_id = ?', memberId)
+  const row = get(db, 'SELECT sealed_value FROM members_agent_credentials WHERE member_id = ?', memberId)
   if (!row || !vault) return null
-  return vault.open(row.sealed_secret, sealName(memberId))
+  return vault.open(row.sealed_value, sealName(memberId))
 }

@@ -5,7 +5,7 @@
 // stay on the `execute` span of the job's trace.
 
 import { execFile } from 'node:child_process'
-import { copyFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
@@ -17,7 +17,7 @@ import { addReply } from '../domain/messages.js'
 import { getProject } from '../domain/settings.js'
 import { recordGenAiCall, withSpan } from '../telemetry/api.js'
 import { readAgentSecret } from './agent-credentials.js'
-import { buildExecutePrompt, finalSchema, loadOutputCompiler, readTemplate } from './prompt.js'
+import { buildExecutePrompt, declaredOutput, finalSchema, readTemplate } from './prompt.js'
 import { runLocal, runMachine } from './runners.js'
 import { createStreamReader } from './stream.js'
 
@@ -39,11 +39,15 @@ export function claudeArgs (x, schema) {
   ]
 }
 
-/** Renders the rest of the structured output (everything but `summary`) as the body under the summary. */
-export function replyBody (output) {
+/**
+ * Renders the rest of the structured output (everything but `summary`) under the summary, each entry with the label the
+ * template declares (`outcome` as «Resultado», as the panel shows it).
+ */
+export function replyBody (output, template = null) {
   const { summary, ...rest } = output
+  const labels = { outcome: 'Resultado', ...Object.fromEntries((template?.output ?? []).map((e) => [e.name, e.label ?? e.name])) }
   const lines = Object.entries(rest).filter(([, v]) => v !== null && v !== undefined && v !== '')
-    .map(([k, v]) => `**${k}**: ${typeof v === 'string' ? v : `\n\n\`\`\`json\n${JSON.stringify(v, null, 2)}\n\`\`\``}`)
+    .map(([k, v]) => `**${labels[k] ?? k}**: ${typeof v === 'string' ? v : `\n\n\`\`\`json\n${JSON.stringify(v, null, 2)}\n\`\`\``}`)
   return lines.length ? `${summary.trim()}\n\n${lines.join('\n\n')}` : summary.trim()
 }
 
@@ -91,16 +95,21 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       const author = get(db, 'SELECT id, name, profile, language FROM members WHERE id = ?', message.author_id)
       const templateRow = message.template_id ? get(db, 'SELECT id, name, body_markdown FROM templates WHERE id = ?', message.template_id) : null
       const template = readTemplate(templateRow)
-      const compile = await loadOutputCompiler()
-      let declared = null
-      try { declared = template ? compile(template) : null } catch (error) { throw permanent(`La salida declarada de la plantilla no compila: ${error.message}`, 'template') }
-      const schema = finalSchema(declared)
-      const validate = ajv.compile(schema)
+      let declared
+      try { declared = declaredOutput(template) } catch (error) { throw permanent(`La salida declarada de la plantilla no compila: ${error.message}`, 'template') }
+      const schema = finalSchema(declared.grammar)
+      const validate = ajv.compile(finalSchema(declared.validation, { validation: true }))
+      let hostInstructions = ''
+      if (x.hostInstructions) {
+        try { hostInstructions = await readFile(x.hostInstructions, 'utf8') } catch (error) {
+          throw permanent(`No se pudo leer EXECUTE_HOST_INSTRUCTIONS (${x.hostInstructions}): ${error.code ?? error.message}`, 'host_instructions_missing')
+        }
+      }
 
       const branch = `tp/${messageId}`
       const prompt = buildExecutePrompt({
         message: { id: messageId, title: message.title, body: message.body, fields: parseJson(message.fields_json, {}), area: message.area_title, status: message.status },
-        template: templateRow, author, agent, project: getProject(db, config), jobId: job.id, maxSubagents: x.maxSubagents, branch
+        template: templateRow, author, agent, project: getProject(db, config), jobId: job.id, maxSubagents: x.maxSubagents, branch, hostInstructions
       })
       const args = claudeArgs(x, schema)
 
@@ -162,7 +171,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       if (!validate(result.structured_output)) {
         throw permanent(`La salida estructurada no cumple el formato: ${ajv.errorsText(validate.errors).slice(0, 300)}`, 'invalid_output')
       }
-      const body = replyBody(result.structured_output)
+      const body = replyBody(result.structured_output, template)
 
       return () => {
         // Inside the transaction that closes the job: the closing reply, then the end of the progress.

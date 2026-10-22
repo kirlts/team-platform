@@ -292,6 +292,7 @@ export function loadConfig (env = process.env, overrides = {}) {
       effort: choiceVar(env, 'EXECUTE_EFFORT', ['low', 'medium', 'high', 'xhigh', 'max'], 'medium'), // UD-255: medium reasoning; `claude --help` 2.1.284 lists these levels for --effort
       maxBudgetUsd: decimal(env, 'EXECUTE_MAX_BUDGET_USD', 10, { min: 0.01 }), // UD-255: 10 USD per message to start
       maxTurns: intVar(env, 'EXECUTE_MAX_TURNS', 60, { min: 1 }), // H-3724 brief: 60 turns; the budget cap is what governs spend
+      hostInstructions: textValue(env, 'EXECUTE_HOST_INSTRUCTIONS', ''), // path to a host .md file appended to the prompt; the host's rules
       maxSubagents: intVar(env, 'EXECUTE_MAX_SUBAGENTS', 3, { min: 0 }), // UD-255: up to three subagents per message
       // UD-255: one run can cost up to the budget; a queue retry would spend it again, so one attempt by default.
       maxAttempts: intVar(env, 'EXECUTE_MAX_ATTEMPTS', 1, { min: 1 }),

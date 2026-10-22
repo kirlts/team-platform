@@ -1,18 +1,18 @@
 // The prompt and the output schema of an `execute` job (UD-254, UD-255, MS §7.5 «Ejecución»). The prompt is code and goes
 // in English (RULES 1); the replies the session writes go in the language of the person who sent the message.
 
-import { parseTemplate } from '../analyze/templates.js'
+import { compileOutputSchema, parseTemplate } from '../analyze/templates.js'
 import { HELP as TEAM_HELP } from '../../scripts/team.mjs'
 
 const LANGUAGE_NAMES = { 'es-419': 'Spanish (Latin America)', en: 'English' }
 
-/** `compileOutputSchema(template)` of A4 when this build has it, else the stub (no declared output). */
-export async function loadOutputCompiler () {
-  try {
-    const m = await import('../analyze/templates.js')
-    if (typeof m.compileOutputSchema === 'function') return m.compileOutputSchema
-  } catch { /* falls back to the stub */ }
-  return (await import('../analyze/output-schema-stub.js')).compileOutputSchema
+/**
+ * The declared output of the template (A4, `compileOutputSchema`): `{ grammar, validation }`, or nulls without an `output`
+ * block. `grammar` goes to `--json-schema`; `validation` (optional fields nullable) checks the `result`.
+ */
+export function declaredOutput (template) {
+  if (!template?.output) return { grammar: null, validation: null }
+  return { grammar: compileOutputSchema(template), validation: compileOutputSchema(template, { validation: true }) }
 }
 
 /** The parsed template, or the raw row when this build's parser does not read it (e.g. an `output` block it does not know). */
@@ -25,15 +25,17 @@ export function readTemplate (row) {
  * The schema the session must satisfy: the template's declared output (A4) plus a required `summary`, the closing reply
  * to the sender. Without a declared output, only `summary`.
  */
-export function finalSchema (declared) {
-  const summary = { type: 'string', minLength: 1, description: 'Closing reply to the sender: two short paragraphs, no internal jargon, addressed to them.' }
+export function finalSchema (declared, { validation = false } = {}) {
+  const description = 'Closing reply to the sender: two short paragraphs, no internal jargon, addressed to them.'
+  // The grammar of --json-schema keeps A4's plain string; the check after the run also rejects an empty one.
+  const summary = { type: 'string', ...(validation ? { minLength: 1 } : {}), description }
   if (!declared || typeof declared !== 'object' || declared.type !== 'object') {
     return { type: 'object', additionalProperties: false, required: ['summary'], properties: { summary } }
   }
   return {
     ...declared,
-    required: [...new Set(['summary', ...(declared.required ?? [])])],
-    properties: { summary, ...(declared.properties ?? {}) }
+    required: [...new Set([...(declared.required ?? []), 'summary'])],
+    properties: { ...(declared.properties ?? {}), summary }
   }
 }
 
@@ -43,7 +45,7 @@ const block = (title, text) => `<${title}>\n${String(text ?? '').trim() || '(emp
  * Builds the prompt. `message`: { id, title, body, fields, area, status }; `template`: the row with `body_markdown`;
  * `author` and `agent`: { name, profile, language }; `project`: { name, description }.
  */
-export function buildExecutePrompt ({ message, template, author, agent, project, jobId, maxSubagents, branch }) {
+export function buildExecutePrompt ({ message, template, author, agent, project, jobId, maxSubagents, branch, hostInstructions = '' }) {
   const language = LANGUAGE_NAMES[author?.language] ?? LANGUAGE_NAMES['es-419']
   const fields = Object.entries(message.fields ?? {}).map(([k, v]) => `- ${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`).join('\n')
   return [
@@ -65,6 +67,7 @@ export function buildExecutePrompt ({ message, template, author, agent, project,
     '## The `team` command (in your PATH, already authenticated as you)',
     '```',
     TEAM_HELP,
-    '```'
+    '```',
+    ...(String(hostInstructions).trim() ? ['## Rules of the host (they take precedence over the defaults above)', block('host_instructions', hostInstructions)] : [])
   ].join('\n\n')
 }

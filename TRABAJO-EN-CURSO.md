@@ -30,11 +30,29 @@ Actualizado 2026-10-22 03:02 UTC.
 
 ## Trabajo en vuelo
 
-2026-10-22 16:15. En `main` (`95be2cd`) y en el VPS: Fase A completa (H-3720 a H-3727), análisis plegado (UD-257), reprocesar publicados (UD-258), análisis de videos corregido (H-3730, H-3731) y clasificación con esfuerzo alto (UD-260). Envío 33 reprocesado con Sonnet y el arreglo: 7 mensajes, uno por pedido, 57 s. Medidor: `bench/envio-33.mjs`, datos reales en `bench/private/envio-33/` (ignorado por git). La sesión de las 02:05 y la de las 12:15 murieron por cuota: sus agentes se relanzaron.
+**Actualizado 2026-10-22 17:10 (hora de Chile). Si la cuota se agota, quien retome lee esto primero.**
 
-Pendiente: (1) Devalis, un agente (a218caa3c...) entrega `tp-entrega-2` de Devalis (16 commits sin entregar a producción: estética de la clínica, trabajador del harness, tope 10 USD), siembra la configuración provisional y corre la prueba de aceptación de UD-259. (2) Batería de navegador completa sobre `main`, sola, en curso. (3) Martín decide áreas, plantillas y perfiles de Devalis; hasta entonces rigen las cinco por omisión. (4) A6 (cliente del contrato) y B3 completo (vistas con el sistema de diseño de Devalis) quedaron fuera: B3 se resolvió con la hoja de tema `THEME_CSS`; cinco cosas de la clínica no se igualan con tokens (`.btn-gel`, `.orb`, `.chrome-bar`, `Segmented`/`StateTabs`, borde de `MessageCard`).
+### Qué está terminado
+- En `main` de team-platform y en el VPS (`https://toolset-oci-1-1.tail2d4c18.ts.net:8444`, credenciales en `~/.config/team-platform/vps-admin`): Fase A completa (H-3720 a H-3727: identidad del anfitrión, montaje bajo otra ruta con `THEME_CSS`, encuadre editable, salida declarada en plantillas, miembro agente y trabajo `execute` con `scripts/team.mjs`, «Enviar como», tope diario de 10 USD UD-256), análisis plegado (UD-257), reprocesar publicados (UD-258), análisis de videos corregido (H-3730, H-3731), clasificación con esfuerzo alto (UD-260) y trabajador aparte que no sale solo (`0e9200c`).
+- Envío 33 (dos videos de Pablo) reprocesado con Sonnet 5.5 en el VPS: 7 mensajes, uno por pedido, 57 s, 0,17 USD. Medidor: `bench/envio-33.mjs`; datos reales en `bench/private/envio-33/` (ignorado por git, no se publica).
+- Batería completa de navegador sobre `main`: 39 de 39 de pantalla y 298 de 299 de flujos, 0 fallas. `npm test` 1034 pasan.
+- Producción de Devalis (`https://team.devalis.cl`): sirve Team Platform (health OK) con la imagen corregida desde las 16:41; la entrada ya carga Figtree y `theme.css` (verificado con curl a las 17:05).
 
-Definición de terminado de Devalis: UD-259. Un video de un superadministrador en `team.devalis.cl` termina con los errores solucionables arreglados en producción por el harness y dos respuestas de Claude, sin que Martín intervenga. Prueba de aceptación: un mensaje real asignado a Claude.
+### Qué está en curso (dos agentes)
+- Agente de Devalis `a218caa3c`: confirmar lo entregado, sembrar la configuración provisional (cinco áreas por omisión; Martín editor, Pablo y Alejandro miembros; miembro agente Claude con el perfil provisional de UD-259), y correr la prueba de aceptación: un error inocuo subido a team.devalis.cl que Claude responde, arregla, entrega a producción y vuelve a responder. Sin respuesta suya a las 17:04 a mis preguntas de estado; si no avanza, relanzarlo con estas tareas.
+- Agente de tema `a8e8e6746` (worktree `wt-tema-completo` de team-platform): variables de tema para igualar a la clínica (botón principal plano, avatares, barra de una línea, selector en pastilla, tarjeta sin borde de estado). Deja `/home/kirlts/.cache/claude-tmp/tp-theme/variables-clinica.css` para que Devalis lo use.
+
+### Qué falta
+1. Prueba de aceptación de UD-259 (la que decide si Devalis está terminado). Si falla, arreglar y repetir.
+2. Martín decide las áreas, plantillas y perfiles definitivos de Devalis; hasta entonces rigen las provisionales.
+3. A6 (cliente del contrato) y las vistas completas con el sistema de diseño de Devalis quedaron fuera por plazo.
+4. La prueba de la máquina de Google Cloud con un mensaje real depende de la marca de gasto UD-199/UD-248 de Devalis: el harness tiene su tope propio de 10 USD diarios (decisión de Martín).
+
+### Reglas de convivencia
+- La sesión de Devalis `escritorio-b0` atiende los pedidos de Pablo en Devalis y NO toca Team Platform; sólo el agente `a218caa3c` toca Team Platform en el repositorio de Devalis. Antes de lanzar una batería o un despliegue pesado: `pgrep -af "desplegar-de-emergencia|antes-de-entregar|node --test"`.
+- Las baterías de navegador de un mismo árbol corren de a una (comparten `panel/dist`).
+- Decisiones de Martín de hoy, con su texto, en UD-254 a UD-260. Sonnet 5.5 para todo el análisis (texto, visión y ejecución); la transcripción va por la API de Groq (UD-008).
+- Subida al VPS: `claude-session detach actualizar-vps-X --max 30m -- ~/.cache/claude-tmp/tp/actualizar-vps.sh`; fusionar ramas con `~/.cache/claude-tmp/tp/fusionar.sh <rama>`; `git stash`, `--amend` y `push --force` están bloqueados.
 
 Plan Devalis completo (`docs/PLAN-DEVALIS.md`, UD-254, UD-255), plazo del dueño: 11:00 del 2026-10-22. Los seis agentes de Fase A lanzados a las 02:05 murieron sin commits por cuota y se retomaron a las 09:03 en `wt-a1-identidad`, `wt-a2-montable` (más `THEME_CSS`), `wt-a3-encuadre`, `wt-a4-salida`, `wt-a5-execute`, `wt-a7-enviar-como` (H-3720 a H-3726), con commit final entre 10:00 y 10:20. A6 queda fuera del plazo: B3 se hace con una hoja de tema sobre los tokens del panel en vez de reescribir las vistas con el sistema de diseño de Devalis. En el repositorio de Devalis, desde las 09:10, tres agentes en worktrees propios: D1 (B1 servicio y Caddy, B2 cookie de dominio y JWT, B5 cuenta de Alejandro, B6 retiro de la Mesa), D2 (B3 hoja de tema de la clínica), D3 (C1 a C4 máquina en Google Cloud con `crear.sh`, `correr.sh`, `retirar.sh`). B4 (áreas y plantillas de Devalis) y el perfil de Claude los siembra la coordinadora por la API con la propuesta del plan apenas A4 esté en `main`.
 

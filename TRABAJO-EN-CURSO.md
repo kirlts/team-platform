@@ -30,6 +30,8 @@ Actualizado 2026-10-22 03:02 UTC.
 
 ## Trabajo en vuelo
 
+Fase A de `docs/PLAN-DEVALIS.md` (UD-254, UD-255), lanzada el 2026-10-22 02:05: seis agentes a la vez en `wt-a1-identidad`, `wt-a2-montable`, `wt-a3-encuadre`, `wt-a4-salida`, `wt-a5-execute`, `wt-a7-enviar-como` (H-3720 a H-3726). A6 (cliente del contrato) arranca cuando los otros estén en `main`, para no chocar en `queries.ts`. Decisiones diferidas a la mañana: áreas, plantillas, miembros y perfiles de Devalis.
+
 UD-253 completo y en el VPS: `8e73dd7` desde las 00:00 del 2026-10-22, `vps-check` OK. Batería de navegador corrida: tres fallas arregladas en `8e73dd7`. Nada en vuelo.
 
 Tu VPS corre `4543d45` desde las 22:51 (`vps-check` OK): papeleras, adjuntos en la ficha, restaurar tras recargar y el arreglo del fotograma vacío (H-3713). Corrección de las 22:40 por reclamo del dueño («no veo un botón para borrar mensajes», «tampoco veo cómo borrar areas», «los elementos no tienen la misma altura»): ícono de borrar en cada tarjeta de mensaje, en cada fila de Áreas y en la vista de un área; título de tarjeta en una línea (UD-241 enmendada); dev-server con borrado de áreas. Auditoría de paridad terminada (`~/.cache/claude-tmp/auditoria-paridad.md`) y sus cuatro arreglos en `main` `8f15e1d` (23:02): restaurar tras recargar, adjuntos en la ficha, cola y auditoría, contraseña ajena, sembrar y plantillas a la vista (H-3706 a H-3712). VPS corre ese hash desde las 23:03 (`vps-check` OK). Sin hacer: editar respuestas y borrado en lote (esperan al dueño).

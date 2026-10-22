@@ -18,7 +18,8 @@ import { Recipients } from './Recipients'
 import { RowCheck } from './SelectionBar'
 
 /** The edge of a row, in the color of its state (UD-041): with the mark of the state, the only color of a row (UD-036). */
-const EDGE = { open: 'shadow-[inset_3px_0_0_var(--color-state-open-bg)]', answered: 'shadow-[inset_3px_0_0_var(--color-state-answered-bg)]', closed: 'shadow-[inset_3px_0_0_var(--color-state-closed-bg)]' } as const
+// The width of the edge is a theme variable (`--card-edge-width`, 0 draws none).
+const EDGE = { open: 'shadow-[inset_var(--card-edge-width)_0_0_var(--color-state-open-bg)]', answered: 'shadow-[inset_var(--card-edge-width)_0_0_var(--color-state-answered-bg)]', closed: 'shadow-[inset_var(--card-edge-width)_0_0_var(--color-state-closed-bg)]' } as const
 
 /** Recipients drawn before the rest fold into «y N más». */
 const RECIPIENTS_SHOWN = 2

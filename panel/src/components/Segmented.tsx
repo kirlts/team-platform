@@ -20,7 +20,7 @@ export function Segmented<T extends string>({
   describedBy?: string
 }) {
   return (
-    <div role="radiogroup" aria-label={label} aria-describedby={describedBy} className={cn('inline-flex self-start', quiet ? 'gap-1' : 'well rounded-full p-0.5')}>
+    <div role="radiogroup" aria-label={label} aria-describedby={describedBy} className={cn('inline-flex self-start', quiet ? 'gap-1' : 'well opt-track rounded-full p-0.5')}>
       {options.map((o) => (
         <button
           key={o.value}
@@ -37,7 +37,7 @@ export function Segmented<T extends string>({
                 ? 'border-accent text-fg'
                 : 'border-transparent text-muted hover:text-fg'
               : value === o.value
-                ? 'border-accent bg-selected text-fg'
+                ? 'opt-on'
                 : 'border-transparent text-muted hover:text-fg',
           )}
         >

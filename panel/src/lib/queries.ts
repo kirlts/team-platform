@@ -737,3 +737,31 @@ export function useSeedExamples() {
     onSuccess: () => qc.invalidateQueries(),
   })
 }
+
+// ---- Reply edit by its author (UD-253, H-3714)
+
+/**
+ * Edits the text of a reply (PATCH /messages/:id/replies/:replyId), only by its author. It sends the version read in the
+ * thread; on `edit_conflict` it reads the thread again and retries once with the current version, as `usePatchMessage` does.
+ */
+export function useEditReply(messageId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (v: { replyId: string; body: string }) => {
+      const read = (detail: MessageDetail | undefined) => detail?.replies.find((r) => r.id === v.replyId)?.version
+      const send = (version: number | undefined) => api<MessageDetail>(`/messages/${messageId}/replies/${v.replyId}`, { method: 'PATCH', body: { body: v.body, version } })
+      try {
+        return await send(read(qc.getQueryData(['message', messageId]) as MessageDetail | undefined) ?? read(await api<MessageDetail>(`/messages/${messageId}`)))
+      } catch (err) {
+        if (!(err instanceof ApiError) || err.code !== 'edit_conflict') throw err
+        const fresh = await api<MessageDetail>(`/messages/${messageId}`)
+        qc.setQueryData(['message', messageId], fresh)
+        return send(read(fresh))
+      }
+    },
+    onSuccess: (saved) => {
+      qc.setQueryData(['message', messageId], (old: MessageDetail | undefined) => (old ? { ...old, ...saved } : saved))
+      void qc.invalidateQueries({ queryKey: ['messages'] })
+    },
+  })
+}

@@ -72,7 +72,7 @@ function replyAttachmentsOf (db, replyIds) {
 const toReply = (r, atts = []) => ({
   id: r.id, message_id: r.message_id, author_id: r.author_id, body: r.body, kind: r.kind,
   attachments: atts, attachment_kinds: [...new Set(atts.map((a) => a.kind))], // one icon per media kind (UD-016)
-  created_at: iso(r.created_at)
+  created_at: iso(r.created_at), version: r.version, edited_at: iso(r.edited_at)
 })
 
 function lastRepliesOf (db, ids) {
@@ -498,6 +498,35 @@ export function deleteReply ({ db, events, now = Date.now }, { messageId, replyI
     run(db, 'UPDATE replies SET deleted_at = ? WHERE id = ?', now(), replyId)
     recomputeStatus(db, messageId)
     audit(db, { memberId: actor.id, action: 'reply.delete', entity: 'reply', entityId: replyId, detail: { message_id: messageId }, now })
+  })
+  return getMessage(db, messageId)
+}
+
+/**
+ * In-place edit of the text of a reply by its author (UD-253, H-3714), modeled on `updateMessage`: ONLY the author
+ * edits, not an Editor (403 `not_reply_author`). `version` is the version the client read; a stale one is a 409
+ * `edit_conflict` carrying the current `version`. The attachments stay as they are; a reply with attachments may be
+ * left without text, one without them may not (400 `reply_empty`). The same text again changes nothing. A real edit
+ * bumps `version`, sets `edited_at` and leaves a `reply.edit` audit row. 404 when the message or the reply does not
+ * exist, is deleted, or the reply belongs to another message. Returns the message detail.
+ */
+export function updateReply ({ db, events, now = Date.now }, { messageId, replyId, actor, body, version }) {
+  events.transaction(() => {
+    const row = get(db, `
+      SELECT r.id, r.author_id, r.body, r.version FROM replies r JOIN messages m ON m.id = r.message_id
+       WHERE r.id = ? AND r.message_id = ? AND r.deleted_at IS NULL AND m.deleted_at IS NULL`, replyId, messageId)
+    if (!row) throw notFound('La respuesta no existe.')
+    if (row.author_id !== actor.id) throw forbidden('Sólo quien escribió la respuesta puede editarla.', 'not_reply_author')
+    if (version !== row.version) {
+      throw new AppError(409, 'edit_conflict', 'La respuesta cambió desde que la abriste; vuelve a cargarla.', { version: row.version })
+    }
+    if (body === row.body) return
+    if (body.trim() === '' && get(db, 'SELECT COUNT(*) AS n FROM reply_attachments WHERE reply_id = ?', replyId).n === 0) {
+      throw badRequest('La respuesta no puede estar vacía.', 'reply_empty')
+    }
+    const next = row.version + 1
+    run(db, 'UPDATE replies SET body = ?, edited_at = ?, version = ? WHERE id = ?', body, now(), next, replyId)
+    audit(db, { memberId: actor.id, action: 'reply.edit', entity: 'reply', entityId: replyId, detail: { message_id: messageId, version: next }, now })
   })
   return getMessage(db, messageId)
 }

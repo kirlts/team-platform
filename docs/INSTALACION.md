@@ -286,6 +286,50 @@ Límites medidos:
 - El panel no dibuja `Cerrar sesión` en este modo: `/api/me` informa `delegated:trusted-header`, `/api/auth/logout` no existe (404) y la persona sigue dentro. Lo cierra Tailscale (UD-190).
 - La defensa contra CSRF sigue activa: una petición con `Sec-Fetch-Site: cross-site` da 403.
 
+## Dentro de un sitio con su propia sesión
+
+El anfitrión firma un JWT RS256 por persona y Team Platform lo valida contra su JWKS. Con `IDENTITY_PROVISION=host` el miembro se da de alta en su primer ingreso, con el rol que trae el token. Ejemplo con el anfitrión en `ejemplo.cl` y Team Platform en `team.ejemplo.cl`.
+
+1. El anfitrión publica su llave pública en `https://ejemplo.cl/.well-known/jwks.json` y emite, tras su propio inicio de sesión, un JWT con `iss`, `aud`, `exp`, `email`, `name` y `role` (`member` o `editor`). Un `role` distinto cuenta como no declarado.
+2. El anfitrión entrega el token en una cookie de su dominio, por ejemplo `host_jwt` con `Domain=.ejemplo.cl; Secure; HttpOnly; SameSite=Lax`. La otra vía es la cabecera `Authorization: Bearer <jwt>` en cada petición a la API.
+3. Variables de la instancia:
+
+```sh
+cat >> .env <<'EOF2'
+IDENTITY_PROVIDER=jwt,signed-header
+IDENTITY_PROVISION=host
+JWT_JWKS_URL=https://ejemplo.cl/.well-known/jwks.json
+JWT_ISSUER=https://ejemplo.cl
+JWT_AUDIENCE=team-platform
+JWT_COOKIE_NAME=host_jwt
+COOKIE_DOMAIN=.ejemplo.cl
+LOGOUT_URL=https://ejemplo.cl/salir
+DELEGATED_SECRETS=
+EOF2
+docker compose up -d --wait
+```
+
+`DELEGATED_SECRETS` lleva el secreto del miembro agente que entra con `signed-header` (`openssl rand -hex 32`). Sin agente, `IDENTITY_PROVIDER=jwt` y la línea se borra. Con `local,jwt` el agente entra con correo y contraseña.
+
+4. Comprobación con un token del anfitrión:
+
+```sh
+curl -s -H "Authorization: Bearer $JWT" https://team.ejemplo.cl/api/me
+```
+
+Responde el miembro con `"source":"jwt"`. Un correo desconocido queda creado con el rol del token; con `IDENTITY_PROVISION=closed` da 403 `member_not_registered`.
+
+Lo que hace el servidor:
+
+| Hecho | Detalle |
+|---|---|
+| Sesión propia | A un navegador identificado por el token le emite la cookie `team_session` con `Domain=.ejemplo.cl`, que vence con el `exp` del token y se renueva con cada token válido. El flujo de eventos (`/api/events`) usa esa cookie |
+| Rol | El del token se aplica en cada ingreso. En Equipo, cambiarlo da 409 `role_managed_externally` |
+| Cierre de sesión | Borra la sesión propia y lleva a `LOGOUT_URL`. Sin `LOGOUT_URL` el panel no dibuja el botón, porque el token del anfitrión vuelve a identificar a la persona |
+| CSRF | Una petición no segura con la cookie del token o la de sesión exige `X-Team-Request`, que el panel manda |
+
+`COOKIE_NAME` cambia el nombre de la cookie cuando dos instancias comparten dominio. No puede empezar con `__Host-`, porque ese prefijo prohíbe `Domain`.
+
 ## Licencias
 
 El código es MIT. La imagen incluye el binario `ffmpeg` compilado en la imagen en configuración LGPL (LGPL 2.1; ver `NOTICE` y `/usr/share/licenses/ffmpeg/`).

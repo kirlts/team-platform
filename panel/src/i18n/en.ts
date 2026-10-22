@@ -573,6 +573,7 @@ export const en: Record<MessageKey, Message> = {
   'error.empty_input': 'The message is empty',
   'error.password_pair_required': 'The current and the new password are both needed',
   'error.password_managed_externally': 'The password is managed outside this system',
+  'error.role_managed_externally': 'The role is assigned by the host site',
   'error.password_too_short': 'The password is too short',
   'error.email_taken': 'Email in use',
   'error.cannot_deactivate_self': 'Own account cannot be deactivated',

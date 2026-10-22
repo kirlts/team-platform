@@ -1,23 +1,31 @@
-// `delegated` provider (MASTER-SPEC §7.7, UD-002, report 04 §3): the host site says who the person is.
-// Four modes under the same `identify(request)` contract. None of them creates members (UD-007): the email
-// has to exist in `members`, or the response is 403.
+// `delegated` sources (MASTER-SPEC §7.7, UD-002, report 04 §3): the host site says who the person is.
+// Four modes under the same `identify(request)` contract; `IDENTITY_PROVIDER` may list several (H-3720).
+// With IDENTITY_PROVISION=closed (default) the email has to exist in `members`, or the response is 403 (UD-007).
+// With IDENTITY_PROVISION=host an unknown email is created on its first entry with the name and the role the host
+// declares, and a declared role is applied on every entry; that member's role is then governed by the host
+// (UD-254 amends UD-007 by its written condition). An undeclared or unknown role leaves the role to the database.
 //
 //   signed-header   X-Team-User, X-Team-Ts, X-Team-Sig. HMAC-SHA256 over
 //                   `${ts}.${METHOD}.${path}.${email}` (or `${ts}.${email}` with DELEGATED_BIND_REQUEST=false).
+//                   With X-Team-Role or X-Team-Name (percent-encoded UTF-8) the message continues with
+//                   `\n${role}\n${name}` (raw header values; a header value cannot hold a newline).
 //                   `ts` in Unix seconds; 5-minute tolerance (Stripe's webhook signing pattern).
-//   jwt             A header with a JWT verified with `jose` against a JWKS or a secret, with issuer, audience and
-//                   algorithms fixed in the configuration (never read from the token, RFC 8725).
-//   sso-redirect    Signed redirect with a single-use nonce (DiscourseConnect pattern). After the return
-//                   a session of our own is issued, the same as the local provider's.
+//   jwt             A header (or the host's cookie JWT_COOKIE_NAME) with a JWT verified with `jose` against a JWKS or a
+//                   secret, with issuer, audience and algorithms fixed in the configuration (never read from the token, RFC 8725).
+//                   Role and name in JWT_ROLE_CLAIM and JWT_NAME_CLAIM; `exp` bounds the session of our own.
+//   sso-redirect    Signed redirect with a single-use nonce (DiscourseConnect pattern), with `role` and `name` in the
+//                   payload. After the return a session of our own is issued, the same as the local provider's.
 //   trusted-header  Identity header injected by a proxy (Tailscale Serve). Only accepted if the connection
-//                   comes from an address in TRUSTED_PROXIES.
+//                   comes from an address in TRUSTED_PROXIES. The name comes from TRUSTED_NAME_HEADER; no role.
 
 import { BlockList, isIPv4, isIPv6 } from 'node:net'
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import { createRemoteJWKSet, errors as joseErrors, jwtVerify } from 'jose'
 import { get, run, tx } from '../db/index.js'
 import { badRequest, forbidden } from '../domain/errors.js'
-import { clearSessionCookie, cookieSpec, readSessionCookie, setSessionCookie } from './cookies.js'
+import { audit } from '../domain/audit.js'
+import { createMember } from '../domain/members.js'
+import { cookieSpec, readSessionCookie, setSessionCookie } from './cookies.js'
 
 function findMember (db, email) {
   return get(db, 'SELECT id, email, name, role, active FROM members WHERE email = ?', email)
@@ -33,11 +41,44 @@ function asIdentity (memberRow) {
   return { member_id: memberRow.id, role: memberRow.role, email: memberRow.email, name: memberRow.name }
 }
 
-/** UD-007: a delegated identity with no row in `members` gets 403, never an automatic sign-up. */
-function demandMember (db, email) {
-  const memberRow = findMember(db, email)
-  if (!memberRow) throw forbidden('La cuenta no está registrada en el equipo. Un editor debe agregarla.', 'member_not_registered')
-  return assertActive(memberRow)
+const HOST_ROLES = ['member', 'editor']
+const HOST_ROLE_LINK = 'host-role' // identity_links row: this member's role is governed by the host (H-3720)
+
+/** Whether the host governs this member's role: the local Editor cannot change it (409 `role_managed_externally`). */
+export function isRoleGoverned (db, memberId) {
+  return Boolean(get(db, 'SELECT 1 AS g FROM identity_links WHERE provider = ? AND member_id = ?', HOST_ROLE_LINK, memberId))
+}
+
+/**
+ * The member a host identity points to. `closed`: it must exist (UD-007). `host`: created on its first entry, and the
+ * declared role (one of ROLES; anything else counts as undeclared) replaces the stored one on every entry.
+ */
+export function resolveMember (db, config, { email, name, role }, now = Date.now) {
+  const provision = config.identity.provision === 'host'
+  const declared = provision && HOST_ROLES.includes(role) ? role : null
+  let memberRow = findMember(db, email)
+  if (!memberRow) {
+    if (!provision) throw forbidden('La cuenta no está registrada en el equipo. Un editor debe agregarla.', 'member_not_registered')
+    const cleanName = typeof name === 'string' && name.trim() !== '' ? name.trim() : email.split('@')[0]
+    tx(db, () => {
+      if (findMember(db, email)) return // another request created it first
+      const id = createMember(db, { email, name: cleanName, role: declared ?? 'member' }, { now })
+      audit(db, { memberId: null, action: 'member.provision', entity: 'member', entityId: id, detail: { email, role: declared ?? 'member' }, now })
+    })
+    memberRow = findMember(db, email)
+  }
+  assertActive(memberRow)
+  if (declared) {
+    tx(db, () => {
+      run(db, 'INSERT OR IGNORE INTO identity_links (provider, external_id, member_id, created_at) VALUES (?, ?, ?, ?)', HOST_ROLE_LINK, String(memberRow.id), memberRow.id, now())
+      if (memberRow.role !== declared) {
+        run(db, 'UPDATE members SET role = ? WHERE id = ?', declared, memberRow.id)
+        audit(db, { memberId: null, action: 'member.role_from_host', entity: 'member', entityId: memberRow.id, detail: { from: memberRow.role, to: declared }, now })
+      }
+    })
+    memberRow = { ...memberRow, role: declared }
+  }
+  return memberRow
 }
 
 const safeEqual = (a, b) => {
@@ -46,9 +87,15 @@ const safeEqual = (a, b) => {
   return x.length === y.length && timingSafeEqual(x, y)
 }
 
-export function signHeader (sharedSecret, { ts, method, pathname, email, bind }) {
-  const msgRow = bind ? `${ts}.${method}.${pathname}.${email}` : `${ts}.${email}`
+export function signHeader (sharedSecret, { ts, method, pathname, email, bind, role, name }) {
+  const base = bind ? `${ts}.${method}.${pathname}.${email}` : `${ts}.${email}`
+  const msgRow = role !== undefined || name !== undefined ? `${base}\n${role ?? ''}\n${name ?? ''}` : base
   return createHmac('sha256', sharedSecret).update(msgRow).digest('hex')
+}
+
+const decodeName = (raw) => {
+  if (typeof raw !== 'string') return undefined
+  try { return decodeURIComponent(raw) } catch { return raw }
 }
 
 function signedHeaderMode ({ db, config, now }) {
@@ -62,26 +109,31 @@ function signedHeaderMode ({ db, config, now }) {
       const secondsCount = Number(ts)
       if (!Number.isFinite(secondsCount) || Math.abs(now() / 1000 - secondsCount) > d.tsToleranceSeconds) return null
       const pathname = request.raw.url.split('?')[0]
+      const role = request.headers['x-team-role']
+      const rawName = request.headers['x-team-name']
       const isValid = d.secrets.some((sharedSecret) =>
-        safeEqual(signHeader(sharedSecret, { ts, method: request.method, pathname, email, bind: d.bindRequest }), String(signature)))
-      return isValid ? asIdentity(demandMember(db, email)) : null
+        safeEqual(signHeader(sharedSecret, { ts, method: request.method, pathname, email, bind: d.bindRequest, role, name: rawName }), String(signature)))
+      if (!isValid) return null
+      return asIdentity(resolveMember(db, config, { email, name: decodeName(rawName), role }, now))
     }
   }
 }
 
-function jwtMode ({ db, config }) {
+function jwtMode ({ db, config, now }) {
   const j = config.identity.delegated.jwt
+  const idc = config.identity
   const algs = j.algorithms.length > 0 ? j.algorithms : [j.jwksUrl ? 'RS256' : 'HS256']
   // createRemoteJWKSet fetches the keys again when an unknown `kid` arrives (key rotation).
   const lookupKey = j.jwksUrl ? createRemoteJWKSet(new URL(j.jwksUrl), { cooldownDuration: j.jwksCooldownMs }) : new TextEncoder().encode(j.secret)
   return {
     async identify (request) {
       let tokenValue = request.headers[j.header]
-      if (!tokenValue) return null
-      if (j.header === 'authorization') {
-        if (!/^Bearer\s+/i.test(tokenValue)) return null
-        tokenValue = tokenValue.replace(/^Bearer\s+/i, '')
+      if (tokenValue && j.header === 'authorization') {
+        tokenValue = /^Bearer\s+/i.test(tokenValue) ? tokenValue.replace(/^Bearer\s+/i, '') : null
       }
+      // The host that already has a session puts the same JWT in a cookie of its domain (JWT_COOKIE_NAME).
+      if (!tokenValue && idc.jwtCookieName) tokenValue = request.cookies?.[idc.jwtCookieName]
+      if (!tokenValue) return null
       let payload
       try {
         ({ payload } = await jwtVerify(tokenValue, lookupKey, { issuer: j.issuer, audience: j.audience, algorithms: algs }))
@@ -91,12 +143,13 @@ function jwtMode ({ db, config }) {
       }
       const email = payload[j.emailClaim]
       if (typeof email !== 'string' || email === '') return null
-      return asIdentity(demandMember(db, email))
+      const memberRow = resolveMember(db, config, { email, name: payload[idc.jwtNameClaim], role: payload[idc.jwtRoleClaim] }, now)
+      return { ...asIdentity(memberRow), expiresAt: typeof payload.exp === 'number' ? payload.exp * 1000 : null }
     }
   }
 }
 
-function trustedHeaderMode ({ db, config }) {
+function trustedHeaderMode ({ db, config, now }) {
   const d = config.identity.delegated
   const listValue = new BlockList()
   for (const loginResponse of config.trustedProxies) {
@@ -116,7 +169,8 @@ function trustedHeaderMode ({ db, config }) {
       const family = isIPv6(normal) ? 'ipv6' : 'ipv4'
       // Without this, anyone who can reach the port would set the header by hand (report 04 §3.1).
       if (!listValue.check(normal, family)) return null
-      return asIdentity(demandMember(db, String(val)))
+      const nameValue = request.headers[config.identity.trustedNameHeader]
+      return asIdentity(resolveMember(db, config, { email: String(val), name: typeof nameValue === 'string' ? nameValue : undefined }, now))
     }
   }
 }
@@ -131,11 +185,8 @@ function ssoMode ({ db, config, sessions, now }) {
   const lifetimeMs = d.nonceMinutes * 60 * 1000
 
   return {
-    // The session is the same as the local provider's.
-    identify (request) {
-      const memberRow = sessions.lookup(readSessionCookie(request, config))
-      return memberRow ? { member_id: memberRow.id, role: memberRow.role, email: memberRow.email, name: memberRow.name } : null
-    },
+    // No header of its own: after the return the identity is the session of our own, read by the shared lookup.
+    identify: () => null,
     routes (app) {
       // 1. Outbound: single-use nonce tied to the browser by a short-lived cookie.
       app.get('/auth/sso/start', { config: { public: true }, schema: { response: { 302: { type: 'null', description: 'Redirección firmada al inicio de sesión del anfitrión.' } } } }, async (request, reply) => {
@@ -180,37 +231,35 @@ function ssoMode ({ db, config, sessions, now }) {
         if (payloadData.external_id !== undefined && payloadData.external_id !== null && String(payloadData.external_id) !== '') {
           const externalValue = String(payloadData.external_id)
           const linkRow = get(db, "SELECT member_id FROM identity_links WHERE provider = 'sso' AND external_id = ?", externalValue)
-          if (linkRow) memberRow = assertActive(get(db, 'SELECT id, email, name, role, active FROM members WHERE id = ?', linkRow.member_id))
+          if (linkRow) {
+            const linked = assertActive(get(db, 'SELECT id, email, name, role, active FROM members WHERE id = ?', linkRow.member_id))
+            memberRow = resolveMember(db, config, { email: linked.email, role: payloadData.role }, now)
+          }
           else {
-            memberRow = demandMember(db, payloadData.email)
+            memberRow = resolveMember(db, config, { email: payloadData.email, name: payloadData.name, role: payloadData.role }, now)
             run(db, "INSERT INTO identity_links (provider, external_id, member_id, created_at) VALUES ('sso', ?, ?, ?)", externalValue, memberRow.id, now())
           }
         } else {
-          memberRow = demandMember(db, payloadData.email)
+          memberRow = resolveMember(db, config, { email: payloadData.email, name: payloadData.name, role: payloadData.role }, now)
         }
         const previous = readSessionCookie(request, config)
         if (previous) sessions.destroy(previous)
         setSessionCookie(reply, config, sessions.create(memberRow.id).token)
         return reply.redirect('/', 302)
       })
-
-      app.post('/auth/logout', { config: { public: true }, schema: { response: { 204: { type: 'null', description: 'Sesión cerrada en el servidor.' } } } }, async (request, reply) => {
-        sessions.destroy(readSessionCookie(request, config))
-        clearSessionCookie(reply, config)
-        return reply.code(204).send()
-      })
     }
   }
 }
 
-export function createDelegatedProvider (deps) {
-  const modeName = deps.config.identity.delegated.mode
-  const factories = {
-    'signed-header': signedHeaderMode,
-    jwt: jwtMode,
-    'sso-redirect': ssoMode,
-    'trusted-header': trustedHeaderMode
-  }
-  const strategy = factories[modeName]({ ...deps, now: deps.now ?? Date.now })
-  return { name: `delegated:${modeName}`, identify: strategy.identify, routes: strategy.routes ?? (() => {}) }
+const FACTORIES = {
+  'signed-header': signedHeaderMode,
+  jwt: jwtMode,
+  'sso-redirect': ssoMode,
+  'trusted-header': trustedHeaderMode
+}
+
+/** One delegated source by name. `identify` returns the identity (with `expiresAt` when the host's token has one) or null. */
+export function createDelegatedSource (modeName, deps) {
+  const strategy = FACTORIES[modeName]({ ...deps, now: deps.now ?? Date.now })
+  return { name: modeName, identify: strategy.identify, routes: strategy.routes ?? (() => {}) }
 }

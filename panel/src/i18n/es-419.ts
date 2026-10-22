@@ -573,6 +573,7 @@ export const es419 = {
   'error.empty_input': 'El mensaje está vacío',
   'error.password_pair_required': 'Faltan la contraseña actual o la nueva',
   'error.password_managed_externally': 'La contraseña se administra fuera de este sistema',
+  'error.role_managed_externally': 'El rol lo asigna el sitio anfitrión',
   'error.password_too_short': 'La contraseña es demasiado corta',
   'error.email_taken': 'Correo en uso',
   'error.cannot_deactivate_self': 'No se puede desactivar la propia cuenta',

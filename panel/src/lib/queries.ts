@@ -299,6 +299,42 @@ export function useSetClosed() {
   })
 }
 
+/** Soft-deletes a message (DELETE /messages/:id?confirm=true, UD-240): its sender or the Editor; Deshacer restores it. */
+export function useDeleteMessage() {
+  const invalidate = useInvalidator()
+  return useMutation({
+    mutationFn: (id: string) => api(`/messages/${id}?confirm=true`, { method: 'DELETE' }),
+    onSuccess: () => invalidate('messages', 'message', 'areas', 'inputs'),
+  })
+}
+
+/** Restores a deleted message (POST /messages/:id/restore): it is what undoes a deletion. */
+export function useRestoreMessage() {
+  const invalidate = useInvalidator()
+  return useMutation({
+    mutationFn: (id: string) => api<MessageDetail>(`/messages/${id}/restore`, { method: 'POST' }),
+    onSuccess: () => invalidate('messages', 'message', 'areas', 'inputs'),
+  })
+}
+
+/** Soft-deletes a reply (DELETE /messages/:id/replies/:replyId?confirm=true, UD-240): its author or the Editor. Returns the message with its thread. */
+export function useDeleteReply(messageId: string) {
+  const invalidate = useInvalidator()
+  return useMutation({
+    mutationFn: (replyId: string) => api<MessageDetail>(`/messages/${messageId}/replies/${replyId}?confirm=true`, { method: 'DELETE' }),
+    onSuccess: () => invalidate('message', 'messages', 'areas'),
+  })
+}
+
+/** Restores a deleted reply (POST /replies/:id/restore): it is what undoes a deletion. */
+export function useRestoreReply() {
+  const invalidate = useInvalidator()
+  return useMutation({
+    mutationFn: (replyId: string) => api<MessageDetail>(`/replies/${replyId}/restore`, { method: 'POST' }),
+    onSuccess: () => invalidate('message', 'messages', 'areas'),
+  })
+}
+
 export function useSaveArea() {
   const invalidate = useInvalidator()
   return useMutation({

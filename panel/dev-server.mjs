@@ -206,8 +206,13 @@ const messages = []
 const replies = new Map()
 
 /** The state of a message, derived as the real API does (UD-042): closed when it was closed; otherwise answered with one reply or more, and open without any. Never written by hand. */
+/** The replies still in the thread: a deleted one (UD-240) is kept to be restored, but no read counts it. */
+const liveReplies = (msg) => (replies.get(msg.id) ?? []).filter((r) => !r.deleted_at)
+/** The messages still in the lists: a deleted one is kept to be restored, but no read counts it. */
+const liveMessages = () => messages.filter((x) => !x.deleted_at)
+
 function syncStatus(msg) {
-  msg.status = msg.closed_at ? 'closed' : (replies.get(msg.id) ?? []).length > 0 ? 'answered' : 'open'
+  msg.status = msg.closed_at ? 'closed' : liveReplies(msg).length > 0 ? 'answered' : 'open'
   return msg.status
 }
 
@@ -328,7 +333,7 @@ function replyView(r) {
 }
 
 function view(msg) {
-  const rs = replies.get(msg.id) ?? []
+  const rs = liveReplies(msg)
   const { attachment_ids, ...rest } = msg
   return {
     ...rest,
@@ -961,9 +966,9 @@ const server = createServer(async (req, res) => {
       const needle = (q.get('q') ?? '').toLowerCase()
       // `involved=me`: the rule of the summary (UD-028), assigned to me or sent by me once answered or closed.
       const involved = (x) => q.get('involved') !== 'me' || x.assignee_ids.includes(me.id) || (x.author_id === me.id && x.status !== 'open')
-      let list = messages.filter((x) => involved(x) && (!forId || x.assignee_ids.includes(forId)) && (!q.get('area') || x.area_id === q.get('area')) && (!q.get('status') || x.status === q.get('status')) && (!needle || `${x.title} ${x.body}`.toLowerCase().includes(needle)))
-      if (q.get('replies') === '1') list = list.filter((x) => (replies.get(x.id) ?? []).length > 0)
-      const stamp = (x) => (q.get('replies') === '1' ? (replies.get(x.id) ?? []).at(-1)?.created_at : x.created_at)
+      let list = liveMessages().filter((x) => involved(x) && (!forId || x.assignee_ids.includes(forId)) && (!q.get('area') || x.area_id === q.get('area')) && (!q.get('status') || x.status === q.get('status')) && (!needle || `${x.title} ${x.body}`.toLowerCase().includes(needle)))
+      if (q.get('replies') === '1') list = list.filter((x) => liveReplies(x).length > 0)
+      const stamp = (x) => (q.get('replies') === '1' ? liveReplies(x).at(-1)?.created_at : x.created_at)
       list.sort((a, b) => stamp(b).localeCompare(stamp(a)))
       return send(res, 200, envelope(list.map(view)))
     }
@@ -971,7 +976,7 @@ const server = createServer(async (req, res) => {
       // Same rule as the API (UD-028, UD-041): assigned to me, open or answered; or mine, not assigned and answered.
       const mine = { open: 0, answered: 0, total: 0 }
       const items = []
-      for (const x of messages) {
+      for (const x of liveMessages()) {
         if (x.status === 'closed') continue
         const status = x.assignee_ids.includes(me.id) || (x.author_id === me.id && x.status === 'answered') ? x.status : null
         if (status) {
@@ -982,14 +987,53 @@ const server = createServer(async (req, res) => {
       }
       const rank = { open: 0, answered: 1 }
       items.sort((a, b) => rank[a.status] - rank[b.status] || b.at.localeCompare(a.at))
-      const inArea = (a, status) => messages.filter((x) => x.area_id === a.id && x.status === status)
+      const inArea = (a, status) => liveMessages().filter((x) => x.area_id === a.id && x.status === status)
       return send(res, 200, { mine, items, areas: areas.map((a) => ({ area_id: a.id, open: inArea(a, 'open').length, answered: inArea(a, 'answered').length, closed: inArea(a, 'closed').length, mine_open: inArea(a, 'open').filter((x) => x.assignee_ids.includes(me.id)).length })) })
     }
-    m = /^\/messages\/([^/]+)(?:\/(replies|close|reopen|attachments))?$/.exec(path)
+    // Soft deletion and restoration of a message and of a reply (UD-240), as the real API does.
+    m = /^\/messages\/([^/]+)\/replies\/([^/]+)$/.exec(path)
+    if (m && method === 'DELETE') {
+      const msg = messages.find((x) => x.id === m[1] && !x.deleted_at)
+      const reply = msg && (replies.get(msg.id) ?? []).find((r) => r.id === m[2] && !r.deleted_at)
+      if (!reply) return fail(res, 404, 'No existe')
+      if (reply.author_id !== me.id && me.role !== 'editor') return fail(res, 403, 'Sólo quien escribió la respuesta la borra', 'not_reply_author')
+      if (url.searchParams.get('confirm') !== 'true') return fail(res, 400, 'Falta la confirmación.', 'confirm_required')
+      reply.deleted_at = new Date().toISOString()
+      syncStatus(msg)
+      return send(res, 200, { ...view(msg), replies: liveReplies(msg).map(replyView) })
+    }
+    m = /^\/replies\/([^/]+)\/restore$/.exec(path)
+    if (m && method === 'POST') {
+      const msg = messages.find((x) => !x.deleted_at && (replies.get(x.id) ?? []).some((r) => r.id === m[1]))
+      const reply = msg && replies.get(msg.id).find((r) => r.id === m[1])
+      if (!reply) return fail(res, 404, 'No existe')
+      if (reply.author_id !== me.id && me.role !== 'editor') return fail(res, 403, 'Sólo quien escribió la respuesta la borra', 'not_reply_author')
+      if (!reply.deleted_at) return fail(res, 409, 'La respuesta no está borrada.', 'not_deleted')
+      reply.deleted_at = null
+      syncStatus(msg)
+      return send(res, 200, { ...view(msg), replies: liveReplies(msg).map(replyView) })
+    }
+    m = /^\/messages\/([^/]+)(?:\/(replies|close|reopen|attachments|restore))?$/.exec(path)
     if (m) {
       const msg = messages.find((x) => x.id === m[1])
       if (!msg) return fail(res, 404, 'No existe')
-      if (!m[2] && method === 'GET') return send(res, 200, { ...view(msg), replies: replies.get(msg.id).map(replyView) })
+      if (m[2] === 'restore' && method === 'POST') {
+        if (msg.author_id !== me.id && me.role !== 'editor') return fail(res, 403, 'Sólo quien envió el mensaje lo borra', 'not_message_author')
+        if (!msg.deleted_at) return fail(res, 409, 'El mensaje no está borrado.', 'not_deleted')
+        msg.deleted_at = null
+        return send(res, 200, { ...view(msg), replies: liveReplies(msg).map(replyView) })
+      }
+      if (msg.deleted_at) {
+        if (!(!m[2] && method === 'GET' && url.searchParams.get('include_deleted') === 'true' && me.role === 'editor')) return fail(res, 404, 'No existe')
+      }
+      if (!m[2] && method === 'DELETE') {
+        if (msg.author_id !== me.id && me.role !== 'editor') return fail(res, 403, 'Sólo quien envió el mensaje lo borra', 'not_message_author')
+        if (url.searchParams.get('confirm') !== 'true') return fail(res, 400, 'Falta la confirmación.', 'confirm_required')
+        msg.deleted_at = new Date().toISOString()
+        res.writeHead(204)
+        return res.end()
+      }
+      if (!m[2] && method === 'GET') return send(res, 200, { ...view(msg), deleted_at: msg.deleted_at ?? null, replies: liveReplies(msg).map(replyView) })
       // In-place edit of a published message (UD-071): only the sender, with the `version` that was read; every real change raises it.
       if (!m[2] && method === 'PATCH') {
         if (msg.author_id !== me.id) return fail(res, 403, 'Sólo quien envió el mensaje lo edita', 'not_message_author')
@@ -1029,7 +1073,7 @@ const server = createServer(async (req, res) => {
           msg.edited_at = msg.updated_at
           msg.edits = [...(msg.edits ?? []), { id: `e-${id()}`, member_id: me.id, at: msg.edited_at, version: msg.version, fields: changed }]
         }
-        return send(res, 200, { ...view(msg), replies: replies.get(msg.id).map(replyView) })
+        return send(res, 200, { ...view(msg), replies: liveReplies(msg).map(replyView) })
       }
       // New files or links on a published message (UD-071): they go at the end, count as an edit, and only the sender does it.
       if (m[2] === 'attachments' && method === 'POST') {
@@ -1059,7 +1103,7 @@ const server = createServer(async (req, res) => {
         msg.updated_at = new Date().toISOString()
         msg.edited_at = msg.updated_at
         msg.edits = [...(msg.edits ?? []), { id: `e-${id()}`, member_id: me.id, at: msg.edited_at, version: msg.version, fields: ['attachment_ids'] }]
-        return send(res, 200, { ...view(msg), replies: replies.get(msg.id).map(replyView) })
+        return send(res, 200, { ...view(msg), replies: liveReplies(msg).map(replyView) })
       }
       if (m[2] === 'replies' && method === 'POST') {
         if (msg.author_id === me.id) return fail(res, 403, 'El emisor no puede responder su propio mensaje', 'forbidden')
@@ -1110,7 +1154,7 @@ const server = createServer(async (req, res) => {
 
     // --- areas and templates
     if (path === '/areas' && method === 'GET') {
-      return send(res, 200, envelope(areas.map((a) => ({ ...a, open_count: messages.filter((x) => x.area_id === a.id && x.status === 'open').length, unresolved_count: messages.filter((x) => x.area_id === a.id && x.status !== 'closed').length, template_count: templates.filter((t) => t.area_id === a.id && !t.deleted_at).length }))))
+      return send(res, 200, envelope(areas.map((a) => ({ ...a, open_count: liveMessages().filter((x) => x.area_id === a.id && x.status === 'open').length, unresolved_count: liveMessages().filter((x) => x.area_id === a.id && x.status !== 'closed').length, template_count: templates.filter((t) => t.area_id === a.id && !t.deleted_at).length }))))
     }
     if (path === '/areas' && method === 'POST') {
       if (needEditor()) return

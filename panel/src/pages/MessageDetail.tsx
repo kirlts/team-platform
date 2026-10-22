@@ -1,5 +1,5 @@
-import { ArrowLeft, MessageSquare } from '@/components/icons'
-import { Link, useParams, useSearchParams } from 'react-router'
+import { ArrowLeft, MessageSquare, Trash2 } from '@/components/icons'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { AiMark } from '@/components/AiMark'
 import { AreaChip } from '@/components/AreaChip'
 import { AreaPicker } from '@/components/AreaPicker'
@@ -21,7 +21,8 @@ import { UndoButtons } from '@/components/UndoButtons'
 import { Button } from '@/components/ui/button'
 import { useFormat, useT } from '@/i18n'
 import { ApiError } from '@/lib/api'
-import { useMe, useMessage, usePatchMessage, useTemplates } from '@/lib/queries'
+import { useNotices } from '@/lib/notices'
+import { useDeleteMessage, useMe, useMessage, usePatchMessage, useRestoreMessage, useTemplates } from '@/lib/queries'
 import { parseTemplateFields, remapFields } from '@/lib/template'
 import type { MessageDetail as Detail, MessagePatch, Template } from '@/lib/types'
 import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
@@ -82,6 +83,10 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
   const me = useMe().data
   const undo = useUndo()
   const patchMessage = usePatchMessage()
+  const del = useDeleteMessage()
+  const restore = useRestoreMessage()
+  const notices = useNotices()
+  const navigate = useNavigate()
   const { memberName } = useLookups()
   const templates = useTemplates(m.area_id)
   const template: Template | undefined = templates.data?.find((x) => x.id === m.template_id) ?? templates.data?.[0]
@@ -91,6 +96,24 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
   // Only the sender edits a published message, the Editor included (UD-071).
   const canEdit = !!me && me.id === m.author_id
   const canReply = !!me && me.id !== m.author_id && !closed
+  // The sender or the Editor deletes (UD-240). No dialog: it is done, the list this came from is shown again, and the strip carries Deshacer.
+  const canDelete = !!me && (me.id === m.author_id || me.role === 'editor')
+  const remove = async () => {
+    await del.mutateAsync(m.id)
+    // Back to the list this was opened from; without a page behind (a pasted address), to Mensajes.
+    if ((window.history.state as { idx?: number } | null)?.idx) navigate(-1)
+    else navigate('/messages')
+    notices.show({
+      text: t('detail.deleted'),
+      action: {
+        label: t('undo.undo'),
+        run: async () => {
+          await restore.mutateAsync(m.id)
+          notices.show({ text: t('detail.restored'), link: { to: `/messages/${m.id}`, label: m.title } })
+        },
+      },
+    })
+  }
 
   /** A change to the message: what is requested and what undoes it. */
   const change = (label: string, forward: MessagePatch, back: MessagePatch) =>
@@ -120,6 +143,11 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
             </a>
           )}
           {canEdit && <UndoButtons stack={undo} compact={!desktop} />}
+          {canDelete && (
+            <Button size="sm" variant="ghost" className="text-muted hover:text-danger" disabled={del.isPending} onClick={() => void remove()}>
+              <Trash2 size={14} aria-hidden /> {t('detail.delete')}
+            </Button>
+          )}
         </div>
       </div>
 

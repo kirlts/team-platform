@@ -123,7 +123,7 @@ export function buildInputView ({ db, queue, events }, input) {
   const jobRow = queue.latestJobForInput(input.id)
   const progressRow = jobRow ? events.lastProgress(jobRow.id) : null
   const proposalObj = get(db, 'SELECT * FROM proposals WHERE input_id = ?', input.id)
-  const msgRows = input.status === 'published' ? all(db, 'SELECT id, title, area_id, status, edited_at FROM messages WHERE input_id = ? ORDER BY id', input.id) : []
+  const msgRows = input.status === 'published' ? all(db, 'SELECT id, title, area_id, status, edited_at FROM messages WHERE input_id = ? AND deleted_at IS NULL ORDER BY id', input.id) : []
   return {
     id: input.id,
     author_id: input.author_id,

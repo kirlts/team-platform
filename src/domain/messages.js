@@ -5,6 +5,10 @@
 //   - Any member closes or reopens.
 //   - Reopening returns to `answered` if the message already has replies, and to `open` if not.
 // Table of `status` transitions; any other is a 409.
+//
+// Messages and replies are soft-deleted (`deleted_at`, UD-240) and restored. Every read here ignores a deleted row:
+// lists, counts, the thread, the search, the last reply of a card and the access to attachments. A deleted message is a
+// 404 for everybody except an Editor who asks for it with `includeDeleted`.
 
 import { createHash } from 'node:crypto'
 import { all, get, run } from '../db/index.js'
@@ -76,7 +80,8 @@ function lastRepliesOf (db, ids) {
   const placeholders = ids.map(() => '?').join(',')
   const rows = all(db, `
     SELECT r.* FROM replies r
-     WHERE r.message_id IN (${placeholders}) AND r.id = (SELECT MAX(x.id) FROM replies x WHERE x.message_id = r.message_id)`, ...ids)
+     WHERE r.message_id IN (${placeholders}) AND r.deleted_at IS NULL
+       AND r.id = (SELECT MAX(x.id) FROM replies x WHERE x.message_id = r.message_id AND x.deleted_at IS NULL)`, ...ids)
   const atts = replyAttachmentsOf(db, rows.map((r) => r.id))
   return new Map(rows.map((r) => [r.message_id, toReply(r, atts.get(r.id))]))
 }
@@ -106,13 +111,17 @@ function hydrate (db, rows) {
     updated_at: iso(f.updated_at ?? f.created_at),
     version: f.version,
     edited_at: iso(f.edited_at),
-    closed_at: iso(f.closed_at)
+    closed_at: iso(f.closed_at),
+    deleted_at: iso(f.deleted_at)
   }))
 }
 
 const SELECT_MESSAGE = `
-  SELECT m.*, (SELECT COUNT(*) FROM replies r WHERE r.message_id = m.id) AS reply_count
+  SELECT m.*, (SELECT COUNT(*) FROM replies r WHERE r.message_id = m.id AND r.deleted_at IS NULL) AS reply_count
     FROM messages m`
+
+/** A reply still in the thread: the only kind the reads count. Used as a subquery condition on alias `r`. */
+const LIVE_REPLY = 'r.deleted_at IS NULL'
 
 /**
  * List of the team's messages (everyone sees everything, §6). Filters: `for` (me or a member id: assigned to),
@@ -120,13 +129,13 @@ const SELECT_MESSAGE = `
  * that involve that person as sender, assignee or author of a reply). Returns { items, total }.
  */
 export function listMessages (db, { viewerId, forMember = null, involved = false, area = null, status = null, q = null, replies = false, limit, offset = 0 }) {
-  const scope = []
+  const scope = ['m.deleted_at IS NULL']
   const params = []
   const memberRow = forMember === 'me' ? viewerId : forMember
   if (memberRow !== null && memberRow !== undefined) {
     if (replies) {
       scope.push(`(m.author_id = ? OR EXISTS (SELECT 1 FROM message_assignees x WHERE x.message_id = m.id AND x.member_id = ?)
-                   OR EXISTS (SELECT 1 FROM replies r WHERE r.message_id = m.id AND r.author_id = ?))`)
+                   OR EXISTS (SELECT 1 FROM replies r WHERE r.message_id = m.id AND r.author_id = ? AND ${LIVE_REPLY}))`)
       params.push(memberRow, memberRow, memberRow)
     } else {
       scope.push('EXISTS (SELECT 1 FROM message_assignees x WHERE x.message_id = m.id AND x.member_id = ?)')
@@ -144,16 +153,16 @@ export function listMessages (db, { viewerId, forMember = null, involved = false
     // Title, body, the values of the template fields (not their names) and the text of the replies (idea.md).
     // The replies search goes through `replies_message`; the fields through `json_each` of that row. Cost measured in H-3603.
     scope.push(`(m.title LIKE ? ESCAPE '\\' OR m.body LIKE ? ESCAPE '\\'
-      OR EXISTS (SELECT 1 FROM replies r WHERE r.message_id = m.id AND r.body LIKE ? ESCAPE '\\')
+      OR EXISTS (SELECT 1 FROM replies r WHERE r.message_id = m.id AND ${LIVE_REPLY} AND r.body LIKE ? ESCAPE '\\')
       OR EXISTS (SELECT 1 FROM json_each(m.fields_json) f WHERE f.value LIKE ? ESCAPE '\\'))`)
     const like = `%${escapeLike(q)}%`
     params.push(like, like, like, like)
   }
-  if (replies) scope.push('EXISTS (SELECT 1 FROM replies r WHERE r.message_id = m.id)')
-  const cond = scope.length ? `WHERE ${scope.join(' AND ')}` : ''
+  if (replies) scope.push(`EXISTS (SELECT 1 FROM replies r WHERE r.message_id = m.id AND ${LIVE_REPLY})`)
+  const cond = `WHERE ${scope.join(' AND ')}`
 
   const orderBy = replies
-    ? '(SELECT MAX(r.created_at) FROM replies r WHERE r.message_id = m.id) DESC, m.id DESC'
+    ? `(SELECT MAX(r.created_at) FROM replies r WHERE r.message_id = m.id AND ${LIVE_REPLY}) DESC, m.id DESC`
     : 'm.created_at DESC, m.id DESC'
   const total = get(db, `SELECT COUNT(*) AS n FROM messages m ${cond}`, ...params).n
   const rows = all(db, `${SELECT_MESSAGE} ${cond} ORDER BY ${orderBy} LIMIT ? OFFSET ?`, ...params, limit, offset)
@@ -172,7 +181,7 @@ export function messageSummary (db, memberId) {
     SELECT m.id AS id, m.title AS title, m.created_at AS created_at, m.status AS status,
            EXISTS (SELECT 1 FROM message_assignees x WHERE x.message_id = m.id AND x.member_id = ?) AS assigned,
            (m.author_id = ?) AS authored
-      FROM messages m WHERE m.status <> 'closed'`, memberId, memberId)
+      FROM messages m WHERE m.status <> 'closed' AND m.deleted_at IS NULL`, memberId, memberId)
   const mine = { open: 0, answered: 0, total: 0 }
   // The same messages that are counted, one by one: the panel lists exactly what adds up (J2-A-43).
   const items = []
@@ -182,20 +191,21 @@ export function messageSummary (db, memberId) {
   }
   const rank = { open: 0, answered: 1 }
   items.sort((a, b) => rank[a.status] - rank[b.status] || (a.at < b.at ? 1 : a.at > b.at ? -1 : 0))
-  const count = (status) => `(SELECT COUNT(*) FROM messages m WHERE m.area_id = a.id AND m.status = '${status}')`
+  const count = (status) => `(SELECT COUNT(*) FROM messages m WHERE m.area_id = a.id AND m.status = '${status}' AND m.deleted_at IS NULL)`
   const areas = all(db, `
     SELECT a.id AS area_id, ${count('open')} AS open, ${count('answered')} AS answered, ${count('closed')} AS closed,
-           (SELECT COUNT(*) FROM messages m WHERE m.area_id = a.id AND m.status = 'open'
+           (SELECT COUNT(*) FROM messages m WHERE m.area_id = a.id AND m.status = 'open' AND m.deleted_at IS NULL
                AND EXISTS (SELECT 1 FROM message_assignees x WHERE x.message_id = m.id AND x.member_id = ?)) AS mine_open
       FROM areas a WHERE a.deleted_at IS NULL ORDER BY a.position, a.id`, memberId)
   return { mine, items, areas }
 }
 
-export function getMessage (db, id) {
-  const dbRow = get(db, `${SELECT_MESSAGE} WHERE m.id = ?`, id)
+/** The message with its thread. A deleted one is a 404 unless `includeDeleted` (an Editor restoring it). */
+export function getMessage (db, id, { includeDeleted = false } = {}) {
+  const dbRow = get(db, `${SELECT_MESSAGE} WHERE m.id = ?${includeDeleted ? '' : ' AND m.deleted_at IS NULL'}`, id)
   if (!dbRow) throw notFound('El mensaje no existe.')
   const [msgRow] = hydrate(db, [dbRow])
-  const replyRows = all(db, 'SELECT * FROM replies WHERE message_id = ? ORDER BY id', id)
+  const replyRows = all(db, 'SELECT * FROM replies WHERE message_id = ? AND deleted_at IS NULL ORDER BY id', id)
   const atts = replyAttachmentsOf(db, replyRows.map((r) => r.id))
   const edits = all(db, 'SELECT * FROM message_edits WHERE message_id = ? ORDER BY id', id)
     .map((e) => ({ id: e.id, member_id: e.member_id, at: iso(e.at), version: e.version, fields: parseJson(e.fields_json, []) }))
@@ -219,7 +229,7 @@ export function getMessage (db, id) {
  */
 export function updateMessage ({ db, events, now = Date.now }, { messageId, actor, patch }) {
   events.transaction(() => {
-    const row = get(db, 'SELECT * FROM messages WHERE id = ?', messageId)
+    const row = get(db, 'SELECT * FROM messages WHERE id = ? AND deleted_at IS NULL', messageId)
     if (!row) throw notFound('El mensaje no existe.')
     if (row.author_id !== actor.id) throw forbidden('Sólo quien envió el mensaje puede editarlo.', 'not_message_author')
     if (patch.version !== row.version) {
@@ -300,7 +310,7 @@ export function updateMessage ({ db, events, now = Date.now }, { messageId, acto
 
 /** The rules for adding attachments, checked on their own so a route can refuse before it stores an upload. */
 export function assertCanAddAttachments (db, messageId, actorId, version) {
-  const row = get(db, 'SELECT * FROM messages WHERE id = ?', messageId)
+  const row = get(db, 'SELECT * FROM messages WHERE id = ? AND deleted_at IS NULL', messageId)
   if (!row) throw notFound('El mensaje no existe.')
   if (row.author_id !== actorId) throw forbidden('Sólo quien envió el mensaje puede editarlo.', 'not_message_author')
   if (version === undefined) return row // the route's early check, before the upload is stored
@@ -342,7 +352,7 @@ export function addMessageAttachments ({ db, queue, events, now = Date.now }, { 
 
 /** The rules for replying, checked on their own so a route can refuse before it stores an upload. */
 export function assertCanReply (db, messageId, authorId) {
-  const msgRow = get(db, 'SELECT id, author_id, status FROM messages WHERE id = ?', messageId)
+  const msgRow = get(db, 'SELECT id, author_id, status FROM messages WHERE id = ? AND deleted_at IS NULL', messageId)
   if (!msgRow) throw notFound('El mensaje no existe.')
   // §4.8: only a member other than the sender replies.
   if (msgRow.author_id === authorId) throw forbidden('El emisor de un mensaje no puede responderlo.', 'author_cannot_reply')
@@ -379,7 +389,7 @@ export function addReply ({ db, events, now = Date.now }, { messageId, authorId,
 
 export function closeMessage ({ db, events, now = Date.now }, messageId, actorId = null) {
   events.transaction(() => {
-    const msgRow = get(db, 'SELECT status FROM messages WHERE id = ?', messageId)
+    const msgRow = get(db, 'SELECT status FROM messages WHERE id = ? AND deleted_at IS NULL', messageId)
     if (!msgRow) throw notFound('El mensaje no existe.')
     const target = TRANSITIONS.close[msgRow.status]
     if (!target) throw conflict('El mensaje ya está cerrado.', 'already_closed')
@@ -391,11 +401,10 @@ export function closeMessage ({ db, events, now = Date.now }, messageId, actorId
 
 export function reopenMessage ({ db, events, now = Date.now }, messageId, actorId = null) {
   events.transaction(() => {
-    const msgRow = get(db, 'SELECT status FROM messages WHERE id = ?', messageId)
+    const msgRow = get(db, 'SELECT status FROM messages WHERE id = ? AND deleted_at IS NULL', messageId)
     if (!msgRow) throw notFound('El mensaje no existe.')
     if (!(msgRow.status in TRANSITIONS.reopen)) throw conflict('El mensaje no está cerrado.', 'not_closed')
-    const { n } = get(db, 'SELECT COUNT(*) AS n FROM replies WHERE message_id = ?', messageId)
-    run(db, 'UPDATE messages SET status = ?, closed_at = NULL WHERE id = ?', n > 0 ? 'answered' : 'open', messageId)
+    run(db, 'UPDATE messages SET status = ?, closed_at = NULL WHERE id = ?', liveReplyCount(db, messageId) > 0 ? 'answered' : 'open', messageId)
     audit(db, { memberId: actorId, action: 'message.reopen', entity: 'message', entityId: messageId, now })
   })
   return getMessage(db, messageId)
@@ -406,12 +415,103 @@ export function reopenMessage ({ db, events, now = Date.now }, messageId, actorI
  * published in some message, the whole team does (messages are visible to everyone, §6).
  */
 export function canReadAttachment (db, memberId, attachmentId) {
+  // A message that was deleted no longer publishes its attachments to the team; the input's author still reads them.
   const dbRow = get(db, `
     SELECT 1 AS ok FROM attachments a LEFT JOIN inputs i ON i.id = a.input_id
-     WHERE a.id = ? AND (i.author_id = ? OR EXISTS (SELECT 1 FROM message_attachments ma WHERE ma.attachment_id = a.id))`, attachmentId, memberId)
+     WHERE a.id = ? AND (i.author_id = ? OR EXISTS (SELECT 1 FROM message_attachments ma JOIN messages m ON m.id = ma.message_id
+                                                     WHERE ma.attachment_id = a.id AND m.deleted_at IS NULL))`, attachmentId, memberId)
   return Boolean(dbRow)
 }
 
+/**
+ * A reply attachment is readable by every member with a session: messages and their threads are visible to the whole
+ * team (§6). Once the reply or its message is deleted, nobody reads it (UD-240).
+ */
+export const canReadReplyAttachment = (db, attachmentId) => Boolean(get(db, `
+  SELECT 1 AS ok FROM reply_attachments ra JOIN replies r ON r.id = ra.reply_id JOIN messages m ON m.id = r.message_id
+   WHERE ra.id = ? AND r.deleted_at IS NULL AND m.deleted_at IS NULL`, attachmentId))
 
-/** A reply attachment is readable by every member with a session: messages and their threads are visible to the whole team (§6). */
-export const canReadReplyAttachment = (db, attachmentId) => Boolean(get(db, 'SELECT 1 AS ok FROM reply_attachments WHERE id = ?', attachmentId))
+// ---------------------------------------------------------------- deletion and restoration (UD-240)
+
+const liveReplyCount = (db, messageId) => get(db, 'SELECT COUNT(*) AS n FROM replies WHERE message_id = ? AND deleted_at IS NULL', messageId).n
+
+/**
+ * The state a message must have from its live replies and its closing mark (UD-042): a closed one stays closed; otherwise
+ * `answered` with one live reply or more and `open` without any. Deleting or restoring a reply calls it.
+ */
+function recomputeStatus (db, messageId) {
+  const msgRow = get(db, 'SELECT status, closed_at FROM messages WHERE id = ?', messageId)
+  if (!msgRow || msgRow.closed_at !== null) return
+  const target = liveReplyCount(db, messageId) > 0 ? 'answered' : 'open'
+  if (target !== msgRow.status) run(db, 'UPDATE messages SET status = ? WHERE id = ?', target, messageId)
+}
+
+/** Who may delete and restore a message: its sender or an Editor (UD-240). */
+function assertMessageOwner (row, actor) {
+  if (row.author_id !== actor.id && actor.role !== 'editor') throw forbidden('Sólo quien envió el mensaje o un Editor puede borrarlo.', 'not_message_author')
+}
+
+/** Soft-deletes a message. 404 when it does not exist or is already deleted; 403 `not_message_author` for anyone else. */
+export function deleteMessage ({ db, events, now = Date.now }, { messageId, actor }) {
+  events.transaction(() => {
+    const row = get(db, 'SELECT id, author_id FROM messages WHERE id = ? AND deleted_at IS NULL', messageId)
+    if (!row) throw notFound('El mensaje no existe.')
+    assertMessageOwner(row, actor)
+    run(db, 'UPDATE messages SET deleted_at = ? WHERE id = ?', now(), messageId)
+    audit(db, { memberId: actor.id, action: 'message.delete', entity: 'message', entityId: messageId, now })
+  })
+}
+
+/** Brings a deleted message back, with its thread as it was. 409 `not_deleted` if it is not deleted. Returns the detail. */
+export function restoreMessage ({ db, events, now = Date.now }, { messageId, actor }) {
+  events.transaction(() => {
+    const row = get(db, 'SELECT id, author_id, deleted_at FROM messages WHERE id = ?', messageId)
+    if (!row) throw notFound('El mensaje no existe.')
+    assertMessageOwner(row, actor)
+    if (row.deleted_at === null) throw conflict('El mensaje no está borrado.', 'not_deleted')
+    run(db, 'UPDATE messages SET deleted_at = NULL WHERE id = ?', messageId)
+    audit(db, { memberId: actor.id, action: 'message.restore', entity: 'message', entityId: messageId, now })
+  })
+  return getMessage(db, messageId)
+}
+
+/** Who may delete and restore a reply: its author or an Editor (UD-240). */
+function assertReplyOwner (row, actor) {
+  if (row.author_id !== actor.id && actor.role !== 'editor') throw forbidden('Sólo quien escribió la respuesta o un Editor puede borrarla.', 'not_reply_author')
+}
+
+/**
+ * Soft-deletes a reply of a message and recomputes the message's state: `answered` goes back to `open` when no live
+ * reply remains and the message is not closed. 404 when the message or the reply does not exist, is deleted, or the
+ * reply belongs to another message. Returns the message detail.
+ */
+export function deleteReply ({ db, events, now = Date.now }, { messageId, replyId, actor }) {
+  events.transaction(() => {
+    const row = get(db, `
+      SELECT r.id, r.author_id FROM replies r JOIN messages m ON m.id = r.message_id
+       WHERE r.id = ? AND r.message_id = ? AND r.deleted_at IS NULL AND m.deleted_at IS NULL`, replyId, messageId)
+    if (!row) throw notFound('La respuesta no existe.')
+    assertReplyOwner(row, actor)
+    run(db, 'UPDATE replies SET deleted_at = ? WHERE id = ?', now(), replyId)
+    recomputeStatus(db, messageId)
+    audit(db, { memberId: actor.id, action: 'reply.delete', entity: 'reply', entityId: replyId, detail: { message_id: messageId }, now })
+  })
+  return getMessage(db, messageId)
+}
+
+/** Brings a deleted reply back and recomputes the state of its message. 409 `not_deleted` if it is not deleted. Returns the message detail. */
+export function restoreReply ({ db, events, now = Date.now }, { replyId, actor }) {
+  const messageId = events.transaction(() => {
+    const row = get(db, `
+      SELECT r.id, r.author_id, r.message_id, r.deleted_at FROM replies r JOIN messages m ON m.id = r.message_id
+       WHERE r.id = ? AND m.deleted_at IS NULL`, replyId)
+    if (!row) throw notFound('La respuesta no existe.')
+    assertReplyOwner(row, actor)
+    if (row.deleted_at === null) throw conflict('La respuesta no está borrada.', 'not_deleted')
+    run(db, 'UPDATE replies SET deleted_at = NULL WHERE id = ?', replyId)
+    recomputeStatus(db, row.message_id)
+    audit(db, { memberId: actor.id, action: 'reply.restore', entity: 'reply', entityId: replyId, detail: { message_id: row.message_id }, now })
+    return row.message_id
+  })
+  return getMessage(db, messageId)
+}

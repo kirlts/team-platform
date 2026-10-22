@@ -112,7 +112,7 @@ test('a browser identified by the JWT gets a session of our own as long as the t
   assert.equal(c.httpOnly, true)
   assert.equal(c.secure, true)
   assert.equal(c.sameSite, 'Lax')
-  assert.ok(Math.abs(c.maxAge - 600) <= 2, `maxAge ${c.maxAge}`)
+  assert.ok(Math.abs(c.maxAge - (exp - Math.floor(Date.now() / 1000))) <= 2, `maxAge ${c.maxAge}`)
   assert.equal(get(env.db, 'SELECT expires_at FROM sessions').expires_at, exp * 1000)
   const cookie = `${c.name}=${c.value}`
   // The cookie alone identifies the person (what EventSource sends).

@@ -14,6 +14,7 @@ import { get } from '../db/index.js'
 import { parseJson } from '../db/util.js'
 import { permanent } from '../domain/errors.js'
 import { addReply } from '../domain/messages.js'
+import { step } from '../domain/progress-phrases.js'
 import { getProject } from '../domain/settings.js'
 import { recordGenAiCall, withSpan } from '../telemetry/api.js'
 import { readAgentSecret } from './agent-credentials.js'
@@ -176,7 +177,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       return () => {
         // Inside the transaction that closes the job: the closing reply, then the end of the progress.
         const { replyId } = addReply({ db, events, now }, { messageId, authorId: agent.id, body, kind: 'answer' })
-        events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: 'Respondido', data: { message_id: messageId } })
+        events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: step('answered'), data: { message_id: messageId } })
         events.publishForJob(job.id, {
           kind: 'done',
           data: { status: 'done', message_id: String(messageId), reply_id: String(replyId), session_id: outcome.st.sessionId, cost_usd: result.total_cost_usd ?? null }
@@ -189,7 +190,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       if (outcome.state === 'failed') {
         events.publishForJob(job.id, { kind: 'done', data: { status: 'failed', message_id: messageId ? String(messageId) : null, error: String(error?.message ?? error), error_code: error?.code ?? null } })
       } else if (outcome.state === 'requeued') {
-        events.publishForJob(job.id, { kind: 'progress', percent: 0, phrase: `Intento ${job.attempts} de ${job.max_attempts} fallido; se reintenta`, data: { message_id: messageId } })
+        events.publishForJob(job.id, { kind: 'progress', percent: 0, phrase: step('retry', { n: job.attempts, total: job.max_attempts }), data: { message_id: messageId } })
       }
     }
   }

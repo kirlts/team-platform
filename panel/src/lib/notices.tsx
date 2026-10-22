@@ -1,9 +1,10 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react'
 
 /**
  * A notice of the screen: what just happened, said where the person is looking (J1-B-25, J1-B-26).
- * It carries at most one action (Deshacer) and one link (to what was published). It stays until the
- * person closes it or the next one replaces it: there is no timer, so it cannot vanish unread.
+ * It carries at most one action (Deshacer) and one link (to what was published). It leaves by itself (UD-253): after
+ * `NOTICE_MS`, or `NOTICE_ACTION_MS` when it carries something to click, counted while neither the pointer nor the focus is on it.
+ * Escape or the next notice also take it away.
  */
 export interface Notice {
   text: string
@@ -11,6 +12,15 @@ export interface Notice {
   tone?: 'info' | 'danger'
   action?: { label: string; run: () => void | Promise<unknown> }
   link?: { to: string; label: string }
+}
+
+/** Token `--notice-ms` of DISENO.md: the longest notice text (13 words) read at 190 words per minute, plus one second to notice it. */
+export const NOTICE_MS = 5000
+/** Token `--notice-action-ms` of DISENO.md: the same reading plus the time to reach Deshacer or the link. */
+export const NOTICE_ACTION_MS = 8000
+
+export function noticeDuration(notice: Notice): number {
+  return notice.action || notice.link ? NOTICE_ACTION_MS : NOTICE_MS
 }
 
 interface NoticeState extends Notice {
@@ -27,7 +37,9 @@ const NoticeContext = createContext<NoticeApi | null>(null)
 
 export function NoticeProvider({ children }: { children: ReactNode }) {
   const [current, setCurrent] = useState<NoticeState | null>(null)
-  const show = useCallback((notice: Notice) => setCurrent((prev) => ({ ...notice, id: (prev?.id ?? 0) + 1 })), [])
+  /** Every notice gets its own id, so a new one replaces the previous and starts its own count even with the same text. */
+  const seq = useRef(0)
+  const show = useCallback((notice: Notice) => setCurrent({ ...notice, id: ++seq.current }), [])
   const dismiss = useCallback(() => setCurrent(null), [])
   const api = useMemo(() => ({ current, show, dismiss }), [current, show, dismiss])
   return <NoticeContext.Provider value={api}>{children}</NoticeContext.Provider>

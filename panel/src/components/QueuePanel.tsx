@@ -18,8 +18,8 @@ const SETTLED = new Set(['proposed', 'published', 'failed'])
 
 /**
  * «Cola» of Configuración (UD-251, Editor): the sends of everybody with their state, the count of jobs by state with the
- * purge of the finished ones, and on every send «Reprocesar», «Borrar» and «Traza». Every destructive step confirms in
- * its place, with no window over the page.
+ * purge of the finished ones, and on every send «Reprocesar», «Borrar» and «Traza». Nothing destructive asks for a
+ * confirmation (UD-253): one click does it and the figure says what went.
  */
 export function QueuePanel() {
   const t = useT()
@@ -64,12 +64,11 @@ function JobCounts() {
   const counts = useJobCounts().data
   const purge = usePurgeJobs()
   const [state, setState] = useState<PurgeState>('done')
-  const [arming, setArming] = useState(false)
   const [purged, setPurged] = useState<number | null>(null)
   const run = async () => {
+    setPurged(null)
     const r = await purge.mutateAsync(state)
     setPurged(r.purged)
-    setArming(false)
   }
   return (
     <div className="flex flex-col gap-2">
@@ -85,7 +84,7 @@ function JobCounts() {
       </dl>
       <div className="flex flex-wrap items-center gap-2">
         <div className="w-40">
-          <NativeSelect aria-label={t('queue.purgeState')} value={state} disabled={arming || purge.isPending} onChange={(e) => setState(e.target.value as PurgeState)}>
+          <NativeSelect aria-label={t('queue.purgeState')} value={state} disabled={purge.isPending} onChange={(e) => setState(e.target.value as PurgeState)}>
             {PURGE_STATES.map((s) => (
               <option key={s} value={s}>
                 {t(`queue.job.${s}` as MessageKey)}
@@ -93,27 +92,9 @@ function JobCounts() {
             ))}
           </NativeSelect>
         </div>
-        {arming ? (
-          <>
-            <Button size="sm" variant="danger" onClick={() => void run().catch(() => undefined)} disabled={purge.isPending}>
-              {t('queue.purge')}
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setArming(false)} disabled={purge.isPending}>
-              {t('common.cancel')}
-            </Button>
-          </>
-        ) : (
-          <Button
-            size="sm"
-            onClick={() => {
-              setArming(true)
-              setPurged(null)
-              purge.reset()
-            }}
-          >
-            {t('queue.purge')}
-          </Button>
-        )}
+        <Button size="sm" className="hover:border-danger hover:text-danger" onClick={() => void run().catch(() => undefined)} disabled={purge.isPending}>
+          {t('queue.purge')}
+        </Button>
         {purged !== null && (
           <span role="status" data-purged className="text-sm tabular-nums text-muted">
             {t('queue.purged', { n: purged })}

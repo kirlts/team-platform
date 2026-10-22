@@ -1210,6 +1210,34 @@ const server = createServer(async (req, res) => {
       }
       return send(res, 200, target)
     }
+    // Deleting a member for good (UD-240): without history it goes; with history, 409 with the counts unless purge=true.
+    if (m && method === 'DELETE') {
+      if (needEditor()) return
+      const target = members.find((x) => x.id === m[1])
+      if (!target) return fail(res, 404, 'No existe')
+      if (url.searchParams.get('confirm') !== 'true') return fail(res, 400, 'La operación es destructiva y exige confirm=true en la dirección.', 'confirm_required')
+      if (target.id === me.id) return fail(res, 409, 'No se puede eliminar la propia cuenta.', 'cannot_delete_self')
+      if (target.role === 'editor' && target.active && members.filter((x) => x.role === 'editor' && x.active && x.id !== target.id).length === 0) return fail(res, 409, 'El equipo conserva siempre un Editor activo.', 'last_editor')
+      const ownInputs = [...inputs.values()].filter((i) => i.author_id === target.id)
+      const ownMessages = messages.filter((x) => x.author_id === target.id)
+      const ownReplies = [...replies.values()].flat().filter((r) => r.author_id === target.id)
+      const deleted = { inputs: ownInputs.length, messages: ownMessages.length, replies: ownReplies.length }
+      const assigned = messages.some((x) => (x.assignee_ids ?? []).includes(target.id))
+      if ((deleted.inputs || deleted.messages || deleted.replies || assigned) && url.searchParams.get('purge') !== 'true') {
+        return send(res, 409, { code: 'member_has_history', message: 'El miembro tiene historial: se desactiva, o se elimina con todo lo suyo.', ...deleted })
+      }
+      for (const i of ownInputs) inputs.delete(i.id)
+      for (const x of ownMessages) replies.delete(x.id)
+      messages.splice(0, messages.length, ...messages.filter((x) => x.author_id !== target.id))
+      for (const x of messages) {
+        const rest = (replies.get(x.id) ?? []).filter((r) => r.author_id !== target.id)
+        replies.set(x.id, rest)
+        x.assignee_ids = (x.assignee_ids ?? []).filter((a) => a !== target.id)
+        syncStatus(x)
+      }
+      members.splice(members.indexOf(target), 1)
+      return send(res, 200, { member_id: target.id, deleted })
+    }
     if (path === '/settings/providers' && method === 'GET') {
       if (needEditor()) return
       return send(res, 200, providersView())

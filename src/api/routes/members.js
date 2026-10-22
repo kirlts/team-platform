@@ -1,12 +1,14 @@
 // Member routes (MASTER-SPEC §7.1, UD-007). A member edits only their own profile (UD-023); the editor
 // creates and administers the rest. Changing the role or the password closes that person's sessions
-// (the session is regenerated on a privilege change, report 04 §2.2).
+// (the session is regenerated on a privilege change, report 04 §2.2). The editor also deletes a member for good (UD-240).
 
 import { get, run, tx } from '../../db/index.js'
 import { badRequest, conflict, unauthenticated } from '../../domain/errors.js'
 import { audit } from '../../domain/audit.js'
 import { LANGUAGES } from '../../domain/language.js'
-import { createMember, getMember, listMembers, updateMember } from '../../domain/members.js'
+import { createMember, deleteMember, getMember, listMembers, updateMember } from '../../domain/members.js'
+import { removeUnreferencedBlobs } from '../../domain/storage.js'
+import { requireConfirm } from '../confirm.js'
 import { hashPassword, validatePassword, verifyPassword } from '../../identity/password.js'
 import { pageEnvelope, pageParams, pageQuerySchema, pageResult } from '../pagination.js'
 import { idParams, member } from '../schemas.js'
@@ -15,7 +17,7 @@ const emailAddr = { type: 'string', minLength: 3, maxLength: 254, pattern: '^[^@
 const languageTag = { type: 'string', enum: LANGUAGES } // UD-018: exactly two values; anything else is 400 'validation'
 
 export function registerMemberRoutes (app, ctx) {
-  const { db, config, requireRole, identity, blocklist } = ctx
+  const { db, config, requireRole, identity, blocklist, queue } = ctx
   const profileText = { type: 'string', maxLength: config.members.profileMaxLength, description: 'Perfil: un par de párrafos en primera persona (UD-023).' }
   const local = config.identity.provider === 'local'
 
@@ -119,5 +121,33 @@ export function registerMemberRoutes (app, ctx) {
     const { member: updatedMember, roleChanged, deactivated } = updateMember(db, id, edits, { actorId: request.member.id })
     if (roleChanged || deactivated) identity.sessions.destroyForMember(id) // regenerate on role change; close everything on deactivation
     return updatedMember
+  })
+
+  // Deletion for good (UD-240). A member without history goes with their credentials, sessions and identity links; one
+  // with history is a 409 `member_has_history` with the counts, and goes with everything of theirs under `purge=true`.
+  app.delete('/members/:id', {
+    onRequest: [requireRole('editor')],
+    schema: {
+      summary: 'Eliminar un miembro (editor; exige ?confirm=true). Con historial responde 409 `member_has_history` salvo `purge=true`, que borra también sus envíos, mensajes y respuestas',
+      params: idParams(),
+      querystring: { type: 'object', additionalProperties: false, properties: { confirm: { type: 'boolean' }, purge: { type: 'boolean' } } },
+      response: {
+        200: {
+          type: 'object',
+          required: ['member_id', 'deleted'],
+          properties: {
+            member_id: { type: 'string' },
+            deleted: { type: 'object', required: ['inputs', 'messages', 'replies'], properties: { inputs: { type: 'integer' }, messages: { type: 'integer' }, replies: { type: 'integer' } } }
+          }
+        }
+      }
+    }
+  }, async (request) => {
+    requireConfirm(request)
+    const id = request.params.id
+    const { member_id: memberId, deleted, sha256s } = deleteMember(db, id, { actorId: request.member.id, purge: request.query.purge === true, queue })
+    identity.sessions.destroyForMember(id) // the rows went with the member; the call keeps the contract explicit
+    try { await removeUnreferencedBlobs(db, config, sha256s) } catch (e) { app.log.warn({ err: e }, 'could not free the files of a deleted member') }
+    return { member_id: memberId, deleted }
   })
 }

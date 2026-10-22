@@ -13,7 +13,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useErrorText, useT } from '@/i18n'
-import { useCreateMember, useMe, useMembers, useSaveMember } from '@/lib/queries'
+import { useNotices } from '@/lib/notices'
+import { useCreateMember, useDeleteMember, useMe, useMembers, useSaveMember } from '@/lib/queries'
 import type { Member, Role } from '@/lib/types'
 import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 
@@ -92,8 +93,12 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
   const t = useT()
   const undo = useUndo()
   const save = useSaveMember()
+  const remove = useDeleteMember()
+  const notices = useNotices()
   const errorText = useErrorText()
   const [problem, setProblem] = useState<string | null>(null)
+  /** Deleting asks in place (UD-240): «Eliminar» turns into «Eliminar miembro» and «Cancelar»; with history the server answers the counts and the choice is deactivate or delete with everything. */
+  const [removal, setRemoval] = useState<'idle' | 'confirm' | { inputs: number; messages: number; replies: number }>('idle')
   const roleLabel: Record<Role, string> = { member: t('team.roleMember'), editor: t('team.roleEditor') }
   /** What each role allows (UD-007), said on hover and to a screen reader and not as visible text: Equipo has no help text by default. */
   const roleHint: Record<Role, string> = { member: t('team.roleMemberHint'), editor: t('team.roleEditorHint') }
@@ -112,6 +117,22 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
       () => setProblem(null),
       (err) => setProblem(errorText(err)),
     )
+  const deleteMember = async (purge: boolean) => {
+    try {
+      await remove.mutateAsync({ id: member.id, purge })
+      notices.show({ text: t('team.deletedDone', { name: member.name }) })
+    } catch (err) {
+      const e = err as { code?: string; details?: Record<string, unknown> }
+      if (e.code === 'member_has_history' && !purge) {
+        const n = (k: string) => Number(e.details?.[k] ?? 0)
+        setRemoval({ inputs: n('inputs'), messages: n('messages'), replies: n('replies') })
+      } else {
+        setRemoval('idle')
+        setProblem(errorText(err))
+      }
+    }
+  }
+  const busy = remove.isPending
 
   return (
     <div className={`grid items-start gap-x-4 gap-y-2 max-md:grid-cols-[minmax(0,1fr)_auto] border-b border-line px-4 py-3 last:border-b-0 ${COLUMNS} ${member.active ? '' : 'bg-closed-bg/30'}`}>
@@ -157,9 +178,38 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
       {/* On a phone the cell dissolves: the action shares the row of the role, on the right edge, and the failure takes its own row below the profile. */}
       <div className="flex min-w-0 flex-col items-end gap-1 max-md:contents">
         {canEditPeople && !self && (
-          <Button size="sm" variant="secondary" className="font-normal hover:border-danger hover:text-danger max-md:col-start-2 max-md:row-start-2 max-md:self-center" onClick={() => void toggleActive()} aria-label={member.active ? t('team.deactivateOf', { name: member.name }) : t('team.reactivateOf', { name: member.name })}>
-            {member.active ? t('team.deactivate') : t('team.reactivate')}
-          </Button>
+          <div className="flex flex-col items-end gap-1 max-md:col-start-2 max-md:row-start-2 max-md:self-center" data-removal={removal === 'idle' ? undefined : removal === 'confirm' ? 'confirm' : 'history'}>
+            {removal !== 'idle' && removal !== 'confirm' && (
+              <span className="text-right text-xs text-muted max-md:text-left">{t('team.history', removal)}</span>
+            )}
+            <div className="flex flex-wrap justify-end gap-1">
+              {removal !== 'confirm' && (
+                <Button size="sm" variant="secondary" className="font-normal hover:border-danger hover:text-danger" disabled={busy} onClick={() => void toggleActive().then(() => setRemoval('idle'))} aria-label={member.active ? t('team.deactivateOf', { name: member.name }) : t('team.reactivateOf', { name: member.name })}>
+                  {member.active ? t('team.deactivate') : t('team.reactivate')}
+                </Button>
+              )}
+              {removal === 'idle' && (
+                <Button size="sm" variant="secondary" className="font-normal hover:border-danger hover:text-danger" onClick={() => { setProblem(null); setRemoval('confirm') }} aria-label={t('team.deleteOf', { name: member.name })}>
+                  {t('team.delete')}
+                </Button>
+              )}
+              {removal === 'confirm' && (
+                <Button size="sm" variant="danger" disabled={busy} onClick={() => void deleteMember(false)}>
+                  {t('team.deleteConfirm')}
+                </Button>
+              )}
+              {removal !== 'idle' && removal !== 'confirm' && (
+                <Button size="sm" variant="danger" disabled={busy} onClick={() => void deleteMember(true)}>
+                  {t('team.deleteAll')}
+                </Button>
+              )}
+              {removal !== 'idle' && (
+                <Button size="sm" variant="ghost" disabled={busy} onClick={() => setRemoval('idle')}>
+                  {t('common.cancel')}
+                </Button>
+              )}
+            </div>
+          </div>
         )}
         {problem && (
           <span role="alert" className="text-right text-xs text-danger max-md:col-span-2 max-md:text-left">

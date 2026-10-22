@@ -343,6 +343,15 @@ export function useSaveMember() {
   })
 }
 
+/** Deleting a member for good (DELETE /members/:id, Editor only, UD-240). `purge` takes their history too; without it a member with history is a 409 `member_has_history`. */
+export function useDeleteMember() {
+  const invalidate = useInvalidator()
+  return useMutation({
+    mutationFn: (v: { id: string; purge?: boolean }) => api<{ member_id: string; deleted: { inputs: number; messages: number; replies: number } }>(`/members/${v.id}?confirm=true${v.purge ? '&purge=true' : ''}`, { method: 'DELETE' }),
+    onSuccess: () => invalidate('members', 'messages', 'message', 'inputs'),
+  })
+}
+
 /** Adding a member (POST /members, Editor only). */
 export function useCreateMember() {
   const invalidate = useInvalidator()

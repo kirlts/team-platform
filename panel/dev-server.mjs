@@ -638,6 +638,71 @@ const uiTracer = {
 
 // ---------------------------------------------------------------- control for tests (H-901)
 
+
+// ---------------------------------------------------------------- queue, traces and log (UD-251)
+// The real server keeps jobs, spans and an audit log; the double derives the jobs of the sends and adds a few older ones.
+const JOB_STATE_OF = { queued: 'queued', extracting: 'running', analyzing: 'running', proposed: 'done', published: 'done', failed: 'failed', cancelled: 'cancelled' }
+/** @type {{id:string, input_id:string|null, status:string, attempts:number, created_at:string, finished_at:string|null, last_error:string|null, started_ms:number}[]} */
+let olderJobs = []
+const purgedJobs = new Set()
+/** @type {{id:string, at:string, member_id:string|null, member_name:string|null, action:string, entity:string, entity_id:string|null, detail:object|null}[]} */
+const auditLog = []
+
+function seedOps() {
+  olderJobs = [
+    { id: 'j-old01', input_id: null, status: 'done', attempts: 1, created_at: ago(2900), finished_at: ago(2897), last_error: null },
+    { id: 'j-old02', input_id: null, status: 'done', attempts: 1, created_at: ago(2400), finished_at: ago(2398), last_error: null },
+    { id: 'j-old03', input_id: null, status: 'failed', attempts: 3, created_at: ago(1900), finished_at: ago(1895), last_error: 'El proveedor de modelo no respondió.' },
+    { id: 'j-old04', input_id: null, status: 'done', attempts: 2, created_at: ago(1500), finished_at: ago(1496), last_error: null },
+    { id: 'j-old05', input_id: null, status: 'cancelled', attempts: 1, created_at: ago(900), finished_at: ago(899), last_error: null },
+  ]
+  purgedJobs.clear()
+}
+function record(member, action, entity, entityId, detail) {
+  auditLog.unshift({ id: `a-${id()}`, at: new Date().toISOString(), member_id: member?.id ?? null, member_name: member?.name ?? null, action, entity, entity_id: entityId ?? null, detail: detail ?? null })
+}
+function seedAudit() {
+auditLog.length = 0
+for (const [minutes, who, action, entity, entityId, detail] of [
+  [4300, 'u-ana', 'settings.publication', 'settings', null, { auto_publish: true }],
+  [3900, 'u-ana', 'area.create', 'area', 'a-pregunta', null],
+  [3100, 'u-diego', 'input.create', 'input', 'i-seed01', null],
+  [3000, 'u-diego', 'input.publish', 'input', 'i-seed01', null],
+  [1800, 'u-ana', 'member.update', 'member', 'u-carla', { fields: ['name'] }],
+  [700, 'u-ana', 'settings.telemetry', 'settings', null, { ui_enabled: true }],
+]) {
+  const who_ = members.find((m) => m.id === who)
+  auditLog.push({ id: `a-${id()}`, at: ago(minutes), member_id: who_.id, member_name: who_.name, action, entity, entity_id: entityId, detail })
+}
+auditLog.sort((a, b) => b.at.localeCompare(a.at))
+}
+seedOps()
+seedAudit()
+
+function allJobs() {
+  const own = [...inputs.values()].filter((i) => i.job_id).map((i) => ({ id: i.job_id, input_id: i.id, status: JOB_STATE_OF[i.status] ?? 'queued', attempts: i.status === 'failed' ? 3 : 1, created_at: i.created_at, finished_at: ['proposed', 'published', 'failed', 'cancelled'].includes(i.status) ? (i.updated_at ?? i.created_at) : null, last_error: i.status === 'failed' ? i.error : null }))
+  return [...own, ...olderJobs].filter((j) => !purgedJobs.has(j.id)).sort((a, b) => b.created_at.localeCompare(a.created_at))
+}
+const jobRowOf = (j) => ({ id: j.id, kind: 'analyze_input', input_id: j.input_id, status: j.status, priority: 0, attempts: j.attempts, max_attempts: 3, run_at: j.created_at, lease_until: null, worker_id: j.status === 'running' ? 'w-1' : null, last_error: j.last_error, created_at: j.created_at, finished_at: j.finished_at })
+
+/** A span tree for a finished job, deterministic from its id: the analysis with one call per step. */
+function traceOf(job) {
+  if (!['done', 'failed'].includes(job.status)) return null
+  const seed = [...job.id].reduce((n, c) => n + c.charCodeAt(0), 0)
+  const node = (name, kind, ms, attributes, children = [], status = 'ok') => ({ trace_id: `t-${job.id}`, span_id: `s-${name}`, parent_id: null, name, kind, status, status_message: null, start_ns: '0', end_ns: '0', start_ms: 0, duration_ms: ms, attributes, events: [], children })
+  const call = (name, ms, inTok, outTok, cost) => node(name, 'client', ms, { 'gen_ai.usage.input_tokens': inTok, 'gen_ai.usage.output_tokens': outTok, 'team.cost_usd': cost })
+  const classify = call('llm.classify_area', 900 + (seed % 400), 1800 + (seed % 300), 60, 0.0042)
+  const split = job.status === 'failed' ? node('llm.split_messages', 'client', 30_000, {}, [], 'error') : call('llm.split_messages', 2400 + (seed % 900), 2600 + (seed % 500), 420, 0.0121)
+  const calls = [classify, split]
+  const root = node('job.analyze', 'internal', calls.reduce((n, c) => n + c.duration_ms, 0) + 240, { 'team.job_id': job.id }, [node('extract.attachments', 'internal', 180 + (seed % 90), {}), ...calls], job.status === 'failed' ? 'error' : 'ok')
+  const ok = calls.filter((c) => c.status === 'ok')
+  return {
+    job_id: job.id, trace_ids: [`t-${job.id}`], span_count: 3 + calls.length,
+    totals: { llm_calls: ok.length, input_tokens: ok.reduce((n, c) => n + c.attributes['gen_ai.usage.input_tokens'], 0), output_tokens: ok.reduce((n, c) => n + c.attributes['gen_ai.usage.output_tokens'], 0), cost_usd: ok.reduce((n, c) => n + c.attributes['team.cost_usd'], 0) },
+    roots: [root],
+  }
+}
+
 const copyOf = (v) => structuredClone(v)
 /** The sample state as it was born: the order «reset» goes back to. */
 const initial = CONTROL
@@ -685,6 +750,8 @@ function control(path, query) {
     running = 0
     autoPublish = process.env.PANEL_DEV_AUTO_PUBLISH !== '0'
     inputs.clear()
+    seedOps()
+    seedAudit()
     eventLog.length = 0
     restoreArray(members, initial.members)
     restoreArray(areas, initial.areas)
@@ -781,6 +848,8 @@ const server = createServer(async (req, res) => {
       jobs.clear()
       waiting.clear()
       inputs.clear()
+      olderJobs = []
+      record(me, 'data.reset', 'data', null, { scope: body.scope })
       eventLog.length = 0
       messages.length = 0
       replies.clear()
@@ -844,6 +913,40 @@ const server = createServer(async (req, res) => {
       return send(res, 201, { message_id: msg.id })
     }
 
+    // --- queue, traces and log of the Editor (UD-251)
+    const pageOf = (list) => {
+      const limit = Math.min(100, Number(url.searchParams.get('limit') ?? 25))
+      const page = Math.max(1, Number(url.searchParams.get('page') ?? 1))
+      return { items: list.slice((page - 1) * limit, page * limit), page, limit, total: list.length }
+    }
+    if (path === '/jobs' && method === 'GET') {
+      if (needEditor()) return
+      const state = url.searchParams.get('state')
+      return send(res, 200, pageOf(allJobs().filter((j) => !state || j.status === state).map(jobRowOf)))
+    }
+    if (path === '/jobs' && method === 'DELETE') {
+      if (needEditor()) return
+      const state = url.searchParams.get('state')
+      if (!['done', 'failed', 'cancelled'].includes(state ?? '')) return fail(res, 400, 'Estado inválido', 'validation')
+      if (url.searchParams.get('confirm') !== 'true') return fail(res, 400, 'La operación es destructiva y exige confirm=true en la dirección.', 'confirm_required')
+      const gone = allJobs().filter((j) => j.status === state)
+      for (const j of gone) purgedJobs.add(j.id)
+      record(me, 'jobs.purge', 'job', null, { state, purged: gone.length })
+      return send(res, 200, { purged: gone.length })
+    }
+    const traceMatch = /^\/jobs\/([^/]+)\/trace$/.exec(path)
+    if (traceMatch && method === 'GET') {
+      if (needEditor()) return
+      const job = allJobs().find((j) => j.id === traceMatch[1])
+      const trace = job ? traceOf(job) : null
+      return trace ? send(res, 200, trace) : fail(res, 404, 'El trabajo no dejó spans.', 'not_found')
+    }
+    if (path === '/audit' && method === 'GET') {
+      if (needEditor()) return
+      const action = url.searchParams.get('action')
+      return send(res, 200, pageOf(auditLog.filter((a) => !action || a.action === action)))
+    }
+
     // --- inputs
     if (path === '/inputs' && method === 'POST') {
       const ct = req.headers['content-type'] ?? ''
@@ -884,6 +987,12 @@ const server = createServer(async (req, res) => {
     // My inputs still in play: GET /inputs?mine=1&status=queued,extracting,analyzing,proposed,failed
     if (path === '/inputs' && method === 'GET') {
       const wanted = (url.searchParams.get('status') ?? '').split(',').filter(Boolean)
+      // `all=1` (UD-251): the Editor's queue, the sends of everybody with the name of the sender, paginated; a member gets 403.
+      if (url.searchParams.get('all')) {
+        if (needEditor()) return
+        const everyone = [...inputs.values()].filter((i) => !wanted.length || wanted.includes(i.status)).sort((a, b) => b.created_at.localeCompare(a.created_at))
+        return send(res, 200, pageOf(everyone.map((i) => ({ ...inputView(i), author_name: members.find((x) => x.id === i.author_id)?.name ?? null }))))
+      }
       const mine = [...inputs.values()].filter((i) => i.author_id === me.id && (!wanted.length || wanted.includes(i.status)))
       // `order=desc` is the history of sends (every state, newest first); `mine=1` alone keeps the tray order.
       if (url.searchParams.get('order') === 'desc') mine.sort((a, b) => b.created_at.localeCompare(a.created_at))
@@ -920,11 +1029,12 @@ const server = createServer(async (req, res) => {
         deletedAttachments++
       }
       inputs.delete(input.id)
+      record(me, 'input.delete', 'input', input.id, { with_messages: withMessages })
       return send(res, 200, { input_id: input.id, deleted: { attachments: deletedAttachments, jobs: 1, messages: deletedMessages }, freed_bytes: freed })
     }
     if (m) {
       const input = inputs.get(m[1])
-      if (!input || input.author_id !== me.id) return fail(res, 404, 'No existe')
+      if (!input || (input.author_id !== me.id && !(isEditor && m[2] === 'reprocess'))) return fail(res, 404, 'No existe')
       if (!m[2] && method === 'GET') {
         return send(res, 200, inputView(input))
       }
@@ -969,6 +1079,7 @@ const server = createServer(async (req, res) => {
         input.units = unitsOf(input.text)
         input.status = 'queued'
         input.job_id = `j-${id()}`
+        record(me, 'input.reprocess', 'input', input.id, null)
         runJob(input)
         return send(res, 202, { input_id: input.id, job_id: input.job_id })
       }

@@ -1,6 +1,7 @@
 // Input routes (MASTER-SPEC §7.1): create (multipart, idempotent by hash), list one's own, query,
 // publish, cancel, delete (UD-240) and, for the editor, reprocess.
 
+import { forbidden } from '../../domain/errors.js'
 import { freeBlobs, releaseBlobs } from '../../domain/storage.js'
 import { cancelInput, deleteInput, editInputText, getInputView, listInputs, proposalView as presentProposal, reprocessInput, restoreInput, submitInput } from '../../domain/inputs.js'
 import { getMessage } from '../../domain/messages.js'
@@ -45,7 +46,7 @@ export function registerInputRoutes (app, ctx) {
     onRequest: [requireRole('member')],
     schema: {
       summary: 'Listar los inputs propios',
-      description: 'Siempre los del miembro de la sesión. `status` admite uno o varios estados separados por coma; sin `status` vienen todos (en cola, leyendo, analizando, propuesta, publicado, fallido y cancelado), paginados. Es el historial y el estado de los envíos propios (UD-070): un envío publicado trae sus mensajes en `messages` (id, título, área, estado y `edited_at`), uno fallido su `error` y `error_code`, y uno con la publicación automática apagada o bloqueada queda `proposed` (con `error_code: publish_blocked` si no se pudo publicar). `mine=1` pide el orden de creación ascendente con `percent`, `phrase` y `proposed_count` (la bandeja en vuelo de UD-025), por ejemplo `?mine=1&status=queued,extracting,analyzing,proposed`; sin `mine` el orden es el más reciente primero, y `order=desc|asc` lo fija a mano (el historial: `?mine=1&order=desc`).',
+      description: 'Los del miembro de la sesión; con `all=1` (sólo el Editor, 403 para un miembro) los de todos, cada uno con `author_name`, el nombre de su emisor (la cola del Editor, UD-251). `status` admite uno o varios estados separados por coma; sin `status` vienen todos (en cola, leyendo, analizando, propuesta, publicado, fallido y cancelado), paginados. Es el historial y el estado de los envíos propios (UD-070): un envío publicado trae sus mensajes en `messages` (id, título, área, estado y `edited_at`), uno fallido su `error` y `error_code`, y uno con la publicación automática apagada o bloqueada queda `proposed` (con `error_code: publish_blocked` si no se pudo publicar). `mine=1` pide el orden de creación ascendente con `percent`, `phrase` y `proposed_count` (la bandeja en vuelo de UD-025), por ejemplo `?mine=1&status=queued,extracting,analyzing,proposed`; sin `mine` el orden es el más reciente primero, y `order=desc|asc` lo fija a mano (el historial: `?mine=1&order=desc`).',
       querystring: {
         type: 'object',
         additionalProperties: false,
@@ -53,15 +54,18 @@ export function registerInputRoutes (app, ctx) {
           ...pageQuerySchema(config),
           status: { type: 'string', pattern: '^(queued|extracting|analyzing|proposed|published|failed|cancelled)(,(queued|extracting|analyzing|proposed|published|failed|cancelled))*$' },
           mine: { type: 'string', enum: ['1', 'true'] },
-          order: { type: 'string', enum: ['asc', 'desc'] }
+          order: { type: 'string', enum: ['asc', 'desc'] },
+          all: { type: 'string', enum: ['1', 'true'] }
         }
       },
-      response: { 200: pageEnvelope(inputView) }
+      response: { 200: pageEnvelope({ ...inputView, properties: { ...inputView.properties, author_name: { type: 'string', nullable: true } } }) }
     }
   }, async (request) => {
     const p = pageParams(request.query, config)
     const order = request.query.order ?? (request.query.mine ? 'asc' : 'desc')
-    const r = listInputs({ db, queue, events }, request.member.id, { status: request.query.status ?? null, limit: p.limit, offset: p.offset, order })
+    const everyone = request.query.all !== undefined
+    if (everyone && request.member.role !== 'editor') throw forbidden('Sólo el Editor lista los envíos de todos.')
+    const r = listInputs({ db, queue, events }, request.member.id, { status: request.query.status ?? null, limit: p.limit, offset: p.offset, order, everyone })
     return pageResult(r.items, r.total, p)
   })
 

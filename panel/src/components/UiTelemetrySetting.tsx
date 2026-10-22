@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Segmented } from '@/components/Segmented'
 import { SettingHint } from '@/components/SettingHint'
+import { UiSummaryLine } from '@/components/UiSummaryLine'
 import { useT } from '@/i18n'
 import { api } from '@/lib/api'
 import { useMe } from '@/lib/queries'
@@ -30,6 +31,7 @@ export function UiTelemetrySetting() {
           { value: 'off', label: t('settings.telemetryOff') },
         ]}
       />
+      <UiSummaryLine enabled={enabled} />
     </section>
   )
 }

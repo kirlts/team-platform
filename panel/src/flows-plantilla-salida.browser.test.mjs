@@ -55,6 +55,7 @@ describe('Template output', () => {
         assert.deepEqual(terms.slice(0, 2), ['Campos', 'Salida'])
         const entries = (await row.locator('[data-template-output] li').allInnerTexts()).map((x) => x.replace(/\s+/g, ' ').trim())
         assert.deepEqual(entries, ['Causa Obligatorio', 'Rama', 'Resultado', 'Resumen'])
+        await row.locator('[data-template-output]').scrollIntoViewIfNeeded()
         await shot(page, `salida-fila-${viewport.width}-${colorScheme}`)
       } finally {
         await context.close()

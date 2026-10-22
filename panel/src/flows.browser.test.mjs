@@ -600,6 +600,8 @@ describe('Inicio (UD-030)', () => {
       assert.ok(box.height >= 900 / 3, `the latest messages measure ${box.height} px`)
       // The analysis text stands out the most: larger than the rest of the analysis, in its justified reading typeface.
       await control.click()
+      // The messages of the send start folded (UD-257): the first one is opened to read its text.
+      await drawer.getByRole('button', { name: /^Abrir el mensaje 1:/ }).click()
       const body = page.getByRole('button', { name: /^Texto del mensaje/ }).first()
       await body.waitFor()
       const fontOf = (locator) => locator.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
@@ -839,8 +841,9 @@ describe('publishing flow (round 1, judge B)', () => {
       await notice.getByText('Envío descartado').waitFor()
       await page.getByRole('button', { name: /^Título del mensaje: Título corregido/ }).waitFor({ state: 'detached' })
       await notice.getByRole('button', { name: 'Deshacer' }).click()
-      // The send goes back to the inbox, with the proposal as it was edited.
-      await page.getByRole('button', { name: /^Título del mensaje: Título corregido antes de descartar/ }).waitFor({ timeout: 10000 })
+      // The send goes back to the inbox, with the proposal as it was edited; its messages come back folded (UD-257).
+      await page.getByRole('button', { name: /^Abrir el mensaje 1: Título corregido antes de descartar/ }).click({ timeout: 10000 })
+      await page.getByRole('button', { name: /^Título del mensaje: Título corregido antes de descartar/ }).waitFor()
     } finally {
       await context.close()
     }

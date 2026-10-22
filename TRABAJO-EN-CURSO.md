@@ -14,18 +14,18 @@
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
 - `main`: 6911ecb vps-check: la prueba espera el borrado del envío de prueba. Empujado a origin: `6911ecb`.
-- Ramas con commits sin fusionar: `wt-eje-documental` 6 (hace 0 segundos), `wt-sin-confirmaciones` 3 (hace 11 segundos), `wt-borrado-multiple` 2 (hace 3 minutos), `wt-inicio-listas` 2 (hace 7 segundos).
+- Ramas con commits sin fusionar: `wt-eje-documental` 8 (hace 55 segundos), `wt-borrado-multiple` 3 (hace 44 segundos), `wt-inicio-listas` 3 (hace 53 segundos), `wt-sin-confirmaciones` 3 (hace 2 minutos).
 - Worktrees abiertos: `team-platform`, `borrado-multiple`, `eje-documental`, `inicio-listas`, `sin-confirmaciones`.
 - Últimos commits en `main`:
-- `6911ecb` vps-check: la prueba espera el borrado del envío de prueba (hace 89 segundos)
-- `5fc1f6a` Merge branch 'wt-editar-respuestas' (hace 3 minutos)
-- `826af58` Docs: reply edit in MASTER-SPEC §7.1 and §7.2; H-3714 done (hace 4 minutos)
-- `b36b648` Flow: editing a reply in the browser, registered in test:flows (H-3714) (hace 4 minutos)
-- `d6fb0f7` Panel: the author of a reply edits its text in place, with Deshacer and «Editada» (H-3714) (hace 5 minutos)
-- `5d82500` Reply edit by its author: PATCH /messages/:id/replies/:replyId (H-3714) (hace 7 minutos)
-- `cf04e5a` Traspaso: UD-253 en cuatro agentes (hace 7 minutos)
-- `1866265` Conexiones: quitar «Apagadas hasta que la descomposición esté probada» (pedido del dueño) (hace 7 minutos)
-Actualizado 2026-10-22 02:20 UTC.
+- `6911ecb` vps-check: la prueba espera el borrado del envío de prueba (hace 3 minutos)
+- `5fc1f6a` Merge branch 'wt-editar-respuestas' (hace 5 minutos)
+- `826af58` Docs: reply edit in MASTER-SPEC §7.1 and §7.2; H-3714 done (hace 6 minutos)
+- `b36b648` Flow: editing a reply in the browser, registered in test:flows (H-3714) (hace 6 minutos)
+- `d6fb0f7` Panel: the author of a reply edits its text in place, with Deshacer and «Editada» (H-3714) (hace 7 minutos)
+- `5d82500` Reply edit by its author: PATCH /messages/:id/replies/:replyId (H-3714) (hace 9 minutos)
+- `cf04e5a` Traspaso: UD-253 en cuatro agentes (hace 9 minutos)
+- `1866265` Conexiones: quitar «Apagadas hasta que la descomposición esté probada» (pedido del dueño) (hace 9 minutos)
+Actualizado 2026-10-22 02:22 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

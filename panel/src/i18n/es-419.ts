@@ -199,6 +199,7 @@ export const es419 = {
   'proposal.sendN': { one: 'Enviar {n} mensaje', other: 'Enviar {n} mensajes' },
   'proposal.noActionTitle': { one: '{n} parte del texto sin mensaje', other: '{n} partes del texto sin mensaje' },
   'proposal.removedNotice': 'Mensaje quitado: {title}',
+  'proposal.fold': 'Plegar el mensaje {n}: {title}',
   'proposal.open': 'Abrir el mensaje {n}: {title}',
   'proposal.to': 'para {names}',
   'proposal.noRecipients': 'sin destinatarios',

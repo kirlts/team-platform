@@ -1,8 +1,8 @@
 import { ChevronRight } from '@/components/icons'
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { useErrorText, useFormat, useT } from '@/i18n'
-import { useAddAttachments, useMe, useMessage, usePatchMessage, useTemplates } from '@/lib/queries'
+import { useAddAttachments, useMe, useMessagesById, usePatchMessage, useTemplates } from '@/lib/queries'
 import { parseTemplateFields, remapFields } from '@/lib/template'
 import type { InputRecord, MessageDetail, MessagePatch, Template } from '@/lib/types'
 import { useUndo } from '@/lib/undo'
@@ -13,6 +13,7 @@ import { DeleteSend } from './DeleteSend'
 import { AreaPicker } from './AreaPicker'
 import { AttachmentPicker } from './AttachmentPicker'
 import { EditableText } from './EditableText'
+import { MessageFoldRow, MessageTally } from './MessageFold'
 import { RecipientsEditor } from './RecipientsEditor'
 import { SimulatedMark } from './SimulatedMark'
 import { StatusBadge } from './StatusBadge'
@@ -23,11 +24,17 @@ import { UndoButtons } from './UndoButtons'
  * What a send became once the analysis ended (UD-070): its messages, already published to the team, each in its own box in the color of
  * its area. The sender edits them right here (UD-071): the same controls the proposal had, saving on the published message with the version that
  * was read. Nobody else sees the controls. There is no confirmation step; a message that is wrong is corrected, and the history above takes a change back.
+ * The list opens with the count of messages and each message is a folded row (UD-254): a click opens it with everything above, another folds it.
  */
 export function PublishedPane({ input, onDeleted }: { input: InputRecord; onDeleted?: (id: string) => void }) {
   const t = useT()
   const stack = useUndo()
   const ids = input.message_ids ?? input.messages?.map((m) => m.id) ?? []
+  const loaded = useMessagesById(ids)
+  // The area of each message as it is now (an edit changes it); until a message loads, the one the send recorded.
+  const areaIds = ids.map((id, i) => loaded[i]?.data?.area_id ?? input.messages?.find((m) => m.id === id)?.area_id ?? '').filter(Boolean)
+  const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
+  const toggle = (id: string) => setOpen((prev) => { const next = new Set(prev); if (!next.delete(id)) next.add(id); return next })
   return (
     <section aria-label={t('analysis.title')} data-testid="published-pane" className="@container flex min-h-0 min-w-0 flex-col gap-2">
       <div className="flex min-h-8 flex-wrap items-center gap-x-3 gap-y-1">
@@ -38,10 +45,23 @@ export function PublishedPane({ input, onDeleted }: { input: InputRecord; onDele
         <UndoButtons stack={stack} />
       </div>
       {/* The messages of a send have no maximum length: the list is as tall as it is and the page scrolls (UD-110); no box is ever cut. */}
-      <ul className="flex flex-1 flex-col gap-2">
-        {ids.map((id) => (
-          <PublishedMessage key={id} id={id} input={input} />
-        ))}
+      <MessageTally areaIds={areaIds} />
+      <ul aria-label={t('proposal.list')} className="flex flex-1 flex-col">
+        {ids.map((id, i) => {
+          const m = loaded[i]?.data
+          if (!m) {
+            return (
+              <li key={id} role="status" className="list-none border-b border-line px-1 py-2 text-sm text-muted last:border-b-0">
+                {t('common.loading')}
+              </li>
+            )
+          }
+          return (
+            <MessageFoldRow key={id} testId="published-message" data-area-id={m.area_id} index={i} areaId={m.area_id} title={m.title} assigneeIds={m.assignee_ids} open={open.has(id)} onToggle={() => toggle(id)}>
+              <Box m={m} input={input} />
+            </MessageFoldRow>
+          )
+        })}
       </ul>
       {/* The send can go while its messages stay, or with them (UD-240). Last, under the result: a destructive step does not
           share the title row, and on a phone the result keeps starting in the first screen. */}
@@ -50,19 +70,6 @@ export function PublishedPane({ input, onDeleted }: { input: InputRecord; onDele
       </div>
     </section>
   )
-}
-
-function PublishedMessage({ id, input }: { id: string; input: InputRecord }) {
-  const t = useT()
-  const query = useMessage(id)
-  if (!query.data) {
-    return (
-      <li role="status" className="rounded-md border border-line px-3 py-4 text-sm text-muted">
-        {t('common.loading')}
-      </li>
-    )
-  }
-  return <Box m={query.data} input={input} />
 }
 
 function Box({ m, input }: { m: MessageDetail; input: InputRecord }) {
@@ -84,7 +91,7 @@ function Box({ m, input }: { m: MessageDetail; input: InputRecord }) {
     undo.run({ label, redo: () => patchMessage.mutateAsync({ id: m.id, patch: forward }), undo: () => patchMessage.mutateAsync({ id: m.id, patch: back }) })
 
   return (
-    <li data-testid="published-message" data-area-id={m.area_id} style={style} className="area-tint area-box flex list-none flex-col gap-2 p-3">
+    <div data-testid="published-body" style={style} className="area-tint area-box flex flex-col gap-2 p-3">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
         {canEdit ? (
           <AreaPicker
@@ -162,6 +169,6 @@ function Box({ m, input }: { m: MessageDetail; input: InputRecord }) {
           {errorText(patchMessage.isError ? patchMessage.error : addFiles.error)}
         </p>
       )}
-    </li>
+    </div>
   )
 }

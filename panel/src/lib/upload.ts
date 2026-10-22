@@ -8,6 +8,8 @@ export interface NewInput {
   text: string
   files: File[]
   links: string[]
+  /** «Enviar como» (UD-255): the member the input is sent in the name of; without it, the member of the session. */
+  asMemberId?: string
 }
 
 export interface CreatedInput {
@@ -36,6 +38,7 @@ export function uploadInput(
     form.append('text', input.text)
     for (const file of input.files) form.append('files', file, file.name)
     for (const link of input.links) form.append('links', link)
+    if (input.asMemberId) form.append('as_member_id', input.asMemberId)
 
     const xhr = new XMLHttpRequest()
     xhr.open('POST', `${API_BASE}/inputs`)

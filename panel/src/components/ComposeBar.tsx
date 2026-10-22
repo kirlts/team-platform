@@ -2,14 +2,44 @@ import { Send } from '@/components/icons'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { useT } from '@/i18n'
+import { useMe, useMembers } from '@/lib/queries'
 import { useMediaDraft } from '@/lib/useMediaDraft'
 import { cn } from '@/lib/utils'
 import { CaptureButtons, ClipMenu, MediaDraftList, RecordingStatus } from './MediaDraft'
+import { NativeSelect } from './NativeSelect'
 
 export interface SendDraft {
   text: string
   files: File[]
   links: string[]
+  /** «Enviar como» (UD-255): the member chosen; absent when it is the member of the session. */
+  asMemberId?: string
+}
+
+/**
+ * «Enviar como» (UD-255): every active person of the team, the member of the session first selected. A member of kind
+ * agent is not offered: the API refuses to send in its name.
+ */
+function SendAs({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+  const t = useT()
+  const me = useMe().data
+  const members = useMembers().data ?? []
+  const people = members.filter((m) => m.active !== false && (m as { kind?: string }).kind !== 'agent')
+  if (me && !people.some((m) => m.id === me.id)) people.unshift(me)
+  return (
+    <label className="flex min-w-0 items-center gap-2 text-sm text-muted max-md:order-first max-md:w-full max-md:pb-1 md:ml-auto md:mr-1">
+      <span className="shrink-0">{t('compose.sendAs')}</span>
+      <span className="min-w-0 flex-1 md:w-44 md:flex-none">
+        <NativeSelect data-testid="compose-send-as" value={value} onChange={(e) => onChange(e.target.value)} className="truncate">
+          {people.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.name}
+            </option>
+          ))}
+        </NativeSelect>
+      </span>
+    </label>
+  )
 }
 
 /**
@@ -21,7 +51,11 @@ export interface SendDraft {
 export function ComposeBar({ onSubmit, problem }: { onSubmit: (draft: SendDraft) => void; problem?: string | null }) {
   const t = useT()
   const draft = useMediaDraft()
+  const me = useMe().data
   const [text, setText] = useState('')
+  /** The member chosen in «Enviar como»; empty means the member of the session (the default, UD-255). */
+  const [sendAs, setSendAs] = useState('')
+  const author = sendAs || me?.id || ''
   const [dragging, setDragging] = useState(false)
   const textArea = useRef<HTMLTextAreaElement>(null)
   const box = useRef<HTMLDivElement>(null)
@@ -66,7 +100,7 @@ export function ComposeBar({ onSubmit, problem }: { onSubmit: (draft: SendDraft)
     if (empty || draft.recording) return
     const files = draft.locals.map((l) => l.file)
     const links = draft.links
-    onSubmit({ text, files, links })
+    onSubmit({ text, files, links, ...(me && author && author !== me.id ? { asMemberId: author } : {}) })
     // The files are handed over: only the previews are released, the Files themselves live on in the upload.
     draft.clear()
     setText('')
@@ -118,8 +152,10 @@ export function ComposeBar({ onSubmit, problem }: { onSubmit: (draft: SendDraft)
         )}
       </div>
       {/* The controls of the bar sit under the field, quiet: the clip on the left (as in the mockup) and, together, camera, microphone and send on the right. */}
-      <div className="flex items-center gap-1 px-3 pb-3 pt-2">
+      <div className="flex flex-wrap items-center gap-1 px-3 pb-3 pt-2">
         <ClipMenu draft={draft} />
+        {/* «Enviar como» sits in the row of the controls on a desk and on a row of its own above them on a phone. */}
+        {author && <SendAs value={author} onChange={setSendAs} />}
         <div className="ml-auto flex items-center gap-1">
           <CaptureButtons draft={draft} />
           <Button variant="primary" size="icon" data-testid="compose-send" aria-label={t('compose.send')} title={t('compose.sendHint')} disabled={empty || !!draft.recording} onClick={send}>

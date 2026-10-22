@@ -376,7 +376,7 @@ function publishProposal(input, proposal) {
   const created = []
   for (const pm of proposal.messages) {
     const tpl = activeTemplate(pm.area_id, pm.template_id)
-    const msg = seedMessage({ input_id: input.id, area_id: pm.area_id, template_id: tpl?.id ?? null, fields: pm.fields ?? {}, author_id: input.author_id, title: pm.title.trim(), body: pm.body.trim(), status: 'open', created_at: new Date().toISOString(), assignee_ids: pm.assignee_ids ?? [], attachment_ids: pm.attachment_ids ?? [] })
+    const msg = seedMessage({ input_id: input.id, area_id: pm.area_id, template_id: tpl?.id ?? null, fields: pm.fields ?? {}, author_id: input.author_id, sent_by_id: input.sent_by_id ?? null, title: pm.title.trim(), body: pm.body.trim(), status: 'open', created_at: new Date().toISOString(), assignee_ids: pm.assignee_ids ?? [], attachment_ids: pm.attachment_ids ?? [] })
     created.push(msg.id)
     for (const to of msg.assignee_ids) if (to !== input.author_id) emit(to, 'message', { message_id: msg.id, title: msg.title, author_id: input.author_id, at: msg.created_at })
   }
@@ -981,12 +981,18 @@ const server = createServer(async (req, res) => {
       const files = parts.filter((p) => p.name === 'files' && p.filename)
       const links = parts.filter((p) => p.name === 'links').map((p) => p.data.toString('utf8'))
       if (!text.trim() && !files.length && !links.length) return fail(res, 400, 'El input está vacío', 'empty_input')
+      // «Enviar como» (UD-255): the author is the member chosen; `sent_by_id` keeps who had the session when it is someone else.
+      const asId = parts.find((p) => p.name === 'as_member_id')?.data.toString('utf8') || me.id
+      const author = members.find((x) => x.id === asId)
+      if (!author || author.active === false) return fail(res, 400, '«Enviar como» no es un miembro activo.', 'send_as_invalid')
+      if (author.kind === 'agent') return fail(res, 400, 'No se envía en nombre de un miembro agente.', 'cannot_send_as_agent')
+      const sentBy = author.id === me.id ? null : me.id
       // Rejections before queueing, like the API's: a large file or a long video (the name triggers it).
       const huge = files.find((f) => /demasiado-grande/.test(f.filename))
       if (huge) return fail(res, 413, 'Un archivo supera el tamaño máximo permitido.', `${kindOf(huge.type ?? '')}_too_large`)
       const long = files.find((f) => /video-largo/.test(f.filename))
       if (long) return fail(res, 422, 'El video dura demasiado.', 'video_too_long')
-      const hash = createHash('sha256').update(me.id).update(text.trim()).update(files.map((f) => createHash('sha256').update(f.data).digest('hex')).join()).update(links.join()).digest('hex')
+      const hash = createHash('sha256').update(author.id).update(text.trim()).update(files.map((f) => createHash('sha256').update(f.data).digest('hex')).join()).update(links.join()).digest('hex')
       const existing = [...inputs.values()].find((i) => i.content_hash === hash && i.status !== 'cancelled' && i.status !== 'published')
       if (existing) return send(res, 200, { input_id: existing.id, job_id: existing.job_id })
       const inputId = `i-${id()}`
@@ -1002,8 +1008,9 @@ const server = createServer(async (req, res) => {
         attachments.set(a.id, a)
         attachmentIds.push(a.id)
       }
-      const input = { id: inputId, author_id: me.id, text, content_hash: hash, status: 'queued', created_at: new Date().toISOString(), job_id: `j-${id()}`, attachment_ids: attachmentIds, units: unitsOf(text), proposal: null, error: null }
+      const input = { id: inputId, author_id: author.id, sent_by_id: sentBy, text, content_hash: hash, status: 'queued', created_at: new Date().toISOString(), job_id: `j-${id()}`, attachment_ids: attachmentIds, units: unitsOf(text), proposal: null, error: null }
       inputs.set(input.id, input)
+      record(me, 'input.create', 'input', input.id, { atts: attachmentIds.length, author_id: author.id, sent_by_id: me.id })
       runJob(input)
       return send(res, 201, { input_id: input.id, job_id: input.job_id })
     }

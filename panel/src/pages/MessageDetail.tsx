@@ -219,6 +219,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
               <Avatar name={memberName(m.author_id) || '?'} size={20} />
               {memberName(m.author_id)}
             </span>
+            {m.sent_by_id && m.sent_by_id !== m.author_id && <span data-testid="sent-by">{t('published.sentBy', { name: memberName(m.sent_by_id) })}</span>}
             <time dateTime={m.created_at} className="tabular-nums">
               {format.stamp(m.created_at)}
             </time>

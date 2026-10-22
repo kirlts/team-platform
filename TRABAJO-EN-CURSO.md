@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: e796cd5 Traspaso: encargo UD-240 en vuelo en cuatro ramas. Empujado a origin: `e796cd5`.
+- `main`: 7a4105f UD-241: descripción de tarjeta en una línea y pulido de primer vistazo. Empujado a origin: `7a4105f`.
 - Ramas con commits sin fusionar: ninguna.
-- Worktrees abiertos: `team-platform`, `borrar-envios`, `borrar-mensajes`, `eliminar-miembros`, `vaciar-sembrar`.
+- Worktrees abiertos: `team-platform`, `borrar-envios`, `borrar-mensajes`, `eliminar-miembros`, `tarjetas-vistazo`, `vaciar-sembrar`.
 - Últimos commits en `main`:
-- `e796cd5` Traspaso: encargo UD-240 en vuelo en cuatro ramas (hace 34 segundos)
-- `b9fd82b` UD-240: borrar mensajes, respuestas, envíos y miembros; vaciar y sembrar (hace 3 minutos)
+- `7a4105f` UD-241: descripción de tarjeta en una línea y pulido de primer vistazo (hace 2 minutos)
+- `e796cd5` Traspaso: encargo UD-240 en vuelo en cuatro ramas (hace 6 minutos)
+- `b9fd82b` UD-240: borrar mensajes, respuestas, envíos y miembros; vaciar y sembrar (hace 8 minutos)
 - `c7489cd` Traspaso final: plan ejecutado, queda sólo lo que necesita al dueño (hace 2 horas)
 - `d1b004e` Merge branch 'wt-resto' (hace 2 horas)
 - `6038b8c` Retira capturas sueltas de panel/undefined (hace 2 horas)
 - `bc2e07d` Merge branch 'wt-respuestas' (hace 2 horas)
 - `f7e8cbc` Inicio: fecha y hora (UD-230) y prueba de Para mí al rótulo vigente (hace 2 horas)
-- `a155083` Merge main into wt-respuestas (hace 2 horas)
-Actualizado 2026-10-22 00:18 UTC.
+Actualizado 2026-10-22 00:23 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

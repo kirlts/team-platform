@@ -175,3 +175,4 @@ Se lanza un subagente por archivo de `~/.cache/claude-tmp/juicios/ronda4/encargo
 | 3 Jueces y arreglos | hecho: rondas 4 y 5 y sus arreglos en main | 19:30 |
 | 4 Abiertos sin pantalla | hecho: VPS, banco, deuda, Firefox, miniaturas y remanentes en main | 18:45 |
 | 5 Cierre y VPS | hecho: VPS en d1b004e, documentos y libro al día | 19:30 |
+| 6 Borrar y vaciar (UD-240) | en curso: cuatro ramas lanzadas 21:17 | hora estimada 23:15 |

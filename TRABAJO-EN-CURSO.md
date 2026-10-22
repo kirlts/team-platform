@@ -30,11 +30,16 @@ Actualizado 2026-10-21 22:28 UTC.
 
 ## Trabajo en vuelo
 
-Ninguno. Todas las ramas `wt-*` están fusionadas en `main` y sus worktrees retirados. El plan de cierre (`docs/PLAN-DE-CIERRE.md`) está ejecutado. Estado de `main` el 2026-10-21 19:30: servidor 874 de 880 (6 omitidas), banco 74 de 74, panel 185 de 185, ajuste de pantalla 26 de 26, flujos de navegador 221 de 222. El VPS corre `d1b004e` y `node scripts/vps-check.mjs` imprime OK.
+Encargo UD-240 (borrar y vaciar), lanzado el 2026-10-21 21:17, cuatro agentes a la vez:
 
-Última ronda de jueces (ronda 5, 10 pantallas): nota 2 en todas, 41 hallazgos, ninguno de severidad 4 o 5; atendidos o refutados con su fila. No se hace ronda 6: cada ronda halla lo siguiente de la fila.
+| Rama | Qué | Migración |
+|---|---|---|
+| `wt-borrar-mensajes` | borrar y restaurar mensajes y respuestas (H-3700, H-3701) | 0010 |
+| `wt-borrar-envios` | borrar un envío con adjuntos y trabajos (H-3702) | 0011 si hace falta |
+| `wt-eliminar-miembros` | eliminar un miembro, con o sin su historial (H-3703) | 0012 si hace falta |
+| `wt-vaciar-sembrar` | vaciar datos de prueba, `scripts/vaciar.mjs`, `scripts/sembrar.mjs`, sección Datos (H-3704) | 0013 si hace falta |
 
-Auditoría de `idea.md` (`~/.cache/claude-tmp/auditoria-idea.md`, 47 requisitos): sin requisitos faltantes; las brechas encontradas están cerradas (H-3600 a H-3606 y UD-230).
+Al terminar cada uno: fusión a `main` con la receta de siempre y VPS con `~/.cache/claude-tmp/tp/actualizar-vps.sh`. Estado de `main` antes del encargo (19:30): servidor 874 de 880 (6 omitidas), banco 74 de 74, panel 185 de 185, ajuste de pantalla 26 de 26, flujos 221 de 222. El VPS corre `d1b004e`.
 
 ## Qué se midió
 

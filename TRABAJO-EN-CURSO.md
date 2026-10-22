@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 3ce07b6 Traspaso: cuatro agentes corrigen la auditoría de paridad. Empujado a origin: `e10d713`.
-- Ramas con commits sin fusionar: `wt-restaurar-borrados` 1 (hace 3 segundos).
+- `main`: 3ce07b6 Traspaso: cuatro agentes corrigen la auditoría de paridad. Empujado a origin: `3ce07b6`.
+- Ramas con commits sin fusionar: `wt-cola-auditoria` 2 (hace 34 segundos), `wt-restaurar-borrados` 2 (hace 28 segundos), `wt-ajustes-equipo` 1 (hace 2 minutos).
 - Worktrees abiertos: `team-platform`, `adjuntos-ficha`, `ajustes-equipo`, `cola-auditoria`, `restaurar-borrados`.
 - Últimos commits en `main`:
-- `3ce07b6` Traspaso: cuatro agentes corrigen la auditoría de paridad (hace 40 segundos)
-- `6b0f665` Borrar desde la pantalla: ícono en cada tarjeta, fila de Áreas y vista de un área; título de tarjeta en una línea (UD-240, UD-241) (hace 2 minutos)
-- `e10d713` Traspaso: corrección de borrado visible y auditoría de paridad en curso (hace 2 minutos)
-- `97dd42f` Traspaso: batería completa en verde sobre 300c83b (hace 29 minutos)
-- `676f043` Traspaso: VPS en 300c83b (hace 32 minutos)
-- `7fd91d7` Traspaso: regresiones de la batería arregladas en 300c83b (hace 34 minutos)
-- `300c83b` Panel: tres ajustes tras fusionar UD-240 y UD-241 (hace 34 minutos)
-- `272aeab` Traspaso: VPS en 6d87672 con UD-240 y UD-241 (hace 49 minutos)
-Actualizado 2026-10-22 01:38 UTC.
+- `3ce07b6` Traspaso: cuatro agentes corrigen la auditoría de paridad (hace 3 minutos)
+- `6b0f665` Borrar desde la pantalla: ícono en cada tarjeta, fila de Áreas y vista de un área; título de tarjeta en una línea (UD-240, UD-241) (hace 4 minutos)
+- `e10d713` Traspaso: corrección de borrado visible y auditoría de paridad en curso (hace 4 minutos)
+- `97dd42f` Traspaso: batería completa en verde sobre 300c83b (hace 31 minutos)
+- `676f043` Traspaso: VPS en 300c83b (hace 34 minutos)
+- `7fd91d7` Traspaso: regresiones de la batería arregladas en 300c83b (hace 36 minutos)
+- `300c83b` Panel: tres ajustes tras fusionar UD-240 y UD-241 (hace 36 minutos)
+- `272aeab` Traspaso: VPS en 6d87672 con UD-240 y UD-241 (hace 51 minutos)
+Actualizado 2026-10-22 01:40 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

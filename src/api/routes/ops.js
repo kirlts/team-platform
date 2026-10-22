@@ -1,8 +1,10 @@
 // Editor operations routes: the job queue, its purge and the log.
 
 import { audit, listAudit } from '../../domain/audit.js'
-import { notFound } from '../../domain/errors.js'
+import { AppError, notFound } from '../../domain/errors.js'
 import { traceOfJob } from '../../domain/tracing.js'
+import { resetData, SCOPES } from '../../domain/reset.js'
+import { readSeedSet } from '../../db/seed.js'
 import { idParams } from '../schemas.js'
 import { requireConfirm } from '../confirm.js'
 import { pageEnvelope, pageParams, pageQuerySchema, pageResult } from '../pagination.js'
@@ -74,6 +76,32 @@ export function registerOpsRoutes (app, ctx) {
     const purged = queue.purgeJobs(request.query.state)
     audit(db, { memberId: request.member.id, action: 'jobs.purge', entity: 'job', detail: { state: request.query.state, purged } })
     return { purged }
+  })
+
+  app.post('/ops/reset', {
+    onRequest: [requireRole('editor')],
+    schema: {
+      summary: 'Empty the test data (editor; requires ?confirm=true)',
+      description: '`content`: inputs, attachments, jobs, proposals, messages, replies and telemetry spans, plus the files of the attachments volume left without a reference; members, areas, templates, settings and provider connections stay. `everything`: also every member except the one who asks, and areas and templates go back to the initial set of `templates/`. One transaction; the audit log keeps its history and gains a `data.reset` row with the same figures (UD-240).',
+      querystring: { type: 'object', additionalProperties: false, properties: { confirm: { type: 'boolean' } } },
+      body: { type: 'object', additionalProperties: false, required: ['scope'], properties: { scope: { type: 'string', enum: SCOPES } } },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            scope: { type: 'string' }, deleted: { type: 'object', additionalProperties: { type: 'integer' } },
+            files: { type: 'integer' }, bytes_freed: { type: 'integer' }
+          }
+        }
+      }
+    }
+  }, async (request) => {
+    requireConfirm(request)
+    const { scope } = request.body
+    await telemetry?.flush() // spans still queued would land after the delete
+    const seedSet = scope === 'everything' ? await readSeedSet(config) : null
+    if (scope === 'everything' && !seedSet) throw new AppError(500, 'seed_missing', 'No está el juego inicial de áreas y plantillas.')
+    return resetData(db, config, { scope, actorId: request.member.id, keepMemberId: request.member.id, seedSet })
   })
 
   app.get('/audit', {

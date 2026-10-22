@@ -34,7 +34,7 @@ import { registerTelemetryRoutes } from './routes/telemetry.js'
 import { errorSchema, member as memberSchema } from './schemas.js'
 
 
-const LABELS = { telemetry: 'Telemetry', auth: 'Session', me: 'Session', inputs: 'Inputs', messages: 'Messages', areas: 'Areas and templates', templates: 'Areas and templates', members: 'Team', settings: 'Settings', attachments: 'Attachments', events: 'Events', jobs: 'Operations', audit: 'Operations', health: 'Operations', openapi: 'Operations' }
+const LABELS = { telemetry: 'Telemetry', auth: 'Session', me: 'Session', inputs: 'Inputs', messages: 'Messages', areas: 'Areas and templates', templates: 'Areas and templates', members: 'Team', settings: 'Settings', attachments: 'Attachments', events: 'Events', jobs: 'Operations', ops: 'Operations', audit: 'Operations', health: 'Operations', openapi: 'Operations' }
 
 /**
  * Builds the application. `deps`: { db, config, queue, events, modules, logger }. It neither listens nor starts the worker.

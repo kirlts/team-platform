@@ -5,9 +5,10 @@ import { noticeDuration, useNotices } from '@/lib/notices'
 import { cn } from '@/lib/utils'
 
 /**
- * Where the current notice is drawn. It never moves what is being read (J2-B-21, J2-B-25) and it is centered (UD-253): at the
- * bottom of a phone and, from the width of a tablet, in the top bar, where it covers no content and nothing under it needs a click
- * (J3-B-15: at the bottom it hid the pager of the lists). There is one copy and one place (H-904).
+ * Where the current notice is drawn. It never moves what is being read (J2-B-21, J2-B-25) and it is centered on the window (UD-253):
+ * at the bottom up to 1023 px and, from 1024 px, in the top bar, where it covers no content and nothing under it needs a click
+ * (J3-B-15). There the name of the project takes up to 16 rem on the left, so the notice is at most the width minus twice that and never
+ * reaches it; at 768 px that left 256 px and the text broke into three lines, so a tablet keeps it at the bottom. One copy, one place (H-904).
  * It leaves by itself (UD-253): the count stops while the pointer or the focus is on it, and Escape takes it away. There is no
  * close button: a status that leaves alone and pauses for whoever reaches it meets WCAG 2.2.1 without one.
  * Its text says what happened and to whom, the link goes to it, the action undoes it.
@@ -49,7 +50,7 @@ function NoticeView({ notice, dismiss }: { notice: NonNullable<ReturnType<typeof
   }, [dismiss])
 
   return (
-    <div className="pointer-events-none fixed inset-x-4 bottom-4 z-40 flex justify-center md:inset-x-0 md:bottom-auto md:top-1.5">
+    <div className="pointer-events-none fixed inset-x-4 bottom-4 z-40 flex justify-center lg:inset-x-0 lg:bottom-auto lg:top-1.5">
       <div
         role={danger ? 'alert' : 'status'}
         aria-live={danger ? 'assertive' : 'polite'}
@@ -60,7 +61,7 @@ function NoticeView({ notice, dismiss }: { notice: NonNullable<ReturnType<typeof
         onPointerLeave={() => setHeld((h) => ({ ...h, pointer: false }))}
         onFocus={() => setHeld((h) => ({ ...h, focus: true }))}
         onBlur={(e) => !e.currentTarget.contains(e.relatedTarget as Node | null) && setHeld((h) => ({ ...h, focus: false }))}
-        className={cn('pop pointer-events-auto flex min-h-9 max-w-xl items-start gap-2 rounded-lg px-3 py-1.5 text-sm shadow-pop', danger ? 'text-danger' : 'text-fg')}
+        className={cn('pop pointer-events-auto flex min-h-9 max-w-xl items-start lg:max-w-[min(36rem,calc(100vw-32rem))] gap-2 rounded-lg px-3 py-1.5 text-sm shadow-pop', danger ? 'text-danger' : 'text-fg')}
       >
         {!danger && <Check size={16} aria-hidden className="mt-0.5 shrink-0 text-accent" />}
         <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-0.5 self-center">

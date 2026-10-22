@@ -51,7 +51,8 @@ Seis encargos independientes, a la vez, cada uno en su rama.
 | A2 Panel montable | `API_PREFIX` y `basename` leídos del entorno; nombre de cookie por instancia; retorno del SSO configurable; CSP con `connect-src` del anfitrión | Dos instancias en un mismo nombre de host sin pisarse la sesión |
 | A3 Encuadre por instalación | El encuadre del prompt («equipo de software») y las frases de progreso pasan a ajustes editables por el Editor; el catálogo de proveedores admite uno nuevo sin tocar código | Prueba de que el prompt lleva el encuadre guardado |
 | A4 Salida declarada en la plantilla | Un bloque de salida en el frontmatter de cada plantilla, compilado con el mismo `compileFieldsSchema`, exigido como `--json-schema` al harness; sin `structured_output` el trabajo falla | Prueba con una plantilla que declara salida y un harness falso que la omite |
-| A5 Trabajo `execute` y miembro agente | Tipo de trabajo `execute` en la cola, con progreso y traza; un miembro de tipo agente con credencial propia (firma `signed-header` o JWT emitido por Team Platform) que responde y cierra por la API; `WORKER_MODE=external` con un trabajador que corre `claude -p` y crea y apaga la máquina | Prueba de API con un `claude` falso; traza con costo real |
+| A5 Trabajo `execute` y miembro agente | Tipo de trabajo `execute` en la cola, con progreso y traza; un miembro de tipo agente con credencial propia (firma `signed-header` o JWT emitido por Team Platform) que responde y cierra por la API; `WORKER_MODE=external` con un trabajador que corre `claude -p` (Sonnet 5.5, razonamiento medio, `--max-budget-usd 10`, `bypassPermissions`, hasta tres subagentes con la instrucción de paralelizar) y crea y apaga la máquina. El harness recibe la credencial y una orden `team reply` para responder: una al empezar y otra al terminar, en un par de párrafos dirigidos a quien envió, con su perfil y la descripción del proyecto (UD-255) | Prueba de API con un `claude` falso que deja las dos respuestas; traza con costo real |
+| A7 «Enviar como» | Desplegable en la barra de envío para enviar en nombre de otro miembro, con el miembro de la sesión por omisión; `POST /inputs` acepta el autor elegido y la auditoría guarda quién tenía la sesión (UD-255) | Flujo de navegador: Pablo envía como Alejandro y el mensaje queda de Alejandro, con la auditoría correcta |
 | A6 Cliente del contrato | Paquete `@team-platform/client` extraído de `queries.ts`: claves de caché, invalidaciones, versión al editar, deshacer, multipart, códigos de error; tipos generados del OpenAPI | El panel actual pasa a usarlo sin cambio de comportamiento: batería de navegador en verde |
 
 Ruta crítica: A5 depende de A4. El resto corre en paralelo. Estimado: 1 h de reloj hasta `main` con la batería completa.
@@ -61,7 +62,7 @@ Ruta crítica: A5 depende de A4. El resto corre en paralelo. Estimado: 1 h de re
 | Encargo | Qué entrega |
 |---|---|
 | B1 Instancia | Servicio `team-platform` en el compose de Devalis (patrón de `compose.override.example.yml`), con su volumen, `PROJECT_NAME=Devalis`, encuadre de Devalis y la llave de API en el secreto de la máquina. Caddy sirve `team.devalis.cl` apuntando a él en lugar de `/mesa` |
-| B2 Identidad | La consola firma el JWT RS256 de superadministrador; Team Platform lo valida con la llave pública en el modo de A1 y da de alta al miembro con el rol decidido |
+| B2 Identidad | Login propio en `team.devalis.cl` que comparte la cookie de sesión con la consola: una cookie con `Domain=.devalis.cl` que la consola también lee (hoy guarda el JWT en `sessionStorage`). Team Platform valida el JWT RS256 con la llave pública en el modo de A1 y da de alta al miembro; Martín editor, el resto miembros (UD-255) |
 | B3 Interfaz | Las vistas de Team Platform (Inicio, Mensajes, ficha, Áreas, Equipo, Configuración) dentro de la aplicación de la consola, con `@devalis/design-system` y el cliente de A6, servidas en `team.devalis.cl` |
 | B4 Áreas y plantillas de Devalis | Las de la decisión pendiente, con bloque de salida cada una |
 | B5 Miembros | Pablo, Alejandro, Martín y Claude con sus perfiles; Claude con la credencial de A5. Team Platform identifica al miembro por el `sub` del JWT: cada persona necesita su propia fila en `platform_users`, aunque compartan rol |
@@ -74,7 +75,7 @@ Depende de A1, A4, A5 y A6. Estimado: 1,5 h de reloj, con el despliegue de Deval
 | Encargo | Qué entrega |
 |---|---|
 | C1 Máquina | El trabajador externo de Team Platform crea una instancia desde la imagen horneada (`imagen-del-runner.yml`) con `gcloud`, sin GitHub Actions, y la retira al terminar; gasto sujeto a UD-176 |
-| C2 Candados | `disallowedTools` con lo que el harness nunca hace (empujar a `main`, tocar producción fuera del simulador, borrar), hooks del repositorio de Devalis, `--max-budget-usd` y `--max-turns` por mensaje, sandbox de red con los dominios permitidos |
+| C2 Candados | Los del repositorio de Devalis (hooks, candados de invariantes, `check-secretos`), `--max-budget-usd 10`, sin lista blanca de herramientas; `claude` corre con un usuario sin privilegios porque `bypassPermissions` no arranca como root fuera de un sandbox. En producción toca lo mismo que una sesión interactiva de Martín (UD-255) |
 | C3 Verificación proporcional | El harness corre lo que el clasificador de `desplegar.yml:240` decide para su cambio: pruebas de pantalla, batería corta o gemelo |
 | C4 Entrega | El harness deja una rama `tp/<id-del-mensaje>` y la salida; Martín entrega por el camino local (UD-210). Nada empuja a `main` sin él |
 
@@ -82,16 +83,10 @@ Depende de B. Estimado: 1 h de reloj, más una corrida real con un mensaje de pr
 
 ## Lo que falta decidir
 
-Cada fila trae una propuesta para contestar con una palabra.
+Decidido el 2026-10-22 en UD-255: sesión compartida por cookie de dominio, roles, datos reales, modelo y topes del harness, alcance en producción, dos respuestas de Claude y «Enviar como». Quedan para la mañana del 2026-10-22, hora de Chile:
 
 | Decisión | Por qué no se infiere | Propuesta |
 |---|---|---|
-| Áreas y plantillas de Devalis | La Mesa usa Agenda, Infraestructura y Deva con tipos Pedido y Hallazgo; Team Platform trae Idea, Error, Nueva funcionalidad, Retroalimentación y Pregunta. La nota habla de «errores directos, cambios bien descritos, ideas que pueden investigarse» | Las cinco de Team Platform, con un campo «módulo» (Agenda, Deva, Pagos, Consola, Infraestructura) en cada plantilla |
-| Sesión en `team.devalis.cl` | Hoy la Mesa pide login aparte en ese host, porque la cookie de la consola no cruza hosts | Login aparte, como la Mesa; sesión compartida cuando exista SSO en Devalis |
-| Rol de cada uno en Team Platform | Team Platform tiene `member` y `editor`; nadie dijo quién edita áreas y plantillas | Martín editor; Pablo y Claude miembros |
-| Una fila de `platform_users` por persona | Si Pablo y Alejandro entran con la misma cuenta, Team Platform los ve como un solo miembro: un perfil, un «para mí» y una autoría compartidos | Una fila por persona, con la misma contraseña si así lo prefieren; es un alta en la tabla, sin cambiar el rol |
-| Contenido de pacientes dentro de Team Platform | Los videos de Pablo nombran pacientes reales. La regla de la Mesa prohíbe que lleguen a `team.devalis.cl`; Team Platform guardaría ese contenido en su base, detrás del login de superadministrador | Se acepta dentro del mismo perímetro que protege a las clínicas; `redactar.py` se aplica sólo a lo que salga del perímetro (ramas, commits, respuestas que viajen a GitHub) |
-| Sección «Claude» de la Mesa | Regla 19 y la memoria dicen que Martín lee ahí las respuestas, copiadas del registro de la conversación | Desaparece: la respuesta de Claude a cada mensaje la reemplaza. Las transcripciones completas siguen en el depósito privado |
-| Modelo y tope por mensaje del harness | 27k a 150k tokens medidos por invocación; el costo depende del modelo y del tope | Sonnet 5.5 con `--max-budget-usd 2` y `--max-turns 60` por mensaje; Opus sólo si el perfil de Claude lo pide para un mensaje |
-| Qué puede tocar el harness en producción | UD-169 fija el simulador como única puerta para conversaciones; nada dice de leer logs, Grafana o la base | Lectura de logs y métricas sí; escritura sólo por el simulador |
-| Orden de las fases | A entera antes de B, o B con lo mínimo de A | A entera primero: cada hueco de A ya costó una vuelta en la mesa de OKOS |
+| Áreas y plantillas de Devalis | La Mesa usa Agenda, Infraestructura y Deva con tipos Pedido y Hallazgo; Team Platform trae Idea, Error, Nueva funcionalidad, Retroalimentación y Pregunta | Las cinco de Team Platform, con un campo «módulo» (Agenda, Deva, Pagos, Consola, Infraestructura) en cada plantilla |
+| Miembros y perfiles | Los perfiles deciden qué recibe cada uno, incluido Claude; los escribe cada persona | Martín escribe el de Claude; Pablo y Alejandro el suyo en su primer ingreso |
+| Una fila de `platform_users` por persona | Si Pablo y Alejandro entran con la misma cuenta, Team Platform los ve como un solo miembro | Una fila por persona, con la misma contraseña si así lo prefieren |

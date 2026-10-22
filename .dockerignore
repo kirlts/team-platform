@@ -12,6 +12,7 @@ bench
 docs
 scripts
 !scripts/check-ffmpeg.sh
+!scripts/team.mjs
 data
 backups
 *.log

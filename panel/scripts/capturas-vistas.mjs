@@ -53,7 +53,8 @@ function audit() {
   for (const el of document.querySelectorAll('main *, nav *, header *')) {
     if (!visible(el) || el.classList.contains('sr-only')) continue
     const cs = getComputedStyle(el)
-    if (cs.textOverflow === 'ellipsis') out.ellipsis.push(label(el))
+    // The extract of a row of a list ends with an ellipsis on purpose (UD-241, amending UD-016) and says so in `data-ellipsis-ok`.
+    if (cs.textOverflow === 'ellipsis' && !el.hasAttribute('data-ellipsis-ok')) out.ellipsis.push(label(el))
     const clamp = cs.getPropertyValue('-webkit-line-clamp')
     if (clamp && clamp !== 'none' && clamp !== 'normal') out.ellipsis.push(`clamp ${clamp} ${label(el)}`)
     if (el.scrollWidth > el.clientWidth + 1 && cs.overflowX !== 'visible' && cs.overflowX !== 'auto' && cs.overflowX !== 'scroll' && el.clientWidth > 0 && el.children.length === 0) {

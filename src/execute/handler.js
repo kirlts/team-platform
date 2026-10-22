@@ -10,9 +10,10 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import Ajv from 'ajv'
-import { get } from '../db/index.js'
+import { get, run as runSql } from '../db/index.js'
 import { parseJson } from '../db/util.js'
 import { permanent } from '../domain/errors.js'
+import { Deferred } from '../domain/pipeline.js'
 import { addReply } from '../domain/messages.js'
 import { step } from '../domain/progress-phrases.js'
 import { getProject } from '../domain/settings.js'
@@ -26,13 +27,33 @@ const run = promisify(execFile)
 const TEAM_SCRIPT = fileURLToPath(new URL('../../scripts/team.mjs', import.meta.url))
 const PROVIDER = 'claude-code'
 
+/** Start of the server's local day (TZ; UTC when unset) that contains `t`, and the start of the next one. */
+export function localDay (t) {
+  const start = new Date(t)
+  start.setHours(0, 0, 0, 0)
+  const next = new Date(start)
+  next.setDate(next.getDate() + 1)
+  return { start: start.getTime(), next: next.getTime() }
+}
+
+/**
+ * The daily spend cap (UD-256): what the `execute` jobs that ran today cost (`jobs.cost_usd`) plus the fixed cost of
+ * each one that ran on a machine. A job counts on the day it started (`jobs.run_at` of its last attempt).
+ */
+export function dailyBudget (db, x, t) {
+  const { start, next } = localDay(t)
+  const row = get(db, "SELECT COALESCE(SUM(cost_usd), 0) AS cost, COALESCE(SUM(runner = 'machine'), 0) AS machines FROM jobs WHERE kind = 'execute' AND runner IS NOT NULL AND run_at >= ? AND run_at < ?", start, next)
+  const spent = row.cost + row.machines * x.machineCostUsd
+  return { spent, remaining: x.dailyBudgetUsd - spent, nextDayMs: next - t }
+}
+
 /** The arguments of `claude -p` (UD-255). */
 export function claudeArgs (x, schema) {
   return [
     '-p',
     '--model', x.model,
     '--effort', x.effort, // `claude --help` 2.1.284: «--effort <level> Effort level for the current session (low, medium, high, xhigh, max)»
-    '--max-budget-usd', String(x.maxBudgetUsd),
+    '--max-budget-usd', String(x.budgetUsd ?? x.maxBudgetUsd),
     '--max-turns', String(x.maxTurns),
     '--permission-mode', 'bypassPermissions',
     '--output-format', 'stream-json', '--verbose', '--include-partial-messages',
@@ -112,7 +133,13 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         message: { id: messageId, title: message.title, body: message.body, fields: parseJson(message.fields_json, {}), area: message.area_title, status: message.status },
         template: templateRow, author, agent, project: getProject(db, config), jobId: job.id, maxSubagents: x.maxSubagents, branch, hostInstructions
       })
-      const args = claudeArgs(x, schema)
+      // UD-256: the day's spend first; with nothing left the job waits for the next day without spending its attempt.
+      const budget = dailyBudget(db, x, now())
+      if (budget.remaining <= 0) throw new Deferred(budget.nextDayMs, step('budgetWait'))
+      const budgetUsd = Math.round(Math.min(x.maxBudgetUsd, budget.remaining) * 100) / 100 || 0.01
+      const args = claudeArgs({ ...x, budgetUsd }, schema)
+      // It counts as run from here: the machine cost applies even if the session never returns its cost.
+      runSql(db, 'UPDATE jobs SET runner = ?, run_at = ? WHERE id = ?', x.runner, now(), job.id)
 
       const reader = createStreamReader({
         maxTurns: x.maxTurns,
@@ -130,7 +157,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       try {
         outcome = await withSpan('execute', {
           'team.step': 'execute', 'team.message_id': String(messageId), 'team.member_id': String(memberId),
-          'team.runner': x.runner, 'team.model': x.model, 'team.effort': x.effort, 'team.max_budget_usd': x.maxBudgetUsd
+          'team.runner': x.runner, 'team.model': x.model, 'team.effort': x.effort, 'team.max_budget_usd': budgetUsd, 'team.daily_spent_usd': budget.spent
         }, async (span) => {
           const opts = { config, args, prompt, onData: (c) => reader.push(c), signal: ctx.signal }
           const r = x.runner === 'machine'
@@ -154,7 +181,10 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
               usage: { input_tokens: u.input_tokens ?? 0, output_tokens: u.output_tokens ?? 0, cached_tokens: u.cache_read_input_tokens ?? 0, cache_creation_tokens: u.cache_creation_input_tokens ?? 0 },
               cost: result.total_cost_usd ?? null
             })
-            if (typeof result.total_cost_usd === 'number') span.setAttribute('team.cost_usd', result.total_cost_usd)
+            if (typeof result.total_cost_usd === 'number') {
+              span.setAttribute('team.cost_usd', result.total_cost_usd)
+              runSql(db, 'UPDATE jobs SET cost_usd = ? WHERE id = ?', result.total_cost_usd, job.id) // UD-256, also when the job fails after
+            }
           }
           return { r, st, result }
         })
@@ -183,6 +213,11 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
           data: { status: 'done', message_id: String(messageId), reply_id: String(replyId), session_id: outcome.st.sessionId, cost_usd: result.total_cost_usd ?? null }
         })
       }
+    },
+
+    onDeferred (job, deferral) {
+      const { message_id: messageId } = parseJson(job.payload_json, {})
+      events.publishForJob(job.id, { kind: 'progress', percent: 0, phrase: deferral.phrase, data: { message_id: messageId } })
     },
 
     onFailure (job, error, outcome) {

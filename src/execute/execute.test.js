@@ -15,7 +15,7 @@ import { setProjectDescription } from '../domain/settings.js'
 import { createVault, loadMasterKey } from '../domain/vault.js'
 import { addMember, fakeAnalyze, login, makeEnv, postInput, until } from '../testing/helpers.js'
 import { createWorker } from '../worker.js'
-import { createExecuteHandler } from './handler.js'
+import { createExecuteHandler, dailyBudget, localDay } from './handler.js'
 import { phraseForTool } from './stream.js'
 
 const FAKE = fileURLToPath(new URL('./testing/fake-claude-stream.mjs', import.meta.url))
@@ -27,7 +27,7 @@ describe('execute job', () => {
 
   function startWorker (execute = {}) {
     const config = loadConfig({ DATA_DIR: env.dir, LOG_LEVEL: 'silent', PORT: String(PORT) }, {
-      execute: { bin: FAKE, machineBin: FAKE, teamUrl: `http://127.0.0.1:${PORT}`, killGraceMs: 200, ...execute }
+      execute: { bin: FAKE, machineBin: FAKE, teamUrl: `http://127.0.0.1:${PORT}`, killGraceMs: 200, dailyBudgetUsd: 1000, ...execute }
     })
     const handlers = { ...createPipeline({ db: env.db, config, queue: env.queue, events: env.events, modules: env.modules }), execute: createExecuteHandler({ db: env.db, config, queue: env.queue, events: env.events, vault }) }
     worker = createWorker({ db: env.db, queue: env.queue, events: env.events, config, handlers })
@@ -194,6 +194,59 @@ describe('execute job', () => {
     const id = env.db.prepare("SELECT id FROM jobs WHERE kind = 'execute' ORDER BY id LIMIT 1").get().id
     const res = await env.app.inject({ method: 'POST', url: `/api/jobs/${id}/progress`, headers: cookieHeaders(author), payload: { percent: 10, phrase: 'x' } })
     assert.equal(res.json().code, 'not_job_agent')
+  })
+
+  describe('daily spend cap', () => {
+    // Every earlier job of this file ran today; the cap tests start from a clean day.
+    beforeEach(() => { env.db.prepare("UPDATE jobs SET cost_usd = NULL, runner = NULL WHERE kind = 'execute'").run() })
+    const spend = (cost, runner = 'local', at = Date.now()) => env.db.prepare("INSERT INTO jobs (kind, payload_json, status, run_at, created_at, finished_at, cost_usd, runner) VALUES ('execute', '{}', 'done', ?, ?, ?, ?, ?)").run(at, at, at, cost, runner)
+    const jobOf = (messageId) => env.db.prepare("SELECT * FROM jobs WHERE kind = 'execute' AND message_id = ?").get(messageId)
+
+    it('cap reached defers the job to the next day without calling claude', async () => {
+      spend(9.5)
+      spend(0.5)
+      startWorker({ dailyBudgetUsd: 10 })
+      const messageId = await publishedMessage('Tope alcanzado.')
+      const job = await until(() => { const j = jobOf(messageId); return j && j.status === 'queued' && j.run_at > Date.now() + 1000 && j }, { timeoutMs: 10000 })
+      assert.equal(job.attempts, 0, 'the deferral does not spend the attempt')
+      assert.equal(job.runner, null)
+      assert.equal(calls().length, 0, 'claude is not called')
+      const next = new Date(); next.setHours(24, 0, 0, 0)
+      assert.ok(Math.abs(job.run_at - next.getTime()) < 5000, `run_at ${new Date(job.run_at).toISOString()} is the next local midnight`)
+      assert.ok(eventsOf(job.id).some((e) => e.kind === 'progress' && e.phrase === 'En espera: tope diario de gasto'))
+      env.queue.cancel(job.id)
+    })
+
+    it('partial remainder lowers --max-budget-usd and the job keeps its cost', async () => {
+      spend(6.5)
+      startWorker({ dailyBudgetUsd: 10 })
+      const messageId = await publishedMessage('Saldo parcial.')
+      const done = await waitJob(jobOf(messageId).id)
+      assert.equal(done.status, 'done', done.last_error)
+      const args = calls().at(-1).args
+      assert.equal(args[args.indexOf('--max-budget-usd') + 1], '3.5')
+      assert.deepEqual([done.cost_usd, done.runner], [1.2345, 'local'])
+    })
+
+    it('machine cost counts for each machine job', async () => {
+      spend(1, 'machine')
+      spend(1, 'machine')
+      startWorker({ dailyBudgetUsd: 10, machineCostUsd: 0.07 })
+      const messageId = await publishedMessage('Costo de máquina.')
+      await waitJob(jobOf(messageId).id)
+      const args = calls().at(-1).args
+      assert.equal(args[args.indexOf('--max-budget-usd') + 1], '7.86', '10 - 2 - 2 × 0.07')
+    })
+
+    it('a new day frees the cap', () => {
+      const t = Date.now()
+      spend(10, 'local', localDay(t).start - 1)
+      const x = { dailyBudgetUsd: 10, machineCostUsd: 0.07 }
+      assert.equal(dailyBudget(env.db, x, t).remaining, 10, 'yesterday does not count today')
+      spend(10, 'local', localDay(t).start)
+      assert.equal(dailyBudget(env.db, x, t).remaining, 0)
+      assert.equal(dailyBudget(env.db, x, localDay(t).next).remaining, 10, 'the next day starts at zero')
+    })
   })
 
   describe('machine runner', () => {

@@ -814,6 +814,7 @@ export const en: Record<MessageKey, Message> = {
   'progress.attachment': 'Attachment reading',
   'progress.attachmentN': 'Attachment {n} of {total}: reading',
   'progress.waiting': 'On hold: transcription quota',
+  'progress.budgetWait': 'On hold: daily spend cap',
   'progress.retry': 'Attempt {n} of {total} failed; retrying',
   'progress.done': 'Done',
   'progress.answered': 'Replied',

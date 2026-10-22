@@ -315,6 +315,9 @@ export function loadConfig (env = process.env, overrides = {}) {
       model: textValue(env, 'EXECUTE_MODEL', 'claude-sonnet-5-5'), // UD-255: Sonnet 5.5
       effort: choiceVar(env, 'EXECUTE_EFFORT', ['low', 'medium', 'high', 'xhigh', 'max'], 'medium'), // UD-255: medium reasoning; `claude --help` 2.1.284 lists these levels for --effort
       maxBudgetUsd: decimal(env, 'EXECUTE_MAX_BUDGET_USD', 10, { min: 0.01 }), // UD-255: 10 USD per message to start
+      // UD-256: 10 USD per day in total across `execute` jobs; the day is the server's local day (TZ, UTC when unset).
+      dailyBudgetUsd: decimal(env, 'EXECUTE_DAILY_BUDGET_USD', 10, { min: 0 }),
+      machineCostUsd: decimal(env, 'EXECUTE_MACHINE_COST_USD', 0, { min: 0 }), // fixed cost of each machine-runner job; Devalis: 0.07
       maxTurns: intVar(env, 'EXECUTE_MAX_TURNS', 60, { min: 1 }), // H-3724 brief: 60 turns; the budget cap is what governs spend
       hostInstructions: textValue(env, 'EXECUTE_HOST_INSTRUCTIONS', ''), // path to a host .md file appended to the prompt; the host's rules
       maxSubagents: intVar(env, 'EXECUTE_MAX_SUBAGENTS', 3, { min: 0 }), // UD-255: up to three subagents per message

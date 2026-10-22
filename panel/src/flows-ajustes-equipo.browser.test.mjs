@@ -170,7 +170,7 @@ describe('Templates in view', () => {
     const { page, context } = await session('ana', '/areas', (p) => p.getByRole('link', { name: /^Plantillas de/ }).first())
     try {
       const link = page.getByRole('link', { name: /^Plantillas de/ }).first()
-      assert.match(await link.innerText(), /^\d+ plantillas$/)
+      assert.match(await link.innerText(), /^(1 plantilla|\d+ plantillas)$/)
       await link.click()
       await page.waitForURL(/#plantillas$/)
       await page.locator('section[aria-label="Plantillas"]').waitFor()

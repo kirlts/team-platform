@@ -1154,6 +1154,27 @@ const server = createServer(async (req, res) => {
       const inArea = (a, status) => liveMessages().filter((x) => x.area_id === a.id && x.status === status)
       return send(res, 200, { mine, items, areas: areas.map((a) => ({ area_id: a.id, open: inArea(a, 'open').length, answered: inArea(a, 'answered').length, closed: inArea(a, 'closed').length, mine_open: inArea(a, 'open').filter((x) => x.assignee_ids.includes(me.id)).length })) })
     }
+    // Several messages at once (UD-253), as the real API does: all or nothing, 403 and 404 with the ids that fail.
+    if ((path === '/messages/delete' || path === '/messages/restore') && method === 'POST') {
+      const restoring = path === '/messages/restore'
+      if (!restoring && url.searchParams.get('confirm') !== 'true') return fail(res, 400, 'Falta la confirmación.', 'confirm_required')
+      const body = await readJson(req)
+      if (!body || !Array.isArray(body.ids) || !body.ids.length || body.ids.length > 100) return fail(res, 400, 'El campo «ids» no es válido.', 'validation')
+      const ids = [...new Set(body.ids.map(String))]
+      const found = ids.map((id) => messages.find((x) => x.id === id))
+      const refused = found.filter((x) => x && x.author_id !== me.id && me.role !== 'editor').map((x) => x.id)
+      if (refused.length) return send(res, 403, { code: 'not_message_author', message: 'Sólo quien envió el mensaje o un Editor puede borrarlo.', ids: refused })
+      const missing = ids.filter((id, i) => !found[i] || (!restoring && found[i].deleted_at))
+      if (missing.length) return send(res, 404, { code: 'not_found', message: 'Algunos mensajes no existen.', ids: missing })
+      const live = restoring ? found.filter((x) => !x.deleted_at).map((x) => x.id) : []
+      if (live.length) return send(res, 409, { code: 'not_deleted', message: 'Algunos mensajes no están borrados.', ids: live })
+      const at = new Date().toISOString()
+      for (const x of found) {
+        x.deleted_at = restoring ? null : at
+        record(me, restoring ? 'message.restore' : 'message.delete', 'message', x.id, { bulk: ids.length })
+      }
+      return send(res, 200, { ids })
+    }
     // Soft deletion and restoration of a message and of a reply (UD-240), as the real API does.
     m = /^\/messages\/([^/]+)\/replies\/([^/]+)$/.exec(path)
     if (m && method === 'DELETE') {

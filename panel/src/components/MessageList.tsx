@@ -1,44 +1,84 @@
-import { useMemo, type ReactNode } from 'react'
+import { useCallback, useMemo, useRef, type ReactNode } from 'react'
 import { EmptyState } from '@/components/EmptyState'
 import { FitList } from '@/components/FitList'
 import { LoadState } from '@/components/LoadState'
 import { MessageCard } from '@/components/MessageCard'
+import { SelectionBar } from '@/components/SelectionBar'
 import { Button } from '@/components/ui/button'
 import { useT } from '@/i18n'
 import type { MessageQuery } from '@/lib/filters'
-import type { useMessages } from '@/lib/queries'
+import { useNotices } from '@/lib/notices'
+import { useDeleteMessages, useMe, useRestoreMessages, type useMessages } from '@/lib/queries'
+import { SelectionProvider, useSelection, type SelectionScope } from '@/lib/selection'
+import type { Message } from '@/lib/types'
 
 /**
  * The list of messages that fits its frame, one row per message. Mensajes and the view of an area draw the same list and
  * the same row (UD-041); they differ in the query they ask and in what they say when it is empty. `hideArea` drops the area chip of
  * each row when the whole view is that area; `footer` is drawn right under the list (see `FitList`).
+ *
+ * Each message the person may delete (theirs, or any for an Editor) carries a check box; marking one shows the strip over the list
+ * with the buttons to mark all, delete and cancel (UD-253). Borrar deletes them at once without asking, and the notice carries Deshacer.
  */
 export function MessageList({ list, query, onClear, none, hideArea = false, footer }: { list: ReturnType<typeof useMessages>; query: MessageQuery; onClear: () => void; none: ReactNode; hideArea?: boolean; footer?: ReactNode }) {
   const t = useT()
+  const me = useMe().data
+  const notices = useNotices()
+  const del = useDeleteMessages()
+  const restore = useRestoreMessages()
   const rows = useMemo(() => list.data ?? [], [list.data])
+  const selection = useSelection()
+  const canMark = useCallback((m: Message | undefined) => !!m && !!me && !m.deleted_at && (m.author_id === me.id || me.role === 'editor'), [me])
+  const byId = useMemo(() => new Map(rows.map((m) => [m.id, m])), [rows])
+  const scope = useMemo<SelectionScope>(() => ({ ...selection, canMark: (id) => canMark(byId.get(id)) }), [selection, canMark, byId])
+  const page = useRef<readonly string[]>([])
+
+  // A marked row that left the list (deleted elsewhere, filtered out) is not deleted by Borrar.
+  const marked = [...selection.marked].filter((id) => canMark(byId.get(id)))
+  const remove = async () => {
+    const ids = marked
+    if (!ids.length) return
+    await del.mutateAsync(ids)
+    selection.clear()
+    notices.show({
+      text: t('bulk.messagesDeleted', { n: ids.length }),
+      action: {
+        label: t('undo.undo'),
+        run: async () => {
+          await restore.mutateAsync(ids)
+          notices.show({ text: t('bulk.messagesRestored', { n: ids.length }) })
+        },
+      },
+    })
+  }
+
   return (
-    <FitList
-      rows={rows}
-      rowKey={(m) => m.id}
-      footer={footer}
-      renderRow={(m) => <MessageCard message={m} hideArea={hideArea} />}
-      empty={
-        list.isPending || list.isError ? (
-          <LoadState query={list} rows={4} />
-        ) : query.q || query.filters.length > 0 ? (
-          <EmptyState
-            action={
-              <Button size="sm" onClick={onClear}>
-                {t('messages.clearSearch')}
-              </Button>
-            }
-          >
-            {query.q ? t('messages.noMatch', { q: query.q }) : t('messages.noMatchFilters')}
-          </EmptyState>
-        ) : (
-          <EmptyState>{none}</EmptyState>
-        )
-      }
-    />
+    <SelectionProvider scope={scope}>
+      <FitList
+        rows={rows}
+        rowKey={(m) => m.id}
+        footer={footer}
+        onShown={(keys) => (page.current = keys)}
+        header={marked.length > 0 ? <SelectionBar selection={selection} busy={del.isPending} onAll={() => selection.add(page.current.filter((id) => canMark(byId.get(id))))} onDelete={() => void remove()} /> : undefined}
+        renderRow={(m) => <MessageCard message={m} hideArea={hideArea} />}
+        empty={
+          list.isPending || list.isError ? (
+            <LoadState query={list} rows={4} />
+          ) : query.q || query.filters.length > 0 ? (
+            <EmptyState
+              action={
+                <Button size="sm" onClick={onClear}>
+                  {t('messages.clearSearch')}
+                </Button>
+              }
+            >
+              {query.q ? t('messages.noMatch', { q: query.q }) : t('messages.noMatchFilters')}
+            </EmptyState>
+          ) : (
+            <EmptyState>{none}</EmptyState>
+          )
+        }
+      />
+    </SelectionProvider>
   )
 }

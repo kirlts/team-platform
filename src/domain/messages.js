@@ -478,6 +478,49 @@ export function restoreMessage ({ db, events, now = Date.now }, { messageId, act
   return getMessage(db, messageId)
 }
 
+/**
+ * The rows of `ids` for a bulk operation (UD-253), all or nothing: 403 `not_message_author` with the ids the actor may not touch,
+ * then 404 with the ids that do not exist (or, when `deleted` is false, are already deleted). Duplicates count once.
+ */
+function bulkRows (db, ids, actor, { deleted }) {
+  const unique = [...new Set(ids.map(Number))]
+  const rows = unique.map((id) => get(db, 'SELECT id, author_id, deleted_at FROM messages WHERE id = ?', id) ?? { id, missing: true })
+  const refused = rows.filter((r) => !r.missing && r.author_id !== actor.id && actor.role !== 'editor').map((r) => String(r.id))
+  if (refused.length) throw new AppError(403, 'not_message_author', 'Sólo quien envió el mensaje o un Editor puede borrarlo.', { ids: refused })
+  const missing = rows.filter((r) => r.missing || (!deleted && r.deleted_at !== null)).map((r) => String(r.id))
+  if (missing.length) throw new AppError(404, 'not_found', 'Algunos mensajes no existen.', { ids: missing })
+  if (deleted) {
+    const live = rows.filter((r) => r.deleted_at === null).map((r) => String(r.id))
+    if (live.length) throw conflict('Algunos mensajes no están borrados.', 'not_deleted', { ids: live })
+  }
+  return unique
+}
+
+/** Soft-deletes several messages in one transaction (UD-253): every one or none. One `message.delete` audit row per message. */
+export function deleteMessages ({ db, events, now = Date.now }, { ids, actor }) {
+  return events.transaction(() => {
+    const unique = bulkRows(db, ids, actor, { deleted: false })
+    const at = now()
+    for (const id of unique) {
+      run(db, 'UPDATE messages SET deleted_at = ? WHERE id = ?', at, id)
+      audit(db, { memberId: actor.id, action: 'message.delete', entity: 'message', entityId: id, detail: { bulk: unique.length }, now })
+    }
+    return unique.map(String)
+  })
+}
+
+/** Brings several deleted messages back in one transaction (UD-253): every one or none. One `message.restore` audit row per message. */
+export function restoreMessages ({ db, events, now = Date.now }, { ids, actor }) {
+  return events.transaction(() => {
+    const unique = bulkRows(db, ids, actor, { deleted: true })
+    for (const id of unique) {
+      run(db, 'UPDATE messages SET deleted_at = NULL WHERE id = ?', id)
+      audit(db, { memberId: actor.id, action: 'message.restore', entity: 'message', entityId: id, detail: { bulk: unique.length }, now })
+    }
+    return unique.map(String)
+  })
+}
+
 /** Who may delete and restore a reply: its author or an Editor (UD-240). */
 function assertReplyOwner (row, actor) {
   if (row.author_id !== actor.id && actor.role !== 'editor') throw forbidden('Sólo quien escribió la respuesta o un Editor puede borrarla.', 'not_reply_author')

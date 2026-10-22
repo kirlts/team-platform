@@ -765,3 +765,57 @@ export function useEditReply(messageId: string) {
     },
   })
 }
+
+// ---- Several at once (UD-253, H-3715)
+
+/** Soft-deletes several messages in one request (POST /messages/delete?confirm=true): all or none, 403 with the ids that are not the person's. */
+export function useDeleteMessages() {
+  const invalidate = useInvalidator()
+  return useMutation({
+    mutationFn: (ids: readonly string[]) => api<{ ids: string[] }>('/messages/delete?confirm=true', { method: 'POST', body: { ids } }),
+    onSuccess: () => invalidate('messages', 'message', 'areas', 'inputs'),
+  })
+}
+
+/** Restores several deleted messages in one request (POST /messages/restore): what undoes `useDeleteMessages`. */
+export function useRestoreMessages() {
+  const invalidate = useInvalidator()
+  return useMutation({
+    mutationFn: (ids: readonly string[]) => api<{ ids: string[] }>('/messages/restore', { method: 'POST', body: { ids } }),
+    onSuccess: () => invalidate('messages', 'message', 'areas', 'inputs'),
+  })
+}
+
+/** Soft-deletes several areas (Editor): one DELETE each, in parallel; an Editor may delete every area, so there is no permission to split. */
+export function useDeleteAreas() {
+  const invalidate = useInvalidator()
+  return useMutation({
+    mutationFn: (ids: readonly string[]) => Promise.all(ids.map((id) => api(`/areas/${id}?confirm=true`, { method: 'DELETE' }))),
+    onSettled: () => invalidate('areas', 'templates', 'messages', 'message'),
+  })
+}
+
+export function useRestoreAreas() {
+  const invalidate = useInvalidator()
+  return useMutation({
+    mutationFn: (ids: readonly string[]) => Promise.all(ids.map((id) => api(`/areas/${id}/restore`, { method: 'POST' }))),
+    onSettled: () => invalidate('areas', 'templates', 'messages', 'message'),
+  })
+}
+
+/** Soft-deletes several templates of an area (Editor), one DELETE each, in parallel. */
+export function useDeleteTemplates(areaId: string) {
+  const invalidate = useInvalidator()
+  return useMutation({
+    mutationFn: (ids: readonly string[]) => Promise.all(ids.map((id) => api(`/areas/${areaId}/templates/${id}?confirm=true`, { method: 'DELETE' }))),
+    onSettled: () => invalidate('templates', 'areas'),
+  })
+}
+
+export function useRestoreTemplates() {
+  const invalidate = useInvalidator()
+  return useMutation({
+    mutationFn: (ids: readonly string[]) => Promise.all(ids.map((id) => api(`/templates/${id}/restore`, { method: 'POST' }))),
+    onSettled: () => invalidate('templates', 'areas'),
+  })
+}

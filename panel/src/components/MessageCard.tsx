@@ -5,6 +5,7 @@ import { useFormat, useT } from '@/i18n'
 import { kindsOf, mainAttachment } from '@/lib/media'
 import { noticeState } from '@/lib/states'
 import { useNotices } from '@/lib/notices'
+import { useSelectionScope } from '@/lib/selection'
 import { useDeleteMessage, useMe, useRestoreMessage, useSetClosed } from '@/lib/queries'
 import { cn } from '@/lib/utils'
 import type { Message } from '@/lib/types'
@@ -14,6 +15,7 @@ import { MediaKinds } from './MediaKinds'
 import { MediaOpener } from './MediaOpener'
 import { StateMark } from './NotifyBadge'
 import { Recipients } from './Recipients'
+import { RowCheck } from './SelectionBar'
 
 /** The edge of a row, in the color of its state (UD-041): with the mark of the state, the only color of a row (UD-036). */
 const EDGE = { open: 'shadow-[inset_3px_0_0_var(--color-state-open-bg)]', answered: 'shadow-[inset_3px_0_0_var(--color-state-answered-bg)]', closed: 'shadow-[inset_3px_0_0_var(--color-state-closed-bg)]' } as const
@@ -50,6 +52,8 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
   const del = useDeleteMessage()
   const restore = useRestoreMessage()
   const notices = useNotices()
+  // In a list that marks rows (UD-253) every row keeps the gutter of the check box, so the text starts at the same x with or without one.
+  const selection = useSelectionScope()
 
   const closed = message.status === 'closed'
   const affects = noticeState(message, me?.id ?? '')
@@ -82,8 +86,8 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
   const extract = reply ? t('card.inMessage', { title: message.title }) : message.body
 
   return (
-    <article data-affects-me={affects ?? undefined} data-closed={closed || undefined} data-deleted={gone || undefined} className={cn('group @container relative border-b border-line last:border-b-0 hover:bg-glass-edge', EDGE[message.status])}>
-      <div className="grid grid-cols-[minmax(0,1fr)_2.5rem] grid-rows-[auto_auto_auto_auto] items-start gap-x-4 gap-y-1 px-4 py-3 @2xl:grid-cols-[minmax(0,1fr)_12rem_2.5rem]">
+    <article data-affects-me={affects ?? undefined} data-closed={closed || undefined} data-deleted={gone || undefined} data-marked={selection?.isMarked(message.id) || undefined} className={cn('group @container relative border-b border-line last:border-b-0 hover:bg-glass-edge data-[marked]:bg-selected', EDGE[message.status])}>
+      <div className={cn('grid grid-cols-[minmax(0,1fr)_2.5rem] grid-rows-[auto_auto_auto_auto] items-start gap-x-4 gap-y-1 py-3 pr-4 @2xl:grid-cols-[minmax(0,1fr)_12rem_2.5rem]', selection ? 'pl-10' : 'pl-4')}>
       {/* The text block has one height in every row (`--spacing-card-text`): two lines of heading and the extract. A one-line heading leaves its air under the extract, between the groups and not inside the paragraph. */}
       <div data-testid="card-text" className="col-start-1 row-start-1 flex min-h-card-text min-w-0 flex-col gap-y-1">
         <h3 title={reply ? reply.body : message.title} data-ellipsis-ok="UD-241" className={cn(HEADING, (closed || gone) && 'font-medium text-muted')}>
@@ -158,6 +162,8 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
         {main && <MediaOpener attachments={from.attachments ?? []} scope={reply ? 'reply' : 'message'} px={40} />}
       </div>
       </div>
+      {/* After the grid, so the grid stays the first child of the row; drawn in the gutter, over the link that covers the row. */}
+      {selection && selection.canMark(message.id) && <RowCheck id={message.id} title={message.title} selection={selection} />}
     </article>
   )
 }

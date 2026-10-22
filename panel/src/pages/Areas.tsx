@@ -1,5 +1,5 @@
 import { ChevronRight, Plus, Trash2 } from '@/components/icons'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { AreaColorPicker } from '@/components/AreaColorPicker'
 import { descriptionRule } from '@/components/AreaTemplates'
@@ -18,7 +18,9 @@ import { useT } from '@/i18n'
 import { AreaNotFound, AreaView } from '@/pages/AreaView'
 import { areaCounts, areaMessagesPath } from '@/lib/pending'
 import { useNotices } from '@/lib/notices'
-import { useAreas, useDeletedAreas, useDeleteArea, useMe, useRestoreArea, useSaveArea, useSummary, useTemplates } from '@/lib/queries'
+import { useAreas, useDeleteAreas, useDeletedAreas, useDeleteArea, useMe, useRestoreArea, useRestoreAreas, useSaveArea, useSummary, useTemplates } from '@/lib/queries'
+import { useSelection, type Selection } from '@/lib/selection'
+import { RowCheck, SelectionBar } from '@/components/SelectionBar'
 import type { Area } from '@/lib/types'
 import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 
@@ -56,7 +58,7 @@ function DeletedAreaRow({ area }: { area: Area }) {
   const t = useT()
   const restore = useRestoreArea()
   return (
-    <section data-deleted="true" className="flex items-center gap-3 border-b border-line py-3 pl-4 pr-4 text-muted last:border-b-0">
+    <section data-deleted="true" className="flex items-center gap-3 border-b border-line py-3 pl-10 pr-4 text-muted last:border-b-0">
       <span aria-hidden className="size-3 shrink-0 rounded-full opacity-50" style={{ backgroundColor: area.color }} />
       <span className="min-w-0 flex-1 break-words font-semibold">{area.title}</span>
       <Button size="sm" variant="secondary" disabled={restore.isPending} aria-label={t('restore.of', { title: area.title })} data-testid="area-restore" onClick={() => restore.mutate(area.id)}>
@@ -76,6 +78,21 @@ function AreaList() {
   const [showDeleted, setShowDeleted] = useState(false)
   const deleted = useDeletedAreas(showDeleted)
   const rows = useMemo<AreaItem[]>(() => [...(areas.data ?? []).map((area): AreaItem => ({ kind: 'live', area })), ...(showDeleted ? (deleted.data ?? []).map((area): AreaItem => ({ kind: 'deleted', area })) : [])], [areas.data, deleted.data, showDeleted])
+  // Several at once (UD-253): the marked areas are deleted without asking; the history and the notice carry Deshacer.
+  const selection = useSelection()
+  const notices = useNotices()
+  const delMany = useDeleteAreas()
+  const restoreMany = useRestoreAreas()
+  const page = useRef<readonly string[]>([])
+  const liveIds = useMemo(() => new Set((areas.data ?? []).map((a) => a.id)), [areas.data])
+  const marked = [...selection.marked].filter((id) => liveIds.has(id))
+  const removeMarked = async () => {
+    const ids = marked
+    const text = t('bulk.areasDeleted', { n: ids.length })
+    await undo.run({ label: text, redo: () => delMany.mutateAsync(ids), undo: () => restoreMany.mutateAsync(ids) })
+    selection.clear()
+    notices.show({ text, action: { label: t('undo.undo'), run: () => undo.undo() } })
+  }
 
   return (
     <UndoProvider stack={undo}>
@@ -96,7 +113,9 @@ function AreaList() {
           rows={rows}
           rowKey={(x) => `${x.kind}-${x.area.id}`}
           label={t('nav.areas')}
-          renderRow={(x) => (x.kind === 'live' ? <AreaRow area={x.area} /> : <DeletedAreaRow area={x.area} />)}
+          renderRow={(x) => (x.kind === 'live' ? <AreaRow area={x.area} selection={selection} /> : <DeletedAreaRow area={x.area} />)}
+          onShown={(keys) => (page.current = keys.filter((k) => k.startsWith('live-')).map((k) => k.slice(5)))}
+          header={marked.length > 0 ? <SelectionBar selection={selection} busy={delMany.isPending} onAll={() => selection.add(page.current)} onDelete={() => void removeMarked()} /> : undefined}
           empty={areas.isPending || areas.isError ? <LoadState query={areas} /> : <EmptyState>{t('areas.none')}</EmptyState>}
         />
         <FormDialog
@@ -116,7 +135,7 @@ function AreaList() {
 }
 
 /** An area in the list: its name opens the area; the description is edited here; the counts lead to its open and answered messages. */
-function AreaRow({ area }: { area: Area }) {
+function AreaRow({ area, selection }: { area: Area; selection: Selection }) {
   const t = useT()
   const undo = useUndo()
   const save = useSaveArea()
@@ -148,7 +167,8 @@ function AreaRow({ area }: { area: Area }) {
   }
 
   return (
-    <section className="relative grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-1 border-b border-line py-3 pl-4 pr-12 last:border-b-0 sm:grid-cols-[auto_minmax(10rem,14rem)_8rem_minmax(0,1fr)]">
+    <section data-marked={selection.isMarked(area.id) || undefined} className="relative grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-1 border-b border-line py-3 pl-10 pr-12 last:border-b-0 data-[marked]:bg-selected sm:grid-cols-[auto_minmax(10rem,14rem)_8rem_minmax(0,1fr)]">
+      <RowCheck id={area.id} title={area.title} selection={selection} />
       <AreaColorPicker title={area.title} color={area.color} onChange={changeColor} />
       {/* The name leads to the area; the chevron is glued to its last word, so a name on several lines keeps it at full size next to it. */}
       <Link to={`/areas/${area.id}`} aria-label={t('areas.open', { title: area.title })} className="self-start font-semibold hover:text-accent-deep hover:underline">

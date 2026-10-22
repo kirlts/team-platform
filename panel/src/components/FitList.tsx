@@ -41,6 +41,7 @@ export function FitList<T>({
   reveal,
   pagedOnPhone = false,
   footer,
+  onShown,
 }: {
   rows: readonly T[]
   rowKey: (row: T) => string
@@ -61,6 +62,8 @@ export function FitList<T>({
   pagedOnPhone?: boolean
   /** Drawn right under the frame, inside the slot: the rows share the height with it, and it does not drift to the foot of the page when the list is short. */
   footer?: ReactNode
+  /** Told the keys of the rows on the visible page once they are measured (the mark-all button marks those: UD-253). */
+  onShown?: (keys: readonly string[]) => void
 }) {
   const t = useT()
   // «desktop» below means «pages»: the window is wide, or the caller gave the list a frame of its own on a phone.
@@ -124,6 +127,28 @@ export function FitList<T>({
     observer.observe(el)
     return () => observer.disconnect()
   }, [footer !== undefined])
+
+  // The header comes and goes (the strip of marked rows, UD-253) and can change height: either way the room of the rows changed.
+  const hasHeader = header !== undefined && header !== null && header !== false
+  const headerSeen = useRef(hasHeader)
+  useEffect(() => {
+    if (headerSeen.current !== hasHeader) {
+      headerSeen.current = hasHeader
+      setFrameVersion((v) => v + 1)
+    }
+    const el = head.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    let last = el.getBoundingClientRect().height
+    const observer = new ResizeObserver(() => {
+      const now = el.getBoundingClientRect().height
+      if (Math.abs(now - last) > 0.5) {
+        last = now
+        setFrameVersion((v) => v + 1)
+      }
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [hasHeader])
 
   const pagerHeight = useRef(0)
 
@@ -189,6 +214,13 @@ export function FitList<T>({
   })
 
   const shown = desktop ? rows.slice(first, count === null ? first + MEASURE_ROWS : first + count) : rows
+  const shownKeys = desktop && count === null ? null : shown.map(rowKey).join('\n')
+  const told = useRef<string | null>(null)
+  useEffect(() => {
+    if (!onShown || shownKeys === null || told.current === shownKeys) return
+    told.current = shownKeys
+    onShown(shownKeys ? shownKeys.split('\n') : [])
+  })
   const pages = desktop && count !== null && (first > 0 || first + count < rows.length)
   const range = pageRange(first, count ?? shown.length, rows.length)
 
@@ -202,7 +234,7 @@ export function FitList<T>({
   return (
     <div ref={slot} data-fit-measuring={desktop && rows.length > 0 && count === null ? '' : undefined} className={cn('flex min-h-0 flex-1 flex-col', className)} style={pages && fit ? { minHeight: fit.floor } : undefined}>
       <div ref={frame} aria-label={label} className={cn('flex max-h-full min-h-0 flex-col overflow-hidden', bare ? 'border-y border-line' : 'glass leaf')}>
-      {header && (
+      {hasHeader && (
         <div ref={head} className="shrink-0">
           {header}
         </div>

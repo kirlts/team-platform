@@ -39,6 +39,9 @@ async function open(page, path) {
   await page.goto(`${origin}${path}`)
   await page.locator('main h1').first().waitFor()
   await page.locator('main article h3').first().waitFor()
+  // The view of an area opens with «Plantillas» unfolded (UD-252), which leaves room for one row at 1440x900: folded, the list has its rows to compare.
+  const templates = page.getByRole('button', { name: /^Plantillas/, expanded: true })
+  if (await templates.count()) await templates.click()
   // The lists draw sixty rows to measure what fits, and only then the page that fits (UD-017).
   await page.waitForFunction(() => !document.querySelector('[data-fit-measuring]'))
   await settled(page)

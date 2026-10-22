@@ -7,6 +7,12 @@ fields:
   - { name: actual,   label: Qué pasó,              required: true }
   - { name: where,    label: "Dónde (pantalla, URL, versión o dispositivo)", required: false }
   - { name: impact,   label: A quién afecta o qué bloquea, required: false }
+output:
+  - { name: cause,        label: Causa,                     type: text, required: true }
+  - { name: fix,          label: Arreglo,                   type: text, required: false }
+  - { name: verification, label: Verificación,              type: text, required: false }
+  - { name: branch,       label: Rama,                      type: text, required: false }
+  - { name: files,        label: Archivos tocados,          type: list, required: false }
 ---
 ## Método
 Un error es una conducta del producto distinta de la esperada. Cuenta como error distinto todo lo que difiera en la pantalla, en la acción que lo dispara o en el resultado observado. La misma falla vista en dos pantallas es un solo error cuando la persona la describe como un problema; son dos cuando los describe por separado.
@@ -32,3 +38,6 @@ Un mensaje por error.
 Título: verbo en infinitivo y lugar, por ejemplo «Corregir pantalla en blanco al ingresar con correo». Describe el problema, no la causa supuesta ni la solución.
 
 Cuerpo: dos a cuatro frases en este orden: qué falla y dónde, cómo se llega a la falla, qué se esperaba y el impacto; cada parte va solo si el input la da, y si no la da no se escribe nada sobre ella. Sin saludos ni relleno. Lo que el input no da no se menciona en el cuerpo: ni «no se indica» ni una frase sobre lo que falta.
+
+## Salida
+Causa: la que se midió, con el archivo o el dato que la muestra. Arreglo y Rama: sólo si hubo cambio. Verificación: el comando corrido y su resultado.

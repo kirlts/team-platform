@@ -6,8 +6,9 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input, Textarea } from '@/components/ui/input'
 import { useErrorText, useT } from '@/i18n'
 import { Markdown } from '@/lib/markdown'
-import { buildTemplate, fieldKey, parseTemplateFields, templateInstructions, type TemplateField } from '@/lib/template'
+import { buildTemplate, fieldKey, OUTPUT_FIXED, OUTPUT_TYPES, parseTemplateFields, parseTemplateOutput, templateInstructions, type OutputType, type TemplateField, type TemplateOutputField } from '@/lib/template'
 import { EditableText } from './EditableText'
+import { NativeSelect } from './NativeSelect'
 
 /** Longest label the server accepts for a field (src/analyze/templates.js, FIELD_LABEL_MAX). */
 const LABEL_MAX = 120
@@ -19,9 +20,23 @@ const LABEL_MAX = 120
  */
 export function TemplateContentEditor({ name, description, markdown, onSave }: { name: string; description: string; markdown: string; onSave: (next: string) => void | Promise<unknown> }) {
   const t = useT()
+  const errorText = useErrorText()
   const fields = useMemo(() => parseTemplateFields(markdown), [markdown])
+  const output = useMemo(() => parseTemplateOutput(markdown), [markdown])
   const instructions = useMemo(() => templateInstructions(markdown), [markdown])
-  const save = (next: { fields?: TemplateField[]; instructions?: string }) => onSave(buildTemplate({ name, description, fields: next.fields ?? fields, instructions: next.instructions ?? instructions }))
+  // A file the server refuses (422) says why here, under the parts, and the parts stay as they were saved.
+  const [refused, setRefused] = useState<string | null>(null)
+  const save = async (next: { fields?: TemplateField[]; output?: TemplateOutputField[]; instructions?: string }) => {
+    try {
+      await onSave(buildTemplate({ name, description, fields: next.fields ?? fields, output: next.output ?? output, instructions: next.instructions ?? instructions }))
+      setRefused(null)
+    } catch (err) {
+      // The catalog line, and after it the server's own reason (which part of the frontmatter does not compile).
+      const line = errorText(err)
+      const reason = err instanceof Error ? err.message : ''
+      setRefused(reason && reason !== line ? `${line}: ${reason}` : line)
+    }
+  }
   const label = (v: string) => (!v ? t('common.required') : v.length > LABEL_MAX ? t('form.maxLength', { n: LABEL_MAX }) : null)
 
   return (
@@ -61,6 +76,14 @@ export function TemplateContentEditor({ name, description, markdown, onSave }: {
         )}
       </section>
 
+      <OutputEditor output={output} onChange={(next) => save({ output: next })} />
+
+      {refused && (
+        <p role="alert" data-template-refused className="text-xs text-danger">
+          {refused}
+        </p>
+      )}
+
       <section aria-label={t('templates.instructions')} className="flex flex-col gap-2">
         <h2>{t('templates.instructions')}</h2>
         <div className="rounded-md border border-line px-3 py-2">
@@ -68,6 +91,76 @@ export function TemplateContentEditor({ name, description, markdown, onSave }: {
         </div>
       </section>
     </div>
+  )
+}
+
+/**
+ * «Salida» (MASTER-SPEC §7.9): what the harness delivers when it works a message of this template. The same rows as
+ * «Campos», with the type of each entry; «Resumen» and «Resultado» close the list and are not edited (UD-255).
+ */
+export function OutputEditor({ output, onChange }: { output: TemplateOutputField[] | null; onChange: (next: TemplateOutputField[]) => void | Promise<unknown> }) {
+  const t = useT()
+  const entries = output ?? []
+  const label = (v: string) => (!v ? t('common.required') : v.length > LABEL_MAX ? t('form.maxLength', { n: LABEL_MAX }) : null)
+  const set = (i: number, patch: Partial<TemplateOutputField>) => void onChange(entries.map((x, j) => (j === i ? { ...x, ...patch } : x)))
+  return (
+    <section aria-label={t('templates.output')} className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <h2>{t('templates.output')}</h2>
+        <Button
+          size="sm"
+          onClick={() => {
+            const text = t('templates.newOutput')
+            void onChange([...entries, { name: fieldKey(text, [...entries.map((f) => f.name), ...OUTPUT_FIXED]), label: text, type: 'text', required: false }])
+          }}
+        >
+          <Plus size={14} aria-hidden /> {t('templates.addOutput')}
+        </Button>
+      </div>
+      {output === null ? (
+        <p className="text-sm text-muted">{t('templates.noOutput')}</p>
+      ) : (
+        <ul className="flex flex-col divide-y divide-line rounded-md border border-line">
+          {entries.map((f, i) => (
+            <li key={f.name} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
+              <div className="min-w-0 flex-1 basis-40">
+                <EditableText value={f.label} label={t('templates.outputLabel')} validate={label} onSave={(v) => set(i, { label: v })} displayClassName="font-medium" />
+                {f.enum && <span className="block break-words text-xs text-muted">{f.enum.join(' · ')}</span>}
+              </div>
+              <div className="w-28 shrink-0">
+                <NativeSelect
+                  aria-label={t('templates.outputTypeOf', { label: f.label })}
+                  value={f.type}
+                  onChange={(e) => {
+                    const type = e.target.value as OutputType
+                    set(i, type === 'text' ? { type } : { type, enum: undefined })
+                  }}
+                >
+                  {OUTPUT_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {t(`templates.outputType.${type}`)}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </div>
+              <label className="flex shrink-0 items-center gap-2 text-sm text-muted">
+                <Checkbox checked={f.required} onCheckedChange={(on) => set(i, { required: on === true })} />
+                {t('templates.required')}
+              </label>
+              <Button size="icon-sm" variant="ghost" aria-label={t('templates.removeOutput', { label: f.label })} title={t('templates.removeOutput', { label: f.label })} onClick={() => void onChange(entries.filter((_, j) => j !== i))}>
+                <Trash2 size={14} aria-hidden />
+              </Button>
+            </li>
+          ))}
+          {(['outcome', 'summary'] as const).map((fixed) => (
+            <li key={fixed} data-output-fixed={fixed} className="flex items-center gap-3 px-3 py-2 text-muted">
+              <span className="min-w-0 flex-1 font-medium">{t(`templates.output.${fixed}`)}</span>
+              <span className="text-sm">{t('templates.fixed')}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }
 
@@ -132,6 +225,7 @@ function NewTemplateForm({ onCreate, onClose }: { onCreate: (v: { name: string; 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [fields, setFields] = useState<TemplateField[]>([])
+  const [output, setOutput] = useState<TemplateOutputField[] | null>(null)
   const [instructions, setInstructions] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState<string | null>(null)
@@ -151,7 +245,7 @@ function NewTemplateForm({ onCreate, onClose }: { onCreate: (v: { name: string; 
     setFormError(null)
     try {
       const clean = fields.map((f) => ({ ...f, label: f.label.trim() }))
-      await onCreate({ name: name.trim(), description: description.trim(), body_markdown: buildTemplate({ name: name.trim(), description: description.trim(), fields: clean, instructions }) })
+      await onCreate({ name: name.trim(), description: description.trim(), body_markdown: buildTemplate({ name: name.trim(), description: description.trim(), fields: clean, output, instructions }) })
       onClose()
     } catch (err) {
       setFormError(errorText(err))
@@ -215,6 +309,7 @@ function NewTemplateForm({ onCreate, onClose }: { onCreate: (v: { name: string; 
         ))}
         {error('fields')}
       </fieldset>
+      <OutputEditor output={output} onChange={(next) => setOutput(next)} />
       <section aria-label={t('templates.instructions')} className="flex flex-col gap-1">
         <h2>{t('templates.instructions')}</h2>
         {/* The same box and the same rendering as when a template is edited (J2-A-25). */}

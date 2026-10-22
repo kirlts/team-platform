@@ -6,6 +6,11 @@ fields:
   - { name: request,    label: Qué debería hacer el producto,   required: true }
   - { name: users,      label: Quién lo necesita,               required: false }
   - { name: acceptance, label: Cómo se sabrá que está listo,    required: false }
+output:
+  - { name: built,        label: Qué se construyó,          type: text, required: false }
+  - { name: verification, label: Verificación,              type: text, required: false }
+  - { name: branch,       label: Rama,                      type: text, required: false }
+  - { name: pending,      label: Pendiente,                 type: list, required: false }
 ---
 ## Método
 Un pedido de funcionalidad es un comportamiento nuevo que alguien espera. Cada capacidad distinta es un mensaje. Dos pedidos son uno solo cuando no se pueden entregar por separado sin que el primero deje de servir; son dos cuando cada uno se puede construir y usar sin el otro.
@@ -30,3 +35,6 @@ Un mensaje por funcionalidad.
 Título: verbo en infinitivo y objeto, por ejemplo «Exportar el listado de mensajes a CSV».
 
 Cuerpo: dos o tres frases: la necesidad y lo que el producto debería hacer; quién lo necesita y los criterios de listo van solo si el input los da, y si no los da no se escribe nada sobre ellos. Sin proponer diseño ni tecnología que el input no mencione. Lo que el input no da no se menciona en el cuerpo: ni «no se indica» ni una frase sobre lo que falta.
+
+## Salida
+Qué se construyó: el comportamiento nuevo, en términos observables. Verificación: el comando corrido y su resultado. Pendiente: lo que falta del pedido, una línea por punto.

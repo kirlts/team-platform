@@ -30,7 +30,7 @@ Actualizado 2026-10-22 03:02 UTC.
 
 ## Trabajo en vuelo
 
-Fase A de `docs/PLAN-DEVALIS.md` (UD-254, UD-255), lanzada el 2026-10-22 02:05: seis agentes a la vez en `wt-a1-identidad`, `wt-a2-montable`, `wt-a3-encuadre`, `wt-a4-salida`, `wt-a5-execute`, `wt-a7-enviar-como` (H-3720 a H-3726). A6 (cliente del contrato) arranca cuando los otros estén en `main`, para no chocar en `queries.ts`. Decisiones diferidas a la mañana: áreas, plantillas, miembros y perfiles de Devalis.
+Plan Devalis completo (`docs/PLAN-DEVALIS.md`, UD-254, UD-255), plazo del dueño: 11:00 del 2026-10-22. Los seis agentes de Fase A lanzados a las 02:05 murieron sin commits por cuota y se retomaron a las 09:03 en `wt-a1-identidad`, `wt-a2-montable` (más `THEME_CSS`), `wt-a3-encuadre`, `wt-a4-salida`, `wt-a5-execute`, `wt-a7-enviar-como` (H-3720 a H-3726), con commit final entre 10:00 y 10:20. A6 queda fuera del plazo: B3 se hace con una hoja de tema sobre los tokens del panel en vez de reescribir las vistas con el sistema de diseño de Devalis. En el repositorio de Devalis, desde las 09:10, tres agentes en worktrees propios: D1 (B1 servicio y Caddy, B2 cookie de dominio y JWT, B5 cuenta de Alejandro, B6 retiro de la Mesa), D2 (B3 hoja de tema de la clínica), D3 (C1 a C4 máquina en Google Cloud con `crear.sh`, `correr.sh`, `retirar.sh`). B4 (áreas y plantillas de Devalis) y el perfil de Claude los siembra la coordinadora por la API con la propuesta del plan apenas A4 esté en `main`.
 
 UD-253 completo y en el VPS: `8e73dd7` desde las 00:00 del 2026-10-22, `vps-check` OK. Batería de navegador corrida: tres fallas arregladas en `8e73dd7`. Nada en vuelo.
 

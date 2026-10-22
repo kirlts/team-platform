@@ -331,6 +331,34 @@ for (const [width, height] of SIZES) {
   }
 }
 
+// A frame that hugs its rows does not grow with the window by itself: the lists measure again when the room around them grows (FitList `bound`).
+// Only the height changes (a width change redraws the rows, which measures again by itself): the rows after growing from 1440x720 to 1440x1080 are the
+// rows of a page opened at 1440x1080.
+describe('the two lists of Inicio fill a window that grows', () => {
+  test('after growing, each list shows as many rows as when opened at the larger size', async () => {
+    const context = await panel.browser.newContext({ viewport: { width: 1440, height: 1080 }, locale: 'es-CL' })
+    const page = await context.newPage()
+    const rows = () => page.evaluate(() => [...document.querySelectorAll('main section[aria-label^="Últim"]')].map((s) => s.querySelectorAll('article').length))
+    try {
+      await login(page, ORIGIN)
+      await open(page, '/')
+      await page.waitForFunction(() => document.querySelectorAll('main section[aria-label^="Últim"] article').length > 0 && !document.querySelector('[data-fit-measuring]'))
+      await settled(page)
+      const large = await rows()
+      await page.setViewportSize({ width: 1440, height: 720 })
+      await page.waitForFunction((n) => [...document.querySelectorAll('main section[aria-label^="Últim"]')].some((s, i) => s.querySelectorAll('article').length < n[i]) && !document.querySelector('[data-fit-measuring]'), large)
+      const small = await rows()
+      await page.setViewportSize({ width: 1440, height: 1080 })
+      await page
+        .waitForFunction((n) => [...document.querySelectorAll('main section[aria-label^="Últim"]')].every((s, i) => s.querySelectorAll('article').length === n[i]) && !document.querySelector('[data-fit-measuring]'), large, { timeout: 5000 })
+        .catch(() => {})
+      assert.deepStrictEqual(await rows(), large, `rows at 1440x1080 ${large.join(', ')}; at 1440x720 ${small.join(', ')}; after growing back ${(await rows()).join(', ')}`)
+    } finally {
+      await context.close()
+    }
+  })
+})
+
 // A list that has settled asks for nothing: its thumbnails are drawn once. The frame of a list measures itself against its neighbors, so a neighbor that
 // changes size at every measure (the strip of areas that wrapped and unwrapped, H-1405) made both lists draw their sixty measuring rows again and again,
 // and every video thumbnail asked for its file each time. The count that fails is derived from what is on screen: no thumbnail may ask for its URL

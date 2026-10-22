@@ -28,8 +28,9 @@ export function feedsInPage() {
     const css = getComputedStyle(box)
     const [header, slot] = box.children
     const frame = slot?.firstElementChild
-    // What the box holds: its padding and borders, the header, the gap and the frame of the rows (or of the empty line).
-    const content = px(css.paddingTop) + px(css.paddingBottom) + px(css.borderTopWidth) + px(css.borderBottomWidth) + header.getBoundingClientRect().height + px(css.rowGap) + (frame?.getBoundingClientRect().height ?? 0)
+    // What the box holds: its padding and borders, the header, the gap and the frame of the rows (or of the empty line). A paged list keeps its slot at
+    // least one row, its pager and its borders tall, rounded up to the pixel (FitList, H-96): that floor is content too.
+    const content = px(css.paddingTop) + px(css.paddingBottom) + px(css.borderTopWidth) + px(css.borderBottomWidth) + header.getBoundingClientRect().height + px(css.rowGap) + Math.max(frame?.getBoundingClientRect().height ?? 0, px(slot?.style.minHeight))
     return { name: box.getAttribute('aria-label'), x: r.x, y: r.y, width: r.width, height: r.height, bottom: r.bottom, content, rows: box.querySelectorAll('article').length, pager: /\d+–\d+ de \d+/.test(box.textContent ?? '') }
   })
   const [a, b] = measured

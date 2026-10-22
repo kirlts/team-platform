@@ -129,7 +129,7 @@ export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => v
         <Item to="/settings" icon={<Settings size={16} aria-hidden />} onNavigate={onNavigate}>
           {t('nav.settings')}
         </Item>
-        {me && canSignOut(me.provider) && (
+        {me && canSignOut(me.provider, me.logout_url) && (
           <div data-nav-row className={rowBox}>
             <button type="button" data-testid="sign-out" onClick={onLogout} className={cn(link, 'w-full text-left text-muted')}>
               <LogOut size={16} aria-hidden />

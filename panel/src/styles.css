@@ -228,6 +228,36 @@
   color-scheme: light;
 }
 
+/*
+ * Finish of the controls (theme contract, MASTER-SPEC 7.8). The defaults keep the glass skin as it is; a host sheet redefines
+ * them in :root. They sit in :where() so a host rule of any selector wins, in both themes, without matching specificity.
+ */
+:where(:root) {
+  --btn-gloss: linear-gradient(180deg, oklch(1 0 0 / 0.22), oklch(1 0 0 / 0) 50%);
+  --btn-border: oklch(0.3 0.1 255 / 0.55);
+  --btn-text-shadow: 0 1px 0 oklch(0.2 0.1 260 / 0.35);
+  --orb-gloss: radial-gradient(circle at 32% 26%, oklch(1 0 0 / 0.95) 0 11%, oklch(1 0 0 / 0) 34%);
+  --orb-glow: radial-gradient(circle at 50% 120%, var(--color-aqua), transparent 62%);
+  --orb-ink: oklch(0.99 0 0);
+  --orb-text-shadow: 0 1px 1px oklch(0.2 0.1 260 / 0.55);
+  --orb-shadow:
+    inset 0 -2px 3px oklch(0.2 0.1 260 / 0.35),
+    0 1px 2px oklch(0.3 0.12 255 / 0.45);
+  --chrome-border: var(--color-line-strong);
+  --chrome-shadow: 0 8px 20px -12px oklch(0.35 0.14 255 / 0.5);
+  --selected-bg: var(--color-selected);
+  --selected-border: var(--color-accent);
+  --selected-ink: var(--color-fg);
+  --selected-shadow: none;
+  --segmented-track: var(--color-raised);
+  --card-edge-width: 3px;
+}
+
+:where(:root[data-theme='dark']) {
+  --btn-border: oklch(0.85 0.1 240 / 0.6);
+  --btn-text-shadow: none;
+}
+
 @layer base {
   html {
     font-size: 15px;
@@ -429,6 +459,11 @@
     border: 1px solid var(--color-edge);
   }
 
+  /* Track of a switch: the well, with its own fill. */
+  .opt-track {
+    background: var(--segmented-track);
+  }
+
   /* What an AI generated: its own background, a left accent edge and, in its header, the origin mark (UD-026). */
   /* Color of an area (UD-045). A box or chip carries `--area-light-*` and `--area-dark-*` from `areaStyle()`; `.area-tint` picks
      the pair of the current theme. Only the area color is chosen by a person: the tint, the text and the edge are derived from it
@@ -498,8 +533,8 @@
       var(--color-chrome-3) 52%,
       var(--color-chrome-4) 100%
     );
-    border-bottom: 1px solid var(--color-line-strong);
-    box-shadow: 0 8px 20px -12px oklch(0.35 0.14 255 / 0.5);
+    border-bottom: 1px solid var(--chrome-border);
+    box-shadow: var(--chrome-shadow);
   }
 
   /* Buttons. The gel carries a highlight on the upper half; the glass is the secondary. */
@@ -529,17 +564,12 @@
 
   .btn-gel {
     color: var(--color-gel-fg);
-    border: 1px solid oklch(0.3 0.1 255 / 0.55);
+    border: 1px solid var(--btn-border);
     background:
-      linear-gradient(180deg, oklch(1 0 0 / 0.22), oklch(1 0 0 / 0) 50%),
+      var(--btn-gloss),
       linear-gradient(180deg, var(--color-gel-top), var(--color-gel-bottom));
     box-shadow: var(--shadow-gel);
-    text-shadow: 0 1px 0 oklch(0.2 0.1 260 / 0.35);
-  }
-
-  :root[data-theme='dark'] .btn-gel {
-    text-shadow: none;
-    border-color: oklch(0.85 0.1 240 / 0.6);
+    text-shadow: var(--btn-text-shadow);
   }
 
   /* A gel button that cannot be pressed yet is still the primary one at rest: the gel, dimmed, so it is told apart from the quiet icons beside it (J1-B-03, J2-B-05). */
@@ -696,14 +726,20 @@
   /* Glass sphere: avatars and brand. */
   .orb {
     background:
-      radial-gradient(circle at 32% 26%, oklch(1 0 0 / 0.95) 0 11%, oklch(1 0 0 / 0) 34%),
-      radial-gradient(circle at 50% 120%, var(--color-aqua), transparent 62%),
+      var(--orb-gloss),
+      var(--orb-glow),
       linear-gradient(160deg, var(--color-gel-top), var(--color-gel-bottom));
-    color: oklch(0.99 0 0);
-    text-shadow: 0 1px 1px oklch(0.2 0.1 260 / 0.55);
-    box-shadow:
-      inset 0 -2px 3px oklch(0.2 0.1 260 / 0.35),
-      0 1px 2px oklch(0.3 0.12 255 / 0.45);
+    color: var(--orb-ink);
+    text-shadow: var(--orb-text-shadow);
+    box-shadow: var(--orb-shadow);
+  }
+
+  /* The chosen option of a switch (Segmented, StateTabs). */
+  .opt-on {
+    border-color: var(--selected-border);
+    background-color: var(--selected-bg);
+    color: var(--selected-ink);
+    box-shadow: var(--selected-shadow);
   }
 
   /* Status light: dot with halo, before the badge text. */

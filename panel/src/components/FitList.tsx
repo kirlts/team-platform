@@ -62,7 +62,7 @@ export function FitList<T>({
   pagedOnPhone?: boolean
   /** Drawn right under the frame, inside the slot: the rows share the height with it, and it does not drift to the foot of the page when the list is short. */
   footer?: ReactNode
-  /** Told the keys of the rows on the visible page once they are measured (Marcar todos marks those: UD-253). */
+  /** Told the keys of the rows on the visible page once they are measured (the mark-all button marks those: UD-253). */
   onShown?: (keys: readonly string[]) => void
 }) {
   const t = useT()

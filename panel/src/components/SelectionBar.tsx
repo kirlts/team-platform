@@ -5,22 +5,21 @@ import { useT } from '@/i18n'
 import type { Selection } from '@/lib/selection'
 
 /**
- * The strip over a list while rows are marked (UD-253): how many, Marcar todos (the rows of the page), Borrar and Cancelar.
+ * The strip over a list while rows are marked (UD-253): how many, mark all (the rows of the page), delete and cancel.
  * Borrar deletes at once, without asking: what it deletes comes back with Deshacer in the notice.
  */
 export function SelectionBar({ selection, onAll, onDelete, busy }: { selection: Selection; onAll: () => void; onDelete: () => void; busy?: boolean }) {
   const t = useT()
   return (
-    <div role="toolbar" aria-label={t('bulk.toolbar')} data-testid="selection-bar" className="flex min-h-12 flex-wrap items-center gap-x-3 gap-y-1 border-b border-line bg-selected py-2 pl-3 pr-4">
-      <Checkbox checked aria-label={t('bulk.cancel')} onCheckedChange={() => selection.clear()} />
-      <span className="text-sm font-semibold tabular-nums" aria-live="polite">
+    <div role="toolbar" aria-label={t('bulk.toolbar')} data-testid="selection-bar" className="flex min-h-12 flex-wrap items-center gap-x-1 gap-y-1 border-b border-line bg-selected py-2 pl-2 pr-2 sm:gap-x-3 sm:pl-10 sm:pr-4">
+      <span className="pl-1 text-xs font-semibold tabular-nums sm:pl-0 sm:text-sm" aria-live="polite">
         {t('bulk.marked', { n: selection.marked.size })}
       </span>
-      <Button size="sm" variant="ghost" className="text-xs" onClick={onAll}>
+      <Button size="sm" variant="ghost" className="px-2 text-xs sm:px-3" onClick={onAll}>
         {t('bulk.all')}
       </Button>
-      <span className="ml-auto flex items-center gap-2">
-        <Button size="sm" variant="ghost" className="text-xs text-muted" onClick={() => selection.clear()}>
+      <span className="ml-auto flex items-center gap-1 sm:gap-2">
+        <Button size="sm" variant="ghost" className="px-2 text-xs text-muted sm:px-3" onClick={() => selection.clear()}>
           {t('common.cancel')}
         </Button>
         <Button size="sm" variant="secondary" className="text-danger" disabled={busy} data-testid="selection-delete" onClick={onDelete}>

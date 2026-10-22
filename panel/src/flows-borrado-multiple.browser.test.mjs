@@ -63,7 +63,7 @@ describe('mark several and delete them at once (UD-253)', () => {
     }
   })
 
-  test('Marcar todos marks every row of the page that can be deleted, and Escape unmarks them', async () => {
+  test('the mark-all button marks every row of the page that can be deleted, and Escape unmarks them', async () => {
     const { page, context } = await session('ana')
     try {
       await page.goto(`${origin}/messages`)

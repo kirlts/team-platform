@@ -8,7 +8,7 @@ export interface Selection {
   marked: ReadonlySet<string>
   isMarked: (id: string) => boolean
   toggle: (id: string, on: boolean) => void
-  /** Adds these rows to what is marked (Marcar todos: the rows of the page). */
+  /** Adds these rows to what is marked (the mark-all button: the rows of the page). */
   add: (ids: readonly string[]) => void
   clear: () => void
 }

@@ -18,7 +18,7 @@ import type { Message } from '@/lib/types'
  * each row when the whole view is that area; `footer` is drawn right under the list (see `FitList`).
  *
  * Each message the person may delete (theirs, or any for an Editor) carries a check box; marking one shows the strip over the list
- * with Marcar todos, Borrar and Cancelar (UD-253). Borrar deletes them at once without asking, and the notice carries Deshacer.
+ * with the buttons to mark all, delete and cancel (UD-253). Borrar deletes them at once without asking, and the notice carries Deshacer.
  */
 export function MessageList({ list, query, onClear, none, hideArea = false, footer }: { list: ReturnType<typeof useMessages>; query: MessageQuery; onClear: () => void; none: ReactNode; hideArea?: boolean; footer?: ReactNode }) {
   const t = useT()

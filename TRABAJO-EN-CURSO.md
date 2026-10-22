@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: c7489cd Traspaso final: plan ejecutado, queda sólo lo que necesita al dueño. Empujado a origin: `c7489cd`.
+- `main`: e796cd5 Traspaso: encargo UD-240 en vuelo en cuatro ramas. Empujado a origin: `e796cd5`.
 - Ramas con commits sin fusionar: ninguna.
-- Worktrees abiertos: `team-platform`.
+- Worktrees abiertos: `team-platform`, `borrar-envios`, `borrar-mensajes`, `eliminar-miembros`, `vaciar-sembrar`.
 - Últimos commits en `main`:
-- `c7489cd` Traspaso final: plan ejecutado, queda sólo lo que necesita al dueño (hace 49 segundos)
-- `d1b004e` Merge branch 'wt-resto' (hace 10 minutos)
-- `6038b8c` Retira capturas sueltas de panel/undefined (hace 10 minutos)
-- `bc2e07d` Merge branch 'wt-respuestas' (hace 10 minutos)
-- `f7e8cbc` Inicio: fecha y hora (UD-230) y prueba de Para mí al rótulo vigente (hace 10 minutos)
-- `a155083` Merge main into wt-respuestas (hace 18 minutos)
-- `01990ba` Named attachments in two columns from 1024 px so the detail fits at 1280x720 (hace 18 minutos)
-- `3f2dd8c` Fusión de main en wt-resto (hace 20 minutos)
-Actualizado 2026-10-21 22:28 UTC.
+- `e796cd5` Traspaso: encargo UD-240 en vuelo en cuatro ramas (hace 34 segundos)
+- `b9fd82b` UD-240: borrar mensajes, respuestas, envíos y miembros; vaciar y sembrar (hace 3 minutos)
+- `c7489cd` Traspaso final: plan ejecutado, queda sólo lo que necesita al dueño (hace 2 horas)
+- `d1b004e` Merge branch 'wt-resto' (hace 2 horas)
+- `6038b8c` Retira capturas sueltas de panel/undefined (hace 2 horas)
+- `bc2e07d` Merge branch 'wt-respuestas' (hace 2 horas)
+- `f7e8cbc` Inicio: fecha y hora (UD-230) y prueba de Para mí al rótulo vigente (hace 2 horas)
+- `a155083` Merge main into wt-respuestas (hace 2 horas)
+Actualizado 2026-10-22 00:18 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- 2026-10-21, noche. Borrar lo que existe (UD-240): mensajes y respuestas en blando con `restore` (migración `0010_message_and_reply_deletion`), `DELETE /api/inputs/:id` con adjuntos, trabajos y propuesta (migración `0011_attachments_without_input`) y `DELETE /api/members/:id` con `purge`. En el panel, el ícono de borrar en cada tarjeta, fila de Áreas y vista de un área, «Borrar» en la ficha y en cada respuesta con Deshacer, «Borrar» en el envío abierto de Inicio y «Eliminar» en Equipo.
+- 2026-10-21, noche. Borrar lo que existe (UD-240): mensajes y respuestas en blando con `restore` (migración `0010_message_and_reply_deletion`), `DELETE /api/inputs/:id` con adjuntos, trabajos y propuesta (migración `0011_attachments_without_input`) y `DELETE /api/members/:id` con `purge`. En el panel, cada tarjeta, fila de Áreas y vista de un área lleva su ícono de borrar con Deshacer. La ficha y cada respuesta llevan «Borrar», el envío abierto de Inicio también, y Equipo, «Eliminar».
 - Vaciar y sembrar datos de prueba (UD-240, UD-252): `POST /api/ops/reset` con `scope` `content` o `everything`, `POST /api/ops/seed`, `scripts/vaciar.mjs`, `scripts/sembrar.mjs` y el juego `ejemplos/` (`EXAMPLES_DIR`). Configuración, sección «Datos»: «Vaciar contenido», «Vaciar todo» y «Sembrar ejemplos».
 - Lo borrado se lista y se restaura tras recargar (UD-250): `GET /api/messages?deleted=1`, «Borrados» en el filtro de Mensajes y «Borradas» en Áreas y en Plantillas, con «Restaurar».
 - «Cola» y «Auditoría» en Configuración para el Editor, con traza por envío y la línea de resumen de la telemetría de interfaz; `GET /api/inputs?all=1` (UD-251).
@@ -67,7 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `README.md` para quien llega al repositorio público.
 
 ### Changed
-- 2026-10-21, noche. Tarjetas de lista de alto fijo: título y extracto de una línea con puntos suspensivos y el texto entero de tooltip (UD-241, enmienda a UD-016).
+- 2026-10-21, noche. Tarjetas de lista de alto fijo: título y extracto de una línea con puntos suspensivos (UD-241, enmienda a UD-016). El texto entero va en el tooltip.
 - El plegable de plantillas de la vista de un área abre por omisión y Áreas enlaza a él con «N plantillas» (UD-252).
 - `scripts/vps-check.mjs` borra su envío de prueba en lugar de cancelarlo (UD-253).
 - `docs/TECHNICAL-DEBT.md` conserva solo DT-007 (HP-019 y HP-020). Quedaron cerradas DT-003 (proveedor de respaldo invocado), DT-004 (gancho de pre-commit), DT-005 (tope de documentos), DT-006 (cabecera de `src/analyze/api.js`), DT-008 (capas 3 y 5), DT-009 (inglés en comentarios, nombres, aserciones y registros). DT-010 queda descartada por el dueño (H-45).
@@ -79,7 +79,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MASTER-SPEC §2, §3, §6 y §7 describen el código real; §3.1 lista las dependencias con su licencia.
 
 ### Fixed
-- 2026-10-21, noche. Video: los fotogramas que visión deja sin descripción se piden otra vez y el que siga vacío no llega al análisis como mensaje (H-3713, REG-010).
+- 2026-10-21, noche. Video: los fotogramas sin descripción se piden otra vez a visión. El que siga vacío no llega al análisis (H-3713, REG-010).
 - Panel, ronda 5: el texto de «Entrar» se centra en su botón; «Desactivar» es un botón con contorno y la columna de acciones de Equipo tiene encabezado; los roles dicen lo que permiten en un texto emergente; el selector de Proveedor usa el chevron del panel como el de Idioma; «Funciones» y cada función se distinguen; la publicación automática dice qué publica; Conexiones explica cada fila en un texto emergente; el desplegable de envío dice «Enviando» para un texto sin adjuntos y en teléfono pliega el original cuando hay resultado (UD-220, H-3500 a H-3514).
 - «Cerrar sesión» no se dibuja con un proveedor de identidad sin ruta de cierre (UD-190). Equipo, Configuración y la ficha del mensaje sin hallazgos de `ui-detectors`: objetivos de 24 px, campo a 17 px en teléfono, miniaturas sin relleno saturado (UD-191).
 - Panel: en una ventana más baja que una fila de la lista, la fila ya no se dibuja sobre el paginador (H-96).

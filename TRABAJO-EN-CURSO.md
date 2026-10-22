@@ -13,19 +13,19 @@
 <!-- vivo:inicio -->
 ### Estado vivo (generado con `node scripts/traspaso-vivo.mjs`)
 
-- `main`: 5f9bba8 Eje documental al día con UD-240 a UD-253; libro apunta a main. Empujado a origin: `5f9bba8`.
-- Ramas con commits sin fusionar: `wt-sin-confirmaciones` 5 (hace 2 minutos), `wt-borrado-multiple` 4 (hace 7 segundos), `wt-inicio-listas` 4 (hace 2 minutos).
+- `main`: 95f1a0f Traspaso: VPS en 6911ecb; eje documental fusionado. Empujado a origin: `95f1a0f`.
+- Ramas con commits sin fusionar: `wt-sin-confirmaciones` 6 (hace 20 segundos), `wt-borrado-multiple` 4 (hace 2 minutos), `wt-inicio-listas` 4 (hace 4 minutos).
 - Worktrees abiertos: `team-platform`, `borrado-multiple`, `inicio-listas`, `sin-confirmaciones`.
 - Últimos commits en `main`:
-- `5f9bba8` Eje documental al día con UD-240 a UD-253; libro apunta a main (hace 67 segundos)
-- `29d8930` Merge branch 'wt-eje-documental' (hace 77 segundos)
-- `4c8323c` REPOMAP: vps-check sin «end-to-end» (hace 2 minutos)
-- `2fe045d` TEST y README: cifras tras fusionar la edición de respuestas (hace 2 minutos)
-- `a1915b3` Fusión de main: migraciones hasta 0012 en MASTER-SPEC y REPOMAP (hace 5 minutos)
-- `17f3591` CHANGELOG y TEST: oraciones partidas bajo 25 palabras (hace 5 minutos)
-- `48831e7` CHANGELOG: entrada del 2026-10-21 noche (hace 6 minutos)
-- `2199f8b` README: Sembrar ejemplos también desde Configuración (hace 6 minutos)
-Actualizado 2026-10-22 02:26 UTC.
+- `95f1a0f` Traspaso: VPS en 6911ecb; eje documental fusionado (hace 2 minutos)
+- `5f9bba8` Eje documental al día con UD-240 a UD-253; libro apunta a main (hace 3 minutos)
+- `29d8930` Merge branch 'wt-eje-documental' (hace 3 minutos)
+- `4c8323c` REPOMAP: vps-check sin «end-to-end» (hace 4 minutos)
+- `2fe045d` TEST y README: cifras tras fusionar la edición de respuestas (hace 4 minutos)
+- `a1915b3` Fusión de main: migraciones hasta 0012 en MASTER-SPEC y REPOMAP (hace 7 minutos)
+- `17f3591` CHANGELOG y TEST: oraciones partidas bajo 25 palabras (hace 7 minutos)
+- `48831e7` CHANGELOG: entrada del 2026-10-21 noche (hace 8 minutos)
+Actualizado 2026-10-22 02:28 UTC.
 <!-- vivo:fin -->
 
 ## Trabajo en vuelo

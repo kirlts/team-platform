@@ -25,6 +25,11 @@ export function promptSet(language) {
   return SETS[language] ?? SETS[DEFAULT_LANGUAGE];
 }
 
+/** The framing a set starts with when the Editor saved none (H-3722). */
+export function defaultFraming(language) {
+  return promptSet(language).DEFAULT_FRAMING;
+}
+
 /** The language a set is written in, after the fallback. */
 export function resolveLanguage(language) {
   return promptSet(language).LANGUAGE;
@@ -34,10 +39,11 @@ export function resolveLanguage(language) {
 // First call: classify
 // ---------------------------------------------------------------------------------------------
 
-export function classifySystem({ areas, templates, project, language }) {
+export function classifySystem({ areas, templates, project, language, framing }) {
   const set = promptSet(language);
+  // H-3722: the framing the Editor saved opens the instructions; without one, the default of the set.
   // UD-024: the project description is the last block of the cached system prompt; with none, the block disappears.
-  return [set.CLASSIFY_INSTRUCTIONS, set.catalogBlock({ areas, templates }), set.projectBlock(project)].filter(Boolean);
+  return [set.classifyInstructions(framing), set.catalogBlock({ areas, templates }), set.projectBlock(project)].filter(Boolean);
 }
 
 export function attachmentsBlock(attachments, units, language) {
@@ -64,9 +70,9 @@ export function classifyUser({ units, attachments, language, secondPass = false,
 // Second call: decompose
 // ---------------------------------------------------------------------------------------------
 
-export function decomposeSystem(template, project, language) {
+export function decomposeSystem(template, project, language, framing) {
   const set = promptSet(language);
-  return [set.DECOMPOSE_INSTRUCTIONS, set.templateBlock(template), set.projectBlock(project)].filter(Boolean);
+  return [set.decomposeInstructions(framing), set.templateBlock(template), set.projectBlock(project)].filter(Boolean);
 }
 
 export function decomposeUser({ members, attachments, units, scopeNote, language, recent }) {
@@ -105,6 +111,6 @@ export function rescueUser({ language, ...rest }) {
 // Harness
 // ---------------------------------------------------------------------------------------------
 
-export function harnessPrompt({ unitCount, retryErrors, language }) {
-  return promptSet(language).harnessPrompt({ unitCount, retryErrors });
+export function harnessPrompt({ unitCount, retryErrors, language, framing }) {
+  return promptSet(language).harnessPrompt({ unitCount, retryErrors, framing });
 }

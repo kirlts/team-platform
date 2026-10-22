@@ -15,7 +15,8 @@ import { permanent } from './errors.js'
 import { DEFAULT_LANGUAGE } from './language.js'
 import { recentInputsFor, transitionInput } from './inputs.js'
 import { autoPublishProposal } from './proposals.js'
-import { getAutoPublish, getProject } from './settings.js'
+import { getAutoPublish, getFraming, getProject } from './settings.js'
+import { isStep, keyOf, phraseOf, step } from './progress-phrases.js'
 import { blobPath } from './storage.js'
 
 // ExtractError codes that can clear up by themselves on retry (network of the link's site). Any other
@@ -30,14 +31,18 @@ const ANALYSIS_FINAL_CODES = new Set(['input', 'template', 'harness_unavailable'
 /** Internal signal: the hourly audio budget is not enough; the worker postpones the job without spending the attempt. */
 export class Deferred extends Error {
   constructor (delayMs, phrase) {
-    super(phrase)
+    super(phraseOf(phrase))
     this.deferMs = delayMs
     this.phrase = phrase
   }
 }
 
 /** The extractors' `onProgress` is (percent, phrase); the analyzer's is ({ percent, phrase }). Both are accepted. */
-const normalizeProgress = (a, b) => (a !== null && typeof a === 'object' ? [a.percent, a.phrase] : [a, b])
+// The analyzer notifies `{ percent, phrase, code, vars }` (H-3722); an older one, `{ percent, phrase }` or `(percent, phrase)`.
+const normalizeProgress = (a, b) => {
+  if (a === null || typeof a !== 'object') return [a, b]
+  return [a.percent, typeof a.code === 'string' && isStep({ code: a.code }) ? step(a.code, a.vars ?? {}) : a.phrase]
+}
 
 export function createPipeline ({ db, config, queue, events, modules, now = Date.now }) {
   const attachmentForExtractor = (a) => ({
@@ -70,7 +75,7 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
       if (!Number.isFinite(verdict.waitMs)) {
         throw permanent('El audio de este envío supera el presupuesto de transcripción por hora y nunca cabría.', 'audio_budget_exceeded')
       }
-      throw new Deferred(verdict.waitMs, 'En espera: cupo de transcripción')
+      throw new Deferred(verdict.waitMs, step('waiting'))
     }
     budget.record(secondsCount, now())
   }
@@ -110,8 +115,8 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
       const rawValue = ((stepsDone + Math.max(0, Math.min(1, fraction))) / totalSteps) * 100
       const percent = Math.min(99, Math.floor(rawValue)) // 100 is marked by the `done` event
       // Only what changes is written: each event is a commit with fsync (131 per second with FULL, I03 §2.3).
-      if (percent === lastSeqValue.percent && phraseText === lastSeqValue.phrase) return
-      lastSeqValue = { percent, phrase: phraseText }
+      if (percent === lastSeqValue.percent && keyOf(phraseText) === lastSeqValue.phrase) return
+      lastSeqValue = { percent, phrase: keyOf(phraseText) }
       if (!queue.progress(job, percent, phraseText)) ctx.abort('lost')
     }
   }
@@ -157,20 +162,23 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
         for (let i = 0; i < pending.length; i++) {
           const a = pending[i]
           const ordinal = total - pending.length + i + 1
-          advance(i, 0, `Lectura de adjunto ${ordinal} de ${total}`)
-          await extractAttachment(job, ctx, a, (percent, phraseText) => advance(i, (percent ?? 0) / 100, phraseText || `Lectura de adjunto ${ordinal} de ${total}`))
+          const reading = step('attachmentN', { n: ordinal, total })
+          advance(i, 0, reading)
+          await extractAttachment(job, ctx, a, (percent, phraseText, s) => advance(i, (percent ?? 0) / 100, s ?? (phraseText || reading)))
           ctx.signal.throwIfAborted()
         }
 
         transitionInput(db, inputId, 'analyzing', { now })
-        advance(pending.length, 0, 'Analizando')
+        advance(pending.length, 0, step('analyzing'))
         const atts = all(db, 'SELECT id, kind, name, extracted_text FROM attachments WHERE input_id = ? ORDER BY id', inputId)
           .map((a) => ({ id: a.id, kind: a.kind, name: a.name, extracted: a.extracted_text ?? '' }))
         // UD-018: the author's language selects the prompts and the language of the output; it travels as context data.
         const author = get(db, 'SELECT language FROM members WHERE id = ?', input.author_id)
+        const language = author?.language ?? DEFAULT_LANGUAGE
         const bundle = {
           text: input.text,
-          language: author?.language ?? DEFAULT_LANGUAGE,
+          language,
+          framing: getFraming(db, language), // H-3722: the Editor's framing for the author's language
           attachments: atts,
           project: getProject(db, config), // UD-024
           areas: all(db, 'SELECT id, title, description, position FROM areas WHERE deleted_at IS NULL ORDER BY position, id'),
@@ -187,7 +195,7 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
             analyzer: modules.getAnalyzer(),
             onProgress: (a, b) => {
               const [percent, phraseText] = normalizeProgress(a, b)
-              advance(pending.length, (percent ?? 0) / 100, phraseText || 'Analizando')
+              advance(pending.length, (percent ?? 0) / 100, phraseText || step('analyzing'))
             },
             signal: ctx.signal,
             // UD-021: the second reading describes an image again in more detail when the first one found nothing.
@@ -223,7 +231,7 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
           transitionInput(db, inputId, 'proposed', { now })
           // UD-070: a valid proposal is published right here (UD-072: unless the sender asked for a draft), in this same transaction; otherwise it waits as `proposed`.
           const outcome = getAutoPublish(db) && !get(db, 'SELECT keep_draft FROM inputs WHERE id = ?', inputId).keep_draft ? autoPublishProposal({ db, events, now }, inputId) : { published: false, messageIds: [] }
-          events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: outcome.published ? 'Publicado' : 'Propuesta lista' })
+          events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: outcome.published ? step('published') : step('proposalReady') })
           events.publishForJob(job.id, {
             kind: 'done',
             data: { status: 'done', input_status: outcome.published ? 'published' : 'proposed', message_ids: outcome.messageIds.map(String) }
@@ -245,7 +253,7 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
         events.transaction(() => {
           if (outcome.state === 'requeued') {
             if (get(db, 'SELECT status FROM inputs WHERE id = ?', inputId)?.status !== 'cancelled') transitionInput(db, inputId, 'queued', { now })
-            events.publishForJob(job.id, { kind: 'progress', percent: 0, phrase: `Intento ${job.attempts} de ${job.max_attempts} fallido; se reintenta` })
+            events.publishForJob(job.id, { kind: 'progress', percent: 0, phrase: step('retry', { n: job.attempts, total: job.max_attempts }) })
           } else if (outcome.state === 'failed') {
             const current = get(db, 'SELECT status FROM inputs WHERE id = ?', inputId)?.status
             const errorCodeValue = error?.code && typeof error.code === 'string' ? error.code : null

@@ -583,6 +583,8 @@ export function useCheckSlot() {
 export interface Project {
   /** Cap of characters (PROJECT_DESCRIPTION_MAX_CHARS); a server that does not send it leaves the counter without a cap. */
   max_chars?: number
+  /** Cap of characters of the name (PROJECT_NAME_MAX_CHARS, H-3722). */
+  name_max_chars?: number
   name: string
   description: string
 }
@@ -817,5 +819,43 @@ export function useRestoreTemplates() {
   return useMutation({
     mutationFn: (ids: readonly string[]) => Promise.all(ids.map((id) => api(`/templates/${id}/restore`, { method: 'POST' }))),
     onSettled: () => invalidate('templates', 'areas'),
+  })
+}
+
+// ---------------------------------------------------------------- Installation settings of Configuración (H-3722), Editor
+/** The framing of one language: the text in force, the default and whether the Editor changed it. */
+export interface FramingItem {
+  value: string
+  default: string
+  custom: boolean
+}
+export interface AnalysisSettings {
+  framing: Record<Language, FramingItem>
+  /** Cap of characters of each framing (ANALYSIS_FRAMING_MAX_CHARS). */
+  max_chars: number
+}
+
+export function useAnalysisSettings(enabled = true) {
+  return useQuery({ queryKey: ['analysis-settings'], queryFn: () => api<AnalysisSettings>('/settings/analysis'), enabled, staleTime: 60_000 })
+}
+
+/** Saves the framing of one or both languages; an empty text goes back to the default. */
+export function useSaveFraming() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (framing: Partial<Record<Language, string>>) => api<AnalysisSettings>('/settings/analysis', { method: 'PATCH', body: { framing } }),
+    onSuccess: (saved) => qc.setQueryData(['analysis-settings'], saved),
+  })
+}
+
+/** Saves the project name (empty goes back to PROJECT_NAME); the top bar reads it from ['project']. */
+export function useSaveProjectName() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (name: string) => api<Project>('/settings/project', { method: 'PATCH', body: { name } }),
+    onSuccess: (saved) => {
+      qc.setQueryData(['project'], saved)
+      void qc.invalidateQueries({ queryKey: ['me'] })
+    },
   })
 }

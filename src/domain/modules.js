@@ -82,13 +82,13 @@ export async function loadModules (config, { db = null, env = process.env, log =
  * prompt cache. It is not a clock-based wait. The call is recorded in `spans` like any other (UD-014). A failure
  * is logged and does not affect saving.
  */
-export function installTemplateWarmup ({ domainEvents, modules, getProject = () => undefined, log = () => {} }) {
+export function installTemplateWarmup ({ domainEvents, modules, getProject = () => undefined, getFraming = () => undefined, log = () => {} }) {
   domainEvents.on('template.saved', async (tpl) => {
     if (!modules.warmTemplate) return
     try {
       const providers = modules.getProviders()
       if (!providers?.text || providers.text.unavailable) return // without a text provider there is nothing to warm
-      await modules.warmTemplate({ providers, config: modules.resolveAnalyzeConfig?.(), templateMarkdown: tpl.body_markdown, project: getProject() })
+      await modules.warmTemplate({ providers, config: modules.resolveAnalyzeConfig?.(), templateMarkdown: tpl.body_markdown, project: getProject(), framing: getFraming() })
     } catch (error) {
       log(`Could not warm the template «${tpl.name}»: ${error.message}`)
     }

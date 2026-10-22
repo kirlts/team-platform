@@ -20,6 +20,7 @@ import { buildProposalSchema } from './schema.js';
 import { parseTemplate } from './templates.js';
 import { numberUnits, renderUnits } from './units.js';
 import { describeConflicts, normalizeDecomposition, validateProposal } from './validate.js';
+import { phraseOf, step } from '../domain/progress-phrases.js';
 
 const PROVIDER = 'claude-code';
 
@@ -160,12 +161,12 @@ export async function analyzeWithHarness(bundle, { onProgress, config }) {
   const calls = [];
   const stats = { chunks: 1, groups: 0, classification_chunks: 1, rescues: 0, invalid_retries: 0, max_tokens_retries: 0, partitioned: false, units: units.length };
   let done = 0;
-  const report = (phrase) => onProgress?.({ percent: Math.round((100 * done) / 3), phrase });
+  const report = (s) => onProgress?.({ percent: Math.round((100 * done) / 3), phrase: phraseOf(s), code: s.code, vars: s.vars });
 
   const workRoot = config.harnessWorkRoot ?? tmpdir();
   const dir = await mkdtemp(join(workRoot, 'team-analyze-'));
   try {
-    report('Preparación');
+    report(step('prepare'));
     await writeWorkdir(dir, bundle, units, language);
     done = 1;
 
@@ -182,9 +183,9 @@ export async function analyzeWithHarness(bundle, { onProgress, config }) {
 
     let retryErrors = [];
     for (let attempt = 0; ; attempt += 1) {
-      report(attempt === 0 ? 'Análisis con Claude Code' : 'Corrección de la propuesta');
+      report(attempt === 0 ? step('claudeCode') : step('fix'));
       let result;
-      const prompt = harnessPrompt({ unitCount: units.length, retryErrors, language });
+      const prompt = harnessPrompt({ unitCount: units.length, retryErrors, language, framing: bundle.framing });
       try {
         // One span per `claude -p` invocation, with the real cost it reports (`total_cost_usd`), not estimated.
         result = await withSpan('harness', { 'team.step': 'harness', 'team.attempt': attempt + 1 }, async (span) => {
@@ -242,10 +243,10 @@ export async function analyzeWithHarness(bundle, { onProgress, config }) {
           errors = checked.errors;
           if (errors.length === 0) {
             done = 2;
-            report('Validación de la propuesta');
+            report(step('validate'));
             const { messages, discarded } = normalizeDecomposition(proposal);
             done = 3;
-            report('Propuesta lista');
+            report(step('proposalReady'));
             return { status: 'ok', proposal: { messages, discarded }, units, calls, stats };
           }
         }

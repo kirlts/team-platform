@@ -15,7 +15,7 @@ import { get, latestVersion, userVersion } from '../db/index.js'
 import { AppError } from '../domain/errors.js'
 import { MEMBER_COLUMNS, toMember } from '../domain/members.js'
 import { createLogger } from '../log.js'
-import { getProviderSettings, getUiTelemetryEnabled } from '../domain/settings.js'
+import { getProjectName, getProviderSettings, getUiTelemetryEnabled } from '../domain/settings.js'
 import { installErrorHandler, schemaErrorFormatter } from './errors.js'
 import { installSecurityHeaders } from './security.js'
 import { cookieSpec } from '../identity/cookies.js'
@@ -231,7 +231,7 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
     }, async (request) => {
       const dbRow = get(db, `SELECT ${MEMBER_COLUMNS} FROM members WHERE id = ?`, request.member.id)
       // The minimum length is the server's (PASSWORD_MIN_LENGTH): the panel says it before the person types, it does not repeat a number of its own.
-      return { ...toMember(dbRow), project_name: config.projectName, provider: identity.provider.name, password_min_length: config.identity.password.minLength, ui_telemetry: { enabled: getUiTelemetryEnabled(db, config), max_events: config.uiTelemetry.maxEvents } }
+      return { ...toMember(dbRow), project_name: getProjectName(db, config), provider: identity.provider.name, password_min_length: config.identity.password.minLength, ui_telemetry: { enabled: getUiTelemetryEnabled(db, config), max_events: config.uiTelemetry.maxEvents } }
     })
     api.get('/health', { config: { public: true }, schema: healthSchema }, healthHandler)
     api.get('/openapi.json', {

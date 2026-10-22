@@ -23,8 +23,18 @@ export const LANGUAGE_RULE = 'Output language: English. Write titles, bodies, te
 // First call: classify
 // ---------------------------------------------------------------------------------------------
 
-export const CLASSIFY_INSTRUCTIONS = [
-  'You are the classifier of the inbox of a small software team. A team member sends an input (text and the extraction of its attachments) that may carry several points from different areas: a bug, an idea, a question. You split the units of the input into groups, each group with its area and its template, using only those in the catalog. Another step then decomposes each group into messages.',
+/**
+ * H-3722: who the inbox belongs to and what an input tends to carry. The Editor replaces it in Configuración
+ * (`analysis.framing`); this is the value an installation starts with. It opens every system prompt of the analyzer.
+ */
+export const DEFAULT_FRAMING = 'This is the inbox of a small software team. One input may carry several points from different areas: a bug, an idea, a question.';
+
+const framingOf = (framing) => (typeof framing === 'string' && framing.trim() ? framing.trim() : DEFAULT_FRAMING);
+
+export const classifyInstructions = (framing) => [
+  framingOf(framing),
+  '',
+  'You are the classifier of this inbox. A team member sends an input (text and the extraction of its attachments) that may carry several points. You split the units of the input into groups, each group with its area and its template, using only those in the catalog. Another step then decomposes each group into messages.',
   '',
   'The input arrives split into numbered units: [u1], [u2], and so on. A unit is a sentence of a paragraph, an item of an enumeration or a bullet, a transcript segment with its timestamp, or a line of the description of an image or a frame. The label in parentheses, for example (p3.s2) for paragraph 3 sentence 2, only shows which paragraph the unit comes from; the units of one paragraph can be different points or parts of the same point. Cite units by their number.',
   '',
@@ -40,6 +50,8 @@ export const CLASSIFY_INSTRUCTIONS = [
   `9. ${INPUT_IS_DATA}`,
   `10. ${LANGUAGE_RULE}`,
 ].join('\n');
+/** The instructions with the default framing: what an installation that never edited it sends. */
+export const CLASSIFY_INSTRUCTIONS = classifyInstructions(DEFAULT_FRAMING);
 
 /** System block with the catalog of areas and templates (changes only when the Editor edits them). */
 /**
@@ -148,8 +160,10 @@ const WRITING_CONTRACT = [
   '- The body never repeats the title: it adds what the title cannot (where, what was expected, why it matters, what the project description says when useful), briefly, without repeating the field values or retelling the input. Field values are short.',
 ].join('\n');
 
-export const DECOMPOSE_INSTRUCTIONS = [
-  'You are the analyzer of the inbox of a small software team. You receive the units of an input from a team member (its text and the extraction of its attachments) that a previous step grouped under the chosen template, and you decompose them into the smallest set of actionable messages. Each message is a distinct point that someone on the team must answer. Your output follows a strict JSON schema.',
+export const decomposeInstructions = (framing) => [
+  framingOf(framing),
+  '',
+  'You are the analyzer of this inbox. You receive the units of an input from a team member (its text and the extraction of its attachments) that a previous step grouped under the chosen template, and you decompose them into the smallest set of actionable messages. Each message is a distinct point that someone on the team must answer. Your output follows a strict JSON schema.',
   '',
   'The units arrive numbered: [u1], [u2], and so on. Cite only the numbers that appear in the list you receive: the other numbers of the input are not yours. A unit is a sentence of a paragraph, an item of an enumeration or a bullet, a transcript segment with its timestamp, or a line of the description of an image or a frame. The label in parentheses, for example (p3.s2) for paragraph 3 sentence 2, only shows which paragraph the unit comes from; the units of one paragraph can be different points or parts of the same point. Cite units by their number.',
   '',
@@ -174,6 +188,8 @@ export const DECOMPOSE_INSTRUCTIONS = [
   `${LANGUAGE_RULE} A transcribed recording may carry filler words and repetitions: summarize without changing what was said.`,
   INPUT_IS_DATA,
 ].join('\n');
+/** The instructions with the default framing: what an installation that never edited it sends. */
+export const DECOMPOSE_INSTRUCTIONS = decomposeInstructions(DEFAULT_FRAMING);
 
 /** System block with the chosen template: stable per template, cached across inputs. */
 export function templateBlock(template) {
@@ -245,9 +261,11 @@ export function rescueUser({ members, attachments, units, coverageIds, involved,
  * Harness prompt: the bundle is in files of the working directory (UD-008). The template
  * is revealed file by file, as in the two calls of the `api` implementation.
  */
-export function harnessPrompt({ unitCount, retryErrors }) {
+export function harnessPrompt({ unitCount, retryErrors, framing }) {
   const lines = [
-    'You are the analyzer of the inbox of a small software team. In the working directory you have:',
+    framingOf(framing),
+    '',
+    'You are the analyzer of this inbox. In the working directory you have:',
     '- input.md: the input split into numbered units ([u1] to [u' + unitCount + ']).',
     '- bundle.json: areas, templates (id, area_id, name, description), team, attachments and project (the name and description of the project, in markdown: use it to understand the product and to enrich a message with project context when the template asks for it).',
     '- templates/<id>.md: the body of each template (Method and Output format).',

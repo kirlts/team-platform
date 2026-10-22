@@ -5,6 +5,9 @@ import type { DoneEvent, NewMessageEvent, ProgressEvent } from './types'
 export interface JobProgress {
   percent: number
   phrase: string
+  /** Stable code of the step (H-3722); null from a server older than the codes. */
+  code?: string | null
+  vars?: Record<string, number>
   done: boolean
   inputId?: string
 }
@@ -72,7 +75,7 @@ export class EventsStore {
     this.set({
       progress: {
         ...this.snap.progress,
-        [e.job_id]: { percent, phrase: e.phrase, done: false, inputId: e.input_id ?? prev?.inputId },
+        [e.job_id]: { percent, phrase: e.phrase, code: e.code ?? null, vars: e.vars ?? {}, done: false, inputId: e.input_id ?? prev?.inputId },
       },
     })
   }
@@ -82,7 +85,7 @@ export class EventsStore {
     this.set({
       progress: {
         ...this.snap.progress,
-        [e.job_id]: { percent: 100, phrase: prev?.phrase ?? '', done: true, inputId: e.input_id ?? prev?.inputId },
+        [e.job_id]: { percent: 100, phrase: prev?.phrase ?? '', code: prev?.code ?? null, vars: prev?.vars ?? {}, done: true, inputId: e.input_id ?? prev?.inputId },
       },
     })
     for (const fn of this.doneListeners) fn(e)
@@ -130,6 +133,8 @@ export class EventsStore {
           input_id: str(d.input_id),
           percent: d.percent,
           phrase: typeof d.phrase === 'string' ? d.phrase : '',
+          code: typeof d.code === 'string' ? d.code : null,
+          vars: numbers(d.vars),
           at: str(d.at),
         })
       }
@@ -212,4 +217,10 @@ export function connectEvents(
     source?.close()
     store.setConnected(false)
   }
+}
+
+/** The numeric variables of a progress code; anything else is dropped. */
+function numbers(v: unknown): Record<string, number> {
+  if (!v || typeof v !== 'object') return {}
+  return Object.fromEntries(Object.entries(v as Record<string, unknown>).filter(([, n]) => typeof n === 'number')) as Record<string, number>
 }

@@ -9,6 +9,8 @@
 
 import { all, get, run, tx } from '../db/index.js'
 import { iso, parseJson } from '../db/util.js'
+import { DEFAULT_LANGUAGE } from '../domain/language.js'
+import { codeOfPhrase, isStep, renderPhrase } from '../domain/progress-phrases.js'
 
 export const EVENT_KINDS = ['progress', 'done', 'message']
 
@@ -21,12 +23,23 @@ const id = (v) => (v === null || v === undefined ? undefined : String(v))
 export function toWire (row) {
   const data = parseJson(row.data_json, {})
   if (row.kind === 'progress') {
-    return { id: String(row.seq), event: 'progress', data: { job_id: id(row.job_id), input_id: id(data.input_id) ?? null, percent: row.percent, phrase: row.phrase, at: iso(row.at) } }
+    const { code, vars } = progressCode(row, data)
+    return { id: String(row.seq), event: 'progress', data: { job_id: id(row.job_id), input_id: id(data.input_id) ?? null, percent: row.percent, phrase: row.phrase, code, vars, at: iso(row.at) } }
   }
   if (row.kind === 'done') {
     return { id: String(row.seq), event: 'done', data: { ...data, job_id: id(row.job_id), input_id: id(data.input_id) ?? null, attachment_id: id(data.attachment_id), done: true, at: iso(row.at) } }
   }
   return { id: String(row.seq), event: 'message', data: { ...data, message_id: id(data.message_id), author_id: id(data.author_id), input_id: id(data.input_id), at: iso(row.at) } }
+}
+
+/**
+ * Code of a progress row (H-3722). A row written since the codes carries it in `data_json`; an older row carries only the
+ * phrase, and the catalogue recovers its code. A phrase outside the catalogue has none: the client shows it as it is.
+ */
+export function progressCode (row, data = parseJson(row.data_json, {})) {
+  if (typeof data.code === 'string') return { code: data.code, vars: data.vars ?? {} }
+  const legacy = codeOfPhrase(row.phrase)
+  return legacy ?? { code: null, vars: {} }
 }
 
 export function createEvents ({ db, now = Date.now }) {
@@ -61,9 +74,19 @@ export function createEvents ({ db, now = Date.now }) {
 
   /** Same as `publish`, but the recipient is the author of the input the job belongs to. */
   function publishForJob (jobId, { kind, percent = null, phrase = null, data = {} }) {
-    const jobRow = get(db, 'SELECT j.input_id, i.author_id FROM jobs j LEFT JOIN inputs i ON i.id = j.input_id WHERE j.id = ?', jobId)
+    const jobRow = get(db, 'SELECT j.input_id, i.author_id, m.language FROM jobs j LEFT JOIN inputs i ON i.id = j.input_id LEFT JOIN members m ON m.id = i.author_id WHERE j.id = ?', jobId)
     if (!jobRow) return null
-    return publish({ kind, jobId, memberId: jobRow.author_id, percent, phrase, data: { input_id: jobRow.input_id, ...data } })
+    // H-3722: a progress step is written with its code and in the author's language (UD-018); a text of the catalogue
+    // without a code gets its code; any other text goes as it came.
+    let progress = {}
+    if (kind === 'progress') {
+      const s = isStep(phrase) ? phrase : codeOfPhrase(phrase)
+      if (s) {
+        phrase = renderPhrase(s.code, s.vars, jobRow.language ?? DEFAULT_LANGUAGE)
+        progress = { code: s.code, vars: s.vars }
+      }
+    }
+    return publish({ kind, jobId, memberId: jobRow.author_id, percent, phrase, data: { input_id: jobRow.input_id, ...progress, ...data } })
   }
 
   /** Transaction that dispatches what was published inside once committed (never before: an uncommitted event does not exist). */
@@ -102,7 +125,8 @@ export function createEvents ({ db, now = Date.now }) {
   }
 
   function lastProgress (jobId) {
-    return get(db, "SELECT percent, phrase, at FROM job_events WHERE job_id = ? AND kind = 'progress' ORDER BY seq DESC LIMIT 1", jobId)
+    const row = get(db, "SELECT percent, phrase, data_json, at FROM job_events WHERE job_id = ? AND kind = 'progress' ORDER BY seq DESC LIMIT 1", jobId)
+    return row ? { percent: row.percent, phrase: row.phrase, at: row.at, ...progressCode(row) } : row
   }
 
   /**

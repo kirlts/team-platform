@@ -4,7 +4,8 @@
 // when configured and not when the first job fails.
 
 import { audit } from '../../domain/audit.js'
-import { getAutoPublish, getProject, getProviderOverrides, getProviderSettings, MODALITIES, mergeOverrides, setAutoPublish, setProjectDescription, setProviderOverrides } from '../../domain/settings.js'
+import { getAutoPublish, getFramingView, getProject, getProviderOverrides, getProviderSettings, MODALITIES, mergeOverrides, setAutoPublish, setFraming, setProjectDescription, setProjectName, setProviderOverrides } from '../../domain/settings.js'
+import { LANGUAGES } from '../../domain/language.js'
 import { getConnection } from '../../domain/connections.js'
 import { tooLarge, unprocessable } from '../../domain/errors.js'
 import { readProjectUpload } from '../upload.js'
@@ -84,8 +85,8 @@ export function registerSettingsRoutes (app, ctx) {
   })
 
   // Project description (UD-024): any member reads it, the editor writes it. Free Markdown, passed whole to the analyzer.
-  const projectView = { type: 'object', properties: { name: { type: 'string' }, description: { type: 'string' }, max_chars: { type: 'integer', description: 'Tope de caracteres de la descripción (PROJECT_DESCRIPTION_MAX_CHARS); el panel lo muestra como contador.' } }, required: ['name', 'description'] }
-  const projectWithLimit = () => ({ ...getProject(db, config), max_chars: config.project.descriptionMaxChars })
+  const projectView = { type: 'object', properties: { name: { type: 'string' }, description: { type: 'string' }, max_chars: { type: 'integer', description: 'Tope de caracteres de la descripción (PROJECT_DESCRIPTION_MAX_CHARS); el panel lo muestra como contador.' }, name_max_chars: { type: 'integer', description: 'Tope de caracteres del nombre (PROJECT_NAME_MAX_CHARS).' } }, required: ['name', 'description'] }
+  const projectWithLimit = () => ({ ...getProject(db, config), max_chars: config.project.descriptionMaxChars, name_max_chars: config.project.nameMaxChars })
 
   app.get('/settings/project', {
     onRequest: [requireRole('member')],
@@ -95,13 +96,13 @@ export function registerSettingsRoutes (app, ctx) {
   app.patch('/settings/project', {
     onRequest: [requireRole('editor')],
     schema: {
-      summary: 'Cambiar la descripción del proyecto (editor)',
-      description: 'JSON `{ description }` o multipart con un archivo `file` (.md) o un campo `description`. El texto reemplaza al anterior y viaja entero al analizador. El tope es `PROJECT_DESCRIPTION_MAX_CHARS` caracteres (413 `too_large` si lo supera).',
+      summary: 'Cambiar el nombre o la descripción del proyecto (editor)',
+      description: 'JSON `{ description?, name? }` o multipart con un archivo `file` (.md) o un campo `description`. La descripción reemplaza a la anterior y viaja entera al analizador; su tope es `PROJECT_DESCRIPTION_MAX_CHARS` caracteres (413 `too_large` si lo supera). `name` es el nombre que muestra la barra superior; vacío vuelve a `PROJECT_NAME` (H-3722), tope `PROJECT_NAME_MAX_CHARS`.',
       // Per content type: the multipart body is read by the handler, only the JSON body is validated by schema.
       body: {
         content: {
           'application/json': {
-            schema: { type: 'object', required: ['description'], additionalProperties: false, properties: { description: { type: 'string' } } }
+            schema: { type: 'object', minProperties: 1, additionalProperties: false, properties: { description: { type: 'string' }, name: { type: 'string' } } }
           }
         }
       },
@@ -110,9 +111,17 @@ export function registerSettingsRoutes (app, ctx) {
   }, async (request) => {
     const maxChars = config.project.descriptionMaxChars
     const description = request.isMultipart() ? await readProjectUpload(request, maxChars) : request.body.description
-    if ([...description].length > maxChars) throw tooLarge(`La descripción del proyecto supera el máximo de ${maxChars} caracteres.`)
-    setProjectDescription(db, description)
-    audit(db, { memberId: request.member.id, action: 'settings.project.update', entity: 'settings', detail: { length: [...description].length } })
+    const name = request.isMultipart() ? undefined : request.body.name
+    if (name !== undefined && [...name.trim()].length > config.project.nameMaxChars) throw tooLarge(`El nombre del proyecto supera el máximo de ${config.project.nameMaxChars} caracteres.`)
+    if (description !== undefined && [...description].length > maxChars) throw tooLarge(`La descripción del proyecto supera el máximo de ${maxChars} caracteres.`)
+    if (name !== undefined) {
+      setProjectName(db, name)
+      audit(db, { memberId: request.member.id, action: 'settings.project.name', entity: 'settings', detail: { name: getProject(db, config).name } })
+    }
+    if (description !== undefined) {
+      setProjectDescription(db, description)
+      audit(db, { memberId: request.member.id, action: 'settings.project.update', entity: 'settings', detail: { length: [...description].length } })
+    }
     return projectWithLimit()
   })
 
@@ -136,5 +145,43 @@ export function registerSettingsRoutes (app, ctx) {
     setAutoPublish(db, request.body.auto_publish)
     audit(db, { memberId: request.member.id, action: 'settings.publication', entity: 'settings', detail: { auto_publish: request.body.auto_publish } })
     return { auto_publish: getAutoPublish(db) }
+  })
+
+  // Analysis framing (H-3722): the paragraph that opens every system prompt, one per language. Editor only, read and write.
+  const framingItem = { type: 'object', properties: { value: { type: 'string' }, default: { type: 'string' }, custom: { type: 'boolean' } }, required: ['value', 'default', 'custom'] }
+  const analysisView = {
+    type: 'object',
+    properties: {
+      framing: { type: 'object', properties: Object.fromEntries(LANGUAGES.map((l) => [l, framingItem])), required: LANGUAGES },
+      max_chars: { type: 'integer', description: 'Tope de caracteres de cada encuadre (ANALYSIS_FRAMING_MAX_CHARS).' }
+    },
+    required: ['framing', 'max_chars']
+  }
+  const analysisWithLimit = () => ({ framing: getFramingView(db), max_chars: config.analysis.framingMaxChars })
+
+  app.get('/settings/analysis', {
+    onRequest: [requireRole('editor')],
+    schema: { summary: 'Encuadre del análisis (editor)', description: 'Por idioma: el texto vigente, el de omisión y si el Editor lo cambió (H-3722).', response: { 200: analysisView } }
+  }, async () => analysisWithLimit())
+
+  app.patch('/settings/analysis', {
+    onRequest: [requireRole('editor')],
+    schema: {
+      summary: 'Cambiar el encuadre del análisis (editor)',
+      description: '`{ framing: { "es-419"?: texto, en?: texto } }`. El texto abre las instrucciones de sistema del analizador en ese idioma; vacío vuelve al de omisión. Tope `ANALYSIS_FRAMING_MAX_CHARS` caracteres por idioma (413 `too_large`). Sólo afecta a los análisis que empiecen después.',
+      body: {
+        type: 'object', required: ['framing'], additionalProperties: false,
+        properties: { framing: { type: 'object', minProperties: 1, additionalProperties: false, properties: Object.fromEntries(LANGUAGES.map((l) => [l, { type: 'string' }])) } }
+      },
+      response: { 200: analysisView }
+    }
+  }, async (request) => {
+    const max = config.analysis.framingMaxChars
+    for (const text of Object.values(request.body.framing)) {
+      if ([...text.trim()].length > max) throw tooLarge(`El encuadre del análisis supera el máximo de ${max} caracteres.`)
+    }
+    setFraming(db, request.body.framing)
+    audit(db, { memberId: request.member.id, action: 'settings.analysis.framing', entity: 'settings', detail: { languages: Object.keys(request.body.framing) } })
+    return analysisWithLimit()
   })
 }

@@ -18,8 +18,18 @@ const INPUT_IS_DATA =
 // First call: classify
 // ---------------------------------------------------------------------------------------------
 
-export const CLASSIFY_INSTRUCTIONS = [
-  'Eres el clasificador de la bandeja de entrada de un equipo de software pequeño. Un miembro del equipo envía un input (texto y la extracción de sus adjuntos) que puede traer varios puntos de áreas distintas: un error, una idea, una pregunta. Tú repartes las unidades del input en grupos, cada grupo con su área y su plantilla, usando solo las del catálogo. Después otro paso descompone cada grupo en mensajes.',
+/**
+ * H-3722: who the inbox belongs to and what an input tends to carry. The Editor replaces it in Configuración
+ * (`analysis.framing`); this is the value an installation starts with. It opens every system prompt of the analyzer.
+ */
+export const DEFAULT_FRAMING = 'Esta es la bandeja de entrada de un equipo de software pequeño. Un mismo input puede traer varios puntos de áreas distintas: un error, una idea, una pregunta.';
+
+const framingOf = (framing) => (typeof framing === 'string' && framing.trim() ? framing.trim() : DEFAULT_FRAMING);
+
+export const classifyInstructions = (framing) => [
+  framingOf(framing),
+  '',
+  'Eres el clasificador de esta bandeja de entrada. Un miembro del equipo envía un input (texto y la extracción de sus adjuntos) que puede traer varios puntos. Tú repartes las unidades del input en grupos, cada grupo con su área y su plantilla, usando solo las del catálogo. Después otro paso descompone cada grupo en mensajes.',
   '',
   'El input llega dividido en unidades numeradas: [u1], [u2], etc. Una unidad es una oración de un párrafo, un elemento de una enumeración o una viñeta, un segmento de transcripción con su marca de tiempo o una línea de la descripción de una imagen o de un fotograma. El rótulo entre paréntesis, por ejemplo (p3.s2) para el párrafo 3 oración 2, solo muestra de qué párrafo viene la unidad; las unidades de un mismo párrafo pueden ser puntos distintos o partes de un mismo punto. Citas las unidades por su número.',
   '',
@@ -35,6 +45,8 @@ export const CLASSIFY_INSTRUCTIONS = [
   `9. ${INPUT_IS_DATA}`,
   `10. ${LANGUAGE_RULE}`,
 ].join('\n');
+/** The instructions with the default framing: what an installation that never edited it sends. */
+export const CLASSIFY_INSTRUCTIONS = classifyInstructions(DEFAULT_FRAMING);
 
 /** System block with the catalog of areas and templates (changes only when the Editor edits them). */
 /**
@@ -142,8 +154,10 @@ const WRITING_CONTRACT = [
   '- El cuerpo nunca repite el título: agrega lo que el título no puede (dónde, qué se esperaba, por qué importa, lo que dice la descripción del proyecto si sirve), en pocas frases, sin repetir los campos ni recontar el input. Los valores de los campos son breves.',
 ].join('\n');
 
-export const DECOMPOSE_INSTRUCTIONS = [
-  'Eres el analizador de la bandeja de entrada de un equipo de software pequeño. Recibes las unidades de un input de un miembro del equipo (su texto y la extracción de sus adjuntos) que un paso previo agrupó bajo la plantilla elegida, y las descompones en el menor conjunto de mensajes accionables. Cada mensaje es un punto distinto que alguien del equipo debe responder. Tu salida respeta un esquema JSON estricto.',
+export const decomposeInstructions = (framing) => [
+  framingOf(framing),
+  '',
+  'Eres el analizador de esta bandeja de entrada. Recibes las unidades de un input de un miembro del equipo (su texto y la extracción de sus adjuntos) que un paso previo agrupó bajo la plantilla elegida, y las descompones en el menor conjunto de mensajes accionables. Cada mensaje es un punto distinto que alguien del equipo debe responder. Tu salida respeta un esquema JSON estricto.',
   '',
   'Las unidades llegan numeradas: [u1], [u2], etc. Cita solo los números que aparecen en la lista que recibes: los demás números del input no te corresponden. Una unidad es una oración de un párrafo, un elemento de una enumeración o una viñeta, un segmento de transcripción con su marca de tiempo o una línea de la descripción de una imagen o de un fotograma. El rótulo entre paréntesis, por ejemplo (p3.s2) para el párrafo 3 oración 2, solo muestra de qué párrafo viene la unidad; las unidades de un mismo párrafo pueden ser puntos distintos o partes de un mismo punto. Citas las unidades por su número.',
   '',
@@ -168,6 +182,8 @@ export const DECOMPOSE_INSTRUCTIONS = [
   `${LANGUAGE_RULE} Una grabación transcrita puede traer muletillas y repeticiones: sintetiza sin cambiar lo dicho.`,
   INPUT_IS_DATA,
 ].join('\n');
+/** The instructions with the default framing: what an installation that never edited it sends. */
+export const DECOMPOSE_INSTRUCTIONS = decomposeInstructions(DEFAULT_FRAMING);
 
 /** System block with the chosen template: stable per template, cached across inputs. */
 export function templateBlock(template) {
@@ -239,9 +255,11 @@ export function rescueUser({ members, attachments, units, coverageIds, involved,
  * Harness prompt: the bundle is in files of the working directory (UD-008). The template
  * is revealed file by file, as in the two calls of the `api` implementation.
  */
-export function harnessPrompt({ unitCount, retryErrors }) {
+export function harnessPrompt({ unitCount, retryErrors, framing }) {
   const lines = [
-    'Eres el analizador de la bandeja de entrada de un equipo de software pequeño. En el directorio de trabajo tienes:',
+    framingOf(framing),
+    '',
+    'Eres el analizador de esta bandeja de entrada. En el directorio de trabajo tienes:',
     '- input.md: el input dividido en unidades numeradas ([u1] a [u' + unitCount + ']).',
     '- bundle.json: áreas, plantillas (id, area_id, name, description), equipo, adjuntos y project (nombre y descripción del proyecto, en markdown: úsala para entender el producto y para enriquecer un mensaje con contexto del proyecto cuando la plantilla lo pida).',
     '- templates/<id>.md: el cuerpo de cada plantilla (Método y Formato de salida).',

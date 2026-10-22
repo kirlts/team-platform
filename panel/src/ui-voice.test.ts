@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest'
 import { en } from './i18n/en'
 import { es419 } from './i18n/es-419'
 import { progressKey } from './lib/progress-text'
+import { PROGRESS_PHRASES } from '../../src/domain/progress-phrases.js'
 import { breaksVoice, voicePatterns } from './ui-voice-patterns.mjs'
 
 type Lang = 'es' | 'en'
@@ -22,6 +23,7 @@ const HINT_FILES = new Set([
   'pages/Settings.tsx',
   'components/SettingHint.tsx',
   'components/ProjectEditor.tsx',
+  'components/InstallationSettings.tsx', // H-3722: project name and analysis framing, mounted only in Configuración
   'components/ProviderSettings.tsx',
   'components/PublicationSetting.tsx',
   'components/UiTelemetrySetting.tsx',
@@ -39,7 +41,6 @@ const EXCEPTIONS: Record<string, { rule: RuleId; why: string }[]> = {
 }
 
 const SRC = fileURLToPath(new URL('.', import.meta.url))
-const SERVER_SRC = join(SRC, '..', '..', 'src')
 
 function variants(message: unknown): string[] {
   if (typeof message === 'string') return [message]
@@ -58,36 +59,15 @@ function violations(catalog: Record<string, unknown>, lang: Lang) {
   return out
 }
 
-function serverFiles(dir: string): string[] {
-  return readdirSync(dir).flatMap((name) => {
-    const path = join(dir, name)
-    if (statSync(path).isDirectory()) return name === 'testing' || name === 'node_modules' ? [] : serverFiles(path)
-    return /\.js$/.test(name) && !/\.test\.js$/.test(name) ? [path] : []
+/**
+ * The phrases the server hands to the panel as progress: the Spanish texts of its catalogue (H-3722), with each variable
+ * as `X`. `src/domain/progress-phrases.test.js` checks that no emitter of the server writes a text outside it.
+ */
+function progressPhrases(): { file: string; code: string; text: string }[] {
+  return Object.entries(PROGRESS_PHRASES as Record<string, Record<string, string | { one: string; other: string }>>).flatMap(([code, entry]) => {
+    const message = entry['es-419']
+    return (typeof message === 'string' ? [message] : [message.one, message.other]).map((text) => ({ file: `progress-phrases.js:${code}`, code, text: text.replace(/\{\w+\}/g, 'X') }))
   })
-}
-
-/** The phrases the server hands to the panel as progress: `report('…')`, `phrase: '…'`, `new Deferred(ms, '…')`, `phraseText || '…'`. */
-function progressPhrases(): { file: string; text: string }[] {
-  const found: { file: string; text: string }[] = []
-  const patterns = [
-    /\breport\(\s*(['"`])((?:\\.|(?!\1).)*?)\1/g,
-    /\bphrase:\s*(['"`])((?:\\.|(?!\1).)*?)\1/g,
-    /\bnew Deferred\([^,]+,\s*(['"`])((?:\\.|(?!\1).)*?)\1/g,
-    /\bphraseText\s*\|\|\s*(['"`])((?:\\.|(?!\1).)*?)\1/g,
-    /\.(?:advance|finish)\(\s*(['"`])((?:\\.|(?!\1).)*?)\1/g,
-    /\bfinish\(phrase\s*=\s*(['"`])((?:\\.|(?!\1).)*?)\1/g,
-    /\bphrase:\s*`([^`]*)`/g,
-  ]
-  for (const file of serverFiles(SERVER_SRC)) {
-    const source = readFileSync(file, 'utf8')
-    for (const re of patterns) {
-      for (const m of source.matchAll(re)) {
-        const text = (m[2] ?? m[1]).replace(/\$\{[^}]*\}/g, 'X')
-        found.push({ file: relative(SERVER_SRC, file), text })
-      }
-    }
-  }
-  return found
 }
 
 const BAD: [string, Lang, RuleId][] = [
@@ -132,10 +112,10 @@ describe('the interface speaks like an instrument (UD-050)', () => {
     expect(out).toEqual([])
   })
 
-  it('every phrase of the server maps to a key of the catalogues, so the language of the account applies (H-1502)', () => {
+  it('every progress code of the server maps to a key of the catalogues, so the language of the account applies (H-1502, H-3722)', () => {
     const unmapped = progressPhrases()
-      .map((p) => p.text.replace('Transcripción: X X', 'Transcripción: 3 trozos').replace(/X/g, '3'))
-      .filter((text) => !progressKey(text))
+      .map((p) => p.code)
+      .filter((code) => !progressKey(code))
     expect(unmapped).toEqual([])
   })
 

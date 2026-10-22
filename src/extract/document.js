@@ -6,6 +6,7 @@ import { Worker } from 'node:worker_threads';
 import { ExtractError } from './errors.js';
 import { createProgress } from './lib/progress.js';
 import { annotate, withSpan } from '../telemetry/api.js';
+import { step } from '../domain/progress-phrases.js';
 
 const WORKER_URL = new URL('./document-worker.js', import.meta.url);
 
@@ -57,7 +58,7 @@ export async function extractDocument(attachment, ctx) {
   }
   const startedAt = performance.now();
   const progress = createProgress(onProgress, 2);
-  progress.report('Lectura del documento');
+  progress.report(step('docRead'));
   // The tool is only known once the thread returns the format: the span is renamed then.
   const { text, meta } = await withSpan('extract.document', { 'team.step': 'extract.document', 'team.input_bytes': size }, async (span) => {
     const out = await runInWorker({ path: attachment.path, mime: attachment.mime, config }, cfg, signal);
@@ -73,7 +74,7 @@ export async function extractDocument(attachment, ctx) {
     });
     return out;
   });
-  progress.advance('Documento leído');
+  progress.advance(step('docReadDone'));
   const warnings = [];
   if (meta.scanned) {
     warnings.push({
@@ -81,6 +82,6 @@ export async function extractDocument(attachment, ctx) {
       message: `${meta.scannedPages.length} de ${meta.pageCount} páginas no tienen texto extraíble.`,
     });
   }
-  progress.advance('Documento convertido');
+  progress.advance(step('docConverted'));
   return { text, meta: { ...meta, warnings, elapsedMs: Math.round(performance.now() - startedAt) } };
 }

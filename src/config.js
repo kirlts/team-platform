@@ -174,7 +174,16 @@ export function loadConfig (env = process.env, overrides = {}) {
     project: {
       // The 100,000 input-token price step of the default model is ≈ 300,000 characters at 3 chars/token in Spanish.
       // 200,000 characters leave room for the input, the catalog and the team in the same call.
-      descriptionMaxChars: intVar(env, 'PROJECT_DESCRIPTION_MAX_CHARS', 200000, { min: 1 }) // report 02 §10.2: the 100,000-token price step, UD-024
+      descriptionMaxChars: intVar(env, 'PROJECT_DESCRIPTION_MAX_CHARS', 200000, { min: 1 }), // report 02 §10.2: the 100,000-token price step, UD-024
+      // H-3722, declared courtesy (a knob, not a measurement): the header shows the name on one line next to the brand.
+      nameMaxChars: intVar(env, 'PROJECT_NAME_MAX_CHARS', 80, { min: 1 }) // declared courtesy, H-3722
+    },
+
+    // ---- Analysis framing (H-3722). One paragraph at the head of every system prompt. 2,000 characters are ≈ 670 tokens at
+    // the 3 characters per token of the analyzer (`charsPerToken`), ten times the default framing; a longer context is
+    // the project description's job (UD-024). Declared courtesy, not measured.
+    analysis: {
+      framingMaxChars: intVar(env, 'ANALYSIS_FRAMING_MAX_CHARS', 2000, { min: 1 }) // declared courtesy, H-3722
     },
 
     // ---- Interface telemetry (UD-091, MASTER-SPEC §7.10 ter). Every number cites its source or is declared a courtesy.

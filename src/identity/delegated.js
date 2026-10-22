@@ -191,7 +191,7 @@ function ssoMode ({ db, config, sessions, now }) {
         const previous = readSessionCookie(request, config)
         if (previous) sessions.destroy(previous)
         setSessionCookie(reply, config, sessions.create(memberRow.id).token)
-        return reply.redirect('/', 302)
+        return reply.redirect(config.ssoReturnPath, 302) // SSO_RETURN_PATH: the panel may live under a path (H-3721)
       })
 
       app.post('/auth/logout', { config: { public: true }, schema: { response: { 204: { type: 'null', description: 'Sesión cerrada en el servidor.' } } } }, async (request, reply) => {

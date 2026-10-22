@@ -1,4 +1,4 @@
-// Security headers (MASTER-SPEC §4.1): the panel connects to no other domain.
+// Security headers (MASTER-SPEC §4.1): the panel connects to no other domain unless CSP_CONNECT_SRC names one.
 // They are set in `onRequest` so they also reach SSE responses, which write on `reply.raw`.
 
 export function contentSecurityPolicy (config) {
@@ -10,7 +10,8 @@ export function contentSecurityPolicy (config) {
     "img-src 'self' blob: data:", // MS §4.1
     "media-src 'self' blob:",
     "font-src 'self'",
-    "connect-src 'self'", // MS §4.1: rules out any telemetry from a library
+    // MS §4.1: rules out any telemetry from a library; CSP_CONNECT_SRC adds the origins of a host on another origin (H-3721).
+    ['connect-src', "'self'", ...config.cspConnectSrc].join(' '),
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

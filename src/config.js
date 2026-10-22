@@ -51,6 +51,12 @@ function listValue (env, nameValue, fallback = []) {
   return rawValue.split(',').map((s) => s.trim()).filter(Boolean)
 }
 
+/** `team`, `/team` and `/team/` all mean `/team/`; empty or `/` is the root. */
+function basePathValue (rawValue) {
+  const trimmed = rawValue.trim().replace(/^\/+|\/+$/g, '')
+  return trimmed ? `/${trimmed}/` : '/'
+}
+
 function choiceVar (env, nameValue, allowedList, fallback) {
   const val = textValue(env, nameValue, fallback)
   if (!allowedList.includes(val)) {
@@ -95,6 +101,15 @@ export function loadConfig (env = process.env, overrides = {}) {
     // I03 §7.3: hashed assets, long immutable cache (@fastify/static README, 30 days in the report's
     // example; one year is what the project it was compared against in I07 §8 uses).
     assetsMaxAgeSeconds: intVar(env, 'ASSETS_MAX_AGE_SECONDS', 31536000),
+    // H-3721: the panel mounted under a path of another site. BASE_PATH is where the panel and its assets live (the API
+    // keeps API_PREFIX); `/` is the root, as before. Normalized to start and end with `/`.
+    basePath: basePathValue(textValue(env, 'BASE_PATH', '/')),
+    // Extra sources of `connect-src` (an API on another origin); empty keeps `'self'` alone (MS §4.1).
+    cspConnectSrc: listValue(env, 'CSP_CONNECT_SRC', []),
+    // Where the SSO return lands after the session is set (delegated sso-redirect mode).
+    ssoReturnPath: textValue(env, 'SSO_RETURN_PATH', '/'),
+    // A .css file on the server's disk the host uses to redefine the panel's tokens; empty serves none.
+    themeCss: textValue(env, 'THEME_CSS', '') ? path.resolve(textValue(env, 'THEME_CSS', '')) : '',
 
     // ---- Data
     dataDir,
@@ -350,6 +365,15 @@ function validateConfig (config) {
   }
   if (!config.apiPrefix.startsWith('/') || config.apiPrefix.endsWith('/')) {
     throw new Error('API_PREFIX must start with / and not end with /.')
+  }
+  if (/[?#\s]/.test(config.basePath) || config.basePath.includes('//')) {
+    throw new Error(`BASE_PATH: «${config.basePath}» must be a plain path such as /team/.`)
+  }
+  if (!config.ssoReturnPath.startsWith('/') || config.ssoReturnPath.startsWith('//')) {
+    throw new Error('SSO_RETURN_PATH must be a path of this site that starts with a single /.')
+  }
+  if (config.themeCss && !existsSync(config.themeCss)) {
+    throw new Error(`THEME_CSS: the file ${config.themeCss} does not exist.`)
   }
 }
 

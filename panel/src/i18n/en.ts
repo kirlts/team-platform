@@ -533,7 +533,6 @@ export const en: Record<MessageKey, Message> = {
   'project.uploaded': 'Description file',
 
   'areas.editorOnly': 'Only the Editor manages the areas',
-  'connections.off': 'Off until the decomposition is proven',
   'connections.api': 'API',
   'connections.mcp': 'MCP',
   'connections.email': 'Email',

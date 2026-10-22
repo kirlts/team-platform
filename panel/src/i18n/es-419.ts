@@ -533,7 +533,6 @@ export const es419 = {
   'project.uploaded': 'Archivo de la descripción',
 
   'areas.editorOnly': 'Sólo el Editor administra las áreas',
-  'connections.off': 'Apagadas hasta que la descomposición esté probada',
   'connections.api': 'API',
   'connections.mcp': 'MCP',
   'connections.email': 'Correo',

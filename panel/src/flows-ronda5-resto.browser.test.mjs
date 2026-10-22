@@ -152,13 +152,11 @@ describe('Configuración', () => {
 })
 
 describe('Conexiones', () => {
-  test('on a phone the reason sits under the title and each connection says what it is on hover', async () => {
+  test('on a phone each connection says what it is on hover, with no reason under the title', async () => {
     const { page, context } = await open(PHONE, 'light', 'ana', '/connections')
     try {
-      const title = await page.getByRole('heading', { name: 'Conexiones', level: 1 }).boundingBox()
-      const reason = await page.getByText('Apagadas hasta que la descomposición esté probada').boundingBox()
-      assert.ok(reason.y >= title.y + title.height - 2, 'the reason starts under the title')
-      assert.ok(reason.height < 30, `the reason takes ${reason.height} px, one line`)
+      await page.getByRole('heading', { name: 'Conexiones', level: 1 }).waitFor()
+      assert.equal(await page.getByText('Apagadas hasta').count(), 0, 'the owner removed the reason (UD-253)')
       for (const name of ['API', 'MCP', 'Correo']) {
         const row = page.locator('[title]').filter({ hasText: new RegExp(`^${name}$`) })
         assert.ok((await row.getAttribute('title')).length > 10, `${name} has a gloss`)

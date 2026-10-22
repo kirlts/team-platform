@@ -476,7 +476,7 @@ describe('sidebar, sign-out and Conexiones (J3-A-45, J3-A-46, J3-A-48, J3-A-49, 
       assert.deepEqual(await where(), before, 'opening «Conexiones» moves the bar')
       assert.equal(await page.locator('nav[aria-label="Navegación"] a[href^="/connections/"]').count(), 0, 'no submenu')
       assert.equal(await page.getByText('No disponible todavía').count(), 0, 'the row does not repeat the state')
-      assert.equal(await page.getByText('Apagadas hasta que la descomposición esté probada').count(), 1, 'the reason is stated once')
+      assert.equal(await page.getByText('Apagadas hasta').count(), 0, 'the owner removed the reason under the title (UD-253)')
       for (const name of ['API', 'MCP', 'Correo', 'WhatsApp', 'GitHub']) await page.getByText(name, { exact: true }).first().waitFor()
     } finally {
       await context.close()

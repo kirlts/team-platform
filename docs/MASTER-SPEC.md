@@ -283,7 +283,9 @@ GET    /api/events                SSE por miembro (§7.10); ?job_id= lo acota a 
 
 GET    /api/messages?for=me|id&involved=me&area=&status=&q=&replies=1
 GET    /api/messages/summary      lo que afecta a quien tiene la sesión por estado (`mine`: open, answered, total) y los mensajes de cada área por estado (`areas`: open, answered, closed, mine_open) (UD-028, UD-041)
-GET    /api/messages/:id          mensaje, hilo, adjuntos
+GET    /api/messages/:id          mensaje, hilo, adjuntos; un borrado responde 404 (?include_deleted=true: Editor)
+DELETE /api/messages/:id?confirm=true   borra en blando un mensaje publicado (su emisor o un Editor; otro, 403 `not_message_author`) · POST /api/messages/:id/restore lo devuelve (UD-240)
+DELETE /api/messages/:id/replies/:replyId?confirm=true   borra en blando una respuesta (su autor o un Editor; otro, 403 `not_reply_author`) y recalcula el estado del mensaje · POST /api/replies/:id/restore la devuelve (UD-240)
 GET    /api/attachments/:id/transcript  texto extraído de un audio o video (UD-059)
 POST   /api/messages/:id/replies  { body, kind: answer|fix|clarification }   (403 si quien responde es el emisor)
 PATCH  /api/messages/:id          { version, …campos } el emisor edita su mensaje; otro miembro, también el Editor, 403 `not_message_author`; versión vencida 409 `edit_conflict` (UD-071)
@@ -330,6 +332,8 @@ GET    /api/openapi.json          contrato OpenAPI 3.1
 | Editar (título, texto, campos, plantilla, área, destinatarios, adjuntos) | sí | 403 `not_message_author` | 403 `not_message_author` |
 | Responder | no (403 `author_cannot_reply`) | sí | sí |
 | Cerrar y reabrir | sí | sí | sí |
+| Borrar y restaurar el mensaje (UD-240) | sí | 403 `not_message_author` | sí |
+| Borrar y restaurar una respuesta (UD-240) | su autor | su autor; otro, 403 `not_reply_author` | sí |
 
 Un input es siempre de su emisor: lo ve, lo cancela, lo restaura y lo edita sólo él (otro miembro recibe 404). El Editor sólo vuelve a encolar el análisis de cualquiera (`reprocess`) y gobierna la perilla `auto_publish`.
 
@@ -352,11 +356,11 @@ templates            id, area_id, name (único dentro del área entre las vigent
 inputs               id, author_id, text, content_hash UNIQUE (incluye al emisor), status(queued|extracting|analyzing|proposed|published|failed|cancelled), error, error_code, keep_draft (0|1, UD-072), created_at, updated_at
 attachments          id, input_id, kind(image|video|audio|document|link), name, path (sha256 en el volumen; la URL si es un enlace), mime, size, sha256, extracted_text, extracted_at, extract_meta_json
 proposals            input_id (PK), payload_json ({ messages:[{ area_id, template_id, … }], discarded }), units_json, created_at
-messages             id, input_id, area_id, template_id, author_id, title, body, fields_json, status(open|answered|closed), created_at, updated_at, version (1 al publicar; +1 por edición), edited_at (NULL sin ediciones), closed_at
+messages             id, input_id, area_id, template_id, author_id, title, body, fields_json, status(open|answered|closed), created_at, updated_at, version (1 al publicar; +1 por edición), edited_at (NULL sin ediciones), closed_at, deleted_at (migración 0010, UD-240)
 message_edits        id, message_id, member_id, at, version, fields_json (nombres de los campos que cambiaron, nunca sus valores)      (migración 0006)
 message_assignees    message_id, member_id
 message_attachments  message_id, attachment_id, position (el primero es el adjunto principal de la tarjeta)
-replies              id, message_id, author_id, body, kind(answer|fix|clarification), created_at
+replies              id, message_id, author_id, body, kind(answer|fix|clarification), created_at, deleted_at (migración 0010, UD-240)
 jobs                 id, kind(extract|analyze), input_id, payload_json, status(queued|running|done|failed|cancelled), priority, attempts, max_attempts, run_at, lease_until, worker_id, last_error, created_at, finished_at
                      índice (status, priority DESC, run_at, id): reclamo en 23 µs (informe 03)
 job_events           seq, job_id, kind(progress|done|message), member_id (destinatario; NULL = todo el equipo), percent, phrase, data_json, at     retención 7 días
@@ -367,9 +371,9 @@ spans                trace_id, span_id, parent_id, name, kind, start_ns, end_ns,
 llm_calls            VISTA sobre los spans de llamada a un modelo: id, job_id, provider, model, modality, input_tokens, output_tokens, cached_tokens, cost_usd, duration_ms, at, trace_id, status, error_type, step
 ```
 
-Áreas y plantillas se borran en blando (`deleted_at`) y se restauran: los mensajes que las referencian no se pierden. Los estados de un mensaje se muestran en la interfaz como «abierto», «respondido» y «cerrado» (§1.1). Cada propuesta lleva el área y la plantilla en cada mensaje, no en la raíz (§7.5). No guarda un id de llamada a modelo: las llamadas son spans, enlazados al trabajo por `team.job_id` (§7.10 bis).
+Áreas y plantillas se borran en blando (`deleted_at`) y se restauran: los mensajes que las referencian no se pierden. Mensajes y respuestas también (UD-240): toda lectura ignora una fila con `deleted_at` (listas, conteos, búsqueda, hilo, resumen, acceso a adjuntos) y el estado del mensaje se recalcula con sus respuestas vigentes al borrar o restaurar una. Los estados de un mensaje se muestran en la interfaz como «abierto», «respondido» y «cerrado» (§1.1). Cada propuesta lleva el área y la plantilla en cada mensaje, no en la raíz (§7.5). No guarda un id de llamada a modelo: las llamadas son spans, enlazados al trabajo por `team.job_id` (§7.10 bis).
 
-**Dependencias:** `node:sqlite`. Las migraciones son archivos SQL numerados en `src/db/migrations/` (`0001_initial.sql` a `0009_provider_connections.sql`; `0002_telemetry.sql` es copia de `src/telemetry/migration.sql`). Sólo avanzan. Un ejecutor propio las aplica dentro de una transacción, lleva la cuenta en `PRAGMA user_version` y corre en el paso de inicialización único (§3). El ejecutor exige numeración contigua y se niega a arrancar si la base es más nueva que el último archivo. Antes de migrar una base existente deja un respaldo consistente.
+**Dependencias:** `node:sqlite`. Las migraciones son archivos SQL numerados en `src/db/migrations/` (`0001_initial.sql` a `0010_message_and_reply_deletion.sql`; `0002_telemetry.sql` es copia de `src/telemetry/migration.sql`). Sólo avanzan. Un ejecutor propio las aplica dentro de una transacción, lleva la cuenta en `PRAGMA user_version` y corre en el paso de inicialización único (§3). El ejecutor exige numeración contigua y se niega a arrancar si la base es más nueva que el último archivo. Antes de migrar una base existente deja un respaldo consistente.
 
 ### 7.3 Cola de trabajos (`src/queue/`)
 

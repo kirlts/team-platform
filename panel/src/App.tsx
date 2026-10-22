@@ -38,8 +38,9 @@ function Shell() {
   const [hidden, setHidden] = useSidebarHidden(me?.id)
 
   const logout = async () => {
+    let hostLogout: string | undefined
     try {
-      await api('/auth/logout', { method: 'POST' })
+      hostLogout = (await api<{ logout_url?: string } | undefined>('/auth/logout', { method: 'POST' }))?.logout_url
     } finally {
       queryClient.clear()
       try {
@@ -47,7 +48,9 @@ function Shell() {
       } catch {
         // Without storage there is nothing to delete.
       }
-      await queryClient.invalidateQueries({ queryKey: ['me'] })
+      // The host has its own sign-out (LOGOUT_URL, H-3720): it is the one that leaves the person outside.
+      if (hostLogout) window.location.assign(hostLogout)
+      else await queryClient.invalidateQueries({ queryKey: ['me'] })
     }
   }
 

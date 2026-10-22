@@ -22,6 +22,7 @@ import { extname, join, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { DatabaseSync } from 'node:sqlite'
 import Ajv from 'ajv'
+import { parseTemplate } from '../src/analyze/templates.js'
 import { loadConfig } from '../src/config.js'
 import { batchSchema } from '../src/telemetry/ui-spec.js'
 import { recordUiBatch, uiSummary } from '../src/telemetry/ui.js'
@@ -68,7 +69,7 @@ const templateBody = (name, description, extra = '') =>
   `---\nname: ${name}\ndescription: ${description}\nfields:\n  - { name: summary, label: Resumen, required: true }\n${extra}---\n## Método\nLeer el input y separar un mensaje por cada punto distinto.\n\n## Formato de salida\nUn mensaje por punto. Título: verbo en infinitivo y lugar.\n`
 
 const templates = [
-  { id: 't-error', area_id: 'a-error', name: 'Reporte de error', description: 'Qué falló, cómo reproducirlo y qué se esperaba ver.', body_markdown: templateBody('Reporte de error', 'Qué falló, cómo reproducirlo y qué se esperaba ver.', '  - { name: steps, label: Pasos para reproducir, required: true }\n  - { name: expected, label: Qué se esperaba, required: true }\n  - { name: actual, label: Qué pasó, required: true }\n'), updated_at: ago(3000), deleted_at: null },
+  { id: 't-error', area_id: 'a-error', name: 'Reporte de error', description: 'Qué falló, cómo reproducirlo y qué se esperaba ver.', body_markdown: templateBody('Reporte de error', 'Qué falló, cómo reproducirlo y qué se esperaba ver.', '  - { name: steps, label: Pasos para reproducir, required: true }\n  - { name: expected, label: Qué se esperaba, required: true }\n  - { name: actual, label: Qué pasó, required: true }\noutput:\n  - { name: cause, label: Causa, type: text, required: true }\n  - { name: branch, label: Rama, type: text, required: false }\n'), updated_at: ago(3000), deleted_at: null },
   { id: 't-error-ui', area_id: 'a-error', name: 'Error visual', description: 'Elementos desalineados, cortados o ilegibles en una pantalla.', body_markdown: templateBody('Error visual', 'Elementos desalineados, cortados o ilegibles en una pantalla.'), updated_at: ago(2900) },
   { id: 't-idea', area_id: 'a-idea', name: 'Idea', description: 'Una posibilidad con su motivo.', body_markdown: templateBody('Idea', 'Una posibilidad con su motivo.'), updated_at: ago(3000) },
   { id: 't-feature', area_id: 'a-feature', name: 'Requerimiento', description: 'Qué se necesita y para quién.', body_markdown: templateBody('Requerimiento', 'Qué se necesita y para quién.'), updated_at: ago(3000) },
@@ -1448,6 +1449,14 @@ const server = createServer(async (req, res) => {
       const check = (b) => {
         if (b.name !== undefined && (!String(b.name).trim() || String(b.name).length > 64)) return 'El nombre admite de 1 a 64 caracteres'
         if (b.description !== undefined && String(b.description).length > 1024) return 'La descripción admite hasta 1.024 caracteres'
+        // The file itself is read by the server's own parser (H-3723): a frontmatter that does not compile is 422 with its reason.
+        if (b.body_markdown !== undefined) {
+          try {
+            parseTemplate(String(b.body_markdown))
+          } catch (error) {
+            return error.message
+          }
+        }
         return null
       }
       if (method === 'POST' && !m[2]) {

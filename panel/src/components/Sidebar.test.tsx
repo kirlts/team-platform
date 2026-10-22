@@ -67,4 +67,9 @@ describe('canSignOut', () => {
     expect(canSignOut(undefined)).toBe(true)
     expect(canSignOut('delegated:trusted-header')).toBe(false)
   })
+  it('follows a list of sources and the host sign-out (H-3720)', () => {
+    expect(canSignOut('local,delegated:jwt')).toBe(true)
+    expect(canSignOut('delegated:jwt,delegated:signed-header')).toBe(false)
+    expect(canSignOut('delegated:jwt', 'https://anfitrion.example/salir')).toBe(true)
+  })
 })

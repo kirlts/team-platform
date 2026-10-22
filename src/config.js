@@ -211,7 +211,9 @@ export function loadConfig (env = process.env, overrides = {}) {
 
     // ---- Identidad (MS §7.7, I04 §11)
     identity: {
-      provider: choiceVar(env, 'IDENTITY_PROVIDER', ['local', 'delegated'], 'local'),
+      // One source or a comma list in order (H-3720): local, delegated (= DELEGATED_MODE), signed-header, jwt,
+      // sso-redirect, trusted-header. The first one that identifies the request wins; `identitySources` validates it.
+      provider: textValue(env, 'IDENTITY_PROVIDER', 'local'),
       // same-origin: `__Host-` + SameSite=Lax. cross-origin: SameSite=None; Secure (a frontend on another origin).
       cookieMode: choiceVar(env, 'COOKIE_MODE', ['same-origin', 'cross-origin'], 'same-origin'),
       // Development over http only: removes Secure and the `__Host-` prefix (which requires it). Never with cross-origin.
@@ -270,7 +272,21 @@ export function loadConfig (env = process.env, overrides = {}) {
           nonceMinutes: intVar(env, 'SSO_NONCE_MINUTES', 30, { min: 1 }) // I04 §11: DiscourseConnect nonce expiry
         },
         trustedHeaderName: textValue(env, 'TRUSTED_HEADER_NAME', 'tailscale-user-login').toLowerCase()
-      }
+      },
+      // ---- Identity governed by the host site (H-3720, UD-254 amends UD-007)
+      // closed: an unknown email gets 403 `member_not_registered`. host: it is created on its first entry with the name and
+      // the role the host declares (`member` if it declares none), and a declared role is applied on every entry.
+      provision: choiceVar(env, 'IDENTITY_PROVISION', ['closed', 'host'], 'closed'),
+      jwtRoleClaim: textValue(env, 'JWT_ROLE_CLAIM', 'role'),
+      jwtNameClaim: textValue(env, 'JWT_NAME_CLAIM', 'name'),
+      // A host that already has its own session puts its signed JWT in a cookie of its domain; empty = header only.
+      jwtCookieName: textValue(env, 'JWT_COOKIE_NAME', ''),
+      trustedNameHeader: textValue(env, 'TRUSTED_NAME_HEADER', 'tailscale-user-name').toLowerCase(),
+      // Session cookie shared with the host: with a Domain the `__Host-` prefix is not allowed (RFC 6265bis), so the name is this one.
+      cookieDomain: textValue(env, 'COOKIE_DOMAIN', ''),
+      cookieName: textValue(env, 'COOKIE_NAME', 'team_session'),
+      // The host's own sign-out: POST /auth/logout answers it so the panel goes there after closing its own session.
+      logoutUrl: textValue(env, 'LOGOUT_URL', '')
     },
 
     // ---- Modules written by other agents (src/contracts.md)
@@ -324,18 +340,35 @@ function mergeDeep (base, extra) {
   return outText
 }
 
+export const IDENTITY_SOURCES = ['local', 'signed-header', 'jwt', 'sso-redirect', 'trusted-header']
+
+/**
+ * The identity sources in order (H-3720). `IDENTITY_PROVIDER` is one name or a comma list; `delegated` stands for
+ * DELEGATED_MODE, so `IDENTITY_PROVIDER=delegated` keeps meaning what it meant. An unknown name stops the startup.
+ */
+export function identitySources (identity) {
+  const list = String(identity.provider).split(',').map((x) => x.trim()).filter(Boolean)
+    .map((x) => (x === 'delegated' ? identity.delegated.mode : x))
+  if (list.length === 0) throw new Error('IDENTITY_PROVIDER is empty.')
+  for (const x of list) {
+    if (!IDENTITY_SOURCES.includes(x)) throw new Error(`IDENTITY_PROVIDER: «${x}» is not one of: delegated, ${IDENTITY_SOURCES.join(', ')}.`)
+  }
+  return [...new Set(list)]
+}
+
 function validateConfig (config) {
   const d = config.identity.delegated
-  if (config.identity.provider === 'delegated') {
-    if (['signed-header'].includes(d.mode) && d.secrets.length === 0) {
+  const sources = identitySources(config.identity)
+  {
+    if (sources.includes('signed-header') && d.secrets.length === 0) {
       throw new Error('IDENTITY_PROVIDER=delegated with DELEGATED_MODE=signed-header requires DELEGATED_SECRETS.')
     }
-    if (d.mode === 'jwt') {
+    if (sources.includes('jwt')) {
       if (!d.jwt.jwksUrl && !d.jwt.secret) throw new Error('The jwt mode requires JWT_JWKS_URL or JWT_SECRET.')
       // I04 §3.3: without issuer and audience the SDK trusts on first use; it does not start like that.
       if (!d.jwt.issuer || !d.jwt.audience) throw new Error('The jwt mode requires JWT_ISSUER and JWT_AUDIENCE.')
     }
-    if (d.mode === 'sso-redirect') {
+    if (sources.includes('sso-redirect')) {
       if (!d.sso.loginUrl || !d.sso.secret) throw new Error('The sso-redirect mode requires SSO_LOGIN_URL and SSO_SECRET.')
       if (!config.publicUrl) throw new Error('The sso-redirect mode requires PUBLIC_URL to build the return address.')
     }
@@ -345,6 +378,15 @@ function validateConfig (config) {
   }
   if (config.identity.password.minLength > config.identity.password.maxLength) {
     throw new Error('PASSWORD_MIN_LENGTH cannot exceed PASSWORD_MAX_LENGTH.')
+  }
+  if (config.identity.cookieDomain && !/^[A-Za-z0-9!#$%&'*+.^_`|~-]+$/.test(config.identity.cookieName)) {
+    throw new Error(`COOKIE_NAME: «${config.identity.cookieName}» is not a valid cookie name.`)
+  }
+  if (config.identity.cookieDomain && /^__Host-/i.test(config.identity.cookieName)) {
+    throw new Error('COOKIE_NAME cannot start with __Host- when COOKIE_DOMAIN is set: the prefix forbids Domain.')
+  }
+  if (config.identity.logoutUrl) {
+    try { new URL(config.identity.logoutUrl) } catch { throw new Error(`LOGOUT_URL: «${config.identity.logoutUrl}» is not an absolute URL.`) }
   }
   if (config.identity.cookieMode === 'cross-origin' && config.corsOrigins.length === 0) {
     throw new Error('COOKIE_MODE=cross-origin requires CORS_ORIGINS with the origins of the other frontend.')

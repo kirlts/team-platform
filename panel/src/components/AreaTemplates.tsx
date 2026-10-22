@@ -13,7 +13,7 @@ import { useNotices } from '@/lib/notices'
 import { useSelection, type Selection } from '@/lib/selection'
 import { RowCheck, SelectionBar } from '@/components/SelectionBar'
 import { Markdown } from '@/lib/markdown'
-import { parseTemplateFields, templateInstructions } from '@/lib/template'
+import { parseTemplateFields, parseTemplateOutput, templateInstructions } from '@/lib/template'
 import type { Area, Template } from '@/lib/types'
 import { useUndo } from '@/lib/undo'
 
@@ -155,6 +155,7 @@ function TemplateRow({ template, areaId, selection, onRemove }: { template: Temp
   const save = useSaveTemplate(areaId)
   const [showContent, setShowContent] = useState(false)
   const fields = useMemo(() => parseTemplateFields(template.body_markdown), [template.body_markdown])
+  const output = useMemo(() => parseTemplateOutput(template.body_markdown), [template.body_markdown])
   const instructions = useMemo(() => templateInstructions(template.body_markdown), [template.body_markdown])
 
   const change = (field: 'name' | 'description' | 'body_markdown', next: string) => {
@@ -185,6 +186,26 @@ function TemplateRow({ template, areaId, selection, onRemove }: { template: Temp
                 <li key={f.name} className="inline-flex min-h-6 items-center gap-1.5 rounded-full border border-line-strong px-2.5 text-xs">
                   {f.label}
                   {f.required && <span className="text-muted">{t('templates.required')}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </dd>
+        <dt className="text-xs font-semibold text-muted">{t('templates.output')}</dt>
+        <dd data-template-output>
+          {output === null ? (
+            <span className="text-muted">{t('templates.noOutput')}</span>
+          ) : (
+            <ul className="flex flex-wrap gap-1.5">
+              {output.map((f) => (
+                <li key={f.name} className="inline-flex min-h-6 items-center gap-1.5 rounded-full border border-line-strong px-2.5 text-xs">
+                  {f.label}
+                  {f.required && <span className="text-muted">{t('templates.required')}</span>}
+                </li>
+              ))}
+              {(['outcome', 'summary'] as const).map((fixed) => (
+                <li key={fixed} className="inline-flex min-h-6 items-center rounded-full border border-line px-2.5 text-xs text-muted">
+                  {t(`templates.output.${fixed}`)}
                 </li>
               ))}
             </ul>

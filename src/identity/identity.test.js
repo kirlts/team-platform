@@ -500,13 +500,19 @@ test('invalid configuration prevents startup (no issuer/audience, no secrets, no
   assert.throws(() => loadConfig({ IDENTITY_PROVIDER: 'delegated', DELEGATED_MODE: 'sso-redirect', SSO_LOGIN_URL: 'https://a', SSO_SECRET: 'x' }), /PUBLIC_URL/)
 })
 
-test('H-2605 · /me names the provider and only local and sso-redirect have a sign-out route', async () => {
-  const logout = (env) => env.app.inject({ method: 'POST', url: '/api/auth/logout', headers: { 'x-team-request': 'panel' } })
+test('H-2605, H-3720 · /me names the provider and the source; every provider has a sign-out that closes the session of our own', async () => {
+  const logout = (env, cookie) => env.app.inject({ method: 'POST', url: '/api/auth/logout', headers: { 'x-team-request': 'panel', ...(cookie ? { cookie } : {}) } })
   const trusted = await makeEnv(delegatedConfig({ mode: 'trusted-header' }))
   await addMember(trusted, { email: 'ana@x.org' })
-  const me = await trusted.app.inject({ url: '/api/me', headers: { 'tailscale-user-login': 'ana@x.org' }, remoteAddress: '127.0.0.1' })
+  const me = await trusted.app.inject({ url: '/api/me', headers: { 'tailscale-user-login': 'ana@x.org', 'sec-fetch-site': 'same-origin' }, remoteAddress: '127.0.0.1' })
   assert.equal(me.json().provider, 'delegated:trusted-header')
-  assert.equal((await logout(trusted)).statusCode, 404) // the panel hides its button for this provider
+  assert.equal(me.json().source, 'trusted-header')
+  const own = me.cookies.find((c) => c.name === '__Host-session')
+  assert.ok(own, 'a browser identified by the proxy gets a session of our own')
+  const out = await logout(trusted, `${own.name}=${own.value}`)
+  assert.equal(out.statusCode, 204)
+  assert.equal(get(trusted.db, 'SELECT COUNT(*) AS n FROM sessions').n, 0) // destroyed on the server
+  // The proxy still says who the person is: the panel keeps its button hidden here unless LOGOUT_URL names the host's sign-out.
   await trusted.close()
 
   const local = await makeEnv(noIpLimit)

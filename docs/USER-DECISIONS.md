@@ -117,6 +117,7 @@ RULES:
 **Consecuencias:**
 - Los roles son un enumerado del código; cambiar el rol de alguien es una edición de datos, no de configuración del proveedor.
 **Condiciones de reversión:** Que una integración anfitriona necesite derivar el rol de su propio sistema.
+**Enmienda 2026-10-22:** Se cumplió la condición escrita (UD-254, la instancia de Devalis). Con `IDENTITY_PROVISION=host` el anfitrión da de alta al miembro en su primer ingreso y fija su rol en cada uno; el Editor local recibe 409 `role_managed_externally` (H-3720). Con `IDENTITY_PROVISION=closed`, la omisión, sigue lo de arriba.
 
 ## [UD-008] Bucle propio con un contrato de analizador que también admite un harness
 
@@ -942,6 +943,7 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 - Una ruta de cierre falsa en los modos sin sesión propia: aparenta cerrar una sesión que no existe.
 **Consecuencias:** Pruebas `panel/src/components/Sidebar.test.tsx`, `panel/src/flows-ronda3a.browser.test.mjs` (tres proveedores y teléfono) e `identity.test.js` «H-2605».
 **Condiciones de reversión:** Si el dueño quiere el botón visible en todo modo, se borra la condición `me && canSignOut(me.provider)` de `Sidebar.tsx`. Si un modo delegado nuevo trae ruta de cierre, se agrega su nombre a `canSignOut`.
+**Enmienda 2026-10-22:** Desde H-3720 toda fuente emite una sesión propia y `POST /api/auth/logout` existe en todos los modos. `canSignOut` acepta una lista de fuentes y dibuja el botón también cuando `/api/me` trae `logout_url` (`LOGOUT_URL`).
 
 ## [UD-191] Hallazgos de los detectores en Equipo, Configuración y la ficha del mensaje
 

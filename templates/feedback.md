@@ -6,6 +6,10 @@ fields:
   - { name: observation, label: Observación,             required: true }
   - { name: effect,      label: Efecto en el trabajo,    required: false }
   - { name: suggestion,  label: Sugerencia,              required: false }
+output:
+  - { name: assessment,   label: Evaluación,                type: text, required: true }
+  - { name: change,       label: Cambio hecho,              type: text, required: false }
+  - { name: branch,       label: Rama,                      type: text, required: false }
 ---
 ## Método
 La retroalimentación valora algo que existe. Cada objeto valorado es un mensaje: una pantalla, un flujo, un texto, una decisión de diseño o una forma de trabajar. Dos observaciones sobre el mismo objeto van en el mismo mensaje cuando apuntan a la misma experiencia; van separadas cuando una es sobre el contenido y otra sobre la forma de uso, o cuando las sostienen unidades de momentos distintos del input.
@@ -30,3 +34,6 @@ Un mensaje por objeto valorado.
 Título: el objeto y la valoración en pocas palabras, por ejemplo «Confusión con el botón Enviar en la vista previa».
 
 Cuerpo: dos o tres frases: qué se valora, qué percibe la persona y, si lo dijo, qué efecto tiene y qué propone. Sin responder a la observación ni defender el diseño. Lo que el input no da no se menciona en el cuerpo: ni «no se indica» ni una frase sobre lo que falta.
+
+## Salida
+Evaluación: si la observación se sostiene, con lo que se midió. Cambio hecho y Rama: sólo si hubo cambio.

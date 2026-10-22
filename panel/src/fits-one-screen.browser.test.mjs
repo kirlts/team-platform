@@ -21,6 +21,7 @@ import { SCROLLING_PAGES } from './scrolling-pages.mjs'
 import { after, before, describe, test } from 'node:test'
 import assert from 'node:assert'
 import { login, startPanel, settled, watchRequests } from './browser-support.mjs'
+import { cutMessages, feedsInPage } from './home-feeds-support.mjs'
 
 // These tests go through the review of a proposal, which is what the server does with publication by hand (UD-070): they start it with auto-publication off.
 // The automatic path has its own file, `flows-inicio.browser.test.mjs`.
@@ -293,6 +294,41 @@ for (const [width, height] of SIZES) {
       }
     })
   })
+}
+
+// The two lists of Inicio (UD-253, H-3718): the same width and the same height, as tall as the taller content and no taller. Without messages each
+// box is its header and the line that says so (it once was 850 px of empty glass); with two, the two rows; with every list ×8, as tall as the room
+// and paged. Falsified on 2026-10-21 against the 7/5 grid of fixed height: the empty boxes measured the room and their widths differed.
+for (const [width, height] of SIZES) {
+  for (const [state, rows] of [
+    ['sin mensajes', 0],
+    ['con dos mensajes', 2],
+    [`con cada lista ×${TIMES}`, Infinity],
+  ]) {
+    describe(`${width}x${height} the two lists of Inicio ${state}`, () => {
+      test('share width and height and are as tall as the taller content', async () => {
+        const context = await panel.browser.newContext({ viewport: { width, height }, locale: 'es-CL' })
+        const page = await context.newPage()
+        try {
+          await login(page, ORIGIN)
+          if (rows === Infinity) await amplify(page)
+          else await cutMessages(page, rows)
+          await open(page, '/')
+          await page.waitForFunction(() => document.querySelectorAll('main section[aria-label^="Últim"]').length === 2 && !document.querySelector('[data-fit-measuring], main [aria-busy="true"]'))
+          await settled(page)
+          const { failures, boxes } = await page.evaluate(feedsInPage)
+          assert.deepStrictEqual(failures, [], `${failures.join('\n')}\n${JSON.stringify(boxes)}`)
+          const shown = boxes.map((b) => b.rows)
+          if (rows === 0) assert.deepStrictEqual(shown, [0, 0], 'the lists were not emptied: the test would prove nothing')
+          else if (rows === 2) assert.ok(shown.every((n) => n > 0 && n <= 2), `rows on screen ${shown.join(', ')}`)
+          else assert.ok(boxes.some((b) => b.pager), 'with every list ×8 no list pages: the room was not filled')
+        } finally {
+          await page.unrouteAll({ behavior: 'ignoreErrors' })
+          await context.close()
+        }
+      })
+    })
+  }
 }
 
 // A list that has settled asks for nothing: its thumbnails are drawn once. The frame of a list measures itself against its neighbors, so a neighbor that

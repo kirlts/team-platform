@@ -1,7 +1,7 @@
 // Queries and mutations against the API, with TanStack Query. The keys are:
 // ['me'], ['members'], ['areas'], ['templates', areaId], ['messages', ...], ['message', id],
 // ['inputs', id], ['providers'].
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, unwrapList } from './api'
 import { applyClientFilters, toApiParams, type MessageQuery } from './filters'
 import type {
@@ -118,6 +118,13 @@ export function useMessage(id: string | undefined) {
     queryKey: ['message', id],
     queryFn: () => api<MessageDetail>(`/messages/${id}`),
     enabled: !!id,
+  })
+}
+
+/** Several messages at once, under the same keys as `useMessage`: what one row edits, the others read. */
+export function useMessagesById(ids: string[]) {
+  return useQueries({
+    queries: ids.map((id) => ({ queryKey: ['message', id], queryFn: () => api<MessageDetail>(`/messages/${id}`) })),
   })
 }
 

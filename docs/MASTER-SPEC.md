@@ -277,6 +277,8 @@ GET    /api/inputs/:id            input propio: adjuntos, estado, unidades y pro
 POST   /api/inputs/:id/publish    publica a mano la propuesta (la perilla `auto_publish` apagada, o `publish_blocked`) → mensajes creados
 POST   /api/inputs/:id/cancel     también un análisis fallido
 POST   /api/inputs/:id/restore    deshace el descarte: vuelve a propuesta (con sus ediciones) o a fallido; no reanaliza
+DELETE /api/inputs/:id?confirm=true&with_messages=  borra el envío de verdad (su emisor o el Editor; UD-240): adjuntos, trabajos (cancela los que corren), eventos y propuesta → { input_id, deleted: { attachments, jobs, messages }, freed_bytes }
+                                  sus mensajes publicados quedan con sus archivos (`input_id` nulo); con `with_messages=true` también se borran, con sus respuestas; sin restauración
 POST   /api/inputs/:id/reprocess  (Editor) vuelve a encolar el análisis conservando las extracciones
 
 GET    /api/events                SSE por miembro (§7.10); ?job_id= lo acota a un trabajo
@@ -331,7 +333,7 @@ GET    /api/openapi.json          contrato OpenAPI 3.1
 | Responder | no (403 `author_cannot_reply`) | sí | sí |
 | Cerrar y reabrir | sí | sí | sí |
 
-Un input es siempre de su emisor: lo ve, lo cancela, lo restaura y lo edita sólo él (otro miembro recibe 404). El Editor sólo vuelve a encolar el análisis de cualquiera (`reprocess`) y gobierna la perilla `auto_publish`.
+Un input es siempre de su emisor: lo ve, lo cancela, lo restaura y lo edita sólo él (otro miembro recibe 404). El Editor vuelve a encolar el análisis de cualquiera (`reprocess`), borra el envío de cualquiera (`DELETE /inputs/:id`, UD-240) y gobierna la perilla `auto_publish`. Borrar un envío es real y sin vuelta: el panel confirma en el lugar. Un adjunto que algún mensaje referencia no se borra con su envío, pierde el `input_id` (migración 0011: `attachments.input_id` admite nulo, `ON DELETE SET NULL`) y el mensaje lo sigue sirviendo a todo el equipo; el archivo del volumen se libera sólo cuando ninguna fila de `attachments` ni de `reply_attachments` lo nombra por `sha256` y ninguna subida en vuelo lo retiene (misma regla que `releaseBlobs`).
 
 Un Miembro lee las áreas (con sus plantillas sin cuerpo) porque necesita nombrarlas y cambiarlas en la propuesta de su input (§6, paso 3). Escribirlas, leer el cuerpo de una plantilla y ver los proveedores son del Editor (HP-015).
 

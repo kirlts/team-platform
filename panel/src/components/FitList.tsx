@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight } from '@/components/icons'
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { useT } from '@/i18n'
 import { fitCount, pageRange, total } from '@/lib/fit'
 import { useDesktop } from '@/lib/useDesktop'
@@ -41,6 +41,7 @@ export function FitList<T>({
   reveal,
   pagedOnPhone = false,
   footer,
+  bound,
 }: {
   rows: readonly T[]
   rowKey: (row: T) => string
@@ -61,6 +62,11 @@ export function FitList<T>({
   pagedOnPhone?: boolean
   /** Drawn right under the frame, inside the slot: the rows share the height with it, and it does not drift to the foot of the page when the list is short. */
   footer?: ReactNode
+  /**
+   * An element that bounds the slot without following its rows (the room a frame that hugs its rows may grow into). The slot of a
+   * frame that hugs its rows does not grow when that room grows, so the measure would stay at the old size: a change of this element is a new frame.
+   */
+  bound?: RefObject<HTMLElement | null>
 }) {
   const t = useT()
   // «desktop» below means «pages»: the window is wide, or the caller gave the list a frame of its own on a phone.
@@ -124,6 +130,22 @@ export function FitList<T>({
     observer.observe(el)
     return () => observer.disconnect()
   }, [footer !== undefined])
+
+  // The room around a frame that hugs its rows: when it changes size, more or fewer rows may fit than the slot shows.
+  const boundEl = bound?.current ?? null
+  useEffect(() => {
+    if (!boundEl || typeof ResizeObserver === 'undefined') return
+    let last = boundEl.getBoundingClientRect().height
+    const observer = new ResizeObserver(() => {
+      const now = boundEl.getBoundingClientRect().height
+      if (Math.abs(now - last) > 0.5) {
+        last = now
+        setFrameVersion((v) => v + 1)
+      }
+    })
+    observer.observe(boundEl)
+    return () => observer.disconnect()
+  }, [boundEl])
 
   const pagerHeight = useRef(0)
 

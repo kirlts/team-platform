@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { Link } from 'react-router'
 import { cn } from '@/lib/utils'
 import { AlertTriangle, ChevronDown } from '@/components/icons'
@@ -67,7 +67,7 @@ export function Home() {
   const me = useMe().data
   const project = useProject().data
   const desktop = useDesktop()
-  const [feedTab, setFeedTab] = useState<'messages' | 'replies'>('messages')
+  const room = useRef<HTMLDivElement>(null)
   const tray = useSends()
   const [uploads, setUploads] = useState<Upload[]>([])
   const [problem, setProblem] = useState<string | null>(null)
@@ -292,24 +292,19 @@ export function Home() {
         />
       )}
 
-      {/* The main block of the page (UD-030): the latest messages and replies, always in view. On a phone one list at a time, in a frame as tall as the screen (J3-A-10). */}
+      {/* The main block of the page (UD-030): the latest messages and replies. The room takes what the page leaves and never follows the rows; the two lists sit at its
+          top in two equal columns, as tall as the taller of them and no taller than the room, where they page (UD-253). On a phone one under the other (J3-A-10). */}
       {desktop ? (
-        <div className={cn('grid min-h-[22rem] flex-1 gap-x-section gap-y-block md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] md:grid-rows-[minmax(0,1fr)]', shown ? 'md:h-[max(28rem,56dvh)] md:flex-none' : 'md:min-h-0')}>
-          <Feed kind="messages" meId={me?.id ?? ''} />
-          <Feed kind="replies" meId={me?.id ?? ''} />
+        <div ref={room} data-testid="home-feeds-room" className={cn('min-h-[22rem]', shown ? 'h-[max(28rem,56dvh)] flex-none' : 'min-h-0 flex-1')}>
+          <div className="grid max-h-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)] grid-rows-[minmax(0,1fr)] gap-x-section">
+            <Feed kind="messages" meId={me?.id ?? ''} bound={room} />
+            <Feed kind="replies" meId={me?.id ?? ''} bound={room} />
+          </div>
         </div>
       ) : (
-        <div className="flex flex-col gap-2">
-          <Segmented
-            label={t('home.shownFeed')}
-            value={feedTab}
-            onChange={setFeedTab}
-            options={[
-              { value: 'messages', label: t('home.latestMessages') },
-              { value: 'replies', label: t('home.latestReplies') },
-            ]}
-          />
-          <Feed key={feedTab} kind={feedTab} meId={me?.id ?? ''} phone />
+        <div className="flex flex-col gap-block-compact">
+          <Feed kind="messages" meId={me?.id ?? ''} phone />
+          <Feed kind="replies" meId={me?.id ?? ''} phone />
         </div>
       )}
     </Page>
@@ -351,7 +346,7 @@ function TrayState({ items, progress }: { items: readonly TrayItem[]; progress: 
   )
 }
 
-function Feed({ kind, meId, phone = false }: { kind: 'messages' | 'replies'; meId: string; phone?: boolean }) {
+function Feed({ kind, meId, phone = false, bound }: { kind: 'messages' | 'replies'; meId: string; phone?: boolean; bound?: RefObject<HTMLElement | null> }) {
   const t = useT()
   const [mine, setMine] = useState(true)
   const query: MessageQuery = { filters: mine ? [{ prop: 'for', op: 'eq', value: ME }] : [], q: '' }
@@ -364,11 +359,10 @@ function Feed({ kind, meId, phone = false }: { kind: 'messages' | 'replies'; meI
   if (!messagesFeed) params.append('f', 'replies:eq:con')
 
   return (
-    // On a phone the frame is as tall as what is left of the screen under the header and the page margins, and the list pages inside it (J3-A-10).
-    <section aria-label={messagesFeed ? t('home.latestMessages') : t('home.latestReplies')} className={`glass leaf flex min-h-0 min-w-0 flex-col gap-2 px-1 pb-1 pt-3 ${phone ? 'h-[calc(100dvh-6.5rem)]' : ''}`}>
+    // The frame is as tall as its rows. On a phone it stops at what is left of the screen under the header and the page margins, and the list pages inside it (J3-A-10).
+    <section aria-label={messagesFeed ? t('home.latestMessages') : t('home.latestReplies')} className={cn('glass leaf flex min-h-0 min-w-0 flex-col gap-2 px-1 pb-1 pt-3', phone && 'max-h-[calc(100dvh-6.5rem)]')}>
       <div className="flex flex-wrap items-center justify-between gap-2 px-3">
-        {/* On a phone the switch above already names the list. */}
-        <h2 className={phone ? 'sr-only' : 'text-base'}>
+        <h2 className="text-base">
           <Link to={`/messages?${params.toString()}`} className="hover:underline">
             {messagesFeed ? t('home.latestMessages') : t('home.latestReplies')}
           </Link>
@@ -388,6 +382,7 @@ function Feed({ kind, meId, phone = false }: { kind: 'messages' | 'replies'; meI
       <FitList
         bare
         pagedOnPhone={phone}
+        bound={bound}
         rows={rows}
         rowKey={(m) => m.id}
         renderRow={(m) => <MessageCard message={m} variant={messagesFeed ? 'message' : 'reply'} />}

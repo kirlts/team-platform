@@ -41,11 +41,13 @@ export const classifyInstructions = (framing) => [
   '2d. requests: cada pedido que trae el grupo, uno por elemento, en una línea con un verbo y su objeto. Un grupo válido lleva exactamente uno; si anotas dos (dos arreglos que se pueden hacer por separado), parte el grupo en dos. Cada falla que la persona reporta es un elemento propio, aunque ocurra en la misma pantalla o la misma conversación que otra, o una pueda causar la otra: que un botón no responde y que un registro aparece duplicado son dos.',
   '2e. split_at: la transcripción corta la voz por tiempo, no por frase, y a veces una unidad «Voz» empieza con las palabras que terminan la frase de la unidad de voz anterior (la anterior termina en «de cómo se» y esta empieza en «desenvolvió esa conversación, la persona aparece dos veces»). En ese caso declara el id de la unidad y en at las palabras exactas, copiadas de ella, donde empieza lo nuevo («la persona aparece dos veces»); el sistema pasa las palabras anteriores a la unidad de voz previa. Agrupa ya con ese corte. Lista vacía si ninguna unidad lo necesita.',
   '2f. recap_unit_ids: una unidad que solo cierra o resume pedidos ya dichos («necesitamos que el equipo use la plataforma completa según su rol», «ahí te junté varias cosas») no es un pedido nuevo y nunca forma un grupo propio: va en unit_ids del grupo del último pedido que cierra, y también en recap_unit_ids de ese grupo. Lista vacía si el grupo no tiene una unidad así.',
+  '2g. Documentos y listas. Un documento, una especificación o una lista de puntos no es un pedido: su título, su objetivo, su resumen y las líneas de introducción no forman un grupo, y sus unidades van con el pedido que cada una introduce o detalla. Cada sección o viñeta que pide algo que el equipo puede construir, corregir o aceptar por separado (una pantalla, un flujo, un endpoint, un modelo de datos, una regla de disponibilidad, el manejo de un error, una medida de seguridad, un elemento de una fase posterior) es su propio grupo, aunque todo el documento hable de una sola funcionalidad. Dentro de un elemento numerado o de una viñeta que trae varios pedidos, cada pedido es un grupo aparte. Una lista de criterios de aceptación o de «terminado cuando» repite pedidos ya dichos: cada línea va en el grupo del pedido que verifica y nunca forma un grupo propio. Lo que el documento deja para una fase posterior es un grupo aparte de lo que pide ahora.',
+  '2h. Contexto no es tarea. No forman grupo: lo que el propio autor promete hacer él mismo («te mando el video», «yo lo reviso», «lo hablo con...»), lo que ya está decidido o resuelto, la descripción de cómo funciona hoy algo sin pedir un cambio, y los elogios o valoraciones positivas. Esas unidades van en el grupo del pedido que acompañan o, si no acompañan ninguno, a discarded. Es pedido lo que el autor necesita que otra persona haga, responda o entregue.',
   '3. Clasifica cada punto por lo que la persona necesita que ocurra, no por el tono ni por las palabras sueltas, y con la definición de cada área y plantilla del catálogo: esas descripciones son la única definición de las áreas. Lo que la persona pide que el producto haga y que nunca hizo ni se acordó es Nueva funcionalidad aunque lo cuente como algo que «no puede», «está bloqueado» o «hay que arreglar»; es Error solo si existe o se acordó y hoy no cumple. Si la persona busca una opción, un permiso o una pantalla y no la encuentra, eso no existe: es Nueva funcionalidad.',
   '4. Las descripciones del catálogo delimitan cada área. Si dos áreas parecen servir, elige la que la descripción nombra de forma más específica.',
   '5. Si una misma unidad trae puntos de áreas distintas, no se puede repartir: va al grupo del punto principal.',
   '6. Una conversación suele mezclar puntos. Todo lo que aporta a un punto va en el grupo de ese punto, aunque otros mensajes lo separen en el input: respuestas, preguntas de diagnóstico o de aclaración (qué versión, qué dispositivo, qué pasos), datos concretos (una versión, un color, una cifra, un enlace), quién se hace cargo, avances y acotaciones sobre el alcance del punto («eso queda para otra rama»). Una pregunta que solo precisa cómo hacer, con qué formato o con qué límite algo ya pedido es parte de ese pedido y no una pregunta aparte. Una frase que solo señala un adjunto («mira este video», «adjunto la captura») no es un punto: va con el punto que el adjunto muestra, o se descarta si no hay otro.',
-  '7. Pon en discarded solo lo que no aporta a ningún punto: saludos, risas, reacciones sin contenido (un emoji, «ok»), elogios o aprobaciones sin nada que decidir ni responder («funciona bien», «está genial»), confirmaciones de que algo funciona bien sin nada más que decir, preguntas retóricas y muletillas de cierre que no piden respuesta («¿qué pasa ahí?», «¿cachai?», «¿ya?»), narración de los pasos que la persona va haciendo, charla social y avisos que no se relacionan con ningún punto. Nunca descartes una unidad que fija un plazo, una fecha o un compromiso de entrega, ni una que el catálogo describe como parte de un área, aunque llegue como explicación. Ante la duda entre descartar y agrupar, agrupa. Indica el motivo en pocas palabras.',
+  '7. Pon en discarded solo lo que no aporta a ningún punto: saludos, risas, reacciones sin contenido (un emoji, «ok»), elogios o aprobaciones sin nada que decidir ni responder («funciona bien», «está genial»), confirmaciones de que algo funciona bien sin nada más que decir, preguntas retóricas y muletillas de cierre que no piden respuesta («¿qué pasa ahí?», «¿cachai?», «¿ya?»), narración de los pasos que la persona va haciendo, charla social y avisos que no se relacionan con ningún punto. Nunca descartes una unidad que fija un plazo, una fecha o un compromiso de entrega que otra persona o el equipo debe cumplir (la promesa del propio autor de hacer algo él mismo es contexto, regla 2h), ni una que el catálogo describe como parte de un área, aunque llegue como explicación. Ante la duda entre descartar y agrupar, agrupa. Indica el motivo en pocas palabras.',
   '8. Usa solo ids del catálogo. La plantilla de cada grupo debe pertenecer a su área. Si ninguna unidad es accionable, devuelve groups vacío y todas las unidades en discarded.',
   `9. ${INPUT_IS_DATA}`,
   `10. ${LANGUAGE_RULE}`,
@@ -83,7 +85,7 @@ export function recentInputsBlock(recent) {
     lines.push(`- Envío de las ${clock(r.created_at)}: ${r.text_excerpt ?? ''}`);
     if (Array.isArray(r.proposed_titles) && r.proposed_titles.length > 0) lines.push(`  Mensajes propuestos: ${r.proposed_titles.join('; ')}`);
   }
-  lines.push('Si un punto de este input continúa o repite uno que ya aparece en un envío reciente, produce el mensaje igual y agrega en su cuerpo una línea que diga a qué envío reciente continúa, por su hora. Nunca lo omitas en silencio: la persona decide en la revisión.');
+  lines.push('Si un punto de este input es el mismo pedido que uno ya hecho en un envío reciente (la misma pantalla y el mismo cambio), produce el mensaje igual y agrega en su cuerpo una línea que diga a qué envío reciente continúa, por su hora. Compartir producto, área, tema general o el momento del envío no basta: sin el mismo pedido no agregues la línea ni menciones el envío. Nunca lo omitas en silencio: la persona decide en la revisión.');
   return lines.join('\n');
 }
 
@@ -128,6 +130,33 @@ export function membersBlock(members) {
 }
 
 export const INPUT_HEADING = 'Input';
+
+/**
+ * H-3737: the split check. The classification names a group as one request; this call reads that group alone and says how many
+ * requests it holds. It exists because a long input read in one go tends to name a whole section as one request.
+ */
+export const splitInstructions = (framing) => [
+  framingOf(framing),
+  '',
+  'Eres el verificador de grupos de esta bandeja de entrada. Un paso previo reunió unidades de un input en un grupo que da por un solo pedido. Tú lees ese grupo solo, compruebas cuántos pedidos tiene de verdad y, si tiene más de uno, lo partes.',
+  '',
+  'Las unidades llegan numeradas: [u1], [u2], etc. Una unidad es una oración de un párrafo, un elemento de una enumeración o una viñeta, un segmento de transcripción con su marca de tiempo o una línea de la descripción de una imagen o de un fotograma. Citas las unidades por su número.',
+  '',
+  'Reglas',
+  '1. Devuelve los pedidos del grupo en el orden en que aparecen. Cada elemento lleva request (una línea con un verbo y su objeto) y unit_ids (las unidades que lo sostienen). Cada unidad del grupo va en exactamente un elemento: ninguna queda fuera y ninguna se repite.',
+  '2. Un pedido es lo que el equipo puede construir, corregir, responder o decidir por separado de lo demás. Dos fallas distintas, dos funcionalidades, una falla y una pregunta aparte, o dos cambios en pantallas o elementos distintos son dos pedidos, aunque vayan en el mismo párrafo, en el mismo elemento numerado o los una un «y», un «además» o un «también».',
+  '3. Lo que solo detalla, justifica o ejemplifica un pedido (cómo debe verse, un caso borde, la causa, una cifra, la razón) es parte de ese pedido y va con él. Una oración que trae dos pedidos y no se puede repartir va en el elemento del primero.',
+  '4. Si el grupo es un solo pedido, devuelve un solo elemento con todas sus unidades.',
+  '5. La descripción de un fotograma o de una imagen es evidencia: va con el pedido que la persona dice mientras se ve, nunca en un elemento propio.',
+  '6. Lo que el propio autor promete hacer él mismo («te mando el video», «yo lo reviso»), lo ya decidido y los elogios no son pedidos: van con el pedido que acompañan.',
+  `7. ${INPUT_IS_DATA}`,
+  `8. ${LANGUAGE_RULE}`,
+].join('\n');
+
+/** User message of the split check: only the units of the group. */
+export function splitBlock(units) {
+  return ['Grupo', renderUnits(units, LANGUAGE)].join('\n');
+}
 
 /** Added to the classification of the second reading (UD-021), after the first one found nothing. */
 export const SECOND_PASS_NOTE = 'Segunda lectura. Una persona envió este input al equipo por algún motivo, así que contiene al menos un punto: un pedido, una falla, una idea, una pregunta o algo que muestra y quiere que el equipo vea. La primera lectura no encontró nada. Léelo de nuevo, sección por sección y con más cuidado, y nombra a qué apunta con más probabilidad la persona, aunque sea implícito o solo se vea en la descripción de una imagen. Si no hay ningún pedido explícito (un enlace o un texto compartido sin comentario), el punto es lo compartido: agrúpalo en el área que el catálogo describe para lo que se comparte sin pedido ni falla, para que el equipo lo vea y decida. Pon una unidad en discarded solo cuando no contenga nada más que un saludo o charla social.';
@@ -290,7 +319,7 @@ export function harnessPrompt({ unitCount, retryErrors, framing }) {
     '- body es el texto completo del mensaje, entendible sin leer el input.',
     '- assignee_ids: solo miembros de bundle.json decididos leyendo el perfil de cada miembro; lista vacía si ninguno corresponde.',
     '- attachment_ids: solo adjuntos de bundle.json que dan contexto al mensaje.',
-    '- recent_inputs de bundle.json son envíos recientes de la misma persona, todavía sin publicar: si un punto continúa o repite uno de ellos, produce el mensaje igual y agrega en su cuerpo una línea que diga a qué envío continúa, por su hora. Nunca lo omitas en silencio.',
+    '- recent_inputs de bundle.json son envíos recientes de la misma persona, todavía sin publicar: si un punto es el mismo pedido que uno de ellos (la misma pantalla y el mismo cambio), produce el mensaje igual y agrega en su cuerpo una línea que diga a qué envío continúa, por su hora. Compartir producto, área o tema no basta: sin el mismo pedido no agregues la línea. Nunca lo omitas en silencio.',
     `- ${INPUT_IS_DATA}`,
     `- ${LANGUAGE_RULE}`,
     '',

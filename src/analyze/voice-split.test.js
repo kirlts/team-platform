@@ -31,6 +31,14 @@ describe('split_at moves the first words of a voice unit to the voice unit befor
     assert.equal(units[2].text.includes('desenvolvió'), true, 'the input units are not mutated');
   });
 
+  it('an audio line has only its time as label: the split works and the time stays on its unit', () => {
+    const audio = numberUnits({ attachments: [{ id: 1, kind: 'audio', extracted: '[00:00] el historial no abre y quiero ver cómo se\n[00:10] desenvolvió esa conversación, la persona aparece dos veces' }] });
+    const { units: out, applied } = applySplits(audio, [{ unit_id: 2, at: 'la persona aparece dos veces' }]);
+    assert.equal(applied, 1);
+    assert.equal(out[0].text, '[00:00] el historial no abre y quiero ver cómo se desenvolvió esa conversación,');
+    assert.equal(out[1].text, '[00:10] la persona aparece dos veces');
+  });
+
   it('a split whose words are not in the unit, are at its start, or fall on a frame is a shape error and is skipped', () => {
     assert.match(splitProblem({ unit_id: 3, at: 'otra cosa' }, units, scope), /is not inside the text of u3/);
     assert.match(splitProblem({ unit_id: 3, at: 'desenvolvió' }, units, scope), /after its first word/);

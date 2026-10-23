@@ -32,13 +32,13 @@ import { withSpan } from '../telemetry/api.js';
 import { consensus } from './consensus.js';
 import { AnalyzeInputError } from './errors.js';
 import {
-  chunkNote, classifySystem, classifyUser, decomposeSystem, decomposeUser, membersBlock, rescueUser, resolveLanguage, retryUser,
+  chunkNote, classifySystem, classifyUser, decomposeSystem, decomposeUser, membersBlock, rescueUser, resolveLanguage, retryUser, splitSystem, splitUser,
 } from './prompts.js';
-import { buildClassificationSchema, buildDecompositionSchema } from './schema.js';
+import { buildClassificationSchema, buildDecompositionSchema, buildSplitSchema } from './schema.js';
 import { parseTemplate } from './templates.js';
 import { estimateTokens, isEmptyUnit, numberUnits, partitionUnits, renderUnits } from './units.js';
 import {
-  anchorFrames, applySplits, closeEmptyGaps, foldRecapGroups, closeStretches, foldFrameMessages, contextFromBundle, foldEmptyGroups, foldEmptyMessages, coverage, describeConflicts, normalizeDecomposition, repairClassification, repairCoverage, validateClassification, validateDecomposition, validateProposal,
+  anchorFrames, applySplits, closeEmptyGaps, foldRecapGroups, closeStretches, foldFrameMessages, contextFromBundle, foldEmptyGroups, foldEmptyMessages, coverage, describeConflicts, normalizeDecomposition, repairClassification, repairCoverage, repairSplit, settleSplit, validateClassification, validateDecomposition, validateProposal, validateSplit,
 } from './validate.js';
 import { phraseOf, step } from '../domain/progress-phrases.js';
 
@@ -302,7 +302,7 @@ async function decomposeUnits(ctx, { bundle, template, system, schema, units, sc
 }
 
 /** Runs `tasks` with at most `limit` at a time; stops starting new ones if one returns a state other than `ok`. */
-async function runPool(tasks, limit) {
+async function runPool(tasks, limit, { stopOnFailure = true } = {}) {
   const results = new Array(tasks.length);
   let next = 0;
   let failed = false;
@@ -311,7 +311,7 @@ async function runPool(tasks, limit) {
       const i = next;
       next += 1;
       results[i] = await tasks[i]();
-      if (results[i].status !== 'ok') failed = true;
+      if (stopOnFailure && results[i].status !== 'ok') failed = true;
     }
   }
   await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, worker));
@@ -350,6 +350,56 @@ function isImageOnly(bundle) {
   if (typeof bundle.text === 'string' && bundle.text.trim() !== '') return false;
   const withText = (bundle.attachments ?? []).filter((a) => typeof a.extracted === 'string' && a.extracted.trim() !== '');
   return withText.length > 0 && withText.every((a) => a.kind === 'image');
+}
+
+/**
+ * H-3737: the split check. Each group of written text (no voice unit) with two or more units is read alone by one short call that says how
+ * many requests it holds; a group of several becomes one group per request, with the same area and template. A call that does not
+ * come back valid leaves its group as it was: the check is an extra look and never a reason to fail the input.
+ * @returns {Promise<{groups: object[], checked: number, split: number, added: number}>}
+ */
+async function splitGroups(ctx, { groups, units, language, framing, frameIds }) {
+  const { config } = ctx;
+  const byId = new Map(units.map((u) => [u.id, u]));
+  const emptyIds = new Set(units.filter((u) => isEmptyUnit(u.text)).map((u) => u.id));
+  const spokenIn = (g) => g.unit_ids.filter((id) => !frameIds?.has(id) && !emptyIds.has(id));
+  const system = splitSystem({ language, framing });
+  const schema = buildSplitSchema();
+  // A group with a voice unit is not checked: the transcription cuts by time, so a sentence can continue in a unit outside the
+  // group, and the check reads the group alone (the first reading, at effort `high`, is what separates the requests of a recording).
+  const hasVoice = (g) => g.unit_ids.some((id) => byId.get(id).kind === 'voice');
+  const candidates = groups.map((g, index) => ({ g, index })).filter(({ g }) => !hasVoice(g) && spokenIn(g).length >= 2);
+  const tasks = candidates.map(({ g, index }) => async () => {
+    const scope = new Set(g.unit_ids);
+    const r = await structuredStep(ctx, {
+      step: `split#${index + 1}`,
+      system,
+      messages: [{ role: 'user', content: splitUser({ units: g.unit_ids.map((id) => byId.get(id)), language }) }],
+      schema,
+      effort: config.splitPassEffort,
+      thinking: config.splitPassThinking ?? undefined,
+      validate: (json) => validateSplit(json, { scope }),
+    });
+    if (r.status === 'ok') return { status: 'ok', json: r.json };
+    if (r.status === 'invalid' && r.repairable) return { status: 'ok', json: repairSplit(r.repairable, scope), repaired: true };
+    return { status: 'skipped' };
+  });
+  const results = await withSpan('classify.split', { 'team.step': 'split', 'team.groups': groups.length, 'team.checked': candidates.length }, async (span) => {
+    const out = await runPool(tasks, config.partitionConcurrency, { stopOnFailure: false });
+    span.setAttribute('team.split_groups', out.filter((r) => r?.status === 'ok' && r.json.requests.length > 1).length);
+    return out;
+  });
+  const replaced = new Map();
+  candidates.forEach(({ g, index }, i) => {
+    const r = results[i];
+    if (r?.status !== 'ok' || r.json.requests.length < 2) return;
+    const { parts } = settleSplit(r.json.requests, { frameIds, emptyIds });
+    if (parts.length < 2) return;
+    const recap = new Set(g.recap_unit_ids ?? []);
+    replaced.set(index, parts.map((p) => ({ ...g, unit_ids: p.unit_ids, requests: [p.request], recap_unit_ids: p.unit_ids.filter((id) => recap.has(id)) })));
+  });
+  const out = groups.flatMap((g, index) => replaced.get(index) ?? [g]);
+  return { groups: out, checked: candidates.length, split: replaced.size, added: out.length - groups.length };
 }
 
 /**
@@ -505,7 +555,14 @@ export async function classifyInput(bundle, { providers, onProgress, config, red
   // H-1902: a group of speaker marks alone joins the intervention it introduces; the decomposition never receives it.
   const folding = foldEmptyGroups(groups, classDiscarded, new Set(units.filter((u) => isEmptyUnit(u.text)).map((u) => u.id)), language === 'en' ? 'Mark with no content' : 'Marca sin contenido');
   if (folding.folded > 0) ctx.stats.empty_groups_folded = folding.folded;
-  return { ctx, language, units, workBundle, attachments, classifyChunks, groups: folding.groups, discarded: folding.discarded };
+  let finalGroups = folding.groups;
+  // H-3737: each group is read alone once more, to see whether it holds more than one request.
+  if (config.splitPass && finalGroups.length > 0) {
+    const checked = await splitGroups(ctx, { groups: finalGroups, units, language, framing, frameIds });
+    finalGroups = checked.groups;
+    ctx.stats.split_pass = { checked: checked.checked, split: checked.split, added: checked.added };
+  }
+  return { ctx, language, units, workBundle, attachments, classifyChunks, groups: finalGroups, discarded: folding.discarded };
 }
 
 /**

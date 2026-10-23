@@ -100,6 +100,13 @@ export const KNOBS = Object.freeze({
   // read again section by section (a heading or a change of source also cuts). Provisional: the bench calibrates it.
   secondPassSectionUnits: { value: 20, source: 'UD-021 (provisional; calibrated by the bench §7.11)' },
 
+  // H-3737: the split check. After the classification each group of written text (no voice unit) with two or more units is read alone by one call
+  // that says how many requests it holds; a group of several is split. The classification of a long input names a whole section
+  // as one request (a specification became 2 groups for 18 requests); a short call over one group does not have that load.
+  splitPass: { value: true, source: 'H-3737; measurement 2026-10-23-documentos-largos' },
+  splitPassEffort: { value: 'low', source: 'H-3737; measurement 2026-10-23-documentos-largos' },
+  splitPassThinking: { value: 'disabled', source: 'H-3737; the same task as the decomposition, over fewer units' },
+
   // Extra environment variables for the harness process.
   harnessEnv: { value: Object.freeze({}), source: 'UD-008' },
 });
@@ -119,7 +126,7 @@ export function resolveConfig(overrides = {}) {
     if (!(key in KNOBS)) throw new TypeError(`Unknown analyzer knob: «${key}»`);
     if (value !== undefined) config[key] = value;
   }
-  for (const key of ['classifyEffort', 'decomposeEffort']) {
+  for (const key of ['classifyEffort', 'decomposeEffort', 'splitPassEffort']) {
     if (!EFFORTS.has(config[key])) throw new TypeError(`${key} must be one of ${[...EFFORTS].join(', ')}`);
   }
   for (const key of ['maxTokens', 'maxTokensRetry', 'partitionThresholdTokens', 'charsPerToken', 'partitionConcurrency', 'minCacheableSystemTokens', 'harnessTimeoutMs', 'secondPassSectionUnits', 'classifyWindowUnits', 'httpRetryBaseMs']) {
@@ -129,7 +136,8 @@ export function resolveConfig(overrides = {}) {
     if (!Number.isInteger(config[key]) || config[key] < 0) throw new TypeError(`${key} must be an integer greater than or equal to 0`);
   }
   if (!Number.isInteger(config.classifyDraws) || config.classifyDraws < 1) throw new TypeError('classifyDraws must be an integer greater than or equal to 1');
-  for (const key of ['classifyThinking', 'decomposeThinking']) {
+  if (typeof config.splitPass !== 'boolean') throw new TypeError('splitPass must be true or false');
+  for (const key of ['classifyThinking', 'decomposeThinking', 'splitPassThinking']) {
     if (config[key] !== null && config[key] !== 'disabled') throw new TypeError(`${key} must be null or «disabled»`);
   }
   if (config.cacheTtl !== '5m' && config.cacheTtl !== '1h') throw new TypeError('cacheTtl must be «5m» or «1h»');

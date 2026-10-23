@@ -18,6 +18,7 @@ import { createVault, loadMasterKey } from '../domain/vault.js'
 import { addMember, fakeAnalyze, login, makeEnv, postInput, tempDir, until } from '../testing/helpers.js'
 import { createWorker } from '../worker.js'
 import { createDeliverHandler, deliveredBody, heldBody, outputJson, referenceOf, withProductionNote } from './deliver.js'
+import { enqueueDeliver } from './enqueue.js'
 import { createExecuteHandler } from './handler.js'
 import { buildExecutePrompt } from './prompt.js'
 
@@ -165,27 +166,33 @@ describe('deliver job', () => {
 
   it('exit 76 holds the delivery for a person: one reply, no retry, no second pass, the output of the session reaches the command', async () => {
     const log = path('held-log')
-    process.env.FAKE_EXECUTE_EXTRA = JSON.stringify({ zone: 'pagos' })
-    startWorker({ deliverCommand: `echo "$TEAM_OUTPUT_JSON" >> ${log}; echo 'revisando'; echo 'el cambio toca pagos'; exit 76` })
+    startWorker({ deliverCommand: 'true' })
     const messageId = await publishedMessage('Un cobro que sale doble.')
     await settle(messageId)
-    const [delivery] = jobsOf(messageId, 'deliver')
-    assert.equal(delivery.status, 'done', delivery.last_error)
+    await worker.stop()
+    const [exec] = jobsOf(messageId, 'execute')
+    const before = replies(messageId).length
+    const output = { outcome: 'done', summary: 'Arreglé el cobro doble.\n\nYa se cobra una vez.', zone: 'pagos' }
+    const jobId = enqueueDeliver(env.db, { messageId, payload: { member_id: agentId, branch: `tp/${messageId}`, round: 0, output, execute_job_id: exec.id, execute_attempt: 1, requested_by: null } })
+    startWorker({ deliverCommand: `echo "$TEAM_OUTPUT_JSON" >> ${log}; echo 'revisando'; echo 'el cambio toca pagos'; exit 76` })
+    assert.equal((await waitJob(jobId)).status, 'done', env.queue.getJob(jobId).last_error)
+    const delivery = env.queue.getJob(jobId)
     assert.equal(delivery.attempts, 1, 'a held delivery is not a failure: one run, no retry')
-    assert.deepEqual([jobsOf(messageId, 'deliver').length, jobsOf(messageId, 'execute').length], [1, 1], 'nothing goes back to Claude')
+    assert.equal(jobsOf(messageId, 'deliver').length, 2, 'no new delivery')
+    assert.equal(jobsOf(messageId, 'execute').length, 1, 'nothing goes back to Claude')
     const lines = readFileSync(log, 'utf8').trim().split('\n')
     assert.equal(lines.length, 1, 'the command ran once')
     assert.deepEqual(JSON.parse(lines[0]), { outcome: 'done', zone: 'pagos' }, 'compact JSON of the output, without the summary')
     assert.doesNotMatch(lines[0], /\s/, 'compact')
-    const mine = replies(messageId)
-    assert.equal(mine.length, 2, 'the first reply and ONE closing reply')
-    assert.equal(mine[1], 'Arreglé la pantalla que quedaba en blanco.\n\nYa carga con tus datos.\n\nEl cambio está listo y espera la revisión de una persona antes de entrar a producción: el cambio toca pagos. Queda guardado en la rama.\n\n**Resultado**: needs_decision\n\n**zone**: pagos')
-    assert.doesNotMatch(mine[1], /76|deliver|Ya está en producción/)
-    const done = eventsOf(delivery.id).at(-1)
+    const mine = replies(messageId).slice(before)
+    assert.equal(mine.length, 1, 'ONE reply for the held delivery')
+    assert.equal(mine[0], 'Arreglé el cobro doble.\n\nYa se cobra una vez.\n\nEl cambio está listo y espera la revisión de una persona antes de entrar a producción: el cambio toca pagos. Queda guardado en la rama.\n\n**Resultado**: needs_decision\n\n**zone**: pagos')
+    assert.doesNotMatch(mine[0], /76|deliver|Ya está en producción/)
+    const done = eventsOf(jobId).at(-1)
     assert.equal(done.kind, 'done')
     assert.equal(JSON.parse(done.data_json).delivery_held, true)
-    const run = env.db.prepare('SELECT * FROM execute_runs WHERE job_id = ?').get(jobsOf(messageId, 'execute')[0].id)
-    assert.deepEqual([run.deliver_job_id, run.delivered, run.delivery_held, run.delivery_ref], [delivery.id, 0, 1, null])
+    const run = env.db.prepare('SELECT * FROM execute_runs WHERE job_id = ?').get(exec.id)
+    assert.deepEqual([run.deliver_job_id, run.delivered, run.delivery_held, run.delivery_ref], [jobId, 0, 1, null])
     const view = (await env.app.inject({ method: 'GET', url: '/api/ops/execute-runs/summary', headers: { cookie: editor } })).json()
     assert.ok(view.delivery.held >= 1, 'the summary counts «en espera de revisión» apart')
   })

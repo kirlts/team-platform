@@ -490,9 +490,10 @@ Sin `EXECUTE_DELIVER_COMMAND`, la sesión de Claude entrega a producción por la
 | Elemento | Contrato |
 |---|---|
 | Marcadores | `{message_id}`, `{job_id}`, `{branch}`, `{workdir}` (directorio vacío que se borra al terminar). Entre comillas simples de shell |
-| Entorno | `TEAM_MESSAGE_ID`, `TEAM_JOB_ID`, `TEAM_BRANCH`, `TEAM_WORKDIR`, `TEAM_DELIVER_ROUND`, `TEAM_DELIVER_ATTEMPT` |
+| Entorno | `TEAM_MESSAGE_ID`, `TEAM_JOB_ID`, `TEAM_BRANCH`, `TEAM_WORKDIR`, `TEAM_DELIVER_ROUND`, `TEAM_DELIVER_ATTEMPT`, `TEAM_OUTPUT_JSON` (la salida estructurada de la sesión sin el `summary`, en JSON compacto; `{}` si la entrega se lanzó sin salida). La plataforma no interpreta sus campos: la orden decide con ellos |
 | Código 0 | Quedó en producción. La última línea de stdout es la referencia: un commit, una URL o una etiqueta |
 | Código 75 | No puede ahora. El trabajo espera `EXECUTE_CAPACITY_WAIT_MS` y vuelve a correr sin gastar intento |
+| Código 76 | No se entrega sola: espera la revisión de una persona. La última línea de stdout es el motivo en lenguaje llano (por ejemplo «el cambio toca pagos»). No se reintenta ni vuelve a Claude. El trabajo termina como hecho con `delivered = 0`, sin referencia. El autor recibe una sola respuesta con el `summary`, el motivo y `outcome: needs_decision`. La ficha de la ejecución lleva `delivery_held = 1` y el resumen lo cuenta aparte de «entregado» y «falló» |
 | Otro código | Fallo. stdout y stderr son el motivo. Con `EXECUTE_DELIVER_RETRIES` vueltas disponibles, un `execute` nuevo recibe esa salida en su prompt, corrige sobre la misma rama y vuelve a entregar. Si falla otra vez, el autor recibe el aviso de que no pasó la verificación, con `outcome: blocked` |
 | Plazo | `EXECUTE_DELIVER_TIMEOUT_MS`. Vencido, se mata el grupo de procesos de la orden y el autor recibe el aviso; no vuelve a Claude |
 | Fases | Opcional. Las líneas `##team phase verify` y `##team phase deploy` de stdout mueven el progreso que ven la tarjeta del mensaje y la Cola |

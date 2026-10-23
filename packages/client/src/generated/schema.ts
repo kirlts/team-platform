@@ -5473,6 +5473,7 @@ export interface paths {
                                 transcript_ref?: string | null;
                                 deliver_job_id?: string | null;
                                 delivery_ref?: string | null;
+                                delivery_held?: boolean | null;
                                 slowest_tools?: {
                                     [key: string]: unknown;
                                 }[];
@@ -5627,6 +5628,7 @@ export interface paths {
                             delivery?: {
                                 known?: number;
                                 delivered?: number;
+                                held?: number;
                                 rate?: number | null;
                             };
                             resolved?: {

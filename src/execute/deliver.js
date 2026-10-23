@@ -182,10 +182,6 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
     }
     // Exit 75: the host cannot deliver now. The job waits and tries again; the attempt is not spent and nothing is recorded yet.
     if (result.code === DELIVER_LATER) throw new Deferred(x.capacityWaitMs, step('deliverWait'))
-    if (result.code !== 0) {
-      saveRun(payload, job.id, { delivery_ms: ms, delivered: 0 })
-      throw Object.assign(permanent(`La orden de entrega terminó con código ${result.code}: ${tail(output, 1500) || 'sin salida'}`, 'deliver_failed'), { output })
-    }
     if (result.code === DELIVER_HELD) {
       const reason = (referenceOf(result.stdout) ?? '').slice(0, REASON_CHARS)
       return () => {
@@ -200,6 +196,10 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
         events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: step('answered'), data: { message_id: messageId } })
         events.publishForJob(job.id, { kind: 'done', data: { status: 'done', message_id: String(messageId), reply_id: String(replyId), delivery_held: true } })
       }
+    }
+    if (result.code !== 0) {
+      saveRun(payload, job.id, { delivery_ms: ms, delivered: 0 })
+      throw Object.assign(permanent(`La orden de entrega terminó con código ${result.code}: ${tail(output, 1500) || 'sin salida'}`, 'deliver_failed'), { output })
     }
     const ref = referenceOf(result.stdout)
 

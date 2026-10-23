@@ -44,7 +44,7 @@ const runRow = {
     cost_usd: { type: 'number', nullable: true }, turns: nullableInt, tool_count: nullableInt, subagent_count: nullableInt,
     outcome: { type: 'string', nullable: true }, error_code: { type: 'string', nullable: true }, delivered: { type: 'boolean', nullable: true },
     transcript_ref: { type: 'string', nullable: true },
-    deliver_job_id: { type: 'string', nullable: true }, delivery_ref: { type: 'string', nullable: true }, // the `deliver` job that followed the run and what its command printed (UD-263)
+    deliver_job_id: { type: 'string', nullable: true }, delivery_ref: { type: 'string', nullable: true }, delivery_held: { type: 'boolean', nullable: true }, // the `deliver` job that followed the run and what its command printed (UD-263)
     slowest_tools: { type: 'array', items: { type: 'object', additionalProperties: true } }
   }
 }
@@ -127,7 +127,7 @@ export function registerOpsRoutes (app, ctx) {
             phases: { type: 'object', properties: Object.fromEntries(PHASES.map((p) => [p, stat])) },
             cost: { type: 'object', properties: { n: { type: 'integer' }, avg_usd: { type: 'number', nullable: true }, total_usd: { type: 'number' } } },
             tokens: { type: 'object', properties: { input: { type: 'integer' }, output: { type: 'integer' }, cache_read: { type: 'integer' }, cache_write: { type: 'integer' } } },
-            delivery: { type: 'object', properties: { known: { type: 'integer' }, delivered: { type: 'integer' }, rate: { type: 'number', nullable: true } } },
+            delivery: { type: 'object', properties: { known: { type: 'integer' }, delivered: { type: 'integer' }, held: { type: 'integer' }, rate: { type: 'number', nullable: true } } },
             resolved: { type: 'object', properties: { runs: { type: 'integer' }, investigated: { type: 'integer' }, rate: { type: 'number', nullable: true } } },
             slowest_tools: { type: 'array', items: { type: 'object', additionalProperties: true } }
           }

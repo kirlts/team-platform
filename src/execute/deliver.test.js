@@ -1,5 +1,5 @@
 // The `deliver` job (UD-263) end to end against a listening server, the fake `claude` of the `execute` tests and a fake delivery command:
-// one closing reply «Ya está en producción» in green, exit 75 that waits without spending the attempt, a failed verification that goes
+// one closing reply «Ya está en producción» in green, exit 76 that holds it for a person, exit 75 that waits without spending the attempt, a failed verification that goes
 // back to `execute` once and then ends in the plain notice, the compatibility without EXECUTE_DELIVER_COMMAND, the timeout, and no machine
 // alive while the delivery runs.
 import assert from 'node:assert/strict'
@@ -17,7 +17,7 @@ import { setProjectDescription } from '../domain/settings.js'
 import { createVault, loadMasterKey } from '../domain/vault.js'
 import { addMember, fakeAnalyze, login, makeEnv, postInput, tempDir, until } from '../testing/helpers.js'
 import { createWorker } from '../worker.js'
-import { createDeliverHandler, deliveredBody, referenceOf, withProductionNote } from './deliver.js'
+import { createDeliverHandler, deliveredBody, heldBody, outputJson, referenceOf, withProductionNote } from './deliver.js'
 import { createExecuteHandler } from './handler.js'
 import { buildExecutePrompt } from './prompt.js'
 
@@ -161,6 +161,33 @@ describe('deliver job', () => {
     const mine = replies(messageId)
     assert.equal(mine.length, 2)
     assert.match(mine[1], /Ya está en producción\.\n\n\*\*Resultado\*\*: done\n\n\*\*Entrega\*\*: ref-75$/)
+  })
+
+  it('exit 76 holds the delivery for a person: one reply, no retry, no second pass, the output of the session reaches the command', async () => {
+    const log = path('held-log')
+    process.env.FAKE_EXECUTE_EXTRA = JSON.stringify({ zone: 'pagos' })
+    startWorker({ deliverCommand: `echo "$TEAM_OUTPUT_JSON" >> ${log}; echo 'revisando'; echo 'el cambio toca pagos'; exit 76` })
+    const messageId = await publishedMessage('Un cobro que sale doble.')
+    await settle(messageId)
+    const [delivery] = jobsOf(messageId, 'deliver')
+    assert.equal(delivery.status, 'done', delivery.last_error)
+    assert.equal(delivery.attempts, 1, 'a held delivery is not a failure: one run, no retry')
+    assert.deepEqual([jobsOf(messageId, 'deliver').length, jobsOf(messageId, 'execute').length], [1, 1], 'nothing goes back to Claude')
+    const lines = readFileSync(log, 'utf8').trim().split('\n')
+    assert.equal(lines.length, 1, 'the command ran once')
+    assert.deepEqual(JSON.parse(lines[0]), { outcome: 'done', zone: 'pagos' }, 'compact JSON of the output, without the summary')
+    assert.doesNotMatch(lines[0], /\s/, 'compact')
+    const mine = replies(messageId)
+    assert.equal(mine.length, 2, 'the first reply and ONE closing reply')
+    assert.equal(mine[1], 'Arreglé la pantalla que quedaba en blanco.\n\nYa carga con tus datos.\n\nEl cambio está listo y espera la revisión de una persona antes de entrar a producción: el cambio toca pagos. Queda guardado en la rama.\n\n**Resultado**: needs_decision\n\n**zone**: pagos')
+    assert.doesNotMatch(mine[1], /76|deliver|Ya está en producción/)
+    const done = eventsOf(delivery.id).at(-1)
+    assert.equal(done.kind, 'done')
+    assert.equal(JSON.parse(done.data_json).delivery_held, true)
+    const run = env.db.prepare('SELECT * FROM execute_runs WHERE job_id = ?').get(jobsOf(messageId, 'execute')[0].id)
+    assert.deepEqual([run.deliver_job_id, run.delivered, run.delivery_held, run.delivery_ref], [delivery.id, 0, 1, null])
+    const view = (await env.app.inject({ method: 'GET', url: '/api/ops/execute-runs/summary', headers: { cookie: editor } })).json()
+    assert.ok(view.delivery.held >= 1, 'the summary counts «en espera de revisión» apart')
   })
 
   it('a failed verification goes back to execute once with its output; the second delivery answers once', async () => {
@@ -366,6 +393,15 @@ describe('pieces of the delivery', () => {
     assert.equal(deliveredBody({ output: null, ref: null, language: 'es-419' }), 'Ya está en producción.')
   })
 
+  it('the held reply keeps the summary, names the reason in plain words and has no jargon', () => {
+    assert.equal(heldBody({ output: { outcome: 'done', summary: 'Listo.' }, reason: 'el cambio toca pagos.', language: 'es-419' }),
+      'Listo.\n\nEl cambio está listo y espera la revisión de una persona antes de entrar a producción: el cambio toca pagos. Queda guardado en la rama.\n\n**Resultado**: needs_decision')
+    assert.match(heldBody({ output: { outcome: 'done', summary: 'Listo.' }, reason: '', language: 'es-419' }), /producción: el cambio necesita esa revisión\. Queda/)
+    assert.match(heldBody({ output: { outcome: 'done', summary: 'Done.' }, reason: 'it touches payments', language: 'en' }), /waits for a person to review it before it goes to production: it touches payments\./)
+    assert.equal(outputJson({ summary: 'x', outcome: 'done', zone: 'pagos' }), '{"outcome":"done","zone":"pagos"}')
+    assert.equal(outputJson(null), '{}')
+  })
+
   it('the reference is the last line of stdout that is not a phase marker', () => {
     assert.equal(referenceOf('building\n##team phase deploy\nabc1234\n\n'), 'abc1234')
     assert.equal(referenceOf('##team phase verify\n'), null)
@@ -397,6 +433,19 @@ describe('pieces of the delivery', () => {
     const second = buildExecutePrompt({ ...input, deliver: true, deliverFailure: { output: 'FAIL x' } })
     assert.match(second, /<delivery_failure>[\s\S]*FAIL x[\s\S]*<\/delivery_failure>/)
     assert.match(second, /do not send another one/)
+  })
+})
+
+describe('migration 0020', () => {
+  it('adds delivery_held to execute_runs with 0, 1 or NULL', () => {
+    const dir = tempDir()
+    const db = openDatabase(join(dir, 'team.db'))
+    migrate(db, { dir: MIGRATIONS })
+    db.exec('INSERT INTO execute_runs (job_id, attempt, started_at, finished_at, delivery_held) VALUES (1, 1, 1, 2, 1), (2, 1, 1, 2, NULL)')
+    assert.deepEqual(db.prepare('SELECT delivery_held AS h FROM execute_runs ORDER BY job_id').all().map((r) => r.h), [1, null])
+    assert.throws(() => db.exec('UPDATE execute_runs SET delivery_held = 2 WHERE job_id = 1'), /CHECK/)
+    db.close()
+    rmSync(dir, { recursive: true, force: true })
   })
 })
 

@@ -66,7 +66,7 @@ test('percentiles are nearest-rank; the summary gives average, p50 and p95 per p
   assert.deepEqual(s.phases.judge_ms, { n: 0, avg: null, p50: null, p95: null }, 'a phase nobody reported stays unknown')
   assert.deepEqual(s.cost, { n: 20, avg_usd: 0.5, total_usd: 10 })
   assert.deepEqual(s.resolved, { runs: 20, investigated: 5, rate: 0.25 })
-  assert.deepEqual(s.delivery, { known: 0, delivered: 0, rate: null })
+  assert.deepEqual(s.delivery, { known: 0, delivered: 0, held: 0, rate: null })
 })
 
 test('the summary counts failures, delivery with data and the ten slowest tools of the period', () => {
@@ -77,7 +77,7 @@ test('the summary counts failures, delivery with data and the ten slowest tools 
   const s = summarizeExecuteRuns(db, {})
   assert.equal(s.runs, 3)
   assert.equal(s.failed, 1)
-  assert.deepEqual(s.delivery, { known: 2, delivered: 1, rate: 0.5 })
+  assert.deepEqual(s.delivery, { known: 2, delivered: 1, held: 0, rate: 0.5 })
   assert.deepEqual(s.cost, { n: 2, avg_usd: 1, total_usd: 2 })
   assert.deepEqual(s.slowest_tools.map((t) => [t.summary, t.job_id]), [['Orden: npm test', 1], ['Lectura: a.ts', 2]])
 })

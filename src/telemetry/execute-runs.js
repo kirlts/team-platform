@@ -10,7 +10,7 @@ export const PHASES = ['queue_wait_ms', 'first_reply_ms', 'final_reply_ms', 'tot
 const COLUMNS = [
   'job_id', 'attempt', 'message_id', 'instance', 'trace_id', 'session_id', 'model', 'runner', 'machine', 'started_at', 'finished_at',
   ...PHASES, 'input_tokens', 'output_tokens', 'cache_read_tokens', 'cache_write_tokens', 'cost_usd', 'turns', 'tool_count', 'subagent_count',
-  'outcome', 'error_code', 'delivered', 'transcript_ref', 'slowest_tools_json', 'deliver_job_id', 'delivery_ref'
+  'outcome', 'error_code', 'delivered', 'transcript_ref', 'slowest_tools_json', 'deliver_job_id', 'delivery_ref', 'delivery_held'
 ]
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? Math.round(v * 1e6) / 1e6 : null)
 
@@ -25,7 +25,7 @@ export function recordExecuteRun (db, run) {
   const row = { ...run, slowest_tools_json: JSON.stringify((run.slowest_tools ?? []).slice(0, SLOWEST_TOOLS_KEPT)) }
   const values = COLUMNS.map((c) => {
     const v = row[c] ?? null
-    if (c === 'delivered') return v === null ? null : (v ? 1 : 0)
+    if (c === 'delivered' || c === 'delivery_held') return v === null ? null : (v ? 1 : 0)
     if (c === 'slowest_tools_json') return v ?? '[]'
     return typeof v === 'number' ? num(v) : v
   })
@@ -79,7 +79,9 @@ export function runView (r) {
   let slowest = []
   try { slowest = JSON.parse(r.slowest_tools_json ?? '[]') } catch { /* a damaged cell shows no tools */ }
   const { slowest_tools_json: _json, ...rest } = r
-  return { ...rest, delivered: r.delivered === null ? null : r.delivered === 1, slowest_tools: slowest }
+  return {
+    ...rest, delivered: r.delivered === null ? null : r.delivered === 1, delivery_held: r.delivery_held === null || r.delivery_held === undefined ? null : r.delivery_held === 1, slowest_tools: slowest
+  }
 }
 
 /** Runs newest first. `limit`/`offset` page them; `total` counts all that match. */
@@ -110,7 +112,8 @@ export function summarizeExecuteRuns (db, filters = {}) {
   const w = where(filters)
   const rows = db.prepare(`SELECT * FROM execute_runs ${w.sql} ORDER BY started_at`).all(...w.params).map(runView)
   const costs = rows.map((r) => r.cost_usd).filter((c) => typeof c === 'number')
-  const known = rows.filter((r) => r.delivered !== null)
+  const held = rows.filter((r) => r.delivery_held === true).length // waits for a person: neither delivered nor failed (UD-266)
+  const known = rows.filter((r) => r.delivered !== null && r.delivery_held !== true)
   const delivered = known.filter((r) => r.delivered === true).length
   const investigated = rows.filter((r) => r.outcome === 'investigated').length
   const slowest = rows.flatMap((r) => (r.slowest_tools ?? []).map((t) => ({ ...t, job_id: r.job_id, message_id: r.message_id })))
@@ -124,7 +127,7 @@ export function summarizeExecuteRuns (db, filters = {}) {
     phases: Object.fromEntries(PHASES.map((p) => [p, stats(rows.map((r) => r[p]))])),
     cost: { n: costs.length, avg_usd: costs.length ? Math.round((costs.reduce((a, b) => a + b, 0) / costs.length) * 1e4) / 1e4 : null, total_usd: Math.round(costs.reduce((a, b) => a + b, 0) * 1e4) / 1e4 },
     tokens: { input: sum('input_tokens'), output: sum('output_tokens'), cache_read: sum('cache_read_tokens'), cache_write: sum('cache_write_tokens') },
-    delivery: { known: known.length, delivered, rate: known.length ? delivered / known.length : null },
+    delivery: { known: known.length, delivered, held, rate: known.length ? delivered / known.length : null },
     resolved: { runs: rows.length, investigated, rate: rows.length ? investigated / rows.length : null },
     slowest_tools: slowest
   }

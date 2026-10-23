@@ -401,7 +401,7 @@ export interface ExecuteRunsSummary {
   failed: number
   phases: Record<RunPhase, { n: number; avg: number | null; p50: number | null; p95: number | null }>
   cost: { n: number; avg_usd: number | null; total_usd: number }
-  delivery: { known: number; delivered: number; rate: number | null }
+  delivery: { known: number; delivered: number; held: number; rate: number | null }
   resolved: { runs: number; investigated: number; rate: number | null }
   slowest_tools: { kind: string; name: string; summary: string | null; duration_ms: number; success: boolean | null }[]
 }

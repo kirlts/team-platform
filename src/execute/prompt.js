@@ -3,6 +3,7 @@
 
 import { compileOutputSchema, parseTemplate } from '../analyze/templates.js'
 import { HELP as TEAM_HELP } from '../../scripts/team.mjs'
+import { decisionCheckSchema } from './decision-check.js'
 
 const LANGUAGE_NAMES = { 'es-419': 'Spanish (Latin America)', en: 'English' }
 
@@ -44,10 +45,11 @@ export function finalSchema (declared, { validation = false } = {}) {
   if (!declared || typeof declared !== 'object' || declared.type !== 'object') {
     return { type: 'object', additionalProperties: false, required: ['summary'], properties: { summary, captures } }
   }
+  // UD-269: `decision_check` is optional in the grammar; the check after the run requires it with `needs_decision` (decision-check.js).
   return {
     ...declared,
     required: [...new Set([...(declared.required ?? []), 'summary'])],
-    properties: { ...(declared.properties ?? {}), summary, captures }
+    properties: { ...(declared.properties ?? {}), summary, captures, decision_check: decisionCheckSchema({ validation }) }
   }
 }
 
@@ -79,8 +81,9 @@ export function buildExecuteParts ({ message, template, author, agent, project, 
       : '- Work on the branch named in the `job` block (create it if it is not the current one). Never push to `main`: leave the branch; a person delivers it.',
     '- Run the checks the repository asks for the parts you touched before you finish.',
     '## Replies to the sender (at least two)',
-    '1. Now, before any other work, send the first reply: what you understood and where you start. Example: `team reply <message id> --body "Recibido. Empiezo por …"`, with the id of the `message` block. If the `job` block says this is a second pass after a failed delivery, the sender already got your first reply: do not send another one.',
+    '1. Look first, changing nothing. If the request is not yours (`your_profile` and the template say who takes it), end at once with `outcome` `not_mine` and the reason in one line as `summary`, and send no reply. Otherwise send the first reply now: what you understood and where you start. Example: `team reply <message id> --body "Recibido. Empiezo por …"`, with the id of the `message` block. If the `job` block says this is a second pass after a failed delivery, the sender already got your first reply: do not send another one.',
     '2. When you finish, your final structured output carries `summary`: two short paragraphs addressed directly to the sender (the `sender` block), in the reply language of the `job` block, without internal jargon, written for their profile and the project. The worker posts it as your closing reply; do not post it yourself. The rest of the output follows the template\'s output format.',
+    '- Before you end with `needs_decision` or `not_mine`, check in order: 1) is the decision already recorded (host decisions, rules, spec, CLAUDE.md)? 2) do your profile, rules or the template cover it? 3) did the sender already say what they want in the message? 4) is there a technical route that needs no person? 5) is a wrong guess cheap and reversible? If 1 to 4 answers it, it is a constraint: carry it out and say so in `summary`. If 5, decide, act and report. Only what survives goes to a person, cut down to their part; `needs_decision` requires `decision_check`.',
     '- Report progress at each milestone with `team progress <job id> --percent N --phrase "…"` (the job id is in the `job` block; a short phrase of what you are doing).',
     '- Do not close the message: a person closes it after reading your replies.',
     '## The `team` command (in your PATH, already authenticated as you)',

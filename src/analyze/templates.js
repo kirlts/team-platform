@@ -44,8 +44,8 @@ function splitFrontmatter(markdown, source) {
 // Types an output entry may take: `text` a string, `list` a list of strings, `number`, `boolean`.
 export const OUTPUT_TYPES = ['text', 'list', 'number', 'boolean'];
 // Two properties every output carries even when the template does not declare them (UD-255 (5)): `summary` is the couple of
-// paragraphs for the person who sent the message, `outcome` how the work ended.
-export const OUTPUT_OUTCOMES = ['done', 'investigated', 'blocked', 'needs_decision'];
+// paragraphs for the person who sent the message, `outcome` how the work ended (`needs_decision` and `not_mine` hand the message to a person, UD-269).
+export const OUTPUT_OUTCOMES = ['done', 'investigated', 'blocked', 'needs_decision', 'not_mine'];
 export const OUTPUT_FIXED = ['summary', 'outcome'];
 export const OUTPUT_ENUM_MAX = 32;
 

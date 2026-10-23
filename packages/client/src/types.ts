@@ -49,6 +49,10 @@ export interface Area {
   /** Open and answered: what is still pending. It is the number the sidebar carries. */
   unresolved_count?: number
   template_count?: number
+  /** The person who decides in the area and receives what a session hands over (UD-269): the one set, or the first active Editor. */
+  escalation_member_id?: string | null
+  /** Handoffs to a person in the last 7 days, by person (UD-269). */
+  handoffs?: { member_id: string; count: number }[]
   deleted_at?: string | null
 }
 

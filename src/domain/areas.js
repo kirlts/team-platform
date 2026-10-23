@@ -5,6 +5,7 @@
 import { all, get, run, tx } from '../db/index.js'
 import { iso } from '../db/util.js'
 import { audit } from './audit.js'
+import { deciderOf } from './escalation.js'
 import { conflict, notFound, unprocessable } from './errors.js'
 import { parseTemplate, withFrontmatter } from './template-file.js'
 
@@ -14,7 +15,25 @@ const toTemplate = (f, withBody) => ({
 })
 
 /** Areas with their counts and templates (without body). `includeDeleted`: the deleted ones too (to restore). */
-export function listAreas (db, { includeDeleted = false } = {}) {
+const HANDOFF_DAYS = 7 // UD-269: the figure on the area counts the handoffs of the last week
+const MS_PER_DAY = 24 * 3600 * 1000 // calendar constant, not a tunable
+
+/** Handoffs to each person in the area during the last 7 days, from the audit log: `[{ member_id, count }]`, the most first. */
+function handoffsOf (db, areaId, now) {
+  return all(db, `
+    SELECT CAST(json_extract(l.detail_json, '$.to') AS INTEGER) AS member_id, COUNT(*) AS count
+      FROM audit_log l JOIN messages m ON m.id = l.entity_id
+     WHERE l.action = 'message.escalate' AND l.entity = 'message' AND l.at >= ? AND m.area_id = ?
+     GROUP BY 1 ORDER BY 2 DESC, 1`, now() - HANDOFF_DAYS * MS_PER_DAY, areaId)
+}
+
+/** An area as the API shows it: `escalation_member_id` is the person who decides now (the stored one, or the default), and `handoffs` the week's count. */
+const withEscalation = (db, a, now) => {
+  const decider = deciderOf(db, a.id)
+  return { ...a, escalation_member_id: decider === null ? null : String(decider), handoffs: handoffsOf(db, a.id, now) }
+}
+
+export function listAreas (db, { includeDeleted = false, now = Date.now } = {}) {
   const areas = all(db, `
     SELECT a.id, a.title, a.description, a.position, a.color, a.deleted_at,
            (SELECT COUNT(*) FROM messages m WHERE m.area_id = a.id AND m.status = 'open' AND m.deleted_at IS NULL) AS open_count,
@@ -22,7 +41,7 @@ export function listAreas (db, { includeDeleted = false } = {}) {
            (SELECT COUNT(*) FROM templates t WHERE t.area_id = a.id AND t.deleted_at IS NULL) AS template_count
       FROM areas a ${includeDeleted ? '' : 'WHERE a.deleted_at IS NULL'} ORDER BY a.position, a.id`)
   const tpls = all(db, `SELECT id, area_id, name, description, updated_at, deleted_at FROM templates ${includeDeleted ? '' : 'WHERE deleted_at IS NULL'} ORDER BY id`)
-  return areas.map((a) => ({ ...a, deleted_at: iso(a.deleted_at), templates: tpls.filter((p) => p.area_id === a.id).map((p) => toTemplate(p, false)) }))
+  return areas.map((a) => ({ ...withEscalation(db, a, now), deleted_at: iso(a.deleted_at), templates: tpls.filter((p) => p.area_id === a.id).map((p) => toTemplate(p, false)) }))
 }
 
 export function getArea (db, id, { includeDeleted = false } = {}) {
@@ -62,7 +81,11 @@ export function updateArea (db, id, patch, { actorId = null, now = Date.now } = 
   return tx(db, () => {
     getArea(db, id)
     if (patch.title !== undefined) titleIsFree(db, patch.title, id)
-    const edits = ['title', 'description', 'position', 'color'].filter((k) => patch[k] !== undefined)
+    if (patch.escalation_member_id !== undefined && patch.escalation_member_id !== null
+      && !get(db, "SELECT 1 AS ok FROM members WHERE id = ? AND kind = 'person' AND active = 1", patch.escalation_member_id)) {
+      throw unprocessable('Quien decide debe ser una persona activa del equipo.')
+    }
+    const edits = ['title', 'description', 'position', 'color', 'escalation_member_id'].filter((k) => patch[k] !== undefined)
     if (edits.length > 0) {
       run(db, `UPDATE areas SET ${edits.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`, ...edits.map((k) => (k === 'color' ? patch[k].toLowerCase() : patch[k])), id)
       audit(db, { memberId: actorId, action: 'area.update', entity: 'area', entityId: id, detail: { fieldValues: edits }, now })

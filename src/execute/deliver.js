@@ -6,8 +6,8 @@
 //   exit 0        it is in production; the last stdout line is the reference (a commit, a URL or a label)
 //   exit 75       it cannot be delivered now (EX_TEMPFAIL): the job waits EXECUTE_CAPACITY_WAIT_MS and tries again without spending its attempt
 //   exit 76       it is not delivered by itself: it waits for the review of a person (UD-266). The last stdout line is the reason in plain
-//                 words. No retry and no second pass: the job ends done with `delivered = 0` and `delivery_held = 1`, and the author gets
-//                 ONE reply with the summary, the reason and `needs_decision`. The platform knows no zones: the host decides, reading TEAM_OUTPUT_JSON
+//                 words. No retry and no second pass: the job ends done with `delivered = 0` and `delivery_held = 1`, and ONE reply with
+//                 the summary, the reason and `needs_decision` goes to the person who decides in the area (UD-269), who gets the message. The platform knows no zones: the host decides, reading TEAM_OUTPUT_JSON
 //   other exit    the delivery failed; its stdout and stderr are the reason
 //   environment   TEAM_JOB_ID TEAM_MESSAGE_ID TEAM_BRANCH TEAM_WORKDIR TEAM_DELIVER_ROUND TEAM_DELIVER_ATTEMPT and TEAM_OUTPUT_JSON (the structured output of the
 //                 session, compact JSON without `summary`)
@@ -24,6 +24,7 @@ import { SpanStatusCode } from '@opentelemetry/api'
 import { get, run as runSql } from '../db/index.js'
 import { parseJson } from '../db/util.js'
 import { addReply } from '../domain/messages.js'
+import { handOffToPerson } from '../domain/escalation.js'
 import { permanent } from '../domain/errors.js'
 import { Deferred } from '../domain/pipeline.js'
 import { step } from '../domain/progress-phrases.js'
@@ -187,8 +188,9 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
       const reason = (referenceOf(result.stdout) ?? '').slice(0, REASON_CHARS)
       return () => {
         const closing = closingCaptures(db, { messageId, authorId: agent.id, stored: payload.captures, language: author?.language })
-        const { replyId } = addReply({ db, events, now }, {
-          messageId, authorId: agent.id, kind: 'answer', body: [heldBody({ output: payload.output, template, reason, language: author?.language }), ...closing.lines].join('\n\n'), files: closing.files
+        // A held delivery is a question to the person who decides in the area, in their tray and not «answered» (UD-269).
+        const { replyId } = handOffToPerson({ db, events, now }, {
+          messageId, agentId: agent.id, source: 'deliver', body: [heldBody({ output: payload.output, template, reason, language: author?.language }), ...closing.lines].join('\n\n'), files: closing.files
         })
         const finalAt = now()
         const started = payload.execute_job_id ? get(db, 'SELECT started_at FROM execute_runs WHERE job_id = ? AND attempt = ?', payload.execute_job_id, payload.execute_attempt ?? 1)?.started_at : null

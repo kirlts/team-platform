@@ -56,6 +56,8 @@ export const area = {
   properties: {
     id, title: { type: 'string' }, description: { type: 'string' }, position: intVar, color: { type: 'string', description: 'Area color, `#rrggbb` (UD-045).' }, deleted_at: nullableText,
     open_count: intVar, unresolved_count: intVar, template_count: intVar,
+    escalation_member_id: { type: ['string', 'null'], description: 'The person who decides in the area, the one a handoff goes to (UD-269): the one set, or the first active Editor.' },
+    handoffs: { type: 'array', description: 'Handoffs to a person in the last 7 days, by person (UD-269).', items: { type: 'object', properties: { member_id: id, count: intVar } } },
     templates: { type: 'array', items: templateSummary }
   }
 }

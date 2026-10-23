@@ -45,16 +45,28 @@ Destinatarios: Claude recibe el mensaje cuando «Arreglable por IA» es «sí».
 Título: verbo en infinitivo y lugar, por ejemplo «Corregir rótulo del campo de título en la pantalla de ajustes». Describe el problema, no la causa ni la solución. Cuerpo: dos a cuatro frases con lo que pasa, cómo se llega y qué se esperaba; sin saludos ni relleno.
 
 ## Salida
-Quien atiende este mensaje examina primero la situación, sin cambiar nada: qué se pidió, el código, el historial reciente, lo que muestra producción y el registro de decisiones. Tres comprobaciones fijas antes de tocar código.
+Quien atiende este mensaje examina primero la situación, sin cambiar nada: qué se pidió, el código, el historial reciente, lo que muestra producción y el registro de decisiones. Cuatro comprobaciones fijas antes de tocar código.
 1. Si ya está resuelto, o la capacidad ya existe y sólo falta ubicarla o rotularla, lo dice con la evidencia. Cambia, como máximo, el rótulo o la ubicación.
-2. Si una decisión registrada respalda el comportamiento actual, o el pedido exige elegir entre opciones, termina en «needs_decision» con la pregunta en una línea y no cambia nada.
-3. Si el síntoma tiene una causa más general (la misma falla en varias pantallas o en varios pedidos abiertos), arregla la causa y lo dice.
+2. Si una decisión registrada respalda el comportamiento actual, se lo dice al autor citándola y termina en «investigated», sin cambiar nada y sin traspaso. Lo ya decidido no se devuelve.
+3. Si el pedido exige elegir entre opciones que nada escrito resuelve y equivocarse no es barato ni reversible, termina en «needs_decision» con `decision_check` lleno, sin cambiar nada. Las decisiones chicas y reversibles las toma la sesión y las informa.
+4. Si el síntoma tiene una causa más general (la misma falla en varias pantallas o en varios pedidos abiertos), arregla la causa y lo dice.
 
 Si hay algo que corregir, hace el cambio más pequeño que sirva y empieza por una prueba que falla con el comportamiento actual. Corre sólo las pruebas que el cambio puede romper, pide una revisión aparte una sola vez sobre el cambio final y deja la rama. No toca código ni pruebas ajenos al pedido; si algo ajeno falla por el entorno, lo dice con la salida medida.
+
+Si el pedido no le corresponde según su perfil y esta plantilla, termina de inmediato en «not_mine». Escribe el motivo en una línea en «summary» y no envía el «Recibido». En «Causa» repite el motivo y «Zona tocada» va «ninguna».
+
+Antes de terminar en «needs_decision» o «not_mine» descarta, en este orden:
+1. La decisión ya está registrada: decisiones, reglas, especificación y CLAUDE.md del anfitrión.
+2. La cubren su perfil, sus reglas o esta plantilla.
+3. El autor ya dijo qué quiere en el mensaje.
+4. Existe una vía técnica que no necesita a una persona.
+5. Equivocarse es barato y reversible.
+
+Si una de las cuatro primeras contesta, es una restricción que se cumple. Si contesta la quinta, decide, actúa y lo informa. Sólo cruza a una persona lo que sobrevive a las cinco, reducido a la parte que le toca. «needs_decision» y «not_mine» dejan el mensaje en la bandeja de quien decide en el área.
 
 Límites que detienen el trabajo: si el arreglo exige tocar más de 8 archivos de código, una pantalla nueva o una tabla nueva, el pedido era mayor de lo marcado; devuelve la rama con lo hecho y termina en «investigated» o «needs_decision».
 
 «Zona tocada» registra la zona más delicada que el cambio toca. Con cualquier valor distinto de «ninguna», la rama espera la revisión de una persona antes de fusionarse; con «ninguna», sigue el flujo normal. Un cambio de pagos, de datos de personas, de migración de datos, de un servicio externo o de permisos nunca se fusiona sin esa revisión.
 
-Responde dos veces: al empezar y al terminar, la segunda en dos párrafos sin jerga dirigidos a quien lo pidió.
-Causa: la que se midió, con el archivo o el dato que la muestra. Arreglo y Rama: sólo si hubo cambio. Verificación: el comando corrido y su resultado.
+Responde dos veces: al empezar y al terminar, la segunda en dos párrafos sin jerga dirigidos a quien lo pidió. Con «not_mine» responde una sola vez, de una línea.
+«decision_check» (sólo con «needs_decision») lleva las fuentes revisadas con su ruta, por qué no cubren el caso, una recomendación, qué pasa si la respuesta es la equivocada en cada sentido y la pregunta en una línea. Causa: la que se midió, con el archivo o el dato que la muestra. Arreglo y Rama: sólo si hubo cambio. Verificación: el comando corrido y su resultado.

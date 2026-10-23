@@ -35,6 +35,7 @@ import { registerOpsRoutes } from './routes/ops.js'
 import { registerTelemetryRoutes } from './routes/telemetry.js'
 import { errorSchema, member as memberSchema } from './schemas.js'
 import { createVault, loadMasterKey } from '../domain/vault.js'
+import { buriedHandoffs } from '../domain/escalation.js'
 import { installAgentAuth } from '../execute/agent-auth.js'
 import { registerExecuteRoutes } from '../execute/routes.js'
 
@@ -227,7 +228,9 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
     const migrated = userVersion(db) === latestVersion()
     get(db, 'SELECT 1 AS ok') // if the database does not respond, this throws and /health returns 500: it is what must be able to turn red
     if (!migrated) throw new AppError(503, 'unavailable', 'La base no está migrada.')
-    const basic = { status: 'ok', version }
+    // UD-269 invariant: a message whose latest result from the agent asks for a person and that nobody holds. Zero when healthy; the probe turns `degraded`.
+    const buried = buriedHandoffs(db)
+    const basic = { status: buried.length === 0 ? 'ok' : 'degraded', version }
     // The detail (database, queue, providers) is for the editor: an anonymous probe only sees whether the service is alive.
     let caller = null
     try { caller = await identity.provider.identify(request) } catch { /* no identity: basic response */ }
@@ -238,7 +241,8 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
       queue: queue.stats(),
       worker: config.worker.mode,
       providers: (modules.getProviders?.()?.describe?.() ?? []).map((s) => ({ slot: s.slot, provider: s.provider, model: s.model, available: s.available, reason: s.reason })),
-      analyzer: getProviderSettings(db, config).analyzer
+      analyzer: getProviderSettings(db, config).analyzer,
+      handoffs: { buried: buried.length, messages: buried.map((b) => ({ message_id: String(b.message_id), result: b.result })) }
     }
   }
   const healthSchema = {
@@ -249,7 +253,7 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
         properties: {
           status: { type: 'string' }, version: { type: 'string' },
           db: { type: 'object', additionalProperties: true }, queue: { type: 'object', additionalProperties: true }, worker: { type: 'string' },
-          providers: { type: 'array', items: { type: 'object', additionalProperties: true } }, analyzer: { type: 'string' }
+          providers: { type: 'array', items: { type: 'object', additionalProperties: true } }, analyzer: { type: 'string' }, handoffs: { type: 'object', additionalProperties: true }
         }
       },
       503: { description: 'The database is not migrated or does not respond.', ...errorSchema }

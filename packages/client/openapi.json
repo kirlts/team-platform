@@ -320,6 +320,10 @@
                     },
                     "analyzer": {
                       "type": "string"
+                    },
+                    "handoffs": {
+                      "type": "object",
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -7395,6 +7399,28 @@
                       "template_count": {
                         "type": "integer"
                       },
+                      "escalation_member_id": {
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "description": "The person who decides in the area, the one a handoff goes to (UD-269): the one set, or the first active Editor."
+                      },
+                      "handoffs": {
+                        "type": "array",
+                        "description": "Handoffs to a person in the last 7 days, by person (UD-269).",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "member_id": {
+                              "type": "string"
+                            },
+                            "count": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      },
                       "templates": {
                         "type": "array",
                         "items": {
@@ -7533,6 +7559,28 @@
                     "template_count": {
                       "type": "integer"
                     },
+                    "escalation_member_id": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "description": "The person who decides in the area, the one a handoff goes to (UD-269): the one set, or the first active Editor."
+                    },
+                    "handoffs": {
+                      "type": "array",
+                      "description": "Handoffs to a person in the last 7 days, by person (UD-269).",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "member_id": {
+                            "type": "string"
+                          },
+                          "count": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    },
                     "templates": {
                       "type": "array",
                       "items": {
@@ -7624,6 +7672,13 @@
                   "color": {
                     "type": "string",
                     "pattern": "^#[0-9a-fA-F]{6}$"
+                  },
+                  "escalation_member_id": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "description": "Who decides in the area (UD-269); null goes back to the first active Editor."
                   }
                 }
               }
@@ -7679,6 +7734,28 @@
                     },
                     "template_count": {
                       "type": "integer"
+                    },
+                    "escalation_member_id": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "description": "The person who decides in the area, the one a handoff goes to (UD-269): the one set, or the first active Editor."
+                    },
+                    "handoffs": {
+                      "type": "array",
+                      "description": "Handoffs to a person in the last 7 days, by person (UD-269).",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "member_id": {
+                            "type": "string"
+                          },
+                          "count": {
+                            "type": "integer"
+                          }
+                        }
+                      }
                     },
                     "templates": {
                       "type": "array",
@@ -7850,6 +7927,28 @@
                     },
                     "template_count": {
                       "type": "integer"
+                    },
+                    "escalation_member_id": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "description": "The person who decides in the area, the one a handoff goes to (UD-269): the one set, or the first active Editor."
+                    },
+                    "handoffs": {
+                      "type": "array",
+                      "description": "Handoffs to a person in the last 7 days, by person (UD-269).",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "member_id": {
+                            "type": "string"
+                          },
+                          "count": {
+                            "type": "integer"
+                          }
+                        }
+                      }
                     },
                     "templates": {
                       "type": "array",

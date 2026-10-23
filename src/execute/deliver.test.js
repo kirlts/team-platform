@@ -212,6 +212,12 @@ describe('deliver job', () => {
     assert.equal(JSON.parse(done.data_json).delivery_held, true)
     const run = env.db.prepare('SELECT * FROM execute_runs WHERE job_id = ?').get(exec.id)
     assert.deepEqual([run.deliver_job_id, run.delivered, run.delivery_held, run.delivery_ref], [jobId, 0, 1, null])
+    // UD-269: a held delivery is a question in the tray of the person who decides (the first Editor), `open`, without the agent.
+    const editorId = env.db.prepare("SELECT id FROM members WHERE email = 'ed@x.org'").get().id
+    assert.deepEqual(env.db.prepare('SELECT member_id FROM message_assignees WHERE message_id = ?').all(messageId).map((r) => r.member_id), [editorId])
+    assert.equal(env.db.prepare('SELECT status FROM messages WHERE id = ?').get(messageId).status, 'open')
+    assert.equal(env.db.prepare('SELECT kind FROM replies WHERE message_id = ? ORDER BY id DESC LIMIT 1').get(messageId).kind, 'clarification')
+    assert.equal(JSON.parse(env.db.prepare("SELECT detail_json FROM audit_log WHERE action = 'message.escalate' AND entity_id = ?").get(messageId).detail_json).source, 'deliver')
     const view = (await env.app.inject({ method: 'GET', url: '/api/ops/execute-runs/summary', headers: { cookie: editor } })).json()
     assert.ok(view.delivery.held >= 1, 'the summary counts «en espera de revisión» apart')
   })

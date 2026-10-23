@@ -41,7 +41,7 @@ describe('compileOutputSchema', () => {
     assert.deepEqual(Object.keys(s.properties), ['cause', 'files', 'effort', 'verified', 'outcome', 'summary']);
     assert.deepEqual(s.required, ['cause', 'verified', 'outcome', 'summary']);
     assert.deepEqual(s.properties.outcome, { type: 'string', enum: OUTPUT_OUTCOMES });
-    assert.deepEqual(OUTPUT_OUTCOMES, ['done', 'investigated', 'blocked', 'needs_decision']);
+    assert.deepEqual(OUTPUT_OUTCOMES, ['done', 'investigated', 'blocked', 'needs_decision', 'not_mine']);
     assert.deepEqual(s.properties.files, { type: 'array', items: { type: 'string' } });
     assert.deepEqual(s.properties.effort, { type: 'string', enum: ['bajo', 'medio', 'alto'] });
     assert.doesNotThrow(() => new Ajv({ strict: true, allowUnionTypes: true }).compile(s));

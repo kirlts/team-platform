@@ -235,6 +235,9 @@ export interface paths {
                                 [key: string]: unknown;
                             }[];
                             analyzer?: string;
+                            handoffs?: {
+                                [key: string]: unknown;
+                            };
                         };
                     };
                 };
@@ -3125,6 +3128,13 @@ export interface paths {
                             open_count?: number;
                             unresolved_count?: number;
                             template_count?: number;
+                            /** @description The person who decides in the area, the one a handoff goes to (UD-269): the one set, or the first active Editor. */
+                            escalation_member_id?: null | string;
+                            /** @description Handoffs to a person in the last 7 days, by person (UD-269). */
+                            handoffs?: {
+                                member_id?: string;
+                                count?: number;
+                            }[];
                             templates?: {
                                 id?: string;
                                 area_id?: string;
@@ -3189,6 +3199,13 @@ export interface paths {
                             open_count?: number;
                             unresolved_count?: number;
                             template_count?: number;
+                            /** @description The person who decides in the area, the one a handoff goes to (UD-269): the one set, or the first active Editor. */
+                            escalation_member_id?: null | string;
+                            /** @description Handoffs to a person in the last 7 days, by person (UD-269). */
+                            handoffs?: {
+                                member_id?: string;
+                                count?: number;
+                            }[];
                             templates?: {
                                 id?: string;
                                 area_id?: string;
@@ -3288,6 +3305,8 @@ export interface paths {
                         description?: string;
                         position?: number;
                         color?: string;
+                        /** @description Who decides in the area (UD-269); null goes back to the first active Editor. */
+                        escalation_member_id?: number | null;
                     };
                 };
             };
@@ -3309,6 +3328,13 @@ export interface paths {
                             open_count?: number;
                             unresolved_count?: number;
                             template_count?: number;
+                            /** @description The person who decides in the area, the one a handoff goes to (UD-269): the one set, or the first active Editor. */
+                            escalation_member_id?: null | string;
+                            /** @description Handoffs to a person in the last 7 days, by person (UD-269). */
+                            handoffs?: {
+                                member_id?: string;
+                                count?: number;
+                            }[];
                             templates?: {
                                 id?: string;
                                 area_id?: string;
@@ -3376,6 +3402,13 @@ export interface paths {
                             open_count?: number;
                             unresolved_count?: number;
                             template_count?: number;
+                            /** @description The person who decides in the area, the one a handoff goes to (UD-269): the one set, or the first active Editor. */
+                            escalation_member_id?: null | string;
+                            /** @description Handoffs to a person in the last 7 days, by person (UD-269). */
+                            handoffs?: {
+                                member_id?: string;
+                                count?: number;
+                            }[];
                             templates?: {
                                 id?: string;
                                 area_id?: string;

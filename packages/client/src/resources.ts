@@ -67,6 +67,8 @@ export interface AreaFields {
   title?: string
   description?: string
   color?: string
+  /** Who decides in the area (UD-269); `null` goes back to the first active Editor. */
+  escalation_member_id?: string | null
 }
 
 export interface TemplateFields {
@@ -124,7 +126,7 @@ export function createResources(t: Transport) {
       /** Creates the area, or edits `id` when it is given. */
       save: (v: AreaFields) =>
         v.id
-          ? call<Area>(routes.areaPatch, { params: { id: v.id }, body: { title: v.title, description: v.description, color: v.color } })
+          ? call<Area>(routes.areaPatch, { params: { id: v.id }, body: { title: v.title, description: v.description, color: v.color, escalation_member_id: v.escalation_member_id } })
           : call<Area>(routes.areaCreate, { body: { title: v.title, description: v.description, color: v.color } }),
       /** Soft-deletes (Editor, UD-240): its messages stay and a restore brings it back. */
       delete: (id: string) => call(routes.areaDelete, { params: { id }, search: CONFIRM }),

@@ -142,7 +142,7 @@ describe('execute job', () => {
     // The template's declared output (A4 compileOutputSchema) plus `summary`, as the grammar of --json-schema.
     const schema = JSON.parse(val('--json-schema'))
     assert.ok(schema.required.includes('outcome') && schema.required.includes('summary'), JSON.stringify(schema.required))
-    assert.deepEqual(schema.properties.outcome.enum, ['done', 'investigated', 'blocked', 'needs_decision'])
+    assert.deepEqual(schema.properties.outcome.enum, ['done', 'investigated', 'blocked', 'needs_decision', 'not_mine'])
     assert.equal(schema.additionalProperties, false)
     for (const piece of ['Perfil del agente: arreglo pantallas.', 'Perfil de Ana: llevo la agenda de la clínica.', 'Descripción del proyecto: agenda de clínicas.', '## Método', 'up to 3 subagents', 'Parallelize', 'team reply', 'team progress [<job_id>]', 'tp/', 'Never push to `main`', 'Spanish (Latin America)']) {
       assert.ok(stdin.includes(piece), `prompt carries «${piece}»`)

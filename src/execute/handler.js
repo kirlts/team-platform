@@ -19,6 +19,7 @@ import { parseJson } from '../db/util.js'
 import { permanent } from '../domain/errors.js'
 import { Deferred } from '../domain/pipeline.js'
 import { addReply } from '../domain/messages.js'
+import { HANDOFF_OUTCOMES, handOffToPerson } from '../domain/escalation.js'
 import { step } from '../domain/progress-phrases.js'
 import { getProject } from '../domain/settings.js'
 import { SpanStatusCode, trace } from '@opentelemetry/api'
@@ -26,6 +27,7 @@ import { currentTraceparent, recordGenAiCall, withSpan } from '../telemetry/api.
 import { instanceLabel, recordExecuteRun, updateExecuteRun } from '../telemetry/execute-runs.js'
 import { readAgentSecret } from './agent-credentials.js'
 import { capturesDir, capturesEnv, closingCaptures, storeCaptures } from './captures.js'
+import { decisionCheckProblem, decisionLines } from './decision-check.js'
 import { buildExecuteParts, buildExecutePrompt, declaredOutput, finalSchema, readTemplate } from './prompt.js'
 import { enqueueDeliver } from './enqueue.js'
 import { runLocal, runMachine } from './runners.js'
@@ -78,7 +80,7 @@ export function claudeArgs (x, schema) {
  * template declares (`outcome` as «Resultado», as the panel shows it).
  */
 export function replyBody (output, template = null, extraLabels = {}) {
-  const { summary, captures: _captures, ...rest } = output // the screenshots travel as attachments, not as text (UD-268)
+  const { summary, captures: _captures, decision_check: _check, ...rest } = output // the screenshots travel as attachments (UD-268); the check is shown as the question (UD-269)
   const labels = { outcome: 'Resultado', ...Object.fromEntries((template?.output ?? []).map((e) => [e.name, e.label ?? e.name])), ...extraLabels }
   const lines = Object.entries(rest).filter(([, v]) => v !== null && v !== undefined && v !== '')
     .map(([k, v]) => `**${labels[k] ?? k}**: ${typeof v === 'string' ? v : `\n\n\`\`\`json\n${JSON.stringify(v, null, 2)}\n\`\`\``}`)
@@ -329,8 +331,12 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     if (!validate(result.structured_output)) {
       throw permanent(`La salida estructurada no cumple el formato: ${ajv.errorsText(validate.errors).slice(0, 300)}`, 'invalid_output')
     }
+    // UD-269: a `needs_decision` without a valid `decision_check` reaches no person; it fails like any invalid output.
+    const noCheck = decisionCheckProblem(result.structured_output)
+    if (noCheck) throw permanent(`La salida estructurada no cumple el formato: ${noCheck}`, 'invalid_output')
     const { captures: _declared, ...output } = result.structured_output // the files are in `captured`; what travels on is the rest
-    const body = replyBody(output, template)
+    const { decision_check: check, ...visible } = output // the check is shown as the question, not as JSON
+    const body = [replyBody(visible, template), ...decisionLines(check, author?.language)].join('\n\n')
     const hands = Boolean(x.deliverCommand) && output.outcome === 'done' && await branchExists(branch)
 
     return () => {
@@ -353,7 +359,11 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       }
       // Inside the transaction that closes the job: the closing reply, then the end of the progress.
       const closing = closingCaptures(db, { messageId, authorId: agent.id, stored: captured.stored, language: author?.language })
-      const { replyId } = addReply({ db, events, now }, { messageId, authorId: agent.id, body: [body, ...closing.lines].join('\n\n'), kind: 'answer', files: closing.files })
+      // `needs_decision` and `not_mine` go to a person's tray, not to the thread as «answered» (UD-269); the decision reads the field, not the text.
+      const reply = { messageId, authorId: agent.id, body: [body, ...closing.lines].join('\n\n'), kind: 'answer', files: closing.files }
+      const { replyId } = HANDOFF_OUTCOMES.includes(output.outcome)
+        ? handOffToPerson({ db, events, now }, { messageId, agentId: agent.id, body: reply.body, files: reply.files, source: 'execute' })
+        : addReply({ db, events, now }, reply)
       const finalAt = now()
       rec.finalReplyMs = msSince(finalAt)
       jobSpan?.addEvent('reply.final', { 'team.ms_since_job_start': msSince(finalAt), 'team.ms_since_message': Math.max(0, finalAt - message.created_at) }, finalAt)

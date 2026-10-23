@@ -55,7 +55,7 @@ export function registerAreaRoutes (app, ctx) {
     schema: {
       summary: 'Edit an area',
       params: idParams(),
-      body: { type: 'object', additionalProperties: false, minProperties: 1, properties: { title: { type: 'string', minLength: 1 }, description: { type: 'string', minLength: 1 }, position: { type: 'integer', minimum: 0 }, color: colorProp } },
+      body: { type: 'object', additionalProperties: false, minProperties: 1, properties: { title: { type: 'string', minLength: 1 }, description: { type: 'string', minLength: 1 }, position: { type: 'integer', minimum: 0 }, color: colorProp, escalation_member_id: { type: ['integer', 'null'], description: 'Who decides in the area (UD-269); null goes back to the first active Editor.' } } },
       response: { 200: area }
     }
   }, async (request) => updateArea(db, request.params.id, request.body, actor(request)))

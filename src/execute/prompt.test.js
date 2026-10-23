@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildExecuteParts, buildExecutePrompt } from './prompt.js'
+import { buildExecuteParts, buildExecutePrompt, finalSchema } from './prompt.js'
 import { loadConfig, otelPairs } from '../config.js'
 
 const input = (n, extra = {}) => ({
@@ -38,5 +38,23 @@ describe('execute session configuration (docs/investigaciones/mediciones/2026-10
     assert.deepEqual(c.sessionEnv, { CLAUDE_CODE_PROMPT_CACHE_TTL: '1h', CLAUDE_CODE_DISABLE_CLAUDE_MDS: '1' })
     assert.equal(c.stableAsSystem, true)
     assert.throws(() => otelPairs('TEAM_X=1', 'EXECUTE_SESSION_ENV'), /EXECUTE_SESSION_ENV/)
+  })
+})
+
+describe('handoff contract in the prompt and the schema (UD-269)', () => {
+  const declared = { type: 'object', additionalProperties: false, required: ['outcome'], properties: { outcome: { type: 'string' } } }
+  it('the stable part asks to look first, end in not_mine without a first reply, and check five things before handing over', () => {
+    const { stable } = buildExecuteParts(input(1))
+    assert.match(stable, /Look first, changing nothing\. If the request is not yours/)
+    assert.match(stable, /`not_mine`[^.]*send no reply/)
+    assert.match(stable, /check in order: 1\) is the decision already recorded[\s\S]*5\) is a wrong guess cheap and reversible\?/)
+    assert.match(stable, /`needs_decision` requires `decision_check`/)
+  })
+  it('decision_check is optional in the grammar and demands a source in the validation schema', () => {
+    const grammar = finalSchema(declared)
+    assert.ok(!grammar.required.includes('decision_check'))
+    assert.deepEqual(grammar.properties.decision_check.required, ['searched', 'why_not_covered', 'recommendation', 'if_wrong', 'question'])
+    assert.equal(grammar.properties.decision_check.properties.searched.minItems, undefined)
+    assert.equal(finalSchema(declared, { validation: true }).properties.decision_check.properties.searched.minItems, 1)
   })
 })

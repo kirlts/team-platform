@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/EmptyState'
 import { Fold } from '@/components/Fold'
 import { FoldedText } from '@/components/FoldedText'
 import { LoadState } from '@/components/LoadState'
+import { NativeSelect } from '@/components/NativeSelect'
 import { MessageList } from '@/components/MessageList'
 import { Page } from '@/components/Page'
 import { StateTabs } from '@/components/StateTabs'
@@ -15,7 +16,7 @@ import { UndoButtons } from '@/components/UndoButtons'
 import { Button } from '@/components/ui/button'
 import { useT } from '@/i18n'
 import { parseQuery, serializeQuery, upsertFilter, removeFilter, type MessageQuery, type Area, type MessageStatus } from '@team-platform/client'
-import { useDeleteArea, useMe, useMessages, useRestoreArea, useSaveArea, useSummary, useTemplates } from '@team-platform/client/react'
+import { useDeleteArea, useMe, useMembers, useMessages, useRestoreArea, useSaveArea, useSummary, useTemplates } from '@team-platform/client/react'
 import { areaCounts } from '@/lib/pending'
 import { useNotices } from '@/lib/notices'
 import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
@@ -88,6 +89,11 @@ function AreaViewBody({ area }: { area: Area }) {
     return undoStack.run({ label: t('areas.colorEdited'), redo: () => save.mutateAsync({ id: area.id, color: next }), undo: () => save.mutateAsync({ id: area.id, color: prev }) })
   }
 
+  const changeDecider = (next: string) => {
+    const prev = area.escalation_member_id ?? null
+    return undoStack.run({ label: t('areas.deciderEdited'), redo: () => save.mutateAsync({ id: area.id, escalation_member_id: next }), undo: () => save.mutateAsync({ id: area.id, escalation_member_id: prev }) })
+  }
+
   return (
     <Page cols={12}>
       <header className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
@@ -113,6 +119,7 @@ function AreaViewBody({ area }: { area: Area }) {
           )}
         </div>
       </header>
+      <AreaOwner area={area} canEdit={me?.role === 'editor'} onChange={changeDecider} />
       <StateTabs value={status} counts={counts} onChange={choose} label={t('areas.states')} />
       <MessageList
         list={list}
@@ -153,5 +160,42 @@ export function AreaNotFound({ loading, query }: { loading: boolean; query: Para
       </Link>
       {loading ? <LoadState query={query} /> : <EmptyState>{t('areas.notFound')}</EmptyState>}
     </Page>
+  )
+}
+
+/**
+ * Who decides in the area (UD-269) and the week's count of what sessions handed over to people: the select is the field, it saves on change
+ * (Editor only); the figure is the total and the count by person, 0 when nothing was handed over.
+ */
+function AreaOwner({ area, canEdit, onChange }: { area: Area; canEdit: boolean; onChange: (id: string) => void | Promise<unknown> }) {
+  const t = useT()
+  const all = useMembers().data ?? []
+  const members = all.filter((m) => m.kind !== 'agent' && m.active !== false)
+  const names = useMemo(() => new Map(all.map((m) => [m.id, m.name])), [all])
+  const nameOf = (id: string) => names.get(id) ?? ''
+  const owner = area.escalation_member_id ?? ''
+  const handoffs = area.handoffs ?? []
+  const total = handoffs.reduce((n, h) => n + h.count, 0)
+  return (
+    <div className="flex flex-wrap items-center gap-x-8 gap-y-2 text-sm" data-testid="area-owner">
+      <label className="flex items-center gap-2">
+        <span className="text-muted">{t('areas.decider')}</span>
+        {canEdit ? (
+          <span className="w-56">
+            <NativeSelect value={owner} onChange={(e) => void onChange(e.target.value)} aria-label={t('areas.decider')} data-testid="area-owner-select">
+              {owner === '' && <option value="" />}
+              {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </NativeSelect>
+          </span>
+        ) : (
+          <span className="font-semibold">{nameOf(owner)}</span>
+        )}
+      </label>
+      <span className="flex items-baseline gap-2" data-testid="area-handoffs">
+        <span className="text-muted">{t('areas.handoffs')}</span>
+        <span className="font-semibold tabular-nums">{total}</span>
+        {handoffs.length > 0 && <span className="text-muted">{handoffs.map((h) => `${nameOf(h.member_id)} ${h.count}`).join(' · ')}</span>}
+      </span>
+    </div>
   )
 }

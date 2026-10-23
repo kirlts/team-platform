@@ -25,6 +25,7 @@ import { SpanStatusCode, trace } from '@opentelemetry/api'
 import { currentTraceparent, recordGenAiCall, withSpan } from '../telemetry/api.js'
 import { instanceLabel, recordExecuteRun, updateExecuteRun } from '../telemetry/execute-runs.js'
 import { readAgentSecret } from './agent-credentials.js'
+import { capturesDir, capturesEnv, closingCaptures, storeCaptures } from './captures.js'
 import { buildExecuteParts, buildExecutePrompt, declaredOutput, finalSchema, readTemplate } from './prompt.js'
 import { enqueueDeliver } from './enqueue.js'
 import { runLocal, runMachine } from './runners.js'
@@ -77,7 +78,7 @@ export function claudeArgs (x, schema) {
  * template declares (`outcome` as «Resultado», as the panel shows it).
  */
 export function replyBody (output, template = null, extraLabels = {}) {
-  const { summary, ...rest } = output
+  const { summary, captures: _captures, ...rest } = output // the screenshots travel as attachments, not as text (UD-268)
   const labels = { outcome: 'Resultado', ...Object.fromEntries((template?.output ?? []).map((e) => [e.name, e.label ?? e.name])), ...extraLabels }
   const lines = Object.entries(rest).filter(([, v]) => v !== null && v !== undefined && v !== '')
     .map(([k, v]) => `**${labels[k] ?? k}**: ${typeof v === 'string' ? v : `\n\n\`\`\`json\n${JSON.stringify(v, null, 2)}\n\`\`\``}`)
@@ -207,7 +208,11 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const prompt = x.stableAsSystem ? parts.variable : buildExecutePrompt(promptInput)
     // The host's machine quota is a fact of the host (2026-10-22: a region of 8 cores held two machines of 4 and 21 jobs failed for good with
     // «quota exceeded»). Over EXECUTE_MAX_MACHINES the job waits, without spending its attempt and without cost.
-    if (x.runner === 'machine' && x.maxMachines > 0 && liveMachines.size >= x.maxMachines) throw new Deferred(x.capacityWaitMs, step('capacityWait'))
+    // The slot is taken in the same tick as the check: two jobs that start together cannot both pass it. `run` releases it on any exit.
+    if (x.runner === 'machine') {
+      if (x.maxMachines > 0 && liveMachines.size >= x.maxMachines) throw new Deferred(x.capacityWaitMs, step('capacityWait'))
+      liveMachines.add(job.id)
+    }
     // UD-256: the day's spend first; with nothing left the job waits for the next day without spending its attempt.
     const budget = dailyBudget(db, x, now())
     if (budget.remaining <= 0) throw new Deferred(budget.nextDayMs, step('budgetWait'))
@@ -233,7 +238,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const teamUrl = x.teamUrl || `http://127.0.0.1:${config.port}`
     const sessionEnv = {
       TEAM_URL: teamUrl, TEAM_API_PREFIX: config.apiPrefix, TEAM_AGENT_EMAIL: agent.email, TEAM_AGENT_SECRET: secret,
-      TEAM_JOB_ID: String(job.id), TEAM_MESSAGE_ID: String(messageId), TEAM_BRANCH: branch
+      TEAM_JOB_ID: String(job.id), TEAM_MESSAGE_ID: String(messageId), TEAM_BRANCH: branch, ...capturesEnv(config, dirs.workdir, author?.language)
     }
     // One span per real phase of the job; `jobs.phase` says which one is running (the queue shows it).
     const kind = x.runner === 'machine' ? 'machine' : 'local'
@@ -262,6 +267,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         'team.runner': x.runner, 'team.model': x.model, 'team.effort': x.effort, 'team.max_budget_usd': budgetUsd, 'team.daily_spent_usd': budget.spent
       }, async (span) => {
         span.setAttribute('team.queue_wait_ms', Math.max(0, startedAt - job.created_at))
+        await mkdir(capturesDir(dirs.workdir)) // where the session leaves its screenshots (UD-268); here and not in prepareWorkdir, so the check of EXECUTE_MAX_MACHINES keeps its timing
         // The session continues this trace (W3C `TRACEPARENT`) and, when the host declares it, exports its own telemetry (EXECUTE_OTEL_ENV).
         const tracedEnv = { ...(x.sessionEnv ?? {}), ...(x.otelEnv ?? {}), ...(currentTraceparent() ? { TRACEPARENT: currentTraceparent() } : {}) }
         const opts = { config, args, prompt, onData: (c) => reader.push(c), signal: ctx.signal }
@@ -295,14 +301,19 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
             runSql(db, 'UPDATE jobs SET cost_usd = ? WHERE id = ?', result.total_cost_usd, job.id) // UD-256, also when the job fails after
           }
         }
-        return { r, st, result }
+        // UD-268: the screenshots are stored while the job directory exists; the closing reply attaches them when it is posted.
+        let captured = { stored: [], rejected: [] }
+        try { captured = await storeCaptures({ config, output: result?.structured_output, workdir: dirs.workdir }) } catch (error) { logger?.warn({ err: error }, 'could not store the captures') }
+        for (const c of captured.rejected) span.addEvent('captures.rejected', { 'team.capture_index': c.index, 'team.capture_reason': c.reason })
+        if (captured.stored.length) span.setAttribute('team.captures', captured.stored.length)
+        return { r, st, result, captured }
       })
     } finally {
       liveMachines.delete(job.id)
       await cleanup(dirs)
     }
     ctx.signal.throwIfAborted()
-    const { r, result } = outcome
+    const { r, result, captured } = outcome
     if (r.timedOut) throw permanent(`La sesión superó el tiempo máximo de ${Math.round(x.timeoutMs / 1000)} s.`, 'execute_timeout')
     if (r.spawnError?.code === 'ENOENT') throw permanent(`No se encontró «${x.runner === 'machine' ? '/bin/sh' : x.bin}» (EXECUTE_CLAUDE_BIN).`, 'harness_unavailable')
     // EXECUTE_MACHINE_CREATE exits 75 (EX_TEMPFAIL) when the host has no capacity now (quota, no free machine): the job waits and tries again.
@@ -318,8 +329,8 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     if (!validate(result.structured_output)) {
       throw permanent(`La salida estructurada no cumple el formato: ${ajv.errorsText(validate.errors).slice(0, 300)}`, 'invalid_output')
     }
-    const body = replyBody(result.structured_output, template)
-    const output = result.structured_output
+    const { captures: _declared, ...output } = result.structured_output // the files are in `captured`; what travels on is the rest
+    const body = replyBody(output, template)
     const hands = Boolean(x.deliverCommand) && output.outcome === 'done' && await branchExists(branch)
 
     return () => {
@@ -328,7 +339,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         // (an Editor started it by hand) leaves nothing to hand over, and the reply goes out now.
         const deliverJobId = enqueueDeliver(db, {
           messageId, now,
-          payload: { member_id: memberId, branch, round: payload.deliver_round ?? 0, output, execute_job_id: job.id, execute_attempt: job.attempts, requested_by: null }
+          payload: { member_id: memberId, branch, round: payload.deliver_round ?? 0, output, captures: captured.stored, execute_job_id: job.id, execute_attempt: job.attempts, requested_by: null }
         })
         if (deliverJobId !== null) {
           rec.deliverJobId = deliverJobId
@@ -341,7 +352,8 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         }
       }
       // Inside the transaction that closes the job: the closing reply, then the end of the progress.
-      const { replyId } = addReply({ db, events, now }, { messageId, authorId: agent.id, body, kind: 'answer' })
+      const closing = closingCaptures(db, { messageId, authorId: agent.id, stored: captured.stored, language: author?.language })
+      const { replyId } = addReply({ db, events, now }, { messageId, authorId: agent.id, body: [body, ...closing.lines].join('\n\n'), kind: 'answer', files: closing.files })
       const finalAt = now()
       rec.finalReplyMs = msSince(finalAt)
       jobSpan?.addEvent('reply.final', { 'team.ms_since_job_start': msSince(finalAt), 'team.ms_since_message': Math.max(0, finalAt - message.created_at) }, finalAt)
@@ -386,6 +398,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         rec.error = error
         throw error
       } finally {
+        liveMachines.delete(job.id)
         if (rec.began) saveRun(job, ctx, rec)
       }
       return () => {

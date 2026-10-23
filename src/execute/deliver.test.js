@@ -94,6 +94,9 @@ describe('deliver job', () => {
     process.env.FAKE_EXECUTE_MODE = 'ok'
     process.env.FAKE_EXECUTE_REPLY = '1'
     delete process.env.FAKE_EXECUTE_EXTRA
+    delete process.env.FAKE_EXECUTE_CAPTURE_FILES
+    delete process.env.FAKE_EXECUTE_START_CAPTURES
+    delete process.env.FAKE_EXECUTE_START_ZONE
     delete process.env.FAKE_EXECUTE_MULTI
     delete process.env.FAKE_EXECUTE_MARKS
   })
@@ -136,6 +139,22 @@ describe('deliver job', () => {
     assert.deepEqual([span.attributes['team.exit_code'], span.attributes['team.delivery_ref'], span.attributes['team.branch']], [0, 'abc1234', `tp/${messageId}`])
     const timing = (await env.app.inject({ method: 'GET', url: `/api/messages/${messageId}/timing`, headers: { cookie: editor } })).json()
     assert.ok(timing.phases.some((p) => p.name === 'deliver'), 'the delivery is one more phase of the message')
+  })
+
+  it('the closing reply of a delivery carries the before of the first reply and the after of the session (UD-268)', async () => {
+    const shot = (path, alt) => ({ path, alt, masked: true, place: 'Correos > Bandeja', as: 'Clínica Sur, administrador' })
+    process.env.FAKE_EXECUTE_CAPTURE_FILES = JSON.stringify({ 'antes.png': 'png', 'despues.png': 'png' })
+    process.env.FAKE_EXECUTE_START_CAPTURES = JSON.stringify([shot('antes.png', 'Bandeja con el error')])
+    process.env.FAKE_EXECUTE_EXTRA = JSON.stringify({ captures: [shot('despues.png', 'Bandeja sin el error')] })
+    startWorker({ deliverCommand: 'echo abc1234' })
+    const messageId = await publishedMessage('La bandeja de correos muestra un error.')
+    await settle(messageId)
+    const [delivery] = jobsOf(messageId, 'deliver')
+    assert.equal(delivery.status, 'done', delivery.last_error)
+    const rows = env.db.prepare('SELECT r.id AS reply, ra.name FROM replies r JOIN reply_attachments ra ON ra.reply_id = r.id WHERE r.message_id = ? AND r.author_id = ? ORDER BY r.id, ra.position').all(messageId, agentId)
+    assert.deepEqual(rows.map((x) => x.name), ['Antes - Bandeja con el error.png', 'Antes - Bandeja con el error.png', 'Después - Bandeja sin el error.png'])
+    const closing = replies(messageId)[1]
+    assert.match(closing, /Ya está en producción\.\n\n\*\*Resultado\*\*: done\n\n\*\*Entrega\*\*: abc1234\n\n\*\*Después\*\*: Bandeja sin el error\. Correos > Bandeja, Clínica Sur, administrador\.$/)
   })
 
   it('the prompt tells the session that the system delivers and that it stops at the push', async () => {

@@ -29,13 +29,25 @@ export function finalSchema (declared, { validation = false } = {}) {
   const description = 'Closing reply to the sender: two short paragraphs, no internal jargon, addressed to them.'
   // The grammar of --json-schema keeps A4's plain string; the check after the run also rejects an empty one.
   const summary = { type: 'string', ...(validation ? { minLength: 1 } : {}), description }
+  // UD-268: optional screenshots of the interface for the closing reply (the first reply carries its own with `team reply --captures`).
+  const captures = {
+    type: 'array',
+    description: 'Screenshots for the closing reply (the «after» of the first reply\'s «before»). Omit when the interface shows nothing useful.',
+    items: {
+      type: 'object', additionalProperties: false, required: ['path', 'alt', 'masked', 'place', 'as'],
+      properties: {
+        path: { type: 'string', description: 'File inside $TEAM_CAPTURES_DIR' }, alt: { type: 'string', description: 'One line' },
+        masked: { type: 'boolean', description: 'true when the tool hid the personal data' }, place: { type: 'string', description: 'Route or menu of the view' }, as: { type: 'string', description: 'Clinic and role it was seen as' }
+      }
+    }
+  }
   if (!declared || typeof declared !== 'object' || declared.type !== 'object') {
-    return { type: 'object', additionalProperties: false, required: ['summary'], properties: { summary } }
+    return { type: 'object', additionalProperties: false, required: ['summary'], properties: { summary, captures } }
   }
   return {
     ...declared,
     required: [...new Set([...(declared.required ?? []), 'summary'])],
-    properties: { ...(declared.properties ?? {}), summary }
+    properties: { ...(declared.properties ?? {}), summary, captures }
   }
 }
 

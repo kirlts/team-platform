@@ -19,8 +19,15 @@ process.stdin.on('end', () => {
   if (state) { mkdirSync(`${state}/projects/-job`, { recursive: true }); writeFileSync(`${state}/projects/-job/${sessionId}.jsonl`, `${JSON.stringify({ type: 'user', session_id: sessionId })}\n`) }
   if (mode === 'exit') { process.stderr.write('session not started'); process.exit(3) }
   // A second pass after a failed delivery carries <delivery_failure> and, as the prompt says, sends no first reply (UD-263).
+  // FAKE_EXECUTE_CAPTURE_FILES: { name: 'png' | 'text' } written into $TEAM_CAPTURES_DIR, as the screenshot tool does (UD-268).
+  if (process.env.FAKE_EXECUTE_CAPTURE_FILES) {
+    const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from('fake-image-bytes')])
+    for (const [name, kind] of Object.entries(JSON.parse(process.env.FAKE_EXECUTE_CAPTURE_FILES))) writeFileSync(`${team.TEAM_CAPTURES_DIR}/${name}`, kind === 'png' ? png : 'not an image')
+  }
+  // FAKE_EXECUTE_START_CAPTURES: the JSON list the first reply passes to `team reply --captures` (with --zone FAKE_EXECUTE_START_ZONE).
+  const startCaptures = process.env.FAKE_EXECUTE_START_CAPTURES ? ['--captures', process.env.FAKE_EXECUTE_START_CAPTURES, ...(process.env.FAKE_EXECUTE_START_ZONE ? ['--zone', process.env.FAKE_EXECUTE_START_ZONE] : [])] : []
   if (process.env.FAKE_EXECUTE_REPLY === '1' && !stdin.includes('<delivery_failure>')) {
-    execFileSync('team', ['reply', team.TEAM_MESSAGE_ID, '--body', 'Recibido. Empiezo por leer la pantalla.'], { stdio: 'inherit' })
+    execFileSync('team', ['reply', team.TEAM_MESSAGE_ID, '--body', 'Recibido. Empiezo por leer la pantalla.', ...startCaptures], { stdio: 'inherit' })
     execFileSync('team', ['progress', team.TEAM_JOB_ID, '--percent', '20', '--phrase', 'Revisión de la pantalla'], { stdio: 'inherit' })
   }
   // Times the session reports with `team mark` (FAKE_EXECUTE_MARKS=1): judge 4000 + 1000, wait 2500, delivery 9000 that reached production.

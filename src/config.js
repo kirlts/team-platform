@@ -359,6 +359,11 @@ export function loadConfig (env = process.env, overrides = {}) {
       // UD-263: the command is idempotent by contract, so a delivery whose worker died runs once more; exit 75 never spends an attempt.
       deliverMaxAttempts: intVar(env, 'EXECUTE_DELIVER_MAX_ATTEMPTS', 2, { min: 1 }),
       // Measurement 2026-10-23-tokens-y-cache.md: any other variable of the session (CLAUDE_CODE_PROMPT_CACHE_TTL=1h, CLAUDE_CODE_DISABLE_CLAUDE_MDS=1…), same format.
+      // UD-268: screenshots of the interface in the replies. The size cap is the one of an image upload (UPLOAD_MAX_IMAGE_BYTES); the count is declared here.
+      captures: {
+        max: intVar(env, 'EXECUTE_CAPTURES_MAX', 3, { min: 0 }), // declared courtesy: one view and its dialog, per reply; it never reaches UPLOAD_MAX_FILES (10), the cap of files in a reply
+        openZone: textValue(env, 'EXECUTE_CAPTURES_OPEN_ZONE', 'ninguna') // the only value of the output's `zone` with which an unmasked capture is attached; the platform knows no other zone
+      },
       sessionEnv: otelPairs(env.EXECUTE_SESSION_ENV, 'EXECUTE_SESSION_ENV'),
       // Measurement 2026-10-23-tokens-y-cache.md: the part of the prompt that is the same for every job goes in `--append-system-prompt-file`, which the API caches
       // across sessions; in the user message it is written again by each session (measured 2026-10-23, 2026-10-23-tokens-y-cache.md).

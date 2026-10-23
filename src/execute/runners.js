@@ -89,6 +89,7 @@ export async function writeMachineFiles ({ workdir, args, prompt, env, claudeBin
     'JOB_DIR="$(cd "$(dirname "$0")" && pwd)"',
     'set -a; . "$JOB_DIR/env.sh"; set +a',
     'export PATH="$JOB_DIR/bin:$PATH"',
+    'mkdir -p "$JOB_DIR/captures"; export TEAM_CAPTURES_DIR="$JOB_DIR/captures"', // the machine\'s own path; the host\'s collect command copies it back to {workdir}/captures
     'cd "${TEAM_REPO_DIR:-$JOB_DIR}"',
     `exec ${shellQuote(claudeBin)} ${args.map((a) => (a.startsWith('@JOB_DIR@/') ? `"$JOB_DIR/${a.slice(10)}"` : shellQuote(a))).join(' ')} < "$JOB_DIR/prompt.md"`
   ].join('\n')

@@ -77,6 +77,9 @@ describe('execute job', () => {
     process.env.FAKE_EXECUTE_MODE = 'ok'
     process.env.FAKE_EXECUTE_REPLY = '1'
     delete process.env.FAKE_EXECUTE_EXTRA
+    delete process.env.FAKE_EXECUTE_CAPTURE_FILES
+    delete process.env.FAKE_EXECUTE_START_CAPTURES
+    delete process.env.FAKE_EXECUTE_START_ZONE
     delete process.env.FAKE_EXECUTE_MULTI
     delete process.env.FAKE_EXECUTE_MARKS
   })
@@ -591,6 +594,101 @@ describe('execute job', () => {
     assert.match(calls().at(-1).cwd, /\/repo$/)
     assert.match(git('branch', '--list', `tp/${messageId}`), new RegExp(`tp/${messageId}`))
     assert.equal(git('worktree', 'list').trim().split('\n').length, 1, 'the worktree is removed')
+  })
+
+  describe('screenshots in the replies (UD-268)', () => {
+    // The template declares the `zone` the host reads (the platform knows no zones; the open one is EXECUTE_CAPTURES_OPEN_ZONE).
+    before(() => {
+      for (const t of env.db.prepare('SELECT id, body_markdown FROM templates').all()) {
+        if (t.body_markdown.includes('name: zone')) continue
+        const entry = '  - { name: zone, label: Zona tocada, type: text, required: false, enum: [ninguna, pagos, datos de personas] }\n'
+        const body = /\noutput:\n/.test(t.body_markdown) ? t.body_markdown.replace('\noutput:\n', `\noutput:\n${entry}`) : t.body_markdown.replace(/\n---\n/, `\noutput:\n${entry}---\n`)
+        env.db.prepare('UPDATE templates SET body_markdown = ? WHERE id = ?').run(body, t.id)
+      }
+    })
+    const shot = (path, extra = {}) => ({ path, alt: 'Ficha de pacientes con el error', masked: true, place: 'Pacientes > Ficha', as: 'Clínica Sur, doctor', ...extra })
+    const run = async (text) => {
+      startWorker()
+      const messageId = await publishedMessage(text)
+      const job = env.db.prepare("SELECT * FROM jobs WHERE kind = 'execute' AND message_id = ?").get(messageId)
+      const finished = await waitJob(job.id)
+      assert.equal(finished.status, 'done', finished.last_error)
+      const thread = (await env.app.inject({ method: 'GET', url: `/api/messages/${messageId}`, headers: { cookie: author } })).json()
+      return { messageId, job, mine: thread.replies.filter((r) => String(r.author_id) === String(agentId)) }
+    }
+    const names = (reply) => reply.attachments.map((a) => a.name)
+
+    it('the first reply carries the before and the closing reply carries the before next to the after', async () => {
+      process.env.FAKE_EXECUTE_CAPTURE_FILES = JSON.stringify({ 'antes.png': 'png', 'despues.png': 'png' })
+      process.env.FAKE_EXECUTE_START_CAPTURES = JSON.stringify([shot('antes.png')])
+      process.env.FAKE_EXECUTE_EXTRA = JSON.stringify({ captures: [shot('despues.png', { alt: 'Ficha de pacientes sin el error' })] })
+      const { mine } = await run('La ficha de pacientes muestra un error.')
+      assert.equal(mine.length, 2)
+      assert.deepEqual(names(mine[0]), ['Antes - Ficha de pacientes con el error.png'])
+      assert.match(mine[0].body, /^Recibido\. Empiezo por leer la pantalla\.\n\n\*\*Antes\*\*: Ficha de pacientes con el error\. Pacientes > Ficha, Clínica Sur, doctor\.$/)
+      assert.deepEqual(names(mine[1]), ['Antes - Ficha de pacientes con el error.png', 'Después - Ficha de pacientes sin el error.png'])
+      assert.deepEqual(mine[1].attachments.map((a) => a.kind), ['image', 'image'])
+      assert.match(mine[1].body, /\*\*Resultado\*\*: done\n\n\*\*Después\*\*: Ficha de pacientes sin el error\. Pacientes > Ficha, Clínica Sur, doctor\.$/)
+      assert.ok(!mine[1].body.includes('"path"') && !mine[1].body.includes('Captures'), 'the list of captures is not printed as text')
+      // The before is one file in the volume, referenced by both replies.
+      assert.equal(env.db.prepare("SELECT COUNT(DISTINCT sha256) AS n FROM reply_attachments WHERE name LIKE 'Antes - %'").get().n >= 1, true)
+      const served = await env.app.inject({ method: 'GET', url: `/api/replies/attachments/${mine[1].attachments[1].id}`, headers: { cookie: author } })
+      assert.equal(served.statusCode, 200)
+      assert.equal(served.headers['content-type'], 'image/png')
+    })
+
+    it('a closing capture that is not an image, is outside the directory or is not masked with a sensitive zone is left out and the job still closes', async () => {
+      process.env.FAKE_EXECUTE_CAPTURE_FILES = JSON.stringify({ 'texto.png': 'text', 'ok.png': 'png', 'sin-mascara.png': 'png' })
+      process.env.FAKE_EXECUTE_EXTRA = JSON.stringify({
+        outcome: 'done', zone: 'datos de personas',
+        captures: [shot('texto.png'), shot('/etc/passwd'), shot('falta.png'), shot('sin-mascara.png', { masked: false }), shot('ok.png'), shot('ok.png'), shot('ok.png'), shot('ok.png')]
+      })
+      const { job, mine } = await run('Otra falla en la ficha.')
+      assert.equal(mine.length, 2)
+      assert.deepEqual(names(mine[1]), ['Después - Ficha de pacientes con el error.png', 'Después - Ficha de pacientes con el error.png', 'Después - Ficha de pacientes con el error.png'], 'ok.png three times (the cap), none of the others')
+      const traceId = env.db.prepare('SELECT trace_id FROM jobs WHERE id = ?').get(job.id).trace_id
+      const events = await until(() => env.db.prepare("SELECT events_json FROM spans WHERE trace_id = ? AND name = 'execute'").get(traceId)?.events_json, { timeoutMs: 10000 })
+      const reasons = [...events.matchAll(/"team\.capture_reason":"([a-z_]+)"/g)].map((m) => m[1])
+      assert.deepEqual(reasons, ['not_image', 'outside', 'missing', 'unmasked_sensitive', 'too_many'], 'each skipped capture is an event of the execute span with its reason')
+    })
+
+    it('masked false is attached when the zone is the open one, in the first reply and in the closing one', async () => {
+      process.env.FAKE_EXECUTE_CAPTURE_FILES = JSON.stringify({ 'a.png': 'png', 'b.png': 'png', 'c.png': 'png' })
+      process.env.FAKE_EXECUTE_START_CAPTURES = JSON.stringify([shot('a.png', { masked: false }), shot('c.png', { masked: false })])
+      process.env.FAKE_EXECUTE_START_ZONE = 'ninguna'
+      process.env.FAKE_EXECUTE_EXTRA = JSON.stringify({ outcome: 'done', zone: 'ninguna', captures: [shot('b.png', { masked: false })] })
+      const { mine } = await run('Un rótulo mal escrito en la pestaña correos.')
+      assert.equal(mine[0].attachments.length, 2)
+      assert.equal(mine[1].attachments.length, 3, 'the two before and the after')
+    })
+
+    it('an unmasked capture in the first reply with a sensitive zone is skipped and the reply goes out as text', async () => {
+      process.env.FAKE_EXECUTE_CAPTURE_FILES = JSON.stringify({ 'a.png': 'png' })
+      process.env.FAKE_EXECUTE_START_CAPTURES = JSON.stringify([shot('a.png', { masked: false })])
+      process.env.FAKE_EXECUTE_START_ZONE = 'datos de personas'
+      const { mine } = await run('Falla en la agenda.')
+      assert.equal(mine[0].attachments.length, 0)
+      assert.equal(mine[0].body, 'Recibido. Empiezo por leer la pantalla.')
+      assert.equal(mine[1].attachments.length, 0)
+    })
+
+    it('a session without captures posts the same two replies as before', async () => {
+      const { mine } = await run('Un mensaje sin capturas.')
+      assert.equal(mine[0].attachments.length, 0)
+      assert.match(mine[1].body, /^Arreglé la pantalla que quedaba en blanco\.\n\nYa carga con tus datos\.\n\n\*\*Resultado\*\*: done$/)
+      assert.equal(mine[1].attachments.length, 0)
+    })
+
+    it('the schema and the environment carry the contract', async () => {
+      process.env.FAKE_EXECUTE_CAPTURE_FILES = JSON.stringify({})
+      await run('Para ver el esquema.')
+      const { args, team } = calls().at(-1)
+      const schema = JSON.parse(args[args.indexOf('--json-schema') + 1])
+      assert.deepEqual(schema.properties.captures.items.required, ['path', 'alt', 'masked', 'place', 'as'])
+      assert.ok(!schema.required.includes('captures'), 'optional')
+      assert.match(team.TEAM_CAPTURES_DIR, /captures$/)
+      assert.deepEqual([team.TEAM_CAPTURES_MAX, team.TEAM_CAPTURES_MAX_BYTES, team.TEAM_CAPTURES_OPEN_ZONE, team.TEAM_LANGUAGE], ['3', String(7 * 1024 * 1024), 'ninguna', 'es-419'])
+    })
   })
 
   it('tool calls become short phrases', () => {

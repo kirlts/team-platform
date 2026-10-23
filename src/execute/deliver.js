@@ -29,6 +29,7 @@ import { Deferred } from '../domain/pipeline.js'
 import { step } from '../domain/progress-phrases.js'
 import { withSpan } from '../telemetry/api.js'
 import { updateExecuteRun } from '../telemetry/execute-runs.js'
+import { closingCaptures } from './captures.js'
 import { enqueueExecute } from './enqueue.js'
 import { replyBody } from './handler.js'
 import { readTemplate } from './prompt.js'
@@ -71,10 +72,10 @@ export function withProductionNote (summary, note) {
 }
 
 /** The closing reply of a delivery in green: the output of the session with the note, then its structured part and the reference under «Entrega». */
-export function deliveredBody ({ output, template = null, ref = null, language }) {
+export function deliveredBody ({ output, template = null, ref = null, language, lines = [] }) {
   const t = textsOf(language)
   const base = output ?? {}
-  return replyBody({ ...base, summary: withProductionNote(base.summary, t.production), ...(ref ? { delivery_ref: ref } : {}) }, template, { delivery_ref: t.delivery })
+  return [replyBody({ ...base, summary: withProductionNote(base.summary, t.production), ...(ref ? { delivery_ref: ref } : {}) }, template, { delivery_ref: t.delivery }), ...lines].join('\n\n')
 }
 
 /** The last non-empty stdout line that is not a phase marker: the reference of the delivery. */
@@ -185,8 +186,9 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
     if (result.code === DELIVER_HELD) {
       const reason = (referenceOf(result.stdout) ?? '').slice(0, REASON_CHARS)
       return () => {
+        const closing = closingCaptures(db, { messageId, authorId: agent.id, stored: payload.captures, language: author?.language })
         const { replyId } = addReply({ db, events, now }, {
-          messageId, authorId: agent.id, kind: 'answer', body: heldBody({ output: payload.output, template, reason, language: author?.language })
+          messageId, authorId: agent.id, kind: 'answer', body: [heldBody({ output: payload.output, template, reason, language: author?.language }), ...closing.lines].join('\n\n'), files: closing.files
         })
         const finalAt = now()
         const started = payload.execute_job_id ? get(db, 'SELECT started_at FROM execute_runs WHERE job_id = ? AND attempt = ?', payload.execute_job_id, payload.execute_attempt ?? 1)?.started_at : null
@@ -205,8 +207,9 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
 
     return () => {
       // Inside the transaction that closes the job: the one closing reply, then the end of the progress.
+      const closing = closingCaptures(db, { messageId, authorId: agent.id, stored: payload.captures, language: author?.language })
       const { replyId } = addReply({ db, events, now }, {
-        messageId, authorId: agent.id, kind: 'answer', body: deliveredBody({ output: payload.output, template, ref, language: author?.language })
+        messageId, authorId: agent.id, kind: 'answer', body: deliveredBody({ output: payload.output, template, ref, language: author?.language, lines: closing.lines }), files: closing.files
       })
       const finalAt = now()
       const started = payload.execute_job_id ? get(db, 'SELECT started_at FROM execute_runs WHERE job_id = ? AND attempt = ?', payload.execute_job_id, payload.execute_attempt ?? 1)?.started_at : null

@@ -5,12 +5,14 @@ import { RotateCw } from '@/components/icons'
 import { NativeSelect } from '@/components/NativeSelect'
 import { PageControls } from '@/components/PageControls'
 import { SettingHint } from '@/components/SettingHint'
+import { seconds } from '@/components/Timing'
 import { TraceTree } from '@/components/TraceTree'
+import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { useErrorText, useFormat, useT, type MessageKey } from '@/i18n'
 import { useNotices } from '@/lib/notices'
 import { JOB_STATES, type PurgeState, type QueueInput } from '@team-platform/client'
-import { useJobCounts, usePurgeJobs, useQueueInputs, useReprocess } from '@team-platform/client/react'
+import { useJobCounts, usePurgeJobs, useQueueInputs, useReprocess, useRunningExecutions } from '@team-platform/client/react'
 
 const PAGE_SIZE = 8
 const PURGE_STATES: PurgeState[] = ['done', 'failed', 'cancelled']
@@ -34,6 +36,7 @@ export function QueuePanel() {
         <SettingHint id="hint-queue">{t('hint.queue')}</SettingHint>
       </div>
       <JobCounts />
+      <RunningExecutions />
       <div aria-describedby="hint-queue" className="flex flex-col gap-2">
         {rows.length === 0 ? (
           <p className="text-sm text-muted">{t('queue.empty')}</p>
@@ -56,6 +59,32 @@ export function QueuePanel() {
         <PageControls page={page} limit={PAGE_SIZE} total={list.data?.total ?? 0} onPage={setPage} />
       </div>
     </section>
+  )
+}
+
+/** The `execute` jobs running now: the message, the step they are in and how long they have been going (UD-262). */
+function RunningExecutions() {
+  const t = useT()
+  const running = useRunningExecutions().data ?? []
+  if (running.length === 0) return null
+  return (
+    <ul aria-label={t('queue.executions')} data-running-executions className="flex flex-col gap-0.5 text-sm">
+      {running.map((j) => (
+        <li key={j.id} data-running-execution={j.id} className="flex flex-wrap items-baseline gap-x-4">
+          {j.message_id ? (
+            <Link to={`/messages/${j.message_id}`} className="underline-offset-2 hover:underline">
+              {t('queue.executionMessage', { id: j.message_id })}
+            </Link>
+          ) : (
+            <span>{j.id}</span>
+          )}
+          <span data-execution-phase>{j.phase ? t(`timing.phase.${j.phase}` as MessageKey) : t('timing.running')}</span>
+          <span data-execution-elapsed className="tabular-nums text-muted">
+            {seconds(Math.max(0, Date.now() - Date.parse(j.run_at)))}
+          </span>
+        </li>
+      ))}
+    </ul>
   )
 }
 

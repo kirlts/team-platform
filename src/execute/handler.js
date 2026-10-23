@@ -17,10 +17,12 @@ import { Deferred } from '../domain/pipeline.js'
 import { addReply } from '../domain/messages.js'
 import { step } from '../domain/progress-phrases.js'
 import { getProject } from '../domain/settings.js'
-import { recordGenAiCall, withSpan } from '../telemetry/api.js'
+import { SpanStatusCode, trace } from '@opentelemetry/api'
+import { currentTraceparent, recordGenAiCall, withSpan } from '../telemetry/api.js'
 import { readAgentSecret } from './agent-credentials.js'
 import { buildExecutePrompt, declaredOutput, finalSchema, readTemplate } from './prompt.js'
 import { runLocal, runMachine } from './runners.js'
+import { createSessionTracer } from './session-spans.js'
 import { createStreamReader } from './stream.js'
 
 const run = promisify(execFile)
@@ -106,6 +108,9 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
 
     async run (job, ctx) {
       const { message_id: messageId, member_id: memberId } = parseJson(job.payload_json, {})
+      const jobSpan = trace.getActiveSpan() // the `job` span of this attempt: `reply.start` and `reply.final` are events on it (UD-262)
+      const startedAt = now()
+      const msSince = (t) => Math.max(0, t - startedAt)
       const message = get(db, `SELECT m.*, a.title AS area_title FROM messages m JOIN areas a ON a.id = m.area_id WHERE m.id = ? AND m.deleted_at IS NULL`, messageId)
       if (!message) throw permanent('El mensaje del trabajo ya no existe.', 'message_missing')
       const agent = get(db, 'SELECT id, email, name, kind, profile, language, active FROM members WHERE id = ?', memberId)
@@ -141,8 +146,10 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       // It counts as run from here: the machine cost applies even if the session never returns its cost.
       runSql(db, 'UPDATE jobs SET runner = ?, run_at = ? WHERE id = ?', x.runner, now(), job.id)
 
+      let session = null // spans of the tools and subagents, alive while the `run` phase is
       const reader = createStreamReader({
         maxTurns: x.maxTurns,
+        onEvent: (event) => session?.onEvent(event),
         onProgress: (percent, phrase) => { if (!queue.progress(job, percent, phrase)) ctx.abort('lost') }
       })
       queue.progress(job, 0, x.runner === 'machine' ? 'Creando la máquina' : 'Preparando la sesión')
@@ -153,17 +160,40 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         TEAM_URL: teamUrl, TEAM_API_PREFIX: config.apiPrefix, TEAM_AGENT_EMAIL: agent.email, TEAM_AGENT_SECRET: secret,
         TEAM_JOB_ID: String(job.id), TEAM_MESSAGE_ID: String(messageId), TEAM_BRANCH: branch
       }
+      // One span per real phase of the job; `jobs.phase` says which one is running (the queue shows it).
+      const kind = x.runner === 'machine' ? 'machine' : 'local'
+      const setPhase = (name) => { try { runSql(db, 'UPDATE jobs SET phase = ? WHERE id = ?', name, job.id) } catch { /* the label is a courtesy */ } }
+      const phase = (name, fn) => withSpan(`execute.${kind}.${name}`, { 'team.step': `execute.${kind}.${name}`, 'team.runner': x.runner }, async (span) => {
+        setPhase(name)
+        if (name === 'run') session = createSessionTracer({ model: x.model })
+        try {
+          const r = await fn()
+          if (r && typeof r === 'object' && 'code' in r) {
+            span.setAttribute('team.exit_code', r.code ?? -1)
+            if (r.code !== 0 && name !== 'run') span.setStatus({ code: SpanStatusCode.ERROR, message: `exit ${r.code}` })
+          }
+          return r
+        } finally {
+          if (name === 'run') { session?.finish(span); session = null }
+        }
+      })
       let outcome
       try {
         outcome = await withSpan('execute', {
           'team.step': 'execute', 'team.message_id': String(messageId), 'team.member_id': String(memberId),
           'team.runner': x.runner, 'team.model': x.model, 'team.effort': x.effort, 'team.max_budget_usd': budgetUsd, 'team.daily_spent_usd': budget.spent
         }, async (span) => {
+          span.setAttribute('team.queue_wait_ms', Math.max(0, startedAt - job.created_at))
+          // The session continues this trace (W3C `TRACEPARENT`) and, when the host declares it, exports its own telemetry (EXECUTE_OTEL_ENV).
+          const tracedEnv = { ...(x.otelEnv ?? {}), ...(currentTraceparent() ? { TRACEPARENT: currentTraceparent() } : {}) }
           const opts = { config, args, prompt, onData: (c) => reader.push(c), signal: ctx.signal }
           const r = x.runner === 'machine'
-            ? await runMachine({ ...opts, jobId: job.id, workdir: dirs.workdir, env: sessionEnv, log: (m) => logger?.error(m) })
-            : await runLocal({ ...opts, cwd: dirs.cwd, env: { ...process.env, ...sessionEnv, PATH: `${join(dirs.workdir, 'bin')}:${process.env.PATH ?? ''}` } })
+            ? await runMachine({ ...opts, jobId: job.id, workdir: dirs.workdir, env: { ...sessionEnv, ...tracedEnv }, log: (m) => logger?.error(m), phase })
+            : await phase('run', () => runLocal({ ...opts, cwd: dirs.cwd, env: { ...process.env, ...sessionEnv, ...tracedEnv, PATH: `${join(dirs.workdir, 'bin')}:${process.env.PATH ?? ''}` } }))
           reader.end()
+          setPhase(null)
+          const firstReply = get(db, 'SELECT MIN(created_at) AS at FROM replies WHERE message_id = ? AND author_id = ? AND created_at >= ?', messageId, memberId, startedAt)?.at
+          if (firstReply) jobSpan?.addEvent('reply.start', { 'team.ms_since_job_start': msSince(firstReply), 'team.ms_since_message': Math.max(0, firstReply - message.created_at) }, firstReply)
           const st = reader.state()
           const result = st.result
           span.setAttributes({ 'team.exit_code': r.code ?? -1, 'team.turns': st.turns, 'team.ndjson_lines': st.lines, 'team.ndjson_invalid': st.invalid })
@@ -207,6 +237,8 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       return () => {
         // Inside the transaction that closes the job: the closing reply, then the end of the progress.
         const { replyId } = addReply({ db, events, now }, { messageId, authorId: agent.id, body, kind: 'answer' })
+        const finalAt = now()
+        jobSpan?.addEvent('reply.final', { 'team.ms_since_job_start': msSince(finalAt), 'team.ms_since_message': Math.max(0, finalAt - message.created_at) }, finalAt)
         events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: step('answered'), data: { message_id: messageId } })
         events.publishForJob(job.id, {
           kind: 'done',

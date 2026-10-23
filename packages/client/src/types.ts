@@ -16,6 +16,8 @@ export interface Member {
   language: Language
   /** A deactivated account does not sign in and keeps its history; only the Editor deactivates or reactivates it. */
   active: boolean
+  /** `agent`: worked by an unattended Claude Code session (UD-254). */
+  kind?: 'person' | 'agent'
 }
 
 /** Response of GET /me: the member and the project name (assumption: `project_name`). */
@@ -369,6 +371,32 @@ export interface SpanNode {
   duration_ms: number
   attributes: Record<string, unknown>
   children: SpanNode[]
+}
+
+/** Where the time of the execution of a message went (GET /messages/:id/timing). */
+export interface MessageTiming {
+  message_id: string
+  job_id: string
+  job_status: string
+  trace_id: string | null
+  phase: string | null
+  elapsed_ms: number | null
+  first_reply_ms: number | null
+  final_reply_ms: number | null
+  total_ms: number | null
+  queue_wait_ms: number | null
+  phases: { name: string; duration_ms: number; offset_ms: number; status: string }[]
+  slowest: { kind: 'tool' | 'subagent'; name: string; summary: string | null; duration_ms: number; success: boolean | null }[]
+  tree: SpanNode | null
+}
+
+/** An `execute` job in the list of jobs. */
+export interface RunningJob {
+  id: string
+  kind: string
+  message_id: string | null
+  phase: string | null
+  run_at: string
 }
 
 export interface JobTrace {

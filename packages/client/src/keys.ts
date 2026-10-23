@@ -36,6 +36,8 @@ export const queryKeys = {
   messages: (qs: string, meId: string) => ['messages', qs, meId] as const,
   /** Under `messages`, so every change to a message refreshes it. */
   summary: () => ['messages', 'summary'] as const,
+  /** Under `messages`, so every change to a message refreshes it. */
+  messageTiming: (messageId: string) => ['messages', 'timing', messageId] as const,
   message: (id: string | undefined) => ['message', id] as const,
   input: (id: string | undefined) => ['inputs', id] as const,
   tray: () => ['inputs', 'tray'] as const,
@@ -49,6 +51,7 @@ export const queryKeys = {
   analysisSettings: () => ['analysis-settings'] as const,
   publication: () => ['publication'] as const,
   jobCounts: () => ['jobs', 'counts'] as const,
+  runningExecutions: () => ['jobs', 'running-executions'] as const,
   jobTrace: (jobId: string) => ['jobs', 'trace', jobId] as const,
   audit: (page: number, limit: number, action: string) => ['audit', page, limit, action] as const,
   uiSummary: () => ['telemetry', 'ui-summary'] as const,

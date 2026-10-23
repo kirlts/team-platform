@@ -1147,3 +1147,11 @@ Martín, el mismo día: «la idea es que yo no quiera abrir una sesion como esta
 **Decisión:** `classifyEffort` es `high` y `classifyThinking` es `null` (razonamiento adaptativo del modelo). La descomposición sigue en esfuerzo bajo y sin razonamiento. Enmienda la medición del 2026-10-20 de `src/analyze/config.js` para la clasificación.
 **Consecuencias:** Un envío con video tarda unos 40 s más en clasificarse. En el banco con Haiku el tiempo por caso sube de 21 a 322 s: los bancos de clasificación se corren con `classifyEffort: 'low'` explícito cuando se mide velocidad. MASTER-SPEC §7.5.
 **Condiciones de reversión:** Las fija Martín.
+
+## [UD-261] Una traza continua por mensaje y tiempos por fase del trabajo `execute`
+
+**Fecha:** 2026-10-22
+**Contexto:** Martín, textual: «necesitamos mejorar la observabilidad de TODO ESTO, por eso he sido tan insistente con opentelemetry». Dos mensajes de prueba de un cambio de una línea tardaron 37 y 47 minutos de punta a punta en la instancia del cliente y no se sabía dónde se fue el tiempo. El trabajo `execute` era un solo span plano.
+**Decisión:** Cada mensaje tiene una traza: envío, análisis, publicación y ejecución comparten `trace_id`, guardado en el envío, el mensaje y los trabajos. El trabajo `execute` abre un span por fase (`machine.create`, `run`, `destroy`), uno por herramienta y uno por subagente, y deja los eventos `reply.start` y `reply.final`. La sesión recibe `TRACEPARENT` y las variables de `EXECUTE_OTEL_ENV`. `GET /messages/:id/timing`, `team timing` y el bloque «Tiempos» de la ficha entregan las cifras.
+**Consecuencias:** Migración 0017 (columnas de traza, `jobs.phase`, `spans.links_json`). `GET /jobs/:id/trace` devuelve ahora la traza completa del mensaje, no sólo el intento. Costo por turno sólo con precio documentado.
+**Condiciones de reversión:** Las fija Martín.

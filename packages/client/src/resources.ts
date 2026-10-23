@@ -29,6 +29,7 @@ import type {
   MessageDetail,
   MessagePatch,
   MessageSummary,
+  MessageTiming,
   NewConnection,
   NewInput,
   NewMember,
@@ -43,6 +44,7 @@ import type {
   ResetScope,
   QueueInput,
   ReprocessResult,
+  RunningJob,
   Template,
   UiSummary,
 } from './types.js'
@@ -186,6 +188,8 @@ export function createResources(t: Transport) {
       /** Several in one request: all or none, 403 with the ids that are not the person's (UD-253, H-3715). */
       deleteMany: (ids: readonly string[]) => call<{ ids: string[] }>(routes.messageDeleteMany, { search: CONFIRM, body: { ids } }),
       restoreMany: (ids: readonly string[]) => call<{ ids: string[] }>(routes.messageRestoreMany, { body: { ids } }),
+      /** Where the time of the execution of a message went. A 404 means it has no execution. */
+      timing: (id: string) => call<MessageTiming>(routes.messageTiming, { params: { id } }),
       /** Queues the `execute` job of a message (Editor). */
       execute: (id: string) => call<Record<string, unknown>>(routes.messageExecute, { params: { id } }),
     },
@@ -305,6 +309,8 @@ export function createResources(t: Transport) {
     jobs: {
       list: (state: JobState, options: { page?: number; limit?: number } = {}) =>
         call<Paged<unknown>>(routes.jobList, { search: `state=${state}${options.page ? `&page=${options.page}` : ''}&limit=${options.limit ?? 1}` }),
+      /** The `execute` jobs that are running now, with their phase. */
+      runningExecutions: async () => (await call<Paged<RunningJob>>(routes.jobList, { search: 'state=running&limit=50' })).items.filter((j) => j.kind === 'execute'),
       trace: (jobId: string) => call<JobTrace>(routes.jobTrace, { params: { id: jobId } }),
       purge: (state: PurgeState) => call<{ purged: number }>(routes.jobPurge, { search: `state=${state}&${CONFIRM}` }),
     },

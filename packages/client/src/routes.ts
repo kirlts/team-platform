@@ -47,6 +47,7 @@ export const routes = {
   messageAddAttachments: route('post', '/api/messages/{id}/attachments'),
   messageClose: route('post', '/api/messages/{id}/close'),
   messageReopen: route('post', '/api/messages/{id}/reopen'),
+  messageTiming: route('get', '/api/messages/{id}/timing'),
   messageExecute: route('post', '/api/messages/{id}/execute'),
 
   replyCreate: route('post', '/api/messages/{id}/replies'),

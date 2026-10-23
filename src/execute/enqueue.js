@@ -5,6 +5,7 @@
 
 import { all, get, run } from '../db/index.js'
 import { jobDefaults, queueWake } from '../queue/wake.js'
+import { traceContextFor } from '../queue/trace-context.js'
 
 /** Enqueues one `execute` job for (message, agent) unless one is queued or running. Returns the job id or null. */
 export function enqueueExecute (db, { messageId, memberId, requestedBy = null, now = Date.now, maxAttempts = jobDefaults.executeMaxAttempts }) {
@@ -12,9 +13,10 @@ export function enqueueExecute (db, { messageId, memberId, requestedBy = null, n
                          AND json_extract(payload_json, '$.member_id') = ?`, messageId, memberId)
   if (busy) return null
   const t = now()
-  const r = run(db, `INSERT INTO jobs (kind, message_id, payload_json, status, priority, attempts, max_attempts, run_at, created_at)
-                     VALUES ('execute', ?, ?, 'queued', 0, 0, ?, ?, ?)`,
-  messageId, JSON.stringify({ message_id: messageId, member_id: memberId, requested_by: requestedBy }), maxAttempts, t, t)
+  const tc = traceContextFor(db, { kind: 'execute', messageId })
+  const r = run(db, `INSERT INTO jobs (kind, message_id, payload_json, status, priority, attempts, max_attempts, run_at, created_at, trace_id, traceparent, link_traceparent)
+                     VALUES ('execute', ?, ?, 'queued', 0, 0, ?, ?, ?, ?, ?, ?)`,
+  messageId, JSON.stringify({ message_id: messageId, member_id: memberId, requested_by: requestedBy }), maxAttempts, t, t, tc.traceId, tc.traceparent, tc.link)
   const id = Number(r.lastInsertRowid)
   queueMicrotask(() => queueWake.emit('enqueued', id))
   return id

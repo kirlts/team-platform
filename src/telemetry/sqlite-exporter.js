@@ -42,8 +42,8 @@ const hrToNs = ([seconds, nanos]) => BigInt(seconds) * NS_PER_SECOND + BigInt(na
 const SYNCHRONOUS_NORMAL = 1;
 
 const INSERT_SQL = `INSERT OR IGNORE INTO spans
-  (trace_id, span_id, parent_id, name, kind, start_ns, end_ns, status, status_message, attributes_json, events_json)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  (trace_id, span_id, parent_id, name, kind, start_ns, end_ns, status, status_message, attributes_json, events_json, links_json)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
 /** Row of the `spans` table for a finished SDK span. */
 export function spanToRow(span) {
@@ -61,6 +61,7 @@ export function spanToRow(span) {
     span.status.message || null,
     JSON.stringify(span.attributes),
     JSON.stringify(events),
+    JSON.stringify((span.links ?? []).map((l) => ({ trace_id: l.context.traceId, span_id: l.context.spanId, attributes: l.attributes ?? {} }))),
   ];
 }
 

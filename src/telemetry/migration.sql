@@ -18,6 +18,7 @@ CREATE TABLE spans (
   status_message  TEXT,
   attributes_json TEXT    NOT NULL,           -- JSON object: team.* and gen_ai.*
   events_json     TEXT    NOT NULL,           -- JSON list of {name, time_ns, attributes}
+  links_json      TEXT    NOT NULL DEFAULT '[]', -- JSON list of {trace_id, span_id, attributes}: span links (UD-262)
   -- Generated columns: allow searching by job and by operation without duplicating the data.
   job_id          TEXT GENERATED ALWAYS AS (json_extract(attributes_json, '$."team.job_id"')) VIRTUAL,
   operation       TEXT GENERATED ALWAYS AS (json_extract(attributes_json, '$."gen_ai.operation.name"')) VIRTUAL,

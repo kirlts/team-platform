@@ -665,6 +665,8 @@ const uiTracer = {
 const JOB_STATE_OF = { queued: 'queued', extracting: 'running', analyzing: 'running', proposed: 'done', published: 'done', failed: 'failed', cancelled: 'cancelled' }
 /** @type {{id:string, input_id:string|null, status:string, attempts:number, created_at:string, finished_at:string|null, last_error:string|null, started_ms:number}[]} */
 let olderJobs = []
+/** The seeded execution of `/_control/execution` (UD-262), or null. */
+let execution = null
 const purgedJobs = new Set()
 /** @type {{id:string, at:string, member_id:string|null, member_name:string|null, action:string, entity:string, entity_id:string|null, detail:object|null}[]} */
 const auditLog = []
@@ -702,9 +704,10 @@ seedAudit()
 
 function allJobs() {
   const own = [...inputs.values()].filter((i) => i.job_id).map((i) => ({ id: i.job_id, input_id: i.id, status: JOB_STATE_OF[i.status] ?? 'queued', attempts: i.status === 'failed' ? 3 : 1, created_at: i.created_at, finished_at: ['proposed', 'published', 'failed', 'cancelled'].includes(i.status) ? (i.updated_at ?? i.created_at) : null, last_error: i.status === 'failed' ? i.error : null }))
-  return [...own, ...olderJobs].filter((j) => !purgedJobs.has(j.id)).sort((a, b) => b.created_at.localeCompare(a.created_at))
+  const exec = execution ? [{ id: 'j-exec1', kind: 'execute', input_id: null, message_id: execution.liveId, phase: 'run', status: 'running', attempts: 1, created_at: ago(1), run_at: ago(1), finished_at: null, last_error: null }] : []
+  return [...exec, ...own, ...olderJobs].filter((j) => !purgedJobs.has(j.id)).sort((a, b) => b.created_at.localeCompare(a.created_at))
 }
-const jobRowOf = (j) => ({ id: j.id, kind: 'analyze_input', input_id: j.input_id, status: j.status, priority: 0, attempts: j.attempts, max_attempts: 3, run_at: j.created_at, lease_until: null, worker_id: j.status === 'running' ? 'w-1' : null, last_error: j.last_error, created_at: j.created_at, finished_at: j.finished_at })
+const jobRowOf = (j) => ({ id: j.id, kind: j.kind ?? 'analyze_input', message_id: j.message_id ?? null, phase: j.phase ?? null, input_id: j.input_id, status: j.status, priority: 0, attempts: j.attempts, max_attempts: 3, run_at: j.run_at ?? j.created_at, lease_until: null, worker_id: j.status === 'running' ? 'w-1' : null, last_error: j.last_error, created_at: j.created_at, finished_at: j.finished_at })
 
 /** A span tree for a finished job, deterministic from its id: the analysis with one call per step. */
 function traceOf(job) {
@@ -763,7 +766,16 @@ function control(path, query) {
     stepJobs(query.get('input_id'), query.get('finish') === '1')
     return {}
   }
+  if (path === '/_control/execution') {
+    // UD-262: an agent member, a message it worked (with its timing) and another one running now.
+    if (!members.some((m) => m.id === 'u-claude')) members.push({ id: 'u-claude', email: 'claude@dev.invalid', name: 'Claude', role: 'member', kind: 'agent', language: 'es-419', active: true, profile: 'Sesión desatendida que trabaja los mensajes asignados.' })
+    const done = seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Cambiar el texto del botón de reservas', body: 'El botón dice Reservar y debe decir Agendar.', created_at: ago(50), assignee_ids: ['u-claude'], attachment_ids: [] })
+    const live = seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Ajustar el espacio de la tabla de pacientes', body: 'Las filas quedan pegadas.', created_at: ago(5), assignee_ids: ['u-claude'], attachment_ids: [] })
+    execution = { doneId: done.id, liveId: live.id }
+    return { done_id: done.id, live_id: live.id }
+  }
   if (path === '/_control/reset') {
+    execution = null
     for (const t of jobs.values()) clearTimeout(t)
     jobs.clear()
     waiting.clear()
@@ -1006,6 +1018,23 @@ const server = createServer(async (req, res) => {
       for (const j of gone) purgedJobs.add(j.id)
       record(me, 'jobs.purge', 'job', null, { state, purged: gone.length })
       return send(res, 200, { purged: gone.length })
+    }
+    const timingMatch = /^\/messages\/([^/]+)\/timing$/.exec(path)
+    if (timingMatch && method === 'GET') {
+      if (!execution || timingMatch[1] !== execution.doneId) return fail(res, 404, 'El mensaje no tiene trabajo de ejecución.', 'not_found')
+      const span = (name, ms, attributes = {}, children = [], status = 'ok') => ({ trace_id: 't-exec', span_id: `s-${name}-${ms}`, parent_id: null, name, kind: 'INTERNAL', status, status_message: null, start_ns: '0', end_ns: '0', start_ms: 0, duration_ms: ms, attributes, events: [], children })
+      const tool = (name, summary, ms, ok = true) => span('execute.tool', ms, { 'gen_ai.tool.name': name, 'team.tool.summary': summary, 'team.tool.success': ok }, [], ok ? 'ok' : 'error')
+      const tools = [tool('Read', 'Lectura: Reservas.tsx', 800), tool('Edit', 'Edición: Reservas.tsx', 1200), tool('Bash', 'Orden: npm test', 94000, false), tool('Bash', 'Orden: npm test', 61000)]
+      const sub = span('execute.subagent', 30000, { 'gen_ai.agent.name': 'reviewer', 'team.tool.summary': 'Subagente: Revisar estilos' }, [tool('Grep', 'Búsqueda: Agendar', 400)])
+      const run = span('execute.machine.run', 210000, {}, [...tools, sub])
+      const tree = span('execute', 1_380_000, { 'team.queue_wait_ms': 920_000 }, [span('execute.machine.create', 95000), run, span('execute.machine.destroy', 8000)])
+      return send(res, 200, {
+        message_id: timingMatch[1], job_id: 'j-exec0', job_status: 'done', trace_id: 'a'.repeat(32), phase: null, attempts: 1, elapsed_ms: null,
+        first_reply_ms: 41000, final_reply_ms: 1_320_000, first_reply_since_message_ms: 961000, final_reply_since_message_ms: 2_240_000, total_ms: 1_380_000, queue_wait_ms: 920_000,
+        phases: [{ name: 'create', duration_ms: 95000, offset_ms: 0, status: 'unset' }, { name: 'run', duration_ms: 210000, offset_ms: 95000, status: 'unset' }, { name: 'destroy', duration_ms: 8000, offset_ms: 1_370_000, status: 'unset' }],
+        slowest: [...tools, sub].map((n) => ({ kind: n.name === 'execute.subagent' ? 'subagent' : 'tool', name: n.attributes['gen_ai.tool.name'] ?? n.attributes['gen_ai.agent.name'], summary: n.attributes['team.tool.summary'], duration_ms: n.duration_ms, success: n.attributes['team.tool.success'] ?? null })).sort((a, b) => b.duration_ms - a.duration_ms),
+        turns: [], tree,
+      })
     }
     const traceMatch = /^\/jobs\/([^/]+)\/trace$/.exec(path)
     if (traceMatch && method === 'GET') {

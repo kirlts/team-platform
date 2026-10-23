@@ -43,6 +43,8 @@ export function createQueries(client: TeamClient) {
         return Object.fromEntries(JOB_STATES.map((state, i) => [state, totals[i]])) as Record<JobState, number>
       },
     }),
+    messageTiming: (messageId: string) => ({ queryKey: queryKeys.messageTiming(messageId), queryFn: () => client.messages.timing(messageId) }),
+    runningExecutions: () => ({ queryKey: queryKeys.runningExecutions(), queryFn: () => client.jobs.runningExecutions() }),
     jobTrace: (jobId: string) => ({ queryKey: queryKeys.jobTrace(jobId), queryFn: () => client.jobs.trace(jobId) }),
     audit: (page: number, limit: number, action: string) => ({ queryKey: queryKeys.audit(page, limit, action), queryFn: () => client.audit.list(page, limit, action) }),
     uiSummary: () => ({ queryKey: queryKeys.uiSummary(), queryFn: () => client.telemetry.uiSummary() }),

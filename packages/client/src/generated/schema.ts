@@ -1000,6 +1000,8 @@ export interface paths {
                                 closed_at?: string | null;
                                 /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
                                 deleted_at?: string | null;
+                                /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
+                                trace_id?: string | null;
                                 /** @description What a video frame shows and nobody says, outside the body; empty when there is none. */
                                 observed?: string[];
                                 replies?: {
@@ -1509,6 +1511,8 @@ export interface paths {
                             closed_at?: string | null;
                             /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
                             deleted_at?: string | null;
+                            /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
+                            trace_id?: string | null;
                             /** @description What a video frame shows and nobody says, outside the body; empty when there is none. */
                             observed?: string[];
                             replies?: {
@@ -1691,6 +1695,8 @@ export interface paths {
                             closed_at?: string | null;
                             /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
                             deleted_at?: string | null;
+                            /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
+                            trace_id?: string | null;
                             /** @description What a video frame shows and nobody says, outside the body; empty when there is none. */
                             observed?: string[];
                             replies?: {
@@ -1739,6 +1745,97 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/api/messages/{id}/timing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tiempos de la ejecución de un mensaje
+         * @description Segundos hasta la primera respuesta y hasta la respuesta final (`first_reply_ms`, `final_reply_ms`, desde el inicio del trabajo `execute`; `*_since_message_ms` desde que se publicó el mensaje), tiempo total, fases (`create`, `run`, `destroy`), herramientas y subagentes de la sesión del más lento al más rápido (`slowest`) y consumo por turno (`turns`). `tree` es el subárbol de spans del trabajo, como `GET /jobs/:id/trace`. Con el trabajo en curso las cifras son `null` y `phase` dice en qué paso está. 404 si el mensaje no existe o no tiene trabajo de ejecución.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            message_id?: string;
+                            job_id?: string;
+                            job_status?: string;
+                            trace_id?: string | null;
+                            phase?: string | null;
+                            attempts?: number;
+                            elapsed_ms?: number | null;
+                            first_reply_ms?: number | null;
+                            final_reply_ms?: number | null;
+                            first_reply_since_message_ms?: number | null;
+                            final_reply_since_message_ms?: number | null;
+                            total_ms?: number | null;
+                            queue_wait_ms?: number | null;
+                            phases?: {
+                                name?: string;
+                                duration_ms?: number | null;
+                                offset_ms?: number | null;
+                                status?: string;
+                            }[];
+                            slowest?: {
+                                /** @enum {string} */
+                                kind?: "tool" | "subagent";
+                                name?: string;
+                                summary?: string | null;
+                                duration_ms?: number | null;
+                                success?: boolean | null;
+                            }[];
+                            turns?: {
+                                [key: string]: unknown;
+                            }[];
+                            tree?: {
+                                [key: string]: unknown;
+                            } | null;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/messages/{id}/restore": {
@@ -1825,6 +1922,8 @@ export interface paths {
                             closed_at?: string | null;
                             /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
                             deleted_at?: string | null;
+                            /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
+                            trace_id?: string | null;
                             /** @description What a video frame shows and nobody says, outside the body; empty when there is none. */
                             observed?: string[];
                             replies?: {
@@ -2091,6 +2190,8 @@ export interface paths {
                             closed_at?: string | null;
                             /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
                             deleted_at?: string | null;
+                            /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
+                            trace_id?: string | null;
                             /** @description What a video frame shows and nobody says, outside the body; empty when there is none. */
                             observed?: string[];
                             replies?: {
@@ -2224,6 +2325,8 @@ export interface paths {
                             closed_at?: string | null;
                             /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
                             deleted_at?: string | null;
+                            /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
+                            trace_id?: string | null;
                             /** @description What a video frame shows and nobody says, outside the body; empty when there is none. */
                             observed?: string[];
                             replies?: {
@@ -2358,6 +2461,8 @@ export interface paths {
                             closed_at?: string | null;
                             /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
                             deleted_at?: string | null;
+                            /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
+                            trace_id?: string | null;
                             /** @description What a video frame shows and nobody says, outside the body; empty when there is none. */
                             observed?: string[];
                             replies?: {
@@ -2496,6 +2601,8 @@ export interface paths {
                             closed_at?: string | null;
                             /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
                             deleted_at?: string | null;
+                            /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
+                            trace_id?: string | null;
                             /** @description What a video frame shows and nobody says, outside the body; empty when there is none. */
                             observed?: string[];
                             replies?: {
@@ -2652,6 +2759,8 @@ export interface paths {
                             closed_at?: string | null;
                             /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
                             deleted_at?: string | null;
+                            /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
+                            trace_id?: string | null;
                             /** @description What a video frame shows and nobody says, outside the body; empty when there is none. */
                             observed?: string[];
                             replies?: {
@@ -2787,6 +2896,8 @@ export interface paths {
                             closed_at?: string | null;
                             /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
                             deleted_at?: string | null;
+                            /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
+                            trace_id?: string | null;
                             /** @description What a video frame shows and nobody says, outside the body; empty when there is none. */
                             observed?: string[];
                             replies?: {
@@ -2922,6 +3033,8 @@ export interface paths {
                             closed_at?: string | null;
                             /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
                             deleted_at?: string | null;
+                            /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
+                            trace_id?: string | null;
                             /** @description What a video frame shows and nobody says, outside the body; empty when there is none. */
                             observed?: string[];
                             replies?: {
@@ -5154,6 +5267,9 @@ export interface paths {
                                 last_error?: string | null;
                                 created_at?: string;
                                 finished_at?: string | null;
+                                trace_id?: string | null;
+                                /** @description Current step of a running execute job: create, run or destroy. */
+                                phase?: string | null;
                             }[];
                             page?: number;
                             limit?: number;

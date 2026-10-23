@@ -16,6 +16,7 @@ import { SpanKind, SpanStatusCode, diag, trace } from '@opentelemetry/api';
 import { estimateCostUsd } from './pricing.js';
 
 export { SpanKind, SpanStatusCode };
+export { contextFromTraceparent, currentTraceparent, formatTraceparent, inTrace, linkTo, parseTraceparent, traceIdOf } from './propagation.js';
 
 export const TRACER_NAME = 'team-platform';
 
@@ -60,6 +61,20 @@ export function configureCapture(options) {
 
 const tracer = () => trace.getTracer(TRACER_NAME);
 
+/** Start time in the unit the SDK expects (see `now` below), for spans opened and closed by hand. */
+export const clockMs = () => performance.timeOrigin + performance.now();
+
+/** Opens a span that the caller ends (tools of a session: opened on `tool_use`, closed on `tool_result`). */
+export function startManualSpan(name, attributes, parentContext, options = {}) {
+  return tracer().startSpan(name, { kind: options.kind ?? SpanKind.INTERNAL, attributes: cleanAttributes(attributes), startTime: options.startTime ?? clockMs() }, parentContext);
+}
+
+/** Closes a span opened by `startManualSpan`; `error` marks it failed. */
+export function endManualSpan(span, { error = null, endTime = clockMs() } = {}) {
+  if (error) markError(span, error);
+  span.end(endTime);
+}
+
 function cleanAttributes(attributes) {
   const out = {};
   for (const [key, value] of Object.entries(attributes ?? {})) {
@@ -94,14 +109,14 @@ const isThenable = (value) => value !== null && typeof value === 'object' && typ
  * @param {string} name
  * @param {Record<string, string|number|boolean|string[]|null|undefined>} attributes
  * @param {(span: import('@opentelemetry/api').Span) => T} fn
- * @param {{kind?: number}} [options]
+ * @param {{kind?: number, links?: import('@opentelemetry/api').Link[]}} [options]
  * @returns {T}
  */
 export function withSpan(name, attributes, fn, options = {}) {
   // Explicit start time for the same reason as `finish`: measured on 2026-10-20, without it a
   // duration comes out inflated by up to 1 ms.
   const startTime = now();
-  return tracer().startActiveSpan(name, { kind: options.kind ?? SpanKind.INTERNAL, attributes: cleanAttributes(attributes), startTime }, (span) => {
+  return tracer().startActiveSpan(name, { kind: options.kind ?? SpanKind.INTERNAL, attributes: cleanAttributes(attributes), startTime, ...(options.links?.length ? { links: options.links } : {}) }, (span) => {
     let result;
     try {
       result = fn(span);

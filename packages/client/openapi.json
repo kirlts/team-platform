@@ -2303,6 +2303,13 @@
                             ],
                             "description": "Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true."
                           },
+                          "trace_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution."
+                          },
                           "observed": {
                             "type": "array",
                             "items": {
@@ -3334,6 +3341,13 @@
                       ],
                       "description": "Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true."
                     },
+                    "trace_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution."
+                    },
                     "observed": {
                       "type": "array",
                       "items": {
@@ -3801,6 +3815,13 @@
                       ],
                       "description": "Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true."
                     },
+                    "trace_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution."
+                    },
                     "observed": {
                       "type": "array",
                       "items": {
@@ -3905,6 +3926,207 @@
                           }
                         }
                       }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error: { code, message }.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Error: { code, message }.",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/messages/{id}/timing": {
+      "get": {
+        "summary": "Tiempos de la ejecución de un mensaje",
+        "tags": [
+          "Messages"
+        ],
+        "description": "Segundos hasta la primera respuesta y hasta la respuesta final (`first_reply_ms`, `final_reply_ms`, desde el inicio del trabajo `execute`; `*_since_message_ms` desde que se publicó el mensaje), tiempo total, fases (`create`, `run`, `destroy`), herramientas y subagentes de la sesión del más lento al más rápido (`slowest`) y consumo por turno (`turns`). `tree` es el subárbol de spans del trabajo, como `GET /jobs/:id/trace`. Con el trabajo en curso las cifras son `null` y `phase` dice en qué paso está. 404 si el mensaje no existe o no tiene trabajo de ejecución.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "properties": {
+                    "message_id": {
+                      "type": "string"
+                    },
+                    "job_id": {
+                      "type": "string"
+                    },
+                    "job_status": {
+                      "type": "string"
+                    },
+                    "trace_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "phase": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "attempts": {
+                      "type": "integer"
+                    },
+                    "elapsed_ms": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "first_reply_ms": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "final_reply_ms": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "first_reply_since_message_ms": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "final_reply_since_message_ms": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "total_ms": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "queue_wait_ms": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "phases": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "duration_ms": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "offset_ms": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "status": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "slowest": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "tool",
+                              "subagent"
+                            ]
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "summary": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "duration_ms": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "success": {
+                            "type": [
+                              "boolean",
+                              "null"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "turns": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    },
+                    "tree": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "additionalProperties": true
                     }
                   }
                 }
@@ -4156,6 +4378,13 @@
                         "null"
                       ],
                       "description": "Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true."
+                    },
+                    "trace_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution."
                     },
                     "observed": {
                       "type": "array",
@@ -4696,6 +4925,13 @@
                       ],
                       "description": "Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true."
                     },
+                    "trace_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution."
+                    },
                     "observed": {
                       "type": "array",
                       "items": {
@@ -5083,6 +5319,13 @@
                       ],
                       "description": "Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true."
                     },
+                    "trace_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution."
+                    },
                     "observed": {
                       "type": "array",
                       "items": {
@@ -5439,6 +5682,13 @@
                       ],
                       "description": "Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true."
                     },
+                    "trace_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution."
+                    },
                     "observed": {
                       "type": "array",
                       "items": {
@@ -5794,6 +6044,13 @@
                         "null"
                       ],
                       "description": "Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true."
+                    },
+                    "trace_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution."
                     },
                     "observed": {
                       "type": "array",
@@ -6213,6 +6470,13 @@
                       ],
                       "description": "Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true."
                     },
+                    "trace_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution."
+                    },
                     "observed": {
                       "type": "array",
                       "items": {
@@ -6568,6 +6832,13 @@
                       ],
                       "description": "Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true."
                     },
+                    "trace_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution."
+                    },
                     "observed": {
                       "type": "array",
                       "items": {
@@ -6922,6 +7193,13 @@
                         "null"
                       ],
                       "description": "Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true."
+                    },
+                    "trace_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution."
                     },
                     "observed": {
                       "type": "array",
@@ -10999,6 +11277,19 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "trace_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "phase": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Current step of a running execute job: create, run or destroy."
                           }
                         }
                       }

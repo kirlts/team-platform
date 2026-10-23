@@ -7,13 +7,14 @@
 import { randomUUID } from 'node:crypto'
 import { pathToFileURL } from 'node:url'
 import { loadConfig, loadEnvFile } from './config.js'
-import { openInitialized } from './db/index.js'
+import { openInitialized, run } from './db/index.js'
 import { parseJson } from './db/util.js'
 import { createEvents } from './events/index.js'
 import { createQueue } from './queue/index.js'
 import { createLogger } from './log.js'
-import { context, ROOT_CONTEXT } from '@opentelemetry/api'
+import { context } from '@opentelemetry/api'
 import { errorType, initTelemetry, withSpan } from './domain/tracing.js'
+import { contextFromTraceparent, currentTraceparent, linkTo } from './telemetry/api.js'
 import { createPipeline } from './domain/pipeline.js'
 import { createExecuteHandler } from './execute/handler.js'
 import { loadModules } from './domain/modules.js'
@@ -77,9 +78,11 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
 
     const inputId = parseJson(job.payload_json, {}).input_id ?? null
     // Every queue job is a span (UD-014): the extractors and providers hang from it.
-    // Each attempt is the root of its own tree: without ROOT_CONTEXT the span would inherit that of the job that woke it.
+    // Each attempt joins the trace of its message; with no stored trace it is the root of its own, never a child of the job that woke it.
     // The provider calls of this job wait for their slot as this job (round-robin across jobs) and stop waiting if the job is aborted.
-    const running = runInJobScope({ jobId: job.id, signal: controller.signal }, () => context.with(ROOT_CONTEXT, () => withSpan('job', { 'team.job_id': String(job.id), 'team.input_id': inputId === null ? '' : String(inputId), 'team.step': 'job', 'team.job_kind': job.kind, 'team.attempt': job.attempts }, async (span) => {
+    const running = runInJobScope({ jobId: job.id, signal: controller.signal }, () => context.with(contextFromTraceparent(job.traceparent), () => withSpan('job', { 'team.job_id': String(job.id), 'team.input_id': inputId === null ? '' : String(inputId), 'team.step': 'job', 'team.job_kind': job.kind, 'team.attempt': job.attempts }, async (span) => {
+      // The attempt keeps the trace of its message and links the previous attempt (or the previous job of the same message, UD-262).
+      try { run(db, 'UPDATE jobs SET last_span = ? WHERE id = ?', currentTraceparent(), job.id) } catch (e) { jobLog.warn({ err: e }, 'could not store the span context of the job') }
       const handlerObj = handlers[job.kind]
       try {
         if (!handlerObj) {
@@ -103,7 +106,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
         runningJobs.delete(job.id)
         kick()
       }
-    })))
+    }, { links: [linkTo(job.last_span, { 'team.link': 'previous_attempt' }), linkTo(job.link_traceparent, { 'team.link': 'previous_job' })].filter(Boolean) })))
     runningJobs.set(job.id, { controller, running })
   }
 

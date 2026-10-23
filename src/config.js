@@ -37,6 +37,21 @@ function textValue (env, nameValue, fallback = '') {
   return rawValue === undefined || rawValue === '' ? fallback : rawValue
 }
 
+/**
+ * EXECUTE_OTEL_ENV (UD-262): KEY=VALUE pairs separated by whitespace, split at the first `=`. A key must be an
+ * environment variable name and may not start with TEAM_ (those carry the agent secret). Values cannot hold spaces.
+ */
+export function otelPairs (raw) {
+  const out = {}
+  for (const pair of String(raw ?? '').split(/\s+/).filter(Boolean)) {
+    const i = pair.indexOf('=')
+    const key = i > 0 ? pair.slice(0, i) : ''
+    if (!/^[A-Z][A-Z0-9_]*$/.test(key) || key.startsWith('TEAM_') || key === 'TRACEPARENT') throw new Error(`EXECUTE_OTEL_ENV: «${pair.slice(0, 40)}» no es un par CLAVE=valor válido.`)
+    out[key] = pair.slice(i + 1)
+  }
+  return out
+}
+
 function boolVar (env, nameValue, fallback) {
   const rawValue = env[nameValue]
   if (rawValue === undefined || rawValue === '') return fallback
@@ -330,7 +345,8 @@ export function loadConfig (env = process.env, overrides = {}) {
       killGraceMs: intVar(env, 'EXECUTE_KILL_GRACE_MS', 10000, { min: 1 }), // declared courtesy, see above
       machineCreate: textValue(env, 'EXECUTE_MACHINE_CREATE', ''), // shell command; {job_id}, {workdir}; last stdout line = {machine}
       machineRun: textValue(env, 'EXECUTE_MACHINE_RUN', ''), // shell command; {job_id}, {workdir}, {machine}; its stdout is the NDJSON stream
-      machineDestroy: textValue(env, 'EXECUTE_MACHINE_DESTROY', '') // shell command; {job_id}, {workdir}, {machine}; runs always
+      machineDestroy: textValue(env, 'EXECUTE_MACHINE_DESTROY', ''), // shell command; {job_id}, {workdir}, {machine}; runs always
+      otelEnv: otelPairs(env.EXECUTE_OTEL_ENV) // UD-262: KEY=VALUE pairs given to `claude -p` for its own telemetry (CLAUDE_CODE_ENABLE_TELEMETRY, OTEL_*)
     },
 
     // ---- Modules written by other agents (src/contracts.md)

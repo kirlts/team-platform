@@ -2,7 +2,7 @@
 // range and answers over HTTP. What is checked is what an interface relies on: the session, the versions and the retry, the
 // multipart forms, the deletions and their undo, the send in the name of another member and the error codes.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { isTeamApiError, type TeamApiError, type TeamClient } from '../src/index.js'
+import { isTeamApiError, type InputRecord, type TeamApiError, type TeamClient } from '../src/index.js'
 import { publishedMessage, startServer, until, type TestServer } from './server.js'
 
 let server: TestServer
@@ -87,10 +87,10 @@ describe('reads', () => {
 describe('sends, multipart and «enviar como»', () => {
   it('a send with a file and a link goes as multipart, is analyzed and published, and its file is served', async () => {
     const { input_id } = await ana.inputs.create({ text: 'con adjuntos', files: [file('nota.txt')], links: ['https://example.org/a'] })
-    const input = await until(async () => {
+    const input = (await until(async () => {
       const v = await ana.inputs.get(input_id)
       return v.status === 'published' ? v : null
-    })
+    })) as InputRecord
     expect(input.attachments.map((a) => a.kind).sort()).toEqual(['document', 'link'])
     const doc = input.attachments.find((a) => a.kind === 'document')!
     const res = await ana.raw(ana.attachmentUrl(doc.id))

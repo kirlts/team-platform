@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { run } from '../src/db/index.js'
 import { addMember, login, makeEnv } from '../src/testing/helpers.js'
-import { HELP } from './team.mjs'
+import { HELP, runTeam } from './team.mjs'
 
 const TEAM = fileURLToPath(new URL('./team.mjs', import.meta.url))
 const PORT = 8642 // the range given to this work (8640 to 8649)
@@ -37,7 +37,7 @@ describe('team command', () => {
     const r = await team(['--help'])
     assert.equal(r.code, 0)
     assert.equal(r.stdout.trim(), HELP)
-    for (const cmd of ['team show', 'team reply', 'team progress', 'team close']) assert.ok(HELP.includes(cmd))
+    for (const cmd of ['team show', 'team reply', 'team progress', 'team timing', 'team close']) assert.ok(HELP.includes(cmd))
   })
 
   it('show prints the message', async () => {
@@ -51,6 +51,16 @@ describe('team command', () => {
     assert.equal(r.code, 0, r.stderr)
     const reply = env.db.prepare('SELECT author_id, body, kind FROM replies WHERE message_id = ?').get(messageId)
     assert.deepEqual({ ...reply }, { author_id: Number(agent.id), body: 'Recibido. Empiezo por la agenda.', kind: 'clarification' })
+  })
+
+  it('timing prints the figures of the message without the span tree and asks the right path', async () => {
+    let asked = null
+    const fetchImpl = async (url) => { asked = String(url); return { ok: true, status: 200, text: async () => JSON.stringify({ message_id: '7', first_reply_ms: 1200, final_reply_ms: 9000, total_ms: 9500, tree: { name: 'execute' } }) } }
+    const r = await runTeam(['timing', '7'], { TEAM_URL: 'http://x', TEAM_AGENT_EMAIL: 'a@x.org', TEAM_AGENT_SECRET: 's' }, fetchImpl)
+    assert.equal(r.code, 0)
+    assert.ok(asked.endsWith('/api/messages/7/timing'), asked)
+    assert.deepEqual(JSON.parse(r.out), { message_id: '7', first_reply_ms: 1200, final_reply_ms: 9000, total_ms: 9500 })
+    assert.equal((await runTeam(['timing'], { TEAM_URL: 'http://x', TEAM_AGENT_EMAIL: 'a@x.org', TEAM_AGENT_SECRET: 's' }, fetchImpl)).code, 1)
   })
 
   it('progress publishes an event of the job; the job id may come from TEAM_JOB_ID', async () => {

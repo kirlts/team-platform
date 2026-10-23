@@ -8,7 +8,7 @@ import { NS_PER_MS } from './config.js';
 const SPAN_COLUMNS = `trace_id, span_id, parent_id, name, kind, status, status_message,
   CAST(start_ns AS TEXT) AS start_ns, CAST(end_ns AS TEXT) AS end_ns,
   start_ns / ${NS_PER_MS} AS start_ms, (end_ns - start_ns) / ${NS_PER_MS}.0 AS duration_ms,
-  attributes_json, events_json`;
+  attributes_json, events_json, links_json`;
 
 function toNode(row) {
   return {
@@ -25,6 +25,7 @@ function toNode(row) {
     duration_ms: row.duration_ms,
     attributes: JSON.parse(row.attributes_json),
     events: JSON.parse(row.events_json),
+    links: JSON.parse(row.links_json ?? '[]'),
     children: [],
   };
 }

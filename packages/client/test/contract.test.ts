@@ -4,7 +4,6 @@ import { readFileSync } from 'node:fs'
 import openapiTS, { astToString } from 'openapi-typescript'
 import { describe, expect, it } from 'vitest'
 import { NOT_IN_CLIENT, operationKey, pathOf, routes, REQUEST_ERROR_CODES } from '../src/index.js'
-// @ts-expect-error plain JavaScript without declarations
 import { liveOpenapi, requestErrorCodes, serializeContract } from '../scripts/contract.mjs'
 
 const contractText = readFileSync(new URL('../openapi.json', import.meta.url), 'utf8')

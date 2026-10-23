@@ -160,6 +160,22 @@ export function useJobCounts() {
   return useQuery(q.jobCounts())
 }
 
+/** Where the time of a message went (GET /messages/:id/timing). A 404 means it has no execution. The query asks again while the job runs. */
+export function useMessageTiming(messageId: string) {
+  const q = useTeamQueries()
+  return useQuery({
+    ...q.messageTiming(messageId),
+    retry: false,
+    refetchInterval: (query) => (query.state.data?.job_status === 'running' ? IN_FLIGHT_REFETCH_MS : false),
+  })
+}
+
+/** The `execute` jobs that are running now, with their phase. The list asks again while there is one. */
+export function useRunningExecutions() {
+  const q = useTeamQueries()
+  return useQuery({ ...q.runningExecutions(), refetchInterval: (query) => ((query.state.data?.length ?? 0) > 0 ? IN_FLIGHT_REFETCH_MS : false) })
+}
+
 export function useJobTrace(jobId: string, enabled: boolean) {
   const q = useTeamQueries()
   return useQuery({ ...q.jobTrace(jobId), enabled, retry: false })

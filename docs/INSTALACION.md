@@ -454,6 +454,8 @@ La respuesta trae `agent_secret` una sola vez. El trabajador lo lee de la bóved
 | `EXECUTE_HOST_INSTRUCTIONS` | Ruta a un `.md` del anfitrión con sus reglas; se agrega al prompt en cada trabajo. Si falta el archivo, el trabajo falla con `host_instructions_missing` |
 | `EXECUTE_MACHINE_CREATE`, `EXECUTE_MACHINE_RUN`, `EXECUTE_MACHINE_DESTROY` | Las tres órdenes de `machine` |
 | `EXECUTE_MACHINE_COLLECT` | Opcional. Copia la transcripción de la sesión antes de destruir la máquina (ver «Transcripción de la sesión») |
+| `EXECUTE_CAPTURES_MAX` | Capturas de la interfaz por respuesta (omisión 3; ver «Capturas en las respuestas») |
+| `EXECUTE_CAPTURES_OPEN_ZONE` | Única zona declarada con la que se adjunta una captura sin datos ocultos (omisión `ninguna`) |
 | `EXECUTE_RUNS_RETENTION_DAYS` | Días que se guarda el historial de ejecuciones (omisión 365) |
 | `EXECUTE_DELIVER_COMMAND` | Opcional. Orden de shell que entrega la rama a producción después de `execute`, sin IA (ver «La entrega aparte») |
 | `EXECUTE_DELIVER_TIMEOUT_MS` | Plazo de esa orden (omisión 900000) |
@@ -520,6 +522,30 @@ EXECUTE_MACHINE_COLLECT=mkdir -p /data/transcripciones/{job_id} && scp -q -r {ma
 ```
 
 Con un almacén de objetos, la última línea es la clave: `gcloud storage cp -r ... gs://bucket/{job_id}/ >&2 && echo gs://bucket/{job_id}/`. Cuánto tiempo se guardan las transcripciones lo decide el anfitrión (por ejemplo, una regla de ciclo de vida del bucket). La plataforma sólo guarda la referencia.
+
+### Capturas en las respuestas
+
+La sesión puede adjuntar capturas de la interfaz del anfitrión a sus dos respuestas (UD-268). La herramienta que las toma es del anfitrión; la plataforma sólo recibe archivos.
+
+| Dónde | Cómo |
+|---|---|
+| Primera respuesta («Antes») | `team reply <id> --body "…" --captures '[{"path":"antes.png","alt":"…","masked":true,"place":"…","as":"…"}]' [--zone <zona>]` |
+| Respuesta final («Después») | `captures`, la misma lista, en la salida estructurada |
+
+Los archivos van en `$TEAM_CAPTURES_DIR` (el directorio `captures/` del trabajo) y `path` es relativo a él. Campos de cada captura: `alt` una línea; `masked` `true` o `false`; `place` la ruta o el menú de la vista; `as` la clínica y el rol con que se miró. PNG, JPEG o WebP, hasta `EXECUTE_CAPTURES_MAX` por respuesta y el tope de imagen de un adjunto (`UPLOAD_MAX_IMAGE_BYTES`). Con `masked: false`, la captura se adjunta sólo si la zona declarada (`zone` de la salida, `--zone` en la primera respuesta) es `EXECUTE_CAPTURES_OPEN_ZONE`. Lo que no cumple se deja fuera con un aviso (`captures.rejected` en el span `execute`; `team reply` lo escribe en stderr) y la respuesta sale igual.
+
+La respuesta final adjunta la «Antes» de la última respuesta de la sesión que la trae, y la «Después». Cada adjunto se llama «Antes - <alt>» o «Después - <alt>»; el panel lo muestra bajo la imagen. Con `EXECUTE_RUNNER=machine`, `EXECUTE_MACHINE_COLLECT` copia `captures/` de la máquina a `{workdir}/captures` antes de destruirla (la ruta de la máquina es `$JOB_DIR/captures`); sin esa copia la captura final se deja fuera.
+
+Texto para las instrucciones de las sesiones del anfitrión (`EXECUTE_HOST_INSTRUCTIONS`), con el nombre de la herramienta del anfitrión en lugar de `<captura>`:
+
+```
+## Capturas
+Examina la situación antes de cambiar nada: mira el lugar al que se refiere el mensaje, con la cuenta y el rol de quien lo reportó.
+Si ayuda, toma una captura del estado actual con <captura> en $TEAM_CAPTURES_DIR y descríbela. Decide si el problema existe hoy.
+Primera respuesta: `team reply <id> --body "<lo que ves y que empiezas>" --captures <lista> --zone <zona>`.
+Si el problema ya está resuelto, dilo con la captura que lo muestra y no cambies nada.
+Después del arreglo, toma una captura del mismo lugar y decláralas en `captures` de la salida.
+```
 
 ## Dónde mirar los tiempos
 

@@ -72,6 +72,14 @@ describe('Timing', () => {
     expect(document.querySelector('[data-span="execute.machine.run"]')).not.toBeNull()
   })
 
+  it('names the delivery as a phase while it runs and after it ended (UD-263)', async () => {
+    answer = () => ({ ...timing, job_status: 'running', phase: 'deliverVerify', elapsed_ms: 12000, phases: [...timing.phases, { name: 'deliver', duration_ms: 48000, offset_ms: null, status: 'ok' }] })
+    wrap(['u2'])
+    fireEvent.click(await screen.findByRole('button', { name: 'Tiempos' }))
+    expect((await screen.findByText(/Entrega: verificación/)).textContent).toBe('Entrega: verificación · 12 s')
+    expect(screen.getByText('Entrega').nextElementSibling?.textContent).toBe('48 s')
+  })
+
   it('says «Sin ejecución» on a 404', async () => {
     answer = () => { throw new ApiError(404, 'not_found', 'x') }
     wrap(['u2'])

@@ -704,7 +704,8 @@ seedAudit()
 
 function allJobs() {
   const own = [...inputs.values()].filter((i) => i.job_id).map((i) => ({ id: i.job_id, input_id: i.id, status: JOB_STATE_OF[i.status] ?? 'queued', attempts: i.status === 'failed' ? 3 : 1, created_at: i.created_at, finished_at: ['proposed', 'published', 'failed', 'cancelled'].includes(i.status) ? (i.updated_at ?? i.created_at) : null, last_error: i.status === 'failed' ? i.error : null }))
-  const exec = execution ? [{ id: 'j-exec1', kind: 'execute', input_id: null, message_id: execution.liveId, phase: 'run', status: 'running', attempts: 1, created_at: ago(1), run_at: ago(1), finished_at: null, last_error: null }] : []
+  // UD-263: with `deliver` the message running now is in its delivery, a job of its own with its own phase.
+  const exec = execution ? [{ id: 'j-exec1', kind: execution.deliver ? 'deliver' : 'execute', input_id: null, message_id: execution.liveId, phase: execution.deliver ? 'deliverDeploy' : 'run', status: 'running', attempts: 1, created_at: ago(1), run_at: ago(1), finished_at: null, last_error: null }] : []
   return [...exec, ...own, ...olderJobs].filter((j) => !purgedJobs.has(j.id)).sort((a, b) => b.created_at.localeCompare(a.created_at))
 }
 const jobRowOf = (j) => ({ id: j.id, kind: j.kind ?? 'analyze_input', message_id: j.message_id ?? null, phase: j.phase ?? null, input_id: j.input_id, status: j.status, priority: 0, attempts: j.attempts, max_attempts: 3, run_at: j.run_at ?? j.created_at, lease_until: null, worker_id: j.status === 'running' ? 'w-1' : null, last_error: j.last_error, created_at: j.created_at, finished_at: j.finished_at })
@@ -771,7 +772,7 @@ function control(path, query) {
     if (!members.some((m) => m.id === 'u-claude')) members.push({ id: 'u-claude', email: 'claude@dev.invalid', name: 'Claude', role: 'member', kind: 'agent', language: 'es-419', active: true, profile: 'Sesión desatendida que trabaja los mensajes asignados.' })
     const done = seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Cambiar el texto del botón de reservas', body: 'El botón dice Reservar y debe decir Agendar.', created_at: ago(50), assignee_ids: ['u-claude'], attachment_ids: [] })
     const live = seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Ajustar el espacio de la tabla de pacientes', body: 'Las filas quedan pegadas.', created_at: ago(5), assignee_ids: ['u-claude'], attachment_ids: [] })
-    execution = { doneId: done.id, liveId: live.id }
+    execution = { doneId: done.id, liveId: live.id, deliver: query.get('deliver') === '1' }
     return { done_id: done.id, live_id: live.id }
   }
   if (path === '/_control/reset') {
@@ -1021,6 +1022,14 @@ const server = createServer(async (req, res) => {
     }
     const timingMatch = /^\/messages\/([^/]+)\/timing$/.exec(path)
     if (timingMatch && method === 'GET') {
+      if (execution?.deliver && timingMatch[1] === execution.liveId) {
+        // UD-263: the run ended and its delivery is running: the message is « running » with the phase of the delivery.
+        return send(res, 200, {
+          message_id: timingMatch[1], job_id: 'j-exec0', job_status: 'running', trace_id: null, phase: 'deliverDeploy', attempts: 1, elapsed_ms: 20_000,
+          first_reply_ms: 41000, final_reply_ms: null, first_reply_since_message_ms: null, final_reply_since_message_ms: null, total_ms: null, queue_wait_ms: null,
+          phases: [], slowest: [], turns: [], tree: null, deliver: { job_id: 'j-exec1', job_status: 'running', phase: 'deliverDeploy', attempts: 1 },
+        })
+      }
       if (!execution || timingMatch[1] !== execution.doneId) return fail(res, 404, 'El mensaje no tiene trabajo de ejecución.', 'not_found')
       const span = (name, ms, attributes = {}, children = [], status = 'ok') => ({ trace_id: 't-exec', span_id: `s-${name}-${ms}`, parent_id: null, name, kind: 'INTERNAL', status, status_message: null, start_ns: '0', end_ns: '0', start_ms: 0, duration_ms: ms, attributes, events: [], children })
       const tool = (name, summary, ms, ok = true) => span('execute.tool', ms, { 'gen_ai.tool.name': name, 'team.tool.summary': summary, 'team.tool.success': ok }, [], ok ? 'ok' : 'error')

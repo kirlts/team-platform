@@ -430,6 +430,10 @@ La respuesta trae `agent_secret` una sola vez. El trabajador lo lee de la bóved
 | `EXECUTE_MACHINE_CREATE`, `EXECUTE_MACHINE_RUN`, `EXECUTE_MACHINE_DESTROY` | Las tres órdenes de `machine` |
 | `EXECUTE_MACHINE_COLLECT` | Opcional. Copia la transcripción de la sesión antes de destruir la máquina (ver «Transcripción de la sesión») |
 | `EXECUTE_RUNS_RETENTION_DAYS` | Días que se guarda el historial de ejecuciones (omisión 365) |
+| `EXECUTE_DELIVER_COMMAND` | Opcional. Orden de shell que entrega la rama a producción después de `execute`, sin IA (ver «La entrega aparte») |
+| `EXECUTE_DELIVER_TIMEOUT_MS` | Plazo de esa orden (omisión 900000) |
+| `EXECUTE_DELIVER_RETRIES` | Veces que una verificación fallida vuelve a Claude (omisión 1) |
+| `EXECUTE_DELIVER_MAX_ATTEMPTS` | Intentos del trabajo de entrega (omisión 2); el código 75 no gasta ninguno |
 | `INSTANCE_NAME` | Nombre de la instancia en cada fila del historial (omisión: el host de `PUBLIC_URL`, o `local`) |
 
 Capacidad de la máquina. Si `EXECUTE_MACHINE_CREATE` termina con código 75 (`EX_TEMPFAIL`), el anfitrión dice que ahora no hay capacidad (cuota de núcleos, ninguna máquina libre): el trabajo espera `EXECUTE_CAPACITY_WAIT_MS` y vuelve a intentar sin gastar su intento ni costo. `EXECUTE_MAX_MACHINES` fija cuántas máquinas vivas tiene a la vez este proceso (0 sin tope); con una cuota de 8 núcleos y máquinas de 4, el valor es 2. Cualquier otro código sigue siendo un fallo permanente.
@@ -453,6 +457,31 @@ docker compose up -d --wait
 El trabajador pone cada marcador entre comillas simples de shell antes de correr la orden. La última línea de stdout de CREATE es `{machine}`; por eso el ejemplo manda la salida de `gcloud` a stderr. El stdout de RUN debe ser sólo el NDJSON de `run.sh`. DESTROY corre siempre, también si la sesión falla, vence `EXECUTE_TIMEOUT_MS` o CREATE falló a medias. La imagen `agente-claude` es del anfitrión: trae `node`, `git`, `claude` autenticado y el repositorio; `run.sh` entra a `$TEAM_REPO_DIR` si existe. `{workdir}` lleva `env.sh` con el secreto del agente, en modo 600.
 
 4. Comprobación: asignar un mensaje al agente y mirar la Cola. La primera respuesta del agente llega al hilo al empezar y la final al terminar. La traza del trabajo (`GET /api/jobs/:id/trace`) trae `team.session_id` y `team.cost_usd`.
+
+### La entrega aparte
+
+Sin `EXECUTE_DELIVER_COMMAND`, la sesión de Claude entrega a producción por las reglas del anfitrión y espera el despliegue. Con la orden declarada, la sesión termina al empujar la rama `tp/<id>` y la máquina se destruye. Después, un trabajo `deliver` hace la entrega en el host del trabajador, sin IA. El autor recibe una sola respuesta final cuando la entrega termina.
+
+| Elemento | Contrato |
+|---|---|
+| Marcadores | `{message_id}`, `{job_id}`, `{branch}`, `{workdir}` (directorio vacío que se borra al terminar). Entre comillas simples de shell |
+| Entorno | `TEAM_MESSAGE_ID`, `TEAM_JOB_ID`, `TEAM_BRANCH`, `TEAM_WORKDIR`, `TEAM_DELIVER_ROUND`, `TEAM_DELIVER_ATTEMPT` |
+| Código 0 | Quedó en producción. La última línea de stdout es la referencia: un commit, una URL o una etiqueta |
+| Código 75 | No puede ahora. El trabajo espera `EXECUTE_CAPACITY_WAIT_MS` y vuelve a correr sin gastar intento |
+| Otro código | Fallo. stdout y stderr son el motivo. Con `EXECUTE_DELIVER_RETRIES` vueltas disponibles, un `execute` nuevo recibe esa salida en su prompt, corrige sobre la misma rama y vuelve a entregar. Si falla otra vez, el autor recibe el aviso de que no pasó la verificación, con `outcome: blocked` |
+| Plazo | `EXECUTE_DELIVER_TIMEOUT_MS`. Vencido, se mata el grupo de procesos de la orden y el autor recibe el aviso; no vuelve a Claude |
+| Fases | Opcional. Las líneas `##team phase verify` y `##team phase deploy` de stdout mueven el progreso que ven la tarjeta del mensaje y la Cola |
+| Repetición | La orden debe poder correr dos veces sobre la misma rama |
+
+Ejemplo genérico: trae la rama, corre sólo las pruebas críticas, despliega y deja el commit como referencia. La salida de las herramientas va a stderr para que la última línea de stdout sea la referencia.
+
+```sh
+EXECUTE_DELIVER_COMMAND=cd /srv/app && git fetch -q origin {branch} >&2 && echo '##team phase verify' && ./pruebas-criticas.sh origin/{branch} >&2 && echo '##team phase deploy' && ./desplegar.sh origin/{branch} >&2 && git rev-parse --short origin/{branch}
+```
+
+Para que la orden diga «ahora no» (por ejemplo, otro despliegue en curso), se antepone `./hay-lugar.sh || exit 75 &&`. Un Editor lanza la entrega de un mensaje a mano con `POST /api/messages/:id/deliver`; responde 202 con el trabajo, o 409 `deliver_not_configured`, `execute_busy`, `deliver_busy`, `no_agent_assignee` o `message_closed`.
+
+El prompt de la sesión agrega una sección después de `EXECUTE_HOST_INSTRUCTIONS`, con precedencia sobre ellas. Dice que la entrega la hace el sistema. La sesión termina al empujar la rama con las verificaciones y la marca del juez que pidan las reglas del anfitrión. El texto de esas reglas sigue siendo del anfitrión.
 
 ### Transcripción de la sesión
 

@@ -439,6 +439,8 @@ Todo cambio de estado de un trabajo vale sólo si el trabajo sigue `running` con
 
 El trabajo `execute` (UD-254) lleva `message_id` en su columna y `{ message_id, member_id, requested_by }` en `payload_json`. Se encola dentro de la transacción que publica o edita un mensaje, uno por cada agente activo entre sus destinatarios, y a mano con `POST /messages/:id/execute` (Editor; `member_id` opcional). Un mensaje no recibe un segundo trabajo para el mismo agente mientras haya uno en cola o corriendo (409 `execute_busy` por la vía manual). Aparece en la Cola junto a los demás. Su `max_attempts` es `EXECUTE_MAX_ATTEMPTS` (omisión 1, porque un segundo intento repite el gasto) y su duración máxima es `EXECUTE_TIMEOUT_MS` más tres veces `EXECUTE_KILL_GRACE_MS`, para que el ejecutor venza primero y alcance a destruir la máquina.
 
+El trabajo `deliver` (UD-263) lleva `message_id` en su columna y `{ message_id, member_id, branch, round, output, execute_job_id, execute_attempt, requested_by }` en `payload_json`; `kind` admite `deliver` desde la migración 0019. Lo encola `execute` en la transacción que lo cierra, cuando termina con `outcome: done`, existe la rama y la instancia declara `EXECUTE_DELIVER_COMMAND`, y a mano `POST /messages/:id/deliver` (Editor). Un mensaje tiene una entrega en cola o corriendo a la vez (409 `deliver_busy` por la vía manual). Su `max_attempts` es `EXECUTE_DELIVER_MAX_ATTEMPTS` (omisión 2: la orden es idempotente y un trabajador caído la repite una vez) y su duración máxima es `EXECUTE_DELIVER_TIMEOUT_MS` más tres veces `EXECUTE_KILL_GRACE_MS`. Con código 75 se aplaza con `defer`, sin gastar intento. Aparece en la Cola junto a los demás, con `jobs.phase` en `deliverVerify` o `deliverDeploy` mientras corre.
+
 ### 7.4 Extractores (`src/extract/`)
 
 **Propósito:** Convertir cada adjunto en texto o descripción antes del analizador, de forma determinista y medida.
@@ -545,8 +547,30 @@ claude -p --model <EXECUTE_MODEL> --effort <EXECUTE_EFFORT> --max-budget-usd <m�
 | `EXECUTE_MAX_SUBAGENTS` | 3 |
 | `EXECUTE_TIMEOUT_MS` | 3.600.000 |
 | `EXECUTE_RUNS_RETENTION_DAYS` | 365 |
+| `EXECUTE_DELIVER_COMMAND` | vacía (sin entrega aparte) | Orden de shell del anfitrión que entrega la rama a producción (ver «La entrega aparte») |
+| `EXECUTE_DELIVER_TIMEOUT_MS` | 900.000 | Plazo de la orden de entrega. Cortesía declarada: acota una verificación o un despliegue colgado |
+| `EXECUTE_DELIVER_RETRIES` | 1 | Veces que una verificación fallida vuelve a Claude. Con 0, el primer fallo se informa |
+| `EXECUTE_DELIVER_MAX_ATTEMPTS` | 2 | Intentos del trabajo `deliver`; el código 75 no gasta ninguno |
 
 Tope diario de gasto (UD-256). Antes de correr, el trabajo suma el día: `jobs.cost_usd` de los trabajos `execute` que corrieron (el `total_cost_usd` de su línea `result`) más `EXECUTE_MACHINE_COST_USD` por cada uno con runner `machine`. El día es el día local del servidor, según `TZ` (UTC si no está fijada), y un trabajo cuenta en el día en que empezó. Saldo = `EXECUTE_DAILY_BUDGET_USD` − suma. Con saldo ≤ 0 el trabajo vuelve a la cola hasta la medianoche siguiente sin gastar su intento, con el paso `budgetWait` («En espera: tope diario de gasto»), y `claude` no se llama. Con saldo, `--max-budget-usd` es el menor entre `EXECUTE_MAX_BUDGET_USD` y el saldo, redondeado a centavos. El anfitrión fija `EXECUTE_MACHINE_COST_USD=0.07`.
+
+**La entrega aparte (UD-263).** Con `EXECUTE_DELIVER_COMMAND` declarada, `execute` termina al empujar la rama `tp/<message_id>` y devolver su `summary` y su `outcome`. Si el resultado es `done` y la rama existe, no publica todavía la respuesta final: encola un trabajo `deliver` que lleva la salida de la sesión. La máquina ya está destruida cuando `deliver` corre. Ese trabajo ejecuta la orden en el host del trabajador, sin IA, y publica **una** respuesta final cuando termina. La rama existe si `EXECUTE_REPO_DIR` la tiene (localmente o en `origin`); sin `EXECUTE_REPO_DIR` la orden de entrega es la que la busca y avisa. El resultado `investigated`, `blocked` o `needs_decision` se responde desde `execute`, sin entrega. Sin `EXECUTE_DELIVER_COMMAND` todo ocurre como antes: `execute` publica su respuesta final y la sesión entrega por las reglas del anfitrión.
+
+| Elemento de la orden | Contrato |
+|---|---|
+| Marcadores | `{message_id}`, `{job_id}`, `{branch}`, `{workdir}`, entre comillas simples de shell. `{workdir}` es un directorio vacío que se borra al terminar |
+| Entorno | `TEAM_MESSAGE_ID`, `TEAM_JOB_ID`, `TEAM_BRANCH`, `TEAM_WORKDIR`, `TEAM_DELIVER_ROUND` (0 la primera vez), `TEAM_DELIVER_ATTEMPT` |
+| Dónde corre | `/bin/sh -c` en el host del trabajador, con su directorio de trabajo. Sin IA y sin máquina |
+| Código 0 | Quedó en producción. La última línea no vacía de stdout es la referencia (un commit, una URL o una etiqueta, hasta 500 caracteres) |
+| Código 75 | No puede ahora. El trabajo espera `EXECUTE_CAPACITY_WAIT_MS` y vuelve a correr sin gastar intento |
+| Otro código | Fallo. Su stdout y su stderr son el motivo (`jobs.last_error` y, para Claude, el final de la salida) |
+| Plazo | `EXECUTE_DELIVER_TIMEOUT_MS`. SIGTERM al grupo de procesos que lanzó el trabajador y SIGKILL tras `EXECUTE_KILL_GRACE_MS`. Es un fallo que no vuelve a Claude |
+| Fases | Las líneas `##team phase verify` y `##team phase deploy` de stdout mueven el progreso a `deliverVerify` (0 %) o `deliverDeploy` (50 %). Sin ellas queda en `deliverVerify` |
+| Repetición | Debe poder correr dos veces sobre la misma rama |
+
+Respuestas al autor. En verde, la respuesta final es el `summary` de la sesión con «Ya está en producción.» al final de su último párrafo. Debajo va el resto de la salida estructurada, con la referencia bajo «Entrega». Si la verificación falla (código distinto de 0 y de 75) y quedan vueltas de `EXECUTE_DELIVER_RETRIES`, se encola un `execute` nuevo. Su prompt lleva el bloque `delivery_failure` con el final de la salida (6.000 caracteres). Esa pasada continúa desde la rama y no envía primera respuesta. Si termina en `done`, encola otra entrega. Si la entrega falla otra vez, venció el plazo o la lanzó un Editor a mano, la respuesta final es el aviso llano. Dice que no pasó la verificación (o que no terminó a tiempo) y en qué rama queda guardado el trabajo. Lleva `outcome: blocked`. La salida de la orden no se muestra al autor.
+
+La fila de `execute_runs` de la ejecución que entregó recibe `deliver_job_id`, `delivered`, `delivery_ms`, `delivery_ref` (migración 0019) y `final_reply_ms` medido hasta la respuesta de la entrega. El span `execute.deliver` lleva `team.branch`, `team.exit_code`, `team.delivery_ms` y `team.delivery_ref`. `GET /messages/:id/timing` muestra la entrega en curso como la fase del mensaje y, al terminar, como la fase `deliver`. `team mark delivery` sigue valiendo para las instancias sin entrega aparte.
 
 El esquema es `compileOutputSchema` de la plantilla del mensaje (§7.9, H-3723), con `outcome` y `summary` obligatorios. Sin bloque `output`, el esquema exige sólo `summary`. La salida se valida después con el esquema de validación de A4 (`validation: true`). Una plantilla cuya salida no compila falla el trabajo con `template`.
 
@@ -561,7 +585,7 @@ El prompt va por stdin. Sus bloques con nombre:
 | `template` | La plantilla completa |
 | `host_instructions` | El archivo de `EXECUTE_HOST_INSTRUCTIONS`, si está declarado |
 
-Siguen las reglas de trabajo. La sesión paraleliza lo independiente con hasta `EXECUTE_MAX_SUBAGENTS` subagentes a la vez. Trabaja en la rama `tp/<message_id>` y nunca empuja a `main`. Corre las verificaciones del repositorio. Envía dos respuestas: la primera al empezar, con `team reply`. La final es `summary` de la salida estructurada: un par de párrafos sin jerga, dirigidos a quien envió y en su idioma. Después va la salida de `team --help` y, al final, el bloque `host_instructions`, que prima sobre las reglas anteriores. `EXECUTE_HOST_INSTRUCTIONS` es la ruta a un archivo `.md` del anfitrión con sus reglas. Se lee en cada trabajo. Un archivo ausente o ilegible falla el trabajo con `host_instructions_missing`.
+Siguen las reglas de trabajo. La sesión paraleliza lo independiente con hasta `EXECUTE_MAX_SUBAGENTS` subagentes a la vez. Trabaja en la rama `tp/<message_id>` y nunca empuja a `main`. Corre las verificaciones del repositorio. Con `EXECUTE_DELIVER_COMMAND` termina al empujar la rama. El prompt agrega la sección «Delivery» después del bloque `host_instructions`, con precedencia sobre él. Esa sección dice que la entrega la hace el sistema y que la sesión no despliega ni espera un despliegue. El texto de `EXECUTE_HOST_INSTRUCTIONS` sigue siendo del anfitrión. Envía dos respuestas: la primera al empezar, con `team reply`. La final es `summary` de la salida estructurada: un par de párrafos sin jerga, dirigidos a quien envió y en su idioma. Después va la salida de `team --help` y, al final, el bloque `host_instructions`, que prima sobre las reglas anteriores. `EXECUTE_HOST_INSTRUCTIONS` es la ruta a un archivo `.md` del anfitrión con sus reglas. Se lee en cada trabajo. Un archivo ausente o ilegible falla el trabajo con `host_instructions_missing`.
 
 La sesión tiene `team` (`scripts/team.mjs`) en su PATH, autenticado como el agente con `TEAM_URL`, `TEAM_AGENT_EMAIL` y `TEAM_AGENT_SECRET`. Sus órdenes son `show`, `reply`, `progress`, `mark`, `timing` y `close`.
 
@@ -569,7 +593,8 @@ Cada línea NDJSON se traduce en progreso (§7.10). La línea `result` cierra el
 
 | `result` | Efecto |
 |---|---|
-| `structured_output` válido contra el esquema | La respuesta final del agente en el hilo: `summary` y debajo el resto de la salida, cada campo con el rótulo de la plantilla y `outcome` como «Resultado». El trabajo queda `done` |
+| `structured_output` válido contra el esquema, sin entrega aparte | La respuesta final del agente en el hilo: `summary` y debajo el resto de la salida, cada campo con el rótulo de la plantilla y `outcome` como «Resultado». El trabajo queda `done` |
+| `structured_output` válido con `outcome: done` y `EXECUTE_DELIVER_COMMAND` declarada | El trabajo queda `done`, no se publica la respuesta y se encola `deliver` con la salida |
 | Sin `structured_output`, o inválido | `failed` con `invalid_output` y el motivo |
 | `is_error` | `failed` con `execute_error` |
 | Sin línea `result` | `failed` con `execute_no_result` |

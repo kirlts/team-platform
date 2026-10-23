@@ -51,6 +51,9 @@ export const PROGRESS_PHRASES = Object.freeze({
   waiting: both('En espera: cupo de transcripción', 'On hold: transcription quota'),
   budgetWait: both('En espera: tope diario de gasto', 'On hold: daily spend cap'),
   capacityWait: both('En espera: máquina disponible', 'On hold: machine available'),
+  deliverVerify: both('Entrega: verificación', 'Delivery: verification'),
+  deliverDeploy: both('Entrega: despliegue', 'Delivery: deployment'),
+  deliverWait: both('En espera: entrega a producción', 'On hold: delivery to production'),
   retry: both('Intento {n} de {total} fallido; se reintenta', 'Attempt {n} of {total} failed; retrying'),
   done: both('Listo', 'Done'),
   answered: both('Respondido', 'Replied')

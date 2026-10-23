@@ -35,12 +35,30 @@ export function timingOfMessage(db, messageId, { now = Date.now } = {}) {
     first_reply_ms: null, final_reply_ms: null, first_reply_since_message_ms: null, final_reply_since_message_ms: null,
     total_ms: null, queue_wait_ms: null, phases: [], slowest: [], turns: [], tree: null
   };
+  // The delivery that follows the run (UD-263): while it waits or runs it is what the message is doing, and once it ends it is one more phase.
+  const delivery = get(db, "SELECT * FROM jobs WHERE kind = 'deliver' AND message_id = ? AND id > ? ORDER BY id DESC LIMIT 1", messageId, job.id);
+  if (delivery) {
+    const live = delivery.status === 'queued' || delivery.status === 'running';
+    base.deliver = { job_id: String(delivery.id), job_status: delivery.status, phase: delivery.phase ?? null, attempts: delivery.attempts };
+    if (live) {
+      Object.assign(base, { job_status: 'running', phase: delivery.phase ?? 'deliver', elapsed_ms: Math.max(0, now() - (delivery.status === 'running' ? delivery.run_at : delivery.created_at)) });
+    }
+  }
+  const withDelivery = (timing) => {
+    if (!delivery) return timing;
+    const out = { ...timing };
+    if (out.final_reply_ms === null) out.final_reply_ms = get(db, 'SELECT final_reply_ms FROM execute_runs WHERE job_id = ? ORDER BY attempt DESC LIMIT 1', job.id)?.final_reply_ms ?? null;
+    if (delivery.finished_at && delivery.status !== 'cancelled') {
+      out.phases = [...out.phases, { name: 'deliver', duration_ms: Math.max(0, delivery.finished_at - delivery.created_at), offset_ms: null, status: delivery.status === 'done' ? 'ok' : 'error' }];
+    }
+    return out;
+  };
   const trace = traceOfJob(db, job.id);
-  if (!trace) return base;
+  if (!trace) return withDelivery(base);
   const nodes = flatten(trace.roots);
   const attempts = nodes.filter((n) => n.name === 'job' && n.attributes['team.job_id'] === String(job.id));
   const jobSpan = attempts.sort((a, b) => a.attributes['team.attempt'] - b.attributes['team.attempt']).at(-1);
-  if (!jobSpan) return base;
+  if (!jobSpan) return withDelivery(base);
   const exec = jobSpan.children.find((c) => c.name === 'execute') ?? null;
   const inside = exec ? flatten(exec.children) : [];
   const phases = inside
@@ -52,7 +70,7 @@ export function timingOfMessage(db, messageId, { now = Date.now } = {}) {
     input_tokens: e.attributes['gen_ai.usage.input_tokens'], output_tokens: e.attributes['gen_ai.usage.output_tokens'],
     cache_read_tokens: e.attributes['gen_ai.usage.cache_read.input_tokens'] ?? 0, cost_usd: e.attributes['team.turn.cost_usd'] ?? null
   }));
-  return {
+  return withDelivery({
     ...base,
     first_reply_ms: eventMs(jobSpan, 'reply.start', 'team.ms_since_job_start'),
     final_reply_ms: eventMs(jobSpan, 'reply.final', 'team.ms_since_job_start'),
@@ -62,5 +80,5 @@ export function timingOfMessage(db, messageId, { now = Date.now } = {}) {
     queue_wait_ms: round(exec?.attributes['team.queue_wait_ms']),
     phases, slowest, turns,
     tree: exec
-  };
+  });
 }

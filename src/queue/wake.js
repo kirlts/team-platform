@@ -8,5 +8,5 @@ import { EventEmitter } from 'node:events'
 export const queueWake = new EventEmitter()
 queueWake.setMaxListeners(0) // one listener per queue of the process; the tests build many
 
-/** Set by `createQueue` from the configuration: attempts of an `execute` job (EXECUTE_MAX_ATTEMPTS). */
-export const jobDefaults = { executeMaxAttempts: 1 } // UD-255: one attempt, a retry would spend the budget again
+/** Set by `createQueue` from the configuration: attempts of an `execute` job (EXECUTE_MAX_ATTEMPTS) and of a `deliver` job (EXECUTE_DELIVER_MAX_ATTEMPTS). */
+export const jobDefaults = { executeMaxAttempts: 1, deliverMaxAttempts: 2 } // UD-255: one attempt, a retry would spend the budget again; UD-263: two for `deliver`, which is idempotent

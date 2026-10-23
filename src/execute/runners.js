@@ -10,6 +10,8 @@
 //                                        and prints where it left it (a path or an object key) as its last stdout line
 //               EXECUTE_MACHINE_DESTROY  placeholders {job_id} {workdir} {machine}; runs always: after success, failure,
 //                                        timeout or abort, and also when CREATE failed half way
+// The delivery (UD-263) is one more host command, EXECUTE_DELIVER_COMMAND, run by src/execute/deliver.js with the same placeholders
+// plus {message_id} and {branch}.
 // Signals go only to the process group this module started (detached child), never to a parent.
 
 import { spawn } from 'node:child_process'
@@ -20,7 +22,7 @@ export const shellQuote = (v) => `'${String(v).replace(/'/g, "'\\''")}'`
 
 /** Replaces {name} placeholders by their shell-quoted values. */
 export function fillCommand (template, values) {
-  return template.replace(/\{(job_id|workdir|machine)\}/g, (m, k) => (values[k] === undefined ? m : shellQuote(values[k])))
+  return template.replace(/\{(job_id|workdir|machine|message_id|branch)\}/g, (m, k) => (values[k] === undefined ? m : shellQuote(values[k])))
 }
 
 /**

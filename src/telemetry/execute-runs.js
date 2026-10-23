@@ -10,7 +10,7 @@ export const PHASES = ['queue_wait_ms', 'first_reply_ms', 'final_reply_ms', 'tot
 const COLUMNS = [
   'job_id', 'attempt', 'message_id', 'instance', 'trace_id', 'session_id', 'model', 'runner', 'machine', 'started_at', 'finished_at',
   ...PHASES, 'input_tokens', 'output_tokens', 'cache_read_tokens', 'cache_write_tokens', 'cost_usd', 'turns', 'tool_count', 'subagent_count',
-  'outcome', 'error_code', 'delivered', 'transcript_ref', 'slowest_tools_json'
+  'outcome', 'error_code', 'delivered', 'transcript_ref', 'slowest_tools_json', 'deliver_job_id', 'delivery_ref'
 ]
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? Math.round(v * 1e6) / 1e6 : null)
 

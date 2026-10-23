@@ -6,10 +6,10 @@ import { parseJson } from '../db/util.js'
 import { conflict, forbidden, notFound } from '../domain/errors.js'
 import { audit } from '../domain/audit.js'
 import { idIn, idParams } from '../api/schemas.js'
-import { enqueueExecute } from './enqueue.js'
+import { enqueueDeliver, enqueueExecute } from './enqueue.js'
 
 export function registerExecuteRoutes (app, ctx) {
-  const { db, events, queue, requireRole } = ctx
+  const { db, config, events, queue, requireRole } = ctx
 
   app.post('/messages/:id/execute', {
     onRequest: [requireRole('editor')],
@@ -43,6 +43,48 @@ export function registerExecuteRoutes (app, ctx) {
     if (jobIds.length === 0) throw conflict('El agente ya tiene un trabajo en cola o corriendo para este mensaje.', 'execute_busy')
     reply.code(202)
     return { job_ids: jobIds.map(String) }
+  })
+
+  app.post('/messages/:id/deliver', {
+    onRequest: [requireRole('editor')],
+    schema: {
+      summary: 'Encolar la entrega a producción de un mensaje (Editor)',
+      description: 'Corre `EXECUTE_DELIVER_COMMAND` sobre la rama `tp/<id>` del mensaje, sin IA (UD-263). Al terminar bien, el agente publica su respuesta final con «Ya está en producción»; si falla, el aviso llano con `outcome: blocked`. Responde 202 con el trabajo creado. 409 `deliver_not_configured` si la instancia no declara la orden, 409 `execute_busy` si el mensaje tiene un trabajo `execute` en cola o corriendo, 409 `deliver_busy` si ya tiene una entrega, 409 `no_agent_assignee` si no hay un agente activo que responda, 409 `message_closed` si está cerrado.',
+      params: idParams(),
+      response: { 202: { type: 'object', properties: { job_id: { type: 'string' } } } }
+    }
+  }, async (request, reply) => {
+    const messageId = request.params.id
+    if (!config.execute.deliverCommand) throw conflict('Esta instancia no declara la orden de entrega a producción.', 'deliver_not_configured')
+    const message = get(db, 'SELECT id, status FROM messages WHERE id = ? AND deleted_at IS NULL', messageId)
+    if (!message) throw notFound('El mensaje no existe.')
+    if (message.status === 'closed') throw conflict('El mensaje está cerrado. Hay que reabrirlo para entregarlo.', 'message_closed')
+    if (get(db, "SELECT id FROM jobs WHERE kind = 'execute' AND message_id = ? AND status IN ('queued', 'running')", messageId)) throw conflict('El mensaje tiene un trabajo en cola o corriendo; la entrega espera a que termine.', 'execute_busy')
+    // The agent that answers is the one of the last job of the message; without one, the only active agent among its assignees.
+    const last = get(db, "SELECT payload_json FROM jobs WHERE kind IN ('execute', 'deliver') AND message_id = ? ORDER BY id DESC LIMIT 1", messageId)
+    let memberId = parseJson(last?.payload_json, {}).member_id ?? null
+    if (memberId !== null && !get(db, "SELECT id FROM members WHERE id = ? AND kind = 'agent' AND active = 1", memberId)) memberId = null
+    if (memberId === null) {
+      memberId = get(db, `SELECT m.id FROM message_assignees a JOIN members m ON m.id = a.member_id
+                          WHERE a.message_id = ? AND m.kind = 'agent' AND m.active = 1 ORDER BY m.id LIMIT 1`, messageId)?.id ?? null
+    }
+    if (memberId === null) throw conflict('El mensaje no tiene un agente asignado.', 'no_agent_assignee')
+    // What the session said is kept by the last delivery of the message, so the reply that closes it carries the same summary.
+    const kept = parseJson(get(db, "SELECT payload_json FROM jobs WHERE kind = 'deliver' AND message_id = ? AND json_extract(payload_json, '$.output') IS NOT NULL ORDER BY id DESC LIMIT 1", messageId)?.payload_json, {})
+    const jobId = events.transaction(() => {
+      const id = enqueueDeliver(db, {
+        messageId,
+        payload: {
+          member_id: memberId, branch: `tp/${messageId}`, round: 0, output: kept.output ?? null,
+          execute_job_id: kept.execute_job_id ?? null, execute_attempt: kept.execute_attempt ?? null, requested_by: request.member.id
+        }
+      })
+      if (id !== null) audit(db, { memberId: request.member.id, action: 'message.deliver', entity: 'message', entityId: messageId, detail: { job_id: id } })
+      return id
+    })
+    if (jobId === null) throw conflict('La entrega de este mensaje ya está en curso.', 'deliver_busy')
+    reply.code(202)
+    return { job_id: String(jobId) }
   })
 
   app.post('/jobs/:id/progress', {

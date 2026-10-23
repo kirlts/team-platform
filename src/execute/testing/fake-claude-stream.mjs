@@ -18,7 +18,8 @@ process.stdin.on('end', () => {
   // The session file Claude Code leaves under ~/.claude/projects/<dir>/<session>.jsonl (what EXECUTE_MACHINE_COLLECT copies).
   if (state) { mkdirSync(`${state}/projects/-job`, { recursive: true }); writeFileSync(`${state}/projects/-job/${sessionId}.jsonl`, `${JSON.stringify({ type: 'user', session_id: sessionId })}\n`) }
   if (mode === 'exit') { process.stderr.write('session not started'); process.exit(3) }
-  if (process.env.FAKE_EXECUTE_REPLY === '1') {
+  // A second pass after a failed delivery carries <delivery_failure> and, as the prompt says, sends no first reply (UD-263).
+  if (process.env.FAKE_EXECUTE_REPLY === '1' && !stdin.includes('<delivery_failure>')) {
     execFileSync('team', ['reply', team.TEAM_MESSAGE_ID, '--body', 'Recibido. Empiezo por leer la pantalla.'], { stdio: 'inherit' })
     execFileSync('team', ['progress', team.TEAM_JOB_ID, '--percent', '20', '--phrase', 'Revisión de la pantalla'], { stdio: 'inherit' })
   }

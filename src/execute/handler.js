@@ -3,6 +3,10 @@
 // job: a valid `structured_output` becomes the closing reply (its `summary`, then the rest of the declared output); no
 // structured output, an error result or an invalid one fail the job with the reason. `session_id` and `total_cost_usd`
 // stay on the `execute` span of the job's trace.
+//
+// With EXECUTE_DELIVER_COMMAND declared (UD-263) the session ends at the push of the branch: when the output says `outcome: done` and the
+// branch exists, the closing reply is not posted yet. The job enqueues a `deliver` job (src/execute/deliver.js) that carries the output and
+// posts the one closing reply when the delivery ends. Without the command everything above stays as it was.
 
 import { execFile } from 'node:child_process'
 import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
@@ -22,6 +26,7 @@ import { currentTraceparent, recordGenAiCall, withSpan } from '../telemetry/api.
 import { instanceLabel, recordExecuteRun, updateExecuteRun } from '../telemetry/execute-runs.js'
 import { readAgentSecret } from './agent-credentials.js'
 import { buildExecutePrompt, declaredOutput, finalSchema, readTemplate } from './prompt.js'
+import { enqueueDeliver } from './enqueue.js'
 import { runLocal, runMachine } from './runners.js'
 import { createSessionTracer } from './session-spans.js'
 import { createStreamReader } from './stream.js'
@@ -68,9 +73,9 @@ export function claudeArgs (x, schema) {
  * Renders the rest of the structured output (everything but `summary`) under the summary, each entry with the label the
  * template declares (`outcome` as «Resultado», as the panel shows it).
  */
-export function replyBody (output, template = null) {
+export function replyBody (output, template = null, extraLabels = {}) {
   const { summary, ...rest } = output
-  const labels = { outcome: 'Resultado', ...Object.fromEntries((template?.output ?? []).map((e) => [e.name, e.label ?? e.name])) }
+  const labels = { outcome: 'Resultado', ...Object.fromEntries((template?.output ?? []).map((e) => [e.name, e.label ?? e.name])), ...extraLabels }
   const lines = Object.entries(rest).filter(([, v]) => v !== null && v !== undefined && v !== '')
     .map(([k, v]) => `**${labels[k] ?? k}**: ${typeof v === 'string' ? v : `\n\n\`\`\`json\n${JSON.stringify(v, null, 2)}\n\`\`\``}`)
   return lines.length ? `${summary.trim()}\n\n${lines.join('\n\n')}` : summary.trim()
@@ -80,7 +85,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
   const x = config.execute
   const ajv = new Ajv({ allErrors: true, strict: false })
 
-  async function prepareWorkdir (job, messageId) {
+  async function prepareWorkdir (job, messageId, resume = false) {
     const root = x.workRoot || config.tmpDir
     await mkdir(root, { recursive: true })
     const workdir = await mkdtemp(join(root, `execute-${job.id}-`))
@@ -92,7 +97,8 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     let worktree = null
     if (x.runner === 'local' && x.repoDir) {
       worktree = join(workdir, 'repo')
-      await run('git', ['-C', x.repoDir, 'worktree', 'add', '-B', `tp/${messageId}`, worktree])
+      // A second pass after a failed delivery continues from the branch the first one left; a first pass starts it from HEAD.
+      await run('git', ['-C', x.repoDir, 'worktree', 'add', ...(resume ? [worktree, `tp/${messageId}`] : ['-B', `tp/${messageId}`, worktree])])
       cwd = worktree
     }
     return { workdir, cwd, worktree }
@@ -102,6 +108,17 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     // The branch stays for a person to deliver (UD-254 point 6); only the worktree and the job dir go.
     if (worktree) await run('git', ['-C', x.repoDir, 'worktree', 'remove', '--force', worktree]).catch((e) => logger?.warn({ err: e }, 'could not remove the execute worktree'))
     await rm(workdir, { recursive: true, force: true })
+  }
+
+  /**
+   * Whether the branch of the job exists, so a delivery has something to deliver. With the host repository here (EXECUTE_REPO_DIR) it is
+   * looked up locally and then on `origin`; without it the delivery command is the one that finds the branch and says if it is missing.
+   */
+  async function branchExists (branch) {
+    if (!x.repoDir) return true
+    const git = (...args) => run('git', ['-C', x.repoDir, ...args], { timeout: x.deliverTimeoutMs })
+    try { await git('rev-parse', '--verify', '--quiet', `refs/heads/${branch}`); return true } catch { /* not a local branch */ }
+    try { await git('ls-remote', '--exit-code', '--heads', 'origin', branch); return true } catch { return false }
   }
 
   const liveMachines = new Set() // the jobs of this process that hold a machine; EXECUTE_MAX_MACHINES bounds it
@@ -148,7 +165,9 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
   }
 
   async function runJob (job, ctx, rec) {
-    const { message_id: messageId, member_id: memberId } = parseJson(job.payload_json, {})
+    const payload = parseJson(job.payload_json, {})
+    const { message_id: messageId, member_id: memberId } = payload
+    const deliverFailure = payload.deliver_failure ?? null // set when this pass follows a delivery that failed (UD-263)
     const jobSpan = trace.getActiveSpan() // the `job` span of this attempt: `reply.start` and `reply.final` are events on it (UD-262)
     const startedAt = rec.startedAt
     const msSince = (t) => Math.max(0, t - startedAt)
@@ -177,7 +196,8 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const branch = `tp/${messageId}`
     const prompt = buildExecutePrompt({
       message: { id: messageId, title: message.title, body: message.body, fields: parseJson(message.fields_json, {}), area: message.area_title, status: message.status },
-      template: templateRow, author, agent, project: getProject(db, config), jobId: job.id, maxSubagents: x.maxSubagents, branch, hostInstructions
+      template: templateRow, author, agent, project: getProject(db, config), jobId: job.id, maxSubagents: x.maxSubagents, branch, hostInstructions,
+      deliver: Boolean(x.deliverCommand), deliverFailure
     })
     // The host's machine quota is a fact of the host (2026-10-22: a region of 8 cores held two machines of 4 and 21 jobs failed for good with
     // «quota exceeded»). Over EXECUTE_MAX_MACHINES the job waits, without spending its attempt and without cost.
@@ -199,7 +219,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     })
     queue.progress(job, 0, x.runner === 'machine' ? 'Creando la máquina' : 'Preparando la sesión')
 
-    const dirs = await prepareWorkdir(job, messageId)
+    const dirs = await prepareWorkdir(job, messageId, deliverFailure !== null)
     const teamUrl = x.teamUrl || `http://127.0.0.1:${config.port}`
     const sessionEnv = {
       TEAM_URL: teamUrl, TEAM_API_PREFIX: config.apiPrefix, TEAM_AGENT_EMAIL: agent.email, TEAM_AGENT_SECRET: secret,
@@ -289,8 +309,27 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       throw permanent(`La salida estructurada no cumple el formato: ${ajv.errorsText(validate.errors).slice(0, 300)}`, 'invalid_output')
     }
     const body = replyBody(result.structured_output, template)
+    const output = result.structured_output
+    const hands = Boolean(x.deliverCommand) && output.outcome === 'done' && await branchExists(branch)
 
     return () => {
+      if (hands) {
+        // The delivery is the next job: it posts the closing reply when it ends (UD-263). A delivery already queued or running for the message
+        // (an Editor started it by hand) leaves nothing to hand over, and the reply goes out now.
+        const deliverJobId = enqueueDeliver(db, {
+          messageId, now,
+          payload: { member_id: memberId, branch, round: payload.deliver_round ?? 0, output, execute_job_id: job.id, execute_attempt: job.attempts, requested_by: null }
+        })
+        if (deliverJobId !== null) {
+          rec.deliverJobId = deliverJobId
+          events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: step('done'), data: { message_id: messageId } })
+          events.publishForJob(job.id, {
+            kind: 'done',
+            data: { status: 'done', message_id: String(messageId), reply_id: null, deliver_job_id: String(deliverJobId), session_id: outcome.st.sessionId, cost_usd: result.total_cost_usd ?? null }
+          })
+          return
+        }
+      }
       // Inside the transaction that closes the job: the closing reply, then the end of the progress.
       const { replyId } = addReply({ db, events, now }, { messageId, authorId: agent.id, body, kind: 'answer' })
       const finalAt = now()
@@ -340,7 +379,10 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       }
       return () => {
         finalize()
-        try { if (rec.finalReplyMs !== null) updateExecuteRun(db, job.id, job.attempts, { final_reply_ms: rec.finalReplyMs, total_ms: rec.finalReplyMs }) } catch (e) { logger?.warn({ err: e }, 'could not update the execute run') }
+        try {
+          if (rec.finalReplyMs !== null) updateExecuteRun(db, job.id, job.attempts, { final_reply_ms: rec.finalReplyMs, total_ms: rec.finalReplyMs })
+          else if (rec.deliverJobId) updateExecuteRun(db, job.id, job.attempts, { deliver_job_id: rec.deliverJobId }) // the delivery fills the rest when it ends
+        } catch (e) { logger?.warn({ err: e }, 'could not update the execute run') }
       }
     },
 

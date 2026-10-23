@@ -52,6 +52,18 @@ function errorMessageFrom(body, status) {
   return `HTTP ${status}`;
 }
 
+function httpError(response, json, text, { provider, model, duration_ms, secrets }) {
+  return new ProviderHttpError(redactSecrets(`${provider}: ${errorMessageFrom(json, response.status)}`, secrets), {
+    provider,
+    model,
+    duration_ms,
+    status: response.status,
+    retryable: isRetryableStatus(response.status),
+    retryAfterMs: parseRetryAfter(response.headers),
+    body: redactSecrets(json ?? text.slice(0, 2000), secrets),
+  });
+}
+
 /**
  * POST and read the response as JSON. Throws ProviderHttpError or ProviderTimeoutError.
  * @returns {Promise<{status: number, json: any, headers: Headers, duration_ms: number}>}
@@ -84,17 +96,7 @@ export async function postRequest(url, { headers, body, timeoutMs = DEFAULT_TIME
   } catch {
     json = null;
   }
-  if (!response.ok) {
-    throw new ProviderHttpError(redactSecrets(`${provider}: ${errorMessageFrom(json, response.status)}`, secrets), {
-      provider,
-      model,
-      duration_ms,
-      status: response.status,
-      retryable: isRetryableStatus(response.status),
-      retryAfterMs: parseRetryAfter(response.headers),
-      body: redactSecrets(json ?? text.slice(0, 2000), secrets),
-    });
-  }
+  if (!response.ok) throw httpError(response, json, text, { provider, model, duration_ms, secrets });
   return { status: response.status, json, headers: response.headers, duration_ms, raw: text };
 }
 
@@ -119,4 +121,103 @@ export function systemBlocks(system) {
   if (system === undefined || system === null) return [];
   const list = Array.isArray(system) ? system : [system];
   return list.map((s) => String(s)).filter((s) => s.length > 0);
+}
+
+// Status of an `error` event inside a stream: the HTTP status the same failure would have had before the stream started.
+const STREAM_ERROR_STATUS = Object.freeze({ overloaded_error: 529, api_error: 500, rate_limit_error: 429, timeout_error: 408, invalid_request_error: 400 });
+
+/** Server-sent events of a response body: `{ event, data }` objects, with `data` already parsed. */
+export async function* readSse(body) {
+  const decoder = new TextDecoder();
+  let buffer = '';
+  const take = function* (final) {
+    for (;;) {
+      const match = /\r?\n\r?\n/.exec(buffer);
+      if (!match && !(final && buffer.trim())) return;
+      const raw = match ? buffer.slice(0, match.index) : buffer;
+      buffer = match ? buffer.slice(match.index + match[0].length) : '';
+      const lines = raw.split(/\r?\n/);
+      const event = lines.find((l) => l.startsWith('event:'))?.slice(6).trim();
+      const data = lines.filter((l) => l.startsWith('data:')).map((l) => l.slice(5).replace(/^ /, '')).join('\n');
+      if (!data) continue;
+      let parsed;
+      try { parsed = JSON.parse(data); } catch { continue; }
+      yield { event: event ?? parsed.type, data: parsed };
+    }
+  };
+  for await (const chunk of body) {
+    buffer += decoder.decode(chunk, { stream: true });
+    yield* take(false);
+  }
+  buffer += decoder.decode();
+  yield* take(true);
+}
+
+/**
+ * POST a Messages request with `stream: true` and fold the events into the same object the non-streaming response has
+ * (`content` text blocks, `usage`, `stop_reason`, `stop_details`), so the caller reads both alike. `onStart` runs at
+ * `message_start`: the moment the API has read the prompt, the cache entry exists and a parallel call can read it (the API
+ * documents that an entry is available only after the first response starts; measured in `bench/cache-probe.mjs`).
+ * Throws ProviderHttpError or ProviderTimeoutError like `postRequest`; an `error` event is an HTTP error with the status
+ * the same failure has outside a stream.
+ * @returns {Promise<{status: number, json: any, headers: Headers, duration_ms: number}>}
+ */
+export async function postStream(url, { headers, body, timeoutMs = DEFAULT_TIMEOUT_MS, fetchImpl = fetch, provider, model, onStart }) {
+  const started = performance.now();
+  const secrets = secretsOfHeaders(headers);
+  const elapsed = () => Math.round(performance.now() - started);
+  const fail = (cause) => {
+    if (cause instanceof ProviderHttpError || cause instanceof ProviderTimeoutError) return cause;
+    if (cause?.name === 'TimeoutError' || cause?.name === 'AbortError') {
+      return new ProviderTimeoutError(`${provider}: la llamada superó ${timeoutMs} ms`, { provider, model, duration_ms: elapsed(), timeoutMs, cause });
+    }
+    return new ProviderHttpError(redactSecrets(`${provider}: fallo de red (${cause?.message ?? cause})`, secrets), {
+      provider, model, duration_ms: elapsed(), status: 0, retryable: true, cause,
+    });
+  };
+  let response;
+  try {
+    response = await fetchImpl(url, { method: 'POST', headers, body, signal: AbortSignal.timeout(timeoutMs) });
+  } catch (cause) {
+    throw fail(cause);
+  }
+  if (!response.ok) {
+    const text = await response.text();
+    let json = null;
+    try { json = text ? JSON.parse(text) : null; } catch { json = null; }
+    throw httpError(response, json, text, { provider, model, duration_ms: elapsed(), secrets });
+  }
+  const message = { content: [], usage: {}, stop_reason: null };
+  let sawStop = false;
+  try {
+    for await (const { event, data } of readSse(response.body)) {
+      if (event === 'message_start') {
+        Object.assign(message, data.message, { content: [] });
+        message.usage = { ...(data.message?.usage ?? {}) };
+        onStart?.();
+      } else if (event === 'content_block_start') {
+        message.content[data.index] = { ...data.content_block };
+      } else if (event === 'content_block_delta') {
+        const block = message.content[data.index];
+        if (block && data.delta?.type === 'text_delta') block.text = (block.text ?? '') + data.delta.text;
+      } else if (event === 'message_delta') {
+        if (data.delta?.stop_reason !== undefined) message.stop_reason = data.delta.stop_reason;
+        if (data.delta?.stop_details !== undefined) message.stop_details = data.delta.stop_details;
+        for (const [k, v] of Object.entries(data.usage ?? {})) if (v !== null && v !== undefined) message.usage[k] = v;
+      } else if (event === 'message_stop') {
+        sawStop = true;
+      } else if (event === 'error') {
+        const type = data.error?.type;
+        const status = STREAM_ERROR_STATUS[type] ?? 500;
+        throw new ProviderHttpError(redactSecrets(`${provider}: ${data.error?.message ?? type ?? 'error en el flujo'}`, secrets), {
+          provider, model, duration_ms: elapsed(), status, retryable: isRetryableStatus(status), body: redactSecrets(data, secrets),
+        });
+      }
+    }
+  } catch (cause) {
+    throw fail(cause);
+  }
+  if (!sawStop) throw fail(new Error('el flujo terminó sin message_stop'));
+  message.content = message.content.filter(Boolean);
+  return { status: response.status, json: message, headers: response.headers, duration_ms: elapsed(), raw: null };
 }

@@ -139,6 +139,7 @@ function buildModelClient(env, prefix, { inheritPrefix, timeoutMs, limits, conne
         model: plan.model,
         baseUrl: pick(env, prefix, 'BASE_URL', env[`${prefix}_PROVIDER`] ? undefined : inheritPrefix),
         cacheTtl: env.ANTHROPIC_CACHE_TTL || undefined,
+        cacheWarmup: env.ANTHROPIC_CACHE_WARMUP === 'off' ? false : undefined,
         thinking: env.ANTHROPIC_THINKING === 'disabled' ? 'disabled' : undefined,
         timeoutMs,
         limiter: limiterFor('anthropic', limits),

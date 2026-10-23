@@ -139,7 +139,7 @@ test('judge: spread keeps order and takes evenly; shuffle is a repeatable permut
 
 test('pricing: Sonnet 5.5 is priced per the model list', () => {
   const usd = costOf({ model: 'claude-sonnet-5-5', usage: { input_tokens: 1_000_000, output_tokens: 1_000_000, cached_tokens: 1_000_000 } });
-  assert.equal(Number(usd.toFixed(6)), 12.2);
+  assert.equal(Number(usd.toFixed(6)), 12.1); // 2 input + 10 output + 0.1 cache read per million (corrected 2026-10-23: the cache read is 0.10, not 0.20)
 });
 
 test('wilson: known values, bounds and the empty case', async () => {

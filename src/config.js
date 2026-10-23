@@ -41,12 +41,12 @@ function textValue (env, nameValue, fallback = '') {
  * EXECUTE_OTEL_ENV (UD-262): KEY=VALUE pairs separated by whitespace, split at the first `=`. A key must be an
  * environment variable name and may not start with TEAM_ (those carry the agent secret). Values cannot hold spaces.
  */
-export function otelPairs (raw) {
+export function otelPairs (raw, name = 'EXECUTE_OTEL_ENV') {
   const out = {}
   for (const pair of String(raw ?? '').split(/\s+/).filter(Boolean)) {
     const i = pair.indexOf('=')
     const key = i > 0 ? pair.slice(0, i) : ''
-    if (!/^[A-Z][A-Z0-9_]*$/.test(key) || key.startsWith('TEAM_') || key === 'TRACEPARENT') throw new Error(`EXECUTE_OTEL_ENV: «${pair.slice(0, 40)}» no es un par CLAVE=valor válido.`)
+    if (!/^[A-Z][A-Z0-9_]*$/.test(key) || key.startsWith('TEAM_') || key === 'TRACEPARENT') throw new Error(`${name}: «${pair.slice(0, 40)}» no es un par CLAVE=valor válido.`)
     out[key] = pair.slice(i + 1)
   }
   return out
@@ -358,6 +358,11 @@ export function loadConfig (env = process.env, overrides = {}) {
       deliverRetries: intVar(env, 'EXECUTE_DELIVER_RETRIES', 1, { min: 0 }), // UD-263: a failed verification returns to Claude once; a second failure is reported
       // UD-263: the command is idempotent by contract, so a delivery whose worker died runs once more; exit 75 never spends an attempt.
       deliverMaxAttempts: intVar(env, 'EXECUTE_DELIVER_MAX_ATTEMPTS', 2, { min: 1 }),
+      // Measurement 2026-10-23-tokens-y-cache.md: any other variable of the session (CLAUDE_CODE_PROMPT_CACHE_TTL=1h, CLAUDE_CODE_DISABLE_CLAUDE_MDS=1…), same format.
+      sessionEnv: otelPairs(env.EXECUTE_SESSION_ENV, 'EXECUTE_SESSION_ENV'),
+      // Measurement 2026-10-23-tokens-y-cache.md: the part of the prompt that is the same for every job goes in `--append-system-prompt-file`, which the API caches
+      // across sessions; in the user message it is written again by each session (measured 2026-10-23, 2026-10-23-tokens-y-cache.md).
+      stableAsSystem: boolVar(env, 'EXECUTE_STABLE_AS_SYSTEM', false),
       otelEnv: otelPairs(env.EXECUTE_OTEL_ENV) // UD-262: KEY=VALUE pairs given to `claude -p` for its own telemetry (CLAUDE_CODE_ENABLE_TELEMETRY, OTEL_*)
     },
 

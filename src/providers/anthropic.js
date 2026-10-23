@@ -17,10 +17,11 @@ import {
   ProviderOutputError,
   ProviderRefusalError,
 } from './errors.js';
-import { DEFAULT_TIMEOUT_MS, partToBase64, postRequest, systemBlocks, toParts } from './http.js';
-import { limiterFor } from './limiter.js';
-import { resolveThinkingAndEffort } from './anthropic-models.js';
-import { withGenAiCall } from '../telemetry/api.js';
+import { DEFAULT_TIMEOUT_MS, partToBase64, postRequest, postStream, systemBlocks, toParts } from './http.js';
+import { currentJobScope, limiterFor } from './limiter.js';
+import { minCacheableTokens, resolveThinkingAndEffort } from './anthropic-models.js';
+import { prefixKey, processCacheWarmup } from './cache-warmup.js';
+import { annotate, withGenAiCall } from '../telemetry/api.js';
 
 export const ANTHROPIC_DEFAULTS = Object.freeze({
   baseUrl: 'https://api.anthropic.com',
@@ -31,7 +32,18 @@ export const ANTHROPIC_DEFAULTS = Object.freeze({
   maxTokens: 16_000,
   // Prompt cache lifetime: 5 minutes by default, 1 hour if the measured hit rate is low (report 02 §10.2 [F2]).
   cacheTtl: '5m',
+  // Parallel calls with the same prefix: the first one opens a stream and the others leave when its response starts, so they read
+  // the cache entry instead of writing it again (src/providers/cache-warmup.js; bench/cache-probe.mjs, 2026-10-23).
+  cacheWarmup: true,
+  // Longest wait of a follower for its leader. A leader answers its first event in 1.2 to 1.9 s (same probe); this is about ten times
+  // that, so a leader that hangs delays the others by no more than this before they go as they did before.
+  cacheWarmupMaxWaitMs: 15_000,
+  // Characters per token to decide, before sending, whether the system prompt reaches the cacheable minimum (the analyzer uses the
+  // same 3, `charsPerToken` of src/analyze/config.js).
+  charsPerToken: 3,
 });
+
+const TTL_MS = Object.freeze({ '5m': 5 * 60_000, '1h': 60 * 60_000 });
 
 const EFFORTS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 
@@ -76,6 +88,8 @@ async function toAnthropicContent(content, provider) {
  * @param {number} [cfg.maxTokens] default for `complete`
  * @param {typeof fetch} [cfg.fetchImpl]
  * @param {ReturnType<typeof import('./limiter.js').createLimiter>} [cfg.limiter] default: the process-wide one of Anthropic
+ * @param {boolean} [cfg.cacheWarmup] default true; false sends parallel calls with the same prefix all at once, as before
+ * @param {ReturnType<typeof import('./cache-warmup.js').createCacheWarmup>} [cfg.warmup] default: the process-wide one
  */
 export function createAnthropicClient(cfg) {
   if (!cfg?.apiKey) throw new ProviderConfigError('anthropic: falta la llave (ANTHROPIC_API_KEY)', { provider: 'anthropic' });
@@ -87,6 +101,8 @@ export function createAnthropicClient(cfg) {
   const provider = 'anthropic';
   // The simultaneous requests of the whole process to this provider (limiter.js, H-83).
   const limiter = cfg.limiter ?? limiterFor(provider);
+  const warmup = cfg.cacheWarmup === false ? null : cfg.warmup ?? processCacheWarmup;
+  const charsPerToken = cfg.charsPerToken ?? ANTHROPIC_DEFAULTS.charsPerToken;
 
   // One span per call with the full input and output (UD-014, MASTER-SPEC §7.10 bis).
   const call = (req, modality = 'text') =>
@@ -117,19 +133,38 @@ export function createAnthropicClient(cfg) {
     if (resolved.effort) outputConfig.effort = resolved.effort;
     if (Object.keys(outputConfig).length > 0) body.output_config = outputConfig;
 
+    // Parallel calls with the same prefix: the first (leader) streams and the rest wait for its first event, then read the cache.
+    // Only when the system prompt reaches the model's cacheable minimum; below it nothing is cached and nothing is worth waiting for.
+    const systemChars = (body.system ?? []).reduce((n, block) => n + block.text.length, 0);
+    const callTtl = callCacheTtl ?? cacheTtl;
+    const turn = warmup && systemChars >= minCacheableTokens(model) * charsPerToken
+      ? await warmup.enter(prefixKey(body), { signal: currentJobScope()?.signal, maxWaitMs: cfg.cacheWarmupMaxWaitMs ?? ANTHROPIC_DEFAULTS.cacheWarmupMaxWaitMs })
+      : null;
+    if (turn) annotate({ 'team.cache.role': turn.role, 'team.cache.wait_ms': turn.waitedMs });
+
     // The slot is held only around the request: the body above is already built.
-    const res = await limiter.run(() => postRequest(`${baseUrl}/v1/messages`, {
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': cfg.apiKey,
-        'anthropic-version': cfg.apiVersion ?? ANTHROPIC_DEFAULTS.apiVersion,
-      },
-      body: JSON.stringify(body),
-      timeoutMs,
-      fetchImpl: cfg.fetchImpl,
-      provider,
-      model,
-    }));
+    let res;
+    try {
+      res = await limiter.run(() => {
+        const request = {
+          headers: {
+            'content-type': 'application/json',
+            'x-api-key': cfg.apiKey,
+            'anthropic-version': cfg.apiVersion ?? ANTHROPIC_DEFAULTS.apiVersion,
+          },
+          timeoutMs,
+          fetchImpl: cfg.fetchImpl,
+          provider,
+          model,
+        };
+        const url = `${baseUrl}/v1/messages`;
+        return turn?.role === 'leader'
+          ? postStream(url, { ...request, body: JSON.stringify({ ...body, stream: true }), onStart: () => turn.started(TTL_MS[callTtl] ?? TTL_MS['5m']) })
+          : postRequest(url, { ...request, body: JSON.stringify(body) });
+      });
+    } finally {
+      turn?.finish();
+    }
 
     const msg = res.json ?? {};
     const u = msg.usage ?? {};

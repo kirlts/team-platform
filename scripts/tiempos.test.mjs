@@ -42,7 +42,7 @@ test('--ultimos prints a table of the latest runs of this instance, newest first
   assert.doesNotMatch(r.out, /\b31\b/)
 })
 
-test('--mensaje shows the detail of the runs of one message', () => {
+test('--message shows the detail of the runs of one message', () => {
   const r = runTiempos(['--mensaje', '40'], env)
   assert.equal(r.code, 0, r.err)
   assert.match(r.out, /trabajo 2, intento 1, mensaje 40/)
@@ -54,7 +54,7 @@ test('--mensaje shows the detail of the runs of one message', () => {
   assert.match(runTiempos(['--mensaje', '31'], env).out, /Sin ejecuciones del mensaje 31 de la instancia esta\.example/, 'a message of another instance is not shown')
 })
 
-test('--resumen gives the figures of the period and --desde narrows it', () => {
+test('--summary gives the figures of the period and --since narrows it', () => {
   const r = runTiempos(['--resumen'], env)
   assert.equal(r.code, 0, r.err)
   assert.match(r.out, /Ejecuciones: 3 de la instancia esta\.example .* con error: 1/)

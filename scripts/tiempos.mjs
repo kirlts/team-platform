@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// `tiempos`: lee el historial de ejecuciones del harness (tabla `execute_runs`, UD-262) sin sesión ni credenciales de la
-// API. Abre la base en SOLO LECTURA: DB_PATH, o DATA_DIR/team.db (en el contenedor, DATA_DIR=/data).
+// `tiempos`: reads the history of harness runs (table `execute_runs`, UD-262) with no session and no API credentials.
+// Opens the database READ-ONLY: DB_PATH, or DATA_DIR/team.db (inside the container DATA_DIR=/data).
 //   docker exec <contenedor> node scripts/tiempos.mjs --resumen
-// Con una copia de la base: DATA_DIR=/ruta/a/la/copia node scripts/tiempos.mjs --ultimos 20
+// With a copy of the database: DATA_DIR=/path/to/the/copy node scripts/tiempos.mjs --ultimos 20
 
 import { existsSync } from 'node:fs'
 import path from 'node:path'
@@ -51,7 +51,7 @@ const fecha = (ms) => {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
-/** Tabla de texto: `cols` = [{ title, get, right }]. */
+/** Text table: `cols` = [{ title, get, right }]. */
 function tabla (rows, cols) {
   const cells = rows.map((r) => cols.map((c) => String(c.get(r))))
   const widths = cols.map((c, i) => Math.max(c.title.length, ...cells.map((row) => row[i].length)))
@@ -136,7 +136,7 @@ export function dbPath (env) {
   return env.DB_PATH ? path.resolve(env.DB_PATH) : path.join(path.resolve(env.DATA_DIR ?? '/data'), 'team.db')
 }
 
-/** Ejecuta una consulta y devuelve { code, out, err } en vez de salir, para probarla sin proceso. */
+/** Runs a query and returns { code, out, err } instead of exiting, so it can be tested without a process. */
 export function runTiempos (argv, env = process.env) {
   let o
   try { o = parseArgs(argv) } catch (e) { return { code: 1, out: '', err: `tiempos: ${e.message}\n\n${AYUDA}` } }

@@ -280,6 +280,22 @@ describe('execute job', () => {
     })
   }
 
+  it('a failed job leaves the author a closing reply in plain words, never the internal code', async () => {
+    process.env.FAKE_EXECUTE_MODE = 'exit'
+    process.env.FAKE_EXECUTE_REPLY = '0'
+    startWorker()
+    const messageId = env.db.prepare('SELECT id FROM messages ORDER BY id LIMIT 1').get().id
+    const id = Number((await env.app.inject({ method: 'POST', url: `/api/messages/${messageId}/execute`, headers: cookieHeaders(editor) })).json().job_ids[0])
+    assert.equal((await waitJob(id)).status, 'failed')
+    const replies = env.db.prepare('SELECT body, author_id FROM replies WHERE message_id = ? ORDER BY id').all(messageId)
+    const last = replies.at(-1)
+    assert.equal(String(last.author_id), String(agentId))
+    assert.match(last.body, /No pude terminar este trabajo por un problema del sistema\./)
+    assert.match(last.body, /todavía no está en producción/)
+    assert.match(last.body, /\*\*Resultado\*\*: blocked$/)
+    assert.doesNotMatch(last.body, /execute_no_result|código 3/, 'the internal reason stays in the job, not in the reply')
+  })
+
   it('the progress endpoint belongs to the agent of the job', async () => {
     const id = env.db.prepare("SELECT id FROM jobs WHERE kind = 'execute' ORDER BY id LIMIT 1").get().id
     const res = await env.app.inject({ method: 'POST', url: `/api/jobs/${id}/progress`, headers: cookieHeaders(author), payload: { percent: 10, phrase: 'x' } })
@@ -396,6 +412,9 @@ describe('execute job', () => {
       assert.equal(job.status, 'failed')
       assert.match(job.last_error, /tiempo máximo/)
       assert.deepEqual(lines(), [`create ${id}`, `run vm-${id}`, `destroy vm-${id}`])
+      const messageId = JSON.parse(job.payload_json).message_id
+      const last = env.db.prepare('SELECT body FROM replies WHERE message_id = ? ORDER BY id DESC LIMIT 1').get(messageId)
+      assert.match(last.body, /No alcancé a terminar dentro del tiempo máximo \(1 min\)/)
     })
   })
 

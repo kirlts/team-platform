@@ -103,6 +103,25 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     await rm(workdir, { recursive: true, force: true })
   }
 
+  /**
+   * A job that fails (time limit, machine, session without result) leaves the author without an answer: the first reply said «Recibido» and
+   * nothing came after (2026-10-22, message 3 ran out of its hour inside the delivery). The agent leaves a closing reply in plain words, never
+   * the internal code; a closed message or a deleted one has nobody to tell.
+   */
+  function tellTheAuthor (job, messageId, error) {
+    try {
+      const { member_id: memberId } = parseJson(job.payload_json, {})
+      if (!messageId || !memberId) return
+      const reason = error?.code === 'execute_timeout'
+        ? `No alcancé a terminar dentro del tiempo máximo (${Math.max(1, Math.round(x.timeoutMs / 60000))} min) y la sesión se cerró.`
+        : 'No pude terminar este trabajo por un problema del sistema.'
+      const body = `${reason} Lo que alcancé a hacer queda guardado y todavía no está en producción. Un Editor puede volver a lanzarlo desde la ficha del mensaje.\n\n**Resultado**: blocked`
+      addReply({ db, events, now }, { messageId, authorId: memberId, body, kind: 'answer' })
+    } catch {
+      // The reply is a courtesy: if the message is closed or gone the failure is already in the job and in its events.
+    }
+  }
+
   return {
     maxRuntimeMs: x.timeoutMs + x.killGraceMs * 3, // the runner's own timeout fires first and leaves room to destroy the machine
 
@@ -255,6 +274,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     onFailure (job, error, outcome) {
       const { message_id: messageId } = parseJson(job.payload_json, {})
       if (outcome.state === 'failed') {
+        tellTheAuthor(job, messageId, error)
         events.publishForJob(job.id, { kind: 'done', data: { status: 'failed', message_id: messageId ? String(messageId) : null, error: String(error?.message ?? error), error_code: error?.code ?? null } })
       } else if (outcome.state === 'requeued') {
         events.publishForJob(job.id, { kind: 'progress', percent: 0, phrase: step('retry', { n: job.attempts, total: job.max_attempts }), data: { message_id: messageId } })

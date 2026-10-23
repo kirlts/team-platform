@@ -9,6 +9,8 @@
 //   --private-dir <d>  where envio-33/ lives (default bench/private; env BENCH_PRIVATE_DIR)
 //   --config '<json>'  analyzer knobs for every run (src/analyze/config.js), e.g. '{"classifyEffort":"high"}'
 //   --results-dir <d>  where the spending ledger private-spend.jsonl goes (default bench/results)
+//   --cold             adds a random mark to the framing of each run, so the prompt cache starts empty (a send after a quiet hour)
+//   --label <p>        prefix of each run in the spending ledger (default envio-33); the per-call usage of every run is saved in the result
 //
 // Per run it measures: requests collected (all their core voice units in one message that holds no other request; «buried»
 // when that message mixes requests), requests no message names (the probe of verdad.json on title and fields), requests lost (a required voice unit
@@ -32,6 +34,8 @@ const { values } = parseArgs({
     'private-dir': { type: 'string' },
     'results-dir': { type: 'string' },
     config: { type: 'string' },
+    label: { type: 'string', default: 'envio-33' },
+    cold: { type: 'boolean', default: false },
   },
 });
 
@@ -144,19 +148,20 @@ async function main() {
     out.config = values.config ? JSON.parse(values.config) : {};
     const runs = Number(values.runs);
     for (let i = 1; i <= runs; i += 1) {
-      const label = `envio-33/run-${i}`;
+      const label = `${values.label}/run-${i}`;
       const spent = ledger.read().total_usd - before;
       if (spent >= budget * 0.9) {
         console.log(`Presupuesto: gastado ${spent.toFixed(4)} USD de ${budget} en esta invocación; se corta antes de «${label}»`);
         break;
       }
       const t0 = performance.now();
-      const result = await withQueueRetries(() => analyze(bundle, { providers, analyzer: 'api', config: values.config ? JSON.parse(values.config) : undefined }), { onRetry: (e, n) => console.error(`  reintento ${n}: ${e.message}`) });
+      const runBundle = values.cold ? { ...bundle, framing: `${bundle.framing ?? ''} [${Math.random().toString(36).slice(2, 8)}]` } : bundle;
+      const result = await withQueueRetries(() => analyze(runBundle, { providers, analyzer: 'api', config: values.config ? JSON.parse(values.config) : undefined }), { onRetry: (e, n) => console.error(`  reintento ${n}: ${e.message}`) });
       const calls = (result.calls ?? []).map((c) => ({ ...c, cost_usd: costOf(c) }));
       const usd = calls.reduce((a, c) => a + (c.cost_usd ?? 0), 0);
       const unpriced = calls.filter((c) => c.cost_usd === null).length;
       const total = ledger.add(label, usd, unpriced);
-      const entry = { status: result.status, ms: Math.round(performance.now() - t0), calls: calls.length, cost_usd: usd, unpriced_calls: unpriced, spent_this_invocation_usd: total - before };
+      const entry = { status: result.status, ms: Math.round(performance.now() - t0), calls: calls.length, call_details: calls.map((c) => ({ step: c.step, model: c.model, effort: c.effort, thinking: c.thinking, cacheable: c.cacheable, usage: c.usage, duration_ms: c.duration_ms, outcome: c.outcome, cost_usd: c.cost_usd })), cost_usd: usd, unpriced_calls: unpriced, spent_this_invocation_usd: total - before };
       if (result.status === 'ok') {
         entry.score = scoreProposal(result.proposal, truth);
         entry.proposal = result.proposal;

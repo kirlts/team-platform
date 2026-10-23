@@ -90,7 +90,7 @@ export async function writeMachineFiles ({ workdir, args, prompt, env, claudeBin
     'set -a; . "$JOB_DIR/env.sh"; set +a',
     'export PATH="$JOB_DIR/bin:$PATH"',
     'cd "${TEAM_REPO_DIR:-$JOB_DIR}"',
-    `exec ${shellQuote(claudeBin)} ${args.map(shellQuote).join(' ')} < "$JOB_DIR/prompt.md"`
+    `exec ${shellQuote(claudeBin)} ${args.map((a) => (a.startsWith('@JOB_DIR@/') ? `"$JOB_DIR/${a.slice(10)}"` : shellQuote(a))).join(' ')} < "$JOB_DIR/prompt.md"`
   ].join('\n')
   await writeFile(join(workdir, 'run.sh'), `${script}\n`)
   await chmod(join(workdir, 'run.sh'), 0o755)

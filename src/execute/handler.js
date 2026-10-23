@@ -25,7 +25,7 @@ import { SpanStatusCode, trace } from '@opentelemetry/api'
 import { currentTraceparent, recordGenAiCall, withSpan } from '../telemetry/api.js'
 import { instanceLabel, recordExecuteRun, updateExecuteRun } from '../telemetry/execute-runs.js'
 import { readAgentSecret } from './agent-credentials.js'
-import { buildExecutePrompt, declaredOutput, finalSchema, readTemplate } from './prompt.js'
+import { buildExecuteParts, buildExecutePrompt, declaredOutput, finalSchema, readTemplate } from './prompt.js'
 import { enqueueDeliver } from './enqueue.js'
 import { runLocal, runMachine } from './runners.js'
 import { createSessionTracer } from './session-spans.js'
@@ -54,6 +54,9 @@ export function dailyBudget (db, x, t) {
   const spent = row.cost + row.machines * x.machineCostUsd
   return { spent, remaining: x.dailyBudgetUsd - spent, nextDayMs: next - t }
 }
+
+/** Where a machine finds the stable part of the prompt: run.sh replaces this marker with its own job directory. */
+export const SYSTEM_FILE_ON_MACHINE = '@JOB_DIR@/system.md'
 
 /** The arguments of `claude -p` (UD-255). */
 export function claudeArgs (x, schema) {
@@ -194,11 +197,14 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     }
 
     const branch = `tp/${messageId}`
-    const prompt = buildExecutePrompt({
+    const promptInput = {
       message: { id: messageId, title: message.title, body: message.body, fields: parseJson(message.fields_json, {}), area: message.area_title, status: message.status },
       template: templateRow, author, agent, project: getProject(db, config), jobId: job.id, maxSubagents: x.maxSubagents, branch, hostInstructions,
       deliver: Boolean(x.deliverCommand), deliverFailure
-    })
+    }
+    const parts = buildExecuteParts(promptInput)
+    // Measurement 2026-10-23-tokens-y-cache.md: with EXECUTE_STABLE_AS_SYSTEM the stable part travels as an appended system prompt and the user message holds the rest.
+    const prompt = x.stableAsSystem ? parts.variable : buildExecutePrompt(promptInput)
     // The host's machine quota is a fact of the host (2026-10-22: a region of 8 cores held two machines of 4 and 21 jobs failed for good with
     // «quota exceeded»). Over EXECUTE_MAX_MACHINES the job waits, without spending its attempt and without cost.
     if (x.runner === 'machine' && x.maxMachines > 0 && liveMachines.size >= x.maxMachines) throw new Deferred(x.capacityWaitMs, step('capacityWait'))
@@ -207,6 +213,10 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     if (budget.remaining <= 0) throw new Deferred(budget.nextDayMs, step('budgetWait'))
     const budgetUsd = Math.round(Math.min(x.maxBudgetUsd, budget.remaining) * 100) / 100 || 0.01
     const args = claudeArgs({ ...x, budgetUsd }, schema)
+    if (x.stableAsSystem) {
+      await writeFile(join(dirs.workdir, 'system.md'), parts.stable)
+      args.push('--append-system-prompt-file', x.runner === 'machine' ? SYSTEM_FILE_ON_MACHINE : join(dirs.workdir, 'system.md'))
+    }
     // It counts as run from here: the machine cost applies even if the session never returns its cost.
     runSql(db, 'UPDATE jobs SET runner = ?, run_at = ?, marks_json = NULL WHERE id = ?', x.runner, now(), job.id)
     rec.began = true
@@ -253,7 +263,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       }, async (span) => {
         span.setAttribute('team.queue_wait_ms', Math.max(0, startedAt - job.created_at))
         // The session continues this trace (W3C `TRACEPARENT`) and, when the host declares it, exports its own telemetry (EXECUTE_OTEL_ENV).
-        const tracedEnv = { ...(x.otelEnv ?? {}), ...(currentTraceparent() ? { TRACEPARENT: currentTraceparent() } : {}) }
+        const tracedEnv = { ...(x.sessionEnv ?? {}), ...(x.otelEnv ?? {}), ...(currentTraceparent() ? { TRACEPARENT: currentTraceparent() } : {}) }
         const opts = { config, args, prompt, onData: (c) => reader.push(c), signal: ctx.signal }
         const r = x.runner === 'machine'
           ? await runMachine({ ...opts, jobId: job.id, workdir: dirs.workdir, env: { ...sessionEnv, ...tracedEnv }, log: (m) => logger?.error(m), phase })

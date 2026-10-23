@@ -84,3 +84,35 @@ export function resolveThinkingAndEffort(modelId, { wantOff = false, effort } = 
   if (limited) return { thinking: undefined, effort: sentEffort, thinkingOff: false };
   return { thinking: { type: caps.offForm }, effort: sentEffort, thinkingOff: true };
 }
+
+// Smallest prompt the API caches, in tokens, per model. Source: https://platform.claude.com/docs/en/build-with-claude/prompt-caching,
+// section «Cache limitations», consulted on 2026-10-23: «Shorter prompts cannot be cached, even if marked with `cache_control`»
+// (no error is returned). The page lists 512 tokens for the 5.x models below, 1,024 for Opus 4.8, Sonnet 5 and Sonnet 4.6,
+// 2,048 for Opus 4.7 and 4,096 for Opus 4.6, Opus 4.5 and Haiku 4.5. A model that is not here gets the highest value, so
+// nothing is waited for on a prompt the API may not cache.
+const MIN_CACHEABLE = Object.freeze({
+  'claude-fable-5-1': 512,
+  'claude-mythos-5-1': 512,
+  'claude-fable-5': 512,
+  'claude-mythos-5': 512,
+  'claude-opus-5-5': 512,
+  'claude-opus-5': 512,
+  'claude-sonnet-5-5': 512,
+  'claude-haiku-5-5': 512,
+  'claude-opus-4-8': 1024,
+  'claude-sonnet-5': 1024,
+  'claude-sonnet-4-6': 1024,
+  'claude-opus-4-7': 2048,
+  'claude-opus-4-6': 4096,
+  'claude-opus-4-5': 4096,
+  'claude-haiku-4-5': 4096,
+});
+export const MIN_CACHEABLE_UNKNOWN = 4096;
+
+/** Smallest cacheable prompt of a model id, accepting a dated suffix. */
+export function minCacheableTokens(modelId) {
+  const id = String(modelId ?? '');
+  if (Object.hasOwn(MIN_CACHEABLE, id)) return MIN_CACHEABLE[id];
+  const undated = id.replace(/-\d{8}$/, '');
+  return Object.hasOwn(MIN_CACHEABLE, undated) ? MIN_CACHEABLE[undated] : MIN_CACHEABLE_UNKNOWN;
+}

@@ -17,14 +17,16 @@ export const PRICES = {
     cache_read: 0.01,
     cache_write_factor: 1.25,
   },
-  // Sonnet 5.5 (Anthropic model list, cached 2026-10-06 in the claude-api skill): 2 USD input, 10 USD output, 0,20 cache read.
-  // There is no input price step at 100.000 tokens; the cache write factor 1,25 is the platform rule, not a quoted figure.
+  // Sonnet 5.5 (https://platform.claude.com/docs/en/about-claude/pricing, consulted 2026-10-23): 2 USD input, 10 USD output,
+  // cache write 2.50 (5 minutes) and 4 (1 hour), cache read 0.10 (0.05 times the input; footnote 2 of the table). The
+  // prose of that page says 0.20 once, which contradicts its own table and its 0.05 multiplier; the table is used.
+  // There is no input price step at 100.000 tokens.
   'claude-sonnet-5-5': {
     input: 2,
     input_over_threshold: 2,
     threshold_tokens: 100_000,
     output: 10,
-    cache_read: 0.2,
+    cache_read: 0.1,
     cache_write_factor: 1.25,
   },
   'whisper-large-v3-turbo': { audio_per_hour: 0.04 },

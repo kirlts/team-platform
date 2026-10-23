@@ -5471,6 +5471,8 @@ export interface paths {
                                 error_code?: string | null;
                                 delivered?: boolean | null;
                                 transcript_ref?: string | null;
+                                deliver_job_id?: string | null;
+                                delivery_ref?: string | null;
                                 slowest_tools?: {
                                     [key: string]: unknown;
                                 }[];
@@ -5898,6 +5900,63 @@ export interface paths {
                     content: {
                         "application/json": {
                             job_ids?: string[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/messages/{id}/deliver": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Encolar la entrega a producción de un mensaje (Editor)
+         * @description Corre `EXECUTE_DELIVER_COMMAND` sobre la rama `tp/<id>` del mensaje, sin IA (UD-263). Al terminar bien, el agente publica su respuesta final con «Ya está en producción»; si falla, el aviso llano con `outcome: blocked`. Responde 202 con el trabajo creado. 409 `deliver_not_configured` si la instancia no declara la orden, 409 `execute_busy` si el mensaje tiene un trabajo `execute` en cola o corriendo, 409 `deliver_busy` si ya tiene una entrega, 409 `no_agent_assignee` si no hay un agente activo que responda, 409 `message_closed` si está cerrado.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            job_id?: string;
                         };
                     };
                 };

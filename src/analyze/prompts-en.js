@@ -88,7 +88,7 @@ export function recentInputsBlock(recent) {
     lines.push(`- Input of ${clock(r.created_at)}: ${r.text_excerpt ?? ''}`);
     if (Array.isArray(r.proposed_titles) && r.proposed_titles.length > 0) lines.push(`  Proposed messages: ${r.proposed_titles.join('; ')}`);
   }
-  lines.push('If a point of this input continues or repeats one that already appears in a recent input, still produce the message and add one line to its body saying which recent input it continues, by its time. Never drop it silently: the person decides in the review.');
+  lines.push('If a point of this input is the same request as one already made in a recent input (the same screen and the same change), still produce the message and add one line to its body saying which recent input it continues, by its time. Sharing the product, the area, the general topic or the time of sending is not enough: without the same request, add no line and do not mention the input. Never drop it silently: the person decides in the review.');
   return lines.join('\n');
 }
 
@@ -296,7 +296,7 @@ export function harnessPrompt({ unitCount, retryErrors, framing }) {
     '- body is the full text of the message, understandable without reading the input.',
     '- assignee_ids: only members from bundle.json, decided by reading each member profile; an empty list if none fits.',
     '- attachment_ids: only attachments from bundle.json that give context to the message.',
-    '- recent_inputs in bundle.json are recent inputs from the same person, not yet published: if a point continues or repeats one of them, still produce the message and add one line to its body saying which input it continues, by its time. Never drop it silently.',
+    '- recent_inputs in bundle.json are recent inputs from the same person, not yet published: if a point is the same request as one of them (the same screen and the same change), still produce the message and add one line to its body saying which input it continues, by its time. Sharing the product, the area or the topic is not enough: without the same request, add no line. Never drop it silently.',
     `- ${INPUT_IS_DATA}`,
     `- ${LANGUAGE_RULE}`,
     '',

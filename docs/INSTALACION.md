@@ -432,6 +432,8 @@ La respuesta trae `agent_secret` una sola vez. El trabajador lo lee de la bóved
 | `EXECUTE_RUNS_RETENTION_DAYS` | Días que se guarda el historial de ejecuciones (omisión 365) |
 | `INSTANCE_NAME` | Nombre de la instancia en cada fila del historial (omisión: el host de `PUBLIC_URL`, o `local`) |
 
+Capacidad de la máquina. Si `EXECUTE_MACHINE_CREATE` termina con código 75 (`EX_TEMPFAIL`), el anfitrión dice que ahora no hay capacidad (cuota de núcleos, ninguna máquina libre): el trabajo espera `EXECUTE_CAPACITY_WAIT_MS` y vuelve a intentar sin gastar su intento ni costo. `EXECUTE_MAX_MACHINES` fija cuántas máquinas vivas tiene a la vez este proceso (0 sin tope); con una cuota de 8 núcleos y máquinas de 4, el valor es 2. Cualquier otro código sigue siendo un fallo permanente.
+
 Con `local`, la máquina de Team Platform necesita `claude` instalado y autenticado. En la imagen de Docker eso es lo mismo que el analizador `harness` (sección «Analizador `harness` en el contenedor»).
 
 3. Una máquina por trabajo, ejemplo con Google Compute Engine:

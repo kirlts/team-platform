@@ -820,6 +820,7 @@ export const es419 = {
   'progress.attachmentN': 'Lectura de adjunto {n} de {total}',
   'progress.waiting': 'En espera: cupo de transcripción',
   'progress.budgetWait': 'En espera: tope diario de gasto',
+  'progress.capacityWait': 'En espera: máquina disponible',
   'progress.retry': 'Intento {n} de {total} fallido; se reintenta',
   'progress.done': 'Listo',
   'progress.answered': 'Respondido',

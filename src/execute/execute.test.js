@@ -445,6 +445,32 @@ describe('execute job', () => {
       assert.deepEqual(lines(), [`create ${id}`, `destroy vm-${id}`])
     })
 
+    it('waits and tries again when the host has no capacity now (create exits 75)', async () => {
+      const flag = join(env.dir, `capacity-${Date.now()}`)
+      startWorker(machine({ machineCreate: `if [ -e ${flag} ]; then echo create {job_id} >> ${log}; echo vm-{job_id}; else touch ${flag}; exit 75; fi`, capacityWaitMs: 300 }))
+      const id = await enqueue()
+      const job = await waitJob(id)
+      assert.equal(job.status, 'done', job.last_error)
+      assert.deepEqual(lines().slice(-3), [`create ${id}`, `run vm-${id}`, `destroy vm-${id}`])
+      assert.equal(env.db.prepare('SELECT attempts FROM jobs WHERE id = ?').get(id).attempts, 1, 'the wait does not spend the attempt')
+      const phrases = eventsOf(id).filter((e) => e.kind === 'progress').map((e) => e.phrase)
+      assert.ok(phrases.includes('En espera: máquina disponible'), `${phrases}`)
+    })
+
+    it('EXECUTE_MAX_MACHINES holds the second job until the first one frees its machine', async () => {
+      process.env.FAKE_EXECUTE_REPLY = '0'
+      startWorker(machine({ maxMachines: 1, capacityWaitMs: 200, machineRun: `echo run {machine} >> ${log}; sleep 4; bash {workdir}/run.sh` }))
+      const first = await publishedMessage('Primer arreglo para la máquina.')
+      const second = await publishedMessage('Segundo arreglo para la máquina.')
+      const ids = [first, second].map((m) => env.db.prepare("SELECT id FROM jobs WHERE kind = 'execute' AND message_id = ?").get(m).id)
+      const done = await Promise.all(ids.map((i) => waitJob(i)))
+      assert.deepEqual(done.map((j) => j.status), ['done', 'done'])
+      const order = lines().filter((l) => /^(create \d+|destroy vm-\d+)$/.test(l)).map((l) => l.split(' ')[0])
+      assert.deepEqual(order, ['create', 'destroy', 'create', 'destroy'], 'one machine at a time')
+      const phrases = eventsOf(ids[1]).filter((e) => e.kind === 'progress').map((e) => e.phrase)
+      assert.ok(phrases.includes('En espera: máquina disponible'), `${phrases}`)
+    })
+
     it('destroys it when the session runs out of time', async () => {
       process.env.FAKE_EXECUTE_MODE = 'hang'
       startWorker(machine({ timeoutMs: 1500 }))

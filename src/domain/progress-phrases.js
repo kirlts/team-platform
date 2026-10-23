@@ -50,6 +50,7 @@ export const PROGRESS_PHRASES = Object.freeze({
   framesDescribed: both('Fotogramas descritos', 'Frames described'),
   waiting: both('En espera: cupo de transcripción', 'On hold: transcription quota'),
   budgetWait: both('En espera: tope diario de gasto', 'On hold: daily spend cap'),
+  capacityWait: both('En espera: máquina disponible', 'On hold: machine available'),
   retry: both('Intento {n} de {total} fallido; se reintenta', 'Attempt {n} of {total} failed; retrying'),
   done: both('Listo', 'Done'),
   answered: both('Respondido', 'Replied')

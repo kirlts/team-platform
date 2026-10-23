@@ -104,6 +104,8 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     await rm(workdir, { recursive: true, force: true })
   }
 
+  const liveMachines = new Set() // the jobs of this process that hold a machine; EXECUTE_MAX_MACHINES bounds it
+
   /** The row of `execute_runs` for an attempt (UD-262). Measuring never fails the job. */
   function saveRun (job, ctx, rec) {
     try {
@@ -177,6 +179,9 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       message: { id: messageId, title: message.title, body: message.body, fields: parseJson(message.fields_json, {}), area: message.area_title, status: message.status },
       template: templateRow, author, agent, project: getProject(db, config), jobId: job.id, maxSubagents: x.maxSubagents, branch, hostInstructions
     })
+    // The host's machine quota is a fact of the host (2026-10-22: a region of 8 cores held two machines of 4 and 21 jobs failed for good with
+    // «quota exceeded»). Over EXECUTE_MAX_MACHINES the job waits, without spending its attempt and without cost.
+    if (x.runner === 'machine' && x.maxMachines > 0 && liveMachines.size >= x.maxMachines) throw new Deferred(x.capacityWaitMs, step('capacityWait'))
     // UD-256: the day's spend first; with nothing left the job waits for the next day without spending its attempt.
     const budget = dailyBudget(db, x, now())
     if (budget.remaining <= 0) throw new Deferred(budget.nextDayMs, step('budgetWait'))
@@ -220,6 +225,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       }
     })
     let outcome
+    if (x.runner === 'machine') liveMachines.add(job.id)
     try {
       outcome = await withSpan('execute', {
         'team.step': 'execute', 'team.message_id': String(messageId), 'team.member_id': String(memberId),
@@ -262,12 +268,19 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         return { r, st, result }
       })
     } finally {
+      liveMachines.delete(job.id)
       await cleanup(dirs)
     }
     ctx.signal.throwIfAborted()
     const { r, result } = outcome
     if (r.timedOut) throw permanent(`La sesión superó el tiempo máximo de ${Math.round(x.timeoutMs / 1000)} s.`, 'execute_timeout')
     if (r.spawnError?.code === 'ENOENT') throw permanent(`No se encontró «${x.runner === 'machine' ? '/bin/sh' : x.bin}» (EXECUTE_CLAUDE_BIN).`, 'harness_unavailable')
+    // EXECUTE_MACHINE_CREATE exits 75 (EX_TEMPFAIL) when the host has no capacity now (quota, no free machine): the job waits and tries again.
+    if (r.phase === 'create' && r.code === 75) {
+      runSql(db, 'UPDATE jobs SET runner = NULL WHERE id = ?', job.id)
+      rec.began = false
+      throw new Deferred(x.capacityWaitMs, step('capacityWait'))
+    }
     if (r.phase === 'create') throw permanent(`La orden que crea la máquina terminó con código ${r.code}: ${r.stderr.trim().slice(0, 300) || 'sin mensaje'}`, 'machine_create_failed')
     if (!result) throw permanent(`claude -p terminó con código ${r.code} sin línea «result»: ${r.stderr.trim().slice(0, 300) || 'sin mensaje'}`, 'execute_no_result')
     if (result.is_error) throw permanent(`claude -p informó un error (${result.subtype ?? 'sin subtipo'}): ${String(result.result ?? '').slice(0, 300)}`, 'execute_error')

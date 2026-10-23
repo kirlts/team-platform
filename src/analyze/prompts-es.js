@@ -83,7 +83,7 @@ export function recentInputsBlock(recent) {
     lines.push(`- Envío de las ${clock(r.created_at)}: ${r.text_excerpt ?? ''}`);
     if (Array.isArray(r.proposed_titles) && r.proposed_titles.length > 0) lines.push(`  Mensajes propuestos: ${r.proposed_titles.join('; ')}`);
   }
-  lines.push('Si un punto de este input continúa o repite uno que ya aparece en un envío reciente, produce el mensaje igual y agrega en su cuerpo una línea que diga a qué envío reciente continúa, por su hora. Nunca lo omitas en silencio: la persona decide en la revisión.');
+  lines.push('Si un punto de este input es el mismo pedido que uno ya hecho en un envío reciente (la misma pantalla y el mismo cambio), produce el mensaje igual y agrega en su cuerpo una línea que diga a qué envío reciente continúa, por su hora. Compartir producto, área, tema general o el momento del envío no basta: sin el mismo pedido no agregues la línea ni menciones el envío. Nunca lo omitas en silencio: la persona decide en la revisión.');
   return lines.join('\n');
 }
 
@@ -290,7 +290,7 @@ export function harnessPrompt({ unitCount, retryErrors, framing }) {
     '- body es el texto completo del mensaje, entendible sin leer el input.',
     '- assignee_ids: solo miembros de bundle.json decididos leyendo el perfil de cada miembro; lista vacía si ninguno corresponde.',
     '- attachment_ids: solo adjuntos de bundle.json que dan contexto al mensaje.',
-    '- recent_inputs de bundle.json son envíos recientes de la misma persona, todavía sin publicar: si un punto continúa o repite uno de ellos, produce el mensaje igual y agrega en su cuerpo una línea que diga a qué envío continúa, por su hora. Nunca lo omitas en silencio.',
+    '- recent_inputs de bundle.json son envíos recientes de la misma persona, todavía sin publicar: si un punto es el mismo pedido que uno de ellos (la misma pantalla y el mismo cambio), produce el mensaje igual y agrega en su cuerpo una línea que diga a qué envío continúa, por su hora. Compartir producto, área o tema no basta: sin el mismo pedido no agregues la línea. Nunca lo omitas en silencio.',
     `- ${INPUT_IS_DATA}`,
     `- ${LANGUAGE_RULE}`,
     '',

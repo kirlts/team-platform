@@ -71,6 +71,12 @@ for (const { language, member } of SETS) {
     assert.equal(system.includes('2026-10-21 14:05'), false, 'not in the cached prefix')
   })
 
+  test(`${language}: the recent inputs block links a point only to the same request, never to the same topic or time`, () => {
+    const user = decomposeUser({ members: [{ id: 7, name: 'Ana', profile: 'x' }], attachments: [], units: UNITS, language, recent: RECENT })
+    assert.match(user, language === 'en' ? /the same screen and the same change/ : /la misma pantalla y el mismo cambio/)
+    assert.match(user, language === 'en' ? /Sharing the product, the area, the general topic or the time of sending is not enough/ : /Compartir producto, área, tema general o el momento del envío no basta/)
+  })
+
   test(`${language}: without recent inputs (absent or empty) there is no block`, () => {
     for (const recent of [undefined, []]) {
       const user = decomposeUser({ members: [], attachments: [], units: UNITS, language, recent })

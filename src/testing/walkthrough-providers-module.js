@@ -19,6 +19,8 @@ function textScript (request) {
     const item = groups.items.properties
     return { json: { groups: [{ unit_ids: units, area_id: item.area_id.enum[0], template_id: item.template_id.enum[0] }], discarded: [] } }
   }
+  // Split check of one written group: one request, so nothing is split.
+  if (request.schema.properties.requests) return { json: { requests: [{ unit_ids: units, request: 'request' }] } }
   const fields = Object.keys(request.schema.properties.messages.items.properties.fields.properties ?? {})
   return {
     json: {

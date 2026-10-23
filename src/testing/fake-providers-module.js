@@ -20,6 +20,8 @@ function textScript (request) {
   if (request.schema.properties.groups) {
     return { json: { groups: [{ unit_ids: units, area_id: fakeState.areaId, template_id: fakeState.templateId }], discarded: [] } }
   }
+  // Split check of one written group: one request, so nothing is split.
+  if (request.schema.properties.requests) return { json: { requests: [{ unit_ids: units, request: 'request' }] } }
   const fields = Object.keys(request.schema.properties.messages.items.properties.fields.properties ?? {})
   return {
     json: {

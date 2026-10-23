@@ -366,6 +366,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         ? `No alcancé a terminar dentro del tiempo máximo (${Math.max(1, Math.round(x.timeoutMs / 60000))} min) y la sesión se cerró.`
         : 'No pude terminar este trabajo por un problema del sistema.'
       const body = `${reason} Lo que alcancé a hacer queda guardado y todavía no está en producción. Un Editor puede volver a lanzarlo desde la ficha del mensaje.\n\n**Resultado**: blocked`
+      if (get(db, 'SELECT body FROM replies WHERE message_id = ? ORDER BY id DESC LIMIT 1', messageId)?.body === body) return // the same notice twice tells the author nothing new
       addReply({ db, events, now }, { messageId, authorId: memberId, body, kind: 'answer' })
     } catch {
       // The reply is a courtesy: if the message is closed or gone the failure is already in the job and in its events.

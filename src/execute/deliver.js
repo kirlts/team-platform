@@ -226,7 +226,10 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
       const reason = error?.code === 'deliver_failed' ? t.verification(branch)
         : error?.code === 'deliver_timeout' ? t.timeout(branch, Math.max(1, Math.round(x.deliverTimeoutMs / 60000)))
           : t.system(branch)
-      addReply({ db, events, now }, { messageId, authorId: memberId, body: `${reason}\n\n**Resultado**: blocked`, kind: 'answer' })
+      const body = `${reason}\n\n**Resultado**: blocked`
+      // The same notice twice in a row (a retry that failed the same way) tells the author nothing new.
+      if (get(db, 'SELECT body FROM replies WHERE message_id = ? ORDER BY id DESC LIMIT 1', messageId)?.body === body) return
+      addReply({ db, events, now }, { messageId, authorId: memberId, body, kind: 'answer' })
     } catch {
       // The reply is a courtesy: if the message is closed or gone the failure is already in the job and in its events.
     }

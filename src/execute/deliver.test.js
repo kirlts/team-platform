@@ -244,6 +244,17 @@ describe('deliver job', () => {
     assert.match(replies(messageId).at(-1), /no pasó la verificación[\s\S]*\*\*Resultado\*\*: blocked$/)
   })
 
+  it('a second delivery that fails the same way does not repeat the notice to the author', async () => {
+    startWorker({ deliverCommand: 'exit 4', deliverRetries: 0 })
+    const messageId = await publishedMessage('Dos entregas fallidas iguales.')
+    await settle(messageId)
+    const before = replies(messageId).length
+    await env.app.inject({ method: 'POST', url: `/api/messages/${messageId}/deliver`, headers: cookieHeaders(editor) })
+    await settle(messageId)
+    assert.equal(jobsOf(messageId, 'deliver').length, 2, 'the Editor launched a second delivery')
+    assert.equal(replies(messageId).length, before, 'the identical notice is not posted again')
+  })
+
   it('without EXECUTE_DELIVER_COMMAND execute posts its final reply and there is no delivery', async () => {
     startWorker({ deliverCommand: '' })
     const messageId = await publishedMessage('Todo como antes.')

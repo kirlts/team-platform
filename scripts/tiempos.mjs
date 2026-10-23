@@ -60,7 +60,7 @@ function tabla (rows, cols) {
 }
 
 const resultado = (r) => r.outcome ?? '—'
-const entrega = (r) => (r.delivered === null ? '—' : (r.delivered ? 'sí' : 'no'))
+const entrega = (r) => (r.delivery_held ? 'en espera' : r.delivered === null ? '—' : (r.delivered ? 'sí' : 'no'))
 
 function tablaUltimos (items) {
   return tabla(items, [
@@ -101,7 +101,7 @@ function textoResumen (s, contexto) {
     cab, '', fases, '',
     `Costo: medio ${usd(s.cost.avg_usd)} USD, total ${usd(s.cost.total_usd)} USD (${s.cost.n} ejecuciones con costo)`,
     `Tokens: entrada ${s.tokens.input}, salida ${s.tokens.output}, caché leída ${s.tokens.cache_read}`,
-    `Entrega: ${s.delivery.delivered} de ${s.delivery.known} con dato (${pct(s.delivery.rate)})`,
+    `Entrega: ${s.delivery.delivered} de ${s.delivery.known} con dato (${pct(s.delivery.rate)}), en espera de revisión: ${s.delivery.held ?? 0}`,
     `Ya resuelto (resultado "investigated"): ${s.resolved.investigated} de ${s.resolved.runs} (${pct(s.resolved.rate)})`,
     '', lentas
   ].join('\n')

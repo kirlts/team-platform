@@ -65,7 +65,7 @@ test('the summary gives phases, cost, delivery, resolved rate and the slowest to
   assert.deepEqual(s.phases.total_ms, { n: 3, avg: 633333, p50: 600000, p95: 1200000 })
   assert.deepEqual(s.phases.queue_wait_ms, { n: 1, avg: 4000, p50: 4000, p95: 4000 })
   assert.deepEqual(s.cost, { n: 2, avg_usd: 2, total_usd: 4 })
-  assert.deepEqual(s.delivery, { known: 1, delivered: 1, rate: 1 })
+  assert.deepEqual(s.delivery, { known: 1, delivered: 1, held: 0, rate: 1 })
   assert.deepEqual(s.resolved, { runs: 3, investigated: 1, rate: 1 / 3 })
   assert.deepEqual(s.slowest_tools.map((t) => [t.summary, t.job_id, t.message_id]), [['Orden: npm test', '2', '40']])
   assert.match(s.from, /^2026-10-20T/)

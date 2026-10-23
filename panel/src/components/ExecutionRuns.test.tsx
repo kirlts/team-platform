@@ -16,7 +16,7 @@ const summary = {
     tools_ms: { n: 2, avg: 90000, p50: 90000, p95: 94000 }, judge_ms: none, delivery_ms: none, wait_ms: none,
   },
   cost: { n: 3, avg_usd: 1.5, total_usd: 4.5 },
-  delivery: { known: 2, delivered: 1, rate: 0.5 },
+  delivery: { known: 2, delivered: 1, held: 0, rate: 0.5 },
   resolved: { runs: 4, investigated: 1, rate: 0.25 },
   slowest_tools: [{ kind: 'tool', name: 'Bash', summary: 'Orden: npm test', duration_ms: 94000, success: false }],
 }

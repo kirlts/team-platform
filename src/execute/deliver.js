@@ -5,7 +5,12 @@
 //   placeholders  {message_id} {job_id} {branch} {workdir}   (shell-quoted; {workdir} is an empty directory removed afterwards)
 //   exit 0        it is in production; the last stdout line is the reference (a commit, a URL or a label)
 //   exit 75       it cannot be delivered now (EX_TEMPFAIL): the job waits EXECUTE_CAPACITY_WAIT_MS and tries again without spending its attempt
+//   exit 76       it is not delivered by itself: it waits for the review of a person (UD-266). The last stdout line is the reason in plain
+//                 words. No retry and no second pass: the job ends done with `delivered = 0` and `delivery_held = 1`, and the author gets
+//                 ONE reply with the summary, the reason and `needs_decision`. The platform knows no zones: the host decides, reading TEAM_OUTPUT_JSON
 //   other exit    the delivery failed; its stdout and stderr are the reason
+//   environment   TEAM_JOB_ID TEAM_MESSAGE_ID TEAM_BRANCH TEAM_WORKDIR TEAM_DELIVER_ROUND TEAM_DELIVER_ATTEMPT and TEAM_OUTPUT_JSON (the structured output of the
+//                 session, compact JSON without `summary`)
 //   timeout       EXECUTE_DELIVER_TIMEOUT_MS; SIGTERM to the group the job started, then SIGKILL after EXECUTE_KILL_GRACE_MS
 //   stdout lines  `##team phase verify` and `##team phase deploy` move the progress of the job (and the panel) to that phase
 //
@@ -30,6 +35,8 @@ import { readTemplate } from './prompt.js'
 import { fillCommand, spawnStreaming } from './runners.js'
 
 export const DELIVER_LATER = 75 // EX_TEMPFAIL (sysexits.h): the host cannot deliver now
+export const DELIVER_HELD = 76 // the next code after EX_TEMPFAIL, outside sysexits (64 to 78 have no use for it here): a person reviews before it is delivered
+const REASON_CHARS = 300 // declared courtesy: the reason is one plain sentence for the author
 const PHASE_LINE = /^##team phase (verify|deploy)\s*$/
 const PHASES = { verify: { code: 'deliverVerify', percent: 0 }, deploy: { code: 'deliverDeploy', percent: 50 } } // percent = finished phases over the two that exist
 const OUTPUT_TAIL_CHARS = 6000 // declared courtesy: the end of the output is where a failure is; Claude reads this much in the second pass
@@ -37,6 +44,8 @@ const OUTPUT_TAIL_CHARS = 6000 // declared courtesy: the end of the output is wh
 const TEXTS = {
   'es-419': {
     production: 'Ya está en producción.',
+    held: (reason) => `El cambio está listo y espera la revisión de una persona antes de entrar a producción: ${reason}. Queda guardado en la rama.`,
+    heldReason: 'el cambio necesita esa revisión',
     delivery: 'Entrega',
     verification: (branch) => `El cambio no pasó la verificación y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nUn Editor puede volver a lanzar la entrega.`,
     timeout: (branch, minutes) => `La entrega no terminó dentro del tiempo máximo (${minutes} min) y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nUn Editor puede volver a lanzar la entrega.`,
@@ -44,6 +53,8 @@ const TEXTS = {
   },
   en: {
     production: 'It is in production now.',
+    held: (reason) => `The change is ready and waits for a person to review it before it goes to production: ${reason}. It is saved on the branch.`,
+    heldReason: 'the change needs that review',
     delivery: 'Delivery',
     verification: (branch) => `The change did not pass verification and is not in production yet. The work is saved on the branch ${branch}.\n\nAn Editor can launch the delivery again.`,
     timeout: (branch, minutes) => `The delivery did not finish within the time limit (${minutes} min) and is not in production yet. The work is saved on the branch ${branch}.\n\nAn Editor can launch the delivery again.`,
@@ -72,7 +83,22 @@ export function referenceOf (stdout) {
   return lines.at(-1)?.slice(0, 500) ?? null // a reference is a commit, a URL or a label; 500 characters hold any of them
 }
 
+/** The reply of a delivery held for review: the summary of the session, the reason in a plain paragraph and `needs_decision`. */
+export function heldBody ({ output, template = null, reason, language }) {
+  const t = textsOf(language)
+  const base = output ?? {}
+  const why = String(reason ?? '').trim().replace(/[.\s]+$/, '') || t.heldReason
+  const summary = [String(base.summary ?? '').trim(), t.held(why)].filter(Boolean).join('\n\n')
+  return replyBody({ ...base, outcome: 'needs_decision', summary }, template, {})
+}
+
 const tail = (text, chars) => (text.length > chars ? text.slice(-chars) : text)
+
+/** TEAM_OUTPUT_JSON: the structured output of the session without its `summary`, compact; `{}` when the delivery was launched with no output. */
+export function outputJson (output) {
+  const { summary: _summary, ...rest } = output ?? {}
+  return JSON.stringify(rest)
+}
 
 export function createDeliverHandler ({ db, config, queue, events, logger = null, now = Date.now }) {
   const x = config.execute
@@ -131,13 +157,15 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
         const command = fillCommand(x.deliverCommand, { job_id: String(job.id), message_id: String(messageId), branch, workdir })
         const env = {
           ...process.env, TEAM_JOB_ID: String(job.id), TEAM_MESSAGE_ID: String(messageId), TEAM_BRANCH: branch, TEAM_WORKDIR: workdir,
-          TEAM_DELIVER_ROUND: String(payload.round ?? 0), TEAM_DELIVER_ATTEMPT: String(job.attempts)
+          TEAM_DELIVER_ROUND: String(payload.round ?? 0), TEAM_DELIVER_ATTEMPT: String(job.attempts),
+          TEAM_OUTPUT_JSON: outputJson(payload.output)
         }
         const r = await spawnStreaming('/bin/sh', ['-c', command], { env, keepStdout: true, onData, timeoutMs: x.deliverTimeoutMs, graceMs: x.killGraceMs, signal: ctx.signal })
         span.setAttributes({ 'team.exit_code': r.code ?? -1, 'team.delivery_ms': Math.max(0, now() - startedAt) })
-        if (r.code !== 0 && r.code !== DELIVER_LATER) span.setStatus({ code: SpanStatusCode.ERROR, message: r.timedOut ? 'timeout' : `exit ${r.code}` })
+        if (r.code !== 0 && r.code !== DELIVER_LATER && r.code !== DELIVER_HELD) span.setStatus({ code: SpanStatusCode.ERROR, message: r.timedOut ? 'timeout' : `exit ${r.code}` })
         const ref = r.code === 0 ? referenceOf(r.stdout) : null
         if (ref) span.setAttribute('team.delivery_ref', ref)
+        if (r.code === DELIVER_HELD) span.setAttribute('team.delivery_held', true)
         return r
       })
     } finally {
@@ -154,6 +182,21 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
     }
     // Exit 75: the host cannot deliver now. The job waits and tries again; the attempt is not spent and nothing is recorded yet.
     if (result.code === DELIVER_LATER) throw new Deferred(x.capacityWaitMs, step('deliverWait'))
+    if (result.code === DELIVER_HELD) {
+      const reason = (referenceOf(result.stdout) ?? '').slice(0, REASON_CHARS)
+      return () => {
+        const { replyId } = addReply({ db, events, now }, {
+          messageId, authorId: agent.id, kind: 'answer', body: heldBody({ output: payload.output, template, reason, language: author?.language })
+        })
+        const finalAt = now()
+        const started = payload.execute_job_id ? get(db, 'SELECT started_at FROM execute_runs WHERE job_id = ? AND attempt = ?', payload.execute_job_id, payload.execute_attempt ?? 1)?.started_at : null
+        saveRun(payload, job.id, {
+          delivery_ms: ms, delivered: 0, delivery_held: 1, ...(typeof started === 'number' ? { final_reply_ms: Math.max(0, finalAt - started) } : {})
+        })
+        events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: step('answered'), data: { message_id: messageId } })
+        events.publishForJob(job.id, { kind: 'done', data: { status: 'done', message_id: String(messageId), reply_id: String(replyId), delivery_held: true } })
+      }
+    }
     if (result.code !== 0) {
       saveRun(payload, job.id, { delivery_ms: ms, delivered: 0 })
       throw Object.assign(permanent(`La orden de entrega terminó con código ${result.code}: ${tail(output, 1500) || 'sin salida'}`, 'deliver_failed'), { output })
@@ -168,7 +211,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
       const finalAt = now()
       const started = payload.execute_job_id ? get(db, 'SELECT started_at FROM execute_runs WHERE job_id = ? AND attempt = ?', payload.execute_job_id, payload.execute_attempt ?? 1)?.started_at : null
       saveRun(payload, job.id, {
-        delivery_ms: ms, delivered: 1, delivery_ref: ref, ...(typeof started === 'number' ? { final_reply_ms: Math.max(0, finalAt - started) } : {})
+        delivery_ms: ms, delivered: 1, delivery_held: 0, delivery_ref: ref, ...(typeof started === 'number' ? { final_reply_ms: Math.max(0, finalAt - started) } : {})
       })
       events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: step('answered'), data: { message_id: messageId } })
       events.publishForJob(job.id, { kind: 'done', data: { status: 'done', message_id: String(messageId), reply_id: String(replyId), delivery_ref: ref } })

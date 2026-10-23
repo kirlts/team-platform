@@ -1187,3 +1187,11 @@ Martín, el mismo día: «la idea es que yo no quiera abrir una sesion como esta
 **Decisión:** `npm test` es `scripts/test-dirigido.mjs`: selecciona por las rutas cambiadas contra `origin/main` (mapa `src/testing/areas.json`, con las guardias siempre). La batería completa pasa a `npm run test:completa`. Regla 12 de `docs/RULES.md`. El anfitrión aplica lo mismo en su puerta (pruebas críticas).
 **Consecuencias:** La marca de la última corrida en verde (`test:rapido`) sólo se registra tras `test:completa`. Enmienda la práctica de correr `npm test` completo en cada fusión.
 **Condiciones de reversión:** Las fija Martín.
+
+## [UD-266] La entrega puede quedar en espera de una persona: código 76 y salida estructurada en la orden
+
+**Fecha:** 2026-10-23
+**Contexto:** El historial real de arreglos directos, medido el 2026-10-23: 22 de 62 tocaron migraciones, 31 de 62 datos de personas y 16 de 62 pagos. La plantilla `error-directo` declara la zona tocada y pide revisión humana con cualquier valor distinto de «ninguna», pero la entrega aparte (UD-263) sólo conocía entregado o fallo.
+**Decisión:** `EXECUTE_DELIVER_COMMAND` recibe `TEAM_OUTPUT_JSON` (salida estructurada de la sesión sin `summary`, JSON compacto) y puede salir con 76 (`DELIVER_HELD`): no se entrega sola y espera la revisión de una persona; la última línea de stdout es el motivo. La plataforma no conoce zonas: el anfitrión decide. Con 76 no hay reintento ni vuelta a Claude; el trabajo termina `done` con `delivered = 0` y sin referencia; el autor recibe una sola respuesta con el `summary`, un párrafo llano con el motivo y `outcome: needs_decision`. La ficha de `execute_runs` suma `delivery_held`, y el resumen cuenta `delivery.held` aparte de entregado y fallo (`known` no lo incluye, para que la tasa de entrega no lo trate como fallo).
+**Consecuencias:** Migración 0020 (`execute_runs.delivery_held`). Enmienda UD-263 (contrato de la orden). MASTER-SPEC §7.5, `docs/INSTALACION.md` («La entrega aparte»), `.env.example`, `src/contracts.md`, `packages/client` (`ExecuteRunsSummary.delivery.held`), `scripts/tiempos.mjs`.
+**Condiciones de reversión:** Las fija Martín.

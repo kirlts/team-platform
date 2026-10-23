@@ -11754,6 +11754,12 @@
                               "null"
                             ]
                           },
+                          "delivery_held": {
+                            "type": [
+                              "boolean",
+                              "null"
+                            ]
+                          },
                           "slowest_tools": {
                             "type": "array",
                             "items": {
@@ -12201,6 +12207,9 @@
                           "type": "integer"
                         },
                         "delivered": {
+                          "type": "integer"
+                        },
+                        "held": {
                           "type": "integer"
                         },
                         "rate": {

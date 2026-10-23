@@ -53,6 +53,10 @@ The database connection keeps `synchronous=FULL` and SQLite's WAL autocheckpoint
 
 **Development.** `POST /api/auth/dev-login` exists only with `NODE_ENV=development`.
 
+## 3 bis. Client package
+
+`packages/client` (`@team-platform/client`) is the client of this contract: `openapi.json` is `GET /api/openapi.json` of the test server, `src/generated/schema.ts` its types and `src/generated/error-codes.ts` the request error codes found in `src/`. `npm run gen:client` rewrites the three; `src/client-contract.test.js` fails when the server and the files differ. A new route needs its entry in `packages/client/src/routes.ts` (or in `NOT_IN_CLIENT`, with the reason).
+
 ## 4. Tests
 
 `npm test` runs everything with `node --test` on an ephemeral SQLite database. `node src/testing/smoke-panel.mjs` starts the server with the compiled panel and walks the main flow in a windowless browser.

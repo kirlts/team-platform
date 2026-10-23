@@ -1,0 +1,6025 @@
+export interface paths {
+    "/api/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        email: string;
+                        password: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            member?: {
+                                id?: string;
+                                email?: string;
+                                name?: string;
+                                role?: string;
+                            };
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Sesión cerrada; el anfitrión tiene su propia salida (LOGOUT_URL). */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            logout_url?: string;
+                        };
+                    };
+                };
+                /** @description Sesión cerrada en el servidor. */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in person and the project name */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id?: string;
+                            email?: string;
+                            name?: string;
+                            /** @enum {string} */
+                            role?: "member" | "editor";
+                            /**
+                             * @description «agent»: lo trabaja una sesión desatendida de Claude Code (UD-254); entra por cabecera firmada, nunca por contraseña.
+                             * @enum {string}
+                             */
+                            kind?: "person" | "agent";
+                            profile?: string;
+                            /** @enum {string} */
+                            language?: "es-419" | "en";
+                            active?: boolean;
+                            created_at?: string;
+                            project_name?: string;
+                            provider?: string;
+                            /** @description De dónde salió la identidad en esta petición: session (la cookie propia) o la fuente del anfitrión (jwt, signed-header, trusted-header). */
+                            source?: string;
+                            role_managed_externally?: boolean;
+                            logout_url?: null | string;
+                            password_min_length?: number;
+                            ui_telemetry?: {
+                                enabled?: boolean;
+                                max_events?: number;
+                            };
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Service status (the detail of database, queue and providers is for the editor only) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            status?: string;
+                            version?: string;
+                            db?: {
+                                [key: string]: unknown;
+                            };
+                            queue?: {
+                                [key: string]: unknown;
+                            };
+                            worker?: string;
+                            providers?: {
+                                [key: string]: unknown;
+                            }[];
+                            analyzer?: string;
+                        };
+                    };
+                };
+                /** @description The database is not migrated or does not respond. */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inputs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar los inputs propios
+         * @description Los del miembro de la sesión; con `all=1` (sólo el Editor, 403 para un miembro) los de todos, cada uno con `author_name`, el nombre de su emisor (la cola del Editor, UD-251). `status` admite uno o varios estados separados por coma; sin `status` vienen todos (en cola, leyendo, analizando, propuesta, publicado, fallido y cancelado), paginados. Es el historial y el estado de los envíos propios (UD-070): un envío publicado trae sus mensajes en `messages` (id, título, área, estado y `edited_at`), uno fallido su `error` y `error_code`, y uno con la publicación automática apagada o bloqueada queda `proposed` (con `error_code: publish_blocked` si no se pudo publicar). `mine=1` pide el orden de creación ascendente con `percent`, `phrase` y `proposed_count` (la bandeja en vuelo de UD-025), por ejemplo `?mine=1&status=queued,extracting,analyzing,proposed`; sin `mine` el orden es el más reciente primero, y `order=desc|asc` lo fija a mano (el historial: `?mine=1&order=desc`).
+         */
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                    limit?: number;
+                    status?: string;
+                    mine?: "1" | "true";
+                    order?: "asc" | "desc";
+                    all?: "1" | "true";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items?: {
+                                id?: string;
+                                author_id?: string;
+                                /** @description Who had the session when it was sent in the name of the author (UD-255); null when it is the author. */
+                                sent_by_id?: string | null;
+                                text?: string;
+                                status?: string;
+                                error?: string | null;
+                                error_code?: string | null;
+                                created_at?: string;
+                                updated_at?: string;
+                                job_id?: string | null;
+                                percent?: null | number;
+                                phrase?: string | null;
+                                code?: string | null;
+                                vars?: {
+                                    [key: string]: number;
+                                };
+                                proposed_count?: number;
+                                attachments?: {
+                                    id?: string;
+                                    input_id?: string | null;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                    extracted?: boolean;
+                                    sha256?: string;
+                                }[];
+                                job?: null | {
+                                    id?: string;
+                                    status?: string;
+                                    attempts?: number;
+                                    percent?: null | number;
+                                    phrase?: string | null;
+                                    code?: string | null;
+                                    vars?: {
+                                        [key: string]: number;
+                                    };
+                                    last_error?: string | null;
+                                };
+                                units?: {
+                                    id?: string;
+                                    text?: string;
+                                }[];
+                                proposal?: null | {
+                                    messages?: ({
+                                        area_id?: string;
+                                        template_id?: string | null;
+                                        title?: string;
+                                        body?: string;
+                                        fields?: {
+                                            [key: string]: unknown;
+                                        };
+                                        assignee_ids?: string[];
+                                        attachment_ids?: string[];
+                                        unit_ids?: string[];
+                                        /** @enum {string} */
+                                        source?: "frame";
+                                        observed?: string[];
+                                    } & {
+                                        [key: string]: unknown;
+                                    })[];
+                                    discarded?: {
+                                        unit_ids?: string[];
+                                        reason?: string;
+                                    }[];
+                                };
+                                message_ids?: string[];
+                                messages?: {
+                                    id?: string;
+                                    title?: string;
+                                    area_id?: string;
+                                    /** @enum {string} */
+                                    status?: "open" | "answered" | "closed";
+                                    edited_at?: string | null;
+                                }[];
+                                author_name?: string | null;
+                            }[];
+                            page?: number;
+                            limit?: number;
+                            total?: number;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Submit an input (multipart: text, files[], links[], auto_publish, as_member_id; or JSON { text, links, auto_publish, as_member_id })
+         * @description `as_member_id` (UD-255, «Enviar como») envía en nombre de otro miembro: el input y los mensajes que nazcan de él tienen ese `author_id`, y las reglas de «mío» (lista, editar, cancelar, borrar) siguen a ese autor. `sent_by_id` guarda al miembro de la sesión cuando es distinto del autor, y la auditoría `input.create` lo registra como quien actuó, con `detail.author_id` y `detail.sent_by_id`. Cualquier miembro envía como cualquier miembro activo de tipo persona; sin el campo, o con el propio id, el autor es el miembro de la sesión. Un miembro agente es 400 `cannot_send_as_agent`; uno inexistente o desactivado, 400 `send_as_invalid`. `auto_publish=false` (UD-072) pide que ESTE envío no se publique solo: su propuesta espera como `proposed` aunque la perilla del proyecto esté encendida, y se publica a mano con `POST /inputs/:id/publish` o se cancela. `true` o sin el campo sigue la perilla. Cualquier otro valor es 400 `auto_publish_invalid`; en un envío repetido (ya existente) el campo no cambia lo que ya hay. El envío sólo con JSON no lleva archivos. Idempotent by content: the same normalized text, the same attachments by hash and the same sender return the input that already exists (200). A new input, or a failed or cancelled one that is resubmitted, is queued (202).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": {
+                        /** @description Text of the input. */
+                        text?: string;
+                        /** @description Attached files (image, video, audio, document). */
+                        files?: string[];
+                        /** @description Links. */
+                        links?: string[];
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            input_id?: string;
+                            job_id?: string | null;
+                            status?: string;
+                            duplicate?: boolean;
+                            restarted?: boolean;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            input_id?: string;
+                            job_id?: string | null;
+                            status?: string;
+                            duplicate?: boolean;
+                            restarted?: boolean;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inputs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One of one's own inputs, with its progress and proposal */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id?: string;
+                            author_id?: string;
+                            /** @description Who had the session when it was sent in the name of the author (UD-255); null when it is the author. */
+                            sent_by_id?: string | null;
+                            text?: string;
+                            status?: string;
+                            error?: string | null;
+                            error_code?: string | null;
+                            created_at?: string;
+                            updated_at?: string;
+                            job_id?: string | null;
+                            percent?: null | number;
+                            phrase?: string | null;
+                            code?: string | null;
+                            vars?: {
+                                [key: string]: number;
+                            };
+                            proposed_count?: number;
+                            attachments?: {
+                                id?: string;
+                                input_id?: string | null;
+                                kind?: string;
+                                name?: string;
+                                mime?: string;
+                                size?: number;
+                                extracted?: boolean;
+                                sha256?: string;
+                            }[];
+                            job?: null | {
+                                id?: string;
+                                status?: string;
+                                attempts?: number;
+                                percent?: null | number;
+                                phrase?: string | null;
+                                code?: string | null;
+                                vars?: {
+                                    [key: string]: number;
+                                };
+                                last_error?: string | null;
+                            };
+                            units?: {
+                                id?: string;
+                                text?: string;
+                            }[];
+                            proposal?: null | {
+                                messages?: ({
+                                    area_id?: string;
+                                    template_id?: string | null;
+                                    title?: string;
+                                    body?: string;
+                                    fields?: {
+                                        [key: string]: unknown;
+                                    };
+                                    assignee_ids?: string[];
+                                    attachment_ids?: string[];
+                                    unit_ids?: string[];
+                                    /** @enum {string} */
+                                    source?: "frame";
+                                    observed?: string[];
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                discarded?: {
+                                    unit_ids?: string[];
+                                    reason?: string;
+                                }[];
+                            };
+                            message_ids?: string[];
+                            messages?: {
+                                id?: string;
+                                title?: string;
+                                area_id?: string;
+                                /** @enum {string} */
+                                status?: "open" | "answered" | "closed";
+                                edited_at?: string | null;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /**
+         * Borrar un envío con sus adjuntos, trabajos y propuesta (su emisor o el Editor; exige ?confirm=true)
+         * @description Borrado real, sin restauración (UD-240). Cancela los trabajos en cola o corriendo y borra el input, sus adjuntos, sus trabajos con sus eventos y su propuesta. Los mensajes publicados desde ese envío quedan, con sus archivos (`input_id` pasa a nulo); con `with_messages=true` se borran también, con sus respuestas. Libera del volumen los archivos que ya nadie referencia. 404 si el input no es suyo y no es Editor; 400 `confirm_required` sin la confirmación. Bitácora `input.delete`.
+         */
+        delete: {
+            parameters: {
+                query?: {
+                    confirm?: boolean;
+                    with_messages?: boolean;
+                };
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            input_id?: string;
+                            deleted?: {
+                                attachments?: number;
+                                jobs?: number;
+                                messages?: number;
+                            };
+                            freed_bytes?: number;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Cambiar el texto de un input propio y volver a analizarlo
+         * @description Sólo su emisor, mientras esté `proposed` o `failed`. Reemplaza el texto, descarta la propuesta vigente y encola el análisis otra vez con el texto nuevo; los adjuntos y sus extracciones se conservan. 404 si el input no es suyo; 409 si está en otro estado (`not_editable`) o si ya existe otro envío suyo con ese contenido (`duplicate_input`); 400 si el envío queda vacío.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        text: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id?: string;
+                            author_id?: string;
+                            /** @description Who had the session when it was sent in the name of the author (UD-255); null when it is the author. */
+                            sent_by_id?: string | null;
+                            text?: string;
+                            status?: string;
+                            error?: string | null;
+                            error_code?: string | null;
+                            created_at?: string;
+                            updated_at?: string;
+                            job_id?: string | null;
+                            percent?: null | number;
+                            phrase?: string | null;
+                            code?: string | null;
+                            vars?: {
+                                [key: string]: number;
+                            };
+                            proposed_count?: number;
+                            attachments?: {
+                                id?: string;
+                                input_id?: string | null;
+                                kind?: string;
+                                name?: string;
+                                mime?: string;
+                                size?: number;
+                                extracted?: boolean;
+                                sha256?: string;
+                            }[];
+                            job?: null | {
+                                id?: string;
+                                status?: string;
+                                attempts?: number;
+                                percent?: null | number;
+                                phrase?: string | null;
+                                code?: string | null;
+                                vars?: {
+                                    [key: string]: number;
+                                };
+                                last_error?: string | null;
+                            };
+                            units?: {
+                                id?: string;
+                                text?: string;
+                            }[];
+                            proposal?: null | {
+                                messages?: ({
+                                    area_id?: string;
+                                    template_id?: string | null;
+                                    title?: string;
+                                    body?: string;
+                                    fields?: {
+                                        [key: string]: unknown;
+                                    };
+                                    assignee_ids?: string[];
+                                    attachment_ids?: string[];
+                                    unit_ids?: string[];
+                                    /** @enum {string} */
+                                    source?: "frame";
+                                    observed?: string[];
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                discarded?: {
+                                    unit_ids?: string[];
+                                    reason?: string;
+                                }[];
+                            };
+                            message_ids?: string[];
+                            messages?: {
+                                id?: string;
+                                title?: string;
+                                area_id?: string;
+                                /** @enum {string} */
+                                status?: "open" | "answered" | "closed";
+                                edited_at?: string | null;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/inputs/{id}/proposal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Guardar la propuesta editada como borrador (sólo su emisor, mientras esté propuesta)
+         * @description La propuesta completa (§7.5) reemplaza al borrador vigente y sobrevive al cierre de la pestaña (UD-017). Sólo se valida la forma y los ids (área, plantilla, miembros, adjuntos, unidades; un valor inválido o un campo desconocido es 400): un título, un texto o un campo obligatorio de la plantilla todavía vacío se acepta y se guarda, y publicar exige que estén completos (422). Guardar dos veces lo mismo deja el mismo estado. 403 si no es el emisor; 409 si el input ya se publicó o no tiene propuesta lista.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        messages: {
+                            area_id: number;
+                            template_id?: number | null;
+                            title: string;
+                            body: string;
+                            fields?: {
+                                [key: string]: string | null;
+                            };
+                            assignee_ids?: number[];
+                            attachment_ids?: number[];
+                            unit_ids?: number[];
+                            /** @enum {string} */
+                            source?: "frame";
+                            observed?: string[];
+                        }[];
+                        discarded?: {
+                            unit_ids?: number[];
+                            reason?: string;
+                        }[];
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": null | {
+                            messages?: ({
+                                area_id?: string;
+                                template_id?: string | null;
+                                title?: string;
+                                body?: string;
+                                fields?: {
+                                    [key: string]: unknown;
+                                };
+                                assignee_ids?: string[];
+                                attachment_ids?: string[];
+                                unit_ids?: string[];
+                                /** @enum {string} */
+                                source?: "frame";
+                                observed?: string[];
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            discarded?: {
+                                unit_ids?: string[];
+                                reason?: string;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/inputs/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publicar a mano la propuesta como mensajes (la enviada, o el borrador guardado si no se envía cuerpo)
+         * @description Con la publicación automática encendida (UD-070, por omisión) el análisis ya publicó: un envío publicado es 409 `already_published` y no se duplica nada. Este camino queda para la propuesta que esperó (perilla `auto_publish` apagada) o que el análisis no pudo publicar (`error_code: publish_blocked`).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        messages?: {
+                            area_id: number;
+                            template_id?: number | null;
+                            title: string;
+                            body: string;
+                            fields?: {
+                                [key: string]: string | null;
+                            };
+                            assignee_ids?: number[];
+                            attachment_ids?: number[];
+                            unit_ids?: number[];
+                            /** @enum {string} */
+                            source?: "frame";
+                            observed?: string[];
+                        }[];
+                        discarded?: {
+                            unit_ids?: number[];
+                            reason?: string;
+                        }[];
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            message_ids?: string[];
+                            messages?: {
+                                id?: string;
+                                input_id?: string | null;
+                                area_id?: string;
+                                template_id?: string | null;
+                                author_id?: string;
+                                /** @description Who had the session when the input of the message was sent in the name of its author (UD-255); null when it is the author. */
+                                sent_by_id?: string | null;
+                                title?: string;
+                                body?: string;
+                                fields?: {
+                                    [key: string]: unknown;
+                                };
+                                /** @enum {string} */
+                                status?: "open" | "answered" | "closed";
+                                assignee_ids?: string[];
+                                attachments?: {
+                                    id?: string;
+                                    input_id?: string | null;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                    extracted?: boolean;
+                                }[];
+                                attachment_kinds?: string[];
+                                reply_count?: number;
+                                last_reply?: {
+                                    id?: string;
+                                    message_id?: string;
+                                    author_id?: string;
+                                    body?: string;
+                                    /** @enum {string} */
+                                    kind?: "answer" | "fix" | "clarification";
+                                    attachments?: {
+                                        id?: string;
+                                        reply_id?: string;
+                                        kind?: string;
+                                        name?: string;
+                                        mime?: string;
+                                        size?: number;
+                                    }[];
+                                    attachment_kinds?: string[];
+                                    created_at?: string;
+                                    version?: number;
+                                    edited_at?: string | null;
+                                } | null;
+                                created_at?: string;
+                                updated_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                                closed_at?: string | null;
+                                /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
+                                deleted_at?: string | null;
+                                /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
+                                trace_id?: string | null;
+                                /** @description What a video frame shows and nobody says, outside the body; empty when there is none. */
+                                observed?: string[];
+                                replies?: {
+                                    id?: string;
+                                    message_id?: string;
+                                    author_id?: string;
+                                    body?: string;
+                                    /** @enum {string} */
+                                    kind?: "answer" | "fix" | "clarification";
+                                    attachments?: {
+                                        id?: string;
+                                        reply_id?: string;
+                                        kind?: string;
+                                        name?: string;
+                                        mime?: string;
+                                        size?: number;
+                                    }[];
+                                    attachment_kinds?: string[];
+                                    created_at?: string;
+                                    version?: number;
+                                    edited_at?: string | null;
+                                }[];
+                                edits?: {
+                                    id?: string;
+                                    member_id?: string;
+                                    at?: string;
+                                    version?: number;
+                                    fields?: string[];
+                                }[];
+                            }[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inputs/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel one's own input and its jobs */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            input_id?: string;
+                            status?: string;
+                            cancelled_jobs?: string[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inputs/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Deshacer el descarte de un input propio
+         * @description Devuelve un input cancelado a `proposed` (con la propuesta y las ediciones que tenía) o, si no llegó a tener propuesta, a `failed`. No vuelve a analizar. 404 si no es suyo; 409 si no está cancelado (`not_cancelled`).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            input_id?: string;
+                            status?: string;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inputs/{id}/reprocess": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Volver a encolar el análisis de un input ya extraído (su emisor o el editor)
+         * @description Útil cuando cambió una plantilla, el modelo o las áreas, o cuando el análisis falló. Conserva las extracciones; sólo extrae lo que falte. Un miembro lo hace sobre sus propios inputs con propuesta, fallidos o cancelados (en otro caso, 404); el editor, sobre cualquiera. Un envío publicado sólo lo reprocesa un Editor (403 para su emisor): sus mensajes vivos pasan a la papelera con sus respuestas, restaurables (UD-240), la propuesta se descarta y el envío vuelve a la cola sin confirmación; `set_aside` trae la cuenta de mensajes y de respuestas apartados. En vuelo, 409 `not_reprocessable`.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            input_id?: string;
+                            job_id?: string;
+                            set_aside?: {
+                                messages?: number;
+                                replies?: number;
+                            };
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Team messages, with filters
+         * @description `for`: «me» or a member id (messages assigned to). `involved=me`: los mensajes que afectan a quien tiene la sesión, con la misma regla que `/messages/summary`: asignados a esa persona, o emitidos por ella cuando ya tienen respuesta o están cerrados (UD-028). `replies=1`: only with replies, latest first; with `for`, those that involve that person. `deleted=1`: sólo los mensajes borrados (UD-250), los más recién borrados primero: quien los escribió ve los suyos y un Editor todos; se restauran con `POST /messages/:id/restore`.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                    limit?: number;
+                    for?: string;
+                    involved?: "me";
+                    area?: number;
+                    status?: "open" | "answered" | "closed";
+                    q?: string;
+                    replies?: 0 | 1;
+                    deleted?: 0 | 1;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items?: {
+                                id?: string;
+                                input_id?: string | null;
+                                area_id?: string;
+                                template_id?: string | null;
+                                author_id?: string;
+                                /** @description Who had the session when the input of the message was sent in the name of its author (UD-255); null when it is the author. */
+                                sent_by_id?: string | null;
+                                title?: string;
+                                body?: string;
+                                fields?: {
+                                    [key: string]: unknown;
+                                };
+                                /** @enum {string} */
+                                status?: "open" | "answered" | "closed";
+                                assignee_ids?: string[];
+                                attachments?: {
+                                    id?: string;
+                                    input_id?: string | null;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                    extracted?: boolean;
+                                }[];
+                                attachment_kinds?: string[];
+                                reply_count?: number;
+                                last_reply?: {
+                                    id?: string;
+                                    message_id?: string;
+                                    author_id?: string;
+                                    body?: string;
+                                    /** @enum {string} */
+                                    kind?: "answer" | "fix" | "clarification";
+                                    attachments?: {
+                                        id?: string;
+                                        reply_id?: string;
+                                        kind?: string;
+                                        name?: string;
+                                        mime?: string;
+                                        size?: number;
+                                    }[];
+                                    attachment_kinds?: string[];
+                                    created_at?: string;
+                                    version?: number;
+                                    edited_at?: string | null;
+                                } | null;
+                                created_at?: string;
+                                updated_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                                closed_at?: string | null;
+                                /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
+                                deleted_at?: string | null;
+                            }[];
+                            page?: number;
+                            limit?: number;
+                            total?: number;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/messages/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lo que afecta a quien tiene la sesión, por estado, y los mensajes de cada área por estado
+         * @description `mine`: mensajes no cerrados que afectan al miembro, por su estado. `open`: asignados a él y abiertos; `answered`: asignados a él y respondidos, o emitidos por él con respuestas. `areas`: abiertos, respondidos y cerrados por área, y cuántos de los abiertos son suyos (UD-028, UD-041).
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            mine?: {
+                                open?: number;
+                                answered?: number;
+                                total?: number;
+                            };
+                            items?: {
+                                message_id?: string;
+                                title?: string;
+                                status?: string;
+                                at?: string;
+                            }[];
+                            areas?: {
+                                area_id?: string;
+                                open?: number;
+                                answered?: number;
+                                closed?: number;
+                                mine_open?: number;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/messages/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A message with its thread
+         * @description Un mensaje borrado responde 404. `include_deleted=true` lo devuelve igual, con `deleted_at`, sólo a un Editor (UD-240); un Miembro recibe 403.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    include_deleted?: boolean;
+                };
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id?: string;
+                            input_id?: string | null;
+                            area_id?: string;
+                            template_id?: string | null;
+                            author_id?: string;
+                            /** @description Who had the session when the input of the message was sent in the name of its author (UD-255); null when it is the author. */
+                            sent_by_id?: string | null;
+                            title?: string;
+                            body?: string;
+                            fields?: {
+                                [key: string]: unknown;
+                            };
+                            /** @enum {string} */
+                            status?: "open" | "answered" | "closed";
+                            assignee_ids?: string[];
+                            attachments?: {
+                                id?: string;
+                                input_id?: string | null;
+                                kind?: string;
+                                name?: string;
+                                mime?: string;
+                                size?: number;
+                                extracted?: boolean;
+                            }[];
+                            attachment_kinds?: string[];
+                            reply_count?: number;
+                            last_reply?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification";
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                }[];
+                                attachment_kinds?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            } | null;
+                            created_at?: string;
+                            updated_at?: string;
+                            version?: number;
+                            edited_at?: string | null;
+                            closed_at?: string | null;
+                            /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
+                            deleted_at?: string | null;
+                            /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
+                            trace_id?: string | null;
+                            /** @description What a video frame shows and nobody says, outside the body; empty when there is none. */
+                            observed?: string[];
+                            replies?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification";
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                }[];
+                                attachment_kinds?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            }[];
+                            edits?: {
+                                id?: string;
+                                member_id?: string;
+                                at?: string;
+                                version?: number;
+                                fields?: string[];
+                            }[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /**
+         * Borrar un mensaje publicado (su emisor o un Editor; exige ?confirm=true)
+         * @description Borrado en blando (UD-240): el mensaje deja de aparecer en las listas, los conteos, la búsqueda, los avisos y el hilo de sus respuestas, y `GET /messages/:id` responde 404. Lo deshace `POST /messages/:id/restore`. 403 `not_message_author` si quien pide no es el emisor ni un Editor; 404 si no existe o ya está borrado; 400 `confirm_required` sin la confirmación. Deja la fila `message.delete` en la bitácora.
+         */
+        delete: {
+            parameters: {
+                query?: {
+                    confirm?: boolean;
+                };
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Message deleted; restored with POST /messages/:id/restore. */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Editar un mensaje publicado (sólo su emisor): título, texto, campos, plantilla, área, destinatarios y adjuntos
+         * @description Actualización parcial (UD-017, UD-071). `version` es obligatoria: la que se leyó en el mensaje; si otra edición se coló en medio, 409 `edit_conflict` con la `version` vigente y no se escribe nada. Cambiar el área exige `template_id` de esa área. `attachment_ids` reordena o quita adjuntos del envío del que nació el mensaje. Se puede editar un mensaje respondido o cerrado. Repetir la misma edición deja el mismo estado y la misma `version`. Cada edición real sube `version`, fija `edited_at`, deja una fila en `edits` (quién, cuándo y qué campos, sin valores) y avisa a los destinatarios nuevos. 403 `not_message_author` si no es el emisor, tampoco un editor; un valor inexistente o un campo desconocido es 400.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        version: number;
+                        attachment_ids?: number[];
+                        title?: string;
+                        body?: string;
+                        fields?: {
+                            [key: string]: string | null;
+                        };
+                        assignee_ids?: number[];
+                        area_id?: number;
+                        template_id?: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id?: string;
+                            input_id?: string | null;
+                            area_id?: string;
+                            template_id?: string | null;
+                            author_id?: string;
+                            /** @description Who had the session when the input of the message was sent in the name of its author (UD-255); null when it is the author. */
+                            sent_by_id?: string | null;
+                            title?: string;
+                            body?: string;
+                            fields?: {
+                                [key: string]: unknown;
+                            };
+                            /** @enum {string} */
+                            status?: "open" | "answered" | "closed";
+                            assignee_ids?: string[];
+                            attachments?: {
+                                id?: string;
+                                input_id?: string | null;
+                                kind?: string;
+                                name?: string;
+                                mime?: string;
+                                size?: number;
+                                extracted?: boolean;
+                            }[];
+                            attachment_kinds?: string[];
+                            reply_count?: number;
+                            last_reply?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification";
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                }[];
+                                attachment_kinds?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            } | null;
+                            created_at?: string;
+                            updated_at?: string;
+                            version?: number;
+                            edited_at?: string | null;
+                            closed_at?: string | null;
+                            /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
+                            deleted_at?: string | null;
+                            /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
+                            trace_id?: string | null;
+                            /** @description What a video frame shows and nobody says, outside the body; empty when there is none. */
+                            observed?: string[];
+                            replies?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification";
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                }[];
+                                attachment_kinds?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            }[];
+                            edits?: {
+                                id?: string;
+                                member_id?: string;
+                                at?: string;
+                                version?: number;
+                                fields?: string[];
+                            }[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/messages/{id}/timing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tiempos de la ejecución de un mensaje
+         * @description Segundos hasta la primera respuesta y hasta la respuesta final (`first_reply_ms`, `final_reply_ms`, desde el inicio del trabajo `execute`; `*_since_message_ms` desde que se publicó el mensaje), tiempo total, fases (`create`, `run`, `destroy`), herramientas y subagentes de la sesión del más lento al más rápido (`slowest`) y consumo por turno (`turns`). `tree` es el subárbol de spans del trabajo, como `GET /jobs/:id/trace`. Con el trabajo en curso las cifras son `null` y `phase` dice en qué paso está. 404 si el mensaje no existe o no tiene trabajo de ejecución.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            message_id?: string;
+                            job_id?: string;
+                            job_status?: string;
+                            trace_id?: string | null;
+                            phase?: string | null;
+                            attempts?: number;
+                            elapsed_ms?: number | null;
+                            first_reply_ms?: number | null;
+                            final_reply_ms?: number | null;
+                            first_reply_since_message_ms?: number | null;
+                            final_reply_since_message_ms?: number | null;
+                            total_ms?: number | null;
+                            queue_wait_ms?: number | null;
+                            phases?: {
+                                name?: string;
+                                duration_ms?: number | null;
+                                offset_ms?: number | null;
+                                status?: string;
+                            }[];
+                            slowest?: {
+                                /** @enum {string} */
+                                kind?: "tool" | "subagent";
+                                name?: string;
+                                summary?: string | null;
+                                duration_ms?: number | null;
+                                success?: boolean | null;
+                            }[];
+                            turns?: {
+                                [key: string]: unknown;
+                            }[];
+                            tree?: {
+                                [key: string]: unknown;
+                            } | null;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/messages/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restaurar un mensaje borrado (su emisor o un Editor)
+         * @description Quita `deleted_at` y devuelve el mensaje con su hilo tal como estaba (UD-240). 409 `not_deleted` si no está borrado; 403 `not_message_author` si quien pide no es el emisor ni un Editor. Deja la fila `message.restore` en la bitácora.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id?: string;
+                            input_id?: string | null;
+                            area_id?: string;
+                            template_id?: string | null;
+                            author_id?: string;
+                            /** @description Who had the session when the input of the message was sent in the name of its author (UD-255); null when it is the author. */
+                            sent_by_id?: string | null;
+                            title?: string;
+                            body?: string;
+                            fields?: {
+                                [key: string]: unknown;
+                            };
+                            /** @enum {string} */
+                            status?: "open" | "answered" | "closed";
+                            assignee_ids?: string[];
+                            attachments?: {
+                                id?: string;
+                                input_id?: string | null;
+                                kind?: string;
+                                name?: string;
+                                mime?: string;
+                                size?: number;
+                                extracted?: boolean;
+                            }[];
+                            attachment_kinds?: string[];
+                            reply_count?: number;
+                            last_reply?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification";
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                }[];
+                                attachment_kinds?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            } | null;
+                            created_at?: string;
+                            updated_at?: string;
+                            version?: number;
+                            edited_at?: string | null;
+                            closed_at?: string | null;
+                            /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
+                            deleted_at?: string | null;
+                            /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
+                            trace_id?: string | null;
+                            /** @description What a video frame shows and nobody says, outside the body; empty when there is none. */
+                            observed?: string[];
+                            replies?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification";
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                }[];
+                                attachment_kinds?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            }[];
+                            edits?: {
+                                id?: string;
+                                member_id?: string;
+                                at?: string;
+                                version?: number;
+                                fields?: string[];
+                            }[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/messages/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Borrar varios mensajes de una vez (su emisor o un Editor; exige ?confirm=true)
+         * @description Borrado en blando de cada mensaje de `ids` (UD-253), en una sola transacción: todos o ninguno. 403 `not_message_author` con `ids` (los que quien pide no puede borrar) si alguno no es suyo y no es Editor; 404 `not_found` con `ids` si alguno no existe o ya está borrado; 400 `confirm_required` sin la confirmación. Hasta 100 ids, el tope de página de la API. Deja una fila `message.delete` por mensaje en la bitácora. Lo deshace `POST /messages/restore` con los mismos `ids`.
+         */
+        post: {
+            parameters: {
+                query?: {
+                    confirm?: boolean;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        ids: number[];
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            ids?: string[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/messages/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restaurar varios mensajes borrados de una vez (su emisor o un Editor)
+         * @description Quita `deleted_at` de cada mensaje de `ids` (UD-253), en una sola transacción: todos o ninguno. 403 `not_message_author` con `ids` si alguno no es de quien pide y no es Editor; 404 `not_found` con `ids` si alguno no existe; 409 `not_deleted` con `ids` si alguno no está borrado. Hasta 100 ids. Deja una fila `message.restore` por mensaje en la bitácora.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        ids: number[];
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            ids?: string[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/messages/{id}/replies/{replyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Borrar una respuesta (su autor o un Editor; exige ?confirm=true)
+         * @description Borrado en blando (UD-240): la respuesta sale del hilo, del conteo y de la búsqueda, y el estado del mensaje se recalcula: `answered` vuelve a `open` si no queda ninguna respuesta vigente y el mensaje no está cerrado. Devuelve el mensaje con su hilo. Lo deshace `POST /replies/:id/restore`. 403 `not_reply_author` si quien pide no es el autor ni un Editor; 404 si la respuesta no existe, ya está borrada o no es de ese mensaje; 400 `confirm_required` sin la confirmación. Deja la fila `reply.delete` en la bitácora.
+         */
+        delete: {
+            parameters: {
+                query?: {
+                    confirm?: boolean;
+                };
+                header?: never;
+                path: {
+                    id: number;
+                    replyId: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id?: string;
+                            input_id?: string | null;
+                            area_id?: string;
+                            template_id?: string | null;
+                            author_id?: string;
+                            /** @description Who had the session when the input of the message was sent in the name of its author (UD-255); null when it is the author. */
+                            sent_by_id?: string | null;
+                            title?: string;
+                            body?: string;
+                            fields?: {
+                                [key: string]: unknown;
+                            };
+                            /** @enum {string} */
+                            status?: "open" | "answered" | "closed";
+                            assignee_ids?: string[];
+                            attachments?: {
+                                id?: string;
+                                input_id?: string | null;
+                                kind?: string;
+                                name?: string;
+                                mime?: string;
+                                size?: number;
+                                extracted?: boolean;
+                            }[];
+                            attachment_kinds?: string[];
+                            reply_count?: number;
+                            last_reply?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification";
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                }[];
+                                attachment_kinds?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            } | null;
+                            created_at?: string;
+                            updated_at?: string;
+                            version?: number;
+                            edited_at?: string | null;
+                            closed_at?: string | null;
+                            /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
+                            deleted_at?: string | null;
+                            /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
+                            trace_id?: string | null;
+                            /** @description What a video frame shows and nobody says, outside the body; empty when there is none. */
+                            observed?: string[];
+                            replies?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification";
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                }[];
+                                attachment_kinds?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            }[];
+                            edits?: {
+                                id?: string;
+                                member_id?: string;
+                                at?: string;
+                                version?: number;
+                                fields?: string[];
+                            }[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Editar el texto de una respuesta (sólo su autor)
+         * @description Edición en el lugar (UD-253). `version` es obligatoria: la que se leyó en la respuesta; si otra edición se coló en medio, 409 `edit_conflict` con la `version` vigente y no se escribe nada. Los adjuntos quedan como están. Una respuesta con adjuntos puede quedar sin texto; una sin adjuntos no (400 `reply_empty`). Repetir la misma edición deja el mismo estado y la misma `version`. Cada edición real sube `version`, fija `edited_at` y deja la fila `reply.edit` en la bitácora. Devuelve el mensaje con su hilo. 403 `not_reply_author` si quien pide no es el autor, tampoco un Editor; 404 si la respuesta no existe, está borrada o no es de ese mensaje.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                    replyId: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        body: string;
+                        version: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id?: string;
+                            input_id?: string | null;
+                            area_id?: string;
+                            template_id?: string | null;
+                            author_id?: string;
+                            /** @description Who had the session when the input of the message was sent in the name of its author (UD-255); null when it is the author. */
+                            sent_by_id?: string | null;
+                            title?: string;
+                            body?: string;
+                            fields?: {
+                                [key: string]: unknown;
+                            };
+                            /** @enum {string} */
+                            status?: "open" | "answered" | "closed";
+                            assignee_ids?: string[];
+                            attachments?: {
+                                id?: string;
+                                input_id?: string | null;
+                                kind?: string;
+                                name?: string;
+                                mime?: string;
+                                size?: number;
+                                extracted?: boolean;
+                            }[];
+                            attachment_kinds?: string[];
+                            reply_count?: number;
+                            last_reply?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification";
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                }[];
+                                attachment_kinds?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            } | null;
+                            created_at?: string;
+                            updated_at?: string;
+                            version?: number;
+                            edited_at?: string | null;
+                            closed_at?: string | null;
+                            /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
+                            deleted_at?: string | null;
+                            /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
+                            trace_id?: string | null;
+                            /** @description What a video frame shows and nobody says, outside the body; empty when there is none. */
+                            observed?: string[];
+                            replies?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification";
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                }[];
+                                attachment_kinds?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            }[];
+                            edits?: {
+                                id?: string;
+                                member_id?: string;
+                                at?: string;
+                                version?: number;
+                                fields?: string[];
+                            }[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/replies/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restaurar una respuesta borrada (su autor o un Editor)
+         * @description Quita `deleted_at` de la respuesta, recalcula el estado de su mensaje (`open` pasa a `answered` si no está cerrado) y devuelve el mensaje con su hilo (UD-240). 409 `not_deleted` si no está borrada; 403 `not_reply_author` si quien pide no es el autor ni un Editor; 404 si no existe o su mensaje está borrado. Deja la fila `reply.restore` en la bitácora.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id?: string;
+                            input_id?: string | null;
+                            area_id?: string;
+                            template_id?: string | null;
+                            author_id?: string;
+                            /** @description Who had the session when the input of the message was sent in the name of its author (UD-255); null when it is the author. */
+                            sent_by_id?: string | null;
+                            title?: string;
+                            body?: string;
+                            fields?: {
+                                [key: string]: unknown;
+                            };
+                            /** @enum {string} */
+                            status?: "open" | "answered" | "closed";
+                            assignee_ids?: string[];
+                            attachments?: {
+                                id?: string;
+                                input_id?: string | null;
+                                kind?: string;
+                                name?: string;
+                                mime?: string;
+                                size?: number;
+                                extracted?: boolean;
+                            }[];
+                            attachment_kinds?: string[];
+                            reply_count?: number;
+                            last_reply?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification";
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                }[];
+                                attachment_kinds?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            } | null;
+                            created_at?: string;
+                            updated_at?: string;
+                            version?: number;
+                            edited_at?: string | null;
+                            closed_at?: string | null;
+                            /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
+                            deleted_at?: string | null;
+                            /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
+                            trace_id?: string | null;
+                            /** @description What a video frame shows and nobody says, outside the body; empty when there is none. */
+                            observed?: string[];
+                            replies?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification";
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                }[];
+                                attachment_kinds?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            }[];
+                            edits?: {
+                                id?: string;
+                                member_id?: string;
+                                at?: string;
+                                version?: number;
+                                fields?: string[];
+                            }[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/messages/{id}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Agregar archivos o enlaces a un mensaje publicado (sólo su emisor)
+         * @description Multipart: `version` (la leída del mensaje), `files[]` y `links[]`, con los mismos topes y el mismo almacenamiento que `POST /inputs`. Los adjuntos nuevos quedan al final y su lectura se encola como la de cualquier adjunto. Cuenta como una edición: sube `version`, fija `edited_at` y deja una fila en `edits`. 403 `not_message_author` si no es el emisor (tampoco un Editor), 409 `edit_conflict` si la versión venció, 400 `attachments_empty` si no trae nada. Quitar o reordenar adjuntos va por `PATCH /messages/:id` (`attachment_ids`).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id?: string;
+                            input_id?: string | null;
+                            area_id?: string;
+                            template_id?: string | null;
+                            author_id?: string;
+                            /** @description Who had the session when the input of the message was sent in the name of its author (UD-255); null when it is the author. */
+                            sent_by_id?: string | null;
+                            title?: string;
+                            body?: string;
+                            fields?: {
+                                [key: string]: unknown;
+                            };
+                            /** @enum {string} */
+                            status?: "open" | "answered" | "closed";
+                            assignee_ids?: string[];
+                            attachments?: {
+                                id?: string;
+                                input_id?: string | null;
+                                kind?: string;
+                                name?: string;
+                                mime?: string;
+                                size?: number;
+                                extracted?: boolean;
+                            }[];
+                            attachment_kinds?: string[];
+                            reply_count?: number;
+                            last_reply?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification";
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                }[];
+                                attachment_kinds?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            } | null;
+                            created_at?: string;
+                            updated_at?: string;
+                            version?: number;
+                            edited_at?: string | null;
+                            closed_at?: string | null;
+                            /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
+                            deleted_at?: string | null;
+                            /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
+                            trace_id?: string | null;
+                            /** @description What a video frame shows and nobody says, outside the body; empty when there is none. */
+                            observed?: string[];
+                            replies?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification";
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                }[];
+                                attachment_kinds?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            }[];
+                            edits?: {
+                                id?: string;
+                                member_id?: string;
+                                at?: string;
+                                version?: number;
+                                fields?: string[];
+                            }[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/messages/{id}/replies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Responder un mensaje, con archivos y enlaces opcionales (403 si quien responde es su emisor)
+         * @description JSON `{ body, kind }` o multipart (`body`, `kind`, `files[]`, `links[]`) con los mismos topes y el mismo almacenamiento que `POST /inputs`. Una respuesta con archivos o enlaces puede ir sin texto. Los adjuntos se guardan y se sirven, no se analizan: `GET /replies/attachments/:id` entrega el archivo. Devuelve el mensaje con su hilo; cada respuesta lleva `attachments` y `attachment_kinds`.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        body: string;
+                        /** @enum {string} */
+                        kind?: "answer" | "fix" | "clarification";
+                    };
+                    "multipart/form-data": {
+                        /** @description Texto de la respuesta; puede faltar si hay archivos o enlaces. */
+                        body?: string;
+                        /** @enum {string} */
+                        kind?: "answer" | "fix" | "clarification";
+                        /** @description Archivos adjuntos. */
+                        files?: string[];
+                        /** @description Enlaces. */
+                        links?: string[];
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id?: string;
+                            input_id?: string | null;
+                            area_id?: string;
+                            template_id?: string | null;
+                            author_id?: string;
+                            /** @description Who had the session when the input of the message was sent in the name of its author (UD-255); null when it is the author. */
+                            sent_by_id?: string | null;
+                            title?: string;
+                            body?: string;
+                            fields?: {
+                                [key: string]: unknown;
+                            };
+                            /** @enum {string} */
+                            status?: "open" | "answered" | "closed";
+                            assignee_ids?: string[];
+                            attachments?: {
+                                id?: string;
+                                input_id?: string | null;
+                                kind?: string;
+                                name?: string;
+                                mime?: string;
+                                size?: number;
+                                extracted?: boolean;
+                            }[];
+                            attachment_kinds?: string[];
+                            reply_count?: number;
+                            last_reply?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification";
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                }[];
+                                attachment_kinds?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            } | null;
+                            created_at?: string;
+                            updated_at?: string;
+                            version?: number;
+                            edited_at?: string | null;
+                            closed_at?: string | null;
+                            /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
+                            deleted_at?: string | null;
+                            /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
+                            trace_id?: string | null;
+                            /** @description What a video frame shows and nobody says, outside the body; empty when there is none. */
+                            observed?: string[];
+                            replies?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification";
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                }[];
+                                attachment_kinds?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            }[];
+                            edits?: {
+                                id?: string;
+                                member_id?: string;
+                                at?: string;
+                                version?: number;
+                                fields?: string[];
+                            }[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/messages/{id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Close a message */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id?: string;
+                            input_id?: string | null;
+                            area_id?: string;
+                            template_id?: string | null;
+                            author_id?: string;
+                            /** @description Who had the session when the input of the message was sent in the name of its author (UD-255); null when it is the author. */
+                            sent_by_id?: string | null;
+                            title?: string;
+                            body?: string;
+                            fields?: {
+                                [key: string]: unknown;
+                            };
+                            /** @enum {string} */
+                            status?: "open" | "answered" | "closed";
+                            assignee_ids?: string[];
+                            attachments?: {
+                                id?: string;
+                                input_id?: string | null;
+                                kind?: string;
+                                name?: string;
+                                mime?: string;
+                                size?: number;
+                                extracted?: boolean;
+                            }[];
+                            attachment_kinds?: string[];
+                            reply_count?: number;
+                            last_reply?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification";
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                }[];
+                                attachment_kinds?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            } | null;
+                            created_at?: string;
+                            updated_at?: string;
+                            version?: number;
+                            edited_at?: string | null;
+                            closed_at?: string | null;
+                            /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
+                            deleted_at?: string | null;
+                            /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
+                            trace_id?: string | null;
+                            /** @description What a video frame shows and nobody says, outside the body; empty when there is none. */
+                            observed?: string[];
+                            replies?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification";
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                }[];
+                                attachment_kinds?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            }[];
+                            edits?: {
+                                id?: string;
+                                member_id?: string;
+                                at?: string;
+                                version?: number;
+                                fields?: string[];
+                            }[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/messages/{id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reopen a closed message */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id?: string;
+                            input_id?: string | null;
+                            area_id?: string;
+                            template_id?: string | null;
+                            author_id?: string;
+                            /** @description Who had the session when the input of the message was sent in the name of its author (UD-255); null when it is the author. */
+                            sent_by_id?: string | null;
+                            title?: string;
+                            body?: string;
+                            fields?: {
+                                [key: string]: unknown;
+                            };
+                            /** @enum {string} */
+                            status?: "open" | "answered" | "closed";
+                            assignee_ids?: string[];
+                            attachments?: {
+                                id?: string;
+                                input_id?: string | null;
+                                kind?: string;
+                                name?: string;
+                                mime?: string;
+                                size?: number;
+                                extracted?: boolean;
+                            }[];
+                            attachment_kinds?: string[];
+                            reply_count?: number;
+                            last_reply?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification";
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                }[];
+                                attachment_kinds?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            } | null;
+                            created_at?: string;
+                            updated_at?: string;
+                            version?: number;
+                            edited_at?: string | null;
+                            closed_at?: string | null;
+                            /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
+                            deleted_at?: string | null;
+                            /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
+                            trace_id?: string | null;
+                            /** @description What a video frame shows and nobody says, outside the body; empty when there is none. */
+                            observed?: string[];
+                            replies?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification";
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                }[];
+                                attachment_kinds?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            }[];
+                            edits?: {
+                                id?: string;
+                                member_id?: string;
+                                at?: string;
+                                version?: number;
+                                fields?: string[];
+                            }[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/areas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Areas with their counts and templates (without body) */
+        get: {
+            parameters: {
+                query?: {
+                    include_deleted?: boolean;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id?: string;
+                            title?: string;
+                            description?: string;
+                            position?: number;
+                            /** @description Area color, `#rrggbb` (UD-045). */
+                            color?: string;
+                            deleted_at?: string | null;
+                            open_count?: number;
+                            unresolved_count?: number;
+                            template_count?: number;
+                            templates?: {
+                                id?: string;
+                                area_id?: string;
+                                name?: string;
+                                description?: string;
+                                updated_at?: string;
+                                deleted_at?: string | null;
+                            }[];
+                        }[];
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Create an area */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        title: string;
+                        description: string;
+                        position?: number;
+                        color?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id?: string;
+                            title?: string;
+                            description?: string;
+                            position?: number;
+                            /** @description Area color, `#rrggbb` (UD-045). */
+                            color?: string;
+                            deleted_at?: string | null;
+                            open_count?: number;
+                            unresolved_count?: number;
+                            template_count?: number;
+                            templates?: {
+                                id?: string;
+                                area_id?: string;
+                                name?: string;
+                                description?: string;
+                                updated_at?: string;
+                                deleted_at?: string | null;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/areas/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Soft-delete an area (requires ?confirm=true) */
+        delete: {
+            parameters: {
+                query?: {
+                    confirm?: boolean;
+                };
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Area deleted; restored with POST /areas/:id/restore. */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Edit an area */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        title?: string;
+                        description?: string;
+                        position?: number;
+                        color?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id?: string;
+                            title?: string;
+                            description?: string;
+                            position?: number;
+                            /** @description Area color, `#rrggbb` (UD-045). */
+                            color?: string;
+                            deleted_at?: string | null;
+                            open_count?: number;
+                            unresolved_count?: number;
+                            template_count?: number;
+                            templates?: {
+                                id?: string;
+                                area_id?: string;
+                                name?: string;
+                                description?: string;
+                                updated_at?: string;
+                                deleted_at?: string | null;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/areas/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore a deleted area */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id?: string;
+                            title?: string;
+                            description?: string;
+                            position?: number;
+                            /** @description Area color, `#rrggbb` (UD-045). */
+                            color?: string;
+                            deleted_at?: string | null;
+                            open_count?: number;
+                            unresolved_count?: number;
+                            template_count?: number;
+                            templates?: {
+                                id?: string;
+                                area_id?: string;
+                                name?: string;
+                                description?: string;
+                                updated_at?: string;
+                                deleted_at?: string | null;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/areas/{id}/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Templates of an area, with the complete file */
+        get: {
+            parameters: {
+                query?: {
+                    include_deleted?: boolean;
+                };
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id?: string;
+                            area_id?: string;
+                            name?: string;
+                            description?: string;
+                            updated_at?: string;
+                            deleted_at?: string | null;
+                            body_markdown?: string;
+                        }[];
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Create a template (body_markdown is the complete file with its header) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        body_markdown: string;
+                        name?: string;
+                        description?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id?: string;
+                            area_id?: string;
+                            name?: string;
+                            description?: string;
+                            updated_at?: string;
+                            deleted_at?: string | null;
+                            body_markdown?: string;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/areas/{id}/templates/{templateId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Soft-delete a template (requires ?confirm=true) */
+        delete: {
+            parameters: {
+                query?: {
+                    confirm?: boolean;
+                };
+                header?: never;
+                path: {
+                    id: number;
+                    templateId: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Template deleted; restored with POST /templates/:id/restore. */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Edit a template */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                    templateId: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        body_markdown?: string;
+                        name?: string;
+                        description?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id?: string;
+                            area_id?: string;
+                            name?: string;
+                            description?: string;
+                            updated_at?: string;
+                            deleted_at?: string | null;
+                            body_markdown?: string;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/templates/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore a deleted template */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id?: string;
+                            area_id?: string;
+                            name?: string;
+                            description?: string;
+                            updated_at?: string;
+                            deleted_at?: string | null;
+                            body_markdown?: string;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Team members */
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items?: {
+                                id: string;
+                                email: string;
+                                name: string;
+                                /** @enum {string} */
+                                role: "member" | "editor";
+                                /**
+                                 * @description «agent»: lo trabaja una sesión desatendida de Claude Code (UD-254); entra por cabecera firmada, nunca por contraseña.
+                                 * @enum {string}
+                                 */
+                                kind?: "person" | "agent";
+                                profile?: string;
+                                /** @enum {string} */
+                                language: "es-419" | "en";
+                                active: boolean;
+                                created_at?: string;
+                            }[];
+                            page?: number;
+                            limit?: number;
+                            total?: number;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Add a member (editor)
+         * @description `kind: agent` crea un miembro que trabaja una sesión desatendida de Claude Code (UD-254): tiene perfil como cualquiera, nunca contraseña (400 `agent_has_no_password` si se envía), y la respuesta trae `agent_secret` una sola vez: con ese secreto firma `X-Team-User`, `X-Team-Ts` y `X-Team-Sig` (HMAC-SHA256 de `ts.MÉTODO.ruta.correo`).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        email: string;
+                        name: string;
+                        /** @enum {string} */
+                        role?: "member" | "editor";
+                        /** @enum {string} */
+                        kind?: "person" | "agent";
+                        /** @description Perfil: un par de párrafos en primera persona (UD-023). */
+                        profile?: string;
+                        password?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            email: string;
+                            name: string;
+                            /** @enum {string} */
+                            role: "member" | "editor";
+                            /**
+                             * @description «agent»: lo trabaja una sesión desatendida de Claude Code (UD-254); entra por cabecera firmada, nunca por contraseña.
+                             * @enum {string}
+                             */
+                            kind?: "person" | "agent";
+                            profile?: string;
+                            /** @enum {string} */
+                            language: "es-419" | "en";
+                            active: boolean;
+                            created_at?: string;
+                            /** @description Sólo al crear un agente; no se vuelve a mostrar. */
+                            agent_secret?: string;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/members/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Editar lo propio: perfil, idioma de salida y contraseña */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description Perfil: un par de párrafos en primera persona (UD-023). */
+                        profile?: string;
+                        /** @enum {string} */
+                        language?: "es-419" | "en";
+                        current_password?: string;
+                        new_password?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            email: string;
+                            name: string;
+                            /** @enum {string} */
+                            role: "member" | "editor";
+                            /**
+                             * @description «agent»: lo trabaja una sesión desatendida de Claude Code (UD-254); entra por cabecera firmada, nunca por contraseña.
+                             * @enum {string}
+                             */
+                            kind?: "person" | "agent";
+                            profile?: string;
+                            /** @enum {string} */
+                            language: "es-419" | "en";
+                            active: boolean;
+                            created_at?: string;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/members/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Eliminar un miembro (editor; exige ?confirm=true). Con historial responde 409 `member_has_history` salvo `purge=true`, que borra también sus envíos, mensajes y respuestas */
+        delete: {
+            parameters: {
+                query?: {
+                    confirm?: boolean;
+                    purge?: boolean;
+                };
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            member_id: string;
+                            deleted: {
+                                inputs: number;
+                                messages: number;
+                                replies: number;
+                            };
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Editar un miembro, o desactivarlo y reactivarlo con `active` (editor). El perfil no se edita aquí: cada miembro edita el suyo con `PATCH /members/me` (UD-023) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        name?: string;
+                        email?: string;
+                        /** @enum {string} */
+                        role?: "member" | "editor";
+                        password?: string;
+                        /** @description false desactiva la cuenta (no puede iniciar sesión y conserva su historial); true la reactiva. */
+                        active?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            email: string;
+                            name: string;
+                            /** @enum {string} */
+                            role: "member" | "editor";
+                            /**
+                             * @description «agent»: lo trabaja una sesión desatendida de Claude Code (UD-254); entra por cabecera firmada, nunca por contraseña.
+                             * @enum {string}
+                             */
+                            kind?: "person" | "agent";
+                            profile?: string;
+                            /** @enum {string} */
+                            language: "es-419" | "en";
+                            active: boolean;
+                            created_at?: string;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/settings/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Configured model providers (never the keys) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @enum {string} */
+                            analyzer?: "api" | "harness";
+                            items?: {
+                                /** @enum {string} */
+                                slot?: "text" | "vision" | "speech";
+                                provider?: string;
+                                model?: string;
+                                base_url?: string;
+                                available?: boolean;
+                                reason?: null | string;
+                                key_last4?: null | string;
+                                /** @enum {string} */
+                                status?: "no_key" | "configured" | "failing";
+                            }[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change the provider of a slot, or the analyzer
+         * @description Body: { slot, provider, model, base_url? } or { analyzer }. Anything `createProviders` does not accept is rejected. A change of function is tested with one minimal call before it is saved: if the test fails nothing changes and the answer is 422 `provider_check_failed` with the cause (UD-120).
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        slot: "text" | "vision" | "speech";
+                        provider?: string;
+                        model?: string;
+                        base_url?: string;
+                    } | {
+                        /** @enum {string} */
+                        analyzer: "api" | "harness";
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @enum {string} */
+                            analyzer?: "api" | "harness";
+                            items?: {
+                                /** @enum {string} */
+                                slot?: "text" | "vision" | "speech";
+                                provider?: string;
+                                model?: string;
+                                base_url?: string;
+                                available?: boolean;
+                                reason?: null | string;
+                                key_last4?: null | string;
+                                /** @enum {string} */
+                                status?: "no_key" | "configured" | "failing";
+                            }[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/settings/project": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Nombre y descripción del proyecto */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            name: string;
+                            description: string;
+                            /** @description Tope de caracteres de la descripción (PROJECT_DESCRIPTION_MAX_CHARS); el panel lo muestra como contador. */
+                            max_chars?: number;
+                            /** @description Tope de caracteres del nombre (PROJECT_NAME_MAX_CHARS). */
+                            name_max_chars?: number;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Cambiar el nombre o la descripción del proyecto (editor)
+         * @description JSON `{ description?, name? }` o multipart con un archivo `file` (.md) o un campo `description`. La descripción reemplaza a la anterior y viaja entera al analizador; su tope es `PROJECT_DESCRIPTION_MAX_CHARS` caracteres (413 `too_large` si lo supera). `name` es el nombre que muestra la barra superior; vacío vuelve a `PROJECT_NAME` (H-3722), tope `PROJECT_NAME_MAX_CHARS`.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        description?: string;
+                        name?: string;
+                    };
+                    "multipart/form-data": {
+                        /**
+                         * Format: binary
+                         * @description Archivo .md que reemplaza la descripción.
+                         */
+                        file?: string;
+                        /** @description Texto markdown que reemplaza la descripción (alternativa al archivo). */
+                        description?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            name: string;
+                            description: string;
+                            /** @description Tope de caracteres de la descripción (PROJECT_DESCRIPTION_MAX_CHARS); el panel lo muestra como contador. */
+                            max_chars?: number;
+                            /** @description Tope de caracteres del nombre (PROJECT_NAME_MAX_CHARS). */
+                            name_max_chars?: number;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/settings/publication": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Modo de publicación
+         * @description `auto_publish`: con `true` (por omisión) los mensajes de una propuesta válida se publican solos al terminar el análisis; con `false` la propuesta espera la confirmación de su emisor (UD-070).
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            auto_publish: boolean;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Cambiar el modo de publicación (editor)
+         * @description Con `auto_publish: false` vuelve la revisión previa: la propuesta queda `proposed` hasta que su emisor la publique. Sólo afecta a los análisis que terminen después; lo ya publicado no se toca.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        auto_publish: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            auto_publish: boolean;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/settings/analysis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Encuadre del análisis (editor)
+         * @description Por idioma: el texto vigente, el de omisión y si el Editor lo cambió (H-3722).
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            framing: {
+                                "es-419": {
+                                    value: string;
+                                    default: string;
+                                    custom: boolean;
+                                };
+                                en: {
+                                    value: string;
+                                    default: string;
+                                    custom: boolean;
+                                };
+                            };
+                            /** @description Tope de caracteres de cada encuadre (ANALYSIS_FRAMING_MAX_CHARS). */
+                            max_chars: number;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Cambiar el encuadre del análisis (editor)
+         * @description `{ framing: { "es-419"?: texto, en?: texto } }`. El texto abre las instrucciones de sistema del analizador en ese idioma; vacío vuelve al de omisión. Tope `ANALYSIS_FRAMING_MAX_CHARS` caracteres por idioma (413 `too_large`). Sólo afecta a los análisis que empiecen después.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        framing: {
+                            "es-419"?: string;
+                            en?: string;
+                        };
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            framing: {
+                                "es-419": {
+                                    value: string;
+                                    default: string;
+                                    custom: boolean;
+                                };
+                                en: {
+                                    value: string;
+                                    default: string;
+                                    custom: boolean;
+                                };
+                            };
+                            /** @description Tope de caracteres de cada encuadre (ANALYSIS_FRAMING_MAX_CHARS). */
+                            max_chars: number;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/settings/connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Proveedores conectados, sin sus claves
+         * @description Cada conexión con su estado (`no_key`, `configured`, `failing`), el origen de la clave (`stored` o `environment`), sus últimos 4 caracteres y las funciones que la usan. Las claves no salen nunca por la API.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items?: {
+                                name?: string;
+                                label?: string;
+                                /** @enum {string} */
+                                kind?: "anthropic" | "openai-compatible" | "groq-speech";
+                                custom?: boolean;
+                                base_url?: null | string;
+                                structured?: null | string;
+                                /** @enum {string} */
+                                status?: "no_key" | "configured" | "failing";
+                                key?: {
+                                    source?: null | string;
+                                    last4?: null | string;
+                                    updated_at?: null | string;
+                                    readable?: boolean;
+                                };
+                                used_by?: ("text" | "vision" | "speech")[];
+                                last_check?: null | {
+                                    at?: string;
+                                    ok?: boolean;
+                                    cause?: null | string;
+                                    duration_ms?: number;
+                                };
+                            }[];
+                            presets?: {
+                                name?: string;
+                                label?: string;
+                                kind?: string;
+                                base_url?: null | string;
+                                suggested_model?: null | string;
+                                structured?: null | string;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Agregar un proveedor compatible con OpenAI
+         * @description Un preajuste (`preset`) o uno propio (`name` y `base_url`). La clave se prueba antes de guardarse; si la prueba falla no se guarda nada (422 `provider_check_failed`).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        preset?: string;
+                        name?: string;
+                        label?: string;
+                        base_url?: string;
+                        /** @enum {string} */
+                        structured?: "json_schema" | "tool" | "json_object";
+                        api_key: string;
+                        model?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            connection?: {
+                                name?: string;
+                                label?: string;
+                                /** @enum {string} */
+                                kind?: "anthropic" | "openai-compatible" | "groq-speech";
+                                custom?: boolean;
+                                base_url?: null | string;
+                                structured?: null | string;
+                                /** @enum {string} */
+                                status?: "no_key" | "configured" | "failing";
+                                key?: {
+                                    source?: null | string;
+                                    last4?: null | string;
+                                    updated_at?: null | string;
+                                    readable?: boolean;
+                                };
+                                used_by?: ("text" | "vision" | "speech")[];
+                                last_check?: null | {
+                                    at?: string;
+                                    ok?: boolean;
+                                    cause?: null | string;
+                                    duration_ms?: number;
+                                };
+                            };
+                            check?: {
+                                ok?: boolean;
+                                /** @enum {null|string} */
+                                cause?: "invalid_key" | "no_quota" | "model_not_found" | "no_network" | "rate_limited" | "timeout" | "bad_address" | "provider_error" | "unknown" | null;
+                                status?: null | number;
+                                duration_ms?: number;
+                                model?: null | string;
+                                models?: null | string[];
+                                model_listed?: null | boolean;
+                                checked_at?: string;
+                            };
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/connections/{name}/key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Reemplazar la clave de un proveedor, con prueba previa
+         * @description La clave nueva se prueba con una llamada mínima. Sólo si funciona reemplaza a la anterior; si falla, la anterior sigue activa y la respuesta es 422 `provider_check_failed` con la causa.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        api_key: string;
+                        model?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            connection?: {
+                                name?: string;
+                                label?: string;
+                                /** @enum {string} */
+                                kind?: "anthropic" | "openai-compatible" | "groq-speech";
+                                custom?: boolean;
+                                base_url?: null | string;
+                                structured?: null | string;
+                                /** @enum {string} */
+                                status?: "no_key" | "configured" | "failing";
+                                key?: {
+                                    source?: null | string;
+                                    last4?: null | string;
+                                    updated_at?: null | string;
+                                    readable?: boolean;
+                                };
+                                used_by?: ("text" | "vision" | "speech")[];
+                                last_check?: null | {
+                                    at?: string;
+                                    ok?: boolean;
+                                    cause?: null | string;
+                                    duration_ms?: number;
+                                };
+                            };
+                            check?: {
+                                ok?: boolean;
+                                /** @enum {null|string} */
+                                cause?: "invalid_key" | "no_quota" | "model_not_found" | "no_network" | "rate_limited" | "timeout" | "bad_address" | "provider_error" | "unknown" | null;
+                                status?: null | number;
+                                duration_ms?: number;
+                                model?: null | string;
+                                models?: null | string[];
+                                model_listed?: null | boolean;
+                                checked_at?: string;
+                            };
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Retirar la clave guardada de un proveedor
+         * @description Bloqueado (409 `provider_in_use`, con `used_by`) si una función depende de esa clave y el entorno no tiene otra. Una clave que viene del entorno del servidor no se retira desde aquí (409 `key_from_environment`).
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            connection?: {
+                                name?: string;
+                                label?: string;
+                                /** @enum {string} */
+                                kind?: "anthropic" | "openai-compatible" | "groq-speech";
+                                custom?: boolean;
+                                base_url?: null | string;
+                                structured?: null | string;
+                                /** @enum {string} */
+                                status?: "no_key" | "configured" | "failing";
+                                key?: {
+                                    source?: null | string;
+                                    last4?: null | string;
+                                    updated_at?: null | string;
+                                    readable?: boolean;
+                                };
+                                used_by?: ("text" | "vision" | "speech")[];
+                                last_check?: null | {
+                                    at?: string;
+                                    ok?: boolean;
+                                    cause?: null | string;
+                                    duration_ms?: number;
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/connections/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Eliminar un proveedor propio
+         * @description Sólo los proveedores agregados por el Editor. 409 `provider_in_use` si una función lo usa.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted?: boolean;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/connections/{name}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Diagnosticar un proveedor
+         * @description Una llamada mínima con la clave vigente. Responde 200 aunque la prueba falle: `ok`, `cause`, `status`, `duration_ms` y, si el proveedor la ofrece, la lista de modelos. Guarda el resultado como último diagnóstico.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        model?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            check?: {
+                                ok?: boolean;
+                                /** @enum {null|string} */
+                                cause?: "invalid_key" | "no_quota" | "model_not_found" | "no_network" | "rate_limited" | "timeout" | "bad_address" | "provider_error" | "unknown" | null;
+                                status?: null | number;
+                                duration_ms?: number;
+                                model?: null | string;
+                                models?: null | string[];
+                                model_listed?: null | boolean;
+                                checked_at?: string;
+                            };
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/providers/{slot}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Diagnosticar una función
+         * @description La llamada mínima va al proveedor y al modelo que la función usa hoy. Responde 200 con el resultado aunque falle.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    slot: "text" | "vision" | "speech";
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            check?: {
+                                ok?: boolean;
+                                /** @enum {null|string} */
+                                cause?: "invalid_key" | "no_quota" | "model_not_found" | "no_network" | "rate_limited" | "timeout" | "bad_address" | "provider_error" | "unknown" | null;
+                                status?: null | number;
+                                duration_ms?: number;
+                                model?: null | string;
+                                models?: null | string[];
+                                model_listed?: null | boolean;
+                                checked_at?: string;
+                            };
+                            slot?: string;
+                            provider?: string;
+                            model?: null | string;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/attachments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description El archivo. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Un rango del archivo (cabecera Range). */
+                206: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/attachments/{id}/transcript": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * La transcripción de un audio o un video adjunto
+         * @description El texto que el análisis extrajo del adjunto, con la marca `mm:ss` de cada segmento. 404 si el adjunto no existe, no es audio ni video, o todavía no se extrajo texto.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            text?: string;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/replies/attachments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** El archivo adjunto a una respuesta, con soporte de rangos */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description El archivo. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Un rango del archivo (cabecera Range). */
+                206: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The job queue, filterable by state (editor) */
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                    limit?: number;
+                    state?: "queued" | "running" | "done" | "failed" | "cancelled";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items?: {
+                                id?: string;
+                                kind?: string;
+                                input_id?: string | null;
+                                message_id?: string | null;
+                                member_id?: string | null;
+                                status?: string;
+                                priority?: number;
+                                attempts?: number;
+                                max_attempts?: number;
+                                run_at?: string;
+                                lease_until?: string | null;
+                                worker_id?: string | null;
+                                last_error?: string | null;
+                                created_at?: string;
+                                finished_at?: string | null;
+                                trace_id?: string | null;
+                                /** @description Current step of a running execute job: create, run or destroy. */
+                                phase?: string | null;
+                            }[];
+                            page?: number;
+                            limit?: number;
+                            total?: number;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /** Purge the finished jobs of a state (requires ?confirm=true) */
+        delete: {
+            parameters: {
+                query: {
+                    state: "done" | "failed" | "cancelled";
+                    confirm?: boolean;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            purged?: number;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{id}/trace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The span tree of a job (editor)
+         * @description One tree per queue attempt: times per step, provider calls with their tokens and cost. Nanoseconds travel as text. 404 if the job left no spans.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ops/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Empty the test data (editor; requires ?confirm=true)
+         * @description `content`: inputs, attachments, jobs, proposals, messages, replies and telemetry spans, plus the files of the attachments volume left without a reference; members, areas, templates, settings and provider connections stay. `everything`: also every member except the one who asks, and areas and templates go back to the initial set of `templates/`. One transaction; the audit log keeps its history and gains a `data.reset` row with the same figures (UD-240).
+         */
+        post: {
+            parameters: {
+                query?: {
+                    confirm?: boolean;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        scope: "content" | "everything";
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            scope?: string;
+                            deleted?: {
+                                [key: string]: number;
+                            };
+                            files?: number;
+                            bytes_freed?: number;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ops/seed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Load the sample set of ejemplos/ (editor; requires ?confirm=true)
+         * @description Sends each file and subfolder of `ejemplos/` as one input in the name of who asks, through the real analysis; the progress shows in the sender's tray like any send. Answers 202 with `created` (new sends) and `existing` (already there, by content). Real cost of the full set: about 0.01 USD with Claude Haiku 5.5 (UD-252).
+         */
+        post: {
+            parameters: {
+                query?: {
+                    confirm?: boolean;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            created?: number;
+                            existing?: number;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Log: who created, published, closed, reopened or edited, and when (editor) */
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                    limit?: number;
+                    entity?: string;
+                    action?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items?: {
+                                id?: string;
+                                at?: string;
+                                member_id?: string | null;
+                                member_name?: string | null;
+                                action?: string;
+                                entity?: string;
+                                entity_id?: string | null;
+                                detail?: null | {
+                                    [key: string]: unknown;
+                                };
+                            }[];
+                            page?: number;
+                            limit?: number;
+                            total?: number;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/messages/{id}/execute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Encolar el trabajo `execute` de un mensaje (Editor)
+         * @description Una sesión desatendida de Claude Code trabaja el mensaje como el miembro agente indicado (UD-254). Sin `member_id`, un trabajo por cada agente activo entre sus destinatarios. Responde 202 con los trabajos creados. 409 `no_agent_assignee` si el mensaje no tiene un agente activo asignado, 409 `execute_busy` si cada agente ya tiene uno en cola o corriendo, 409 `message_closed` si está cerrado, 400 `not_an_agent` si `member_id` no es un agente.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        member_id?: number;
+                    } | null;
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            job_ids?: string[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{id}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Informar el avance de un trabajo `execute` (sólo su agente)
+         * @description Lo usa la sesión desatendida con `team progress`. Publica un evento `progress` con `percent` y `phrase`. 403 `not_job_agent` si quien llama no es el agente del trabajo; 409 `job_not_running` si el trabajo no está corriendo.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        percent: number;
+                        phrase: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Avance publicado. */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/telemetry/ui": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Interface events of the panel (member)
+         * @description A batch of events: navigation, screen_usage, task, error and vitals. Counts, durations and identifiers only: no field holds text of a person. The body is capped (UI_TELEMETRY_MAX_BODY_BYTES), the batch too (UI_TELEMETRY_MAX_EVENTS) and so is the rate per address. With the switch off in Configuración the batch is discarded and the answer is the same 204.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        session: string;
+                        events: ({
+                            /** @enum {string} */
+                            type: "navigation";
+                            age_ms: number;
+                            /** @enum {string} */
+                            screen: "home" | "messages" | "message-detail" | "areas" | "connections" | "team" | "settings" | "login" | "not-found";
+                            from?: ("home" | "messages" | "message-detail" | "areas" | "connections" | "team" | "settings" | "login" | "not-found") | null;
+                            render_ms: number;
+                        } | {
+                            /** @enum {string} */
+                            type: "screen_usage";
+                            age_ms: number;
+                            /** @enum {string} */
+                            screen: "home" | "messages" | "message-detail" | "areas" | "connections" | "team" | "settings" | "login" | "not-found";
+                            dwell_ms: number;
+                            clicks: number;
+                            scroll_events: number;
+                            scroll_px: number;
+                            key_presses: number;
+                            pointer_presses: number;
+                            viewport_w: number;
+                            viewport_h: number;
+                        } | {
+                            /** @enum {string} */
+                            type: "task";
+                            age_ms: number;
+                            /** @enum {string} */
+                            task: "send_publish" | "reply" | "close";
+                            /** @enum {string} */
+                            outcome: "completed" | "abandoned" | "failed";
+                            duration_ms: number;
+                            clicks: number;
+                            scroll_events: number;
+                            scroll_px: number;
+                            key_presses: number;
+                            screens: number;
+                            stage_feedback_ms?: number;
+                            stage_analysis_ms?: number;
+                            stage_publish_ms?: number;
+                            component?: string;
+                        } | {
+                            /** @enum {string} */
+                            type: "error";
+                            age_ms: number;
+                            /** @enum {string} */
+                            kind: "js" | "promise" | "network" | "http" | "render";
+                            /** @enum {string} */
+                            screen: "home" | "messages" | "message-detail" | "areas" | "connections" | "team" | "settings" | "login" | "not-found";
+                            status?: number;
+                            endpoint?: string;
+                            component?: string;
+                        } | {
+                            /** @enum {string} */
+                            type: "vitals";
+                            age_ms: number;
+                            /** @enum {string} */
+                            screen: "home" | "messages" | "message-detail" | "areas" | "connections" | "team" | "settings" | "login" | "not-found";
+                            cls?: number;
+                            long_tasks?: number;
+                            long_task_ms?: number;
+                            inp_ms?: number;
+                            lcp_ms?: number;
+                            interactive_ms?: number;
+                        })[];
+                    };
+                };
+            };
+            responses: {
+                /** @description Accepted, or discarded because telemetry is off. */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/telemetry/ui-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Summary of how the interface is used (editor)
+         * @description Percentiles (p50, p75, p95, nearest rank) by task and by screen, error and abandonment rates, and the worst journeys by clicks to complete. The window is the last `days` days, at most the span retention.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    days?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/telemetry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Turn interface telemetry on or off (editor) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        ui_enabled: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            ui_enabled?: boolean;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    job_id?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description text/event-stream flow. Events: progress, done, message. The id is job_events.seq (Last-Event-ID). */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+                /** @description With job_id: the job has already finished and there is nothing to replay; the browser stops reconnecting. */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+}
+export type webhooks = Record<string, never>;
+export interface components {
+    schemas: never;
+    responses: never;
+    parameters: never;
+    requestBodies: never;
+    headers: never;
+    pathItems: never;
+}
+export type $defs = Record<string, never>;
+export type operations = Record<string, never>;

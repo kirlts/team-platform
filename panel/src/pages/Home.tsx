@@ -17,7 +17,7 @@ import { SendDrawer } from '@/components/SendDrawer'
 import { Segmented } from '@/components/Segmented'
 import { type PendingUpload, type TrayItem } from '@/components/Tray'
 import { useErrorText, useFormat, useT } from '@/i18n'
-import { ME, type MessageQuery } from '@team-platform/client'
+import { invalidateRoots, ME, type MessageQuery } from '@team-platform/client'
 import { useEventsSnapshot, useMe, useMessages, useProject, useSends, useTeamClient } from '@team-platform/client/react'
 import { useDesktop } from '@/lib/useDesktop'
 
@@ -89,7 +89,7 @@ export function Home() {
   const started = Object.keys(events.progress).length
   const ended = Object.values(events.progress).filter((p) => p.done).length
   useEffect(() => {
-    void queryClient.invalidateQueries({ queryKey: ['inputs'] })
+    void invalidateRoots(queryClient, ['inputs'])
   }, [started, ended, queryClient])
 
   const inputs = useMemo(() => (tray.data ?? []).filter((i) => !gone.has(i.id)), [tray.data, gone])
@@ -170,7 +170,7 @@ export function Home() {
       try {
         await team.inputs.upload({ text: draft.text, files: draft.files, links: draft.links, asMemberId: draft.asMemberId }, (progress) => setUploads((list) => list.map((u) => (u.key === key ? { ...u, progress } : u))))
         // The server's list first, then the upload leaves: the send passes from one to the other without a moment in which it is neither.
-        await queryClient.invalidateQueries({ queryKey: ['inputs'] })
+        await invalidateRoots(queryClient, ['inputs'])
         setUploads((list) => list.filter((u) => u.key !== key))
       } catch (err) {
         const reason = errorText(err)
@@ -196,7 +196,7 @@ export function Home() {
 
   /** A proposal the system could not publish by itself was published by hand: the send stays in view, now as published. */
   const finished = () => {
-    void queryClient.invalidateQueries({ queryKey: ['inputs'] })
+    void invalidateRoots(queryClient, ['inputs'])
   }
 
   // Keyboard through the sends: J or ArrowDown to the next send, K or ArrowUp to the previous. Enter never publishes from here: publishing is a click on Enviar (J2-B-13).

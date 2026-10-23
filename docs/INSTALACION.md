@@ -394,6 +394,31 @@ Lo que hace el servidor:
 
 `COOKIE_NAME` cambia el nombre de la cookie cuando dos instancias comparten dominio. No puede empezar con `__Host-`, porque ese prefijo prohíbe `Domain`.
 
+## Cliente para la interfaz de un sitio anfitrión
+
+`packages/client` es el paquete `@team-platform/client`. Contiene las llamadas a la API, las claves de caché, las invalidaciones, la versión al editar, el multipart y los errores del panel. Un sitio con su propio sistema de diseño dibuja sus vistas y usa el paquete para todo lo demás. Documentación y ejemplo mínimo en `packages/client/README.md`.
+
+1. Generar el paquete desde el repositorio y copiarlo al sitio:
+
+```sh
+cd packages/client && npm install && npm pack
+# deja team-platform-client-0.1.0.tgz
+```
+
+2. En el sitio anfitrión: `npm install ./team-platform-client-0.1.0.tgz`. La entrada `@team-platform/client/react` necesita `react` y `@tanstack/react-query`; el núcleo no necesita nada.
+3. Crear el cliente con los valores de la instancia:
+
+| Variable de la instancia | Opción del cliente |
+|---|---|
+| Dominio de Team Platform | `baseUrl: 'https://team.ejemplo.cl'` |
+| `API_PREFIX` | `apiPrefix` (por omisión `/api`) |
+| `COOKIE_MODE=cross-origin` | `cookieMode: 'cross-origin'` |
+| `CORS_ORIGINS` | Debe incluir el origen del sitio |
+| `JWT_COOKIE_NAME` o `Authorization: Bearer` | La cookie viaja sola; el token por cabecera va en `headers: () => ({ Authorization: \`Bearer ${token}\` })` |
+
+4. Con el sitio y Team Platform en el mismo dominio (`COOKIE_DOMAIN`, sección anterior) basta `createTeamClient({ baseUrl: 'https://team.ejemplo.cl' })`.
+5. Tras cambiar rutas o esquemas del servidor, `npm run gen:client` en la raíz regenera `openapi.json`, los tipos y la lista de códigos de error. Sin hacerlo, `npm test` falla en `src/client-contract.test.js`.
+
 ## El trabajador que ejecuta
 
 Un mensaje asignado a un miembro agente lo trabaja una sesión desatendida de `claude -p` (MASTER-SPEC §7.5 «Ejecución»). El trabajo `execute` se encola al publicar el mensaje y a mano con `POST /api/messages/:id/execute`, y aparece en la Cola.

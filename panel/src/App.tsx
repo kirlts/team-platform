@@ -10,7 +10,7 @@ import { Sidebar } from '@/components/Sidebar'
 import { TelemetryBridge } from '@/components/TelemetryBridge'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { TeamApiError } from '@team-platform/client'
+import { invalidateRoots, TeamApiError } from '@team-platform/client'
 import { EventsProvider, useLogout, useMe, useProject } from '@team-platform/client/react'
 import { ROUTER_BASENAME } from '@/lib/base'
 import { NoticeProvider } from '@/lib/notices'
@@ -51,7 +51,7 @@ function Shell() {
       }
       // The host has its own sign-out (LOGOUT_URL, H-3720): it is the one that leaves the person outside.
       if (hostLogout) window.location.assign(hostLogout)
-      else await queryClient.invalidateQueries({ queryKey: ['me'] })
+      else await invalidateRoots(queryClient, ['me'])
     }
   }
 

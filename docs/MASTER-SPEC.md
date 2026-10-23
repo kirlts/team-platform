@@ -398,11 +398,13 @@ message_attachments  message_id, attachment_id, position (el primero es el adjun
 replies              id, message_id, author_id, body, kind(answer|fix|clarification), created_at, deleted_at (migración 0010, UD-240), version (1 al responder; +1 por edición del autor), edited_at (NULL sin ediciones) (migración 0012, UD-253)
 jobs                 id, kind(extract|analyze|execute), input_id, message_id (sólo `execute`; migración 0013), payload_json, status(queued|running|done|failed|cancelled), priority, attempts, max_attempts, run_at, lease_until, worker_id, last_error, created_at, finished_at
                      índice (status, priority DESC, run_at, id): reclamo en 23 µs (informe 03); índice (message_id)
+                     marks_json (migración 0018): lo que la sesión informó con `team mark` en el intento en curso; se vacía al empezar cada intento
 job_events           seq, job_id, kind(progress|done|message), member_id (destinatario; NULL = todo el equipo), percent, phrase, data_json, at     retención 7 días
 settings             key, value_json, updated_at                                                (proveedor y modelo por ranura; nunca una llave)
 provider_connections name, label, kind(anthropic|openai-compatible|groq-speech), custom, base_url, structured, sealed_value (AES-256-GCM), last4, key_updated_at, check_at, check_ok, check_cause, check_ms, created_at, updated_at      (migración 0009; la clave sólo sale sellada de la base y nunca por la API)
 audit_log            id, at, member_id, action, entity, entity_id, detail_json
 spans                trace_id, span_id, parent_id, name, kind, start_ns, end_ns, status, status_message, attributes_json, events_json; job_id y operation generadas      (migración 0002)
+execute_runs         id, job_id, attempt (único con job_id), message_id, instance, trace_id, session_id, model, runner, machine, started_at, finished_at, tiempos en ms (queue_wait_ms, first_reply_ms, final_reply_ms, total_ms, create_ms, run_ms, destroy_ms, tools_ms, judge_ms, delivery_ms, wait_ms; NULL = desconocido), input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_usd, turns, tool_count, subagent_count, outcome, error_code, delivered (0|1|NULL), transcript_ref, slowest_tools_json      (migración 0018, UD-262; sin claves foráneas; retención EXECUTE_RUNS_RETENTION_DAYS, 365)
 llm_calls            VISTA sobre los spans de llamada a un modelo: id, job_id, provider, model, modality, input_tokens, output_tokens, cached_tokens, cost_usd, duration_ms, at, trace_id, status, error_type, step
 ```
 
@@ -518,6 +520,7 @@ Las órdenes de `machine` llevan marcadores que el trabajador reemplaza por su v
 |---|---|---|
 | `EXECUTE_MACHINE_CREATE` | `{job_id}`, `{workdir}` | Crea la máquina y sale con 0. Su última línea de stdout es el nombre de la máquina, `{machine}`; vacía, `team-job-<job_id>` |
 | `EXECUTE_MACHINE_RUN` | `{job_id}`, `{workdir}`, `{machine}` | Copia `{workdir}` a la máquina, corre ahí `bash run.sh` y devuelve su stdout, que es el NDJSON de la sesión |
+| `EXECUTE_MACHINE_COLLECT` (opcional) | `{job_id}`, `{workdir}`, `{machine}` | Copia la transcripción de la sesión fuera de la máquina y escribe como última línea no vacía de stdout la ruta o la clave del objeto donde la dejó; esa línea queda en `execute_runs.transcript_ref`. Corre después de RUN y antes de DESTROY, también si la sesión falló o venció; no corre si CREATE falló ni si el trabajo se abortó. Un código distinto de 0 o sin salida deja la referencia vacía y no falla el trabajo. Sin la orden no pasa nada |
 | `EXECUTE_MACHINE_DESTROY` | `{job_id}`, `{workdir}`, `{machine}` | Destruye la máquina. Corre siempre: al terminar bien, al fallar, al vencer `EXECUTE_TIMEOUT_MS`, al abortarse el trabajo y cuando CREATE falló a medias |
 
 `{workdir}` contiene `run.sh` (la invocación), `env.sh` (modo 600; lleva el secreto del agente), `prompt.md` y `bin/team`. El plazo `EXECUTE_TIMEOUT_MS` cubre CREATE y RUN juntos. Al vencer, el trabajador manda SIGTERM al grupo de procesos que lanzó y SIGKILL tras `EXECUTE_KILL_GRACE_MS`; nunca señala a otro proceso. Con `EXECUTE_RUNNER=machine` la instancia no arranca si falta una de las tres órdenes.
@@ -540,6 +543,7 @@ claude -p --model <EXECUTE_MODEL> --effort <EXECUTE_EFFORT> --max-budget-usd <m�
 | `EXECUTE_MAX_TURNS` | 60 |
 | `EXECUTE_MAX_SUBAGENTS` | 3 |
 | `EXECUTE_TIMEOUT_MS` | 3.600.000 |
+| `EXECUTE_RUNS_RETENTION_DAYS` | 365 |
 
 Tope diario de gasto (UD-256). Antes de correr, el trabajo suma el día: `jobs.cost_usd` de los trabajos `execute` que corrieron (el `total_cost_usd` de su línea `result`) más `EXECUTE_MACHINE_COST_USD` por cada uno con runner `machine`. El día es el día local del servidor, según `TZ` (UTC si no está fijada), y un trabajo cuenta en el día en que empezó. Saldo = `EXECUTE_DAILY_BUDGET_USD` − suma. Con saldo ≤ 0 el trabajo vuelve a la cola hasta la medianoche siguiente sin gastar su intento, con el paso `budgetWait` («En espera: tope diario de gasto»), y `claude` no se llama. Con saldo, `--max-budget-usd` es el menor entre `EXECUTE_MAX_BUDGET_USD` y el saldo, redondeado a centavos. El anfitrión fija `EXECUTE_MACHINE_COST_USD=0.07`.
 
@@ -558,7 +562,7 @@ El prompt va por stdin. Sus bloques con nombre:
 
 Siguen las reglas de trabajo. La sesión paraleliza lo independiente con hasta `EXECUTE_MAX_SUBAGENTS` subagentes a la vez. Trabaja en la rama `tp/<message_id>` y nunca empuja a `main`. Corre las verificaciones del repositorio. Envía dos respuestas: la primera al empezar, con `team reply`. La final es `summary` de la salida estructurada: un par de párrafos sin jerga, dirigidos a quien envió y en su idioma. Después va la salida de `team --help` y, al final, el bloque `host_instructions`, que prima sobre las reglas anteriores. `EXECUTE_HOST_INSTRUCTIONS` es la ruta a un archivo `.md` del anfitrión con sus reglas. Se lee en cada trabajo. Un archivo ausente o ilegible falla el trabajo con `host_instructions_missing`.
 
-La sesión tiene `team` (`scripts/team.mjs`) en su PATH, autenticado como el agente con `TEAM_URL`, `TEAM_AGENT_EMAIL` y `TEAM_AGENT_SECRET`. Sus órdenes son `show`, `reply`, `progress` y `close`.
+La sesión tiene `team` (`scripts/team.mjs`) en su PATH, autenticado como el agente con `TEAM_URL`, `TEAM_AGENT_EMAIL` y `TEAM_AGENT_SECRET`. Sus órdenes son `show`, `reply`, `progress`, `mark`, `timing` y `close`.
 
 Cada línea NDJSON se traduce en progreso (§7.10). La línea `result` cierra el trabajo:
 
@@ -754,11 +758,34 @@ El contenido de entrada y salida va siempre en un evento del span, `gen_ai.clien
 
 Una traza continua por mensaje (UD-261). El envío abre `input.submit` y guarda `trace_id` y `traceparent` (W3C) en `inputs`; el trabajo `analyze` continúa esa traza, la publicación abre `message.publish` por mensaje y guarda `trace_id` y `traceparent` en `messages`, y el trabajo `execute` continúa desde ahí. Los trabajos guardan `trace_id` y `traceparent` (migración 0017). Cada intento es un span `job` hijo de esa traza (`team.attempt`, `team.outcome`); sin contexto guardado sigue siendo la raíz de su propio árbol. Un reintento enlaza el intento anterior, y un trabajo nuevo del mismo mensaje o envío (reproceso, segunda asignación) enlaza el último trabajo anterior, con un span link (`team.link` = `previous_attempt` o `previous_job`; columna `spans.links_json`). `GET /api/messages/:id` devuelve `trace_id`.
 
-Trabajo `execute`. Hijos del span `execute`: `execute.machine.create`, `execute.machine.run` y `execute.machine.destroy` (con el runner local, `execute.local.run`). Dentro de `run`, un span `execute.tool` por llamada a herramienta (`gen_ai.tool.name`, `team.tool.success`, `team.tool.summary`) y un `execute.subagent` por subagente (`gen_ai.agent.name`), con las herramientas de su subagente colgando de él. Se arman emparejando `tool_use` y `tool_result` del NDJSON `stream-json` por id; la duración es la que la sesión esperó. Cada mensaje del modelo deja un evento `execute.turn` en el span de `run` con tokens de entrada, salida y caché, y `team.turn.cost_usd` cuando el modelo tiene precio documentado (`pricing.js`; Sonnet 5.5 no lo tiene). El span `job` lleva los eventos `reply.start` (primera respuesta de la sesión) y `reply.final` (respuesta de cierre) con `team.ms_since_job_start` y `team.ms_since_message`. `jobs.phase` dice el paso en curso (`create`, `run`, `destroy`).
+Trabajo `execute`. Hijos del span `execute`: `execute.machine.create`, `execute.machine.run` y `execute.machine.destroy` (con el runner local, `execute.local.run`). Dentro de `run`, un span `execute.tool` por llamada a herramienta (`gen_ai.tool.name`, `team.tool.success`, `team.tool.summary`) y un `execute.subagent` por subagente (`gen_ai.agent.name`), con las herramientas de su subagente colgando de él. Se arman emparejando `tool_use` y `tool_result` del NDJSON `stream-json` por id; la duración es la que la sesión esperó. Cada mensaje del modelo deja un evento `execute.turn` en el span de `run` con tokens de entrada, salida y caché, y `team.turn.cost_usd` cuando el modelo tiene precio documentado (`pricing.js`; Sonnet 5.5 no lo tiene). El span `job` lleva los eventos `reply.start` (primera respuesta de la sesión) y `reply.final` (respuesta de cierre) con `team.ms_since_job_start` y `team.ms_since_message`. `jobs.phase` dice el paso en curso (`create`, `run`, `collect`, `destroy`). Con `EXECUTE_MACHINE_COLLECT` hay además el span `execute.machine.collect`.
 
 Contexto hacia la sesión. El entorno del harness lleva `TRACEPARENT` (el span `execute`). `EXECUTE_OTEL_ENV` (pares `CLAVE=valor` separados por espacios) se pasa tal cual a `claude -p` para su propia telemetría; se rechazan claves `TEAM_*` y `TRACEPARENT`. Las variables que Claude Code reconoce y su fuente están en [la medición](investigaciones/mediciones/2026-10-22-observabilidad-del-harness.md).
 
 `GET /api/messages/:id/timing` (Miembro) devuelve `first_reply_ms`, `final_reply_ms`, `total_ms`, `queue_wait_ms`, las fases, las herramientas y subagentes del más lento al más rápido, el consumo por turno y el subárbol de spans (`tree`). `team timing <message_id>` lo imprime sin el árbol. El panel lo muestra en «Tiempos» de la ficha y en las ejecuciones en curso de la Cola. Publicar, cerrar y reabrir abren `input.publish`, `message.close` y `message.reopen`. `GET /api/jobs/:id/trace` (Editor) devuelve el árbol de un trabajo, y de ahí el banco lee sus tiempos por paso. La retención es la de `job_events` (`RETENTION_DAYS`, 7). Las imágenes y fotogramas se guardan en base64 salvo con `TELEMETRY_INLINE_BLOBS=0`; el audio nunca se copia al span. `start_ns` y `end_ns` son enteros de 64 bits, así que leer `spans` con `SELECT *` falla: se piden con `CAST(… AS TEXT)` o se lee la vista `llm_calls`.
+
+Historial de ejecuciones (UD-262). El manejador escribe una fila en `execute_runs` al cerrar cada intento del trabajo `execute`, también si falla, vence o se aborta. Usa los datos que arma la observabilidad:
+
+| Columnas | Origen |
+|---|---|
+| `trace_id`, `session_id`, `model`, `runner`, `machine` | El trabajo y la línea `init` de la sesión |
+| `queue_wait_ms`, `first_reply_ms`, `final_reply_ms`, `total_ms` | Los mismos que `GET /api/messages/:id/timing`. La respuesta final y el total se completan en la transacción que cierra el trabajo |
+| `create_ms`, `run_ms`, `destroy_ms` | Un tiempo por span de fase. Con el ejecutor local sólo `run_ms` |
+| `tools_ms` | Tiempo con al menos una herramienta corriendo; las que se solapan cuentan una vez |
+| `input_tokens` (incluye caché), `output_tokens`, `cache_read_tokens`, `cache_write_tokens`, `cost_usd` | La línea `result` |
+| `turns`, `tool_count`, `subagent_count` | Turnos de la sesión principal y llamadas del NDJSON |
+| `outcome`, `error_code` | `outcome` de la salida estructurada; `failed` si el intento falló; `aborted` si se canceló o se apagó el servidor |
+| `slowest_tools_json` | Las diez llamadas más lentas |
+
+Un segundo intento escribe su propia fila (`UNIQUE (job_id, attempt)`). `instance` es `INSTANCE_NAME`, o el host de `PUBLIC_URL`, o `local`. Una copia restaurada en otra instancia conserva el nombre de la original, y la consulta muestra una instancia a la vez.
+
+`judge_ms`, `delivery_ms`, `wait_ms` y `delivered` los informa la sesión con `team mark <judge|delivery|wait> --ms N [--ok true|false]` (`POST /api/jobs/:id/marks`, sólo el agente del trabajo y con el trabajo corriendo). Las marcas del mismo nombre se suman; `--ok` en `delivery` fija `delivered`. Sin marca la cifra queda `NULL`.
+
+Transcripción. Con `EXECUTE_MACHINE_COLLECT` (§7.5) el ejecutor `machine` copia el archivo de sesión de Claude antes de destruir la máquina y la fila guarda la referencia en `transcript_ref`. La retención de las transcripciones la fija el anfitrión.
+
+Retención propia: `EXECUTE_RUNS_RETENTION_DAYS` (365). La barrida de la cola borra las filas más viejas junto con la de `spans` (7 días) sin ligarlas. Vaciar los datos de prueba (§7.2) no toca esta tabla.
+
+Consulta sin sesión. `scripts/tiempos.mjs`, incluido en la imagen, abre la base en solo lectura (`DB_PATH` o `DATA_DIR/team.db`) y no usa la API. Opciones: `--ultimos N`, `--mensaje ID`, `--desde AAAA-MM-DD`, `--hasta`, `--resumen`, `--instancia`, `--todas` y `--json`. El resumen da promedio, p50 y p95 (rango más cercano) por fase, costo medio y total. Da también la tasa de entrega entre las ejecuciones con dato. Suma la tasa de «ya resuelto» (`outcome = investigated` sobre todas las ejecuciones del período) y las diez herramientas más lentas. `GET /api/ops/execute-runs` (Editor; `since`, `until`, `message_id`, `outcome`, `instance`, `page`, `limit`) y `GET /api/ops/execute-runs/summary` devuelven lo mismo, con las fechas en ISO 8601. El panel muestra el resumen en «Ejecuciones», plegado, en la Cola.
 
 ### 7.10 ter Telemetría de la interfaz (`src/telemetry/ui*.js`, `panel/src/lib/telemetry.ts`)
 

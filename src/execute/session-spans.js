@@ -10,6 +10,15 @@ import { estimateCostUsd } from '../telemetry/pricing.js'
 import { phraseForTool } from './stream.js'
 
 const SUBAGENT_TOOLS = new Set(['Task', 'Agent'])
+/** Milliseconds during which at least one call was running (calls that overlap count once). */
+export function unionMs (intervals) {
+  let total = 0
+  let end = -Infinity
+  for (const { startedAt, endedAt } of [...intervals].sort((a, b) => a.startedAt - b.startedAt)) {
+    if (startedAt > end) { total += endedAt - startedAt; end = endedAt } else if (endedAt > end) { total += endedAt - end; end = endedAt }
+  }
+  return Math.round(total)
+}
 const blocks = (event) => (Array.isArray(event.message?.content) ? event.message.content : [])
 
 /**
@@ -20,6 +29,7 @@ export function createSessionTracer ({ model, parentContext = context.active(), 
   const open = new Map() // tool_use id → { span, ctx, subagent }
   const turns = new Map() // message id → { usage, subagent, at }
   const summary = { tools: 0, subagents: 0, failed: 0 }
+  const rows = [] // one per finished tool or subagent call, for `execute_runs` (UD-262)
 
   function onToolUse (event, block) {
     const parent = event.parent_tool_use_id ? (open.get(event.parent_tool_use_id)?.ctx ?? parentContext) : parentContext
@@ -35,7 +45,10 @@ export function createSessionTracer ({ model, parentContext = context.active(), 
         'team.tool.summary': phraseForTool(block.name, input), 'team.in_subagent': Boolean(event.parent_tool_use_id)
       }, parent, { startTime: clock() })
     summary[subagent ? 'subagents' : 'tools'] += 1
-    open.set(block.id ?? `anon-${open.size}`, { span, ctx: trace.setSpan(parent, span), subagent })
+    open.set(block.id ?? `anon-${open.size}`, {
+      span, ctx: trace.setSpan(parent, span), subagent, startedAt: clock(),
+      name: subagent ? (input.subagent_type ?? 'general-purpose') : block.name, summary: phraseForTool(block.name, input)
+    })
   }
 
   function onToolResult (block) {
@@ -45,7 +58,9 @@ export function createSessionTracer ({ model, parentContext = context.active(), 
     const failed = block.is_error === true
     entry.span.setAttribute('team.tool.success', !failed)
     if (failed) summary.failed += 1
-    endManualSpan(entry.span, { endTime: clock(), error: failed ? Object.assign(new Error(String(typeof block.content === 'string' ? block.content : 'tool error').slice(0, 200)), { code: 'tool_error' }) : null })
+    const endedAt = clock()
+    rows.push({ kind: entry.subagent ? 'subagent' : 'tool', name: entry.name, summary: entry.summary, duration_ms: Math.round(endedAt - entry.startedAt), success: !failed, startedAt: entry.startedAt, endedAt })
+    endManualSpan(entry.span, { endTime: endedAt, error: failed ? Object.assign(new Error(String(typeof block.content === 'string' ? block.content : 'tool error').slice(0, 200)), { code: 'tool_error' }) : null })
   }
 
   function onEvent (event) {
@@ -62,16 +77,23 @@ export function createSessionTracer ({ model, parentContext = context.active(), 
 
   /** Closes what is still open (the session died mid-tool) and writes the turn events on the span of the run. */
   function finish (runSpan) {
-    for (const { span } of open.values()) {
+    for (const { span, subagent, name, summary: text, startedAt } of open.values()) {
       span.setAttribute('team.tool.success', false)
       span.setAttribute('team.tool.unfinished', true)
-      endManualSpan(span, { endTime: clock() })
+      const endedAt = clock()
+      rows.push({ kind: subagent ? 'subagent' : 'tool', name, summary: text, duration_ms: Math.round(endedAt - startedAt), success: false, startedAt, endedAt })
+      endManualSpan(span, { endTime: endedAt })
     }
     open.clear()
     let n = 0
+    const totals = { input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0 }
     for (const { usage, subagent, at } of turns.values()) {
       n += 1
       const u = usage ?? {}
+      totals.input_tokens += (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0)
+      totals.output_tokens += u.output_tokens ?? 0
+      totals.cache_read_tokens += u.cache_read_input_tokens ?? 0
+      totals.cache_write_tokens += u.cache_creation_input_tokens ?? 0
       const tokens = { input_tokens: u.input_tokens ?? 0, output_tokens: u.output_tokens ?? 0, cached_tokens: u.cache_read_input_tokens ?? 0, cache_creation_tokens: u.cache_creation_input_tokens ?? 0 }
       const cost = usage ? estimateCostUsd({ provider: 'anthropic', model, usage: tokens }) : null
       runSpan?.addEvent('execute.turn', {
@@ -84,7 +106,7 @@ export function createSessionTracer ({ model, parentContext = context.active(), 
       }, at)
     }
     runSpan?.setAttributes({ 'team.tool_calls': summary.tools, 'team.subagent_calls': summary.subagents, 'team.tool_failures': summary.failed, 'team.model_messages': turns.size })
-    return summary
+    return { ...summary, turns: turns.size, ...totals, tools_ms: unionMs(rows.filter((r) => r.kind === 'tool')), slowest: rows.map(({ startedAt, endedAt, ...row }) => row).sort((a, b) => b.duration_ms - a.duration_ms) }
   }
 
   return { onEvent, finish }

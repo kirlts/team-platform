@@ -3,7 +3,7 @@
 // Records its arguments, cwd, PATH entries and TEAM_* variables, optionally calls `team reply` through the PATH as the
 // real session would, and prints NDJSON. FAKE_EXECUTE_MODE: ok | no-structured | error | hang | exit.
 import { execFileSync } from 'node:child_process'
-import { appendFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 
 const state = process.env.FAKE_EXECUTE_STATE
 const mode = process.env.FAKE_EXECUTE_MODE ?? 'ok'
@@ -15,10 +15,16 @@ process.stdin.on('end', () => {
   const out = (e) => process.stdout.write(`${JSON.stringify(e)}\n`)
   const sessionId = 'sess-0001'
   out({ type: 'system', subtype: 'init', session_id: sessionId, model: 'claude-sonnet-5-5', tools: ['Read', 'Bash'] })
+  // The session file Claude Code leaves under ~/.claude/projects/<dir>/<session>.jsonl (what EXECUTE_MACHINE_COLLECT copies).
+  if (state) { mkdirSync(`${state}/projects/-job`, { recursive: true }); writeFileSync(`${state}/projects/-job/${sessionId}.jsonl`, `${JSON.stringify({ type: 'user', session_id: sessionId })}\n`) }
   if (mode === 'exit') { process.stderr.write('session not started'); process.exit(3) }
   if (process.env.FAKE_EXECUTE_REPLY === '1') {
     execFileSync('team', ['reply', team.TEAM_MESSAGE_ID, '--body', 'Recibido. Empiezo por leer la pantalla.'], { stdio: 'inherit' })
     execFileSync('team', ['progress', team.TEAM_JOB_ID, '--percent', '20', '--phrase', 'Revisión de la pantalla'], { stdio: 'inherit' })
+  }
+  // Times the session reports with `team mark` (FAKE_EXECUTE_MARKS=1): judge 4000 + 1000, wait 2500, delivery 9000 that reached production.
+  if (process.env.FAKE_EXECUTE_MARKS === '1') {
+    for (const a of [['judge', '4000'], ['judge', '1000'], ['wait', '2500'], ['delivery', '9000', 'true']]) execFileSync('team', ['mark', a[0], '--ms', a[1], ...(a[2] ? ['--ok', a[2]] : [])], { stdio: 'inherit' })
   }
   const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
   const usage = (n) => ({ input_tokens: 100 * n, output_tokens: 10 * n, cache_read_input_tokens: 1000 * n, cache_creation_input_tokens: 50 * n })

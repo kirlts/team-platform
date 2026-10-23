@@ -19,6 +19,7 @@ import { step } from '../domain/progress-phrases.js'
 import { getProject } from '../domain/settings.js'
 import { SpanStatusCode, trace } from '@opentelemetry/api'
 import { currentTraceparent, recordGenAiCall, withSpan } from '../telemetry/api.js'
+import { instanceLabel, recordExecuteRun, updateExecuteRun } from '../telemetry/execute-runs.js'
 import { readAgentSecret } from './agent-credentials.js'
 import { buildExecutePrompt, declaredOutput, finalSchema, readTemplate } from './prompt.js'
 import { runLocal, runMachine } from './runners.js'
@@ -103,147 +104,211 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     await rm(workdir, { recursive: true, force: true })
   }
 
+  /** The row of `execute_runs` for an attempt (UD-262). Measuring never fails the job. */
+  function saveRun (job, ctx, rec) {
+    try {
+      const { message_id: messageId } = parseJson(job.payload_json, {})
+      const end = now()
+      const result = rec.result
+      const marks = parseJson(get(db, 'SELECT marks_json FROM jobs WHERE id = ?', job.id)?.marks_json, {}) ?? {}
+      const reason = ctx.signal.aborted ? ctx.signal.reason : null
+      const failed = rec.error !== undefined
+      const aborted = failed && (reason === 'lost' || reason === 'shutdown')
+      const errorCode = !failed ? null : (typeof rec.error === 'string' ? rec.error : (rec.error?.code ?? (reason ? String(reason) : (rec.error?.name ?? 'error'))))
+      const models = Object.keys(result?.modelUsage ?? {})
+      const s = rec.session
+      const u = result?.usage ?? {}
+      const input = (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0)
+      const phaseMs = rec.phaseMs
+      recordExecuteRun(db, {
+        job_id: job.id, attempt: job.attempts, message_id: messageId ?? null, instance: instanceLabel(config),
+        trace_id: job.trace_id ?? null, session_id: rec.st?.sessionId ?? null,
+        model: models.length ? models.join(',') : x.model, runner: x.runner, machine: rec.r?.machine ?? null,
+        started_at: rec.startedAt, finished_at: end,
+        queue_wait_ms: Math.max(0, rec.startedAt - job.created_at),
+        first_reply_ms: rec.firstReplyAt === null ? null : Math.max(0, rec.firstReplyAt - rec.startedAt),
+        final_reply_ms: null, total_ms: Math.max(0, end - rec.startedAt),
+        create_ms: phaseMs.create ?? null, run_ms: phaseMs.run ?? null, destroy_ms: phaseMs.destroy ?? null,
+        tools_ms: s ? s.tools_ms : null,
+        judge_ms: marks.judge_ms ?? null, delivery_ms: marks.delivery_ms ?? null, wait_ms: marks.wait_ms ?? null,
+        input_tokens: result ? input : (s?.input_tokens ?? null), output_tokens: result ? (u.output_tokens ?? 0) : (s?.output_tokens ?? null),
+        cache_read_tokens: result ? (u.cache_read_input_tokens ?? 0) : (s?.cache_read_tokens ?? null),
+        cache_write_tokens: result ? (u.cache_creation_input_tokens ?? 0) : (s?.cache_write_tokens ?? null),
+        cost_usd: typeof result?.total_cost_usd === 'number' ? result.total_cost_usd : null,
+        turns: rec.st?.turns ?? null, tool_count: s?.tools ?? null, subagent_count: s?.subagents ?? null,
+        outcome: aborted ? 'aborted' : (failed ? 'failed' : (typeof result?.structured_output?.outcome === 'string' ? result.structured_output.outcome : null)),
+        error_code: errorCode, delivered: marks.delivered ?? null,
+        transcript_ref: rec.r?.collect?.ref ?? null, slowest_tools: s?.slowest ?? []
+      })
+    } catch (error) {
+      logger?.warn({ err: error }, 'could not record the execute run')
+    }
+  }
+
+  async function runJob (job, ctx, rec) {
+    const { message_id: messageId, member_id: memberId } = parseJson(job.payload_json, {})
+    const jobSpan = trace.getActiveSpan() // the `job` span of this attempt: `reply.start` and `reply.final` are events on it (UD-262)
+    const startedAt = rec.startedAt
+    const msSince = (t) => Math.max(0, t - startedAt)
+    const message = get(db, `SELECT m.*, a.title AS area_title FROM messages m JOIN areas a ON a.id = m.area_id WHERE m.id = ? AND m.deleted_at IS NULL`, messageId)
+    if (!message) throw permanent('El mensaje del trabajo ya no existe.', 'message_missing')
+    const agent = get(db, 'SELECT id, email, name, kind, profile, language, active FROM members WHERE id = ?', memberId)
+    if (!agent || agent.kind !== 'agent') throw permanent('El miembro del trabajo no es un agente.', 'not_an_agent')
+    if (agent.active !== 1) throw permanent('El agente está desactivado.', 'account_inactive')
+    if (message.status === 'closed') throw permanent('El mensaje está cerrado.', 'message_closed')
+    const secret = readAgentSecret(db, vault, agent.id)
+    if (!secret) throw permanent('El agente no tiene secreto propio; un Editor debe crearlo de nuevo.', 'agent_secret_missing')
+    const author = get(db, 'SELECT id, name, profile, language FROM members WHERE id = ?', message.author_id)
+    const templateRow = message.template_id ? get(db, 'SELECT id, name, body_markdown FROM templates WHERE id = ?', message.template_id) : null
+    const template = readTemplate(templateRow)
+    let declared
+    try { declared = declaredOutput(template) } catch (error) { throw permanent(`La salida declarada de la plantilla no compila: ${error.message}`, 'template') }
+    const schema = finalSchema(declared.grammar)
+    const validate = ajv.compile(finalSchema(declared.validation, { validation: true }))
+    let hostInstructions = ''
+    if (x.hostInstructions) {
+      try { hostInstructions = await readFile(x.hostInstructions, 'utf8') } catch (error) {
+        throw permanent(`No se pudo leer EXECUTE_HOST_INSTRUCTIONS (${x.hostInstructions}): ${error.code ?? error.message}`, 'host_instructions_missing')
+      }
+    }
+
+    const branch = `tp/${messageId}`
+    const prompt = buildExecutePrompt({
+      message: { id: messageId, title: message.title, body: message.body, fields: parseJson(message.fields_json, {}), area: message.area_title, status: message.status },
+      template: templateRow, author, agent, project: getProject(db, config), jobId: job.id, maxSubagents: x.maxSubagents, branch, hostInstructions
+    })
+    // UD-256: the day's spend first; with nothing left the job waits for the next day without spending its attempt.
+    const budget = dailyBudget(db, x, now())
+    if (budget.remaining <= 0) throw new Deferred(budget.nextDayMs, step('budgetWait'))
+    const budgetUsd = Math.round(Math.min(x.maxBudgetUsd, budget.remaining) * 100) / 100 || 0.01
+    const args = claudeArgs({ ...x, budgetUsd }, schema)
+    // It counts as run from here: the machine cost applies even if the session never returns its cost.
+    runSql(db, 'UPDATE jobs SET runner = ?, run_at = ?, marks_json = NULL WHERE id = ?', x.runner, now(), job.id)
+    rec.began = true
+
+    let session = null // spans of the tools and subagents, alive while the `run` phase is
+    const reader = createStreamReader({
+      maxTurns: x.maxTurns,
+      onEvent: (event) => session?.onEvent(event),
+      onProgress: (percent, phrase) => { if (!queue.progress(job, percent, phrase)) ctx.abort('lost') }
+    })
+    queue.progress(job, 0, x.runner === 'machine' ? 'Creando la máquina' : 'Preparando la sesión')
+
+    const dirs = await prepareWorkdir(job, messageId)
+    const teamUrl = x.teamUrl || `http://127.0.0.1:${config.port}`
+    const sessionEnv = {
+      TEAM_URL: teamUrl, TEAM_API_PREFIX: config.apiPrefix, TEAM_AGENT_EMAIL: agent.email, TEAM_AGENT_SECRET: secret,
+      TEAM_JOB_ID: String(job.id), TEAM_MESSAGE_ID: String(messageId), TEAM_BRANCH: branch
+    }
+    // One span per real phase of the job; `jobs.phase` says which one is running (the queue shows it).
+    const kind = x.runner === 'machine' ? 'machine' : 'local'
+    const setPhase = (name) => { try { runSql(db, 'UPDATE jobs SET phase = ? WHERE id = ?', name, job.id) } catch { /* the label is a courtesy */ } }
+    const phase = (name, fn) => withSpan(`execute.${kind}.${name}`, { 'team.step': `execute.${kind}.${name}`, 'team.runner': x.runner }, async (span) => {
+      setPhase(name)
+      const phaseStart = now()
+      if (name === 'run') session = createSessionTracer({ model: x.model })
+      try {
+        const r = await fn()
+        if (r && typeof r === 'object' && 'code' in r) {
+          span.setAttribute('team.exit_code', r.code ?? -1)
+          if (r.code !== 0 && name !== 'run') span.setStatus({ code: SpanStatusCode.ERROR, message: `exit ${r.code}` })
+        }
+        return r
+      } finally {
+        if (name === 'run') { rec.session = session?.finish(span) ?? null; session = null }
+        rec.phaseMs[name] = Math.max(0, now() - phaseStart)
+      }
+    })
+    let outcome
+    try {
+      outcome = await withSpan('execute', {
+        'team.step': 'execute', 'team.message_id': String(messageId), 'team.member_id': String(memberId),
+        'team.runner': x.runner, 'team.model': x.model, 'team.effort': x.effort, 'team.max_budget_usd': budgetUsd, 'team.daily_spent_usd': budget.spent
+      }, async (span) => {
+        span.setAttribute('team.queue_wait_ms', Math.max(0, startedAt - job.created_at))
+        // The session continues this trace (W3C `TRACEPARENT`) and, when the host declares it, exports its own telemetry (EXECUTE_OTEL_ENV).
+        const tracedEnv = { ...(x.otelEnv ?? {}), ...(currentTraceparent() ? { TRACEPARENT: currentTraceparent() } : {}) }
+        const opts = { config, args, prompt, onData: (c) => reader.push(c), signal: ctx.signal }
+        const r = x.runner === 'machine'
+          ? await runMachine({ ...opts, jobId: job.id, workdir: dirs.workdir, env: { ...sessionEnv, ...tracedEnv }, log: (m) => logger?.error(m), phase })
+          : await phase('run', () => runLocal({ ...opts, cwd: dirs.cwd, env: { ...process.env, ...sessionEnv, ...tracedEnv, PATH: `${join(dirs.workdir, 'bin')}:${process.env.PATH ?? ''}` } }))
+        reader.end()
+        setPhase(null)
+        const firstReply = get(db, 'SELECT MIN(created_at) AS at FROM replies WHERE message_id = ? AND author_id = ? AND created_at >= ?', messageId, memberId, startedAt)?.at
+        if (firstReply) jobSpan?.addEvent('reply.start', { 'team.ms_since_job_start': msSince(firstReply), 'team.ms_since_message': Math.max(0, firstReply - message.created_at) }, firstReply)
+        const st = reader.state()
+        const result = st.result
+        Object.assign(rec, { r, st, result, firstReplyAt: firstReply ?? null })
+        span.setAttributes({ 'team.exit_code': r.code ?? -1, 'team.turns': st.turns, 'team.ndjson_lines': st.lines, 'team.ndjson_invalid': st.invalid })
+        if (st.sessionId) span.setAttribute('team.session_id', st.sessionId)
+        if (r.machine) span.setAttribute('team.machine', r.machine)
+        if (r.destroy) span.setAttribute('team.machine_destroyed', r.destroy.code === 0)
+        if (result) {
+          const u = result.usage ?? {}
+          const models = Object.keys(result.modelUsage ?? {})
+          recordGenAiCall(span, {
+            provider: PROVIDER,
+            model: models.length === 1 ? models[0] : (models.join(',') || x.model),
+            request: { messages: [{ role: 'user', content: prompt }], effort: x.effort },
+            response: { text: JSON.stringify(result.structured_output ?? result.result ?? null), model: models[0] ?? x.model, stop_reason: result.stop_reason, duration_ms: result.duration_ms },
+            usage: { input_tokens: u.input_tokens ?? 0, output_tokens: u.output_tokens ?? 0, cached_tokens: u.cache_read_input_tokens ?? 0, cache_creation_tokens: u.cache_creation_input_tokens ?? 0 },
+            cost: result.total_cost_usd ?? null
+          })
+          if (typeof result.total_cost_usd === 'number') {
+            span.setAttribute('team.cost_usd', result.total_cost_usd)
+            runSql(db, 'UPDATE jobs SET cost_usd = ? WHERE id = ?', result.total_cost_usd, job.id) // UD-256, also when the job fails after
+          }
+        }
+        return { r, st, result }
+      })
+    } finally {
+      await cleanup(dirs)
+    }
+    ctx.signal.throwIfAborted()
+    const { r, result } = outcome
+    if (r.timedOut) throw permanent(`La sesión superó el tiempo máximo de ${Math.round(x.timeoutMs / 1000)} s.`, 'execute_timeout')
+    if (r.spawnError?.code === 'ENOENT') throw permanent(`No se encontró «${x.runner === 'machine' ? '/bin/sh' : x.bin}» (EXECUTE_CLAUDE_BIN).`, 'harness_unavailable')
+    if (r.phase === 'create') throw permanent(`La orden que crea la máquina terminó con código ${r.code}: ${r.stderr.trim().slice(0, 300) || 'sin mensaje'}`, 'machine_create_failed')
+    if (!result) throw permanent(`claude -p terminó con código ${r.code} sin línea «result»: ${r.stderr.trim().slice(0, 300) || 'sin mensaje'}`, 'execute_no_result')
+    if (result.is_error) throw permanent(`claude -p informó un error (${result.subtype ?? 'sin subtipo'}): ${String(result.result ?? '').slice(0, 300)}`, 'execute_error')
+    if (result.structured_output === undefined || result.structured_output === null) throw permanent('La sesión terminó sin salida estructurada.', 'invalid_output')
+    if (!validate(result.structured_output)) {
+      throw permanent(`La salida estructurada no cumple el formato: ${ajv.errorsText(validate.errors).slice(0, 300)}`, 'invalid_output')
+    }
+    const body = replyBody(result.structured_output, template)
+
+    return () => {
+      // Inside the transaction that closes the job: the closing reply, then the end of the progress.
+      const { replyId } = addReply({ db, events, now }, { messageId, authorId: agent.id, body, kind: 'answer' })
+      const finalAt = now()
+      rec.finalReplyMs = msSince(finalAt)
+      jobSpan?.addEvent('reply.final', { 'team.ms_since_job_start': msSince(finalAt), 'team.ms_since_message': Math.max(0, finalAt - message.created_at) }, finalAt)
+      events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: step('answered'), data: { message_id: messageId } })
+      events.publishForJob(job.id, {
+        kind: 'done',
+        data: { status: 'done', message_id: String(messageId), reply_id: String(replyId), session_id: outcome.st.sessionId, cost_usd: result.total_cost_usd ?? null }
+      })
+    }
+  }
+
   return {
     maxRuntimeMs: x.timeoutMs + x.killGraceMs * 3, // the runner's own timeout fires first and leaves room to destroy the machine
 
     async run (job, ctx) {
-      const { message_id: messageId, member_id: memberId } = parseJson(job.payload_json, {})
-      const jobSpan = trace.getActiveSpan() // the `job` span of this attempt: `reply.start` and `reply.final` are events on it (UD-262)
-      const startedAt = now()
-      const msSince = (t) => Math.max(0, t - startedAt)
-      const message = get(db, `SELECT m.*, a.title AS area_title FROM messages m JOIN areas a ON a.id = m.area_id WHERE m.id = ? AND m.deleted_at IS NULL`, messageId)
-      if (!message) throw permanent('El mensaje del trabajo ya no existe.', 'message_missing')
-      const agent = get(db, 'SELECT id, email, name, kind, profile, language, active FROM members WHERE id = ?', memberId)
-      if (!agent || agent.kind !== 'agent') throw permanent('El miembro del trabajo no es un agente.', 'not_an_agent')
-      if (agent.active !== 1) throw permanent('El agente está desactivado.', 'account_inactive')
-      if (message.status === 'closed') throw permanent('El mensaje está cerrado.', 'message_closed')
-      const secret = readAgentSecret(db, vault, agent.id)
-      if (!secret) throw permanent('El agente no tiene secreto propio; un Editor debe crearlo de nuevo.', 'agent_secret_missing')
-      const author = get(db, 'SELECT id, name, profile, language FROM members WHERE id = ?', message.author_id)
-      const templateRow = message.template_id ? get(db, 'SELECT id, name, body_markdown FROM templates WHERE id = ?', message.template_id) : null
-      const template = readTemplate(templateRow)
-      let declared
-      try { declared = declaredOutput(template) } catch (error) { throw permanent(`La salida declarada de la plantilla no compila: ${error.message}`, 'template') }
-      const schema = finalSchema(declared.grammar)
-      const validate = ajv.compile(finalSchema(declared.validation, { validation: true }))
-      let hostInstructions = ''
-      if (x.hostInstructions) {
-        try { hostInstructions = await readFile(x.hostInstructions, 'utf8') } catch (error) {
-          throw permanent(`No se pudo leer EXECUTE_HOST_INSTRUCTIONS (${x.hostInstructions}): ${error.code ?? error.message}`, 'host_instructions_missing')
-        }
-      }
-
-      const branch = `tp/${messageId}`
-      const prompt = buildExecutePrompt({
-        message: { id: messageId, title: message.title, body: message.body, fields: parseJson(message.fields_json, {}), area: message.area_title, status: message.status },
-        template: templateRow, author, agent, project: getProject(db, config), jobId: job.id, maxSubagents: x.maxSubagents, branch, hostInstructions
-      })
-      // UD-256: the day's spend first; with nothing left the job waits for the next day without spending its attempt.
-      const budget = dailyBudget(db, x, now())
-      if (budget.remaining <= 0) throw new Deferred(budget.nextDayMs, step('budgetWait'))
-      const budgetUsd = Math.round(Math.min(x.maxBudgetUsd, budget.remaining) * 100) / 100 || 0.01
-      const args = claudeArgs({ ...x, budgetUsd }, schema)
-      // It counts as run from here: the machine cost applies even if the session never returns its cost.
-      runSql(db, 'UPDATE jobs SET runner = ?, run_at = ? WHERE id = ?', x.runner, now(), job.id)
-
-      let session = null // spans of the tools and subagents, alive while the `run` phase is
-      const reader = createStreamReader({
-        maxTurns: x.maxTurns,
-        onEvent: (event) => session?.onEvent(event),
-        onProgress: (percent, phrase) => { if (!queue.progress(job, percent, phrase)) ctx.abort('lost') }
-      })
-      queue.progress(job, 0, x.runner === 'machine' ? 'Creando la máquina' : 'Preparando la sesión')
-
-      const dirs = await prepareWorkdir(job, messageId)
-      const teamUrl = x.teamUrl || `http://127.0.0.1:${config.port}`
-      const sessionEnv = {
-        TEAM_URL: teamUrl, TEAM_API_PREFIX: config.apiPrefix, TEAM_AGENT_EMAIL: agent.email, TEAM_AGENT_SECRET: secret,
-        TEAM_JOB_ID: String(job.id), TEAM_MESSAGE_ID: String(messageId), TEAM_BRANCH: branch
-      }
-      // One span per real phase of the job; `jobs.phase` says which one is running (the queue shows it).
-      const kind = x.runner === 'machine' ? 'machine' : 'local'
-      const setPhase = (name) => { try { runSql(db, 'UPDATE jobs SET phase = ? WHERE id = ?', name, job.id) } catch { /* the label is a courtesy */ } }
-      const phase = (name, fn) => withSpan(`execute.${kind}.${name}`, { 'team.step': `execute.${kind}.${name}`, 'team.runner': x.runner }, async (span) => {
-        setPhase(name)
-        if (name === 'run') session = createSessionTracer({ model: x.model })
-        try {
-          const r = await fn()
-          if (r && typeof r === 'object' && 'code' in r) {
-            span.setAttribute('team.exit_code', r.code ?? -1)
-            if (r.code !== 0 && name !== 'run') span.setStatus({ code: SpanStatusCode.ERROR, message: `exit ${r.code}` })
-          }
-          return r
-        } finally {
-          if (name === 'run') { session?.finish(span); session = null }
-        }
-      })
-      let outcome
+      // UD-262: the row of the run is written when the attempt ends, also when it fails, times out or is aborted.
+      const rec = { began: false, startedAt: now(), phaseMs: {}, session: null, st: null, result: null, r: null, firstReplyAt: null, finalReplyMs: null }
+      let finalize
       try {
-        outcome = await withSpan('execute', {
-          'team.step': 'execute', 'team.message_id': String(messageId), 'team.member_id': String(memberId),
-          'team.runner': x.runner, 'team.model': x.model, 'team.effort': x.effort, 'team.max_budget_usd': budgetUsd, 'team.daily_spent_usd': budget.spent
-        }, async (span) => {
-          span.setAttribute('team.queue_wait_ms', Math.max(0, startedAt - job.created_at))
-          // The session continues this trace (W3C `TRACEPARENT`) and, when the host declares it, exports its own telemetry (EXECUTE_OTEL_ENV).
-          const tracedEnv = { ...(x.otelEnv ?? {}), ...(currentTraceparent() ? { TRACEPARENT: currentTraceparent() } : {}) }
-          const opts = { config, args, prompt, onData: (c) => reader.push(c), signal: ctx.signal }
-          const r = x.runner === 'machine'
-            ? await runMachine({ ...opts, jobId: job.id, workdir: dirs.workdir, env: { ...sessionEnv, ...tracedEnv }, log: (m) => logger?.error(m), phase })
-            : await phase('run', () => runLocal({ ...opts, cwd: dirs.cwd, env: { ...process.env, ...sessionEnv, ...tracedEnv, PATH: `${join(dirs.workdir, 'bin')}:${process.env.PATH ?? ''}` } }))
-          reader.end()
-          setPhase(null)
-          const firstReply = get(db, 'SELECT MIN(created_at) AS at FROM replies WHERE message_id = ? AND author_id = ? AND created_at >= ?', messageId, memberId, startedAt)?.at
-          if (firstReply) jobSpan?.addEvent('reply.start', { 'team.ms_since_job_start': msSince(firstReply), 'team.ms_since_message': Math.max(0, firstReply - message.created_at) }, firstReply)
-          const st = reader.state()
-          const result = st.result
-          span.setAttributes({ 'team.exit_code': r.code ?? -1, 'team.turns': st.turns, 'team.ndjson_lines': st.lines, 'team.ndjson_invalid': st.invalid })
-          if (st.sessionId) span.setAttribute('team.session_id', st.sessionId)
-          if (r.machine) span.setAttribute('team.machine', r.machine)
-          if (r.destroy) span.setAttribute('team.machine_destroyed', r.destroy.code === 0)
-          if (result) {
-            const u = result.usage ?? {}
-            const models = Object.keys(result.modelUsage ?? {})
-            recordGenAiCall(span, {
-              provider: PROVIDER,
-              model: models.length === 1 ? models[0] : (models.join(',') || x.model),
-              request: { messages: [{ role: 'user', content: prompt }], effort: x.effort },
-              response: { text: JSON.stringify(result.structured_output ?? result.result ?? null), model: models[0] ?? x.model, stop_reason: result.stop_reason, duration_ms: result.duration_ms },
-              usage: { input_tokens: u.input_tokens ?? 0, output_tokens: u.output_tokens ?? 0, cached_tokens: u.cache_read_input_tokens ?? 0, cache_creation_tokens: u.cache_creation_input_tokens ?? 0 },
-              cost: result.total_cost_usd ?? null
-            })
-            if (typeof result.total_cost_usd === 'number') {
-              span.setAttribute('team.cost_usd', result.total_cost_usd)
-              runSql(db, 'UPDATE jobs SET cost_usd = ? WHERE id = ?', result.total_cost_usd, job.id) // UD-256, also when the job fails after
-            }
-          }
-          return { r, st, result }
-        })
+        finalize = await runJob(job, ctx, rec)
+      } catch (error) {
+        rec.error = error
+        throw error
       } finally {
-        await cleanup(dirs)
+        if (rec.began) saveRun(job, ctx, rec)
       }
-      ctx.signal.throwIfAborted()
-      const { r, result } = outcome
-      if (r.timedOut) throw permanent(`La sesión superó el tiempo máximo de ${Math.round(x.timeoutMs / 1000)} s.`, 'execute_timeout')
-      if (r.spawnError?.code === 'ENOENT') throw permanent(`No se encontró «${x.runner === 'machine' ? '/bin/sh' : x.bin}» (EXECUTE_CLAUDE_BIN).`, 'harness_unavailable')
-      if (r.phase === 'create') throw permanent(`La orden que crea la máquina terminó con código ${r.code}: ${r.stderr.trim().slice(0, 300) || 'sin mensaje'}`, 'machine_create_failed')
-      if (!result) throw permanent(`claude -p terminó con código ${r.code} sin línea «result»: ${r.stderr.trim().slice(0, 300) || 'sin mensaje'}`, 'execute_no_result')
-      if (result.is_error) throw permanent(`claude -p informó un error (${result.subtype ?? 'sin subtipo'}): ${String(result.result ?? '').slice(0, 300)}`, 'execute_error')
-      if (result.structured_output === undefined || result.structured_output === null) throw permanent('La sesión terminó sin salida estructurada.', 'invalid_output')
-      if (!validate(result.structured_output)) {
-        throw permanent(`La salida estructurada no cumple el formato: ${ajv.errorsText(validate.errors).slice(0, 300)}`, 'invalid_output')
-      }
-      const body = replyBody(result.structured_output, template)
-
       return () => {
-        // Inside the transaction that closes the job: the closing reply, then the end of the progress.
-        const { replyId } = addReply({ db, events, now }, { messageId, authorId: agent.id, body, kind: 'answer' })
-        const finalAt = now()
-        jobSpan?.addEvent('reply.final', { 'team.ms_since_job_start': msSince(finalAt), 'team.ms_since_message': Math.max(0, finalAt - message.created_at) }, finalAt)
-        events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: step('answered'), data: { message_id: messageId } })
-        events.publishForJob(job.id, {
-          kind: 'done',
-          data: { status: 'done', message_id: String(messageId), reply_id: String(replyId), session_id: outcome.st.sessionId, cost_usd: result.total_cost_usd ?? null }
-        })
+        finalize()
+        try { if (rec.finalReplyMs !== null) updateExecuteRun(db, job.id, job.attempts, { final_reply_ms: rec.finalReplyMs, total_ms: rec.finalReplyMs }) } catch (e) { logger?.warn({ err: e }, 'could not update the execute run') }
       }
     },
 

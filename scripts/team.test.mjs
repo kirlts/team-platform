@@ -37,7 +37,7 @@ describe('team command', () => {
     const r = await team(['--help'])
     assert.equal(r.code, 0)
     assert.equal(r.stdout.trim(), HELP)
-    for (const cmd of ['team show', 'team reply', 'team progress', 'team timing', 'team close']) assert.ok(HELP.includes(cmd))
+    for (const cmd of ['team show', 'team reply', 'team progress', 'team mark', 'team timing', 'team close']) assert.ok(HELP.includes(cmd))
   })
 
   it('show prints the message', async () => {
@@ -51,6 +51,17 @@ describe('team command', () => {
     assert.equal(r.code, 0, r.stderr)
     const reply = env.db.prepare('SELECT author_id, body, kind FROM replies WHERE message_id = ?').get(messageId)
     assert.deepEqual({ ...reply }, { author_id: Number(agent.id), body: 'Recibido. Empiezo por la agenda.', kind: 'clarification' })
+  })
+
+  it('mark adds the time of a part of the job and delivery says whether it arrived', async () => {
+    assert.equal((await team(['mark', 'judge', '--ms', '4000'], { TEAM_JOB_ID: String(jobId) })).code, 0)
+    assert.equal((await team(['mark', 'judge', '--ms', '1000'], { TEAM_JOB_ID: String(jobId) })).code, 0)
+    const r = await team(['mark', 'delivery', '--ms', '9000', '--ok', 'false'], { TEAM_JOB_ID: String(jobId) })
+    assert.equal(r.code, 0, r.stderr)
+    assert.deepEqual(JSON.parse(env.queue.getJob(jobId).marks_json), { judge_ms: 5000, delivery_ms: 9000, delivered: 0 })
+    const refused = await team(['mark', 'coffee', '--ms', '5'], { TEAM_JOB_ID: String(jobId) })
+    assert.equal(refused.code, 1)
+    assert.match(refused.stderr, /team mark: use/)
   })
 
   it('timing prints the figures of the message without the span tree and asks the right path', async () => {

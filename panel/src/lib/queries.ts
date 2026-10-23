@@ -657,6 +657,18 @@ export interface MessageTiming {
   slowest: { kind: 'tool' | 'subagent'; name: string; summary: string | null; duration_ms: number; success: boolean | null }[]
   tree: SpanNode | null
 }
+export const PHASE_KEYS = ['queue_wait_ms', 'first_reply_ms', 'final_reply_ms', 'total_ms', 'create_ms', 'run_ms', 'destroy_ms', 'tools_ms', 'judge_ms', 'delivery_ms', 'wait_ms'] as const
+export type RunPhase = (typeof PHASE_KEYS)[number]
+/** GET /ops/execute-runs/summary (UD-262): the figures of the execute runs of a period. */
+export interface ExecuteRunsSummary {
+  runs: number
+  failed: number
+  phases: Record<RunPhase, { n: number; avg: number | null; p50: number | null; p95: number | null }>
+  cost: { n: number; avg_usd: number | null; total_usd: number }
+  delivery: { known: number; delivered: number; rate: number | null }
+  resolved: { runs: number; investigated: number; rate: number | null }
+  slowest_tools: { kind: string; name: string; summary: string | null; duration_ms: number; success: boolean | null }[]
+}
 export interface RunningJob {
   id: string
   kind: string
@@ -727,6 +739,19 @@ export function useMessageTiming(messageId: string) {
     queryFn: () => api<MessageTiming>(`/messages/${encodeURIComponent(messageId)}/timing`),
     retry: false,
     refetchInterval: (query) => (query.state.data?.job_status === 'running' ? IN_FLIGHT_REFETCH_MS : false),
+  })
+}
+
+/** Figures of the execute runs of the last `days` days (0 = all of them). Asked only while the section is open. */
+export function useExecuteRunsSummary(days: number) {
+  return useQuery({
+    queryKey: ['ops', 'execute-runs', 'summary', days],
+    queryFn: () => {
+      const since = days > 0 ? new Date(Date.now() - days * 24 * 3600 * 1000) : null
+      const p = (n: number) => String(n).padStart(2, '0')
+      const query = since ? `?since=${since.getFullYear()}-${p(since.getMonth() + 1)}-${p(since.getDate())}` : ''
+      return api<ExecuteRunsSummary>(`/ops/execute-runs/summary${query}`)
+    },
   })
 }
 

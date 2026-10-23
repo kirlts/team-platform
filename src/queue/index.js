@@ -13,6 +13,7 @@ import { EventEmitter } from 'node:events'
 import { all, get, run, tx } from '../db/index.js'
 import { iso, parseJson } from '../db/util.js'
 import { pruneSpans } from '../telemetry/index.js'
+import { pruneExecuteRuns } from '../telemetry/execute-runs.js'
 import { jobDefaults, queueWake } from './wake.js'
 
 export { queueWake } from './wake.js'
@@ -223,7 +224,8 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
       const sessions = run(db, 'DELETE FROM sessions WHERE expires_at < ?', now()).changes
       const nonces = run(db, 'DELETE FROM sso_nonces WHERE created_at < ?', cap).changes
       const spans = pruneSpans(db, { now: now(), retentionDays: w.retentionDays }) // same retention as the events (§7.10 bis)
-      return { jobs, events: eventsDeleted, sessions, nonces, spans }
+      const runs = config.execute ? pruneExecuteRuns(db, { now: now(), retentionDays: config.execute.runsRetentionDays }) : 0 // its own retention: EXECUTE_RUNS_RETENTION_DAYS (UD-262)
+      return { jobs, events: eventsDeleted, sessions, nonces, spans, runs }
     })
   }
 

@@ -72,6 +72,25 @@ The trace id and the W3C `traceparent` travel in rows: `inputs`, `messages` and 
 
 `timing.js` reads the latest `execute` job of a message and returns the figures of `GET /messages/:id/timing`: `reply.start` and `reply.final` events of the `job` span, phases (`execute.<runner>.create|run|destroy`), tools and subagents sorted by duration, and per-turn tokens (`execute.turn` events). `startManualSpan` and `endManualSpan` open and close a span by hand, for the tools of a session (`src/execute/session-spans.js`).
 
+## Run history (UD-262)
+
+`execute-runs.js` keeps one row per run of the `execute` job in `execute_runs` (migration 0018), written when the attempt closes, also if it fails, times out or is aborted. The figures come from the data the trace is built from, but the row does not depend on `spans`. It outlives their 7 days and is pruned on its own with `EXECUTE_RUNS_RETENTION_DAYS` (365 by default). It has no foreign keys.
+
+| Function | Use |
+|---|---|
+| `recordExecuteRun(db, run)` | Inserts or replaces the row of `(job_id, attempt)`; only the ten slowest tools are kept |
+| `updateExecuteRun(db, jobId, attempt, fields)` | Completes fields known later (the closing reply) |
+| `pruneExecuteRuns(db, { now, retentionDays })` | Deletes the runs that started before the cutoff; the queue sweep calls it |
+| `listExecuteRuns(db, filters, { limit, offset })`, `summarizeExecuteRuns(db, filters)` | What `GET /api/ops/execute-runs`, its `/summary` and `scripts/tiempos.mjs` read |
+
+Filters: `since`, `until` (ms), `messageId`, `instance`, `outcome`. A time is `NULL` when nobody measured it; the summary skips it and shows its `n`. Percentiles are nearest-rank.
+
+`scripts/tiempos.mjs` opens the database read-only and needs no session or API credentials, so any session that works on the platform can run `docker exec <container> node scripts/tiempos.mjs --resumen`. `instance` is `INSTANCE_NAME`, else the host of `PUBLIC_URL`, else `local`. It separates the rows of a restored copy from the rows of the instance that wrote them. The script shows the instance of the latest run unless `--instancia` or `--todas` says otherwise.
+
+The session reports the times only it knows with `team mark <judge|delivery|wait> --ms N` (`delivery` also takes `--ok true|false`); they land in `judge_ms`, `delivery_ms`, `wait_ms` and `delivered`.
+
+The optional `EXECUTE_MACHINE_COLLECT` command copies the session transcript before the machine is destroyed. Its last stdout line is stored in `transcript_ref`. Contract: MASTER-SPEC §7.5 and `docs/INSTALACION.md`.
+
 ## Interface events (UD-091)
 
 `ui-spec.js` is the contract of the events the panel sends; `ui.js` turns a validated batch into `ui.*` spans (`recordUiBatch`) and reads them back (`uiSummary`); `ui-report.js` prints the summary. The route is `src/api/routes/telemetry.js`. Spans of the interface are roots with `ui.session` (16 random hexadecimal characters, one page load) and no member. Retention is the same 7 days. See MASTER-SPEC §7.10 ter.

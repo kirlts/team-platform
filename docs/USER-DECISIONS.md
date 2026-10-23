@@ -1195,3 +1195,11 @@ Martín, el mismo día: «la idea es que yo no quiera abrir una sesion como esta
 **Decisión:** `EXECUTE_DELIVER_COMMAND` recibe `TEAM_OUTPUT_JSON` (salida estructurada de la sesión sin `summary`, JSON compacto) y puede salir con 76 (`DELIVER_HELD`): no se entrega sola y espera la revisión de una persona; la última línea de stdout es el motivo. La plataforma no conoce zonas: el anfitrión decide. Con 76 no hay reintento ni vuelta a Claude; el trabajo termina `done` con `delivered = 0` y sin referencia; el autor recibe una sola respuesta con el `summary`, un párrafo llano con el motivo y `outcome: needs_decision`. La ficha de `execute_runs` suma `delivery_held`, y el resumen cuenta `delivery.held` aparte de entregado y fallo (`known` no lo incluye, para que la tasa de entrega no lo trate como fallo).
 **Consecuencias:** Migración 0020 (`execute_runs.delivery_held`). Enmienda UD-263 (contrato de la orden). MASTER-SPEC §7.5, `docs/INSTALACION.md` («La entrega aparte»), `.env.example`, `src/contracts.md`, `packages/client` (`ExecuteRunsSummary.delivery.held`), `scripts/tiempos.mjs`.
 **Condiciones de reversión:** Las fija Martín.
+
+## [UD-267] El tope diario del harness sube a 40 USD y las mediciones vuelven a correr
+
+**Fecha:** 2026-10-23
+**Contexto:** El gasto declarado de bancos y pruebas sumó unos 31 USD en tres días (4,70, 8,67 y 17,98) y se congeló toda medición hasta consultar a Martín; la reserva de Team Platform en la cuenta de API era de 100 USD (UD-140). Martín, textual: «aumenta el gasto noma weon». No dio una cifra.
+**Decisión:** `EXECUTE_DAILY_BUDGET_USD` pasa a 40 y el tope propio del harness en el anfitrión pasa a 40 USD por día. Las mediciones con modelos de pago vuelven a permitirse, cada una con su presupuesto declarado de antemano y registrado en `bench/results/private-spend.jsonl`; un agente que lo supera se detiene. La cifra de 40 es la elegida por la sesión como el doble del tope anterior, sin medición: Martín la cambia cuando quiera.
+**Consecuencias:** Enmienda UD-256 y UD-264. El saldo real de la cuenta de API lo ve sólo Martín.
+**Condiciones de reversión:** Las fija Martín.

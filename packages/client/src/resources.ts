@@ -195,6 +195,8 @@ export function createResources(t: Transport) {
       timing: (id: string) => call<MessageTiming>(routes.messageTiming, { params: { id } }),
       /** Queues the `execute` job of a message (Editor). */
       execute: (id: string) => call<Record<string, unknown>>(routes.messageExecute, { params: { id } }),
+      /** Queues the delivery of the branch an `execute` job left (Editor; UD-263). */
+      deliver: (id: string) => call<Record<string, unknown>>(routes.messageDeliver, { params: { id } }),
     },
     replies: {
       /** JSON, or multipart when there are files or links. */

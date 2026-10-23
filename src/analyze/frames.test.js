@@ -140,7 +140,7 @@ describe('one request per message: spoken runs and declared resumes (H-3730)', (
     const bundle = await makeBundle({ text: '', attachments: [{ id: 1, kind: 'video', extracted: voice }] });
     two.messages = [bugMessage([1, 2, 5], 'A'), bugMessage([3, 4], 'B')];
     const fake = createFakeProviders({ text: (req) => (isClassify(req) ? { groups: [group([1, 2, 3, 4, 5])], discarded: [] } : two) });
-    const result = await analyze(bundle, { providers: fake });
+    const result = await analyze(bundle, { providers: fake, config: { splitPass: false } });
     assert.equal(result.status, 'ok');
     assert.equal(result.stats.undeclared_runs, 1);
     assert.deepEqual(result.proposal.messages.map((m) => m.unit_ids), [[1, 2, 5], [3, 4]]);

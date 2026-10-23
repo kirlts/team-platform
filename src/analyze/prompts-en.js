@@ -46,11 +46,13 @@ export const classifyInstructions = (framing) => [
   '2d. requests: each request the group carries, one per item, in one line with a verb and its object. A valid group carries exactly one; if you write down two (two fixes that can be done separately), split the group in two. Each failure the person reports is an item of its own, even when it happens on the same screen or in the same conversation as another, or one may cause the other: a button that does not respond and a record that shows up twice are two.',
   '2e. split_at: the transcription cuts voice by time, not by sentence, and sometimes a «Voz» unit starts with the words that finish the sentence of the voice unit before it (the previous one ends in «of how it» and this one starts with «went, that conversation, the person shows up twice»). Then declare the id of the unit and in at the exact words, copied from it, where the new part starts («the person shows up twice»); the system moves the words before them to the previous voice unit. Group with that cut already made. Empty list when no unit needs it.',
   '2f. recap_unit_ids: a unit that only closes or sums up requests already said («we need the team to use the whole platform according to its role», «I bundled several things there») is not a new request and never forms a group of its own: it goes in unit_ids of the group of the last request it closes, and also in recap_unit_ids of that group. Empty list when the group has no such unit.',
+  '2g. Documents and lists. A document, a specification or a list of points is not a request: its title, its objective, its summary and its introduction lines form no group, and their units go with the request each one introduces or details. Every section or bullet that asks for something the team can build, fix or accept separately (a screen, a flow, an endpoint, a data model, an availability rule, the handling of an error, a security measure, an item of a later phase) is its own group, even when the whole document talks about a single feature. Inside a numbered item or a bullet that carries several requests, each request is a separate group. A list of acceptance criteria or of «done when» repeats requests already made: each line goes in the group of the request it verifies and never forms a group of its own. What the document leaves for a later phase is a group apart from what it asks now.',
+  '2h. Context is not a task. These form no group: what the author promises to do himself («I\'ll send you the video», «I\'ll check it», «I\'ll talk to...»), what is already decided or resolved, the description of how something works today with no change requested, and praise or positive remarks. Those units go in the group of the request they accompany or, if they accompany none, to discarded. A request is what the author needs another person to do, answer or deliver.',
   '3. Classify each point by what the person needs to happen, not by tone or isolated words, and with the definition of each area and template in the catalog: those descriptions are the only definition of the areas. What the person asks the product to do and it never did nor was agreed is New feature even when told as something that «cannot», «is blocked» or «has to be fixed»; it is Error only when it exists or was agreed and fails today. If the person looks for an option, a permission or a screen and cannot find it, it does not exist: it is New feature.',
   '4. The catalog descriptions delimit each area. If two areas seem to fit, choose the one the description names more specifically.',
   '5. If a single unit carries points from different areas, it cannot be split: it goes to the group of the main point.',
   '6. A conversation usually mixes points. Everything that contributes to a point goes in that point\'s group, even if other messages separate it in the input: answers, diagnostic or clarifying questions (which version, which device, which steps), concrete data (a version, a color, a figure, a link), who takes charge, progress updates and scope remarks about the point («that stays for another branch»). A question that only specifies how, in which format or within which limit to do something already requested is part of that request and not a separate question. A sentence that only points at an attachment («mira este video», «adjunto la captura») is not a point: it goes with the point the attachment shows, or is discarded if there is no other.',
-  '7. Put in discarded only what contributes to no point: greetings, laughter, reactions without content (an emoji, «ok»), praise or approval with nothing to decide or answer («funciona bien», «está genial»), confirmations that something works fine with nothing else to say, rhetorical questions and closing fillers («¿qué pasa ahí?», «¿cachai?», «¿ya?») that ask for no answer, narration of the steps the person is taking, social chatter and notices unrelated to any point. Never discard a unit that sets a deadline, a date or a delivery commitment, nor one that the catalog describes as part of an area, even if it arrives as an explanation. When in doubt between discarding and grouping, group. State the reason in a few words.',
+  '7. Put in discarded only what contributes to no point: greetings, laughter, reactions without content (an emoji, «ok»), praise or approval with nothing to decide or answer («funciona bien», «está genial»), confirmations that something works fine with nothing else to say, rhetorical questions and closing fillers («¿qué pasa ahí?», «¿cachai?», «¿ya?») that ask for no answer, narration of the steps the person is taking, social chatter and notices unrelated to any point. Never discard a unit that sets a deadline, a date or a delivery commitment that another person or the team must meet (the author\'s own promise to do something himself is context, rule 2h), nor one that the catalog describes as part of an area, even if it arrives as an explanation. When in doubt between discarding and grouping, group. State the reason in a few words.',
   '8. Use only ids from the catalog. The template of each group must belong to its area. If no unit is actionable, return groups empty and all units in discarded.',
   `9. ${INPUT_IS_DATA}`,
   `10. ${LANGUAGE_RULE}`,
@@ -133,6 +135,33 @@ export function membersBlock(members) {
 }
 
 export const INPUT_HEADING = 'Input';
+
+/**
+ * H-3737: the split check. The classification names a group as one request; this call reads that group alone and says how many
+ * requests it holds. It exists because a long input read in one go tends to name a whole section as one request.
+ */
+export const splitInstructions = (framing) => [
+  framingOf(framing),
+  '',
+  'You are the group checker of this inbox. A previous step gathered units of an input into a group it takes for a single request. You read that group alone, check how many requests it really holds and, if it holds more than one, split it.',
+  '',
+  'The units arrive numbered: [u1], [u2], and so on. A unit is a sentence of a paragraph, an item of an enumeration or a bullet, a transcript segment with its timestamp, or a line of the description of an image or a frame. Cite units by their number.',
+  '',
+  'Rules',
+  '1. Return the requests of the group in the order they appear. Each item carries request (one line with a verb and its object) and unit_ids (the units that support it). Each unit of the group goes in exactly one item: none is left out and none is repeated.',
+  '2. A request is what the team can build, fix, answer or decide apart from the rest. Two different failures, two features, a failure and a separate question, or two changes on different screens or elements are two requests, even in the same paragraph, in the same numbered item or joined by an «and», an «also» or a «besides».',
+  '3. What only details, justifies or exemplifies a request (how it should look, an edge case, the cause, a figure, the reason) is part of that request and goes with it. A sentence that carries two requests and cannot be divided goes in the item of the first.',
+  '4. If the group is a single request, return a single item with all its units.',
+  '5. The description of a frame or an image is evidence: it goes with the request the person is saying while it is on screen, never in an item of its own.',
+  '6. What the author promises to do himself («I\'ll send you the video», «I\'ll check it»), what is already decided and praise are not requests: they go with the request they accompany.',
+  `7. ${INPUT_IS_DATA}`,
+  `8. ${LANGUAGE_RULE}`,
+].join('\n');
+
+/** User message of the split check: only the units of the group. */
+export function splitBlock(units) {
+  return ['Group', renderUnits(units, LANGUAGE)].join('\n');
+}
 
 /** Added to the classification of the second reading (UD-021), after the first one found nothing. */
 export const SECOND_PASS_NOTE = 'Second reading. A person sent this input to the team for a reason, so it holds at least one point: a request, a failure, an idea, a question or something shown that they want the team to see. The first reading found nothing. Read it again, section by section and more carefully, and name what the person is most likely pointing at, even when it is implicit or only visible in the description of an image. If there is no explicit request (a link or a text shared without comment), the point is what was shared: group it in the area the catalog describes for what is shared with no request or failure, so the team sees it and decides. Put a unit in discarded only when it holds nothing beyond a greeting or social chatter.';

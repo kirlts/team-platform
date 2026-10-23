@@ -56,6 +56,32 @@ export function buildClassificationSchema({ areas, templates }, { validation = f
   };
 }
 
+/**
+ * Schema of the split check (one group in, its requests out): each request with its own line and the units that state it.
+ * Every unit of the group goes in exactly one request; the system checks it by sets (`validateSplit`).
+ */
+export function buildSplitSchema({ validation = false } = {}) {
+  return {
+    type: 'object',
+    properties: {
+      requests: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            unit_ids: validation ? intArray({ minItems: 1, uniqueItems: true }) : intArray({ minItems: 1 }),
+            request: validation ? { type: 'string', minLength: 1 } : { type: 'string' },
+          },
+          required: ['unit_ids', 'request'],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ['requests'],
+    additionalProperties: false,
+  };
+}
+
 function messageSchema(fieldsSchema, { validation, requireAssignee = false }) {
   // `unit_ids` goes first: the model anchors the message to its evidence before writing it (report 02 §6.2).
   // All the properties are required, so the output order is that of the schema [F1].

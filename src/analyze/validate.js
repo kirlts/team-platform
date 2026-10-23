@@ -6,7 +6,7 @@
 // The system validates shape and sets: that the area exists, that each member and each attachment exist, that each
 // unit is in a message or in `discarded`. It never interprets the text a person wrote (§4.2).
 import Ajv from 'ajv';
-import { buildClassificationSchema, buildDecompositionSchema, buildProposalSchema } from './schema.js';
+import { buildClassificationSchema, buildDecompositionSchema, buildProposalSchema, buildSplitSchema } from './schema.js';
 import { compileFieldsSchema, compileOutputSchema } from './templates.js';
 import { timeRange } from './units.js';
 
@@ -123,6 +123,63 @@ export function validateClassification(output, { areas, templates, scope, frameI
 }
 
 /**
+ * Validation of the split check of one group: the requests cite units of the group and, together, cover each one exactly once.
+ * Overlaps and gaps are a retryable error; what the retry does not fix comes back in `repairable` for `repairSplit`.
+ * @param {any} output  `{requests: [{unit_ids, request}]}`
+ * @param {{scope: Set<number>}} ctx  the units of the group
+ */
+export function validateSplit(output, { scope }) {
+  const validate = compile(buildSplitSchema({ validation: true }));
+  if (!validate(output)) return { errors: formatAjvErrors(validate.errors) };
+  const errors = [];
+  output.requests.forEach((r, i) => {
+    for (const id of r.unit_ids) if (!scope.has(id)) errors.push(`request ${i + 1}: unit ${id} is not in this group`);
+  });
+  if (errors.length > 0) return { errors };
+  const conflicts = coverage(output.requests.map((r) => ({ unit_ids: r.unit_ids })), [], scope, 'request');
+  const conflictErrors = describeConflicts(conflicts);
+  return conflictErrors.length > 0 ? { errors: conflictErrors, repairable: output } : { errors: [] };
+}
+
+/**
+ * Closes the overlaps and gaps of a split that the retry did not fix, by set arithmetic: a unit cited twice stays in the first
+ * request that cites it; a unit cited nowhere goes where the closest unit before it went (or after it, when it is the first).
+ */
+export function repairSplit(output, scope) {
+  const fixed = repairClassification({ groups: output.requests, discarded: [] }, scope);
+  return { requests: fixed.groups };
+}
+
+/**
+ * Turns the requests of a split into parts of the group. A part that holds only frame descriptions or units with no content of
+ * their own (a speaker mark, a list number) is not a request: it joins the part before it, or the one after it when it is the first.
+ * Returns the parts as `{unit_ids, request}` in unit order, and how many were joined.
+ * @param {{unit_ids: number[], request: string}[]} requests
+ * @param {{ frameIds?: Set<number>|null, emptyIds?: Set<number> }} ctx
+ */
+export function settleSplit(requests, { frameIds = null, emptyIds = new Set() } = {}) {
+  const sorted = requests.map((r) => ({ ...r, unit_ids: [...r.unit_ids].sort((a, b) => a - b) })).sort((a, b) => a.unit_ids[0] - b.unit_ids[0]);
+  const hollow = (part) => part.unit_ids.every((id) => frameIds?.has(id) || emptyIds.has(id));
+  const parts = [];
+  let joined = 0;
+  let carry = [];
+  for (const part of sorted) {
+    if (hollow(part) && parts.length > 0) {
+      parts.at(-1).unit_ids.push(...part.unit_ids);
+      joined += 1;
+    } else if (hollow(part)) {
+      carry.push(...part.unit_ids);
+      joined += 1;
+    } else {
+      parts.push({ ...part, unit_ids: [...carry, ...part.unit_ids] });
+      carry = [];
+    }
+  }
+  if (parts.length === 0) return { parts: sorted.length > 0 ? [{ ...sorted[0], unit_ids: sorted.flatMap((p) => p.unit_ids).sort((a, b) => a - b) }] : [], joined };
+  return { parts: parts.map((p) => ({ ...p, unit_ids: [...p.unit_ids].sort((a, b) => a - b) })), joined };
+}
+
+/**
  * Set arithmetic over the units: overlaps (in more than one place) and gaps (in none).
  * @param {{unit_ids: number[]}[]} messages  (or groups, with `noun: 'group'`)
  * @param {{unit_ids: number[]}[]} discarded
@@ -208,8 +265,8 @@ export function closeStretches(groups, discarded) {
   };
 }
 
-/** Body of a voice line, after its «[mm:ss-mm:ss] Voz:» label. */
-const VOICE_LABEL = /^\s*[[(]?[\d:]+(?:\s*[-–]\s*[\d:]+)?[\])]?\s*Voz:\s*/;
+/** Body of a voice line, after its «[mm:ss-mm:ss] Voz:» label (an audio line has only the time: «[mm:ss] …»). */
+const VOICE_LABEL = /^\s*[[(]?[\d:]+(?:\s*[-–]\s*[\d:]+)?[\])]?\s*(?:Voz:)?\s*/;
 
 /** The voice unit right before `unit` in the same attachment, or undefined. */
 function previousVoice(unit, units) {
@@ -246,7 +303,7 @@ export function applySplits(units, splits) {
     if (splitProblem(s, out, null)) continue;
     const unit = out.find((u) => u.id === s.unit_id);
     const prev = previousVoice(unit, out);
-    const label = unit.text.match(VOICE_LABEL)[0];
+    const label = unit.text.match(VOICE_LABEL)?.[0] ?? '';
     const body = unit.text.slice(label.length);
     const index = body.indexOf(String(s.at).trim());
     prev.text = `${prev.text.trimEnd()} ${body.slice(0, index).trim()}`;

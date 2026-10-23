@@ -1,0 +1,33 @@
+{
+  "_doc": "Directed tests (UD-265): a changed path selects the tests of its area; the guards always run. Longest prefix wins.",
+  "always": [
+    "src/static.test.js",
+    "src/env-example.test.js",
+    "src/numbers-declared.test.js",
+    "src/public-names.test.js",
+    "src/image-imports.test.js",
+    "src/openapi-valid.test.js",
+    "src/error-codes.test.js",
+    "src/quick-tests.test.js"
+  ],
+  "areas": {
+    "src/execute/": ["src/execute/*.test.js", "src/telemetry/execute-runs.test.js", "scripts/team.test.mjs"],
+    "src/telemetry/": ["src/telemetry/*.test.js", "src/telemetry-integration.test.js"],
+    "src/analyze/": ["src/analyze/*.test.js"],
+    "src/extract/": ["src/extract/*.test.js"],
+    "src/providers/": ["src/providers/*.test.js"],
+    "src/identity/": ["src/identity/*.test.js", "src/api/identity-host.test.js"],
+    "src/queue/": ["src/queue/*.test.js", "src/worker.test.js", "src/worker-process.test.js"],
+    "src/worker.js": ["src/worker.test.js", "src/worker-process.test.js", "src/execute/*.test.js"],
+    "src/db/": ["src/db/*.test.js", "src/execute/deliver.test.js", "src/telemetry/*.test.js"],
+    "src/domain/": ["src/domain/*.test.js", "src/api/*.test.js"],
+    "src/api/": ["src/api/*.test.js"],
+    "src/config.js": ["src/api/mount.test.js", "src/execute/*.test.js", "src/domain/*.test.js"],
+    "src/events/": ["src/events/*.test.js", "src/api/*.test.js"],
+    "scripts/": ["scripts/*.test.mjs"],
+    "templates/": ["src/analyze/*.test.js", "src/api/template-output.test.js"],
+    "Dockerfile": ["src/image-imports.test.js", "src/image-prune.test.js"],
+    "panel/": [],
+    "packages/client/": []
+  }
+}

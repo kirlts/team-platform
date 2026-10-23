@@ -13,13 +13,15 @@
     "worker": "node src/worker.js",
     "db:init": "node src/db/init.js",
     "seed": "node src/db/seed.js",
-    "test": "node --test \"src/**/*.test.js\" \"scripts/*.test.mjs\"",
+    "test": "node scripts/test-dirigido.mjs",
     "test:bench": "node --test bench/",
-    "posttest": "node scripts/test-quick.mjs --mark",
     "test:rapido": "node scripts/test-quick.mjs",
     "gen:client": "npm run gen:client --prefix packages/client",
     "test:client": "npm test --prefix packages/client",
-    "test:image": "docker build -t team-platform:test . && TEAM_PLATFORM_IMAGE=team-platform:test node --test src/image.docker.test.js src/image-walkthrough.docker.test.js"
+    "test:image": "docker build -t team-platform:test . && TEAM_PLATFORM_IMAGE=team-platform:test node --test src/image.docker.test.js src/image-walkthrough.docker.test.js",
+    "test:completa": "node --test \"src/**/*.test.js\" \"scripts/*.test.mjs\"",
+    "test:panel": "cd panel && npx tsc --noEmit && npx vitest run",
+    "posttest:completa": "node scripts/test-quick.mjs --mark"
   },
   "dependencies": {
     "@fastify/cookie": "11.1.3",

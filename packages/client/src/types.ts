@@ -332,3 +332,142 @@ export interface MessageSummary {
   items: { message_id: string; title: string; status: 'open' | 'answered'; at: string }[]
   areas: { area_id: string; open: number; answered: number; closed: number; mine_open: number }[]
 }
+
+// ---------------------------------------------------------------- What the lists and settings screens read
+
+/** Project description (UD-024): the whole team sees it and only the Editor changes it. */
+export interface Project {
+  /** Cap of characters (PROJECT_DESCRIPTION_MAX_CHARS); a server that does not send it leaves the counter without a cap. */
+  max_chars?: number
+  /** Cap of characters of the name (PROJECT_NAME_MAX_CHARS, H-3722). */
+  name_max_chars?: number
+  name: string
+  description: string
+}
+
+/** A send in the queue of Configuración (UD-251): the input with the name of its author. */
+export interface QueueInput extends InputRecord {
+  author_name?: string | null
+}
+
+/** Every paginated list is `{ items, page, limit, total }` (src/contracts.md §3). */
+export interface Paged<T> {
+  items: T[]
+  page: number
+  limit: number
+  total: number
+}
+
+export const JOB_STATES = ['queued', 'running', 'done', 'failed', 'cancelled'] as const
+export type JobState = (typeof JOB_STATES)[number]
+export type PurgeState = 'done' | 'failed' | 'cancelled'
+
+export interface SpanNode {
+  span_id: string
+  name: string
+  status: string
+  duration_ms: number
+  attributes: Record<string, unknown>
+  children: SpanNode[]
+}
+
+export interface JobTrace {
+  job_id: string
+  span_count: number
+  totals: { llm_calls: number; input_tokens: number; output_tokens: number; cost_usd: number }
+  roots: SpanNode[]
+}
+
+export interface AuditEntry {
+  id: string
+  at: string
+  member_id: string | null
+  member_name: string | null
+  action: string
+  entity: string
+  entity_id: string | null
+  detail: Record<string, unknown> | null
+}
+
+export interface UiSummary {
+  days: number
+  screens?: Record<string, { visits: number }>
+  tasks?: Record<string, { started: number; abandoned?: number }>
+  errors?: { total: number }
+}
+
+/** The framing of one language: the text in force, the default and whether the Editor changed it. */
+export interface FramingItem {
+  value: string
+  default: string
+  custom: boolean
+}
+
+export interface AnalysisSettings {
+  framing: Record<Language, FramingItem>
+  /** Cap of characters of each framing (ANALYSIS_FRAMING_MAX_CHARS). */
+  max_chars: number
+}
+
+/** Answer of the calls that add, replace or test a provider's key. */
+export interface ConnectionResult {
+  connection: Connection
+  check: Check
+}
+
+/** The new send (POST /inputs): text, files and links, and optionally the member it is sent in the name of. */
+export interface NewInput {
+  text: string
+  files: File[]
+  links: string[]
+  /** «Enviar como» (UD-255): the member the input is sent in the name of; without it, the member of the session. */
+  asMemberId?: string
+}
+
+export interface CreatedInput {
+  input_id: string
+  job_id: string
+}
+
+/** A reply as the person writes it; with files or links the submit is multipart. */
+export interface NewReply {
+  body: string
+  kind: ReplyKind
+  files?: File[]
+  links?: string[]
+}
+
+/** Result of a reprocess (POST /inputs/:id/reprocess). */
+export interface ReprocessResult {
+  input_id: string
+  job_id: string
+  set_aside?: { messages: number; replies: number }
+}
+
+export interface DeleteInputResult {
+  input_id: string
+  deleted: { attachments: number; jobs: number; messages: number }
+  freed_bytes: number
+}
+
+export interface DeleteMemberResult {
+  member_id: string
+  deleted: { inputs: number; messages: number; replies: number }
+}
+
+/** What the member editor sends (PATCH /members/:id, or /members/me for oneself). */
+export type MemberPatch = Partial<Pick<Member, 'profile' | 'role' | 'name' | 'email' | 'active'>> & {
+  language?: Language
+  current_password?: string
+  new_password?: string
+}
+
+export type ResetScope = 'content' | 'everything'
+
+/** Answer of POST /ops/reset: what the Editor's «Datos» emptied. */
+export interface ResetResult {
+  scope: ResetScope
+  deleted: Record<string, number>
+  files: number
+  bytes_freed: number
+}

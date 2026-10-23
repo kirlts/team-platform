@@ -16,9 +16,19 @@ export default defineConfig(({ command }) => ({
   base: command === 'build' ? './' : devBase,
   plugins: [react(), tailwindcss()],
   resolve: {
-    alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+    alias: [
+      // The contract client lives in packages/client and is compiled with the panel from its sources: the image builds the panel
+      // from a context that holds both folders, and nothing is published for it. The most specific alias goes first.
+      { find: /^@team-platform\/client\/react$/, replacement: fileURLToPath(new URL('../packages/client/src/react/index.ts', import.meta.url)) },
+      { find: /^@team-platform\/client$/, replacement: fileURLToPath(new URL('../packages/client/src/index.ts', import.meta.url)) },
+      { find: '@', replacement: fileURLToPath(new URL('./src', import.meta.url)) },
+    ],
+    // The client imports React and TanStack Query from outside this folder: one copy, the panel's.
+    dedupe: ['react', 'react-dom', '@tanstack/react-query'],
   },
   server: {
+    // The sources of the client are one folder above the panel.
+    fs: { allow: ['..'] },
     proxy: { [devApi]: { target: apiTarget, changeOrigin: false } },
   },
   build: {

@@ -1,7 +1,7 @@
 import { Undo } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { useT } from '@/i18n'
-import { useInput } from '@/lib/queries'
+import { useInput } from '@team-platform/client/react'
 import { UndoProvider, useUndoStack } from '@/lib/undo'
 import { AnalysisPanel } from './AnalysisPanel'
 import { InputPreview } from './InputPreview'

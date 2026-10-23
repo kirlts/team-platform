@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useT } from '@/i18n'
 import { toGalleryItems, type AttachmentScope } from '@/lib/gallery'
-import type { Attachment } from '@/lib/types'
+import type { Attachment } from '@team-platform/client'
 import { cn } from '@/lib/utils'
 import { MediaGalleryDialog } from './MediaGallery'
 import { Thumb } from './Thumb'

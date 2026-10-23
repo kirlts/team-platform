@@ -6,11 +6,10 @@ import { useLookups } from '@/components/lookups'
 import { ArrowRight } from '@/components/icons'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useFormat, useT, type MessageKey } from '@/i18n'
-import { ME, serializeQuery, type Filter } from '@/lib/filters'
+import { ME, serializeQuery, type Filter, type Message, type MessageStatus } from '@team-platform/client'
+import { useMe, useMessages, useSummary } from '@team-platform/client/react'
 import { mineCounts } from '@/lib/pending'
 import { noticeState, topState, type StateCounts } from '@/lib/states'
-import { useMe, useMessages, useSummary } from '@/lib/queries'
-import type { Message, MessageStatus } from '@/lib/types'
 
 /** The three states, each one a mark of the bar (UD-100). Closed ones raise no notice (UD-041), but the owner asked for the three. */
 const STATES_SHOWN = ['open', 'answered', 'closed'] as const

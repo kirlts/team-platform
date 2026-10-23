@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import { useT } from '@/i18n'
 import { parseTemplateFields } from '@/lib/template'
-import type { Template } from '@/lib/types'
+import type { Template } from '@team-platform/client'
 import { EditableText } from './EditableText'
 
 /**

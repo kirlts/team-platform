@@ -1,7 +1,7 @@
 import { useT } from '@/i18n'
 import { StateMark } from '@/components/NotifyBadge'
 import { STATES } from '@/lib/states'
-import type { MessageStatus } from '@/lib/types'
+import type { MessageStatus } from '@team-platform/client'
 import { cn } from '@/lib/utils'
 
 /**

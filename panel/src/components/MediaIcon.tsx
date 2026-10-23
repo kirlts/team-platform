@@ -1,5 +1,5 @@
 import { Camera, FileText, Film, Link2, Mic } from '@/components/icons'
-import type { AttachmentKind } from '@/lib/types'
+import type { AttachmentKind } from '@team-platform/client'
 
 /** One icon per kind of medium, the same wherever a kind is drawn (list rows, thumbnails, galleries): none shares a silhouette with another (UD-016). */
 export const MEDIA_ICON = { image: Camera, video: Film, audio: Mic, document: FileText, link: Link2 } as const satisfies Record<AttachmentKind, unknown>

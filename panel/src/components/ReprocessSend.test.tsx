@@ -4,7 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '@/i18n'
-import type { InputRecord } from '@/lib/types'
+import { mockApi, WithTeamClient } from '@/test/mock-api'
+import type { InputRecord } from '@team-platform/client'
 import { ReprocessSend } from './ReprocessSend'
 
 const shown = vi.fn()
@@ -12,17 +13,11 @@ vi.mock('@/lib/notices', () => ({ useNotices: () => ({ current: null, show: show
 
 let role = 'editor'
 const calls: string[] = []
-vi.mock('@/lib/api', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/api')>('@/lib/api')
-  return {
-    ...actual,
-    api: vi.fn(async (path: string, init?: { method?: string }) => {
-      calls.push(`${init?.method ?? 'GET'} ${path}`)
-      if (path === '/me') return { id: 'u1', name: 'Ana', email: 'ana@x.org', role, language: 'es-419' }
-      if (path === '/inputs/i1/reprocess') return { input_id: 'i1', job_id: 'j1', set_aside: { messages: 3, replies: 2 } }
-      return { items: [] }
-    }),
-  }
+mockApi(async (path: string, init?: { method?: string }) => {
+  calls.push(`${init?.method ?? 'GET'} ${path}`)
+  if (path === '/me') return { id: 'u1', name: 'Ana', email: 'ana@x.org', role, language: 'es-419' }
+  if (path === '/inputs/i1/reprocess') return { input_id: 'i1', job_id: 'j1', set_aside: { messages: 3, replies: 2 } }
+  return { items: [] }
 })
 
 afterEach(() => {
@@ -38,9 +33,11 @@ function wrap() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
+      <WithTeamClient>
       <I18nProvider language="es-419">
         <ReprocessSend input={input} />
       </I18nProvider>
+    </WithTeamClient>
     </QueryClientProvider>,
   )
 }

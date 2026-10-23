@@ -4,9 +4,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '@/i18n'
+import { mockApi, WithTeamClient } from '@/test/mock-api'
 import { translate } from '@/i18n/core'
 import { es419 } from '@/i18n/es-419'
-import type { Cause, Connection, ProviderSlot } from '@/lib/types'
+import { TeamApiError, type Cause, type Connection, type ProviderSlot } from '@team-platform/client'
 import { ProviderSettings } from './ProviderSettings'
 
 const L = (key: string, vars?: Record<string, string | number>) => translate(es419, 'es-419', key, vars)
@@ -59,72 +60,65 @@ const statusOf = (c: Conn): Connection['status'] => (!c.source ? 'no_key' : c.la
 const viewOf = (c: Conn): Connection => ({ name: c.name, label: c.label, kind: c.kind, custom: c.custom, base_url: c.base_url, structured: null, status: statusOf(c), key: { source: c.source, last4: c.last4, updated_at: null }, used_by: usedBy(c.name), last_check: c.last })
 const okCheck = (model: string | null) => ({ ok: true, cause: null, status: 200, duration_ms: 42, model, models: ['model-a', 'model-b', 'model-c'], model_listed: true, checked_at: new Date().toISOString() })
 
-vi.mock('@/lib/api', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/api')>('@/lib/api')
-  const { ApiError } = actual
-  /** A text containing `fail-<cause>` fails the test of the provider with that cause. */
-  const probe = (text: string) => {
-    const m = /fail-([a-z_]+)/.exec(text)
-    if (m) throw new ApiError(422, 'server sentence', 'provider_check_failed', { cause: m[1], status_code: 401, duration_ms: 17 })
+/** A text containing `fail-<cause>` fails the test of the provider with that cause. */
+const probe = (text: string) => {
+  const m = /fail-([a-z_]+)/.exec(text)
+  if (m) throw new TeamApiError(422, 'server sentence', 'provider_check_failed', { cause: m[1], status_code: 401, duration_ms: 17 })
+}
+mockApi(async (path: string, options: { method?: string; body?: Record<string, unknown> } = {}) => {
+  const method = options.method ?? 'GET'
+  server.sent.push({ method, path, body: options.body })
+  if (path === '/settings/providers' && method === 'GET') {
+    return { items: server.slots.map((s) => { const c = server.conns.find((x) => x.name === s.provider)!; return { ...s, available: !!c.source, key_last4: c.last4, status: statusOf(c) } }) }
   }
-  return {
-    ...actual,
-    api: vi.fn(async (path: string, options: { method?: string; body?: Record<string, unknown> } = {}) => {
-      const method = options.method ?? 'GET'
-      server.sent.push({ method, path, body: options.body })
-      if (path === '/settings/providers' && method === 'GET') {
-        return { items: server.slots.map((s) => { const c = server.conns.find((x) => x.name === s.provider)!; return { ...s, available: !!c.source, key_last4: c.last4, status: statusOf(c) } }) }
-      }
-      if (path === '/settings/providers' && method === 'PATCH') {
-        const body = options.body as { slot: ProviderSlot; provider?: string; model?: string }
-        probe(`${body.provider ?? ''} ${body.model ?? ''}`)
-        const slot = server.slots.find((s) => s.slot === body.slot)!
-        if (body.provider) slot.provider = body.provider
-        if (body.model) slot.model = body.model
-        return { items: [] }
-      }
-      let m = /^\/settings\/providers\/(\w+)\/check$/.exec(path)
-      if (m) {
-        const slot = server.slots.find((s) => s.slot === m![1])!
-        return { check: okCheck(slot.model), slot: slot.slot, provider: slot.provider, model: slot.model }
-      }
-      if (path === '/settings/connections' && method === 'GET') return { items: server.conns.map(viewOf), presets: PRESETS }
-      if (path === '/settings/connections' && method === 'POST') {
-        const body = options.body as { preset?: string; name?: string; base_url?: string; api_key: string }
-        probe(body.api_key)
-        const preset = PRESETS.find((p) => p.name === body.preset)
-        const name = body.preset ?? body.name!
-        server.conns.push({ name, label: preset?.label ?? name, kind: 'openai-compatible', custom: !body.preset, base_url: body.base_url ?? preset?.base_url ?? null, source: 'stored', last4: body.api_key.slice(-4), last: null })
-        return { connection: viewOf(server.conns.find((c) => c.name === name)!), check: okCheck(null) }
-      }
-      m = /^\/settings\/connections\/([^/]+)(\/key|\/check)?$/.exec(path)
-      if (m) {
-        const conn = server.conns.find((c) => c.name === decodeURIComponent(m![1]))!
-        if (m[2] === '/key' && method === 'PUT') {
-          const body = options.body as { api_key: string }
-          probe(body.api_key)
-          conn.source = 'stored'
-          conn.last4 = body.api_key.slice(-4)
-          conn.last = { at: new Date().toISOString(), ok: true, cause: null, duration_ms: 42 }
-          return { connection: viewOf(conn), check: okCheck(null) }
-        }
-        if (m[2] === '/key' && method === 'DELETE') {
-          if (usedBy(conn.name).length) throw new ApiError(409, 'in use', 'provider_in_use', { used_by: usedBy(conn.name) })
-          if (conn.source === 'environment') throw new ApiError(409, 'env', 'key_from_environment')
-          conn.source = null
-          conn.last4 = null
-          conn.last = null
-          return { connection: viewOf(conn) }
-        }
-        if (m[2] === '/check') return { check: okCheck(null) }
-        if (!m[2] && method === 'DELETE') {
-          server.conns = server.conns.filter((c) => c !== conn)
-          return { deleted: true }
-        }
-      }
-      throw new Error(`unexpected ${method} ${path}`)
-    }),
+  if (path === '/settings/providers' && method === 'PATCH') {
+    const body = options.body as { slot: ProviderSlot; provider?: string; model?: string }
+    probe(`${body.provider ?? ''} ${body.model ?? ''}`)
+    const slot = server.slots.find((s) => s.slot === body.slot)!
+    if (body.provider) slot.provider = body.provider
+    if (body.model) slot.model = body.model
+    return { items: [] }
   }
+  let m = /^\/settings\/providers\/(\w+)\/check$/.exec(path)
+  if (m) {
+    const slot = server.slots.find((s) => s.slot === m![1])!
+    return { check: okCheck(slot.model), slot: slot.slot, provider: slot.provider, model: slot.model }
+  }
+  if (path === '/settings/connections' && method === 'GET') return { items: server.conns.map(viewOf), presets: PRESETS }
+  if (path === '/settings/connections' && method === 'POST') {
+    const body = options.body as { preset?: string; name?: string; base_url?: string; api_key: string }
+    probe(body.api_key)
+    const preset = PRESETS.find((p) => p.name === body.preset)
+    const name = body.preset ?? body.name!
+    server.conns.push({ name, label: preset?.label ?? name, kind: 'openai-compatible', custom: !body.preset, base_url: body.base_url ?? preset?.base_url ?? null, source: 'stored', last4: body.api_key.slice(-4), last: null })
+    return { connection: viewOf(server.conns.find((c) => c.name === name)!), check: okCheck(null) }
+  }
+  m = /^\/settings\/connections\/([^/]+)(\/key|\/check)?$/.exec(path)
+  if (m) {
+    const conn = server.conns.find((c) => c.name === decodeURIComponent(m![1]))!
+    if (m[2] === '/key' && method === 'PUT') {
+      const body = options.body as { api_key: string }
+      probe(body.api_key)
+      conn.source = 'stored'
+      conn.last4 = body.api_key.slice(-4)
+      conn.last = { at: new Date().toISOString(), ok: true, cause: null, duration_ms: 42 }
+      return { connection: viewOf(conn), check: okCheck(null) }
+    }
+    if (m[2] === '/key' && method === 'DELETE') {
+      if (usedBy(conn.name).length) throw new TeamApiError(409, 'in use', 'provider_in_use', { used_by: usedBy(conn.name) })
+      if (conn.source === 'environment') throw new TeamApiError(409, 'env', 'key_from_environment')
+      conn.source = null
+      conn.last4 = null
+      conn.last = null
+      return { connection: viewOf(conn) }
+    }
+    if (m[2] === '/check') return { check: okCheck(null) }
+    if (!m[2] && method === 'DELETE') {
+      server.conns = server.conns.filter((c) => c !== conn)
+      return { deleted: true }
+    }
+  }
+  throw new Error(`unexpected ${method} ${path}`)
 })
 
 let client: QueryClient
@@ -132,9 +126,11 @@ function mount() {
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
+      <WithTeamClient>
       <I18nProvider language="es-419">
         <ProviderSettings />
       </I18nProvider>
+    </WithTeamClient>
     </QueryClientProvider>,
   )
 }

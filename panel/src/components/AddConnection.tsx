@@ -6,8 +6,8 @@ import { Plus } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useT, type MessageKey } from '@/i18n'
-import { useAddConnection } from '@/lib/queries'
-import type { Connection, NewConnection, Preset, StructuredMode } from '@/lib/types'
+import type { Connection, NewConnection, Preset, StructuredMode } from '@team-platform/client'
+import { useAddConnection } from '@team-platform/client/react'
 
 const OTHER = 'other'
 const MODES: readonly StructuredMode[] = ['json_schema', 'tool', 'json_object']

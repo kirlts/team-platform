@@ -10,12 +10,11 @@ import { Sidebar } from '@/components/Sidebar'
 import { TelemetryBridge } from '@/components/TelemetryBridge'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { api, ApiError } from '@/lib/api'
+import { TeamApiError } from '@team-platform/client'
+import { EventsProvider, useLogout, useMe, useProject } from '@team-platform/client/react'
 import { ROUTER_BASENAME } from '@/lib/base'
-import { EventsProvider } from '@/lib/events'
 import { NoticeProvider } from '@/lib/notices'
 import { NoticeHost } from '@/components/NoticeHost'
-import { useMe, useProject } from '@/lib/queries'
 import { useSidebarHidden } from '@/lib/sidebar'
 import { useDesktop } from '@/lib/useDesktop'
 import { Areas } from '@/pages/Areas'
@@ -33,6 +32,7 @@ function Shell() {
   const me = useMe().data
   const project = useProject().data
   const queryClient = useQueryClient()
+  const signOut = useLogout()
   const [navOpen, setNavOpen] = useState(false)
   const desktop = useDesktop()
   // The side panel is hidden with the button next to the user and shown again with the one in the bar; the choice is the person's (UD-047).
@@ -41,7 +41,7 @@ function Shell() {
   const logout = async () => {
     let hostLogout: string | undefined
     try {
-      hostLogout = (await api<{ logout_url?: string } | undefined>('/auth/logout', { method: 'POST' }))?.logout_url
+      hostLogout = (await signOut.mutateAsync())?.logout_url
     } finally {
       queryClient.clear()
       try {
@@ -103,7 +103,7 @@ function Routed({ me }: { me: ReturnType<typeof useMe> }) {
   const t = useT()
   if (me.isPending) return <div className="flex min-h-dvh items-center justify-center text-sm text-muted">{t('common.loading')}</div>
   if (me.isError) {
-    if (me.error instanceof ApiError && me.error.status === 401) return <Login />
+    if (me.error instanceof TeamApiError && me.error.status === 401) return <Login />
     return (
       <div role="alert" className="flex min-h-dvh flex-col items-center justify-center gap-3 px-4 text-center text-sm">
         <AlertTriangle size={22} aria-hidden className="text-danger" />

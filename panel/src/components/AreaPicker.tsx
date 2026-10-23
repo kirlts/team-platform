@@ -2,8 +2,8 @@ import { ChevronDown } from '@/components/icons'
 import { useQueryClient } from '@tanstack/react-query'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useT } from '@/i18n'
-import { api, unwrapList } from '@/lib/api'
-import type { Template } from '@/lib/types'
+import type { Template } from '@team-platform/client'
+import { useTeamQueries } from '@team-platform/client/react'
 import { cn } from '@/lib/utils'
 import { useAreaStyle } from './AreaChip'
 import { useLookups } from './lookups'
@@ -27,13 +27,14 @@ export function AreaPicker({
   const t = useT()
   const { areas, areaTitle } = useLookups()
   const queryClient = useQueryClient()
+  const queries = useTeamQueries()
   const style = useAreaStyle(areaId)
 
   const choose = async (next: string) => {
     if (next === areaId) return
     let first: Template | null = null
     try {
-      const list = await queryClient.fetchQuery({ queryKey: ['templates', next], queryFn: async () => unwrapList<Template>(await api(`/areas/${next}/templates`)) })
+      const list = await queryClient.fetchQuery(queries.templates(next))
       first = list.find((x) => !x.deleted_at) ?? null
     } catch {
       // Without access to the area's templates, the server picks the matching one.

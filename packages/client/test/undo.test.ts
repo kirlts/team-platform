@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createUndoCore, type UndoOp } from './undo'
+import { createUndoCore, type UndoOp } from '../src/undo.js'
 
 function counter() {
   const log: string[] = []

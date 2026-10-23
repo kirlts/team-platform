@@ -1,7 +1,7 @@
 // Mensajes filters: property, operator and value, kept in the URL.
 // The server only understands equality (GET /messages?for=&involved=&area=&status=&q=&replies=&deleted=);
 // negation («no es») and «sin respuestas» are applied here on the received list.
-import type { Message } from './types'
+import type { Message } from './types.js'
 
 export type FilterProp = 'for' | 'involved' | 'area' | 'status' | 'replies' | 'deleted'
 export type FilterOp = 'eq' | 'neq'
@@ -124,4 +124,11 @@ export function applyClientFilters(messages: Message[], query: MessageQuery, meI
 /** Stable query key for TanStack Query. */
 export function queryKeyOf(query: MessageQuery): string {
   return serializeQuery(query).toString()
+}
+
+/** The query string `GET /messages` takes: the equalities of the filters and the text; `repliesFeed` adds the Inicio feed (only messages with replies, newest reply first). */
+export function messagesQueryString(query: MessageQuery, repliesFeed?: boolean): string {
+  const params = toApiParams(query)
+  if (repliesFeed) params.set('replies', '1')
+  return params.toString()
 }

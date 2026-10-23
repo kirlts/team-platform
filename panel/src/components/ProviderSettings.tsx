@@ -9,8 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useT, type MessageKey } from '@/i18n'
 import { compatible, SLOTS, type Shown } from '@/lib/provider-ui'
-import { useCheckSlot, useConnections, useProviders, useRememberedModels, useSaveProvider } from '@/lib/queries'
-import type { ProviderSetting, ProviderSlot } from '@/lib/types'
+import type { ProviderSetting, ProviderSlot } from '@team-platform/client'
+import { useCheckSlot, useConnections, useProviders, useRememberedModels, useSaveProvider } from '@team-platform/client/react'
 
 /**
  * Section «Proveedores» of Configuración (Editor only): the provider and model of each function, then the connections with the

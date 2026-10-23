@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useErrorText, useT, type MessageKey } from '@/i18n'
 import { compatible, usedByOf } from '@/lib/provider-ui'
-import { useConnections, useDeleteConnection, useRetireKey, useSaveProvider } from '@/lib/queries'
-import type { Connection, ProviderSlot } from '@/lib/types'
+import type { Connection, ProviderSlot } from '@team-platform/client'
+import { useConnections, useDeleteConnection, useRetireKey, useSaveProvider } from '@team-platform/client/react'
 
 export type RemovalMode = 'retire' | 'delete'
 export type RemovalResult = { ok: true; text: string } | { ok: false; blocked: ProviderSlot[] } | { ok: false; error: string }

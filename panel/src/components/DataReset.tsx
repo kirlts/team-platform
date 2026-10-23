@@ -1,19 +1,10 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { SettingHint } from '@/components/SettingHint'
 import { Button } from '@/components/ui/button'
 import { useErrorText, useFormat, useT } from '@/i18n'
-import { api } from '@/lib/api'
+import type { ResetResult } from '@team-platform/client'
+import { useResetData, useSeedExamples } from '@team-platform/client/react'
 import { useNotices } from '@/lib/notices'
-import { useSeedExamples } from '@/lib/queries'
-
-type Scope = 'content' | 'everything'
-interface ResetResult {
-  scope: Scope
-  deleted: Record<string, number>
-  files: number
-  bytes_freed: number
-}
 
 /**
  * «Datos» of Configuración (UD-240): the Editor empties the test data with one click and no step that confirms it (UD-253).
@@ -24,16 +15,13 @@ export function DataReset() {
   const t = useT()
   const format = useFormat()
   const errorText = useErrorText()
-  const queryClient = useQueryClient()
   const notices = useNotices()
   const [result, setResult] = useState<ResetResult | null>(null)
   const seed = useSeedExamples()
-  const reset = useMutation({
-    mutationFn: (scope: Scope) => api<ResetResult>('/ops/reset?confirm=true', { method: 'POST', body: { scope } }),
-    onSuccess: async (r) => {
+  const reset = useResetData({
+    onDone: (r) => {
       setResult(r)
       notices.show({ text: t('data.done', { inputs: r.deleted.inputs ?? 0, messages: r.deleted.messages ?? 0, replies: r.deleted.replies ?? 0 }) })
-      await queryClient.invalidateQueries()
     },
   })
 

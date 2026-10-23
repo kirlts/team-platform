@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '@/i18n'
+import { mockApi, WithTeamClient } from '@/test/mock-api'
 import { UndoProvider, useUndoStack } from '@/lib/undo'
 import { UndoButtons } from './UndoButtons'
 import { ProjectEditor } from './ProjectEditor'
@@ -11,20 +12,18 @@ import { ProjectEditor } from './ProjectEditor'
 const server = { description: 'Texto inicial', max_chars: 100, failNext: false }
 const calls: { description: string }[] = []
 
-vi.mock('@/lib/api', () => ({
-  api: vi.fn(async (path: string, options?: { method?: string; body?: { description: string } }) => {
-    if (path !== '/settings/project') throw new Error(`unexpected ${path}`)
-    if (options?.method === 'PATCH') {
-      if (server.failNext) {
-        server.failNext = false
-        throw Object.assign(new Error('La descripción del proyecto supera el máximo.'), { code: 'too_large' })
-      }
-      calls.push(options.body as { description: string })
-      server.description = (options.body as { description: string }).description
+mockApi(async (path: string, options: { method?: string; body?: { description: string } } = {}) => {
+  if (path !== '/settings/project') throw new Error(`unexpected ${path}`)
+  if (options.method === 'PATCH') {
+    if (server.failNext) {
+      server.failNext = false
+      throw Object.assign(new Error('La descripción del proyecto supera el máximo.'), { code: 'too_large' })
     }
-    return { name: 'Proyecto', description: server.description, max_chars: server.max_chars }
-  }),
-}))
+    calls.push(options.body as { description: string })
+    server.description = (options.body as { description: string }).description
+  }
+  return { name: 'Proyecto', description: server.description, max_chars: server.max_chars }
+})
 
 function Harness({ editor = true }: { editor?: boolean }) {
   const stack = useUndoStack()
@@ -40,7 +39,9 @@ const wrap = (node: ReactNode) => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
-      <I18nProvider language="es-419">{node}</I18nProvider>
+      <WithTeamClient>
+        <I18nProvider language="es-419">{node}</I18nProvider>
+      </WithTeamClient>
     </QueryClientProvider>,
   )
 }

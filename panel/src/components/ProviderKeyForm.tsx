@@ -2,8 +2,8 @@ import { useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useT } from '@/i18n'
-import { useReplaceKey } from '@/lib/queries'
-import type { ConnectionResult } from '@/lib/queries'
+import type { ConnectionResult } from '@team-platform/client'
+import { useReplaceKey } from '@team-platform/client/react'
 
 /**
  * Form in place to store or replace the key of one provider. The server tests the key before it keeps it, and a failure leaves the

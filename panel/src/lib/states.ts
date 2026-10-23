@@ -2,7 +2,7 @@
 // closed, each with its color (open red, answered yellow, closed blue). One rule for the Mensajes tab, the bell, the counts by
 // area and the notice in Inicio: the background takes the color of the highest state present, open > answered.
 // Closed messages raise no notice, but they show their color in lists and filters.
-import type { Message, MessageStatus } from './types'
+import type { Message, MessageStatus } from '@team-platform/client'
 
 /** In order of priority: the first one present gives its color to a notice. */
 export const STATES: readonly MessageStatus[] = ['open', 'answered', 'closed']

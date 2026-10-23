@@ -1,6 +1,6 @@
 import { useErrorText, useT } from '@/i18n'
-import { ApiError } from '@/lib/api'
-import { useJobTrace, type SpanNode } from '@/lib/queries'
+import { TeamApiError, type SpanNode } from '@team-platform/client'
+import { useJobTrace } from '@team-platform/client/react'
 
 const IN = 'gen_ai.usage.input_tokens'
 const OUT = 'gen_ai.usage.output_tokens'
@@ -16,7 +16,7 @@ export function TraceTree({ jobId }: { jobId: string }) {
   const trace = useJobTrace(jobId, true)
   if (trace.isPending) return <p className="text-sm text-muted">…</p>
   if (trace.isError) {
-    const none = trace.error instanceof ApiError && trace.error.status === 404
+    const none = trace.error instanceof TeamApiError && trace.error.status === 404
     return (
       <p data-trace-none={none ? '' : undefined} className={none ? 'text-sm text-muted' : 'break-words text-sm text-danger'}>
         {none ? t('queue.noTrace') : errorText(trace.error)}

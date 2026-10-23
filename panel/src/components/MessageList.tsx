@@ -6,11 +6,10 @@ import { MessageCard } from '@/components/MessageCard'
 import { SelectionBar } from '@/components/SelectionBar'
 import { Button } from '@/components/ui/button'
 import { useT } from '@/i18n'
-import type { MessageQuery } from '@/lib/filters'
+import type { MessageQuery, Message } from '@team-platform/client'
+import { useDeleteMessages, useMe, useRestoreMessages, type useMessages } from '@team-platform/client/react'
 import { useNotices } from '@/lib/notices'
-import { useDeleteMessages, useMe, useRestoreMessages, type useMessages } from '@/lib/queries'
 import { SelectionProvider, useSelection, type SelectionScope } from '@/lib/selection'
-import type { Message } from '@/lib/types'
 
 /**
  * The list of messages that fits its frame, one row per message. Mensajes and the view of an area draw the same list and

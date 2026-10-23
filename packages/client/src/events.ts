@@ -1,6 +1,9 @@
 // Ephemeral state of the SSE stream (GET /events): progress per job_id and notices of new messages.
 // One stream per member (MASTER-SPEC §7.10). None of this is kept in the query cache.
-import type { DoneEvent, NewMessageEvent, ProgressEvent } from './types'
+import type { EventSourceLike } from './http.js'
+import type { DoneEvent, NewMessageEvent, ProgressEvent } from './types.js'
+
+export type { EventSourceLike }
 
 export interface JobProgress {
   percent: number
@@ -153,14 +156,6 @@ function str(v: unknown): string | undefined {
   return typeof v === 'string' ? v : undefined
 }
 
-type EventSourceLike = {
-  readyState: number
-  close(): void
-  addEventListener(type: string, listener: (e: MessageEvent) => void): void
-  onopen: ((e: Event) => void) | null
-  onerror: ((e: Event) => void) | null
-  onmessage: ((e: MessageEvent) => void) | null
-}
 export type EventSourceFactory = (url: string) => EventSourceLike
 
 const CLOSED = 2
@@ -171,13 +166,19 @@ const CLOSED = 2
  */
 export const REOPEN_DELAYS_MS = [1_000, 2_000, 5_000, 15_000, 30_000]
 
+/** The browser's `EventSource`, with the session cookie. A runtime without one (Node, a test) passes its own factory. */
+function defaultEventSource(url: string): EventSourceLike {
+  if (typeof EventSource === 'undefined') throw new Error('No EventSource in this runtime: pass an `eventSource` factory to createTeamClient.')
+  return new EventSource(url, { withCredentials: true }) as unknown as EventSourceLike
+}
+
 export const EVENT_NAMES = ['progress', 'done', 'message'] as const
 
 /** Opens the stream and keeps it. Returns the function that closes it. */
 export function connectEvents(
   store: EventsStore,
   url: string,
-  factory: EventSourceFactory = (u) => new EventSource(u, { withCredentials: true }) as unknown as EventSourceLike,
+  factory: EventSourceFactory = defaultEventSource,
   onReconnect?: () => void,
 ): () => void {
   let source: EventSourceLike | null = null

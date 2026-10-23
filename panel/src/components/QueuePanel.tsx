@@ -9,7 +9,8 @@ import { TraceTree } from '@/components/TraceTree'
 import { Button } from '@/components/ui/button'
 import { useErrorText, useFormat, useT, type MessageKey } from '@/i18n'
 import { useNotices } from '@/lib/notices'
-import { JOB_STATES, useJobCounts, usePurgeJobs, useQueueInputs, useReprocess, type PurgeState, type QueueInput } from '@/lib/queries'
+import { JOB_STATES, type PurgeState, type QueueInput } from '@team-platform/client'
+import { useJobCounts, usePurgeJobs, useQueueInputs, useReprocess } from '@team-platform/client/react'
 
 const PAGE_SIZE = 8
 const PURGE_STATES: PurgeState[] = ['done', 'failed', 'cancelled']

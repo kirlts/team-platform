@@ -3,7 +3,7 @@ import { AlertTriangle, Check as CheckIcon, ChevronRight, X } from '@/components
 import { Input } from '@/components/ui/input'
 import { useErrorText, useT, type MessageKey } from '@/i18n'
 import { failureOf, MODELS_SHOWN, type Shown } from '@/lib/provider-ui'
-import type { Cause } from '@/lib/types'
+import type { Cause } from '@team-platform/client'
 import { cn } from '@/lib/utils'
 
 export const causeKey = (cause: Cause | null): MessageKey => `cause.${cause ?? 'unknown'}` as MessageKey

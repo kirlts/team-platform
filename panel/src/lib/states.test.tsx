@@ -8,9 +8,8 @@ import { I18nProvider } from '@/i18n'
 import { en } from '@/i18n/en'
 import { es419 } from '@/i18n/es-419'
 import { areaCounts, areaMessagesPath, mineCounts } from './pending'
-import { parseQuery } from './filters'
+import { parseQuery, type MessageStatus } from '@team-platform/client'
 import { noticeState, STATES, stateTotal, topState, type StateCounts } from './states'
-import type { MessageStatus } from './types'
 
 /** Every combination of present and absent states: 2^3. */
 const COMBINATIONS: StateCounts[] = Array.from({ length: 8 }, (_, bits) => ({ open: bits & 1 ? 2 : 0, answered: bits & 2 ? 3 : 0, closed: bits & 4 ? 4 : 0 }))

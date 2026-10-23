@@ -17,10 +17,8 @@ import { SendDrawer } from '@/components/SendDrawer'
 import { Segmented } from '@/components/Segmented'
 import { type PendingUpload, type TrayItem } from '@/components/Tray'
 import { useErrorText, useFormat, useT } from '@/i18n'
-import { ME, type MessageQuery } from '@/lib/filters'
-import { useEventsSnapshot } from '@/lib/events'
-import { useMe, useMessages, useProject, useSends } from '@/lib/queries'
-import { uploadInput } from '@/lib/upload'
+import { ME, type MessageQuery } from '@team-platform/client'
+import { useEventsSnapshot, useMe, useMessages, useProject, useSends, useTeamClient } from '@team-platform/client/react'
 import { useDesktop } from '@/lib/useDesktop'
 
 /** One send that is going up to the server: what was sent, how far it is and why it failed, if it did. */
@@ -64,6 +62,7 @@ export function Home() {
   const now = useMinuteClock()
   const errorText = useErrorText()
   const queryClient = useQueryClient()
+  const team = useTeamClient()
   const me = useMe().data
   const project = useProject().data
   const desktop = useDesktop()
@@ -169,7 +168,7 @@ export function Home() {
     async (key: string, draft: SendDraft) => {
       setUploads((list) => list.map((u) => (u.key === key ? { ...u, error: undefined, progress: 0 } : u)))
       try {
-        await uploadInput({ text: draft.text, files: draft.files, links: draft.links, asMemberId: draft.asMemberId }, (progress) => setUploads((list) => list.map((u) => (u.key === key ? { ...u, progress } : u))))
+        await team.inputs.upload({ text: draft.text, files: draft.files, links: draft.links, asMemberId: draft.asMemberId }, (progress) => setUploads((list) => list.map((u) => (u.key === key ? { ...u, progress } : u))))
         // The server's list first, then the upload leaves: the send passes from one to the other without a moment in which it is neither.
         await queryClient.invalidateQueries({ queryKey: ['inputs'] })
         setUploads((list) => list.filter((u) => u.key !== key))
@@ -179,7 +178,7 @@ export function Home() {
         setProblem(reason)
       }
     },
-    [errorText, queryClient],
+    [errorText, queryClient, team],
   )
 
   const submit = (draft: SendDraft) => {

@@ -24,11 +24,10 @@ import { UndoButtons } from '@/components/UndoButtons'
 import { Button } from '@/components/ui/button'
 import { useErrorText, useFormat, useT } from '@/i18n'
 import { useQueryClient } from '@tanstack/react-query'
-import { ApiError } from '@/lib/api'
+import { TeamApiError, type MessageDetail as Detail, type MessagePatch, type Template } from '@team-platform/client'
+import { useAddAttachments, useDeleteMessage, useMe, useMessage, usePatchMessage, useRestoreMessage, useTemplates } from '@team-platform/client/react'
 import { useNotices } from '@/lib/notices'
-import { useAddAttachments, useDeleteMessage, useMe, useMessage, usePatchMessage, useRestoreMessage, useTemplates } from '@/lib/queries'
 import { parseTemplateFields, remapFields } from '@/lib/template'
-import type { MessageDetail as Detail, MessagePatch, Template } from '@/lib/types'
 import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 import { useDesktop } from '@/lib/useDesktop'
 
@@ -49,7 +48,7 @@ export function MessageDetail() {
     )
   }
   if (message.isError) {
-    const missing = message.error instanceof ApiError && message.error.status === 404
+    const missing = message.error instanceof TeamApiError && message.error.status === 404
     return (
       <Page cols={12}>
         <PageHeader title={t('nav.messages')} />

@@ -3,7 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { ReactNode } from 'react'
 import { I18nProvider } from '@/i18n'
-import type { Proposal } from '@/lib/types'
+import type { Proposal } from '@team-platform/client'
 import { SimulatedMark } from './SimulatedMark'
 
 afterEach(cleanup)

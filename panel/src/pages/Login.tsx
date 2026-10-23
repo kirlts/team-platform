@@ -1,17 +1,16 @@
-import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Atmosphere } from '@/components/Atmosphere'
 import { Wordmark } from '@/components/Wordmark'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useErrorText, useT } from '@/i18n'
-import { api } from '@/lib/api'
+import { useLogin } from '@team-platform/client/react'
 import { cn } from '@/lib/utils'
 
 export function Login() {
   const t = useT()
   const errorText = useErrorText()
-  const queryClient = useQueryClient()
+  const login = useLogin()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -30,8 +29,7 @@ export function Login() {
     setError(null)
     setBad({ email: false, password: false })
     try {
-      await api('/auth/login', { method: 'POST', body: { email: email.trim(), password } })
-      await queryClient.invalidateQueries({ queryKey: ['me'] })
+      await login.mutateAsync({ email: email.trim(), password })
     } catch (err) {
       setBad({ email: true, password: true })
       setError(errorText(err))

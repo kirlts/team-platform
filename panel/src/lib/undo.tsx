@@ -1,14 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useT } from '@/i18n'
+import { createUndoCore, type UndoOp } from '@team-platform/client'
 import { useNotices } from './notices'
 
-/** One thing a person did that can be taken back: how to undo it and how to do it again. */
-export interface UndoOp {
-  /** Short description for the tooltip of the buttons. */
-  label: string
-  undo: () => unknown | Promise<unknown>
-  redo: () => unknown | Promise<unknown>
-}
+export type { UndoOp }
 
 export interface UndoStack {
   /**
@@ -28,39 +23,6 @@ export interface UndoStack {
   busy: boolean
   /** Forgets both lists: what they would restore no longer exists (the proposal was replaced by a new analysis). */
   clear: () => void
-}
-
-/**
- * The pure core of the stack, without React: two lists and the rules between them. Kept apart so
- * it can be tested on its own. Memory only: nothing here is persisted and a reload empties it.
- */
-export function createUndoCore() {
-  const past: UndoOp[] = []
-  const future: UndoOp[] = []
-  return {
-    past,
-    future,
-    async run(op: UndoOp) {
-      const result = await op.redo()
-      past.push(op)
-      future.length = 0
-      return result
-    },
-    async undo() {
-      const op = past[past.length - 1]
-      if (!op) return
-      await op.undo()
-      past.pop()
-      future.push(op)
-    },
-    async redo() {
-      const op = future[future.length - 1]
-      if (!op) return
-      await op.redo()
-      future.pop()
-      past.push(op)
-    },
-  }
 }
 
 /** One stack per screen. Ctrl+Z and Ctrl+Shift+Z (or Ctrl+Y) work anywhere except inside a text field, which keeps its own. */

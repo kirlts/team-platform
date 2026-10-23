@@ -3,7 +3,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Play, X } from '@/components/icons'
 import { useFormat, useT } from '@/i18n'
 import { MEDIA_KEY } from '@/lib/media'
-import type { AttachmentKind } from '@/lib/types'
+import type { AttachmentKind } from '@team-platform/client'
 import { cn } from '@/lib/utils'
 import { MediaIcon } from './MediaIcon'
 

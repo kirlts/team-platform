@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { DeleteSend } from '@/components/DeleteSend'
+import { ExecutionRuns } from '@/components/ExecutionRuns'
 import { RotateCw } from '@/components/icons'
 import { NativeSelect } from '@/components/NativeSelect'
 import { PageControls } from '@/components/PageControls'
@@ -37,6 +38,7 @@ export function QueuePanel() {
       </div>
       <JobCounts />
       <RunningExecutions />
+      <ExecutionRuns />
       <div aria-describedby="hint-queue" className="flex flex-col gap-2">
         {rows.length === 0 ? (
           <p className="text-sm text-muted">{t('queue.empty')}</p>

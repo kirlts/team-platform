@@ -22,6 +22,7 @@ export type QueryRoot =
   | 'jobs'
   | 'audit'
   | 'telemetry'
+  | 'ops'
 
 export const queryKeys = {
   me: () => ['me'] as const,
@@ -52,6 +53,7 @@ export const queryKeys = {
   publication: () => ['publication'] as const,
   jobCounts: () => ['jobs', 'counts'] as const,
   runningExecutions: () => ['jobs', 'running-executions'] as const,
+  executeRunsSummary: (days: number) => ['ops', 'execute-runs', 'summary', days] as const,
   jobTrace: (jobId: string) => ['jobs', 'trace', jobId] as const,
   audit: (page: number, limit: number, action: string) => ['audit', page, limit, action] as const,
   uiSummary: () => ['telemetry', 'ui-summary'] as const,

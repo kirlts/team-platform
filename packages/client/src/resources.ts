@@ -18,6 +18,9 @@ import type {
   CreatedInput,
   DeleteInputResult,
   DeleteMemberResult,
+  ExecuteRun,
+  ExecuteRunsFilter,
+  ExecuteRunsSummary,
   InputRecord,
   JobState,
   JobTrace,
@@ -319,6 +322,19 @@ export function createResources(t: Transport) {
         call<Paged<AuditEntry>>(routes.auditList, { search: `page=${page}&limit=${limit}${action ? `&action=${encodeURIComponent(action)}` : ''}` }),
     },
     ops: {
+      /** History of the execute runs, newest first (Editor). */
+      executeRuns: (filter: ExecuteRunsFilter = {}) => {
+        const params = new URLSearchParams()
+        for (const [key, value] of Object.entries(filter)) if (value !== undefined && value !== '') params.set(key, String(value))
+        return call<Paged<ExecuteRun>>(routes.opsExecuteRuns, { search: params.toString() })
+      },
+      /** Figures of the execute runs of the last `days` days (0 = all of them), counted in local days like the panel's period selector. */
+      executeRunsSummary: (days: number) => {
+        const since = days > 0 ? new Date(Date.now() - days * 24 * 3600 * 1000) : null
+        const p = (n: number) => String(n).padStart(2, '0')
+        const search = since ? `since=${since.getFullYear()}-${p(since.getMonth() + 1)}-${p(since.getDate())}` : ''
+        return call<ExecuteRunsSummary>(routes.opsExecuteRunsSummary, { search })
+      },
       /** Loads the sample set of `ejemplos/`: the inputs enter the tray and go through the real analysis. */
       seed: () => call<{ created: number; existing: number }>(routes.opsSeed, { search: CONFIRM }),
       reset: (scope: ResetScope) => call<ResetResult>(routes.opsReset, { search: CONFIRM, body: { scope } }),

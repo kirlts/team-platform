@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Historial de ejecuciones del harness (UD-262): tabla `execute_runs` (migración `0018_execute_runs`) con retención de 365 días y `EXECUTE_MACHINE_COLLECT` para conservar la transcripción. Se consulta sin sesión con `scripts/tiempos.mjs`, por `GET /api/ops/execute-runs` y `/summary` y en «Ejecuciones» de la Cola. La sesión informa juez, entrega y espera con `team mark`.
 - 2026-10-21, noche. Borrar lo que existe (UD-240): mensajes y respuestas en blando con `restore` (migración `0010_message_and_reply_deletion`), `DELETE /api/inputs/:id` con adjuntos, trabajos y propuesta (migración `0011_attachments_without_input`) y `DELETE /api/members/:id` con `purge`. En el panel, cada tarjeta, fila de Áreas y vista de un área lleva su ícono de borrar con Deshacer. La ficha y cada respuesta llevan «Borrar», el envío abierto de Inicio también, y Equipo, «Eliminar».
 - Vaciar y sembrar datos de prueba (UD-240, UD-252): `POST /api/ops/reset` con `scope` `content` o `everything`, `POST /api/ops/seed`, `scripts/vaciar.mjs`, `scripts/sembrar.mjs` y el juego `ejemplos/` (`EXAMPLES_DIR`). Configuración, sección «Datos»: «Vaciar contenido», «Vaciar todo» y «Sembrar ejemplos».
 - Lo borrado se lista y se restaura tras recargar (UD-250): `GET /api/messages?deleted=1`, «Borrados» en el filtro de Mensajes y «Borradas» en Áreas y en Plantillas, con «Restaurar».

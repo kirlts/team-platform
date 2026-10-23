@@ -43,6 +43,7 @@ export const PROGRESS_KEYS: Record<string, MessageKey> = {
   attachmentN: 'progress.attachmentN',
   waiting: 'progress.waiting',
   budgetWait: 'progress.budgetWait',
+  capacityWait: 'progress.capacityWait',
   retry: 'progress.retry',
   review: 'progress.review',
   done: 'progress.done',

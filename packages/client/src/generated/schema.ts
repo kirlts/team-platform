@@ -5397,6 +5397,271 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ops/execute-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * History of the execute runs, newest first (editor)
+         * @description One row per run of an `execute` job: times per phase, tokens, cost, outcome, delivery and where the session transcript was copied. Kept EXECUTE_RUNS_RETENTION_DAYS (365 by default), longer than the spans (UD-262).
+         */
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                    limit?: number;
+                    /** @description First day, YYYY-MM-DD (server local day). */
+                    since?: string;
+                    /** @description Last day included, YYYY-MM-DD. */
+                    until?: string;
+                    /** @description Instance label; «*» for all. Default: this instance. */
+                    instance?: string;
+                    message_id?: string;
+                    outcome?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items?: {
+                                id?: string;
+                                job_id?: string;
+                                attempt?: number;
+                                message_id?: string | null;
+                                instance?: string;
+                                trace_id?: string | null;
+                                session_id?: string | null;
+                                model?: string | null;
+                                runner?: string | null;
+                                machine?: string | null;
+                                started_at?: string;
+                                finished_at?: string;
+                                queue_wait_ms?: number | null;
+                                first_reply_ms?: number | null;
+                                final_reply_ms?: number | null;
+                                total_ms?: number | null;
+                                create_ms?: number | null;
+                                run_ms?: number | null;
+                                destroy_ms?: number | null;
+                                tools_ms?: number | null;
+                                judge_ms?: number | null;
+                                delivery_ms?: number | null;
+                                wait_ms?: number | null;
+                                input_tokens?: number | null;
+                                output_tokens?: number | null;
+                                cache_read_tokens?: number | null;
+                                cache_write_tokens?: number | null;
+                                cost_usd?: number | null;
+                                turns?: number | null;
+                                tool_count?: number | null;
+                                subagent_count?: number | null;
+                                outcome?: string | null;
+                                error_code?: string | null;
+                                delivered?: boolean | null;
+                                transcript_ref?: string | null;
+                                slowest_tools?: {
+                                    [key: string]: unknown;
+                                }[];
+                            }[];
+                            page?: number;
+                            limit?: number;
+                            total?: number;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ops/execute-runs/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Figures of the execute runs of a period (editor)
+         * @description Average, p50 and p95 per phase, mean and total cost, delivery rate, rate of runs whose outcome is `investigated` (already resolved) and the ten slowest tool calls of the period. Nearest-rank percentiles.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description First day, YYYY-MM-DD (server local day). */
+                    since?: string;
+                    /** @description Last day included, YYYY-MM-DD. */
+                    until?: string;
+                    /** @description Instance label; «*» for all. Default: this instance. */
+                    instance?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            runs?: number;
+                            failed?: number;
+                            from?: string | null;
+                            to?: string | null;
+                            phases?: {
+                                queue_wait_ms?: {
+                                    n?: number;
+                                    avg?: number | null;
+                                    p50?: number | null;
+                                    p95?: number | null;
+                                };
+                                first_reply_ms?: {
+                                    n?: number;
+                                    avg?: number | null;
+                                    p50?: number | null;
+                                    p95?: number | null;
+                                };
+                                final_reply_ms?: {
+                                    n?: number;
+                                    avg?: number | null;
+                                    p50?: number | null;
+                                    p95?: number | null;
+                                };
+                                total_ms?: {
+                                    n?: number;
+                                    avg?: number | null;
+                                    p50?: number | null;
+                                    p95?: number | null;
+                                };
+                                create_ms?: {
+                                    n?: number;
+                                    avg?: number | null;
+                                    p50?: number | null;
+                                    p95?: number | null;
+                                };
+                                run_ms?: {
+                                    n?: number;
+                                    avg?: number | null;
+                                    p50?: number | null;
+                                    p95?: number | null;
+                                };
+                                destroy_ms?: {
+                                    n?: number;
+                                    avg?: number | null;
+                                    p50?: number | null;
+                                    p95?: number | null;
+                                };
+                                tools_ms?: {
+                                    n?: number;
+                                    avg?: number | null;
+                                    p50?: number | null;
+                                    p95?: number | null;
+                                };
+                                judge_ms?: {
+                                    n?: number;
+                                    avg?: number | null;
+                                    p50?: number | null;
+                                    p95?: number | null;
+                                };
+                                delivery_ms?: {
+                                    n?: number;
+                                    avg?: number | null;
+                                    p50?: number | null;
+                                    p95?: number | null;
+                                };
+                                wait_ms?: {
+                                    n?: number;
+                                    avg?: number | null;
+                                    p50?: number | null;
+                                    p95?: number | null;
+                                };
+                            };
+                            cost?: {
+                                n?: number;
+                                avg_usd?: number | null;
+                                total_usd?: number;
+                            };
+                            tokens?: {
+                                input?: number;
+                                output?: number;
+                                cache_read?: number;
+                                cache_write?: number;
+                            };
+                            delivery?: {
+                                known?: number;
+                                delivered?: number;
+                                rate?: number | null;
+                            };
+                            resolved?: {
+                                runs?: number;
+                                investigated?: number;
+                                rate?: number | null;
+                            };
+                            slowest_tools?: {
+                                [key: string]: unknown;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ops/reset": {
         parameters: {
             query?: never;
@@ -5690,6 +5955,68 @@ export interface paths {
             };
             responses: {
                 /** @description Avance publicado. */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{id}/marks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Informar el tiempo de una parte del trabajo `execute` (sólo su agente)
+         * @description Lo usa la sesión desatendida con `team mark`. `judge`, `delivery` y `wait` suman `ms` al tiempo que la sesión pasó en el juez, en la entrega y en espera; los valores se suman. `ok` en `delivery` dice si la entrega llegó a producción (la última marca manda). Quedan en la fila de `execute_runs` del intento (UD-262). 403 `not_job_agent` si quien llama no es el agente del trabajo; 409 `job_not_running` si el trabajo no está corriendo.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        name: "judge" | "delivery" | "wait";
+                        ms: number;
+                        ok?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Marca registrada. */
                 204: {
                     headers: {
                         [name: string]: unknown;

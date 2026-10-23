@@ -11462,6 +11462,799 @@
         }
       }
     },
+    "/api/ops/execute-runs": {
+      "get": {
+        "summary": "History of the execute runs, newest first (editor)",
+        "tags": [
+          "Operations"
+        ],
+        "description": "One row per run of an `execute` job: times per phase, tokens, cost, outcome, delivery and where the session transcript was copied. Kept EXECUTE_RUNS_RETENTION_DAYS (365 by default), longer than the spans (UD-262).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "in": "query",
+            "name": "page",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "description": "First day, YYYY-MM-DD (server local day)."
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "description": "Last day included, YYYY-MM-DD."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "instance",
+            "required": false,
+            "description": "Instance label; «*» for all. Default: this instance."
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            },
+            "in": "query",
+            "name": "message_id",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "outcome",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "description": "One run of an execute job (UD-262). Times in milliseconds; null = unknown.",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "job_id": {
+                            "type": "string"
+                          },
+                          "attempt": {
+                            "type": "integer"
+                          },
+                          "message_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "instance": {
+                            "type": "string"
+                          },
+                          "trace_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "session_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "model": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "runner": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "machine": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "started_at": {
+                            "type": "string"
+                          },
+                          "finished_at": {
+                            "type": "string"
+                          },
+                          "queue_wait_ms": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "first_reply_ms": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "final_reply_ms": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "total_ms": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "create_ms": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "run_ms": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "destroy_ms": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "tools_ms": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "judge_ms": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "delivery_ms": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "wait_ms": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "input_tokens": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "output_tokens": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "cache_read_tokens": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "cache_write_tokens": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "cost_usd": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "turns": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "tool_count": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "subagent_count": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "outcome": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "error_code": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "delivered": {
+                            "type": [
+                              "boolean",
+                              "null"
+                            ]
+                          },
+                          "transcript_ref": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "slowest_tools": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": true
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "page": {
+                      "type": "integer"
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error: { code, message }.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Error: { code, message }.",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ops/execute-runs/summary": {
+      "get": {
+        "summary": "Figures of the execute runs of a period (editor)",
+        "tags": [
+          "Operations"
+        ],
+        "description": "Average, p50 and p95 per phase, mean and total cost, delivery rate, rate of runs whose outcome is `investigated` (already resolved) and the ten slowest tool calls of the period. Nearest-rank percentiles.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "description": "First day, YYYY-MM-DD (server local day)."
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "description": "Last day included, YYYY-MM-DD."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "instance",
+            "required": false,
+            "description": "Instance label; «*» for all. Default: this instance."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "runs": {
+                      "type": "integer"
+                    },
+                    "failed": {
+                      "type": "integer"
+                    },
+                    "from": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "to": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "phases": {
+                      "type": "object",
+                      "properties": {
+                        "queue_wait_ms": {
+                          "type": "object",
+                          "properties": {
+                            "n": {
+                              "type": "integer"
+                            },
+                            "avg": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "p50": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "p95": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            }
+                          }
+                        },
+                        "first_reply_ms": {
+                          "type": "object",
+                          "properties": {
+                            "n": {
+                              "type": "integer"
+                            },
+                            "avg": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "p50": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "p95": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            }
+                          }
+                        },
+                        "final_reply_ms": {
+                          "type": "object",
+                          "properties": {
+                            "n": {
+                              "type": "integer"
+                            },
+                            "avg": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "p50": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "p95": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            }
+                          }
+                        },
+                        "total_ms": {
+                          "type": "object",
+                          "properties": {
+                            "n": {
+                              "type": "integer"
+                            },
+                            "avg": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "p50": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "p95": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            }
+                          }
+                        },
+                        "create_ms": {
+                          "type": "object",
+                          "properties": {
+                            "n": {
+                              "type": "integer"
+                            },
+                            "avg": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "p50": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "p95": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            }
+                          }
+                        },
+                        "run_ms": {
+                          "type": "object",
+                          "properties": {
+                            "n": {
+                              "type": "integer"
+                            },
+                            "avg": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "p50": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "p95": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            }
+                          }
+                        },
+                        "destroy_ms": {
+                          "type": "object",
+                          "properties": {
+                            "n": {
+                              "type": "integer"
+                            },
+                            "avg": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "p50": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "p95": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            }
+                          }
+                        },
+                        "tools_ms": {
+                          "type": "object",
+                          "properties": {
+                            "n": {
+                              "type": "integer"
+                            },
+                            "avg": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "p50": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "p95": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            }
+                          }
+                        },
+                        "judge_ms": {
+                          "type": "object",
+                          "properties": {
+                            "n": {
+                              "type": "integer"
+                            },
+                            "avg": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "p50": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "p95": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            }
+                          }
+                        },
+                        "delivery_ms": {
+                          "type": "object",
+                          "properties": {
+                            "n": {
+                              "type": "integer"
+                            },
+                            "avg": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "p50": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "p95": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            }
+                          }
+                        },
+                        "wait_ms": {
+                          "type": "object",
+                          "properties": {
+                            "n": {
+                              "type": "integer"
+                            },
+                            "avg": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "p50": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "p95": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "cost": {
+                      "type": "object",
+                      "properties": {
+                        "n": {
+                          "type": "integer"
+                        },
+                        "avg_usd": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "total_usd": {
+                          "type": "number"
+                        }
+                      }
+                    },
+                    "tokens": {
+                      "type": "object",
+                      "properties": {
+                        "input": {
+                          "type": "integer"
+                        },
+                        "output": {
+                          "type": "integer"
+                        },
+                        "cache_read": {
+                          "type": "integer"
+                        },
+                        "cache_write": {
+                          "type": "integer"
+                        }
+                      }
+                    },
+                    "delivery": {
+                      "type": "object",
+                      "properties": {
+                        "known": {
+                          "type": "integer"
+                        },
+                        "delivered": {
+                          "type": "integer"
+                        },
+                        "rate": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
+                    "resolved": {
+                      "type": "object",
+                      "properties": {
+                        "runs": {
+                          "type": "integer"
+                        },
+                        "investigated": {
+                          "type": "integer"
+                        },
+                        "rate": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
+                    "slowest_tools": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error: { code, message }.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Error: { code, message }.",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/ops/reset": {
       "post": {
         "summary": "Empty the test data (editor; requires ?confirm=true)",
@@ -11889,6 +12682,87 @@
         "responses": {
           "204": {
             "description": "Avance publicado."
+          },
+          "4XX": {
+            "description": "Error: { code, message }.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Error: { code, message }.",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/jobs/{id}/marks": {
+      "post": {
+        "summary": "Informar el tiempo de una parte del trabajo `execute` (sólo su agente)",
+        "tags": [
+          "Operations"
+        ],
+        "description": "Lo usa la sesión desatendida con `team mark`. `judge`, `delivery` y `wait` suman `ms` al tiempo que la sesión pasó en el juez, en la entrega y en espera; los valores se suman. `ok` en `delivery` dice si la entrega llegó a producción (la última marca manda). Quedan en la fila de `execute_runs` del intento (UD-262). 403 `not_job_agent` si quien llama no es el agente del trabajo; 409 `job_not_running` si el trabajo no está corriendo.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "ms"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "enum": [
+                      "judge",
+                      "delivery",
+                      "wait"
+                    ]
+                  },
+                  "ms": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "ok": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Marca registrada."
           },
           "4XX": {
             "description": "Error: { code, message }.",

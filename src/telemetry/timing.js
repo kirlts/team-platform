@@ -44,7 +44,7 @@ export function timingOfMessage(db, messageId, { now = Date.now } = {}) {
   const exec = jobSpan.children.find((c) => c.name === 'execute') ?? null;
   const inside = exec ? flatten(exec.children) : [];
   const phases = inside
-    .filter((n) => /^execute\.(machine|local)\.(create|run|destroy)$/.test(n.name))
+    .filter((n) => /^execute\.(machine|local)\.(create|run|collect|destroy)$/.test(n.name))
     .map((n) => ({ name: n.name.split('.').at(-1), duration_ms: round(n.duration_ms), offset_ms: round(Number(BigInt(n.start_ns) - BigInt(jobSpan.start_ns)) / 1e6), status: n.status }));
   const slowest = inside.filter((n) => n.name === 'execute.tool' || n.name === 'execute.subagent').map(toolRow).sort((a, b) => b.duration_ms - a.duration_ms);
   const turns = flatten(exec ? [exec] : []).flatMap((n) => n.events.filter((e) => e.name === 'execute.turn')).map((e) => ({

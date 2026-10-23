@@ -45,6 +45,7 @@ export function createQueries(client: TeamClient) {
     }),
     messageTiming: (messageId: string) => ({ queryKey: queryKeys.messageTiming(messageId), queryFn: () => client.messages.timing(messageId) }),
     runningExecutions: () => ({ queryKey: queryKeys.runningExecutions(), queryFn: () => client.jobs.runningExecutions() }),
+    executeRunsSummary: (days: number) => ({ queryKey: queryKeys.executeRunsSummary(days), queryFn: () => client.ops.executeRunsSummary(days) }),
     jobTrace: (jobId: string) => ({ queryKey: queryKeys.jobTrace(jobId), queryFn: () => client.jobs.trace(jobId) }),
     audit: (page: number, limit: number, action: string) => ({ queryKey: queryKeys.audit(page, limit, action), queryFn: () => client.audit.list(page, limit, action) }),
     uiSummary: () => ({ queryKey: queryKeys.uiSummary(), queryFn: () => client.telemetry.uiSummary() }),

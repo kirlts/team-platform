@@ -99,6 +99,8 @@ export const routes = {
   jobPurge: route('delete', '/api/jobs'),
   jobTrace: route('get', '/api/jobs/{id}/trace'),
   opsReset: route('post', '/api/ops/reset'),
+  opsExecuteRuns: route('get', '/api/ops/execute-runs'),
+  opsExecuteRunsSummary: route('get', '/api/ops/execute-runs/summary'),
   opsSeed: route('post', '/api/ops/seed'),
   auditList: route('get', '/api/audit'),
 
@@ -112,6 +114,7 @@ export const routes = {
  * operation is in `routes` or here, so a new route of the server cannot go unnoticed by the client.
  */
 export const NOT_IN_CLIENT: Readonly<Record<string, string>> = {
+  'POST /api/jobs/{id}/marks': 'Callback of the worker that runs an `execute` job: the time of one part of the work, with that job agent as the only caller.',
   'POST /api/jobs/{id}/progress': 'Callback of the worker that runs an `execute` job, with that job agent as the only caller; no interface reports progress.',
 }
 

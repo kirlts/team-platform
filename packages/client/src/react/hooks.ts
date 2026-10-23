@@ -170,6 +170,12 @@ export function useMessageTiming(messageId: string) {
   })
 }
 
+/** Figures of the execute runs of the last `days` days (0 = all of them). Asked only while the section is open. */
+export function useExecuteRunsSummary(days: number) {
+  const q = useTeamQueries()
+  return useQuery(q.executeRunsSummary(days))
+}
+
 /** The `execute` jobs that are running now, with their phase. The list asks again while there is one. */
 export function useRunningExecutions() {
   const q = useTeamQueries()

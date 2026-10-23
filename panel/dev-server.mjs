@@ -1036,6 +1036,26 @@ const server = createServer(async (req, res) => {
         turns: [], tree,
       })
     }
+    if (path === '/ops/execute-runs/summary' && method === 'GET') {
+      if (needEditor()) return
+      // UD-262: the same figures the API computes from `execute_runs`, for a period with five runs (one failed).
+      const stat = (n, avg, p50, p95) => ({ n, avg, p50, p95 })
+      const none = stat(0, null, null, null)
+      return send(res, 200, {
+        runs: 5, failed: 1, from: ago(5 * 24 * 60), to: ago(60),
+        phases: {
+          queue_wait_ms: stat(5, 410_000, 320_000, 920_000), first_reply_ms: stat(4, 52_000, 41_000, 90_000), final_reply_ms: stat(4, 1_100_000, 1_020_000, 1_320_000),
+          total_ms: stat(5, 1_180_000, 1_110_000, 1_380_000), create_ms: stat(5, 95_000, 90_000, 120_000), run_ms: stat(5, 1_000_000, 980_000, 1_300_000), destroy_ms: stat(5, 8000, 8000, 9000),
+          tools_ms: stat(4, 240_000, 210_000, 420_000), judge_ms: none, delivery_ms: stat(2, 45_000, 40_000, 50_000), wait_ms: none
+        },
+        cost: { n: 5, avg_usd: 1.62, total_usd: 8.1 }, tokens: { input: 900000, output: 41000, cache_read: 700000, cache_write: 30000 },
+        delivery: { known: 2, delivered: 1, rate: 0.5 }, resolved: { runs: 5, investigated: 1, rate: 0.2 },
+        slowest_tools: [
+          { kind: 'tool', name: 'Bash', summary: 'Orden: npm test', duration_ms: 94000, success: false, job_id: 'j-exec0', message_id: null },
+          { kind: 'tool', name: 'Bash', summary: 'Orden: npm test', duration_ms: 61000, success: true, job_id: 'j-exec0', message_id: null }
+        ]
+      })
+    }
     const traceMatch = /^\/jobs\/([^/]+)\/trace$/.exec(path)
     if (traceMatch && method === 'GET') {
       if (needEditor()) return

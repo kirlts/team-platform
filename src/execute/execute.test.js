@@ -15,6 +15,8 @@ import { setProjectDescription } from '../domain/settings.js'
 import { createVault, loadMasterKey } from '../domain/vault.js'
 import { addMember, fakeAnalyze, login, makeEnv, postInput, until } from '../testing/helpers.js'
 import { createWorker } from '../worker.js'
+import { runTeam } from '../../scripts/team.mjs'
+import { listExecuteRuns, pruneExecuteRuns } from '../telemetry/execute-runs.js'
 import { createExecuteHandler, dailyBudget, localDay } from './handler.js'
 import { phraseForTool } from './stream.js'
 
@@ -76,6 +78,7 @@ describe('execute job', () => {
     process.env.FAKE_EXECUTE_REPLY = '1'
     delete process.env.FAKE_EXECUTE_EXTRA
     delete process.env.FAKE_EXECUTE_MULTI
+    delete process.env.FAKE_EXECUTE_MARKS
   })
   after(async () => { await worker?.stop(); await env.close() })
 
@@ -404,6 +407,70 @@ describe('execute job', () => {
       assert.deepEqual(lines(), [`create ${id}`, `destroy vm-${id}`])
     })
 
+    it('EXECUTE_MACHINE_COLLECT copies the transcript after the session and before destroying the machine; its last line goes to the row', async () => {
+      const kept = join(env.dir, 'kept')
+      startWorker(machine({ machineCollect: `echo collect {machine} >> ${log}; mkdir -p ${kept} && cp ${state}/projects/-job/sess-0001.jsonl ${kept}/{job_id}.jsonl && echo copied && echo ${kept}/{job_id}.jsonl` }))
+      const id = await enqueue()
+      assert.equal((await waitJob(id)).status, 'done')
+      assert.deepEqual(lines(), [`create ${id}`, `run vm-${id}`, `collect vm-${id}`, `destroy vm-${id}`])
+      const r = env.db.prepare('SELECT * FROM execute_runs WHERE job_id = ?').get(id)
+      assert.equal(r.transcript_ref, `${kept}/${id}.jsonl`)
+      assert.equal(r.machine, `vm-${id}`)
+      assert.equal(typeof r.create_ms, 'number')
+      assert.equal(typeof r.destroy_ms, 'number')
+      assert.match(readFileSync(r.transcript_ref, 'utf8'), /sess-0001/)
+    })
+
+    it('a collector that fails does not fail the job or skip the destruction, and the run keeps no reference', async () => {
+      startWorker(machine({ machineCollect: `echo collect {machine} >> ${log}; echo lost-it; exit 4` }))
+      const id = await enqueue()
+      assert.equal((await waitJob(id)).status, 'done')
+      assert.deepEqual(lines(), [`create ${id}`, `run vm-${id}`, `collect vm-${id}`, `destroy vm-${id}`])
+      assert.equal(env.db.prepare('SELECT transcript_ref FROM execute_runs WHERE job_id = ?').get(id).transcript_ref, null)
+    })
+
+    it('the collector also runs when the session fails, so the transcript of a failure survives', async () => {
+      process.env.FAKE_EXECUTE_MODE = 'exit'
+      const kept = join(env.dir, 'kept-failed')
+      startWorker(machine({ machineCollect: `mkdir -p ${kept} && cp ${state}/projects/-job/sess-0001.jsonl ${kept}/{job_id}.jsonl && echo ${kept}/{job_id}.jsonl` }))
+      const id = await enqueue()
+      assert.equal((await waitJob(id)).status, 'failed')
+      assert.equal(env.db.prepare('SELECT transcript_ref FROM execute_runs WHERE job_id = ?').get(id).transcript_ref, `${kept}/${id}.jsonl`)
+    })
+
+    it('there is no collection when the machine was never created', async () => {
+      startWorker(machine({ machineCreate: `echo create {job_id} >> ${log}; echo vm-{job_id}; exit 1`, machineCollect: `echo collect >> ${log}` }))
+      const id = await enqueue()
+      assert.equal((await waitJob(id)).status, 'failed')
+      assert.deepEqual(lines(), [`create ${id}`, `destroy vm-${id}`])
+    })
+
+    it('waits and tries again when the host has no capacity now (create exits 75)', async () => {
+      const flag = join(env.dir, `capacity-${Date.now()}`)
+      startWorker(machine({ machineCreate: `if [ -e ${flag} ]; then echo create {job_id} >> ${log}; echo vm-{job_id}; else touch ${flag}; exit 75; fi`, capacityWaitMs: 300 }))
+      const id = await enqueue()
+      const job = await waitJob(id)
+      assert.equal(job.status, 'done', job.last_error)
+      assert.deepEqual(lines().slice(-3), [`create ${id}`, `run vm-${id}`, `destroy vm-${id}`])
+      assert.equal(env.db.prepare('SELECT attempts FROM jobs WHERE id = ?').get(id).attempts, 1, 'the wait does not spend the attempt')
+      const phrases = eventsOf(id).filter((e) => e.kind === 'progress').map((e) => e.phrase)
+      assert.ok(phrases.includes('En espera: máquina disponible'), `${phrases}`)
+    })
+
+    it('EXECUTE_MAX_MACHINES holds the second job until the first one frees its machine', async () => {
+      process.env.FAKE_EXECUTE_REPLY = '0'
+      startWorker(machine({ maxMachines: 1, capacityWaitMs: 200, machineRun: `echo run {machine} >> ${log}; sleep 4; bash {workdir}/run.sh` }))
+      const first = await publishedMessage('Primer arreglo para la máquina.')
+      const second = await publishedMessage('Segundo arreglo para la máquina.')
+      const ids = [first, second].map((m) => env.db.prepare("SELECT id FROM jobs WHERE kind = 'execute' AND message_id = ?").get(m).id)
+      const done = await Promise.all(ids.map((i) => waitJob(i)))
+      assert.deepEqual(done.map((j) => j.status), ['done', 'done'])
+      const order = lines().filter((l) => /^(create \d+|destroy vm-\d+)$/.test(l)).map((l) => l.split(' ')[0])
+      assert.deepEqual(order, ['create', 'destroy', 'create', 'destroy'], 'one machine at a time')
+      const phrases = eventsOf(ids[1]).filter((e) => e.kind === 'progress').map((e) => e.phrase)
+      assert.ok(phrases.includes('En espera: máquina disponible'), `${phrases}`)
+    })
+
     it('destroys it when the session runs out of time', async () => {
       process.env.FAKE_EXECUTE_MODE = 'hang'
       startWorker(machine({ timeoutMs: 1500 }))
@@ -415,6 +482,96 @@ describe('execute job', () => {
       const messageId = JSON.parse(job.payload_json).message_id
       const last = env.db.prepare('SELECT body FROM replies WHERE message_id = ? ORDER BY id DESC LIMIT 1').get(messageId)
       assert.match(last.body, /No alcancé a terminar dentro del tiempo máximo \(1 min\)/)
+    })
+  })
+
+  describe('run history (UD-262)', () => {
+    const rowOf = (jobId) => env.db.prepare('SELECT * FROM execute_runs WHERE job_id = ?').get(jobId)
+    const enqueueFirst = async () => {
+      const messageId = env.db.prepare('SELECT id FROM messages ORDER BY id LIMIT 1').get().id
+      return { messageId, id: Number((await env.app.inject({ method: 'POST', url: `/api/messages/${messageId}/execute`, headers: cookieHeaders(editor) })).json().job_ids[0]) }
+    }
+
+    it('a finished run leaves one row with the times, the tokens, the cost and the ten slowest tools', async () => {
+      process.env.FAKE_EXECUTE_MULTI = '1'
+      startWorker()
+      const { messageId, id } = await enqueueFirst()
+      const job = await waitJob(id)
+      assert.equal(job.status, 'done', job.last_error)
+      const r = rowOf(id)
+      assert.deepEqual([r.attempt, r.message_id, r.instance, r.session_id, r.model, r.runner, r.machine], [1, messageId, 'local', 'sess-0001', 'claude-sonnet-5-5', 'local', null])
+      assert.equal(r.trace_id, job.trace_id)
+      assert.deepEqual([r.outcome, r.error_code, r.delivered, r.transcript_ref], ['done', null, null, null])
+      assert.equal(r.cost_usd, 0.5)
+      assert.deepEqual([r.input_tokens, r.output_tokens, r.cache_read_tokens, r.cache_write_tokens], [11500, 100, 10000, 500])
+      assert.deepEqual([r.tool_count, r.subagent_count], [3, 1])
+      for (const k of ['queue_wait_ms', 'first_reply_ms', 'final_reply_ms', 'total_ms', 'run_ms', 'tools_ms']) assert.equal(typeof r[k], 'number', k)
+      assert.equal(r.create_ms, null, 'the local runner has no machine to create')
+      assert.ok(r.first_reply_ms <= r.final_reply_ms && r.final_reply_ms <= r.total_ms + 1, `${r.first_reply_ms} ≤ ${r.final_reply_ms} ≤ ${r.total_ms}`)
+      assert.ok(r.tools_ms >= 35, 'the time inside tools adds up the calls that ran (Bash waited 40 ms)')
+      const slowest = JSON.parse(r.slowest_tools_json)
+      assert.equal(slowest[0].name, 'Bash')
+      assert.equal(slowest[0].success, false)
+      assert.ok(slowest.length <= 10 && slowest.every((t, i) => i === 0 || slowest[i - 1].duration_ms >= t.duration_ms), 'slowest first')
+      assert.equal(listExecuteRuns(env.db, { messageId }).items.some((x) => x.job_id === id), true)
+    })
+
+    it('a failed run also leaves its row, with the reason', async () => {
+      process.env.FAKE_EXECUTE_MODE = 'exit'
+      startWorker()
+      const { id } = await enqueueFirst()
+      assert.equal((await waitJob(id)).status, 'failed')
+      const r = rowOf(id)
+      assert.deepEqual([r.outcome, r.error_code, r.final_reply_ms], ['failed', 'execute_no_result', null])
+      assert.equal(typeof r.total_ms, 'number')
+      assert.equal(r.session_id, 'sess-0001', 'what the session said before failing stays')
+    })
+
+    it('a run that times out leaves its row too', async () => {
+      process.env.FAKE_EXECUTE_MODE = 'hang'
+      startWorker({ timeoutMs: 1200 })
+      const { id } = await enqueueFirst()
+      assert.equal((await waitJob(id)).status, 'failed')
+      const r = rowOf(id)
+      assert.deepEqual([r.outcome, r.error_code], ['failed', 'execute_timeout'])
+      assert.ok(r.total_ms >= 1000, `total ${r.total_ms}`)
+    })
+
+    it('the session reports judge, delivery and wait with `team mark`; the times add up and delivery says if it arrived', async () => {
+      process.env.FAKE_EXECUTE_MARKS = '1'
+      startWorker()
+      const { id } = await enqueueFirst()
+      assert.equal((await waitJob(id)).status, 'done')
+      const r = rowOf(id)
+      assert.deepEqual([r.judge_ms, r.wait_ms, r.delivery_ms, r.delivered], [5000, 2500, 9000, 1])
+    })
+
+    it('marks belong to the agent of a running job', async () => {
+      const id = env.db.prepare("SELECT id FROM jobs WHERE kind = 'execute' ORDER BY id DESC LIMIT 1").get().id
+      const byMember = await env.app.inject({ method: 'POST', url: `/api/jobs/${id}/marks`, headers: cookieHeaders(author), payload: { name: 'judge', ms: 5 } })
+      assert.equal(byMember.json().code, 'not_job_agent')
+      const asAgent = (argv) => runTeam(argv, { TEAM_URL: `http://127.0.0.1:${PORT}`, TEAM_AGENT_EMAIL: agent.email, TEAM_AGENT_SECRET: agent.agent_secret, TEAM_JOB_ID: String(id) })
+      const finished = await asAgent(['mark', 'judge', '--ms', '5'])
+      assert.equal(finished.code, 1)
+      assert.match(finished.err, /job_not_running/)
+      assert.match((await asAgent(['mark', 'coffee', '--ms', '5'])).err, /team mark: use/)
+      assert.match((await asAgent(['mark', 'wait', '--ms', '-3'])).err, /team mark: use/)
+      assert.match((await asAgent(['mark', 'delivery', '--ms', '3', '--ok', 'maybe'])).err, /--ok is true or false/)
+    })
+
+    it('without a collector the transcript reference stays empty and the job is the same', async () => {
+      startWorker({ runner: 'local' })
+      const { id } = await enqueueFirst()
+      assert.equal((await waitJob(id)).status, 'done')
+      assert.equal(rowOf(id).transcript_ref, null)
+    })
+
+    it('EXECUTE_RUNS_RETENTION_DAYS is the retention of the history, 365 days by default', () => {
+      assert.equal(loadConfig({ DATA_DIR: env.dir }).execute.runsRetentionDays, 365)
+      assert.equal(loadConfig({ DATA_DIR: env.dir, EXECUTE_RUNS_RETENTION_DAYS: '30' }).execute.runsRetentionDays, 30)
+      env.db.prepare("INSERT INTO execute_runs (job_id, attempt, started_at, finished_at) VALUES (990, 1, ?, ?)").run(Date.now() - 40 * 24 * 3600 * 1000, Date.now())
+      assert.equal(pruneExecuteRuns(env.db, { retentionDays: 30 }), 1)
+      assert.equal(rowOf(990), undefined)
     })
   })
 

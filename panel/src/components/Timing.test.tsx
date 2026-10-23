@@ -1,9 +1,10 @@
 // UD-262: «Tiempos» draws the figures, the phases and the slowest tools of the API's answer, and a message with no execution says so.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { I18nProvider } from '@/i18n'
-import { ApiError } from '@/lib/api'
+import { mockApi, WithTeamClient } from '@/test/mock-api'
+import { TeamApiError } from '@team-platform/client'
 import { seconds, Timing } from './Timing'
 
 const timing = {
@@ -17,17 +18,12 @@ const timing = {
   tree: { span_id: 's1', name: 'execute', status: 'ok', duration_ms: 1_380_000, attributes: {}, children: [{ span_id: 's2', name: 'execute.machine.run', status: 'ok', duration_ms: 210000, attributes: {}, children: [] }] },
 }
 let answer: () => unknown
-vi.mock('@/lib/api', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/api')>('@/lib/api')
-  return {
-    ...actual,
-    api: vi.fn(async (path: string) => {
-      if (path === '/areas') return { items: [] }
-      if (path === '/members') return { items: [{ id: 'u1', name: 'Ana', email: 'a@x.org', role: 'member', active: true }, { id: 'u2', name: 'Claude', email: 'c@x.org', role: 'member', active: true, kind: 'agent' }] }
-      if (path.endsWith('/timing')) return answer()
-      return { items: [] }
-    }),
-  }
+mockApi(async (path: string) => {
+  if (path === '/areas') return { items: [] }
+  if (path === '/members') return { items: [{ id: 'u1', name: 'Ana', email: 'a@x.org', role: 'member', active: true }, { id: 'u2', name: 'Claude', email: 'c@x.org', role: 'member', active: true, kind: 'agent' }] }
+  if (path.endsWith('/timing')) return answer()
+  return { items: [] }
+
 })
 afterEach(cleanup)
 
@@ -35,9 +31,11 @@ function wrap(ids: string[]) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
+      <WithTeamClient>
       <I18nProvider language="es-419">
         <Timing messageId="7" assigneeIds={ids} />
       </I18nProvider>
+    </WithTeamClient>
     </QueryClientProvider>,
   )
 }
@@ -81,7 +79,7 @@ describe('Timing', () => {
   })
 
   it('says «Sin ejecución» on a 404', async () => {
-    answer = () => { throw new ApiError(404, 'not_found', 'x') }
+    answer = () => { throw new TeamApiError(404, 'not_found', 'x') }
     wrap(['u2'])
     fireEvent.click(await screen.findByRole('button', { name: 'Tiempos' }))
     expect(await screen.findByText('Sin ejecución')).toBeTruthy()

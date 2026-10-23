@@ -4,7 +4,7 @@ import { LoadState } from '@/components/LoadState'
 import { Button } from '@/components/ui/button'
 import { useErrorText, useI18n, useT } from '@/i18n'
 import { Markdown } from '@/lib/markdown'
-import { useProject, useSaveProject } from '@/lib/queries'
+import { useProject, useSaveProject } from '@team-platform/client/react'
 import { useUndo } from '@/lib/undo'
 import { cn } from '@/lib/utils'
 

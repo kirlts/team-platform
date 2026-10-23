@@ -8,8 +8,8 @@ import {
   toApiParams,
   upsertFilter,
   type MessageQuery,
-} from './filters'
-import type { Message } from './types'
+} from '../src/filters.js'
+import type { Message } from '../src/types.js'
 
 function msg(over: Partial<Message>): Message {
   return {

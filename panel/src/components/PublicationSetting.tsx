@@ -1,8 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Segmented } from '@/components/Segmented'
 import { SettingHint } from '@/components/SettingHint'
 import { useT } from '@/i18n'
-import { api } from '@/lib/api'
+import { usePublication, useSavePublication } from '@team-platform/client/react'
 
 /**
  * Publication of a send (UD-070): «Automática» publishes the messages when the analysis ends; «Manual» leaves the proposal for review and
@@ -10,12 +9,8 @@ import { api } from '@/lib/api'
  */
 export function PublicationSetting() {
   const t = useT()
-  const queryClient = useQueryClient()
-  const current = useQuery({ queryKey: ['publication'], queryFn: () => api<{ auto_publish: boolean }>('/settings/publication') })
-  const save = useMutation({
-    mutationFn: (value: boolean) => api<{ auto_publish: boolean }>('/settings/publication', { method: 'PATCH', body: { auto_publish: value } }),
-    onSuccess: (saved) => queryClient.setQueryData(['publication'], saved),
-  })
+  const current = usePublication()
+  const save = useSavePublication()
   if (!current.data) return null
   return (
     <section className="flex flex-col gap-3 border-t border-line-strong pt-3">

@@ -2,8 +2,8 @@ import { Trash2 } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { useErrorText, useT } from '@/i18n'
 import { useNotices } from '@/lib/notices'
-import { useDeleteInput, useMe } from '@/lib/queries'
-import type { InputRecord } from '@/lib/types'
+import type { InputRecord } from '@team-platform/client'
+import { useDeleteInput, useMe } from '@team-platform/client/react'
 
 /**
  * Deletes a send for real (UD-240) with one click and no step that confirms it (UD-253). There is no way back, so the notice says

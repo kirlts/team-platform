@@ -1,9 +1,9 @@
 import { Badge } from '@/components/ui/badge'
 import { useFormat, useT, type MessageKey } from '@/i18n'
-import { useJobProgress } from '@/lib/events'
+import type { InputRecord } from '@team-platform/client'
+import { useJobProgress } from '@team-platform/client/react'
 import { firstWords } from '@/lib/first-words'
 import { sendPercent } from '@/lib/progress'
-import type { InputRecord } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 /** An upload that has not finished, or did not go through: it lives in the browser until the server has the input. */

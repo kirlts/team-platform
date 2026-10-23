@@ -1,9 +1,9 @@
 import { Check, Plus, X } from '@/components/icons'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useT } from '@/i18n'
-import { attachmentUrl } from '@/lib/api'
+import type { Attachment } from '@team-platform/client'
+import { client } from '@/lib/client'
 import { MEDIA_KEY } from '@/lib/media'
-import type { Attachment } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
 import { toGalleryItems } from '@/lib/gallery'
@@ -41,7 +41,7 @@ export function AttachmentPicker({ all, selected, onChange, max = 3, onUpload, u
         <li key={a.id} className="flex min-h-9 min-w-0 max-w-full items-center gap-2 rounded-md border border-line-strong bg-surface py-0.5 pl-1 pr-0.5">
           {/* The picture opens the gallery over what this message carries, on that one. */}
           <button type="button" onClick={() => setLooking(i)} aria-label={t('gallery.item', { n: i + 1, total: included.length, name: a.name ?? t(MEDIA_KEY[a.kind]) })} className="block rounded-md">
-            <Thumb item={{ kind: a.kind, src: a.kind === 'link' ? undefined : attachmentUrl(a.id), name: a.name, size: a.size }} px={28} />
+            <Thumb item={{ kind: a.kind, src: a.kind === 'link' ? undefined : client.attachmentUrl(a.id), name: a.name, size: a.size }} px={28} />
           </button>
           <span className="min-w-0 max-w-[14rem] text-xs leading-tight text-muted [overflow-wrap:anywhere]">{a.name}</span>
           <button type="button" onClick={() => onChange(selected.filter((x) => x !== a.id))} aria-label={t('media.remove', { name: a.name ?? t(MEDIA_KEY[a.kind]) })} className="hit inline-flex shrink-0 items-center justify-center rounded-full text-muted hover:bg-hover hover:text-danger">
@@ -78,7 +78,7 @@ export function AttachmentPicker({ all, selected, onChange, max = 3, onUpload, u
                       onClick={() => onChange(on ? selected.filter((x) => x !== a.id) : [...selected, a.id])}
                       className={cn('flex min-h-9 w-full items-center gap-2 rounded-sm px-2 py-1 text-left hover:bg-hover', on && 'bg-accent-soft/40')}
                     >
-                      <Thumb item={{ kind: a.kind, src: a.kind === 'link' ? undefined : attachmentUrl(a.id), name: a.name, size: a.size }} px={28} />
+                      <Thumb item={{ kind: a.kind, src: a.kind === 'link' ? undefined : client.attachmentUrl(a.id), name: a.name, size: a.size }} px={28} />
                       <span className="min-w-0 flex-1 text-xs leading-tight [overflow-wrap:anywhere]">
                         <span className="block text-sm">{t(MEDIA_KEY[a.kind])}</span>
                         <span className="text-muted">{a.name}</span>

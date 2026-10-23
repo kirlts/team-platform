@@ -1,5 +1,5 @@
 import { useT } from '@/i18n'
-import { useUiSummary } from '@/lib/queries'
+import { useUiSummary } from '@team-platform/client/react'
 
 /** One line of figures under the switch of «Telemetría de uso» (UD-251); drawn only while the switch is on. */
 export function UiSummaryLine({ enabled }: { enabled: boolean }) {

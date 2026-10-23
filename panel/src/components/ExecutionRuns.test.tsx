@@ -1,9 +1,10 @@
 // UD-262: «Ejecuciones» draws the figures of the summary, hides the phases nobody reported and asks only once it is open.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { I18nProvider } from '@/i18n'
-import { ApiError } from '@/lib/api'
+import { TeamApiError } from '@team-platform/client'
+import { mockApi, WithTeamClient } from '@/test/mock-api'
 import { ExecutionRuns } from './ExecutionRuns'
 
 const none = { n: 0, avg: null, p50: null, p95: null }
@@ -21,19 +22,18 @@ const summary = {
 }
 const calls: string[] = []
 let answer: () => unknown
-vi.mock('@/lib/api', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/api')>('@/lib/api')
-  return { ...actual, api: vi.fn(async (path: string) => { calls.push(path); return answer() }) }
-})
+mockApi(async (path: string) => { calls.push(path); return answer() })
 afterEach(() => { cleanup(); calls.length = 0 })
 
 function wrap() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
+      <WithTeamClient>
       <I18nProvider language="es-419">
         <ExecutionRuns />
       </I18nProvider>
+    </WithTeamClient>
     </QueryClientProvider>,
   )
 }
@@ -65,7 +65,7 @@ describe('ExecutionRuns', () => {
   })
 
   it('an error shows its text', async () => {
-    answer = () => { throw new ApiError(500, 'Falló la lectura.', 'read_failed') }
+    answer = () => { throw new TeamApiError(500, 'Falló la lectura.', 'read_failed') }
     wrap()
     fireEvent.click(screen.getByRole('button', { name: 'Ejecuciones' }))
     expect(await screen.findByText('Falló la lectura.')).toBeTruthy()

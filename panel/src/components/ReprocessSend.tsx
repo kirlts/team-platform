@@ -2,8 +2,8 @@ import { RotateCw } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { useErrorText, useT } from '@/i18n'
 import { useNotices } from '@/lib/notices'
-import { useMe, useReprocess } from '@/lib/queries'
-import type { InputRecord } from '@/lib/types'
+import type { InputRecord } from '@team-platform/client'
+import { useMe, useReprocess } from '@team-platform/client/react'
 import { useOptionalUndo } from '@/lib/undo'
 
 /** Where «Borrados» lives: the list of messages with that filter on (UD-250). */

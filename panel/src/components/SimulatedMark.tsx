@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge'
 import { useT } from '@/i18n'
-import type { Proposal } from '@/lib/types'
+import type { Proposal } from '@team-platform/client'
 
 /**
  * Says that a proposal is a double: the example server (`dev-server.mjs`) marks the proposals it invents with `simulated`, so nobody judges

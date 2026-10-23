@@ -3,7 +3,8 @@ import { ChevronRight } from '@/components/icons'
 import { NativeSelect } from '@/components/NativeSelect'
 import { seconds } from '@/components/Timing'
 import { useErrorText, useT, type MessageKey } from '@/i18n'
-import { PHASE_KEYS, useExecuteRunsSummary, type RunPhase } from '@/lib/queries'
+import { PHASE_KEYS, type RunPhase } from '@team-platform/client'
+import { useExecuteRunsSummary } from '@team-platform/client/react'
 import { cn } from '@/lib/utils'
 
 const PERIODS = [

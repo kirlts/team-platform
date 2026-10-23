@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useT, type MessageKey } from '@/i18n'
 import { STATUS_KEY } from '@/components/StatusBadge'
 import { STATES, stateTotal, topState, type StateCounts } from '@/lib/states'
-import type { MessageStatus } from '@/lib/types'
+import type { MessageStatus } from '@team-platform/client'
 import { cn } from '@/lib/utils'
 
 const ICON = { open: AlertTriangle, answered: Clock, closed: InfoDot } as const

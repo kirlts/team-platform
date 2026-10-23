@@ -1,7 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { createContext, useContext, useEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react'
-import { API_BASE } from './api'
-import { connectEvents, EventsStore, type JobProgress } from './events-store'
+import { createContext, createElement, useContext, useEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react'
+import { EventsStore, type JobProgress } from '../events.js'
+import { queryKeys } from '../keys.js'
+import { watchEvents } from '../watch.js'
+import { useOptionalTeamClient } from './context.js'
 
 const EventsContext = createContext<EventsStore | null>(null)
 
@@ -11,32 +13,23 @@ export function EventsProvider({
   store: given,
   connect = true,
 }: {
-  children: ReactNode
+  children?: ReactNode
   /** Own store (tests). By default one is created. */
   store?: EventsStore
   /** False in tests: it does not open the real stream. */
   connect?: boolean
 }) {
+  const client = useOptionalTeamClient()
   const queryClient = useQueryClient()
   const store = useMemo(() => given ?? new EventsStore(), [given])
 
   useEffect(() => {
     if (!connect) return
-    const offMessage = store.onNewMessage(() => {
-      void queryClient.invalidateQueries({ queryKey: ['messages'] })
-      void queryClient.invalidateQueries({ queryKey: ['areas'] })
-    })
-    const close = connectEvents(store, `${API_BASE}/events`, undefined, () => {
-      void queryClient.invalidateQueries({ queryKey: ['inputs'] })
-      void queryClient.invalidateQueries({ queryKey: ['messages'] })
-    })
-    return () => {
-      offMessage()
-      close()
-    }
-  }, [store, queryClient, connect])
+    if (!client) throw new Error('EventsProvider with connect needs a TeamClientProvider above it')
+    return watchEvents({ client, store, queryClient })
+  }, [client, store, queryClient, connect])
 
-  return <EventsContext.Provider value={store}>{children}</EventsContext.Provider>
+  return createElement(EventsContext.Provider, { value: store }, children)
 }
 
 export function useEventsStore(): EventsStore {
@@ -51,8 +44,8 @@ export function useEventsSnapshot() {
 }
 
 /**
- *  Ephemeral progress of a job, read from the single stream. When `done` arrives it invalidates the
- *  input's query to bring the proposal.
+ * Ephemeral progress of a job, read from the single stream. When `done` arrives it invalidates the
+ * input's query to bring the proposal.
  */
 export function useJobProgress(jobId: string | undefined, inputId: string | undefined): JobProgress | undefined {
   const store = useEventsStore()
@@ -62,7 +55,7 @@ export function useJobProgress(jobId: string | undefined, inputId: string | unde
   const done = progress?.done ?? false
 
   useEffect(() => {
-    if (done && inputId) void queryClient.invalidateQueries({ queryKey: ['inputs', inputId] })
+    if (done && inputId) void queryClient.invalidateQueries({ queryKey: queryKeys.input(inputId) })
   }, [done, inputId, queryClient])
 
   return progress

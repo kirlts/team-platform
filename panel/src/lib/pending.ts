@@ -1,7 +1,6 @@
 // Reads GET /messages/summary into the counts the state badges draw (UD-028, UD-041).
-import { serializeQuery } from './filters'
+import { serializeQuery, type MessageStatus, type MessageSummary } from '@team-platform/client'
 import type { StateCounts } from './states'
-import type { MessageStatus, MessageSummary } from './types'
 
 /** What affects me, by state. */
 export function mineCounts(summary: MessageSummary | undefined): StateCounts {

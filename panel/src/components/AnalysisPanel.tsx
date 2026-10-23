@@ -7,14 +7,13 @@ import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useErrorText, useI18n, useT, type MessageKey } from '@/i18n'
-import { useJobProgress } from '@/lib/events'
+import { queryKeys, type Attachment, type InputRecord, type InputStatus, type Proposal, type ProposalMessage, type Template } from '@team-platform/client'
+import { useJobProgress, useCancelInput, usePublish, useReprocess, useRestoreInput, useSaveProposal, useTemplates, useTray } from '@team-platform/client/react'
 import { useNotices } from '@/lib/notices'
 import { sendPercent } from '@/lib/progress'
 import { progressText } from '@/lib/progress-text'
-import { useCancelInput, usePublish, useReprocess, useRestoreInput, useSaveProposal, useTemplates, useTray } from '@/lib/queries'
 import { firstWords } from '@/lib/first-words'
 import { missingRequired, parseTemplateFields, remapFields } from '@/lib/template'
-import type { Attachment, InputRecord, InputStatus, Proposal, ProposalMessage, Template } from '@/lib/types'
 import { useUndo } from '@/lib/undo'
 import { cn } from '@/lib/utils'
 import { AiMark } from './AiMark'
@@ -332,7 +331,7 @@ function ProposalEditor({
 
   useEffect(
     () => () => {
-      void queryClient.invalidateQueries({ queryKey: ['inputs', input.id] })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.input(input.id) })
     },
     [queryClient, input.id],
   )

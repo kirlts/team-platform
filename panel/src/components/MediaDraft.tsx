@@ -5,7 +5,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from '@/components/ui/input'
 import { useT, type MessageKey } from '@/i18n'
 import { mmss } from '@/lib/format'
-import { kindFromMime } from '@/lib/upload'
+import { kindFromMime } from '@team-platform/client'
 import type { MediaDraft, MediaProblem } from '@/lib/useMediaDraft'
 import { cn } from '@/lib/utils'
 import { Thumb } from './Thumb'

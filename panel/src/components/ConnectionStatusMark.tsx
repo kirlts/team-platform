@@ -1,6 +1,6 @@
 import { AlertTriangle, Check as CheckIcon, InfoDot } from '@/components/icons'
 import { useT, type MessageKey } from '@/i18n'
-import type { ConnectionStatus } from '@/lib/types'
+import type { ConnectionStatus } from '@team-platform/client'
 import { cn } from '@/lib/utils'
 
 const LOOK: Record<ConnectionStatus, { Icon: typeof CheckIcon; tone: string }> = {

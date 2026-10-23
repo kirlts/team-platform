@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useLocation } from 'react-router'
-import { useEventsStore } from '@/lib/events'
-import { useMe } from '@/lib/queries'
+import { useEventsStore, useMe } from '@team-platform/client/react'
 import { screenOf, telemetry } from '@/lib/telemetry'
 
 /**

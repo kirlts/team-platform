@@ -2,27 +2,22 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { I18nProvider } from '@/i18n'
+import { mockApi, WithTeamClient } from '@/test/mock-api'
 import { translate } from '@/i18n/core'
 import { es419 } from '@/i18n/es-419'
-import { canSignOut } from '@/lib/identity'
+import { canSignOut } from '@team-platform/client'
 import { Sidebar } from './Sidebar'
 
 const L = (key: string) => translate(es419, 'es-419', key)
 
 let provider: string | undefined = 'local'
 
-vi.mock('@/lib/api', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/api')>('@/lib/api')
-  return {
-    ...actual,
-    api: vi.fn(async (path: string) => {
-      if (path === '/me') return { id: 'u1', email: 'ana@x.org', name: 'Ana', role: 'member', language: 'es-419', active: true, provider }
-      if (path === '/messages/summary') return { mine: { open: 0, answered: 0, total: 0 }, items: [], areas: [] }
-      return { items: [] }
-    }),
-  }
+mockApi(async (path: string) => {
+  if (path === '/me') return { id: 'u1', email: 'ana@x.org', name: 'Ana', role: 'member', language: 'es-419', active: true, provider }
+  if (path === '/messages/summary') return { mine: { open: 0, answered: 0, total: 0 }, items: [], areas: [] }
+  return { items: [] }
 })
 
 afterEach(cleanup)
@@ -31,11 +26,13 @@ function mount() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
+      <WithTeamClient>
       <I18nProvider language="es-419">
         <MemoryRouter>
           <Sidebar onLogout={() => {}} />
         </MemoryRouter>
       </I18nProvider>
+    </WithTeamClient>
     </QueryClientProvider>,
   )
 }

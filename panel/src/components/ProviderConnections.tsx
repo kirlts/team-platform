@@ -10,8 +10,8 @@ import { Button } from '@/components/ui/button'
 import { useFormat, useT, type MessageKey } from '@/i18n'
 import { useNotices } from '@/lib/notices'
 import type { Shown } from '@/lib/provider-ui'
-import { useCheckConnection, useConnections } from '@/lib/queries'
-import type { Connection, ProviderSlot } from '@/lib/types'
+import type { Connection, ProviderSlot } from '@team-platform/client'
+import { useCheckConnection, useConnections } from '@team-platform/client/react'
 
 /** What a row says about its last action, in a live region: the outcome in a line, or a test with its detail. */
 type Outcome = { kind: 'line'; ok: boolean; node: ReactNode } | { kind: 'check'; shown: Shown }

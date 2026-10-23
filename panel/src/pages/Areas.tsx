@@ -18,10 +18,10 @@ import { useT } from '@/i18n'
 import { AreaNotFound, AreaView } from '@/pages/AreaView'
 import { areaCounts, areaMessagesPath } from '@/lib/pending'
 import { useNotices } from '@/lib/notices'
-import { useAreas, useDeleteAreas, useDeletedAreas, useDeleteArea, useMe, useRestoreArea, useRestoreAreas, useSaveArea, useSummary, useTemplates } from '@/lib/queries'
+import type { Area } from '@team-platform/client'
+import { useAreas, useDeleteAreas, useDeletedAreas, useDeleteArea, useMe, useRestoreArea, useRestoreAreas, useSaveArea, useSummary, useTemplates } from '@team-platform/client/react'
 import { useSelection, type Selection } from '@/lib/selection'
 import { RowCheck, SelectionBar } from '@/components/SelectionBar'
-import type { Area } from '@/lib/types'
 import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 
 /**

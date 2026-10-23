@@ -14,11 +14,10 @@ import { StateTabs } from '@/components/StateTabs'
 import { UndoButtons } from '@/components/UndoButtons'
 import { Button } from '@/components/ui/button'
 import { useT } from '@/i18n'
-import { parseQuery, serializeQuery, upsertFilter, removeFilter, type MessageQuery } from '@/lib/filters'
+import { parseQuery, serializeQuery, upsertFilter, removeFilter, type MessageQuery, type Area, type MessageStatus } from '@team-platform/client'
+import { useDeleteArea, useMe, useMessages, useRestoreArea, useSaveArea, useSummary, useTemplates } from '@team-platform/client/react'
 import { areaCounts } from '@/lib/pending'
 import { useNotices } from '@/lib/notices'
-import { useDeleteArea, useMe, useMessages, useRestoreArea, useSaveArea, useSummary, useTemplates } from '@/lib/queries'
-import type { Area, MessageStatus } from '@/lib/types'
 import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 
 /**

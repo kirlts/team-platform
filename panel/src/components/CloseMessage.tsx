@@ -1,9 +1,9 @@
 import { Button } from '@/components/ui/button'
 import { useT } from '@/i18n'
-import { useSetClosed } from '@/lib/queries'
+import type { MessageStatus } from '@team-platform/client'
+import { useSetClosed } from '@team-platform/client/react'
 import { useDesktop } from '@/lib/useDesktop'
 import { useUndo } from '@/lib/undo'
-import type { MessageStatus } from '@/lib/types'
 import { STATUS_KEY } from './StatusBadge'
 
 /**

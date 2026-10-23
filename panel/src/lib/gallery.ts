@@ -1,5 +1,5 @@
-import { attachmentUrl, replyAttachmentUrl } from './api'
-import type { Attachment, AttachmentKind } from './types'
+import type { Attachment, AttachmentKind } from '@team-platform/client'
+import { client } from './client'
 
 /** What the gallery draws for one medium. `src` is absent for a link (it has an address, not a file). */
 export interface GalleryItem {
@@ -19,12 +19,12 @@ export interface GalleryItem {
 export type AttachmentScope = 'message' | 'reply'
 
 export function transcriptUrl(id: string): string {
-  return `${attachmentUrl(id)}/transcript`
+  return client.transcriptUrl(id)
 }
 
 /** The gallery items of a list of attachments. A transcript is offered only where the server says it extracted text. */
 export function toGalleryItems(attachments: readonly Attachment[] | undefined, scope: AttachmentScope = 'message'): GalleryItem[] {
-  const file = scope === 'reply' ? replyAttachmentUrl : attachmentUrl
+  const file = scope === 'reply' ? client.replyAttachmentUrl : client.attachmentUrl
   return (attachments ?? []).map((a) => ({
     id: a.id,
     kind: a.kind,

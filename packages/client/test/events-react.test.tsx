@@ -1,9 +1,10 @@
+// @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { connectEvents, EventsStore, REOPEN_DELAYS_MS } from './events-store'
-import { EventsProvider, useJobProgress } from './events'
+import { connectEvents, EventsStore, REOPEN_DELAYS_MS } from '../src/events.js'
+import { EventsProvider, useJobProgress } from '../src/react/events.js'
 
 // Replaces the context with its own store so as not to open a real EventSource.
 function wrapperWith(store: EventsStore, client: QueryClient) {

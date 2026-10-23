@@ -2,7 +2,7 @@ import { Check, Plus, Search } from '@/components/icons'
 import { useState } from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useT } from '@/i18n'
-import type { Member } from '@/lib/types'
+import type { Member } from '@team-platform/client'
 import { Avatar } from './Avatar'
 
 /** List of members with a selection mark, in a popover. The button shows «+» or «+N» if there are recipients outside the row. */

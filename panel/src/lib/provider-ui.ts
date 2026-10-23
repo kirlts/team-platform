@@ -1,6 +1,4 @@
-import { ApiError } from '@/lib/api'
-import type { Cause, Check, Connection, ConnectionKind, ProviderSlot } from '@/lib/types'
-import { CAUSES } from '@/lib/types'
+import { TeamApiError, type Cause, type Check, type Connection, type ConnectionKind, type ProviderSlot, CAUSES } from '@team-platform/client'
 
 /** The functions in the order the screen lists them. */
 export const SLOTS: readonly ProviderSlot[] = ['text', 'vision', 'speech']
@@ -28,7 +26,7 @@ export interface CheckFailure {
 }
 
 export function failureOf(err: unknown): CheckFailure | null {
-  if (!(err instanceof ApiError) || err.code !== 'provider_check_failed') return null
+  if (!(err instanceof TeamApiError) || err.code !== 'provider_check_failed') return null
   const d = err.details
   const cause = typeof d.cause === 'string' && (CAUSES as readonly string[]).includes(d.cause) ? (d.cause as Cause) : 'unknown'
   return {
@@ -40,7 +38,7 @@ export function failureOf(err: unknown): CheckFailure | null {
 
 /** The functions that block a retirement, from the 409 `provider_in_use` body. */
 export function usedByOf(err: unknown): ProviderSlot[] | null {
-  if (!(err instanceof ApiError) || err.code !== 'provider_in_use') return null
+  if (!(err instanceof TeamApiError) || err.code !== 'provider_in_use') return null
   const list = err.details.used_by
   return Array.isArray(list) ? (list.filter((s) => SLOTS.includes(s as ProviderSlot)) as ProviderSlot[]) : []
 }

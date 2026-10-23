@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
-import { useAreas, useMembers } from '@/lib/queries'
-import type { Area, Member } from '@/lib/types'
+import type { Area, Member } from '@team-platform/client'
+import { useAreas, useMembers } from '@team-platform/client/react'
 
 /** Area and member names by id, to label cards and recipients. */
 export function useLookups() {

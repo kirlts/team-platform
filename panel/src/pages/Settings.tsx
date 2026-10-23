@@ -17,9 +17,9 @@ import { UiTelemetrySetting } from '@/components/UiTelemetrySetting'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { LANGUAGES, useI18n, useT, type MessageKey } from '@/i18n'
-import { useMe, useSaveLanguage, useSaveMember } from '@/lib/queries'
+import type { Language } from '@team-platform/client'
+import { useMe, useSaveLanguage, useSaveMember } from '@team-platform/client/react'
 import { readThemePref, saveTheme, type ThemePref } from '@/lib/theme'
-import type { Language } from '@/lib/types'
 import { UndoProvider, useUndoStack } from '@/lib/undo'
 
 const LANGUAGE_KEY: Record<Language, MessageKey> = { 'es-419': 'language.es-419', en: 'language.en' }

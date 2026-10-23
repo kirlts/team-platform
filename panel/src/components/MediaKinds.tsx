@@ -1,6 +1,6 @@
 import { useT } from '@/i18n'
 import { kindsOf, MEDIA_KEY } from '@/lib/media'
-import type { Attachment, AttachmentKind } from '@/lib/types'
+import type { Attachment, AttachmentKind } from '@team-platform/client'
 import { cn } from '@/lib/utils'
 import { MediaIcon } from './MediaIcon'
 

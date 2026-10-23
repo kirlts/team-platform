@@ -3,22 +3,17 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { I18nProvider } from '@/i18n'
-import type { Message } from '@/lib/types'
+import { mockApi, WithTeamClient } from '@/test/mock-api'
+import type { Message } from '@team-platform/client'
 import { MessageCard } from './MessageCard'
 
-vi.mock('@/lib/api', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/api')>('@/lib/api')
-  return {
-    ...actual,
-    api: vi.fn(async (path: string) => {
-      if (path === '/me') return { id: 'u1', email: 'ana@x.org', name: 'Ana', role: 'member', language: 'es-419', active: true, provider: 'local' }
-      if (path === '/areas') return { items: [{ id: 'a1', title: 'Error', description: '', color: '#854d0e', position: 1 }] }
-      if (path === '/members') return { items: [{ id: 'u1', name: 'Ana', email: 'ana@x.org', role: 'member', active: true }] }
-      return { items: [] }
-    }),
-  }
+mockApi(async (path: string) => {
+  if (path === '/me') return { id: 'u1', email: 'ana@x.org', name: 'Ana', role: 'member', language: 'es-419', active: true, provider: 'local' }
+  if (path === '/areas') return { items: [{ id: 'a1', title: 'Error', description: '', color: '#854d0e', position: 1 }] }
+  if (path === '/members') return { items: [{ id: 'u1', name: 'Ana', email: 'ana@x.org', role: 'member', active: true }] }
+  return { items: [] }
 })
 
 afterEach(cleanup)
@@ -45,11 +40,13 @@ function mount(m: Message, variant: 'message' | 'reply' = 'message') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
+      <WithTeamClient>
       <I18nProvider language="es-419">
         <MemoryRouter>
           <MessageCard message={m} variant={variant} />
         </MemoryRouter>
       </I18nProvider>
+    </WithTeamClient>
     </QueryClientProvider>,
   )
 }

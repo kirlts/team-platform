@@ -12,7 +12,8 @@ import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { useErrorText, useFormat, useT, type MessageKey } from '@/i18n'
 import { useNotices } from '@/lib/notices'
-import { JOB_STATES, useJobCounts, usePurgeJobs, useQueueInputs, useReprocess, useRunningExecutions, type PurgeState, type QueueInput } from '@/lib/queries'
+import { invalidate, JOB_STATES, type PurgeState, type QueueInput } from '@team-platform/client'
+import { useJobCounts, usePurgeJobs, useQueueInputs, useReprocess, useRunningExecutions } from '@team-platform/client/react'
 
 const PAGE_SIZE = 8
 const PURGE_STATES: PurgeState[] = ['done', 'failed', 'cancelled']
@@ -146,7 +147,7 @@ function QueueRow({ input }: { input: QueueInput }) {
   const reprocess = useReprocess()
   const [tracing, setTracing] = useState(false)
   const seconds = SETTLED.has(input.status) && input.updated_at ? Math.max(0, (Date.parse(input.updated_at) - Date.parse(input.created_at)) / 1000) : null
-  const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ['jobs'] }), qc.invalidateQueries({ queryKey: ['audit'] })])
+  const refresh = () => invalidate(qc, 'purgeJobs')
   const run = async () => {
     try {
       const done = await reprocess.mutateAsync(input.id)

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, ty
 import { ChevronLeft, ChevronRight, FileText, Link2 } from '@/components/icons'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { useFormat, useT } from '@/i18n'
+import { client } from '@/lib/client'
 import { linkDomain, stepIndex, type GalleryItem } from '@/lib/gallery'
 import { MEDIA_KEY } from '@/lib/media'
 import { cn } from '@/lib/utils'
@@ -398,7 +399,7 @@ function Transcript({ src }: { src: string }) {
   const [text, setText] = useState<string | null>(null)
   useEffect(() => {
     const abort = new AbortController()
-    fetch(src, { credentials: 'include', headers: { Accept: 'application/json' }, signal: abort.signal })
+    client.raw(src, { signal: abort.signal })
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { text?: string } | null) => setText(data?.text?.trim() ? data.text : null))
       .catch(() => setText(null))

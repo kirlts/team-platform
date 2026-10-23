@@ -3,7 +3,8 @@ import { NativeSelect } from '@/components/NativeSelect'
 import { PageControls } from '@/components/PageControls'
 import { SettingHint } from '@/components/SettingHint'
 import { useFormat, useT } from '@/i18n'
-import { useAuditLog, type AuditEntry } from '@/lib/queries'
+import type { AuditEntry } from '@team-platform/client'
+import { useAuditLog } from '@team-platform/client/react'
 
 const PAGE_SIZE = 10
 /** The actions the server writes to the log (src/domain/audit.js callers), for the filter. */

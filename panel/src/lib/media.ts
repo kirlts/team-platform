@@ -1,4 +1,4 @@
-import type { Attachment, AttachmentKind } from './types'
+import type { Attachment, AttachmentKind } from '@team-platform/client'
 
 /** Fixed order in which the kinds are drawn, so every row shows the same icons in the same place. */
 export const MEDIA_ORDER: readonly AttachmentKind[] = ['image', 'video', 'audio', 'document', 'link']

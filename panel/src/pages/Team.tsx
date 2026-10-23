@@ -15,8 +15,8 @@ import { Input } from '@/components/ui/input'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useErrorText, useT } from '@/i18n'
 import { useNotices } from '@/lib/notices'
-import { useCreateMember, useDeleteMember, useMe, useMembers, useSaveMember, useSetMemberPassword } from '@/lib/queries'
-import type { Member, Role } from '@/lib/types'
+import type { Member, Role } from '@team-platform/client'
+import { useCreateMember, useDeleteMember, useMe, useMembers, useSaveMember, useSetMemberPassword } from '@team-platform/client/react'
 import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 
 /** Maximum length of the profile the API accepts (UD-023). */

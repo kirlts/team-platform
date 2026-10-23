@@ -1,5 +1,4 @@
-import type { InputRecord } from './types'
-import type { JobProgress } from './events-store'
+import type { InputRecord, JobProgress } from '@team-platform/client'
 
 /**
  * The percentage a send shows. Only a job that has started reports one: a send still in the queue has not done any

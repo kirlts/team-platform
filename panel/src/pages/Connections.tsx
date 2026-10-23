@@ -4,7 +4,7 @@ import { Page } from '@/components/Page'
 import { PageHeader } from '@/components/PageHeader'
 import { useT, type MessageKey } from '@/i18n'
 import { CONNECTIONS, isConnection } from '@/lib/connections'
-import { useMe } from '@/lib/queries'
+import { useMe } from '@team-platform/client/react'
 import { cn } from '@/lib/utils'
 
 /**

@@ -334,3 +334,198 @@ export interface MessageSummary {
   items: { message_id: string; title: string; status: 'open' | 'answered'; at: string }[]
   areas: { area_id: string; open: number; answered: number; closed: number; mine_open: number }[]
 }
+
+// ---------------------------------------------------------------- What the lists and settings screens read
+
+/** Project description (UD-024): the whole team sees it and only the Editor changes it. */
+export interface Project {
+  /** Cap of characters (PROJECT_DESCRIPTION_MAX_CHARS); a server that does not send it leaves the counter without a cap. */
+  max_chars?: number
+  /** Cap of characters of the name (PROJECT_NAME_MAX_CHARS, H-3722). */
+  name_max_chars?: number
+  name: string
+  description: string
+}
+
+/** A send in the queue of Configuración (UD-251): the input with the name of its author. */
+export interface QueueInput extends InputRecord {
+  author_name?: string | null
+}
+
+/** Every paginated list is `{ items, page, limit, total }` (src/contracts.md §3). */
+export interface Paged<T> {
+  items: T[]
+  page: number
+  limit: number
+  total: number
+}
+
+export const JOB_STATES = ['queued', 'running', 'done', 'failed', 'cancelled'] as const
+export type JobState = (typeof JOB_STATES)[number]
+export type PurgeState = 'done' | 'failed' | 'cancelled'
+
+export interface SpanNode {
+  span_id: string
+  name: string
+  status: string
+  duration_ms: number
+  attributes: Record<string, unknown>
+  children: SpanNode[]
+}
+
+/** Where the time of the execution of a message went (GET /messages/:id/timing). */
+export interface MessageTiming {
+  message_id: string
+  job_id: string
+  job_status: string
+  trace_id: string | null
+  phase: string | null
+  elapsed_ms: number | null
+  first_reply_ms: number | null
+  final_reply_ms: number | null
+  total_ms: number | null
+  queue_wait_ms: number | null
+  phases: { name: string; duration_ms: number; offset_ms: number | null; status: string }[]
+  /** The delivery that followed the run (UD-263), when there is one. */
+  deliver?: { job_id: string; job_status: string; phase: string | null; attempts: number }
+  slowest: { kind: 'tool' | 'subagent'; name: string; summary: string | null; duration_ms: number; success: boolean | null }[]
+  tree: SpanNode | null
+}
+
+export const PHASE_KEYS = ['queue_wait_ms', 'first_reply_ms', 'final_reply_ms', 'total_ms', 'create_ms', 'run_ms', 'destroy_ms', 'tools_ms', 'judge_ms', 'delivery_ms', 'wait_ms'] as const
+export type RunPhase = (typeof PHASE_KEYS)[number]
+
+/** GET /ops/execute-runs/summary (UD-262): the figures of the execute runs of a period. */
+export interface ExecuteRunsSummary {
+  runs: number
+  failed: number
+  phases: Record<RunPhase, { n: number; avg: number | null; p50: number | null; p95: number | null }>
+  cost: { n: number; avg_usd: number | null; total_usd: number }
+  delivery: { known: number; delivered: number; rate: number | null }
+  resolved: { runs: number; investigated: number; rate: number | null }
+  slowest_tools: { kind: string; name: string; summary: string | null; duration_ms: number; success: boolean | null }[]
+}
+
+/** One row of the history of execute runs (GET /ops/execute-runs); its figures are the keys of `PHASE_KEYS` and a few more. */
+export type ExecuteRun = Record<string, unknown>
+
+/** The filters of the history of execute runs. Dates are `YYYY-MM-DD`. */
+export interface ExecuteRunsFilter {
+  page?: number
+  limit?: number
+  since?: string
+  until?: string
+  instance?: string
+  message_id?: string
+  outcome?: string
+}
+
+/** An `execute` job in the list of jobs. */
+export interface RunningJob {
+  id: string
+  kind: string
+  message_id: string | null
+  phase: string | null
+  run_at: string
+}
+
+export interface JobTrace {
+  job_id: string
+  span_count: number
+  totals: { llm_calls: number; input_tokens: number; output_tokens: number; cost_usd: number }
+  roots: SpanNode[]
+}
+
+export interface AuditEntry {
+  id: string
+  at: string
+  member_id: string | null
+  member_name: string | null
+  action: string
+  entity: string
+  entity_id: string | null
+  detail: Record<string, unknown> | null
+}
+
+export interface UiSummary {
+  days: number
+  screens?: Record<string, { visits: number }>
+  tasks?: Record<string, { started: number; abandoned?: number }>
+  errors?: { total: number }
+}
+
+/** The framing of one language: the text in force, the default and whether the Editor changed it. */
+export interface FramingItem {
+  value: string
+  default: string
+  custom: boolean
+}
+
+export interface AnalysisSettings {
+  framing: Record<Language, FramingItem>
+  /** Cap of characters of each framing (ANALYSIS_FRAMING_MAX_CHARS). */
+  max_chars: number
+}
+
+/** Answer of the calls that add, replace or test a provider's key. */
+export interface ConnectionResult {
+  connection: Connection
+  check: Check
+}
+
+/** The new send (POST /inputs): text, files and links, and optionally the member it is sent in the name of. */
+export interface NewInput {
+  text: string
+  files: File[]
+  links: string[]
+  /** «Enviar como» (UD-255): the member the input is sent in the name of; without it, the member of the session. */
+  asMemberId?: string
+}
+
+export interface CreatedInput {
+  input_id: string
+  job_id: string
+}
+
+/** A reply as the person writes it; with files or links the submit is multipart. */
+export interface NewReply {
+  body: string
+  kind: ReplyKind
+  files?: File[]
+  links?: string[]
+}
+
+/** Result of a reprocess (POST /inputs/:id/reprocess). */
+export interface ReprocessResult {
+  input_id: string
+  job_id: string
+  set_aside?: { messages: number; replies: number }
+}
+
+export interface DeleteInputResult {
+  input_id: string
+  deleted: { attachments: number; jobs: number; messages: number }
+  freed_bytes: number
+}
+
+export interface DeleteMemberResult {
+  member_id: string
+  deleted: { inputs: number; messages: number; replies: number }
+}
+
+/** What the member editor sends (PATCH /members/:id, or /members/me for oneself). */
+export type MemberPatch = Partial<Pick<Member, 'profile' | 'role' | 'name' | 'email' | 'active'>> & {
+  language?: Language
+  current_password?: string
+  new_password?: string
+}
+
+export type ResetScope = 'content' | 'everything'
+
+/** Answer of POST /ops/reset: what the Editor's «Datos» emptied. */
+export interface ResetResult {
+  scope: ResetScope
+  deleted: Record<string, number>
+  files: number
+  bytes_freed: number
+}

@@ -5,8 +5,8 @@ import { MessageList } from '@/components/MessageList'
 import { Page } from '@/components/Page'
 import { PageHeader } from '@/components/PageHeader'
 import { useT } from '@/i18n'
-import { parseQuery, serializeQuery, type MessageQuery } from '@/lib/filters'
-import { useMe, useMessages } from '@/lib/queries'
+import { parseQuery, serializeQuery, type MessageQuery } from '@team-platform/client'
+import { useMe, useMessages } from '@team-platform/client/react'
 
 export function Messages() {
   const t = useT()

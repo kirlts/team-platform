@@ -3,20 +3,15 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { I18nProvider } from '@/i18n'
+import { mockApi, WithTeamClient } from '@/test/mock-api'
 import { MessageFoldRow, MessageTally } from './MessageFold'
 
-vi.mock('@/lib/api', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/api')>('@/lib/api')
-  return {
-    ...actual,
-    api: vi.fn(async (path: string) => {
-      if (path === '/areas') return { items: [{ id: 'a1', title: 'Error', description: '', color: '#854d0e', position: 1 }, { id: 'a2', title: 'Idea', description: '', color: '#1d4ed8', position: 2 }] }
-      if (path === '/members') return { items: [{ id: 'u1', name: 'Ana', email: 'ana@x.org', role: 'member', active: true }] }
-      return { items: [] }
-    }),
-  }
+mockApi(async (path: string) => {
+  if (path === '/areas') return { items: [{ id: 'a1', title: 'Error', description: '', color: '#854d0e', position: 1 }, { id: 'a2', title: 'Idea', description: '', color: '#1d4ed8', position: 2 }] }
+  if (path === '/members') return { items: [{ id: 'u1', name: 'Ana', email: 'ana@x.org', role: 'member', active: true }] }
+  return { items: [] }
 })
 
 afterEach(cleanup)
@@ -25,7 +20,9 @@ function wrap(node: React.ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
+      <WithTeamClient>
       <I18nProvider language="es-419">{node}</I18nProvider>
+    </WithTeamClient>
     </QueryClientProvider>,
   )
 }

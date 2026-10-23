@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EventsStore } from './events-store'
+import { EventsStore } from '../src/events.js'
 
 describe('the end of a job', () => {
   it('carries what the job left the input as, so the telemetry can tell an automatic publication (UD-070, H-1705)', () => {

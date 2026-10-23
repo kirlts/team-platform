@@ -1,9 +1,9 @@
 import { Fold } from '@/components/Fold'
 import { useLookups } from '@/components/lookups'
 import { SpanTree } from '@/components/TraceTree'
-import { ApiError } from '@/lib/api'
+import { TeamApiError } from '@team-platform/client'
 import { useErrorText, useT, type MessageKey } from '@/i18n'
-import { useMessageTiming } from '@/lib/queries'
+import { useMessageTiming } from '@team-platform/client/react'
 
 const SLOWEST_SHOWN = 5
 
@@ -30,7 +30,7 @@ function TimingBody({ messageId }: { messageId: string }) {
   const timing = useMessageTiming(messageId)
   if (timing.isPending) return <p className="text-sm text-muted">…</p>
   if (timing.isError) {
-    const none = timing.error instanceof ApiError && timing.error.status === 404
+    const none = timing.error instanceof TeamApiError && timing.error.status === 404
     return <p className={none ? 'text-sm text-muted' : 'break-words text-sm text-danger'}>{none ? t('timing.none') : errorText(timing.error)}</p>
   }
   const d = timing.data

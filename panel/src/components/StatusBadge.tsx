@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge'
 import { useT, type MessageKey } from '@/i18n'
-import type { MessageStatus } from '@/lib/types'
+import type { MessageStatus } from '@team-platform/client'
 
 export const STATUS_KEY: Record<MessageStatus, MessageKey> = {
   open: 'status.open',

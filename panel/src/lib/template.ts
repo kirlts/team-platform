@@ -1,4 +1,4 @@
-import type { Message, ProposalMessage } from './types'
+import type { Message, ProposalMessage } from '@team-platform/client'
 
 /** One field a template asks for, as its frontmatter declares it. */
 export interface TemplateField {

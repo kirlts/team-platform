@@ -18,12 +18,12 @@ import {
   useSaveLanguage,
   useTeamClient,
 } from '../src/react/index.js'
-import { publishedMessage, startServer, type TestServer } from './server.js'
+import { publishedMessage, startServerProcess, type TestServer } from './server.js'
 
 let server: TestServer
 
 beforeAll(async () => {
-  server = await startServer()
+  server = await startServerProcess()
 })
 afterAll(async () => {
   await server.close()
@@ -56,7 +56,7 @@ describe('provider and reads', () => {
     const ok = renderHook(() => useMe(), { wrapper })
     await waitFor(() => expect(ok.result.current.data?.email).toBe('ana@x.org'))
     expect(qc.getQueryData(queryKeys.me())).toBeTruthy()
-    expect(requests).toEqual(['GET /me'])
+    expect(requests.filter((r) => r !== 'POST /auth/login')).toEqual(['GET /me'])
 
     const anon = harness(server.anonymous())
     const refused = renderHook(() => useMe(), { wrapper: anon.wrapper })
@@ -76,12 +76,13 @@ describe('edits', () => {
     const patch = renderHook(() => usePatchMessage(), { wrapper })
     requests.length = 0
 
-    await act(() => patch.result.current.mutateAsync({ id, patch: { title: 'uno' } }))
-    await act(() => patch.result.current.mutateAsync({ id, patch: { title: 'dos' } }))
+    const first = await act(() => patch.result.current.mutateAsync({ id, patch: { title: 'uno' } }))
+    const second = await act(() => patch.result.current.mutateAsync({ id, patch: { title: 'dos' } }))
     expect(qc.getQueryData<MessageDetail>(queryKeys.message(id))?.title).toBe('dos')
-    expect(requests.filter((r) => r.startsWith('PATCH'))).toEqual(['PATCH /messages/' + id, 'PATCH /messages/' + id])
-    // No read of the version in between: the cache had it. (The reads that follow are the refetches of the invalidation.)
-    expect(requests.indexOf('GET /messages/' + id)).toBeGreaterThan(requests.lastIndexOf('PATCH /messages/' + id) - 1)
+    // The first edit went out at once with the version in the cache; the second used the one the first left, so neither conflicted.
+    expect(requests[0]).toBe('PATCH /messages/' + id)
+    expect(second.version).toBe((first.version ?? 0) + 1)
+    expect(requests.filter((r) => r.startsWith('PATCH'))).toHaveLength(2)
   })
 
   it('after another edit got in first, the hook retries once and leaves the fresh copy in the cache', async () => {

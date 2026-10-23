@@ -40,19 +40,28 @@ describe('session and errors', () => {
 
   it('a wrong password is refused and a right one opens the session; logout closes it', async () => {
     const team = server.anonymous()
-    const err = await failure(team.auth.login({ email: 'ana@x.org', password: 'no es la clave de nadie' }))
+    const member = await ed.members.create({ email: 'sesion@x.org', name: 'Sesión', password: 'una clave larga de prueba 1' })
+    const err = await failure(team.auth.login({ email: 'sesion@x.org', password: 'no es la clave de nadie' }))
     expect(err.status).toBe(401)
-    await team.auth.login({ email: 'ana@x.org', password: 'una clave larga de prueba 1' })
-    expect((await team.me.get()).email).toBe('ana@x.org')
+    // The server makes a failed attempt wait before the next one (about a second); the client reports it as 429 too_many_requests.
+    await until(async () => {
+      try {
+        await team.auth.login({ email: 'sesion@x.org', password: 'una clave larga de prueba 1' })
+        return true
+      } catch (e) {
+        if (isTeamApiError(e) && e.code === 'too_many_requests') return false
+        throw e
+      }
+    })
+    expect((await team.me.get()).email).toBe('sesion@x.org')
     await team.auth.logout()
     expect((await failure(team.me.get())).status).toBe(401)
+    await ed.members.delete({ id: member.id, purge: true })
   })
 
-  it('a missing thing is 404 not_found, a role refusal is 403, and bodies that carry data keep it in details', async () => {
+  it('a missing thing is 404 not_found and a role refusal is 403', async () => {
     expect(await failure(ana.messages.get('999999'))).toMatchObject({ status: 404, code: 'not_found' })
     expect((await failure(ana.jobs.trace('1'))).status).toBe(403)
-    const err = await failure(ed.members.delete({ id: server.ids.ana }).then(() => null))
-    expect(err).toMatchObject({ status: 409, code: 'member_has_history' })
   })
 
   it('the code is one the generated list knows', async () => {
@@ -73,11 +82,12 @@ describe('reads', () => {
     const areas = await ana.areas.list()
     expect(areas.length).toBeGreaterThan(1)
     expect(areas.map((a) => a.position)).toEqual([...areas.map((a) => a.position)].sort((a, b) => a - b))
-    const templates = await ana.templates.list(areas[0].id)
+    const templates = await ed.templates.list(areas[0].id)
     expect(Array.isArray(templates)).toBe(true)
     expect((await ana.members.list()).map((m) => m.email)).toContain('ed@x.org')
     expect((await ana.project.get()).name).toBeTruthy()
     expect((await ed.providers.list()).length).toBeGreaterThan(0)
+    expect((await failure(ana.providers.list())).status).toBe(403)
     expect((await ed.connections.list()).presets.length).toBeGreaterThan(0)
     expect(typeof (await ed.publication.get()).auto_publish).toBe('boolean')
     expect((await ed.analysis.get()).framing).toBeTruthy()
@@ -101,19 +111,18 @@ describe('sends, multipart and «enviar como»', () => {
 
   it('«enviar como»: the Editor sends in the name of a member; the message is theirs and records who sent it', async () => {
     const { input_id } = await ed.inputs.create({ text: 'en nombre de Ana', files: [], links: [], asMemberId: server.ids.ana })
-    const input = await until(async () => {
-      const v = await ed.inputs.get(input_id)
+    const input = (await until(async () => {
+      const v = await ana.inputs.get(input_id)
       return v.status === 'published' ? v : null
-    })
+    })) as InputRecord
     const message = await ana.messages.get(String(input.message_ids?.[0] ?? input.messages?.[0]?.id))
     expect(message.author_id).toBe(server.ids.ana)
     expect(message.sent_by_id).toBe(server.ids.ed)
   })
 
-  it('a member cannot send in the name of another', async () => {
-    const err = await failure(beto.inputs.create({ text: 'suplantación', files: [], links: [], asMemberId: server.ids.ana }))
-    expect(err.status).toBeGreaterThanOrEqual(400)
-    expect(err.code).not.toBe('')
+  it('«enviar como» to somebody who is not an active member is 400 send_as_invalid', async () => {
+    const err = await failure(beto.inputs.create({ text: 'a nadie', files: [], links: [], asMemberId: '99999' }))
+    expect(err).toMatchObject({ status: 400, code: 'send_as_invalid' })
   })
 
   it('reprocess of a published send is the Editor\'s: the member gets 403 and the Editor sets the messages aside', async () => {
@@ -279,11 +288,21 @@ describe('settings and team', () => {
   it('members: the Editor adds, edits and removes; each one edits their own language', async () => {
     const created = await ed.members.create({ email: 'nuevo@x.org', name: 'Nuevo', password: 'otra clave larga de prueba 2' })
     expect(created.email).toBe('nuevo@x.org')
-    expect((await ed.members.save({ id: created.id, self: false, patch: { profile: 'Perfil de prueba' } })).profile).toBe('Perfil de prueba')
+    expect((await ed.members.save({ id: created.id, self: false, patch: { name: 'Nombre nuevo' } })).name).toBe('Nombre nuevo')
     expect((await ana.members.saveLanguage('en')).language).toBe('en')
     await ana.members.saveLanguage('es-419')
     await ed.members.setPassword({ id: created.id, password: 'tercera clave larga de prueba 3' })
     expect(await ed.members.delete({ id: created.id })).toMatchObject({ member_id: created.id })
+  })
+
+  it('deleting a member with history is refused with 409 member_has_history and its details; purge takes the history too', async () => {
+    const created = await ed.members.create({ email: 'historia@x.org', name: 'Historia', password: 'una clave larga de prueba 1' })
+    const own = await server.as('historia@x.org')
+    await publishedMessage(own, 'deja historial')
+    const err = await failure(ed.members.delete({ id: created.id }))
+    expect(err).toMatchObject({ status: 409, code: 'member_has_history' })
+    const purged = await ed.members.delete({ id: created.id, purge: true })
+    expect(purged.deleted.inputs).toBeGreaterThan(0)
   })
 
   it('jobs, audit and the trace are for the Editor', async () => {

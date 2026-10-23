@@ -21,7 +21,7 @@ export { queueWake } from './wake.js'
 export function createQueue ({ db, config, events, now = Date.now, random = Math.random }) {
   const signals = new EventEmitter() // 'enqueued', 'cancelled'
   queueWake.on('enqueued', (id) => signals.emit('enqueued', id))
-  if (config.execute) jobDefaults.executeMaxAttempts = config.execute.maxAttempts
+  if (config.execute) { jobDefaults.executeMaxAttempts = config.execute.maxAttempts; jobDefaults.deliverMaxAttempts = config.execute.deliverMaxAttempts }
   const w = config.worker
 
   /** Delay of retry n (n ≥ 1): min(cap, base × 2^(n−1)) minus a random fraction of up to `jitter`. */

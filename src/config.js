@@ -351,6 +351,13 @@ export function loadConfig (env = process.env, overrides = {}) {
       machineDestroy: textValue(env, 'EXECUTE_MACHINE_DESTROY', ''), // shell command; {job_id}, {workdir}, {machine}; runs always
       machineCollect: textValue(env, 'EXECUTE_MACHINE_COLLECT', ''), // optional shell command; {machine}, {job_id}; last stdout line = where it left the session transcript (UD-262)
       runsRetentionDays: intVar(env, 'EXECUTE_RUNS_RETENTION_DAYS', 365, { min: 1 }), // UD-262: the history of runs outlives the 7 days of the spans; a year lets a change be compared with the previous ones
+      // UD-263: the delivery is a separate job without AI. Empty command = no separate delivery: `execute` publishes its final reply as before.
+      deliverCommand: textValue(env, 'EXECUTE_DELIVER_COMMAND', ''), // shell command; {message_id}, {job_id}, {branch}, {workdir}; exit 0 = in production (last stdout line = reference), 75 = not now, other = failed
+      // Declared courtesy: it bounds a verification or a deploy that hangs; a delivery that runs long fails with its output.
+      deliverTimeoutMs: intVar(env, 'EXECUTE_DELIVER_TIMEOUT_MS', 900000, { min: 1 }), // declared courtesy, see above
+      deliverRetries: intVar(env, 'EXECUTE_DELIVER_RETRIES', 1, { min: 0 }), // UD-263: a failed verification returns to Claude once; a second failure is reported
+      // UD-263: the command is idempotent by contract, so a delivery whose worker died runs once more; exit 75 never spends an attempt.
+      deliverMaxAttempts: intVar(env, 'EXECUTE_DELIVER_MAX_ATTEMPTS', 2, { min: 1 }),
       otelEnv: otelPairs(env.EXECUTE_OTEL_ENV) // UD-262: KEY=VALUE pairs given to `claude -p` for its own telemetry (CLAUDE_CODE_ENABLE_TELEMETRY, OTEL_*)
     },
 

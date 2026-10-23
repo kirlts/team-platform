@@ -931,6 +931,17 @@ export const es419 = {
   'analysis.error.machine_create_failed': 'No se pudo crear la máquina',
   'analysis.error.execute_no_result': 'La sesión terminó sin resultado',
   'analysis.error.execute_error': 'La sesión terminó con error',
+  'progress.deliverVerify': 'Entrega: verificación',
+  'progress.deliverDeploy': 'Entrega: despliegue',
+  'progress.deliverWait': 'En espera: entrega a producción',
+  'timing.phase.deliverVerify': 'Entrega: verificación',
+  'timing.phase.deliverDeploy': 'Entrega: despliegue',
+  'timing.phase.deliver': 'Entrega',
+  'error.deliver_busy': 'La entrega de este mensaje ya está en curso',
+  'error.deliver_not_configured': 'La entrega a producción no está configurada',
+  'analysis.error.deliver_failed': 'La entrega no pasó la verificación',
+  'analysis.error.deliver_timeout': 'La entrega superó el tiempo máximo',
+  'analysis.error.deliver_not_configured': 'La entrega a producción no está configurada',
 } as const satisfies Record<string, Message>
 
 export type MessageKey = keyof typeof es419

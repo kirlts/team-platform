@@ -653,7 +653,9 @@ export interface MessageTiming {
   final_reply_ms: number | null
   total_ms: number | null
   queue_wait_ms: number | null
-  phases: { name: string; duration_ms: number; offset_ms: number; status: string }[]
+  phases: { name: string; duration_ms: number; offset_ms: number | null; status: string }[]
+  /** The delivery that followed the run (UD-263), when there is one. */
+  deliver?: { job_id: string; job_status: string; phase: string | null; attempts: number }
   slowest: { kind: 'tool' | 'subagent'; name: string; summary: string | null; duration_ms: number; success: boolean | null }[]
   tree: SpanNode | null
 }
@@ -755,11 +757,11 @@ export function useExecuteRunsSummary(days: number) {
   })
 }
 
-/** The `execute` jobs that are running now, with their phase. The list asks again while there is one. */
+/** The `execute` and `deliver` jobs that are running now, with their phase. The list asks again while there is one. */
 export function useRunningExecutions() {
   return useQuery({
     queryKey: ['jobs', 'running-executions'],
-    queryFn: async () => (await api<Paged<RunningJob>>('/jobs?state=running&limit=50')).items.filter((j) => j.kind === 'execute'),
+    queryFn: async () => (await api<Paged<RunningJob>>('/jobs?state=running&limit=50')).items.filter((j) => j.kind === 'execute' || j.kind === 'deliver'),
     refetchInterval: (query) => ((query.state.data?.length ?? 0) > 0 ? IN_FLIGHT_REFETCH_MS : false),
   })
 }

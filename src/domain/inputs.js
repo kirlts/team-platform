@@ -12,6 +12,7 @@ import { createHash } from 'node:crypto'
 import { all, get, run } from '../db/index.js'
 import { iso, parseJson } from '../db/util.js'
 import { audit } from './audit.js'
+import { currentTraceparent, traceIdOf, withSpan } from '../telemetry/api.js'
 import { step } from './progress-phrases.js'
 import { badRequest, conflict, forbidden, notFound, tooLarge } from './errors.js'
 
@@ -105,6 +106,9 @@ export function submitInput ({ db, queue, events, now = Date.now }, { authorId, 
       run(db, 'INSERT INTO attachments (input_id, kind, name, path, mime, size, sha256) VALUES (?, \'link\', ?, ?, \'text/uri-list\', 0, ?)',
         inputId, url, url, createHash('sha256').update(url).digest('hex'))
     }
+    // The trace of the message starts here (UD-262): «envío» is its first span and the analysis job continues it.
+    const traceparent = withSpan('input.submit', { 'team.input_id': String(inputId), 'team.member_id': String(sentById), 'team.attachments': files.length + links.length }, () => currentTraceparent())
+    if (traceparent) run(db, 'UPDATE inputs SET trace_id = ?, traceparent = ? WHERE id = ?', traceIdOf(traceparent), traceparent, inputId)
     audit(db, { memberId: sentById, action: 'input.create', entity: 'input', entityId: inputId, detail: { atts: files.length + links.length, author_id: authorId, sent_by_id: sentById }, now })
     const jobId = queue.enqueue('analyze', { input_id: inputId }, { inputId })
     events.publishForJob(jobId, { kind: 'progress', percent: 0, phrase: step('queued') })

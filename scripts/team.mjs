@@ -18,6 +18,7 @@ Commands:
                                                   add a reply to the thread (kind default: answer)
   team progress [<job_id>] --percent <0-100> --phrase <text>
                                                   report what the session is doing; shown on the message card
+  team timing <message_id>                        where the time of the message's execution went, as JSON (without the span tree)
   team close <message_id>                         close the message
   team --help                                     this text
 
@@ -72,6 +73,10 @@ export async function runTeam (argv, env = process.env, fetchImpl = fetch) {
   let r
   try {
     if (command === 'show') r = await call('GET', `/messages/${id(rest[0], 'message_id')}`)
+    else if (command === 'timing') {
+      r = await call('GET', `/messages/${id(rest[0], 'message_id')}/timing`)
+      if (r.ok && r.data && typeof r.data === 'object') { const { tree, ...figures } = r.data; r.data = figures } // the tree is for the panel
+    }
     else if (command === 'reply') {
       if (typeof options.body !== 'string' || options.body.trim() === '') throw new Error('team reply: --body is required.')
       r = await call('POST', `/messages/${id(rest[0], 'message_id')}/replies`, { body: options.body, ...(options.kind ? { kind: options.kind } : {}) })
@@ -85,7 +90,7 @@ export async function runTeam (argv, env = process.env, fetchImpl = fetch) {
     return { code: 1, out: '', err: error.message }
   }
   if (!r.ok) return { code: 1, out: '', err: `team ${command}: HTTP ${r.status} ${r.data?.code ?? ''} ${r.data?.message ?? ''}`.trim() }
-  return { code: 0, out: command === 'show' ? JSON.stringify(r.data, null, 2) : `ok ${command}${r.data?.id ? ` ${r.data.id}` : ''}`, err: '' }
+  return { code: 0, out: command === 'show' || command === 'timing' ? JSON.stringify(r.data, null, 2) : `ok ${command}${r.data?.id ? ` ${r.data.id}` : ''}`, err: '' }
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {

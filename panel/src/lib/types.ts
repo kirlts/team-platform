@@ -16,6 +16,8 @@ export interface Member {
   language: Language
   /** A deactivated account does not sign in and keeps its history; only the Editor deactivates or reactivates it. */
   active: boolean
+  /** `agent`: worked by an unattended Claude Code session (UD-254). */
+  kind?: 'person' | 'agent'
 }
 
 /** Response of GET /me: the member and the project name (assumption: `project_name`). */

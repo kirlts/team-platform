@@ -95,7 +95,7 @@ export async function writeMachineFiles ({ workdir, args, prompt, env, claudeBin
  * Machine runner: CREATE, RUN, and DESTROY in a finally. Resolves like `runLocal`, plus `machine` and `destroy`
  * ({ code, stderr }). The timeout covers CREATE and RUN together.
  */
-export async function runMachine ({ config, jobId, workdir, args, prompt, env, onData, signal, log = () => {} }) {
+export async function runMachine ({ config, jobId, workdir, args, prompt, env, onData, signal, log = () => {}, phase = (name, fn) => fn() }) {
   const x = config.execute
   await writeMachineFiles({ workdir, args, prompt, env, claudeBin: x.machineBin })
   const started = Date.now()
@@ -105,19 +105,19 @@ export async function runMachine ({ config, jobId, workdir, args, prompt, env, o
   let machine = `team-job-${jobId}`
   let result
   try {
-    const created = await shell(fillCommand(x.machineCreate, base), { env: shellEnv, keepStdout: true, timeoutMs: left(), graceMs: x.killGraceMs, signal })
+    const created = await phase('create', () => shell(fillCommand(x.machineCreate, base), { env: shellEnv, keepStdout: true, timeoutMs: left(), graceMs: x.killGraceMs, signal }))
     const named = created.stdout.split('\n').map((l) => l.trim()).filter(Boolean).at(-1)
     if (named) machine = named
     if (created.code !== 0) {
       result = { ...created, phase: 'create', machine }
       return result
     }
-    const ran = await shell(fillCommand(x.machineRun, { ...base, machine }), { env: shellEnv, onData, timeoutMs: left(), graceMs: x.killGraceMs, signal })
+    const ran = await phase('run', () => shell(fillCommand(x.machineRun, { ...base, machine }), { env: shellEnv, onData, timeoutMs: left(), graceMs: x.killGraceMs, signal }))
     result = { ...ran, timedOut: ran.timedOut || created.timedOut, phase: 'run', machine }
     return result
   } finally {
     // Always, even after a timeout or an abort: a machine left running is the cost that must not happen.
-    const destroyed = await shell(fillCommand(x.machineDestroy, { ...base, machine }), { env: shellEnv, keepStdout: true, timeoutMs: x.timeoutMs, graceMs: x.killGraceMs })
+    const destroyed = await phase('destroy', () => shell(fillCommand(x.machineDestroy, { ...base, machine }), { env: shellEnv, keepStdout: true, timeoutMs: x.timeoutMs, graceMs: x.killGraceMs }))
     if (destroyed.code !== 0) log(`machine ${machine} could not be destroyed (exit ${destroyed.code}): ${destroyed.stderr.slice(0, 500)}`)
     if (result) result.destroy = { code: destroyed.code, stderr: destroyed.stderr.slice(0, 2000) }
   }

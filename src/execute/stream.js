@@ -29,7 +29,7 @@ export function phraseForTool (name, input = {}) {
  * Line-by-line reader. `onProgress(percent, phrase)` is called when the phrase or the percentage changes.
  * `state()` returns { sessionId, model, turns, result, lines, invalid }.
  */
-export function createStreamReader ({ maxTurns, onProgress }) {
+export function createStreamReader ({ maxTurns, onProgress, onEvent = null }) {
   const st = { sessionId: null, model: null, turns: 0, result: null, lines: 0, invalid: 0 }
   let buffer = ''
   let last = { percent: -1, phrase: null }
@@ -40,6 +40,7 @@ export function createStreamReader ({ maxTurns, onProgress }) {
     onProgress?.(percent, phrase)
   }
   function handle (event) {
+    try { onEvent?.(event) } catch { /* measuring the session never changes how it is read */ }
     if (event.type === 'system' && event.subtype === 'init') {
       st.sessionId = event.session_id ?? st.sessionId
       st.model = event.model ?? st.model

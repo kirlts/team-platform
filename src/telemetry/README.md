@@ -66,6 +66,12 @@ The cost comes from `pricing.js` for the models with a price documented in the r
 
 Per-call overhead and duration of each write slice: header of `overhead.bench.mjs` (measure again with `node src/telemetry/overhead.bench.mjs`).
 
+## One trace per message (UD-262)
+
+The trace id and the W3C `traceparent` travel in rows: `inputs`, `messages` and `jobs` (`trace_id`, `traceparent`; migration 0017). `input.submit` opens the trace, the `analyze` job continues it, `message.publish` is a span per published message and the `execute` job continues from there. `jobs.last_span` keeps the context of the latest attempt and `jobs.link_traceparent` the previous job of the same input or message; the next `job` span links both (`team.link` = `previous_attempt` | `previous_job`, stored in `spans.links_json`). Helpers in `propagation.js`: `currentTraceparent`, `contextFromTraceparent`, `inTrace`, `linkTo`. `withSpan(..., { links })` takes span links.
+
+`timing.js` reads the latest `execute` job of a message and returns the figures of `GET /messages/:id/timing`: `reply.start` and `reply.final` events of the `job` span, phases (`execute.<runner>.create|run|destroy`), tools and subagents sorted by duration, and per-turn tokens (`execute.turn` events). `startManualSpan` and `endManualSpan` open and close a span by hand, for the tools of a session (`src/execute/session-spans.js`).
+
 ## Interface events (UD-091)
 
 `ui-spec.js` is the contract of the events the panel sends; `ui.js` turns a validated batch into `ui.*` spans (`recordUiBatch`) and reads them back (`uiSummary`); `ui-report.js` prints the summary. The route is `src/api/routes/telemetry.js`. Spans of the interface are roots with `ui.session` (16 random hexadecimal characters, one page load) and no member. Retention is the same 7 days. See MASTER-SPEC §7.10 ter.

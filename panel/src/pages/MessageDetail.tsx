@@ -19,6 +19,7 @@ import { Recipients } from '@/components/Recipients'
 import { RecipientsEditor } from '@/components/RecipientsEditor'
 import { ReplyThread } from '@/components/ReplyThread'
 import { StatusBadge } from '@/components/StatusBadge'
+import { Timing } from '@/components/Timing'
 import { TemplateFields } from '@/components/TemplateFields'
 import { UndoButtons } from '@/components/UndoButtons'
 import { Button } from '@/components/ui/button'
@@ -294,6 +295,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
           </div>
 
           <Observed items={m.observed} />
+          <Timing messageId={m.id} assigneeIds={m.assignee_ids} />
         </div>
 
         <ReplyThread message={m} focusForm={focusReply} />

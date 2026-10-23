@@ -2,7 +2,9 @@
 
 import { releaseBlobs } from '../../domain/storage.js'
 import { addMessageAttachments, addReply, assertCanAddAttachments, assertCanReply, closeMessage, deleteMessage, deleteMessages, deleteReply, getMessage, listMessages, messageSummary, reopenMessage, REPLY_KINDS, restoreMessage, restoreMessages, restoreReply, updateMessage, updateReply } from '../../domain/messages.js'
+import { notFound } from '../../domain/errors.js'
 import { withSpan } from '../../domain/tracing.js'
+import { timingOfMessage } from '../../telemetry/timing.js'
 import { requireConfirm } from '../confirm.js'
 import { pageEnvelope, pageParams, pageQuerySchema, pageResult } from '../pagination.js'
 import { confirmQuery, idIn, idParams, messageCard, messageDetail, messagePatchBody, messageSummary as messageSummarySchema, replyPatchBody } from '../schemas.js'
@@ -74,6 +76,35 @@ export function registerMessageRoutes (app, ctx) {
       return reply.code(403).send({ code: 'forbidden', message: 'Ver lo borrado corresponde a un editor.' })
     }
     return getMessage(db, request.params.id, { includeDeleted: request.query.include_deleted === true })
+  })
+
+  const ms = { type: 'integer', nullable: true }
+  app.get('/messages/:id/timing', {
+    onRequest: [requireRole('member')],
+    schema: {
+      summary: 'Tiempos de la ejecución de un mensaje',
+      description: 'Segundos hasta la primera respuesta y hasta la respuesta final (`first_reply_ms`, `final_reply_ms`, desde el inicio del trabajo `execute`; `*_since_message_ms` desde que se publicó el mensaje), tiempo total, fases (`create`, `run`, `destroy`), herramientas y subagentes de la sesión del más lento al más rápido (`slowest`) y consumo por turno (`turns`). `tree` es el subárbol de spans del trabajo, como `GET /jobs/:id/trace`. Con el trabajo en curso las cifras son `null` y `phase` dice en qué paso está. 404 si el mensaje no existe o no tiene trabajo de ejecución.',
+      params: idParams(),
+      response: {
+        200: {
+          type: 'object', additionalProperties: true,
+          properties: {
+            message_id: { type: 'string' }, job_id: { type: 'string' }, job_status: { type: 'string' }, trace_id: { type: 'string', nullable: true }, phase: { type: 'string', nullable: true },
+            attempts: { type: 'integer' }, elapsed_ms: ms, first_reply_ms: ms, final_reply_ms: ms, first_reply_since_message_ms: ms, final_reply_since_message_ms: ms, total_ms: ms, queue_wait_ms: ms,
+            phases: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, duration_ms: ms, offset_ms: ms, status: { type: 'string' } } } },
+            slowest: { type: 'array', items: { type: 'object', properties: { kind: { type: 'string', enum: ['tool', 'subagent'] }, name: { type: 'string' }, summary: { type: 'string', nullable: true }, duration_ms: ms, success: { type: 'boolean', nullable: true } } } },
+            turns: { type: 'array', items: { type: 'object', additionalProperties: true } },
+            tree: { type: 'object', nullable: true, additionalProperties: true }
+          }
+        }
+      }
+    }
+  }, async (request) => {
+    getMessage(db, request.params.id) // 404 when the message does not exist or is deleted
+    await ctx.telemetry?.flush() // a job that has just finished is visible too
+    const timing = timingOfMessage(db, request.params.id)
+    if (!timing) throw notFound('El mensaje no tiene trabajo de ejecución.')
+    return timing
   })
 
   const replyParams = { type: 'object', required: ['id', 'replyId'], properties: { id: idIn, replyId: idIn } }

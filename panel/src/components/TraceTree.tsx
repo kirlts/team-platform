@@ -49,6 +49,17 @@ export function TraceTree({ jobId }: { jobId: string }) {
   )
 }
 
+/** The nodes of a span tree, without the totals: the same rows `TraceTree` draws. */
+export function SpanTree({ roots, label }: { roots: SpanNode[]; label: string }) {
+  return (
+    <ul aria-label={label} className="flex flex-col gap-0.5">
+      {roots.map((node) => (
+        <Node key={node.span_id} node={node} depth={0} />
+      ))}
+    </ul>
+  )
+}
+
 function Node({ node, depth }: { node: SpanNode; depth: number }) {
   const t = useT()
   const input = node.attributes[IN]

@@ -8,7 +8,7 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { after, before, beforeEach, describe, it } from 'node:test'
-import { loadConfig } from '../config.js'
+import { loadConfig, otelPairs } from '../config.js'
 import { updateMember } from '../domain/members.js'
 import { createPipeline } from '../domain/pipeline.js'
 import { setProjectDescription } from '../domain/settings.js'
@@ -75,6 +75,7 @@ describe('execute job', () => {
     process.env.FAKE_EXECUTE_MODE = 'ok'
     process.env.FAKE_EXECUTE_REPLY = '1'
     delete process.env.FAKE_EXECUTE_EXTRA
+    delete process.env.FAKE_EXECUTE_MULTI
   })
   after(async () => { await worker?.stop(); await env.close() })
 
@@ -160,6 +161,95 @@ describe('execute job', () => {
     const failed = await waitJob(id)
     assert.equal(failed.status, 'failed')
     assert.equal(JSON.parse(eventsOf(id).at(-1).data_json).error_code, 'host_instructions_missing')
+  })
+
+  describe('observability (UD-262)', () => {
+    const find = (nodes) => nodes.flatMap((n) => [n, ...find(n.children)])
+    let messageId, firstJob
+
+    it('one trace joins the sending, the analysis, the publication and the execution, and the timing endpoint answers the figures', async () => {
+      process.env.FAKE_EXECUTE_MULTI = '1'
+      startWorker({ otelEnv: { CLAUDE_CODE_ENABLE_TELEMETRY: '1', OTEL_METRICS_EXPORTER: 'otlp' } })
+      messageId = await publishedMessage('El botón de reservas no responde en el teléfono.')
+      firstJob = env.db.prepare("SELECT * FROM jobs WHERE kind = 'execute' AND message_id = ?").get(messageId)
+      const done = await waitJob(firstJob.id)
+      assert.equal(done.status, 'done', done.last_error)
+      const message = env.db.prepare('SELECT * FROM messages WHERE id = ?').get(messageId)
+      const input = env.db.prepare('SELECT * FROM inputs WHERE id = ?').get(message.input_id)
+      const analyze = env.db.prepare("SELECT * FROM jobs WHERE kind = 'analyze' AND input_id = ?").get(input.id)
+      assert.match(input.trace_id, /^[0-9a-f]{32}$/)
+      assert.deepEqual([message.trace_id, firstJob.trace_id, analyze.trace_id], [input.trace_id, input.trace_id, input.trace_id], 'one trace id on the input, the analysis job, the message and the execute job')
+
+      const timing = (await env.app.inject({ method: 'GET', url: `/api/messages/${messageId}/timing`, headers: { cookie: author } })).json()
+      assert.equal(timing.trace_id, input.trace_id)
+      const shown = (await env.app.inject({ method: 'GET', url: `/api/messages/${messageId}`, headers: { cookie: author } })).json()
+      assert.equal(shown.trace_id, input.trace_id, 'the message exposes its trace id')
+
+      // Spans of the same trace: send, analysis, publication, execution.
+      const names = env.db.prepare('SELECT name, attributes_json FROM spans WHERE trace_id = ?').all(input.trace_id)
+      const jobKinds = names.filter((r) => r.name === 'job').map((r) => JSON.parse(r.attributes_json)['team.job_kind'])
+      for (const n of ['input.submit', 'message.publish', 'execute']) assert.ok(names.some((r) => r.name === n), `${n} in the trace`)
+      assert.ok(jobKinds.includes('analyze') && jobKinds.includes('execute'), jobKinds.join())
+
+      // Phases, tools and subagent with the right parents.
+      assert.deepEqual(timing.phases.map((p) => p.name), ['run'])
+      const run = find([timing.tree]).find((n) => n.name === 'execute.local.run')
+      assert.ok(run, 'run phase span')
+      const child = (node, name) => node.children.filter((c) => c.name === name)
+      const tools = child(run, 'execute.tool')
+      assert.deepEqual(tools.map((t) => t.attributes['gen_ai.tool.name']), ['Read', 'Bash'])
+      assert.equal(tools[0].attributes['team.tool.success'], true)
+      assert.equal(tools[1].attributes['team.tool.success'], false)
+      assert.equal(tools[1].status, 'error')
+      assert.ok(tools[1].duration_ms >= 35 && tools[1].duration_ms > tools[0].duration_ms, `Bash waited longer than Read (${tools[1].duration_ms} vs ${tools[0].duration_ms})`)
+      const [sub] = child(run, 'execute.subagent')
+      assert.equal(sub.attributes['gen_ai.agent.name'], 'reviewer')
+      assert.deepEqual(child(sub, 'execute.tool').map((t) => t.attributes['gen_ai.tool.name']), ['Edit'], 'the subagent tool hangs from the subagent')
+      assert.ok(sub.duration_ms >= child(sub, 'execute.tool')[0].duration_ms)
+      assert.equal(timing.slowest[0].name, 'Bash')
+      assert.deepEqual(timing.slowest.map((t) => t.kind).sort(), ['subagent', 'tool', 'tool', 'tool'])
+      assert.equal(timing.turns.length, 4)
+      assert.deepEqual([timing.turns[0].input_tokens, timing.turns[0].output_tokens, timing.turns[0].cache_read_tokens], [100 + 1000 + 50, 10, 1000])
+
+      // Moments: first reply (the session's own) before the final one, both inside the total.
+      assert.ok(timing.first_reply_ms !== null && timing.final_reply_ms !== null)
+      assert.ok(timing.first_reply_ms <= timing.final_reply_ms && timing.final_reply_ms <= timing.total_ms, JSON.stringify([timing.first_reply_ms, timing.final_reply_ms, timing.total_ms]))
+      assert.ok(timing.first_reply_since_message_ms >= timing.first_reply_ms)
+      assert.ok(timing.queue_wait_ms !== null)
+
+      // The session receives the context of the trace and the telemetry variables the host declared.
+      const seen = calls()[0].otel
+      assert.match(seen.TRACEPARENT, new RegExp(`^00-${input.trace_id}-[0-9a-f]{16}-01$`))
+      assert.deepEqual([seen.CLAUDE_CODE_ENABLE_TELEMETRY, seen.OTEL_METRICS_EXPORTER], ['1', 'otlp'])
+      assert.equal(env.queue.getJob(firstJob.id).phase, null, 'no phase once the job ends')
+    })
+
+    it('timing of a message that does not exist is a 404', async () => {
+      const res = await env.app.inject({ method: 'GET', url: '/api/messages/999999/timing', headers: { cookie: author } })
+      assert.equal(res.statusCode, 404)
+    })
+
+    it('a second execution links the span of the previous one', async () => {
+      process.env.FAKE_EXECUTE_REPLY = '0'
+      startWorker()
+      const prev = env.db.prepare('SELECT last_span FROM jobs WHERE id = ?').get(firstJob.id).last_span
+      assert.ok(prev, 'the first attempt stored its span context')
+      const res = await env.app.inject({ method: 'POST', url: `/api/messages/${messageId}/execute`, headers: cookieHeaders(editor) })
+      assert.equal(res.statusCode, 202, res.body)
+      const second = Number(res.json().job_ids[0])
+      assert.equal((await waitJob(second)).status, 'done')
+      assert.equal(env.db.prepare('SELECT link_traceparent FROM jobs WHERE id = ?').get(second).link_traceparent, prev)
+      await env.app.inject({ method: 'GET', url: `/api/messages/${messageId}/timing`, headers: { cookie: author } }) // flushes
+      const row = env.db.prepare("SELECT links_json FROM spans WHERE name = 'job' AND job_id = ?").get(String(second))
+      const links = JSON.parse(row.links_json)
+      assert.ok(links.some((l) => l.span_id === prev.split('-')[2] && l.attributes['team.link'] === 'previous_job'), row.links_json)
+    })
+
+    it('EXECUTE_OTEL_ENV accepts KEY=VALUE pairs and refuses the rest', () => {
+      assert.deepEqual(otelPairs('CLAUDE_CODE_ENABLE_TELEMETRY=1\nOTEL_EXPORTER_OTLP_ENDPOINT=http://c:4318 OTEL_X=a=b'), { CLAUDE_CODE_ENABLE_TELEMETRY: '1', OTEL_EXPORTER_OTLP_ENDPOINT: 'http://c:4318', OTEL_X: 'a=b' })
+      assert.deepEqual(otelPairs(''), {})
+      for (const bad of ['sin_igual', 'TEAM_AGENT_SECRET=x', 'TRACEPARENT=00-x', 'minuscula=1']) assert.throws(() => otelPairs(bad), /EXECUTE_OTEL_ENV/)
+    })
   })
 
   it('an editor enqueues it by hand; a second while one is queued is refused', async () => {
@@ -272,6 +362,13 @@ describe('execute job', () => {
       assert.equal(job.status, 'done', job.last_error)
       assert.deepEqual(lines(), [`create ${id}`, `run vm-${id}`, `destroy vm-${id}`])
       assert.equal(calls().at(-1).team.TEAM_AGENT_EMAIL, 'claude@x.org', 'env.sh carries the agent credential into the machine')
+      // UD-262: one span per phase, create before run before destroy, all under `execute`; the context travels in env.sh.
+      const messageId = env.db.prepare('SELECT id FROM messages ORDER BY id LIMIT 1').get().id
+      const timing = (await env.app.inject({ method: 'GET', url: `/api/messages/${messageId}/timing`, headers: { cookie: editor } })).json()
+      assert.deepEqual(timing.phases.map((p) => p.name), ['create', 'run', 'destroy'])
+      const offsets = timing.phases.map((p) => p.offset_ms)
+      assert.deepEqual([...offsets].sort((a, b) => a - b), offsets, 'create, run and destroy follow one another')
+      assert.match(calls().at(-1).otel.TRACEPARENT, /^00-[0-9a-f]{32}-[0-9a-f]{16}-01$/)
     })
 
     it('destroys it when the session fails', async () => {

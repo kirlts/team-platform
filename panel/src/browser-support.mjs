@@ -16,6 +16,7 @@ function controlOf(origin) {
   const order = async (path) => {
     const res = await fetch(`${origin}/api/_control/${path}`, { method: 'POST' })
     if (!res.ok) throw new Error(`el servidor de ejemplo rechazó la orden ${path}: ${res.status}`)
+    return res.json().catch(() => ({}))
   }
   return {
     hold: () => order('hold'),
@@ -23,6 +24,8 @@ function controlOf(origin) {
     /** One step of every waiting analysis; with `inputId`, only that send, and with `finish` all the way to its proposal. */
     step: ({ inputId, finish = false } = {}) => order(`step?${new URLSearchParams({ ...(inputId ? { input_id: inputId } : {}), ...(finish ? { finish: '1' } : {}) })}`),
     reset: () => order('reset'),
+    /** An agent member with a worked message (its timing) and one running now (UD-262). Returns { done_id, live_id }. */
+    execution: () => order('execution'),
   }
 }
 

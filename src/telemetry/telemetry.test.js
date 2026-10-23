@@ -500,7 +500,7 @@ test('a write failure does not reach the application: the batch is lost and the 
     await withSpan('sin-tabla', {}, () => 1); // does not throw
     await t.telemetry.flush();
     t.db.exec(
-      'CREATE TABLE spans (trace_id TEXT, span_id TEXT, parent_id TEXT, name TEXT, kind TEXT, start_ns INTEGER, end_ns INTEGER, status TEXT, status_message TEXT, attributes_json TEXT, events_json TEXT)',
+      'CREATE TABLE spans (trace_id TEXT, span_id TEXT, parent_id TEXT, name TEXT, kind TEXT, start_ns INTEGER, end_ns INTEGER, status TEXT, status_message TEXT, attributes_json TEXT, events_json TEXT, links_json TEXT)',
     );
     await withSpan('con-tabla', {}, () => 1);
     await t.telemetry.flush();

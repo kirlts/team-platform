@@ -642,6 +642,28 @@ export interface SpanNode {
   attributes: Record<string, unknown>
   children: SpanNode[]
 }
+export interface MessageTiming {
+  message_id: string
+  job_id: string
+  job_status: string
+  trace_id: string | null
+  phase: string | null
+  elapsed_ms: number | null
+  first_reply_ms: number | null
+  final_reply_ms: number | null
+  total_ms: number | null
+  queue_wait_ms: number | null
+  phases: { name: string; duration_ms: number; offset_ms: number; status: string }[]
+  slowest: { kind: 'tool' | 'subagent'; name: string; summary: string | null; duration_ms: number; success: boolean | null }[]
+  tree: SpanNode | null
+}
+export interface RunningJob {
+  id: string
+  kind: string
+  message_id: string | null
+  phase: string | null
+  run_at: string
+}
 export interface JobTrace {
   job_id: string
   span_count: number
@@ -695,6 +717,25 @@ export function useJobCounts() {
       const totals = await Promise.all(JOB_STATES.map(async (state) => (await api<Paged<unknown>>(`/jobs?state=${state}&limit=1`)).total))
       return Object.fromEntries(JOB_STATES.map((state, i) => [state, totals[i]])) as Record<JobState, number>
     },
+  })
+}
+
+/** Where the time of a message went (GET /messages/:id/timing). A 404 means it has no execution. */
+export function useMessageTiming(messageId: string) {
+  return useQuery({
+    queryKey: ['messages', 'timing', messageId],
+    queryFn: () => api<MessageTiming>(`/messages/${encodeURIComponent(messageId)}/timing`),
+    retry: false,
+    refetchInterval: (query) => (query.state.data?.job_status === 'running' ? IN_FLIGHT_REFETCH_MS : false),
+  })
+}
+
+/** The `execute` jobs that are running now, with their phase. The list asks again while there is one. */
+export function useRunningExecutions() {
+  return useQuery({
+    queryKey: ['jobs', 'running-executions'],
+    queryFn: async () => (await api<Paged<RunningJob>>('/jobs?state=running&limit=50')).items.filter((j) => j.kind === 'execute'),
+    refetchInterval: (query) => ((query.state.data?.length ?? 0) > 0 ? IN_FLIGHT_REFETCH_MS : false),
   })
 }
 

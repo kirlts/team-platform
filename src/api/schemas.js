@@ -106,6 +106,7 @@ export const messageDetail = {
   type: 'object',
   properties: {
     ...messageCard.properties,
+    trace_id: { ...nullableText, description: 'Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution.' },
     observed: { type: 'array', items: { type: 'string' }, description: 'What a video frame shows and nobody says, outside the body; empty when there is none.' },
     replies: { type: 'array', items: reply },
     edits: { type: 'array', items: { type: 'object', properties: { id, member_id: id, at: { type: 'string' }, version: intVar, fields: { type: 'array', items: { type: 'string' } } } } }

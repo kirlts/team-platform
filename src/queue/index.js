@@ -8,6 +8,7 @@
 //  - Attempt fence: complete/fail/heartbeat/progress only count if the job is still
 //    `running` with the same attempt number. A worker whose lease expired cannot close another's attempt.
 
+import { traceContextFor } from './trace-context.js'
 import { EventEmitter } from 'node:events'
 import { all, get, run, tx } from '../db/index.js'
 import { iso, parseJson } from '../db/util.js'
@@ -30,10 +31,11 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
 
   function enqueue (kind, payload = {}, { priority = 0, runAt = null, inputId = null, messageId = null, maxAttempts = w.maxAttempts } = {}) {
     const t = now()
+    const tc = traceContextFor(db, { kind, inputId, messageId })
     const r = run(db,
-      `INSERT INTO jobs (kind, input_id, message_id, payload_json, status, priority, attempts, max_attempts, run_at, created_at)
-       VALUES (?, ?, ?, ?, 'queued', ?, 0, ?, ?, ?)`,
-      kind, inputId, messageId, JSON.stringify(payload), priority, maxAttempts, runAt ?? t, t)
+      `INSERT INTO jobs (kind, input_id, message_id, payload_json, status, priority, attempts, max_attempts, run_at, created_at, trace_id, traceparent, link_traceparent)
+       VALUES (?, ?, ?, ?, 'queued', ?, 0, ?, ?, ?, ?, ?, ?)`,
+      kind, inputId, messageId, JSON.stringify(payload), priority, maxAttempts, runAt ?? t, t, tc.traceId, tc.traceparent, tc.link)
     const id = Number(r.lastInsertRowid)
     // Notifies the worker in the same process; with a separate worker `PRAGMA data_version` wakes it.
     queueMicrotask(() => signals.emit('enqueued', id))
@@ -188,7 +190,8 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
 
   const jobView = (j) => ({
     id: j.id, kind: j.kind, input_id: j.input_id, message_id: j.message_id ?? null, member_id: parseJson(j.payload_json, {}).member_id ?? null, status: j.status, priority: j.priority, attempts: j.attempts, max_attempts: j.max_attempts,
-    run_at: iso(j.run_at), lease_until: iso(j.lease_until), worker_id: j.worker_id, last_error: j.last_error, created_at: iso(j.created_at), finished_at: iso(j.finished_at)
+    run_at: iso(j.run_at), lease_until: iso(j.lease_until), worker_id: j.worker_id, last_error: j.last_error, created_at: iso(j.created_at), finished_at: iso(j.finished_at),
+    trace_id: j.trace_id ?? null, phase: j.phase ?? null
   })
 
   /** The queue, filterable by state and paginated, for the editor. */

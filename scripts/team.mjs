@@ -18,6 +18,9 @@ Commands:
                                                   add a reply to the thread (kind default: answer)
   team progress [<job_id>] --percent <0-100> --phrase <text>
                                                   report what the session is doing; shown on the message card
+  team mark <judge|delivery|wait> --ms <milliseconds> [--ok true|false]
+                                                  report the time this session spent in the judge, in the delivery or waiting; added up per job.
+                                                  With «delivery», --ok says whether the delivery reached production
   team timing <message_id>                        where the time of the message's execution went, as JSON (without the span tree)
   team close <message_id>                         close the message
   team --help                                     this text
@@ -81,7 +84,13 @@ export async function runTeam (argv, env = process.env, fetchImpl = fetch) {
       if (typeof options.body !== 'string' || options.body.trim() === '') throw new Error('team reply: --body is required.')
       r = await call('POST', `/messages/${id(rest[0], 'message_id')}/replies`, { body: options.body, ...(options.kind ? { kind: options.kind } : {}) })
     } else if (command === 'close') r = await call('POST', `/messages/${id(rest[0], 'message_id')}/close`)
-    else if (command === 'progress') {
+    else if (command === 'mark') {
+      const name = rest[0]
+      const ms = Number(options.ms)
+      if (!['judge', 'delivery', 'wait'].includes(name) || !Number.isInteger(ms) || ms < 0) throw new Error('team mark: use «team mark <judge|delivery|wait> --ms <milliseconds>».')
+      if (options.ok !== undefined && !['true', 'false'].includes(options.ok)) throw new Error('team mark: --ok is true or false.')
+      r = await call('POST', `/jobs/${id(env.TEAM_JOB_ID, 'TEAM_JOB_ID')}/marks`, { name, ms, ...(options.ok !== undefined ? { ok: options.ok === 'true' } : {}) })
+    } else if (command === 'progress') {
       const percent = Number(options.percent)
       if (!Number.isFinite(percent) || typeof options.phrase !== 'string') throw new Error('team progress: --percent and --phrase are required.')
       r = await call('POST', `/jobs/${id(rest[0] ?? env.TEAM_JOB_ID, 'job_id')}/progress`, { percent, phrase: options.phrase })

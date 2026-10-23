@@ -1,7 +1,7 @@
 // Routes of the `execute` job (UD-254, UD-255): an Editor enqueues it by hand, and the unattended session reports its
 // progress with `team progress`.
 
-import { all, get } from '../db/index.js'
+import { all, get, run as runSql } from '../db/index.js'
 import { parseJson } from '../db/util.js'
 import { conflict, forbidden, notFound } from '../domain/errors.js'
 import { audit } from '../domain/audit.js'
@@ -63,6 +63,31 @@ export function registerExecuteRoutes (app, ctx) {
     if (parseJson(job.payload_json, {}).member_id !== request.member.id) throw forbidden('Sólo el agente del trabajo informa su avance.', 'not_job_agent')
     // 99 at most: 100 is marked by the `done` event (§7.10).
     if (!queue.progress(job, Math.min(99, request.body.percent), request.body.phrase)) throw conflict('El trabajo no está corriendo.', 'job_not_running')
+    return reply.code(204).send()
+  })
+
+  app.post('/jobs/:id/marks', {
+    onRequest: [requireRole('member')],
+    schema: {
+      summary: 'Informar el tiempo de una parte del trabajo `execute` (sólo su agente)',
+      description: 'Lo usa la sesión desatendida con `team mark`. `judge`, `delivery` y `wait` suman `ms` al tiempo que la sesión pasó en el juez, en la entrega y en espera; los valores se suman. `ok` en `delivery` dice si la entrega llegó a producción (la última marca manda). Quedan en la fila de `execute_runs` del intento (UD-262). 403 `not_job_agent` si quien llama no es el agente del trabajo; 409 `job_not_running` si el trabajo no está corriendo.',
+      params: idParams(),
+      body: {
+        type: 'object', required: ['name', 'ms'], additionalProperties: false,
+        properties: { name: { type: 'string', enum: ['judge', 'delivery', 'wait'] }, ms: { type: 'integer', minimum: 0 }, ok: { type: 'boolean' } }
+      },
+      response: { 204: { type: 'null', description: 'Marca registrada.' } }
+    }
+  }, async (request, reply) => {
+    const job = queue.getJob(request.params.id)
+    if (!job || job.kind !== 'execute') throw notFound('El trabajo no existe.')
+    if (parseJson(job.payload_json, {}).member_id !== request.member.id) throw forbidden('Sólo el agente del trabajo informa sus marcas.', 'not_job_agent')
+    if (job.status !== 'running') throw conflict('El trabajo no está corriendo.', 'job_not_running')
+    const { name, ms, ok } = request.body
+    const marks = parseJson(job.marks_json, {}) ?? {}
+    marks[`${name}_ms`] = (marks[`${name}_ms`] ?? 0) + ms
+    if (name === 'delivery' && ok !== undefined) marks.delivered = ok ? 1 : 0
+    runSql(db, 'UPDATE jobs SET marks_json = ? WHERE id = ?', JSON.stringify(marks), job.id)
     return reply.code(204).send()
   })
 }

@@ -143,7 +143,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     try {
       const r = queue.sweepRetention()
       const orphans = onSweep ? await onSweep() : 0
-      if (r.jobs || r.events || r.sessions || r.spans || orphans) logger.info({ ...r, orphans }, 'retention')
+      if (r.jobs || r.events || r.sessions || r.spans || r.runs || orphans) logger.info({ ...r, orphans }, 'retention')
     } catch (error) { logger.error({ err: error }, 'error in retention') }
   }
 

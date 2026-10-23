@@ -105,6 +105,7 @@ export function loadConfig (env = process.env, overrides = {}) {
     adminPassword: textValue(env, 'ADMIN_PASSWORD', ''),
     projectName: textValue(env, 'PROJECT_NAME', 'Team'), // the panel shows it in the header
     apiPrefix: textValue(env, 'API_PREFIX', '/api'), // MS §7.8: the panel calls /api; JSON 404 under /api
+    instanceName: textValue(env, 'INSTANCE_NAME', ''), // label of the instance in the rows of `execute_runs` (UD-262); empty = the host of PUBLIC_URL, or «local»
     publicUrl: textValue(env, 'PUBLIC_URL', ''), // only the sso-redirect mode requires it
     logLevel: textValue(env, 'LOG_LEVEL', 'info'),
     // I04 §11 TRUSTED_PROXIES: Gitea's default; Fastify requires an exact list of IPs or CIDRs, never `true`.
@@ -346,6 +347,8 @@ export function loadConfig (env = process.env, overrides = {}) {
       machineCreate: textValue(env, 'EXECUTE_MACHINE_CREATE', ''), // shell command; {job_id}, {workdir}; last stdout line = {machine}
       machineRun: textValue(env, 'EXECUTE_MACHINE_RUN', ''), // shell command; {job_id}, {workdir}, {machine}; its stdout is the NDJSON stream
       machineDestroy: textValue(env, 'EXECUTE_MACHINE_DESTROY', ''), // shell command; {job_id}, {workdir}, {machine}; runs always
+      machineCollect: textValue(env, 'EXECUTE_MACHINE_COLLECT', ''), // optional shell command; {machine}, {job_id}; last stdout line = where it left the session transcript (UD-262)
+      runsRetentionDays: intVar(env, 'EXECUTE_RUNS_RETENTION_DAYS', 365, { min: 1 }), // UD-262: the history of runs outlives the 7 days of the spans; a year lets a change be compared with the previous ones
       otelEnv: otelPairs(env.EXECUTE_OTEL_ENV) // UD-262: KEY=VALUE pairs given to `claude -p` for its own telemetry (CLAUDE_CODE_ENABLE_TELEMETRY, OTEL_*)
     },
 

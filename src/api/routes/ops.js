@@ -3,6 +3,8 @@
 import { audit, listAudit } from '../../domain/audit.js'
 import { AppError, notFound } from '../../domain/errors.js'
 import { traceOfJob } from '../../domain/tracing.js'
+import { dayStart, instanceLabel, listExecuteRuns, PHASES, summarizeExecuteRuns } from '../../telemetry/execute-runs.js'
+import { iso } from '../../db/util.js'
 import { resetData, SCOPES } from '../../domain/reset.js'
 import { submitExamples } from '../../domain/seed-examples.js'
 import { readSeedSet } from '../../db/seed.js'
@@ -27,6 +29,39 @@ const registryList = {
     id: { type: 'string' }, at: { type: 'string' }, member_id: { type: 'string', nullable: true }, member_name: { type: 'string', nullable: true },
     action: { type: 'string' }, entity: { type: 'string' }, entity_id: { type: 'string', nullable: true }, detail: { type: ['object', 'null'], additionalProperties: true }
   }
+}
+
+const nullableInt = { type: 'integer', nullable: true }
+const runRow = {
+  type: 'object',
+  description: 'One run of an execute job (UD-262). Times in milliseconds; null = unknown.',
+  properties: {
+    id: { type: 'string' }, job_id: { type: 'string' }, attempt: { type: 'integer' }, message_id: { type: 'string', nullable: true }, instance: { type: 'string' },
+    trace_id: { type: 'string', nullable: true }, session_id: { type: 'string', nullable: true }, model: { type: 'string', nullable: true },
+    runner: { type: 'string', nullable: true }, machine: { type: 'string', nullable: true }, started_at: { type: 'string' }, finished_at: { type: 'string' },
+    ...Object.fromEntries(PHASES.map((p) => [p, nullableInt])),
+    input_tokens: nullableInt, output_tokens: nullableInt, cache_read_tokens: nullableInt, cache_write_tokens: nullableInt,
+    cost_usd: { type: 'number', nullable: true }, turns: nullableInt, tool_count: nullableInt, subagent_count: nullableInt,
+    outcome: { type: 'string', nullable: true }, error_code: { type: 'string', nullable: true }, delivered: { type: 'boolean', nullable: true },
+    transcript_ref: { type: 'string', nullable: true },
+    slowest_tools: { type: 'array', items: { type: 'object', additionalProperties: true } }
+  }
+}
+const periodQuery = {
+  since: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$', description: 'First day, YYYY-MM-DD (server local day).' },
+  until: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$', description: 'Last day included, YYYY-MM-DD.' },
+  instance: { type: 'string', description: 'Instance label; «*» for all. Default: this instance.' }
+}
+const stat = { type: 'object', properties: { n: { type: 'integer' }, avg: nullableInt, p50: nullableInt, p95: nullableInt } }
+
+/** `since`/`until` (inclusive days) and `instance` as filters for `listExecuteRuns` / `summarizeExecuteRuns`. */
+function runFilters (query, config) {
+  const since = query.since === undefined ? null : dayStart(query.since)
+  const last = query.until === undefined ? null : dayStart(query.until)
+  if ((query.since !== undefined && since === null) || (query.until !== undefined && last === null)) throw new AppError(400, 'invalid_date', 'La fecha debe ser AAAA-MM-DD.')
+  const instance = query.instance === '*' ? null : (query.instance ?? instanceLabel(config))
+  const until = last === null ? null : new Date(new Date(last).setDate(new Date(last).getDate() + 1)).getTime()
+  return { since, until, instance, messageId: query.message_id ?? null, outcome: query.outcome ?? null }
 }
 
 export function registerOpsRoutes (app, ctx) {
@@ -61,6 +96,46 @@ export function registerOpsRoutes (app, ctx) {
     const trace = traceOfJob(db, request.params.id)
     if (!trace) throw notFound('El trabajo no dejó spans.')
     return trace
+  })
+
+  app.get('/ops/execute-runs', {
+    onRequest: [requireRole('editor')],
+    schema: {
+      summary: 'History of the execute runs, newest first (editor)',
+      description: 'One row per run of an `execute` job: times per phase, tokens, cost, outcome, delivery and where the session transcript was copied. Kept EXECUTE_RUNS_RETENTION_DAYS (365 by default), longer than the spans (UD-262).',
+      querystring: { type: 'object', additionalProperties: false, properties: { ...pageQuerySchema(config), ...periodQuery, message_id: { type: 'string', pattern: '^[0-9]+$' }, outcome: { type: 'string' } } },
+      response: { 200: pageEnvelope(runRow) }
+    }
+  }, async (request) => {
+    const p = pageParams(request.query, config)
+    const r = listExecuteRuns(db, runFilters(request.query, config), { limit: p.limit, offset: p.offset })
+    return pageResult(r.items.map((x) => ({ ...x, id: String(x.id), job_id: String(x.job_id), message_id: x.message_id === null ? null : String(x.message_id), started_at: iso(x.started_at), finished_at: iso(x.finished_at) })), r.total, p)
+  })
+
+  app.get('/ops/execute-runs/summary', {
+    onRequest: [requireRole('editor')],
+    schema: {
+      summary: 'Figures of the execute runs of a period (editor)',
+      description: 'Average, p50 and p95 per phase, mean and total cost, delivery rate, rate of runs whose outcome is `investigated` (already resolved) and the ten slowest tool calls of the period. Nearest-rank percentiles.',
+      querystring: { type: 'object', additionalProperties: false, properties: periodQuery },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            runs: { type: 'integer' }, failed: { type: 'integer' }, from: { type: 'string', nullable: true }, to: { type: 'string', nullable: true },
+            phases: { type: 'object', properties: Object.fromEntries(PHASES.map((p) => [p, stat])) },
+            cost: { type: 'object', properties: { n: { type: 'integer' }, avg_usd: { type: 'number', nullable: true }, total_usd: { type: 'number' } } },
+            tokens: { type: 'object', properties: { input: { type: 'integer' }, output: { type: 'integer' }, cache_read: { type: 'integer' }, cache_write: { type: 'integer' } } },
+            delivery: { type: 'object', properties: { known: { type: 'integer' }, delivered: { type: 'integer' }, rate: { type: 'number', nullable: true } } },
+            resolved: { type: 'object', properties: { runs: { type: 'integer' }, investigated: { type: 'integer' }, rate: { type: 'number', nullable: true } } },
+            slowest_tools: { type: 'array', items: { type: 'object', additionalProperties: true } }
+          }
+        }
+      }
+    }
+  }, async (request) => {
+    const s = summarizeExecuteRuns(db, runFilters(request.query, config))
+    return { ...s, from: iso(s.from), to: iso(s.to), slowest_tools: s.slowest_tools.map((t) => ({ ...t, job_id: String(t.job_id), message_id: t.message_id === null ? null : String(t.message_id) })) }
   })
 
   app.delete('/jobs', {

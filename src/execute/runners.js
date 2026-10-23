@@ -5,6 +5,9 @@
 //                                        (empty: team-job-<job_id>)
 //               EXECUTE_MACHINE_RUN      placeholders {job_id} {workdir} {machine}; copies {workdir} to the machine, runs
 //                                        `bash run.sh` there and streams its stdout (the NDJSON) back
+//               EXECUTE_MACHINE_COLLECT  optional (UD-262); placeholders {job_id} {workdir} {machine}; runs after RUN and before
+//                                        DESTROY, only if the machine was reached; copies the session transcript out of the machine
+//                                        and prints where it left it (a path or an object key) as its last stdout line
 //               EXECUTE_MACHINE_DESTROY  placeholders {job_id} {workdir} {machine}; runs always: after success, failure,
 //                                        timeout or abort, and also when CREATE failed half way
 // Signals go only to the process group this module started (detached child), never to a parent.
@@ -104,6 +107,7 @@ export async function runMachine ({ config, jobId, workdir, args, prompt, env, o
   const shellEnv = { ...process.env, TEAM_JOB_ID: String(jobId), TEAM_WORKDIR: workdir }
   let machine = `team-job-${jobId}`
   let result
+  let collect = null
   try {
     const created = await phase('create', () => shell(fillCommand(x.machineCreate, base), { env: shellEnv, keepStdout: true, timeoutMs: left(), graceMs: x.killGraceMs, signal }))
     const named = created.stdout.split('\n').map((l) => l.trim()).filter(Boolean).at(-1)
@@ -116,9 +120,17 @@ export async function runMachine ({ config, jobId, workdir, args, prompt, env, o
     result = { ...ran, timedOut: ran.timedOut || created.timedOut, phase: 'run', machine }
     return result
   } finally {
+    // Before destroying: afterwards the transcript is gone. A failure here is recorded and never fails the job.
+    if (x.machineCollect && result?.phase === 'run' && !signal?.aborted) {
+      const collected = await phase('collect', () => shell(fillCommand(x.machineCollect, { ...base, machine }), { env: shellEnv, keepStdout: true, timeoutMs: x.timeoutMs, graceMs: x.killGraceMs }))
+      const ref = collected.code === 0 ? collected.stdout.split('\n').map((l) => l.trim()).filter(Boolean).at(-1) ?? null : null
+      collect = { code: collected.code, ref, stderr: collected.stderr.slice(0, 2000) }
+      if (collected.code !== 0) log(`the transcript of machine ${machine} could not be collected (exit ${collected.code}): ${collected.stderr.slice(0, 500)}`)
+    }
     // Always, even after a timeout or an abort: a machine left running is the cost that must not happen.
     const destroyed = await phase('destroy', () => shell(fillCommand(x.machineDestroy, { ...base, machine }), { env: shellEnv, keepStdout: true, timeoutMs: x.timeoutMs, graceMs: x.killGraceMs }))
     if (destroyed.code !== 0) log(`machine ${machine} could not be destroyed (exit ${destroyed.code}): ${destroyed.stderr.slice(0, 500)}`)
     if (result) result.destroy = { code: destroyed.code, stderr: destroyed.stderr.slice(0, 2000) }
+    if (result && collect) result.collect = collect
   }
 }

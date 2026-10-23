@@ -78,6 +78,7 @@ Depende de A1, A4, A5 y A6. Estimado: 1,5 h de reloj, con el despliegue del anfi
 | C2 Candados | Los del repositorio del anfitrión (hooks, candados de invariantes, `check-secretos`), `--max-budget-usd 10`, sin lista blanca de herramientas; `claude` corre con un usuario sin privilegios porque `bypassPermissions` no arranca como root fuera de un sandbox. En producción toca lo mismo que una sesión interactiva de Martín (UD-255) |
 | C3 Verificación proporcional | El harness corre lo que el clasificador de `desplegar.yml:240` decide para su cambio: pruebas de pantalla, batería corta o gemelo |
 | C4 Entrega | El harness deja una rama `tp/<id-del-mensaje>` y la salida; Martín entrega por el camino local (UD-210). Nada empuja a `main` sin él |
+| C5 Historial | El anfitrión declara `EXECUTE_MACHINE_COLLECT` (copia de la transcripción a un almacén con su regla de retención) y pone en las instrucciones de sus sesiones las dos líneas de «Dónde mirar los tiempos» de `docs/INSTALACION.md` (UD-262) |
 
 Depende de B. Estimado: 1 h de reloj, más una corrida real con un mensaje de prueba del responsable del cliente, medida desde el envío hasta la rama entregada.
 

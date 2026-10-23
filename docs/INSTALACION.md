@@ -428,6 +428,9 @@ La respuesta trae `agent_secret` una sola vez. El trabajador lo lee de la bóved
 | `EXECUTE_KILL_GRACE_MS` | Espera entre SIGTERM y SIGKILL (omisión 10000) |
 | `EXECUTE_HOST_INSTRUCTIONS` | Ruta a un `.md` del anfitrión con sus reglas; se agrega al prompt en cada trabajo. Si falta el archivo, el trabajo falla con `host_instructions_missing` |
 | `EXECUTE_MACHINE_CREATE`, `EXECUTE_MACHINE_RUN`, `EXECUTE_MACHINE_DESTROY` | Las tres órdenes de `machine` |
+| `EXECUTE_MACHINE_COLLECT` | Opcional. Copia la transcripción de la sesión antes de destruir la máquina (ver «Transcripción de la sesión») |
+| `EXECUTE_RUNS_RETENTION_DAYS` | Días que se guarda el historial de ejecuciones (omisión 365) |
+| `INSTANCE_NAME` | Nombre de la instancia en cada fila del historial (omisión: el host de `PUBLIC_URL`, o `local`) |
 
 Con `local`, la máquina de Team Platform necesita `claude` instalado y autenticado. En la imagen de Docker eso es lo mismo que el analizador `harness` (sección «Analizador `harness` en el contenedor»).
 
@@ -448,6 +451,50 @@ docker compose up -d --wait
 El trabajador pone cada marcador entre comillas simples de shell antes de correr la orden. La última línea de stdout de CREATE es `{machine}`; por eso el ejemplo manda la salida de `gcloud` a stderr. El stdout de RUN debe ser sólo el NDJSON de `run.sh`. DESTROY corre siempre, también si la sesión falla, vence `EXECUTE_TIMEOUT_MS` o CREATE falló a medias. La imagen `agente-claude` es del anfitrión: trae `node`, `git`, `claude` autenticado y el repositorio; `run.sh` entra a `$TEAM_REPO_DIR` si existe. `{workdir}` lleva `env.sh` con el secreto del agente, en modo 600.
 
 4. Comprobación: asignar un mensaje al agente y mirar la Cola. La primera respuesta del agente llega al hilo al empezar y la final al terminar. La traza del trabajo (`GET /api/jobs/:id/trace`) trae `team.session_id` y `team.cost_usd`.
+
+### Transcripción de la sesión
+
+La transcripción de la sesión de Claude (`~/.claude/projects/*/*.jsonl` en la máquina) desaparece con ella. `EXECUTE_MACHINE_COLLECT` es una orden de shell, con los marcadores `{job_id}`, `{workdir}` y `{machine}`, que corre después de RUN y antes de DESTROY, también si la sesión falló o venció. No corre si CREATE falló ni si el trabajo se canceló. Su última línea no vacía de stdout es la ruta local o la clave del objeto donde dejó la transcripción, y queda en `transcript_ref` del historial. Con código distinto de 0 o sin salida, la referencia queda vacía y el trabajo sigue igual. Sin la orden no se copia nada. Plazo: `EXECUTE_TIMEOUT_MS`.
+
+Ejemplo genérico, con `scp` y un directorio del anfitrión; la salida de `scp` va a stderr para que la última línea de stdout sea la ruta:
+
+```sh
+EXECUTE_MACHINE_COLLECT=mkdir -p /data/transcripciones/{job_id} && scp -q -r {machine}:.claude/projects /data/transcripciones/{job_id}/ >&2 && echo /data/transcripciones/{job_id}
+```
+
+Con un almacén de objetos, la última línea es la clave: `gcloud storage cp -r ... gs://bucket/{job_id}/ >&2 && echo gs://bucket/{job_id}/`. Cuánto tiempo se guardan las transcripciones lo decide el anfitrión (por ejemplo, una regla de ciclo de vida del bucket). La plataforma sólo guarda la referencia.
+
+## Dónde mirar los tiempos
+
+Cada ejecución del harness deja una fila en `execute_runs`: tiempos por fase, tokens, costo, resultado, entrega y la referencia a la transcripción. Se guarda 365 días. Los spans de la traza duran 7.
+
+| Quién | Cómo |
+|---|---|
+| Una sesión de Claude u otra persona con acceso al servidor, sin credenciales de la API | `docker exec <contenedor> node scripts/tiempos.mjs --resumen` |
+| Lo mismo sobre una copia de la base | `DATA_DIR=/ruta/a/la/copia node scripts/tiempos.mjs --resumen` |
+| Un Editor, en el panel | Configuración, Cola, «Ejecuciones» |
+| Un Editor o un programa, por la API | `GET /api/ops/execute-runs` y `GET /api/ops/execute-runs/summary` |
+| Un mensaje, con su traza completa | `team timing <message_id>` y `GET /api/jobs/:id/trace` (7 días) |
+
+Texto de dos líneas para las instrucciones de las sesiones del anfitrión (`EXECUTE_HOST_INSTRUCTIONS` y su propio archivo de reglas):
+
+```
+Para ver tiempos: docker exec <contenedor> node scripts/tiempos.mjs --resumen
+Para ver una ejecución: docker exec <contenedor> node scripts/tiempos.mjs --mensaje <id_del_mensaje>   (últimas: --ultimos 20)
+```
+
+Consultas de `scripts/tiempos.mjs`:
+
+```sh
+docker exec <contenedor> node scripts/tiempos.mjs --ultimos 20
+docker exec <contenedor> node scripts/tiempos.mjs --mensaje 123
+docker exec <contenedor> node scripts/tiempos.mjs --resumen --desde 2026-10-01
+docker exec <contenedor> node scripts/tiempos.mjs --resumen --json
+```
+
+El script abre la base en solo lectura: `DB_PATH`, o `DATA_DIR/team.db` (en el contenedor, `DATA_DIR=/data`). Muestra una instancia a la vez: la de la ejecución más reciente o la de `--instancia NOMBRE`. `--todas` junta todas. El resumen da promedio, p50 y p95 por fase, costo medio y total, tasa de entrega, tasa de «ya resuelto» (resultado `investigated`) y las diez herramientas más lentas. Una cifra sin dato se muestra «—»: juez, entrega y espera sólo existen si la sesión las informó con `team mark`.
+
+Cuánto se guarda: `EXECUTE_RUNS_RETENTION_DAYS`. El historial no se borra con «Vaciar contenido».
 
 ## Licencias
 

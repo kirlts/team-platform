@@ -164,6 +164,7 @@ COPY src ./src
 COPY templates ./templates
 COPY ejemplos ./ejemplos
 COPY scripts/team.mjs ./scripts/team.mjs
+COPY scripts/tiempos.mjs ./scripts/tiempos.mjs
 COPY --from=panel /out ./panel/dist
 RUN mkdir -p /data && chown node:node /data
 USER node

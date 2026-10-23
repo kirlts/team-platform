@@ -177,11 +177,11 @@ function AreaOwner({ area, canEdit, onChange }: { area: Area; canEdit: boolean; 
   const handoffs = area.handoffs ?? []
   const total = handoffs.reduce((n, h) => n + h.count, 0)
   return (
-    <div className="flex flex-wrap items-center gap-x-8 gap-y-2 text-sm" data-testid="area-owner">
-      <label className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-x-8 gap-y-3 text-sm" data-testid="area-owner">
+      <label className="flex w-full min-w-0 flex-col items-start gap-1 sm:w-auto sm:flex-row sm:items-center sm:gap-2">
         <span className="text-muted">{t('areas.decider')}</span>
         {canEdit ? (
-          <span className="w-56">
+          <span className="w-full sm:w-56">
             <NativeSelect value={owner} onChange={(e) => void onChange(e.target.value)} aria-label={t('areas.decider')} data-testid="area-owner-select">
               {owner === '' && <option value="" />}
               {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
@@ -191,11 +191,16 @@ function AreaOwner({ area, canEdit, onChange }: { area: Area; canEdit: boolean; 
           <span className="font-semibold">{nameOf(owner)}</span>
         )}
       </label>
-      <span className="flex items-baseline gap-2" data-testid="area-handoffs">
-        <span className="text-muted">{t('areas.handoffs')}</span>
-        <span className="font-semibold tabular-nums">{total}</span>
-        {handoffs.length > 0 && <span className="text-muted">{handoffs.map((h) => `${nameOf(h.member_id)} ${h.count}`).join(' · ')}</span>}
-      </span>
+      <dl className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1" data-testid="area-handoffs">
+        <dt className="text-muted">{t('areas.handoffs')}</dt>
+        <dd className="mr-3 text-base font-semibold tabular-nums">{total}</dd>
+        {handoffs.map((h) => (
+          <dd key={h.member_id} className="flex items-baseline gap-1.5 pr-3">
+            <span className="text-muted">{nameOf(h.member_id)}</span>
+            <span className="font-semibold tabular-nums">{h.count}</span>
+          </dd>
+        ))}
+      </dl>
     </div>
   )
 }

@@ -61,12 +61,20 @@ const AREA_PALETTE = ['#6d28d9', '#c2410c', '#15803d', '#0f766e', '#a21caf', '#4
 
 const areas = [
   { id: 'a-idea', color: '#6d28d9', title: 'Idea', description: 'Una posibilidad sin compromiso de hacerla.', position: 1 },
-  { id: 'a-error', color: '#854d0e', title: 'Error', description: 'Algo que antes funcionaba o debería funcionar y no lo hace.', position: 2 },
+  { id: 'a-error', color: '#854d0e', title: 'Error', description: 'Algo que antes funcionaba o debería funcionar y no lo hace.', position: 2, handoffs: [{ member_id: 'u-ana', count: 3 }, { member_id: 'u-diego', count: 1 }] },
   { id: 'a-feature', color: '#15803d', title: 'Nueva funcionalidad', description: 'Una capacidad que el sistema no tiene y alguien necesita.', position: 3 },
   { id: 'a-feedback', color: '#0f766e', title: 'Retroalimentación', description: 'Una opinión sobre algo que ya existe.', position: 4 },
   { id: 'a-pregunta', color: '#a21caf', title: 'Pregunta', description: 'Algo que alguien necesita saber para seguir.', position: 5 },
   { id: 'a-accesibilidad', color: '#4d7c0f', title: 'Accesibilidad y experiencia de uso en dispositivos móviles', description: 'Observaciones sobre cómo se lee, se toca y se entiende el panel desde un teléfono, con lector de pantalla o con el teclado solamente.', position: 6 },
 ]
+
+/** The area as the API shows it (UD-269): who decides now (the one set while it is an active person, else the first active Editor) and the week's handoffs by person. */
+const areaView = (a) => {
+  const person = (mid) => members.find((m) => m.id === mid && m.kind !== 'agent' && m.active)
+  const decider = person(a.escalation_member_id) ?? members.find((m) => m.role === 'editor' && m.kind !== 'agent' && m.active)
+  const { escalation_member_id: _stored, ...rest } = a
+  return { ...rest, escalation_member_id: decider?.id ?? null, handoffs: a.handoffs ?? [] }
+}
 
 const templateBody = (name, description, extra = '') =>
   `---\nname: ${name}\ndescription: ${description}\nfields:\n  - { name: summary, label: Resumen, required: true }\n${extra}---\n## Método\nLeer el input y separar un mensaje por cada punto distinto.\n\n## Formato de salida\nUn mensaje por punto. Título: verbo en infinitivo y lugar.\n`
@@ -1485,7 +1493,7 @@ const server = createServer(async (req, res) => {
     if (path === '/areas' && method === 'GET') {
       const withDeleted = url.searchParams.get('include_deleted') === 'true'
       if (withDeleted && me.role !== 'editor') return fail(res, 403, 'Ver lo borrado corresponde a un editor.', 'forbidden')
-      return send(res, 200, envelope(areas.filter((a) => withDeleted || !a.deleted_at).map((a) => ({ ...a, open_count: liveMessages().filter((x) => x.area_id === a.id && x.status === 'open').length, unresolved_count: liveMessages().filter((x) => x.area_id === a.id && x.status !== 'closed').length, template_count: templates.filter((t) => t.area_id === a.id && !t.deleted_at).length }))))
+      return send(res, 200, envelope(areas.filter((a) => withDeleted || !a.deleted_at).map((a) => ({ ...areaView(a), open_count: liveMessages().filter((x) => x.area_id === a.id && x.status === 'open').length, unresolved_count: liveMessages().filter((x) => x.area_id === a.id && x.status !== 'closed').length, template_count: templates.filter((t) => t.area_id === a.id && !t.deleted_at).length }))))
     }
     if (path === '/areas' && method === 'POST') {
       if (needEditor()) return
@@ -1529,7 +1537,11 @@ const server = createServer(async (req, res) => {
         if (!/^#[0-9a-fA-F]{6}$/.test(body.color)) return fail(res, 400, 'El color debe ser #rrggbb', 'validation')
         area.color = body.color.toLowerCase()
       }
-      return send(res, 200, area)
+      if (body.escalation_member_id !== undefined) {
+        if (body.escalation_member_id !== null && !members.some((x) => x.id === body.escalation_member_id && x.kind !== 'agent' && x.active)) return fail(res, 422, 'Quien decide debe ser una persona activa del equipo.')
+        area.escalation_member_id = body.escalation_member_id
+      }
+      return send(res, 200, areaView(area))
     }
     m = /^\/areas\/([^/]+)\/templates(?:\/([^/]+))?$/.exec(path)
     if (m) {

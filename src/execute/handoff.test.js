@@ -159,6 +159,28 @@ describe('handoff to a person', () => {
     assert.deepEqual(buriedHandoffs(env.db), [])
   })
 
+  it('the sender who receives the handoff answers the question once; the rule holds in every other case', async () => {
+    const authorId = env.db.prepare("SELECT id FROM members WHERE email = 'ana@x.org'").get().id
+    areaId = env.db.prepare('SELECT area_id FROM messages ORDER BY id LIMIT 1').get().area_id
+    assert.equal((await api('PATCH', `/api/areas/${areaId}`, editor, { escalation_member_id: authorId })).statusCode, 200)
+    const messageId = await runWith('Una pregunta que le toca a quien la envió.', { outcome: 'needs_decision', decision_check: CHECK })
+    assert.deepEqual(assignees(messageId), [authorId], 'the sender decides in the area')
+    const answer = await api('POST', `/api/messages/${messageId}/replies`, author, { body: 'Se cobra al cierre.', kind: 'answer' })
+    assert.equal(answer.statusCode, 201, answer.body)
+    const again = await api('POST', `/api/messages/${messageId}/replies`, author, { body: 'Otra vez.', kind: 'answer' })
+    assert.equal(again.statusCode, 403)
+    assert.equal(again.json().code, 'author_cannot_reply', 'the question is answered: the rule is back')
+    // Without a handoff the sender still cannot reply, assigned or not.
+    env.db.prepare("DELETE FROM replies WHERE message_id = ? AND kind = 'clarification'").run(messageId)
+    env.db.prepare("UPDATE replies SET kind = 'answer' WHERE message_id = ?").run(messageId)
+    const plain = await api('POST', `/api/messages/${messageId}/replies`, author, { body: 'Sin traspaso.', kind: 'answer' })
+    assert.equal(plain.json().code, 'author_cannot_reply')
+    // A clarification from a person is not a handoff.
+    env.db.prepare("INSERT INTO replies (message_id, author_id, body, kind, created_at) VALUES (?, ?, 'x', 'clarification', 1)").run(messageId, editorId)
+    assert.equal((await api('POST', `/api/messages/${messageId}/replies`, author, { body: 'Aun no.', kind: 'answer' })).json().code, 'author_cannot_reply')
+    await api('PATCH', `/api/areas/${areaId}`, editor, { escalation_member_id: null })
+  })
+
   it('the pieces of the check: the problem it names and the lines the person reads', () => {
     assert.equal(decisionCheckProblem({ outcome: 'done' }), null)
     assert.equal(decisionCheckProblem({ outcome: 'not_mine' }), null)

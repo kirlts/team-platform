@@ -12,6 +12,7 @@ import { EditableText } from './EditableText'
 import { AttachmentStrip } from './AttachmentStrip'
 import { FitList } from './FitList'
 import { useLookups } from './lookups'
+import { canReplyTo } from '@/lib/handoff'
 import { KIND_KEY, ReplyForm } from './ReplyForm'
 
 /** A row of the thread: a reply, or the place where one was just deleted, with Deshacer in it (UD-240, as the templates do). */
@@ -28,12 +29,12 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
   const t = useT()
   const format = useFormat()
   const me = useMe().data
-  const { memberName } = useLookups()
+  const { memberName, members } = useLookups()
   const undo = useUndo()
   const del = useDeleteReply(message.id)
   const restore = useRestoreReply()
   const edit = useEditReply(message.id)
-  const canReply = !!me && me.id !== message.author_id && message.status !== 'closed'
+  const canReply = canReplyTo(message, me?.id, members) // the sender too, while they hold the question of a handoff (UD-269)
   const canDelete = (r: Reply) => !!me && (me.id === r.author_id || me.role === 'editor')
   const canEdit = (r: Reply) => !!me && me.id === r.author_id
   /** A reply with attachments may be left without text; one without them may not (the API answers 400 `reply_empty`). */

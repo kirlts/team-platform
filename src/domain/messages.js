@@ -359,12 +359,23 @@ export function addMessageAttachments ({ db, queue, events, now = Date.now }, { 
   return getMessage(db, messageId)
 }
 
+/**
+ * Whether `memberId` holds a question of an agent (UD-269): it is assigned to the message and the last live reply is a `clarification`
+ * from an agent member, which is what a handoff leaves. Once they answer, the question is no longer pending and the rule of §4.8 applies again.
+ */
+export function holdsPendingQuestion (db, messageId, memberId) {
+  if (!get(db, 'SELECT 1 AS ok FROM message_assignees WHERE message_id = ? AND member_id = ?', messageId, memberId)) return false
+  const last = get(db, `SELECT r.kind AS kind, m.kind AS member_kind FROM replies r JOIN members m ON m.id = r.author_id
+                         WHERE r.message_id = ? AND r.deleted_at IS NULL ORDER BY r.id DESC LIMIT 1`, messageId)
+  return last?.kind === 'clarification' && last.member_kind === 'agent'
+}
+
 /** The rules for replying, checked on their own so a route can refuse before it stores an upload. */
 export function assertCanReply (db, messageId, authorId) {
   const msgRow = get(db, 'SELECT id, author_id, status FROM messages WHERE id = ? AND deleted_at IS NULL', messageId)
   if (!msgRow) throw notFound('El mensaje no existe.')
-  // §4.8: only a member other than the sender replies.
-  if (msgRow.author_id === authorId) throw forbidden('El emisor de un mensaje no puede responderlo.', 'author_cannot_reply')
+  // §4.8: only a member other than the sender replies; the exception is the sender who received the handoff of a session (UD-269).
+  if (msgRow.author_id === authorId && !holdsPendingQuestion(db, messageId, authorId)) throw forbidden('El emisor de un mensaje no puede responderlo.', 'author_cannot_reply')
   const target = TRANSITIONS.reply[msgRow.status]
   if (!target) throw conflict('El mensaje está cerrado. Hay que reabrirlo para responder.', 'message_closed')
   return target

@@ -13,11 +13,14 @@ const sleep = (ms) => (ms > 0 ? new Promise((resolve) => setTimeout(resolve, ms)
 const first = (v) => [].concat(v)[0];
 const wrongAreaFor = (accepted) => [1, 2, 3, 4, 5].find((id) => !accepted.includes(id));
 
-/** The unit numbers [uN] of the last user message of a request. */
+/** The unit numbers [uN] of the last message of a request that shows units (a retry message only lists errors). */
 export function unitIdsIn(req) {
-  const last = req.messages.at(-1);
-  const text = typeof last.content === 'string' ? last.content : JSON.stringify(last.content);
-  return [...text.matchAll(/\[u(\d+)\]/g)].map((m) => Number(m[1]));
+  for (const message of [...req.messages].reverse()) {
+    const text = typeof message.content === 'string' ? message.content : JSON.stringify(message.content);
+    const ids = [...text.matchAll(/\[u(\d+)\]/g)].map((m) => Number(m[1]));
+    if (ids.length > 0) return ids;
+  }
+  return [];
 }
 
 function corrupt(messages) {
@@ -63,13 +66,23 @@ export function createBenchProviders({ expected, mode = 'perfect', latencyMs = 0
   const script = async (req) => {
     await sleep(latencyMs);
     if (req.schema.properties.groups) {
-      const sent = groups.map((g, i) => ({
-        unit_ids: g.unit_ids,
-        area_id: mode === 'noisy' && i === 0 ? wrongAreaFor(g.accepted) : g.area_id,
-        template_id: mode === 'noisy' && i === 0 ? wrongAreaFor(g.accepted) : g.template_id,
-      }));
-      return respond({ groups: sent, discarded: expected.discarded.map((d) => ({ ...d })) }, req);
+      // Only what the request shows: the analyzer also asks about a part of the units (second pass over what the first left out).
+      const scope = new Set(unitIdsIn(req));
+      const within = (ids) => ids.filter((id) => scope.has(id));
+      const sent = groups
+        .map((g, i) => ({
+          unit_ids: within(g.unit_ids),
+          requests: [g.request ?? 'pedido'],
+          recap_unit_ids: [],
+          area_id: mode === 'noisy' && i === 0 ? wrongAreaFor(g.accepted) : g.area_id,
+          template_id: mode === 'noisy' && i === 0 ? wrongAreaFor(g.accepted) : g.template_id,
+        }))
+        .filter((g) => g.unit_ids.length > 0);
+      const discarded = expected.discarded.map((d) => ({ ...d, unit_ids: within(d.unit_ids) })).filter((d) => d.unit_ids.length > 0);
+      return respond({ split_at: [], groups: sent, discarded }, req);
     }
+    // Split check of one written group: a perfect reader finds one request in it, so nothing is split.
+    if (req.schema.properties.requests) return respond({ requests: [{ unit_ids: unitIdsIn(req), request: 'pedido' }] }, req);
     // Decomposition: the expected messages whose units are all within what was requested.
     const scope = new Set(unitIdsIn(req));
     const fieldProps = Object.keys(req.schema.properties.messages.items.properties.fields.properties ?? {});
@@ -82,6 +95,9 @@ export function createBenchProviders({ expected, mode = 'perfect', latencyMs = 0
         body: `Cuerpo de «${m.title}».`,
         assignee_ids: [],
         attachment_ids: [],
+        // Where the reference skips units (the person talked about another request), the message resumes (H-3730).
+        resumes_at: [...m.unit_ids].sort((a, b) => a - b).filter((id, i, ids) => i > 0 && id !== ids[i - 1] + 1),
+        observed: [],
       }));
     if (mode === 'noisy') messages = corrupt(messages);
     return respond({ messages }, req);

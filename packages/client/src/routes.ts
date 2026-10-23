@@ -49,6 +49,7 @@ export const routes = {
   messageReopen: route('post', '/api/messages/{id}/reopen'),
   messageTiming: route('get', '/api/messages/{id}/timing'),
   messageExecute: route('post', '/api/messages/{id}/execute'),
+  messageDeliver: route('post', '/api/messages/{id}/deliver'),
 
   replyCreate: route('post', '/api/messages/{id}/replies'),
   replyEdit: route('patch', '/api/messages/{id}/replies/{replyId}'),

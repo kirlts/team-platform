@@ -124,9 +124,9 @@ export const lastUserText = (req) => {
 };
 
 /**
- * `analyze` with the coverage pass off: the older tests describe the first reading and count the calls of the pipeline one by one;
- * the coverage pass has its own tests (coverage.test.js).
+ * `analyze` with the coverage pass and the split check off: the older tests describe the first reading and count the calls of the
+ * pipeline one by one; the coverage pass has its own tests (coverage.test.js) and the split check too (split-pass.test.js).
  */
 export function firstReadingOnly(analyze) {
-  return (bundle, opts = {}) => analyze(bundle, { ...opts, config: { coveragePasses: 0, ...opts.config } });
+  return (bundle, opts = {}) => analyze(bundle, { ...opts, config: { coveragePasses: 0, splitPass: false, ...opts.config } });
 }

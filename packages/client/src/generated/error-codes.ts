@@ -18,6 +18,8 @@ export const REQUEST_ERROR_CODES = [
   'conflict',
   'connection_exists',
   'csrf',
+  'deliver_busy',
+  'deliver_not_configured',
   'description_required',
   'duplicate_input',
   'edit_conflict',

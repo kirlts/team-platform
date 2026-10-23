@@ -48,7 +48,7 @@ test('compare: aggregates variants side by side, with per-member assignment and 
   assert.equal(b.usefulness.median, 4.5);
   assert.equal(a.cost_usd, 0.01);
   const text = formatComparison(out);
-  assert.match(text, /\| Assignment: exact set \| 50\.0 % \(1\/2\) \| 100\.0 % \(2\/2\) \|/);
+  assert.match(text, /\| Assignment: exact set \| 50\.0 % \[9–91\] \| 100\.0 % \[34–100\] \|/);
   assert.match(text, /Pablo Valencia: recall \| 0\.0 % \| 100\.0 % \|/);
   assert.match(text, /Usefulness: median of messages \(1 to 5\) \| n\/a \| 4\.5 \|/);
 });

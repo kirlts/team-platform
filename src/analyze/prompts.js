@@ -66,6 +66,16 @@ export function classifyUser({ units, attachments, language, secondPass = false,
   return [...note, set.attachmentsBlock(attachments, units), '', ...(recentBlock ? [recentBlock, ''] : []), set.INPUT_HEADING, renderUnits(units, set.LANGUAGE)].join('\n');
 }
 
+/** H-3737: system prompt of the split check of one group; stable, so it is cached across groups. */
+export function splitSystem({ language, framing }) {
+  return [promptSet(language).splitInstructions(framing)];
+}
+
+/** User message of the split check: the units of one group. */
+export function splitUser({ units, language }) {
+  return promptSet(language).splitBlock(units);
+}
+
 // ---------------------------------------------------------------------------------------------
 // Second call: decompose
 // ---------------------------------------------------------------------------------------------

@@ -1179,3 +1179,11 @@ Martín, el mismo día: «la idea es que yo no quiera abrir una sesion como esta
 **Decisión:** `EXECUTE_DAILY_BUDGET_USD` pasa a 20 en la instancia del anfitrión y el tope propio del harness en el anfitrión pasa a 20 USD por día. El presupuesto por mensaje (`EXECUTE_MAX_BUDGET_USD`) no cambia. Las pruebas de la noche las hace la sesión coordinadora, de a dos mensajes por vez.
 **Consecuencias:** Enmienda UD-256. El gasto de API de los bancos de análisis sigue declarándose aparte en `bench/results/private-spend.jsonl`.
 **Condiciones de reversión:** Las fija Martín.
+
+## [UD-265] Las pruebas por defecto son dirigidas; la batería completa es a pedido
+
+**Fecha:** 2026-10-23
+**Contexto:** La batería completa tardó más de una hora con la máquina cargada y frenó cuatro fusiones; las pruebas dirigidas a lo que esas fusiones podían romper corrieron en un minuto (227 del servidor, 186 del panel). Martín, textual: «SI, DEJA ESO COMO REGLA POR DEFECTO Y COMO AJUSTE POR DEFECTO, LA BATERIA COMPLETA ES MUY CARA»; antes: «solo pruebas especiales, OPTIMIZA».
+**Decisión:** `npm test` es `scripts/test-dirigido.mjs`: selecciona por las rutas cambiadas contra `origin/main` (mapa `src/testing/areas.json`, con las guardias siempre). La batería completa pasa a `npm run test:completa`. Regla 12 de `docs/RULES.md`. El anfitrión aplica lo mismo en su puerta (pruebas críticas).
+**Consecuencias:** La marca de la última corrida en verde (`test:rapido`) sólo se registra tras `test:completa`. Enmienda la práctica de correr `npm test` completo en cada fusión.
+**Condiciones de reversión:** Las fija Martín.

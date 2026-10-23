@@ -11742,6 +11742,18 @@
                               "null"
                             ]
                           },
+                          "deliver_job_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "delivery_ref": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "slowest_tools": {
                             "type": "array",
                             "items": {
@@ -12601,6 +12613,67 @@
                       "items": {
                         "type": "string"
                       }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error: { code, message }.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Error: { code, message }.",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/messages/{id}/deliver": {
+      "post": {
+        "summary": "Encolar la entrega a producción de un mensaje (Editor)",
+        "tags": [
+          "Messages"
+        ],
+        "description": "Corre `EXECUTE_DELIVER_COMMAND` sobre la rama `tp/<id>` del mensaje, sin IA (UD-263). Al terminar bien, el agente publica su respuesta final con «Ya está en producción»; si falla, el aviso llano con `outcome: blocked`. Responde 202 con el trabajo creado. 409 `deliver_not_configured` si la instancia no declara la orden, 409 `execute_busy` si el mensaje tiene un trabajo `execute` en cola o corriendo, 409 `deliver_busy` si ya tiene una entrega, 409 `no_agent_assignee` si no hay un agente activo que responda, 409 `message_closed` si está cerrado.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "job_id": {
+                      "type": "string"
                     }
                   }
                 }

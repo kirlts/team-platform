@@ -29,6 +29,24 @@ function isUtf8Text(buffer) {
   }
 }
 
+/**
+ * Text of a plain file in the encodings people save. A byte order mark says UTF-16 (the «Unicode» option of the Windows editor); valid UTF-8
+ * is UTF-8; what is neither is read as Windows-1252, the old Windows code page of the Spanish-speaking world, never as UTF-8 with
+ * replacement characters. A file with null bytes that is not UTF-16 is binary: its text would be garbage for the analysis.
+ */
+export function decodeText(buffer) {
+  if (buffer[0] === 0xff && buffer[1] === 0xfe) return new TextDecoder('utf-16le').decode(buffer.subarray(2));
+  if (buffer[0] === 0xfe && buffer[1] === 0xff) return new TextDecoder('utf-16be').decode(buffer.subarray(2));
+  if (buffer.subarray(0, 8192).includes(0)) {
+    throw new ExtractError('document_unsupported', 'El archivo no es un texto que se pueda leer. Se admiten PDF, DOCX, PPTX, XLSX, TXT y MD.', { reason: 'binary' });
+  }
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(buffer);
+  } catch {
+    return new TextDecoder('windows-1252').decode(buffer);
+  }
+}
+
 const countVisibleChars = (text) => [...text].filter((ch) => ch.trim() !== '').length;
 
 const MiB = 1024 * 1024;
@@ -110,7 +128,7 @@ export async function extractDocumentContent({ path, mime, config }) {
   try {
     if (format === 'pdf') return await readPdf(buffer, config.document);
     if (format === 'office') return await readOffice(buffer);
-    if (format === 'text') return { text: new TextDecoder('utf-8').decode(buffer).trim(), meta: { format: 'text' } };
+    if (format === 'text') return { text: decodeText(buffer).trim(), meta: { format: 'text' } };
   } catch (cause) {
     if (cause instanceof ExtractError) throw cause;
     throw new ExtractError('document_unreadable', 'No se pudo leer el documento. Puede estar dañado o protegido con contraseña.', {

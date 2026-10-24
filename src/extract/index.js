@@ -14,7 +14,7 @@
 //
 // `meta` always carries `kind`, `warnings` and `elapsedMs`; `meta.calls` lists the calls to
 // providers for the `llm_calls` table. A failure is an `ExtractError` with a code and a reason.
-import { access, mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readdir, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { resolveConfig } from './config.js';
@@ -49,6 +49,29 @@ async function exists(path) {
   }
 }
 
+// A working directory untouched for this long belongs to a worker that was killed (out of memory, a restart) before its `finally` ran: the
+// audio chunks and frames of a video would stay on the disk for ever. Declared courtesy, no measurement: four times the 15 minutes a job may run.
+const STALE_WORKDIR_MS = 3_600_000;
+
+async function removeStaleWorkDirs(base, now = Date.now()) {
+  let names;
+  try {
+    names = await readdir(base);
+  } catch {
+    return;
+  }
+  for (const name of names) {
+    if (!name.startsWith('tp-extract-')) continue;
+    try {
+      const path = join(base, name);
+      const info = await stat(path);
+      if (info.isDirectory() && now - info.mtimeMs > STALE_WORKDIR_MS) await rm(path, { recursive: true, force: true });
+    } catch {
+      // another worker removed it first, or it cannot be read: not a reason to fail this extraction
+    }
+  }
+}
+
 // Cuts at the last line break that fits, so as not to split a sentence in half.
 function truncate(text, maxChars) {
   if (text.length <= maxChars) return null;
@@ -72,6 +95,7 @@ export async function extract(attachment, { providers, onProgress, config, signa
   };
   const base = cfg.workDir ?? tmpdir();
   await mkdir(base, { recursive: true });
+  await removeStaleWorkDirs(base);
   const workDir = await mkdtemp(join(base, 'tp-extract-'));
   try {
     // One span per attachment (UD-014); each extractor's steps hang from it.

@@ -5,7 +5,7 @@ import { mkdir, readdir, readFile, stat } from 'node:fs/promises';
 import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
 import { ExtractError } from './errors.js';
-import { planAudio, transcribeFile } from './audio.js';
+import { extractAudio, planAudio, transcribeFile } from './audio.js';
 import { dhash, selectFrames } from './lib/dhash.js';
 import { run, probe } from './lib/ffmpeg.js';
 import { mapLimit } from './lib/pool.js';
@@ -66,6 +66,12 @@ export async function extractVideo(attachment, ctx) {
   const first = createProgress(onProgress, 1);
   first.report(step('videoMeasure'));
   const info = await probe(attachment.path, { signal });
+  if (!info.hasVideo && info.hasAudio && info.durationSeconds > 0) {
+    // An .mp4 or .mov that holds only sound (a recorder, a call exported without the picture) is a voice note with the wrong extension.
+    const audio = await extractAudio(attachment, ctx);
+    audio.meta.warnings.push({ code: 'audio_only', message: 'El archivo no tiene imagen: se leyó sólo el audio.' });
+    return audio;
+  }
   if (!info.hasVideo || info.durationSeconds <= 0) {
     throw new ExtractError('video_unreadable', 'El archivo no contiene un video que se pueda leer.');
   }
@@ -76,6 +82,10 @@ export async function extractVideo(attachment, ctx) {
     });
   }
 
+  // The two halves run at once: if one fails the other is stopped, not left to run for minutes while the job is retried.
+  const halves = new AbortController();
+  const stop = signal ? AbortSignal.any([signal, halves.signal]) : halves.signal;
+  const halfCtx = { ...ctx, signal: stop };
   const audioPlan = info.hasAudio ? planAudio(info.durationSeconds, config.audio) : null;
   // Steps: one frame per second, the hash, the vision call, plus one step per audio chunk.
   const progress = createProgress(onProgress, 3 + (audioPlan?.steps ?? 0));
@@ -89,7 +99,7 @@ export async function extractVideo(attachment, ctx) {
         const segments = await transcribeFile(
           attachment.path,
           { durationSeconds: info.durationSeconds, plan: audioPlan.plan },
-          ctx,
+          halfCtx,
           progress,
         );
         timings.audioMs = Math.round(performance.now() - t);
@@ -101,7 +111,7 @@ export async function extractVideo(attachment, ctx) {
     progress.report(step('framesExtract'));
     let t = performance.now();
     const sampled = await withSpan('extract.ffmpeg', { 'team.step': 'extract.ffmpeg', 'team.tool': 'ffmpeg', 'team.input_bytes': size }, async () => {
-      const out = await sampleFrames(attachment.path, join(ctx.workDir, 'frames'), cfg, signal);
+      const out = await sampleFrames(attachment.path, join(ctx.workDir, 'frames'), cfg, stop);
       annotate({ 'team.frames': out.length });
       return out;
     });
@@ -119,7 +129,10 @@ export async function extractVideo(attachment, ctx) {
     return { frames, dedupedCount, sampledCount: sampled.length };
   })();
 
-  const [segments, frameSet] = await Promise.all([audioJob, framesJob]);
+  const [segments, frameSet] = await Promise.all([audioJob, framesJob]).catch((error) => {
+    halves.abort();
+    throw error;
+  });
   if (info.hasAudio && segments.length === 0) {
     warnings.push({ code: 'no_speech', message: 'La transcripción no devolvió texto.' });
   }

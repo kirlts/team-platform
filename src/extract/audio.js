@@ -33,6 +33,9 @@ export async function transcribeFile(sourcePath, { durationSeconds, plan }, ctx,
   const dir = join(ctx.workDir, 'audio');
   await mkdir(dir, { recursive: true });
 
+  // When one chunk fails the others in flight are stopped: they would go on cutting and sending audio (and spending the provider's budget) for a job that already failed.
+  const lanes = new AbortController();
+  const stop = signal ? AbortSignal.any([signal, lanes.signal]) : lanes.signal;
   const perChunk = await mapLimit(plan, cfg.chunkConcurrency, async (chunk) => {
     const file = join(dir, `chunk-${String(chunk.index).padStart(4, '0')}.flac`);
     const { size } = await withSpan(
@@ -46,7 +49,7 @@ export async function transcribeFile(sourcePath, { durationSeconds, plan }, ctx,
             '-ss', String(chunk.start), '-t', String(chunk.length), '-i', sourcePath,
             '-map', '0:a:0', '-vn', '-ar', String(cfg.sampleRate), '-ac', '1', '-c:a', 'flac', file,
           ],
-          { signal },
+          { signal: stop },
         );
         const info = await stat(file);
         annotate({ 'team.output_bytes': info.size });
@@ -62,12 +65,15 @@ export async function transcribeFile(sourcePath, { durationSeconds, plan }, ctx,
     const request = { audioPath: file, language: cfg.language };
     if (cfg.vocabulary) request.prompt = cfg.vocabulary;
     const result = await withSpan('extract.transcription', { 'team.step': 'extract.transcription', 'team.chunk': chunk.index, 'team.input_bytes': size }, async () => {
-      const out = await providers.speech.transcribe(request);
+      const out = await providers.speech.transcribe(request, { signal: stop });
       annotate({ 'team.output_chars': out?.text?.length, 'team.segments': out?.segments?.length });
       return out;
     });
     progress.advance(step('transcribeChunk', { n: chunk.index + 1, total: plan.length }));
     return normalizeSegments(result, chunk);
+  }).catch((error) => {
+    lanes.abort();
+    throw error;
   });
 
   return joinSegments(mergeSegments(plan, perChunk), cfg.pauseSeconds, cfg.maxUnitWords);

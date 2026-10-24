@@ -34,7 +34,7 @@ export function createGroqSpeechClient(cfg) {
   const fetchImpl = cfg.fetchImpl ?? fetch;
   const limiter = cfg.limiter ?? limiterFor(provider); // the Groq organization's simultaneous requests (limiter.js, H-83)
 
-  async function rawTranscribe({ audioPath, language, prompt }) {
+  async function rawTranscribe({ audioPath, language, prompt }, signal) {
     if (!audioPath) throw new ProviderConfigError('groq-speech: falta «audioPath»', { provider, model });
     const bytes = await readFile(audioPath);
     annotate({ 'team.input_bytes': bytes.length });
@@ -48,22 +48,25 @@ export function createGroqSpeechClient(cfg) {
     if (prompt) form.append('prompt', prompt);
 
     // The slot is held around the request and the read of its answer; the audio is already in memory.
-    return limiter.run(() => send(form, language));
+    return limiter.run(() => send(form, language, signal));
   }
 
-  async function send(form, language) {
+  async function send(form, language, jobSignal) {
     const started = performance.now();
     const secrets = secretsOfHeaders({ authorization: `Bearer ${cfg.apiKey}` });
+    // The call ends at its own deadline or when the job that asked for it is told to stop, whichever comes first.
+    const deadline = AbortSignal.timeout(timeoutMs);
     let response;
     try {
       response = await fetchImpl(`${baseUrl}/audio/transcriptions`, {
         method: 'POST',
         headers: { authorization: `Bearer ${cfg.apiKey}` },
         body: form,
-        signal: AbortSignal.timeout(timeoutMs),
+        signal: jobSignal ? AbortSignal.any([deadline, jobSignal]) : deadline,
       });
     } catch (cause) {
       const duration_ms = Math.round(performance.now() - started);
+      if (jobSignal?.aborted && !deadline.aborted) throw new ProviderHttpError('groq-speech: la llamada se canceló con el trabajo', { provider, model, duration_ms, status: 0, retryable: false, cause });
       if (cause?.name === 'TimeoutError' || cause?.name === 'AbortError') {
         throw new ProviderTimeoutError(`groq-speech: la llamada superó ${timeoutMs} ms`, { provider, model, duration_ms, timeoutMs, cause });
       }
@@ -87,6 +90,13 @@ export function createGroqSpeechClient(cfg) {
         retryable: isRetryableStatus(response.status),
         retryAfterMs: Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : null,
         body: redactSecrets(json ?? raw.slice(0, 2000), secrets),
+      });
+    }
+    // A 200 that is not the transcription (an HTML page from a proxy or a captive portal, an empty body, a JSON without `text`) is not a silent
+    // recording: taking it for one would send the analysis an empty transcript. Silence is `{ "text": "" }`.
+    if (json === null || typeof json !== 'object' || typeof json.text !== 'string') {
+      throw new ProviderHttpError(redactSecrets('groq-speech: la respuesta no es una transcripción', secrets), {
+        provider, model, duration_ms, status: response.status, retryable: true, body: redactSecrets(raw.slice(0, 500), secrets),
       });
     }
     const segments = (json?.segments ?? []).map((s) => ({
@@ -113,12 +123,12 @@ export function createGroqSpeechClient(cfg) {
     /**
      * providers.speech.transcribe
      * @param {{audioPath: string, language?: string, prompt?: string}} req
-     * `prompt` is vocabulary only (proper names, project terms), never instructions (§7.4).
+     * `prompt` is vocabulary only (proper names, project terms), never instructions (§7.4). `signal` ends the call when the job is stopped.
      * One span per call (UD-014): the audio stays by reference and the full transcription in the event.
      */
-    transcribe(req) {
+    transcribe(req, { signal } = {}) {
       const request = { ...req, language: req.language === undefined ? GROQ_SPEECH_DEFAULTS.language : req.language };
-      return withGenAiCall({ provider, model, modality: 'speech', operation: 'transcription', request }, () => rawTranscribe(request));
+      return withGenAiCall({ provider, model, modality: 'speech', operation: 'transcription', request }, () => rawTranscribe(request, signal));
     },
   };
 }

@@ -75,6 +75,13 @@ async function decodeHeic(path, cfg, workDir, signal) {
 
 const HEIC_UNREADABLE = 'La foto HEIC está dañada o incompleta y no se puede leer.';
 
+const unreadable = (cause) => {
+  throw new ExtractError('image_unreadable', 'El archivo no es una imagen que se pueda leer.', { cause: String(cause?.message ?? cause) });
+};
+
+/** Decodes the image at 8 px, which for JPEG and WebP reads a fraction of the file, to be sure it is not cut short. */
+const decodes = (path) => sharp(path).resize({ width: 8, height: 8, fit: 'inside' }).toBuffer().catch(unreadable);
+
 /**
  * Leaves the image in a format providers accept: passes it as is if it already is one, is
  * upright and fits; otherwise rotates it per EXIF, shrinks it to the maximum side and converts it.
@@ -95,6 +102,9 @@ export async function normalizeImage(sourcePath, cfg, { workDir, signal } = {}) 
   const needsRotation = (meta.orientation ?? 1) > 1;
   const passthrough = cfg.passthroughFormats.includes(meta.format);
   if (passthrough && !needsRotation && longSide <= cfg.maxSide) {
+    // The header says «image»; only decoding says the file is whole. A truncated photo passes `metadata()` and would reach the provider as it is,
+    // which refuses it with an error that blames the provider.
+    await decodes(path);
     return { data: await readFile(path), mime: MIME_BY_FORMAT[meta.format], width: meta.width, height: meta.height, converted: fromHeic };
   }
   // A photo downscaled to PNG (lossless) weighs several times more than its JPEG: a 12 MP one came out at 17 MB in base64
@@ -107,7 +117,8 @@ export async function normalizeImage(sourcePath, cfg, { workDir, signal } = {}) 
       .resize({ width: side, height: side, fit: 'inside', withoutEnlargement: true })
       .flatten(lossy ? { background: '#ffffff' } : false)
       .toFormat(lossy ? 'jpeg' : cfg.outputFormat)
-      .toBuffer({ resolveWithObject: true });
+      .toBuffer({ resolveWithObject: true })
+      .catch(unreadable);
     // The provider measures the image in base64 against 10 MiB: with `maxBytes` (7 MiB) of binary it fits. If it does not fit, the side is halved.
     if (data.length <= cfg.maxBytes || side <= cfg.minSide) {
       return { data, mime: `image/${info.format}`, width: info.width, height: info.height, converted: true };

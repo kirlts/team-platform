@@ -20,6 +20,9 @@ for (const [net, prefix] of [
   ['100::', 64], ['2001::', 32], ['2001:db8::', 32], ['fc00::', 7], ['fe80::', 10], ['fec0::', 10], ['ff00::', 8],
 ]) v6.addSubnet(net, prefix, 'ipv6');
 
+// Codes of `dns.lookup` that mean «the name servers did not answer», as opposed to «the name does not exist» (ENOTFOUND, ENODATA).
+const TRANSIENT_DNS = new Set(['EAI_AGAIN', 'ETIMEOUT', 'ESERVFAIL', 'ECONNREFUSED', 'ETIMEDOUT', 'ECONNRESET']);
+
 const BLOCKED_SUFFIXES = ['.localhost', '.local', '.internal', '.localdomain'];
 
 function parseIPv6(address) {
@@ -79,6 +82,8 @@ export async function resolveSafeHost(rawHost, { lookup = dnsLookup, allowedPriv
   try {
     addresses = await lookup(host, { all: true, verbatim: true });
   } catch (cause) {
+    // The name servers not answering (a timeout, a refused connection, a server failure) clears up by itself; a name that does not exist does not.
+    if (TRANSIENT_DNS.has(cause?.code)) throw new ExtractError('link_fetch_failed', 'No se pudo abrir el enlace.', { host, cause: String(cause.code) });
     throw new ExtractError('link_unresolved', 'No se encontró el sitio del enlace.', { host, cause: String(cause?.code ?? cause) });
   }
   if (!addresses?.length) throw new ExtractError('link_unresolved', 'No se encontró el sitio del enlace.', { host });

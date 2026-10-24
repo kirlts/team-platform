@@ -1327,3 +1327,11 @@ Martín, el mismo día: «la idea es que yo no quiera abrir una sesion como esta
 5. **La API no cambia.** `POST /messages/:id/deliver` y `POST /messages/:id/discard-delivery` siguen para el sistema; la ficha ya no las llama.
 **Consecuencias:** Migración `0027_review_answered`. `ReviewPending` queda en una línea. Se retiran los rótulos «Entregar», «Pedir cambios» y «Descartar» del catálogo. `src/execute/approve.js` es la regla de entrega compartida por la ruta y por la sesión.
 **Condiciones de reversión:** Las fija Martín.
+
+## [UD-281] El Editor edita el perfil de un agente (enmienda UD-023)
+
+**Fecha:** 2026-10-24
+**Contexto:** Martín, textual: «Cuando yo cambie manualmente las áreas, descripciones de área, plantillas de área, y perfiles…». UD-023 deja que cada miembro edite sólo su propio perfil; el de un agente (Claude) no lo usa la pantalla, así que nadie podía cambiarlo.
+**Decisión:** El Editor edita el perfil de un miembro de tipo agente con `PATCH /members/:id` (campo `profile`), con auditoría `member.update`. La pantalla Equipo se lo muestra editable en el lugar, con el mismo control del perfil propio. El perfil de una persona sigue siendo suyo: `PATCH /members/:id` con `profile` sobre una persona responde 400 `validation`.
+**Consecuencias:** Sin migración. `PATCH /members/:id` acepta `profile`; MASTER-SPEC §7.1 y el glosario de Miembro se actualizan.
+**Condiciones de reversión:** Las fija Martín.

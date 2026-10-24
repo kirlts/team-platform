@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- El Editor edita el perfil de un agente, en Equipo y con `PATCH /members/:id` (UD-281, enmienda UD-023). Una pregunta de decisión se lee en una línea bajo el resumen; fuentes, recomendación y costo de equivocarse van al detalle plegado.
 - La revisión de un cambio retenido se hace respondiendo en el hilo, no con botones (UD-280, enmienda UD-275): la ficha muestra «Cambio listo para revisar»; Claude, mencionado, recibe el estado y la respuesta, y el campo `review` (`approve`, `discard`, `iterate`, `none`) decide lo que el sistema ejecuta, sólo para un Editor en entregar y descartar.
 - Menciones en las respuestas (UD-278): «@» elige miembros, avisa, asigna e invoca a un agente con el hilo completo y sus adjuntos; el hilo siempre recibe una respuesta.
 - Responder hablando (UD-279): el audio y el video de una respuesta se transcriben, la mención espera el texto, y el autor edita adjuntos y menciones de su respuesta.

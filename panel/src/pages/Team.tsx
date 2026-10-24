@@ -187,7 +187,7 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
       </div>
       <div className="min-w-0 text-sm max-lg:col-span-2">
         {/* The profile is read in its first paragraph and the rest is one click away, whole and not cut (J3-A-42, UD-016). */}
-        <FoldedText value={member.profile ?? ''} label={t('team.profileOf', { name: member.name })} canEdit={self} open={profileOpen} onOpenChange={onProfileOpen} placeholder={t('team.noProfile')} validate={(v) => (v.length > PROFILE_MAX ? t('form.maxLength', { n: PROFILE_MAX }) : null)} onSave={(v) => change('profile', v)} />
+        <FoldedText value={member.profile ?? ''} label={t('team.profileOf', { name: member.name })} canEdit={self || (viewerIsEditor && member.kind === 'agent')} open={profileOpen} onOpenChange={onProfileOpen} placeholder={t('team.noProfile')} validate={(v) => (v.length > PROFILE_MAX ? t('form.maxLength', { n: PROFILE_MAX }) : null)} onSave={(v) => change('profile', v)} />
       </div>
       {/* Below 1024 px the cell dissolves (the four columns need 39 rem and a tablet beside the side panel has 27): the action shares the row of the role, on the right edge, and the failure takes its own row below the profile. */}
       <div className="flex min-w-0 flex-col items-end gap-1 max-lg:contents">

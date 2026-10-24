@@ -1,4 +1,4 @@
-// Member routes (MASTER-SPEC §7.1, UD-007). A member edits only their own profile (UD-023); the editor
+// Member routes (MASTER-SPEC §7.1, UD-007). A member edits only their own profile (UD-023), and the editor also edits the profile of an agent (UD-281); the editor
 // creates and administers the rest. Changing the role or the password closes that person's sessions
 // (the session is regenerated on a privilege change, report 04 §2.2). The editor also deletes a member for good (UD-240).
 
@@ -110,13 +110,13 @@ export function registerMemberRoutes (app, ctx) {
   app.patch('/members/:id', {
     onRequest: [requireRole('editor')],
     schema: {
-      summary: 'Editar un miembro, o desactivarlo y reactivarlo con `active` (editor). El perfil no se edita aquí: cada miembro edita el suyo con `PATCH /members/me` (UD-023)',
+      summary: 'Editar un miembro, o desactivarlo y reactivarlo con `active` (editor). El perfil sólo se edita aquí si el miembro es un agente (UD-281); el de una persona lo edita ella con `PATCH /members/me` (UD-023)',
       params: idParams(),
       body: {
         type: 'object', additionalProperties: false, minProperties: 1,
         properties: {
           name: { type: 'string', minLength: 1 }, email: emailAddr, role: { type: 'string', enum: ['member', 'editor'] },
-          password: { type: 'string' },
+          password: { type: 'string' }, profile: profileText,
           active: { type: 'boolean', description: 'false desactiva la cuenta (no puede iniciar sesión y conserva su historial); true la reactiva.' }
         }
       },
@@ -125,6 +125,8 @@ export function registerMemberRoutes (app, ctx) {
   }, async (request) => {
     const { password, ...edits } = request.body
     const id = request.params.id
+    // UD-281: the editor edits the profile of an agent, who does not use the screen; the profile of a person stays their own (UD-023).
+    if (edits.profile !== undefined && get(db, 'SELECT kind FROM members WHERE id = ?', id)?.kind === 'person') throw badRequest('El perfil de una persona lo edita ella misma.', 'validation')
     // H-3720: the host declares this member's role on every entry; a local change would be undone on the next one.
     if (edits.role !== undefined && isRoleGoverned(db, id) && edits.role !== getMember(db, id).role) {
       throw conflict('El rol lo administra el sitio anfitrión.', 'role_managed_externally')

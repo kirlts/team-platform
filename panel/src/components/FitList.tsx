@@ -37,6 +37,7 @@ export function FitList<T>({
   label,
   header,
   bare = false,
+  fill = false,
   rowsRole,
   reveal,
   pagedOnPhone = false,
@@ -55,6 +56,8 @@ export function FitList<T>({
   header?: ReactNode
   /** No glass of its own: the list goes inside another panel. */
   bare?: boolean
+  /** The frame takes the whole slot, so two lists side by side are as tall as the taller one even when one holds less. */
+  fill?: boolean
   /** ARIA role of the group of rows (`listbox` when each row is an option). */
   rowsRole?: string
   /** Key of a row that has to be on the visible page when it changes (the selected one): the list pages to it (J2-B-10). */
@@ -255,7 +258,7 @@ export function FitList<T>({
 
   return (
     <div ref={slot} data-fit-measuring={desktop && rows.length > 0 && count === null ? '' : undefined} className={cn('flex min-h-0 flex-1 flex-col', className)} style={pages && fit ? { minHeight: fit.floor } : undefined}>
-      <div ref={frame} aria-label={label} className={cn('flex max-h-full min-h-0 flex-col overflow-hidden', bare ? 'border-y border-line' : 'glass leaf')}>
+      <div ref={frame} aria-label={label} className={cn('flex max-h-full min-h-0 flex-col overflow-hidden', bare ? 'border-y border-line' : 'glass leaf', fill && 'flex-1')}>
       {hasHeader && (
         <div ref={head} className="shrink-0">
           {header}

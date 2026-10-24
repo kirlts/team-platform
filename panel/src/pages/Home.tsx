@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { FitList } from '@/components/FitList'
 import { LoadState } from '@/components/LoadState'
 import { MessageCard } from '@/components/MessageCard'
-import { Page } from '@/components/Page'
+import { AIRY_GAP, Page } from '@/components/Page'
 import { SendDrawer } from '@/components/SendDrawer'
 import { Segmented } from '@/components/Segmented'
 import { type PendingUpload, type TrayItem } from '@/components/Tray'
@@ -237,7 +237,7 @@ export function Home() {
         </time>
       </div>
 
-      <section aria-label={t('home.new')} className="mx-auto flex w-full max-w-compose flex-col gap-3 [@media(min-height:1000px)]:md:py-block">
+      <section aria-label={t('home.new')} className="flex w-full flex-col gap-3">
         {/* The row keeps its height with or without sends, so the control appearing moves nothing (J2-B-08). */}
         <div className="flex min-h-8 items-center justify-between gap-x-6">
           <h2>{t('home.new')}</h2>
@@ -303,7 +303,7 @@ export function Home() {
           </div>
         </div>
       ) : (
-        <div className="flex flex-col gap-block-compact">
+        <div className={cn('flex flex-col', AIRY_GAP)}>
           <Feed kind="messages" meId={me?.id ?? ''} phone />
           <Feed kind="replies" meId={me?.id ?? ''} phone />
         </div>
@@ -360,10 +360,11 @@ function Feed({ kind, meId, phone = false, bound }: { kind: 'messages' | 'replie
   if (!messagesFeed) params.append('f', 'replies:eq:con')
 
   return (
-    // The frame is as tall as its rows. On a phone it stops at what is left of the screen under the header and the page margins, and the list pages inside it (J3-A-10).
-    <section aria-label={messagesFeed ? t('home.latestMessages') : t('home.latestReplies')} className={cn('glass leaf flex min-h-0 min-w-0 flex-col gap-2 px-1 pb-1 pt-3', phone && 'max-h-[calc(100dvh-6.5rem)]')}>
-      <div className="flex flex-wrap items-center justify-between gap-2 px-3">
-        <h2 className="text-base">
+    // A section like «Nuevo mensaje»: its title is a label above, with its filter on the right, and the frame of the rows under it. The frames take the height of the taller of the two.
+    // On a phone the section stops at what is left of the screen under the header and the page margins, and the list pages inside it (J3-A-10).
+    <section aria-label={messagesFeed ? t('home.latestMessages') : t('home.latestReplies')} className={cn('flex min-h-0 min-w-0 flex-col gap-3', phone && 'max-h-[calc(100dvh-6.5rem)]')}>
+      <div className="flex min-h-8 flex-wrap items-center justify-between gap-x-6 gap-y-2">
+        <h2>
           <Link to={`/messages?${params.toString()}`} className="hover:underline">
             {messagesFeed ? t('home.latestMessages') : t('home.latestReplies')}
           </Link>
@@ -381,13 +382,13 @@ function Feed({ kind, meId, phone = false, bound }: { kind: 'messages' | 'replie
         />
       </div>
       <FitList
-        bare
+        fill
         pagedOnPhone={phone}
         bound={bound}
         rows={rows}
         rowKey={(m) => m.id}
         renderRow={(m) => <MessageCard message={m} variant={messagesFeed ? 'message' : 'reply'} />}
-        empty={feed.isPending || feed.isError ? <LoadState query={feed} rows={2} /> : <p className="px-3 py-6 text-center text-sm text-muted">{messagesFeed ? t('home.noMessages') : t('home.noReplies')}</p>}
+        empty={feed.isPending || feed.isError ? <LoadState query={feed} rows={2} /> : <p className="flex min-h-24 items-center justify-center px-4 py-10 text-center text-sm text-muted">{messagesFeed ? t('home.noMessages') : t('home.noReplies')}</p>}
       />
     </section>
   )

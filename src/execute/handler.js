@@ -220,10 +220,6 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     if (budget.remaining <= 0) throw new Deferred(budget.nextDayMs, step('budgetWait'))
     const budgetUsd = Math.round(Math.min(x.maxBudgetUsd, budget.remaining) * 100) / 100 || 0.01
     const args = claudeArgs({ ...x, budgetUsd }, schema)
-    if (x.stableAsSystem) {
-      await writeFile(join(dirs.workdir, 'system.md'), parts.stable)
-      args.push('--append-system-prompt-file', x.runner === 'machine' ? SYSTEM_FILE_ON_MACHINE : join(dirs.workdir, 'system.md'))
-    }
     // It counts as run from here: the machine cost applies even if the session never returns its cost.
     runSql(db, 'UPDATE jobs SET runner = ?, run_at = ?, marks_json = NULL WHERE id = ?', x.runner, now(), job.id)
     rec.began = true
@@ -237,6 +233,11 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     queue.progress(job, 0, x.runner === 'machine' ? 'Creando la máquina' : 'Preparando la sesión')
 
     const dirs = await prepareWorkdir(job, messageId, deliverFailure !== null)
+    // After `dirs` exists: it is read here, and the file goes in the job directory.
+    if (x.stableAsSystem) {
+      await writeFile(join(dirs.workdir, 'system.md'), parts.stable)
+      args.push('--append-system-prompt-file', x.runner === 'machine' ? SYSTEM_FILE_ON_MACHINE : join(dirs.workdir, 'system.md'))
+    }
     const teamUrl = x.teamUrl || `http://127.0.0.1:${config.port}`
     const sessionEnv = {
       TEAM_URL: teamUrl, TEAM_API_PREFIX: config.apiPrefix, TEAM_AGENT_EMAIL: agent.email, TEAM_AGENT_SECRET: secret,

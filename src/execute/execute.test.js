@@ -152,6 +152,15 @@ describe('execute job', () => {
     assert.equal(team.TEAM_URL, `http://127.0.0.1:${PORT}`)
   })
 
+  it('with EXECUTE_STABLE_AS_SYSTEM the job runs: the system file is written after the job directory exists', async () => {
+    startWorker({ stableAsSystem: true })
+    const messageId = await publishedMessage('La pantalla de sedes mezcla tamaños de letra.')
+    const job = env.db.prepare("SELECT * FROM jobs WHERE kind = 'execute' AND message_id = ?").get(messageId)
+    const done = await waitJob(job.id)
+    assert.equal(done.status, 'done', done.last_error)
+    assert.ok(calls()[0].args.includes('--append-system-prompt-file'), 'the stable part travels as a system prompt file')
+  })
+
   it('EXECUTE_HOST_INSTRUCTIONS appends the host rules to the prompt; a missing file fails the job', async () => {
     const rules = join(env.dir, 'host-rules.md')
     writeFileSync(rules, 'Host rule: run npm test before you finish.\n')

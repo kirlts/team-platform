@@ -80,7 +80,8 @@ function replyAttachmentsOf (db, replyIds) {
 }
 
 const toReply = (r, atts = [], mentions = [], retryable = false) => ({
-  id: r.id, message_id: r.message_id, author_id: r.author_id, body: r.body, kind: r.kind, forwarded_to: r.forwarded_to ?? null, retryable, // UD-282: the notice of a failed session can be launched again mentions, // UD-278: the members picked from the list when the reply was written
+  id: r.id, message_id: r.message_id, author_id: r.author_id, body: r.body, kind: r.kind, forwarded_to: r.forwarded_to ?? null, retryable, // UD-282: the notice of a failed session can be launched again
+  mentions, // UD-278: the members picked from the list when the reply was written
   attachments: atts, attachment_kinds: [...new Set(atts.map((a) => a.kind))], // one icon per media kind (UD-016)
   created_at: iso(r.created_at), version: r.version, edited_at: iso(r.edited_at)
 })

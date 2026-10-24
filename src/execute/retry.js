@@ -1,4 +1,4 @@
-// Reintentar una sesión que falló (UD-282). The notice of a failure («Claude no pudo responder: …») carries the `execute` job that failed
+// Retry a session that failed (UD-282). The notice of a failure («Claude no pudo responder: …») carries the `execute` job that failed
 // (`replies.failed_job_id`); retrying enqueues a new job with the same origin: the same message and agent and the same `mention`, `forward` or delivery
 // context in the payload, so the session reads the same thread, files and voice notes again. Nothing here reads text (RULES 4).
 

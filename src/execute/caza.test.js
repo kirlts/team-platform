@@ -121,8 +121,10 @@ describe('failure hunt: execute and deliver', () => {
     process.env.FAKE_EXECUTE_FAIL_FIRST = '1'
     process.env.FAKE_EXECUTE_FAIL_MODE = 'api-error'
     startWorker()
+    const began = Date.now()
     const messageId = await publishedMessage('El servicio del modelo está saturado.')
     await settle(messageId)
+    assert.ok(Date.now() - began < 5000, `the second try starts at its time, not at the next sweep of the leases (10 s): ${Date.now() - began} ms`)
     const [job] = jobsOf(messageId, 'execute')
     assert.deepEqual([job.status, job.attempts], ['done', 2])
     assert.match(lastReply(messageId).body, /\*\*Resultado\*\*: done$/)
@@ -389,5 +391,16 @@ describe('failure hunt: execute and deliver', () => {
   it('a delivery command that did not run or was killed by a signal is the machine and not the change', () => {
     for (const code of [124, 126, 127, 129, 130, 139, 141]) assert.equal(isEnvironmentFailure({ code }, ''), true, `exit ${code}`)
     for (const code of [1, 2, 3, 4, 5, 64, 100]) assert.equal(isEnvironmentFailure({ code }, 'FAIL: la prueba'), false, `exit ${code}`)
+  })
+  it('the retry of a session that already sent its first reply is told not to send it again', async () => {
+    process.env.FAKE_EXECUTE_FAIL_FIRST = '1'
+    process.env.FAKE_EXECUTE_FAIL_MODE = 'exit-late'
+    startWorker()
+    const messageId = await publishedMessage('Una sesión que responde y muere.')
+    await settle(messageId)
+    assert.deepEqual(jobsOf(messageId, 'execute').map((j) => [j.status, j.attempts]), [['done', 2]])
+    assert.match(calls()[1].stdin, /pass: retry after a failure of the system; your first reply was already sent/)
+    assert.doesNotMatch(calls()[0].stdin, /pass: retry/)
+    assert.equal(env.db.prepare("SELECT COUNT(*) AS n FROM replies WHERE message_id = ? AND body LIKE 'Recibido%'").get(messageId).n, 1, 'one «Recibido» in the thread')
   })
 })

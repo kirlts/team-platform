@@ -35,10 +35,11 @@ process.stdin.on('end', async () => {
   }
   // FAKE_EXECUTE_START_CAPTURES: the JSON list the first reply passes to `team reply --captures` (with --zone FAKE_EXECUTE_START_ZONE).
   const startCaptures = process.env.FAKE_EXECUTE_START_CAPTURES ? ['--captures', process.env.FAKE_EXECUTE_START_CAPTURES, ...(process.env.FAKE_EXECUTE_START_ZONE ? ['--zone', process.env.FAKE_EXECUTE_START_ZONE] : [])] : []
-  if (process.env.FAKE_EXECUTE_REPLY === '1' && !stdin.includes('<delivery_failure>')) {
+  if (process.env.FAKE_EXECUTE_REPLY === '1' && !stdin.includes('<delivery_failure>') && !stdin.includes('pass: retry after a failure')) {
     execFileSync('team', ['reply', team.TEAM_MESSAGE_ID, '--body', 'Recibido. Empiezo por leer la pantalla.', ...startCaptures], { stdio: 'inherit' })
     execFileSync('team', ['progress', team.TEAM_JOB_ID, '--percent', '20', '--phrase', 'Revisión de la pantalla'], { stdio: 'inherit' })
   }
+  if (mode === 'exit-late') { process.stderr.write('session died after its first reply'); process.exit(3) } // the machine is lost once the session has already replied
   // Times the session reports with `team mark` (FAKE_EXECUTE_MARKS=1): judge 4000 + 1000, wait 2500, delivery 9000 that reached production.
   if (process.env.FAKE_EXECUTE_MARKS === '1') {
     for (const a of [['judge', '4000'], ['judge', '1000'], ['wait', '2500'], ['delivery', '9000', 'true']]) execFileSync('team', ['mark', a[0], '--ms', a[1], ...(a[2] ? ['--ok', a[2]] : [])], { stdio: 'inherit' })

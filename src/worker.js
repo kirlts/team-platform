@@ -37,6 +37,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
   let stopped = true
   let tickTimer = null
   let nextTimer = null
+  let emptyClaimAt = 0 // instant of the last claim that found nothing it could take
   const timers = []
   let version = null
 
@@ -45,9 +46,10 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     if (stopped) return
     const nextAt = queue.nextRunAt()
     if (nextAt === null) return
-    // A job already due that the last tick could not claim waits for a free slot or lane: the end of a running job wakes the claim (`kick` in its `finally`).
+    // A job already due that the last claim could not take waits for a free slot or lane: the end of a running job wakes the claim (`kick` in its `finally`).
     // Arming a timer for it re-read the queue every millisecond for as long as the slots were full (304 reads in 500 ms with one job running and two waiting).
-    if (nextAt <= now()) return
+    // A job that became due after that claim is not blocked, it is late: it gets its timer.
+    if (runningJobs.size >= w.concurrency || nextAt <= emptyClaimAt) return
     // Sleeps exactly until the next `run_at` (retries with backoff): there is no clock polling.
     nextTimer = setTimeout(kick, Math.min(MAX_TIMEOUT, Math.max(0, nextAt - now())))
     nextTimer.unref?.()
@@ -62,8 +64,9 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     if (stopped) return
     while (runningJobs.size < w.concurrency) {
       let job
+      const askedAt = now() // before the claim: a job that became due while it ran is late, not blocked
       try { job = queue.claim(workerId) } catch (error) { logger.error({ err: error }, 'error while claiming'); break }
-      if (!job) break
+      if (!job) { emptyClaimAt = askedAt; break }
       execute(job)
     }
     armNextWake()

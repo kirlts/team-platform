@@ -529,7 +529,9 @@ EXECUTE_MACHINE_COLLECT=mkdir -p /data/transcripciones/{job_id} && scp -q -r {ma
 
 Con un almacén de objetos, la última línea es la clave: `gcloud storage cp -r ... gs://bucket/{job_id}/ >&2 && echo gs://bucket/{job_id}/`. Cuánto tiempo se guardan las transcripciones lo decide el anfitrión (por ejemplo, una regla de ciclo de vida del bucket). La plataforma sólo guarda la referencia.
 
-### Revisión de un cambio retenido (UD-275)
+### Revisión de un cambio retenido (UD-275, UD-280)
+
+Desde UD-280 la ficha no tiene botones: la persona responde en el hilo mencionando a Claude y el modelo decide con `review` si entregar, descartar, iterar o sólo responder; el sistema entrega o descarta sólo para un Editor. Las rutas `POST /messages/:id/deliver` y `/discard-delivery` siguen disponibles.
 
 Una orden de entrega que sale con 76 deja el cambio esperando a una persona, que lo ve en la ficha del mensaje, en «Revisión». Cuando un Editor aprueba con «Entregar», la orden vuelve a correr con `TEAM_REVIEWED_BY` fijada al id de ese miembro: una orden que retiene por zona no debe retener otra vez cuando viene fijada. Para que la persona vea cómo queda, la sesión graba el recorrido con `team walkthrough --url <dirección de la vista de la rama> --steps <json|archivo> --place <ruta> --as <rol> [--profile desktop|phone|both]`, que necesita Playwright y un Chromium en la máquina de la sesión (sin ellos lo dice en una línea y sigue con las capturas). El video y las capturas de cada paso se declaran en `captures` y se adjuntan con el rótulo «Propuesta».
 

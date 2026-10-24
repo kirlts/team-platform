@@ -1314,3 +1314,16 @@ Martín, el mismo día: «la idea es que yo no quiera abrir una sesion como esta
 **Decisión:** (1) Los textos de la interfaz son rótulos de una a tres palabras, sin ayuda por omisión; un error es una oración que dice qué pasó y qué hacer. No usan términos internos (cola, trabajo, propuesta, trozo, analizador externo) ni segunda persona. (2) Lo que escriben los modelos para una persona (cuerpo de los mensajes del análisis, primera respuesta y respuesta final de Claude) es corto y llano para alguien no técnico: qué se pide y para qué, con la lista de requisitos si la hay, sin rutas ni nombres de componentes. Se pide en la instrucción al modelo; ningún filtro reescribe su salida.
 **Consecuencias:** El catálogo del panel pasa «En cola» a «En espera», «Propuesta» a «Borrador» y «Trabajos» a «Tareas», y acorta los errores de análisis. Un texto que el dueño pidió textual no se toca.
 **Condiciones de reversión:** Las fija Martín.
+
+## [UD-280] La revisión se hace respondiendo, no con botones (enmienda UD-275)
+
+**Fecha:** 2026-10-24
+**Contexto:** Martín, textual: «lo de sí/no/comentario no era para que literalmente implementaras botones así, un miembro debe ESCRIBIR lo que quiere, sí/no/comentario no cubre el universo de posibilidades de respuesta». UD-275 dejó en la ficha tres botones («Entregar», «Pedir cambios», «Descartar»).
+**Decisión:**
+1. **Sin acciones en la ficha.** Mientras un cambio espera revisión, la ficha muestra una línea de estado, «Cambio listo para revisar», sin botones ni diálogos. Con una entrega en curso muestra su avance.
+2. **La revisión es una respuesta en el hilo**, escrita o hablada (UD-279), que menciona a Claude o al agente que hizo el cambio (UD-278). La persona escribe lo que quiere con sus palabras: entregar, descartar, cambiar algo, preguntar, pedir otra vista.
+3. **El modelo interpreta y el sistema ejecuta.** La sesión invocada recibe el estado de la revisión (rama, motivo de la retención, si quien la llamó es Editor y quiénes lo son) y el hilo completo con el material que dejó. Devuelve el campo `review`: `approve`, `discard`, `iterate` o `none`, y `review_reason` con el motivo de un descarte. El sistema lee el campo, nunca el texto.
+4. **Reglas del sistema.** `approve`: encola la entrega con `TEAM_REVIEWED_BY` = quien pidió, sólo si es un Editor; si no, la respuesta es una línea con quiénes pueden aprobar y no se entrega. `discard`: mismo requisito; marca el cambio descartado con el motivo que el modelo resumió y deja el mensaje abierto. `iterate`: la sesión trabaja la misma rama y vuelve a dejar el material de revisión. `none`: responde sin tocar la revisión. Con `approve`, `discard` y `none` la sesión no cambia código y la corrida no reemplaza a la que retuvo el cambio (`execute_runs.review_answered`). La entrega aprobada así termina con la respuesta final normal.
+5. **La API no cambia.** `POST /messages/:id/deliver` y `POST /messages/:id/discard-delivery` siguen para el sistema; la ficha ya no las llama.
+**Consecuencias:** Migración `0027_review_answered`. `ReviewPending` queda en una línea. Se retiran los rótulos «Entregar», «Pedir cambios» y «Descartar» del catálogo. `src/execute/approve.js` es la regla de entrega compartida por la ruta y por la sesión.
+**Condiciones de reversión:** Las fija Martín.

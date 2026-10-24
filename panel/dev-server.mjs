@@ -361,7 +361,7 @@ function writeEvent(res, ev) {
 function replyView(r) {
   const { attachment_ids, ...rest } = r
   const files = (attachment_ids ?? []).map(attachmentView).filter(Boolean)
-  return { version: 1, edited_at: null, ...rest, attachments: files, attachment_kinds: [...new Set(files.map((f) => f.kind))] }
+  return { version: 1, edited_at: null, mentions: [], ...rest, attachments: files, attachment_kinds: [...new Set(files.map((f) => f.kind))] }
 }
 
 function view(msg) {
@@ -1450,16 +1450,17 @@ const server = createServer(async (req, res) => {
         return send(res, 200, { ...view(msg), replies: liveReplies(msg).map(replyView) })
       }
       if (m[2] === 'replies' && method === 'POST') {
-        if (msg.author_id === me.id) return fail(res, 403, 'El emisor no puede responder su propio mensaje', 'forbidden')
         const ct = req.headers['content-type'] ?? ''
         let text
         let kind
+        let mentionIds = []
         const attIds = []
         if (ct.startsWith('multipart/')) {
           const boundary = /boundary=(?:"([^"]+)"|([^;]+))/.exec(ct)
           const parts = parseMultipart(await readBody(req), boundary[1] ?? boundary[2])
           text = parts.find((p) => p.name === 'body')?.data.toString('utf8')
           kind = parts.find((p) => p.name === 'kind')?.data.toString('utf8')
+          mentionIds = parts.filter((p) => p.name === 'mention_ids').map((p) => p.data.toString('utf8'))
           for (const f of parts.filter((p) => p.name === 'files' && p.filename)) {
             const mime = f.type ?? 'application/octet-stream'
             const a = { id: `f-${id()}`, kind: kindOf(mime), mime, name: f.filename, size: f.data.length, data: f.data }
@@ -1475,13 +1476,26 @@ const server = createServer(async (req, res) => {
           const body = await readJson(req)
           text = body?.body
           kind = body?.kind
+          mentionIds = (body?.mention_ids ?? []).map(String)
+        }
+        // UD-275: as the real API, the sender writes in the thread only to call someone, and the mentions are the ids picked in the list.
+        mentionIds = [...new Set(mentionIds)]
+        if (msg.author_id === me.id && mentionIds.length === 0) return fail(res, 403, 'El emisor de un mensaje no puede responderlo.', 'author_cannot_reply')
+        for (const mid of mentionIds) {
+          const to = members.find((x) => String(x.id) === mid)
+          if (!to) return fail(res, 404, 'El miembro mencionado no existe.', 'not_found')
+          if (to.id === me.id) return fail(res, 400, 'Una respuesta no menciona a quien la escribe.', 'mention_self')
+          if (to.active === false) return fail(res, 400, 'El miembro mencionado está desactivado.', 'assignee_inactive')
         }
         if (!String(text ?? '').trim() || !['answer', 'fix', 'clarification'].includes(kind ?? 'answer')) return fail(res, 422, 'Respuesta inválida', 'validation')
         const body = { body: text, kind: kind ?? 'answer' }
-        const reply = { id: `r-${id()}`, message_id: msg.id, author_id: me.id, body: body.body.trim(), kind: body.kind, created_at: new Date().toISOString(), attachment_ids: attIds }
+        const reply = { id: `r-${id()}`, message_id: msg.id, author_id: me.id, body: body.body.trim(), kind: body.kind, created_at: new Date().toISOString(), attachment_ids: attIds, mentions: mentionIds.map((x) => members.find((m) => String(m.id) === x).id) }
         replies.get(msg.id).push(reply)
+        for (const to of reply.mentions) if (!msg.assignee_ids.includes(to)) msg.assignee_ids = [...msg.assignee_ids, to]
         syncStatus(msg)
-        return send(res, 201, replyView(reply))
+        if (msg.author_id === me.id) msg.status = 'open' // a request of the sender is not an answer (UD-275)
+        // The real API answers with the message and its thread (the panel reads the cache from it).
+        return send(res, 201, { ...view(msg), replies: liveReplies(msg).map(replyView) })
       }
       if (m[2] === 'forward' && method === 'POST') {
         // UD-272: the same message, one more assignee and a notice of kind `forward` in its thread; the reason is required.

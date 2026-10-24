@@ -7,10 +7,11 @@
 // tool declares: `masked`. See `checkCaptures` in scripts/team.mjs, which the `team` command shares.
 
 import { createReadStream } from 'node:fs'
+import { open } from 'node:fs/promises'
 import { join } from 'node:path'
 import { all } from '../db/index.js'
 import { captureLabels, captureName, checkCaptures } from '../../scripts/team.mjs'
-import { commit, ingest } from '../domain/storage.js'
+import { blobPath, commit, ingest } from '../domain/storage.js'
 
 /** The directory of a job where the session leaves its screenshots. */
 export const capturesDir = (workdir) => join(workdir, 'captures')
@@ -66,4 +67,54 @@ export function closingCaptures (db, { messageId, authorId, stored, language }) 
     lines.push(`**${labels.after}**: ${c.alt}. ${c.place}, ${c.as}.`)
   }
   return { files, lines }
+}
+
+/** Width and height of a PNG from its header (bytes 16 to 24); null when the file is not a PNG. */
+async function pngSize (file) {
+  let handle
+  try {
+    handle = await open(file, 'r')
+    const head = Buffer.alloc(24)
+    await handle.read(head, 0, 24, 0)
+    if (!head.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return null
+    return { width: head.readUInt32BE(16), height: head.readUInt32BE(20) }
+  } catch { return null } finally { await handle?.close() }
+}
+
+/**
+ * Where the «before» of a message was taken: one { place, as, width, height } per image of the last reply of this agent that carries the «before»
+ * (the lines the reply keeps under that label are «<Label>: <alt>. <place>, <as>.»; a place has no comma, the role it was seen as does). The host
+ * takes the «after» from production at that same place, as that same role and at that same size (UD-268). Empty when there is no «before».
+ */
+export async function beforeOfMessage (db, config, { messageId, authorId }) {
+  const names = [...new Set(Object.values({ es: captureLabels('es-419'), en: captureLabels('en') }).map((l) => `${l.before} - %`))]
+  const rows = all(db, `SELECT ra.reply_id, ra.sha256, r.body FROM reply_attachments ra JOIN replies r ON r.id = ra.reply_id
+      WHERE r.message_id = ? AND r.author_id = ? AND r.deleted_at IS NULL AND ra.kind = 'image' AND (${names.map(() => 'ra.name LIKE ?').join(' OR ')})
+      ORDER BY ra.reply_id DESC, ra.position, ra.id`, messageId, authorId, ...names)
+  const last = rows[0]?.reply_id
+  const mine = rows.filter((r) => r.reply_id === last).reverse()
+  if (!mine.length) return []
+  const labelsAll = Object.values({ es: captureLabels('es-419'), en: captureLabels('en') }).map((l) => l.before.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  const lineRe = new RegExp(`^\\*\\*(?:${labelsAll.join('|')})\\*\\*: .+\\. ([^,]+), (.+)\\.$`)
+  const found = String(mine[0].body ?? '').split('\n').map((l) => l.match(lineRe)).filter(Boolean)
+  const out = []
+  for (const [i, row] of mine.entries()) {
+    const m = found[i]
+    if (!m) continue
+    out.push({ place: m[1].trim(), as: m[2].trim(), ...((await pngSize(blobPath(config, row.sha256))) ?? {}) })
+  }
+  return out
+}
+
+/** What the delivery command reports about the «after»: `##team capture {json}` lines (a capture it left in $TEAM_WORKDIR/captures) and `##team capture-failed <reason>`. */
+export function deliveryCaptureLines (stdout) {
+  const list = []
+  const failed = []
+  for (const line of String(stdout ?? '').split('\n')) {
+    const t = line.trim()
+    if (t.startsWith('##team capture-failed ')) { failed.push(t.slice('##team capture-failed '.length).slice(0, 300)); continue }
+    if (!t.startsWith('##team capture ')) continue
+    try { list.push(JSON.parse(t.slice('##team capture '.length))) } catch { /* a line that is not JSON is not a capture */ }
+  }
+  return { list, failed }
 }

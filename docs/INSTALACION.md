@@ -499,6 +499,7 @@ Sin `EXECUTE_DELIVER_COMMAND`, la sesión de Claude entrega a producción por la
 | Otro código | Fallo. stdout y stderr son el motivo. Con `EXECUTE_DELIVER_RETRIES` vueltas disponibles, un `execute` nuevo recibe esa salida en su prompt, corrige sobre la misma rama y vuelve a entregar. Si falla otra vez, el autor recibe el aviso de que no pasó la verificación, con `outcome: blocked` |
 | Plazo | `EXECUTE_DELIVER_TIMEOUT_MS`. Vencido, se mata el grupo de procesos de la orden y el autor recibe el aviso; no vuelve a Claude |
 | Fases | Opcional. Las líneas `##team phase verify` y `##team phase deploy` de stdout mueven el progreso que ven la tarjeta del mensaje y la Cola |
+| Captura del después | Opcional (UD-268). `TEAM_BEFORE_CAPTURES` trae la lista JSON `[{ place, as, width, height }]` del antes de la primera respuesta. Con código 0, la orden puede dejar una imagen en `$TEAM_WORKDIR/captures` e imprimir `##team capture <json>` (`{ path, alt, masked, place, as }`), o `##team capture-failed <motivo>`, que la respuesta final dice en una línea. La captura de la sesión sólo vale si no hubo antes con lugar |
 | Repetición | La orden debe poder correr dos veces sobre la misma rama |
 
 Ejemplo genérico: trae la rama, corre sólo las pruebas críticas, despliega y deja el commit como referencia. La salida de las herramientas va a stderr para que la última línea de stdout sea la referencia.

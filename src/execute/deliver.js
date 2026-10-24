@@ -13,6 +13,10 @@
 //                 session, compact JSON without `summary`)
 //   timeout       EXECUTE_DELIVER_TIMEOUT_MS; SIGTERM to the group the job started, then SIGKILL after EXECUTE_KILL_GRACE_MS
 //   stdout lines  `##team phase verify` and `##team phase deploy` move the progress of the job (and the panel) to that phase
+//   «after»       TEAM_BEFORE_CAPTURES is the JSON list [{ place, as, width, height }] of the «before» of the first reply (empty list without one). With exit 0 the
+//                 command can take the «after» from production at that place: it leaves the image in $TEAM_WORKDIR/captures and prints `##team capture <json>`
+//                 ({ path, alt, masked, place, as }, as in `team reply --captures`), or `##team capture-failed <reason>`, which the closing reply says in one line. The
+//                 capture of the session (taken from the branch) is used only when the first reply carried no «before» (UD-268)
 //
 // The author gets ONE closing reply. In green: the `summary` of the session plus «Ya está en producción», the reference in the structured
 // part. If the verification fails, an `execute` job runs once more (EXECUTE_DELIVER_RETRIES) with the output in its prompt; if it fails again,
@@ -30,7 +34,7 @@ import { Deferred } from '../domain/pipeline.js'
 import { step } from '../domain/progress-phrases.js'
 import { endManualSpan, startManualSpan, withSpan } from '../telemetry/api.js'
 import { updateExecuteRun } from '../telemetry/execute-runs.js'
-import { closingCaptures } from './captures.js'
+import { beforeOfMessage, capturesDir, closingCaptures, deliveryCaptureLines, storeCaptures } from './captures.js'
 import { enqueueExecute } from './enqueue.js'
 import { replyBody } from './handler.js'
 import { readTemplate } from './prompt.js'
@@ -46,6 +50,7 @@ const OUTPUT_TAIL_CHARS = 6000 // declared courtesy: the end of the output is wh
 const TEXTS = {
   'es-419': {
     production: 'Ya está en producción.',
+    afterFailed: (reason) => `No pude tomar la captura del después: ${reason}.`,
     held: (reason) => `El cambio está listo y espera la revisión de una persona antes de entrar a producción: ${reason}. Queda guardado en la rama.`,
     heldReason: 'el cambio necesita esa revisión',
     delivery: 'Entrega',
@@ -56,6 +61,7 @@ const TEXTS = {
   },
   en: {
     production: 'It is in production now.',
+    afterFailed: (reason) => `I could not take the «after» screenshot: ${reason}.`,
     held: (reason) => `The change is ready and waits for a person to review it before it goes to production: ${reason}. It is saved on the branch.`,
     heldReason: 'the change needs that review',
     delivery: 'Delivery',
@@ -182,8 +188,11 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
         setPhase('deliverVerify', 0)
         enterPhase('deliverVerify')
         const command = fillCommand(x.deliverCommand, { job_id: String(job.id), message_id: String(messageId), branch, workdir })
+        // UD-268: the «before» (place, role and size) goes to the command, which takes the «after» from production once it serves the change.
+        const before = await beforeOfMessage(db, config, { messageId, authorId: agent.id }).catch(() => [])
+        await mkdir(capturesDir(workdir), { recursive: true })
         const env = {
-          ...process.env, TEAM_JOB_ID: String(job.id), TEAM_MESSAGE_ID: String(messageId), TEAM_BRANCH: branch, TEAM_WORKDIR: workdir,
+          ...process.env, TEAM_JOB_ID: String(job.id), TEAM_MESSAGE_ID: String(messageId), TEAM_BRANCH: branch, TEAM_WORKDIR: workdir, TEAM_BEFORE_CAPTURES: JSON.stringify(before),
           TEAM_DELIVER_ROUND: String(payload.round ?? 0), TEAM_DELIVER_ATTEMPT: String(job.attempts),
           TEAM_OUTPUT_JSON: outputJson(payload.output)
         }
@@ -191,6 +200,15 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
         if (phaseSpan) { endManualSpan(phaseSpan, r.code !== 0 && r.code !== DELIVER_LATER && r.code !== DELIVER_HELD ? { error: new Error(r.timedOut ? 'timeout' : `exit ${r.code}`) } : {}); phaseSpan = null }
         span.setAttributes({ 'team.exit_code': r.code ?? -1, 'team.delivery_ms': Math.max(0, now() - startedAt) })
         if (r.code !== 0 && r.code !== DELIVER_LATER && r.code !== DELIVER_HELD) span.setStatus({ code: SpanStatusCode.ERROR, message: r.timedOut ? 'timeout' : `exit ${r.code}` })
+        // The «after» the command took (UD-268): stored while the directory exists, like those of the session.
+        if (r.code === 0) {
+          const reported = deliveryCaptureLines(r.stdout)
+          let stored = { stored: [], rejected: [] }
+          if (reported.list.length) { try { stored = await storeCaptures({ config, output: { captures: reported.list, zone: payload.output?.zone ?? null }, workdir }) } catch (error) { logger?.warn({ err: error }, 'could not store the captures of the delivery') } }
+          for (const c of stored.rejected) span.addEvent('captures.rejected', { 'team.capture_index': c.index, 'team.capture_reason': c.reason })
+          if (stored.stored.length) span.setAttribute('team.captures', stored.stored.length)
+          r.after = { stored: stored.stored, failed: reported.failed, hadBefore: before.length > 0 }
+        }
         const ref = r.code === 0 ? referenceOf(r.stdout) : null
         if (ref) span.setAttribute('team.delivery_ref', ref)
         if (r.code === DELIVER_HELD) span.setAttribute('team.delivery_held', true)
@@ -243,7 +261,11 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
 
     return () => {
       // Inside the transaction that closes the job: the one closing reply, then the end of the progress.
-      const closing = closingCaptures(db, { messageId, authorId: agent.id, stored: payload.captures, language: author?.language })
+      // From production when the command took it; the capture of the session (taken from the branch) only when there was no «before» place.
+      const fromProduction = result.after?.stored ?? []
+      const stored = fromProduction.length ? fromProduction : (result.after?.hadBefore ? [] : payload.captures)
+      const closing = closingCaptures(db, { messageId, authorId: agent.id, stored, language: author?.language })
+      for (const reason of result.after?.failed ?? []) closing.lines.push(textsOf(author?.language).afterFailed(reason))
       const { replyId } = addReply({ db, events, now }, {
         messageId, authorId: agent.id, kind: 'answer', body: deliveredBody({ output: payload.output, template, ref, language: author?.language, lines: closing.lines }), files: closing.files
       })

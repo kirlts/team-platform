@@ -146,20 +146,53 @@ describe('deliver job', () => {
     assert.ok(timing.phases.some((p) => p.name === 'deliver'), 'the delivery is one more phase of the message')
   })
 
-  it('the closing reply of a delivery carries the before of the first reply and the after of the session (UD-268)', async () => {
+  it('without a place of the before, the closing reply carries the after the session took from the branch (UD-268)', async () => {
     const shot = (path, alt) => ({ path, alt, masked: true, place: 'Correos > Bandeja', as: 'Clínica Sur, administrador' })
-    process.env.FAKE_EXECUTE_CAPTURE_FILES = JSON.stringify({ 'antes.png': 'png', 'despues.png': 'png' })
-    process.env.FAKE_EXECUTE_START_CAPTURES = JSON.stringify([shot('antes.png', 'Bandeja con el error')])
+    process.env.FAKE_EXECUTE_CAPTURE_FILES = JSON.stringify({ 'despues.png': 'png' })
+    delete process.env.FAKE_EXECUTE_START_CAPTURES
     process.env.FAKE_EXECUTE_EXTRA = JSON.stringify({ captures: [shot('despues.png', 'Bandeja sin el error')] })
     startWorker({ deliverCommand: 'echo abc1234' })
     const messageId = await publishedMessage('La bandeja de correos muestra un error.')
     await settle(messageId)
     const [delivery] = jobsOf(messageId, 'deliver')
     assert.equal(delivery.status, 'done', delivery.last_error)
-    const rows = env.db.prepare('SELECT r.id AS reply, ra.name FROM replies r JOIN reply_attachments ra ON ra.reply_id = r.id WHERE r.message_id = ? AND r.author_id = ? ORDER BY r.id, ra.position').all(messageId, agentId)
-    assert.deepEqual(rows.map((x) => x.name), ['Antes - Bandeja con el error.png', 'Antes - Bandeja con el error.png', 'Después - Bandeja sin el error.png'])
+    const rows = env.db.prepare('SELECT ra.name FROM replies r JOIN reply_attachments ra ON ra.reply_id = r.id WHERE r.message_id = ? AND r.author_id = ? ORDER BY r.id, ra.position').all(messageId, agentId)
+    assert.deepEqual(rows.map((x) => x.name), ['Después - Bandeja sin el error.png'])
     const closing = replies(messageId)[1]
     assert.match(closing, /Ya está en producción\.\n\n\*\*Resultado\*\*: done\n\n\*\*Entrega\*\*: abc1234\n\n\*\*Después\*\*: Bandeja sin el error\. Correos > Bandeja, Clínica Sur, administrador\.$/)
+  })
+
+  it('the delivery takes the after from production at the place, role and size of the before, and the branch capture is only a fallback (UD-268)', async () => {
+    const shot = (path, alt) => ({ path, alt, masked: true, place: 'Correos > Bandeja', as: 'Clínica Sur, administrador' })
+    process.env.FAKE_EXECUTE_CAPTURE_FILES = JSON.stringify({ 'antes.png': 'png', 'rama.png': 'png' })
+    process.env.FAKE_EXECUTE_START_CAPTURES = JSON.stringify([shot('antes.png', 'Bandeja con el error')])
+    process.env.FAKE_EXECUTE_EXTRA = JSON.stringify({ captures: [shot('rama.png', 'Bandeja de la rama')] })
+    const seen = join(state, 'before.json')
+    const png = "'\\211PNG\\r\\n\\032\\n\\000\\000\\000\\000'"
+    const place = JSON.stringify({ path: 'prod.png', alt: 'Bandeja en producción', masked: true, place: 'Correos > Bandeja', as: 'Clínica Sur, administrador' })
+    startWorker({ deliverCommand: `printf '%s' "$TEAM_BEFORE_CAPTURES" > ${seen}; printf ${png} > "$TEAM_WORKDIR/captures/prod.png"; echo '##team capture ${place}'; echo abc1234` })
+    const messageId = await publishedMessage('La bandeja de correos muestra un error en producción.')
+    await settle(messageId)
+    const [delivery] = jobsOf(messageId, 'deliver')
+    assert.equal(delivery.status, 'done', delivery.last_error)
+    const before = JSON.parse(readFileSync(seen, 'utf8'))
+    assert.equal(before.length, 1)
+    assert.deepEqual([before[0].place, before[0].as], ['Correos > Bandeja', 'Clínica Sur, administrador'])
+    const names = env.db.prepare('SELECT ra.name FROM replies r JOIN reply_attachments ra ON ra.reply_id = r.id WHERE r.message_id = ? AND r.author_id = ? ORDER BY r.id, ra.position').all(messageId, agentId).map((x) => x.name)
+    assert.ok(names.includes('Después - Bandeja en producción.png'), names.join('|'))
+    assert.ok(!names.includes('Después - Bandeja de la rama.png'), 'the capture of the branch is not used when the before has a place')
+  })
+
+  it('when the delivery cannot take the after, the reply goes out with a line that says so (UD-268)', async () => {
+    const shot = (path, alt) => ({ path, alt, masked: true, place: 'Correos > Bandeja', as: 'Clínica Sur, administrador' })
+    process.env.FAKE_EXECUTE_CAPTURE_FILES = JSON.stringify({ 'antes.png': 'png' })
+    process.env.FAKE_EXECUTE_START_CAPTURES = JSON.stringify([shot('antes.png', 'Bandeja con el error')])
+    startWorker({ deliverCommand: "echo '##team capture-failed ver no abrió la clínica'; echo abc1234" })
+    const messageId = await publishedMessage('La bandeja de correos muestra otro error.')
+    await settle(messageId)
+    const [delivery] = jobsOf(messageId, 'deliver')
+    assert.equal(delivery.status, 'done', delivery.last_error)
+    assert.match(replies(messageId)[1], /Ya está en producción\.[\s\S]*No pude tomar la captura del después: ver no abrió la clínica\.$/)
   })
 
   it('the prompt tells the session that the system delivers and that it stops at the push', async () => {

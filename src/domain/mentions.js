@@ -112,8 +112,9 @@ export function mentionsOf (db, replyIds) {
 
 /**
  * Whether `agentId` has answered the mention in `replyId`: a live reply of the agent in the same message after it. This is the guarantee of UD-278: a mention
- * of an agent always gets at least one reply from it, and the failure path checks it before giving up.
+ * of an agent always gets at least one reply from it, and the failure path checks it before giving up. `exceptReplyId` leaves out the acknowledgement
+ * the system posted itself when the session started: it does not count as the answer.
  */
-export function mentionAnswered (db, { messageId, agentId, replyId }) {
-  return Boolean(get(db, 'SELECT 1 AS ok FROM replies WHERE message_id = ? AND author_id = ? AND id > ? AND deleted_at IS NULL LIMIT 1', messageId, agentId, replyId))
+export function mentionAnswered (db, { messageId, agentId, replyId, exceptReplyId = 0 }) {
+  return Boolean(get(db, 'SELECT 1 AS ok FROM replies WHERE message_id = ? AND author_id = ? AND id > ? AND id != ? AND deleted_at IS NULL LIMIT 1', messageId, agentId, replyId, exceptReplyId))
 }

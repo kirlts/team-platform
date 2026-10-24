@@ -1,18 +1,27 @@
 #!/usr/bin/env node
 // Stand-in for `claude -p --output-format stream-json --verbose --include-partial-messages` in the `execute` tests.
 // Records its arguments, cwd, PATH entries and TEAM_* variables, optionally calls `team reply` through the PATH as the
-// real session would, and prints NDJSON. FAKE_EXECUTE_MODE: ok | no-structured | error | hang | exit.
+// real session would, and prints NDJSON. FAKE_EXECUTE_MODE: ok | no-structured | error | hang | exit | api-error | invalid-output | reject-flag.
+// FAKE_EXECUTE_FAIL_FIRST=n makes the first n calls (counted in calls.jsonl) behave as FAKE_EXECUTE_FAIL_MODE and the rest as `ok`.
+// FAKE_EXECUTE_SLEEP_MS holds the session that long before its result (a session that is still working).
 import { execFileSync } from 'node:child_process'
-import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 
+const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 const state = process.env.FAKE_EXECUTE_STATE
-const mode = process.env.FAKE_EXECUTE_MODE ?? 'ok'
+let mode = process.env.FAKE_EXECUTE_MODE ?? 'ok'
+if (process.env.FAKE_EXECUTE_FAIL_FIRST) {
+  const before = existsSync(`${state}/calls.jsonl`) ? readFileSync(`${state}/calls.jsonl`, 'utf8').trim().split('\n').filter(Boolean).length : 0
+  mode = before < Number(process.env.FAKE_EXECUTE_FAIL_FIRST) ? (process.env.FAKE_EXECUTE_FAIL_MODE ?? 'exit') : 'ok'
+}
 let stdin = ''
 process.stdin.on('data', (d) => { stdin += d })
-process.stdin.on('end', () => {
+process.stdin.on('end', async () => {
   const team = Object.fromEntries(Object.entries(process.env).filter(([k]) => k.startsWith('TEAM_')))
   if (state) appendFileSync(`${state}/calls.jsonl`, `${JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd(), team, stdin, otel: Object.fromEntries(Object.entries(process.env).filter(([k]) => k === 'TRACEPARENT' || k.startsWith('OTEL_') || k.startsWith('CLAUDE_CODE_'))) })}\n`)
   const out = (e) => process.stdout.write(`${JSON.stringify(e)}\n`)
+  // A binary that does not know a flag of the invocation (an image older than the environment that asks for it) prints its usage and exits at once, with no event.
+  if (mode === 'reject-flag' && process.argv.includes('--append-system-prompt-file')) { process.stderr.write("error: unknown option '--append-system-prompt-file'\n"); process.exit(1) }
   const sessionId = 'sess-0001'
   out({ type: 'system', subtype: 'init', session_id: sessionId, model: 'claude-sonnet-5-5', tools: ['Read', 'Bash'] })
   // The session file Claude Code leaves under ~/.claude/projects/<dir>/<session>.jsonl (what EXECUTE_MACHINE_COLLECT copies).
@@ -34,11 +43,10 @@ process.stdin.on('end', () => {
   if (process.env.FAKE_EXECUTE_MARKS === '1') {
     for (const a of [['judge', '4000'], ['judge', '1000'], ['wait', '2500'], ['delivery', '9000', 'true']]) execFileSync('team', ['mark', a[0], '--ms', a[1], ...(a[2] ? ['--ok', a[2]] : [])], { stdio: 'inherit' })
   }
-  const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
   const usage = (n) => ({ input_tokens: 100 * n, output_tokens: 10 * n, cache_read_input_tokens: 1000 * n, cache_creation_input_tokens: 50 * n })
   if (process.env.FAKE_EXECUTE_MULTI === '1') return multi()
-  legacy()
-  function legacy () {
+  await legacy()
+  async function legacy () {
   out({ type: 'stream_event', session_id: sessionId, event: { type: 'content_block_delta', delta: { type: 'text_delta', text: 'Leo' } } })
   out({ type: 'assistant', session_id: sessionId, parent_tool_use_id: null, message: { content: [{ type: 'tool_use', name: 'Read', input: { file_path: '/repo/src/screen.tsx' } }] } })
   out({ type: 'user', session_id: sessionId, message: { content: [{ type: 'tool_result', content: 'ok' }] } })
@@ -46,9 +54,12 @@ process.stdin.on('end', () => {
   out({ type: 'assistant', session_id: sessionId, parent_tool_use_id: 'tool-1', message: { content: [{ type: 'tool_use', name: 'Edit', input: { file_path: '/repo/src/screen.tsx' } }] } })
   process.stdout.write('not json\n')
   if (mode === 'hang') { setInterval(() => {}, 1000); return }
+  if (process.env.FAKE_EXECUTE_SLEEP_MS) await pause(Number(process.env.FAKE_EXECUTE_SLEEP_MS))
   const base = { type: 'result', subtype: 'success', is_error: false, session_id: sessionId, duration_ms: 61000, num_turns: 3, total_cost_usd: 1.2345, usage: { input_tokens: 52000, output_tokens: 3100, cache_read_input_tokens: 40000, cache_creation_input_tokens: 2000 }, modelUsage: { 'claude-sonnet-5-5': {} } }
   if (mode === 'error') return out({ ...base, subtype: 'error_max_budget_usd', is_error: true, result: 'budget reached' })
   if (mode === 'no-structured') return out({ ...base, result: 'done, but no structured output' })
+  if (mode === 'api-error') return out({ ...base, is_error: true, result: 'API Error: 529 {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}' })
+  if (mode === 'invalid-output') return out({ ...base, result: '', structured_output: { outcome: 'done' } })
   out({ ...base, result: '', structured_output: { outcome: 'done', summary: 'Arreglé la pantalla que quedaba en blanco.\n\nYa carga con tus datos.', ...(process.env.FAKE_EXECUTE_EXTRA ? JSON.parse(process.env.FAKE_EXECUTE_EXTRA) : {}) } })
   }
   // Several tools with ids, one failing, a subagent with its own tool, a turn per model message (FAKE_EXECUTE_MULTI=1).

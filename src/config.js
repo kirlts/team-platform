@@ -333,6 +333,7 @@ export function loadConfig (env = process.env, overrides = {}) {
       maxBudgetUsd: decimal(env, 'EXECUTE_MAX_BUDGET_USD', 10, { min: 0.01 }), // UD-255: 10 USD per message to start
       // UD-256: 10 USD per day in total across `execute` jobs; the day is the server's local day (TZ, UTC when unset).
       dailyBudgetUsd: decimal(env, 'EXECUTE_DAILY_BUDGET_USD', 10, { min: 0 }),
+      infraRetryWaitMs: intVar(env, 'EXECUTE_INFRA_RETRY_WAIT_MS', 30_000, { min: 0 }), // measurement 2026-10-22 (creating a machine took 32 s, as EXECUTE_CAPACITY_WAIT_MS): wait before the second try of a job that failed by infrastructure (a machine not created, a 529)
       maxMachines: intVar(env, 'EXECUTE_MAX_MACHINES', 0, { min: 0 }), // 0 = no bound; the host sets the machines its quota holds
       capacityWaitMs: intVar(env, 'EXECUTE_CAPACITY_WAIT_MS', 30_000, { min: 1000 }), // measured 2026-10-22: creating a harness machine took 32 s (UD-262 timing); looking again sooner finds nothing free
       machineCostUsd: decimal(env, 'EXECUTE_MACHINE_COST_USD', 0, { min: 0 }), // fixed cost of each machine-runner job; host site: 0.07

@@ -18,9 +18,13 @@ import { jobDefaults, queueWake } from './wake.js'
 
 export { queueWake } from './wake.js'
 
+/** Attempts a job gets when it fails by infrastructure or its lease expires, whatever its `max_attempts` (a job with 1 still gets one more try). */
+export const INFRA_ATTEMPTS = 2 // Martín's decision 2026-10-23: what fails by infrastructure runs once more and then goes to a person
+
 export function createQueue ({ db, config, events, now = Date.now, random = Math.random }) {
-  const signals = new EventEmitter() // 'enqueued', 'cancelled'
+  const signals = new EventEmitter() // 'enqueued', 'cancelled', 'leaseFailed'
   queueWake.on('enqueued', (id) => signals.emit('enqueued', id))
+  queueWake.on('cancelled', (id) => signals.emit('cancelled', id)) // a job cancelled outside a queue (the agent left the message)
   if (config.execute) { jobDefaults.executeMaxAttempts = config.execute.maxAttempts; jobDefaults.deliverMaxAttempts = config.execute.deliverMaxAttempts }
   const w = config.worker
 
@@ -45,25 +49,31 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
 
   /**
    * Returns to the queue, or marks as failed, the `running` jobs with an expired lease (MS §7.3, §4.3).
-   * The attempt was already counted on claim: if it exhausted `max_attempts` it goes to `failed`.
+   * The attempt was already counted on claim: if it exhausted `max_attempts` it goes to `failed`. An expired lease is a failure of the
+   * infrastructure (the process died), so a job whose `max_attempts` is 1 still gets one more try (INFRA_ATTEMPTS).
+   * The jobs it fails are announced as `leaseFailed` (after the transaction): the claim recovers leases too, and a handler that never hears of a job
+   * that the queue failed leaves its message without an answer (2026-10-23, job 99).
    */
   function recoverExpiredLeases () {
     const t = now()
-    return tx(db, () => {
+    const result = tx(db, () => {
       const expired = all(db, "SELECT id, attempts, max_attempts FROM jobs WHERE status = 'running' AND lease_until < ?", t)
       const finished = []
       for (const j of expired) {
-        if (j.attempts >= j.max_attempts) {
+        const limit = Math.max(j.max_attempts, INFRA_ATTEMPTS)
+        if (j.attempts >= limit) {
           run(db, "UPDATE jobs SET status = 'failed', lease_until = NULL, worker_id = NULL, finished_at = ?, last_error = ? WHERE id = ?",
             t, 'El arriendo venció sin que el trabajo terminara (el proceso se detuvo o tardó más que el límite).', j.id)
           finished.push(j.id)
         } else {
-          run(db, "UPDATE jobs SET status = 'queued', lease_until = NULL, worker_id = NULL, run_at = ?, last_error = ? WHERE id = ?",
-            t, 'El arriendo venció; el trabajo vuelve a la cola.', j.id)
+          run(db, "UPDATE jobs SET status = 'queued', lease_until = NULL, worker_id = NULL, run_at = ?, max_attempts = ?, last_error = ? WHERE id = ?",
+            t, limit, 'El arriendo venció; el trabajo vuelve a la cola.', j.id)
         }
       }
       return { recovered: expired.length - finished.length, failedIds: finished }
     })
+    if (result.failedIds.length > 0) queueMicrotask(() => signals.emit('leaseFailed', result.failedIds))
+    return result
   }
 
   /**
@@ -129,7 +139,10 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
    */
   function fail (job, error, { permanent = false } = {}) {
     const msgRow = String(error?.message ?? error ?? 'Error desconocido').slice(0, 2000)
-    const isFinal = permanent || error?.retryable === false || job.attempts >= job.max_attempts
+    // A failure of the infrastructure gets one more try even when `max_attempts` is 1 (UD-255 allows one attempt because a rerun spends the budget again;
+    // a machine that never ran or a service that answered 529 spent nothing worth saving, and a person is told only after the second one).
+    const limit = error?.infra ? Math.max(job.max_attempts, INFRA_ATTEMPTS) : job.max_attempts
+    const isFinal = permanent || error?.retryable === false || job.attempts >= limit
     const t = now()
     if (isFinal) {
       const r = run(db, "UPDATE jobs SET status = 'failed', lease_until = NULL, worker_id = NULL, finished_at = ?, last_error = ? WHERE id = ? AND status = 'running' AND attempts = ?",
@@ -141,8 +154,8 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
     const declared = Number(error?.retryAfterMs)
     const hinted = Number.isFinite(declared) && declared > 0 ? Math.min(declared, w.retryMaxMs) : 0
     const waitUntil = Math.max(backoffMs(job.attempts), hinted)
-    const r = run(db, "UPDATE jobs SET status = 'queued', lease_until = NULL, worker_id = NULL, run_at = ?, last_error = ? WHERE id = ? AND status = 'running' AND attempts = ?",
-      t + waitUntil, msgRow, job.id, job.attempts)
+    const r = run(db, "UPDATE jobs SET status = 'queued', lease_until = NULL, worker_id = NULL, run_at = ?, max_attempts = ?, last_error = ? WHERE id = ? AND status = 'running' AND attempts = ?",
+      t + waitUntil, limit, msgRow, job.id, job.attempts)
     if (r.changes === 1) {
       queueMicrotask(() => signals.emit('enqueued', job.id))
       return { state: 'requeued', delayMs: waitUntil }

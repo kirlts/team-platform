@@ -29,7 +29,7 @@ describe('execute job', () => {
 
   function startWorker (execute = {}) {
     const config = loadConfig({ DATA_DIR: env.dir, LOG_LEVEL: 'silent', PORT: String(PORT) }, {
-      execute: { bin: FAKE, machineBin: FAKE, teamUrl: `http://127.0.0.1:${PORT}`, killGraceMs: 200, dailyBudgetUsd: 1000, ...execute }
+      execute: { bin: FAKE, machineBin: FAKE, teamUrl: `http://127.0.0.1:${PORT}`, killGraceMs: 200, dailyBudgetUsd: 1000, infraRetryWaitMs: 50, ...execute }
     })
     const handlers = { ...createPipeline({ db: env.db, config, queue: env.queue, events: env.events, modules: env.modules }), execute: createExecuteHandler({ db: env.db, config, queue: env.queue, events: env.events, vault }) }
     worker = createWorker({ db: env.db, queue: env.queue, events: env.events, config, handlers })
@@ -82,6 +82,8 @@ describe('execute job', () => {
     delete process.env.FAKE_EXECUTE_START_ZONE
     delete process.env.FAKE_EXECUTE_MULTI
     delete process.env.FAKE_EXECUTE_MARKS
+    // A job that fails ends with a person holding the message and not Claude (UD-269): the tests that chain on the first message get it back for Claude.
+    env.db.prepare('INSERT OR IGNORE INTO message_assignees (message_id, member_id) SELECT id, ? FROM messages ORDER BY id LIMIT 1').run(agentId)
   })
   after(async () => { await worker?.stop(); await env.close() })
 
@@ -282,7 +284,7 @@ describe('execute job', () => {
     assert.equal((await waitJob(Number(first.json().job_ids[0]))).status, 'done')
   })
 
-  for (const [mode, code, reason] of [['no-structured', 'invalid_output', /sin salida estructurada/], ['error', 'execute_error', /error_max_budget_usd/], ['exit', 'execute_no_result', /código 3/]]) {
+  for (const [mode, code, reason] of [['no-structured', 'invalid_output', /sin salida estructurada/], ['error', 'execute_budget', /error_max_budget_usd/], ['exit', 'execute_no_result', /código 3/]]) {
     it(`a result ${mode === 'no-structured' ? 'without structured_output' : `in mode ${mode}`} fails the job with the reason`, async () => {
       process.env.FAKE_EXECUTE_MODE = mode
       process.env.FAKE_EXECUTE_REPLY = '0'
@@ -297,20 +299,23 @@ describe('execute job', () => {
     })
   }
 
-  it('a failed job leaves the author a closing reply in plain words, never the internal code', async () => {
+  it('a failed job leaves the author a closing reply in plain words, never the internal code, and a person holds the message', async () => {
     process.env.FAKE_EXECUTE_MODE = 'exit'
     process.env.FAKE_EXECUTE_REPLY = '0'
     startWorker()
     const messageId = env.db.prepare('SELECT id FROM messages ORDER BY id LIMIT 1').get().id
     const id = Number((await env.app.inject({ method: 'POST', url: `/api/messages/${messageId}/execute`, headers: cookieHeaders(editor) })).json().job_ids[0])
-    assert.equal((await waitJob(id)).status, 'failed')
-    const replies = env.db.prepare('SELECT body, author_id FROM replies WHERE message_id = ? ORDER BY id').all(messageId)
+    const job = await waitJob(id)
+    assert.deepEqual([job.status, job.attempts], ['failed', 2], 'an infrastructure failure is tried once more')
+    const replies = env.db.prepare('SELECT body, author_id, kind FROM replies WHERE message_id = ? ORDER BY id').all(messageId)
     const last = replies.at(-1)
     assert.equal(String(last.author_id), String(agentId))
-    assert.match(last.body, /No pude terminar este trabajo por un problema del sistema\./)
-    assert.match(last.body, /todavía no está en producción/)
+    assert.equal(last.kind, 'clarification', 'a question to the person who decides, not an answer')
+    assert.match(last.body, /No pude terminar este trabajo por un problema del sistema/)
+    assert.match(last.body, /Todavía no está en producción/)
     assert.match(last.body, /\*\*Resultado\*\*: blocked$/)
     assert.doesNotMatch(last.body, /execute_no_result|código 3/, 'the internal reason stays in the job, not in the reply')
+    assert.equal(env.db.prepare("SELECT COUNT(*) AS n FROM message_assignees a JOIN members p ON p.id = a.member_id WHERE a.message_id = ? AND p.kind = 'person'").get(messageId).n, 1, 'a person has it')
   })
 
   it('the progress endpoint belongs to the agent of the job', async () => {
@@ -409,7 +414,8 @@ describe('execute job', () => {
       startWorker(machine())
       const id = await enqueue()
       assert.equal((await waitJob(id)).status, 'failed')
-      assert.deepEqual(lines(), [`create ${id}`, `run vm-${id}`, `destroy vm-${id}`])
+      // Each attempt creates and destroys its own machine: a session that dies with no result is tried once more (infrastructure).
+      assert.deepEqual(lines(), [`create ${id}`, `run vm-${id}`, `destroy vm-${id}`, `create ${id}`, `run vm-${id}`, `destroy vm-${id}`])
     })
 
     it('destroys it when creating it fails half way', async () => {
@@ -418,7 +424,7 @@ describe('execute job', () => {
       const job = await waitJob(id)
       assert.equal(job.status, 'failed')
       assert.match(job.last_error, /crea la máquina/)
-      assert.deepEqual(lines(), [`create ${id}`, `destroy vm-${id}`])
+      assert.deepEqual(lines(), [`create ${id}`, `destroy vm-${id}`, `create ${id}`, `destroy vm-${id}`], 'a machine that was not created is tried once more, and each try is destroyed')
     })
 
     it('EXECUTE_MACHINE_COLLECT copies the transcript after the session and before destroying the machine; its last line goes to the row', async () => {
@@ -456,7 +462,7 @@ describe('execute job', () => {
       startWorker(machine({ machineCreate: `echo create {job_id} >> ${log}; echo vm-{job_id}; exit 1`, machineCollect: `echo collect >> ${log}` }))
       const id = await enqueue()
       assert.equal((await waitJob(id)).status, 'failed')
-      assert.deepEqual(lines(), [`create ${id}`, `destroy vm-${id}`])
+      assert.deepEqual(lines(), [`create ${id}`, `destroy vm-${id}`, `create ${id}`, `destroy vm-${id}`])
     })
 
     it('waits and tries again when the host has no capacity now (create exits 75)', async () => {

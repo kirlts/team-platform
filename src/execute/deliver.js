@@ -28,7 +28,7 @@ import { SpanStatusCode, context, trace } from '@opentelemetry/api'
 import { get, run as runSql } from '../db/index.js'
 import { parseJson } from '../db/util.js'
 import { addReply } from '../domain/messages.js'
-import { handOffToPerson } from '../domain/escalation.js'
+import { alreadyHandedOver, handOffToPerson } from '../domain/escalation.js'
 import { permanent } from '../domain/errors.js'
 import { Deferred } from '../domain/pipeline.js'
 import { step } from '../domain/progress-phrases.js'
@@ -57,7 +57,8 @@ const TEXTS = {
     verification: (branch) => `El cambio no pasó la verificación y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nUn Editor puede volver a lanzar la entrega.`,
     timeout: (branch, minutes) => `La entrega no terminó dentro del tiempo máximo (${minutes} min) y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nUn Editor puede volver a lanzar la entrega.`,
     system: (branch) => `No pude entregar este trabajo por un problema del sistema y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nUn Editor puede volver a lanzar la entrega.`,
-    environment: (branch, reason) => `La entrega falló dos veces por la máquina de entrega o por el plazo (${reason}), no por el cambio, y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nQuien reciba este mensaje puede volver a lanzar la entrega.`
+    environment: (branch, reason) => `La entrega falló dos veces por la máquina de entrega o por el plazo (${reason}), no por el cambio, y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nQuien reciba este mensaje puede volver a lanzar la entrega.`,
+    interrupted: (branch) => `La entrega se interrumpió dos veces seguidas (el servicio se reinició o se cortó la conexión con la máquina de entrega) y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nQuien reciba este mensaje puede volver a lanzar la entrega.`
   },
   en: {
     production: 'It is in production now.',
@@ -68,7 +69,8 @@ const TEXTS = {
     verification: (branch) => `The change did not pass verification and is not in production yet. The work is saved on the branch ${branch}.\n\nAn Editor can launch the delivery again.`,
     timeout: (branch, minutes) => `The delivery did not finish within the time limit (${minutes} min) and is not in production yet. The work is saved on the branch ${branch}.\n\nAn Editor can launch the delivery again.`,
     system: (branch) => `I could not deliver this work because of a system problem and it is not in production yet. The work is saved on the branch ${branch}.\n\nAn Editor can launch the delivery again.`,
-    environment: (branch, reason) => `The delivery failed twice because of the delivery machine or the time limit (${reason}), not because of the change, and it is not in production yet. The work is saved on the branch ${branch}.\n\nWhoever receives this message can launch the delivery again.`
+    environment: (branch, reason) => `The delivery failed twice because of the delivery machine or the time limit (${reason}), not because of the change, and it is not in production yet. The work is saved on the branch ${branch}.\n\nWhoever receives this message can launch the delivery again.`,
+    interrupted: (branch) => `The delivery was interrupted twice in a row (the service restarted or the connection to the delivery machine dropped) and it is not in production yet. The work is saved on the branch ${branch}.\n\nWhoever receives this message can launch the delivery again.`
   }
 }
 const textsOf = (language) => TEXTS[language] ?? TEXTS['es-419']
@@ -279,13 +281,32 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
     }
   }
 
-  /** The second failure of the machine or the time limit: the message goes to the person who decides (UD-269) with the reason, and nobody has to find it among the jobs. */
-  function handOffEnvironment (messageId, memberId, branch, error) {
+  /**
+   * The text of a delivery that ended without reaching production, by what failed: the machine or the time limit twice, a lease that expired twice (the
+   * service restarted), the verification of the change, or anything else of the system.
+   */
+  function failureText (messageId, branch, error) {
+    const author = get(db, 'SELECT a.language FROM messages m JOIN members a ON a.id = m.author_id WHERE m.id = ?', messageId)
+    const t = textsOf(author?.language)
+    if (error?.code === 'lease_expired') return t.interrupted(branch)
+    if (error?.code === 'deliver_timeout' || error?.code === 'deliver_env') {
+      const reason = error.code === 'deliver_timeout' ? `${Math.max(1, Math.round(x.deliverTimeoutMs / 60000))} min` : tail(String(error.output ?? ''), 160).replace(/\s+/g, ' ').trim() || 'sin salida'
+      return t.environment(branch, reason)
+    }
+    return error?.code === 'deliver_failed' ? t.verification(branch) : t.system(branch)
+  }
+
+  /**
+   * A delivery that ends without reaching production (the machine twice, the time limit, a lease that expired twice, a verification that failed again, anything
+   * else) goes to the person who decides in the area (UD-269) with the reason in plain words, and nobody has to find it among the jobs: as «answered» and
+   * assigned to the agent it reached nobody (2026-10-23, a `blocked` buried as answered). Returns false when there is nobody to hand it to or the message
+   * is closed or gone.
+   */
+  function handOff (messageId, memberId, branch, error) {
     try {
-      const author = get(db, 'SELECT a.language FROM messages m JOIN members a ON a.id = m.author_id WHERE m.id = ?', messageId)
-      const t = textsOf(author?.language)
-      const reason = error?.code === 'deliver_timeout' ? `${Math.max(1, Math.round(x.deliverTimeoutMs / 60000))} min` : tail(String(error?.output ?? ''), 160).replace(/\s+/g, ' ').trim() || 'sin salida'
-      const { personId } = handOffToPerson({ db, events, now }, { messageId, agentId: memberId, body: `${t.environment(branch, reason)}\n\n**Resultado**: blocked`, source: 'deliver' })
+      const body = `${failureText(messageId, branch, error)}\n\n**Resultado**: blocked`
+      if (alreadyHandedOver(db, messageId, body)) return true // a delivery launched again that failed the same way
+      const { personId } = handOffToPerson({ db, events, now }, { messageId, agentId: memberId, body, source: 'deliver' })
       return personId !== null
     } catch (e) {
       logger?.warn({ err: e }, 'could not hand the failed delivery to a person')
@@ -293,15 +314,10 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
     }
   }
 
-  /** Tells the author in plain words that the work is not in production; a closed or deleted message has nobody to tell. */
+  /** With nobody to hand the message to, the agent still says in plain words that the work is not in production; a closed or deleted message has nobody to tell. */
   function tellTheAuthor (messageId, memberId, branch, error) {
     try {
-      const author = get(db, 'SELECT a.language FROM messages m JOIN members a ON a.id = m.author_id WHERE m.id = ?', messageId)
-      const t = textsOf(author?.language)
-      const reason = error?.code === 'deliver_failed' ? t.verification(branch)
-        : error?.code === 'deliver_timeout' ? t.timeout(branch, Math.max(1, Math.round(x.deliverTimeoutMs / 60000)))
-          : t.system(branch)
-      const body = `${reason}\n\n**Resultado**: blocked`
+      const body = `${failureText(messageId, branch, error)}\n\n**Resultado**: blocked`
       // The same notice twice in a row (a retry that failed the same way) tells the author nothing new.
       if (get(db, 'SELECT body FROM replies WHERE message_id = ? ORDER BY id DESC LIMIT 1', messageId)?.body === body) return
       addReply({ db, events, now }, { messageId, authorId: memberId, body, kind: 'answer' })
@@ -340,9 +356,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
           logger?.warn({ err: e }, 'could not enqueue the second pass after a failed delivery')
         }
       }
-      const environmentFailure = error?.code === 'deliver_timeout' || error?.code === 'deliver_env'
-      if (again === null && environmentFailure && handOffEnvironment(messageId, memberId, branch, error)) { /* a person has it, with the reply that says why */ }
-      else if (again === null) tellTheAuthor(messageId, memberId, branch, error)
+      if (again === null && !handOff(messageId, memberId, branch, error)) tellTheAuthor(messageId, memberId, branch, error)
       events.publishForJob(job.id, {
         kind: 'done',
         data: { status: 'failed', message_id: messageId ? String(messageId) : null, error: String(error?.message ?? error), error_code: error?.code ?? null, ...(again !== null ? { execute_job_id: String(again) } : {}) }

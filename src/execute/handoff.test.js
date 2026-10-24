@@ -124,15 +124,19 @@ describe('handoff to a person', () => {
     assert.equal(deciderOf(env.db, areaId), editorId, 'null goes back to the first Editor')
   })
 
-  it('a needs_decision with an empty or absent check reaches no person: the job fails with invalid_output', async () => {
+  it('a needs_decision with an empty or absent check does not forward its question: the job fails with invalid_output and a person sees the failure', async () => {
     for (const extra of [{ outcome: 'needs_decision' }, { outcome: 'needs_decision', decision_check: { ...CHECK, searched: [] } }]) {
       const messageId = await runWith(`Una decisión sin revisar fuentes ${JSON.stringify(extra).length}.`, extra)
       const job = env.db.prepare("SELECT status, last_error FROM jobs WHERE kind = 'execute' AND message_id = ? ORDER BY id DESC").get(messageId)
       assert.equal(job.status, 'failed')
       assert.match(job.last_error, /decision_check/)
-      assert.deepEqual(assignees(messageId), [agentId], 'no person got it')
-      assert.equal(env.db.prepare("SELECT COUNT(*) AS n FROM replies WHERE message_id = ? AND kind = 'clarification'").get(messageId).n, 0)
-      assert.equal(env.db.prepare("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'message.escalate' AND entity_id = ?").get(messageId).n, 0)
+      // The question never reaches the person (UD-269 filters it), but the failure does: a message is never left with Claude alone (2026-10-23).
+      assert.deepEqual(assignees(messageId), [editorId], 'a person holds the message')
+      const replies = env.db.prepare("SELECT kind, body FROM replies WHERE message_id = ? AND author_id = ? AND kind = 'clarification'").all(messageId, agentId)
+      assert.equal(replies.length, 1)
+      assert.match(replies[0].body, /no tenía el formato pedido/)
+      assert.doesNotMatch(replies[0].body, /Pregunta|Recomendación/, 'the question of the session is not forwarded')
+      assert.deepEqual(buriedHandoffs(env.db), [])
     }
   })
 
@@ -182,12 +186,12 @@ describe('handoff to a person', () => {
     await api('PATCH', `/api/areas/${areaId}`, editor, { escalation_member_id: null })
   })
 
-  it('an execute whose lease expired with no attempts left goes to a person with the reason, instead of staying open and unseen', async () => {
+  it('an execute whose lease expired twice (a lease that expires is infrastructure: one more try, then a person) goes to a person with the reason, instead of staying open and unseen', async () => {
     const messageId = await runWith('Una sesión que muere con su trabajador.', { outcome: 'done', summary: 'Listo.' })
     env.db.prepare('DELETE FROM message_assignees WHERE message_id = ?').run(messageId)
     env.db.prepare('INSERT INTO message_assignees (message_id, member_id) VALUES (?, ?)').run(messageId, agentId)
     const jobId = enqueueExecute(env.db, { messageId, memberId: agentId, maxAttempts: 1 })
-    env.db.prepare("UPDATE jobs SET status = 'running', attempts = 1, worker_id = 'muerto', lease_until = ? WHERE id = ?").run(Date.now() - 60000, jobId)
+    env.db.prepare("UPDATE jobs SET status = 'running', attempts = 2, worker_id = 'muerto', lease_until = ? WHERE id = ?").run(Date.now() - 60000, jobId)
     startWorker() // at startup the queue recovers the expired lease and the worker reports it
     await until(() => env.db.prepare('SELECT status FROM jobs WHERE id = ?').get(jobId).status === 'failed', { timeoutMs: 10000 })
     await until(() => /se interrumpió antes de terminar/.test(lastReply(messageId)?.body ?? ''), { timeoutMs: 10000 })

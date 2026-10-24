@@ -7,8 +7,11 @@ import { all, get, run } from '../db/index.js'
 import { audit } from './audit.js'
 import { addReply } from './messages.js'
 
-/** The outcomes of the structured result that hand the message to a person. A held delivery does the same, by exit code 76 (UD-266). */
-export const HANDOFF_OUTCOMES = ['needs_decision', 'not_mine']
+/**
+ * The outcomes of the structured result that hand the message to a person. `blocked` is one of them: a session that says it cannot go on has an answer
+ * only a person can unblock, and as «answered» with Claude it reached nobody (2026-10-23). A held delivery does the same, by exit code 76 (UD-266).
+ */
+export const HANDOFF_OUTCOMES = ['needs_decision', 'not_mine', 'blocked']
 
 /** Reply kind of the question to the person: the platform has no `question` kind, `clarification` is the one that exists. */
 export const HANDOFF_REPLY_KIND = 'clarification'
@@ -24,6 +27,12 @@ export function deciderOf (db, areaId, authorId = null) {
   const named = get(db, 'SELECT escalation_member_id AS id FROM areas WHERE id = ?', areaId)?.id ?? null
   if (isActivePerson(db, named)) return named
   return firstEditor(db) ?? (isActivePerson(db, authorId) ? authorId : null)
+}
+
+/** Whether the last reply of the message is already this notice and a person holds the message: the same failure twice in a row tells them nothing new. */
+export function alreadyHandedOver (db, messageId, body) {
+  if (get(db, 'SELECT body FROM replies WHERE message_id = ? AND deleted_at IS NULL ORDER BY id DESC LIMIT 1', messageId)?.body !== body) return false
+  return Boolean(get(db, "SELECT 1 AS ok FROM message_assignees a JOIN members p ON p.id = a.member_id WHERE a.message_id = ? AND p.kind = 'person' AND p.active = 1", messageId))
 }
 
 /**
@@ -52,8 +61,8 @@ export function handOffToPerson ({ db, events, now = Date.now }, { messageId, ag
  * not counted: someone has just asked the agent again and its new result is on the way. Result of an attempt that failed or was aborted
  * is not a result.
  */
-export function buriedHandoffs (db) {
-  return all(db, `
+export function buriedHandoffs (db, { now = Date.now(), graceMs = 5000 } = {}) {
+  const results = all(db, `
     SELECT m.id AS message_id, CASE WHEN r.delivery_held = 1 THEN 'delivery_held' ELSE r.outcome END AS result
       FROM messages m
       JOIN execute_runs r ON r.id = (
@@ -65,4 +74,25 @@ export function buriedHandoffs (db) {
        AND NOT EXISTS (SELECT 1 FROM message_assignees x JOIN members p ON p.id = x.member_id WHERE x.message_id = m.id AND p.kind = 'person')
        AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.message_id = m.id AND j.kind IN ('execute', 'deliver') AND j.status IN ('queued', 'running'))
      ORDER BY m.id`)
+  const failed = unseenFailures(db, { now, graceMs, anyone: true }).map((u) => ({ message_id: u.message_id, result: 'job_failed' }))
+  return [...results, ...failed].sort((a, b) => a.message_id - b.message_id)
+}
+
+/**
+ * The messages whose latest `execute` or `deliver` job failed more than `graceMs` ago and that the agent of that job still holds with no person
+ * beside it: the failure ended and nobody was told. `{ message_id, job_id }`. Without `anyone`, only those a person can take (`deciderOf`), which
+ * is what a sweep can fix; with it, all of them, which is what the invariant shows. A job someone cancelled, a message closed or deleted and a
+ * message from which the agent was taken out are not here: those are decisions of a person.
+ */
+export function unseenFailures (db, { now = Date.now(), graceMs = 5000, anyone = false } = {}) {
+  const rows = all(db, `
+    SELECT m.id AS message_id, j.id AS job_id, m.area_id AS area_id, m.author_id AS author_id
+      FROM messages m
+      JOIN jobs j ON j.id = (SELECT x.id FROM jobs x WHERE x.message_id = m.id AND x.kind IN ('execute', 'deliver') ORDER BY x.id DESC LIMIT 1)
+     WHERE m.deleted_at IS NULL AND m.status <> 'closed' AND j.status = 'failed' AND COALESCE(j.finished_at, 0) < ?
+       AND EXISTS (SELECT 1 FROM message_assignees a WHERE a.message_id = m.id AND a.member_id = json_extract(j.payload_json, '$.member_id'))
+       AND NOT EXISTS (SELECT 1 FROM message_assignees a JOIN members p ON p.id = a.member_id WHERE a.message_id = m.id AND p.kind = 'person')
+       AND NOT EXISTS (SELECT 1 FROM jobs q WHERE q.message_id = m.id AND q.kind IN ('execute', 'deliver') AND q.status IN ('queued', 'running'))
+     ORDER BY m.id`, now - graceMs)
+  return (anyone ? rows : rows.filter((r) => deciderOf(db, r.area_id, r.author_id) !== null)).map((r) => ({ message_id: r.message_id, job_id: r.job_id }))
 }

@@ -29,9 +29,9 @@ const requestCodes = new Set([
   ...grab(/\.send\(\{ code: '([a-z_]+)'/g),
 ])
 
-// Codes a job can fail with: `permanent`, the extractors, the providers and the analyzers.
+// Codes a job can fail with: `permanent` and `infra`, the extractors, the providers and the analyzers.
 const jobCodes = new Set([
-  ...grab(/\bpermanent\((?:[^()]|\([^()]*\))*?,\s*'([a-z_]+)'/g),
+  ...grab(/\b(?:permanent|infra)\((?:[^()]|\([^()]*\))*?,\s*'([a-z_]+)'/g),
   ...grab(/new ExtractError\(\s*'([a-z_0-9]+)'/g),
   ...grab(/this\.code = '([a-z_]+)'/g),
 ])

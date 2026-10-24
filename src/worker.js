@@ -15,6 +15,7 @@ import { createLogger } from './log.js'
 import { context } from '@opentelemetry/api'
 import { errorType, initTelemetry, withSpan } from './domain/tracing.js'
 import { contextFromTraceparent, currentTraceparent, linkTo } from './telemetry/api.js'
+import { unseenFailures } from './domain/escalation.js'
 import { createPipeline } from './domain/pipeline.js'
 import { createDeliverHandler } from './execute/deliver.js'
 import { createExecuteHandler } from './execute/handler.js'
@@ -134,9 +135,10 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
   }
 
   // A job whose lease expired with no attempts left is failed by the queue itself, with no handler running: the handler hears about it here
-  // (the message of an `execute` that died with its worker went unanswered and unseen, 2026-10-23, job 99).
-  function reportExpired (recovered) {
-    for (const id of recovered?.failedIds ?? []) {
+  // (the message of an `execute` that died with its worker went unanswered and unseen, 2026-10-23, job 99). The queue announces them as `leaseFailed`
+  // from every place that recovers leases: the sweep, the start and the claim (which used to drop them).
+  function reportExpired (failedIds) {
+    for (const id of failedIds ?? []) {
       try {
         const job = queue.getJob(id)
         const error = Object.assign(new Error(job.last_error ?? 'El arriendo venció sin que el trabajo terminara.'), { code: 'lease_expired' })
@@ -145,9 +147,24 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     }
   }
 
+  // The safety net under every handler: a job that failed and left its message with no person (a restart between the failure and its handler, a handler
+  // that threw, a path that none covers) is handed to the handler again with `job_failed_unseen`, once. `unseenFailures` only lists messages that have
+  // someone to hand them to, so a message nobody can take is not retried every cycle.
+  function sweepUnseen () {
+    for (const { job_id: id } of unseenFailures(db, { now: now(), graceMs: w.heartbeatMs })) {
+      try {
+        const job = queue.getJob(id)
+        const error = Object.assign(new Error(job.last_error ?? 'El trabajo falló y nadie recibió el mensaje.'), { code: 'job_failed_unseen' })
+        handlers[job.kind]?.onFailure?.(job, error, { state: 'failed' })
+        logger.warn({ job_id: id, kind: job.kind }, 'a failed job had left its message with nobody: handed to a person')
+      } catch (e) { logger.error({ err: e, job_id: id }, 'error while handing an unseen failure to a person') }
+    }
+  }
+
   function sweepLeases () {
     try {
-      reportExpired(queue.recoverExpiredLeases())
+      queue.recoverExpiredLeases()
+      sweepUnseen()
       kick()
     } catch (error) { logger.error({ err: error }, 'error while recovering leases') }
   }
@@ -161,13 +178,16 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
   }
 
   const onCancelled = (jobId) => runningJobs.get(jobId)?.controller.abort('lost')
+  const onLeaseFailed = (ids) => reportExpired(ids)
 
   function start () {
     if (!stopped) return
     stopped = false
     queue.signals.on('enqueued', kick)
     queue.signals.on('cancelled', onCancelled)
-    reportExpired(queue.recoverExpiredLeases()) // at startup (MS §7.3)
+    queue.signals.on('leaseFailed', onLeaseFailed)
+    queue.recoverExpiredLeases() // at startup (MS §7.3)
+    sweepUnseen()
     timers.push(setInterval(sweepLeases, w.heartbeatMs)) // per cycle, at the heartbeat's cadence
     timers.push(setInterval(sweepRetentionJob, w.retentionSweepMs))
     if (pollDataVersionMs) {
@@ -190,6 +210,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     for (const t of timers.splice(0)) clearInterval(t)
     queue.signals.removeListener('enqueued', kick)
     queue.signals.removeListener('cancelled', onCancelled)
+    queue.signals.removeListener('leaseFailed', onLeaseFailed)
     for (const { controller } of runningJobs.values()) controller.abort('shutdown')
     await Promise.allSettled([...runningJobs.values()].map((a) => a.running))
   }

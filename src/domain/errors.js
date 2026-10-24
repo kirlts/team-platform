@@ -28,3 +28,16 @@ export function permanent (message, code = null) {
   if (code) error.code = code
   return error
 }
+
+/**
+ * Marks a job error as a failure of the infrastructure (the machine, the connection, the model service, a binary that did not start): the queue runs the
+ * job once more, even when its `max_attempts` is 1, and a second failure ends the job with the error (the handler then hands the message to a person).
+ * `retryAfterMs` is the wait before that second try.
+ */
+export function infra (message, code = null, { retryAfterMs = 0, ...extra } = {}) {
+  const error = new Error(message)
+  error.infra = true
+  if (retryAfterMs > 0) error.retryAfterMs = retryAfterMs
+  if (code) error.code = code
+  return Object.assign(error, extra)
+}

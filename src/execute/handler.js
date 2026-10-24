@@ -97,16 +97,25 @@ export function claudeArgs (x, schema) {
   ]
 }
 
+const SYSTEM_READ_FIELDS = ['summary', 'captures', 'decision_check', 'close', 'close_reason', 'mode', 'attachments'] // the screenshots travel as attachments (UD-268); the check is shown as the question (UD-269); the close request is read by the system and shows as one line (UD-271); `mode` is read by the system and the documents travel as attachments (UD-272)
+
 /**
- * Renders the rest of the structured output (everything but `summary`) under the summary, each entry with the label the
- * template declares (`outcome` as «Resultado», as the panel shows it).
+ * What the sender reads of the structured output (UD-276): its `summary` and nothing else. The rest (outcome, zone, technical cause, verification,
+ * branch, files…) is for whoever wants the detail and is kept apart, see `detailEntries`.
  */
-export function replyBody (output, template = null, extraLabels = {}) {
-  const { summary, captures: _captures, decision_check: _check, close: _close, close_reason: _closeReason, mode: _mode, attachments: _attachments, ...rest } = output // the screenshots travel as attachments (UD-268); the check is shown as the question (UD-269); the close request is read by the system (UD-271) and shows as one line; `mode` is read by the system and the documents travel as attachments (UD-272)
+export function replyBody (output) {
+  return String(output?.summary ?? '').trim()
+}
+
+/**
+ * The rest of the structured output (everything the system does not read) as [label, text] pairs, each with the label the template declares
+ * (`outcome` as «Resultado»). Saved with the run (`execute_runs.detail_json`) and shown folded in «Tiempos», never in the reply.
+ */
+export function detailEntries (output, template = null, extraLabels = {}) {
   const labels = { outcome: 'Resultado', ...Object.fromEntries((template?.output ?? []).map((e) => [e.name, e.label ?? e.name])), ...extraLabels }
-  const lines = Object.entries(rest).filter(([, v]) => v !== null && v !== undefined && v !== '')
-    .map(([k, v]) => `**${labels[k] ?? k}**: ${typeof v === 'string' ? v : `\n\n\`\`\`json\n${JSON.stringify(v, null, 2)}\n\`\`\``}`)
-  return lines.length ? `${summary.trim()}\n\n${lines.join('\n\n')}` : summary.trim()
+  return Object.entries(output ?? {})
+    .filter(([k, v]) => !SYSTEM_READ_FIELDS.includes(k) && v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && v.length === 0))
+    .map(([k, v]) => [labels[k] ?? k, typeof v === 'string' ? v : Array.isArray(v) ? v.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join('\n') : JSON.stringify(v, null, 2)])
 }
 
 // What the people read when a job fails. Plain words, never the internal code; `config` carries the reason of a refusal to start (it is already a plain sentence).
@@ -162,7 +171,7 @@ export function failureBody (error, language, { timeoutMs = 0, mentionedBy = nul
   const reason = kind === 'timeout' ? t.timeout(Math.max(1, Math.round(timeoutMs / 60000))) : kind === 'config' ? t.config(String(error?.message ?? '').trim()) : t[kind]
   const saved = kind === 'config' ? '' : ` ${t.saved}`
   // UD-275: a job that was called by a mention opens with one line that says so, and the reason follows.
-  return `${mentionedBy ? `${t.mention(mentionedBy)} ` : ''}${reason}${saved}\n\n${t.again}\n\n**Resultado**: blocked`
+  return `${mentionedBy ? `${t.mention(mentionedBy)} ` : ''}${reason}${saved}\n\n${t.again}`
 }
 
 const fingerprint = (m) => JSON.stringify([m.title, m.body, m.fields_json, m.area_id, m.template_id])
@@ -269,6 +278,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         cache_write_tokens: result ? (u.cache_creation_input_tokens ?? 0) : (s?.cache_write_tokens ?? null),
         cost_usd: typeof result?.total_cost_usd === 'number' ? result.total_cost_usd : null,
         turns: rec.st?.turns ?? null, tool_count: s?.tools ?? null, subagent_count: s?.subagents ?? null,
+        detail_json: rec.detail ? JSON.stringify(rec.detail) : null,
         outcome: aborted ? 'aborted' : (failed ? 'failed' : (typeof result?.structured_output?.outcome === 'string' ? result.structured_output.outcome : null)),
         error_code: errorCode, delivered: marks.delivered ?? null,
         transcript_ref: rec.r?.collect?.ref ?? null, slowest_tools: s?.slowest ?? []
@@ -499,7 +509,8 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const investigate = mode === 'investigate' // UD-272: the model understood the reason as «look into it»: nothing is delivered and nothing is closed, whatever the rest of the output says
     const documentLines = documentNotes(documents.rejected, author?.language)
     const { decision_check: check, ...visible } = output // the check is shown as the question, not as JSON
-    const body = [replyBody(visible, template), ...decisionLines(check, author?.language)].join('\n\n')
+    const body = [replyBody(visible), ...decisionLines(check, author?.language)].join('\n\n')
+    rec.detail = detailEntries(visible, template) // UD-276: kept with the run, shown folded in «Tiempos»
     const hands = Boolean(x.deliverCommand) && output.outcome === 'done' && !investigate && await branchExists(branch)
 
     return () => {

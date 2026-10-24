@@ -102,7 +102,7 @@ describe('execute job', () => {
     const mine = thread.replies.filter((r) => String(r.author_id) === String(agentId))
     assert.equal(mine.length, 2, 'two replies: on starting and on finishing')
     assert.match(mine[0].body, /^Recibido\. Empiezo por/)
-    assert.match(mine[1].body, /^Arreglé la pantalla que quedaba en blanco\.\n\nYa carga con tus datos\.\n\n\*\*Resultado\*\*: done$/)
+    assert.match(mine[1].body, /^Arreglé la pantalla que quedaba en blanco\.\n\nYa carga con tus datos\.$/)
     assert.equal(thread.status, 'answered', 'the session does not close the message')
 
     const evs = eventsOf(job.id)
@@ -338,7 +338,8 @@ describe('execute job', () => {
     assert.equal(last.kind, 'clarification', 'a question to the person who decides, not an answer')
     assert.match(last.body, /No pude terminar este trabajo por un problema del sistema/)
     assert.match(last.body, /Todavía no está en producción/)
-    assert.match(last.body, /\*\*Resultado\*\*: blocked$/)
+    assert.doesNotMatch(last.body, /\*\*Resultado\*\*/)
+    assert.match(last.body, /desde la ficha\.$/)
     assert.doesNotMatch(last.body, /execute_no_result|código 3/, 'the internal reason stays in the job, not in the reply')
     assert.equal(env.db.prepare("SELECT COUNT(*) AS n FROM message_assignees a JOIN members p ON p.id = a.member_id WHERE a.message_id = ? AND p.kind = 'person'").get(messageId).n, 1, 'a person has it')
   })
@@ -668,13 +669,27 @@ describe('execute job', () => {
       assert.match(mine[0].body, /^Recibido\. Empiezo por leer la pantalla\.\n\n\*\*Antes\*\*: Ficha de pacientes con el error\. Pacientes > Ficha, Clínica Sur, doctor\.$/)
       assert.deepEqual(names(mine[1]), ['Antes - Ficha de pacientes con el error.png', 'Después - Ficha de pacientes sin el error.png'])
       assert.deepEqual(mine[1].attachments.map((a) => a.kind), ['image', 'image'])
-      assert.match(mine[1].body, /\*\*Resultado\*\*: done\n\n\*\*Después\*\*: Ficha de pacientes sin el error\. Pacientes > Ficha, Clínica Sur, doctor\.$/)
+      assert.match(mine[1].body, /^Arreglé[\s\S]*Ya carga con tus datos\.\n\n\*\*Después\*\*: Ficha de pacientes sin el error\. Pacientes > Ficha, Clínica Sur, doctor\.$/)
       assert.ok(!mine[1].body.includes('"path"') && !mine[1].body.includes('Captures'), 'the list of captures is not printed as text')
       // The before is one file in the volume, referenced by both replies.
       assert.equal(env.db.prepare("SELECT COUNT(DISTINCT sha256) AS n FROM reply_attachments WHERE name LIKE 'Antes - %'").get().n >= 1, true)
       const served = await env.app.inject({ method: 'GET', url: `/api/replies/attachments/${mine[1].attachments[1].id}`, headers: { cookie: author } })
       assert.equal(served.statusCode, 200)
       assert.equal(served.headers['content-type'], 'image/png')
+    })
+
+    it('an investigation answers with the summary and the closing line only; the technical fields stay with the run and «Tiempos» (UD-276)', async () => {
+      process.env.FAKE_EXECUTE_CAPTURE_FILES = JSON.stringify({ 'despues.png': 'png' })
+      process.env.FAKE_EXECUTE_EXTRA = JSON.stringify({ outcome: 'investigated', zone: 'ninguna', summary: 'Revisé la ficha.\n\nNo hay nada que cambiar.', captures: [shot('despues.png', { alt: 'Ficha de pacientes sin el error' })] })
+      const { messageId, job, mine } = await run('Consulta sobre la ficha de pacientes.')
+      assert.equal(mine.length, 2)
+      assert.match(mine[1].body, /^Revisé la ficha\.\n\nNo hay nada que cambiar\.\n\n\*\*Después\*\*: Ficha de pacientes sin el error\. Pacientes > Ficha, Clínica Sur, doctor\.$/)
+      assert.doesNotMatch(mine[1].body, /Resultado|Zona tocada|investigated|ninguna/)
+      const run_ = env.db.prepare('SELECT outcome, detail_json FROM execute_runs WHERE job_id = ?').get(job.id)
+      assert.equal(run_.outcome, 'investigated')
+      assert.deepEqual(JSON.parse(run_.detail_json), [['Resultado', 'investigated'], ['Zona tocada', 'ninguna']])
+      const timing = (await env.app.inject({ method: 'GET', url: `/api/messages/${messageId}/timing`, headers: { cookie: author } })).json()
+      assert.deepEqual(timing.detail, { entries: [{ label: 'Resultado', value: 'investigated' }, { label: 'Zona tocada', value: 'ninguna' }], delivery_ref: null })
     })
 
     it('a closing capture that is not an image, is outside the directory or is not masked with a sensitive zone is left out and the job still closes', async () => {
@@ -730,7 +745,7 @@ describe('execute job', () => {
     it('a session without captures posts the same two replies as before', async () => {
       const { mine } = await run('Un mensaje sin capturas.')
       assert.equal(mine[0].attachments.length, 0)
-      assert.match(mine[1].body, /^Arreglé la pantalla que quedaba en blanco\.\n\nYa carga con tus datos\.\n\n\*\*Resultado\*\*: done$/)
+      assert.match(mine[1].body, /^Arreglé la pantalla que quedaba en blanco\.\n\nYa carga con tus datos\.$/)
       assert.equal(mine[1].attachments.length, 0)
     })
 

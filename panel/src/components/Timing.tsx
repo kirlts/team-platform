@@ -16,9 +16,12 @@ export function Timing({ messageId, assigneeIds }: { messageId: string; assignee
   const attended = assigneeIds.some((id) => members.find((m) => m.id === id)?.kind === 'agent')
   if (!attended) return null
   return (
-    <div data-timing>
+    <div data-timing className="flex flex-col gap-3">
       <Fold title={t('timing.title')} className="shrink-0">
         <TimingBody messageId={messageId} />
+      </Fold>
+      <Fold title={t('timing.detail')} className="shrink-0">
+        <DetailBody messageId={messageId} />
       </Fold>
     </div>
   )
@@ -80,5 +83,27 @@ function TimingBody({ messageId }: { messageId: string }) {
       )}
       {d.tree && <SpanTree roots={[d.tree]} label={t('trace.tree')} />}
     </div>
+  )
+}
+
+/** «Detalle técnico» (UD-276): what the agent returned besides its summary (result, zone, cause, verification, branch, files) and the reference of its delivery. The reply of the thread does not carry it. */
+function DetailBody({ messageId }: { messageId: string }) {
+  const t = useT()
+  const errorText = useErrorText()
+  const timing = useMessageTiming(messageId)
+  if (timing.isPending) return <p className="text-sm text-muted">…</p>
+  if (timing.isError) return <p className="break-words text-sm text-danger">{errorText(timing.error)}</p>
+  const detail = timing.data.detail
+  const rows = [...(detail?.entries ?? []), ...(detail?.delivery_ref ? [{ label: t('timing.detail.delivery'), value: detail.delivery_ref }] : [])]
+  if (rows.length === 0) return <p className="text-sm text-muted">{t('timing.detail.none')}</p>
+  return (
+    <dl data-timing-detail className="flex flex-col gap-2 text-sm">
+      {rows.map((row, i) => (
+        <div key={`${row.label}-${i}`} className="flex flex-col gap-0.5">
+          <dt className="text-muted">{row.label}</dt>
+          <dd className="m-0 whitespace-pre-wrap break-words">{row.value}</dd>
+        </div>
+      ))}
+    </dl>
   )
 }

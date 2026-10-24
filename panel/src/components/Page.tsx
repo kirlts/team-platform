@@ -9,6 +9,12 @@ import { cn } from '@/lib/utils'
 const COLUMNS = { inicio: 'mx-auto max-w-inicio', 12: 'max-w-[72rem]', 10: 'max-w-[60rem]', 8: 'max-w-[48rem]' } as const
 
 /**
+ * Space between the sections of a view with air (Inicio): 24 px in a window lower than 800 px, 40 px from there up. The sections of a
+ * block that is stacked on a phone use the same classes, so the rhythm does not change where the layout does.
+ */
+export const AIRY_GAP = 'gap-block [@media(min-height:800px)]:gap-section'
+
+/**
  * Content frame of a view: the page margin (20 px on a phone, 40 px from 768 px) and the vertical
  * rhythm between its blocks. From 768 px the frame is as tall as the region it is in and its blocks
  * share that height (UD-017: a view fits one screen); the one block that grows, a list, takes
@@ -16,14 +22,14 @@ const COLUMNS = { inicio: 'mx-auto max-w-inicio', 12: 'max-w-[72rem]', 10: 'max-
  * with more blocks than the others, Inicio.
  */
 export function Page({ cols = 10, section = false, dense = false, airy = false, scrolls = false, children }: { cols?: keyof typeof COLUMNS; section?: boolean; dense?: boolean; airy?: boolean; scrolls?: boolean; children: ReactNode }) {
-  // `airy` (Inicio, UD-110): the blocks are 24 px apart (16 px in a window lower than 800 px, 40 px in one 1000 px tall or more) and the frame grows with the window up to `max-w-inicio`.
+  // `airy` (Inicio, UD-110): the blocks are 40 px apart (24 px in a window lower than 800 px) and the frame grows with the window up to `max-w-inicio`, 72 rem like a 12-column view, centered.
   // `scrolls` lets the frame be taller than the region (a send is open): the region scrolls, as the page always has.
   return (
     <div
       className={cn(
         'flex w-full flex-col px-5 py-6 md:px-10',
         scrolls ? 'md:min-h-full' : 'md:h-full md:min-h-0',
-        airy ? 'gap-block-compact md:py-block-compact [@media(min-height:800px)]:gap-block [@media(min-height:800px)]:md:py-block [@media(min-height:1000px)]:gap-section [@media(min-height:1000px)]:md:py-section' : dense ? 'gap-3 md:py-4' : 'md:py-5',
+        airy ? `${AIRY_GAP} md:py-block-compact [@media(min-height:800px)]:md:py-block [@media(min-height:1000px)]:md:py-section` : dense ? 'gap-3 md:py-4' : 'md:py-5',
         COLUMNS[cols],
         !dense && !airy && (section ? 'gap-5' : 'gap-4'),
       )}

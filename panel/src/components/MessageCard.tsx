@@ -134,9 +134,9 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
         )}
       </div>
 
-      {/* The last line: who it is for on the left (kept, even empty, so every row has the line), the two actions on the right; in the wide layout the actions leave for their own column. */}
-      <div data-testid="card-foot" className="col-span-2 row-start-4 flex min-h-7 flex-wrap items-center justify-between gap-x-3 gap-y-1 @2xl:contents">
-        <Recipients ids={variant === 'message' ? message.assignee_ids : []} max={RECIPIENTS_SHOWN} plain className="min-h-[1lh] min-w-0 text-xs text-muted @2xl:col-start-1 @2xl:row-start-4" />
+      {/* The last line: who it is for on the left (kept, even empty, so every row has the line; long names wrap inside their own column), the two actions pinned to the right of the first line; in the wide layout the actions leave for their own column. */}
+      <div data-testid="card-foot" className="col-span-2 row-start-4 grid min-h-7 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 @2xl:contents">
+        <Recipients ids={variant === 'message' ? message.assignee_ids : []} max={RECIPIENTS_SHOWN} plain className="min-h-7 min-w-0 content-center text-xs text-muted @2xl:col-start-1 @2xl:row-start-4 @2xl:min-h-[1lh] @2xl:content-normal" />
         <span className="relative z-10 ml-auto flex items-center justify-end gap-1 @2xl:col-start-2 @2xl:row-span-4 @2xl:row-start-1 @2xl:self-start">
           {gone && (
             <Button size="sm" variant="secondary" className="px-3 text-xs" disabled={restore.isPending} aria-label={t('restore.of', { title: message.title })} data-testid="card-restore" onClick={() => void bringBack()}>

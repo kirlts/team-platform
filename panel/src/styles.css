@@ -47,16 +47,15 @@
 
   /* Space unit: exactly 4 px. With the 15 px base font, Tailwind's default (0.25 rem) would give 3.75 px. */
   --spacing: 4px;
-  /* Inicio's air (UD-110). The space between the sections of the page is 24 px, 16 px in a window lower than 800 px and 40 px in one 1000 px tall or more; the inner padding
-     of the bar to write is 24 px; the bar is 56 rem wide (840 px) and the page grows with the window up to 112 rem (1680 px). See «Aire de Inicio» in DISENO.md. */
+  /* Inicio's air (UD-110, amended 2026-10-24). The space between the sections of the page is 40 px, 24 px in a window lower than 800 px; the page of Inicio is 72 rem
+     (1152 px) wide at most, the width of a 12-column view, and its title, its bar to write and its two lists share both edges. See «Aire de Inicio» in DISENO.md. */
   --spacing-block-compact: 16px;
   --spacing-block: 24px;
   --spacing-section: 40px;
   --spacing-bar-pad: 24px;
   /* The text block of a row of a list (UD-241): two lines of heading (15 px × 1.375 × 2) and one of extract (12 px × 1.4) with 4 px between, rounded up to the 4 px unit. See «Tarjeta de lista» in DISENO.md. */
   --spacing-card-text: 44px;
-  --container-compose: 56rem;
-  --container-inicio: 112rem;
+  --container-inicio: 72rem;
 
   /* Sky: background of the whole application. */
   --color-sky-a: oklch(0.955 0.045 205);

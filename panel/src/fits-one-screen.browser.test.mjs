@@ -269,10 +269,10 @@ const VIEWS = [
 
 const report = []
 
-// Inicio's air (UD-110): the page grows with the window up to 1680 px and the bar to write is centered in it, so no strip is left empty on one side.
+// Inicio's air (UD-110, amended 2026-10-24): the page grows with the window up to 72 rem (1080 px with its margins), centered, and the title, the bar to write and the two lists share its two edges.
 for (const [width, height] of SIZES) {
   describe(`${width}x${height} Inicio uses the width of the window`, () => {
-    test('the frame fills the region up to 1680 px and the bar is centered with room around it', async () => {
+    test('the frame fills the region up to 1080 px, is centered, and the bar and the two lists span it', async () => {
       const context = await panel.browser.newContext({ viewport: { width, height }, locale: 'es-CL' })
       const page = await context.newPage()
       try {
@@ -280,16 +280,22 @@ for (const [width, height] of SIZES) {
         await open(page, '/')
         const m = await page.evaluate(() => {
           const main = document.querySelector('main')
-          const frame = main.firstElementChild.getBoundingClientRect()
+          const frameEl = main.firstElementChild
+          const frame = frameEl.getBoundingClientRect()
+          const pad = parseFloat(getComputedStyle(frameEl).paddingLeft)
           const bar = document.querySelector('[aria-label="Nuevo mensaje"]').closest('section').getBoundingClientRect()
+          const title = main.querySelector('h1').getBoundingClientRect()
+          const feeds = [...document.querySelectorAll('main section[aria-label^="Últim"]')].map((el) => el.getBoundingClientRect())
           const region = main.getBoundingClientRect()
-          return { frame: frame.width, left: frame.left - region.left, right: region.right - frame.right, barLeft: bar.left - frame.left, barRight: frame.right - bar.right, bar: bar.width }
+          return { frame: frame.width, left: frame.left - region.left, right: region.right - frame.right, barLeft: bar.left - frame.left, barRight: frame.right - bar.right, bar: bar.width, pad, titleLeft: title.left - frame.left - pad, feedLeft: feeds[0].left - frame.left - pad, feedRight: frame.right - pad - feeds[1].right }
         })
-        // The frame is as wide as the region minus its margins (40 px a side), or 1680 px.
-        assert.ok(m.frame >= Math.min(1680, m.frame + m.left + m.right - 80) - 2, `frame ${m.frame} px with ${m.left} px at the left and ${m.right} px at the right`)
+        // The frame is as wide as the region minus its margins (40 px a side), or 1080 px (72 rem: the 12 columns of «Grilla»).
+        assert.ok(m.frame >= Math.min(1080, m.frame + m.left + m.right - 80) - 2, `frame ${m.frame} px with ${m.left} px at the left and ${m.right} px at the right`)
+        assert.ok(m.frame <= 1081, `frame ${m.frame} px: wider than the 12 columns`)
         assert.ok(Math.abs(m.left - m.right) <= 2, `the frame is off center: ${m.left} px at the left, ${m.right} px at the right`)
-        assert.ok(Math.abs(m.barLeft - m.barRight) <= 2, `the bar is off center in the frame: ${m.barLeft} px, ${m.barRight} px`)
-        assert.ok(m.bar <= 841 && m.bar >= Math.min(840, m.frame) - 2, `the bar is ${m.bar} px wide`)
+        // Title, bar and lists start and end on the same two edges of the content.
+        assert.ok(Math.abs(m.barLeft - m.pad) <= 2 && Math.abs(m.barRight - m.pad) <= 2, `the bar does not span the content: ${m.barLeft} px, ${m.barRight} px from the frame`)
+        assert.ok(Math.abs(m.titleLeft) <= 2 && Math.abs(m.feedLeft) <= 2 && Math.abs(m.feedRight) <= 2, `title, bar and lists do not share their edges: title ${m.titleLeft}, lists ${m.feedLeft} and ${m.feedRight}`)
       } finally {
         await context.close()
       }

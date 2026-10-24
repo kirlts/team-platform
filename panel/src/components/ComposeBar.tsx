@@ -107,7 +107,7 @@ export function ComposeBar({ onSubmit }: { onSubmit: (draft: SendDraft) => void 
   }
 
   return (
-    <div className="relative z-20 mx-auto w-full max-w-compose" style={{ height: rest ?? undefined }}>
+    <div className="relative z-20 w-full" style={{ height: rest ?? undefined }}>
     {/* While the bar grows over the page, what is below is dimmed: the bar reads as a layer over it, and no sliver of the card under it shows (J3-B-01). It lets the pointer through. */}
     {expanded && <div aria-hidden data-compose-scrim className="pointer-events-none fixed inset-0 bg-[oklch(0.2_0.06_262/0.28)] backdrop-blur-[2px]" />}
     <div

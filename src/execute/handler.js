@@ -640,7 +640,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     try {
       if (payload.ack_reply_id) return true // an earlier attempt of this job already posted it
       const first = Math.min(mention.replyId, ...mention.earlier)
-      if (mentionAnswered(db, { messageId, agentId: memberId, replyId: first - 1 })) return false // the agent already answered this mention: nothing to acknowledge
+      if (mentionAnswered(db, { messageId, agentId: memberId, replyId: Math.max(first - 1, payload.retry_after_reply_id ?? 0) })) return false // the agent already answered this mention: nothing to acknowledge
       const { replyId } = addReply({ db, events, now }, { messageId, authorId: memberId, kind: 'answer', body: (ACK_TEXTS[languageOf(messageId)] ?? ACK_TEXTS['es-419']) })
       runSql(db, "UPDATE jobs SET payload_json = json_set(payload_json, '$.ack_reply_id', ?) WHERE id = ?", replyId, job.id)
       payload.ack_reply_id = replyId
@@ -656,7 +656,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       const payload = parseJson(job.payload_json, {})
       if (!mentionAgentOf(job, messageId)) return
       const first = Math.min(payload.mention.reply_id, ...(payload.mention.earlier ?? []))
-      if (mentionAnswered(db, { messageId, agentId: payload.member_id, replyId: first - 1, exceptReplyId: payload.ack_reply_id ?? 0 })) return
+      if (mentionAnswered(db, { messageId, agentId: payload.member_id, replyId: Math.max(first - 1, payload.retry_after_reply_id ?? 0), exceptReplyId: payload.ack_reply_id ?? 0 })) return
       const { replyId } = addReply({ db, events, now }, { messageId, authorId: payload.member_id, kind: 'answer', body: failureBody(error, languageOf(messageId), { timeoutMs: x.timeoutMs, mentionAgent: mentionAgentOf(job, messageId) }) })
       markFailure(replyId, job, error)
     } catch (e) {

@@ -18,7 +18,9 @@ const budgets = new WeakMap()
 export function watchBudget (db, config, now = Date.now) { budgets.set(db, () => dailyBudget(db, config.execute, now()).remaining > 0) }
 
 // What is not origin: who and where are columns of the new job, and the notice of the spending cap belongs to one run.
-const NOT_ORIGIN = ['message_id', 'member_id', 'requested_by', 'budget_notice']
+// The acknowledgement belongs to one run too: a retry posts its own. `retry_after_reply_id` is the notice it answers: the agent's replies up to it (the old
+// acknowledgement, the notice itself) do not answer the mention again.
+const NOT_ORIGIN = ['message_id', 'member_id', 'requested_by', 'budget_notice', 'ack_reply_id', 'retry_after_reply_id']
 
 /**
  * Why the notice `reply` can or cannot be retried, as a conflict `{ code, message }` or `null` when it can. The failed job must be the latest `execute` job of
@@ -62,6 +64,7 @@ export function retryExecute ({ db, events, now = Date.now }, { messageId, reply
     const failed = get(db, 'SELECT payload_json FROM jobs WHERE id = ?', reply.failed_job_id)
     const payload = parseJson(failed.payload_json, {})
     const extra = Object.fromEntries(Object.entries(payload).filter(([k]) => !NOT_ORIGIN.includes(k)))
+    extra.retry_after_reply_id = reply.id
     const jobId = enqueueExecute(db, { messageId, memberId: payload.member_id, requestedBy: actor.id, now, extra })
     if (jobId === null) throw conflict('El agente ya tiene un trabajo en cola o corriendo para este mensaje.', 'execute_busy')
     // A failed run handed the message to a person: the agent works it again as a mention does, so it is among the assignees.

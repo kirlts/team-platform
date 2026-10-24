@@ -121,6 +121,24 @@ describe('retry of a failed session (UD-282)', () => {
     assert.equal(jobsOf(id).length, 2, 'a second click enqueues nothing')
   })
 
+  it('a retry is acknowledged again, and if it fails too the thread says so again: the old notice is not the answer', async () => {
+    await worker?.stop()
+    fail()
+    startWorker()
+    const id = await publishedMessage()
+    await mention(id, editor, '@Claude implementa esto')
+    await settle(id)
+    const notice = noticeOf(id)
+    const res = await api('POST', `/api/messages/${id}/replies/${notice.id}/retry`, anaCookie)
+    assert.equal(res.statusCode, 202, res.body)
+    await settle(id, 2)
+    const after = agentReplies(id).filter((r) => r.id > notice.id).map((r) => r.body)
+    assert.equal(after[0], 'Recibido. Empiezo ahora y respondo aquí apenas termine.', 'the retry posts its acknowledgement')
+    assert.equal(after.at(-1), 'Claude no pudo responder: se alcanzó el tope de gasto.', 'and its own failure notice')
+    const second = jobsOf(id)[1]
+    assert.equal(env.db.prepare('SELECT failed_job_id FROM replies WHERE id = ?').get(agentReplies(id).at(-1).id).failed_job_id, second.id, 'the new notice can be retried in turn')
+  })
+
   it('does not enqueue a second job while a delivery of the message is running, and a reply that is no failure is not retried', async () => {
     await worker?.stop()
     fail()

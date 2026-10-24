@@ -5,13 +5,16 @@ const attr = (value) => String(value).replace(/&/g, '&amp;').replace(/"/g, '&quo
 
 /**
  * The panel's index.html with its mount point: the base path and the API prefix as two meta tags the panel reads
- * (panel/src/lib/base.ts), the asset references under the base, and the host's theme after the panel's own stylesheet.
+ * (panel/src/lib/base.ts), the asset references under the base, the early request for `/me`, and the host's theme after the panel's own stylesheet.
  * `basePath` ends with `/`; `apiPrefix` does not.
  */
 export function mountedIndex (html, { basePath, apiPrefix, themeCss = '' }) {
   const metas = `<meta name="team-base-path" content="${attr(basePath)}" /><meta name="team-api-base" content="${attr(apiPrefix)}" />`
+  // The panel's first call is /me and it only starts after the bundle has been downloaded and run. Asking for it from the HTML puts it
+  // in flight while the bundle downloads, and the panel's own fetch of it reuses the answer.
+  const early = `<link rel="preload" href="${attr(apiPrefix)}/me" as="fetch" crossorigin />`
   const theme = themeCss ? `<link rel="stylesheet" href="${attr(basePath)}theme.css" />` : ''
   return html
     .replace(/(\s(?:src|href))="\.?\/assets\//g, `$1="${basePath}assets/`)
-    .replace(/<\/head>/i, (end) => `${metas}${theme}${end}`)
+    .replace(/<\/head>/i, (end) => `${early}${metas}${theme}${end}`)
 }

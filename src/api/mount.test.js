@@ -176,4 +176,7 @@ test('mountedIndex at the root leaves the panel as it was built, plus its two me
   assert.match(html, /src="\/assets\/app-abc123\.js"/)
   assert.match(html, /<meta name="team-base-path" content="\/" \/><meta name="team-api-base" content="\/api" \/><\/head>/)
   assert.match(mountedIndex(INDEX, { basePath: '/"x/', apiPrefix: '/api' }), /content="\/&quot;x\/"/) // attribute escaped
+  // The first call of the panel is asked for from the HTML, under the API prefix of the mount.
+  assert.match(html, /<link rel="preload" href="\/api\/me" as="fetch" crossorigin \/>/)
+  assert.match(mountedIndex(INDEX, { basePath: '/team-a/', apiPrefix: '/team-a/api' }), /<link rel="preload" href="\/team-a\/api\/me" as="fetch" crossorigin \/>/)
 })

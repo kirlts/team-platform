@@ -283,6 +283,10 @@
   --area-chip-fill: 1;
   /* The host's logo in the brand mark: an image (url(theme/<file>)) and its box in the bar and on the sign-in card. With a logo, the
      sphere and the project name give way to it (--wordmark-orb-display, --wordmark-project-display). */
+  /* Motion: the ring a count gives when it changes and how long it lasts, and how long the progress bar takes to reach a new width. */
+  --pulse-ring: var(--color-accent);
+  --pulse-duration: 700ms;
+  --meter-duration: 500ms;
   --wordmark-logo: none;
   --wordmark-logo-display: none;
   --wordmark-logo-width: 0px;
@@ -503,11 +507,11 @@
   }
   /* A count that just changed pulses once (J2-B-27); no motion when the person asks for less. */
   @keyframes count-pulse {
-    0% { box-shadow: 0 0 0 0 var(--color-accent); }
+    0% { box-shadow: 0 0 0 0 var(--pulse-ring); }
     100% { box-shadow: 0 0 0 7px transparent; }
   }
   [data-pulse='true'] {
-    animation: count-pulse 700ms ease-out 1;
+    animation: count-pulse var(--pulse-duration) ease-out 1;
   }
 
   /* Glass: translucent panel with a light border. Used on a few large surfaces. */
@@ -920,7 +924,7 @@
       linear-gradient(100deg, transparent 30%, var(--meter-sheen) 50%, transparent 70%) 0 0 / 200% 100%,
       var(--meter-fill);
     animation: sheen 2.4s linear infinite;
-    transition: width 500ms ease-out;
+    transition: width var(--meter-duration) ease-out;
   }
 
   /* Work that has not reported a step yet (J1-B-06): a glint that travels, never a percentage that is not there. */

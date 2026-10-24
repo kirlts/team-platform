@@ -29,7 +29,7 @@ export function Segmented<T extends string>({
           aria-checked={value === o.value}
           onClick={() => onChange(o.value)}
           className={cn(
-            'font-semibold transition-colors duration-150',
+            'font-semibold transition-colors duration-[var(--duration-hover)]',
             quiet ? 'rounded-[var(--quiet-tab-radius)] border-b-2 px-2' : 'rounded-full border px-3',
             size === 'sm' ? 'h-6 text-xs' : 'h-7 text-sm',
             quiet

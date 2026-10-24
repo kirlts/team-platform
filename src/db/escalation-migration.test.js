@@ -15,7 +15,7 @@ test('migration 0021 hands over the buried messages and leaves the others alone'
   const dir = tempDir()
   const old = join(dir, 'old')
   mkdirSync(old)
-  for (const m of listMigrations(MIGRATIONS).filter((f) => !f.filePath.startsWith('0021'))) copyFileSync(join(MIGRATIONS, m.filePath), join(old, m.filePath))
+  for (const m of listMigrations(MIGRATIONS).filter((f) => Number(f.filePath.slice(0, 4)) < 21)) copyFileSync(join(MIGRATIONS, m.filePath), join(old, m.filePath))
   const db = openDatabase(join(dir, 'team.db'))
   migrate(db, { dir: old })
   db.exec(`

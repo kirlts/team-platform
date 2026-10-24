@@ -14,7 +14,7 @@ test('migration 0022 keeps the replies and their attachments and accepts the kin
   const dir = tempDir()
   const old = join(dir, 'old')
   mkdirSync(old)
-  for (const m of listMigrations(MIGRATIONS).filter((f) => !f.filePath.startsWith('0022'))) copyFileSync(join(MIGRATIONS, m.filePath), join(old, m.filePath))
+  for (const m of listMigrations(MIGRATIONS).filter((f) => Number(f.filePath.slice(0, 4)) < 22)) copyFileSync(join(MIGRATIONS, m.filePath), join(old, m.filePath))
   const db = openDatabase(join(dir, 'team.db'))
   migrate(db, { dir: old })
   db.exec(`

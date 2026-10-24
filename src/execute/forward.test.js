@@ -15,7 +15,7 @@ import { createDeliverHandler } from './deliver.js'
 import { createExecuteHandler } from './handler.js'
 
 const FAKE = fileURLToPath(new URL('./testing/fake-claude-stream.mjs', import.meta.url))
-const PORT = 8648 // the range given to this work (8640 to 8649)
+const PORT = 8645 // the range given to this work (8640 to 8649)
 const REASON = 'Investiga por qué falla la agenda y dime qué recomiendas, en un PDF.'
 const ASK = { close: true, close_reason: 'Ya no queda nada para quien lo envió.' }
 

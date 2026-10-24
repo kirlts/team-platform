@@ -16,8 +16,9 @@ const gz = promisify(gzip)
 // What is compressible: text formats. Images, audio, video and PDFs travel as they are.
 const COMPRESSIBLE = /^(application\/json|application\/javascript|text\/(html|css|plain|javascript)|image\/svg\+xml)\b/i
 
-// Quality 5 of Brotli and level 6 of gzip: bench/results/2026-10-24-compression.json (same 260 kB list answer: Brotli 5 is 50.9 kB in 4.0 ms,
-// gzip 6 is 45.5 kB in 9.8 ms on seeded data; on the 827 kB bundle Brotli 5 is 222.6 kB against 239.8 kB). Brotli 11 is 5 to 60 times slower per answer.
+// Quality 5 of Brotli and level 6 of gzip: bench/results/2026-10-24-compression.json, seeded answers of the API. Brotli 5 is smaller than gzip 6 on 5 of
+// the 7 answers and 4 to 12 % larger on the two long lists, and it takes less time on those two (4.2 against 7.7 ms for 260 kB). Brotli 11 takes 60 to 280 ms
+// on a list: it is for the files compressed once at build time, never for an answer.
 const BROTLI_PARAMS = { params: { [constants.BROTLI_PARAM_QUALITY]: 5 } }
 const GZIP_OPTIONS = { level: 6 }
 

@@ -124,8 +124,8 @@ export function loadConfig (env = process.env, overrides = {}) {
     cspConnectSrc: listValue(env, 'CSP_CONNECT_SRC', []),
     // Where the SSO return lands after the session is set (delegated sso-redirect mode).
     ssoReturnPath: textValue(env, 'SSO_RETURN_PATH', '/'),
-    // RFC 6691 §3.1: the TCP segment of an Ethernet link carries 1500 − 40 bytes of IP and TCP headers = 1460. An answer under it
-    // already travels in one segment, so compressing it saves no packet. Perilla: 0 compresses every answer.
+    // The TCP segment of an Ethernet link carries 1500 − 40 bytes of IP and TCP headers = 1460: an answer under it already travels
+    // in one segment, so compressing it saves no packet (RFC 6691 §3.1). Perilla: 0 compresses every answer.
     compression: { minBytes: intVar(env, 'COMPRESSION_MIN_BYTES', 1460, { min: 0 }) },
     // A .css file on the server's disk the host uses to redefine the panel's tokens; empty serves none.
     themeCss: textValue(env, 'THEME_CSS', '') ? path.resolve(textValue(env, 'THEME_CSS', '')) : '',

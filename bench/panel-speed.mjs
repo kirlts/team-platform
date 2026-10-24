@@ -1,8 +1,8 @@
 // Panel speed bench: loads each screen of the panel in headless Chromium and records what a person waits for.
 // GET only: it never creates, edits or deletes anything. Raw figures go to bench/results/<label>.json.
 //
-//   node bench/panel-speed.mjs --base https://team.devalis.cl --jar /path/jar.txt --label 2026-10-24-panel-antes-produccion
-//   node bench/panel-speed.mjs --base http://127.0.0.1:3900 --dev-login bench@example.org --label 2026-10-24-panel-despues-local
+//   node bench/panel-speed.mjs --base https://team.devalis.cl --jar /path/jar.txt --label 2026-10-24-panel-before-production
+//   node bench/panel-speed.mjs --base http://127.0.0.1:3900 --dev-login bench@example.org --label 2026-10-24-panel-after-local
 //
 // Per screen and profile:
 //   cold load (empty HTTP cache), then warm load (same browser context, assets cached): TTFB of the HTML, FCP, LCP,

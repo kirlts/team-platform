@@ -120,6 +120,12 @@ export function detailEntries (output, template = null, extraLabels = {}) {
     .map(([k, v]) => [labels[k] ?? k, typeof v === 'string' ? v : Array.isArray(v) ? v.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join('\n') : JSON.stringify(v, null, 2)])
 }
 
+// The one line the system posts when a mention starts to be attended: the agent's first reply, whatever the session does later.
+const ACK_TEXTS = {
+  'es-419': 'Recibido. Empiezo ahora y respondo aquí apenas termine.',
+  en: 'Received. Starting now; I will answer here as soon as I finish.'
+}
+
 // What the people read when a job fails. Plain words, never the internal code; `config` carries the reason of a refusal to start (it is already a plain sentence).
 const FAILURE_TEXTS = {
   'es-419': {
@@ -329,6 +335,8 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     // UD-280: a mention on a message whose change waits for review. This very job is a running `execute`, so the review is read without it.
     const reviewState = mention ? pendingDelivery(db, messageId, { exceptJobId: job.id }) : null
     const mentionAuthor = mention ? get(db, 'SELECT m.id, m.role, m.kind, m.active FROM replies r JOIN members m ON m.id = r.author_id WHERE r.id = ?', mention.replyId) : null
+    // The first reply of a mention is the system's, in the first seconds and before the machine exists: a session that omits it (job 138: 61 tools, no reply) leaves the person without a sign.
+    const acknowledged = mention ? acknowledgeMention(job, payload, { messageId, memberId, mention }) : false
     const byIsEditor = Boolean(mentionAuthor && mentionAuthor.role === 'editor' && mentionAuthor.kind !== 'agent' && mentionAuthor.active === 1)
     const review = reviewState
       ? { branch: reviewState.branch, reason: reviewState.held_reason, byIsEditor, editors: all(db, "SELECT name FROM members WHERE role = 'editor' AND kind != 'agent' AND active = 1 ORDER BY name").map((r) => r.name) }
@@ -347,7 +355,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const promptInput = {
       message: { id: messageId, title: message.title, body: message.body, fields: parseJson(message.fields_json, {}), area: message.area_title, status: message.status },
       template: templateRow, author, agent, project: getProject(db, config), jobId: job.id, maxSubagents: x.maxSubagents, branch, hostInstructions,
-      deliver: Boolean(x.deliverCommand), deliverFailure, autoClose: x.autoClose, forward, mention: mention ? mentionBlock(mention, thread, review) : null,
+      deliver: Boolean(x.deliverCommand), deliverFailure, autoClose: x.autoClose, forward, mention: mention ? mentionBlock(mention, thread, review, acknowledged) : null,
       // A retry after a failure of the system: the first attempt may have sent the first reply already, and a second one repeats «Recibido» in the thread.
       retried: job.attempts > 1 && Boolean(get(db, 'SELECT 1 AS ok FROM replies WHERE message_id = ? AND author_id = ? AND created_at >= ? AND deleted_at IS NULL', messageId, memberId, job.created_at))
     }
@@ -632,12 +640,27 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
    * mention (the hand-over to a person did not post one, or the thread changed under it), the system writes one in the agent's name: one line that says it
    * could not and why. Never fails the job; a closed or deleted message has nobody to tell.
    */
+  function acknowledgeMention (job, payload, { messageId, memberId, mention }) {
+    try {
+      if (payload.ack_reply_id) return true // an earlier attempt of this job already posted it
+      const first = Math.min(mention.replyId, ...mention.earlier)
+      if (mentionAnswered(db, { messageId, agentId: memberId, replyId: first - 1 })) return false // the agent already answered this mention: nothing to acknowledge
+      const { replyId } = addReply({ db, events, now }, { messageId, authorId: memberId, kind: 'answer', body: (ACK_TEXTS[languageOf(messageId)] ?? ACK_TEXTS['es-419']) })
+      runSql(db, "UPDATE jobs SET payload_json = json_set(payload_json, '$.ack_reply_id', ?) WHERE id = ?", replyId, job.id)
+      payload.ack_reply_id = replyId
+      return true
+    } catch (e) {
+      logger?.warn({ err: e }, 'could not post the acknowledgement of a mention')
+      return false
+    }
+  }
+
   function answerMention (job, messageId, error) {
     try {
       const payload = parseJson(job.payload_json, {})
       if (!mentionAgentOf(job, messageId)) return
       const first = Math.min(payload.mention.reply_id, ...(payload.mention.earlier ?? []))
-      if (mentionAnswered(db, { messageId, agentId: payload.member_id, replyId: first - 1 })) return
+      if (mentionAnswered(db, { messageId, agentId: payload.member_id, replyId: first - 1, exceptReplyId: payload.ack_reply_id ?? 0 })) return
       addReply({ db, events, now }, { messageId, authorId: payload.member_id, kind: 'answer', body: failureBody(error, languageOf(messageId), { timeoutMs: x.timeoutMs, mentionAgent: mentionAgentOf(job, messageId) }) })
     } catch (e) {
       logger?.warn({ err: e }, 'could not post the answer to a mention that failed')

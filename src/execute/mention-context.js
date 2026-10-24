@@ -94,14 +94,16 @@ export async function stageThread ({ config, plan, workdir }) {
 }
 
 /** The `mentioned` block of the prompt: who called, which reply, what is expected, and the thread. */
-export function mentionBlock (mention, plan, review = null) {
+export function mentionBlock (mention, plan, review = null, acknowledged = false) {
   const lines = [
     `mentioned by: ${mention.by}`,
     `reply: ${mention.replyId} (${mention.at})${mention.earlier.length ? `; earlier replies that also mention you and were not attended yet: ${mention.earlier.join(', ')}` : ''}`,
     '',
     'A teammate called you into this thread with the reply marked below. The thread follows complete, in order, with its attachments; read all of it before you act, not only that reply.',
     '- Do what that reply asks, or answer what it asks. You decide which one it is and say it in `mode` of your final output (`resolve` to carry out a change, `investigate` to answer, explain or recommend without changing anything). The system never reads the words; it reads `mode`.',
-    '- You always answer in this thread. Your first reply (`team reply`) or your final `summary` is that answer; with more to say you may send the first one early and the rest at the end. `summary` is addressed to the person named in `mentioned by`.',
+    acknowledged
+      ? '- The system already posted a one-line acknowledgement in this thread in your name when the session started: do not send another «Recibido» with `team reply`. Your final `summary` is the answer; send a reply earlier only when you have a question or something the person needs before the end. `summary` is addressed to the person named in `mentioned by`.'
+      : '- You always answer in this thread. Your first reply (`team reply`) or your final `summary` is that answer; with more to say you may send the first one early and the rest at the end. `summary` is addressed to the person named in `mentioned by`.',
     '- Do not set `close` in this run: a mention is a request inside a conversation, and the people in it decide when it ends.',
     '- The files of the thread are in `$TEAM_THREAD_DIR`: open the images and the documents with your file tools. A link is listed with its address.',
     ...(review ? reviewLines(review) : []),

@@ -150,8 +150,24 @@ describe('a reply that mentions an agent (UD-278)', () => {
     const replyId = await mention(id, editor, '@Claude hazlo')
     await settle(id)
     const after = agentReplies(id).filter((r) => r.id > replyId)
-    assert.ok(after.length >= 1, 'a reply of the agent follows the mention')
-    assert.equal(after[0].body, 'Claude no pudo responder: se alcanzó el tope de gasto.')
-    assert.doesNotMatch(after[0].body, /execute|trabajo|sesión|agente|invalid_output/i)
+    assert.ok(after.length >= 2, 'the acknowledgement and then the reply that says it could not')
+    assert.match(after[0].body, /^Recibido\./, 'the first reply is the acknowledgement of the system')
+    assert.equal(after.at(-1).body, 'Claude no pudo responder: se alcanzó el tope de gasto.', 'the acknowledgement does not count as the answer of UD-278')
+    assert.doesNotMatch(after.at(-1).body, /execute|trabajo|sesión|agente|invalid_output/i)
+  })
+
+  it('the first reply of a mention is the system\'s: it exists when the session never sends one, it comes before the session, and the session is told', async () => {
+    await worker?.stop()
+    delete process.env.FAKE_EXECUTE_MODE
+    process.env.FAKE_EXECUTE_REPLY = '0' // the session omits `team reply`, as job 138 did
+    process.env.FAKE_EXECUTE_EXTRA = JSON.stringify({ mode: 'investigate' })
+    startWorker()
+    const id = await publishedMessage()
+    const replyId = await mention(id, editor, '@Claude revisa esto')
+    await settle(id)
+    const mine = agentReplies(id).filter((r) => r.id > replyId)
+    assert.match(mine[0].body, /^Recibido\./)
+    assert.equal(mine.filter((r) => /^Recibido\./.test(r.body)).length, 1, 'one acknowledgement, not one per attempt')
+    assert.match(calls().at(-1).stdin, /already posted a one-line acknowledgement/)
   })
 })

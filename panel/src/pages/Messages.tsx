@@ -1,9 +1,10 @@
 import { useMemo } from 'react'
-import { useSearchParams } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { FilterBar } from '@/components/FilterBar'
 import { MessageList } from '@/components/MessageList'
 import { Page } from '@/components/Page'
 import { PageHeader } from '@/components/PageHeader'
+import { Button } from '@/components/ui/button'
 import { useT } from '@/i18n'
 import { parseQuery, serializeQuery, type MessageQuery } from '@team-platform/client'
 import { useMe, useMessages } from '@team-platform/client/react'
@@ -21,7 +22,17 @@ export function Messages() {
     <Page cols={12}>
       <PageHeader title={t('nav.messages')} count={list.data ? t('messages.count', { n: list.data.length }) : undefined} />
       <FilterBar query={query} onChange={change} />
-      <MessageList list={list} query={query} onClear={() => change({ ...query, q: '', filters: [] })} none={t('home.noMessages')} />
+      <MessageList
+        list={list}
+        query={query}
+        onClear={() => change({ ...query, q: '', filters: [] })}
+        none={t('home.noMessages')}
+        noneAction={
+          <Button asChild variant="primary">
+            <Link to="/">{t('compose.label')}</Link>
+          </Button>
+        }
+      />
     </Page>
   )
 }

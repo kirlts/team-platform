@@ -86,14 +86,15 @@ describe('delete from the lists', () => {
     const { page, context } = await session('ana')
     try {
       await page.goto(`${origin}/areas/a-error`)
-      await page.getByTestId('area-delete').waitFor()
+      // Rarely used, so it sits in the «Más» menu of the header (the guide: what is used now and then goes to one menu).
+      await page.locator('main header').getByTestId('more-menu').click()
       await page.getByTestId('area-delete').click()
       await page.waitForURL(/\/areas$/)
       await page.getByText('Área borrada').waitFor()
       await page.getByRole('button', { name: 'Deshacer' }).first().click()
       await page.getByText('Área restaurada').waitFor()
       await page.goto(`${origin}/areas/a-error`)
-      await page.getByTestId('area-delete').waitFor()
+      await page.locator('main header').getByTestId('more-menu').waitFor()
     } finally {
       await context.close()
     }
@@ -105,6 +106,7 @@ describe('delete from the lists', () => {
       await page.goto(`${origin}/areas/a-error`)
       await page.locator('main h1').waitFor()
       await settled(page)
+      assert.equal(await page.locator('main header').getByTestId('more-menu').count(), 0, 'a member without the Editor role has no menu to delete the area')
       assert.equal(await page.getByTestId('area-delete').count(), 0)
     } finally {
       await context.close()

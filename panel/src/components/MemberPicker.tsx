@@ -28,22 +28,22 @@ export function MemberPicker({
           type="button"
           aria-label={hiddenCount > 0 ? t('recipients.manageMore', { n: hiddenCount }) : t('recipients.add')}
           title={hiddenCount > 0 ? t('recipients.manageMore', { n: hiddenCount }) : t('recipients.add')}
-          className="hit inline-flex items-center justify-center gap-1 rounded-md px-1.5 text-xs font-semibold text-muted hover:bg-hover hover:text-accent"
+          className="hit inline-flex min-h-8 items-center justify-center gap-1 rounded-full px-3 text-sm font-semibold text-muted hover:bg-hover hover:text-accent pointer-coarse:min-h-11"
         >
           {hiddenCount > 0 ? `+${hiddenCount}` : (
             <>
-              <Plus size={13} aria-hidden /> {t('recipients.addShort')}
+              <Plus size={16} aria-hidden /> {t('recipients.addShort')}
             </>
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-72 p-1" collisionPadding={8}>
+      <PopoverContent className="w-72 p-2" collisionPadding={8}>
         {/* A name per line and a search: nine people fit in the frame and the list says it scrolls (J1-B-15). */}
-        <label className="relative mb-1 block">
-          <Search size={14} aria-hidden className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted" />
-          <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} aria-label={t('recipients.search', { n: members.length })} placeholder={t('recipients.search', { n: members.length })} className="well h-8 w-full rounded-md pl-7 pr-2 text-sm outline-none focus-visible:border-accent" />
+        <label className="relative mb-2 block">
+          <Search size={16} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+          <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} aria-label={t('recipients.search', { n: members.length })} placeholder={t('recipients.search', { n: members.length })} className="well h-10 w-full rounded-field pl-9 pr-3 text-sm outline-none focus-visible:border-accent" />
         </label>
-        <ul className="scroll-thin flex max-h-80 flex-col overflow-y-auto" data-lane="member-picker">
+        <ul className="scroll-thin flex max-h-[26rem] flex-col overflow-y-auto" data-lane="member-picker">
           {shown.map((m) => {
             const on = selected.includes(m.id)
             return (
@@ -53,16 +53,16 @@ export function MemberPicker({
                   role="menuitemcheckbox"
                   aria-checked={on}
                   onClick={() => onChange(on ? selected.filter((x) => x !== m.id) : [...selected, m.id])}
-                  className="flex min-h-8 w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left hover:bg-hover"
+                  className="flex min-h-10 w-full items-center gap-2 rounded-option px-2 py-1.5 text-left hover:bg-hover pointer-coarse:min-h-11"
                 >
                   <Avatar name={m.name} size={20} />
                   <span className="min-w-0 flex-1 break-words leading-tight">{m.name}</span>
-                  {on && <Check size={14} className="text-accent" aria-hidden />}
+                  {on && <Check size={16} className="text-accent" aria-hidden />}
                 </button>
               </li>
             )
           })}
-          {shown.length === 0 && <li className="px-2 py-2 text-xs text-muted">{t('recipients.none')}</li>}
+          {shown.length === 0 && <li className="px-2 py-2 text-sm text-muted">{t('recipients.none')}</li>}
         </ul>
       </PopoverContent>
     </Popover>

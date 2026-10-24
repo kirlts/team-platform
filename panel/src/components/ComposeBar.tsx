@@ -27,10 +27,10 @@ function SendAs({ value, onChange }: { value: string; onChange: (id: string) => 
   const people = members.filter((m) => m.active !== false && (m as { kind?: string }).kind !== 'agent')
   if (me && !people.some((m) => m.id === me.id)) people.unshift(me)
   return (
-    <label className="flex min-w-0 items-center gap-2 text-sm text-muted max-md:order-first max-md:w-full max-md:pb-1 md:ml-auto md:mr-1">
+    <label className="flex min-w-0 items-center gap-2 text-sm text-muted max-md:order-2 max-md:w-full">
       <span className="shrink-0">{t('compose.sendAs')}</span>
       <span className="min-w-0 flex-1 md:w-44 md:flex-none">
-        <NativeSelect data-testid="compose-send-as" value={value} onChange={(e) => onChange(e.target.value)}>
+        <NativeSelect data-testid="compose-send-as" className="pointer-coarse:h-11" value={value} onChange={(e) => onChange(e.target.value)}>
           {people.map((m) => (
             <option key={m.id} value={m.id}>
               {m.name}
@@ -45,10 +45,9 @@ function SendAs({ value, onChange }: { value: string; onChange: (id: string) => 
 /**
  * New message bar: text, attachments (clip, drag, paste), a photo from the camera, a recorded audio
  * and links. On send the bar empties at once and is ready for the next one (UD-025): the upload and
- * the analysis go on in the tray, never here. `problem` is the reason the last upload was rejected,
- * shown under the bar until the next send.
+ * the analysis go on in the tray, never here; so does a failed upload, with its own Reintentar.
  */
-export function ComposeBar({ onSubmit, problem }: { onSubmit: (draft: SendDraft) => void; problem?: string | null }) {
+export function ComposeBar({ onSubmit }: { onSubmit: (draft: SendDraft) => void }) {
   const t = useT()
   const draft = useMediaDraft()
   const me = useMe().data
@@ -65,12 +64,12 @@ export function ComposeBar({ onSubmit, problem }: { onSubmit: (draft: SendDraft)
   const [rest, setRest] = useState<number | null>(null)
 
   const empty = !text.trim() && draft.empty
-  // Growing (more lines, attachments, a link, a problem) happens over the page, never pushing it down.
-  const expanded = grown || !draft.empty || draft.linkOpen || !!problem || !!draft.recording
+  // Growing (more lines, attachments, a link) happens over the page, never pushing it down.
+  const expanded = grown || !draft.empty || draft.linkOpen || !!draft.recording
   // The slot is measured only while the bar is empty, which is the one state that is always one row: measuring while it grows
   // would take the grown height for the resting one.
   const emptyNow = useRef(true)
-  emptyNow.current = !text && draft.empty && !draft.linkOpen && !problem && !draft.recording
+  emptyNow.current = !text && draft.empty && !draft.linkOpen && !draft.recording
 
   // The field grows with its text up to a maximum and from there it scrolls inside.
   useEffect(() => {
@@ -124,7 +123,7 @@ export function ComposeBar({ onSubmit, problem }: { onSubmit: (draft: SendDraft)
         setDragging(false)
         draft.onDrop(e)
       }}
-      className={cn('rounded-[1.75rem] transition-[border-color] duration-150 focus-within:border-accent', expanded ? 'pop absolute inset-x-0 top-0' : 'glass', dragging && '!border-accent !bg-accent-soft')}
+      className={cn('leaf transition-[border-color] duration-150 focus-within:border-accent', expanded ? 'pop absolute inset-x-0 top-0' : 'glass', dragging && '!border-accent !bg-accent-soft')}
     >
       <div className="px-bar-pad pt-bar-pad">
         {draft.recording ? (
@@ -151,26 +150,22 @@ export function ComposeBar({ onSubmit, problem }: { onSubmit: (draft: SendDraft)
           />
         )}
       </div>
-      {/* The controls of the bar sit under the field, quiet: the clip on the left (as in the mockup) and, together, camera, microphone and send on the right. */}
-      <div className="flex flex-wrap items-center gap-1 px-3 pb-3 pt-2">
-        <ClipMenu draft={draft} />
-        {/* «Enviar como» sits in the row of the controls on a desk and on a row of its own above them on a phone. */}
-        {author && <SendAs value={author} onChange={setSendAs} />}
-        <div className="ml-auto flex items-center gap-1">
-          <CaptureButtons draft={draft} />
-          <Button variant="primary" size="icon" data-testid="compose-send" aria-label={t('compose.send')} title={t('compose.sendHint')} disabled={empty || !!draft.recording} onClick={send}>
-            <Send size={16} aria-hidden />
+      {/* The controls sit under the field, grouped by function: what adds content on the left, who sends and the one action on the right. On a phone the tools go first, then the author, and the action takes the row. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 pb-3 pt-2">
+        <div className="flex flex-wrap items-center gap-1 max-md:order-1 max-md:gap-0">
+          <ClipMenu draft={draft} labeled />
+          <CaptureButtons draft={draft} labeled />
+        </div>
+        <div className="flex items-center gap-3 max-md:contents md:ml-auto">
+          {author && <SendAs value={author} onChange={setSendAs} />}
+          <Button variant="primary" size="lg" data-testid="compose-send" title={t('compose.sendHint')} disabled={empty || !!draft.recording} onClick={send} className="max-md:order-3 max-md:w-full max-md:justify-center">
+            <Send size={16} aria-hidden /> {t('compose.send')}
           </Button>
         </div>
       </div>
 
       <MediaDraftList draft={draft} />
 
-      {problem && (
-        <div role="alert" className="border-t border-line px-3 py-1.5 text-xs text-danger">
-          {t('compose.sendFailed', { reason: problem })}
-        </div>
-      )}
     </div>
     </div>
   )

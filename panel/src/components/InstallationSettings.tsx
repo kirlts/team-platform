@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle } from '@/components/icons'
-import { SettingHint } from '@/components/SettingHint'
+import { SettingsBox } from '@/components/SettingsBox'
 import { Button } from '@/components/ui/button'
 import { LANGUAGES, useErrorText, useI18n, useT, type MessageKey } from '@/i18n'
 import type { Language } from '@team-platform/client'
@@ -9,7 +9,7 @@ import { useUndo } from '@/lib/undo'
 import { cn } from '@/lib/utils'
 
 const LANGUAGE_KEY: Record<Language, MessageKey> = { 'es-419': 'language.es-419', en: 'language.en' }
-const FIELD = 'well block w-full rounded-md border px-3 py-2 text-sm outline-none focus-visible:outline-none'
+const FIELD = 'well block w-full rounded-field px-3 py-2 text-sm text-fg focus-visible:border-accent focus-visible:outline-1 focus-visible:outline-offset-0'
 
 /**
  * A text that is its own control (in-place edit): leaving the field saves, Escape discards, and a text over the cap stays
@@ -65,7 +65,7 @@ function InPlaceText({ value, max, label, describedBy, multiline = false, undoLa
     'data-setting-field': testId,
     spellCheck: false,
     onBlur: () => void commit(),
-    className: cn(FIELD, over || problem ? '!border-danger' : '!border-edge focus:!border-accent', multiline && 'resize-y overflow-y-hidden leading-relaxed'),
+    className: cn(FIELD, over || problem ? '!border-danger' : '', multiline ? 'resize-y overflow-y-hidden leading-relaxed' : 'h-10'),
   }
   const keys = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (e.key === 'Escape') {
@@ -87,24 +87,12 @@ function InPlaceText({ value, max, label, describedBy, multiline = false, undoLa
         <input type="text" {...common} onChange={(e) => setDraft(e.target.value)} onKeyDown={keys} />
       )}
       {(over || problem || (max !== undefined && multiline)) && (
-        <span className={cn('inline-flex items-center gap-1.5 text-xs tabular-nums', over || problem ? 'font-semibold text-danger' : 'text-muted')}>
-          {(over || problem) && <AlertTriangle size={13} aria-hidden />}
+        <span className={cn('inline-flex items-center gap-1.5 text-sm tabular-nums', over || problem ? 'font-semibold text-danger' : 'text-muted')}>
+          {(over || problem) && <AlertTriangle size={16} aria-hidden />}
           {problem ?? t('project.counter', { n: length.toLocaleString(language), max: (max ?? 0).toLocaleString(language) })}
         </span>
       )}
     </div>
-  )
-}
-
-function Section({ title, hint, hintId, children }: { title: string; hint: string; hintId: string; children: React.ReactNode }) {
-  return (
-    <section className="flex flex-col gap-3 border-t border-line-strong pt-3">
-      <div className="flex flex-col gap-0.5">
-        <h2>{title}</h2>
-        <SettingHint id={hintId}>{hint}</SettingHint>
-      </div>
-      {children}
-    </section>
   )
 }
 
@@ -115,7 +103,7 @@ export function ProjectNameSetting() {
   const save = useSaveProjectName()
   if (!project) return null
   return (
-    <Section title={t('settings.projectName')} hint={t('hint.projectName')} hintId="hint-project-name">
+    <SettingsBox title={t('settings.projectName')} hint={t('hint.projectName')} hintId="hint-project-name">
       <InPlaceText
         testId="project-name"
         value={project.name}
@@ -125,7 +113,7 @@ export function ProjectNameSetting() {
         undoLabel={t('settings.projectName')}
         onSave={(name) => save.mutateAsync(name)}
       />
-    </Section>
+    </SettingsBox>
   )
 }
 
@@ -136,16 +124,16 @@ export function FramingSetting() {
   const save = useSaveFraming()
   if (!settings) return null
   return (
-    <Section title={t('settings.framing')} hint={t('hint.framing')} hintId="hint-framing">
-      <dl className="flex flex-col gap-3 text-sm">
+    <SettingsBox title={t('settings.framing')} hint={t('hint.framing')} hintId="hint-framing">
+      <dl className="flex flex-col gap-4 text-sm">
         {LANGUAGES.map((lang) => {
           const item = settings.framing[lang]
           return (
             <div key={lang} data-framing={lang} className="flex flex-col gap-1">
-              <dt data-repeat-ok="language" className="flex items-center justify-between gap-2 text-muted">
+              <dt data-repeat-ok="language" className="rotulo flex items-center justify-between gap-2">
                 {t(LANGUAGE_KEY[lang])}
                 {item.custom && (
-                  <Button size="sm" variant="ghost" className="text-accent-deep" onClick={() => void save.mutateAsync({ [lang]: '' })}>
+                  <Button size="sm" variant="ghost" className="normal-case tracking-normal text-accent-deep" onClick={() => void save.mutateAsync({ [lang]: '' })}>
                     {t('settings.framingReset')}
                   </Button>
                 )}
@@ -166,6 +154,6 @@ export function FramingSetting() {
           )
         })}
       </dl>
-    </Section>
+    </SettingsBox>
   )
 }

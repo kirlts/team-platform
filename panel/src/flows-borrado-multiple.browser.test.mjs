@@ -117,14 +117,20 @@ describe('mark several and delete them at once (UD-253)', () => {
     try {
       await page.goto(`${origin}/areas/a-error`)
       const region = page.getByRole('region', { name: 'Plantillas' })
-      // The fold shows one template per page at 1440x900: the marks stay while the person pages.
+      // Depending on the window the templates share the page or are paged: the marks stay while the person pages.
       const checks = region.getByTestId('row-check')
       await checks.first().waitFor()
-      const live = Number((await region.getByText(/^1–\d+ de \d+$/).textContent()).split(' de ')[1])
+      await settled(page)
+      const range = region.getByText(/^1–\d+ de \d+$/)
+      const paged = (await range.count()) > 0
+      const live = paged ? Number((await range.textContent()).split(' de ')[1]) : await checks.count()
       await checks.first().click()
       const bar = region.getByTestId('selection-bar')
       await bar.getByText('1 marcado').waitFor()
-      await region.getByRole('button', { name: 'Página siguiente' }).click()
+      // The strip of marked rows takes height, so a list that fit before may now be paged: go to the page that holds the other row.
+      const unchecked = region.locator('[data-testid="row-check"]:not([data-state="checked"])')
+      await settled(page)
+      if ((await unchecked.count()) === 0) await region.getByRole('button', { name: 'Página siguiente' }).click()
       await region.locator('[data-testid="row-check"]:not([data-state="checked"])').first().click()
       await bar.getByText('2 marcados').waitFor()
       await bar.getByRole('button', { name: 'Borrar' }).click()
@@ -132,7 +138,7 @@ describe('mark several and delete them at once (UD-253)', () => {
       await noDialog(page)
       await page.waitForFunction((n) => document.querySelector('section[aria-label="Plantillas"]').textContent.includes(`de ${n - 2}`) || document.querySelectorAll('section[aria-label="Plantillas"] button[aria-label^="Eliminar "]').length === n - 2, live)
       await page.getByRole('button', { name: 'Deshacer' }).first().click()
-      await page.waitForFunction((n) => document.querySelector('section[aria-label="Plantillas"]').textContent.includes(`de ${n}`), live)
+      await page.waitForFunction((n) => document.querySelector('section[aria-label="Plantillas"]').textContent.includes(`de ${n}`) || document.querySelectorAll('section[aria-label="Plantillas"] button[aria-label^="Eliminar "]').length === n, live)
       await settled(page)
     } finally {
       await context.close()

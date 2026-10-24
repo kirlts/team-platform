@@ -51,7 +51,8 @@ describe('Template output', () => {
       const { page, context } = await session(viewport, colorScheme)
       try {
         const row = rowOf(page)
-        const terms = await row.locator('dl dt').allInnerTexts()
+        // The 12 px label draws capitals with CSS: the text itself stays in normal case.
+        const terms = (await row.locator('dl dt').allTextContents()).map((x) => x.trim())
         assert.deepEqual(terms.slice(0, 2), ['Campos', 'Salida'])
         const entries = (await row.locator('[data-template-output] li').allInnerTexts()).map((x) => x.replace(/\s+/g, ' ').trim())
         assert.deepEqual(entries, ['Causa Obligatorio', 'Rama', 'Resultado', 'Resumen'])
@@ -73,7 +74,7 @@ describe('Template output', () => {
       assert.equal(await output.locator('[data-output-fixed]').count(), 2)
       const sent = []
       page.on('request', (r) => { if (r.method() === 'PATCH' && /\/api\/areas\/a-error\/templates\//.test(r.url())) sent.push(JSON.parse(r.postData() ?? '{}')) })
-      await output.getByRole('button', { name: 'Campo de salida', exact: true }).click()
+      await output.getByRole('button', { name: 'Agregar salida', exact: true }).click()
       await dialog.getByRole('status').filter({ hasText: 'Guardado' }).waitFor()
       assert.equal(sent.length, 1)
       assert.match(sent[0].body_markdown, /output:\n {2}- \{ name: cause, label: "Causa", type: text, required: true \}\n {2}- \{ name: branch, label: "Rama", type: text, required: false \}\n {2}- \{ name: dato_nuevo, label: "Dato nuevo", type: text, required: false \}\n---/)
@@ -106,7 +107,7 @@ describe('Template output', () => {
         : route.continue())
       await rowOf(page).getByRole('button', { name: 'Campos e instrucciones' }).click()
       const dialog = page.getByRole('dialog')
-      await dialog.locator('section[aria-label="Salida"]').getByRole('button', { name: 'Campo de salida', exact: true }).click()
+      await dialog.locator('section[aria-label="Salida"]').getByRole('button', { name: 'Agregar salida', exact: true }).click()
       const alert = dialog.locator('[data-template-refused]')
       await alert.waitFor()
       assert.match(await alert.innerText(), /output\[2\]\.type debe ser uno de/)

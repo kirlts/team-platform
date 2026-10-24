@@ -37,7 +37,7 @@ export function ExecutionRuns() {
   return (
     <div data-execution-runs className="flex flex-col gap-2">
       <button type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen((v) => !v)} className="flex min-h-8 items-center gap-2 self-start text-left text-sm hover:text-accent">
-        <ChevronRight size={15} aria-hidden className={cn('shrink-0 text-muted transition-transform', open && 'rotate-90 text-accent')} />
+        <ChevronRight size={16} aria-hidden className={cn('shrink-0 text-muted transition-transform', open && 'rotate-90 text-accent')} />
         <span>{t('runs.title')}</span>
       </button>
       {open && (
@@ -92,21 +92,21 @@ function RunsBody() {
             ))}
           </dl>
           <table className="w-full max-w-xl border-collapse text-left tabular-nums" aria-label={t('runs.phases')}>
-            <thead className="text-xs text-muted">
+            <thead>
               <tr>
-                <th className="py-1 pr-4 font-normal">{t('runs.phase')}</th>
-                <th className="py-1 pr-4 text-right font-normal">{t('runs.avg')}</th>
-                <th className="py-1 pr-4 text-right font-normal">p50</th>
-                <th className="py-1 text-right font-normal">p95</th>
+                <th className="rotulo h-8 pr-4 text-left">{t('runs.phase')}</th>
+                <th className="rotulo h-8 pr-4 text-right">{t('runs.avg')}</th>
+                <th className="rotulo h-8 pr-4 text-right">p50</th>
+                <th className="rotulo h-8 text-right">p95</th>
               </tr>
             </thead>
             <tbody>
               {PHASE_KEYS.filter((k) => d.phases[k].n > 0).map((k) => (
                 <tr key={k} data-runs-phase={k} className="border-t border-line">
-                  <td className="py-1 pr-4">{t(LABELS[k])}</td>
-                  <td className="py-1 pr-4 text-right">{seconds(d.phases[k].avg ?? 0)}</td>
-                  <td className="py-1 pr-4 text-right">{seconds(d.phases[k].p50 ?? 0)}</td>
-                  <td className="py-1 text-right">{seconds(d.phases[k].p95 ?? 0)}</td>
+                  <td className="h-12 pr-4">{t(LABELS[k])}</td>
+                  <td className="h-12 pr-4 text-right">{seconds(d.phases[k].avg ?? 0)}</td>
+                  <td className="h-12 pr-4 text-right">{seconds(d.phases[k].p50 ?? 0)}</td>
+                  <td className="h-12 text-right">{seconds(d.phases[k].p95 ?? 0)}</td>
                 </tr>
               ))}
             </tbody>

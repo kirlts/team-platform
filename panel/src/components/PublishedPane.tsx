@@ -1,4 +1,5 @@
 import { ChevronRight } from '@/components/icons'
+import { Button } from '@/components/ui/button'
 import { useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { useErrorText, useFormat, useT } from '@/i18n'
@@ -37,8 +38,8 @@ export function PublishedPane({ input, onDeleted }: { input: InputRecord; onDele
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
   const toggle = (id: string) => setOpen((prev) => { const next = new Set(prev); if (!next.delete(id)) next.add(id); return next })
   return (
-    <section aria-label={t('analysis.title')} data-testid="published-pane" className="@container flex min-h-0 min-w-0 flex-col gap-2">
-      <div className="flex min-h-8 flex-wrap items-center gap-x-3 gap-y-1">
+    <section aria-label={t('analysis.title')} data-testid="published-pane" className="@container flex min-h-0 min-w-0 flex-col gap-3">
+      <div className="flex min-h-8 flex-wrap items-center gap-x-3 gap-y-2">
         <h2>{t('analysis.title')}</h2>
         <AiMark />
         <Badge tone="neutral" data-testid="published-state">{t('tray.state.published')}</Badge>
@@ -54,7 +55,7 @@ export function PublishedPane({ input, onDeleted }: { input: InputRecord; onDele
           const m = loaded[i]?.data
           if (!m) {
             return (
-              <li key={id} role="status" className="list-none border-b border-line px-1 py-2 text-sm text-muted last:border-b-0">
+              <li key={id} role="status" className="list-none border-b border-line px-1 py-3 text-sm text-muted last:border-b-0">
                 {t('common.loading')}
               </li>
             )
@@ -94,8 +95,8 @@ function Box({ m, input }: { m: MessageDetail; input: InputRecord }) {
     undo.run({ label, redo: () => patchMessage.mutateAsync({ id: m.id, patch: forward }), undo: () => patchMessage.mutateAsync({ id: m.id, patch: back }) })
 
   return (
-    <div data-testid="published-body" style={style} className="area-tint area-box flex flex-col gap-2 p-3">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+    <div data-testid="published-body" style={style} className="area-tint area-box flex flex-col gap-3 p-4">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         {canEdit ? (
           <AreaPicker
             areaId={m.area_id}
@@ -117,9 +118,9 @@ function Box({ m, input }: { m: MessageDetail; input: InputRecord }) {
             {t('published.edited', { when: format.stamp(m.edited_at) })}
           </time>
         )}
-        <Link to={`/messages/${m.id}`} aria-label={t('published.open', { title: m.title })} className="ml-auto inline-flex items-center gap-0.5 text-xs font-semibold hover:underline">
+        <Link to={`/messages/${m.id}`} aria-label={t('published.open', { title: m.title })} className="ml-auto inline-flex min-h-6 items-center gap-1 text-sm font-semibold hover:underline">
           {t('published.openShort')}
-          <ChevronRight size={13} aria-hidden />
+          <ChevronRight size={16} aria-hidden />
         </Link>
       </div>
       <EditableText
@@ -138,7 +139,7 @@ function Box({ m, input }: { m: MessageDetail; input: InputRecord }) {
         canEdit={canEdit}
         onSave={(name, value) => change(t('proposal.fieldEdited'), { fields: { ...(m.fields ?? {}), [name]: value } }, { fields: m.fields ?? {} })}
       />
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
         {canEdit ? (
           <RecipientsEditor ids={m.assignee_ids} onChange={(ids) => void change(t('proposal.recipientsChanged'), { assignee_ids: ids }, { assignee_ids: m.assignee_ids })} />
         ) : null}
@@ -168,8 +169,15 @@ function Box({ m, input }: { m: MessageDetail; input: InputRecord }) {
         )}
       </div>
       {(patchMessage.isError || addFiles.isError) && (
-        <p role="alert" className="rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">
+        <p role="alert" className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg bg-danger-soft px-4 py-3 text-sm text-danger">
           {errorText(patchMessage.isError ? patchMessage.error : addFiles.error)}
+          {/* The way out of the error: the same change goes out again. */}
+          <Button size="sm" variant="secondary" onClick={() => {
+              if (patchMessage.isError && patchMessage.variables) patchMessage.mutate(patchMessage.variables)
+              else if (addFiles.variables) addFiles.mutate(addFiles.variables)
+            }}>
+            {t('common.retry')}
+          </Button>
         </p>
       )}
     </div>

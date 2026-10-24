@@ -22,6 +22,7 @@ type RuleId = 'length' | 'opening' | 'person' | 'imperative' | 'punctuation' | '
 const HINT_FILES = new Set([
   'pages/Settings.tsx',
   'components/SettingHint.tsx',
+  'components/SettingsBox.tsx',
   'components/ProjectEditor.tsx',
   'components/InstallationSettings.tsx', // H-3722: project name and analysis framing, mounted only in Configuración
   'components/ProviderSettings.tsx',

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { SettingHint } from '@/components/SettingHint'
+import { SettingsBox } from '@/components/SettingsBox'
 import { Button } from '@/components/ui/button'
 import { useErrorText, useFormat, useT } from '@/i18n'
 import type { ResetResult } from '@team-platform/client'
@@ -37,49 +38,50 @@ export function DataReset() {
     : []
 
   return (
-    <section data-data-reset className="flex flex-col gap-3 border-t border-line-strong pt-3">
-      <h2>{t('settings.data')}</h2>
-      <dl className="flex flex-col gap-3 text-sm">
-        <div className="flex flex-col gap-0.5">
-          <dt className="text-sm text-muted">{t('data.content')}</dt>
-          <dd aria-describedby="hint-data-content" className="flex flex-col items-start gap-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm" className="hover:border-danger hover:text-danger" onClick={() => reset.mutate('content')} disabled={reset.isPending} aria-describedby="hint-data-content">
-                {t('data.clearContent')}
-              </Button>
-            </div>
-            <SettingHint id="hint-data-content">{t('hint.data.content')}</SettingHint>
-          </dd>
+    <SettingsBox data-data-reset title={t('settings.data')}>
+      <dl className="flex flex-col">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line py-3 first:pt-0">
+          <div className="flex min-w-0 flex-1 basis-64 flex-col gap-1">
+            <dt className="text-sm font-semibold">{t('data.content')}</dt>
+            <dd>
+              <SettingHint id="hint-data-content">{t('hint.data.content')}</SettingHint>
+            </dd>
+          </div>
+          <Button size="sm" variant="danger" onClick={() => reset.mutate('content')} disabled={reset.isPending} aria-describedby="hint-data-content">
+            {t('data.clearContent')}
+          </Button>
         </div>
-        <div className="flex flex-col gap-0.5">
-          <dt className="text-sm text-muted">{t('data.everything')}</dt>
-          <dd aria-describedby="hint-data-everything" className="flex flex-col items-start gap-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm" className="hover:border-danger hover:text-danger" onClick={() => reset.mutate('everything')} disabled={reset.isPending} aria-describedby="hint-data-everything">
-                {t('data.clearAll')}
-              </Button>
-            </div>
-            <SettingHint id="hint-data-everything">{t('hint.data.everything')}</SettingHint>
-          </dd>
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line py-3">
+          <div className="flex min-w-0 flex-1 basis-64 flex-col gap-1">
+            <dt className="text-sm font-semibold">{t('data.everything')}</dt>
+            <dd>
+              <SettingHint id="hint-data-everything">{t('hint.data.everything')}</SettingHint>
+            </dd>
+          </div>
+          <Button size="sm" variant="danger" onClick={() => reset.mutate('everything')} disabled={reset.isPending} aria-describedby="hint-data-everything">
+            {t('data.clearAll')}
+          </Button>
         </div>
-        <div className="flex flex-col gap-0.5">
-          <dt className="text-sm text-muted">{t('data.examples')}</dt>
-          <dd aria-describedby="hint-data-examples" className="flex flex-col items-start gap-1">
-            <div className="flex flex-wrap items-center gap-3">
-              <Button size="sm" onClick={() => seed.mutate()} disabled={seed.isPending || reset.isPending} aria-describedby="hint-data-examples">
-                {t('data.seed')}
-              </Button>
-              {seed.data && (
-                <span data-seed-figure role="status" className="tabular-nums">
-                  {t('data.sent', { n: seed.data.created + seed.data.existing })}
-                </span>
-              )}
-            </div>
-            <SettingHint id="hint-data-examples">{t('hint.data.examples')}</SettingHint>
-          </dd>
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3 last:pb-0">
+          <div className="flex min-w-0 flex-1 basis-64 flex-col gap-1">
+            <dt className="text-sm font-semibold">{t('data.examples')}</dt>
+            <dd>
+              <SettingHint id="hint-data-examples">{t('hint.data.examples')}</SettingHint>
+            </dd>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {seed.data && (
+              <span data-seed-figure role="status" className="text-sm tabular-nums">
+                {t('data.sent', { n: seed.data.created + seed.data.existing })}
+              </span>
+            )}
+            <Button size="sm" onClick={() => seed.mutate()} disabled={seed.isPending || reset.isPending} aria-describedby="hint-data-examples">
+              {t('data.seed')}
+            </Button>
+          </div>
         </div>
       </dl>
-      <div role="alert" aria-live="assertive">
+      <div role="alert" aria-live="assertive" className="empty:-mt-4">
         {seed.isError && <p className="break-words text-sm text-danger">{errorText(seed.error)}</p>}
         {reset.isError && <p className="break-words text-sm text-danger">{errorText(reset.error)}</p>}
       </div>
@@ -93,6 +95,6 @@ export function DataReset() {
           ))}
         </dl>
       )}
-    </section>
+    </SettingsBox>
   )
 }

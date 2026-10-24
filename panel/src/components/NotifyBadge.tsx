@@ -11,7 +11,7 @@ const ICON = { open: AlertTriangle, answered: Clock, closed: InfoDot } as const
 const COUNT_KEY: Record<MessageStatus, MessageKey> = { open: 'state.open', answered: 'state.answered', closed: 'state.closed' }
 
 /** The shape of a state (triangle, clock, dot), for places that draw their own pill. */
-export function StateIcon({ status, size = 14 }: { status: MessageStatus; size?: number }) {
+export function StateIcon({ status, size = 16 }: { status: MessageStatus; size?: number }) {
   const Icon = ICON[status]
   return <Icon size={size} aria-hidden strokeWidth={2.2} />
 }
@@ -25,7 +25,7 @@ export function StateMark({ status, n, className, showWord = true, plain = false
   const t = useT()
   return (
     <span data-status={status} data-weight="quiet" data-plain={plain || undefined} data-zero={n === 0 || undefined} data-testid="state-mark" className={cn('inline-flex min-h-6 items-center gap-1 rounded-full border px-2 text-xs font-bold leading-none', className)}>
-      <StateIcon status={status} size={13} />
+      <StateIcon status={status} size={16} />
       {n !== undefined ? <span className="tabular-nums">{showWord ? t(COUNT_KEY[status], { n }) : n}</span> : showWord && <span>{t(STATUS_KEY[status])}</span>}
     </span>
   )
@@ -79,7 +79,7 @@ export function NotifyBadge({ counts, size = 'lg', className, ...rest }: { count
       aria-label={label(counts)}
       className={cn('inline-flex shrink-0 items-center justify-center gap-1 rounded-full border font-bold leading-none', size === 'lg' ? 'h-8 min-w-12 px-2.5 text-sm' : size === 'md' ? 'h-6 min-w-9 px-2 text-xs' : 'h-6 text-xs', className)}
     >
-      <StateIcon status={status} size={size === 'lg' ? 16 : 13} />
+      <StateIcon status={status} size={16} />
       <span className="tabular-nums">{total}</span>
     </span>
   )

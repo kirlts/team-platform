@@ -1,4 +1,4 @@
-import { MessageSquare, Trash2 } from '@/components/icons'
+import { MessageSquare } from '@/components/icons'
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { useFormat, useT } from '@/i18n'
@@ -16,6 +16,7 @@ import { MediaOpener } from './MediaOpener'
 import { StateMark } from './NotifyBadge'
 import { Recipients } from './Recipients'
 import { RowCheck } from './SelectionBar'
+import { plainText } from '@/lib/first-words'
 
 /** The edge of a row, in the color of its state (UD-041): with the mark of the state, the only color of a row (UD-036). */
 // The width of the edge is a theme variable (`--card-edge-width`, 0 draws none).
@@ -88,10 +89,10 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
 
   return (
     <article data-affects-me={affects ?? undefined} data-closed={closed || undefined} data-deleted={gone || undefined} data-marked={selection?.isMarked(message.id) || undefined} className={cn('group @container relative border-b border-line last:border-b-0 hover:bg-glass-edge data-[marked]:bg-selected', EDGE[message.status])}>
-      <div className={cn('grid grid-cols-[minmax(0,1fr)_2.5rem] grid-rows-[auto_auto_auto_auto] items-start gap-x-4 gap-y-1 py-3 pr-4 @2xl:grid-cols-[minmax(0,1fr)_12rem_2.5rem]', selection ? 'pl-10' : 'pl-4')}>
+      <div className={cn('grid grid-cols-[minmax(0,1fr)_2.5rem] grid-rows-[auto_auto_auto_auto] items-start gap-x-4 gap-y-1 py-3 pr-4 @2xl:grid-cols-[minmax(0,1fr)_14rem_2.5rem]', selection ? 'pl-10' : 'pl-4')}>
       {/* The text block has one height in every row (`--spacing-card-text`): two lines of heading and the extract. A one-line heading leaves its air under the extract, between the groups and not inside the paragraph. */}
       <div data-testid="card-text" className="col-start-1 row-start-1 flex min-h-card-text min-w-0 flex-col gap-y-1">
-        <h3 title={reply ? reply.body : message.title} data-ellipsis-ok="UD-241" className={cn(HEADING, (closed || gone) && 'font-medium text-muted')}>
+        <h3 title={reply ? plainText(reply.body) : message.title} data-ellipsis-ok="UD-241" className={cn(HEADING, (closed || gone) && 'font-medium text-muted')}>
           {gone ? (
             message.title
           ) : (
@@ -100,7 +101,7 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
               className="outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:outline-2 focus-visible:after:outline-accent"
             >
               {reply && <span className="sr-only">{t('card.replyTo')} «{message.title}»: </span>}
-              {reply ? reply.body : message.title}
+              {reply ? plainText(reply.body) : message.title}
             </Link>
           )}
         </h3>
@@ -125,7 +126,7 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
             <MediaKinds of={from} />
             {message.reply_count > 0 && (
               <span className="inline-flex items-center gap-1" title={t('card.replies', { n: message.reply_count })}>
-                <MessageSquare size={13} aria-hidden />
+                <MessageSquare size={16} aria-hidden />
                 {message.reply_count}
               </span>
             )}
@@ -143,8 +144,9 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
             </Button>
           )}
           {!gone && canDelete && (
-            <Button size="icon-sm" variant="ghost" className="text-muted hover:text-danger" disabled={del.isPending} title={t('card.delete')} aria-label={t('card.deleteOf', { title: message.title })} data-testid="card-delete" onClick={() => void remove()}>
-              <Trash2 size={14} aria-hidden />
+            // The rare action, apart from the two of the conversation and quiet at rest; it is done at once and the notice carries Deshacer.
+            <Button size="sm" variant="ghost" className="px-1.5 text-xs text-muted hover:text-danger" disabled={del.isPending} aria-label={t('card.deleteOf', { title: message.title })} data-testid="card-delete" onClick={() => void remove()}>
+              {t('card.delete')}
             </Button>
           )}
           {!gone && !isAuthor && !closed && (

@@ -1,8 +1,8 @@
 import { useState } from 'react'
+import { Check } from '@/components/icons'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useT } from '@/i18n'
 import { AREA_SWATCHES, FALLBACK_AREA_COLOR, areaStyle, isAreaColor } from '@/lib/area-color'
-import { cn } from '@/lib/utils'
 import type { CSSProperties } from 'react'
 
 /**
@@ -17,13 +17,13 @@ export function AreaColorPicker({ title, color, onChange }: { title: string; col
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button type="button" data-testid="area-color-trigger" aria-label={t('areas.colorOf', { title })} title={t('areas.colorOf', { title })} className="hit mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-line-strong p-0.5 hover:bg-hover">
-          <span aria-hidden className="h-4 w-4 rounded-sm" style={{ background: current }} />
+        <button type="button" data-testid="area-color-trigger" aria-label={t('areas.colorOf', { title })} title={t('areas.colorOf', { title })} className="hit inline-flex size-6 shrink-0 items-center justify-center rounded-full p-1 hover:bg-hover pointer-coarse:size-11">
+          <span aria-hidden className="size-4 rounded-full" style={{ background: current }} />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="flex w-60 flex-col gap-3 p-3">
-        <p className="text-xs font-semibold">{t('areas.color')}</p>
-        <div role="group" aria-label={t('areas.color')} className="grid grid-cols-8 gap-1.5">
+      <PopoverContent align="start" className="flex w-64 flex-col gap-4 p-4">
+        <p className="rotulo">{t('areas.color')}</p>
+        <div role="group" aria-label={t('areas.color')} className="grid grid-cols-4 gap-3">
           {AREA_SWATCHES.map((c) => (
             <button
               key={c}
@@ -32,12 +32,14 @@ export function AreaColorPicker({ title, color, onChange }: { title: string; col
               aria-label={c}
               aria-pressed={c === current}
               onClick={() => void onChange(c)}
-              className={cn('h-6 w-6 rounded-md border-2 border-transparent', c === current && '!border-fg')}
+              className="inline-flex size-9 items-center justify-center rounded-full text-white pointer-coarse:size-11"
               style={{ background: c }}
-            />
+            >
+              {c === current && <Check size={16} aria-hidden strokeWidth={2.5} />}
+            </button>
           ))}
         </div>
-        <label className="flex items-center justify-between gap-2 text-xs">
+        <label className="flex items-center justify-between gap-3 text-sm">
           {t('areas.colorOther')}
           <input
             type="color"
@@ -45,7 +47,7 @@ export function AreaColorPicker({ title, color, onChange }: { title: string; col
             value={free}
             onChange={(e) => setFree(e.target.value)}
             onBlur={() => free !== current && void onChange(free)}
-            className="h-7 w-12 cursor-pointer rounded border border-line-strong bg-transparent p-0.5"
+            className="h-9 w-14 cursor-pointer rounded-field border border-line-strong bg-transparent p-1"
           />
         </label>
         <span data-testid="area-color-preview" className="area-tint area-chip self-start" style={areaStyle(current) as CSSProperties}>

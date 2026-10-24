@@ -83,8 +83,8 @@ export function Thumb({
       )}
       {onRemove && (
         // Beside the picture, never over it: a target of its own, 24 px at the least (J1-B-02).
-        <button type="button" onClick={onRemove} aria-label={t('media.remove', { name: label })} className="hit inline-flex shrink-0 items-center justify-center rounded-full text-muted hover:bg-hover hover:text-danger">
-          <X size={13} aria-hidden />
+        <button type="button" onClick={onRemove} aria-label={t('media.remove', { name: label })} title={t('media.remove', { name: label })} className="hit relative inline-flex shrink-0 items-center justify-center rounded-full text-muted hover:bg-hover hover:text-danger [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-2.5">
+          <X size={16} aria-hidden />
         </button>
       )}
     </span>

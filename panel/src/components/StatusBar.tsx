@@ -68,7 +68,7 @@ function StateButton({ status, n }: { status: MessageStatus; n: number }) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button type="button" data-testid="state-button" data-status={status} data-weight="quiet" data-count={n} aria-label={word} title={word} className="inline-flex h-9 min-w-8 items-center justify-center gap-1 rounded-full border px-0.5 text-sm md:min-w-11 md:px-2.5 font-bold leading-none hover:bg-glass">
+        <button type="button" data-testid="state-button" data-status={status} data-weight="quiet" data-count={n} aria-label={word} title={word} className="inline-flex h-9 min-w-8 items-center justify-center gap-1 rounded-full border px-0.5 text-sm font-bold leading-none hover:bg-glass md:min-w-11 md:px-2.5 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:min-w-11">
           <StateIcon status={status} size={16} />
           <span className="tabular-nums">{n}</span>
         </button>
@@ -118,7 +118,7 @@ function MessageMenu({ name, status, seeAll }: { name: string; status: MessageSt
       )}
       <Link to={seeAll} className="flex shrink-0 items-center justify-between gap-2 px-3 py-2 text-sm font-semibold text-accent-deep hover:bg-hover">
         {t('bell.seeAll')}
-        <ArrowRight size={14} aria-hidden />
+        <ArrowRight size={16} aria-hidden />
       </Link>
     </PopoverContent>
   )

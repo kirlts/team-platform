@@ -2,12 +2,17 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '@/i18n'
 import { mockApi, WithTeamClient } from '@/test/mock-api'
 import { UndoProvider, useUndoStack } from '@/lib/undo'
 import { UndoButtons } from './UndoButtons'
 import { ProjectEditor } from './ProjectEditor'
+
+beforeAll(() => {
+  // Radix menus ask the element about pointer capture, which jsdom does not have.
+  Object.assign(Element.prototype, { hasPointerCapture: () => false, setPointerCapture: () => {}, releasePointerCapture: () => {}, scrollIntoView: () => {} })
+})
 
 const server = { description: 'Texto inicial', max_chars: 100, failNext: false }
 const calls: { description: string }[] = []
@@ -189,7 +194,8 @@ describe('ProjectEditor', () => {
     wrap(<Harness />)
     const box = await field()
     fireEvent.change(box, { target: { value: '# Borrador' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Descargar .md' }))
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Más' }), { button: 0, ctrlKey: false, pointerType: 'mouse' })
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Descargar .md' }))
     expect(name).toBe('proyecto.md')
     expect(await created[0].text()).toBe('# Borrador')
     expect(URL.revokeObjectURL).toHaveBeenCalled()

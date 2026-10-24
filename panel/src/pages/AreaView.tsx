@@ -13,7 +13,7 @@ import { MessageList } from '@/components/MessageList'
 import { Page } from '@/components/Page'
 import { StateTabs } from '@/components/StateTabs'
 import { UndoButtons } from '@/components/UndoButtons'
-import { Button } from '@/components/ui/button'
+import { MoreMenu } from '@/components/MoreMenu'
 import { useT } from '@/i18n'
 import { parseQuery, serializeQuery, upsertFilter, removeFilter, type MessageQuery, type Area, type MessageStatus } from '@team-platform/client'
 import { useDeleteArea, useMe, useMembers, useMessages, useRestoreArea, useSaveArea, useSummary, useTemplates } from '@team-platform/client/react'
@@ -58,7 +58,6 @@ function AreaViewBody({ area }: { area: Area }) {
   useEffect(() => {
     if (hash === '#plantillas') document.getElementById('plantillas')?.scrollIntoView({ block: 'start' })
   }, [hash, templates.isSuccess])
-  const templateCount = (templates.data ?? []).filter((x) => !x.deleted_at).length
 
   const choose = (next: MessageStatus | null) =>
     setParams(serializeQuery({ q: '', filters: next ? upsertFilter(chosen.filters, { prop: 'status', op: 'eq', value: next }) : removeFilter(chosen.filters, 'status') }), { replace: true })
@@ -96,27 +95,21 @@ function AreaViewBody({ area }: { area: Area }) {
 
   return (
     <Page cols={12}>
-      <header className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-        <div className="flex min-w-0 flex-wrap items-baseline gap-x-3">
-          <Link to="/areas" className="inline-flex items-center gap-0.5 text-sm font-semibold text-accent-deep hover:underline">
-            <ChevronLeft size={14} aria-hidden />
+      <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3">
+          <Link to="/areas" className="inline-flex min-h-6 items-center gap-1 text-sm font-semibold text-accent-deep hover:underline">
+            <ChevronLeft size={16} aria-hidden />
             {t('areas.back')}
           </Link>
-          {/* The same square the list of areas and the sidebar carry: the title says which area this is by its color too (UD-045), and it is the control to change it. */}
-          <span className="self-center">
-            <AreaColorPicker title={area.title} color={area.color} onChange={changeColor} />
-          </span>
+          {/* The same dot the list of areas and the sidebar carry: the title says which area this is by its color too (UD-045), and it is the control to change it. */}
+          <AreaColorPicker title={area.title} color={area.color} onChange={changeColor} />
           <h1 className="min-w-0 break-words">
             <EditableText value={area.title} label={t('areas.fieldTitle')} validate={nameRule(t)} onSave={(v) => change('title', v)} />
           </h1>
         </div>
         <div className="flex items-center gap-2">
           <UndoButtons stack={undoStack} />
-          {me?.role === 'editor' && (
-            <Button size="sm" variant="ghost" className="text-danger" disabled={del.isPending} data-testid="area-delete" onClick={() => void remove()}>
-              <Trash2 size={13} aria-hidden /> {t('areas.deleteArea')}
-            </Button>
-          )}
+          {me?.role === 'editor' && <MoreMenu items={[{ key: 'delete', label: t('areas.deleteArea'), icon: <Trash2 size={16} aria-hidden />, danger: true, testId: 'area-delete', onSelect: () => void remove() }]} />}
         </div>
       </header>
       <AreaOwner area={area} canEdit={me?.role === 'editor'} onChange={changeDecider} />
@@ -138,11 +131,7 @@ function AreaViewBody({ area }: { area: Area }) {
                 <div data-slot="area-color" className="shrink-0 empty:hidden" />
               </div>
             </Fold>
-            <Fold title={t('areas.templates')} note={templateCount} defaultOpen anchor="plantillas">
-              <div className="flex h-[min(22rem,38dvh)] min-h-0 flex-col max-md:h-auto">
-                <Templates area={area} />
-              </div>
-            </Fold>
+            <Templates area={area} />
           </div>
         }
       />
@@ -154,8 +143,8 @@ export function AreaNotFound({ loading, query }: { loading: boolean; query: Para
   const t = useT()
   return (
     <Page cols={12}>
-      <Link to="/areas" className="inline-flex items-center gap-0.5 text-sm font-semibold text-accent-deep hover:underline">
-        <ChevronLeft size={14} aria-hidden />
+      <Link to="/areas" className="inline-flex min-h-6 items-center gap-1 text-sm font-semibold text-accent-deep hover:underline">
+        <ChevronLeft size={16} aria-hidden />
         {t('areas.back')}
       </Link>
       {loading ? <LoadState query={query} /> : <EmptyState>{t('areas.notFound')}</EmptyState>}
@@ -177,9 +166,9 @@ function AreaOwner({ area, canEdit, onChange }: { area: Area; canEdit: boolean; 
   const handoffs = area.handoffs ?? []
   const total = handoffs.reduce((n, h) => n + h.count, 0)
   return (
-    <div className="flex flex-wrap items-center gap-x-8 gap-y-3 text-sm" data-testid="area-owner">
-      <label className="flex w-full min-w-0 flex-col items-start gap-1 sm:w-auto sm:flex-row sm:items-center sm:gap-2">
-        <span className="text-muted">{t('areas.decider')}</span>
+    <div className="flex flex-wrap items-end gap-x-12 gap-y-4 text-sm" data-testid="area-owner">
+      <label className="flex w-full min-w-0 flex-col items-start gap-2 sm:w-auto">
+        <span className="rotulo">{t('areas.decider')}</span>
         {canEdit ? (
           <span className="w-full sm:w-56">
             <NativeSelect value={owner} onChange={(e) => void onChange(e.target.value)} aria-label={t('areas.decider')} data-testid="area-owner-select">
@@ -191,15 +180,17 @@ function AreaOwner({ area, canEdit, onChange }: { area: Area; canEdit: boolean; 
           <span className="font-semibold">{nameOf(owner)}</span>
         )}
       </label>
-      <dl className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1" data-testid="area-handoffs">
-        <dt className="text-muted">{t('areas.handoffs')}</dt>
-        <dd className="mr-3 text-base font-semibold tabular-nums">{total}</dd>
-        {handoffs.map((h) => (
-          <dd key={h.member_id} className="flex items-baseline gap-1.5 pr-3">
-            <span className="text-muted">{nameOf(h.member_id)}</span>
-            <span className="font-semibold tabular-nums">{h.count}</span>
-          </dd>
-        ))}
+      <dl className="flex min-w-0 flex-col gap-2" data-testid="area-handoffs">
+        <dt className="rotulo">{t('areas.handoffs')}</dt>
+        <dd className="flex min-w-0 flex-wrap items-baseline gap-x-5 gap-y-1">
+          <span className="text-lg font-semibold tabular-nums">{total}</span>
+          {handoffs.map((h) => (
+            <span key={h.member_id} className="flex items-baseline gap-1.5">
+              <span className="text-muted">{nameOf(h.member_id)}</span>
+              <span className="font-semibold tabular-nums">{h.count}</span>
+            </span>
+          ))}
+        </dd>
       </dl>
     </div>
   )

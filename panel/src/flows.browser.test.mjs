@@ -72,7 +72,8 @@ async function showRow(page, text) {
   for (let i = 0; i < 20; i++) {
     if (await page.getByText(text).first().isVisible().catch(() => false)) return
     const next = page.getByRole('button', { name: 'Página siguiente' }).first()
-    if (!(await next.isEnabled())) break
+    // A list that fits the window has no pager at all.
+    if ((await next.count()) === 0 || !(await next.isEnabled())) break
     await next.click()
     await settled(page)
   }
@@ -199,7 +200,8 @@ describe('analysis proposal', () => {
       await sendInput(page, 'Texto que no se debe perder [simular falla]')
       await page.getByRole('alert').filter({ hasText: 'servicio de análisis' }).waitFor({ timeout: 20000 })
       await page.getByText('Texto que no se debe perder', { exact: false }).first().waitFor()
-      await page.getByText('Texto y adjuntos del envío conservados').waitFor()
+      // The text stays in the send; the failure does not add a line that reassures.
+      assert.equal(await page.getByText('Texto y adjuntos del envío conservados').count(), 0)
       assert.equal(await page.getByRole('button', { name: 'Reintentar' }).count(), 1)
       await page.getByRole('button', { name: 'Reintentar' }).first().click()
       await openFirst(page, 20000)
@@ -252,7 +254,8 @@ describe('team and account', () => {
       await dialog.getByLabel('Correo').fill('marta@dev.invalid')
       await dialog.getByRole('button', { name: 'Crear' }).click()
       await showRow(page, 'Marta Nueva')
-      await page.getByRole('button', { name: 'Desactivar a Marta Nueva' }).click()
+      await page.getByRole('button', { name: 'Acciones de Marta Nueva' }).click()
+      await page.getByRole('menuitem', { name: 'Desactivar a Marta Nueva' }).click()
       await page.getByText('Inactivo').first().waitFor()
       // J2-A-18: the change is said under the bar and brings its Deshacer.
       const notice = page.getByRole('status').filter({ hasText: 'Marta Nueva desactivado' })
@@ -756,7 +759,7 @@ describe('templates as a form (J1-A-32)', () => {
       await dialog.getByRole('heading', { name: 'Campos' }).waitFor()
       const text = await dialog.innerText()
       for (const raw of ['---', 'fields:', 'required:', 'name:', '{ name']) assert.ok(!text.includes(raw), `the form shows raw syntax: «${raw}»`)
-      await dialog.getByRole('button', { name: 'Campo', exact: true }).click()
+      await dialog.getByRole('button', { name: 'Agregar campo', exact: true }).click()
       await dialog.getByRole('button', { name: /^Rótulo del campo: Campo nuevo/ }).waitFor()
       const required = dialog.getByLabel('Obligatorio').last()
       await required.click()
@@ -766,11 +769,11 @@ describe('templates as a form (J1-A-32)', () => {
       await dialog.getByRole('button', { name: /^Rótulo del campo: Campo nuevo/ }).waitFor({ state: 'detached' })
       await page.keyboard.press('Escape')
 
-      await page.getByRole('button', { name: 'Plantilla', exact: true }).click()
+      await page.getByRole('button', { name: 'Crear plantilla', exact: true }).click()
       const form = page.getByRole('dialog')
       await form.getByLabel('Nombre').fill('Observación de prueba')
       await form.getByLabel('Descripción').fill('Una plantilla creada desde el formulario.')
-      await form.getByRole('button', { name: 'Campo', exact: true }).click()
+      await form.getByRole('button', { name: 'Agregar campo', exact: true }).click()
       await form.getByLabel('Rótulo del campo').fill('Qué se observó')
       await form.getByRole('button', { name: /^Instrucciones al modelo:/ }).click()
       await page.keyboard.type('Leer el texto y anotar lo observado.')

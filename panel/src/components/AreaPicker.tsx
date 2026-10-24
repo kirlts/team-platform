@@ -54,14 +54,14 @@ export function AreaPicker({
           data-testid="area-picker"
           data-repeat-ok="category"
           // The area is the chip of its color; choosing another repaints the box of the analysis (UD-045).
-          className={cn('hit area-tint area-chip text-left hover:brightness-95 disabled:opacity-60')}
+          className={cn('hit area-tint area-chip rounded-full px-3 text-left hover:brightness-95 disabled:opacity-60 pointer-coarse:min-h-11')}
         >
           {areaTitle(areaId) || t('area.none')}
-          <ChevronDown size={12} aria-hidden className="shrink-0" />
+          <ChevronDown size={16} aria-hidden className="shrink-0" />
         </button>
       </DropdownMenuTrigger>
       {/* A long area title wraps inside a bounded menu instead of widening it (J3-B-28); UD-016 rules out cutting it. */}
-      <DropdownMenuContent align="start" collisionPadding={8} className="max-w-[min(22rem,calc(100vw-1rem))]">
+      <DropdownMenuContent align="start" collisionPadding={8} className="max-w-[min(22rem,calc(100vw-1rem))] p-2">
         <DropdownMenuRadioGroup value={areaId} onValueChange={(v) => void choose(v)}>
           {areas.map((a) => (
             <DropdownMenuRadioItem key={a.id} value={a.id} className="h-auto items-start">

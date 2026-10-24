@@ -326,12 +326,11 @@ describe('add provider', () => {
 })
 
 describe('functions', () => {
-  it('lists the three functions, each with its explanation and named controls', async () => {
+  it('lists the three functions, each with named controls', async () => {
     await ready()
     for (const slot of ['text', 'vision', 'speech'] as const) {
       const name = L(`settings.slot.${slot}`)
       const group = slotRow(slot)
-      expect(group.getByText(L(`hint.slot.${slot}`))).toBeTruthy()
       expect(group.getByRole('combobox', { name: L('settings.providerOf', { slot: name }) })).toBeTruthy()
       // A field with suggestions is a combobox for assistive technology.
       expect(group.getByRole('combobox', { name: L('settings.modelOf', { slot: name }) })).toBeTruthy()

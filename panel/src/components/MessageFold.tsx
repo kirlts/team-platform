@@ -70,15 +70,15 @@ export function MessageFoldRow({
     <li data-testid={testId} data-open={open || undefined} className={cn('list-none border-b border-line last:border-b-0', className)} {...rest}>
       {open ? (
         <div className="flex flex-col gap-2 py-2">
-          <button type="button" aria-expanded aria-label={t('proposal.fold', { n, title })} onClick={onToggle} className="hit inline-flex items-center gap-1 self-start rounded-md px-1 text-xs font-semibold tabular-nums text-muted hover:bg-hover">
-            <ChevronRight size={14} aria-hidden className="rotate-90 text-accent" />
+          <button type="button" aria-expanded aria-label={t('proposal.fold', { n, title })} onClick={onToggle} className="hit inline-flex items-center gap-1 self-start rounded-md px-1 text-xs font-semibold tabular-nums text-muted hover:bg-hover [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11">
+            <ChevronRight size={16} aria-hidden className="rotate-90 text-accent" />
             {n}
           </button>
           {children}
         </div>
       ) : (
-        <button type="button" aria-expanded={false} aria-label={t('proposal.open', { n, title })} onClick={onToggle} className="hit flex w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-1 px-1 py-2 text-left hover:bg-hover">
-          <ChevronRight size={14} aria-hidden className="shrink-0 text-muted" />
+        <button type="button" aria-expanded={false} aria-label={t('proposal.open', { n, title })} onClick={onToggle} className="hit flex w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-1 px-1 py-2 text-left hover:bg-hover [@media(pointer:coarse)]:min-h-11">
+          <ChevronRight size={16} aria-hidden className="shrink-0 text-muted" />
           <span className="w-4 shrink-0 text-xs font-semibold tabular-nums text-muted">{n}</span>
           <AreaChip areaId={areaId} className="shrink-0 text-xs" />
           <span data-testid="fold-title" title={title} data-ellipsis-ok="UD-241" className={cn(HEADING, 'min-w-32 flex-1')}>
@@ -90,7 +90,7 @@ export function MessageFoldRow({
             <span className="ml-auto inline-flex shrink-0 items-center gap-2">
               {!to && (
                 <span data-needs-attention className="inline-flex items-center gap-1 text-xs font-semibold text-danger">
-                  <AlertTriangle size={12} aria-hidden strokeWidth={2.2} /> {t('proposal.noRecipients')}
+                  <AlertTriangle size={16} aria-hidden strokeWidth={2.2} /> {t('proposal.noRecipients')}
                 </span>
               )}
               {aside}

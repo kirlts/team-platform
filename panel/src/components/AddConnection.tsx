@@ -24,7 +24,7 @@ export function AddConnection({ presets, items }: { presets: Preset[]; items: Co
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
-          <Plus size={13} aria-hidden /> {t('providers.addProvider')}
+          <Plus size={16} aria-hidden /> {t('providers.addProvider')}
         </Button>
         <div role="status" aria-live="polite">
           {done && <p className="text-sm font-semibold text-accent-deep">{done}</p>}
@@ -84,10 +84,10 @@ function AddForm({ presets, items, onCancel, onDone }: { presets: Preset[]; item
   }
 
   return (
-    <form onSubmit={submit} aria-label={t('providers.addProvider')} data-add-form className="flex flex-col gap-3 rounded-md border border-line bg-hover/50 px-3 py-3">
+    <form onSubmit={submit} aria-label={t('providers.addProvider')} data-add-form className="flex flex-col gap-4 rounded-lg bg-hover/50 p-4">
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="flex min-w-0 flex-col gap-1 text-sm text-muted">
-          {t('providers.preset')}
+        <label className="flex min-w-0 flex-col gap-2">
+          <span className="rotulo">{t('providers.preset')}</span>
           <NativeSelect value={choice} onChange={(e) => setChoice(e.target.value)}>
             {offered.map((p) => (
               <option key={p.name} value={p.name}>
@@ -98,19 +98,19 @@ function AddForm({ presets, items, onCancel, onDone }: { presets: Preset[]; item
           </NativeSelect>
         </label>
         {custom && (
-          <label className="flex min-w-0 flex-col gap-1 text-sm text-muted">
-            {t('providers.name')}
-            <Input value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" spellCheck={false} className="font-mono text-xs" />
+          <label className="flex min-w-0 flex-col gap-2">
+            <span className="rotulo">{t('providers.name')}</span>
+            <Input value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" spellCheck={false} className="font-mono text-sm" />
           </label>
         )}
         {custom && (
-          <label className="flex min-w-0 flex-col gap-1 text-sm text-muted sm:col-span-2">
-            {t('providers.baseUrl')}
-            <Input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} type="url" inputMode="url" autoComplete="off" spellCheck={false} placeholder="https://" className="font-mono text-xs" />
+          <label className="flex min-w-0 flex-col gap-2 sm:col-span-2">
+            <span className="rotulo">{t('providers.baseUrl')}</span>
+            <Input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} type="url" inputMode="url" autoComplete="off" spellCheck={false} placeholder="https://" className="font-mono text-sm" />
           </label>
         )}
         {custom && (
-          <div className="flex min-w-0 flex-col gap-1 text-sm text-muted sm:col-span-2">
+          <div className="flex min-w-0 flex-col gap-1 sm:col-span-2">
             <Segmented
               size="sm"
               value={structured}
@@ -120,13 +120,13 @@ function AddForm({ presets, items, onCancel, onDone }: { presets: Preset[]; item
             />
           </div>
         )}
-        <label className="flex min-w-0 flex-col gap-1 text-sm text-muted">
-          {t('providers.apiKey')}
-          <Input type="password" autoComplete="off" spellCheck={false} value={key} onChange={(e) => setKey(e.target.value)} className="font-mono text-xs" />
+        <label className="flex min-w-0 flex-col gap-2">
+          <span className="rotulo">{t('providers.apiKey')}</span>
+          <Input type="password" autoComplete="off" spellCheck={false} value={key} onChange={(e) => setKey(e.target.value)} className="font-mono text-sm" />
         </label>
-        <label className="flex min-w-0 flex-col gap-1 text-sm text-muted">
-          {t('providers.modelOptional')}
-          <Input value={model} onChange={(e) => setModel(e.target.value)} autoComplete="off" spellCheck={false} placeholder={suggested} className="font-mono text-xs" />
+        <label className="flex min-w-0 flex-col gap-2">
+          <span className="rotulo">{t('providers.modelOptional')}</span>
+          <Input value={model} onChange={(e) => setModel(e.target.value)} autoComplete="off" spellCheck={false} placeholder={suggested} className="font-mono text-sm" />
         </label>
       </div>
       <div className="flex flex-wrap items-center gap-2">

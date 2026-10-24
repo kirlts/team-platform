@@ -16,10 +16,10 @@ export function UndoButtons({ stack, compact = false }: { stack: UndoStack; comp
   return (
     <div role="group" aria-label={t('undo.group')} className="flex items-center gap-1.5">
       <Button size={compact ? 'icon-sm' : 'sm'} variant="ghost" disabled={stack.undoCount === 0 || stack.busy} title={stack.undoLabel ? `${undoTitle}: ${stack.undoLabel}` : undoTitle} aria-label={t('undo.undo')} onClick={() => void stack.undo()}>
-        <Undo size={14} aria-hidden /> {!compact && t('undo.undo')}
+        <Undo size={16} aria-hidden /> {!compact && t('undo.undo')}
       </Button>
       <Button size={compact ? 'icon-sm' : 'sm'} variant="ghost" disabled={stack.redoCount === 0 || stack.busy} title={stack.redoLabel ? `${redoTitle}: ${stack.redoLabel}` : redoTitle} aria-label={t('undo.redo')} onClick={() => void stack.redo()}>
-        <Redo size={14} aria-hidden /> {!compact && t('undo.redo')}
+        <Redo size={16} aria-hidden /> {!compact && t('undo.redo')}
       </Button>
     </div>
   )

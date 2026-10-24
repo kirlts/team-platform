@@ -48,7 +48,7 @@ export function InputPreview({ input }: { input: InputRecord }) {
 export function OriginalFrame({ children }: { children: React.ReactNode }) {
   const t = useT()
   return (
-    <section aria-label={t('input.sent')} data-testid="original-box" className="flex min-h-0 min-w-0 flex-col gap-2 self-start rounded-[3px_10px_3px_10px] border border-line-strong bg-surface p-3">
+    <section aria-label={t('input.sent')} data-testid="original-box" className="leaf flex min-h-0 min-w-0 flex-col gap-3 self-start bg-surface p-4">
       <h2>{t('original.title')}</h2>
       {children}
     </section>

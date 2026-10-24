@@ -49,15 +49,15 @@ export function ProviderKeyForm({
   }
 
   return (
-    <form onSubmit={submit} data-key-form={name} aria-label={replacing ? t('providers.replaceKey') : t('providers.addKey')} className="flex flex-col gap-3 rounded-md border border-line bg-hover/50 px-3 py-3">
+    <form onSubmit={submit} data-key-form={name} aria-label={replacing ? t('providers.replaceKey') : t('providers.addKey')} className="flex flex-col gap-4 rounded-lg bg-hover/50 p-4">
       <div className="grid gap-3 sm:grid-cols-2">
-        <label htmlFor={idKey} className="flex min-w-0 flex-col gap-1 text-sm text-muted">
-          {t('providers.apiKey')}
-          <Input id={idKey} type="password" autoComplete="off" spellCheck={false} autoFocus value={key} onChange={(e) => setKey(e.target.value)} className="font-mono text-xs" />
+        <label htmlFor={idKey} className="flex min-w-0 flex-col gap-2">
+          <span className="rotulo">{t('providers.apiKey')}</span>
+          <Input id={idKey} type="password" autoComplete="off" spellCheck={false} autoFocus value={key} onChange={(e) => setKey(e.target.value)} className="font-mono text-sm" />
         </label>
-        <label htmlFor={idModel} className="flex min-w-0 flex-col gap-1 text-sm text-muted">
-          {t('providers.modelOptional')}
-          <Input id={idModel} autoComplete="off" spellCheck={false} value={model} onChange={(e) => setModel(e.target.value)} className="font-mono text-xs" />
+        <label htmlFor={idModel} className="flex min-w-0 flex-col gap-2">
+          <span className="rotulo">{t('providers.modelOptional')}</span>
+          <Input id={idModel} autoComplete="off" spellCheck={false} value={model} onChange={(e) => setModel(e.target.value)} className="font-mono text-sm" />
         </label>
       </div>
       <div className="flex flex-wrap items-center gap-2">

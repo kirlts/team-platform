@@ -194,7 +194,7 @@ describe('Configuración, Cola y Auditoría (UD-251)', () => {
     try {
       const audit = page.locator('[data-audit]')
       await audit.waitFor()
-      await audit.getByText('Cambios hechos en la plataforma, del más reciente al más antiguo').waitFor()
+      await audit.getByRole('list', { name: 'Registro de cambios' }).waitFor()
       const first = await audit.locator('[data-audit-row]').first().getAttribute('data-audit-row')
       assert.equal(first, 'settings.telemetry', 'the seeded entries come newest first')
       await audit.getByLabel('Acción').selectOption('area.create')

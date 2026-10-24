@@ -1,5 +1,5 @@
-import { UserPlus } from '@/components/icons'
-import { useMemo, useState } from 'react'
+import { ChevronDown, UserPlus } from '@/components/icons'
+import { useMemo, useRef, useState } from 'react'
 import { Avatar } from '@/components/Avatar'
 import { EditableText } from '@/components/EditableText'
 import { FitList } from '@/components/FitList'
@@ -12,7 +12,7 @@ import { UndoButtons } from '@/components/UndoButtons'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useErrorText, useT } from '@/i18n'
 import { useNotices } from '@/lib/notices'
 import type { Member, Role } from '@team-platform/client'
@@ -21,7 +21,7 @@ import { UndoProvider, useUndo, useUndoStack } from '@/lib/undo'
 
 /** Maximum length of the profile the API accepts (UD-023). */
 const PROFILE_MAX = 4000
-const COLUMNS = 'lg:grid-cols-[15rem_6rem_minmax(0,1fr)_13rem]'
+const COLUMNS = 'lg:grid-cols-[15rem_7rem_minmax(0,1fr)_7.5rem]'
 
 /** An address that may only break after a separator, never in the middle of a word (J1-A-39). */
 function withBreaks(email: string) {
@@ -50,8 +50,8 @@ export function Team() {
             <div className="flex items-center gap-2">
               <UndoButtons stack={undo} />
               {editor && (
-                <Button size="sm" onClick={() => setAdding(true)}>
-                  <UserPlus size={14} aria-hidden /> {t('team.add')}
+                <Button variant="primary" size="lg" onClick={() => setAdding(true)}>
+                  <UserPlus size={16} aria-hidden /> {t('team.add')}
                 </Button>
               )}
             </div>
@@ -63,11 +63,11 @@ export function Team() {
           label={t('nav.team')}
           reveal={opened}
           header={
-            <div className={`hidden gap-4 border-b border-line bg-[linear-gradient(180deg,var(--color-chrome-1),var(--color-chrome-2))] px-4 py-2 text-sm font-semibold text-muted lg:grid ${COLUMNS}`}>
+            <div className={`rotulo hidden h-8 items-center gap-4 border-b border-line px-4 lg:grid ${COLUMNS}`}>
               <span>{t('team.member')}</span>
               <span>{t('team.role')}</span>
               <span>{t('team.profile')}</span>
-              <span>{editor ? t('team.actions') : null}</span>
+              <span />
             </div>
           }
           renderRow={(m) => <MemberRow member={m} self={m.id === me?.id} viewerIsEditor={editor} profileOpen={opened === m.id} onProfileOpen={(open) => setOpened(open ? m.id : undefined)} />}
@@ -106,6 +106,8 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
   /** What each role allows (UD-007), said on hover and to a screen reader and not as visible text: Equipo has no help text by default. */
   const roleHint: Record<Role, string> = { member: t('team.roleMemberHint'), editor: t('team.roleEditorHint') }
   const canEditPeople = viewerIsEditor
+  /** Set when the menu item opens the password field: the menu must not take the focus back from it. */
+  const openedPassword = useRef(false)
 
   /** Each save is an operation undone with the previous value. */
   const change = <K extends 'profile' | 'role' | 'name' | 'email' | 'active'>(key: K, next: Member[K], announce?: string) => {
@@ -144,22 +146,25 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
   }
 
   return (
-    <div className={`grid items-start gap-x-4 max-lg:gap-x-2 gap-y-2 max-lg:grid-cols-[minmax(0,1fr)_auto] border-b border-line px-4 py-3 last:border-b-0 ${COLUMNS} ${member.active ? '' : 'bg-closed-bg/30'}`}>
+    <div className={`grid min-h-12 shrink-0 items-start gap-x-4 max-lg:gap-x-2 gap-y-2 max-lg:grid-cols-[minmax(0,1fr)_auto] border-b border-line px-4 py-3 last:border-b-0 ${COLUMNS}`}>
       <div className="flex min-w-0 items-start gap-2.5 max-lg:col-span-2">
         <Avatar name={member.name} size={30} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2">
-            <EditableText value={member.name} label={t('team.fieldName')} canEdit={canEditPeople} validate={required} onSave={(v) => change('name', v)} displayClassName="text-sm font-semibold" className="w-auto" />
+            <EditableText value={member.name} label={t('team.fieldName')} canEdit={canEditPeople} validate={required} onSave={(v) => change('name', v)} displayClassName={`text-sm font-semibold ${member.active ? '' : 'text-muted'}`} className="w-auto" />
             {self && <Badge tone="accent">{t('team.me')}</Badge>}
           </div>
-          <EditableText value={member.email} label={t('team.fieldEmail')} canEdit={canEditPeople} validate={(v) => (v.includes('@') ? null : t('team.invalidEmail'))} onSave={(v) => change('email', v)} displayClassName="-mb-[5px] break-words pb-[5px] text-xs text-muted" render={withBreaks} />
+          <EditableText value={member.email} label={t('team.fieldEmail')} canEdit={canEditPeople} validate={(v) => (v.includes('@') ? null : t('team.invalidEmail'))} onSave={(v) => change('email', v)} displayClassName="-mb-[5px] break-words pb-[5px] text-sm text-muted" render={withBreaks} />
         </div>
       </div>
       <div className="flex min-w-0 flex-col items-start gap-1 max-lg:flex-row max-lg:flex-wrap max-lg:items-center max-lg:gap-x-3 max-lg:self-center">
         {canEditPeople && !self ? (
           <DropdownMenu>
             <DropdownMenuTrigger aria-label={`${t('team.roleOf', { name: member.name })}: ${roleLabel[member.role]}. ${roleHint[member.role]}`} title={roleHint[member.role]} className="inline-flex rounded-full hover:bg-hover">
-              <Badge tone={member.role === 'editor' ? 'accent' : 'neutral'}>{roleLabel[member.role]}</Badge>
+              <Badge tone={member.role === 'editor' ? 'accent' : 'neutral'} className="gap-1">
+                {roleLabel[member.role]}
+                <ChevronDown size={12} aria-hidden />
+              </Badge>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="min-w-32">
               <DropdownMenuRadioGroup value={member.role} onValueChange={(role) => void change('role', role as Role)}>
@@ -187,22 +192,53 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
       {/* Below 1024 px the cell dissolves (the four columns need 39 rem and a tablet beside the side panel has 27): the action shares the row of the role, on the right edge, and the failure takes its own row below the profile. */}
       <div className="flex min-w-0 flex-col items-end gap-1 max-lg:contents">
         {canEditPeople && !self && (
-          <div className="flex flex-wrap justify-end gap-1 max-lg:col-start-2 max-lg:row-start-2 max-lg:self-center max-lg:[&>button]:px-1.5">
-            <Button size="sm" variant="secondary" className="font-normal hover:border-danger hover:text-danger" disabled={busy} onClick={() => void deleteMember()} aria-label={t('team.deleteOf', { name: member.name })} title={t('team.deleteHint')}>
-              {t('team.delete')}
-            </Button>
-            {local && password === null && (
-              <Button size="sm" variant="secondary" className="font-normal" onClick={() => { setProblem(null); setPasswordValue('') }} aria-label={t('team.passwordOf', { name: member.name })}>
-                {t('team.password')}
-              </Button>
-            )}
-            <Button size="sm" variant="secondary" className="font-normal hover:border-danger hover:text-danger" disabled={busy} onClick={() => void toggleActive()} aria-label={member.active ? t('team.deactivateOf', { name: member.name }) : t('team.reactivateOf', { name: member.name })}>
-              {member.active ? t('team.deactivate') : t('team.reactivate')}
-            </Button>
+          <div className="max-lg:col-start-2 max-lg:row-start-2 max-lg:self-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" disabled={busy} aria-label={t('team.actionsOf', { name: member.name })}>
+                  {t('team.actions')}
+                  <ChevronDown size={16} aria-hidden />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                onCloseAutoFocus={(e) => {
+                  if (openedPassword.current) {
+                    openedPassword.current = false
+                    e.preventDefault()
+                  }
+                }}
+              >
+                {local && password === null && (
+                  <DropdownMenuItem
+                    aria-label={t('team.passwordChangeOf', { name: member.name })}
+                    onSelect={() => {
+                      openedPassword.current = true
+                      setProblem(null)
+                      setPasswordValue('')
+                    }}
+                  >
+                    {t('team.passwordChange')}
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem aria-label={member.active ? t('team.deactivateOf', { name: member.name }) : t('team.reactivateOf', { name: member.name })} onSelect={() => void toggleActive()}>
+                  {member.active ? t('team.deactivate') : t('team.reactivate')}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-danger data-[highlighted]:bg-danger-soft data-[highlighted]:text-danger"
+                  aria-label={t('team.deleteOf', { name: member.name })}
+                  title={t('team.deleteHint')}
+                  onSelect={() => void deleteMember()}
+                >
+                  {t('team.delete')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
         {problem && (
-          <span role="alert" className="text-right text-xs text-danger max-lg:col-span-2 max-lg:text-left">
+          <span role="alert" className="text-right text-sm text-danger max-lg:col-span-2 max-lg:text-left">
             {problem}
           </span>
         )}
@@ -214,7 +250,7 @@ function MemberRow({ member, self, viewerIsEditor, profileOpen, onProfileOpen }:
           onSubmit={(e) => { e.preventDefault(); void savePassword() }}
         >
           <Input type="password" autoComplete="new-password" spellCheck={false} autoFocus value={password} onChange={(e) => setPasswordValue(e.target.value)} aria-label={t('team.passwordNew')} placeholder={t('team.passwordNew')} className="w-56" />
-          <Button size="sm" type="submit" disabled={!password || setPassword.isPending}>
+          <Button variant="primary" size="sm" type="submit" disabled={!password || setPassword.isPending}>
             {t('common.save')}
           </Button>
           <Button size="sm" type="button" variant="ghost" disabled={setPassword.isPending} onClick={() => { setPasswordValue(null); setProblem(null) }}>

@@ -7,42 +7,44 @@ import { useErrorText, useT } from '@/i18n'
 import { useLogin } from '@team-platform/client/react'
 import { cn } from '@/lib/utils'
 
+type Field = 'email' | 'password'
+
 export function Login() {
   const t = useT()
   const errorText = useErrorText()
   const login = useLogin()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  /** The field the error is about: both when the server refused the pair, since it does not say which one. */
-  const [bad, setBad] = useState<{ email: boolean; password: boolean }>({ email: false, password: false })
+  /** The reason each field is marked with, shown under that field. The server does not say which of the pair it refused, so the reason goes under the last one. */
+  const [errors, setErrors] = useState<Partial<Record<Field, string>>>({})
   const [pending, setPending] = useState(false)
 
   const submit = async () => {
-    const missing = { email: !email.trim(), password: !password }
+    const missing: Partial<Record<Field, string>> = {}
+    if (!email.trim()) missing.email = t('login.missingEmail')
+    if (!password) missing.password = t('login.missingPassword')
     if (missing.email || missing.password) {
-      setBad(missing)
-      setError(missing.email ? t('login.missingEmail') : t('login.missingPassword'))
+      setErrors(missing)
       return
     }
     setPending(true)
-    setError(null)
-    setBad({ email: false, password: false })
+    setErrors({})
     try {
       await login.mutateAsync({ email: email.trim(), password })
     } catch (err) {
-      setBad({ email: true, password: true })
-      setError(errorText(err))
+      setErrors({ email: '', password: errorText(err) })
     } finally {
       setPending(false)
     }
   }
 
+  const fieldClass = (field: Field) => cn('[@media(pointer:coarse)]:h-11', errors[field] !== undefined && '!border-danger')
+
   return (
     <main data-screen="login" className="relative flex min-h-dvh items-center justify-center px-5">
       <Atmosphere />
       <form
-        className="glass-strong leaf relative z-10 flex w-full max-w-sm flex-col gap-4 !border-edge p-7"
+        className="glass-strong leaf relative z-10 flex w-full max-w-sm flex-col gap-4 p-7"
         onSubmit={(e) => {
           e.preventDefault()
           void submit()
@@ -51,22 +53,38 @@ export function Login() {
         <h1>
           <Wordmark name={t('brand.name')} large />
         </h1>
-        <label className="flex flex-col gap-1 text-sm font-medium">
-          {t('login.email')}
-          <Input type="email" autoComplete="username" autoFocus aria-invalid={bad.email ? true : undefined} aria-describedby="login-error" className={bad.email ? '!border-danger' : undefined} value={email} onChange={(e) => setEmail(e.target.value)} />
-        </label>
-        <label className="flex flex-col gap-1 text-sm font-medium">
-          {t('login.password')}
-          <Input type="password" autoComplete="current-password" aria-invalid={bad.password ? true : undefined} aria-describedby="login-error" className={bad.password ? '!border-danger' : undefined} value={password} onChange={(e) => setPassword(e.target.value)} />
-        </label>
+        <div className="flex flex-col gap-2">
+          <label htmlFor="login-email" className="rotulo">
+            {t('login.email')}
+          </label>
+          <Input id="login-email" type="email" autoComplete="username" autoFocus aria-invalid={errors.email !== undefined ? true : undefined} aria-describedby={errors.email ? 'login-email-error' : undefined} className={fieldClass('email')} value={email} onChange={(e) => setEmail(e.target.value)} />
+          {/* The line is kept free under the field, so the reason appears without moving the card. */}
+          <div className="-mt-1 min-h-6">
+            {errors.email && (
+              <p id="login-email-error" role="alert" className="text-sm text-danger">
+                {errors.email}
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="flex flex-col gap-2">
+          <label htmlFor="login-password" className="rotulo">
+            {t('login.password')}
+          </label>
+          <Input id="login-password" type="password" autoComplete="current-password" aria-invalid={errors.password !== undefined ? true : undefined} aria-describedby={errors.password ? 'login-password-error' : undefined} className={fieldClass('password')} value={password} onChange={(e) => setPassword(e.target.value)} />
+          {/* The line is kept free under the field, so the reason appears without moving the card. */}
+          <div className="-mt-1 min-h-6">
+            {errors.password && (
+              <p id="login-password-error" role="alert" className="text-sm text-danger">
+                {errors.password}
+              </p>
+            )}
+          </div>
+        </div>
         <Button type="submit" variant="primary" size="lg" className="justify-center" disabled={pending}>
           {t('login.enter')}
         </Button>
         <p className="text-sm text-muted">{t('login.noAccount')}</p>
-        {/* The error sits under the card, out of its box: the card keeps its shape and no reserved row opens a gap below the note, so the note has the same margin as the logo above it (J2-A-01, J3-A-03, ronda 4). Outside the labels, so it is not part of a field's name. */}
-        <p id="login-error" role="alert" className={cn('absolute inset-x-0 top-full mt-2 text-sm text-danger', error && 'rounded-md border border-danger bg-glass-strong px-3 py-1.5')}>
-          {error}
-        </p>
       </form>
     </main>
   )

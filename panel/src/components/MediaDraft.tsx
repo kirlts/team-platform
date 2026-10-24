@@ -33,9 +33,9 @@ export function ClipMenu({ draft, disabled, size = 'icon', labeled = false }: { 
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size={labeled ? 'sm' : size} aria-label={t('media.attach')} title={t('media.attach')} disabled={disabled}>
+          <Button variant="ghost" size={labeled ? 'sm' : size} aria-label={t('media.attach')} title={t('media.attach')} disabled={disabled} className={cn(labeled && 'px-3 max-md:gap-1 max-md:px-1.5')}>
             <Paperclip size={size === 'icon' ? 18 : 16} aria-hidden />
-            {labeled && <span className="text-xs">{t('media.attach')}</span>}
+            {labeled && <span>{t('media.attach')}</span>}
           </Button>
         </DropdownMenuTrigger>
         {/* Choosing «Enlace» hands the focus to its field, and it does so at the moment the menu would give it back to the clip: that
@@ -95,9 +95,9 @@ export function CaptureButtons({ draft, disabled, size = 'icon', labeled = false
           e.target.value = ''
         }}
       />
-      <Button variant="ghost" size={labeled ? 'sm' : size} aria-label={t('media.takePhoto')} title={t('media.takePhoto')} disabled={disabled || !!draft.recording} onClick={() => cameraInput.current?.click()}>
+      <Button variant="ghost" size={labeled ? 'sm' : size} aria-label={t('media.takePhoto')} title={t('media.takePhoto')} disabled={disabled || !!draft.recording} onClick={() => cameraInput.current?.click()} className={cn(labeled && 'px-3 max-md:gap-1 max-md:px-1.5')}>
         <Camera size={iconSize} aria-hidden />
-        {labeled && <span className="text-xs">{t('media.takePhoto')}</span>}
+        {labeled && <span>{t('media.takePhoto')}</span>}
       </Button>
       <Button
         variant="ghost"
@@ -106,10 +106,10 @@ export function CaptureButtons({ draft, disabled, size = 'icon', labeled = false
         title={draft.micAvailable ? (draft.recording ? t('media.stopRecording') : t('media.record')) : t('media.needsHttps')}
         disabled={disabled || !draft.micAvailable}
         onClick={() => void draft.toggleRecording()}
-        className={cn(draft.recording && 'text-danger')}
+        className={cn(labeled && 'px-3 max-md:gap-1 max-md:px-1.5', draft.recording && 'text-danger')}
       >
         {draft.recording ? <Square size={iconSize - 2} fill="currentColor" aria-hidden /> : <Mic size={iconSize} aria-hidden />}
-        {labeled && <span className="text-xs">{draft.recording ? t('media.stopRecording') : t('media.record')}</span>}
+        {labeled && <span>{draft.recording ? t('media.stopRecording') : t('media.record')}</span>}
       </Button>
     </>
   )
@@ -162,22 +162,22 @@ export function MediaDraftList({ draft, busy }: { draft: MediaDraft; busy?: bool
         // One row of chips, all of one height class: attaching one more does not move what is below until the row is full (J1-B-01).
         <ul aria-label={t('media.attachments')} className="flex flex-wrap items-center gap-1.5">
           {draft.locals.map((l) => (
-            <li key={l.key} className="flex min-h-9 min-w-0 max-w-full items-center gap-2 rounded-md border border-line-strong bg-surface py-0.5 pl-1 pr-0.5">
+            <li key={l.key} className="flex min-h-9 min-w-0 max-w-full items-center gap-2 rounded-md bg-surface py-0.5 pl-1 pr-0.5">
               <Thumb item={{ kind: kindFromMime(l.file.type, l.file.name), src: l.url, name: l.file.name, size: l.file.size }} px={28} />
               <span className="min-w-0 max-w-[12rem] text-xs leading-tight text-muted [overflow-wrap:anywhere]">{l.file.name}</span>
               {!busy && (
-                <button type="button" aria-label={t('media.remove', { name: l.file.name })} className="hit inline-flex shrink-0 items-center justify-center rounded-full text-muted hover:bg-hover hover:text-danger" onClick={() => draft.removeLocal(l.key)}>
+                <button type="button" aria-label={t('media.remove', { name: l.file.name })} className="hit inline-flex shrink-0 items-center justify-center rounded-full text-muted hover:bg-hover hover:text-danger pointer-coarse:min-h-11 pointer-coarse:min-w-11" onClick={() => draft.removeLocal(l.key)}>
                   <X size={13} aria-hidden />
                 </button>
               )}
             </li>
           ))}
           {draft.links.map((href) => (
-            <li key={href} className="flex min-h-9 min-w-0 max-w-full items-center gap-1.5 rounded-md border border-line-strong bg-surface py-0.5 pl-2 pr-0.5 text-xs">
+            <li key={href} className="flex min-h-9 min-w-0 max-w-full items-center gap-1.5 rounded-md bg-surface py-0.5 pl-2 pr-0.5 text-xs">
               <Link2 size={14} aria-hidden className="shrink-0 text-muted" />
               <span className="min-w-0 max-w-[20rem] [overflow-wrap:anywhere]">{breakable(href)}</span>
               {!busy && (
-                <button type="button" aria-label={t('media.remove', { name: href })} className="hit inline-flex shrink-0 items-center justify-center rounded-full text-muted hover:bg-hover hover:text-danger" onClick={() => draft.removeLink(href)}>
+                <button type="button" aria-label={t('media.remove', { name: href })} className="hit inline-flex shrink-0 items-center justify-center rounded-full text-muted hover:bg-hover hover:text-danger pointer-coarse:min-h-11 pointer-coarse:min-w-11" onClick={() => draft.removeLink(href)}>
                   <X size={13} aria-hidden />
                 </button>
               )}
@@ -201,7 +201,7 @@ export function RecordingStatus({ seconds }: { seconds: number }) {
   const t = useT()
   return (
     <div className="flex min-h-8 flex-1 items-center gap-2 px-2 text-sm" role="status" aria-label={t('media.recording')}>
-      <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-danger" aria-hidden />
+      <span className="h-2.5 w-2.5 rounded-full bg-danger" aria-hidden />
       <span className="tabular-nums">{mmss(seconds)}</span>
     </div>
   )

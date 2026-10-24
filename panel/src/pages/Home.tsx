@@ -69,11 +69,13 @@ export function Home() {
   const room = useRef<HTMLDivElement>(null)
   const tray = useSends()
   const [uploads, setUploads] = useState<Upload[]>([])
-  const [problem, setProblem] = useState<string | null>(null)
   /** The send in view: the key of an upload that is still going up, or the id of an input the server already has. */
   const [selectedId, setSelectedId] = useState<string | undefined>()
   /** The drawer under the bar (UD-046): it opens by itself when something is sent and the person can fold it; the control above carries the state of the sends. */
   const [drawerOpen, setDrawerOpen] = useState(false)
+  /** The drawer as the failure of an upload finds it: the callback of the upload outlives the render that made it. */
+  const drawerRef = useRef(false)
+  drawerRef.current = drawerOpen
   /** Sends already published or discarded here, hidden until the server's list catches up. */
   const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set())
   const events = useEventsSnapshot()
@@ -175,15 +177,15 @@ export function Home() {
       } catch (err) {
         const reason = errorText(err)
         setUploads((list) => list.map((u) => (u.key === key ? { ...u, error: reason } : u)))
-        setProblem(reason)
+        // With the drawer open the failed send says so in its own pane, with Reintentar; folded, the notice carries the same way out.
+        if (!drawerRef.current) notices.show({ tone: 'danger', text: t('compose.sendFailed', { reason }), action: { label: t('common.retry'), run: () => void upload(key, draft) } })
       }
     },
-    [errorText, queryClient, team],
+    [errorText, notices, queryClient, t, team],
   )
 
   const submit = (draft: SendDraft) => {
     const key = crypto.randomUUID()
-    setProblem(null)
     setUploads((list) => [...list, { key, draft, at: new Date().toISOString(), progress: 0 }])
     // What was sent is shown in the drawer under the bar, at once and without another click (UD-046).
     knownIds.current = new Set((tray.data ?? []).map((i) => i.id))
@@ -237,7 +239,7 @@ export function Home() {
 
       <section aria-label={t('home.new')} className="mx-auto flex w-full max-w-compose flex-col gap-3 [@media(min-height:1000px)]:md:py-block">
         {/* The row keeps its height with or without sends, so the control appearing moves nothing (J2-B-08). */}
-        <div className="flex min-h-7 items-center justify-between gap-x-6">
+        <div className="flex min-h-8 items-center justify-between gap-x-6">
           <h2>{t('home.new')}</h2>
           <div className="flex items-center gap-2">
           {working && (
@@ -247,16 +249,16 @@ export function Home() {
               data-testid="tray-control"
               aria-expanded={drawerOpen}
               onClick={() => setDrawerOpen((v) => !v)}
-              className="btn relative h-7 min-w-0 gap-x-2.5 overflow-hidden border border-transparent px-3 pb-1.5 text-left text-muted hover:bg-hover hover:text-fg"
+              className="btn relative h-8 min-w-0 gap-x-2.5 overflow-hidden border border-transparent px-3 pb-1 text-left text-muted hover:bg-hover hover:text-fg"
             >
-              <span className="text-sm font-bold">{t('tray.title')}</span>
+              <span className="text-sm font-semibold">{t('tray.title')}</span>
               <TrayState items={items} progress={events.progress} />
               <ChevronDown size={16} aria-hidden className={drawerOpen ? 'shrink-0' : 'shrink-0 -rotate-90'} />
             </button>
           )}
           </div>
         </div>
-        <ComposeBar onSubmit={submit} problem={problem} />
+        <ComposeBar onSubmit={submit} />
       </section>
 
       {working && drawerOpen && (
@@ -325,7 +327,7 @@ function TrayState({ items, progress }: { items: readonly TrayItem[]; progress: 
     <span className="flex flex-wrap items-center gap-1.5">
       {review > 0 && (
         <span data-pulse={pulse} className="rounded-full">
-          <Badge tone="accent">{t('tray.review', { n: review })}</Badge>
+          <Badge tone="answered">{t('tray.review', { n: review })}</Badge>
         </span>
       )}
       {running > 0 && (
@@ -336,7 +338,7 @@ function TrayState({ items, progress }: { items: readonly TrayItem[]; progress: 
       )}
       {published > 0 && review + running + failed === 0 && <Badge tone="neutral">{t('tray.published', { n: published })}</Badge>}
       {failed > 0 && (
-        <Badge tone="danger" className="gap-1 border border-danger">
+        <Badge tone="danger" className="gap-1">
           <AlertTriangle size={12} aria-hidden strokeWidth={2.4} />
           {t('tray.failed', { n: failed })}
         </Badge>

@@ -63,22 +63,23 @@ describe('Entrada', () => {
 })
 
 describe('Equipo', () => {
-  test('«Desactivar» is an outlined action as tall as the other actions of the row, and the fourth column has a heading', async () => {
+  test('«Acciones» is an outlined action in every row of another member, as tall as a small button, and the primary action is the taller one', async () => {
     const { page, context } = await open(DESKTOP, 'light', 'ana', '/team')
     try {
-      const action = page.getByRole('button', { name: /^Desactivar a / }).first()
+      const action = page.getByRole('button', { name: /^Acciones de / }).first()
       await action.waitFor()
       const look = await action.evaluate((el) => {
         const s = getComputedStyle(el)
-        return { border: parseFloat(s.borderTopWidth), height: el.getBoundingClientRect().height, size: parseFloat(s.fontSize) }
+        return { border: parseFloat(s.borderTopWidth), height: el.getBoundingClientRect().height, size: parseFloat(s.fontSize), text: el.textContent.trim() }
       })
       assert.ok(look.border >= 1, 'the action has an outline')
       assert.ok(look.height >= 28, `the action is ${look.height} px tall`)
       assert.ok(look.size >= 14, `the label is ${look.size} px`)
+      assert.equal(look.text, 'Acciones', 'the button is named by its function')
       const add = await page.getByRole('button', { name: 'Agregar miembro' }).evaluate((el) => el.getBoundingClientRect().height)
-      assert.ok(Math.abs(add - look.height) <= 4, 'the action is as tall as «Agregar miembro»')
-      assert.equal(await page.getByRole('columnheader').count() + (await page.getByText('Acciones', { exact: true }).count()) > 0, true)
-      assert.equal(await page.getByText('Acciones', { exact: true }).count(), 1, 'the column of actions is named')
+      assert.ok(add > look.height, 'the one action of the screen is taller than the row actions')
+      const rows = await page.locator('main div.border-b').filter({ has: page.getByRole('button', { name: /^Acciones de / }) }).count()
+      assert.equal(await page.getByRole('button', { name: /^Acciones de / }).count(), rows, 'one «Acciones» per row')
     } finally {
       await context.close()
     }
@@ -122,28 +123,30 @@ describe('Configuración', () => {
     }
   })
 
-  test('«Funciones» is a group label and «Texto» a row title: they do not share weight and ink', async () => {
+  test('«Funciones» is a group label and «Redacción de mensajes» a row title: they do not share size and ink', async () => {
     const { page, context } = await open(DESKTOP, 'light', 'ana', '/settings')
     try {
       const group = page.getByRole('heading', { name: 'Funciones', level: 3 })
-      const row = page.getByRole('heading', { name: 'Texto', level: 4 })
+      const row = page.getByRole('heading', { name: 'Redacción de mensajes', level: 4 })
       await row.waitFor()
-      const ink = (el) => el.evaluate((n) => ({ weight: getComputedStyle(n).fontWeight, color: getComputedStyle(n).color }))
+      // The group is the 12 px label in capitals; the row title reads at body size in the strong ink: size and ink tell them apart.
+      const ink = (el) => el.evaluate((n) => ({ size: parseFloat(getComputedStyle(n).fontSize), color: getComputedStyle(n).color, upper: getComputedStyle(n).textTransform === 'uppercase' }))
       const [g, r] = [await ink(group), await ink(row)]
-      assert.ok(Number(r.weight) > Number(g.weight), `weights ${g.weight} and ${r.weight}`)
+      assert.ok(r.size > g.size, `sizes ${g.size} and ${r.size}`)
+      assert.ok(g.upper && !r.upper, 'only the group label is in capitals')
       assert.notEqual(g.color, r.color)
     } finally {
       await context.close()
     }
   })
 
-  test('«Publicación automática» says what is published and where, in one line under 90 characters', async () => {
+  test('«Publicación automática» says what each option does, in under 90 characters', async () => {
     const { page, context } = await open(PHONE, 'light', 'ana', '/settings')
     try {
       const hint = page.locator('#hint-publication')
       await hint.waitFor()
       const text = await hint.innerText()
-      assert.match(text, /mensajes en el proyecto/)
+      assert.match(text, /^Automática publica .*; Manual deja los mensajes en revisión$/)
       assert.ok(text.length <= 90)
     } finally {
       await context.close()
@@ -230,7 +233,8 @@ describe('the drawer of Inicio', () => {
       const original = await drawer.getByTestId('original-box').boundingBox()
       assert.ok(original.height < 150, `the original takes ${original.height} px`)
       // UD-255: «Enviar como» stacks over the compose bar on a phone and pushes the result down by its row (36 px measured).
-      assert.ok(top < 844 * 0.68, `the result starts at ${top} px of an 844 px screen`)
+      // The bar now carries a 48 px send and 44 px touch targets in its stack, so the count starts lower; its first message row must still be in view.
+      assert.ok(top < 844 * 0.85, `the result starts at ${top} px of an 844 px screen`)
       await drawer.getByRole('button', { name: 'Ver más' }).click()
       await drawer.getByText('Pregunta: ¿el audio máximo sigue en 25 MB?').first().waitFor()
     } finally {

@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { NativeSelect } from '@/components/NativeSelect'
 import { PageControls } from '@/components/PageControls'
-import { SettingHint } from '@/components/SettingHint'
+import { SettingsBox } from '@/components/SettingsBox'
 import { useFormat, useT } from '@/i18n'
 import type { AuditEntry } from '@team-platform/client'
 import { useAuditLog } from '@team-platform/client/react'
 
 const PAGE_SIZE = 10
+const COLUMNS = 'md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,2fr)]'
 /** The actions the server writes to the log (src/domain/audit.js callers), for the filter. */
 const ACTIONS = Object.entries({
   area: ['create', 'delete', 'restore', 'update'],
@@ -37,34 +38,34 @@ export function AuditLog() {
   const log = useAuditLog(page, PAGE_SIZE, action)
   const rows = log.data?.items ?? []
   return (
-    <section data-audit className="flex flex-col gap-3 border-t border-line-strong pt-3">
-      <div className="flex flex-col gap-0.5">
-        <h2>{t('audit.title')}</h2>
-        <SettingHint id="hint-audit">{t('hint.audit')}</SettingHint>
-      </div>
-      <div className="w-56">
-        <NativeSelect
-          aria-label={t('audit.action')}
-          aria-describedby="hint-audit"
-          value={action}
-          onChange={(e) => {
-            setAction(e.target.value)
-            setPage(1)
-          }}
-        >
-          <option value="">{t('audit.all')}</option>
-          {ACTIONS.map((a) => (
-            <option key={a} value={a}>
-              {a}
-            </option>
-          ))}
-        </NativeSelect>
-      </div>
+    <SettingsBox
+      data-audit
+      title={t('audit.title')}
+      aside={
+        <div className="w-56">
+          <NativeSelect
+            aria-label={t('audit.action')}
+            value={action}
+            onChange={(e) => {
+              setAction(e.target.value)
+              setPage(1)
+            }}
+          >
+            <option value="">{t('audit.all')}</option>
+            {ACTIONS.map((a) => (
+              <option key={a} value={a}>
+                {a}
+              </option>
+            ))}
+          </NativeSelect>
+        </div>
+      }
+    >
       {rows.length === 0 ? (
         <p className="text-sm text-muted">{t('audit.empty')}</p>
       ) : (
-        <>
-          <div aria-hidden className="hidden grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,2fr)] gap-x-4 border-b border-line pb-1 text-xs text-muted md:grid">
+        <div className="flex flex-col">
+          <div aria-hidden className={`rotulo hidden h-8 items-center gap-x-4 border-b border-line md:grid ${COLUMNS}`}>
             <span>{t('audit.who')}</span>
             <span>{t('audit.when')}</span>
             <span>{t('audit.action')}</span>
@@ -72,20 +73,20 @@ export function AuditLog() {
           </div>
           <ul aria-label={t('audit.list')} className="flex flex-col">
             {rows.map((e) => (
-              <li key={e.id} data-audit-row={e.action} className="grid grid-cols-2 gap-x-4 gap-y-0.5 border-b border-line py-2 text-sm last:border-b-0 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,2fr)]">
+              <li key={e.id} data-audit-row={e.action} className={`grid min-h-12 shrink-0 grid-cols-2 items-center gap-x-4 gap-y-0.5 border-b border-line py-2 text-sm last:border-b-0 ${COLUMNS}`}>
                 <span className="min-w-0 break-words font-medium">{e.member_name ?? t('audit.system')}</span>
                 <span className="tabular-nums text-muted">{format.stamp(e.at)}</span>
-                <span className="min-w-0 break-all font-mono text-xs leading-5">{e.action}</span>
+                <span className="min-w-0 break-all font-mono leading-5">{e.action}</span>
                 <span className="col-span-2 min-w-0 break-words text-muted md:col-span-1">
                   {objectOf(e)}
-                  {detailOf(e) && <span className="block text-xs">{detailOf(e)}</span>}
+                  {detailOf(e) && <span className="block">{detailOf(e)}</span>}
                 </span>
               </li>
             ))}
           </ul>
-        </>
+        </div>
       )}
       <PageControls page={page} limit={PAGE_SIZE} total={log.data?.total ?? 0} onPage={setPage} />
-    </section>
+    </SettingsBox>
   )
 }

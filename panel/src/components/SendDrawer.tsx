@@ -1,4 +1,4 @@
-import { RotateCw, X } from '@/components/icons'
+import { AlertTriangle, RotateCw } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { useT } from '@/i18n'
 import { cn } from '@/lib/utils'
@@ -51,21 +51,22 @@ function UploadPane({ upload }: { upload: PendingUpload }) {
           </ul>
         )}
       </OriginalFrame>
-      <section aria-label={t('analysis.title')} className={cn('ai-surface flex min-h-0 min-w-0 flex-col gap-3 self-start p-3 pl-4 md:w-full')}>
+      <section aria-label={t('analysis.title')} className={cn('leaf border border-transparent flex min-h-0 min-w-0 flex-col gap-3 self-start bg-surface p-4 md:w-full')}>
         <div className="flex min-h-8 items-center gap-2">
           <h2>{t('analysis.title')}</h2>
         </div>
         {upload.error ? (
           <>
-            <p role="alert" className="rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">
-              {upload.error}
-            </p>
+            <div role="alert" className="flex items-start gap-3 rounded-md bg-danger-soft p-4 text-sm text-danger">
+              <AlertTriangle size={16} aria-hidden className="mt-0.5 shrink-0" />
+              <p className="min-w-0 [overflow-wrap:anywhere]">{t('compose.sendFailed', { reason: upload.error })}</p>
+            </div>
             <div className="flex items-center gap-2">
-              <Button size="sm" variant="secondary" onClick={upload.onRetry}>
-                <RotateCw size={13} aria-hidden /> {t('common.retry')}
+              <Button variant="secondary" onClick={upload.onRetry}>
+                <RotateCw size={14} aria-hidden /> {t('common.retry')}
               </Button>
-              <Button size="sm" variant="ghost" aria-label={t('tray.discardUpload')} onClick={upload.onDiscard}>
-                <X size={13} aria-hidden /> {t('analysis.discard')}
+              <Button variant="ghost" aria-label={t('tray.discardUpload')} onClick={upload.onDiscard}>
+                {t('analysis.discard')}
               </Button>
             </div>
           </>

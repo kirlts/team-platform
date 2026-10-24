@@ -10,8 +10,8 @@ export function Observed({ items }: { items?: string[] | null }) {
   if (!items?.length) return null
   return (
     <details data-testid="observed" className="group shrink-0 text-sm">
-      <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-xs font-semibold text-muted hover:text-fg [&::-webkit-details-marker]:hidden">
-        <ChevronRight size={13} aria-hidden className="transition-transform group-open:rotate-90" />
+      <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-xs font-semibold text-muted hover:text-fg [&::-webkit-details-marker]:hidden [@media(pointer:coarse)]:min-h-11">
+        <ChevronRight size={16} aria-hidden className="transition-transform group-open:rotate-90" />
         {t('observed.title')}
         <span className="font-normal tabular-nums">{items.length}</span>
       </summary>

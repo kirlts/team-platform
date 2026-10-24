@@ -1,4 +1,4 @@
-import { ChevronDown, Plus, RotateCw, Trash2, X } from '@/components/icons'
+import { AlertTriangle, ChevronDown, Plus, RotateCw, Trash2, X } from '@/components/icons'
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
@@ -100,7 +100,7 @@ export function AnalysisPanel({ input, onClose, onDiscarded, onDeleted }: { inpu
       data-ui-stage={input.status === 'proposed' ? 'analysis' : undefined}
       data-area-id={tinted ? activeArea : undefined}
       style={tinted ? areaStyle : undefined}
-      className={cn('@container flex min-h-0 min-w-0 flex-col gap-3 p-3 pl-4', tinted ? 'area-tint area-box' : 'ai-surface', input.status === 'proposed' ? 'flex-1' : 'w-full self-start')}
+      className={cn('@container flex min-h-0 min-w-0 flex-col gap-3 p-4', tinted ? 'area-tint area-box' : 'leaf border border-transparent bg-surface', input.status === 'proposed' ? 'flex-1' : 'w-full self-start')}
     >
       {/* «Volver a analizar» keeps the right edge of the first row whatever the history has: the left group wraps inside its own space and never pushes it down (J2-B-14). */}
       <div className="flex min-h-8 items-start justify-between gap-x-2 gap-y-1">
@@ -141,11 +141,12 @@ export function AnalysisPanel({ input, onClose, onDiscarded, onDeleted }: { inpu
 
       {input.status === 'failed' && (
         <div className="flex flex-col gap-3">
-          <div role="alert" className="flex flex-col gap-0.5 rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">
-            <p className="font-semibold">{t('analysis.failed')}</p>
-            <p>{failureText}.</p>
-            {/* What reassures is not an error: it goes in the ink of the text (J3-B-29). */}
-            <p className="text-fg">{t('analysis.kept')}</p>
+          <div role="alert" className="flex items-start gap-3 rounded-md bg-danger-soft p-4 text-sm text-danger">
+            <AlertTriangle size={16} aria-hidden className="mt-0.5 shrink-0" />
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <p className="font-semibold">{t('analysis.failed')}</p>
+              <p>{failureText}</p>
+            </div>
           </div>
           {reprocess.isError && (
             <p role="alert" className="text-sm text-danger">
@@ -153,10 +154,10 @@ export function AnalysisPanel({ input, onClose, onDiscarded, onDeleted }: { inpu
             </p>
           )}
           <div className="flex items-center gap-2">
-            <Button variant="primary" disabled={reprocess.isPending} onClick={() => reprocess.mutate(input.id)}>
+            <Button variant="secondary" disabled={reprocess.isPending} onClick={() => reprocess.mutate(input.id)}>
               <RotateCw size={14} aria-hidden /> {t('common.retry')}
             </Button>
-            <Button variant="secondary" className="hit" onClick={() => void discard.run()} disabled={discard.pending}>
+            <Button variant="ghost" className="hit" onClick={() => void discard.run()} disabled={discard.pending}>
               {t('analysis.discard')}
             </Button>
           </div>
@@ -340,7 +341,7 @@ function ProposalEditor({
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       {/* The system did not publish this proposal by itself (UD-070): the reason is said, and publishing by hand is the way on. */}
       {input.error_code === 'publish_blocked' && (
-        <p role="alert" className="rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">
+        <p role="alert" className="rounded-md bg-danger-soft px-4 py-3 text-sm text-danger">
           <span className="font-semibold">{t('analysis.error.publish_blocked')}</span> {input.error}
         </p>
       )}
@@ -365,13 +366,13 @@ function ProposalEditor({
       </ul>
 
       {(publish.isError || saveError !== null) && (
-        <p role="alert" className="rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">
+        <p role="alert" className="rounded-md bg-danger-soft px-4 py-3 text-sm text-danger">
           {errorText(publish.isError ? publish.error : saveError)}
         </p>
       )}
 
       {/* On a phone the actions stay on screen whatever the length of the list (J1-B-29). */}
-      <div data-actions className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 max-md:sticky max-md:bottom-0 max-md:z-10 max-md:-mx-3 max-md:-mb-3 max-md:rounded-b-[10px] max-md:border-t max-md:border-line max-md:bg-surface max-md:px-3 max-md:py-2">
+      <div data-actions className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 max-md:sticky max-md:bottom-0 max-md:z-10 max-md:-mx-4 max-md:-mb-4 max-md:rounded-b-lg max-md:border-t max-md:border-line max-md:bg-surface max-md:px-4 max-md:py-3">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <Button variant="ghost" className="hit text-danger" onClick={onDiscard} disabled={publish.isPending || discarding}>
             <Trash2 size={14} aria-hidden /> {t('analysis.discard')}
@@ -410,7 +411,7 @@ function ProposalEditor({
               {t('proposal.missing', { n: missingTotal })}
             </span>
           )}
-          <Button variant="primary" data-testid="proposal-send" onClick={() => void send()} disabled={publish.isPending || count === 0 || missingTotal > 0}>
+          <Button variant="secondary" data-testid="proposal-send" onClick={() => void send()} disabled={publish.isPending || count === 0 || missingTotal > 0}>
             {t('proposal.sendN', { n: count })}
           </Button>
         </div>

@@ -48,14 +48,14 @@ export interface Formats {
 }
 
 export function createFormats(language: Language, words: { today: string; yesterday: string }): Formats {
-  const date = new Intl.DateTimeFormat(language, { day: 'numeric', month: 'long', year: 'numeric' })
+  const date = new Intl.DateTimeFormat(language, { day: 'numeric', month: 'short', year: 'numeric' })
   const time = new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit', hour12: false })
   const short = new Intl.DateTimeFormat(language, { day: 'numeric', month: 'short' })
   const number = new Intl.NumberFormat(language, { maximumFractionDigits: 1 })
   const clock = (d: Date) => time.format(d)
   const full = new Intl.DateTimeFormat(language, { dateStyle: 'full', timeStyle: 'short', hour12: false })
   return {
-    longDate: (d) => date.format(d),
+    longDate: (d) => date.format(d).replace(/\./g, '').replace(/ de /g, ' '),
     fullStamp: (iso) => (Number.isNaN(new Date(iso).getTime()) ? '' : full.format(new Date(iso))),
     clock,
     stamp: (iso, now = new Date()) => {

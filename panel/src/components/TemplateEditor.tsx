@@ -1,4 +1,4 @@
-import { Check, Plus, Trash2 } from '@/components/icons'
+import { Plus, Trash2 } from '@/components/icons'
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -9,6 +9,7 @@ import { Markdown } from '@/lib/markdown'
 import { buildTemplate, fieldKey, OUTPUT_FIXED, OUTPUT_TYPES, parseTemplateFields, parseTemplateOutput, templateInstructions, type OutputType, type TemplateField, type TemplateOutputField } from '@/lib/template'
 import { EditableText } from './EditableText'
 import { NativeSelect } from './NativeSelect'
+import { SaveDot, type SaveTone } from './SaveDot'
 
 /** Longest label the server accepts for a field (src/analyze/templates.js, FIELD_LABEL_MAX). */
 const LABEL_MAX = 120
@@ -40,9 +41,9 @@ export function TemplateContentEditor({ name, description, markdown, onSave }: {
   const label = (v: string) => (!v ? t('common.required') : v.length > LABEL_MAX ? t('form.maxLength', { n: LABEL_MAX }) : null)
 
   return (
-    <div className="flex flex-col gap-5">
-      <section aria-label={t('templates.fields')} className="flex flex-col gap-2">
-        <div className="flex items-center justify-between gap-2">
+    <div className="flex flex-col gap-6">
+      <section aria-label={t('templates.fields')} className="flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-3">
           <h2>{t('templates.fields')}</h2>
           <Button
             size="sm"
@@ -51,24 +52,24 @@ export function TemplateContentEditor({ name, description, markdown, onSave }: {
               void save({ fields: [...fields, { name: fieldKey(text, fields.map((f) => f.name)), label: text, required: false }] })
             }}
           >
-            <Plus size={14} aria-hidden /> {t('templates.addField')}
+            <Plus size={16} aria-hidden /> {t('templates.addField')}
           </Button>
         </div>
         {fields.length === 0 ? (
           <p className="text-sm text-muted">{t('templates.noFields')}</p>
         ) : (
-          <ul className="flex flex-col divide-y divide-line rounded-md border border-line">
+          <ul className="flex flex-col divide-y divide-line rounded-lg bg-surface">
             {fields.map((f, i) => (
-              <li key={f.name} className="flex items-center gap-3 px-3 py-2">
-                <div className="min-w-0 flex-1">
+              <li key={f.name} className="flex min-h-12 flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2">
+                <div className="min-w-0 flex-1 basis-40">
                   <EditableText value={f.label} label={t('templates.fieldLabel')} validate={label} onSave={(v) => save({ fields: fields.map((x, j) => (j === i ? { ...x, label: v } : x)) })} displayClassName="font-medium" />
                 </div>
                 <label className="flex shrink-0 items-center gap-2 text-sm text-muted">
                   <Checkbox checked={f.required} onCheckedChange={(on) => void save({ fields: fields.map((x, j) => (j === i ? { ...x, required: on === true } : x)) })} />
                   {t('templates.required')}
                 </label>
-                <Button size="icon-sm" variant="ghost" aria-label={t('templates.removeField', { label: f.label })} title={t('templates.removeField', { label: f.label })} onClick={() => void save({ fields: fields.filter((_, j) => j !== i) })}>
-                  <Trash2 size={14} aria-hidden />
+                <Button size="sm" variant="ghost" className="text-muted hover:text-danger" aria-label={t('templates.removeField', { label: f.label })} title={t('templates.removeField', { label: f.label })} data-repeat-ok="per-field" onClick={() => void save({ fields: fields.filter((_, j) => j !== i) })}>
+                  <Trash2 size={16} aria-hidden /> {t('templates.removeShort')}
                 </Button>
               </li>
             ))}
@@ -79,14 +80,14 @@ export function TemplateContentEditor({ name, description, markdown, onSave }: {
       <OutputEditor output={output} onChange={(next) => save({ output: next })} />
 
       {refused && (
-        <p role="alert" data-template-refused className="text-xs text-danger">
+        <p role="alert" data-template-refused className="text-sm text-danger">
           {refused}
         </p>
       )}
 
-      <section aria-label={t('templates.instructions')} className="flex flex-col gap-2">
+      <section aria-label={t('templates.instructions')} className="flex flex-col gap-3">
         <h2>{t('templates.instructions')}</h2>
-        <div className="rounded-md border border-line px-3 py-2">
+        <div className="rounded-lg bg-surface px-4 py-3">
           <EditableText value={instructions} label={t('templates.instructions')} multiline prose validate={(v) => (v ? null : t('common.required'))} render={(v) => <Markdown source={v} />} onSave={(v) => save({ instructions: v })} />
         </div>
       </section>
@@ -104,8 +105,8 @@ export function OutputEditor({ output, onChange }: { output: TemplateOutputField
   const label = (v: string) => (!v ? t('common.required') : v.length > LABEL_MAX ? t('form.maxLength', { n: LABEL_MAX }) : null)
   const set = (i: number, patch: Partial<TemplateOutputField>) => void onChange(entries.map((x, j) => (j === i ? { ...x, ...patch } : x)))
   return (
-    <section aria-label={t('templates.output')} className="flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-2">
+    <section aria-label={t('templates.output')} className="flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-3">
         <h2>{t('templates.output')}</h2>
         <Button
           size="sm"
@@ -120,9 +121,9 @@ export function OutputEditor({ output, onChange }: { output: TemplateOutputField
       {output === null ? (
         <p className="text-sm text-muted">{t('templates.noOutput')}</p>
       ) : (
-        <ul className="flex flex-col divide-y divide-line rounded-md border border-line">
+        <ul className="flex flex-col divide-y divide-line rounded-lg bg-surface">
           {entries.map((f, i) => (
-            <li key={f.name} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
+            <li key={f.name} className="flex min-h-12 flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2">
               <div className="min-w-0 flex-1 basis-40">
                 <EditableText value={f.label} label={t('templates.outputLabel')} validate={label} onSave={(v) => set(i, { label: v })} displayClassName="font-medium" />
                 {f.enum && <span className="block break-words text-xs text-muted">{f.enum.join(' · ')}</span>}
@@ -147,13 +148,13 @@ export function OutputEditor({ output, onChange }: { output: TemplateOutputField
                 <Checkbox checked={f.required} onCheckedChange={(on) => set(i, { required: on === true })} />
                 {t('templates.required')}
               </label>
-              <Button size="icon-sm" variant="ghost" aria-label={t('templates.removeOutput', { label: f.label })} title={t('templates.removeOutput', { label: f.label })} onClick={() => void onChange(entries.filter((_, j) => j !== i))}>
-                <Trash2 size={14} aria-hidden />
+              <Button size="sm" variant="ghost" className="text-muted hover:text-danger" aria-label={t('templates.removeOutput', { label: f.label })} title={t('templates.removeOutput', { label: f.label })} data-repeat-ok="per-field" onClick={() => void onChange(entries.filter((_, j) => j !== i))}>
+                <Trash2 size={16} aria-hidden /> {t('templates.removeShort')}
               </Button>
             </li>
           ))}
           {(['outcome', 'summary'] as const).map((fixed) => (
-            <li key={fixed} data-output-fixed={fixed} className="flex items-center gap-3 px-3 py-2 text-muted">
+            <li key={fixed} data-output-fixed={fixed} className="flex min-h-12 items-center gap-4 px-4 py-2 text-muted">
               <span className="min-w-0 flex-1 font-medium">{t(`templates.output.${fixed}`)}</span>
               <span className="text-sm">{t('templates.fixed')}</span>
             </li>
@@ -165,15 +166,17 @@ export function OutputEditor({ output, onChange }: { output: TemplateOutputField
 }
 
 /**
- * Window of a template's content: the form above, over its own scrolling lane. Each change is saved as it is made
- * (UD-017), so the foot says so with «Guardado» once something was saved, and has the one button that leaves (J2-A-24).
+ * Window of a template's content: the form above, over its own scrolling lane. Each change is saved as it is made (UD-017), so the
+ * foot says where the saving stands with its dot and its word, and has the one button that leaves (J2-A-24).
  */
 export function TemplateContentDialog({ open, onOpenChange, title, onSave, ...editor }: { open: boolean; onOpenChange: (open: boolean) => void; title: string } & Parameters<typeof TemplateContentEditor>[0]) {
   const t = useT()
-  const [saved, setSaved] = useState(false)
+  const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   useEffect(() => {
-    if (!open) setSaved(false)
+    if (!open) setState('idle')
   }, [open])
+  const tone: SaveTone = state === 'saving' ? 'saving' : state === 'saved' ? 'saved' : state === 'error' ? 'error' : 'idle'
+  const word = state === 'saving' ? t('templates.saving') : state === 'saved' ? t('templates.saved') : state === 'error' ? t('templates.saveFailed') : t('templates.unchanged')
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent title={title} className="max-w-2xl">
@@ -182,22 +185,20 @@ export function TemplateContentDialog({ open, onOpenChange, title, onSave, ...ed
           <TemplateContentEditor
             {...editor}
             onSave={async (next) => {
-              await onSave(next)
-              setSaved(true)
+              setState('saving')
+              try {
+                await onSave(next)
+                setState('saved')
+              } catch (err) {
+                setState('error')
+                throw err
+              }
             }}
           />
         </div>
-        <div className="flex shrink-0 items-center justify-between gap-3 border-t border-line px-5 py-3">
+        <div className="flex shrink-0 items-center justify-between gap-4 border-t border-line px-5 py-4">
           {/* The state of what is edited, always said: «Sin cambios» until something is saved, then «Guardado». Each change is saved as it is made (J3-A-35). */}
-          <span role="status" className="inline-flex items-center gap-1.5 text-sm text-muted">
-            {saved ? (
-              <>
-                <Check size={15} aria-hidden className="text-accent" /> {t('templates.saved')}
-              </>
-            ) : (
-              t('templates.unchanged')
-            )}
-          </span>
+          <SaveDot tone={tone}>{word}</SaveDot>
           <Button variant="primary" onClick={() => onOpenChange(false)}>
             {t('templates.done')}
           </Button>
@@ -263,32 +264,32 @@ function NewTemplateForm({ onCreate, onClose }: { onCreate: (v: { name: string; 
 
   return (
     <form
-      className="flex min-h-0 flex-col gap-4 overflow-y-auto p-5"
+      className="flex min-h-0 flex-col gap-5 overflow-y-auto p-5"
       onSubmit={(e) => {
         e.preventDefault()
         void submit()
       }}
     >
-      <label className="flex flex-col gap-1 text-sm font-medium">
-        {t('areas.fieldName')}
+      <label className="flex flex-col gap-2">
+        <span className="rotulo">{t('areas.fieldName')}</span>
         <Input autoFocus value={name} aria-invalid={errors.name ? true : undefined} onChange={(e) => setName(e.target.value)} />
         {error('name')}
       </label>
-      <label className="flex flex-col gap-1 text-sm font-medium">
-        {t('areas.fieldDescription')}
+      <label className="flex flex-col gap-2">
+        <span className="rotulo">{t('areas.fieldDescription')}</span>
         <Textarea rows={2} value={description} aria-invalid={errors.description ? true : undefined} onChange={(e) => setDescription(e.target.value)} />
         {error('description')}
       </label>
-      <fieldset className="flex flex-col gap-2">
-        <legend className="mb-1 flex w-full items-center justify-between gap-2">
+      <fieldset className="flex flex-col gap-3">
+        <legend className="mb-1 flex w-full items-center justify-between gap-3">
           <h2>{t('templates.fields')}</h2>
           <Button size="sm" onClick={() => setFields((f) => [...f, { name: fieldKey(t('templates.newField'), f.map((x) => x.name)), label: '', required: false }])}>
-            <Plus size={14} aria-hidden /> {t('templates.addField')}
+            <Plus size={16} aria-hidden /> {t('templates.addField')}
           </Button>
         </legend>
         {fields.length === 0 && <p className="text-sm text-muted">{t('templates.noFields')}</p>}
         {fields.map((f, i) => (
-          <div key={i} className="flex items-center gap-3">
+          <div key={i} className="flex items-center gap-4">
             <Input
               aria-label={t('templates.fieldLabel')}
               placeholder={t('templates.fieldLabel')}
@@ -302,33 +303,33 @@ function NewTemplateForm({ onCreate, onClose }: { onCreate: (v: { name: string; 
               <Checkbox checked={f.required} onCheckedChange={(on) => setFields((all) => all.map((x, j) => (j === i ? { ...x, required: on === true } : x)))} />
               {t('templates.required')}
             </label>
-            <Button size="icon-sm" variant="ghost" aria-label={t('templates.removeField', { label: f.label || t('templates.newField') })} onClick={() => setFields((all) => all.filter((_, j) => j !== i))}>
-              <Trash2 size={14} aria-hidden />
+            <Button size="sm" variant="ghost" className="text-muted hover:text-danger" aria-label={t('templates.removeField', { label: f.label || t('templates.newField') })} data-repeat-ok="per-field" onClick={() => setFields((all) => all.filter((_, j) => j !== i))}>
+              <Trash2 size={16} aria-hidden /> {t('templates.removeShort')}
             </Button>
           </div>
         ))}
         {error('fields')}
       </fieldset>
       <OutputEditor output={output} onChange={(next) => setOutput(next)} />
-      <section aria-label={t('templates.instructions')} className="flex flex-col gap-1">
+      <section aria-label={t('templates.instructions')} className="flex flex-col gap-3">
         <h2>{t('templates.instructions')}</h2>
         {/* The same box and the same rendering as when a template is edited (J2-A-25). */}
-        <div className="rounded-md border border-line px-3 py-2">
+        <div className="rounded-lg bg-surface px-4 py-3">
           <EditableText value={instructions} label={t('templates.instructions')} multiline prose validate={(v) => (v ? null : t('common.required'))} render={(v) => <Markdown source={v} />} onSave={(v) => setInstructions(v)} />
         </div>
         {error('instructions')}
       </section>
       {formError && (
-        <p role="alert" className="text-xs text-danger">
+        <p role="alert" className="text-sm text-danger">
           {formError}
         </p>
       )}
-      <div className="flex justify-end gap-2 pt-1">
+      <div className="flex justify-end gap-3 pt-1">
         <Button variant="ghost" onClick={onClose}>
           {t('common.cancel')}
         </Button>
         <Button type="submit" variant="primary" disabled={pending}>
-          {t('common.create')}
+          {t('areas.addTemplate')}
         </Button>
       </div>
     </form>

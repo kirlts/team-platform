@@ -16,8 +16,8 @@ export function RecipientsEditor({ ids, onChange, max = 3 }: { ids: string[]; on
         <li key={id} data-repeat-ok="person" className="group/chip inline-flex min-h-6 max-w-full items-center gap-1 rounded-full border border-line-strong bg-glass-strong py-0.5 pl-0.5 pr-0.5 leading-tight text-fg">
           <Avatar name={memberName(id) || '?'} size={18} />
           {memberName(id)}
-          <button type="button" aria-label={t('recipients.remove', { name: memberName(id) })} className="hit inline-flex items-center justify-center rounded-full text-muted hover:bg-hover hover:text-fg" onClick={() => onChange(ids.filter((x) => x !== id))}>
-            <X size={11} aria-hidden />
+          <button type="button" aria-label={t('recipients.remove', { name: memberName(id) })} title={t('recipients.remove', { name: memberName(id) })} className="hit relative inline-flex items-center justify-center rounded-full text-muted hover:bg-hover hover:text-fg [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-2.5" onClick={() => onChange(ids.filter((x) => x !== id))}>
+            <X size={16} aria-hidden />
           </button>
         </li>
       ))}

@@ -76,11 +76,11 @@ describe('Equipo', () => {
     }
   })
 
-  test('on a phone «Desactivar» shares the row of the role, on the right edge of the content, and adds no row', async () => {
+  test('on a phone «Acciones» shares the row of the role, on the right edge of the content, and adds no row', async () => {
     const { page, context } = await session('ana', PHONE)
     try {
       await page.goto(`${origin}/team`)
-      const off = page.getByRole('button', { name: /^Desactivar a Bruno/ })
+      const off = page.getByRole('button', { name: /^Acciones de Bruno/ })
       await off.waitFor()
       const row = page.locator('main div.border-b').filter({ hasText: 'bruno@dev.invalid' }).first()
       const badge = row.getByText('Miembro', { exact: true }).first()
@@ -111,7 +111,8 @@ describe('Configuración', () => {
         const names = ['Nombre', 'Correo', 'Rol', 'Idioma', 'Proveedor', 'Modelo']
         return names.map((text) => {
           const el = [...document.querySelectorAll('dt, label')].find((x) => (x.firstChild?.textContent ?? x.textContent)?.trim() === text)
-          const node = el?.tagName === 'LABEL' ? el : el
+          // A field label wraps its text in the 12 px label span; that span is what the person reads.
+          const node = el?.tagName === 'LABEL' ? (el.firstElementChild ?? el) : el
           const css = node ? getComputedStyle(node) : null
           return { text, size: css?.fontSize, weight: css?.fontWeight, color: css?.color }
         })
@@ -124,13 +125,13 @@ describe('Configuración', () => {
     }
   })
 
-  test('the hints of Nombre and Correo say where they change, and their values are not controls', async () => {
+  test('the values of Nombre and Correo are plain text, with no help line and no control', async () => {
     const { page, context } = await session('ana', DESKTOP)
     try {
       await page.goto(`${origin}/settings`)
-      await page.getByText('el Editor lo cambia en Equipo').waitFor()
-      await page.getByText('el Editor la cambia en Equipo').waitFor()
       const value = page.locator('dd').filter({ hasText: 'ana@dev.invalid' }).first()
+      await value.waitFor()
+      assert.equal(await page.getByText(/el Editor (lo|la) cambia en Equipo/).count(), 0, 'a help line explains the screen')
       assert.equal(await value.locator('button, input, textarea, select, [tabindex]').count(), 0, 'the e-mail looks plain and is plain')
     } finally {
       await context.close()
@@ -159,7 +160,7 @@ describe('Entrada', () => {
     })
   }
 
-  test('a refused login shows the reason under the card, readable, and the card does not move', async () => {
+  test('a refused login shows the reason under its field, inside the card, readable, and the card does not move', async () => {
     const context = await panel.browser.newContext({ viewport: DESKTOP, locale: 'es-CL' })
     const page = await context.newPage()
     try {
@@ -172,7 +173,7 @@ describe('Entrada', () => {
       const after = await card.boundingBox()
       const notice = await alert.boundingBox()
       assert.ok(Math.abs(after.y - before.y) < 0.5 && Math.abs(after.height - before.height) < 0.5, 'the card moved')
-      assert.ok(notice.y >= after.y + after.height, 'the reason is inside the card')
+      assert.ok(notice.y >= after.y && notice.y + notice.height <= after.y + after.height, 'the reason is outside the card')
       assert.ok(notice.y + notice.height <= DESKTOP.height, 'the reason is off the screen')
     } finally {
       await context.close()

@@ -27,10 +27,10 @@ export function ReviewPane(props: Props) {
   const t = useT()
   if (!props.inputId && props.discarded) {
     return (
-      <div role="status" className="flex flex-col items-start gap-3 px-1 py-4">
+      <div role="status" className="flex flex-col items-start gap-3 px-4 py-4">
         <p className="text-sm font-semibold">{t('tray.pickedDiscarded')}</p>
         <Button variant="secondary" onClick={props.discarded.onUndo}>
-          <Undo size={14} aria-hidden /> {t('undo.undo')}
+          <Undo size={16} aria-hidden /> {t('undo.undo')}
         </Button>
       </div>
     )
@@ -47,7 +47,7 @@ function Review({ inputId, onClose, onDiscarded, onDeleted }: Props & { inputId:
     <UndoProvider stack={undo}>
       {/* The container query looks at this wrapper: a grid cannot be the container of its own columns. */}
       <div className="@container min-h-0 min-w-0 flex-1">
-        <div className="grid h-full min-h-0 gap-3 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:grid-rows-[minmax(0,1fr)]">
+        <div className="grid h-full min-h-0 gap-4 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:grid-rows-[minmax(0,1fr)]">
           <InputPreview input={input.data} />
           {input.data.status === 'published' ? <PublishedPane input={input.data} onDeleted={onDeleted} /> : <AnalysisPanel input={input.data} onClose={onClose} onDiscarded={onDiscarded ? (restore) => onDiscarded(inputId, restore) : undefined} onDeleted={onDeleted} />}
         </div>

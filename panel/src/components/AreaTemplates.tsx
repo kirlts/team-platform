@@ -1,9 +1,10 @@
-import { ChevronRight, Plus, Trash2 } from '@/components/icons'
+import { Plus, Trash2 } from '@/components/icons'
 import { useMemo, useRef, useState } from 'react'
 import { EditableText } from '@/components/EditableText'
 import { FitList } from '@/components/FitList'
 import { NewTemplateDialog, TemplateContentDialog } from '@/components/TemplateEditor'
-import { ShowDeleted } from '@/components/ShowDeleted'
+import { Fold } from '@/components/Fold'
+import { MoreMenu } from '@/components/MoreMenu'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/EmptyState'
 import { LoadState } from '@/components/LoadState'
@@ -13,8 +14,7 @@ import { useDeletedTemplates, useDeleteTemplate, useDeleteTemplates, useRestoreT
 import { useNotices } from '@/lib/notices'
 import { useSelection, type Selection } from '@/lib/selection'
 import { RowCheck, SelectionBar } from '@/components/SelectionBar'
-import { Markdown } from '@/lib/markdown'
-import { parseTemplateFields, parseTemplateOutput, templateInstructions } from '@/lib/template'
+import { parseTemplateFields, parseTemplateOutput } from '@/lib/template'
 import { useUndo } from '@/lib/undo'
 
 export const nameRule = (t: ReturnType<typeof useT>) => (v: string) => (!v ? t('common.required') : v.length > 64 ? t('form.maxLength', { n: 64 }) : null)
@@ -73,48 +73,49 @@ export function Templates({ area }: { area: Area }) {
       .then(() => setRemoved({ template, index, mark }))
   }
 
+  // With nothing to list, the empty state carries the one button that creates; the header does not repeat it.
+  const none = !templates.isPending && !templates.isError && rows.length === 0
+  const create = (
+    <Button variant="primary" data-testid="template-create" onClick={() => setCreating(true)}>
+      <Plus size={16} aria-hidden /> {t('areas.addTemplate')}
+    </Button>
+  )
+
   return (
-    <section aria-label={t('areas.templates')} className="flex min-h-0 min-w-0 flex-col gap-2">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="flex min-w-0 flex-wrap items-baseline gap-x-2">
-          {t('areas.templates')}
-          <span className="break-words text-sm font-semibold normal-case tracking-normal text-accent-deep">{area.title}</span>
-        </h2>
-        <div className="flex items-center gap-2">
-          <ShowDeleted label={t('restore.templates')} on={showDeleted} onChange={setShowDeleted} />
-          <Button size="sm" onClick={() => setCreating(true)}>
-            <Plus size={14} aria-hidden /> {t('areas.addTemplate')}
-          </Button>
-        </div>
-      </div>
-      <FitList
-        rows={rows}
-        rowKey={(x) => `${x.kind}-${x.template.id}`}
-        reveal={created}
-        renderRow={(x) => (x.kind === 'deleted' ? <DeletedTemplateRow template={x.template} /> : x.kind === 'removed' ? <RemovedRow template={x.template} onUndo={() => void undo.undo()} /> : <TemplateRow template={x.template} areaId={area.id} selection={selection} onRemove={() => void remove(x.template)} />)}
-        onShown={(keys) => (page.current = keys.filter((k) => k.startsWith('template-')).map((k) => k.slice(9)))}
-        header={marked.length > 0 ? <SelectionBar selection={selection} busy={delMany.isPending} onAll={() => selection.add(page.current)} onDelete={() => void removeMarked()} /> : undefined}
-        empty={
-          templates.isPending || templates.isError ? (
-            <LoadState query={templates} />
-          ) : (
-            <EmptyState
-              action={
-                <Button size="sm" onClick={() => setCreating(true)}>
-                  <Plus size={14} aria-hidden /> {t('areas.addTemplate')}
-                </Button>
-              }
-            >
-              {t('areas.noTemplates')}
-            </EmptyState>
+    <>
+      {/* The fold names the section and counts its templates; what acts on the list sits on the same line, at the right. */}
+      <Fold
+        title={t('areas.templates')}
+        note={templates.isSuccess ? live.length : undefined}
+        defaultOpen
+        anchor="plantillas"
+        action={
+          none ? undefined : (
+            <>
+              <MoreMenu items={[{ key: 'deleted', label: t('restore.templates'), checked: showDeleted, onCheckedChange: setShowDeleted, testId: 'show-deleted' }]} />
+              {create}
+            </>
           )
         }
-      />
+      >
+        <section aria-label={t('areas.templates')} className="flex h-[min(22rem,30dvh)] min-h-0 min-w-0 flex-col max-md:h-auto">
+          <FitList
+            bare
+            rows={rows}
+            rowKey={(x) => `${x.kind}-${x.template.id}`}
+            reveal={created}
+            renderRow={(x) => (x.kind === 'deleted' ? <DeletedTemplateRow template={x.template} /> : x.kind === 'removed' ? <RemovedRow template={x.template} onUndo={() => void undo.undo()} /> : <TemplateRow template={x.template} areaId={area.id} selection={selection} onRemove={() => void remove(x.template)} />)}
+            onShown={(keys) => (page.current = keys.filter((k) => k.startsWith('template-')).map((k) => k.slice(9)))}
+            header={marked.length > 0 ? <SelectionBar selection={selection} busy={delMany.isPending} onAll={() => selection.add(page.current)} onDelete={() => void removeMarked()} /> : undefined}
+            empty={templates.isPending || templates.isError ? <LoadState query={templates} /> : <EmptyState action={create}>{t('areas.noTemplates')}</EmptyState>}
+          />
+        </section>
+      </Fold>
       <NewTemplateDialog open={creating} onOpenChange={setCreating} onCreate={async (v) => {
           const made = (await save.mutateAsync(v)) as Template | undefined
           if (made?.id) setCreated(`template-${made.id}`)
         }} />
-    </section>
+    </>
   )
 }
 
@@ -123,9 +124,9 @@ function DeletedTemplateRow({ template }: { template: Template }) {
   const t = useT()
   const restore = useRestoreTemplate()
   return (
-    <article data-deleted="true" className="flex items-center justify-between gap-3 border-b border-line py-3 pl-10 pr-4 text-muted last:border-b-0">
+    <article data-deleted="true" className="flex min-h-12 items-center justify-between gap-3 border-b border-line py-2 pl-10 pr-4 text-muted last:border-b-0">
       <span className="min-w-0 break-words">{template.name}</span>
-      <Button size="sm" variant="secondary" disabled={restore.isPending} aria-label={t('restore.of', { title: template.name })} data-testid="template-restore" onClick={() => restore.mutate(template.id)}>
+      <Button size="sm" variant="secondary" disabled={restore.isPending} aria-label={t('restore.of', { title: template.name })} data-testid="template-restore" data-repeat-ok="per-template" onClick={() => restore.mutate(template.id)}>
         {t('restore.action')}
       </Button>
     </article>
@@ -135,19 +136,29 @@ function DeletedTemplateRow({ template }: { template: Template }) {
 function RemovedRow({ template, onUndo }: { template: Template; onUndo: () => void }) {
   const t = useT()
   return (
-    <article role="status" className="flex items-center justify-between gap-3 border-b border-line bg-hover py-3 pl-10 pr-4 last:border-b-0">
+    <article role="status" className="flex min-h-12 items-center justify-between gap-3 border-b border-line bg-hover py-2 pl-10 pr-4 last:border-b-0">
       <span className="min-w-0 break-words text-muted">{t('areas.deletedRow', { name: template.name })}</span>
-      <Button size="sm" variant="secondary" onClick={onUndo}>
+      <Button size="sm" variant="secondary" data-repeat-ok="per-template" onClick={onUndo}>
         {t('undo.undo')}
       </Button>
     </article>
   )
 }
 
+/** A tag of the fields a template asks for or delivers: information, so it is not a pill (a pill is what is touched). */
+function FieldTag({ label, required, fixed = false }: { label: string; required?: boolean; fixed?: boolean }) {
+  const t = useT()
+  return (
+    <li className={`inline-flex min-h-6 items-center gap-1.5 rounded-md bg-hover px-2.5 text-xs ${fixed ? 'text-muted' : ''}`}>
+      {label}
+      {required && <span className="text-muted">{t('templates.required')}</span>}
+    </li>
+  )
+}
+
 /**
- * A template as the person will meet it: its name and description edited in place, the fields it asks for and the
- * instructions it gives the model, folded. The one button names what it opens, «Campos e instrucciones»; deleting is
- * a small icon at the corner, away from the title, and it is undone where it was (J3-A-30, J3-A-31, J3-A-32).
+ * A template as the person will meet it: its name and description edited in place, and the fields it asks for and delivers. The window
+ * with the fields and the instructions opens with «Campos e instrucciones»; deleting is a quiet button that names itself, and it is undone where it was.
  */
 function TemplateRow({ template, areaId, selection, onRemove }: { template: Template; areaId: string; selection: Selection; onRemove: () => void }) {
   const t = useT()
@@ -156,7 +167,6 @@ function TemplateRow({ template, areaId, selection, onRemove }: { template: Temp
   const [showContent, setShowContent] = useState(false)
   const fields = useMemo(() => parseTemplateFields(template.body_markdown), [template.body_markdown])
   const output = useMemo(() => parseTemplateOutput(template.body_markdown), [template.body_markdown])
-  const instructions = useMemo(() => templateInstructions(template.body_markdown), [template.body_markdown])
 
   const change = (field: 'name' | 'description' | 'body_markdown', next: string) => {
     const prev = template[field]
@@ -164,69 +174,51 @@ function TemplateRow({ template, areaId, selection, onRemove }: { template: Temp
   }
 
   return (
-    <article data-marked={selection.isMarked(template.id) || undefined} className="relative flex flex-col gap-3 border-b border-line py-3 pl-10 pr-4 last:border-b-0 data-[marked]:bg-selected">
+    <article data-marked={selection.isMarked(template.id) || undefined} className="relative flex flex-col gap-3 border-b border-line py-4 pl-10 pr-5 last:border-b-0 data-[marked]:bg-selected">
       <RowCheck id={template.id} title={template.name} selection={selection} />
-      <div className="flex items-start gap-2">
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <EditableText value={template.name} label={t('areas.fieldName')} validate={nameRule(t)} onSave={(v) => change('name', v)} displayClassName="font-medium" />
-          <EditableText value={template.description} label={t('areas.fieldDescription')} multiline validate={descriptionRule(t)} onSave={(v) => change('description', v)} displayClassName="text-xs text-muted" />
+      <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
+        <div className="flex min-w-0 flex-1 basis-64 flex-col gap-1">
+          <EditableText value={template.name} label={t('areas.fieldName')} validate={nameRule(t)} onSave={(v) => change('name', v)} displayClassName="font-semibold" />
+          <EditableText value={template.description} label={t('areas.fieldDescription')} multiline validate={descriptionRule(t)} onSave={(v) => change('description', v)} displayClassName="text-sm text-muted" />
         </div>
-        <Button size="icon-sm" variant="ghost" className="-mr-1.5 shrink-0 text-muted hover:text-danger" aria-label={t('areas.delete', { name: template.name })} title={t('areas.deleteShort')} onClick={onRemove}>
-          <Trash2 size={14} aria-hidden />
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button size="sm" data-repeat-ok="per-template" onClick={() => setShowContent(true)}>
+            {t('areas.content')}
+          </Button>
+          <Button size="sm" variant="ghost" className="text-muted hover:text-danger" aria-label={t('areas.delete', { name: template.name })} title={t('areas.deleteShort')} data-repeat-ok="per-template" onClick={onRemove}>
+            <Trash2 size={16} aria-hidden /> {t('areas.deleteShort')}
+          </Button>
+        </div>
       </div>
-      <dl className="flex flex-col gap-1.5 text-sm">
-        <dt className="text-xs font-semibold text-muted">{t('templates.fields')}</dt>
+      <dl className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-baseline gap-x-3 gap-y-2">
+        <dt className="rotulo">{t('templates.fields')}</dt>
         <dd>
           {fields.length === 0 ? (
-            <span className="text-muted">{t('templates.noFields')}</span>
+            <span className="text-sm text-muted">{t('templates.noFields')}</span>
           ) : (
-            <ul className="flex flex-wrap gap-1.5">
+            <ul className="flex flex-wrap gap-2">
               {fields.map((f) => (
-                <li key={f.name} className="inline-flex min-h-6 items-center gap-1.5 rounded-full border border-line-strong px-2.5 text-xs">
-                  {f.label}
-                  {f.required && <span className="text-muted">{t('templates.required')}</span>}
-                </li>
+                <FieldTag key={f.name} label={f.label} required={f.required} />
               ))}
             </ul>
           )}
         </dd>
-        <dt className="text-xs font-semibold text-muted">{t('templates.output')}</dt>
+        <dt className="rotulo">{t('templates.output')}</dt>
         <dd data-template-output>
           {output === null ? (
-            <span className="text-muted">{t('templates.noOutput')}</span>
+            <span className="text-sm text-muted">{t('templates.noOutput')}</span>
           ) : (
-            <ul className="flex flex-wrap gap-1.5">
+            <ul className="flex flex-wrap gap-2">
               {output.map((f) => (
-                <li key={f.name} className="inline-flex min-h-6 items-center gap-1.5 rounded-full border border-line-strong px-2.5 text-xs">
-                  {f.label}
-                  {f.required && <span className="text-muted">{t('templates.required')}</span>}
-                </li>
+                <FieldTag key={f.name} label={f.label} required={f.required} />
               ))}
               {(['outcome', 'summary'] as const).map((fixed) => (
-                <li key={fixed} className="inline-flex min-h-6 items-center rounded-full border border-line px-2.5 text-xs text-muted">
-                  {t(`templates.output.${fixed}`)}
-                </li>
+                <FieldTag key={fixed} label={t(`templates.output.${fixed}`)} fixed />
               ))}
             </ul>
           )}
         </dd>
       </dl>
-      {/* The instructions can be as long as a method section: they fold, and the window below is where they are edited. */}
-      <details className="group text-sm">
-        <summary data-repeat-ok="per-template" className="inline-flex cursor-pointer list-none items-center gap-1 text-xs font-semibold text-muted hover:text-fg [&::-webkit-details-marker]:hidden">
-          <ChevronRight size={13} aria-hidden className="transition-transform group-open:rotate-90" />
-          {t('templates.instructions')}
-        </summary>
-        <div data-lane="template-instructions" data-repeat-ok="per-template" className="scroll-thin mt-2 max-h-48 overflow-y-auto pr-1">
-          <Markdown source={instructions} />
-        </div>
-      </details>
-      <div>
-        <Button size="sm" data-repeat-ok="per-template" onClick={() => setShowContent(true)}>
-          {t('areas.content')}
-        </Button>
-      </div>
       <TemplateContentDialog
         open={showContent}
         onOpenChange={setShowContent}

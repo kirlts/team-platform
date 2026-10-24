@@ -50,6 +50,15 @@ async function findRow(page, email) {
   }
   throw new Error(`${email}: not found after paging`)
 }
+/** The row's «Acciones» menu: opens it and returns the entries it offers. */
+async function openActions(page, row, name) {
+  await row.getByRole('button', { name: `Acciones de ${name}` }).click()
+  return page.getByRole('menu')
+}
+async function act(page, row, name, entry) {
+  const menu = await openActions(page, row, name)
+  await menu.getByRole('menuitem', { name: entry }).click()
+}
 async function shot(page, name) {
   if (!SHOTS) return
   mkdirSync(SHOTS, { recursive: true })
@@ -57,17 +66,19 @@ async function shot(page, name) {
 }
 
 describe('Team: password of another member', () => {
-  test('a member sees no «Contraseña» button and the Editor sees it on the others and not on their own row', async () => {
+  test('a member sees no «Cambiar contraseña» entry and the Editor sees it on the others and not on their own row', async () => {
     const other = await session('bruno', '/team', teamReady)
     try {
-      assert.equal(await other.page.getByRole('button', { name: /^Contraseña de/ }).count(), 0)
+      assert.equal(await other.page.getByRole('button', { name: /^Acciones de/ }).count(), 0)
     } finally {
       await other.context.close()
     }
     const { page, context } = await session('ana', '/team', teamReady)
     try {
-      assert.equal(await rowOf(page, 'ana@dev.invalid').getByRole('button', { name: /^Contraseña de/ }).count(), 0)
-      assert.equal(await (await findRow(page, 'carla@dev.invalid')).getByRole('button', { name: 'Contraseña de Carla Prueba' }).count(), 1)
+      assert.equal(await rowOf(page, 'ana@dev.invalid').getByRole('button', { name: /^Acciones de/ }).count(), 0)
+      const menu = await openActions(page, await findRow(page, 'carla@dev.invalid'), 'Carla Prueba')
+      assert.equal(await menu.getByRole('menuitem', { name: 'Cambiar contraseña de Carla Prueba' }).count(), 1)
+      await page.keyboard.press('Escape')
     } finally {
       await context.close()
     }
@@ -80,13 +91,13 @@ describe('Team: password of another member', () => {
         const row = await findRow(page, 'bruno@dev.invalid')
         const sent = []
         page.on('request', (r) => { if (r.method() === 'PATCH' && /\/api\/members\//.test(r.url())) sent.push(r.postData()) })
-        await row.getByRole('button', { name: 'Contraseña de Bruno Prueba' }).click()
+        await act(page, row, 'Bruno Prueba', 'Cambiar contraseña de Bruno Prueba')
         const field = row.getByLabel('Contraseña nueva')
         await field.waitFor()
         assert.equal(await page.locator('[role="dialog"]').count(), 0, 'no dialog')
         await row.getByRole('button', { name: 'Cancelar' }).click()
         assert.equal(await row.getByLabel('Contraseña nueva').count(), 0)
-        await row.getByRole('button', { name: 'Contraseña de Bruno Prueba' }).click()
+        await act(page, row, 'Bruno Prueba', 'Cambiar contraseña de Bruno Prueba')
         await field.fill('corta')
         await row.getByRole('button', { name: 'Guardar' }).click()
         await row.getByRole('alert').waitFor()
@@ -99,8 +110,8 @@ describe('Team: password of another member', () => {
         assert.deepEqual(sent.map((b) => JSON.parse(b)), [{ password: 'corta' }, { password: 'una clave larga de prueba 77' }])
         // The row keeps its right edge on a phone: the buttons are not pushed out of the frame.
         if (viewport.width < 768) {
-          const edge = await row.getByRole('button', { name: 'Eliminar a Bruno Prueba' }).evaluate((b) => b.getBoundingClientRect().right)
-          assert.ok(edge <= viewport.width - 8, `Eliminar leaves the frame: ${edge}`)
+          const edge = await row.getByRole('button', { name: 'Acciones de Bruno Prueba' }).evaluate((b) => b.getBoundingClientRect().right)
+          assert.ok(edge <= viewport.width - 8, `Acciones leaves the frame: ${edge}`)
         }
       } finally {
         await context.close()
@@ -170,7 +181,8 @@ describe('Templates in view', () => {
     const { page, context } = await session('ana', '/areas', (p) => p.getByRole('link', { name: /^Plantillas de/ }).first())
     try {
       const link = page.getByRole('link', { name: /^Plantillas de/ }).first()
-      assert.match(await link.innerText(), /^(1 plantilla|\d+ plantillas)$/)
+      // The number is what shows; the word travels in the accessible text.
+      assert.match((await link.textContent()).replace(/\s+/g, ' ').trim(), /^(1 plantilla|\d+ plantillas)$/)
       await link.click()
       await page.waitForURL(/#plantillas$/)
       await page.locator('section[aria-label="Plantillas"]').waitFor()

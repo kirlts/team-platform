@@ -145,7 +145,8 @@ function measureInPage({ lanes, withBreak, scrolls }) {
   // A thumbnail crops its image on purpose (no text in it) and a folded text fades out with a mask that says so; both are exempt, a cut text is not. Overlapped: two blocks of the page frame (the children of the view's first element) whose boxes cross; the bar to write, which grows over the page on purpose, is the one exemption.
   const cut = [...document.querySelectorAll('main *')]
     .filter((el) => {
-      if (el.closest('.sr-only, textarea, [aria-hidden=true], svg, [data-fit-measuring]') || matches(el)) return false
+      // `[class*=sr-only]` also takes the responsive form (`sm:sr-only`), text that is hidden from the eye on purpose from one width on.
+      if (el.closest('[class*="sr-only"], textarea, [aria-hidden=true], svg, [data-fit-measuring]') || matches(el)) return false
       const st = getComputedStyle(el)
       const hides = ['hidden', 'clip'].includes(st.overflowY) || ['hidden', 'clip'].includes(st.overflowX)
       const r = rect(el)

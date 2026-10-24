@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { AlertTriangle, Check } from '@/components/icons'
+import { AlertTriangle } from '@/components/icons'
 import { LoadState } from '@/components/LoadState'
-import { Button } from '@/components/ui/button'
+import { MoreMenu } from '@/components/MoreMenu'
+import { SaveDot, type SaveTone } from '@/components/SaveDot'
 import { useErrorText, useI18n, useT } from '@/i18n'
 import { Markdown } from '@/lib/markdown'
 import { useProject, useSaveProject } from '@team-platform/client/react'
@@ -118,7 +119,7 @@ export function ProjectEditor({ editor, describedBy }: { editor: boolean; descri
 
   if (!editor) {
     return current ? (
-      <div data-project-reading className="glass leaf prose-block px-4 py-3 text-sm">
+      <div data-project-reading className="glass leaf prose-block px-5 py-4 text-sm">
         <Markdown source={current} />
       </div>
     ) : (
@@ -127,14 +128,14 @@ export function ProjectEditor({ editor, describedBy }: { editor: boolean; descri
   }
 
   const fmt = (n: number) => n.toLocaleString(language)
-  const state =
-    status === 'saving' ? { text: t('project.saving'), tone: 'text-muted' }
-    : status === 'error' ? { text: t('project.saveError', { cause: problem ?? '' }), tone: 'text-danger' }
-    : dirty ? { text: t('project.dirty'), tone: 'text-fg font-semibold' }
-    : { text: t('project.saved'), tone: 'text-muted' }
+  const state: { text: string; tone: SaveTone } =
+    status === 'saving' ? { text: t('project.saving'), tone: 'saving' }
+    : status === 'error' ? { text: t('project.saveError', { cause: problem ?? '' }), tone: 'error' }
+    : dirty ? { text: t('project.dirty'), tone: 'dirty' }
+    : { text: t('project.saved'), tone: 'saved' }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       <textarea
         ref={field}
         rows={16}
@@ -159,39 +160,36 @@ export function ProjectEditor({ editor, describedBy }: { editor: boolean; descri
             e.stopPropagation()
           }
         }}
-        className={cn('well block w-full resize-y overflow-y-hidden rounded-md border px-3 py-2 font-mono text-sm leading-relaxed outline-none focus-visible:outline-none', over ? '!border-danger' : '!border-edge focus:!border-accent')}
+        className={cn('well block w-full resize-y overflow-y-hidden rounded-field border px-4 py-3 font-mono text-sm leading-relaxed outline-none focus-visible:outline-none', over ? '!border-danger' : '!border-[var(--field-border)] focus:!border-accent')}
       />
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-          <span role="status" aria-live="polite" data-project-status className={cn('inline-flex items-center gap-1.5', state.tone)}>
-            {status === 'error' ? <AlertTriangle size={14} aria-hidden /> : !dirty && status === 'idle' ? <Check size={14} aria-hidden /> : null}
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
+          <SaveDot tone={state.tone} data-project-status>
             {state.text}
-          </span>
+          </SaveDot>
           <span data-project-counter className={cn('inline-flex items-center gap-1.5 tabular-nums', over ? 'font-semibold text-danger' : near ? 'font-semibold text-fg' : 'text-muted')}>
-            {(over || near) && <AlertTriangle size={14} aria-hidden />}
+            {(over || near) && <AlertTriangle size={16} aria-hidden />}
             {max === undefined ? t('project.counterFree', { n: fmt(length) }) : t('project.counter', { n: fmt(length), max: fmt(max) })}
             {over ? ` · ${t('project.over')}` : near ? ` · ${t('project.near')}` : ''}
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          <input
-            ref={upload}
-            type="file"
-            accept=".md,.markdown,text/markdown,text/plain"
-            hidden
-            onChange={(e) => {
-              const file = e.target.files?.[0]
-              e.target.value = ''
-              if (file) void replaceWith(file)
-            }}
-          />
-          <Button size="sm" variant="ghost" className="text-accent-deep" onClick={() => upload.current?.click()}>
-            {t('project.upload')}
-          </Button>
-          <Button size="sm" variant="ghost" className="text-accent-deep" onClick={download}>
-            {t('project.download')}
-          </Button>
-        </div>
+        <input
+          ref={upload}
+          type="file"
+          accept=".md,.markdown,text/markdown,text/plain"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            e.target.value = ''
+            if (file) void replaceWith(file)
+          }}
+        />
+        <MoreMenu
+          items={[
+            { key: 'upload', label: t('project.upload'), onSelect: () => upload.current?.click() },
+            { key: 'download', label: t('project.download'), onSelect: download },
+          ]}
+        />
       </div>
     </div>
   )

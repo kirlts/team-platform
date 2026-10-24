@@ -3,23 +3,26 @@ import { useId, useState, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 /**
- * A section folded by default (progressive disclosure): one row with its name, an optional note and the arrow; the
- * content is drawn only while it is open.
+ * A section folded by default (progressive disclosure): one row with its name, an optional note (the count of what is inside) and the
+ * arrow; the content is drawn only while it is open. A fold holds no other fold: one level is hidden, never two.
  */
-export function Fold({ title, note, defaultOpen = false, children, className, anchor }: { anchor?: string; title: string; note?: ReactNode; defaultOpen?: boolean; children: ReactNode; className?: string }) {
+export function Fold({ title, note, action, defaultOpen = false, children, className, anchor }: { anchor?: string; title: string; note?: ReactNode; /** What acts on the content, on the right of the same line as the name. */ action?: ReactNode; defaultOpen?: boolean; children: ReactNode; className?: string }) {
   const [open, setOpen] = useState(defaultOpen)
   const id = useId()
   return (
     <section id={anchor} className={cn('glass leaf flex min-h-0 shrink-0 flex-col scroll-mt-4', className)}>
-      <h2 className="m-0">
-        <button type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen((v) => !v)} className="flex min-h-10 w-full items-center gap-2 px-4 text-left hover:bg-hover">
-          <ChevronRight size={15} aria-hidden className={cn('shrink-0 text-muted transition-transform', open && 'rotate-90 text-accent')} />
-          <span>{title}</span>
-          {note && <span className="text-sm font-normal normal-case tracking-normal text-muted tabular-nums">{note}</span>}
-        </button>
-      </h2>
+      <div className={cn('flex items-center gap-3 rounded-[inherit] pr-3', action && 'py-2')}>
+        <h2 className="m-0 min-w-0 flex-1">
+          <button type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen((v) => !v)} className={cn('flex min-h-10 w-full items-center gap-2 px-5 text-left hover:bg-hover pointer-coarse:min-h-11', open ? 'rounded-tl-[inherit]' : 'rounded-l-[inherit]')}>
+            <ChevronRight size={16} aria-hidden className={cn('shrink-0 text-muted transition-transform', open && 'rotate-90 text-accent')} />
+            <span>{title}</span>
+            {note !== undefined && note !== null && note !== false && <span className="text-sm font-normal normal-case tracking-normal text-muted tabular-nums">{note}</span>}
+          </button>
+        </h2>
+        {action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
+      </div>
       {open && (
-        <div id={id} className="flex min-h-0 flex-col border-t border-line px-4 py-3">
+        <div id={id} className="flex min-h-0 flex-col px-5 pb-4">
           {children}
         </div>
       )}

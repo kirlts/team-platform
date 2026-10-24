@@ -280,7 +280,7 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
     const { page, context } = await session('ana')
     try {
       // idea.md asks for «fecha y hora actuales»: one line of plain text, the date and the hour, as a <time> element.
-      const stamp = page.locator('main time[datetime]').filter({ hasText: /de 20\d\d, \d{2}:\d{2}/ })
+      const stamp = page.locator('main time[datetime]').filter({ hasText: /\d{1,2} [a-z]{3} 20\d\d, \d{2}:\d{2}/ })
       await stamp.first().waitFor()
       assert.equal(await stamp.count(), 1, 'the date and the hour are one element')
       const style = await stamp.first().evaluate((el) => ({ size: parseFloat(getComputedStyle(el).fontSize), upper: getComputedStyle(el).textTransform }))
@@ -303,8 +303,11 @@ describe('hierarchy of color and weight in Inicio (J3-A-04, J3-A-05, J3-A-06, J3
       await box.waitFor()
       const rest = await box.boundingBox()
       // UD-110: the bar has 24 px of padding and its controls under the field (131 px on a phone); it is still one line of text.
-      // UD-255: «Enviar como» stacks on top of it on a phone (171 px measured).
-      assert.ok(rest.height <= 180, `the bar measures ${rest.height} px at rest`)
+      // UD-255: «Enviar como» stacks on top of it on a phone. The action is a 48 px button over the full width and the
+      // tools are 44 px targets that take two rows (299 px measured): the field itself stays one line.
+      assert.ok(rest.height <= 310, `the bar measures ${rest.height} px at rest`)
+      const field = await page.locator('[data-compose-box] textarea').boundingBox()
+      assert.ok(field.height <= 64, `the field measures ${field.height} px at rest: one line of text`)
       await page.locator('[data-compose-box] textarea').fill(Array.from({ length: 4 }, () => 'Una línea larga que tiene que ocupar más de un renglón en una pantalla de teléfono para que la barra crezca con lo escrito.').join(' '))
       const grown = await box.boundingBox()
       assert.ok(grown.height > rest.height + 20, 'it grows while typing')
@@ -563,8 +566,15 @@ describe('justification by width (J3-A-21, J3-A-47)', () => {
       // The reference is the largest gap seen at 1440 px (UD-034): 14.2 px at 15 px of type.
       const worst = Math.max(...(await gaps(page)).map((g) => g.gap))
       assert.ok(worst <= 19.5, `gap of ${worst} px between words at 1440 px`)
-      const body = await page.locator('[data-lane="message-body"] .prose-block').first().evaluate((el) => ({ width: el.getBoundingClientRect().width, align: getComputedStyle(el).textAlign }))
-      assert.equal(body.align, 'justify', `the message body (${Math.round(body.width)} px) is still justified at 1440 px`)
+      // The alignment of a wide block is the hook `--prose-align`: the skin decides it (the default here is justified), and the block
+      // that is narrower than the measure stays at the left whatever the skin says.
+      const body = page.locator('[data-lane="message-body"] .prose-block').first()
+      const width = await body.evaluate((el) => el.clientWidth - parseFloat(getComputedStyle(el).paddingLeft) - parseFloat(getComputedStyle(el).paddingRight))
+      assert.equal(await body.evaluate((el) => getComputedStyle(el).textAlign), width >= min ? 'justify' : 'left', `the message body (${Math.round(width)} px)`)
+      await page.evaluate(() => document.documentElement.style.setProperty('--prose-align', 'center'))
+      const wide = page.locator('.prose-block[data-wide]').first()
+      assert.equal(await wide.evaluate((el) => getComputedStyle(el).textAlign), 'center', 'a wide block follows --prose-align')
+      assert.equal(await body.evaluate((el) => getComputedStyle(el).textAlign), width >= min ? 'center' : 'left', 'a narrow block ignores it')
     } finally {
       await context.close()
     }
@@ -676,7 +686,12 @@ describe('Mensajes and the detail (J3-A-16, J3-A-22 to J3-A-29)', () => {
       await page.goto(`${origin}/messages/${hit.id}`)
       const reply = page.locator('section[aria-label="Respuestas"] article').first()
       await reply.waitFor()
-      assert.ok((await reply.locator('ul[aria-label="Adjuntos"]').count()) <= 1, 'a single row of attachments per reply')
+      // The pictures are open in their own list and the other media in one named row: two lists at most, and no medium in both.
+      const lists = reply.locator('ul[aria-label="Adjuntos"]')
+      assert.ok((await lists.count()) <= 2, 'at most the open pictures and one row of the other media')
+      const names = await lists.evaluateAll((uls) => uls.flatMap((ul) => [...ul.querySelectorAll('li')].map((li) => li.querySelector('img')?.getAttribute('src') ?? li.textContent.trim())))
+      assert.equal(new Set(names).size, names.length, 'no medium is drawn twice in the reply')
+      assert.equal(await reply.locator('ul[aria-label="Adjuntos"] li:has(img)').count(), await reply.locator('img').count(), 'the pictures are in the open list only')
     } finally {
       await context.close()
     }
@@ -708,7 +723,7 @@ describe('Áreas and templates (J3-A-30 to J3-A-38)', () => {
     }
   })
 
-  test('the template shows what it asks for and what it tells the model, and its only button names what it opens (J3-A-30, J3-A-31, J3-A-32)', async () => {
+  test('the template shows what it asks for and what it delivers, and its button names what it opens (J3-A-30, J3-A-31, J3-A-32)', async () => {
     const { page, context } = await session('ana')
     try {
       await page.goto(`${origin}/areas/a-error`)
@@ -716,22 +731,20 @@ describe('Áreas and templates (J3-A-30 to J3-A-38)', () => {
       const card = page.locator('section[aria-label="Plantillas"] article').first()
       await card.waitFor()
       for (const field of ['Resumen', 'Pasos para reproducir', 'Qué se esperaba']) await card.getByText(field, { exact: false }).first().waitFor()
-      const summary = card.locator('summary')
-      assert.equal((await summary.innerText()).trim(), 'Instrucciones al modelo')
-      assert.equal(await card.getByText('Formato de salida').isVisible(), false, 'the instructions start folded')
-      await summary.click()
-      await card.getByText('Formato de salida').waitFor()
+      // The instructions are in the window, not in a fold inside the fold of the section: one hidden level only.
+      assert.equal(await card.locator('summary').count(), 0, 'a fold inside the templates fold')
+      assert.equal(await card.getByText('Formato de salida').count(), 0, 'the instructions are not drawn in the row')
       const open = card.getByRole('button', { name: 'Campos e instrucciones', exact: true })
       await open.waitFor()
       assert.doesNotMatch(await open.innerText(), /·/, 'without the ambiguous «· 1»')
-      // Deleting is a corner icon away from the title and lighter than it.
+      // Deleting is a quiet button that says its name, away from the title.
       const del = card.getByRole('button', { name: /^Eliminar/ })
       const title = card.getByRole('button', { name: /^Nombre:/ }).first()
-      assert.equal((await del.innerText()).trim(), '', '«Eliminar» is an icon with a name')
+      assert.equal((await del.innerText()).trim(), 'Eliminar', '«Eliminar» says its name: an icon alone is for closing, searching and going back')
       assert.ok((await del.boundingBox()).x > (await title.boundingBox()).x + 200, '«Eliminar» sits in the corner, away from the title')
       // The column is no longer a lone small card: what it shows is the template, not a link.
       const share = (await card.boundingBox()).height
-      assert.ok(share > 200, `the template card measures ${share} px`)
+      assert.ok(share > 120, `the template card measures ${share} px`)
     } finally {
       await context.close()
     }
@@ -758,7 +771,7 @@ describe('Áreas and templates (J3-A-30 to J3-A-38)', () => {
       // «Campos» is the same heading here and in the form of a new template.
       const heading = await dialog.getByRole('heading', { name: 'Campos' }).evaluate((el) => `${getComputedStyle(el).fontSize}|${getComputedStyle(el).textTransform}|${getComputedStyle(el).letterSpacing}`)
       await page.getByRole('button', { name: 'Listo' }).click()
-      await page.getByRole('button', { name: 'Plantilla', exact: true }).click()
+      await page.getByRole('button', { name: 'Crear plantilla', exact: true }).click()
       const created = page.getByRole('dialog')
       await created.getByRole('heading', { name: 'Campos' }).waitFor()
       const same = await created.getByRole('heading', { name: 'Campos' }).evaluate((el) => `${getComputedStyle(el).fontSize}|${getComputedStyle(el).textTransform}|${getComputedStyle(el).letterSpacing}`)
@@ -808,10 +821,14 @@ describe('Configuración and Equipo (J3-A-39 to J3-A-44)', () => {
     const { page, context } = await session('ana')
     try {
       await page.goto(`${origin}/team`)
-      const off = page.getByRole('button', { name: /^Desactivar a/ }).first()
+      // Desactivar lives in the «Acciones» menu of the row: no button of its own competes with the name or the role.
+      assert.equal(await page.getByRole('button', { name: /^Desactivar a/ }).count(), 0, 'no loose «Desactivar» button in the rows')
+      await page.getByRole('button', { name: /^Acciones de/ }).first().click()
+      const off = page.getByRole('menuitem', { name: /^Desactivar a/ }).first()
       await off.waitFor()
       const weight = await off.evaluate((el) => Number(getComputedStyle(el).fontWeight))
       assert.ok(weight <= 400, `«Desactivar» weighs ${weight}`)
+      await page.keyboard.press('Escape')
       const name = await page.getByRole('button', { name: /^Nombre:/ }).first().evaluate((el) => Number(getComputedStyle(el).fontWeight))
       assert.ok(weight < name, 'it weighs less than the name')
       const more = page.getByRole('button', { name: 'Ver más' }).first()
@@ -879,15 +896,16 @@ describe('entrance and not found (J3-A-01, J3-A-02, J3-A-03, J3-A-51)', () => {
         return (a + 0.05) / (b + 0.05)
       }, style.color)
       assert.ok(ratio >= 4.5, `contrast ${ratio.toFixed(2)}`)
-      // The gap between the password and Entrar is a normal gap of the form, not a reserved row.
-      const pass = await page.getByLabel('Contraseña').boundingBox()
-      const enter = await page.getByRole('button', { name: 'Entrar' }).boundingBox()
-      assert.ok(enter.y - (pass.y + pass.height) <= 24, `there are ${enter.y - (pass.y + pass.height)} px between the password and «Entrar»`)
       const before = await card.boundingBox()
       await page.getByRole('button', { name: 'Entrar' }).click()
-      await page.getByRole('alert').filter({ hasText: 'Falta el correo' }).waitFor()
+      const alert = page.getByRole('alert').filter({ hasText: 'Falta el correo' })
+      await alert.waitFor()
+      // The error lives under its field, in a line the form keeps free.
+      const email = await page.getByLabel('Correo').boundingBox()
+      const said = await alert.boundingBox()
+      assert.ok(said.y >= email.y + email.height, 'the error is under its field')
       const after = await card.boundingBox()
-      assert.ok(Math.abs(after.height - before.height) < 0.5 && Math.abs(after.y - before.y) < 0.5, 'the card moved with the error')
+      assert.ok(Math.abs(after.height - before.height) < 0.5 && Math.abs(after.y - before.y) < 0.5, 'the card keeps its shape and its place with the errors')
     } finally {
       await context.close()
     }
@@ -900,7 +918,7 @@ describe('entrance and not found (J3-A-01, J3-A-02, J3-A-03, J3-A-51)', () => {
       const card = page.getByRole('status').first()
       await card.waitFor()
       const box = await card.boundingBox()
-      assert.ok(box.height <= 120, `the card measures ${box.height} px`)
+      assert.ok(box.height <= 140, `the card measures ${box.height} px`)
     } finally {
       await context.close()
     }

@@ -43,6 +43,8 @@ describe('restore what was deleted, after a reload (UD-250)', () => {
       await page.reload()
       await del.first().waitFor()
       assert.equal(await page.getByTestId('area-restore').count(), 0, 'deleted areas are hidden until asked for')
+      // «Borradas» is an option of the «Más» menu of the header.
+      await page.getByTestId('more-menu').click()
       await page.getByTestId('show-deleted').click()
       const deleted = page.locator('[data-deleted="true"]').filter({ hasText: title })
       await deleted.waitFor()
@@ -96,12 +98,14 @@ describe('restore what was deleted, after a reload (UD-250)', () => {
       await region.getByText('eliminada').first().waitFor()
       await page.reload()
       await region.waitFor()
-      await region.getByTestId('show-deleted').click()
+      // «Borradas» is an option of the «Más» menu in the header of the fold, on the same line as «Plantillas».
+      await page.locator('#plantillas').getByTestId('more-menu').click()
+      await page.getByTestId('show-deleted').click()
       const deleted = region.locator('[data-deleted="true"]')
-      // The deleted rows come after the live ones; since «Salida» (H-3723) made each row taller, the list shows one row per page at this window.
+      // The deleted rows come after the live ones: depending on the window they share the page or are on the next one.
       const next = region.getByRole('button', { name: 'Página siguiente' })
-      await region.getByText('1–1 de 2').waitFor()
-      await next.click()
+      await settled(page)
+      if (!(await deleted.first().isVisible().catch(() => false))) await next.click()
       await deleted.waitFor()
       assert.ok((await deleted.first().textContent()).length > 0)
       const restoredName = (await deleted.first().locator('span').first().textContent()).trim()

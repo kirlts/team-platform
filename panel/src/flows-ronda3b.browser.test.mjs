@@ -359,7 +359,7 @@ describe('proposal (J3-B-02, J3-B-05, J3-B-08, J3-B-09, J3-B-10, J3-B-11, J3-B-1
 })
 
 describe('failure, publication and notices (J3-B-14, J3-B-15, J3-B-29)', () => {
-  test('a failed send says so inside the drawer, the chip has an edge and the reassurance is not red; folded, it says so as an error with its way in (J3-B-14, J3-B-29)', async () => {
+  test('a failed send says so inside the drawer, the chip has an icon and there is no reassurance line; folded, it says so as an error with its way in (J3-B-14, J3-B-29)', async () => {
     const { page, context } = await session('valentina')
     try {
       await page.goto(origin)
@@ -375,11 +375,13 @@ describe('failure, publication and notices (J3-B-14, J3-B-15, J3-B-29)', () => {
       await alert.waitFor({ timeout: 40000 })
       assert.match(await alert.innerText(), /falló/)
       await alert.getByRole('button', { name: 'Revisar' }).click()
-      const kept = page.getByText('Texto y adjuntos del envío conservados')
-      await kept.waitFor()
-      assert.notEqual(await style(kept, 'color'), await style(page.getByText('El análisis no terminó'), 'color'), 'what reassures is not in the error red')
+      // The failure says what happened and offers the way out; it does not add a line that reassures.
+      await page.getByText('El análisis no terminó').waitFor()
+      assert.equal(await page.getByText('Texto y adjuntos del envío conservados').count(), 0, 'no reassurance line in the failure')
+      await page.getByRole('button', { name: 'Reintentar' }).waitFor()
       const chip = page.getByTestId('tray-control')
-      assert.notEqual(await chip.locator('text=/falló/').first().evaluate((el) => getComputedStyle(el).borderTopWidth), '0px', 'the failure mark has an outline')
+      // The failure is not told by color alone: its mark carries an icon beside the word.
+      assert.equal(await chip.locator('text=/falló/').first().locator('svg').count(), 1, 'the failure mark has an icon')
     } finally {
       await panel.control.release()
       await context.close()

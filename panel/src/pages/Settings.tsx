@@ -11,6 +11,7 @@ import { ProjectEditor } from '@/components/ProjectEditor'
 import { ProviderSettings } from '@/components/ProviderSettings'
 import { Segmented } from '@/components/Segmented'
 import { SettingHint } from '@/components/SettingHint'
+import { SettingsBox } from '@/components/SettingsBox'
 import { PublicationSetting } from '@/components/PublicationSetting'
 import { UndoButtons } from '@/components/UndoButtons'
 import { UiTelemetrySetting } from '@/components/UiTelemetrySetting'
@@ -21,6 +22,7 @@ import type { Language } from '@team-platform/client'
 import { useMe, useSaveLanguage, useSaveMember } from '@team-platform/client/react'
 import { readThemePref, saveTheme, type ThemePref } from '@/lib/theme'
 import { UndoProvider, useUndoStack } from '@/lib/undo'
+import { cn } from '@/lib/utils'
 
 const LANGUAGE_KEY: Record<Language, MessageKey> = { 'es-419': 'language.es-419', en: 'language.en' }
 /**
@@ -37,48 +39,41 @@ export function Settings() {
     <UndoProvider stack={undo}>
       <div data-scrolling-page className="flex w-full max-w-[72rem] flex-col gap-5 px-5 py-6 md:px-10 md:py-5">
         <PageHeader title={t('nav.settings')} aside={editor ? <UndoButtons stack={undo} /> : undefined} />
-        <div className="grid items-start gap-x-10 gap-y-5 md:grid-cols-[minmax(0,4fr)_minmax(0,8fr)]">
+        <div className="grid items-start gap-5 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
           <div className="flex min-w-0 flex-col gap-5">
             <Account />
             <Theme />
             {editor && <PublicationSetting />}
             {editor && <UiTelemetrySetting />}
-            {editor && <ProjectNameSetting />}
           </div>
           <div className="flex min-w-0 flex-col gap-5">
             <Project editor={editor} />
+            {editor && <ProjectNameSetting />}
             {editor && <FramingSetting />}
-            {editor && <ProviderSettings />}
           </div>
         </div>
+        {editor && <ProviderSettings />}
         {editor && <DataReset />}
-        {editor && <QueuePanel />}
+        {/* The queue draws its own rule at the top: inside the box it is not needed. */}
+        {editor && (
+          <div className="glass leaf p-5 [&>section]:border-t-0 [&>section]:pt-0">
+            <QueuePanel />
+          </div>
+        )}
         {editor && <AuditLog />}
       </div>
     </UndoProvider>
   )
 }
 
-function Section({ title, hint, hintId, children }: { title: string; hint?: string; hintId?: string; children: ReactNode }) {
+/** One setting of the account: its label over its value, as a group of data. */
+function Row({ label, hint, hintId, wide = false, children }: { label: string; hint?: string; hintId?: string; wide?: boolean; children: ReactNode }) {
   return (
-    <section className="flex flex-col gap-3 border-t border-line-strong pt-3">
-      <div className="flex flex-col gap-0.5">
-        <h2>{title}</h2>
-        {hint && hintId && <SettingHint id={hintId}>{hint}</SettingHint>}
-      </div>
-      {children}
-    </section>
-  )
-}
-
-/** One setting: label, value or control, and its explanation under both. The control names the explanation in `aria-describedby`. */
-function Row({ label, hint, hintId, children }: { label: string; hint: string; hintId: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <dt className="text-sm text-muted">{label}</dt>
-      <dd aria-describedby={hintId} className="flex flex-col items-start gap-1">
+    <div className={cn('flex min-w-0 flex-col gap-1.5', wide && 'sm:col-span-2')}>
+      <dt className="rotulo">{label}</dt>
+      <dd aria-describedby={hintId} className="flex min-w-0 flex-col items-start gap-1 text-sm">
         {children}
-        <SettingHint id={hintId}>{hint}</SettingHint>
+        {hint && hintId && <SettingHint id={hintId}>{hint}</SettingHint>}
       </dd>
     </div>
   )
@@ -93,22 +88,27 @@ function Account() {
   const { language } = useI18n()
 
   return (
-    <Section title={t('settings.account')}>
-      <dl className="flex flex-col gap-3 text-sm">
-        <Row label={t('settings.name')} hint={t('hint.account.name')} hintId="hint-account-name">
+    <SettingsBox title={t('settings.account')}>
+      <dl className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
+        <Row label={t('settings.name')}>
           <span>{me?.name}</span>
         </Row>
-        <Row label={t('settings.email')} hint={t('hint.account.email')} hintId="hint-account-email">
+        <Row label={t('settings.email')}>
           <span className="break-all">{me?.email}</span>
         </Row>
-        <Row label={t('settings.role')} hint={t('hint.account.role')} hintId="hint-account-role">
+        <Row label={t('settings.role')}>
           <span>{me?.role === 'editor' ? t('team.roleEditor') : t('team.roleMember')}</span>
         </Row>
-        <Row label={t('settings.language')} hint={t('hint.account.language')} hintId="hint-account-language">
+        <Row label={t('settings.password')}>
+          <Button size="sm" onClick={() => setChanging(true)}>
+            <Lock size={16} aria-hidden /> {t('settings.changePassword')}
+          </Button>
+        </Row>
+        <Row wide label={t('settings.language')} hint={t('hint.account.language')} hintId="hint-account-language">
           <DropdownMenu>
             <DropdownMenuTrigger aria-describedby="hint-account-language" className={`${SELECT_FACE} inline-flex min-w-40 items-center justify-between gap-2`} aria-label={t('settings.languageAria', { value: t(LANGUAGE_KEY[language]) })}>
               {t(LANGUAGE_KEY[language])}
-              <ChevronDown size={13} aria-hidden />
+              <ChevronDown size={16} aria-hidden />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
               <DropdownMenuRadioGroup value={language} onValueChange={(v) => saveLanguage.mutate(v as Language)}>
@@ -120,11 +120,6 @@ function Account() {
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
-        </Row>
-        <Row label={t('settings.password')} hint={t('hint.account.password')} hintId="hint-account-password">
-          <Button size="sm" aria-describedby="hint-account-password" onClick={() => setChanging(true)}>
-            <Lock size={13} aria-hidden /> {t('settings.changePassword')}
-          </Button>
         </Row>
       </dl>
       <FormDialog
@@ -138,7 +133,7 @@ function Account() {
         ]}
         onSubmit={(v) => saveMember.mutateAsync({ id: me?.id ?? '', self: true, patch: { current_password: v.current_password, new_password: v.new_password } })}
       />
-    </Section>
+    </SettingsBox>
   )
 }
 
@@ -146,22 +141,24 @@ function Theme() {
   const t = useT()
   const [theme, setTheme] = useState<ThemePref>(readThemePref)
   return (
-    <Section title={t('settings.theme')} hint={t('hint.theme')} hintId="hint-theme">
-      <Segmented
-        label={t('settings.theme')}
-        describedBy="hint-theme"
-        value={theme}
-        onChange={(v) => {
-          setTheme(v)
-          saveTheme(v)
-        }}
-        options={[
-          { value: 'light', label: t('settings.themeLight') },
-          { value: 'dark', label: t('settings.themeDark') },
-          { value: 'system', label: t('settings.themeSystem') },
-        ]}
-      />
-    </Section>
+    <SettingsBox
+      title={t('settings.theme')}
+      aside={
+        <Segmented
+          label={t('settings.theme')}
+          value={theme}
+          onChange={(v) => {
+            setTheme(v)
+            saveTheme(v)
+          }}
+          options={[
+            { value: 'light', label: t('settings.themeLight') },
+            { value: 'dark', label: t('settings.themeDark') },
+            { value: 'system', label: t('settings.themeSystem') },
+          ]}
+        />
+      }
+    />
   )
 }
 
@@ -169,8 +166,8 @@ function Theme() {
 function Project({ editor }: { editor: boolean }) {
   const t = useT()
   return (
-    <Section title={t('project.title')} hint={t('hint.project')} hintId="hint-project">
+    <SettingsBox title={t('project.title')} hint={t('hint.project')} hintId="hint-project">
       <ProjectEditor editor={editor} describedBy="hint-project" />
-    </Section>
+    </SettingsBox>
   )
 }

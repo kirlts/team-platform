@@ -18,8 +18,9 @@ import { SelectionProvider, useSelection, type SelectionScope } from '@/lib/sele
  *
  * Each message the person may delete (theirs, or any for an Editor) carries a check box; marking one shows the strip over the list
  * with the buttons to mark all, delete and cancel (UD-253). Borrar deletes them at once without asking, and the notice carries Deshacer.
+ * `noneAction` is the one action of a list that has nothing yet (what fills it).
  */
-export function MessageList({ list, query, onClear, none, hideArea = false, footer }: { list: ReturnType<typeof useMessages>; query: MessageQuery; onClear: () => void; none: ReactNode; hideArea?: boolean; footer?: ReactNode }) {
+export function MessageList({ list, query, onClear, none, noneAction, hideArea = false, footer }: { list: ReturnType<typeof useMessages>; query: MessageQuery; onClear: () => void; none: ReactNode; noneAction?: ReactNode; hideArea?: boolean; footer?: ReactNode }) {
   const t = useT()
   const me = useMe().data
   const notices = useNotices()
@@ -66,7 +67,7 @@ export function MessageList({ list, query, onClear, none, hideArea = false, foot
           ) : query.q || query.filters.length > 0 ? (
             <EmptyState
               action={
-                <Button size="sm" onClick={onClear}>
+                <Button variant="primary" onClick={onClear}>
                   {t('messages.clearSearch')}
                 </Button>
               }
@@ -74,7 +75,7 @@ export function MessageList({ list, query, onClear, none, hideArea = false, foot
               {query.q ? t('messages.noMatch', { q: query.q }) : t('messages.noMatchFilters')}
             </EmptyState>
           ) : (
-            <EmptyState>{none}</EmptyState>
+            <EmptyState action={noneAction}>{none}</EmptyState>
           )
         }
       />

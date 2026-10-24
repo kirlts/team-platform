@@ -5,6 +5,7 @@ import { NativeSelect } from '@/components/NativeSelect'
 import { FailureLine, ProviderCheck } from '@/components/ProviderCheck'
 import { ProviderConnections } from '@/components/ProviderConnections'
 import { SettingHint } from '@/components/SettingHint'
+import { SettingsBox } from '@/components/SettingsBox'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useT, type MessageKey } from '@/i18n'
@@ -22,13 +23,9 @@ export function ProviderSettings() {
   const settings = useProviders(true)
   const connections = useConnections()
   return (
-    <section data-providers className="flex min-w-0 flex-col gap-4 border-t border-line-strong pt-3">
-      <div className="flex flex-col gap-0.5">
-        <h2>{t('settings.providers')}</h2>
-        <SettingHint id="hint-providers">{t('hint.providers')}</SettingHint>
-      </div>
+    <SettingsBox data-providers title={t('settings.providers')}>
       <div className="flex flex-col gap-1">
-        <h3 className="border-b border-line pb-1 text-sm font-normal text-muted">{t('providers.slots')}</h3>
+        <h3 className="rotulo flex h-8 items-center border-b border-line">{t('providers.slots')}</h3>
         {settings.data && connections.data ? (
           <ul className="flex flex-col">
             {SLOTS.map((slot) => {
@@ -41,13 +38,13 @@ export function ProviderSettings() {
         )}
       </div>
       <div className="flex flex-col gap-1">
-        <div className="flex flex-col gap-0.5">
-          <h3 className="border-b border-line pb-1 text-sm font-normal text-muted">{t('providers.connections')}</h3>
+        <div className="flex h-8 items-center justify-between gap-3 border-b border-line">
+          <h3 className="rotulo">{t('providers.connections')}</h3>
           <SettingHint id="hint-connections">{t('hint.connections')}</SettingHint>
         </div>
         <ProviderConnections />
       </div>
-    </section>
+    </SettingsBox>
   )
 }
 
@@ -61,7 +58,6 @@ function SlotRow({ slot, saved }: { slot: ProviderSlot; saved: ProviderSetting }
   const [outcome, setOutcome] = useState<{ ok: true } | { ok: false; error: unknown } | null>(null)
   const [shown, setShown] = useState<Shown | null>(null)
   const ids = useId()
-  const hintId = `hint-slot-${slot}`
   const slotName = t(`settings.slot.${slot}` as MessageKey)
   const remembered = useRememberedModels(provider)
 
@@ -109,49 +105,43 @@ function SlotRow({ slot, saved }: { slot: ProviderSlot; saved: ProviderSetting }
   }
 
   return (
-    <li data-slot={slot} role="group" aria-label={slotName} className="flex flex-col gap-3 border-t border-line py-3 first:border-t-0">
-      <div className="flex flex-col gap-0.5">
+    <li data-slot={slot} role="group" aria-label={slotName} className="grid gap-x-4 gap-y-3 border-t border-line py-4 first:border-t-0 md:grid-cols-[11rem_minmax(0,1fr)_minmax(0,1fr)_auto]">
+      <div className="flex min-w-0 flex-col gap-1">
         <h4 className="text-sm font-semibold">{slotName}</h4>
-        <SettingHint id={hintId}>{t(`hint.slot.${slot}` as MessageKey)}</SettingHint>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="flex min-w-0 flex-col gap-1 text-sm text-muted">
-          {t('settings.provider')}
-          <NativeSelect value={provider} onChange={(e) => choose(e.target.value)} aria-label={t('settings.providerOf', { slot: slotName })} aria-describedby={hintId}>
-            {options.map((c) => (
-              <option key={c.name} value={c.name}>
-                {c.label}
-              </option>
-            ))}
-          </NativeSelect>
-        </label>
-        <label className="flex min-w-0 flex-col gap-1 text-sm text-muted">
-          {t('settings.model')}
-          <Input
-            value={model}
-            onChange={(e) => {
-              setModel(e.target.value)
-              setOutcome(null)
-            }}
-            list={`${ids}-models`}
-            autoComplete="off"
-            spellCheck={false}
-            aria-label={t('settings.modelOf', { slot: slotName })}
-            aria-describedby={hintId}
-            className="font-mono text-xs"
-          />
-          <datalist id={`${ids}-models`}>
-            {remembered.map((m) => (
-              <option key={m} value={m} />
-            ))}
-          </datalist>
-        </label>
-      </div>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <ConnectionStatusMark status={status} />
-        {last4 && <span className="font-mono text-xs tabular-nums text-muted">{t('providers.endsIn', { last4 })}</span>}
+        {last4 && <span className="font-mono text-sm tabular-nums text-muted">{t('providers.endsIn', { last4 })}</span>}
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <label className="flex min-w-0 flex-col gap-2 text-sm">
+        <span className="rotulo">{t('settings.provider')}</span>
+        <NativeSelect value={provider} onChange={(e) => choose(e.target.value)} aria-label={t('settings.providerOf', { slot: slotName })}>
+          {options.map((c) => (
+            <option key={c.name} value={c.name}>
+              {c.label}
+            </option>
+          ))}
+        </NativeSelect>
+      </label>
+      <label className="flex min-w-0 flex-col gap-2 text-sm">
+        <span className="rotulo">{t('settings.model')}</span>
+        <Input
+          value={model}
+          onChange={(e) => {
+            setModel(e.target.value)
+            setOutcome(null)
+          }}
+          list={`${ids}-models`}
+          autoComplete="off"
+          spellCheck={false}
+          aria-label={t('settings.modelOf', { slot: slotName })}
+          className="font-mono text-sm"
+        />
+        <datalist id={`${ids}-models`}>
+          {remembered.map((m) => (
+            <option key={m} value={m} />
+          ))}
+        </datalist>
+      </label>
+      <div className="flex flex-wrap items-end gap-2">
         <Button size="sm" onClick={() => void apply()} disabled={!dirty || !model.trim() || save.isPending}>
           {save.isPending ? t('providers.testing') : t('providers.apply')}
         </Button>
@@ -159,11 +149,13 @@ function SlotRow({ slot, saved }: { slot: ProviderSlot; saved: ProviderSetting }
           {check.isPending ? t('providers.diagnosing') : t('providers.diagnose')}
         </Button>
       </div>
-      <div role="status" aria-live="polite" data-slot-result>
-        {outcome?.ok === true && <p className="text-sm font-semibold text-accent-deep">{t('providers.applied')}</p>}
-        {outcome?.ok === false && <FailureLine error={outcome.error} kept="providers.failedKept" />}
+      <div className="-mt-3 md:col-span-full [&>*:not(:empty)]:pt-3">
+        <div role="status" aria-live="polite" data-slot-result>
+          {outcome?.ok === true && <p className="text-sm font-semibold text-accent-deep">{t('providers.applied')}</p>}
+          {outcome?.ok === false && <FailureLine error={outcome.error} kept="providers.failedKept" />}
+        </div>
+        <ProviderCheck id={`${ids}-check`} shown={shown} onClose={() => setShown(null)} />
       </div>
-      <ProviderCheck id={`${ids}-check`} shown={shown} onClose={() => setShown(null)} />
     </li>
   )
 }

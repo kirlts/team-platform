@@ -47,20 +47,31 @@ async function findRow(page, email) {
   }
   throw new Error(`${email}: not found after paging`)
 }
+/** The row's «Acciones» menu: opens it and returns the entries it offers. */
+async function openActions(page, row, name) {
+  await row.getByRole('button', { name: `Acciones de ${name}` }).click()
+  return page.getByRole('menu')
+}
+async function act(page, row, name, entry) {
+  const menu = await openActions(page, row, name)
+  await menu.getByRole('menuitem', { name: entry }).click()
+}
 const members = (page) => page.evaluate(async () => ((b) => b.items ?? b)(await (await fetch('/api/members')).json()))
 
 describe('Eliminar un miembro', () => {
   test('the Editor sees «Eliminar» on every other row and not on their own; a member sees none', async () => {
     const { page, context } = await session('ana')
     try {
-      assert.equal(await rowOf(page, 'ana@dev.invalid').getByRole('button', { name: 'Eliminar a' }).count(), 0, 'own row offers deletion')
-      assert.ok((await rowOf(page, 'eduardo@dev.invalid').getByRole('button', { name: 'Eliminar a Eduardo Valenzuela Ibáñez' }).count()) === 1)
+      assert.equal(await rowOf(page, 'ana@dev.invalid').getByRole('button', { name: /^Acciones de/ }).count(), 0, 'own row offers deletion')
+      const menu = await openActions(page, rowOf(page, 'eduardo@dev.invalid'), 'Eduardo Valenzuela Ibáñez')
+      assert.equal(await menu.getByRole('menuitem', { name: 'Eliminar a Eduardo Valenzuela Ibáñez' }).count(), 1)
+      await page.keyboard.press('Escape')
     } finally {
       await context.close()
     }
     const other = await session('bruno')
     try {
-      assert.equal(await other.page.getByRole('button', { name: /^Eliminar/ }).count(), 0, 'a member sees a delete button')
+      assert.equal(await other.page.getByRole('button', { name: /^(Eliminar|Acciones de)/ }).count(), 0, 'a member sees a delete button')
     } finally {
       await other.context.close()
     }
@@ -78,7 +89,7 @@ describe('Eliminar un miembro', () => {
       await page.getByRole('dialog').waitFor({ state: 'hidden' })
       await settled(page)
       const row = await findRow(page, 'nuevo@dev.invalid')
-      await row.getByRole('button', { name: 'Eliminar a Nuevo Sin Historial' }).click()
+      await act(page, row, 'Nuevo Sin Historial', 'Eliminar a Nuevo Sin Historial')
       await page.locator('[data-notice]').getByText('Nuevo Sin Historial eliminado', { exact: true }).waitFor()
       assert.equal(await page.getByRole('dialog').count(), 0, 'a dialog opened')
       await settled(page)
@@ -104,7 +115,7 @@ describe('Eliminar un miembro', () => {
       })
       assert.ok(expected.messages > 0 && expected.replies > 0, 'Bruno has no history in the sample data')
       const row = rowOf(page, 'bruno@dev.invalid')
-      await row.getByRole('button', { name: 'Eliminar a Bruno Prueba' }).click()
+      await act(page, row, 'Bruno Prueba', 'Eliminar a Bruno Prueba')
       await page.locator('[data-notice]').getByText(`Bruno Prueba eliminado · Envíos 0 · Mensajes ${expected.messages} · Respuestas ${expected.replies}`, { exact: true }).waitFor()
       assert.equal(await page.getByRole('dialog').count(), 0, 'a dialog opened')
       await settled(page)
@@ -117,12 +128,13 @@ describe('Eliminar un miembro', () => {
     }
   })
 
-  test('«Desactivar» sits beside «Eliminar» and deactivates without deleting', async () => {
+  test('«Desactivar» sits in the same menu as «Eliminar» and deactivates without deleting', async () => {
     const { page, context } = await session('ana')
     try {
       const row = rowOf(page, 'carla@dev.invalid')
-      assert.equal(await row.getByRole('button', { name: 'Eliminar a Carla Prueba' }).count(), 1)
-      await row.getByRole('button', { name: 'Desactivar a Carla Prueba' }).click()
+      const menu = await openActions(page, row, 'Carla Prueba')
+      assert.equal(await menu.getByRole('menuitem', { name: 'Eliminar a Carla Prueba' }).count(), 1)
+      await menu.getByRole('menuitem', { name: 'Desactivar a Carla Prueba' }).click()
       await row.getByText('Inactivo').waitFor()
       await settled(page)
       assert.equal((await members(page)).find((m) => m.email === 'carla@dev.invalid')?.active, false)

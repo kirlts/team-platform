@@ -35,7 +35,7 @@ export function FoldedText({
         <button type="button" aria-expanded={more} onClick={() => {
             onOpenChange?.(!more)
             setOwn(!more)
-          }} className="-my-[4px] py-[4px] text-xs font-semibold text-accent-deep hover:underline">
+          }} className="-my-[4px] py-[4px] text-sm font-semibold text-accent-deep hover:underline pointer-coarse:-my-3 pointer-coarse:py-3">
           {more ? t('team.profileLess') : t('team.profileMore')}
         </button>
       )}

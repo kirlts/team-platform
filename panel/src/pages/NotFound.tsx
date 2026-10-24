@@ -14,7 +14,7 @@ export function NotFound() {
       <EmptyState
         className="glass leaf !py-6"
         action={
-          <Button asChild>
+          <Button asChild variant="primary" size="lg">
             <Link to="/">{t('notFound.home')}</Link>
           </Button>
         }

@@ -1,3 +1,4 @@
+import { AlertTriangle } from '@/components/icons'
 import { Badge } from '@/components/ui/badge'
 import { useFormat, useT, type MessageKey } from '@/i18n'
 import type { InputRecord } from '@team-platform/client'
@@ -63,15 +64,16 @@ function Label({ text, onlyMedia }: { text: string; onlyMedia: boolean }) {
   )
 }
 
-const OPTION = 'flex h-full w-full cursor-pointer flex-col gap-1 rounded-md border border-line px-2.5 py-1.5 text-left hover:bg-glass-edge'
-const OPTION_SELECTED = 'border-accent bg-accent-soft/60 shadow-[inset_0_-3px_0_var(--color-accent)]'
+const OPTION = 'flex h-full w-full cursor-pointer flex-col gap-1 rounded-md bg-surface px-3 py-2 text-left hover:bg-hover'
+/** The chosen send: the tint of what is chosen and the ink of its accent, with no line. */
+const OPTION_SELECTED = '!bg-accent-soft text-accent-deep'
 
 /** The order of arrival: what tells two sends with the same words apart. The time stays in the title and for a screen reader, so the row keeps its height. */
 function Ordinal({ n, at }: { n: number; at: string }) {
   const t = useT()
   const format = useFormat()
   return (
-    <span className="min-w-0 text-xs font-semibold text-fg" title={format.stamp(at)}>
+    <span className="min-w-0 text-xs font-semibold" title={format.stamp(at)}>
       {t('tray.ordinal', { n })}
       <time dateTime={at} className="sr-only">
         {` ${format.stamp(at)}`}
@@ -92,7 +94,8 @@ function InputOption({ n, input, selected, onSelect }: { n: number; input: Input
     <button type="button" role="option" aria-selected={selected} aria-label={t('tray.open', { text: label || t('tray.onlyMedia') })} onClick={onSelect} className={cn(OPTION, selected && OPTION_SELECTED)}>
       <span className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
         <Ordinal n={n} at={input.created_at} />
-        <Badge tone={input.status === 'proposed' ? 'solid' : input.status === 'failed' ? 'danger' : input.status === 'published' ? 'neutral' : 'outline'}>
+        <Badge tone={input.status === 'proposed' ? 'answered' : input.status === 'failed' ? 'danger' : 'neutral'} className={input.status === 'failed' ? 'gap-1' : undefined}>
+          {input.status === 'failed' && <AlertTriangle size={12} aria-hidden strokeWidth={2.4} />}
           {state}
           {running && input.status !== 'queued' && percent > 0 && <span className="ml-1 tabular-nums">{percent}%</span>}
           {(input.status === 'proposed' || input.status === 'published') && <span className="ml-1">· {input.status === 'published' ? (input.messages?.length ?? count) : count}</span>}
@@ -110,7 +113,8 @@ function UploadOption({ n, upload, selected, onSelect }: { n: number; upload: Pe
     <button type="button" role="option" aria-selected={selected} aria-label={t('tray.open', { text: firstWords(upload.text, 6) || t('tray.onlyMedia') })} onClick={onSelect} className={cn(OPTION, selected && OPTION_SELECTED)}>
       <span className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
         <Ordinal n={n} at={upload.at} />
-        <Badge tone={upload.error ? 'danger' : 'neutral'}>
+        <Badge tone={upload.error ? 'danger' : 'neutral'} className={upload.error ? 'gap-1' : undefined}>
+          {upload.error && <AlertTriangle size={12} aria-hidden strokeWidth={2.4} />}
           {upload.error ? t('tray.state.notSent') : t(upload.names.length === 0 ? 'tray.state.sending' : 'tray.state.uploading')}
           {!upload.error && percent > 0 && <span className="ml-1 tabular-nums">{percent}%</span>}
         </Badge>

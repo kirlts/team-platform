@@ -73,86 +73,88 @@ function ConnectionRow({ connection: c }: { connection: Connection }) {
   }
 
   return (
-    <li data-connection={c.name} data-status={c.status} role="group" aria-label={c.label} className="flex flex-col gap-3 border-t border-line py-3 first:border-t-0">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+    <li data-connection={c.name} data-status={c.status} role="group" aria-label={c.label} className="grid gap-x-4 gap-y-3 border-t border-line py-4 first:border-t-0 md:grid-cols-[11rem_minmax(0,1fr)]">
+      <div className="flex min-w-0 flex-col gap-1">
         <h4 className="min-w-0 break-words text-sm font-semibold">{c.label}</h4>
         <ConnectionStatusMark status={c.status} />
       </div>
-      <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
-        <div className="min-w-0">
-          <dt className="text-xs text-muted">{t('providers.key')}</dt>
-          <dd className="break-words">
-            {c.key.source ? (
-              <>
-                {t(`providers.source.${c.key.source}` as MessageKey)}
-                {c.key.last4 && <span className="tabular-nums font-mono text-xs text-muted"> · {t('providers.endsIn', { last4: c.key.last4 })}</span>}
-              </>
-            ) : (
-              t('providers.status.no_key')
-            )}
-          </dd>
+      <div className="flex min-w-0 flex-col gap-3">
+        <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
+          <div className="flex min-w-0 flex-col gap-1">
+            <dt className="rotulo">{t('providers.key')}</dt>
+            <dd className="break-words">
+              {c.key.source ? (
+                <>
+                  {t(`providers.source.${c.key.source}` as MessageKey)}
+                  {c.key.last4 && <span className="tabular-nums font-mono text-sm text-muted"> · {t('providers.endsIn', { last4: c.key.last4 })}</span>}
+                </>
+              ) : (
+                t('providers.status.no_key')
+              )}
+            </dd>
+          </div>
+          <div className="flex min-w-0 flex-col gap-1">
+            <dt className="rotulo">{t('providers.usedBy')}</dt>
+            <dd className="break-words">{c.used_by.length ? c.used_by.map((s) => t(`settings.slot.${s}` as MessageKey)).join(', ') : t('providers.unused')}</dd>
+          </div>
+          <div className="flex min-w-0 flex-col gap-1">
+            <dt className="rotulo">{t('providers.lastCheck')}</dt>
+            <dd className="break-words">
+              {last ? (
+                <>
+                  <span className={last.ok ? undefined : 'text-danger'}>{last.ok ? t('providers.checkOk') : t(causeKey(last.cause))}</span>
+                  <span className="text-sm text-muted tabular-nums"> · {t('providers.ms', { ms: last.duration_ms })} · {stamp(last.at)}</span>
+                </>
+              ) : (
+                t('providers.neverChecked')
+              )}
+            </dd>
+          </div>
+        </dl>
+        <div className="flex flex-wrap items-center gap-2">
+          {hasKey ? (
+            <Button size="sm" onClick={() => void diagnose()} disabled={check.isPending} aria-describedby={resultId}>
+              {check.isPending ? t('providers.diagnosing') : t('providers.diagnose')}
+            </Button>
+          ) : (
+            <Button size="sm" onClick={() => setForm('add')} aria-expanded={form === 'add'}>
+              {t('providers.addKey')}
+            </Button>
+          )}
+          {hasKey && (
+            <Button size="sm" variant="ghost" onClick={() => setForm('replace')} aria-expanded={form === 'replace'}>
+              {t('providers.replaceKey')}
+            </Button>
+          )}
+          {hasKey && (
+            <Button size="sm" variant="danger" disabled={removal.pending} onClick={() => void remove('retire')}>
+              {t('providers.retireKey')}
+            </Button>
+          )}
+          {c.custom && (
+            <Button size="sm" variant="danger" disabled={removal.pending} onClick={() => void remove('delete')}>
+              {t('providers.delete')}
+            </Button>
+          )}
         </div>
-        <div className="min-w-0">
-          <dt className="text-xs text-muted">{t('providers.usedBy')}</dt>
-          <dd className="break-words">{c.used_by.length ? c.used_by.map((s) => t(`settings.slot.${s}` as MessageKey)).join(', ') : t('providers.unused')}</dd>
+        {form && (
+          <ProviderKeyForm
+            name={c.name}
+            replacing={form === 'replace'}
+            onCancel={() => setForm(null)}
+            onFailed={(err) => setOutcome({ kind: 'line', ok: false, node: <FailureLine error={err} kept={form === 'replace' ? 'providers.keyFailed' : 'providers.addFailed'} /> })}
+            onDone={(r) => {
+              setForm(null)
+              setOutcome({ kind: 'line', ok: true, node: t(form === 'replace' ? 'providers.keyReplaced' : 'providers.keyAdded', { ms: r.check.duration_ms }) })
+            }}
+          />
+        )}
+        <div role="status" aria-live="polite" className="empty:-mt-3">
+          {outcome?.kind === 'line' && (outcome.ok ? <p className="text-sm font-semibold text-accent-deep">{outcome.node}</p> : outcome.node)}
         </div>
-        <div className="min-w-0">
-          <dt className="text-xs text-muted">{t('providers.lastCheck')}</dt>
-          <dd className="break-words">
-            {last ? (
-              <>
-                <span className={last.ok ? undefined : 'text-danger'}>{last.ok ? t('providers.checkOk') : t(causeKey(last.cause))}</span>
-                <span className="text-xs text-muted tabular-nums"> · {t('providers.ms', { ms: last.duration_ms })} · {stamp(last.at)}</span>
-              </>
-            ) : (
-              t('providers.neverChecked')
-            )}
-          </dd>
-        </div>
-      </dl>
-      <div className="flex flex-wrap items-center gap-2">
-        {hasKey ? (
-          <Button size="sm" onClick={() => void diagnose()} disabled={check.isPending} aria-describedby={resultId}>
-            {check.isPending ? t('providers.diagnosing') : t('providers.diagnose')}
-          </Button>
-        ) : (
-          <Button size="sm" onClick={() => setForm('add')} aria-expanded={form === 'add'}>
-            {t('providers.addKey')}
-          </Button>
-        )}
-        {hasKey && (
-          <Button size="sm" variant="ghost" onClick={() => setForm('replace')} aria-expanded={form === 'replace'}>
-            {t('providers.replaceKey')}
-          </Button>
-        )}
-        {hasKey && (
-          <Button size="sm" variant="ghost" disabled={removal.pending} onClick={() => void remove('retire')}>
-            {t('providers.retireKey')}
-          </Button>
-        )}
-        {c.custom && (
-          <Button size="sm" variant="ghost" disabled={removal.pending} onClick={() => void remove('delete')}>
-            {t('providers.delete')}
-          </Button>
-        )}
+        <ProviderCheck id={resultId} className="empty:-mt-3" shown={outcome?.kind === 'check' ? outcome.shown : null} onClose={() => setOutcome(null)} />
+        {blocked && <ProviderRemoval connection={c} mode={blocked.mode} blocked={blocked.slots} onClose={() => setBlocked(null)} onDone={(text) => { const mode = blocked.mode; setBlocked(null); if (mode === 'delete') notices.show({ text }); else setOutcome({ kind: 'line', ok: true, node: text }) }} />}
       </div>
-      {form && (
-        <ProviderKeyForm
-          name={c.name}
-          replacing={form === 'replace'}
-          onCancel={() => setForm(null)}
-          onFailed={(err) => setOutcome({ kind: 'line', ok: false, node: <FailureLine error={err} kept={form === 'replace' ? 'providers.keyFailed' : 'providers.addFailed'} /> })}
-          onDone={(r) => {
-            setForm(null)
-            setOutcome({ kind: 'line', ok: true, node: t(form === 'replace' ? 'providers.keyReplaced' : 'providers.keyAdded', { ms: r.check.duration_ms }) })
-          }}
-        />
-      )}
-      <div role="status" aria-live="polite">
-        {outcome?.kind === 'line' && (outcome.ok ? <p className="text-sm font-semibold text-accent-deep">{outcome.node}</p> : outcome.node)}
-      </div>
-      <ProviderCheck id={resultId} shown={outcome?.kind === 'check' ? outcome.shown : null} onClose={() => setOutcome(null)} />
-      {blocked && <ProviderRemoval connection={c} mode={blocked.mode} blocked={blocked.slots} onClose={() => setBlocked(null)} onDone={(text) => { const mode = blocked.mode; setBlocked(null); if (mode === 'delete') notices.show({ text }); else setOutcome({ kind: 'line', ok: true, node: text }) }} />}
     </li>
   )
 }

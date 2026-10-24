@@ -19,9 +19,9 @@ describe('Observed', () => {
     const section = screen.getByTestId('observed') as HTMLDetailsElement
     expect(section.tagName).toBe('DETAILS')
     expect(section.open).toBe(false)
-    expect(screen.getByText('Observado, no dicho')).toBeTruthy()
+    expect(screen.getByText('Observaciones')).toBeTruthy()
     expect(section.querySelectorAll('li')).toHaveLength(2)
-    fireEvent.click(screen.getByText('Observado, no dicho'))
+    fireEvent.click(screen.getByText('Observaciones'))
     expect(screen.getByText('El botón Guardar está gris')).toBeTruthy()
   })
 

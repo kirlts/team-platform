@@ -56,7 +56,7 @@ async function patchAsSender(page, id, data) {
 }
 
 describe('sign-in and navigation', () => {
-  test('the sign-in error does not move the card, stays out of the field name and marks the field (J2-A-01, J2-A-03)', async () => {
+  test('the sign-in error lives under its field, stays out of the field name and marks the field (J2-A-01, J2-A-03)', async () => {
     const context = await panel.browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'es-CL' })
     const page = await context.newPage()
     try {
@@ -66,8 +66,12 @@ describe('sign-in and navigation', () => {
       await page.getByLabel('Contraseña').fill('una-clave-cualquiera')
       await page.getByRole('button', { name: 'Entrar' }).click()
       await page.getByRole('alert').filter({ hasText: 'Falta el correo' }).waitFor()
+      // The error is the line under the field it names, in a line the form keeps free, so the card does not move.
       const after = await card.boundingBox()
-      assert.ok(Math.abs(after.y - before.y) < 0.5 && Math.abs(after.height - before.height) < 0.5, `the card moved: ${before.y}→${after.y}, height ${before.height}→${after.height}`)
+      const email = await page.getByLabel('Correo').boundingBox()
+      const said = await page.getByRole('alert').filter({ hasText: 'Falta el correo' }).boundingBox()
+      assert.ok(said.y >= email.y + email.height && said.y - (email.y + email.height) <= 16, `the error is ${said.y - (email.y + email.height)} px under its field`)
+      assert.ok(Math.abs(after.height - before.height) < 0.5 && Math.abs(after.y - before.y) < 0.5, `the card moved ${before.height}→${after.height}`)
       assert.equal(await page.getByLabel('Contraseña', { exact: true }).count(), 1, 'the notice entered the field name')
       assert.equal(await page.getByLabel('Correo').getAttribute('aria-invalid'), 'true')
       assert.equal(await page.getByLabel('Contraseña').getAttribute('aria-invalid'), null, 'the field that did not fail is not marked')
@@ -344,7 +348,7 @@ describe('areas, templates and settings', () => {
       const row = templates.getByRole('status').filter({ hasText: 'eliminada' })
       await row.waitFor()
       const rowBox = await row.boundingBox()
-      const header = await templates.getByRole('heading', { name: /Plantillas/ }).boundingBox()
+      const header = await page.locator('#plantillas').getByRole('heading', { name: /Plantillas/ }).boundingBox()
       assert.ok(rowBox.y - header.y < 120, `the notice is ${rowBox.y - header.y} px from the action`)
       await row.getByRole('button', { name: 'Deshacer' }).click()
       await row.waitFor({ state: 'detached' })
@@ -378,7 +382,7 @@ describe('areas, templates and settings', () => {
     try {
       await page.goto(`${origin}/areas/a-error`)
       await openTemplates(page)
-      await page.getByRole('region', { name: 'Plantillas' }).getByRole('button', { name: 'Plantilla', exact: true }).click()
+      await page.locator('#plantillas').getByRole('button', { name: 'Crear plantilla', exact: true }).click()
       const dialog = page.getByRole('dialog')
       // It starts empty, with no orphan headings (J3-A-36), and what is written shows rendered, not as hash marks.
       await dialog.getByText('Sin campos').waitFor()
@@ -402,14 +406,19 @@ describe('areas, templates and settings', () => {
       await openTemplates(page)
       const empty = page.getByRole('region', { name: 'Plantillas' }).getByRole('status').filter({ hasText: 'Sin plantillas' })
       await empty.waitFor()
-      await empty.getByRole('button', { name: 'Plantilla' }).click()
+      await empty.getByRole('button', { name: 'Crear plantilla' }).click()
       await page.getByRole('dialog').getByLabel('Nombre').waitFor()
       await page.keyboard.press('Escape')
       // The counts of an area weigh the same in every row of the list; an area with nothing shows both counts at zero, muted, so its column is not blank (UD-211, which amends J3-A-33).
       await page.goto(`${origin}/areas`)
       await page.getByRole('link', { name: 'Abrir Área vacía de prueba' }).waitFor()
       // Two areas have nothing here (the sample's Retroalimentación and the one this test made): each one says both counts.
-      assert.equal(await page.getByText(/^0 (abiertos|respondidos)$/).count(), 4, 'each empty area says «0 abiertos» and «0 respondidos»')
+      // Each state is a figure with its icon: the number shows and the word travels in the accessible text, zero included.
+      for (const title of ['Retroalimentación', 'Área vacía de prueba']) {
+        const row = page.locator('main section').filter({ has: page.getByRole('link', { name: `Abrir ${title}` }) })
+        const says = (await row.locator('[data-testid="state-mark"]').evaluateAll((els) => els.map((e) => e.textContent.replace(/\s+/g, ' ').trim())))
+        assert.deepEqual(says, ['0 abiertos', '0 respondidos'], `${title} says both counts at zero`)
+      }
       const weights = await page.locator('main section [data-testid="state-mark"]').evaluateAll((els) => els.map((s) => getComputedStyle(s).fontWeight))
       assert.equal(new Set(weights).size, 1, `the counts do not weigh the same: ${weights.join(' | ')}`)
     } finally {
@@ -427,7 +436,7 @@ describe('areas, templates and settings', () => {
       assert.ok(style.size >= 14, `the state measures ${style.size} px`)
       assert.equal(style.bg, 'rgba(0, 0, 0, 0)', 'the state is drawn as a pill')
       assert.equal(style.border, '0px', 'the state is drawn as a pill')
-      const border = await page.getByLabel('Proveedor de Texto').evaluate((el) => getComputedStyle(el).borderTopWidth)
+      const border = await page.getByLabel('Proveedor de Redacción de mensajes').evaluate((el) => getComputedStyle(el).borderTopWidth)
       assert.equal(border, '1px', 'the provider selector does not look like a control')
     } finally {
       await context.close()
@@ -438,8 +447,10 @@ describe('areas, templates and settings', () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/settings`)
-      const button = page.getByRole('button', { name: 'Reemplazar con .md' })
-      assert.equal(await button.evaluate((el) => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)', 'it weighs like a primary button')
+      // The file actions are options of the quiet «Más» menu under the field, not buttons of their own.
+      const menu = page.getByTestId('more-menu')
+      assert.equal(await menu.evaluate((el) => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)', 'it weighs like a primary button')
+      assert.equal(await page.getByRole('button', { name: 'Reemplazar con .md' }).count(), 0, 'the file action is not a button of its own')
       await page.locator('input[type=file]').setInputFiles({ name: 'proyecto.md', mimeType: 'text/markdown', buffer: Buffer.from('# Otro proyecto\n\nTexto nuevo.\n') })
       const notice = page.getByRole('status').filter({ hasText: 'Descripción reemplazada' })
       await notice.waitFor()
@@ -452,7 +463,7 @@ describe('areas, templates and settings', () => {
 })
 
 describe('team', () => {
-  test('the profile reads at body size, there is no filler language and Desactivar is a quiet action with its notice (J2-A-35, J2-A-36, J2-A-37)', async () => {
+  test('the profile reads at body size, there is no filler language and Desactivar is a menu entry with its notice (J2-A-35, J2-A-36, J2-A-37)', async () => {
     const { page, context } = await session()
     try {
       await page.goto(`${origin}/team`)
@@ -460,9 +471,12 @@ describe('team', () => {
       assert.equal(await page.getByText(/^Idioma: /).count(), 0, 'the row repeats the account language')
       const profile = page.getByText('Me encargo de la interfaz del panel')
       assert.ok((await profile.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))) >= 15, 'the profile is read at under 15 px')
-      const off = page.getByRole('button', { name: /^Desactivar a / }).first()
-      assert.equal(await off.evaluate((el) => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)', '«Desactivar» weighs like a primary button')
-      await off.click()
+      // «Desactivar» is an entry of the quiet «Acciones» menu of the row, not a button of its own.
+      const actions = page.getByRole('button', { name: /^Acciones de / }).first()
+      assert.equal(await actions.evaluate((el) => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)', '«Acciones» weighs like a primary button')
+      assert.equal(await page.getByRole('button', { name: /^Desactivar a / }).count(), 0, '«Desactivar» is a button of its own')
+      await actions.click()
+      await page.getByRole('menuitem', { name: /^Desactivar a / }).click()
       await page.getByRole('status').filter({ hasText: /desactivado/ }).getByRole('button', { name: 'Deshacer' }).click()
       await page.getByText('Inactivo').first().waitFor({ state: 'detached' })
     } finally {

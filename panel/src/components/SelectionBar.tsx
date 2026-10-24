@@ -22,15 +22,18 @@ export function SelectionBar({ selection, onAll, onDelete, busy }: { selection: 
         <Button size="sm" variant="ghost" className="px-2 text-xs text-muted sm:px-3" onClick={() => selection.clear()}>
           {t('common.cancel')}
         </Button>
-        <Button size="sm" variant="secondary" className="text-danger" disabled={busy} data-testid="selection-delete" onClick={onDelete}>
-          <Trash2 size={13} aria-hidden /> {t('bulk.delete')}
+        <Button size="sm" variant="danger" disabled={busy} data-testid="selection-delete" onClick={onDelete}>
+          <Trash2 size={16} aria-hidden /> {t('bulk.delete')}
         </Button>
       </span>
     </div>
   )
 }
 
-/** The check box of a row: in the gutter left of the row, at the height of its first line, above the link that covers the row. */
+/**
+ * The check box of a row: in the gutter left of the row, at the height of its first line, above the link that covers the row. Its edge is
+ * drawn at rest (a field with no edge is not found against the row) and, on a touch screen, an invisible frame brings the target to 44 px.
+ */
 export function RowCheck({ id, title, selection }: { id: string; title: string; selection: Selection }) {
   const t = useT()
   return (
@@ -39,7 +42,7 @@ export function RowCheck({ id, title, selection }: { id: string; title: string; 
       checked={selection.isMarked(id)}
       aria-label={t('bulk.markOf', { title })}
       onCheckedChange={(on) => selection.toggle(id, on === true)}
-      className="absolute left-3 top-3 z-10"
+      className="absolute left-3 top-3 z-10 rounded-sm border-edge [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-3"
     />
   )
 }

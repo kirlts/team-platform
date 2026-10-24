@@ -39,10 +39,14 @@ async function session(viewport = DESKTOP) {
 const notice = (page) => page.locator('[data-notice]')
 const member = (page, email) => page.evaluate(async (e) => (await (await fetch('/api/members')).json()).items.find((m) => m.email === e), email)
 /** A notice with Deshacer: deactivating a member (UD-240 keeps it reversible). */
-const deactivate = (page, name) => page.getByRole('button', { name: `Desactivar a ${name}` }).click()
+async function deactivate(page, name) {
+  await page.getByRole('button', { name: `Acciones de ${name}` }).click()
+  await page.getByRole('menuitem', { name: `Desactivar a ${name}` }).click()
+}
 /** A notice with nothing to click: a new password for a member. */
 async function plainNotice(page, name) {
-  await page.getByRole('button', { name: `Contraseña de ${name}` }).click()
+  await page.getByRole('button', { name: `Acciones de ${name}` }).click()
+  await page.getByRole('menuitem', { name: `Cambiar contraseña de ${name}` }).click()
   await page.getByLabel('Contraseña nueva').fill('una-clave-larga-de-prueba')
   await page.getByRole('button', { name: 'Guardar' }).click()
   await notice(page).getByText(`Contraseña de ${name} cambiada`, { exact: true }).waitFor()

@@ -38,7 +38,7 @@ export function Connections() {
         rowKey={(c) => c}
         label={t('nav.connections')}
         renderRow={(c) => (
-          <div aria-current={c === chosen ? 'true' : undefined} title={t(`connections.${c}Hint` as MessageKey)} className={cn('border-b border-line px-4 py-3 font-semibold last:border-b-0', c === chosen && 'bg-selected shadow-[inset_4px_0_0_var(--color-accent)]')}>
+          <div aria-current={c === chosen ? 'true' : undefined} title={t(`connections.${c}Hint` as MessageKey)} className={cn('flex min-h-12 items-center border-b border-line px-4 py-3 text-sm font-semibold last:border-b-0', c === chosen && 'bg-selected text-accent-deep shadow-[inset_var(--nav-bar-width)_0_0_var(--color-accent)]')}>
             {t(`connections.${c}` as MessageKey)}
           </div>
         )}

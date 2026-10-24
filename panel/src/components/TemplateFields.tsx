@@ -34,9 +34,10 @@ export function TemplateFields({
     <dl className={cn('grid gap-x-4 gap-y-2 text-sm', fields.length > 1 && '@md:grid-cols-2')}>
       {fields.map((f) => (
         <div key={f.name} className="flex min-w-0 flex-col gap-0.5">
-          <dt className="flex items-baseline justify-between gap-2 text-xs font-semibold text-muted">
+          <dt className="rotulo flex items-baseline justify-between gap-2">
             {f.label}
-            {f.required && !closed && !(values?.[f.name] ?? '').trim() && <span className="font-normal text-muted">{t('fields.required')}</span>}
+            {/* What waits for a person is amber, and says it in words. */}
+            {f.required && !closed && !(values?.[f.name] ?? '').trim() && <span className="font-semibold normal-case tracking-normal text-answered-fg">{t('fields.required')}</span>}
           </dt>
           <dd>
             <EditableText
@@ -47,7 +48,7 @@ export function TemplateFields({
               canEdit={canEdit}
               placeholder={closed ? t('fields.optional') : t('fields.fill')}
               displayClassName={boxed ? 'border-line' : undefined}
-                            emptyLabel={f.required && !closed ? t('fields.required') : t('fields.optional')}
+              emptyLabel={f.required && !closed ? t('fields.required') : t('fields.optional')}
               validate={f.required && !closed ? (v) => (v ? null : t('fields.requiredError')) : undefined}
               onSave={(v) => onSave(f.name, v)}
             />

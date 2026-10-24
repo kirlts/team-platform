@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ChevronLeft, ChevronRight, FileText, Link2 } from '@/components/icons'
+import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { useFormat, useT } from '@/i18n'
 import { client } from '@/lib/client'
@@ -215,7 +216,7 @@ export function MediaGallery({
         <span className="flex shrink-0 items-center gap-2">
           {renderAction?.(item, current)}
           {item.src && (
-            <a href={item.src} target="_blank" rel="noreferrer" className="font-semibold text-accent hover:underline">
+            <a href={item.src} target="_blank" rel="noreferrer" className="inline-flex items-center font-semibold text-accent hover:underline [@media(pointer:coarse)]:min-h-11">
               {t('media.openNewTab')}
             </a>
           )}
@@ -258,12 +259,13 @@ function Arrow({ dir, disabled, onClick }: { dir: 1 | -1; disabled: boolean; onC
       disabled={disabled}
       onClick={onClick}
       aria-label={dir === -1 ? t('gallery.prev') : t('gallery.next')}
+      title={dir === -1 ? t('gallery.prev') : t('gallery.next')}
       className={cn(
-        'hit absolute top-1/2 z-10 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-line-strong bg-surface text-fg shadow-sm hover:bg-hover disabled:pointer-events-none disabled:opacity-30',
+        'hit absolute top-1/2 z-10 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-line-strong bg-surface text-fg shadow-sm hover:bg-hover disabled:pointer-events-none disabled:opacity-30 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11',
         dir === -1 ? 'left-2' : 'right-2',
       )}
     >
-      <Icon size={18} aria-hidden />
+      <Icon size={20} aria-hidden />
     </button>
   )
 }
@@ -280,19 +282,18 @@ function Slide({ item, active, zoomed, onZoom }: { item: GalleryItem; active: bo
   if (failed) {
     return (
       <div role="alert" className="flex flex-col items-center gap-2 px-4 text-center text-sm">
-        <FileText size={28} aria-hidden className="text-muted" />
+        <FileText size={24} aria-hidden className="text-muted" />
         <p className="font-semibold">{t('gallery.failed')}</p>
         <p className="text-xs text-muted [overflow-wrap:anywhere]">{name}</p>
-        <button
-          type="button"
+        <Button
+          size="sm"
           onClick={() => {
             setState('loading')
             setAttempt((n) => n + 1)
           }}
-          className="btn btn-glass px-3 text-xs"
         >
           {t('gallery.retry')}
-        </button>
+        </Button>
       </div>
     )
   }
@@ -326,7 +327,7 @@ function Slide({ item, active, zoomed, onZoom }: { item: GalleryItem; active: bo
             onClick={() => onZoom(!zoomed)}
             aria-pressed={zoomed}
             // Over a photo the button has its own solid background: a translucent one takes the color of the image under it (J4-A-detail-03).
-            className="btn pop absolute bottom-2 right-2 px-2.5 text-xs text-fg"
+            className="btn pop absolute bottom-2 right-2 h-8 px-3 text-xs text-fg"
           >
             {zoomed ? t('gallery.fit') : t('gallery.zoom')}
           </button>
@@ -367,13 +368,15 @@ function Slide({ item, active, zoomed, onZoom }: { item: GalleryItem; active: bo
   if (item.kind === 'link') {
     return (
       <div className="flex min-w-0 flex-col items-center gap-2 px-4 text-center">
-        <Link2 size={28} aria-hidden className="text-accent-deep" />
+        <Link2 size={24} aria-hidden className="text-accent-deep" />
         <p className="text-sm font-semibold">{linkDomain(item.name)}</p>
         <p className="max-w-full text-xs text-muted [overflow-wrap:anywhere]">{item.name}</p>
         {item.name && /^https?:\/\//i.test(item.name) && (
-          <a href={item.name} target="_blank" rel="noreferrer noopener" className="btn btn-glass px-3 text-xs">
-            {t('gallery.openLink')}
-          </a>
+          <Button asChild size="sm">
+            <a href={item.name} target="_blank" rel="noreferrer noopener">
+              {t('gallery.openLink')}
+            </a>
+          </Button>
         )}
       </div>
     )
@@ -382,12 +385,14 @@ function Slide({ item, active, zoomed, onZoom }: { item: GalleryItem; active: bo
   // Document: the browser cannot draw its first page here (a file is served with a policy that forbids embedding), so the viewer names it.
   return (
     <div className="flex min-w-0 flex-col items-center gap-2 px-4 text-center">
-      <FileText size={32} aria-hidden className="text-accent-deep" />
+      <FileText size={24} aria-hidden className="text-accent-deep" />
       <p className="text-sm font-semibold [overflow-wrap:anywhere]">{name}</p>
       {item.src && (
-        <a href={item.src} target="_blank" rel="noreferrer" aria-label={t('media.open', { name })} className="btn btn-glass px-3 text-xs">
-          {t('gallery.openDocument')}
-        </a>
+        <Button asChild size="sm">
+          <a href={item.src} target="_blank" rel="noreferrer" aria-label={t('media.open', { name })}>
+            {t('gallery.openDocument')}
+          </a>
+        </Button>
       )}
     </div>
   )

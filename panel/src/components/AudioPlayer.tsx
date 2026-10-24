@@ -1,4 +1,5 @@
 import { Pause, Play } from '@/components/icons'
+import { Button } from '@/components/ui/button'
 import { useEffect, useRef, useState } from 'react'
 import { useT } from '@/i18n'
 import { mmss } from '@/lib/format'
@@ -51,9 +52,10 @@ export function AudioPlayer({ src, name, className, onError, onReady }: { src: s
   return (
     <div className={cn('well flex items-center gap-3 rounded-full px-2 py-1', className)}>
       <audio ref={audio} src={src} preload="metadata" />
-      <button type="button" onClick={toggle} aria-label={playing ? t('audio.pause', { name }) : t('audio.play', { name })} className="btn btn-gel h-8 w-8 shrink-0 justify-center">
-        {playing ? <Pause size={14} aria-hidden /> : <Play size={14} fill="currentColor" aria-hidden />}
-      </button>
+      {/* Secondary, not the primary one: the main action of the screen is another button. */}
+      <Button size="icon-sm" variant="secondary" onClick={toggle} aria-label={playing ? t('audio.pause', { name }) : t('audio.play', { name })} title={playing ? t('audio.pause', { name }) : t('audio.play', { name })} className="shrink-0">
+        {playing ? <Pause size={16} aria-hidden /> : <Play size={16} fill="currentColor" aria-hidden />}
+      </Button>
       <input
         type="range"
         min={0}

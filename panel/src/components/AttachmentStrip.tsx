@@ -48,7 +48,7 @@ export function AttachmentStrip({ items, scope = 'message', max = 4, px = 40, na
               aria-label={t('media.allMore', { n: hidden })}
               title={t('media.allMore', { n: hidden })}
               onClick={() => setOpen(max)}
-              className="inline-flex h-7 min-w-7 items-center justify-center rounded-md border border-dashed border-line-strong px-1.5 text-xs font-semibold text-muted hover:border-accent hover:text-accent"
+              className="inline-flex h-7 min-w-7 items-center justify-center rounded-md border border-dashed border-line-strong px-1.5 text-xs font-semibold text-muted hover:border-[var(--control-hover-edge)] hover:text-accent"
             >
               +{hidden}
             </button>

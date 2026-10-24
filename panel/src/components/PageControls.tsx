@@ -18,7 +18,7 @@ export function PageControls({ page, limit, total, onPage }: { page: number; lim
           aria-label={t('pager.previous')}
           disabled={page <= 1}
           onClick={() => onPage(page - 1)}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-edge bg-glass hover:border-accent disabled:opacity-40"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-edge bg-glass hover:border-[var(--control-hover-edge)] disabled:opacity-40"
         >
           <ChevronLeft size={16} aria-hidden />
         </button>
@@ -27,7 +27,7 @@ export function PageControls({ page, limit, total, onPage }: { page: number; lim
           aria-label={t('pager.next')}
           disabled={to >= total}
           onClick={() => onPage(page + 1)}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-edge bg-glass hover:border-accent disabled:opacity-40"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-edge bg-glass hover:border-[var(--control-hover-edge)] disabled:opacity-40"
         >
           <ChevronRight size={16} aria-hidden />
         </button>

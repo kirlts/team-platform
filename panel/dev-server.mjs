@@ -18,7 +18,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs'
 import { createServer } from 'node:http'
-import { extname, join, normalize } from 'node:path'
+import { dirname, extname, join, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { DatabaseSync } from 'node:sqlite'
 import Ajv from 'ajv'
@@ -38,6 +38,8 @@ const STEP_MS = Number(process.env.PANEL_DEV_STEP_MS ?? 700)
 const MAX_BODY = 40 * 1024 * 1024
 /** PANEL_DEV_CONTROL=1 opens /api/_control/*: a test freezes and advances the simulated analysis and resets the sample state by an explicit order (H-901). */
 const CONTROL = process.env.PANEL_DEV_CONTROL === '1'
+/** THEME_CSS=/path/theme.css serves the host's theme sheet after the panel's, and the fonts and images next to it under theme/, as the real server does (H-3721). */
+const THEME_CSS = process.env.THEME_CSS ?? ''
 
 const id = () => randomUUID().slice(0, 8)
 const ago = (minutes) => new Date(Date.now() - minutes * 60_000).toISOString()
@@ -633,11 +635,23 @@ function cookieOf(req) {
   return hit ? hit.slice('team_session='.length) : null
 }
 
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json', '.map': 'application/json' }
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json', '.map': 'application/json', '.woff2': 'font/woff2', '.woff': 'font/woff', '.ttf': 'font/ttf', '.webp': 'image/webp' }
 
 const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; media-src 'self' blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
 
 function serveStatic(req, res, pathname) {
+  if (THEME_CSS && pathname === '/theme.css') {
+    res.writeHead(200, { 'Content-Type': MIME['.css'], 'Cache-Control': 'no-cache' })
+    return res.end(readFileSync(THEME_CSS))
+  }
+  if (THEME_CSS && pathname.startsWith('/theme/')) {
+    const name = pathname.slice('/theme/'.length)
+    if (!/^[\w.-]+\.(woff2|woff|ttf|png|svg|webp)$/.test(name)) return fail(res, 404, 'No existe')
+    const themeFile = join(dirname(THEME_CSS), name)
+    if (!existsSync(themeFile)) return fail(res, 404, 'No existe')
+    res.writeHead(200, { 'Content-Type': MIME[extname(themeFile)] ?? 'application/octet-stream', 'Cache-Control': 'no-cache' })
+    return createReadStream(themeFile).pipe(res)
+  }
   let file = normalize(join(DIST, pathname === '/' ? 'index.html' : pathname))
   if (!file.startsWith(DIST)) return fail(res, 403, 'Ruta no permitida')
   const isAsset = pathname.startsWith('/assets/')
@@ -647,7 +661,7 @@ function serveStatic(req, res, pathname) {
   }
   if (file === join(DIST, 'index.html')) {
     res.writeHead(200, { 'Content-Type': MIME['.html'], 'Content-Security-Policy': CSP, 'Cache-Control': 'no-cache' })
-    return res.end(mountedIndex(readFileSync(file, 'utf8'), { basePath: BASE, apiPrefix: `${BASE}api` }))
+    return res.end(mountedIndex(readFileSync(file, 'utf8'), { basePath: BASE, apiPrefix: `${BASE}api`, themeCss: THEME_CSS }))
   }
   const headers = {
     'Content-Type': MIME[extname(file)] ?? 'application/octet-stream',

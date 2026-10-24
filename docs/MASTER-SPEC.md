@@ -752,8 +752,14 @@ Acabado de los controles (H-3732). Las variables de las cinco filas nuevas se de
 | `--glass-line-width`, `--focus-width`, `--touch-min` | Línea de la caja de vidrio, anillo de foco y alto mínimo al tacto | `1px`, `3px` y `44px` |
 | `--prose-align` | Alineación del texto corrido ancho (`.prose-block`): `justify` o `left` | `justify` |
 | `--label-weight`, `--label-tracking` | Peso e interletrado del rótulo pequeño en mayúsculas (`.rotulo`, sobre una foto o un valor) | `700` y `0.08em` |
+| `--tint-border-width` | Borde completo de las cajas tintadas (`.area-box`, `.ai-surface`); `0px` deja sólo el tinte | `1px` |
+| `--led-shadow` | Halo del punto de estado (`.led`); `none` lo deja plano. Sin declarar en `styles.css`: su valor por omisión usa el color de cada punto | `0 0 0 1px oklch(0 0 0 / 0.12), 0 0 6px 1px var(--led)` |
+| `--notice-bg`, `--notice-edge-width`, `--notice-ink` | Aviso de reenvío en el hilo (UD-272): relleno, borde izquierdo y tinta de su línea | `var(--color-accent-soft)`, `2px`, `var(--color-accent-deep)` |
+| `--quiet-tab-edge`, `--quiet-tab-bg`, `--quiet-tab-radius`, `--quiet-tab-shadow`, `--quiet-tab-track` | Selector discreto (`Segmented quiet`): subrayado, relleno, esquina y sombra de la opción elegida, y la pista | `var(--color-accent)`, `transparent`, `0px`, `none`, `transparent` |
+| `--control-hover-edge`, `--pressed-edge` | Borde de un control redondo o un selector bajo el puntero, y de un botón conmutador presionado | `var(--color-accent)` y `var(--color-accent)` |
+| `--area-chip-fill`, `--area-chip-edge-width` | Etiqueta de área: `1` la llena con el color principal del área, `0` con su tinte suave y su texto; ancho de su borde | `1` y `1px` |
 
-La prueba `panel/src/theme.browser.test.mjs` (registrada en `test:flows`) comprueba, en los dos temas, que cada variable existe con su valor por omisión y que una hoja del anfitrión que las redefine cambia el botón, el avatar, la barra, el selector, su pista y el borde de la tarjeta.
+La prueba `panel/src/theme-edges.browser.test.mjs` (en `test:flows`) comprueba que un anfitrión que apaga esos bordes no deja ningún borde visible de color en ninguna pantalla, a 1440x900 y 390x844 y en los dos temas. La prueba `panel/src/theme.browser.test.mjs` (registrada en `test:flows`) comprueba, en los dos temas, que cada variable existe con su valor por omisión y que una hoja del anfitrión que las redefine cambia el botón, el avatar, la barra, el selector, su pista y el borde de la tarjeta.
 
 Una tipografía del anfitrión entra con su `@font-face` en la misma hoja y con un origen que admita `font-src 'self'`, es decir, servida bajo el mismo sitio.
 

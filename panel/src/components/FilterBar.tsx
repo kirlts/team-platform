@@ -117,7 +117,7 @@ export function FilterBar({ query, onChange }: { query: MessageQuery; onChange: 
         {/* The button wears what is applied: its edge and its count. Each filter of the menu opens its values, with a check on the one that is on and the way to take it off (J2-A-13, J3-A-16). */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="secondary" aria-label={used.size > 0 ? t('filter.addActive', { n: used.size }) : undefined} className={cn(used.size > 0 && '!border-accent bg-selected text-fg')}>
+            <Button variant="secondary" aria-label={used.size > 0 ? t('filter.addActive', { n: used.size }) : undefined} className={cn(used.size > 0 && '!border-[var(--pressed-edge)] bg-selected text-fg')}>
               {t('filter.add')}
               {used.size > 0 && <span className="tabular-nums text-accent-deep">{used.size}</span>}
               <ChevronDown size={16} aria-hidden />

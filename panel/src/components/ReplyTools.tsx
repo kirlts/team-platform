@@ -54,8 +54,8 @@ export function ReplyTools({ message, reply }: { message: MessageDetail; reply: 
             if (files.length) add.mutate({ replyId: reply.id, files }, { onError: fail })
           }}
         />
-        <button type="button" disabled={add.isPending} onClick={() => input.current?.click()} aria-label={t('published.addFiles')} title={t('published.addFiles')} className="hit inline-flex items-center justify-center gap-1 rounded-md px-1.5 text-xs font-semibold text-muted hover:bg-hover hover:text-accent disabled:opacity-50">
-          <Plus size={13} aria-hidden /> {t('media.addShort')}
+        <button type="button" disabled={add.isPending} onClick={() => input.current?.click()} aria-label={t('published.addFiles')} title={t('published.addFiles')} className="hit inline-flex min-h-8 items-center justify-center gap-1 rounded-full px-3 text-sm font-semibold text-muted hover:bg-hover hover:text-accent disabled:opacity-50 pointer-coarse:min-h-11">
+          <Plus size={16} aria-hidden /> {t('media.addShort')}
         </button>
       </li>
       <li>

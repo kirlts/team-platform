@@ -20,7 +20,7 @@ export function Segmented<T extends string>({
   describedBy?: string
 }) {
   return (
-    <div role="radiogroup" aria-label={label} aria-describedby={describedBy} className={cn('inline-flex self-start', quiet ? 'gap-1' : 'well opt-track rounded-full p-0.5')}>
+    <div role="radiogroup" aria-label={label} aria-describedby={describedBy} className={cn('inline-flex self-start', quiet ? 'gap-1 rounded-full bg-[var(--quiet-tab-track)] p-0.5' : 'well opt-track rounded-full p-0.5')}>
       {options.map((o) => (
         <button
           key={o.value}
@@ -30,11 +30,11 @@ export function Segmented<T extends string>({
           onClick={() => onChange(o.value)}
           className={cn(
             'font-semibold transition-colors duration-150',
-            quiet ? 'border-b-2 px-2' : 'rounded-full border px-3',
+            quiet ? 'rounded-[var(--quiet-tab-radius)] border-b-2 px-2' : 'rounded-full border px-3',
             size === 'sm' ? 'h-6 text-xs' : 'h-7 text-sm',
             quiet
               ? value === o.value
-                ? 'border-accent text-fg'
+                ? 'border-[var(--quiet-tab-edge)] bg-[var(--quiet-tab-bg)] text-fg shadow-[var(--quiet-tab-shadow)]'
                 : 'border-transparent text-muted hover:text-fg'
               : value === o.value
                 ? 'opt-on'

@@ -124,7 +124,7 @@ function JobCounts() {
             ))}
           </NativeSelect>
         </div>
-        <Button size="sm" className="hover:border-danger hover:text-danger" onClick={() => void run().catch(() => undefined)} disabled={purge.isPending}>
+        <Button size="sm" className="hover:border-[var(--control-hover-edge)] hover:text-danger" onClick={() => void run().catch(() => undefined)} disabled={purge.isPending}>
           {t('queue.purge')}
         </Button>
         {purged !== null && (

@@ -26,10 +26,11 @@ const EDGE = { open: 'shadow-[inset_var(--card-edge-width)_0_0_var(--color-state
 const RECIPIENTS_SHOWN = 2
 
 /** The heading: one line ended with an ellipsis as well (UD-241, amended 2026-10-21), so the extract, the state and every datum below fall at the same y in every row. The whole text is the tooltip and the detail. */
-export const HEADING = 'min-w-0 truncate text-sm font-semibold leading-snug' // justified: UD-241 amends UD-016 for the heading of a row of a list
+// On a phone nothing is cut (design guide of the host, «Teléfono»): below md the heading and the extract wrap and the row grows.
+export const HEADING = 'min-w-0 break-words text-sm font-semibold leading-snug md:truncate' // justified: UD-241 amends UD-016 for the heading of a row of a list
 
 /** The extract: one line ended with an ellipsis, the one text the interface cuts, so every row measures the same. The whole text is the tooltip and the detail. */
-const EXTRACT = 'min-w-0 truncate text-xs text-muted' // justified: UD-241 amends UD-016 for the extract of a row of a list
+const EXTRACT = 'min-w-0 break-words text-xs text-muted md:truncate' // justified: UD-241 amends UD-016 for the extract of a row of a list
 
 /**
  * Message row, one grid for every row of every list (UD-241): every row measures the same and each datum falls at the same y and x in

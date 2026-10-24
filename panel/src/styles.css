@@ -275,6 +275,26 @@
   --nav-bar-width: 4px;
   --nav-active-ink: inherit;
   --ai-edge-width: 3px;
+  /* The thin all-around edge of a tinted box (the analysis in its area color, what the model proposed). 0 leaves the tint alone. */
+  --tint-border-width: 1px;
+  /* The status light's halo is --led-shadow, undeclared here: its default names the light's own color, so it is the fallback in .led::before. */
+  /* The area chip: 1 fills it with the area's main color and its ink, 0 with the soft tint and its text; and the width of its edge.
+     They are numbers because the colors they pick live on each chip (.area-tint), not on :root. */
+  --area-chip-fill: 1;
+  --area-chip-edge-width: 1px;
+  /* The notice of a forward in a thread (UD-272): its fill, its left edge and the ink of its line. */
+  --notice-bg: var(--color-accent-soft);
+  --notice-edge-width: 2px;
+  --notice-ink: var(--color-accent-deep);
+  /* A quiet switch (a filter next to a title): the chosen option's underline, fill, corner and shadow, and the track behind the options. */
+  --quiet-tab-edge: var(--color-accent);
+  --quiet-tab-bg: transparent;
+  --quiet-tab-radius: 0px;
+  --quiet-tab-shadow: none;
+  --quiet-tab-track: transparent;
+  /* The edge a round control or a select takes under the pointer, and the edge of a pressed toggle button. */
+  --control-hover-edge: var(--color-accent);
+  --pressed-edge: var(--color-accent);
   /* Fields: fill and border at rest and when focused. */
   --field-bg: var(--color-raised);
   --field-border: var(--color-edge);
@@ -576,9 +596,9 @@
     align-items: center;
     gap: 0.3rem;
     max-width: 100%;
-    background: var(--area-main);
-    color: var(--area-main-text);
-    border: 1px solid var(--area-edge);
+    background: color-mix(in srgb, var(--area-main) calc(var(--area-chip-fill) * 100%), var(--area-soft));
+    color: color-mix(in srgb, var(--area-main-text) calc(var(--area-chip-fill) * 100%), var(--area-soft-text));
+    border: var(--area-chip-edge-width) solid var(--area-edge);
     border-radius: 6px;
     padding: 1px 0.5rem;
     font-size: 0.8rem;
@@ -598,14 +618,14 @@
     --color-ai-edge: var(--area-soft-text);
     background: var(--area-soft);
     color: var(--area-soft-text);
-    border: 1px solid var(--area-edge);
+    border: var(--tint-border-width) solid var(--area-edge);
     border-left-width: var(--ai-edge-width);
     border-radius: var(--leaf-radius);
   }
 
   .ai-surface {
     background: var(--color-ai-bg);
-    border: 1px solid color-mix(in oklch, var(--color-ai-edge) 30%, transparent);
+    border: var(--tint-border-width) solid color-mix(in oklch, var(--color-ai-edge) 30%, transparent);
     border-left: var(--ai-edge-width) solid var(--color-ai-edge);
     border-radius: var(--leaf-radius);
     color: var(--color-fg);
@@ -852,9 +872,7 @@
     margin-right: 5px;
     border-radius: 9999px;
     background: var(--led);
-    box-shadow:
-      0 0 0 1px oklch(0 0 0 / 0.12),
-      0 0 6px 1px var(--led);
+    box-shadow: var(--led-shadow, 0 0 0 1px oklch(0 0 0 / 0.12), 0 0 6px 1px var(--led));
   }
 
   /* Meter: well with glass fill and a glint that runs along it while working. */

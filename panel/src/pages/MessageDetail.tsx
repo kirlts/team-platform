@@ -180,9 +180,9 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
                 e.preventDefault()
                 document.getElementById('reply-field')?.focus()
               }}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:underline"
+              className="hit inline-flex min-h-8 items-center gap-1 rounded-full px-3 text-sm font-semibold text-fg hover:bg-hover pointer-coarse:min-h-11"
             >
-              <MessageSquare size={13} aria-hidden /> {t('reply.jump')}
+              <MessageSquare size={16} aria-hidden /> {t('reply.jump')}
             </a>
           )}
           {/* The author of a reply edits it here too (UD-253): the history is theirs as well. */}
@@ -200,7 +200,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
       {/* The number of the message, as a tracker shows it next to the title (#115): the team refers to messages by it. */}
       <span data-testid="detail-number" className="shrink-0 text-sm tabular-nums text-muted md:text-base">#{m.id}</span>
       <h1 className="min-w-0 flex-1">
-        <EditableText value={m.title} label={t('detail.title')} canEdit={canEdit} validate={required} onSave={(v) => change(t('proposal.titleEdited'), { title: v }, { title: m.title })} displayClassName="font-sans text-lg font-semibold leading-snug md:text-[1.375rem]" />
+        <EditableText value={m.title} label={t('detail.title')} canEdit={canEdit} validate={required} onSave={(v) => change(t('proposal.titleEdited'), { title: v }, { title: m.title })} displayClassName="font-sans text-[length:var(--h1-size)] font-[number:var(--h1-weight)] leading-snug" />
       </h1>
       </div>
 

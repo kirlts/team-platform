@@ -1,7 +1,7 @@
 // Estimated cost per call: each price comes from the pricing.js table (MASTER-SPEC §3, reports 02 and 06).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { estimateCostUsd } from './pricing.js';
+import { estimateCostUsd, unpricedSlots } from './pricing.js';
 
 const close = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-12, `${actual} ≠ ${expected}`);
 
@@ -34,4 +34,21 @@ test('a model without a declared price is an unknown cost (null), never zero nor
   assert.equal(estimateCostUsd({ provider: 'deepseek', model: 'deepseek-flash', usage: { input_tokens: 1000, output_tokens: 1000 } }), null);
   assert.equal(estimateCostUsd({ provider: 'fake', model: 'fake-model', usage: { input_tokens: 1000, output_tokens: 1000 } }), null);
   assert.equal(estimateCostUsd({ provider: 'anthropic', model: 'claude-haiku-5-5', usage: undefined }), null);
+});
+
+test('Sonnet 5.5: 2 USD input, 10 output, 0.10 cache read, cache write 1.25 and 2 times the input, no long-prompt tier', () => {
+  close(estimateCostUsd({ provider: 'anthropic', model: 'claude-sonnet-5-5', usage: { input_tokens: 1000, output_tokens: 200, cached_tokens: 5000 } }), (1000 * 2 + 200 * 10 + 5000 * 0.1) / 1e6);
+  close(estimateCostUsd({ provider: 'anthropic', model: 'claude-sonnet-5-5', usage: { input_tokens: 0, cache_creation_tokens: 10_000 } }), (10_000 * 2 * 1.25) / 1e6);
+  close(estimateCostUsd({ provider: 'anthropic', model: 'claude-sonnet-5-5', cacheTtl: '1h', usage: { input_tokens: 0, cache_creation_tokens: 10_000 } }), (10_000 * 2 * 2) / 1e6);
+  close(estimateCostUsd({ provider: 'anthropic', model: 'claude-sonnet-5-5', usage: { input_tokens: 500_000, output_tokens: 0, cached_tokens: 100_000 } }), (500_000 * 2 + 100_000 * 0.1) / 1e6);
+});
+
+test('the startup notice lists the available functions whose model has no price', () => {
+  const slots = [
+    { slot: 'text', provider: 'anthropic', model: 'claude-sonnet-5-5', available: true },
+    { slot: 'vision', provider: 'deepseek', model: 'deepseek-flash', available: true },
+    { slot: 'speech', provider: 'groq-speech', model: 'whisper-large-v3-turbo', available: true },
+    { slot: 'text_fallback', provider: 'anthropic', model: 'claude-opus-5-5', available: false },
+  ];
+  assert.deepEqual(unpricedSlots(slots).map((s) => s.slot), ['vision']);
 });

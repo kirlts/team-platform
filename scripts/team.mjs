@@ -32,7 +32,7 @@ Commands:
                                                   records the numbered route through the view of the branch: a WebM video (1280x720 desktop,
                                                   390x844 phone), one screenshot per step, a label «Paso N» and the touched element outlined.
                                                   A step is { label, click?, fill?: [selector, text], press?, goto?, target? }. Writes steps.json and
-                                                  captures.json in $TEAM_CAPTURES_DIR; prints the `captures` list for the final output. If it
+                                                  captures.json in $TEAM_CAPTURES_DIR; prints the captures list for the final output. If it
                                                   cannot record it says so in one line and the screenshots of the steps that ran stay
   team --help                                     this text
 

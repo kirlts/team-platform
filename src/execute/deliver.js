@@ -54,7 +54,7 @@ const TEXTS = {
   'es-419': {
     production: 'Ya está en producción.',
     afterFailed: (reason) => `No pude tomar la captura del después: ${reason}.`,
-    held: (reason) => `El cambio está listo y todavía no entra a producción: ${reason}. Espera la revisión de una persona. Para revisarlo: mirar lo que trae «Propuesta» (capturas y recorrido) y, en este mensaje, elegir Entregar, pedir cambios o descartar.`,
+    held: (reason) => `Cambio listo para revisar: ${reason}. Todavía no llega a producción. Cómo queda, en «Propuesta».`,
     heldReason: 'el cambio necesita esa revisión',
     delivery: 'Entrega',
     verification: (branch) => `El cambio no pasó la verificación y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nUn Editor puede volver a lanzar la entrega.`,
@@ -66,7 +66,7 @@ const TEXTS = {
   en: {
     production: 'It is in production now.',
     afterFailed: (reason) => `I could not take the «after» screenshot: ${reason}.`,
-    held: (reason) => `The change is ready and is not in production yet: ${reason}. It waits for the review of a person. To review it: look at what «Proposal» brings (screenshots and walkthrough) and, in this message, choose Deliver, ask for changes or discard.`,
+    held: (reason) => `Change ready for review: ${reason}. It is not in production yet. How it looks, in «Proposal».`,
     heldReason: 'the change needs that review',
     delivery: 'Delivery',
     verification: (branch) => `The change did not pass verification and is not in production yet. The work is saved on the branch ${branch}.\n\nAn Editor can launch the delivery again.`,

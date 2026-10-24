@@ -682,6 +682,8 @@ const JOB_STATE_OF = { queued: 'queued', extracting: 'running', analyzing: 'runn
 let olderJobs = []
 /** The seeded execution of `/_control/execution` (UD-262), or null. */
 let execution = null
+/** UD-275: the reviews held for a person, by message id: `{ branch, held_reason, job_id, agent_id, delivering_job_id }`. */
+const reviews = new Map()
 const purgedJobs = new Set()
 /** @type {{id:string, at:string, member_id:string|null, member_name:string|null, action:string, entity:string, entity_id:string|null, detail:object|null}[]} */
 const auditLog = []
@@ -790,7 +792,19 @@ function control(path, query) {
     execution = { doneId: done.id, liveId: live.id, deliver: query.get('deliver') === '1' }
     return { done_id: done.id, live_id: live.id }
   }
+  if (path === '/_control/review') {
+    // UD-275: a message whose delivery is held: Claude's reply with the «Propuesta» screenshots and the review block waiting for a person.
+    if (!members.some((m) => m.id === 'u-claude')) members.push({ id: 'u-claude', email: 'claude@dev.invalid', name: 'Claude', role: 'member', kind: 'agent', language: 'es-419', active: true, profile: 'Sesión desatendida que trabaja los mensajes asignados.' })
+    const shot = (n, label, hue) => seedAttachment('image', 'image/svg+xml', `Propuesta - ${n} · ${label}.svg`, svgCapture(label, hue))
+    const msg = seedMessage({ area_id: 'a-feature', author_id: 'u-carla', title: 'Subir fotos clínicas a la ficha', body: 'Quiero subir fotos del paciente desde el teléfono a su ficha.', created_at: ago(60), assignee_ids: ['u-ana'], attachment_ids: [] }, [
+      { author_id: 'u-claude', kind: 'clarification', created_at: ago(8), attachment_ids: [shot('0:02', 'Paso 1 · Abrir la ficha', 210), shot('0:05', 'Paso 2 · Apretar Tomar fotografía', 160)],
+        body: 'La ficha del paciente ahora permite tomar una fotografía y guardarla en su historial. Cambia lo que ve la recepción.\n\nRiesgo: la foto queda con datos de una persona. Mirar el paso 2 antes de entregar.\n\nCambio listo para revisar: toca datos de personas. Todavía no llega a producción. Cómo queda, en «Propuesta».\n\n**Resultado**: needs_decision' }
+    ])
+    reviews.set(msg.id, { branch: `tp/${msg.id}`, held_reason: 'Toca datos de personas', job_id: 'j-rev0', agent_id: 'u-claude', delivering_job_id: null })
+    return { message_id: msg.id }
+  }
   if (path === '/_control/reset') {
+    reviews.clear()
     execution = null
     for (const t of jobs.values()) clearTimeout(t)
     jobs.clear()
@@ -1357,7 +1371,7 @@ const server = createServer(async (req, res) => {
       syncStatus(msg)
       return send(res, 200, { ...view(msg), replies: liveReplies(msg).map(replyView) })
     }
-    m = /^\/messages\/([^/]+)(?:\/(replies|close|reopen|attachments|restore|forward))?$/.exec(path)
+    m = /^\/messages\/([^/]+)(?:\/(replies|close|reopen|attachments|restore|forward|deliver|discard-delivery))?$/.exec(path)
     if (m) {
       const msg = messages.find((x) => x.id === m[1])
       if (!msg) return fail(res, 404, 'No existe')
@@ -1377,7 +1391,35 @@ const server = createServer(async (req, res) => {
         res.writeHead(204)
         return res.end()
       }
-      if (!m[2] && method === 'GET') return send(res, 200, { ...view(msg), deleted_at: msg.deleted_at ?? null, replies: liveReplies(msg).map(replyView) })
+      if (!m[2] && method === 'GET') return send(res, 200, { ...view(msg), deleted_at: msg.deleted_at ?? null, replies: liveReplies(msg).map(replyView), pending_delivery: reviews.get(msg.id) ?? null })
+      if (m[2] === 'deliver' && method === 'POST') {
+        if (me.role !== 'editor') return fail(res, 403, 'Esta acción es de un Editor.', 'forbidden')
+        const review = reviews.get(msg.id)
+        if (!review) return fail(res, 409, 'El mensaje no tiene una entrega esperando revisión.', 'no_pending_delivery')
+        review.delivering_job_id = 'j-rev1'
+        const progress = (percent, phrase) => emit(me.id, 'progress', { job_id: 'j-rev1', percent, phrase, at: new Date().toISOString() })
+        // The delivery of the example: verifying, deploying, answered; the steps are slow enough for a test to look at them.
+        progress(0, 'Verificando el cambio')
+        setTimeout(() => progress(50, 'Publicando'), 400)
+        setTimeout(() => {
+          reviews.delete(msg.id)
+          replies.get(msg.id)?.push({ id: `r-${id()}`, message_id: msg.id, author_id: 'u-claude', kind: 'answer', body: 'Ya está en producción.\n\n**Resultado**: done', created_at: new Date().toISOString(), attachment_ids: [] })
+          syncStatus(msg)
+          emit(me.id, 'done', { job_id: 'j-rev1', done: true, status: 'done', message_id: msg.id })
+        }, 900)
+        return send(res, 202, { job_id: 'j-rev1' })
+      }
+      if (m[2] === 'discard-delivery' && method === 'POST') {
+        if (me.role !== 'editor') return fail(res, 403, 'Esta acción es de un Editor.', 'forbidden')
+        const body = await readJson(req)
+        if (!reviews.has(msg.id)) return fail(res, 409, 'El mensaje no tiene una entrega esperando revisión.', 'no_pending_delivery')
+        if (!String(body?.reason ?? '').trim()) return fail(res, 400, 'El motivo es obligatorio.', 'reason_required')
+        reviews.delete(msg.id)
+        const reply = { id: `r-${id()}`, message_id: msg.id, author_id: me.id, kind: 'answer', body: `Descartado por ${me.name}: ${body.reason.trim()}`, created_at: new Date().toISOString(), attachment_ids: [] }
+        replies.get(msg.id)?.push(reply)
+        msg.status = 'open'
+        return send(res, 200, { reply_id: reply.id })
+      }
       // In-place edit of a published message (UD-071): only the sender, with the `version` that was read; every real change raises it.
       if (!m[2] && method === 'PATCH') {
         if (msg.author_id !== me.id) return fail(res, 403, 'Sólo quien envió el mensaje lo edita', 'not_message_author')

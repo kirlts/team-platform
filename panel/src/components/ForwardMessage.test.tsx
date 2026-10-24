@@ -114,7 +114,7 @@ describe('a forward in the thread (UD-272)', () => {
     expect(strip.textContent).toContain('por Martín')
     expect(strip.textContent).toContain('Investiga si el cobro duplica la cita.')
     expect(strip.className).not.toMatch(/reply-card/)
-    expect(strip.className).toContain('bg-accent-soft')
+    expect(strip.className).toContain('bg-[var(--notice-bg)]')
     // The reply next to it keeps its card, and the strip has no controls of a reply (delete, edit).
     expect(within(strip).queryByRole('button')).toBeNull()
     expect(screen.getAllByRole('article').filter((a) => a.className.includes('reply-card'))).toHaveLength(1)

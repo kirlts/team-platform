@@ -123,7 +123,7 @@ export function ComposeBar({ onSubmit }: { onSubmit: (draft: SendDraft) => void 
         setDragging(false)
         draft.onDrop(e)
       }}
-      className={cn('leaf transition-[border-color] duration-150 focus-within:border-accent', expanded ? 'pop absolute inset-x-0 top-0' : 'glass', dragging && '!border-accent !bg-accent-soft')}
+      className={cn('leaf transition-[border-color] duration-[var(--duration-hover)] focus-within:border-accent', expanded ? 'pop absolute inset-x-0 top-0' : 'glass', dragging && '!border-accent !bg-accent-soft')}
     >
       <div className="px-bar-pad pt-bar-pad">
         {draft.recording ? (

@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
 export function StateTabs({ value, counts, onChange, label }: { value: MessageStatus | null; counts: Record<MessageStatus, number>; onChange: (next: MessageStatus | null) => void; label: string }) {
   const t = useT()
   const total = STATES.reduce((n, s) => n + counts[s], 0)
-  const base = 'inline-flex min-h-8 flex-1 items-center justify-center whitespace-nowrap rounded-full border px-2 text-sm font-semibold transition-colors duration-150 hover:bg-hover sm:flex-none'
+  const base = 'inline-flex min-h-8 flex-1 items-center justify-center whitespace-nowrap rounded-full border px-2 text-sm font-semibold transition-colors duration-[var(--duration-hover)] hover:bg-hover sm:flex-none'
   const on = 'opt-on'
   const off = 'border-transparent'
   return (

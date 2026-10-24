@@ -289,7 +289,7 @@ export function FitList<T>({
                   aria-label={t('pager.previous')}
                   disabled={history.length === 0}
                   onClick={() => go(history[history.length - 1] ?? 0, true)}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-edge bg-glass hover:border-accent disabled:opacity-40"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-edge bg-glass hover:border-[var(--control-hover-edge)] disabled:opacity-40"
                 >
                   <ChevronLeft size={16} aria-hidden />
                 </button>
@@ -298,7 +298,7 @@ export function FitList<T>({
                   aria-label={t('pager.next')}
                   disabled={first + (count ?? 0) >= rows.length}
                   onClick={() => go(first + (count ?? 0), false)}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-edge bg-glass hover:border-accent disabled:opacity-40"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-edge bg-glass hover:border-[var(--control-hover-edge)] disabled:opacity-40"
                 >
                   <ChevronRight size={16} aria-hidden />
                 </button>

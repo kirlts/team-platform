@@ -7,8 +7,13 @@ import { cn } from '@/lib/utils'
 export function Wordmark({ project, name, className, large = false }: { project?: string; name: string; className?: string; large?: boolean }) {
   return (
     <span className={cn('wordmark flex min-w-0 items-center leading-tight text-fg', large ? 'gap-3 text-lg' : 'gap-2.5 text-[length:var(--wordmark-size)] max-md:gap-1.5 max-md:text-xs', className)}>
-      <span aria-hidden className={cn('orb shrink-0 rounded-full [--orb-bottom:var(--color-gel-bottom)] [--orb-top:var(--color-gel-top)]', large ? 'h-7 w-7' : 'h-4 w-4')} />
-      <span className="min-w-0 break-words">{project ? `${project} ${name}` : name}</span>
+      {/* A host's logo image (theme contract: --wordmark-logo); without one it is not drawn and the sphere stays. */}
+      <span aria-hidden data-testid="wordmark-logo" className={cn('wordmark-logo shrink-0', large && 'wordmark-logo-large')} />
+      <span aria-hidden className={cn('wordmark-orb orb shrink-0 rounded-full [--orb-bottom:var(--color-gel-bottom)] [--orb-top:var(--color-gel-top)]', large ? 'h-7 w-7' : 'h-4 w-4')} />
+      <span className="min-w-0 break-words">
+        {project && <span className="wordmark-project">{project} </span>}
+        {name}
+      </span>
     </span>
   )
 }

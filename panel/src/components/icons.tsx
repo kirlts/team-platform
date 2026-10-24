@@ -18,6 +18,7 @@ function make(paths: string[], extra?: (p: IconProps) => React.ReactNode) {
         strokeLinejoin="round"
         focusable="false"
         {...props}
+        className={props.className ? `icon ${props.className}` : 'icon'}
       >
         {paths.map((d) => (
           <path key={d} d={d} />

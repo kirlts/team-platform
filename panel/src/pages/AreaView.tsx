@@ -8,7 +8,7 @@ import { EmptyState } from '@/components/EmptyState'
 import { Fold } from '@/components/Fold'
 import { FoldedText } from '@/components/FoldedText'
 import { LoadState } from '@/components/LoadState'
-import { NativeSelect } from '@/components/NativeSelect'
+import { NativeSelect, ON_PAGE_FIELD } from '@/components/NativeSelect'
 import { MessageList } from '@/components/MessageList'
 import { Page } from '@/components/Page'
 import { StateTabs } from '@/components/StateTabs'
@@ -171,7 +171,7 @@ function AreaOwner({ area, canEdit, onChange }: { area: Area; canEdit: boolean; 
         <span className="rotulo">{t('areas.decider')}</span>
         {canEdit ? (
           <span className="w-full sm:w-56">
-            <NativeSelect value={owner} onChange={(e) => void onChange(e.target.value)} aria-label={t('areas.decider')} data-testid="area-owner-select">
+            <NativeSelect className={ON_PAGE_FIELD} value={owner} onChange={(e) => void onChange(e.target.value)} aria-label={t('areas.decider')} data-testid="area-owner-select">
               {owner === '' && <option value="" />}
               {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
             </NativeSelect>

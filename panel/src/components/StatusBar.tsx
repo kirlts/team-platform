@@ -1,4 +1,4 @@
-import type { KeyboardEvent } from 'react'
+import { useState, type KeyboardEvent } from 'react'
 import { Link } from 'react-router'
 import { AreaChip } from '@/components/AreaChip'
 import { StateIcon, usePulse } from '@/components/NotifyBadge'
@@ -65,10 +65,13 @@ function StateButton({ status, n }: { status: MessageStatus; n: number }) {
   const t = useT()
   const word = t(WORD[status], { n })
   const filters = mineFilters(status)
+  // The list behind the number is read when the person goes for the mark (pointer or keyboard), not on every page load: nobody has opened the menu yet.
+  const [warm, setWarm] = useState(false)
   return (
     <Popover>
+      {warm && <WarmList status={status} />}
       <PopoverTrigger asChild>
-        <button type="button" data-testid="state-button" data-status={status} data-weight="quiet" data-count={n} aria-label={word} title={word} className="inline-flex h-9 min-w-8 items-center justify-center gap-1 rounded-full border px-0.5 text-sm font-bold leading-none hover:bg-glass md:min-w-11 md:px-2.5 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:min-w-11">
+        <button type="button" onPointerEnter={() => setWarm(true)} onFocus={() => setWarm(true)} data-testid="state-button" data-status={status} data-weight="quiet" data-count={n} aria-label={word} title={word} className="inline-flex h-9 min-w-8 items-center justify-center gap-1 rounded-full border px-0.5 text-sm font-bold leading-none hover:bg-glass md:min-w-11 md:px-2.5 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:min-w-11">
           <StateIcon status={status} size={16} />
           <span className="tabular-nums">{n}</span>
         </button>
@@ -78,23 +81,44 @@ function StateButton({ status, n }: { status: MessageStatus; n: number }) {
   )
 }
 
+/** Reads the list of a state ahead of the click; it draws nothing. The menu finds it in the cache. */
+function WarmList({ status }: { status: MessageStatus }) {
+  useMine(status)
+  return null
+}
+
 /** The messages behind a number, as a small menu under its mark: title, area, who and when; arrows walk the rows. */
 function MessageMenu({ name, status, seeAll }: { name: string; status: MessageStatus; seeAll: string }) {
+  const t = useT()
+  return (
+    <PopoverContent align="end" sideOffset={14} collisionPadding={8} aria-label={name} data-testid="status-menu" onKeyDown={walkRows} className="flex max-h-[var(--radix-popover-content-available-height)] w-[24rem] flex-col p-0">
+      <MenuRows status={status} />
+      <Link to={seeAll} className="flex shrink-0 items-center justify-between gap-2 px-3 py-2 text-sm font-semibold text-accent-deep hover:bg-hover">
+        {t('bell.seeAll')}
+        <ArrowRight size={16} aria-hidden />
+      </Link>
+    </PopoverContent>
+  )
+}
+
+function walkRows(e: KeyboardEvent<HTMLElement>) {
+  if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+  const links = [...e.currentTarget.querySelectorAll<HTMLElement>('[data-lane="status-list"] a')]
+  const at = links.indexOf(document.activeElement as HTMLElement)
+  const next = e.key === 'ArrowDown' ? Math.min(links.length - 1, at + 1) : Math.max(0, at - 1)
+  links[next]?.focus()
+  e.preventDefault()
+}
+
+/** The rows of the menu. It is inside the popover content, which exists only while the menu is open, so the list is read only then (or ahead, by `WarmList`). */
+function MenuRows({ status }: { status: MessageStatus }) {
   const t = useT()
   const format = useFormat()
   const { memberName } = useLookups()
   const list = useMine(status)
   const rows = list.rows
-  const walk = (e: KeyboardEvent<HTMLElement>) => {
-    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
-    const links = [...e.currentTarget.querySelectorAll<HTMLElement>('[data-lane="status-list"] a')]
-    const at = links.indexOf(document.activeElement as HTMLElement)
-    const next = e.key === 'ArrowDown' ? Math.min(links.length - 1, at + 1) : Math.max(0, at - 1)
-    links[next]?.focus()
-    e.preventDefault()
-  }
   return (
-    <PopoverContent align="end" sideOffset={14} collisionPadding={8} aria-label={name} data-testid="status-menu" onKeyDown={walk} className="flex max-h-[var(--radix-popover-content-available-height)] w-[24rem] flex-col p-0">
+    <>
       {list.isPending ? (
         <p className="px-3 py-4 text-center text-sm text-muted">{t('common.loading')}</p>
       ) : rows.length === 0 ? (
@@ -116,10 +140,6 @@ function MessageMenu({ name, status, seeAll }: { name: string; status: MessageSt
           ))}
         </ul>
       )}
-      <Link to={seeAll} className="flex shrink-0 items-center justify-between gap-2 px-3 py-2 text-sm font-semibold text-accent-deep hover:bg-hover">
-        {t('bell.seeAll')}
-        <ArrowRight size={16} aria-hidden />
-      </Link>
-    </PopoverContent>
+    </>
   )
 }

@@ -140,14 +140,13 @@ describe('Configuración', () => {
     }
   })
 
-  test('«Publicación automática» says what each option does, in under 90 characters', async () => {
+  test('«Publicación» says what each option does by its name, with no help line under the title', async () => {
     const { page, context } = await open(PHONE, 'light', 'ana', '/settings')
     try {
-      const hint = page.locator('#hint-publication')
-      await hint.waitFor()
-      const text = await hint.innerText()
-      assert.match(text, /^Automática publica .*; Manual deja los mensajes en revisión$/)
-      assert.ok(text.length <= 90)
+      const group = page.getByRole('radiogroup', { name: 'Publicación' })
+      await group.waitFor()
+      assert.deepEqual(await group.getByRole('radio').allInnerTexts(), ['Al analizar', 'Tras revisar'])
+      assert.equal(await page.locator('#hint-publication').count(), 0)
     } finally {
       await context.close()
     }

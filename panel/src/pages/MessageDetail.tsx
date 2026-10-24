@@ -180,16 +180,16 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
                 e.preventDefault()
                 document.getElementById('reply-field')?.focus()
               }}
-              className="hit inline-flex min-h-8 items-center gap-1 rounded-full px-3 text-sm font-semibold text-fg hover:bg-hover pointer-coarse:min-h-11"
+              className="btn btn-ghost h-8 gap-1 px-4 text-sm" /* the same face as «Reenviar» and «Borrar»: one hierarchy, one look */
             >
-              <MessageSquare size={16} aria-hidden /> {t('reply.jump')}
+              <MessageSquare size={14} aria-hidden /> {t('reply.jump')}
             </a>
           )}
           {/* The author of a reply edits it here too (UD-253): the history is theirs as well. */}
           {(canEdit || (!!me && m.replies.some((r) => r.author_id === me.id))) && <UndoButtons stack={undo} compact={!desktop} />}
           {m.status !== 'closed' && <ForwardMessage messageId={m.id} />}
           {canDelete && (
-            <Button size="sm" variant="ghost" className="text-muted hover:text-danger" disabled={del.isPending} onClick={() => void remove()}>
+            <Button size="sm" variant="ghost" className="hover:text-danger" disabled={del.isPending} onClick={() => void remove()}>
               <Trash2 size={14} aria-hidden /> {t('detail.delete')}
             </Button>
           )}

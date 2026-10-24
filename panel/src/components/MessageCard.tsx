@@ -30,7 +30,9 @@ const RECIPIENTS_SHOWN = 2
 export const HEADING = 'min-w-0 break-words text-sm font-semibold leading-snug md:truncate' // justified: UD-241 amends UD-016 for the heading of a row of a list
 
 /** The extract: one line ended with an ellipsis, the one text the interface cuts, so every row measures the same. The whole text is the tooltip and the detail. */
-const EXTRACT = 'min-w-0 break-words text-xs text-muted md:truncate' // justified: UD-241 amends UD-016 for the extract of a row of a list
+// On a phone the extract shows its first two whole lines, with no ellipsis and no word cut: the same amount of text as the one line of a
+// desktop row (about 80 characters), as the host guide shows a row with one line of support under its heading.
+const EXTRACT = 'min-w-0 break-words text-xs text-muted max-md:max-h-[2lh] max-md:overflow-hidden md:truncate' // justified: UD-241 amends UD-016 for the extract of a row of a list
 
 /**
  * Message row, one grid for every row of every list (UD-241): every row measures the same and each datum falls at the same y and x in

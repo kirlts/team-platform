@@ -56,7 +56,8 @@ export function registerInputRoutes (app, ctx) {
           status: { type: 'string', pattern: '^(queued|extracting|analyzing|proposed|published|failed|cancelled)(,(queued|extracting|analyzing|proposed|published|failed|cancelled))*$' },
           mine: { type: 'string', enum: ['1', 'true'] },
           order: { type: 'string', enum: ['asc', 'desc'] },
-          all: { type: 'string', enum: ['1', 'true'] }
+          all: { type: 'string', enum: ['1', 'true'] },
+          compact: { type: 'string', enum: ['1', 'true'], description: 'Deja fuera `units` y `proposal` de cada envío (la mayor parte de los bytes de un historial largo); el detalle `GET /inputs/{id}` los trae.' }
         }
       },
       response: { 200: pageEnvelope({ ...inputView, properties: { ...inputView.properties, author_name: { type: 'string', nullable: true } } }) }
@@ -66,7 +67,7 @@ export function registerInputRoutes (app, ctx) {
     const order = request.query.order ?? (request.query.mine ? 'asc' : 'desc')
     const everyone = request.query.all !== undefined
     if (everyone && request.member.role !== 'editor') throw forbidden('Sólo el Editor lista los envíos de todos.')
-    const r = listInputs({ db, queue, events }, request.member.id, { status: request.query.status ?? null, limit: p.limit, offset: p.offset, order, everyone })
+    const r = listInputs({ db, queue, events }, request.member.id, { status: request.query.status ?? null, limit: p.limit, offset: p.offset, order, everyone, compact: request.query.compact !== undefined })
     return pageResult(r.items, r.total, p)
   })
 

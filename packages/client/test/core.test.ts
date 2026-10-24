@@ -201,8 +201,8 @@ describe('transport', () => {
     await team.templates.listDeleted('a1')
     await team.messages.deleteMany(['a', 'b'])
     expect(calls.map((c) => `${c.init.method} ${c.url}`)).toEqual([
-      'GET /api/inputs?mine=1&status=queued,extracting,analyzing,proposed,failed',
-      'GET /api/inputs?mine=1&order=desc',
+      'GET /api/inputs?mine=1&compact=1&status=queued,extracting,analyzing,proposed,failed',
+      'GET /api/inputs?mine=1&order=desc&compact=1',
       'GET /api/inputs?all=1&page=2&limit=20',
       'DELETE /api/inputs/i1?confirm=true&with_messages=true',
       'DELETE /api/members/u1?confirm=true&purge=true',

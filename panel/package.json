@@ -12,7 +12,7 @@
     "dev": "vite",
     "dev:server": "node dev-server.mjs",
     "typecheck": "tsc --noEmit",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && node scripts/precompress.mjs",
     "preview": "vite preview",
     "test": "vitest run",
     "capturas": "node scripts/capturas.mjs",

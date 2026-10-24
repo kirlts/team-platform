@@ -144,7 +144,7 @@ export function getInputView ({ db, queue, events }, inputId, memberId) {
   return buildInputView({ db, queue, events }, input)
 }
 
-export function buildInputView ({ db, queue, events }, input) {
+export function buildInputView ({ db, queue, events }, input, { compact = false } = {}) {
   const atts = all(db, 'SELECT * FROM attachments WHERE input_id = ? ORDER BY id', input.id)
   const jobRow = queue.latestJobForInput(input.id)
   const progressRow = jobRow ? events.lastProgress(jobRow.id) : null
@@ -171,8 +171,12 @@ export function buildInputView ({ db, queue, events }, input) {
     job: jobRow
       ? { id: jobRow.id, status: jobRow.status, attempts: jobRow.attempts, percent: progressRow?.percent ?? null, phrase: progressRow?.phrase ?? null, code: progressRow?.code ?? null, vars: progressRow?.vars ?? {}, last_error: jobRow.last_error }
       : null,
-    units: proposalObj ? parseJson(proposalObj.units_json, []).map((u) => ({ id: String(u.id), text: u.text })) : [],
-    proposal: proposalObj ? proposalView(parseJson(proposalObj.payload_json, {})) : null,
+    // `compact` leaves out the two heavy parts, the numbered units and the whole proposal: the list of the drawer needs neither (it reads
+    // the one it opens with GET /inputs/:id), and they were 88 % of its bytes (bench/results/2026-10-24-panel-before-production.json).
+    ...(compact ? {} : {
+      units: proposalObj ? parseJson(proposalObj.units_json, []).map((u) => ({ id: String(u.id), text: u.text })) : [],
+      proposal: proposalObj ? proposalView(parseJson(proposalObj.payload_json, {})) : null
+    }),
     message_ids: msgRows.map((m) => m.id),
     // UD-071: what the sender sees in the history without one request per message.
     messages: msgRows.map((m) => ({ id: m.id, title: m.title, area_id: m.area_id, status: m.status, edited_at: iso(m.edited_at) }))
@@ -194,7 +198,7 @@ export function parseStatusFilter (raw) {
  * Own inputs, paginated, filtered by one or several statuses. `order` is 'desc' (newest first, the history) or
  * 'asc' (creation order, the tray of in-flight inputs where each new send lands after the previous one).
  */
-export function listInputs (ctx, memberId, { status = null, limit, offset, order = 'desc', everyone = false }) {
+export function listInputs (ctx, memberId, { status = null, limit, offset, order = 'desc', everyone = false, compact = false }) {
   const { db } = ctx
   const statuses = Array.isArray(status) ? status : parseStatusFilter(status)
   // `everyone` (the editor's queue): no author condition, and every item carries the name of its sender.
@@ -207,7 +211,7 @@ export function listInputs (ctx, memberId, { status = null, limit, offset, order
   const total = get(db, `SELECT COUNT(*) AS n FROM inputs ${cond}`, ...params).n
   const rows = all(db, `SELECT * FROM inputs ${cond} ORDER BY created_at ${direction}, id ${direction} LIMIT ? OFFSET ?`, ...params, limit, offset)
   const names = everyone ? new Map(all(db, 'SELECT id, name FROM members').map((m) => [m.id, m.name])) : null
-  return { total, items: rows.map((i) => ({ ...buildInputView(ctx, i), ...(names ? { author_name: names.get(i.author_id) ?? null } : {}) })) }
+  return { total, items: rows.map((i) => ({ ...buildInputView(ctx, i, { compact }), ...(names ? { author_name: names.get(i.author_id) ?? null } : {}) })) }
 }
 
 /** First `maxChars` characters of `text` without cutting a surrogate pair in half. */

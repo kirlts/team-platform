@@ -18,6 +18,7 @@ import { installTemplateWarmup } from './domain/modules.js'
 import { getFraming, getProject } from './domain/settings.js'
 import { DEFAULT_LANGUAGE } from './domain/language.js'
 import { initTelemetry } from './domain/tracing.js'
+import { unpricedSlots } from './telemetry/pricing.js'
 import { buildWorker } from './worker.js'
 
 export async function start (config, { env = process.env } = {}) {
@@ -39,6 +40,9 @@ export async function start (config, { env = process.env } = {}) {
   const queue = createQueue({ db, config, events })
 
   const { worker, modules } = await buildWorker({ db, config, events, queue, env, logger, pollDataVersionMs: null })
+  // A model with no price in `src/telemetry/pricing.js` leaves its calls without cost: said once at startup, never estimated.
+  const unpriced = unpricedSlots(modules.getProviders()?.describe() ?? [])
+  if (unpriced.length > 0) logger.warn({ unpriced }, `Without a price in the table (cost left empty): ${unpriced.map((s) => `${s.slot} ${s.provider}/${s.model}`).join(', ')}.`)
   const { app, domainEvents } = await buildApp({ db, config, queue, events, modules, logger, telemetry })
   installTemplateWarmup({ domainEvents, modules, getProject: () => getProject(db, config), getFraming: () => getFraming(db, DEFAULT_LANGUAGE), log: (m) => logger.warn(m) })
 

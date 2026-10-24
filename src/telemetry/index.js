@@ -42,7 +42,7 @@ import { DEFAULTS, queueBudgetFromEnv } from './config.js';
 import { SqliteSpanExporter } from './sqlite-exporter.js';
 
 export * from './api.js';
-export { estimateCostUsd, PRICES } from './pricing.js';
+export { estimateCostUsd, hasPrice, PRICES, unpricedSlots } from './pricing.js';
 export { SqliteSpanExporter, pruneSpans, spanToRow } from './sqlite-exporter.js';
 export { traceOfJob } from './trace.js';
 

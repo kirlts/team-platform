@@ -28,7 +28,7 @@ export function TraceTree({ jobId }: { jobId: string }) {
     [t('trace.calls'), String(totals.llm_calls)],
     [t('trace.input'), totals.input_tokens.toLocaleString()],
     [t('trace.output'), totals.output_tokens.toLocaleString()],
-    [t('trace.cost'), usd(totals.cost_usd)],
+    [t('trace.cost'), totals.cost_usd === null ? '—' : usd(totals.cost_usd)],
   ]
   return (
     <div data-trace className="flex flex-col gap-2 rounded-lg bg-hover/50 px-4 py-3 text-sm">

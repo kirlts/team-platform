@@ -55,7 +55,7 @@ export function traceOfJob(db, jobId) {
   const totals = db
     .prepare(
       `SELECT COUNT(*) AS llm_calls, COALESCE(SUM(input_tokens), 0) AS input_tokens, COALESCE(SUM(output_tokens), 0) AS output_tokens,
-              COALESCE(SUM(cost_usd), 0) AS cost_usd
+              SUM(cost_usd) AS cost_usd, COALESCE(SUM(cost_usd IS NULL), 0) AS unpriced_calls
          FROM llm_calls WHERE trace_id IN (${marks})`,
     )
     .get(...traceIds);

@@ -20,11 +20,25 @@ const HAIKU_5_5 = Object.freeze({
   tier: Object.freeze({ aboveInputTokens: 100_000, inputPerMTok: 0.5 }),
 });
 
+// Sonnet 5.5: 2 USD input and 10 output per million tokens, cache read 0.10 (0.05 times the input: the
+// pricing page sets that ratio for Sonnet 5.5, unlike the 0.1 of Haiku), cache write 2.50 at 5 minutes and 4 at
+// 1 hour (1.25 and 2 times the input). No long-prompt tier: the page prices a 900K-token request at the same
+// rate as a 9K one for every model but Haiku 5.5. Source: platform.claude.com/docs/en/about-claude/pricing,
+// read on 2026-10-24 (same figures in report 01 §3, read on 2026-10-20).
+const SONNET_5_5 = Object.freeze({
+  inputPerMTok: 2,
+  outputPerMTok: 10,
+  cacheReadPerMTok: 0.1,
+  cacheWriteMultiplier: Object.freeze({ '5m': 1.25, '1h': 2 }),
+  tier: null,
+});
+
 // Groq `whisper-large-v3-turbo`: 0.04 USD per hour of audio (MASTER-SPEC §3, report 06 §3.2).
 const WHISPER_TURBO = Object.freeze({ perAudioHour: 0.04 });
 
 export const PRICES = Object.freeze({
   'anthropic/claude-haiku-5-5': HAIKU_5_5,
+  'anthropic/claude-sonnet-5-5': SONNET_5_5,
   'groq-speech/whisper-large-v3-turbo': WHISPER_TURBO,
 });
 
@@ -53,7 +67,7 @@ export function estimateCostUsd({ provider, model, usage, cacheTtl }) {
   const cacheWrite = usage.cache_creation_tokens ?? 0;
   const output = usage.output_tokens ?? 0;
   let inputPrice = price.inputPerMTok;
-  if (uncached + cacheRead + cacheWrite > price.tier.aboveInputTokens) {
+  if (price.tier && uncached + cacheRead + cacheWrite > price.tier.aboveInputTokens) {
     if (cacheRead > 0 || cacheWrite > 0) return null;
     inputPrice = price.tier.inputPerMTok;
   }
@@ -63,4 +77,18 @@ export function estimateCostUsd({ provider, model, usage, cacheTtl }) {
     PER_MILLION;
   // Rounded to 12 decimals so as not to store floating-point noise.
   return Number(usd.toFixed(12));
+}
+
+/** Whether the table has a price for this provider and model (a date suffix counts as its base). */
+export function hasPrice(provider, model) {
+  return lookup(provider, model) !== null;
+}
+
+/**
+ * The available functions (the `describe()` of the providers) whose model has no price in the table: their calls
+ * leave `team.cost_usd` empty. Used by the startup notice.
+ * @param {{slot: string, provider: string, model: string, available: boolean}[]} slots
+ */
+export function unpricedSlots(slots) {
+  return slots.filter((s) => s.available && !hasPrice(s.provider, s.model));
 }

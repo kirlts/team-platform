@@ -438,7 +438,7 @@ export interface RunningJob {
 export interface JobTrace {
   job_id: string
   span_count: number
-  totals: { llm_calls: number; input_tokens: number; output_tokens: number; cost_usd: number }
+  totals: { llm_calls: number; input_tokens: number; output_tokens: number; cost_usd: number | null; unpriced_calls: number }
   roots: SpanNode[]
 }
 

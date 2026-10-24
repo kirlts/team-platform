@@ -43,11 +43,14 @@ function measure() {
     let right = rect.right
     for (let a = el.parentElement; a && a !== document.documentElement; a = a.parentElement) {
       const s = getComputedStyle(a)
-      if (a !== document.body && s.overflowX !== 'visible') right = Math.min(right, a.getBoundingClientRect().right)
+      if (a !== document.body && a.id !== 'main' && s.overflowX !== 'visible') right = Math.min(right, a.getBoundingClientRect().right)
     }
     // An SVG child or a text node inside a clipped box is covered by its box; the measure is of the element itself.
     if (right > vw + 1) out.push(`${describeEl(el)} right=${Math.round(right)}`)
   }
+  // `<main>` is the page's own scroller: what it cannot fit is a page that drags sideways, so it never counts as a clip.
+  const main = document.querySelector('main#main')
+  if (main && main.scrollWidth > main.clientWidth) out.unshift(`main#main scrollWidth ${main.scrollWidth} > clientWidth ${main.clientWidth}`)
   return { vw, scrollWidth: document.documentElement.scrollWidth, bodyScrollWidth: document.body.scrollWidth, offenders: out.slice(0, 12) }
 }
 

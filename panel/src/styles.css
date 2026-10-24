@@ -318,6 +318,13 @@
     height: 100%;
   }
 
+  /* Guard (Martín, 2026-10-24): a future overflow never drags the page sideways. The cause is fixed where it is born; the
+     test of src/no-horizontal-overflow.browser.test.mjs still measures main's own scrollWidth, so a clipped overflow fails it. */
+  html,
+  body {
+    overflow-x: clip;
+  }
+
   body {
     margin: 0;
     background-color: var(--color-bg);

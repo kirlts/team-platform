@@ -204,7 +204,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
       </h1>
       </div>
 
-      <div className="grid min-h-0 flex-1 md:grid-rows-[minmax(0,1fr)] gap-x-8 gap-y-4 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)] gap-x-8 gap-y-4 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
         <div className="flex min-h-0 min-w-0 flex-col gap-3">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted">
             {canEdit ? (
@@ -249,7 +249,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
           )}
 
           {/* What was attached comes before the words (mockup: «Previsualización de»): the gallery shows the medium and its siblings. */}
-          <div className="flex shrink-0 flex-col gap-2" onDragOver={canEdit ? (e) => e.preventDefault() : undefined} onDrop={onDrop} onPaste={onPaste}>
+          <div className="flex min-w-0 shrink-0 flex-col gap-2" onDragOver={canEdit ? (e) => e.preventDefault() : undefined} onDrop={onDrop} onPaste={onPaste}>
             {m.attachments.length > 0 && (
               <MediaGallery
                 items={toGalleryItems(m.attachments)}

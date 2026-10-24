@@ -209,7 +209,7 @@ async function main () {
       const again = await clickLatency(page, 'aside a[href="/messages"]')
       if (again) (clicks.menu.mensajes_segunda_visita ??= []).push(again)
       await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {})
-      const hrefs = await page.evaluate(() => [...document.querySelectorAll('main#main a[href^="/messages/"]')].slice(0, 2).map((a) => a.getAttribute('href')))
+      const hrefs = await page.evaluate(() => [...new Set([...document.querySelectorAll('main#main a[href]')].map((a) => a.getAttribute('href')).filter((h) => /^\/messages\/\d+$/.test(h)))].slice(0, 2))
       // Two different messages: one opened at once, one after the pointer rested on it (so the first does not warm the second).
       if (hrefs[0]) {
         const r = await clickLatency(page, `main#main a[href="${hrefs[0]}"]`)

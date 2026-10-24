@@ -2,7 +2,7 @@
 // GET only: it never creates, edits or deletes anything. Raw figures go to bench/results/<label>.json.
 //
 //   node bench/panel-speed.mjs --base https://team.devalis.cl --jar /path/jar.txt --label 2026-10-24-panel-antes-produccion
-//   node bench/panel-speed.mjs --base http://127.0.0.1:3900 --login a@b.c:password --label 2026-10-24-panel-despues-local
+//   node bench/panel-speed.mjs --base http://127.0.0.1:3900 --dev-login bench@example.org --label 2026-10-24-panel-despues-local
 //
 // Per screen and profile:
 //   cold load (empty HTTP cache), then warm load (same browser context, assets cached): TTFB of the HTML, FCP, LCP,
@@ -46,6 +46,14 @@ function cookiesFromJar (file) {
     .map((p) => ({ name: p[5], value: p[6], domain: url.hostname, path: '/', secure: url.protocol === 'https:', httpOnly: true, sameSite: 'Lax' }))
 }
 
+// Local server in development mode: login without a password (NODE_ENV=development).
+async function cookiesFromDevLogin (email) {
+  const r = await fetch(`${BASE}/api/auth/dev-login`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-team-request': 'panel' }, body: JSON.stringify({ email }) })
+  if (!r.ok) throw new Error(`dev-login ${r.status}`)
+  const url = new URL(BASE)
+  return r.headers.getSetCookie().map((c) => { const [nv] = c.split(';'); const i = nv.indexOf('='); return { name: nv.slice(0, i), value: nv.slice(i + 1), domain: url.hostname, path: '/', secure: false, httpOnly: true, sameSite: 'Lax' } })
+}
+
 async function cookiesFromLogin (spec) {
   const [email, ...rest] = spec.split(':')
   const r = await fetch(`${BASE}/api/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-team-request': 'panel' }, body: JSON.stringify({ email, password: rest.join(':') }) })
@@ -60,7 +68,7 @@ const useful = () => {
   return !!main && !main.querySelector('[role="status"][aria-label]') && main.innerText.trim().length > 20
 }
 
-function waitUseful (page, timeout = 90000) {
+function waitUseful (page, timeout = 60000) {
   return page.waitForFunction(useful, null, { timeout, polling: 'raf' })
 }
 
@@ -150,7 +158,7 @@ async function clickLatency (page, selector) {
 }
 
 async function main () {
-  const cookies = args.jar ? cookiesFromJar(args.jar) : await cookiesFromLogin(args.login)
+  const cookies = args.jar ? cookiesFromJar(args.jar) : args['dev-login'] ? await cookiesFromDevLogin(args['dev-login']) : await cookiesFromLogin(args.login)
   // Headless only: nothing may open a window on the person's screen.
   const browser = await chromium.launch({ headless: true })
   const result = { label: LABEL, base: BASE, when: new Date().toISOString(), runs: RUNS, chromium: browser.version(), profiles: {} }
@@ -162,8 +170,10 @@ async function main () {
         const context = await newContext(browser, cookies)
         const page = await context.newPage()
         const { cdp, reqs } = await instrument(page, profile)
-        cold.push(await loadOnce(page, reqs, route))
-        warm.push(await loadOnce(page, reqs, route)) // same context: the HTTP cache has the hashed assets
+        // A screen that never settles (useful content not reached in the timeout) is recorded as null, not thrown.
+        const attempt = async () => loadOnce(page, reqs, route).catch((e) => ({ useful_ms: null, error: String(e).slice(0, 120), ...summarize(reqs, Math.min(...[...reqs.values()].map((r) => r.t0), Infinity)) }))
+        cold.push(await attempt())
+        warm.push(await attempt()) // same context: the HTTP cache has the hashed assets
         await context.close()
       }
       const pick = (arr, key) => arr.map((x) => x[key])

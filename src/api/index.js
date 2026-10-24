@@ -2,6 +2,7 @@
 // OpenAPI 3.1 contract generated from the route schemas (`GET /api/openapi.json`).
 // Routes under `config.apiPrefix` (/api by default, §7.8); /health also at the root for Docker probes.
 
+import { createHash } from 'node:crypto'
 import { readFileSync, existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -18,6 +19,7 @@ import { createLogger } from '../log.js'
 import { getProjectName, getProviderSettings, getUiTelemetryEnabled } from '../domain/settings.js'
 import { installErrorHandler, schemaErrorFormatter } from './errors.js'
 import { installSecurityHeaders } from './security.js'
+import { installCompression } from './compression.js'
 import { mountedIndex } from './mount.js'
 import { cookieSpec } from '../identity/cookies.js'
 import { registerIdentity } from '../identity/index.js'
@@ -69,6 +71,7 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
   const domainEvents = new EventEmitter() // 'template.saved': the analyzer warms its schema on the event
   installErrorHandler(app)
   installSecurityHeaders(app, config)
+  installCompression(app, config.compression)
 
   // ---- OpenAPI 3.1 contract, generated from the route schemas. It is registered before them.
   await app.register(fastifySwagger, {
@@ -165,6 +168,10 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
       prefix: basePath,
       wildcard: false, // only files that exist; everything else falls to the 404 handler
       index: false,
+      // The build leaves each asset next to its .br and .gz (panel/scripts/precompress.mjs): the one the browser accepts is sent
+      // as it is, and the compressed copies are not routes of their own.
+      preCompressed: true,
+      globIgnore: ['**/*.br', '**/*.gz'],
       // index.html always goes through the 404 handler, which writes the mount point into it.
       allowedPath: (pathName) => pathName !== '/index.html',
       // Hashed assets: long, immutable cache. index.html: no cache (report 03 §7.3, I07 §8).
@@ -179,8 +186,14 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
   }
   if (config.themeCss) {
     // The host's tokens (THEME_CSS), read on each request so that editing the file needs no restart.
-    app.get(`${basePath}theme.css`, { config: { public: true }, schema: { hide: true } }, async (_request, reply) =>
-      reply.header('cache-control', 'no-cache').type('text/css; charset=utf-8').send(readFileSync(config.themeCss)))
+    // `no-cache` with a validator: the browser asks every time and the answer is a 304 with no body while the file is the same.
+    app.get(`${basePath}theme.css`, { config: { public: true }, schema: { hide: true } }, async (request, reply) => {
+      const css = readFileSync(config.themeCss)
+      const etag = `W/"${createHash('sha256').update(css).digest('base64url')}"`
+      reply.header('cache-control', 'no-cache').header('etag', etag)
+      if (request.headers['if-none-match'] === etag) return reply.code(304).send()
+      return reply.type('text/css; charset=utf-8').send(css)
+    })
     // Fonts and images next to the theme file, so the sheet can say url(theme/<file>) under font-src 'self'.
     const themeDir = path.dirname(config.themeCss)
     app.get(`${basePath}theme/:file`, { config: { public: true }, schema: { hide: true } }, async (request, reply) => {

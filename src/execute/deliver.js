@@ -5,6 +5,8 @@
 //   placeholders  {message_id} {job_id} {branch} {workdir}   (shell-quoted; {workdir} is an empty directory removed afterwards)
 //   exit 0        it is in production; the last stdout line is the reference (a commit, a URL or a label)
 //   exit 75       it cannot be delivered now (EX_TEMPFAIL): the job waits EXECUTE_CAPACITY_WAIT_MS and tries again without spending its attempt
+//   TEAM_REVIEWED_BY  the member who launched this delivery by hand (an Editor, after reviewing a held one, UD-275); empty otherwise. A host that holds by zone must not
+//                 hold again when it is set: a person already approved it, and exit 76 then counts as a failure of the command.
 //   exit 76       it is not delivered by itself: it waits for the review of a person (UD-266). The last stdout line is the reason in plain
 //                 words. No retry and no second pass: the job ends done with `delivered = 0` and `delivery_held = 1`, and ONE reply with
 //                 the summary, the reason and `needs_decision` goes to the person who decides in the area (UD-269), who gets the message. The platform knows no zones: the host decides, reading TEAM_OUTPUT_JSON
@@ -52,7 +54,7 @@ const TEXTS = {
   'es-419': {
     production: 'Ya está en producción.',
     afterFailed: (reason) => `No pude tomar la captura del después: ${reason}.`,
-    held: (reason) => `El cambio está listo y espera la revisión de una persona antes de entrar a producción: ${reason}. Queda guardado en la rama.`,
+    held: (reason) => `El cambio está listo y todavía no entra a producción: ${reason}. Espera la revisión de una persona. Para revisarlo: mirar lo que trae «Propuesta» (capturas y recorrido) y, en este mensaje, elegir Entregar, pedir cambios o descartar.`,
     heldReason: 'el cambio necesita esa revisión',
     delivery: 'Entrega',
     verification: (branch) => `El cambio no pasó la verificación y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nUn Editor puede volver a lanzar la entrega.`,
@@ -64,7 +66,7 @@ const TEXTS = {
   en: {
     production: 'It is in production now.',
     afterFailed: (reason) => `I could not take the «after» screenshot: ${reason}.`,
-    held: (reason) => `The change is ready and waits for a person to review it before it goes to production: ${reason}. It is saved on the branch.`,
+    held: (reason) => `The change is ready and is not in production yet: ${reason}. It waits for the review of a person. To review it: look at what «Proposal» brings (screenshots and walkthrough) and, in this message, choose Deliver, ask for changes or discard.`,
     heldReason: 'the change needs that review',
     delivery: 'Delivery',
     verification: (branch) => `The change did not pass verification and is not in production yet. The work is saved on the branch ${branch}.\n\nAn Editor can launch the delivery again.`,
@@ -199,7 +201,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
         const env = {
           ...process.env, TEAM_JOB_ID: String(job.id), TEAM_MESSAGE_ID: String(messageId), TEAM_BRANCH: branch, TEAM_WORKDIR: workdir, TEAM_BEFORE_CAPTURES: JSON.stringify(before),
           TEAM_DELIVER_ROUND: String(payload.round ?? 0), TEAM_DELIVER_ATTEMPT: String(job.attempts),
-          TEAM_OUTPUT_JSON: outputJson(payload.output)
+          TEAM_OUTPUT_JSON: outputJson(payload.output), TEAM_REVIEWED_BY: payload.requested_by ? String(payload.requested_by) : ''
         }
         const r = await spawnStreaming('/bin/sh', ['-c', command], { env, keepStdout: true, onData, timeoutMs: x.deliverTimeoutMs, graceMs: x.killGraceMs, signal: ctx.signal })
         if (phaseSpan) { endManualSpan(phaseSpan, r.code !== 0 && r.code !== DELIVER_LATER && r.code !== DELIVER_HELD ? { error: new Error(r.timedOut ? 'timeout' : `exit ${r.code}`) } : {}); phaseSpan = null }
@@ -239,10 +241,10 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
     }
     // Exit 75: the host cannot deliver now. The job waits and tries again; the attempt is not spent and nothing is recorded yet.
     if (result.code === DELIVER_LATER) throw new Deferred(x.capacityWaitMs, step('deliverWait'))
-    if (result.code === DELIVER_HELD) {
+    if (result.code === DELIVER_HELD && !payload.requested_by) {
       const reason = (referenceOf(result.stdout) ?? '').slice(0, REASON_CHARS)
       return () => {
-        const closing = closingCaptures(db, { messageId, authorId: agent.id, stored: payload.captures, language: author?.language })
+        const closing = closingCaptures(db, { messageId, authorId: agent.id, stored: payload.captures, language: author?.language, label: 'proposal' }) // UD-275: what the branch looks like, for the person who reviews
         // A held delivery is a question to the person who decides in the area, in their tray and not «answered» (UD-269).
         const { replyId } = handOffToPerson({ db, events, now }, {
           messageId, agentId: agent.id, source: 'deliver', body: [heldBody({ output: payload.output, template, reason, language: author?.language }), ...closing.lines, ...(payload.documents?.notes ?? [])].join('\n\n'), files: [...closing.files, ...(payload.documents?.files ?? [])]
@@ -250,7 +252,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
         const finalAt = now()
         const started = payload.execute_job_id ? get(db, 'SELECT started_at FROM execute_runs WHERE job_id = ? AND attempt = ?', payload.execute_job_id, payload.execute_attempt ?? 1)?.started_at : null
         saveRun(payload, job.id, {
-          delivery_ms: ms, delivered: 0, delivery_held: 1, ...(typeof started === 'number' ? { final_reply_ms: Math.max(0, finalAt - started) } : {})
+          delivery_ms: ms, delivered: 0, delivery_held: 1, delivery_hold_reason: reason || null, ...(typeof started === 'number' ? { final_reply_ms: Math.max(0, finalAt - started) } : {})
         })
         events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: step('answered'), data: { message_id: messageId } })
         events.publishForJob(job.id, { kind: 'done', data: { status: 'done', message_id: String(messageId), reply_id: String(replyId), delivery_held: true } })
@@ -268,7 +270,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
       // Inside the transaction that closes the job: the one closing reply, then the end of the progress.
       // From production when the command took it; the capture of the session (taken from the branch) only when there was no «before» place.
       const fromProduction = result.after?.stored ?? []
-      const stored = fromProduction.length ? fromProduction : (result.after?.hadBefore ? [] : payload.captures)
+      const stored = fromProduction.length ? fromProduction : (result.after?.hadBefore ? [] : (payload.captures ?? []).filter((c) => c.kind !== 'video'))
       const closing = closingCaptures(db, { messageId, authorId: agent.id, stored, language: author?.language })
       for (const reason of result.after?.failed ?? []) closing.lines.push(textsOf(author?.language).afterFailed(reason))
       closing.lines.push(...(payload.documents?.notes ?? [])) // UD-272: the documents the session attached travel with the delivery

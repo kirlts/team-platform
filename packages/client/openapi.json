@@ -2422,6 +2422,36 @@
                               }
                             }
                           },
+                          "pending_delivery": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "description": "UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla.",
+                            "properties": {
+                              "branch": {
+                                "type": "string"
+                              },
+                              "held_reason": {
+                                "type": "string"
+                              },
+                              "job_id": {
+                                "type": "string"
+                              },
+                              "agent_id": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "delivering_job_id": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            }
+                          },
                           "edits": {
                             "type": "array",
                             "items": {
@@ -3484,6 +3514,36 @@
                         }
                       }
                     },
+                    "pending_delivery": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "description": "UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla.",
+                      "properties": {
+                        "branch": {
+                          "type": "string"
+                        },
+                        "held_reason": {
+                          "type": "string"
+                        },
+                        "job_id": {
+                          "type": "string"
+                        },
+                        "agent_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "delivering_job_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
                     "edits": {
                       "type": "array",
                       "items": {
@@ -3971,6 +4031,36 @@
                               "null"
                             ]
                           }
+                        }
+                      }
+                    },
+                    "pending_delivery": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "description": "UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla.",
+                      "properties": {
+                        "branch": {
+                          "type": "string"
+                        },
+                        "held_reason": {
+                          "type": "string"
+                        },
+                        "job_id": {
+                          "type": "string"
+                        },
+                        "agent_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "delivering_job_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       }
                     },
@@ -4554,6 +4644,36 @@
                         }
                       }
                     },
+                    "pending_delivery": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "description": "UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla.",
+                      "properties": {
+                        "branch": {
+                          "type": "string"
+                        },
+                        "held_reason": {
+                          "type": "string"
+                        },
+                        "job_id": {
+                          "type": "string"
+                        },
+                        "agent_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "delivering_job_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
                     "edits": {
                       "type": "array",
                       "items": {
@@ -5116,6 +5236,36 @@
                         }
                       }
                     },
+                    "pending_delivery": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "description": "UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla.",
+                      "properties": {
+                        "branch": {
+                          "type": "string"
+                        },
+                        "held_reason": {
+                          "type": "string"
+                        },
+                        "job_id": {
+                          "type": "string"
+                        },
+                        "agent_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "delivering_job_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
                     "edits": {
                       "type": "array",
                       "items": {
@@ -5526,6 +5676,36 @@
                         }
                       }
                     },
+                    "pending_delivery": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "description": "UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla.",
+                      "properties": {
+                        "branch": {
+                          "type": "string"
+                        },
+                        "held_reason": {
+                          "type": "string"
+                        },
+                        "job_id": {
+                          "type": "string"
+                        },
+                        "agent_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "delivering_job_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
                     "edits": {
                       "type": "array",
                       "items": {
@@ -5905,6 +6085,36 @@
                         }
                       }
                     },
+                    "pending_delivery": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "description": "UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla.",
+                      "properties": {
+                        "branch": {
+                          "type": "string"
+                        },
+                        "held_reason": {
+                          "type": "string"
+                        },
+                        "job_id": {
+                          "type": "string"
+                        },
+                        "agent_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "delivering_job_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
                     "edits": {
                       "type": "array",
                       "items": {
@@ -6281,6 +6491,36 @@
                               "null"
                             ]
                           }
+                        }
+                      }
+                    },
+                    "pending_delivery": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "description": "UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla.",
+                      "properties": {
+                        "branch": {
+                          "type": "string"
+                        },
+                        "held_reason": {
+                          "type": "string"
+                        },
+                        "job_id": {
+                          "type": "string"
+                        },
+                        "agent_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "delivering_job_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       }
                     },
@@ -6725,6 +6965,36 @@
                         }
                       }
                     },
+                    "pending_delivery": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "description": "UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla.",
+                      "properties": {
+                        "branch": {
+                          "type": "string"
+                        },
+                        "held_reason": {
+                          "type": "string"
+                        },
+                        "job_id": {
+                          "type": "string"
+                        },
+                        "agent_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "delivering_job_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
                     "edits": {
                       "type": "array",
                       "items": {
@@ -7129,6 +7399,36 @@
                         }
                       }
                     },
+                    "pending_delivery": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "description": "UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla.",
+                      "properties": {
+                        "branch": {
+                          "type": "string"
+                        },
+                        "held_reason": {
+                          "type": "string"
+                        },
+                        "job_id": {
+                          "type": "string"
+                        },
+                        "agent_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "delivering_job_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
                     "edits": {
                       "type": "array",
                       "items": {
@@ -7507,6 +7807,36 @@
                         }
                       }
                     },
+                    "pending_delivery": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "description": "UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla.",
+                      "properties": {
+                        "branch": {
+                          "type": "string"
+                        },
+                        "held_reason": {
+                          "type": "string"
+                        },
+                        "job_id": {
+                          "type": "string"
+                        },
+                        "agent_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "delivering_job_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
                     "edits": {
                       "type": "array",
                       "items": {
@@ -7882,6 +8212,36 @@
                               "null"
                             ]
                           }
+                        }
+                      }
+                    },
+                    "pending_delivery": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "description": "UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla.",
+                      "properties": {
+                        "branch": {
+                          "type": "string"
+                        },
+                        "held_reason": {
+                          "type": "string"
+                        },
+                        "job_id": {
+                          "type": "string"
+                        },
+                        "agent_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "delivering_job_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       }
                     },
@@ -13379,7 +13739,7 @@
         "tags": [
           "Messages"
         ],
-        "description": "Corre `EXECUTE_DELIVER_COMMAND` sobre la rama `tp/<id>` del mensaje, sin IA (UD-263). Al terminar bien, el agente publica su respuesta final con «Ya está en producción»; si falla, el aviso llano con `outcome: blocked`. Responde 202 con el trabajo creado. 409 `deliver_not_configured` si la instancia no declara la orden, 409 `execute_busy` si el mensaje tiene un trabajo `execute` en cola o corriendo, 409 `deliver_busy` si ya tiene una entrega, 409 `no_agent_assignee` si no hay un agente activo que responda, 409 `message_closed` si está cerrado.",
+        "description": "Corre `EXECUTE_DELIVER_COMMAND` sobre la rama `tp/<id>` del mensaje, sin IA (UD-263). Al terminar bien, el agente publica su respuesta final con «Ya está en producción»; si falla, el aviso llano con `outcome: blocked`. Responde 202 con el trabajo creado. 409 `deliver_not_configured` si la instancia no declara la orden, 409 `execute_busy` si el mensaje tiene un trabajo `execute` en cola o corriendo, 409 `deliver_busy` si ya tiene una entrega, 409 `no_agent_assignee` si no hay un agente activo que responda, 409 `message_closed` si está cerrado, 409 `delivery_discarded` si una persona descartó la rama.",
         "parameters": [
           {
             "schema": {
@@ -13400,6 +13760,88 @@
                   "type": "object",
                   "properties": {
                     "job_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error: { code, message }.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Error: { code, message }.",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/messages/{id}/discard-delivery": {
+      "post": {
+        "summary": "Descartar la rama de una entrega retenida (Editor)",
+        "tags": [
+          "Messages"
+        ],
+        "description": "UD-275. La rama que espera revisión no se entrega nunca: el mensaje deja de mostrar la revisión pendiente, queda abierto y el hilo gana «Descartado por <persona>: <motivo>». El motivo es obligatorio. Auditada como `message.delivery_discard`. 409 `no_pending_delivery` si no hay una entrega retenida, 409 `deliver_busy` si ya se está entregando.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "reason"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "reply_id": {
                       "type": "string"
                     }
                   }

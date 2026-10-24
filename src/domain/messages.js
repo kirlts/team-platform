@@ -17,6 +17,7 @@ import { audit } from './audit.js'
 import { AppError, badRequest, conflict, forbidden, notFound } from './errors.js'
 import { checkAssignees, checkFields, newValidatorCache, resolveAreaAndTemplate, withoutNulls } from './validation.js'
 import { loadTemplate } from './areas.js'
+import { pendingDelivery } from './delivery-review.js'
 import { cancelAgentJobs, enqueueExecuteForAgents } from '../execute/enqueue.js'
 
 export const MESSAGE_STATUSES = ['open', 'answered', 'closed']
@@ -222,7 +223,7 @@ export function getMessage (db, id, { includeDeleted = false } = {}) {
   const atts = replyAttachmentsOf(db, replyRows.map((r) => r.id))
   const edits = all(db, 'SELECT * FROM message_edits WHERE message_id = ? ORDER BY id', id)
     .map((e) => ({ id: e.id, member_id: e.member_id, at: iso(e.at), version: e.version, fields: parseJson(e.fields_json, []) }))
-  return { ...msgRow, trace_id: dbRow.trace_id ?? null, observed: Array.isArray(observed) ? observed : [], replies: replyRows.map((r) => toReply(r, atts.get(r.id))), edits }
+  return { ...msgRow, trace_id: dbRow.trace_id ?? null, observed: Array.isArray(observed) ? observed : [], replies: replyRows.map((r) => toReply(r, atts.get(r.id))), edits, pending_delivery: pendingDelivery(db, id) }
 }
 
 /**

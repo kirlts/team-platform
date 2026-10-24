@@ -201,8 +201,21 @@ export interface Message {
   last_reply?: Reply | null
 }
 
+/** A held delivery waiting for a person (UD-275). */
+export interface PendingDelivery {
+  branch: string
+  held_reason: string
+  /** The `execute` job that wrote the branch. */
+  job_id: string
+  agent_id: string | null
+  /** The `deliver` job queued or running after a person approved; its progress shows in the review. */
+  delivering_job_id: string | null
+}
+
 export interface MessageDetail extends Message {
   replies: Reply[]
+  /** The review a held delivery waits for; null when none (UD-275). */
+  pending_delivery?: PendingDelivery | null
   /** What a video frame shows and nobody says; outside the body, empty when there is none. */
   observed?: string[]
   /** Set while the message is deleted (UD-240); only an Editor asking for it sees such a message. */

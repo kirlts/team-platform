@@ -111,6 +111,11 @@ export const messageDetail = {
     trace_id: { ...nullableText, description: 'Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution.' },
     observed: { type: 'array', items: { type: 'string' }, description: 'What a video frame shows and nobody says, outside the body; empty when there is none.' },
     replies: { type: 'array', items: reply },
+    pending_delivery: {
+      type: 'object', nullable: true,
+      description: 'UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla.',
+      properties: { branch: { type: 'string' }, held_reason: { type: 'string' }, job_id: { type: 'string' }, agent_id: { type: 'string', nullable: true }, delivering_job_id: { type: 'string', nullable: true } }
+    },
     edits: { type: 'array', items: { type: 'object', properties: { id, member_id: id, at: { type: 'string' }, version: intVar, fields: { type: 'array', items: { type: 'string' } } } } }
   }
 }

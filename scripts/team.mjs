@@ -5,7 +5,7 @@
 // Standalone on purpose: only Node built-ins, so the worker can copy this one file into a machine it creates.
 
 import { createHmac } from 'node:crypto'
-import { readFile, realpath, stat } from 'node:fs/promises'
+import { open, readFile, realpath, stat } from 'node:fs/promises'
 import { relative, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
@@ -28,6 +28,12 @@ Commands:
                                                   With «delivery», --ok says whether the delivery reached production
   team timing <message_id>                        where the time of the message's execution went, as JSON (without the span tree)
   team close <message_id>                         close the message
+  team walkthrough --url <address> --steps <json|file> --place <route> --as <role> [--profile desktop|phone|both] [--masked true|false] [--out <dir>]
+                                                  records the numbered route through the view of the branch: a WebM video (1280x720 desktop,
+                                                  390x844 phone), one screenshot per step, a label «Paso N» and the touched element outlined.
+                                                  A step is { label, click?, fill?: [selector, text], press?, goto?, target? }. Writes steps.json and
+                                                  captures.json in $TEAM_CAPTURES_DIR; prints the `captures` list for the final output. If it
+                                                  cannot record it says so in one line and the screenshots of the steps that ran stay
   team --help                                     this text
 
 Exit code 0 on success; 1 with the API's code and message on stderr otherwise.`
@@ -37,13 +43,18 @@ export function sign (secret, { ts, method, pathname, email }) {
 }
 
 /** The words that label a capture, by reply language: the file name «Antes - <alt>.png» is what the panel shows under the image. */
-export const CAPTURE_LABELS = { 'es-419': { before: 'Antes', after: 'Después' }, en: { before: 'Before', after: 'After' } }
+export const CAPTURE_LABELS = { 'es-419': { before: 'Antes', after: 'Después', proposal: 'Propuesta' }, en: { before: 'Before', after: 'After', proposal: 'Proposal' } }
 export const captureLabels = (language) => CAPTURE_LABELS[language] ?? CAPTURE_LABELS['es-419']
 
 const IMAGE_TYPES = [
   { mime: 'image/png', ext: '.png', test: (b) => b.length > 8 && b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) },
   { mime: 'image/jpeg', ext: '.jpg', test: (b) => b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
   { mime: 'image/webp', ext: '.webp', test: (b) => b.length > 12 && b.subarray(0, 4).toString('latin1') === 'RIFF' && b.subarray(8, 12).toString('latin1') === 'WEBP' }
+]
+// UD-275: the walkthrough video of a proposal (WebM or MP4, by its first bytes). A video is accepted only when the caller gives it a size limit.
+const VIDEO_TYPES = [
+  { mime: 'video/webm', ext: '.webm', test: (b) => b.length > 4 && b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3 },
+  { mime: 'video/mp4', ext: '.mp4', test: (b) => b.length > 12 && b.subarray(4, 8).toString('latin1') === 'ftyp' }
 ]
 const ALT_CHARS = 120 // declared courtesy: the alt text names the capture in the file name and in the panel, one line
 
@@ -60,7 +71,7 @@ export function captureName (label, alt, ext) {
  * `zone` equals `openZone`; any other zone, or none declared, keeps it out.
  * With `unmasked: true` (the host allows screenshots that show personal data, UD-270) the zone is not looked at.
  */
-export async function checkCaptures (list, { dir, max, maxBytes, zone = null, openZone = 'ninguna', unmasked = false }) {
+export async function checkCaptures (list, { dir, max, maxBytes, maxVideoBytes = 0, zone = null, openZone = 'ninguna', unmasked = false }) {
   const accepted = []
   const rejected = []
   const items = Array.isArray(list) ? list : []
@@ -68,7 +79,6 @@ export async function checkCaptures (list, { dir, max, maxBytes, zone = null, op
   try { if (dir) root = await realpath(resolve(dir)) } catch { /* no directory: every path is rejected below */ }
   for (const [index, c] of items.entries()) {
     const no = (reason) => rejected.push({ index, reason })
-    if (accepted.length >= max) { no('too_many'); continue }
     if (c === null || typeof c !== 'object') { no('invalid'); continue }
     const text = (v) => typeof v === 'string' && v.trim() !== ''
     if (!text(c.path) || !text(c.alt) || !text(c.place) || !text(c.as) || typeof c.masked !== 'boolean' || /[\r\n]/.test(c.alt)) { no('invalid'); continue }
@@ -79,11 +89,20 @@ export async function checkCaptures (list, { dir, max, maxBytes, zone = null, op
     if (!inside) { no('outside'); continue }
     const info = await stat(file)
     if (!info.isFile()) { no('missing'); continue }
-    if (info.size > maxBytes) { no('too_large'); continue }
-    const bytes = await readFile(file)
-    const type = IMAGE_TYPES.find((t) => t.test(bytes))
+    // Only the head of the file is read: the type comes from the first bytes, and a video can be large.
+    const handle = await open(file, 'r')
+    const bytes = Buffer.alloc(32)
+    let read = 0
+    try { read = (await handle.read(bytes, 0, 32, 0)).bytesRead } finally { await handle.close() }
+    const head = bytes.subarray(0, read)
+    const image = IMAGE_TYPES.find((t) => t.test(head))
+    const video = image ? null : (maxVideoBytes > 0 ? VIDEO_TYPES.find((t) => t.test(head)) : null)
+    const type = image ?? video
     if (!type) { no('not_image'); continue }
-    accepted.push({ ...c, index, alt: c.alt.trim().slice(0, ALT_CHARS), file, mime: type.mime, ext: type.ext, size: info.size })
+    // The count cap is for screenshots; the walkthrough video is one, apart (UD-275).
+    if (image ? accepted.filter((a) => a.kind === 'image').length >= max : accepted.some((a) => a.kind === 'video')) { no('too_many'); continue }
+    if (info.size > (image ? maxBytes : maxVideoBytes)) { no('too_large'); continue }
+    accepted.push({ ...c, index, alt: c.alt.trim().slice(0, ALT_CHARS), file, mime: type.mime, ext: type.ext, size: info.size, kind: image ? 'image' : 'video' })
   }
   return { accepted, rejected }
 }
@@ -120,6 +139,13 @@ export async function runTeam (argv, env = process.env, fetchImpl = fetch) {
   const { positional, options } = parseArgs(argv)
   const [command, ...rest] = positional
   if (options.help || !command || command === 'help') return { code: command && command !== 'help' ? 1 : 0, out: HELP, err: '' }
+  if (command === 'walkthrough') {
+    try {
+      const { runWalkthrough } = await import('./walkthrough.mjs')
+      const w = await runWalkthrough(options, env)
+      return { code: 0, out: JSON.stringify({ captures: w.captures, steps: w.steps, videos: w.videos }, null, 2), err: w.failed.map((f) => `team walkthrough: ${f.profile}: ${f.reason}`).join('\n') }
+    } catch (error) { return { code: 1, out: '', err: error.message } }
+  }
   const base = String(env.TEAM_URL ?? '').replace(/\/$/, '')
   const email = env.TEAM_AGENT_EMAIL
   const secret = env.TEAM_AGENT_SECRET

@@ -18,7 +18,7 @@ import { get, run as runSql } from '../db/index.js'
 import { parseJson } from '../db/util.js'
 import { infra, permanent } from '../domain/errors.js'
 import { Deferred } from '../domain/pipeline.js'
-import { addReply } from '../domain/messages.js'
+import { addReply, closeMessage } from '../domain/messages.js'
 import { HANDOFF_OUTCOMES, alreadyHandedOver, handOffToPerson } from '../domain/escalation.js'
 import { step } from '../domain/progress-phrases.js'
 import { getProject } from '../domain/settings.js'
@@ -29,6 +29,7 @@ import { readAgentSecret } from './agent-credentials.js'
 import { capturesDir, capturesEnv, closingCaptures, storeCaptures } from './captures.js'
 import { decisionCheckProblem, decisionLines } from './decision-check.js'
 import { buildExecuteParts, buildExecutePrompt, declaredOutput, finalSchema, readTemplate } from './prompt.js'
+import { closeLine, closeReason, closeRequest, firstReplyAnchor } from './auto-close.js'
 import { enqueueDeliver } from './enqueue.js'
 import { runLocal, runMachine } from './runners.js'
 import { createSessionTracer } from './session-spans.js'
@@ -98,7 +99,7 @@ export function claudeArgs (x, schema) {
  * template declares (`outcome` as «Resultado», as the panel shows it).
  */
 export function replyBody (output, template = null, extraLabels = {}) {
-  const { summary, captures: _captures, decision_check: _check, ...rest } = output // the screenshots travel as attachments (UD-268); the check is shown as the question (UD-269)
+  const { summary, captures: _captures, decision_check: _check, close: _close, close_reason: _closeReason, ...rest } = output // the screenshots travel as attachments (UD-268); the check is shown as the question (UD-269); the close request is read by the system (UD-271) and shows as one line
   const labels = { outcome: 'Resultado', ...Object.fromEntries((template?.output ?? []).map((e) => [e.name, e.label ?? e.name])), ...extraLabels }
   const lines = Object.entries(rest).filter(([, v]) => v !== null && v !== undefined && v !== '')
     .map(([k, v]) => `**${labels[k] ?? k}**: ${typeof v === 'string' ? v : `\n\n\`\`\`json\n${JSON.stringify(v, null, 2)}\n\`\`\``}`)
@@ -291,8 +292,8 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const template = readTemplate(templateRow)
     let declared
     try { declared = declaredOutput(template) } catch (error) { throw permanent(`La salida declarada de la plantilla no compila: ${error.message}`, 'template') }
-    const schema = finalSchema(declared.grammar)
-    const validate = ajv.compile(finalSchema(declared.validation, { validation: true }))
+    const schema = finalSchema(declared.grammar, { autoClose: x.autoClose })
+    const validate = ajv.compile(finalSchema(declared.validation, { validation: true, autoClose: x.autoClose }))
     let hostInstructions = ''
     if (x.hostInstructions) {
       try { hostInstructions = await readFile(x.hostInstructions, 'utf8') } catch (error) {
@@ -305,10 +306,12 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const promptInput = {
       message: { id: messageId, title: message.title, body: message.body, fields: parseJson(message.fields_json, {}), area: message.area_title, status: message.status },
       template: templateRow, author, agent, project: getProject(db, config), jobId: job.id, maxSubagents: x.maxSubagents, branch, hostInstructions,
-      deliver: Boolean(x.deliverCommand), deliverFailure,
+      deliver: Boolean(x.deliverCommand), deliverFailure, autoClose: x.autoClose,
       // A retry after a failure of the system: the first attempt may have sent the first reply already, and a second one repeats «Recibido» in the thread.
       retried: job.attempts > 1 && Boolean(get(db, 'SELECT 1 AS ok FROM replies WHERE message_id = ? AND author_id = ? AND created_at >= ? AND deleted_at IS NULL', messageId, memberId, job.created_at))
     }
+    // The anchor of «a person replied after the first reply of the agent»: the one a previous pass of this message already fixed, else the first reply since this job was created.
+    const closeSince = (j, mId, agId, p) => p.close_since ?? firstReplyAnchor(db, { messageId: mId, agentId: agId, from: j.created_at })
     const parts = buildExecuteParts(promptInput)
     // Measurement 2026-10-23-tokens-y-cache.md: with EXECUTE_STABLE_AS_SYSTEM the stable part travels as an appended system prompt and the user message holds the rest.
     // A previous attempt found that the binary does not know the flag of the system prompt: this one carries the whole prompt in the message (payload `no_stable_system`).
@@ -469,7 +472,8 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     // UD-269: a `needs_decision` without a valid `decision_check` reaches no person; it fails like any invalid output.
     const noCheck = decisionCheckProblem(result.structured_output)
     if (noCheck) throw permanent(`La salida estructurada no cumple el formato: ${noCheck}`, 'invalid_output')
-    const { captures: _declared, ...output } = result.structured_output // the files are in `captured`; what travels on is the rest
+    const request = closeRequest(result.structured_output) // UD-271: what the session asked for; the system decides when the reply is posted
+    const { captures: _declared, close: _close, close_reason: _closeReason, ...output } = result.structured_output // the files are in `captured`, the request is in `request`; what travels on is the rest
     const { decision_check: check, ...visible } = output // the check is shown as the question, not as JSON
     const body = [replyBody(visible, template), ...decisionLines(check, author?.language)].join('\n\n')
     const hands = Boolean(x.deliverCommand) && output.outcome === 'done' && await branchExists(branch)
@@ -489,7 +493,10 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         // (an Editor started it by hand) leaves nothing to hand over, and the reply goes out now.
         const deliverJobId = enqueueDeliver(db, {
           messageId, now,
-          payload: { member_id: memberId, branch, round: payload.deliver_round ?? 0, output, captures: captured.stored, execute_job_id: job.id, execute_attempt: job.attempts, requested_by: null }
+          payload: {
+            member_id: memberId, branch, round: payload.deliver_round ?? 0, output, captures: captured.stored, execute_job_id: job.id, execute_attempt: job.attempts, requested_by: null,
+            close_request: request, close_since: closeSince(job, messageId, memberId, payload) // UD-271: the delivery closes the message when it ends in green
+          }
         })
         if (deliverJobId !== null) {
           rec.deliverJobId = deliverJobId
@@ -505,10 +512,14 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       const closing = closingCaptures(db, { messageId, authorId: agent.id, stored: captured.stored, language: author?.language })
       // `needs_decision` and `not_mine` go to a person's tray, not to the thread as «answered» (UD-269); the decision reads the field, not the text.
       const editedNote = edited ? [(FAILURE_TEXTS[author?.language] ?? FAILURE_TEXTS['es-419']).edited] : []
-      const reply = { messageId, authorId: agent.id, body: [body, ...closing.lines, ...editedNote].join('\n\n'), kind: 'answer', files: closing.files }
-      const { replyId } = HANDOFF_OUTCOMES.includes(output.outcome) || edited
+      // UD-271: an outcome that needs no change (`investigated`) with nothing left to the sender may close the message here; a change closes it in the delivery.
+      const handOff = HANDOFF_OUTCOMES.includes(output.outcome) || edited
+      const why = handOff ? null : closeReason(db, config, { output, request, delivered: false, messageId, agentId: agent.id, after: captured.stored.length, since: closeSince(job, messageId, memberId, payload) })
+      const reply = { messageId, authorId: agent.id, body: [body, ...closing.lines, ...editedNote, ...(why ? [closeLine(why, author?.language)] : [])].join('\n\n'), kind: 'answer', files: closing.files }
+      const { replyId } = handOff
         ? handOffToPerson({ db, events, now }, { messageId, agentId: agent.id, body: reply.body, files: reply.files, source: 'execute' })
         : addReply({ db, events, now }, reply)
+      if (why) closeMessage({ db, events, now }, messageId, agent.id)
       const finalAt = now()
       rec.finalReplyMs = msSince(finalAt)
       jobSpan?.addEvent('reply.final', { 'team.ms_since_job_start': msSince(finalAt), 'team.ms_since_message': Math.max(0, finalAt - message.created_at) }, finalAt)

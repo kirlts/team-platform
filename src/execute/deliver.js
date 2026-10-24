@@ -27,13 +27,14 @@ import { join } from 'node:path'
 import { SpanStatusCode, context, trace } from '@opentelemetry/api'
 import { get, run as runSql } from '../db/index.js'
 import { parseJson } from '../db/util.js'
-import { addReply } from '../domain/messages.js'
+import { addReply, closeMessage } from '../domain/messages.js'
 import { alreadyHandedOver, handOffToPerson } from '../domain/escalation.js'
 import { permanent } from '../domain/errors.js'
 import { Deferred } from '../domain/pipeline.js'
 import { step } from '../domain/progress-phrases.js'
 import { endManualSpan, startManualSpan, withSpan } from '../telemetry/api.js'
 import { updateExecuteRun } from '../telemetry/execute-runs.js'
+import { closeLine, closeReason, firstReplyAnchor } from './auto-close.js'
 import { beforeOfMessage, capturesDir, closingCaptures, deliveryCaptureLines, storeCaptures } from './captures.js'
 import { enqueueExecute } from './enqueue.js'
 import { replyBody } from './handler.js'
@@ -270,9 +271,15 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
       const stored = fromProduction.length ? fromProduction : (result.after?.hadBefore ? [] : payload.captures)
       const closing = closingCaptures(db, { messageId, authorId: agent.id, stored, language: author?.language })
       for (const reason of result.after?.failed ?? []) closing.lines.push(textsOf(author?.language).afterFailed(reason))
+      // UD-271: a delivery that ended with exit 0 is «done and checked»; the rest of the conditions are the system's (auto-close.js).
+      const request = payload.close_request ?? null // a delivery an Editor launched by hand carries no request
+      const since = payload.close_since ?? firstReplyAnchor(db, { messageId, agentId: agent.id, from: (payload.execute_job_id ? get(db, 'SELECT created_at FROM jobs WHERE id = ?', payload.execute_job_id)?.created_at : null) ?? job.created_at })
+      const why = !request ? null : closeReason(db, config, { output: payload.output, request, delivered: true, messageId, agentId: agent.id, after: stored.length, since })
+      if (why) closing.lines.push(closeLine(why, author?.language))
       const { replyId } = addReply({ db, events, now }, {
         messageId, authorId: agent.id, kind: 'answer', body: deliveredBody({ output: payload.output, template, ref, language: author?.language, lines: closing.lines }), files: closing.files
       })
+      if (why) closeMessage({ db, events, now }, messageId, agent.id)
       const finalAt = now()
       const started = payload.execute_job_id ? get(db, 'SELECT started_at FROM execute_runs WHERE job_id = ? AND attempt = ?', payload.execute_job_id, payload.execute_attempt ?? 1)?.started_at : null
       saveRun(payload, job.id, {
@@ -353,7 +360,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
       let again = null
       if (error?.code === 'deliver_failed' && !payload.requested_by && round < x.deliverRetries) {
         try {
-          again = events.transaction(() => enqueueExecute(db, { messageId, memberId, extra: { deliver_failure: { output: error.output ?? '' }, deliver_round: round + 1 } }))
+          again = events.transaction(() => enqueueExecute(db, { messageId, memberId, extra: { deliver_failure: { output: error.output ?? '' }, deliver_round: round + 1, close_since: payload.close_since ?? null } }))
         } catch (e) {
           logger?.warn({ err: e }, 'could not enqueue the second pass after a failed delivery')
         }

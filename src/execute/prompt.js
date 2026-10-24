@@ -26,7 +26,7 @@ export function readTemplate (row) {
  * The schema the session must satisfy: the template's declared output (A4) plus a required `summary`, the closing reply
  * to the sender. Without a declared output, only `summary`.
  */
-export function finalSchema (declared, { validation = false } = {}) {
+export function finalSchema (declared, { validation = false, autoClose = true } = {}) {
   const description = 'Closing reply to the sender: two short paragraphs, no internal jargon, addressed to them.'
   // The grammar of --json-schema keeps A4's plain string; the check after the run also rejects an empty one.
   const summary = { type: 'string', ...(validation ? { minLength: 1 } : {}), description }
@@ -42,14 +42,21 @@ export function finalSchema (declared, { validation = false } = {}) {
       }
     }
   }
+  // UD-271: the session asks to close the message; the system closes only when its own checks pass too (auto-close.js). Both are optional. Without EXECUTE_AUTO_CLOSE they are not offered.
+  const closing = autoClose
+    ? {
+        close: { type: 'boolean', description: 'true only when the three conditions of «Closing the message» hold; false when in doubt.' },
+        close_reason: { type: 'string', description: 'One line in the reply language: why nothing is left for the sender. Required with close true.' }
+      }
+    : {}
   if (!declared || typeof declared !== 'object' || declared.type !== 'object') {
-    return { type: 'object', additionalProperties: false, required: ['summary'], properties: { summary, captures } }
+    return { type: 'object', additionalProperties: false, required: ['summary'], properties: { summary, captures, ...closing } }
   }
   // UD-269: `decision_check` is optional in the grammar; the check after the run requires it with `needs_decision` (decision-check.js).
   return {
     ...declared,
     required: [...new Set([...(declared.required ?? []), 'summary'])],
-    properties: { ...(declared.properties ?? {}), summary, captures, decision_check: decisionCheckSchema({ validation }) }
+    properties: { ...(declared.properties ?? {}), summary, captures, ...closing, decision_check: decisionCheckSchema({ validation }) }
   }
 }
 
@@ -66,7 +73,7 @@ const block = (title, text) => `<${title}>\n${String(text ?? '').trim() || '(emp
  * message and the `job` block (ids, branch, reply language), which are the only blocks that vary with the message.
  * The text of the instructions does not mention an id, a branch or a name that changes: it points to the `job` block.
  */
-export function buildExecuteParts ({ message, template, author, agent, project, jobId, maxSubagents, branch, hostInstructions = '', deliver = false, deliverFailure = null, retried = false }) {
+export function buildExecuteParts ({ message, template, author, agent, project, jobId, maxSubagents, branch, hostInstructions = '', deliver = false, deliverFailure = null, retried = false, autoClose = true }) {
   const language = LANGUAGE_NAMES[author?.language] ?? LANGUAGE_NAMES['es-419']
   const fields = Object.entries(message.fields ?? {}).map(([k, v]) => `- ${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`).join('\n')
   const stable = [
@@ -85,7 +92,9 @@ export function buildExecuteParts ({ message, template, author, agent, project, 
     '2. When you finish, your final structured output carries `summary`: two short paragraphs addressed directly to the sender (the `sender` block), in the reply language of the `job` block, without internal jargon, written for their profile and the project. The worker posts it as your closing reply; do not post it yourself. If the first reply carried a screenshot, take the same place again once the change is done and list it in `captures` (the «after»). The rest of the output follows the template\'s output format.',
     '- Before you end with `needs_decision` or `not_mine`, check in order: 1) is the decision already recorded (host decisions, rules, spec, CLAUDE.md)? 2) do your profile, rules or the template cover it? 3) did the sender already say what they want in the message? 4) is there a technical route that needs no person? 5) is a wrong guess cheap and reversible? If 1 to 4 answers it, it is a constraint: carry it out and say so in `summary`. If 5, decide, act and report. Only what survives goes to a person, cut down to their part; `needs_decision` requires `decision_check`.',
     '- Report progress at each milestone with `team progress <job id> --percent N --phrase "…"` (the job id is in the `job` block; a short phrase of what you are doing).',
-    '- Do not close the message: a person closes it after reading your replies.',
+    autoClose
+      ? '- Closing the message. Set `close` to true in your final output only when all three hold: 1) what was asked is done and checked (the change is pushed and its checks passed, or you checked and nothing needed to change, with the evidence in `summary`) and `outcome` is `done` or `investigated`; 2) your reply leaves the sender nothing to do: no open question, no pending decision, no warning that asks them to choose, nothing for them to confirm or review; 3) if your first reply carried a screenshot, your final output carries at least one «after». Never with `needs_decision`, `not_mine` or `blocked`, and never when you left unfinished work on the branch. When in doubt, `close` is false. With `close` true, `close_reason` is one line in the reply language saying why nothing is left for the sender. The system closes the message only if its own checks pass too (the delivery in green, the «after» present, nobody replied in the thread meanwhile); otherwise a person closes it after reading your replies.'
+      : '- Do not close the message: a person closes it after reading your replies.',
     '## The `team` command (in your PATH, already authenticated as you)',
     '```',
     TEAM_HELP,

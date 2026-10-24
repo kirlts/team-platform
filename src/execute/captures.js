@@ -9,7 +9,7 @@
 import { createReadStream } from 'node:fs'
 import { open } from 'node:fs/promises'
 import { join } from 'node:path'
-import { all } from '../db/index.js'
+import { all, get } from '../db/index.js'
 import { captureLabels, captureName, checkCaptures } from '../../scripts/team.mjs'
 import { blobPath, commit, ingest } from '../domain/storage.js'
 
@@ -79,6 +79,13 @@ async function pngSize (file) {
     if (!head.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return null
     return { width: head.readUInt32BE(16), height: head.readUInt32BE(20) }
   } catch { return null } finally { await handle?.close() }
+}
+
+/** Whether a reply of this agent in the message carries a «before» capture (the attachments named «Antes - …» or «Before - …»). */
+export function hasBefore (db, { messageId, authorId }) {
+  const names = [...new Set(Object.values({ es: captureLabels('es-419'), en: captureLabels('en') }).map((l) => `${l.before} - %`))]
+  return Boolean(get(db, `SELECT 1 AS ok FROM reply_attachments ra JOIN replies r ON r.id = ra.reply_id
+      WHERE r.message_id = ? AND r.author_id = ? AND r.deleted_at IS NULL AND ra.kind = 'image' AND (${names.map(() => 'ra.name LIKE ?').join(' OR ')}) LIMIT 1`, messageId, authorId, ...names))
 }
 
 /**

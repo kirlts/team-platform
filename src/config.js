@@ -375,6 +375,8 @@ export function loadConfig (env = process.env, overrides = {}) {
         // `allowed` or `1` attaches a capture with `masked: false` whatever the zone. `masked` is still declared and shown as it came.
         unmasked: ['allowed', '1'].includes(choiceVar(env, 'EXECUTE_CAPTURES_UNMASKED', ['denied', 'allowed', '1', '0'], 'denied'))
       },
+      // UD-271: Claude may close the message after its final reply when the system's own checks pass too (src/execute/auto-close.js). On by default («por defecto», Martín 2026-10-24); `off` or `0` never closes.
+      autoClose: ['on', '1'].includes(choiceVar(env, 'EXECUTE_AUTO_CLOSE', ['on', 'off', '1', '0'], 'on')),
       sessionEnv: otelPairs(env.EXECUTE_SESSION_ENV, 'EXECUTE_SESSION_ENV'),
       // Measurement 2026-10-23-tokens-y-cache.md: the part of the prompt that is the same for every job goes in `--append-system-prompt-file`, which the API caches
       // across sessions; in the user message it is written again by each session (measured 2026-10-23, 2026-10-23-tokens-y-cache.md).

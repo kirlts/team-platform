@@ -20,7 +20,7 @@ export function ForwardMessage({ messageId }: { messageId: string }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="secondary" data-testid="forward-open">
+        <Button size="sm" variant="ghost" data-testid="forward-open">
           <ArrowRight size={14} aria-hidden /> {t('forward.action')}
         </Button>
       </DialogTrigger>

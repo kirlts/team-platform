@@ -217,10 +217,10 @@ export function createResources(t: Transport) {
           ...versioning,
           fetchCurrent: () => messageDetail(messageId),
           versionOf: (d) => d?.replies.find((r) => r.id === replyId)?.version,
-          // UD-277: the same edit also takes attachments off and adds mentions; `body` may be absent.
+          // UD-278: the same edit also takes attachments off and adds mentions; `body` may be absent.
           send: (version) => call<MessageDetail>(routes.replyEdit, { params: { id: messageId, replyId }, body: { ...(body === undefined ? {} : { body }), ...more, version } }),
         }),
-      /** New files and links on a reply of mine (UD-277); like the ones of a message they count as an edit, with the version that was read. */
+      /** New files and links on a reply of mine (UD-278); like the ones of a message they count as an edit, with the version that was read. */
       addAttachments: (messageId: string, replyId: string, v: { files: File[]; links?: string[] }, versioning: Versioning<MessageDetail> = {}) =>
         sendVersioned<MessageDetail, MessageDetail>({
           ...versioning,
@@ -228,7 +228,7 @@ export function createResources(t: Transport) {
           versionOf: (d) => d?.replies.find((r) => r.id === replyId)?.version,
           send: (version) => call<MessageDetail>(routes.replyAddAttachments, { params: { id: messageId, replyId }, form: attachmentsForm(version, v.files, v.links) }),
         }),
-      /** The text read from the audio or video of a reply (UD-277). A 404 means it has none (yet). */
+      /** The text read from the audio or video of a reply (UD-278). A 404 means it has none (yet). */
       transcript: (id: string) => call<{ text?: string }>(routes.replyAttachmentTranscript, { params: { id } }),
       /** Soft-deletes (UD-240): its author or the Editor. Returns the message with its thread. */
       delete: (messageId: string, replyId: string) => call<MessageDetail>(routes.replyDelete, { params: { id: messageId, replyId }, search: CONFIRM }),

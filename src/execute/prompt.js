@@ -130,7 +130,7 @@ export function buildExecuteParts ({ message, template, author, agent, project, 
     block('sender', `${author.name}\n\n${author.profile ?? ''}`),
     block('message', [`id: ${message.id}`, `area: ${message.area ?? ''}`, `title: ${message.title}`, '', message.body, '', 'fields:', fields || '(none)'].join('\n')),
     ...(forward ? [block('forwarded', `forwarded by: ${forward.by}\n\nreason:\n${forward.reason}`)] : []),
-    ...(mention ? [block('mentioned', mention)] : []), // UD-275: who called the agent and the whole thread (src/execute/mention-context.js)
+    ...(mention ? [block('mentioned', mention)] : []), // UD-277: who called the agent and the whole thread (src/execute/mention-context.js)
     block('job', [`job id: ${jobId}`, `branch: ${branch}`, `reply language: ${language}`, ...(deliverFailure ? ['pass: second, after a failed delivery'] : []), ...(retried ? ['pass: retry after a failure of the system; your first reply was already sent, do not send another one'] : [])].join('\n')),
     ...(deliverFailure ? [block('delivery_failure', [
       `The delivery of the branch \`${branch}\` failed. The branch already holds your previous pass: fetch it and continue from it, do not start over. Read the output of the delivery below, fix the cause on the same branch, run the checks for the parts you touch, push the branch and finish. Nobody delivers by hand: the system runs the delivery again after you finish.`,

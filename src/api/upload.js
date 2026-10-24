@@ -100,7 +100,7 @@ async function readUpload (request, config, db, { textField, extraFields, emptyM
         if (part.valueTruncated) throw tooLarge('El texto supera el tamaño máximo permitido.')
         if (part.fieldname === textField) text = String(part.value)
         else if ((part.fieldname === 'mention_ids' || part.fieldname === 'mention_ids[]') && extraFields.includes('mention_ids')) {
-          // UD-275: one field per member picked in the list of the mention; each one is an id.
+          // UD-277: one field per member picked in the list of the mention; each one is an id.
           if (!/^[0-9]{1,15}$/.test(String(part.value).trim())) throw badRequest('`mention_ids` lleva ids de miembros.', 'mention_invalid')
           ;(extra.mention_ids ??= []).push(Number(String(part.value).trim()))
         }

@@ -1,4 +1,4 @@
-// What an agent receives when a person mentions it in a reply (UD-275, MASTER-SPEC §7.5 «Menciones»): the WHOLE thread, in order and with who wrote each
+// What an agent receives when a person mentions it in a reply (UD-277, MASTER-SPEC §7.5 «Menciones»): the WHOLE thread, in order and with who wrote each
 // reply and when, and the attachments of the message and of every reply. The images are copied as files the session can open; a document goes with its name
 // and, when the platform extracted its text (the files of the message, never the ones of a reply, which are only stored), with that text next to it.
 // The platform reads none of it to decide anything: the session is told who called it and which reply, and the model decides what to do (`mode`).
@@ -74,7 +74,7 @@ export function planThread (db, { messageId, marked = [] }) {
     out.push('', `## Reply ${i + 1} (id ${r.id}): ${r.author} (${r.author_kind}) ${what}, ${iso(r.created_at)}${marked.includes(r.id) ? '  <- THIS REPLY MENTIONS YOU' : ''}`, '', r.body.trim() || '(no text)')
     const list = replyFiles.get(r.id) ?? []
     if (list.length) out.push('', 'attachments of this reply:', ...describe(list, `reply-${r.id}`, () => null))
-    // UD-277: what was said in the audio or video of this reply, as text (a reply is read by the extractor only for its speech).
+    // UD-278: what was said in the audio or video of this reply, as text (a reply is read by the extractor only for its speech).
     for (const a of list.filter((x) => x.extracted_text && x.extracted_text.trim())) out.push('', `transcript of ${fileName(a.name, 'file')}:`, a.extracted_text.trim())
   })
   return { text: out.join('\n'), files }

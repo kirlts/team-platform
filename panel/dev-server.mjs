@@ -1340,7 +1340,7 @@ const server = createServer(async (req, res) => {
       const body = await readJson(req)
       if (!body || !Number.isInteger(body.version) || (body.body !== undefined && typeof body.body !== 'string') || Object.keys(body).some((k) => !['body', 'version', 'mention_ids', 'remove_attachment_ids'].includes(k))) return fail(res, 400, 'Falta la versión.', 'validation')
       if (body.version !== (reply.version ?? 1)) return send(res, 409, { code: 'edit_conflict', message: 'La respuesta cambió desde que se leyó.', version: reply.version ?? 1 })
-      // UD-277: the same edit also takes attachments off and adds mentions (only for who was not mentioned yet).
+      // UD-278: the same edit also takes attachments off and adds mentions (only for who was not mentioned yet).
       const nextBody = body.body ?? reply.body
       const remove = (body.remove_attachment_ids ?? []).map(String)
       const fresh = (body.mention_ids ?? []).map(String).filter((x) => !(reply.mentions ?? []).map(String).includes(x))
@@ -1502,7 +1502,7 @@ const server = createServer(async (req, res) => {
           for (const f of parts.filter((p) => p.name === 'files' && p.filename)) {
             const mime = f.type ?? 'application/octet-stream'
             const a = { id: `f-${id()}`, kind: kindOf(mime), mime, name: f.filename, size: f.data.length, data: f.data }
-            if (a.kind === 'audio' || a.kind === 'video') a.transcript = SPOKEN_SAMPLE // UD-277: the real server reads the speech of a reply's audio and video
+            if (a.kind === 'audio' || a.kind === 'video') a.transcript = SPOKEN_SAMPLE // UD-278: the real server reads the speech of a reply's audio and video
             attachments.set(a.id, a)
             attIds.push(a.id)
           }
@@ -1517,7 +1517,7 @@ const server = createServer(async (req, res) => {
           kind = body?.kind
           mentionIds = (body?.mention_ids ?? []).map(String)
         }
-        // UD-275: as the real API, the sender writes in the thread only to call someone, and the mentions are the ids picked in the list.
+        // UD-277: as the real API, the sender writes in the thread only to call someone, and the mentions are the ids picked in the list.
         mentionIds = [...new Set(mentionIds)]
         if (msg.author_id === me.id && mentionIds.length === 0) return fail(res, 403, 'El emisor de un mensaje no puede responderlo.', 'author_cannot_reply')
         for (const mid of mentionIds) {
@@ -1532,7 +1532,7 @@ const server = createServer(async (req, res) => {
         replies.get(msg.id).push(reply)
         for (const to of reply.mentions) if (!msg.assignee_ids.includes(to)) msg.assignee_ids = [...msg.assignee_ids, to]
         syncStatus(msg)
-        if (msg.author_id === me.id) msg.status = 'open' // a request of the sender is not an answer (UD-275)
+        if (msg.author_id === me.id) msg.status = 'open' // a request of the sender is not an answer (UD-277)
         // The real API answers with the message and its thread (the panel reads the cache from it).
         return send(res, 201, { ...view(msg), replies: liveReplies(msg).map(replyView) })
       }

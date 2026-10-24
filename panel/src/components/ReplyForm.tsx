@@ -11,7 +11,7 @@ import { MentionTextarea } from './MentionTextarea'
 import { CaptureButtons, ClipMenu, MediaDraftList, RecordingStatus } from './MediaDraft'
 
 /** Reply to a message: text and, as in the send bar, clip, camera and microphone. */
-export function ReplyForm({ messageId, onSent, autoFocus, children, senderMode = false }: { messageId: string; onSent?: () => void; autoFocus?: boolean; children?: React.ReactNode; /** The sender of the message writes only to call someone (UD-275): without a mention there is nothing to send. */ senderMode?: boolean }) {
+export function ReplyForm({ messageId, onSent, autoFocus, children, senderMode = false }: { messageId: string; onSent?: () => void; autoFocus?: boolean; children?: React.ReactNode; /** The sender of the message writes only to call someone (UD-277): without a mention there is nothing to send. */ senderMode?: boolean }) {
   const t = useT()
   // Sending is confirmed in the form itself, until the next word is typed: a notice floats over the bottom of a phone, exactly where this form sits (J4-flow-04).
   const [sent, setSent] = useState(false)

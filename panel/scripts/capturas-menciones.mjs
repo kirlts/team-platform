@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Captures of the mentions (UD-275) at 1440x900 and 390x844, headless: the list of «@» open over the reply field, and the thread with a mention drawn highlighted.
+// Captures of the mentions (UD-277) at 1440x900 and 390x844, headless: the list of «@» open over the reply field, and the thread with a mention drawn highlighted.
 //
 //   CAPS_DIR=/some/dir node scripts/capturas-menciones.mjs
 import { mkdirSync } from 'node:fs'
@@ -28,13 +28,19 @@ try {
     await shot('01-lista-abierta')
     await field.pressSequentially('cla')
     await page.keyboard.press('Enter')
-    await field.pressSequentially('y dime qué recomiendas')
+    await field.pressSequentially('y  dime qué recomiendas')
     await page.waitForTimeout(150)
     await shot('02-token-en-el-campo')
     await page.getByRole('button', { name: 'Responder', exact: true }).click()
     await page.locator('[data-mention]').first().waitFor()
     await page.waitForTimeout(400)
     await shot('03-hilo-con-mencion')
+    // UD-278: a reply by voice (an audio file stands for the recording), its transcript under it and the author's own tools.
+    await page.locator('form input[type=file]').first().setInputFiles({ name: 'nota-de-voz.webm', mimeType: 'audio/webm', buffer: Buffer.from('audio-de-prueba') })
+    await page.getByRole('button', { name: 'Responder', exact: true }).click()
+    await page.getByTestId('reply-transcript').waitFor()
+    await page.waitForTimeout(400)
+    await shot('04-respuesta-con-audio-y-transcripcion')
     await context.close()
   }
 } finally {

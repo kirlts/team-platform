@@ -18,7 +18,7 @@ export function MemberPicker({
   selected: string[]
   onChange: (ids: string[]) => void
   hiddenCount?: number
-  /** Accessible name and visible short word of the button, when it is not about recipients (the mention of a reply, UD-277). */
+  /** Accessible name and visible short word of the button, when it is not about recipients (the mention of a reply, UD-278). */
   label?: string
   shortLabel?: string
 }) {

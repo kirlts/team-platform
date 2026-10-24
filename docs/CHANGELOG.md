@@ -7,8 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- Menciones en las respuestas (UD-275): «@» elige miembros, avisa, asigna e invoca a un agente con el hilo completo y sus adjuntos; el hilo siempre recibe una respuesta.
-- Responder hablando (UD-277): el audio y el video de una respuesta se transcriben, la mención espera el texto, y el autor edita adjuntos y menciones de su respuesta.
+- Menciones en las respuestas (UD-277): «@» elige miembros, avisa, asigna e invoca a un agente con el hilo completo y sus adjuntos; el hilo siempre recibe una respuesta.
+- Responder hablando (UD-278): el audio y el video de una respuesta se transcriben, la mención espera el texto, y el autor edita adjuntos y menciones de su respuesta.
 
 ### Changed
 - Reconectar el flujo de eventos ya no recarga las listas a ciegas. `GET /events` abre cada conexión con un evento `replay` (`complete`, `from`, sin `id`); con `complete: true` el cliente no pide nada, y con `false` sólo lee de nuevo lo que la pantalla muestra (`refetchType: 'active'`). Medido el 2026-10-24: cada reconexión pedía las 7 listas de Inicio y sostenía la red ocupada varios segundos.

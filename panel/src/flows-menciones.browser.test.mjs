@@ -1,4 +1,4 @@
-// Mentions in a reply (UD-275): «@» opens the list of members but the one who writes, it filters, moves with the keyboard, picks with Enter and shows the
+// Mentions in a reply (UD-277): «@» opens the list of members but the one who writes, it filters, moves with the keyboard, picks with Enter and shows the
 // token in the field; sending carries the ids picked; the thread draws the token highlighted and the mentioned member joins the recipients.
 // Real browser against dev-server.mjs serving panel/dist: `PANEL_FLOWS_PORT=… node --test src/flows-menciones.browser.test.mjs`.
 import assert from 'node:assert'

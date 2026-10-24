@@ -158,7 +158,7 @@ export interface Reply {
   kind: ReplyKind
   /** The member the message was forwarded to; only in a reply of kind `forward` (UD-272), whose `body` is the reason. */
   forwarded_to?: string | null
-  /** The members the reply mentions, picked in the list of «@» (UD-275). */
+  /** The members the reply mentions, picked in the list of «@» (UD-277). */
   mentions?: string[]
   created_at: string
   /** Media types attached to the reply, to draw one icon per type (UD-016). */
@@ -325,7 +325,7 @@ export interface DoneEvent {
   input_id?: string
   /** What the job left the input as: `published` when the publication was automatic (UD-070), `proposed` when it waits for review. */
   input_status?: string
-  /** The message the job worked on (`execute`, and the reading of the audio of a reply, UD-277): its thread is stale. */
+  /** The message the job worked on (`execute`, and the reading of the audio of a reply, UD-278): its thread is stale. */
   message_id?: string
   done: true
 }
@@ -335,7 +335,7 @@ export interface NewMessageEvent {
   title: string
   author_id: string
   at?: string
-  /** `mention` when someone picked the member in a reply (UD-275); anything else is an assignment. */
+  /** `mention` when someone picked the member in a reply (UD-277); anything else is an assignment. */
   reason?: string
   reply_id?: string
 }
@@ -509,7 +509,7 @@ export interface NewReply {
   kind: Exclude<ReplyKind, 'forward'>
   files?: File[]
   links?: string[]
-  /** The members picked in the list of «@» (UD-275); never read from the text. */
+  /** The members picked in the list of «@» (UD-277); never read from the text. */
   mention_ids?: string[]
 }
 

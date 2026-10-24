@@ -401,7 +401,7 @@ export function useEditReply(messageId: string) {
   })
 }
 
-/** New files and links on a reply of mine (UD-277). */
+/** New files and links on a reply of mine (UD-278). */
 export function useAddReplyAttachments(messageId: string) {
   const client = useTeamClient()
   const qc = useQueryClient()

@@ -150,7 +150,7 @@ describe('gallery helpers', () => {
     expect(message[2].src).toBeUndefined()
     const reply = toGalleryItems(atts, 'reply')
     expect(reply[0].src).toBe('/api/replies/attachments/a1')
-    expect(reply[0].transcriptSrc).toBe('/api/replies/attachments/a1/transcript') // a reply's speech is read too (UD-277)
+    expect(reply[0].transcriptSrc).toBe('/api/replies/attachments/a1/transcript') // a reply's speech is read too (UD-278)
     expect(reply[1].transcriptSrc).toBeUndefined()
   })
 })

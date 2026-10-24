@@ -99,7 +99,7 @@ export async function writeMachineFiles ({ workdir, args, prompt, env, claudeBin
     'export PATH="$JOB_DIR/bin:$PATH"',
     'mkdir -p "$JOB_DIR/captures"; export TEAM_CAPTURES_DIR="$JOB_DIR/captures"', // the machine\'s own path; the host\'s collect command copies it back to {workdir}/captures
     'mkdir -p "$JOB_DIR/attachments"; export TEAM_ATTACHMENTS_DIR="$JOB_DIR/attachments"', // UD-272: same for the documents; the collect command copies {workdir}/attachments back too
-    '[ -d "$JOB_DIR/thread" ] && export TEAM_THREAD_DIR="$JOB_DIR/thread" || true', // UD-275: the files of the thread travel with {workdir}; the machine reads its own copy
+    '[ -d "$JOB_DIR/thread" ] && export TEAM_THREAD_DIR="$JOB_DIR/thread" || true', // UD-277: the files of the thread travel with {workdir}; the machine reads its own copy
     'cd "${TEAM_REPO_DIR:-$JOB_DIR}"',
     `exec ${shellQuote(claudeBin)} ${args.map((a) => (a.startsWith('@JOB_DIR@/') ? `"$JOB_DIR/${a.slice(10)}"` : shellQuote(a))).join(' ')} < "$JOB_DIR/prompt.md"`
   ].join('\n')

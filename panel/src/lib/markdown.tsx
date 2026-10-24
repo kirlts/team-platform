@@ -9,7 +9,7 @@ import { splitMentions } from './mention'
 const SAFE_LINK = /^(https?:|mailto:)/i
 
 /** Inline spans: `code`, **bold**, *italic* or _italic_, [text](address). */
-/** Plain text with the tokens of the members a reply mentions drawn highlighted (UD-275). */
+/** Plain text with the tokens of the members a reply mentions drawn highlighted (UD-277). */
 function plain(text: string, mentions: string[], key: string): ReactNode[] {
   if (mentions.length === 0) return [text]
   return splitMentions(text, mentions).map((p, i) => (p.mention ? <mark key={`${key}m${i}`} data-mention className="rounded-sm bg-accent-soft px-1 font-semibold text-accent-deep">{p.text}</mark> : p.text))
@@ -101,7 +101,7 @@ const HEADING = ['', 'text-lg', 'text-base', 'text-sm', 'text-sm'] as const
 
 /** The source as React nodes. Paragraphs and lists use the shared `prose-block` class (UD-022). */
 /** A document a person wrote: the root carries `data-user-text`, which the interface detectors do not judge as interface text. */
-export function Markdown({ source, className, breaks = false, mentions = [] }: { source: string; className?: string; /** Names of the members the reply mentions: their «@Name» tokens are drawn highlighted (UD-275). */ mentions?: string[]; /** A line break inside a paragraph stays a line break (replies, written line by line). */ breaks?: boolean }) {
+export function Markdown({ source, className, breaks = false, mentions = [] }: { source: string; className?: string; /** Names of the members the reply mentions: their «@Name» tokens are drawn highlighted (UD-277). */ mentions?: string[]; /** A line break inside a paragraph stays a line break (replies, written line by line). */ breaks?: boolean }) {
   return (
     <div className={className} data-user-text>
       {parseBlocks(source, { breaks }).map((b, i) => {

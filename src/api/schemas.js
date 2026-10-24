@@ -83,7 +83,7 @@ const replyAttachmentSummary = {
 
 export const reply = {
   type: 'object',
-  properties: { id, message_id: id, author_id: id, body: { type: 'string' }, kind: { type: 'string', enum: ['answer', 'fix', 'clarification', 'forward'] }, forwarded_to: { ...nullableId, description: 'El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272).' }, attachments: { type: 'array', items: replyAttachmentSummary }, attachment_kinds: { type: 'array', items: { type: 'string' } }, mentions: { type: 'array', items: id, description: 'Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto.' }, created_at: { type: 'string' }, version: intVar, edited_at: nullableText }
+  properties: { id, message_id: id, author_id: id, body: { type: 'string' }, kind: { type: 'string', enum: ['answer', 'fix', 'clarification', 'forward'] }, forwarded_to: { ...nullableId, description: 'El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272).' }, attachments: { type: 'array', items: replyAttachmentSummary }, attachment_kinds: { type: 'array', items: { type: 'string' } }, mentions: { type: 'array', items: id, description: 'Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-277). Nunca se leen del texto.' }, created_at: { type: 'string' }, version: intVar, edited_at: nullableText }
 }
 
 export const messageCard = {

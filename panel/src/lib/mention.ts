@@ -1,4 +1,4 @@
-// The «@» of a reply (UD-275). These functions only serve the list that opens while the person types: where the word they are writing starts, what it
+// The «@» of a reply (UD-277). These functions only serve the list that opens while the person types: where the word they are writing starts, what it
 // looks like once a member is picked, and which of the picked members the text still shows. The mention itself is the list of ids the person picked: the
 // server never reads names out of the text.
 

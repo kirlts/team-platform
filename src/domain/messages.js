@@ -78,7 +78,7 @@ function replyAttachmentsOf (db, replyIds) {
 }
 
 const toReply = (r, atts = [], mentions = []) => ({
-  id: r.id, message_id: r.message_id, author_id: r.author_id, body: r.body, kind: r.kind, forwarded_to: r.forwarded_to ?? null, mentions, // UD-275: the members picked from the list when the reply was written
+  id: r.id, message_id: r.message_id, author_id: r.author_id, body: r.body, kind: r.kind, forwarded_to: r.forwarded_to ?? null, mentions, // UD-277: the members picked from the list when the reply was written
   attachments: atts, attachment_kinds: [...new Set(atts.map((a) => a.kind))], // one icon per media kind (UD-016)
   created_at: iso(r.created_at), version: r.version, edited_at: iso(r.edited_at)
 })
@@ -383,13 +383,13 @@ export function holdsPendingQuestion (db, messageId, memberId) {
 
 /**
  * The rules for replying, checked on their own so a route can refuse before it stores an upload. Returns the status the message takes.
- * `mentions`: the reply mentions someone (UD-275). The sender of a message does not answer it (§4.8), but may write in its thread to call a member: a
+ * `mentions`: the reply mentions someone (UD-277). The sender of a message does not answer it (§4.8), but may write in its thread to call a member: a
  * reply of the sender that mentions someone is a request, not an answer, so it does not count as one and the message goes back to `open`.
  */
 export function assertCanReply (db, messageId, authorId, { mentions = false } = {}) {
   const msgRow = get(db, 'SELECT id, author_id, status FROM messages WHERE id = ? AND deleted_at IS NULL', messageId)
   if (!msgRow) throw notFound('El mensaje no existe.')
-  // §4.8: only a member other than the sender replies; the exceptions are the sender who received the handoff of a session (UD-269) and the sender who mentions someone (UD-275).
+  // §4.8: only a member other than the sender replies; the exceptions are the sender who received the handoff of a session (UD-269) and the sender who mentions someone (UD-277).
   const sender = msgRow.author_id === authorId
   const asksOnly = sender && !holdsPendingQuestion(db, messageId, authorId)
   if (asksOnly && !mentions) throw forbidden('El emisor de un mensaje no puede responderlo.', 'author_cannot_reply')
@@ -406,14 +406,14 @@ export function addReply ({ db, events, now = Date.now }, { messageId, authorId,
   if (typeof body !== 'string' || (body.trim() === '' && files.length + links.length === 0)) throw badRequest('La respuesta no puede estar vacía.', 'reply_empty')
   if (!WRITABLE_REPLY_KINDS.includes(kind)) throw badRequest('Tipo de respuesta desconocido.', 'reply_kind_invalid')
   const replyId = events.transaction(() => {
-    const mentions = checkMentions(db, { authorId, ids: mentionIds }) // UD-275: picked from the list, validated here; nothing reads the text
+    const mentions = checkMentions(db, { authorId, ids: mentionIds }) // UD-277: picked from the list, validated here; nothing reads the text
     const target = assertCanReply(db, messageId, authorId, { mentions: mentions.length > 0 })
     const r = run(db, 'INSERT INTO replies (message_id, author_id, body, kind, created_at) VALUES (?, ?, ?, ?, ?)', messageId, authorId, body, kind, now())
     const id = Number(r.lastInsertRowid)
     let position = 0
     for (const f of files) {
       const a = run(db, 'INSERT INTO reply_attachments (reply_id, kind, name, path, mime, size, sha256, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', id, f.kind, f.name, f.sha256, f.mime, f.size, f.sha256, position++)
-      if (SPOKEN_KINDS.includes(f.kind)) enqueueReplyExtract(db, { messageId, replyAttachmentId: Number(a.lastInsertRowid), now }) // UD-277: the speech becomes text, without holding up the reply
+      if (SPOKEN_KINDS.includes(f.kind)) enqueueReplyExtract(db, { messageId, replyAttachmentId: Number(a.lastInsertRowid), now }) // UD-278: the speech becomes text, without holding up the reply
     }
     for (const url of links) {
       // For kind = link, `path` holds the URL and the hash identifies it, as in `attachments`.
@@ -603,7 +603,7 @@ export function updateReply ({ db, events, now = Date.now }, { messageId, replyI
     const fields = []
     const nextBody = body === undefined ? row.body : body
     if (nextBody !== row.body) fields.push('body')
-    // UD-277: the author takes attachments off their reply; the rows go and the files that nothing else references are freed after the transaction.
+    // UD-278: the author takes attachments off their reply; the rows go and the files that nothing else references are freed after the transaction.
     const removed = []
     for (const raw of removeAttachmentIds) {
       const att = get(db, 'SELECT id, sha256, kind FROM reply_attachments WHERE id = ? AND reply_id = ?', raw, replyId)
@@ -612,7 +612,7 @@ export function updateReply ({ db, events, now = Date.now }, { messageId, replyI
       removed.push(att)
     }
     if (removed.length) fields.push('attachment_ids')
-    // UD-277: a mention added by editing has the effects of a mention at writing, only for the member who was not mentioned yet.
+    // UD-278: a mention added by editing has the effects of a mention at writing, only for the member who was not mentioned yet.
     const already = new Set(all(db, 'SELECT member_id FROM reply_mentions WHERE reply_id = ?', replyId).map((r) => r.member_id))
     const fresh = checkMentions(db, { authorId: actor.id, ids: mentionIds }).filter((m) => !already.has(m.id))
     if (fresh.length) fields.push('mentions')
@@ -630,7 +630,7 @@ export function updateReply ({ db, events, now = Date.now }, { messageId, replyI
 }
 
 /**
- * Adds files and links to a reply that already exists (UD-277): only its author, with the version read. Audio and video go to be read like at writing.
+ * Adds files and links to a reply that already exists (UD-278): only its author, with the version read. Audio and video go to be read like at writing.
  * It counts as one edit of the reply (version, `edited_at`, `reply.edit` with `fields: ['attachment_ids']`).
  */
 export function addReplyAttachments ({ db, events, now = Date.now }, { messageId, replyId, actor, version, files = [], links = [] }) {

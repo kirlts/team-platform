@@ -1,4 +1,4 @@
-// UD-275: «@» opens the list of members, filtered by what is typed, driven by the keyboard; picking leaves the token in the text and the member in the
+// UD-277: «@» opens the list of members, filtered by what is typed, driven by the keyboard; picking leaves the token in the text and the member in the
 // picked list; the highlight of a token in a reply comes from the ids, not from reading the text.
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'

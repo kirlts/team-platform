@@ -122,7 +122,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
         events.transaction(() => {
           if (!queue.complete(job)) throw Object.assign(new Error('Se perdió el arriendo antes de terminar.'), { lost: true })
           finalize?.()
-          attendMentions(job) // UD-275: a mention that arrived while the agent worked this message is attended now
+          attendMentions(job) // UD-277: a mention that arrived while the agent worked this message is attended now
         })
         span.setAttribute('team.outcome', 'done')
         jobLog.info('job finished')
@@ -202,7 +202,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
   }
 
   /**
-   * The end of an `execute` or `deliver` job of a message frees its agent, and the end of the reading of a reply's audio (`extract`, UD-277) frees its thread: the mentions that waited for it (UD-275) get their job now. Safe to call at any
+   * The end of an `execute` or `deliver` job of a message frees its agent, and the end of the reading of a reply's audio (`extract`, UD-278) frees its thread: the mentions that waited for it (UD-277) get their job now. Safe to call at any
    * time: an agent that is still busy keeps them pending.
    */
   function attendMentions (job) {

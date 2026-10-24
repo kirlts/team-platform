@@ -1,4 +1,4 @@
-// POST /messages/:id/replies with `mention_ids` (UD-275): the members picked in the list of «@» join the assignees, a person is told, an agent gets its
+// POST /messages/:id/replies with `mention_ids` (UD-277): the members picked in the list of «@» join the assignees, a person is told, an agent gets its
 // `execute` job with the mention in the payload, an agent that already works the message keeps the mention pending, and the author of the message
 // replies only when it mentions someone. Nothing reads the text of the reply: the ids are data.
 import assert from 'node:assert/strict'

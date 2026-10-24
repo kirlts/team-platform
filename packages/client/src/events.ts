@@ -21,7 +21,7 @@ export interface Notice {
   title: string
   author_id: string
   at: string
-  /** `mention`: the notice is a mention in a reply (UD-275). */
+  /** `mention`: the notice is a mention in a reply (UD-277). */
   reason?: string
 }
 

@@ -15,7 +15,7 @@ import { ReplyTranscript } from './ReplyTranscript'
  * name; with two of them they sit side by side when the reply is wide enough and one under the other when it is not. A click enlarges one to
  * the whole window. The other media (video, audio, documents, links) keep their named row.
  */
-export function ReplyMedia({ items, tools }: { items: readonly Attachment[]; /** The author's own controls under the media: add and remove (UD-277). */ tools?: React.ReactNode }) {
+export function ReplyMedia({ items, tools }: { items: readonly Attachment[]; /** The author's own controls under the media: add and remove (UD-278). */ tools?: React.ReactNode }) {
   const t = useT()
   const [open, setOpen] = useState<number | null>(null)
   if (items.length === 0 && !tools) return null

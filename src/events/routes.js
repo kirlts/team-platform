@@ -40,7 +40,7 @@ export async function registerEventRoutes (app, { db, config, events, requireRol
 
     let jobRow = null
     if (jobId !== null) {
-      jobRow = get(db, 'SELECT j.id, j.status FROM jobs j JOIN inputs i ON i.id = j.input_id WHERE j.id = ? AND i.author_id = ?', jobId, memberRow)
+      jobRow = get(db, 'SELECT j.id, j.status FROM jobs j JOIN inputs i ON i.id = j.input_id WHERE j.id = ? AND (i.author_id = ? OR i.sent_by_id = ?)', jobId, memberRow, memberRow)
       if (!jobRow) throw notFound('El trabajo no existe.')
     }
 

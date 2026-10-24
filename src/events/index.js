@@ -74,7 +74,7 @@ export function createEvents ({ db, now = Date.now }) {
 
   /** Same as `publish`, but the recipient is the author of the input the job belongs to. */
   function publishForJob (jobId, { kind, percent = null, phrase = null, data = {} }) {
-    const jobRow = get(db, 'SELECT j.input_id, j.message_id, i.author_id, m.language FROM jobs j LEFT JOIN inputs i ON i.id = j.input_id LEFT JOIN members m ON m.id = i.author_id WHERE j.id = ?', jobId)
+    const jobRow = get(db, 'SELECT j.input_id, j.message_id, i.author_id, i.sent_by_id, m.language FROM jobs j LEFT JOIN inputs i ON i.id = j.input_id LEFT JOIN members m ON m.id = i.author_id WHERE j.id = ?', jobId)
     if (!jobRow) return null
     // H-3722: a progress step is written with its code and in the author's language (UD-018); a text of the catalogue
     // without a code gets its code; any other text goes as it came.
@@ -87,7 +87,10 @@ export function createEvents ({ db, now = Date.now }) {
       }
     }
     // A job on a message (`execute`) has no input: its progress goes to the whole team, as the message does (§7.10).
-    return publish({ kind, jobId, memberId: jobRow.author_id, percent, phrase, data: { input_id: jobRow.input_id, ...(jobRow.message_id ? { message_id: jobRow.message_id } : {}), ...progress, ...data } })
+    const payload = { input_id: jobRow.input_id, ...(jobRow.message_id ? { message_id: jobRow.message_id } : {}), ...progress, ...data }
+    // Who sent it on the author's behalf (UD-255) follows the same progress in their own tray.
+    if (jobRow.sent_by_id && jobRow.sent_by_id !== jobRow.author_id) publish({ kind, jobId, memberId: jobRow.sent_by_id, percent, phrase, data: payload })
+    return publish({ kind, jobId, memberId: jobRow.author_id, percent, phrase, data: payload })
   }
 
   /** Transaction that dispatches what was published inside once committed (never before: an uncommitted event does not exist). */

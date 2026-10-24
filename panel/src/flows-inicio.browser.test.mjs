@@ -460,7 +460,7 @@ const label = (key) => {
 }
 
 describe('the default of the two lists of Inicio (idea.md)', () => {
-  test('both lists start on «Para mí» (UD-210), and the first leaves out a message that is for someone else', async () => {
+  test('both lists start on «Todos» (Martín, 2026-10-24, amends UD-210), and «Para mí» leaves out a message that is for someone else', async () => {
     const { page, context } = await session('bruno')
     try {
       await settled(page)
@@ -468,10 +468,10 @@ describe('the default of the two lists of Inicio (idea.md)', () => {
       const replies = page.getByRole('radiogroup', { name: label('home.shownReplies') })
       await messages.waitFor()
       await replies.waitFor()
-      assert.equal(await messages.getByRole('radio', { name: label('home.forMe') }).getAttribute('aria-checked'), 'true')
-      assert.equal(await messages.getByRole('radio', { name: label('home.everyone') }).getAttribute('aria-checked'), 'false')
-      assert.equal(await replies.getByRole('radio', { name: label('home.forMe') }).getAttribute('aria-checked'), 'true')
-      assert.equal(await replies.getByRole('radio', { name: label('home.everyone') }).getAttribute('aria-checked'), 'false')
+      assert.equal(await messages.getByRole('radio', { name: label('home.everyone') }).getAttribute('aria-checked'), 'true')
+      assert.equal(await messages.getByRole('radio', { name: label('home.forMe') }).getAttribute('aria-checked'), 'false')
+      assert.equal(await replies.getByRole('radio', { name: label('home.everyone') }).getAttribute('aria-checked'), 'true')
+      assert.equal(await replies.getByRole('radio', { name: label('home.forMe') }).getAttribute('aria-checked'), 'false')
 
       // The newest message of each kind, read from the API: one assigned to this member and one that is not.
       const me = (await api(page, '/me')).body
@@ -479,12 +479,12 @@ describe('the default of the two lists of Inicio (idea.md)', () => {
       const mineFirst = all.find((m) => m.assignee_ids.includes(String(me.id)))
       const otherFirst = all.find((m) => !m.assignee_ids.includes(String(me.id)))
       assert.ok(mineFirst && otherFirst, `the sample has both kinds (${all.length} messages)`)
-      await page.getByRole('region', { name: label('home.latestMessages') }).getByText(mineFirst.title, { exact: true }).first().waitFor()
-      assert.equal(await page.getByRole('region', { name: label('home.latestMessages') }).getByText(otherFirst.title, { exact: true }).count(), 0, 'a message for someone else is not in the default list')
-      await messages.getByRole('radio', { name: label('home.everyone') }).click()
-      await messages.getByRole('radio', { name: label('home.everyone'), checked: true }).waitFor()
-      await settled(page)
       await page.getByRole('region', { name: label('home.latestMessages') }).getByText(otherFirst.title, { exact: true }).first().waitFor()
+      await messages.getByRole('radio', { name: label('home.forMe') }).click()
+      await messages.getByRole('radio', { name: label('home.forMe'), checked: true }).waitFor()
+      await settled(page)
+      await page.getByRole('region', { name: label('home.latestMessages') }).getByText(mineFirst.title, { exact: true }).first().waitFor()
+      assert.equal(await page.getByRole('region', { name: label('home.latestMessages') }).getByText(otherFirst.title, { exact: true }).count(), 0, 'a message for someone else is not in «Para mí»')
     } finally {
       await context.close()
     }

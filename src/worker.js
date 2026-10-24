@@ -166,7 +166,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
 
   function sweepLeases () {
     try {
-      queue.recoverExpiredLeases()
+      queue.recoverExpiredLeases({ spare: workerId })
       sweepUnseen()
       kick()
     } catch (error) { logger.error({ err: error }, 'error while recovering leases') }
@@ -189,7 +189,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     queue.signals.on('enqueued', kick)
     queue.signals.on('cancelled', onCancelled)
     queue.signals.on('leaseFailed', onLeaseFailed)
-    queue.recoverExpiredLeases() // at startup (MS §7.3)
+    queue.recoverExpiredLeases({ spare: workerId }) // at startup (MS §7.3)
     sweepUnseen()
     timers.push(setInterval(sweepLeases, w.heartbeatMs)) // per cycle, at the heartbeat's cadence
     timers.push(setInterval(sweepRetentionJob, w.retentionSweepMs))

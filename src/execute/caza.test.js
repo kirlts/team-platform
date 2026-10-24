@@ -16,7 +16,7 @@ import { createPipeline } from '../domain/pipeline.js'
 import { createVault, loadMasterKey } from '../domain/vault.js'
 import { addMember, fakeAnalyze, login, makeEnv, postInput, until } from '../testing/helpers.js'
 import { createWorker } from '../worker.js'
-import { createDeliverHandler } from './deliver.js'
+import { createDeliverHandler, isEnvironmentFailure } from './deliver.js'
 import { enqueueDeliver } from './enqueue.js'
 import { createExecuteHandler } from './handler.js'
 
@@ -127,6 +127,7 @@ describe('failure hunt: execute and deliver', () => {
     assert.deepEqual([job.status, job.attempts], ['done', 2])
     assert.match(lastReply(messageId).body, /\*\*Resultado\*\*: done$/)
     assert.equal(status(messageId), 'answered')
+    assert.ok(Math.abs(job.cost_usd - 2 * 1.2345) < 1e-9, `the day's cost keeps what both tries spent, not only the last: ${job.cost_usd}`)
   })
 
   it('a machine that cannot be created runs once more and then goes to a person', async () => {
@@ -372,5 +373,21 @@ describe('failure hunt: execute and deliver', () => {
       await until(() => ['done', 'failed'].includes(env.queue.getJob(id).status), { timeoutMs: 20000 })
       assert.equal(env.queue.getJob(id).status, 'done', env.queue.getJob(id).last_error)
     } finally { rmSync(repo, { recursive: true, force: true }) }
+  })
+  it('a session cannot start on the branch of a message while its delivery is queued or running', async () => {
+    startWorker()
+    const messageId = await publishedMessage('Una entrega en curso.')
+    await settle(messageId)
+    await worker.stop()
+    const id = enqueueDeliver(env.db, { messageId, payload: { member_id: agentId, branch: `tp/${messageId}`, round: 0, output: null, execute_job_id: null, requested_by: null } })
+    const res = await env.app.inject({ method: 'POST', url: `/api/messages/${messageId}/execute`, headers: cookieHeaders(editor) })
+    assert.equal(res.statusCode, 409, res.body)
+    assert.equal(res.json().code, 'execute_busy')
+    env.db.prepare("UPDATE jobs SET status = 'cancelled' WHERE id = ?").run(id)
+  })
+
+  it('a delivery command that did not run or was killed by a signal is the machine and not the change', () => {
+    for (const code of [124, 126, 127, 129, 130, 139, 141]) assert.equal(isEnvironmentFailure({ code }, ''), true, `exit ${code}`)
+    for (const code of [1, 2, 3, 4, 5, 64, 100]) assert.equal(isEnvironmentFailure({ code }, 'FAIL: la prueba'), false, `exit ${code}`)
   })
 })

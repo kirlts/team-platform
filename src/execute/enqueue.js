@@ -12,6 +12,8 @@ export function enqueueExecute (db, { messageId, memberId, requestedBy = null, n
   const busy = get(db, `SELECT id FROM jobs WHERE kind = 'execute' AND message_id = ? AND status IN ('queued', 'running')
                          AND json_extract(payload_json, '$.member_id') = ?`, messageId, memberId)
   if (busy) return null
+  // A delivery of the message is verifying or deploying its branch: a second session on the same branch now would change what it checks.
+  if (get(db, "SELECT id FROM jobs WHERE kind = 'deliver' AND message_id = ? AND status IN ('queued', 'running')", messageId)) return null
   const t = now()
   const tc = traceContextFor(db, { kind: 'execute', messageId })
   const r = run(db, `INSERT INTO jobs (kind, message_id, payload_json, status, priority, attempts, max_attempts, run_at, created_at, trace_id, traceparent, link_traceparent)

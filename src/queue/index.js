@@ -54,10 +54,12 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
    * The jobs it fails are announced as `leaseFailed` (after the transaction): the claim recovers leases too, and a handler that never hears of a job
    * that the queue failed leaves its message without an answer (2026-10-23, job 99).
    */
-  function recoverExpiredLeases () {
+  function recoverExpiredLeases ({ spare = null } = {}) {
     const t = now()
     const result = tx(db, () => {
-      const expired = all(db, "SELECT id, attempts, max_attempts FROM jobs WHERE status = 'running' AND lease_until < ?", t)
+      // `spare`: the worker that asks. A job it still runs is alive in its own process, and an expired lease on it means the clock jumped (a laptop that
+      // slept, an NTP step) and its heartbeat has not run yet: recovering it would requeue a healthy session and kill it through the fence.
+      const expired = all(db, "SELECT id, attempts, max_attempts FROM jobs WHERE status = 'running' AND lease_until < ? AND (worker_id IS NULL OR worker_id <> ?)", t, spare ?? '')
       const finished = []
       for (const j of expired) {
         const limit = Math.max(j.max_attempts, INFRA_ATTEMPTS)
@@ -103,8 +105,8 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
     const t = now()
     return tx(db, () => {
       // Recovering first keeps the claim a pure `queued` query (MS §7.3).
-      const expired = get(db, "SELECT 1 AS hay FROM jobs WHERE status = 'running' AND lease_until < ? LIMIT 1", t)
-      if (expired) recoverExpiredLeases()
+      const expired = get(db, "SELECT 1 AS hay FROM jobs WHERE status = 'running' AND lease_until < ? AND worker_id <> ? LIMIT 1", t, workerId)
+      if (expired) recoverExpiredLeases({ spare: workerId })
       const caps = lanes()
       const busy = Object.fromEntries(all(db, "SELECT kind, COUNT(*) AS n FROM jobs WHERE status = 'running' AND kind IN ('execute', 'deliver') GROUP BY kind").map((r) => [r.kind, r.n]))
       const full = Object.keys(caps).filter((kind) => (busy[kind] ?? 0) >= caps[kind])

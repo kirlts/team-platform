@@ -389,7 +389,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
           })
           if (typeof result.total_cost_usd === 'number') {
             span.setAttribute('team.cost_usd', result.total_cost_usd)
-            runSql(db, 'UPDATE jobs SET cost_usd = ? WHERE id = ?', result.total_cost_usd, job.id) // UD-256, also when the job fails after
+            runSql(db, 'UPDATE jobs SET cost_usd = COALESCE(cost_usd, 0) + ? WHERE id = ?', result.total_cost_usd, job.id) // UD-256, also when the job fails after; it adds up: the second try of a job must not erase what the first one spent
           }
         }
         // UD-268: the screenshots are stored while the job directory exists; the closing reply attaches them when it is posted.

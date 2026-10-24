@@ -50,4 +50,18 @@ describe('queue under a burst', () => {
     assert.equal(env.queue.claim('w').id, analysis, 'the analysis of a new input still has a slot while six sessions work')
     run(env.db, "DELETE FROM jobs WHERE kind IN ('execute', 'analyze')")
   })
+  it('a lease that looks expired because the clock jumped does not take a job away from the worker that still runs it', () => {
+    const id = env.queue.enqueue('extract', {})
+    const job = env.queue.claim('w1')
+    assert.equal(job.id, id)
+    run(env.db, "UPDATE jobs SET lease_until = 1 WHERE id = ?", id) // the laptop slept: every lease is in the past and no heartbeat has run
+    assert.deepEqual(env.queue.recoverExpiredLeases({ spare: 'w1' }), { recovered: 0, failedIds: [] }, 'its own worker leaves it alone')
+    assert.equal(env.queue.getJob(id).status, 'running')
+    env.queue.enqueue('extract', {})
+    env.queue.claim('w1')
+    assert.equal(env.queue.getJob(id).status, 'running', 'and so does its own claim')
+    env.queue.claim('w2')
+    assert.notEqual(env.queue.getJob(id).worker_id, 'w1', 'another worker does recover it: a dead one holds nothing')
+    run(env.db, "DELETE FROM jobs WHERE kind = 'extract'")
+  })
 })

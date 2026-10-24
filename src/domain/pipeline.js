@@ -12,6 +12,7 @@
 import { all, get, run } from '../db/index.js'
 import { parseJson } from '../db/util.js'
 import { permanent } from './errors.js'
+import { ProviderError } from '../providers/errors.js'
 import { DEFAULT_LANGUAGE } from './language.js'
 import { recentInputsFor, transitionInput } from './inputs.js'
 import { autoPublishProposal } from './proposals.js'
@@ -19,10 +20,13 @@ import { getAutoPublish, getFraming, getProject } from './settings.js'
 import { isStep, keyOf, phraseOf, step } from './progress-phrases.js'
 import { blobPath } from './storage.js'
 
-// ExtractError codes that can clear up by themselves on retry (network of the link's site). Any other
+// ExtractError codes that can clear up by themselves on retry (network of the link's site, a tool the system killed). Any other
 // ExtractError is a property of the attachment (format, size, duration, unreadable file) and does not improve
 // on retry: it fails immediately with its reason (src/contracts.md).
-const EXTRACT_TRANSIENT = new Set(['link_timeout', 'link_fetch_failed'])
+const EXTRACT_TRANSIENT = new Set(['link_timeout', 'link_fetch_failed', 'ffmpeg_killed'])
+// A site that answers with these is busy or down, not telling that the page is not there.
+const transientHttpStatus = (status) => status === 408 || status === 425 || status === 429 || status >= 500 // HTTP semantics, RFC 9110 §15
+const isTransientExtract = (error) => EXTRACT_TRANSIENT.has(error.code) || (error.code === 'link_http_error' && transientHttpStatus(error.details?.status))
 
 // Analyzer and provider errors that would repeat identically: configuration, refusal, cutoff, invalid
 // output, malformed input or template, missing executable. Network and timeout ones are retried.
@@ -67,7 +71,9 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
     if (!budget || !estimate) return
     let secondsCount = 0
     for (const a of pending) {
-      if (a.kind === 'audio' || a.kind === 'video') secondsCount += await estimate(attachmentForExtractor(a), { signal: ctx.signal })
+      if (a.kind !== 'audio' && a.kind !== 'video') continue
+      // Measuring the length reads the file: one that cannot be read fails here, with the same reason and the same retry rule as its extraction.
+      try { secondsCount += await estimate(attachmentForExtractor(a), { signal: ctx.signal }) } catch (error) { throw readableFailure(a, error, ctx.signal) }
     }
     if (secondsCount === 0) return
     const verdict = budget.check(secondsCount, now())
@@ -85,6 +91,28 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
     return moduleRef
   }
 
+  /**
+   * What the sender reads when something of an attachment fails: its name and a reason. An ExtractError carries its own and its code says
+   * whether a retry can help; a provider error keeps its typed code; anything else (a bug, a file system error) gets `extract_failed`, which
+   * the panel translates, instead of a raw message such as «Cannot read properties of undefined».
+   */
+  function readableFailure (att, error, signal) {
+    const nameValue = att.kind === 'link' ? att.path : (att.name || att.kind)
+    if (error?.name === 'ExtractError') {
+      const wrapped = new Error(`«${nameValue}»: ${error.message}`, { cause: error })
+      wrapped.code = error.code
+      wrapped.attachmentId = att.id
+      wrapped.retryable = isTransientExtract(error)
+      return wrapped
+    }
+    const own = error instanceof ProviderError || error?.name === 'AbortError' || error?.lost || error?.deferMs !== undefined || error?.retryable !== undefined || error?.infra || signal?.aborted
+    if (own) return error
+    const wrapped = new Error(`«${nameValue}»: no se pudo leer el adjunto (${String(error?.message ?? error).slice(0, 300)}).`, { cause: error })
+    wrapped.code = 'extract_failed'
+    wrapped.attachmentId = att.id
+    return wrapped
+  }
+
   async function extractAttachment (job, ctx, att, onProgress) {
     const extract = demand(modules.extract, 'extractores')
     let outText
@@ -92,15 +120,7 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
       // The extractor's `config` is overrides of its knobs, not the application configuration.
       outText = await extract(attachmentForExtractor(att), { providers: modules.getProviders(), onProgress, signal: ctx.signal })
     } catch (error) {
-      if (error?.name === 'ExtractError') {
-        const nameValue = att.kind === 'link' ? att.path : (att.name || att.kind)
-        const wrapped = new Error(`«${nameValue}»: ${error.message}`, { cause: error })
-        wrapped.code = error.code
-        wrapped.attachmentId = att.id
-        wrapped.retryable = EXTRACT_TRANSIENT.has(error.code)
-        throw wrapped
-      }
-      throw error
+      throw readableFailure(att, error, ctx.signal)
     }
     if (!outText || typeof outText.text !== 'string') throw new Error(`El extractor de «${att.name || att.kind}» no devolvió texto.`)
     // Writing is a single statement: no transaction is needed and the lock is not held during the call.
@@ -177,10 +197,15 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
           ctx.signal.throwIfAborted()
         }
 
-        transitionInput(db, inputId, 'analyzing', { now })
-        advance(pending.length, 0, step('analyzing'))
         const atts = all(db, 'SELECT id, kind, name, extracted_text FROM attachments WHERE input_id = ? ORDER BY id', inputId)
           .map((a) => ({ id: a.id, kind: a.kind, name: a.name, extracted: a.extracted_text ?? '' }))
+        // Nothing to analyze: no text and every attachment came out blank (a recording with no voice, an empty document). The analyzer would
+        // refuse it with «datos inválidos»; here the sender is told what happened, and it does not improve on retry.
+        if (input.text.trim() === '' && atts.every((a) => a.extracted.trim() === '')) {
+          throw permanent('No se pudo sacar texto del envío: el audio no tiene voz, el documento está vacío o la imagen no se pudo describir.', 'no_text')
+        }
+        transitionInput(db, inputId, 'analyzing', { now })
+        advance(pending.length, 0, step('analyzing'))
         // UD-018: the author's language selects the prompts and the language of the output; it travels as context data.
         const author = get(db, 'SELECT language FROM members WHERE id = ?', input.author_id)
         const language = author?.language ?? DEFAULT_LANGUAGE
@@ -310,6 +335,7 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
         const att = get(db, 'SELECT * FROM attachments WHERE id = ?', id)
         if (!att) throw permanent('El adjunto del trabajo ya no existe.', 'attachment_missing')
         const advance = meter(job, ctx, 1)
+        await reserveAudio([att], ctx) // an attachment added to a published message transcribes with the same hourly budget as a send
         await extractAttachment(job, ctx, att, (percent, phraseText) => advance(0, (percent ?? 0) / 100, phraseText || 'Lectura de adjunto'))
         return () => events.publishForJob(job.id, { kind: 'done', data: { status: 'done' } })
       },

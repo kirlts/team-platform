@@ -207,7 +207,7 @@ export function createResources(t: Transport) {
       create: (messageId: string, reply: NewReply) =>
         replyHasMedia(reply)
           ? call(routes.replyCreate, { params: { id: messageId }, form: replyForm(reply) })
-          : call(routes.replyCreate, { params: { id: messageId }, body: { body: reply.body, kind: reply.kind } }),
+          : call(routes.replyCreate, { params: { id: messageId }, body: { body: reply.body, kind: reply.kind, ...(reply.mention_ids?.length ? { mention_ids: reply.mention_ids } : {}) } }),
       /**
        * Edits the text of a reply, only by its author (UD-253, H-3714). It sends the version read in the thread; on `edit_conflict`
        * it reads the thread again and retries once with the current version. Returns the message with its thread.

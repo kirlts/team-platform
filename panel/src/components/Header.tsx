@@ -75,7 +75,7 @@ function NotificationBell() {
                 <Link to={`/messages/${n.message_id}`} className="flex flex-col gap-0.5 px-3 py-2 hover:bg-hover">
                   <span className="break-words text-sm font-medium">{n.title}</span>
                   <span className="text-xs text-muted">
-                    {memberName(n.author_id)} · {format.stamp(n.at)}
+                    {n.reason === 'mention' ? t('bell.mention', { name: memberName(n.author_id) }) : memberName(n.author_id)} · {format.stamp(n.at)}
                   </span>
                 </Link>
               </li>

@@ -1,14 +1,17 @@
 import { useState } from 'react'
 import { Check } from '@/components/icons'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/input'
 import { useErrorText, useT } from '@/i18n'
-import { useReply } from '@team-platform/client/react'
+import { useMe, useReply } from '@team-platform/client/react'
+import type { Member } from '@team-platform/client'
+import { activeMentions } from '@/lib/mention'
 import { useMediaDraft } from '@/lib/useMediaDraft'
+import { useLookups } from './lookups'
+import { MentionTextarea } from './MentionTextarea'
 import { CaptureButtons, ClipMenu, MediaDraftList, RecordingStatus } from './MediaDraft'
 
 /** Reply to a message: text and, as in the send bar, clip, camera and microphone. */
-export function ReplyForm({ messageId, onSent, autoFocus, children }: { messageId: string; onSent?: () => void; autoFocus?: boolean; children?: React.ReactNode }) {
+export function ReplyForm({ messageId, onSent, autoFocus, children, senderMode = false }: { messageId: string; onSent?: () => void; autoFocus?: boolean; children?: React.ReactNode; /** The sender of the message writes only to call someone (UD-275): without a mention there is nothing to send. */ senderMode?: boolean }) {
   const t = useT()
   // Sending is confirmed in the form itself, until the next word is typed: a notice floats over the bottom of a phone, exactly where this form sits (J4-flow-04).
   const [sent, setSent] = useState(false)
@@ -16,14 +19,20 @@ export function ReplyForm({ messageId, onSent, autoFocus, children }: { messageI
   const [body, setBody] = useState('')
   const draft = useMediaDraft()
   const reply = useReply(messageId)
+  const me = useMe().data
+  const { activeMembers } = useLookups()
+  const [picked, setPicked] = useState<Member[]>([])
+  const mentions = activeMentions(body, picked) // a token the person erased is no longer a mention
+  const noMention = senderMode && mentions.length === 0
 
   const submit = () => {
-    if (!body.trim() || reply.isPending || draft.recording) return
+    if (!body.trim() || noMention || reply.isPending || draft.recording) return
     reply.mutate(
-      { body: body.trim(), kind: 'answer', files: draft.locals.map((l) => l.file), links: draft.links },
+      { body: body.trim(), kind: 'answer', files: draft.locals.map((l) => l.file), links: draft.links, mention_ids: mentions.map((m) => m.id) },
       {
         onSuccess: () => {
           setBody('')
+          setPicked([])
           draft.clear()
           setSent(true)
           onSent?.()
@@ -46,15 +55,18 @@ export function ReplyForm({ messageId, onSent, autoFocus, children }: { messageI
         {draft.recording ? (
           <RecordingStatus seconds={draft.recording.seconds} />
         ) : (
-          <Textarea
+          <MentionTextarea
             aria-label={t('reply.label')}
             id="reply-field"
             placeholder={t('reply.placeholder')}
+            candidates={activeMembers.filter((m) => m.id !== me?.id)}
+            picked={picked}
+            onPick={setPicked}
             autoFocus={autoFocus}
             rows={2}
             value={body}
-            onChange={(e) => {
-              setBody(e.target.value)
+            onChange={(text) => {
+              setBody(text)
               setSent(false)
             }}
             onPaste={draft.onPaste}
@@ -82,8 +94,13 @@ export function ReplyForm({ messageId, onSent, autoFocus, children }: { messageI
         )}
       </div>
       <div className="flex flex-wrap items-center justify-end gap-4">
+        {noMention && body.trim() !== '' && (
+          <p role="status" className="mr-auto text-xs text-muted">
+            {t('reply.missingMention')}
+          </p>
+        )}
         {children}
-        <Button type="submit" variant="primary" disabled={!body.trim() || reply.isPending || !!draft.recording}>
+        <Button type="submit" variant="primary" disabled={!body.trim() || noMention || reply.isPending || !!draft.recording}>
           {t('reply.send')}
         </Button>
       </div>

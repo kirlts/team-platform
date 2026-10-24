@@ -29,7 +29,7 @@ export function toWire (row) {
   if (row.kind === 'done') {
     return { id: String(row.seq), event: 'done', data: { ...data, job_id: id(row.job_id), input_id: id(data.input_id) ?? null, attachment_id: id(data.attachment_id), done: true, at: iso(row.at) } }
   }
-  return { id: String(row.seq), event: 'message', data: { ...data, message_id: id(data.message_id), author_id: id(data.author_id), input_id: id(data.input_id), at: iso(row.at) } }
+  return { id: String(row.seq), event: 'message', data: { ...data, message_id: id(data.message_id), author_id: id(data.author_id), input_id: id(data.input_id), ...(data.reply_id ? { reply_id: id(data.reply_id) } : {}), at: iso(row.at) } }
 }
 
 /**

@@ -158,6 +158,8 @@ export interface Reply {
   kind: ReplyKind
   /** The member the message was forwarded to; only in a reply of kind `forward` (UD-272), whose `body` is the reason. */
   forwarded_to?: string | null
+  /** The members the reply mentions, picked in the list of «@» (UD-275). */
+  mentions?: string[]
   created_at: string
   /** Media types attached to the reply, to draw one icon per type (UD-016). */
   attachment_kinds?: AttachmentKind[]
@@ -331,6 +333,9 @@ export interface NewMessageEvent {
   title: string
   author_id: string
   at?: string
+  /** `mention` when someone picked the member in a reply (UD-275); anything else is an assignment. */
+  reason?: string
+  reply_id?: string
 }
 
 /** GET /messages/summary: what affects me by state, and the messages of each area by state (UD-028, UD-041). */
@@ -500,6 +505,8 @@ export interface NewReply {
   kind: Exclude<ReplyKind, 'forward'>
   files?: File[]
   links?: string[]
+  /** The members picked in the list of «@» (UD-275); never read from the text. */
+  mention_ids?: string[]
 }
 
 /** Result of a reprocess (POST /inputs/:id/reprocess). */

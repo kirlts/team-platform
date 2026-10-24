@@ -21,6 +21,7 @@ export function replyForm(reply: NewReply): FormData {
   form.append('kind', reply.kind)
   for (const f of reply.files ?? []) form.append('files', f, f.name)
   for (const l of reply.links ?? []) form.append('links', l)
+  for (const m of reply.mention_ids ?? []) form.append('mention_ids', m)
   return form
 }
 

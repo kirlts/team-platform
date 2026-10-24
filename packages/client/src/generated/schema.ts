@@ -996,6 +996,8 @@ export interface paths {
                                         size?: number;
                                     }[];
                                     attachment_kinds?: string[];
+                                    /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
+                                    mentions?: string[];
                                     created_at?: string;
                                     version?: number;
                                     edited_at?: string | null;
@@ -1029,6 +1031,8 @@ export interface paths {
                                         size?: number;
                                     }[];
                                     attachment_kinds?: string[];
+                                    /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
+                                    mentions?: string[];
                                     created_at?: string;
                                     version?: number;
                                     edited_at?: string | null;
@@ -1324,6 +1328,8 @@ export interface paths {
                                         size?: number;
                                     }[];
                                     attachment_kinds?: string[];
+                                    /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
+                                    mentions?: string[];
                                     created_at?: string;
                                     version?: number;
                                     edited_at?: string | null;
@@ -1513,6 +1519,8 @@ export interface paths {
                                     size?: number;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
+                                mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
@@ -1546,6 +1554,8 @@ export interface paths {
                                     size?: number;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
+                                mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
@@ -1701,6 +1711,8 @@ export interface paths {
                                     size?: number;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
+                                mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
@@ -1734,6 +1746,8 @@ export interface paths {
                                     size?: number;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
+                                mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
@@ -1932,6 +1946,8 @@ export interface paths {
                                     size?: number;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
+                                mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
@@ -1965,6 +1981,8 @@ export interface paths {
                                     size?: number;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
+                                mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
@@ -2204,6 +2222,8 @@ export interface paths {
                                     size?: number;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
+                                mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
@@ -2237,6 +2257,8 @@ export interface paths {
                                     size?: number;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
+                                mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
@@ -2343,6 +2365,8 @@ export interface paths {
                                     size?: number;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
+                                mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
@@ -2376,6 +2400,8 @@ export interface paths {
                                     size?: number;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
+                                mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
@@ -2483,6 +2509,8 @@ export interface paths {
                                     size?: number;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
+                                mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
@@ -2516,6 +2544,8 @@ export interface paths {
                                     size?: number;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
+                                mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
@@ -2627,6 +2657,8 @@ export interface paths {
                                     size?: number;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
+                                mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
@@ -2660,6 +2692,8 @@ export interface paths {
                                     size?: number;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
+                                mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
@@ -2707,7 +2741,7 @@ export interface paths {
         put?: never;
         /**
          * Responder un mensaje, con archivos y enlaces opcionales (403 si quien responde es su emisor)
-         * @description JSON `{ body, kind }` o multipart (`body`, `kind`, `files[]`, `links[]`) con los mismos topes y el mismo almacenamiento que `POST /inputs`. Una respuesta con archivos o enlaces puede ir sin texto. Los adjuntos se guardan y se sirven, no se analizan: `GET /replies/attachments/:id` entrega el archivo. Devuelve el mensaje con su hilo; cada respuesta lleva `attachments` y `attachment_kinds`.
+         * @description JSON `{ body, kind, mention_ids }` o multipart (`body`, `kind`, `mention_ids` repetido, `files[]`, `links[]`) con los mismos topes y el mismo almacenamiento que `POST /inputs`. Una respuesta con archivos o enlaces puede ir sin texto. Los adjuntos se guardan y se sirven, no se analizan: `GET /replies/attachments/:id` entrega el archivo. `mention_ids` (UD-275) son los miembros que la persona eligió en la lista que abre «@»: nunca se leen del texto. Cada uno pasa a los asignados del mensaje; una persona recibe un aviso y un agente recibe su trabajo `execute` con el hilo completo (si ya trabaja ese mensaje, la mención queda pendiente y se atiende al terminar). 404 si un miembro no existe; 400 `assignee_inactive` si está desactivado, `mention_self` si es quien escribe, `mention_loop` si un agente menciona a otro agente. El emisor del mensaje sólo responde si menciona a alguien (esa respuesta no cuenta como respuesta y el mensaje queda `open`). Auditoría `message.mention` por cada uno. Devuelve el mensaje con su hilo; cada respuesta lleva `attachments`, `attachment_kinds` y `mentions`.
          */
         post: {
             parameters: {
@@ -2724,6 +2758,7 @@ export interface paths {
                         body: string;
                         /** @enum {string} */
                         kind?: "answer" | "fix" | "clarification";
+                        mention_ids?: number[];
                     };
                     "multipart/form-data": {
                         /** @description Texto de la respuesta; puede faltar si hay archivos o enlaces. */
@@ -2789,6 +2824,8 @@ export interface paths {
                                     size?: number;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
+                                mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
@@ -2822,6 +2859,8 @@ export interface paths {
                                     size?: number;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
+                                mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
@@ -2940,6 +2979,8 @@ export interface paths {
                                     size?: number;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
+                                mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
@@ -2973,6 +3014,8 @@ export interface paths {
                                     size?: number;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
+                                mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
@@ -3081,6 +3124,8 @@ export interface paths {
                                     size?: number;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
+                                mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
@@ -3114,6 +3159,8 @@ export interface paths {
                                     size?: number;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
+                                mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
@@ -3222,6 +3269,8 @@ export interface paths {
                                     size?: number;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
+                                mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
@@ -3255,6 +3304,8 @@ export interface paths {
                                     size?: number;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
+                                mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;

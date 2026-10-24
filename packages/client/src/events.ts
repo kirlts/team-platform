@@ -21,6 +21,8 @@ export interface Notice {
   title: string
   author_id: string
   at: string
+  /** `mention`: the notice is a mention in a reply (UD-275). */
+  reason?: string
 }
 
 export interface EventsSnapshot {
@@ -95,9 +97,12 @@ export class EventsStore {
   }
 
   newMessage(e: NewMessageEvent) {
-    if (this.snap.notices.some((n) => n.key === e.message_id)) return
+    const mention = e.reason === 'mention'
+    const key = mention ? `${e.message_id}#${e.reply_id ?? ''}` : e.message_id // a mention is a notice of its own even when the message already gave one
+    if (this.snap.notices.some((n) => n.key === key)) return
     const notice: Notice = {
-      key: e.message_id,
+      key,
+      ...(mention ? { reason: 'mention' } : {}),
       message_id: e.message_id,
       title: e.title,
       author_id: e.author_id,
@@ -147,6 +152,8 @@ export class EventsStore {
         title: typeof d.title === 'string' ? d.title : '',
         author_id: typeof d.author_id === 'string' ? d.author_id : '',
         at: str(d.at),
+        reason: str(d.reason),
+        reply_id: str(d.reply_id),
       })
     }
   }

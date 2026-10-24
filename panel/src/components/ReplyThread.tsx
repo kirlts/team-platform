@@ -40,6 +40,8 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
   const restore = useRestoreReply()
   const edit = useEditReply(message.id)
   const canReply = canReplyTo(message, me?.id, members) // the sender too, while they hold the question of a handoff (UD-269)
+  /** The names of the members the reply mentions (a list of ids chosen in the form): their tokens are drawn highlighted. */
+  const mentionNames = (r: Reply) => (r.mentions ?? []).map((id) => memberName(id)).filter(Boolean)
   const canDelete = (r: Reply) => !!me && (me.id === r.author_id || me.role === 'editor')
   const canEdit = (r: Reply) => !!me && me.id === r.author_id
   /** A reply with attachments may be left without text; one without them may not (the API answers 400 `reply_empty`). */
@@ -167,9 +169,9 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
                       )}
                     </div>
                     {canEdit(r) ? (
-                      <EditableText value={r.body} label={t('replies.body')} multiline validate={bodyRule(r)} onSave={(v) => changeText(r, v)} displayClassName={last ? 'text-emph' : 'text-sm'} render={(v) => <Markdown source={v} breaks />} />
+                      <EditableText value={r.body} label={t('replies.body')} multiline validate={bodyRule(r)} onSave={(v) => changeText(r, v)} displayClassName={last ? 'text-emph' : 'text-sm'} render={(v) => <Markdown source={v} breaks mentions={mentionNames(r)} />} />
                     ) : (
-                      r.body && <Markdown source={r.body} breaks className={cn('break-words', last ? 'text-emph' : 'text-sm')} />
+                      r.body && <Markdown source={r.body} breaks mentions={mentionNames(r)} className={cn('break-words', last ? 'text-emph' : 'text-sm')} />
                     )}
                     <ReplyMedia items={r.attachments ?? []} />
                   </article>
@@ -180,8 +182,9 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
         </div>
       )}
       <div ref={foot} className="shrink-0 scroll-mb-4">
-      {canReply ? (
-        <ReplyForm messageId={message.id} autoFocus={focusForm} onSent={() => setSentAt(message.replies.length)}>
+      {canReply || (message.status !== 'closed' && !!me) ? (
+        // The sender does not answer their own message, but may write in the thread to call someone with «@» (UD-275): the form is the same and asks for a mention.
+        <ReplyForm messageId={message.id} autoFocus={focusForm} senderMode={!canReply} onSent={() => setSentAt(message.replies.length)}>
           <CloseMessage id={message.id} closed={false} quiet />
         </ReplyForm>
       ) : (

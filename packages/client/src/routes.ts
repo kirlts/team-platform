@@ -50,6 +50,7 @@ export const routes = {
   messageTiming: route('get', '/api/messages/{id}/timing'),
   messageExecute: route('post', '/api/messages/{id}/execute'),
   messageDeliver: route('post', '/api/messages/{id}/deliver'),
+  messageForward: route('post', '/api/messages/{id}/forward'),
 
   replyCreate: route('post', '/api/messages/{id}/replies'),
   replyEdit: route('patch', '/api/messages/{id}/replies/{replyId}'),

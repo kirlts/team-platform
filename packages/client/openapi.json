@@ -2230,8 +2230,16 @@
                                 "enum": [
                                   "answer",
                                   "fix",
-                                  "clarification"
+                                  "clarification",
+                                  "forward"
                                 ]
+                              },
+                              "forwarded_to": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
                               },
                               "attachments": {
                                 "type": "array",
@@ -2343,8 +2351,16 @@
                                   "enum": [
                                     "answer",
                                     "fix",
-                                    "clarification"
+                                    "clarification",
+                                    "forward"
                                   ]
+                                },
+                                "forwarded_to": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
                                 },
                                 "attachments": {
                                   "type": "array",
@@ -2893,8 +2909,16 @@
                                 "enum": [
                                   "answer",
                                   "fix",
-                                  "clarification"
+                                  "clarification",
+                                  "forward"
                                 ]
+                              },
+                              "forwarded_to": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
                               },
                               "attachments": {
                                 "type": "array",
@@ -3268,8 +3292,16 @@
                           "enum": [
                             "answer",
                             "fix",
-                            "clarification"
+                            "clarification",
+                            "forward"
                           ]
+                        },
+                        "forwarded_to": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
                         },
                         "attachments": {
                           "type": "array",
@@ -3381,8 +3413,16 @@
                             "enum": [
                               "answer",
                               "fix",
-                              "clarification"
+                              "clarification",
+                              "forward"
                             ]
+                          },
+                          "forwarded_to": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
                           },
                           "attachments": {
                             "type": "array",
@@ -3742,8 +3782,16 @@
                           "enum": [
                             "answer",
                             "fix",
-                            "clarification"
+                            "clarification",
+                            "forward"
                           ]
+                        },
+                        "forwarded_to": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
                         },
                         "attachments": {
                           "type": "array",
@@ -3855,8 +3903,16 @@
                             "enum": [
                               "answer",
                               "fix",
-                              "clarification"
+                              "clarification",
+                              "forward"
                             ]
+                          },
+                          "forwarded_to": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
                           },
                           "attachments": {
                             "type": "array",
@@ -4306,8 +4362,16 @@
                           "enum": [
                             "answer",
                             "fix",
-                            "clarification"
+                            "clarification",
+                            "forward"
                           ]
+                        },
+                        "forwarded_to": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
                         },
                         "attachments": {
                           "type": "array",
@@ -4419,8 +4483,16 @@
                             "enum": [
                               "answer",
                               "fix",
-                              "clarification"
+                              "clarification",
+                              "forward"
                             ]
+                          },
+                          "forwarded_to": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
                           },
                           "attachments": {
                             "type": "array",
@@ -4852,8 +4924,16 @@
                           "enum": [
                             "answer",
                             "fix",
-                            "clarification"
+                            "clarification",
+                            "forward"
                           ]
+                        },
+                        "forwarded_to": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
                         },
                         "attachments": {
                           "type": "array",
@@ -4965,8 +5045,16 @@
                             "enum": [
                               "answer",
                               "fix",
-                              "clarification"
+                              "clarification",
+                              "forward"
                             ]
+                          },
+                          "forwarded_to": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
                           },
                           "attachments": {
                             "type": "array",
@@ -5246,8 +5334,16 @@
                           "enum": [
                             "answer",
                             "fix",
-                            "clarification"
+                            "clarification",
+                            "forward"
                           ]
+                        },
+                        "forwarded_to": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
                         },
                         "attachments": {
                           "type": "array",
@@ -5359,8 +5455,16 @@
                             "enum": [
                               "answer",
                               "fix",
-                              "clarification"
+                              "clarification",
+                              "forward"
                             ]
+                          },
+                          "forwarded_to": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
                           },
                           "attachments": {
                             "type": "array",
@@ -5609,8 +5713,16 @@
                           "enum": [
                             "answer",
                             "fix",
-                            "clarification"
+                            "clarification",
+                            "forward"
                           ]
+                        },
+                        "forwarded_to": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
                         },
                         "attachments": {
                           "type": "array",
@@ -5722,8 +5834,16 @@
                             "enum": [
                               "answer",
                               "fix",
-                              "clarification"
+                              "clarification",
+                              "forward"
                             ]
+                          },
+                          "forwarded_to": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
                           },
                           "attachments": {
                             "type": "array",
@@ -5972,8 +6092,16 @@
                           "enum": [
                             "answer",
                             "fix",
-                            "clarification"
+                            "clarification",
+                            "forward"
                           ]
+                        },
+                        "forwarded_to": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
                         },
                         "attachments": {
                           "type": "array",
@@ -6085,8 +6213,16 @@
                             "enum": [
                               "answer",
                               "fix",
-                              "clarification"
+                              "clarification",
+                              "forward"
                             ]
+                          },
+                          "forwarded_to": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
                           },
                           "attachments": {
                             "type": "array",
@@ -6397,8 +6533,16 @@
                           "enum": [
                             "answer",
                             "fix",
-                            "clarification"
+                            "clarification",
+                            "forward"
                           ]
+                        },
+                        "forwarded_to": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
                         },
                         "attachments": {
                           "type": "array",
@@ -6510,8 +6654,420 @@
                             "enum": [
                               "answer",
                               "fix",
-                              "clarification"
+                              "clarification",
+                              "forward"
                             ]
+                          },
+                          "forwarded_to": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
+                          },
+                          "attachments": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "reply_id": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "mime": {
+                                  "type": "string"
+                                },
+                                "size": {
+                                  "type": "integer"
+                                }
+                              }
+                            }
+                          },
+                          "attachment_kinds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "edited_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "edits": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "member_id": {
+                            "type": "string"
+                          },
+                          "at": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "fields": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error: { code, message }.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Error: { code, message }.",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/messages/{id}/forward": {
+      "post": {
+        "summary": "Reenviar un mensaje a un miembro, con el motivo (UD-272)",
+        "tags": [
+          "Messages"
+        ],
+        "description": "El mismo mensaje suma a `member_id` entre sus asignados (no se crea otro) y el hilo gana una respuesta de tipo `forward`: autor quien reenvía, `forwarded_to` el destinatario y `body` el motivo, que es obligatorio. Un mensaje respondido vuelve a `open` para quien lo recibe. Si el destinatario es un agente, se encola su trabajo `execute` del mismo mensaje con el reenvío como contexto; la sesión decide si resuelve o investiga. Responde 201 con el mensaje y su hilo. 400 `forward_comment_required` sin motivo, 400 `forward_to_self` si el destinatario es quien reenvía, 400 `assignee_inactive` si está desactivado, 404 si el mensaje o el miembro no existen, 409 `message_closed` si el mensaje está cerrado, 409 `execute_busy` si el agente ya tiene un trabajo en cola o corriendo para el mensaje. Auditoría `message.forward`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "member_id",
+                  "comment"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "member_id": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "comment": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "input_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "area_id": {
+                      "type": "string"
+                    },
+                    "template_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "author_id": {
+                      "type": "string"
+                    },
+                    "sent_by_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Who had the session when the input of the message was sent in the name of its author (UD-255); null when it is the author."
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "body": {
+                      "type": "string"
+                    },
+                    "fields": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "open",
+                        "answered",
+                        "closed"
+                      ]
+                    },
+                    "assignee_ids": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "attachments": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "input_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "kind": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "mime": {
+                            "type": "string"
+                          },
+                          "size": {
+                            "type": "integer"
+                          },
+                          "extracted": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    },
+                    "attachment_kinds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "reply_count": {
+                      "type": "integer"
+                    },
+                    "last_reply": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "message_id": {
+                          "type": "string"
+                        },
+                        "author_id": {
+                          "type": "string"
+                        },
+                        "body": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "answer",
+                            "fix",
+                            "clarification",
+                            "forward"
+                          ]
+                        },
+                        "forwarded_to": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
+                        },
+                        "attachments": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "reply_id": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "mime": {
+                                "type": "string"
+                              },
+                              "size": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        },
+                        "attachment_kinds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "edited_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
+                    "created_at": {
+                      "type": "string"
+                    },
+                    "updated_at": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "edited_at": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "closed_at": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "deleted_at": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true."
+                    },
+                    "trace_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution."
+                    },
+                    "observed": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "What a video frame shows and nobody says, outside the body; empty when there is none."
+                    },
+                    "replies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "answer",
+                              "fix",
+                              "clarification",
+                              "forward"
+                            ]
+                          },
+                          "forwarded_to": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
                           },
                           "attachments": {
                             "type": "array",
@@ -6759,8 +7315,16 @@
                           "enum": [
                             "answer",
                             "fix",
-                            "clarification"
+                            "clarification",
+                            "forward"
                           ]
+                        },
+                        "forwarded_to": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
                         },
                         "attachments": {
                           "type": "array",
@@ -6872,8 +7436,16 @@
                             "enum": [
                               "answer",
                               "fix",
-                              "clarification"
+                              "clarification",
+                              "forward"
                             ]
+                          },
+                          "forwarded_to": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
                           },
                           "attachments": {
                             "type": "array",
@@ -7121,8 +7693,16 @@
                           "enum": [
                             "answer",
                             "fix",
-                            "clarification"
+                            "clarification",
+                            "forward"
                           ]
+                        },
+                        "forwarded_to": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
                         },
                         "attachments": {
                           "type": "array",
@@ -7234,8 +7814,16 @@
                             "enum": [
                               "answer",
                               "fix",
-                              "clarification"
+                              "clarification",
+                              "forward"
                             ]
+                          },
+                          "forwarded_to": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
                           },
                           "attachments": {
                             "type": "array",

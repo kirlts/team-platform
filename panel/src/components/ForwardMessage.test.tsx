@@ -92,7 +92,7 @@ describe('the window to forward a message (UD-272)', () => {
     fireEvent.change(select, { target: { value: '3' } })
     fireEvent.change(screen.getByTestId('forward-comment'), { target: { value: '  Investiga y recomiéndame.  ' } })
     fireEvent.click(screen.getByTestId('forward-submit'))
-    await waitFor(() => expect(posted).toEqual([{ path: '/messages/m1/forward', body: { member_id: 3, comment: 'Investiga y recomiéndame.' } }]))
+    await waitFor(() => expect(posted).toEqual([{ path: '/messages/m1/forward', body: { member_id: '3', comment: 'Investiga y recomiéndame.' } }]))
     await waitFor(() => expect(screen.queryByTestId('forward-member')).toBeNull())
     expect(api).toHaveBeenCalled()
   })

@@ -54,7 +54,7 @@ test('forward to a person: the same message, one more assignee, one `forward` re
   const messagesBefore = count(env, 'SELECT COUNT(*) AS n FROM messages')
   const seen = []
   env.events.subscribe(env.ids.beto, (e) => seen.push(e))
-  const r = await forward(env, id, env.c.ed, { member_id: env.ids.beto, comment: ' Revisa esto antes del jueves. ' })
+  const r = await forward(env, id, env.c.ed, { member_id: String(env.ids.beto), comment: ' Revisa esto antes del jueves. ' }) // the client sends ids as text
   assert.equal(r.statusCode, 201, r.body)
   const message = r.json()
   assert.equal(message.id, String(id))

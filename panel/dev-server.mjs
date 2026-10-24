@@ -237,7 +237,8 @@ const liveReplies = (msg) => (replies.get(msg.id) ?? []).filter((r) => !r.delete
 const liveMessages = () => messages.filter((x) => !x.deleted_at)
 
 function syncStatus(msg) {
-  msg.status = msg.closed_at ? 'closed' : liveReplies(msg).length > 0 ? 'answered' : 'open'
+  // A forward is a notice of the thread, not an answer (UD-272): the message waits for whoever received it.
+  msg.status = msg.closed_at ? 'closed' : liveReplies(msg).some((r) => r.kind !== 'forward') ? 'answered' : 'open'
   return msg.status
 }
 
@@ -1350,7 +1351,7 @@ const server = createServer(async (req, res) => {
       syncStatus(msg)
       return send(res, 200, { ...view(msg), replies: liveReplies(msg).map(replyView) })
     }
-    m = /^\/messages\/([^/]+)(?:\/(replies|close|reopen|attachments|restore))?$/.exec(path)
+    m = /^\/messages\/([^/]+)(?:\/(replies|close|reopen|attachments|restore|forward))?$/.exec(path)
     if (m) {
       const msg = messages.find((x) => x.id === m[1])
       if (!msg) return fail(res, 404, 'No existe')
@@ -1475,6 +1476,21 @@ const server = createServer(async (req, res) => {
         replies.get(msg.id).push(reply)
         syncStatus(msg)
         return send(res, 201, replyView(reply))
+      }
+      if (m[2] === 'forward' && method === 'POST') {
+        // UD-272: the same message, one more assignee and a notice of kind `forward` in its thread; the reason is required.
+        const body = await readJson(req)
+        const comment = String(body?.comment ?? '').trim()
+        if (!comment) return fail(res, 400, 'Falta el motivo del reenvío.', 'forward_comment_required')
+        const to = members.find((x) => String(x.id) === String(body?.member_id))
+        if (!to) return fail(res, 404, 'El miembro no existe.', 'not_found')
+        if (to.id === me.id) return fail(res, 400, 'Un mensaje no se reenvía a quien lo reenvía.', 'forward_to_self')
+        if (to.active === false) return fail(res, 400, 'El miembro está desactivado.', 'assignee_inactive')
+        if (msg.closed_at) return fail(res, 409, 'El mensaje está cerrado. Hay que reabrirlo para reenviarlo.', 'message_closed')
+        replies.get(msg.id).push({ id: `r-${id()}`, message_id: msg.id, author_id: me.id, body: comment, kind: 'forward', forwarded_to: to.id, created_at: new Date().toISOString(), attachment_ids: [] })
+        if (!msg.assignee_ids.includes(to.id)) msg.assignee_ids = [...msg.assignee_ids, to.id]
+        syncStatus(msg)
+        return send(res, 201, { ...view(msg), replies: liveReplies(msg).map(replyView) })
       }
       if (m[2] === 'close' && method === 'POST') {
         msg.closed_at = new Date().toISOString()

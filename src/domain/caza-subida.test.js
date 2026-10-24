@@ -86,19 +86,3 @@ describe('the hourly audio budget', () => {
 })
 
 
-describe('what the extraction leaves for the analysis', () => {
-  it('H-3816: a send whose attachments came out blank, with no text of its own, fails at once saying so instead of «datos inválidos»', async () => {
-    const { analyze } = await import('../analyze/index.js')
-    const env = await setup({ worker: true, modules: { analyze, extract: async () => ({ text: '', meta: { warnings: [{ code: 'no_speech' }] } }), getProviders: () => ({ text: {} }) } })
-    const { input_id: id, job_id: jobId } = await env.submit('', [{ field: 'files', name: 'silencio.mp3', type: 'audio/mpeg', content: 'bytes' }])
-    await until(() => env.input(id).status === 'failed')
-    assert.equal(env.input(id).error_code, 'no_text')
-    assert.equal(env.attempts(jobId), 1)
-    // With a sentence of its own the same attachment goes on to the analysis.
-    const ok = await env.submit('Hay un error en el login', [{ field: 'files', name: 'silencio2.mp3', type: 'audio/mpeg', content: 'otros bytes' }])
-    await until(() => env.input(ok.input_id).status !== 'queued' && env.input(ok.input_id).status !== 'extracting')
-    assert.notEqual(env.input(ok.input_id).error_code, 'no_text')
-    await env.close()
-  })
-})
-

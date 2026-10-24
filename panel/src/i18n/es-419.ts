@@ -722,7 +722,6 @@ export const es419 = {
   'analysis.error.ffmpeg_killed': 'El programa que procesa audio y video se detuvo antes de terminar',
   'analysis.error.ffmpeg_timeout': 'El programa que procesa audio y video tardó demasiado',
   'analysis.error.extract_failed': 'No se pudo leer un adjunto',
-  'analysis.error.no_text': 'El envío no tiene texto que analizar',
   'analysis.error.file_missing': 'El archivo de un adjunto no existe',
   'analysis.error.harness': 'El analizador externo falló',
   'analysis.error.harness_unavailable': 'El analizador externo no está disponible',

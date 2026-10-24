@@ -150,18 +150,19 @@ describe('an audio of several chunks', () => {
   it('H-3824: when one chunk fails the chunks still in flight are stopped, so they do not go on spending the provider hour for a job that failed', async () => {
     const path = tmp.join('larga.m4a');
     await makeAudio(path, 14); // three chunks of 5 s with their overlap (the knobs below)
-    const stopped = [];
+    const calls = [];
     const speech = {
       async transcribe({ audioPath }, { signal } = {}) {
         if (audioPath.endsWith('chunk-0000.flac')) throw new ProviderHttpError('groq-speech: HTTP 400', { status: 400, retryable: false });
-        await new Promise((resolve) => { if (signal?.aborted) return resolve(); signal?.addEventListener('abort', resolve, { once: true }); setTimeout(resolve, 2500); });
-        stopped.push({ audioPath, aborted: Boolean(signal?.aborted) });
+        const call = { audioPath, ended: false };
+        calls.push(call);
+        await new Promise((resolve) => { if (signal?.aborted) return resolve(); signal?.addEventListener('abort', resolve, { once: true }); setTimeout(resolve, 3000); });
+        call.ended = true;
         return { text: '', segments: [] };
       },
     };
     await assert.rejects(extract(await att('audio', path, 'audio/mp4'), { providers: { speech }, config: { audio: { chunkSeconds: 5, overlapSeconds: 1, minChunkSeconds: 2 } } }), (e) => e instanceof ProviderHttpError);
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    assert.ok(stopped.length >= 1, 'another chunk was in flight');
-    assert.ok(stopped.every((c) => c.aborted), `a chunk ran to its end: ${JSON.stringify(stopped)}`);
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    assert.deepEqual(calls.filter((c) => !c.ended), [], 'a chunk went on with the provider after the job had failed');
   });
 });

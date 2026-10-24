@@ -727,7 +727,6 @@ export const en: Record<MessageKey, Message> = {
   'analysis.error.ffmpeg_killed': 'The program that processes audio and video stopped before it finished',
   'analysis.error.ffmpeg_timeout': 'The program that processes audio and video took too long',
   'analysis.error.extract_failed': 'An attachment could not be read',
-  'analysis.error.no_text': 'The submission has no text to analyze',
   'analysis.error.file_missing': 'The file of an attachment does not exist',
   'analysis.error.harness': 'The external analyzer failed',
   'analysis.error.harness_unavailable': 'The external analyzer is not available',

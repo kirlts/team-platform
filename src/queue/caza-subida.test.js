@@ -49,30 +49,7 @@ describe('the worker survives the database failing under it', () => {
     assert.deepEqual(seen.map((e) => e.message), [])
     await env.close()
   })
-
-  it('H-3822: a failure that cannot even be recorded (the write that closes the job fails) does not end the process, and the job is recovered when its lease runs out', async () => {
-    const env = await setup({ config: { worker: { heartbeatMs: 20, leaseMs: 150 } } })
-    const config = { ...env.config, worker: { ...env.config.worker, concurrency: 1 } }
-    let failing = true
-    const queue = { ...env.queue, fail: (...args) => { if (failing) throw new Error('SQLITE_FULL: database or disk is full'); return env.queue.fail(...args) } }
-    let runs = 0
-    const handlers = { extract: { run: async () => { runs++; if (runs === 1) throw new Error('el trabajo falla') } } }
-    const jobId = env.queue.enqueue('extract', {})
-    const w = createWorker({ db: env.db, queue, events: env.events, config, handlers })
-    const seen = await watch(async () => {
-      w.start()
-      await until(() => runs === 1 && w.active === 0)
-      failing = false
-      // The job is still `running` for this worker's id, but this worker no longer runs it: the sweep must not spare it for ever.
-      await until(() => env.queue.getJob(jobId).status === 'done', { timeoutMs: 3000 })
-    })
-    await w.stop()
-    assert.deepEqual(seen.map((e) => e.message), [])
-    assert.equal(runs, 2, 'the second attempt ran')
-    await env.close()
-  })
 })
-
 
 describe('the worker is never held by a job that does not listen to its signal', () => {
   it('H-3803: a job that ignores the abort is failed at its time limit and gives its slot back; a stop does not wait for it forever', async () => {

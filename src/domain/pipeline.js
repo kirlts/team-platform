@@ -199,11 +199,6 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
 
         const atts = all(db, 'SELECT id, kind, name, extracted_text FROM attachments WHERE input_id = ? ORDER BY id', inputId)
           .map((a) => ({ id: a.id, kind: a.kind, name: a.name, extracted: a.extracted_text ?? '' }))
-        // Nothing to analyze: no text and every attachment came out blank (a recording with no voice, an empty document). The analyzer would
-        // refuse it with «datos inválidos»; here the sender is told what happened, and it does not improve on retry.
-        if (input.text.trim() === '' && atts.every((a) => a.extracted.trim() === '')) {
-          throw permanent('No se pudo sacar texto del envío: el audio no tiene voz, el documento está vacío o la imagen no se pudo describir.', 'no_text')
-        }
         transitionInput(db, inputId, 'analyzing', { now })
         advance(pending.length, 0, step('analyzing'))
         // UD-018: the author's language selects the prompts and the language of the output; it travels as context data.

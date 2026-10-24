@@ -349,7 +349,7 @@ function TrayState({ items, progress }: { items: readonly TrayItem[]; progress: 
 
 function Feed({ kind, meId, phone = false, bound }: { kind: 'messages' | 'replies'; meId: string; phone?: boolean; bound?: RefObject<HTMLElement | null> }) {
   const t = useT()
-  const [mine, setMine] = useState(false) // Inicio muestra lo de todo el equipo; «Para mí» es el filtro (Martín, 2026-10-24)
+  const [mine, setMine] = useState(false) // Home shows the whole team; «Para mí» is the filter (UD-273)
   const query: MessageQuery = { filters: mine ? [{ prop: 'for', op: 'eq', value: ME }] : [], q: '' }
   const feed = useMessages({ query, meId, repliesFeed: kind === 'replies', enabled: !!meId })
   const rows = useMemo(() => feed.data ?? [], [feed.data])

@@ -981,7 +981,7 @@ export const es419 = {
   'analysis.error.execute_api_error': 'El servicio del modelo falló',
   'analysis.error.execute_flag_rejected': 'El programa de la sesión no reconoce una opción',
   'analysis.error.job_failed_unseen': 'Falló y nadie recibió el mensaje',
-  'analysis.error.lease_expired': 'El análisis se interrumpió: el servidor se reinició. Reprocesar',
+  'analysis.error.lease_expired': 'Análisis interrumpido por un reinicio: reprocesar',
   'progress.deliverVerify': 'Entrega: verificación',
   'progress.deliverDeploy': 'Entrega: despliegue',
   'progress.deliverWait': 'En espera: entrega a producción',

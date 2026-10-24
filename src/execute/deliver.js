@@ -20,7 +20,7 @@
 
 import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
-import { SpanStatusCode } from '@opentelemetry/api'
+import { SpanStatusCode, context, trace } from '@opentelemetry/api'
 import { get, run as runSql } from '../db/index.js'
 import { parseJson } from '../db/util.js'
 import { addReply } from '../domain/messages.js'
@@ -28,7 +28,7 @@ import { handOffToPerson } from '../domain/escalation.js'
 import { permanent } from '../domain/errors.js'
 import { Deferred } from '../domain/pipeline.js'
 import { step } from '../domain/progress-phrases.js'
-import { withSpan } from '../telemetry/api.js'
+import { endManualSpan, startManualSpan, withSpan } from '../telemetry/api.js'
 import { updateExecuteRun } from '../telemetry/execute-runs.js'
 import { closingCaptures } from './captures.js'
 import { enqueueExecute } from './enqueue.js'
@@ -154,8 +154,18 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
       result = await withSpan('execute.deliver', {
         'team.step': 'execute.deliver', 'team.message_id': String(messageId), 'team.member_id': String(memberId), 'team.branch': branch, 'team.deliver_round': payload.round ?? 0
       }, async (span) => {
-        onPhase = ({ code, percent }) => { span.addEvent('deliver.phase', { 'team.phase': code }); setPhase(code, percent) }
+        // One child span per phase of the delivery (`execute.deliver.verify`, `execute.deliver.deploy`): the breakdown of a delivery reads from
+        // the traces and not from the machine's logs. The phase in progress ends when the next marker arrives or the command exits.
+        const parentContext = trace.setSpan(context.active(), span)
+        let phaseSpan = null
+        const enterPhase = (code) => {
+          if (phaseSpan) endManualSpan(phaseSpan)
+          const name = `execute.deliver.${code === 'deliverDeploy' ? 'deploy' : 'verify'}`
+          phaseSpan = startManualSpan(name, { 'team.step': name, 'team.phase': code, 'team.job_id': String(job.id) }, parentContext)
+        }
+        onPhase = ({ code, percent }) => { span.addEvent('deliver.phase', { 'team.phase': code }); enterPhase(code); setPhase(code, percent) }
         setPhase('deliverVerify', 0)
+        enterPhase('deliverVerify')
         const command = fillCommand(x.deliverCommand, { job_id: String(job.id), message_id: String(messageId), branch, workdir })
         const env = {
           ...process.env, TEAM_JOB_ID: String(job.id), TEAM_MESSAGE_ID: String(messageId), TEAM_BRANCH: branch, TEAM_WORKDIR: workdir,
@@ -163,6 +173,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
           TEAM_OUTPUT_JSON: outputJson(payload.output)
         }
         const r = await spawnStreaming('/bin/sh', ['-c', command], { env, keepStdout: true, onData, timeoutMs: x.deliverTimeoutMs, graceMs: x.killGraceMs, signal: ctx.signal })
+        if (phaseSpan) { endManualSpan(phaseSpan, r.code !== 0 && r.code !== DELIVER_LATER && r.code !== DELIVER_HELD ? { error: new Error(r.timedOut ? 'timeout' : `exit ${r.code}`) } : {}); phaseSpan = null }
         span.setAttributes({ 'team.exit_code': r.code ?? -1, 'team.delivery_ms': Math.max(0, now() - startedAt) })
         if (r.code !== 0 && r.code !== DELIVER_LATER && r.code !== DELIVER_HELD) span.setStatus({ code: SpanStatusCode.ERROR, message: r.timedOut ? 'timeout' : `exit ${r.code}` })
         const ref = r.code === 0 ? referenceOf(r.stdout) : null

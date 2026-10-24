@@ -39,6 +39,8 @@ async function openWithReplies(page, titleStart, n) {
   await settled(page)
 }
 
+const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAKAAAABkCAIAAACO1KzYAAABAklEQVR4nO3RUQkAIBTAwNc/md82sIkpRBgHF2CwWfsQNt8LeMrgOIPjDI4zOM7gOIPjDI4zOM7gOIPjDI4zOM7gOIPjDI4zOM7gOIPjDI4zOM7gOIPjDI4zOM7gOIPjDI4zOM7gOIPjDI4zOM7gOIPjDI4zOM7gOIPjDI4zOM7gOIPjDI4zOM7gOIPjDI4zOM7gOIPjDI4zOM7gOIPjDI4zOM7gOIPjDI4zOM7gOIPjDI4zOM7gOIPjDI4zOM7gOIPjDI4zOM7gOIPjDI4zOM7gOIPjDI4zOM7gOIPjDI4zOM7gOIPjDI4zOM7gOIPjDI4zOM7gOIPjDI4zOM7gOIPjLsouEJb933CqAAAAAElFTkSuQmCC'
+
 const thread = (page) => page.locator('section[aria-label="Respuestas"] ol.thread > li')
 
 describe('the thread of replies', () => {
@@ -77,6 +79,48 @@ describe('the thread of replies', () => {
         assert.equal(await page.getByRole('button', { name: /respuestas más/ }).count(), 0)
         const ys = await thread(page).evaluateAll((els) => els.map((e) => e.getBoundingClientRect().y))
         assert.deepEqual(ys, [...ys].sort((x, y) => x - y), 'in order')
+      } finally {
+        await context.close()
+      }
+    })
+  }
+
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    test(`the before and the after are open, big and labeled, with the Markdown drawn, at ${viewport.width} px`, async () => {
+      const { page, context } = await session('bruno', viewport)
+      try {
+        await openWithReplies(page, 'Corregir el contraste', 0)
+        const sent = await page.evaluate(async (png) => {
+          const blob = () => new Blob([Uint8Array.from(atob(png), (c) => c.charCodeAt(0))], { type: 'image/png' })
+          const form = new FormData()
+          form.append('body', '**Antes**: botón sin contraste.\n**Después**: contraste de 7:1.\n\n- Fondo más claro')
+          form.append('kind', 'answer')
+          form.append('files', blob(), 'Antes - Botón sin contraste.png')
+          form.append('files', blob(), 'Después - Botón con contraste.png')
+          const res = await fetch(location.pathname.replace(/\/messages\/.*/, '') + location.pathname.replace(/^.*(\/messages\/[^/]+).*$/, '/api$1/replies'), { method: 'POST', headers: { 'x-team-request': 'panel' }, body: form })
+          return res.status
+        }, PNG)
+        assert.ok(sent < 300, `reply sent: ${sent}`)
+        await page.reload()
+        await page.locator('section[aria-label="Respuestas"] ul[aria-label="Adjuntos"] img').first().waitFor()
+        await settled(page)
+        const imgs = page.locator('section[aria-label="Respuestas"] ul[aria-label="Adjuntos"] img')
+        assert.equal(await imgs.count(), 2)
+        const [a, b, card] = await Promise.all([imgs.nth(0).boundingBox(), imgs.nth(1).boundingBox(), imgs.nth(0).locator('xpath=ancestor::article').boundingBox()])
+        if (viewport.width > 800) {
+          assert.ok(Math.abs(a.y - b.y) < 2 && b.x > a.x + a.width - 1, 'side by side')
+          assert.ok(a.width >= card.width * 0.4, `each is ${a.width} px of ${card.width}`)
+        } else {
+          assert.ok(b.y > a.y + a.height - 1, 'one under the other')
+          assert.ok(a.width >= card.width * 0.8, `each is ${a.width} px of ${card.width}`)
+        }
+        const text = await page.locator('section[aria-label="Respuestas"]').innerText()
+        assert.ok(/ANTES/i.test(text) && /DESPUÉS/i.test(text), 'the short labels')
+        assert.ok(!text.includes('.png'), 'no file name')
+        assert.ok(!text.includes('**'), 'no raw asterisks')
+        assert.equal(await page.locator('section[aria-label="Respuestas"] strong', { hasText: 'Antes' }).count(), 1, 'bold is drawn')
+        await imgs.nth(0).click()
+        await page.getByRole('dialog').waitFor()
       } finally {
         await context.close()
       }

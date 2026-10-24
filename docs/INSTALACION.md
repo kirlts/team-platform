@@ -459,6 +459,8 @@ La respuesta trae `agent_secret` una sola vez. El trabajador lo lee de la bóved
 | `EXECUTE_RUNS_RETENTION_DAYS` | Días que se guarda el historial de ejecuciones (omisión 365) |
 | `EXECUTE_DELIVER_COMMAND` | Opcional. Orden de shell que entrega la rama a producción después de `execute`, sin IA (ver «La entrega aparte») |
 | `EXECUTE_DELIVER_TIMEOUT_MS` | Plazo de esa orden (omisión 900000) |
+| `EXECUTE_CONCURRENCY` | Sesiones a la vez. 0 (omisión) es `QUEUE_CONCURRENCY` menos dos: el análisis de un envío nuevo siempre tiene dos lugares |
+| `EXECUTE_DELIVER_CONCURRENCY` | Entregas a producción a la vez (omisión 1): dos a la vez chocan sobre el mismo `main` |
 | `EXECUTE_INFRA_RETRY_WAIT_MS` | Espera antes del segundo intento de un trabajo que falló por infraestructura: máquina que no se crea, sesión que muere sin resultado, servicio del modelo con 429 o 5xx (omisión 30000). El segundo fallo pasa el mensaje a una persona |
 | `EXECUTE_DELIVER_RETRIES` | Veces que una verificación fallida vuelve a Claude (omisión 1) |
 | `EXECUTE_DELIVER_MAX_ATTEMPTS` | Intentos del trabajo de entrega (omisión 2); el código 75 no gasta ninguno |

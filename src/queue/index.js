@@ -77,6 +77,20 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
   }
 
   /**
+   * How many jobs of a kind may run at once, for the kinds that hold a lane. `deliver` is one: two deliveries to production at the same time collide
+   * («lo servido no es un antecesor de este árbol», three messages with the same fix, 2026-10-23). `execute` leaves two slots of the worker to the analysis:
+   * sessions last up to an hour and, with the eight slots taken, the analysis of every new input waited behind them.
+   */
+  function lanes () {
+    const x = config.execute
+    if (!x) return {}
+    return {
+      deliver: x.deliverConcurrency,
+      execute: x.concurrency > 0 ? x.concurrency : Math.max(1, w.concurrency - 2)
+    }
+  }
+
+  /**
    * Claims the next due job, or null. UD-025 fairness: inside the queue, the jobs of one author keep their arrival
    * order (job id) and different authors interleave. Each due job gets a `turn` = the author's jobs already running
    * plus its position among the author's due jobs (the author of its input; a job without input is its own author).
@@ -91,6 +105,9 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
       // Recovering first keeps the claim a pure `queued` query (MS §7.3).
       const expired = get(db, "SELECT 1 AS hay FROM jobs WHERE status = 'running' AND lease_until < ? LIMIT 1", t)
       if (expired) recoverExpiredLeases()
+      const caps = lanes()
+      const busy = Object.fromEntries(all(db, "SELECT kind, COUNT(*) AS n FROM jobs WHERE status = 'running' AND kind IN ('execute', 'deliver') GROUP BY kind").map((r) => [r.kind, r.n]))
+      const full = Object.keys(caps).filter((kind) => (busy[kind] ?? 0) >= caps[kind])
       const dbRow = get(db, `
         UPDATE jobs
            SET status = 'running', worker_id = ?, lease_until = ?, attempts = attempts + 1
@@ -100,10 +117,10 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
                               + (SELECT COUNT(*) FROM jobs r JOIN inputs ri ON ri.id = r.input_id
                                   WHERE r.status = 'running' AND ri.author_id = i.author_id) AS turn
                          FROM jobs j LEFT JOIN inputs i ON i.id = j.input_id
-                        WHERE j.status = 'queued' AND j.run_at <= ?)
+                        WHERE j.status = 'queued' AND j.run_at <= ?${full.length ? ` AND j.kind NOT IN (${full.map(() => '?').join(', ')})` : ''})
                       ORDER BY turn, priority DESC, run_at, id
                       LIMIT 1)
-        RETURNING *`, workerId, t + leaseMs, t)
+        RETURNING *`, workerId, t + leaseMs, t, ...full)
       return dbRow ?? null
     })
   }

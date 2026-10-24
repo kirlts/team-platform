@@ -17,7 +17,7 @@ import { audit } from './audit.js'
 import { AppError, badRequest, conflict, forbidden, notFound } from './errors.js'
 import { checkAssignees, checkFields, newValidatorCache, resolveAreaAndTemplate, withoutNulls } from './validation.js'
 import { loadTemplate } from './areas.js'
-import { enqueueExecuteForAgents } from '../execute/enqueue.js'
+import { cancelAgentJobs, enqueueExecuteForAgents } from '../execute/enqueue.js'
 
 export const MESSAGE_STATUSES = ['open', 'answered', 'closed']
 export const REPLY_KINDS = ['answer', 'fix', 'clarification']
@@ -303,8 +303,9 @@ export function updateMessage ({ db, events, now = Date.now }, { messageId, acto
         if (currentAssignees.includes(id) || id === actor.id) continue
         events.publish({ kind: 'message', memberId: id, data: { message_id: messageId, title: next.title ?? row.title, author_id: actor.id, input_id: row.input_id, reason: 'assigned' } })
       }
-      // A newly assigned agent member gets its `execute` job (UD-254).
+      // A newly assigned agent member gets its `execute` job (UD-254); one that was taken out stops working the message.
       enqueueExecuteForAgents(db, messageId, { memberIds: assigneeIds.filter((id) => !currentAssignees.includes(id)), now })
+      cancelAgentJobs(db, { messageId, memberIds: currentAssignees.filter((id) => !assigneeIds.includes(id)), now })
     }
     if (!sameAttachments) {
       run(db, 'DELETE FROM message_attachments WHERE message_id = ?', messageId)

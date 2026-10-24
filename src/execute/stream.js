@@ -37,7 +37,8 @@ export function createStreamReader ({ maxTurns, onProgress, onEvent = null }) {
     const percent = Math.min(99, Math.floor((100 * st.turns) / maxTurns)) // 100 is marked by the `done` event
     if (percent === last.percent && phrase === last.phrase) return
     last = { percent, phrase }
-    onProgress?.(percent, phrase)
+    // Recording the progress must never lose the lines that follow, among them the `result`: a database that is busy for a moment is not a failed session.
+    try { onProgress?.(percent, phrase) } catch { /* the next change of phrase records it again */ }
   }
   function handle (event) {
     try { onEvent?.(event) } catch { /* measuring the session never changes how it is read */ }

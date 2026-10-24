@@ -18,7 +18,7 @@ let stdin = ''
 process.stdin.on('data', (d) => { stdin += d })
 process.stdin.on('end', async () => {
   const team = Object.fromEntries(Object.entries(process.env).filter(([k]) => k.startsWith('TEAM_')))
-  if (state) appendFileSync(`${state}/calls.jsonl`, `${JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd(), team, stdin, otel: Object.fromEntries(Object.entries(process.env).filter(([k]) => k === 'TRACEPARENT' || k.startsWith('OTEL_') || k.startsWith('CLAUDE_CODE_'))) })}\n`)
+  if (state) appendFileSync(`${state}/calls.jsonl`, `${JSON.stringify({ pid: process.pid, t0: Date.now(), args: process.argv.slice(2), cwd: process.cwd(), team, stdin, otel: Object.fromEntries(Object.entries(process.env).filter(([k]) => k === 'TRACEPARENT' || k.startsWith('OTEL_') || k.startsWith('CLAUDE_CODE_'))) })}\n`)
   const out = (e) => process.stdout.write(`${JSON.stringify(e)}\n`)
   // A binary that does not know a flag of the invocation (an image older than the environment that asks for it) prints its usage and exits at once, with no event.
   if (mode === 'reject-flag' && process.argv.includes('--append-system-prompt-file')) { process.stderr.write("error: unknown option '--append-system-prompt-file'\n"); process.exit(1) }
@@ -55,6 +55,7 @@ process.stdin.on('end', async () => {
   process.stdout.write('not json\n')
   if (mode === 'hang') { setInterval(() => {}, 1000); return }
   if (process.env.FAKE_EXECUTE_SLEEP_MS) await pause(Number(process.env.FAKE_EXECUTE_SLEEP_MS))
+  if (state) appendFileSync(`${state}/ends.jsonl`, `${JSON.stringify({ pid: process.pid, t1: Date.now() })}\n`)
   const base = { type: 'result', subtype: 'success', is_error: false, session_id: sessionId, duration_ms: 61000, num_turns: 3, total_cost_usd: 1.2345, usage: { input_tokens: 52000, output_tokens: 3100, cache_read_input_tokens: 40000, cache_creation_input_tokens: 2000 }, modelUsage: { 'claude-sonnet-5-5': {} } }
   if (mode === 'error') return out({ ...base, subtype: 'error_max_budget_usd', is_error: true, result: 'budget reached' })
   if (mode === 'no-structured') return out({ ...base, result: 'done, but no structured output' })

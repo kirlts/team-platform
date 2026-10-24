@@ -46,3 +46,22 @@ export function enqueueExecuteForAgents (db, messageId, { memberIds = null, now 
   const agents = all(db, `SELECT id FROM members WHERE kind = 'agent' AND active = 1 AND id IN (${ids.map(() => '?').join(',')}) ORDER BY id`, ...ids)
   return agents.map((a) => enqueueExecute(db, { messageId, memberId: a.id, now })).filter((id) => id !== null)
 }
+
+/**
+ * The agent left the message (an edit took it out of the assignees): its `execute` jobs, queued or running, and its queued `deliver` job stop. A
+ * running session is stopped by the worker (`cancelled` reaches it through the queue wake-up); a delivery already running is not cut half way: it is
+ * a deploy, and it posts its reply when it ends. Returns the cancelled job ids.
+ */
+export function cancelAgentJobs (db, { messageId, memberIds, now = Date.now }) {
+  const ids = []
+  for (const memberId of memberIds) {
+    const rows = all(db, `SELECT id FROM jobs WHERE message_id = ? AND json_extract(payload_json, '$.member_id') = ?
+                           AND ((kind = 'execute' AND status IN ('queued', 'running')) OR (kind = 'deliver' AND status = 'queued'))`, messageId, memberId)
+    for (const { id } of rows) {
+      run(db, "UPDATE jobs SET status = 'cancelled', lease_until = NULL, worker_id = NULL, finished_at = ? WHERE id = ?", now(), id)
+      ids.push(id)
+    }
+  }
+  if (ids.length > 0) queueMicrotask(() => { for (const id of ids) queueWake.emit('cancelled', id) })
+  return ids
+}

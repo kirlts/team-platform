@@ -2,12 +2,15 @@
 // nobody holds or nobody answered, reproduced against a listening server, the fake `claude` and a fake delivery command. The rule they share:
 // a message is never left without a reply and without a person who sees it; what fails by infrastructure runs once more and then goes to a person (UD-269).
 import assert from 'node:assert/strict'
-import { mkdirSync, readFileSync, rmSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { after, before, beforeEach, describe, it } from 'node:test'
 import { loadConfig } from '../config.js'
 import { buriedHandoffs } from '../domain/escalation.js'
+import { closeMessage, getMessage, updateMessage } from '../domain/messages.js'
 import { updateMember } from '../domain/members.js'
 import { createPipeline } from '../domain/pipeline.js'
 import { createVault, loadMasterKey } from '../domain/vault.js'
@@ -37,6 +40,7 @@ describe('failure hunt: execute and deliver', () => {
     worker.start()
     return config
   }
+  const ends = () => { try { return readFileSync(join(state, 'ends.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l)) } catch { return [] } }
   const calls = () => { try { return readFileSync(join(state, 'calls.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l)) } catch { return [] } }
   const jobsOf = (messageId, kind) => env.db.prepare('SELECT * FROM jobs WHERE kind = ? AND message_id = ? ORDER BY id').all(kind, messageId)
   const settle = (messageId) => until(() => {
@@ -92,6 +96,7 @@ describe('failure hunt: execute and deliver', () => {
   beforeEach(async () => {
     await worker?.stop()
     rmSync(join(state, 'calls.jsonl'), { force: true })
+    rmSync(join(state, 'ends.jsonl'), { force: true })
     for (const k of Object.keys(process.env)) if (k.startsWith('FAKE_EXECUTE_') && k !== 'FAKE_EXECUTE_STATE') delete process.env[k]
     process.env.FAKE_EXECUTE_MODE = 'ok'
     process.env.FAKE_EXECUTE_REPLY = '1'
@@ -273,5 +278,99 @@ describe('failure hunt: execute and deliver', () => {
     const messageId = await publishedMessage('La fase no debe quedar.')
     await settle(messageId)
     assert.equal(jobsOf(messageId, 'execute')[0].phase, null)
+  })
+  // ---- The day's cap and a burst of messages
+  it('eight sessions that start together do not each get the whole remainder of the day: the cap holds', async () => {
+    process.env.FAKE_EXECUTE_SLEEP_MS = '400'
+    env.db.prepare("UPDATE jobs SET cost_usd = NULL WHERE kind = 'execute'").run()
+    startWorker({ dailyBudgetUsd: 10, maxBudgetUsd: 10, capacityWaitMs: 100 })
+    const ids = []
+    for (let i = 0; i < 3; i++) ids.push(await publishedMessage(`Mensaje de una ráfaga ${i}.`))
+    await Promise.all(ids.map(settle))
+    const budgetOf = (c) => Number(c.args[c.args.indexOf('--max-budget-usd') + 1])
+    const done = ends()
+    const runs = calls().map((c) => ({ budget: budgetOf(c), t0: c.t0, t1: done.find((e) => e.pid === c.pid).t1 }))
+    assert.equal(runs.length, 3, 'every message was worked')
+    for (const a of runs) {
+      const alive = runs.filter((b) => b.t0 < a.t1 && a.t0 < b.t1).reduce((sum, b) => sum + b.budget, 0)
+      assert.ok(alive <= 10 + 1e-9, `sessions alive at the same time may spend ${alive} USD against a cap of 10`)
+    }
+  })
+
+  // ---- The message changes while Claude works
+  it('a message that loses the agent while it works stops the session and the message goes on without Claude', async () => {
+    process.env.FAKE_EXECUTE_SLEEP_MS = '3000'
+    startWorker()
+    const messageId = await publishedMessage('Se le quita el mensaje a Claude a mitad de trabajo.')
+    await until(() => calls().length === 1)
+    const version = getMessage(env.db, messageId).version
+    updateMessage({ db: env.db, events: env.events }, { messageId, actor: { id: authorId }, patch: { version, assignee_ids: [editorId] } })
+    const [job] = jobsOf(messageId, 'execute')
+    await until(() => env.queue.getJob(job.id).status !== 'running', { timeoutMs: 5000 })
+    assert.equal(env.queue.getJob(job.id).status, 'cancelled')
+    await new Promise((resolve) => setTimeout(resolve, 600))
+    assert.equal(jobsOf(messageId, 'deliver').length, 0, 'nothing is delivered for a message that is no longer Claude\'s')
+    assert.deepEqual(assignees(messageId), [editorId])
+    assert.equal(env.db.prepare("SELECT COUNT(*) AS n FROM replies WHERE message_id = ? AND body LIKE '%Resultado%'").get(messageId).n, 0, 'no closing reply after it was taken away')
+  })
+
+  it('a message edited while Claude works is answered, not delivered to production, and goes to a person with the reason', async () => {
+    process.env.FAKE_EXECUTE_SLEEP_MS = '700'
+    startWorker({ deliverCommand: 'true' })
+    const messageId = await publishedMessage('Texto original del pedido.')
+    await until(() => calls().length === 1)
+    const version = getMessage(env.db, messageId).version
+    updateMessage({ db: env.db, events: env.events }, { messageId, actor: { id: authorId }, patch: { version, body: 'Texto corregido: era otra pantalla.' } })
+    await settle(messageId)
+    assert.equal(jobsOf(messageId, 'deliver').length, 0, 'the change for the old text does not reach production by itself')
+    const body = assertSeen(messageId)
+    assert.match(body, /se editó mientras trabajaba/)
+  })
+
+  it('a message closed while Claude works ends the job in done, with no failure and no reply', async () => {
+    process.env.FAKE_EXECUTE_SLEEP_MS = '700'
+    process.env.FAKE_EXECUTE_REPLY = '0'
+    startWorker({ deliverCommand: 'true' })
+    const messageId = await publishedMessage('Se cierra mientras Claude trabaja.')
+    await until(() => calls().length === 1)
+    const before = env.db.prepare('SELECT COUNT(*) AS n FROM replies WHERE message_id = ?').get(messageId).n
+    closeMessage({ db: env.db, events: env.events }, messageId, editorId)
+    await settle(messageId)
+    const [job] = jobsOf(messageId, 'execute')
+    assert.deepEqual([job.status, job.attempts], ['done', 1], job.last_error)
+    assert.equal(jobsOf(messageId, 'deliver').length, 0)
+    assert.equal(env.db.prepare('SELECT COUNT(*) AS n FROM replies WHERE message_id = ?').get(messageId).n, before)
+  })
+
+  // ---- The worker
+  it('a progress line that cannot be recorded does not take the worker down', async () => {
+    const config = loadConfig({ DATA_DIR: env.dir, LOG_LEVEL: 'silent', PORT: String(PORT) }, { execute: { bin: FAKE, teamUrl: `http://127.0.0.1:${PORT}`, dailyBudgetUsd: 1000, killGraceMs: 200 } })
+    const queue = { ...env.queue, progress: (job, percent, phrase) => { if (phrase === 'Sesión iniciada') throw new Error('database is locked'); return env.queue.progress(job, percent, phrase) } }
+    const handlers = { ...createPipeline({ db: env.db, config, queue: env.queue, events: env.events, modules: env.modules }), execute: createExecuteHandler({ db: env.db, config, queue, events: env.events, vault }) }
+    worker = createWorker({ db: env.db, queue: env.queue, events: env.events, config, handlers })
+    worker.start()
+    const messageId = await publishedMessage('Una línea de avance que no se puede guardar.')
+    await settle(messageId)
+    assert.equal(jobsOf(messageId, 'execute')[0].status, 'done', jobsOf(messageId, 'execute')[0].last_error)
+  })
+
+  it('a worktree left by an attempt that died with its worker does not stop the next attempt on the same branch', async () => {
+    const repo = mkdtempSync(join(tmpdir(), 'caza-repo-'))
+    const git = (...a) => execFileSync('git', ['-C', repo, ...a], { stdio: 'pipe' })
+    git('init', '-q', '-b', 'main'); git('config', 'user.email', 'a@b.c'); git('config', 'user.name', 'x'); writeFileSync(join(repo, 'a.txt'), 'a'); git('add', '.'); git('commit', '-qm', 'a')
+    try {
+      startWorker({ repoDir: repo, workRoot: join(env.dir, 'work') })
+      process.env.FAKE_EXECUTE_SLEEP_MS = '300'
+      const first = await publishedMessage('Un trabajo cuyo intento anterior murió con el trabajador.')
+      await settle(first)
+      // The previous attempt: a worktree of this very branch in the work root, left behind by a process that died.
+      const dead = join(env.dir, 'work', 'execute-999-dead')
+      mkdirSync(dead, { recursive: true })
+      const messageId = first
+      git('worktree', 'add', '-B', `tp/${messageId}`, join(dead, 'repo'))
+      const id = Number((await env.app.inject({ method: 'POST', url: `/api/messages/${messageId}/execute`, headers: cookieHeaders(editor) })).json().job_ids[0])
+      await until(() => ['done', 'failed'].includes(env.queue.getJob(id).status), { timeoutMs: 20000 })
+      assert.equal(env.queue.getJob(id).status, 'done', env.queue.getJob(id).last_error)
+    } finally { rmSync(repo, { recursive: true, force: true }) }
   })
 })

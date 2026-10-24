@@ -45,6 +45,9 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     if (stopped) return
     const nextAt = queue.nextRunAt()
     if (nextAt === null) return
+    // A job already due that the last tick could not claim waits for a free slot or lane: the end of a running job wakes the claim (`kick` in its `finally`).
+    // Arming a timer for it re-read the queue every millisecond for as long as the slots were full (304 reads in 500 ms with one job running and two waiting).
+    if (nextAt <= now()) return
     // Sleeps exactly until the next `run_at` (retries with backoff): there is no clock polling.
     nextTimer = setTimeout(kick, Math.min(MAX_TIMEOUT, Math.max(0, nextAt - now())))
     nextTimer.unref?.()

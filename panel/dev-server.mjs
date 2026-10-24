@@ -242,8 +242,10 @@ function syncStatus(msg) {
   return msg.status
 }
 
+/** The number of a message, as the real server numbers them: a counter that only goes up (the panel draws it as #N). */
+let lastMessageNumber = 100
 function seedMessage(m, rs = []) {
-  const msg = { id: `m-${id()}`, input_id: null, closed_at: null, ...m }
+  const msg = { id: String(++lastMessageNumber), input_id: null, closed_at: null, ...m }
   messages.push(msg)
   replies.set(msg.id, rs.map((r) => ({ id: `r-${id()}`, message_id: msg.id, attachment_ids: [], ...r })))
   syncStatus(msg)
@@ -1266,7 +1268,7 @@ const server = createServer(async (req, res) => {
       const involved = (x) => q.get('involved') !== 'me' || x.assignee_ids.includes(me.id) || (x.author_id === me.id && x.status !== 'open')
       // `deleted=1` (UD-250): only the deleted ones, the viewer's own, or every one for an Editor.
       const source = q.get('deleted') === '1' ? messages.filter((x) => x.deleted_at && (me.role === 'editor' || x.author_id === me.id)) : liveMessages()
-      let list = source.filter((x) => involved(x) && (!forId || x.assignee_ids.includes(forId)) && (!q.get('area') || x.area_id === q.get('area')) && (!q.get('status') || x.status === q.get('status')) && (!needle || `${x.title} ${x.body}`.toLowerCase().includes(needle)))
+      let list = source.filter((x) => involved(x) && (!forId || x.assignee_ids.includes(forId)) && (!q.get('area') || x.area_id === q.get('area')) && (!q.get('status') || x.status === q.get('status')) && (!needle || x.id === needle.replace(/^#/, '') || `${x.title} ${x.body}`.toLowerCase().includes(needle)))
       if (q.get('replies') === '1') list = list.filter((x) => liveReplies(x).length > 0)
       const stamp = (x) => (q.get('replies') === '1' ? liveReplies(x).at(-1)?.created_at : x.created_at)
       list.sort((a, b) => stamp(b).localeCompare(stamp(a)))

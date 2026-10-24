@@ -117,14 +117,14 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
       <div data-testid="card-state" className="col-start-1 row-start-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
         <StateMark status={message.status} plain className="min-h-0 px-0" />
         {!hideArea && <AreaChip areaId={message.area_id} className="min-w-0" />}
+        {/* The number of the message, as a tracker shows it (#115): the team refers to messages by it. Secondary text at the right edge of the state line, which has the room the line of the author lacks on a phone, so the row keeps its height. */}
+        <span data-testid="card-number" className="ml-auto tabular-nums">#{message.id}</span>
       </div>
       <div data-testid="card-who" className="col-start-1 row-start-3 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
         <span data-repeat-ok="person">{memberName(from.author_id)}</span>
         <time dateTime={from.created_at} title={format.fullStamp(from.created_at)} className="tabular-nums">
           {format.stamp(from.created_at)}
         </time>
-        {/* The number of the message, as a tracker shows it (#115): the team refers to messages by it. Secondary text, in the line of data, so the row keeps its height. */}
-        <span data-testid="card-number" className="tabular-nums">#{message.id}</span>
         {/* The media and the replies, as one unit, take the right edge of the text column, under the thumbnail: the same x in every row. */}
         {(message.reply_count > 0 || kindsOf(from).length > 0) && (
           <span className="ml-auto inline-flex items-center gap-3">

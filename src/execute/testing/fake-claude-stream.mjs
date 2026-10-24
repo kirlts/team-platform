@@ -32,7 +32,8 @@ process.stdin.on('end', async () => {
   // FAKE_EXECUTE_CAPTURE_FILES: { name: 'png' | 'text' } written into $TEAM_CAPTURES_DIR, as the screenshot tool does (UD-268).
   if (process.env.FAKE_EXECUTE_CAPTURE_FILES) {
     const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from('fake-image-bytes')])
-    for (const [name, kind] of Object.entries(JSON.parse(process.env.FAKE_EXECUTE_CAPTURE_FILES))) writeFileSync(`${team.TEAM_CAPTURES_DIR}/${name}`, kind === 'png' ? png : 'not an image')
+    const webm = Buffer.concat([Buffer.from([0x1a, 0x45, 0xdf, 0xa3]), Buffer.from('fake-video-bytes')]) // the EBML mark of a WebM (UD-275)
+    for (const [name, kind] of Object.entries(JSON.parse(process.env.FAKE_EXECUTE_CAPTURE_FILES))) writeFileSync(`${team.TEAM_CAPTURES_DIR}/${name}`, kind === 'png' ? png : kind === 'webm' ? webm : 'not an image')
   }
   // FAKE_EXECUTE_ATTACHMENT_FILES: { name: 'pdf' | 'text' } written into $TEAM_ATTACHMENTS_DIR, as a session that writes a document does (UD-272).
   if (process.env.FAKE_EXECUTE_ATTACHMENT_FILES) {

@@ -3,9 +3,10 @@
 
 import { all, get, run as runSql } from '../db/index.js'
 import { parseJson } from '../db/util.js'
-import { conflict, forbidden, notFound } from '../domain/errors.js'
+import { badRequest, conflict, forbidden, notFound } from '../domain/errors.js'
 import { audit } from '../domain/audit.js'
 import { idIn, idParams } from '../api/schemas.js'
+import { assertNotDiscarded, discardDelivery } from '../domain/delivery-review.js'
 import { enqueueDeliver, enqueueExecute } from './enqueue.js'
 
 export function registerExecuteRoutes (app, ctx) {
@@ -49,7 +50,7 @@ export function registerExecuteRoutes (app, ctx) {
     onRequest: [requireRole('editor')],
     schema: {
       summary: 'Encolar la entrega a producción de un mensaje (Editor)',
-      description: 'Corre `EXECUTE_DELIVER_COMMAND` sobre la rama `tp/<id>` del mensaje, sin IA (UD-263). Al terminar bien, el agente publica su respuesta final con «Ya está en producción»; si falla, el aviso llano con `outcome: blocked`. Responde 202 con el trabajo creado. 409 `deliver_not_configured` si la instancia no declara la orden, 409 `execute_busy` si el mensaje tiene un trabajo `execute` en cola o corriendo, 409 `deliver_busy` si ya tiene una entrega, 409 `no_agent_assignee` si no hay un agente activo que responda, 409 `message_closed` si está cerrado.',
+      description: 'Corre `EXECUTE_DELIVER_COMMAND` sobre la rama `tp/<id>` del mensaje, sin IA (UD-263). Al terminar bien, el agente publica su respuesta final con «Ya está en producción»; si falla, el aviso llano con `outcome: blocked`. Responde 202 con el trabajo creado. 409 `deliver_not_configured` si la instancia no declara la orden, 409 `execute_busy` si el mensaje tiene un trabajo `execute` en cola o corriendo, 409 `deliver_busy` si ya tiene una entrega, 409 `no_agent_assignee` si no hay un agente activo que responda, 409 `message_closed` si está cerrado, 409 `delivery_discarded` si una persona descartó la rama.',
       params: idParams(),
       response: { 202: { type: 'object', properties: { job_id: { type: 'string' } } } }
     }
@@ -60,6 +61,7 @@ export function registerExecuteRoutes (app, ctx) {
     if (!message) throw notFound('El mensaje no existe.')
     if (message.status === 'closed') throw conflict('El mensaje está cerrado. Hay que reabrirlo para entregarlo.', 'message_closed')
     if (get(db, "SELECT id FROM jobs WHERE kind = 'execute' AND message_id = ? AND status IN ('queued', 'running')", messageId)) throw conflict('El mensaje tiene un trabajo en cola o corriendo; la entrega espera a que termine.', 'execute_busy')
+    assertNotDiscarded(db, messageId)
     // The agent that answers is the one of the last job of the message; without one, the only active agent among its assignees.
     const last = get(db, "SELECT payload_json FROM jobs WHERE kind IN ('execute', 'deliver') AND message_id = ? ORDER BY id DESC LIMIT 1", messageId)
     let memberId = parseJson(last?.payload_json, {}).member_id ?? null
@@ -85,6 +87,21 @@ export function registerExecuteRoutes (app, ctx) {
     if (jobId === null) throw conflict('La entrega de este mensaje ya está en curso.', 'deliver_busy')
     reply.code(202)
     return { job_id: String(jobId) }
+  })
+
+  app.post('/messages/:id/discard-delivery', {
+    onRequest: [requireRole('editor')],
+    schema: {
+      summary: 'Descartar la rama de una entrega retenida (Editor)',
+      description: 'UD-275. La rama que espera revisión no se entrega nunca: el mensaje deja de mostrar la revisión pendiente, queda abierto y el hilo gana «Descartado por <persona>: <motivo>». El motivo es obligatorio. Auditada como `message.delivery_discard`. 409 `no_pending_delivery` si no hay una entrega retenida, 409 `deliver_busy` si ya se está entregando.',
+      params: idParams(),
+      body: { type: 'object', required: ['reason'], additionalProperties: false, properties: { reason: { type: 'string', minLength: 1, maxLength: 1000 } } }, // declared courtesy: one plain reason in the thread
+      response: { 200: { type: 'object', properties: { reply_id: { type: 'string' } } } }
+    }
+  }, async (request) => {
+    if (request.body.reason.trim() === '') throw badRequest('El motivo es obligatorio.', 'reason_required')
+    const { replyId } = discardDelivery({ db, events }, { messageId: request.params.id, memberId: request.member.id, reason: request.body.reason })
+    return { reply_id: String(replyId) }
   })
 
   app.post('/jobs/:id/progress', {

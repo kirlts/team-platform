@@ -33,13 +33,13 @@ export async function storeCaptures ({ config, output, workdir }) {
   const list = output?.captures
   if (!Array.isArray(list) || list.length === 0) return { stored: [], rejected: [] }
   const x = config.execute.captures
-  const { accepted, rejected } = await checkCaptures(list, { dir: capturesDir(workdir), max: x.max, maxBytes: config.uploads.maxImageBytes, zone: output.zone ?? null, openZone: x.openZone, unmasked: x.unmasked })
+  const { accepted, rejected } = await checkCaptures(list, { dir: capturesDir(workdir), max: x.max, maxBytes: config.uploads.maxImageBytes, maxVideoBytes: config.uploads.maxVideoBytes, zone: output.zone ?? null, openZone: x.openZone, unmasked: x.unmasked })
   const stored = []
   for (const c of accepted) {
     try {
-      const { tmp, sha256, size } = await ingest(config, createReadStream(c.file), { maxBytes: config.uploads.maxImageBytes, tooLargeMessage: 'La captura supera el tamaño máximo.' })
+      const { tmp, sha256, size } = await ingest(config, createReadStream(c.file), { maxBytes: c.kind === 'video' ? config.uploads.maxVideoBytes : config.uploads.maxImageBytes, tooLargeMessage: 'La captura supera el tamaño máximo.' })
       await commit(config, tmp, sha256)
-      stored.push({ sha256, size, mime: c.mime, ext: c.ext, alt: c.alt, place: c.place, as: c.as, masked: c.masked })
+      stored.push({ sha256, size, mime: c.mime, ext: c.ext, kind: c.kind ?? 'image', alt: c.alt, place: c.place, as: c.as, masked: c.masked })
     } catch {
       rejected.push({ index: c.index, reason: 'not_stored' })
     }
@@ -49,10 +49,10 @@ export async function storeCaptures ({ config, output, workdir }) {
 
 /**
  * What the closing reply adds: the «before» (the images of the last reply of this agent that carries them, reused from the volume, no copy)
- * and the «after» (the stored ones), each named «<Label> - <alt>», plus one line per «after» with its place and the role it was seen as.
+ * and the «after» (the stored ones; `label: 'proposal'` for a held delivery, UD-275: what the branch looks like, a video included), each named «<Label> - <alt>», plus one line per «after» with its place and the role it was seen as.
  * Returns { files, lines }; both empty when the session declared no «after».
  */
-export function closingCaptures (db, { messageId, authorId, stored, language }) {
+export function closingCaptures (db, { messageId, authorId, stored, language, label = 'after' }) {
   if (!stored?.length) return { files: [], lines: [] }
   const labels = captureLabels(language)
   const names = [...new Set(Object.values({ es: captureLabels('es-419'), en: captureLabels('en') }).map((l) => `${l.before} - %`))]
@@ -63,8 +63,8 @@ export function closingCaptures (db, { messageId, authorId, stored, language }) 
   const files = before.filter((b) => b.reply_id === last).reverse().map((b) => ({ kind: 'image', name: b.name, mime: b.mime, size: b.size, sha256: b.sha256 }))
   const lines = []
   for (const c of stored) {
-    files.push({ kind: 'image', name: captureName(labels.after, c.alt, c.ext), mime: c.mime, size: c.size, sha256: c.sha256 })
-    lines.push(`**${labels.after}**: ${c.alt}. ${c.place}, ${c.as}.`)
+    files.push({ kind: c.kind ?? 'image', name: captureName(labels[label], c.alt, c.ext), mime: c.mime, size: c.size, sha256: c.sha256 })
+    lines.push(`**${labels[label]}**: ${c.alt}. ${c.place}, ${c.as}.`)
   }
   return { files, lines }
 }

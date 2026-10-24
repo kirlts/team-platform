@@ -200,7 +200,9 @@ export function createResources(t: Transport) {
       /** Forwards the message to a member with the reason (UD-272): the same message, one more assignee and a notice in the thread; with an agent, its `execute` job. */
       forward: (id: string, v: { member_id: string; comment: string }) => call<MessageDetail>(routes.messageForward, { params: { id }, body: { member_id: v.member_id, comment: v.comment } }),
       /** Queues the delivery of the branch an `execute` job left (Editor; UD-263). */
-      deliver: (id: string) => call<Record<string, unknown>>(routes.messageDeliver, { params: { id } }),
+      deliver: (id: string) => call<{ job_id: string }>(routes.messageDeliver, { params: { id } }),
+      /** Discards the branch of a held delivery with a required reason (Editor; UD-275): it is never delivered. */
+      discardDelivery: (id: string, reason: string) => call<{ reply_id: string }>(routes.messageDiscardDelivery, { params: { id }, body: { reason } }),
     },
     replies: {
       /** JSON, or multipart when there are files or links. */

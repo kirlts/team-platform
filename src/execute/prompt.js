@@ -36,7 +36,7 @@ export function finalSchema (declared, { validation = false, autoClose = true, f
   // UD-268: optional screenshots of the interface for the closing reply (the first reply carries its own with `team reply --captures`).
   const captures = {
     type: 'array',
-    description: 'Screenshots for the closing reply (the «after» of the first reply\'s «before»). Omit when the interface shows nothing useful.',
+    description: 'Screenshots for the closing reply (the «after» of the first reply\'s «before»). Omit when the interface shows nothing useful. A walkthrough video (WebM) from `team walkthrough` goes here too.',
     items: {
       type: 'object', additionalProperties: false, required: ['path', 'alt', 'masked', 'place', 'as'],
       properties: {
@@ -122,7 +122,7 @@ export function buildExecuteParts ({ message, template, author, agent, project, 
     TEAM_HELP,
     '```',
     ...(String(hostInstructions).trim() ? ['## Rules of the host (they take precedence over the defaults above)', block('host_instructions', hostInstructions)] : []),
-    ...(deliver ? ['## Delivery (takes precedence over any delivery step in the rules above)', 'The delivery is not yours. After you finish, the system runs the host\'s delivery command on the branch of the `job` block. Finish when the branch is pushed with every check the rules above ask for before a delivery (the judge\'s mark, if they name it). Do not deploy, do not wait for a deploy, and do not run the delivery steps of the rules above. Your final structured output is still required.'] : []),
+    ...(deliver ? ['## Delivery (takes precedence over any delivery step in the rules above)', 'The delivery is not yours. After you finish, the system runs the host\'s delivery command on the branch of the `job` block. Finish when the branch is pushed with every check the rules above ask for before a delivery (the judge\'s mark, if they name it). Do not deploy, do not wait for a deploy, and do not run the delivery steps of the rules above. Your final structured output is still required. When the change touches an interface, record its walkthrough with `team walkthrough` (numbered steps, one screenshot per step and a short video, desktop and/or phone as the change requires) and put the list it prints in `captures`: if the delivery is held for review, a person reviews from those «Propuesta» files and from your `summary`, which then has to let a project manager decide on its own (what changes for who uses the product, the risks, what to look at; no file paths or file names). If the browser or the view is not available, say so in one line in `summary` and keep the screenshots.'] : []),
     block('template', template?.body_markdown ?? '(no template)')
   ]
   const variable = [

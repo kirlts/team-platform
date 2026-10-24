@@ -1033,6 +1033,14 @@ export interface paths {
                                     version?: number;
                                     edited_at?: string | null;
                                 }[];
+                                /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
+                                pending_delivery?: {
+                                    branch?: string;
+                                    held_reason?: string;
+                                    job_id?: string;
+                                    agent_id?: string | null;
+                                    delivering_job_id?: string | null;
+                                } | null;
                                 edits?: {
                                     id?: string;
                                     member_id?: string;
@@ -1550,6 +1558,14 @@ export interface paths {
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
+                            pending_delivery?: {
+                                branch?: string;
+                                held_reason?: string;
+                                job_id?: string;
+                                agent_id?: string | null;
+                                delivering_job_id?: string | null;
+                            } | null;
                             edits?: {
                                 id?: string;
                                 member_id?: string;
@@ -1738,6 +1754,14 @@ export interface paths {
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
+                            pending_delivery?: {
+                                branch?: string;
+                                held_reason?: string;
+                                job_id?: string;
+                                agent_id?: string | null;
+                                delivering_job_id?: string | null;
+                            } | null;
                             edits?: {
                                 id?: string;
                                 member_id?: string;
@@ -1969,6 +1993,14 @@ export interface paths {
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
+                            pending_delivery?: {
+                                branch?: string;
+                                held_reason?: string;
+                                job_id?: string;
+                                agent_id?: string | null;
+                                delivering_job_id?: string | null;
+                            } | null;
                             edits?: {
                                 id?: string;
                                 member_id?: string;
@@ -2241,6 +2273,14 @@ export interface paths {
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
+                            pending_delivery?: {
+                                branch?: string;
+                                held_reason?: string;
+                                job_id?: string;
+                                agent_id?: string | null;
+                                delivering_job_id?: string | null;
+                            } | null;
                             edits?: {
                                 id?: string;
                                 member_id?: string;
@@ -2380,6 +2420,14 @@ export interface paths {
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
+                            pending_delivery?: {
+                                branch?: string;
+                                held_reason?: string;
+                                job_id?: string;
+                                agent_id?: string | null;
+                                delivering_job_id?: string | null;
+                            } | null;
                             edits?: {
                                 id?: string;
                                 member_id?: string;
@@ -2520,6 +2568,14 @@ export interface paths {
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
+                            pending_delivery?: {
+                                branch?: string;
+                                held_reason?: string;
+                                job_id?: string;
+                                agent_id?: string | null;
+                                delivering_job_id?: string | null;
+                            } | null;
                             edits?: {
                                 id?: string;
                                 member_id?: string;
@@ -2664,6 +2720,14 @@ export interface paths {
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
+                            pending_delivery?: {
+                                branch?: string;
+                                held_reason?: string;
+                                job_id?: string;
+                                agent_id?: string | null;
+                                delivering_job_id?: string | null;
+                            } | null;
                             edits?: {
                                 id?: string;
                                 member_id?: string;
@@ -2826,6 +2890,14 @@ export interface paths {
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
+                            pending_delivery?: {
+                                branch?: string;
+                                held_reason?: string;
+                                job_id?: string;
+                                agent_id?: string | null;
+                                delivering_job_id?: string | null;
+                            } | null;
                             edits?: {
                                 id?: string;
                                 member_id?: string;
@@ -2977,6 +3049,14 @@ export interface paths {
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
+                            pending_delivery?: {
+                                branch?: string;
+                                held_reason?: string;
+                                job_id?: string;
+                                agent_id?: string | null;
+                                delivering_job_id?: string | null;
+                            } | null;
                             edits?: {
                                 id?: string;
                                 member_id?: string;
@@ -3118,6 +3198,14 @@ export interface paths {
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
+                            pending_delivery?: {
+                                branch?: string;
+                                held_reason?: string;
+                                job_id?: string;
+                                agent_id?: string | null;
+                                delivering_job_id?: string | null;
+                            } | null;
                             edits?: {
                                 id?: string;
                                 member_id?: string;
@@ -3259,6 +3347,14 @@ export interface paths {
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
+                            pending_delivery?: {
+                                branch?: string;
+                                held_reason?: string;
+                                job_id?: string;
+                                agent_id?: string | null;
+                                delivering_job_id?: string | null;
+                            } | null;
                             edits?: {
                                 id?: string;
                                 member_id?: string;
@@ -6176,7 +6272,7 @@ export interface paths {
         put?: never;
         /**
          * Encolar la entrega a producción de un mensaje (Editor)
-         * @description Corre `EXECUTE_DELIVER_COMMAND` sobre la rama `tp/<id>` del mensaje, sin IA (UD-263). Al terminar bien, el agente publica su respuesta final con «Ya está en producción»; si falla, el aviso llano con `outcome: blocked`. Responde 202 con el trabajo creado. 409 `deliver_not_configured` si la instancia no declara la orden, 409 `execute_busy` si el mensaje tiene un trabajo `execute` en cola o corriendo, 409 `deliver_busy` si ya tiene una entrega, 409 `no_agent_assignee` si no hay un agente activo que responda, 409 `message_closed` si está cerrado.
+         * @description Corre `EXECUTE_DELIVER_COMMAND` sobre la rama `tp/<id>` del mensaje, sin IA (UD-263). Al terminar bien, el agente publica su respuesta final con «Ya está en producción»; si falla, el aviso llano con `outcome: blocked`. Responde 202 con el trabajo creado. 409 `deliver_not_configured` si la instancia no declara la orden, 409 `execute_busy` si el mensaje tiene un trabajo `execute` en cola o corriendo, 409 `deliver_busy` si ya tiene una entrega, 409 `no_agent_assignee` si no hay un agente activo que responda, 409 `message_closed` si está cerrado, 409 `delivery_discarded` si una persona descartó la rama.
          */
         post: {
             parameters: {
@@ -6197,6 +6293,69 @@ export interface paths {
                     content: {
                         "application/json": {
                             job_id?: string;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/messages/{id}/discard-delivery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Descartar la rama de una entrega retenida (Editor)
+         * @description UD-275. La rama que espera revisión no se entrega nunca: el mensaje deja de mostrar la revisión pendiente, queda abierto y el hilo gana «Descartado por <persona>: <motivo>». El motivo es obligatorio. Auditada como `message.delivery_discard`. 409 `no_pending_delivery` si no hay una entrega retenida, 409 `deliver_busy` si ya se está entregando.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        reason: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            reply_id?: string;
                         };
                     };
                 };

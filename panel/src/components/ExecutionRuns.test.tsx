@@ -58,9 +58,9 @@ describe('ExecutionRuns', () => {
     answer = () => ({ ...summary, runs: 0 })
     wrap()
     fireEvent.click(screen.getByRole('button', { name: 'Ejecuciones' }))
-    expect(await screen.findByText('Sin ejecuciones')).toBeTruthy()
+    expect(await screen.findByText('Sin respuestas en curso')).toBeTruthy()
     fireEvent.change(screen.getByRole('combobox', { name: 'Período' }), { target: { value: '0' } })
-    await screen.findByText('Sin ejecuciones')
+    await screen.findByText('Sin respuestas en curso')
     expect(calls.at(-1)).toBe('/ops/execute-runs/summary')
   })
 

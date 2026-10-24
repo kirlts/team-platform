@@ -49,7 +49,7 @@ test('tray: a proposed input reports 100 and the number of proposed messages; pu
   const body = (await env.api('GET', TRAY, env.c.ana)).json()
   assert.deepEqual(body.items.map((i) => i.id), [String(done)])
   assert.equal(body.items[0].percent, 100)
-  assert.equal(body.items[0].phrase, 'Propuesta lista')
+  assert.equal(body.items[0].phrase, 'Borrador listo')
   assert.equal(body.items[0].proposed_count, 1)
   await env.close()
 })

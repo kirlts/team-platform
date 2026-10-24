@@ -30,12 +30,12 @@ export function AttachmentStrip({ items, scope = 'message', max = 4, px = 40, na
               // A PDF opens where the browser reads it, in a tab of its own.
               <a href={g.src} target="_blank" rel="noreferrer" aria-label={t('media.open', { name: g.name ?? t(`media.kind.${g.kind}`) })} className="flex min-w-0 max-w-full flex-1 items-center gap-2 rounded-md pr-2 text-left hover:bg-hover">
                 <Thumb item={g} px={px} />
-                <span className="min-w-0 break-all text-xs text-muted">{[g.name ?? t(`media.kind.${g.kind}`), format.fileSize(g.size)].filter(Boolean).join(' · ')}</span>
+                <span className="min-w-0 text-xs text-muted [overflow-wrap:anywhere]">{[g.name ?? t(`media.kind.${g.kind}`), format.fileSize(g.size)].filter(Boolean).join(' · ')}</span>
               </a>
             ) : (
               <button type="button" aria-label={t('gallery.item', { n: i + 1, total: gallery.length, name: g.name ?? t(`media.kind.${g.kind}`) })} onClick={() => setOpen(i)} className={cn('rounded-md', named ? 'flex min-w-0 max-w-full flex-1 items-center gap-2 pr-2 text-left hover:bg-hover' : 'block')}>
                 <Thumb item={g} px={px} />
-                {named && <span className="min-w-0 break-all text-xs text-muted">{[g.name ?? t(`media.kind.${g.kind}`), format.fileSize(g.size)].filter(Boolean).join(' · ')}</span>}
+                {named && <span className="min-w-0 text-xs text-muted [overflow-wrap:anywhere]">{[g.name ?? t(`media.kind.${g.kind}`), format.fileSize(g.size)].filter(Boolean).join(' · ')}</span>}
               </button>
             )}
             {named && <DownloadLink href={g.download} name={g.name} />}

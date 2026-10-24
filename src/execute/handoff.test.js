@@ -16,6 +16,7 @@ import { addMember, fakeAnalyze, login, makeEnv, postInput, until } from '../tes
 import { createWorker } from '../worker.js'
 import { decisionCheckProblem, decisionLines } from './decision-check.js'
 import { createExecuteHandler } from './handler.js'
+import { enqueueExecute } from './enqueue.js'
 
 const FAKE = fileURLToPath(new URL('./testing/fake-claude-stream.mjs', import.meta.url))
 const PORT = 8647 // the range given to this work (8640 to 8649)
@@ -179,6 +180,21 @@ describe('handoff to a person', () => {
     env.db.prepare("INSERT INTO replies (message_id, author_id, body, kind, created_at) VALUES (?, ?, 'x', 'clarification', 1)").run(messageId, editorId)
     assert.equal((await api('POST', `/api/messages/${messageId}/replies`, author, { body: 'Aun no.', kind: 'answer' })).json().code, 'author_cannot_reply')
     await api('PATCH', `/api/areas/${areaId}`, editor, { escalation_member_id: null })
+  })
+
+  it('an execute whose lease expired with no attempts left goes to a person with the reason, instead of staying open and unseen', async () => {
+    const messageId = await runWith('Una sesión que muere con su trabajador.', { outcome: 'done', summary: 'Listo.' })
+    env.db.prepare('DELETE FROM message_assignees WHERE message_id = ?').run(messageId)
+    env.db.prepare('INSERT INTO message_assignees (message_id, member_id) VALUES (?, ?)').run(messageId, agentId)
+    const jobId = enqueueExecute(env.db, { messageId, memberId: agentId, maxAttempts: 1 })
+    env.db.prepare("UPDATE jobs SET status = 'running', attempts = 1, worker_id = 'muerto', lease_until = ? WHERE id = ?").run(Date.now() - 60000, jobId)
+    startWorker() // at startup the queue recovers the expired lease and the worker reports it
+    await until(() => env.db.prepare('SELECT status FROM jobs WHERE id = ?').get(jobId).status === 'failed', { timeoutMs: 10000 })
+    await until(() => /se interrumpió antes de terminar/.test(lastReply(messageId)?.body ?? ''), { timeoutMs: 10000 })
+    await worker.stop()
+    assert.deepEqual(env.db.prepare('SELECT member_id FROM message_assignees WHERE message_id = ?').all(messageId).map((r) => r.member_id), [editorId], 'a person has it')
+    assert.equal(status(messageId), 'open')
+    assert.match(lastReply(messageId).body, /Quien reciba este mensaje puede volver a lanzarlo/)
   })
 
   it('the pieces of the check: the problem it names and the lines the person reads', () => {

@@ -396,6 +396,20 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     }
   }
 
+  /** The session was interrupted twice (worker restart or lost machine): plain words to the author and the message to the person who decides (UD-269). */
+  function handOffInterrupted (job, messageId) {
+    try {
+      const { member_id: memberId } = parseJson(job.payload_json, {})
+      if (!messageId || !memberId) return false
+      const body = 'La sesión se interrumpió antes de terminar, dos veces seguidas (el servicio se reinició o se perdió la máquina de trabajo), y todavía no hay un cambio listo. Lo que alcancé a hacer queda guardado en la rama del mensaje.\n\nQuien reciba este mensaje puede volver a lanzarlo desde la ficha.\n\n**Resultado**: blocked'
+      const { personId } = handOffToPerson({ db, events, now }, { messageId, agentId: memberId, body, source: 'execute' })
+      return personId !== null
+    } catch (e) {
+      logger?.warn({ err: e }, 'could not hand the interrupted session to a person')
+      return false
+    }
+  }
+
   return {
     maxRuntimeMs: x.timeoutMs + x.killGraceMs * 3, // the runner's own timeout fires first and leaves room to destroy the machine
 
@@ -429,6 +443,11 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     onFailure (job, error, outcome) {
       const { message_id: messageId } = parseJson(job.payload_json, {})
       if (outcome.state === 'failed') {
+        // The session died with its worker (a restart, a lost machine) and the retry did not finish it either: a person gets the message, with the reason.
+        if (error?.code === 'lease_expired' && handOffInterrupted(job, messageId)) {
+          events.publishForJob(job.id, { kind: 'done', data: { status: 'failed', message_id: messageId ? String(messageId) : null, error: String(error?.message ?? error), error_code: 'lease_expired' } })
+          return
+        }
         tellTheAuthor(job, messageId, error)
         events.publishForJob(job.id, { kind: 'done', data: { status: 'failed', message_id: messageId ? String(messageId) : null, error: String(error?.message ?? error), error_code: error?.code ?? null } })
       } else if (outcome.state === 'requeued') {

@@ -133,9 +133,21 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     jobLog.warn({ outcome: result.state, delay_ms: result.delayMs, error_code: failureCause.code ?? null }, `job failed: ${failureCause.message}`)
   }
 
+  // A job whose lease expired with no attempts left is failed by the queue itself, with no handler running: the handler hears about it here
+  // (the message of an `execute` that died with its worker went unanswered and unseen, 2026-10-23, job 99).
+  function reportExpired (recovered) {
+    for (const id of recovered?.failedIds ?? []) {
+      try {
+        const job = queue.getJob(id)
+        const error = Object.assign(new Error(job.last_error ?? 'El arriendo venció sin que el trabajo terminara.'), { code: 'lease_expired' })
+        handlers[job.kind]?.onFailure?.(job, error, { state: 'failed' })
+      } catch (e) { logger.error({ err: e, job_id: id }, 'error while recording the expired lease') }
+    }
+  }
+
   function sweepLeases () {
     try {
-      queue.recoverExpiredLeases()
+      reportExpired(queue.recoverExpiredLeases())
       kick()
     } catch (error) { logger.error({ err: error }, 'error while recovering leases') }
   }
@@ -155,7 +167,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     stopped = false
     queue.signals.on('enqueued', kick)
     queue.signals.on('cancelled', onCancelled)
-    queue.recoverExpiredLeases() // at startup (MS §7.3)
+    reportExpired(queue.recoverExpiredLeases()) // at startup (MS §7.3)
     timers.push(setInterval(sweepLeases, w.heartbeatMs)) // per cycle, at the heartbeat's cadence
     timers.push(setInterval(sweepRetentionJob, w.retentionSweepMs))
     if (pollDataVersionMs) {

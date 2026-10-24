@@ -54,7 +54,7 @@ function Mount({ children }: { children: React.ReactNode }) {
   )
 }
 
-describe('«Revisión» de un cambio retenido (UD-275)', () => {
+describe('the «Revisión» of a held change (UD-275)', () => {
   it('shows nothing when the message has no held delivery', () => {
     role = 'editor'
     render(<Mount><ReviewPending message={message(null)} /></Mount>)

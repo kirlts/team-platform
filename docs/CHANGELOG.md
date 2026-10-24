@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Una mención a Claude que llega mientras trabaja le llega a esa misma sesión en su siguiente paso (UD-285): gancho `PostToolBatch` con `team mentions`, `POST /api/jobs/:id/mentions/take`, texto, adjuntos y notas de voz transcritas; no abre otro trabajo y el hilo muestra que la recibió.
 - «Reintentar» en el aviso de una sesión de Claude que falló (UD-282): `POST /api/messages/:id/replies/:replyId/retry` lanza otra vez el mismo trabajo (mismo mensaje, mención o reenvío, adjuntos y notas de voz), audita quién lo hizo y no duplica. El servidor marca `retryable` en el aviso sólo cuando hay algo reintentable y el tope de gasto de hoy no se agotó. Migración `0028_reply_failed_job`.
 - El Editor edita el perfil de un agente, en Equipo y con `PATCH /members/:id` (UD-281, enmienda UD-023). Una pregunta de decisión se lee en una línea bajo el resumen; fuentes, recomendación y costo de equivocarse van al detalle plegado.
 - La revisión de un cambio retenido se hace respondiendo en el hilo, no con botones (UD-280, enmienda UD-275): la ficha muestra «Cambio listo para revisar»; Claude, mencionado, recibe el estado y la respuesta, y el campo `review` (`approve`, `discard`, `iterate`, `none`) decide lo que el sistema ejecuta, sólo para un Editor en entregar y descartar.

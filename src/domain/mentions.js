@@ -5,7 +5,8 @@
 //   - the mentioned member joins the assignees of the message (the thread is now associated with their account);
 //   - a person gets a notice (the event the bell already listens to, `reason: 'mention'`);
 //   - an agent gets its `execute` job on the same message, with `mention: { reply_id, by }` in the payload. An agent that is already working
-//     the message keeps the mention as pending (`reply_mentions.pending`) and the end of that work attends it in a following run: it is not lost;
+//     the message keeps the mention as pending (`reply_mentions.pending`); the running session takes it at its next step (`live-mentions.js`, UD-285) and, if it did
+//     not, the end of that work attends it in a following run: it is not lost;
 //   - one `message.mention` row in the audit log per mention.
 
 import { all, get, run } from '../db/index.js'
@@ -116,5 +117,7 @@ export function mentionsOf (db, replyIds) {
  * the system posted itself when the session started: it does not count as the answer.
  */
 export function mentionAnswered (db, { messageId, agentId, replyId, exceptReplyId = 0 }) {
-  return Boolean(get(db, 'SELECT 1 AS ok FROM replies WHERE message_id = ? AND author_id = ? AND id > ? AND id != ? AND deleted_at IS NULL LIMIT 1', messageId, agentId, replyId, exceptReplyId))
+  // UD-285: the line the system wrote when the running session took a mention (`live_ack_reply_id`) is a receipt, not an answer either.
+  return Boolean(get(db, `SELECT 1 AS ok FROM replies WHERE message_id = ? AND author_id = ? AND id > ? AND id != ? AND deleted_at IS NULL
+                           AND id NOT IN (SELECT live_ack_reply_id FROM reply_mentions WHERE live_ack_reply_id IS NOT NULL) LIMIT 1`, messageId, agentId, replyId, exceptReplyId))
 }

@@ -4,7 +4,10 @@
 // real session would, and prints NDJSON. FAKE_EXECUTE_MODE: ok | no-structured | error | hang | exit | api-error | invalid-output | reject-flag.
 // FAKE_EXECUTE_FAIL_FIRST=n makes the first n calls (counted in calls.jsonl) behave as FAKE_EXECUTE_FAIL_MODE and the rest as `ok`.
 // FAKE_EXECUTE_SLEEP_MS holds the session that long before its result (a session that is still working).
-import { execFileSync } from 'node:child_process'
+// FAKE_EXECUTE_HOOK=1 runs, after every simulated batch of tools, the PostToolBatch hook that came in `--settings` the way Claude Code does (the command with the event as JSON on stdin,
+// its stdout read as a hook output) and records the `additionalContext` it returned in hook-context.jsonl. FAKE_EXECUTE_GATE=<fifo> holds the session after its first batch until something is
+// written to that named pipe (the test posts a mention in between, then releases it); the file gate-reached tells the test the session is there.
+import { execFileSync, spawnSync } from 'node:child_process'
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -55,10 +58,26 @@ process.stdin.on('end', async () => {
   const usage = (n) => ({ input_tokens: 100 * n, output_tokens: 10 * n, cache_read_input_tokens: 1000 * n, cache_creation_input_tokens: 50 * n })
   if (process.env.FAKE_EXECUTE_MULTI === '1') return multi()
   await legacy()
+  // The hook of Claude Code after a batch of tools: the declared command, the event on stdin; what it prints is a hook output whose `additionalContext` the model reads next.
+  function hook () {
+    if (process.env.FAKE_EXECUTE_HOOK !== '1') return
+    const at = process.argv.indexOf('--settings')
+    const command = at < 0 ? null : JSON.parse(process.argv[at + 1]).hooks?.PostToolBatch?.[0]?.hooks?.[0]?.command
+    if (!command) return appendFileSync(`${state}/hook-context.jsonl`, `${JSON.stringify({ declared: false })}\n`)
+    const r = spawnSync('sh', ['-c', command], { input: JSON.stringify({ hook_event_name: 'PostToolBatch', session_id: sessionId }), encoding: 'utf8', env: process.env })
+    let context = null
+    try { context = JSON.parse(r.stdout).hookSpecificOutput.additionalContext } catch { /* nothing printed: nothing new */ }
+    // The files the context points at, as the session would open them now (the directory of the job goes away when it ends).
+    const files = {}
+    for (const m of (context ?? '').matchAll(/: (\S*reply-\d+\/\S+)/g)) { try { files[m[1]] = readFileSync(m[1]).toString('base64') } catch { files[m[1]] = null } }
+    appendFileSync(`${state}/hook-context.jsonl`, `${JSON.stringify({ declared: true, code: r.status, context, files, stderr: r.stderr })}\n`)
+  }
   async function legacy () {
   out({ type: 'stream_event', session_id: sessionId, event: { type: 'content_block_delta', delta: { type: 'text_delta', text: 'Leo' } } })
   out({ type: 'assistant', session_id: sessionId, parent_tool_use_id: null, message: { content: [{ type: 'tool_use', name: 'Read', input: { file_path: '/repo/src/screen.tsx' } }] } })
   out({ type: 'user', session_id: sessionId, message: { content: [{ type: 'tool_result', content: 'ok' }] } })
+  hook()
+  if (process.env.FAKE_EXECUTE_GATE) { writeFileSync(`${state}/gate-reached`, ''); readFileSync(process.env.FAKE_EXECUTE_GATE); hook() }
   out({ type: 'assistant', session_id: sessionId, parent_tool_use_id: null, message: { content: [{ type: 'tool_use', name: 'Bash', input: { command: 'npm test', description: 'Pruebas de la pantalla' } }] } })
   out({ type: 'assistant', session_id: sessionId, parent_tool_use_id: 'tool-1', message: { content: [{ type: 'tool_use', name: 'Edit', input: { file_path: '/repo/src/screen.tsx' } }] } })
   process.stdout.write('not json\n')

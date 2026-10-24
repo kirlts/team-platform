@@ -3028,7 +3028,7 @@ export interface paths {
         put?: never;
         /**
          * Responder un mensaje, con archivos y enlaces opcionales (403 si quien responde es su emisor)
-         * @description JSON `{ body, kind, mention_ids }` o multipart (`body`, `kind`, `mention_ids` repetido, `files[]`, `links[]`) con los mismos topes y el mismo almacenamiento que `POST /inputs`. Una respuesta con archivos o enlaces puede ir sin texto. Los adjuntos se guardan y se sirven, no se analizan: `GET /replies/attachments/:id` entrega el archivo. `mention_ids` (UD-278) son los miembros que la persona eligió en la lista que abre «@»: nunca se leen del texto. Cada uno pasa a los asignados del mensaje; una persona recibe un aviso y un agente recibe su trabajo `execute` con el hilo completo (si ya trabaja ese mensaje, la mención queda pendiente y se atiende al terminar). 404 si un miembro no existe; 400 `assignee_inactive` si está desactivado, `mention_self` si es quien escribe, `mention_loop` si un agente menciona a otro agente. El emisor del mensaje sólo responde si menciona a alguien (esa respuesta no cuenta como respuesta y el mensaje queda `open`). Auditoría `message.mention` por cada uno. Devuelve el mensaje con su hilo; cada respuesta lleva `attachments`, `attachment_kinds` y `mentions`.
+         * @description JSON `{ body, kind, mention_ids }` o multipart (`body`, `kind`, `mention_ids` repetido, `files[]`, `links[]`) con los mismos topes y el mismo almacenamiento que `POST /inputs`. Una respuesta con archivos o enlaces puede ir sin texto. Los adjuntos se guardan y se sirven, no se analizan: `GET /replies/attachments/:id` entrega el archivo. `mention_ids` (UD-278) son los miembros que la persona eligió en la lista que abre «@»: nunca se leen del texto. Cada uno pasa a los asignados del mensaje; una persona recibe un aviso y un agente recibe su trabajo `execute` con el hilo completo (si ya trabaja ese mensaje, la mención queda pendiente y la sesión en curso la toma en su siguiente paso, `POST /jobs/:id/mentions/take`, UD-285; si no alcanzó a tomarla, se atiende al terminar). 404 si un miembro no existe; 400 `assignee_inactive` si está desactivado, `mention_self` si es quien escribe, `mention_loop` si un agente menciona a otro agente. El emisor del mensaje sólo responde si menciona a alguien (esa respuesta no cuenta como respuesta y el mensaje queda `open`). Auditoría `message.mention` por cada uno. Devuelve el mensaje con su hilo; cada respuesta lleva `attachments`, `attachment_kinds` y `mentions`.
          */
         post: {
             parameters: {
@@ -6629,7 +6629,7 @@ export interface paths {
         put?: never;
         /**
          * Reintentar el trabajo que falló (cualquier miembro)
-         * @description UD-282. La respuesta del aviso «<Agente> no pudo responder: …» lleva el trabajo `execute` que falló; este endpoint encola otro con el mismo origen: el mismo mensaje y agente y la misma `mention`, `forward` o entrega en la carga, así que la sesión lee otra vez el mismo hilo, los mismos adjuntos y las mismas notas de voz. Puede hacerlo quien puede mencionar al agente (un miembro). Auditada como `message.execute_retry`. Responde 202 con el trabajo. 404 si la respuesta no es de ese mensaje; 409 `not_a_failure` si no avisa de un trabajo fallido, `retry_stale` si ya hay un intento posterior, `message_closed`, `not_an_agent` si el agente se desactivó, `execute_busy` si el agente ya tiene un trabajo en cola o corriendo para el mensaje. El tope de gasto del día lo hace cumplir el trabajador, como en cualquier `execute`.
+         * @description UD-282. La respuesta del aviso «<Agente> no pudo responder: …» lleva el trabajo `execute` que falló; este endpoint encola otro con el mismo origen: el mismo mensaje y agente y la misma `mention`, `forward` o entrega en la carga, así que la sesión lee otra vez el mismo hilo, los mismos adjuntos y las mismas notas de voz. Puede hacerlo quien puede mencionar al agente (un miembro). Auditada como `message.execute_retry`. Responde 202 con el trabajo. 404 si la respuesta no es de ese mensaje; 409 `not_a_failure` si no avisa de un trabajo fallido, `not_retryable` si la causa no se arregla con otro intento (formato de la salida, configuración del agente), `budget_spent` si el tope de gasto de hoy se agotó, `retry_stale` si ya hay otro trabajo del mensaje, `message_closed`, `not_an_agent` si el agente se desactivó, `execute_busy` si el agente ya tiene un trabajo en cola o corriendo para el mensaje.
          */
         post: {
             parameters: {
@@ -6895,6 +6895,65 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content?: never;
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{id}/mentions/take": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Tomar las menciones nuevas del agente en el mensaje que trabaja su sesión (sólo su agente)
+         * @description UD-285. Lo usa el gancho de la sesión desatendida (`team mentions`, tras cada tanda de herramientas). Devuelve y marca como entregadas a esta sesión las respuestas que mencionan al agente en el mensaje del trabajo y que estaban pendientes: `{ mentions: [{ reply_id, by, at, body, attachments }] }`, de la más vieja a la más nueva, cada adjunto con su `transcript` (lo dicho en un audio o video, UD-279) o su `link`. Una mención tomada no se vuelve a entregar ni abre otro trabajo al terminar la sesión, y el hilo gana una línea fija del agente que dice que la recibió. Sin menciones nuevas devuelve la lista vacía con una sola consulta. Los archivos se bajan con `GET /replies/attachments/:id`. 403 `not_job_agent` si quien llama no es el agente del trabajo; 409 `job_not_running` si el trabajo no está corriendo.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            mentions?: {
+                                [key: string]: unknown;
+                            }[];
+                        };
+                    };
                 };
                 /** @description Error: { code, message }. */
                 "4XX": {

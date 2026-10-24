@@ -8,6 +8,7 @@ import { audit } from '../domain/audit.js'
 import { idIn, idParams } from '../api/schemas.js'
 import { discardDelivery } from '../domain/delivery-review.js'
 import { approveDelivery } from './approve.js'
+import { takeLiveMentions } from '../domain/live-mentions.js'
 import { enqueueExecute } from './enqueue.js'
 import { retryExecute, watchBudget } from './retry.js'
 
@@ -136,5 +137,22 @@ export function registerExecuteRoutes (app, ctx) {
     if (name === 'delivery' && ok !== undefined) marks.delivered = ok ? 1 : 0
     runSql(db, 'UPDATE jobs SET marks_json = ? WHERE id = ?', JSON.stringify(marks), job.id)
     return reply.code(204).send()
+  })
+
+  app.post('/jobs/:id/mentions/take', {
+    onRequest: [requireRole('member')],
+    schema: {
+      summary: 'Tomar las menciones nuevas del agente en el mensaje que trabaja su sesión (sólo su agente)',
+      description: 'UD-285. Lo usa el gancho de la sesión desatendida (`team mentions`, tras cada tanda de herramientas). Devuelve y marca como entregadas a esta sesión las respuestas que mencionan al agente en el mensaje del trabajo y que estaban pendientes: `{ mentions: [{ reply_id, by, at, body, attachments }] }`, de la más vieja a la más nueva, cada adjunto con su `transcript` (lo dicho en un audio o video, UD-279) o su `link`. Una mención tomada no se vuelve a entregar ni abre otro trabajo al terminar la sesión, y el hilo gana una línea fija del agente que dice que la recibió. Sin menciones nuevas devuelve la lista vacía con una sola consulta. Los archivos se bajan con `GET /replies/attachments/:id`. 403 `not_job_agent` si quien llama no es el agente del trabajo; 409 `job_not_running` si el trabajo no está corriendo.',
+      params: idParams(),
+      response: { 200: { type: 'object', properties: { mentions: { type: 'array', items: { type: 'object', additionalProperties: true } } } } }
+    }
+  }, async (request) => {
+    const job = queue.getJob(request.params.id)
+    if (!job || job.kind !== 'execute') throw notFound('El trabajo no existe.')
+    if (parseJson(job.payload_json, {}).member_id !== request.member.id) throw forbidden('Sólo el agente del trabajo toma sus menciones.', 'not_job_agent')
+    if (job.status !== 'running') throw conflict('El trabajo no está corriendo.', 'job_not_running')
+    const mentions = takeLiveMentions({ db, events }, { jobId: job.id, messageId: job.message_id, agentId: request.member.id })
+    return { mentions: mentions.map((m) => ({ ...m, reply_id: String(m.reply_id), attachments: m.attachments.map((a) => ({ ...a, id: String(a.id) })) })) }
   })
 }

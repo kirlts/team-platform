@@ -81,6 +81,14 @@ export { dailyBudget, localDay }
 /** Where a machine finds the stable part of the prompt: run.sh replaces this marker with its own job directory. */
 export const SYSTEM_FILE_ON_MACHINE = '@JOB_DIR@/system.md'
 
+/**
+ * UD-285: a reply that mentions the agent while its session runs reaches that same session. `PostToolBatch` fires «after a full batch of parallel tool calls resolves,
+ * before the next model call», and a hook of that event may return `hookSpecificOutput.additionalContext`, which Claude Code wraps in a system reminder at that point (https://code.claude.com/docs/en/hooks, read 2026-10-24).
+ * The command is `team mentions`: one request that returns only what is new (and marks it taken), nothing printed when there is nothing. It runs at the event of
+ * every step, never on a timer; `--settings` adds the hook without replacing the ones the repository of the session already declares.
+ */
+export const LIVE_MENTION_SETTINGS = { hooks: { PostToolBatch: [{ hooks: [{ type: 'command', command: 'team mentions' }] }] } }
+
 /** The arguments of `claude -p` (UD-255). */
 export function claudeArgs (x, schema) {
   return [
@@ -90,6 +98,7 @@ export function claudeArgs (x, schema) {
     '--max-budget-usd', String(x.budgetUsd ?? x.maxBudgetUsd),
     ...(x.maxTurns > 0 ? ['--max-turns', String(x.maxTurns)] : []), // 0: no cap on turns, `--max-budget-usd` governs (UD-283)
     '--permission-mode', 'bypassPermissions',
+    '--settings', JSON.stringify(LIVE_MENTION_SETTINGS),
     '--output-format', 'stream-json', '--verbose', '--include-partial-messages',
     '--json-schema', JSON.stringify(schema)
   ]

@@ -5,8 +5,9 @@
 // Standalone on purpose: only Node built-ins, so the worker can copy this one file into a machine it creates.
 
 import { createHmac } from 'node:crypto'
-import { open, readFile, realpath, stat } from 'node:fs/promises'
-import { relative, resolve, sep } from 'node:path'
+import { mkdir, open, readFile, realpath, stat, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { dirname, join, relative, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 export const HELP = `team: talks to the Team Platform API as the agent member of this session.
@@ -26,6 +27,8 @@ Commands:
   team mark <judge|delivery|wait> --ms <milliseconds> [--ok true|false]
                                                   report the time this session spent in the judge, in the delivery or waiting; added up per job.
                                                   With «delivery», --ok says whether the delivery reached production
+  team mentions [<job_id>]                        for the hook of the session (UD-285): takes the replies that mentioned the agent while it works and prints them as the
+                                                  JSON of a Claude Code hook (additionalContext); their files are left in $TEAM_THREAD_DIR. Prints nothing when there is nothing new
   team timing <message_id>                        where the time of the message's execution went, as JSON (without the span tree)
   team close <message_id>                         close the message
   team walkthrough --url <address> --steps <json|file> --place <route> --as <role> [--profile desktop|phone|both] [--masked true|false] [--out <dir>]
@@ -135,6 +138,56 @@ function parseArgs (argv) {
 }
 
 /** Runs one command. Returns { code, out, err } instead of exiting, so it can be tested in process. */
+// Claude Code caps each `additionalContext` string of a hook at 10,000 characters and saves a longer one to a file with a 2,000-character preview
+// (https://code.claude.com/docs/en/hooks, read 2026-10-24). The context is cut here, before that, and the whole text is left in a file the session opens.
+export const HOOK_CONTEXT_MAX_CHARS = 10000
+
+const safeName = (name, fallback) => String(name ?? '').replace(/[\\/\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim() || fallback
+
+/**
+ * What the session reads when replies mention it while it works (UD-285): who wrote each, when, the text, the attachments as files under `dir`
+ * (links with their address) and, for audio and video, what was said. `list` is what `POST /jobs/:id/mentions/take` returned. A file that cannot be
+ * downloaded is said in the text and in `warnings`; the reply still arrives.
+ */
+export async function liveMentionsContext (list, { dir, jobId, messageId, download, warnings = [] }) {
+  const out = []
+  for (const m of list) {
+    const lines = [`NEW REPLY THAT MENTIONS YOU, received while you work (job ${jobId}${messageId ? `, message ${messageId}` : ''}).`, `reply ${m.reply_id} by ${m.by}, ${m.at}:`, '', m.body || '(no text)']
+    const taken = new Set()
+    for (const a of m.attachments ?? []) {
+      if (a.kind === 'link') { lines.push('', `- link: ${a.link}`); continue }
+      let rel = `reply-${m.reply_id}/${safeName(a.name, `file-${a.id}`)}`
+      for (let n = 2; taken.has(rel); n++) rel = `reply-${m.reply_id}/${n}-${safeName(a.name, `file-${a.id}`)}`
+      taken.add(rel)
+      const bits = [a.kind, a.mime, `${a.size} bytes`].filter(Boolean).join(', ')
+      let saved = `${join(dir, rel)}`
+      try {
+        const r = await download(a.id)
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        await mkdir(dirname(join(dir, rel)), { recursive: true })
+        await writeFile(join(dir, rel), r.data)
+      } catch (error) {
+        saved = `could not be downloaded (${error.message})`
+        warnings.push(`team mentions: ${a.name}: ${saved}`)
+      }
+      lines.push('', `- ${safeName(a.name, 'file')} (${bits}): ${saved}`)
+      if (a.transcript) lines.push(`  transcript of ${safeName(a.name, 'file')}:`, a.transcript.split('\n').map((l) => `  ${l}`).join('\n'))
+    }
+    out.push(lines.join('\n'))
+  }
+  const names = [...new Set(list.map((m) => m.by))].join(', ')
+  out.push(`Take ${list.length === 1 ? 'it' : 'them'} into account from your next step: ${list.length === 1 ? 'it' : 'they'} may correct, narrow or add to what you are doing. Do not start another job and do not send a «Recibido»: the system already posted it in the thread. Your final \`summary\` answers ${list.length === 1 ? 'it' : 'them'} too, addressed to ${names}.`)
+  let text = out.join('\n\n---\n\n')
+  if (text.length > HOOK_CONTEXT_MAX_CHARS) {
+    const file = join(dir, `live-mentions-${list[0].reply_id}.md`)
+    await mkdir(dirname(file), { recursive: true })
+    await writeFile(file, text)
+    const note = `\n\n[cut: the whole text, with the transcripts, is in ${file}]`
+    text = `${text.slice(0, HOOK_CONTEXT_MAX_CHARS - note.length)}${note}`
+  }
+  return text
+}
+
 export async function runTeam (argv, env = process.env, fetchImpl = fetch) {
   const { positional, options } = parseArgs(argv)
   const [command, ...rest] = positional
@@ -152,13 +205,14 @@ export async function runTeam (argv, env = process.env, fetchImpl = fetch) {
   if (!base || !email || !secret) return { code: 1, out: '', err: 'team: TEAM_URL, TEAM_AGENT_EMAIL and TEAM_AGENT_SECRET are required.' }
   const prefix = env.TEAM_API_PREFIX ?? '/api'
 
-  const call = async (method, path, body) => {
+  const call = async (method, path, body, { binary = false } = {}) => {
     const pathname = `${prefix}${path}`
     const ts = String(Math.floor(Date.now() / 1000))
     const headers = { 'x-team-user': email, 'x-team-ts': ts, 'x-team-sig': sign(secret, { ts, method, pathname, email }) }
     const multipart = body?.multipart === true
     if (body !== undefined) headers['content-type'] = multipart ? body.type : 'application/json'
     const res = await fetchImpl(`${base}${pathname}`, { method, headers, body: body === undefined ? undefined : (multipart ? body.bytes : JSON.stringify(body)) })
+    if (binary) return { ok: res.ok, status: res.status, data: Buffer.from(await res.arrayBuffer()) }
     const text = await res.text()
     let data = null
     try { data = text ? JSON.parse(text) : null } catch { data = text }
@@ -210,6 +264,15 @@ export async function runTeam (argv, env = process.env, fetchImpl = fetch) {
       if (!['judge', 'delivery', 'wait'].includes(name) || !Number.isInteger(ms) || ms < 0) throw new Error('team mark: use «team mark <judge|delivery|wait> --ms <milliseconds>».')
       if (options.ok !== undefined && !['true', 'false'].includes(options.ok)) throw new Error('team mark: --ok is true or false.')
       r = await call('POST', `/jobs/${id(env.TEAM_JOB_ID, 'TEAM_JOB_ID')}/marks`, { name, ms, ...(options.ok !== undefined ? { ok: options.ok === 'true' } : {}) })
+    } else if (command === 'mentions') {
+      const jobId = id(rest[0] ?? env.TEAM_JOB_ID, 'job_id')
+      const taken = await call('POST', `/jobs/${jobId}/mentions/take`)
+      if (!taken.ok) return { code: 1, out: '', err: `team mentions: HTTP ${taken.status} ${taken.data?.code ?? ''} ${taken.data?.message ?? ''}`.trim() }
+      const list = taken.data?.mentions ?? []
+      if (list.length === 0) return { code: 0, out: '', err: '' }
+      const dir = env.TEAM_THREAD_DIR || join(tmpdir(), `team-thread-${jobId}`)
+      const text = await liveMentionsContext(list, { dir, jobId, messageId: env.TEAM_MESSAGE_ID, download: (attachmentId) => call('GET', `/replies/attachments/${attachmentId}`, undefined, { binary: true }), warnings })
+      return { code: 0, out: JSON.stringify({ hookSpecificOutput: { hookEventName: 'PostToolBatch', additionalContext: text } }), err: warnings.join('\n') }
     } else if (command === 'progress') {
       const percent = Number(options.percent)
       if (!Number.isFinite(percent) || typeof options.phrase !== 'string') throw new Error('team progress: --percent and --phrase are required.')

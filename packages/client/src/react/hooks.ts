@@ -349,6 +349,13 @@ export function useSetClosed() {
   return useMutation({ mutationFn: (v: { id: string; closed: boolean }) => client.messages.setClosed(v), onSuccess: () => inv('setClosed') })
 }
 
+/** Forwards a message to a member with the reason (POST /messages/:id/forward, UD-272). */
+export function useForward(messageId: string) {
+  const client = useTeamClient()
+  const inv = useInvalidate()
+  return useMutation({ mutationFn: (v: { member_id: string; comment: string }) => client.messages.forward(messageId, v), onSuccess: () => inv('forward') })
+}
+
 /** Soft-deletes a message (DELETE /messages/:id?confirm=true, UD-240): its sender or the Editor; Deshacer restores it. */
 export function useDeleteMessage() {
   const client = useTeamClient()

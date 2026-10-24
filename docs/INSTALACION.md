@@ -542,6 +542,8 @@ Los archivos van en `$TEAM_CAPTURES_DIR` (el directorio `captures/` del trabajo)
 
 La respuesta final adjunta la «Antes» de la última respuesta de la sesión que la trae, y la «Después». Cada adjunto se llama «Antes - <alt>» o «Después - <alt>»; el panel lo muestra bajo la imagen. Con `EXECUTE_RUNNER=machine`, `EXECUTE_MACHINE_COLLECT` copia `captures/` de la máquina a `{workdir}/captures` antes de destruirla (la ruta de la máquina es `$JOB_DIR/captures`); sin esa copia la captura final se deja fuera.
 
+**Documentos de un reenvío (UD-272).** Un mensaje reenviado a un agente con un motivo que pide un PDF lo deja en `$TEAM_ATTACHMENTS_DIR` (el directorio `attachments/` del trabajo) y lo declara en `attachments` de la salida estructurada. La respuesta lo adjunta si la ruta queda dentro del directorio, empieza con `%PDF-`, pesa hasta `UPLOAD_MAX_DOCUMENT_BYTES` y no se pasa de `UPLOAD_MAX_FILES`; si no, la respuesta dice cuál quedó fuera y por qué. Con `EXECUTE_RUNNER=machine`, `EXECUTE_MACHINE_COLLECT` debe copiar también `attachments/` de la máquina a `{workdir}/attachments` (la ruta de la máquina es `$JOB_DIR/attachments`); sin esa copia el documento se deja fuera.
+
 Texto para las instrucciones de las sesiones del anfitrión (`EXECUTE_HOST_INSTRUCTIONS`), con el nombre de la herramienta del anfitrión en lugar de `<captura>`:
 
 ```

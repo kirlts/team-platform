@@ -11,6 +11,7 @@ import { toGalleryItems } from '@/lib/gallery'
 import { Avatar } from '@/components/Avatar'
 import { EmptyState } from '@/components/EmptyState'
 import { EditableText } from '@/components/EditableText'
+import { ForwardMessage } from '@/components/ForwardMessage'
 import { LoadState } from '@/components/LoadState'
 import { useLookups } from '@/components/lookups'
 import { canReplyTo } from '@/lib/handoff'
@@ -185,6 +186,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
           )}
           {/* The author of a reply edits it here too (UD-253): the history is theirs as well. */}
           {(canEdit || (!!me && m.replies.some((r) => r.author_id === me.id))) && <UndoButtons stack={undo} compact={!desktop} />}
+          {m.status !== 'closed' && <ForwardMessage messageId={m.id} />}
           {canDelete && (
             <Button size="sm" variant="ghost" className="text-muted hover:text-danger" disabled={del.isPending} onClick={() => void remove()}>
               <Trash2 size={14} aria-hidden /> {t('detail.delete')}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, Trash2 } from '@/components/icons'
+import { ArrowRight, ChevronDown, Trash2 } from '@/components/icons'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useFormat, useT } from '@/i18n'
@@ -124,6 +124,26 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
                 )
               }
               const r = x.reply
+              // A forward is a notice of the thread, not a reply: a flat strip with the arrow where the avatar goes, the member it went to, and the reason under it (UD-272).
+              if (r.kind === 'forward') {
+                return (
+                  <li key={key} className="relative flex gap-3" data-last={last || undefined}>
+                    <span aria-hidden className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent-deep ring-4 ring-bg">
+                      <ArrowRight size={16} />
+                    </span>
+                    <article data-testid="forward-notice" className="flex min-w-0 flex-1 flex-col gap-1 rounded-lg border-l-2 border-accent bg-accent-soft px-3 py-2">
+                      <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 text-xs text-muted">
+                        <span className="break-words text-sm font-semibold text-accent-deep">{t('forward.strip', { name: r.forwarded_to ? memberName(r.forwarded_to) : '' })}</span>
+                        <span data-repeat-ok="person">{t('forward.by', { name: memberName(r.author_id) })}</span>
+                        <time dateTime={r.created_at} className="tabular-nums">
+                          {format.stamp(r.created_at)}
+                        </time>
+                      </div>
+                      <Markdown source={r.body} breaks className="break-words text-sm" />
+                    </article>
+                  </li>
+                )
+              }
               const handoffQuestion = r.kind === 'clarification' && members.some((m) => m.id === r.author_id && m.kind === 'agent')
               return (
                 <li key={key} className="relative flex gap-3" data-last={last || undefined}>

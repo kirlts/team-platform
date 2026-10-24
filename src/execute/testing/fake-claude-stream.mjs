@@ -34,6 +34,11 @@ process.stdin.on('end', async () => {
     const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from('fake-image-bytes')])
     for (const [name, kind] of Object.entries(JSON.parse(process.env.FAKE_EXECUTE_CAPTURE_FILES))) writeFileSync(`${team.TEAM_CAPTURES_DIR}/${name}`, kind === 'png' ? png : 'not an image')
   }
+  // FAKE_EXECUTE_ATTACHMENT_FILES: { name: 'pdf' | 'text' } written into $TEAM_ATTACHMENTS_DIR, as a session that writes a document does (UD-272).
+  if (process.env.FAKE_EXECUTE_ATTACHMENT_FILES) {
+    const pdf = Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.from('fake-document-bytes')])
+    for (const [name, kind] of Object.entries(JSON.parse(process.env.FAKE_EXECUTE_ATTACHMENT_FILES))) writeFileSync(`${team.TEAM_ATTACHMENTS_DIR}/${name}`, kind === 'pdf' ? pdf : 'not a pdf')
+  }
   // FAKE_EXECUTE_START_CAPTURES: the JSON list the first reply passes to `team reply --captures` (with --zone FAKE_EXECUTE_START_ZONE).
   const startCaptures = process.env.FAKE_EXECUTE_START_CAPTURES ? ['--captures', process.env.FAKE_EXECUTE_START_CAPTURES, ...(process.env.FAKE_EXECUTE_START_ZONE ? ['--zone', process.env.FAKE_EXECUTE_START_ZONE] : [])] : []
   if (process.env.FAKE_EXECUTE_REPLY === '1' && !stdin.includes('<delivery_failure>') && !stdin.includes('pass: retry after a failure')) {

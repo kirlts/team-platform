@@ -23,6 +23,8 @@ export const INVALIDATE = {
   /** After an edit of a reply; the detail is written with the answer. */
   editReply: ['messages'],
   setClosed: ['message', 'messages', 'areas'],
+  /** A forward adds an assignee and a notice to the thread of the message, and with an agent a job that the lists of executions show. */
+  forward: ['message', 'messages', 'areas', 'jobs'],
   deleteMessage: ['messages', 'message', 'areas', 'inputs'],
   restoreMessage: ['messages', 'message', 'areas', 'inputs'],
   deleteReply: ['message', 'messages', 'areas'],

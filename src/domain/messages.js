@@ -20,7 +20,9 @@ import { loadTemplate } from './areas.js'
 import { cancelAgentJobs, enqueueExecuteForAgents } from '../execute/enqueue.js'
 
 export const MESSAGE_STATUSES = ['open', 'answered', 'closed']
-export const REPLY_KINDS = ['answer', 'fix', 'clarification']
+export const REPLY_KINDS = ['answer', 'fix', 'clarification', 'forward']
+/** The kinds a reply route or a session writes: `forward` is written by `forwardMessage` only (UD-272), which is what gives it a recipient. */
+export const WRITABLE_REPLY_KINDS = REPLY_KINDS.filter((k) => k !== 'forward')
 
 const TRANSITIONS = {
   reply: { open: 'answered', answered: 'answered' }, // a closed message receives no replies until it is reopened
@@ -71,7 +73,7 @@ function replyAttachmentsOf (db, replyIds) {
 }
 
 const toReply = (r, atts = []) => ({
-  id: r.id, message_id: r.message_id, author_id: r.author_id, body: r.body, kind: r.kind,
+  id: r.id, message_id: r.message_id, author_id: r.author_id, body: r.body, kind: r.kind, forwarded_to: r.forwarded_to ?? null,
   attachments: atts, attachment_kinds: [...new Set(atts.map((a) => a.kind))], // one icon per media kind (UD-016)
   created_at: iso(r.created_at), version: r.version, edited_at: iso(r.edited_at)
 })
@@ -388,7 +390,7 @@ export function assertCanReply (db, messageId, authorId) {
  */
 export function addReply ({ db, events, now = Date.now }, { messageId, authorId, body = '', kind = 'answer', files = [], links = [] }) {
   if (typeof body !== 'string' || (body.trim() === '' && files.length + links.length === 0)) throw badRequest('La respuesta no puede estar vacía.', 'reply_empty')
-  if (!REPLY_KINDS.includes(kind)) throw badRequest('Tipo de respuesta desconocido.', 'reply_kind_invalid')
+  if (!WRITABLE_REPLY_KINDS.includes(kind)) throw badRequest('Tipo de respuesta desconocido.', 'reply_kind_invalid')
   const replyId = events.transaction(() => {
     const target = assertCanReply(db, messageId, authorId)
     const r = run(db, 'INSERT INTO replies (message_id, author_id, body, kind, created_at) VALUES (?, ?, ?, ?, ?)', messageId, authorId, body, kind, now())

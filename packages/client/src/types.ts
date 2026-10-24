@@ -148,7 +148,7 @@ export interface InputRecord {
 }
 
 export type MessageStatus = 'open' | 'answered' | 'closed'
-export type ReplyKind = 'answer' | 'fix' | 'clarification'
+export type ReplyKind = 'answer' | 'fix' | 'clarification' | 'forward'
 
 export interface Reply {
   id: string
@@ -156,6 +156,8 @@ export interface Reply {
   author_id: string
   body: string
   kind: ReplyKind
+  /** The member the message was forwarded to; only in a reply of kind `forward` (UD-272), whose `body` is the reason. */
+  forwarded_to?: string | null
   created_at: string
   /** Media types attached to the reply, to draw one icon per type (UD-016). */
   attachment_kinds?: AttachmentKind[]
@@ -494,7 +496,8 @@ export interface CreatedInput {
 /** A reply as the person writes it; with files or links the submit is multipart. */
 export interface NewReply {
   body: string
-  kind: ReplyKind
+  /** A `forward` is written by the forward route only (UD-272). */
+  kind: Exclude<ReplyKind, 'forward'>
   files?: File[]
   links?: string[]
 }

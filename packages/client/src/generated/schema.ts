@@ -984,7 +984,9 @@ export interface paths {
                                     author_id?: string;
                                     body?: string;
                                     /** @enum {string} */
-                                    kind?: "answer" | "fix" | "clarification";
+                                    kind?: "answer" | "fix" | "clarification" | "forward";
+                                    /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                    forwarded_to?: string | null;
                                     attachments?: {
                                         id?: string;
                                         reply_id?: string;
@@ -1015,7 +1017,9 @@ export interface paths {
                                     author_id?: string;
                                     body?: string;
                                     /** @enum {string} */
-                                    kind?: "answer" | "fix" | "clarification";
+                                    kind?: "answer" | "fix" | "clarification" | "forward";
+                                    /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                    forwarded_to?: string | null;
                                     attachments?: {
                                         id?: string;
                                         reply_id?: string;
@@ -1308,7 +1312,9 @@ export interface paths {
                                     author_id?: string;
                                     body?: string;
                                     /** @enum {string} */
-                                    kind?: "answer" | "fix" | "clarification";
+                                    kind?: "answer" | "fix" | "clarification" | "forward";
+                                    /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                    forwarded_to?: string | null;
                                     attachments?: {
                                         id?: string;
                                         reply_id?: string;
@@ -1495,7 +1501,9 @@ export interface paths {
                                 author_id?: string;
                                 body?: string;
                                 /** @enum {string} */
-                                kind?: "answer" | "fix" | "clarification";
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -1526,7 +1534,9 @@ export interface paths {
                                 author_id?: string;
                                 body?: string;
                                 /** @enum {string} */
-                                kind?: "answer" | "fix" | "clarification";
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -1679,7 +1689,9 @@ export interface paths {
                                 author_id?: string;
                                 body?: string;
                                 /** @enum {string} */
-                                kind?: "answer" | "fix" | "clarification";
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -1710,7 +1722,9 @@ export interface paths {
                                 author_id?: string;
                                 body?: string;
                                 /** @enum {string} */
-                                kind?: "answer" | "fix" | "clarification";
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -1906,7 +1920,9 @@ export interface paths {
                                 author_id?: string;
                                 body?: string;
                                 /** @enum {string} */
-                                kind?: "answer" | "fix" | "clarification";
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -1937,7 +1953,9 @@ export interface paths {
                                 author_id?: string;
                                 body?: string;
                                 /** @enum {string} */
-                                kind?: "answer" | "fix" | "clarification";
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -2174,7 +2192,9 @@ export interface paths {
                                 author_id?: string;
                                 body?: string;
                                 /** @enum {string} */
-                                kind?: "answer" | "fix" | "clarification";
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -2205,7 +2225,9 @@ export interface paths {
                                 author_id?: string;
                                 body?: string;
                                 /** @enum {string} */
-                                kind?: "answer" | "fix" | "clarification";
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -2309,7 +2331,9 @@ export interface paths {
                                 author_id?: string;
                                 body?: string;
                                 /** @enum {string} */
-                                kind?: "answer" | "fix" | "clarification";
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -2340,7 +2364,9 @@ export interface paths {
                                 author_id?: string;
                                 body?: string;
                                 /** @enum {string} */
-                                kind?: "answer" | "fix" | "clarification";
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -2445,7 +2471,9 @@ export interface paths {
                                 author_id?: string;
                                 body?: string;
                                 /** @enum {string} */
-                                kind?: "answer" | "fix" | "clarification";
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -2476,7 +2504,9 @@ export interface paths {
                                 author_id?: string;
                                 body?: string;
                                 /** @enum {string} */
-                                kind?: "answer" | "fix" | "clarification";
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -2585,7 +2615,9 @@ export interface paths {
                                 author_id?: string;
                                 body?: string;
                                 /** @enum {string} */
-                                kind?: "answer" | "fix" | "clarification";
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -2616,7 +2648,9 @@ export interface paths {
                                 author_id?: string;
                                 body?: string;
                                 /** @enum {string} */
-                                kind?: "answer" | "fix" | "clarification";
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -2743,7 +2777,9 @@ export interface paths {
                                 author_id?: string;
                                 body?: string;
                                 /** @enum {string} */
-                                kind?: "answer" | "fix" | "clarification";
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -2774,7 +2810,160 @@ export interface paths {
                                 author_id?: string;
                                 body?: string;
                                 /** @enum {string} */
-                                kind?: "answer" | "fix" | "clarification";
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                }[];
+                                attachment_kinds?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            }[];
+                            edits?: {
+                                id?: string;
+                                member_id?: string;
+                                at?: string;
+                                version?: number;
+                                fields?: string[];
+                            }[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/messages/{id}/forward": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reenviar un mensaje a un miembro, con el motivo (UD-272)
+         * @description El mismo mensaje suma a `member_id` entre sus asignados (no se crea otro) y el hilo gana una respuesta de tipo `forward`: autor quien reenvía, `forwarded_to` el destinatario y `body` el motivo, que es obligatorio. Un mensaje respondido vuelve a `open` para quien lo recibe. Si el destinatario es un agente, se encola su trabajo `execute` del mismo mensaje con el reenvío como contexto; la sesión decide si resuelve o investiga. Responde 201 con el mensaje y su hilo. 400 `forward_comment_required` sin motivo, 400 `forward_to_self` si el destinatario es quien reenvía, 400 `assignee_inactive` si está desactivado, 404 si el mensaje o el miembro no existen, 409 `message_closed` si el mensaje está cerrado, 409 `execute_busy` si el agente ya tiene un trabajo en cola o corriendo para el mensaje. Auditoría `message.forward`.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        member_id: number;
+                        comment: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id?: string;
+                            input_id?: string | null;
+                            area_id?: string;
+                            template_id?: string | null;
+                            author_id?: string;
+                            /** @description Who had the session when the input of the message was sent in the name of its author (UD-255); null when it is the author. */
+                            sent_by_id?: string | null;
+                            title?: string;
+                            body?: string;
+                            fields?: {
+                                [key: string]: unknown;
+                            };
+                            /** @enum {string} */
+                            status?: "open" | "answered" | "closed";
+                            assignee_ids?: string[];
+                            attachments?: {
+                                id?: string;
+                                input_id?: string | null;
+                                kind?: string;
+                                name?: string;
+                                mime?: string;
+                                size?: number;
+                                extracted?: boolean;
+                            }[];
+                            attachment_kinds?: string[];
+                            reply_count?: number;
+                            last_reply?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                }[];
+                                attachment_kinds?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            } | null;
+                            created_at?: string;
+                            updated_at?: string;
+                            version?: number;
+                            edited_at?: string | null;
+                            closed_at?: string | null;
+                            /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
+                            deleted_at?: string | null;
+                            /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
+                            trace_id?: string | null;
+                            /** @description What a video frame shows and nobody says, outside the body; empty when there is none. */
+                            observed?: string[];
+                            replies?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -2880,7 +3069,9 @@ export interface paths {
                                 author_id?: string;
                                 body?: string;
                                 /** @enum {string} */
-                                kind?: "answer" | "fix" | "clarification";
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -2911,7 +3102,9 @@ export interface paths {
                                 author_id?: string;
                                 body?: string;
                                 /** @enum {string} */
-                                kind?: "answer" | "fix" | "clarification";
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -3017,7 +3210,9 @@ export interface paths {
                                 author_id?: string;
                                 body?: string;
                                 /** @enum {string} */
-                                kind?: "answer" | "fix" | "clarification";
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;
@@ -3048,7 +3243,9 @@ export interface paths {
                                 author_id?: string;
                                 body?: string;
                                 /** @enum {string} */
-                                kind?: "answer" | "fix" | "clarification";
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
                                 attachments?: {
                                     id?: string;
                                     reply_id?: string;

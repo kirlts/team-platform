@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Trash2 } from '@/components/icons'
+import { ChevronDown, Trash2 } from '@/components/icons'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useFormat, useT } from '@/i18n'
+import { cn } from '@/lib/utils'
 import type { MessageDetail, Reply } from '@team-platform/client'
 import { useDeleteReply, useEditReply, useMe, useRestoreReply } from '@team-platform/client/react'
 import { useUndo } from '@/lib/undo'
@@ -10,17 +11,20 @@ import { Avatar } from './Avatar'
 import { CloseMessage } from './CloseMessage'
 import { EditableText } from './EditableText'
 import { AttachmentStrip } from './AttachmentStrip'
-import { FitList } from './FitList'
 import { useLookups } from './lookups'
 import { canReplyTo } from '@/lib/handoff'
-import { KIND_KEY, ReplyForm } from './ReplyForm'
+import { ReplyForm } from './ReplyForm'
+
+/** The thread shows every reply up to this many; past it, the first one and the last `THREAD_TAIL` show and the rest fold behind a count. */
+const THREAD_LIMIT = 5
+const THREAD_TAIL = 3
 
 /** A row of the thread: a reply, or the place where one was just deleted, with Deshacer in it (UD-240, as the templates do). */
 type ReplyItem = { kind: 'reply'; reply: Reply } | { kind: 'removed'; reply: Reply }
 
 /**
- * Replies of a message: the list fits its frame and paginates; the form stays at the foot, in
- * view. The sender does not reply to their own message: they do not see the form.
+ * Replies of a message: one under another in order, joined by a vertical line, with the last one set apart; past `THREAD_LIMIT` the first and
+ * the last ones show and a control between them opens the hidden ones. The form stays at the foot, in view. The sender does not reply to their own message: they do not see the form.
  * The author of a reply or the Editor deletes it (UD-240): no dialog, the row says it was deleted and Deshacer brings it back.
  * Only the author edits its text in place (UD-253), as the sender edits a message (UD-071): the text is the control, and each
  * save is an operation of the screen's undo stack. Nobody else, the Editor included, sees it editable.
@@ -49,6 +53,8 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
     if (showRemoved) items.splice(Math.min(removed.index, items.length), 0, { kind: 'removed', reply: removed.reply })
     return items
   }, [message.replies, removed, showRemoved])
+  const [expanded, setExpanded] = useState(false)
+  const folded = !expanded && rows.length > THREAD_LIMIT ? rows.length - 1 - THREAD_TAIL : 0
   const remove = (reply: Reply) => {
     const index = message.replies.findIndex((x) => x.id === reply.id)
     const mark = undo.undoCount + 1
@@ -81,53 +87,78 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
           {message.replies.length}
         </Badge>
       </div>
-      {/* The slot does not grow: the form follows the last reply instead of sitting at the foot of the screen (J1-A-24). */}
-      <FitList
-        className="flex-initial"
-        rows={rows}
-        rowKey={(x) => `${x.kind}-${x.reply.id}`}
-        renderRow={(x) =>
-          x.kind === 'removed' ? (
-            <article role="status" className="flex items-center justify-between gap-3 border-b border-line bg-hover px-3 py-3 last:border-b-0">
-              <span className="min-w-0 break-words text-sm text-muted">{t('replies.deletedRow', { name: memberName(x.reply.author_id) })}</span>
-              <Button size="sm" variant="secondary" onClick={() => void undo.undo()}>
-                {t('undo.undo')}
-              </Button>
-            </article>
-          ) : (
-            <article className="flex gap-3 border-b border-line px-3 py-3 last:border-b-0">
-              <Avatar name={memberName(x.reply.author_id) || '?'} size={28} />
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted">
-                  <span data-repeat-ok="person" className="break-words text-sm font-semibold text-fg">{memberName(x.reply.author_id)}</span>
-                  {x.reply.kind !== 'answer' && <Badge tone={'neutral'}>{t(KIND_KEY[x.reply.kind])}</Badge>}
-                  <time dateTime={x.reply.created_at} className="tabular-nums">
-                    {format.stamp(x.reply.created_at)}
-                  </time>
-                  {x.reply.edited_at && (
-                    <time dateTime={x.reply.edited_at} data-testid="reply-edited" className="tabular-nums">
-                      {t('replies.edited', { when: format.stamp(x.reply.edited_at) })}
-                    </time>
-                  )}
-                  {canDelete(x.reply) && (
-                    <Button size="icon-sm" variant="ghost" className="-my-1.5 ml-auto shrink-0 text-muted hover:text-danger" aria-label={t('replies.delete')} title={t('replies.delete')} disabled={del.isPending} onClick={() => void remove(x.reply)}>
-                      <Trash2 size={14} aria-hidden />
+      {rows.length === 0 ? (
+        <p className="px-3 py-6 text-center text-sm text-muted">{t('replies.none')}</p>
+      ) : (
+        <div data-lane="reply-thread" className="scroll-thin min-h-0 md:flex-initial md:overflow-y-auto md:pr-1">
+          <ol className="thread relative flex flex-col gap-3">
+            <span aria-hidden className="thread-line absolute bottom-4 left-4 top-4 w-px -translate-x-1/2 bg-line-strong" />
+            {rows.map((x, i) => {
+              if (folded > 0 && i > 0 && i <= folded) {
+                if (i > 1) return null
+                return (
+                  <li key="folded" className="relative flex items-center gap-3">
+                    <span aria-hidden className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-bg text-muted ring-4 ring-bg">
+                      <ChevronDown size={16} />
+                    </span>
+                    <Button size="sm" variant="secondary" onClick={() => setExpanded(true)}>
+                      {t('replies.more', { n: folded })}
                     </Button>
-                  )}
-                </div>
-                {canEdit(x.reply) ? (
-                  <EditableText value={x.reply.body} label={t('replies.body')} multiline prose validate={bodyRule(x.reply)} onSave={(v) => changeText(x.reply, v)} displayClassName="text-sm" />
-                ) : (
-                  x.reply.body && <p className="prose-block whitespace-pre-wrap break-words text-sm">{x.reply.body}</p>
-                )}
-                <AttachmentStrip items={x.reply.attachments ?? []} scope="reply" px={36} named className="pt-0.5" />
-              </div>
-            </article>
-          )
-        }
-        empty={<p className="px-3 py-6 text-center text-sm text-muted">{t('replies.none')}</p>}
-      />
-      <div ref={foot} className="scroll-mb-4">
+                  </li>
+                )
+              }
+              const last = i === rows.length - 1
+              const key = `${x.kind}-${x.reply.id}`
+              if (x.kind === 'removed') {
+                return (
+                  <li key={key} className="relative flex gap-3">
+                    <span aria-hidden className="relative z-10 h-8 w-8 shrink-0 rounded-full bg-bg ring-4 ring-bg" />
+                    <article role="status" className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-lg bg-hover px-3 py-2">
+                      <span className="min-w-0 break-words text-sm text-muted">{t('replies.deletedRow', { name: memberName(x.reply.author_id) })}</span>
+                      <Button size="sm" variant="secondary" onClick={() => void undo.undo()}>
+                        {t('undo.undo')}
+                      </Button>
+                    </article>
+                  </li>
+                )
+              }
+              const r = x.reply
+              const handoffQuestion = r.kind === 'clarification' && members.some((m) => m.id === r.author_id && m.kind === 'agent')
+              return (
+                <li key={key} className="relative flex gap-3" data-last={last || undefined}>
+                  <Avatar name={memberName(r.author_id) || '?'} size={32} className="relative z-10 ring-4 ring-bg" />
+                  <article className={cn('reply-card flex min-w-0 flex-1 flex-col gap-1 rounded-lg px-3 py-2.5', last ? 'glass reply-card-last' : 'reply-card-quiet')}>
+                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted">
+                      <span data-repeat-ok="person" className="break-words text-sm font-semibold text-fg">{memberName(r.author_id)}</span>
+                      {handoffQuestion && <Badge tone="neutral">{t('replies.question')}</Badge>}
+                      <time dateTime={r.created_at} className="tabular-nums">
+                        {format.stamp(r.created_at)}
+                      </time>
+                      {r.edited_at && (
+                        <time dateTime={r.edited_at} data-testid="reply-edited" className="tabular-nums">
+                          {t('replies.edited', { when: format.stamp(r.edited_at) })}
+                        </time>
+                      )}
+                      {canDelete(r) && (
+                        <Button size="icon-sm" variant="ghost" className="-my-1.5 ml-auto shrink-0 text-muted hover:text-danger" aria-label={t('replies.delete')} title={t('replies.delete')} disabled={del.isPending} onClick={() => void remove(r)}>
+                          <Trash2 size={14} aria-hidden />
+                        </Button>
+                      )}
+                    </div>
+                    {canEdit(r) ? (
+                      <EditableText value={r.body} label={t('replies.body')} multiline prose validate={bodyRule(r)} onSave={(v) => changeText(r, v)} displayClassName={last ? 'text-emph' : 'text-sm'} />
+                    ) : (
+                      r.body && <p className={cn('prose-block whitespace-pre-wrap break-words', last ? 'text-emph' : 'text-sm')}>{r.body}</p>
+                    )}
+                    <AttachmentStrip items={r.attachments ?? []} scope="reply" px={48} named className="pt-1" />
+                  </article>
+                </li>
+              )
+            })}
+          </ol>
+        </div>
+      )}
+      <div ref={foot} className="shrink-0 scroll-mb-4">
       {canReply ? (
         <ReplyForm messageId={message.id} autoFocus={focusForm} onSent={() => setSentAt(message.replies.length)}>
           <CloseMessage id={message.id} closed={false} quiet />

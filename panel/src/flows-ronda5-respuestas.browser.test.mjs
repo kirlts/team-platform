@@ -75,9 +75,9 @@ describe('the attachments of a reply (J5-flow-reply-close, J5-message-detail)', 
       const kindsOf = (scope) => page.locator(`${scope} [data-media-icon]`).evaluateAll((els) => els.map((e) => e.getAttribute('data-media-icon')))
       const replies = await kindsOf('section[aria-label="Respuestas"]')
       assert.ok(replies.includes('audio') && replies.includes('document') && replies.includes('link'), `kinds in replies: ${replies}`)
-      const row = page.locator('section[aria-label="Respuestas"] li', { hasText: 'nota-de-voz.wav' })
+      const row = page.locator('section[aria-label="Respuestas"] ul[aria-label="Adjuntos"] li', { hasText: 'nota-de-voz.wav' })
       assert.equal(await row.locator('[data-media-icon]').getAttribute('data-media-icon'), 'audio')
-      const doc = page.locator('section[aria-label="Respuestas"] li', { hasText: 'feedback-cliente.docx' })
+      const doc = page.locator('section[aria-label="Respuestas"] ul[aria-label="Adjuntos"] li', { hasText: 'feedback-cliente.docx' })
       assert.equal(await doc.locator('[data-media-icon]').getAttribute('data-media-icon'), 'document')
       // Two different drawings, not one icon under two names.
       const drawn = async (l) => l.locator('svg[data-media-icon]').evaluate((s) => s.innerHTML)
@@ -91,14 +91,13 @@ describe('the attachments of a reply (J5-flow-reply-close, J5-message-detail)', 
 })
 
 describe('the reply form (J5-flow-reply-close, J5-message-detail)', () => {
-  test('«Respuesta» is the name of one control only: the field says «Texto», the type says «Tipo», and «Cerrar mensaje» says what it closes', async () => {
+  test('«Respuesta» is the name of one control only: the field says «Texto» and «Cerrar mensaje» says what it closes', async () => {
     const { page, context } = await session()
     try {
       await openMessage(page, 'Revisar la lectura')
       const field = page.getByRole('textbox', { name: 'Respuesta' })
       assert.equal(await field.getAttribute('placeholder'), 'Texto')
-      assert.equal(await page.getByText('Tipo', { exact: true }).first().isVisible(), true)
-      // Visible words «Respuesta» inside the form: the type option, nothing else.
+      // Visible words «Respuesta» inside the form: none.
       const form = page.locator('form', { has: field })
       const visible = await form.evaluate((f) => {
         const hits = []
@@ -106,7 +105,7 @@ describe('the reply form (J5-flow-reply-close, J5-message-detail)', () => {
         for (let n = walker.nextNode(); n; n = walker.nextNode()) if (/\bRespuesta\b/.test(n.textContent ?? '') && n.parentElement && n.parentElement.getClientRects().length > 0) hits.push(n.textContent.trim())
         return hits
       })
-      assert.deepEqual(visible, ['Respuesta'], `visible «Respuesta» in the form: ${JSON.stringify(visible)}`)
+      assert.deepEqual(visible, [], `visible «Respuesta» in the form: ${JSON.stringify(visible)}`)
       assert.equal(await page.getByRole('main').getByRole('button', { name: 'Cerrar mensaje', exact: true }).isVisible(), true)
     } finally {
       await context.close()
@@ -165,14 +164,13 @@ describe('sending and closing (J5-flow-reply-close)', () => {
         await field.scrollIntoViewIfNeeded()
         const frameOf = () => page.locator('form .glass', { has: field }).first().boundingBox()
         const rel = async () => {
-          const [f, fr, s, k] = [await field.boundingBox(), await frameOf(), await page.getByRole('button', { name: 'Responder', exact: true }).boundingBox(), await page.getByRole('radiogroup', { name: 'Tipo de respuesta' }).boundingBox()]
-          return { send: s.y - f.y, kind: k.y - f.y, frame: fr.height }
+          const [f, fr, s] = [await field.boundingBox(), await frameOf(), await page.getByRole('button', { name: 'Responder', exact: true }).boundingBox()]
+          return { send: s.y - f.y, frame: fr.height }
         }
         const before = await rel()
         await send(page, 'Confirmado, queda para esta semana.')
         const after = await rel()
         assert.ok(Math.abs(after.send - before.send) <= 1, `«Responder» moved ${after.send - before.send} px relative to the field at ${viewport.width} px`)
-        assert.ok(Math.abs(after.kind - before.kind) <= 1, `the type moved ${after.kind - before.kind} px relative to the field`)
         assert.ok(Math.abs(after.frame - before.frame) <= 1, `the frame grew ${after.frame - before.frame} px`)
         const frame = await frameOf()
         const status = await page.getByRole('status').filter({ hasText: 'Respuesta enviada' }).boundingBox()

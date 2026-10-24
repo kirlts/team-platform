@@ -153,15 +153,12 @@ describe('Mensajes (J4 messages)', () => {
 })
 
 describe('the detail and the reply flow (J4 message-detail, flow-reply-close)', () => {
-  test('the reply type has its own label, its «Solución» option does not read as closing, and «Cerrar» sits with «Responder» (J4-detail-01, J4-flow-02)', async () => {
+  test('the reply form has no type selector, and «Cerrar» sits with «Responder» (J4-flow-02)', async () => {
     const { page, context } = await session('bruno')
     try {
       await openMessage(page, 'Revisar la lectura')
-      const group = page.getByRole('radiogroup', { name: 'Tipo de respuesta' })
-      await group.waitFor()
-      assert.equal(await page.getByText('Tipo', { exact: true }).first().isVisible(), true, 'the group has a visible label')
-      assert.deepEqual(await group.getByRole('radio').allInnerTexts(), ['Respuesta', 'Solución', 'Aclaración'])
-      assert.equal(await page.getByRole('radio', { name: 'Resuelto' }).count(), 0, '«Resuelto» is back')
+      await page.getByRole('textbox', { name: 'Respuesta' }).waitFor()
+      assert.equal(await page.getByRole('radiogroup', { name: 'Tipo de respuesta' }).count(), 0, 'the person does not choose a type')
       const send = await page.getByRole('button', { name: 'Responder', exact: true }).boundingBox()
       const close = await page.getByRole('button', { name: 'Cerrar mensaje', exact: true }).boundingBox()
       assert.ok(Math.abs(close.y - send.y) < 8, `«Cerrar» is ${Math.abs(close.y - send.y)} px from «Responder»`)

@@ -71,6 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `README.md` para quien llega al repositorio público.
 
 ### Changed
+- Las respuestas de un mensaje se ven como un hilo: todas una debajo de otra en orden, con una línea vertical y el avatar a la izquierda, sin paginar; pasadas cinco, la primera y las tres últimas con un control «N respuestas más» para abrir las ocultas; la última con más realce; el formulario debajo. Se quita el selector de tipo del formulario (la persona siempre responde con `answer`); la API conserva `kind`, y la pregunta de un traspaso a una persona (`clarification` de un agente) se rotula «Pregunta» en el hilo.
 - 2026-10-21, noche. Tarjetas de lista de alto fijo: título y extracto de una línea con puntos suspensivos (UD-241, enmienda a UD-016). El texto entero va en el tooltip.
 - El plegable de plantillas de la vista de un área abre por omisión y Áreas enlaza a él con «N plantillas» (UD-252).
 - `scripts/vps-check.mjs` borra su envío de prueba en lugar de cancelarlo (UD-253).

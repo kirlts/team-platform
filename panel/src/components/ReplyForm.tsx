@@ -2,40 +2,28 @@ import { useState } from 'react'
 import { Check } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/input'
-import { useErrorText, useT, type MessageKey } from '@/i18n'
-import type { ReplyKind } from '@team-platform/client'
+import { useErrorText, useT } from '@/i18n'
 import { useReply } from '@team-platform/client/react'
 import { useMediaDraft } from '@/lib/useMediaDraft'
 import { CaptureButtons, ClipMenu, MediaDraftList, RecordingStatus } from './MediaDraft'
-import { Segmented } from './Segmented'
 
-export const KIND_KEY: Record<ReplyKind, MessageKey> = {
-  answer: 'reply.kind.answer',
-  fix: 'reply.kind.fix',
-  clarification: 'reply.kind.clarification',
-}
-
-const KINDS = Object.keys(KIND_KEY) as ReplyKind[]
-
-/** Reply to a message: text, type and, as in the send bar, clip, camera and microphone. */
+/** Reply to a message: text and, as in the send bar, clip, camera and microphone. */
 export function ReplyForm({ messageId, onSent, autoFocus, children }: { messageId: string; onSent?: () => void; autoFocus?: boolean; children?: React.ReactNode }) {
   const t = useT()
   // Sending is confirmed in the form itself, until the next word is typed: a notice floats over the bottom of a phone, exactly where this form sits (J4-flow-04).
   const [sent, setSent] = useState(false)
   const errorText = useErrorText()
   const [body, setBody] = useState('')
-  const [kind, setKind] = useState<ReplyKind>('answer')
   const draft = useMediaDraft()
   const reply = useReply(messageId)
 
   const submit = () => {
     if (!body.trim() || reply.isPending || draft.recording) return
     reply.mutate(
-      { body: body.trim(), kind, files: draft.locals.map((l) => l.file), links: draft.links },
+      { body: body.trim(), kind: 'answer', files: draft.locals.map((l) => l.file), links: draft.links },
       {
         onSuccess: () => {
           setBody('')
-          setKind('answer')
           draft.clear()
           setSent(true)
           onSent?.()
@@ -93,20 +81,11 @@ export function ReplyForm({ messageId, onSent, autoFocus, children }: { messageI
           </p>
         )}
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        {/* The group says what it chooses; the type is a property of this reply and does not close the message (J4-detail-01, J4-flow-02). */}
-        <div className="flex flex-wrap items-center gap-2">
-          <span aria-hidden className="text-xs text-muted">
-            {t('reply.kind.short')}
-          </span>
-          <Segmented label={t('reply.kind.label')} size="sm" value={kind} onChange={setKind} options={KINDS.map((value) => ({ value, label: t(KIND_KEY[value]) }))} />
-        </div>
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-4">
-          {children}
-          <Button type="submit" variant="primary" disabled={!body.trim() || reply.isPending || !!draft.recording}>
-            {t('reply.send')}
-          </Button>
-        </div>
+      <div className="flex flex-wrap items-center justify-end gap-4">
+        {children}
+        <Button type="submit" variant="primary" disabled={!body.trim() || reply.isPending || !!draft.recording}>
+          {t('reply.send')}
+        </Button>
       </div>
       {reply.isError && (
         <p role="alert" className="text-xs text-danger">

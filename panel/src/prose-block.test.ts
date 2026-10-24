@@ -30,7 +30,8 @@ describe('prose-block (UD-022, UD-034)', () => {
   const rule = proseRule(css)
 
   it('justifies, never hyphenates and balances the last lines', () => {
-    expect(rule).toMatch(/text-align:\s*justify/)
+    expect(rule).toMatch(/text-align:\s*var\(--prose-align\)/)
+    expect(css).toMatch(/--prose-align:\s*justify/) // the host sheet may set it to left
     expect(rule).toMatch(/hyphens:\s*none/)
     expect(rule).toMatch(/text-wrap:\s*pretty/)
     expect(rule).not.toMatch(/hyphens:\s*(auto|manual)/)

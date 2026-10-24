@@ -10,7 +10,8 @@ import { useUndo } from '@/lib/undo'
 import { Avatar } from './Avatar'
 import { CloseMessage } from './CloseMessage'
 import { EditableText } from './EditableText'
-import { AttachmentStrip } from './AttachmentStrip'
+import { Markdown } from '@/lib/markdown'
+import { ReplyMedia } from './ReplyMedia'
 import { useLookups } from './lookups'
 import { canReplyTo } from '@/lib/handoff'
 import { ReplyForm } from './ReplyForm'
@@ -146,11 +147,11 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
                       )}
                     </div>
                     {canEdit(r) ? (
-                      <EditableText value={r.body} label={t('replies.body')} multiline prose validate={bodyRule(r)} onSave={(v) => changeText(r, v)} displayClassName={last ? 'text-emph' : 'text-sm'} />
+                      <EditableText value={r.body} label={t('replies.body')} multiline validate={bodyRule(r)} onSave={(v) => changeText(r, v)} displayClassName={last ? 'text-emph' : 'text-sm'} render={(v) => <Markdown source={v} breaks />} />
                     ) : (
-                      r.body && <p className={cn('prose-block whitespace-pre-wrap break-words', last ? 'text-emph' : 'text-sm')}>{r.body}</p>
+                      r.body && <Markdown source={r.body} breaks className={cn('break-words', last ? 'text-emph' : 'text-sm')} />
                     )}
-                    <AttachmentStrip items={r.attachments ?? []} scope="reply" px={48} named className="pt-1" />
+                    <ReplyMedia items={r.attachments ?? []} />
                   </article>
                 </li>
               )

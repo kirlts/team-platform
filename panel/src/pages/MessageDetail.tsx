@@ -163,7 +163,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
       .catch((err) => notices.show({ text: errorText(err) }))
 
   return (
-    <Page cols={12}>
+    <Page cols="inicio">
       {/* The actions of the screen share the top row, on the right, so on a phone nothing sits between the title and what it is about (J2-A-21). */}
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <Link to="/messages" className="inline-flex items-center gap-1 text-xs text-muted hover:text-fg">
@@ -197,7 +197,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
         <EditableText value={m.title} label={t('detail.title')} canEdit={canEdit} validate={required} onSave={(v) => change(t('proposal.titleEdited'), { title: v }, { title: m.title })} displayClassName="font-sans text-lg font-semibold leading-snug md:text-[1.375rem]" />
       </h1>
 
-      <div className="grid min-h-0 flex-1 md:grid-rows-[minmax(0,1fr)] gap-x-8 gap-y-4 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)]">
+      <div className="grid min-h-0 flex-1 md:grid-rows-[minmax(0,1fr)] gap-x-8 gap-y-4 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
         <div className="flex min-h-0 min-w-0 flex-col gap-3">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted">
             {canEdit ? (
@@ -284,7 +284,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
 
           {/* A long text has no cap: the message column scrolls inside, and it is a declared lane. */}
           <div data-lane="message-body" className="scroll-thin flex min-h-0 flex-initial flex-col gap-3 overflow-y-auto px-1.5 py-1">
-            <EditableText value={m.body} label={t('detail.body')} multiline prose canEdit={canEdit} validate={required} onSave={(v) => change(t('proposal.bodyEdited'), { body: v }, { body: m.body })} displayClassName="text-read" />
+            <EditableText value={m.body} label={t('detail.body')} multiline canEdit={canEdit} validate={required} onSave={(v) => change(t('proposal.bodyEdited'), { body: v }, { body: m.body })} displayClassName="text-read" />
             <TemplateFields
               template={template}
               values={m.fields}

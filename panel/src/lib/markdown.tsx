@@ -37,7 +37,7 @@ type Block =
   | { type: 'rule' }
 
 /** Splits the source into blocks; exported so the rules can be tested without rendering. */
-export function parseBlocks(source: string): Block[] {
+export function parseBlocks(source: string, { breaks = false }: { breaks?: boolean } = {}): Block[] {
   const lines = source.replace(/\r\n?/g, '\n').split('\n')
   const blocks: Block[] = []
   let i = 0
@@ -85,7 +85,7 @@ export function parseBlocks(source: string): Block[] {
     const para: string[] = [line.trim()]
     i += 1
     while (i < lines.length && lines[i].trim() && !/^(```|#{1,4}\s|\s*[-*+]\s|\s*\d+[.)]\s|>)/.test(lines[i])) para.push(lines[i++].trim())
-    blocks.push({ type: 'paragraph', text: para.join(' ') })
+    blocks.push({ type: 'paragraph', text: para.join(breaks ? '\n' : ' ') })
   }
   return blocks
 }
@@ -94,10 +94,10 @@ const HEADING = ['', 'text-lg', 'text-base', 'text-sm', 'text-sm'] as const
 
 /** The source as React nodes. Paragraphs and lists use the shared `prose-block` class (UD-022). */
 /** A document a person wrote: the root carries `data-user-text`, which the interface detectors do not judge as interface text. */
-export function Markdown({ source, className }: { source: string; className?: string }) {
+export function Markdown({ source, className, breaks = false }: { source: string; className?: string; /** A line break inside a paragraph stays a line break (replies, written line by line). */ breaks?: boolean }) {
   return (
     <div className={className} data-user-text>
-      {parseBlocks(source).map((b, i) => {
+      {parseBlocks(source, { breaks }).map((b, i) => {
         switch (b.type) {
           case 'heading':
             return (
@@ -133,7 +133,7 @@ export function Markdown({ source, className }: { source: string; className?: st
             return <hr key={i} className="my-2 border-line-strong" />
           default:
             return (
-              <p key={i} className="prose-block my-1.5 first:mt-0">
+              <p key={i} className={`prose-block my-1.5 first:mt-0${breaks ? ' whitespace-pre-line' : ''}`}>
                 {renderInline(b.text, `p${i}`)}
               </p>
             )

@@ -11,6 +11,15 @@ describe('parseBlocks', () => {
   })
 })
 
+describe('parseBlocks with breaks', () => {
+  it('keeps the line breaks of a paragraph written line by line', () => {
+    expect(parseBlocks('**Antes**: a.\n**Después**: b.', { breaks: true })[0]).toEqual({ type: 'paragraph', text: '**Antes**: a.\n**Después**: b.' })
+    const html = renderToStaticMarkup(<Markdown breaks source={'**Antes**: a.\n**Después**: b.'} />)
+    expect(html).toContain('whitespace-pre-line')
+    expect(html).toContain('<strong>Antes</strong>')
+  })
+})
+
 describe('Markdown', () => {
   it('renders inline spans and keeps only safe links', () => {
     const html = renderToStaticMarkup(<Markdown source={'Texto **fuerte**, *énfasis*, `código` y [sitio](https://example.com) o [malo](javascript:alert(1)).'} />)

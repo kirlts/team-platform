@@ -44,22 +44,23 @@ const send = async (page, text) => {
 }
 
 describe('the attachments of a reply (J5-flow-reply-close, J5-message-detail)', () => {
-  test('every attachment of a reply carries its own name and none is a thumbnail without one', async () => {
+  test('a picture of a reply is open at the width of the reply and the other media carry their own name', async () => {
     const { page, context } = await session()
     try {
       await openMessage(page, 'Revisar la lectura')
+      const picture = page.locator('section[aria-label="Respuestas"] ul[aria-label="Adjuntos"] img').first()
+      await picture.waitFor()
+      const [img, card] = [await picture.boundingBox(), await picture.locator('xpath=ancestor::article').boundingBox()]
+      assert.ok(img.width >= card.width * 0.6, `the picture is ${img.width} px in a reply of ${card.width} px`)
+      assert.equal(await page.locator('section[aria-label="Respuestas"]').getByText('login.svg').count(), 0, 'no file name beside a picture')
       const items = page.locator('section[aria-label="Respuestas"] ul[aria-label="Adjuntos"] > li')
       const texts = await items.evaluateAll((lis) => lis.map((li) => li.innerText.trim()))
-      assert.ok(texts.length >= 4, `${texts.length} attachments in the replies`)
-      const bare = texts.filter((x) => x === '')
-      assert.equal(bare.length, 0, `${bare.length} attachments have no name beside them`)
-      for (const name of ['login.svg', 'nota-de-voz.wav', 'feedback-cliente.docx']) assert.ok(texts.some((x) => x.includes(name)), `«${name}» is named`)
-      // The name is beside its own thumbnail: same row.
+      for (const name of ['nota-de-voz.wav', 'feedback-cliente.docx']) assert.ok(texts.some((x) => x.includes(name)), `«${name}» is named`)
       const apart = await items.evaluateAll((lis) =>
         lis.filter((li) => {
           const thumb = li.querySelector('.frame')?.getBoundingClientRect()
           const name = li.querySelector('span.text-xs')?.getBoundingClientRect()
-          return !thumb || !name || Math.abs(thumb.top + thumb.height / 2 - (name.top + name.height / 2)) > 22
+          return thumb && name && Math.abs(thumb.top + thumb.height / 2 - (name.top + name.height / 2)) > 22
         }).length,
       )
       assert.equal(apart, 0, 'a name is not on the row of its thumbnail')

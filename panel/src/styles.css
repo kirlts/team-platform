@@ -254,6 +254,7 @@
   --selected-shadow: none;
   --segmented-track: var(--color-raised);
   --card-edge-width: 3px;
+  --prose-align: justify;
 }
 
 :where(:root[data-theme='dark']) {
@@ -371,7 +372,7 @@
     text-wrap: pretty;
   }
   .prose-block[data-wide] {
-    text-align: justify;
+    text-align: var(--prose-align);
   }
 
   /* Message state fills (UD-029, UD-041): one rule per state; the component sets data-status to the highest present (open > answered > closed). */
@@ -433,6 +434,16 @@
     backdrop-filter: blur(14px) saturate(1.5);
     border: 1px solid var(--color-glass-line);
     box-shadow: var(--shadow-glass);
+  }
+
+  /* Small label over a picture or a field value: the support size, bold and capitals. A host sets weight and tracking in :root. */
+  .rotulo {
+    font-size: var(--text-xs);
+    line-height: var(--text-xs--line-height);
+    font-weight: var(--label-weight, 700);
+    letter-spacing: var(--label-tracking, 0.08em);
+    text-transform: uppercase;
+    color: var(--color-faint);
   }
 
   /* A reply in a thread: the earlier ones sit flat; the last one has the lifted surface, so it reads first. */

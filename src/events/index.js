@@ -112,14 +112,18 @@ export function createEvents ({ db, now = Date.now }) {
     return all(db, 'SELECT * FROM job_events WHERE seq > ? AND (member_id IS NULL OR member_id = ?) ORDER BY seq', afterSeq, memberId)
   }
 
+  /** The last `seq` ever issued, even if retention or a reset removed every row (AUTOINCREMENT keeps it in `sqlite_sequence`). */
+  function lastIssued () {
+    return get(db, "SELECT COALESCE((SELECT seq FROM sqlite_sequence WHERE name = 'job_events'), 0) AS last").last
+  }
+
   /**
    * Whether a replay after `afterSeq` leaves the client without a hole (the `replay` event of GET /events). `complete` is
    * true when every event the client may have missed is still in `job_events`, so replaying them is all it needs; it is
    * false when retention (or a reset of the test data) removed some of them, or when `afterSeq` is ahead of this database.
-   * `job_events.seq` is AUTOINCREMENT: `sqlite_sequence` keeps the last one ever issued even when the table is empty.
-   */
+   *    */
   function replayCoverage (afterSeq) {
-    const issued = get(db, "SELECT COALESCE((SELECT seq FROM sqlite_sequence WHERE name = 'job_events'), 0) AS last").last
+    const issued = lastIssued()
     if (afterSeq > issued) return { complete: false, from: afterSeq }
     if (afterSeq === issued) return { complete: true, from: afterSeq }
     const oldest = get(db, 'SELECT MIN(seq) AS oldest FROM job_events').oldest
@@ -171,5 +175,5 @@ export function createEvents ({ db, now = Date.now }) {
     return run(db, 'DELETE FROM job_events WHERE at < ?', olderThanMs).changes
   }
 
-  return { publish, publishForJob, drain, transaction, subscribe, replay, replayCoverage, snapshot, lastProgress, startPolling, stopPolling, purge }
+  return { publish, publishForJob, drain, transaction, subscribe, replay, replayCoverage, lastIssued, snapshot, lastProgress, startPolling, stopPolling, purge }
 }

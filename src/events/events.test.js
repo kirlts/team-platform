@@ -100,12 +100,25 @@ test('the first event is `replay`, with no id: complete when Last-Event-ID is st
   for (let i = 1; i <= 5; i++) seqs.push(env.events.publishForJob(jobId, { kind: 'progress', percent: i * 10, phrase: `p${i}` }))
   const s = await openSse(env, '/api/events', { cookie: env.c.ana, headers: { 'last-event-id': String(seqs[1]) } })
   assert.equal((await s.next(3)).length, 3)
-  assert.deepEqual(s.replays, [{ id: null, event: 'replay', data: { complete: true, from: seqs[1] } }]) // it never moves Last-Event-ID
+  assert.deepEqual(s.replays, [{ id: null, event: 'replay', data: { complete: true, from: seqs[1] } }]) // history follows: its last event sets Last-Event-ID
   assert.ok(s.eventList.every((e) => e.event !== 'replay'))
   s.close()
-  assert.deepEqual((await replayOf(env, { 'last-event-id': String(seqs[4]) })).data, { complete: true, from: seqs[4] }) // up to date: nothing to replay
+  const upToDate = await replayOf(env, { 'last-event-id': String(seqs[4]) })
+  assert.deepEqual(upToDate, { id: String(seqs[4]), event: 'replay', data: { complete: true, from: seqs[4] } }) // nothing to replay: its id is the last one issued
   assert.deepEqual((await replayOf(env, undefined)).data, { complete: false, from: null }) // first connection or a reopened EventSource: no Last-Event-ID
   assert.deepEqual((await replayOf(env, { 'last-event-id': 'abc' })).data, { complete: false, from: null })
+  await env.close()
+})
+
+test('a tab that saw no event still gets a Last-Event-ID: the replay of a quiet connection carries the last seq issued', async () => {
+  const env = await team()
+  const first = await replayOf(env, undefined) // nothing published yet, no jobs: no history
+  assert.deepEqual(first, { id: '0', event: 'replay', data: { complete: false, from: null } })
+  const jobId = anasInput(env)
+  const seq = env.events.publishForJob(jobId, { kind: 'done', data: { status: 'done' } })
+  const quiet = await replayOf(env, undefined) // no running job: the snapshot is empty
+  assert.deepEqual(quiet, { id: String(seq), event: 'replay', data: { complete: false, from: null } })
+  assert.deepEqual((await replayOf(env, { 'last-event-id': quiet.id })).data, { complete: true, from: seq }) // what the browser sends next
   await env.close()
 })
 

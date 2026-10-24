@@ -13565,12 +13565,12 @@
         ],
         "responses": {
           "200": {
-            "description": "text/event-stream flow. Events: replay (first, no id: `{ complete, from }`), progress, done, message. The id is job_events.seq (Last-Event-ID).",
+            "description": "text/event-stream flow. Events: replay (first: `{ complete, from }`), progress, done, message. The id is job_events.seq (Last-Event-ID).",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "string",
-                  "description": "text/event-stream flow. Events: replay (first, no id: `{ complete, from }`), progress, done, message. The id is job_events.seq (Last-Event-ID)."
+                  "description": "text/event-stream flow. Events: replay (first: `{ complete, from }`), progress, done, message. The id is job_events.seq (Last-Event-ID)."
                 }
               }
             }

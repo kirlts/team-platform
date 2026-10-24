@@ -69,6 +69,7 @@ async function sendInput(page, text = TEXT) {
 
 /** Pages forward until the text shows (lists paginate inside their frame). */
 async function showRow(page, text) {
+  await settled(page)
   for (let i = 0; i < 20; i++) {
     if (await page.getByText(text).first().isVisible().catch(() => false)) return
     const next = page.getByRole('button', { name: 'Página siguiente' }).first()

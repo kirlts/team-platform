@@ -473,6 +473,8 @@ describe('the top bar: states and areas (UD-028, UD-029, UD-041, UD-100)', () =>
       for (const mark of await page.locator('[data-testid="state-button"][data-status="open"], [data-testid="state-button"][data-status="answered"]').all()) {
         await mark.click()
         await page.getByTestId('status-menu').waitFor()
+        // The list is read when the pointer reaches the mark (or when the menu opens): the rows are counted once it has arrived.
+        await page.waitForFunction(() => !document.querySelector('[data-testid="status-menu"]')?.textContent?.includes('Cargando'))
         const texts = await page.locator('[data-testid="status-row"]').allInnerTexts()
         listed += texts.length
         assert.ok(!texts.some((t) => t.includes(title)), 'the dropdown no longer lists the closed message')

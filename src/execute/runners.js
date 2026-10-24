@@ -132,16 +132,17 @@ export async function runMachine ({ config, jobId, workdir, args, prompt, env, o
     return result
   } finally {
     // Before destroying: afterwards the transcript is gone. A failure here is recorded and never fails the job.
+    // stderr keeps its END: on a machine its start is ssh and useradd noise and the cause comes last (job 132, 2026-10-24).
     if (x.machineCollect && result?.phase === 'run' && !signal?.aborted) {
       const collected = await phase('collect', () => shell(fillCommand(x.machineCollect, { ...base, machine }), { env: shellEnv, keepStdout: true, timeoutMs: x.timeoutMs, graceMs: x.killGraceMs }))
       const ref = collected.code === 0 ? collected.stdout.split('\n').map((l) => l.trim()).filter(Boolean).at(-1) ?? null : null
-      collect = { code: collected.code, ref, stderr: collected.stderr.slice(0, 2000) }
-      if (collected.code !== 0) log(`the transcript of machine ${machine} could not be collected (exit ${collected.code}): ${collected.stderr.slice(0, 500)}`)
+      collect = { code: collected.code, ref, stderr: collected.stderr.slice(-2000) }
+      if (collected.code !== 0) log(`the transcript of machine ${machine} could not be collected (exit ${collected.code}): ${collected.stderr.slice(-500)}`)
     }
     // Always, even after a timeout or an abort: a machine left running is the cost that must not happen.
     const destroyed = await phase('destroy', () => shell(fillCommand(x.machineDestroy, { ...base, machine }), { env: shellEnv, keepStdout: true, timeoutMs: x.timeoutMs, graceMs: x.killGraceMs }))
-    if (destroyed.code !== 0) log(`machine ${machine} could not be destroyed (exit ${destroyed.code}): ${destroyed.stderr.slice(0, 500)}`)
-    if (result) result.destroy = { code: destroyed.code, stderr: destroyed.stderr.slice(0, 2000) }
+    if (destroyed.code !== 0) log(`machine ${machine} could not be destroyed (exit ${destroyed.code}): ${destroyed.stderr.slice(-500)}`)
+    if (result) result.destroy = { code: destroyed.code, stderr: destroyed.stderr.slice(-2000) }
     if (result && collect) result.collect = collect
   }
 }

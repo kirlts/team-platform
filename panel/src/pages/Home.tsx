@@ -388,7 +388,7 @@ function Feed({ kind, meId, phone = false, bound }: { kind: 'messages' | 'replie
         rows={rows}
         rowKey={(m) => m.id}
         renderRow={(m) => <MessageCard message={m} variant={messagesFeed ? 'message' : 'reply'} />}
-        empty={feed.isPending || feed.isError ? <LoadState query={feed} rows={2} /> : <p className="flex min-h-24 items-center justify-center px-4 py-10 text-center text-sm text-muted">{messagesFeed ? t('home.noMessages') : t('home.noReplies')}</p>}
+        empty={feed.isPending || feed.isError ? <LoadState query={feed} rows={2} /> : <p className="flex items-center justify-center px-4 py-10 text-center text-sm text-muted">{messagesFeed ? t('home.noMessages') : t('home.noReplies')}</p>}
       />
     </section>
   )

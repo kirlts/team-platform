@@ -870,6 +870,8 @@ Lo que dice la maqueta (`Plataforma Team.png`, en la raíz del repositorio): la 
 **Consecuencias:** `test:fit` mide también 1920x1080 y 2560x1440 y sigue fallando si algo se corta, se solapa o una caja desplaza por su cuenta; mide además que el contenido de Inicio use el ancho. `FitList` no vuelve a medir cuando el espacio lo sostiene su piso de una fila (H-2100).
 **Condiciones de reversión:** Si el espacio en blanco esconde las listas en pantallas bajas, vuelve el relleno de 16 px a todas las alturas.
 
+**Enmienda 2026-10-24:** Martín, textual: «Están mal distribuidos los elementos en la pantalla de inicio; lo de nuevo mensaje, ultimos mensajes y ultimas respuestas están muy juntos». Decisión de la sesión, tomada por ese encargo; Martín puede revertirla. La barra de texto deja de medir 840 px: título, barra y las dos listas comparten el ancho de la página, que llega a 72 rem (1080 px con sus márgenes, las 12 columnas de la grilla) y no a 1680 px. Entre secciones hay 40 px desde 800 px de alto de ventana y 24 px bajo ese alto (antes 24 y 16, con 40 sólo desde 1000 px). El título de cada lista pasa a rótulo de sección sobre su caja, como «Nuevo mensaje», y las dos cajas miden lo mismo. Se retira `--container-compose`.
+
 ## [UD-150] Tarjetas de lista, ficha y respuesta: el estado abre la línea de datos y Cerrar va junto al campo
 
 **Fecha:** 2026-10-21

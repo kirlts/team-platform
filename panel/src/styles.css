@@ -284,6 +284,8 @@
   /* The host's logo in the brand mark: an image (url(theme/<file>)) and its box in the bar and on the sign-in card. With a logo, the
      sphere and the project name give way to it (--wordmark-orb-display, --wordmark-project-display). */
   /* Motion: the ring a count gives when it changes and how long it lasts, and how long the progress bar takes to reach a new width. */
+  /* The least height of the primary button, the one main action of a screen or a window: 0 leaves each size its own. */
+  --primary-min-height: 0px;
   --pulse-ring: var(--color-accent);
   --pulse-duration: 700ms;
   --meter-duration: 500ms;
@@ -685,6 +687,7 @@
   }
 
   .btn-gel {
+    min-height: var(--primary-min-height);
     --gel-t: var(--color-gel-top);
     --gel-b: var(--color-gel-bottom);
     color: var(--color-gel-fg);

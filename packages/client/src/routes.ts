@@ -121,6 +121,7 @@ export const routes = {
  */
 export const NOT_IN_CLIENT: Readonly<Record<string, string>> = {
   'POST /api/jobs/{id}/marks': 'Callback of the worker that runs an `execute` job: the time of one part of the work, with that job agent as the only caller.',
+  'POST /api/jobs/{id}/mentions/take': 'Callback of the session that runs an `execute` job: takes the mentions written while it works (UD-285), with that job agent as the only caller.',
   'POST /api/jobs/{id}/progress': 'Callback of the worker that runs an `execute` job, with that job agent as the only caller; no interface reports progress.',
 }
 

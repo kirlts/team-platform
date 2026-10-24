@@ -21,6 +21,16 @@ function toolRow(n) {
   }
 }
 
+/** The technical part of the output of the latest run of a job (UD-276): [label, text] pairs and the reference of its delivery; `null` when the run returned none. */
+function detailOfRun(db, jobId) {
+  const run = get(db, 'SELECT detail_json, delivery_ref FROM execute_runs WHERE job_id = ? ORDER BY attempt DESC LIMIT 1', jobId);
+  let entries = [];
+  try { entries = JSON.parse(run?.detail_json ?? '[]'); } catch { /* a damaged cell shows no detail */ }
+  entries = (Array.isArray(entries) ? entries : []).filter((e) => Array.isArray(e) && typeof e[0] === 'string').map(([label, value]) => ({ label, value: String(value ?? '') }));
+  const deliveryRef = run?.delivery_ref ?? null;
+  return entries.length || deliveryRef ? { entries, delivery_ref: deliveryRef } : null;
+}
+
 /**
  * @returns {null | object} `null` if the message has no `execute` job. With a job that left no spans (still running),
  * the figures come back `null` and `running` carries the phase.
@@ -33,7 +43,8 @@ export function timingOfMessage(db, messageId, { now = Date.now } = {}) {
     phase: job.phase ?? null, attempts: job.attempts,
     elapsed_ms: job.status === 'running' ? Math.max(0, now() - job.run_at) : null,
     first_reply_ms: null, final_reply_ms: null, first_reply_since_message_ms: null, final_reply_since_message_ms: null,
-    total_ms: null, queue_wait_ms: null, phases: [], slowest: [], turns: [], tree: null
+    total_ms: null, queue_wait_ms: null, phases: [], slowest: [], turns: [], tree: null,
+    detail: detailOfRun(db, job.id)
   };
   // The delivery that follows the run (UD-263): while it waits or runs it is what the message is doing, and once it ends it is one more phase.
   const delivery = get(db, "SELECT * FROM jobs WHERE kind = 'deliver' AND message_id = ? AND id > ? ORDER BY id DESC LIMIT 1", messageId, job.id);

@@ -250,7 +250,7 @@ export function registerMessageRoutes (app, ctx) {
     onRequest: [requireRole('member')],
     schema: {
       summary: 'Responder un mensaje, con archivos y enlaces opcionales (403 si quien responde es su emisor)',
-      description: 'JSON `{ body, kind }` o multipart (`body`, `kind`, `files[]`, `links[]`) con los mismos topes y el mismo almacenamiento que `POST /inputs`. Una respuesta con archivos o enlaces puede ir sin texto. Los adjuntos se guardan y se sirven, no se analizan: `GET /replies/attachments/:id` entrega el archivo. Devuelve el mensaje con su hilo; cada respuesta lleva `attachments` y `attachment_kinds`.',
+      description: 'JSON `{ body, kind, mention_ids }` o multipart (`body`, `kind`, `mention_ids` repetido, `files[]`, `links[]`) con los mismos topes y el mismo almacenamiento que `POST /inputs`. Una respuesta con archivos o enlaces puede ir sin texto. Los adjuntos se guardan y se sirven, no se analizan: `GET /replies/attachments/:id` entrega el archivo. `mention_ids` (UD-275) son los miembros que la persona eligió en la lista que abre «@»: nunca se leen del texto. Cada uno pasa a los asignados del mensaje; una persona recibe un aviso y un agente recibe su trabajo `execute` con el hilo completo (si ya trabaja ese mensaje, la mención queda pendiente y se atiende al terminar). 404 si un miembro no existe; 400 `assignee_inactive` si está desactivado, `mention_self` si es quien escribe, `mention_loop` si un agente menciona a otro agente. El emisor del mensaje sólo responde si menciona a alguien (esa respuesta no cuenta como respuesta y el mensaje queda `open`). Auditoría `message.mention` por cada uno. Devuelve el mensaje con su hilo; cada respuesta lleva `attachments`, `attachment_kinds` y `mentions`.',
       params: idParams(),
       // Per content type: the multipart body is read by the handler, only the JSON body is validated by schema.
       body: {
@@ -260,7 +260,7 @@ export function registerMessageRoutes (app, ctx) {
               type: 'object',
               required: ['body'],
               additionalProperties: false,
-              properties: { body: { type: 'string' }, kind: { type: 'string', enum: WRITABLE_REPLY_KINDS } }
+              properties: { body: { type: 'string' }, kind: { type: 'string', enum: WRITABLE_REPLY_KINDS }, mention_ids: { type: 'array', items: idIn } }
             }
           }
         }
@@ -271,10 +271,10 @@ export function registerMessageRoutes (app, ctx) {
     let input
     if (request.isMultipart()) {
       // Refuse before storing a large upload when the reply is not allowed anyway.
-      assertCanReply(db, request.params.id, request.member.id)
+      assertCanReply(db, request.params.id, request.member.id, { mentions: true }) // whether the sender mentions someone is known only after reading the form; addReply decides
       input = await readReplyUpload(request, config, db)
     } else {
-      input = { body: request.body.body, kind: request.body.kind, files: [], links: [] }
+      input = { body: request.body.body, kind: request.body.kind, files: [], links: [], mentionIds: request.body.mention_ids ?? [] }
     }
     let r
     try {

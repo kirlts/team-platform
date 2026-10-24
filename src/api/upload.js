@@ -68,9 +68,9 @@ function readInputJson (request, config) {
 /** Reads the multipart body of a reply: body, kind, files[] and links[]. Same limits and storage as an input. */
 export async function readReplyUpload (request, config, db) {
   const { text, links, files, extra } = await readUpload(request, config, db, {
-    textField: 'body', extraFields: ['kind'], emptyMessage: 'La respuesta está vacía: falta texto, archivo o enlace.', emptyCode: 'reply_empty'
+    textField: 'body', extraFields: ['kind', 'mention_ids'], emptyMessage: 'La respuesta está vacía: falta texto, archivo o enlace.', emptyCode: 'reply_empty'
   })
-  return { body: text, kind: extra.kind, links, files }
+  return { body: text, kind: extra.kind, links, files, mentionIds: extra.mention_ids ?? [] }
 }
 
 /** Reads the multipart body that adds attachments to a published message: `version`, files[] and links[] (UD-071). */
@@ -99,6 +99,11 @@ async function readUpload (request, config, db, { textField, extraFields, emptyM
       if (part.type === 'field') {
         if (part.valueTruncated) throw tooLarge('El texto supera el tamaño máximo permitido.')
         if (part.fieldname === textField) text = String(part.value)
+        else if ((part.fieldname === 'mention_ids' || part.fieldname === 'mention_ids[]') && extraFields.includes('mention_ids')) {
+          // UD-275: one field per member picked in the list of the mention; each one is an id.
+          if (!/^[0-9]{1,15}$/.test(String(part.value).trim())) throw badRequest('`mention_ids` lleva ids de miembros.', 'mention_invalid')
+          ;(extra.mention_ids ??= []).push(Number(String(part.value).trim()))
+        }
         else if (extraFields.includes(part.fieldname)) {
           if (part.fieldname === 'auto_publish' && !['true', 'false'].includes(String(part.value))) throw badRequest('`auto_publish` es «true» o «false».', 'auto_publish_invalid')
           extra[part.fieldname] = String(part.value)

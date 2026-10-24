@@ -16,6 +16,7 @@ import { context } from '@opentelemetry/api'
 import { errorType, initTelemetry, withSpan } from './domain/tracing.js'
 import { contextFromTraceparent, currentTraceparent, linkTo } from './telemetry/api.js'
 import { unseenFailures } from './domain/escalation.js'
+import { attendPendingMentions } from './domain/mentions.js'
 import { createPipeline } from './domain/pipeline.js'
 import { createDeliverHandler } from './execute/deliver.js'
 import { createExecuteHandler } from './execute/handler.js'
@@ -121,6 +122,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
         events.transaction(() => {
           if (!queue.complete(job)) throw Object.assign(new Error('Se perdió el arriendo antes de terminar.'), { lost: true })
           finalize?.()
+          attendMentions(job) // UD-275: a mention that arrived while the agent worked this message is attended now
         })
         span.setAttribute('team.outcome', 'done')
         jobLog.info('job finished')
@@ -161,6 +163,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     span.setAttribute('error.type', errorType(failureCause))
     if (result.state === 'lost') return
     try { handlerObj?.onFailure?.(job, failureCause, result) } catch (e) { jobLog.error({ err: e }, 'error while recording the failure') }
+    if (result.state === 'failed') { try { events.transaction(() => attendMentions(job)) } catch (e) { jobLog.error({ err: e }, 'error while attending the pending mentions') } }
     jobLog.warn({ outcome: result.state, delay_ms: result.delayMs, error_code: failureCause.code ?? null }, `job failed: ${failureCause.message}`)
   }
 
@@ -198,10 +201,19 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     }
   }
 
+  /**
+   * The end of an `execute` or `deliver` job of a message frees its agent: the mentions that waited for it (UD-275) get their job now. Safe to call at any
+   * time: an agent that is still busy keeps them pending.
+   */
+  function attendMentions (job) {
+    if ((job.kind === 'execute' || job.kind === 'deliver') && job.message_id) attendPendingMentions(db, { now, messageId: job.message_id })
+  }
+
   function sweepLeases () {
     try {
       queue.recoverExpiredLeases({ spare: workerId, running: [...runningJobs.keys()] })
       sweepUnseen()
+      events.transaction(() => attendPendingMentions(db, { now })) // safety net: a restart between the end of a job and the hook above
       sweepHandlers()
       kick()
     } catch (error) { logger.error({ err: error }, 'error while recovering leases') }

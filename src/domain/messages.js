@@ -18,6 +18,7 @@ import { AppError, badRequest, conflict, forbidden, notFound } from './errors.js
 import { checkAssignees, checkFields, newValidatorCache, resolveAreaAndTemplate, withoutNulls } from './validation.js'
 import { loadTemplate } from './areas.js'
 import { cancelAgentJobs, enqueueExecuteForAgents } from '../execute/enqueue.js'
+import { checkMentions, mentionsOf, recordMentions } from './mentions.js'
 
 export const MESSAGE_STATUSES = ['open', 'answered', 'closed']
 export const REPLY_KINDS = ['answer', 'fix', 'clarification', 'forward']
@@ -75,8 +76,8 @@ function replyAttachmentsOf (db, replyIds) {
   return table
 }
 
-const toReply = (r, atts = []) => ({
-  id: r.id, message_id: r.message_id, author_id: r.author_id, body: r.body, kind: r.kind, forwarded_to: r.forwarded_to ?? null,
+const toReply = (r, atts = [], mentions = []) => ({
+  id: r.id, message_id: r.message_id, author_id: r.author_id, body: r.body, kind: r.kind, forwarded_to: r.forwarded_to ?? null, mentions, // UD-275: the members picked from the list when the reply was written
   attachments: atts, attachment_kinds: [...new Set(atts.map((a) => a.kind))], // one icon per media kind (UD-016)
   created_at: iso(r.created_at), version: r.version, edited_at: iso(r.edited_at)
 })
@@ -89,7 +90,8 @@ function lastRepliesOf (db, ids) {
      WHERE r.message_id IN (${placeholders}) AND r.deleted_at IS NULL
        AND r.id = (SELECT MAX(x.id) FROM replies x WHERE x.message_id = r.message_id AND x.deleted_at IS NULL)`, ...ids)
   const atts = replyAttachmentsOf(db, rows.map((r) => r.id))
-  return new Map(rows.map((r) => [r.message_id, toReply(r, atts.get(r.id))]))
+  const mentions = mentionsOf(db, rows.map((r) => r.id))
+  return new Map(rows.map((r) => [r.message_id, toReply(r, atts.get(r.id), mentions.get(r.id))]))
 }
 
 /** Flat shape the panel consumes: references by id; names come from the member and area lists. */
@@ -220,9 +222,10 @@ export function getMessage (db, id, { includeDeleted = false } = {}) {
   const observed = parseJson(dbRow.observed_json, []) // what a video frame shows and nobody says; outside the body
   const replyRows = all(db, 'SELECT * FROM replies WHERE message_id = ? AND deleted_at IS NULL ORDER BY id', id)
   const atts = replyAttachmentsOf(db, replyRows.map((r) => r.id))
+  const mentions = mentionsOf(db, replyRows.map((r) => r.id))
   const edits = all(db, 'SELECT * FROM message_edits WHERE message_id = ? ORDER BY id', id)
     .map((e) => ({ id: e.id, member_id: e.member_id, at: iso(e.at), version: e.version, fields: parseJson(e.fields_json, []) }))
-  return { ...msgRow, trace_id: dbRow.trace_id ?? null, observed: Array.isArray(observed) ? observed : [], replies: replyRows.map((r) => toReply(r, atts.get(r.id))), edits }
+  return { ...msgRow, trace_id: dbRow.trace_id ?? null, observed: Array.isArray(observed) ? observed : [], replies: replyRows.map((r) => toReply(r, atts.get(r.id), mentions.get(r.id))), edits }
 }
 
 /**
@@ -377,26 +380,33 @@ export function holdsPendingQuestion (db, messageId, memberId) {
   return last?.kind === 'clarification' && last.member_kind === 'agent'
 }
 
-/** The rules for replying, checked on their own so a route can refuse before it stores an upload. */
-export function assertCanReply (db, messageId, authorId) {
+/**
+ * The rules for replying, checked on their own so a route can refuse before it stores an upload. Returns the status the message takes.
+ * `mentions`: the reply mentions someone (UD-275). The sender of a message does not answer it (§4.8), but may write in its thread to call a member: a
+ * reply of the sender that mentions someone is a request, not an answer, so it does not count as one and the message goes back to `open`.
+ */
+export function assertCanReply (db, messageId, authorId, { mentions = false } = {}) {
   const msgRow = get(db, 'SELECT id, author_id, status FROM messages WHERE id = ? AND deleted_at IS NULL', messageId)
   if (!msgRow) throw notFound('El mensaje no existe.')
-  // §4.8: only a member other than the sender replies; the exception is the sender who received the handoff of a session (UD-269).
-  if (msgRow.author_id === authorId && !holdsPendingQuestion(db, messageId, authorId)) throw forbidden('El emisor de un mensaje no puede responderlo.', 'author_cannot_reply')
+  // §4.8: only a member other than the sender replies; the exceptions are the sender who received the handoff of a session (UD-269) and the sender who mentions someone (UD-275).
+  const sender = msgRow.author_id === authorId
+  const asksOnly = sender && !holdsPendingQuestion(db, messageId, authorId)
+  if (asksOnly && !mentions) throw forbidden('El emisor de un mensaje no puede responderlo.', 'author_cannot_reply')
   const target = TRANSITIONS.reply[msgRow.status]
   if (!target) throw conflict('El mensaje está cerrado. Hay que reabrirlo para responder.', 'message_closed')
-  return target
+  return asksOnly ? 'open' : target
 }
 
 /**
  * Adds a reply. `files` ([{ kind, name, mime, size, sha256 }], already in the volume) and `links` (validated URLs)
  * are attached to the reply; a reply with media may have no text.
  */
-export function addReply ({ db, events, now = Date.now }, { messageId, authorId, body = '', kind = 'answer', files = [], links = [] }) {
+export function addReply ({ db, events, now = Date.now }, { messageId, authorId, body = '', kind = 'answer', files = [], links = [], mentionIds = [] }) {
   if (typeof body !== 'string' || (body.trim() === '' && files.length + links.length === 0)) throw badRequest('La respuesta no puede estar vacía.', 'reply_empty')
   if (!WRITABLE_REPLY_KINDS.includes(kind)) throw badRequest('Tipo de respuesta desconocido.', 'reply_kind_invalid')
   const replyId = events.transaction(() => {
-    const target = assertCanReply(db, messageId, authorId)
+    const mentions = checkMentions(db, { authorId, ids: mentionIds }) // UD-275: picked from the list, validated here; nothing reads the text
+    const target = assertCanReply(db, messageId, authorId, { mentions: mentions.length > 0 })
     const r = run(db, 'INSERT INTO replies (message_id, author_id, body, kind, created_at) VALUES (?, ?, ?, ?, ?)', messageId, authorId, body, kind, now())
     const id = Number(r.lastInsertRowid)
     let position = 0
@@ -409,6 +419,7 @@ export function addReply ({ db, events, now = Date.now }, { messageId, authorId,
     }
     run(db, 'UPDATE messages SET status = ? WHERE id = ?', target, messageId)
     audit(db, { memberId: authorId, action: 'message.reply', entity: 'message', entityId: messageId, detail: { kind, attachments: files.length + links.length }, now })
+    recordMentions({ db, events, now }, { messageId, replyId: id, authorId, mentions })
     return id
   })
   return { replyId, message: getMessage(db, messageId) }

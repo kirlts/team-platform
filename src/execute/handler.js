@@ -19,6 +19,7 @@ import { parseJson } from '../db/util.js'
 import { infra, permanent } from '../domain/errors.js'
 import { Deferred } from '../domain/pipeline.js'
 import { addReply, closeMessage } from '../domain/messages.js'
+import { mentionAnswered } from '../domain/mentions.js'
 import { HANDOFF_OUTCOMES, alreadyHandedOver, handOffToPerson } from '../domain/escalation.js'
 import { step } from '../domain/progress-phrases.js'
 import { getProject } from '../domain/settings.js'
@@ -29,6 +30,7 @@ import { readAgentSecret } from './agent-credentials.js'
 import { capturesDir, capturesEnv, closingCaptures, storeCaptures } from './captures.js'
 import { documentFiles, documentNotes, documentsDir, documentsEnv, storeDocuments } from './documents.js'
 import { decisionCheckProblem, decisionLines } from './decision-check.js'
+import { loadMention, mentionBlock, planThread, stageThread, threadEnv } from './mention-context.js'
 import { buildExecuteParts, buildExecutePrompt, declaredOutput, finalSchema, readTemplate } from './prompt.js'
 import { closeLine, closeReason, closeRequest, firstReplyAnchor } from './auto-close.js'
 import { enqueueDeliver } from './enqueue.js'
@@ -122,6 +124,7 @@ const FAILURE_TEXTS = {
     system: 'No pude terminar este trabajo por un problema del sistema.',
     config: (reason) => `No pude empezar este trabajo: ${reason}`,
     budgetWait: (time) => `En espera: se alcanzó el tope de gasto de hoy. Sigue mañana a las ${time}.`,
+    mention: (name) => `No pude atender la mención de ${name}.`,
     edited: 'El mensaje se editó mientras trabajaba, así que esta respuesta puede no corresponder al texto de ahora. No se entregó a producción; lo hecho queda guardado en la rama.'
   },
   en: {
@@ -137,6 +140,7 @@ const FAILURE_TEXTS = {
     system: 'I could not finish this work because of a system problem.',
     config: (reason) => `I could not start this work: ${reason}`,
     budgetWait: (time) => `Waiting: today's spending limit was reached. It continues tomorrow at ${time}.`,
+    mention: (name) => `I could not attend the mention of ${name}.`,
     edited: 'The message was edited while I worked, so this answer may not match its current text. It was not delivered to production; the work is saved on the branch.'
   }
 }
@@ -152,12 +156,13 @@ const API_FAILURE = /\b(429|5\d\d)\b|overloaded|rate.?limit|too many requests|se
 const FLAG_REJECTED = /unknown (option|argument)|unrecognized (option|argument)|append-system-prompt-file/i
 
 /** The text of a failure for its reader: the reason, where the work is and who can launch it again. */
-export function failureBody (error, language, { timeoutMs = 0 } = {}) {
+export function failureBody (error, language, { timeoutMs = 0, mentionedBy = null } = {}) {
   const t = FAILURE_TEXTS[language] ?? FAILURE_TEXTS['es-419']
   const kind = FAILURE_KIND[error?.code] ?? 'system'
   const reason = kind === 'timeout' ? t.timeout(Math.max(1, Math.round(timeoutMs / 60000))) : kind === 'config' ? t.config(String(error?.message ?? '').trim()) : t[kind]
   const saved = kind === 'config' ? '' : ` ${t.saved}`
-  return `${reason}${saved}\n\n${t.again}\n\n**Resultado**: blocked`
+  // UD-275: a job that was called by a mention opens with one line that says so, and the reason follows.
+  return `${mentionedBy ? `${t.mention(mentionedBy)} ` : ''}${reason}${saved}\n\n${t.again}\n\n**Resultado**: blocked`
 }
 
 const fingerprint = (m) => JSON.stringify([m.title, m.body, m.fields_json, m.area_id, m.template_id])
@@ -298,7 +303,10 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       ? get(db, `SELECT r.body AS reason, m.name AS by FROM replies r JOIN members m ON m.id = r.author_id
                   WHERE r.id = ? AND r.message_id = ? AND r.kind = 'forward' AND r.forwarded_to = ? AND r.deleted_at IS NULL`, payload.forward.reply_id, messageId, memberId) ?? null
       : null
-    const schema = finalSchema(declared.grammar, { autoClose: x.autoClose, forwarded: forward !== null })
+    // UD-275: the reply that mentions this agent (when the job was enqueued by a mention). The session receives the whole thread; `mode` and `attachments` are offered as with a forward.
+    const mention = loadMention(db, payload.mention, { messageId })
+    const thread = mention ? planThread(db, { messageId, marked: [mention.replyId, ...mention.earlier] }) : null
+    const schema = finalSchema(declared.grammar, { autoClose: x.autoClose, forwarded: forward !== null || mention !== null })
     const validate = ajv.compile(finalSchema(declared.validation, { validation: true, autoClose: x.autoClose }))
     let hostInstructions = ''
     if (x.hostInstructions) {
@@ -312,7 +320,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const promptInput = {
       message: { id: messageId, title: message.title, body: message.body, fields: parseJson(message.fields_json, {}), area: message.area_title, status: message.status },
       template: templateRow, author, agent, project: getProject(db, config), jobId: job.id, maxSubagents: x.maxSubagents, branch, hostInstructions,
-      deliver: Boolean(x.deliverCommand), deliverFailure, autoClose: x.autoClose, forward,
+      deliver: Boolean(x.deliverCommand), deliverFailure, autoClose: x.autoClose, forward, mention: mention ? mentionBlock(mention, thread) : null,
       // A retry after a failure of the system: the first attempt may have sent the first reply already, and a second one repeats «Recibido» in the thread.
       retried: job.attempts > 1 && Boolean(get(db, 'SELECT 1 AS ok FROM replies WHERE message_id = ? AND author_id = ? AND created_at >= ? AND deleted_at IS NULL', messageId, memberId, job.created_at))
     }
@@ -357,7 +365,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const teamUrl = x.teamUrl || `http://127.0.0.1:${config.port}`
     const sessionEnv = {
       TEAM_URL: teamUrl, TEAM_API_PREFIX: config.apiPrefix, TEAM_AGENT_EMAIL: agent.email, TEAM_AGENT_SECRET: secret,
-      TEAM_JOB_ID: String(job.id), TEAM_MESSAGE_ID: String(messageId), TEAM_BRANCH: branch, ...capturesEnv(config, dirs.workdir, author?.language), ...documentsEnv(config, dirs.workdir)
+      TEAM_JOB_ID: String(job.id), TEAM_MESSAGE_ID: String(messageId), TEAM_BRANCH: branch, ...capturesEnv(config, dirs.workdir, author?.language), ...documentsEnv(config, dirs.workdir), ...(mention ? threadEnv(dirs.workdir) : {})
     }
     // One span per real phase of the job; `jobs.phase` says which one is running (the queue shows it).
     const kind = x.runner === 'machine' ? 'machine' : 'local'
@@ -393,6 +401,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         span.setAttribute('team.queue_wait_ms', Math.max(0, startedAt - job.created_at))
         await mkdir(capturesDir(dirs.workdir)) // where the session leaves its screenshots (UD-268); here and not in prepareWorkdir, so the check of EXECUTE_MAX_MACHINES keeps its timing
         await mkdir(documentsDir(dirs.workdir)) // and its documents (UD-272)
+        if (thread) span.setAttribute('team.thread_files', await stageThread({ config, plan: thread, workdir: dirs.workdir })) // UD-275: the attachments of the thread, where the session reads them
         // The session continues this trace (W3C `TRACEPARENT`) and, when the host declares it, exports its own telemetry (EXECUTE_OTEL_ENV).
         const tracedEnv = { ...(x.sessionEnv ?? {}), ...(x.otelEnv ?? {}), ...(currentTraceparent() ? { TRACEPARENT: currentTraceparent() } : {}) }
         // A line that cannot be turned into progress (the job was purged, the database is busy) must not become an uncaught exception of the worker: the session goes on.
@@ -484,7 +493,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     // UD-269: a `needs_decision` without a valid `decision_check` reaches no person; it fails like any invalid output.
     const noCheck = decisionCheckProblem(result.structured_output)
     if (noCheck) throw permanent(`La salida estructurada no cumple el formato: ${noCheck}`, 'invalid_output')
-    const request = closeRequest(result.structured_output) // UD-271: what the session asked for; the system decides when the reply is posted
+    const request = mention ? null : closeRequest(result.structured_output) // UD-271: what the session asked for; the system decides when the reply is posted. A mention never closes (UD-275): the people in the thread decide
     // The files are in `captured` and `documents`, the request is in `request`, the mode is in `investigate`; what travels on is the rest.
     const { captures: _declared, close: _close, close_reason: _closeReason, mode, attachments: _attachments, ...output } = result.structured_output
     const investigate = mode === 'investigate' // UD-272: the model understood the reason as «look into it»: nothing is delivered and nothing is closed, whatever the rest of the output says
@@ -563,6 +572,32 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     }
   }
 
+  /** The name of whoever mentioned the agent in the reply this job attends (UD-275), or null when the job was not called by a mention. */
+  function mentionerOf (job, messageId) {
+    return loadMention(db, parseJson(job.payload_json, {}).mention, { messageId })?.by ?? null
+  }
+
+  /**
+   * The guarantee of UD-275: a mention of an agent always gets at least one reply from it. When the job ended for good and no reply of the agent follows the
+   * mention (the hand-over to a person did not post one, or the thread changed under it), the system writes one in the agent's name: one line that says it
+   * could not and why. Never fails the job; a closed or deleted message has nobody to tell.
+   */
+  function answerMention (job, messageId, error) {
+    try {
+      const payload = parseJson(job.payload_json, {})
+      const by = mentionerOf(job, messageId)
+      if (!by || !payload.mention?.reply_id) return
+      const first = Math.min(payload.mention.reply_id, ...(payload.mention.earlier ?? []))
+      if (mentionAnswered(db, { messageId, agentId: payload.member_id, replyId: first - 1 })) return
+      const t = FAILURE_TEXTS[languageOf(messageId)] ?? FAILURE_TEXTS['es-419']
+      const kind = FAILURE_KIND[error?.code] ?? 'system'
+      const reason = kind === 'timeout' ? t.timeout(Math.max(1, Math.round(x.timeoutMs / 60000))) : kind === 'config' ? t.config(String(error?.message ?? '').trim()) : t[kind]
+      addReply({ db, events, now }, { messageId, authorId: payload.member_id, kind: 'answer', body: `${t.mention(by)} ${reason}` })
+    } catch (e) {
+      logger?.warn({ err: e }, 'could not post the answer to a mention that failed')
+    }
+  }
+
   const languageOf = (messageId) => get(db, 'SELECT a.language FROM messages m JOIN members a ON a.id = m.author_id WHERE m.id = ?', messageId)?.language
 
   /**
@@ -576,7 +611,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     try {
       const { member_id: memberId } = parseJson(job.payload_json, {})
       if (!messageId || !memberId) return false
-      const body = failureBody(error, languageOf(messageId), { timeoutMs: x.timeoutMs })
+      const body = failureBody(error, languageOf(messageId), { timeoutMs: x.timeoutMs, mentionedBy: mentionerOf(job, messageId) })
       if (alreadyHandedOver(db, messageId, body)) return true // launched again and failed the same way
       const { personId } = handOffToPerson({ db, events, now }, { messageId, agentId: memberId, body, source: 'execute' })
       return personId !== null
@@ -591,7 +626,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     try {
       const { member_id: memberId } = parseJson(job.payload_json, {})
       if (!messageId || !memberId) return
-      const body = failureBody(error, languageOf(messageId), { timeoutMs: x.timeoutMs })
+      const body = failureBody(error, languageOf(messageId), { timeoutMs: x.timeoutMs, mentionedBy: mentionerOf(job, messageId) })
       if (get(db, 'SELECT body FROM replies WHERE message_id = ? ORDER BY id DESC LIMIT 1', messageId)?.body === body) return // the same notice twice tells the author nothing new
       addReply({ db, events, now }, { messageId, authorId: memberId, body, kind: 'answer' })
     } catch {
@@ -636,6 +671,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         // Every final failure ends with a person holding the message, with the reason: the session died with its worker twice, the machine or the model service failed twice,
         // the time or the budget ran out, the output did not fit, the agent cannot start. Without a person to take it, the agent says so in the thread.
         if (!handOffFailure(job, messageId, error)) tellTheAuthor(job, messageId, error)
+        answerMention(job, messageId, error)
         events.publishForJob(job.id, { kind: 'done', data: { status: 'failed', message_id: messageId ? String(messageId) : null, error: String(error?.message ?? error), error_code: error?.code ?? null } })
       } else if (outcome.state === 'requeued') {
         events.publishForJob(job.id, { kind: 'progress', percent: 0, phrase: step('retry', { n: job.attempts, total: job.max_attempts }), data: { message_id: messageId } })

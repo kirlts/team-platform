@@ -12,6 +12,7 @@ import { all, get, run } from '../db/index.js'
 import { audit } from './audit.js'
 import { badRequest, notFound } from './errors.js'
 import { enqueueExecute } from '../execute/enqueue.js'
+import { readingTranscripts } from './reply-extract.js'
 
 /**
  * Checks `ids` (the members picked in the list) for a reply by `authorId`. Returns the distinct members as `[{ id, kind, name }]` in the order picked.
@@ -49,7 +50,7 @@ export function recordMentions ({ db, events, now = Date.now }, { messageId, rep
     }
   }
   attendPendingMentions(db, { now, messageId })
-  const rows = all(db, 'SELECT member_id, job_id FROM reply_mentions WHERE reply_id = ? ORDER BY rowid', replyId)
+  const rows = all(db, `SELECT member_id, job_id FROM reply_mentions WHERE reply_id = ? AND member_id IN (${mentions.map(() => '?').join(',')}) ORDER BY rowid`, replyId, ...mentions.map((m) => m.id))
   for (const r of rows) {
     audit(db, { memberId: authorId, action: 'message.mention', entity: 'message', entityId: messageId, detail: { member: r.member_id, reply_id: replyId, job_id: r.job_id }, now })
   }
@@ -59,7 +60,7 @@ export function recordMentions ({ db, events, now = Date.now }, { messageId, rep
 /**
  * Enqueues the `execute` job of every agent with pending mentions (of one message, or of all). One job per message and agent carries all the pending
  * replies: `mention.reply_id` is the latest and `mention.earlier` the ones before it. An agent that already has a job in the queue or running for the
- * message (or a delivery of it) keeps them pending: the end of that work calls this again (`worker.js`). A mention whose reply was deleted, whose message was
+ * message (or a delivery of it), or while the speech of an audio or video of the thread is still being read (UD-277), keeps them pending: the end of that work calls this again (`worker.js`). A mention whose reply was deleted, whose message was
  * closed or deleted, or whose agent was deactivated has nothing to attend and stops being pending. The agent joins the assignees again: a mention is
  * an explicit call, also after a failed run handed the message to a person. Returns the ids of the jobs enqueued.
  */
@@ -85,6 +86,7 @@ export function attendPendingMentions (db, { now = Date.now, messageId = null } 
     for (const r of group.filter(stale)) run(db, 'UPDATE reply_mentions SET pending = 0 WHERE reply_id = ? AND member_id = ?', r.reply_id, r.member_id)
     const live = group.filter((r) => !stale(r))
     if (live.length === 0) continue
+    if (readingTranscripts(db, mId)) continue // UD-277: the agent starts when the speech of the thread is text; the end of that reading calls this again
     const last = live.at(-1)
     run(db, 'INSERT OR IGNORE INTO message_assignees (message_id, member_id) VALUES (?, ?)', mId, agentId)
     const earlier = live.slice(0, -1).map((r) => r.reply_id)

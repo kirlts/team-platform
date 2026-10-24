@@ -1,8 +1,9 @@
 // Message and reply routes (MASTER-SPEC §7.1).
 
-import { releaseBlobs } from '../../domain/storage.js'
-import { addMessageAttachments, addReply, assertCanAddAttachments, assertCanReply, closeMessage, deleteMessage, deleteMessages, deleteReply, getMessage, listMessages, messageSummary, reopenMessage, WRITABLE_REPLY_KINDS, restoreMessage, restoreMessages, restoreReply, updateMessage, updateReply } from '../../domain/messages.js'
-import { notFound } from '../../domain/errors.js'
+import { freeBlobs, releaseBlobs } from '../../domain/storage.js'
+import { get } from '../../db/index.js'
+import { addMessageAttachments, addReply, addReplyAttachments, assertCanAddAttachments, assertCanReply, closeMessage, deleteMessage, deleteMessages, deleteReply, getMessage, listMessages, messageSummary, reopenMessage, WRITABLE_REPLY_KINDS, restoreMessage, restoreMessages, restoreReply, updateMessage, updateReply } from '../../domain/messages.js'
+import { forbidden, notFound } from '../../domain/errors.js'
 import { forwardMessage } from '../../domain/forward.js'
 import { withSpan } from '../../domain/tracing.js'
 import { timingOfMessage } from '../../telemetry/timing.js'
@@ -193,13 +194,43 @@ export function registerMessageRoutes (app, ctx) {
   app.patch('/messages/:id/replies/:replyId', {
     onRequest: [requireRole('member')],
     schema: {
-      summary: 'Editar el texto de una respuesta (sólo su autor)',
-      description: 'Edición en el lugar (UD-253). `version` es obligatoria: la que se leyó en la respuesta; si otra edición se coló en medio, 409 `edit_conflict` con la `version` vigente y no se escribe nada. Los adjuntos quedan como están. Una respuesta con adjuntos puede quedar sin texto; una sin adjuntos no (400 `reply_empty`). Repetir la misma edición deja el mismo estado y la misma `version`. Cada edición real sube `version`, fija `edited_at` y deja la fila `reply.edit` en la bitácora. Devuelve el mensaje con su hilo. 403 `not_reply_author` si quien pide no es el autor, tampoco un Editor; 404 si la respuesta no existe, está borrada o no es de ese mensaje.',
+      summary: 'Editar una respuesta: su texto, sus adjuntos y sus menciones (sólo su autor)',
+      description: 'Edición en el lugar (UD-253). `version` es obligatoria: la que se leyó en la respuesta; si otra edición se coló en medio, 409 `edit_conflict` con la `version` vigente y no se escribe nada. `body` es opcional (UD-277): `remove_attachment_ids` quita adjuntos de la respuesta y `mention_ids` suma menciones (con los efectos de una mención al escribir, sólo para quien aún no estaba mencionado; las que ya tenía se ignoran). Agregar adjuntos va por `POST /messages/:id/replies/:replyId/attachments`. Sin ningún cambio no hay edición. Una respuesta con adjuntos puede quedar sin texto; una sin adjuntos no (400 `reply_empty`). Repetir la misma edición deja el mismo estado y la misma `version`. Cada edición real sube `version`, fija `edited_at` y deja la fila `reply.edit` en la bitácora. Devuelve el mensaje con su hilo. 403 `not_reply_author` si quien pide no es el autor, tampoco un Editor; 404 si la respuesta no existe, está borrada o no es de ese mensaje.',
       params: replyParams,
       body: replyPatchBody,
       response: { 200: messageDetail }
     }
-  }, async (request) => spanOf(request, 'reply.edit', { 'team.reply_id': String(request.params.replyId) })(() => updateReply({ db, events }, { messageId: request.params.id, replyId: request.params.replyId, actor: request.member, body: request.body.body, version: request.body.version })))
+  }, async (request) => spanOf(request, 'reply.edit', { 'team.reply_id': String(request.params.replyId) })(async () => {
+    let hashes = []
+    const message = updateReply({ db, events }, { messageId: request.params.id, replyId: request.params.replyId, actor: request.member, body: request.body.body, version: request.body.version, mentionIds: request.body.mention_ids ?? [], removeAttachmentIds: request.body.remove_attachment_ids ?? [], onRemoved: (h) => { hashes = h } })
+    if (hashes.length) await freeBlobs(db, config, hashes) // the files that no row references any more
+    return message
+  }))
+
+  app.post('/messages/:id/replies/:replyId/attachments', {
+    onRequest: [requireRole('member')],
+    schema: {
+      summary: 'Agregar archivos o enlaces a una respuesta (sólo su autor)',
+      description: 'Multipart: `version` (la leída de la respuesta), `files[]` y `links[]`, con los mismos topes y el mismo almacenamiento que `POST /inputs` (UD-277). Un audio o un video se transcribe como al escribir la respuesta. Cuenta como una edición: sube `version`, fija `edited_at` y deja `reply.edit`. 403 `not_reply_author` si no es el autor, 409 `edit_conflict` si la versión venció, 400 `attachments_empty` si no trae nada, 404 si la respuesta no existe. Quitar va por `PATCH` con `remove_attachment_ids`.',
+      params: replyParams,
+      response: { 201: messageDetail }
+    }
+  }, async (request, reply) => {
+    const own = get(db, 'SELECT author_id FROM replies WHERE id = ? AND message_id = ? AND deleted_at IS NULL', request.params.replyId, request.params.id)
+    if (!own) throw notFound('La respuesta no existe.')
+    if (own.author_id !== request.member.id) throw forbidden('Sólo quien escribió la respuesta puede editarla.', 'not_reply_author') // refuse before storing a large upload
+    const input = await readMessageAttachmentUpload(request, config, db)
+    let message
+    try {
+      message = addReplyAttachments({ db, events }, { messageId: request.params.id, replyId: request.params.replyId, actor: request.member, ...input })
+    } catch (error) {
+      await releaseBlobs(db, config, input.files, { discard: true })
+      throw error
+    }
+    await releaseBlobs(db, config, input.files, { discard: false })
+    reply.code(201)
+    return message
+  })
 
   app.post('/replies/:id/restore', {
     onRequest: [requireRole('member')],

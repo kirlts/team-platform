@@ -111,6 +111,18 @@ describe('a reply that mentions an agent (UD-275)', () => {
     assert.deepEqual(readFileSync(join(threadDir(workdir), plan.files.find((f) => f.rel.startsWith('message/')).rel)), PNG)
   })
 
+  it('the audio of the mention reaches the session as text in the thread, and its photo as a file (UD-277)', async () => {
+    await worker?.stop()
+    startWorker()
+    const id = await publishedMessage()
+    const replyId = await mention(id, editor, '', [{ name: 'nota.webm', content: Buffer.from('audio-de-prueba'), type: 'audio/webm' }, { name: 'foto.png', content: PNG, type: 'image/png' }])
+    await settle(id)
+    const stdin = calls().at(-1).stdin
+    assert.ok(stdin.includes('transcript of nota.webm:\nextraído de audio'), 'the speech is in the thread as text')
+    assert.match(stdin, new RegExp(`foto\\.png .*\\$TEAM_THREAD_DIR/reply-${replyId}/foto\\.png`))
+    assert.ok(stdin.indexOf('transcript of nota.webm') > stdin.indexOf(`id ${replyId})`), 'under the reply that carries it')
+  })
+
   it('a mention while the agent works the message is attended in a run that follows', async () => {
     await worker?.stop()
     process.env.FAKE_EXECUTE_SLEEP_MS = '800'

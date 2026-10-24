@@ -95,6 +95,21 @@ export function registerAttachmentRoutes (app, ctx) {
     return { text: att.extracted_text }
   })
 
+  // The transcript of the audio or video of a reply (UD-277). Same access as the file.
+  app.get('/replies/attachments/:id/transcript', {
+    onRequest: [requireRole('member')],
+    schema: {
+      summary: 'La transcripción de un audio o un video adjunto a una respuesta',
+      description: 'El texto que se leyó del adjunto de una respuesta (UD-277). 404 si el adjunto no existe, no es audio ni video, o todavía no se leyó.',
+      params: idParams(),
+      response: { 200: { type: 'object', properties: { text: { type: 'string' } } } }
+    }
+  }, async (request) => {
+    const att = get(db, 'SELECT id, kind, extracted_text FROM reply_attachments WHERE id = ?', request.params.id)
+    if (!att || !['audio', 'video'].includes(att.kind) || !att.extracted_text || !canReadReplyAttachment(db, att.id)) throw notFound('El adjunto no tiene transcripción.')
+    return { text: att.extracted_text }
+  })
+
   // Reply files (own id, separate table): the whole team sees them, like the thread.
   app.get('/replies/attachments/:id', {
     onRequest: [requireRole('member')],

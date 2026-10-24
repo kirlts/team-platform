@@ -113,7 +113,7 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
     return wrapped
   }
 
-  async function extractAttachment (job, ctx, att, onProgress) {
+  async function extractAttachment (job, ctx, att, onProgress, table = 'attachments') {
     const extract = demand(modules.extract, 'extractores')
     let outText
     try {
@@ -124,7 +124,7 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
     }
     if (!outText || typeof outText.text !== 'string') throw new Error(`El extractor de «${att.name || att.kind}» no devolvió texto.`)
     // Writing is a single statement: no transaction is needed and the lock is not held during the call.
-    run(db, 'UPDATE attachments SET extracted_text = ?, extracted_at = ?, extract_meta_json = ? WHERE id = ?',
+    run(db, `UPDATE ${table} SET extracted_text = ?, extracted_at = ?, extract_meta_json = ? WHERE id = ?`,
       outText.text, now(), JSON.stringify(outText.meta ?? {}), att.id)
   }
 
@@ -326,12 +326,13 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
 
     extract: {
       async run (job, ctx) {
-        const { attachment_id: id } = parseJson(job.payload_json, {})
-        const att = get(db, 'SELECT * FROM attachments WHERE id = ?', id)
+        const { attachment_id: id, reply_attachment_id: replyAttachmentId } = parseJson(job.payload_json, {})
+        // UD-277: the audio or video of a reply (its own table) is read by the same extractor; the text is stored on its row.
+        const att = replyAttachmentId ? get(db, 'SELECT * FROM reply_attachments WHERE id = ?', replyAttachmentId) : get(db, 'SELECT * FROM attachments WHERE id = ?', id)
         if (!att) throw permanent('El adjunto del trabajo ya no existe.', 'attachment_missing')
         const advance = meter(job, ctx, 1)
         await reserveAudio([att], ctx) // an attachment added to a published message transcribes with the same hourly budget as a send
-        await extractAttachment(job, ctx, att, (percent, phraseText) => advance(0, (percent ?? 0) / 100, phraseText || 'Lectura de adjunto'))
+        await extractAttachment(job, ctx, att, (percent, phraseText) => advance(0, (percent ?? 0) / 100, phraseText || 'Lectura de adjunto'), replyAttachmentId ? 'reply_attachments' : 'attachments')
         return () => events.publishForJob(job.id, { kind: 'done', data: { status: 'done' } })
       },
       onFailure (job, error, outcome) {

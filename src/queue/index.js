@@ -27,6 +27,7 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
   queueWake.on('cancelled', (id) => signals.emit('cancelled', id)) // a job cancelled outside a queue (the agent left the message)
   if (config.execute) { jobDefaults.executeMaxAttempts = config.execute.maxAttempts; jobDefaults.deliverMaxAttempts = config.execute.deliverMaxAttempts }
   const w = config.worker
+  jobDefaults.extractMaxAttempts = w.maxAttempts
 
   /** Delay of retry n (n ≥ 1): min(cap, base × 2^(n−1)) minus a random fraction of up to `jitter`. */
   function backoffMs (attempt) {

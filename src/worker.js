@@ -202,11 +202,11 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
   }
 
   /**
-   * The end of an `execute` or `deliver` job of a message frees its agent: the mentions that waited for it (UD-275) get their job now. Safe to call at any
+   * The end of an `execute` or `deliver` job of a message frees its agent, and the end of the reading of a reply's audio (`extract`, UD-277) frees its thread: the mentions that waited for it (UD-275) get their job now. Safe to call at any
    * time: an agent that is still busy keeps them pending.
    */
   function attendMentions (job) {
-    if ((job.kind === 'execute' || job.kind === 'deliver') && job.message_id) attendPendingMentions(db, { now, messageId: job.message_id })
+    if ((job.kind === 'execute' || job.kind === 'deliver' || job.kind === 'extract') && job.message_id) attendPendingMentions(db, { now, messageId: job.message_id })
   }
 
   function sweepLeases () {

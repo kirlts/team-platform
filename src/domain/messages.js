@@ -18,6 +18,7 @@ import { AppError, badRequest, conflict, forbidden, notFound } from './errors.js
 import { checkAssignees, checkFields, newValidatorCache, resolveAreaAndTemplate, withoutNulls } from './validation.js'
 import { loadTemplate } from './areas.js'
 import { cancelAgentJobs, enqueueExecuteForAgents } from '../execute/enqueue.js'
+import { SPOKEN_KINDS, enqueueReplyExtract } from './reply-extract.js'
 import { checkMentions, mentionsOf, recordMentions } from './mentions.js'
 
 export const MESSAGE_STATUSES = ['open', 'answered', 'closed']
@@ -67,7 +68,7 @@ function assigneesOf (db, ids) {
 function replyAttachmentsOf (db, replyIds) {
   const table = new Map()
   if (replyIds.length === 0) return table
-  const rows = all(db, `SELECT id, reply_id, kind, name, mime, size FROM reply_attachments
+  const rows = all(db, `SELECT id, reply_id, kind, name, mime, size, extracted_at FROM reply_attachments
                          WHERE reply_id IN (${replyIds.map(() => '?').join(',')}) ORDER BY reply_id, position, id`, ...replyIds)
   for (const f of rows) {
     if (!table.has(f.reply_id)) table.set(f.reply_id, [])
@@ -411,7 +412,8 @@ export function addReply ({ db, events, now = Date.now }, { messageId, authorId,
     const id = Number(r.lastInsertRowid)
     let position = 0
     for (const f of files) {
-      run(db, 'INSERT INTO reply_attachments (reply_id, kind, name, path, mime, size, sha256, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', id, f.kind, f.name, f.sha256, f.mime, f.size, f.sha256, position++)
+      const a = run(db, 'INSERT INTO reply_attachments (reply_id, kind, name, path, mime, size, sha256, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', id, f.kind, f.name, f.sha256, f.mime, f.size, f.sha256, position++)
+      if (SPOKEN_KINDS.includes(f.kind)) enqueueReplyExtract(db, { messageId, replyAttachmentId: Number(a.lastInsertRowid), now }) // UD-277: the speech becomes text, without holding up the reply
     }
     for (const url of links) {
       // For kind = link, `path` holds the URL and the hash identifies it, as in `attachments`.
@@ -588,7 +590,7 @@ export function deleteReply ({ db, events, now = Date.now }, { messageId, replyI
  * bumps `version`, sets `edited_at` and leaves a `reply.edit` audit row. 404 when the message or the reply does not
  * exist, is deleted, or the reply belongs to another message. Returns the message detail.
  */
-export function updateReply ({ db, events, now = Date.now }, { messageId, replyId, actor, body, version }) {
+export function updateReply ({ db, events, now = Date.now }, { messageId, replyId, actor, body, version, mentionIds = [], removeAttachmentIds = [], onRemoved = null }) {
   events.transaction(() => {
     const row = get(db, `
       SELECT r.id, r.author_id, r.body, r.version FROM replies r JOIN messages m ON m.id = r.message_id
@@ -598,13 +600,59 @@ export function updateReply ({ db, events, now = Date.now }, { messageId, replyI
     if (version !== row.version) {
       throw new AppError(409, 'edit_conflict', 'La respuesta cambió desde que la abriste; vuelve a cargarla.', { version: row.version })
     }
-    if (body === row.body) return
-    if (body.trim() === '' && get(db, 'SELECT COUNT(*) AS n FROM reply_attachments WHERE reply_id = ?', replyId).n === 0) {
-      throw badRequest('La respuesta no puede estar vacía.', 'reply_empty')
+    const fields = []
+    const nextBody = body === undefined ? row.body : body
+    if (nextBody !== row.body) fields.push('body')
+    // UD-277: the author takes attachments off their reply; the rows go and the files that nothing else references are freed after the transaction.
+    const removed = []
+    for (const raw of removeAttachmentIds) {
+      const att = get(db, 'SELECT id, sha256, kind FROM reply_attachments WHERE id = ? AND reply_id = ?', raw, replyId)
+      if (!att) throw notFound('El adjunto no existe en esta respuesta.')
+      if (removed.some((x) => x.id === att.id)) continue
+      removed.push(att)
+    }
+    if (removed.length) fields.push('attachment_ids')
+    // UD-277: a mention added by editing has the effects of a mention at writing, only for the member who was not mentioned yet.
+    const already = new Set(all(db, 'SELECT member_id FROM reply_mentions WHERE reply_id = ?', replyId).map((r) => r.member_id))
+    const fresh = checkMentions(db, { authorId: actor.id, ids: mentionIds }).filter((m) => !already.has(m.id))
+    if (fresh.length) fields.push('mentions')
+    if (fields.length === 0) return
+    const left = get(db, 'SELECT COUNT(*) AS n FROM reply_attachments WHERE reply_id = ?', replyId).n - removed.length
+    if (nextBody.trim() === '' && left === 0) throw badRequest('La respuesta no puede estar vacía.', 'reply_empty')
+    for (const a of removed) run(db, 'DELETE FROM reply_attachments WHERE id = ?', a.id)
+    const next = row.version + 1
+    run(db, 'UPDATE replies SET body = ?, edited_at = ?, version = ? WHERE id = ?', nextBody, now(), next, replyId)
+    audit(db, { memberId: actor.id, action: 'reply.edit', entity: 'reply', entityId: replyId, detail: { message_id: messageId, version: next, fields }, now })
+    if (fresh.length) recordMentions({ db, events, now }, { messageId, replyId, authorId: actor.id, mentions: fresh })
+    if (removed.length) onRemoved?.(removed.map((a) => a.sha256))
+  })
+  return getMessage(db, messageId)
+}
+
+/**
+ * Adds files and links to a reply that already exists (UD-277): only its author, with the version read. Audio and video go to be read like at writing.
+ * It counts as one edit of the reply (version, `edited_at`, `reply.edit` with `fields: ['attachment_ids']`).
+ */
+export function addReplyAttachments ({ db, events, now = Date.now }, { messageId, replyId, actor, version, files = [], links = [] }) {
+  if (files.length + links.length === 0) throw badRequest('Falta un archivo o un enlace.', 'attachments_empty')
+  events.transaction(() => {
+    const row = get(db, `
+      SELECT r.id, r.author_id, r.version FROM replies r JOIN messages m ON m.id = r.message_id
+       WHERE r.id = ? AND r.message_id = ? AND r.deleted_at IS NULL AND m.deleted_at IS NULL`, replyId, messageId)
+    if (!row) throw notFound('La respuesta no existe.')
+    if (row.author_id !== actor.id) throw forbidden('Sólo quien escribió la respuesta puede editarla.', 'not_reply_author')
+    if (version !== row.version) throw new AppError(409, 'edit_conflict', 'La respuesta cambió desde que la abriste; vuelve a cargarla.', { version: row.version })
+    let position = get(db, 'SELECT COALESCE(MAX(position), -1) AS p FROM reply_attachments WHERE reply_id = ?', replyId).p + 1
+    for (const f of files) {
+      const a = run(db, 'INSERT INTO reply_attachments (reply_id, kind, name, path, mime, size, sha256, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', replyId, f.kind, f.name, f.sha256, f.mime, f.size, f.sha256, position++)
+      if (SPOKEN_KINDS.includes(f.kind)) enqueueReplyExtract(db, { messageId, replyAttachmentId: Number(a.lastInsertRowid), now })
+    }
+    for (const url of links) {
+      run(db, "INSERT INTO reply_attachments (reply_id, kind, name, path, mime, size, sha256, position) VALUES (?, 'link', ?, ?, 'text/uri-list', 0, ?, ?)", replyId, url, url, createHash('sha256').update(url).digest('hex'), position++)
     }
     const next = row.version + 1
-    run(db, 'UPDATE replies SET body = ?, edited_at = ?, version = ? WHERE id = ?', body, now(), next, replyId)
-    audit(db, { memberId: actor.id, action: 'reply.edit', entity: 'reply', entityId: replyId, detail: { message_id: messageId, version: next }, now })
+    run(db, 'UPDATE replies SET edited_at = ?, version = ? WHERE id = ?', now(), next, replyId)
+    audit(db, { memberId: actor.id, action: 'reply.edit', entity: 'reply', entityId: replyId, detail: { message_id: messageId, version: next, fields: ['attachment_ids'], added: files.length + links.length }, now })
   })
   return getMessage(db, messageId)
 }

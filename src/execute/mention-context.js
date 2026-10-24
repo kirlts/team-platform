@@ -64,7 +64,7 @@ export function planThread (db, { messageId, marked = [] }) {
                              FROM replies r JOIN members p ON p.id = r.author_id LEFT JOIN members t ON t.id = r.forwarded_to
                             WHERE r.message_id = ? AND r.deleted_at IS NULL ORDER BY r.id`, messageId)
   const replyFiles = new Map()
-  for (const f of all(db, `SELECT ra.id, ra.reply_id, ra.kind, ra.name, ra.path, ra.mime, ra.size, ra.sha256 FROM reply_attachments ra
+  for (const f of all(db, `SELECT ra.id, ra.reply_id, ra.kind, ra.name, ra.path, ra.mime, ra.size, ra.sha256, ra.extracted_text FROM reply_attachments ra
                             WHERE ra.reply_id IN (${replies.map(() => '?').join(',') || 'NULL'}) ORDER BY ra.reply_id, ra.position, ra.id`, ...replies.map((r) => r.id))) {
     if (!replyFiles.has(f.reply_id)) replyFiles.set(f.reply_id, [])
     replyFiles.get(f.reply_id).push(f)
@@ -74,6 +74,8 @@ export function planThread (db, { messageId, marked = [] }) {
     out.push('', `## Reply ${i + 1} (id ${r.id}): ${r.author} (${r.author_kind}) ${what}, ${iso(r.created_at)}${marked.includes(r.id) ? '  <- THIS REPLY MENTIONS YOU' : ''}`, '', r.body.trim() || '(no text)')
     const list = replyFiles.get(r.id) ?? []
     if (list.length) out.push('', 'attachments of this reply:', ...describe(list, `reply-${r.id}`, () => null))
+    // UD-277: what was said in the audio or video of this reply, as text (a reply is read by the extractor only for its speech).
+    for (const a of list.filter((x) => x.extracted_text && x.extracted_text.trim())) out.push('', `transcript of ${fileName(a.name, 'file')}:`, a.extracted_text.trim())
   })
   return { text: out.join('\n'), files }
 }

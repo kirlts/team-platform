@@ -78,7 +78,7 @@ const attachmentSummary = {
 
 const replyAttachmentSummary = {
   type: 'object',
-  properties: { id, reply_id: id, kind: { type: 'string' }, name: { type: 'string' }, mime: { type: 'string' }, size: intVar }
+  properties: { id, reply_id: id, kind: { type: 'string' }, name: { type: 'string' }, mime: { type: 'string' }, size: intVar, extracted: { type: 'boolean' } }
 }
 
 export const reply = {
@@ -223,8 +223,12 @@ export const messagePatchBody = {
 export const replyPatchBody = {
   type: 'object',
   additionalProperties: false,
-  required: ['body', 'version'],
-  properties: { body: { type: 'string' }, version: { type: 'integer', minimum: 1 } }
+  required: ['version'],
+  properties: {
+    body: { type: 'string' }, version: { type: 'integer', minimum: 1 },
+    mention_ids: { type: 'array', items: idIn },
+    remove_attachment_ids: { type: 'array', items: idIn }
+  }
 }
 
 export const providerSlot = {

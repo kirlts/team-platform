@@ -5286,7 +5286,10 @@ export interface paths {
         };
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description Con `1`, el archivo llega como descarga (`Content-Disposition: attachment`) con su nombre original. */
+                    download?: string;
+                };
                 header?: never;
                 path: {
                     id: number;
@@ -5404,7 +5407,10 @@ export interface paths {
         /** El archivo adjunto a una respuesta, con soporte de rangos */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description Con `1`, el archivo llega como descarga (`Content-Disposition: attachment`) con su nombre original. */
+                    download?: string;
+                };
                 header?: never;
                 path: {
                     id: number;

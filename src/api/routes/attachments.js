@@ -36,9 +36,12 @@ export function registerAttachmentRoutes (app, ctx) {
     let info
     try { info = await stat(routePath) } catch { throw notFound('El archivo del adjunto ya no está en el servidor.') }
 
-    const isInline = INLINE_MIMES.has(att.mime)
-    const nameValue = encodeURIComponent(att.name || `adjunto-${att.id}`)
-    reply.header('content-type', isInline ? att.mime : 'application/octet-stream')
+    // `?download=1` asks for the file as a download; without it, what a browser can show safely is shown inline.
+    const wantsDownload = ['1', 'true'].includes(String(request.query?.download ?? ''))
+    const isInline = !wantsDownload && INLINE_MIMES.has(att.mime)
+    // RFC 5987: encodeURIComponent leaves ' ( ) * unescaped, and those are not allowed in the extended value.
+    const nameValue = encodeURIComponent(att.name || `adjunto-${att.id}`).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)
+    reply.header('content-type', att.mime || 'application/octet-stream') // the stored type is the real one (classified at upload)
     reply.header('content-disposition', `${isInline ? 'inline' : 'attachment'}; filename*=UTF-8''${nameValue}`)
     reply.header('accept-ranges', 'bytes')
     // The content is immutable: its name is its hash. Private: only those with a session see it.
@@ -63,12 +66,14 @@ export function registerAttachmentRoutes (app, ctx) {
     return reply.send(createReadStream(routePath, { start: rangeSpec.start, end: rangeSpec.end }))
   }
 
+  const downloadQuery = { type: 'object', properties: { download: { type: 'string', description: 'Con `1`, el archivo llega como descarga (`Content-Disposition: attachment`) con su nombre original.' } } }
+
   const responses = {
     200: { type: 'string', format: 'binary', description: 'El archivo.' },
     206: { type: 'string', format: 'binary', description: 'Un rango del archivo (cabecera Range).' }
   }
 
-  app.get('/attachments/:id', { onRequest: [requireRole('member')], schema: { params: idParams(), response: responses } }, async (request, reply) => {
+  app.get('/attachments/:id', { onRequest: [requireRole('member')], schema: { params: idParams(), querystring: downloadQuery, response: responses } }, async (request, reply) => {
     const att = get(db, 'SELECT * FROM attachments WHERE id = ?', request.params.id)
     // An attachment the member cannot access is indistinguishable from a nonexistent one.
     if (!att || att.kind === 'link' || !canReadAttachment(db, request.member.id, att.id)) throw notFound('El adjunto no existe.')
@@ -93,7 +98,7 @@ export function registerAttachmentRoutes (app, ctx) {
   // Reply files (own id, separate table): the whole team sees them, like the thread.
   app.get('/replies/attachments/:id', {
     onRequest: [requireRole('member')],
-    schema: { summary: 'El archivo adjunto a una respuesta, con soporte de rangos', params: idParams(), response: responses }
+    schema: { summary: 'El archivo adjunto a una respuesta, con soporte de rangos', params: idParams(), querystring: downloadQuery, response: responses }
   }, async (request, reply) => {
     const att = get(db, 'SELECT * FROM reply_attachments WHERE id = ?', request.params.id)
     if (!att || att.kind === 'link' || !canReadReplyAttachment(db, att.id)) throw notFound('El adjunto no existe.')

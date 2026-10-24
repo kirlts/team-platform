@@ -11667,6 +11667,15 @@
         "parameters": [
           {
             "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "download",
+            "required": false,
+            "description": "Con `1`, el archivo llega como descarga (`Content-Disposition: attachment`) con su nombre original."
+          },
+          {
+            "schema": {
               "type": "integer",
               "minimum": 1
             },
@@ -11795,6 +11804,15 @@
           "Other"
         ],
         "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "download",
+            "required": false,
+            "description": "Con `1`, el archivo llega como descarga (`Content-Disposition: attachment`) con su nombre original."
+          },
           {
             "schema": {
               "type": "integer",

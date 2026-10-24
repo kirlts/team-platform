@@ -42,8 +42,8 @@ export function finalSchema (declared, { validation = false, autoClose = true } 
       }
     }
   }
-  // UD-271: the session asks to close the message; the system closes only when its own checks pass too (auto-close.js). Both are optional. Without EXECUTE_AUTO_CLOSE they are not offered.
-  const closing = autoClose
+  // UD-271: the session asks to close the message; the system closes only when its own checks pass too (auto-close.js). Both are optional. Without EXECUTE_AUTO_CLOSE the grammar does not offer them, but the validation still accepts them: an output that carries them is not a malformed output.
+  const closing = autoClose || validation
     ? {
         close: { type: 'boolean', description: 'true only when the three conditions of «Closing the message» hold; false when in doubt.' },
         close_reason: { type: 'string', description: 'One line in the reply language: why nothing is left for the sender. Required with close true.' }

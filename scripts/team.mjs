@@ -19,7 +19,8 @@ Commands:
   team reply <message_id> --body <text> [--kind answer|fix|clarification] [--captures <json|file>] [--zone <zone>]
                                                   add a reply to the thread (kind default: answer). --captures attaches the «before»
                                                   screenshots: a list of { path (in $TEAM_CAPTURES_DIR), alt, masked, place, as };
-                                                  masked false needs --zone ninguna
+                                                  masked false needs --zone ninguna.
+                                                  If none is accepted nothing is posted and the exit code is 1
   team progress [<job_id>] --percent <0-100> --phrase <text>
                                                   report what the session is doing; shown on the message card
   team mark <judge|delivery|wait> --ms <milliseconds> [--ok true|false]
@@ -160,6 +161,12 @@ export async function runTeam (argv, env = process.env, fetchImpl = fetch) {
         const { accepted, rejected } = await checkCaptures(list, {
           dir: env.TEAM_CAPTURES_DIR ?? '', max: Number(env.TEAM_CAPTURES_MAX ?? 0), maxBytes: Number(env.TEAM_CAPTURES_MAX_BYTES ?? 0), zone: options.zone ?? null, openZone: env.TEAM_CAPTURES_OPEN_ZONE ?? 'ninguna'
         })
+        // No capture accepted: nothing is posted. A session that believes it sent the «before» would lose everything that depends on it.
+        if (accepted.length === 0) {
+          const lines = rejected.map((x) => `  capture ${x.index + 1}: ${x.reason}`)
+          if (lines.length === 0) lines.push('  --captures carried an empty list')
+          throw new Error(`team reply: no capture was accepted, so the reply was NOT posted.\n${lines.join('\n')}\nFix the captures and call «team reply» again: take the screenshot again inside $TEAM_CAPTURES_DIR as a PNG, JPEG or WebP, declare \`masked\` truthfully (true only when the tool hid the personal data), or pass --zone with the open zone when \`masked\` is false.`)
+        }
         for (const x of rejected) warnings.push(`team reply: capture ${x.index + 1} skipped (${x.reason}).`)
         let text = options.body
         const files = []

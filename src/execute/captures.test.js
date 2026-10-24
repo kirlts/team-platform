@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, before, describe, it } from 'node:test'
-import { captureName, checkCaptures } from '../../scripts/team.mjs'
+import { captureName, checkCaptures, runTeam } from '../../scripts/team.mjs'
 
 const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from('png-body')])
 const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.from('jpeg-body')])
@@ -70,5 +70,48 @@ describe('checkCaptures', () => {
   it('a directory that does not exist, or none declared, rejects everything', async () => {
     assert.deepEqual(reasons(await checkCaptures([shot('a.png')], { ...limits(), dir: join(base, 'ninguno') })), ['missing'])
     assert.deepEqual(reasons(await checkCaptures([shot('a.png')], { ...limits(), dir: '' })), ['missing'])
+  })
+})
+
+describe('team reply with --captures', () => {
+  let dir
+  const shot = (path, extra = {}) => ({ path, alt: 'Vista de pacientes', masked: true, place: 'Pacientes', as: 'Clínica Sur, doctor', ...extra })
+  const run = async (captures, extraArgs = []) => {
+    const posts = []
+    const fetchImpl = async (url, init) => { posts.push({ url, method: init.method }); return { ok: true, status: 200, text: async () => JSON.stringify({ id: 7 }) } }
+    const env = { TEAM_URL: 'http://x', TEAM_AGENT_EMAIL: 'a@b', TEAM_AGENT_SECRET: 's', TEAM_CAPTURES_DIR: dir, TEAM_CAPTURES_MAX: '3', TEAM_CAPTURES_MAX_BYTES: '1000' }
+    const r = await runTeam(['reply', '5', '--body', 'Veo la pantalla', '--captures', JSON.stringify(captures), ...extraArgs], env, fetchImpl)
+    return { ...r, posts }
+  }
+
+  before(() => {
+    dir = mkdtempSync(join(tmpdir(), 'captures-reply-'))
+    writeFileSync(join(dir, 'a.png'), PNG)
+  })
+  after(() => rmSync(dir, { recursive: true, force: true }))
+
+  it('posts nothing and exits non-zero when every capture is rejected, naming each one and what to do', async () => {
+    const r = await run([shot('a.png', { masked: false }), shot('nope.png'), shot('/etc/passwd')])
+    assert.deepEqual(r.posts, [])
+    assert.notEqual(r.code, 0)
+    assert.match(r.err, /NOT posted/)
+    assert.match(r.err, /capture 1: unmasked_sensitive/)
+    assert.match(r.err, /capture 2: missing/)
+    assert.match(r.err, /capture 3: outside/)
+    assert.match(r.err, /--zone/)
+  })
+
+  it('posts nothing for an empty list', async () => {
+    const r = await run([])
+    assert.deepEqual(r.posts, [])
+    assert.notEqual(r.code, 0)
+  })
+
+  it('posts with the accepted captures and warns about the rejected ones', async () => {
+    const r = await run([shot('a.png'), shot('nope.png')])
+    assert.equal(r.code, 0)
+    assert.equal(r.posts.length, 1)
+    assert.equal(r.posts[0].method, 'POST')
+    assert.match(r.err, /capture 2 skipped \(missing\)/)
   })
 })

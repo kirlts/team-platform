@@ -1,8 +1,9 @@
 // Message and reply routes (MASTER-SPEC §7.1).
 
 import { releaseBlobs } from '../../domain/storage.js'
-import { addMessageAttachments, addReply, assertCanAddAttachments, assertCanReply, closeMessage, deleteMessage, deleteMessages, deleteReply, getMessage, listMessages, messageSummary, reopenMessage, REPLY_KINDS, restoreMessage, restoreMessages, restoreReply, updateMessage, updateReply } from '../../domain/messages.js'
+import { addMessageAttachments, addReply, assertCanAddAttachments, assertCanReply, closeMessage, deleteMessage, deleteMessages, deleteReply, getMessage, listMessages, messageSummary, reopenMessage, WRITABLE_REPLY_KINDS, restoreMessage, restoreMessages, restoreReply, updateMessage, updateReply } from '../../domain/messages.js'
 import { notFound } from '../../domain/errors.js'
+import { forwardMessage } from '../../domain/forward.js'
 import { withSpan } from '../../domain/tracing.js'
 import { timingOfMessage } from '../../telemetry/timing.js'
 import { requireConfirm } from '../confirm.js'
@@ -259,7 +260,7 @@ export function registerMessageRoutes (app, ctx) {
               type: 'object',
               required: ['body'],
               additionalProperties: false,
-              properties: { body: { type: 'string' }, kind: { type: 'string', enum: REPLY_KINDS } }
+              properties: { body: { type: 'string' }, kind: { type: 'string', enum: WRITABLE_REPLY_KINDS } }
             }
           }
         }
@@ -286,6 +287,21 @@ export function registerMessageRoutes (app, ctx) {
     reply.code(201)
     return r.message
   })
+
+  app.post('/messages/:id/forward', {
+    onRequest: [requireRole('member')],
+    schema: {
+      summary: 'Reenviar un mensaje a un miembro, con el motivo (UD-272)',
+      description: 'El mismo mensaje suma a `member_id` entre sus asignados (no se crea otro) y el hilo gana una respuesta de tipo `forward`: autor quien reenvía, `forwarded_to` el destinatario y `body` el motivo, que es obligatorio. Un mensaje respondido vuelve a `open` para quien lo recibe. Si el destinatario es un agente, se encola su trabajo `execute` del mismo mensaje con el reenvío como contexto; la sesión decide si resuelve o investiga. Responde 201 con el mensaje y su hilo. 400 `forward_comment_required` sin motivo, 400 `forward_to_self` si el destinatario es quien reenvía, 400 `assignee_inactive` si está desactivado, 404 si el mensaje o el miembro no existen, 409 `message_closed` si el mensaje está cerrado, 409 `execute_busy` si el agente ya tiene un trabajo en cola o corriendo para el mensaje. Auditoría `message.forward`.',
+      params: idParams(),
+      body: { type: 'object', required: ['member_id', 'comment'], additionalProperties: false, properties: { member_id: idIn, comment: { type: 'string', minLength: 1 } } },
+      response: { 201: messageDetail }
+    }
+  }, async (request, reply) => withSpan('message.forward', { 'team.message_id': String(request.params.id), 'team.member_id': String(request.member.id) }, () => {
+    const { message } = forwardMessage({ db, events }, { messageId: request.params.id, actor: request.member, memberId: request.body.member_id, comment: request.body.comment })
+    reply.code(201)
+    return message
+  }))
 
   for (const [verb, handlerFn, summaryText] of [['close', closeMessage, 'Close a message'], ['reopen', reopenMessage, 'Reopen a closed message']]) {
     app.post(`/messages/:id/${verb}`, {

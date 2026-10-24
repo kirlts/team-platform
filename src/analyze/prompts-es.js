@@ -187,6 +187,7 @@ const WRITING_CONTRACT = [
   '- Sin frase final que resuma, sin charla («aquí tienes», «espero que sirva», «avísame si») y sin texto de relleno.',
   '- No digas lo que el input no dice («no se indica», «se desconoce») ni adivines causas («lo que sugiere», «probablemente»): omite el detalle del cuerpo, aunque la plantilla lo mencione. Un campo sin dato lleva exactamente el valor de campo vacío, o queda vacío si es opcional, nunca una frase sobre lo que falta.',
   '- El cuerpo nunca repite el título: agrega lo que el título no puede (dónde, qué se esperaba, por qué importa, lo que dice la descripción del proyecto si sirve), en pocas frases, sin repetir los campos ni recontar el input. Los valores de los campos son breves.',
+  '- Escribe para alguien que no es técnico: el cuerpo dice qué se pide y para qué en pocas oraciones cortas y llanas, con la lista de requisitos si la hay. Sin rutas de archivos, nombres de componentes ni vocabulario interno que la persona no usó.',
 ].join('\n');
 
 export const decomposeInstructions = (framing) => [

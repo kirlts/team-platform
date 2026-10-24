@@ -171,7 +171,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
         <Link to="/messages" className="inline-flex items-center gap-1 text-xs text-muted hover:text-fg">
           <ArrowLeft size={13} aria-hidden /> {t('nav.messages')}
         </Link>
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
           {/* The thread and the message come before the field (the page is about 1.9 windows long on a phone): a way to it from the first screen. */}
           {!desktop && canReply && (
             <a

@@ -874,6 +874,14 @@
   }
 
   /* The chosen option of a switch (Segmented, StateTabs). */
+  /* The stroke of the own icon set: by default 1.7 units of its 20 grid; a host may set it in screen pixels with a non-scaling stroke. */
+  .icon {
+    stroke-width: var(--icon-stroke-width, 1.7);
+  }
+  .icon * {
+    vector-effect: var(--icon-vector-effect, none);
+  }
+
   .wordmark-logo {
     display: var(--wordmark-logo-display);
     width: var(--wordmark-logo-width);

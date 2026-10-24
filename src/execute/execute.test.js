@@ -17,7 +17,7 @@ import { addMember, fakeAnalyze, login, makeEnv, postInput, until } from '../tes
 import { createWorker } from '../worker.js'
 import { runTeam } from '../../scripts/team.mjs'
 import { listExecuteRuns, pruneExecuteRuns } from '../telemetry/execute-runs.js'
-import { createExecuteHandler, dailyBudget, localDay, stderrTail } from './handler.js'
+import { createExecuteHandler, dailyBudget, localDay, otelSessionEnv, stderrTail } from './handler.js'
 import { phraseForTool } from './stream.js'
 
 const FAKE = fileURLToPath(new URL('./testing/fake-claude-stream.mjs', import.meta.url))
@@ -767,4 +767,11 @@ describe('execute job', () => {
     assert.equal(phraseForTool('Agent', { description: 'Revisar estilos' }), 'Subagente: Revisar estilos')
     assert.equal(phraseForTool('Grep', { pattern: 'foo' }), 'Búsqueda: foo')
   })
+})
+
+it('otelSessionEnv correlates the session telemetry with the job and adds nothing without EXECUTE_OTEL_ENV', () => {
+  assert.deepEqual(otelSessionEnv({}, { jobId: 7 }), {})
+  const e = otelSessionEnv({ CLAUDE_CODE_ENABLE_TELEMETRY: '1', OTEL_RESOURCE_ATTRIBUTES: 'a=b' }, { jobId: 132, attempt: 1, messageId: 9, traceId: 'abc' })
+  assert.equal(e.CLAUDE_CODE_ENABLE_TELEMETRY, '1')
+  assert.equal(e.OTEL_RESOURCE_ATTRIBUTES, 'a=b,tp.job_id=132,tp.attempt=1,tp.message_id=9,tp.trace_id=abc')
 })

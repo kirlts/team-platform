@@ -49,6 +49,19 @@ const STDERR_TAIL_CHARS = 600 // declared courtesy: the cause of a process that 
  * The end of a process's stderr for an error message: the last non-empty lines that fit in `chars` (a single longer line keeps its end). The start of the
  * stderr of a machine is `ssh` and `useradd` warnings; the reason is the last thing it printed (2026-10-24, job 132 failed with code 1 and the reason was cut off).
  */
+/**
+ * The telemetry of the session (UD-262) is correlated with the job: when the host declares `EXECUTE_OTEL_ENV`, the session's
+ * resource carries the job, attempt, message and trace ids (`OTEL_RESOURCE_ATTRIBUTES`, no spaces, as the Claude Code docs require),
+ * so every metric, event and span it exports can be queried by `tp.job_id`. Without `EXECUTE_OTEL_ENV` nothing is added.
+ */
+export function otelSessionEnv (otelEnv, { jobId, attempt, messageId, traceId }) {
+  if (!otelEnv || Object.keys(otelEnv).length === 0) return {}
+  const own = [['tp.job_id', jobId], ['tp.attempt', attempt], ['tp.message_id', messageId], ['tp.trace_id', traceId]]
+    .filter(([, v]) => v !== undefined && v !== null && v !== '').map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
+  const declared = otelEnv.OTEL_RESOURCE_ATTRIBUTES
+  return { ...otelEnv, OTEL_RESOURCE_ATTRIBUTES: [declared, ...own].filter(Boolean).join(',') }
+}
+
 export function stderrTail (text, chars = STDERR_TAIL_CHARS) {
   const lines = String(text ?? '').split('\n').map((l) => l.trimEnd()).filter((l) => l.trim() !== '')
   const kept = []
@@ -438,7 +451,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         await mkdir(documentsDir(dirs.workdir)) // and its documents (UD-272)
         if (thread) span.setAttribute('team.thread_files', await stageThread({ config, plan: thread, workdir: dirs.workdir })) // UD-278: the attachments of the thread, where the session reads them
         // The session continues this trace (W3C `TRACEPARENT`) and, when the host declares it, exports its own telemetry (EXECUTE_OTEL_ENV).
-        const tracedEnv = { ...(x.sessionEnv ?? {}), ...(x.otelEnv ?? {}), ...(currentTraceparent() ? { TRACEPARENT: currentTraceparent() } : {}) }
+        const tracedEnv = { ...(x.sessionEnv ?? {}), ...otelSessionEnv(x.otelEnv, { jobId: job.id, attempt: job.attempts, messageId, traceId: job.trace_id }), ...(currentTraceparent() ? { TRACEPARENT: currentTraceparent() } : {}) }
         // A line that cannot be turned into progress (the job was purged, the database is busy) must not become an uncaught exception of the worker: the session goes on.
         const opts = { config, args, prompt, onData: (c) => { try { reader.push(c) } catch (e) { logger?.warn({ err: e }, 'could not record the progress of the session') } }, signal: ctx.signal }
         const r = x.runner === 'machine'

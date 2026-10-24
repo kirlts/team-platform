@@ -180,7 +180,10 @@ export function loadConfig (env = process.env, overrides = {}) {
       maxLinks: intVar(env, 'UPLOAD_MAX_LINKS', 10, { min: 0 }), // I07 §6.1: same reference as files
       // I03 §7.2: the @fastify/multipart default is Fastify's bodyLimit, 1 MiB; a long text fits.
       maxTextBytes: intVar(env, 'UPLOAD_MAX_TEXT_BYTES', MIB, { min: 1 }),
-      maxLinkLength: intVar(env, 'UPLOAD_MAX_LINK_LENGTH', 8000, { min: 1 }) // RFC 9110 §4.1: supporting URIs of at least 8000 octets is recommended
+      maxLinkLength: intVar(env, 'UPLOAD_MAX_LINK_LENGTH', 8000, { min: 1 }), // RFC 9110 §4.1: supporting URIs of at least 8000 octets is recommended
+      // A connection that sends and receives nothing for this long is closed (Fastify's `connectionTimeout`). Fastify turns off the 5 minutes Node gives a request,
+      // so a client that vanished half way through a 2 GB upload (a phone that lost its network) held its file descriptor and its temporary file for ever.
+      idleTimeoutMs: intVar(env, 'UPLOAD_IDLE_TIMEOUT_MS', 120000, { min: 1 }) // declared courtesy: eight times the 15 s SSE heartbeat, which keeps an event stream open; no measurement
     },
 
     // ---- Lists. No measurement: MS §7.8 says nothing is virtualized until there are hundreds of rows.

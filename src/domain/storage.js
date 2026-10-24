@@ -10,6 +10,17 @@ import { pipeline } from 'node:stream/promises'
 import { get } from '../db/index.js'
 import { AppError } from './errors.js'
 
+// Errors of the volume that a person can be told in plain words (a full disk, a mount that went read-only), instead of «Error interno».
+const VOLUME_FULL = new Set(['ENOSPC', 'EDQUOT', 'EFBIG'])
+const VOLUME_UNAVAILABLE = new Set(['EACCES', 'EPERM', 'EROFS', 'EIO', 'ENOTCONN', 'ESTALE', 'EMFILE'])
+
+/** The error to send for a failure of the volume, or null when the error is not one of them. */
+export function volumeError (error) {
+  if (VOLUME_FULL.has(error?.code)) return new AppError(507, 'storage_full', 'El servidor no tiene espacio para guardar el archivo.')
+  if (VOLUME_UNAVAILABLE.has(error?.code)) return new AppError(503, 'storage_unavailable', 'El servidor no puede guardar archivos ahora. Intenta de nuevo en unos minutos.')
+  return null
+}
+
 export function blobPath (config, sha256) {
   return path.join(config.attachmentsDir, sha256)
 }
@@ -141,8 +152,11 @@ export async function sweepOrphans (db, config, olderThanMs, now = Date.now()) {
     if (!existsSync(dir)) continue
     for (const nameValue of await readdir(dir)) {
       const routePath = path.join(dir, nameValue)
-      const info = await stat(routePath)
-      if (!info.isFile() || now - info.mtimeMs < olderThanMs) continue
+      // A file another process removed since the listing (a deletion, an upload that failed) is gone, not a reason to stop the sweep.
+      const info = await stat(routePath).catch((error) => { if (error?.code === 'ENOENT') return null; throw error })
+      if (!info || !info.isFile() || now - info.mtimeMs < olderThanMs) continue
+      // An upload in flight holds its blob even when the file is old: a blob an earlier crash orphaned is reused by the same file sent again.
+      if (dir === config.attachmentsDir && inFlight.has(nameValue)) continue
       if (dir === config.attachmentsDir && (get(db, "SELECT 1 AS u FROM attachments WHERE sha256 = ? AND kind <> 'link' LIMIT 1", nameValue) ||
         get(db, "SELECT 1 AS u FROM reply_attachments WHERE sha256 = ? AND kind <> 'link' LIMIT 1", nameValue))) continue
       await rm(routePath, { force: true })

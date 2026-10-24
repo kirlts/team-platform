@@ -6,7 +6,7 @@ import { classify, maxBytesFor } from '../domain/attachments.js'
 import { AppError, badRequest, tooLarge, unsupported } from '../domain/errors.js'
 import { DEFAULTS as EXTRACT_DEFAULTS } from '../extract/config.js'
 import { probe } from '../extract/lib/ffmpeg.js'
-import { commit, holdBlob, ingest, releaseBlobs } from '../domain/storage.js'
+import { commit, holdBlob, ingest, releaseBlobs, volumeError } from '../domain/storage.js'
 
 const MB = (bytes) => `${Math.round(bytes / (1024 * 1024))} MB`
 
@@ -112,6 +112,13 @@ async function readUpload (request, config, db, { textField, extraFields, emptyM
       }
       // File
       const kindInfo = classify(part.mimetype, part.filename)
+      if (!kindInfo && !part.filename) {
+        // A form with no file chosen sends an empty part with no name: nothing was attached, nothing is refused.
+        let bytes = 0
+        for await (const chunk of part.file) bytes += chunk.length
+        if (bytes === 0) continue
+        throw unsupported('El formato de «archivo» no se admite.')
+      }
       if (!kindInfo) {
         part.file.resume()
         throw unsupported(`El formato de «${part.filename || 'archivo'}» no se admite.`)
@@ -137,7 +144,7 @@ async function readUpload (request, config, db, { textField, extraFields, emptyM
   } catch (error) {
     await Promise.all(ingested.map((f) => rm(f.tmp, { force: true })))
     await releaseBlobs(db, config, held, { discard: true }) // what this refused upload wrote leaves with it (UD-072)
-    throw error
+    throw volumeError(error) ?? error
   }
 }
 

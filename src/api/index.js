@@ -62,6 +62,7 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
     ...(logger === false ? { logger: false } : { loggerInstance: logger === true ? createLogger(config) : logger }),
     trustProxy: config.trustedProxies, // exact list of IPs or CIDRs, never `true` (report 04 §2.4)
     forceCloseConnections: true, // an open SSE stream hangs `app.close()` (report 03, M5)
+    connectionTimeout: config.uploads.idleTimeoutMs, // a client that went silent does not keep an upload and its temporary file for ever
     ajv: { customOptions: { removeAdditional: false, coerceTypes: 'array', useDefaults: true, allErrors: false } },
     schemaErrorFormatter
   })

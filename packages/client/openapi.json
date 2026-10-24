@@ -577,6 +577,19 @@
             "in": "query",
             "name": "all",
             "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1",
+                "true"
+              ]
+            },
+            "in": "query",
+            "name": "compact",
+            "required": false,
+            "description": "Deja fuera `units` y `proposal` de cada envío (la mayor parte de los bytes de un historial largo); el detalle `GET /inputs/{id}` los trae."
           }
         ],
         "responses": {

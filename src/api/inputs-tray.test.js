@@ -87,3 +87,21 @@ test('list: an unknown status or a mine value other than 1 is a 400', async () =
   assert.equal((await env.app.inject({ method: 'GET', url: '/api/inputs?mine=1' })).statusCode, 401)
   await env.close()
 })
+
+test('compact=1 leaves out units and proposal from the list and keeps the rest; the detail still carries them', async () => {
+  const env = await team({ worker: true })
+  const id = await env.send(env.c.ana, 'se analiza')
+  await until(async () => (await env.api('GET', `/inputs/${id}`, env.c.ana)).json().status === 'proposed')
+  const full = (await env.api('GET', '/inputs?mine=1&order=desc', env.c.ana)).json().items[0]
+  assert.ok(full.proposal?.messages?.length > 0)
+  const compact = (await env.api('GET', '/inputs?mine=1&order=desc&compact=1', env.c.ana)).json().items[0]
+  assert.equal('units' in compact, false)
+  assert.equal('proposal' in compact, false)
+  const { units: _units, proposal: _proposal, ...rest } = full
+  assert.deepEqual(compact, rest)
+  assert.equal(compact.proposed_count, full.proposal.messages.length)
+  const detail = (await env.api('GET', `/inputs/${id}`, env.c.ana)).json()
+  assert.ok(detail.proposal?.messages?.length > 0)
+  assert.equal((await env.api('GET', '/inputs?mine=1&compact=2', env.c.ana)).statusCode, 400)
+  await env.close()
+})

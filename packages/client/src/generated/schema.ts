@@ -299,6 +299,8 @@ export interface paths {
                     mine?: "1" | "true";
                     order?: "asc" | "desc";
                     all?: "1" | "true";
+                    /** @description Deja fuera `units` y `proposal` de cada envío (la mayor parte de los bytes de un historial largo); el detalle `GET /inputs/{id}` los trae. */
+                    compact?: "1" | "true";
                 };
                 header?: never;
                 path?: never;

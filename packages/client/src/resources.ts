@@ -227,11 +227,11 @@ export function createResources(t: Transport) {
       get: (id: string) => call<InputRecord>(routes.inputGet, { params: { id } }),
       /** My inputs in the tray: oldest first, so the ones that arrived first are reviewed first. */
       tray: async () => {
-        const list = unwrapList<InputRecord>(await call(routes.inputList, { search: `mine=1&status=${TRAY_STATUSES.join(',')}` }))
+        const list = unwrapList<InputRecord>(await call(routes.inputList, { search: `mine=1&compact=1&status=${TRAY_STATUSES.join(',')}` }))
         return [...list].sort((a, b) => a.created_at.localeCompare(b.created_at))
       },
       /** Every send of mine, newest first, whatever its state (UD-070); the ones I discarded are not part of it. */
-      history: async () => unwrapList<InputRecord>(await call(routes.inputList, { search: 'mine=1&order=desc' })).filter((i) => i.status !== 'cancelled'),
+      history: async () => unwrapList<InputRecord>(await call(routes.inputList, { search: 'mine=1&order=desc&compact=1' })).filter((i) => i.status !== 'cancelled'),
       /** The sends of everybody (Editor), newest first, one server page. */
       queue: (page: number, limit: number) => call<Paged<QueueInput>>(routes.inputList, { search: `all=1&page=${page}&limit=${limit}` }),
       /** Sends the input as multipart without progress (a server, a script). Idempotent by content hash (MASTER-SPEC §1.3). */

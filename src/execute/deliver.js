@@ -13,6 +13,7 @@
 //   other exit    the delivery failed; its stdout and stderr are the reason
 //   environment   TEAM_JOB_ID TEAM_MESSAGE_ID TEAM_BRANCH TEAM_WORKDIR TEAM_DELIVER_ROUND TEAM_DELIVER_ATTEMPT and TEAM_OUTPUT_JSON (the structured output of the
 //                 session, compact JSON without `summary`)
+//                 TEAM_CAPTURES_VIDEO is «1» when the session left the walkthrough video (UD-275), «0» when not: a host that holds for review says so in the reason
 //   timeout       EXECUTE_DELIVER_TIMEOUT_MS; SIGTERM to the group the job started, then SIGKILL after EXECUTE_KILL_GRACE_MS
 //   stdout lines  `##team phase verify` and `##team phase deploy` move the progress of the job (and the panel) to that phase
 //   «after»       TEAM_BEFORE_CAPTURES is the JSON list [{ place, as, width, height }] of the «before» of the first reply (empty list without one). With exit 0 the
@@ -199,7 +200,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
         const env = {
           ...process.env, TEAM_JOB_ID: String(job.id), TEAM_MESSAGE_ID: String(messageId), TEAM_BRANCH: branch, TEAM_WORKDIR: workdir, TEAM_BEFORE_CAPTURES: JSON.stringify(before),
           TEAM_DELIVER_ROUND: String(payload.round ?? 0), TEAM_DELIVER_ATTEMPT: String(job.attempts),
-          TEAM_OUTPUT_JSON: outputJson(payload.output), TEAM_REVIEWED_BY: payload.requested_by ? String(payload.requested_by) : ''
+          TEAM_OUTPUT_JSON: outputJson(payload.output), TEAM_CAPTURES_VIDEO: (payload.captures ?? []).some((c) => c.kind === 'video') ? '1' : '0', TEAM_REVIEWED_BY: payload.requested_by ? String(payload.requested_by) : ''
         }
         const r = await spawnStreaming('/bin/sh', ['-c', command], { env, keepStdout: true, onData, timeoutMs: x.deliverTimeoutMs, graceMs: x.killGraceMs, signal: ctx.signal })
         if (phaseSpan) { endManualSpan(phaseSpan, r.code !== 0 && r.code !== DELIVER_LATER && r.code !== DELIVER_HELD ? { error: new Error(r.timedOut ? 'timeout' : `exit ${r.code}`) } : {}); phaseSpan = null }

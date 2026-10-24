@@ -37,11 +37,11 @@ export function finalSchema (declared, { validation = false, autoClose = true, f
   // UD-268: optional screenshots of the interface for the closing reply (the first reply carries its own with `team reply --captures`).
   const captures = {
     type: 'array',
-    description: 'Screenshots for the closing reply (the «after» of the first reply\'s «before»). Omit when the interface shows nothing useful. A walkthrough video (WebM) from `team walkthrough` goes here too.',
+    description: 'Screenshots for the closing reply (the «after» of the first reply\'s «before»). Omit when the interface shows nothing useful. A change that draws a screen also carries the walkthrough video (WebM) from `team walkthrough`, first: the person who reviews a held change expects it (UD-275).',
     items: {
       type: 'object', additionalProperties: false, required: ['path', 'alt', 'masked', 'place', 'as'],
       properties: {
-        path: { type: 'string', description: 'File inside $TEAM_CAPTURES_DIR' }, alt: { type: 'string', description: 'One line' },
+        path: { type: 'string', description: 'File inside $TEAM_CAPTURES_DIR' }, alt: { type: 'string', description: 'One line: what the image shows, quoting the texts and numbers on screen; never the name of a format («24-hour clock»), which reads as a quantity.' },
         masked: { type: 'boolean', description: 'true when the tool hid the personal data' }, place: { type: 'string', description: 'Route or menu of the view' }, as: { type: 'string', description: 'Clinic and role it was seen as' }
       }
     }

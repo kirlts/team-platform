@@ -24,6 +24,7 @@ const args = Object.fromEntries(process.argv.slice(2).reduce((acc, a, i, all) =>
 const BASE = (args.base ?? 'http://127.0.0.1:3900').replace(/\/$/, '')
 const LABEL = args.label ?? 'panel-speed'
 const RUNS = Number(args.runs ?? 3)
+const DWELL = Number(args.dwell ?? 250) // ms the pointer rests on a message before the click (hover intent); a bench parameter, not an operating value
 const RUNS_SLOW = Number(args['runs-slow'] ?? RUNS) // the throttled profile is slow: fewer repetitions
 const OUT = resolve(dirname(fileURLToPath(import.meta.url)), 'results', `${LABEL}.json`)
 const PROFILES = {
@@ -138,21 +139,26 @@ async function loadOnce (page, reqs, route) {
 const median = (xs) => { const s = xs.filter((x) => x != null).sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)] : null }
 
 async function clickLatency (page, selector) {
-  // From the click event to the next screen's useful content drawn (two frames after it appears).
+  // From the click event to the next screen's useful content drawn (two frames after it). The route changes at once on a click, before React
+  // has drawn anything, so the screen counts only after its <main> was rewritten (a mutation) and shows no loading placeholder.
   return page.evaluate(async (selector) => {
     const el = document.querySelector(selector)
     if (!el) return null
-    const useful = () => { const main = document.querySelector('main#main'); return !!main && !main.querySelector('[role="status"][aria-label]') && main.innerText.trim().length > 20 }
+    const main = () => document.querySelector('main#main')
+    const useful = () => { const m = main(); return !!m && !m.querySelector('[role="status"][aria-label]') && m.innerText.trim().length > 20 }
     const before = location.pathname + location.search
+    let mutated = false
+    const observer = new MutationObserver(() => { mutated = true })
+    observer.observe(main(), { childList: true, subtree: true })
+    let sawLoading = false
     const t0 = performance.now()
     el.click()
-    let sawLoading = false
     return await new Promise((resolve) => {
       const tick = () => {
         const now = location.pathname + location.search
-        if (document.querySelector('main#main [role="status"][aria-label]')) sawLoading = true
-        if (now !== before && useful()) { requestAnimationFrame(() => requestAnimationFrame(() => resolve({ ms: Math.round(performance.now() - t0), showed_loading: sawLoading, to: now }))); return }
-        if (performance.now() - t0 > 20000) { resolve({ ms: null, to: now }); return }
+        if (main()?.querySelector('[role="status"][aria-label]')) sawLoading = true
+        if (now !== before && mutated && useful()) { requestAnimationFrame(() => requestAnimationFrame(() => { observer.disconnect(); resolve({ ms: Math.round(performance.now() - t0), showed_loading: sawLoading, to: now }) })); return }
+        if (performance.now() - t0 > 20000) { observer.disconnect(); resolve({ ms: null, to: now }); return }
         requestAnimationFrame(tick)
       }
       tick()
@@ -168,7 +174,7 @@ async function main () {
   for (const profile of (args.profiles ?? Object.keys(PROFILES).join(',')).split(',')) {
     const out = { screens: {}, clicks: {} }
     const runs = profile === 'slow4g' ? RUNS_SLOW : RUNS
-    for (const [name, route] of ROUTES.filter(([n]) => !args.only || args.only.split(',').includes(n))) {
+    for (const [name, route] of (args['skip-screens'] ? [] : ROUTES).filter(([n]) => !args.only || args.only.split(',').includes(n))) {
       const cold = []; const warm = []
       for (let i = 0; i < runs; i++) {
         const context = await newContext(browser, cookies)
@@ -186,7 +192,7 @@ async function main () {
       console.log(profile, name, 'cold useful', out.screens[name].cold_median.useful_ms, 'warm', out.screens[name].warm_median.useful_ms)
     }
     // Navigation by clicking, in one session: Inicio -> Mensajes -> a message -> back through the menu.
-    const clicks = { menu: {}, open_message: [] }
+    const clicks = { menu: {}, open_message: [], open_message_after_hover: [] }
     for (let i = 0; i < runs; i++) {
       const context = await newContext(browser, cookies)
       const page = await context.newPage()
@@ -203,15 +209,25 @@ async function main () {
       const again = await clickLatency(page, 'aside a[href="/messages"]')
       if (again) (clicks.menu.mensajes_segunda_visita ??= []).push(again)
       await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {})
-      const href = await page.evaluate(() => document.querySelector('main#main a[href^="/messages/"]')?.getAttribute('href'))
-      if (href) {
-        const r = await clickLatency(page, `main#main a[href="${href}"]`)
-        if (r) clicks.open_message.push({ href, ...r })
+      const hrefs = await page.evaluate(() => [...document.querySelectorAll('main#main a[href^="/messages/"]')].slice(0, 2).map((a) => a.getAttribute('href')))
+      // Two different messages: one opened at once, one after the pointer rested on it (so the first does not warm the second).
+      if (hrefs[0]) {
+        const r = await clickLatency(page, `main#main a[href="${hrefs[0]}"]`)
+        if (r) clicks.open_message.push({ href: hrefs[0], ...r })
+      }
+      await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {})
+      if (hrefs[1]) {
+        await page.evaluate(() => history.back())
+        await page.waitForSelector(`main#main a[href="${hrefs[1]}"]`)
+        await page.hover(`main#main a[href="${hrefs[1]}"]`)
+        await page.waitForTimeout(DWELL)
+        const r = await clickLatency(page, `main#main a[href="${hrefs[1]}"]`)
+        if (r) clicks.open_message_after_hover.push({ href: hrefs[1], dwell_ms: DWELL, ...r })
       }
       await context.close()
     }
-    out.clicks = { menu: Object.fromEntries(Object.entries(clicks.menu).map(([k, v]) => [k, { median_ms: median(v.map((x) => x.ms)), runs: v }])), open_message: { median_ms: median(clicks.open_message.map((x) => x.ms)), runs: clicks.open_message } }
-    console.log(profile, 'clicks', JSON.stringify(Object.fromEntries(Object.entries(out.clicks.menu).map(([k, v]) => [k, v.median_ms]))), 'open message', out.clicks.open_message.median_ms)
+    out.clicks = { menu: Object.fromEntries(Object.entries(clicks.menu).map(([k, v]) => [k, { median_ms: median(v.map((x) => x.ms)), runs: v }])), open_message: { median_ms: median(clicks.open_message.map((x) => x.ms)), runs: clicks.open_message }, open_message_after_hover: { median_ms: median(clicks.open_message_after_hover.map((x) => x.ms)), runs: clicks.open_message_after_hover } }
+    console.log(profile, 'clicks', JSON.stringify(Object.fromEntries(Object.entries(out.clicks.menu).map(([k, v]) => [k, v.median_ms]))), 'open message', out.clicks.open_message.median_ms, 'after hover', out.clicks.open_message_after_hover.median_ms)
     result.profiles[profile] = out
   }
   await browser.close()

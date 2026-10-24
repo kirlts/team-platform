@@ -394,6 +394,7 @@ describe('deliver job', () => {
     assert.equal(isEnvironmentFailure({ code: 1 }, '==== el entorno de la entrega no está listo ====\nsin token de la cuenta de entrega'), true)
     assert.equal(isEnvironmentFailure({ code: 1 }, 'Falta la marca de un juez distinto del autor: no entra.'), false, 'a missing judge mark is the change')
     assert.equal(isEnvironmentFailure({ code: 1 }, '→ fallaron 2 archivos'), false, 'a failed test is the change')
+    assert.equal(isEnvironmentFailure({ code: 5 }, 'No se instala: lo servido (cede6f154109cd99185ce1ec731a42a231155ca6) no es un antecesor de este árbol (69c17123af5b).'), true, 'production moved during the verification')
     assert.equal(isEnvironmentFailure({ code: 75 }, 'Connection reset'), false)
   })
 

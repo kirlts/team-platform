@@ -68,10 +68,11 @@ const TEXTS = {
 const textsOf = (language) => TEXTS[language] ?? TEXTS['es-419']
 
 // A failure of the delivery machine and not of the change: a timeout, a process killed by a signal, ssh (255) or what the delivery script prints when its
-// environment is not ready (the checks of 10 s of `corrida-de-entrega.sh`, the tunnel, the machine that did not accept SSH, no capacity to create one).
+// environment is not ready (the checks of 10 s of `corrida-de-entrega.sh`, the tunnel, the machine that did not accept SSH, no capacity to create one)
+// or production moved while the verification ran (exit 5, «lo servido … no es un antecesor de este árbol»: another delivery went out; measured on tp/93, job 97).
 // Measured 2026-10-23 (prueba de 14 insumos): the delivery of tp/88 hit the 30 min limit by 47 s while its run on the machine kept going and merged.
 const ENVIRONMENT_EXIT_CODES = new Set([255, 137, 143])
-const ENVIRONMENT_OUTPUT = /el entorno de la entrega no est[aá] listo|no se puede entrar por SSH|no acept[oó] SSH|sin token de \S+|no se pudo (armar el árbol|instalar las dependencias)|kex_exchange_identification|Connection (reset|closed|timed out)|ssh: connect to host|ERROR: \(gcloud\.compute\.(ssh|start-iap-tunnel)\)|no se pudo traer desarrollo o main/i
+const ENVIRONMENT_OUTPUT = /el entorno de la entrega no est[aá] listo|no se puede entrar por SSH|no acept[oó] SSH|sin token de \S+|no se pudo (armar el árbol|instalar las dependencias)|kex_exchange_identification|Connection (reset|closed|timed out)|ssh: connect to host|ERROR: \(gcloud\.compute\.(ssh|start-iap-tunnel)\)|no se pudo traer desarrollo o main|lo servido \(\w+\) no es un antecesor de este árbol/i
 export function isEnvironmentFailure ({ code, timedOut = false, signal = null }, output = '') {
   if (timedOut || signal) return true
   if (code === 0 || code === DELIVER_LATER || code === DELIVER_HELD) return false

@@ -1280,5 +1280,5 @@ Martín, el mismo día: «la idea es que yo no quiera abrir una sesion como esta
 **Fecha:** 2026-10-24
 **Contexto:** Martín, 2026-10-24, textual: «Es prioritario que no haya fricción para usar esta plataforma, o sea, los textos no deben ser excesivamente largos, técnicos, usar jerga interna, etc.».
 **Decisión:** (1) Los textos de la interfaz son rótulos de una a tres palabras, sin ayuda por omisión; un error es una oración que dice qué pasó y qué hacer. No usan términos internos (cola, trabajo, propuesta, trozo, analizador externo) ni segunda persona. (2) Lo que escriben los modelos para una persona (cuerpo de los mensajes del análisis, primera respuesta y respuesta final de Claude) es corto y llano para alguien no técnico: qué se pide y para qué, con la lista de requisitos si la hay, sin rutas ni nombres de componentes. Se pide en la instrucción al modelo; ningún filtro reescribe su salida.
-**Consecuencias:** El catálogo del panel pasa «En cola» a «En espera», «Propuesta» a «Borrador» y «Trabajos» a «Tareas», y acorta los errores de análisis. Un texto que Pablo o Alejandro pidieron textual no se toca.
+**Consecuencias:** El catálogo del panel pasa «En cola» a «En espera», «Propuesta» a «Borrador» y «Trabajos» a «Tareas», y acorta los errores de análisis. Un texto que el dueño pidió textual no se toca.
 **Condiciones de reversión:** Las fija Martín.

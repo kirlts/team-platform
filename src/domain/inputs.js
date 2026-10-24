@@ -15,6 +15,7 @@ import { audit } from './audit.js'
 import { currentTraceparent, traceIdOf, withSpan } from '../telemetry/api.js'
 import { step } from './progress-phrases.js'
 import { badRequest, conflict, forbidden, notFound, tooLarge } from './errors.js'
+import { cancelAgentJobs } from '../execute/enqueue.js'
 
 export const INPUT_STATUSES = ['queued', 'extracting', 'analyzing', 'proposed', 'published', 'failed', 'cancelled']
 
@@ -270,6 +271,11 @@ export function reprocessInput ({ db, queue, events, now = Date.now }, inputId, 
         replies = get(db, `SELECT COUNT(*) AS n FROM replies WHERE message_id IN (${marks}) AND deleted_at IS NULL`, ...ids).n
         answeredOrClosed = get(db, `SELECT COUNT(*) AS n FROM messages WHERE id IN (${marks}) AND status <> 'open'`, ...ids).n
         run(db, `UPDATE messages SET deleted_at = ? WHERE id IN (${marks})`, now(), ...ids)
+        // What the agents were doing on those messages stops with them: a session on a message in the trash would run, and spend, for nobody.
+        for (const messageId of ids) {
+          const assigned = all(db, 'SELECT member_id FROM message_assignees WHERE message_id = ?', messageId).map((a) => a.member_id)
+          cancelAgentJobs(db, { messageId, memberIds: assigned, now })
+        }
       }
       setAside = { messages: ids.length, replies, answered_or_closed: answeredOrClosed, message_ids: ids }
     }

@@ -26,7 +26,7 @@ const EXTRACT_TRANSIENT = new Set(['link_timeout', 'link_fetch_failed'])
 
 // Analyzer and provider errors that would repeat identically: configuration, refusal, cutoff, invalid
 // output, malformed input or template, missing executable. Network and timeout ones are retried.
-const ANALYSIS_FINAL_CODES = new Set(['input', 'template', 'harness_unavailable', 'config', 'refusal', 'max_tokens', 'invalid_output', 'unsupported'])
+const ANALYSIS_FINAL_CODES = new Set(['input', 'nothing_readable', 'template', 'harness_unavailable', 'config', 'refusal', 'max_tokens', 'invalid_output', 'unsupported'])
 
 /** Internal signal: the hourly audio budget is not enough; the worker postpones the job without spending the attempt. */
 export class Deferred extends Error {
@@ -154,7 +154,8 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
 
         // Without an active area that has an active template the analysis can never place a message: fail before spending the
         // extraction (a video takes minutes), with a code of its own instead of the analyzer's generic `input`.
-        const areas = all(db, 'SELECT id, title, description, position FROM areas WHERE deleted_at IS NULL ORDER BY position, id')
+        // Only areas that have a template to place a message in: an area without one offered to the model could be chosen, and its group could not be published.
+        const areas = all(db, 'SELECT a.id, a.title, a.description, a.position FROM areas a WHERE a.deleted_at IS NULL AND EXISTS (SELECT 1 FROM templates t WHERE t.area_id = a.id AND t.deleted_at IS NULL) ORDER BY a.position, a.id')
         const templates = all(db, 'SELECT t.id, t.area_id, t.name, t.description, t.body_markdown FROM templates t JOIN areas a ON a.id = t.area_id WHERE t.deleted_at IS NULL AND a.deleted_at IS NULL ORDER BY t.id')
         if (areas.length === 0 || templates.length === 0) {
           throw permanent('No hay áreas con plantilla activa: crea un área con su plantilla y vuelve a procesar el envío.', 'no_areas')
@@ -245,6 +246,37 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
             data: { status: 'done', input_status: outcome.published ? 'published' : 'proposed', message_ids: outcome.messageIds.map(String) }
           })
         }
+      },
+
+      /**
+       * The safety net under `onFailure`: an input that waits in `queued`, `extracting` or `analyzing` with no analysis job queued or running will never
+       * move (the process died between the queue closing the job and its handler writing the input, a job lost with a purge). If the last job failed, the
+       * input fails with that job's reason; otherwise its analysis is queued again, which costs nothing the author gave. A job that ended in the last
+       * heartbeat is left to its handler. Returns how many inputs it settled.
+       */
+      sweep () {
+        const settledBefore = now() - config.worker.heartbeatMs
+        const live = "SELECT 1 AS ok FROM jobs j WHERE j.input_id = ? AND j.kind = 'analyze' AND j.status IN ('queued', 'running')"
+        let settled = 0
+        for (const { id } of all(db, `SELECT i.id FROM inputs i WHERE i.status IN ('queued', 'extracting', 'analyzing') AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.input_id = i.id AND j.kind = 'analyze' AND j.status IN ('queued', 'running'))`)) {
+          settled += events.transaction(() => {
+            const input = get(db, 'SELECT status, updated_at FROM inputs WHERE id = ?', id)
+            if (!input || !['queued', 'extracting', 'analyzing'].includes(input.status) || get(db, live, id)) return 0
+            const last = get(db, "SELECT id, status, last_error, finished_at FROM jobs WHERE input_id = ? AND kind = 'analyze' ORDER BY id DESC LIMIT 1", id)
+            if ((last?.finished_at ?? input.updated_at) > settledBefore) return 0
+            if (last?.status === 'failed') {
+              const reason = last.last_error ?? 'El análisis falló.'
+              transitionInput(db, id, 'failed', { error: reason, errorCode: 'job_failed_unseen', now })
+              events.publishForJob(last.id, { kind: 'done', data: { status: 'failed', error: reason, error_code: 'job_failed_unseen', attachment_id: null } })
+            } else {
+              transitionInput(db, id, 'queued', { now })
+              const jobId = queue.enqueue('analyze', { input_id: id }, { inputId: id })
+              events.publishForJob(jobId, { kind: 'progress', percent: 0, phrase: step('queued') })
+            }
+            return 1
+          })
+        }
+        return settled
       },
 
       onDeferred (job, deferral) {

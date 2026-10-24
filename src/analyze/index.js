@@ -49,8 +49,9 @@ export const ANALYZERS = Object.freeze(['api', 'harness']);
  * @param {{providers?: object, onProgress?: (p: {percent: number, phrase: string}) => void, config?: object, analyzer?: 'api'|'harness', env?: Record<string, string|undefined>}} [opts]
  *   `analyzer` wins over `env.ANALYZER`; with neither, `api`.
  *   `redescribe(attachment)` (optional) returns a more detailed text for an image attachment; the second pass uses it (UD-021).
+ *   `signal` (optional) is the AbortSignal of the job: once it fires no further call leaves and the waits between retries end.
  */
-export async function analyze(bundle, { providers, onProgress, config, analyzer, redescribe, env = process.env } = {}) {
+export async function analyze(bundle, { providers, onProgress, config, analyzer, redescribe, signal, env = process.env } = {}) {
   const kind = analyzer ?? (env.ANALYZER || 'api');
   if (!ANALYZERS.includes(kind)) throw new AnalyzeInputError(`ANALYZER debe ser «api» o «harness», no «${kind}»`);
   const resolved = resolveConfig(config);
@@ -61,8 +62,8 @@ export async function analyze(bundle, { providers, onProgress, config, analyzer,
     { 'team.step': 'analyze', 'team.analyzer': kind, 'team.job_id': bundle?.job_id, 'team.input_id': bundle?.input_id },
     async (span) => {
       const result = kind === 'harness'
-        ? await analyzeWithHarness(bundle, { onProgress, config: resolved })
-        : await analyzeWithApi(bundle, { providers, onProgress, config: resolved, redescribe });
+        ? await analyzeWithHarness(bundle, { onProgress, config: resolved, signal })
+        : await analyzeWithApi(bundle, { providers, onProgress, config: resolved, redescribe, signal });
       span.setAttributes({
         'team.status': result.status,
         'team.units': result.units?.length,

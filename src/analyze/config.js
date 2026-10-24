@@ -78,6 +78,9 @@ export const KNOBS = Object.freeze({
   // Anthropic documents 429 with retry-after and a limit on concurrent requests shared by every process of the account.
   httpRetries: { value: 4, source: 'Measurement 2026-10-21 (docs/investigaciones/mediciones/2026-10-21-prompts-en-ingles-y-marcas-de-ia.md): 429 for concurrent requests with several processes on one key' },
   httpRetryBaseMs: { value: 1000, source: 'declared courtesy: the base of the doubling wait when the provider sends no retry-after' },
+  // The longest wait between two retries, whatever the provider asks: the queue caps its own hint to a provider's Retry-After at the same 60 s
+  // (QUEUE_RETRY_MAX_MS), and a wait longer than that holds the job's slot until the job's limit instead of letting the queue retry it.
+  httpRetryMaxWaitMs: { value: 60_000, source: 'declared courtesy: the same 60 s the queue caps a provider\'s Retry-After at (QUEUE_RETRY_MAX_MS, I03 §12)' },
 
   // Units per window in the classification of a long input: the units are classified in contiguous windows, in parallel, so
   // that a group is a stretch of the conversation and not every unit of the same area spread over the whole input.
@@ -129,7 +132,7 @@ export function resolveConfig(overrides = {}) {
   for (const key of ['classifyEffort', 'decomposeEffort', 'splitPassEffort']) {
     if (!EFFORTS.has(config[key])) throw new TypeError(`${key} must be one of ${[...EFFORTS].join(', ')}`);
   }
-  for (const key of ['maxTokens', 'maxTokensRetry', 'partitionThresholdTokens', 'charsPerToken', 'partitionConcurrency', 'minCacheableSystemTokens', 'harnessTimeoutMs', 'secondPassSectionUnits', 'classifyWindowUnits', 'httpRetryBaseMs']) {
+  for (const key of ['maxTokens', 'maxTokensRetry', 'partitionThresholdTokens', 'charsPerToken', 'partitionConcurrency', 'minCacheableSystemTokens', 'harnessTimeoutMs', 'secondPassSectionUnits', 'classifyWindowUnits', 'httpRetryBaseMs', 'httpRetryMaxWaitMs']) {
     if (!Number.isFinite(config[key]) || config[key] <= 0) throw new TypeError(`${key} must be a positive number`);
   }
   for (const key of ['invalidOutputRetries', 'rescuePasses', 'httpRetries', 'coveragePasses', 'classifyContextUnits']) {

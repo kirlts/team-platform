@@ -30,7 +30,7 @@ import {
 } from '../providers/errors.js';
 import { withSpan } from '../telemetry/api.js';
 import { consensus } from './consensus.js';
-import { AnalyzeInputError } from './errors.js';
+import { AnalyzeEmptyError, AnalyzeInputError } from './errors.js';
 import {
   chunkNote, classifySystem, classifyUser, decomposeSystem, decomposeUser, membersBlock, rescueUser, resolveLanguage, retryUser, splitSystem, splitUser,
 } from './prompts.js';
@@ -54,10 +54,11 @@ function typedKind(err) {
 }
 
 /** Execution context shared by the steps of an analysis. */
-function createContext({ providers, config, onProgress, unitCount, language }) {
+function createContext({ providers, config, onProgress, unitCount, language, signal }) {
   const ctx = {
     providers,
     config,
+    signal: signal ?? null,
     calls: [],
     stats: { chunks: 1, groups: 0, classification_chunks: 1, rescues: 0, invalid_retries: 0, max_tokens_retries: 0, partitioned: false, units: unitCount },
     language,
@@ -83,9 +84,25 @@ function usableFallback(providers) {
   return fallback && typeof fallback.complete === 'function' && !fallback.unavailable ? fallback : null;
 }
 
-/** What the fallback covers: a refusal, or a retryable HTTP failure that the provider's own retries did not fix. */
+/** What the fallback covers: a refusal, a retryable HTTP failure that the provider's own retries did not fix, or an account with no quota left. */
 function fallbackApplies(err) {
-  return err instanceof ProviderRefusalError || (err instanceof ProviderHttpError && err.retryable === true);
+  return err instanceof ProviderRefusalError || (err instanceof ProviderHttpError && (err.retryable === true || err.quota === true));
+}
+
+/** The error a call raises when the job that owns the analysis was cancelled, lost or timed out: nothing more is sent after it. */
+function abortedError(signal) {
+  if (signal.reason instanceof Error) return signal.reason;
+  return Object.assign(new Error(`analysis: aborted (${String(signal.reason ?? 'abort')})`), { name: 'AbortError', code: 'aborted' });
+}
+
+/** Waits `ms`, or rejects as soon as `signal` fires: a call that waits for the provider must not outlive the job that asked for it. */
+function pause(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) { reject(abortedError(signal)); return; }
+    const onAbort = () => { clearTimeout(timer); reject(abortedError(signal)); };
+    const timer = setTimeout(() => { signal?.removeEventListener('abort', onAbort); resolve(); }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
 }
 
 /** One call to the text provider, recorded for llm_calls. After a refusal or a retryable HTTP failure it is repeated once on the fallback. */
@@ -112,6 +129,8 @@ async function callText(ctx, step, { system, messages, schema, effort, maxTokens
     return entry;
   };
   const attempt = async (provider, entry) => {
+    // A cancelled, lost or timed-out job sends nothing more: the call that was about to leave is not made (and not paid).
+    if (ctx.signal?.aborted) throw abortedError(ctx.signal);
     try {
       const out = await provider.complete(request);
       Object.assign(entry, { provider: out.provider ?? entry.provider, model: out.model ?? entry.model, usage: out.usage ?? null, duration_ms: out.duration_ms ?? null });
@@ -129,10 +148,11 @@ async function callText(ctx, step, { system, messages, schema, effort, maxTokens
   };
 
   let result = await attempt(ctx.providers.text, newEntry(ctx.providers.text, false));
-  // A retryable HTTP failure (429, 5xx, network) is repeated on the same provider after the wait it asks for.
+  // A retryable HTTP failure (429, 5xx, network) is repeated on the same provider after the wait it asks for, never longer than `httpRetryMaxWaitMs`
+  // (a Retry-After of an hour would hold the job's slot until the job's own limit) and never past the job: the wait ends when the job does.
   for (let retry = 0; !result.ok && result.err instanceof ProviderHttpError && result.err.retryable && retry < ctx.config.httpRetries; retry += 1) {
-    const wait = result.err.retryAfterMs ?? ctx.config.httpRetryBaseMs * 2 ** retry; // declared courtesy: doubling wait when the provider sends no retry-after
-    await new Promise((resolve) => { setTimeout(resolve, wait); });
+    const asked = result.err.retryAfterMs ?? ctx.config.httpRetryBaseMs * 2 ** retry; // declared courtesy: doubling wait when the provider sends no retry-after
+    await pause(Math.max(0, Math.min(asked, ctx.config.httpRetryMaxWaitMs)), ctx.signal);
     ctx.stats.http_retries = (ctx.stats.http_retries ?? 0) + 1;
     result = await attempt(ctx.providers.text, newEntry(ctx.providers.text, false));
   }
@@ -301,7 +321,11 @@ async function decomposeUnits(ctx, { bundle, template, system, schema, units, sc
   return { status: 'ok', messages, discarded, rescued: true };
 }
 
-/** Runs `tasks` with at most `limit` at a time; stops starting new ones if one returns a state other than `ok`. */
+/**
+ * Runs `tasks` with at most `limit` at a time; stops starting new ones if one returns a state other than `ok` or throws.
+ * A task that throws (a provider that failed for good, a cancelled job) rejects the pool only after the calls already in flight
+ * have ended: the failed analysis leaves nothing running behind it, so the retry of the job never overlaps its own leftovers.
+ */
 async function runPool(tasks, limit, { stopOnFailure = true } = {}) {
   const results = new Array(tasks.length);
   let next = 0;
@@ -310,11 +334,18 @@ async function runPool(tasks, limit, { stopOnFailure = true } = {}) {
     while (!failed && next < tasks.length) {
       const i = next;
       next += 1;
-      results[i] = await tasks[i]();
+      try {
+        results[i] = await tasks[i]();
+      } catch (error) {
+        failed = true;
+        throw error;
+      }
       if (stopOnFailure && results[i].status !== 'ok') failed = true;
     }
   }
-  await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, worker));
+  const settled = await Promise.allSettled(Array.from({ length: Math.min(limit, tasks.length) }, worker));
+  const rejected = settled.find((r) => r.status === 'rejected');
+  if (rejected) throw rejected.reason;
   return results;
 }
 
@@ -409,13 +440,13 @@ async function splitGroups(ctx, { groups, units, language, framing, frameIds }) 
  * @param {{providers: object, onProgress?: Function, config: object, redescribe?: Function}} opts  `config` already resolved.
  * @returns {Promise<{ctx: object, language: string, units: object[], workBundle: object, attachments: object[], classifyChunks: object[][], groups: object[], discarded: object[]} | {ctx: object, units: object[], failed: object}>}
  */
-export async function classifyInput(bundle, { providers, onProgress, config, redescribe }) {
+export async function classifyInput(bundle, { providers, onProgress, config, redescribe, signal }) {
   checkBundle(bundle);
   let workBundle = bundle; // the second pass may replace the text of the images
   let units = numberUnits(workBundle);
-  if (units.length === 0) throw new AnalyzeInputError('El input no tiene texto ni adjuntos con texto extraído');
+  if (units.length === 0) throw new AnalyzeEmptyError('El envío no tiene texto ni adjuntos con texto legible');
   const language = resolveLanguage(bundle.language);
-  const ctx = createContext({ providers, config, onProgress, unitCount: units.length, language });
+  const ctx = createContext({ providers, config, onProgress, unitCount: units.length, language, signal });
   let attachments = workBundle.attachments ?? [];
   const { areas, templates, project, framing } = bundle;
   // H-3730: the units that only describe what is on screen. When the author also speaks or writes, a group of frames alone is
@@ -570,8 +601,8 @@ export async function classifyInput(bundle, { providers, onProgress, config, red
  * @param {{providers: object, onProgress?: Function, config: object, redescribe?: Function}} opts  `config` already resolved.
  *   `redescribe(attachment)` returns a more detailed text for an image; the second pass uses it (UD-021).
  */
-export async function analyzeWithApi(bundle, { providers, onProgress, config, redescribe }) {
-  const stage = await classifyInput(bundle, { providers, onProgress, config, redescribe });
+export async function analyzeWithApi(bundle, { providers, onProgress, config, redescribe, signal }) {
+  const stage = await classifyInput(bundle, { providers, onProgress, config, redescribe, signal });
   const { ctx, units } = stage;
   const fail = (r) => ({ status: r.status, step: r.step, category: r.category, explanation: r.explanation, reason: r.reason, errors: r.errors ?? [], max_tokens: r.max_tokens, draft: r.draft, units, calls: ctx.calls, stats: ctx.stats });
   if (stage.failed) return fail(stage.failed);

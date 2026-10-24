@@ -1,10 +1,26 @@
 // Utilities shared by the implementations: JSON POST with a deadline, neutral content parts.
 import { readFile } from 'node:fs/promises';
 import { ProviderHttpError, ProviderTimeoutError, ProviderConfigError } from './errors.js';
+import { currentJobScope } from './limiter.js';
 
 // Deadline of a call: the maximum duration of a job is 900 s (MASTER-SPEC §7.3);
 // a call cannot last longer than the job that contains it.
 export const DEFAULT_TIMEOUT_MS = 900_000;
+
+/**
+ * The signal of one request: its deadline and, when the call runs for a job, the job's own signal. A job that is cancelled, lost, timed out
+ * or shut down with its worker takes its calls in flight with it, instead of waiting for each one to end (the shutdown waits for the jobs it aborts).
+ */
+function requestSignal(timeoutMs) {
+  const job = currentJobScope()?.signal ?? null;
+  const deadline = AbortSignal.timeout(timeoutMs);
+  return { job, signal: job ? AbortSignal.any([deadline, job]) : deadline };
+}
+
+/** What a request aborted by its job ends with: not a provider failure, so nothing retries it and the worker reads the reason from the job. */
+function abortedByJob(job, provider) {
+  return Object.assign(new Error(`${provider}: llamada cancelada (${String(job.reason ?? 'abort')})`), { name: 'AbortError', code: 'aborted' });
+}
 
 // 408, 409, 429 and 5xx (including Anthropic's 529 «overloaded») are marked retryable;
 // who retries is the queue (max_attempts 3, §7.3), not the provider.
@@ -52,13 +68,19 @@ function errorMessageFrom(body, status) {
   return `HTTP ${status}`;
 }
 
+// A 429 is either a rate limit (it clears in seconds) or an account with nothing left (it does not clear): the machine-readable `type` and `code` tell,
+// the same words `probe.js` reads when the panel checks a connection.
+const QUOTA_WORDS = /quota|billing|credit|insufficient/i;
+
 function httpError(response, json, text, { provider, model, duration_ms, secrets }) {
+  const quota = response.status === 402 || (response.status === 429 && QUOTA_WORDS.test(`${json?.error?.type ?? ''} ${json?.error?.code ?? ''}`));
   return new ProviderHttpError(redactSecrets(`${provider}: ${errorMessageFrom(json, response.status)}`, secrets), {
     provider,
     model,
     duration_ms,
     status: response.status,
-    retryable: isRetryableStatus(response.status),
+    quota,
+    retryable: !quota && isRetryableStatus(response.status),
     retryAfterMs: parseRetryAfter(response.headers),
     body: redactSecrets(json ?? text.slice(0, 2000), secrets),
   });
@@ -71,24 +93,36 @@ function httpError(response, json, text, { provider, model, duration_ms, secrets
 export async function postRequest(url, { headers, body, timeoutMs = DEFAULT_TIMEOUT_MS, fetchImpl = fetch, provider, model }) {
   const started = performance.now();
   const secrets = secretsOfHeaders(headers);
+  // Every way the exchange can end badly (a refused or broken connection, a deadline, a body cut half way) is a typed provider error:
+  // the retries of the analyzer and the person's message decide by `code` and `retryable`, never by what the network library threw.
+  const { job, signal } = requestSignal(timeoutMs);
+  const fail = (cause) => {
+    if (job?.aborted) return abortedByJob(job, provider);
+    const duration_ms = Math.round(performance.now() - started);
+    if (cause?.name === 'TimeoutError' || cause?.name === 'AbortError') {
+      return new ProviderTimeoutError(`${provider}: la llamada superó ${timeoutMs} ms`, { provider, model, duration_ms, timeoutMs, cause });
+    }
+    return new ProviderHttpError(redactSecrets(`${provider}: fallo de red (${cause?.message ?? cause})`, secrets), {
+      provider, model, duration_ms, status: 0, retryable: true, cause,
+    });
+  };
   let response;
   try {
     response = await fetchImpl(url, {
       method: 'POST',
       headers,
       body,
-      signal: AbortSignal.timeout(timeoutMs),
+      signal,
     });
   } catch (cause) {
-    const duration_ms = Math.round(performance.now() - started);
-    if (cause?.name === 'TimeoutError' || cause?.name === 'AbortError') {
-      throw new ProviderTimeoutError(`${provider}: la llamada superó ${timeoutMs} ms`, { provider, model, duration_ms, timeoutMs, cause });
-    }
-    throw new ProviderHttpError(redactSecrets(`${provider}: fallo de red (${cause?.message ?? cause})`, secrets), {
-      provider, model, duration_ms, status: 0, retryable: true, cause,
-    });
+    throw fail(cause);
   }
-  const text = await response.text();
+  // The deadline also covers the body: a response whose connection breaks or stalls after the headers ends here, as a typed error.
+  // An error status keeps its own meaning (429 and its Retry-After, 529) even when its body does not arrive: only the body is lost.
+  const text = await response.text().catch((cause) => {
+    if (!response.ok) return '';
+    throw fail(cause);
+  });
   const duration_ms = Math.round(performance.now() - started);
   let json = null;
   try {
@@ -97,6 +131,13 @@ export async function postRequest(url, { headers, body, timeoutMs = DEFAULT_TIME
     json = null;
   }
   if (!response.ok) throw httpError(response, json, text, { provider, model, duration_ms, secrets });
+  // A success that carries nothing readable (an empty body, a gateway's HTML page) is a failure of the transport, not an answer of the model:
+  // it is retried like a cut connection instead of reaching the model as an «invalid output» that spends a call to correct it.
+  if (json === null) {
+    throw new ProviderHttpError(`${provider}: la respuesta llegó ${text.trim() === '' ? 'vacía' : 'ilegible'}`, {
+      provider, model, duration_ms, status: response.status, retryable: true, body: redactSecrets(text.slice(0, 2000), secrets),
+    });
+  }
   return { status: response.status, json, headers: response.headers, duration_ms, raw: text };
 }
 
@@ -166,7 +207,9 @@ export async function postStream(url, { headers, body, timeoutMs = DEFAULT_TIMEO
   const started = performance.now();
   const secrets = secretsOfHeaders(headers);
   const elapsed = () => Math.round(performance.now() - started);
+  const { job, signal } = requestSignal(timeoutMs);
   const fail = (cause) => {
+    if (job?.aborted) return abortedByJob(job, provider);
     if (cause instanceof ProviderHttpError || cause instanceof ProviderTimeoutError) return cause;
     if (cause?.name === 'TimeoutError' || cause?.name === 'AbortError') {
       return new ProviderTimeoutError(`${provider}: la llamada superó ${timeoutMs} ms`, { provider, model, duration_ms: elapsed(), timeoutMs, cause });
@@ -177,12 +220,12 @@ export async function postStream(url, { headers, body, timeoutMs = DEFAULT_TIMEO
   };
   let response;
   try {
-    response = await fetchImpl(url, { method: 'POST', headers, body, signal: AbortSignal.timeout(timeoutMs) });
+    response = await fetchImpl(url, { method: 'POST', headers, body, signal });
   } catch (cause) {
     throw fail(cause);
   }
   if (!response.ok) {
-    const text = await response.text();
+    const text = await response.text().catch(() => ''); // the status says what failed; a body that does not arrive loses only its message
     let json = null;
     try { json = text ? JSON.parse(text) : null; } catch { json = null; }
     throw httpError(response, json, text, { provider, model, duration_ms: elapsed(), secrets });

@@ -14,7 +14,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { recordGenAiCall, withSpan } from '../telemetry/api.js';
-import { AnalyzeInputError, HarnessError, HarnessUnavailableError } from './errors.js';
+import { AnalyzeEmptyError, AnalyzeInputError, HarnessError, HarnessUnavailableError } from './errors.js';
 import { harnessPrompt, resolveLanguage } from './prompts.js';
 import { buildProposalSchema } from './schema.js';
 import { parseTemplate } from './templates.js';
@@ -48,9 +48,16 @@ async function writeWorkdir(dir, bundle, units, language) {
   }
 }
 
+/** The error of a harness run cut short because its job ended: the worker reads the reason from the job, not from this error. */
+function abortedError(signal) {
+  if (signal.reason instanceof Error) return signal.reason;
+  return Object.assign(new Error(`claude -p: cancelado (${String(signal.reason ?? 'abort')})`), { name: 'AbortError', code: 'aborted' });
+}
+
 /** Runs `claude -p` and returns the result object. */
-function runClaude({ bin, args, prompt, cwd, env, timeoutMs }) {
+function runClaude({ bin, args, prompt, cwd, env, timeoutMs, signal }) {
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) { reject(abortedError(signal)); return; }
     let child;
     try {
       child = spawn(bin, args, { cwd, env: { ...process.env, ...env }, stdio: ['pipe', 'pipe', 'pipe'] });
@@ -61,15 +68,23 @@ function runClaude({ bin, args, prompt, cwd, env, timeoutMs }) {
     const out = [];
     const err = [];
     let timedOut = false;
+    let aborted = false;
     // The signal goes only to the process this module launched, never to the parent.
     const timer = setTimeout(() => {
       timedOut = true;
       child.kill('SIGKILL');
     }, timeoutMs);
+    // The job that asked for this analysis was cancelled, lost or timed out: its `claude -p` does not go on spending the subscription.
+    const onAbort = () => {
+      aborted = true;
+      child.kill('SIGKILL');
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
     child.stdout.on('data', (c) => out.push(c));
     child.stderr.on('data', (c) => err.push(c));
     child.on('error', (cause) => {
       clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
       if (cause.code === 'ENOENT' || cause.code === 'EACCES') {
         reject(new HarnessUnavailableError(`El analizador «harness» necesita Claude Code instalado: no se encontró «${bin}» (ANALYZER=harness)`, { bin, cause }));
       } else {
@@ -78,6 +93,11 @@ function runClaude({ bin, args, prompt, cwd, env, timeoutMs }) {
     });
     child.on('close', (code) => {
       clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
+      if (aborted) {
+        reject(abortedError(signal));
+        return;
+      }
       const stdout = Buffer.concat(out).toString('utf8');
       const stderr = Buffer.concat(err).toString('utf8');
       if (timedOut) {
@@ -151,12 +171,12 @@ function validateHarnessProposal(proposal, bundle, units) {
 
 /**
  * @param {object} bundle
- * @param {{onProgress?: Function, config: object}} opts  `config` already resolved
+ * @param {{onProgress?: Function, config: object, signal?: AbortSignal}} opts  `config` already resolved
  */
-export async function analyzeWithHarness(bundle, { onProgress, config }) {
+export async function analyzeWithHarness(bundle, { onProgress, config, signal }) {
   if (!bundle?.areas?.length || !bundle?.templates?.length) throw new AnalyzeInputError('El bundle no trae áreas o plantillas');
   const units = numberUnits(bundle);
-  if (units.length === 0) throw new AnalyzeInputError('El input no tiene texto ni adjuntos con texto extraído');
+  if (units.length === 0) throw new AnalyzeEmptyError('El envío no tiene texto ni adjuntos con texto legible');
   const language = resolveLanguage(bundle.language);
   const calls = [];
   const stats = { chunks: 1, groups: 0, classification_chunks: 1, rescues: 0, invalid_retries: 0, max_tokens_retries: 0, partitioned: false, units: units.length };
@@ -196,6 +216,7 @@ export async function analyzeWithHarness(bundle, { onProgress, config }) {
             cwd: dir,
             env: config.harnessEnv,
             timeoutMs: config.harnessTimeoutMs,
+            signal,
           });
           const call = toCallEntry(r, 'harness');
           recordGenAiCall(span, {

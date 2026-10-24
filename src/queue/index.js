@@ -54,12 +54,17 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
    * The jobs it fails are announced as `leaseFailed` (after the transaction): the claim recovers leases too, and a handler that never hears of a job
    * that the queue failed leaves its message without an answer (2026-10-23, job 99).
    */
-  function recoverExpiredLeases ({ spare = null } = {}) {
+  function recoverExpiredLeases ({ spare = null, running = null } = {}) {
     const t = now()
     const result = tx(db, () => {
       // `spare`: the worker that asks. A job it still runs is alive in its own process, and an expired lease on it means the clock jumped (a laptop that
       // slept, an NTP step) and its heartbeat has not run yet: recovering it would requeue a healthy session and kill it through the fence.
-      const expired = all(db, "SELECT id, attempts, max_attempts FROM jobs WHERE status = 'running' AND lease_until < ? AND (worker_id IS NULL OR worker_id <> ?)", t, spare ?? '')
+      // `running`: the ids of the jobs that worker really holds in memory. With it the worker spares exactly those, not everything under its name: a job
+      // of its own whose end could not be written (the database refused) has no heartbeat and nobody running it, and only its lease can free it.
+      const own = Array.isArray(running)
+      const expired = own
+        ? all(db, "SELECT id, attempts, max_attempts FROM jobs WHERE status = 'running' AND lease_until < ?", t).filter((j) => !running.includes(j.id))
+        : all(db, "SELECT id, attempts, max_attempts FROM jobs WHERE status = 'running' AND lease_until < ? AND (worker_id IS NULL OR worker_id <> ?)", t, spare ?? '')
       const finished = []
       for (const j of expired) {
         const limit = Math.max(j.max_attempts, INFRA_ATTEMPTS)

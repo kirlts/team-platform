@@ -35,6 +35,8 @@ export class ProviderHttpError extends ProviderError {
     this.retryable = meta.retryable ?? false;
     this.retryAfterMs = meta.retryAfterMs ?? null;
     this.body = meta.body ?? null;
+    // The account has no balance or quota left (402, or a 429 that says so): waiting does not bring it back, but another provider can still answer.
+    this.quota = meta.quota ?? false;
   }
 }
 

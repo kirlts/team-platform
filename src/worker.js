@@ -107,7 +107,13 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
         span.setAttribute('team.outcome', 'done')
         jobLog.info('job finished')
       } catch (error) {
-        await handleError(job, handlerObj, controller, error, jobLog, span, capMs)
+        // A database that refuses to write how the job ended (busy past its timeout, a full disk) must not leave a rejection nobody awaits, which
+        // takes the whole process down: the job keeps its `running` row, its heartbeat stops with this attempt, and its lease expires and recovers it.
+        try {
+          await handleError(job, handlerObj, controller, error, jobLog, span, capMs)
+        } catch (writeError) {
+          jobLog.error({ err: writeError }, 'could not record how the job ended; its lease will expire and the queue will recover it')
+        }
       } finally {
         clearInterval(heartbeatTimer)
         clearTimeout(cap)
@@ -167,10 +173,18 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     }
   }
 
+  // The safety net of each handler that keeps one (`sweep`): what a restart or a crash between two writes left without a job to move it.
+  function sweepHandlers () {
+    for (const [kind, handlerObj] of Object.entries(handlers)) {
+      try { if (handlerObj.sweep?.() > 0) logger.warn({ kind }, 'a record had been left with no job alive: settled') } catch (e) { logger.error({ err: e, kind }, 'error while settling the records of a kind') }
+    }
+  }
+
   function sweepLeases () {
     try {
-      queue.recoverExpiredLeases({ spare: workerId })
+      queue.recoverExpiredLeases({ spare: workerId, running: [...runningJobs.keys()] })
       sweepUnseen()
+      sweepHandlers()
       kick()
     } catch (error) { logger.error({ err: error }, 'error while recovering leases') }
   }
@@ -194,6 +208,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     queue.signals.on('leaseFailed', onLeaseFailed)
     queue.recoverExpiredLeases({ spare: workerId }) // at startup (MS §7.3)
     sweepUnseen()
+    sweepHandlers()
     timers.push(setInterval(sweepLeases, w.heartbeatMs)) // per cycle, at the heartbeat's cadence
     timers.push(setInterval(sweepRetentionJob, w.retentionSweepMs))
     if (pollDataVersionMs) {

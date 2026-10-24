@@ -19,6 +19,14 @@ export class AnalyzeInputError extends AnalyzeError {
   }
 }
 
+/** Nothing readable came out of the send (a silent recording, a blank page, an image with no text): the retry reads the same nothing. */
+export class AnalyzeEmptyError extends AnalyzeInputError {
+  constructor(message, meta) {
+    super(message, meta);
+    this.code = 'nothing_readable';
+  }
+}
+
 /** Malformed template: unreadable frontmatter, invalid fields, limits exceeded. */
 export class TemplateError extends AnalyzeError {
   constructor(message, meta = {}) {

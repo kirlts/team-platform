@@ -11,6 +11,10 @@ export function watchEvents(o: { client: TeamClient; store: EventsStore; queryCl
   const offMessage = o.store.onNewMessage(() => {
     void invalidate(o.queryClient, 'newMessage')
   })
+  // A job of a message that ends (an agent's work, the reading of a reply's audio) leaves its thread stale (UD-277).
+  const offDone = o.store.onDone((e) => {
+    if (e.message_id) void invalidate(o.queryClient, 'reply')
+  })
   const close = o.client.events.connect(o.store, {
     onReconnect: () => {
       void invalidate(o.queryClient, 'reconnect', { refetchType: 'active' })
@@ -18,6 +22,7 @@ export function watchEvents(o: { client: TeamClient; store: EventsStore; queryCl
   })
   return () => {
     offMessage()
+    offDone()
     close()
   }
 }

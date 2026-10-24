@@ -16,6 +16,8 @@ export interface TeamClient extends TeamResources {
   replyAttachmentUrl(id: string): string
   /** The text extracted from an audio or a video (`GET /attachments/:id/transcript`). */
   transcriptUrl(id: string): string
+  /** The transcript of the audio or video of a reply (UD-277). */
+  replyTranscriptUrl(id: string): string
   /** A request with the credentials and headers of the client to an address the API gave (a transcript), as a raw response. */
   raw: Transport['raw']
   /** The OpenAPI document the server publishes (`GET /openapi.json`, no session). */
@@ -50,6 +52,7 @@ export function createTeamClient(options: TeamClientOptions = {}): TeamClient {
     attachmentUrl: (id) => prefixedUrl(routes.attachmentFile, id),
     replyAttachmentUrl: (id) => prefixedUrl(routes.replyAttachmentFile, id),
     transcriptUrl: (id) => prefixedUrl(routes.attachmentTranscript, id),
+    replyTranscriptUrl: (id) => prefixedUrl(routes.replyAttachmentTranscript, id),
     raw: transport.raw,
     openapi: () => transport.request<Record<string, unknown>>('/openapi.json'),
     events: {

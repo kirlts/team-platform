@@ -55,9 +55,7 @@ export function MentionTextarea({ value, onChange, candidates, picked, onPick, o
           ref={field}
           value={value}
           className={className}
-          role="combobox"
           aria-autocomplete="list"
-          aria-expanded={open}
           aria-controls={open ? listId : undefined}
           aria-activedescendant={open && shown.length > 0 ? `${listId}-${index}` : undefined}
           onChange={(e) => {

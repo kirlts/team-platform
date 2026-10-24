@@ -212,13 +212,24 @@ export function createResources(t: Transport) {
        * Edits the text of a reply, only by its author (UD-253, H-3714). It sends the version read in the thread; on `edit_conflict`
        * it reads the thread again and retries once with the current version. Returns the message with its thread.
        */
-      edit: (messageId: string, replyId: string, body: string, versioning: Versioning<MessageDetail> = {}) =>
+      edit: (messageId: string, replyId: string, body: string | undefined, versioning: Versioning<MessageDetail> = {}, more: { mention_ids?: string[]; remove_attachment_ids?: string[] } = {}) =>
         sendVersioned<MessageDetail, MessageDetail>({
           ...versioning,
           fetchCurrent: () => messageDetail(messageId),
           versionOf: (d) => d?.replies.find((r) => r.id === replyId)?.version,
-          send: (version) => call<MessageDetail>(routes.replyEdit, { params: { id: messageId, replyId }, body: { body, version } }),
+          // UD-277: the same edit also takes attachments off and adds mentions; `body` may be absent.
+          send: (version) => call<MessageDetail>(routes.replyEdit, { params: { id: messageId, replyId }, body: { ...(body === undefined ? {} : { body }), ...more, version } }),
         }),
+      /** New files and links on a reply of mine (UD-277); like the ones of a message they count as an edit, with the version that was read. */
+      addAttachments: (messageId: string, replyId: string, v: { files: File[]; links?: string[] }, versioning: Versioning<MessageDetail> = {}) =>
+        sendVersioned<MessageDetail, MessageDetail>({
+          ...versioning,
+          fetchCurrent: () => messageDetail(messageId),
+          versionOf: (d) => d?.replies.find((r) => r.id === replyId)?.version,
+          send: (version) => call<MessageDetail>(routes.replyAddAttachments, { params: { id: messageId, replyId }, form: attachmentsForm(version, v.files, v.links) }),
+        }),
+      /** The text read from the audio or video of a reply (UD-277). A 404 means it has none (yet). */
+      transcript: (id: string) => call<{ text?: string }>(routes.replyAttachmentTranscript, { params: { id } }),
       /** Soft-deletes (UD-240): its author or the Editor. Returns the message with its thread. */
       delete: (messageId: string, replyId: string) => call<MessageDetail>(routes.replyDelete, { params: { id: messageId, replyId }, search: CONFIRM }),
       restore: (replyId: string) => call<MessageDetail>(routes.replyRestore, { params: { id: replyId } }),

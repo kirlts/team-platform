@@ -56,7 +56,7 @@ describe('the helpers of «@»', () => {
 describe('the field with «@»', () => {
   it('opens on «@», filters while typing and closes when the word is no longer a mention', () => {
     render(<Field />)
-    const field = screen.getByRole('combobox', { name: 'Respuesta' })
+    const field = screen.getByRole('textbox', { name: 'Respuesta' })
     type(field, 'hola ')
     expect(names()).toEqual([])
     type(field, 'hola @')
@@ -72,7 +72,7 @@ describe('the field with «@»', () => {
   it('arrows move, Enter picks: the token is in the text, the member is picked and the list closes', () => {
     let state: { text: string; picked: Member[] } = { text: '', picked: [] }
     render(<Field onState={(s) => (state = s)} />)
-    const field = screen.getByRole('combobox', { name: 'Respuesta' })
+    const field = screen.getByRole('textbox', { name: 'Respuesta' })
     type(field, '@c')
     expect(screen.getAllByRole('option').map((o) => o.getAttribute('aria-selected'))).toEqual(['true', 'false'])
     fireEvent.keyDown(field, { key: 'ArrowDown' })
@@ -89,7 +89,7 @@ describe('the field with «@»', () => {
   it('Escape closes the list without picking, and the text stays', () => {
     let state: { text: string; picked: Member[] } = { text: '', picked: [] }
     render(<Field onState={(s) => (state = s)} />)
-    const field = screen.getByRole('combobox', { name: 'Respuesta' })
+    const field = screen.getByRole('textbox', { name: 'Respuesta' })
     type(field, '@a')
     expect(names().length).toBe(3)
     fireEvent.keyDown(field, { key: 'Escape' })
@@ -101,7 +101,7 @@ describe('the field with «@»', () => {
   it('a touch on a name picks it (pointer down) and the member stays picked', () => {
     let state: { text: string; picked: Member[] } = { text: '', picked: [] }
     render(<Field onState={(s) => (state = s)} />)
-    const field = screen.getByRole('combobox', { name: 'Respuesta' })
+    const field = screen.getByRole('textbox', { name: 'Respuesta' })
     type(field, 'hola @')
     fireEvent.pointerDown(screen.getByRole('option', { name: /Claude/ }).querySelector('button')!)
     expect(state.text).toBe('hola @Claude ')

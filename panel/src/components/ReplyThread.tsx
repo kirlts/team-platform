@@ -12,6 +12,7 @@ import { CloseMessage } from './CloseMessage'
 import { EditableText } from './EditableText'
 import { Markdown } from '@/lib/markdown'
 import { ReplyMedia } from './ReplyMedia'
+import { ReplyTools } from './ReplyTools'
 import { useLookups } from './lookups'
 import { canReplyTo } from '@/lib/handoff'
 import { ReplyForm } from './ReplyForm'
@@ -173,7 +174,7 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
                     ) : (
                       r.body && <Markdown source={r.body} breaks mentions={mentionNames(r)} className={cn('break-words', last ? 'text-emph' : 'text-sm')} />
                     )}
-                    <ReplyMedia items={r.attachments ?? []} />
+                    <ReplyMedia items={r.attachments ?? []} tools={canEdit(r) && message.status !== 'closed' ? <ReplyTools message={message} reply={r} /> : undefined} />
                   </article>
                 </li>
               )

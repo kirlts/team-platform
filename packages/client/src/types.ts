@@ -325,6 +325,8 @@ export interface DoneEvent {
   input_id?: string
   /** What the job left the input as: `published` when the publication was automatic (UD-070), `proposed` when it waits for review. */
   input_status?: string
+  /** The message the job worked on (`execute`, and the reading of the audio of a reply, UD-277): its thread is stale. */
+  message_id?: string
   done: true
 }
 

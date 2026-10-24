@@ -8,16 +8,17 @@ import { cn } from '@/lib/utils'
 import { DownloadLink } from './DownloadLink'
 import { AttachmentStrip } from './AttachmentStrip'
 import { MediaGalleryDialog } from './MediaGallery'
+import { ReplyTranscript } from './ReplyTranscript'
 
 /**
  * What a reply carries. The pictures are already open, the width of the reply, each with its short label over it («Antes», «Después») and no file
  * name; with two of them they sit side by side when the reply is wide enough and one under the other when it is not. A click enlarges one to
  * the whole window. The other media (video, audio, documents, links) keep their named row.
  */
-export function ReplyMedia({ items }: { items: readonly Attachment[] }) {
+export function ReplyMedia({ items, tools }: { items: readonly Attachment[]; /** The author's own controls under the media: add and remove (UD-277). */ tools?: React.ReactNode }) {
   const t = useT()
   const [open, setOpen] = useState<number | null>(null)
-  if (items.length === 0) return null
+  if (items.length === 0 && !tools) return null
   const gallery = toGalleryItems(items, 'reply')
   const pictures = gallery.map((g, index) => ({ g, index })).filter(({ g }) => g.kind === 'image' && g.src)
   const rest = items.filter((a) => a.kind !== 'image')
@@ -43,6 +44,8 @@ export function ReplyMedia({ items }: { items: readonly Attachment[] }) {
         </ul>
       )}
       {rest.length > 0 && <AttachmentStrip items={rest} scope="reply" px={48} named />}
+      {gallery.filter((g) => g.transcriptSrc).map((g) => <ReplyTranscript key={g.id} src={g.transcriptSrc as string} name={g.name} />)}
+      {tools}
       <MediaGalleryDialog items={gallery} open={open !== null} onOpenChange={(o) => !o && setOpen(null)} index={open ?? 0} />
     </div>
   )

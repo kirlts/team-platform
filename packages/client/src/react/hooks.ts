@@ -392,7 +392,21 @@ export function useEditReply(messageId: string) {
   const client = useTeamClient()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (v: { replyId: string; body: string }) => client.replies.edit(messageId, v.replyId, v.body, messageVersioning(qc, messageId)),
+    mutationFn: (v: { replyId: string; body?: string; mention_ids?: string[]; remove_attachment_ids?: string[] }) =>
+      client.replies.edit(messageId, v.replyId, v.body, messageVersioning(qc, messageId), { mention_ids: v.mention_ids, remove_attachment_ids: v.remove_attachment_ids }),
+    onSuccess: (saved) => {
+      qc.setQueryData(queryKeys.message(messageId), (old: MessageDetail | undefined) => mergeSavedThread(old, saved))
+      void invalidate(qc, 'editReply')
+    },
+  })
+}
+
+/** New files and links on a reply of mine (UD-277). */
+export function useAddReplyAttachments(messageId: string) {
+  const client = useTeamClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (v: { replyId: string; files: File[]; links?: string[] }) => client.replies.addAttachments(messageId, v.replyId, v, messageVersioning(qc, messageId)),
     onSuccess: (saved) => {
       qc.setQueryData(queryKeys.message(messageId), (old: MessageDetail | undefined) => mergeSavedThread(old, saved))
       void invalidate(qc, 'editReply')

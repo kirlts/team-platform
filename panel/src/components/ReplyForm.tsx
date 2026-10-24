@@ -26,7 +26,7 @@ export function ReplyForm({ messageId, onSent, autoFocus, children, senderMode =
   const noMention = senderMode && mentions.length === 0
 
   const submit = () => {
-    if (!body.trim() || noMention || reply.isPending || draft.recording) return
+    if ((!body.trim() && draft.empty) || noMention || reply.isPending || draft.recording) return
     reply.mutate(
       { body: body.trim(), kind: 'answer', files: draft.locals.map((l) => l.file), links: draft.links, mention_ids: mentions.map((m) => m.id) },
       {
@@ -94,13 +94,13 @@ export function ReplyForm({ messageId, onSent, autoFocus, children, senderMode =
         )}
       </div>
       <div className="flex flex-wrap items-center justify-end gap-4">
-        {noMention && body.trim() !== '' && (
+        {noMention && (body.trim() !== '' || !draft.empty) && (
           <p role="status" className="mr-auto text-xs text-muted">
             {t('reply.missingMention')}
           </p>
         )}
         {children}
-        <Button type="submit" variant="primary" disabled={!body.trim() || noMention || reply.isPending || !!draft.recording}>
+        <Button type="submit" variant="primary" disabled={(!body.trim() && draft.empty) || noMention || reply.isPending || !!draft.recording}>
           {t('reply.send')}
         </Button>
       </div>

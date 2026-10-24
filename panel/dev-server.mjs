@@ -358,6 +358,8 @@ function writeEvent(res, ev) {
   res.write(`id: ${ev.seq}\nevent: ${ev.name}\ndata: ${JSON.stringify(ev.data)}\n\n`)
 }
 
+const SPOKEN_SAMPLE = 'Hola, te dejo este audio. Primero, la lista de pacientes tarda en abrir cuando hay muchos. Segundo, el botón Agendar sigue diciendo Reservar. Tercero, quiero que lo revises hoy y me digas qué recomiendas, porque mañana se lo muestro a la clínica.'
+
 function replyView(r) {
   const { attachment_ids, ...rest } = r
   const files = (attachment_ids ?? []).map(attachmentView).filter(Boolean)
@@ -1336,15 +1338,51 @@ const server = createServer(async (req, res) => {
       if (!reply) return fail(res, 404, 'No existe')
       if (reply.author_id !== me.id) return fail(res, 403, 'Sólo quien escribió la respuesta la edita', 'not_reply_author')
       const body = await readJson(req)
-      if (!body || typeof body.body !== 'string' || !Number.isInteger(body.version) || Object.keys(body).some((k) => k !== 'body' && k !== 'version')) return fail(res, 400, 'Faltan el texto o la versión.', 'validation')
+      if (!body || !Number.isInteger(body.version) || (body.body !== undefined && typeof body.body !== 'string') || Object.keys(body).some((k) => !['body', 'version', 'mention_ids', 'remove_attachment_ids'].includes(k))) return fail(res, 400, 'Falta la versión.', 'validation')
       if (body.version !== (reply.version ?? 1)) return send(res, 409, { code: 'edit_conflict', message: 'La respuesta cambió desde que se leyó.', version: reply.version ?? 1 })
-      if (body.body !== reply.body) {
-        if (!body.body.trim() && !(reply.attachment_ids ?? []).length) return fail(res, 400, 'La respuesta no puede estar vacía.', 'reply_empty')
-        reply.body = body.body
-        reply.version = (reply.version ?? 1) + 1
-        reply.edited_at = new Date().toISOString()
+      // UD-277: the same edit also takes attachments off and adds mentions (only for who was not mentioned yet).
+      const nextBody = body.body ?? reply.body
+      const remove = (body.remove_attachment_ids ?? []).map(String)
+      const fresh = (body.mention_ids ?? []).map(String).filter((x) => !(reply.mentions ?? []).map(String).includes(x))
+      if (nextBody === reply.body && remove.length === 0 && fresh.length === 0) return send(res, 200, { ...view(msg), replies: liveReplies(msg).map(replyView) })
+      const left = (reply.attachment_ids ?? []).filter((x) => !remove.includes(String(x)))
+      if (!nextBody.trim() && left.length === 0) return fail(res, 400, 'La respuesta no puede estar vacía.', 'reply_empty')
+      reply.body = nextBody
+      reply.attachment_ids = left
+      for (const x of fresh) {
+        const to = members.find((u) => String(u.id) === x)
+        if (!to) return fail(res, 404, 'El miembro mencionado no existe.', 'not_found')
+        reply.mentions = [...(reply.mentions ?? []), to.id]
+        if (!msg.assignee_ids.includes(to.id)) msg.assignee_ids = [...msg.assignee_ids, to.id]
       }
+      reply.version = (reply.version ?? 1) + 1
+      reply.edited_at = new Date().toISOString()
       return send(res, 200, { ...view(msg), replies: liveReplies(msg).map(replyView) })
+    }
+    m = /^\/messages\/([^/]+)\/replies\/([^/]+)\/attachments$/.exec(path)
+    if (m && method === 'POST') {
+      const msg = messages.find((x) => x.id === m[1] && !x.deleted_at)
+      const reply = msg && (replies.get(msg.id) ?? []).find((r) => r.id === m[2] && !r.deleted_at)
+      if (!reply) return fail(res, 404, 'No existe')
+      if (reply.author_id !== me.id) return fail(res, 403, 'Sólo quien escribió la respuesta la edita', 'not_reply_author')
+      const ct = req.headers['content-type'] ?? ''
+      const boundary = /boundary=(?:"([^"]+)"|([^;]+))/.exec(ct)
+      const parts = parseMultipart(await readBody(req), boundary[1] ?? boundary[2])
+      const version = Number(parts.find((p) => p.name === 'version')?.data.toString('utf8'))
+      if (version !== (reply.version ?? 1)) return send(res, 409, { code: 'edit_conflict', message: 'La respuesta cambió desde que se leyó.', version: reply.version ?? 1 })
+      const added = []
+      for (const f of parts.filter((p) => p.name === 'files' && p.filename)) {
+        const mime = f.type ?? 'application/octet-stream'
+        const a = { id: `f-${id()}`, kind: kindOf(mime), mime, name: f.filename, size: f.data.length, data: f.data }
+        if (a.kind === 'audio' || a.kind === 'video') a.transcript = SPOKEN_SAMPLE
+        attachments.set(a.id, a)
+        added.push(a.id)
+      }
+      if (added.length === 0) return fail(res, 400, 'Falta un archivo o un enlace.', 'attachments_empty')
+      reply.attachment_ids = [...(reply.attachment_ids ?? []), ...added]
+      reply.version = (reply.version ?? 1) + 1
+      reply.edited_at = new Date().toISOString()
+      return send(res, 201, { ...view(msg), replies: liveReplies(msg).map(replyView) })
     }
     m = /^\/replies\/([^/]+)\/restore$/.exec(path)
     if (m && method === 'POST') {
@@ -1464,6 +1502,7 @@ const server = createServer(async (req, res) => {
           for (const f of parts.filter((p) => p.name === 'files' && p.filename)) {
             const mime = f.type ?? 'application/octet-stream'
             const a = { id: `f-${id()}`, kind: kindOf(mime), mime, name: f.filename, size: f.data.length, data: f.data }
+            if (a.kind === 'audio' || a.kind === 'video') a.transcript = SPOKEN_SAMPLE // UD-277: the real server reads the speech of a reply's audio and video
             attachments.set(a.id, a)
             attIds.push(a.id)
           }
@@ -1487,8 +1526,8 @@ const server = createServer(async (req, res) => {
           if (to.id === me.id) return fail(res, 400, 'Una respuesta no menciona a quien la escribe.', 'mention_self')
           if (to.active === false) return fail(res, 400, 'El miembro mencionado está desactivado.', 'assignee_inactive')
         }
-        if (!String(text ?? '').trim() || !['answer', 'fix', 'clarification'].includes(kind ?? 'answer')) return fail(res, 422, 'Respuesta inválida', 'validation')
-        const body = { body: text, kind: kind ?? 'answer' }
+        if ((!String(text ?? '').trim() && attIds.length === 0) || !['answer', 'fix', 'clarification'].includes(kind ?? 'answer')) return fail(res, 422, 'Respuesta inválida', 'validation')
+        const body = { body: text ?? '', kind: kind ?? 'answer' }
         const reply = { id: `r-${id()}`, message_id: msg.id, author_id: me.id, body: body.body.trim(), kind: body.kind, created_at: new Date().toISOString(), attachment_ids: attIds, mentions: mentionIds.map((x) => members.find((m) => String(m.id) === x).id) }
         replies.get(msg.id).push(reply)
         for (const to of reply.mentions) if (!msg.assignee_ids.includes(to)) msg.assignee_ids = [...msg.assignee_ids, to]
@@ -1818,7 +1857,7 @@ const server = createServer(async (req, res) => {
       }
     }
     // The text the server extracted from an audio or a video (the real server answers the same, from its `extracted_text`).
-    m = /^\/attachments\/([^/]+)\/transcript$/.exec(path)
+    m = /^\/(?:replies\/)?attachments\/([^/]+)\/transcript$/.exec(path)
     if (m && method === 'GET') {
       const a = attachments.get(m[1])
       if (!a || a.transcript === undefined) return fail(res, 404, 'No hay transcripción', 'not_found')

@@ -994,6 +994,7 @@ export interface paths {
                                         name?: string;
                                         mime?: string;
                                         size?: number;
+                                        extracted?: boolean;
                                     }[];
                                     attachment_kinds?: string[];
                                     /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
@@ -1029,6 +1030,7 @@ export interface paths {
                                         name?: string;
                                         mime?: string;
                                         size?: number;
+                                        extracted?: boolean;
                                     }[];
                                     attachment_kinds?: string[];
                                     /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
@@ -1326,6 +1328,7 @@ export interface paths {
                                         name?: string;
                                         mime?: string;
                                         size?: number;
+                                        extracted?: boolean;
                                     }[];
                                     attachment_kinds?: string[];
                                     /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
@@ -1517,6 +1520,7 @@ export interface paths {
                                     name?: string;
                                     mime?: string;
                                     size?: number;
+                                    extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
@@ -1552,6 +1556,7 @@ export interface paths {
                                     name?: string;
                                     mime?: string;
                                     size?: number;
+                                    extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
@@ -1709,6 +1714,7 @@ export interface paths {
                                     name?: string;
                                     mime?: string;
                                     size?: number;
+                                    extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
@@ -1744,6 +1750,7 @@ export interface paths {
                                     name?: string;
                                     mime?: string;
                                     size?: number;
+                                    extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
@@ -1789,7 +1796,7 @@ export interface paths {
         };
         /**
          * Tiempos de la ejecución de un mensaje
-         * @description Segundos hasta la primera respuesta y hasta la respuesta final (`first_reply_ms`, `final_reply_ms`, desde el inicio del trabajo `execute`; `*_since_message_ms` desde que se publicó el mensaje), tiempo total, fases (`create`, `run`, `destroy`), herramientas y subagentes de la sesión del más lento al más rápido (`slowest`) y consumo por turno (`turns`). `tree` es el subárbol de spans del trabajo, como `GET /jobs/:id/trace`. Con el trabajo en curso las cifras son `null` y `phase` dice en qué paso está. 404 si el mensaje no existe o no tiene trabajo de ejecución.
+         * @description Segundos hasta la primera respuesta y hasta la respuesta final (`first_reply_ms`, `final_reply_ms`, desde el inicio del trabajo `execute`; `*_since_message_ms` desde que se publicó el mensaje), tiempo total, fases (`create`, `run`, `destroy`), herramientas y subagentes de la sesión del más lento al más rápido (`slowest`) y consumo por turno (`turns`). `detail` es la parte técnica de la salida del agente (resultado, zona, causa, verificación, rama, archivos…) con el rótulo de la plantilla, y la referencia de la entrega: la respuesta del hilo sólo lleva el resumen (UD-276). `tree` es el subárbol de spans del trabajo, como `GET /jobs/:id/trace`. Con el trabajo en curso las cifras son `null` y `phase` dice en qué paso está. 404 si el mensaje no existe o no tiene trabajo de ejecución.
          */
         get: {
             parameters: {
@@ -1839,6 +1846,13 @@ export interface paths {
                             turns?: {
                                 [key: string]: unknown;
                             }[];
+                            detail?: {
+                                entries?: {
+                                    label?: string;
+                                    value?: string;
+                                }[];
+                                delivery_ref?: string | null;
+                            } | null;
                             tree?: {
                                 [key: string]: unknown;
                             } | null;
@@ -1944,6 +1958,7 @@ export interface paths {
                                     name?: string;
                                     mime?: string;
                                     size?: number;
+                                    extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
@@ -1979,6 +1994,7 @@ export interface paths {
                                     name?: string;
                                     mime?: string;
                                     size?: number;
+                                    extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
@@ -2220,6 +2236,7 @@ export interface paths {
                                     name?: string;
                                     mime?: string;
                                     size?: number;
+                                    extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
@@ -2255,6 +2272,7 @@ export interface paths {
                                     name?: string;
                                     mime?: string;
                                     size?: number;
+                                    extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
@@ -2292,8 +2310,8 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Editar el texto de una respuesta (sólo su autor)
-         * @description Edición en el lugar (UD-253). `version` es obligatoria: la que se leyó en la respuesta; si otra edición se coló en medio, 409 `edit_conflict` con la `version` vigente y no se escribe nada. Los adjuntos quedan como están. Una respuesta con adjuntos puede quedar sin texto; una sin adjuntos no (400 `reply_empty`). Repetir la misma edición deja el mismo estado y la misma `version`. Cada edición real sube `version`, fija `edited_at` y deja la fila `reply.edit` en la bitácora. Devuelve el mensaje con su hilo. 403 `not_reply_author` si quien pide no es el autor, tampoco un Editor; 404 si la respuesta no existe, está borrada o no es de ese mensaje.
+         * Editar una respuesta: su texto, sus adjuntos y sus menciones (sólo su autor)
+         * @description Edición en el lugar (UD-253). `version` es obligatoria: la que se leyó en la respuesta; si otra edición se coló en medio, 409 `edit_conflict` con la `version` vigente y no se escribe nada. `body` es opcional (UD-277): `remove_attachment_ids` quita adjuntos de la respuesta y `mention_ids` suma menciones (con los efectos de una mención al escribir, sólo para quien aún no estaba mencionado; las que ya tenía se ignoran). Agregar adjuntos va por `POST /messages/:id/replies/:replyId/attachments`. Sin ningún cambio no hay edición. Una respuesta con adjuntos puede quedar sin texto; una sin adjuntos no (400 `reply_empty`). Repetir la misma edición deja el mismo estado y la misma `version`. Cada edición real sube `version`, fija `edited_at` y deja la fila `reply.edit` en la bitácora. Devuelve el mensaje con su hilo. 403 `not_reply_author` si quien pide no es el autor, tampoco un Editor; 404 si la respuesta no existe, está borrada o no es de ese mensaje.
          */
         patch: {
             parameters: {
@@ -2308,8 +2326,10 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        body: string;
+                        body?: string;
                         version: number;
+                        mention_ids?: number[];
+                        remove_attachment_ids?: number[];
                     };
                 };
             };
@@ -2363,6 +2383,7 @@ export interface paths {
                                     name?: string;
                                     mime?: string;
                                     size?: number;
+                                    extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
@@ -2398,6 +2419,7 @@ export interface paths {
                                     name?: string;
                                     mime?: string;
                                     size?: number;
+                                    extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
@@ -2432,6 +2454,157 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/api/messages/{id}/replies/{replyId}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Agregar archivos o enlaces a una respuesta (sólo su autor)
+         * @description Multipart: `version` (la leída de la respuesta), `files[]` y `links[]`, con los mismos topes y el mismo almacenamiento que `POST /inputs` (UD-277). Un audio o un video se transcribe como al escribir la respuesta. Cuenta como una edición: sube `version`, fija `edited_at` y deja `reply.edit`. 403 `not_reply_author` si no es el autor, 409 `edit_conflict` si la versión venció, 400 `attachments_empty` si no trae nada, 404 si la respuesta no existe. Quitar va por `PATCH` con `remove_attachment_ids`.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                    replyId: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id?: string;
+                            input_id?: string | null;
+                            area_id?: string;
+                            template_id?: string | null;
+                            author_id?: string;
+                            /** @description Who had the session when the input of the message was sent in the name of its author (UD-255); null when it is the author. */
+                            sent_by_id?: string | null;
+                            title?: string;
+                            body?: string;
+                            fields?: {
+                                [key: string]: unknown;
+                            };
+                            /** @enum {string} */
+                            status?: "open" | "answered" | "closed";
+                            assignee_ids?: string[];
+                            attachments?: {
+                                id?: string;
+                                input_id?: string | null;
+                                kind?: string;
+                                name?: string;
+                                mime?: string;
+                                size?: number;
+                                extracted?: boolean;
+                            }[];
+                            attachment_kinds?: string[];
+                            reply_count?: number;
+                            last_reply?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                    extracted?: boolean;
+                                }[];
+                                attachment_kinds?: string[];
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
+                                mentions?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            } | null;
+                            created_at?: string;
+                            updated_at?: string;
+                            version?: number;
+                            edited_at?: string | null;
+                            closed_at?: string | null;
+                            /** @description Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true. */
+                            deleted_at?: string | null;
+                            /** @description Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution. */
+                            trace_id?: string | null;
+                            /** @description What a video frame shows and nobody says, outside the body; empty when there is none. */
+                            observed?: string[];
+                            replies?: {
+                                id?: string;
+                                message_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                /** @enum {string} */
+                                kind?: "answer" | "fix" | "clarification" | "forward";
+                                /** @description El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272). */
+                                forwarded_to?: string | null;
+                                attachments?: {
+                                    id?: string;
+                                    reply_id?: string;
+                                    kind?: string;
+                                    name?: string;
+                                    mime?: string;
+                                    size?: number;
+                                    extracted?: boolean;
+                                }[];
+                                attachment_kinds?: string[];
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
+                                mentions?: string[];
+                                created_at?: string;
+                                version?: number;
+                                edited_at?: string | null;
+                            }[];
+                            edits?: {
+                                id?: string;
+                                member_id?: string;
+                                at?: string;
+                                version?: number;
+                                fields?: string[];
+                            }[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/replies/{id}/restore": {
@@ -2507,6 +2680,7 @@ export interface paths {
                                     name?: string;
                                     mime?: string;
                                     size?: number;
+                                    extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
@@ -2542,6 +2716,7 @@ export interface paths {
                                     name?: string;
                                     mime?: string;
                                     size?: number;
+                                    extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
@@ -2655,6 +2830,7 @@ export interface paths {
                                     name?: string;
                                     mime?: string;
                                     size?: number;
+                                    extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
@@ -2690,6 +2866,7 @@ export interface paths {
                                     name?: string;
                                     mime?: string;
                                     size?: number;
+                                    extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
@@ -2822,6 +2999,7 @@ export interface paths {
                                     name?: string;
                                     mime?: string;
                                     size?: number;
+                                    extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
@@ -2857,6 +3035,7 @@ export interface paths {
                                     name?: string;
                                     mime?: string;
                                     size?: number;
+                                    extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
@@ -2977,6 +3156,7 @@ export interface paths {
                                     name?: string;
                                     mime?: string;
                                     size?: number;
+                                    extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
@@ -3012,6 +3192,7 @@ export interface paths {
                                     name?: string;
                                     mime?: string;
                                     size?: number;
+                                    extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
@@ -3122,6 +3303,7 @@ export interface paths {
                                     name?: string;
                                     mime?: string;
                                     size?: number;
+                                    extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
@@ -3157,6 +3339,7 @@ export interface paths {
                                     name?: string;
                                     mime?: string;
                                     size?: number;
+                                    extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
@@ -3267,6 +3450,7 @@ export interface paths {
                                     name?: string;
                                     mime?: string;
                                     size?: number;
+                                    extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
@@ -3302,6 +3486,7 @@ export interface paths {
                                     name?: string;
                                     mime?: string;
                                     size?: number;
+                                    extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto. */
@@ -5401,6 +5586,63 @@ export interface paths {
         /**
          * La transcripción de un audio o un video adjunto
          * @description El texto que el análisis extrajo del adjunto, con la marca `mm:ss` de cada segmento. 404 si el adjunto no existe, no es audio ni video, o todavía no se extrajo texto.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            text?: string;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/replies/attachments/{id}/transcript": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * La transcripción de un audio o un video adjunto a una respuesta
+         * @description El texto que se leyó del adjunto de una respuesta (UD-277). 404 si el adjunto no existe, no es audio ni video, o todavía no se leyó.
          */
         get: {
             parameters: {

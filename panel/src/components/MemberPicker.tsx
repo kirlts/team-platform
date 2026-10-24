@@ -11,11 +11,16 @@ export function MemberPicker({
   selected,
   onChange,
   hiddenCount = 0,
+  label,
+  shortLabel,
 }: {
   members: Member[]
   selected: string[]
   onChange: (ids: string[]) => void
   hiddenCount?: number
+  /** Accessible name and visible short word of the button, when it is not about recipients (the mention of a reply, UD-277). */
+  label?: string
+  shortLabel?: string
 }) {
   const t = useT()
   const [search, setSearch] = useState('')
@@ -26,13 +31,13 @@ export function MemberPicker({
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label={hiddenCount > 0 ? t('recipients.manageMore', { n: hiddenCount }) : t('recipients.add')}
-          title={hiddenCount > 0 ? t('recipients.manageMore', { n: hiddenCount }) : t('recipients.add')}
+          aria-label={hiddenCount > 0 ? t('recipients.manageMore', { n: hiddenCount }) : (label ?? t('recipients.add'))}
+          title={hiddenCount > 0 ? t('recipients.manageMore', { n: hiddenCount }) : (label ?? t('recipients.add'))}
           className="hit inline-flex min-h-8 items-center justify-center gap-1 rounded-full px-3 text-sm font-semibold text-muted hover:bg-hover hover:text-accent pointer-coarse:min-h-11"
         >
           {hiddenCount > 0 ? `+${hiddenCount}` : (
             <>
-              <Plus size={16} aria-hidden /> {t('recipients.addShort')}
+              <Plus size={16} aria-hidden /> {shortLabel ?? t('recipients.addShort')}
             </>
           )}
         </button>

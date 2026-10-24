@@ -35,7 +35,7 @@ export function toGalleryItems(attachments: readonly Attachment[] | undefined, s
     name: a.name,
     size: a.size,
     mime: a.mime,
-    transcriptSrc: scope === 'message' && a.extracted && (a.kind === 'audio' || a.kind === 'video') ? transcriptUrl(a.id) : undefined,
+    transcriptSrc: a.extracted && (a.kind === 'audio' || a.kind === 'video') ? (scope === 'reply' ? client.replyTranscriptUrl(a.id) : transcriptUrl(a.id)) : undefined, // a reply's speech is read too (UD-277)
   }))
 }
 

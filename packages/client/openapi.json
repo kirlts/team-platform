@@ -2276,6 +2276,9 @@
                                     },
                                     "size": {
                                       "type": "integer"
+                                    },
+                                    "extracted": {
+                                      "type": "boolean"
                                     }
                                   }
                                 }
@@ -2404,6 +2407,9 @@
                                       },
                                       "size": {
                                         "type": "integer"
+                                      },
+                                      "extracted": {
+                                        "type": "boolean"
                                       }
                                     }
                                   }
@@ -2969,6 +2975,9 @@
                                     },
                                     "size": {
                                       "type": "integer"
+                                    },
+                                    "extracted": {
+                                      "type": "boolean"
                                     }
                                   }
                                 }
@@ -3359,6 +3368,9 @@
                               },
                               "size": {
                                 "type": "integer"
+                              },
+                              "extracted": {
+                                "type": "boolean"
                               }
                             }
                           }
@@ -3487,6 +3499,9 @@
                                 },
                                 "size": {
                                   "type": "integer"
+                                },
+                                "extracted": {
+                                  "type": "boolean"
                                 }
                               }
                             }
@@ -3863,6 +3878,9 @@
                               },
                               "size": {
                                 "type": "integer"
+                              },
+                              "extracted": {
+                                "type": "boolean"
                               }
                             }
                           }
@@ -3991,6 +4009,9 @@
                                 },
                                 "size": {
                                   "type": "integer"
+                                },
+                                "extracted": {
+                                  "type": "boolean"
                                 }
                               }
                             }
@@ -4087,7 +4108,7 @@
         "tags": [
           "Messages"
         ],
-        "description": "Segundos hasta la primera respuesta y hasta la respuesta final (`first_reply_ms`, `final_reply_ms`, desde el inicio del trabajo `execute`; `*_since_message_ms` desde que se publicó el mensaje), tiempo total, fases (`create`, `run`, `destroy`), herramientas y subagentes de la sesión del más lento al más rápido (`slowest`) y consumo por turno (`turns`). `tree` es el subárbol de spans del trabajo, como `GET /jobs/:id/trace`. Con el trabajo en curso las cifras son `null` y `phase` dice en qué paso está. 404 si el mensaje no existe o no tiene trabajo de ejecución.",
+        "description": "Segundos hasta la primera respuesta y hasta la respuesta final (`first_reply_ms`, `final_reply_ms`, desde el inicio del trabajo `execute`; `*_since_message_ms` desde que se publicó el mensaje), tiempo total, fases (`create`, `run`, `destroy`), herramientas y subagentes de la sesión del más lento al más rápido (`slowest`) y consumo por turno (`turns`). `detail` es la parte técnica de la salida del agente (resultado, zona, causa, verificación, rama, archivos…) con el rótulo de la plantilla, y la referencia de la entrega: la respuesta del hilo sólo lleva el resumen (UD-276). `tree` es el subárbol de spans del trabajo, como `GET /jobs/:id/trace`. Con el trabajo en curso las cifras son `null` y `phase` dice en qué paso está. 404 si el mensaje no existe o no tiene trabajo de ejecución.",
         "parameters": [
           {
             "schema": {
@@ -4241,6 +4262,34 @@
                       "items": {
                         "type": "object",
                         "additionalProperties": true
+                      }
+                    },
+                    "detail": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "entries": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "label": {
+                                "type": "string"
+                              },
+                              "value": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "delivery_ref": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
                       }
                     },
                     "tree": {
@@ -4457,6 +4506,9 @@
                               },
                               "size": {
                                 "type": "integer"
+                              },
+                              "extracted": {
+                                "type": "boolean"
                               }
                             }
                           }
@@ -4585,6 +4637,9 @@
                                 },
                                 "size": {
                                   "type": "integer"
+                                },
+                                "extracted": {
+                                  "type": "boolean"
                                 }
                               }
                             }
@@ -5033,6 +5088,9 @@
                               },
                               "size": {
                                 "type": "integer"
+                              },
+                              "extracted": {
+                                "type": "boolean"
                               }
                             }
                           }
@@ -5161,6 +5219,9 @@
                                 },
                                 "size": {
                                   "type": "integer"
+                                },
+                                "extracted": {
+                                  "type": "boolean"
                                 }
                               }
                             }
@@ -5251,11 +5312,11 @@
         }
       },
       "patch": {
-        "summary": "Editar el texto de una respuesta (sólo su autor)",
+        "summary": "Editar una respuesta: su texto, sus adjuntos y sus menciones (sólo su autor)",
         "tags": [
           "Messages"
         ],
-        "description": "Edición en el lugar (UD-253). `version` es obligatoria: la que se leyó en la respuesta; si otra edición se coló en medio, 409 `edit_conflict` con la `version` vigente y no se escribe nada. Los adjuntos quedan como están. Una respuesta con adjuntos puede quedar sin texto; una sin adjuntos no (400 `reply_empty`). Repetir la misma edición deja el mismo estado y la misma `version`. Cada edición real sube `version`, fija `edited_at` y deja la fila `reply.edit` en la bitácora. Devuelve el mensaje con su hilo. 403 `not_reply_author` si quien pide no es el autor, tampoco un Editor; 404 si la respuesta no existe, está borrada o no es de ese mensaje.",
+        "description": "Edición en el lugar (UD-253). `version` es obligatoria: la que se leyó en la respuesta; si otra edición se coló en medio, 409 `edit_conflict` con la `version` vigente y no se escribe nada. `body` es opcional (UD-277): `remove_attachment_ids` quita adjuntos de la respuesta y `mention_ids` suma menciones (con los efectos de una mención al escribir, sólo para quien aún no estaba mencionado; las que ya tenía se ignoran). Agregar adjuntos va por `POST /messages/:id/replies/:replyId/attachments`. Sin ningún cambio no hay edición. Una respuesta con adjuntos puede quedar sin texto; una sin adjuntos no (400 `reply_empty`). Repetir la misma edición deja el mismo estado y la misma `version`. Cada edición real sube `version`, fija `edited_at` y deja la fila `reply.edit` en la bitácora. Devuelve el mensaje con su hilo. 403 `not_reply_author` si quien pide no es el autor, tampoco un Editor; 404 si la respuesta no existe, está borrada o no es de ese mensaje.",
         "requestBody": {
           "required": true,
           "content": {
@@ -5264,7 +5325,6 @@
                 "type": "object",
                 "additionalProperties": false,
                 "required": [
-                  "body",
                   "version"
                 ],
                 "properties": {
@@ -5274,6 +5334,20 @@
                   "version": {
                     "type": "integer",
                     "minimum": 1
+                  },
+                  "mention_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  },
+                  "remove_attachment_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 1
+                    }
                   }
                 }
               }
@@ -5457,6 +5531,9 @@
                               },
                               "size": {
                                 "type": "integer"
+                              },
+                              "extracted": {
+                                "type": "boolean"
                               }
                             }
                           }
@@ -5585,6 +5662,417 @@
                                 },
                                 "size": {
                                   "type": "integer"
+                                },
+                                "extracted": {
+                                  "type": "boolean"
+                                }
+                              }
+                            }
+                          },
+                          "attachment_kinds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "mentions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto."
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "edited_at": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "edits": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "member_id": {
+                            "type": "string"
+                          },
+                          "at": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "fields": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error: { code, message }.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Error: { code, message }.",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/messages/{id}/replies/{replyId}/attachments": {
+      "post": {
+        "summary": "Agregar archivos o enlaces a una respuesta (sólo su autor)",
+        "tags": [
+          "Messages"
+        ],
+        "description": "Multipart: `version` (la leída de la respuesta), `files[]` y `links[]`, con los mismos topes y el mismo almacenamiento que `POST /inputs` (UD-277). Un audio o un video se transcribe como al escribir la respuesta. Cuenta como una edición: sube `version`, fija `edited_at` y deja `reply.edit`. 403 `not_reply_author` si no es el autor, 409 `edit_conflict` si la versión venció, 400 `attachments_empty` si no trae nada, 404 si la respuesta no existe. Quitar va por `PATCH` con `remove_attachment_ids`.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "in": "path",
+            "name": "replyId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "input_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "area_id": {
+                      "type": "string"
+                    },
+                    "template_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "author_id": {
+                      "type": "string"
+                    },
+                    "sent_by_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Who had the session when the input of the message was sent in the name of its author (UD-255); null when it is the author."
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "body": {
+                      "type": "string"
+                    },
+                    "fields": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "open",
+                        "answered",
+                        "closed"
+                      ]
+                    },
+                    "assignee_ids": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "attachments": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "input_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "kind": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "mime": {
+                            "type": "string"
+                          },
+                          "size": {
+                            "type": "integer"
+                          },
+                          "extracted": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    },
+                    "attachment_kinds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "reply_count": {
+                      "type": "integer"
+                    },
+                    "last_reply": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "message_id": {
+                          "type": "string"
+                        },
+                        "author_id": {
+                          "type": "string"
+                        },
+                        "body": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "answer",
+                            "fix",
+                            "clarification",
+                            "forward"
+                          ]
+                        },
+                        "forwarded_to": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
+                        },
+                        "attachments": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "reply_id": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "mime": {
+                                "type": "string"
+                              },
+                              "size": {
+                                "type": "integer"
+                              },
+                              "extracted": {
+                                "type": "boolean"
+                              }
+                            }
+                          }
+                        },
+                        "attachment_kinds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "mentions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-275). Nunca se leen del texto."
+                        },
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "edited_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
+                    "created_at": {
+                      "type": "string"
+                    },
+                    "updated_at": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "edited_at": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "closed_at": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "deleted_at": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Set while the message is deleted (UD-240); only an Editor sees such a message, with include_deleted=true."
+                    },
+                    "trace_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution."
+                    },
+                    "observed": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "What a video frame shows and nobody says, outside the body; empty when there is none."
+                    },
+                    "replies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "author_id": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "answer",
+                              "fix",
+                              "clarification",
+                              "forward"
+                            ]
+                          },
+                          "forwarded_to": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272)."
+                          },
+                          "attachments": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "reply_id": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "mime": {
+                                  "type": "string"
+                                },
+                                "size": {
+                                  "type": "integer"
+                                },
+                                "extracted": {
+                                  "type": "boolean"
                                 }
                               }
                             }
@@ -5850,6 +6338,9 @@
                               },
                               "size": {
                                 "type": "integer"
+                              },
+                              "extracted": {
+                                "type": "boolean"
                               }
                             }
                           }
@@ -5978,6 +6469,9 @@
                                 },
                                 "size": {
                                   "type": "integer"
+                                },
+                                "extracted": {
+                                  "type": "boolean"
                                 }
                               }
                             }
@@ -6243,6 +6737,9 @@
                               },
                               "size": {
                                 "type": "integer"
+                              },
+                              "extracted": {
+                                "type": "boolean"
                               }
                             }
                           }
@@ -6371,6 +6868,9 @@
                                 },
                                 "size": {
                                   "type": "integer"
+                                },
+                                "extracted": {
+                                  "type": "boolean"
                                 }
                               }
                             }
@@ -6705,6 +7205,9 @@
                               },
                               "size": {
                                 "type": "integer"
+                              },
+                              "extracted": {
+                                "type": "boolean"
                               }
                             }
                           }
@@ -6833,6 +7336,9 @@
                                 },
                                 "size": {
                                   "type": "integer"
+                                },
+                                "extracted": {
+                                  "type": "boolean"
                                 }
                               }
                             }
@@ -7123,6 +7629,9 @@
                               },
                               "size": {
                                 "type": "integer"
+                              },
+                              "extracted": {
+                                "type": "boolean"
                               }
                             }
                           }
@@ -7251,6 +7760,9 @@
                                 },
                                 "size": {
                                   "type": "integer"
+                                },
+                                "extracted": {
+                                  "type": "boolean"
                                 }
                               }
                             }
@@ -7515,6 +8027,9 @@
                               },
                               "size": {
                                 "type": "integer"
+                              },
+                              "extracted": {
+                                "type": "boolean"
                               }
                             }
                           }
@@ -7643,6 +8158,9 @@
                                 },
                                 "size": {
                                   "type": "integer"
+                                },
+                                "extracted": {
+                                  "type": "boolean"
                                 }
                               }
                             }
@@ -7907,6 +8425,9 @@
                               },
                               "size": {
                                 "type": "integer"
+                              },
+                              "extracted": {
+                                "type": "boolean"
                               }
                             }
                           }
@@ -8035,6 +8556,9 @@
                                 },
                                 "size": {
                                   "type": "integer"
+                                },
+                                "extracted": {
+                                  "type": "boolean"
                                 }
                               }
                             }
@@ -11925,6 +12449,67 @@
           "Attachments"
         ],
         "description": "El texto que el análisis extrajo del adjunto, con la marca `mm:ss` de cada segmento. 404 si el adjunto no existe, no es audio ni video, o todavía no se extrajo texto.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error: { code, message }.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Error: { code, message }.",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/replies/attachments/{id}/transcript": {
+      "get": {
+        "summary": "La transcripción de un audio o un video adjunto a una respuesta",
+        "tags": [
+          "Other"
+        ],
+        "description": "El texto que se leyó del adjunto de una respuesta (UD-277). 404 si el adjunto no existe, no es audio ni video, o todavía no se leyó.",
         "parameters": [
           {
             "schema": {

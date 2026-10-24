@@ -54,6 +54,7 @@ export const routes = {
 
   replyCreate: route('post', '/api/messages/{id}/replies'),
   replyEdit: route('patch', '/api/messages/{id}/replies/{replyId}'),
+  replyAddAttachments: route('post', '/api/messages/{id}/replies/{replyId}/attachments'),
   replyDelete: route('delete', '/api/messages/{id}/replies/{replyId}'),
   replyRestore: route('post', '/api/replies/{id}/restore'),
 
@@ -96,6 +97,7 @@ export const routes = {
   attachmentFile: route('get', '/api/attachments/{id}'),
   attachmentTranscript: route('get', '/api/attachments/{id}/transcript'),
   replyAttachmentFile: route('get', '/api/replies/attachments/{id}'),
+  replyAttachmentTranscript: route('get', '/api/replies/attachments/{id}/transcript'),
 
   jobList: route('get', '/api/jobs'),
   jobPurge: route('delete', '/api/jobs'),

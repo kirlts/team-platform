@@ -284,6 +284,18 @@ seedMessage({ area_id: 'a-error', author_id: 'u-diego', title: 'Grabación del c
 seedMessage({ area_id: 'a-idea', author_id: 'u-bruno', title: 'Nota de voz con la idea del resumen semanal', body: 'La dejé hablada porque es más rápido.', created_at: ago(40), assignee_ids: ['u-ana'], attachment_ids: [audioNota] })
 seedMessage({ area_id: 'a-pregunta', author_id: 'u-diego', title: 'Enlace al caso del cliente', body: 'El cliente lo escribió en su sistema.', created_at: ago(45), assignee_ids: ['u-ana'], attachment_ids: [linkIssue] })
 
+// Messages with the long content that used to push a phone screen sideways (code block, long paths and URLs, unbroken words), only with
+// PANEL_DEV_OVERFLOW=1 so the other tests keep the data they count on. Development sample data, like the rest of the file.
+if (process.env.PANEL_DEV_OVERFLOW === '1') {
+  const longUrl = 'https://github.com/example/team-platform/blob/main/packages/client/src/generated/openapi/schemas/messages/list-messages-response.ts?plain=1&ref=feature%2Fa-very-long-branch-name-without-any-break'
+  const longPath = '/home/usuario/proyectos/team-platform/.claude/worktrees/sin-desborde-movil/panel/src/components/MessageDetailAttachmentGalleryWithAnExtremelyLongName.tsx'
+  const code = '```json\n{"message_id":"4f1c2a9e-0b7d-4c1e-9a53-2f6d8e7a1b34","path":"' + longPath + '","reply":{"kind":"answer","text":"' + 'x'.repeat(120) + '"}}\n```'
+  const long = seedAttachment('link', 'text/uri-list', longUrl, Buffer.from(longUrl))
+  seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Hilo largo con bloque de código y rutas largas ' + longPath, body: 'Ruta: ' + longPath + '\n\nURL: ' + longUrl + '\n\n' + code, created_at: ago(1), assignee_ids: ['u-ana'], attachment_ids: [long, linkIssue] }, [
+    { author_id: 'u-ana', kind: 'answer', body: 'Respuesta de Claude:\n\n' + code + '\n\nArchivos: ' + longPath + ' y ' + longUrl + '\n\n' + 'Palabra'.repeat(40), created_at: ago(0.5), attachment_ids: [long] },
+  ])
+}
+
 // Messages that show every kind of gallery, only with PANEL_DEV_MEDIA=1 so the other tests keep the data they count on.
 // Everything here is development sample data, like the rest of the file.
 if (process.env.PANEL_DEV_MEDIA === '1') {

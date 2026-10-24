@@ -73,7 +73,7 @@ function Shell() {
               <Sidebar onLogout={() => void logout()} onHide={() => setHidden(true)} />
             </aside>
           )}
-          <main id="main" tabIndex={-1} className="scroll-thin min-w-0 flex-1 overflow-y-auto outline-none">
+          <main id="main" tabIndex={-1} className="scroll-thin min-w-0 flex-1 overflow-y-auto overflow-x-clip outline-none">
             <Outlet />
           </main>
         </div>

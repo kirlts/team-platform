@@ -29,7 +29,7 @@ import { instanceLabel, recordExecuteRun, updateExecuteRun } from '../telemetry/
 import { readAgentSecret } from './agent-credentials.js'
 import { capturesDir, capturesEnv, closingCaptures, storeCaptures } from './captures.js'
 import { documentFiles, documentNotes, documentsDir, documentsEnv, storeDocuments } from './documents.js'
-import { decisionCheckProblem, decisionLines } from './decision-check.js'
+import { decisionCheckProblem, decisionDetail, decisionLines } from './decision-check.js'
 import { approveDelivery } from './approve.js'
 import { discardDelivery, pendingDelivery } from '../domain/delivery-review.js'
 import { loadMention, mentionBlock, planThread, stageThread, threadEnv } from './mention-context.js'
@@ -529,8 +529,8 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const investigate = mode === 'investigate' || untouched // UD-272: the model understood the reason as «look into it»: nothing is delivered and nothing is closed, whatever the rest of the output says
     const documentLines = documentNotes(documents.rejected, author?.language)
     const { decision_check: check, ...visible } = output // the check is shown as the question, not as JSON
-    let body = [replyBody(visible), ...decisionLines(check, author?.language)].join('\n\n')
-    rec.detail = detailEntries(visible, template) // UD-276: kept with the run, shown folded in «Tiempos»
+    let body = [replyBody(visible), ...decisionLines(check)].join('\n\n')
+    rec.detail = [...detailEntries(visible, template), ...decisionDetail(check, author?.language)] // UD-276: kept with the run, shown folded in «Tiempos»
     const hands = Boolean(x.deliverCommand) && output.outcome === 'done' && !investigate && await branchExists(branch)
     rec.reviewAnswered = untouched // the run changed nothing: the review keeps pointing at the run that held the branch
 

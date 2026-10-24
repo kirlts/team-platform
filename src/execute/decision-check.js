@@ -39,18 +39,23 @@ export function decisionCheckProblem (output) {
 }
 
 const LABELS = {
-  'es-419': { question: 'Pregunta', recommendation: 'Recomendación', if_wrong: 'Si la respuesta es la equivocada', searched: 'Revisado' },
-  en: { question: 'Question', recommendation: 'Recommendation', if_wrong: 'If the answer is the wrong one', searched: 'Checked' }
+  'es-419': { recommendation: 'Recomendación', if_wrong: 'Si la respuesta es la equivocada', searched: 'Revisado' },
+  en: { recommendation: 'Recommendation', if_wrong: 'If the answer is the wrong one', searched: 'Checked' }
 }
 
-/** The part of the reply the person reads: the question first, then the recommendation and the cost of being wrong, the sources last. */
-export function decisionLines (check, language) {
+/** The part of the reply the person reads (UD-276): the question in one line, with no label. The rest of the check is `decisionDetail`. */
+export function decisionLines (check) {
+  if (!check) return []
+  return [String(check.question).trim()]
+}
+
+/** The rest of the check as [label, text] pairs for the folded technical detail of the run, never for the reply. */
+export function decisionDetail (check, language) {
   if (!check) return []
   const t = LABELS[language] ?? LABELS['es-419']
   return [
-    `**${t.question}**: ${String(check.question).trim()}`,
-    `**${t.recommendation}**: ${String(check.recommendation).trim()}`,
-    `**${t.if_wrong}**: ${String(check.if_wrong).trim()}`,
-    `**${t.searched}**:\n${check.searched.map((s) => `- ${String(s).trim()}`).join('\n')}`
+    [t.recommendation, String(check.recommendation).trim()],
+    [t.if_wrong, String(check.if_wrong).trim()],
+    [t.searched, check.searched.map((s) => `- ${String(s).trim()}`).join('\n')]
   ]
 }

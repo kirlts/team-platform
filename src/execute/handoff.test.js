@@ -14,7 +14,7 @@ import { createPipeline } from '../domain/pipeline.js'
 import { createVault, loadMasterKey } from '../domain/vault.js'
 import { addMember, fakeAnalyze, login, makeEnv, postInput, until } from '../testing/helpers.js'
 import { createWorker } from '../worker.js'
-import { decisionCheckProblem, decisionLines } from './decision-check.js'
+import { decisionCheckProblem, decisionDetail, decisionLines } from './decision-check.js'
 import { createExecuteHandler } from './handler.js'
 import { enqueueExecute } from './enqueue.js'
 
@@ -94,7 +94,13 @@ describe('handoff to a person', () => {
     assert.equal(status(messageId), 'open')
     const reply = lastReply(messageId)
     assert.deepEqual([reply.author_id, reply.kind], [agentId, 'clarification'])
-    assert.match(reply.body, /\*\*Pregunta\*\*: ¿Se cobra al inicio o al cierre del mes\?\n\n\*\*Recomendación\*\*: Cobrar al cierre del mes\.\n\n\*\*Si la respuesta es la equivocada\*\*: .+\n\n\*\*Revisado\*\*:\n- docs\/USER-DECISIONS\.md: UD-100 a UD-268\n- CLAUDE\.md del anfitrión/)
+    // UD-276: the person reads the summary and the question in one line; sources, recommendation and cost of being wrong go folded in the run.
+    assert.equal(reply.body, 'Arreglé la pantalla que quedaba en blanco.\n\nYa carga con tus datos.\n\n¿Se cobra al inicio o al cierre del mes?')
+    assert.doesNotMatch(reply.body, /Pregunta|Recomendación|equivocada|Revisado|USER-DECISIONS|CLAUDE\.md/)
+    const run = env.db.prepare('SELECT detail_json FROM execute_runs WHERE message_id = ? ORDER BY id DESC LIMIT 1').get(messageId)
+    const labels = JSON.parse(run.detail_json).map(([label]) => label)
+    assert.deepEqual(labels.slice(-3), ['Recomendación', 'Si la respuesta es la equivocada', 'Revisado'])
+    assert.match(JSON.stringify(JSON.parse(run.detail_json)), /docs\/USER-DECISIONS\.md: UD-100 a UD-268/)
     assert.doesNotMatch(reply.body, /decision_check|searched/)
     const summary = (await api('GET', '/api/messages/summary', editor)).json()
     assert.ok(summary.items.some((i) => i.message_id === String(messageId) && i.status === 'open'), 'it is red for the person')
@@ -208,7 +214,8 @@ describe('handoff to a person', () => {
     assert.match(decisionCheckProblem({ outcome: 'needs_decision', decision_check: { ...CHECK, searched: ['  '] } }), /searched/)
     assert.match(decisionCheckProblem({ outcome: 'needs_decision', decision_check: { ...CHECK, question: '' } }), /question/)
     assert.equal(decisionCheckProblem({ outcome: 'needs_decision', decision_check: CHECK }), null)
-    assert.match(decisionLines(CHECK, 'en')[0], /^\*\*Question\*\*: /)
+    assert.deepEqual(decisionLines(CHECK), [CHECK.question])
+    assert.equal(decisionDetail(CHECK, 'en')[0][0], 'Recommendation')
     assert.equal(decisionLines(null, 'en').length, 0)
   })
 })

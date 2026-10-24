@@ -17,7 +17,7 @@ import { addMember, fakeAnalyze, login, makeEnv, postInput, until } from '../tes
 import { createWorker } from '../worker.js'
 import { runTeam } from '../../scripts/team.mjs'
 import { listExecuteRuns, pruneExecuteRuns } from '../telemetry/execute-runs.js'
-import { createExecuteHandler, dailyBudget, localDay } from './handler.js'
+import { createExecuteHandler, dailyBudget, localDay, stderrTail } from './handler.js'
 import { phraseForTool } from './stream.js'
 
 const FAKE = fileURLToPath(new URL('./testing/fake-claude-stream.mjs', import.meta.url))
@@ -77,6 +77,7 @@ describe('execute job', () => {
     process.env.FAKE_EXECUTE_MODE = 'ok'
     process.env.FAKE_EXECUTE_REPLY = '1'
     delete process.env.FAKE_EXECUTE_EXTRA
+    delete process.env.FAKE_EXECUTE_STDERR_NOISE
     delete process.env.FAKE_EXECUTE_CAPTURE_FILES
     delete process.env.FAKE_EXECUTE_START_CAPTURES
     delete process.env.FAKE_EXECUTE_START_ZONE
@@ -299,6 +300,29 @@ describe('execute job', () => {
       assert.equal(JSON.parse(done.data_json).error_code, code)
     })
   }
+
+  it('the detail of a session that dies keeps the END of its stderr, where the cause is, and not the ssh and useradd noise at its start', async () => {
+    process.env.FAKE_EXECUTE_MODE = 'exit'
+    process.env.FAKE_EXECUTE_STDERR_NOISE = '1'
+    process.env.FAKE_EXECUTE_REPLY = '0'
+    try {
+      startWorker()
+      const messageId = env.db.prepare('SELECT id FROM messages ORDER BY id LIMIT 1').get().id
+      const id = Number((await env.app.inject({ method: 'POST', url: `/api/messages/${messageId}/execute`, headers: cookieHeaders(editor) })).json().job_ids[0])
+      const job = await waitJob(id)
+      assert.equal(job.status, 'failed')
+      assert.match(job.last_error, /useradd: warning: the home directory already exists\.\nsession not started$/)
+      assert.ok(job.last_error.split('WARNING: To increase').length - 1 < 12, 'the noise at the start is cut, not the cause')
+    } finally { delete process.env.FAKE_EXECUTE_STDERR_NOISE }
+  })
+
+  it('stderrTail keeps the last non-empty lines, and the end of a single line that is too long', () => {
+    assert.equal(stderrTail('a\n\nb\n  \nc\n'), 'a\nb\nc')
+    assert.equal(stderrTail('x'.repeat(100) + '\n' + 'y'.repeat(100), 150), 'y'.repeat(100))
+    assert.equal(stderrTail(`${'z'.repeat(50)}CAUSE`, 20), `${'z'.repeat(15)}CAUSE`)
+    assert.equal(stderrTail('   \n'), '')
+    assert.equal(stderrTail(undefined), '')
+  })
 
   it('a failed job leaves the author a closing reply in plain words, never the internal code, and a person holds the message', async () => {
     process.env.FAKE_EXECUTE_MODE = 'exit'

@@ -26,7 +26,8 @@ process.stdin.on('end', async () => {
   out({ type: 'system', subtype: 'init', session_id: sessionId, model: 'claude-sonnet-5-5', tools: ['Read', 'Bash'] })
   // The session file Claude Code leaves under ~/.claude/projects/<dir>/<session>.jsonl (what EXECUTE_MACHINE_COLLECT copies).
   if (state) { mkdirSync(`${state}/projects/-job`, { recursive: true }); writeFileSync(`${state}/projects/-job/${sessionId}.jsonl`, `${JSON.stringify({ type: 'user', session_id: sessionId })}\n`) }
-  if (mode === 'exit') { process.stderr.write('session not started'); process.exit(3) }
+  // FAKE_EXECUTE_STDERR_NOISE=1: the stderr starts with warnings of the tunnel and of useradd, and the cause is the last line.
+  if (mode === 'exit') { process.stderr.write(`${process.env.FAKE_EXECUTE_STDERR_NOISE === '1' ? `${'WARNING: To increase the performance of the tunnel, consider installing numpy.\n'.repeat(12)}useradd: warning: the home directory already exists.\n` : ''}session not started`); process.exit(3) }
   // A second pass after a failed delivery carries <delivery_failure> and, as the prompt says, sends no first reply (UD-263).
   // FAKE_EXECUTE_CAPTURE_FILES: { name: 'png' | 'text' } written into $TEAM_CAPTURES_DIR, as the screenshot tool does (UD-268).
   if (process.env.FAKE_EXECUTE_CAPTURE_FILES) {
@@ -36,7 +37,8 @@ process.stdin.on('end', async () => {
   // FAKE_EXECUTE_START_CAPTURES: the JSON list the first reply passes to `team reply --captures` (with --zone FAKE_EXECUTE_START_ZONE).
   const startCaptures = process.env.FAKE_EXECUTE_START_CAPTURES ? ['--captures', process.env.FAKE_EXECUTE_START_CAPTURES, ...(process.env.FAKE_EXECUTE_START_ZONE ? ['--zone', process.env.FAKE_EXECUTE_START_ZONE] : [])] : []
   if (process.env.FAKE_EXECUTE_REPLY === '1' && !stdin.includes('<delivery_failure>') && !stdin.includes('pass: retry after a failure')) {
-    execFileSync('team', ['reply', team.TEAM_MESSAGE_ID, '--body', 'Recibido. Empiezo por leer la pantalla.', ...startCaptures], { stdio: 'inherit' })
+    // `team` prints its own reason to the inherited stderr; the fake ends there, without the stack trace of the failed call (the reason is the end of the stderr).
+    try { execFileSync('team', ['reply', team.TEAM_MESSAGE_ID, '--body', 'Recibido. Empiezo por leer la pantalla.', ...startCaptures], { stdio: 'inherit' }) } catch { process.exit(1) }
     execFileSync('team', ['progress', team.TEAM_JOB_ID, '--percent', '20', '--phrase', 'Revisión de la pantalla'], { stdio: 'inherit' })
   }
   if (mode === 'exit-late') { process.stderr.write('session died after its first reply'); process.exit(3) } // the machine is lost once the session has already replied

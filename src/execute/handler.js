@@ -37,6 +37,24 @@ import { createStreamReader } from './stream.js'
 const run = promisify(execFile)
 const TEAM_SCRIPT = fileURLToPath(new URL('../../scripts/team.mjs', import.meta.url))
 const PROVIDER = 'claude-code'
+const STDERR_TAIL_CHARS = 600 // declared courtesy: the cause of a process that fails is at the END of its stderr (the start is ssh and useradd noise); enough for the last lines, short enough for `last_error`
+
+/**
+ * The end of a process's stderr for an error message: the last non-empty lines that fit in `chars` (a single longer line keeps its end). The start of the
+ * stderr of a machine is `ssh` and `useradd` warnings; the reason is the last thing it printed (2026-10-24, job 132 failed with code 1 and the reason was cut off).
+ */
+export function stderrTail (text, chars = STDERR_TAIL_CHARS) {
+  const lines = String(text ?? '').split('\n').map((l) => l.trimEnd()).filter((l) => l.trim() !== '')
+  const kept = []
+  let size = 0
+  for (const line of lines.reverse()) {
+    const add = line.length + (kept.length ? 1 : 0)
+    if (size + add > chars) { if (kept.length === 0) kept.push(line.slice(-chars)); break }
+    kept.push(line)
+    size += add
+  }
+  return kept.reverse().join('\n')
+}
 
 /** Start of the server's local day (TZ; UTC when unset) that contains `t`, and the start of the next one. */
 export function localDay (t) {
@@ -423,10 +441,10 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     // From here a failure is told apart by what it says about the infrastructure: a machine that was not created, a session that died with no result and a
     // model service that failed are tried once more (`infra`) and then go to a person; the budget, the format and the rest are not a second try's to fix.
     const retryAfterMs = x.infraRetryWaitMs
-    if (r.phase === 'create') throw infra(`La orden que crea la máquina terminó con código ${r.code}: ${r.stderr.trim().slice(0, 300) || 'sin mensaje'}`, 'machine_create_failed', { retryAfterMs })
+    if (r.phase === 'create') throw infra(`La orden que crea la máquina terminó con código ${r.code}: ${stderrTail(r.stderr) || 'sin mensaje'}`, 'machine_create_failed', { retryAfterMs })
     if (!result) {
       const never = outcome.st.sessionId === null && outcome.st.lines === 0 // not one event: the binary did not start the session
-      const detail = `claude -p terminó con código ${r.code}${r.signal ? ` (señal ${r.signal})` : ''} sin línea «result»: ${r.stderr.trim().slice(0, 300) || 'sin mensaje'}`
+      const detail = `claude -p terminó con código ${r.code}${r.signal ? ` (señal ${r.signal})` : ''} sin línea «result»: ${stderrTail(r.stderr) || 'sin mensaje'}`
       if (stable && never && FLAG_REJECTED.test(r.stderr)) {
         // 2026-10-23: EXECUTE_STABLE_AS_SYSTEM was on before the `claude` of the image knew `--append-system-prompt-file`, and every job failed in 0.07 s.
         // The next attempt sends the prompt whole; the variable can be on before or after the image and no job is lost.

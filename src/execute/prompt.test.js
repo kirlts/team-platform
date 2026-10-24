@@ -45,10 +45,18 @@ describe('handoff contract in the prompt and the schema (UD-269)', () => {
   const declared = { type: 'object', additionalProperties: false, required: ['outcome'], properties: { outcome: { type: 'string' } } }
   it('the stable part asks to look first, end in not_mine without a first reply, and check five things before handing over', () => {
     const { stable } = buildExecuteParts(input(1))
-    assert.match(stable, /Look first, changing nothing\. If the request is not yours/)
+    assert.match(stable, /Examine the situation first, changing nothing[^.]*before you read any code\. If the request is not yours/)
     assert.match(stable, /`not_mine`[^.]*send no reply/)
     assert.match(stable, /check in order: 1\) is the decision already recorded[\s\S]*5\) is a wrong guess cheap and reversible\?/)
     assert.match(stable, /`needs_decision` requires `decision_check`/)
+  })
+  it('the first reply comes after the look and carries the screenshot; the closing output asks for the «after» (UD-268)', () => {
+    const { stable } = buildExecuteParts(input(1))
+    assert.match(stable, /send the first reply after that look, not before/)
+    assert.match(stable, /goes in this same reply with `--captures`/)
+    assert.match(stable, /list it in `captures` \(the «after»\)/)
+    assert.ok(!/Recibido/.test(stable), 'the example does not teach an acknowledgement sent before looking')
+    assert.ok(stable.indexOf('Examine the situation first') < stable.indexOf('Rules of the host'), 'the order of the replies is declared before the rules of the host')
   })
   it('decision_check is optional in the grammar and demands a source in the validation schema', () => {
     const grammar = finalSchema(declared)

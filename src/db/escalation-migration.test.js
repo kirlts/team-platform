@@ -32,7 +32,7 @@ test('migration 0021 hands over the buried messages and leaves the others alone'
       (7, 1, 6, 10, 11, 'not_mine', NULL);
     INSERT INTO jobs (kind, message_id, status, run_at, created_at) VALUES ('execute', 6, 'queued', 1, 1);
   `)
-  assert.deepEqual(buriedHandoffs(db).map((b) => b.message_id), [1, 2], 'the invariant sees both before the migration')
+  // buriedHandoffs reads columns of later migrations (0027), so it runs only on the full schema.
   migrate(db, { dir: MIGRATIONS })
   assert.equal(db.prepare('SELECT escalation_member_id AS e FROM areas WHERE id = 1').get().e, 1, 'the area takes the first Editor')
   const assigned = (id) => db.prepare('SELECT member_id FROM message_assignees WHERE message_id = ? ORDER BY member_id').all(id).map((r) => r.member_id)

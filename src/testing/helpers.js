@@ -160,6 +160,7 @@ export async function openSse (env, url, { cookie, headers = {} } = {}) {
   const controller = new AbortController()
   const res = await fetch(`${env.baseUrl}${url}`, { headers: { accept: 'text/event-stream', cookie, ...headers }, signal: controller.signal })
   const eventList = []
+  const replays = [] // the `replay` event that opens each stream (MASTER-SPEC §7.10); kept apart so `next(n)` counts real events
   const comments = []
   let isClosed = false
   const waitUntil = []
@@ -182,7 +183,7 @@ export async function openSse (env, url, { cookie, headers = {} } = {}) {
               else if (line.startsWith('event: ')) evt.event = line.slice(7)
               else if (line.startsWith('data: ')) evt.data = JSON.parse(line.slice(6))
             }
-            if (evt.data !== null) eventList.push(evt)
+            if (evt.data !== null) (evt.event === 'replay' ? replays : eventList).push(evt)
           }
           notify()
         }
@@ -197,6 +198,7 @@ export async function openSse (env, url, { cookie, headers = {} } = {}) {
     status: res.status,
     headers: res.headers,
     eventList,
+    replays,
     comments,
     get isClosed () { return isClosed },
     async next (n, timeoutMs = 3000) {

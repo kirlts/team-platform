@@ -104,16 +104,41 @@ describe('connectEvents', () => {
     vi.useRealTimers()
   })
 
-  it('announces the reconnection only after a drop', () => {
+  it('announces the reconnection only when the replay after a drop did not cover what was missed', () => {
     FakeEventSource.instances = []
     const onReconnect = vi.fn()
     connectEvents(new EventsStore(), '/api/events', (u) => new FakeEventSource(u) as never, onReconnect)
     const es = FakeEventSource.instances[0]
     es.onopen?.(new Event('open'))
+    es.emit('replay', { complete: false, from: null }) // first connection: the screens just read their lists
     expect(onReconnect).not.toHaveBeenCalled()
     es.onerror?.(new Event('error'))
     es.onopen?.(new Event('open'))
+    expect(onReconnect).not.toHaveBeenCalled() // it waits for the replay event
+    es.emit('replay', { complete: true, from: 12 })
+    es.emit('progress', { job_id: 'j1', percent: 30, phrase: 'leyendo' })
+    expect(onReconnect).not.toHaveBeenCalled()
+    es.onerror?.(new Event('error'))
+    es.onopen?.(new Event('open'))
+    es.emit('replay', { complete: false, from: 12 })
+    es.emit('replay', { complete: false, from: 12 }) // once per connection
     expect(onReconnect).toHaveBeenCalledTimes(1)
+  })
+
+  it('counts a replay it cannot read, or a first event that is not one, as incomplete', () => {
+    FakeEventSource.instances = []
+    const onReconnect = vi.fn()
+    connectEvents(new EventsStore(), '/api/events', (u) => new FakeEventSource(u) as never, onReconnect)
+    const es = FakeEventSource.instances[0]
+    es.onopen?.(new Event('open'))
+    es.onerror?.(new Event('error'))
+    es.onopen?.(new Event('open'))
+    for (const fn of es.listeners.get('replay') ?? []) fn({ data: 'not json' } as MessageEvent)
+    expect(onReconnect).toHaveBeenCalledTimes(1)
+    es.onerror?.(new Event('error'))
+    es.onopen?.(new Event('open'))
+    es.emit('message', { message_id: 'm1', title: 't', author_id: 'a' }) // a server without `replay`
+    expect(onReconnect).toHaveBeenCalledTimes(2)
   })
 })
 

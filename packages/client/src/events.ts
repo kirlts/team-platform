@@ -174,6 +174,18 @@ function defaultEventSource(url: string): EventSourceLike {
 
 export const EVENT_NAMES = ['progress', 'done', 'message'] as const
 
+/**
+ * The `replay` event the server sends first on every connection: `complete` is true when the events that follow are all the
+ * client missed. Anything that does not say so counts as incomplete.
+ */
+function replayIsComplete(raw: string): boolean {
+  try {
+    return (JSON.parse(raw) as { complete?: unknown } | null)?.complete === true
+  } catch {
+    return false
+  }
+}
+
 /** Opens the stream and keeps it. Returns the function that closes it. */
 export function connectEvents(
   store: EventsStore,
@@ -181,11 +193,22 @@ export function connectEvents(
   factory: EventSourceFactory = defaultEventSource,
   onReconnect?: () => void,
 ): () => void {
+  // `onReconnect` runs only when the server says the replay after a drop was not enough to catch up (no `Last-Event-ID`, or
+  // events older than the retention): a complete replay already delivers what changed, through the same events.
   let source: EventSourceLike | null = null
   let timer: ReturnType<typeof setTimeout> | undefined
   let attempt = 0
   let hadError = false
+  /** The stream just came back after a drop and its `replay` event has not arrived yet. */
+  let awaitingReplay = false
   let stopped = false
+
+  /** The first event after a drop decides whether the lists are read again. A server without `replay` sends an event first: incomplete. */
+  const settleReplay = (complete: boolean) => {
+    if (!awaitingReplay) return
+    awaitingReplay = false
+    if (!complete) onReconnect?.()
+  }
 
   const open = () => {
     if (stopped) return
@@ -194,8 +217,7 @@ export function connectEvents(
     es.onopen = () => {
       attempt = 0
       store.setConnected(true)
-      // After a drop, what happened meanwhile arrives by replay; queries are refreshed just in case.
-      if (hadError) onReconnect?.()
+      awaitingReplay = hadError
       hadError = false
     }
     es.onerror = () => {
@@ -207,8 +229,17 @@ export function connectEvents(
         timer = setTimeout(open, delay)
       }
     }
-    es.onmessage = (e) => store.dispatch(undefined, e.data)
-    for (const name of EVENT_NAMES) es.addEventListener(name, (e) => store.dispatch(name, e.data))
+    es.onmessage = (e) => {
+      settleReplay(false)
+      store.dispatch(undefined, e.data)
+    }
+    es.addEventListener('replay', (e) => settleReplay(replayIsComplete(e.data)))
+    for (const name of EVENT_NAMES) {
+      es.addEventListener(name, (e) => {
+        settleReplay(false)
+        store.dispatch(name, e.data)
+      })
+    }
   }
 
   open()

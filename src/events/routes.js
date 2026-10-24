@@ -5,6 +5,10 @@
 //  - `?job_id=N` narrows the stream to one job, closes it after its `done`, and answers 204 if that job has already
 //    finished and there is nothing to replay: the standard sets 204 so the browser stops reconnecting.
 //  - Without `Last-Event-ID`, a new connection receives the latest progress of each of the member's running jobs.
+//  - The first event of every connection is `replay`: `{ complete, from }`. It has no `id` when history follows (the last event
+//    replayed sets `Last-Event-ID`); with nothing to replay its `id` is the last `seq` issued, so a tab that saw no event has one.
+//    `complete: true` means the replayed events are everything the client missed; `false` (no `Last-Event-ID`, or retention
+//    already removed events after it) means they are not, and the client must read its lists again.
 
 import fastifySse from '@fastify/sse'
 import { get } from '../db/index.js'
@@ -24,7 +28,7 @@ export async function registerEventRoutes (app, { db, config, events, requireRol
     schema: {
       querystring: { type: 'object', properties: { job_id: { type: 'integer', minimum: 1 } }, additionalProperties: false },
       response: {
-        200: { type: 'string', description: 'text/event-stream flow. Events: progress, done, message. The id is job_events.seq (Last-Event-ID).' },
+        200: { type: 'string', description: 'text/event-stream flow. Events: replay (first: `{ complete, from }`), progress, done, message. The id is job_events.seq (Last-Event-ID).' },
         204: { type: 'null', description: 'With job_id: the job has already finished and there is nothing to replay; the browser stops reconnecting.' }
       }
     }
@@ -46,11 +50,12 @@ export async function registerEventRoutes (app, { db, config, events, requireRol
     const sentSeqs = new Set()
     const outbox = { chain: Promise.resolve() }
 
-    const submit = (dbRow) => {
+    const submit = (dbRow) => submitWire(toWire(dbRow), dbRow)
+    const submitWire = (wire, dbRow = null) => {
       outbox.chain = outbox.chain.then(async () => {
         if (!reply.sse.isConnected) return
-        await reply.sse.send(toWire(dbRow))
-        if (jobId !== null && dbRow.kind === 'done') reply.sse.close() // the client closes its EventSource on receiving it
+        await reply.sse.send(wire)
+        if (jobId !== null && dbRow?.kind === 'done') reply.sse.close() // the client closes its EventSource on receiving it
       }).catch(() => {})
     }
     const dispatch = (dbRow) => {
@@ -72,6 +77,11 @@ export async function registerEventRoutes (app, { db, config, events, requireRol
 
     reply.sse.sendHeaders()
     reply.raw.write(': connected\n\n') // forces the first byte through buffering proxies
+    // Before the history, so the client knows whether what follows is all it missed.
+    // With nothing to replay it carries the last `seq` issued as its `id`, so a quiet tab still has a `Last-Event-ID` to come back with.
+    const replayWire = { event: 'replay', data: lastSeqValue !== null ? events.replayCoverage(lastSeqValue) : { complete: false, from: null } }
+    if (history.length === 0) replayWire.id = String(events.lastIssued())
+    submitWire(replayWire)
     for (const dbRow of history) { sentSeqs.add(dbRow.seq); submit(dbRow) }
     replaying = false
     for (const dbRow of pending) if (!sentSeqs.has(dbRow.seq)) submit(dbRow)

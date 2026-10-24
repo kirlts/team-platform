@@ -10,7 +10,7 @@ export const PHASES = ['queue_wait_ms', 'first_reply_ms', 'final_reply_ms', 'tot
 const COLUMNS = [
   'job_id', 'attempt', 'message_id', 'instance', 'trace_id', 'session_id', 'model', 'runner', 'machine', 'started_at', 'finished_at',
   ...PHASES, 'input_tokens', 'output_tokens', 'cache_read_tokens', 'cache_write_tokens', 'cost_usd', 'turns', 'tool_count', 'subagent_count',
-  'outcome', 'error_code', 'delivered', 'transcript_ref', 'slowest_tools_json', 'deliver_job_id', 'delivery_ref', 'delivery_held', 'delivery_hold_reason', 'delivery_discarded_at', 'delivery_discarded_by', 'detail_json'
+  'outcome', 'error_code', 'delivered', 'transcript_ref', 'slowest_tools_json', 'deliver_job_id', 'delivery_ref', 'delivery_held', 'delivery_hold_reason', 'delivery_discarded_at', 'delivery_discarded_by', 'detail_json', 'review_answered'
 ]
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? Math.round(v * 1e6) / 1e6 : null)
 
@@ -25,7 +25,7 @@ export function recordExecuteRun (db, run) {
   const row = { ...run, slowest_tools_json: JSON.stringify((run.slowest_tools ?? []).slice(0, SLOWEST_TOOLS_KEPT)) }
   const values = COLUMNS.map((c) => {
     const v = row[c] ?? null
-    if (c === 'delivered' || c === 'delivery_held') return v === null ? null : (v ? 1 : 0)
+    if (c === 'delivered' || c === 'delivery_held' || c === 'review_answered') return v === null ? null : (v ? 1 : 0)
     if (c === 'slowest_tools_json') return v ?? '[]'
     return typeof v === 'number' ? num(v) : v
   })

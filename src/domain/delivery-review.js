@@ -8,7 +8,7 @@ import { audit } from './audit.js'
 import { conflict, notFound } from './errors.js'
 
 /** The latest run of the message that reached a result (the same rule as `buriedHandoffs`). */
-const LATEST_RUN = `SELECT * FROM execute_runs x WHERE x.message_id = ? AND x.outcome IS NOT NULL AND x.outcome NOT IN ('aborted', 'failed')
+const LATEST_RUN = `SELECT * FROM execute_runs x WHERE x.message_id = ? AND x.outcome IS NOT NULL AND x.outcome NOT IN ('aborted', 'failed') AND x.review_answered IS NOT 1
                      ORDER BY x.started_at DESC, x.id DESC LIMIT 1`
 
 /**
@@ -16,12 +16,13 @@ const LATEST_RUN = `SELECT * FROM execute_runs x WHERE x.message_id = ? AND x.ou
  * job that wrote the branch; `delivering_job_id` the `deliver` job that is queued or running after a person approved it (the review stays
  * visible while it runs, to show its progress, and disappears when the delivery succeeds).
  */
-export function pendingDelivery (db, messageId) {
+export function pendingDelivery (db, messageId, { exceptJobId = null } = {}) {
   const message = get(db, 'SELECT status FROM messages WHERE id = ? AND deleted_at IS NULL', messageId)
   if (!message || message.status === 'closed') return null
   const latest = get(db, LATEST_RUN, messageId)
   if (!latest || latest.delivery_held !== 1 || latest.delivery_discarded_at !== null) return null
-  if (get(db, "SELECT id FROM jobs WHERE message_id = ? AND kind = 'execute' AND status IN ('queued', 'running')", messageId)) return null
+  // `exceptJobId`: the session that was called to answer the review is itself a running `execute` job, and it must still see what it was called about.
+  if (get(db, "SELECT id FROM jobs WHERE message_id = ? AND kind = 'execute' AND status IN ('queued', 'running') AND id IS NOT ?", messageId, exceptJobId)) return null
   const delivering = get(db, "SELECT id FROM jobs WHERE message_id = ? AND kind = 'deliver' AND status IN ('queued', 'running') ORDER BY id DESC LIMIT 1", messageId)
   const executeJob = get(db, 'SELECT payload_json FROM jobs WHERE id = ?', latest.job_id)
   let agentId = null
@@ -39,10 +40,10 @@ export function pendingDelivery (db, messageId) {
  * A person discards the held branch: it is never delivered. The run keeps who and when, the thread gets the notice «Descartado por <name>: <reason>»
  * and the message stays open. 409 `no_pending_delivery` without a held review, 409 `deliver_busy` while a delivery of it runs.
  */
-export function discardDelivery ({ db, events, now = Date.now }, { messageId, memberId, reason }) {
+export function discardDelivery ({ db, events, now = Date.now }, { messageId, memberId, reason, exceptJobId = null }) {
   return events.transaction(() => {
     if (!get(db, 'SELECT id FROM messages WHERE id = ? AND deleted_at IS NULL', messageId)) throw notFound('El mensaje no existe.')
-    const pending = pendingDelivery(db, messageId)
+    const pending = pendingDelivery(db, messageId, { exceptJobId })
     if (!pending) throw conflict('El mensaje no tiene una entrega esperando revisión.', 'no_pending_delivery')
     if (pending.delivering_job_id) throw conflict('La entrega de este mensaje ya está en curso.', 'deliver_busy')
     const t = now()

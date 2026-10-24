@@ -67,7 +67,7 @@ export function buriedHandoffs (db, { now = Date.now(), graceMs = 5000 } = {}) {
       FROM messages m
       JOIN execute_runs r ON r.id = (
              SELECT x.id FROM execute_runs x
-              WHERE x.message_id = m.id AND x.outcome IS NOT NULL AND x.outcome NOT IN ('aborted', 'failed')
+              WHERE x.message_id = m.id AND x.outcome IS NOT NULL AND x.outcome NOT IN ('aborted', 'failed') AND x.review_answered IS NOT 1
               ORDER BY x.started_at DESC, x.id DESC LIMIT 1)
      WHERE m.deleted_at IS NULL AND m.status <> 'closed'
        AND (r.outcome IN (${HANDOFF_OUTCOMES.map((o) => `'${o}'`).join(', ')}) OR r.delivery_held = 1)

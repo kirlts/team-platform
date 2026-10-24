@@ -14,9 +14,9 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import Ajv from 'ajv'
-import { get, run as runSql } from '../db/index.js'
+import { all, get, run as runSql } from '../db/index.js'
 import { parseJson } from '../db/util.js'
-import { infra, permanent } from '../domain/errors.js'
+import { AppError, infra, permanent } from '../domain/errors.js'
 import { Deferred } from '../domain/pipeline.js'
 import { addReply, closeMessage } from '../domain/messages.js'
 import { mentionAnswered } from '../domain/mentions.js'
@@ -30,6 +30,8 @@ import { readAgentSecret } from './agent-credentials.js'
 import { capturesDir, capturesEnv, closingCaptures, storeCaptures } from './captures.js'
 import { documentFiles, documentNotes, documentsDir, documentsEnv, storeDocuments } from './documents.js'
 import { decisionCheckProblem, decisionLines } from './decision-check.js'
+import { approveDelivery } from './approve.js'
+import { discardDelivery, pendingDelivery } from '../domain/delivery-review.js'
 import { loadMention, mentionBlock, planThread, stageThread, threadEnv } from './mention-context.js'
 import { buildExecuteParts, buildExecutePrompt, declaredOutput, finalSchema, readTemplate } from './prompt.js'
 import { closeLine, closeReason, closeRequest, firstReplyAnchor } from './auto-close.js'
@@ -136,6 +138,8 @@ const FAILURE_TEXTS = {
     // UD-278: what a person reads when the agent could not answer a mention: its name and a reason in plain words.
     mention: (agent, why) => `${agent} no pudo responder: ${why}.`,
     why: { interrupted: 'se interrumpió', timeout: 'se acabó el tiempo', budget: 'se alcanzó el tope de gasto', turns: 'era demasiado largo', format: 'la respuesta no tuvo el formato esperado', infra: 'falló un servicio', system: 'hubo un problema del sistema' },
+    // UD-280: the person is not an Editor, so the system does not deliver or discard; it says who can.
+    notEditor: (names) => `Sólo un Editor puede aprobar o descartar este cambio${names.length ? `: ${names.join(', ')}` : ''}. No se entregó ni se descartó.`,
     edited: 'El mensaje se editó mientras trabajaba, así que esta respuesta puede no corresponder al texto de ahora. No se entregó a producción; lo hecho queda guardado en la rama.'
   },
   en: {
@@ -153,6 +157,7 @@ const FAILURE_TEXTS = {
     budgetWait: (time) => `Waiting: today's spending limit was reached. It continues tomorrow at ${time}.`,
     mention: (agent, why) => `${agent} could not answer: ${why}.`,
     why: { interrupted: 'it was interrupted', timeout: 'time ran out', budget: 'the spending limit was reached', turns: 'it was too long', format: 'the answer did not have the expected format', infra: 'a service failed', system: 'a system problem' },
+    notEditor: (names) => `Only an Editor can approve or discard this change${names.length ? `: ${names.join(', ')}` : ''}. It was neither delivered nor discarded.`,
     edited: 'The message was edited while I worked, so this answer may not match its current text. It was not delivered to production; the work is saved on the branch.'
   }
 }
@@ -283,6 +288,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         cost_usd: typeof result?.total_cost_usd === 'number' ? result.total_cost_usd : null,
         turns: rec.st?.turns ?? null, tool_count: s?.tools ?? null, subagent_count: s?.subagents ?? null,
         detail_json: rec.detail ? JSON.stringify(rec.detail) : null,
+        review_answered: rec.reviewAnswered ? 1 : null,
         outcome: aborted ? 'aborted' : (failed ? 'failed' : (typeof result?.structured_output?.outcome === 'string' ? result.structured_output.outcome : null)),
         error_code: errorCode, delivered: marks.delivered ?? null,
         transcript_ref: rec.r?.collect?.ref ?? null, slowest_tools: s?.slowest ?? []
@@ -320,7 +326,14 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     // UD-278: the reply that mentions this agent (when the job was enqueued by a mention). The session receives the whole thread; `mode` and `attachments` are offered as with a forward.
     const mention = loadMention(db, payload.mention, { messageId })
     const thread = mention ? planThread(db, { messageId, marked: [mention.replyId, ...mention.earlier] }) : null
-    const schema = finalSchema(declared.grammar, { autoClose: x.autoClose, forwarded: forward !== null || mention !== null })
+    // UD-280: a mention on a message whose change waits for review. This very job is a running `execute`, so the review is read without it.
+    const reviewState = mention ? pendingDelivery(db, messageId, { exceptJobId: job.id }) : null
+    const mentionAuthor = mention ? get(db, 'SELECT m.id, m.role, m.kind, m.active FROM replies r JOIN members m ON m.id = r.author_id WHERE r.id = ?', mention.replyId) : null
+    const byIsEditor = Boolean(mentionAuthor && mentionAuthor.role === 'editor' && mentionAuthor.kind !== 'agent' && mentionAuthor.active === 1)
+    const review = reviewState
+      ? { branch: reviewState.branch, reason: reviewState.held_reason, byIsEditor, editors: all(db, "SELECT name FROM members WHERE role = 'editor' AND kind != 'agent' AND active = 1 ORDER BY name").map((r) => r.name) }
+      : null
+    const schema = finalSchema(declared.grammar, { autoClose: x.autoClose, forwarded: forward !== null || mention !== null, reviewing: review !== null })
     const validate = ajv.compile(finalSchema(declared.validation, { validation: true, autoClose: x.autoClose }))
     let hostInstructions = ''
     if (x.hostInstructions) {
@@ -334,7 +347,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const promptInput = {
       message: { id: messageId, title: message.title, body: message.body, fields: parseJson(message.fields_json, {}), area: message.area_title, status: message.status },
       template: templateRow, author, agent, project: getProject(db, config), jobId: job.id, maxSubagents: x.maxSubagents, branch, hostInstructions,
-      deliver: Boolean(x.deliverCommand), deliverFailure, autoClose: x.autoClose, forward, mention: mention ? mentionBlock(mention, thread) : null,
+      deliver: Boolean(x.deliverCommand), deliverFailure, autoClose: x.autoClose, forward, mention: mention ? mentionBlock(mention, thread, review) : null,
       // A retry after a failure of the system: the first attempt may have sent the first reply already, and a second one repeats «Recibido» in the thread.
       retried: job.attempts > 1 && Boolean(get(db, 'SELECT 1 AS ok FROM replies WHERE message_id = ? AND author_id = ? AND created_at >= ? AND deleted_at IS NULL', messageId, memberId, job.created_at))
     }
@@ -509,13 +522,17 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     if (noCheck) throw permanent(`La salida estructurada no cumple el formato: ${noCheck}`, 'invalid_output')
     const request = mention ? null : closeRequest(result.structured_output) // UD-271: what the session asked for; the system decides when the reply is posted. A mention never closes (UD-278): the people in the thread decide
     // The files are in `captured` and `documents`, the request is in `request`, the mode is in `investigate`; what travels on is the rest.
-    const { captures: _declared, close: _close, close_reason: _closeReason, mode, attachments: _attachments, ...output } = result.structured_output
-    const investigate = mode === 'investigate' // UD-272: the model understood the reason as «look into it»: nothing is delivered and nothing is closed, whatever the rest of the output says
+    const { captures: _declared, close: _close, close_reason: _closeReason, mode, attachments: _attachments, review: asked, review_reason: askedReason, ...output } = result.structured_output
+    // UD-280: what the person asked about the change under review. The system reads the field, never the words; without a review pending the field means nothing.
+    const reviewAction = review ? asked ?? 'none' : null
+    const untouched = reviewAction === 'approve' || reviewAction === 'discard' || reviewAction === 'none' // the review is answered or left as it is: no change, no delivery, no close
+    const investigate = mode === 'investigate' || untouched // UD-272: the model understood the reason as «look into it»: nothing is delivered and nothing is closed, whatever the rest of the output says
     const documentLines = documentNotes(documents.rejected, author?.language)
     const { decision_check: check, ...visible } = output // the check is shown as the question, not as JSON
-    const body = [replyBody(visible), ...decisionLines(check, author?.language)].join('\n\n')
+    let body = [replyBody(visible), ...decisionLines(check, author?.language)].join('\n\n')
     rec.detail = detailEntries(visible, template) // UD-276: kept with the run, shown folded in «Tiempos»
     const hands = Boolean(x.deliverCommand) && output.outcome === 'done' && !investigate && await branchExists(branch)
+    rec.reviewAnswered = untouched // the run changed nothing: the review keeps pointing at the run that held the branch
 
     return () => {
       // The message may have changed while the session worked. Closed, deleted or no longer Claude's: nobody waits for this answer, and it could not be posted.
@@ -527,6 +544,20 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         return
       }
       const edited = fingerprint(now_) !== startedWith
+      // UD-280: the person asked, in their own words, to deliver or to drop the change under review. The system carries it out, and only for an Editor.
+      if (reviewAction === 'approve' || reviewAction === 'discard') {
+        const texts = FAILURE_TEXTS[author?.language] ?? FAILURE_TEXTS['es-419']
+        if (!byIsEditor) body = texts.notEditor(review.editors)
+        else {
+          try {
+            if (reviewAction === 'approve') approveDelivery({ db, config, events }, { messageId, requestedBy: mentionAuthor.id, exceptJobId: job.id })
+            else discardDelivery({ db, events, now }, { messageId, memberId: mentionAuthor.id, reason: (askedReason?.trim() || String(output.summary ?? '').trim()).slice(0, 1000) || '-', exceptJobId: job.id })
+          } catch (error) {
+            if (!(error instanceof AppError)) throw error
+            body = error.message // a conflict is already a plain sentence for people (the review is gone, a delivery is running)
+          }
+        }
+      }
       if (hands && !edited) {
         // The delivery is the next job: it posts the closing reply when it ends (UD-263). A delivery already queued or running for the message
         // (an Editor started it by hand) leaves nothing to hand over, and the reply goes out now.

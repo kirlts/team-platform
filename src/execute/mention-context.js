@@ -94,7 +94,7 @@ export async function stageThread ({ config, plan, workdir }) {
 }
 
 /** The `mentioned` block of the prompt: who called, which reply, what is expected, and the thread. */
-export function mentionBlock (mention, plan) {
+export function mentionBlock (mention, plan, review = null) {
   const lines = [
     `mentioned by: ${mention.by}`,
     `reply: ${mention.replyId} (${mention.at})${mention.earlier.length ? `; earlier replies that also mention you and were not attended yet: ${mention.earlier.join(', ')}` : ''}`,
@@ -104,8 +104,28 @@ export function mentionBlock (mention, plan) {
     '- You always answer in this thread. Your first reply (`team reply`) or your final `summary` is that answer; with more to say you may send the first one early and the rest at the end. `summary` is addressed to the person named in `mentioned by`.',
     '- Do not set `close` in this run: a mention is a request inside a conversation, and the people in it decide when it ends.',
     '- The files of the thread are in `$TEAM_THREAD_DIR`: open the images and the documents with your file tools. A link is listed with its address.',
+    ...(review ? reviewLines(review) : []),
     '',
     plan.text
   ]
   return lines.join('\n')
+}
+
+/**
+ * UD-280: the message has a change that waits for review (a held delivery). The person answers in the thread, in their own words, and the model says in `review`
+ * what they asked for; the system carries it out. `review` here: `{ branch, reason, byIsEditor, editors }`, all of it facts the system knows.
+ */
+function reviewLines (review) {
+  return [
+    '',
+    'REVIEW PENDING: this message has a change that is not in production yet and waits for a person.',
+    `- branch: ${review.branch}; why it was held: ${review.reason || '(no reason given)'}. The summary, the screenshots labeled «Propuesta» and the walkthrough video you left are in the thread below.`,
+    `- the person who mentioned you ${review.byIsEditor ? 'is an Editor: they can approve and discard' : `is NOT an Editor, so they cannot approve or discard (Editors: ${review.editors.join(', ') || 'none'})`}.`,
+    '- Read what the person wrote as their answer to that review, and say in `review` of your final output what they asked, whatever the words:',
+    '  `approve`: they want it delivered to production as it is. Change nothing; the system delivers it, only if they are an Editor.',
+    '  `discard`: they want it dropped. Change nothing and write `review_reason`: the reason they gave, in one line.',
+    '  `iterate`: they want something changed, or something else done on the same branch. Work on the branch `' + review.branch + '` as in any run: when you finish, leave the review material again (a summary, screenshots with the «Propuesta» label and the walkthrough video by steps).',
+    '  `none`: they ask a question, ask for another view, or say something that settles nothing. Answer it, change nothing, deliver nothing; the review stays as it is.',
+    '- With `approve`, `discard` or `none` you change no code and push nothing. Your `summary` is one or two short sentences for that person about what you understood and what comes next. Do not claim the delivery happened: the system posts that when it ends.'
+  ]
 }

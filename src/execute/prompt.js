@@ -7,6 +7,7 @@ import { decisionCheckSchema } from './decision-check.js'
 
 /** What a forwarded job may do (UD-272): carry the work out, or investigate and recommend without changing anything. */
 export const FORWARD_MODES = ['resolve', 'investigate']
+export const REVIEW_ACTIONS = ['approve', 'discard', 'iterate', 'none'] // UD-280: what the person asked about a change that waits for review
 
 const LANGUAGE_NAMES = { 'es-419': 'Spanish (Latin America)', en: 'English' }
 
@@ -29,7 +30,7 @@ export function readTemplate (row) {
  * The schema the session must satisfy: the template's declared output (A4) plus a required `summary`, the closing reply
  * to the sender. Without a declared output, only `summary`.
  */
-export function finalSchema (declared, { validation = false, autoClose = true, forwarded = false } = {}) {
+export function finalSchema (declared, { validation = false, autoClose = true, forwarded = false, reviewing = false } = {}) {
   const description = 'Closing reply to the sender, as to a project manager: two short paragraphs, what happened, what changes for those who use the product and the decision left to them, if any. No paths, file names, commands, component names or jargon.'
   // The grammar of --json-schema keeps A4's plain string; the check after the run also rejects an empty one.
   const summary = { type: 'string', ...(validation ? { minLength: 1 } : {}), description }
@@ -67,14 +68,21 @@ export function finalSchema (declared, { validation = false, autoClose = true, f
         }
       }
     : {}
+  // UD-280: a mention on a message with a change waiting for review. `review` is what the person asked, read by the system, never the words; `review_reason` is the reason of a discard.
+  const review = reviewing || validation
+    ? {
+        review: { type: 'string', enum: REVIEW_ACTIONS, description: '`approve` when the person wants the change delivered; `discard` when they want it dropped; `iterate` when they want it changed on the same branch; `none` when they ask or say something that leaves the review as it is.' },
+        review_reason: { type: 'string', description: 'With `discard`: one line, in the reply language, with the reason the person gave. Omit otherwise.' }
+      }
+    : {}
   if (!declared || typeof declared !== 'object' || declared.type !== 'object') {
-    return { type: 'object', additionalProperties: false, required: ['summary'], properties: { summary, captures, ...closing, ...forwarding } }
+    return { type: 'object', additionalProperties: false, required: ['summary'], properties: { summary, captures, ...closing, ...forwarding, ...review } }
   }
   // UD-269: `decision_check` is optional in the grammar; the check after the run requires it with `needs_decision` (decision-check.js).
   return {
     ...declared,
     required: [...new Set([...(declared.required ?? []), 'summary'])],
-    properties: { ...(declared.properties ?? {}), summary, captures, ...closing, ...forwarding, decision_check: decisionCheckSchema({ validation }) }
+    properties: { ...(declared.properties ?? {}), summary, captures, ...closing, ...forwarding, ...review, decision_check: decisionCheckSchema({ validation }) }
   }
 }
 

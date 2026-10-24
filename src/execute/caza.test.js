@@ -403,4 +403,21 @@ describe('failure hunt: execute and deliver', () => {
     assert.doesNotMatch(calls()[0].stdin, /pass: retry/)
     assert.equal(env.db.prepare("SELECT COUNT(*) AS n FROM replies WHERE message_id = ? AND body LIKE 'Recibido%'").get(messageId).n, 1, 'one «Recibido» in the thread')
   })
+  it('a job that waits for the next day because the cap is spent says so once in the thread, and not at each retry', async () => {
+    const spend = env.db.prepare("INSERT INTO jobs (kind, payload_json, status, run_at, created_at, finished_at, cost_usd, runner) VALUES ('execute', '{}', 'done', ?, ?, ?, 10, 'local')").run(Date.now(), Date.now(), Date.now())
+    try {
+      startWorker({ dailyBudgetUsd: 10 })
+      const messageId = await publishedMessage('Se acabó el tope de hoy.')
+      const [job] = await until(() => { const j = jobsOf(messageId, 'execute'); return j.length && j[0].status === 'queued' && j[0].run_at > Date.now() + 1000 && j })
+      const notices = () => env.db.prepare("SELECT body, author_id FROM replies WHERE message_id = ? AND body LIKE 'En espera:%'").all(messageId)
+      assert.equal(notices().length, 1)
+      assert.match(notices()[0].body, /^En espera: se alcanzó el tope de gasto de hoy\. Sigue mañana a las 00:00\.$/)
+      assert.equal(notices()[0].author_id, agentId)
+      assert.equal(calls().length, 0, 'claude was not called')
+      env.db.prepare('UPDATE jobs SET run_at = ? WHERE id = ?').run(Date.now(), job.id) // the next day arrives and the cap is still spent
+      worker.wake()
+      await until(() => jobsOf(messageId, 'execute')[0].run_at > Date.now() + 1000)
+      assert.equal(notices().length, 1, 'the second wait does not repeat it')
+    } finally { env.db.prepare('DELETE FROM jobs WHERE id = ?').run(Number(spend.lastInsertRowid)) }
+  })
 })

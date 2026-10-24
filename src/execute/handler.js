@@ -101,6 +101,7 @@ const FAILURE_TEXTS = {
     infra: 'No pude terminar este trabajo por un problema del sistema (la máquina de trabajo, la conexión o el servicio del modelo), dos veces seguidas.',
     system: 'No pude terminar este trabajo por un problema del sistema.',
     config: (reason) => `No pude empezar este trabajo: ${reason}`,
+    budgetWait: (time) => `En espera: se alcanzó el tope de gasto de hoy. Sigue mañana a las ${time}.`,
     edited: 'El mensaje se editó mientras trabajaba, así que esta respuesta puede no corresponder al texto de ahora. No se entregó a producción; lo hecho queda guardado en la rama.'
   },
   en: {
@@ -115,6 +116,7 @@ const FAILURE_TEXTS = {
     infra: 'I could not finish this work because of a system problem (the work machine, the connection or the model service), twice in a row.',
     system: 'I could not finish this work because of a system problem.',
     config: (reason) => `I could not start this work: ${reason}`,
+    budgetWait: (time) => `Waiting: today's spending limit was reached. It continues tomorrow at ${time}.`,
     edited: 'The message was edited while I worked, so this answer may not match its current text. It was not delivered to production; the work is saved on the branch.'
   }
 }
@@ -303,7 +305,10 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     }
     // UD-256: the day's spend first; with nothing left the job waits for the next day without spending its attempt.
     const budget = dailyBudget(db, x, now())
-    if (budget.remaining <= 0) throw new Deferred(budget.nextDayMs, step('budgetWait'))
+    if (budget.remaining <= 0) {
+      noticeBudgetWait(job, messageId, now() + budget.nextDayMs)
+      throw new Deferred(budget.nextDayMs, step('budgetWait'))
+    }
     const available = budget.remaining - [...reserved.values()].reduce((a, b) => a + b, 0)
     if (available < 0.01) throw new Deferred(x.capacityWaitMs, step('budgetWait')) // what is left is held by sessions that run now: it may come back when they end
     const budgetUsd = Math.round(Math.min(x.maxBudgetUsd, available) * 100) / 100 || 0.01
@@ -494,6 +499,23 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         kind: 'done',
         data: { status: 'done', message_id: String(messageId), reply_id: String(replyId), session_id: outcome.st.sessionId, cost_usd: result.total_cost_usd ?? null }
       })
+    }
+  }
+
+  /**
+   * A job that waits for the next day because the day's cap is spent leaves no trace in the thread: for up to a day nobody knew why the message did not move.
+   * The agent says it once, in plain words (payload `budget_notice` keeps it from repeating at each retry). Never fails the job.
+   */
+  function noticeBudgetWait (job, messageId, resumeAt) {
+    try {
+      const { member_id: memberId, budget_notice: told } = parseJson(job.payload_json, {})
+      if (told || !memberId) return
+      const t = FAILURE_TEXTS[languageOf(messageId)] ?? FAILURE_TEXTS['es-419']
+      const time = new Date(resumeAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+      addReply({ db, events, now }, { messageId, authorId: memberId, kind: 'answer', body: t.budgetWait(time) })
+      runSql(db, "UPDATE jobs SET payload_json = json_set(payload_json, '$.budget_notice', json('true')) WHERE id = ?", job.id)
+    } catch (e) {
+      logger?.warn({ err: e }, 'could not post the notice of the spending cap')
     }
   }
 

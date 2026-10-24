@@ -245,7 +245,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
         const closing = closingCaptures(db, { messageId, authorId: agent.id, stored: payload.captures, language: author?.language })
         // A held delivery is a question to the person who decides in the area, in their tray and not «answered» (UD-269).
         const { replyId } = handOffToPerson({ db, events, now }, {
-          messageId, agentId: agent.id, source: 'deliver', body: [heldBody({ output: payload.output, template, reason, language: author?.language }), ...closing.lines].join('\n\n'), files: closing.files
+          messageId, agentId: agent.id, source: 'deliver', body: [heldBody({ output: payload.output, template, reason, language: author?.language }), ...closing.lines, ...(payload.documents?.notes ?? [])].join('\n\n'), files: [...closing.files, ...(payload.documents?.files ?? [])]
         })
         const finalAt = now()
         const started = payload.execute_job_id ? get(db, 'SELECT started_at FROM execute_runs WHERE job_id = ? AND attempt = ?', payload.execute_job_id, payload.execute_attempt ?? 1)?.started_at : null
@@ -271,13 +271,14 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
       const stored = fromProduction.length ? fromProduction : (result.after?.hadBefore ? [] : payload.captures)
       const closing = closingCaptures(db, { messageId, authorId: agent.id, stored, language: author?.language })
       for (const reason of result.after?.failed ?? []) closing.lines.push(textsOf(author?.language).afterFailed(reason))
+      closing.lines.push(...(payload.documents?.notes ?? [])) // UD-272: the documents the session attached travel with the delivery
       // UD-271: a delivery that ended with exit 0 is «done and checked»; the rest of the conditions are the system's (auto-close.js).
       const request = payload.close_request ?? null // a delivery an Editor launched by hand carries no request
       const since = payload.close_since ?? firstReplyAnchor(db, { messageId, agentId: agent.id, from: (payload.execute_job_id ? get(db, 'SELECT created_at FROM jobs WHERE id = ?', payload.execute_job_id)?.created_at : null) ?? job.created_at })
       const why = !request ? null : closeReason(db, config, { output: payload.output, request, delivered: true, messageId, agentId: agent.id, after: stored.length, since })
       if (why) closing.lines.push(closeLine(why, author?.language))
       const { replyId } = addReply({ db, events, now }, {
-        messageId, authorId: agent.id, kind: 'answer', body: deliveredBody({ output: payload.output, template, ref, language: author?.language, lines: closing.lines }), files: closing.files
+        messageId, authorId: agent.id, kind: 'answer', body: deliveredBody({ output: payload.output, template, ref, language: author?.language, lines: closing.lines }), files: [...closing.files, ...(payload.documents?.files ?? [])]
       })
       if (why) closeMessage({ db, events, now }, messageId, agent.id)
       const finalAt = now()

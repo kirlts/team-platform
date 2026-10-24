@@ -27,6 +27,7 @@ import { currentTraceparent, recordGenAiCall, withSpan } from '../telemetry/api.
 import { instanceLabel, recordExecuteRun, updateExecuteRun } from '../telemetry/execute-runs.js'
 import { readAgentSecret } from './agent-credentials.js'
 import { capturesDir, capturesEnv, closingCaptures, storeCaptures } from './captures.js'
+import { documentFiles, documentNotes, documentsDir, documentsEnv, storeDocuments } from './documents.js'
 import { decisionCheckProblem, decisionLines } from './decision-check.js'
 import { buildExecuteParts, buildExecutePrompt, declaredOutput, finalSchema, readTemplate } from './prompt.js'
 import { closeLine, closeReason, closeRequest, firstReplyAnchor } from './auto-close.js'
@@ -99,7 +100,7 @@ export function claudeArgs (x, schema) {
  * template declares (`outcome` as «Resultado», as the panel shows it).
  */
 export function replyBody (output, template = null, extraLabels = {}) {
-  const { summary, captures: _captures, decision_check: _check, close: _close, close_reason: _closeReason, ...rest } = output // the screenshots travel as attachments (UD-268); the check is shown as the question (UD-269); the close request is read by the system (UD-271) and shows as one line
+  const { summary, captures: _captures, decision_check: _check, close: _close, close_reason: _closeReason, mode: _mode, attachments: _attachments, ...rest } = output // the screenshots travel as attachments (UD-268); the check is shown as the question (UD-269); the close request is read by the system (UD-271) and shows as one line; `mode` is read by the system and the documents travel as attachments (UD-272)
   const labels = { outcome: 'Resultado', ...Object.fromEntries((template?.output ?? []).map((e) => [e.name, e.label ?? e.name])), ...extraLabels }
   const lines = Object.entries(rest).filter(([, v]) => v !== null && v !== undefined && v !== '')
     .map(([k, v]) => `**${labels[k] ?? k}**: ${typeof v === 'string' ? v : `\n\n\`\`\`json\n${JSON.stringify(v, null, 2)}\n\`\`\``}`)
@@ -292,7 +293,12 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const template = readTemplate(templateRow)
     let declared
     try { declared = declaredOutput(template) } catch (error) { throw permanent(`La salida declarada de la plantilla no compila: ${error.message}`, 'template') }
-    const schema = finalSchema(declared.grammar, { autoClose: x.autoClose })
+    // UD-272: the forward that brought the message to this agent (the reply of kind `forward` the job names), when there is one and it is still in the thread.
+    const forward = payload.forward?.reply_id
+      ? get(db, `SELECT r.body AS reason, m.name AS by FROM replies r JOIN members m ON m.id = r.author_id
+                  WHERE r.id = ? AND r.message_id = ? AND r.kind = 'forward' AND r.forwarded_to = ? AND r.deleted_at IS NULL`, payload.forward.reply_id, messageId, memberId) ?? null
+      : null
+    const schema = finalSchema(declared.grammar, { autoClose: x.autoClose, forwarded: forward !== null })
     const validate = ajv.compile(finalSchema(declared.validation, { validation: true, autoClose: x.autoClose }))
     let hostInstructions = ''
     if (x.hostInstructions) {
@@ -306,7 +312,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const promptInput = {
       message: { id: messageId, title: message.title, body: message.body, fields: parseJson(message.fields_json, {}), area: message.area_title, status: message.status },
       template: templateRow, author, agent, project: getProject(db, config), jobId: job.id, maxSubagents: x.maxSubagents, branch, hostInstructions,
-      deliver: Boolean(x.deliverCommand), deliverFailure, autoClose: x.autoClose,
+      deliver: Boolean(x.deliverCommand), deliverFailure, autoClose: x.autoClose, forward,
       // A retry after a failure of the system: the first attempt may have sent the first reply already, and a second one repeats «Recibido» in the thread.
       retried: job.attempts > 1 && Boolean(get(db, 'SELECT 1 AS ok FROM replies WHERE message_id = ? AND author_id = ? AND created_at >= ? AND deleted_at IS NULL', messageId, memberId, job.created_at))
     }
@@ -351,7 +357,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const teamUrl = x.teamUrl || `http://127.0.0.1:${config.port}`
     const sessionEnv = {
       TEAM_URL: teamUrl, TEAM_API_PREFIX: config.apiPrefix, TEAM_AGENT_EMAIL: agent.email, TEAM_AGENT_SECRET: secret,
-      TEAM_JOB_ID: String(job.id), TEAM_MESSAGE_ID: String(messageId), TEAM_BRANCH: branch, ...capturesEnv(config, dirs.workdir, author?.language)
+      TEAM_JOB_ID: String(job.id), TEAM_MESSAGE_ID: String(messageId), TEAM_BRANCH: branch, ...capturesEnv(config, dirs.workdir, author?.language), ...documentsEnv(config, dirs.workdir)
     }
     // One span per real phase of the job; `jobs.phase` says which one is running (the queue shows it).
     const kind = x.runner === 'machine' ? 'machine' : 'local'
@@ -386,6 +392,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       }, async (span) => {
         span.setAttribute('team.queue_wait_ms', Math.max(0, startedAt - job.created_at))
         await mkdir(capturesDir(dirs.workdir)) // where the session leaves its screenshots (UD-268); here and not in prepareWorkdir, so the check of EXECUTE_MAX_MACHINES keeps its timing
+        await mkdir(documentsDir(dirs.workdir)) // and its documents (UD-272)
         // The session continues this trace (W3C `TRACEPARENT`) and, when the host declares it, exports its own telemetry (EXECUTE_OTEL_ENV).
         const tracedEnv = { ...(x.sessionEnv ?? {}), ...(x.otelEnv ?? {}), ...(currentTraceparent() ? { TRACEPARENT: currentTraceparent() } : {}) }
         // A line that cannot be turned into progress (the job was purged, the database is busy) must not become an uncaught exception of the worker: the session goes on.
@@ -425,14 +432,19 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         try { captured = await storeCaptures({ config, output: result?.structured_output, workdir: dirs.workdir }) } catch (error) { logger?.warn({ err: error }, 'could not store the captures') }
         for (const c of captured.rejected) span.addEvent('captures.rejected', { 'team.capture_index': c.index, 'team.capture_reason': c.reason })
         if (captured.stored.length) span.setAttribute('team.captures', captured.stored.length)
-        return { r, st, result, captured }
+        // UD-272: the documents the reason asked for, stored while the job directory exists, like the screenshots.
+        let documents = { stored: [], rejected: [] }
+        try { documents = await storeDocuments({ config, output: result?.structured_output, workdir: dirs.workdir }) } catch (error) { logger?.warn({ err: error }, 'could not store the documents') }
+        for (const d of documents.rejected) span.addEvent('documents.rejected', { 'team.document_index': d.index, 'team.document_reason': d.reason })
+        if (documents.stored.length) span.setAttribute('team.documents', documents.stored.length)
+        return { r, st, result, captured, documents }
       })
     } finally {
       liveMachines.delete(job.id)
       await cleanup(dirs)
     }
     ctx.signal.throwIfAborted()
-    const { r, result, captured } = outcome
+    const { r, result, captured, documents } = outcome
     if (r.timedOut) throw permanent(`La sesión superó el tiempo máximo de ${Math.round(x.timeoutMs / 1000)} s.`, 'execute_timeout')
     if (r.spawnError?.code === 'ENOENT') throw permanent(`No se encontró «${x.runner === 'machine' ? '/bin/sh' : x.bin}» (EXECUTE_CLAUDE_BIN).`, 'harness_unavailable')
     // EXECUTE_MACHINE_CREATE exits 75 (EX_TEMPFAIL) when the host has no capacity now (quota, no free machine): the job waits and tries again.
@@ -473,10 +485,13 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const noCheck = decisionCheckProblem(result.structured_output)
     if (noCheck) throw permanent(`La salida estructurada no cumple el formato: ${noCheck}`, 'invalid_output')
     const request = closeRequest(result.structured_output) // UD-271: what the session asked for; the system decides when the reply is posted
-    const { captures: _declared, close: _close, close_reason: _closeReason, ...output } = result.structured_output // the files are in `captured`, the request is in `request`; what travels on is the rest
+    // The files are in `captured` and `documents`, the request is in `request`, the mode is in `investigate`; what travels on is the rest.
+    const { captures: _declared, close: _close, close_reason: _closeReason, mode, attachments: _attachments, ...output } = result.structured_output
+    const investigate = mode === 'investigate' // UD-272: the model understood the reason as «look into it»: nothing is delivered and nothing is closed, whatever the rest of the output says
+    const documentLines = documentNotes(documents.rejected, author?.language)
     const { decision_check: check, ...visible } = output // the check is shown as the question, not as JSON
     const body = [replyBody(visible, template), ...decisionLines(check, author?.language)].join('\n\n')
-    const hands = Boolean(x.deliverCommand) && output.outcome === 'done' && await branchExists(branch)
+    const hands = Boolean(x.deliverCommand) && output.outcome === 'done' && !investigate && await branchExists(branch)
 
     return () => {
       // The message may have changed while the session worked. Closed, deleted or no longer Claude's: nobody waits for this answer, and it could not be posted.
@@ -494,7 +509,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         const deliverJobId = enqueueDeliver(db, {
           messageId, now,
           payload: {
-            member_id: memberId, branch, round: payload.deliver_round ?? 0, output, captures: captured.stored, execute_job_id: job.id, execute_attempt: job.attempts, requested_by: null,
+            member_id: memberId, branch, round: payload.deliver_round ?? 0, output, captures: captured.stored, documents: { files: documentFiles(documents.stored), notes: documentLines }, execute_job_id: job.id, execute_attempt: job.attempts, requested_by: null,
             close_request: request, close_since: closeSince(job, messageId, memberId, payload) // UD-271: the delivery closes the message when it ends in green
           }
         })
@@ -514,8 +529,8 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       const editedNote = edited ? [(FAILURE_TEXTS[author?.language] ?? FAILURE_TEXTS['es-419']).edited] : []
       // UD-271: an outcome that needs no change (`investigated`) with nothing left to the sender may close the message here; a change closes it in the delivery.
       const handOff = HANDOFF_OUTCOMES.includes(output.outcome) || edited
-      const why = handOff ? null : closeReason(db, config, { output, request, delivered: false, messageId, agentId: agent.id, after: captured.stored.length, since: closeSince(job, messageId, memberId, payload) })
-      const reply = { messageId, authorId: agent.id, body: [body, ...closing.lines, ...editedNote, ...(why ? [closeLine(why, author?.language)] : [])].join('\n\n'), kind: 'answer', files: closing.files }
+      const why = handOff || investigate ? null : closeReason(db, config, { output, request, delivered: false, messageId, agentId: agent.id, after: captured.stored.length, since: closeSince(job, messageId, memberId, payload) })
+      const reply = { messageId, authorId: agent.id, body: [body, ...closing.lines, ...documentLines, ...editedNote, ...(why ? [closeLine(why, author?.language)] : [])].join('\n\n'), kind: 'answer', files: [...closing.files, ...documentFiles(documents.stored)] }
       const { replyId } = handOff
         ? handOffToPerson({ db, events, now }, { messageId, agentId: agent.id, body: reply.body, files: reply.files, source: 'execute' })
         : addReply({ db, events, now }, reply)

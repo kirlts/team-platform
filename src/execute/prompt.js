@@ -5,6 +5,9 @@ import { compileOutputSchema, parseTemplate } from '../analyze/templates.js'
 import { HELP as TEAM_HELP } from '../../scripts/team.mjs'
 import { decisionCheckSchema } from './decision-check.js'
 
+/** What a forwarded job may do (UD-272): carry the work out, or investigate and recommend without changing anything. */
+export const FORWARD_MODES = ['resolve', 'investigate']
+
 const LANGUAGE_NAMES = { 'es-419': 'Spanish (Latin America)', en: 'English' }
 
 /**
@@ -26,7 +29,7 @@ export function readTemplate (row) {
  * The schema the session must satisfy: the template's declared output (A4) plus a required `summary`, the closing reply
  * to the sender. Without a declared output, only `summary`.
  */
-export function finalSchema (declared, { validation = false, autoClose = true } = {}) {
+export function finalSchema (declared, { validation = false, autoClose = true, forwarded = false } = {}) {
   const description = 'Closing reply to the sender: two short paragraphs, no internal jargon, addressed to them.'
   // The grammar of --json-schema keeps A4's plain string; the check after the run also rejects an empty one.
   const summary = { type: 'string', ...(validation ? { minLength: 1 } : {}), description }
@@ -49,14 +52,29 @@ export function finalSchema (declared, { validation = false, autoClose = true } 
         close_reason: { type: 'string', description: 'One line in the reply language: why nothing is left for the sender. Required with close true.' }
       }
     : {}
+  // UD-272: a message forwarded to the agent. `mode` is what the model understood from the reason (the system reads the field, never the text): `investigate` means
+  // no change, no delivery, no close. `attachments` are the documents the reason asked for. Only the grammar of a forwarded job offers them; the validation always accepts them.
+  const forwarding = forwarded || validation
+    ? {
+        mode: { type: 'string', enum: FORWARD_MODES, description: '`resolve` when the sender wants the work carried out; `investigate` when they want to understand or decide first: then no code is changed and nothing is delivered or closed.' },
+        attachments: {
+          type: 'array',
+          description: 'Documents for the closing reply, only when the reason asks for one: PDF files written inside $TEAM_ATTACHMENTS_DIR. Omit otherwise.',
+          items: {
+            type: 'object', additionalProperties: false, required: ['path', 'name'],
+            properties: { path: { type: 'string', description: 'File inside $TEAM_ATTACHMENTS_DIR' }, name: { type: 'string', description: 'Name the sender sees, in the reply language' } }
+          }
+        }
+      }
+    : {}
   if (!declared || typeof declared !== 'object' || declared.type !== 'object') {
-    return { type: 'object', additionalProperties: false, required: ['summary'], properties: { summary, captures, ...closing } }
+    return { type: 'object', additionalProperties: false, required: ['summary'], properties: { summary, captures, ...closing, ...forwarding } }
   }
   // UD-269: `decision_check` is optional in the grammar; the check after the run requires it with `needs_decision` (decision-check.js).
   return {
     ...declared,
     required: [...new Set([...(declared.required ?? []), 'summary'])],
-    properties: { ...(declared.properties ?? {}), summary, captures, ...closing, decision_check: decisionCheckSchema({ validation }) }
+    properties: { ...(declared.properties ?? {}), summary, captures, ...closing, ...forwarding, decision_check: decisionCheckSchema({ validation }) }
   }
 }
 
@@ -73,7 +91,7 @@ const block = (title, text) => `<${title}>\n${String(text ?? '').trim() || '(emp
  * message and the `job` block (ids, branch, reply language), which are the only blocks that vary with the message.
  * The text of the instructions does not mention an id, a branch or a name that changes: it points to the `job` block.
  */
-export function buildExecuteParts ({ message, template, author, agent, project, jobId, maxSubagents, branch, hostInstructions = '', deliver = false, deliverFailure = null, retried = false, autoClose = true }) {
+export function buildExecuteParts ({ message, template, author, agent, project, jobId, maxSubagents, branch, hostInstructions = '', deliver = false, deliverFailure = null, retried = false, autoClose = true, forward = null }) {
   const language = LANGUAGE_NAMES[author?.language] ?? LANGUAGE_NAMES['es-419']
   const fields = Object.entries(message.fields ?? {}).map(([k, v]) => `- ${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`).join('\n')
   const stable = [
@@ -90,11 +108,15 @@ export function buildExecuteParts ({ message, template, author, agent, project, 
     '## Replies to the sender (at least two)',
     '1. Examine the situation first, changing nothing: read the message and, when it points at something on a screen, look at that place the way the rules of the host say, before you read any code. If the request is not yours (`your_profile` and the template say who takes it), end at once with `outcome` `not_mine` and the reason in one line as `summary`, and send no reply. Otherwise send the first reply after that look, not before: what you saw, what you understood and where you start. A screenshot you took goes in this same reply with `--captures` (the «before»); if none of them is accepted the command posts nothing and exits non-zero, so fix the captures and call it again. Example: `team reply <message id> --body "Veo … Empiezo por …" --captures <json|file>`, with the id of the `message` block. If the `job` block says this is a second pass after a failed delivery, the sender already got your first reply: do not send another one.',
     '2. When you finish, your final structured output carries `summary`: two short paragraphs addressed directly to the sender (the `sender` block), in the reply language of the `job` block, without internal jargon, written for their profile and the project. The worker posts it as your closing reply; do not post it yourself. If the first reply carried a screenshot, take the same place again once the change is done and list it in `captures` (the «after»). The rest of the output follows the template\'s output format.',
-    '- Before you end with `needs_decision` or `not_mine`, check in order: 1) is the decision already recorded (host decisions, rules, spec, CLAUDE.md)? 2) do your profile, rules or the template cover it? 3) did the sender already say what they want in the message? 4) is there a technical route that needs no person? 5) is a wrong guess cheap and reversible? If 1 to 4 answers it, it is a constraint: carry it out and say so in `summary`. If 5, decide, act and report. Only what survives goes to a person, cut down to their part; `needs_decision` requires `decision_check`.',
+    '- Before you end with `needs_decision` or `not_mine`, check in order: 1) is the decision already recorded (host decisions, rules, spec, CLAUDE.md)? 2) do your profile, rules or the template cover it? 3) did the sender already say what they want in the message? 4) is there a technical route that needs no person? 5) is a wrong guess cheap and reversible? If 1 to 4 answers it, it is a constraint: carry it out and say so in `summary`. If 5, decide, act and report. Only what survives goes to a person, cut down to their part, and it arrives with your analysis: before you end with `needs_decision`, take the investigation as far as it goes without deciding, and say in `summary` what you found, your concrete recommendation and the alternatives you discarded, each with why. `needs_decision` requires `decision_check`.',
     '- Report progress at each milestone with `team progress <job id> --percent N --phrase "…"` (the job id is in the `job` block; a short phrase of what you are doing).',
     autoClose
       ? '- Closing the message. Set `close` to true in your final output only when all three hold: 1) what was asked is done and checked (the change is pushed and its checks passed, or you checked and nothing needed to change, with the evidence in `summary`) and `outcome` is `done` or `investigated`; 2) your reply leaves the sender nothing to do: no open question, no pending decision, no warning that asks them to choose, nothing for them to confirm or review; 3) if your first reply carried a screenshot, your final output carries at least one «after». Never with `needs_decision`, `not_mine` or `blocked`, and never when you left unfinished work on the branch. When in doubt, `close` is false. With `close` true, `close_reason` is one line in the reply language saying why nothing is left for the sender. The system closes the message only if its own checks pass too (the delivery in green, the «after» present, nobody replied in the thread meanwhile); otherwise a person closes it after reading your replies.'
       : '- Do not close the message: a person closes it after reading your replies.',
+    '## Forwarded messages',
+    '- When a `forwarded` block follows the `message` block, the message was assigned to someone else first and a teammate forwarded it to you with the reason written in that block (the reply of kind `forward` in the thread, which `team show` prints, carries the same words). Read the reason as part of the request: it says what they want from you. You decide which of the two it is and say it in `mode` of your final output: `resolve` when they want the work carried out (everything above applies as written), `investigate` when they want to understand the situation or to decide first. The system never reads the reason; it reads `mode`.',
+    '- With `mode` `investigate` you change no code, create no branch and push nothing: the system delivers nothing and does not close the message, whatever else your output says. Work out the situation as far as you can go without deciding what belongs to a person, and write it in `summary`: what you found, a concrete recommendation, and the alternatives you discarded with why each one lost. `summary` is addressed to the person who forwarded the message (named in the `forwarded` block) instead of the sender, in this same thread; nobody waits for you to close anything.',
+    '- When the reason asks for a PDF, write the file inside `$TEAM_ATTACHMENTS_DIR` and list it in `attachments` of your final output (`path` inside that directory, `name` as the sender will read it). The reply carries the file; one that is not a PDF, is too large or is outside the directory is left out and the reply says so.',
     '## The `team` command (in your PATH, already authenticated as you)',
     '```',
     TEAM_HELP,
@@ -107,6 +129,7 @@ export function buildExecuteParts ({ message, template, author, agent, project, 
     // -- What changes with the message --
     block('sender', `${author.name}\n\n${author.profile ?? ''}`),
     block('message', [`id: ${message.id}`, `area: ${message.area ?? ''}`, `title: ${message.title}`, '', message.body, '', 'fields:', fields || '(none)'].join('\n')),
+    ...(forward ? [block('forwarded', `forwarded by: ${forward.by}\n\nreason:\n${forward.reason}`)] : []),
     block('job', [`job id: ${jobId}`, `branch: ${branch}`, `reply language: ${language}`, ...(deliverFailure ? ['pass: second, after a failed delivery'] : []), ...(retried ? ['pass: retry after a failure of the system; your first reply was already sent, do not send another one'] : [])].join('\n')),
     ...(deliverFailure ? [block('delivery_failure', [
       `The delivery of the branch \`${branch}\` failed. The branch already holds your previous pass: fetch it and continue from it, do not start over. Read the output of the delivery below, fix the cause on the same branch, run the checks for the parts you touch, push the branch and finish. Nobody delivers by hand: the system runs the delivery again after you finish.`,

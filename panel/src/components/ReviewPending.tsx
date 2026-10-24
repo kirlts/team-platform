@@ -17,7 +17,7 @@ function focusReply() {
 }
 
 /**
- * «Revisión pendiente» (UD-275): a change that waits for a person before it reaches production. The proposal (screenshots and walkthrough) is in the
+ * «Revisión» (UD-275; the title avoids «pendiente», retired as a state by UD-041): a change that waits for a person before it reaches production. The proposal (screenshots and walkthrough) is in the
  * thread; here the person decides: «Entregar» (primary, an Editor), «Pedir cambios» (focus on the reply field) and «Descartar» (with a required reason).
  * A person who is not an Editor sees the block without buttons and who can approve. While the delivery runs the block shows its progress.
  */

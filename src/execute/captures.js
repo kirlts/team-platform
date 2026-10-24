@@ -21,7 +21,7 @@ export function capturesEnv (config, workdir, language) {
   const c = config.execute.captures
   return {
     TEAM_CAPTURES_DIR: capturesDir(workdir), TEAM_CAPTURES_MAX: String(c.max), TEAM_CAPTURES_MAX_BYTES: String(config.uploads.maxImageBytes),
-    TEAM_CAPTURES_OPEN_ZONE: c.openZone, TEAM_LANGUAGE: language ?? 'es-419'
+    TEAM_CAPTURES_OPEN_ZONE: c.openZone, TEAM_CAPTURES_UNMASKED: c.unmasked ? 'allowed' : 'denied', TEAM_LANGUAGE: language ?? 'es-419'
   }
 }
 
@@ -33,7 +33,7 @@ export async function storeCaptures ({ config, output, workdir }) {
   const list = output?.captures
   if (!Array.isArray(list) || list.length === 0) return { stored: [], rejected: [] }
   const x = config.execute.captures
-  const { accepted, rejected } = await checkCaptures(list, { dir: capturesDir(workdir), max: x.max, maxBytes: config.uploads.maxImageBytes, zone: output.zone ?? null, openZone: x.openZone })
+  const { accepted, rejected } = await checkCaptures(list, { dir: capturesDir(workdir), max: x.max, maxBytes: config.uploads.maxImageBytes, zone: output.zone ?? null, openZone: x.openZone, unmasked: x.unmasked })
   const stored = []
   for (const c of accepted) {
     try {

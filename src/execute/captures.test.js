@@ -60,6 +60,9 @@ describe('checkCaptures', () => {
     assert.equal((await checkCaptures(unmasked, limits())).accepted.length, 1)
     for (const zone of ['datos de personas', 'pagos', '', null, undefined]) assert.deepEqual(reasons(await checkCaptures(unmasked, { ...limits(), zone })), ['unmasked_sensitive'], String(zone))
     assert.equal((await checkCaptures([shot('a.png')], { ...limits(), zone: 'datos de personas' })).accepted.length, 1, 'masked true goes with any zone')
+    // UD-270: with the host's switch on, the zone is not looked at.
+    for (const zone of ['datos de personas', '', null, undefined]) assert.equal((await checkCaptures(unmasked, { ...limits(), zone, unmasked: true })).accepted.length, 1, String(zone))
+    assert.equal((await checkCaptures(unmasked, { ...limits(), unmasked: true })).accepted[0].masked, false, 'masked stays as declared')
   })
 
   it('names the attachment with its label and the alt without path characters', () => {
@@ -76,10 +79,10 @@ describe('checkCaptures', () => {
 describe('team reply with --captures', () => {
   let dir
   const shot = (path, extra = {}) => ({ path, alt: 'Vista de pacientes', masked: true, place: 'Pacientes', as: 'Clínica Sur, doctor', ...extra })
-  const run = async (captures, extraArgs = []) => {
+  const run = async (captures, extraArgs = [], extraEnv = {}) => {
     const posts = []
     const fetchImpl = async (url, init) => { posts.push({ url, method: init.method }); return { ok: true, status: 200, text: async () => JSON.stringify({ id: 7 }) } }
-    const env = { TEAM_URL: 'http://x', TEAM_AGENT_EMAIL: 'a@b', TEAM_AGENT_SECRET: 's', TEAM_CAPTURES_DIR: dir, TEAM_CAPTURES_MAX: '3', TEAM_CAPTURES_MAX_BYTES: '1000' }
+    const env = { TEAM_URL: 'http://x', TEAM_AGENT_EMAIL: 'a@b', TEAM_AGENT_SECRET: 's', TEAM_CAPTURES_DIR: dir, TEAM_CAPTURES_MAX: '3', TEAM_CAPTURES_MAX_BYTES: '1000', ...extraEnv }
     const r = await runTeam(['reply', '5', '--body', 'Veo la pantalla', '--captures', JSON.stringify(captures), ...extraArgs], env, fetchImpl)
     return { ...r, posts }
   }
@@ -99,6 +102,19 @@ describe('team reply with --captures', () => {
     assert.match(r.err, /capture 2: missing/)
     assert.match(r.err, /capture 3: outside/)
     assert.match(r.err, /--zone/)
+  })
+
+  it('posts an unmasked capture with a sensitive zone when TEAM_CAPTURES_UNMASKED is allowed, and not when it is denied or missing', async () => {
+    for (const value of [undefined, 'denied']) {
+      const off = await run([shot('a.png', { masked: false })], ['--zone', 'datos de personas'], value ? { TEAM_CAPTURES_UNMASKED: value } : {})
+      assert.deepEqual(off.posts, [], String(value))
+      assert.match(off.err, /unmasked_sensitive/)
+    }
+    for (const value of ['allowed', '1']) {
+      const on = await run([shot('a.png', { masked: false })], ['--zone', 'datos de personas'], { TEAM_CAPTURES_UNMASKED: value })
+      assert.equal(on.code, 0, on.err)
+      assert.equal(on.posts.length, 1, value)
+    }
   })
 
   it('posts nothing for an empty list', async () => {

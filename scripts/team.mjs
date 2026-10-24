@@ -58,8 +58,9 @@ export function captureName (label, alt, ext) {
  * { accepted, rejected }: `accepted` carries `file` (real path), `mime`, `ext` and `size`; `rejected` carries `index` and `reason`. Nothing here reads
  * the image: the type comes from the first bytes, and whether it shows people is what `masked` declares. `masked: false` is accepted only when
  * `zone` equals `openZone`; any other zone, or none declared, keeps it out.
+ * With `unmasked: true` (the host allows screenshots that show personal data, UD-270) the zone is not looked at.
  */
-export async function checkCaptures (list, { dir, max, maxBytes, zone = null, openZone = 'ninguna' }) {
+export async function checkCaptures (list, { dir, max, maxBytes, zone = null, openZone = 'ninguna', unmasked = false }) {
   const accepted = []
   const rejected = []
   const items = Array.isArray(list) ? list : []
@@ -71,7 +72,7 @@ export async function checkCaptures (list, { dir, max, maxBytes, zone = null, op
     if (c === null || typeof c !== 'object') { no('invalid'); continue }
     const text = (v) => typeof v === 'string' && v.trim() !== ''
     if (!text(c.path) || !text(c.alt) || !text(c.place) || !text(c.as) || typeof c.masked !== 'boolean' || /[\r\n]/.test(c.alt)) { no('invalid'); continue }
-    if (c.masked === false && (zone === null || zone === undefined || zone !== openZone)) { no('unmasked_sensitive'); continue }
+    if (c.masked === false && !unmasked && (zone === null || zone === undefined || zone !== openZone)) { no('unmasked_sensitive'); continue }
     let file
     try { file = await realpath(resolve(root ?? '/', c.path)) } catch { no('missing'); continue }
     const inside = root !== null && relative(root, file) !== '' && !relative(root, file).startsWith('..') && !relative(root, file).startsWith(sep)
@@ -159,7 +160,7 @@ export async function runTeam (argv, env = process.env, fetchImpl = fetch) {
         let list
         try { list = JSON.parse(options.captures.trim().startsWith('[') ? options.captures : await readFile(options.captures, 'utf8')) } catch { throw new Error('team reply: --captures is a JSON list or the path of a file with it.') }
         const { accepted, rejected } = await checkCaptures(list, {
-          dir: env.TEAM_CAPTURES_DIR ?? '', max: Number(env.TEAM_CAPTURES_MAX ?? 0), maxBytes: Number(env.TEAM_CAPTURES_MAX_BYTES ?? 0), zone: options.zone ?? null, openZone: env.TEAM_CAPTURES_OPEN_ZONE ?? 'ninguna'
+          dir: env.TEAM_CAPTURES_DIR ?? '', max: Number(env.TEAM_CAPTURES_MAX ?? 0), maxBytes: Number(env.TEAM_CAPTURES_MAX_BYTES ?? 0), zone: options.zone ?? null, openZone: env.TEAM_CAPTURES_OPEN_ZONE ?? 'ninguna', unmasked: ['allowed', '1'].includes(env.TEAM_CAPTURES_UNMASKED)
         })
         // No capture accepted: nothing is posted. A session that believes it sent the «before» would lose everything that depends on it.
         if (accepted.length === 0) {

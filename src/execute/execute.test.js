@@ -27,8 +27,8 @@ describe('execute job', () => {
   let env, state, worker, editor, author, agentId, agent, vault
   const cookieHeaders = (cookie) => ({ cookie, 'x-team-request': 'panel' })
 
-  function startWorker (execute = {}) {
-    const config = loadConfig({ DATA_DIR: env.dir, LOG_LEVEL: 'silent', PORT: String(PORT) }, {
+  function startWorker (execute = {}, extraEnv = {}) {
+    const config = loadConfig({ DATA_DIR: env.dir, LOG_LEVEL: 'silent', PORT: String(PORT), ...extraEnv }, {
       execute: { bin: FAKE, machineBin: FAKE, teamUrl: `http://127.0.0.1:${PORT}`, killGraceMs: 200, dailyBudgetUsd: 1000, infraRetryWaitMs: 50, ...execute }
     })
     const handlers = { ...createPipeline({ db: env.db, config, queue: env.queue, events: env.events, modules: env.modules }), execute: createExecuteHandler({ db: env.db, config, queue: env.queue, events: env.events, vault }) }
@@ -623,8 +623,8 @@ describe('execute job', () => {
       }
     })
     const shot = (path, extra = {}) => ({ path, alt: 'Ficha de pacientes con el error', masked: true, place: 'Pacientes > Ficha', as: 'Clínica Sur, doctor', ...extra })
-    const run = async (text) => {
-      startWorker()
+    const run = async (text, extraEnv = {}) => {
+      startWorker({}, extraEnv)
       const messageId = await publishedMessage(text)
       const job = env.db.prepare("SELECT * FROM jobs WHERE kind = 'execute' AND message_id = ?").get(messageId)
       const finished = await waitJob(job.id)
@@ -678,6 +678,16 @@ describe('execute job', () => {
       assert.equal(mine[1].attachments.length, 3, 'the two before and the after')
     })
 
+    it('with EXECUTE_CAPTURES_UNMASKED=allowed, masked false is attached whatever the zone, in the first reply and in the closing one', async () => {
+      process.env.FAKE_EXECUTE_CAPTURE_FILES = JSON.stringify({ 'a.png': 'png', 'b.png': 'png' })
+      process.env.FAKE_EXECUTE_START_CAPTURES = JSON.stringify([shot('a.png', { masked: false })])
+      process.env.FAKE_EXECUTE_START_ZONE = 'datos de personas'
+      process.env.FAKE_EXECUTE_EXTRA = JSON.stringify({ outcome: 'done', zone: 'datos de personas', captures: [shot('b.png', { masked: false })] })
+      const { mine } = await run('Ficha de un paciente con el nombre cortado.', { EXECUTE_CAPTURES_UNMASKED: 'allowed' })
+      assert.equal(mine[0].attachments.length, 1)
+      assert.equal(mine[1].attachments.length, 2, 'the before and the after')
+    })
+
     it('a first reply whose captures are all rejected (unmasked with a sensitive zone) is not posted and the session fails with the reason', async () => {
       process.env.FAKE_EXECUTE_CAPTURE_FILES = JSON.stringify({ 'a.png': 'png' })
       process.env.FAKE_EXECUTE_START_CAPTURES = JSON.stringify([shot('a.png', { masked: false })])
@@ -709,6 +719,7 @@ describe('execute job', () => {
       assert.ok(!schema.required.includes('captures'), 'optional')
       assert.match(team.TEAM_CAPTURES_DIR, /captures$/)
       assert.deepEqual([team.TEAM_CAPTURES_MAX, team.TEAM_CAPTURES_MAX_BYTES, team.TEAM_CAPTURES_OPEN_ZONE, team.TEAM_LANGUAGE], ['3', String(7 * 1024 * 1024), 'ninguna', 'es-419'])
+      assert.equal(team.TEAM_CAPTURES_UNMASKED, 'denied')
     })
   })
 

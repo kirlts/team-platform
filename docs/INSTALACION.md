@@ -456,6 +456,7 @@ La respuesta trae `agent_secret` una sola vez. El trabajador lo lee de la bóved
 | `EXECUTE_MACHINE_COLLECT` | Opcional. Copia la transcripción de la sesión antes de destruir la máquina (ver «Transcripción de la sesión») |
 | `EXECUTE_CAPTURES_MAX` | Capturas de la interfaz por respuesta (omisión 3; ver «Capturas en las respuestas») |
 | `EXECUTE_CAPTURES_OPEN_ZONE` | Única zona declarada con la que se adjunta una captura sin datos ocultos (omisión `ninguna`) |
+| `EXECUTE_CAPTURES_UNMASKED` | `allowed` o `1`: una captura con `masked: false` se adjunta sea cual sea la zona (omisión `denied`; UD-270) |
 | `EXECUTE_RUNS_RETENTION_DAYS` | Días que se guarda el historial de ejecuciones (omisión 365) |
 | `EXECUTE_DELIVER_COMMAND` | Opcional. Orden de shell que entrega la rama a producción después de `execute`, sin IA (ver «La entrega aparte») |
 | `EXECUTE_DELIVER_TIMEOUT_MS` | Plazo de esa orden (omisión 900000) |

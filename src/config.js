@@ -370,7 +370,10 @@ export function loadConfig (env = process.env, overrides = {}) {
       // UD-268: screenshots of the interface in the replies. The size cap is the one of an image upload (UPLOAD_MAX_IMAGE_BYTES); the count is declared here.
       captures: {
         max: intVar(env, 'EXECUTE_CAPTURES_MAX', 3, { min: 0 }), // declared courtesy: one view and its dialog, per reply; it never reaches UPLOAD_MAX_FILES (10), the cap of files in a reply
-        openZone: textValue(env, 'EXECUTE_CAPTURES_OPEN_ZONE', 'ninguna') // the only value of the output's `zone` with which an unmasked capture is attached; the platform knows no other zone
+        openZone: textValue(env, 'EXECUTE_CAPTURES_OPEN_ZONE', 'ninguna'), // the only value of the output's `zone` with which an unmasked capture is attached; the platform knows no other zone
+        // UD-270: the host decides whether a screenshot may show personal data (UD-268 mixed it with the zone). `denied` (default, the repository is public) keeps the zone rule;
+        // `allowed` or `1` attaches a capture with `masked: false` whatever the zone. `masked` is still declared and shown as it came.
+        unmasked: ['allowed', '1'].includes(choiceVar(env, 'EXECUTE_CAPTURES_UNMASKED', ['denied', 'allowed', '1', '0'], 'denied'))
       },
       sessionEnv: otelPairs(env.EXECUTE_SESSION_ENV, 'EXECUTE_SESSION_ENV'),
       // Measurement 2026-10-23-tokens-y-cache.md: the part of the prompt that is the same for every job goes in `--append-system-prompt-file`, which the API caches

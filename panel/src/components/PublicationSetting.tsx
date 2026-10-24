@@ -15,14 +15,11 @@ export function PublicationSetting() {
   return (
     <SettingsBox
       title={t('settings.publication')}
-      hint={t('hint.publication')}
-      hintId="hint-publication"
       aside={
         <Segmented
           value={current.data.auto_publish ? 'auto' : 'manual'}
           onChange={(v) => save.mutate(v === 'auto')}
           label={t('settings.publication')}
-          describedBy="hint-publication"
           options={[
             { value: 'auto', label: t('settings.publicationAuto') },
             { value: 'manual', label: t('settings.publicationManual') },

@@ -52,7 +52,15 @@ export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => v
       {/* The user and, at its side, the button that hides the panel (mockup). On a phone the panel is a menu that closes by itself, so there it is not drawn. */}
       <div className="mb-2 flex shrink-0 items-center gap-2 border-b border-line px-1.5 pb-2 pt-0.5">
         <Avatar name={me?.name ?? '?'} size={26} />
-        <span className="min-w-0 flex-1 break-words text-sm font-medium leading-tight">{me?.name}</span>
+        {/* The role of who is signed in, in small capitals under the name, so each person knows with which role they work. */}
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="min-w-0 break-words text-sm font-medium leading-tight">{me?.name}</span>
+          {me && (
+            <span data-testid="sidebar-role" className="rotulo leading-tight text-faint">
+              {t(me.role === 'editor' ? 'team.roleEditor' : 'team.roleMember')}
+            </span>
+          )}
+        </span>
         {onHide && (
           <button type="button" data-testid="sidebar-hide" aria-label={t('sidebar.hide')} title={t('sidebar.hide')} onClick={onHide} className="nav-ctl max-md:hidden">
             <PanelLeft size={16} aria-hidden />

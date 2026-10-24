@@ -417,15 +417,15 @@ describe('the color of an area (UD-045)', () => {
 })
 
 describe('the publication setting (UD-070)', () => {
-  test('the Editor switches between Automática and Manual and the next send follows it; a member does not see the control', async () => {
+  test('the Editor switches between «Al analizar» and «Tras revisar» and the next send follows it; a member does not see the control', async () => {
     const { page, context } = await session('ana')
     try {
       await page.goto(`${origin}/settings`)
       const group = page.getByRole('radiogroup', { name: 'Publicación' })
       await group.waitFor()
-      assert.equal(await group.getByRole('radio', { name: 'Automática' }).getAttribute('aria-checked'), 'true', 'it starts as automatic')
-      await group.getByRole('radio', { name: 'Manual' }).click()
-      await group.getByRole('radio', { name: 'Manual', checked: true }).waitFor()
+      assert.equal(await group.getByRole('radio', { name: 'Al analizar' }).getAttribute('aria-checked'), 'true', 'it starts as automatic')
+      await group.getByRole('radio', { name: 'Tras revisar' }).click()
+      await group.getByRole('radio', { name: 'Tras revisar', checked: true }).waitFor()
       assert.equal((await api(page, '/settings/publication')).body.auto_publish, false, 'it was saved on the server')
       // With it off, a send stays as a proposal to review: there is a button to send it and no message is published.
       await page.goto(origin)
@@ -433,8 +433,8 @@ describe('the publication setting (UD-070)', () => {
       await page.getByRole('button', { name: /^Enviar \d+ mensajes?$/ }).waitFor({ timeout: 20000 })
       assert.equal(await page.getByTestId('published-message').count(), 0)
       await page.goto(`${origin}/settings`)
-      await group.getByRole('radio', { name: 'Automática' }).click()
-      await group.getByRole('radio', { name: 'Automática', checked: true }).waitFor()
+      await group.getByRole('radio', { name: 'Al analizar' }).click()
+      await group.getByRole('radio', { name: 'Al analizar', checked: true }).waitFor()
       assert.equal((await api(page, '/settings/publication')).body.auto_publish, true)
     } finally {
       await context.close()

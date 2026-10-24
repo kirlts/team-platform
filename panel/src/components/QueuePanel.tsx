@@ -5,7 +5,6 @@ import { ExecutionRuns } from '@/components/ExecutionRuns'
 import { RotateCw } from '@/components/icons'
 import { NativeSelect } from '@/components/NativeSelect'
 import { PageControls } from '@/components/PageControls'
-import { SettingHint } from '@/components/SettingHint'
 import { seconds } from '@/components/Timing'
 import { TraceTree } from '@/components/TraceTree'
 import { Link } from 'react-router'
@@ -32,14 +31,11 @@ export function QueuePanel() {
   const rows = list.data?.items ?? []
   return (
     <section data-queue className="flex flex-col gap-3 border-t border-line-strong pt-3">
-      <div className="flex flex-col gap-0.5">
-        <h2>{t('queue.title')}</h2>
-        <SettingHint id="hint-queue">{t('hint.queue')}</SettingHint>
-      </div>
+      <h2>{t('queue.title')}</h2>
       <JobCounts />
       <RunningExecutions />
       <ExecutionRuns />
-      <div aria-describedby="hint-queue" className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2">
         {rows.length === 0 ? (
           <p className="text-sm text-muted">{t('queue.empty')}</p>
         ) : (

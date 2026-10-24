@@ -613,7 +613,8 @@
     align-items: center;
     gap: 0.3rem;
     max-width: 100%;
-    background: color-mix(in srgb, var(--area-main) calc(var(--area-chip-fill) * 100%), var(--area-soft));
+    /* The soft tint lies over the main color in a layer as wide as (1 - fill): with fill 1 it is not painted and the chip is the main color itself. */
+    background: linear-gradient(var(--area-soft), var(--area-soft)) 0 0 / calc((1 - var(--area-chip-fill)) * 100%) 100% no-repeat, var(--area-main);
     color: color-mix(in srgb, var(--area-main-text) calc(var(--area-chip-fill) * 100%), var(--area-soft-text));
     border: var(--area-chip-edge-width) solid var(--area-edge);
     border-radius: 6px;

@@ -154,6 +154,8 @@ export function loadConfig (env = process.env, overrides = {}) {
       retryJitter: decimal(env, 'QUEUE_RETRY_JITTER', 1, { min: 0, max: 1 }),
       concurrency: intVar(env, 'QUEUE_CONCURRENCY', 8, { min: 1 }), // `docs/investigaciones/mediciones/2026-10-21-concurrencia-de-la-cola.md` (measurement 2026-10-21, UD-025, H-83): lowest p95 at N=16 with no input failed by a provider, behind the provider cap of PROVIDER_MAX_INFLIGHT_*
       maxRuntimeMs: intVar(env, 'QUEUE_MAX_RUNTIME_MS', 900000, { min: 1 }), // pg-boss expireInSeconds: 900 s
+      // How long a job that was told to stop (limit reached, cancelled, shutdown) may take to end by itself before the worker stops waiting for it.
+      abortGraceMs: intVar(env, 'QUEUE_ABORT_GRACE_MS', 5000, { min: 1 }), // declared courtesy: under the 10 s that `docker stop` waits before SIGKILL; a job that listens ends in milliseconds
       retentionDays: intVar(env, 'RETENTION_DAYS', 7, { min: 1 }), // I03 §12: pg-boss deleteAfterSeconds, 7 days
       // Courtesy: retention is measured in days, one sweep per hour meets it with room to spare. It does not govern the
       // operation of any job.

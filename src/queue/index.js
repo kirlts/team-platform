@@ -106,12 +106,12 @@ export function createQueue ({ db, config, events, now = Date.now, random = Math
    * anybody's following one, and the ties of a turn keep the old order: priority, run_at, id. The attempt count of
    * the returned row is the attempt in progress.
    */
-  function claim (workerId, leaseMs = w.leaseMs) {
+  function claim (workerId, leaseMs = w.leaseMs, { running = null } = {}) {
     const t = now()
     return tx(db, () => {
       // Recovering first keeps the claim a pure `queued` query (MS §7.3).
       const expired = get(db, "SELECT 1 AS hay FROM jobs WHERE status = 'running' AND lease_until < ? AND worker_id <> ? LIMIT 1", t, workerId)
-      if (expired) recoverExpiredLeases({ spare: workerId })
+      if (expired) recoverExpiredLeases({ spare: workerId, running })
       const caps = lanes()
       const busy = Object.fromEntries(all(db, "SELECT kind, COUNT(*) AS n FROM jobs WHERE status = 'running' AND kind IN ('execute', 'deliver') GROUP BY kind").map((r) => [r.kind, r.n]))
       const full = Object.keys(caps).filter((kind) => (busy[kind] ?? 0) >= caps[kind])

@@ -26,6 +26,21 @@ import { runInJobScope, setLimiterLogger } from './providers/limiter.js'
 const MAX_TIMEOUT = 2 ** 31 - 1 // declared courtesy: the maximum Node's own setTimeout accepts; it does not govern operation
 
 /**
+ * Waits for `work`, but no longer than `graceMs` after `signal` aborts. A handler that listens to the signal ends within the grace and cleans up
+ * after itself; one that does not (a call without its own deadline, a process that ignores SIGTERM, a read on a stuck mount) would keep its slot,
+ * its lease and the shutdown waiting for as long as it hangs. What it does after the worker gave up is not applied: the job is already closed.
+ */
+function untilSettledOrGivenUp (work, signal, graceMs) {
+  return new Promise((resolve, reject) => {
+    let timer = null
+    const giveUp = () => { timer = setTimeout(() => reject(Object.assign(new Error(`aborted: ${String(signal.reason)}`), { aborted: true })), graceMs) }
+    work.then(resolve, reject).finally(() => { clearTimeout(timer); signal.removeEventListener('abort', giveUp) })
+    if (signal.aborted) giveUp()
+    else signal.addEventListener('abort', giveUp, { once: true })
+  })
+}
+
+/**
  * Queue worker. `handlers[kind] = { run(job, ctx) → finalize?, onFailure(job, error, outcome) }`.
  * `pollDataVersionMs`: only for the separate process; wakes the claim when another connection commits a
  * write (the job enqueued by the API).
@@ -65,7 +80,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     while (runningJobs.size < w.concurrency) {
       let job
       const askedAt = now() // before the claim: a job that became due while it ran is late, not blocked
-      try { job = queue.claim(workerId) } catch (error) { logger.error({ err: error }, 'error while claiming'); break }
+      try { job = queue.claim(workerId, undefined, { running: [...runningJobs.keys()] }) } catch (error) { logger.error({ err: error }, 'error while claiming'); break }
       if (!job) { emptyClaimAt = askedAt; break }
       execute(job)
     }
@@ -79,7 +94,10 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     const controller = new AbortController()
     const abortJob = (abortReason) => { if (!controller.signal.aborted) controller.abort(abortReason) }
     const ctx = { signal: controller.signal, abort: abortJob, workerId }
-    const heartbeatTimer = setInterval(() => { if (!queue.heartbeat(job)) abortJob('lost') }, w.heartbeatMs)
+    // A beat that cannot write (the database busy or full) is not the end of the process: the lease holds two more beats, and the next one tries again.
+    const heartbeatTimer = setInterval(() => {
+      try { if (!queue.heartbeat(job)) abortJob('lost') } catch (error) { jobLog.warn({ err: error }, 'could not renew the lease; the next beat tries again') }
+    }, w.heartbeatMs)
     // A handler may declare its own cap (`execute`: EXECUTE_TIMEOUT_MS); the others use QUEUE_MAX_RUNTIME_MS.
     const capMs = handlers[job.kind]?.maxRuntimeMs ?? w.maxRuntimeMs
     const cap = setTimeout(() => abortJob('timeout'), capMs)
@@ -97,7 +115,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
           queue.fail(job, new Error(`No hay manejador para trabajos «${job.kind}».`), { permanent: true })
           return
         }
-        const finalize = await handlerObj.run(job, ctx)
+        const finalize = await untilSettledOrGivenUp(handlerObj.run(job, ctx), controller.signal, w.abortGraceMs)
         controller.signal.throwIfAborted()
         // Closes the job and applies the final writes in a single transaction, under the attempt barrier.
         events.transaction(() => {
@@ -206,7 +224,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     queue.signals.on('enqueued', kick)
     queue.signals.on('cancelled', onCancelled)
     queue.signals.on('leaseFailed', onLeaseFailed)
-    queue.recoverExpiredLeases({ spare: workerId }) // at startup (MS §7.3)
+    queue.recoverExpiredLeases({ spare: workerId, running: [] }) // at startup (MS §7.3): this worker holds nothing yet
     sweepUnseen()
     sweepHandlers()
     timers.push(setInterval(sweepLeases, w.heartbeatMs)) // per cycle, at the heartbeat's cadence

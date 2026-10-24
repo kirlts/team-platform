@@ -997,7 +997,7 @@ export interface paths {
                                         extracted?: boolean;
                                     }[];
                                     attachment_kinds?: string[];
-                                    /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-277). Nunca se leen del texto. */
+                                    /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                     mentions?: string[];
                                     created_at?: string;
                                     version?: number;
@@ -1033,12 +1033,20 @@ export interface paths {
                                         extracted?: boolean;
                                     }[];
                                     attachment_kinds?: string[];
-                                    /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-277). Nunca se leen del texto. */
+                                    /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                     mentions?: string[];
                                     created_at?: string;
                                     version?: number;
                                     edited_at?: string | null;
                                 }[];
+                                /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
+                                pending_delivery?: {
+                                    branch?: string;
+                                    held_reason?: string;
+                                    job_id?: string;
+                                    agent_id?: string | null;
+                                    delivering_job_id?: string | null;
+                                } | null;
                                 edits?: {
                                     id?: string;
                                     member_id?: string;
@@ -1331,7 +1339,7 @@ export interface paths {
                                         extracted?: boolean;
                                     }[];
                                     attachment_kinds?: string[];
-                                    /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-277). Nunca se leen del texto. */
+                                    /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                     mentions?: string[];
                                     created_at?: string;
                                     version?: number;
@@ -1523,7 +1531,7 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
-                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-277). Nunca se leen del texto. */
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
                                 version?: number;
@@ -1559,12 +1567,20 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
-                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-277). Nunca se leen del texto. */
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
+                            pending_delivery?: {
+                                branch?: string;
+                                held_reason?: string;
+                                job_id?: string;
+                                agent_id?: string | null;
+                                delivering_job_id?: string | null;
+                            } | null;
                             edits?: {
                                 id?: string;
                                 member_id?: string;
@@ -1717,7 +1733,7 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
-                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-277). Nunca se leen del texto. */
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
                                 version?: number;
@@ -1753,12 +1769,20 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
-                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-277). Nunca se leen del texto. */
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
+                            pending_delivery?: {
+                                branch?: string;
+                                held_reason?: string;
+                                job_id?: string;
+                                agent_id?: string | null;
+                                delivering_job_id?: string | null;
+                            } | null;
                             edits?: {
                                 id?: string;
                                 member_id?: string;
@@ -1961,7 +1985,7 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
-                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-277). Nunca se leen del texto. */
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
                                 version?: number;
@@ -1997,12 +2021,20 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
-                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-277). Nunca se leen del texto. */
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
+                            pending_delivery?: {
+                                branch?: string;
+                                held_reason?: string;
+                                job_id?: string;
+                                agent_id?: string | null;
+                                delivering_job_id?: string | null;
+                            } | null;
                             edits?: {
                                 id?: string;
                                 member_id?: string;
@@ -2239,7 +2271,7 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
-                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-277). Nunca se leen del texto. */
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
                                 version?: number;
@@ -2275,12 +2307,20 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
-                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-277). Nunca se leen del texto. */
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
+                            pending_delivery?: {
+                                branch?: string;
+                                held_reason?: string;
+                                job_id?: string;
+                                agent_id?: string | null;
+                                delivering_job_id?: string | null;
+                            } | null;
                             edits?: {
                                 id?: string;
                                 member_id?: string;
@@ -2311,7 +2351,7 @@ export interface paths {
         head?: never;
         /**
          * Editar una respuesta: su texto, sus adjuntos y sus menciones (sólo su autor)
-         * @description Edición en el lugar (UD-253). `version` es obligatoria: la que se leyó en la respuesta; si otra edición se coló en medio, 409 `edit_conflict` con la `version` vigente y no se escribe nada. `body` es opcional (UD-278): `remove_attachment_ids` quita adjuntos de la respuesta y `mention_ids` suma menciones (con los efectos de una mención al escribir, sólo para quien aún no estaba mencionado; las que ya tenía se ignoran). Agregar adjuntos va por `POST /messages/:id/replies/:replyId/attachments`. Sin ningún cambio no hay edición. Una respuesta con adjuntos puede quedar sin texto; una sin adjuntos no (400 `reply_empty`). Repetir la misma edición deja el mismo estado y la misma `version`. Cada edición real sube `version`, fija `edited_at` y deja la fila `reply.edit` en la bitácora. Devuelve el mensaje con su hilo. 403 `not_reply_author` si quien pide no es el autor, tampoco un Editor; 404 si la respuesta no existe, está borrada o no es de ese mensaje.
+         * @description Edición en el lugar (UD-253). `version` es obligatoria: la que se leyó en la respuesta; si otra edición se coló en medio, 409 `edit_conflict` con la `version` vigente y no se escribe nada. `body` es opcional (UD-279): `remove_attachment_ids` quita adjuntos de la respuesta y `mention_ids` suma menciones (con los efectos de una mención al escribir, sólo para quien aún no estaba mencionado; las que ya tenía se ignoran). Agregar adjuntos va por `POST /messages/:id/replies/:replyId/attachments`. Sin ningún cambio no hay edición. Una respuesta con adjuntos puede quedar sin texto; una sin adjuntos no (400 `reply_empty`). Repetir la misma edición deja el mismo estado y la misma `version`. Cada edición real sube `version`, fija `edited_at` y deja la fila `reply.edit` en la bitácora. Devuelve el mensaje con su hilo. 403 `not_reply_author` si quien pide no es el autor, tampoco un Editor; 404 si la respuesta no existe, está borrada o no es de ese mensaje.
          */
         patch: {
             parameters: {
@@ -2386,7 +2426,7 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
-                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-277). Nunca se leen del texto. */
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
                                 version?: number;
@@ -2422,12 +2462,20 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
-                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-277). Nunca se leen del texto. */
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
+                            pending_delivery?: {
+                                branch?: string;
+                                held_reason?: string;
+                                job_id?: string;
+                                agent_id?: string | null;
+                                delivering_job_id?: string | null;
+                            } | null;
                             edits?: {
                                 id?: string;
                                 member_id?: string;
@@ -2467,7 +2515,7 @@ export interface paths {
         put?: never;
         /**
          * Agregar archivos o enlaces a una respuesta (sólo su autor)
-         * @description Multipart: `version` (la leída de la respuesta), `files[]` y `links[]`, con los mismos topes y el mismo almacenamiento que `POST /inputs` (UD-278). Un audio o un video se transcribe como al escribir la respuesta. Cuenta como una edición: sube `version`, fija `edited_at` y deja `reply.edit`. 403 `not_reply_author` si no es el autor, 409 `edit_conflict` si la versión venció, 400 `attachments_empty` si no trae nada, 404 si la respuesta no existe. Quitar va por `PATCH` con `remove_attachment_ids`.
+         * @description Multipart: `version` (la leída de la respuesta), `files[]` y `links[]`, con los mismos topes y el mismo almacenamiento que `POST /inputs` (UD-279). Un audio o un video se transcribe como al escribir la respuesta. Cuenta como una edición: sube `version`, fija `edited_at` y deja `reply.edit`. 403 `not_reply_author` si no es el autor, 409 `edit_conflict` si la versión venció, 400 `attachments_empty` si no trae nada, 404 si la respuesta no existe. Quitar va por `PATCH` con `remove_attachment_ids`.
          */
         post: {
             parameters: {
@@ -2533,7 +2581,7 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
-                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-277). Nunca se leen del texto. */
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
                                 version?: number;
@@ -2569,12 +2617,20 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
-                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-277). Nunca se leen del texto. */
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
+                            pending_delivery?: {
+                                branch?: string;
+                                held_reason?: string;
+                                job_id?: string;
+                                agent_id?: string | null;
+                                delivering_job_id?: string | null;
+                            } | null;
                             edits?: {
                                 id?: string;
                                 member_id?: string;
@@ -2683,7 +2739,7 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
-                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-277). Nunca se leen del texto. */
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
                                 version?: number;
@@ -2719,12 +2775,20 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
-                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-277). Nunca se leen del texto. */
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
+                            pending_delivery?: {
+                                branch?: string;
+                                held_reason?: string;
+                                job_id?: string;
+                                agent_id?: string | null;
+                                delivering_job_id?: string | null;
+                            } | null;
                             edits?: {
                                 id?: string;
                                 member_id?: string;
@@ -2833,7 +2897,7 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
-                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-277). Nunca se leen del texto. */
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
                                 version?: number;
@@ -2869,12 +2933,20 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
-                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-277). Nunca se leen del texto. */
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
+                            pending_delivery?: {
+                                branch?: string;
+                                held_reason?: string;
+                                job_id?: string;
+                                agent_id?: string | null;
+                                delivering_job_id?: string | null;
+                            } | null;
                             edits?: {
                                 id?: string;
                                 member_id?: string;
@@ -2918,7 +2990,7 @@ export interface paths {
         put?: never;
         /**
          * Responder un mensaje, con archivos y enlaces opcionales (403 si quien responde es su emisor)
-         * @description JSON `{ body, kind, mention_ids }` o multipart (`body`, `kind`, `mention_ids` repetido, `files[]`, `links[]`) con los mismos topes y el mismo almacenamiento que `POST /inputs`. Una respuesta con archivos o enlaces puede ir sin texto. Los adjuntos se guardan y se sirven, no se analizan: `GET /replies/attachments/:id` entrega el archivo. `mention_ids` (UD-277) son los miembros que la persona eligió en la lista que abre «@»: nunca se leen del texto. Cada uno pasa a los asignados del mensaje; una persona recibe un aviso y un agente recibe su trabajo `execute` con el hilo completo (si ya trabaja ese mensaje, la mención queda pendiente y se atiende al terminar). 404 si un miembro no existe; 400 `assignee_inactive` si está desactivado, `mention_self` si es quien escribe, `mention_loop` si un agente menciona a otro agente. El emisor del mensaje sólo responde si menciona a alguien (esa respuesta no cuenta como respuesta y el mensaje queda `open`). Auditoría `message.mention` por cada uno. Devuelve el mensaje con su hilo; cada respuesta lleva `attachments`, `attachment_kinds` y `mentions`.
+         * @description JSON `{ body, kind, mention_ids }` o multipart (`body`, `kind`, `mention_ids` repetido, `files[]`, `links[]`) con los mismos topes y el mismo almacenamiento que `POST /inputs`. Una respuesta con archivos o enlaces puede ir sin texto. Los adjuntos se guardan y se sirven, no se analizan: `GET /replies/attachments/:id` entrega el archivo. `mention_ids` (UD-278) son los miembros que la persona eligió en la lista que abre «@»: nunca se leen del texto. Cada uno pasa a los asignados del mensaje; una persona recibe un aviso y un agente recibe su trabajo `execute` con el hilo completo (si ya trabaja ese mensaje, la mención queda pendiente y se atiende al terminar). 404 si un miembro no existe; 400 `assignee_inactive` si está desactivado, `mention_self` si es quien escribe, `mention_loop` si un agente menciona a otro agente. El emisor del mensaje sólo responde si menciona a alguien (esa respuesta no cuenta como respuesta y el mensaje queda `open`). Auditoría `message.mention` por cada uno. Devuelve el mensaje con su hilo; cada respuesta lleva `attachments`, `attachment_kinds` y `mentions`.
          */
         post: {
             parameters: {
@@ -3002,7 +3074,7 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
-                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-277). Nunca se leen del texto. */
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
                                 version?: number;
@@ -3038,12 +3110,20 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
-                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-277). Nunca se leen del texto. */
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
+                            pending_delivery?: {
+                                branch?: string;
+                                held_reason?: string;
+                                job_id?: string;
+                                agent_id?: string | null;
+                                delivering_job_id?: string | null;
+                            } | null;
                             edits?: {
                                 id?: string;
                                 member_id?: string;
@@ -3159,7 +3239,7 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
-                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-277). Nunca se leen del texto. */
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
                                 version?: number;
@@ -3195,12 +3275,20 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
-                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-277). Nunca se leen del texto. */
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
+                            pending_delivery?: {
+                                branch?: string;
+                                held_reason?: string;
+                                job_id?: string;
+                                agent_id?: string | null;
+                                delivering_job_id?: string | null;
+                            } | null;
                             edits?: {
                                 id?: string;
                                 member_id?: string;
@@ -3306,7 +3394,7 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
-                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-277). Nunca se leen del texto. */
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
                                 version?: number;
@@ -3342,12 +3430,20 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
-                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-277). Nunca se leen del texto. */
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
+                            pending_delivery?: {
+                                branch?: string;
+                                held_reason?: string;
+                                job_id?: string;
+                                agent_id?: string | null;
+                                delivering_job_id?: string | null;
+                            } | null;
                             edits?: {
                                 id?: string;
                                 member_id?: string;
@@ -3453,7 +3549,7 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
-                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-277). Nunca se leen del texto. */
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
                                 version?: number;
@@ -3489,12 +3585,20 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
-                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-277). Nunca se leen del texto. */
+                                /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
+                            pending_delivery?: {
+                                branch?: string;
+                                held_reason?: string;
+                                job_id?: string;
+                                agent_id?: string | null;
+                                delivering_job_id?: string | null;
+                            } | null;
                             edits?: {
                                 id?: string;
                                 member_id?: string;
@@ -5642,7 +5746,7 @@ export interface paths {
         };
         /**
          * La transcripción de un audio o un video adjunto a una respuesta
-         * @description El texto que se leyó del adjunto de una respuesta (UD-278). 404 si el adjunto no existe, no es audio ni video, o todavía no se leyó.
+         * @description El texto que se leyó del adjunto de una respuesta (UD-279). 404 si el adjunto no existe, no es audio ni video, o todavía no se leyó.
          */
         get: {
             parameters: {
@@ -6469,7 +6573,7 @@ export interface paths {
         put?: never;
         /**
          * Encolar la entrega a producción de un mensaje (Editor)
-         * @description Corre `EXECUTE_DELIVER_COMMAND` sobre la rama `tp/<id>` del mensaje, sin IA (UD-263). Al terminar bien, el agente publica su respuesta final con «Ya está en producción»; si falla, el aviso llano con `outcome: blocked`. Responde 202 con el trabajo creado. 409 `deliver_not_configured` si la instancia no declara la orden, 409 `execute_busy` si el mensaje tiene un trabajo `execute` en cola o corriendo, 409 `deliver_busy` si ya tiene una entrega, 409 `no_agent_assignee` si no hay un agente activo que responda, 409 `message_closed` si está cerrado.
+         * @description Corre `EXECUTE_DELIVER_COMMAND` sobre la rama `tp/<id>` del mensaje, sin IA (UD-263). Al terminar bien, el agente publica su respuesta final con «Ya está en producción»; si falla, el aviso llano con `outcome: blocked`. Responde 202 con el trabajo creado. 409 `deliver_not_configured` si la instancia no declara la orden, 409 `execute_busy` si el mensaje tiene un trabajo `execute` en cola o corriendo, 409 `deliver_busy` si ya tiene una entrega, 409 `no_agent_assignee` si no hay un agente activo que responda, 409 `message_closed` si está cerrado, 409 `delivery_discarded` si una persona descartó la rama.
          */
         post: {
             parameters: {
@@ -6490,6 +6594,69 @@ export interface paths {
                     content: {
                         "application/json": {
                             job_id?: string;
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/messages/{id}/discard-delivery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Descartar la rama de una entrega retenida (Editor)
+         * @description UD-275. La rama que espera revisión no se entrega nunca: el mensaje deja de mostrar la revisión pendiente, queda abierto y el hilo gana «Descartado por <persona>: <motivo>». El motivo es obligatorio. Auditada como `message.delivery_discard`. 409 `no_pending_delivery` si no hay una entrega retenida, 409 `deliver_busy` si ya se está entregando.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        reason: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            reply_id?: string;
                         };
                     };
                 };

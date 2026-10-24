@@ -200,7 +200,9 @@ export function createResources(t: Transport) {
       /** Forwards the message to a member with the reason (UD-272): the same message, one more assignee and a notice in the thread; with an agent, its `execute` job. */
       forward: (id: string, v: { member_id: string; comment: string }) => call<MessageDetail>(routes.messageForward, { params: { id }, body: { member_id: v.member_id, comment: v.comment } }),
       /** Queues the delivery of the branch an `execute` job left (Editor; UD-263). */
-      deliver: (id: string) => call<Record<string, unknown>>(routes.messageDeliver, { params: { id } }),
+      deliver: (id: string) => call<{ job_id: string }>(routes.messageDeliver, { params: { id } }),
+      /** Discards the branch of a held delivery with a required reason (Editor; UD-275): it is never delivered. */
+      discardDelivery: (id: string, reason: string) => call<{ reply_id: string }>(routes.messageDiscardDelivery, { params: { id }, body: { reason } }),
     },
     replies: {
       /** JSON, or multipart when there are files or links. */
@@ -217,10 +219,10 @@ export function createResources(t: Transport) {
           ...versioning,
           fetchCurrent: () => messageDetail(messageId),
           versionOf: (d) => d?.replies.find((r) => r.id === replyId)?.version,
-          // UD-278: the same edit also takes attachments off and adds mentions; `body` may be absent.
+          // UD-279: the same edit also takes attachments off and adds mentions; `body` may be absent.
           send: (version) => call<MessageDetail>(routes.replyEdit, { params: { id: messageId, replyId }, body: { ...(body === undefined ? {} : { body }), ...more, version } }),
         }),
-      /** New files and links on a reply of mine (UD-278); like the ones of a message they count as an edit, with the version that was read. */
+      /** New files and links on a reply of mine (UD-279); like the ones of a message they count as an edit, with the version that was read. */
       addAttachments: (messageId: string, replyId: string, v: { files: File[]; links?: string[] }, versioning: Versioning<MessageDetail> = {}) =>
         sendVersioned<MessageDetail, MessageDetail>({
           ...versioning,
@@ -228,7 +230,7 @@ export function createResources(t: Transport) {
           versionOf: (d) => d?.replies.find((r) => r.id === replyId)?.version,
           send: (version) => call<MessageDetail>(routes.replyAddAttachments, { params: { id: messageId, replyId }, form: attachmentsForm(version, v.files, v.links) }),
         }),
-      /** The text read from the audio or video of a reply (UD-278). A 404 means it has none (yet). */
+      /** The text read from the audio or video of a reply (UD-279). A 404 means it has none (yet). */
       transcript: (id: string) => call<{ text?: string }>(routes.replyAttachmentTranscript, { params: { id } }),
       /** Soft-deletes (UD-240): its author or the Editor. Returns the message with its thread. */
       delete: (messageId: string, replyId: string) => call<MessageDetail>(routes.replyDelete, { params: { id: messageId, replyId }, search: CONFIRM }),

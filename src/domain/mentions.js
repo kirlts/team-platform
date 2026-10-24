@@ -1,4 +1,4 @@
-// Mentions in a reply (UD-277, MASTER-SPEC §7.1 «Menciones»). A reply carries `mention_ids`: the members the person picked from the list the panel
+// Mentions in a reply (UD-278, MASTER-SPEC §7.1 «Menciones»). A reply carries `mention_ids`: the members the person picked from the list the panel
 // offers when they typed «@». The list is data: nothing here reads the text of the reply to find a name (RULES 4).
 //
 // What a mention does, all in the transaction that stores the reply:
@@ -60,7 +60,7 @@ export function recordMentions ({ db, events, now = Date.now }, { messageId, rep
 /**
  * Enqueues the `execute` job of every agent with pending mentions (of one message, or of all). One job per message and agent carries all the pending
  * replies: `mention.reply_id` is the latest and `mention.earlier` the ones before it. An agent that already has a job in the queue or running for the
- * message (or a delivery of it), or while the speech of an audio or video of the thread is still being read (UD-278), keeps them pending: the end of that work calls this again (`worker.js`). A mention whose reply was deleted, whose message was
+ * message (or a delivery of it), or while the speech of an audio or video of the thread is still being read (UD-279), keeps them pending: the end of that work calls this again (`worker.js`). A mention whose reply was deleted, whose message was
  * closed or deleted, or whose agent was deactivated has nothing to attend and stops being pending. The agent joins the assignees again: a mention is
  * an explicit call, also after a failed run handed the message to a person. Returns the ids of the jobs enqueued.
  */
@@ -86,7 +86,7 @@ export function attendPendingMentions (db, { now = Date.now, messageId = null } 
     for (const r of group.filter(stale)) run(db, 'UPDATE reply_mentions SET pending = 0 WHERE reply_id = ? AND member_id = ?', r.reply_id, r.member_id)
     const live = group.filter((r) => !stale(r))
     if (live.length === 0) continue
-    if (readingTranscripts(db, mId)) continue // UD-278: the agent starts when the speech of the thread is text; the end of that reading calls this again
+    if (readingTranscripts(db, mId)) continue // UD-279: the agent starts when the speech of the thread is text; the end of that reading calls this again
     const last = live.at(-1)
     run(db, 'INSERT OR IGNORE INTO message_assignees (message_id, member_id) VALUES (?, ?)', mId, agentId)
     const earlier = live.slice(0, -1).map((r) => r.reply_id)
@@ -111,7 +111,7 @@ export function mentionsOf (db, replyIds) {
 }
 
 /**
- * Whether `agentId` has answered the mention in `replyId`: a live reply of the agent in the same message after it. This is the guarantee of UD-277: a mention
+ * Whether `agentId` has answered the mention in `replyId`: a live reply of the agent in the same message after it. This is the guarantee of UD-278: a mention
  * of an agent always gets at least one reply from it, and the failure path checks it before giving up.
  */
 export function mentionAnswered (db, { messageId, agentId, replyId }) {

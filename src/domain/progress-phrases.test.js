@@ -62,9 +62,9 @@ test('a progress event carries its code and the phrase in the author\'s language
   const wire = (jobId) => rows(jobId).map((r) => toWire(r).data)
   for (const event of [...wire(es.job_id), ...wire(en.job_id)]) assert.equal(typeof event.code, 'string', JSON.stringify(event))
   assert.deepEqual(wire(es.job_id).map((e) => e.code).slice(0, 2), ['queued', 'analyzing'])
-  assert.equal(wire(es.job_id)[0].phrase, 'En cola')
+  assert.equal(wire(es.job_id)[0].phrase, 'En espera')
   assert.equal(wire(en.job_id)[0].phrase, 'Queued')
-  assert.equal(wire(en.job_id).at(-1).phrase, 'Proposal ready')
+  assert.equal(wire(en.job_id).at(-1).phrase, 'Draft ready')
   assert.ok(ana)
 
   // The tray carries the code of the last event too.

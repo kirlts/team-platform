@@ -45,7 +45,7 @@ describe('Timing of a message (UD-262)', () => {
       assert.equal(await figure('Primera respuesta').innerText(), '41 s')
       assert.equal(await figure('Respuesta final').innerText(), '22 min 0 s')
       assert.equal(await figure('Total').innerText(), '23 min 0 s')
-      assert.equal(await figure('Tiempo en cola').innerText(), '15 min 20 s')
+      assert.equal(await figure('Tiempo de espera').innerText(), '15 min 20 s')
       assert.deepEqual(await block.locator('[data-timing-phase]').evaluateAll((els) => els.map((e) => e.getAttribute('data-timing-phase'))), ['create', 'run', 'destroy'])
       const slow = block.locator('[data-timing-slow]')
       assert.match(await slow.first().innerText(), /Orden: npm test\s+1 min 34 s/, 'the slowest tool goes first')

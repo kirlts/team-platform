@@ -25,6 +25,8 @@ function controlOf(origin) {
     step: ({ inputId, finish = false } = {}) => order(`step?${new URLSearchParams({ ...(inputId ? { input_id: inputId } : {}), ...(finish ? { finish: '1' } : {}) })}`),
     reset: () => order('reset'),
     /** An agent member with a worked message (its timing) and one running now (UD-262). Returns { done_id, live_id }. With `deliver`, the one running now is in its delivery (UD-263). */
+    /** UD-275: a message whose delivery is held for review. Returns { message_id }. */
+    review: () => order('review'),
     execution: ({ deliver = false } = {}) => order(`execution${deliver ? '?deliver=1' : ''}`),
   }
 }

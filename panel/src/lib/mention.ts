@@ -1,4 +1,4 @@
-// The «@» of a reply (UD-277). These functions only serve the list that opens while the person types: where the word they are writing starts, what it
+// The «@» of a reply (UD-278). These functions only serve the list that opens while the person types: where the word they are writing starts, what it
 // looks like once a member is picked, and which of the picked members the text still shows. The mention itself is the list of ids the person picked: the
 // server never reads names out of the text.
 
@@ -38,4 +38,10 @@ export function splitMentions(text: string, names: string[]): { text: string; me
   const pattern = new RegExp(`(${tokens.map((n) => `@${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).join('|')})`, 'g')
   // With one capturing group, `split` puts the matches at the odd positions.
   return text.split(pattern).map((t, i) => ({ text: t, mention: i % 2 === 1 })).filter((p) => p.text !== '')
+}
+
+/** The event «Pedir cambios» sends so the reply form leaves the agent mentioned already (UD-277): the form is another component, and the event carries only the member's id. */
+export const MENTION_REQUEST = 'team:mention-request'
+export function requestMention(memberId: string): void {
+  window.dispatchEvent(new CustomEvent(MENTION_REQUEST, { detail: { memberId } }))
 }

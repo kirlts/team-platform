@@ -11,7 +11,7 @@ export function watchEvents(o: { client: TeamClient; store: EventsStore; queryCl
   const offMessage = o.store.onNewMessage(() => {
     void invalidate(o.queryClient, 'newMessage')
   })
-  // A job of a message that ends (an agent's work, the reading of a reply's audio) leaves its thread stale (UD-278).
+  // A job of a message that ends (an agent's work, the reading of a reply's audio) leaves its thread stale (UD-279).
   const offDone = o.store.onDone((e) => {
     if (e.message_id) void invalidate(o.queryClient, 'reply')
   })

@@ -529,6 +529,10 @@ EXECUTE_MACHINE_COLLECT=mkdir -p /data/transcripciones/{job_id} && scp -q -r {ma
 
 Con un almacén de objetos, la última línea es la clave: `gcloud storage cp -r ... gs://bucket/{job_id}/ >&2 && echo gs://bucket/{job_id}/`. Cuánto tiempo se guardan las transcripciones lo decide el anfitrión (por ejemplo, una regla de ciclo de vida del bucket). La plataforma sólo guarda la referencia.
 
+### Revisión de un cambio retenido (UD-275)
+
+Una orden de entrega que sale con 76 deja el cambio esperando a una persona, que lo ve en la ficha del mensaje, en «Revisión». Cuando un Editor aprueba con «Entregar», la orden vuelve a correr con `TEAM_REVIEWED_BY` fijada al id de ese miembro: una orden que retiene por zona no debe retener otra vez cuando viene fijada. Para que la persona vea cómo queda, la sesión graba el recorrido con `team walkthrough --url <dirección de la vista de la rama> --steps <json|archivo> --place <ruta> --as <rol> [--profile desktop|phone|both]`, que necesita Playwright y un Chromium en la máquina de la sesión (sin ellos lo dice en una línea y sigue con las capturas). El video y las capturas de cada paso se declaran en `captures` y se adjuntan con el rótulo «Propuesta».
+
 ### Capturas en las respuestas
 
 La sesión puede adjuntar capturas de la interfaz del anfitrión a sus dos respuestas (UD-268). La herramienta que las toma es del anfitrión; la plataforma sólo recibe archivos.
@@ -544,7 +548,7 @@ La respuesta final adjunta la «Antes» de la última respuesta de la sesión qu
 
 **Documentos de un reenvío (UD-272).** Un mensaje reenviado a un agente con un motivo que pide un PDF lo deja en `$TEAM_ATTACHMENTS_DIR` (el directorio `attachments/` del trabajo) y lo declara en `attachments` de la salida estructurada. La respuesta lo adjunta si la ruta queda dentro del directorio, empieza con `%PDF-`, pesa hasta `UPLOAD_MAX_DOCUMENT_BYTES` y no se pasa de `UPLOAD_MAX_FILES`; si no, la respuesta dice cuál quedó fuera y por qué. Con `EXECUTE_RUNNER=machine`, `EXECUTE_MACHINE_COLLECT` debe copiar también `attachments/` de la máquina a `{workdir}/attachments` (la ruta de la máquina es `$JOB_DIR/attachments`); sin esa copia el documento se deja fuera.
 
-**Menciones (UD-277).** Una respuesta que menciona a un agente le da el hilo completo y los adjuntos del mensaje y de las respuestas en el directorio `thread/` del trabajo (`$TEAM_THREAD_DIR`). Con `EXECUTE_RUNNER=machine` viaja con `{workdir}` y `run.sh` apunta la variable a su copia en la máquina; no hace falta ninguna orden nueva.
+**Menciones (UD-278).** Una respuesta que menciona a un agente le da el hilo completo y los adjuntos del mensaje y de las respuestas en el directorio `thread/` del trabajo (`$TEAM_THREAD_DIR`). Con `EXECUTE_RUNNER=machine` viaja con `{workdir}` y `run.sh` apunta la variable a su copia en la máquina; no hace falta ninguna orden nueva.
 
 Texto para las instrucciones de las sesiones del anfitrión (`EXECUTE_HOST_INSTRUCTIONS`), con el nombre de la herramienta del anfitrión en lugar de `<captura>`:
 

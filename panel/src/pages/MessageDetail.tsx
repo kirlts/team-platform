@@ -17,6 +17,7 @@ import { useLookups } from '@/components/lookups'
 import { canReplyTo } from '@/lib/handoff'
 import { Page } from '@/components/Page'
 import { PageHeader } from '@/components/PageHeader'
+import { ReviewPending } from '@/components/ReviewPending'
 import { Recipients } from '@/components/Recipients'
 import { RecipientsEditor } from '@/components/RecipientsEditor'
 import { ReplyThread } from '@/components/ReplyThread'
@@ -238,6 +239,8 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
             )}
             {m.input_id && <AiMark />}
           </div>
+
+          <ReviewPending message={m} />
 
           {canEdit ? (
             <RecipientsEditor ids={m.assignee_ids} max={desktop ? 4 : 2} onChange={(ids) => void change(t('proposal.recipientsChanged'), { assignee_ids: ids }, { assignee_ids: m.assignee_ids })} />

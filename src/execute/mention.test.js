@@ -1,4 +1,4 @@
-// A reply that mentions an agent (UD-277) end to end with the fake `claude`: the session receives the whole thread in order with who wrote what, the
+// A reply that mentions an agent (UD-278) end to end with the fake `claude`: the session receives the whole thread in order with who wrote what, the
 // attachments of the message and of the replies as files, and who called it; a mention that arrives while the agent works is attended afterwards; a session
 // that fails still leaves a reply in the thread.
 import assert from 'node:assert/strict'
@@ -17,7 +17,7 @@ const FAKE = fileURLToPath(new URL('./testing/fake-claude-stream.mjs', import.me
 const PORT = 8646
 const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from('imagen-de-prueba')])
 
-describe('a reply that mentions an agent (UD-277)', () => {
+describe('a reply that mentions an agent (UD-278)', () => {
   let env, state, worker, vault, edId, agentId, editor, anaCookie
   let cases = 0
   const api = (method, url, cookie, payload) => env.app.inject({ method, url, headers: { cookie, 'x-team-request': 'panel', ...(payload === undefined ? {} : { 'content-type': 'application/json' }) }, payload: payload === undefined ? undefined : JSON.stringify(payload) })
@@ -111,7 +111,7 @@ describe('a reply that mentions an agent (UD-277)', () => {
     assert.deepEqual(readFileSync(join(threadDir(workdir), plan.files.find((f) => f.rel.startsWith('message/')).rel)), PNG)
   })
 
-  it('the audio of the mention reaches the session as text in the thread, and its photo as a file (UD-278)', async () => {
+  it('the audio of the mention reaches the session as text in the thread, and its photo as a file (UD-279)', async () => {
     await worker?.stop()
     startWorker()
     const id = await publishedMessage()

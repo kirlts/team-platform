@@ -186,7 +186,7 @@ describe('the drawer under the bar (UD-046, UD-070)', () => {
       assert.notEqual((await edge(state)).width, '0px', 'the state has a chip edge')
       assert.equal((await edge(mark)).style, 'dashed')
       assert.equal(await mark.innerText(), 'Servidor de ejemplo')
-      assert.equal(await mark.getAttribute('title'), 'Propuesta inventada por el servidor de ejemplo')
+      assert.equal(await mark.getAttribute('title'), 'Borrador de ejemplo')
       // The state comes first and weighs at least as much as the mark.
       assert.ok((await state.boundingBox()).x < (await mark.boundingBox()).x)
     } finally {

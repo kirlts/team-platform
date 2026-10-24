@@ -7,13 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- Menciones en las respuestas (UD-277): «@» elige miembros, avisa, asigna e invoca a un agente con el hilo completo y sus adjuntos; el hilo siempre recibe una respuesta.
-- Responder hablando (UD-278): el audio y el video de una respuesta se transcriben, la mención espera el texto, y el autor edita adjuntos y menciones de su respuesta.
+- Menciones en las respuestas (UD-278): «@» elige miembros, avisa, asigna e invoca a un agente con el hilo completo y sus adjuntos; el hilo siempre recibe una respuesta.
+- Responder hablando (UD-279): el audio y el video de una respuesta se transcriben, la mención espera el texto, y el autor edita adjuntos y menciones de su respuesta.
 
 ### Changed
 - Reconectar el flujo de eventos ya no recarga las listas a ciegas. `GET /events` abre cada conexión con un evento `replay` (`complete`, `from`, sin `id`); con `complete: true` el cliente no pide nada, y con `false` sólo lee de nuevo lo que la pantalla muestra (`refetchType: 'active'`). Medido el 2026-10-24: cada reconexión pedía las 7 listas de Inicio y sostenía la red ocupada varios segundos.
 
 ### Added
+- Revisión de un cambio retenido sin salir de la plataforma (UD-275). La ficha del mensaje muestra «Revisión» con «Entregar», «Pedir cambios» y «Descartar»; `GET /api/messages/:id` suma `pending_delivery`, `POST /api/messages/:id/discard-delivery { reason }` descarta la rama (migración `0024_delivery_review`), la orden de entrega recibe `TEAM_REVIEWED_BY`, la respuesta retenida se escribe para un jefe de proyecto y adjunta las capturas y el video con el rótulo «Propuesta». `team walkthrough` graba el recorrido (WebM 1280x720 o 390x844, un rótulo «Paso N» y una captura por paso).
 - Reenviar un mensaje a un miembro con motivo (UD-272). `POST /api/messages/:id/forward { member_id, comment }` suma al destinatario al mismo mensaje y deja en el hilo una respuesta `forward` (migración `0022_reply_forward`); con un agente encola su `execute`. La salida estructurada de un trabajo reenviado gana `mode` (`resolve` o `investigate`: sin entrega ni cierre) y `attachments` (PDF validados por forma en `$TEAM_ATTACHMENTS_DIR`). Una sesión que termina en `needs_decision` entrega análisis, recomendación y alternativas descartadas. El panel gana «Reenviar» en la ficha y la franja «Reenviado a …» en el hilo.
 - Claude cierra el mensaje cuando corresponde (UD-271). La salida estructurada gana `close` y `close_reason`; el sistema cierra tras la respuesta final sólo con la entrega en código 0 (o `investigated` sin entrega), el «Después» de un «Antes» y sin respuesta de una persona en el hilo, nunca con `needs_decision`, `not_mine`, `blocked` ni entrega retenida, fallida o agotada. La respuesta agrega «Cerrado: <motivo>». Perilla `EXECUTE_AUTO_CLOSE` (omisión `on`).
 - Capturas con datos de personas (UD-270). `EXECUTE_CAPTURES_UNMASKED=allowed` (o `1`; omisión `denied`) adjunta una captura con `masked: false` sin mirar la zona, en el trabajador y en `team reply` (`TEAM_CAPTURES_UNMASKED`).

@@ -28,7 +28,7 @@ test('success: progress comes from completed steps and ends at 100 with done', a
   assert.equal(percents.at(-1), 100)
   assert.ok(percents.every((p) => Number.isInteger(p) && p >= 0 && p <= 100))
   assert.ok(progressRows.some((p) => /Lectura de adjunto 2 de 2/.test(p.phrase)))
-  assert.ok(progressRows.some((p) => p.phrase === 'Analizando' || p.phrase === 'Propuesta lista'))
+  assert.ok(progressRows.some((p) => p.phrase === 'Analizando' || p.phrase === 'Borrador listo'))
   const doneRow = get(env.db, "SELECT * FROM job_events WHERE job_id = ? AND kind = 'done'", jobId)
   assert.equal(JSON.parse(doneRow.data_json).status, 'done')
   assert.equal(get(env.db, 'SELECT status FROM jobs WHERE id = ?', jobId).status, 'done')

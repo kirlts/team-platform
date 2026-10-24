@@ -1,4 +1,4 @@
-// The audio of a reply is read (UD-278) and an agent called by a mention waits for it; the author edits their reply: attachments in and out, a mention added.
+// The audio of a reply is read (UD-279) and an agent called by a mention waits for it; the author edits their reply: attachments in and out, a mention added.
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { all, get } from '../db/index.js'

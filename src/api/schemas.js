@@ -83,7 +83,7 @@ const replyAttachmentSummary = {
 
 export const reply = {
   type: 'object',
-  properties: { id, message_id: id, author_id: id, body: { type: 'string' }, kind: { type: 'string', enum: ['answer', 'fix', 'clarification', 'forward'] }, forwarded_to: { ...nullableId, description: 'El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272).' }, attachments: { type: 'array', items: replyAttachmentSummary }, attachment_kinds: { type: 'array', items: { type: 'string' } }, mentions: { type: 'array', items: id, description: 'Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-277). Nunca se leen del texto.' }, created_at: { type: 'string' }, version: intVar, edited_at: nullableText }
+  properties: { id, message_id: id, author_id: id, body: { type: 'string' }, kind: { type: 'string', enum: ['answer', 'fix', 'clarification', 'forward'] }, forwarded_to: { ...nullableId, description: 'El miembro al que se reenvió el mensaje; sólo en una respuesta de tipo `forward` (UD-272).' }, attachments: { type: 'array', items: replyAttachmentSummary }, attachment_kinds: { type: 'array', items: { type: 'string' } }, mentions: { type: 'array', items: id, description: 'Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto.' }, created_at: { type: 'string' }, version: intVar, edited_at: nullableText }
 }
 
 export const messageCard = {
@@ -111,6 +111,11 @@ export const messageDetail = {
     trace_id: { ...nullableText, description: 'Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution.' },
     observed: { type: 'array', items: { type: 'string' }, description: 'What a video frame shows and nobody says, outside the body; empty when there is none.' },
     replies: { type: 'array', items: reply },
+    pending_delivery: {
+      type: 'object', nullable: true,
+      description: 'UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla.',
+      properties: { branch: { type: 'string' }, held_reason: { type: 'string' }, job_id: { type: 'string' }, agent_id: { type: 'string', nullable: true }, delivering_job_id: { type: 'string', nullable: true } }
+    },
     edits: { type: 'array', items: { type: 'object', properties: { id, member_id: id, at: { type: 'string' }, version: intVar, fields: { type: 'array', items: { type: 'string' } } } } }
   }
 }

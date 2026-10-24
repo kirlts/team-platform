@@ -158,7 +158,7 @@ export interface Reply {
   kind: ReplyKind
   /** The member the message was forwarded to; only in a reply of kind `forward` (UD-272), whose `body` is the reason. */
   forwarded_to?: string | null
-  /** The members the reply mentions, picked in the list of «@» (UD-277). */
+  /** The members the reply mentions, picked in the list of «@» (UD-278). */
   mentions?: string[]
   created_at: string
   /** Media types attached to the reply, to draw one icon per type (UD-016). */
@@ -203,8 +203,21 @@ export interface Message {
   last_reply?: Reply | null
 }
 
+/** A held delivery waiting for a person (UD-275). */
+export interface PendingDelivery {
+  branch: string
+  held_reason: string
+  /** The `execute` job that wrote the branch. */
+  job_id: string
+  agent_id: string | null
+  /** The `deliver` job queued or running after a person approved; its progress shows in the review. */
+  delivering_job_id: string | null
+}
+
 export interface MessageDetail extends Message {
   replies: Reply[]
+  /** The review a held delivery waits for; null when none (UD-275). */
+  pending_delivery?: PendingDelivery | null
   /** What a video frame shows and nobody says; outside the body, empty when there is none. */
   observed?: string[]
   /** Set while the message is deleted (UD-240); only an Editor asking for it sees such a message. */
@@ -325,7 +338,7 @@ export interface DoneEvent {
   input_id?: string
   /** What the job left the input as: `published` when the publication was automatic (UD-070), `proposed` when it waits for review. */
   input_status?: string
-  /** The message the job worked on (`execute`, and the reading of the audio of a reply, UD-278): its thread is stale. */
+  /** The message the job worked on (`execute`, and the reading of the audio of a reply, UD-279): its thread is stale. */
   message_id?: string
   done: true
 }
@@ -335,7 +348,7 @@ export interface NewMessageEvent {
   title: string
   author_id: string
   at?: string
-  /** `mention` when someone picked the member in a reply (UD-277); anything else is an assignment. */
+  /** `mention` when someone picked the member in a reply (UD-278); anything else is an assignment. */
   reason?: string
   reply_id?: string
 }
@@ -509,7 +522,7 @@ export interface NewReply {
   kind: Exclude<ReplyKind, 'forward'>
   files?: File[]
   links?: string[]
-  /** The members picked in the list of «@» (UD-277); never read from the text. */
+  /** The members picked in the list of «@» (UD-278); never read from the text. */
   mention_ids?: string[]
 }
 

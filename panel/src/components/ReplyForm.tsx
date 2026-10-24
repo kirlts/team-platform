@@ -1,17 +1,17 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Check } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { useErrorText, useT } from '@/i18n'
 import { useMe, useReply } from '@team-platform/client/react'
 import type { Member } from '@team-platform/client'
-import { activeMentions } from '@/lib/mention'
+import { MENTION_REQUEST, activeMentions } from '@/lib/mention'
 import { useMediaDraft } from '@/lib/useMediaDraft'
 import { useLookups } from './lookups'
 import { MentionTextarea } from './MentionTextarea'
 import { CaptureButtons, ClipMenu, MediaDraftList, RecordingStatus } from './MediaDraft'
 
 /** Reply to a message: text and, as in the send bar, clip, camera and microphone. */
-export function ReplyForm({ messageId, onSent, autoFocus, children, senderMode = false }: { messageId: string; onSent?: () => void; autoFocus?: boolean; children?: React.ReactNode; /** The sender of the message writes only to call someone (UD-277): without a mention there is nothing to send. */ senderMode?: boolean }) {
+export function ReplyForm({ messageId, onSent, autoFocus, children, senderMode = false }: { messageId: string; onSent?: () => void; autoFocus?: boolean; children?: React.ReactNode; /** The sender of the message writes only to call someone (UD-278): without a mention there is nothing to send. */ senderMode?: boolean }) {
   const t = useT()
   // Sending is confirmed in the form itself, until the next word is typed: a notice floats over the bottom of a phone, exactly where this form sits (J4-flow-04).
   const [sent, setSent] = useState(false)
@@ -24,6 +24,17 @@ export function ReplyForm({ messageId, onSent, autoFocus, children, senderMode =
   const [picked, setPicked] = useState<Member[]>([])
   const mentions = activeMentions(body, picked) // a token the person erased is no longer a mention
   const noMention = senderMode && mentions.length === 0
+  // «Pedir cambios» of a review asks for the agent to be mentioned already: «@Name» goes first in the text and the member is picked, as if chosen from the list (UD-277).
+  useEffect(() => {
+    const onRequest = (e: Event) => {
+      const member = activeMembers.find((m) => m.id === (e as CustomEvent<{ memberId: string }>).detail?.memberId && m.id !== me?.id)
+      if (!member) return
+      setBody((text) => (text.includes(`@${member.name}`) ? text : `@${member.name} ${text}`))
+      setPicked((list) => (list.some((m) => m.id === member.id) ? list : [...list, member]))
+    }
+    window.addEventListener(MENTION_REQUEST, onRequest)
+    return () => window.removeEventListener(MENTION_REQUEST, onRequest)
+  }, [activeMembers, me?.id])
 
   const submit = () => {
     if ((!body.trim() && draft.empty) || noMention || reply.isPending || draft.recording) return

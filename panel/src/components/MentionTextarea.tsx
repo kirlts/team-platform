@@ -18,7 +18,7 @@ type Props = Omit<ComponentProps<typeof Textarea>, 'value' | 'onChange'> & {
 }
 
 /**
- * A field where «@» opens the list of members (UD-277), as GitHub and Linear do: it filters while the person types, moves with the arrows, picks with Enter
+ * A field where «@» opens the list of members (UD-278), as GitHub and Linear do: it filters while the person types, moves with the arrows, picks with Enter
  * or Tab, closes with Escape, and on a phone a touch on a name picks it. Picking leaves «@Name» in the text and the member in `picked`; what the server
  * receives is that list of ids, never the text. The field keeps the focus the whole time (the list is not a focus target).
  */

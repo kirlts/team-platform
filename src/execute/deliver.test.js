@@ -243,7 +243,7 @@ describe('deliver job', () => {
     assert.doesNotMatch(lines[0], /\s/, 'compact')
     const mine = replies(messageId).slice(before)
     assert.equal(mine.length, 1, 'ONE reply for the held delivery')
-    assert.equal(mine[0], 'Arreglé el cobro doble.\n\nYa se cobra una vez.\n\nEl cambio está listo y espera la revisión de una persona antes de entrar a producción: el cambio toca pagos. Queda guardado en la rama.')
+    assert.equal(mine[0], 'Arreglé el cobro doble.\n\nYa se cobra una vez.\n\nCambio listo para revisar: el cambio toca pagos. Todavía no llega a producción. Cómo queda, en «Propuesta».')
     assert.doesNotMatch(mine[0], /76|deliver|Ya está en producción/)
     const done = eventsOf(jobId).at(-1)
     assert.equal(done.kind, 'done')
@@ -258,6 +258,78 @@ describe('deliver job', () => {
     assert.equal(JSON.parse(env.db.prepare("SELECT detail_json FROM audit_log WHERE action = 'message.escalate' AND entity_id = ?").get(messageId).detail_json).source, 'deliver')
     const view = (await env.app.inject({ method: 'GET', url: '/api/ops/execute-runs/summary', headers: { cookie: editor } })).json()
     assert.ok(view.delivery.held >= 1, 'the summary counts «en espera de revisión» apart')
+  })
+
+  describe('the review of a held delivery (UD-275)', () => {
+    const shot = (path, alt) => ({ path, alt, masked: true, place: 'Fichas > Paciente', as: 'Clínica Sur, recepción' })
+    const holdUnlessReviewed = (log) => `echo "reviewed=$TEAM_REVIEWED_BY" >> ${log}; if [ -n "$TEAM_REVIEWED_BY" ]; then echo ref-reviewed; exit 0; fi; echo 'toca datos de personas'; exit 76`
+    const pendingOf = async (messageId, cookie = editor) => (await env.app.inject({ method: 'GET', url: `/api/messages/${messageId}`, headers: { cookie } })).json().pending_delivery
+    const post = (url, cookie, payload) => env.app.inject({ method: 'POST', url, headers: { ...cookieHeaders(cookie), 'content-type': 'application/json' }, payload: JSON.stringify(payload ?? {}) })
+    async function held (text, log) {
+      process.env.FAKE_EXECUTE_CAPTURE_FILES = JSON.stringify({ 'paso1.png': 'png', 'recorrido.webm': 'webm' })
+      process.env.FAKE_EXECUTE_EXTRA = JSON.stringify({ captures: [shot('paso1.png', '0:02 · Paso 1 · Abrir la ficha'), shot('recorrido.webm', 'Recorrido · 0:12')] })
+      startWorker({ deliverCommand: holdUnlessReviewed(log) })
+      const messageId = await publishedMessage(text)
+      await settle(messageId)
+      return messageId
+    }
+
+    it('the message view exposes the review, the held reply attaches the «Propuesta» screenshots and the video, and only an Editor delivers', async () => {
+      const log = path('review-log')
+      const messageId = await held('Subir fotos a la ficha del paciente.', log)
+      const rows = env.db.prepare('SELECT ra.name, ra.kind, ra.mime FROM replies r JOIN reply_attachments ra ON ra.reply_id = r.id WHERE r.message_id = ? AND r.author_id = ? ORDER BY r.id, ra.position').all(messageId, agentId)
+      assert.deepEqual(rows.map((x) => [x.name, x.kind, x.mime]), [['Propuesta - 0:02 · Paso 1 · Abrir la ficha.png', 'image', 'image/png'], ['Propuesta - Recorrido · 0:12.webm', 'video', 'video/webm']])
+      assert.match(replies(messageId).at(-1), /\*\*Propuesta\*\*: 0:02 · Paso 1 · Abrir la ficha\. Fichas > Paciente, Clínica Sur, recepción\.\n\n\*\*Propuesta\*\*: Recorrido · 0:12\./)
+      assert.doesNotMatch(replies(messageId).at(-1), /Después/)
+      const [exec] = jobsOf(messageId, 'execute')
+      assert.deepEqual(await pendingOf(messageId), { branch: `tp/${messageId}`, held_reason: 'toca datos de personas', job_id: String(exec.id), agent_id: String(agentId), delivering_job_id: null })
+      assert.deepEqual(await pendingOf(messageId, author), await pendingOf(messageId), 'any member sees the review')
+      assert.equal((await post(`/api/messages/${messageId}/deliver`, author)).statusCode, 403, 'only an Editor delivers')
+      const delivered = await post(`/api/messages/${messageId}/deliver`, editor)
+      assert.equal(delivered.statusCode, 202, delivered.body)
+      await worker.stop()
+      startWorker({ deliverCommand: holdUnlessReviewed(log) })
+      await settle(messageId)
+      assert.match(replies(messageId).at(-1), /Ya está en producción\.$/)
+      assert.equal(await pendingOf(messageId), null, 'delivered: no review left')
+      assert.match(readFileSync(log, 'utf8'), /reviewed=\n[\s\S]*reviewed=\d+\n$/, 'the first delivery was held; the approved one carried the reviewer')
+    })
+
+    it('discarding needs an Editor and a reason, leaves the notice in the thread, keeps the message open and never delivers', async () => {
+      const messageId = await held('Subir fotos a otra ficha.', path('discard-log'))
+      assert.equal((await post(`/api/messages/${messageId}/discard-delivery`, author, { reason: 'No' })).statusCode, 403)
+      assert.equal((await post(`/api/messages/${messageId}/discard-delivery`, editor, { reason: '   ' })).statusCode, 400)
+      assert.equal((await post(`/api/messages/${messageId}/discard-delivery`, editor, {})).statusCode, 400)
+      const done = await post(`/api/messages/${messageId}/discard-delivery`, editor, { reason: 'Las fotos no pueden ir a la ficha.' })
+      assert.equal(done.statusCode, 200, done.body)
+      const detail = (await env.app.inject({ method: 'GET', url: `/api/messages/${messageId}`, headers: { cookie: editor } })).json()
+      assert.equal(detail.pending_delivery, null)
+      assert.equal(detail.status, 'open')
+      assert.equal(detail.replies.at(-1).body, 'Descartado por ed@x.org: Las fotos no pueden ir a la ficha.'.replace('ed@x.org', env.db.prepare("SELECT name FROM members WHERE email = 'ed@x.org'").get().name))
+      assert.equal(JSON.parse(env.db.prepare("SELECT detail_json FROM audit_log WHERE action = 'message.delivery_discard' AND entity_id = ?").get(messageId).detail_json).reason, 'Las fotos no pueden ir a la ficha.')
+      assert.equal((await post(`/api/messages/${messageId}/deliver`, editor)).statusCode, 409, 'a discarded branch is never delivered')
+      assert.equal((await post(`/api/messages/${messageId}/discard-delivery`, editor, { reason: 'Otra vez' })).statusCode, 409, 'nothing left to discard')
+    })
+
+    it('asking for changes: a new run of Claude on the same branch leaves the review again with new material', async () => {
+      const messageId = await held('Subir fotos a una tercera ficha.', path('changes-log'))
+      assert.ok(await pendingOf(messageId))
+      await worker.stop()
+      // The mention of the thread (another work) gives the message back to Claude; here the same effect, by the assignees.
+      env.db.prepare('INSERT OR IGNORE INTO message_assignees (message_id, member_id) VALUES (?, ?)').run(messageId, agentId)
+      const again = await post(`/api/messages/${messageId}/execute`, editor, { member_id: String(agentId) })
+      assert.equal(again.statusCode, 202, again.body)
+      assert.equal(await pendingOf(messageId), null, 'while Claude works the change the review is not offered')
+      process.env.FAKE_EXECUTE_EXTRA = JSON.stringify({ captures: [shot('paso1.png', '0:03 · Paso 1 · Abrir la ficha con los cambios')] })
+      await worker.stop()
+      startWorker({ deliverCommand: holdUnlessReviewed(path('changes-log-2')) })
+      await settle(messageId)
+      const pending = await pendingOf(messageId)
+      assert.equal(pending?.branch, `tp/${messageId}`)
+      assert.equal(pending?.job_id, String(jobsOf(messageId, 'execute').at(-1).id), 'the review points at the new run')
+      const last = env.db.prepare('SELECT ra.name FROM replies r JOIN reply_attachments ra ON ra.reply_id = r.id WHERE r.message_id = ? AND r.author_id = ? ORDER BY r.id DESC, ra.position').all(messageId, agentId)
+      assert.ok(last.some((x) => x.name === 'Propuesta - 0:03 · Paso 1 · Abrir la ficha con los cambios.png'))
+    })
   })
 
   it('a failed verification goes back to execute once with its output; the second delivery answers once', async () => {
@@ -526,9 +598,9 @@ describe('pieces of the delivery', () => {
 
   it('the held reply keeps the summary, names the reason in plain words and has no jargon', () => {
     assert.equal(heldBody({ output: { outcome: 'done', summary: 'Listo.' }, reason: 'el cambio toca pagos.', language: 'es-419' }),
-      'Listo.\n\nEl cambio está listo y espera la revisión de una persona antes de entrar a producción: el cambio toca pagos. Queda guardado en la rama.')
-    assert.match(heldBody({ output: { outcome: 'done', summary: 'Listo.' }, reason: '', language: 'es-419' }), /producción: el cambio necesita esa revisión\. Queda/)
-    assert.match(heldBody({ output: { outcome: 'done', summary: 'Done.' }, reason: 'it touches payments', language: 'en' }), /waits for a person to review it before it goes to production: it touches payments\./)
+      'Listo.\n\nCambio listo para revisar: el cambio toca pagos. Todavía no llega a producción. Cómo queda, en «Propuesta».')
+    assert.match(heldBody({ output: { outcome: 'done', summary: 'Listo.' }, reason: '', language: 'es-419' }), /Cambio listo para revisar: el cambio necesita esa revisión\. Todavía/)
+    assert.match(heldBody({ output: { outcome: 'done', summary: 'Done.' }, reason: 'it touches payments', language: 'en' }), /Change ready for review: it touches payments\. It is not in production yet\./)
     assert.equal(outputJson({ summary: 'x', outcome: 'done', zone: 'pagos' }), '{"outcome":"done","zone":"pagos"}')
     assert.equal(outputJson(null), '{}')
   })

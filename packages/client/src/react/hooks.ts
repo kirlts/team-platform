@@ -356,6 +356,20 @@ export function useForward(messageId: string) {
   return useMutation({ mutationFn: (v: { member_id: string; comment: string }) => client.messages.forward(messageId, v), onSuccess: () => inv('forward') })
 }
 
+/** Queues the delivery of the branch a person reviewed (POST /messages/:id/deliver, Editor; UD-263, UD-275). */
+export function useDeliver(messageId: string) {
+  const client = useTeamClient()
+  const inv = useInvalidate()
+  return useMutation({ mutationFn: () => client.messages.deliver(messageId), onSuccess: () => inv('deliverReview') })
+}
+
+/** Discards the branch of a held delivery with the reason (POST /messages/:id/discard-delivery, Editor; UD-275). */
+export function useDiscardDelivery(messageId: string) {
+  const client = useTeamClient()
+  const inv = useInvalidate()
+  return useMutation({ mutationFn: (reason: string) => client.messages.discardDelivery(messageId, reason), onSuccess: () => inv('deliverReview') })
+}
+
 /** Soft-deletes a message (DELETE /messages/:id?confirm=true, UD-240): its sender or the Editor; Deshacer restores it. */
 export function useDeleteMessage() {
   const client = useTeamClient()
@@ -401,7 +415,7 @@ export function useEditReply(messageId: string) {
   })
 }
 
-/** New files and links on a reply of mine (UD-278). */
+/** New files and links on a reply of mine (UD-279). */
 export function useAddReplyAttachments(messageId: string) {
   const client = useTeamClient()
   const qc = useQueryClient()

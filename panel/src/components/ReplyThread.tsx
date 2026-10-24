@@ -169,7 +169,7 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
                         </Button>
                       )}
                     </div>
-                    {canEdit(r) && !r.body ? null /* a reply of only an audio or photo has no text to fill in (UD-278) */ : canEdit(r) ? (
+                    {canEdit(r) && !r.body ? null /* a reply of only an audio or photo has no text to fill in (UD-279) */ : canEdit(r) ? (
                       <EditableText value={r.body} label={t('replies.body')} multiline validate={bodyRule(r)} onSave={(v) => changeText(r, v)} displayClassName={last ? 'text-emph' : 'text-sm'} render={(v) => <Markdown source={v} breaks mentions={mentionNames(r)} />} />
                     ) : (
                       r.body && <Markdown source={r.body} breaks mentions={mentionNames(r)} className={cn('break-words', last ? 'text-emph' : 'text-sm')} />
@@ -184,7 +184,7 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
       )}
       <div ref={foot} className="shrink-0 scroll-mb-4">
       {canReply || (message.status !== 'closed' && !!me) ? (
-        // The sender does not answer their own message, but may write in the thread to call someone with «@» (UD-277): the form is the same and asks for a mention.
+        // The sender does not answer their own message, but may write in the thread to call someone with «@» (UD-278): the form is the same and asks for a mention.
         <ReplyForm messageId={message.id} autoFocus={focusForm} senderMode={!canReply} onSent={() => setSentAt(message.replies.length)}>
           <CloseMessage id={message.id} closed={false} quiet />
         </ReplyForm>

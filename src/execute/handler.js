@@ -133,7 +133,7 @@ const FAILURE_TEXTS = {
     system: 'No pude terminar este trabajo por un problema del sistema.',
     config: (reason) => `No pude empezar este trabajo: ${reason}`,
     budgetWait: (time) => `En espera: se alcanzó el tope de gasto de hoy. Sigue mañana a las ${time}.`,
-    // UD-277: what a person reads when the agent could not answer a mention: its name and a reason in plain words.
+    // UD-278: what a person reads when the agent could not answer a mention: its name and a reason in plain words.
     mention: (agent, why) => `${agent} no pudo responder: ${why}.`,
     why: { interrupted: 'se interrumpió', timeout: 'se acabó el tiempo', budget: 'se alcanzó el tope de gasto', turns: 'era demasiado largo', format: 'la respuesta no tuvo el formato esperado', infra: 'falló un servicio', system: 'hubo un problema del sistema' },
     edited: 'El mensaje se editó mientras trabajaba, así que esta respuesta puede no corresponder al texto de ahora. No se entregó a producción; lo hecho queda guardado en la rama.'
@@ -173,7 +173,7 @@ export function failureBody (error, language, { timeoutMs = 0, mentionAgent = nu
   const kind = FAILURE_KIND[error?.code] ?? 'system'
   const reason = kind === 'timeout' ? t.timeout(Math.max(1, Math.round(timeoutMs / 60000))) : kind === 'config' ? t.config(String(error?.message ?? '').trim()) : t[kind]
   const saved = kind === 'config' ? '' : ` ${t.saved}`
-  // UD-277: a job that was called by a mention says it in one line: who could not answer and why, in plain words.
+  // UD-278: a job that was called by a mention says it in one line: who could not answer and why, in plain words.
   if (mentionAgent) return t.mention(mentionAgent, kind === 'config' ? String(error?.message ?? '').trim() : t.why[kind] ?? t.why.system)
   return `${reason}${saved}\n\n${t.again}`
 }
@@ -317,7 +317,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       ? get(db, `SELECT r.body AS reason, m.name AS by FROM replies r JOIN members m ON m.id = r.author_id
                   WHERE r.id = ? AND r.message_id = ? AND r.kind = 'forward' AND r.forwarded_to = ? AND r.deleted_at IS NULL`, payload.forward.reply_id, messageId, memberId) ?? null
       : null
-    // UD-277: the reply that mentions this agent (when the job was enqueued by a mention). The session receives the whole thread; `mode` and `attachments` are offered as with a forward.
+    // UD-278: the reply that mentions this agent (when the job was enqueued by a mention). The session receives the whole thread; `mode` and `attachments` are offered as with a forward.
     const mention = loadMention(db, payload.mention, { messageId })
     const thread = mention ? planThread(db, { messageId, marked: [mention.replyId, ...mention.earlier] }) : null
     const schema = finalSchema(declared.grammar, { autoClose: x.autoClose, forwarded: forward !== null || mention !== null })
@@ -415,7 +415,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         span.setAttribute('team.queue_wait_ms', Math.max(0, startedAt - job.created_at))
         await mkdir(capturesDir(dirs.workdir)) // where the session leaves its screenshots (UD-268); here and not in prepareWorkdir, so the check of EXECUTE_MAX_MACHINES keeps its timing
         await mkdir(documentsDir(dirs.workdir)) // and its documents (UD-272)
-        if (thread) span.setAttribute('team.thread_files', await stageThread({ config, plan: thread, workdir: dirs.workdir })) // UD-277: the attachments of the thread, where the session reads them
+        if (thread) span.setAttribute('team.thread_files', await stageThread({ config, plan: thread, workdir: dirs.workdir })) // UD-278: the attachments of the thread, where the session reads them
         // The session continues this trace (W3C `TRACEPARENT`) and, when the host declares it, exports its own telemetry (EXECUTE_OTEL_ENV).
         const tracedEnv = { ...(x.sessionEnv ?? {}), ...(x.otelEnv ?? {}), ...(currentTraceparent() ? { TRACEPARENT: currentTraceparent() } : {}) }
         // A line that cannot be turned into progress (the job was purged, the database is busy) must not become an uncaught exception of the worker: the session goes on.
@@ -507,7 +507,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     // UD-269: a `needs_decision` without a valid `decision_check` reaches no person; it fails like any invalid output.
     const noCheck = decisionCheckProblem(result.structured_output)
     if (noCheck) throw permanent(`La salida estructurada no cumple el formato: ${noCheck}`, 'invalid_output')
-    const request = mention ? null : closeRequest(result.structured_output) // UD-271: what the session asked for; the system decides when the reply is posted. A mention never closes (UD-277): the people in the thread decide
+    const request = mention ? null : closeRequest(result.structured_output) // UD-271: what the session asked for; the system decides when the reply is posted. A mention never closes (UD-278): the people in the thread decide
     // The files are in `captured` and `documents`, the request is in `request`, the mode is in `investigate`; what travels on is the rest.
     const { captures: _declared, close: _close, close_reason: _closeReason, mode, attachments: _attachments, ...output } = result.structured_output
     const investigate = mode === 'investigate' // UD-272: the model understood the reason as «look into it»: nothing is delivered and nothing is closed, whatever the rest of the output says
@@ -587,14 +587,14 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     }
   }
 
-  /** The name of the agent when this job was called by a mention (UD-277), else null: a failure of such a job is told in one line. */
+  /** The name of the agent when this job was called by a mention (UD-278), else null: a failure of such a job is told in one line. */
   function mentionAgentOf (job, messageId) {
     const payload = parseJson(job.payload_json, {})
     return loadMention(db, payload.mention, { messageId }) ? get(db, 'SELECT name FROM members WHERE id = ?', payload.member_id)?.name ?? null : null
   }
 
   /**
-   * The guarantee of UD-277: a mention of an agent always gets at least one reply from it. When the job ended for good and no reply of the agent follows the
+   * The guarantee of UD-278: a mention of an agent always gets at least one reply from it. When the job ended for good and no reply of the agent follows the
    * mention (the hand-over to a person did not post one, or the thread changed under it), the system writes one in the agent's name: one line that says it
    * could not and why. Never fails the job; a closed or deleted message has nobody to tell.
    */

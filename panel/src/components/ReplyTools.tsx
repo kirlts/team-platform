@@ -9,7 +9,7 @@ import { useLookups } from './lookups'
 import { MemberPicker } from './MemberPicker'
 
 /**
- * What the author does to their own reply besides its text (UD-278), with the same words as a message: «+ Adjunto» to add files, a cross on each file to
+ * What the author does to their own reply besides its text (UD-279), with the same words as a message: «+ Adjunto» to add files, a cross on each file to
  * take it off, and «+ Mención» to call someone later. A mention added here also leaves its «@Name» at the end of the text, as if it had been typed, and
  * has the same effects as one written with the reply (it only counts for who was not mentioned yet).
  */

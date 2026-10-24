@@ -11,7 +11,7 @@ import { DEFAULT_LANGUAGE } from './language.js'
 const both = (es, en) => ({ 'es-419': es, en })
 
 export const PROGRESS_PHRASES = Object.freeze({
-  queued: both('En cola', 'Queued'),
+  queued: both('En espera', 'Waiting'),
   analyzing: both('Analizando', 'Analyzing'),
   attachment: both('Lectura de adjunto', 'Attachment reading'),
   attachmentN: both('Lectura de adjunto {n} de {total}', 'Attachment {n} of {total}: reading'),
@@ -22,10 +22,10 @@ export const PROGRESS_PHRASES = Object.freeze({
   decompose: both('Descomposición', 'Decomposition'),
   decomposeN: both('Descomposición: {n} grupos', 'Decomposition: {n} groups'),
   groupDone: both('Grupo descompuesto', 'Group decomposed'),
-  validate: both('Validación de la propuesta', 'Proposal validation'),
-  fix: both('Corrección de la propuesta', 'Proposal correction'),
-  fixN: both('Corrección: {n} unidades en conflicto', 'Correction: {n} conflicting units'),
-  proposalReady: both('Propuesta lista', 'Proposal ready'),
+  validate: both('Validación del borrador', 'Draft validation'),
+  fix: both('Corrección del borrador', 'Draft fix'),
+  fixN: both('Corrección: {n} partes en conflicto', 'Fix: {n} conflicting parts'),
+  proposalReady: both('Borrador listo', 'Draft ready'),
   published: both('Publicado', 'Published'),
   prepare: both('Preparación', 'Preparation'),
   claudeCode: both('Análisis con Claude Code', 'Analysis with Claude Code'),

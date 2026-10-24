@@ -868,7 +868,7 @@ describe('publishing flow (round 1, judge B)', () => {
       await page.getByRole('textbox', { name: 'Título del mensaje' }).press('Enter')
       await page.getByRole('button', { name: /^Título del mensaje: Cambio/ }).waitFor()
       await page.getByRole('button', { name: 'Volver a analizar' }).click()
-      await page.getByText(/Se descarta esta propuesta con sus cambios/).waitFor()
+      await page.getByText(/Se descartan los cambios/).waitFor()
     } finally {
       await context.close()
     }

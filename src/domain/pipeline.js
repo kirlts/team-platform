@@ -327,7 +327,7 @@ export function createPipeline ({ db, config, queue, events, modules, now = Date
     extract: {
       async run (job, ctx) {
         const { attachment_id: id, reply_attachment_id: replyAttachmentId } = parseJson(job.payload_json, {})
-        // UD-278: the audio or video of a reply (its own table) is read by the same extractor; the text is stored on its row.
+        // UD-279: the audio or video of a reply (its own table) is read by the same extractor; the text is stored on its row.
         const att = replyAttachmentId ? get(db, 'SELECT * FROM reply_attachments WHERE id = ?', replyAttachmentId) : get(db, 'SELECT * FROM attachments WHERE id = ?', id)
         if (!att) throw permanent('El adjunto del trabajo ya no existe.', 'attachment_missing')
         const advance = meter(job, ctx, 1)

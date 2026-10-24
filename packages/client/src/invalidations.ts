@@ -24,6 +24,8 @@ export const INVALIDATE = {
   editReply: ['messages'],
   setClosed: ['message', 'messages', 'areas'],
   /** A forward adds an assignee and a notice to the thread of the message, and with an agent a job that the lists of executions show. */
+  /** Delivering or discarding a held review changes the thread, the view of the message and the lists of jobs. */
+  deliverReview: ['message', 'messages', 'areas', 'jobs'],
   forward: ['message', 'messages', 'areas', 'jobs'],
   deleteMessage: ['messages', 'message', 'areas', 'inputs'],
   restoreMessage: ['messages', 'message', 'areas', 'inputs'],

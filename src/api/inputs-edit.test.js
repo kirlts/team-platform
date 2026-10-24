@@ -127,7 +127,7 @@ test('tray: a failed input appears with its error, proposed_count 0 and job perc
   assert.equal(typeof body.items[0].job.percent, 'number')
   assert.equal(typeof body.items[0].job.phrase, 'string')
   assert.equal(body.items[1].job.percent, 100)
-  assert.equal(body.items[1].job.phrase, 'Propuesta lista')
+  assert.equal(body.items[1].job.phrase, 'Borrador listo')
   await env.close()
 })
 

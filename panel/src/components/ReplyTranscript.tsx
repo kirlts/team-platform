@@ -3,7 +3,7 @@ import { useT } from '@/i18n'
 import { client } from '@/lib/client'
 
 /**
- * What was said in the audio or video of a reply (UD-278), under it in the thread. It loads when the server says it has one. A long one reads as its first
+ * What was said in the audio or video of a reply (UD-279), under it in the thread. It loads when the server says it has one. A long one reads as its first
  * lines and opens whole with «Ver más»: a fold, not a cut, and the button only shows when the text does not fit.
  */
 export function ReplyTranscript({ src, name }: { src: string; name?: string }) {

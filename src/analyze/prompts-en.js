@@ -192,7 +192,7 @@ const WRITING_CONTRACT = [
   '- Plain text only: no bold, headings, emoji or em dashes; no bullet lists in a body unless the template asks for steps or the person numbers them.',
   '- No closing summary, no chatter ("here is", "I hope this helps", "let me know"), no placeholder text.',
   '- Never say what the input does not say ("not specified", "unknown") nor guess at causes ("which suggests", "likely"): leave the detail out of the body, even when the template lists it. A field with no data takes exactly the empty-field value, or stays empty if optional, never a sentence about what is missing.',
-  '- The body never repeats the title: it adds what the title cannot (where, what was expected, why it matters, what the project description says when useful), briefly, without repeating the field values or retelling the input. Field values are short.',
+  '- The body never repeats the title: it adds what the title cannot (where, what was expected, why it matters, what the project description says when useful), in a few plain sentences for someone not technical, no file paths or components. Field values are short.',
 ].join('\n');
 
 export const decomposeInstructions = (framing) => [

@@ -78,6 +78,8 @@ export const REQUEST_ERROR_CODES = [
   'send_as_invalid',
   'sso_invalid',
   'sso_unverified',
+  'storage_full',
+  'storage_unavailable',
   'template_invalid',
   'template_name_taken',
   'too_large',

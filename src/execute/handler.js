@@ -545,6 +545,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       }
       const edited = fingerprint(now_) !== startedWith
       // UD-280: the person asked, in their own words, to deliver or to drop the change under review. The system carries it out, and only for an Editor.
+      let discarded = false
       if (reviewAction === 'approve' || reviewAction === 'discard') {
         const texts = FAILURE_TEXTS[author?.language] ?? FAILURE_TEXTS['es-419']
         if (!byIsEditor) body = texts.notEditor(review.editors)
@@ -552,6 +553,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
           try {
             if (reviewAction === 'approve') approveDelivery({ db, config, events }, { messageId, requestedBy: mentionAuthor.id, exceptJobId: job.id })
             else discardDelivery({ db, events, now }, { messageId, memberId: mentionAuthor.id, reason: (askedReason?.trim() || String(output.summary ?? '').trim()).slice(0, 1000) || '-', exceptJobId: job.id })
+            discarded = reviewAction === 'discard'
           } catch (error) {
             if (!(error instanceof AppError)) throw error
             body = error.message // a conflict is already a plain sentence for people (the review is gone, a delivery is running)
@@ -590,6 +592,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         ? handOffToPerson({ db, events, now }, { messageId, agentId: agent.id, body: reply.body, files: reply.files, source: 'execute' })
         : addReply({ db, events, now }, reply)
       if (why) closeMessage({ db, events, now }, messageId, agent.id)
+      if (discarded) runSql(db, "UPDATE messages SET status = 'open', updated_at = ? WHERE id = ?", now(), messageId) // a discarded change leaves the message open (UD-275), also after the answer
       const finalAt = now()
       rec.finalReplyMs = msSince(finalAt)
       jobSpan?.addEvent('reply.final', { 'team.ms_since_job_start': msSince(finalAt), 'team.ms_since_message': Math.max(0, finalAt - message.created_at) }, finalAt)

@@ -37,5 +37,10 @@ test('q finds a message by a template field value or by the text of a reply, and
   assert.deepEqual(await ids('question'), []) // the name of a field is not content
   assert.deepEqual(await ids('motivation'), [])
   assert.equal((await api('GET', '/messages?q=zorzal', ana)).json().total, 1) // the total counts the same rows
+  // The number of the message, with or without `#`, finds it; a number that is not an id finds only the text that contains it.
+  assert.deepEqual(await ids(String(byReply)), [byReply])
+  assert.deepEqual(await ids(`#${byReply}`), [byReply])
+  assert.deepEqual(await ids('99999'), [])
+  assert.deepEqual(await ids('#99999'), [])
   await env.close()
 })

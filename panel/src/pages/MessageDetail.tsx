@@ -195,9 +195,13 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
         </div>
       </div>
 
-      <h1 className="min-w-0">
+      <div className="flex min-w-0 items-baseline gap-2">
+      {/* The number of the message, as a tracker shows it next to the title (#115): the team refers to messages by it. */}
+      <span data-testid="detail-number" className="shrink-0 text-sm tabular-nums text-muted md:text-base">#{m.id}</span>
+      <h1 className="min-w-0 flex-1">
         <EditableText value={m.title} label={t('detail.title')} canEdit={canEdit} validate={required} onSave={(v) => change(t('proposal.titleEdited'), { title: v }, { title: m.title })} displayClassName="font-sans text-lg font-semibold leading-snug md:text-[1.375rem]" />
       </h1>
+      </div>
 
       <div className="grid min-h-0 flex-1 md:grid-rows-[minmax(0,1fr)] gap-x-8 gap-y-4 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
         <div className="flex min-h-0 min-w-0 flex-col gap-3">

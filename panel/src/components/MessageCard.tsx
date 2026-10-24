@@ -123,6 +123,8 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
         <time dateTime={from.created_at} title={format.fullStamp(from.created_at)} className="tabular-nums">
           {format.stamp(from.created_at)}
         </time>
+        {/* The number of the message, as a tracker shows it (#115): the team refers to messages by it. Secondary text, in the line of data, so the row keeps its height. */}
+        <span data-testid="card-number" className="tabular-nums">#{message.id}</span>
         {/* The media and the replies, as one unit, take the right edge of the text column, under the thumbnail: the same x in every row. */}
         {(message.reply_count > 0 || kindsOf(from).length > 0) && (
           <span className="ml-auto inline-flex items-center gap-3">

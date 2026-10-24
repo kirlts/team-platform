@@ -74,6 +74,16 @@ describe('the extract of a row (UD-241)', () => {
   })
 })
 
+describe('the number of a row', () => {
+  it('shows the number of the message as #N, in the line of data, as secondary text', () => {
+    mount(message({ id: '115' }))
+    const number = screen.getByTestId('card-number')
+    expect(number.textContent).toBe('#115')
+    expect(screen.getByTestId('card-who').contains(number)).toBe(true)
+    expect(screen.getByTestId('card-text').contains(number)).toBe(false) // it does not grow the fixed-height text block
+  })
+})
+
 describe('the grid of a row (UD-241)', () => {
   it('draws the text block and the thumbnail column with or without media', () => {
     mount(message())

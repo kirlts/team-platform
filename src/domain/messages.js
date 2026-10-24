@@ -32,6 +32,9 @@ const TRANSITIONS = {
 
 const escapeLike = (q) => q.replace(/[\\%_]/g, (c) => `\\${c}`)
 
+/** The form of a message number as the panel draws it: digits, with or without the `#` (as «#115» in a tracker). It is an identifier, not language. */
+const MESSAGE_NUMBER = /^#?([0-9]{1,15})$/
+
 function attachmentsOf (db, ids) {
   if (ids.length === 0) return new Map()
   const placeholders = ids.map(() => '?').join(',')
@@ -160,11 +163,12 @@ export function listMessages (db, { viewerId, viewerRole = 'member', forMember =
   if (q) {
     // Title, body, the values of the template fields (not their names) and the text of the replies (idea.md).
     // The replies search goes through `replies_message`; the fields through `json_each` of that row. Cost measured in H-3603.
-    scope.push(`(m.title LIKE ? ESCAPE '\\' OR m.body LIKE ? ESCAPE '\\'
+    // A query with the form of a message number (`115`, `#115`) also finds that message, besides the text that contains it.
+    scope.push(`(m.id = ? OR m.title LIKE ? ESCAPE '\\' OR m.body LIKE ? ESCAPE '\\'
       OR EXISTS (SELECT 1 FROM replies r WHERE r.message_id = m.id AND ${LIVE_REPLY} AND r.body LIKE ? ESCAPE '\\')
       OR EXISTS (SELECT 1 FROM json_each(m.fields_json) f WHERE f.value LIKE ? ESCAPE '\\'))`)
     const like = `%${escapeLike(q)}%`
-    params.push(like, like, like, like)
+    params.push(MESSAGE_NUMBER.exec(q.trim())?.[1] ?? null, like, like, like, like)
   }
   if (replies) scope.push(`EXISTS (SELECT 1 FROM replies r WHERE r.message_id = m.id AND ${LIVE_REPLY})`)
   const cond = `WHERE ${scope.join(' AND ')}`

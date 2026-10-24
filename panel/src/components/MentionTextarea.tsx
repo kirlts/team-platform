@@ -62,6 +62,7 @@ export function MentionTextarea({ value, onChange, candidates, picked, onPick, o
           aria-activedescendant={open && shown.length > 0 ? `${listId}-${index}` : undefined}
           onChange={(e) => {
             onChange(e.target.value)
+            setDismissed(null) // Escape closes the list for the word being typed; typing again opens it
             setCaret(e.target.selectionStart ?? e.target.value.length)
             setActive(0)
           }}

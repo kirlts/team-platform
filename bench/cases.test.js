@@ -87,3 +87,23 @@ test('no case carries real contact data', () => {
   assert.equal(/@[\w-]+\.\w+/.test(text), false, 'there is an email address');
   assert.equal(/\+\d{1,3}[\s-]?\d{6,}|\b\d{3}[\s-]\d{3}[\s-]\d{3,4}\b/.test(text), false, 'there is a phone number');
 });
+
+test('the steps case is one piece with a cap of three messages, never one message per step', () => {
+  const c = cases.find((x) => x.id === '10-funcionalidad-en-pasos');
+  assert.equal(c.expected.messages.length, 1);
+  assert.equal(c.expected.max_messages, 3);
+  assert.match(c.input.text, /^6\. Validar tipos y tamaño/m);
+});
+
+test('the assertion accepts up to the cap on the steps case and fails ten messages, one per step', async () => {
+  const { default: assertMece } = await import('./assert.mjs');
+  const c = cases.find((x) => x.id === '10-funcionalidad-en-pasos');
+  const units = unitsOf(c.input);
+  const ids = c.expected.messages[0].unit_ids;
+  const run = (messages) => assertMece({ status: 'ok', units, proposal: { messages, discarded: [] } }, { vars: { case: c.id } });
+  const make = (groups) => groups.map((g, i) => ({ id: `m${i}`, title: `t${i}`, area_id: 3, template_id: 3, unit_ids: g }));
+  const chunk = (n) => ids.reduce((acc, id, i) => { (acc[i % n] ??= []).push(id); return acc; }, []);
+  assert.equal(run(make([ids])).pass, true);
+  assert.equal(run(make(chunk(3))).pass, true);
+  assert.equal(run(make(chunk(10))).pass, false);
+});

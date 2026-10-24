@@ -17,7 +17,7 @@ Un pedido de funcionalidad es un comportamiento nuevo que alguien espera. Cada c
 
 Cuando la descripción del proyecto ayuda a explicar dónde o por qué, el mensaje puede enriquecerse con ella: solo con lo que la descripción dice, sin inventar nada.
 
-Una lista de requisitos en viñetas suele traer un pedido por viñeta, pero un requisito que solo precisa a otro (un formato, un límite, un caso borde) pertenece al mensaje del pedido que precisa. Separa por capacidad, no por línea.
+Una lista de requisitos en viñetas puede traer un pedido por viñeta cuando cada uno se puede decidir, asignar o entregar por separado. Los pasos, requisitos, criterios o restricciones de UNA misma funcionalidad (el botón, la pantalla, la validación, el vencimiento, el registro de quién la usó, el navegador donde debe andar) son una sola pieza: un mensaje, con la lista en su cuerpo. Un requisito que solo precisa a otro (un formato, un límite, un caso borde) pertenece al mensaje del pedido que precisa. Separa por capacidad, no por línea. En la duda, menos mensajes.
 
 Cómo llenar cada campo:
 - Necesidad: el problema o la tarea que hoy no se puede resolver, tal como la persona lo cuenta.
@@ -34,7 +34,7 @@ Un mensaje por funcionalidad.
 
 Título: verbo en infinitivo y objeto, por ejemplo «Exportar el listado de mensajes a CSV».
 
-Cuerpo: dos o tres frases: la necesidad y lo que el producto debería hacer; quién lo necesita y los criterios de listo van solo si el input los da, y si no los da no se escribe nada sobre ellos. Sin proponer diseño ni tecnología que el input no mencione. Lo que el input no da no se menciona en el cuerpo: ni «no se indica» ni una frase sobre lo que falta.
+Cuerpo: dos o tres frases: la necesidad y lo que el producto debería hacer; quién lo necesita y los criterios de listo van solo si el input los da, y si no los da no se escribe nada sobre ellos. Sin proponer diseño ni tecnología que el input no mencione. Lo que el input no da no se menciona en el cuerpo: ni «no se indica» ni una frase sobre lo que falta. Cuando la persona describió la funcionalidad en pasos, requisitos o criterios numerados, el cuerpo los conserva como lista, tal como los escribió.
 
 ## Salida
 Qué se construyó: el comportamiento nuevo, en términos observables. Verificación: el comando corrido y su resultado. Pendiente: lo que falta del pedido, una línea por punto.

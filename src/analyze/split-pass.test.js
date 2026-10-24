@@ -162,3 +162,18 @@ describe('the knobs of the split check are validated (H-3737)', () => {
     assert.throws(() => resolveConfig({ splitPassThinking: 'on' }), /splitPassThinking/);
   });
 });
+
+describe('the steps of one feature are one request, not one per step (UD-273)', () => {
+  for (const [name, set, expect] of [
+    ['es-419', es, { group: /2i\. Una funcionalidad o un defecto es un solo grupo/, fewer: /En la duda, menos grupos/, split: /En la duda, menos pedidos/, message: /conservando la lista numerada/ }],
+    ['en', en, { group: /2i\. A feature or a defect is a single group/, fewer: /When in doubt, fewer groups/, split: /When in doubt, fewer requests/, message: /keeping the numbered list/ }],
+  ]) {
+    it(`${name}: classification, split check and decomposition say that steps, requirements and criteria of one feature stay together`, () => {
+      const classify = set.classifyInstructions();
+      assert.match(classify, expect.group);
+      assert.match(classify, expect.fewer);
+      assert.match(splitSystem({ language: set.LANGUAGE }).join('\n'), expect.split);
+      assert.match(set.decomposeInstructions(), expect.message);
+    });
+  }
+});

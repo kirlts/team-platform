@@ -2,8 +2,8 @@ import { ChevronDown } from '@/components/icons'
 import type { SelectHTMLAttributes } from 'react'
 import { cn } from '@/lib/utils'
 
-/** The face every select of the panel shares: the one of a field, 32 px tall, with the chevron of the panel and not the one of the system. */
-export const SELECT_FACE = 'well h-8 rounded-md px-2.5 text-sm text-fg focus-visible:border-accent hover:border-accent'
+/** The face every select of the panel shares: the one of a field, 40 px tall, with the chevron of the panel and not the one of the system. */
+export const SELECT_FACE = 'well h-10 rounded-field px-2.5 text-sm text-fg focus-visible:border-accent hover:border-accent'
 
 /** The platform select drawn like the other fields: keyboard, touch and screen reader work as the browser gives them. The arrow is the panel's, as in the language menu of Configuración. */
 export function NativeSelect({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {

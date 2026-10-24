@@ -25,7 +25,7 @@ export function DropdownMenuContent({ className, sideOffset = 4, ...props }: Com
 }
 
 const item =
-  'relative flex min-h-8 cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 outline-none ' +
+  'relative flex min-h-8 cursor-pointer select-none items-center gap-2 rounded-option px-2 py-1.5 outline-none ' +
   'data-[highlighted]:bg-accent-soft data-[highlighted]:text-accent-deep data-[disabled]:pointer-events-none data-[disabled]:opacity-45'
 
 export function DropdownMenuItem({ className, ...props }: ComponentProps<typeof Primitive.Item>) {

@@ -6,8 +6,8 @@ import { cn } from '@/lib/utils'
  */
 export function Wordmark({ project, name, className, large = false }: { project?: string; name: string; className?: string; large?: boolean }) {
   return (
-    <span className={cn('flex min-w-0 items-center font-[family-name:var(--font-display)] font-semibold uppercase leading-tight text-fg', large ? 'gap-3 text-lg tracking-[0.12em]' : 'gap-2.5 text-sm tracking-[0.1em] max-md:gap-1.5 max-md:text-xs max-md:tracking-[0.02em]', className)}>
-      <span aria-hidden className={cn('orb shrink-0 rounded-full', large ? 'h-7 w-7' : 'h-4 w-4')} />
+    <span className={cn('wordmark flex min-w-0 items-center leading-tight text-fg', large ? 'gap-3 text-lg' : 'gap-2.5 text-[length:var(--wordmark-size)] max-md:gap-1.5 max-md:text-xs', className)}>
+      <span aria-hidden className={cn('orb shrink-0 rounded-full [--orb-bottom:var(--color-gel-bottom)] [--orb-top:var(--color-gel-top)]', large ? 'h-7 w-7' : 'h-4 w-4')} />
       <span className="min-w-0 break-words">{project ? `${project} ${name}` : name}</span>
     </span>
   )

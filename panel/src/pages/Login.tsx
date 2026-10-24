@@ -39,7 +39,7 @@ export function Login() {
   }
 
   return (
-    <main className="relative flex min-h-dvh items-center justify-center px-5">
+    <main data-screen="login" className="relative flex min-h-dvh items-center justify-center px-5">
       <Atmosphere />
       <form
         className="glass-strong leaf relative z-10 flex w-full max-w-sm flex-col gap-4 !border-edge p-7"
@@ -59,7 +59,7 @@ export function Login() {
           {t('login.password')}
           <Input type="password" autoComplete="current-password" aria-invalid={bad.password ? true : undefined} aria-describedby="login-error" className={bad.password ? '!border-danger' : undefined} value={password} onChange={(e) => setPassword(e.target.value)} />
         </label>
-        <Button type="submit" variant="primary" className="justify-center" disabled={pending}>
+        <Button type="submit" variant="primary" size="lg" className="justify-center" disabled={pending}>
           {t('login.enter')}
         </Button>
         <p className="text-sm text-muted">{t('login.noAccount')}</p>

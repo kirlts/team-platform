@@ -10,10 +10,12 @@ const variants = {
 } as const
 
 const sizes = {
-  default: 'h-8 px-4 gap-1.5 text-sm',
-  sm: 'h-7 px-3 gap-1 text-sm',
-  icon: 'h-8 w-8 justify-center',
-  'icon-sm': 'h-7 w-7 justify-center',
+  default: 'h-10 px-5 gap-1.5 text-sm',
+  /** The one main action of a screen. */
+  lg: 'h-12 px-6 gap-2 text-sm',
+  sm: 'h-8 px-4 gap-1 text-sm',
+  icon: 'h-10 w-10 justify-center',
+  'icon-sm': 'h-8 w-8 justify-center',
 } as const
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

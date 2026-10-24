@@ -110,6 +110,7 @@ export const es419 = {
   'media.invalidLink': 'Dirección inválida',
   'media.remove': 'Quitar {name}',
   'media.open': 'Abrir {name}',
+  'media.download': 'Descargar {name}',
   'media.attachments': 'Adjuntos',
   'media.all': 'Ver todos los adjuntos',
   'media.allMore': 'Ver los {n} adjuntos restantes',

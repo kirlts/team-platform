@@ -67,6 +67,7 @@ export const MessageSquare = make(['M3.5 5A1.5 1.5 0 0 1 5 3.5h10A1.5 1.5 0 0 1 
 export const ArrowRight = make(['M4 10h12', 'M11.5 5.5 16 10l-4.5 4.5'])
 export const ArrowLeft = make(['M16 10H4', 'M8.5 5.5 4 10l4.5 4.5'])
 const FILE = ['M5.5 2.8h6l3.5 3.5v10a1 1 0 0 1-1 1h-8.5a1 1 0 0 1-1-1V3.8a1 1 0 0 1 1-1Z', 'M11.5 2.8v3.5H15']
+export const Download = make(['M10 3.5v9', 'M6.2 9.2 10 13l3.8-3.8', 'M4 16.5h12'])
 export const FileText = make([...FILE, 'M7.3 10h5.4', 'M7.3 13h5.4'])
 export const Film = make(['M4.5 4.5h11a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 14V6a1.5 1.5 0 0 1 1.5-1.5Z', 'M6.8 4.5v11', 'M13.2 4.5v11', 'M3 8.2h3.8', 'M3 11.8h3.8', 'M13.2 8.2H17', 'M13.2 11.8H17'])
 export const Undo = make(['M7.5 4 3.5 8l4 4', 'M3.5 8H12a4.5 4.5 0 0 1 0 9H8'])

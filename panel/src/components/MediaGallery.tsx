@@ -8,6 +8,7 @@ import { linkDomain, stepIndex, type GalleryItem } from '@/lib/gallery'
 import { MEDIA_KEY } from '@/lib/media'
 import { cn } from '@/lib/utils'
 import { AudioPlayer } from './AudioPlayer'
+import { DownloadLink } from './DownloadLink'
 import { Thumb } from './Thumb'
 
 /** Size of the viewer: `inline` shares the page with other things (UD-017), `compact` shares a window with the analysis, `dialog` has the window to itself. */
@@ -215,6 +216,7 @@ export function MediaGallery({
         </p>
         <span className="flex shrink-0 items-center gap-2">
           {renderAction?.(item, current)}
+          <DownloadLink href={item.download} name={item.name} />
           {item.src && (
             <a href={item.src} target="_blank" rel="noreferrer" className="inline-flex items-center font-semibold text-accent hover:underline [@media(pointer:coarse)]:min-h-11">
               {t('media.openNewTab')}

@@ -5,6 +5,7 @@ import { toGalleryItems } from '@/lib/gallery'
 import { MEDIA_KEY } from '@/lib/media'
 import type { Attachment } from '@team-platform/client'
 import { cn } from '@/lib/utils'
+import { DownloadLink } from './DownloadLink'
 import { AttachmentStrip } from './AttachmentStrip'
 import { MediaGalleryDialog } from './MediaGallery'
 
@@ -29,7 +30,10 @@ export function ReplyMedia({ items }: { items: readonly Attachment[] }) {
             const alt = named?.alt ?? g.name ?? t(MEDIA_KEY.image)
             return (
               <li key={g.id} className="flex min-w-0 flex-col gap-1.5">
-                {named && <span className="rotulo">{named.label}</span>}
+                <div className="flex min-h-0 items-center justify-between gap-2">
+                  {named ? <span className="rotulo">{named.label}</span> : <span />}
+                  <DownloadLink href={g.download} name={g.name} className="-my-1.5" />
+                </div>
                 <button type="button" aria-label={t('media.zoom', { name: named ? `${named.label}: ${alt}` : alt })} onClick={() => setOpen(index)} className="block cursor-zoom-in overflow-hidden rounded-md">
                   <img src={g.src} alt={alt} loading="lazy" className="max-h-[60dvh] w-full rounded-md bg-raised object-contain object-top" />
                 </button>

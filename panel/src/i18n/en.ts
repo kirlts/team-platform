@@ -110,6 +110,7 @@ export const en: Record<MessageKey, Message> = {
   'media.invalidLink': 'Invalid address',
   'media.remove': 'Remove {name}',
   'media.open': 'Open {name}',
+  'media.download': 'Download {name}',
   'media.attachments': 'Attachments',
   'media.all': 'View all attachments',
   'media.allMore': 'View the {n} remaining attachments',

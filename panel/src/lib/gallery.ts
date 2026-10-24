@@ -7,6 +7,8 @@ export interface GalleryItem {
   kind: AttachmentKind
   /** Address of the file in the API. */
   src?: string
+  /** The same file as a download with its original name (`?download=1`): what the «Descargar» icon points to. */
+  download?: string
   /** Original file name, or the address of a link. */
   name?: string
   size?: number
@@ -29,6 +31,7 @@ export function toGalleryItems(attachments: readonly Attachment[] | undefined, s
     id: a.id,
     kind: a.kind,
     src: a.kind === 'link' ? undefined : file(a.id),
+    download: a.kind === 'link' ? undefined : `${file(a.id)}?download=1`,
     name: a.name,
     size: a.size,
     mime: a.mime,

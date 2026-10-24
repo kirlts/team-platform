@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { useT } from '@/i18n'
+import { useFormat, useT } from '@/i18n'
 import { toGalleryItems, type AttachmentScope } from '@/lib/gallery'
 import type { Attachment } from '@team-platform/client'
 import { cn } from '@/lib/utils'
 import { MediaGalleryDialog } from './MediaGallery'
+import { DownloadLink } from './DownloadLink'
 import { Thumb } from './Thumb'
 
 /**
@@ -14,6 +15,7 @@ import { Thumb } from './Thumb'
  */
 export function AttachmentStrip({ items, scope = 'message', max = 4, px = 40, named = false, className }: { items: readonly Attachment[]; scope?: AttachmentScope; max?: number; px?: number; named?: boolean; className?: string }) {
   const t = useT()
+  const format = useFormat()
   const [open, setOpen] = useState<number | null>(null)
   if (items.length === 0) return null
   const gallery = toGalleryItems(items, scope)
@@ -23,11 +25,20 @@ export function AttachmentStrip({ items, scope = 'message', max = 4, px = 40, na
     <>
       <ul aria-label={t('media.attachments')} className={cn(named ? 'grid grid-cols-1 items-start gap-x-3 gap-y-1.5 lg:grid-cols-2' : 'flex flex-wrap items-center gap-2', className)}>
         {shown.map((g, i) => (
-          <li key={g.id} className="min-w-0">
-            <button type="button" aria-label={t('gallery.item', { n: i + 1, total: gallery.length, name: g.name ?? t(`media.kind.${g.kind}`) })} onClick={() => setOpen(i)} className={cn('rounded-md', named ? 'flex max-w-full items-center gap-2 pr-2 text-left hover:bg-hover' : 'block')}>
-              <Thumb item={g} px={px} />
-              {named && <span className="min-w-0 break-all text-xs text-muted">{g.name ?? t(`media.kind.${g.kind}`)}</span>}
-            </button>
+          <li key={g.id} className={cn('min-w-0', named && 'flex items-center gap-1')}>
+            {named && g.mime === 'application/pdf' && g.src ? (
+              // A PDF opens where the browser reads it, in a tab of its own.
+              <a href={g.src} target="_blank" rel="noreferrer" aria-label={t('media.open', { name: g.name ?? t(`media.kind.${g.kind}`) })} className="flex min-w-0 max-w-full flex-1 items-center gap-2 rounded-md pr-2 text-left hover:bg-hover">
+                <Thumb item={g} px={px} />
+                <span className="min-w-0 break-all text-xs text-muted">{[g.name ?? t(`media.kind.${g.kind}`), format.fileSize(g.size)].filter(Boolean).join(' · ')}</span>
+              </a>
+            ) : (
+              <button type="button" aria-label={t('gallery.item', { n: i + 1, total: gallery.length, name: g.name ?? t(`media.kind.${g.kind}`) })} onClick={() => setOpen(i)} className={cn('rounded-md', named ? 'flex min-w-0 max-w-full flex-1 items-center gap-2 pr-2 text-left hover:bg-hover' : 'block')}>
+                <Thumb item={g} px={px} />
+                {named && <span className="min-w-0 break-all text-xs text-muted">{[g.name ?? t(`media.kind.${g.kind}`), format.fileSize(g.size)].filter(Boolean).join(' · ')}</span>}
+              </button>
+            )}
+            {named && <DownloadLink href={g.download} name={g.name} />}
           </li>
         ))}
         {hidden > 0 && (

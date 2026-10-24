@@ -6395,7 +6395,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description text/event-stream flow. Events: progress, done, message. The id is job_events.seq (Last-Event-ID). */
+                /** @description text/event-stream flow. Events: replay (first, no id: `{ complete, from }`), progress, done, message. The id is job_events.seq (Last-Event-ID). */
                 200: {
                     headers: {
                         [name: string]: unknown;

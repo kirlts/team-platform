@@ -4,7 +4,7 @@ import type { QueryRoot } from './keys.js'
 
 /** The slice of a TanStack `QueryClient` this file needs; every adapter of TanStack Query (React, Vue, Svelte…) has it. */
 export interface QueryClientLike {
-  invalidateQueries(filters: { queryKey: readonly unknown[] }): Promise<unknown>
+  invalidateQueries(filters: { queryKey: readonly unknown[]; refetchType?: 'active' | 'inactive' | 'all' | 'none' }): Promise<unknown>
 }
 
 export const INVALIDATE = {
@@ -53,18 +53,21 @@ export const INVALIDATE = {
   // The event stream
   /** A message of somebody else arrived. */
   newMessage: ['messages', 'areas'],
-  /** The stream came back after a drop: what happened meanwhile arrives by replay, the queries are read again just in case. */
+  /** The stream came back after a drop and the server said its replay was not enough (`replay.complete: false`): what is on screen is read again. */
   reconnect: ['inputs', 'messages'],
 } as const satisfies Record<string, readonly QueryRoot[]>
 
 export type InvalidationName = keyof typeof INVALIDATE
 
-/** Invalidates every root of a list; resolves when the queries that were refetched have finished. */
-export function invalidateRoots(qc: QueryClientLike, roots: readonly QueryRoot[]): Promise<unknown[]> {
-  return Promise.all(roots.map((root) => qc.invalidateQueries({ queryKey: [root] })))
+/**
+ * Invalidates every root of a list; resolves when the queries that were refetched have finished. `refetchType: 'active'` reads
+ * again only what a mounted screen shows; the rest is marked stale and is read when a screen mounts it.
+ */
+export function invalidateRoots(qc: QueryClientLike, roots: readonly QueryRoot[], opts: { refetchType?: 'active' | 'inactive' | 'all' | 'none' } = {}): Promise<unknown[]> {
+  return Promise.all(roots.map((root) => qc.invalidateQueries({ queryKey: [root], ...opts })))
 }
 
 /** Invalidates what the named operation makes stale. */
-export function invalidate(qc: QueryClientLike, name: InvalidationName): Promise<unknown[]> {
-  return invalidateRoots(qc, INVALIDATE[name])
+export function invalidate(qc: QueryClientLike, name: InvalidationName, opts?: Parameters<typeof invalidateRoots>[2]): Promise<unknown[]> {
+  return invalidateRoots(qc, INVALIDATE[name], opts)
 }

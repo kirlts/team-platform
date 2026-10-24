@@ -84,6 +84,52 @@ test('Last-Event-ID replays what came after without repeating or leaving gaps', 
   await env.close()
 })
 
+// The `replay` event: the client reads its lists again only when this says the replay did not cover what it missed.
+async function replayOf (env, headers) {
+  const s = await openSse(env, '/api/events', { cookie: env.c.ana, headers })
+  const cap = Date.now() + 2000
+  while (s.replays.length === 0 && Date.now() < cap) await new Promise((r) => setTimeout(r, 10))
+  s.close()
+  return s.replays[0]
+}
+
+test('the first event is `replay`, with no id: complete when Last-Event-ID is still inside the retained events', async () => {
+  const env = await team()
+  const jobId = anasInput(env)
+  const seqs = []
+  for (let i = 1; i <= 5; i++) seqs.push(env.events.publishForJob(jobId, { kind: 'progress', percent: i * 10, phrase: `p${i}` }))
+  const s = await openSse(env, '/api/events', { cookie: env.c.ana, headers: { 'last-event-id': String(seqs[1]) } })
+  assert.equal((await s.next(3)).length, 3)
+  assert.deepEqual(s.replays, [{ id: null, event: 'replay', data: { complete: true, from: seqs[1] } }]) // it never moves Last-Event-ID
+  assert.ok(s.eventList.every((e) => e.event !== 'replay'))
+  s.close()
+  assert.deepEqual((await replayOf(env, { 'last-event-id': String(seqs[4]) })).data, { complete: true, from: seqs[4] }) // up to date: nothing to replay
+  assert.deepEqual((await replayOf(env, undefined)).data, { complete: false, from: null }) // first connection or a reopened EventSource: no Last-Event-ID
+  assert.deepEqual((await replayOf(env, { 'last-event-id': 'abc' })).data, { complete: false, from: null })
+  await env.close()
+})
+
+test('the replay is incomplete when retention removed events after Last-Event-ID, or the id is ahead of this database', async () => {
+  const env = await team()
+  const jobId = anasInput(env)
+  const seqs = []
+  for (let i = 1; i <= 5; i++) seqs.push(env.events.publishForJob(jobId, { kind: 'progress', percent: i * 10, phrase: `p${i}` }))
+  const cutPoint = 1000 // an `at` of 1 is older than it; the rows just written are not
+  run(env.db, 'UPDATE job_events SET at = ? WHERE seq <= ?', 1, seqs[2])
+  assert.equal(env.events.purge(cutPoint), 3) // seqs[0..2] are gone; seqs[3] is the oldest retained
+  assert.deepEqual((await replayOf(env, { 'last-event-id': String(seqs[2]) })).data, { complete: true, from: seqs[2] }) // it missed only retained events
+  assert.deepEqual((await replayOf(env, { 'last-event-id': String(seqs[1]) })).data, { complete: false, from: seqs[1] }) // seqs[2] is gone
+  assert.deepEqual((await replayOf(env, { 'last-event-id': '0' })).data, { complete: false, from: 0 })
+  assert.deepEqual((await replayOf(env, { 'last-event-id': String(seqs[4] + 100) })).data, { complete: false, from: seqs[4] + 100 })
+  // Everything purged: only a client that was already up to date misses nothing.
+  run(env.db, 'UPDATE job_events SET at = 1')
+  env.events.purge(cutPoint)
+  assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM job_events').n, 0)
+  assert.deepEqual((await replayOf(env, { 'last-event-id': String(seqs[4]) })).data, { complete: true, from: seqs[4] })
+  assert.deepEqual((await replayOf(env, { 'last-event-id': String(seqs[3]) })).data, { complete: false, from: seqs[3] })
+  await env.close()
+})
+
 test('subscribing before replaying: with events being published during the connection, each stream is contiguous and has no repeats', async () => {
   const env = await team()
   const jobId = anasInput(env)

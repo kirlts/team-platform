@@ -1350,3 +1350,10 @@ Martín, el mismo día: «la idea es que yo no quiera abrir una sesion como esta
 **Decisión:** `EXECUTE_MAX_TURNS=0` significa sin tope de pasos: la invocación no lleva `--max-turns` y gobiernan `--max-budget-usd` por mensaje y el tope diario. Sin tope de pasos, el avance del trabajo es la parte gastada de `--max-budget-usd`, calculada con el uso de cada mensaje del flujo y los precios de `src/telemetry/pricing.js`.
 **Consecuencias:** `src/config.js` admite 0; `claudeArgs` omite `--max-turns`; `createStreamReader` recibe `budgetUsd`. Prueba: `src/execute/sin-tope-de-pasos.test.js`.
 **Condiciones de reversión:** Las fija Martín.
+
+## [UD-284] Cualquier persona del equipo aprueba o descarta un cambio retenido
+**Fecha:** 2026-10-24
+**Contexto:** Martín, textual: «de dónde salió eso de que solo un editor puede hacerlo?? Los editores solo cambian textos configurados». UD-280 limitaba aprobar o descartar por respuesta al rol Editor, sin decisión suya que lo pidiera.
+**Decisión:** Aprueba o descarta, escribiéndolo en el hilo y mencionando al agente, cualquier miembro activo de tipo persona. Enmienda UD-280 en ese punto.
+**Consecuencias:** `handler.js` usa `byPerson`; el contexto de la mención lo dice; `review-reply.test.js` prueba que un miembro sin rol Editor aprueba.
+**Condiciones de reversión:** Las fija Martín.

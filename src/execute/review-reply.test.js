@@ -130,7 +130,7 @@ describe('the review by reply (UD-280)', () => {
     await settle(messageId)
     assert.match(lastPrompt(), /REVIEW PENDING/)
     assert.match(lastPrompt(), /toca datos de personas/)
-    assert.match(lastPrompt(), /is an Editor/)
+    assert.match(lastPrompt(), /can approve and discard/)
     const deliveries = jobsOf(messageId, 'deliver')
     assert.equal(deliveries.length, 2)
     assert.equal(JSON.parse(deliveries[1].payload_json).requested_by, editorId, 'the delivery carries who asked for it')
@@ -139,18 +139,15 @@ describe('the review by reply (UD-280)', () => {
     assert.equal(await pendingOf(messageId), null)
   })
 
-  it('a member who is not an Editor asking to deliver gets one line with who can approve, and nothing is enqueued', async () => {
-    const messageId = await held('Subir fotos a la ficha del paciente (sin permiso).', path('noeditor-log'))
+  it('a member who is not an Editor approves by writing it, as any person of the team (UD-284)', async () => {
+    const messageId = await held('Subir fotos a la ficha del paciente (miembro).', path('member-log'))
     answer('approve')
     const r = await reply(messageId, author, 'Entrégalo.')
     assert.equal(r.statusCode, 201, r.body)
     await settle(messageId)
-    assert.match(lastPrompt(), /is NOT an Editor/)
-    assert.equal(jobsOf(messageId, 'deliver').length, 1, 'no second delivery')
-    const last = replies(messageId).at(-1)
-    assert.match(last, /Sólo un Editor puede aprobar o descartar este cambio: ed\. No se entregó/)
-    assert.doesNotMatch(last, /Entendido/)
-    assert.ok(await pendingOf(messageId), 'the review stays')
+    assert.match(lastPrompt(), /can approve and discard/)
+    assert.doesNotMatch(replies(messageId).at(-1), /Sólo/)
+    assert.equal(jobsOf(messageId, 'deliver').length, 2, 'the approval enqueues the delivery')
   })
 
   it('`discard` from an Editor drops the change with the reason the model summarized, keeps the message open and never delivers', async () => {

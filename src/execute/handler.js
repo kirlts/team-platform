@@ -141,7 +141,7 @@ const FAILURE_TEXTS = {
     mention: (agent, why) => `${agent} no pudo responder: ${why}.`,
     why: { interrupted: 'se interrumpió', timeout: 'se acabó el tiempo', budget: 'se alcanzó el tope de gasto', turns: 'era demasiado largo', format: 'la respuesta no tuvo el formato esperado', infra: 'falló un servicio', system: 'hubo un problema del sistema' },
     // UD-280: the person is not an Editor, so the system does not deliver or discard; it says who can.
-    notEditor: (names) => `Sólo un Editor puede aprobar o descartar este cambio${names.length ? `: ${names.join(', ')}` : ''}. No se entregó ni se descartó.`,
+    notPerson: 'Sólo una persona del equipo puede aprobar o descartar este cambio. No se entregó ni se descartó.',
     edited: 'El mensaje se editó mientras trabajaba, así que esta respuesta puede no corresponder al texto de ahora. No se entregó a producción; lo hecho queda guardado en la rama.'
   },
   en: {
@@ -159,7 +159,7 @@ const FAILURE_TEXTS = {
     budgetWait: (time) => `Waiting: today's spending limit was reached. It continues tomorrow at ${time}.`,
     mention: (agent, why) => `${agent} could not answer: ${why}.`,
     why: { interrupted: 'it was interrupted', timeout: 'time ran out', budget: 'the spending limit was reached', turns: 'it was too long', format: 'the answer did not have the expected format', infra: 'a service failed', system: 'a system problem' },
-    notEditor: (names) => `Only an Editor can approve or discard this change${names.length ? `: ${names.join(', ')}` : ''}. It was neither delivered nor discarded.`,
+    notPerson: 'Only a person of the team can approve or discard this change. It was neither delivered nor discarded.',
     edited: 'The message was edited while I worked, so this answer may not match its current text. It was not delivered to production; the work is saved on the branch.'
   }
 }
@@ -333,9 +333,10 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const mentionAuthor = mention ? get(db, 'SELECT m.id, m.role, m.kind, m.active FROM replies r JOIN members m ON m.id = r.author_id WHERE r.id = ?', mention.replyId) : null
     // The first reply of a mention is the system's, in the first seconds and before the machine exists: a session that omits it (job 138: 61 tools, no reply) leaves the person without a sign.
     const acknowledged = mention ? acknowledgeMention(job, payload, { messageId, memberId, mention }) : false
-    const byIsEditor = Boolean(mentionAuthor && mentionAuthor.role === 'editor' && mentionAuthor.kind !== 'agent' && mentionAuthor.active === 1)
+    // Any active person of the team approves or discards by writing it (Martín, 2026-10-24: the Editor only changes configured texts; UD-284).
+    const byPerson = Boolean(mentionAuthor && mentionAuthor.kind !== 'agent' && mentionAuthor.active === 1)
     const review = reviewState
-      ? { branch: reviewState.branch, reason: reviewState.held_reason, byIsEditor, editors: all(db, "SELECT name FROM members WHERE role = 'editor' AND kind != 'agent' AND active = 1 ORDER BY name").map((r) => r.name) }
+      ? { branch: reviewState.branch, reason: reviewState.held_reason, byPerson }
       : null
     const schema = finalSchema(declared.grammar, { autoClose: x.autoClose, forwarded: forward !== null || mention !== null, reviewing: review !== null })
     const validate = ajv.compile(finalSchema(declared.validation, { validation: true, autoClose: x.autoClose }))
@@ -549,11 +550,11 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         return
       }
       const edited = fingerprint(now_) !== startedWith
-      // UD-280: the person asked, in their own words, to deliver or to drop the change under review. The system carries it out, and only for an Editor.
+      // UD-280: the person asked, in their own words, to deliver or to drop the change under review. The system carries it out for any active person (UD-284).
       let discarded = false
       if (reviewAction === 'approve' || reviewAction === 'discard') {
         const texts = FAILURE_TEXTS[author?.language] ?? FAILURE_TEXTS['es-419']
-        if (!byIsEditor) body = texts.notEditor(review.editors)
+        if (!byPerson) body = texts.notPerson
         else {
           try {
             if (reviewAction === 'approve') approveDelivery({ db, config, events }, { messageId, requestedBy: mentionAuthor.id, exceptJobId: job.id })

@@ -19,6 +19,7 @@ import { addMember, fakeAnalyze, login, makeEnv, postInput, tempDir, until } fro
 import { createWorker } from '../worker.js'
 import { createDeliverHandler, deliveredBody, heldBody, isEnvironmentFailure, outputJson, referenceOf, withProductionNote } from './deliver.js'
 import { enqueueDeliver } from './enqueue.js'
+import { spawnStreaming } from './runners.js'
 import { createExecuteHandler } from './handler.js'
 import { buildExecutePrompt } from './prompt.js'
 
@@ -386,6 +387,15 @@ describe('deliver job', () => {
     assert.match(replies(messageId).at(-1), /falló dos veces por la máquina de entrega.*no se puede entrar por SSH/s)
     const editorId = env.db.prepare("SELECT id FROM members WHERE email = 'ed@x.org'").get().id
     assert.deepEqual(env.db.prepare('SELECT member_id FROM message_assignees WHERE message_id = ?').all(messageId).map((r) => r.member_id), [editorId])
+  })
+
+  it('a command that prints more than 20000 characters of stderr keeps the line that ends it', async () => {
+    const r = await spawnStreaming('/bin/sh', ['-c', "echo EMPIEZA >&2; i=0; while [ $i -lt 600 ]; do echo 'relleno relleno relleno relleno relleno relleno relleno relleno' >&2; i=$((i+1)); done; echo 'No se instala: lo servido (abc1234) no es un antecesor de este árbol' >&2; exit 5"], { timeoutMs: 10000, graceMs: 100 })
+    assert.equal(r.code, 5)
+    assert.match(r.stderr, /^EMPIEZA/)
+    assert.match(r.stderr, /no es un antecesor de este árbol\n$/)
+    assert.ok(r.stderr.length < 21000)
+    assert.equal(isEnvironmentFailure(r, r.stderr), true)
   })
 
   it('isEnvironmentFailure tells the machine from the change', () => {

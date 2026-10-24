@@ -39,7 +39,6 @@ export function spawnStreaming (cmd, args, { cwd, env, stdin = null, onData = nu
       return
     }
     const out = []
-    const err = []
     let timedOut = false
     let aborted = false
     let killTimer = null
@@ -54,14 +53,23 @@ export function spawnStreaming (cmd, args, { cwd, env, stdin = null, onData = nu
     child.stdout.setEncoding('utf8')
     child.stdout.on('data', (c) => { if (keepStdout) out.push(c); onData?.(c) })
     child.stderr.setEncoding('utf8')
-    child.stderr.on('data', (c) => { if (err.join('').length < 20000) err.push(c) })
+    // The first 4000 characters and the LAST 16000: a delivery that prints more than 20000 characters of stderr ends with the line that says why it
+    // failed (measured 2026-10-23, delivery 100: the cause came after 20000 characters and the failure notice stopped at the load measurement).
+    let errHead = ''
+    let errTail = ''
+    let errCut = false
+    child.stderr.on('data', (c) => {
+      if (errHead.length < 4000) { errHead += c; if (errHead.length > 4000) { errTail = errHead.slice(4000); errHead = errHead.slice(0, 4000) } return }
+      errTail += c
+      if (errTail.length > 16000) { errTail = errTail.slice(-16000); errCut = true }
+    })
     let spawnError = null
     child.on('error', (e) => { spawnError = e })
     child.on('close', (code, sig) => {
       clearTimeout(timer)
       clearTimeout(killTimer)
       signal?.removeEventListener?.('abort', onAbort)
-      resolve({ code, signal: sig, timedOut, aborted, stdout: out.join(''), stderr: err.join(''), spawnError })
+      resolve({ code, signal: sig, timedOut, aborted, stdout: out.join(''), stderr: errHead + (errCut ? '\n[… salida omitida …]\n' : '') + errTail, spawnError })
     })
     child.stdin.on('error', () => {})
     if (stdin !== null) child.stdin.end(stdin)

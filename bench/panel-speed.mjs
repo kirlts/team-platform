@@ -217,12 +217,15 @@ async function main () {
       }
       await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {})
       if (hrefs[1]) {
-        await page.evaluate(() => history.back())
-        await page.waitForSelector(`main#main a[href="${hrefs[1]}"]`)
-        await page.hover(`main#main a[href="${hrefs[1]}"]`)
-        await page.waitForTimeout(DWELL)
-        const r = await clickLatency(page, `main#main a[href="${hrefs[1]}"]`)
-        if (r) clicks.open_message_after_hover.push({ href: hrefs[1], dwell_ms: DWELL, ...r })
+        // The way back to the list can fail to draw it again in the timeout; that run has no hover sample, and the rest of the bench goes on.
+        try {
+          await page.evaluate(() => history.back())
+          await page.waitForSelector(`main#main a[href="${hrefs[1]}"]`, { timeout: 15000 })
+          await page.hover(`main#main a[href="${hrefs[1]}"]`)
+          await page.waitForTimeout(DWELL)
+          const r = await clickLatency(page, `main#main a[href="${hrefs[1]}"]`)
+          if (r) clicks.open_message_after_hover.push({ href: hrefs[1], dwell_ms: DWELL, ...r })
+        } catch (e) { console.log('hover sample skipped:', String(e).split('\n')[0]) }
       }
       await context.close()
     }

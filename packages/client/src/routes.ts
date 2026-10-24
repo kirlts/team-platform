@@ -52,6 +52,7 @@ export const routes = {
   messageDeliver: route('post', '/api/messages/{id}/deliver'),
   messageDiscardDelivery: route('post', '/api/messages/{id}/discard-delivery'),
   messageForward: route('post', '/api/messages/{id}/forward'),
+  replyRetry: route('post', '/api/messages/{id}/replies/{replyId}/retry'),
 
   replyCreate: route('post', '/api/messages/{id}/replies'),
   replyEdit: route('patch', '/api/messages/{id}/replies/{replyId}'),

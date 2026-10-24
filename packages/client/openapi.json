@@ -2289,6 +2289,10 @@
                                   "type": "string"
                                 }
                               },
+                              "retryable": {
+                                "type": "boolean",
+                                "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                              },
                               "mentions": {
                                 "type": "array",
                                 "items": {
@@ -2419,6 +2423,10 @@
                                   "items": {
                                     "type": "string"
                                   }
+                                },
+                                "retryable": {
+                                  "type": "boolean",
+                                  "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
                                 },
                                 "mentions": {
                                   "type": "array",
@@ -3018,6 +3026,10 @@
                                   "type": "string"
                                 }
                               },
+                              "retryable": {
+                                "type": "boolean",
+                                "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                              },
                               "mentions": {
                                 "type": "array",
                                 "items": {
@@ -3411,6 +3423,10 @@
                             "type": "string"
                           }
                         },
+                        "retryable": {
+                          "type": "boolean",
+                          "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                        },
                         "mentions": {
                           "type": "array",
                           "items": {
@@ -3541,6 +3557,10 @@
                             "items": {
                               "type": "string"
                             }
+                          },
+                          "retryable": {
+                            "type": "boolean",
+                            "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
                           },
                           "mentions": {
                             "type": "array",
@@ -3951,6 +3971,10 @@
                             "type": "string"
                           }
                         },
+                        "retryable": {
+                          "type": "boolean",
+                          "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                        },
                         "mentions": {
                           "type": "array",
                           "items": {
@@ -4081,6 +4105,10 @@
                             "items": {
                               "type": "string"
                             }
+                          },
+                          "retryable": {
+                            "type": "boolean",
+                            "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
                           },
                           "mentions": {
                             "type": "array",
@@ -4609,6 +4637,10 @@
                             "type": "string"
                           }
                         },
+                        "retryable": {
+                          "type": "boolean",
+                          "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                        },
                         "mentions": {
                           "type": "array",
                           "items": {
@@ -4739,6 +4771,10 @@
                             "items": {
                               "type": "string"
                             }
+                          },
+                          "retryable": {
+                            "type": "boolean",
+                            "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
                           },
                           "mentions": {
                             "type": "array",
@@ -5221,6 +5257,10 @@
                             "type": "string"
                           }
                         },
+                        "retryable": {
+                          "type": "boolean",
+                          "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                        },
                         "mentions": {
                           "type": "array",
                           "items": {
@@ -5351,6 +5391,10 @@
                             "items": {
                               "type": "string"
                             }
+                          },
+                          "retryable": {
+                            "type": "boolean",
+                            "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
                           },
                           "mentions": {
                             "type": "array",
@@ -5694,6 +5738,10 @@
                             "type": "string"
                           }
                         },
+                        "retryable": {
+                          "type": "boolean",
+                          "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                        },
                         "mentions": {
                           "type": "array",
                           "items": {
@@ -5824,6 +5872,10 @@
                             "items": {
                               "type": "string"
                             }
+                          },
+                          "retryable": {
+                            "type": "boolean",
+                            "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
                           },
                           "mentions": {
                             "type": "array",
@@ -6132,6 +6184,10 @@
                             "type": "string"
                           }
                         },
+                        "retryable": {
+                          "type": "boolean",
+                          "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                        },
                         "mentions": {
                           "type": "array",
                           "items": {
@@ -6262,6 +6318,10 @@
                             "items": {
                               "type": "string"
                             }
+                          },
+                          "retryable": {
+                            "type": "boolean",
+                            "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
                           },
                           "mentions": {
                             "type": "array",
@@ -6561,6 +6621,10 @@
                             "type": "string"
                           }
                         },
+                        "retryable": {
+                          "type": "boolean",
+                          "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                        },
                         "mentions": {
                           "type": "array",
                           "items": {
@@ -6691,6 +6755,10 @@
                             "items": {
                               "type": "string"
                             }
+                          },
+                          "retryable": {
+                            "type": "boolean",
+                            "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
                           },
                           "mentions": {
                             "type": "array",
@@ -6990,6 +7058,10 @@
                             "type": "string"
                           }
                         },
+                        "retryable": {
+                          "type": "boolean",
+                          "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                        },
                         "mentions": {
                           "type": "array",
                           "items": {
@@ -7120,6 +7192,10 @@
                             "items": {
                               "type": "string"
                             }
+                          },
+                          "retryable": {
+                            "type": "boolean",
+                            "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
                           },
                           "mentions": {
                             "type": "array",
@@ -7488,6 +7564,10 @@
                             "type": "string"
                           }
                         },
+                        "retryable": {
+                          "type": "boolean",
+                          "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                        },
                         "mentions": {
                           "type": "array",
                           "items": {
@@ -7618,6 +7698,10 @@
                             "items": {
                               "type": "string"
                             }
+                          },
+                          "retryable": {
+                            "type": "boolean",
+                            "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
                           },
                           "mentions": {
                             "type": "array",
@@ -7942,6 +8026,10 @@
                             "type": "string"
                           }
                         },
+                        "retryable": {
+                          "type": "boolean",
+                          "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                        },
                         "mentions": {
                           "type": "array",
                           "items": {
@@ -8072,6 +8160,10 @@
                             "items": {
                               "type": "string"
                             }
+                          },
+                          "retryable": {
+                            "type": "boolean",
+                            "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
                           },
                           "mentions": {
                             "type": "array",
@@ -8370,6 +8462,10 @@
                             "type": "string"
                           }
                         },
+                        "retryable": {
+                          "type": "boolean",
+                          "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                        },
                         "mentions": {
                           "type": "array",
                           "items": {
@@ -8500,6 +8596,10 @@
                             "items": {
                               "type": "string"
                             }
+                          },
+                          "retryable": {
+                            "type": "boolean",
+                            "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
                           },
                           "mentions": {
                             "type": "array",
@@ -8798,6 +8898,10 @@
                             "type": "string"
                           }
                         },
+                        "retryable": {
+                          "type": "boolean",
+                          "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                        },
                         "mentions": {
                           "type": "array",
                           "items": {
@@ -8928,6 +9032,10 @@
                             "items": {
                               "type": "string"
                             }
+                          },
+                          "retryable": {
+                            "type": "boolean",
+                            "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
                           },
                           "mentions": {
                             "type": "array",
@@ -10573,7 +10681,7 @@
     },
     "/api/members/{id}": {
       "patch": {
-        "summary": "Editar un miembro, o desactivarlo y reactivarlo con `active` (editor). El perfil no se edita aquí: cada miembro edita el suyo con `PATCH /members/me` (UD-023)",
+        "summary": "Editar un miembro, o desactivarlo y reactivarlo con `active` (editor). El perfil sólo se edita aquí si el miembro es un agente (UD-281); el de una persona lo edita ella con `PATCH /members/me` (UD-023)",
         "tags": [
           "Team"
         ],
@@ -10605,6 +10713,11 @@
                   },
                   "password": {
                     "type": "string"
+                  },
+                  "profile": {
+                    "type": "string",
+                    "maxLength": 4000,
+                    "description": "Perfil: un par de párrafos en primera persona (UD-023)."
                   },
                   "active": {
                     "type": "boolean",
@@ -14497,6 +14610,76 @@
                       "items": {
                         "type": "string"
                       }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error: { code, message }.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Error: { code, message }.",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/messages/{id}/replies/{replyId}/retry": {
+      "post": {
+        "summary": "Reintentar el trabajo que falló (cualquier miembro)",
+        "tags": [
+          "Messages"
+        ],
+        "description": "UD-282. La respuesta del aviso «<Agente> no pudo responder: …» lleva el trabajo `execute` que falló; este endpoint encola otro con el mismo origen: el mismo mensaje y agente y la misma `mention`, `forward` o entrega en la carga, así que la sesión lee otra vez el mismo hilo, los mismos adjuntos y las mismas notas de voz. Puede hacerlo quien puede mencionar al agente (un miembro). Auditada como `message.execute_retry`. Responde 202 con el trabajo. 404 si la respuesta no es de ese mensaje; 409 `not_a_failure` si no avisa de un trabajo fallido, `retry_stale` si ya hay un intento posterior, `message_closed`, `not_an_agent` si el agente se desactivó, `execute_busy` si el agente ya tiene un trabajo en cola o corriendo para el mensaje. El tope de gasto del día lo hace cumplir el trabajador, como en cualquier `execute`.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "in": "path",
+            "name": "replyId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "job_id": {
+                      "type": "string"
                     }
                   }
                 }

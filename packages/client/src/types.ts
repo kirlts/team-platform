@@ -158,6 +158,8 @@ export interface Reply {
   kind: ReplyKind
   /** The member the message was forwarded to; only in a reply of kind `forward` (UD-272), whose `body` is the reason. */
   forwarded_to?: string | null
+  /** The reply tells a failed `execute` job that `POST /messages/:id/replies/:replyId/retry` launches again (UD-282). */
+  retryable?: boolean
   /** The members the reply mentions, picked in the list of «@» (UD-278). */
   mentions?: string[]
   created_at: string

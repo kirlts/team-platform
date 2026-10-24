@@ -723,6 +723,20 @@ Acabado de los controles (H-3732). Las variables de las cinco filas nuevas se de
 | `--selected-shadow` | Sombra de esa opción | `none` |
 | `--segmented-track` | Fondo de la pista que contiene las opciones (clase `opt-track`) | `var(--color-raised)` |
 | `--card-edge-width` | Ancho del borde izquierdo de color por estado de `MessageCard`; `0px` lo quita | `3px` |
+| `--h1-size`, `--h1-weight` | Tamaño y peso del título de pantalla | `clamp(1.3rem, 1.1rem + 0.9vw, 1.65rem)` y `700` |
+| `--h2-size`, `--h2-weight`, `--h2-tracking`, `--h2-transform`, `--h2-ink` | Título de caja (`h2`) | `0.8rem`, `700`, `0.08em`, `uppercase`, `inherit` |
+| `--wordmark-size`, `--wordmark-weight`, `--wordmark-tracking`, `--wordmark-transform`, `--wordmark-font` | Marca de la barra y de la entrada | `var(--text-sm)`, `600`, `0.1em`, `uppercase`, `var(--font-display)` |
+| `--leaf-radius` | Esquina de las cajas (`.leaf`, `.area-box`, `.ai-surface`) | `3px 10px 3px 10px` |
+| `--radius-field`, `--radius-option` | Esquina de un campo y de una opción de menú | `var(--radius-md)` y `var(--radius-sm)` |
+| `--nav-bar-width`, `--nav-active-ink` | Barra al costado y tinta de la fila abierta de la navegación | `4px` y `inherit` |
+| `--ai-edge-width` | Ancho del borde izquierdo de las superficies del modelo y del análisis | `3px` |
+| `--field-bg`, `--field-border`, `--field-border-focus` | Relleno y borde de un campo, en reposo y con foco | `var(--color-raised)`, `var(--color-edge)`, `var(--color-accent)` |
+| `--color-gel-hover-top`, `--color-gel-hover-bottom`, `--btn-hover-filter` | Color del botón principal al pasar el puntero, o el aclarado por omisión | el color en reposo y `brightness(1.08) saturate(1.1)` |
+| `--orb-top`, `--orb-bottom` | Colores del avatar, separados del botón principal | los del botón principal |
+| `--btn2-bg`, `--btn2-border`, `--btn2-shadow`, `--btn2-hover-bg`, `--btn2-hover-border`, `--btn2-hover-ink` | Botón secundario | vidrio con borde de control |
+| `--btn-danger-bg`, `--btn-danger-border`, `--btn-danger-hover-bg`, `--btn-danger-hover-border` | Botón destructivo | vidrio con borde de control; rojo suave al pasar |
+| `--meter-fill`, `--meter-sheen` | Relleno y destello de la barra de progreso | degradado aqua a azul y brillo blanco |
+| `--glass-line-width`, `--focus-width`, `--touch-min` | Línea de la caja de vidrio, anillo de foco y alto mínimo al tacto | `1px`, `3px` y `44px` |
 | `--prose-align` | Alineación del texto corrido ancho (`.prose-block`): `justify` o `left` | `justify` |
 | `--label-weight`, `--label-tracking` | Peso e interletrado del rótulo pequeño en mayúsculas (`.rotulo`, sobre una foto o un valor) | `700` y `0.08em` |
 

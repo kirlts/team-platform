@@ -356,6 +356,13 @@ export function useForward(messageId: string) {
   return useMutation({ mutationFn: (v: { member_id: string; comment: string }) => client.messages.forward(messageId, v), onSuccess: () => inv('forward') })
 }
 
+/** Launches again the session whose failure a reply tells (POST /messages/:id/replies/:replyId/retry, UD-282). */
+export function useRetryExecute(messageId: string) {
+  const client = useTeamClient()
+  const inv = useInvalidate()
+  return useMutation({ mutationFn: (replyId: string) => client.messages.retry(messageId, replyId), onSuccess: () => inv('retryExecute') })
+}
+
 /** Queues the delivery of the branch a person reviewed (POST /messages/:id/deliver, Editor; UD-263, UD-275). */
 export function useDeliver(messageId: string) {
   const client = useTeamClient()

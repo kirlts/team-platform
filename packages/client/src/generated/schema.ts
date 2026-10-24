@@ -997,6 +997,8 @@ export interface paths {
                                         extracted?: boolean;
                                     }[];
                                     attachment_kinds?: string[];
+                                    /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                    retryable?: boolean;
                                     /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                     mentions?: string[];
                                     created_at?: string;
@@ -1033,6 +1035,8 @@ export interface paths {
                                         extracted?: boolean;
                                     }[];
                                     attachment_kinds?: string[];
+                                    /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                    retryable?: boolean;
                                     /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                     mentions?: string[];
                                     created_at?: string;
@@ -1339,6 +1343,8 @@ export interface paths {
                                         extracted?: boolean;
                                     }[];
                                     attachment_kinds?: string[];
+                                    /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                    retryable?: boolean;
                                     /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                     mentions?: string[];
                                     created_at?: string;
@@ -1531,6 +1537,8 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -1567,6 +1575,8 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -1733,6 +1743,8 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -1769,6 +1781,8 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -1985,6 +1999,8 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -2021,6 +2037,8 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -2271,6 +2289,8 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -2307,6 +2327,8 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -2426,6 +2448,8 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -2462,6 +2486,8 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -2581,6 +2607,8 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -2617,6 +2645,8 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -2739,6 +2769,8 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -2775,6 +2807,8 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -2897,6 +2931,8 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -2933,6 +2969,8 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -3074,6 +3112,8 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -3110,6 +3150,8 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -3239,6 +3281,8 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -3275,6 +3319,8 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -3394,6 +3440,8 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -3430,6 +3478,8 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -3549,6 +3599,8 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -3585,6 +3637,8 @@ export interface paths {
                                     extracted?: boolean;
                                 }[];
                                 attachment_kinds?: string[];
+                                /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
+                                retryable?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -4540,7 +4594,7 @@ export interface paths {
         };
         options?: never;
         head?: never;
-        /** Editar un miembro, o desactivarlo y reactivarlo con `active` (editor). El perfil no se edita aquí: cada miembro edita el suyo con `PATCH /members/me` (UD-023) */
+        /** Editar un miembro, o desactivarlo y reactivarlo con `active` (editor). El perfil sólo se edita aquí si el miembro es un agente (UD-281); el de una persona lo edita ella con `PATCH /members/me` (UD-023) */
         patch: {
             parameters: {
                 query?: never;
@@ -4558,6 +4612,8 @@ export interface paths {
                         /** @enum {string} */
                         role?: "member" | "editor";
                         password?: string;
+                        /** @description Perfil: un par de párrafos en primera persona (UD-023). */
+                        profile?: string;
                         /** @description false desactiva la cuenta (no puede iniciar sesión y conserva su historial); true la reactiva. */
                         active?: boolean;
                     };
@@ -6537,6 +6593,64 @@ export interface paths {
                     content: {
                         "application/json": {
                             job_ids?: string[];
+                        };
+                    };
+                };
+                /** @description Error: { code, message }. */
+                "4XX": {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            code: string;
+                            message: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/messages/{id}/replies/{replyId}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reintentar el trabajo que falló (cualquier miembro)
+         * @description UD-282. La respuesta del aviso «<Agente> no pudo responder: …» lleva el trabajo `execute` que falló; este endpoint encola otro con el mismo origen: el mismo mensaje y agente y la misma `mention`, `forward` o entrega en la carga, así que la sesión lee otra vez el mismo hilo, los mismos adjuntos y las mismas notas de voz. Puede hacerlo quien puede mencionar al agente (un miembro). Auditada como `message.execute_retry`. Responde 202 con el trabajo. 404 si la respuesta no es de ese mensaje; 409 `not_a_failure` si no avisa de un trabajo fallido, `retry_stale` si ya hay un intento posterior, `message_closed`, `not_an_agent` si el agente se desactivó, `execute_busy` si el agente ya tiene un trabajo en cola o corriendo para el mensaje. El tope de gasto del día lo hace cumplir el trabajador, como en cualquier `execute`.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                    replyId: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            job_id?: string;
                         };
                     };
                 };

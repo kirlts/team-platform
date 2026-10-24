@@ -20,6 +20,7 @@ import { AppError, infra, permanent } from '../domain/errors.js'
 import { Deferred } from '../domain/pipeline.js'
 import { addReply, closeMessage } from '../domain/messages.js'
 import { mentionAnswered } from '../domain/mentions.js'
+import { dailyBudget, localDay } from './budget.js'
 import { HANDOFF_OUTCOMES, alreadyHandedOver, handOffToPerson } from '../domain/escalation.js'
 import { step } from '../domain/progress-phrases.js'
 import { getProject } from '../domain/settings.js'
@@ -62,25 +63,7 @@ export function stderrTail (text, chars = STDERR_TAIL_CHARS) {
   return kept.reverse().join('\n')
 }
 
-/** Start of the server's local day (TZ; UTC when unset) that contains `t`, and the start of the next one. */
-export function localDay (t) {
-  const start = new Date(t)
-  start.setHours(0, 0, 0, 0)
-  const next = new Date(start)
-  next.setDate(next.getDate() + 1)
-  return { start: start.getTime(), next: next.getTime() }
-}
-
-/**
- * The daily spend cap (UD-256): what the `execute` jobs that ran today cost (`jobs.cost_usd`) plus the fixed cost of
- * each one that ran on a machine. A job counts on the day it started (`jobs.run_at` of its last attempt).
- */
-export function dailyBudget (db, x, t) {
-  const { start, next } = localDay(t)
-  const row = get(db, "SELECT COALESCE(SUM(cost_usd), 0) AS cost, COALESCE(SUM(runner = 'machine'), 0) AS machines FROM jobs WHERE kind = 'execute' AND runner IS NOT NULL AND run_at >= ? AND run_at < ?", start, next)
-  const spent = row.cost + row.machines * x.machineCostUsd
-  return { spent, remaining: x.dailyBudgetUsd - spent, nextDayMs: next - t }
-}
+export { dailyBudget, localDay }
 
 /** Where a machine finds the stable part of the prompt: run.sh replaces this marker with its own job directory. */
 export const SYSTEM_FILE_ON_MACHINE = '@JOB_DIR@/system.md'
@@ -638,11 +621,17 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       if (!mentionAgentOf(job, messageId)) return
       const first = Math.min(payload.mention.reply_id, ...(payload.mention.earlier ?? []))
       if (mentionAnswered(db, { messageId, agentId: payload.member_id, replyId: first - 1 })) return
-      addReply({ db, events, now }, { messageId, authorId: payload.member_id, kind: 'answer', body: failureBody(error, languageOf(messageId), { timeoutMs: x.timeoutMs, mentionAgent: mentionAgentOf(job, messageId) }) })
+      const { replyId } = addReply({ db, events, now }, { messageId, authorId: payload.member_id, kind: 'answer', body: failureBody(error, languageOf(messageId), { timeoutMs: x.timeoutMs, mentionAgent: mentionAgentOf(job, messageId) }) })
+      markFailure(replyId, job, error)
     } catch (e) {
       logger?.warn({ err: e }, 'could not post the answer to a mention that failed')
     }
   }
+
+  /** UD-282: the notice of a failure carries the job that failed, so that «Reintentar» launches that job again. */
+  const markFailure = (replyId, job, error) => runSql(db, 'UPDATE replies SET failed_job_id = ?, failed_code = ? WHERE id = ?', job.id, error?.code ?? 'system', replyId)
+
+  const markLastReply = (messageId, job, error) => runSql(db, 'UPDATE replies SET failed_job_id = ?, failed_code = ? WHERE id = (SELECT MAX(id) FROM replies WHERE message_id = ? AND deleted_at IS NULL)', job.id, error?.code ?? 'system', messageId)
 
   const languageOf = (messageId) => get(db, 'SELECT a.language FROM messages m JOIN members a ON a.id = m.author_id WHERE m.id = ?', messageId)?.language
 
@@ -658,8 +647,9 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       const { member_id: memberId } = parseJson(job.payload_json, {})
       if (!messageId || !memberId) return false
       const body = failureBody(error, languageOf(messageId), { timeoutMs: x.timeoutMs, mentionAgent: mentionAgentOf(job, messageId) })
-      if (alreadyHandedOver(db, messageId, body)) return true // launched again and failed the same way
-      const { personId } = handOffToPerson({ db, events, now }, { messageId, agentId: memberId, body, source: 'execute' })
+      if (alreadyHandedOver(db, messageId, body)) { markLastReply(messageId, job, error); return true } // launched again and failed the same way: the notice stays and now stands for this job
+      const { replyId, personId } = handOffToPerson({ db, events, now }, { messageId, agentId: memberId, body, source: 'execute' })
+      markFailure(replyId, job, error)
       return personId !== null
     } catch (e) {
       logger?.warn({ err: e }, 'could not hand the failed job to a person')
@@ -673,8 +663,9 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       const { member_id: memberId } = parseJson(job.payload_json, {})
       if (!messageId || !memberId) return
       const body = failureBody(error, languageOf(messageId), { timeoutMs: x.timeoutMs, mentionAgent: mentionAgentOf(job, messageId) })
-      if (get(db, 'SELECT body FROM replies WHERE message_id = ? ORDER BY id DESC LIMIT 1', messageId)?.body === body) return // the same notice twice tells the author nothing new
-      addReply({ db, events, now }, { messageId, authorId: memberId, body, kind: 'answer' })
+      if (get(db, 'SELECT body FROM replies WHERE message_id = ? ORDER BY id DESC LIMIT 1', messageId)?.body === body) { markLastReply(messageId, job, error); return } // the same notice twice tells the author nothing new
+      const { replyId } = addReply({ db, events, now }, { messageId, authorId: memberId, body, kind: 'answer' })
+      markFailure(replyId, job, error)
     } catch {
       // The reply is a courtesy: if the message is closed or gone the failure is already in the job and in its events.
     }

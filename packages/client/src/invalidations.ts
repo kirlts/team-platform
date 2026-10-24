@@ -27,6 +27,8 @@ export const INVALIDATE = {
   /** Delivering or discarding a held review changes the thread, the view of the message and the lists of jobs. */
   deliverReview: ['message', 'messages', 'areas', 'jobs'],
   forward: ['message', 'messages', 'areas', 'jobs'],
+  /** Retrying a failed session enqueues a job and puts the agent back among the assignees. */
+  retryExecute: ['message', 'messages', 'areas', 'jobs'],
   deleteMessage: ['messages', 'message', 'areas', 'inputs'],
   restoreMessage: ['messages', 'message', 'areas', 'inputs'],
   deleteReply: ['message', 'messages', 'areas'],

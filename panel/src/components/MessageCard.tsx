@@ -7,7 +7,7 @@ import { noticeState } from '@/lib/states'
 import { useNotices } from '@/lib/notices'
 import { useSelectionScope } from '@/lib/selection'
 import type { Message } from '@team-platform/client'
-import { useDeleteMessage, useMe, useRestoreMessage, useSetClosed } from '@team-platform/client/react'
+import { useDeleteMessage, useMe, usePrefetchMessage, useRestoreMessage, useSetClosed } from '@team-platform/client/react'
 import { cn } from '@/lib/utils'
 import { AreaChip } from './AreaChip'
 import { useLookups } from './lookups'
@@ -53,6 +53,7 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
   const setClosed = useSetClosed()
   const del = useDeleteMessage()
   const restore = useRestoreMessage()
+  const prefetch = usePrefetchMessage()
   const notices = useNotices()
   // In a list that marks rows (UD-253) every row keeps the gutter of the check box, so the text starts at the same x with or without one.
   const selection = useSelectionScope()
@@ -98,6 +99,8 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
           ) : (
             <Link
               to={`/messages/${message.id}`}
+              onPointerEnter={() => prefetch(message.id, message.area_id)}
+              onFocus={() => prefetch(message.id, message.area_id)}
               className="outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:outline-2 focus-visible:after:outline-accent"
             >
               {reply && <span className="sr-only">{t('card.replyTo')} «{message.title}»: </span>}

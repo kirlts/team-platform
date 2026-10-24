@@ -38,7 +38,14 @@ export function Thumb({
       <img src={item.src} alt={label} className="h-full w-full rounded-[4px] object-cover" loading="lazy" />
     ) : item.kind === 'video' && item.src ? (
       <span className="relative block h-full w-full">
-        <video src={`${item.src}#t=0.1`} preload="metadata" muted playsInline className="h-full w-full rounded-[4px] bg-raised object-cover" aria-label={label} />
+        {/* A file still on the person's computer (blob:) costs nothing to read, so its first frame is the picture. One on the server is not read for a
+            40 px square: the browser asked for megabytes of each video to find its first frame (bench/results/2026-10-24-panel-before-production.json,
+            /api/attachments on Inicio and Mensajes), so it gets a plain tile under the play mark. */}
+        {item.src.startsWith('blob:') ? (
+          <video src={`${item.src}#t=0.1`} preload="metadata" muted playsInline className="h-full w-full rounded-[4px] bg-raised object-cover" aria-label={label} />
+        ) : (
+          <span role="img" aria-label={label} className="block h-full w-full rounded-[4px] bg-raised" />
+        )}
         <span aria-hidden className="absolute inset-0 flex items-center justify-center">
           <span className="flex h-[55%] w-[55%] items-center justify-center rounded-full bg-fg/60 text-bg">
             <Play size={Math.round(px * 0.3)} fill="currentColor" />

@@ -80,6 +80,21 @@ export function useMessage(id: string | undefined) {
   return useQuery({ ...q.message(id), enabled: !!id })
 }
 
+/**
+ * Reads a message and the templates of its area ahead of the click, when the pointer or the keyboard reaches its link: the detail opens with
+ * both already here instead of asking for the message and then for the templates. What the cache already holds is not asked for again.
+ */
+export function usePrefetchMessage() {
+  const qc = useQueryClient()
+  const q = useTeamQueries()
+  return (id: string, areaId: string) => {
+    const message = q.message(id)
+    if (qc.getQueryData(message.queryKey) === undefined) void qc.prefetchQuery(message)
+    const templates = q.templates(areaId)
+    if (qc.getQueryData(templates.queryKey) === undefined) void qc.prefetchQuery(templates)
+  }
+}
+
 /** Several messages at once, under the same keys as `useMessage`: what one row edits, the others read. */
 export function useMessagesById(ids: string[]) {
   const q = useTeamQueries()

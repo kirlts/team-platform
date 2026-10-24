@@ -347,7 +347,7 @@ export function loadConfig (env = process.env, overrides = {}) {
       maxMachines: intVar(env, 'EXECUTE_MAX_MACHINES', 0, { min: 0 }), // 0 = no bound; the host sets the machines its quota holds
       capacityWaitMs: intVar(env, 'EXECUTE_CAPACITY_WAIT_MS', 30_000, { min: 1000 }), // measured 2026-10-22: creating a harness machine took 32 s (UD-262 timing); looking again sooner finds nothing free
       machineCostUsd: decimal(env, 'EXECUTE_MACHINE_COST_USD', 0, { min: 0 }), // fixed cost of each machine-runner job; host site: 0.07
-      maxTurns: intVar(env, 'EXECUTE_MAX_TURNS', 60, { min: 1 }), // H-3724 brief: 60 turns; the budget cap is what governs spend
+      maxTurns: intVar(env, 'EXECUTE_MAX_TURNS', 60, { min: 0 }), // H-3724 brief: 60 turns; 0 = no cap on turns, only the spending caps govern (UD-283)
       hostInstructions: textValue(env, 'EXECUTE_HOST_INSTRUCTIONS', ''), // path to a host .md file appended to the prompt; the host's rules
       maxSubagents: intVar(env, 'EXECUTE_MAX_SUBAGENTS', 3, { min: 0 }), // UD-255: up to three subagents per message
       // UD-255: one run can cost up to the budget; a queue retry would spend it again, so one attempt by default.

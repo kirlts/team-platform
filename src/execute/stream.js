@@ -3,6 +3,7 @@
 // (a count of completed steps, never a clock, MS §7.10). The `result` line closes the run.
 
 import { basename } from 'node:path'
+import { estimateCostUsd } from '../telemetry/pricing.js'
 
 const clip = (text, n) => {
   const s = String(text ?? '').replace(/\s+/g, ' ').trim()
@@ -29,12 +30,15 @@ export function phraseForTool (name, input = {}) {
  * Line-by-line reader. `onProgress(percent, phrase)` is called when the phrase or the percentage changes.
  * `state()` returns { sessionId, model, turns, result, lines, invalid }.
  */
-export function createStreamReader ({ maxTurns, onProgress, onEvent = null }) {
-  const st = { sessionId: null, model: null, turns: 0, result: null, lines: 0, invalid: 0 }
+export function createStreamReader ({ maxTurns, budgetUsd = 0, onProgress, onEvent = null }) {
+  const st = { sessionId: null, model: null, turns: 0, result: null, lines: 0, invalid: 0, spentUsd: 0 }
+  const costs = new Map() // message id -> cost of its latest usage: partial messages repeat the usage of the same message
   let buffer = ''
   let last = { percent: -1, phrase: null }
   const emit = (phrase) => {
-    const percent = Math.min(99, Math.floor((100 * st.turns) / maxTurns)) // 100 is marked by the `done` event
+    // With a cap on turns, the share of turns used; without one (UD-283), the share of `--max-budget-usd` spent, the cap that governs then. 100 is marked by the `done` event.
+    const share = maxTurns > 0 ? st.turns / maxTurns : (budgetUsd > 0 ? st.spentUsd / budgetUsd : 0)
+    const percent = Math.min(99, Math.floor(100 * share))
     if (percent === last.percent && phrase === last.phrase) return
     last = { percent, phrase }
     // Recording the progress must never lose the lines that follow, among them the `result`: a database that is busy for a moment is not a failed session.
@@ -49,6 +53,12 @@ export function createStreamReader ({ maxTurns, onProgress, onEvent = null }) {
     } else if (event.type === 'assistant') {
       st.sessionId = event.session_id ?? st.sessionId
       if (!event.parent_tool_use_id) st.turns += 1 // a turn of the main session; a subagent's turns do not count against max-turns
+      const m = event.message
+      if (m?.usage && m.id) {
+        const u = m.usage
+        const usd = estimateCostUsd({ provider: 'anthropic', model: m.model ?? st.model, usage: { input_tokens: u.input_tokens, cached_tokens: u.cache_read_input_tokens, cache_creation_tokens: u.cache_creation_input_tokens, output_tokens: u.output_tokens } })
+        if (usd !== null) { costs.set(m.id, usd); st.spentUsd = [...costs.values()].reduce((a, b) => a + b, 0) }
+      }
       const tools = (event.message?.content ?? []).filter((c) => c?.type === 'tool_use')
       if (tools.length > 0) for (const t of tools) emit(phraseForTool(t.name, t.input))
       else emit(last.phrase ?? 'Trabajando')

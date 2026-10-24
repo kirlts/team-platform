@@ -88,7 +88,7 @@ export function claudeArgs (x, schema) {
     '--model', x.model,
     '--effort', x.effort, // `claude --help` 2.1.284: «--effort <level> Effort level for the current session (low, medium, high, xhigh, max)»
     '--max-budget-usd', String(x.budgetUsd ?? x.maxBudgetUsd),
-    '--max-turns', String(x.maxTurns),
+    ...(x.maxTurns > 0 ? ['--max-turns', String(x.maxTurns)] : []), // 0: no cap on turns, `--max-budget-usd` governs (UD-283)
     '--permission-mode', 'bypassPermissions',
     '--output-format', 'stream-json', '--verbose', '--include-partial-messages',
     '--json-schema', JSON.stringify(schema)
@@ -387,6 +387,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     let session = null // spans of the tools and subagents, alive while the `run` phase is
     const reader = createStreamReader({
       maxTurns: x.maxTurns,
+      budgetUsd,
       onEvent: (event) => session?.onEvent(event),
       onProgress: (percent, phrase) => { if (!queue.progress(job, percent, phrase)) ctx.abort('lost') }
     })

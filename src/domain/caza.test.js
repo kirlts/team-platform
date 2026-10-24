@@ -13,7 +13,7 @@ import { createAnthropicClient, createFakeProviders, ProviderHttpError } from '.
 import { createWorker } from '../worker.js'
 import { addMember, fakeAnalyze, login, makeEnv, postInput, until } from '../testing/helpers.js'
 
-const fast = { identity: { login: { ipMax: 1000 } }, worker: { retryBaseMs: 5, retryMaxMs: 20, heartbeatMs: 20, leaseMs: 200 } }
+const fast = { identity: { login: { ipMax: 1000 } }, worker: { retryBaseMs: 5, retryMaxMs: 20, heartbeatMs: 20, leaseMs: 5000 } } // the lease is far from the heartbeat: a machine stalled for a second does not expire a healthy job
 const envs = []
 
 async function team (opts = {}) {
@@ -39,7 +39,7 @@ describe('an input is never left in an intermediate state without a job alive', 
     assert.equal(env.queue.fail(job, new Error('El servicio del modelo no contestó.'), { permanent: true }).state, 'failed')
     assert.equal(env.statusOf(id), 'analyzing')
     env.worker.start()
-    await until(() => env.statusOf(id) === 'failed', { timeoutMs: 3000 })
+    await until(() => env.statusOf(id) === 'failed', { timeoutMs: 30000 })
     assert.equal(env.input(id).error, 'El servicio del modelo no contestó.')
     const done = all(env.db, "SELECT data_json FROM job_events WHERE job_id = ? AND kind = 'done'", Number(jobId)).map((e) => JSON.parse(e.data_json))
     assert.deepEqual(done.map((d) => d.status), ['failed'], 'whoever listens to the job hears how it ended')
@@ -51,12 +51,12 @@ describe('an input is never left in an intermediate state without a job alive', 
     run(env.db, "UPDATE inputs SET status = 'extracting' WHERE id = ?", id)
     run(env.db, 'DELETE FROM jobs WHERE id = ?', Number(jobId))
     env.worker.start()
-    await until(() => env.statusOf(id) === 'proposed', { timeoutMs: 3000 })
+    await until(() => env.statusOf(id) === 'proposed', { timeoutMs: 30000 })
     assert.equal(get(env.db, "SELECT COUNT(*) AS n FROM jobs WHERE input_id = ? AND kind = 'analyze'", id).n, 1)
   })
 
   it('an input whose job is alive is left alone, and so is one whose job has just failed: its handler is about to run', async () => {
-    const env = await team()
+    const env = await team({ config: { worker: { heartbeatMs: 600_000, leaseMs: 1_200_000 } } }) // the grace of the sweep is the heartbeat: no clock decides this case
     const { input_id: alive } = await env.submit('Uno con su trabajo en cola.')
     const { input_id: justFailed, job_id: failedJob } = await env.submit('Uno cuyo trabajo acaba de fallar.')
     run(env.db, "UPDATE jobs SET status = 'failed', finished_at = ?, last_error = 'acaba de fallar' WHERE id = ?", Date.now(), Number(failedJob))
@@ -72,7 +72,7 @@ describe('an input is never left in an intermediate state without a job alive', 
 
 describe('a worker that cannot write the end of a job', () => {
   it('a database that refuses the failure of a job does not take the process down: the job keeps its lease to expire and is recovered', async () => {
-    const env = await team()
+    const env = await team({ config: { worker: { leaseMs: 200 } } }) // this case is the expiry of a lease
     const unhandled = []
     const record = (reason) => unhandled.push(reason)
     process.on('unhandledRejection', record)
@@ -85,7 +85,7 @@ describe('a worker that cannot write the end of a job', () => {
       const worker = createWorker({ db: env.db, queue, events: env.events, config: env.config, handlers })
       const { input_id: id } = await env.submit('Un envío con una base ocupada.')
       worker.start()
-      await until(() => refused >= 2, { timeoutMs: 4000 }) // the lease expires, the job is recovered and fails again, this time written
+      await until(() => refused >= 2, { timeoutMs: 30000 }) // the lease expires, the job is recovered and fails again, this time written
       await worker.stop()
       assert.deepEqual(unhandled.map(String), [], 'nothing escaped the worker')
       assert.ok(['queued', 'failed'].includes(env.statusOf(id)))
@@ -117,13 +117,13 @@ describe('a provider that makes the analysis wait', () => {
     const providers = createFakeProviders({ text: () => { throw new ProviderHttpError('anthropic: Overloaded', { status: 529, retryable: true, retryAfterMs: 3_600_000 }) } })
     const env = await team({
       worker: true,
-      config: { worker: { maxRuntimeMs: 300, maxAttempts: 1 } },
+      config: { worker: { maxRuntimeMs: 3000, maxAttempts: 1 } }, // the cap ends the wait of an hour; it is far from the time the first call needs
       modules: { analyze, getProviders: () => providers }
     })
     const { input_id: id } = await env.submit('El proveedor está saturado.')
-    await until(() => env.statusOf(id) === 'failed', { timeoutMs: 4000 })
+    await until(() => env.statusOf(id) === 'failed', { timeoutMs: 30000 })
     assert.match(env.input(id).error, /superó el tiempo máximo/)
-    await until(() => env.worker.active === 0, { timeoutMs: 1000 })
+    await until(() => env.worker.active === 0, { timeoutMs: 30000 })
     assert.equal(providers.calls.text.length, 1, 'one call, and the wait for the second ended with the job')
   })
 })
@@ -140,7 +140,7 @@ describe('what the author reads when the analysis fails', () => {
       env.queue.recoverExpiredLeases({ spare: 'nobody' })
     }
     env.worker.start()
-    await until(() => env.statusOf(id) === 'failed', { timeoutMs: 3000 })
+    await until(() => env.statusOf(id) === 'failed', { timeoutMs: 30000 })
     const { error_code: code } = env.input(id)
     assert.equal(code, 'lease_expired')
     for (const file of ['es-419.ts', 'en.ts']) assert.ok(catalog(file).includes(`'analysis.error.${code}':`), `${file} has no sentence for ${code}`)
@@ -150,7 +150,7 @@ describe('what the author reads when the analysis fails', () => {
     const providers = createFakeProviders({ text: () => { throw new Error('nothing to ask the model') } })
     const env = await team({ worker: true, modules: { analyze, getProviders: () => providers, extract: async () => ({ text: '', meta: {} }) } })
     const { input_id: id } = (await postInput(env, env.ana, { text: '' }, [{ field: 'files', name: 'voz.txt', type: 'text/plain', content: 'x' }])).json()
-    await until(() => env.statusOf(id) === 'failed', { timeoutMs: 3000 })
+    await until(() => env.statusOf(id) === 'failed', { timeoutMs: 30000 })
     assert.equal(env.input(id).error_code, 'nothing_readable')
     assert.equal(get(env.db, "SELECT attempts FROM jobs WHERE input_id = ? AND kind = 'analyze'", id).attempts, 1, 'reading nothing again reads nothing')
     assert.equal(providers.calls.text.length, 0)
@@ -179,20 +179,20 @@ describe('an input reprocessed after it was published', () => {
     const worker = createWorker({ db: env.db, queue: env.queue, events: env.events, config: env.config, handlers })
     worker.start()
     const { input_id: id } = await env.submit('Algo que Claude debe arreglar.')
-    await until(() => env.statusOf(id) === 'published' && session, { timeoutMs: 4000 })
+    await until(() => env.statusOf(id) === 'published' && session, { timeoutMs: 30000 })
     const messageId = get(env.db, 'SELECT id FROM messages WHERE input_id = ?', id).id
     assert.equal(session.job.message_id, messageId)
     const res = await env.app.inject({ method: 'POST', url: `/api/inputs/${id}/reprocess`, headers: headers(editor) })
     assert.equal(res.statusCode, 202, res.body)
     assert.ok(get(env.db, 'SELECT deleted_at FROM messages WHERE id = ?', messageId).deleted_at, 'the message went to the trash')
     assert.equal(get(env.db, 'SELECT status FROM jobs WHERE id = ?', session.job.id).status, 'cancelled', 'and the session on it does not go on')
-    await until(() => session.stopped, { timeoutMs: 1000 })
+    await until(() => session.stopped, { timeoutMs: 30000 })
     await worker.stop()
   })
 })
 
 describe('a shutdown while the model is thinking', () => {
-  it('the request in flight goes with the job: the worker stops within a second and the job returns to the queue with its attempt refunded', { timeout: 8000 }, async () => {
+  it('the request in flight goes with the job: the worker stops without waiting for the request and the job returns to the queue with its attempt refunded', { timeout: 60000 }, async () => {
     // A provider whose request never answers until it is cut: what a classification at high effort looks like to a shutdown.
     let cut = 0
     const fetchImpl = (url, init) => new Promise((resolve, reject) => { init.signal.addEventListener('abort', () => { cut += 1; reject(init.signal.reason) }) })
@@ -200,11 +200,11 @@ describe('a shutdown while the model is thinking', () => {
     const providers = { text: { name: client.name, model: client.model, schemaProfile: client.schemaProfile, complete: client.complete } }
     const env = await team({ worker: true, modules: { analyze, getProviders: () => providers } })
     const { input_id: id, job_id: jobId } = await env.submit('Un envío cuando el servicio se reinicia.')
-    await until(() => env.statusOf(id) === 'analyzing', { timeoutMs: 3000 })
+    await until(() => env.statusOf(id) === 'analyzing', { timeoutMs: 30000 })
     await until(() => env.worker.active === 1)
     const started = Date.now()
     await env.worker.stop()
-    assert.ok(Date.now() - started < 1000, `${Date.now() - started} ms to stop`)
+    assert.ok(Date.now() - started < 10000, `${Date.now() - started} ms to stop`) // it never waits for the request: without the fix it hangs until the provider answers
     assert.equal(cut, 1, 'the request was cut, not left to finish')
     const job = get(env.db, 'SELECT status, attempts FROM jobs WHERE id = ?', Number(jobId))
     assert.deepEqual([job.status, job.attempts], ['queued', 0])

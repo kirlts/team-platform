@@ -78,6 +78,26 @@ describe('Timing', () => {
     expect(screen.getByText('Entrega').nextElementSibling?.textContent).toBe('48 s')
   })
 
+  it('keeps the technical part of the output in «Detalle técnico», folded (UD-273)', async () => {
+    answer = () => ({ ...timing, detail: { entries: [{ label: 'Resultado', value: 'investigated' }, { label: 'Zona tocada', value: 'ninguna' }, { label: 'Archivos tocados', value: 'a.tsx\nb.tsx' }], delivery_ref: 'abc1234' } })
+    wrap(['u2'])
+    const toggle = await screen.findByRole('button', { name: 'Detalle técnico' })
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    expect(screen.queryByText('Zona tocada')).toBeNull()
+    fireEvent.click(toggle)
+    expect((await screen.findByText('Zona tocada')).nextElementSibling?.textContent).toBe('ninguna')
+    expect(screen.getByText('Resultado').nextElementSibling?.textContent).toBe('investigated')
+    expect(screen.getByText('Archivos tocados').nextElementSibling?.textContent).toBe('a.tsx\nb.tsx')
+    expect(screen.getByText('Entrega').nextElementSibling?.textContent).toBe('abc1234')
+  })
+
+  it('says «Sin detalle» when the run returned none', async () => {
+    answer = () => ({ ...timing, detail: null })
+    wrap(['u2'])
+    fireEvent.click(await screen.findByRole('button', { name: 'Detalle técnico' }))
+    expect(await screen.findByText('Sin detalle')).toBeTruthy()
+  })
+
   it('says «Sin ejecución» on a 404', async () => {
     answer = () => { throw new TeamApiError(404, 'not_found', 'x') }
     wrap(['u2'])

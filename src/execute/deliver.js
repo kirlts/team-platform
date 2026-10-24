@@ -54,7 +54,6 @@ const TEXTS = {
     afterFailed: (reason) => `No pude tomar la captura del después: ${reason}.`,
     held: (reason) => `El cambio está listo y espera la revisión de una persona antes de entrar a producción: ${reason}. Queda guardado en la rama.`,
     heldReason: 'el cambio necesita esa revisión',
-    delivery: 'Entrega',
     verification: (branch) => `El cambio no pasó la verificación y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nUn Editor puede volver a lanzar la entrega.`,
     timeout: (branch, minutes) => `La entrega no terminó dentro del tiempo máximo (${minutes} min) y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nUn Editor puede volver a lanzar la entrega.`,
     system: (branch) => `No pude entregar este trabajo por un problema del sistema y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nUn Editor puede volver a lanzar la entrega.`,
@@ -66,7 +65,6 @@ const TEXTS = {
     afterFailed: (reason) => `I could not take the «after» screenshot: ${reason}.`,
     held: (reason) => `The change is ready and waits for a person to review it before it goes to production: ${reason}. It is saved on the branch.`,
     heldReason: 'the change needs that review',
-    delivery: 'Delivery',
     verification: (branch) => `The change did not pass verification and is not in production yet. The work is saved on the branch ${branch}.\n\nAn Editor can launch the delivery again.`,
     timeout: (branch, minutes) => `The delivery did not finish within the time limit (${minutes} min) and is not in production yet. The work is saved on the branch ${branch}.\n\nAn Editor can launch the delivery again.`,
     system: (branch) => `I could not deliver this work because of a system problem and it is not in production yet. The work is saved on the branch ${branch}.\n\nAn Editor can launch the delivery again.`,
@@ -98,11 +96,11 @@ export function withProductionNote (summary, note) {
   return `${/[\p{L}\p{N}]$/u.test(text) ? `${text}.` : text} ${note}`
 }
 
-/** The closing reply of a delivery in green: the output of the session with the note, then its structured part and the reference under «Entrega». */
-export function deliveredBody ({ output, template = null, ref = null, language, lines = [] }) {
+/** The closing reply of a delivery in green: the summary of the session with the production note, then the lines of the system. The technical part stays in the run (UD-273). */
+export function deliveredBody ({ output, language, lines = [] }) {
   const t = textsOf(language)
   const base = output ?? {}
-  return [replyBody({ ...base, summary: withProductionNote(base.summary, t.production), ...(ref ? { delivery_ref: ref } : {}) }, template, { delivery_ref: t.delivery }), ...lines].join('\n\n')
+  return [replyBody({ summary: withProductionNote(base.summary, t.production) }), ...lines].join('\n\n')
 }
 
 /** The last non-empty stdout line that is not a phase marker: the reference of the delivery. */
@@ -111,13 +109,13 @@ export function referenceOf (stdout) {
   return lines.at(-1)?.slice(0, 500) ?? null // a reference is a commit, a URL or a label; 500 characters hold any of them
 }
 
-/** The reply of a delivery held for review: the summary of the session, the reason in a plain paragraph and `needs_decision`. */
-export function heldBody ({ output, template = null, reason, language }) {
+/** The reply of a delivery held for review: the summary of the session and the reason in a plain paragraph. The hand-over carries `needs_decision` as a field (UD-269). */
+export function heldBody ({ output, reason, language }) {
   const t = textsOf(language)
   const base = output ?? {}
   const why = String(reason ?? '').trim().replace(/[.\s]+$/, '') || t.heldReason
   const summary = [String(base.summary ?? '').trim(), t.held(why)].filter(Boolean).join('\n\n')
-  return replyBody({ ...base, outcome: 'needs_decision', summary }, template, {})
+  return replyBody({ summary })
 }
 
 const tail = (text, chars) => (text.length > chars ? text.slice(-chars) : text)
@@ -314,7 +312,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
    */
   function handOff (messageId, memberId, branch, error) {
     try {
-      const body = `${failureText(messageId, branch, error)}\n\n**Resultado**: blocked`
+      const body = failureText(messageId, branch, error)
       if (alreadyHandedOver(db, messageId, body)) return true // a delivery launched again that failed the same way
       const { personId } = handOffToPerson({ db, events, now }, { messageId, agentId: memberId, body, source: 'deliver' })
       return personId !== null
@@ -327,7 +325,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
   /** With nobody to hand the message to, the agent still says in plain words that the work is not in production; a closed or deleted message has nobody to tell. */
   function tellTheAuthor (messageId, memberId, branch, error) {
     try {
-      const body = `${failureText(messageId, branch, error)}\n\n**Resultado**: blocked`
+      const body = failureText(messageId, branch, error)
       // The same notice twice in a row (a retry that failed the same way) tells the author nothing new.
       if (get(db, 'SELECT body FROM replies WHERE message_id = ? ORDER BY id DESC LIMIT 1', messageId)?.body === body) return
       addReply({ db, events, now }, { messageId, authorId: memberId, body, kind: 'answer' })

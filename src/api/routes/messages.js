@@ -84,7 +84,7 @@ export function registerMessageRoutes (app, ctx) {
     onRequest: [requireRole('member')],
     schema: {
       summary: 'Tiempos de la ejecución de un mensaje',
-      description: 'Segundos hasta la primera respuesta y hasta la respuesta final (`first_reply_ms`, `final_reply_ms`, desde el inicio del trabajo `execute`; `*_since_message_ms` desde que se publicó el mensaje), tiempo total, fases (`create`, `run`, `destroy`), herramientas y subagentes de la sesión del más lento al más rápido (`slowest`) y consumo por turno (`turns`). `tree` es el subárbol de spans del trabajo, como `GET /jobs/:id/trace`. Con el trabajo en curso las cifras son `null` y `phase` dice en qué paso está. 404 si el mensaje no existe o no tiene trabajo de ejecución.',
+      description: 'Segundos hasta la primera respuesta y hasta la respuesta final (`first_reply_ms`, `final_reply_ms`, desde el inicio del trabajo `execute`; `*_since_message_ms` desde que se publicó el mensaje), tiempo total, fases (`create`, `run`, `destroy`), herramientas y subagentes de la sesión del más lento al más rápido (`slowest`) y consumo por turno (`turns`). `detail` es la parte técnica de la salida del agente (resultado, zona, causa, verificación, rama, archivos…) con el rótulo de la plantilla, y la referencia de la entrega: la respuesta del hilo sólo lleva el resumen (UD-273). `tree` es el subárbol de spans del trabajo, como `GET /jobs/:id/trace`. Con el trabajo en curso las cifras son `null` y `phase` dice en qué paso está. 404 si el mensaje no existe o no tiene trabajo de ejecución.',
       params: idParams(),
       response: {
         200: {
@@ -95,6 +95,7 @@ export function registerMessageRoutes (app, ctx) {
             phases: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, duration_ms: ms, offset_ms: ms, status: { type: 'string' } } } },
             slowest: { type: 'array', items: { type: 'object', properties: { kind: { type: 'string', enum: ['tool', 'subagent'] }, name: { type: 'string' }, summary: { type: 'string', nullable: true }, duration_ms: ms, success: { type: 'boolean', nullable: true } } } },
             turns: { type: 'array', items: { type: 'object', additionalProperties: true } },
+            detail: { type: 'object', nullable: true, properties: { entries: { type: 'array', items: { type: 'object', properties: { label: { type: 'string' }, value: { type: 'string' } } } }, delivery_ref: { type: 'string', nullable: true } } },
             tree: { type: 'object', nullable: true, additionalProperties: true }
           }
         }

@@ -1,6 +1,9 @@
 import type { TeamClient } from './client.js'
 import type { EventsStore } from './events.js'
-import { invalidate, type QueryClientLike } from './invalidations.js'
+import { invalidate, invalidateRoots, type QueryClientLike } from './invalidations.js'
+import type { QueryRoot } from './keys.js'
+
+const KNOWN_ROOTS: ReadonlySet<string> = new Set<QueryRoot>(['me', 'members', 'areas', 'templates', 'messages', 'inputs', 'providers', 'connections', 'project', 'analysis-settings', 'publication', 'jobs'])
 
 /**
  * Opens the session's single event stream and ties it to the cache: a message of somebody else makes the lists stale, and so
@@ -15,6 +18,13 @@ export function watchEvents(o: { client: TeamClient; store: EventsStore; queryCl
   const offDone = o.store.onDone((e) => {
     if (e.message_id) void invalidate(o.queryClient, 'reply')
   })
+  // A write by somebody else (a reply, an edit, a state, a review, an assignee…): only what a mounted screen shows is read again.
+  const offChanged = o.store.onChanged((e) => {
+    const roots = e.roots.filter((r): r is QueryRoot => KNOWN_ROOTS.has(r))
+    void invalidateRoots(o.queryClient, roots, { refetchType: 'active' })
+    // The open message is read again by its id; a change without one (an area, a member, a bulk write) reads whichever is open.
+    void o.queryClient.invalidateQueries({ queryKey: e.message_id ? ['message', e.message_id] : ['message'], refetchType: 'active' })
+  })
   const close = o.client.events.connect(o.store, {
     onReconnect: () => {
       void invalidate(o.queryClient, 'reconnect', { refetchType: 'active' })
@@ -23,6 +33,7 @@ export function watchEvents(o: { client: TeamClient; store: EventsStore; queryCl
   return () => {
     offMessage()
     offDone()
+    offChanged()
     close()
   }
 }

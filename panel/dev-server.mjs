@@ -25,6 +25,7 @@ import Ajv from 'ajv'
 import { parseTemplate } from '../src/analyze/templates.js'
 import { mountedIndex } from '../src/api/mount.js'
 import { loadConfig } from '../src/config.js'
+import { changeOfWrite } from '../src/events/changes.js'
 import { batchSchema } from '../src/telemetry/ui-spec.js'
 import { recordUiBatch, uiSummary } from '../src/telemetry/ui.js'
 
@@ -879,6 +880,15 @@ const server = createServer(async (req, res) => {
   }
   const path = pathname.slice('/api'.length)
   const unsafe = !['GET', 'HEAD', 'OPTIONS'].includes(method)
+  // Like the real server (src/api/index.js): a write that went through is announced to the whole team once the response is out.
+  if (unsafe && !path.startsWith('/_control/')) {
+    res.on('finish', () => {
+      const parts = path.split('/')
+      const template = parts.map((p, i) => (i === 2 && !['delete', 'restore', 'me'].includes(p) ? ':id' : i === 4 && parts[3] === 'replies' ? ':replyId' : p)).join('/')
+      const change = changeOfWrite({ method, routeUrl: template, params: { id: parts[2] }, status: res.statusCode })
+      if (change) emit(null, 'message', change)
+    })
+  }
 
   try {
     if (path === '/health') return send(res, 200, { ok: true, dev: true })

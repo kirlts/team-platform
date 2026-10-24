@@ -1,7 +1,7 @@
 // Ephemeral state of the SSE stream (GET /events): progress per job_id and notices of new messages.
 // One stream per member (MASTER-SPEC §7.10). None of this is kept in the query cache.
 import type { EventSourceLike } from './http.js'
-import type { DoneEvent, NewMessageEvent, ProgressEvent } from './types.js'
+import type { ChangedEvent, DoneEvent, NewMessageEvent, ProgressEvent } from './types.js'
 
 export type { EventSourceLike }
 
@@ -40,6 +40,7 @@ export class EventsStore {
   private listeners = new Set<() => void>()
   private doneListeners = new Set<(e: DoneEvent) => void>()
   private messageListeners = new Set<(e: NewMessageEvent) => void>()
+  private changedListeners = new Set<(e: ChangedEvent) => void>()
 
   subscribe = (fn: () => void) => {
     this.listeners.add(fn)
@@ -62,6 +63,18 @@ export class EventsStore {
     return () => {
       this.messageListeners.delete(fn)
     }
+  }
+
+  /** A write by somebody else left these cache roots stale (`message` event with `reason: 'changed'`). It is no notice. */
+  onChanged(fn: (e: ChangedEvent) => void) {
+    this.changedListeners.add(fn)
+    return () => {
+      this.changedListeners.delete(fn)
+    }
+  }
+
+  changed(e: ChangedEvent) {
+    for (const fn of this.changedListeners) fn(e)
   }
 
   private set(next: Partial<EventsSnapshot>) {
@@ -132,7 +145,9 @@ export class EventsStore {
     }
     if (!data || typeof data !== 'object') return
     const d = data as Record<string, unknown>
-    if (kind === 'done' || d.done === true) {
+    if (d.reason === 'changed') {
+      this.changed({ roots: Array.isArray(d.roots) ? d.roots.filter((r): r is string => typeof r === 'string') : [], message_id: str(d.message_id) })
+    } else if (kind === 'done' || d.done === true) {
       if (typeof d.job_id === 'string') this.done({ job_id: d.job_id, input_id: str(d.input_id), input_status: str(d.input_status), message_id: str(d.message_id), done: true })
     } else if (kind === 'progress' || typeof d.percent === 'number') {
       if (typeof d.job_id === 'string' && typeof d.percent === 'number') {

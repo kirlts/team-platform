@@ -26,6 +26,7 @@ import { registerIdentity } from '../identity/index.js'
 import { isRoleGoverned } from '../identity/delegated.js'
 import { loadBlocklist } from '../identity/password.js'
 import { registerEventRoutes } from '../events/routes.js'
+import { changeOfWrite } from '../events/changes.js'
 import { registerInputRoutes } from './routes/inputs.js'
 import { registerMessageRoutes } from './routes/messages.js'
 import { registerAreaRoutes } from './routes/areas.js'
@@ -276,6 +277,11 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
 
   let openapiDoc = null
   await app.register(async (api) => {
+    // A write that went through leaves its screens stale: the team learns it by the event stream (src/events/changes.js).
+    api.addHook('onResponse', async (request, reply) => {
+      const change = changeOfWrite({ method: request.method, routeUrl: request.routeOptions?.url, params: request.params ?? {}, status: reply.statusCode, prefix: apiPrefixPath })
+      if (change) events.publish({ kind: 'message', data: change })
+    })
     identity.registerRoutes(api)
     api.get('/me', {
       onRequest: [requireRole('member')],

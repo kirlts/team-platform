@@ -77,10 +77,15 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
       foot.current?.scrollIntoView?.({ block: 'nearest' })
     }
   }, [message.replies.length, sentAt])
+  // A state that changes because somebody else closed or reopened the message arrives through the event stream and must not move the
+  // page: only a button pressed at the foot (Cerrar, Reabrir, Responder) brings the foot into the window.
+  const pressedAtFoot = useRef(false)
   const status = useRef(message.status)
   useEffect(() => {
     if (status.current === message.status) return
     status.current = message.status
+    if (!pressedAtFoot.current) return
+    pressedAtFoot.current = false
     foot.current?.scrollIntoView?.({ block: 'nearest' })
   }, [message.status])
 
@@ -184,7 +189,7 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
           </ol>
         </div>
       )}
-      <div ref={foot} className="shrink-0 scroll-mb-4">
+      <div ref={foot} className="shrink-0 scroll-mb-4" onClickCapture={(e) => { if ((e.target as HTMLElement).closest('button')) pressedAtFoot.current = true }}>
       {canReply || (message.status !== 'closed' && !!me) ? (
         // The sender does not answer their own message, but may write in the thread to call someone with «@» (UD-278): the form is the same and asks for a mention.
         <ReplyForm messageId={message.id} autoFocus={focusForm} senderMode={!canReply} onSent={() => setSentAt(message.replies.length)}>

@@ -345,6 +345,12 @@ export interface DoneEvent {
   done: true
 }
 
+/** A write left these cache roots stale; `message_id` when it was on one message. Travels as a `message` event with `reason: 'changed'`. */
+export interface ChangedEvent {
+  roots: string[]
+  message_id?: string
+}
+
 export interface NewMessageEvent {
   message_id: string
   title: string

@@ -678,14 +678,19 @@ describe('execute job', () => {
       assert.equal(mine[1].attachments.length, 3, 'the two before and the after')
     })
 
-    it('an unmasked capture in the first reply with a sensitive zone is skipped and the reply goes out as text', async () => {
+    it('a first reply whose captures are all rejected (unmasked with a sensitive zone) is not posted and the session fails with the reason', async () => {
       process.env.FAKE_EXECUTE_CAPTURE_FILES = JSON.stringify({ 'a.png': 'png' })
       process.env.FAKE_EXECUTE_START_CAPTURES = JSON.stringify([shot('a.png', { masked: false })])
       process.env.FAKE_EXECUTE_START_ZONE = 'datos de personas'
-      const { mine } = await run('Falla en la agenda.')
-      assert.equal(mine[0].attachments.length, 0)
-      assert.equal(mine[0].body, 'Recibido. Empiezo por leer la pantalla.')
-      assert.equal(mine[1].attachments.length, 0)
+      startWorker()
+      const messageId = await publishedMessage('Falla en la agenda.')
+      const job = env.db.prepare("SELECT * FROM jobs WHERE kind = 'execute' AND message_id = ?").get(messageId)
+      const finished = await waitJob(job.id)
+      assert.notEqual(finished.status, 'done')
+      assert.match(finished.last_error, /unmasked_sensitive/)
+      const thread = (await env.app.inject({ method: 'GET', url: `/api/messages/${messageId}`, headers: { cookie: author } })).json()
+      // The only reply of the agent is the worker's notice of the failure: the session's first reply never went out.
+      assert.ok(thread.replies.every((r) => !r.body.startsWith('Recibido. Empiezo por leer la pantalla.')), 'no first reply without the before')
     })
 
     it('a session without captures posts the same two replies as before', async () => {

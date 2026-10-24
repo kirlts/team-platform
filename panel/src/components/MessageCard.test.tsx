@@ -59,7 +59,7 @@ describe('the extract of a row (UD-241)', () => {
     mount(message())
     const extract = screen.getByTestId('card-extract')
     // `truncate` is `overflow: hidden; text-overflow: ellipsis; white-space: nowrap` in Tailwind: the one cut the interface allows, declared for the detectors.
-    expect(extract.className.split(/\s+/)).toContain('md:truncate') // one line from md; on a phone it wraps, nothing is cut
+    expect(extract.className.split(/\s+/)).toContain('truncate') // on a phone too (UD-241; Martín, 2026-10-24)
     expect(extract.getAttribute('title')).toBe(LONG)
     expect(extract.getAttribute('data-ellipsis-ok')).toBe('UD-241')
     expect(extract.textContent).toBe(LONG)
@@ -70,7 +70,7 @@ describe('the extract of a row (UD-241)', () => {
     mount(m, 'reply')
     const extract = screen.getByTestId('card-extract')
     expect(extract.getAttribute('title')).toContain(m.title)
-    expect(extract.className.split(/\s+/)).toContain('md:truncate')
+    expect(extract.className.split(/\s+/)).toContain('truncate')
   })
 })
 

@@ -152,8 +152,9 @@ describe('rows of one height (UD-241)', () => {
 })
 
 describe('the extract is one line (UD-241)', () => {
-  test('with a long text the extract is one line high, ends with an ellipsis and carries the whole text as its tooltip', async () => {
-    const { page, context } = await session()
+  // On a phone too: the guide's «nothing is cut on a phone» does not reach the extract of a row (Martín, 2026-10-24, with a capture of 10 lines).
+  for (const [label, viewport, mobile] of [['1440x900', DESKTOP, false], ['390x844', PHONE, true]]) test(`at ${label}, with a long text the extract is one line high, ends with an ellipsis and carries the whole text as its tooltip`, async () => {
+    const { page, context } = await session(viewport, { mobile })
     try {
       await open(page, '/messages')
       const list = await rows(page)

@@ -132,7 +132,7 @@ test('a reply upload has the limits of an input upload: size per kind, number of
   await env.close()
 })
 
-test('a reply is not analyzed: no job is queued and the extractor never runs for its media', async () => {
+test('a reply is not analyzed: images and documents never reach an extractor; only the speech of an audio or video is read (UD-278)', async () => {
   const extracted = []
   const env = await team({ worker: true, modules: { extract: async (a) => { extracted.push(a.kind); return { text: 't', meta: { calls: [] } } } } })
   const messageId = await openMessage(env)
@@ -141,9 +141,10 @@ test('a reply is not analyzed: no job is queued and the extractor never runs for
   await env.reply(messageId, env.c.beto, { body: 'x' }, [PNG, PDF])
   assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM jobs').n, jobsBefore)
   assert.equal(extracted.length, before)
-  const columns = all(env.db, "SELECT name FROM pragma_table_info('reply_attachments')").map((c) => c.name)
-  assert.deepEqual(columns.filter((n) => /extract/.test(n)), []) // the table has nowhere to put an extraction
   assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM reply_attachments').n, 2)
+  await env.reply(messageId, env.c.beto, { body: 'por voz' }, [{ name: 'nota.webm', content: Buffer.from('audio'), type: 'audio/webm' }])
+  await until(() => extracted.includes('audio'))
+  assert.deepEqual(extracted, ['audio'], 'only the audio is read')
   await env.close()
 })
 

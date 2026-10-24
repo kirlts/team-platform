@@ -5,6 +5,7 @@ import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 import { useT, type MessageKey } from '@/i18n'
 import { DELETED_VALUE, FILTER_PROPS, ME, REPLIES_VALUES, STATUS_VALUES, removeFilter, upsertFilter, type Filter, type FilterOp, type FilterProp, type Message, type MessageQuery } from '@team-platform/client'
 import { useMe, useMessages } from '@team-platform/client/react'
+import { ON_PAGE_FIELD } from '@/components/NativeSelect'
 import { cn } from '@/lib/utils'
 import { useLookups } from './lookups'
 import { STATUS_KEY } from './StatusBadge'
@@ -111,7 +112,7 @@ export function FilterBar({ query, onChange }: { query: MessageQuery; onChange: 
             placeholder={t('filter.search')}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            className="well h-10 w-full rounded-field border-line-strong bg-raised pl-10 pr-3 text-sm placeholder:text-faint focus-visible:border-accent"
+            className={cn('well h-10 w-full rounded-field pl-10 pr-3 text-sm placeholder:text-faint focus-visible:border-accent', ON_PAGE_FIELD)}
           />
         </div>
         {/* The button wears what is applied: its edge and its count. Each filter of the menu opens its values, with a check on the one that is on and the way to take it off (J2-A-13, J3-A-16). */}

@@ -281,6 +281,17 @@
   /* The area chip: 1 fills it with the area's main color and its ink, 0 with the soft tint and its text; and the width of its edge.
      They are numbers because the colors they pick live on each chip (.area-tint), not on :root. */
   --area-chip-fill: 1;
+  /* The host's logo in the brand mark: an image (url(theme/<file>)) and its box in the bar and on the sign-in card. With a logo, the
+     sphere and the project name give way to it (--wordmark-orb-display, --wordmark-project-display). */
+  --wordmark-logo: none;
+  --wordmark-logo-display: none;
+  --wordmark-logo-width: 0px;
+  --wordmark-logo-height: 0px;
+  --wordmark-logo-large-width: 0px;
+  --wordmark-logo-large-height: 0px;
+  --wordmark-logo-space: 0px;
+  --wordmark-orb-display: inline-block;
+  --wordmark-project-display: inline;
   --area-chip-edge-width: 1px;
   /* The notice of a forward in a thread (UD-272): its fill, its left edge and the ink of its line. */
   --notice-bg: var(--color-accent-soft);
@@ -856,6 +867,24 @@
   }
 
   /* The chosen option of a switch (Segmented, StateTabs). */
+  .wordmark-logo {
+    display: var(--wordmark-logo-display);
+    width: var(--wordmark-logo-width);
+    height: var(--wordmark-logo-height);
+    background: var(--wordmark-logo) left center / contain no-repeat;
+    margin-inline-end: var(--wordmark-logo-space);
+  }
+  .wordmark-logo-large {
+    width: var(--wordmark-logo-large-width);
+    height: var(--wordmark-logo-large-height);
+  }
+  .wordmark-orb {
+    display: var(--wordmark-orb-display);
+  }
+  .wordmark-project {
+    display: var(--wordmark-project-display);
+  }
+
   .opt-on {
     border-color: var(--selected-border);
     background-color: var(--selected-bg);

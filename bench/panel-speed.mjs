@@ -24,6 +24,7 @@ const args = Object.fromEntries(process.argv.slice(2).reduce((acc, a, i, all) =>
 const BASE = (args.base ?? 'http://127.0.0.1:3900').replace(/\/$/, '')
 const LABEL = args.label ?? 'panel-speed'
 const RUNS = Number(args.runs ?? 3)
+const RUNS_SLOW = Number(args['runs-slow'] ?? RUNS) // the throttled profile is slow: fewer repetitions
 const OUT = resolve(dirname(fileURLToPath(import.meta.url)), 'results', `${LABEL}.json`)
 const PROFILES = {
   direct: { network: null, cpu: 1 },
@@ -88,13 +89,15 @@ async function instrument (page, profile) {
   cdp.on('Network.requestWillBeSent', (e) => reqs.set(e.requestId, { url: e.request.url, type: e.type, t0: e.timestamp, wall: e.wallTime, method: e.request.method }))
   cdp.on('Network.responseReceived', (e) => { const r = reqs.get(e.requestId); if (r) { r.status = e.response.status; r.encoding = e.response.headers['content-encoding'] ?? e.response.headers['Content-Encoding'] ?? null; r.cache = e.response.fromDiskCache ? 'disk' : 'net'; r.tResp = e.timestamp } })
   cdp.on('Network.loadingFinished', (e) => { const r = reqs.get(e.requestId); if (r) { r.t1 = e.timestamp; r.encoded = e.encodedDataLength } })
-  cdp.on('Network.dataReceived', (e) => { const r = reqs.get(e.requestId); if (r) r.decoded = (r.decoded ?? 0) + e.dataLength })
+  // A request the page aborted (a thumbnail that scrolled away, a stream that dropped) still moved bytes: they count.
+  cdp.on('Network.loadingFailed', (e) => { const r = reqs.get(e.requestId); if (r) { r.t1 = e.timestamp; r.encoded = r.received ?? 0; r.failed = e.errorText } })
+  cdp.on('Network.dataReceived', (e) => { const r = reqs.get(e.requestId); if (r) { r.decoded = (r.decoded ?? 0) + e.dataLength; r.received = (r.received ?? 0) + e.encodedDataLength } })
   return { cdp, reqs }
 }
 
 function summarize (reqs, navStart) {
   const rows = [...reqs.values()].filter((r) => r.t1 && !r.url.startsWith('data:')).map((r) => ({
-    url: r.url.replace(BASE, ''), type: r.type, method: r.method, status: r.status, encoding: r.encoding, cache: r.cache,
+    url: r.url.replace(BASE, ''), type: r.type, method: r.method, status: r.status, failed: r.failed ?? null, encoding: r.encoding, cache: r.cache,
     start_ms: Math.round((r.t0 - navStart) * 1000), end_ms: Math.round((r.t1 - navStart) * 1000), ttfb_ms: r.tResp ? Math.round((r.tResp - r.t0) * 1000) : null,
     encoded: Math.round(r.encoded ?? 0), decoded: r.decoded ?? 0,
   })).sort((a, b) => a.start_ms - b.start_ms)
@@ -164,9 +167,10 @@ async function main () {
   const result = { label: LABEL, base: BASE, when: new Date().toISOString(), runs: RUNS, chromium: browser.version(), profiles: {} }
   for (const profile of (args.profiles ?? Object.keys(PROFILES).join(',')).split(',')) {
     const out = { screens: {}, clicks: {} }
+    const runs = profile === 'slow4g' ? RUNS_SLOW : RUNS
     for (const [name, route] of ROUTES.filter(([n]) => !args.only || args.only.split(',').includes(n))) {
       const cold = []; const warm = []
-      for (let i = 0; i < RUNS; i++) {
+      for (let i = 0; i < runs; i++) {
         const context = await newContext(browser, cookies)
         const page = await context.newPage()
         const { cdp, reqs } = await instrument(page, profile)
@@ -183,7 +187,7 @@ async function main () {
     }
     // Navigation by clicking, in one session: Inicio -> Mensajes -> a message -> back through the menu.
     const clicks = { menu: {}, open_message: [] }
-    for (let i = 0; i < RUNS; i++) {
+    for (let i = 0; i < runs; i++) {
       const context = await newContext(browser, cookies)
       const page = await context.newPage()
       await instrument(page, profile)

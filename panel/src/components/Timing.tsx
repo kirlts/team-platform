@@ -86,7 +86,7 @@ function TimingBody({ messageId }: { messageId: string }) {
   )
 }
 
-/** «Detalle técnico» (UD-273): what the agent returned besides its summary (result, zone, cause, verification, branch, files) and the reference of its delivery. The reply of the thread does not carry it. */
+/** «Detalle técnico» (UD-276): what the agent returned besides its summary (result, zone, cause, verification, branch, files) and the reference of its delivery. The reply of the thread does not carry it. */
 function DetailBody({ messageId }: { messageId: string }) {
   const t = useT()
   const errorText = useErrorText()

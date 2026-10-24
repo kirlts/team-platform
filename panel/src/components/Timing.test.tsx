@@ -78,7 +78,7 @@ describe('Timing', () => {
     expect(screen.getByText('Entrega').nextElementSibling?.textContent).toBe('48 s')
   })
 
-  it('keeps the technical part of the output in «Detalle técnico», folded (UD-273)', async () => {
+  it('keeps the technical part of the output in «Detalle técnico», folded (UD-276)', async () => {
     answer = () => ({ ...timing, detail: { entries: [{ label: 'Resultado', value: 'investigated' }, { label: 'Zona tocada', value: 'ninguna' }, { label: 'Archivos tocados', value: 'a.tsx\nb.tsx' }], delivery_ref: 'abc1234' } })
     wrap(['u2'])
     const toggle = await screen.findByRole('button', { name: 'Detalle técnico' })

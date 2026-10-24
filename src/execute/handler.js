@@ -98,7 +98,7 @@ export function claudeArgs (x, schema) {
 const SYSTEM_READ_FIELDS = ['summary', 'captures', 'decision_check', 'close', 'close_reason', 'mode', 'attachments'] // the screenshots travel as attachments (UD-268); the check is shown as the question (UD-269); the close request is read by the system and shows as one line (UD-271); `mode` is read by the system and the documents travel as attachments (UD-272)
 
 /**
- * What the sender reads of the structured output (UD-273): its `summary` and nothing else. The rest (outcome, zone, technical cause, verification,
+ * What the sender reads of the structured output (UD-276): its `summary` and nothing else. The rest (outcome, zone, technical cause, verification,
  * branch, files…) is for whoever wants the detail and is kept apart, see `detailEntries`.
  */
 export function replyBody (output) {
@@ -501,7 +501,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const documentLines = documentNotes(documents.rejected, author?.language)
     const { decision_check: check, ...visible } = output // the check is shown as the question, not as JSON
     const body = [replyBody(visible), ...decisionLines(check, author?.language)].join('\n\n')
-    rec.detail = detailEntries(visible, template) // UD-273: kept with the run, shown folded in «Tiempos»
+    rec.detail = detailEntries(visible, template) // UD-276: kept with the run, shown folded in «Tiempos»
     const hands = Boolean(x.deliverCommand) && output.outcome === 'done' && !investigate && await branchExists(branch)
 
     return () => {

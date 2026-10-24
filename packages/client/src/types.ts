@@ -395,7 +395,7 @@ export interface MessageTiming {
   /** The delivery that followed the run (UD-263), when there is one. */
   deliver?: { job_id: string; job_status: string; phase: string | null; attempts: number }
   slowest: { kind: 'tool' | 'subagent'; name: string; summary: string | null; duration_ms: number; success: boolean | null }[]
-  /** The technical part of the output of the agent and the reference of its delivery (UD-273); the reply carries only the summary. */
+  /** The technical part of the output of the agent and the reference of its delivery (UD-276); the reply carries only the summary. */
   detail?: { entries: { label: string; value: string }[]; delivery_ref: string | null } | null
   tree: SpanNode | null
 }

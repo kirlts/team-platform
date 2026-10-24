@@ -21,7 +21,7 @@ function toolRow(n) {
   }
 }
 
-/** The technical part of the output of the latest run of a job (UD-273): [label, text] pairs and the reference of its delivery; `null` when the run returned none. */
+/** The technical part of the output of the latest run of a job (UD-276): [label, text] pairs and the reference of its delivery; `null` when the run returned none. */
 function detailOfRun(db, jobId) {
   const run = get(db, 'SELECT detail_json, delivery_ref FROM execute_runs WHERE job_id = ? ORDER BY attempt DESC LIMIT 1', jobId);
   let entries = [];

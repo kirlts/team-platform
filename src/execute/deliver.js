@@ -96,7 +96,7 @@ export function withProductionNote (summary, note) {
   return `${/[\p{L}\p{N}]$/u.test(text) ? `${text}.` : text} ${note}`
 }
 
-/** The closing reply of a delivery in green: the summary of the session with the production note, then the lines of the system. The technical part stays in the run (UD-273). */
+/** The closing reply of a delivery in green: the summary of the session with the production note, then the lines of the system. The technical part stays in the run (UD-276). */
 export function deliveredBody ({ output, language, lines = [] }) {
   const t = textsOf(language)
   const base = output ?? {}

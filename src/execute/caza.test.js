@@ -113,7 +113,8 @@ describe('failure hunt: execute and deliver', () => {
     assert.deepEqual([job.status, job.attempts], ['failed', 2], 'one more try for the infrastructure')
     assert.equal(calls().length, 2)
     const body = assertSeen(messageId)
-    assert.match(body, /\*\*Resultado\*\*: blocked$/)
+    assert.doesNotMatch(body, /\*\*Resultado\*\*/)
+    assert.match(body, /Todavía no está en producción/)
     assert.doesNotMatch(body, /execute_no_result|claude -p/, 'plain words')
   })
 
@@ -127,7 +128,8 @@ describe('failure hunt: execute and deliver', () => {
     assert.ok(Date.now() - began < 5000, `the second try starts at its time, not at the next sweep of the leases (10 s): ${Date.now() - began} ms`)
     const [job] = jobsOf(messageId, 'execute')
     assert.deepEqual([job.status, job.attempts], ['done', 2])
-    assert.match(lastReply(messageId).body, /\*\*Resultado\*\*: done$/)
+    assert.doesNotMatch(lastReply(messageId).body, /\*\*Resultado\*\*/)
+    assert.match(lastReply(messageId).body, /Ya carga con tus datos\.$/)
     assert.equal(status(messageId), 'answered')
     assert.ok(Math.abs(job.cost_usd - 2 * 1.2345) < 1e-9, `the day's cost keeps what both tries spent, not only the last: ${job.cost_usd}`)
   })
@@ -180,7 +182,8 @@ describe('failure hunt: execute and deliver', () => {
     const inEnglish = await publishedMessage('Output that does not fit.', englishAuthor)
     await settle(inEnglish)
     assert.match(lastReply(inEnglish).body, /did not have the format/)
-    assert.match(lastReply(inEnglish).body, /\*\*Resultado\*\*: blocked$/)
+    assert.doesNotMatch(lastReply(inEnglish).body, /\*\*Resultado\*\*/)
+    assert.match(lastReply(inEnglish).body, /launch it again from its page\.$/)
   })
 
   // ---- Case (f), the sibling: a session that ends `blocked` is not an answer
@@ -272,7 +275,7 @@ describe('failure hunt: execute and deliver', () => {
     startWorker({ deliverCommand: 'echo boom; exit 3' })
     const messageId = await publishedMessage('Una entrega que nunca pasa.')
     await settle(messageId)
-    assert.match(assertSeen(messageId), /no pasó la verificación[\s\S]*\*\*Resultado\*\*: blocked$/)
+    assert.match(assertSeen(messageId), /no pasó la verificación[\s\S]*lanzar la entrega\.$/)
   })
 
   it('the phase of a job that failed is cleared', async () => {

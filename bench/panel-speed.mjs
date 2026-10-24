@@ -209,6 +209,8 @@ async function main () {
       const again = await clickLatency(page, 'aside a[href="/messages"]')
       if (again) (clicks.menu.mensajes_segunda_visita ??= []).push(again)
       await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {})
+      // The list draws its rows after the click that brought it; the links are read when two of them are there.
+      await page.waitForFunction(() => new Set([...document.querySelectorAll('main#main a[href]')].map((a) => a.getAttribute('href')).filter((h) => /^\/messages\/\d+$/.test(h))).size >= 2, null, { timeout: 15000 }).catch(() => {})
       const hrefs = await page.evaluate(() => [...new Set([...document.querySelectorAll('main#main a[href]')].map((a) => a.getAttribute('href')).filter((h) => /^\/messages\/\d+$/.test(h)))].slice(0, 2))
       // Two different messages: one opened at once, one after the pointer rested on it (so the first does not warm the second).
       if (hrefs[0]) {
@@ -219,7 +221,7 @@ async function main () {
       if (hrefs[1]) {
         // The way back to the list can fail to draw it again in the timeout; that run has no hover sample, and the rest of the bench goes on.
         try {
-          await page.evaluate(() => history.back())
+          await page.click('aside a[href="/messages"]')
           await page.waitForSelector(`main#main a[href="${hrefs[1]}"]`, { timeout: 15000 })
           await page.hover(`main#main a[href="${hrefs[1]}"]`)
           await page.waitForTimeout(DWELL)

@@ -111,7 +111,6 @@ export function MentionTextarea({ value, onChange, candidates, picked, onPick, o
               >
                 <Avatar name={m.name} size={20} />
                 <span data-mention-name className="min-w-0 flex-1 break-words leading-tight">{m.name}</span>
-                {m.kind === 'agent' && <span className="text-xs text-muted">{t('mention.agent')}</span>}
               </button>
             </li>
           ))}

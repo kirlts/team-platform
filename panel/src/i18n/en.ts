@@ -43,7 +43,6 @@ export const en: Record<MessageKey, Message> = {
   'bell.mention': 'Mention by {name}',
   'mention.list': 'Members',
   'mention.none': 'No matches',
-  'mention.agent': 'Agent',
   'bell.none': 'No notifications',
 
   'pager.range': '{from}–{to} of {total}',

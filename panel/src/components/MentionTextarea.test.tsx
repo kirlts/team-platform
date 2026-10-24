@@ -32,7 +32,7 @@ function Field({ onState }: { onState?: (s: { text: string; picked: Member[] }) 
   )
 }
 const type = (el: HTMLElement, value: string) => fireEvent.change(el, { target: { value, selectionStart: value.length, selectionEnd: value.length } })
-const names = () => screen.queryAllByRole('option').map((o) => o.querySelector('[data-mention-name]')?.textContent + (o.textContent?.endsWith('Agente') ? ' (agente)' : ''))
+const names = () => screen.queryAllByRole('option').map((o) => o.querySelector('[data-mention-name]')?.textContent)
 
 describe('the helpers of «@»', () => {
   it('finds the word being typed only when it starts with «@» at the beginning or after a space', () => {
@@ -60,9 +60,9 @@ describe('the field with «@»', () => {
     type(field, 'hola ')
     expect(names()).toEqual([])
     type(field, 'hola @')
-    expect(names()).toEqual(['Ana Pérez', 'Claude (agente)', 'Carla'])
+    expect(names()).toEqual(['Ana Pérez', 'Claude', 'Carla'])
     type(field, 'hola @cla')
-    expect(names()).toEqual(['Claude (agente)'])
+    expect(names()).toEqual(['Claude'])
     type(field, 'hola @zzz')
     expect(screen.getByText('Sin coincidencias')).toBeTruthy()
     type(field, 'hola @cla ya')

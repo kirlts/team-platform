@@ -43,7 +43,6 @@ export const es419 = {
   'bell.mention': 'Mención de {name}',
   'mention.list': 'Miembros',
   'mention.none': 'Sin coincidencias',
-  'mention.agent': 'Agente',
   'bell.none': 'Sin avisos',
 
   'pager.range': '{from}–{to} de {total}',

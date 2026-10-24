@@ -133,7 +133,9 @@ const FAILURE_TEXTS = {
     system: 'No pude terminar este trabajo por un problema del sistema.',
     config: (reason) => `No pude empezar este trabajo: ${reason}`,
     budgetWait: (time) => `En espera: se alcanzó el tope de gasto de hoy. Sigue mañana a las ${time}.`,
-    mention: (name) => `No pude atender la mención de ${name}.`,
+    // UD-275: what a person reads when the agent could not answer a mention: its name and a reason in plain words.
+    mention: (agent, why) => `${agent} no pudo responder: ${why}.`,
+    why: { interrupted: 'se interrumpió', timeout: 'se acabó el tiempo', budget: 'se alcanzó el tope de gasto', turns: 'era demasiado largo', format: 'la respuesta no tuvo el formato esperado', infra: 'falló un servicio', system: 'hubo un problema del sistema' },
     edited: 'El mensaje se editó mientras trabajaba, así que esta respuesta puede no corresponder al texto de ahora. No se entregó a producción; lo hecho queda guardado en la rama.'
   },
   en: {
@@ -149,7 +151,8 @@ const FAILURE_TEXTS = {
     system: 'I could not finish this work because of a system problem.',
     config: (reason) => `I could not start this work: ${reason}`,
     budgetWait: (time) => `Waiting: today's spending limit was reached. It continues tomorrow at ${time}.`,
-    mention: (name) => `I could not attend the mention of ${name}.`,
+    mention: (agent, why) => `${agent} could not answer: ${why}.`,
+    why: { interrupted: 'it was interrupted', timeout: 'time ran out', budget: 'the spending limit was reached', turns: 'it was too long', format: 'the answer did not have the expected format', infra: 'a service failed', system: 'a system problem' },
     edited: 'The message was edited while I worked, so this answer may not match its current text. It was not delivered to production; the work is saved on the branch.'
   }
 }
@@ -165,13 +168,14 @@ const API_FAILURE = /\b(429|5\d\d)\b|overloaded|rate.?limit|too many requests|se
 const FLAG_REJECTED = /unknown (option|argument)|unrecognized (option|argument)|append-system-prompt-file/i
 
 /** The text of a failure for its reader: the reason, where the work is and who can launch it again. */
-export function failureBody (error, language, { timeoutMs = 0, mentionedBy = null } = {}) {
+export function failureBody (error, language, { timeoutMs = 0, mentionAgent = null } = {}) {
   const t = FAILURE_TEXTS[language] ?? FAILURE_TEXTS['es-419']
   const kind = FAILURE_KIND[error?.code] ?? 'system'
   const reason = kind === 'timeout' ? t.timeout(Math.max(1, Math.round(timeoutMs / 60000))) : kind === 'config' ? t.config(String(error?.message ?? '').trim()) : t[kind]
   const saved = kind === 'config' ? '' : ` ${t.saved}`
-  // UD-275: a job that was called by a mention opens with one line that says so, and the reason follows.
-  return `${mentionedBy ? `${t.mention(mentionedBy)} ` : ''}${reason}${saved}\n\n${t.again}`
+  // UD-275: a job that was called by a mention says it in one line: who could not answer and why, in plain words.
+  if (mentionAgent) return t.mention(mentionAgent, kind === 'config' ? String(error?.message ?? '').trim() : t.why[kind] ?? t.why.system)
+  return `${reason}${saved}\n\n${t.again}`
 }
 
 const fingerprint = (m) => JSON.stringify([m.title, m.body, m.fields_json, m.area_id, m.template_id])
@@ -583,9 +587,10 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     }
   }
 
-  /** The name of whoever mentioned the agent in the reply this job attends (UD-275), or null when the job was not called by a mention. */
-  function mentionerOf (job, messageId) {
-    return loadMention(db, parseJson(job.payload_json, {}).mention, { messageId })?.by ?? null
+  /** The name of the agent when this job was called by a mention (UD-275), else null: a failure of such a job is told in one line. */
+  function mentionAgentOf (job, messageId) {
+    const payload = parseJson(job.payload_json, {})
+    return loadMention(db, payload.mention, { messageId }) ? get(db, 'SELECT name FROM members WHERE id = ?', payload.member_id)?.name ?? null : null
   }
 
   /**
@@ -596,14 +601,10 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
   function answerMention (job, messageId, error) {
     try {
       const payload = parseJson(job.payload_json, {})
-      const by = mentionerOf(job, messageId)
-      if (!by || !payload.mention?.reply_id) return
+      if (!mentionAgentOf(job, messageId)) return
       const first = Math.min(payload.mention.reply_id, ...(payload.mention.earlier ?? []))
       if (mentionAnswered(db, { messageId, agentId: payload.member_id, replyId: first - 1 })) return
-      const t = FAILURE_TEXTS[languageOf(messageId)] ?? FAILURE_TEXTS['es-419']
-      const kind = FAILURE_KIND[error?.code] ?? 'system'
-      const reason = kind === 'timeout' ? t.timeout(Math.max(1, Math.round(x.timeoutMs / 60000))) : kind === 'config' ? t.config(String(error?.message ?? '').trim()) : t[kind]
-      addReply({ db, events, now }, { messageId, authorId: payload.member_id, kind: 'answer', body: `${t.mention(by)} ${reason}` })
+      addReply({ db, events, now }, { messageId, authorId: payload.member_id, kind: 'answer', body: failureBody(error, languageOf(messageId), { timeoutMs: x.timeoutMs, mentionAgent: mentionAgentOf(job, messageId) }) })
     } catch (e) {
       logger?.warn({ err: e }, 'could not post the answer to a mention that failed')
     }
@@ -622,7 +623,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     try {
       const { member_id: memberId } = parseJson(job.payload_json, {})
       if (!messageId || !memberId) return false
-      const body = failureBody(error, languageOf(messageId), { timeoutMs: x.timeoutMs, mentionedBy: mentionerOf(job, messageId) })
+      const body = failureBody(error, languageOf(messageId), { timeoutMs: x.timeoutMs, mentionAgent: mentionAgentOf(job, messageId) })
       if (alreadyHandedOver(db, messageId, body)) return true // launched again and failed the same way
       const { personId } = handOffToPerson({ db, events, now }, { messageId, agentId: memberId, body, source: 'execute' })
       return personId !== null
@@ -637,7 +638,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     try {
       const { member_id: memberId } = parseJson(job.payload_json, {})
       if (!messageId || !memberId) return
-      const body = failureBody(error, languageOf(messageId), { timeoutMs: x.timeoutMs, mentionedBy: mentionerOf(job, messageId) })
+      const body = failureBody(error, languageOf(messageId), { timeoutMs: x.timeoutMs, mentionAgent: mentionAgentOf(job, messageId) })
       if (get(db, 'SELECT body FROM replies WHERE message_id = ? ORDER BY id DESC LIMIT 1', messageId)?.body === body) return // the same notice twice tells the author nothing new
       addReply({ db, events, now }, { messageId, authorId: memberId, body, kind: 'answer' })
     } catch {

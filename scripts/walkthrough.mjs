@@ -4,7 +4,7 @@
 //   step-<n>[-<profile>].png     one screenshot per step, taken after the label is drawn and the touched element is marked
 //   steps.json                   [{ n, label, at_ms, profile, video, shot }]: the second of each step in the video
 //   captures.json                the `captures` list for the final output of the session (the video and the screenshots), `alt` carrying «0:04 · Paso 2 · …»
-// A step is { label, target?, goto?, click?, fill?: [selector, text], press? }. `target` is the element that gets the outline (default: the element
+// A step is { label, target?, goto?, click?, fill?: [selector, text], press?, timeout? } (`timeout` in ms for the action, Playwright's own default otherwise). `target` is the element that gets the outline (default: the element
 // of `click` or `fill`). Before each step the page shows a small fixed label «Paso 2 · <label>» and the outline; the person reviewing quotes «paso 2» or
 // the second. Used from `team walkthrough`; `playwright` is loaded from the host (the repository's own dependency), never bundled.
 
@@ -52,7 +52,7 @@ export async function recordWalkthrough ({ url, steps, profiles = ['desktop'], o
   const several = profiles.length > 1
   let browser
   try {
-    browser = await (launch ? launch() : playwright.chromium.launch({ headless: true }))
+    browser = await (launch ? launch() : (playwright.chromium ?? playwright.default.chromium).launch({ headless: true })) // `import()` of a CommonJS package puts the API under `default`
   } catch (error) {
     result.failed.push({ profile: profiles.join(','), reason: `no browser: ${String(error.message).split('\n')[0]}` })
     return result
@@ -79,8 +79,8 @@ export async function recordWalkthrough ({ url, steps, profiles = ['desktop'], o
           await page.waitForTimeout(LABEL_PAUSE_MS)
           const shot = `step-${n}${suffix}.png`
           await page.screenshot({ path: join(outDir, shot) })
-          if (step.click) await page.click(step.click)
-          if (step.fill) await page.fill(step.fill[0], step.fill[1])
+          if (step.click) await page.click(step.click, step.timeout ? { timeout: step.timeout } : {})
+          if (step.fill) await page.fill(step.fill[0], step.fill[1], step.timeout ? { timeout: step.timeout } : {})
           if (step.press) await page.keyboard.press(step.press)
           await page.waitForTimeout(SETTLE_PAUSE_MS)
           mine.push({ n, label: step.label, at_ms: at, profile, shot })

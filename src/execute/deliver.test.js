@@ -17,7 +17,7 @@ import { setProjectDescription } from '../domain/settings.js'
 import { createVault, loadMasterKey } from '../domain/vault.js'
 import { addMember, fakeAnalyze, login, makeEnv, postInput, tempDir, until } from '../testing/helpers.js'
 import { createWorker } from '../worker.js'
-import { createDeliverHandler, deliveredBody, heldBody, outputJson, referenceOf, withProductionNote } from './deliver.js'
+import { createDeliverHandler, deliveredBody, heldBody, isEnvironmentFailure, outputJson, referenceOf, withProductionNote } from './deliver.js'
 import { enqueueDeliver } from './enqueue.js'
 import { createExecuteHandler } from './handler.js'
 import { buildExecutePrompt } from './prompt.js'
@@ -344,19 +344,57 @@ describe('deliver job', () => {
     assert.doesNotMatch(replies(messageId).at(-1), /Ya está en producción/)
   })
 
-  it('a timeout kills the command, reports it plainly and does not go back to Claude', async () => {
+  it('a timeout kills the command, runs once more by itself, and the second one goes to a person without going back to Claude', async () => {
     const pidFile = path('pid')
-    startWorker({ deliverCommand: `echo $$ > ${pidFile}; sleep 30`, deliverTimeoutMs: 700 })
+    const tries = path('tries')
+    startWorker({ deliverCommand: `echo $$ >> ${tries}; echo $$ > ${pidFile}; sleep 30`, deliverTimeoutMs: 700 })
     const messageId = await publishedMessage('Una entrega que no termina.')
     await settle(messageId)
     const [delivery] = jobsOf(messageId, 'deliver')
     assert.equal(delivery.status, 'failed')
+    assert.equal(delivery.attempts, 2, 'the timeout ran once more before giving up')
+    assert.equal(readFileSync(tries, 'utf8').trim().split('\n').length, 2)
     assert.match(delivery.last_error, /superó el tiempo máximo/)
-    assert.equal(jobsOf(messageId, 'execute').length, 1)
-    assert.match(replies(messageId).at(-1), /^La entrega no terminó dentro del tiempo máximo \(1 min\) y todavía no está en producción\./)
+    assert.equal(jobsOf(messageId, 'execute').length, 1, 'it does not go back to Claude: a timeout is not a failure of the change')
+    assert.match(replies(messageId).at(-1), /^La entrega falló dos veces por la máquina de entrega o por el plazo \(1 min\), no por el cambio/)
+    const editorId = env.db.prepare("SELECT id FROM members WHERE email = 'ed@x.org'").get().id
+    assert.deepEqual(env.db.prepare('SELECT member_id FROM message_assignees WHERE message_id = ?').all(messageId).map((r) => r.member_id), [editorId], 'a person has it')
     const pid = Number(readFileSync(pidFile, 'utf8').trim())
     assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' }, 'the process the job started is gone')
     assert.equal(env.db.prepare('SELECT delivered FROM execute_runs WHERE job_id = ?').get(jobsOf(messageId, 'execute')[0].id).delivered, 0)
+  })
+
+  it('a failure of the delivery machine is retried once by itself and, if the second try works, nobody hears about it', async () => {
+    const flag = path('flag')
+    startWorker({ deliverCommand: `if [ -e ${flag} ]; then echo ref-second; else touch ${flag}; echo 'el entorno de la entrega no está listo' >&2; exit 1; fi` })
+    const messageId = await publishedMessage('Una máquina que falla una vez.')
+    await settle(messageId)
+    const [delivery] = jobsOf(messageId, 'deliver')
+    assert.deepEqual([delivery.status, delivery.attempts], ['done', 2])
+    assert.equal(jobsOf(messageId, 'execute').length, 1)
+    assert.match(replies(messageId).at(-1), /Ya está en producción\./)
+    assert.equal(replies(messageId).filter((b) => /falló dos veces/.test(b)).length, 0)
+  })
+
+  it('a second failure of the machine goes to a person with the reason; a failed verification still goes back to Claude, not to the retry', async () => {
+    startWorker({ deliverCommand: "echo 'no se puede entrar por SSH a la máquina de producción' >&2; exit 1" })
+    const messageId = await publishedMessage('Una máquina que no entra.')
+    await settle(messageId)
+    const [delivery] = jobsOf(messageId, 'deliver')
+    assert.deepEqual([delivery.status, delivery.attempts], ['failed', 2])
+    assert.equal(jobsOf(messageId, 'execute').length, 1)
+    assert.match(replies(messageId).at(-1), /falló dos veces por la máquina de entrega.*no se puede entrar por SSH/s)
+    const editorId = env.db.prepare("SELECT id FROM members WHERE email = 'ed@x.org'").get().id
+    assert.deepEqual(env.db.prepare('SELECT member_id FROM message_assignees WHERE message_id = ?').all(messageId).map((r) => r.member_id), [editorId])
+  })
+
+  it('isEnvironmentFailure tells the machine from the change', () => {
+    assert.equal(isEnvironmentFailure({ code: null, timedOut: true }), true)
+    assert.equal(isEnvironmentFailure({ code: 255 }), true)
+    assert.equal(isEnvironmentFailure({ code: 1 }, '==== el entorno de la entrega no está listo ====\nsin token de la cuenta de entrega'), true)
+    assert.equal(isEnvironmentFailure({ code: 1 }, 'Falta la marca de un juez distinto del autor: no entra.'), false, 'a missing judge mark is the change')
+    assert.equal(isEnvironmentFailure({ code: 1 }, '→ fallaron 2 archivos'), false, 'a failed test is the change')
+    assert.equal(isEnvironmentFailure({ code: 75 }, 'Connection reset'), false)
   })
 
   it('no machine is alive while the delivery runs', async () => {

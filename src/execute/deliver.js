@@ -51,7 +51,8 @@ const TEXTS = {
     delivery: 'Entrega',
     verification: (branch) => `El cambio no pasó la verificación y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nUn Editor puede volver a lanzar la entrega.`,
     timeout: (branch, minutes) => `La entrega no terminó dentro del tiempo máximo (${minutes} min) y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nUn Editor puede volver a lanzar la entrega.`,
-    system: (branch) => `No pude entregar este trabajo por un problema del sistema y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nUn Editor puede volver a lanzar la entrega.`
+    system: (branch) => `No pude entregar este trabajo por un problema del sistema y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nUn Editor puede volver a lanzar la entrega.`,
+    environment: (branch, reason) => `La entrega falló dos veces por la máquina de entrega o por el plazo (${reason}), no por el cambio, y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nQuien reciba este mensaje puede volver a lanzar la entrega.`
   },
   en: {
     production: 'It is in production now.',
@@ -60,10 +61,23 @@ const TEXTS = {
     delivery: 'Delivery',
     verification: (branch) => `The change did not pass verification and is not in production yet. The work is saved on the branch ${branch}.\n\nAn Editor can launch the delivery again.`,
     timeout: (branch, minutes) => `The delivery did not finish within the time limit (${minutes} min) and is not in production yet. The work is saved on the branch ${branch}.\n\nAn Editor can launch the delivery again.`,
-    system: (branch) => `I could not deliver this work because of a system problem and it is not in production yet. The work is saved on the branch ${branch}.\n\nAn Editor can launch the delivery again.`
+    system: (branch) => `I could not deliver this work because of a system problem and it is not in production yet. The work is saved on the branch ${branch}.\n\nAn Editor can launch the delivery again.`,
+    environment: (branch, reason) => `The delivery failed twice because of the delivery machine or the time limit (${reason}), not because of the change, and it is not in production yet. The work is saved on the branch ${branch}.\n\nWhoever receives this message can launch the delivery again.`
   }
 }
 const textsOf = (language) => TEXTS[language] ?? TEXTS['es-419']
+
+// A failure of the delivery machine and not of the change: a timeout, a process killed by a signal, ssh (255) or what the delivery script prints when its
+// environment is not ready (the checks of 10 s of `corrida-de-entrega.sh`, the tunnel, the machine that did not accept SSH, no capacity to create one).
+// Measured 2026-10-23 (prueba de 14 insumos): the delivery of tp/88 hit the 30 min limit by 47 s while its run on the machine kept going and merged.
+const ENVIRONMENT_EXIT_CODES = new Set([255, 137, 143])
+const ENVIRONMENT_OUTPUT = /el entorno de la entrega no est[aá] listo|no se puede entrar por SSH|no acept[oó] SSH|sin token de \S+|no se pudo (armar el árbol|instalar las dependencias)|kex_exchange_identification|Connection (reset|closed|timed out)|ssh: connect to host|ERROR: \(gcloud\.compute\.(ssh|start-iap-tunnel)\)|no se pudo traer desarrollo o main/i
+export function isEnvironmentFailure ({ code, timedOut = false, signal = null }, output = '') {
+  if (timedOut || signal) return true
+  if (code === 0 || code === DELIVER_LATER || code === DELIVER_HELD) return false
+  if (ENVIRONMENT_EXIT_CODES.has(code)) return true
+  return ENVIRONMENT_OUTPUT.test(String(output))
+}
 
 /** The summary with the production note at the end of its last paragraph (the reply keeps its two paragraphs). */
 export function withProductionNote (summary, note) {
@@ -189,9 +203,15 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
     const ms = Math.max(0, now() - startedAt)
     if (result.spawnError?.code === 'ENOENT') throw permanent('No se encontró «/bin/sh».', 'harness_unavailable')
     const output = tail([result.stdout.split('\n').filter((l) => !l.startsWith('##team ')).join('\n').trim(), result.stderr.trim()].filter(Boolean).join('\n'), OUTPUT_TAIL_CHARS)
+    // A timeout or a failure of the machine runs once more by itself before it gives up (the command is idempotent by contract); the second one
+    // goes to a person through the hand-over of UD-269 (`onFailure`). It is not a failure of the change: Claude does not see it.
+    const environment = isEnvironmentFailure(result, output)
+    const firstTry = job.attempts < job.max_attempts
     if (result.timedOut) {
       saveRun(payload, job.id, { delivery_ms: ms, delivered: 0 })
-      throw Object.assign(permanent(`La entrega superó el tiempo máximo de ${Math.round(x.deliverTimeoutMs / 1000)} s.`, 'deliver_timeout'), { output })
+      const timeoutError = Object.assign(new Error(`La entrega superó el tiempo máximo de ${Math.round(x.deliverTimeoutMs / 1000)} s.`), { code: 'deliver_timeout', output })
+      timeoutError.retryable = firstTry
+      throw timeoutError
     }
     // Exit 75: the host cannot deliver now. The job waits and tries again; the attempt is not spent and nothing is recorded yet.
     if (result.code === DELIVER_LATER) throw new Deferred(x.capacityWaitMs, step('deliverWait'))
@@ -214,7 +234,9 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
     }
     if (result.code !== 0) {
       saveRun(payload, job.id, { delivery_ms: ms, delivered: 0 })
-      throw Object.assign(permanent(`La orden de entrega terminó con código ${result.code}: ${tail(output, 1500) || 'sin salida'}`, 'deliver_failed'), { output })
+      const failure = Object.assign(new Error(`La orden de entrega terminó con código ${result.code}: ${tail(output, 1500) || 'sin salida'}`), { code: environment ? 'deliver_env' : 'deliver_failed', output })
+      failure.retryable = environment && firstTry
+      throw failure
     }
     const ref = referenceOf(result.stdout)
 
@@ -231,6 +253,20 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
       })
       events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: step('answered'), data: { message_id: messageId } })
       events.publishForJob(job.id, { kind: 'done', data: { status: 'done', message_id: String(messageId), reply_id: String(replyId), delivery_ref: ref } })
+    }
+  }
+
+  /** The second failure of the machine or the time limit: the message goes to the person who decides (UD-269) with the reason, and nobody has to find it among the jobs. */
+  function handOffEnvironment (messageId, memberId, branch, error) {
+    try {
+      const author = get(db, 'SELECT a.language FROM messages m JOIN members a ON a.id = m.author_id WHERE m.id = ?', messageId)
+      const t = textsOf(author?.language)
+      const reason = error?.code === 'deliver_timeout' ? `${Math.max(1, Math.round(x.deliverTimeoutMs / 60000))} min` : tail(String(error?.output ?? ''), 160).replace(/\s+/g, ' ').trim() || 'sin salida'
+      const { personId } = handOffToPerson({ db, events, now }, { messageId, agentId: memberId, body: `${t.environment(branch, reason)}\n\n**Resultado**: blocked`, source: 'deliver' })
+      return personId !== null
+    } catch (e) {
+      logger?.warn({ err: e }, 'could not hand the failed delivery to a person')
+      return false
     }
   }
 
@@ -281,7 +317,9 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
           logger?.warn({ err: e }, 'could not enqueue the second pass after a failed delivery')
         }
       }
-      if (again === null) tellTheAuthor(messageId, memberId, branch, error)
+      const environmentFailure = error?.code === 'deliver_timeout' || error?.code === 'deliver_env'
+      if (again === null && environmentFailure && handOffEnvironment(messageId, memberId, branch, error)) { /* a person has it, with the reply that says why */ }
+      else if (again === null) tellTheAuthor(messageId, memberId, branch, error)
       events.publishForJob(job.id, {
         kind: 'done',
         data: { status: 'failed', message_id: messageId ? String(messageId) : null, error: String(error?.message ?? error), error_code: error?.code ?? null, ...(again !== null ? { execute_job_id: String(again) } : {}) }

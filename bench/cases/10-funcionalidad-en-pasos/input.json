@@ -1,0 +1,21 @@
+{
+  "id": "10-funcionalidad-en-pasos",
+  "title": "Una funcionalidad descrita en pasos numerados",
+  "kind": "texto con captura y voz",
+  "description": "Una sola funcionalidad (subir fotos a la ficha con un QR) descrita en seis pasos numerados, más una captura de un chat y una nota de voz que explican la misma necesidad. Los pasos son requisitos de la misma pieza, no pedidos independientes: lo correcto es un mensaje con la lista en su cuerpo (uno a tres como máximo, `max_messages` de expected.json). Regresión medida en producción el 2026-10-24: el analizador publicó diez mensajes, uno por paso. El caso no usa datos reales.",
+  "text": "Propuesta del doc:\n***\nFuncionalidad: subir fotos clínicas a una ficha usando un QR\n1. En la ficha o episodio del paciente, agregar el botón \"Tomar fotografía\".\n2. Al pulsarlo, [el sistema] crea una sesión de carga temporal y muestra un QR. El QR debe contener un enlace seguro, aleatorio y con vencimiento; no debe incluir el nombre, RUT ni otros datos del paciente.\n3. Al escanearlo con el iPhone, se abre una página móvil segura [del sistema] que permite tomar una o varias fotos o elegirlas desde la galería.\n4. Las imágenes se cargan al servidor y se vinculan automáticamente al paciente y al episodio que originaron el QR. En la pantalla del computador debe aparecer el avance y la confirmación de carga.\n5. La sesión debe caducar y poder invalidarse al cerrar o cancelar. También hay que registrar quién la inició y cuándo se cargaron las imágenes.\n6. Validar tipos y tamaño de archivo, y mostrar errores si una foto no se pudo subir. La carga debe funcionar desde Safari en iPhone.\n***",
+  "attachments": [
+    {
+      "id": 1,
+      "kind": "image",
+      "name": "chat-fotos-clinicas.png",
+      "extracted": "Captura de un chat entre dos personas del equipo. Mensaje 1: \"Hoy sacamos las fotos con el celular personal y después las pasamos por WhatsApp al computador\". Mensaje 2: \"Eso no puede quedar así, las fotos tienen que entrar directo a la ficha del paciente\". Mensaje 3: \"Un QR en la pantalla y listo, que se abra en el iPhone\"."
+    },
+    {
+      "id": 2,
+      "kind": "audio",
+      "name": "nota-fotos-qr.m4a",
+      "extracted": "[00:00] Te explico lo de las fotos, la idea es que en la ficha haya un botón para tomar fotografía.\n[00:10] Aparece un QR, lo escaneo con el iPhone y subo las fotos directo a esa ficha, sin pasar por WhatsApp.\n[00:22] Tiene que ser seguro, que el enlace venza y que no lleve datos del paciente, y que ande en Safari."
+    }
+  ]
+}

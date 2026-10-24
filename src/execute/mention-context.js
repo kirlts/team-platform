@@ -115,14 +115,14 @@ export function mentionBlock (mention, plan, review = null, acknowledged = false
 
 /**
  * UD-280: the message has a change that waits for review (a held delivery). The person answers in the thread, in their own words, and the model says in `review`
- * what they asked for; the system carries it out. `review` here: `{ branch, reason, byIsEditor, editors }`, all of it facts the system knows.
+ * what they asked for; the system carries it out. `review` here: `{ branch, reason, byPerson }`, all of it facts the system knows.
  */
 function reviewLines (review) {
   return [
     '',
     'REVIEW PENDING: this message has a change that is not in production yet and waits for a person.',
     `- branch: ${review.branch}; why it was held: ${review.reason || '(no reason given)'}. The summary, the screenshots labeled «Propuesta» and the walkthrough video you left are in the thread below.`,
-    `- the person who mentioned you ${review.byIsEditor ? 'is an Editor: they can approve and discard' : `is NOT an Editor, so they cannot approve or discard (Editors: ${review.editors.join(', ') || 'none'})`}.`,
+    `- the person who mentioned you ${review.byPerson ? 'can approve and discard' : 'is not a person of the team, so they cannot approve or discard'}.`,
     '- Read what the person wrote as their answer to that review, and say in `review` of your final output what they asked, whatever the words:',
     '  `approve`: they want it delivered to production as it is. Change nothing; the system delivers it, only if they are an Editor.',
     '  `discard`: they want it dropped. Change nothing and write `review_reason`: the reason they gave, in one line.',

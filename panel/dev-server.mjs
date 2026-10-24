@@ -296,6 +296,10 @@ if (process.env.PANEL_DEV_MEDIA === '1') {
   seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Fotos mezcladas con un video', body: 'Tres capturas y la grabación.', created_at: ago(3), assignee_ids: ['u-ana'], attachment_ids: [photos[0], videoDemo, photos[1], photos[2]] })
   seedMessage({ area_id: 'a-idea', author_id: 'u-bruno', title: 'Nota de voz con su transcripción', body: 'La nota dicha en voz alta.', created_at: ago(4), assignee_ids: ['u-ana'], attachment_ids: [voice] })
   seedMessage({ area_id: 'a-pregunta', author_id: 'u-diego', title: 'Informe en PDF y una foto dañada', body: 'El informe del cliente y una foto que no abre.', created_at: ago(5), assignee_ids: ['u-ana'], attachment_ids: [pdf, broken, linkIssue] })
+  const manual = seedAttachment('document', 'application/pdf', 'Subir fotos clínicas desde el teléfono.pdf', Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF'))
+  seedMessage({ area_id: 'a-pregunta', author_id: 'u-diego', title: 'Manual en PDF en la respuesta final', body: 'Cómo subir fotos clínicas desde el teléfono.', created_at: ago(7), assignee_ids: ['u-ana'], attachment_ids: [manual] }, [
+    { author_id: 'u-ana', kind: 'answer', body: 'Dejo el manual en PDF y la pantalla.', created_at: ago(1), attachment_ids: [manual, photos[0]] },
+  ])
   seedMessage({ area_id: 'a-error', author_id: 'u-diego', title: 'Una sola foto', body: 'Un solo medio no lleva carrusel.', created_at: ago(6), assignee_ids: ['u-ana'], attachment_ids: [photos[3]] })
 }
 
@@ -1810,7 +1814,9 @@ const server = createServer(async (req, res) => {
     if (m && method === 'GET') {
       const a = attachments.get(m[1])
       if (!a) return fail(res, 404, 'No existe')
-      const head = { 'Content-Type': a.mime, 'Content-Disposition': `inline; filename="${encodeURIComponent(a.name)}"`, 'Cache-Control': 'private, max-age=3600', 'Accept-Ranges': 'bytes' }
+      // Like the real server: `?download=1` asks for an attachment with the original name (RFC 5987), otherwise the file is shown inline.
+      const disposition = url.searchParams.get('download') === '1' ? 'attachment' : 'inline'
+      const head = { 'Content-Type': a.mime, 'Content-Disposition': `${disposition}; filename*=UTF-8''${encodeURIComponent(a.name).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)}`, 'Cache-Control': 'private, max-age=3600', 'Accept-Ranges': 'bytes' }
       // A video asks for the bytes it needs (`Range`): a server that answers the whole file to every range makes the browser ask again and again.
       const asked = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? '')
       if (asked && (asked[1] || asked[2])) {

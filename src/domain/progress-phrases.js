@@ -11,7 +11,7 @@ import { DEFAULT_LANGUAGE } from './language.js'
 const both = (es, en) => ({ 'es-419': es, en })
 
 export const PROGRESS_PHRASES = Object.freeze({
-  queued: both('En cola', 'Queued'),
+  queued: both('En espera', 'Waiting'),
   analyzing: both('Analizando', 'Analyzing'),
   attachment: both('Lectura de adjunto', 'Attachment reading'),
   attachmentN: both('Lectura de adjunto {n} de {total}', 'Attachment {n} of {total}: reading'),

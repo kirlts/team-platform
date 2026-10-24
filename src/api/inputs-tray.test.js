@@ -31,7 +31,7 @@ test('tray: own in-flight inputs in creation order, with percent, phrase and pro
   for (const item of body.items) {
     assert.equal(item.status, 'queued')
     assert.equal(item.percent, 0)
-    assert.equal(item.phrase, 'En cola')
+    assert.equal(item.phrase, 'En espera')
     assert.equal(item.proposed_count, 0)
   }
   await env.close()

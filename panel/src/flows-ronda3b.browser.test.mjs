@@ -135,7 +135,7 @@ describe('drawer of sends (J3-B-04, J3-B-06, J3-B-07, J3-B-31, UD-046)', () => {
       await bar(page).fill(FIVE)
       await page.getByRole('button', { name: 'Enviar' }).first().click()
       const dialog = page.getByTestId('send-drawer')
-      await page.getByText('En cola').first().waitFor()
+      await page.getByText('En espera').first().waitFor()
       await settled(page)
       const queued = await rect(dialog)
       const title = page.getByRole('heading', { name: 'Análisis' })
@@ -166,24 +166,24 @@ describe('drawer of sends (J3-B-04, J3-B-06, J3-B-07, J3-B-31, UD-046)', () => {
     }
   })
 
-  test('«En cola» never carries a percentage, in the drawer, in its option or in the strip (J3-B-06)', async () => {
+  test('«En espera» never carries a percentage, in the drawer, in its option or in the strip (J3-B-06)', async () => {
     const { page, context } = await session('eduardo')
     try {
       const files = [join(tmpdir(), 'r3b-a.txt'), join(tmpdir(), 'r3b-b.txt')]
       writeFileSync(files[0], 'nota a')
       writeFileSync(files[1], 'nota b')
-      // Held in the queue: «En cola» is on screen until the test moves the analysis, so it is measured once it is there (H-901).
+      // Held in the queue: «En espera» is on screen until the test moves the analysis, so it is measured once it is there (H-901).
       await panel.control.hold()
       await page.goto(origin)
       await bar(page).fill('Un envío con adjuntos, para ver el progreso mientras espera.\n\nOtro punto distinto.')
       await page.locator('input[type=file]').first().setInputFiles(files)
       await page.getByRole('button', { name: 'Enviar' }).first().click()
-      await page.locator('[data-testid=send-drawer] section[aria-label=Análisis]').getByText('En cola').first().waitFor()
+      await page.locator('[data-testid=send-drawer] section[aria-label=Análisis]').getByText('En espera').first().waitFor()
       const sample = await page.evaluate(() => {
         const d = document.querySelector('[data-testid=send-drawer]')
         const text = d.querySelector('section[aria-label=Análisis]')?.textContent ?? ''
         const meters = [...d.querySelectorAll('[role=progressbar]')].map((m) => m.getAttribute('aria-valuenow'))
-        return { queued: /En cola/.test(text) && !/Leyendo|Clasificando|Descomponiendo/.test(text), meters, percent: /\d+ ?%/.test(text) }
+        return { queued: /En espera/.test(text) && !/Leyendo|Clasificando|Descomponiendo/.test(text), meters, percent: /\d+ ?%/.test(text) }
       })
       assert.equal(sample.queued, true, 'the submission is queued')
       assert.deepEqual(sample.meters.filter((v) => v !== null), [], 'a bar with no figure while queued')
@@ -243,11 +243,11 @@ describe('proposal (J3-B-02, J3-B-05, J3-B-08, J3-B-09, J3-B-10, J3-B-11, J3-B-1
       await page.getByRole('button', { name: 'Deshacer', exact: true }).click()
       // Only Rehacer is left: the edit is still recoverable, so dropping the proposal must ask.
       await page.getByRole('button', { name: 'Volver a analizar' }).click()
-      await page.getByText('Se descarta esta propuesta con sus cambios').waitFor()
+      await page.getByText('Se descartan los cambios').waitFor()
       // The new analysis waits in the queue until the test has looked at it (H-901).
       await panel.control.hold()
       await page.getByRole('dialog').last().getByRole('button', { name: 'Volver a analizar' }).click()
-      await page.getByText('En cola').first().waitFor()
+      await page.getByText('En espera').first().waitFor()
       assert.equal(await page.getByRole('button', { name: 'Deshacer', exact: true }).count(), 0, 'no «Deshacer» while analyzing')
       assert.equal(await page.getByRole('button', { name: 'Rehacer', exact: true }).count(), 0, 'no «Rehacer» while analyzing')
       await panel.control.release()

@@ -88,16 +88,16 @@ test('send as: an unknown or deactivated member is 400 send_as_invalid', async (
   await env.close()
 })
 
-test('send as: the lists and actions of «mine» follow the chosen author, not the sender', async () => {
+test('send as: the sender sees what they sent on behalf of someone (UD-273); editing and cancelling follow the author', async () => {
   const env = await team()
   const id = Number((await postInput(env, env.c.ana, { text: 'Ordenar la bodega', as_member_id: String(env.ids.bruno), auto_publish: 'false' })).json().input_id)
   await until(() => get(env.db, 'SELECT status FROM inputs WHERE id = ?', id).status === 'proposed')
   const anaList = (await env.api('GET', '/inputs?mine=1', env.c.ana)).json().items.map((i) => i.id)
   const brunoList = (await env.api('GET', '/inputs?mine=1', env.c.bruno)).json().items
-  assert.ok(!anaList.includes(String(id)))
+  assert.ok(anaList.includes(String(id)), 'the sender sees it in their tray (UD-273)')
   const own = brunoList.find((i) => i.id === String(id))
   assert.equal(own.sent_by_id, String(env.ids.ana))
-  assert.equal((await env.api('GET', `/inputs/${id}`, env.c.ana)).statusCode, 404)
+  assert.equal((await env.api('GET', `/inputs/${id}`, env.c.ana)).statusCode, 200)
   assert.equal((await env.api('POST', `/inputs/${id}/cancel`, env.c.ana)).statusCode, 404)
   assert.equal((await env.api('PATCH', `/inputs/${id}`, env.c.ana, { text: 'otro' })).statusCode, 404)
   assert.equal((await env.api('POST', `/inputs/${id}/cancel`, env.c.bruno)).statusCode, 200)

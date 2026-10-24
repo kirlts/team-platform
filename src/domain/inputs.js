@@ -140,7 +140,7 @@ export function proposalView (payload) {
 export function getInputView ({ db, queue, events }, inputId, memberId) {
   const input = get(db, 'SELECT * FROM inputs WHERE id = ?', inputId)
   // Someone else's input is indistinguishable from a nonexistent one.
-  if (!input || (input.author_id !== memberId && input.sent_by_id !== memberId)) throw notFound('El input no existe.')
+  if (!input || (input.author_id !== memberId && input.sent_by_member_id !== memberId)) throw notFound('El input no existe.')
   return buildInputView({ db, queue, events }, input)
 }
 
@@ -206,7 +206,7 @@ export function listInputs (ctx, memberId, { status = null, limit, offset, order
   const params = []
   // The sender sees what they sent on someone's behalf (`sent_by_id`, UD-255): with «Enviar como» the tray stayed empty while the input
   // was analyzed (Martín, 2026-10-24). Editing, cancelling and deleting still follow the author.
-  if (!everyone) { clauses.push('(author_id = ? OR sent_by_id = ?)'); params.push(memberId, memberId) }
+  if (!everyone) { clauses.push('(author_id = ? OR sent_by_member_id = ?)'); params.push(memberId, memberId) }
   if (statuses.length > 0) { clauses.push(`status IN (${statuses.map(() => '?').join(', ')})`); params.push(...statuses) }
   const cond = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : ''
   const direction = order === 'asc' ? 'ASC' : 'DESC'

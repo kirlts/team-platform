@@ -74,7 +74,7 @@ export function createEvents ({ db, now = Date.now }) {
 
   /** Same as `publish`, but the recipient is the author of the input the job belongs to. */
   function publishForJob (jobId, { kind, percent = null, phrase = null, data = {} }) {
-    const jobRow = get(db, 'SELECT j.input_id, j.message_id, i.author_id, i.sent_by_id, m.language FROM jobs j LEFT JOIN inputs i ON i.id = j.input_id LEFT JOIN members m ON m.id = i.author_id WHERE j.id = ?', jobId)
+    const jobRow = get(db, 'SELECT j.input_id, j.message_id, i.author_id, i.sent_by_member_id AS sent_by_id, m.language FROM jobs j LEFT JOIN inputs i ON i.id = j.input_id LEFT JOIN members m ON m.id = i.author_id WHERE j.id = ?', jobId)
     if (!jobRow) return null
     // H-3722: a progress step is written with its code and in the author's language (UD-018); a text of the catalogue
     // without a code gets its code; any other text goes as it came.

@@ -108,10 +108,32 @@ export async function writeMachineFiles ({ workdir, args, prompt, env, claudeBin
 }
 
 /**
+ * The gate of the creation of machines of one worker (UD-303). Calls to CREATE run side by side (a warm machine admits several at once); when one ends with 75
+ * (no capacity), the next ones in this cycle (`waitMs`) get the same answer with no process, and a session that ends opens the gate at once (`open`): the capacity is back. The quota that
+ * the host reported (`##team quota machines=<N>` on the error output) travels with the answer.
+ */
+export function createCreationGate ({ waitMs, now = Date.now }) {
+  let blockedUntil = 0
+  let quotaLine = ''
+  return {
+    async enter () {
+      if (now() < blockedUntil) return { blocked: true, stderr: quotaLine }
+      return {
+        blocked: false,
+        leave (created) {
+          if (created?.code === 75) { blockedUntil = now() + waitMs; quotaLine = /^##team quota machines=\d+\s*$/m.exec(created.stderr ?? '')?.[0].trim() ?? '' }
+        }
+      }
+    },
+    open () { blockedUntil = 0 }
+  }
+}
+
+/**
  * Machine runner: CREATE, RUN, and DESTROY in a finally. Resolves like `runLocal`, plus `machine` and `destroy`
  * ({ code, stderr }). The timeout covers CREATE and RUN together.
  */
-export async function runMachine ({ config, jobId, workdir, args, prompt, env, onData, signal, log = () => {}, phase = (name, fn) => fn() }) {
+export async function runMachine ({ config, jobId, workdir, args, prompt, env, onData, signal, log = () => {}, phase = (name, fn) => fn(), createGate = null }) {
   const x = config.execute
   await writeMachineFiles({ workdir, args, prompt, env, claudeBin: x.machineBin })
   const started = Date.now()
@@ -121,8 +143,15 @@ export async function runMachine ({ config, jobId, workdir, args, prompt, env, o
   let machine = `team-job-${jobId}`
   let result
   let collect = null
+  // UD-303: a job that arrives while the host has just said it has no capacity does not run the host's scripts again (each call of `gcloud` burned 1 to 2 s of
+  // CPU of the production machine, 2026-10-25 13:50). It gets the same answer without a process, and nothing was created, so nothing is destroyed.
+  const gate = createGate ? await createGate.enter() : null
+  if (gate?.blocked) return { code: 75, signal: null, timedOut: false, aborted: false, stdout: '', stderr: gate.stderr, phase: 'create', machine, gated: true }
   try {
-    const created = await phase('create', () => shell(fillCommand(x.machineCreate, base), { env: shellEnv, keepStdout: true, timeoutMs: left(), graceMs: x.killGraceMs, signal }))
+    let created
+    try {
+      created = await phase('create', () => shell(fillCommand(x.machineCreate, base), { env: shellEnv, keepStdout: true, timeoutMs: left(), graceMs: x.killGraceMs, signal }))
+    } finally { gate?.leave(created) }
     const named = created.stdout.split('\n').map((l) => l.trim()).filter(Boolean).at(-1)
     if (named) machine = named
     if (created.code !== 0) {

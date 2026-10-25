@@ -153,7 +153,8 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
       if (queue.defer(job, error.deferMs)) {
         span.setAttribute('team.outcome', 'deferred')
         try { handlerObj?.onDeferred?.(job, error) } catch (e) { jobLog.error({ err: e }, 'error while recording the deferral') }
-        jobLog.info({ delay_ms: error.deferMs }, `job deferred: ${error.phrase}`)
+        // `error.phrase` is a step object, not text: the text is the message of the error, and the cap that holds the job travels as data (UD-303).
+        jobLog.info({ delay_ms: error.deferMs, defer_code: error.phrase?.code ?? null, reason: error.reason ?? null }, `job deferred: ${error.message}`)
       }
       return
     }

@@ -499,7 +499,7 @@ describe('deliver job', () => {
   })
 
   describe('a failed check is the next task, not the end (UD-298)', () => {
-    const notes = (messageId) => env.db.prepare('SELECT body FROM progress_notes WHERE message_id = ? ORDER BY id').all(messageId).map((n) => n.body)
+    const notes = (messageId) => env.db.prepare("SELECT body FROM progress_notes WHERE message_id = ? AND json_extract(data_json, '$.event') IS NULL ORDER BY id").all(messageId).map((n) => n.body) // the rows of the start and the wait (UD-303) are not delivery notices
 
     it('a delivery that fails twice and passes the third time: three rounds, a notice for each failure, one final reply', async () => {
       const count = path('count')

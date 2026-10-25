@@ -188,7 +188,7 @@ describe('sending and closing (J5-flow-reply-close)', () => {
       await openMessage(page, 'Revisar la lectura')
       await page.getByRole('textbox', { name: 'Respuesta' }).scrollIntoViewIfNeeded()
       await send(page, 'Confirmado, queda para esta semana.')
-      await page.getByRole('heading', { name: 'Respuestas' }).waitFor()
+      await page.getByTestId('reply-count').waitFor()
       await page.waitForFunction(() => document.querySelectorAll('section[aria-label="Respuestas"] article').length >= 3)
       const close = await page.getByRole('button', { name: 'Cerrar mensaje', exact: true }).boundingBox()
       assert.ok(close.y >= 0 && close.y + close.height <= PHONE.height - 8, `«Cerrar mensaje» ends at ${close.y + close.height} of ${PHONE.height}`)

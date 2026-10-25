@@ -136,7 +136,7 @@ function AreaViewBody({ area }: { area: Area }) {
             <Fold title={t('areas.description')}>
               {/* The description edited in place on the left; the right side is the place of the area's color control. */}
               <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
-                <div data-lane="area-description" className="scroll-thin max-h-[32dvh] min-w-0 flex-1 basis-80 overflow-y-auto pr-1">
+                <div className="min-w-0 flex-1 basis-80">
                   <FoldedText value={area.description} label={t('areas.fieldDescription')} validate={descriptionRule(t)} onSave={(v) => change('description', v)} displayClassName="text-sm" />
                 </div>
                 <div data-slot="area-color" className="shrink-0 empty:hidden" />

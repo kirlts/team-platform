@@ -569,7 +569,7 @@ describe('justification by width (J3-A-21, J3-A-47)', () => {
       assert.ok(worst <= 19.5, `gap of ${worst} px between words at 1440 px`)
       // The alignment of a wide block is the hook `--prose-align`: the skin decides it (the default here is justified), and the block
       // that is narrower than the measure stays at the left whatever the skin says.
-      const body = page.locator('[data-lane="message-body"] .prose-block').first()
+      const body = page.locator('[data-message-body] .prose-block').first()
       const width = await body.evaluate((el) => el.clientWidth - parseFloat(getComputedStyle(el).paddingLeft) - parseFloat(getComputedStyle(el).paddingRight))
       assert.equal(await body.evaluate((el) => getComputedStyle(el).textAlign), width >= min ? 'justify' : 'left', `the message body (${Math.round(width)} px)`)
       await page.evaluate(() => document.documentElement.style.setProperty('--prose-align', 'center'))

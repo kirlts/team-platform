@@ -206,7 +206,8 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)] gap-x-8 gap-y-4 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-        <div className="flex min-h-0 min-w-0 flex-col gap-3">
+        {/* The column is the lane (UD-299): from 768 px the screen keeps its height and the whole column scrolls, so the text of the message is never the block that shrinks to a line. */}
+        <div data-lane="message-column" className="scroll-thin flex min-h-0 min-w-0 flex-col gap-3 md:overflow-y-auto md:pr-1 [&>*]:shrink-0">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted">
             {canEdit ? (
               <AreaPicker
@@ -292,8 +293,8 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
             )}
           </div>
 
-          {/* A long text has no cap: the message column scrolls inside, and it is a declared lane. */}
-          <div data-lane="message-body" className="scroll-thin flex min-h-0 flex-initial flex-col gap-3 overflow-y-auto px-1.5 py-1">
+          {/* The text takes the height it needs: no cap and no scroll of its own. */}
+          <div data-message-body className="flex flex-col gap-3 px-1.5 py-1">
             <EditableText value={m.body} label={t('detail.body')} multiline canEdit={canEdit} validate={required} onSave={(v) => change(t('proposal.bodyEdited'), { body: v }, { body: m.body })} displayClassName="text-read" />
             <TemplateFields
               template={template}

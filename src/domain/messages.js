@@ -296,7 +296,12 @@ export function updateMessage ({ db, events, now = Date.now }, { messageId, acto
     // Fields are checked whenever they or their template change, because the template defines which are required.
     if (patch.fields !== undefined || templateChanges) {
       const fields = withoutNulls(patch.fields ?? parseJson(row.fields_json, {}))
-      checkFields(tpl, fields, { fail, cache: newValidatorCache() })
+      // A name the message already stored that its template no longer asks for (the 2026-10-25 retirement of the fields that stayed empty) is kept
+      // as it is and not checked: editing another field must not fail on, or erase, what was there. A name that is new, or any name when the template changes, must be one of the template's.
+      const defined = new Set((tpl?.parsed.fields ?? []).map((f) => f.name))
+      const stored = parseJson(row.fields_json, {})
+      const retired = templateChanges ? [] : Object.keys(fields).filter((k) => !defined.has(k) && Object.hasOwn(stored, k))
+      checkFields(tpl, Object.fromEntries(Object.entries(fields).filter(([k]) => !retired.includes(k))), { fail, cache: newValidatorCache() })
       next.fields_json = JSON.stringify(fields)
     }
 

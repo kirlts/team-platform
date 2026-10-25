@@ -26,6 +26,7 @@ export function EditableText({
   render,
   onEditingChange,
   emptyLabel,
+  startEditing = false,
 }: {
   value: string
   onSave: (next: string) => void | Promise<unknown>
@@ -47,10 +48,12 @@ export function EditableText({
   onEditingChange?: (editing: boolean) => void
   /** Accessible text of the empty state when it differs from the visible placeholder (for example «Obligatorio»). */
   emptyLabel?: string
+  /** Opens already in edition: the field a person asked to add (it has no text to click on yet). */
+  startEditing?: boolean
 }) {
   const t = useT()
   const errorText = useErrorText()
-  const [editing, setEditing] = useState(false)
+  const [editing, setEditing] = useState(startEditing)
   const [draft, setDraft] = useState(value)
   const [error, setError] = useState<string | null>(null)
   const discard = useRef(false)

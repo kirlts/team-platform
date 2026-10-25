@@ -31,7 +31,7 @@ import { SpanStatusCode, context, trace } from '@opentelemetry/api'
 import { get, run as runSql } from '../db/index.js'
 import { parseJson } from '../db/util.js'
 import { addReply, closeMessage } from '../domain/messages.js'
-import { alreadyHandedOver, handOffToPerson } from '../domain/escalation.js'
+import { handOffToPerson } from '../domain/escalation.js'
 import { permanent } from '../domain/errors.js'
 import { Deferred } from '../domain/pipeline.js'
 import { step } from '../domain/progress-phrases.js'
@@ -50,6 +50,7 @@ export const DELIVER_HELD = 76 // the next code after EX_TEMPFAIL, outside sysex
 const REASON_CHARS = 300 // declared courtesy: the reason is one plain sentence for the author
 const PHASE_LINE = /^##team phase (verify|deploy)\s*$/
 const PHASES = { verify: { code: 'deliverVerify', percent: 0 }, deploy: { code: 'deliverDeploy', percent: 50 } } // percent = finished phases over the two that exist
+const CHECK_TIMEOUT_MS = 60000 // declared courtesy: the question «is it already in production?» answers in seconds; one that hangs must not hold the delivery
 const OUTPUT_TAIL_CHARS = 6000 // declared courtesy: the end of the output is where a failure is; Claude reads this much in the second pass
 
 const TEXTS = {
@@ -58,7 +59,9 @@ const TEXTS = {
     afterFailed: (reason) => `No pude tomar la captura del después: ${reason}.`,
     held: (reason, captures) => `Cambio listo para revisar: ${reason}. Todavía no llega a producción.${captures ? ' Cómo queda, en «Propuesta».' : ''}`,
     heldReason: 'el cambio necesita esa revisión',
-    verification: (branch) => `El cambio no pasó la verificación y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nCualquier persona del equipo puede volver a lanzar la entrega.`,
+    verification: (branch, reason) => `No pasó la verificación${reason ? `: ${reason}` : ''}. El cambio todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nCualquier persona del equipo puede volver a lanzar la entrega.`,
+    again: (reason) => `No pasó la verificación${reason ? `: ${reason}` : ''}. Claude lo corrige y vuelve a entregar.`,
+    alreadyThere: 'El cambio ya estaba en producción: llegó por otro camino y no hizo falta entregarlo de nuevo.',
     timeout: (branch, minutes) => `La entrega no terminó dentro del tiempo máximo (${minutes} min) y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nCualquier persona del equipo puede volver a lanzar la entrega.`,
     system: (branch) => `No pude entregar este trabajo por un problema del sistema y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nCualquier persona del equipo puede volver a lanzar la entrega.`,
     environment: (branch, reason) => `La entrega falló dos veces por la máquina de entrega o por el plazo (${reason}), no por el cambio, y todavía no está en producción. Lo que se hizo queda guardado en la rama ${branch}.\n\nQuien reciba este mensaje puede volver a lanzar la entrega.`,
@@ -69,7 +72,9 @@ const TEXTS = {
     afterFailed: (reason) => `I could not take the «after» screenshot: ${reason}.`,
     held: (reason, captures) => `Change ready for review: ${reason}. It is not in production yet.${captures ? ' How it looks, in «Proposal».' : ''}`,
     heldReason: 'the change needs that review',
-    verification: (branch) => `The change did not pass verification and is not in production yet. The work is saved on the branch ${branch}.\n\nAnyone on the team can launch the delivery again.`,
+    verification: (branch, reason) => `It did not pass verification${reason ? `: ${reason}` : ''}. The change is not in production yet. The work is saved on the branch ${branch}.\n\nAnyone on the team can launch the delivery again.`,
+    again: (reason) => `It did not pass verification${reason ? `: ${reason}` : ''}. Claude is fixing it and will deliver again.`,
+    alreadyThere: 'The change was already in production: it arrived another way and did not need to be delivered again.',
     timeout: (branch, minutes) => `The delivery did not finish within the time limit (${minutes} min) and is not in production yet. The work is saved on the branch ${branch}.\n\nAnyone on the team can launch the delivery again.`,
     system: (branch) => `I could not deliver this work because of a system problem and it is not in production yet. The work is saved on the branch ${branch}.\n\nAnyone on the team can launch the delivery again.`,
     environment: (branch, reason) => `The delivery failed twice because of the delivery machine or the time limit (${reason}), not because of the change, and it is not in production yet. The work is saved on the branch ${branch}.\n\nWhoever receives this message can launch the delivery again.`,
@@ -77,6 +82,19 @@ const TEXTS = {
   }
 }
 const textsOf = (language) => TEXTS[language] ?? TEXTS['es-419']
+
+const CHECK_CHARS = 160 // declared courtesy: the name of a failed check is one short phrase in the notice
+const FAILED_CHECK = /^\s*FALLA prueba: (.+?)\s*$/gm
+/**
+ * The failed checks of a delivery, in plain words: the name of each test that `antes-de-entregar` printed as `FALLA prueba: <file> › <name>`, the first one and how many more.
+ * Empty when the output names none. It reads the output of a command, never text of a person (RULES 4).
+ */
+export function failedCheck (output, language) {
+  const names = [...new Set([...String(output ?? '').matchAll(FAILED_CHECK)].map((m) => { const i = m[1].indexOf(' › '); return (i === -1 ? m[1] : m[1].slice(i + 3)).trim() }))].filter(Boolean)
+  if (names.length === 0) return ''
+  const first = names[0].length > CHECK_CHARS ? `${names[0].slice(0, CHECK_CHARS - 1)}…` : names[0]
+  return names.length === 1 ? first : (language === 'en' ? `${first} (and ${names.length - 1} more)` : `${first} (y ${names.length - 1} más)`)
+}
 
 // A failure of the delivery machine and not of the change: a timeout, a process killed by a signal, ssh (255) or what the delivery script prints when its
 // environment is not ready (the checks of 10 s of `corrida-de-entrega.sh`, the tunnel, the machine that did not accept SSH, no capacity to create one)
@@ -142,6 +160,24 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
     }
   }
 
+  /**
+   * Whether the host already has the branch in production (UD-296): EXECUTE_DELIVER_CHECK_COMMAND runs with {message_id} {job_id} {branch} before the delivery. Exit 0 = the branch is an
+   * ancestor of what the host serves (it went out another way, as the night batch did with tp/117) and the last stdout line is the reference; any other exit, a timeout or an error
+   * = not known, and the delivery runs as always. The platform does not know where the host keeps its repository (the worker has no git): the host's command answers.
+   */
+  async function inProduction (job, ctx, { messageId, branch }) {
+    if (!x.deliverCheckCommand) return null
+    try {
+      const command = fillCommand(x.deliverCheckCommand, { job_id: String(job.id), message_id: String(messageId), branch })
+      const env = { ...process.env, TEAM_JOB_ID: String(job.id), TEAM_MESSAGE_ID: String(messageId), TEAM_BRANCH: branch }
+      const r = await spawnStreaming('/bin/sh', ['-c', command], { env, keepStdout: true, timeoutMs: CHECK_TIMEOUT_MS, graceMs: x.killGraceMs, signal: ctx.signal })
+      return r.code === 0 && !r.timedOut ? (referenceOf(r.stdout) ?? 'desarrollo') : null
+    } catch (error) {
+      logger?.warn({ err: error }, 'the check of the branch in production failed; the delivery runs')
+      return null
+    }
+  }
+
   async function runJob (job, ctx) {
     const payload = parseJson(job.payload_json, {})
     const { message_id: messageId, member_id: memberId } = payload
@@ -156,6 +192,44 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
     const author = get(db, 'SELECT language FROM members WHERE id = ?', message.author_id)
     const templateRow = message.template_id ? get(db, 'SELECT id, name, body_markdown FROM templates WHERE id = ?', message.template_id) : null
     const template = readTemplate(templateRow)
+
+    /** The closing of a delivery that reached production, by the command or because the branch was already there (UD-296): the one closing reply and the end of the progress. */
+    const closeDelivered = ({ ref, after, ms, alreadyThere = false }) => {
+      return () => {
+        // Inside the transaction that closes the job: the one closing reply, then the end of the progress.
+        // From production when the command took it; the capture of the session (taken from the branch) only when there was no «before» place.
+        const fromProduction = after?.stored ?? []
+        const stored = fromProduction.length ? fromProduction : (after?.hadBefore ? [] : (payload.captures ?? []).filter((c) => c.kind !== 'video'))
+        const closing = closingCaptures(db, { messageId, authorId: agent.id, stored, language: author?.language })
+        for (const reason of after?.failed ?? []) closing.lines.push(textsOf(author?.language).afterFailed(reason))
+        if (alreadyThere) closing.lines.push(textsOf(author?.language).alreadyThere)
+        closing.lines.push(...(payload.documents?.notes ?? [])) // UD-272: the documents the session attached travel with the delivery
+        // UD-271: a delivery that ended with exit 0 is «done and checked»; the rest of the conditions are the system's (auto-close.js).
+        const request = payload.close_request ?? null // a delivery an Editor launched by hand carries no request
+        const since = payload.close_since ?? firstReplyAnchor(db, { messageId, agentId: agent.id, from: (payload.execute_job_id ? get(db, 'SELECT created_at FROM jobs WHERE id = ?', payload.execute_job_id)?.created_at : null) ?? job.created_at })
+        const why = !request || alreadyThere ? null : closeReason(db, config, { output: payload.output, request, delivered: true, messageId, agentId: agent.id, after: stored.length, since })
+        if (why) closing.lines.push(closeLine(why, author?.language))
+        const { replyId } = addReply({ db, events, now }, {
+          messageId, authorId: agent.id, kind: 'answer', body: deliveredBody({ output: payload.output, template, ref, language: author?.language, lines: closing.lines }), files: [...closing.files, ...(payload.documents?.files ?? [])]
+        })
+        if (why) closeMessage({ db, events, now }, messageId, agent.id)
+        const finalAt = now()
+        const started = payload.execute_job_id ? get(db, 'SELECT started_at FROM execute_runs WHERE job_id = ? AND attempt = ?', payload.execute_job_id, payload.execute_attempt ?? 1)?.started_at : null
+        saveRun(payload, job.id, {
+          delivery_ms: ms, delivered: 1, delivery_held: 0, delivery_ref: ref, ...(typeof started === 'number' ? { final_reply_ms: Math.max(0, finalAt - started) } : {})
+        })
+        events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: step('answered'), data: { message_id: messageId } })
+        events.publishForJob(job.id, { kind: 'done', data: { status: 'done', message_id: String(messageId), reply_id: String(replyId), delivery_ref: ref } })
+      }
+    }
+
+    // UD-296: a branch the host already serves went out another way (the night batch of the host): it is delivered, and nothing is deployed again.
+    const landed = await inProduction(job, ctx, { messageId, branch })
+    if (landed) {
+      const ms = 0
+      try { runSql(db, 'UPDATE jobs SET marks_json = ? WHERE id = ?', JSON.stringify({ delivery_ms: ms, delivered: 1 }), job.id) } catch { /* the mark is a courtesy */ }
+      return closeDelivered({ ref: landed, after: null, ms, alreadyThere: true })
+    }
 
     const startedAt = now()
     const setPhase = (code, percent) => {
@@ -264,33 +338,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
       failure.retryable = environment && firstTry
       throw failure
     }
-    const ref = referenceOf(result.stdout)
-
-    return () => {
-      // Inside the transaction that closes the job: the one closing reply, then the end of the progress.
-      // From production when the command took it; the capture of the session (taken from the branch) only when there was no «before» place.
-      const fromProduction = result.after?.stored ?? []
-      const stored = fromProduction.length ? fromProduction : (result.after?.hadBefore ? [] : (payload.captures ?? []).filter((c) => c.kind !== 'video'))
-      const closing = closingCaptures(db, { messageId, authorId: agent.id, stored, language: author?.language })
-      for (const reason of result.after?.failed ?? []) closing.lines.push(textsOf(author?.language).afterFailed(reason))
-      closing.lines.push(...(payload.documents?.notes ?? [])) // UD-272: the documents the session attached travel with the delivery
-      // UD-271: a delivery that ended with exit 0 is «done and checked»; the rest of the conditions are the system's (auto-close.js).
-      const request = payload.close_request ?? null // a delivery an Editor launched by hand carries no request
-      const since = payload.close_since ?? firstReplyAnchor(db, { messageId, agentId: agent.id, from: (payload.execute_job_id ? get(db, 'SELECT created_at FROM jobs WHERE id = ?', payload.execute_job_id)?.created_at : null) ?? job.created_at })
-      const why = !request ? null : closeReason(db, config, { output: payload.output, request, delivered: true, messageId, agentId: agent.id, after: stored.length, since })
-      if (why) closing.lines.push(closeLine(why, author?.language))
-      const { replyId } = addReply({ db, events, now }, {
-        messageId, authorId: agent.id, kind: 'answer', body: deliveredBody({ output: payload.output, template, ref, language: author?.language, lines: closing.lines }), files: [...closing.files, ...(payload.documents?.files ?? [])]
-      })
-      if (why) closeMessage({ db, events, now }, messageId, agent.id)
-      const finalAt = now()
-      const started = payload.execute_job_id ? get(db, 'SELECT started_at FROM execute_runs WHERE job_id = ? AND attempt = ?', payload.execute_job_id, payload.execute_attempt ?? 1)?.started_at : null
-      saveRun(payload, job.id, {
-        delivery_ms: ms, delivered: 1, delivery_held: 0, delivery_ref: ref, ...(typeof started === 'number' ? { final_reply_ms: Math.max(0, finalAt - started) } : {})
-      })
-      events.publishForJob(job.id, { kind: 'progress', percent: 100, phrase: step('answered'), data: { message_id: messageId } })
-      events.publishForJob(job.id, { kind: 'done', data: { status: 'done', message_id: String(messageId), reply_id: String(replyId), delivery_ref: ref } })
-    }
+    return closeDelivered({ ref: referenceOf(result.stdout), after: result.after, ms })
   }
 
   /**
@@ -305,12 +353,11 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
       const reason = error.code === 'deliver_timeout' ? `${Math.max(1, Math.round(x.deliverTimeoutMs / 60000))} min` : tail(String(error.output ?? ''), 160).replace(/\s+/g, ' ').trim() || 'sin salida'
       return t.environment(branch, reason)
     }
-    return error?.code === 'deliver_failed' ? t.verification(branch) : t.system(branch)
+    return error?.code === 'deliver_failed' ? t.verification(branch, failedCheck(error.output, author?.language)) : t.system(branch)
   }
 
   /** UD-289: the notice of a failed delivery carries the `deliver` job that failed, so that «Reintentar» launches the delivery again (the same columns as UD-282). */
   const markFailure = (replyId, job, error) => runSql(db, 'UPDATE replies SET failed_job_id = ?, failed_code = ? WHERE id = ?', job.id, error?.code ?? 'system', replyId)
-  const markLastReply = (messageId, job, error) => runSql(db, 'UPDATE replies SET failed_job_id = ?, failed_code = ? WHERE id = (SELECT MAX(id) FROM replies WHERE message_id = ? AND deleted_at IS NULL)', job.id, error?.code ?? 'system', messageId)
 
   /**
    * A delivery that ends without reaching production (the machine twice, the time limit, a lease that expired twice, a verification that failed again, anything
@@ -321,7 +368,7 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
   function handOff (job, messageId, memberId, branch, error) {
     try {
       const body = failureText(messageId, branch, error)
-      if (alreadyHandedOver(db, messageId, body)) { markLastReply(messageId, job, error); return true } // a delivery launched again that failed the same way: the notice stays and now stands for this job
+      // Every failed attempt says so in the thread (UD-296): the same notice twice in a row was folded into the first one, and a retry that failed again left nothing to read.
       const { replyId, personId } = handOffToPerson({ db, events, now }, { messageId, agentId: memberId, body, source: 'deliver' })
       markFailure(replyId, job, error)
       return personId !== null
@@ -335,8 +382,6 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
   function tellTheAuthor (job, messageId, memberId, branch, error) {
     try {
       const body = failureText(messageId, branch, error)
-      // The same notice twice in a row (a retry that failed the same way) tells the author nothing new.
-      if (get(db, 'SELECT body FROM replies WHERE message_id = ? ORDER BY id DESC LIMIT 1', messageId)?.body === body) { markLastReply(messageId, job, error); return }
       const { replyId } = addReply({ db, events, now }, { messageId, authorId: memberId, body, kind: 'answer' })
       markFailure(replyId, job, error)
     } catch {
@@ -374,9 +419,11 @@ export function createDeliverHandler ({ db, config, queue, events, logger = null
             const ranWith = get(db, 'SELECT model FROM jobs WHERE id = ?', payload.execute_job_id)?.model ?? null
             const stronger = ranWith && ranWith === x.lightModel ? resolveExecuteModel(db, { messageId, fallback: x.model, light: x.lightModel, escalated: true }).model : null
             const escalate = stronger !== null && stronger !== ranWith
+            const lang = get(db, 'SELECT m.language FROM messages x JOIN members m ON m.id = x.author_id WHERE x.id = ?', messageId)?.language
             const id = enqueueExecute(db, { messageId, memberId, extra: { deliver_failure: { output: error.output ?? '' }, deliver_round: round + 1, close_since: payload.close_since ?? null, ...(escalate ? { escalated: true, escalated_from: payload.execute_job_id, escalated_from_model: ranWith, escalated_note: '' } : {}) } })
+            // UD-296: the delivery that goes back to Claude says so, with the check that fell: before, the thread showed nothing until the second delivery ended.
+            if (id !== null) addReply({ db, events, now }, { messageId, authorId: memberId, kind: 'answer', body: textsOf(lang).again(failedCheck(error.output, lang)) })
             if (id !== null && escalate) {
-              const lang = get(db, 'SELECT m.language FROM messages x JOIN members m ON m.id = x.author_id WHERE x.id = ?', messageId)?.language
               addReply({ db, events, now }, { messageId, authorId: memberId, kind: 'answer', body: lang === 'en' ? `${labelOfModel(ranWith)} did not close it: ${labelOfModel(stronger)} continued.` : `${labelOfModel(ranWith)} no cerró: siguió ${labelOfModel(stronger)}.` })
             }
             return id

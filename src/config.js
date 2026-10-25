@@ -384,6 +384,8 @@ export function loadConfig (env = process.env, overrides = {}) {
       deliverCommand: textValue(env, 'EXECUTE_DELIVER_COMMAND', ''), // shell command; {message_id}, {job_id}, {branch}, {workdir}; exit 0 = in production (last stdout line = reference), 75 = not now, other = failed
       // Declared courtesy: it bounds a verification or a deploy that hangs; a delivery that runs long fails with its output.
       deliverTimeoutMs: intVar(env, 'EXECUTE_DELIVER_TIMEOUT_MS', 900000, { min: 1 }), // declared courtesy, see above
+      // UD-296: shell command that asks the host whether the branch is already in production ({message_id}, {job_id}, {branch}); exit 0 = yes, the last stdout line is the reference. Empty = not asked.
+      deliverCheckCommand: textValue(env, 'EXECUTE_DELIVER_CHECK_COMMAND', ''),
       deliverRetries: intVar(env, 'EXECUTE_DELIVER_RETRIES', 1, { min: 0 }), // UD-263: a failed verification returns to Claude once; a second failure is reported
       // UD-263: the command is idempotent by contract, so a delivery whose worker died runs once more; exit 75 never spends an attempt.
       deliverMaxAttempts: intVar(env, 'EXECUTE_DELIVER_MAX_ATTEMPTS', 2, { min: 1 }),

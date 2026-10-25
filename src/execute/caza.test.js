@@ -276,7 +276,7 @@ describe('failure hunt: execute and deliver', () => {
     startWorker({ deliverCommand: 'echo boom; exit 3' })
     const messageId = await publishedMessage('Una entrega que nunca pasa.')
     await settle(messageId)
-    assert.match(assertSeen(messageId), /no pasó la verificación[\s\S]*lanzar la entrega\.$/)
+    assert.match(assertSeen(messageId), /^No pasó la verificación[\s\S]*lanzar la entrega\.$/)
   })
 
   it('the phase of a job that failed is cleared', async () => {

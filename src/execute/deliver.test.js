@@ -4,7 +4,7 @@
 // alive while the delivery runs.
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { copyFileSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { after, before, beforeEach, describe, it } from 'node:test'
@@ -17,7 +17,7 @@ import { setProjectDescription } from '../domain/settings.js'
 import { createVault, loadMasterKey } from '../domain/vault.js'
 import { addMember, fakeAnalyze, login, makeEnv, postInput, tempDir, until } from '../testing/helpers.js'
 import { createWorker } from '../worker.js'
-import { createDeliverHandler, deliveredBody, heldBody, isEnvironmentFailure, outputJson, referenceOf, withProductionNote } from './deliver.js'
+import { createDeliverHandler, deliveredBody, failedCheck, heldBody, isEnvironmentFailure, outputJson, referenceOf, withProductionNote } from './deliver.js'
 import { enqueueDeliver } from './enqueue.js'
 import { spawnStreaming } from './runners.js'
 import { createExecuteHandler } from './handler.js'
@@ -306,7 +306,7 @@ describe('deliver job', () => {
       assert.equal((await pendingOf(messageId)).state, 'failed', 'the header comes from the real state: the delivery failed')
       const view = async (cookie = author) => (await env.app.inject({ method: 'GET', url: `/api/messages/${messageId}`, headers: { cookie } })).json()
       const notice = (await view()).replies.at(-1)
-      assert.match(notice.body, /no pasó la verificación/)
+      assert.match(notice.body, /^No pasó la verificación/)
       assert.doesNotMatch(notice.body, /Editor/)
       assert.equal(notice.retryable, true, 'decided by the server, for any member')
       assert.equal((await view(editor)).replies.at(-1).retryable, true)
@@ -380,24 +380,26 @@ describe('deliver job', () => {
     assert.match(prompt, /<delivery_failure>[\s\S]*FAIL: la prueba de agenda[\s\S]*detalle en stderr[\s\S]*<\/delivery_failure>/)
     assert.match(prompt, /do not send another one/)
     const mine = replies(messageId)
-    assert.equal(mine.length, 2, 'one first reply and ONE closing reply, none for the failed delivery')
+    assert.equal(mine.length, 3, 'the first reply, the notice that the delivery went back to Claude (UD-296) and ONE closing reply')
     assert.match(mine[0], /^Recibido/)
-    assert.match(mine[1], /Ya está en producción\.$/)
+    assert.equal(mine[1], 'No pasó la verificación. Claude lo corrige y vuelve a entregar.', 'no test name in this output: the sentence stands without one')
+    assert.match(mine[2], /Ya está en producción\.$/)
     assert.equal(env.db.prepare('SELECT delivered FROM execute_runs WHERE job_id = ?').get(executes[0].id).delivered, 0)
     assert.equal(env.db.prepare('SELECT delivered FROM execute_runs WHERE job_id = ?').get(executes[1].id).delivered, 1)
   })
 
-  it('a second failure ends in the plain notice with outcome blocked and nothing in production', async () => {
-    startWorker({ deliverCommand: 'echo boom; exit 3' })
+  it('a second failure ends in the plain notice with the failed check, and the delivery that went back to Claude said so (UD-296)', async () => {
+    startWorker({ deliverCommand: "echo 'FALLA prueba: src/agenda.test.js › la agenda abre en blanco'; echo 'FALLA prueba: src/otra.test.js › otra cosa'; echo boom; exit 3" })
     const messageId = await publishedMessage('Una entrega que nunca pasa.')
     await settle(messageId)
     assert.deepEqual([jobsOf(messageId, 'execute').length, jobsOf(messageId, 'deliver').length], [2, 2])
     assert.deepEqual(jobsOf(messageId, 'deliver').map((j) => j.status), ['failed', 'failed'])
     const mine = replies(messageId)
-    assert.equal(mine.length, 2, 'the first reply and the notice')
-    assert.match(mine[1], /^El cambio no pasó la verificación y todavía no está en producción\. Lo que se hizo queda guardado en la rama tp\/\d+\.\n\nCualquier persona del equipo puede volver a lanzar la entrega\.$/)
-    assert.doesNotMatch(mine[1], /Ya está en producción/)
-    assert.doesNotMatch(mine[1], /boom/, 'the output is for Claude and the Editor, not for the author')
+    assert.equal(mine.length, 3, 'the first reply, the notice of the second pass and the final notice')
+    assert.equal(mine[1], 'No pasó la verificación: la agenda abre en blanco (y 1 más). Claude lo corrige y vuelve a entregar.')
+    assert.match(mine[2], /^No pasó la verificación: la agenda abre en blanco \(y 1 más\)\. El cambio todavía no está en producción\. Lo que se hizo queda guardado en la rama tp\/\d+\.\n\nCualquier persona del equipo puede volver a lanzar la entrega\.$/)
+    assert.doesNotMatch(mine[2], /Ya está en producción/)
+    assert.doesNotMatch(mine[2], /boom/, 'the output is for Claude and the Editor, not for the author')
     assert.equal(eventsOf(jobsOf(messageId, 'deliver')[1].id).at(-1).kind, 'done')
   })
 
@@ -406,18 +408,94 @@ describe('deliver job', () => {
     const messageId = await publishedMessage('Sin segunda pasada.')
     await settle(messageId)
     assert.deepEqual([jobsOf(messageId, 'execute').length, jobsOf(messageId, 'deliver').length], [1, 1])
-    assert.match(replies(messageId).at(-1), /no pasó la verificación[\s\S]*lanzar la entrega\.$/)
+    assert.match(replies(messageId).at(-1), /^No pasó la verificación[\s\S]*lanzar la entrega\.$/)
   })
 
-  it('a second delivery that fails the same way does not repeat the notice to the author', async () => {
-    startWorker({ deliverCommand: 'exit 4', deliverRetries: 0 })
+  it('every failed delivery leaves its own notice in the thread, also the same failure twice (UD-296, message 117)', async () => {
+    startWorker({ deliverCommand: "echo 'FALLA prueba: src/agenda.test.js › la agenda abre en blanco'; exit 4", deliverRetries: 0 })
     const messageId = await publishedMessage('Dos entregas fallidas iguales.')
     await settle(messageId)
     const before = replies(messageId).length
     await env.app.inject({ method: 'POST', url: `/api/messages/${messageId}/deliver`, headers: cookieHeaders(editor) })
     await settle(messageId)
     assert.equal(jobsOf(messageId, 'deliver').length, 2, 'the Editor launched a second delivery')
-    assert.equal(replies(messageId).length, before, 'the identical notice is not posted again')
+    const mine = replies(messageId)
+    assert.equal(mine.length, before + 1, 'the second failure says so as well')
+    assert.equal(mine.at(-1), mine.at(-2), 'the same words, each for its own job')
+    const rows = env.db.prepare('SELECT failed_job_id, failed_code FROM replies WHERE message_id = ? AND failed_job_id IS NOT NULL ORDER BY id').all(messageId)
+    assert.deepEqual(rows.map((r) => r.failed_job_id), jobsOf(messageId, 'deliver').map((j) => j.id), 'each notice stands for the job that failed')
+    const view = (await env.app.inject({ method: 'GET', url: `/api/messages/${messageId}`, headers: { cookie: editor } })).json()
+    const notices = view.replies.filter((r) => /^No pasó la verificación/.test(r.body))
+    assert.deepEqual(notices.map((r) => r.retryable), [false, true], 'the state with «Reintentar» is the last one')
+  })
+
+  describe('a branch already in production counts as delivered (UD-296, message 117)', () => {
+    const git = (dir, ...a) => execFileSync('git', ['-C', dir, '-c', 'user.email=t@x.org', '-c', 'user.name=t', ...a], { encoding: 'utf8' }).trim()
+    /** A fake origin with `desarrollo` and the branch; `merged` decides whether `desarrollo` already holds it (what the night batch of the host did). Returns the check command the host would declare. */
+    function host (name, merged) {
+      const origin = path(`${name}-origin`)
+      mkdirSync(origin)
+      execFileSync('git', ['init', '-q', '--bare', '-b', 'desarrollo', origin])
+      const repo = path(`${name}-repo`)
+      execFileSync('git', ['clone', '-q', origin, repo])
+      git(repo, 'checkout', '-q', '-b', 'desarrollo')
+      git(repo, 'commit', '-q', '--allow-empty', '-m', 'init')
+      git(repo, 'push', '-q', 'origin', 'desarrollo')
+      git(repo, 'checkout', '-q', '-b', 'rama')
+      writeFileSync(join(repo, 'cambio.txt'), 'x')
+      git(repo, 'add', '.')
+      git(repo, 'commit', '-q', '-m', 'el cambio')
+      git(repo, 'push', '-q', 'origin', 'rama:refs/heads/tp/all')
+      if (merged) git(repo, 'push', '-q', 'origin', 'rama:desarrollo')
+      // The host's own question: is the branch an ancestor of desarrollo on the remote? It asks the remote, not its local copy.
+      return `git -C ${repo} fetch -q origin +refs/heads/{branch}:refs/team/tip +refs/heads/desarrollo:refs/team/base && git -C ${repo} merge-base --is-ancestor refs/team/tip refs/team/base && git -C ${repo} rev-parse --short refs/team/tip`
+    }
+    const published = async (text) => {
+      startWorker({ deliverCommand: '' })
+      const messageId = await publishedMessage(text)
+      await settle(messageId)
+      await worker.stop()
+      return messageId
+    }
+    const hand = async (messageId) => {
+      const res = await env.app.inject({ method: 'POST', url: `/api/messages/${messageId}/deliver`, headers: cookieHeaders(editor) })
+      assert.equal(res.statusCode, 202, res.body)
+      return Number(res.json().job_id)
+    }
+    const withBranch = (check) => check.replaceAll('{branch}', 'tp/all')
+
+    it('the delivery command does not run: the delivery is marked as achieved, the final reply is posted and the message stays answered', async () => {
+      const messageId = await published('Una rama que ya salió por otro camino.')
+      const log = path('ran')
+      startWorker({ deliverCheckCommand: withBranch(host('merged', true)), deliverCommand: `echo ran >> ${log}; exit 3` })
+      const jobId = await hand(messageId)
+      assert.equal((await waitJob(jobId)).status, 'done')
+      assert.equal(existsSync(log), false, 'nothing was verified or deployed again')
+      const last = replies(messageId).at(-1)
+      assert.match(last, /Ya está en producción\./)
+      assert.match(last, /ya estaba en producción: llegó por otro camino/)
+      assert.equal(env.db.prepare('SELECT status FROM messages WHERE id = ?').get(messageId).status, 'answered')
+      assert.deepEqual(JSON.parse(env.queue.getJob(jobId).marks_json), { delivery_ms: 0, delivered: 1 })
+      assert.match(JSON.parse(eventsOf(jobId).at(-1).data_json).delivery_ref, /^[0-9a-f]{7,}$/)
+      assert.equal(env.db.prepare("SELECT COUNT(*) AS n FROM jobs WHERE message_id = ? AND kind = 'deliver'").get(messageId).n, 1)
+    })
+
+    it('a branch that is not in production is delivered as always', async () => {
+      const messageId = await published('Una rama que todavía no salió.')
+      const log = path('ran')
+      startWorker({ deliverCheckCommand: withBranch(host('pending', false)), deliverCommand: `echo ran >> ${log}; echo ref-real` })
+      assert.equal((await waitJob(await hand(messageId))).status, 'done')
+      assert.equal(readFileSync(log, 'utf8').trim(), 'ran', 'the command ran')
+      assert.equal(replies(messageId).at(-1), 'Ya está en producción.')
+    })
+
+    it('a check that does not answer yes leaves the delivery as it was', async () => {
+      const messageId = await published('Sin respuesta del anfitrión.')
+      const log = path('ran')
+      startWorker({ deliverCheckCommand: 'exit 9', deliverCommand: `echo ran >> ${log}; echo ref-real` })
+      assert.equal((await waitJob(await hand(messageId))).status, 'done')
+      assert.equal(readFileSync(log, 'utf8').trim(), 'ran')
+    })
   })
 
   it('without EXECUTE_DELIVER_COMMAND execute posts its final reply and there is no delivery', async () => {
@@ -604,7 +682,7 @@ describe('deliver job', () => {
       startWorker({ deliverCommand: 'exit 9', deliverRetries: 0 })
       const messageId = await publishedMessage('Entrega que se relanza.')
       await settle(messageId)
-      assert.match(replies(messageId).at(-1), /no pasó la verificación/)
+      assert.match(replies(messageId).at(-1), /^No pasó la verificación/)
       await worker.stop()
       startWorker({ deliverCommand: 'echo ref-again' })
       const res = await post(messageId)
@@ -616,6 +694,15 @@ describe('deliver job', () => {
 })
 
 describe('pieces of the delivery', () => {
+  it('failedCheck names the first failed test, once, and counts the rest (UD-296)', () => {
+    assert.equal(failedCheck(''), '')
+    assert.equal(failedCheck('boom'), '')
+    assert.equal(failedCheck('FALLA prueba: src/a.test.js › la agenda\nFALLA prueba: src/a.test.js › la agenda'), 'la agenda')
+    assert.equal(failedCheck('x\nFALLA prueba: panel-clinica/src/estilos/panel-de-fotos.css\nFALLA prueba: src/b.test.js › otra'), 'panel-clinica/src/estilos/panel-de-fotos.css (y 1 más)')
+    assert.equal(failedCheck('FALLA prueba: s.js › a\nFALLA prueba: s.js › b\nFALLA prueba: s.js › c', 'en'), 'a (and 2 more)')
+    assert.ok(failedCheck(`FALLA prueba: s.js › ${'x'.repeat(400)}`).length <= 160)
+  })
+
   it('the production note ends the last paragraph and the reference goes in the structured part', () => {
     assert.equal(withProductionNote('Uno.\n\nDos.', 'Ya está en producción.'), 'Uno.\n\nDos. Ya está en producción.')
     assert.equal(withProductionNote('Listo', 'Ya está en producción.'), 'Listo. Ya está en producción.')

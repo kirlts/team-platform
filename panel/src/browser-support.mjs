@@ -1,7 +1,7 @@
 // Shared by the browser tests (fits-one-screen, flows): starts the dev server on panel/dist and logs in.
 import { spawn, execFileSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -48,12 +48,13 @@ export function launchBrowser() {
  * Builds the panel and serves it with the dev server; returns what a test needs and how to stop it. The build goes to a folder of this
  * process alone: `vite build` empties its output folder, so two tests building into panel/dist at the same time (they run in parallel)
  * deleted each other's index.html while the other was serving it. With `build: false` (or FIT_SIN_BUILD) the server reads the panel/dist
- * somebody built once before the tests, and nothing here writes to it.
+ * somebody built once before the tests, and nothing here writes to it; if there is none, it builds one of its own.
  * `base` mounts the panel and its API under a path (H-3721): `origin` then ends with that path (no trailing slash), so
  * `${origin}/api/…` and `page.goto(origin)` keep working; `host` is the bare origin.
  */
 export async function startPanel(port, { build = !process.env.FIT_SIN_BUILD, stepMs = 120, base = '/' } = {}) {
-  const dist = build ? mkdtempSync(join(tmpdir(), 'panel-dist-')) : null
+  // Without a dist somebody built before (a test run alone, outside the arnés), it builds its own instead of serving nothing.
+  const dist = build || !existsSync(join(ROOT, 'dist', 'index.html')) ? mkdtempSync(join(tmpdir(), 'panel-dist-')) : null
   const dropDist = () => dist && rmSync(dist, { recursive: true, force: true })
   if (dist) {
     try {

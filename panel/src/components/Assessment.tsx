@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { Guard, MessageDetail, Template } from '@team-platform/client'
 import { useAreas, useMe, useSetAssessment } from '@team-platform/client/react'
 import { EditableText } from '@/components/EditableText'
@@ -17,7 +18,13 @@ const DIMENSIONS = [
  * its estimates with their reason. The expectation, the Guards and the holder are edited in place by any person of the team; the estimates are the analyzer's reading and are shown, not
  * set. Folded: it is what the analysis says, not what the sender asked.
  */
-export function Assessment({ message, template }: { message: MessageDetail; template?: Template }) {
+/** Whether the evaluation has something to say: the expectation, the estimates, the Guards of the area or a value the template no longer asks for. */
+export function hasAssessment(message: MessageDetail, guards: Guard[], template?: Template): boolean {
+  const a = message.assessment
+  return !!a && (!!a.expectation || !!a.estimates || guards.length > 0 || retiredValues(message.fields, parseTemplateFields(template?.body_markdown ?? '')).length > 0)
+}
+
+export function Assessment({ message, template, bare = false }: { message: MessageDetail; template?: Template; /** Without its own fold: «Detalles» holds it (UD-309). */ bare?: boolean }) {
   const t = useT()
   const me = useMe().data
   const set = useSetAssessment()
@@ -30,8 +37,9 @@ export function Assessment({ message, template }: { message: MessageDetail; temp
   if (!a || (!a.expectation && !a.estimates && guards.length === 0 && retired.length === 0)) return null
   const touched = new Set(a.guards)
   const toggle = (id: number) => set.mutate({ id: message.id, guards: guards.map((g) => g.id as number).filter((g) => (g === id ? !touched.has(g) : touched.has(g))) })
+  const Wrap = bare ? Bare : Fold
   return (
-    <Fold title={t('assessment.title')} className="shrink-0">
+    <Wrap title={t('assessment.title')} className="shrink-0">
       <div data-testid="assessment" className="flex flex-col gap-4 text-sm">
         <div className="flex flex-col gap-1">
           <span className="rotulo">{t('assessment.expectation')}</span>
@@ -84,6 +92,16 @@ export function Assessment({ message, template }: { message: MessageDetail; temp
           </dl>
         )}
       </div>
-    </Fold>
+    </Wrap>
+  )
+}
+
+/** The content of a fold drawn in the open, under its name, inside the one fold that holds it. */
+export function Bare({ title, children }: { title: string; className?: string; children: ReactNode }) {
+  return (
+    <section className="flex flex-col gap-2 border-t border-line pt-3 first:border-t-0 first:pt-0">
+      <h3 className="rotulo">{title}</h3>
+      {children}
+    </section>
   )
 }

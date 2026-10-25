@@ -315,6 +315,112 @@ describe('where the gallery is used', () => {
   })
 })
 
+describe('media that production holds (messages 117 and 123)', () => {
+  /** Every image the gallery draws, in the viewer and in the strip, has decoded: a lazy one that never starts has `naturalWidth` 0 forever. */
+  const decoded = (page) =>
+    page.waitForFunction(
+      () => {
+        const imgs = [...document.querySelectorAll('[data-gallery] img')]
+        return imgs.length > 0 && imgs.every((img) => img.complete && img.naturalWidth > 0)
+      },
+      null,
+      { polling: 'raf', timeout: 8000 },
+    )
+  const undecoded = (page) =>
+    page.evaluate(() => [...document.querySelectorAll('[data-gallery] img')].filter((img) => !(img.complete && img.naturalWidth > 0)).map((img) => `${img.closest('[data-gallery-thumb]') ? 'thumb' : 'slide'} ${img.getAttribute('src')}`))
+
+  for (const [width, height] of [[1440, 900], [390, 844]]) {
+    test(`every photo of a gallery of pasted PNGs decodes at ${width} px, the one next to the current one included`, async () => {
+      const { page, context } = await session('ana', { width, height }, { mobile: width < 600 })
+      try {
+        await openMessage(page, 'Tres capturas pegadas')
+        await decoded(page).catch(async () => assert.fail(`photos that did not decode: ${JSON.stringify(await undecoded(page))}`))
+        await openMessage(page, 'Cinco capturas y una grabación de voz')
+        await decoded(page).catch(async () => assert.fail(`photos that did not decode: ${JSON.stringify(await undecoded(page))}`))
+        // Moving along the gallery keeps every photo drawn decoded.
+        for (const n of [2, 3, 4, 5]) {
+          await thumbs(page).nth(n - 1).click()
+          await until(page, n, 6)
+          await decoded(page).catch(async () => assert.fail(`at ${n}: ${JSON.stringify(await undecoded(page))}`))
+        }
+      } finally {
+        await context.close()
+      }
+    })
+
+    test(`the microphone recording (audio/webm) is a player in the viewer, plays, and has a thumbnail of its kind at ${width} px`, async () => {
+      const { page, context } = await session('ana', { width, height }, { mobile: width < 600 })
+      try {
+        await openMessage(page, 'Cinco capturas y una grabación de voz')
+        // The recording is the sixth of six: its element exists from the start, without having to reach it first.
+        await page.locator('[data-gallery-viewer] audio').waitFor({ state: 'attached' })
+        assert.equal(await page.locator('[data-gallery-viewer] audio').count(), 1)
+        assert.equal(await thumbs(page).nth(5).locator('[data-media-icon="audio"]').count(), 1, 'the thumbnail is the microphone, not a blank square')
+        await thumbs(page).nth(5).click()
+        await until(page, 6, 6)
+        const play = gallery(page).getByRole('button', { name: /^Reproducir/ })
+        await play.click()
+        await page.waitForFunction(() => {
+          const a = document.querySelector('[data-gallery-viewer] audio')
+          return a instanceof HTMLAudioElement && !a.paused && a.currentTime > 0.2 && !a.error
+        }, null, { polling: 'raf', timeout: 8000 })
+        await shot(page, `detalle-grabacion-${width}-claro`)
+      } finally {
+        await context.close()
+      }
+    })
+  }
+
+  for (const [width, height] of [[1440, 900], [390, 844]]) {
+    test(`a gallery of six pasted PNGs and the capture of a reply far down the thread decode without scrolling at ${width} px`, async () => {
+      const { page, context } = await session('ana', { width, height }, { mobile: width < 600 })
+      try {
+        await openMessage(page, 'Seis capturas pegadas')
+        await decoded(page).catch(async () => assert.fail(`photos that did not decode: ${JSON.stringify(await undecoded(page))}`))
+        assert.equal(await page.locator('[data-gallery] img').count(), 8, 'the current slide, the next one and the six thumbnails')
+        const body = await (await page.request.get(`${origin}/api/messages?limit=200`)).json()
+        const thread = (body.items ?? body).find((m) => m.title === 'Hilo largo con una captura al final')
+        await page.goto(`${origin}/messages/${thread.id}`)
+        await page.locator('main img[alt]').first().waitFor({ state: 'attached' })
+        await page.waitForFunction(
+          () => {
+            const imgs = [...document.querySelectorAll('main img')].filter((img) => !img.closest('[data-gallery]'))
+            return imgs.length > 0 && imgs.every((img) => img.complete && img.naturalWidth > 0)
+          },
+          null,
+          { polling: 'raf', timeout: 8000 },
+        ).catch(async () => assert.fail(`a photo of the thread that did not decode: ${await page.evaluate(() => [...document.querySelectorAll('main img')].filter((img) => !img.closest('[data-gallery]') && img.naturalWidth === 0).map((img) => img.getAttribute('src')).join(', '))}`))
+      } finally {
+        await context.close()
+      }
+    })
+  }
+
+  test('a video plays and a PDF opens from the viewer', async () => {
+    const { page, context } = await session()
+    try {
+      await openMessage(page, 'Fotos mezcladas con un video')
+      await thumbs(page).nth(1).click()
+      await until(page, 2, 4)
+      const state = await page.evaluate(
+        () =>
+          new Promise((resolve) => {
+            const v = document.querySelector('[data-gallery-viewer] video')
+            v.muted = true
+            v.play().then(() => setTimeout(() => resolve({ time: v.currentTime, error: v.error?.code ?? null, width: v.videoWidth }), 800), (e) => resolve({ rejected: String(e) }))
+          }),
+      )
+      assert.ok(state.time > 0.2 && state.error === null && state.width > 0, JSON.stringify(state))
+      await openMessage(page, 'Informe en PDF y una foto dañada')
+      const open = gallery(page).getByRole('link', { name: /^Abrir/ }).first()
+      await open.waitFor()
+      assert.match((await open.getAttribute('href')) ?? '', /\/api\/attachments\//)
+    } finally {
+      await context.close()
+    }
+  })
+})
+
 describe('captures', () => {
   test('dark theme and phone width of the gallery in a window', { skip: !CAPTURES }, async () => {
     for (const [name, viewport, mobile, scheme] of [

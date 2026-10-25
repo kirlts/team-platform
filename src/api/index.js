@@ -22,6 +22,7 @@ import { installSecurityHeaders } from './security.js'
 import { installCompression } from './compression.js'
 import { mountedIndex } from './mount.js'
 import { cookieSpec } from '../identity/cookies.js'
+import { hostEntryUrl, identitySources } from '../config.js'
 import { registerIdentity } from '../identity/index.js'
 import { isRoleGoverned } from '../identity/delegated.js'
 import { loadBlocklist } from '../identity/password.js'
@@ -208,13 +209,23 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
     })
   }
   const apiPrefixPath = config.apiPrefix
-  app.setNotFoundHandler((request, reply) => {
+  const hostEntry = identitySources(config.identity).includes('sso-redirect') ? null : hostEntryUrl(config.identity) // UD-308
+  app.setNotFoundHandler(async (request, reply) => {
     const routePath = request.raw.url.split('?')[0]
     const isApi = routePath === apiPrefixPath || routePath.startsWith(`${apiPrefixPath}/`)
     const isAsset = routePath.startsWith(`${basePath}assets/`)
     const inPanel = routePath.startsWith(basePath) || `${routePath}/` === basePath
     // SPA routes: index.html only for GET under BASE_PATH, outside the API and the assets (a missing asset is a real 404).
     if (hasPanel && inPanel && !isApi && !isAsset && (request.method === 'GET' || request.method === 'HEAD')) {
+      // UD-308: with a host governing identity, a page without a valid session goes to the host's entry, never to a form of our own.
+      if (hostEntry) {
+        let found = null
+        try { found = await identity.provider.identify(request) } catch { /* an invalid credential counts as none */ }
+        if (!found) {
+          const sep = hostEntry.includes('?') ? '&' : '?'
+          return reply.header('cache-control', 'no-store').redirect(`${hostEntry}${sep}next=${encodeURIComponent(request.raw.url)}`, 302)
+        }
+      }
       return reply.header('cache-control', 'no-cache').type('text/html; charset=utf-8').send(mountedIndex(readFileSync(indexFile, 'utf8'), config))
     }
     return reply.code(404).send({ code: 'not_found', message: isApi ? 'La ruta de la API no existe.' : 'No se encontró el recurso.' })

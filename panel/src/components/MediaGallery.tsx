@@ -205,7 +205,9 @@ export function MediaGallery({
               data-index={i}
               className="flex w-full shrink-0 snap-center snap-always items-center justify-center"
             >
-              {Math.abs(i - current) <= 1 && <Slide item={it} active={i === current} zoomed={zoomed && i === current} onZoom={setZoomed} cap={MEDIA_MAX[variant]} />}
+              {/* An audio is drawn in every slide: its player costs a row and a request for its header, and a recording that is not next to the current one would
+                  otherwise have no element at all until it was reached. */}
+              {(Math.abs(i - current) <= 1 || it.kind === 'audio') && <Slide item={it} active={i === current} near={Math.abs(i - current) <= 1} zoomed={zoomed && i === current} onZoom={setZoomed} cap={MEDIA_MAX[variant]} />}
             </div>
           ))}
         </div>
@@ -302,7 +304,7 @@ function Arrow({ dir, disabled, onClick }: { dir: 1 | -1; disabled: boolean; onC
 }
 
 /** The content of one slide, by kind of medium. */
-function Slide({ item, active, zoomed, onZoom, cap }: { item: GalleryItem; active: boolean; zoomed: boolean; onZoom: (z: boolean) => void; cap: string }) {
+function Slide({ item, active, near, zoomed, onZoom, cap }: { item: GalleryItem; active: boolean; near: boolean; zoomed: boolean; onZoom: (z: boolean) => void; cap: string }) {
   const t = useT()
   const name = item.name ?? t(MEDIA_KEY[item.kind])
   // A failed file is retried by drawing it again with a new key.
@@ -384,7 +386,8 @@ function Slide({ item, active, zoomed, onZoom, cap }: { item: GalleryItem; activ
           key={attempt}
           src={item.src}
           alt={name}
-          loading="lazy"
+          // Only the current slide and its neighbors are drawn: a lazy image inside a horizontal scroller waits for the swipe to reveal it and stays at 0 px until then.
+          loading="eager"
           decoding="async"
           draggable={false}
           onLoad={() => {
@@ -432,9 +435,10 @@ function Slide({ item, active, zoomed, onZoom, cap }: { item: GalleryItem; activ
   }
 
   if (item.kind === 'audio' && item.src) {
+    // The side margins clear the arrows (40 px at 8 px from the edge): over the player they intercept the touch on «Reproducir».
     return (
-      <div className="flex w-full min-w-0 flex-col gap-2 p-3">
-        <AudioPlayer key={attempt} src={item.src} name={name} onError={wait} onReady={() => setState('ready')} />
+      <div className="flex w-full min-w-0 flex-col gap-2 px-14 py-4">
+        <AudioPlayer key={attempt} src={item.src} name={name} preload={near ? 'metadata' : 'none'} onError={wait} onReady={() => setState('ready')} />
         {active && item.transcriptSrc && <Transcript src={item.transcriptSrc} />}
       </div>
     )

@@ -47,9 +47,8 @@ describe('Delivery of a message (UD-263)', () => {
     const { live_id: liveId } = await panel.control.execution({ deliver: true })
     const { page, context } = await session(`/messages/${liveId}`)
     try {
-      const block = page.locator('[data-timing]')
-      await block.waitFor()
-      await block.getByRole('button', { name: 'Tiempos' }).click()
+      const block = page
+      await block.getByRole('button', { name: 'Detalles' }).click()
       const running = block.locator('[data-timing-running]')
       await running.waitFor()
       assert.match(await running.innerText(), /^Entrega: despliegue · 20 s$/)

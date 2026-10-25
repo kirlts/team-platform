@@ -75,7 +75,9 @@ describe('MediaGallery', () => {
     expect(document.querySelectorAll('[data-gallery-viewer] img')).toHaveLength(1) // the thumbnails are outside the viewer
     expect(document.querySelectorAll('[data-gallery-viewer] video')).toHaveLength(1) // the neighbour, without controls
     expect(document.querySelector('[data-gallery-viewer] video')?.hasAttribute('controls')).toBe(false)
-    expect(document.querySelectorAll('[data-gallery-viewer] audio')).toHaveLength(0)
+    // An audio is always drawn, but it only reads its header when it is next to the current one.
+    expect(document.querySelectorAll('[data-gallery-viewer] audio')).toHaveLength(1)
+    expect(document.querySelector('[data-gallery-viewer] audio')?.getAttribute('preload')).toBe('none')
     fireEvent.click(screen.getByRole('button', { name: /Ver 2 de 5/ }))
     expect(document.querySelector('[data-gallery-viewer] video')?.hasAttribute('controls')).toBe(true)
     fireEvent.click(screen.getByRole('button', { name: /Ver 3 de 5/ }))

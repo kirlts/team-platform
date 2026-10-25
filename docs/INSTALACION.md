@@ -368,6 +368,7 @@ JWT_AUDIENCE=team-platform
 JWT_COOKIE_NAME=host_jwt
 COOKIE_DOMAIN=.ejemplo.cl
 LOGOUT_URL=https://ejemplo.cl/salir
+HOST_LOGIN_URL=https://ejemplo.cl/entrar
 DELEGATED_SECRETS=
 EOF2
 docker compose up -d --wait

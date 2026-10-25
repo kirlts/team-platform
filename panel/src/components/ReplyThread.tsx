@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowRight, ChevronDown, Trash2 } from '@/components/icons'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useFormat, useT } from '@/i18n'
 import { cn } from '@/lib/utils'
@@ -14,7 +13,6 @@ import { Markdown } from '@/lib/markdown'
 import { ReplyMedia } from './ReplyMedia'
 import { ReplyTools } from './ReplyTools'
 import { RetryExecute } from './RetryExecute'
-import { PublishIdea } from './PublishIdea'
 import { useLookups } from './lookups'
 import { canReplyTo } from '@/lib/handoff'
 import { ReplyForm } from './ReplyForm'
@@ -117,12 +115,6 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
 
   return (
     <section aria-label={t('replies.title')} className="flex min-h-0 flex-1 flex-col gap-3 md:flex-initial">
-      <div className="flex items-center gap-2">
-        <h2>{t('replies.title')}</h2>
-        <Badge tone="neutral" className="tabular-nums">
-          {shown.length}
-        </Badge>
-      </div>
       {rows.length === 0 ? (
         <p className="px-3 py-6 text-center text-sm text-muted">{t('replies.none')}</p>
       ) : (
@@ -225,10 +217,6 @@ export function ReplyThread({ message, focusForm }: { message: MessageDetail; fo
                     </div>
                     {canEdit(r) && !r.body ? null /* a reply of only an audio or photo has no text to fill in (UD-279) */ : canEdit(r) ? (
                       <EditableText value={r.body} label={t('replies.body')} multiline validate={bodyRule(r)} onSave={(v) => changeText(r, v)} displayClassName={last ? 'text-emph' : 'text-sm'} render={(v) => <Markdown source={v} breaks mentions={mentionNames(r)} />} />
-                    ) : r.publishable && message.status !== 'closed' ? (
-                      <PublishIdea messageId={message.id}>
-                        <Markdown source={r.body} breaks mentions={mentionNames(r)} className={cn('break-words', last ? 'text-emph' : 'text-sm')} />
-                      </PublishIdea>
                     ) : (r.retryable && message.status !== 'closed') || r.retrying ? (
                       <RetryExecute messageId={message.id} reply={r}>
                         <Markdown source={r.body} breaks mentions={mentionNames(r)} className={cn('break-words', last ? 'text-emph' : 'text-sm')} />

@@ -83,9 +83,8 @@ function replyAttachmentsOf (db, replyIds) {
   return table
 }
 
-const toReply = (r, atts = [], mentions = [], retryable = false, retrying = false, publishable = false) => ({
+const toReply = (r, atts = [], mentions = [], retryable = false, retrying = false) => ({
   id: r.id, message_id: r.message_id, author_id: r.author_id, body: r.body, kind: r.kind, forwarded_to: r.forwarded_to ?? null, retryable, // UD-282: the notice of a failed session can be launched again
-  publishable, // UD-307: «Lista para ver»: the branch it shows waits for a person's «Publicar»
   replaced_by_job_id: r.replaced_by_job_id ?? null, retrying, // UD-290: a retry replaced the notice; `retrying` while that job is queued or running
   mentions, // UD-278: the members picked from the list when the reply was written
   attachments: atts, attachment_kinds: [...new Set(atts.map((a) => a.kind))], // one icon per media kind (UD-016)
@@ -236,12 +235,9 @@ export function getMessage (db, id, { includeDeleted = false } = {}) {
   const mentions = mentionsOf(db, replyRows.map((r) => r.id))
   const retryable = retryableIds(db, replyRows) // UD-282
   const retrying = retryingIds(db, replyRows) // UD-290
-  // UD-307: the «Lista para ver» reply of the branch that still waits (the latest one) offers «Publicar» while nobody is delivering it.
-  const pending = pendingDelivery(db, id)
-  const shownReply = pending?.state === 'held' ? replyRows.filter((r) => r.publish_json && parseJson(r.publish_json, {}).job_id === Number(pending.job_id)).at(-1)?.id ?? null : null
   const edits = all(db, 'SELECT * FROM message_edits WHERE message_id = ? ORDER BY id', id)
     .map((e) => ({ id: e.id, member_id: e.member_id, at: iso(e.at), version: e.version, fields: parseJson(e.fields_json, []) }))
-  return { ...msgRow, trace_id: dbRow.trace_id ?? null, observed: Array.isArray(observed) ? observed : [], replies: replyRows.map((r) => toReply(r, atts.get(r.id), mentions.get(r.id), retryable.has(r.id), retrying.has(r.id), r.id === shownReply)), progress_notes: listProgressNotes(db, id), edits, pending_delivery: pending }
+  return { ...msgRow, trace_id: dbRow.trace_id ?? null, observed: Array.isArray(observed) ? observed : [], replies: replyRows.map((r) => toReply(r, atts.get(r.id), mentions.get(r.id), retryable.has(r.id), retrying.has(r.id))), progress_notes: listProgressNotes(db, id), edits, pending_delivery: pendingDelivery(db, id) }
 }
 
 /**
@@ -427,6 +423,15 @@ export function addReply ({ db, events, now = Date.now }, { messageId, authorId,
   if (!WRITABLE_REPLY_KINDS.includes(kind)) throw badRequest('Tipo de respuesta desconocido.', 'reply_kind_invalid')
   const replyId = events.transaction(() => {
     const mentions = checkMentions(db, { authorId, ids: mentionIds }) // UD-278: picked from the list, validated here; nothing reads the text
+    // UD-307: a work that was shown and waits (the Guard of the idea, or any change held for review) is answered by a person in the thread, and that reply calls the agent that showed it as a
+    // mention does, with the whole thread. The only thing the system checks is structural: the author is a person and a held branch exists. What the person meant (go on exploring, change
+    // something, deliver) is read by the model; nothing here reads the words.
+    if (get(db, "SELECT 1 AS ok FROM members WHERE id = ? AND kind = 'person'", authorId)) {
+      const held = pendingDelivery(db, messageId)
+      if (held?.state === 'held' && held.agent_id && !mentions.some((m) => String(m.id) === held.agent_id) && get(db, "SELECT 1 AS ok FROM members WHERE id = ? AND kind = 'agent' AND active = 1", held.agent_id)) {
+        mentions.push(...checkMentions(db, { authorId, ids: [held.agent_id] }))
+      }
+    }
     const target = assertCanReply(db, messageId, authorId, { mentions: mentions.length > 0 })
     const r = run(db, 'INSERT INTO replies (message_id, author_id, body, kind, created_at) VALUES (?, ?, ?, ?, ?)', messageId, authorId, body, kind, now())
     const id = Number(r.lastInsertRowid)

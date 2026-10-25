@@ -23,6 +23,13 @@ process.stdin.on('data', (d) => { stdin += d })
 process.stdin.on('end', async () => {
   // UD-295: the IMK judge is one more call of `claude -p` (a single JSON result, no stream). It is answered here and is not one of the session's calls: calls.jsonl keeps only those.
   // FAKE_JUDGE=off makes it fail the way a missing binary does; otherwise it scores the KPI 2.1 and 1.2 and leaves the rest as not observed.
+  // UD-307: the Guard of the idea for a message analyzed before it existed. FAKE_IDEA_GUARD=off fails the call; `true` says the Guard applies; otherwise it does not.
+  if (stdin.startsWith('Eres el analizador de pedidos')) {
+    if (process.env.FAKE_IDEA_GUARD === 'off') process.exit(1)
+    const applies = process.env.FAKE_IDEA_GUARD === 'true'
+    process.stdout.write(`${JSON.stringify({ type: 'result', subtype: 'success', is_error: false, total_cost_usd: 0, structured_output: { idea: applies ? 0.9 : 0.1, idea_guard: applies, idea_reason: 'razón del juicio tardío' } })}\n`)
+    process.exit(0)
+  }
   if (stdin.startsWith('Eres un juez del IMK')) {
     if (process.env.FAKE_JUDGE === 'off') process.exit(1)
     const ids = ['1.1', '1.2', '1.3', '2.1', '2.2', '2.3', '3.1', '3.2', '3.3', '4.1', '4.2', '4.3']

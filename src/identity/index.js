@@ -15,7 +15,7 @@ import { csrfGuard } from './csrf.js'
 import { createLocalProvider } from './local.js'
 import { createDelegatedSource } from './delegated.js'
 import { clearSessionCookie, readSessionCookie, setSessionCookie } from './cookies.js'
-import { identitySources } from '../config.js'
+import { hostEntryUrl, identitySources } from '../config.js'
 import { isActivePerson } from '../domain/members.js'
 
 export const ROLES = ['member', 'editor']
@@ -31,6 +31,7 @@ export async function registerIdentity (app, { db, config, now = Date.now }) {
   const local = sourceNames.includes('local') ? createLocalProvider({ db, config, sessions, now }) : null
   const delegatedSources = sourceNames.filter((x) => x !== 'local').map((x) => createDelegatedSource(x, { db, config, sessions, now }))
   const hasSso = sourceNames.includes('sso-redirect')
+  const hostEntry = hasSso ? null : hostEntryUrl(config.identity) // UD-308
 
   /** The identity of the request and where it came from (`source`): a host source by name, or `session`. */
   async function identify (request) {
@@ -127,7 +128,7 @@ export async function registerIdentity (app, { db, config, now = Date.now }) {
     const hookFn = async function requireRoleHook (request, reply) {
       const identityInfo = request.member ? { member_id: request.member.id, role: request.member.role, source: request.member.source } : await provider.identify(request)
       if (!identityInfo) {
-        throw unauthenticated('Se requiere iniciar sesión.', hasSso ? { login_url: `${config.apiPrefix}/auth/sso/start` } : {})
+        throw unauthenticated('Se requiere iniciar sesión.', hasSso ? { login_url: `${config.apiPrefix}/auth/sso/start` } : hostEntry ? { login_url: hostEntry } : {})
       }
       if (!request.member && identityInfo.source !== 'session') issueOwnSession(request, reply, identityInfo)
       request.member = { id: identityInfo.member_id, role: identityInfo.role, email: identityInfo.email, name: identityInfo.name, token: identityInfo.token, source: identityInfo.source }

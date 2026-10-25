@@ -1,4 +1,4 @@
-// UD-301: when the analyzer judges that the Guard of the idea applies («nothing changes permanently without the approval of a person when what is asked is to explore an idea»), the
+// UD-306: when the analyzer judges that the Guard of the idea applies («nothing changes permanently without the approval of a person when what is asked is to explore an idea»), the
 // session builds and shows, the thread gets «Lista para ver» with a «Publicar», and nothing goes to production until a person publishes. The system obeys the boolean: no threshold,
 // no knob, no reading of the words. A decided request is delivered as always.
 import assert from 'node:assert/strict'
@@ -19,7 +19,7 @@ import { buildExecuteParts } from './prompt.js'
 const FAKE = fileURLToPath(new URL('./testing/fake-claude-stream.mjs', import.meta.url))
 const PORT = 8645 // the range given to this work (8640 to 8649)
 
-describe('an idea is shown, not delivered (UD-301)', () => {
+describe('an idea is shown, not delivered (UD-306)', () => {
   let env, state, worker, author, editor, vault, estimates
   const panel = (cookie) => ({ cookie, 'x-team-request': 'panel' })
   const start = () => {

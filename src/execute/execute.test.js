@@ -512,18 +512,29 @@ describe('execute job', () => {
       assert.ok(phrases.includes('En espera: máquina disponible'), `${phrases}`)
     })
 
-    it('EXECUTE_MAX_MACHINES holds the second job until the first one frees its machine', async () => {
+    it('no count of machines holds the second job: both sessions run at once (UD-304)', async () => {
       process.env.FAKE_EXECUTE_REPLY = '0'
-      startWorker(machine({ maxMachines: 1, capacityWaitMs: 200, machineRun: `echo run {machine} >> ${log}; sleep 4; bash {workdir}/run.sh` }))
+      startWorker(machine({ machineRun: `echo run {machine} >> ${log}; sleep 2; bash {workdir}/run.sh` }))
       const first = await publishedMessage('Primer arreglo para la máquina.')
       const second = await publishedMessage('Segundo arreglo para la máquina.')
       const ids = [first, second].map((m) => env.db.prepare("SELECT id FROM jobs WHERE kind = 'execute' AND message_id = ?").get(m).id)
       const done = await Promise.all(ids.map((i) => waitJob(i)))
       assert.deepEqual(done.map((j) => j.status), ['done', 'done'])
       const order = lines().filter((l) => /^(create \d+|destroy vm-\d+)$/.test(l)).map((l) => l.split(' ')[0])
-      assert.deepEqual(order, ['create', 'destroy', 'create', 'destroy'], 'one machine at a time')
-      const phrases = eventsOf(ids[1]).filter((e) => e.kind === 'progress').map((e) => e.phrase)
-      assert.ok(phrases.includes('En espera: máquina disponible'), `${phrases}`)
+      assert.deepEqual(order.slice(0, 2), ['create', 'create'], 'the second machine is created while the first session still runs')
+      for (const id of ids) assert.ok(!eventsOf(id).some((e) => e.kind === 'progress' && e.phrase === 'En espera: máquina disponible'), 'neither waited')
+    })
+
+    it('a host that refuses with 75 and says its quota leaves the thread a row with the quota in words (UD-303)', async () => {
+      const flag = join(env.dir, `quota-${Date.now()}`)
+      startWorker(machine({ machineCreate: `if [ -e ${flag} ]; then echo create {job_id} >> ${log}; echo vm-{job_id}; else touch ${flag}; echo '##team quota machines=2' >&2; exit 75; fi`, capacityWaitMs: 300 }))
+      const id = await enqueue()
+      await until(() => env.db.prepare("SELECT body FROM progress_notes WHERE job_id = ? AND json_extract(data_json, '$.event') IN ('waiting', 'waited')").get(id), { timeoutMs: 10000 })
+      assert.equal((await waitJob(id)).status, 'done')
+      const rows = env.db.prepare("SELECT body, data_json FROM progress_notes WHERE job_id = ? ORDER BY id").all(id)
+      assert.deepEqual(JSON.parse(rows[0].data_json).reason, { code: 'capacity', quota_machines: 2 })
+      assert.equal(JSON.parse(rows[0].data_json).event, 'waited', 'it closed when the session started')
+      assert.equal(rows[1].body, 'Claude empezó a trabajar')
     })
 
     it('a restart in the middle of the session leaves the machine alone and the next worker runs the same machine command again, destroying only at the end', async () => {

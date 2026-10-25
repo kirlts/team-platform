@@ -36,10 +36,12 @@ const ANALYSIS_FINAL_CODES = new Set(['input', 'nothing_readable', 'template', '
 
 /** Internal signal: the hourly audio budget is not enough; the worker postpones the job without spending the attempt. */
 export class Deferred extends Error {
-  constructor (delayMs, phrase) {
+  // `reason` is what holds the job in plain data ({ code, ... }): the worker logs it and the thread says it in a sentence (UD-303).
+  constructor (delayMs, phrase, reason = null) {
     super(phraseOf(phrase))
     this.deferMs = delayMs
     this.phrase = phrase
+    this.reason = reason
   }
 }
 

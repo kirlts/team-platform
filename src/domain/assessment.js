@@ -10,7 +10,7 @@
 //   value_holder         `person` or `model`: who has the value that is missing to resolve it
 //   certainty            0 to 1, how sure the analyzer is of its own estimates
 //   estimate_reason      why, in a sentence
-//   idea_guard           boolean (UD-301): the Guard «nothing changes permanently without the approval of a person when what is asked is to explore an idea» applies. The analyzer judges it
+//   idea_guard           boolean (UD-306): the Guard «nothing changes permanently without the approval of a person when what is asked is to explore an idea» applies. The analyzer judges it
 //                        reading the spirit of the message and of who wrote it; the system obeys the boolean, no threshold, no knob. `idea_reason` says why, in a sentence
 //   idea                 0 to 1: how much of it is an idea. Context for the session and for the IMK judgement; it decides nothing
 // The system reads them as numbers and ids. It never reads the words of `expectation` to decide anything: that text goes to the session as it is.
@@ -24,7 +24,7 @@ const unit = (v) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <
 /** The estimates of a proposal message (flat, as the analyzer returns them), or null when any is missing or out of range: a message without them runs as before. */
 export function readEstimates (m) {
   if (!unit(m?.understand_vs_create) || !unit(m?.irreversibility) || !unit(m?.certainty) || !VALUE_HOLDERS.includes(m?.value_holder)) return null
-  // UD-301: `idea` is optional so that the estimates of a message from before it existed still read; without it the message is not an idea (null).
+  // UD-306: `idea` is optional so that the estimates of a message from before it existed still read; without it the message is not an idea (null).
   return { understand_vs_create: m.understand_vs_create, irreversibility: m.irreversibility, value_holder: m.value_holder, certainty: m.certainty, reason: typeof m.estimate_reason === 'string' ? m.estimate_reason.trim() : '', idea: unit(m.idea) ? m.idea : null, idea_guard: m.idea_guard === true, idea_reason: typeof m.idea_reason === 'string' ? m.idea_reason.trim() : '' }
 }
 

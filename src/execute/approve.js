@@ -17,7 +17,7 @@ export function approveDelivery ({ db, config, events }, { messageId, requestedB
   const message = get(db, 'SELECT id, status FROM messages WHERE id = ? AND deleted_at IS NULL', messageId)
   if (!message) throw notFound('El mensaje no existe.')
   if (message.status === 'closed') throw conflict('El mensaje está cerrado. Hay que reabrirlo para entregarlo.', 'message_closed')
-  // UD-301: the approval that publishes is a person's.
+  // UD-306: the approval that publishes is a person's.
   if (!get(db, "SELECT id FROM members WHERE id = ? AND kind = 'person' AND active = 1", requestedBy)) throw conflict('Publicar corresponde a una persona del equipo.', 'not_a_person')
   if (get(db, "SELECT id FROM jobs WHERE kind = 'execute' AND message_id = ? AND status IN ('queued', 'running') AND id IS NOT ?", messageId, exceptJobId)) throw conflict('El mensaje tiene un trabajo en cola o corriendo; la entrega espera a que termine.', 'execute_busy')
   assertNotDiscarded(db, messageId)
@@ -32,7 +32,7 @@ export function approveDelivery ({ db, config, events }, { messageId, requestedB
   if (memberId === null) throw conflict('El mensaje no tiene un agente asignado.', 'no_agent_assignee')
   // What the session said is kept by the last delivery of the message, so the reply that closes it carries the same summary.
   const kept = parseJson(get(db, "SELECT payload_json FROM jobs WHERE kind = 'deliver' AND message_id = ? AND json_extract(payload_json, '$.output') IS NOT NULL ORDER BY id DESC LIMIT 1", messageId)?.payload_json, {})
-  // UD-301: a branch that was shown and not delivered has no earlier delivery: what its session said is kept by the «Lista para ver» reply (`publish_json`).
+  // UD-306: a branch that was shown and not delivered has no earlier delivery: what its session said is kept by the «Lista para ver» reply (`publish_json`).
   const shown = kept.output ? null : parseJson(get(db, 'SELECT publish_json FROM replies WHERE message_id = ? AND publish_json IS NOT NULL AND deleted_at IS NULL ORDER BY id DESC LIMIT 1', messageId)?.publish_json, null)
   if (shown) Object.assign(kept, { output: shown.output ?? null, execute_job_id: shown.job_id ?? null, execute_attempt: shown.attempt ?? null })
   const jobId = events.transaction(() => {

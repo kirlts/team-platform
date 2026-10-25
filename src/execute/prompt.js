@@ -185,7 +185,7 @@ export function buildExecuteParts ({ message, template, author, agent, project, 
     block('message', [`id: ${message.id}`, `area: ${message.area ?? ''}`, `title: ${message.title}`, '', message.body, '', 'fields:', fields || '(none)'].join('\n')),
     // UD-295: what the analyzer says is expected of this session, in its own words, and the walls of the area this message touches (the mechanism that holds each is the system's).
     ...(assessment ? [block('expectation', assessment)] : []),
-    // UD-301: the analyzer read this message as an idea to explore. Nothing the session builds is published until a person sees it; what the session does with that is its own judgement.
+    // UD-306: the analyzer read this message as an idea to explore. Nothing the session builds is published until a person sees it; what the session does with that is its own judgement.
     ...(exploration ? [block('exploration', [
       `This message is mostly an idea to explore${typeof exploration.idea === 'number' ? ` (${exploration.idea.toFixed(2)} of 1)` : ''}${exploration.reason ? `: ${exploration.reason}` : '.'}`,
       'Nothing you build goes to production on its own: the system keeps the branch until a person of the message sees it and publishes it. So work to show, not to ship: build what makes the idea tangible on your branch and leave the screenshots and the walkthrough video of the result.',

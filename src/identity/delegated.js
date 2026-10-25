@@ -22,7 +22,7 @@ import { BlockList, isIPv4, isIPv6 } from 'node:net'
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import { createRemoteJWKSet, errors as joseErrors, jwtVerify } from 'jose'
 import { get, run, tx } from '../db/index.js'
-import { badRequest, forbidden } from '../domain/errors.js'
+import { AppError, badRequest, forbidden } from '../domain/errors.js'
 import { audit } from '../domain/audit.js'
 import { createMember, isIdentityRetired } from '../domain/members.js'
 import { cookieSpec, readSessionCookie, setSessionCookie } from './cookies.js'
@@ -53,7 +53,13 @@ export function isRoleGoverned (db, memberId) {
  * The member a host identity points to. `closed`: it must exist (UD-007). `host`: created on its first entry, and the
  * declared role (one of ROLES; anything else counts as undeclared) replaces the stored one on every entry.
  */
-export function resolveMember (db, config, { email, name, role, issuedAt }, now = Date.now) {
+export function resolveMember (db, config, { email, name, role, issuedAt }, now = Date.now, { existingOnly = false } = {}) {
+  // `existingOnly` (UD-301): the host asks about a person without entering her. An unknown email is not created, a declared role is not applied.
+  if (existingOnly) {
+    const known = findMember(db, email)
+    if (!known) throw new AppError(404, 'member_not_registered', 'La cuenta no está registrada en el equipo.')
+    return assertActive(known)
+  }
   const provision = config.identity.provision === 'host'
   let declared = provision && HOST_ROLES.includes(role) ? role : null
   const stamped = Number.isFinite(issuedAt) ? issuedAt : null
@@ -109,7 +115,7 @@ const decodeName = (raw) => {
 function signedHeaderMode ({ db, config, now }) {
   const d = config.identity.delegated
   return {
-    identify (request) {
+    identify (request, options) {
       const email = request.headers['x-team-user']
       const ts = request.headers['x-team-ts']
       const signature = request.headers['x-team-sig']
@@ -122,7 +128,7 @@ function signedHeaderMode ({ db, config, now }) {
       const isValid = d.secrets.some((sharedSecret) =>
         safeEqual(signHeader(sharedSecret, { ts, method: request.method, pathname, email, bind: d.bindRequest, role, name: rawName }), String(signature)))
       if (!isValid) return null
-      return asIdentity(resolveMember(db, config, { email, name: decodeName(rawName), role }, now))
+      return asIdentity(resolveMember(db, config, { email, name: decodeName(rawName), role }, now, options))
     }
   }
 }
@@ -134,7 +140,7 @@ function jwtMode ({ db, config, now }) {
   // createRemoteJWKSet fetches the keys again when an unknown `kid` arrives (key rotation).
   const lookupKey = j.jwksUrl ? createRemoteJWKSet(new URL(j.jwksUrl), { cooldownDuration: j.jwksCooldownMs }) : new TextEncoder().encode(j.secret)
   return {
-    async identify (request) {
+    async identify (request, options) {
       let tokenValue = request.headers[j.header]
       if (tokenValue && j.header === 'authorization') {
         tokenValue = /^Bearer\s+/i.test(tokenValue) ? tokenValue.replace(/^Bearer\s+/i, '') : null
@@ -151,7 +157,7 @@ function jwtMode ({ db, config, now }) {
       }
       const email = payload[j.emailClaim]
       if (typeof email !== 'string' || email === '') return null
-      const memberRow = resolveMember(db, config, { email, name: payload[idc.jwtNameClaim], role: payload[idc.jwtRoleClaim], issuedAt: payload.iat }, now)
+      const memberRow = resolveMember(db, config, { email, name: payload[idc.jwtNameClaim], role: payload[idc.jwtRoleClaim], issuedAt: payload.iat }, now, options)
       return { ...asIdentity(memberRow), expiresAt: typeof payload.exp === 'number' ? payload.exp * 1000 : null }
     }
   }
@@ -168,7 +174,7 @@ function trustedHeaderMode ({ db, config, now }) {
     else listValue.addSubnet(addr, Number(prefixPath), family)
   }
   return {
-    identify (request) {
+    identify (request, options) {
       const val = request.headers[d.trustedHeaderName]
       if (!val) return null
       const originValue = request.socket?.remoteAddress
@@ -178,7 +184,7 @@ function trustedHeaderMode ({ db, config, now }) {
       // Without this, anyone who can reach the port would set the header by hand (report 04 §3.1).
       if (!listValue.check(normal, family)) return null
       const nameValue = request.headers[config.identity.trustedNameHeader]
-      return asIdentity(resolveMember(db, config, { email: String(val), name: typeof nameValue === 'string' ? nameValue : undefined }, now))
+      return asIdentity(resolveMember(db, config, { email: String(val), name: typeof nameValue === 'string' ? nameValue : undefined }, now, options))
     }
   }
 }

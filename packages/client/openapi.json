@@ -2480,11 +2480,11 @@
                                       "null",
                                       "number"
                                     ],
-                                    "description": "UD-301: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
+                                    "description": "UD-306: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
                                   },
                                   "idea_guard": {
                                     "type": "boolean",
-                                    "description": "UD-301: the Guard of the idea applies: nothing is published without the approval of a person."
+                                    "description": "UD-306: the Guard of the idea applies: nothing is published without the approval of a person."
                                   },
                                   "idea_reason": {
                                     "type": "string"
@@ -2583,7 +2583,7 @@
                               },
                               "publishable": {
                                 "type": "boolean",
-                                "description": "UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
+                                "description": "UD-306: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
                               },
                               "attachments": {
                                 "type": "array",
@@ -2733,7 +2733,7 @@
                                 },
                                 "publishable": {
                                   "type": "boolean",
-                                  "description": "UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
+                                  "description": "UD-306: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
                                 },
                                 "attachments": {
                                   "type": "array",
@@ -3353,11 +3353,11 @@
                                       "null",
                                       "number"
                                     ],
-                                    "description": "UD-301: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
+                                    "description": "UD-306: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
                                   },
                                   "idea_guard": {
                                     "type": "boolean",
-                                    "description": "UD-301: the Guard of the idea applies: nothing is published without the approval of a person."
+                                    "description": "UD-306: the Guard of the idea applies: nothing is published without the approval of a person."
                                   },
                                   "idea_reason": {
                                     "type": "string"
@@ -3456,7 +3456,7 @@
                               },
                               "publishable": {
                                 "type": "boolean",
-                                "description": "UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
+                                "description": "UD-306: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
                               },
                               "attachments": {
                                 "type": "array",
@@ -3829,11 +3829,11 @@
                                 "null",
                                 "number"
                               ],
-                              "description": "UD-301: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
+                              "description": "UD-306: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
                             },
                             "idea_guard": {
                               "type": "boolean",
-                              "description": "UD-301: the Guard of the idea applies: nothing is published without the approval of a person."
+                              "description": "UD-306: the Guard of the idea applies: nothing is published without the approval of a person."
                             },
                             "idea_reason": {
                               "type": "string"
@@ -3932,7 +3932,7 @@
                         },
                         "publishable": {
                           "type": "boolean",
-                          "description": "UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
+                          "description": "UD-306: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
                         },
                         "attachments": {
                           "type": "array",
@@ -4082,7 +4082,7 @@
                           },
                           "publishable": {
                             "type": "boolean",
-                            "description": "UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
+                            "description": "UD-306: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
                           },
                           "attachments": {
                             "type": "array",
@@ -4513,11 +4513,11 @@
                                 "null",
                                 "number"
                               ],
-                              "description": "UD-301: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
+                              "description": "UD-306: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
                             },
                             "idea_guard": {
                               "type": "boolean",
-                              "description": "UD-301: the Guard of the idea applies: nothing is published without the approval of a person."
+                              "description": "UD-306: the Guard of the idea applies: nothing is published without the approval of a person."
                             },
                             "idea_reason": {
                               "type": "string"
@@ -4616,7 +4616,7 @@
                         },
                         "publishable": {
                           "type": "boolean",
-                          "description": "UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
+                          "description": "UD-306: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
                         },
                         "attachments": {
                           "type": "array",
@@ -4766,7 +4766,7 @@
                           },
                           "publishable": {
                             "type": "boolean",
-                            "description": "UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
+                            "description": "UD-306: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
                           },
                           "attachments": {
                             "type": "array",
@@ -5329,11 +5329,11 @@
                                 "null",
                                 "number"
                               ],
-                              "description": "UD-301: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
+                              "description": "UD-306: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
                             },
                             "idea_guard": {
                               "type": "boolean",
-                              "description": "UD-301: the Guard of the idea applies: nothing is published without the approval of a person."
+                              "description": "UD-306: the Guard of the idea applies: nothing is published without the approval of a person."
                             },
                             "idea_reason": {
                               "type": "string"
@@ -5432,7 +5432,7 @@
                         },
                         "publishable": {
                           "type": "boolean",
-                          "description": "UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
+                          "description": "UD-306: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
                         },
                         "attachments": {
                           "type": "array",
@@ -5582,7 +5582,7 @@
                           },
                           "publishable": {
                             "type": "boolean",
-                            "description": "UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
+                            "description": "UD-306: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
                           },
                           "attachments": {
                             "type": "array",
@@ -6085,11 +6085,11 @@
                                 "null",
                                 "number"
                               ],
-                              "description": "UD-301: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
+                              "description": "UD-306: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
                             },
                             "idea_guard": {
                               "type": "boolean",
-                              "description": "UD-301: the Guard of the idea applies: nothing is published without the approval of a person."
+                              "description": "UD-306: the Guard of the idea applies: nothing is published without the approval of a person."
                             },
                             "idea_reason": {
                               "type": "string"
@@ -6188,7 +6188,7 @@
                         },
                         "publishable": {
                           "type": "boolean",
-                          "description": "UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
+                          "description": "UD-306: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
                         },
                         "attachments": {
                           "type": "array",
@@ -6338,7 +6338,7 @@
                           },
                           "publishable": {
                             "type": "boolean",
-                            "description": "UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
+                            "description": "UD-306: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
                           },
                           "attachments": {
                             "type": "array",
@@ -6702,11 +6702,11 @@
                                 "null",
                                 "number"
                               ],
-                              "description": "UD-301: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
+                              "description": "UD-306: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
                             },
                             "idea_guard": {
                               "type": "boolean",
-                              "description": "UD-301: the Guard of the idea applies: nothing is published without the approval of a person."
+                              "description": "UD-306: the Guard of the idea applies: nothing is published without the approval of a person."
                             },
                             "idea_reason": {
                               "type": "string"
@@ -6805,7 +6805,7 @@
                         },
                         "publishable": {
                           "type": "boolean",
-                          "description": "UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
+                          "description": "UD-306: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
                         },
                         "attachments": {
                           "type": "array",
@@ -6955,7 +6955,7 @@
                           },
                           "publishable": {
                             "type": "boolean",
-                            "description": "UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
+                            "description": "UD-306: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
                           },
                           "attachments": {
                             "type": "array",
@@ -7284,11 +7284,11 @@
                                 "null",
                                 "number"
                               ],
-                              "description": "UD-301: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
+                              "description": "UD-306: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
                             },
                             "idea_guard": {
                               "type": "boolean",
-                              "description": "UD-301: the Guard of the idea applies: nothing is published without the approval of a person."
+                              "description": "UD-306: the Guard of the idea applies: nothing is published without the approval of a person."
                             },
                             "idea_reason": {
                               "type": "string"
@@ -7387,7 +7387,7 @@
                         },
                         "publishable": {
                           "type": "boolean",
-                          "description": "UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
+                          "description": "UD-306: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
                         },
                         "attachments": {
                           "type": "array",
@@ -7537,7 +7537,7 @@
                           },
                           "publishable": {
                             "type": "boolean",
-                            "description": "UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
+                            "description": "UD-306: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
                           },
                           "attachments": {
                             "type": "array",
@@ -7857,11 +7857,11 @@
                                 "null",
                                 "number"
                               ],
-                              "description": "UD-301: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
+                              "description": "UD-306: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
                             },
                             "idea_guard": {
                               "type": "boolean",
-                              "description": "UD-301: the Guard of the idea applies: nothing is published without the approval of a person."
+                              "description": "UD-306: the Guard of the idea applies: nothing is published without the approval of a person."
                             },
                             "idea_reason": {
                               "type": "string"
@@ -7960,7 +7960,7 @@
                         },
                         "publishable": {
                           "type": "boolean",
-                          "description": "UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
+                          "description": "UD-306: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
                         },
                         "attachments": {
                           "type": "array",
@@ -8110,7 +8110,7 @@
                           },
                           "publishable": {
                             "type": "boolean",
-                            "description": "UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
+                            "description": "UD-306: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
                           },
                           "attachments": {
                             "type": "array",
@@ -8430,11 +8430,11 @@
                                 "null",
                                 "number"
                               ],
-                              "description": "UD-301: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
+                              "description": "UD-306: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
                             },
                             "idea_guard": {
                               "type": "boolean",
-                              "description": "UD-301: the Guard of the idea applies: nothing is published without the approval of a person."
+                              "description": "UD-306: the Guard of the idea applies: nothing is published without the approval of a person."
                             },
                             "idea_reason": {
                               "type": "string"
@@ -8533,7 +8533,7 @@
                         },
                         "publishable": {
                           "type": "boolean",
-                          "description": "UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
+                          "description": "UD-306: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
                         },
                         "attachments": {
                           "type": "array",
@@ -8683,7 +8683,7 @@
                           },
                           "publishable": {
                             "type": "boolean",
-                            "description": "UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
+                            "description": "UD-306: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
                           },
                           "attachments": {
                             "type": "array",
@@ -9072,11 +9072,11 @@
                                 "null",
                                 "number"
                               ],
-                              "description": "UD-301: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
+                              "description": "UD-306: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
                             },
                             "idea_guard": {
                               "type": "boolean",
-                              "description": "UD-301: the Guard of the idea applies: nothing is published without the approval of a person."
+                              "description": "UD-306: the Guard of the idea applies: nothing is published without the approval of a person."
                             },
                             "idea_reason": {
                               "type": "string"
@@ -9175,7 +9175,7 @@
                         },
                         "publishable": {
                           "type": "boolean",
-                          "description": "UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
+                          "description": "UD-306: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
                         },
                         "attachments": {
                           "type": "array",
@@ -9325,7 +9325,7 @@
                           },
                           "publishable": {
                             "type": "boolean",
-                            "description": "UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
+                            "description": "UD-306: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
                           },
                           "attachments": {
                             "type": "array",
@@ -9670,11 +9670,11 @@
                                 "null",
                                 "number"
                               ],
-                              "description": "UD-301: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
+                              "description": "UD-306: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
                             },
                             "idea_guard": {
                               "type": "boolean",
-                              "description": "UD-301: the Guard of the idea applies: nothing is published without the approval of a person."
+                              "description": "UD-306: the Guard of the idea applies: nothing is published without the approval of a person."
                             },
                             "idea_reason": {
                               "type": "string"
@@ -9773,7 +9773,7 @@
                         },
                         "publishable": {
                           "type": "boolean",
-                          "description": "UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
+                          "description": "UD-306: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
                         },
                         "attachments": {
                           "type": "array",
@@ -9923,7 +9923,7 @@
                           },
                           "publishable": {
                             "type": "boolean",
-                            "description": "UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
+                            "description": "UD-306: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
                           },
                           "attachments": {
                             "type": "array",
@@ -10273,11 +10273,11 @@
                                 "null",
                                 "number"
                               ],
-                              "description": "UD-301: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
+                              "description": "UD-306: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
                             },
                             "idea_guard": {
                               "type": "boolean",
-                              "description": "UD-301: the Guard of the idea applies: nothing is published without the approval of a person."
+                              "description": "UD-306: the Guard of the idea applies: nothing is published without the approval of a person."
                             },
                             "idea_reason": {
                               "type": "string"
@@ -10376,7 +10376,7 @@
                         },
                         "publishable": {
                           "type": "boolean",
-                          "description": "UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
+                          "description": "UD-306: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
                         },
                         "attachments": {
                           "type": "array",
@@ -10526,7 +10526,7 @@
                           },
                           "publishable": {
                             "type": "boolean",
-                            "description": "UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
+                            "description": "UD-306: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
                           },
                           "attachments": {
                             "type": "array",
@@ -10845,11 +10845,11 @@
                                 "null",
                                 "number"
                               ],
-                              "description": "UD-301: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
+                              "description": "UD-306: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
                             },
                             "idea_guard": {
                               "type": "boolean",
-                              "description": "UD-301: the Guard of the idea applies: nothing is published without the approval of a person."
+                              "description": "UD-306: the Guard of the idea applies: nothing is published without the approval of a person."
                             },
                             "idea_reason": {
                               "type": "string"
@@ -10948,7 +10948,7 @@
                         },
                         "publishable": {
                           "type": "boolean",
-                          "description": "UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
+                          "description": "UD-306: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
                         },
                         "attachments": {
                           "type": "array",
@@ -11098,7 +11098,7 @@
                           },
                           "publishable": {
                             "type": "boolean",
-                            "description": "UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
+                            "description": "UD-306: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
                           },
                           "attachments": {
                             "type": "array",
@@ -11417,11 +11417,11 @@
                                 "null",
                                 "number"
                               ],
-                              "description": "UD-301: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
+                              "description": "UD-306: how much of the request is an idea to explore (0 to 1); null in a message from before it existed."
                             },
                             "idea_guard": {
                               "type": "boolean",
-                              "description": "UD-301: the Guard of the idea applies: nothing is published without the approval of a person."
+                              "description": "UD-306: the Guard of the idea applies: nothing is published without the approval of a person."
                             },
                             "idea_reason": {
                               "type": "string"
@@ -11520,7 +11520,7 @@
                         },
                         "publishable": {
                           "type": "boolean",
-                          "description": "UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
+                          "description": "UD-306: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
                         },
                         "attachments": {
                           "type": "array",
@@ -11670,7 +11670,7 @@
                           },
                           "publishable": {
                             "type": "boolean",
-                            "description": "UD-301: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
+                            "description": "UD-306: la respuesta «Lista para ver» de una rama que espera el visto de una persona; `POST /messages/:id/deliver` la publica."
                           },
                           "attachments": {
                             "type": "array",
@@ -13884,6 +13884,124 @@
                         },
                         "replies": {
                           "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error: { code, message }.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Error: { code, message }.",
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/host/notices": {
+      "get": {
+        "summary": "The notices of the member of a host token (host site)",
+        "tags": [
+          "Other"
+        ],
+        "description": "Los avisos que afectan a la persona del token del anfitrión: los mensajes abiertos y respondidos que la afectan (UD-028), con sus conteos y los últimos `limit`, el abierto antes que el respondido y dentro de cada estado el más reciente. Cada ítem trae `path`, la dirección del mensaje en el panel. Sólo lectura, y nunca crea la cuenta: 401 sin token válido, 404 `member_not_registered` si el correo no es de un miembro, 403 `account_inactive` si está desactivado.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "member": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "counts": {
+                      "type": "object",
+                      "properties": {
+                        "open": {
+                          "type": "integer"
+                        },
+                        "answered": {
+                          "type": "integer"
+                        },
+                        "total": {
+                          "type": "integer"
+                        }
+                      }
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "message_id": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "open",
+                              "answered"
+                            ]
+                          },
+                          "at": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
                         }
                       }
                     }
@@ -17720,7 +17838,7 @@
         "tags": [
           "Messages"
         ],
-        "description": "Corre `EXECUTE_DELIVER_COMMAND` sobre la rama `tp/<id>` del mensaje, sin IA (UD-263). Al terminar bien, el agente publica su respuesta final con «Ya está en producción»; si falla, el aviso llano con `outcome: blocked`. Responde 202 con el trabajo creado. 409 `deliver_not_configured` si la instancia no declara la orden, 409 `execute_busy` si el mensaje tiene un trabajo `execute` en cola o corriendo, 409 `deliver_busy` si ya tiene una entrega, 409 `no_agent_assignee` si no hay un agente activo que responda, 409 `message_closed` si está cerrado, 409 `delivery_discarded` si una persona descartó la rama. UD-301: también publica el trabajo «Lista para ver»; sólo una persona (409 `not_a_person`).",
+        "description": "Corre `EXECUTE_DELIVER_COMMAND` sobre la rama `tp/<id>` del mensaje, sin IA (UD-263). Al terminar bien, el agente publica su respuesta final con «Ya está en producción»; si falla, el aviso llano con `outcome: blocked`. Responde 202 con el trabajo creado. 409 `deliver_not_configured` si la instancia no declara la orden, 409 `execute_busy` si el mensaje tiene un trabajo `execute` en cola o corriendo, 409 `deliver_busy` si ya tiene una entrega, 409 `no_agent_assignee` si no hay un agente activo que responda, 409 `message_closed` si está cerrado, 409 `delivery_discarded` si una persona descartó la rama. UD-306: también publica el trabajo «Lista para ver»; sólo una persona (409 `not_a_person`).",
         "parameters": [
           {
             "schema": {

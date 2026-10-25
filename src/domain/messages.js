@@ -85,7 +85,7 @@ function replyAttachmentsOf (db, replyIds) {
 
 const toReply = (r, atts = [], mentions = [], retryable = false, retrying = false, publishable = false) => ({
   id: r.id, message_id: r.message_id, author_id: r.author_id, body: r.body, kind: r.kind, forwarded_to: r.forwarded_to ?? null, retryable, // UD-282: the notice of a failed session can be launched again
-  publishable, // UD-301: «Lista para ver»: the branch it shows waits for a person's «Publicar»
+  publishable, // UD-306: «Lista para ver»: the branch it shows waits for a person's «Publicar»
   replaced_by_job_id: r.replaced_by_job_id ?? null, retrying, // UD-290: a retry replaced the notice; `retrying` while that job is queued or running
   mentions, // UD-278: the members picked from the list when the reply was written
   attachments: atts, attachment_kinds: [...new Set(atts.map((a) => a.kind))], // one icon per media kind (UD-016)
@@ -236,7 +236,7 @@ export function getMessage (db, id, { includeDeleted = false } = {}) {
   const mentions = mentionsOf(db, replyRows.map((r) => r.id))
   const retryable = retryableIds(db, replyRows) // UD-282
   const retrying = retryingIds(db, replyRows) // UD-290
-  // UD-301: the «Lista para ver» reply of the branch that still waits (the latest one) offers «Publicar» while nobody is delivering it.
+  // UD-306: the «Lista para ver» reply of the branch that still waits (the latest one) offers «Publicar» while nobody is delivering it.
   const pending = pendingDelivery(db, id)
   const shownReply = pending?.state === 'held' ? replyRows.filter((r) => r.publish_json && parseJson(r.publish_json, {}).job_id === Number(pending.job_id)).at(-1)?.id ?? null : null
   const edits = all(db, 'SELECT * FROM message_edits WHERE message_id = ? ORDER BY id', id)

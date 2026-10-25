@@ -30,6 +30,7 @@ import { changeOfWrite } from '../events/changes.js'
 import { registerInputRoutes } from './routes/inputs.js'
 import { registerMessageRoutes } from './routes/messages.js'
 import { registerAreaRoutes } from './routes/areas.js'
+import { registerHostRoutes } from './routes/host.js'
 import { registerMemberRoutes } from './routes/members.js'
 import { registerConnectionRoutes } from './routes/connections.js'
 import { registerSettingsRoutes } from './routes/settings.js'
@@ -304,6 +305,7 @@ export async function buildApp ({ db, config, queue, events, modules = {}, logge
     registerMessageRoutes(api, ctx)
     registerAreaRoutes(api, ctx)
     registerMemberRoutes(api, ctx)
+    registerHostRoutes(api, ctx)
     registerSettingsRoutes(api, ctx)
     registerConnectionRoutes(api, ctx)
     registerAttachmentRoutes(api, ctx)

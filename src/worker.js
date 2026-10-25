@@ -49,7 +49,10 @@ function untilSettledOrGivenUp (work, signal, graceMs) {
 export function createWorker ({ db, queue, events, config, handlers, workerId = `worker-${randomUUID()}`, logger = createLogger({ logLevel: 'silent' }), now = Date.now, pollDataVersionMs = null, onSweep = null }) {
   const w = config.worker
   setLimiterLogger(logger) // the cap reductions of the provider limiters go to the worker's log (H-83)
-  const runningJobs = new Map() // job.id → { controller, promise }
+  const runningJobs = new Map() // job.id → { controller, running, kind }
+  // The slots of the worker (`QUEUE_CONCURRENCY`) are for the jobs that work in this process. An `execute` session runs on a machine of the host and the worker only
+  // waits for it, so it takes no slot: nothing but the day's spending holds a new one (UD-304, Martín 2026-10-25).
+  const slotsInUse = () => [...runningJobs.values()].filter((j) => j.kind !== 'execute').length
   let stopped = true
   let tickTimer = null
   let nextTimer = null
@@ -65,7 +68,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
     // A job already due that the last claim could not take waits for a free slot or lane: the end of a running job wakes the claim (`kick` in its `finally`).
     // Arming a timer for it re-read the queue every millisecond for as long as the slots were full (304 reads in 500 ms with one job running and two waiting).
     // A job that became due after that claim is not blocked, it is late: it gets its timer.
-    if (runningJobs.size >= w.concurrency || nextAt <= emptyClaimAt) return
+    if (nextAt <= emptyClaimAt) return
     // Sleeps exactly until the next `run_at` (retries with backoff): there is no clock polling.
     nextTimer = setTimeout(kick, Math.min(MAX_TIMEOUT, Math.max(0, nextAt - now())))
     nextTimer.unref?.()
@@ -78,10 +81,10 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
 
   function tick () {
     if (stopped) return
-    while (runningJobs.size < w.concurrency) {
+    for (;;) {
       let job
       const askedAt = now() // before the claim: a job that became due while it ran is late, not blocked
-      try { job = queue.claim(workerId, undefined, { running: [...runningJobs.keys()] }) } catch (error) { logger.error({ err: error }, 'error while claiming'); break }
+      try { job = queue.claim(workerId, undefined, { running: [...runningJobs.keys()], only: slotsInUse() >= w.concurrency ? ['execute'] : null }) } catch (error) { logger.error({ err: error }, 'error while claiming'); break }
       if (!job) { emptyClaimAt = askedAt; break }
       execute(job)
     }
@@ -141,7 +144,7 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
         kick()
       }
     }, { links: [linkTo(job.last_span, { 'team.link': 'previous_attempt' }), linkTo(job.link_traceparent, { 'team.link': 'previous_job' })].filter(Boolean) })))
-    runningJobs.set(job.id, { controller, running })
+    runningJobs.set(job.id, { controller, running, kind: job.kind })
   }
 
   async function handleError (job, handlerObj, controller, error, jobLog, span, capMs = w.maxRuntimeMs) {
@@ -153,7 +156,8 @@ export function createWorker ({ db, queue, events, config, handlers, workerId = 
       if (queue.defer(job, error.deferMs)) {
         span.setAttribute('team.outcome', 'deferred')
         try { handlerObj?.onDeferred?.(job, error) } catch (e) { jobLog.error({ err: e }, 'error while recording the deferral') }
-        jobLog.info({ delay_ms: error.deferMs }, `job deferred: ${error.phrase}`)
+        // `error.phrase` is a step object, not text: the text is the message of the error, and the cap that holds the job travels as data (UD-303).
+        jobLog.info({ delay_ms: error.deferMs, defer_code: error.phrase?.code ?? null, reason: error.reason ?? null }, `job deferred: ${error.message}`)
       }
       return
     }

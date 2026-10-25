@@ -134,7 +134,7 @@ function messageSchema(fieldsSchema, { validation, requireAssignee = false }) {
       value_holder: { type: 'string', enum: [...VALUE_HOLDERS] },
       certainty: unitNumber,
       estimate_reason: { type: 'string' },
-      // UD-301: `idea_guard` is the Guard «nothing changes permanently without the approval of a person when what is asked is to explore an idea»: the model judges whether it applies,
+      // UD-306: `idea_guard` is the Guard «nothing changes permanently without the approval of a person when what is asked is to explore an idea»: the model judges whether it applies,
       // reading the spirit of the message and who wrote it, and the system obeys the boolean. `idea` (0 to 1) is context for the session and for the IMK judgement; it decides nothing.
       idea: unitNumber,
       idea_guard: { type: 'boolean' },

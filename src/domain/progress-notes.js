@@ -77,3 +77,87 @@ export function addDeliveryNote ({ db, events, now = Date.now }, { messageId, jo
   })
   return body
 }
+
+// UD-303: the rows of the thread that say where the job of a message is: waiting for a turn, and started. Like a notice they are not replies: they
+// are rows of `progress_notes`, told apart by `data_json.event` (`waiting`, `waited`, `started`), and they never change the state of the message.
+const EVENT_TEXTS = {
+  'es-419': {
+    started: (name) => `${name} empezó a trabajar`,
+    ahead: (n, name) => (n === 0 ? 'En espera: este trabajo es el siguiente' : `En espera: ${plural(n, 'trabajo', 'trabajos')} de ${name} delante`),
+    budget_reserved: () => 'Motivo: las sesiones en curso tienen reservado el gasto que queda hoy.',
+    capacity: (r) => (r.quota_machines > 0 ? `Motivo: la cuota de Google admite ${plural(r.quota_machines, 'máquina', 'máquinas')} y no queda espacio en ellas.` : 'Motivo: no hay una máquina de trabajo libre ahora.'),
+    waited: (minutes) => `Estuvo en espera ${minutes} min`
+  },
+  en: {
+    started: (name) => `${name} started working`,
+    ahead: (n, name) => (n === 0 ? 'Waiting: this job is next' : `Waiting: ${plural(n, 'job', 'jobs')} of ${name} ahead`),
+    budget_reserved: () => 'Reason: the running sessions hold the spending left today.',
+    capacity: (r) => (r.quota_machines > 0 ? `Reason: the Google quota admits ${plural(r.quota_machines, 'machine', 'machines')} and they have no room left.` : 'Reason: no work machine is free right now.'),
+    waited: (minutes) => `Waited ${minutes} min`
+  }
+}
+
+/** The text of a waiting row: how many jobs are ahead and, in one sentence, what holds the job. `reason.code` is the code of the cap (see `Deferred`). */
+export function waitBody ({ ahead, reason, name = 'Claude' }, language = DEFAULT_LANGUAGE) {
+  const t = EVENT_TEXTS[language] ?? EVENT_TEXTS[DEFAULT_LANGUAGE]
+  const lines = [t.ahead(ahead, name)]
+  if (reason && t[reason.code]) lines.push(t[reason.code](reason))
+  return lines.join('\n')
+}
+
+const insertEvent = (db, { messageId, jobId, authorId, body, data, at }) =>
+  Number(run(db, 'INSERT INTO progress_notes (message_id, job_id, author_id, body, data_json, session_started_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)', messageId, jobId, authorId, body, JSON.stringify(data), at, at).lastInsertRowid)
+const tellScreens = (events, messageId) => events.publish({ kind: 'message', data: { reason: 'changed', roots: ['messages'], message_id: String(messageId) } })
+const rowOf = (db, jobId, event) => get(db, "SELECT * FROM progress_notes WHERE job_id = ? AND json_extract(data_json, '$.event') = ? ORDER BY id DESC LIMIT 1", jobId, event)
+
+/**
+ * The row «<name> started working», written when the session of an attempt really starts. One per attempt: a handler that runs again for the same
+ * attempt (the worker restarted and attached to the session) does not write it twice. Returns the body, or null when the attempt already had it.
+ */
+export function addStartNote ({ db, events, now = Date.now }, { messageId, jobId, authorId, name = 'Claude', language = DEFAULT_LANGUAGE, attempt = 1 }) {
+  const t = EVENT_TEXTS[language] ?? EVENT_TEXTS[DEFAULT_LANGUAGE]
+  const at = now()
+  return events.transaction(() => {
+    const had = rowOf(db, jobId, 'started')
+    if (had && parseJson(had.data_json, {}).attempt === attempt) return null
+    const body = t.started(name)
+    insertEvent(db, { messageId, jobId, authorId, body, data: { event: 'started', attempt }, at })
+    tellScreens(events, messageId)
+    return body
+  })
+}
+
+/**
+ * The row «waiting» of a job: written once, and rewritten in place when the jobs ahead or the cap that holds it change. Returns the body when the
+ * thread changed, null when the row already said exactly this.
+ */
+export function upsertWaitNote ({ db, events, now = Date.now }, { messageId, jobId, authorId, name = 'Claude', language = DEFAULT_LANGUAGE, ahead, reason }) {
+  const body = waitBody({ ahead, reason, name }, language)
+  const data = { event: 'waiting', ahead, reason }
+  return events.transaction(() => {
+    const had = rowOf(db, jobId, 'waiting')
+    if (!had) {
+      const at = now()
+      insertEvent(db, { messageId, jobId, authorId, body, data: { ...data, since: at }, at })
+    } else {
+      if (had.body === body) return null
+      run(db, 'UPDATE progress_notes SET body = ?, data_json = ? WHERE id = ?', body, JSON.stringify({ ...data, since: parseJson(had.data_json, {}).since ?? had.created_at }), had.id)
+    }
+    tellScreens(events, messageId)
+    return body
+  })
+}
+
+/** When the job starts (or ends for good) the waiting row stops saying «waiting»: it says how long the wait was. */
+export function closeWaitNote ({ db, events, now = Date.now }, { jobId, language = DEFAULT_LANGUAGE }) {
+  const t = EVENT_TEXTS[language] ?? EVENT_TEXTS[DEFAULT_LANGUAGE]
+  return events.transaction(() => {
+    const had = rowOf(db, jobId, 'waiting')
+    if (!had) return null
+    const data = parseJson(had.data_json, {})
+    const minutes = Math.max(1, Math.round((now() - (data.since ?? had.created_at)) / 60000))
+    run(db, 'UPDATE progress_notes SET body = ?, data_json = ? WHERE id = ?', t.waited(minutes), JSON.stringify({ event: 'waited', minutes, reason: data.reason ?? null }), had.id)
+    tellScreens(events, had.message_id)
+    return t.waited(minutes)
+  })
+}

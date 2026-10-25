@@ -20,7 +20,7 @@ import { AppError, infra, permanent } from '../domain/errors.js'
 import { Deferred } from '../domain/pipeline.js'
 import { addReply, closeMessage } from '../domain/messages.js'
 import { mentionAnswered } from '../domain/mentions.js'
-import { dailyBudget, localDay } from './budget.js'
+import { admitSession, dailyBudget, localDay, sessionReserve } from './budget.js'
 import { HANDOFF_OUTCOMES, alreadyHandedOver, handOffToPerson } from '../domain/escalation.js'
 import { audit } from '../domain/audit.js'
 import { step } from '../domain/progress-phrases.js'
@@ -41,11 +41,11 @@ import { loadMention, mentionBlock, planThread, stageThread, threadEnv } from '.
 import { buildExecuteParts, buildExecutePrompt, declaredOutput, finalSchema, readTemplate } from './prompt.js'
 import { closeLine, closeReason, closeRequest, firstReplyAnchor } from './auto-close.js'
 import { enqueueDeliver, enqueueExecute } from './enqueue.js'
-import { runLocal, runMachine } from './runners.js'
+import { createCreationGate, runLocal, runMachine } from './runners.js'
 import { createSessionTracer } from './session-spans.js'
 import { createStreamReader } from './stream.js'
 import { startProgressNotices } from './progress-timer.js'
-import { DEFAULT_PROGRESS_INTERVAL_MIN, addDeliveryNote } from '../domain/progress-notes.js'
+import { DEFAULT_PROGRESS_INTERVAL_MIN, addDeliveryNote, addStartNote, closeWaitNote, upsertWaitNote } from '../domain/progress-notes.js'
 
 const run = promisify(execFile)
 const TEAM_SCRIPT = fileURLToPath(new URL('../../scripts/team.mjs', import.meta.url))
@@ -306,10 +306,10 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     try { await git('ls-remote', '--exit-code', '--heads', 'origin', branch); return true } catch { return false }
   }
 
-  const liveMachines = new Set() // the jobs of this process that hold a machine; EXECUTE_MAX_MACHINES bounds it
   // What each session that runs now may still spend: `--max-budget-usd` of its invocation. The day's cost counts a job only when its result arrives, so
   // eight sessions that start together each saw the whole remainder and could spend eight times the day's cap (UD-256).
   const reserved = new Map()
+  const creationGate = createCreationGate({ waitMs: x.capacityWaitMs, now }) // UD-303: the creation of machines, one at a time, and no script while the host has just said no
 
   /** The row of `execute_runs` for an attempt (UD-262). Measuring never fails the job. */
   function saveRun (job, ctx, rec) {
@@ -418,7 +418,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
 
     const branch = `tp/${messageId}`
     const startedWith = fingerprint(message) // what the session was asked; an edit while it works makes its answer a possible answer to the old text
-    // UD-301: `exploration` is present when the analyzer's Guard of the idea applies: the session is told, as context, that it builds to show.
+    // UD-306: `exploration` is present when the analyzer's Guard of the idea applies: the session is told, as context, that it builds to show.
     const promptInput = {
       message: { id: messageId, title: message.title, body: message.body, fields: parseJson(message.fields_json, {}), area: message.area_title, status: message.status },
       template: templateRow, author, agent, project: getProject(db, config), jobId: job.id, maxSubagents: x.maxSubagents, branch, hostInstructions,
@@ -433,23 +433,20 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     // A previous attempt found that the binary does not know the flag of the system prompt: this one carries the whole prompt in the message (payload `no_stable_system`).
     const stable = x.stableAsSystem && payload.no_stable_system !== true
     const prompt = stable ? parts.variable : buildExecutePrompt(promptInput)
-    // The host's machine quota is a fact of the host (2026-10-22: a region of 8 cores held two machines of 4 and 21 jobs failed for good with
-    // «quota exceeded»). Over EXECUTE_MAX_MACHINES the job waits, without spending its attempt and without cost.
-    // The slot is taken in the same tick as the check: two jobs that start together cannot both pass it. `run` releases it on any exit.
-    if (x.runner === 'machine') {
-      if (x.maxMachines > 0 && liveMachines.size >= x.maxMachines) throw new Deferred(x.capacityWaitMs, step('capacityWait'))
-      liveMachines.add(job.id)
-    }
+    // No count of live machines bounds the jobs here (UD-304): the host creates another machine or, when its quota or its stock say no, exits 75 and the job waits.
     // UD-256: the day's spend first; with nothing left the job waits for the next day without spending its attempt.
     const budget = dailyBudget(db, x, now())
     if (budget.remaining <= 0) {
       noticeBudgetWait(job, messageId, now() + budget.nextDayMs)
-      throw new Deferred(budget.nextDayMs, step('budgetWait'))
+      throw new Deferred(budget.nextDayMs, step('budgetWait'), { code: 'budget_day', daily_usd: x.dailyBudgetUsd, spent_usd: budget.spent })
     }
-    const available = budget.remaining - [...reserved.values()].reduce((a, b) => a + b, 0)
-    if (available < 0.01) throw new Deferred(x.capacityWaitMs, step('budgetWait')) // what is left is held by sessions that run now: it may come back when they end
-    const budgetUsd = Math.round(Math.min(x.maxBudgetUsd, available) * 100) / 100 || 0.01
-    reserved.set(job.id, budgetUsd)
+    // UD-305: each session holds back what the sessions of its model cost (90th percentile), not a chosen 10 USD; its own cap stays `maxBudgetUsd`.
+    const reserve = sessionReserve(db, x, model, now())
+    const held = [...reserved.values()].reduce((a, b) => a + b, 0)
+    const admission = admitSession({ remaining: budget.remaining, held, sessions: reserved.size, reserveUsd: reserve.usd, maxBudgetUsd: x.maxBudgetUsd })
+    if (!admission.ok) throw new Deferred(x.capacityWaitMs, step('budgetWait'), { code: 'budget_reserved', daily_usd: x.dailyBudgetUsd, spent_usd: budget.spent, reserved_usd: held, sessions: reserved.size, reserve_usd: reserve.usd, reserve_basis: reserve.basis }) // what is left is held by sessions that run now: it may come back when they end
+    const budgetUsd = admission.budgetUsd
+    reserved.set(job.id, admission.holdUsd)
     const args = claudeArgs({ ...x, model, budgetUsd }, schema, { light, assessed: estimates !== null })
     // It counts as run from here: the machine cost applies even if the session never returns its cost.
     runSql(db, 'UPDATE jobs SET runner = ?, model = ?, run_at = ?, marks_json = NULL WHERE id = ?', x.runner, model, now(), job.id)
@@ -460,7 +457,12 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const reader = createStreamReader({
       maxTurns: x.maxTurns,
       budgetUsd,
-      onEvent: (event) => session?.onEvent(event),
+      onEvent: (event) => {
+        session?.onEvent(event)
+        // UD-305: the reserve follows the real cost: a session that already spent more than it held holds what it spent (it is released when the job ends and counts as cost then).
+        const spent = reader.state().spentUsd
+        if (reserved.has(job.id) && spent > reserved.get(job.id)) reserved.set(job.id, spent)
+      },
       onProgress: (percent, phrase) => { if (!queue.progress(job, percent, phrase)) ctx.abort('lost') }
     })
     queue.progress(job, 0, x.runner === 'machine' ? 'Creando la máquina' : 'Preparando la sesión')
@@ -481,6 +483,12 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         session = createSessionTracer({ model })
         // UD-293: from here until the session ends, a notice in the thread every `progress_interval_min` of the template.
         notices = startProgressNotices({ db, events, now, logger, jobId: job.id, messageId, authorId: memberId, language: author?.language, intervalMin: templateRow?.progress_interval_min ?? DEFAULT_PROGRESS_INTERVAL_MIN, unitMs: progressUnitMs, reader })
+        // UD-303: the session really starts here (the machine exists): the thread says so, and a waiting row of this job closes.
+        try {
+          const row = { db, events, now }
+          closeWaitNote(row, { jobId: job.id, language: author?.language })
+          addStartNote(row, { messageId, jobId: job.id, authorId: memberId, name: agent.name, language: author?.language, attempt: job.attempts })
+        } catch (e) { logger?.warn({ err: e }, 'could not post the start of the session') }
       }
       try {
         const r = await fn()
@@ -495,7 +503,6 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       }
     })
     let outcome
-    if (x.runner === 'machine') liveMachines.add(job.id)
     try {
       // After `dirs` exists: the file goes in the job directory (inside the `try`: a full disk here must still remove the directory).
       if (stable) {
@@ -507,7 +514,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         'team.runner': x.runner, 'team.model': model, 'team.estimates': estimates ? JSON.stringify(estimates) : '', 'team.effort': x.effort, 'team.max_budget_usd': budgetUsd, 'team.daily_spent_usd': budget.spent
       }, async (span) => {
         span.setAttribute('team.queue_wait_ms', Math.max(0, startedAt - job.created_at))
-        await mkdir(capturesDir(dirs.workdir)) // where the session leaves its screenshots (UD-268); here and not in prepareWorkdir, so the check of EXECUTE_MAX_MACHINES keeps its timing
+        await mkdir(capturesDir(dirs.workdir)) // where the session leaves its screenshots (UD-268); here and not in prepareWorkdir
         await mkdir(documentsDir(dirs.workdir)) // and its documents (UD-272)
         if (thread) span.setAttribute('team.thread_files', await stageThread({ config, plan: thread, workdir: dirs.workdir })) // UD-278: the attachments of the thread, where the session reads them
         // The session continues this trace (W3C `TRACEPARENT`) and, when the host declares it, exports its own telemetry (EXECUTE_OTEL_ENV).
@@ -515,7 +522,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         // A line that cannot be turned into progress (the job was purged, the database is busy) must not become an uncaught exception of the worker: the session goes on.
         const opts = { config, args, prompt, onData: (c) => { try { reader.push(c) } catch (e) { logger?.warn({ err: e }, 'could not record the progress of the session') } }, signal: ctx.signal }
         const r = x.runner === 'machine'
-          ? await runMachine({ ...opts, jobId: job.id, workdir: dirs.workdir, env: { ...sessionEnv, ...tracedEnv }, log: (m) => logger?.error(m), phase })
+          ? await runMachine({ ...opts, createGate: creationGate, jobId: job.id, workdir: dirs.workdir, env: { ...sessionEnv, ...tracedEnv }, log: (m) => logger?.error(m), phase })
           : await phase('run', () => runLocal({ ...opts, cwd: dirs.cwd, env: { ...process.env, ...sessionEnv, ...tracedEnv, PATH: `${join(dirs.workdir, 'bin')}:${process.env.PATH ?? ''}` } }))
         reader.end()
         setPhase(null)
@@ -557,7 +564,6 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         return { r, st, result, captured, documents }
       })
     } finally {
-      liveMachines.delete(job.id)
       await cleanup(dirs)
     }
     ctx.signal.throwIfAborted()
@@ -568,7 +574,9 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     if (r.phase === 'create' && r.code === 75) {
       runSql(db, 'UPDATE jobs SET runner = NULL WHERE id = ?', job.id)
       rec.began = false
-      throw new Deferred(x.capacityWaitMs, step('capacityWait'))
+      // The host says, with a line `##team quota machines=<N>` on the error output, how many machines its quota admitted when it refused (crear.sh counts the live ones).
+      const quota = /^##team quota machines=(\d+)\s*$/m.exec(r.stderr ?? '')
+      throw new Deferred(x.capacityWaitMs, step('capacityWait'), { code: 'capacity', quota_machines: quota ? Number(quota[1]) : null })
     }
     // From here a failure is told apart by what it says about the infrastructure: a machine that was not created, a session that died with no result and a
     // model service that failed are tried once more (`infra`) and then go to a person; the budget, the format and the rest are not a second try's to fix.
@@ -630,7 +638,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
       if (judgment?.cost) runSql(db, 'UPDATE jobs SET cost_usd = COALESCE(cost_usd, 0) + ? WHERE id = ?', judgment.cost, job.id) // it counts in the day's cap with the job
     }
     const hands = Boolean(x.deliverCommand) && output.outcome === 'done' && !investigate && await branchExists(branch)
-    // UD-301: the Guard of the idea applies (the analyzer judged it and the system obeys the boolean): the work is built and shown, and only a person's approval delivers it. A delivery that
+    // UD-306: the Guard of the idea applies (the analyzer judged it and the system obeys the boolean): the work is built and shown, and only a person's approval delivers it. A delivery that
     // a person already approved (in advance, or the pass that fixes its failure) is not held again.
     const showOnly = estimates?.idea_guard === true && deliverFailure === null
     // UD-286: the person already asked, in their own words, to implement and publish. The model says it in `approved`; the system reads the field, never the words, and the delivery goes out without a second review.
@@ -682,7 +690,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         }
       }
       if (hands && !edited && showOnly && preApprovedBy === null) {
-        // UD-301: «Lista para ver». The branch, the captures and the video are the reply; nothing goes to production. The run is kept as held (the review of UD-275: `pending_delivery`) and the reply
+        // UD-306: «Lista para ver». The branch, the captures and the video are the reply; nothing goes to production. The run is kept as held (the review of UD-275: `pending_delivery`) and the reply
         // carries what «Publicar» needs, so a person's approval runs the normal delivery (UD-298) with the summary of this session.
         const t = FAILURE_TEXTS[author?.language] ?? FAILURE_TEXTS['es-419']
         const seen = closingCaptures(db, { messageId, authorId: agent.id, stored: captured.stored, language: author?.language, label: 'proposal' })
@@ -852,14 +860,14 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         rec.error = error
         throw error
       } finally {
-        liveMachines.delete(job.id)
         reserved.delete(job.id)
+        creationGate.open() // a session ended: its capacity may be back, so the next job asks the host again (an event, not a clock)
         if (rec.began) saveRun(job, ctx, rec)
       }
       return () => {
         finalize()
         try {
-          if (rec.deliveryHeld) updateExecuteRun(db, job.id, job.attempts, { delivery_held: 1 }) // UD-301: shown, not delivered: the review of UD-275 waits for a person
+          if (rec.deliveryHeld) updateExecuteRun(db, job.id, job.attempts, { delivery_held: 1 }) // UD-306: shown, not delivered: the review of UD-275 waits for a person
           if (rec.finalReplyMs !== null) updateExecuteRun(db, job.id, job.attempts, { final_reply_ms: rec.finalReplyMs, total_ms: rec.finalReplyMs })
           else if (rec.deliverJobId) updateExecuteRun(db, job.id, job.attempts, { deliver_job_id: rec.deliverJobId }) // the delivery fills the rest when it ends
         } catch (e) { logger?.warn({ err: e }, 'could not update the execute run') }
@@ -867,13 +875,21 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     },
 
     onDeferred (job, deferral) {
-      const { message_id: messageId } = parseJson(job.payload_json, {})
+      const { message_id: messageId, member_id: memberId } = parseJson(job.payload_json, {})
       events.publishForJob(job.id, { kind: 'progress', percent: 0, phrase: deferral.phrase, data: { message_id: messageId } })
+      // UD-303: the thread says that the job waits and how many are ahead. The cap of the day already has its own reply (`noticeBudgetWait`).
+      if (deferral.reason?.code === 'budget_day' || !messageId || !memberId) return
+      try {
+        // Ahead of this job: the `execute` jobs that run now (they hold the machines and the spending) and those queued before it (the queue serves by arrival).
+        const ahead = get(db, "SELECT COUNT(*) AS n FROM jobs WHERE kind = 'execute' AND id <> ? AND (status = 'running' OR (status = 'queued' AND id < ?))", job.id, job.id).n
+        upsertWaitNote({ db, events, now }, { messageId, jobId: job.id, authorId: memberId, name: get(db, 'SELECT name FROM members WHERE id = ?', memberId)?.name, language: languageOf(messageId), ahead, reason: deferral.reason })
+      } catch (e) { logger?.warn({ err: e }, 'could not post the waiting row') }
     },
 
     onFailure (job, error, outcome) {
       const { message_id: messageId } = parseJson(job.payload_json, {})
       if (outcome.state === 'failed') {
+        try { closeWaitNote({ db, events, now }, { jobId: job.id, language: languageOf(messageId) }) } catch (e) { logger?.warn({ err: e }, 'could not close the waiting row') } // UD-303: it does not keep saying «waiting» for a job that ended
         // Every final failure ends with a person holding the message, with the reason: the session died with its worker twice, the machine or the model service failed twice,
         // the time or the budget ran out, the output did not fit, the agent cannot start. Without a person to take it, the agent says so in the thread.
         if (!handOffFailure(job, messageId, error)) tellTheAuthor(job, messageId, error)

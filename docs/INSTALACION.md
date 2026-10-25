@@ -464,6 +464,7 @@ La respuesta trae `agent_secret` una sola vez. El trabajador lo lee de la bóved
 | `EXECUTE_CONCURRENCY` | Sesiones a la vez. 0 (omisión) es `QUEUE_CONCURRENCY` menos dos: el análisis de un envío nuevo siempre tiene dos lugares |
 | `EXECUTE_DELIVER_CONCURRENCY` | Entregas a producción a la vez (omisión 1): dos a la vez chocan sobre el mismo `main` |
 | `EXECUTE_INFRA_RETRY_WAIT_MS` | Espera antes del segundo intento de un trabajo que falló por infraestructura: máquina que no se crea, sesión que muere sin resultado, servicio del modelo con 429 o 5xx (omisión 30000). El segundo fallo pasa el mensaje a una persona |
+| `EXECUTE_DELIVER_CHECK_COMMAND` | Orden de shell que corre antes de la entrega, con `{message_id}`, `{job_id}` y `{branch}`; vacía por omisión. Código 0 = la rama ya está en producción (última línea de stdout: la referencia) y la orden de entrega no corre (UD-296). Cualquier otro código, el plazo (60 s) o un error: se entrega como siempre |
 | `EXECUTE_DELIVER_RETRIES` | Veces que una verificación fallida vuelve a Claude (omisión 1) |
 | `EXECUTE_DELIVER_MAX_ATTEMPTS` | Intentos del trabajo de entrega (omisión 2); el código 75 no gasta ninguno |
 | `INSTANCE_NAME` | Nombre de la instancia en cada fila del historial (omisión: el host de `PUBLIC_URL`, o `local`) |

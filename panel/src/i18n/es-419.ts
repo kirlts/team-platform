@@ -348,6 +348,7 @@ export const es419 = {
   'areas.guardRemove': 'Quitar Guardia',
   'areas.guardsNone': 'Sin Guardias',
   'assessment.title': 'Evaluación',
+  'details.title': 'Detalles',
   'assessment.person': 'Decide una persona',
   'assessment.expectation': 'Se espera de Claude',
   'assessment.guards': 'Guardias tocadas',

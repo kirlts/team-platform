@@ -348,6 +348,7 @@ export const en: Record<MessageKey, Message> = {
   'areas.guardRemove': 'Remove Guard',
   'areas.guardsNone': 'No Guards',
   'assessment.title': 'Assessment',
+  'details.title': 'Details',
   'assessment.person': 'A person decides',
   'assessment.expectation': 'Expected of Claude',
   'assessment.guards': 'Guards touched',

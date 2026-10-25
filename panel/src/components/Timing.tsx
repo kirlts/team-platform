@@ -30,7 +30,7 @@ export function Timing({ messageId, assigneeIds }: { messageId: string; assignee
   )
 }
 
-function TimingBody({ messageId }: { messageId: string }) {
+export function TimingBody({ messageId }: { messageId: string }) {
   const t = useT()
   const errorText = useErrorText()
   const timing = useMessageTiming(messageId)
@@ -93,7 +93,7 @@ function TimingBody({ messageId }: { messageId: string }) {
 }
 
 /** «Detalle técnico» (UD-276): what the agent returned besides its summary (result, zone, cause, verification, branch, files) and the reference of its delivery. The reply of the thread does not carry it. */
-function DetailBody({ messageId }: { messageId: string }) {
+export function DetailBody({ messageId }: { messageId: string }) {
   const t = useT()
   const errorText = useErrorText()
   const timing = useMessageTiming(messageId)
@@ -118,7 +118,7 @@ function DetailBody({ messageId }: { messageId: string }) {
  * «Adecuación» (UD-295): the IMK judgement of the finished job, by a cheap model: the four axes with their score against the target of the task, and the twelve KPI that could be observed,
  * each with the quote that supports it. It answers how adequate what the model did was, which is what says whether the light model was enough.
  */
-function JudgmentBody({ messageId }: { messageId: string }) {
+export function JudgmentBody({ messageId }: { messageId: string }) {
   const t = useT()
   const errorText = useErrorText()
   const timing = useMessageTiming(messageId)

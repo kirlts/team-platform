@@ -999,6 +999,10 @@ export interface paths {
                                     attachment_kinds?: string[];
                                     /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
                                     retryable?: boolean;
+                                    /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó. */
+                                    replaced_by_job_id?: string | null;
+                                    /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                    retrying?: boolean;
                                     /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                     mentions?: string[];
                                     created_at?: string;
@@ -1037,6 +1041,10 @@ export interface paths {
                                     attachment_kinds?: string[];
                                     /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
                                     retryable?: boolean;
+                                    /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó. */
+                                    replaced_by_job_id?: string | null;
+                                    /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                    retrying?: boolean;
                                     /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                     mentions?: string[];
                                     created_at?: string;
@@ -1350,6 +1358,10 @@ export interface paths {
                                     attachment_kinds?: string[];
                                     /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
                                     retryable?: boolean;
+                                    /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó. */
+                                    replaced_by_job_id?: string | null;
+                                    /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                    retrying?: boolean;
                                     /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                     mentions?: string[];
                                     created_at?: string;
@@ -1544,6 +1556,10 @@ export interface paths {
                                 attachment_kinds?: string[];
                                 /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
                                 retryable?: boolean;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó. */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -1582,6 +1598,10 @@ export interface paths {
                                 attachment_kinds?: string[];
                                 /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
                                 retryable?: boolean;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó. */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -1755,6 +1775,10 @@ export interface paths {
                                 attachment_kinds?: string[];
                                 /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
                                 retryable?: boolean;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó. */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -1793,6 +1817,10 @@ export interface paths {
                                 attachment_kinds?: string[];
                                 /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
                                 retryable?: boolean;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó. */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -2016,6 +2044,10 @@ export interface paths {
                                 attachment_kinds?: string[];
                                 /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
                                 retryable?: boolean;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó. */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -2054,6 +2086,10 @@ export interface paths {
                                 attachment_kinds?: string[];
                                 /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
                                 retryable?: boolean;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó. */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -2311,6 +2347,10 @@ export interface paths {
                                 attachment_kinds?: string[];
                                 /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
                                 retryable?: boolean;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó. */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -2349,6 +2389,10 @@ export interface paths {
                                 attachment_kinds?: string[];
                                 /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
                                 retryable?: boolean;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó. */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -2475,6 +2519,10 @@ export interface paths {
                                 attachment_kinds?: string[];
                                 /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
                                 retryable?: boolean;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó. */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -2513,6 +2561,10 @@ export interface paths {
                                 attachment_kinds?: string[];
                                 /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
                                 retryable?: boolean;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó. */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -2639,6 +2691,10 @@ export interface paths {
                                 attachment_kinds?: string[];
                                 /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
                                 retryable?: boolean;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó. */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -2677,6 +2733,10 @@ export interface paths {
                                 attachment_kinds?: string[];
                                 /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
                                 retryable?: boolean;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó. */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -2806,6 +2866,10 @@ export interface paths {
                                 attachment_kinds?: string[];
                                 /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
                                 retryable?: boolean;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó. */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -2844,6 +2908,10 @@ export interface paths {
                                 attachment_kinds?: string[];
                                 /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
                                 retryable?: boolean;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó. */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -2973,6 +3041,10 @@ export interface paths {
                                 attachment_kinds?: string[];
                                 /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
                                 retryable?: boolean;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó. */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -3011,6 +3083,10 @@ export interface paths {
                                 attachment_kinds?: string[];
                                 /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
                                 retryable?: boolean;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó. */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -3159,6 +3235,10 @@ export interface paths {
                                 attachment_kinds?: string[];
                                 /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
                                 retryable?: boolean;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó. */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -3197,6 +3277,10 @@ export interface paths {
                                 attachment_kinds?: string[];
                                 /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
                                 retryable?: boolean;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó. */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -3333,6 +3417,10 @@ export interface paths {
                                 attachment_kinds?: string[];
                                 /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
                                 retryable?: boolean;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó. */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -3371,6 +3459,10 @@ export interface paths {
                                 attachment_kinds?: string[];
                                 /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
                                 retryable?: boolean;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó. */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -3497,6 +3589,10 @@ export interface paths {
                                 attachment_kinds?: string[];
                                 /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
                                 retryable?: boolean;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó. */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -3535,6 +3631,10 @@ export interface paths {
                                 attachment_kinds?: string[];
                                 /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
                                 retryable?: boolean;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó. */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -3661,6 +3761,10 @@ export interface paths {
                                 attachment_kinds?: string[];
                                 /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
                                 retryable?: boolean;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó. */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;
@@ -3699,6 +3803,10 @@ export interface paths {
                                 attachment_kinds?: string[];
                                 /** @description La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282). */
                                 retryable?: boolean;
+                                /** @description El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó. */
+                                replaced_by_job_id?: string | null;
+                                /** @description El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290). */
+                                retrying?: boolean;
                                 /** @description Los miembros que la respuesta menciona, elegidos en la lista de «@» (UD-278). Nunca se leen del texto. */
                                 mentions?: string[];
                                 created_at?: string;

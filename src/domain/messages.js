@@ -20,7 +20,7 @@ import { loadTemplate } from './areas.js'
 import { pendingDelivery } from './delivery-review.js'
 import { cancelAgentJobs, enqueueExecuteForAgents } from '../execute/enqueue.js'
 import { SPOKEN_KINDS, enqueueReplyExtract } from './reply-extract.js'
-import { retryableIds } from '../execute/retry.js'
+import { retryableIds, retryingIds } from '../execute/retry.js'
 import { checkMentions, mentionsOf, recordMentions } from './mentions.js'
 import { isActivePerson } from './members.js'
 import { isInputParty } from './inputs.js'
@@ -81,8 +81,9 @@ function replyAttachmentsOf (db, replyIds) {
   return table
 }
 
-const toReply = (r, atts = [], mentions = [], retryable = false) => ({
+const toReply = (r, atts = [], mentions = [], retryable = false, retrying = false) => ({
   id: r.id, message_id: r.message_id, author_id: r.author_id, body: r.body, kind: r.kind, forwarded_to: r.forwarded_to ?? null, retryable, // UD-282: the notice of a failed session can be launched again
+  replaced_by_job_id: r.replaced_by_job_id ?? null, retrying, // UD-290: a retry replaced the notice; `retrying` while that job is queued or running
   mentions, // UD-278: the members picked from the list when the reply was written
   attachments: atts, attachment_kinds: [...new Set(atts.map((a) => a.kind))], // one icon per media kind (UD-016)
   created_at: iso(r.created_at), version: r.version, edited_at: iso(r.edited_at)
@@ -230,9 +231,10 @@ export function getMessage (db, id, { includeDeleted = false } = {}) {
   const atts = replyAttachmentsOf(db, replyRows.map((r) => r.id))
   const mentions = mentionsOf(db, replyRows.map((r) => r.id))
   const retryable = retryableIds(db, replyRows) // UD-282
+  const retrying = retryingIds(db, replyRows) // UD-290
   const edits = all(db, 'SELECT * FROM message_edits WHERE message_id = ? ORDER BY id', id)
     .map((e) => ({ id: e.id, member_id: e.member_id, at: iso(e.at), version: e.version, fields: parseJson(e.fields_json, []) }))
-  return { ...msgRow, trace_id: dbRow.trace_id ?? null, observed: Array.isArray(observed) ? observed : [], replies: replyRows.map((r) => toReply(r, atts.get(r.id), mentions.get(r.id), retryable.has(r.id))), edits, pending_delivery: pendingDelivery(db, id) }
+  return { ...msgRow, trace_id: dbRow.trace_id ?? null, observed: Array.isArray(observed) ? observed : [], replies: replyRows.map((r) => toReply(r, atts.get(r.id), mentions.get(r.id), retryable.has(r.id), retrying.has(r.id))), edits, pending_delivery: pendingDelivery(db, id) }
 }
 
 /**

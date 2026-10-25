@@ -59,6 +59,11 @@ export function retryableIds (db, rows) {
   return new Set(rows.filter((r) => r.failed_job_id !== null && r.failed_job_id !== undefined && retryBlock(db, r) === null).map((r) => r.id))
 }
 
+/** The ids of `replies` whose retry (`replaced_by_job_id`) is still queued or running: the thread draws them as «Reintentando» (UD-290). */
+export function retryingIds (db, rows) {
+  return new Set(rows.filter((r) => r.replaced_by_job_id !== null && r.replaced_by_job_id !== undefined && get(db, "SELECT id FROM jobs WHERE id = ? AND status IN ('queued', 'running')", r.replaced_by_job_id)).map((r) => r.id))
+}
+
 /**
  * Launches again the job whose failure `replyId` tells. Anyone who can mention the agent can (a member). Audited as `message.execute_retry`. Returns the job id.
  * 404 when the reply is not in the message; 409 `not_a_failure`, `not_retryable`, `budget_spent`, `retry_stale`, `message_closed`, `not_an_agent`, and `execute_busy` when the agent already has a
@@ -73,6 +78,7 @@ export function retryExecute ({ db, config, events, now = Date.now }, { messageI
     const failed = get(db, 'SELECT kind, payload_json FROM jobs WHERE id = ?', reply.failed_job_id)
     if (failed.kind === 'deliver') { // UD-289
       const deliverJobId = approveDelivery({ db, config, events }, { messageId, requestedBy: actor.id })
+      run(db, 'UPDATE replies SET replaced_by_job_id = ? WHERE id = ?', deliverJobId, replyId)
       audit(db, { memberId: actor.id, action: 'message.deliver_retry', entity: 'message', entityId: messageId, detail: { reply_id: replyId, failed_job_id: reply.failed_job_id, job_id: deliverJobId }, now })
       return deliverJobId
     }
@@ -83,6 +89,7 @@ export function retryExecute ({ db, config, events, now = Date.now }, { messageI
     if (jobId === null) throw conflict('El agente ya tiene un trabajo en cola o corriendo para este mensaje.', 'execute_busy')
     // A failed run handed the message to a person: the agent works it again as a mention does, so it is among the assignees.
     run(db, 'INSERT OR IGNORE INTO message_assignees (message_id, member_id) VALUES (?, ?)', messageId, payload.member_id)
+    run(db, 'UPDATE replies SET replaced_by_job_id = ? WHERE id = ?', jobId, replyId) // UD-290: the notice stays, marked as replaced by this job
     audit(db, { memberId: actor.id, action: 'message.execute_retry', entity: 'message', entityId: messageId, detail: { reply_id: replyId, failed_job_id: reply.failed_job_id, job_id: jobId }, now })
     return jobId
   })

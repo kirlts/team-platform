@@ -2293,6 +2293,17 @@
                                 "type": "boolean",
                                 "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
                               },
+                              "replaced_by_job_id": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó."
+                              },
+                              "retrying": {
+                                "type": "boolean",
+                                "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                              },
                               "mentions": {
                                 "type": "array",
                                 "items": {
@@ -2427,6 +2438,17 @@
                                 "retryable": {
                                   "type": "boolean",
                                   "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                                },
+                                "replaced_by_job_id": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó."
+                                },
+                                "retrying": {
+                                  "type": "boolean",
+                                  "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
                                 },
                                 "mentions": {
                                   "type": "array",
@@ -3039,6 +3061,17 @@
                                 "type": "boolean",
                                 "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
                               },
+                              "replaced_by_job_id": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó."
+                              },
+                              "retrying": {
+                                "type": "boolean",
+                                "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                              },
                               "mentions": {
                                 "type": "array",
                                 "items": {
@@ -3436,6 +3469,17 @@
                           "type": "boolean",
                           "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
                         },
+                        "replaced_by_job_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó."
+                        },
+                        "retrying": {
+                          "type": "boolean",
+                          "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                        },
                         "mentions": {
                           "type": "array",
                           "items": {
@@ -3570,6 +3614,17 @@
                           "retryable": {
                             "type": "boolean",
                             "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                          },
+                          "replaced_by_job_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó."
+                          },
+                          "retrying": {
+                            "type": "boolean",
+                            "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
                           },
                           "mentions": {
                             "type": "array",
@@ -3993,6 +4048,17 @@
                           "type": "boolean",
                           "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
                         },
+                        "replaced_by_job_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó."
+                        },
+                        "retrying": {
+                          "type": "boolean",
+                          "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                        },
                         "mentions": {
                           "type": "array",
                           "items": {
@@ -4127,6 +4193,17 @@
                           "retryable": {
                             "type": "boolean",
                             "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                          },
+                          "replaced_by_job_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó."
+                          },
+                          "retrying": {
+                            "type": "boolean",
+                            "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
                           },
                           "mentions": {
                             "type": "array",
@@ -4668,6 +4745,17 @@
                           "type": "boolean",
                           "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
                         },
+                        "replaced_by_job_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó."
+                        },
+                        "retrying": {
+                          "type": "boolean",
+                          "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                        },
                         "mentions": {
                           "type": "array",
                           "items": {
@@ -4802,6 +4890,17 @@
                           "retryable": {
                             "type": "boolean",
                             "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                          },
+                          "replaced_by_job_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó."
+                          },
+                          "retrying": {
+                            "type": "boolean",
+                            "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
                           },
                           "mentions": {
                             "type": "array",
@@ -5297,6 +5396,17 @@
                           "type": "boolean",
                           "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
                         },
+                        "replaced_by_job_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó."
+                        },
+                        "retrying": {
+                          "type": "boolean",
+                          "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                        },
                         "mentions": {
                           "type": "array",
                           "items": {
@@ -5431,6 +5541,17 @@
                           "retryable": {
                             "type": "boolean",
                             "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                          },
+                          "replaced_by_job_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó."
+                          },
+                          "retrying": {
+                            "type": "boolean",
+                            "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
                           },
                           "mentions": {
                             "type": "array",
@@ -5787,6 +5908,17 @@
                           "type": "boolean",
                           "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
                         },
+                        "replaced_by_job_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó."
+                        },
+                        "retrying": {
+                          "type": "boolean",
+                          "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                        },
                         "mentions": {
                           "type": "array",
                           "items": {
@@ -5921,6 +6053,17 @@
                           "retryable": {
                             "type": "boolean",
                             "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                          },
+                          "replaced_by_job_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó."
+                          },
+                          "retrying": {
+                            "type": "boolean",
+                            "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
                           },
                           "mentions": {
                             "type": "array",
@@ -6242,6 +6385,17 @@
                           "type": "boolean",
                           "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
                         },
+                        "replaced_by_job_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó."
+                        },
+                        "retrying": {
+                          "type": "boolean",
+                          "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                        },
                         "mentions": {
                           "type": "array",
                           "items": {
@@ -6376,6 +6530,17 @@
                           "retryable": {
                             "type": "boolean",
                             "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                          },
+                          "replaced_by_job_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó."
+                          },
+                          "retrying": {
+                            "type": "boolean",
+                            "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
                           },
                           "mentions": {
                             "type": "array",
@@ -6688,6 +6853,17 @@
                           "type": "boolean",
                           "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
                         },
+                        "replaced_by_job_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó."
+                        },
+                        "retrying": {
+                          "type": "boolean",
+                          "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                        },
                         "mentions": {
                           "type": "array",
                           "items": {
@@ -6822,6 +6998,17 @@
                           "retryable": {
                             "type": "boolean",
                             "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                          },
+                          "replaced_by_job_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó."
+                          },
+                          "retrying": {
+                            "type": "boolean",
+                            "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
                           },
                           "mentions": {
                             "type": "array",
@@ -7134,6 +7321,17 @@
                           "type": "boolean",
                           "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
                         },
+                        "replaced_by_job_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó."
+                        },
+                        "retrying": {
+                          "type": "boolean",
+                          "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                        },
                         "mentions": {
                           "type": "array",
                           "items": {
@@ -7268,6 +7466,17 @@
                           "retryable": {
                             "type": "boolean",
                             "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                          },
+                          "replaced_by_job_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó."
+                          },
+                          "retrying": {
+                            "type": "boolean",
+                            "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
                           },
                           "mentions": {
                             "type": "array",
@@ -7649,6 +7858,17 @@
                           "type": "boolean",
                           "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
                         },
+                        "replaced_by_job_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó."
+                        },
+                        "retrying": {
+                          "type": "boolean",
+                          "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                        },
                         "mentions": {
                           "type": "array",
                           "items": {
@@ -7783,6 +8003,17 @@
                           "retryable": {
                             "type": "boolean",
                             "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                          },
+                          "replaced_by_job_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó."
+                          },
+                          "retrying": {
+                            "type": "boolean",
+                            "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
                           },
                           "mentions": {
                             "type": "array",
@@ -8120,6 +8351,17 @@
                           "type": "boolean",
                           "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
                         },
+                        "replaced_by_job_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó."
+                        },
+                        "retrying": {
+                          "type": "boolean",
+                          "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                        },
                         "mentions": {
                           "type": "array",
                           "items": {
@@ -8254,6 +8496,17 @@
                           "retryable": {
                             "type": "boolean",
                             "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                          },
+                          "replaced_by_job_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó."
+                          },
+                          "retrying": {
+                            "type": "boolean",
+                            "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
                           },
                           "mentions": {
                             "type": "array",
@@ -8565,6 +8818,17 @@
                           "type": "boolean",
                           "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
                         },
+                        "replaced_by_job_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó."
+                        },
+                        "retrying": {
+                          "type": "boolean",
+                          "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                        },
                         "mentions": {
                           "type": "array",
                           "items": {
@@ -8699,6 +8963,17 @@
                           "retryable": {
                             "type": "boolean",
                             "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                          },
+                          "replaced_by_job_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó."
+                          },
+                          "retrying": {
+                            "type": "boolean",
+                            "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
                           },
                           "mentions": {
                             "type": "array",
@@ -9010,6 +9285,17 @@
                           "type": "boolean",
                           "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
                         },
+                        "replaced_by_job_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó."
+                        },
+                        "retrying": {
+                          "type": "boolean",
+                          "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
+                        },
                         "mentions": {
                           "type": "array",
                           "items": {
@@ -9144,6 +9430,17 @@
                           "retryable": {
                             "type": "boolean",
                             "description": "La respuesta avisa de un trabajo `execute` fallido que se puede lanzar otra vez con `POST /messages/:id/replies/:replyId/retry` (UD-282)."
+                          },
+                          "replaced_by_job_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "El trabajo que reintentó este aviso (UD-290); el aviso no se borra. El hilo lo omite cuando ese trabajo terminó."
+                          },
+                          "retrying": {
+                            "type": "boolean",
+                            "description": "El trabajo que reintentó este aviso sigue en cola o corriendo: el hilo lo dibuja como «Reintentando» (UD-290)."
                           },
                           "mentions": {
                             "type": "array",

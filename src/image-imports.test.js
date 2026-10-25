@@ -35,3 +35,15 @@ test('every module outside src/ that the server imports is copied into the runti
   }
   assert.deepEqual(missing, [])
 })
+
+// team.mjs travels alone to the work machine with its companions (TEAM_COMPANIONS): each one, and each module team.mjs
+// imports, must survive .dockerignore. walkthrough.mjs did not, and every execute job failed with ENOENT on copyFile
+// (job 150, 2026-10-25).
+test('every companion of team.mjs is in the build context', async () => {
+  const { TEAM_COMPANIONS } = await import('./execute/handler.js')
+  const ignore = readFileSync(path.join(root, '.dockerignore'), 'utf8').split('\n')
+  const team = readFileSync(path.join(root, 'scripts', 'team.mjs'), 'utf8')
+  const imported = [...team.matchAll(/(?:from |import\()\s*['"]\.\/([^'"]+)['"]/g)].map((m) => m[1])
+  const missing = [...new Set([...TEAM_COMPANIONS, ...imported])].filter((f) => !ignore.includes(`!scripts/${f}`))
+  assert.deepEqual(missing, [])
+})

@@ -4,6 +4,7 @@
 //
 //   node bench/run.mjs --fake perfect                   fake providers with the reference, no network
 //   node bench/run.mjs                                  real providers, configured by environment (src/providers)
+//   node bench/run.mjs --cli claude-haiku-5-5          real model through `claude -p` (the subscription of the account, no API key)
 //   node bench/run.mjs --repeat 5 --case 03-monologo-prueba --analyzer harness
 //   node bench/run.mjs --language en                    prompts and output in English (default es-419, UD-018)
 //   node bench/run.mjs --config '{"decomposeEffort":"low","decomposeThinking":"disabled"}'   analyzer knobs (src/analyze/config.js)
@@ -15,12 +16,14 @@ import { loadCases, loadFixtures, runCase, summarize, formatReport } from './lib
 import { createBenchProviders } from './fake-providers.js';
 import { analyze } from '../src/analyze/index.js';
 import { createProviders } from '../src/providers/index.js';
+import { createClaudeCliProviders } from './claude-cli-provider.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
 const { values } = parseArgs({
   options: {
     fake: { type: 'string' },
+    cli: { type: 'string' },
     'latency-ms': { type: 'string', default: '0' },
     analyzer: { type: 'string' },
     config: { type: 'string' },
@@ -43,7 +46,12 @@ if (cases.length === 0) throw new Error('No case matches --case');
 
 const providersFor = values.fake
   ? (testCase) => createBenchProviders({ expected: testCase.expected, mode: values.fake, latencyMs: Number(values['latency-ms']) })
-  : (() => {
+  : values.cli
+    ? (() => {
+        const viaCli = createClaudeCliProviders({ model: values.cli });
+        return () => viaCli;
+      })()
+    : (() => {
       const real = createProviders(process.env);
       return () => real;
     })();

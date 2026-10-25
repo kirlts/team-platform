@@ -10,6 +10,7 @@ import { languageShare, tellsOfProposal } from './ai-tells.js';
 import { costOf } from './pricing.js';
 import { loadSeed } from '../src/analyze/seed.js';
 import { numberUnits } from '../src/analyze/units.js';
+import { applyCuts } from '../src/analyze/validate.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const casesDir = join(here, 'cases');
@@ -49,7 +50,11 @@ export function buildBundle(input, fixtures, { language } = {}) {
 }
 
 /** Units the analyzer numbers for a case: the numbering of expected.json. */
-export const unitsOf = (input) => numberUnits({ text: input.text, attachments: input.attachments });
+export const unitsOf = (input, expected) => {
+  const units = numberUnits({ text: input.text, attachments: input.attachments });
+  // A reference that declares `cuts` cites the units after the cut pass (UD-292), numbered again from 1.
+  return expected?.cuts?.length ? applyCuts(units, expected.cuts).units : units;
+};
 
 /**
  * Runs the analyzer measuring total time, time per step and model calls.
@@ -76,7 +81,7 @@ export async function runCase({ analyze, providers, testCase, fixtures, options 
 
   // If the analyzer fails with a draft, the draft is scored to see what failed.
   const scored = result.proposal ?? { messages: result.draft?.messages ?? [], discarded: result.draft?.discarded ?? [] };
-  const units = result.units ?? unitsOf(testCase.input);
+  const units = result.units ?? unitsOf(testCase.input, testCase.expected);
   const s = score({ units, expected: testCase.expected, actual: scored });
   if (result.status !== 'ok') s.mece = false;
 

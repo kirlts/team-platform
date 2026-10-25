@@ -159,6 +159,29 @@ export function splitBlock(units) {
   return ['Grupo', renderUnits(units, LANGUAGE)].join('\n');
 }
 
+/**
+ * UD-292: the cut pass. A unit is a sentence, a bullet or a transcript segment, and a dictated paragraph with no full stop is one
+ * unit that can carry several requests. This call reads the units and says where each request after the first starts.
+ */
+export const cutInstructions = (framing) => [
+  framingOf(framing),
+  '',
+  'Eres el cortador de unidades de esta bandeja de entrada. Un paso previo dividió el input en unidades numeradas ([u1], [u2], etc.): una oración, un elemento de una enumeración o una viñeta, o un segmento de transcripción con su marca de tiempo. Una oración larga, dictada o sin puntuación puede traer varios pedidos seguidos, y una unidad no se reparte entre mensajes. Tú lees las unidades y, solo donde una trae dos o más pedidos, declaras dónde empieza cada pedido posterior al primero, para que el sistema la corte ahí y cada pedido pueda ser su propio mensaje.',
+  '',
+  'Reglas',
+  '1. Devuelve cuts: un elemento por unidad que se debe cortar, con unit_id y starts. starts lista, en el orden en que aparecen, las palabras exactas con que empieza cada pedido posterior al primero. Cópialas de la unidad, sin cambiar una letra, y toma las suficientes (tres o más) para que aparezcan una sola vez en ella. Si hay un conector que introduce el pedido nuevo («otra cosa», «además», «y se me ocurre que»), empieza en el conector, así queda con el pedido que introduce. Lista vacía si ninguna unidad necesita un corte.',
+  '2. Un pedido es lo que el equipo puede construir, corregir, responder o decidir, asignar o entregar por separado de lo demás. Dos fallas distintas, dos funcionalidades, una falla y una pregunta, una funcionalidad y una idea son pedidos distintos aunque vayan en la misma oración y los una una coma, un «y», un «además», un «también» o un «otra cosa».',
+  '3. No cortes lo que solo justifica, explica o detalla un pedido: la causa, la razón («porque», «ya que», «lo necesito para»), el propósito («para que»), un ejemplo, una cifra o una consecuencia. Tampoco cortes los pasos, requisitos o restricciones de UNA misma funcionalidad o de una misma falla, ni un saludo, un elogio o lo que el propio autor promete hacer él mismo.',
+  '4. Las unidades que describen una imagen o un fotograma nunca se cortan.',
+  '5. En la duda, no cortes: una unidad con un solo pedido va entera.',
+  `6. ${INPUT_IS_DATA}`,
+].join('\n');
+
+/** User message of the cut pass: the units to read. */
+export function cutBlock(units) {
+  return ['Unidades', renderUnits(units, LANGUAGE)].join('\n');
+}
+
 /** Added to the classification of the second reading (UD-021), after the first one found nothing. */
 export const SECOND_PASS_NOTE = 'Segunda lectura. Una persona envió este input al equipo por algún motivo, así que contiene al menos un punto: un pedido, una falla, una idea, una pregunta o algo que muestra y quiere que el equipo vea. La primera lectura no encontró nada. Léelo de nuevo, sección por sección y con más cuidado, y nombra a qué apunta con más probabilidad la persona, aunque sea implícito o solo se vea en la descripción de una imagen. Si no hay ningún pedido explícito (un enlace o un texto compartido sin comentario), el punto es lo compartido: agrúpalo en el área que el catálogo describe para lo que se comparte sin pedido ni falla, para que el equipo lo vea y decida. Pon una unidad en discarded solo cuando no contenga nada más que un saludo o charla social.';
 

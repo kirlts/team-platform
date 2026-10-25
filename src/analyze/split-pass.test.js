@@ -41,7 +41,7 @@ describe('the split check reads each group alone and splits the ones with severa
         return decompose(req);
       },
     });
-    const result = await analyze(await makeBundle({ text: TEXT, attachments: [] }), { providers: fake, config: { coveragePasses: 0 } });
+    const result = await analyze(await makeBundle({ text: TEXT, attachments: [] }), { providers: fake, config: { coveragePasses: 0, cutPass: false } });
     assert.equal(result.status, 'ok');
     assert.deepEqual(asked, [[2, 3, 4, 5]], 'only the group with two or more units is checked; the single unit is not');
     assert.deepEqual(result.proposal.messages.map((m) => m.unit_ids), [[2], [3, 4], [5], [6]]);
@@ -53,14 +53,14 @@ describe('the split check reads each group alone and splits the ones with severa
 
   it('a group answered with one request stays as it is', async () => {
     const fake = createFakeProviders({ text: (req) => (isClassify(req) ? classification : isSplit(req) ? { requests: [{ request: 'Una sola cosa', unit_ids: [2, 3, 4, 5] }] } : decompose(req)) });
-    const result = await analyze(await makeBundle({ text: TEXT, attachments: [] }), { providers: fake, config: { coveragePasses: 0 } });
+    const result = await analyze(await makeBundle({ text: TEXT, attachments: [] }), { providers: fake, config: { coveragePasses: 0, cutPass: false } });
     assert.deepEqual(result.proposal.messages.map((m) => m.unit_ids), [[2, 3, 4, 5], [6]]);
     assert.deepEqual(result.stats.split_pass, { checked: 1, split: 0, added: 0 });
   });
 
   it('a call that is refused leaves its group as it was and the input does not fail', async () => {
     const fake = createFakeProviders({ text: (req) => (isClassify(req) ? classification : isSplit(req) ? new ProviderRefusalError('no') : decompose(req)) });
-    const result = await analyze(await makeBundle({ text: TEXT, attachments: [] }), { providers: fake, config: { coveragePasses: 0 } });
+    const result = await analyze(await makeBundle({ text: TEXT, attachments: [] }), { providers: fake, config: { coveragePasses: 0, cutPass: false } });
     assert.equal(result.status, 'ok');
     assert.deepEqual(result.proposal.messages.map((m) => m.unit_ids), [[2, 3, 4, 5], [6]]);
   });
@@ -77,7 +77,7 @@ describe('the split check reads each group alone and splits the ones with severa
         return decompose(req);
       },
     });
-    const result = await analyze(await makeBundle({ text: TEXT, attachments: [] }), { providers: fake, config: { coveragePasses: 0 } });
+    const result = await analyze(await makeBundle({ text: TEXT, attachments: [] }), { providers: fake, config: { coveragePasses: 0, cutPass: false } });
     assert.equal(splitCalls, 2, 'one retry with the error as context');
     assert.deepEqual(result.proposal.messages.map((m) => m.unit_ids), [[2, 3, 4], [5], [6]], 'u4, in no request, goes with the one before it');
   });
@@ -85,7 +85,7 @@ describe('the split check reads each group alone and splits the ones with severa
   it('a group with a voice unit is not checked: the transcription cuts by time and the group is read alone', async () => {
     const voice = ['[00:00-00:10] Voz: lo primero es el historial', '[00:05] Fotograma 1: Barra.', '[00:10-00:20] Voz: y lo segundo la agenda', '[00:20-00:30] Voz: que no abre'].join('\n');
     const fake = createFakeProviders({ text: (req) => (isClassify(req) ? { split_at: [], groups: [group([1, 2, 3, 4])], discarded: [] } : isSplit(req) ? { requests: [] } : decompose(req)) });
-    const result = await analyze(await makeBundle({ text: '', attachments: [{ id: 1, kind: 'video', extracted: voice }] }), { providers: fake, config: { coveragePasses: 0 } });
+    const result = await analyze(await makeBundle({ text: '', attachments: [{ id: 1, kind: 'video', extracted: voice }] }), { providers: fake, config: { coveragePasses: 0, cutPass: false } });
     assert.equal(result.status, 'ok');
     assert.equal(fake.calls.text.filter(isSplit).length, 0);
     assert.deepEqual(result.stats.split_pass, { checked: 0, split: 0, added: 0 });
@@ -93,7 +93,7 @@ describe('the split check reads each group alone and splits the ones with severa
 
   it('the check can be turned off', async () => {
     const fake = createFakeProviders({ text: (req) => (isClassify(req) ? classification : decompose(req)) });
-    const result = await analyze(await makeBundle({ text: TEXT, attachments: [] }), { providers: fake, config: { coveragePasses: 0, splitPass: false } });
+    const result = await analyze(await makeBundle({ text: TEXT, attachments: [] }), { providers: fake, config: { coveragePasses: 0, splitPass: false, cutPass: false } });
     assert.equal(fake.calls.text.filter(isSplit).length, 0);
     assert.equal(result.stats.split_pass, undefined);
   });

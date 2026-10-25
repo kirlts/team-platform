@@ -1,5 +1,4 @@
-// Decomposition bank of one send into one or several messages (Martín, 2026-10-25: «es súper importante que el sistema pueda
-// adecuadamente crear un número entre uno y varios mensajes a partir de un solo mensaje fuente»).
+// Decomposition bank of one send into one or several messages (Martin, 2026-10-25: a send must become between one and several messages).
 //
 // The 12 sends are synthetic and about a delivery-route product (the fictional team of bench/fixtures.json); none holds data of a
 // person. Each one is written as tagged segments: the request a segment belongs to (`r1`, `r2`… or null for a greeting or a
@@ -30,21 +29,39 @@ function countUnits(kind, text) {
  */
 function build(def) {
   const attachments = (def.attachments ?? []).map((a) => ({ id: a.id, kind: a.kind, name: a.name, extracted: a.segments.map((s) => s.text).join(a.join ?? '\n') }));
-  const input = { id: def.id, title: def.title, kind: 'envio', description: def.why, text: def.text.map((s) => s.text).join('\n\n'), attachments };
+  // A segment that is an array is one run-on paragraph: its clauses are joined by a space and the analyzer numbers it as a single unit,
+  // so the cut pass has to cut it. `cuts` records where, so the fake provider can answer like a perfect reader.
+  const paragraphs = def.text.map((seg) => (Array.isArray(seg) ? { runOn: seg } : { seg }));
+  const input = { id: def.id, title: def.title, kind: 'envio', description: def.why, text: paragraphs.map((p) => (p.runOn ? p.runOn.map((c) => c.text).join(' ') : p.seg.text)).join('\n\n'), attachments };
 
-  // Expected units: the numbering is sequential over the text and then over each attachment, in order.
+  // Expected units are those AFTER the cuts: sequential over the text and then over each attachment, in order.
   const owner = new Map(); // unit id -> request (null = discarded)
-  let next = 1;
-  const place = (kind, segments) => {
-    for (const s of segments) {
-      const n = countUnits(kind, s.text);
+  const cuts = [];
+  let next = 1; // numbering after the cuts
+  let before = 1; // numbering before the cuts (what the analyzer sees when it is asked to cut)
+  for (const p of paragraphs) {
+    if (p.runOn) {
+      const starts = p.runOn.slice(1).map((c) => c.text.split(/\s+/).slice(0, 4).join(' '));
+      const joined = p.runOn.map((c) => c.text).join(' ');
+      for (const at of starts) if (joined.indexOf(at) !== joined.lastIndexOf(at)) throw new Error(`${def.id}: «${at}» is not unique in its paragraph`);
+      cuts.push({ unit_id: before, starts });
+      for (const c of p.runOn) owner.set(next++, c.req);
+      before += 1;
+    } else {
+      const n = countUnits('text', p.seg.text);
+      for (let i = 0; i < n; i += 1) owner.set(next++, p.seg.req);
+      before += n;
+    }
+  }
+  for (const a of def.attachments ?? []) {
+    for (const s of a.segments) {
+      const n = countUnits(a.kind, s.text);
       for (let i = 0; i < n; i += 1) owner.set(next++, s.req);
     }
-  };
-  place('text', def.text);
-  for (const a of def.attachments ?? []) place(a.kind, a.segments);
+  }
   const total = numberUnits({ text: input.text, attachments }).length;
-  if (total !== owner.size) throw new Error(`${def.id}: the segments number ${owner.size} units and the analyzer ${total}`);
+  const runOnExtra = paragraphs.filter((p) => p.runOn).reduce((n, p) => n + p.runOn.length - 1, 0);
+  if (total + runOnExtra !== owner.size) throw new Error(`${def.id}: the segments number ${owner.size} units after the cuts and the analyzer ${total} plus ${runOnExtra} cut parts`);
 
   const order = Object.keys(def.requests);
   const messages = order.map((req) => {
@@ -55,7 +72,7 @@ function build(def) {
     return { id: req, title: def.requests[req].title ?? req, area_id: area, template_id: area, unit_ids, attachment_ids: own };
   });
   const discarded = [...owner].filter(([, r]) => r === null).map(([id]) => ({ unit_ids: [id], reason: 'greeting or sign-off' }));
-  return { id: def.id, input, expected: { id: def.id, messages, discarded }, why: def.why };
+  return { id: def.id, input, expected: { id: def.id, messages, discarded, cuts }, why: def.why };
 }
 
 const DEFS = [
@@ -95,14 +112,13 @@ const DEFS = [
   },
   {
     id: 'e04-tres-areas',
-    title: 'Three requests of three areas',
-    why: 'An error, a question to a person and an idea: three messages, three areas.',
-    text: [
-      t('r1', 'Las paradas aparecen duplicadas en la pantalla de ruta desde la actualización del martes.'),
-      t('r2', 'Tomás, ¿cuántas rutas por día aguanta hoy el servidor antes de ponerse lento?'),
-      t('r2', 'Lo necesito para armar la propuesta de precio de un cliente grande.'),
-      t('r3', 'Se me ocurre que podríamos agrupar las entregas por edificio para que el repartidor suba una sola vez.'),
-    ],
+    title: 'Three requests of three areas in one dictated sentence',
+    why: 'A dictated paragraph with no full stop: an error, a question to a person and an idea in a single unit. Three messages, three areas.',
+    text: [[
+      t('r1', 'oye las paradas aparecen duplicadas en la pantalla de ruta desde la actualización del martes'),
+      t('r2', 'y otra cosa Tomás cuántas rutas por día aguanta el servidor antes de ponerse lento porque lo necesito para la propuesta de precio'),
+      t('r3', 'y se me ocurre que podríamos agrupar las entregas por edificio para que el repartidor suba una sola vez'),
+    ]],
     requests: { r1: { area: ERROR }, r2: { area: QUESTION }, r3: { area: IDEA } },
   },
   {
@@ -133,13 +149,12 @@ const DEFS = [
   },
   {
     id: 'e07-pregunta-de-investigacion-y-arreglo',
-    title: 'A research question next to a fix',
-    why: 'An open question that someone has to research and a plain fix in the same text: they do not go in one message.',
-    text: [
-      t('r1', 'El botón Exportar CSV del panel no hace nada cuando hay más de mil filas.'),
-      t('r2', '¿Qué opciones hay para notificar al cliente por WhatsApp en vez de correo, y cuánto cuesta cada una?'),
-      t('r2', 'Necesito saber qué se puede hacer antes de decidir si lo pedimos.'),
-    ],
+    title: 'A research question next to a fix, in one sentence',
+    why: 'An open question that someone has to research and a plain fix in one sentence: they do not go in one message.',
+    text: [[
+      t('r1', 'El botón Exportar CSV del panel no hace nada cuando hay más de mil filas,'),
+      t('r2', 'y además quiero saber qué opciones hay para notificar al cliente por WhatsApp en vez de correo y cuánto cuesta cada una antes de decidir si lo pedimos.'),
+    ]],
     requests: { r1: { area: ERROR }, r2: { area: QUESTION } },
   },
   {
@@ -166,7 +181,7 @@ const DEFS = [
     why: 'Each screenshot goes with its own message and with no other.',
     text: [
       t('r1', 'El mapa del panel no carga las calles de la zona norte.'),
-      t('r2', 'La lista de repartidores no se puede ordenar por nombre.'),
+      t('r2', 'Quiero poder ordenar la lista de repartidores por nombre.'),
       t('r3', 'El botón Cerrar jornada está pegado a Cancelar ruta y me equivoqué dos veces.'),
     ],
     attachments: [
@@ -174,7 +189,7 @@ const DEFS = [
       { id: 2, kind: 'image', name: 'lista.png', segments: [t('r2', 'Tabla de repartidores con la cabecera Nombre sin flecha de orden.')] },
       { id: 3, kind: 'image', name: 'botones.png', segments: [t('r3', 'Barra inferior con los botones Cerrar jornada y Cancelar ruta sin separación.')] },
     ],
-    requests: { r1: { area: ERROR }, r2: { area: ERROR }, r3: { area: ERROR } },
+    requests: { r1: { area: ERROR }, r2: { area: FEATURE }, r3: { area: ERROR } },
   },
   {
     id: 'e10-lista-con-vinetas',
@@ -184,9 +199,9 @@ const DEFS = [
       t(null, 'Pendientes que me anoté después de la reunión con el cliente:'),
       t('r1', '- El PDF de la guía de despacho sale cortado en el borde derecho.'),
       t('r2', '- La guía de despacho debería llevar el código de barras del pedido.'),
-      t('r3', '- No se puede cambiar la dirección de entrega una vez que la ruta está en curso.'),
+      t('r3', '- Quiero poder cambiar la dirección de entrega una vez que la ruta está en curso.'),
     ],
-    requests: { r1: { area: ERROR }, r2: { area: FEATURE }, r3: { area: ERROR } },
+    requests: { r1: { area: ERROR }, r2: { area: FEATURE }, r3: { area: FEATURE } },
   },
   {
     id: 'e11-documento-compartido',

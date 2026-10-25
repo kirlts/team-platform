@@ -107,7 +107,7 @@ describe('classifyInput: draws of the first classification (H-1003)', () => {
   it('several draws are asked in parallel; the system keeps the one that agrees most, with the area the majority gave', async () => {
     let n = 0;
     const fake = createFakeProviders({ text: () => { const out = draws[n % draws.length]; n += 1; return out; } });
-    const stage = await classifyInput(await makeBundle({ text: TEXT, attachments: [] }), { providers: fake, config: resolveConfig({ classifyDraws: 3, coveragePasses: 0, splitPass: false }) });
+    const stage = await classifyInput(await makeBundle({ text: TEXT, attachments: [] }), { providers: fake, config: resolveConfig({ classifyDraws: 3, coveragePasses: 0, splitPass: false, cutPass: false }) });
     assert.equal(fake.calls.text.length, 3);
     assert.equal(stage.ctx.stats.classification_draws, 3);
     assert.deepEqual(stage.groups.map((x) => [x.area_id, x.unit_ids]), [[2, [1, 2]], [1, [3, 4]]], 'u3 and u4 went to area 1 in two of the three draws');
@@ -115,7 +115,7 @@ describe('classifyInput: draws of the first classification (H-1003)', () => {
 
   it('a single draw is the classification as it comes', async () => {
     const fake = createFakeProviders({ text: [draws[0]] });
-    const stage = await classifyInput(await makeBundle({ text: TEXT, attachments: [] }), { providers: fake, config: resolveConfig({ classifyDraws: 1, coveragePasses: 0, splitPass: false }) });
+    const stage = await classifyInput(await makeBundle({ text: TEXT, attachments: [] }), { providers: fake, config: resolveConfig({ classifyDraws: 1, coveragePasses: 0, splitPass: false, cutPass: false }) });
     assert.equal(fake.calls.text.length, 1);
     assert.deepEqual(stage.groups, draws[0].groups);
     assert.equal(stage.ctx.stats.classification_draws, undefined);

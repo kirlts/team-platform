@@ -246,7 +246,7 @@ export function MediaGallery({
                   aria-label={t('gallery.item', { n: i + 1, total, name: it.name ?? t(MEDIA_KEY[it.kind]) })}
                   onClick={() => select(i, { smooth: Math.abs(i - current) === 1 })}
                   // The selected one carries a thicker frame and a bar under it, so it does not depend on color alone.
-                  className={cn('relative block rounded-md p-0.5', on ? 'bg-accent-soft shadow-[inset_0_0_0_2px_var(--color-accent)]' : 'hover:bg-hover')}
+                  className={cn('relative block h-[52px] w-[52px] rounded-md p-0.5', on ? 'bg-accent-soft shadow-[inset_0_0_0_2px_var(--color-accent)]' : 'hover:bg-hover')}
                 >
                   <Thumb item={{ kind: it.kind, src: it.src, name: it.name, size: it.size }} px={48} />
                   {on && <span aria-hidden className="absolute inset-x-1.5 -bottom-1 h-[3px] rounded-full bg-accent" />}

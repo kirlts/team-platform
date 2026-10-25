@@ -7,10 +7,11 @@
 //
 // The master key is 32 random bytes. It comes from `SECRETS_KEY` (64 hex characters or base64 of 32 bytes) when the
 // environment declares it, and otherwise from `<DATA_DIR>/secrets.key`, created with mode 600 at the first start. The file
-// is created with the exclusive flag, so two processes starting together (API and worker) end up with the same key.
+// is published with an atomic hard link of a complete temporary file, so two processes starting together (API and
+// worker) end up with the same key and none of them ever reads a file that is still empty.
 
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, linkSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
 const VERSION = 'v1'
@@ -40,17 +41,25 @@ export function parseMasterKey (text) {
 export const generateMasterKey = () => randomBytes(KEY_BYTES)
 export const keyId = (key) => createHash('sha256').update(key).digest('hex').slice(0, 8)
 
-/** Writes a key file with mode 600 through a temporary name, so a reader never sees half a key. */
+/**
+ * Writes a key file with mode 600 through a temporary name, so a reader never sees half a key.
+ * With `exclusive`, the file appears only if it does not exist yet, already complete: the temporary file is linked
+ * to its final name (link(2) is atomic and fails with EEXIST), never created empty and filled afterwards.
+ */
 function writeKeyFile (file, key, { exclusive }) {
   mkdirSync(path.dirname(file), { recursive: true })
   const text = `${key.toString('base64')}\n`
-  if (exclusive) {
-    writeFileSync(file, text, { flag: 'wx', mode: 0o600 })
-    return
-  }
   const temporary = `${file}.${process.pid}.tmp`
   writeFileSync(temporary, text, { mode: 0o600 })
-  renameSync(temporary, file)
+  if (!exclusive) {
+    renameSync(temporary, file)
+    return
+  }
+  try {
+    linkSync(temporary, file)
+  } finally {
+    unlinkSync(temporary)
+  }
 }
 
 /**

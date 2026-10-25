@@ -1,7 +1,7 @@
 // Tests of the vault (UD-121): sealing, authentication, master key sources and rotation.
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -195,10 +195,11 @@ test('simultaneous first starts of several processes end with the same key and n
   for (let round = 0; round < 3; round++) {
     const dir = tempDir()
     try {
-      const results = await loadTogether(dir, 5)
+      const results = await loadTogether(dir, 8)
       assert.deepEqual(results.filter((r) => r.error), [], `round ${round}`)
       assert.equal(new Set(results.map((r) => r.id)).size, 1, `round ${round}`)
       assert.equal(statSync(path.join(dir, KEY_FILE_NAME)).mode & 0o777, 0o600)
+      assert.deepEqual(readdirSync(dir), [KEY_FILE_NAME], `round ${round}: no temporary file is left behind`)
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }

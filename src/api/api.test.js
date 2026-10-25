@@ -419,10 +419,13 @@ test('members: creation by the editor, unique email, and one editor always remai
   assert.equal((await env.api('POST', '/members', env.c.ana, { email: 'e@x.org', name: 'E' })).statusCode, 403)
   assert.equal(get(env.db, "SELECT COUNT(*) AS n FROM members WHERE email = 'd@x.org'").n, 0)
   // The editor edits others; the last editor cannot stop being one.
-  // UD-023: nobody edits another person's profile, not even the editor; each one edits their own.
+  // UD-288 (amends UD-023): the Editor writes the profile of another person; a member who is not an Editor does not.
+  assert.equal((await env.api('PATCH', '/members/3', env.c.ana, { profile: 'No debería.' })).statusCode, 403)
   const otherProfile = await env.api('PATCH', '/members/2', env.c.ed, { profile: 'Hago la API.' })
-  assert.equal(otherProfile.statusCode, 400)
-  assert.equal(otherProfile.json().code, 'validation') // translated as `error.validation` in both panel catalogs (HP-021)
+  assert.equal(otherProfile.statusCode, 200)
+  assert.equal(otherProfile.json().profile, 'Hago la API.')
+  assert.equal(get(env.db, 'SELECT profile FROM members WHERE id = 2').profile, 'Hago la API.')
+  assert.notEqual(get(env.db, 'SELECT profile FROM members WHERE id = 3').profile, 'No debería.')
   // UD-281: the editor does edit the profile of an agent, with audit; a member who is not an editor does not.
   const agentCreated = await env.api('POST', '/members', env.c.ed, { email: 'agente-perfil@x.org', name: 'Agente', kind: 'agent' })
   assert.equal(agentCreated.statusCode, 201)
@@ -436,7 +439,6 @@ test('members: creation by the editor, unique email, and one editor always remai
   assert.equal((await env.api('DELETE', `/members/${agentId}?confirm=true&purge=true`, env.c.ed)).statusCode, 200) // leaves the team as it was
   const ownProfile = await env.api('PATCH', '/members/me', env.c.ed, { profile: 'Reviso todo.\n\nNo toco la interfaz.' })
   assert.equal(ownProfile.json().profile, 'Reviso todo.\n\nNo toco la interfaz.') // free text, paragraphs included
-  assert.equal(get(env.db, 'SELECT profile FROM members WHERE id = 2').profile !== 'Hago la API.', true)
   assert.equal((await env.api('PATCH', '/members/2', env.c.ed, { responsibilities: 'API' })).statusCode, 400) // UD-023: the old field no longer exists
   const lastSeqValue = await env.api('PATCH', '/members/1', env.c.ed, { role: 'member' })
   assert.equal(lastSeqValue.statusCode, 409)

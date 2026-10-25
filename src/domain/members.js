@@ -1,5 +1,5 @@
-// Team members (MASTER-SPEC §1.1). A member edits only their own profile (UD-023), language and password; the editor
-// administers the rest. At least one editor must remain.
+// Team members (MASTER-SPEC §1.1). A member edits their own profile (UD-023), language and password; the editor
+// administers the rest, the profile of any member included (UD-288). At least one editor must remain.
 
 import { all, get, run, tx } from '../db/index.js'
 import { iso } from '../db/util.js'

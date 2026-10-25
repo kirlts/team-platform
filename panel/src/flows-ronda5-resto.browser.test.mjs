@@ -88,10 +88,14 @@ describe('Equipo', () => {
   test('a role says what it allows on hover and to a screen reader, with no visible help text', async () => {
     const { page, context } = await open(DESKTOP, 'light', 'ana', '/team')
     try {
-      const chip = page.getByRole('button', { name: /^Rol de Bruno/ }).first()
-      await chip.waitFor()
-      assert.match(await chip.getAttribute('title'), /Envía mensajes|Administra/)
-      assert.match(await chip.getAttribute('aria-label'), /\. (Envía mensajes|Administra)/)
+      await page.getByRole('button', { name: 'Acciones de Bruno Prueba' }).click()
+      const group = page.getByRole('menu').getByRole('group', { name: /^Rol de Bruno/ })
+      await group.waitFor()
+      for (const item of await group.getByRole('menuitemradio').all()) {
+        assert.match(await item.getAttribute('title'), /Envía mensajes|Administra/)
+        assert.match(await item.getAttribute('aria-label'), /\. (Envía mensajes|Administra)/)
+      }
+      await page.keyboard.press('Escape')
       assert.equal(await page.getByText('Envía mensajes y responde').count(), 0, 'the explanation is not drawn')
     } finally {
       await context.close()

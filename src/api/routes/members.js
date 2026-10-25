@@ -110,7 +110,7 @@ export function registerMemberRoutes (app, ctx) {
   app.patch('/members/:id', {
     onRequest: [requireRole('editor')],
     schema: {
-      summary: 'Editar un miembro, o desactivarlo y reactivarlo con `active` (editor). El perfil sólo se edita aquí si el miembro es un agente (UD-281); el de una persona lo edita ella con `PATCH /members/me` (UD-023)',
+      summary: 'Editar un miembro, o desactivarlo y reactivarlo con `active` (editor). El Editor edita aquí el perfil de cualquier miembro, persona o agente (UD-288); cada persona edita el suyo con `PATCH /members/me` (UD-023)',
       params: idParams(),
       body: {
         type: 'object', additionalProperties: false, minProperties: 1,
@@ -125,8 +125,7 @@ export function registerMemberRoutes (app, ctx) {
   }, async (request) => {
     const { password, ...edits } = request.body
     const id = request.params.id
-    // UD-281: the editor edits the profile of an agent, who does not use the screen; the profile of a person stays their own (UD-023).
-    if (edits.profile !== undefined && get(db, 'SELECT kind FROM members WHERE id = ?', id)?.kind === 'person') throw badRequest('El perfil de una persona lo edita ella misma.', 'validation')
+    // UD-288 (amends UD-023 and UD-281): the profile is a configured text, so the Editor writes the profile of any member, person or agent.
     // H-3720: the host declares this member's role on every entry; a local change would be undone on the next one.
     if (edits.role !== undefined && isRoleGoverned(db, id) && edits.role !== getMember(db, id).role) {
       throw conflict('El rol lo administra el sitio anfitrión.', 'role_managed_externally')

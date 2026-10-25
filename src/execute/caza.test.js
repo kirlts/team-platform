@@ -290,7 +290,7 @@ describe('failure hunt: execute and deliver', () => {
   it('eight sessions that start together do not each get the whole remainder of the day: the cap holds', async () => {
     process.env.FAKE_EXECUTE_SLEEP_MS = '400'
     env.db.prepare("UPDATE jobs SET cost_usd = NULL WHERE kind = 'execute'").run()
-    startWorker({ dailyBudgetUsd: 10, maxBudgetUsd: 10, capacityWaitMs: 100 })
+    startWorker({ dailyBudgetUsd: 10, maxBudgetUsd: 10, sessionReserveUsd: 10, capacityWaitMs: 100 }) // UD-305: the knob holds the whole cap per session, so the caps never add up to more than the day
     const ids = []
     for (let i = 0; i < 3; i++) ids.push(await publishedMessage(`Mensaje de una ráfaga ${i}.`))
     await Promise.all(ids.map(settle))

@@ -76,6 +76,7 @@ export interface TemplateFields {
   name?: string
   description?: string
   body_markdown?: string
+  progress_interval_min?: number
 }
 
 export type ProviderChange = Pick<ProviderSetting, 'slot'> & Partial<Pick<ProviderSetting, 'provider' | 'model' | 'base_url'>>

@@ -17,7 +17,7 @@ export const SCOPES = ['content', 'everything']
 /** Children first. `spans` has no foreign keys; `messages.input_id` is SET NULL, so inputs may go before or after messages. */
 export const CONTENT_TABLES = [
   'job_events', 'jobs', 'proposals',
-  'message_attachments', 'message_edits', 'message_assignees', 'reply_attachments', 'replies', 'messages',
+  'message_attachments', 'message_edits', 'message_assignees', 'reply_attachments', 'replies', 'progress_notes', 'messages',
   'attachments', 'inputs', 'spans'
 ]
 

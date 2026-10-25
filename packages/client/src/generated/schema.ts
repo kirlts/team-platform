@@ -1059,6 +1059,16 @@ export interface paths {
                                     version?: number;
                                     edited_at?: string | null;
                                 }[];
+                                /** @description Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`. */
+                                progress_notes?: {
+                                    id?: string;
+                                    message_id?: string;
+                                    job_id?: string;
+                                    author_id?: string;
+                                    body?: string;
+                                    minutes?: null | number;
+                                    created_at?: string;
+                                }[];
                                 /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
                                 pending_delivery?: {
                                     branch?: string;
@@ -1616,6 +1626,16 @@ export interface paths {
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`. */
+                            progress_notes?: {
+                                id?: string;
+                                message_id?: string;
+                                job_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                minutes?: null | number;
+                                created_at?: string;
+                            }[];
                             /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
                             pending_delivery?: {
                                 branch?: string;
@@ -1834,6 +1854,16 @@ export interface paths {
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
+                            }[];
+                            /** @description Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`. */
+                            progress_notes?: {
+                                id?: string;
+                                message_id?: string;
+                                job_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                minutes?: null | number;
+                                created_at?: string;
                             }[];
                             /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
                             pending_delivery?: {
@@ -2103,6 +2133,16 @@ export interface paths {
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
+                            }[];
+                            /** @description Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`. */
+                            progress_notes?: {
+                                id?: string;
+                                message_id?: string;
+                                job_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                minutes?: null | number;
+                                created_at?: string;
                             }[];
                             /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
                             pending_delivery?: {
@@ -2407,6 +2447,16 @@ export interface paths {
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`. */
+                            progress_notes?: {
+                                id?: string;
+                                message_id?: string;
+                                job_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                minutes?: null | number;
+                                created_at?: string;
+                            }[];
                             /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
                             pending_delivery?: {
                                 branch?: string;
@@ -2579,6 +2629,16 @@ export interface paths {
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`. */
+                            progress_notes?: {
+                                id?: string;
+                                message_id?: string;
+                                job_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                minutes?: null | number;
+                                created_at?: string;
+                            }[];
                             /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
                             pending_delivery?: {
                                 branch?: string;
@@ -2750,6 +2810,16 @@ export interface paths {
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
+                            }[];
+                            /** @description Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`. */
+                            progress_notes?: {
+                                id?: string;
+                                message_id?: string;
+                                job_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                minutes?: null | number;
+                                created_at?: string;
                             }[];
                             /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
                             pending_delivery?: {
@@ -2926,6 +2996,16 @@ export interface paths {
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`. */
+                            progress_notes?: {
+                                id?: string;
+                                message_id?: string;
+                                job_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                minutes?: null | number;
+                                created_at?: string;
+                            }[];
                             /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
                             pending_delivery?: {
                                 branch?: string;
@@ -3100,6 +3180,16 @@ export interface paths {
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
+                            }[];
+                            /** @description Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`. */
+                            progress_notes?: {
+                                id?: string;
+                                message_id?: string;
+                                job_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                minutes?: null | number;
+                                created_at?: string;
                             }[];
                             /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
                             pending_delivery?: {
@@ -3295,6 +3385,16 @@ export interface paths {
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`. */
+                            progress_notes?: {
+                                id?: string;
+                                message_id?: string;
+                                job_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                minutes?: null | number;
+                                created_at?: string;
+                            }[];
                             /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
                             pending_delivery?: {
                                 branch?: string;
@@ -3477,6 +3577,16 @@ export interface paths {
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`. */
+                            progress_notes?: {
+                                id?: string;
+                                message_id?: string;
+                                job_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                minutes?: null | number;
+                                created_at?: string;
+                            }[];
                             /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
                             pending_delivery?: {
                                 branch?: string;
@@ -3648,6 +3758,16 @@ export interface paths {
                                 created_at?: string;
                                 version?: number;
                                 edited_at?: string | null;
+                            }[];
+                            /** @description Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`. */
+                            progress_notes?: {
+                                id?: string;
+                                message_id?: string;
+                                job_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                minutes?: null | number;
+                                created_at?: string;
                             }[];
                             /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
                             pending_delivery?: {
@@ -3821,6 +3941,16 @@ export interface paths {
                                 version?: number;
                                 edited_at?: string | null;
                             }[];
+                            /** @description Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`. */
+                            progress_notes?: {
+                                id?: string;
+                                message_id?: string;
+                                job_id?: string;
+                                author_id?: string;
+                                body?: string;
+                                minutes?: null | number;
+                                created_at?: string;
+                            }[];
                             /** @description UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla. */
                             pending_delivery?: {
                                 branch?: string;
@@ -3914,6 +4044,8 @@ export interface paths {
                                 area_id?: string;
                                 name?: string;
                                 description?: string;
+                                /** @description Minutes between two progress notices while Claude works (0 = off; UD-293). */
+                                progress_interval_min?: number;
                                 updated_at?: string;
                                 deleted_at?: string | null;
                             }[];
@@ -3985,6 +4117,8 @@ export interface paths {
                                 area_id?: string;
                                 name?: string;
                                 description?: string;
+                                /** @description Minutes between two progress notices while Claude works (0 = off; UD-293). */
+                                progress_interval_min?: number;
                                 updated_at?: string;
                                 deleted_at?: string | null;
                             }[];
@@ -4114,6 +4248,8 @@ export interface paths {
                                 area_id?: string;
                                 name?: string;
                                 description?: string;
+                                /** @description Minutes between two progress notices while Claude works (0 = off; UD-293). */
+                                progress_interval_min?: number;
                                 updated_at?: string;
                                 deleted_at?: string | null;
                             }[];
@@ -4188,6 +4324,8 @@ export interface paths {
                                 area_id?: string;
                                 name?: string;
                                 description?: string;
+                                /** @description Minutes between two progress notices while Claude works (0 = off; UD-293). */
+                                progress_interval_min?: number;
                                 updated_at?: string;
                                 deleted_at?: string | null;
                             }[];
@@ -4248,6 +4386,8 @@ export interface paths {
                             area_id?: string;
                             name?: string;
                             description?: string;
+                            /** @description Minutes between two progress notices while Claude works (0 = off; UD-293). */
+                            progress_interval_min?: number;
                             updated_at?: string;
                             deleted_at?: string | null;
                             body_markdown?: string;
@@ -4287,6 +4427,8 @@ export interface paths {
                         body_markdown: string;
                         name?: string;
                         description?: string;
+                        /** @description Minutes between two progress notices in the thread while Claude works on a message of this template; 0 turns them off (UD-293). */
+                        progress_interval_min?: number;
                     };
                 };
             };
@@ -4302,6 +4444,8 @@ export interface paths {
                             area_id?: string;
                             name?: string;
                             description?: string;
+                            /** @description Minutes between two progress notices while Claude works (0 = off; UD-293). */
+                            progress_interval_min?: number;
                             updated_at?: string;
                             deleted_at?: string | null;
                             body_markdown?: string;
@@ -4397,6 +4541,8 @@ export interface paths {
                         body_markdown?: string;
                         name?: string;
                         description?: string;
+                        /** @description Minutes between two progress notices in the thread while Claude works on a message of this template; 0 turns them off (UD-293). */
+                        progress_interval_min?: number;
                     };
                 };
             };
@@ -4412,6 +4558,8 @@ export interface paths {
                             area_id?: string;
                             name?: string;
                             description?: string;
+                            /** @description Minutes between two progress notices while Claude works (0 = off; UD-293). */
+                            progress_interval_min?: number;
                             updated_at?: string;
                             deleted_at?: string | null;
                             body_markdown?: string;
@@ -4468,6 +4616,8 @@ export interface paths {
                             area_id?: string;
                             name?: string;
                             description?: string;
+                            /** @description Minutes between two progress notices while Claude works (0 = off; UD-293). */
+                            progress_interval_min?: number;
                             updated_at?: string;
                             deleted_at?: string | null;
                             body_markdown?: string;

@@ -64,6 +64,8 @@ export interface Template {
   name: string
   description: string
   body_markdown: string
+  /** Minutes between two progress notices while Claude works on a message of this template; 0 turns them off (UD-293). */
+  progress_interval_min?: number
   updated_at: string
   deleted_at?: string | null
 }
@@ -226,8 +228,22 @@ export interface PendingDelivery {
   state: 'held' | 'delivering' | 'failed'
 }
 
+/** A progress notice of Claude while it works (UD-293): not a reply, so it does not count in `reply_count` or change the status. */
+export interface ProgressNote {
+  id: string
+  message_id: string
+  job_id: string
+  author_id: string
+  body: string
+  /** Minutes since the session started when the notice was written. */
+  minutes: number | null
+  created_at: string
+}
+
 export interface MessageDetail extends Message {
   replies: Reply[]
+  /** The progress notices, in the order they were written; the thread draws them by `created_at` between the replies (UD-293). */
+  progress_notes?: ProgressNote[]
   /** The review a held delivery waits for; null when none (UD-275). */
   pending_delivery?: PendingDelivery | null
   /** What a video frame shows and nobody says; outside the body, empty when there is none. */

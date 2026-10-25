@@ -41,6 +41,8 @@ import { enqueueDeliver } from './enqueue.js'
 import { runLocal, runMachine } from './runners.js'
 import { createSessionTracer } from './session-spans.js'
 import { createStreamReader } from './stream.js'
+import { startProgressNotices } from './progress-timer.js'
+import { DEFAULT_PROGRESS_INTERVAL_MIN } from '../domain/progress-notes.js'
 
 const run = promisify(execFile)
 const TEAM_SCRIPT = fileURLToPath(new URL('../../scripts/team.mjs', import.meta.url))
@@ -199,7 +201,7 @@ export function failureBody (error, language, { timeoutMs = 0, mentionAgent = nu
 
 const fingerprint = (m) => JSON.stringify([m.title, m.body, m.fields_json, m.area_id, m.template_id])
 
-export function createExecuteHandler ({ db, config, queue, events, vault, logger = null, now = Date.now }) {
+export function createExecuteHandler ({ db, config, queue, events, vault, logger = null, now = Date.now, progressUnitMs = 60_000 /* calendar constant: one minute; a test shortens it */ }) {
   const x = config.execute
   const ajv = new Ajv({ allErrors: true, strict: false })
 
@@ -337,7 +339,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const secret = readAgentSecret(db, vault, agent.id)
     if (!secret) throw permanent('El agente no tiene secreto propio; un Editor debe crearlo de nuevo.', 'agent_secret_missing')
     const author = get(db, 'SELECT id, name, profile, language FROM members WHERE id = ?', message.author_id)
-    const templateRow = message.template_id ? get(db, 'SELECT id, name, body_markdown FROM templates WHERE id = ?', message.template_id) : null
+    const templateRow = message.template_id ? get(db, 'SELECT id, name, body_markdown, progress_interval_min FROM templates WHERE id = ?', message.template_id) : null
     const template = readTemplate(templateRow)
     let declared
     try { declared = declaredOutput(template) } catch (error) { throw permanent(`La salida declarada de la plantilla no compila: ${error.message}`, 'template') }
@@ -407,6 +409,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     rec.began = true
 
     let session = null // spans of the tools and subagents, alive while the `run` phase is
+    let notices = { stop () {} } // the clock of the progress notices (UD-293), alive while the `run` phase is
     const reader = createStreamReader({
       maxTurns: x.maxTurns,
       budgetUsd,
@@ -427,7 +430,11 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const phase = (name, fn) => withSpan(`execute.${kind}.${name}`, { 'team.step': `execute.${kind}.${name}`, 'team.runner': x.runner }, async (span) => {
       setPhase(name)
       const phaseStart = now()
-      if (name === 'run') session = createSessionTracer({ model: x.model })
+      if (name === 'run') {
+        session = createSessionTracer({ model: x.model })
+        // UD-293: from here until the session ends, a notice in the thread every `progress_interval_min` of the template.
+        notices = startProgressNotices({ db, events, now, logger, jobId: job.id, messageId, authorId: memberId, language: author?.language, intervalMin: templateRow?.progress_interval_min ?? DEFAULT_PROGRESS_INTERVAL_MIN, unitMs: progressUnitMs, reader })
+      }
       try {
         const r = await fn()
         if (r && typeof r === 'object' && 'code' in r) {
@@ -436,7 +443,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         }
         return r
       } finally {
-        if (name === 'run') { rec.session = session?.finish(span) ?? null; session = null }
+        if (name === 'run') { notices.stop(); rec.session = session?.finish(span) ?? null; session = null }
         rec.phaseMs[name] = Math.max(0, now() - phaseStart)
       }
     })

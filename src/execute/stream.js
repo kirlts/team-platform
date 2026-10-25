@@ -10,6 +10,15 @@ const clip = (text, n) => {
   return s.length > n ? `${s.slice(0, n - 1)}…` : s
 }
 const PHRASE_CHARS = 80 // declared courtesy: one line of the message card
+const SUBJECT_CHARS = 80 // declared courtesy: the subject of a commit in a progress notice is one line
+const RESULT_SCAN_CHARS = 20000 // declared courtesy: the summary of a commit or of a push comes first in the output of the command; what follows is not read
+const COMMITS_KEPT = 50 // declared courtesy: commits remembered to match a push with its subject; a session of 60 turns makes a handful
+
+// What `git commit` prints: `[tp/12 a1b2c3d] Subject` (`[tp/12 (root-commit) a1b2c3d]` for the first one, `[detached HEAD a1b2c3d]` without a branch).
+const COMMIT_SUMMARY = /^\[(\S+?)(?: \(root-commit\))? ([0-9a-f]{7,40})\] (.+)$/gm
+// What `git push` prints for a branch that moved: `   a1b2c3d..e4f5a6b  tp/12 -> tp/12`; for a new one: ` * [new branch]      tp/12 -> tp/12`.
+const PUSH_UPDATED = /^\s*[+ ]?\s*[0-9a-f]{7,40}\.{2,3}([0-9a-f]{7,40})\s+(\S+) -> (\S+)\s*$/gm
+const PUSH_NEW = /^\s*\*\s+\[new branch\]\s+(\S+) -> (\S+)\s*$/gm
 
 /** Short interface phrase (Spanish, instrument register) for a tool call. */
 export function phraseForTool (name, input = {}) {
@@ -31,7 +40,12 @@ export function phraseForTool (name, input = {}) {
  * `state()` returns { sessionId, model, turns, result, lines, invalid }.
  */
 export function createStreamReader ({ maxTurns, budgetUsd = 0, onProgress, onEvent = null }) {
-  const st = { sessionId: null, model: null, turns: 0, result: null, lines: 0, invalid: 0, spentUsd: 0 }
+  // `tools`: tool calls so far (a subagent's too); `phrase`: the last step; `lastCommit`: the last commit the session made; `pushed`: the commit the last
+  // successful push left on the remote, with its subject when the session made it (progress notices of UD-293: read from what git printed, never guessed).
+  const st = { sessionId: null, model: null, turns: 0, result: null, lines: 0, invalid: 0, spentUsd: 0, tools: 0, phrase: null, lastCommit: null, pushed: null }
+  const toolIds = new Set() // a message may be repeated by the stream: each call counts once
+  const bashIds = new Set()
+  const commits = new Map() // short sha -> { sha, subject, branch }
   const costs = new Map() // message id -> cost of its latest usage: partial messages repeat the usage of the same message
   let buffer = ''
   let last = { percent: -1, phrase: null }
@@ -41,6 +55,7 @@ export function createStreamReader ({ maxTurns, budgetUsd = 0, onProgress, onEve
     const percent = Math.min(99, Math.floor(100 * share))
     if (percent === last.percent && phrase === last.phrase) return
     last = { percent, phrase }
+    st.phrase = phrase
     // Recording the progress must never lose the lines that follow, among them the `result`: a database that is busy for a moment is not a failed session.
     try { onProgress?.(percent, phrase) } catch { /* the next change of phrase records it again */ }
   }
@@ -60,11 +75,40 @@ export function createStreamReader ({ maxTurns, budgetUsd = 0, onProgress, onEve
         if (usd !== null) { costs.set(m.id, usd); st.spentUsd = [...costs.values()].reduce((a, b) => a + b, 0) }
       }
       const tools = (event.message?.content ?? []).filter((c) => c?.type === 'tool_use')
+      for (const t of tools) {
+        if (t.id && toolIds.has(t.id)) continue
+        if (t.id) toolIds.add(t.id)
+        st.tools += 1
+        if (t.name === 'Bash' && t.id) bashIds.add(t.id)
+      }
       if (tools.length > 0) for (const t of tools) emit(phraseForTool(t.name, t.input))
       else emit(last.phrase ?? 'Trabajando')
+    } else if (event.type === 'user') {
+      for (const block of Array.isArray(event.message?.content) ? event.message.content : []) {
+        if (block?.type === 'tool_result' && bashIds.has(block.tool_use_id)) readGitOutput(resultText(block.content))
+      }
     } else if (event.type === 'result') {
       st.result = event
       st.sessionId = event.session_id ?? st.sessionId
+    }
+  }
+  const resultText = (content) => String(typeof content === 'string' ? content : Array.isArray(content) ? content.map((c) => c?.text ?? '').join('\n') : '').slice(0, RESULT_SCAN_CHARS)
+  /** The commits and pushes that the output of a Bash call reports. Anything else in the output is ignored. */
+  function readGitOutput (text) {
+    for (const m of text.matchAll(COMMIT_SUMMARY)) {
+      const commit = { sha: m[2].slice(0, 7), subject: clip(m[3], SUBJECT_CHARS), branch: m[1] }
+      commits.set(commit.sha, commit)
+      if (commits.size > COMMITS_KEPT) commits.delete(commits.keys().next().value)
+      st.lastCommit = commit
+    }
+    for (const m of text.matchAll(PUSH_UPDATED)) {
+      const sha = m[1].slice(0, 7)
+      st.pushed = commits.get(sha) ?? { sha, subject: null, branch: m[3] }
+    }
+    for (const m of text.matchAll(PUSH_NEW)) {
+      // A new branch prints no sha: it is the last commit the session made on that branch.
+      const onBranch = [...commits.values()].filter((c) => c.branch === m[1]).at(-1) ?? (st.lastCommit && m[1] === 'HEAD' ? st.lastCommit : null)
+      if (onBranch) st.pushed = onBranch
     }
   }
   function push (chunk) {

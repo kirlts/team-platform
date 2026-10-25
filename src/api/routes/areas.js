@@ -9,12 +9,13 @@ import {
 import { mirrorTemplate, removeTemplateMirror } from '../../domain/template-files.js'
 import { requireConfirm } from '../confirm.js'
 import { area, confirmQuery, idParams, template } from '../schemas.js'
+import { MAX_PROGRESS_INTERVAL_MIN } from '../../domain/progress-notes.js'
 import { isActivePerson } from '../../domain/members.js'
 
 const templateBody = {
   type: 'object',
   additionalProperties: false,
-  properties: { body_markdown: { type: 'string', minLength: 1 }, name: { type: 'string', minLength: 1 }, description: { type: 'string', minLength: 1 } }
+  properties: { body_markdown: { type: 'string', minLength: 1 }, name: { type: 'string', minLength: 1 }, description: { type: 'string', minLength: 1 }, progress_interval_min: { type: 'integer', minimum: 0, maximum: MAX_PROGRESS_INTERVAL_MIN, description: 'Minutes between two progress notices in the thread while Claude works on a message of this template; 0 turns them off (UD-293).' } }
 }
 
 const colorProp = { type: 'string', pattern: AREA_COLOR_PATTERN }

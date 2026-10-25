@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Avisos de progreso en el hilo mientras Claude trabaja (UD-293): cada plantilla lleva `progress_interval_min` (0 apaga, 20 por omisión); el trabajador escribe un aviso con minutos, turnos, herramientas, último paso y último commit, y el hilo lo dibuja como fila discreta. Migración 0035.
 - El rol Editor da un solo privilegio: cambiar los textos configurados (UD-287, enmienda UD-007, UD-024, UD-251, UD-252, UD-258, UD-281). Reprocesar, borrar y restaurar contenido ajeno, vaciar, purgar la cola, auditoría, telemetría, proveedores, conexiones y miembros pasan a cualquier persona activa del equipo (`requireRole('person')`); `GET /health` muestra el detalle a una persona del equipo. Configuración, Conexiones y Equipo ya no se ocultan al miembro, y los rótulos dejan de nombrar al Editor donde no aplica.
 - Equipo rehecho: filas de alto parejo con nombre, correo y extracto del perfil en una línea; el perfil entero se abre en una ventana sin mover la lista; el rol sólo se marca cuando es Editor y se cambia desde «Acciones»; en teléfono cada miembro es una tarjeta. El Editor redacta el perfil de cualquier miembro (UD-288, enmienda UD-023 y UD-281).
 - Una mención a Claude que llega mientras trabaja le llega a esa misma sesión en su siguiente paso (UD-285): gancho `PostToolBatch` con `team mentions`, `POST /api/jobs/:id/mentions/take`, texto, adjuntos y notas de voz transcritas; no abre otro trabajo y el hilo muestra que la recibió.

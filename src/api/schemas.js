@@ -43,7 +43,7 @@ export const member = {
 
 export const templateSummary = {
   type: 'object',
-  properties: { id, area_id: id, name: { type: 'string' }, description: { type: 'string' }, updated_at: { type: 'string' }, deleted_at: nullableText }
+  properties: { id, area_id: id, name: { type: 'string' }, description: { type: 'string' }, progress_interval_min: { type: 'integer', description: 'Minutes between two progress notices while Claude works (0 = off; UD-293).' }, updated_at: { type: 'string' }, deleted_at: nullableText }
 }
 
 export const template = {
@@ -111,6 +111,7 @@ export const messageDetail = {
     trace_id: { ...nullableText, description: 'Trace of the message (UD-262): the same id covers its sending, analysis, publication and execution.' },
     observed: { type: 'array', items: { type: 'string' }, description: 'What a video frame shows and nobody says, outside the body; empty when there is none.' },
     replies: { type: 'array', items: reply },
+    progress_notes: { type: 'array', description: 'Avisos de progreso de Claude mientras trabaja (UD-293), en el orden en que se escribieron. No son respuestas: no cuentan en `reply_count` ni cambian el estado. El hilo los dibuja por `created_at`.', items: { type: 'object', properties: { id, message_id: id, job_id: id, author_id: id, body: { type: 'string' }, minutes: { type: ['integer', 'null'] }, created_at: { type: 'string' } } } },
     pending_delivery: {
       type: 'object', nullable: true,
       description: 'UD-275: la entrega retenida que espera la revisión de una persona; null si no hay. `delivering_job_id` es la entrega en cola o corriendo tras aprobarla.',

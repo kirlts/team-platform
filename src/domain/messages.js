@@ -24,6 +24,7 @@ import { retryableIds, retryingIds } from '../execute/retry.js'
 import { checkMentions, mentionsOf, recordMentions } from './mentions.js'
 import { isActivePerson } from './members.js'
 import { isInputParty } from './inputs.js'
+import { listProgressNotes } from './progress-notes.js'
 
 export const MESSAGE_STATUSES = ['open', 'answered', 'closed']
 export const REPLY_KINDS = ['answer', 'fix', 'clarification', 'forward']
@@ -234,7 +235,7 @@ export function getMessage (db, id, { includeDeleted = false } = {}) {
   const retrying = retryingIds(db, replyRows) // UD-290
   const edits = all(db, 'SELECT * FROM message_edits WHERE message_id = ? ORDER BY id', id)
     .map((e) => ({ id: e.id, member_id: e.member_id, at: iso(e.at), version: e.version, fields: parseJson(e.fields_json, []) }))
-  return { ...msgRow, trace_id: dbRow.trace_id ?? null, observed: Array.isArray(observed) ? observed : [], replies: replyRows.map((r) => toReply(r, atts.get(r.id), mentions.get(r.id), retryable.has(r.id), retrying.has(r.id))), edits, pending_delivery: pendingDelivery(db, id) }
+  return { ...msgRow, trace_id: dbRow.trace_id ?? null, observed: Array.isArray(observed) ? observed : [], replies: replyRows.map((r) => toReply(r, atts.get(r.id), mentions.get(r.id), retryable.has(r.id), retrying.has(r.id))), progress_notes: listProgressNotes(db, id), edits, pending_delivery: pendingDelivery(db, id) }
 }
 
 /**

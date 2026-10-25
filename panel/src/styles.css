@@ -626,11 +626,12 @@
     overflow-wrap: anywhere;
   }
 
-  /* The level of a message (UD-292): a neutral badge, in the ink of the text that says less, so it is not read as the state or as the area. As a control it is the same badge: no arrow, the border says it opens. */
-  .level-mark {
+  /* A Guard that a message touches (UD-292): a neutral badge in the ink of the text that says less, so it is not read as the state or as the area. One about a person takes the accent edge. */
+  .guard-mark {
     display: inline-flex;
     align-items: center;
-    max-width: 100%;
+    min-width: 0;
+    max-width: 14rem;
     border: 1px solid var(--color-line);
     border-radius: 6px;
     padding: 1px 0.5rem;
@@ -638,16 +639,9 @@
     font-weight: 500;
     line-height: 1.35;
     color: var(--color-muted);
-    background: transparent;
+    overflow-wrap: anywhere;
   }
-  .level-mark-control {
-    appearance: none;
-    cursor: pointer;
-    field-sizing: content;
-    min-height: 1.5rem;
-  }
-  .level-mark-control:hover { border-color: var(--control-hover-edge); color: var(--color-fg); }
-  .level-mark-control:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+  .guard-mark[data-person] { border-color: var(--color-line-strong); color: var(--color-fg); }
 
   /* The box of the analysis of one message: the secondary color of its area as background and the ink of that hue. Inside it, the muted
      ink follows the box, so the text that says less keeps its contrast on the tint. */

@@ -1,8 +1,9 @@
 import { ChevronLeft, Trash2 } from '@/components/icons'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { Templates, descriptionRule, nameRule } from '@/components/AreaTemplates'
 import { AreaColorPicker } from '@/components/AreaColorPicker'
+import { AreaGuards } from '@/components/AreaGuards'
 import { EditableText } from '@/components/EditableText'
 import { EmptyState } from '@/components/EmptyState'
 import { Fold } from '@/components/Fold'
@@ -93,10 +94,9 @@ function AreaViewBody({ area }: { area: Area }) {
     return undoStack.run({ label: t('areas.deciderEdited'), redo: () => save.mutateAsync({ id: area.id, escalation_member_id: next }), undo: () => save.mutateAsync({ id: area.id, escalation_member_id: prev }) })
   }
 
-  const changeModel = (field: 'execute_model' | 'execute_model_direct', next: string) => {
+  const changeModel = (field: 'execute_model' | 'execute_model_light', next: string) => {
     const prev = area[field] ?? null
-    const value = next === '' ? null : next
-    return undoStack.run({ label: t('areas.modelEdited'), redo: () => save.mutateAsync({ id: area.id, [field]: value }), undo: () => save.mutateAsync({ id: area.id, [field]: prev }) })
+    return undoStack.run({ label: t('areas.modelEdited'), redo: () => save.mutateAsync({ id: area.id, [field]: next }), undo: () => save.mutateAsync({ id: area.id, [field]: prev }) })
   }
 
   return (
@@ -118,8 +118,11 @@ function AreaViewBody({ area }: { area: Area }) {
           {me?.role === 'editor' && <MoreMenu items={[{ key: 'delete', label: t('areas.deleteArea'), icon: <Trash2 size={16} aria-hidden />, danger: true, testId: 'area-delete', onSelect: () => void remove() }]} />}
         </div>
       </header>
-      <AreaOwner area={area} canEdit={me?.role === 'editor'} onChange={changeDecider} />
-      <AreaModels area={area} canEdit={me?.role === 'editor'} onChange={changeModel} />
+      <AreaOwner area={area} canEdit={me?.role === 'editor'} onChange={changeDecider}>
+        <AreaModels area={area} canEdit={me?.role === 'editor'} onChange={changeModel} />
+        {/* UD-292: next to the models, the Guards of the area: the walls, in a window of their own. */}
+        <AreaGuards area={area} canEdit={me?.role === 'editor'} />
+      </AreaOwner>
       <StateTabs value={status} counts={counts} onChange={choose} label={t('areas.states')} />
       <MessageList
         list={list}
@@ -163,7 +166,7 @@ export function AreaNotFound({ loading, query }: { loading: boolean; query: Para
  * Who decides in the area (UD-269) and the week's count of what sessions handed over to people: the select is the field, it saves on change
  * (Editor only); the figure is the total and the count by person, 0 when nothing was handed over.
  */
-function AreaOwner({ area, canEdit, onChange }: { area: Area; canEdit: boolean; onChange: (id: string) => void | Promise<unknown> }) {
+function AreaOwner({ area, canEdit, onChange, children }: { area: Area; canEdit: boolean; onChange: (id: string) => void | Promise<unknown>; children?: ReactNode }) {
   const t = useT()
   const all = useMembers().data ?? []
   const members = all.filter((m) => m.kind !== 'agent' && m.active !== false)
@@ -173,7 +176,7 @@ function AreaOwner({ area, canEdit, onChange }: { area: Area; canEdit: boolean; 
   const handoffs = area.handoffs ?? []
   const total = handoffs.reduce((n, h) => n + h.count, 0)
   return (
-    <div className="flex flex-wrap items-end gap-x-12 gap-y-4 text-sm" data-testid="area-owner">
+    <div className="flex flex-wrap items-end gap-x-8 gap-y-4 text-sm" data-testid="area-owner">
       <label className="flex w-full min-w-0 flex-col items-start gap-2 sm:w-auto">
         <span className="rotulo">{t('areas.decider')}</span>
         {canEdit ? (
@@ -199,39 +202,39 @@ function AreaOwner({ area, canEdit, onChange }: { area: Area; canEdit: boolean; 
           ))}
         </dd>
       </dl>
+      {children}
     </div>
   )
 }
 
 /**
- * The Claude model the area's unattended sessions run with and the one for its direct fixes (UD-292). Two selects, each the field: they save on change (Editor only).
- * «Igual» in the second one is the area's own model, which is what direct fixes ran with before the level existed.
+ * The two Claude models of the area (UD-292): the light one, which takes what the analyzer estimates within its limits, and the larger one, where its work escalates and which takes the rest.
+ * Two selects, each the field: they save on change (Editor only).
  */
-function AreaModels({ area, canEdit, onChange }: { area: Area; canEdit: boolean; onChange: (field: 'execute_model' | 'execute_model_direct', id: string) => void | Promise<unknown> }) {
+function AreaModels({ area, canEdit, onChange }: { area: Area; canEdit: boolean; onChange: (field: 'execute_model' | 'execute_model_light', id: string) => void | Promise<unknown> }) {
   const t = useT()
   const labelOf = (id: string | null | undefined) => EXECUTE_MODELS.find((m) => m.id === id)?.label ?? id ?? ''
   const fields = [
-    { field: 'execute_model' as const, label: t('areas.model'), value: area.execute_model ?? '', same: false },
-    { field: 'execute_model_direct' as const, label: t('areas.modelDirect'), value: area.execute_model_direct ?? '', same: true },
+    { field: 'execute_model_light' as const, label: t('areas.modelLight'), value: area.execute_model_light ?? '' },
+    { field: 'execute_model' as const, label: t('areas.modelMajor'), value: area.execute_model ?? '' },
   ]
   return (
-    <div className="flex flex-wrap items-end gap-x-12 gap-y-4 text-sm" data-testid="area-models">
-      {fields.map(({ field, label, value, same }) => (
+    <>
+      {fields.map(({ field, label, value }) => (
         <label key={field} className="flex w-full min-w-0 flex-col items-start gap-2 sm:w-auto">
           <span className="rotulo">{label}</span>
           {canEdit ? (
-            <span className="w-full sm:w-56">
+            <span className="w-full sm:w-40">
               <NativeSelect className={ON_PAGE_FIELD} value={value} onChange={(e) => void onChange(field, e.target.value)} aria-label={label} data-testid={`area-${field.replace(/_/g, '-')}-select`}>
-                {same && <option value="">{t('areas.modelSame')}</option>}
                 {EXECUTE_MODELS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
                 {value !== '' && !EXECUTE_MODELS.some((m) => m.id === value) && <option value={value}>{value}</option>}
               </NativeSelect>
             </span>
           ) : (
-            <span className="font-semibold">{value === '' ? t('areas.modelSame') : labelOf(value)}</span>
+            <span className="font-semibold">{labelOf(value)}</span>
           )}
         </label>
       ))}
-    </div>
+    </>
   )
 }

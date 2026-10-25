@@ -22,6 +22,7 @@ import { Recipients } from '@/components/Recipients'
 import { RecipientsEditor } from '@/components/RecipientsEditor'
 import { ReplyThread } from '@/components/ReplyThread'
 import { StatusBadge } from '@/components/StatusBadge'
+import { Assessment } from '@/components/Assessment'
 import { Timing } from '@/components/Timing'
 import { TemplateFields } from '@/components/TemplateFields'
 import { UndoButtons } from '@/components/UndoButtons'
@@ -304,6 +305,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
           </div>
 
           <Observed items={m.observed} />
+          <Assessment message={m} />
           <Timing messageId={m.id} assigneeIds={m.assignee_ids} />
         </div>
 

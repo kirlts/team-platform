@@ -10,7 +10,7 @@ import type { Message } from '@team-platform/client'
 import { useDeleteMessage, useMe, usePrefetchMessage, useRestoreMessage, useSetClosed } from '@team-platform/client/react'
 import { cn } from '@/lib/utils'
 import { AreaChip } from './AreaChip'
-import { LevelMark } from './LevelMark'
+import { AssessmentMarks } from './AssessmentMarks'
 import { useLookups } from './lookups'
 import { MediaKinds } from './MediaKinds'
 import { MediaOpener } from './MediaOpener'
@@ -118,7 +118,7 @@ export function MessageCard({ message, variant = 'message', hideArea = false }: 
       <div data-testid="card-state" className="col-start-1 row-start-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
         <StateMark status={message.status} plain className="min-h-0 px-0" />
         {!hideArea && <AreaChip areaId={message.area_id} className="min-w-0" />}
-        {variant === 'message' && !gone && <LevelMark message={message} />}
+        {variant === 'message' && !gone && <AssessmentMarks message={message} />}
         {/* The number of the message, as a tracker shows it (#115): the team refers to messages by it. Secondary text at the right edge of the state line, which has the room the line of the author lacks on a phone, so the row keeps its height. */}
         <span data-testid="card-number" className="ml-auto tabular-nums">#{message.id}</span>
       </div>

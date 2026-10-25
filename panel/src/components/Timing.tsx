@@ -23,6 +23,9 @@ export function Timing({ messageId, assigneeIds }: { messageId: string; assignee
       <Fold title={t('timing.detail')} className="shrink-0">
         <DetailBody messageId={messageId} />
       </Fold>
+      <Fold title={t('judgment.title')} className="shrink-0">
+        <JudgmentBody messageId={messageId} />
+      </Fold>
     </div>
   )
 }
@@ -108,5 +111,43 @@ function DetailBody({ messageId }: { messageId: string }) {
         </div>
       ))}
     </dl>
+  )
+}
+
+/**
+ * «Adecuación» (UD-292): the IMK judgement of the finished job, by a cheap model: the four axes with their score against the target of the task, and the twelve KPI that could be observed,
+ * each with the quote that supports it. It answers how adequate what the model did was, which is what says whether the light model was enough.
+ */
+function JudgmentBody({ messageId }: { messageId: string }) {
+  const t = useT()
+  const errorText = useErrorText()
+  const timing = useMessageTiming(messageId)
+  if (timing.isPending) return <p className="text-sm text-muted">…</p>
+  if (timing.isError) return <p className="break-words text-sm text-danger">{errorText(timing.error)}</p>
+  const j = timing.data.judgment
+  if (!j) return <p className="text-sm text-muted">{t('judgment.none')}</p>
+  return (
+    <div data-testid="judgment" className="flex flex-col gap-3 text-sm">
+      <p className="m-0 text-muted">{EXECUTE_MODELS.find((m) => m.id === j.worked_with)?.label ?? j.worked_with ?? ''}</p>
+      <ul aria-label={t('judgment.axes')} className="m-0 flex list-none flex-col gap-1 p-0">
+        {j.axes.map((a) => (
+          <li key={a.axis} data-testid="judgment-axis" data-meets={a.meets === null ? undefined : String(a.meets)} className="flex flex-wrap items-baseline gap-x-3">
+            <span className="min-w-0 flex-1">{t(`judgment.axis.${a.axis}` as MessageKey)}</span>
+            <span className="tabular-nums">{a.score === null ? '—' : a.score.toFixed(1)}</span>
+            <span className="tabular-nums text-muted">{t('judgment.target', { n: a.target })}</span>
+            <span className={a.meets === false ? 'text-danger' : 'text-muted'}>{a.meets === null ? '' : t(a.meets ? 'judgment.meets' : 'judgment.misses')}</span>
+          </li>
+        ))}
+      </ul>
+      {j.summary && <p className="m-0 break-words">{j.summary}</p>}
+      <ol aria-label={t('judgment.kpis')} className="m-0 flex list-none flex-col gap-2 p-0">
+        {j.kpis.filter((k) => k.applies).map((k) => (
+          <li key={k.id} className="flex flex-col gap-0.5">
+            <span><span className="tabular-nums text-muted">{k.id}</span> <span className="tabular-nums">{k.score > 0 ? `+${k.score}` : k.score}</span> {k.claim}</span>
+            {k.quote && <span className="break-words text-muted">«{k.quote}»</span>}
+          </li>
+        ))}
+      </ol>
+    </div>
   )
 }

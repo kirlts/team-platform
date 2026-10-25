@@ -306,11 +306,19 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         review_answered: rec.reviewAnswered ? 1 : null,
         outcome: aborted ? 'aborted' : (failed ? 'failed' : (typeof result?.structured_output?.outcome === 'string' ? result.structured_output.outcome : null)),
         error_code: errorCode, delivered: marks.delivered ?? null,
-        transcript_ref: rec.r?.collect?.ref ?? null, slowest_tools: s?.slowest ?? []
+        transcript_ref: rec.r?.collect?.ref ?? null, transcript_error: transcriptError(rec.r?.collect), slowest_tools: s?.slowest ?? []
       })
     } catch (error) {
       logger?.warn({ err: error }, 'could not record the execute run')
     }
+  }
+
+  /** Why a collected run has no transcript: the exit code and the start of what the command said, never silence. */
+  function transcriptError (collect) {
+    if (!collect || collect.ref) return null
+    const why = collect.code === 0 ? 'no output' : `exit ${collect.code}: ${String(collect.stderr ?? '').trim().slice(0, 500)}`
+    logger?.error({ transcript_error: why }, 'transcript_not_collected')
+    return why
   }
 
   async function runJob (job, ctx, rec) {

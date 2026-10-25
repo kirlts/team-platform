@@ -43,7 +43,7 @@ const runRow = {
     input_tokens: nullableInt, output_tokens: nullableInt, cache_read_tokens: nullableInt, cache_write_tokens: nullableInt,
     cost_usd: { type: 'number', nullable: true }, turns: nullableInt, tool_count: nullableInt, subagent_count: nullableInt,
     outcome: { type: 'string', nullable: true }, error_code: { type: 'string', nullable: true }, delivered: { type: 'boolean', nullable: true },
-    transcript_ref: { type: 'string', nullable: true },
+    transcript_ref: { type: 'string', nullable: true }, transcript_error: { type: 'string', nullable: true },
     deliver_job_id: { type: 'string', nullable: true }, delivery_ref: { type: 'string', nullable: true }, delivery_held: { type: 'boolean', nullable: true }, // the `deliver` job that followed the run and what its command printed (UD-263)
     slowest_tools: { type: 'array', items: { type: 'object', additionalProperties: true } }
   }

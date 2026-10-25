@@ -475,6 +475,13 @@ describe('execute job', () => {
       assert.equal(env.db.prepare('SELECT transcript_ref FROM execute_runs WHERE job_id = ?').get(id).transcript_ref, null)
     })
 
+    it('a collector that fails leaves its cause in the row, and one that succeeds leaves none (measured: job 144 had a null ref and no why)', async () => {
+      startWorker(machine({ machineCollect: `echo no jsonl >&2; exit 3` }))
+      const id = await enqueue()
+      assert.equal((await waitJob(id)).status, 'done')
+      assert.equal(env.db.prepare('SELECT transcript_error FROM execute_runs WHERE job_id = ?').get(id).transcript_error, 'exit 3: no jsonl')
+    })
+
     it('the collector also runs when the session fails, so the transcript of a failure survives', async () => {
       process.env.FAKE_EXECUTE_MODE = 'exit'
       const kept = join(env.dir, 'kept-failed')

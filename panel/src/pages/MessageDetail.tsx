@@ -166,7 +166,7 @@ function DetailBody({ message: m, focusReply }: { message: Detail; focusReply: b
 
   return (
     <Page cols="fill">
-      {/* The top row keeps the way back and what undoes; the actions on the message sit in the title row (UD-308). */}
+      {/* The top row keeps the way back and what undoes; the actions on the message sit in the title row (UD-309). */}
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <Link to="/messages" className="inline-flex items-center gap-1 text-xs text-muted hover:text-fg">
           <ArrowLeft size={13} aria-hidden /> {t('nav.messages')}

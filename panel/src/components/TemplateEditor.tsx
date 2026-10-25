@@ -18,16 +18,15 @@ const LABEL_MAX = 120
 const PROGRESS_MAX = 1440
 
 /**
- * «Obligatorio» of a field or an output entry, one control in each mode. Editing (`onChange`): the check box with the word beside it as
- * plain text, the label that names it. Reading (no `onChange`): a badge, and only when the entry is required; an optional one draws nothing.
+ * «Obligatorio» of a field or an output entry: the check box that sets it, with the word drawn as a badge, so the state reads at a
+ * glance down a column of rows (filled when the entry is required, outline when it is not). The label wraps both: the name is «Obligatorio».
  */
-export function RequiredMark({ required, onChange }: { required: boolean; onChange?: (on: boolean) => void }) {
+function RequiredToggle({ required, onChange }: { required: boolean; onChange: (on: boolean) => void }) {
   const t = useT()
-  if (!onChange) return required ? <Badge tone="accent">{t('templates.required')}</Badge> : null
   return (
-    <label className="flex shrink-0 cursor-pointer items-center gap-2 text-sm text-muted">
+    <label className="flex shrink-0 cursor-pointer items-center gap-2">
       <Checkbox checked={required} onCheckedChange={(on) => onChange(on === true)} />
-      {t('templates.required')}
+      <Badge tone={required ? 'accent' : 'outline'}>{t('templates.required')}</Badge>
     </label>
   )
 }
@@ -97,7 +96,7 @@ export function TemplateContentEditor({
                 <div className="min-w-0 flex-1 basis-40">
                   <EditableText value={f.label} label={t('templates.fieldLabel')} validate={label} onSave={(v) => save({ fields: fields.map((x, j) => (j === i ? { ...x, label: v } : x)) })} displayClassName="font-medium" />
                 </div>
-                <RequiredMark required={f.required} onChange={(on) => void save({ fields: fields.map((x, j) => (j === i ? { ...x, required: on } : x)) })} />
+                <RequiredToggle required={f.required} onChange={(on) => void save({ fields: fields.map((x, j) => (j === i ? { ...x, required: on } : x)) })} />
                 <Button size="sm" variant="ghost" className="text-muted hover:text-danger" aria-label={t('templates.removeField', { label: f.label })} title={t('templates.removeField', { label: f.label })} data-repeat-ok="per-field" onClick={() => void save({ fields: fields.filter((_, j) => j !== i) })}>
                   <Trash2 size={16} aria-hidden /> {t('templates.removeShort')}
                 </Button>
@@ -201,7 +200,7 @@ export function OutputEditor({ output, onChange }: { output: TemplateOutputField
                   ))}
                 </NativeSelect>
               </div>
-              <RequiredMark required={f.required} onChange={(on) => set(i, { required: on })} />
+              <RequiredToggle required={f.required} onChange={(on) => set(i, { required: on })} />
               <Button size="sm" variant="ghost" className="text-muted hover:text-danger" aria-label={t('templates.removeOutput', { label: f.label })} title={t('templates.removeOutput', { label: f.label })} data-repeat-ok="per-field" onClick={() => void onChange(entries.filter((_, j) => j !== i))}>
                 <Trash2 size={16} aria-hidden /> {t('templates.removeShort')}
               </Button>
@@ -354,7 +353,7 @@ function NewTemplateForm({ onCreate, onClose }: { onCreate: (v: { name: string; 
                 setFields((all) => all.map((x, j) => (j === i ? { ...x, label, name: fieldKey(label || t('templates.newField'), all.filter((_, k) => k !== i).map((y) => y.name)) } : x)))
               }}
             />
-            <RequiredMark required={f.required} onChange={(on) => setFields((all) => all.map((x, j) => (j === i ? { ...x, required: on } : x)))} />
+            <RequiredToggle required={f.required} onChange={(on) => setFields((all) => all.map((x, j) => (j === i ? { ...x, required: on } : x)))} />
             <Button size="sm" variant="ghost" className="text-muted hover:text-danger" aria-label={t('templates.removeField', { label: f.label || t('templates.newField') })} data-repeat-ok="per-field" onClick={() => setFields((all) => all.filter((_, j) => j !== i))}>
               <Trash2 size={16} aria-hidden /> {t('templates.removeShort')}
             </Button>

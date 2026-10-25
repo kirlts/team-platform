@@ -465,7 +465,7 @@ La respuesta trae `agent_secret` una sola vez. El trabajador lo lee de la bóved
 | `EXECUTE_DELIVER_CONCURRENCY` | Entregas a producción a la vez (omisión 1): dos a la vez chocan sobre el mismo `main` |
 | `EXECUTE_INFRA_RETRY_WAIT_MS` | Espera antes del segundo intento de un trabajo que falló por infraestructura: máquina que no se crea, sesión que muere sin resultado, servicio del modelo con 429 o 5xx (omisión 30000). El segundo fallo pasa el mensaje a una persona |
 | `EXECUTE_DELIVER_CHECK_COMMAND` | Orden de shell que corre antes de la entrega, con `{message_id}`, `{job_id}` y `{branch}`; vacía por omisión. Código 0 = la rama ya está en producción (última línea de stdout: la referencia) y la orden de entrega no corre (UD-296). Cualquier otro código, el plazo (60 s) o un error: se entrega como siempre |
-| `EXECUTE_DELIVER_RETRIES` | Veces que una verificación fallida vuelve a Claude (omisión 1) |
+| `EXECUTE_DELIVER_RETRIES` | Tope de vueltas de una verificación fallida a Claude; sin declarar, sólo lo acota el presupuesto diario (UD-298). Con 0, el primer fallo se informa |
 | `EXECUTE_DELIVER_MAX_ATTEMPTS` | Intentos del trabajo de entrega (omisión 2); el código 75 no gasta ninguno |
 | `INSTANCE_NAME` | Nombre de la instancia en cada fila del historial (omisión: el host de `PUBLIC_URL`, o `local`) |
 
@@ -502,7 +502,7 @@ Sin `EXECUTE_DELIVER_COMMAND`, la sesión de Claude entrega a producción por la
 | Código 0 | Quedó en producción. La última línea de stdout es la referencia: un commit, una URL o una etiqueta |
 | Código 75 | No puede ahora. El trabajo espera `EXECUTE_CAPACITY_WAIT_MS` y vuelve a correr sin gastar intento |
 | Código 76 | No se entrega sola: espera la revisión de una persona. La última línea de stdout es el motivo en lenguaje llano (por ejemplo «el cambio toca pagos»). No se reintenta ni vuelve a Claude. El trabajo termina como hecho con `delivered = 0`, sin referencia. Una sola respuesta con el `summary`, el motivo y `outcome: needs_decision` va a quien decide en el área (UD-269), que recibe el mensaje en su bandeja. La ficha de la ejecución lleva `delivery_held = 1` y el resumen lo cuenta aparte de «entregado» y «falló» |
-| Otro código | Fallo. stdout y stderr son el motivo. Con `EXECUTE_DELIVER_RETRIES` vueltas disponibles, un `execute` nuevo recibe esa salida en su prompt, corrige sobre la misma rama y vuelve a entregar. Si falla otra vez, el autor recibe el aviso de que no pasó la verificación, con `outcome: blocked` |
+| Otro código | Fallo. stdout y stderr son el motivo. Mientras alcance el presupuesto diario (y las vueltas de `EXECUTE_DELIVER_RETRIES`, si se declara), un `execute` nuevo recibe esa salida en su prompt, corrige sobre la misma rama y vuelve a entregar. Cuando se agota, el autor recibe «No quedó en producción: <motivo>», con `outcome: blocked` |
 | Plazo | `EXECUTE_DELIVER_TIMEOUT_MS`. Vencido, se mata el grupo de procesos de la orden y el autor recibe el aviso; no vuelve a Claude |
 | Fases | Opcional. Las líneas `##team phase verify` y `##team phase deploy` de stdout mueven el progreso que ven la tarjeta del mensaje y la Cola |
 | Captura del después | Opcional (UD-268). `TEAM_BEFORE_CAPTURES` trae la lista JSON `[{ place, as, width, height }]` del antes de la primera respuesta. Con código 0, la orden puede dejar una imagen en `$TEAM_WORKDIR/captures` e imprimir `##team capture <json>` (`{ path, alt, masked, place, as }`), o `##team capture-failed <motivo>`, que la respuesta final dice en una línea. La captura de la sesión sólo vale si no hubo antes con lugar |

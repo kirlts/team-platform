@@ -18,7 +18,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs'
 import { createServer } from 'node:http'
-import { dirname, extname, join, normalize } from 'node:path'
+import { dirname, extname, join, normalize, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { DatabaseSync } from 'node:sqlite'
 import Ajv from 'ajv'
@@ -33,7 +33,8 @@ const PORT = Number(process.env.PANEL_DEV_PORT ?? 8787)
 const STATIC = process.env.PANEL_DEV_STATIC === '1'
 /** PANEL_DEV_BASE=/team/ serves the panel and the API under that path, as the real server does with BASE_PATH (H-3721). */
 const BASE = `/${(process.env.PANEL_DEV_BASE ?? '/').replace(/^\/+|\/+$/g, '')}/`.replace('//', '/')
-const DIST = fileURLToPath(new URL('./dist/', import.meta.url))
+/** PANEL_DEV_DIST serves another build than panel/dist: a test that builds its own copy never shares a folder with another test (the build empties it). */
+const DIST = process.env.PANEL_DEV_DIST ? `${resolve(process.env.PANEL_DEV_DIST)}${sep}` : fileURLToPath(new URL('./dist/', import.meta.url))
 /** Each step of the simulated analysis lasts this long. It only exists so the bar visibly advances. */
 const STEP_MS = Number(process.env.PANEL_DEV_STEP_MS ?? 700)
 const MAX_BODY = 40 * 1024 * 1024

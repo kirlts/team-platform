@@ -40,5 +40,13 @@ const files = [...selected].filter((f) => !/\.(live|docker)\.test\./.test(f)).so
 console.error(`${changed.length} changed file(s) against ${base}: ${files.length} test file(s) selected (${config.always.length} guards always).`)
 if (touchesPanel) console.error('The panel or the client package changed: also `npm run test:panel` (tsc and vitest) and `npm run test:client`.')
 if (args.includes('--list')) { console.log(files.join('\n')); process.exit(0) }
-const r = spawnSync(process.execPath, ['--test', '--test-concurrency=3', ...files], { cwd: root, stdio: 'inherit' })
+// The browser tests serve panel/dist. They run in parallel, and `vite build` empties its folder: it is built here, once and before any of
+// them starts, and they are told to read it (FIT_SIN_BUILD) instead of building each its own. A caller that set it owns the folder.
+const env = { ...process.env }
+if (files.some((f) => f.endsWith('.browser.test.mjs')) && !env.FIT_SIN_BUILD) {
+  const built = spawnSync('npx', ['vite', 'build', '--logLevel', 'error'], { cwd: path.join(root, 'panel'), stdio: 'inherit' })
+  if (built.status !== 0) process.exit(built.status ?? 1)
+  env.FIT_SIN_BUILD = '1'
+}
+const r = spawnSync(process.execPath, ['--test', '--test-concurrency=3', ...files], { cwd: root, env, stdio: 'inherit' })
 process.exit(r.status ?? 1)

@@ -1,6 +1,9 @@
 // Shared by the browser tests (fits-one-screen, flows): starts the dev server on panel/dist and logs in.
 import { spawn, execFileSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as playwright from 'playwright'
 
@@ -42,15 +45,27 @@ export function launchBrowser() {
 }
 
 /**
- * Builds panel/dist (unless told not to) and serves it with the dev server; returns what a test needs and how to stop it.
+ * Builds the panel and serves it with the dev server; returns what a test needs and how to stop it. The build goes to a folder of this
+ * process alone: `vite build` empties its output folder, so two tests building into panel/dist at the same time (they run in parallel)
+ * deleted each other's index.html while the other was serving it. With `build: false` (or FIT_SIN_BUILD) the server reads the panel/dist
+ * somebody built once before the tests, and nothing here writes to it.
  * `base` mounts the panel and its API under a path (H-3721): `origin` then ends with that path (no trailing slash), so
  * `${origin}/api/…` and `page.goto(origin)` keep working; `host` is the bare origin.
  */
 export async function startPanel(port, { build = !process.env.FIT_SIN_BUILD, stepMs = 120, base = '/' } = {}) {
-  if (build) execFileSync('npx', ['vite', 'build'], { cwd: ROOT, stdio: 'ignore' })
+  const dist = build ? mkdtempSync(join(tmpdir(), 'panel-dist-')) : null
+  const dropDist = () => dist && rmSync(dist, { recursive: true, force: true })
+  if (dist) {
+    try {
+      execFileSync('npx', ['vite', 'build', '--outDir', dist, '--emptyOutDir', '--logLevel', 'error'], { cwd: ROOT, stdio: 'ignore' })
+    } catch (error) {
+      dropDist()
+      throw error
+    }
+  }
   const server = spawn('node', ['dev-server.mjs'], {
     cwd: ROOT,
-    env: { ...process.env, PANEL_DEV_PORT: String(port), PANEL_DEV_STATIC: '1', PANEL_DEV_STEP_MS: String(stepMs), PANEL_DEV_CONTROL: '1', PANEL_DEV_EXIT_WITH_PARENT: '1', PANEL_DEV_BASE: base },
+    env: { ...process.env, ...(dist ? { PANEL_DEV_DIST: dist } : {}), PANEL_DEV_PORT: String(port), PANEL_DEV_STATIC: '1', PANEL_DEV_STEP_MS: String(stepMs), PANEL_DEV_CONTROL: '1', PANEL_DEV_EXIT_WITH_PARENT: '1', PANEL_DEV_BASE: base },
     // The pipe on stdin is what ties the server to this process: it closes when this process ends, and the server leaves with it.
     stdio: ['pipe', 'pipe', 'inherit'],
   })
@@ -63,6 +78,9 @@ export async function startPanel(port, { build = !process.env.FIT_SIN_BUILD, ste
     })
     server.once('exit', (code) => reject(new Error(`el servidor de ejemplo salió con ${code} antes de escuchar en el puerto ${port}; ¿está ocupado?`)))
     server.once('error', reject)
+  }).catch((error) => {
+    dropDist()
+    throw error
   })
   const browser = await launchBrowser()
   const host = `http://127.0.0.1:${port}`
@@ -75,6 +93,7 @@ export async function startPanel(port, { build = !process.env.FIT_SIN_BUILD, ste
     async stop() {
       await browser.close()
       server.kill()
+      dropDist()
     },
   }
 }

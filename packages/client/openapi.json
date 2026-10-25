@@ -211,6 +211,10 @@
                     "active": {
                       "type": "boolean"
                     },
+                    "removed": {
+                      "type": "boolean",
+                      "description": "Sólo el autor «Miembro eliminado» (UD-292): conserva lo publicado por quien se eliminó; no se lista en Equipo ni se elige."
+                    },
                     "created_at": {
                       "type": "string"
                     },
@@ -10787,6 +10791,10 @@
                           "active": {
                             "type": "boolean"
                           },
+                          "removed": {
+                            "type": "boolean",
+                            "description": "Sólo el autor «Miembro eliminado» (UD-292): conserva lo publicado por quien se eliminó; no se lista en Equipo ni se elige."
+                          },
                           "created_at": {
                             "type": "string"
                           }
@@ -10941,6 +10949,10 @@
                     "active": {
                       "type": "boolean"
                     },
+                    "removed": {
+                      "type": "boolean",
+                      "description": "Sólo el autor «Miembro eliminado» (UD-292): conserva lo publicado por quien se eliminó; no se lista en Equipo ni se elige."
+                    },
                     "created_at": {
                       "type": "string"
                     },
@@ -11070,6 +11082,10 @@
                     },
                     "active": {
                       "type": "boolean"
+                    },
+                    "removed": {
+                      "type": "boolean",
+                      "description": "Sólo el autor «Miembro eliminado» (UD-292): conserva lo publicado por quien se eliminó; no se lista en Equipo ni se elige."
                     },
                     "created_at": {
                       "type": "string"
@@ -11219,6 +11235,10 @@
                     "active": {
                       "type": "boolean"
                     },
+                    "removed": {
+                      "type": "boolean",
+                      "description": "Sólo el autor «Miembro eliminado» (UD-292): conserva lo publicado por quien se eliminó; no se lista en Equipo ni se elige."
+                    },
                     "created_at": {
                       "type": "string"
                     }
@@ -11262,7 +11282,7 @@
         }
       },
       "delete": {
-        "summary": "Eliminar un miembro (exige ?confirm=true). Con historial responde 409 `member_has_history` salvo `purge=true`, que borra también sus envíos, mensajes y respuestas",
+        "summary": "Eliminar un miembro (exige ?confirm=true). Sus mensajes y respuestas publicados quedan con el autor «Miembro eliminado» y sus envíos sin publicar se retiran; con `purge=true` se borra todo lo suyo. Su correo queda retirado: el ingreso del anfitrión no lo crea de nuevo",
         "tags": [
           "Team"
         ],
@@ -11307,6 +11327,21 @@
                   "properties": {
                     "member_id": {
                       "type": "string"
+                    },
+                    "kept": {
+                      "type": "object",
+                      "description": "Lo suyo que se conserva con el autor «Miembro eliminado».",
+                      "properties": {
+                        "inputs": {
+                          "type": "integer"
+                        },
+                        "messages": {
+                          "type": "integer"
+                        },
+                        "replies": {
+                          "type": "integer"
+                        }
+                      }
                     },
                     "deleted": {
                       "type": "object",

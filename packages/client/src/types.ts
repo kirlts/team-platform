@@ -18,6 +18,8 @@ export interface Member {
   active: boolean
   /** `agent`: worked by an unattended Claude Code session (UD-254). */
   kind?: 'person' | 'agent'
+  /** Only the author «Miembro eliminado» (UD-292): it keeps what a deleted member published and is not listed in Equipo. */
+  removed?: boolean
 }
 
 /** Response of GET /me: the member and the project name (assumption: `project_name`). */
@@ -560,6 +562,8 @@ export interface DeleteInputResult {
 export interface DeleteMemberResult {
   member_id: string
   deleted: { inputs: number; messages: number; replies: number }
+  /** What stays under the author «Miembro eliminado» (UD-292). */
+  kept?: { inputs: number; messages: number; replies: number }
 }
 
 /** What the member editor sends (PATCH /members/:id, or /members/me for oneself). */

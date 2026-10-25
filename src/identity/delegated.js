@@ -24,7 +24,7 @@ import { createRemoteJWKSet, errors as joseErrors, jwtVerify } from 'jose'
 import { get, run, tx } from '../db/index.js'
 import { badRequest, forbidden } from '../domain/errors.js'
 import { audit } from '../domain/audit.js'
-import { createMember } from '../domain/members.js'
+import { createMember, isIdentityRetired } from '../domain/members.js'
 import { cookieSpec, readSessionCookie, setSessionCookie } from './cookies.js'
 
 function findMember (db, email) {
@@ -60,6 +60,7 @@ export function resolveMember (db, config, { email, name, role, issuedAt }, now 
   let memberRow = findMember(db, email)
   if (!memberRow) {
     if (!provision) throw forbidden('La cuenta no está registrada en el equipo. Un editor debe agregarla.', 'member_not_registered')
+    if (isIdentityRetired(db, email)) throw forbidden('La cuenta fue eliminada del equipo. Una persona del equipo debe agregarla de nuevo.', 'member_retired')
     const cleanName = typeof name === 'string' && name.trim() !== '' ? name.trim() : email.split('@')[0]
     tx(db, () => {
       if (findMember(db, email)) return // another request created it first

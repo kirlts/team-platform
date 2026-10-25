@@ -6,7 +6,7 @@ import { get, run, tx } from '../../db/index.js'
 import { badRequest, conflict, forbidden, unauthenticated } from '../../domain/errors.js'
 import { audit } from '../../domain/audit.js'
 import { LANGUAGES } from '../../domain/language.js'
-import { createMember, deleteMember, getMember, listMembers, updateMember } from '../../domain/members.js'
+import { createMember, deleteMember, getMember, listMembers, readmitIdentity, updateMember } from '../../domain/members.js'
 import { issueAgentSecret } from '../../execute/agent-credentials.js'
 import { removeUnreferencedBlobs } from '../../domain/storage.js'
 import { requireConfirm } from '../confirm.js'
@@ -79,6 +79,7 @@ export function registerMemberRoutes (app, ctx) {
     let agentSecret = null
     const id = tx(db, () => {
       const fresh = createMember(db, memberData, { actorId: request.member.id })
+      readmitIdentity(db, memberData.email) // adding by hand takes a removed member's email out of the retired list (UD-292)
       if (hash) run(db, 'INSERT INTO credentials (member_id, password_hash, updated_at) VALUES (?, ?, ?)', fresh, hash, Date.now())
       if (agent) agentSecret = issueAgentSecret(db, vault, fresh)
       return fresh
@@ -151,7 +152,7 @@ export function registerMemberRoutes (app, ctx) {
   app.delete('/members/:id', {
     onRequest: [requireRole('person')],
     schema: {
-      summary: 'Eliminar un miembro (exige ?confirm=true). Con historial responde 409 `member_has_history` salvo `purge=true`, que borra también sus envíos, mensajes y respuestas',
+      summary: 'Eliminar un miembro (exige ?confirm=true). Sus mensajes y respuestas publicados quedan con el autor «Miembro eliminado» y sus envíos sin publicar se retiran; con `purge=true` se borra todo lo suyo. Su correo queda retirado: el ingreso del anfitrión no lo crea de nuevo',
       params: idParams(),
       querystring: { type: 'object', additionalProperties: false, properties: { confirm: { type: 'boolean' }, purge: { type: 'boolean' } } },
       response: {
@@ -160,6 +161,7 @@ export function registerMemberRoutes (app, ctx) {
           required: ['member_id', 'deleted'],
           properties: {
             member_id: { type: 'string' },
+            kept: { type: 'object', description: 'Lo suyo que se conserva con el autor «Miembro eliminado».', properties: { inputs: { type: 'integer' }, messages: { type: 'integer' }, replies: { type: 'integer' } } },
             deleted: { type: 'object', required: ['inputs', 'messages', 'replies'], properties: { inputs: { type: 'integer' }, messages: { type: 'integer' }, replies: { type: 'integer' } } }
           }
         }
@@ -168,9 +170,9 @@ export function registerMemberRoutes (app, ctx) {
   }, async (request) => {
     requireConfirm(request)
     const id = request.params.id
-    const { member_id: memberId, deleted, sha256s } = deleteMember(db, id, { actorId: request.member.id, purge: request.query.purge === true, queue })
+    const { member_id: memberId, deleted, kept, sha256s } = deleteMember(db, id, { actorId: request.member.id, purge: request.query.purge === true, queue })
     identity.sessions.destroyForMember(id) // the rows went with the member; the call keeps the contract explicit
     try { await removeUnreferencedBlobs(db, config, sha256s) } catch (e) { app.log.warn({ err: e }, 'could not free the files of a deleted member') }
-    return { member_id: memberId, deleted }
+    return { member_id: memberId, deleted, kept }
   })
 }

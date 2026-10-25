@@ -109,7 +109,7 @@ export function createResources(t: Transport) {
       saveLanguage: (language: Language) => call<Member>(routes.memberPatchSelf, { body: { language } }),
       /** Another member's password (Editor): it closes that person's sessions. */
       setPassword: (v: { id: string; password: string }) => call<Member>(routes.memberPatch, { params: { id: v.id }, body: { password: v.password } }),
-      /** Deleting for good (Editor, UD-240). `purge` takes their history too; without it a member with history is a 409 `member_has_history`. */
+      /** Deleting (any active person, UD-292): what the member published stays under «Miembro eliminado»; `purge` takes their history too. */
       delete: (v: { id: string; purge?: boolean }) =>
         call<DeleteMemberResult>(routes.memberDelete, { params: { id: v.id }, search: `${CONFIRM}${v.purge ? '&purge=true' : ''}` }),
     },

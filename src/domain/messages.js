@@ -23,6 +23,7 @@ import { SPOKEN_KINDS, enqueueReplyExtract } from './reply-extract.js'
 import { retryableIds } from '../execute/retry.js'
 import { checkMentions, mentionsOf, recordMentions } from './mentions.js'
 import { isActivePerson } from './members.js'
+import { isInputParty } from './inputs.js'
 
 export const MESSAGE_STATUSES = ['open', 'answered', 'closed']
 export const REPLY_KINDS = ['answer', 'fix', 'clarification', 'forward']
@@ -456,25 +457,32 @@ export function reopenMessage ({ db, events, now = Date.now }, messageId, actorI
 }
 
 /**
- * Access control for an attachment (§7.1: «file, with access control»): the input's author reads it and, once
- * published in some message, the whole team does (messages are visible to everyone, §6).
+ * Whether a member sees a message's card: a live message is the whole team's (§6); a deleted one only to the people of the team and to the member who
+ * wrote it, the same rule as `GET /messages/:id?include_deleted=true` and the Borrados list (UD-240, UD-287). The files of a card follow this rule,
+ * so the card and its files cannot disagree: whoever the card is drawn for reads what it shows.
+ */
+const VISIBLE_MESSAGE = (memberExpr) => `(m.deleted_at IS NULL OR m.author_id = ${memberExpr}
+  OR EXISTS (SELECT 1 FROM members p WHERE p.id = ${memberExpr} AND p.kind = 'person' AND p.active = 1))`
+
+/**
+ * Access control for an attachment (§7.1: «file, with access control»): whoever the input belongs to (its author and, with «Enviar como», the member
+ * who sent it) reads it from the moment it is stored, and so does whoever sees a message that carries it (see `VISIBLE_MESSAGE`).
  */
 export function canReadAttachment (db, memberId, attachmentId) {
-  // A message that was deleted no longer publishes its attachments to the team; the input's author still reads them.
-  const dbRow = get(db, `
-    SELECT 1 AS ok FROM attachments a LEFT JOIN inputs i ON i.id = a.input_id
-     WHERE a.id = ? AND (i.author_id = ? OR EXISTS (SELECT 1 FROM message_attachments ma JOIN messages m ON m.id = ma.message_id
-                                                     WHERE ma.attachment_id = a.id AND m.deleted_at IS NULL))`, attachmentId, memberId)
-  return Boolean(dbRow)
+  const att = get(db, 'SELECT a.id, i.author_id, i.sent_by_member_id FROM attachments a LEFT JOIN inputs i ON i.id = a.input_id WHERE a.id = ?', attachmentId)
+  if (!att) return false
+  if (isInputParty(att, memberId)) return true
+  return Boolean(get(db, `SELECT 1 AS ok FROM message_attachments ma JOIN messages m ON m.id = ma.message_id
+                           WHERE ma.attachment_id = ? AND ${VISIBLE_MESSAGE('?')}`, attachmentId, memberId, memberId))
 }
 
 /**
- * A reply attachment is readable by every member with a session: messages and their threads are visible to the whole
- * team (§6). Once the reply or its message is deleted, nobody reads it (UD-240).
+ * A reply attachment is readable by whoever sees its message (see `VISIBLE_MESSAGE`), while the reply itself is live: a deleted reply
+ * is read by nobody (UD-240).
  */
-export const canReadReplyAttachment = (db, attachmentId) => Boolean(get(db, `
+export const canReadReplyAttachment = (db, memberId, attachmentId) => Boolean(get(db, `
   SELECT 1 AS ok FROM reply_attachments ra JOIN replies r ON r.id = ra.reply_id JOIN messages m ON m.id = r.message_id
-   WHERE ra.id = ? AND r.deleted_at IS NULL AND m.deleted_at IS NULL`, attachmentId))
+   WHERE ra.id = ? AND r.deleted_at IS NULL AND ${VISIBLE_MESSAGE('?')}`, attachmentId, memberId, memberId))
 
 // ---------------------------------------------------------------- deletion and restoration (UD-240)
 

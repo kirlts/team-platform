@@ -22,7 +22,8 @@
     "test:completa": "node --test \"src/**/*.test.js\" \"scripts/*.test.mjs\"",
     "test:panel": "cd panel && npx tsc --noEmit && npx vitest run",
     "e2e:contrato:claude": "node --test --test-concurrency=6 \"e2e/contrato/C*.e2e.test.mjs\"",
-    "posttest:completa": "node scripts/test-quick.mjs --mark"
+    "posttest:completa": "node scripts/test-quick.mjs --mark",
+    "e2e:contrato": "node --test-reporter=spec e2e/contrato/run.mjs"
   },
   "dependencies": {
     "@fastify/cookie": "11.1.3",

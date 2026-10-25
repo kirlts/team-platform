@@ -79,6 +79,8 @@ describe('M4: forwarding needs a written reason and leaves a notice in the threa
     for (const comment of [undefined, '', '  \n ']) {
       const r = await h.api('bruno').post(`/messages/${id}/forward`, { member_id: String(h.people.diego.id), ...(comment === undefined ? {} : { comment }) })
       assert.equal(r.status, 400, `M4: a forward with comment ${JSON.stringify(comment)} must be refused`)
+      // A comment of only blanks gets the product's own reason; a missing or empty one is refused earlier, by the schema of the route.
+      if (comment?.length) assert.equal(r.data?.code, 'forward_comment_required', `M4: the refusal of ${JSON.stringify(comment)} names its reason`)
     }
     assert.equal(h.row('SELECT COUNT(*) AS n FROM replies WHERE message_id = ?', id).n, repliesBefore, 'M4: nothing was written')
   })

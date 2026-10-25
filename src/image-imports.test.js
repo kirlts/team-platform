@@ -44,6 +44,9 @@ test('every companion of team.mjs is in the build context', async () => {
   const ignore = readFileSync(path.join(root, '.dockerignore'), 'utf8').split('\n')
   const team = readFileSync(path.join(root, 'scripts', 'team.mjs'), 'utf8')
   const imported = [...team.matchAll(/(?:from |import\()\s*['"]\.\/([^'"]+)['"]/g)].map((m) => m[1])
-  const missing = [...new Set([...TEAM_COMPANIONS, ...imported])].filter((f) => !ignore.includes(`!scripts/${f}`))
+  const dockerfile = readFileSync(path.join(root, 'Dockerfile'), 'utf8')
+  const runtime = dockerfile.slice(dockerfile.lastIndexOf('\nFROM '))
+  const missing = [...new Set([...TEAM_COMPANIONS, ...imported])]
+    .filter((f) => !ignore.includes(`!scripts/${f}`) || !runtime.includes(`COPY scripts/${f} `))
   assert.deepEqual(missing, [])
 })

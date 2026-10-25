@@ -146,6 +146,7 @@ COPY src ./src
 COPY templates ./templates
 COPY scripts/check-ffmpeg.sh ./scripts/check-ffmpeg.sh
 COPY scripts/team.mjs ./scripts/team.mjs
+COPY scripts/walkthrough.mjs ./scripts/walkthrough.mjs
 CMD ["sh", "-c", "sh scripts/check-ffmpeg.sh && node --test src/extract/*.test.js src/extract/lib/*.test.js"]
 
 # Final stage.
@@ -164,6 +165,7 @@ COPY src ./src
 COPY templates ./templates
 COPY ejemplos ./ejemplos
 COPY scripts/team.mjs ./scripts/team.mjs
+COPY scripts/walkthrough.mjs ./scripts/walkthrough.mjs
 COPY scripts/tiempos.mjs ./scripts/tiempos.mjs
 COPY --from=panel /out ./panel/dist
 RUN mkdir -p /data && chown node:node /data

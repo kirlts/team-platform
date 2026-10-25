@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, ty
 import { ChevronLeft, ChevronRight, FileText, Link2 } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { useOptionalEventsStore } from '@team-platform/client/react'
 import { useFormat, useT } from '@/i18n'
 import { client } from '@/lib/client'
 import { linkDomain, stepIndex, type GalleryItem } from '@/lib/gallery'
@@ -9,6 +10,7 @@ import { MEDIA_KEY } from '@/lib/media'
 import { cn } from '@/lib/utils'
 import { AudioPlayer } from './AudioPlayer'
 import { DownloadLink } from './DownloadLink'
+import { MediaIcon } from './MediaIcon'
 import { Thumb } from './Thumb'
 
 /** Size of the viewer: `inline` shares the page with other things (UD-017), `compact` shares a window with the analysis, `dialog` has the window to itself. */
@@ -278,8 +280,39 @@ function Slide({ item, active, zoomed, onZoom }: { item: GalleryItem; active: bo
   const name = item.name ?? t(MEDIA_KEY[item.kind])
   // A failed file is retried by drawing it again with a new key.
   const [attempt, setAttempt] = useState(0)
-  const [state, setState] = useState<'loading' | 'ready' | 'failed'>(item.src ? 'loading' : 'ready')
+  const [state, setState] = useState<'loading' | 'ready' | 'waiting' | 'failed'>(item.src ? 'loading' : 'ready')
   const failed = state === 'failed'
+  // A file that does not load yet is, most often, one the server has not published for this person (404 until the message exists or is restored): it
+  // is not an error, it is a wait. The stream says when something was published or changed, and the file is asked again by itself, once per event.
+  // A second failure after an event is the failure for real, and only that one draws the error and its button.
+  const events = useOptionalEventsStore()
+  const refused = useRef(false)
+  const wait = () => {
+    // Without a stream above (a piece drawn on its own) there is nothing to wait for: the failure is drawn at once, with its button.
+    if (!refused.current && events) {
+      refused.current = true
+      setState('waiting')
+    } else setState('failed')
+  }
+  useEffect(() => {
+    if (state !== 'waiting' || !events) return
+    const again = () => {
+      setState('loading')
+      setAttempt((n) => n + 1)
+    }
+    // A stream that was not open yet when the file failed (the page just loaded) reports itself when it opens.
+    let open = events.getSnapshot().connected
+    const connect = events.subscribe(() => {
+      const now = events.getSnapshot().connected
+      if (now && !open) {
+        refused.current = false // opening the stream is not news about the file: the wait goes on until something is published
+        again()
+      }
+      open = now
+    })
+    const stops = [events.onNewMessage(again), events.onDone(again), events.onChanged(again), connect]
+    return () => stops.forEach((stop) => stop())
+  }, [state, events])
 
   if (failed) {
     return (
@@ -296,6 +329,16 @@ function Slide({ item, active, zoomed, onZoom }: { item: GalleryItem; active: bo
         >
           {t('gallery.retry')}
         </Button>
+      </div>
+    )
+  }
+
+  if (state === 'waiting') {
+    return (
+      <div role="status" data-gallery-waiting className="flex flex-col items-center gap-2 px-4 text-center text-sm text-muted">
+        <MediaIcon kind={item.kind} size={24} className="text-muted" />
+        <p>{t('gallery.loading')}</p>
+        <p className="text-xs [overflow-wrap:anywhere]">{name}</p>
       </div>
     )
   }
@@ -317,8 +360,11 @@ function Slide({ item, active, zoomed, onZoom }: { item: GalleryItem; active: bo
           loading="lazy"
           decoding="async"
           draggable={false}
-          onLoad={() => setState('ready')}
-          onError={() => setState('failed')}
+          onLoad={() => {
+            refused.current = false
+            setState('ready')
+          }}
+          onError={wait}
           onClick={() => onZoom(!zoomed)}
           title={zoomed ? t('gallery.fit') : t('media.zoom', { name })}
           className={cn(zoomed ? 'max-w-none cursor-zoom-out' : 'max-h-full max-w-full cursor-zoom-in object-contain')}
@@ -351,7 +397,7 @@ function Slide({ item, active, zoomed, onZoom }: { item: GalleryItem; active: bo
           playsInline
           aria-label={name}
           onLoadedData={() => setState('ready')}
-          onError={() => setState('failed')}
+          onError={wait}
           className="max-h-full max-w-full"
         />
       </div>
@@ -361,7 +407,7 @@ function Slide({ item, active, zoomed, onZoom }: { item: GalleryItem; active: bo
   if (item.kind === 'audio' && item.src) {
     return (
       <div className="flex h-full w-full min-w-0 flex-col gap-2 p-3">
-        <AudioPlayer key={attempt} src={item.src} name={name} onError={() => setState('failed')} onReady={() => setState('ready')} />
+        <AudioPlayer key={attempt} src={item.src} name={name} onError={wait} onReady={() => setState('ready')} />
         {active && item.transcriptSrc && <Transcript src={item.transcriptSrc} />}
       </div>
     )

@@ -342,7 +342,9 @@ export function loadConfig (env = process.env, overrides = {}) {
       cookieDomain: textValue(env, 'COOKIE_DOMAIN', ''),
       cookieName: textValue(env, 'COOKIE_NAME', 'team_session'),
       // The host's own sign-out: POST /auth/logout answers it so the panel goes there after closing its own session.
-      logoutUrl: textValue(env, 'LOGOUT_URL', '')
+      logoutUrl: textValue(env, 'LOGOUT_URL', ''),
+      // The host's own sign-in page (UD-308): where a missing, expired or invalid session goes when the host governs identity.
+      hostLoginUrl: textValue(env, 'HOST_LOGIN_URL', '/session/login')
     },
 
     // ---- Unattended Claude Code session for agent members (UD-254, UD-255, MS §7.5 «Ejecución»)
@@ -485,6 +487,17 @@ export function identitySources (identity) {
     if (!IDENTITY_SOURCES.includes(x)) throw new Error(`IDENTITY_PROVIDER: «${x}» is not one of: delegated, ${IDENTITY_SOURCES.join(', ')}.`)
   }
   return [...new Set(list)]
+}
+
+/**
+ * The host's entry address, or null when Team Platform signs members in itself (UD-308). The host governs identity when a
+ * signed token (jwt: JWT_JWKS_URL or JWT_SECRET), a signed header or a trusted header is configured; `sso-redirect` has its own
+ * start route. Without a host, the form of its own is the only entry.
+ */
+export function hostEntryUrl (identity) {
+  const sources = identitySources(identity)
+  const governed = sources.some((x) => x === 'jwt' || x === 'signed-header' || x === 'trusted-header')
+  return governed && identity.hostLoginUrl ? identity.hostLoginUrl : null
 }
 
 function validateConfig (config) {

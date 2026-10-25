@@ -1573,3 +1573,13 @@ Costos de la CLI (USD); los precios publicados dan diez veces menos para Haiku, 
 - Una lista de palabras o un patrón sobre el texto («quizás», «me gustaría») para reconocer una idea: un `if` sobre texto humano (invariante 11 del anfitrión).
 **Consecuencias:** `src/analyze/schema.js`, `prompts-es.js`, `prompts-en.js`, `validate.js`, `src/domain/assessment.js`, `proposals.js`, `messages.js`, `src/execute/handler.js`, `prompt.js`, `approve.js`, `routes.js`, `panel/src/components/PublishIdea.tsx`. Pruebas en `src/execute/idea-se-muestra.test.js` y `src/analyze/assessment.test.js`. Una medición del juicio del analizador sobre mensajes reales (el 124 y uno decidido) queda por correr con el modelo vivo; el IMK de cada trabajo mostrado dirá después si el criterio fue adecuado.
 **Condiciones de reversión:** Las fija Martín.
+
+## [UD-308] Con un anfitrión que gobierna la identidad, la entrada es la del anfitrión
+**Fecha:** 2026-10-25
+**Contexto:** Martín, 2026-10-25 14:4x, volvió a team.devalis.cl y vio el formulario propio de correo y contraseña; al enviarlo, `POST /api/auth/login` respondió 404. Medido en producción: la tabla `credentials` está vacía y todos los miembros entran por el ingreso firmado de Devalis (`identity_links`, proveedor `host-role`). El borde manda a `/session/login` sólo cuando no hay cookie de sesión; con una cookie vencida o inválida la petición llegaba a Team Platform, que dibujaba un formulario sin salida para todos.
+**Decisión:** Cuando el anfitrión gobierna la identidad (`jwt` con `JWT_JWKS_URL` o `JWT_SECRET`, `signed-header` o `trusted-header`), una sesión ausente, vencida o inválida lleva a `HOST_LOGIN_URL` (por omisión `/session/login`). El servidor responde las páginas del panel con un 302 a esa dirección y el destino original en `next`; el 401 de la API trae `login_url` con la misma dirección; el panel, al recibir ese `login_url`, redirige y no dibuja el formulario. El formulario propio sólo existe sin anfitrión. `sso-redirect` conserva su ruta de inicio.
+**Alternativas descartadas:**
+- Arreglar sólo el borde de Devalis para tratar la cookie vencida como ausente: deja el defecto en Team Platform para cualquier otro anfitrión.
+- Quitar el formulario del panel: un despliegue sin anfitrión lo necesita.
+**Consecuencias:** `src/config.js` (`hostEntryUrl`, `HOST_LOGIN_URL`), `src/identity/index.js`, `src/api/index.js`, `panel/src/App.tsx`, `.env.example`. Pruebas: `src/api/host-entry.test.js` y `panel/src/host-entry.browser.test.mjs`.
+**Condiciones de reversión:** Las fija Martín.

@@ -151,7 +151,7 @@ test('the whole journey of the keys leaves the sentinels in no response, log, sp
       const res = await call('POST', '/settings/connections', body, env.c.ed, { 'content-type': type })
       assert.ok(res.statusCode >= 400 && res.statusCode < 500, `${label}: ${res.statusCode}`)
       assert.equal((await call('PUT', '/settings/connections/anthropic/key', body, env.c.ed, { 'content-type': type })).statusCode >= 400, true, label)
-      assert.equal((await call('POST', '/settings/connections', body, env.c.ana, { 'content-type': type })).statusCode, 403, label)
+      assert.equal((await call('POST', '/settings/connections', body, env.c.ana, { 'content-type': type })).statusCode >= 400, true, label) // a member reaches the route (UD-287) and the body is refused
       assert.equal((await call('POST', '/settings/connections', body, null, { 'content-type': type })).statusCode, 401, label)
     }
 

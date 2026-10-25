@@ -2,7 +2,7 @@
 // `GET /messages?deleted=1`: the viewer's own deleted messages, every one for an Editor; plus areas, templates and discarded sends.
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { addMember, login, makeEnv, postInput, until } from '../testing/helpers.js'
+import { addAgent, addMember, login, makeEnv, postInput, until } from '../testing/helpers.js'
 
 async function team () {
   const env = await makeEnv({ config: { identity: { login: { ipMax: 1000 } } }, worker: true })
@@ -28,15 +28,16 @@ async function publish (env, cookie, title) {
 
 const ids = async (env, cookie, query) => (await env.api('GET', `/messages${query}`, cookie)).json().items.map((m) => m.id)
 
-test('UD-250 · deleted messages are listed to their sender and to an Editor, never to another member, and restoring brings them back', async () => {
+test('UD-250 · deleted messages are listed to any person of the team, never to an agent (UD-287), and restoring brings them back', async () => {
   const env = await team()
   const anas = await publish(env, env.c.ana, 'de ana')
   const betos = await publish(env, env.c.beto, 'de beto')
   const kept = await publish(env, env.c.ana, 'queda')
   for (const [id, cookie] of [[anas, env.c.ana], [betos, env.c.beto]]) assert.equal((await env.api('DELETE', `/messages/${id}?confirm=true`, cookie)).statusCode, 204)
 
-  assert.deepEqual(await ids(env, env.c.ana, '?deleted=1'), [anas], 'the sender sees only their own')
-  assert.deepEqual(await ids(env, env.c.beto, '?deleted=1'), [betos], 'a member does not see the ones of others')
+  assert.deepEqual((await ids(env, env.c.ana, '?deleted=1')).sort(), [anas, betos].sort(), 'a person sees all of them')
+  assert.deepEqual((await ids(env, env.c.beto, '?deleted=1')).sort(), [anas, betos].sort(), 'a member too')
+  assert.deepEqual(await (await addAgent(env, env.c.ed))('GET', '/messages?deleted=1').then((r) => r.json().items.map((m) => m.id)), [], 'an agent sees none of the others')
   assert.deepEqual((await ids(env, env.c.ed, '?deleted=1')).sort(), [anas, betos].sort(), 'the Editor sees all of them')
   assert.deepEqual(await ids(env, env.c.ana, '?deleted=0'), [kept])
   assert.deepEqual(await ids(env, env.c.ana, ''), [kept], 'the plain list still ignores them')
@@ -46,9 +47,9 @@ test('UD-250 · deleted messages are listed to their sender and to an Editor, ne
   assert.equal(page.total, 2)
   assert.ok(page.items[0].deleted_at, 'each one carries deleted_at')
 
-  assert.equal((await env.api('POST', `/messages/${anas}/restore`, env.c.beto)).statusCode, 403, 'another member cannot restore it')
+  assert.equal((await (await addAgent(env, env.c.ed, 'otro@x.org'))('POST', `/messages/${anas}/restore`)).statusCode, 403, 'an agent cannot restore it')
   assert.equal((await env.api('POST', `/messages/${anas}/restore`, env.c.ana)).statusCode, 200)
-  assert.deepEqual(await ids(env, env.c.ana, '?deleted=1'), [])
+  assert.deepEqual(await ids(env, env.c.ana, '?deleted=1'), [betos])
   assert.deepEqual((await ids(env, env.c.ana, '')).sort(), [anas, kept].sort(), 'it is back in the list')
   assert.equal((await env.api('POST', `/messages/${betos}/restore`, env.c.ed)).statusCode, 200, 'the Editor restores anyone')
   assert.deepEqual(await ids(env, env.c.ed, '?deleted=1'), [])
@@ -63,7 +64,8 @@ test('UD-250 · deleted areas and templates are listed to the Editor and come ba
   assert.ok(!(await env.api('GET', '/areas', env.c.ed)).json().some((a) => a.id === area.id))
   const gone = (await env.api('GET', '/areas?include_deleted=true', env.c.ed)).json().filter((a) => a.deleted_at)
   assert.deepEqual(gone.map((a) => a.id), [area.id])
-  assert.equal((await env.api('GET', '/areas?include_deleted=true', env.c.ana)).statusCode, 403)
+  assert.equal((await env.api('GET', '/areas?include_deleted=true', env.c.ana)).statusCode, 200) // any person of the team (UD-287)
+  assert.equal((await (await addAgent(env, env.c.ed))('GET', '/areas?include_deleted=true')).statusCode, 403)
   assert.equal((await env.api('POST', `/areas/${area.id}/restore`, env.c.ed)).statusCode, 200)
   assert.ok((await env.api('GET', '/areas', env.c.ed)).json().some((a) => a.id === area.id))
 

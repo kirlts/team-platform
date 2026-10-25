@@ -80,7 +80,8 @@ test('invalid ids in the path are 400; 401 without a session and 403 without a r
     assert.equal(r.json().code, 'validation')
   }
   assert.equal((await env.app.inject({ url: '/api/messages/1' })).statusCode, 401)
-  assert.equal((await env.api('GET', '/jobs', env.c.ana)).statusCode, 403)
+  assert.equal((await env.api('GET', '/jobs', env.c.ana)).statusCode, 200) // any person of the team (UD-287)
+  assert.equal((await env.api('POST', '/areas', env.c.ana, { title: 'x', description: 'y' })).statusCode, 403) // a configured text is the Editor's
   assert.equal((await env.api('GET', '/messages/999', env.c.ana)).statusCode, 404)
   await env.close()
 })
@@ -203,7 +204,7 @@ test('job queue: GET /jobs is filterable and DELETE /jobs purges the finished on
   assert.equal(without.statusCode, 400)
   assert.equal(without.json().code, 'confirm_required')
   assert.equal((await env.api('DELETE', '/jobs?state=queued&confirm=true', env.c.ed)).statusCode, 400) // finished ones only
-  assert.equal((await env.api('DELETE', '/jobs?state=done&confirm=true', env.c.ana)).statusCode, 403)
+  assert.equal((await env.api('DELETE', '/jobs?state=done', env.c.ana)).statusCode, 400) // a member reaches it (UD-287)
   const purgeRes = await env.api('DELETE', '/jobs?state=done&confirm=true', env.c.ed)
   assert.equal(purgeRes.statusCode, 200)
   assert.equal(purgeRes.json().purged, 3)
@@ -226,7 +227,7 @@ test('log: who created, published, closed, reopened or edited areas and template
   const t = (await env.api('POST', `/areas/${area.id}/templates`, env.c.ed, { body_markdown: md })).json()
   await env.api('DELETE', `/areas/${area.id}/templates/${t.id}?confirm=true`, env.c.ed)
 
-  assert.equal((await env.api('GET', '/audit', env.c.ana)).statusCode, 403)
+  assert.equal((await env.api('GET', '/audit', env.c.ana)).statusCode, 200) // any person of the team (UD-287)
   const log = (await env.api('GET', '/audit?limit=100', env.c.ed)).json()
   const verbs = log.items.map((e) => e.action)
   for (const a of ['input.create', 'input.publish', 'message.close', 'message.reopen', 'area.create', 'area.update', 'template.create', 'template.delete']) {
@@ -242,21 +243,21 @@ test('log: who created, published, closed, reopened or edited areas and template
   await env.close()
 })
 
-test('GET /jobs/:id/trace belongs to the editor and answers 404 if the job left no spans', async () => {
+test('GET /jobs/:id/trace is for any person of the team and answers 404 if the job left no spans', async () => {
   const env = await team()
-  assert.equal((await env.api('GET', '/jobs/1/trace', env.c.ana)).statusCode, 403)
+  assert.equal((await env.api('GET', '/jobs/1/trace', env.c.ana)).statusCode, 404) // a member reaches it (UD-287)
   const r = await env.api('GET', '/jobs/1/trace', env.c.ed)
   assert.equal(r.statusCode, 404)
   assert.equal(r.json().code, 'not_found')
   await env.close()
 })
 
-test('/health: the basics are public; the detail of database, queue and providers belongs to the editor; 503 if the database is not migrated', async () => {
+test('/health: the basics are public; the detail of database, queue and providers belongs to a person of the team; 503 if the database is not migrated', async () => {
   const env = await team({ modules: { getProviders: () => ({ describe: () => [{ slot: 'text', provider: 'anthropic', model: 'm', available: false, reason: 'Falta ANTHROPIC_API_KEY' }] }) } })
   const anonymous = (await env.app.inject({ url: '/health' })).json()
   assert.deepEqual(Object.keys(anonymous).sort(), ['status', 'version'])
   const memberRow = (await env.api('GET', '/health', env.c.ana)).json()
-  assert.deepEqual(Object.keys(memberRow).sort(), ['status', 'version'])
+  assert.equal(memberRow.db.status, 'ok') // the detail is any person's (UD-287)
   const editor = (await env.api('GET', '/health', env.c.ed)).json()
   assert.equal(editor.db.status, 'ok')
   assert.equal(editor.db.journal_mode, 'wal')

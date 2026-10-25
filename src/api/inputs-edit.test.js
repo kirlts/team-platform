@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { all, get } from '../db/index.js'
-import { addMember, fakeAnalyze, login, makeEnv, postInput, until } from '../testing/helpers.js'
+import { addAgent, addMember, fakeAnalyze, login, makeEnv, postInput, until } from '../testing/helpers.js'
 
 /** Team with an analyzer that fails permanently while `env.failing` is true and records the text it analyzed. */
 async function team () {
@@ -96,13 +96,13 @@ test('PATCH /inputs/:id: only the author, only while proposed or failed, never a
   await env.close()
 })
 
-test('POST /inputs/:id/reprocess: the author retries their own failed analysis, others cannot, the editor can', async () => {
+test('POST /inputs/:id/reprocess: the author retries their own failed analysis, any person of the team can, an agent cannot (UD-287)', async () => {
   const env = await team()
   env.state.failing = true
   const id = await env.send(env.c.ana, 'falla primero')
   await until(() => env.statusOf(id) === 'failed')
   env.state.failing = false
-  assert.equal((await env.api('POST', `/inputs/${id}/reprocess`, env.c.beto)).statusCode, 404)
+  assert.equal((await (await addAgent(env, env.c.ed))('POST', `/inputs/${id}/reprocess`)).statusCode, 404)
   const res = await env.api('POST', `/inputs/${id}/reprocess`, env.c.ana)
   assert.equal(res.statusCode, 202)
   await until(() => env.statusOf(id) === 'proposed')

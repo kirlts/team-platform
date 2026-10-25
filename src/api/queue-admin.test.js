@@ -37,12 +37,12 @@ test('UD-251 · the Editor lists the sends of everybody with the sender name; ea
   await env.close()
 })
 
-test('UD-251 · a member who asks for all=1 gets 403 and nothing from others', async () => {
+test('UD-251 · a member who asks for all=1 sees the sends of everybody (UD-287)', async () => {
   const env = await team()
   await sendAndSettle(env, env.c.beto, 'envío de Beto')
   const res = await env.api('GET', '/inputs?all=1', env.c.ana)
-  assert.equal(res.statusCode, 403)
-  assert.equal(res.json().items, undefined)
+  assert.equal(res.statusCode, 200)
+  assert.equal(res.json().items.length, 1)
   await env.close()
 })
 

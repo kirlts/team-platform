@@ -1,6 +1,6 @@
-// Provider connections (UD-120, UD-121). A connection is a provider the Editor can give a key to: the fixed ones
+// Provider connections (UD-120, UD-121). A connection is a provider an active person can give a key to: the fixed ones
 // (Anthropic, Groq transcription), the OpenAI-compatible presets (DeepSeek, Groq, OpenRouter, Gemini) and the custom ones
-// the Editor adds with a base address. The key is stored sealed (vault.js); the database holds only the sealed text and the
+// a person adds with a base address. The key is stored sealed (vault.js); the database holds only the sealed text and the
 // last four characters. The environment variables remain the value an installation starts with: a stored key wins over
 // them, and when none is stored the variable is what serves (`source: 'environment'`).
 //

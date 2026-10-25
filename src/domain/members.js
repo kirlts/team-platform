@@ -1,11 +1,14 @@
-// Team members (MASTER-SPEC §1.1). A member edits only their own profile (UD-023), language and password; the editor
-// administers the rest. At least one editor must remain.
+// Team members (MASTER-SPEC §1.1). A member edits only their own profile (UD-023), language and password; the Editor also writes the profile of an agent (a configured text, UD-281, UD-287) and any active
+// person administers the rest. At least one editor must remain.
 
 import { all, get, run, tx } from '../db/index.js'
 import { iso } from '../db/util.js'
 import { conflict, notFound } from './errors.js'
 import { audit } from './audit.js'
 import { DEFAULT_LANGUAGE, requireLanguage } from './language.js'
+
+/** An active member of kind person: who may do everything except change configured texts (UD-287). */
+export const isActivePerson = (db, id) => id !== null && id !== undefined && Boolean(get(db, "SELECT 1 AS ok FROM members WHERE id = ? AND kind = 'person' AND active = 1", id))
 
 export const MEMBER_COLUMNS = 'id, email, name, role, kind, profile, language, active, created_at'
 export const MEMBER_KINDS = ['person', 'agent'] // UD-254: an agent is a member worked by an unattended Claude Code session

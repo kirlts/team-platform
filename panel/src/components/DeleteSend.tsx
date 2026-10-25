@@ -8,7 +8,7 @@ import { useDeleteInput, useMe } from '@team-platform/client/react'
 /**
  * Deletes a send for real (UD-240) with one click and no step that confirms it (UD-253). There is no way back, so the notice says
  * what went, with the count of messages when they went too. A send that already published messages has the two forms side by
- * side: «Borrar» keeps its messages, «Borrar todo» takes them too. The sender sees it on their own sends, the Editor on every one.
+ * side: «Borrar» keeps its messages, «Borrar todo» takes them too. Any person of the team sees it, on every send (UD-287).
  */
 export function DeleteSend({ input, onDeleted, className }: { input: InputRecord; onDeleted?: (id: string) => void; className?: string }) {
   const t = useT()
@@ -16,7 +16,7 @@ export function DeleteSend({ input, onDeleted, className }: { input: InputRecord
   const notices = useNotices()
   const me = useMe().data
   const remove = useDeleteInput()
-  if (!me || (me.id !== input.author_id && me.role !== 'editor')) return null
+  if (!me) return null
   const hasMessages = (input.message_ids?.length ?? input.messages?.length ?? 0) > 0
 
   const run = async (withMessages: boolean) => {

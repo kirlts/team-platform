@@ -264,7 +264,7 @@ test('deny by default: every route declares its policy and the server does not s
   const env = await makeEnv()
   const routeList = routePolicies.get(env.app)
   assert.ok(routeList.length > 25)
-  for (const r of routeList) assert.ok(['public', 'member', 'editor'].includes(r.policy), `${r.method} ${r.url}`)
+  for (const r of routeList) assert.ok(['public', 'member', 'person', 'editor'].includes(r.policy), `${r.method} ${r.url}`)
   // A route without a policy makes registration fail.
   await assert.rejects(async () => {
     env.app.get('/api/sin-politica', async () => 'x')
@@ -293,7 +293,7 @@ test('every protected route answers 401 without a session, and editor routes 403
   assert.ok(checked >= 25)
   // The ones the spec marks as editor routes.
   const editorRoutes = new Set(routeList.filter((r) => r.policy === 'editor').map((r) => `${r.method} ${r.url.replace(/^\/api/, '')}`))
-  for (const expectedRoute of ['PATCH /members/:id', 'POST /areas', 'PATCH /areas/:id', 'GET /settings/providers', 'PATCH /settings/providers', 'PATCH /settings/project', 'POST /areas/:id/templates', 'POST /members']) {
+  for (const expectedRoute of ['POST /areas', 'PATCH /areas/:id', 'PATCH /settings/project', 'PATCH /settings/analysis', 'POST /areas/:id/templates']) {
     assert.ok(editorRoutes.has(expectedRoute), `${expectedRoute} debería ser de editor`)
   }
   await env.close()
@@ -371,8 +371,9 @@ test('delegated: no mode creates members (403) and /auth/login does not exist', 
 test('delegated: the role comes from the database and not from the provider (UD-007)', async () => {
   const env = await makeEnv(delegatedConfig({ mode: 'signed-header', secrets: ['s'] }))
   await addMember(env, { email: 'ana@x.org', role: 'member' })
-  const r = await env.app.inject({ url: '/api/settings/providers', headers: signedHeaders('s', { email: 'ana@x.org', pathname: '/api/settings/providers' }) })
-  assert.equal(r.statusCode, 403)
+  const r = await env.app.inject({ url: '/api/me', headers: signedHeaders('s', { email: 'ana@x.org', pathname: '/api/me' }) })
+  assert.equal(r.statusCode, 200)
+  assert.equal(r.json().role, 'member') // the database's role, not the provider's
   await env.close()
 })
 

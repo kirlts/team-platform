@@ -273,14 +273,15 @@ describe('execute job', () => {
     })
   })
 
-  it('an editor enqueues it by hand; a second while one is queued is refused', async () => {
+  it('a person enqueues it by hand; a second while one is queued is refused', async () => {
     const messageId = env.db.prepare('SELECT id FROM messages ORDER BY id LIMIT 1').get().id
     const first = await env.app.inject({ method: 'POST', url: `/api/messages/${messageId}/execute`, headers: cookieHeaders(editor) })
     assert.equal(first.statusCode, 202, first.body)
     const again = await env.app.inject({ method: 'POST', url: `/api/messages/${messageId}/execute`, headers: cookieHeaders(editor) })
     assert.equal(again.json().code, 'execute_busy')
     const byMember = await env.app.inject({ method: 'POST', url: `/api/messages/${messageId}/execute`, headers: cookieHeaders(author) })
-    assert.equal(byMember.statusCode, 403)
+    assert.equal(byMember.statusCode, 409) // a member reaches it too (UD-287): the answer is the busy one
+    assert.equal(byMember.json().code, 'execute_busy')
     process.env.FAKE_EXECUTE_REPLY = '0'
     startWorker()
     assert.equal((await waitJob(Number(first.json().job_ids[0]))).status, 'done')

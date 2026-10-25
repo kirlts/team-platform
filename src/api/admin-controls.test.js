@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readdirSync } from 'node:fs'
 import { test } from 'node:test'
 import { get } from '../db/index.js'
-import { addMember, login, makeEnv, TEST_PASSWORD } from '../testing/helpers.js'
+import { addAgent, addMember, login, makeEnv, TEST_PASSWORD } from '../testing/helpers.js'
 
 async function setup () {
   const env = await makeEnv({ config: { identity: { login: { ipMax: 1000 } } } })
@@ -28,23 +28,27 @@ test('the Editor sets another member\'s password: their sessions close and the n
   } finally { await env.close() }
 })
 
-test('a short password is refused with the policy code and a member cannot set another\'s', async () => {
+test('a short password is refused with the policy code and only a person sets another\'s (UD-287)', async () => {
   const env = await setup()
   try {
+    const agent = await addAgent(env, env.c.ed)
     const short = await env.api('PATCH', `/members/${env.bruno}`, env.c.ed, { password: 'abc' })
     assert.equal(short.statusCode, 400, short.body)
     assert.ok(short.json().code)
     assert.ok(await login(env, 'bruno@x.org', TEST_PASSWORD))
     const ed = get(env.db, "SELECT id FROM members WHERE email = 'ed@x.org'").id
-    assert.equal((await env.api('PATCH', `/members/${ed}`, env.c.bruno, { password: 'otra clave larga de prueba 77' })).statusCode, 403)
+    assert.equal((await env.api('PATCH', `/members/${ed}`, env.c.bruno, { password: 'otra clave larga de prueba 77' })).statusCode, 200) // any active person
+    assert.equal((await agent('PATCH', `/members/${ed}`, { password: 'otra clave larga de prueba 78' })).statusCode, 403) // an agent is not a person of the team
   } finally { await env.close() }
 })
 
-test('POST /ops/seed needs confirm, is for the Editor, and creates one input per example in the name of who asks', async () => {
+test('POST /ops/seed needs confirm, is for a person, and creates one input per example in the name of who asks', async () => {
   const env = await setup()
   try {
     assert.equal((await env.api('POST', '/ops/seed', env.c.ed)).json().code, 'confirm_required')
-    assert.equal((await env.api('POST', '/ops/seed?confirm=true', env.c.bruno)).statusCode, 403)
+    assert.equal((await env.api('POST', '/ops/seed', env.c.bruno)).json().code, 'confirm_required') // a member reaches it (UD-287)
+    const agent = await addAgent(env, env.c.ed, 'otro@x.org')
+    assert.equal((await agent('POST', '/ops/seed?confirm=true')).statusCode, 403) // an agent is not a person of the team
     const total = readdirSync(env.config.examplesDir).filter((n) => !n.startsWith('.')).length
     const r = await env.api('POST', '/ops/seed?confirm=true', env.c.ed)
     assert.equal(r.statusCode, 202, r.body)

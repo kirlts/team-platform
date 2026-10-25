@@ -35,7 +35,7 @@ function Item({ to, icon, children, end, onNavigate, badge }: { to: string; icon
   )
 }
 
-/** Sidebar: user, views, areas with what is pending in each (Editor) and Configuración at the foot. */
+/** Sidebar: user, views, areas with what is pending in each (the Editor manages areas) and Configuración at the foot. */
 export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => void; onLogout: () => void; onHide?: () => void }) {
   const t = useT()
   const me = useMe().data
@@ -125,11 +125,9 @@ export function Sidebar({ onNavigate, onLogout, onHide }: { onNavigate?: () => v
       </Item>
 
       {/* Conexiones is one destination, listed in its page: opening it moves nothing below it, and the settings and the sign-out keep their place (J3-A-46). */}
-      {editor && (
-        <Item to="/connections" icon={<Plug size={16} aria-hidden />} onNavigate={onNavigate}>
-          {t('nav.connections')}
-        </Item>
-      )}
+      <Item to="/connections" icon={<Plug size={16} aria-hidden />} onNavigate={onNavigate}>
+        {t('nav.connections')}
+      </Item>
 
       {/* The foot: the settings and the way out, as tall as a finger needs (J3-A-48). */}
       <div className="mt-auto flex shrink-0 flex-col gap-0.5 border-t border-line pt-2">

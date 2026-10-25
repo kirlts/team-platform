@@ -16,7 +16,7 @@ import { SelectionProvider, useSelection, type SelectionScope } from '@/lib/sele
  * the same row (UD-041); they differ in the query they ask and in what they say when it is empty. `hideArea` drops the area chip of
  * each row when the whole view is that area; `footer` is drawn right under the list (see `FitList`).
  *
- * Each message the person may delete (theirs, or any for an Editor) carries a check box; marking one shows the strip over the list
+ * Each message the person may delete (any, for a person of the team) carries a check box; marking one shows the strip over the list
  * with the buttons to mark all, delete and cancel (UD-253). Borrar deletes them at once without asking, and the notice carries Deshacer.
  * `noneAction` is the one action of a list that has nothing yet (what fills it).
  */
@@ -28,7 +28,7 @@ export function MessageList({ list, query, onClear, none, noneAction, hideArea =
   const restore = useRestoreMessages()
   const rows = useMemo(() => list.data ?? [], [list.data])
   const selection = useSelection()
-  const canMark = useCallback((m: Message | undefined) => !!m && !!me && !m.deleted_at && (m.author_id === me.id || me.role === 'editor'), [me])
+  const canMark = useCallback((m: Message | undefined) => !!m && !!me && !m.deleted_at, [me])
   const byId = useMemo(() => new Map(rows.map((m) => [m.id, m])), [rows])
   const scope = useMemo<SelectionScope>(() => ({ ...selection, canMark: (id) => canMark(byId.get(id)) }), [selection, canMark, byId])
   const page = useRef<readonly string[]>([])

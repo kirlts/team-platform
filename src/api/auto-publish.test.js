@@ -6,7 +6,7 @@ import { existsSync, readdirSync } from 'node:fs'
 import { test } from 'node:test'
 import { all, get } from '../db/index.js'
 import { parseTemplate } from '../domain/template-file.js'
-import { addMember, fakeAnalyze, login, makeEnv, multipart, postInput, until } from '../testing/helpers.js'
+import { addAgent, addMember, fakeAnalyze, login, makeEnv, multipart, postInput, until } from '../testing/helpers.js'
 
 async function team (opts = {}) {
   const env = await makeEnv({ config: { identity: { login: { ipMax: 1000 } } }, autoPublish: 'default', worker: true, ...opts })
@@ -108,7 +108,7 @@ test('UD-070 · a failed analysis publishes nothing and its sender sees it as fa
 
 test('UD-070 · the Editor knob auto_publish returns to the review: the proposal waits as proposed until its sender publishes it', async () => {
   const env = await team()
-  assert.equal((await env.api('PATCH', '/settings/publication', env.c.ana, { auto_publish: false })).statusCode, 403)
+  assert.equal((await (await addAgent(env, env.c.ed))('PATCH', '/settings/publication', { auto_publish: false })).statusCode, 403) // an agent is not a person of the team (UD-287)
   assert.equal((await env.api('GET', '/settings/publication', env.c.ana)).json().auto_publish, true)
   const off = await env.api('PATCH', '/settings/publication', env.c.ed, { auto_publish: false })
   assert.equal(off.statusCode, 200)
@@ -131,7 +131,7 @@ test('UD-070 · the Editor knob auto_publish returns to the review: the proposal
   await env.close()
 })
 
-test('UD-070 · publishing never duplicates: a published input is a 409 to publish, a 403 to reprocess for its sender (UD-258: only an Editor does, tested in reprocess-published.test.js) and a duplicate when sent again', async () => {
+test('UD-070 · publishing never duplicates: a published input is a 409 to publish, a 404 to reprocess for an agent (UD-258, UD-287: any person does, tested in reprocess-published.test.js) and a duplicate when sent again', async () => {
   const env = await team()
   const id = await env.send(env.c.ana, 'una sola vez')
   const view = await env.settled(id)
@@ -140,8 +140,8 @@ test('UD-070 · publishing never duplicates: a published input is a 409 to publi
   const again = await env.api('POST', `/inputs/${id}/publish`, env.c.ana)
   assert.equal(again.statusCode, 409)
   assert.equal(again.json().code, 'already_published')
-  const refused = await env.api('POST', `/inputs/${id}/reprocess`, env.c.ana)
-  assert.equal(refused.statusCode, 403, refused.body)
+  const refused = await (await addAgent(env, env.c.ed))('POST', `/inputs/${id}/reprocess`)
+  assert.equal(refused.statusCode, 404, refused.body)
   assert.equal(countMessages(env), 1)
   const resent = await postInput(env, env.c.ana, { text: 'una sola vez' })
   assert.equal(resent.statusCode, 200)

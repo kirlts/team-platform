@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { recordExecuteRun } from '../telemetry/execute-runs.js'
-import { addMember, login, makeEnv } from '../testing/helpers.js'
+import { addAgent, addMember, login, makeEnv } from '../testing/helpers.js'
 
 const at = (d, h = 10) => new Date(2026, 9, d, h).getTime()
 
@@ -76,10 +76,12 @@ test('the summary gives phases, cost, delivery, resolved rate and the slowest to
   await env.close()
 })
 
-test('a member gets 403 and no session gets 401', async () => {
+test('an agent gets 403, a member 200 and no session gets 401 (UD-287)', async () => {
   const env = await team()
+  const agent = await addAgent(env, env.c.ed)
   for (const url of ['/ops/execute-runs', '/ops/execute-runs/summary']) {
-    assert.equal((await env.api(url, env.c.ana)).statusCode, 403, url)
+    assert.equal((await env.api(url, env.c.ana)).statusCode, 200, url)
+    assert.equal((await agent('GET', url)).statusCode, 403, url)
     assert.equal((await env.api(url, undefined)).statusCode, 401, url)
   }
   await env.close()

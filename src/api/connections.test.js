@@ -7,6 +7,7 @@ import { hasRow, storeKey } from '../domain/connections.js'
 import { loadModules } from '../domain/modules.js'
 import { createVault, generateMasterKey, keyId } from '../domain/vault.js'
 import { connectionsEnv } from '../testing/connections-env.js'
+import { addAgent } from '../testing/helpers.js'
 
 const OK_ANTHROPIC = 'sk-ant-good-key-1111'
 const OK_DEEPSEEK = 'sk-ds-good-key-2222'
@@ -18,7 +19,7 @@ const rowOf = (env, name) => get(env.db, 'SELECT * FROM provider_connections WHE
 const auditRows = (env) => all(env.db, "SELECT * FROM audit_log WHERE action LIKE 'settings.connection.%' OR action = 'settings.providers' ORDER BY id")
 const addCustom = (env, extra = {}) => env.ed('POST', '/settings/connections', { name: 'mi-proveedor', base_url: 'https://llm.example.test/v1', api_key: OK_CUSTOM, label: 'Mi proveedor', model: 'fake-model-a', ...extra })
 
-test('every route of the connections is closed to anonymous users (401) and to Members (403)', async () => {
+test('every route of the connections is closed to anonymous users (401), open to any active person and closed to an agent (403, UD-287)', async () => {
   const env = await connectionsEnv()
   try {
     const routes = [
@@ -32,9 +33,11 @@ test('every route of the connections is closed to anonymous users (401) and to M
       ['GET', '/settings/providers'],
       ['PATCH', '/settings/providers', { slot: 'text', provider: 'anthropic', model: 'm' }]
     ]
+    const agent = await addAgent(env, env.c.ed)
+    assert.equal((await env.api('GET', '/settings/connections', env.c.ana)).statusCode, 200) // a member is a person
     for (const [method, url, payload] of routes) {
       assert.equal((await env.api(method, url, null, payload)).statusCode, 401, `${method} ${url} anonymous`)
-      assert.equal((await env.api(method, url, env.c.ana, payload)).statusCode, 403, `${method} ${url} member`)
+      assert.equal((await agent(method, url, payload)).statusCode, 403, `${method} ${url} agent`)
     }
     assert.equal(all(env.db, 'SELECT * FROM provider_connections').length, 0)
     assert.equal(env.upstream.seen.length, 0)

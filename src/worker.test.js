@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { all, get, run } from './db/index.js'
 import { Deferred } from './domain/pipeline.js'
 import { setProjectDescription } from './domain/settings.js'
-import { addMember, fakeAnalyze, login, makeEnv, postInput, until } from './testing/helpers.js'
+import { addAgent, addMember, fakeAnalyze, login, makeEnv, postInput, until } from './testing/helpers.js'
 
 const fast = { identity: { login: { ipMax: 1000 } }, worker: { retryBaseMs: 5, retryMaxMs: 20 } }
 
@@ -318,7 +318,7 @@ test('reprocess: the editor enqueues the analysis again, keeping the extractions
   await until(() => env.statusOf(id) === 'proposed')
   const req = (cookie, url) => env.app.inject({ method: 'POST', url: `/api/inputs/${id}${url}`, headers: { cookie, 'x-team-request': 'panel' } })
   await addMember(env, { email: 'beto@x.org' })
-  assert.equal((await req(await login(env, 'beto@x.org'), '/reprocess')).statusCode, 404) // an input of someone else does not exist for a member
+  assert.equal((await (await addAgent(env, editor))('POST', `/inputs/${id}/reprocess`)).statusCode, 404) // an input of someone else does not exist for an agent (UD-287)
   const r = await req(editor, '/reprocess')
   assert.equal(r.statusCode, 202)
   assert.equal(get(env.db, 'SELECT COUNT(*) AS n FROM proposals').n, 0)

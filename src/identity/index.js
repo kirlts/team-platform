@@ -16,9 +16,11 @@ import { createLocalProvider } from './local.js'
 import { createDelegatedSource } from './delegated.js'
 import { clearSessionCookie, readSessionCookie, setSessionCookie } from './cookies.js'
 import { identitySources } from '../config.js'
+import { isActivePerson } from '../domain/members.js'
 
 export const ROLES = ['member', 'editor']
-const RANK = { member: 1, editor: 2 }
+// `person`: any active member of kind person. `editor` is the only role with its own privilege: changing configured texts (UD-287).
+const RANK = { member: 1, person: 1, editor: 2 }
 
 /** Registered routes with their policy, so a test can walk the table (report 04 §6). */
 export const routePolicies = new WeakMap()
@@ -103,7 +105,7 @@ export async function registerIdentity (app, { db, config, now = Date.now }) {
   app.addHook('onRequest', csrfGuard(config))
 
   /**
-   * Route hook that authenticates and requires a minimum role. The editor can do everything the member can.
+   * Route hook that authenticates and requires a minimum role. `person` asks for an active member of kind person (not an agent); `editor` only for configured texts (UD-287).
    * Runs in `onRequest`: a multipart upload from a person without a session is rejected before it is read.
    */
   function requireRole (roleName) {
@@ -115,7 +117,8 @@ export async function registerIdentity (app, { db, config, now = Date.now }) {
       }
       if (!request.member && identityInfo.source !== 'session') issueOwnSession(request, reply, identityInfo)
       request.member = { id: identityInfo.member_id, role: identityInfo.role, email: identityInfo.email, name: identityInfo.name, token: identityInfo.token, source: identityInfo.source }
-      if (RANK[identityInfo.role] < RANK[roleName]) throw forbidden('Esta acción corresponde a un editor.')
+      if (roleName === 'person' && !isActivePerson(db, identityInfo.member_id)) throw forbidden('Esta acción corresponde a una persona del equipo.')
+      if (RANK[identityInfo.role] < RANK[roleName]) throw forbidden('Cambiar los textos configurados corresponde a un editor.')
     }
     hookFn.requiredRole = roleName
     return hookFn
@@ -128,7 +131,7 @@ export async function registerIdentity (app, { db, config, now = Date.now }) {
     const withRole = hookFns.find((g) => g.requiredRole)
     const isPublic = routeOptions.config?.public === true
     if (!withRole && !isPublic) {
-      throw new Error(`Route ${routeOptions.method} ${routeOptions.url} does not declare its policy: use requireRole('member'|'editor') or config.public.`)
+      throw new Error(`Route ${routeOptions.method} ${routeOptions.url} does not declare its policy: use requireRole('member'|'person'|'editor') or config.public.`)
     }
     const registryList = routePolicies.get(app) ?? []
     registryList.push({ method: routeOptions.method, url: routeOptions.url, policy: isPublic ? 'public' : withRole.requiredRole, schema: routeOptions.schema ?? null })

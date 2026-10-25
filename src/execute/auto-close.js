@@ -7,6 +7,7 @@
 // And never when a person replied in the thread after the first reply of the agent in this run. The closing line is «Cerrado: <reason>» («Closed: …»).
 // The caller closes with `closeMessage`, the function of `POST /api/messages/:id/close`, right after posting the reply and with the agent as the author of its `message.close` audit row.
 
+import { tierOf } from '../domain/bloom.js'
 import { get } from '../db/index.js'
 import { HANDOFF_OUTCOMES } from '../domain/escalation.js'
 import { hasBefore } from './captures.js'
@@ -46,6 +47,9 @@ export function personRepliedSince (db, { messageId, agentId, since }) {
  */
 export function closeReason (db, config, { output, request, delivered, messageId, agentId, after, since }) {
   if (!config.execute.autoClose || !request) return null
+  // UD-292: only a direct fix closes alone (level 1); the work of the larger model is validated by a person at the end (level 2), and a decision is theirs (level 3).
+  const tier = tierOf(get(db, 'SELECT bloom_level FROM messages WHERE id = ?', messageId)?.bloom_level)
+  if (tier === 'complex' || tier === 'person') return null
   if (HANDOFF_OUTCOMES.includes(output?.outcome)) return null
   if (!delivered && !NO_CHANGE_OUTCOMES.includes(output?.outcome)) return null
   if (hasBefore(db, { messageId, authorId: agentId }) && after < 1) return null

@@ -27,6 +27,8 @@ Commands:
   team mark <judge|delivery|wait> --ms <milliseconds> [--ok true|false]
                                                   report the time this session spent in the judge, in the delivery or waiting; added up per job.
                                                   With «delivery», --ok says whether the delivery reached production
+  team guard                                      PreToolUse hook (event on stdin): refuses a push to main or a forced push (UD-292)
+  team map [--brief]                              short map of the repository: folders, where screens, API, migrations and tests live, files most touched in 30 days
   team mentions [<job_id>]                        for the hook of the session (UD-285): takes the replies that mentioned the agent while it works and prints them as the
                                                   JSON of a Claude Code hook (additionalContext); their files are left in $TEAM_THREAD_DIR. Prints nothing when there is nothing new
   team timing <message_id>                        where the time of the message's execution went, as JSON (without the span tree)
@@ -129,7 +131,7 @@ function parseArgs (argv) {
     const a = argv[i]
     if (a.startsWith('--')) {
       const key = a.slice(2)
-      if (key === 'help') { options.help = true; continue }
+      if (key === 'help' || key === 'hook' || key === 'brief') { options[key] = true; continue }
       options[key] = argv[i + 1]
       i++
     } else positional.push(a)
@@ -188,10 +190,41 @@ export async function liveMentionsContext (list, { dir, jobId, messageId, downlo
   return text
 }
 
+/** Why a Bash command of the session is refused, or null: a push to `main`/`master` (also `HEAD:main`) and a forced push (UD-292). The branch of the job is the only one a session pushes. */
+export function refuseCommand (command) {
+  for (const segment of command.split(/&&|\|\||;|\n/)) {
+    const words = segment.trim().split(/\s+/)
+    const at = words.findIndex((w, i) => w === 'push' && words.slice(0, i).includes('git'))
+    if (at === -1) continue
+    const args = words.slice(at + 1)
+    if (args.some((a) => a === '--force' || a === '-f' || a.startsWith('--force-with-lease') || a === '--mirror' || a === '--delete')) return 'team guard: a forced or destructive push is not allowed; push your own branch (tp/<message id>) without force.'
+    if (args.some((a) => /(^|:|\/)(main|master)$/.test(a))) return 'team guard: never push main or master; push the branch of the job (tp/<message id>).'
+  }
+  return null
+}
+
 export async function runTeam (argv, env = process.env, fetchImpl = fetch) {
   const { positional, options } = parseArgs(argv)
   const [command, ...rest] = positional
   if (options.help || !command || command === 'help') return { code: command && command !== 'help' ? 1 : 0, out: HELP, err: '' }
+  if (command === 'map') {
+    // UD-292: the short map of the repository the session starts in; `--hook` wraps it as the context of a SessionStart hook.
+    try {
+      const { buildRepoMap } = await import('./repo-map.mjs')
+      const paths = String(env.TEAM_MAP_PATHS ?? '').split(',').map((p) => p.trim()).filter(Boolean)
+      const map = await buildRepoMap({ cwd: process.cwd(), paths, brief: options.brief === true })
+      return { code: 0, out: options.hook ? JSON.stringify({ hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: map.text } }) : map.text, err: '' }
+    } catch (error) { return { code: 0, out: '', err: `team map: ${error.message}` } } // the map is a help: a repository without git starts the session without it
+  }
+  if (command === 'guard') {
+    // UD-292: PreToolUse hook of a direct fix on a light model. A rule that must hold is enforced here and not asked in the prompt: the session never pushes `main`
+    // nor forces a push, whatever it was told or forgot. It reads the event as JSON on stdin; exit 2 with the reason on stderr refuses the tool call.
+    const raw = await new Promise((done) => { let t = ''; process.stdin.setEncoding('utf8'); process.stdin.on('data', (c) => { t += c }); process.stdin.on('end', () => done(t)); if (process.stdin.isTTY) done('') })
+    let event = {}
+    try { event = JSON.parse(raw) } catch { /* no event: nothing to refuse */ }
+    const refusal = refuseCommand(event?.tool_name === 'Bash' ? String(event?.tool_input?.command ?? '') : '')
+    return refusal ? { code: 2, out: '', err: refusal } : { code: 0, out: '', err: '' }
+  }
   if (command === 'walkthrough') {
     try {
       const { runWalkthrough } = await import('./walkthrough.mjs')

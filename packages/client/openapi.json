@@ -845,6 +845,7 @@
                                         "analyze",
                                         "evaluate",
                                         "create",
+                                        "decide",
                                         null
                                       ],
                                       "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
@@ -1230,6 +1231,7 @@
                                   "analyze",
                                   "evaluate",
                                   "create",
+                                  "decide",
                                   null
                                 ],
                                 "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
@@ -1615,6 +1617,7 @@
                                   "analyze",
                                   "evaluate",
                                   "create",
+                                  "decide",
                                   null
                                 ],
                                 "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
@@ -1903,6 +1906,7 @@
                             "analyze",
                             "evaluate",
                             "create",
+                            "decide",
                             null
                           ]
                         },
@@ -2022,6 +2026,7 @@
                               "analyze",
                               "evaluate",
                               "create",
+                              "decide",
                               null
                             ],
                             "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
@@ -2176,6 +2181,7 @@
                             "analyze",
                             "evaluate",
                             "create",
+                            "decide",
                             null
                           ]
                         },
@@ -2300,6 +2306,7 @@
                               "analyze",
                               "evaluate",
                               "create",
+                              "decide",
                               null
                             ],
                             "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
@@ -3091,6 +3098,7 @@
                               "analyze",
                               "evaluate",
                               "create",
+                              "decide",
                               null
                             ],
                             "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
@@ -3522,6 +3530,7 @@
                         "analyze",
                         "evaluate",
                         "create",
+                        "decide",
                         null
                       ],
                       "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
@@ -4124,6 +4133,7 @@
                         "analyze",
                         "evaluate",
                         "create",
+                        "decide",
                         null
                       ],
                       "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
@@ -4858,6 +4868,7 @@
                         "analyze",
                         "evaluate",
                         "create",
+                        "decide",
                         null
                       ],
                       "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
@@ -5532,6 +5543,7 @@
                         "analyze",
                         "evaluate",
                         "create",
+                        "decide",
                         null
                       ],
                       "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
@@ -6067,6 +6079,7 @@
                         "analyze",
                         "evaluate",
                         "create",
+                        "decide",
                         null
                       ],
                       "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
@@ -6567,6 +6580,7 @@
                         "analyze",
                         "evaluate",
                         "create",
+                        "decide",
                         null
                       ],
                       "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
@@ -7058,6 +7072,7 @@
                         "analyze",
                         "evaluate",
                         "create",
+                        "decide",
                         null
                       ],
                       "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
@@ -7549,6 +7564,7 @@
                         "analyze",
                         "evaluate",
                         "create",
+                        "decide",
                         null
                       ],
                       "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
@@ -8109,6 +8125,7 @@
                         "analyze",
                         "evaluate",
                         "create",
+                        "decide",
                         null
                       ],
                       "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
@@ -8625,6 +8642,7 @@
                         "analyze",
                         "evaluate",
                         "create",
+                        "decide",
                         null
                       ],
                       "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
@@ -9058,7 +9076,8 @@
                       "apply",
                       "analyze",
                       "evaluate",
-                      "create"
+                      "create",
+                      "decide"
                     ]
                   }
                 }
@@ -9143,6 +9162,7 @@
                         "analyze",
                         "evaluate",
                         "create",
+                        "decide",
                         null
                       ],
                       "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
@@ -9633,6 +9653,7 @@
                         "analyze",
                         "evaluate",
                         "create",
+                        "decide",
                         null
                       ],
                       "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."
@@ -10123,6 +10144,7 @@
                         "analyze",
                         "evaluate",
                         "create",
+                        "decide",
                         null
                       ],
                       "description": "Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed."

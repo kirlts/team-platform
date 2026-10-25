@@ -380,7 +380,7 @@ export interface paths {
                                          * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
                                          * @enum {null|string}
                                          */
-                                        bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                                        bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
                                         observed?: string[];
                                     } & {
                                         [key: string]: unknown;
@@ -590,7 +590,7 @@ export interface paths {
                                      * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
                                      * @enum {null|string}
                                      */
-                                    bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                                    bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
                                     observed?: string[];
                                 } & {
                                     [key: string]: unknown;
@@ -775,7 +775,7 @@ export interface paths {
                                      * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
                                      * @enum {null|string}
                                      */
-                                    bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                                    bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
                                     observed?: string[];
                                 } & {
                                     [key: string]: unknown;
@@ -858,7 +858,7 @@ export interface paths {
                             /** @enum {string} */
                             source?: "frame";
                             /** @enum {string|null} */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
                             observed?: string[];
                         }[];
                         discarded?: {
@@ -893,7 +893,7 @@ export interface paths {
                                  * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
                                  * @enum {null|string}
                                  */
-                                bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                                bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
                                 observed?: string[];
                             } & {
                                 [key: string]: unknown;
@@ -962,7 +962,7 @@ export interface paths {
                             /** @enum {string} */
                             source?: "frame";
                             /** @enum {string|null} */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
                             observed?: string[];
                         }[];
                         discarded?: {
@@ -1000,7 +1000,7 @@ export interface paths {
                                  * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
                                  * @enum {null|string}
                                  */
-                                bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                                bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
                                 /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
                                 bloom_by?: string | null;
                                 assignee_ids?: string[];
@@ -1366,7 +1366,7 @@ export interface paths {
                                  * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
                                  * @enum {null|string}
                                  */
-                                bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                                bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
                                 /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
                                 bloom_by?: string | null;
                                 assignee_ids?: string[];
@@ -1571,7 +1571,7 @@ export interface paths {
                              * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
                              * @enum {null|string}
                              */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
                             /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
                             bloom_by?: string | null;
                             assignee_ids?: string[];
@@ -1797,7 +1797,7 @@ export interface paths {
                              * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
                              * @enum {null|string}
                              */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
                             /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
                             bloom_by?: string | null;
                             assignee_ids?: string[];
@@ -2077,7 +2077,7 @@ export interface paths {
                              * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
                              * @enum {null|string}
                              */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
                             /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
                             bloom_by?: string | null;
                             assignee_ids?: string[];
@@ -2387,7 +2387,7 @@ export interface paths {
                              * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
                              * @enum {null|string}
                              */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
                             /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
                             bloom_by?: string | null;
                             assignee_ids?: string[];
@@ -2566,7 +2566,7 @@ export interface paths {
                              * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
                              * @enum {null|string}
                              */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
                             /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
                             bloom_by?: string | null;
                             assignee_ids?: string[];
@@ -2745,7 +2745,7 @@ export interface paths {
                              * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
                              * @enum {null|string}
                              */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
                             /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
                             bloom_by?: string | null;
                             assignee_ids?: string[];
@@ -2927,7 +2927,7 @@ export interface paths {
                              * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
                              * @enum {null|string}
                              */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
                             /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
                             bloom_by?: string | null;
                             assignee_ids?: string[];
@@ -3109,7 +3109,7 @@ export interface paths {
                              * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
                              * @enum {null|string}
                              */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
                             /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
                             bloom_by?: string | null;
                             assignee_ids?: string[];
@@ -3310,7 +3310,7 @@ export interface paths {
                              * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
                              * @enum {null|string}
                              */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
                             /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
                             bloom_by?: string | null;
                             assignee_ids?: string[];
@@ -3499,7 +3499,7 @@ export interface paths {
                              * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
                              * @enum {null|string}
                              */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
                             /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
                             bloom_by?: string | null;
                             assignee_ids?: string[];
@@ -3657,7 +3657,7 @@ export interface paths {
                 content: {
                     "application/json": {
                         /** @enum {string} */
-                        bloom_level: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create";
+                        bloom_level: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide";
                     };
                 };
             };
@@ -3687,7 +3687,7 @@ export interface paths {
                              * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
                              * @enum {null|string}
                              */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
                             /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
                             bloom_by?: string | null;
                             assignee_ids?: string[];
@@ -3867,7 +3867,7 @@ export interface paths {
                              * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
                              * @enum {null|string}
                              */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
                             /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
                             bloom_by?: string | null;
                             assignee_ids?: string[];
@@ -4046,7 +4046,7 @@ export interface paths {
                              * @description Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.
                              * @enum {null|string}
                              */
-                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | null;
+                            bloom_level?: "remember" | "understand" | "apply" | "analyze" | "evaluate" | "create" | "decide" | null;
                             /** @description The person who set the level by hand (UD-292); null while it is the analyzer's. */
                             bloom_by?: string | null;
                             assignee_ids?: string[];

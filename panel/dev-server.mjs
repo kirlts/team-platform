@@ -76,7 +76,8 @@ const areaView = (a) => {
   const person = (mid) => members.find((m) => m.id === mid && m.kind !== 'agent' && m.active)
   const decider = person(a.escalation_member_id) ?? members.find((m) => m.role === 'editor' && m.kind !== 'agent' && m.active)
   const { escalation_member_id: _stored, ...rest } = a
-  return { ...rest, escalation_member_id: decider?.id ?? null, handoffs: a.handoffs ?? [] }
+  // UD-292: the model the area runs with now (its own or the installation's) and the one of its direct fixes (null: the area's).
+  return { ...rest, execute_model: a.execute_model ?? 'claude-sonnet-5-5', execute_model_direct: a.execute_model_direct ?? null, escalation_member_id: decider?.id ?? null, handoffs: a.handoffs ?? [] }
 }
 
 const templateBody = (name, description, extra = '') =>
@@ -255,16 +256,16 @@ function seedMessage(m, rs = []) {
   return msg
 }
 
-seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Corregir el contraste del botón Enviar en el inicio', body: 'El botón Enviar de la barra de nuevo mensaje casi no se distingue del fondo en el tema oscuro.\n\nPasos: abrir Inicio con el tema oscuro y mirar la barra.', created_at: ago(35), assignee_ids: ['u-bruno', 'u-ana'], attachment_ids: [imgDashboard] })
-seedMessage({ area_id: 'a-feature', author_id: 'u-diego', title: 'Agregar exportación de mensajes cerrados', body: 'El cliente pidió bajar los mensajes cerrados del mes en un archivo para su revisión.', created_at: ago(190), assignee_ids: ['u-ana'], attachment_ids: [docFeedback] }, [
+seedMessage({ bloom_level: 'apply', area_id: 'a-error', author_id: 'u-carla', title: 'Corregir el contraste del botón Enviar en el inicio', body: 'El botón Enviar de la barra de nuevo mensaje casi no se distingue del fondo en el tema oscuro.\n\nPasos: abrir Inicio con el tema oscuro y mirar la barra.', created_at: ago(35), assignee_ids: ['u-bruno', 'u-ana'], attachment_ids: [imgDashboard] })
+seedMessage({ bloom_level: 'analyze', area_id: 'a-feature', author_id: 'u-diego', title: 'Agregar exportación de mensajes cerrados', body: 'El cliente pidió bajar los mensajes cerrados del mes en un archivo para su revisión.', created_at: ago(190), assignee_ids: ['u-ana'], attachment_ids: [docFeedback] }, [
   { author_id: 'u-ana', kind: 'clarification', body: '¿El formato es CSV o una hoja de cálculo? Cambia el esfuerzo.', created_at: ago(120) },
   { author_id: 'u-diego', kind: 'answer', body: 'CSV alcanza.', created_at: ago(90) },
 ])
-seedMessage({ area_id: 'a-pregunta', author_id: 'u-bruno', title: 'Definir el tamaño máximo de un video', body: '¿Cuál es el límite de video que vamos a aceptar en la primera versión?', created_at: ago(26 * 60), assignee_ids: ['u-ana', 'u-diego'], attachment_ids: [] })
-seedMessage({ area_id: 'a-error', author_id: 'u-carla', title: 'Arreglar el error al iniciar sesión con correo en mayúsculas', body: 'Con el correo escrito en mayúsculas el inicio de sesión responde que la cuenta no existe.', created_at: ago(28 * 60), assignee_ids: ['u-ana', 'u-carla'], attachment_ids: [imgLogin] }, [
+seedMessage({ bloom_level: 'decide', area_id: 'a-pregunta', author_id: 'u-bruno', title: 'Definir el tamaño máximo de un video', body: '¿Cuál es el límite de video que vamos a aceptar en la primera versión?', created_at: ago(26 * 60), assignee_ids: ['u-ana', 'u-diego'], attachment_ids: [] })
+seedMessage({ bloom_level: 'apply', area_id: 'a-error', author_id: 'u-carla', title: 'Arreglar el error al iniciar sesión con correo en mayúsculas', body: 'Con el correo escrito en mayúsculas el inicio de sesión responde que la cuenta no existe.', created_at: ago(28 * 60), assignee_ids: ['u-ana', 'u-carla'], attachment_ids: [imgLogin] }, [
   { author_id: 'u-bruno', kind: 'fix', body: 'Corregido en la rama de acceso: el correo se normaliza antes de buscar.', created_at: ago(26 * 60) },
 ])
-seedMessage({ area_id: 'a-idea', author_id: 'u-diego', title: 'Probar un resumen semanal por área', body: 'Un resumen de lo cerrado y lo abierto por área cada lunes ayudaría a la reunión de equipo.', created_at: ago(50 * 60), assignee_ids: [], attachment_ids: [] })
+seedMessage({ bloom_level: 'evaluate', area_id: 'a-idea', author_id: 'u-diego', title: 'Probar un resumen semanal por área', body: 'Un resumen de lo cerrado y lo abierto por área cada lunes ayudaría a la reunión de equipo.', created_at: ago(50 * 60), assignee_ids: [], attachment_ids: [] })
 seedMessage({ area_id: 'a-feedback', author_id: 'u-bruno', title: 'Las fechas de la agenda se leen mejor con el día de la semana', body: 'En la captura de la agenda las fechas sin día de la semana obligan a contar. Sugiero agregarlo.', created_at: ago(72 * 60), closed_at: ago(60 * 60), assignee_ids: ['u-carla'], attachment_ids: [imgAgenda, audioNota] }, [
   { author_id: 'u-carla', kind: 'answer', body: 'Hecho en la última versión.', created_at: ago(61 * 60) },
 ])
@@ -1113,7 +1114,7 @@ const server = createServer(async (req, res) => {
       const run = span('execute.machine.run', 210000, {}, [...tools, sub])
       const tree = span('execute', 1_380_000, { 'team.queue_wait_ms': 920_000 }, [span('execute.machine.create', 95000), run, span('execute.machine.destroy', 8000)])
       return send(res, 200, {
-        message_id: timingMatch[1], job_id: 'j-exec0', job_status: 'done', trace_id: 'a'.repeat(32), phase: null, attempts: 1, elapsed_ms: null,
+        message_id: timingMatch[1], job_id: 'j-exec0', job_status: 'done', trace_id: 'a'.repeat(32), phase: null, attempts: 1, model: 'claude-haiku-5-5', cost_usd: 0.31, elapsed_ms: null,
         first_reply_ms: 41000, final_reply_ms: 1_320_000, first_reply_since_message_ms: 961000, final_reply_since_message_ms: 2_240_000, total_ms: 1_380_000, queue_wait_ms: 920_000,
         phases: [{ name: 'create', duration_ms: 95000, offset_ms: 0, status: 'unset' }, { name: 'run', duration_ms: 210000, offset_ms: 95000, status: 'unset' }, { name: 'destroy', duration_ms: 8000, offset_ms: 1_370_000, status: 'unset' }],
         slowest: [...tools, sub].map((n) => ({ kind: n.name === 'execute.subagent' ? 'subagent' : 'tool', name: n.attributes['gen_ai.tool.name'] ?? n.attributes['gen_ai.agent.name'], summary: n.attributes['team.tool.summary'], duration_ms: n.duration_ms, success: n.attributes['team.tool.success'] ?? null })).sort((a, b) => b.duration_ms - a.duration_ms),
@@ -1453,7 +1454,7 @@ const server = createServer(async (req, res) => {
       syncStatus(msg)
       return send(res, 200, { ...view(msg), replies: liveReplies(msg).map(replyView) })
     }
-    m = /^\/messages\/([^/]+)(?:\/(replies|close|reopen|attachments|restore|forward|deliver|discard-delivery))?$/.exec(path)
+    m = /^\/messages\/([^/]+)(?:\/(replies|close|reopen|attachments|restore|forward|deliver|discard-delivery|level))?$/.exec(path)
     if (m) {
       const msg = messages.find((x) => x.id === m[1])
       if (!msg) return fail(res, 404, 'No existe')
@@ -1640,6 +1641,14 @@ const server = createServer(async (req, res) => {
         syncStatus(msg)
         return send(res, 200, { id: msg.id, status: msg.status, closed_at: msg.closed_at })
       }
+      if (m[2] === 'level' && method === 'PUT') {
+        // UD-292: any person of the team sets the level by hand.
+        const body = await readJson(req)
+        if (!['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create', 'decide'].includes(body?.bloom_level)) return fail(res, 400, 'El nivel no es uno de los seis de Bloom.', 'level_invalid')
+        msg.bloom_level = body.bloom_level
+        msg.bloom_by = me?.id ?? null
+        return send(res, 200, { ...view(msg), replies: liveReplies(msg).map(replyView) })
+      }
       if (m[2] === 'reopen' && method === 'POST') {
         msg.closed_at = null
         syncStatus(msg)
@@ -1698,6 +1707,11 @@ const server = createServer(async (req, res) => {
       if (body.escalation_member_id !== undefined) {
         if (body.escalation_member_id !== null && !members.some((x) => x.id === body.escalation_member_id && x.kind !== 'agent' && x.active)) return fail(res, 422, 'Quien decide debe ser una persona activa del equipo.')
         area.escalation_member_id = body.escalation_member_id
+      }
+      for (const key of ['execute_model', 'execute_model_direct']) {
+        if (body[key] === undefined) continue
+        if (body[key] !== null && !['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5', 'claude-fable-5-1'].includes(body[key])) return fail(res, 400, 'El modelo no está en la lista.', 'model_invalid')
+        area[key] = body[key]
       }
       return send(res, 200, areaView(area))
     }

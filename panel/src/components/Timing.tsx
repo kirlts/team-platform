@@ -1,7 +1,7 @@
 import { Fold } from '@/components/Fold'
 import { useLookups } from '@/components/lookups'
 import { SpanTree } from '@/components/TraceTree'
-import { TeamApiError } from '@team-platform/client'
+import { EXECUTE_MODELS, TeamApiError } from '@team-platform/client'
 import { useErrorText, useT, type MessageKey } from '@/i18n'
 import { useMessageTiming } from '@team-platform/client/react'
 
@@ -42,6 +42,9 @@ function TimingBody({ messageId }: { messageId: string }) {
     [t('timing.finalReply'), d.final_reply_ms === null ? '—' : seconds(d.final_reply_ms)],
     [t('timing.total'), d.total_ms === null ? '—' : seconds(d.total_ms)],
     [t('timing.wait'), d.queue_wait_ms === null ? '—' : seconds(d.queue_wait_ms)],
+    // UD-292: the model of the session and what it has cost.
+    [t('timing.model'), d.model ? (EXECUTE_MODELS.find((m) => m.id === d.model)?.label ?? d.model) : '—'],
+    [t('timing.cost'), typeof d.cost_usd === 'number' ? `US$ ${d.cost_usd.toFixed(2)}` : '—'],
   ]
   return (
     <div className="flex flex-col gap-3 text-sm">

@@ -184,11 +184,11 @@ export interface Reply {
 }
 
 /** The six levels of the revised Bloom taxonomy (UD-292): the analyzer returns one per message, and a person can change it. */
-export const BLOOM_LEVELS = ['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create'] as const
+export const BLOOM_LEVELS = ['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create', 'decide'] as const
 export type BloomLevel = (typeof BLOOM_LEVELS)[number]
 /** Who may work a level (UD-292): `direct` a direct fix, `complex` a diagnosis or a judgement, `person` a decision only a person takes. */
 export type BloomTier = 'direct' | 'complex' | 'person'
-export const BLOOM_TIER: Record<BloomLevel, BloomTier> = { remember: 'direct', understand: 'direct', apply: 'direct', analyze: 'complex', evaluate: 'complex', create: 'person' }
+export const BLOOM_TIER: Record<BloomLevel, BloomTier> = { remember: 'direct', understand: 'direct', apply: 'direct', analyze: 'complex', evaluate: 'complex', create: 'complex', decide: 'person' }
 
 /** The Claude models an area can run its unattended session with (UD-292): the same closed list as the server's, ids as the models overview gives them. */
 export const EXECUTE_MODELS = [

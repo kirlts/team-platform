@@ -41,6 +41,12 @@ function textValue (env, nameValue, fallback = '') {
  * EXECUTE_OTEL_ENV (UD-262): KEY=VALUE pairs separated by whitespace, split at the first `=`. A key must be an
  * environment variable name and may not start with TEAM_ (those carry the agent secret). Values cannot hold spaces.
  */
+// UD-292: limits of a direct fix on a light model, derived from the measurement of its start-up (the file named in `directSessionEnv`).
+// Derivation (docs/investigaciones/mediciones/2026-10-25-arranque-del-arreglo-directo.md): Haiku 5.5 charges 5 times more input from a prompt of 100,000 tokens up
+// (platform.claude.com/docs/en/about-claude/pricing, 2026-10-25), so the session compacts at that size; a session starts at 29,302 tokens (measured), which leaves
+// 70,698 of room, and a single output may take at most a tenth of the 100,000 step: 10,000 tokens for a file read and 20,000 characters (about 6,700 tokens) for a Bash output.
+export const DIRECT_SESSION_ENV = 'CLAUDE_CODE_AUTO_COMPACT_WINDOW=100000 CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS=10000 BASH_MAX_OUTPUT_LENGTH=20000'
+
 export function otelPairs (raw, name = 'EXECUTE_OTEL_ENV') {
   const out = {}
   for (const pair of String(raw ?? '').split(/\s+/).filter(Boolean)) {
@@ -381,6 +387,15 @@ export function loadConfig (env = process.env, overrides = {}) {
       // UD-271: Claude may close the message after its final reply when the system's own checks pass too (src/execute/auto-close.js). On by default («por defecto», Martín 2026-10-24); `off` or `0` never closes.
       autoClose: ['on', '1'].includes(choiceVar(env, 'EXECUTE_AUTO_CLOSE', ['on', 'off', '1', '0'], 'on')),
       sessionEnv: otelPairs(env.EXECUTE_SESSION_ENV, 'EXECUTE_SESSION_ENV'),
+      // UD-292: what a direct fix on the area's own light model adds. The host's minimal rules (a file, instead of EXECUTE_HOST_INSTRUCTIONS), the limits of the
+      // session as KEY=VALUE pairs (defaults from the measurement docs/investigaciones/mediciones/2026-10-25-arranque-del-arreglo-directo.md) and the command
+      // of its Stop hook (the checks that must pass before it finishes; see `sessionSettings`).
+      directHostInstructions: textValue(env, 'EXECUTE_DIRECT_HOST_INSTRUCTIONS', ''),
+      directSessionEnv: otelPairs(env.EXECUTE_DIRECT_SESSION_ENV ?? DIRECT_SESSION_ENV, 'EXECUTE_DIRECT_SESSION_ENV'),
+      directStopCommand: textValue(env, 'EXECUTE_DIRECT_STOP_COMMAND', ''),
+      // The tools a direct fix on a light model gets (`claude --tools`): the definitions of the others weigh 24,600 tokens in every request (measured 2026-10-25: 53,938 against 29,302
+      // with these seven). Empty = all of Claude Code's tools.
+      directTools: textValue(env, 'EXECUTE_DIRECT_TOOLS', 'Bash,Read,Edit,Write,Grep,Glob,Agent'),
       // Measurement 2026-10-23-tokens-y-cache.md: the part of the prompt that is the same for every job goes in `--append-system-prompt-file`, which the API caches
       // across sessions; in the user message it is written again by each session (measured 2026-10-23, 2026-10-23-tokens-y-cache.md).
       stableAsSystem: boolVar(env, 'EXECUTE_STABLE_AS_SYSTEM', false),

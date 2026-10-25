@@ -15,6 +15,7 @@ import { createWorker } from '../worker.js'
 import { createExecuteHandler } from './handler.js'
 import { EXECUTE_MODEL_IDS, resolveExecuteModel } from '../domain/execute-models.js'
 import { tierOf } from '../domain/bloom.js'
+import { closeReason } from './auto-close.js'
 
 const FAKE = fileURLToPath(new URL('./testing/fake-claude-stream.mjs', import.meta.url))
 const PORT = 8644 // the range given to this work (8640 to 8649)
@@ -173,10 +174,10 @@ describe('model by area and level', () => {
   })
 
   it('a level only a person can take is never given to an agent by the automatic routing: the person who decides takes it', async () => {
-    nextLevel = 'create'
+    nextLevel = 'decide'
     startWorker()
     const messageId = await publish('Definir cuánto cobramos por el plan nuevo.')
-    assert.equal(get(env.db, 'SELECT bloom_level FROM messages WHERE id = ?', messageId).bloom_level, 'create')
+    assert.equal(get(env.db, 'SELECT bloom_level FROM messages WHERE id = ?', messageId).bloom_level, 'decide')
     const assignees = all(env.db, 'SELECT m.id, m.kind FROM message_assignees a JOIN members m ON m.id = a.member_id WHERE a.message_id = ?', messageId)
     assert.ok(assignees.length > 0 && assignees.every((m) => m.kind === 'person'), JSON.stringify(assignees))
     assert.equal(get(env.db, "SELECT COUNT(*) AS n FROM jobs WHERE kind = 'execute' AND message_id = ?", messageId).n, 0)
@@ -185,19 +186,35 @@ describe('model by area and level', () => {
   })
 
   it('the person who picks Claude in «Para» prevails over the level: it is assigned and works, and the level is still shown', async () => {
-    nextLevel = 'create'
+    nextLevel = 'decide'
     routing = 'first'
     startWorker()
     const messageId = await publish('Decidir el precio del plan nuevo.', { recipient_ids: [String(agentId)] })
-    assert.equal(get(env.db, 'SELECT bloom_level FROM messages WHERE id = ?', messageId).bloom_level, 'create')
+    assert.equal(get(env.db, 'SELECT bloom_level FROM messages WHERE id = ?', messageId).bloom_level, 'decide')
     const job = get(env.db, "SELECT id FROM jobs WHERE kind = 'execute' AND message_id = ?", messageId)
     assert.ok(job, 'the agent got its job')
     assert.deepEqual(all(env.db, 'SELECT member_id FROM message_assignees WHERE message_id = ?', messageId).map((r) => r.member_id), [agentId])
     await waitJob(job.id)
   })
 
+  it('only a direct fix closes alone: what the larger model did is validated by a person, and a decision is theirs', async () => {
+    routing = 'first'
+    startWorker()
+    const args = (messageId) => ({ output: { outcome: 'done' }, request: { reason: 'nada pendiente' }, delivered: true, messageId, agentId, after: 1, since: Date.now() })
+    const config = loadConfig({ DATA_DIR: env.dir })
+    nextLevel = 'apply'
+    const direct = await publish('Cambiar un rótulo.')
+    assert.equal(closeReason(env.db, config, args(direct)), 'nada pendiente')
+    nextLevel = 'evaluate'
+    const complex = await publish('Evaluar la pantalla nueva.')
+    assert.equal(closeReason(env.db, config, args(complex)), null)
+    nextLevel = 'decide'
+    const person = await publish('Fijar el precio del plan.')
+    assert.equal(closeReason(env.db, config, args(person)), null)
+  })
+
   it('the tier is a fixed table over the enum, and a message without a level has none', () => {
-    assert.deepEqual(['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create'].map(tierOf), ['direct', 'direct', 'direct', 'complex', 'complex', 'person'])
+    assert.deepEqual(['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create', 'decide'].map(tierOf), ['direct', 'direct', 'direct', 'complex', 'complex', 'complex', 'person'])
     assert.equal(tierOf(null), null)
     assert.equal(tierOf('Aplicar'), null)
   })

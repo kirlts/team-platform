@@ -96,7 +96,7 @@ export const messageCard = {
     title: { type: 'string' }, body: { type: 'string' },
     fields: { type: 'object', additionalProperties: true },
     status: { type: 'string', enum: ['open', 'answered', 'closed'] },
-    bloom_level: { type: ['string', 'null'], enum: ['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create', null], description: 'Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.' },
+    bloom_level: { type: ['string', 'null'], enum: ['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create', 'decide', null], description: 'Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.' },
     bloom_by: { ...nullableId, description: 'The person who set the level by hand (UD-292); null while it is the analyzer\'s.' },
     assignee_ids: { type: 'array', items: id },
     attachments: { type: 'array', items: attachmentSummary },
@@ -132,7 +132,7 @@ const proposalMessage = {
     fields: { type: 'object', additionalProperties: true },
     assignee_ids: { type: 'array', items: id }, attachment_ids: { type: 'array', items: id }, unit_ids: { type: 'array', items: id },
     source: { type: 'string', enum: ['frame'] },
-    bloom_level: { type: ['string', 'null'], enum: ['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create', null], description: 'Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.' },
+    bloom_level: { type: ['string', 'null'], enum: ['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create', 'decide', null], description: 'Level of the request in the revised Bloom taxonomy, from the analyzer or set by hand (UD-292); null for a message published before it existed.' },
     observed: { type: 'array', items: { type: 'string', minLength: 1 } }
   }
 }
@@ -197,7 +197,7 @@ export const proposalBody = {
           attachment_ids: { type: 'array', items: idIn },
           unit_ids: { type: 'array', items: { type: 'integer' } },
           source: { type: 'string', enum: ['frame'] },
-          bloom_level: { type: ['string', 'null'], enum: ['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create', null] },
+          bloom_level: { type: ['string', 'null'], enum: ['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create', 'decide', null] },
           observed: { type: 'array', items: { type: 'string', minLength: 1 } }
         }
       }

@@ -341,7 +341,7 @@ export function registerMessageRoutes (app, ctx) {
       summary: 'Fijar a mano el nivel de un mensaje (UD-292)',
       description: 'Cualquier persona activa del equipo cambia el nivel que el analizador le dio al mensaje (taxonomía de Bloom revisada). El nivel decide el modelo de la siguiente sesión del mensaje; no reasigna ni toca una sesión en curso. `bloom_by` queda con quien lo fijó. Repetir el mismo nivel no cambia nada.',
       params: idParams(),
-      body: { type: 'object', required: ['bloom_level'], additionalProperties: false, properties: { bloom_level: { type: 'string', enum: ['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create'] } } },
+      body: { type: 'object', required: ['bloom_level'], additionalProperties: false, properties: { bloom_level: { type: 'string', enum: ['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create', 'decide'] } } },
       response: { 200: messageDetail }
     }
   }, async (request) => withSpan('message.level', { 'team.message_id': String(request.params.id), 'team.member_id': String(request.member.id) },

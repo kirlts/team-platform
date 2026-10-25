@@ -15,7 +15,7 @@ import { StateTabs } from '@/components/StateTabs'
 import { UndoButtons } from '@/components/UndoButtons'
 import { MoreMenu } from '@/components/MoreMenu'
 import { useT } from '@/i18n'
-import { parseQuery, serializeQuery, upsertFilter, removeFilter, type MessageQuery, type Area, type MessageStatus } from '@team-platform/client'
+import { EXECUTE_MODELS, parseQuery, serializeQuery, upsertFilter, removeFilter, type MessageQuery, type Area, type MessageStatus } from '@team-platform/client'
 import { useDeleteArea, useMe, useMembers, useMessages, useRestoreArea, useSaveArea, useSummary, useTemplates } from '@team-platform/client/react'
 import { areaCounts } from '@/lib/pending'
 import { useNotices } from '@/lib/notices'
@@ -93,6 +93,12 @@ function AreaViewBody({ area }: { area: Area }) {
     return undoStack.run({ label: t('areas.deciderEdited'), redo: () => save.mutateAsync({ id: area.id, escalation_member_id: next }), undo: () => save.mutateAsync({ id: area.id, escalation_member_id: prev }) })
   }
 
+  const changeModel = (field: 'execute_model' | 'execute_model_direct', next: string) => {
+    const prev = area[field] ?? null
+    const value = next === '' ? null : next
+    return undoStack.run({ label: t('areas.modelEdited'), redo: () => save.mutateAsync({ id: area.id, [field]: value }), undo: () => save.mutateAsync({ id: area.id, [field]: prev }) })
+  }
+
   return (
     <Page cols={12}>
       <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
@@ -113,6 +119,7 @@ function AreaViewBody({ area }: { area: Area }) {
         </div>
       </header>
       <AreaOwner area={area} canEdit={me?.role === 'editor'} onChange={changeDecider} />
+      <AreaModels area={area} canEdit={me?.role === 'editor'} onChange={changeModel} />
       <StateTabs value={status} counts={counts} onChange={choose} label={t('areas.states')} />
       <MessageList
         list={list}
@@ -192,6 +199,39 @@ function AreaOwner({ area, canEdit, onChange }: { area: Area; canEdit: boolean; 
           ))}
         </dd>
       </dl>
+    </div>
+  )
+}
+
+/**
+ * The Claude model the area's unattended sessions run with and the one for its direct fixes (UD-292). Two selects, each the field: they save on change (Editor only).
+ * «Igual» in the second one is the area's own model, which is what direct fixes ran with before the level existed.
+ */
+function AreaModels({ area, canEdit, onChange }: { area: Area; canEdit: boolean; onChange: (field: 'execute_model' | 'execute_model_direct', id: string) => void | Promise<unknown> }) {
+  const t = useT()
+  const labelOf = (id: string | null | undefined) => EXECUTE_MODELS.find((m) => m.id === id)?.label ?? id ?? ''
+  const fields = [
+    { field: 'execute_model' as const, label: t('areas.model'), value: area.execute_model ?? '', same: false },
+    { field: 'execute_model_direct' as const, label: t('areas.modelDirect'), value: area.execute_model_direct ?? '', same: true },
+  ]
+  return (
+    <div className="flex flex-wrap items-end gap-x-12 gap-y-4 text-sm" data-testid="area-models">
+      {fields.map(({ field, label, value, same }) => (
+        <label key={field} className="flex w-full min-w-0 flex-col items-start gap-2 sm:w-auto">
+          <span className="rotulo">{label}</span>
+          {canEdit ? (
+            <span className="w-full sm:w-56">
+              <NativeSelect className={ON_PAGE_FIELD} value={value} onChange={(e) => void onChange(field, e.target.value)} aria-label={label} data-testid={`area-${field.replace(/_/g, '-')}-select`}>
+                {same && <option value="">{t('areas.modelSame')}</option>}
+                {EXECUTE_MODELS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+                {value !== '' && !EXECUTE_MODELS.some((m) => m.id === value) && <option value={value}>{value}</option>}
+              </NativeSelect>
+            </span>
+          ) : (
+            <span className="font-semibold">{value === '' ? t('areas.modelSame') : labelOf(value)}</span>
+          )}
+        </label>
+      ))}
     </div>
   )
 }

@@ -94,16 +94,35 @@ export const SYSTEM_FILE_ON_MACHINE = '@JOB_DIR@/system.md'
  */
 export const LIVE_MENTION_SETTINGS = { hooks: { PostToolBatch: [{ hooks: [{ type: 'command', command: 'team mentions' }] }] } }
 
-/** The arguments of `claude -p` (UD-255). */
-export function claudeArgs (x, schema) {
+/**
+ * The hooks the invocation declares (UD-292). A hard rule is not a paragraph the model has to remember: it is a hook that runs whether it remembers or not.
+ * Every session has the live mentions. A direct fix on the area's light model also has `team map` at the start (the short map of the repository as context), `team guard` before every Bash call (no push to `main`, no forced push) and, when
+ * the host declares it (EXECUTE_DIRECT_STOP_COMMAND), its check at the end: the command gets the event as JSON on stdin, exit 2 with the reason on stderr sends the
+ * session back to work, and it must exit 0 when `stop_hook_active` is true so a session is held once, not forever.
+ */
+export function sessionSettings ({ light = false, tier = null, stopCommand = '' } = {}) {
+  const hooks = { ...LIVE_MENTION_SETTINGS.hooks }
+  // docs/team-platform/KAIROS-PARA-TEAM-PLATFORM.md §6: the light model gets only the paths it will probably touch; the larger model gets the short map of the repository.
+  if (light) hooks.SessionStart = [{ hooks: [{ type: 'command', command: 'team map --hook --brief' }] }]
+  else if (tier === 'complex') hooks.SessionStart = [{ hooks: [{ type: 'command', command: 'team map --hook' }] }]
+  if (light) {
+    hooks.PreToolUse = [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'team guard' }] }]
+    if (stopCommand) hooks.Stop = [{ hooks: [{ type: 'command', command: stopCommand }] }]
+  }
+  return { hooks }
+}
+
+/** The arguments of `claude -p` (UD-255). `light`: a direct fix on the area's own direct model (UD-292). */
+export function claudeArgs (x, schema, { light = false, tier = null } = {}) {
   return [
     '-p',
     '--model', x.model,
     '--effort', x.effort, // `claude --help` 2.1.284: «--effort <level> Effort level for the current session (low, medium, high, xhigh, max)»
     '--max-budget-usd', String(x.budgetUsd ?? x.maxBudgetUsd),
     ...(x.maxTurns > 0 ? ['--max-turns', String(x.maxTurns)] : []), // 0: no cap on turns, `--max-budget-usd` governs (UD-283)
+    ...(light && x.directTools ? ['--tools', x.directTools] : []),
     '--permission-mode', 'bypassPermissions',
-    '--settings', JSON.stringify(LIVE_MENTION_SETTINGS),
+    '--settings', JSON.stringify(sessionSettings({ light, tier, stopCommand: x.directStopCommand })),
     '--output-format', 'stream-json', '--verbose', '--include-partial-messages',
     '--json-schema', JSON.stringify(schema)
   ]
@@ -340,7 +359,8 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     if (!secret) throw permanent('El agente no tiene secreto propio; un Editor debe crearlo de nuevo.', 'agent_secret_missing')
     const author = get(db, 'SELECT id, name, profile, language FROM members WHERE id = ?', message.author_id)
     // UD-292: the model of this session comes from the area of the message and the level of the message (a retry of a failed session on the lighter model goes up to the area's).
-    const { model } = resolveExecuteModel(db, { messageId, fallback: x.model, escalated: payload.escalated === true })
+    const { model, source } = resolveExecuteModel(db, { messageId, fallback: x.model, escalated: payload.escalated === true })
+    const light = source === 'direct' // the area names a model of its own for direct fixes and this message is one: the minimal prompt, the map and the checks apply
     rec.model = model
     const templateRow = message.template_id ? get(db, 'SELECT id, name, body_markdown FROM templates WHERE id = ?', message.template_id) : null
     const template = readTemplate(templateRow)
@@ -364,21 +384,24 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     const review = reviewState
       ? { branch: reviewState.branch, reason: reviewState.held_reason, byPerson }
       : null
-    const schema = finalSchema(declared.grammar, { autoClose: x.autoClose, forwarded: forward !== null || mention !== null, reviewing: review !== null })
-    const validate = ajv.compile(finalSchema(declared.validation, { validation: true, autoClose: x.autoClose }))
+    const tier = tierOf(message.bloom_level)
+    const canClose = x.autoClose && tier !== 'complex' && tier !== 'person' // UD-292, the same rule as closeReason: a person validates what the larger model did
+    const schema = finalSchema(declared.grammar, { autoClose: canClose, forwarded: forward !== null || mention !== null, reviewing: review !== null })
+    const validate = ajv.compile(finalSchema(declared.validation, { validation: true, autoClose: canClose }))
     let hostInstructions = ''
-    if (x.hostInstructions) {
-      try { hostInstructions = await readFile(x.hostInstructions, 'utf8') } catch (error) {
-        throw permanent(`No se pudo leer EXECUTE_HOST_INSTRUCTIONS (${x.hostInstructions}): ${error.code ?? error.message}`, 'host_instructions_missing')
+    const hostFile = light && x.directHostInstructions ? x.directHostInstructions : x.hostInstructions // UD-292: the host's minimal version for a direct fix, when it declares one
+    if (hostFile) {
+      try { hostInstructions = await readFile(hostFile, 'utf8') } catch (error) {
+        throw permanent(`No se pudo leer ${hostFile === x.hostInstructions ? 'EXECUTE_HOST_INSTRUCTIONS' : 'EXECUTE_DIRECT_HOST_INSTRUCTIONS'} (${hostFile}): ${error.code ?? error.message}`, 'host_instructions_missing')
       }
     }
 
     const branch = `tp/${messageId}`
     const startedWith = fingerprint(message) // what the session was asked; an edit while it works makes its answer a possible answer to the old text
     const promptInput = {
-      message: { id: messageId, title: message.title, body: message.body, fields: parseJson(message.fields_json, {}), area: message.area_title, status: message.status, tier: tierOf(message.bloom_level) },
+      message: { id: messageId, title: message.title, body: message.body, fields: parseJson(message.fields_json, {}), area: message.area_title, status: message.status, tier },
       template: templateRow, author, agent, project: getProject(db, config), jobId: job.id, maxSubagents: x.maxSubagents, branch, hostInstructions,
-      deliver: Boolean(x.deliverCommand), deliverFailure, autoClose: x.autoClose, forward, mention: mention ? mentionBlock(mention, thread, review, acknowledged) : null,
+      compact: light, deliver: Boolean(x.deliverCommand), deliverFailure, autoClose: canClose, forward, mention: mention ? mentionBlock(mention, thread, review, acknowledged) : null,
       // A retry after a failure of the system: the first attempt may have sent the first reply already, and a second one repeats «Recibido» in the thread.
       retried: job.attempts > 1 && Boolean(get(db, 'SELECT 1 AS ok FROM replies WHERE message_id = ? AND author_id = ? AND created_at >= ? AND deleted_at IS NULL', messageId, memberId, job.created_at))
     }
@@ -406,7 +429,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
     if (available < 0.01) throw new Deferred(x.capacityWaitMs, step('budgetWait')) // what is left is held by sessions that run now: it may come back when they end
     const budgetUsd = Math.round(Math.min(x.maxBudgetUsd, available) * 100) / 100 || 0.01
     reserved.set(job.id, budgetUsd)
-    const args = claudeArgs({ ...x, model, budgetUsd }, schema)
+    const args = claudeArgs({ ...x, model, budgetUsd }, schema, { light, tier })
     // It counts as run from here: the machine cost applies even if the session never returns its cost.
     runSql(db, 'UPDATE jobs SET runner = ?, model = ?, run_at = ?, marks_json = NULL WHERE id = ?', x.runner, model, now(), job.id)
     rec.began = true
@@ -462,7 +485,7 @@ export function createExecuteHandler ({ db, config, queue, events, vault, logger
         await mkdir(documentsDir(dirs.workdir)) // and its documents (UD-272)
         if (thread) span.setAttribute('team.thread_files', await stageThread({ config, plan: thread, workdir: dirs.workdir })) // UD-278: the attachments of the thread, where the session reads them
         // The session continues this trace (W3C `TRACEPARENT`) and, when the host declares it, exports its own telemetry (EXECUTE_OTEL_ENV).
-        const tracedEnv = { ...(x.sessionEnv ?? {}), ...otelSessionEnv(x.otelEnv, { jobId: job.id, attempt: job.attempts, messageId, traceId: job.trace_id }), ...(currentTraceparent() ? { TRACEPARENT: currentTraceparent() } : {}) }
+        const tracedEnv = { ...(x.sessionEnv ?? {}), ...(light ? (x.directSessionEnv ?? {}) : {}), ...otelSessionEnv(x.otelEnv, { jobId: job.id, attempt: job.attempts, messageId, traceId: job.trace_id }), ...(currentTraceparent() ? { TRACEPARENT: currentTraceparent() } : {}) }
         // A line that cannot be turned into progress (the job was purged, the database is busy) must not become an uncaught exception of the worker: the session goes on.
         const opts = { config, args, prompt, onData: (c) => { try { reader.push(c) } catch (e) { logger?.warn({ err: e }, 'could not record the progress of the session') } }, signal: ctx.signal }
         const r = x.runner === 'machine'

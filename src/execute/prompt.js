@@ -88,6 +88,40 @@ export function finalSchema (declared, { validation = false, autoClose = true, f
   }
 }
 
+/**
+ * The stable part of a direct fix on a light model (UD-292): the same duties in a third of the words. What a hard rule needs is not said here
+ * as prose but enforced by hooks the invocation declares (`sessionSettings`): the checks before finishing, the map of the repository at the start.
+ * The prompt describes the space the model works in; it does not ask it to remember rules. Tokens of this part, measured: docs/investigaciones/mediciones/.
+ */
+const COMPACT_TEAM = [
+  'team reply <message id> --body "…" [--captures <json|file>]   post a reply as you',
+  'team progress <job id> --percent N --phrase "…"                 report a milestone',
+  'team show <message id>                                          the message with its thread, as JSON',
+  'team walkthrough --url <address> --steps <json|file> --place <route> --as <role> --profile both   video and screenshots of the steps (a change that draws a screen)',
+  'team --help                                                     every command'
+].join('\n')
+
+function compactStable ({ agent, project, deliver, autoClose, template, hostInstructions, forwardedOrMentioned }) {
+  return [
+    `You are ${agent.name}, a member of the team of «${project.name}». Unattended: nobody answers during the run. Do what the \`message\` block asks, following the rules of the repository you are in, then report. The \`job\` block has your ids, branch and reply language.`,
+    block('project_description', project.description),
+    block('your_profile', agent.profile),
+    '## Rules',
+    `- Branch: the one in \`job\`; never push \`main\`. ${deliver ? 'Push it when done: the system delivers it after you finish.' : 'Leave the branch: a person delivers it.'}`,
+    '- Smallest change that does what the message asks. Subagents and parallel tool calls for independent reads; no series of what does not depend on a result.',
+    '- Before you finish, the checks of the repository for the files you changed must pass; a hook of this session blocks the end until they do. Write the missing test first.',
+    '- First look, changing nothing. Not yours (see `your_profile`): end `not_mine`, no reply. Otherwise one `team reply` in two or three plain sentences for someone who is not technical (what you saw, where you start), after that look.',
+    '- Final output: `summary` is two short paragraphs for the sender, in the reply language: what happened, what changes for those who use the product, the decision left to them. Plain words only. The worker posts it. Example: «Listo, Ana: el botón de la ficha ahora dice Aceptar. Lo verás apenas se publique. Revisé que el resto de la pantalla quedó igual.»',
+    '- Not a direct fix (several modules, a decision, a guessed cause): stop, end `needs_decision` with what you found, a recommendation and the alternatives discarded; it requires `decision_check`.',
+    autoClose ? '- `close` true only when it is done and checked, your reply leaves the sender nothing to do and `outcome` is `done` or `investigated`; otherwise false, with `close_reason` when true.' : '- Do not close the message.',
+    ...(forwardedOrMentioned ? ['- A `forwarded` or `mentioned` block is part of the request. `mode` `investigate` changes no code and delivers nothing; `resolve` carries the work out.'] : []),
+    '## `team` (in your PATH, already authenticated)',
+    COMPACT_TEAM,
+    ...(String(hostInstructions).trim() ? [block('host_instructions', hostInstructions)] : []),
+    block('template', template?.body_markdown ?? '(no template)')
+  ]
+}
+
 const block = (title, text) => `<${title}>\n${String(text ?? '').trim() || '(empty)'}\n</${title}>`
 
 /**
@@ -101,10 +135,10 @@ const block = (title, text) => `<${title}>\n${String(text ?? '').trim() || '(emp
  * message and the `job` block (ids, branch, reply language), which are the only blocks that vary with the message.
  * The text of the instructions does not mention an id, a branch or a name that changes: it points to the `job` block.
  */
-export function buildExecuteParts ({ message, template, author, agent, project, jobId, maxSubagents, branch, hostInstructions = '', deliver = false, deliverFailure = null, retried = false, autoClose = true, forward = null, mention = null }) {
+export function buildExecuteParts ({ message, template, author, agent, project, jobId, maxSubagents, branch, hostInstructions = '', deliver = false, deliverFailure = null, retried = false, autoClose = true, forward = null, mention = null, compact = false }) {
   const language = LANGUAGE_NAMES[author?.language] ?? LANGUAGE_NAMES['es-419']
   const fields = Object.entries(message.fields ?? {}).map(([k, v]) => `- ${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`).join('\n')
-  const stable = [
+  const stable = compact ? compactStable({ agent, project, deliver, autoClose, template, hostInstructions, forwardedOrMentioned: forward !== null || mention !== null }) : [
     // -- Same for every job of this agent in this project --
     `You are ${agent.name}, a member of the team of «${project.name}». A teammate sent the message in the last blocks of this prompt (\`sender\`, \`message\` and \`job\`) and it was assigned to you. You work unattended: nobody answers questions during the run. Do what the message asks, following the rules of the repository you are in (its CLAUDE.md and docs), then report.`,
     block('project_description', project.description),
@@ -143,6 +177,8 @@ export function buildExecuteParts ({ message, template, author, agent, project, 
     ...(forward ? [block('forwarded', `forwarded by: ${forward.by}\n\nreason:\n${forward.reason}`)] : []),
     ...(mention ? [block('mentioned', mention)] : []), // UD-278: who called the agent and the whole thread (src/execute/mention-context.js)
     block('job', [`job id: ${jobId}`, `branch: ${branch}`, `reply language: ${language}`, ...(message.tier === 'direct' ? ['level: direct fix'] : message.tier === 'complex' ? ['level: complex'] : []), ...(deliverFailure ? ['pass: second, after a failed delivery'] : []), ...(retried ? ['pass: retry after a failure of the system; your first reply was already sent, do not send another one'] : [])].join('\n')),
+    // docs/team-platform/KAIROS-PARA-TEAM-PLATFORM.md §6: the guards that have a mechanism, one line each, repeated in the last line of the prompt of a light model.
+    ...(compact ? [block('limits', 'Push only the branch of the `job` block. Finish when the checks of the files you changed pass: a hook of this session checks it.')] : []),
     ...(deliverFailure ? [block('delivery_failure', [
       `The delivery of the branch \`${branch}\` failed. The branch already holds your previous pass: fetch it and continue from it, do not start over. Read the output of the delivery below, fix the cause on the same branch, run the checks for the parts you touch, push the branch and finish. Nobody delivers by hand: the system runs the delivery again after you finish.`,
       '',

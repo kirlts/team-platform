@@ -1,5 +1,5 @@
-// A change made by somebody else reaches the screens that are open without reloading (Martín, 2026-10-24: «No quiero tener que
-// recargar la página para ver actualizaciones»). Two sessions against dev-server.mjs, which announces every write as the real server does:
+// A change made by somebody else reaches the screens that are open without reloading (Martín, 2026-10-24: "I do not want to have to
+// reload the page to see updates"). Two sessions against dev-server.mjs, which announces every write as the real server does:
 // Bruno has the message and the list open; Carla writes through the API. The waits are for the DOM that the event produces, never for a clock.
 // `PANEL_FLOWS_PORT=… node --test src/flows-en-vivo.browser.test.mjs`.
 import assert from 'node:assert'
